@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { parseRouteFromOfpJson, parseRouteProcedures, parseWaypointsFromOfpJson, segmentWaypoints } from './route'
+import {
+  formatEnrouteOnly,
+  parseRouteFromOfpJson,
+  parseRouteProcedures,
+  parseWaypointsFromOfpJson,
+  segmentWaypoints
+} from './route'
 
 describe('parseRouteFromOfpJson', () => {
   it('extracts [lon, lat] pairs from navlog fixes', () => {
@@ -212,5 +218,63 @@ describe('segmentWaypoints', () => {
       }
     })
     expect(segmentWaypoints(ofp).map((w) => w.segment)).toEqual(['sid', 'enroute'])
+  })
+})
+
+describe('formatEnrouteOnly', () => {
+  it('strips the SID name and its fixes, leaving the airway that starts the enroute portion', () => {
+    const ofp = JSON.stringify({
+      general: { sid_ident: 'DET2G', route: 'DET2G DET L6 DVR UL9 KONAN' },
+      navlog: {
+        fix: [
+          { ident: 'D270A', via_airway: 'DET2G', pos_lat: '1', pos_long: '1', altitude_feet: '2200' },
+          { ident: 'DET', via_airway: 'DET2G', pos_lat: '2', pos_long: '2', altitude_feet: '6000' },
+          { ident: 'DVR', via_airway: 'L6', pos_lat: '3', pos_long: '3', altitude_feet: '35000' },
+          { ident: 'KONAN', via_airway: 'UL9', pos_lat: '4', pos_long: '4', altitude_feet: '35000' }
+        ]
+      }
+    })
+    // D270A never appears in general.route itself (it's a navlog-only leg point), so this
+    // also confirms filtering doesn't depend on every segmented fix being a literal token.
+    expect(formatEnrouteOnly(ofp)).toBe('L6 DVR UL9 KONAN')
+  })
+
+  it('strips both a SID and a STAR (with transitions) from the route text', () => {
+    // docs/simbrief-notes.md confirms sid_trans/star_trans and the navlog shape for this
+    // route (KLAX->KJFK) but not the literal text of general.route for a transitioned
+    // route — no real example was captured. This uses the same plain space-separated
+    // token style confirmed for the no-transition case (general.route's documented
+    // "DET2G DET L6 DVR..." shape), to test the filtering logic itself rather than assert
+    // an unverified real-world format.
+    const ofp = JSON.stringify({
+      general: {
+        sid_ident: 'DOTSS2',
+        sid_trans: 'CLEEE',
+        star_ident: 'PUCKY1',
+        star_trans: 'WLKES',
+        route: 'DOTSS2 CLEEE Q123 FIXA Q476 WLKES PUCKY1'
+      },
+      navlog: {
+        fix: [
+          { ident: 'DOTS', via_airway: 'DOTSS2', pos_lat: '1', pos_long: '1', altitude_feet: '2000' },
+          { ident: 'CLEEE', via_airway: 'DOTSS2', pos_lat: '2', pos_long: '2', altitude_feet: '5000' },
+          { ident: 'FIXA', via_airway: 'Q123', pos_lat: '3', pos_long: '3', altitude_feet: '35000' },
+          { ident: 'WLKES', via_airway: 'Q476', pos_lat: '4', pos_long: '4', altitude_feet: '20000' },
+          { ident: 'PUCKFIX', via_airway: 'PUCKY1', pos_lat: '5', pos_long: '5', altitude_feet: '8000' },
+          { ident: 'KJFK', via_airway: 'PUCKY1', pos_lat: '6', pos_long: '6', altitude_feet: '0' }
+        ]
+      }
+    })
+    expect(formatEnrouteOnly(ofp)).toBe('Q123 FIXA Q476')
+  })
+
+  it('returns the route unchanged when the OFP names no SID or STAR', () => {
+    const ofp = JSON.stringify({ general: { route: 'DVR UL9 KONAN' } })
+    expect(formatEnrouteOnly(ofp)).toBe('DVR UL9 KONAN')
+  })
+
+  it('returns an empty string for null input or a missing route', () => {
+    expect(formatEnrouteOnly(null)).toBe('')
+    expect(formatEnrouteOnly(JSON.stringify({}))).toBe('')
   })
 })

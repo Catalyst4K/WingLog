@@ -166,3 +166,35 @@ export function segmentWaypoints(ofpJson: string | null): Waypoint[] {
 export function parseWaypointsFromOfpJson(ofpJson: string | null): Waypoint[] {
   return segmentWaypoints(ofpJson)
 }
+
+/**
+ * `general.route` (e.g. "DET2G DET L6 DVR UL9 KONAN ...") with the SID/STAR and their
+ * transitions stripped out, now that they're shown separately (the Procedures box) rather
+ * than inline here. Filters by token membership instead of reconstructing the string:
+ * drops any token that's either a procedure/transition name itself, or the ident of a fix
+ * segmentWaypoints classified as 'sid'/'star' — the same segmentation the map's waypoint
+ * colouring already uses, so this text and the map always agree on where the procedures
+ * are. Airway names (`L6`, `UL9`) are never fix idents, so they're left alone; a lone
+ * airway token that only ever led into a now-removed procedure can be left dangling at the
+ * end of the string — a rare cosmetic leftover, not worth a heuristic for a display string.
+ */
+export function formatEnrouteOnly(ofpJson: string | null): string {
+  const general = generalSection(ofpJson)
+  const raw = typeof general.route === 'string' ? general.route : ''
+  if (!raw) return raw
+
+  const { sidIdent, sidTransition, starIdent, starTransition } = parseRouteProcedures(ofpJson)
+  const procedureNames = new Set(
+    [sidIdent, sidTransition, starIdent, starTransition].filter((v): v is string => v !== null)
+  )
+  const procedureFixIdents = new Set(
+    segmentWaypoints(ofpJson)
+      .filter((w) => w.segment !== 'enroute')
+      .map((w) => w.ident)
+  )
+
+  return raw
+    .split(/\s+/)
+    .filter((token) => token && !procedureNames.has(token) && !procedureFixIdents.has(token))
+    .join(' ')
+}

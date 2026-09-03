@@ -23,7 +23,7 @@ import { DispatchAdvancedDialog } from './DispatchAdvancedDialog'
 import { countSetOptions, defaultDispatchOptions, dispatchOptionsToUrlParams, type DispatchOptions } from '@shared/dispatch-options'
 import { defaultDepartureTime, fromDatetimeLocalValue, toDatetimeLocalValue, toSimBriefDeparture } from './dispatch-time'
 import { MetarPanel } from './MetarPanel'
-import { parseRouteProcedures, type RouteProcedures } from './route'
+import { formatEnrouteOnly, parseRouteProcedures, type RouteProcedures } from './route'
 import { formatAltitude, formatWeight, mToFt } from './units'
 
 const NO_PROCEDURES: RouteProcedures = {
@@ -556,7 +556,7 @@ export function DispatchView(props: {
                 </div>
                 <div className="flex flex-col gap-1.5 text-sm">
                   <span className="text-muted-foreground">Route</span>
-                  <p className="max-h-16 overflow-auto text-foreground">{ofp.routeString}</p>
+                  <p className="max-h-16 overflow-auto text-foreground">{formatEnrouteOnly(ofp.ofpJson)}</p>
                 </div>
 
                 {!alreadyFlown && (
