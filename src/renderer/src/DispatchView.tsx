@@ -421,6 +421,9 @@ export function DispatchView(props: {
                     Plan on SimBrief…
                   </Button>
                 )}
+                <Button type="button" variant="outline" onClick={handleFetch} disabled={fetching || generating}>
+                  {fetching ? 'Fetching…' : 'Fetch latest OFP'}
+                </Button>
                 <Button type="button" variant="outline" onClick={() => setAdvancedOpen(true)}>
                   Advanced{countSetOptions(dispatchOptions) > 0 ? ` (${countSetOptions(dispatchOptions)})` : ''}
                 </Button>
@@ -471,21 +474,6 @@ export function DispatchView(props: {
               </CardContent>
             </Card>
           )}
-
-          <Card size="sm">
-            <CardHeader>
-              <CardTitle>Or import an existing plan</CardTitle>
-              <CardDescription>
-                Pulls your latest OFP from SimBrief — useful if you planned it there directly, or want
-                to re-fetch after adjusting it on SimBrief's site.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button type="button" variant="outline" size="sm" onClick={handleFetch} disabled={fetching || generating}>
-                {fetching ? 'Fetching…' : 'Fetch latest OFP'}
-              </Button>
-            </CardContent>
-          </Card>
         </div>
 
         <div className="flex min-w-72 flex-1 flex-col gap-4">
