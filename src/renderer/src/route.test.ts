@@ -65,16 +65,50 @@ describe('parseWaypointsFromOfpJson', () => {
 })
 
 describe('parseRouteProcedures', () => {
-  it('reads sid_ident/star_ident, guarding the {}-when-absent trap', () => {
-    expect(parseRouteProcedures(JSON.stringify({ general: { sid_ident: 'DET2G', star_ident: {} } }))).toEqual({
-      sidIdent: 'DET2G',
-      starIdent: null
+  const NONE = {
+    departureRunway: null,
+    sidIdent: null,
+    sidTransition: null,
+    starIdent: null,
+    starTransition: null,
+    arrivalRunway: null
+  }
+
+  it('reads sid_ident/star_ident/transitions, guarding the {}-when-absent trap', () => {
+    expect(
+      parseRouteProcedures(
+        JSON.stringify({ general: { sid_ident: 'DET2G', sid_trans: {}, star_ident: {}, star_trans: {} } })
+      )
+    ).toEqual({ ...NONE, sidIdent: 'DET2G' })
+  })
+
+  it('reads sid_trans/star_trans when set', () => {
+    expect(
+      parseRouteProcedures(
+        JSON.stringify({
+          general: { sid_ident: 'DOTSS2', sid_trans: 'CLEEE', star_ident: 'PUCKY1', star_trans: 'WLKES' }
+        })
+      )
+    ).toEqual({
+      ...NONE,
+      sidIdent: 'DOTSS2',
+      sidTransition: 'CLEEE',
+      starIdent: 'PUCKY1',
+      starTransition: 'WLKES'
     })
   })
 
-  it('returns nulls for missing general/null input', () => {
-    expect(parseRouteProcedures(null)).toEqual({ sidIdent: null, starIdent: null })
-    expect(parseRouteProcedures(JSON.stringify({}))).toEqual({ sidIdent: null, starIdent: null })
+  it('reads departure/arrival runway from api_params.origrwy/destrwy', () => {
+    expect(parseRouteProcedures(JSON.stringify({ api_params: { origrwy: '27L', destrwy: '20R' } }))).toEqual({
+      ...NONE,
+      departureRunway: '27L',
+      arrivalRunway: '20R'
+    })
+  })
+
+  it('returns nulls for missing general/api_params/null input', () => {
+    expect(parseRouteProcedures(null)).toEqual(NONE)
+    expect(parseRouteProcedures(JSON.stringify({}))).toEqual(NONE)
   })
 })
 

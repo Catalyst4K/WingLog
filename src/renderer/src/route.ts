@@ -29,6 +29,18 @@ function generalSection(ofpJson: string | null): Record<string, unknown> {
   }
 }
 
+function apiParamsSection(ofpJson: string | null): Record<string, unknown> {
+  if (!ofpJson) return {}
+  try {
+    const parsed = JSON.parse(ofpJson) as { api_params?: unknown }
+    return typeof parsed.api_params === 'object' && parsed.api_params !== null
+      ? (parsed.api_params as Record<string, unknown>)
+      : {}
+  } catch {
+    return {}
+  }
+}
+
 /**
  * Extracts the planned route as [lon, lat] pairs (GeoJSON order) from a flight's raw
  * SimBrief OFP JSON — specifically `navlog.fix[].pos_lat`/`pos_long`, sim-confirmed real
@@ -58,18 +70,32 @@ export interface Waypoint {
   segment: RouteSegment
 }
 
-/** SimBrief's stated procedure names for a route (`general.sid_ident`/`star_ident`),
- *  guarded against the `{}`-when-absent trap — null means no SID/STAR was flown. Exposed
- *  separately from the waypoint list so a UI can label "Route: BPK7F.BPK → ... → SIER7B"
- *  without re-deriving it from the segmented fixes. */
+/** SimBrief's stated procedure names for a route — `general.sid_ident`/`star_ident` (and
+ *  their `_trans` transitions), plus the departure/arrival runway from `api_params.origrwy`/
+ *  `destrwy` (confirmed real, echoed-back generation inputs — docs/simbrief-notes.md).
+ *  All guarded against the `{}`-when-absent trap — null means SimBrief didn't fly/report
+ *  that piece. Exposed separately from the waypoint list so a UI can label the route (or
+ *  autofill a procedure picker) without re-deriving any of it from the segmented fixes. */
 export interface RouteProcedures {
+  departureRunway: string | null
   sidIdent: string | null
+  sidTransition: string | null
   starIdent: string | null
+  starTransition: string | null
+  arrivalRunway: string | null
 }
 
 export function parseRouteProcedures(ofpJson: string | null): RouteProcedures {
   const general = generalSection(ofpJson)
-  return { sidIdent: optStr(general.sid_ident), starIdent: optStr(general.star_ident) }
+  const apiParams = apiParamsSection(ofpJson)
+  return {
+    departureRunway: optStr(apiParams.origrwy),
+    sidIdent: optStr(general.sid_ident),
+    sidTransition: optStr(general.sid_trans),
+    starIdent: optStr(general.star_ident),
+    starTransition: optStr(general.star_trans),
+    arrivalRunway: optStr(apiParams.destrwy)
+  }
 }
 
 /**
