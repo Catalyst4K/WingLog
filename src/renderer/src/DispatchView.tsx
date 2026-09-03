@@ -342,6 +342,11 @@ export function DispatchView(props: {
           <Card>
             <CardHeader>
               <CardTitle>Plan a flight</CardTitle>
+              <CardAction>
+                <Button type="button" variant="outline" size="sm" onClick={handleFetch} disabled={fetching || generating}>
+                  {fetching ? 'Fetching…' : 'Fetch latest OFP'}
+                </Button>
+              </CardAction>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
               <div className="flex flex-col gap-1.5">
@@ -421,9 +426,6 @@ export function DispatchView(props: {
                     Plan on SimBrief…
                   </Button>
                 )}
-                <Button type="button" variant="outline" onClick={handleFetch} disabled={fetching || generating}>
-                  {fetching ? 'Fetching…' : 'Fetch latest OFP'}
-                </Button>
                 <Button type="button" variant="outline" onClick={() => setAdvancedOpen(true)}>
                   Advanced{countSetOptions(dispatchOptions) > 0 ? ` (${countSetOptions(dispatchOptions)})` : ''}
                 </Button>
