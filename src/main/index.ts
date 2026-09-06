@@ -55,6 +55,7 @@ import {
 import { listTrackPoints } from './db/track-point-repo'
 import { simplifyTrackPoints } from './tracking/track-simplify'
 import { defaultGsxReceiptsPath } from './gsx/default-path'
+import { checkGsxFirstLaunch } from './gsx/first-launch-check'
 import { buildFlightMatchWindow } from './gsx/flight-window'
 import { readReceipt, receiptFileFromPath, scanGsxFolder } from './gsx/scan'
 import { fetchLatestOfp, type SimBriefOfp } from './simbrief/simbrief-client'
@@ -313,6 +314,7 @@ app.whenReady().then(() => {
   // defaultGsxReceiptsPath returning null elsewhere.
   ipcMain.handle(IpcChannels.settingsGetGsx, () => getGsxSettings(db))
   ipcMain.handle(IpcChannels.settingsSetGsx, (_event, settings: GsxSettings) => setGsxSettings(db, settings))
+  ipcMain.handle(IpcChannels.settingsCheckGsxFirstLaunch, () => checkGsxFirstLaunch(db))
 
   ipcMain.handle(IpcChannels.gsxBrowseFolder, async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog(window, {

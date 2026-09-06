@@ -69,6 +69,7 @@ const api: FlightdeckApi = {
   logbookListInvoices: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookListInvoices, flightId),
   settingsGetGsx: () => ipcRenderer.invoke(IpcChannels.settingsGetGsx),
   settingsSetGsx: (settings: GsxSettings) => ipcRenderer.invoke(IpcChannels.settingsSetGsx, settings),
+  settingsCheckGsxFirstLaunch: () => ipcRenderer.invoke(IpcChannels.settingsCheckGsxFirstLaunch),
   gsxBrowseFolder: () => ipcRenderer.invoke(IpcChannels.gsxBrowseFolder),
   gsxRescanFlight: (flightId: number) => ipcRenderer.invoke(IpcChannels.gsxRescanFlight, flightId),
   gsxAttachNotailReceipt: (flightId: number, jsonPath: string) =>
