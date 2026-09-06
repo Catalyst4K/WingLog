@@ -4,6 +4,7 @@ import {
   IpcChannels,
   type AircraftUpdate,
   type AltitudeUnit,
+  type WindSpeedUnit,
   type DispatchOfp,
   type DispatchOpenSimBriefParams,
   type GsxSettings,
@@ -46,11 +47,13 @@ import {
   getLandingThresholds,
   getSimbriefUsername,
   getWeightUnit,
+  getWindSpeedUnit,
   setAltitudeUnit,
   setGsxSettings,
   setLandingThresholds,
   setSimbriefUsername,
-  setWeightUnit
+  setWeightUnit,
+  setWindSpeedUnit
 } from './db/settings-repo'
 import { listTrackPoints } from './db/track-point-repo'
 import { simplifyTrackPoints } from './tracking/track-simplify'
@@ -236,6 +239,8 @@ app.whenReady().then(() => {
   ipcMain.handle(IpcChannels.settingsSetWeightUnit, (_event, unit: WeightUnit) => setWeightUnit(db, unit))
   ipcMain.handle(IpcChannels.settingsGetAltitudeUnit, () => getAltitudeUnit(db))
   ipcMain.handle(IpcChannels.settingsSetAltitudeUnit, (_event, unit: AltitudeUnit) => setAltitudeUnit(db, unit))
+  ipcMain.handle(IpcChannels.settingsGetWindSpeedUnit, () => getWindSpeedUnit(db))
+  ipcMain.handle(IpcChannels.settingsSetWindSpeedUnit, (_event, unit: WindSpeedUnit) => setWindSpeedUnit(db, unit))
 
   const simConnectService = new SimConnectService()
   ipcMain.handle(IpcChannels.simConnectionStatusGet, () => simConnectService.getStatus())

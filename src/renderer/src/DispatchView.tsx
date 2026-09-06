@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { toast } from 'sonner'
-import type { Aircraft, AltitudeUnit, DispatchOfp, FleetStats, Flight, WeightUnit } from '@shared/ipc'
+import type { Aircraft, AltitudeUnit, DispatchOfp, FleetStats, Flight, WeightUnit, WindSpeedUnit } from '@shared/ipc'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,6 +46,7 @@ function DetailField(props: { label: string; value: React.ReactNode }): React.JS
 export function DispatchView(props: {
   weightUnit: WeightUnit
   altitudeUnit: AltitudeUnit
+  windSpeedUnit: WindSpeedUnit
   /** Called after a planned flight is saved, so the app can switch to Track to preview it. */
   onPlanned?: () => void
   /** The currently fetched/created OFP — lifted to App so it survives switching away to
@@ -404,7 +405,12 @@ export function DispatchView(props: {
         </div>
 
         <div className="flex min-w-72 flex-1 flex-col gap-4">
-          <MetarPanel depIcao={metarAirports.depIcao} arrIcao={metarAirports.arrIcao} altnIcao={metarAirports.altnIcao} />
+          <MetarPanel
+            depIcao={metarAirports.depIcao}
+            arrIcao={metarAirports.arrIcao}
+            altnIcao={metarAirports.altnIcao}
+            windSpeedUnit={props.windSpeedUnit}
+          />
 
           {ofp ? (
             <Card>
