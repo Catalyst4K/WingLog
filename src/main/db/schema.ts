@@ -196,6 +196,7 @@ export const landing = sqliteTable('landing', {
   windDirectionDeg: real('wind_direction_deg').notNull(),
   headwindMs: real('headwind_ms'),
   crosswindMs: real('crosswind_ms'),
+  crabDeg: real('crab_deg'),
   runwayIdent: text('runway_ident'),
   distanceFromThresholdM: real('distance_from_threshold_m'),
   centrelineOffsetM: real('centreline_offset_m'),
@@ -203,7 +204,9 @@ export const landing = sqliteTable('landing', {
   // 'derived' throughout — scripts/spike-landing.ts confirmed 2026-09-04 that MSFS 2024's
   // dedicated touchdown SimVars disagree with the derived value in trend, not just
   // magnitude, across a real bounce; nothing writes 'simvar'.
-  touchdownSource: text('touchdown_source', { enum: ['simvar', 'derived'] }).notNull().default('derived'),
+  touchdownSource: text('touchdown_source', { enum: ['simvar', 'derived'] })
+    .notNull()
+    .default('derived'),
   // See aircraft.uuid's comment for why these are nullable rather than NOT NULL. The
   // migration backfills updatedAt from touchdownTsUtc, the closest real timestamp
   // available for a pre-existing landing record.

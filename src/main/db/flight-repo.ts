@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { desc, eq } from 'drizzle-orm'
-import type { Flight, FleetStats, NewFlight } from '@shared/ipc'
+import type { Flight, FleetStats, LogbookStats, NewFlight } from '@shared/ipc'
+import { greatCircleDistanceNm } from '../airports/airport-search'
 import { aircraft, flight, flightInvoice, landing, trackPoint } from './schema'
 import type { FlightdeckDb } from './client'
 
@@ -196,7 +197,11 @@ export function completeFlight(db: FlightdeckDb, id: number, fuelInKg: number): 
   // Only wired into the real-time completion path (TrackingController → completeFlight),
   // not CSV-imported historical flights (logbook-import.ts's createHistoricalFlight),
   // since an import isn't guaranteed to process rows in chronological order.
-  if (row) db.update(aircraft).set({ currentIcao: existing.arrIcao }).where(eq(aircraft.id, existing.aircraftId)).run()
+  if (row)
+    db.update(aircraft)
+      .set({ currentIcao: existing.arrIcao })
+      .where(eq(aircraft.id, existing.aircraftId))
+      .run()
 
   return row ? toFlight(row) : undefined
 }
@@ -246,7 +251,10 @@ export function abandonAllPlanned(db: FlightdeckDb): void {
  *  fire-and-forget spot as the GSX invoice snapshot, so a failure here must never affect
  *  the flight record that's already been marked completed. */
 export function setFlownRoute(db: FlightdeckDb, id: number, flownRouteJson: string): void {
-  db.update(flight).set({ flownRouteJson, updatedAt: new Date().toISOString() }).where(eq(flight.id, id)).run()
+  db.update(flight)
+    .set({ flownRouteJson, updatedAt: new Date().toISOString() })
+    .where(eq(flight.id, id))
+    .run()
 }
 
 export function listCompletedFlights(db: FlightdeckDb): Flight[] {
@@ -257,6 +265,16 @@ export function listCompletedFlights(db: FlightdeckDb): Flight[] {
     .orderBy(desc(flight.actualInUtc))
     .all()
     .map(toFlight)
+}
+
+/** Logbook's summary row above the flight table. totalNm is great-circle dep→arr
+ *  distance (airport-search.ts), not the actual flown track — good enough for a summary
+ *  total, and unlike a flown-route length, available for a CSV-imported flight too. */
+export function getLogbookStats(db: FlightdeckDb): LogbookStats {
+  const completed = listCompletedFlights(db)
+  const totalBlockMinutes = completed.reduce((sum, f) => sum + (f.blockMinutes ?? 0), 0)
+  const totalNm = completed.reduce((sum, f) => sum + (greatCircleDistanceNm(f.depIcao, f.arrIcao) ?? 0), 0)
+  return { totalFlights: completed.length, totalBlockMinutes, totalNm }
 }
 
 /**

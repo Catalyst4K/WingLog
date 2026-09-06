@@ -7,7 +7,10 @@ License: Public domain (OurAirports data)
 Trimmed from the full ~80k-row, 19-column, 12.7 MB source down to a minimal name/ICAO
 search slice for Dispatch's airport-search feature (docs/decisions.md, 2026-09-01 entry):
 kept only rows with a 4-letter icao_code or (falling back) gps_code, dropped rows with
-type "closed", and projected down to icao,name,municipality,iso_country,type — 43,400
-rows, 2.4 MB. Lat/lon, runways, navaids and the rest of the original columns are not
-included here; PLAN.md's M6 (landing analysis) will vendor a fuller cut when it needs
-them.
+type "closed", and projected down to
+icao,name,municipality,iso_country,type,latitude_deg,longitude_deg — 43,400 rows, 3.4 MB.
+latitude_deg/longitude_deg were added 2026-09-06 for Logbook's total-distance-flown stat
+(great-circle dep/arr, airport-search.ts's getAirportCoords) — reusing this same vendored
+slice rather than a second one, since the two features draw from the same underlying
+OurAirports fetch. Runways/navaids are still not included; PLAN.md's M6 (landing
+analysis) vendors those separately in resources/runways.csv.

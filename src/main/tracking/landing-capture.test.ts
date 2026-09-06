@@ -49,10 +49,45 @@ describe('buildLandingRecord', () => {
   })
 
   it('computes headwind/crosswind and runway ident when a runway resolves', () => {
-    const record = buildLandingRecord(1, 'EGLL', telemetry({ windSpeedMs: 10, windDirectionDeg: 270 }), 't', resolveToRunway27L)
+    const record = buildLandingRecord(
+      1,
+      'EGLL',
+      telemetry({ windSpeedMs: 10, windDirectionDeg: 270 }),
+      't',
+      resolveToRunway27L
+    )
     expect(record.runwayIdent).toBe('27L')
     expect(record.headwindMs).toBeCloseTo(10, 6)
     expect(record.crosswindMs).toBeCloseTo(0, 6)
+  })
+
+  it('computes crabDeg from the aircraft heading vs. the runway heading when a runway resolves', () => {
+    const onHeading = buildLandingRecord(
+      1,
+      'EGLL',
+      telemetry({ headingTrueDeg: 270 }),
+      't',
+      resolveToRunway27L
+    )
+    expect(onHeading.crabDeg).toBeCloseTo(0, 6)
+
+    const crabbedRight = buildLandingRecord(
+      1,
+      'EGLL',
+      telemetry({ headingTrueDeg: 278 }),
+      't',
+      resolveToRunway27L
+    )
+    expect(crabbedRight.crabDeg).toBeCloseTo(8, 6)
+
+    const crabbedLeft = buildLandingRecord(
+      1,
+      'EGLL',
+      telemetry({ headingTrueDeg: 262 }),
+      't',
+      resolveToRunway27L
+    )
+    expect(crabbedLeft.crabDeg).toBeCloseTo(-8, 6)
   })
 
   it('computes distanceFromThresholdM/centrelineOffsetM at the exact threshold position as ~zero', () => {
@@ -66,6 +101,7 @@ describe('buildLandingRecord', () => {
     expect(record.runwayIdent).toBeNull()
     expect(record.headwindMs).toBeNull()
     expect(record.crosswindMs).toBeNull()
+    expect(record.crabDeg).toBeNull()
     expect(record.distanceFromThresholdM).toBeNull()
     expect(record.centrelineOffsetM).toBeNull()
   })

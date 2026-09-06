@@ -1,5 +1,10 @@
 import type { SimTelemetry } from '@shared/ipc'
-import { crosswindComponent, headwindComponent, positionRelativeToRunway } from '../airports/landing-maths'
+import {
+  crabAngleDeg,
+  crosswindComponent,
+  headwindComponent,
+  positionRelativeToRunway
+} from '../airports/landing-maths'
 import { findRunwayEnd, type RunwayEnd } from '../airports/runway-lookup'
 import type { NewLanding } from '../db/landing-repo'
 
@@ -30,11 +35,22 @@ export function buildLandingRecord(
   arrIcao: string,
   telemetry: SimTelemetry,
   touchdownTsUtc: string,
-  resolveRunway: (icao: string, headingDeg: number, lat: number, lon: number) => RunwayEnd | null = findRunwayEnd
+  resolveRunway: (
+    icao: string,
+    headingDeg: number,
+    lat: number,
+    lon: number
+  ) => RunwayEnd | null = findRunwayEnd
 ): NewLanding {
   const runway = resolveRunway(arrIcao, telemetry.headingTrueDeg, telemetry.latitude, telemetry.longitude)
   const position = runway
-    ? positionRelativeToRunway(telemetry.latitude, telemetry.longitude, runway.lat, runway.lon, runway.headingTrueDeg)
+    ? positionRelativeToRunway(
+        telemetry.latitude,
+        telemetry.longitude,
+        runway.lat,
+        runway.lon,
+        runway.headingTrueDeg
+      )
     : null
 
   return {
@@ -49,8 +65,13 @@ export function buildLandingRecord(
     groundSpeedMs: telemetry.groundSpeedMs,
     windSpeedMs: telemetry.windSpeedMs,
     windDirectionDeg: telemetry.windDirectionDeg,
-    headwindMs: runway ? headwindComponent(telemetry.windSpeedMs, telemetry.windDirectionDeg, runway.headingTrueDeg) : null,
-    crosswindMs: runway ? crosswindComponent(telemetry.windSpeedMs, telemetry.windDirectionDeg, runway.headingTrueDeg) : null,
+    headwindMs: runway
+      ? headwindComponent(telemetry.windSpeedMs, telemetry.windDirectionDeg, runway.headingTrueDeg)
+      : null,
+    crosswindMs: runway
+      ? crosswindComponent(telemetry.windSpeedMs, telemetry.windDirectionDeg, runway.headingTrueDeg)
+      : null,
+    crabDeg: runway ? crabAngleDeg(telemetry.headingTrueDeg, runway.headingTrueDeg) : null,
     runwayIdent: runway?.ident ?? null,
     distanceFromThresholdM: position?.distanceFromThresholdM ?? null,
     centrelineOffsetM: position?.centrelineOffsetM ?? null,

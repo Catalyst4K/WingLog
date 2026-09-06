@@ -176,9 +176,9 @@ export interface TrackPoint {
 export type NewTrackPoint = Omit<TrackPoint, 'id'>
 
 /** One flight's touchdown record — see docs/decisions.md's landing-analysis entry.
- *  `runwayIdent`/`distanceFromThresholdM`/`centrelineOffsetM`/`headwindMs`/`crosswindMs`
- *  are null when no matching runway end was found (resources/runways.csv has no entry
- *  for the airport, or none within a plausible heading tolerance of the touchdown). */
+ *  `runwayIdent`/`distanceFromThresholdM`/`centrelineOffsetM`/`headwindMs`/`crosswindMs`/
+ *  `crabDeg` are null when no matching runway end was found (resources/runways.csv has no
+ *  entry for the airport, or none within a plausible heading tolerance of the touchdown). */
 export interface Landing {
   id: number
   flightId: number
@@ -194,6 +194,9 @@ export interface Landing {
   windDirectionDeg: number
   headwindMs: number | null
   crosswindMs: number | null
+  /** Signed angle between the nose and runway centreline at touchdown — see
+   *  landing-maths.ts's crabAngleDeg. Positive = nose right of the runway heading. */
+  crabDeg: number | null
   runwayIdent: string | null
   distanceFromThresholdM: number | null
   centrelineOffsetM: number | null
@@ -260,6 +263,16 @@ export interface Flight {
   ofpJson: string | null
   simVersion: string | null
   createdAt: string
+}
+
+/** Logbook's summary stats above the flight table — see flight-repo.ts's getLogbookStats.
+ *  totalNm is great-circle dep→arr distance (airport-search.ts's getAirportCoords), summed
+ *  across every completed flight whose dep/arr airports are both in the vendored airport
+ *  list — not the actual flown track, which isn't available for a CSV-imported flight. */
+export interface LogbookStats {
+  totalFlights: number
+  totalBlockMinutes: number
+  totalNm: number
 }
 
 /** One row per aircraft with at least one completed flight — see flight-repo.ts. */
@@ -519,6 +532,7 @@ export const IpcChannels = {
   trackingPoint: 'tracking:point',
   trackPointList: 'track-point:list',
   logbookListCompletedFlights: 'logbook:list-completed-flights',
+  logbookGetStats: 'logbook:get-stats',
   logbookFleetStats: 'logbook:fleet-stats',
   logbookImportCsv: 'logbook:import-csv',
   logbookListInvoices: 'logbook:list-invoices',
@@ -614,6 +628,7 @@ export interface FlightdeckApi {
   trackPointList: (flightId: number) => Promise<TrackPoint[]>
   onTrackingPoint: (listener: (point: TrackPoint) => void) => () => void
   logbookListCompletedFlights: () => Promise<Flight[]>
+  logbookGetStats: () => Promise<LogbookStats>
   logbookFleetStats: () => Promise<FleetStats[]>
   /** Opens a native file-open dialog in the main process; null if the user cancels. */
   logbookImportCsv: () => Promise<LogbookImportSummary | null>
