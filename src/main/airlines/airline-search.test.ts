@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { loadAirlines, searchAirlineList, searchAirlines } from './airline-search'
+import { findAirlineByIcao, loadAirlines, searchAirlineList, searchAirlines } from './airline-search'
 
 // Shaped like the real trimmed resources/airlines.csv, including a name containing a
 // comma (quoted) and a row with no IATA code (some carriers genuinely have none).
@@ -58,5 +58,30 @@ describe('searchAirlines (real vendored data)', () => {
   it('finds a rebrand/historical alias not in the OpenFlights data under that name', () => {
     const results = searchAirlines('Cathay Dragon')
     expect(results.some((r) => r.icao === 'HDA' && r.iata === 'KA')).toBe(true)
+  })
+
+  it('demonstrates the bug findAirlineByIcao exists to fix: "SIA" has enough substring matches that the exact row falls past the result cap', () => {
+    const results = searchAirlines('SIA')
+    expect(results.some((r) => r.icao === 'SIA')).toBe(false)
+  })
+})
+
+describe('findAirlineByIcao (real vendored data)', () => {
+  it('finds Singapore Airlines by its exact ICAO code, the case searchAirlines misses', () => {
+    expect(findAirlineByIcao('SIA')).toEqual({ name: 'Singapore Airlines', icao: 'SIA', iata: 'SQ' })
+  })
+
+  it('is case-insensitive', () => {
+    expect(findAirlineByIcao('sia')?.name).toBe('Singapore Airlines')
+  })
+
+  it('returns undefined for an unknown code', () => {
+    // A 4-letter string, deliberately not a real 3-letter ICAO code (unlike "ZZZ", which
+    // turned out to be Zabaykalskii Airlines' real code).
+    expect(findAirlineByIcao('QQQQ')).toBeUndefined()
+  })
+
+  it('returns undefined for an empty string', () => {
+    expect(findAirlineByIcao('')).toBeUndefined()
   })
 })

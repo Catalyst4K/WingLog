@@ -536,6 +536,7 @@ export const IpcChannels = {
   aircraftTypeSearch: 'aircraft:type-search',
   airportSearch: 'airport:search',
   airlineSearch: 'airline:search',
+  airlineFindByIcao: 'airline:find-by-icao',
   weatherGetMetars: 'weather:get-metars',
   fxGetRate: 'fx:get-rate',
   authLogin: 'auth:login',
@@ -650,6 +651,10 @@ export interface FlightdeckApi {
   airportSearch: (query: string) => Promise<AirportOption[]>
   /** Searches the vendored OpenFlights airline list. Empty for a query under 2 chars. */
   airlineSearch: (query: string) => Promise<AirlineOption[]>
+  /** Exact ICAO-code lookup against the same vendored airline list — for resolving an
+   *  airline already identified by its real ICAO code (e.g. from adsbdb), not a substring
+   *  search over a human-typed partial name. undefined if no exact match exists. */
+  airlineFindByIcao: (icao: string) => Promise<AirlineOption | undefined>
   /** Looks up current METARs for one or more ICAO codes. An unknown/non-reporting code
    *  is just absent from the result array, not an error. */
   weatherGetMetars: (icaoCodes: string[]) => Promise<MetarReport[]>

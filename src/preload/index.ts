@@ -84,6 +84,7 @@ const api: FlightdeckApi = {
   aircraftTypeSearch: (query: string) => ipcRenderer.invoke(IpcChannels.aircraftTypeSearch, query),
   airportSearch: (query: string) => ipcRenderer.invoke(IpcChannels.airportSearch, query),
   airlineSearch: (query: string) => ipcRenderer.invoke(IpcChannels.airlineSearch, query),
+  airlineFindByIcao: (icao: string) => ipcRenderer.invoke(IpcChannels.airlineFindByIcao, icao),
   weatherGetMetars: (icaoCodes: string[]) => ipcRenderer.invoke(IpcChannels.weatherGetMetars, icaoCodes),
   fxGetRate: (targetCurrency: string, date?: string) =>
     ipcRenderer.invoke(IpcChannels.fxGetRate, targetCurrency, date),

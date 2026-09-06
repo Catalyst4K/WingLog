@@ -103,12 +103,13 @@ export function AircraftForm(props: {
       // airline entry from that (canonical name + IATA, for a logo) rather than fuzzy-
       // matching adsbdb's free-text operator name against it, which breaks on real
       // mismatches (adsbdb's "Cathay Pacific Airways" vs. the vendored "Cathay Pacific" —
-      // a shorter name can never substring-match a longer query).
-      let matchedAirline: AirlineOption | undefined
-      if (result.operatorIcao) {
-        const matches = await window.flightdeck.airlineSearch(result.operatorIcao)
-        matchedAirline = matches.find((m) => m.icao.toLowerCase() === result.operatorIcao!.toLowerCase())
-      }
+      // a shorter name can never substring-match a longer query). Uses the exact-ICAO
+      // lookup, not airlineSearch's fuzzy substring match — a short code like "SIA" can
+      // have dozens of unrelated substring matches and never reach its own exact row
+      // within airlineSearch's result cap (flight-test-findings-2026-09-06.md #1).
+      const matchedAirline: AirlineOption | undefined = result.operatorIcao
+        ? await window.flightdeck.airlineFindByIcao(result.operatorIcao)
+        : undefined
       // Fills blanks only — never overwrites something already typed/edited.
       setForm((current) => {
         const fillOperator = !current.operator
