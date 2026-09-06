@@ -29,8 +29,8 @@ describe('migrateDb', () => {
     // migrateDb closes its own sqlite handle, so open a fresh one against the same file
     // to confirm the schema actually landed rather than just not throwing — a real file,
     // since a fresh :memory: connection would be a distinct, unrelated database.
-    tempDir = mkdtempSync(join(tmpdir(), 'flightdeck-migrate-test-'))
-    const dbPath = join(tempDir, 'flightdeck.db')
+    tempDir = mkdtempSync(join(tmpdir(), 'winglog-migrate-test-'))
+    const dbPath = join(tempDir, 'winglog.db')
     migrateDb(dbPath, join(process.cwd(), 'drizzle'))
     const { sqlite, db } = createDb(dbPath)
     expect(() => db.run(`select 1 from aircraft limit 1`)).not.toThrow()

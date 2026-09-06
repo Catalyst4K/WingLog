@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { signSimbriefRequest } from './backend-client'
 
-const PARAMS = { origIcao: 'EGLL', destIcao: 'WSSS', type: 'A388', timestamp: 1788307200, outputPage: 'flightdeck.local/generate' }
+const PARAMS = { origIcao: 'EGLL', destIcao: 'WSSS', type: 'A388', timestamp: 1788307200, outputPage: 'winglog.local/generate' }
 
 afterEach(() => {
   vi.unstubAllGlobals()

@@ -15,7 +15,7 @@ import {
 } from '../backend/sync-client'
 import { clearSession, loadSession, saveSession, type StoredSession } from '../backend/session-store'
 import { getLastSyncCompletedAt, setLastSyncCompletedAt } from '../db/settings-repo'
-import type { FlightdeckDb } from '../db/client'
+import type { WingLogDb } from '../db/client'
 import { runSync } from './sync-engine'
 
 export class CloudSyncController {
@@ -25,7 +25,7 @@ export class CloudSyncController {
   private lastError: string | null = null
 
   constructor(
-    private readonly db: FlightdeckDb,
+    private readonly db: WingLogDb,
     private readonly dbPath: string,
     private readonly userDataPath: string
   ) {

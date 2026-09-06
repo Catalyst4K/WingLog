@@ -85,7 +85,7 @@ export interface StoredInvoiceInput {
   totalText: string | null
   sourceHtmlPath: string
   /** The full receipt JSON, verbatim, minus logoDataUri (16-30 KB of repeated base64 PNG
-   *  that nothing in Flightdeck renders — docs/gsx-notes.md's storage design). */
+   *  that nothing in WingLog renders — docs/gsx-notes.md's storage design). */
   receiptJson: string
 }
 

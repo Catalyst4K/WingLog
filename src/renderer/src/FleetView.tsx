@@ -86,7 +86,7 @@ function SimBriefProfileCard(props: { aircraft: Aircraft }): React.JSX.Element {
   const a = props.aircraft
 
   function openAirframes(): void {
-    void window.flightdeck.dispatchOpenSimBriefAirframes(a.simbriefAirframeId)
+    void window.winglog.dispatchOpenSimBriefAirframes(a.simbriefAirframeId)
   }
 
   return (
@@ -145,7 +145,7 @@ function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
   const thresholds = useLandingThresholds()
 
   useEffect(() => {
-    window.flightdeck.fleetListLandings(props.aircraftId).then(setLandings)
+    window.winglog.fleetListLandings(props.aircraftId).then(setLandings)
   }, [props.aircraftId])
 
   return (
@@ -250,7 +250,7 @@ function ReplaceAircraftDialog(props: {
   // already means a fresh target/flightCount — no need to reset them on `open` here, just
   // fetch once for whichever aircraft this instance was mounted for.
   useEffect(() => {
-    window.flightdeck
+    window.winglog
       .flightList()
       .then((flights) => setFlightCount(flights.filter((f) => f.aircraftId === props.aircraft.id).length))
   }, [props.aircraft.id])
@@ -460,7 +460,7 @@ export function FleetView(props: {
   } = useSortable<Aircraft, FleetSortKey>(activeAircraft, fleetComparators, 'registration')
 
   function reload(): Promise<void> {
-    return Promise.all([window.flightdeck.aircraftList(), window.flightdeck.logbookFleetStats()]).then(
+    return Promise.all([window.winglog.aircraftList(), window.winglog.logbookFleetStats()]).then(
       ([aircraftList, fleetStats]) => {
         setAircraft(aircraftList)
         setStats(fleetStats)
@@ -473,13 +473,13 @@ export function FleetView(props: {
   }, [])
 
   async function handleCreate(data: NewAircraft): Promise<void> {
-    await window.flightdeck.aircraftCreate(data)
+    await window.winglog.aircraftCreate(data)
     await reload()
     setView({ kind: 'list' })
   }
 
   async function handleUpdate(id: number, data: NewAircraft): Promise<void> {
-    await window.flightdeck.aircraftUpdate({ id, ...data })
+    await window.winglog.aircraftUpdate({ id, ...data })
     await reload()
     setView({ kind: 'detail', id })
   }
@@ -489,7 +489,7 @@ export function FleetView(props: {
     const target = deleteTarget
     setDeleteTarget(null)
     try {
-      await window.flightdeck.aircraftDelete(target.id)
+      await window.winglog.aircraftDelete(target.id)
       await reload()
       setView({ kind: 'list' })
       toast.success(`Deleted ${target.registration}.`)
@@ -503,7 +503,7 @@ export function FleetView(props: {
     const target = replaceTarget
     const replacement = aircraft.find((a) => a.id === replacementId)
     try {
-      await window.flightdeck.aircraftReplace(target.id, replacementId)
+      await window.winglog.aircraftReplace(target.id, replacementId)
       await reload()
       toast.success(`${target.registration} retired, replaced by ${replacement?.registration ?? replacementId}.`)
       setView({ kind: 'detail', id: replacementId })

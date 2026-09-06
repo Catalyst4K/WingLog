@@ -1,6 +1,6 @@
 # Third-party licences
 
-Flightdeck itself is licensed under the GNU General Public License v3.0 — see
+WingLog itself is licensed under the GNU General Public License v3.0 — see
 [`LICENSE`](./LICENSE). This document covers the third-party code and data distributed
 *with* it, and the obligations that come with them.
 
@@ -12,11 +12,11 @@ and re-run.
 
 ## GNU LGPL v3.0: node-simconnect
 
-Flightdeck's SimConnect layer depends on [node-simconnect][ns], which is licensed under
+WingLog's SimConnect layer depends on [node-simconnect][ns], which is licensed under
 the **GNU Lesser General Public License, version 3 or later**. This is the one dependency
 whose licence imposes obligations beyond attribution, so they're stated explicitly:
 
-- **The library is used unmodified.** Flightdeck ships the published npm package as-is;
+- **The library is used unmodified.** WingLog ships the published npm package as-is;
   no patches, no vendored fork.
 - **It is dynamically loaded, not statically combined.** The build externalizes it
   (`externalizeDepsPlugin` in `electron.vite.config.ts`), so the packaged main process
@@ -27,7 +27,7 @@ whose licence imposes obligations beyond attribution, so they're stated explicit
   user may replace it with a modified or newer version of the library and run the result.
 - **Corresponding source** for the exact version shipped is available from the upstream
   repository and from the npm registry, and on request from the copyright holder of
-  Flightdeck at no charge.
+  WingLog at no charge.
 - **The full LGPL v3.0 text** is reproduced below. LGPL v3.0 incorporates the terms of
   GPL v3.0 by reference; that text is in [`LICENSE`](./LICENSE).
 
@@ -144,7 +144,7 @@ Three reference datasets are vendored into the app. Their per-file provenance an
 are reproduced verbatim below, from `resources/*.LICENSE.txt` in the source repository.
 
 **Note on the airline database:** it is licensed under the Open Database License (ODbL)
-1.0, which is share-alike **for the database**. It does not place Flightdeck's own source
+1.0, which is share-alike **for the database**. It does not place WingLog's own source
 code under ODbL, but the dataset itself — and any redistributed derivative of it — must
 remain under a free/open licence, in any distribution of this app.
 
@@ -160,10 +160,13 @@ License: Public domain (OurAirports data)
 Trimmed from the full ~80k-row, 19-column, 12.7 MB source down to a minimal name/ICAO
 search slice for Dispatch's airport-search feature (docs/decisions.md, 2026-09-01 entry):
 kept only rows with a 4-letter icao_code or (falling back) gps_code, dropped rows with
-type "closed", and projected down to icao,name,municipality,iso_country,type — 43,400
-rows, 2.4 MB. Lat/lon, runways, navaids and the rest of the original columns are not
-included here; PLAN.md's M6 (landing analysis) will vendor a fuller cut when it needs
-them.
+type "closed", and projected down to
+icao,name,municipality,iso_country,type,latitude_deg,longitude_deg — 43,400 rows, 3.4 MB.
+latitude_deg/longitude_deg were added 2026-09-06 for Logbook's total-distance-flown stat
+(great-circle dep/arr, airport-search.ts's getAirportCoords) — reusing this same vendored
+slice rather than a second one, since the two features draw from the same underlying
+OurAirports fetch. Runways/navaids are still not included; PLAN.md's M6 (landing
+analysis) vendors those separately in resources/runways.csv.
 ```
 
 ### Airlines — OpenFlights (ODbL 1.0)
@@ -204,7 +207,7 @@ Source: https://github.com/ColtJD45/icao-aircraft-designator-list
 License: MIT (per the source repository)
 Origin:  ICAO Doc 8643, Aircraft Type Designators
 
-Used in Flightdeck as a local reference list for the Fleet "search aircraft type"
+Used in WingLog as a local reference list for the Fleet "search aircraft type"
 fallback (docs/decisions.md, 2026-09-01 entry). Not modified from the source file.
 ```
 
@@ -212,7 +215,7 @@ fallback (docs/decisions.md, 2026-09-01 entry). Not modified from the source fil
 
 ## Application runtime
 
-Flightdeck is distributed as an [Electron](https://www.electronjs.org/) application.
+WingLog is distributed as an [Electron](https://www.electronjs.org/) application.
 Electron is MIT-licensed and embeds Chromium and Node.js, which carry their own licences;
 electron-builder includes Electron's own licence files in the packaged application
 alongside this document.

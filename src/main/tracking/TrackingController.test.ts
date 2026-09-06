@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import type { SimTelemetry } from '@shared/ipc'
-import { createDb, type FlightdeckDb } from '../db/client'
+import { createDb, type WingLogDb } from '../db/client'
 import { createAircraft } from '../db/aircraft-repo'
 import { createFlight, getFlight } from '../db/flight-repo'
 import { listTrackPoints } from '../db/track-point-repo'
@@ -58,7 +58,7 @@ function fakeSimConnectService(): SimConnectService & {
 }
 
 describe('TrackingController', () => {
-  let db: FlightdeckDb
+  let db: WingLogDb
   let sim: ReturnType<typeof fakeSimConnectService>
   let flightId: number
 

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import type { AircraftLanding, Landing } from '@shared/ipc'
 import { flight, landing } from './schema'
-import type { FlightdeckDb } from './client'
+import type { WingLogDb } from './client'
 
 function toLanding(row: typeof landing.$inferSelect): Landing {
   return {
@@ -31,7 +31,7 @@ function toLanding(row: typeof landing.$inferSelect): Landing {
 
 export type NewLanding = Omit<Landing, 'id'>
 
-export function getLandingByFlight(db: FlightdeckDb, flightId: number): Landing | undefined {
+export function getLandingByFlight(db: WingLogDb, flightId: number): Landing | undefined {
   const row = db
     .select()
     .from(landing)
@@ -47,7 +47,7 @@ export function getLandingByFlight(db: FlightdeckDb, flightId: number): Landing 
  * while a genuinely new row gets one from `values` (flightdeck-backend/docs/plans/
  * cloud-sync.md) — updatedAt bumps either way, so a re-capture still re-syncs.
  */
-export function createLanding(db: FlightdeckDb, input: NewLanding): Landing {
+export function createLanding(db: WingLogDb, input: NewLanding): Landing {
   const now = new Date().toISOString()
   const [row] = db
     .insert(landing)
@@ -60,7 +60,7 @@ export function createLanding(db: FlightdeckDb, input: NewLanding): Landing {
 
 /** Fleet's per-aircraft landing history — one join, newest first. Aircraft with no
  *  landing records (the common case for a while) simply return an empty array. */
-export function listLandingsByAircraft(db: FlightdeckDb, aircraftId: number): AircraftLanding[] {
+export function listLandingsByAircraft(db: WingLogDb, aircraftId: number): AircraftLanding[] {
   return db
     .select({
       landing: landing,
@@ -82,7 +82,7 @@ export function listLandingsByAircraft(db: FlightdeckDb, aircraftId: number): Ai
 }
 
 /** See aircraft-repo.ts's listAircraftForSync for the shape/reasoning this mirrors. */
-export function listLandingsForSync(db: FlightdeckDb, since: string | null): (typeof landing.$inferSelect)[] {
+export function listLandingsForSync(db: WingLogDb, since: string | null): (typeof landing.$inferSelect)[] {
   const rows = db.select().from(landing).all()
   return rows
     .filter((row) => row.uuid !== null && row.updatedAt !== null && (since === null || row.updatedAt > since))
@@ -92,7 +92,7 @@ export function listLandingsForSync(db: FlightdeckDb, since: string | null): (ty
 /** See aircraft-repo.ts's upsertAircraftByUuid for the shape/reasoning this mirrors,
  *  including the last-write-wins-against-a-local-edit check. */
 export function upsertLandingByUuid(
-  db: FlightdeckDb,
+  db: WingLogDb,
   input: Omit<typeof landing.$inferInsert, 'id'> & { uuid: string }
 ): boolean {
   const existing = db.select().from(landing).where(eq(landing.uuid, input.uuid)).get()

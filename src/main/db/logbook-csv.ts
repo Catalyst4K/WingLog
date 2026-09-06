@@ -2,7 +2,7 @@
 // rigor as the SimBrief OFP schema in M3, not assumed from documentation) — its columns
 // are: DepartureICAO, ArrivalICAO, AircraftReg, AirframeICAO, Callsign, FlightNo, Network,
 // DepDate (DD/MM/YY), DepTime (HHMM), ArrDate (DD/MM/YY), ArrTime (HHMM).
-// Callsign/Network aren't stored: Flightdeck's Flight has no matching field for either.
+// Callsign/Network aren't stored: WingLog's Flight has no matching field for either.
 
 import { columnIndex, parseCsvRows } from './csv'
 

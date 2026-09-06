@@ -4,7 +4,7 @@ import {
   type AircraftUpdate,
   type AltitudeUnit,
   type DispatchOpenSimBriefParams,
-  type FlightdeckApi,
+  type WingLogApi,
   type GsxSettings,
   type LandingThresholds,
   type NewAircraft,
@@ -16,7 +16,7 @@ import {
   type WindSpeedUnit
 } from '@shared/ipc'
 
-const api: FlightdeckApi = {
+const api: WingLogApi = {
   aircraftList: () => ipcRenderer.invoke(IpcChannels.aircraftList),
   aircraftCreate: (aircraft: NewAircraft) => ipcRenderer.invoke(IpcChannels.aircraftCreate, aircraft),
   aircraftUpdate: (aircraft: AircraftUpdate) => ipcRenderer.invoke(IpcChannels.aircraftUpdate, aircraft),
@@ -115,4 +115,4 @@ const api: FlightdeckApi = {
   syncStatus: () => ipcRenderer.invoke(IpcChannels.syncStatus)
 }
 
-contextBridge.exposeInMainWorld('flightdeck', api)
+contextBridge.exposeInMainWorld('winglog', api)

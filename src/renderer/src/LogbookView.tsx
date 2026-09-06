@@ -81,7 +81,7 @@ function LandingCard(props: { flightId: number }): React.JSX.Element | null {
   const thresholds = useLandingThresholds()
 
   useEffect(() => {
-    window.flightdeck.logbookGetLanding(props.flightId).then(setLanding)
+    window.winglog.logbookGetLanding(props.flightId).then(setLanding)
   }, [props.flightId])
 
   if (!landing) return null
@@ -157,7 +157,7 @@ function FlightDetail(props: {
   async function handleConfirmDelete(): Promise<void> {
     setConfirmingDelete(false)
     try {
-      await window.flightdeck.flightDelete(flight.id)
+      await window.winglog.flightDelete(flight.id)
       props.onDeleted()
       toast.success('Flight deleted.')
     } catch (err) {
@@ -166,12 +166,12 @@ function FlightDetail(props: {
   }
 
   async function handleViewOfpPdf(): Promise<void> {
-    const opened = await window.flightdeck.logbookOpenOfpPdf(flight.id)
+    const opened = await window.winglog.logbookOpenOfpPdf(flight.id)
     if (!opened) toast.error('No OFP PDF available for this flight.')
   }
 
   useEffect(() => {
-    window.flightdeck.trackPointList(flight.id).then(setTrackPoints)
+    window.winglog.trackPointList(flight.id).then(setTrackPoints)
   }, [flight.id])
 
   const route = useMemo(() => parseRouteFromOfpJson(flight.ofpJson), [flight.ofpJson])
@@ -529,9 +529,9 @@ export function LogbookView(props: {
 
   function reload(): Promise<void> {
     return Promise.all([
-      window.flightdeck.logbookListCompletedFlights(),
-      window.flightdeck.aircraftList(),
-      window.flightdeck.logbookGetStats()
+      window.winglog.logbookListCompletedFlights(),
+      window.winglog.aircraftList(),
+      window.winglog.logbookGetStats()
     ]).then(([flightList, aircraftList, logbookStats]) => {
       setFlights(flightList)
       setAircraft(aircraftList)

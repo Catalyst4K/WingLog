@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import type { AltitudeUnit, GsxSettings, LandingThresholds, WeightUnit, WindSpeedUnit } from '@shared/ipc'
 import { appSetting } from './schema'
-import type { FlightdeckDb } from './client'
+import type { WingLogDb } from './client'
 
 const SIMBRIEF_USERNAME_KEY = 'simbriefUsername'
 const WEIGHT_UNIT_KEY = 'weightUnit'
@@ -22,47 +22,47 @@ const HARD_LANDING_FPM_KEY = 'hardLandingFpm'
 const DEFAULT_FIRM_LANDING_FPM = 480
 const DEFAULT_HARD_LANDING_FPM = 600
 
-export function getSetting(db: FlightdeckDb, key: string): string | undefined {
+export function getSetting(db: WingLogDb, key: string): string | undefined {
   return db.select().from(appSetting).where(eq(appSetting.key, key)).get()?.value
 }
 
-export function setSetting(db: FlightdeckDb, key: string, value: string): void {
+export function setSetting(db: WingLogDb, key: string, value: string): void {
   db.insert(appSetting)
     .values({ key, value })
     .onConflictDoUpdate({ target: appSetting.key, set: { value } })
     .run()
 }
 
-export function getSimbriefUsername(db: FlightdeckDb): string | undefined {
+export function getSimbriefUsername(db: WingLogDb): string | undefined {
   return getSetting(db, SIMBRIEF_USERNAME_KEY)
 }
 
-export function setSimbriefUsername(db: FlightdeckDb, username: string): void {
+export function setSimbriefUsername(db: WingLogDb, username: string): void {
   setSetting(db, SIMBRIEF_USERNAME_KEY, username)
 }
 
-export function getWeightUnit(db: FlightdeckDb): WeightUnit {
+export function getWeightUnit(db: WingLogDb): WeightUnit {
   return getSetting(db, WEIGHT_UNIT_KEY) === 'kg' ? 'kg' : 'lb'
 }
 
-export function setWeightUnit(db: FlightdeckDb, unit: WeightUnit): void {
+export function setWeightUnit(db: WingLogDb, unit: WeightUnit): void {
   setSetting(db, WEIGHT_UNIT_KEY, unit)
 }
 
-export function getAltitudeUnit(db: FlightdeckDb): AltitudeUnit {
+export function getAltitudeUnit(db: WingLogDb): AltitudeUnit {
   const value = getSetting(db, ALTITUDE_UNIT_KEY)
   return value === 'm' || value === 'hybrid' ? value : 'ft'
 }
 
-export function setAltitudeUnit(db: FlightdeckDb, unit: AltitudeUnit): void {
+export function setAltitudeUnit(db: WingLogDb, unit: AltitudeUnit): void {
   setSetting(db, ALTITUDE_UNIT_KEY, unit)
 }
 
-export function getWindSpeedUnit(db: FlightdeckDb): WindSpeedUnit {
+export function getWindSpeedUnit(db: WingLogDb): WindSpeedUnit {
   return getSetting(db, WIND_SPEED_UNIT_KEY) === 'mps' ? 'mps' : 'kt'
 }
 
-export function setWindSpeedUnit(db: FlightdeckDb, unit: WindSpeedUnit): void {
+export function setWindSpeedUnit(db: WingLogDb, unit: WindSpeedUnit): void {
   setSetting(db, WIND_SPEED_UNIT_KEY, unit)
 }
 
@@ -71,7 +71,7 @@ export function setWindSpeedUnit(db: FlightdeckDb, unit: WindSpeedUnit): void {
  *  checkGsxFirstLaunch below, and only when the expected receipts folder is actually
  *  found on disk on the app's first-ever launch (flight-test-findings-2026-09-06.md #4)
  *  — never silently, and never past that one check. */
-export function getGsxSettings(db: FlightdeckDb): GsxSettings {
+export function getGsxSettings(db: WingLogDb): GsxSettings {
   return {
     enabled: getSetting(db, GSX_ENABLED_KEY) === '1',
     folderPath: getSetting(db, GSX_FOLDER_PATH_KEY) || null,
@@ -79,7 +79,7 @@ export function getGsxSettings(db: FlightdeckDb): GsxSettings {
   }
 }
 
-export function setGsxSettings(db: FlightdeckDb, settings: GsxSettings): void {
+export function setGsxSettings(db: WingLogDb, settings: GsxSettings): void {
   setSetting(db, GSX_ENABLED_KEY, settings.enabled ? '1' : '0')
   setSetting(db, GSX_FOLDER_PATH_KEY, settings.folderPath ?? '')
   setSetting(db, GSX_DISPLAY_CURRENCY_KEY, settings.displayCurrency || 'USD')
@@ -88,15 +88,15 @@ export function setGsxSettings(db: FlightdeckDb, settings: GsxSettings): void {
 /** Whether checkGsxFirstLaunch (gsx/first-launch-check.ts) has already run once — gates
  *  the check to the app's actual first-ever launch, not every launch or every Settings
  *  visit. */
-export function hasCheckedGsxFirstLaunch(db: FlightdeckDb): boolean {
+export function hasCheckedGsxFirstLaunch(db: WingLogDb): boolean {
   return getSetting(db, GSX_FIRST_LAUNCH_CHECKED_KEY) === '1'
 }
 
-export function setCheckedGsxFirstLaunch(db: FlightdeckDb): void {
+export function setCheckedGsxFirstLaunch(db: WingLogDb): void {
   setSetting(db, GSX_FIRST_LAUNCH_CHECKED_KEY, '1')
 }
 
-export function getLandingThresholds(db: FlightdeckDb): LandingThresholds {
+export function getLandingThresholds(db: WingLogDb): LandingThresholds {
   const firm = Number(getSetting(db, FIRM_LANDING_FPM_KEY))
   const hard = Number(getSetting(db, HARD_LANDING_FPM_KEY))
   return {
@@ -105,7 +105,7 @@ export function getLandingThresholds(db: FlightdeckDb): LandingThresholds {
   }
 }
 
-export function setLandingThresholds(db: FlightdeckDb, thresholds: LandingThresholds): void {
+export function setLandingThresholds(db: WingLogDb, thresholds: LandingThresholds): void {
   setSetting(db, FIRM_LANDING_FPM_KEY, String(thresholds.firmFpm))
   setSetting(db, HARD_LANDING_FPM_KEY, String(thresholds.hardFpm))
 }
@@ -114,11 +114,11 @@ export function setLandingThresholds(db: FlightdeckDb, thresholds: LandingThresh
  *  protocol) — null means "never synced", so a pull fetches everything and a push sends
  *  every local row. Updated only after both directions succeed for a sync run, so a
  *  failed sync retries cleanly rather than marking partial progress as done. */
-export function getLastSyncedAt(db: FlightdeckDb, table: string): string | null {
+export function getLastSyncedAt(db: WingLogDb, table: string): string | null {
   return getSetting(db, `lastSyncedAt:${table}`) ?? null
 }
 
-export function setLastSyncedAt(db: FlightdeckDb, table: string, isoTimestamp: string): void {
+export function setLastSyncedAt(db: WingLogDb, table: string, isoTimestamp: string): void {
   setSetting(db, `lastSyncedAt:${table}`, isoTimestamp)
 }
 
@@ -131,10 +131,10 @@ const LAST_SYNC_COMPLETED_KEY = 'lastSyncCompletedAt'
  *  in-memory only, so "Never synced yet." kept showing on every launch regardless of sync
  *  history. Empty string (from clearing on logout) reads back as null, same convention as
  *  GSX_FOLDER_PATH_KEY above. */
-export function getLastSyncCompletedAt(db: FlightdeckDb): string | null {
+export function getLastSyncCompletedAt(db: WingLogDb): string | null {
   return getSetting(db, LAST_SYNC_COMPLETED_KEY) || null
 }
 
-export function setLastSyncCompletedAt(db: FlightdeckDb, isoTimestamp: string): void {
+export function setLastSyncCompletedAt(db: WingLogDb, isoTimestamp: string): void {
   setSetting(db, LAST_SYNC_COMPLETED_KEY, isoTimestamp)
 }

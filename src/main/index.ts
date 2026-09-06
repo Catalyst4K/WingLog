@@ -20,6 +20,7 @@ import { fetchExchangeRate } from './fx/fx-client'
 import { greatCircleWaypoints, searchAirports } from './airports/airport-search'
 import { createDb } from './db/client'
 import { migrateDb } from './db/migrate'
+import { migrateLegacyUserData } from './db/legacy-userdata'
 import {
   createAircraft,
   deleteAircraft,
@@ -104,7 +105,20 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
-  const dbPath = join(app.getPath('userData'), 'flightdeck.db')
+  const userDataPath = app.getPath('userData')
+  const dbPath = join(userDataPath, 'winglog.db')
+
+  // Before anything opens the database: the Flightdeck -> WingLog rename moved userData,
+  // so an existing install's logbook is sitting in the old directory. Runs before
+  // migrateDb so the copied database then gets brought up to the current schema.
+  const legacy = migrateLegacyUserData(userDataPath, dbPath)
+  if (legacy.migrated) {
+    console.log(
+      `Carried pre-rename data across from ${legacy.from}` +
+        (legacy.sidecars.length > 0 ? ` (plus ${legacy.sidecars.join(', ')})` : '')
+    )
+  }
+
   // app.getAppPath() is the project root in dev and the asar root when packaged — both
   // have drizzle/ as a direct sibling of package.json, unlike a cwd-relative path, which
   // isn't reliable once the app is launched from a shortcut rather than a terminal.
@@ -241,7 +255,7 @@ app.whenReady().then(() => {
     }
     // `airframe=` takes priority when a saved SimBrief profile exists; otherwise `type=`
     // lets SimBrief fall back to its own default airframe for that type ICAO — SimBrief's
-    // own behavior, nothing Flightdeck implements itself (docs/decisions.md). A chosen
+    // own behavior, nothing WingLog implements itself (docs/decisions.md). A chosen
     // simbriefType (a specific SimBrief default, e.g. "A20N" rather than the bare
     // icaoType "A320") takes priority over icaoType within that fallback.
     const airframeParam = simbriefAirframeId
@@ -479,7 +493,7 @@ app.whenReady().then(() => {
   // CI packaging check (see .github/workflows/package.yml): proves the built
   // binary launches, migrates the DB and renders a first frame, then exits
   // clean — without needing a person at the keyboard on every platform.
-  if (process.env['FLIGHTDECK_SMOKE_TEST']) {
+  if (process.env['WINGLOG_SMOKE_TEST']) {
     window.on('ready-to-show', () => setTimeout(() => app.exit(0), 1000))
   }
 
@@ -491,7 +505,7 @@ app.whenReady().then(() => {
   // running with no window and no visible error — indistinguishable from "still loading"
   // until someone goes looking for it. A native dialog is the one thing guaranteed to work
   // even if nothing else in the app initialized.
-  dialog.showErrorBox('Flightdeck failed to start', error instanceof Error ? error.stack ?? error.message : String(error))
+  dialog.showErrorBox('WingLog failed to start', error instanceof Error ? error.stack ?? error.message : String(error))
   app.exit(1)
 })
 

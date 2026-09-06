@@ -3,7 +3,7 @@ import { and, eq, isNull } from 'drizzle-orm'
 import type { FlightInvoice } from '@shared/ipc'
 import type { StoredInvoiceInput } from '../gsx/scan'
 import { flightInvoice } from './schema'
-import type { FlightdeckDb } from './client'
+import type { WingLogDb } from './client'
 
 function toFlightInvoice(row: typeof flightInvoice.$inferSelect): FlightInvoice {
   return {
@@ -22,7 +22,7 @@ function toFlightInvoice(row: typeof flightInvoice.$inferSelect): FlightInvoice 
   }
 }
 
-export function listInvoicesForFlight(db: FlightdeckDb, flightId: number): FlightInvoice[] {
+export function listInvoicesForFlight(db: WingLogDb, flightId: number): FlightInvoice[] {
   return db
     .select()
     .from(flightInvoice)
@@ -40,7 +40,7 @@ export function listInvoicesForFlight(db: FlightdeckDb, flightId: number): Fligh
  * scan itself would never find again.
  */
 export function addInvoicesForFlight(
-  db: FlightdeckDb,
+  db: WingLogDb,
   flightId: number,
   invoices: StoredInvoiceInput[]
 ): FlightInvoice[] {
@@ -59,7 +59,7 @@ export function addInvoicesForFlight(
 }
 
 /** See aircraft-repo.ts's listAircraftForSync for the shape/reasoning this mirrors. */
-export function listFlightInvoicesForSync(db: FlightdeckDb, since: string | null): (typeof flightInvoice.$inferSelect)[] {
+export function listFlightInvoicesForSync(db: WingLogDb, since: string | null): (typeof flightInvoice.$inferSelect)[] {
   const rows = db.select().from(flightInvoice).all()
   return rows
     .filter((row) => row.uuid !== null && row.updatedAt !== null && (since === null || row.updatedAt > since))
@@ -71,7 +71,7 @@ export function listFlightInvoicesForSync(db: FlightdeckDb, since: string | null
  *  so a pulled row that already exists locally by uuid is still handled — a second
  *  device's push landing back here after a conflict resolution, for instance. */
 export function upsertFlightInvoiceByUuid(
-  db: FlightdeckDb,
+  db: WingLogDb,
   input: Omit<typeof flightInvoice.$inferInsert, 'id'> & { uuid: string }
 ): boolean {
   const existing = db.select().from(flightInvoice).where(eq(flightInvoice.uuid, input.uuid)).get()

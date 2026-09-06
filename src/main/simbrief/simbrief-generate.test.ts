@@ -27,7 +27,7 @@ describe('buildGenerateUrl', () => {
     expect(url.searchParams.get('type')).toBe('A388')
     expect(url.searchParams.get('apicode')).toBe('abc123')
     expect(url.searchParams.get('timestamp')).toBe('1788307200')
-    expect(url.searchParams.get('outputpage')).toBe('flightdeck.local/generate')
+    expect(url.searchParams.get('outputpage')).toBe('winglog.local/generate')
   })
 
   it('prefers a saved airframe ID over simbriefType and icaoType for `type`', () => {

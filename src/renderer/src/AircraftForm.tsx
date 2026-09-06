@@ -222,7 +222,7 @@ export function AircraftForm(props: {
     setLookingUp(true)
     setLookupStatus(null)
     try {
-      const result = await window.flightdeck.aircraftLookupByRegistration(registration)
+      const result = await window.winglog.aircraftLookupByRegistration(registration)
       if (!result) {
         setLookupStatus(`No match for "${registration}" — search for the type below.`)
         return
@@ -236,7 +236,7 @@ export function AircraftForm(props: {
       // have dozens of unrelated substring matches and never reach its own exact row
       // within airlineSearch's result cap (flight-test-findings-2026-09-06.md #1).
       const matchedAirline: AirlineOption | undefined = result.operatorIcao
-        ? await window.flightdeck.airlineFindByIcao(result.operatorIcao)
+        ? await window.winglog.airlineFindByIcao(result.operatorIcao)
         : undefined
       // Fills blanks only — never overwrites something already typed/edited.
       const hadSimbriefType = form.simbriefType.trim() !== ''
@@ -321,7 +321,7 @@ export function AircraftForm(props: {
         <Combobox
           value={form.icaoType}
           onChange={(value) => set('icaoType', value.toUpperCase())}
-          search={(query) => window.flightdeck.aircraftTypeSearch(query)}
+          search={(query) => window.winglog.aircraftTypeSearch(query)}
           getOptionKey={(r: AircraftTypeOption) => `${r.icaoType}-${r.manufacturer}-${r.model}`}
           getOptionValue={(r) => r.icaoType}
           getOptionLabel={(r) => `${r.manufacturer} — ${r.model} (${r.icaoType})`}
@@ -346,7 +346,7 @@ export function AircraftForm(props: {
             set('operatorIata', item.iata)
             set('operatorIcao', item.icao)
           }}
-          search={(query) => window.flightdeck.airlineSearch(query)}
+          search={(query) => window.winglog.airlineSearch(query)}
           getOptionKey={(r: AirlineOption) => `${r.icao}-${r.name}`}
           getOptionValue={(r) => r.name}
           getOptionLabel={(r) => `${r.name} (${r.icao}${r.iata ? `/${r.iata}` : ''})`}

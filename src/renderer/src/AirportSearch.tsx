@@ -16,7 +16,7 @@ export function AirportSearch(props: {
     <Combobox
       value={props.value}
       onChange={(value) => props.onChange(value.toUpperCase())}
-      search={(query) => window.flightdeck.airportSearch(query)}
+      search={(query) => window.winglog.airportSearch(query)}
       getOptionKey={(r: AirportOption) => r.icao}
       getOptionValue={(r) => r.icao}
       getOptionLabel={(r) =>
