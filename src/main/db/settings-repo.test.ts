@@ -6,10 +6,12 @@ import {
   getGsxSettings,
   getSetting,
   getSimbriefUsername,
+  getWindSpeedUnit,
   setAltitudeUnit,
   setGsxSettings,
   setSetting,
-  setSimbriefUsername
+  setSimbriefUsername,
+  setWindSpeedUnit
 } from './settings-repo'
 
 describe('settings repo', () => {
@@ -51,6 +53,17 @@ describe('settings repo', () => {
     expect(getAltitudeUnit(db)).toBe('m')
     setAltitudeUnit(db, 'hybrid')
     expect(getAltitudeUnit(db)).toBe('hybrid')
+  })
+
+  it('defaults the wind speed unit to kt when never set', () => {
+    expect(getWindSpeedUnit(db)).toBe('kt')
+  })
+
+  it('round-trips the wind speed unit', () => {
+    setWindSpeedUnit(db, 'mps')
+    expect(getWindSpeedUnit(db)).toBe('mps')
+    setWindSpeedUnit(db, 'kt')
+    expect(getWindSpeedUnit(db)).toBe('kt')
   })
 
   it('defaults GSX settings to disabled, no folder, USD display', () => {

@@ -7,13 +7,17 @@ import type {
   LandingThresholds,
   LogbookImportSummary,
   SyncStatus,
-  WeightUnit
+  WeightUnit,
+  WindSpeedUnit
 } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+
+type SettingsCategory = 'units' | 'tracking' | 'thirdParty' | 'data'
 
 // A curated, common-currency subset of what frankfurter.dev supports — enough for
 // "I want to see this in my own currency" without a second fetch just to populate a
@@ -51,13 +55,18 @@ export function SettingsView(props: {
   onWeightUnitChange: (unit: WeightUnit) => void
   altitudeUnit: AltitudeUnit
   onAltitudeUnitChange: (unit: AltitudeUnit) => void
+  windSpeedUnit: WindSpeedUnit
+  onWindSpeedUnitChange: (unit: WindSpeedUnit) => void
 }): React.JSX.Element {
   const [simbriefUsername, setSimbriefUsername] = useState('')
   const [loggingIn, setLoggingIn] = useState(false)
   const [importingAircraft, setImportingAircraft] = useState(false)
   const [importingLogbook, setImportingLogbook] = useState(false)
   const [gsx, setGsx] = useState<GsxSettings>({ enabled: false, folderPath: null, displayCurrency: 'USD' })
-  const [landingThresholds, setLandingThresholds] = useState<LandingThresholds>({ firmFpm: 480, hardFpm: 600 })
+  const [landingThresholds, setLandingThresholds] = useState<LandingThresholds>({
+    firmFpm: 480,
+    hardFpm: 600
+  })
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
     loggedIn: false,
     email: null,
@@ -68,6 +77,9 @@ export function SettingsView(props: {
   const [cloudEmail, setCloudEmail] = useState('')
   const [cloudPassword, setCloudPassword] = useState('')
   const [loggingIntoCloud, setLoggingIntoCloud] = useState(false)
+  // Purely transient UI state, not persisted — this app has no routing beyond the top tab
+  // bar, no reason to add any for a sub-navigation within one of its pages.
+  const [category, setCategory] = useState<SettingsCategory>('units')
 
   useEffect(() => {
     window.flightdeck.settingsGetSimbriefUsername().then((u) => setSimbriefUsername(u ?? ''))
@@ -181,264 +193,353 @@ export function SettingsView(props: {
     <div className="flex flex-col gap-6">
       <h1 className="font-heading text-2xl font-semibold text-foreground">Settings</h1>
 
-      <Card className="max-w-sm">
-        <CardHeader>
-          <CardTitle>Units</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">Weights:</span>
-            <div className="flex gap-1.5">
-              {(['kg', 'lb'] as const).map((unit) => (
-                <Button
-                  key={unit}
-                  type="button"
-                  size="sm"
-                  variant={props.weightUnit === unit ? 'default' : 'outline'}
-                  onClick={() => props.onWeightUnitChange(unit)}
-                >
-                  {unit}
-                </Button>
-              ))}
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">OFP altitudes:</span>
-            <div className="flex gap-1.5">
-              {(
-                [
-                  { unit: 'ft', label: 'Feet' },
-                  { unit: 'm', label: 'Meters' },
-                  { unit: 'hybrid', label: 'Hybrid' }
-                ] as const
-              ).map(({ unit, label }) => (
-                <Button
-                  key={unit}
-                  type="button"
-                  size="sm"
-                  variant={props.altitudeUnit === unit ? 'default' : 'outline'}
-                  onClick={() => props.onAltitudeUnitChange(unit)}
-                >
-                  {label}
-                </Button>
-              ))}
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            "Hybrid" shows each step climb in whichever unit it was actually planned in —
-            feet for a standard level, meters for a route crossing into airspace (e.g.
-            China) that assigns levels in meters — rather than converting everything to
-            one unit.
-          </p>
-        </CardContent>
-      </Card>
+      <Tabs
+        orientation="vertical"
+        value={category}
+        onValueChange={(value) => setCategory(value as SettingsCategory)}
+        className="items-start gap-6"
+      >
+        <TabsList variant="line" className="w-40 shrink-0">
+          <TabsTrigger value="units">Units</TabsTrigger>
+          <TabsTrigger value="tracking">Tracking</TabsTrigger>
+          <TabsTrigger value="thirdParty">3rd party</TabsTrigger>
+          <TabsTrigger value="data">Data</TabsTrigger>
+        </TabsList>
 
-      <Card className="max-w-sm">
-        <CardHeader>
-          <CardTitle>Credentials</CardTitle>
-          <CardDescription>Used by Dispatch to fetch and generate plans on SimBrief.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <form onSubmit={handleSaveSimbriefUsername} className="flex items-end gap-2">
-            <Label className="flex flex-1 flex-col items-start gap-1.5">
-              SimBrief username
-              <Input
-                value={simbriefUsername}
-                onChange={(e) => setSimbriefUsername(e.target.value)}
-                placeholder="Navigraph Alias"
-              />
-            </Label>
-            <Button type="submit" variant="outline" size="sm">
-              Save
-            </Button>
-          </form>
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs text-muted-foreground">
-              Pre-authenticates plan generation for this app session. Doesn't persist across
-              a restart, and Generate will prompt for login inline if you skip this.
-            </p>
-            <Button type="button" variant="outline" size="sm" onClick={handleLoginToNavigraph} disabled={loggingIn}>
-              {loggingIn ? 'Logging in…' : 'Log in to Navigraph'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="max-w-sm">
-        <CardHeader>
-          <CardTitle>Cloud sync</CardTitle>
-          <CardDescription>
-            Sync Fleet and Logbook across your machines. Off by default — nothing leaves this device until you log
-            in.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          {syncStatus.loggedIn ? (
-            <>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm text-foreground">{syncStatus.email}</span>
-                <Button type="button" variant="outline" size="sm" onClick={handleCloudLogout}>
-                  Log out
-                </Button>
+        <TabsContent value="units" className="min-w-0">
+          <Card className="max-w-2xl">
+            <CardHeader>
+              <CardTitle>Units</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted-foreground">Weights:</span>
+                <div className="flex gap-1.5">
+                  {(['kg', 'lb'] as const).map((unit) => (
+                    <Button
+                      key={unit}
+                      type="button"
+                      size="sm"
+                      variant={props.weightUnit === unit ? 'default' : 'outline'}
+                      onClick={() => props.onWeightUnitChange(unit)}
+                    >
+                      {unit}
+                    </Button>
+                  ))}
+                </div>
               </div>
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted-foreground">OFP altitudes:</span>
+                <div className="flex gap-1.5">
+                  {(
+                    [
+                      { unit: 'ft', label: 'Feet' },
+                      { unit: 'm', label: 'Meters' },
+                      { unit: 'hybrid', label: 'Hybrid' }
+                    ] as const
+                  ).map(({ unit, label }) => (
+                    <Button
+                      key={unit}
+                      type="button"
+                      size="sm"
+                      variant={props.altitudeUnit === unit ? 'default' : 'outline'}
+                      onClick={() => props.onAltitudeUnitChange(unit)}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                "Hybrid" shows each step climb in whichever unit it was actually planned in — feet for a
+                standard level, meters for a route crossing into airspace (e.g. China) that assigns levels in
+                meters — rather than converting everything to one unit.
+              </p>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted-foreground">METAR wind speed:</span>
+                <div className="flex gap-1.5">
+                  {(
+                    [
+                      { unit: 'kt', label: 'Knots' },
+                      { unit: 'mps', label: 'm/s' }
+                    ] as const
+                  ).map(({ unit, label }) => (
+                    <Button
+                      key={unit}
+                      type="button"
+                      size="sm"
+                      variant={props.windSpeedUnit === unit ? 'default' : 'outline'}
+                      onClick={() => props.onWindSpeedUnitChange(unit)}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                The raw METAR text on Dispatch always stays as reported — this only controls a separate
+                formatted wind line shown alongside it.
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="thirdParty" className="min-w-0">
+          <div className="flex flex-wrap gap-4">
+            <Card className="max-w-sm">
+              <CardHeader>
+                <CardTitle>Credentials</CardTitle>
+                <CardDescription>Used by Dispatch to fetch and generate plans on SimBrief.</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4">
+                <form onSubmit={handleSaveSimbriefUsername} className="flex items-end gap-2">
+                  <Label className="flex flex-1 flex-col items-start gap-1.5">
+                    SimBrief username
+                    <Input
+                      value={simbriefUsername}
+                      onChange={(e) => setSimbriefUsername(e.target.value)}
+                      placeholder="Navigraph Alias"
+                    />
+                  </Label>
+                  <Button type="submit" variant="outline" size="sm">
+                    Save
+                  </Button>
+                </form>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs text-muted-foreground">
+                    Pre-authenticates plan generation for this app session. Doesn't persist across a restart,
+                    and Generate will prompt for login inline if you skip this.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleLoginToNavigraph}
+                    disabled={loggingIn}
+                  >
+                    {loggingIn ? 'Logging in…' : 'Log in to Navigraph'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="max-w-sm">
+              <CardHeader>
+                <CardTitle>Cloud sync</CardTitle>
+                <CardDescription>
+                  Sync Fleet and Logbook across your machines. Off by default — nothing leaves this device
+                  until you log in.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4">
+                {syncStatus.loggedIn ? (
+                  <>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm text-foreground">{syncStatus.email}</span>
+                      <Button type="button" variant="outline" size="sm" onClick={handleCloudLogout}>
+                        Log out
+                      </Button>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs text-muted-foreground">
+                        {syncStatus.lastSyncedAt
+                          ? `Last synced ${new Date(syncStatus.lastSyncedAt).toLocaleString()}`
+                          : 'Never synced yet.'}
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSyncNow}
+                        disabled={syncStatus.syncing}
+                      >
+                        {syncStatus.syncing ? 'Syncing…' : 'Sync now'}
+                      </Button>
+                    </div>
+                    {syncStatus.lastError && (
+                      <p className="text-xs text-destructive">{syncStatus.lastError}</p>
+                    )}
+                  </>
+                ) : (
+                  <form onSubmit={handleCloudLogin} className="flex flex-col gap-3">
+                    <Label className="flex flex-col items-start gap-1.5">
+                      Email
+                      <Input
+                        type="email"
+                        value={cloudEmail}
+                        onChange={(e) => setCloudEmail(e.target.value)}
+                        required
+                      />
+                    </Label>
+                    <Label className="flex flex-col items-start gap-1.5">
+                      Password
+                      <Input
+                        type="password"
+                        value={cloudPassword}
+                        onChange={(e) => setCloudPassword(e.target.value)}
+                        required
+                      />
+                    </Label>
+                    <Button
+                      type="submit"
+                      variant="outline"
+                      size="sm"
+                      className="w-fit"
+                      disabled={loggingIntoCloud}
+                    >
+                      {loggingIntoCloud ? 'Logging in…' : 'Log in'}
+                    </Button>
+                  </form>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="max-w-sm">
+              <CardHeader>
+                <CardTitle>GSX ground services</CardTitle>
+                <CardDescription>
+                  Attach GSX Pro's catering/fuel/handling receipts to matching flights in your Logbook.
+                  Windows only (GSX itself is Windows-only) — off by default, and nothing here shows up until
+                  enabled.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-foreground">Enabled</span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={gsx.enabled ? 'default' : 'outline'}
+                    onClick={() => handleGsxToggle(!gsx.enabled)}
+                  >
+                    {gsx.enabled ? 'On' : 'Off'}
+                  </Button>
+                </div>
+                <Label className="flex flex-col items-start gap-1.5">
+                  Receipts folder
+                  <div className="flex w-full gap-1.5">
+                    <Input
+                      type="text"
+                      readOnly
+                      value={gsx.folderPath ?? ''}
+                      placeholder="Not set"
+                      className="flex-1"
+                    />
+                    <Button type="button" variant="outline" size="sm" onClick={handleGsxBrowse}>
+                      Browse…
+                    </Button>
+                  </div>
+                </Label>
                 <p className="text-xs text-muted-foreground">
-                  {syncStatus.lastSyncedAt
-                    ? `Last synced ${new Date(syncStatus.lastSyncedAt).toLocaleString()}`
-                    : 'Never synced yet.'}
+                  Usually %APPDATA%\Virtuali\GSX\Receipts. A path that's wrong or no longer exists just means
+                  no receipts are found — never an error.
                 </p>
-                <Button type="button" variant="outline" size="sm" onClick={handleSyncNow} disabled={syncStatus.syncing}>
-                  {syncStatus.syncing ? 'Syncing…' : 'Sync now'}
+                <Label className="flex flex-col items-start gap-1.5">
+                  Display currency
+                  <Select value={gsx.displayCurrency} onValueChange={handleGsxCurrencyChange}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DISPLAY_CURRENCY_OPTIONS.map((c) => (
+                        <SelectItem key={c.code} value={c.code}>
+                          {c.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  GSX totals convert using a live rate fetched at the time you view them — nothing is stored
+                  converted.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="tracking" className="min-w-0">
+          <Card className="max-w-2xl">
+            <CardHeader>
+              <CardTitle>Landing severity</CardTitle>
+              <CardDescription>
+                Touchdown rate thresholds for the firm/hard badges on Fleet and Logbook landing records. Real
+                guidance varies by aircraft category — these are general-aviation-leaning defaults, not
+                universal.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSaveLandingThresholds} className="flex flex-col gap-3">
+                <div className="flex gap-3">
+                  <Label className="flex flex-1 flex-col items-start gap-1.5">
+                    Firm (fpm)
+                    <Input
+                      type="number"
+                      value={landingThresholds.firmFpm}
+                      onChange={(e) =>
+                        setLandingThresholds((current) => ({ ...current, firmFpm: Number(e.target.value) }))
+                      }
+                    />
+                  </Label>
+                  <Label className="flex flex-1 flex-col items-start gap-1.5">
+                    Hard (fpm)
+                    <Input
+                      type="number"
+                      value={landingThresholds.hardFpm}
+                      onChange={(e) =>
+                        setLandingThresholds((current) => ({ ...current, hardFpm: Number(e.target.value) }))
+                      }
+                    />
+                  </Label>
+                </div>
+                <Button type="submit" variant="outline" size="sm" className="w-fit">
+                  Save
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="data" className="min-w-0">
+          <Card className="max-w-2xl">
+            <CardHeader>
+              <CardTitle>Data</CardTitle>
+              <CardDescription>Import or export your fleet and logbook as local files.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm text-foreground">Fleet (JSON)</span>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleImportAircraft}
+                    disabled={importingAircraft}
+                  >
+                    {importingAircraft ? 'Importing…' : 'Import'}
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={handleExportAircraft}>
+                    Export
+                  </Button>
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm text-foreground">Logbook (CSV)</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleImportLogbook}
+                  disabled={importingLogbook}
+                >
+                  {importingLogbook ? 'Importing…' : 'Import'}
                 </Button>
               </div>
-              {syncStatus.lastError && <p className="text-xs text-destructive">{syncStatus.lastError}</p>}
-            </>
-          ) : (
-            <form onSubmit={handleCloudLogin} className="flex flex-col gap-3">
-              <Label className="flex flex-col items-start gap-1.5">
-                Email
-                <Input
-                  type="email"
-                  value={cloudEmail}
-                  onChange={(e) => setCloudEmail(e.target.value)}
-                  required
-                />
-              </Label>
-              <Label className="flex flex-col items-start gap-1.5">
-                Password
-                <Input
-                  type="password"
-                  value={cloudPassword}
-                  onChange={(e) => setCloudPassword(e.target.value)}
-                  required
-                />
-              </Label>
-              <Button type="submit" variant="outline" size="sm" className="w-fit" disabled={loggingIntoCloud}>
-                {loggingIntoCloud ? 'Logging in…' : 'Log in'}
-              </Button>
-            </form>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="max-w-sm">
-        <CardHeader>
-          <CardTitle>Data</CardTitle>
-          <CardDescription>Import or export your fleet and logbook as local files.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-sm text-foreground">Fleet (JSON)</span>
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={handleImportAircraft} disabled={importingAircraft}>
-                {importingAircraft ? 'Importing…' : 'Import'}
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={handleExportAircraft}>
-                Export
-              </Button>
-            </div>
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-sm text-foreground">Logbook (CSV)</span>
-            <Button type="button" variant="outline" size="sm" onClick={handleImportLogbook} disabled={importingLogbook}>
-              {importingLogbook ? 'Importing…' : 'Import'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="max-w-sm">
-        <CardHeader>
-          <CardTitle>Landing severity</CardTitle>
-          <CardDescription>
-            Touchdown rate thresholds for the firm/hard badges on Fleet and Logbook landing records. Real
-            guidance varies by aircraft category — these are general-aviation-leaning defaults, not universal.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSaveLandingThresholds} className="flex flex-col gap-3">
-            <div className="flex gap-3">
-              <Label className="flex flex-1 flex-col items-start gap-1.5">
-                Firm (fpm)
-                <Input
-                  type="number"
-                  value={landingThresholds.firmFpm}
-                  onChange={(e) =>
-                    setLandingThresholds((current) => ({ ...current, firmFpm: Number(e.target.value) }))
-                  }
-                />
-              </Label>
-              <Label className="flex flex-1 flex-col items-start gap-1.5">
-                Hard (fpm)
-                <Input
-                  type="number"
-                  value={landingThresholds.hardFpm}
-                  onChange={(e) =>
-                    setLandingThresholds((current) => ({ ...current, hardFpm: Number(e.target.value) }))
-                  }
-                />
-              </Label>
-            </div>
-            <Button type="submit" variant="outline" size="sm" className="w-fit">
-              Save
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card className="max-w-sm">
-        <CardHeader>
-          <CardTitle>GSX ground services</CardTitle>
-          <CardDescription>
-            Attach GSX Pro's catering/fuel/handling receipts to matching flights in your Logbook. Windows only
-            (GSX itself is Windows-only) — off by default, and nothing here shows up until enabled.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-sm text-foreground">Enabled</span>
-            <Button
-              type="button"
-              size="sm"
-              variant={gsx.enabled ? 'default' : 'outline'}
-              onClick={() => handleGsxToggle(!gsx.enabled)}
-            >
-              {gsx.enabled ? 'On' : 'Off'}
-            </Button>
-          </div>
-          <Label className="flex flex-col items-start gap-1.5">
-            Receipts folder
-            <div className="flex w-full gap-1.5">
-              <Input type="text" readOnly value={gsx.folderPath ?? ''} placeholder="Not set" className="flex-1" />
-              <Button type="button" variant="outline" size="sm" onClick={handleGsxBrowse}>
-                Browse…
-              </Button>
-            </div>
-          </Label>
-          <p className="text-xs text-muted-foreground">
-            Usually %APPDATA%\Virtuali\GSX\Receipts. A path that's wrong or no longer exists just means no
-            receipts are found — never an error.
-          </p>
-          <Label className="flex flex-col items-start gap-1.5">
-            Display currency
-            <Select value={gsx.displayCurrency} onValueChange={handleGsxCurrencyChange}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DISPLAY_CURRENCY_OPTIONS.map((c) => (
-                  <SelectItem key={c.code} value={c.code}>
-                    {c.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Label>
-          <p className="text-xs text-muted-foreground">
-            GSX totals convert using a live rate fetched at the time you view them — nothing is stored converted.
-          </p>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
