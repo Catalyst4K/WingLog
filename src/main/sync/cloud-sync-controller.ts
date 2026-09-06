@@ -8,13 +8,14 @@
 import type { SyncStatus } from '@shared/ipc'
 import { login as backendLogin, logout as backendLogout, syncPull, syncPush } from '../backend/sync-client'
 import { clearSession, loadSession, saveSession, type StoredSession } from '../backend/session-store'
+import { getLastSyncCompletedAt, setLastSyncCompletedAt } from '../db/settings-repo'
 import type { FlightdeckDb } from '../db/client'
 import { runSync } from './sync-engine'
 
 export class CloudSyncController {
   private session: StoredSession | null
   private syncing = false
-  private lastSyncedAt: string | null = null
+  private lastSyncedAt: string | null
   private lastError: string | null = null
 
   constructor(
@@ -23,6 +24,7 @@ export class CloudSyncController {
     private readonly userDataPath: string
   ) {
     this.session = loadSession(userDataPath)
+    this.lastSyncedAt = getLastSyncCompletedAt(db)
   }
 
   getStatus(): SyncStatus {
@@ -53,6 +55,7 @@ export class CloudSyncController {
     this.session = null
     clearSession(this.userDataPath)
     this.lastSyncedAt = null
+    setLastSyncCompletedAt(this.db, '')
     this.lastError = null
     return this.getStatus()
   }
@@ -64,6 +67,7 @@ export class CloudSyncController {
     try {
       const result = await runSync(this.db, { syncPull, syncPush }, this.session, this.dbPath)
       this.lastSyncedAt = result.syncedAt
+      setLastSyncCompletedAt(this.db, result.syncedAt)
       this.lastError = null
     } catch (err) {
       this.lastError = err instanceof Error ? err.message : String(err)
