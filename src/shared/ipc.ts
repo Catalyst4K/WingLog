@@ -322,6 +322,14 @@ export interface GsxSettings {
   displayCurrency: string
 }
 
+/** Result of the one-time, first-ever-launch check for GSX's expected receipts folder
+ *  (flight-test-findings-2026-09-06.md #4) — `found` means the folder existed and GSX was
+ *  auto-enabled against it. Only ever returned once, on the launch the check actually
+ *  runs; every later launch gets null from the same IPC call. */
+export interface GsxFirstLaunchResult {
+  found: boolean
+}
+
 export interface LogbookImportSkip {
   label: string
   reason: string
@@ -533,6 +541,7 @@ export const IpcChannels = {
   logbookListInvoices: 'logbook:list-invoices',
   settingsGetGsx: 'settings:get-gsx',
   settingsSetGsx: 'settings:set-gsx',
+  settingsCheckGsxFirstLaunch: 'settings:check-gsx-first-launch',
   gsxBrowseFolder: 'gsx:browse-folder',
   gsxRescanFlight: 'gsx:rescan-flight',
   gsxAttachNotailReceipt: 'gsx:attach-notail-receipt',
@@ -633,6 +642,9 @@ export interface FlightdeckApi {
   logbookListInvoices: (flightId: number) => Promise<FlightInvoice[]>
   settingsGetGsx: () => Promise<GsxSettings>
   settingsSetGsx: (settings: GsxSettings) => Promise<void>
+  /** Call once, on app mount — a no-op (returns null) on every launch after the app's
+   *  actual first-ever one, so the caller only ever needs to react to a non-null result. */
+  settingsCheckGsxFirstLaunch: () => Promise<GsxFirstLaunchResult | null>
   /** Opens a native folder-picker dialog; null if the user cancels. */
   gsxBrowseFolder: () => Promise<string | null>
   /** Re-scans the configured GSX folder for this flight's receipts and re-stores whatever

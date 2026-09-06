@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { BookOpen, Plane, Radar, Route, Settings as SettingsIcon } from 'lucide-react'
+import { toast } from 'sonner'
 import type {
   AltitudeUnit,
   AppPage,
@@ -74,6 +75,19 @@ export default function App(): React.JSX.Element {
     window.flightdeck.settingsGetWeightUnit().then(setWeightUnit)
     window.flightdeck.settingsGetAltitudeUnit().then(setAltitudeUnit)
     window.flightdeck.settingsGetWindSpeedUnit().then(setWindSpeedUnit)
+  }, [])
+
+  useEffect(() => {
+    // A no-op (returns null) on every launch after the app's actual first-ever one —
+    // see settingsCheckGsxFirstLaunch's doc comment.
+    window.flightdeck.settingsCheckGsxFirstLaunch().then((result) => {
+      if (!result) return
+      if (result.found) {
+        toast.success('GSX ground-service tracking enabled — receipts folder found automatically.')
+      } else {
+        toast.info('GSX ground-service tracking is off — enable it in Settings if you use GSX.')
+      }
+    })
   }, [])
 
   useEffect(() => {
