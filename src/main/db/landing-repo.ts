@@ -85,15 +85,20 @@ export function listLandingsForSync(db: FlightdeckDb, since: string | null): (ty
     .sort((a, b) => (a.updatedAt as string).localeCompare(b.updatedAt as string))
 }
 
-/** See aircraft-repo.ts's upsertAircraftByUuid for the shape/reasoning this mirrors. */
+/** See aircraft-repo.ts's upsertAircraftByUuid for the shape/reasoning this mirrors,
+ *  including the last-write-wins-against-a-local-edit check. */
 export function upsertLandingByUuid(
   db: FlightdeckDb,
   input: Omit<typeof landing.$inferInsert, 'id'> & { uuid: string }
-): void {
+): boolean {
   const existing = db.select().from(landing).where(eq(landing.uuid, input.uuid)).get()
   if (existing) {
+    if (existing.updatedAt !== null && typeof input.updatedAt === 'string' && existing.updatedAt >= input.updatedAt) {
+      return false
+    }
     db.update(landing).set(input).where(eq(landing.uuid, input.uuid)).run()
   } else {
     db.insert(landing).values(input).run()
   }
+  return true
 }

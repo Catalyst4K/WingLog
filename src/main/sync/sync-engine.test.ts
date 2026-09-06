@@ -1,7 +1,7 @@
 import { readFileSync, rmSync } from 'node:fs'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { eq } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -174,6 +174,74 @@ describe('sync-engine', () => {
     expect(invoiceRow).toBeDefined()
     const flightRow = created2.db.select().from(flight).get()
     expect(invoiceRow?.flightId).toBe(flightRow?.id)
+  })
+
+  it('propagates a change created on a second profile back to a first, already-synced profile (reverse direction)', async () => {
+    // "profile A" pulls first so it has nothing yet; "profile B" is where the edit happens.
+    const dbB = createDb(':memory:')
+    migrate(dbB.db, { migrationsFolder: 'drizzle' })
+    const dbPathB = join(tempDir, 'profile-b.db')
+
+    createAircraft(dbB.db, { registration: 'G-REVB', icaoType: 'A321' })
+    const resultB = await runSync(dbB.db, server, SESSION, dbPathB)
+    expect(resultB.tables.aircraft.pushed).toBe(1)
+
+    // profile A (the suite's own `db`) had never seen this uuid before.
+    const resultA = await runSync(db, server, SESSION, dbPath)
+    expect(resultA.tables.aircraft.pulled).toBe(1)
+    const row = db.select().from(aircraft).where(eq(aircraft.registration, 'G-REVB')).get()
+    expect(row).toBeDefined()
+    expect(row?.icaoType).toBe('A321')
+  })
+
+  it('resolves a same-row conflict by last-write-wins on updatedAt, not by which profile happens to sync second', async () => {
+    // Both profiles start from the same already-synced aircraft row.
+    const created = createAircraft(db, { registration: 'G-ORIG', icaoType: 'A320' })
+    const firstSync = await runSync(db, server, SESSION, dbPath)
+    expect(firstSync.tables.aircraft.pushed).toBe(1)
+    const syncedUuid = db.select({ uuid: aircraft.uuid }).from(aircraft).where(eq(aircraft.id, created.id)).get()!.uuid as string
+
+    const dbB = createDb(':memory:')
+    migrate(dbB.db, { migrationsFolder: 'drizzle' })
+    const dbPathB = join(tempDir, 'profile-b-conflict.db')
+    await runSync(dbB.db, server, SESSION, dbPathB) // profile B pulls the same row
+
+    // Both profiles now edit the same uuid offline, before either syncs again. Profile B's
+    // edit is the chronologically later one (later updatedAt) — last-write-wins says B's
+    // registration should be the one that survives, regardless of sync order.
+    const baseline = firstSync.syncedAt
+    const olderEdit = new Date(new Date(baseline).getTime() + 1000).toISOString() // profile A
+    const newerEdit = new Date(new Date(baseline).getTime() + 5000).toISOString() // profile B
+
+    db.update(aircraft).set({ registration: 'G-FROM-A', updatedAt: olderEdit }).where(eq(aircraft.uuid, syncedUuid)).run()
+    dbB.db.update(aircraft).set({ registration: 'G-FROM-B', updatedAt: newerEdit }).where(eq(aircraft.uuid, syncedUuid)).run()
+
+    // Sync profile A first (pushes its older edit), then profile B (pulls A's edit, but
+    // must not let it clobber B's own, genuinely newer, unsynced edit).
+    await runSync(db, server, SESSION, dbPath)
+    const resultB = await runSync(dbB.db, server, SESSION, dbPathB)
+
+    // Profile B's local row must still read its own edit — not overwritten by the older
+    // pulled-in value from profile A.
+    const rowB = dbB.db.select().from(aircraft).where(eq(aircraft.uuid, syncedUuid)).get()
+    expect(rowB?.registration).toBe('G-FROM-B')
+    // The rejected pull must be visible/logged, not silently swallowed.
+    expect(resultB.tables.aircraft.rejected).toContain(syncedUuid)
+    const logB = readFileSync(join(dirname(dbPathB), 'sync-conflicts.log'), 'utf-8')
+    expect(logB).toContain(syncedUuid)
+    expect(logB).toContain('last-write-wins')
+
+    // Profile B's genuinely-newer edit must actually reach the server, not just survive
+    // locally — otherwise the next device to sync would never see it.
+    const serverRows = await server.syncPull(SESSION.email, SESSION.token, 'aircraft', null)
+    const serverRow = serverRows.find((r) => r.uuid === syncedUuid)
+    expect(serverRow).toBeDefined()
+    expect(JSON.parse(serverRow!.data)).toMatchObject({ registration: 'G-FROM-B' })
+
+    // And a later sync on profile A converges it onto B's winning edit.
+    await runSync(db, server, SESSION, dbPath)
+    const rowA = db.select().from(aircraft).where(eq(aircraft.uuid, syncedUuid)).get()
+    expect(rowA?.registration).toBe('G-FROM-B')
   })
 
   it('skips a landing whose parent flight has not been synced, without aborting the rest of the table', async () => {
