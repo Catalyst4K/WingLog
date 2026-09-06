@@ -5,9 +5,15 @@ import { signSimbriefRequest } from '../backend/backend-client'
 const SIMBRIEF_WORKER_URL = 'https://www.simbrief.com/ofp/ofp.loader.api.php'
 const SIMBRIEF_HOME_URL = 'https://www.simbrief.com/'
 
-// No "persist:" prefix — an in-memory session, shared across popups within one app run but
-// cleared on restart (docs/decisions.md: "login doesn't persist across a restart").
-const GENERATE_PARTITION = 'simbrief-generate'
+// "persist:" backs this partition with an on-disk store under userData, surviving app
+// restarts — Electron's own mechanism, not anything SimBrief-specific (docs/decisions.md,
+// flight-test-findings-2026-09-06.md #10). Whether SimBrief's own login cookie is
+// actually long-lived enough to still be valid after a restart is a separate question
+// this doesn't answer by itself — needs one real login/restart to confirm, tracked in
+// decisions.md rather than assumed here. Exported only so a test can assert the prefix
+// is actually there, since an accidental revert here would be silent otherwise (nothing
+// else would fail — SimBrief would just quietly stop persisting logins again).
+export const GENERATE_PARTITION = 'persist:simbrief-generate'
 
 // Only used as a stable, consistent input to the signing request and the submitted
 // `outputpage` field — nothing actually needs to be reachable at this address, since
