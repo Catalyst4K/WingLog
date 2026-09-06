@@ -535,6 +535,7 @@ export const IpcChannels = {
   dispatchLoginSimbrief: 'dispatch:login-simbrief',
   dispatchSimbriefLoginStatus: 'dispatch:simbrief-login-status',
   dispatchLogoutSimbrief: 'dispatch:logout-simbrief',
+  dispatchFetchSimbriefUsername: 'dispatch:fetch-simbrief-username',
   dispatchGenerationAvailable: 'dispatch:generation-available',
   settingsGetWeightUnit: 'settings:get-weight-unit',
   settingsSetWeightUnit: 'settings:set-weight-unit',
@@ -641,6 +642,12 @@ export interface FlightdeckApi {
   /** Clears the persisted generation session — see simbrief-generate.ts's
    *  logoutOfSimbrief. */
   dispatchLogoutSimbrief: () => Promise<void>
+  /** Reads the logged-in pilot's SimBrief username off their own account page — see
+   *  simbrief-generate.ts's fetchSimbriefUsername. Only meaningful once
+   *  dispatchSimbriefLoginStatus is true; returns null on anything unexpected rather than
+   *  throwing. Settings uses this to offer to fill the username field automatically
+   *  instead of requiring it be typed in — the field itself stays editable regardless. */
+  dispatchFetchSimbriefUsername: () => Promise<string | null>
   settingsGetWeightUnit: () => Promise<WeightUnit>
   settingsSetWeightUnit: (unit: WeightUnit) => Promise<void>
   settingsGetAltitudeUnit: () => Promise<AltitudeUnit>

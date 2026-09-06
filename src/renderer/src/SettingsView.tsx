@@ -129,7 +129,16 @@ export function SettingsView(props: {
     setLoggingIn(true)
     try {
       await window.flightdeck.dispatchLoginSimbrief()
-      setSimbriefLoggedIn(await window.flightdeck.dispatchSimbriefLoginStatus())
+      const loggedIn = await window.flightdeck.dispatchSimbriefLoginStatus()
+      setSimbriefLoggedIn(loggedIn)
+      if (loggedIn && !simbriefUsername.trim()) {
+        const fetched = await window.flightdeck.dispatchFetchSimbriefUsername()
+        if (fetched) {
+          setSimbriefUsername(fetched)
+          await window.flightdeck.settingsSetSimbriefUsername(fetched)
+          toast.success(`SimBrief username filled in automatically: ${fetched}`)
+        }
+      }
     } finally {
       setLoggingIn(false)
     }
