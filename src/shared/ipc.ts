@@ -317,6 +317,9 @@ export interface GsxRescanResult {
 export interface GsxSettings {
   enabled: boolean
   folderPath: string | null
+  // ISO 4217 code GSX totals are converted to and displayed in, via a live rate
+  // (fxGetRate) — 'USD' means no conversion, matching GSX's own totalUsd field verbatim.
+  displayCurrency: string
 }
 
 export interface LogbookImportSkip {
@@ -469,6 +472,20 @@ export interface DispatchOpenSimBriefParams {
   extra?: [string, string][]
 }
 
+/** Cloud sync's runtime status (flightdeck-backend/docs/plans/cloud-sync.md) — polled by
+ *  Settings' "Cloud sync" section rather than pushed, since a sync is infrequent and
+ *  short (launch + manual "Sync now"), not worth a dedicated push channel for. */
+export interface SyncStatus {
+  loggedIn: boolean
+  email: string | null
+  syncing: boolean
+  /** ISO 8601 UTC of the last sync that completed without throwing — individual tables
+   *  can still have skipped/rejected rows even when this is set; see lastError for
+   *  whether the run itself failed outright. */
+  lastSyncedAt: string | null
+  lastError: string | null
+}
+
 export const IpcChannels = {
   aircraftList: 'aircraft:list',
   aircraftCreate: 'aircraft:create',
@@ -519,7 +536,13 @@ export const IpcChannels = {
   aircraftTypeSearch: 'aircraft:type-search',
   airportSearch: 'airport:search',
   airlineSearch: 'airline:search',
-  weatherGetMetars: 'weather:get-metars'
+  airlineFindByIcao: 'airline:find-by-icao',
+  weatherGetMetars: 'weather:get-metars',
+  fxGetRate: 'fx:get-rate',
+  authLogin: 'auth:login',
+  authLogout: 'auth:logout',
+  syncNow: 'sync:now',
+  syncStatus: 'sync:status'
 } as const
 
 export interface FlightdeckApi {
@@ -628,7 +651,30 @@ export interface FlightdeckApi {
   airportSearch: (query: string) => Promise<AirportOption[]>
   /** Searches the vendored OpenFlights airline list. Empty for a query under 2 chars. */
   airlineSearch: (query: string) => Promise<AirlineOption[]>
+  /** Exact ICAO-code lookup against the same vendored airline list — for resolving an
+   *  airline already identified by its real ICAO code (e.g. from adsbdb), not a substring
+   *  search over a human-typed partial name. undefined if no exact match exists. */
+  airlineFindByIcao: (icao: string) => Promise<AirlineOption | undefined>
   /** Looks up current METARs for one or more ICAO codes. An unknown/non-reporting code
    *  is just absent from the result array, not an error. */
   weatherGetMetars: (icaoCodes: string[]) => Promise<MetarReport[]>
+  /** USD -> targetCurrency exchange rate for GSX total display, as of `date` (YYYY-MM-DD,
+   *  the receipt's issued date) rather than today's rate — omit `date` for the live rate.
+   *  null on any lookup failure (unsupported code, network error, future date) — the
+   *  caller falls back to USD. */
+  fxGetRate: (targetCurrency: string, date?: string) => Promise<number | null>
+  /** Cloud sync (flightdeck-backend/docs/plans/cloud-sync.md) — off by default until a
+   *  successful login. Throws on invalid credentials or an unreachable backend; a
+   *  successful login persists the session (Electron's safeStorage) so it survives a
+   *  restart without asking again. */
+  authLogin: (email: string, password: string) => Promise<SyncStatus>
+  /** "Log out this device" — the stored session is cleared locally regardless of whether
+   *  the backend round-trip to invalidate it server-side succeeds. */
+  authLogout: () => Promise<SyncStatus>
+  /** Triggers one pull-then-push cycle across all synced tables and returns the resulting
+   *  status. Throws only if not logged in; a network/server failure during the sync
+   *  itself surfaces via the returned status's lastError instead, so a single try/catch
+   *  isn't needed at every call site. */
+  syncNow: () => Promise<SyncStatus>
+  syncStatus: () => Promise<SyncStatus>
 }

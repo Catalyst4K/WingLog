@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "6ca10826-997b-461c-9034-cd1d60a6af6d",
-  "prevId": "0b2566af-1823-4772-9cb9-e86cafac2dd5",
+  "id": "4cea4f35-cec3-4929-8217-c2134352a225",
+  "prevId": "6ca10826-997b-461c-9034-cd1d60a6af6d",
   "tables": {
     "aircraft": {
       "name": "aircraft",
@@ -748,6 +748,14 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "mach_speed": {
+          "name": "mach_speed",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
         },
         "ground_speed_ms": {
           "name": "ground_speed_ms",

@@ -32,12 +32,44 @@ design docs (in `flightdeck-backend`, see above), not numbered milestones:
    questions), in `flightdeck-backend`'s `docs/plans/<name>.md` — before writing
    production code, same spike-first discipline as the M1/M6 rule below, generalised to
    any undocumented external system (a third-party API, an undocumented file format), not
-   just SimConnect. The `plan/<name>` feature branch itself is created and built in
-   *this* repo, exactly as always — only the design doc's location is different.
-3. One plan, one branch, one PR. Don't mix unrelated changes into a plan branch.
-4. Once a plan ships (its branch merges here), its design doc moves from
+   just SimConnect. The `plan/<name>` feature branch itself is created off `develop` (see
+   "Branching" below) and built in *this* repo, exactly as always — only the design doc's
+   location is different.
+3. One plan, one branch, one PR into `develop`. Don't mix unrelated changes into a plan
+   branch.
+4. A plan branch merging into `develop` is progress, not the finish line — its design doc
+   doesn't move yet, since `develop` can carry work that hasn't reached a release. A plan
+   only counts as shipped once `develop`'s changes actually reach `main` on a release cut
+   (see "Branching" below); that's the point its design doc moves from
    `flightdeck-backend/docs/plans/` to nowhere — it just stays there, done. Nothing about
    a shipped plan's doc needs to come back to this repo.
+
+## Branching
+
+Adopted 2026-09-04 (`flightdeck-backend`'s `docs/decisions.md` has the full reasoning) to
+keep `main` a clean release history instead of every finished plan landing on it
+individually:
+
+- **`main`** — releases only. Requires a pull request to merge into (still solo: 0
+  required approvals, so merging your own PR is enough) and is protected against
+  force-push/deletion, same as before. The only things that should ever merge into `main`
+  are `develop` or `fixes`, batched up as a release.
+- **`develop`** — where finished feature work lands first. Every `plan/<name>` branch
+  targets `develop`, not `main`. Direct pushes/merges into `develop` are still fine (no
+  required PR there) — that's the low-friction, solo-dev workflow this project has always
+  used, just one branch removed from `main` now.
+- **`fixes`** — the equivalent branch for bug fixes: a `fix/<name>` branch per fix,
+  targeting `fixes`, same direct-push workflow as `develop`. Kept separate from `develop`
+  so a batch of bug fixes can go out as its own release without waiting on whatever
+  feature work happens to be in flight on `develop`.
+- **Cutting a release** means opening a PR from `develop` (or `fixes`) into `main` once a
+  meaningful batch is ready, merging it, and *then* moving every plan doc that just
+  reached `main` out of `flightdeck-backend/docs/plans/`, per step 4 above. Tag the merge
+  commit on `main` if it corresponds to a version bump.
+- Plan branches already open before this date (`plan/backend-service`,
+  `plan/sid-star-selection`) were **not** retargeted onto `develop` — not worth the churn
+  mid-flight. They still merge straight into `main` (via a PR, now required) when done.
+  Every plan branch created from here on targets `develop`.
 
 The M1/M6 rule generalises: for anything depending on a real external system whose
 behaviour isn't documented — SimConnect, SimBrief's JSON schema, GSX's receipt files, a
@@ -158,12 +190,16 @@ rather than assuming there isn't one:
   from the other repo.
 
 For the repo itself, these are worth having on and are free for public repos: Dependabot
-alerts, secret scanning with push protection, and branch protection on `main` blocking
-force-push and branch deletion (deliberately *not* requiring a PR — this is developed
-solo, pushing directly from more than one machine; see `scripts/github-repo-security.sh`
-for why that's a considered choice, not an oversight). Note that GitHub Actions workflows
-here run on `pull_request` from forks — never add a workflow that exposes secrets to fork
-PRs (`pull_request_target` with a checkout of the PR head is the classic mistake).
+alerts, secret scanning with push protection, and branch protection on `main`, `develop`
+and `fixes` blocking force-push and branch deletion. `main` also requires a pull request
+to merge into it (0 required approvals — still solo, just a forced PR+diff step instead
+of a plain push), matching the branching model above; `develop`/`fixes` deliberately don't
+require a PR, since that's where day-to-day `plan/<name>`/`fix/<name>` branches merge and
+this is developed solo, pushing directly from more than one machine — see
+`scripts/github-repo-security.sh` for the full rationale on both. Note that GitHub Actions
+workflows here run on `pull_request` from forks — never add a workflow that exposes
+secrets to fork PRs (`pull_request_target` with a checkout of the PR head is the classic
+mistake).
 
 If you find something, say so plainly and fix it or flag it — don't quietly work around it.
 

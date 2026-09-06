@@ -8,6 +8,7 @@ const WEIGHT_UNIT_KEY = 'weightUnit'
 const ALTITUDE_UNIT_KEY = 'altitudeUnit'
 const GSX_ENABLED_KEY = 'gsxEnabled'
 const GSX_FOLDER_PATH_KEY = 'gsxFolderPath'
+const GSX_DISPLAY_CURRENCY_KEY = 'gsxDisplayCurrency'
 const FIRM_LANDING_FPM_KEY = 'firmLandingFpm'
 const HARD_LANDING_FPM_KEY = 'hardLandingFpm'
 
@@ -59,12 +60,17 @@ export function setAltitudeUnit(db: FlightdeckDb, unit: AltitudeUnit): void {
  *  should never see anything from this feature, so it stays opt-in rather than trying to
  *  auto-detect-and-enable. */
 export function getGsxSettings(db: FlightdeckDb): GsxSettings {
-  return { enabled: getSetting(db, GSX_ENABLED_KEY) === '1', folderPath: getSetting(db, GSX_FOLDER_PATH_KEY) || null }
+  return {
+    enabled: getSetting(db, GSX_ENABLED_KEY) === '1',
+    folderPath: getSetting(db, GSX_FOLDER_PATH_KEY) || null,
+    displayCurrency: getSetting(db, GSX_DISPLAY_CURRENCY_KEY) || 'USD'
+  }
 }
 
 export function setGsxSettings(db: FlightdeckDb, settings: GsxSettings): void {
   setSetting(db, GSX_ENABLED_KEY, settings.enabled ? '1' : '0')
   setSetting(db, GSX_FOLDER_PATH_KEY, settings.folderPath ?? '')
+  setSetting(db, GSX_DISPLAY_CURRENCY_KEY, settings.displayCurrency || 'USD')
 }
 
 export function getLandingThresholds(db: FlightdeckDb): LandingThresholds {
@@ -79,4 +85,16 @@ export function getLandingThresholds(db: FlightdeckDb): LandingThresholds {
 export function setLandingThresholds(db: FlightdeckDb, thresholds: LandingThresholds): void {
   setSetting(db, FIRM_LANDING_FPM_KEY, String(thresholds.firmFpm))
   setSetting(db, HARD_LANDING_FPM_KEY, String(thresholds.hardFpm))
+}
+
+/** Per-table sync cursor (flightdeck-backend/docs/plans/cloud-sync.md's pull-then-push
+ *  protocol) — null means "never synced", so a pull fetches everything and a push sends
+ *  every local row. Updated only after both directions succeed for a sync run, so a
+ *  failed sync retries cleanly rather than marking partial progress as done. */
+export function getLastSyncedAt(db: FlightdeckDb, table: string): string | null {
+  return getSetting(db, `lastSyncedAt:${table}`) ?? null
+}
+
+export function setLastSyncedAt(db: FlightdeckDb, table: string, isoTimestamp: string): void {
+  setSetting(db, `lastSyncedAt:${table}`, isoTimestamp)
 }

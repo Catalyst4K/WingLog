@@ -10,13 +10,18 @@
 #
 # Safe to re-run — every call is idempotent.
 #
-# Deliberately NOT enabled here: required pull requests and required status checks on
-# main. Both block *direct pushes* to a protected branch, and this project is developed
-# solo across two machines that push straight to main. The protection below stops the
-# thing that would actually hurt — history being destroyed — without adding friction to
-# the normal workflow. If the project ever takes outside contributions, revisit: at that
-# point requiring a PR is the right call, not least because CONTRIBUTING.md's inbound
-# licence terms need a place to be agreed to.
+# main now requires a pull request to merge into (2026-09-04, CLAUDE.md's branching
+# section) — the develop/fixes branch model this repo moved to means main should only
+# ever receive a release-cut merge from develop or fixes, and a required PR is what
+# actually makes that a technical gate instead of just a habit to remember. Still solo:
+# required_approving_review_count is 0, so no one else's sign-off is needed, just a PR to
+# merge through rather than a plain push. develop and fixes stay on the old model (direct
+# pushes/merges allowed, no required PR) — that's where day-to-day plan/<name> and
+# fix/<name> branches land, and forcing a PR for every one of those would add exactly the
+# friction the original rationale here was written to avoid. If the project ever takes
+# outside contributions, revisit develop/fixes too: at that point requiring reviewed PRs
+# there is the right call, not least because CONTRIBUTING.md's inbound licence terms need
+# a place to be agreed to.
 
 set -euo pipefail
 
@@ -67,10 +72,29 @@ echo "· Private vulnerability reporting"
 gh api -X PUT "repos/$REPO/private-vulnerability-reporting" --silent
 
 # --- Branch protection on main ----------------------------------------------------------
-# No force pushes, no branch deletion. enforce_admins stays false so the owner keeps an
-# escape hatch; the point is to prevent an accident, not to lock anyone out.
-echo "· Branch protection on main (block force-push and deletion)"
+# No force pushes, no branch deletion, and now a required PR to merge into it at all (see
+# the note above) — but required_approving_review_count 0, so merging your own PR is
+# still enough. enforce_admins stays false so the owner keeps an escape hatch; the point
+# is to prevent an accident and enforce "only develop/fixes lands on main", not to lock
+# anyone out.
+echo "· Branch protection on main (require a PR, block force-push and deletion)"
 gh api -X PUT "repos/$REPO/branches/main/protection" --silent --input - <<'JSON'
+{
+  "required_status_checks": null,
+  "enforce_admins": false,
+  "required_pull_request_reviews": { "required_approving_review_count": 0 },
+  "restrictions": null,
+  "allow_force_pushes": false,
+  "allow_deletions": false
+}
+JSON
+
+# --- Branch protection on develop and fixes ----------------------------------------------
+# Same force-push/deletion protection as main, but no required PR — these are where
+# plan/<name> and fix/<name> branches merge day to day, still via direct push/merge.
+for branch in develop fixes; do
+  echo "· Branch protection on $branch (block force-push and deletion)"
+  gh api -X PUT "repos/$REPO/branches/$branch/protection" --silent --input - <<'JSON'
 {
   "required_status_checks": null,
   "enforce_admins": false,
@@ -80,6 +104,7 @@ gh api -X PUT "repos/$REPO/branches/main/protection" --silent --input - <<'JSON'
   "allow_deletions": false
 }
 JSON
+done
 
 # --- Housekeeping -----------------------------------------------------------------------
 echo "· Delete head branches after merge"
@@ -97,5 +122,12 @@ gh api "repos/$REPO" \
   secret scanning:   \(.security_and_analysis.secret_scanning.status)
   push protection:   \(.security_and_analysis.secret_scanning_push_protection.status)"'
 gh api "repos/$REPO/branches/main/protection" \
-  --jq '"  force pushes:      \(.allow_force_pushes.enabled)
-  deletions:         \(.allow_deletions.enabled)"'
+  --jq '"  main force pushes: \(.allow_force_pushes.enabled)
+  main deletions:    \(.allow_deletions.enabled)
+  main required PR:  \(.required_pull_request_reviews != null)"'
+for branch in develop fixes; do
+  echo "  $branch:"
+  gh api "repos/$REPO/branches/$branch/protection" \
+    --jq '"    force pushes:    \(.allow_force_pushes.enabled)
+    deletions:       \(.allow_deletions.enabled)"'
+done

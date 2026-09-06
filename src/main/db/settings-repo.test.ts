@@ -3,9 +3,11 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb, type FlightdeckDb } from './client'
 import {
   getAltitudeUnit,
+  getGsxSettings,
   getSetting,
   getSimbriefUsername,
   setAltitudeUnit,
+  setGsxSettings,
   setSetting,
   setSimbriefUsername
 } from './settings-repo'
@@ -49,5 +51,14 @@ describe('settings repo', () => {
     expect(getAltitudeUnit(db)).toBe('m')
     setAltitudeUnit(db, 'hybrid')
     expect(getAltitudeUnit(db)).toBe('hybrid')
+  })
+
+  it('defaults GSX settings to disabled, no folder, USD display', () => {
+    expect(getGsxSettings(db)).toEqual({ enabled: false, folderPath: null, displayCurrency: 'USD' })
+  })
+
+  it('round-trips GSX settings including display currency', () => {
+    setGsxSettings(db, { enabled: true, folderPath: 'C:\\GSX\\Receipts', displayCurrency: 'GBP' })
+    expect(getGsxSettings(db)).toEqual({ enabled: true, folderPath: 'C:\\GSX\\Receipts', displayCurrency: 'GBP' })
   })
 })
