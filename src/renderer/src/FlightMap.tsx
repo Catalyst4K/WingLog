@@ -153,7 +153,18 @@ export function FlightMap({
         container: mapContainerRef.current,
         style: MAP_STYLE,
         center: [0, 0],
-        zoom: 1
+        zoom: 1,
+        // Left at its default, the attribution control decides compact-vs-full by
+        // measuring its container once at construction — before this component's own
+        // container has necessarily settled to its final size — then measures again once
+        // MapLibre's internal ResizeObserver reports the real size, which can flip it
+        // from collapsed to expanded a moment later. Confirmed live via the real Layout
+        // Instability API (flight-test-findings-2026-09-06.md #2): exactly that
+        // collapsed-then-expanded transition, `.maplibregl-ctrl-bottom-right` jumping
+        // from a ~106px icon to a ~430px full attribution bar. `compact: false` forces
+        // the control to always render expanded, so there's no first-measurement-vs-
+        // real-measurement gap left for it to visibly jump across.
+        attributionControl: { compact: false }
       })
       mapRef.current = map
 
