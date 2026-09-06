@@ -8,14 +8,17 @@ import { getGsxSettings, hasCheckedGsxFirstLaunch, setGsxSettings } from '../db/
 import { checkGsxFirstLaunch } from './first-launch-check'
 
 // defaultGsxReceiptsPath (gsx/default-path.ts) reads process.env.APPDATA directly and
-// only resolves on win32 (the platform these tests already run on, per CLAUDE.md's
-// Electron-as-Node test runner) — overriding APPDATA to a real temp dir, then creating or
-// not creating the exact subpath it builds, exercises both branches against the real
-// filesystem rather than mocking the module.
+// only resolves on win32 — overriding APPDATA to a real temp dir, then creating or not
+// creating the exact subpath it builds, exercises both branches against the real
+// filesystem rather than mocking the module. process.platform is forced to 'win32' too:
+// `npm test` normally runs on Windows locally (CLAUDE.md's Electron-as-Node runner), but
+// CI's build job runs on ubuntu-latest, where the real platform check would silently
+// short-circuit every case here to "not found" regardless of APPDATA.
 describe('checkGsxFirstLaunch', () => {
   let db: FlightdeckDb
   let tempDir: string
   let originalAppData: string | undefined
+  let originalPlatform: NodeJS.Platform
 
   beforeEach(() => {
     const created = createDb(':memory:')
@@ -24,11 +27,14 @@ describe('checkGsxFirstLaunch', () => {
     tempDir = mkdtempSync(join(tmpdir(), 'flightdeck-gsx-first-launch-'))
     originalAppData = process.env.APPDATA
     process.env.APPDATA = tempDir
+    originalPlatform = process.platform
+    Object.defineProperty(process, 'platform', { value: 'win32' })
   })
 
   afterEach(() => {
     if (originalAppData === undefined) delete process.env.APPDATA
     else process.env.APPDATA = originalAppData
+    Object.defineProperty(process, 'platform', { value: originalPlatform })
     rmSync(tempDir, { recursive: true, force: true })
   })
 
