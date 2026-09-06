@@ -21,6 +21,8 @@ const api: FlightdeckApi = {
   aircraftCreate: (aircraft: NewAircraft) => ipcRenderer.invoke(IpcChannels.aircraftCreate, aircraft),
   aircraftUpdate: (aircraft: AircraftUpdate) => ipcRenderer.invoke(IpcChannels.aircraftUpdate, aircraft),
   aircraftDelete: (id: number) => ipcRenderer.invoke(IpcChannels.aircraftDelete, id),
+  aircraftReplace: (retiredId: number, replacementId: number) =>
+    ipcRenderer.invoke(IpcChannels.aircraftReplace, retiredId, replacementId),
   aircraftImport: () => ipcRenderer.invoke(IpcChannels.aircraftImport),
   aircraftExport: () => ipcRenderer.invoke(IpcChannels.aircraftExport),
   getSimConnectionStatus: () => ipcRenderer.invoke(IpcChannels.simConnectionStatusGet),

@@ -30,6 +30,11 @@ export interface Aircraft {
   simbriefType: string | null
   currentIcao: string | null
   createdAt: string
+  /** Set once this aircraft has been replaced by another (docs/plans/aircraft-replacement.md)
+   *  — the id of the aircraft its flight history now lives under. Null means active/
+   *  selectable; anywhere an aircraft is picked (Dispatch's aircraft select, "new flight"
+   *  flows) should filter these out — a retired aircraft has no flights of its own left. */
+  replacedByAircraftId: number | null
 }
 
 export interface NewAircraft {
@@ -519,6 +524,7 @@ export const IpcChannels = {
   aircraftCreate: 'aircraft:create',
   aircraftUpdate: 'aircraft:update',
   aircraftDelete: 'aircraft:delete',
+  aircraftReplace: 'aircraft:replace',
   aircraftImport: 'aircraft:import',
   aircraftExport: 'aircraft:export',
   simTelemetry: 'sim:telemetry',
@@ -586,6 +592,14 @@ export interface FlightdeckApi {
   aircraftCreate: (aircraft: NewAircraft) => Promise<Aircraft>
   aircraftUpdate: (aircraft: AircraftUpdate) => Promise<Aircraft>
   aircraftDelete: (id: number) => Promise<void>
+  /**
+   * Reassigns every flight from `retiredId` onto `replacementId` and marks `retiredId`
+   * retired (docs/plans/aircraft-replacement.md) — for a livery/registration change on an
+   * airframe still being flown, not a genuine retirement (which needs no special handling:
+   * just stop selecting the old aircraft). Both steps happen in one transaction. Throws if
+   * the two ids match, either aircraft doesn't exist, or `retiredId` is already retired.
+   */
+  aircraftReplace: (retiredId: number, replacementId: number) => Promise<void>
   /** Opens a native file-open dialog in the main process; null if the user cancels. */
   aircraftImport: () => Promise<AircraftImportSummary | null>
   /** Opens a native file-save dialog in the main process; false if the user cancels. */

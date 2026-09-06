@@ -25,6 +25,7 @@ import {
   deleteAircraft,
   getAircraftByRegistration,
   listAircraft,
+  replaceAircraft,
   updateAircraft
 } from './db/aircraft-repo'
 import { parseAircraftInput } from './db/aircraft-validation'
@@ -131,6 +132,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle(IpcChannels.aircraftDelete, (_event, id: number) => {
     deleteAircraft(db, id)
+  })
+
+  ipcMain.handle(IpcChannels.aircraftReplace, (_event, retiredId: number, replacementId: number) => {
+    replaceAircraft(db, { retiredId, replacementId })
   })
 
   ipcMain.handle(IpcChannels.aircraftImport, () => importAircraft(db, window))
