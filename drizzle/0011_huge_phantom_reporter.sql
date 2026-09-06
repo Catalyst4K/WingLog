@@ -1,0 +1,1 @@
+ALTER TABLE `track_point` ADD `mach_speed` real DEFAULT 0 NOT NULL;

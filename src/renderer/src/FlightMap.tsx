@@ -46,6 +46,14 @@ function ensureWorkerReady(): Promise<void> {
 const MAP_STYLE = 'https://tiles.openfreemap.org/styles/positron'
 const ROUTE_SOURCE_ID = 'planned-route'
 const TRAIL_SOURCE_ID = 'breadcrumb-trail'
+// The per-frame animation below used to resend the *entire* trail (every committed point
+// plus the interpolated tip) to maplibre on every one of ~60 animation frames per sample —
+// cost that grows with flight length, since priorCoords keeps getting longer all flight.
+// Splitting the animating segment into its own tiny 2-point source means each frame only
+// ever touches a constant-size payload; TRAIL_SOURCE_ID itself is only rewritten once per
+// real sample (not once per frame). Same paint style as the main trail so the two read as
+// one continuous line.
+const TRAIL_TIP_SOURCE_ID = 'breadcrumb-trail-tip'
 const WAYPOINT_SOURCE_ID = 'planned-waypoints'
 // Regional view — wide enough that the aircraft doesn't outrun the viewport between
 // track points (zoom 13 was street-level, well under a minute of flight across it).
@@ -145,7 +153,18 @@ export function FlightMap({
         container: mapContainerRef.current,
         style: MAP_STYLE,
         center: [0, 0],
-        zoom: 1
+        zoom: 1,
+        // Left at its default, the attribution control decides compact-vs-full by
+        // measuring its container once at construction — before this component's own
+        // container has necessarily settled to its final size — then measures again once
+        // MapLibre's internal ResizeObserver reports the real size, which can flip it
+        // from collapsed to expanded a moment later. Confirmed live via the real Layout
+        // Instability API (flight-test-findings-2026-09-06.md #2): exactly that
+        // collapsed-then-expanded transition, `.maplibregl-ctrl-bottom-right` jumping
+        // from a ~106px icon to a ~430px full attribution bar. `compact: false` forces
+        // the control to always render expanded, so there's no first-measurement-vs-
+        // real-measurement gap left for it to visibly jump across.
+        attributionControl: { compact: false }
       })
       mapRef.current = map
 
@@ -168,6 +187,14 @@ export function FlightMap({
           id: TRAIL_SOURCE_ID,
           type: 'line',
           source: TRAIL_SOURCE_ID,
+          paint: { 'line-color': '#1a73e8', 'line-width': 3 }
+        })
+
+        map.addSource(TRAIL_TIP_SOURCE_ID, { type: 'geojson', data: lineString([]) })
+        map.addLayer({
+          id: TRAIL_TIP_SOURCE_ID,
+          type: 'line',
+          source: TRAIL_TIP_SOURCE_ID,
           paint: { 'line-color': '#1a73e8', 'line-width': 3 }
         })
 
@@ -270,11 +297,13 @@ export function FlightMap({
     if (!mapReady || !mapRef.current || !live) return
 
     const to = trackPoints[trackPoints.length - 1]
+    const tipSource = mapRef.current.getSource<GeoJSONSource>(TRAIL_TIP_SOURCE_ID)
     if (!to) {
       // No points to show (e.g. the flight was just cancelled, finished, or auto-
-      // completed) — clear the trail and pull the marker off the map rather than leaving
-      // the last-drawn position stuck there indefinitely.
+      // completed) — clear both trail sources and pull the marker off the map rather than
+      // leaving the last-drawn position stuck there indefinitely.
       mapRef.current.getSource<GeoJSONSource>(TRAIL_SOURCE_ID)?.setData(lineString([]))
+      tipSource?.setData(lineString([]))
       if (markerRef.current?.getElement().isConnected) markerRef.current.remove()
       hasCenteredRef.current = false
       return
@@ -289,9 +318,8 @@ export function FlightMap({
     }
 
     const source = mapRef.current.getSource<GeoJSONSource>(TRAIL_SOURCE_ID)
-    // Everything except the still-animating final leg — the tip is drawn per-frame below,
-    // in lockstep with the marker, so the line never gets ahead of where the icon has
-    // actually animated to.
+    // Everything except the still-animating final leg — set once per real sample here, not
+    // once per animation frame below, so this payload never grows on the frame's own cost.
     const priorCoords: [number, number][] = trackPoints.slice(0, -1).map((p) => [p.longitude, p.latitude])
 
     if (!hasCenteredRef.current) {
@@ -301,6 +329,7 @@ export function FlightMap({
       // catching up on a whole batch of history from a resumed in-progress flight.
       hasCenteredRef.current = true
       source?.setData(lineString([...priorCoords, [to.longitude, to.latitude]]))
+      tipSource?.setData(lineString([]))
       markerRef.current.setLngLat([to.longitude, to.latitude])
       markerRef.current.setRotation(to.headingTrueDeg)
       if (followEnabled) mapRef.current.jumpTo({ center: [to.longitude, to.latitude], zoom: FOLLOW_ZOOM })
@@ -310,11 +339,15 @@ export function FlightMap({
     const from = trackPoints[trackPoints.length - 2]
     if (!from) {
       source?.setData(lineString([...priorCoords, [to.longitude, to.latitude]]))
+      tipSource?.setData(lineString([]))
       markerRef.current.setLngLat([to.longitude, to.latitude])
       markerRef.current.setRotation(to.headingTrueDeg)
       if (followEnabled) mapRef.current.easeTo({ center: [to.longitude, to.latitude], duration: 500 })
       return
     }
+
+    // The committed trail is done for this sample — write it once, here, not per frame.
+    source?.setData(lineString(priorCoords))
 
     // Rotation shows the plane's actual nose heading (not the ground track the marker is
     // animating along) — the gap between the two through a turn or in a crosswind is
@@ -330,6 +363,7 @@ export function FlightMap({
       Math.max(new Date(to.tsUtc).getTime() - new Date(from.tsUtc).getTime(), 200),
       20000
     )
+    const fromCoord: [number, number] = [from.longitude, from.latitude]
     const startTime = performance.now()
     let frame = requestAnimationFrame(function step(now) {
       const t = Math.min((now - startTime) / durationMs, 1)
@@ -337,7 +371,9 @@ export function FlightMap({
       const lat = from.latitude + (to.latitude - from.latitude) * t
       markerRef.current?.setLngLat([lng, lat])
       markerRef.current?.setRotation(from.headingTrueDeg + headingDelta * t)
-      source?.setData(lineString([...priorCoords, [lng, lat]]))
+      // Constant-size payload (2 points) every frame, regardless of flight length — this
+      // is the only thing redrawn at animation rate; the long-lived trail above isn't.
+      tipSource?.setData(lineString([fromCoord, [lng, lat]]))
       if (t < 1) frame = requestAnimationFrame(step)
     })
     if (followEnabled) mapRef.current.easeTo({ center: [to.longitude, to.latitude], duration: durationMs })

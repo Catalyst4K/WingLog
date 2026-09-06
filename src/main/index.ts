@@ -13,8 +13,9 @@ import {
 } from '@shared/ipc'
 import { fetchAircraftByRegistration } from './aircraft-lookup/adsbdb-client'
 import { searchAircraftTypes } from './aircraft-lookup/icao-types'
-import { searchAirlines } from './airlines/airline-search'
+import { findAirlineByIcao, searchAirlines } from './airlines/airline-search'
 import { fetchMetars } from './weather/metar-client'
+import { fetchExchangeRate } from './fx/fx-client'
 import { searchAirports } from './airports/airport-search'
 import { createDb } from './db/client'
 import { migrateDb } from './db/migrate'
@@ -32,6 +33,7 @@ import {
   abandonAllPlanned,
   abandonFlight,
   createFlight,
+  deleteFlight,
   getFleetStats,
   listCompletedFlights,
   listFlights
@@ -51,6 +53,7 @@ import {
   setWeightUnit
 } from './db/settings-repo'
 import { listTrackPoints } from './db/track-point-repo'
+import { simplifyTrackPoints } from './tracking/track-simplify'
 import { defaultGsxReceiptsPath } from './gsx/default-path'
 import { buildFlightMatchWindow } from './gsx/flight-window'
 import { readReceipt, receiptFileFromPath, scanGsxFolder } from './gsx/scan'
@@ -59,6 +62,7 @@ import { generateOfp, loginToSimbrief } from './simbrief/simbrief-generate'
 import { SimConnectService } from './sim/SimConnectService'
 import { TrackingController } from './tracking/TrackingController'
 import { AutoStartDetector } from './tracking/AutoStartDetector'
+import { CloudSyncController } from './sync/cloud-sync-controller'
 
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
@@ -269,7 +273,13 @@ app.whenReady().then(() => {
   ipcMain.handle(IpcChannels.trackingStop, () => trackingController.stop())
   ipcMain.handle(IpcChannels.trackingFinish, () => trackingController.finish())
   ipcMain.handle(IpcChannels.trackingGetActive, () => trackingController.getActive() ?? null)
-  ipcMain.handle(IpcChannels.trackPointList, (_event, flightId: number) => listTrackPoints(db, flightId))
+  // Simplified for both callers (Logbook review and TrackView's resume-an-in-progress-
+  // flight catch-up load) — storage itself stays full resolution regardless, this only
+  // shapes what crosses IPC and gets rendered. Live tracking's own point-by-point stream
+  // (the 'point' event below) is completely separate and unaffected.
+  ipcMain.handle(IpcChannels.trackPointList, (_event, flightId: number) =>
+    simplifyTrackPoints(listTrackPoints(db, flightId))
+  )
 
   // Only one flight is ever meant to be "in progress" (planned or active) at once —
   // pressing "Fly" on a new plan replaces whatever was already planned or being tracked,
@@ -284,6 +294,12 @@ app.whenReady().then(() => {
   ipcMain.handle(IpcChannels.flightCancel, (_event, id: number) => {
     abandonFlight(db, id)
     autoStartDetector.disarm()
+  })
+  ipcMain.handle(IpcChannels.flightDelete, (_event, id: number) => {
+    // Refuse to delete the flight currently being tracked out from under
+    // TrackingController — stop() (same path flightCancel uses) first if it's the one.
+    if (trackingController.getActive()?.flightId === id) trackingController.stop()
+    deleteFlight(db, id)
   })
 
   ipcMain.handle(IpcChannels.logbookListCompletedFlights, () => listCompletedFlights(db))
@@ -349,7 +365,20 @@ app.whenReady().then(() => {
   ipcMain.handle(IpcChannels.aircraftTypeSearch, (_event, query: string) => searchAircraftTypes(query))
   ipcMain.handle(IpcChannels.airportSearch, (_event, query: string) => searchAirports(query))
   ipcMain.handle(IpcChannels.airlineSearch, (_event, query: string) => searchAirlines(query))
+  ipcMain.handle(IpcChannels.airlineFindByIcao, (_event, icao: string) => findAirlineByIcao(icao))
   ipcMain.handle(IpcChannels.weatherGetMetars, (_event, icaoCodes: string[]) => fetchMetars(icaoCodes))
+  ipcMain.handle(IpcChannels.fxGetRate, (_event, targetCurrency: string, date?: string) =>
+    fetchExchangeRate(targetCurrency, date)
+  )
+
+  // Cloud sync (flightdeck-backend/docs/plans/cloud-sync.md) — off by default; nothing
+  // above this point depends on it, and it's the only feature in the app that talks to
+  // flightdeck-backend for anything beyond the stateless SimBrief signing route.
+  const cloudSync = new CloudSyncController(db, dbPath, app.getPath('userData'))
+  ipcMain.handle(IpcChannels.authLogin, (_event, email: string, password: string) => cloudSync.login(email, password))
+  ipcMain.handle(IpcChannels.authLogout, () => cloudSync.logout())
+  ipcMain.handle(IpcChannels.syncNow, () => cloudSync.syncNow())
+  ipcMain.handle(IpcChannels.syncStatus, () => cloudSync.getStatus())
 
   // CI packaging check (see .github/workflows/package.yml): proves the built
   // binary launches, migrates the DB and renders a first frame, then exits

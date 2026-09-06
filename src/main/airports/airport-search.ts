@@ -49,8 +49,12 @@ export function searchAirportList(airports: AirportOption[], query: string): Air
   return results
 }
 
-const ALL_AIRPORTS = loadAirports(airportsRaw)
+// Parsed on first search, not at module load — ~43,400 rows is a real chunk of main-
+// process heap (docs/decisions.md, memory-usage entry) that a session never touching
+// Dispatch's airport search has no reason to pay for.
+let allAirports: AirportOption[] | null = null
 
 export function searchAirports(query: string): AirportOption[] {
-  return searchAirportList(ALL_AIRPORTS, query)
+  allAirports ??= loadAirports(airportsRaw)
+  return searchAirportList(allAirports, query)
 }

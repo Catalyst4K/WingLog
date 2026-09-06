@@ -71,6 +71,20 @@
       "when": 1788454359709,
       "tag": "0009_youthful_reptil",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1788564785226,
+      "tag": "0010_aspiring_george_stacy",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1788608004916,
+      "tag": "0011_huge_phantom_reporter",
+      "breakpoints": true
     }
   ]
 }

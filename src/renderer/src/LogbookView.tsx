@@ -10,10 +10,21 @@ import {
   XAxis,
   YAxis
 } from 'recharts'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 import type { Aircraft, Flight, Landing, TrackPoint, WeightUnit } from '@shared/ipc'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -40,6 +51,10 @@ const CHART_TOOLTIP_STYLE = {
   color: 'var(--color-popover-foreground)',
   fontSize: '0.8rem'
 }
+// Past this, a minutes axis on a long-haul chart reads as a wall of three-digit ticks
+// (e.g. "540 min") — hours read at a glance instead. Below it, a short flight's duration
+// in hours would round to one or two ticks total, which is worse than minutes, not better.
+const HOURS_AXIS_THRESHOLD_MIN = 90
 
 function formatMinutes(min: number | null): string {
   if (min == null) return '—'
@@ -80,7 +95,7 @@ function LandingCard(props: { flightId: number }): React.JSX.Element | null {
   const severity = classifyLanding(landing.verticalSpeedMs, thresholds)
 
   return (
-    <Card className="max-w-2xl">
+    <Card className="min-w-72 flex-1">
       <CardHeader>
         <CardTitle className="text-sm">Landing</CardTitle>
       </CardHeader>
@@ -129,9 +144,22 @@ function FlightDetail(props: {
   aircraft: Aircraft | undefined
   weightUnit: WeightUnit
   onBack: () => void
+  onDeleted: () => void
 }): React.JSX.Element {
   const { flight, aircraft, weightUnit } = props
   const [trackPoints, setTrackPoints] = useState<TrackPoint[]>([])
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+
+  async function handleConfirmDelete(): Promise<void> {
+    setConfirmingDelete(false)
+    try {
+      await window.flightdeck.flightDelete(flight.id)
+      props.onDeleted()
+      toast.success('Flight deleted.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    }
+  }
 
   useEffect(() => {
     window.flightdeck.trackPointList(flight.id).then(setTrackPoints)
@@ -141,12 +169,31 @@ function FlightDetail(props: {
   const waypoints = useMemo(() => parseWaypointsFromOfpJson(flight.ofpJson), [flight.ofpJson])
 
   // Elapsed minutes since the first sample reads better on a chart than raw timestamps.
-  const startMs = trackPoints.length ? new Date(trackPoints[0].tsUtc).getTime() : 0
-  const profile = trackPoints.map((p) => ({
-    tMin: Math.round(((new Date(p.tsUtc).getTime() - startMs) / 60000) * 10) / 10,
-    altFt: Math.round(mToFt(p.altitudeM)),
-    iasKt: Math.round(msToKt(p.indicatedAirspeedMs))
-  }))
+  // Memoized like route/waypoints above — trackPoints only actually changes once, when
+  // the fetch above resolves, so recomputing this on every unrelated re-render was pure
+  // waste (previously not memoized at all, unlike its siblings here).
+  const profile = useMemo(() => {
+    const startMs = trackPoints.length ? new Date(trackPoints[0].tsUtc).getTime() : 0
+    return trackPoints.map((p) => {
+      const tMin = (new Date(p.tsUtc).getTime() - startMs) / 60000
+      return {
+        tMin: Math.round(tMin * 10) / 10,
+        tHr: Math.round((tMin / 60) * 100) / 100,
+        altFt: Math.round(mToFt(p.altitudeM)),
+        iasKt: Math.round(msToKt(p.indicatedAirspeedMs)),
+        mach: Math.round(p.machSpeed * 100) / 100
+      }
+    })
+  }, [trackPoints])
+
+  // A long-haul's duration reads better in hours than as a three/four-digit minutes axis
+  // — see HOURS_AXIS_THRESHOLD_MIN above.
+  const useHoursAxis = (profile.at(-1)?.tMin ?? 0) > HOURS_AXIS_THRESHOLD_MIN
+  const timeAxisKey = useHoursAxis ? 'tHr' : 'tMin'
+  const timeAxisUnit = useHoursAxis ? ' hr' : ' min'
+
+  const [speedMode, setSpeedMode] = useState<'ias' | 'mach'>('ias')
+  const speedDataKey = speedMode === 'ias' ? 'iasKt' : 'mach'
 
   // Only meaningful for flights dispatched with a planned fuel figure (SimBrief OFP) —
   // ad-hoc flights created directly from the Track view have no fuelPlannedKg.
@@ -160,28 +207,38 @@ function FlightDetail(props: {
 
   return (
     <div className="flex flex-col gap-4">
-      <Button type="button" variant="ghost" size="sm" onClick={props.onBack} className="w-fit">
-        <ArrowLeft />
-        Back to logbook
-      </Button>
+      <div className="flex items-center justify-between">
+        <Button type="button" variant="ghost" size="sm" onClick={props.onBack} className="w-fit">
+          <ArrowLeft />
+          Back to logbook
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmingDelete(true)}>
+          <Trash2 />
+          Delete flight
+        </Button>
+      </div>
 
-      <Card className="max-w-2xl">
-        <CardHeader>
-          <CardTitle>
-            {flight.flightNumber ?? `Flight #${flight.id}`} — {flight.depIcao} → {flight.arrIcao}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
-            <DetailField label="Aircraft" value={aircraft?.registration ?? '—'} />
-            <DetailField label="Date" value={formatDate(flight.actualOutUtc)} />
-            <DetailField label="Block time" value={formatMinutes(flight.blockMinutes)} />
-            <DetailField label="Air time" value={formatMinutes(flight.airMinutes)} />
-            <DetailField label="Fuel burn" value={formatWeight(flight.fuelBurnKg, weightUnit)} />
-            <DetailField label="Fuel planned" value={formatWeight(flight.fuelPlannedKg, weightUnit)} />
-          </dl>
-        </CardContent>
-      </Card>
+      <div className="flex flex-wrap gap-4">
+        <Card className="min-w-72 flex-1">
+          <CardHeader>
+            <CardTitle>
+              {flight.flightNumber ?? `Flight #${flight.id}`} — {flight.depIcao} → {flight.arrIcao}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+              <DetailField label="Aircraft" value={aircraft?.registration ?? '—'} />
+              <DetailField label="Date" value={formatDate(flight.actualOutUtc)} />
+              <DetailField label="Block time" value={formatMinutes(flight.blockMinutes)} />
+              <DetailField label="Air time" value={formatMinutes(flight.airMinutes)} />
+              <DetailField label="Fuel burn" value={formatWeight(flight.fuelBurnKg, weightUnit)} />
+              <DetailField label="Fuel loaded" value={formatWeight(flight.fuelOutKg, weightUnit)} />
+              <DetailField label="Fuel planned" value={formatWeight(flight.fuelPlannedKg, weightUnit)} />
+            </dl>
+          </CardContent>
+        </Card>
+        <LandingCard flightId={flight.id} />
+      </div>
 
       <div className="h-[min(36vh,360px)] min-h-56">
         <FlightMap live={false} route={route} waypoints={waypoints} trackPoints={trackPoints} />
@@ -197,34 +254,84 @@ function FlightDetail(props: {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={profile}>
                   <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} />
-                  <XAxis dataKey="tMin" unit=" min" stroke={CHART_AXIS_COLOR} tick={{ fill: CHART_AXIS_COLOR }} />
+                  <XAxis
+                    dataKey={timeAxisKey}
+                    unit={timeAxisUnit}
+                    stroke={CHART_AXIS_COLOR}
+                    tick={{ fill: CHART_AXIS_COLOR }}
+                  />
                   <YAxis unit=" ft" width={70} stroke={CHART_AXIS_COLOR} tick={{ fill: CHART_AXIS_COLOR }} />
                   <Tooltip
                     formatter={(value) => `${value} ft`}
-                    labelFormatter={(label) => `${label} min`}
+                    labelFormatter={(label) => `${label}${timeAxisUnit}`}
                     contentStyle={CHART_TOOLTIP_STYLE}
                   />
-                  <Line type="monotone" dataKey="altFt" stroke={CHART_SERIES_1} dot={false} name="Altitude" />
+                  <Line
+                    type="monotone"
+                    dataKey="altFt"
+                    stroke={CHART_SERIES_1}
+                    dot={false}
+                    name="Altitude"
+                    isAnimationActive={false}
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
           <Card className="min-w-72 flex-1">
             <CardHeader>
-              <CardTitle className="text-sm">Speed (IAS)</CardTitle>
+              <CardTitle className="text-sm">Speed ({speedMode === 'ias' ? 'IAS' : 'Mach'})</CardTitle>
+              <CardAction>
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    variant={speedMode === 'ias' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSpeedMode('ias')}
+                  >
+                    IAS
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={speedMode === 'mach' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSpeedMode('mach')}
+                  >
+                    Mach
+                  </Button>
+                </div>
+              </CardAction>
             </CardHeader>
             <CardContent className="h-[220px]">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={profile}>
                   <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} />
-                  <XAxis dataKey="tMin" unit=" min" stroke={CHART_AXIS_COLOR} tick={{ fill: CHART_AXIS_COLOR }} />
-                  <YAxis unit=" kt" width={60} stroke={CHART_AXIS_COLOR} tick={{ fill: CHART_AXIS_COLOR }} />
+                  <XAxis
+                    dataKey={timeAxisKey}
+                    unit={timeAxisUnit}
+                    stroke={CHART_AXIS_COLOR}
+                    tick={{ fill: CHART_AXIS_COLOR }}
+                  />
+                  <YAxis
+                    unit={speedMode === 'ias' ? ' kt' : ''}
+                    width={60}
+                    stroke={CHART_AXIS_COLOR}
+                    tick={{ fill: CHART_AXIS_COLOR }}
+                    tickFormatter={speedMode === 'mach' ? (v: number) => v.toFixed(2) : undefined}
+                  />
                   <Tooltip
-                    formatter={(value) => `${value} kt`}
-                    labelFormatter={(label) => `${label} min`}
+                    formatter={(value) => (speedMode === 'ias' ? `${value} kt` : `M${Number(value).toFixed(2)}`)}
+                    labelFormatter={(label) => `${label}${timeAxisUnit}`}
                     contentStyle={CHART_TOOLTIP_STYLE}
                   />
-                  <Line type="monotone" dataKey="iasKt" stroke={CHART_SERIES_2} dot={false} name="IAS" />
+                  <Line
+                    type="monotone"
+                    dataKey={speedDataKey}
+                    stroke={CHART_SERIES_2}
+                    dot={false}
+                    name={speedMode === 'ias' ? 'IAS' : 'Mach'}
+                    isAnimationActive={false}
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
@@ -254,8 +361,25 @@ function FlightDetail(props: {
         </Card>
       )}
 
-      <LandingCard flightId={flight.id} />
       <GsxInvoicesCard flightId={flight.id} />
+
+      <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this flight?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the flight and its landing, GSX invoice, and track data permanently. This cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleConfirmDelete}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -310,6 +434,10 @@ export function LogbookView(props: { weightUnit: WeightUnit }): React.JSX.Elemen
         aircraft={aircraft.find((a) => a.id === flight.aircraftId)}
         weightUnit={props.weightUnit}
         onBack={() => setView({ kind: 'list' })}
+        onDeleted={() => {
+          setView({ kind: 'list' })
+          reload()
+        }}
       />
     )
   }

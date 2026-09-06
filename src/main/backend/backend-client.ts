@@ -4,7 +4,7 @@
  * architecture (docs/decisions.md, 2026-09-04). One constant base URL, per CLAUDE.md's
  * rule for anything that shouldn't be sprinkled through the codebase.
  */
-const BACKEND_BASE_URL = 'https://flightdeck-backend.callum-jones5.workers.dev'
+export const BACKEND_BASE_URL = 'https://flightdeck-backend.callum-jones5.workers.dev'
 
 export interface SimbriefSignParams {
   origIcao: string

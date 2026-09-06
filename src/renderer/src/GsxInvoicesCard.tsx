@@ -30,6 +30,16 @@ function parseDetail(receiptJson: string): ReceiptDetail {
   }
 }
 
+/** The UTC calendar date (YYYY-MM-DD) a receipt was issued on — the day whose exchange
+ *  rate its total should convert at, not today's. */
+function receiptDate(invoice: FlightInvoice): string {
+  return invoice.issuedUtc.slice(0, 10)
+}
+
+function rateKey(currency: string, date: string): string {
+  return `${currency}:${date}`
+}
+
 function InvoiceRow(props: { invoice: FlightInvoice }): React.JSX.Element {
   const inv = props.invoice
   const detail = parseDetail(inv.receiptJson)
@@ -95,10 +105,42 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
   const [invoices, setInvoices] = useState<FlightInvoice[]>([])
   const [notailCandidates, setNotailCandidates] = useState<GsxNotailCandidate[]>([])
   const [rescanning, setRescanning] = useState(false)
+  const [displayCurrency, setDisplayCurrency] = useState('USD')
+  // Keyed by "currency:date" (date = receipt-issued YYYY-MM-DD) — converting at the rate
+  // that applied on the day each receipt was actually issued, not today's rate. A
+  // missing/null entry means that key's rate hasn't resolved yet (still loading, or the
+  // lookup failed). Keying on currency too means switching currencies never reuses a
+  // stale rate from the previous one.
+  const [rates, setRates] = useState<Map<string, number | null>>(new Map())
 
   useEffect(() => {
     window.flightdeck.logbookListInvoices(props.flightId).then(setInvoices)
   }, [props.flightId])
+
+  useEffect(() => {
+    window.flightdeck.settingsGetGsx().then((settings) => {
+      setDisplayCurrency(settings.displayCurrency)
+    })
+  }, [])
+
+  useEffect(() => {
+    if (displayCurrency === 'USD') return
+    const dates = [...new Set(invoices.filter((inv) => inv.totalUsd != null).map(receiptDate))]
+    const missing = dates.filter((date) => !rates.has(rateKey(displayCurrency, date)))
+    if (missing.length === 0) return
+    Promise.all(missing.map((date) => window.flightdeck.fxGetRate(displayCurrency, date))).then((results) => {
+      setRates((current) => {
+        const next = new Map(current)
+        missing.forEach((date, i) => next.set(rateKey(displayCurrency, date), results[i]))
+        return next
+      })
+    })
+    // Re-runs whenever displayCurrency or the set of receipt dates changes; `rates` itself
+    // isn't a dependency (only read via `missing`/`has`, never used to decide whether to
+    // re-fetch a date already in flight) — including it would refetch on every response,
+    // since each response is itself a `rates` update.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayCurrency, invoices])
 
   async function handleRescan(): Promise<void> {
     setRescanning(true)
@@ -125,6 +167,21 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
 
   const totalUsd = invoices.reduce((sum, inv) => sum + (inv.totalUsd ?? 0), 0)
   const hasAnyUsdTotal = invoices.some((inv) => inv.totalUsd != null)
+  const invoicesWithUsd = invoices.filter((inv) => inv.totalUsd != null)
+  const rateFor = (inv: FlightInvoice): number | null | undefined =>
+    rates.get(rateKey(displayCurrency, receiptDate(inv)))
+  // Falls back to showing the plain USD total whenever ANY receipt's rate hasn't resolved
+  // yet (still loading, or that date's lookup failed) — never a total that's silently
+  // converted for some receipts and not others.
+  const showConverted =
+    displayCurrency !== 'USD' && invoicesWithUsd.length > 0 && invoicesWithUsd.every((inv) => rateFor(inv) != null)
+  const displayTotal = showConverted
+    ? invoicesWithUsd.reduce((sum, inv) => sum + inv.totalUsd! * rateFor(inv)!, 0)
+    : totalUsd
+  const displayCode = showConverted ? displayCurrency : 'USD'
+  const formattedTotal = new Intl.NumberFormat(undefined, { style: 'currency', currency: displayCode }).format(
+    displayTotal
+  )
 
   return (
     <Card className="w-full max-w-2xl">
@@ -148,8 +205,8 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
             ))}
             {hasAnyUsdTotal && (
               <div className="flex justify-between border-t border-border pt-2 text-sm">
-                <span className="text-muted-foreground">Total (USD)</span>
-                <span className="font-mono tabular-nums text-foreground">${totalUsd.toFixed(2)}</span>
+                <span className="text-muted-foreground">Total ({displayCode})</span>
+                <span className="font-mono tabular-nums text-foreground">{formattedTotal}</span>
               </div>
             )}
           </>

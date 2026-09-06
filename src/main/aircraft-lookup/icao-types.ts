@@ -64,8 +64,11 @@ export function searchTypes(types: IcaoTypeRow[], query: string): AircraftTypeOp
   return results
 }
 
-const ALL_TYPES = loadTypes(icaoTypesRaw)
+// Parsed on first search, not at module load (docs/decisions.md, memory-usage entry) —
+// same reasoning as airport-search.ts.
+let allTypes: IcaoTypeRow[] | null = null
 
 export function searchAircraftTypes(query: string): AircraftTypeOption[] {
-  return searchTypes(ALL_TYPES, query)
+  allTypes ??= loadTypes(icaoTypesRaw)
+  return searchTypes(allTypes, query)
 }

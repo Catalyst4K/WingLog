@@ -1,14 +1,19 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { BookOpen, Plane, Radar, Route, Settings as SettingsIcon } from 'lucide-react'
 import type { AltitudeUnit, AppPage, DispatchOfp, SimConnectionStatus, SimTelemetry, WeightUnit } from '@shared/ipc'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Toaster } from '@/components/ui/sonner'
-import { DispatchView } from './DispatchView'
 import { FleetView } from './FleetView'
-import { LogbookView } from './LogbookView'
-import { SettingsView } from './SettingsView'
-import { TrackView } from './TrackView'
+
+// Fleet is the default/first tab, so it's the one view kept eager — every other tab is
+// lazy so its JS (and, for Track/Logbook, the maplibre-gl and recharts they pull in —
+// together the two heaviest dependencies in the app) doesn't get parsed and evaluated
+// until the user actually visits it. docs/decisions.md, memory-usage entry.
+const DispatchView = lazy(() => import('./DispatchView').then((m) => ({ default: m.DispatchView })))
+const TrackView = lazy(() => import('./TrackView').then((m) => ({ default: m.TrackView })))
+const LogbookView = lazy(() => import('./LogbookView').then((m) => ({ default: m.LogbookView })))
+const SettingsView = lazy(() => import('./SettingsView').then((m) => ({ default: m.SettingsView })))
 
 const TABS: { page: AppPage; label: string; icon: typeof Plane }[] = [
   { page: 'fleet', label: 'Fleet', icon: Plane },
@@ -91,7 +96,7 @@ export default function App(): React.JSX.Element {
 
   return (
     <main className="flex h-screen flex-col">
-      <Tabs value={page} onValueChange={(value) => setPage(value as AppPage)} className="flex-1 gap-0">
+      <Tabs value={page} onValueChange={(value) => setPage(value as AppPage)} className="min-h-0 flex-1 gap-0">
         <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-3">
           <TabsList variant="line">
             {TABS.map(({ page: tabPage, label, icon: Icon }) => (
@@ -106,38 +111,46 @@ export default function App(): React.JSX.Element {
           </Badge>
         </header>
 
-        <div className="flex-1 overflow-auto p-8">
+        {/* min-h-0 overrides the flex-item default of min-height:auto — without it, a
+            tall page (e.g. Logbook's full flight list) forces this div past its 100vh
+            budget instead of clipping to it, and the whole document scrolls (dragging
+            the header above away with it) instead of just this div
+            (flight-test-findings-2026-09-06.md #7 — confirmed live: the outer <main> was
+            measurably taller than the viewport, not this div). */}
+        <div className="min-h-0 flex-1 overflow-auto p-8">
           {page === 'fleet' && <FleetView />}
-          {page === 'dispatch' && (
-            <DispatchView
-              weightUnit={weightUnit}
-              altitudeUnit={altitudeUnit}
-              onPlanned={() => setPage('track')}
-              ofp={dispatchOfp}
-              onOfpChange={setDispatchOfp}
-              dispatchedOfpId={dispatchedOfpId}
-              onDispatchedOfpIdChange={setDispatchedOfpId}
-            />
-          )}
-          {page === 'track' && (
-            <TrackView
-              previewOfpJson={dispatchOfp?.ofpJson ?? null}
-              telemetry={telemetry}
-              onFlightEnded={() => {
-                setDispatchOfp(null)
-                setDispatchedOfpId(null)
-              }}
-            />
-          )}
-          {page === 'logbook' && <LogbookView weightUnit={weightUnit} />}
-          {page === 'settings' && (
-            <SettingsView
-              weightUnit={weightUnit}
-              onWeightUnitChange={handleWeightUnitChange}
-              altitudeUnit={altitudeUnit}
-              onAltitudeUnitChange={handleAltitudeUnitChange}
-            />
-          )}
+          <Suspense fallback={null}>
+            {page === 'dispatch' && (
+              <DispatchView
+                weightUnit={weightUnit}
+                altitudeUnit={altitudeUnit}
+                onPlanned={() => setPage('track')}
+                ofp={dispatchOfp}
+                onOfpChange={setDispatchOfp}
+                dispatchedOfpId={dispatchedOfpId}
+                onDispatchedOfpIdChange={setDispatchedOfpId}
+              />
+            )}
+            {page === 'track' && (
+              <TrackView
+                previewOfpJson={dispatchOfp?.ofpJson ?? null}
+                telemetry={telemetry}
+                onFlightEnded={() => {
+                  setDispatchOfp(null)
+                  setDispatchedOfpId(null)
+                }}
+              />
+            )}
+            {page === 'logbook' && <LogbookView weightUnit={weightUnit} />}
+            {page === 'settings' && (
+              <SettingsView
+                weightUnit={weightUnit}
+                onWeightUnitChange={handleWeightUnitChange}
+                altitudeUnit={altitudeUnit}
+                onAltitudeUnitChange={handleAltitudeUnitChange}
+              />
+            )}
+          </Suspense>
         </div>
       </Tabs>
       <Toaster />

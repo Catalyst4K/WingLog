@@ -2,15 +2,25 @@ import { EventEmitter } from 'node:events'
 import type { ActiveTracking, TrackPoint } from '@shared/ipc'
 import type { FlightdeckDb } from '../db/client'
 import { addInvoicesForFlight } from '../db/flight-invoice-repo'
-import { abandonFlight, completeFlight, getFlight, recordOff, recordOn, startFlight } from '../db/flight-repo'
+import {
+  abandonFlight,
+  completeFlight,
+  finalizeFuelOut,
+  getFlight,
+  recordOff,
+  recordOn,
+  setFlownRoute,
+  startFlight
+} from '../db/flight-repo'
 import { createLanding } from '../db/landing-repo'
 import { getGsxSettings } from '../db/settings-repo'
-import { createTrackPoint } from '../db/track-point-repo'
+import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
 import { buildFlightMatchWindow } from '../gsx/flight-window'
 import { scanGsxFolder } from '../gsx/scan'
 import type { SimConnectService } from '../sim/SimConnectService'
 import { FlightRecorder } from './FlightRecorder'
 import { buildLandingRecord } from './landing-capture'
+import { deriveFlownRouteJson } from './route-simplify'
 
 interface TrackingControllerEvents {
   point: [TrackPoint]
@@ -27,6 +37,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   private recorder: FlightRecorder | undefined
   private offRecorded = false
   private onRecorded = false
+  private fuelOutFinalized = false
 
   constructor(
     private readonly db: FlightdeckDb,
@@ -36,6 +47,14 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     this.simConnectService.on('telemetry', (telemetry) => {
       if (!this.recorder) return
       const result = this.recorder.ingest(telemetry, new Date())
+
+      // The value startFlight wrote at tracking-start is only provisional (see
+      // finalizeFuelOut's doc comment) — correct it as soon as the phase machine shows
+      // the aircraft is genuinely past ground fuel service, not just parked.
+      if (result.phase !== 'preflight' && !this.fuelOutFinalized) {
+        this.fuelOutFinalized = true
+        finalizeFuelOut(this.db, this.recorder.getFlightId(), telemetry.fuelTotalKg)
+      }
 
       if (result.phase === 'climb' && !this.offRecorded) {
         this.offRecorded = true
@@ -62,6 +81,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
       if (result.phase === 'shutdown') {
         completeFlight(this.db, this.recorder.getFlightId(), telemetry.fuelTotalKg)
         this.snapshotGsxInvoices(this.recorder.getFlightId())
+        this.deriveFlownRoute(this.recorder.getFlightId())
         this.recorder = undefined
       }
     })
@@ -85,6 +105,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     this.recorder = new FlightRecorder(flightId)
     this.offRecorded = false
     this.onRecorded = false
+    this.fuelOutFinalized = false
   }
 
   /** User cancelled tracking mid-flight, rather than reaching shutdown naturally. */
@@ -106,6 +127,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     const telemetry = this.simConnectService.getLastTelemetry()
     completeFlight(this.db, this.recorder.getFlightId(), telemetry?.fuelTotalKg ?? 0)
     this.snapshotGsxInvoices(this.recorder.getFlightId())
+    this.deriveFlownRoute(this.recorder.getFlightId())
     this.recorder = undefined
   }
 
@@ -126,5 +148,17 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     scanGsxFolder(settings.folderPath, window)
       .then((result) => addInvoicesForFlight(this.db, flightId, result.matched))
       .catch(() => {})
+  }
+
+  /** Derives and stores the flight's flown-route polyline (route-simplify.ts) at
+   *  completion — same best-effort shape as the GSX snapshot above: reads back this
+   *  flight's own already-persisted track_point rows, so a failure here can't affect the
+   *  flight record, which is already marked completed by the time this runs. Synchronous
+   *  (unlike the GSX scan, no I/O involved), so no .catch needed — a thrown error here
+   *  would already be a real bug, not an expected "folder missing" case. */
+  private deriveFlownRoute(flightId: number): void {
+    const points = listTrackPoints(this.db, flightId)
+    const flownRouteJson = deriveFlownRouteJson(points)
+    if (flownRouteJson) setFlownRoute(this.db, flightId, flownRouteJson)
   }
 }

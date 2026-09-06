@@ -36,6 +36,7 @@ const api: FlightdeckApi = {
   flightList: () => ipcRenderer.invoke(IpcChannels.flightList),
   flightCreate: (flight: NewFlight) => ipcRenderer.invoke(IpcChannels.flightCreate, flight),
   flightCancel: (id: number) => ipcRenderer.invoke(IpcChannels.flightCancel, id),
+  flightDelete: (id: number) => ipcRenderer.invoke(IpcChannels.flightDelete, id),
   dispatchFetchOfp: () => ipcRenderer.invoke(IpcChannels.dispatchFetchOfp),
   dispatchOpenSimBrief: (params: DispatchOpenSimBriefParams) =>
     ipcRenderer.invoke(IpcChannels.dispatchOpenSimBrief, params),
@@ -83,7 +84,14 @@ const api: FlightdeckApi = {
   aircraftTypeSearch: (query: string) => ipcRenderer.invoke(IpcChannels.aircraftTypeSearch, query),
   airportSearch: (query: string) => ipcRenderer.invoke(IpcChannels.airportSearch, query),
   airlineSearch: (query: string) => ipcRenderer.invoke(IpcChannels.airlineSearch, query),
-  weatherGetMetars: (icaoCodes: string[]) => ipcRenderer.invoke(IpcChannels.weatherGetMetars, icaoCodes)
+  airlineFindByIcao: (icao: string) => ipcRenderer.invoke(IpcChannels.airlineFindByIcao, icao),
+  weatherGetMetars: (icaoCodes: string[]) => ipcRenderer.invoke(IpcChannels.weatherGetMetars, icaoCodes),
+  fxGetRate: (targetCurrency: string, date?: string) =>
+    ipcRenderer.invoke(IpcChannels.fxGetRate, targetCurrency, date),
+  authLogin: (email: string, password: string) => ipcRenderer.invoke(IpcChannels.authLogin, email, password),
+  authLogout: () => ipcRenderer.invoke(IpcChannels.authLogout),
+  syncNow: () => ipcRenderer.invoke(IpcChannels.syncNow),
+  syncStatus: () => ipcRenderer.invoke(IpcChannels.syncStatus)
 }
 
 contextBridge.exposeInMainWorld('flightdeck', api)

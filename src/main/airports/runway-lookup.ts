@@ -83,7 +83,14 @@ export function resolveRunwayEnd(
   return best
 }
 
-const ALL_RUNWAY_ENDS = loadRunwayEnds(runwaysRaw)
+// Parsed on first use, not at module load (docs/decisions.md, memory-usage entry) — same
+// reasoning as airport-search.ts. This one's real use (a touchdown) can be hours into a
+// session, so deferring the parse to then still matters even though every flight
+// eventually needs it.
+let allRunwayEnds: RunwayEnd[] | null = null
+function getAllRunwayEnds(): RunwayEnd[] {
+  return (allRunwayEnds ??= loadRunwayEnds(runwaysRaw))
+}
 
 export function findRunwayEnd(
   icao: string,
@@ -91,7 +98,7 @@ export function findRunwayEnd(
   touchdownLat: number,
   touchdownLon: number
 ): RunwayEnd | null {
-  return resolveRunwayEnd(ALL_RUNWAY_ENDS, icao, touchdownHeadingDeg, touchdownLat, touchdownLon)
+  return resolveRunwayEnd(getAllRunwayEnds(), icao, touchdownHeadingDeg, touchdownLat, touchdownLon)
 }
 
 /**
@@ -113,5 +120,5 @@ export function resolveAirportPosition(ends: RunwayEnd[], icao: string): { lat: 
 }
 
 export function airportPosition(icao: string): { lat: number; lon: number } | null {
-  return resolveAirportPosition(ALL_RUNWAY_ENDS, icao)
+  return resolveAirportPosition(getAllRunwayEnds(), icao)
 }

@@ -11,6 +11,7 @@ function telemetry(overrides: Partial<SimTelemetry> = {}): SimTelemetry {
     verticalSpeedMs: -1.5,
     indicatedAirspeedMs: 70,
     trueAirspeedMs: 70,
+    machSpeed: 0.11,
     groundSpeedMs: 65,
     headingTrueDeg: 270,
     pitchDeg: -2,

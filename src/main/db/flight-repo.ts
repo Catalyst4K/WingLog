@@ -1,6 +1,7 @@
+import { randomUUID } from 'node:crypto'
 import { desc, eq } from 'drizzle-orm'
 import type { Flight, FleetStats, NewFlight } from '@shared/ipc'
-import { aircraft, flight } from './schema'
+import { aircraft, flight, flightInvoice, landing, trackPoint } from './schema'
 import type { FlightdeckDb } from './client'
 
 function toFlight(row: typeof flight.$inferSelect): Flight {
@@ -54,8 +55,15 @@ export function getFlight(db: FlightdeckDb, id: number): Flight | undefined {
   return row ? toFlight(row) : undefined
 }
 
+// uuid/updatedAt (flightdeck-backend/docs/plans/cloud-sync.md) are set explicitly on every
+// write path here rather than left to a DB default — see schema.ts's aircraft.uuid
+// comment for why. An update that forgets to bump updatedAt would silently never sync.
 export function createFlight(db: FlightdeckDb, input: NewFlight): Flight {
-  const [row] = db.insert(flight).values(input).returning().all()
+  const [row] = db
+    .insert(flight)
+    .values({ ...input, uuid: randomUUID(), updatedAt: new Date().toISOString() })
+    .returning()
+    .all()
   return toFlight(row)
 }
 
@@ -86,7 +94,9 @@ export function createHistoricalFlight(db: FlightdeckDb, input: HistoricalFlight
       arrIcao: input.arrIcao,
       actualOutUtc: input.actualOutUtc,
       actualInUtc: input.actualInUtc,
-      blockMinutes: minutesBetween(input.actualOutUtc, input.actualInUtc)
+      blockMinutes: minutesBetween(input.actualOutUtc, input.actualInUtc),
+      uuid: randomUUID(),
+      updatedAt: new Date().toISOString()
     })
     .returning()
     .all()
@@ -102,7 +112,36 @@ export function startFlight(
 ): Flight | undefined {
   const [row] = db
     .update(flight)
-    .set({ status: 'active', actualOutUtc: new Date().toISOString(), fuelOutKg, simVersion })
+    .set({
+      status: 'active',
+      actualOutUtc: new Date().toISOString(),
+      fuelOutKg,
+      simVersion,
+      updatedAt: new Date().toISOString()
+    })
+    .where(eq(flight.id, id))
+    .returning()
+    .all()
+  return row ? toFlight(row) : undefined
+}
+
+/**
+ * Corrects the provisional fuel_out_kg written by startFlight, once the phase machine
+ * first leaves 'preflight' (TrackingController, on the preflight -> pushback transition).
+ * The value captured at the instant tracking starts can't be trusted as "fuel loaded" —
+ * SimConnect can report stale/leftover telemetry for a while after a flight reload (the
+ * same garbage-data window spike-flight-reload.ts found for altitude, evidently not
+ * limited to it — a real case, flight #182, showed a plausible-looking ~10,187kg reading
+ * that was actually a reload artifact, not the aircraft's genuine ~3,000kg default), and
+ * ground fuel service (GSX, an EFB) happens after that too, while the aircraft is still
+ * stationary and tracking has therefore already started. Waiting for the first real
+ * ground-movement/engine-start signal sidesteps both: by then the reload window has long
+ * since cleared and any deliberate defuel/refuel has already settled.
+ */
+export function finalizeFuelOut(db: FlightdeckDb, id: number, fuelOutKg: number): Flight | undefined {
+  const [row] = db
+    .update(flight)
+    .set({ fuelOutKg, updatedAt: new Date().toISOString() })
     .where(eq(flight.id, id))
     .returning()
     .all()
@@ -113,7 +152,7 @@ export function startFlight(
 export function recordOff(db: FlightdeckDb, id: number): Flight | undefined {
   const [row] = db
     .update(flight)
-    .set({ actualOffUtc: new Date().toISOString() })
+    .set({ actualOffUtc: new Date().toISOString(), updatedAt: new Date().toISOString() })
     .where(eq(flight.id, id))
     .returning()
     .all()
@@ -124,7 +163,7 @@ export function recordOff(db: FlightdeckDb, id: number): Flight | undefined {
 export function recordOn(db: FlightdeckDb, id: number): Flight | undefined {
   const [row] = db
     .update(flight)
-    .set({ actualOnUtc: new Date().toISOString() })
+    .set({ actualOnUtc: new Date().toISOString(), updatedAt: new Date().toISOString() })
     .where(eq(flight.id, id))
     .returning()
     .all()
@@ -145,7 +184,8 @@ export function completeFlight(db: FlightdeckDb, id: number, fuelInKg: number): 
       fuelInKg,
       blockMinutes: minutesBetween(existing.actualOutUtc, actualInUtc),
       airMinutes: minutesBetween(existing.actualOffUtc, existing.actualOnUtc),
-      fuelBurnKg: existing.fuelOutKg != null ? existing.fuelOutKg - fuelInKg : null
+      fuelBurnKg: existing.fuelOutKg != null ? existing.fuelOutKg - fuelInKg : null,
+      updatedAt: actualInUtc
     })
     .where(eq(flight.id, id))
     .returning()
@@ -163,8 +203,30 @@ export function completeFlight(db: FlightdeckDb, id: number, fuelInKg: number): 
 
 /** User cancelled tracking mid-flight — stop recording without pretending it completed normally. */
 export function abandonFlight(db: FlightdeckDb, id: number): Flight | undefined {
-  const [row] = db.update(flight).set({ status: 'abandoned' }).where(eq(flight.id, id)).returning().all()
+  const [row] = db
+    .update(flight)
+    .set({ status: 'abandoned', updatedAt: new Date().toISOString() })
+    .where(eq(flight.id, id))
+    .returning()
+    .all()
   return row ? toFlight(row) : undefined
+}
+
+/**
+ * Removes a flight entirely — a bad test entry, or any flight that logged wrong data
+ * (e.g. a phase-machine hiccup that produced a nonsense fuel-burn figure). None of
+ * `landing`/`trackPoint`/`flightInvoice`'s FK references declare `onDelete: 'cascade'`
+ * (schema.ts) and `client.ts` turns on `foreign_keys = ON`, so a bare delete of the
+ * `flight` row would throw — clean up the three dependents first, in one transaction so
+ * a mid-way failure can't leave the flight orphaned from only some of its data.
+ */
+export function deleteFlight(db: FlightdeckDb, id: number): void {
+  db.transaction((tx) => {
+    tx.delete(trackPoint).where(eq(trackPoint.flightId, id)).run()
+    tx.delete(landing).where(eq(landing.flightId, id)).run()
+    tx.delete(flightInvoice).where(eq(flightInvoice.flightId, id)).run()
+    tx.delete(flight).where(eq(flight.id, id)).run()
+  })
 }
 
 /**
@@ -173,7 +235,18 @@ export function abandonFlight(db: FlightdeckDb, id: number): Flight | undefined 
  * up alongside it. Called before creating a new flight; a no-op if nothing is planned.
  */
 export function abandonAllPlanned(db: FlightdeckDb): void {
-  db.update(flight).set({ status: 'abandoned' }).where(eq(flight.status, 'planned')).run()
+  db.update(flight)
+    .set({ status: 'abandoned', updatedAt: new Date().toISOString() })
+    .where(eq(flight.status, 'planned'))
+    .run()
+}
+
+/** Stores the flight's derived flown-route polyline (route-simplify.ts), computed at
+ *  completion — see schema.ts's flownRouteJson comment. Best-effort: called from the same
+ *  fire-and-forget spot as the GSX invoice snapshot, so a failure here must never affect
+ *  the flight record that's already been marked completed. */
+export function setFlownRoute(db: FlightdeckDb, id: number, flownRouteJson: string): void {
+  db.update(flight).set({ flownRouteJson, updatedAt: new Date().toISOString() }).where(eq(flight.id, id)).run()
 }
 
 export function listCompletedFlights(db: FlightdeckDb): Flight[] {
@@ -223,4 +296,40 @@ export function getFleetStats(db: FlightdeckDb): FleetStats[] {
     }
   }
   return [...byAircraft.values()].sort((a, b) => a.registration.localeCompare(b.registration))
+}
+
+/** See aircraft-repo.ts's listAircraftForSync for the shape/reasoning this mirrors. */
+export function listFlightsForSync(db: FlightdeckDb, since: string | null): (typeof flight.$inferSelect)[] {
+  const rows = db.select().from(flight).all()
+  return rows
+    .filter((row) => row.uuid !== null && row.updatedAt !== null && (since === null || row.updatedAt > since))
+    .sort((a, b) => (a.updatedAt as string).localeCompare(b.updatedAt as string))
+}
+
+/** See aircraft-repo.ts's upsertAircraftByUuid for the shape/reasoning this mirrors. */
+export function upsertFlightByUuid(
+  db: FlightdeckDb,
+  input: Omit<typeof flight.$inferInsert, 'id'> & { uuid: string }
+): void {
+  const existing = db.select().from(flight).where(eq(flight.uuid, input.uuid)).get()
+  if (existing) {
+    db.update(flight).set(input).where(eq(flight.uuid, input.uuid)).run()
+  } else {
+    db.insert(flight).values(input).run()
+  }
+}
+
+/** Local integer id for a flight referenced by its sync uuid — sync-engine.ts resolves a
+ *  pulled row's parent-table reference this way (e.g. flightInvoice's flightUuid) rather
+ *  than trusting a remote integer id, which is meaningless locally. Undefined if the
+ *  parent hasn't been pulled yet — sync-engine.ts pulls in dependency order (aircraft,
+ *  then flight, then landing/flightInvoice) specifically so this always resolves. */
+export function getFlightIdByUuid(db: FlightdeckDb, uuid: string): number | undefined {
+  return db.select({ id: flight.id }).from(flight).where(eq(flight.uuid, uuid)).get()?.id
+}
+
+/** The reverse of getFlightIdByUuid — sync-engine.ts's push side needs a flight's uuid
+ *  (not its local id, meaningless remotely) to serialize landing/flightInvoice's flightId. */
+export function getFlightUuidById(db: FlightdeckDb, id: number): string | null | undefined {
+  return db.select({ uuid: flight.uuid }).from(flight).where(eq(flight.id, id)).get()?.uuid
 }

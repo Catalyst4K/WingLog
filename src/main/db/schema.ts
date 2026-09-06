@@ -27,7 +27,16 @@ export const aircraft = sqliteTable('aircraft', {
   currentIcao: text('current_icao'),
   createdAt: text('created_at')
     .notNull()
-    .default(sql`(current_timestamp)`)
+    .default(sql`(current_timestamp)`),
+  // Cloud-sync identity (flightdeck-backend/docs/plans/cloud-sync.md). Nullable rather
+  // than NOT NULL: SQLite's ALTER TABLE ADD COLUMN bakes a non-constant default (e.g. a
+  // random-blob expression) into every existing row identically, which would give every
+  // pre-migration aircraft the *same* uuid — the opposite of what sync identity needs.
+  // The migration backfills existing rows with distinct values via a plain per-row
+  // UPDATE instead; every repo write path from here on always supplies both explicitly,
+  // so in practice this is never actually null once written by this app version.
+  uuid: text('uuid'),
+  updatedAt: text('updated_at')
 })
 
 // Flight table per PLAN.md §5. `law_kg` in that sketch was landing weight — named
@@ -72,7 +81,16 @@ export const flight = sqliteTable('flight', {
   simVersion: text('sim_version'),
   createdAt: text('created_at')
     .notNull()
-    .default(sql`(current_timestamp)`)
+    .default(sql`(current_timestamp)`),
+  // See aircraft.uuid's comment for why these are nullable rather than NOT NULL.
+  uuid: text('uuid'),
+  updatedAt: text('updated_at'),
+  // Derived, simplified flown path (flightdeck-backend/docs/plans/cloud-sync.md, "The
+  // flown route, not the full track") — a lightweight polyline computed from this
+  // flight's own track_point rows at completion, for cloud sync and a second device's
+  // map. Null for any flight that hasn't completed, or completed before this existed;
+  // the full-resolution track_point table stays local-only and is never itself synced.
+  flownRouteJson: text('flown_route_json')
 })
 
 // Local app settings — key/value so future milestones (map tile source, etc.) don't need
@@ -103,7 +121,13 @@ export const flightInvoice = sqliteTable('flight_invoice', {
   totalUsd: real('total_usd'),
   totalText: text('total_text'),
   sourceHtmlPath: text('source_html_path').notNull(),
-  receiptJson: text('receipt_json').notNull()
+  receiptJson: text('receipt_json').notNull(),
+  // See aircraft.uuid's comment for why these are nullable rather than NOT NULL. No
+  // createdAt column exists on this table to backfill updatedAt from — the migration
+  // backfills it from the parent flight's createdAt instead, the closest real timestamp
+  // available for a pre-existing receipt.
+  uuid: text('uuid'),
+  updatedAt: text('updated_at')
 })
 
 // track_point per PLAN.md §5 — "keep sparse; this table gets big". FlightRecorder
@@ -121,6 +145,10 @@ export const trackPoint = sqliteTable('track_point', {
   altitudeM: real('altitude_m').notNull(),
   altitudeAglM: real('altitude_agl_m').notNull(),
   indicatedAirspeedMs: real('indicated_airspeed_ms').notNull(),
+  // Default 0 only so ALTER TABLE ADD COLUMN can backfill pre-existing NOT NULL rows —
+  // every new row from FlightRecorder.toTrackPoint always supplies a real value, same
+  // pattern as gForce/windSpeedMs/windDirectionDeg below.
+  machSpeed: real('mach_speed').notNull().default(0),
   groundSpeedMs: real('ground_speed_ms').notNull(),
   verticalSpeedMs: real('vertical_speed_ms').notNull(),
   headingTrueDeg: real('heading_true_deg').notNull(),
@@ -172,8 +200,13 @@ export const landing = sqliteTable('landing', {
   distanceFromThresholdM: real('distance_from_threshold_m'),
   centrelineOffsetM: real('centreline_offset_m'),
   flapSetting: integer('flap_setting'),
-  // Always 'derived' until a live spike confirms MSFS 2024's dedicated touchdown SimVars
-  // are trustworthy (docs/decisions.md, landing-analysis entry) — scripts/spike-landing.ts
-  // is ready to run that check; nothing currently writes 'simvar'.
-  touchdownSource: text('touchdown_source', { enum: ['simvar', 'derived'] }).notNull().default('derived')
+  // 'derived' throughout — scripts/spike-landing.ts confirmed 2026-09-04 that MSFS 2024's
+  // dedicated touchdown SimVars disagree with the derived value in trend, not just
+  // magnitude, across a real bounce; nothing writes 'simvar'.
+  touchdownSource: text('touchdown_source', { enum: ['simvar', 'derived'] }).notNull().default('derived'),
+  // See aircraft.uuid's comment for why these are nullable rather than NOT NULL. The
+  // migration backfills updatedAt from touchdownTsUtc, the closest real timestamp
+  // available for a pre-existing landing record.
+  uuid: text('uuid'),
+  updatedAt: text('updated_at')
 })

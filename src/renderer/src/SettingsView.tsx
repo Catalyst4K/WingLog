@@ -6,12 +6,28 @@ import type {
   GsxSettings,
   LandingThresholds,
   LogbookImportSummary,
+  SyncStatus,
   WeightUnit
 } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+
+// A curated, common-currency subset of what frankfurter.dev supports — enough for
+// "I want to see this in my own currency" without a second fetch just to populate a
+// dropdown (the currency list itself barely ever changes).
+const DISPLAY_CURRENCY_OPTIONS = [
+  { code: 'USD', label: 'USD — US Dollar (no conversion)' },
+  { code: 'GBP', label: 'GBP — British Pound' },
+  { code: 'EUR', label: 'EUR — Euro' },
+  { code: 'CAD', label: 'CAD — Canadian Dollar' },
+  { code: 'AUD', label: 'AUD — Australian Dollar' },
+  { code: 'NZD', label: 'NZD — New Zealand Dollar' },
+  { code: 'JPY', label: 'JPY — Japanese Yen' },
+  { code: 'CHF', label: 'CHF — Swiss Franc' }
+]
 
 function summarizeAircraftImport(summary: AircraftImportSummary): string {
   if (summary.skipped.length === 0) return `Imported ${summary.imported} aircraft.`
@@ -40,13 +56,24 @@ export function SettingsView(props: {
   const [loggingIn, setLoggingIn] = useState(false)
   const [importingAircraft, setImportingAircraft] = useState(false)
   const [importingLogbook, setImportingLogbook] = useState(false)
-  const [gsx, setGsx] = useState<GsxSettings>({ enabled: false, folderPath: null })
+  const [gsx, setGsx] = useState<GsxSettings>({ enabled: false, folderPath: null, displayCurrency: 'USD' })
   const [landingThresholds, setLandingThresholds] = useState<LandingThresholds>({ firmFpm: 480, hardFpm: 600 })
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({
+    loggedIn: false,
+    email: null,
+    syncing: false,
+    lastSyncedAt: null,
+    lastError: null
+  })
+  const [cloudEmail, setCloudEmail] = useState('')
+  const [cloudPassword, setCloudPassword] = useState('')
+  const [loggingIntoCloud, setLoggingIntoCloud] = useState(false)
 
   useEffect(() => {
     window.flightdeck.settingsGetSimbriefUsername().then((u) => setSimbriefUsername(u ?? ''))
     window.flightdeck.settingsGetGsx().then(setGsx)
     window.flightdeck.settingsGetLandingThresholds().then(setLandingThresholds)
+    window.flightdeck.syncStatus().then(setSyncStatus)
   }, [])
 
   async function handleSaveLandingThresholds(event: React.FormEvent): Promise<void> {
@@ -65,6 +92,12 @@ export function SettingsView(props: {
     const folderPath = await window.flightdeck.gsxBrowseFolder()
     if (!folderPath) return
     const next = { ...gsx, folderPath }
+    setGsx(next)
+    await window.flightdeck.settingsSetGsx(next)
+  }
+
+  async function handleGsxCurrencyChange(displayCurrency: string): Promise<void> {
+    const next = { ...gsx, displayCurrency }
     setGsx(next)
     await window.flightdeck.settingsSetGsx(next)
   }
@@ -103,6 +136,33 @@ export function SettingsView(props: {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
     }
+  }
+
+  async function handleCloudLogin(event: React.FormEvent): Promise<void> {
+    event.preventDefault()
+    setLoggingIntoCloud(true)
+    try {
+      const status = await window.flightdeck.authLogin(cloudEmail.trim(), cloudPassword)
+      setSyncStatus(status)
+      setCloudPassword('')
+      toast.success('Logged in.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    } finally {
+      setLoggingIntoCloud(false)
+    }
+  }
+
+  async function handleCloudLogout(): Promise<void> {
+    setSyncStatus(await window.flightdeck.authLogout())
+  }
+
+  async function handleSyncNow(): Promise<void> {
+    setSyncStatus((current) => ({ ...current, syncing: true }))
+    const status = await window.flightdeck.syncNow()
+    setSyncStatus(status)
+    if (status.lastError) toast.error(status.lastError)
+    else toast.success('Synced.')
   }
 
   async function handleImportLogbook(): Promise<void> {
@@ -206,6 +266,63 @@ export function SettingsView(props: {
 
       <Card className="max-w-sm">
         <CardHeader>
+          <CardTitle>Cloud sync</CardTitle>
+          <CardDescription>
+            Sync Fleet and Logbook across your machines. Off by default — nothing leaves this device until you log
+            in.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {syncStatus.loggedIn ? (
+            <>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm text-foreground">{syncStatus.email}</span>
+                <Button type="button" variant="outline" size="sm" onClick={handleCloudLogout}>
+                  Log out
+                </Button>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs text-muted-foreground">
+                  {syncStatus.lastSyncedAt
+                    ? `Last synced ${new Date(syncStatus.lastSyncedAt).toLocaleString()}`
+                    : 'Never synced yet.'}
+                </p>
+                <Button type="button" variant="outline" size="sm" onClick={handleSyncNow} disabled={syncStatus.syncing}>
+                  {syncStatus.syncing ? 'Syncing…' : 'Sync now'}
+                </Button>
+              </div>
+              {syncStatus.lastError && <p className="text-xs text-destructive">{syncStatus.lastError}</p>}
+            </>
+          ) : (
+            <form onSubmit={handleCloudLogin} className="flex flex-col gap-3">
+              <Label className="flex flex-col items-start gap-1.5">
+                Email
+                <Input
+                  type="email"
+                  value={cloudEmail}
+                  onChange={(e) => setCloudEmail(e.target.value)}
+                  required
+                />
+              </Label>
+              <Label className="flex flex-col items-start gap-1.5">
+                Password
+                <Input
+                  type="password"
+                  value={cloudPassword}
+                  onChange={(e) => setCloudPassword(e.target.value)}
+                  required
+                />
+              </Label>
+              <Button type="submit" variant="outline" size="sm" className="w-fit" disabled={loggingIntoCloud}>
+                {loggingIntoCloud ? 'Logging in…' : 'Log in'}
+              </Button>
+            </form>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-sm">
+        <CardHeader>
           <CardTitle>Data</CardTitle>
           <CardDescription>Import or export your fleet and logbook as local files.</CardDescription>
         </CardHeader>
@@ -301,6 +418,24 @@ export function SettingsView(props: {
           <p className="text-xs text-muted-foreground">
             Usually %APPDATA%\Virtuali\GSX\Receipts. A path that's wrong or no longer exists just means no
             receipts are found — never an error.
+          </p>
+          <Label className="flex flex-col items-start gap-1.5">
+            Display currency
+            <Select value={gsx.displayCurrency} onValueChange={handleGsxCurrencyChange}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DISPLAY_CURRENCY_OPTIONS.map((c) => (
+                  <SelectItem key={c.code} value={c.code}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            GSX totals convert using a live rate fetched at the time you view them — nothing is stored converted.
           </p>
         </CardContent>
       </Card>
