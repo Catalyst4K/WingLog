@@ -1,4 +1,4 @@
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, session } from 'electron'
 import type { DispatchOpenSimBriefParams } from '../../shared/ipc'
 import { signSimbriefRequest } from '../backend/backend-client'
 
@@ -25,7 +25,11 @@ function resolveType(params: DispatchOpenSimBriefParams): string {
 /** Pure query-string assembly, exported for testing — mirrors dispatchOpenSimBrief's
  *  keyless-prefill param set (airline/fltnum/date/deph/depm/extra) plus the three fields
  *  the keyed endpoint additionally needs (apicode/outputpage/timestamp). */
-export function buildGenerateUrl(params: DispatchOpenSimBriefParams, apicode: string, timestamp: number): string {
+export function buildGenerateUrl(
+  params: DispatchOpenSimBriefParams,
+  apicode: string,
+  timestamp: number
+): string {
   const query = new URLSearchParams({
     orig: params.origIcao,
     dest: params.destIcao,
@@ -59,11 +63,40 @@ function openPopup(url: string): Promise<void> {
   })
 }
 
-/** Pre-authenticates the generation window's session for the current app run — purely a
- *  convenience, generateOfp handles its own login inline regardless (SimBrief's worker
- *  page itself prompts for login when the session isn't already authenticated). */
+/** Pre-authenticates the generation window's session — persisted across restarts since
+ *  GENERATE_PARTITION carries the `persist:` prefix (confirmed with a real login/restart,
+ *  docs/decisions.md's SimBrief-login-persistence entry). generateOfp handles its own
+ *  login inline regardless (SimBrief's worker page itself prompts for login when the
+ *  session isn't already authenticated) — this is only for showing status without
+ *  requiring the user to open Dispatch first. */
 export function loginToSimbrief(): Promise<void> {
   return openPopup(SIMBRIEF_HOME_URL)
+}
+
+const SIMBRIEF_SSO_COOKIE_NAME = 'simbrief_sso'
+const SIMBRIEF_COOKIE_DOMAIN = 'simbrief.com'
+
+/**
+ * Whether the persisted generation-popup session is actually still logged into SimBrief
+ * right now, not just whether the partition has ever been used. Checked via
+ * simbrief_sso's presence — the real cookie SimBrief sets on login, confirmed against a
+ * real session (docs/simbrief-notes.md's login-status entry). Google Analytics/Ads
+ * cookies (`_ga`, `_gid`, `_gcl_au`, ...) are also present in this partition regardless
+ * of login state, so checking for *any* cookie wouldn't distinguish the two.
+ */
+export async function isSimbriefLoggedIn(): Promise<boolean> {
+  const cookies = await session
+    .fromPartition(GENERATE_PARTITION)
+    .cookies.get({ name: SIMBRIEF_SSO_COOKIE_NAME, domain: SIMBRIEF_COOKIE_DOMAIN })
+  return cookies.length > 0
+}
+
+/** Logs out of the persisted generation session — clears everything stored in
+ *  GENERATE_PARTITION (cookies included), not just the SSO cookie, since this partition
+ *  exists solely for SimBrief's login/generation popup and holds nothing else worth
+ *  keeping. */
+export async function logoutOfSimbrief(): Promise<void> {
+  await session.fromPartition(GENERATE_PARTITION).clearStorageData()
 }
 
 /** Triggers a real SimBrief generation: gets the signing value from flightdeck-backend,

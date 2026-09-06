@@ -520,6 +520,8 @@ export const IpcChannels = {
   settingsSetSimbriefUsername: 'settings:set-simbrief-username',
   dispatchGenerateOfp: 'dispatch:generate-ofp',
   dispatchLoginSimbrief: 'dispatch:login-simbrief',
+  dispatchSimbriefLoginStatus: 'dispatch:simbrief-login-status',
+  dispatchLogoutSimbrief: 'dispatch:logout-simbrief',
   dispatchGenerationAvailable: 'dispatch:generation-available',
   settingsGetWeightUnit: 'settings:get-weight-unit',
   settingsSetWeightUnit: 'settings:set-weight-unit',
@@ -614,10 +616,16 @@ export interface FlightdeckApi {
    *  through flightdeck-backend rather than a per-build key. Kept as a channel for a
    *  possible future bring-your-own-key or backend-downtime fallback. */
   dispatchGenerationAvailable: () => Promise<boolean>
-  /** Pre-authenticates the generation window's session for the current app run only —
-   *  login doesn't persist across a restart (docs/simbrief-notes.md). Purely a
-   *  convenience; dispatchGenerateOfp handles its own login inline regardless. */
+  /** Pre-authenticates the generation window's session — persisted across restarts
+   *  (docs/decisions.md's SimBrief-login-persistence entry). Purely a convenience;
+   *  dispatchGenerateOfp handles its own login inline regardless. */
   dispatchLoginSimbrief: () => Promise<void>
+  /** Whether the persisted generation session is logged into SimBrief right now — see
+   *  simbrief-generate.ts's isSimbriefLoggedIn. */
+  dispatchSimbriefLoginStatus: () => Promise<boolean>
+  /** Clears the persisted generation session — see simbrief-generate.ts's
+   *  logoutOfSimbrief. */
+  dispatchLogoutSimbrief: () => Promise<void>
   settingsGetWeightUnit: () => Promise<WeightUnit>
   settingsSetWeightUnit: (unit: WeightUnit) => Promise<void>
   settingsGetAltitudeUnit: () => Promise<AltitudeUnit>

@@ -4,11 +4,13 @@ import { createDb, type FlightdeckDb } from './client'
 import {
   getAltitudeUnit,
   getGsxSettings,
+  getLastSyncCompletedAt,
   getSetting,
   getSimbriefUsername,
   getWindSpeedUnit,
   setAltitudeUnit,
   setGsxSettings,
+  setLastSyncCompletedAt,
   setSetting,
   setSimbriefUsername,
   setWindSpeedUnit
@@ -72,6 +74,25 @@ describe('settings repo', () => {
 
   it('round-trips GSX settings including display currency', () => {
     setGsxSettings(db, { enabled: true, folderPath: 'C:\\GSX\\Receipts', displayCurrency: 'GBP' })
-    expect(getGsxSettings(db)).toEqual({ enabled: true, folderPath: 'C:\\GSX\\Receipts', displayCurrency: 'GBP' })
+    expect(getGsxSettings(db)).toEqual({
+      enabled: true,
+      folderPath: 'C:\\GSX\\Receipts',
+      displayCurrency: 'GBP'
+    })
+  })
+
+  it('defaults the last-synced-completed timestamp to null when never set', () => {
+    expect(getLastSyncCompletedAt(db)).toBeNull()
+  })
+
+  it('round-trips the last-synced-completed timestamp', () => {
+    setLastSyncCompletedAt(db, '2026-09-06T12:00:00.000Z')
+    expect(getLastSyncCompletedAt(db)).toBe('2026-09-06T12:00:00.000Z')
+  })
+
+  it('treats clearing it back to an empty string as null again, same as GSX folder path', () => {
+    setLastSyncCompletedAt(db, '2026-09-06T12:00:00.000Z')
+    setLastSyncCompletedAt(db, '')
+    expect(getLastSyncCompletedAt(db)).toBeNull()
   })
 })
