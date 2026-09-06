@@ -125,6 +125,29 @@ export function startFlight(
   return row ? toFlight(row) : undefined
 }
 
+/**
+ * Corrects the provisional fuel_out_kg written by startFlight, once the phase machine
+ * first leaves 'preflight' (TrackingController, on the preflight -> pushback transition).
+ * The value captured at the instant tracking starts can't be trusted as "fuel loaded" —
+ * SimConnect can report stale/leftover telemetry for a while after a flight reload (the
+ * same garbage-data window spike-flight-reload.ts found for altitude, evidently not
+ * limited to it — a real case, flight #182, showed a plausible-looking ~10,187kg reading
+ * that was actually a reload artifact, not the aircraft's genuine ~3,000kg default), and
+ * ground fuel service (GSX, an EFB) happens after that too, while the aircraft is still
+ * stationary and tracking has therefore already started. Waiting for the first real
+ * ground-movement/engine-start signal sidesteps both: by then the reload window has long
+ * since cleared and any deliberate defuel/refuel has already settled.
+ */
+export function finalizeFuelOut(db: FlightdeckDb, id: number, fuelOutKg: number): Flight | undefined {
+  const [row] = db
+    .update(flight)
+    .set({ fuelOutKg, updatedAt: new Date().toISOString() })
+    .where(eq(flight.id, id))
+    .returning()
+    .all()
+  return row ? toFlight(row) : undefined
+}
+
 /** Liftoff — the takeoff → climb transition. */
 export function recordOff(db: FlightdeckDb, id: number): Flight | undefined {
   const [row] = db

@@ -11,6 +11,7 @@ import {
   createFlight,
   createHistoricalFlight,
   deleteFlight,
+  finalizeFuelOut,
   getFleetStats,
   getFlight,
   listCompletedFlights,
@@ -159,6 +160,17 @@ describe('flight repo', () => {
       expect(completed?.blockMinutes).toBe(110) // 12:00 -> 13:50
       expect(completed?.airMinutes).toBe(90) // 12:10 -> 13:40
       expect(completed?.fuelBurnKg).toBe(6000) // 10000 - 4000
+    })
+
+    it('finalizeFuelOut corrects the fuel_out_kg written by startFlight, and feeds into a later fuel-burn calculation', () => {
+      const created = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' })
+      startFlight(db, created.id, 10187) // provisional — a stale/pre-service reading
+      finalizeFuelOut(db, created.id, 6504) // corrected once past ground fuel service
+
+      expect(getFlight(db, created.id)?.fuelOutKg).toBe(6504)
+
+      const completed = completeFlight(db, created.id, 3239)
+      expect(completed?.fuelBurnKg).toBe(3265) // 6504 - 3239, not 10187 - 3239
     })
 
     it("updates the aircraft's currentIcao to the arrival airport on completion", () => {

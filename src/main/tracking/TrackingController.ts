@@ -5,6 +5,7 @@ import { addInvoicesForFlight } from '../db/flight-invoice-repo'
 import {
   abandonFlight,
   completeFlight,
+  finalizeFuelOut,
   getFlight,
   recordOff,
   recordOn,
@@ -36,6 +37,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   private recorder: FlightRecorder | undefined
   private offRecorded = false
   private onRecorded = false
+  private fuelOutFinalized = false
 
   constructor(
     private readonly db: FlightdeckDb,
@@ -45,6 +47,14 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     this.simConnectService.on('telemetry', (telemetry) => {
       if (!this.recorder) return
       const result = this.recorder.ingest(telemetry, new Date())
+
+      // The value startFlight wrote at tracking-start is only provisional (see
+      // finalizeFuelOut's doc comment) — correct it as soon as the phase machine shows
+      // the aircraft is genuinely past ground fuel service, not just parked.
+      if (result.phase !== 'preflight' && !this.fuelOutFinalized) {
+        this.fuelOutFinalized = true
+        finalizeFuelOut(this.db, this.recorder.getFlightId(), telemetry.fuelTotalKg)
+      }
 
       if (result.phase === 'climb' && !this.offRecorded) {
         this.offRecorded = true
@@ -95,6 +105,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     this.recorder = new FlightRecorder(flightId)
     this.offRecorded = false
     this.onRecorded = false
+    this.fuelOutFinalized = false
   }
 
   /** User cancelled tracking mid-flight, rather than reaching shutdown naturally. */
