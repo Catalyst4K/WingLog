@@ -132,7 +132,9 @@ export function DispatchView(props: {
   }
 
   useEffect(() => {
-    window.flightdeck.aircraftList().then(setAircraft)
+    // Retired aircraft (replacedByAircraftId set — docs/plans/aircraft-replacement.md) have
+    // no flights of their own left and shouldn't be offered anywhere an aircraft is picked.
+    window.flightdeck.aircraftList().then((list) => setAircraft(list.filter((a) => a.replacedByAircraftId == null)))
     window.flightdeck.logbookFleetStats().then(setFleetStats)
     window.flightdeck.dispatchGenerationAvailable().then(setGenerationAvailable)
     // Source list for the advanced dialog's "Load settings from a previous flight" —

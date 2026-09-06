@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, ArrowRightLeft, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Aircraft, AircraftLanding, FleetStats, NewAircraft } from '@shared/ipc'
 import {
@@ -14,6 +14,16 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { AircraftForm } from './AircraftForm'
 import { AirlineLogo } from './AirlineLogo'
@@ -146,15 +156,112 @@ function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
   )
 }
 
+/** A livery/registration change on an airframe still being flown (docs/plans/
+ *  aircraft-replacement.md) — picks an existing, active fleet aircraft to take over this
+ *  one's flight history. The target list deliberately excludes already-retired aircraft:
+ *  chaining a replacement onto one that's already been superseded would need its own
+ *  "walk the chain" handling this plan doesn't build, and in practice a target is always
+ *  still active at the moment a replace happens (it might get retired itself later, via a
+ *  separate replace). */
+function ReplaceAircraftDialog(props: {
+  aircraft: Aircraft
+  candidates: Aircraft[]
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onConfirm: (replacementId: number) => Promise<void>
+}): React.JSX.Element {
+  const [targetId, setTargetId] = useState<number | null>(null)
+  const [flightCount, setFlightCount] = useState<number | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  // The parent only ever mounts this component while a replace is in progress (see
+  // FleetView's `{replaceTarget && <ReplaceAircraftDialog ... />}`), so a fresh mount
+  // already means a fresh target/flightCount — no need to reset them on `open` here, just
+  // fetch once for whichever aircraft this instance was mounted for.
+  useEffect(() => {
+    window.flightdeck
+      .flightList()
+      .then((flights) => setFlightCount(flights.filter((f) => f.aircraftId === props.aircraft.id).length))
+  }, [props.aircraft.id])
+
+  const target = props.candidates.find((c) => c.id === targetId) ?? null
+
+  async function handleConfirm(): Promise<void> {
+    if (!target) return
+    setSubmitting(true)
+    try {
+      await props.onConfirm(target.id)
+      props.onOpenChange(false)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Replace {props.aircraft.registration}</DialogTitle>
+          <DialogDescription>
+            Moves this aircraft's flight history onto another fleet aircraft and marks it
+            retired — for a livery or registration change on the same physical airframe, not
+            a genuine retirement.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-3">
+          <Label className="flex flex-col items-start gap-1.5">
+            Replacement aircraft
+            <Select
+              value={targetId != null ? String(targetId) : undefined}
+              onValueChange={(v) => setTargetId(Number(v))}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="— select —" />
+              </SelectTrigger>
+              <SelectContent>
+                {props.candidates.map((c) => (
+                  <SelectItem key={c.id} value={String(c.id)}>
+                    {c.registration} — {c.icaoType}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Label>
+          {target && (
+            <p className="text-sm text-muted-foreground">
+              {flightCount === null ? 'Checking flight history…' : `${flightCount} flight(s) will move`} from{' '}
+              <span className="font-medium text-foreground">{props.aircraft.registration}</span> to{' '}
+              <span className="font-medium text-foreground">{target.registration}</span>;{' '}
+              {props.aircraft.registration} will be marked retired. This cannot be undone from the UI.
+            </p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => props.onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={handleConfirm} disabled={!target || submitting}>
+            {submitting ? 'Replacing…' : 'Replace'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function AircraftDetail(props: {
   aircraft: Aircraft
   stats: FleetStats | undefined
+  replacedBy: Aircraft | undefined
   onEdit: () => void
   onDelete: () => void
+  onReplace: () => void
+  onViewAircraft: (id: number) => void
   onBack: () => void
 }): React.JSX.Element {
   const a = props.aircraft
   const s = props.stats
+  const retired = a.replacedByAircraftId !== null
   return (
     <div className="flex max-w-lg flex-col gap-4">
       <Button type="button" variant="ghost" size="sm" onClick={props.onBack} className="w-fit">
@@ -169,6 +276,23 @@ function AircraftDetail(props: {
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
+          {retired && (
+            <p className="rounded-md bg-muted p-2 text-sm text-muted-foreground">
+              Retired — replaced by{' '}
+              {props.replacedBy ? (
+                <button
+                  type="button"
+                  className="font-medium text-foreground underline underline-offset-2"
+                  onClick={() => props.onViewAircraft(props.replacedBy!.id)}
+                >
+                  {props.replacedBy.registration}
+                </button>
+              ) : (
+                `#${a.replacedByAircraftId}`
+              )}
+              .
+            </p>
+          )}
           <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
             <DetailField label="Airline" value={<AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />} />
             <DetailField label="Current airport" value={a.currentIcao ?? s?.lastArrIcao ?? '—'} />
@@ -183,6 +307,12 @@ function AircraftDetail(props: {
               <Pencil />
               Edit
             </Button>
+            {!retired && (
+              <Button type="button" variant="outline" size="sm" onClick={props.onReplace}>
+                <ArrowRightLeft />
+                Replace…
+              </Button>
+            )}
             <Button type="button" variant="destructive" size="sm" onClick={props.onDelete}>
               <Trash2 />
               Delete
@@ -199,6 +329,10 @@ export function FleetView(): React.JSX.Element {
   const [stats, setStats] = useState<FleetStats[]>([])
   const [view, setView] = useState<View>({ kind: 'list' })
   const [deleteTarget, setDeleteTarget] = useState<Aircraft | null>(null)
+  const [replaceTarget, setReplaceTarget] = useState<Aircraft | null>(null)
+
+  const activeAircraft = aircraft.filter((a) => a.replacedByAircraftId === null)
+  const retiredAircraft = aircraft.filter((a) => a.replacedByAircraftId !== null)
 
   function reload(): Promise<void> {
     return Promise.all([window.flightdeck.aircraftList(), window.flightdeck.logbookFleetStats()]).then(
@@ -239,6 +373,21 @@ export function FleetView(): React.JSX.Element {
     }
   }
 
+  async function handleConfirmReplace(replacementId: number): Promise<void> {
+    if (!replaceTarget) return
+    const target = replaceTarget
+    const replacement = aircraft.find((a) => a.id === replacementId)
+    try {
+      await window.flightdeck.aircraftReplace(target.id, replacementId)
+      await reload()
+      toast.success(`${target.registration} retired, replaced by ${replacement?.registration ?? replacementId}.`)
+      setView({ kind: 'detail', id: replacementId })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+      throw err
+    }
+  }
+
   if (view.kind === 'new') {
     return (
       <div className="flex flex-col gap-6">
@@ -271,8 +420,11 @@ export function FleetView(): React.JSX.Element {
         <AircraftDetail
           aircraft={existing}
           stats={stats.find((s) => s.aircraftId === existing.id)}
+          replacedBy={aircraft.find((a) => a.id === existing.replacedByAircraftId)}
           onEdit={() => setView({ kind: 'edit', id: view.id })}
           onDelete={() => setDeleteTarget(existing)}
+          onReplace={() => setReplaceTarget(existing)}
+          onViewAircraft={(id) => setView({ kind: 'detail', id })}
           onBack={() => setView({ kind: 'list' })}
         />
         <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
@@ -289,6 +441,15 @@ export function FleetView(): React.JSX.Element {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+        {replaceTarget && (
+          <ReplaceAircraftDialog
+            aircraft={replaceTarget}
+            candidates={activeAircraft.filter((a) => a.id !== replaceTarget.id)}
+            open={replaceTarget !== null}
+            onOpenChange={(open) => !open && setReplaceTarget(null)}
+            onConfirm={handleConfirmReplace}
+          />
+        )}
       </>
     )
   }
@@ -303,9 +464,9 @@ export function FleetView(): React.JSX.Element {
         </Button>
       </div>
 
-      {aircraft.length === 0 ? (
+      {activeAircraft.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          No aircraft yet — add one, or import a fleet from Settings → Data.
+          No active aircraft — add one, or import a fleet from Settings → Data.
         </p>
       ) : (
         <Table>
@@ -319,7 +480,7 @@ export function FleetView(): React.JSX.Element {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {aircraft.map((a) => {
+            {activeAircraft.map((a) => {
               const s = stats.find((stat) => stat.aircraftId === a.id)
               return (
                 <TableRow
@@ -339,6 +500,52 @@ export function FleetView(): React.JSX.Element {
             })}
           </TableBody>
         </Table>
+      )}
+
+      {retiredAircraft.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <h2 className="font-heading text-lg font-semibold text-foreground">Retired</h2>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Registration</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Replaced by</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {retiredAircraft.map((a) => {
+                const replacement = aircraft.find((c) => c.id === a.replacedByAircraftId)
+                return (
+                  <TableRow
+                    key={a.id}
+                    onClick={() => setView({ kind: 'detail', id: a.id })}
+                    className="cursor-pointer text-muted-foreground"
+                  >
+                    <TableCell className="font-medium">{a.registration}</TableCell>
+                    <TableCell>{a.icaoType}</TableCell>
+                    <TableCell>
+                      {replacement ? (
+                        <button
+                          type="button"
+                          className="text-foreground underline underline-offset-2"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setView({ kind: 'detail', id: replacement.id })
+                          }}
+                        >
+                          {replacement.registration}
+                        </button>
+                      ) : (
+                        `#${a.replacedByAircraftId}`
+                      )}
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </div>
       )}
     </div>
   )

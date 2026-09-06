@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { type AnySQLiteColumn, integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 // Identity + linkage only, per docs/decisions.md's 2026-09-01 Fleet-simplification entry:
 // all performance data (weights, equip, PBN, wake cat...) lives in the linked SimBrief
@@ -36,7 +36,16 @@ export const aircraft = sqliteTable('aircraft', {
   // UPDATE instead; every repo write path from here on always supplies both explicitly,
   // so in practice this is never actually null once written by this app version.
   uuid: text('uuid'),
-  updatedAt: text('updated_at')
+  updatedAt: text('updated_at'),
+  // Aircraft replacement (flightdeck-backend/docs/plans/aircraft-replacement.md) — null
+  // (the default) means active/selectable. Set means this row is retired, superseded by
+  // the aircraft at that id: its flights have already been reassigned there, and every
+  // identity field on this row (registration, type, operator...) stays untouched purely
+  // for display, e.g. Fleet's "G-XXXX, retired, replaced by G-YYYY". Self-referencing, so
+  // the arrow-function form is required (and must be annotated AnySQLiteColumn —
+  // `aircraft`'s own type isn't inferred yet while this object literal is still being
+  // evaluated, so TS can't resolve `aircraft.id`'s type without the hint).
+  replacedByAircraftId: integer('replaced_by_aircraft_id').references((): AnySQLiteColumn => aircraft.id)
 })
 
 // Flight table per PLAN.md §5. `law_kg` in that sketch was landing weight — named

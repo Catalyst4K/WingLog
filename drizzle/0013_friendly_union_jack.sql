@@ -1,0 +1,1 @@
+ALTER TABLE `aircraft` ADD `replaced_by_aircraft_id` integer REFERENCES aircraft(id);
