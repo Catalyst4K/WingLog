@@ -109,6 +109,18 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Without this, html/body have no explicit height, so `<main>`'s `h-screen` never
+   * actually constrains anything — its content just grows the whole document past the
+   * viewport and the OS/Chromium scrolls the document itself, dragging App.tsx's tab-bar
+   * header along with it instead of leaving it fixed while only the inner
+   * `flex-1 overflow-auto` content div scrolls (flight-test-findings-2026-09-06.md #7 —
+   * confirmed live: the inner div's own scrollHeight never exceeded its clientHeight,
+   * `<main>` did). */
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
   body {
     @apply bg-background text-foreground;
   }
