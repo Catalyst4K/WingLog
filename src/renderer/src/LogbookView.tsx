@@ -232,6 +232,7 @@ function FlightDetail(props: {
               <DetailField label="Block time" value={formatMinutes(flight.blockMinutes)} />
               <DetailField label="Air time" value={formatMinutes(flight.airMinutes)} />
               <DetailField label="Fuel burn" value={formatWeight(flight.fuelBurnKg, weightUnit)} />
+              <DetailField label="Fuel loaded" value={formatWeight(flight.fuelOutKg, weightUnit)} />
               <DetailField label="Fuel planned" value={formatWeight(flight.fuelPlannedKg, weightUnit)} />
             </dl>
           </CardContent>
