@@ -546,6 +546,7 @@ export const IpcChannels = {
   gsxRescanFlight: 'gsx:rescan-flight',
   gsxAttachNotailReceipt: 'gsx:attach-notail-receipt',
   gsxOpenReceipt: 'gsx:open-receipt',
+  logbookOpenOfpPdf: 'logbook:open-ofp-pdf',
   logbookGetLanding: 'logbook:get-landing',
   fleetListLandings: 'fleet:list-landings',
   settingsGetLandingThresholds: 'settings:get-landing-thresholds',
@@ -657,6 +658,12 @@ export interface FlightdeckApi {
   gsxAttachNotailReceipt: (flightId: number, jsonPath: string) => Promise<FlightInvoice[]>
   /** Opens the original styled .html receipt in the system's default viewer. */
   gsxOpenReceipt: (sourceHtmlPath: string) => Promise<void>
+  /** Opens the flight's raw SimBrief OFP PDF in the system's browser/PDF viewer — the URL
+   *  is read straight off the flight's already-stored ofpJson (docs/simbrief-notes.md),
+   *  no extra fetch. False (not an error) when the flight has no OFP, or its stored JSON
+   *  doesn't yield a safe URL to open — e.g. an ad-hoc flight, or an older SimBrief
+   *  response shaped differently than expected. */
+  logbookOpenOfpPdf: (flightId: number) => Promise<boolean>
   /** The flight's touchdown record, if one was captured — null for any flight tracked
    *  before this feature existed, or one with no landing phase reached (e.g. cancelled
    *  mid-air). */
