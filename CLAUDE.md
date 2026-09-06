@@ -120,6 +120,12 @@ docs/           User-facing content only, or empty — see the note at the top o
   flown solo, not a platform.
 - Convert units at the IPC boundary (SI internally, aviation units only at the UI layer)
   — don't let sim-native and SI units mix inside the same layer.
+- **Don't hand work off to a session on the other machine unless you've been asked to, for
+  that specific piece of work.** Work sometimes runs in parallel across two machines (see
+  "Branching"), and delegating is genuinely useful — but "hand this batch off" is
+  authorisation for that batch, not a standing arrangement to keep doing it. Finish the
+  plan or the investigation, report back, and let the delegation be an explicit choice
+  each time.
 
 ## Security
 
