@@ -335,6 +335,14 @@ export interface GsxSettings {
   displayCurrency: string
 }
 
+/** Result of the one-time, first-ever-launch check for GSX's expected receipts folder
+ *  (flight-test-findings-2026-09-06.md #4) — `found` means the folder existed and GSX was
+ *  auto-enabled against it. Only ever returned once, on the launch the check actually
+ *  runs; every later launch gets null from the same IPC call. */
+export interface GsxFirstLaunchResult {
+  found: boolean
+}
+
 export interface LogbookImportSkip {
   label: string
   reason: string
@@ -440,6 +448,13 @@ export type WeightUnit = 'kg' | 'lb'
  */
 export type AltitudeUnit = 'ft' | 'm' | 'hybrid'
 
+/** Display unit for METAR wind speed. Most stations report in knots, but ICAO METARs
+ *  outside North America commonly use an `MPS` wind group instead — 'kt' is the default
+ *  since knots is the unit most of this app already assumes elsewhere. The raw METAR text
+ *  is always shown verbatim regardless of this setting; it only controls a separately
+ *  formatted wind line alongside it. */
+export type WindSpeedUnit = 'kt' | 'mps'
+
 /** The app's tabs — also the native menu bar's top-level items, see main/menu.ts. */
 export type AppPage = 'fleet' | 'dispatch' | 'track' | 'logbook' | 'settings'
 
@@ -523,6 +538,8 @@ export const IpcChannels = {
   settingsSetWeightUnit: 'settings:set-weight-unit',
   settingsGetAltitudeUnit: 'settings:get-altitude-unit',
   settingsSetAltitudeUnit: 'settings:set-altitude-unit',
+  settingsGetWindSpeedUnit: 'settings:get-wind-speed-unit',
+  settingsSetWindSpeedUnit: 'settings:set-wind-speed-unit',
   trackingStart: 'tracking:start',
   trackingStop: 'tracking:stop',
   trackingFinish: 'tracking:finish',
@@ -538,10 +555,12 @@ export const IpcChannels = {
   logbookListInvoices: 'logbook:list-invoices',
   settingsGetGsx: 'settings:get-gsx',
   settingsSetGsx: 'settings:set-gsx',
+  settingsCheckGsxFirstLaunch: 'settings:check-gsx-first-launch',
   gsxBrowseFolder: 'gsx:browse-folder',
   gsxRescanFlight: 'gsx:rescan-flight',
   gsxAttachNotailReceipt: 'gsx:attach-notail-receipt',
   gsxOpenReceipt: 'gsx:open-receipt',
+  logbookOpenOfpPdf: 'logbook:open-ofp-pdf',
   logbookGetLanding: 'logbook:get-landing',
   fleetListLandings: 'fleet:list-landings',
   settingsGetLandingThresholds: 'settings:get-landing-thresholds',
@@ -618,6 +637,8 @@ export interface FlightdeckApi {
   settingsSetWeightUnit: (unit: WeightUnit) => Promise<void>
   settingsGetAltitudeUnit: () => Promise<AltitudeUnit>
   settingsSetAltitudeUnit: (unit: AltitudeUnit) => Promise<void>
+  settingsGetWindSpeedUnit: () => Promise<WindSpeedUnit>
+  settingsSetWindSpeedUnit: (unit: WindSpeedUnit) => Promise<void>
   /** Begins tracking a planned flight. Throws if the sim isn't connected or another flight is already tracked. */
   trackingStart: (flightId: number) => Promise<void>
   /** Cancels tracking mid-flight; marks the flight 'abandoned' rather than 'completed'. */
@@ -638,6 +659,9 @@ export interface FlightdeckApi {
   logbookListInvoices: (flightId: number) => Promise<FlightInvoice[]>
   settingsGetGsx: () => Promise<GsxSettings>
   settingsSetGsx: (settings: GsxSettings) => Promise<void>
+  /** Call once, on app mount — a no-op (returns null) on every launch after the app's
+   *  actual first-ever one, so the caller only ever needs to react to a non-null result. */
+  settingsCheckGsxFirstLaunch: () => Promise<GsxFirstLaunchResult | null>
   /** Opens a native folder-picker dialog; null if the user cancels. */
   gsxBrowseFolder: () => Promise<string | null>
   /** Re-scans the configured GSX folder for this flight's receipts and re-stores whatever
@@ -650,6 +674,12 @@ export interface FlightdeckApi {
   gsxAttachNotailReceipt: (flightId: number, jsonPath: string) => Promise<FlightInvoice[]>
   /** Opens the original styled .html receipt in the system's default viewer. */
   gsxOpenReceipt: (sourceHtmlPath: string) => Promise<void>
+  /** Opens the flight's raw SimBrief OFP PDF in the system's browser/PDF viewer — the URL
+   *  is read straight off the flight's already-stored ofpJson (docs/simbrief-notes.md),
+   *  no extra fetch. False (not an error) when the flight has no OFP, or its stored JSON
+   *  doesn't yield a safe URL to open — e.g. an ad-hoc flight, or an older SimBrief
+   *  response shaped differently than expected. */
+  logbookOpenOfpPdf: (flightId: number) => Promise<boolean>
   /** The flight's touchdown record, if one was captured — null for any flight tracked
    *  before this feature existed, or one with no landing phase reached (e.g. cancelled
    *  mid-air). */

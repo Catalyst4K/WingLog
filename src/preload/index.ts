@@ -12,7 +12,8 @@ import {
   type SimConnectionStatus,
   type SimTelemetry,
   type TrackPoint,
-  type WeightUnit
+  type WeightUnit,
+  type WindSpeedUnit
 } from '@shared/ipc'
 
 const api: FlightdeckApi = {
@@ -52,8 +53,9 @@ const api: FlightdeckApi = {
   settingsGetWeightUnit: () => ipcRenderer.invoke(IpcChannels.settingsGetWeightUnit),
   settingsSetWeightUnit: (unit: WeightUnit) => ipcRenderer.invoke(IpcChannels.settingsSetWeightUnit, unit),
   settingsGetAltitudeUnit: () => ipcRenderer.invoke(IpcChannels.settingsGetAltitudeUnit),
-  settingsSetAltitudeUnit: (unit: AltitudeUnit) =>
-    ipcRenderer.invoke(IpcChannels.settingsSetAltitudeUnit, unit),
+  settingsSetAltitudeUnit: (unit: AltitudeUnit) => ipcRenderer.invoke(IpcChannels.settingsSetAltitudeUnit, unit),
+  settingsGetWindSpeedUnit: () => ipcRenderer.invoke(IpcChannels.settingsGetWindSpeedUnit),
+  settingsSetWindSpeedUnit: (unit: WindSpeedUnit) => ipcRenderer.invoke(IpcChannels.settingsSetWindSpeedUnit, unit),
   trackingStart: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingStart, flightId),
   trackingStop: () => ipcRenderer.invoke(IpcChannels.trackingStop),
   trackingFinish: () => ipcRenderer.invoke(IpcChannels.trackingFinish),
@@ -71,11 +73,13 @@ const api: FlightdeckApi = {
   logbookListInvoices: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookListInvoices, flightId),
   settingsGetGsx: () => ipcRenderer.invoke(IpcChannels.settingsGetGsx),
   settingsSetGsx: (settings: GsxSettings) => ipcRenderer.invoke(IpcChannels.settingsSetGsx, settings),
+  settingsCheckGsxFirstLaunch: () => ipcRenderer.invoke(IpcChannels.settingsCheckGsxFirstLaunch),
   gsxBrowseFolder: () => ipcRenderer.invoke(IpcChannels.gsxBrowseFolder),
   gsxRescanFlight: (flightId: number) => ipcRenderer.invoke(IpcChannels.gsxRescanFlight, flightId),
   gsxAttachNotailReceipt: (flightId: number, jsonPath: string) =>
     ipcRenderer.invoke(IpcChannels.gsxAttachNotailReceipt, flightId, jsonPath),
   gsxOpenReceipt: (sourceHtmlPath: string) => ipcRenderer.invoke(IpcChannels.gsxOpenReceipt, sourceHtmlPath),
+  logbookOpenOfpPdf: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookOpenOfpPdf, flightId),
   logbookGetLanding: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookGetLanding, flightId),
   fleetListLandings: (aircraftId: number) => ipcRenderer.invoke(IpcChannels.fleetListLandings, aircraftId),
   settingsGetLandingThresholds: () => ipcRenderer.invoke(IpcChannels.settingsGetLandingThresholds),

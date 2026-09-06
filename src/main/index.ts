@@ -4,6 +4,7 @@ import {
   IpcChannels,
   type AircraftUpdate,
   type AltitudeUnit,
+  type WindSpeedUnit,
   type DispatchOfp,
   type DispatchOpenSimBriefParams,
   type GsxSettings,
@@ -35,6 +36,7 @@ import {
   createFlight,
   deleteFlight,
   getFleetStats,
+  getFlight,
   getLogbookStats,
   listCompletedFlights,
   listFlights
@@ -47,17 +49,21 @@ import {
   getLandingThresholds,
   getSimbriefUsername,
   getWeightUnit,
+  getWindSpeedUnit,
   setAltitudeUnit,
   setGsxSettings,
   setLandingThresholds,
   setSimbriefUsername,
-  setWeightUnit
+  setWeightUnit,
+  setWindSpeedUnit
 } from './db/settings-repo'
 import { listTrackPoints } from './db/track-point-repo'
 import { simplifyTrackPoints } from './tracking/track-simplify'
 import { defaultGsxReceiptsPath } from './gsx/default-path'
+import { checkGsxFirstLaunch } from './gsx/first-launch-check'
 import { buildFlightMatchWindow } from './gsx/flight-window'
 import { readReceipt, receiptFileFromPath, scanGsxFolder } from './gsx/scan'
+import { extractOfpPdfUrl } from './simbrief/ofp-pdf'
 import { fetchLatestOfp, type SimBriefOfp } from './simbrief/simbrief-client'
 import { generateOfp, loginToSimbrief } from './simbrief/simbrief-generate'
 import { SimConnectService } from './sim/SimConnectService'
@@ -237,6 +243,8 @@ app.whenReady().then(() => {
   ipcMain.handle(IpcChannels.settingsSetWeightUnit, (_event, unit: WeightUnit) => setWeightUnit(db, unit))
   ipcMain.handle(IpcChannels.settingsGetAltitudeUnit, () => getAltitudeUnit(db))
   ipcMain.handle(IpcChannels.settingsSetAltitudeUnit, (_event, unit: AltitudeUnit) => setAltitudeUnit(db, unit))
+  ipcMain.handle(IpcChannels.settingsGetWindSpeedUnit, () => getWindSpeedUnit(db))
+  ipcMain.handle(IpcChannels.settingsSetWindSpeedUnit, (_event, unit: WindSpeedUnit) => setWindSpeedUnit(db, unit))
 
   const simConnectService = new SimConnectService()
   ipcMain.handle(IpcChannels.simConnectionStatusGet, () => simConnectService.getStatus())
@@ -315,6 +323,7 @@ app.whenReady().then(() => {
   // defaultGsxReceiptsPath returning null elsewhere.
   ipcMain.handle(IpcChannels.settingsGetGsx, () => getGsxSettings(db))
   ipcMain.handle(IpcChannels.settingsSetGsx, (_event, settings: GsxSettings) => setGsxSettings(db, settings))
+  ipcMain.handle(IpcChannels.settingsCheckGsxFirstLaunch, () => checkGsxFirstLaunch(db))
 
   ipcMain.handle(IpcChannels.gsxBrowseFolder, async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog(window, {
@@ -353,6 +362,14 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle(IpcChannels.gsxOpenReceipt, (_event, sourceHtmlPath: string) => shell.openPath(sourceHtmlPath))
+
+  ipcMain.handle(IpcChannels.logbookOpenOfpPdf, async (_event, flightId: number) => {
+    const flight = getFlight(db, flightId)
+    const url = flight ? extractOfpPdfUrl(flight.ofpJson) : null
+    if (!url) return false
+    await shell.openExternal(url)
+    return true
+  })
 
   ipcMain.handle(IpcChannels.logbookGetLanding, (_event, flightId: number) => getLandingByFlight(db, flightId) ?? null)
   ipcMain.handle(IpcChannels.fleetListLandings, (_event, aircraftId: number) => listLandingsByAircraft(db, aircraftId))

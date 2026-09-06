@@ -1,6 +1,15 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { BookOpen, Plane, Radar, Route, Settings as SettingsIcon } from 'lucide-react'
-import type { AltitudeUnit, AppPage, DispatchOfp, SimConnectionStatus, SimTelemetry, WeightUnit } from '@shared/ipc'
+import { toast } from 'sonner'
+import type {
+  AltitudeUnit,
+  AppPage,
+  DispatchOfp,
+  SimConnectionStatus,
+  SimTelemetry,
+  WeightUnit,
+  WindSpeedUnit
+} from '@shared/ipc'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Toaster } from '@/components/ui/sonner'
@@ -49,6 +58,7 @@ export default function App(): React.JSX.Element {
   const [page, setPage] = useState<AppPage>('fleet')
   const [weightUnit, setWeightUnit] = useState<WeightUnit>('lb')
   const [altitudeUnit, setAltitudeUnit] = useState<AltitudeUnit>('ft')
+  const [windSpeedUnit, setWindSpeedUnit] = useState<WindSpeedUnit>('kt')
   const [simStatus, setSimStatus] = useState<SimConnectionStatus>({ state: 'disconnected' })
   const [telemetry, setTelemetry] = useState<SimTelemetry | null>(null)
   // Lifted out of DispatchView (rather than local state there) for two reasons: Track
@@ -64,6 +74,20 @@ export default function App(): React.JSX.Element {
   useEffect(() => {
     window.flightdeck.settingsGetWeightUnit().then(setWeightUnit)
     window.flightdeck.settingsGetAltitudeUnit().then(setAltitudeUnit)
+    window.flightdeck.settingsGetWindSpeedUnit().then(setWindSpeedUnit)
+  }, [])
+
+  useEffect(() => {
+    // A no-op (returns null) on every launch after the app's actual first-ever one —
+    // see settingsCheckGsxFirstLaunch's doc comment.
+    window.flightdeck.settingsCheckGsxFirstLaunch().then((result) => {
+      if (!result) return
+      if (result.found) {
+        toast.success('GSX ground-service tracking enabled — receipts folder found automatically.')
+      } else {
+        toast.info('GSX ground-service tracking is off — enable it in Settings if you use GSX.')
+      }
+    })
   }, [])
 
   useEffect(() => {
@@ -92,6 +116,11 @@ export default function App(): React.JSX.Element {
   async function handleAltitudeUnitChange(unit: AltitudeUnit): Promise<void> {
     setAltitudeUnit(unit)
     await window.flightdeck.settingsSetAltitudeUnit(unit)
+  }
+
+  async function handleWindSpeedUnitChange(unit: WindSpeedUnit): Promise<void> {
+    setWindSpeedUnit(unit)
+    await window.flightdeck.settingsSetWindSpeedUnit(unit)
   }
 
   return (
@@ -124,6 +153,7 @@ export default function App(): React.JSX.Element {
               <DispatchView
                 weightUnit={weightUnit}
                 altitudeUnit={altitudeUnit}
+                windSpeedUnit={windSpeedUnit}
                 onPlanned={() => setPage('track')}
                 ofp={dispatchOfp}
                 onOfpChange={setDispatchOfp}
@@ -148,6 +178,8 @@ export default function App(): React.JSX.Element {
                 onWeightUnitChange={handleWeightUnitChange}
                 altitudeUnit={altitudeUnit}
                 onAltitudeUnitChange={handleAltitudeUnitChange}
+                windSpeedUnit={windSpeedUnit}
+                onWindSpeedUnitChange={handleWindSpeedUnitChange}
               />
             )}
           </Suspense>

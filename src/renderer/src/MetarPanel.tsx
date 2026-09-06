@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
-import type { MetarReport } from '@shared/ipc'
+import type { MetarReport, WindSpeedUnit } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AirportSearch } from './AirportSearch'
+import { formatWind, parseWindGroup } from './metar-wind'
 
 type Slot = 'departure' | 'destination' | 'alternate' | 'custom'
 
@@ -27,10 +28,14 @@ function MetarBody(props: {
   icao: string | null
   loading: boolean
   report: MetarReport | undefined
+  windSpeedUnit: WindSpeedUnit
 }): React.JSX.Element {
   if (!props.icao) return <p className="text-xs text-muted-foreground">No airport set.</p>
   if (props.loading && !props.report) return <p className="text-xs text-muted-foreground">Fetching…</p>
   if (!props.report) return <p className="text-xs text-muted-foreground">No current METAR for {props.icao}.</p>
+  // Parsed client-side, display-only — the raw text below is always the source of truth,
+  // never rewritten in place (docs/plans/flight-test-findings-2026-09-06.md #5).
+  const wind = parseWindGroup(props.report.rawText)
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-1.5">
@@ -42,6 +47,7 @@ function MetarBody(props: {
         )}
         <span className="text-xs text-muted-foreground">{formatObservedAgo(props.report.observedUtc)}</span>
       </div>
+      {wind && <p className="text-xs text-foreground">{formatWind(wind, props.windSpeedUnit)}</p>}
       <p className="font-mono text-xs break-words text-foreground">{props.report.rawText}</p>
     </div>
   )
@@ -59,6 +65,7 @@ export function MetarPanel(props: {
   depIcao: string | null
   arrIcao: string | null
   altnIcao: string | null
+  windSpeedUnit: WindSpeedUnit
 }): React.JSX.Element {
   const [tab, setTab] = useState<Slot>('departure')
   const [customIcao, setCustomIcao] = useState('')
@@ -136,17 +143,37 @@ export function MetarPanel(props: {
             </Button>
           </div>
           <TabsContent value="departure">
-            <MetarBody icao={props.depIcao} loading={loading} report={reportFor(props.depIcao)} />
+            <MetarBody
+              icao={props.depIcao}
+              loading={loading}
+              report={reportFor(props.depIcao)}
+              windSpeedUnit={props.windSpeedUnit}
+            />
           </TabsContent>
           <TabsContent value="destination">
-            <MetarBody icao={props.arrIcao} loading={loading} report={reportFor(props.arrIcao)} />
+            <MetarBody
+              icao={props.arrIcao}
+              loading={loading}
+              report={reportFor(props.arrIcao)}
+              windSpeedUnit={props.windSpeedUnit}
+            />
           </TabsContent>
           <TabsContent value="alternate">
-            <MetarBody icao={props.altnIcao} loading={loading} report={reportFor(props.altnIcao)} />
+            <MetarBody
+              icao={props.altnIcao}
+              loading={loading}
+              report={reportFor(props.altnIcao)}
+              windSpeedUnit={props.windSpeedUnit}
+            />
           </TabsContent>
           <TabsContent value="custom" className="flex flex-col gap-2">
             <AirportSearch value={customIcao} onChange={setCustomIcao} placeholder="Enter an ICAO code" />
-            <MetarBody icao={customIcao || null} loading={loading} report={reportFor(customIcao)} />
+            <MetarBody
+              icao={customIcao || null}
+              loading={loading}
+              report={reportFor(customIcao)}
+              windSpeedUnit={props.windSpeedUnit}
+            />
           </TabsContent>
         </Tabs>
       </CardContent>
