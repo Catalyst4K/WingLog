@@ -161,6 +161,11 @@ function FlightDetail(props: {
     }
   }
 
+  async function handleViewOfpPdf(): Promise<void> {
+    const opened = await window.flightdeck.logbookOpenOfpPdf(flight.id)
+    if (!opened) toast.error('No OFP PDF available for this flight.')
+  }
+
   useEffect(() => {
     window.flightdeck.trackPointList(flight.id).then(setTrackPoints)
   }, [flight.id])
@@ -224,6 +229,13 @@ function FlightDetail(props: {
             <CardTitle>
               {flight.flightNumber ?? `Flight #${flight.id}`} — {flight.depIcao} → {flight.arrIcao}
             </CardTitle>
+            {flight.ofpJson && (
+              <CardAction>
+                <Button type="button" variant="outline" size="sm" onClick={handleViewOfpPdf}>
+                  View OFP PDF
+                </Button>
+              </CardAction>
+            )}
           </CardHeader>
           <CardContent>
             <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">

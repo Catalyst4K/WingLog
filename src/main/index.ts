@@ -36,6 +36,7 @@ import {
   createFlight,
   deleteFlight,
   getFleetStats,
+  getFlight,
   listCompletedFlights,
   listFlights
 } from './db/flight-repo'
@@ -61,6 +62,7 @@ import { defaultGsxReceiptsPath } from './gsx/default-path'
 import { checkGsxFirstLaunch } from './gsx/first-launch-check'
 import { buildFlightMatchWindow } from './gsx/flight-window'
 import { readReceipt, receiptFileFromPath, scanGsxFolder } from './gsx/scan'
+import { extractOfpPdfUrl } from './simbrief/ofp-pdf'
 import { fetchLatestOfp, type SimBriefOfp } from './simbrief/simbrief-client'
 import { generateOfp, loginToSimbrief } from './simbrief/simbrief-generate'
 import { SimConnectService } from './sim/SimConnectService'
@@ -358,6 +360,14 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle(IpcChannels.gsxOpenReceipt, (_event, sourceHtmlPath: string) => shell.openPath(sourceHtmlPath))
+
+  ipcMain.handle(IpcChannels.logbookOpenOfpPdf, async (_event, flightId: number) => {
+    const flight = getFlight(db, flightId)
+    const url = flight ? extractOfpPdfUrl(flight.ofpJson) : null
+    if (!url) return false
+    await shell.openExternal(url)
+    return true
+  })
 
   ipcMain.handle(IpcChannels.logbookGetLanding, (_event, flightId: number) => getLandingByFlight(db, flightId) ?? null)
   ipcMain.handle(IpcChannels.fleetListLandings, (_event, aircraftId: number) => listLandingsByAircraft(db, aircraftId))
