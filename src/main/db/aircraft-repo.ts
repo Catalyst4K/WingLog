@@ -139,15 +139,31 @@ export function listAircraftForSync(db: FlightdeckDb, since: string | null): (ty
  *  select-then-insert-or-update rather than a single onConflictDoUpdate. A registration
  *  collision with a different local uuid (the same tail entered independently on two
  *  machines before they ever synced) surfaces as a thrown unique-constraint error, which
- *  sync-engine.ts catches per row rather than letting it abort the whole table. */
+ *  sync-engine.ts catches per row rather than letting it abort the whole table.
+ *
+ *  Last-write-wins against a *local* edit, not just the server's own copy: if this device
+ *  has its own not-yet-pushed edit to the same uuid and that edit's updatedAt is already
+ *  >= the incoming (pulled) row's, the incoming row is discarded and the existing local
+ *  row is left untouched — mirroring flightdeck-backend's UserStore.push exactly. Without
+ *  this check, a pull unconditionally overwrote any local row sharing its uuid regardless
+ *  of timestamp, so whichever device happened to run "Sync now" *second* always lost its
+ *  own edit even when that edit was the chronologically newer one — the opposite of
+ *  last-write-wins, and silently so (no push ever happens for a row that already looks
+ *  identical to what the pull just wrote). Returns whether the incoming row was actually
+ *  applied, so sync-engine.ts can report/log the other outcome instead of counting it as
+ *  a normal pull. */
 export function upsertAircraftByUuid(
   db: FlightdeckDb,
   input: Omit<typeof aircraft.$inferInsert, 'id'> & { uuid: string }
-): void {
+): boolean {
   const existing = db.select().from(aircraft).where(eq(aircraft.uuid, input.uuid)).get()
   if (existing) {
+    if (existing.updatedAt !== null && typeof input.updatedAt === 'string' && existing.updatedAt >= input.updatedAt) {
+      return false
+    }
     db.update(aircraft).set(input).where(eq(aircraft.uuid, input.uuid)).run()
   } else {
     db.insert(aircraft).values(input).run()
   }
+  return true
 }
