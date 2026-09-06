@@ -125,7 +125,7 @@ export default function App(): React.JSX.Element {
 
   return (
     <main className="flex h-screen flex-col">
-      <Tabs value={page} onValueChange={(value) => setPage(value as AppPage)} className="flex-1 gap-0">
+      <Tabs value={page} onValueChange={(value) => setPage(value as AppPage)} className="min-h-0 flex-1 gap-0">
         <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-3">
           <TabsList variant="line">
             {TABS.map(({ page: tabPage, label, icon: Icon }) => (
@@ -140,7 +140,13 @@ export default function App(): React.JSX.Element {
           </Badge>
         </header>
 
-        <div className="flex-1 overflow-auto p-8">
+        {/* min-h-0 overrides the flex-item default of min-height:auto — without it, a
+            tall page (e.g. Logbook's full flight list) forces this div past its 100vh
+            budget instead of clipping to it, and the whole document scrolls (dragging
+            the header above away with it) instead of just this div
+            (flight-test-findings-2026-09-06.md #7 — confirmed live: the outer <main> was
+            measurably taller than the viewport, not this div). */}
+        <div className="min-h-0 flex-1 overflow-auto p-8">
           {page === 'fleet' && <FleetView />}
           <Suspense fallback={null}>
             {page === 'dispatch' && (

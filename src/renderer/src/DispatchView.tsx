@@ -23,8 +23,37 @@ import { DispatchAdvancedDialog } from './DispatchAdvancedDialog'
 import { countSetOptions, defaultDispatchOptions, dispatchOptionsToUrlParams, type DispatchOptions } from '@shared/dispatch-options'
 import { defaultDepartureTime, fromDatetimeLocalValue, toDatetimeLocalValue, toSimBriefDeparture } from './dispatch-time'
 import { MetarPanel } from './MetarPanel'
-import { parseRouteProcedures } from './route'
+import { formatEnrouteOnly, parseRouteProcedures, type RouteProcedures } from './route'
 import { formatAltitude, formatWeight, mToFt } from './units'
+
+const NO_PROCEDURES: RouteProcedures = {
+  departureRunway: null,
+  sidIdent: null,
+  sidTransition: null,
+  starIdent: null,
+  starTransition: null,
+  arrivalRunway: null
+}
+
+/** One procedure dropdown. Real alternates need real navdata (blocked on Navigraph —
+ *  docs/plans/sid-star-selection.md), so today each is autofilled with SimBrief's own
+ *  choice and disabled when there isn't one — the map already colors SID/STAR waypoints
+ *  by segment (FlightMap.tsx), so this box and the map already agree on the single value
+ *  there is to show. Kept as a real Select (not a plain label) so a Navigraph-backed list
+ *  of alternates drops in later without reshaping this box. */
+function ProcedureSelect(props: { label: string; value: string | null; onChange: (value: string) => void }): React.JSX.Element {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label>{props.label}</Label>
+      <Select value={props.value ?? undefined} onValueChange={props.onChange} disabled={props.value == null}>
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="None" />
+        </SelectTrigger>
+        <SelectContent>{props.value != null && <SelectItem value={props.value}>{props.value}</SelectItem>}</SelectContent>
+      </Select>
+    </div>
+  )
+}
 
 function formatUtc(iso: string): string {
   return `${iso.slice(0, 16).replace('T', ' ')}Z`
@@ -89,6 +118,18 @@ export function DispatchView(props: {
   // (or is missing on) the matched fleet aircraft — offered, not applied silently, same
   // as the registration-match heuristic (docs/decisions.md, fleet-simbrief-airframe entry).
   const [airframeCapture, setAirframeCapture] = useState<{ aircraftId: number; airframeId: string } | null>(null)
+  // Departure/arrival runway, SID/STAR and their transitions — autofilled from whatever
+  // SimBrief chose each time a new OFP comes in, independently editable per field
+  // thereafter (see ProcedureSelect's doc comment for why "editable" means one option today).
+  // Re-derived during render (not an effect) when the OFP identity changes, per React's own
+  // "adjusting state when a prop changes" pattern — an effect here would setState after an
+  // extra render, showing the previous plan's procedures for one frame.
+  const [procedures, setProcedures] = useState<RouteProcedures>(NO_PROCEDURES)
+  const [proceduresForOfpId, setProceduresForOfpId] = useState<string | null>(null)
+  if ((ofp?.ofpId ?? null) !== proceduresForOfpId) {
+    setProceduresForOfpId(ofp?.ofpId ?? null)
+    setProcedures(ofp ? parseRouteProcedures(ofp.ofpJson) : NO_PROCEDURES)
+  }
 
   useEffect(() => {
     window.flightdeck.aircraftList().then(setAircraft)
@@ -302,6 +343,11 @@ export function DispatchView(props: {
           <Card>
             <CardHeader>
               <CardTitle>Plan a flight</CardTitle>
+              <CardAction>
+                <Button type="button" variant="outline" size="sm" onClick={handleFetch} disabled={fetching || generating}>
+                  {fetching ? 'Fetching…' : 'Fetch latest OFP'}
+                </Button>
+              </CardAction>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
               <div className="flex flex-col gap-1.5">
@@ -388,20 +434,49 @@ export function DispatchView(props: {
             </CardContent>
           </Card>
 
-          <Card size="sm">
-            <CardHeader>
-              <CardTitle>Or import an existing plan</CardTitle>
-              <CardDescription>
-                Pulls your latest OFP from SimBrief — useful if you planned it there directly, or want
-                to re-fetch after adjusting it on SimBrief's site.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button type="button" variant="outline" size="sm" onClick={handleFetch} disabled={fetching || generating}>
-                {fetching ? 'Fetching…' : 'Fetch latest OFP'}
-              </Button>
-            </CardContent>
-          </Card>
+          {ofp && (
+            <Card size="sm">
+              <CardHeader>
+                <CardTitle>Procedures</CardTitle>
+                <CardDescription>
+                  SimBrief's chosen runways, SID and STAR. Swapping to a different procedure needs real
+                  navdata, which isn't wired in yet — see docs/plans/sid-star-selection.md.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-3">
+                <ProcedureSelect
+                  label="Departure runway"
+                  value={procedures.departureRunway}
+                  onChange={(v) => setProcedures((p) => ({ ...p, departureRunway: v }))}
+                />
+                <ProcedureSelect
+                  label="Arrival runway"
+                  value={procedures.arrivalRunway}
+                  onChange={(v) => setProcedures((p) => ({ ...p, arrivalRunway: v }))}
+                />
+                <ProcedureSelect
+                  label="SID"
+                  value={procedures.sidIdent}
+                  onChange={(v) => setProcedures((p) => ({ ...p, sidIdent: v }))}
+                />
+                <ProcedureSelect
+                  label="STAR"
+                  value={procedures.starIdent}
+                  onChange={(v) => setProcedures((p) => ({ ...p, starIdent: v }))}
+                />
+                <ProcedureSelect
+                  label="SID transition"
+                  value={procedures.sidTransition}
+                  onChange={(v) => setProcedures((p) => ({ ...p, sidTransition: v }))}
+                />
+                <ProcedureSelect
+                  label="STAR transition"
+                  value={procedures.starTransition}
+                  onChange={(v) => setProcedures((p) => ({ ...p, starTransition: v }))}
+                />
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <div className="flex min-w-72 flex-1 flex-col gap-4">
@@ -487,24 +562,7 @@ export function DispatchView(props: {
                 </div>
                 <div className="flex flex-col gap-1.5 text-sm">
                   <span className="text-muted-foreground">Route</span>
-                  {(() => {
-                    const { sidIdent, starIdent } = parseRouteProcedures(ofp.ofpJson)
-                    return (sidIdent || starIdent) ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {sidIdent && (
-                          <Badge variant="outline" className="font-normal">
-                            SID {sidIdent}
-                          </Badge>
-                        )}
-                        {starIdent && (
-                          <Badge variant="outline" className="font-normal">
-                            STAR {starIdent}
-                          </Badge>
-                        )}
-                      </div>
-                    ) : null
-                  })()}
-                  <p className="max-h-16 overflow-auto text-foreground">{ofp.routeString}</p>
+                  <p className="max-h-16 overflow-auto text-foreground">{formatEnrouteOnly(ofp.ofpJson)}</p>
                 </div>
 
                 {!alreadyFlown && (

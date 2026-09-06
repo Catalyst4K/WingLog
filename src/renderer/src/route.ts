@@ -29,6 +29,18 @@ function generalSection(ofpJson: string | null): Record<string, unknown> {
   }
 }
 
+function apiParamsSection(ofpJson: string | null): Record<string, unknown> {
+  if (!ofpJson) return {}
+  try {
+    const parsed = JSON.parse(ofpJson) as { api_params?: unknown }
+    return typeof parsed.api_params === 'object' && parsed.api_params !== null
+      ? (parsed.api_params as Record<string, unknown>)
+      : {}
+  } catch {
+    return {}
+  }
+}
+
 /**
  * Extracts the planned route as [lon, lat] pairs (GeoJSON order) from a flight's raw
  * SimBrief OFP JSON — specifically `navlog.fix[].pos_lat`/`pos_long`, sim-confirmed real
@@ -58,18 +70,32 @@ export interface Waypoint {
   segment: RouteSegment
 }
 
-/** SimBrief's stated procedure names for a route (`general.sid_ident`/`star_ident`),
- *  guarded against the `{}`-when-absent trap — null means no SID/STAR was flown. Exposed
- *  separately from the waypoint list so a UI can label "Route: BPK7F.BPK → ... → SIER7B"
- *  without re-deriving it from the segmented fixes. */
+/** SimBrief's stated procedure names for a route — `general.sid_ident`/`star_ident` (and
+ *  their `_trans` transitions), plus the departure/arrival runway from `api_params.origrwy`/
+ *  `destrwy` (confirmed real, echoed-back generation inputs — docs/simbrief-notes.md).
+ *  All guarded against the `{}`-when-absent trap — null means SimBrief didn't fly/report
+ *  that piece. Exposed separately from the waypoint list so a UI can label the route (or
+ *  autofill a procedure picker) without re-deriving any of it from the segmented fixes. */
 export interface RouteProcedures {
+  departureRunway: string | null
   sidIdent: string | null
+  sidTransition: string | null
   starIdent: string | null
+  starTransition: string | null
+  arrivalRunway: string | null
 }
 
 export function parseRouteProcedures(ofpJson: string | null): RouteProcedures {
   const general = generalSection(ofpJson)
-  return { sidIdent: optStr(general.sid_ident), starIdent: optStr(general.star_ident) }
+  const apiParams = apiParamsSection(ofpJson)
+  return {
+    departureRunway: optStr(apiParams.origrwy),
+    sidIdent: optStr(general.sid_ident),
+    sidTransition: optStr(general.sid_trans),
+    starIdent: optStr(general.star_ident),
+    starTransition: optStr(general.star_trans),
+    arrivalRunway: optStr(apiParams.destrwy)
+  }
 }
 
 /**
@@ -139,4 +165,36 @@ export function segmentWaypoints(ofpJson: string | null): Waypoint[] {
  */
 export function parseWaypointsFromOfpJson(ofpJson: string | null): Waypoint[] {
   return segmentWaypoints(ofpJson)
+}
+
+/**
+ * `general.route` (e.g. "DET2G DET L6 DVR UL9 KONAN ...") with the SID/STAR and their
+ * transitions stripped out, now that they're shown separately (the Procedures box) rather
+ * than inline here. Filters by token membership instead of reconstructing the string:
+ * drops any token that's either a procedure/transition name itself, or the ident of a fix
+ * segmentWaypoints classified as 'sid'/'star' — the same segmentation the map's waypoint
+ * colouring already uses, so this text and the map always agree on where the procedures
+ * are. Airway names (`L6`, `UL9`) are never fix idents, so they're left alone; a lone
+ * airway token that only ever led into a now-removed procedure can be left dangling at the
+ * end of the string — a rare cosmetic leftover, not worth a heuristic for a display string.
+ */
+export function formatEnrouteOnly(ofpJson: string | null): string {
+  const general = generalSection(ofpJson)
+  const raw = typeof general.route === 'string' ? general.route : ''
+  if (!raw) return raw
+
+  const { sidIdent, sidTransition, starIdent, starTransition } = parseRouteProcedures(ofpJson)
+  const procedureNames = new Set(
+    [sidIdent, sidTransition, starIdent, starTransition].filter((v): v is string => v !== null)
+  )
+  const procedureFixIdents = new Set(
+    segmentWaypoints(ofpJson)
+      .filter((w) => w.segment !== 'enroute')
+      .map((w) => w.ident)
+  )
+
+  return raw
+    .split(/\s+/)
+    .filter((token) => token && !procedureNames.has(token) && !procedureFixIdents.has(token))
+    .join(' ')
 }

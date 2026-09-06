@@ -176,9 +176,9 @@ export interface TrackPoint {
 export type NewTrackPoint = Omit<TrackPoint, 'id'>
 
 /** One flight's touchdown record — see docs/decisions.md's landing-analysis entry.
- *  `runwayIdent`/`distanceFromThresholdM`/`centrelineOffsetM`/`headwindMs`/`crosswindMs`
- *  are null when no matching runway end was found (resources/runways.csv has no entry
- *  for the airport, or none within a plausible heading tolerance of the touchdown). */
+ *  `runwayIdent`/`distanceFromThresholdM`/`centrelineOffsetM`/`headwindMs`/`crosswindMs`/
+ *  `crabDeg` are null when no matching runway end was found (resources/runways.csv has no
+ *  entry for the airport, or none within a plausible heading tolerance of the touchdown). */
 export interface Landing {
   id: number
   flightId: number
@@ -194,6 +194,9 @@ export interface Landing {
   windDirectionDeg: number
   headwindMs: number | null
   crosswindMs: number | null
+  /** Signed angle between the nose and runway centreline at touchdown — see
+   *  landing-maths.ts's crabAngleDeg. Positive = nose right of the runway heading. */
+  crabDeg: number | null
   runwayIdent: string | null
   distanceFromThresholdM: number | null
   centrelineOffsetM: number | null
@@ -260,6 +263,16 @@ export interface Flight {
   ofpJson: string | null
   simVersion: string | null
   createdAt: string
+}
+
+/** Logbook's summary stats above the flight table — see flight-repo.ts's getLogbookStats.
+ *  totalNm is great-circle dep→arr distance (airport-search.ts's getAirportCoords), summed
+ *  across every completed flight whose dep/arr airports are both in the vendored airport
+ *  list — not the actual flown track, which isn't available for a CSV-imported flight. */
+export interface LogbookStats {
+  totalFlights: number
+  totalBlockMinutes: number
+  totalNm: number
 }
 
 /** One row per aircraft with at least one completed flight — see flight-repo.ts. */
@@ -538,6 +551,7 @@ export const IpcChannels = {
   trackingPoint: 'tracking:point',
   trackPointList: 'track-point:list',
   logbookListCompletedFlights: 'logbook:list-completed-flights',
+  logbookGetStats: 'logbook:get-stats',
   logbookFleetStats: 'logbook:fleet-stats',
   logbookImportCsv: 'logbook:import-csv',
   logbookListInvoices: 'logbook:list-invoices',
@@ -557,6 +571,7 @@ export const IpcChannels = {
   aircraftTypeSearch: 'aircraft:type-search',
   airportSearch: 'airport:search',
   airlineSearch: 'airline:search',
+  airlineFindByIcao: 'airline:find-by-icao',
   weatherGetMetars: 'weather:get-metars',
   fxGetRate: 'fx:get-rate',
   authLogin: 'auth:login',
@@ -642,6 +657,7 @@ export interface FlightdeckApi {
   trackPointList: (flightId: number) => Promise<TrackPoint[]>
   onTrackingPoint: (listener: (point: TrackPoint) => void) => () => void
   logbookListCompletedFlights: () => Promise<Flight[]>
+  logbookGetStats: () => Promise<LogbookStats>
   logbookFleetStats: () => Promise<FleetStats[]>
   /** Opens a native file-open dialog in the main process; null if the user cancels. */
   logbookImportCsv: () => Promise<LogbookImportSummary | null>
@@ -688,6 +704,10 @@ export interface FlightdeckApi {
   airportSearch: (query: string) => Promise<AirportOption[]>
   /** Searches the vendored OpenFlights airline list. Empty for a query under 2 chars. */
   airlineSearch: (query: string) => Promise<AirlineOption[]>
+  /** Exact ICAO-code lookup against the same vendored airline list — for resolving an
+   *  airline already identified by its real ICAO code (e.g. from adsbdb), not a substring
+   *  search over a human-typed partial name. undefined if no exact match exists. */
+  airlineFindByIcao: (icao: string) => Promise<AirlineOption | undefined>
   /** Looks up current METARs for one or more ICAO codes. An unknown/non-reporting code
    *  is just absent from the result array, not an error. */
   weatherGetMetars: (icaoCodes: string[]) => Promise<MetarReport[]>

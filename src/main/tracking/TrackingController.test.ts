@@ -202,6 +202,30 @@ describe('TrackingController', () => {
     expect(controller.getActive()).toBeUndefined()
   })
 
+  it('corrects fuel_out_kg to the reading at the first ground-movement/engine-start tick, not the tracking-start snapshot', () => {
+    // Mirrors a real case (flight-test-findings-2026-09-06.md #3): the value captured at
+    // the instant tracking starts can be stale post-reload telemetry or simply "before
+    // ground fuel service finished" — this correction is what fixes both.
+    sim.setLastTelemetry(telemetry({ fuelTotalKg: 10187 }))
+    const controller = new TrackingController(db, sim)
+    controller.start(flightId)
+    expect(getFlight(db, flightId)?.fuelOutKg).toBe(10187)
+
+    // Still sitting at the gate (refuel in progress) — not yet pushback/engine-start, so
+    // no correction should happen on this tick.
+    sim.emit('telemetry', telemetry({ fuelTotalKg: 6504 }))
+    expect(getFlight(db, flightId)?.fuelOutKg).toBe(10187)
+
+    // Engine start — the first real "past ground service" signal.
+    sim.emit('telemetry', telemetry({ fuelTotalKg: 6504, engineCombustion1: true }))
+    expect(getFlight(db, flightId)?.fuelOutKg).toBe(6504)
+
+    // A later tick's fuel figure (normal burn during pushback/taxi) must not overwrite
+    // the one already locked in — only the first post-preflight tick counts.
+    sim.emit('telemetry', telemetry({ fuelTotalKg: 6490, engineCombustion1: true, groundSpeedMs: 5 }))
+    expect(getFlight(db, flightId)?.fuelOutKg).toBe(6504)
+  })
+
   it('finish() is a no-op when nothing is being tracked', () => {
     const controller = new TrackingController(db, sim)
     expect(() => controller.finish()).not.toThrow()

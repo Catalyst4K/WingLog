@@ -14,7 +14,7 @@ import {
 } from '@shared/ipc'
 import { fetchAircraftByRegistration } from './aircraft-lookup/adsbdb-client'
 import { searchAircraftTypes } from './aircraft-lookup/icao-types'
-import { searchAirlines } from './airlines/airline-search'
+import { findAirlineByIcao, searchAirlines } from './airlines/airline-search'
 import { fetchMetars } from './weather/metar-client'
 import { fetchExchangeRate } from './fx/fx-client'
 import { searchAirports } from './airports/airport-search'
@@ -37,6 +37,7 @@ import {
   deleteFlight,
   getFleetStats,
   getFlight,
+  getLogbookStats,
   listCompletedFlights,
   listFlights
 } from './db/flight-repo'
@@ -313,6 +314,7 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle(IpcChannels.logbookListCompletedFlights, () => listCompletedFlights(db))
+  ipcMain.handle(IpcChannels.logbookGetStats, () => getLogbookStats(db))
   ipcMain.handle(IpcChannels.logbookFleetStats, () => getFleetStats(db))
   ipcMain.handle(IpcChannels.logbookImportCsv, () => importLogbookCsv(db, window))
   ipcMain.handle(IpcChannels.logbookListInvoices, (_event, flightId: number) => listInvoicesForFlight(db, flightId))
@@ -384,6 +386,7 @@ app.whenReady().then(() => {
   ipcMain.handle(IpcChannels.aircraftTypeSearch, (_event, query: string) => searchAircraftTypes(query))
   ipcMain.handle(IpcChannels.airportSearch, (_event, query: string) => searchAirports(query))
   ipcMain.handle(IpcChannels.airlineSearch, (_event, query: string) => searchAirlines(query))
+  ipcMain.handle(IpcChannels.airlineFindByIcao, (_event, icao: string) => findAirlineByIcao(icao))
   ipcMain.handle(IpcChannels.weatherGetMetars, (_event, icaoCodes: string[]) => fetchMetars(icaoCodes))
   ipcMain.handle(IpcChannels.fxGetRate, (_event, targetCurrency: string, date?: string) =>
     fetchExchangeRate(targetCurrency, date)

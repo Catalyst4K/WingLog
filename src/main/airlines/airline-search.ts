@@ -73,3 +73,17 @@ export function findAirlineByIata(iata: string): AirlineOption | undefined {
   if (!q) return undefined
   return getAllAirlines().find((a) => a.iata.toLowerCase() === q)
 }
+
+/** Exact ICAO-code lookup — for resolving an airline adsbdb has already identified by its
+ *  real ICAO code (AircraftForm's registration "Look up"), as opposed to a human typing a
+ *  partial name into the Airline field. Routing a short exact code through the fuzzy
+ *  substring search above is unsafe: a 3-letter code like "SIA" substring-matches dozens of
+ *  unrelated names/codes ("Asiana", "Malaysia Airlines", ...), and MAX_RESULTS can truncate
+ *  before the real exact match is ever reached (docs/decisions.md, flight-test-findings
+ *  #1 — confirmed live: "SIA" has 65 substring matches, Singapore Airlines' own row is
+ *  #46, past the cap). */
+export function findAirlineByIcao(icao: string): AirlineOption | undefined {
+  const q = icao.trim().toLowerCase()
+  if (!q) return undefined
+  return getAllAirlines().find((a) => a.icao.toLowerCase() === q)
+}

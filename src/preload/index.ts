@@ -71,6 +71,7 @@ const api: FlightdeckApi = {
     return () => ipcRenderer.removeListener(IpcChannels.trackingPoint, handler)
   },
   logbookListCompletedFlights: () => ipcRenderer.invoke(IpcChannels.logbookListCompletedFlights),
+  logbookGetStats: () => ipcRenderer.invoke(IpcChannels.logbookGetStats),
   logbookFleetStats: () => ipcRenderer.invoke(IpcChannels.logbookFleetStats),
   logbookImportCsv: () => ipcRenderer.invoke(IpcChannels.logbookImportCsv),
   logbookListInvoices: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookListInvoices, flightId),
@@ -93,6 +94,7 @@ const api: FlightdeckApi = {
   aircraftTypeSearch: (query: string) => ipcRenderer.invoke(IpcChannels.aircraftTypeSearch, query),
   airportSearch: (query: string) => ipcRenderer.invoke(IpcChannels.airportSearch, query),
   airlineSearch: (query: string) => ipcRenderer.invoke(IpcChannels.airlineSearch, query),
+  airlineFindByIcao: (icao: string) => ipcRenderer.invoke(IpcChannels.airlineFindByIcao, icao),
   weatherGetMetars: (icaoCodes: string[]) => ipcRenderer.invoke(IpcChannels.weatherGetMetars, icaoCodes),
   fxGetRate: (targetCurrency: string, date?: string) =>
     ipcRenderer.invoke(IpcChannels.fxGetRate, targetCurrency, date),
