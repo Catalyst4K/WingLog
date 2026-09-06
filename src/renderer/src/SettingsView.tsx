@@ -10,12 +10,14 @@ import type {
   WeightUnit,
   WindSpeedUnit
 } from '@shared/ipc'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { NavigraphLogo } from './NavigraphLogo'
 
 type SettingsCategory = 'units' | 'tracking' | 'thirdParty' | 'data'
 
@@ -59,7 +61,9 @@ export function SettingsView(props: {
   onWindSpeedUnitChange: (unit: WindSpeedUnit) => void
 }): React.JSX.Element {
   const [simbriefUsername, setSimbriefUsername] = useState('')
+  const [simbriefLoggedIn, setSimbriefLoggedIn] = useState<boolean | null>(null)
   const [loggingIn, setLoggingIn] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
   const [importingAircraft, setImportingAircraft] = useState(false)
   const [importingLogbook, setImportingLogbook] = useState(false)
   const [gsx, setGsx] = useState<GsxSettings>({ enabled: false, folderPath: null, displayCurrency: 'USD' })
@@ -83,6 +87,7 @@ export function SettingsView(props: {
 
   useEffect(() => {
     window.flightdeck.settingsGetSimbriefUsername().then((u) => setSimbriefUsername(u ?? ''))
+    window.flightdeck.dispatchSimbriefLoginStatus().then(setSimbriefLoggedIn)
     window.flightdeck.settingsGetGsx().then(setGsx)
     window.flightdeck.settingsGetLandingThresholds().then(setLandingThresholds)
     window.flightdeck.syncStatus().then(setSyncStatus)
@@ -124,8 +129,28 @@ export function SettingsView(props: {
     setLoggingIn(true)
     try {
       await window.flightdeck.dispatchLoginSimbrief()
+      const loggedIn = await window.flightdeck.dispatchSimbriefLoginStatus()
+      setSimbriefLoggedIn(loggedIn)
+      if (loggedIn && !simbriefUsername.trim()) {
+        const fetched = await window.flightdeck.dispatchFetchSimbriefUsername()
+        if (fetched) {
+          setSimbriefUsername(fetched)
+          await window.flightdeck.settingsSetSimbriefUsername(fetched)
+          toast.success(`SimBrief username filled in automatically: ${fetched}`)
+        }
+      }
     } finally {
       setLoggingIn(false)
+    }
+  }
+
+  async function handleLogoutOfNavigraph(): Promise<void> {
+    setLoggingOut(true)
+    try {
+      await window.flightdeck.dispatchLogoutSimbrief()
+      setSimbriefLoggedIn(false)
+    } finally {
+      setLoggingOut(false)
     }
   }
 
@@ -305,21 +330,37 @@ export function SettingsView(props: {
                     Save
                   </Button>
                 </form>
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs text-muted-foreground">
-                    Pre-authenticates plan generation for this app session. Doesn't persist across a restart,
-                    and Generate will prompt for login inline if you skip this.
-                  </p>
+                {simbriefLoggedIn ? (
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <NavigraphLogo className="size-6" />
+                      <Badge variant="default">Logged in</Badge>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleLogoutOfNavigraph}
+                      disabled={loggingOut}
+                    >
+                      {loggingOut ? 'Logging out…' : 'Log out'}
+                    </Button>
+                  </div>
+                ) : (
                   <Button
                     type="button"
                     variant="outline"
-                    size="sm"
+                    size="lg"
+                    className="h-auto w-full justify-start gap-3 py-3"
                     onClick={handleLoginToNavigraph}
                     disabled={loggingIn}
                   >
-                    {loggingIn ? 'Logging in…' : 'Log in to Navigraph'}
+                    <NavigraphLogo className="size-8" />
+                    <span className="text-sm font-medium">
+                      {loggingIn ? 'Logging in…' : 'Log in with Navigraph'}
+                    </span>
                   </Button>
-                </div>
+                )}
               </CardContent>
             </Card>
 

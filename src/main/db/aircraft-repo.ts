@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import type { Aircraft, AircraftUpdate, NewAircraft } from '@shared/ipc'
-import { aircraft } from './schema'
+import { aircraft, flight } from './schema'
 import type { FlightdeckDb } from './client'
 
 function toAircraft(row: typeof aircraft.$inferSelect): Aircraft {
@@ -15,7 +15,8 @@ function toAircraft(row: typeof aircraft.$inferSelect): Aircraft {
     simbriefAirframeId: row.simbriefAirframeId,
     simbriefType: row.simbriefType,
     currentIcao: row.currentIcao,
-    createdAt: row.createdAt
+    createdAt: row.createdAt,
+    replacedByAircraftId: row.replacedByAircraftId
   }
 }
 
@@ -72,6 +73,57 @@ export function deleteAircraft(db: FlightdeckDb, id: number): void {
   db.delete(aircraft).where(eq(aircraft.id, id)).run()
 }
 
+export interface ReplaceAircraftInput {
+  /** The aircraft being retired — every flight currently on it moves to replacementId. */
+  retiredId: number
+  /** The aircraft that takes over retiredId's flight history. */
+  replacementId: number
+}
+
+/**
+ * A livery/registration change on an airframe still being flown (flightdeck-backend's
+ * docs/plans/aircraft-replacement.md) — reassigns every flight from `retiredId` onto
+ * `replacementId` and marks `retiredId` retired, rather than deleting it, so Fleet can
+ * still show "G-XXXX, retired, replaced by G-YYYY". A genuine retirement (an airframe
+ * stops flying, an unrelated new one is added) needs none of this — just stop selecting
+ * the old aircraft; that already works with what exists today.
+ *
+ * Both writes happen in one transaction — a partial merge (flights moved but the retired
+ * flag never set, or vice versa) would be a worse state than either action alone.
+ */
+export function replaceAircraft(db: FlightdeckDb, input: ReplaceAircraftInput): Aircraft {
+  const { retiredId, replacementId } = input
+  if (retiredId === replacementId) throw new Error('An aircraft cannot replace itself')
+
+  const retired = db.select().from(aircraft).where(eq(aircraft.id, retiredId)).get()
+  if (!retired) throw new Error(`Aircraft ${retiredId} not found`)
+  if (retired.replacedByAircraftId !== null) {
+    throw new Error(`${retired.registration} has already been replaced`)
+  }
+
+  const replacement = db.select().from(aircraft).where(eq(aircraft.id, replacementId)).get()
+  if (!replacement) throw new Error(`Aircraft ${replacementId} not found`)
+
+  // Same uuid/updatedAt discipline as every other write path here (see the uuid comment
+  // above) — uuid never changes after creation, but updatedAt must be bumped on every row
+  // this touches so cloud sync picks up both the reassigned flights and the retired flag.
+  const now = new Date().toISOString()
+  db.transaction((tx) => {
+    tx.update(flight)
+      .set({ aircraftId: replacementId, updatedAt: now })
+      .where(eq(flight.aircraftId, retiredId))
+      .run()
+    tx.update(aircraft)
+      .set({ replacedByAircraftId: replacementId, updatedAt: now })
+      .where(eq(aircraft.id, retiredId))
+      .run()
+  })
+
+  const row = db.select().from(aircraft).where(eq(aircraft.id, retiredId)).get()
+  if (!row) throw new Error(`Aircraft ${retiredId} not found after replace`)
+  return toAircraft(row)
+}
+
 /** Rows with uuid/updatedAt set (every row written by this app version — see the
  *  uuid comment above) whose updatedAt is after `since`, oldest first — sync-engine.ts's
  *  push side. `since: null` means "never synced", i.e. every row. */
@@ -87,15 +139,31 @@ export function listAircraftForSync(db: FlightdeckDb, since: string | null): (ty
  *  select-then-insert-or-update rather than a single onConflictDoUpdate. A registration
  *  collision with a different local uuid (the same tail entered independently on two
  *  machines before they ever synced) surfaces as a thrown unique-constraint error, which
- *  sync-engine.ts catches per row rather than letting it abort the whole table. */
+ *  sync-engine.ts catches per row rather than letting it abort the whole table.
+ *
+ *  Last-write-wins against a *local* edit, not just the server's own copy: if this device
+ *  has its own not-yet-pushed edit to the same uuid and that edit's updatedAt is already
+ *  >= the incoming (pulled) row's, the incoming row is discarded and the existing local
+ *  row is left untouched — mirroring flightdeck-backend's UserStore.push exactly. Without
+ *  this check, a pull unconditionally overwrote any local row sharing its uuid regardless
+ *  of timestamp, so whichever device happened to run "Sync now" *second* always lost its
+ *  own edit even when that edit was the chronologically newer one — the opposite of
+ *  last-write-wins, and silently so (no push ever happens for a row that already looks
+ *  identical to what the pull just wrote). Returns whether the incoming row was actually
+ *  applied, so sync-engine.ts can report/log the other outcome instead of counting it as
+ *  a normal pull. */
 export function upsertAircraftByUuid(
   db: FlightdeckDb,
   input: Omit<typeof aircraft.$inferInsert, 'id'> & { uuid: string }
-): void {
+): boolean {
   const existing = db.select().from(aircraft).where(eq(aircraft.uuid, input.uuid)).get()
   if (existing) {
+    if (existing.updatedAt !== null && typeof input.updatedAt === 'string' && existing.updatedAt >= input.updatedAt) {
+      return false
+    }
     db.update(aircraft).set(input).where(eq(aircraft.uuid, input.uuid)).run()
   } else {
     db.insert(aircraft).values(input).run()
   }
+  return true
 }

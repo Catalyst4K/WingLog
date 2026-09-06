@@ -25,6 +25,7 @@ import {
   deleteAircraft,
   getAircraftByRegistration,
   listAircraft,
+  replaceAircraft,
   updateAircraft
 } from './db/aircraft-repo'
 import { parseAircraftInput } from './db/aircraft-validation'
@@ -65,7 +66,13 @@ import { buildFlightMatchWindow } from './gsx/flight-window'
 import { readReceipt, receiptFileFromPath, scanGsxFolder } from './gsx/scan'
 import { extractOfpPdfUrl } from './simbrief/ofp-pdf'
 import { fetchLatestOfp, type SimBriefOfp } from './simbrief/simbrief-client'
-import { generateOfp, loginToSimbrief } from './simbrief/simbrief-generate'
+import {
+  fetchSimbriefUsername,
+  generateOfp,
+  isSimbriefLoggedIn,
+  loginToSimbrief,
+  logoutOfSimbrief
+} from './simbrief/simbrief-generate'
 import { SimConnectService } from './sim/SimConnectService'
 import { TrackingController } from './tracking/TrackingController'
 import { AutoStartDetector } from './tracking/AutoStartDetector'
@@ -127,6 +134,10 @@ app.whenReady().then(() => {
     deleteAircraft(db, id)
   })
 
+  ipcMain.handle(IpcChannels.aircraftReplace, (_event, retiredId: number, replacementId: number) => {
+    replaceAircraft(db, { retiredId, replacementId })
+  })
+
   ipcMain.handle(IpcChannels.aircraftImport, () => importAircraft(db, window))
   ipcMain.handle(IpcChannels.aircraftExport, () => exportAircraft(db, window))
 
@@ -167,6 +178,9 @@ app.whenReady().then(() => {
   )
 
   ipcMain.handle(IpcChannels.dispatchLoginSimbrief, () => loginToSimbrief())
+  ipcMain.handle(IpcChannels.dispatchSimbriefLoginStatus, () => isSimbriefLoggedIn())
+  ipcMain.handle(IpcChannels.dispatchLogoutSimbrief, () => logoutOfSimbrief())
+  ipcMain.handle(IpcChannels.dispatchFetchSimbriefUsername, () => fetchSimbriefUsername())
 
   ipcMain.handle(IpcChannels.dispatchOpenSimBrief, (_event, params: DispatchOpenSimBriefParams) => {
     const {

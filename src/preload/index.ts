@@ -21,6 +21,8 @@ const api: FlightdeckApi = {
   aircraftCreate: (aircraft: NewAircraft) => ipcRenderer.invoke(IpcChannels.aircraftCreate, aircraft),
   aircraftUpdate: (aircraft: AircraftUpdate) => ipcRenderer.invoke(IpcChannels.aircraftUpdate, aircraft),
   aircraftDelete: (id: number) => ipcRenderer.invoke(IpcChannels.aircraftDelete, id),
+  aircraftReplace: (retiredId: number, replacementId: number) =>
+    ipcRenderer.invoke(IpcChannels.aircraftReplace, retiredId, replacementId),
   aircraftImport: () => ipcRenderer.invoke(IpcChannels.aircraftImport),
   aircraftExport: () => ipcRenderer.invoke(IpcChannels.aircraftExport),
   getSimConnectionStatus: () => ipcRenderer.invoke(IpcChannels.simConnectionStatusGet),
@@ -49,13 +51,18 @@ const api: FlightdeckApi = {
   dispatchGenerateOfp: (params: DispatchOpenSimBriefParams) =>
     ipcRenderer.invoke(IpcChannels.dispatchGenerateOfp, params),
   dispatchLoginSimbrief: () => ipcRenderer.invoke(IpcChannels.dispatchLoginSimbrief),
+  dispatchSimbriefLoginStatus: () => ipcRenderer.invoke(IpcChannels.dispatchSimbriefLoginStatus),
+  dispatchLogoutSimbrief: () => ipcRenderer.invoke(IpcChannels.dispatchLogoutSimbrief),
+  dispatchFetchSimbriefUsername: () => ipcRenderer.invoke(IpcChannels.dispatchFetchSimbriefUsername),
   dispatchGenerationAvailable: () => ipcRenderer.invoke(IpcChannels.dispatchGenerationAvailable),
   settingsGetWeightUnit: () => ipcRenderer.invoke(IpcChannels.settingsGetWeightUnit),
   settingsSetWeightUnit: (unit: WeightUnit) => ipcRenderer.invoke(IpcChannels.settingsSetWeightUnit, unit),
   settingsGetAltitudeUnit: () => ipcRenderer.invoke(IpcChannels.settingsGetAltitudeUnit),
-  settingsSetAltitudeUnit: (unit: AltitudeUnit) => ipcRenderer.invoke(IpcChannels.settingsSetAltitudeUnit, unit),
+  settingsSetAltitudeUnit: (unit: AltitudeUnit) =>
+    ipcRenderer.invoke(IpcChannels.settingsSetAltitudeUnit, unit),
   settingsGetWindSpeedUnit: () => ipcRenderer.invoke(IpcChannels.settingsGetWindSpeedUnit),
-  settingsSetWindSpeedUnit: (unit: WindSpeedUnit) => ipcRenderer.invoke(IpcChannels.settingsSetWindSpeedUnit, unit),
+  settingsSetWindSpeedUnit: (unit: WindSpeedUnit) =>
+    ipcRenderer.invoke(IpcChannels.settingsSetWindSpeedUnit, unit),
   trackingStart: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingStart, flightId),
   trackingStop: () => ipcRenderer.invoke(IpcChannels.trackingStop),
   trackingFinish: () => ipcRenderer.invoke(IpcChannels.trackingFinish),

@@ -121,3 +121,20 @@ export function getLastSyncedAt(db: FlightdeckDb, table: string): string | null 
 export function setLastSyncedAt(db: FlightdeckDb, table: string, isoTimestamp: string): void {
   setSetting(db, `lastSyncedAt:${table}`, isoTimestamp)
 }
+
+const LAST_SYNC_COMPLETED_KEY = 'lastSyncCompletedAt'
+
+/** The single timestamp Settings' "Last synced" line shows — distinct from
+ *  getLastSyncedAt's per-table cursor above (an internal sync-protocol detail that exists
+ *  even mid-sync, per table). This is only ever set once a full sync run has actually
+ *  finished, and persists across a restart — CloudSyncController's status was previously
+ *  in-memory only, so "Never synced yet." kept showing on every launch regardless of sync
+ *  history. Empty string (from clearing on logout) reads back as null, same convention as
+ *  GSX_FOLDER_PATH_KEY above. */
+export function getLastSyncCompletedAt(db: FlightdeckDb): string | null {
+  return getSetting(db, LAST_SYNC_COMPLETED_KEY) || null
+}
+
+export function setLastSyncCompletedAt(db: FlightdeckDb, isoTimestamp: string): void {
+  setSetting(db, LAST_SYNC_COMPLETED_KEY, isoTimestamp)
+}

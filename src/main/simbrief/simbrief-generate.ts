@@ -1,4 +1,4 @@
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, session } from 'electron'
 import type { DispatchOpenSimBriefParams } from '../../shared/ipc'
 import { signSimbriefRequest } from '../backend/backend-client'
 
@@ -31,7 +31,11 @@ function resolveType(params: DispatchOpenSimBriefParams): string {
 /** Pure query-string assembly, exported for testing — mirrors dispatchOpenSimBrief's
  *  keyless-prefill param set (airline/fltnum/date/deph/depm/extra) plus the three fields
  *  the keyed endpoint additionally needs (apicode/outputpage/timestamp). */
-export function buildGenerateUrl(params: DispatchOpenSimBriefParams, apicode: string, timestamp: number): string {
+export function buildGenerateUrl(
+  params: DispatchOpenSimBriefParams,
+  apicode: string,
+  timestamp: number
+): string {
   const query = new URLSearchParams({
     orig: params.origIcao,
     dest: params.destIcao,
@@ -65,11 +69,85 @@ function openPopup(url: string): Promise<void> {
   })
 }
 
-/** Pre-authenticates the generation window's session for the current app run — purely a
- *  convenience, generateOfp handles its own login inline regardless (SimBrief's worker
- *  page itself prompts for login when the session isn't already authenticated). */
+/** Pre-authenticates the generation window's session — persisted across restarts since
+ *  GENERATE_PARTITION carries the `persist:` prefix (confirmed with a real login/restart,
+ *  docs/decisions.md's SimBrief-login-persistence entry). generateOfp handles its own
+ *  login inline regardless (SimBrief's worker page itself prompts for login when the
+ *  session isn't already authenticated) — this is only for showing status without
+ *  requiring the user to open Dispatch first. */
 export function loginToSimbrief(): Promise<void> {
   return openPopup(SIMBRIEF_HOME_URL)
+}
+
+const SIMBRIEF_SSO_COOKIE_NAME = 'simbrief_sso'
+const SIMBRIEF_COOKIE_DOMAIN = 'simbrief.com'
+
+/**
+ * Whether the persisted generation-popup session is actually still logged into SimBrief
+ * right now, not just whether the partition has ever been used. Checked via
+ * simbrief_sso's presence — the real cookie SimBrief sets on login, confirmed against a
+ * real session (docs/simbrief-notes.md's login-status entry). Google Analytics/Ads
+ * cookies (`_ga`, `_gid`, `_gcl_au`, ...) are also present in this partition regardless
+ * of login state, so checking for *any* cookie wouldn't distinguish the two.
+ */
+export async function isSimbriefLoggedIn(): Promise<boolean> {
+  const cookies = await session
+    .fromPartition(GENERATE_PARTITION)
+    .cookies.get({ name: SIMBRIEF_SSO_COOKIE_NAME, domain: SIMBRIEF_COOKIE_DOMAIN })
+  return cookies.length > 0
+}
+
+/** Logs out of the persisted generation session — clears everything stored in
+ *  GENERATE_PARTITION (cookies included), not just the SSO cookie, since this partition
+ *  exists solely for SimBrief's login/generation popup and holds nothing else worth
+ *  keeping. */
+export async function logoutOfSimbrief(): Promise<void> {
+  await session.fromPartition(GENERATE_PARTITION).clearStorageData()
+}
+
+const ACCOUNT_PAGE_URL = 'https://www.simbrief.com/system/profile.php'
+
+/** The account-settings page renders this field's value via a JS-populated `<input>`
+ *  after load (its shipped HTML has `value=""`) — confirmed live against a real account
+ *  (docs/simbrief-notes.md). `data-key="user.navigraph.username"` is the same value
+ *  SimBrief's own UI labels "Username" in the "Your SimBrief Data" section — Navigraph's
+ *  acquisition unified the two, so this is the account's one real username, not something
+ *  SimBrief-specific under the hood. */
+const USERNAME_DATA_KEY = 'user.navigraph.username'
+const ACCOUNT_PAGE_TIMEOUT_MS = 5000
+
+/** Reads the logged-in pilot's SimBrief username straight off their own account page, so
+ *  Settings can offer to fill the username field automatically instead of requiring it be
+ *  typed in — only meaningful to call once `isSimbriefLoggedIn()` is true. Returns `null`
+ *  on anything unexpected (not logged in, page layout changed, timed out) rather than
+ *  throwing — this is third-party page content, parsed defensively like any other
+ *  external data, not something to let take down the settings flow if SimBrief changes
+ *  their markup. */
+export async function fetchSimbriefUsername(): Promise<string | null> {
+  const win = new BrowserWindow({
+    show: false,
+    webPreferences: { partition: GENERATE_PARTITION }
+  })
+  try {
+    await win.loadURL(ACCOUNT_PAGE_URL)
+    const value = await win.webContents.executeJavaScript(`
+      new Promise((resolve) => {
+        const start = Date.now()
+        const check = () => {
+          const el = document.querySelector('input[data-key="${USERNAME_DATA_KEY}"]')
+          if (el && el.value) return resolve(el.value)
+          if (Date.now() - start > ${ACCOUNT_PAGE_TIMEOUT_MS}) return resolve(null)
+          setTimeout(check, 200)
+        }
+        check()
+      })
+    `)
+    return typeof value === 'string' && value.length > 0 ? value : null
+  } catch {
+    return null
+  } finally {
+    win.destroy()
+  }
 }
 
 /** Triggers a real SimBrief generation: gets the signing value from flightdeck-backend,
