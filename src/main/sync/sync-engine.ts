@@ -44,8 +44,10 @@ export interface SyncSession {
 export interface SyncTableResult {
   pulled: number
   pushed: number
-  /** uuids the server already had a newer updatedAt for (last-write-wins loser) — logged
-   *  to sync-conflicts.log, not silently dropped. */
+  /** uuids on the losing side of a last-write-wins comparison — logged to
+   *  sync-conflicts.log, not silently dropped. Covers both directions: a push the server
+   *  already had a newer updatedAt for, *and* a pulled row this device didn't apply
+   *  because its own not-yet-pushed local edit was already the same age or newer. */
   rejected: string[]
   /** uuids that couldn't be applied at all — an unresolved parent reference, or malformed
    *  data. Also logged; distinct from `rejected` (a real conflict) since these are data
@@ -92,6 +94,12 @@ function omit<T extends Record<string, unknown>>(obj: T, keys: string[]): Record
   return copy
 }
 
+/** Outcome of applying one pulled row locally. `applied: false` means the row was a
+ *  legitimate last-write-wins loser against this device's own not-yet-pushed local edit
+ *  (see upsertAircraftByUuid's comment) — distinct from `ok: false`, which means the row
+ *  itself couldn't be applied at all (malformed data, unresolved parent reference). */
+type ApplyResult = { ok: true; applied: boolean } | { ok: false; error: string }
+
 // --- aircraft ---------------------------------------------------------------------------
 
 function serializeAircraft(row: ReturnType<typeof listAircraftForSync>[number]): SyncRow {
@@ -102,14 +110,18 @@ function serializeAircraft(row: ReturnType<typeof listAircraftForSync>[number]):
   }
 }
 
-function applyAircraft(db: FlightdeckDb, row: SyncRow): { ok: true } | { ok: false; error: string } {
+function applyAircraft(db: FlightdeckDb, row: SyncRow): ApplyResult {
   const data = parseRowData(row.data)
   if (!data || typeof data.registration !== 'string' || typeof data.icaoType !== 'string') {
     return { ok: false, error: 'malformed aircraft data' }
   }
   try {
-    upsertAircraftByUuid(db, { ...data, uuid: row.uuid, updatedAt: row.updatedAt } as Parameters<typeof upsertAircraftByUuid>[1])
-    return { ok: true }
+    const applied = upsertAircraftByUuid(db, {
+      ...data,
+      uuid: row.uuid,
+      updatedAt: row.updatedAt
+    } as Parameters<typeof upsertAircraftByUuid>[1])
+    return { ok: true, applied }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }
@@ -127,7 +139,7 @@ function serializeFlight(db: FlightdeckDb, row: ReturnType<typeof listFlightsFor
   }
 }
 
-function applyFlight(db: FlightdeckDb, row: SyncRow): { ok: true } | { ok: false; error: string } {
+function applyFlight(db: FlightdeckDb, row: SyncRow): ApplyResult {
   const data = parseRowData(row.data)
   if (!data || typeof data.aircraftUuid !== 'string' || typeof data.depIcao !== 'string' || typeof data.arrIcao !== 'string') {
     return { ok: false, error: 'malformed flight data' }
@@ -135,13 +147,13 @@ function applyFlight(db: FlightdeckDb, row: SyncRow): { ok: true } | { ok: false
   const aircraftId = getAircraftIdByUuid(db, data.aircraftUuid)
   if (aircraftId === undefined) return { ok: false, error: `unknown aircraft ${data.aircraftUuid}` }
   try {
-    upsertFlightByUuid(db, {
+    const applied = upsertFlightByUuid(db, {
       ...omit(data, ['aircraftUuid']),
       aircraftId,
       uuid: row.uuid,
       updatedAt: row.updatedAt
     } as Parameters<typeof upsertFlightByUuid>[1])
-    return { ok: true }
+    return { ok: true, applied }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }
@@ -159,19 +171,19 @@ function serializeLanding(db: FlightdeckDb, row: ReturnType<typeof listLandingsF
   }
 }
 
-function applyLanding(db: FlightdeckDb, row: SyncRow): { ok: true } | { ok: false; error: string } {
+function applyLanding(db: FlightdeckDb, row: SyncRow): ApplyResult {
   const data = parseRowData(row.data)
   if (!data || typeof data.flightUuid !== 'string') return { ok: false, error: 'malformed landing data' }
   const flightId = getFlightIdByUuid(db, data.flightUuid)
   if (flightId === undefined) return { ok: false, error: `unknown flight ${data.flightUuid}` }
   try {
-    upsertLandingByUuid(db, {
+    const applied = upsertLandingByUuid(db, {
       ...omit(data, ['flightUuid']),
       flightId,
       uuid: row.uuid,
       updatedAt: row.updatedAt
     } as Parameters<typeof upsertLandingByUuid>[1])
-    return { ok: true }
+    return { ok: true, applied }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }
@@ -192,7 +204,7 @@ function serializeFlightInvoice(
   }
 }
 
-function applyFlightInvoice(db: FlightdeckDb, row: SyncRow): { ok: true } | { ok: false; error: string } {
+function applyFlightInvoice(db: FlightdeckDb, row: SyncRow): ApplyResult {
   const data = parseRowData(row.data)
   if (!data || typeof data.flightUuid !== 'string' || typeof data.receiptId !== 'string') {
     return { ok: false, error: 'malformed flightInvoice data' }
@@ -200,13 +212,13 @@ function applyFlightInvoice(db: FlightdeckDb, row: SyncRow): { ok: true } | { ok
   const flightId = getFlightIdByUuid(db, data.flightUuid)
   if (flightId === undefined) return { ok: false, error: `unknown flight ${data.flightUuid}` }
   try {
-    upsertFlightInvoiceByUuid(db, {
+    const applied = upsertFlightInvoiceByUuid(db, {
       ...omit(data, ['flightUuid']),
       flightId,
       uuid: row.uuid,
       updatedAt: row.updatedAt
     } as Parameters<typeof upsertFlightInvoiceByUuid>[1])
-    return { ok: true }
+    return { ok: true, applied }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }
@@ -233,7 +245,7 @@ function listAndSerializeForPush(db: FlightdeckDb, table: SyncTable, since: stri
   }
 }
 
-function applyPulledRow(db: FlightdeckDb, table: SyncTable, row: SyncRow): { ok: true } | { ok: false; error: string } {
+function applyPulledRow(db: FlightdeckDb, table: SyncTable, row: SyncRow): ApplyResult {
   switch (table) {
     case 'aircraft':
       return applyAircraft(db, row)
@@ -265,12 +277,23 @@ export async function runSync(db: FlightdeckDb, client: SyncClient, session: Syn
 
     const pulledRows = await client.syncPull(session.email, session.token, table, since)
     for (const row of pulledRows) {
-      const applied = applyPulledRow(db, table, row)
-      if (applied.ok) {
+      const outcome = applyPulledRow(db, table, row)
+      if (!outcome.ok) {
+        result.skipped.push(row.uuid)
+        logSyncEvent(dbPath, { direction: 'pull', table, uuid: row.uuid, reason: outcome.error })
+      } else if (outcome.applied) {
         result.pulled++
       } else {
-        result.skipped.push(row.uuid)
-        logSyncEvent(dbPath, { direction: 'pull', table, uuid: row.uuid, reason: applied.error })
+        // This device's own not-yet-pushed local edit to the same uuid was already the
+        // same age or newer — the incoming row lost the last-write-wins comparison, and
+        // the *local* row (which will be considered for push below, per usual) is kept.
+        result.rejected.push(row.uuid)
+        logSyncEvent(dbPath, {
+          direction: 'pull',
+          table,
+          uuid: row.uuid,
+          reason: 'local already had a newer or equal updatedAt (last-write-wins)'
+        })
       }
     }
 
@@ -278,7 +301,9 @@ export async function runSync(db: FlightdeckDb, client: SyncClient, session: Syn
     if (toPush.length > 0) {
       const { upserted, rejected } = await client.syncPush(session.email, session.token, table, toPush)
       result.pushed = upserted.length
-      result.rejected = rejected
+      // Appended, not assigned — a pull-side rejection above must not be clobbered by an
+      // empty push-side rejected list.
+      result.rejected.push(...rejected)
       for (const uuid of rejected) {
         logSyncEvent(dbPath, { direction: 'push', table, uuid, reason: 'server already had a newer updatedAt (last-write-wins)' })
       }

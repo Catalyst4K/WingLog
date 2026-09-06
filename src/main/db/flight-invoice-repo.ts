@@ -68,11 +68,15 @@ export function listFlightInvoicesForSync(db: FlightdeckDb, since: string | null
 export function upsertFlightInvoiceByUuid(
   db: FlightdeckDb,
   input: Omit<typeof flightInvoice.$inferInsert, 'id'> & { uuid: string }
-): void {
+): boolean {
   const existing = db.select().from(flightInvoice).where(eq(flightInvoice.uuid, input.uuid)).get()
   if (existing) {
+    if (existing.updatedAt !== null && typeof input.updatedAt === 'string' && existing.updatedAt >= input.updatedAt) {
+      return false
+    }
     db.update(flightInvoice).set(input).where(eq(flightInvoice.uuid, input.uuid)).run()
   } else {
     db.insert(flightInvoice).values(input).run()
   }
+  return true
 }

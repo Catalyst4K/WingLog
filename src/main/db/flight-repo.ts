@@ -324,17 +324,22 @@ export function listFlightsForSync(db: FlightdeckDb, since: string | null): (typ
     .sort((a, b) => (a.updatedAt as string).localeCompare(b.updatedAt as string))
 }
 
-/** See aircraft-repo.ts's upsertAircraftByUuid for the shape/reasoning this mirrors. */
+/** See aircraft-repo.ts's upsertAircraftByUuid for the shape/reasoning this mirrors,
+ *  including the last-write-wins-against-a-local-edit check. */
 export function upsertFlightByUuid(
   db: FlightdeckDb,
   input: Omit<typeof flight.$inferInsert, 'id'> & { uuid: string }
-): void {
+): boolean {
   const existing = db.select().from(flight).where(eq(flight.uuid, input.uuid)).get()
   if (existing) {
+    if (existing.updatedAt !== null && typeof input.updatedAt === 'string' && existing.updatedAt >= input.updatedAt) {
+      return false
+    }
     db.update(flight).set(input).where(eq(flight.uuid, input.uuid)).run()
   } else {
     db.insert(flight).values(input).run()
   }
+  return true
 }
 
 /** Local integer id for a flight referenced by its sync uuid — sync-engine.ts resolves a
