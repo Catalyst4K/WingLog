@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { DispatchOpenSimBriefParams } from '../../shared/ipc'
 import { dispatchOptionsToUrlParams, type DispatchOptions } from '@shared/dispatch-options'
-import { buildGenerateUrl } from './simbrief-generate'
+import { buildGenerateUrl, GENERATE_PARTITION } from './simbrief-generate'
 
 const BASE: DispatchOpenSimBriefParams = {
   origIcao: 'EGLL',
@@ -9,6 +9,14 @@ const BASE: DispatchOpenSimBriefParams = {
   icaoType: 'A388',
   simbriefAirframeId: null
 }
+
+describe('GENERATE_PARTITION', () => {
+  it('is a persisted partition, so the SimBrief popup session survives an app restart', () => {
+    // flight-test-findings-2026-09-06.md #10 — a regression here would be silent
+    // otherwise (nothing else breaks, SimBrief just quietly stops persisting logins).
+    expect(GENERATE_PARTITION.startsWith('persist:')).toBe(true)
+  })
+})
 
 describe('buildGenerateUrl', () => {
   it('builds a minimal URL against the keyed worker endpoint', () => {
