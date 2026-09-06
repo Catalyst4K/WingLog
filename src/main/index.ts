@@ -35,6 +35,7 @@ import {
   createFlight,
   deleteFlight,
   getFleetStats,
+  getLogbookStats,
   listCompletedFlights,
   listFlights
 } from './db/flight-repo'
@@ -303,6 +304,7 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle(IpcChannels.logbookListCompletedFlights, () => listCompletedFlights(db))
+  ipcMain.handle(IpcChannels.logbookGetStats, () => getLogbookStats(db))
   ipcMain.handle(IpcChannels.logbookFleetStats, () => getFleetStats(db))
   ipcMain.handle(IpcChannels.logbookImportCsv, () => importLogbookCsv(db, window))
   ipcMain.handle(IpcChannels.logbookListInvoices, (_event, flightId: number) => listInvoicesForFlight(db, flightId))

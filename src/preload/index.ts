@@ -52,7 +52,8 @@ const api: FlightdeckApi = {
   settingsGetWeightUnit: () => ipcRenderer.invoke(IpcChannels.settingsGetWeightUnit),
   settingsSetWeightUnit: (unit: WeightUnit) => ipcRenderer.invoke(IpcChannels.settingsSetWeightUnit, unit),
   settingsGetAltitudeUnit: () => ipcRenderer.invoke(IpcChannels.settingsGetAltitudeUnit),
-  settingsSetAltitudeUnit: (unit: AltitudeUnit) => ipcRenderer.invoke(IpcChannels.settingsSetAltitudeUnit, unit),
+  settingsSetAltitudeUnit: (unit: AltitudeUnit) =>
+    ipcRenderer.invoke(IpcChannels.settingsSetAltitudeUnit, unit),
   trackingStart: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingStart, flightId),
   trackingStop: () => ipcRenderer.invoke(IpcChannels.trackingStop),
   trackingFinish: () => ipcRenderer.invoke(IpcChannels.trackingFinish),
@@ -64,6 +65,7 @@ const api: FlightdeckApi = {
     return () => ipcRenderer.removeListener(IpcChannels.trackingPoint, handler)
   },
   logbookListCompletedFlights: () => ipcRenderer.invoke(IpcChannels.logbookListCompletedFlights),
+  logbookGetStats: () => ipcRenderer.invoke(IpcChannels.logbookGetStats),
   logbookFleetStats: () => ipcRenderer.invoke(IpcChannels.logbookFleetStats),
   logbookImportCsv: () => ipcRenderer.invoke(IpcChannels.logbookImportCsv),
   logbookListInvoices: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookListInvoices, flightId),

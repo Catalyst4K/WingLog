@@ -64,7 +64,12 @@ describe('parseWaypointsFromOfpJson', () => {
 
   it('skips fixes with no ident or non-numeric coordinates', () => {
     const ofp = JSON.stringify({
-      navlog: { fix: [{ pos_lat: '51.5', pos_long: '-0.5' }, { ident: 'X', pos_lat: 'n/a', pos_long: '-0.5' }] }
+      navlog: {
+        fix: [
+          { pos_lat: '51.5', pos_long: '-0.5' },
+          { ident: 'X', pos_lat: 'n/a', pos_long: '-0.5' }
+        ]
+      }
     })
     expect(parseWaypointsFromOfpJson(ofp)).toEqual([])
   })
@@ -202,7 +207,9 @@ describe('segmentWaypoints', () => {
   it('is all enroute when the OFP names no SID or STAR at all', () => {
     const ofp = JSON.stringify({
       general: {},
-      navlog: { fix: [{ ident: 'A', via_airway: 'DCT', pos_lat: '1', pos_long: '1', altitude_feet: '35000' }] }
+      navlog: {
+        fix: [{ ident: 'A', via_airway: 'DCT', pos_lat: '1', pos_long: '1', altitude_feet: '35000' }]
+      }
     })
     expect(segmentWaypoints(ofp).map((w) => w.segment)).toEqual(['enroute'])
   })
@@ -213,7 +220,14 @@ describe('segmentWaypoints', () => {
       navlog: {
         fix: [
           { ident: 'D270A', via_airway: 'DET2G', pos_lat: '1', pos_long: '1', altitude_feet: '2200' },
-          { ident: 'TOC', type: 'ltlg', via_airway: 'DCT', pos_lat: '2', pos_long: '2', altitude_feet: '35000' }
+          {
+            ident: 'TOC',
+            type: 'ltlg',
+            via_airway: 'DCT',
+            pos_lat: '2',
+            pos_long: '2',
+            altitude_feet: '35000'
+          }
         ]
       }
     })
