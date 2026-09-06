@@ -176,9 +176,9 @@ export interface TrackPoint {
 export type NewTrackPoint = Omit<TrackPoint, 'id'>
 
 /** One flight's touchdown record — see docs/decisions.md's landing-analysis entry.
- *  `runwayIdent`/`distanceFromThresholdM`/`centrelineOffsetM`/`headwindMs`/`crosswindMs`
- *  are null when no matching runway end was found (resources/runways.csv has no entry
- *  for the airport, or none within a plausible heading tolerance of the touchdown). */
+ *  `runwayIdent`/`distanceFromThresholdM`/`centrelineOffsetM`/`headwindMs`/`crosswindMs`/
+ *  `crabDeg` are null when no matching runway end was found (resources/runways.csv has no
+ *  entry for the airport, or none within a plausible heading tolerance of the touchdown). */
 export interface Landing {
   id: number
   flightId: number
@@ -194,6 +194,9 @@ export interface Landing {
   windDirectionDeg: number
   headwindMs: number | null
   crosswindMs: number | null
+  /** Signed angle between the nose and runway centreline at touchdown — see
+   *  landing-maths.ts's crabAngleDeg. Positive = nose right of the runway heading. */
+  crabDeg: number | null
   runwayIdent: string | null
   distanceFromThresholdM: number | null
   centrelineOffsetM: number | null

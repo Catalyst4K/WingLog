@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { angularDifference, crosswindComponent, headwindComponent, positionRelativeToRunway } from './landing-maths'
+import {
+  angularDifference,
+  crabAngleDeg,
+  crosswindComponent,
+  headwindComponent,
+  positionRelativeToRunway
+} from './landing-maths'
 
 describe('angularDifference', () => {
   it('is 0 for identical headings', () => {
@@ -33,6 +39,29 @@ describe('headwindComponent / crosswindComponent', () => {
 
   it('wind from the left is a negative crosswind', () => {
     expect(crosswindComponent(10, 0, 90)).toBeCloseTo(-10, 6)
+  })
+})
+
+describe('crabAngleDeg', () => {
+  it('is 0 when the nose exactly matches the runway heading', () => {
+    expect(crabAngleDeg(90, 90)).toBe(0)
+  })
+
+  it('is positive when the nose is right of the runway heading', () => {
+    expect(crabAngleDeg(100, 90)).toBeCloseTo(10, 6)
+  })
+
+  it('is negative when the nose is left of the runway heading', () => {
+    expect(crabAngleDeg(80, 90)).toBeCloseTo(-10, 6)
+  })
+
+  it('takes the short way around the 0/360 wrap', () => {
+    expect(crabAngleDeg(5, 355)).toBeCloseTo(10, 6)
+    expect(crabAngleDeg(355, 5)).toBeCloseTo(-10, 6)
+  })
+
+  it('is exactly 180 for a reciprocal heading', () => {
+    expect(crabAngleDeg(180, 0)).toBeCloseTo(180, 6)
   })
 })
 

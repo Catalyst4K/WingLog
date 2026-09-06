@@ -20,6 +20,7 @@ function toLanding(row: typeof landing.$inferSelect): Landing {
     windDirectionDeg: row.windDirectionDeg,
     headwindMs: row.headwindMs,
     crosswindMs: row.crosswindMs,
+    crabDeg: row.crabDeg,
     runwayIdent: row.runwayIdent,
     distanceFromThresholdM: row.distanceFromThresholdM,
     centrelineOffsetM: row.centrelineOffsetM,
@@ -68,7 +69,12 @@ export function listLandingsByAircraft(db: FlightdeckDb, aircraftId: number): Ai
     .where(eq(flight.aircraftId, aircraftId))
     .orderBy(desc(landing.touchdownTsUtc))
     .all()
-    .map((row) => ({ ...toLanding(row.landing), flightNumber: row.flightNumber, depIcao: row.depIcao, arrIcao: row.arrIcao }))
+    .map((row) => ({
+      ...toLanding(row.landing),
+      flightNumber: row.flightNumber,
+      depIcao: row.depIcao,
+      arrIcao: row.arrIcao
+    }))
 }
 
 /** See aircraft-repo.ts's listAircraftForSync for the shape/reasoning this mirrors. */

@@ -111,13 +111,18 @@ function LandingCard(props: { flightId: number }): React.JSX.Element | null {
             }
           />
           <DetailField label="G-force" value={landing.gForce.toFixed(2)} />
-          <DetailField label="Pitch / bank" value={`${landing.pitchDeg.toFixed(1)}° / ${landing.bankDeg.toFixed(1)}°`} />
           <DetailField
-            label="Airspeed / ground speed"
+            label="Pitch / Bank / Crab"
+            value={`${landing.pitchDeg.toFixed(1)}° / ${landing.bankDeg.toFixed(1)}° / ${
+              landing.crabDeg != null ? `${landing.crabDeg.toFixed(1)}°` : '—'
+            }`}
+          />
+          <DetailField
+            label="Airspeed / Ground speed"
             value={`${Math.round(msToKt(landing.indicatedAirspeedMs))} / ${Math.round(msToKt(landing.groundSpeedMs))} kt`}
           />
           <DetailField
-            label="Headwind / crosswind"
+            label="Headwind / Crosswind"
             value={
               landing.headwindMs != null && landing.crosswindMs != null
                 ? `${Math.round(msToKt(landing.headwindMs))} / ${Math.round(msToKt(landing.crosswindMs))} kt`
@@ -127,7 +132,9 @@ function LandingCard(props: { flightId: number }): React.JSX.Element | null {
           <DetailField label="Runway" value={landing.runwayIdent ?? '—'} />
           <DetailField
             label="Distance from threshold"
-            value={landing.distanceFromThresholdM != null ? `${Math.round(landing.distanceFromThresholdM)} m` : '—'}
+            value={
+              landing.distanceFromThresholdM != null ? `${Math.round(landing.distanceFromThresholdM)} m` : '—'
+            }
           />
           <DetailField
             label="Centreline offset"
@@ -232,7 +239,6 @@ function FlightDetail(props: {
               <DetailField label="Block time" value={formatMinutes(flight.blockMinutes)} />
               <DetailField label="Air time" value={formatMinutes(flight.airMinutes)} />
               <DetailField label="Fuel burn" value={formatWeight(flight.fuelBurnKg, weightUnit)} />
-              <DetailField label="Fuel loaded" value={formatWeight(flight.fuelOutKg, weightUnit)} />
               <DetailField label="Fuel planned" value={formatWeight(flight.fuelPlannedKg, weightUnit)} />
             </dl>
           </CardContent>
@@ -320,7 +326,9 @@ function FlightDetail(props: {
                     tickFormatter={speedMode === 'mach' ? (v: number) => v.toFixed(2) : undefined}
                   />
                   <Tooltip
-                    formatter={(value) => (speedMode === 'ias' ? `${value} kt` : `M${Number(value).toFixed(2)}`)}
+                    formatter={(value) =>
+                      speedMode === 'ias' ? `${value} kt` : `M${Number(value).toFixed(2)}`
+                    }
                     labelFormatter={(label) => `${label}${timeAxisUnit}`}
                     contentStyle={CHART_TOOLTIP_STYLE}
                   />
@@ -339,29 +347,31 @@ function FlightDetail(props: {
         </div>
       )}
 
-      {fuelData && (
-        <Card className="w-full max-w-96">
-          <CardHeader>
-            <CardTitle className="text-sm">Fuel planned vs actual</CardTitle>
-          </CardHeader>
-          <CardContent className="h-[200px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={fuelData}>
-                <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} />
-                <XAxis dataKey="name" stroke={CHART_AXIS_COLOR} tick={{ fill: CHART_AXIS_COLOR }} />
-                <YAxis width={60} stroke={CHART_AXIS_COLOR} tick={{ fill: CHART_AXIS_COLOR }} />
-                <Tooltip
-                  formatter={(value) => formatWeight(Number(value), weightUnit)}
-                  contentStyle={CHART_TOOLTIP_STYLE}
-                />
-                <Bar dataKey="kg" fill={CHART_SERIES_1} name="Fuel" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      )}
+      <div className="flex flex-wrap gap-4">
+        {fuelData && (
+          <Card className="min-w-72 max-w-96 flex-1">
+            <CardHeader>
+              <CardTitle className="text-sm">Fuel planned vs actual</CardTitle>
+            </CardHeader>
+            <CardContent className="h-[200px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={fuelData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} />
+                  <XAxis dataKey="name" stroke={CHART_AXIS_COLOR} tick={{ fill: CHART_AXIS_COLOR }} />
+                  <YAxis width={60} stroke={CHART_AXIS_COLOR} tick={{ fill: CHART_AXIS_COLOR }} />
+                  <Tooltip
+                    formatter={(value) => formatWeight(Number(value), weightUnit)}
+                    contentStyle={CHART_TOOLTIP_STYLE}
+                  />
+                  <Bar dataKey="kg" fill={CHART_SERIES_1} name="Fuel" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
 
-      <GsxInvoicesCard flightId={flight.id} />
+        <GsxInvoicesCard flightId={flight.id} />
+      </div>
 
       <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
         <AlertDialogContent>
@@ -505,7 +515,11 @@ export function LogbookView(props: { weightUnit: WeightUnit }): React.JSX.Elemen
             </TableHeader>
             <TableBody>
               {filteredFlights.map((f) => (
-                <TableRow key={f.id} onClick={() => setView({ kind: 'detail', id: f.id })} className="cursor-pointer">
+                <TableRow
+                  key={f.id}
+                  onClick={() => setView({ kind: 'detail', id: f.id })}
+                  className="cursor-pointer"
+                >
                   <TableCell>{formatDate(f.actualOutUtc)}</TableCell>
                   <TableCell>{f.flightNumber ?? '—'}</TableCell>
                   <TableCell>

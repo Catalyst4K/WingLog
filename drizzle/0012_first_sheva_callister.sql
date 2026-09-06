@@ -1,0 +1,1 @@
+ALTER TABLE `landing` ADD `crab_deg` real;

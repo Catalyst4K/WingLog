@@ -20,13 +20,34 @@ export function angularDifference(a: number, b: number): number {
  * blowing from exactly the runway heading (straight down the runway, into the aircraft)
  * is a pure headwind with zero crosswind.
  */
-export function headwindComponent(windSpeedMs: number, windDirectionDeg: number, runwayHeadingDeg: number): number {
+export function headwindComponent(
+  windSpeedMs: number,
+  windDirectionDeg: number,
+  runwayHeadingDeg: number
+): number {
   return windSpeedMs * Math.cos(toRadians(windDirectionDeg - runwayHeadingDeg))
 }
 
 /** Positive = crosswind from the right (looking down the runway heading), negative = from the left. */
-export function crosswindComponent(windSpeedMs: number, windDirectionDeg: number, runwayHeadingDeg: number): number {
+export function crosswindComponent(
+  windSpeedMs: number,
+  windDirectionDeg: number,
+  runwayHeadingDeg: number
+): number {
   return windSpeedMs * Math.sin(toRadians(windDirectionDeg - runwayHeadingDeg))
+}
+
+/**
+ * Signed angle between the aircraft's nose and the runway centreline at touchdown —
+ * how much crab was still held rather than fully kicked out before the wheels touched.
+ * Positive = nose right of the runway heading, negative = left (same left/right
+ * convention as crosswindComponent), wrapped to (-180, 180].
+ */
+export function crabAngleDeg(headingTrueDeg: number, runwayHeadingDeg: number): number {
+  let diff = (headingTrueDeg - runwayHeadingDeg) % 360
+  if (diff > 180) diff -= 360
+  if (diff <= -180) diff += 360
+  return diff
 }
 
 const METERS_PER_DEG_LAT = 111_320

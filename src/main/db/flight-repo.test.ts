@@ -36,6 +36,7 @@ function newLandingFixture(flightId: number): NewLanding {
     windDirectionDeg: 250,
     headwindMs: 2,
     crosswindMs: 1,
+    crabDeg: 4,
     runwayIdent: '07L',
     distanceFromThresholdM: 120,
     centrelineOffsetM: 2,
