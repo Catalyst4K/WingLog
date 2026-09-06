@@ -174,17 +174,20 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
   // yet (still loading, or that date's lookup failed) — never a total that's silently
   // converted for some receipts and not others.
   const showConverted =
-    displayCurrency !== 'USD' && invoicesWithUsd.length > 0 && invoicesWithUsd.every((inv) => rateFor(inv) != null)
+    displayCurrency !== 'USD' &&
+    invoicesWithUsd.length > 0 &&
+    invoicesWithUsd.every((inv) => rateFor(inv) != null)
   const displayTotal = showConverted
     ? invoicesWithUsd.reduce((sum, inv) => sum + inv.totalUsd! * rateFor(inv)!, 0)
     : totalUsd
   const displayCode = showConverted ? displayCurrency : 'USD'
-  const formattedTotal = new Intl.NumberFormat(undefined, { style: 'currency', currency: displayCode }).format(
-    displayTotal
-  )
+  const formattedTotal = new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: displayCode
+  }).format(displayTotal)
 
   return (
-    <Card className="w-full max-w-2xl">
+    <Card className="min-w-72 max-w-2xl flex-1">
       <CardHeader>
         <CardTitle className="text-sm">Ground services</CardTitle>
         <CardAction>

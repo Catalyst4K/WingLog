@@ -4,6 +4,7 @@ import { createDb, type FlightdeckDb } from './client'
 import { createAircraft, getAircraftByRegistration } from './aircraft-repo'
 import { createLanding, getLandingByFlight, type NewLanding } from './landing-repo'
 import { createTrackPoint, listTrackPoints } from './track-point-repo'
+import { greatCircleDistanceNm } from '../airports/airport-search'
 import {
   abandonAllPlanned,
   abandonFlight,
@@ -14,6 +15,7 @@ import {
   finalizeFuelOut,
   getFleetStats,
   getFlight,
+  getLogbookStats,
   listCompletedFlights,
   listFlights,
   recordOff,
@@ -36,6 +38,7 @@ function newLandingFixture(flightId: number): NewLanding {
     windDirectionDeg: 250,
     headwindMs: 2,
     crosswindMs: 1,
+    crabDeg: 4,
     runwayIdent: '07L',
     distanceFromThresholdM: 120,
     centrelineOffsetM: 2,
@@ -323,6 +326,29 @@ describe('flight repo', () => {
 
       const stats = getFleetStats(db)
       expect(stats.map((s) => s.registration)).toEqual(['G-ABCD'])
+    })
+
+    it('returns zeroed logbook stats when nothing has completed', () => {
+      const created = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' })
+      startFlight(db, created.id, 10000) // active, not completed
+      expect(getLogbookStats(db)).toEqual({ totalFlights: 0, totalBlockMinutes: 0, totalNm: 0 })
+    })
+
+    it('sums flight count, block minutes, and great-circle dep/arr distance across completed flights', () => {
+      flyAndComplete(aircraftId, 'EGCC', 60, 500) // 1h, EGLL -> EGCC
+      vi.setSystemTime(new Date('2026-09-01T14:00:00Z'))
+      flyAndComplete(aircraftId, 'EGPH', 30, 300) // 0.5h, EGLL -> EGPH
+
+      const stats = getLogbookStats(db)
+      expect(stats.totalFlights).toBe(2)
+      expect(stats.totalBlockMinutes).toBe(90)
+      // Cross-checked against the same distance function rather than a hardcoded figure —
+      // this validates the sum wiring, not airport-search.ts's own maths (covered by its
+      // own tests).
+      const expectedNm =
+        (greatCircleDistanceNm('EGLL', 'EGCC') ?? 0) + (greatCircleDistanceNm('EGLL', 'EGPH') ?? 0)
+      expect(stats.totalNm).toBeCloseTo(expectedNm)
+      expect(stats.totalNm).toBeGreaterThan(0)
     })
   })
 })
