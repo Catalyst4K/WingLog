@@ -12,7 +12,8 @@ import {
   type SimConnectionStatus,
   type SimTelemetry,
   type TrackPoint,
-  type WeightUnit
+  type WeightUnit,
+  type WindSpeedUnit
 } from '@shared/ipc'
 
 const api: FlightdeckApi = {
@@ -53,6 +54,8 @@ const api: FlightdeckApi = {
   settingsSetWeightUnit: (unit: WeightUnit) => ipcRenderer.invoke(IpcChannels.settingsSetWeightUnit, unit),
   settingsGetAltitudeUnit: () => ipcRenderer.invoke(IpcChannels.settingsGetAltitudeUnit),
   settingsSetAltitudeUnit: (unit: AltitudeUnit) => ipcRenderer.invoke(IpcChannels.settingsSetAltitudeUnit, unit),
+  settingsGetWindSpeedUnit: () => ipcRenderer.invoke(IpcChannels.settingsGetWindSpeedUnit),
+  settingsSetWindSpeedUnit: (unit: WindSpeedUnit) => ipcRenderer.invoke(IpcChannels.settingsSetWindSpeedUnit, unit),
   trackingStart: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingStart, flightId),
   trackingStop: () => ipcRenderer.invoke(IpcChannels.trackingStop),
   trackingFinish: () => ipcRenderer.invoke(IpcChannels.trackingFinish),

@@ -427,6 +427,13 @@ export type WeightUnit = 'kg' | 'lb'
  */
 export type AltitudeUnit = 'ft' | 'm' | 'hybrid'
 
+/** Display unit for METAR wind speed. Most stations report in knots, but ICAO METARs
+ *  outside North America commonly use an `MPS` wind group instead — 'kt' is the default
+ *  since knots is the unit most of this app already assumes elsewhere. The raw METAR text
+ *  is always shown verbatim regardless of this setting; it only controls a separately
+ *  formatted wind line alongside it. */
+export type WindSpeedUnit = 'kt' | 'mps'
+
 /** The app's tabs — also the native menu bar's top-level items, see main/menu.ts. */
 export type AppPage = 'fleet' | 'dispatch' | 'track' | 'logbook' | 'settings'
 
@@ -510,6 +517,8 @@ export const IpcChannels = {
   settingsSetWeightUnit: 'settings:set-weight-unit',
   settingsGetAltitudeUnit: 'settings:get-altitude-unit',
   settingsSetAltitudeUnit: 'settings:set-altitude-unit',
+  settingsGetWindSpeedUnit: 'settings:get-wind-speed-unit',
+  settingsSetWindSpeedUnit: 'settings:set-wind-speed-unit',
   trackingStart: 'tracking:start',
   trackingStop: 'tracking:stop',
   trackingFinish: 'tracking:finish',
@@ -603,6 +612,8 @@ export interface FlightdeckApi {
   settingsSetWeightUnit: (unit: WeightUnit) => Promise<void>
   settingsGetAltitudeUnit: () => Promise<AltitudeUnit>
   settingsSetAltitudeUnit: (unit: AltitudeUnit) => Promise<void>
+  settingsGetWindSpeedUnit: () => Promise<WindSpeedUnit>
+  settingsSetWindSpeedUnit: (unit: WindSpeedUnit) => Promise<void>
   /** Begins tracking a planned flight. Throws if the sim isn't connected or another flight is already tracked. */
   trackingStart: (flightId: number) => Promise<void>
   /** Cancels tracking mid-flight; marks the flight 'abandoned' rather than 'completed'. */

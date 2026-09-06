@@ -7,7 +7,8 @@ import type {
   LandingThresholds,
   LogbookImportSummary,
   SyncStatus,
-  WeightUnit
+  WeightUnit,
+  WindSpeedUnit
 } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -51,6 +52,8 @@ export function SettingsView(props: {
   onWeightUnitChange: (unit: WeightUnit) => void
   altitudeUnit: AltitudeUnit
   onAltitudeUnitChange: (unit: AltitudeUnit) => void
+  windSpeedUnit: WindSpeedUnit
+  onWindSpeedUnitChange: (unit: WindSpeedUnit) => void
 }): React.JSX.Element {
   const [simbriefUsername, setSimbriefUsername] = useState('')
   const [loggingIn, setLoggingIn] = useState(false)
@@ -229,6 +232,31 @@ export function SettingsView(props: {
             feet for a standard level, meters for a route crossing into airspace (e.g.
             China) that assigns levels in meters — rather than converting everything to
             one unit.
+          </p>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">METAR wind speed:</span>
+            <div className="flex gap-1.5">
+              {(
+                [
+                  { unit: 'kt', label: 'Knots' },
+                  { unit: 'mps', label: 'm/s' }
+                ] as const
+              ).map(({ unit, label }) => (
+                <Button
+                  key={unit}
+                  type="button"
+                  size="sm"
+                  variant={props.windSpeedUnit === unit ? 'default' : 'outline'}
+                  onClick={() => props.onWindSpeedUnitChange(unit)}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            The raw METAR text on Dispatch always stays as reported — this only controls
+            a separate formatted wind line shown alongside it.
           </p>
         </CardContent>
       </Card>

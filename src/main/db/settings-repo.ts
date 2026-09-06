@@ -1,11 +1,12 @@
 import { eq } from 'drizzle-orm'
-import type { AltitudeUnit, GsxSettings, LandingThresholds, WeightUnit } from '@shared/ipc'
+import type { AltitudeUnit, GsxSettings, LandingThresholds, WeightUnit, WindSpeedUnit } from '@shared/ipc'
 import { appSetting } from './schema'
 import type { FlightdeckDb } from './client'
 
 const SIMBRIEF_USERNAME_KEY = 'simbriefUsername'
 const WEIGHT_UNIT_KEY = 'weightUnit'
 const ALTITUDE_UNIT_KEY = 'altitudeUnit'
+const WIND_SPEED_UNIT_KEY = 'windSpeedUnit'
 const GSX_ENABLED_KEY = 'gsxEnabled'
 const GSX_FOLDER_PATH_KEY = 'gsxFolderPath'
 const GSX_DISPLAY_CURRENCY_KEY = 'gsxDisplayCurrency'
@@ -54,6 +55,14 @@ export function getAltitudeUnit(db: FlightdeckDb): AltitudeUnit {
 
 export function setAltitudeUnit(db: FlightdeckDb, unit: AltitudeUnit): void {
   setSetting(db, ALTITUDE_UNIT_KEY, unit)
+}
+
+export function getWindSpeedUnit(db: FlightdeckDb): WindSpeedUnit {
+  return getSetting(db, WIND_SPEED_UNIT_KEY) === 'mps' ? 'mps' : 'kt'
+}
+
+export function setWindSpeedUnit(db: FlightdeckDb, unit: WindSpeedUnit): void {
+  setSetting(db, WIND_SPEED_UNIT_KEY, unit)
 }
 
 /** Default off, empty path (docs/decisions.md, gsx-invoices entry) — someone without GSX
