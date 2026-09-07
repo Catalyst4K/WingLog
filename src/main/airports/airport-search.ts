@@ -109,3 +109,58 @@ export function greatCircleDistanceNm(depIcao: string, arrIcao: string): number 
   const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.sin(dLon / 2) ** 2
   return 2 * EARTH_RADIUS_NM * Math.asin(Math.sqrt(a))
 }
+
+/**
+ * Intermediate points along the great-circle path from `depIcao` to `arrIcao`, as
+ * [lon, lat] pairs (GeoJSON order, matching route.ts's parseRouteFromOfpJson) — a fallback
+ * planned-route line for Logbook flights with no OFP on file (docs/plans/
+ * great-circle-fallback-route.md). Null under the same conditions as
+ * greatCircleDistanceNm: either ICAO isn't in the vendored list.
+ *
+ * Spherical interpolation (slerp along the geodesic in 3D Cartesian space), not a naive
+ * lerp between the two lat/lon pairs — MapLibre draws a line as straight segments in Web
+ * Mercator between whatever points it's given, so a 2-point line wouldn't curve the way a
+ * real great circle does on a long-haul route, and a plain lat/lon lerp also breaks across
+ * the antimeridian. Working in Cartesian space sidesteps both.
+ */
+export function greatCircleWaypoints(
+  depIcao: string,
+  arrIcao: string,
+  points = 100
+): [number, number][] | null {
+  const dep = getAirportCoords(depIcao)
+  const arr = getAirportCoords(arrIcao)
+  if (!dep || !arr) return null
+
+  const lat1 = (dep.lat * Math.PI) / 180
+  const lon1 = (dep.lon * Math.PI) / 180
+  const lat2 = (arr.lat * Math.PI) / 180
+  const lon2 = (arr.lon * Math.PI) / 180
+
+  const angularDist =
+    2 *
+    Math.asin(
+      Math.sqrt(
+        Math.sin((lat2 - lat1) / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin((lon2 - lon1) / 2) ** 2
+      )
+    )
+
+  // Same airport twice (or ~coincident) — a real if odd possibility from a CSV import.
+  // The slerp weights below divide by sin(angularDist), which is ~0 here; a single-point
+  // "line" is the sane degenerate case rather than propagating NaN.
+  if (angularDist < 1e-10) return [[dep.lon, dep.lat]]
+
+  const coords: [number, number][] = []
+  for (let i = 0; i < points; i++) {
+    const f = i / (points - 1)
+    const a = Math.sin((1 - f) * angularDist) / Math.sin(angularDist)
+    const b = Math.sin(f * angularDist) / Math.sin(angularDist)
+    const x = a * Math.cos(lat1) * Math.cos(lon1) + b * Math.cos(lat2) * Math.cos(lon2)
+    const y = a * Math.cos(lat1) * Math.sin(lon1) + b * Math.cos(lat2) * Math.sin(lon2)
+    const z = a * Math.sin(lat1) + b * Math.sin(lat2)
+    const lat = Math.atan2(z, Math.sqrt(x * x + y * y))
+    const lon = Math.atan2(y, x)
+    coords.push([(lon * 180) / Math.PI, (lat * 180) / Math.PI])
+  }
+  return coords
+}

@@ -580,6 +580,7 @@ export const IpcChannels = {
   gsxOpenReceipt: 'gsx:open-receipt',
   logbookOpenOfpPdf: 'logbook:open-ofp-pdf',
   logbookGetLanding: 'logbook:get-landing',
+  logbookGreatCircleRoute: 'logbook:great-circle-route',
   fleetListLandings: 'fleet:list-landings',
   fleetListFlights: 'fleet:list-flights',
   settingsGetLandingThresholds: 'settings:get-landing-thresholds',
@@ -724,6 +725,11 @@ export interface FlightdeckApi {
    *  before this feature existed, or one with no landing phase reached (e.g. cancelled
    *  mid-air). */
   logbookGetLanding: (flightId: number) => Promise<Landing | null>
+  /** Great-circle fallback route for Logbook's flight-detail map, [lon, lat] pairs (docs/
+   *  plans/great-circle-fallback-route.md) — used only when the flight has no OFP-derived
+   *  route to draw (parseRouteFromOfpJson came back empty). Null if either ICAO isn't in
+   *  the vendored airport list. */
+  logbookGreatCircleRoute: (depIcao: string, arrIcao: string) => Promise<[number, number][] | null>
   /** An aircraft's full landing history, newest first — Fleet's per-tail detail page. */
   fleetListLandings: (aircraftId: number) => Promise<AircraftLanding[]>
   /** An aircraft's completed flights, newest first — Fleet's per-tail detail page. Queried

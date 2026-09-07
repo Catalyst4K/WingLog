@@ -17,7 +17,7 @@ import { searchAircraftTypes } from './aircraft-lookup/icao-types'
 import { findAirlineByIcao, searchAirlines } from './airlines/airline-search'
 import { fetchMetars } from './weather/metar-client'
 import { fetchExchangeRate } from './fx/fx-client'
-import { searchAirports } from './airports/airport-search'
+import { greatCircleWaypoints, searchAirports } from './airports/airport-search'
 import { createDb } from './db/client'
 import { migrateDb } from './db/migrate'
 import {
@@ -440,6 +440,9 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle(IpcChannels.logbookGetLanding, (_event, flightId: number) => getLandingByFlight(db, flightId) ?? null)
+  ipcMain.handle(IpcChannels.logbookGreatCircleRoute, (_event, depIcao: string, arrIcao: string) =>
+    greatCircleWaypoints(depIcao, arrIcao)
+  )
   ipcMain.handle(IpcChannels.fleetListLandings, (_event, aircraftId: number) => listLandingsByAircraft(db, aircraftId))
   ipcMain.handle(IpcChannels.fleetListFlights, (_event, aircraftId: number) => listFlightsByAircraft(db, aircraftId))
   ipcMain.handle(IpcChannels.settingsGetLandingThresholds, () => getLandingThresholds(db))
