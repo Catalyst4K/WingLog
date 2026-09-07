@@ -66,7 +66,7 @@ export function TrackView(props: {
   const onFlightEndedRef = useRef(props.onFlightEnded)
 
   function reload(): Promise<void> {
-    return Promise.all([window.flightdeck.aircraftList(), window.flightdeck.flightList()]).then(
+    return Promise.all([window.winglog.aircraftList(), window.winglog.flightList()]).then(
       ([aircraftList, flightList]) => {
         setAircraft(aircraftList)
         setFlights(flightList)
@@ -84,11 +84,11 @@ export function TrackView(props: {
 
   useEffect(() => {
     reload()
-    window.flightdeck.trackingGetActive().then((a) => {
+    window.winglog.trackingGetActive().then((a) => {
       setActive(a)
-      if (a) window.flightdeck.trackPointList(a.flightId).then(setTrackPoints)
+      if (a) window.winglog.trackPointList(a.flightId).then(setTrackPoints)
     })
-    const unsubscribe = window.flightdeck.onTrackingPoint((point) => {
+    const unsubscribe = window.winglog.onTrackingPoint((point) => {
       if (point.phase === 'shutdown') {
         // Auto-completed (as opposed to a manual "Finish & save") — clear the banner and
         // the map's trail immediately rather than leaving them showing a flight the
@@ -113,8 +113,8 @@ export function TrackView(props: {
   async function handleStart(flightId: number): Promise<void> {
     setStarting(true)
     try {
-      await window.flightdeck.trackingStart(flightId)
-      setActive(await window.flightdeck.trackingGetActive())
+      await window.winglog.trackingStart(flightId)
+      setActive(await window.winglog.trackingGetActive())
       setTrackPoints([])
       await reload()
     } catch (err) {
@@ -130,19 +130,19 @@ export function TrackView(props: {
     setConfirmAction(null)
     try {
       if (action.kind === 'cancel-active') {
-        await window.flightdeck.trackingStop()
+        await window.winglog.trackingStop()
         setActive(null)
         setTrackPoints([])
         await reload()
         props.onFlightEnded?.()
       } else if (action.kind === 'finish') {
-        await window.flightdeck.trackingFinish()
+        await window.winglog.trackingFinish()
         setActive(null)
         setTrackPoints([])
         await reload()
         props.onFlightEnded?.()
       } else {
-        await window.flightdeck.flightCancel(action.id)
+        await window.winglog.flightCancel(action.id)
         await reload()
         props.onFlightEnded?.()
       }

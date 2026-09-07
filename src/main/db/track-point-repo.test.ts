@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import type { NewTrackPoint } from '@shared/ipc'
-import { createDb, type FlightdeckDb } from './client'
+import { createDb, type WingLogDb } from './client'
 import { createAircraft } from './aircraft-repo'
 import { createFlight } from './flight-repo'
 import { createTrackPoint, listTrackPoints } from './track-point-repo'
@@ -32,7 +32,7 @@ function samplePoint(flightId: number, overrides: Partial<NewTrackPoint> = {}): 
 }
 
 describe('track point repo', () => {
-  let db: FlightdeckDb
+  let db: WingLogDb
   let flightId: number
 
   beforeEach(() => {

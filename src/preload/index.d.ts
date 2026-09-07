@@ -1,7 +1,7 @@
-import type { FlightdeckApi } from '@shared/ipc'
+import type { WingLogApi } from '@shared/ipc'
 
 declare global {
   interface Window {
-    flightdeck: FlightdeckApi
+    winglog: WingLogApi
   }
 }

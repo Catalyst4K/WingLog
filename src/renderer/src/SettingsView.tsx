@@ -88,56 +88,56 @@ export function SettingsView(props: {
   const [category, setCategory] = useState<SettingsCategory>('units')
 
   useEffect(() => {
-    window.flightdeck.settingsGetSimbriefUsername().then((u) => setSimbriefUsername(u ?? ''))
-    window.flightdeck.dispatchSimbriefLoginStatus().then(setSimbriefLoggedIn)
-    window.flightdeck.settingsGetGsx().then(setGsx)
-    window.flightdeck.settingsGetLandingThresholds().then(setLandingThresholds)
-    window.flightdeck.syncStatus().then(setSyncStatus)
+    window.winglog.settingsGetSimbriefUsername().then((u) => setSimbriefUsername(u ?? ''))
+    window.winglog.dispatchSimbriefLoginStatus().then(setSimbriefLoggedIn)
+    window.winglog.settingsGetGsx().then(setGsx)
+    window.winglog.settingsGetLandingThresholds().then(setLandingThresholds)
+    window.winglog.syncStatus().then(setSyncStatus)
   }, [])
 
   async function handleSaveLandingThresholds(event: React.FormEvent): Promise<void> {
     event.preventDefault()
-    await window.flightdeck.settingsSetLandingThresholds(landingThresholds)
+    await window.winglog.settingsSetLandingThresholds(landingThresholds)
     toast.success('Landing thresholds saved.')
   }
 
   async function handleGsxToggle(enabled: boolean): Promise<void> {
     const next = { ...gsx, enabled }
     setGsx(next)
-    await window.flightdeck.settingsSetGsx(next)
+    await window.winglog.settingsSetGsx(next)
   }
 
   async function handleGsxBrowse(): Promise<void> {
-    const folderPath = await window.flightdeck.gsxBrowseFolder()
+    const folderPath = await window.winglog.gsxBrowseFolder()
     if (!folderPath) return
     const next = { ...gsx, folderPath }
     setGsx(next)
-    await window.flightdeck.settingsSetGsx(next)
+    await window.winglog.settingsSetGsx(next)
   }
 
   async function handleGsxCurrencyChange(displayCurrency: string): Promise<void> {
     const next = { ...gsx, displayCurrency }
     setGsx(next)
-    await window.flightdeck.settingsSetGsx(next)
+    await window.winglog.settingsSetGsx(next)
   }
 
   async function handleSaveSimbriefUsername(event: React.FormEvent): Promise<void> {
     event.preventDefault()
-    await window.flightdeck.settingsSetSimbriefUsername(simbriefUsername.trim())
+    await window.winglog.settingsSetSimbriefUsername(simbriefUsername.trim())
     toast.success('SimBrief username saved.')
   }
 
   async function handleLoginToNavigraph(): Promise<void> {
     setLoggingIn(true)
     try {
-      await window.flightdeck.dispatchLoginSimbrief()
-      const loggedIn = await window.flightdeck.dispatchSimbriefLoginStatus()
+      await window.winglog.dispatchLoginSimbrief()
+      const loggedIn = await window.winglog.dispatchSimbriefLoginStatus()
       setSimbriefLoggedIn(loggedIn)
       if (loggedIn && !simbriefUsername.trim()) {
-        const fetched = await window.flightdeck.dispatchFetchSimbriefUsername()
+        const fetched = await window.winglog.dispatchFetchSimbriefUsername()
         if (fetched) {
           setSimbriefUsername(fetched)
-          await window.flightdeck.settingsSetSimbriefUsername(fetched)
+          await window.winglog.settingsSetSimbriefUsername(fetched)
           toast.success(`SimBrief username filled in automatically: ${fetched}`)
         }
       }
@@ -149,7 +149,7 @@ export function SettingsView(props: {
   async function handleLogoutOfNavigraph(): Promise<void> {
     setLoggingOut(true)
     try {
-      await window.flightdeck.dispatchLogoutSimbrief()
+      await window.winglog.dispatchLogoutSimbrief()
       setSimbriefLoggedIn(false)
     } finally {
       setLoggingOut(false)
@@ -159,7 +159,7 @@ export function SettingsView(props: {
   async function handleImportAircraft(): Promise<void> {
     setImportingAircraft(true)
     try {
-      const summary = await window.flightdeck.aircraftImport()
+      const summary = await window.winglog.aircraftImport()
       if (summary) toast.success(summarizeAircraftImport(summary))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
@@ -170,7 +170,7 @@ export function SettingsView(props: {
 
   async function handleExportAircraft(): Promise<void> {
     try {
-      const saved = await window.flightdeck.aircraftExport()
+      const saved = await window.winglog.aircraftExport()
       if (saved) toast.success('Fleet exported.')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
@@ -181,7 +181,7 @@ export function SettingsView(props: {
     event.preventDefault()
     setLoggingIntoCloud(true)
     try {
-      const status = await window.flightdeck.authLogin(cloudEmail.trim(), cloudPassword)
+      const status = await window.winglog.authLogin(cloudEmail.trim(), cloudPassword)
       setSyncStatus(status)
       setCloudPassword('')
       toast.success('Logged in.')
@@ -196,7 +196,7 @@ export function SettingsView(props: {
     event.preventDefault()
     setLoggingIntoCloud(true)
     try {
-      const status = await window.flightdeck.authSignup(cloudEmail.trim(), cloudPassword, cloudInviteCode)
+      const status = await window.winglog.authSignup(cloudEmail.trim(), cloudPassword, cloudInviteCode)
       setSyncStatus(status)
       setCloudPassword('')
       setCloudInviteCode('')
@@ -209,12 +209,12 @@ export function SettingsView(props: {
   }
 
   async function handleCloudLogout(): Promise<void> {
-    setSyncStatus(await window.flightdeck.authLogout())
+    setSyncStatus(await window.winglog.authLogout())
   }
 
   async function handleSyncNow(): Promise<void> {
     setSyncStatus((current) => ({ ...current, syncing: true }))
-    const status = await window.flightdeck.syncNow()
+    const status = await window.winglog.syncNow()
     setSyncStatus(status)
     if (status.lastError) toast.error(status.lastError)
     else toast.success('Synced.')
@@ -223,7 +223,7 @@ export function SettingsView(props: {
   async function handleImportLogbook(): Promise<void> {
     setImportingLogbook(true)
     try {
-      const summary = await window.flightdeck.logbookImportCsv()
+      const summary = await window.winglog.logbookImportCsv()
       if (summary) toast.success(summarizeLogbookImport(summary))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
@@ -532,7 +532,7 @@ export function SettingsView(props: {
               <CardHeader>
                 <CardTitle>Cloud sync</CardTitle>
                 <CardDescription>
-                  Sync Fleet and Logbook across your machines. This is Flightdeck's own service, not a
+                  Sync Fleet and Logbook across your machines. This is WingLog's own service, not a
                   third party — off by default, nothing leaves this device until you log in.
                 </CardDescription>
               </CardHeader>

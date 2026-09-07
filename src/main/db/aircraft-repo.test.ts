@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { eq } from 'drizzle-orm'
-import { createDb, type FlightdeckDb } from './client'
+import { createDb, type WingLogDb } from './client'
 import { aircraft as aircraftTable, flight } from './schema'
 import {
   createAircraft,
@@ -14,7 +14,7 @@ import {
 import { createFlight } from './flight-repo'
 
 describe('aircraft repo', () => {
-  let db: FlightdeckDb
+  let db: WingLogDb
 
   beforeEach(() => {
     const created = createDb(':memory:')

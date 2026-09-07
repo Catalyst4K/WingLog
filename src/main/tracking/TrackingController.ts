@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import type { ActiveTracking, TrackPoint } from '@shared/ipc'
-import type { FlightdeckDb } from '../db/client'
+import type { WingLogDb } from '../db/client'
 import { addInvoicesForFlight } from '../db/flight-invoice-repo'
 import {
   abandonFlight,
@@ -45,7 +45,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   private fuelOutFinalized = false
 
   constructor(
-    private readonly db: FlightdeckDb,
+    private readonly db: WingLogDb,
     private readonly simConnectService: SimConnectService
   ) {
     super()

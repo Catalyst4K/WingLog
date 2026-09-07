@@ -33,7 +33,7 @@ import {
     type RawBuffer,
 } from 'node-simconnect';
 
-const APP_NAME = 'Flightdeck spike';
+const APP_NAME = 'WingLog spike';
 const DEFINITION_ID = 0;
 const REQUEST_ID = 0;
 

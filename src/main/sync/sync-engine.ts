@@ -19,7 +19,7 @@ import {
   listAircraftForSync,
   upsertAircraftByUuid
 } from '../db/aircraft-repo'
-import type { FlightdeckDb } from '../db/client'
+import type { WingLogDb } from '../db/client'
 import { listFlightInvoicesForSync, upsertFlightInvoiceByUuid } from '../db/flight-invoice-repo'
 import { getFlightIdByUuid, getFlightUuidById, listFlightsForSync, upsertFlightByUuid } from '../db/flight-repo'
 import { listLandingsForSync, upsertLandingByUuid } from '../db/landing-repo'
@@ -110,7 +110,7 @@ function serializeAircraft(row: ReturnType<typeof listAircraftForSync>[number]):
   }
 }
 
-function applyAircraft(db: FlightdeckDb, row: SyncRow): ApplyResult {
+function applyAircraft(db: WingLogDb, row: SyncRow): ApplyResult {
   const data = parseRowData(row.data)
   if (!data || typeof data.registration !== 'string' || typeof data.icaoType !== 'string') {
     return { ok: false, error: 'malformed aircraft data' }
@@ -129,7 +129,7 @@ function applyAircraft(db: FlightdeckDb, row: SyncRow): ApplyResult {
 
 // --- flight -----------------------------------------------------------------------------
 
-function serializeFlight(db: FlightdeckDb, row: ReturnType<typeof listFlightsForSync>[number]): SyncRow | null {
+function serializeFlight(db: WingLogDb, row: ReturnType<typeof listFlightsForSync>[number]): SyncRow | null {
   const aircraftUuid = getAircraftUuidById(db, row.aircraftId)
   if (!aircraftUuid) return null // parent aircraft has no uuid yet — shouldn't happen, see schema.ts
   return {
@@ -139,7 +139,7 @@ function serializeFlight(db: FlightdeckDb, row: ReturnType<typeof listFlightsFor
   }
 }
 
-function applyFlight(db: FlightdeckDb, row: SyncRow): ApplyResult {
+function applyFlight(db: WingLogDb, row: SyncRow): ApplyResult {
   const data = parseRowData(row.data)
   if (!data || typeof data.aircraftUuid !== 'string' || typeof data.depIcao !== 'string' || typeof data.arrIcao !== 'string') {
     return { ok: false, error: 'malformed flight data' }
@@ -161,7 +161,7 @@ function applyFlight(db: FlightdeckDb, row: SyncRow): ApplyResult {
 
 // --- landing ----------------------------------------------------------------------------
 
-function serializeLanding(db: FlightdeckDb, row: ReturnType<typeof listLandingsForSync>[number]): SyncRow | null {
+function serializeLanding(db: WingLogDb, row: ReturnType<typeof listLandingsForSync>[number]): SyncRow | null {
   const flightUuid = getFlightUuidById(db, row.flightId)
   if (!flightUuid) return null // parent flight not yet pulled/created here — retried next sync
   return {
@@ -171,7 +171,7 @@ function serializeLanding(db: FlightdeckDb, row: ReturnType<typeof listLandingsF
   }
 }
 
-function applyLanding(db: FlightdeckDb, row: SyncRow): ApplyResult {
+function applyLanding(db: WingLogDb, row: SyncRow): ApplyResult {
   const data = parseRowData(row.data)
   if (!data || typeof data.flightUuid !== 'string') return { ok: false, error: 'malformed landing data' }
   const flightId = getFlightIdByUuid(db, data.flightUuid)
@@ -192,7 +192,7 @@ function applyLanding(db: FlightdeckDb, row: SyncRow): ApplyResult {
 // --- flightInvoice ------------------------------------------------------------------------
 
 function serializeFlightInvoice(
-  db: FlightdeckDb,
+  db: WingLogDb,
   row: ReturnType<typeof listFlightInvoicesForSync>[number]
 ): SyncRow | null {
   const flightUuid = getFlightUuidById(db, row.flightId)
@@ -204,7 +204,7 @@ function serializeFlightInvoice(
   }
 }
 
-function applyFlightInvoice(db: FlightdeckDb, row: SyncRow): ApplyResult {
+function applyFlightInvoice(db: WingLogDb, row: SyncRow): ApplyResult {
   const data = parseRowData(row.data)
   if (!data || typeof data.flightUuid !== 'string' || typeof data.receiptId !== 'string') {
     return { ok: false, error: 'malformed flightInvoice data' }
@@ -226,7 +226,7 @@ function applyFlightInvoice(db: FlightdeckDb, row: SyncRow): ApplyResult {
 
 // --- dispatch -----------------------------------------------------------------------------
 
-function listAndSerializeForPush(db: FlightdeckDb, table: SyncTable, since: string | null): SyncRow[] {
+function listAndSerializeForPush(db: WingLogDb, table: SyncTable, since: string | null): SyncRow[] {
   switch (table) {
     case 'aircraft':
       return listAircraftForSync(db, since).map(serializeAircraft)
@@ -245,7 +245,7 @@ function listAndSerializeForPush(db: FlightdeckDb, table: SyncTable, since: stri
   }
 }
 
-function applyPulledRow(db: FlightdeckDb, table: SyncTable, row: SyncRow): ApplyResult {
+function applyPulledRow(db: WingLogDb, table: SyncTable, row: SyncRow): ApplyResult {
   switch (table) {
     case 'aircraft':
       return applyAircraft(db, row)
@@ -263,7 +263,7 @@ function applyPulledRow(db: FlightdeckDb, table: SyncTable, row: SyncRow): Apply
  * `dbPath` is only used to place sync-conflicts.log next to the database file, per the
  * plan's "next to the DB, not a new table" — never opened directly here.
  */
-export async function runSync(db: FlightdeckDb, client: SyncClient, session: SyncSession, dbPath: string): Promise<SyncResult> {
+export async function runSync(db: WingLogDb, client: SyncClient, session: SyncSession, dbPath: string): Promise<SyncResult> {
   // Captured once, before any table is touched — a local write that lands in the exact
   // window between this and a table's own read is simply picked up on the *next* sync
   // rather than this one; not lost, just delayed one cycle. Not worth engineering around

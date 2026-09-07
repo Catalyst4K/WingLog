@@ -5,5 +5,5 @@ Source: https://github.com/ColtJD45/icao-aircraft-designator-list
 License: MIT (per the source repository)
 Origin:  ICAO Doc 8643, Aircraft Type Designators
 
-Used in Flightdeck as a local reference list for the Fleet "search aircraft type"
+Used in WingLog as a local reference list for the Fleet "search aircraft type"
 fallback (docs/decisions.md, 2026-09-01 entry). Not modified from the source file.

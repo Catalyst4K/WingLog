@@ -93,7 +93,7 @@ export function MetarPanel(props: {
     // below run inside a timer callback rather than synchronously in the effect body.
     const timer = setTimeout(() => {
       setLoading(true)
-      window.flightdeck
+      window.winglog
         .weatherGetMetars(codes)
         .then((reports) => {
           if (cancelled) return

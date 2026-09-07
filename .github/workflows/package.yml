@@ -1,7 +1,7 @@
 name: Package
 
 # Builds the compiled app on Windows (primary target) and macOS (secondary),
-# then launches the packaged binary with FLIGHTDECK_SMOKE_TEST=1 to prove it
+# then launches the packaged binary with WINGLOG_SMOKE_TEST=1 to prove it
 # actually starts, migrates the DB and renders a window — not just that
 # electron-builder didn't error. Manual for now; wire to tags once releases
 # are a real thing (see PLAN.md M7).
@@ -43,8 +43,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $exe = Get-ChildItem -Path release/win-unpacked -Filter Flightdeck.exe -Recurse | Select-Object -First 1
-          $env:FLIGHTDECK_SMOKE_TEST = "1"
+          $exe = Get-ChildItem -Path release/win-unpacked -Filter WingLog.exe -Recurse | Select-Object -First 1
+          $env:WINGLOG_SMOKE_TEST = "1"
           $proc = Start-Process -FilePath $exe.FullName -PassThru
           $exited = $proc.WaitForExit(15000)
           if (-not $exited) { Stop-Process -Id $proc.Id -Force; throw "App did not exit on its own — did not reach ready-to-show" }
@@ -54,8 +54,8 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           APP=$(find release -maxdepth 2 -name "*.app" | head -n1)
-          BIN="$APP/Contents/MacOS/Flightdeck"
-          FLIGHTDECK_SMOKE_TEST=1 "$BIN" &
+          BIN="$APP/Contents/MacOS/WingLog"
+          WINGLOG_SMOKE_TEST=1 "$BIN" &
           PID=$!
           for i in $(seq 1 15); do
             if ! kill -0 $PID 2>/dev/null; then break; fi
@@ -70,7 +70,7 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: flightdeck-${{ matrix.os }}
+          name: winglog-${{ matrix.os }}
           path: |
             release/*.exe
             release/*.dmg

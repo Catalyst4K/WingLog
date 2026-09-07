@@ -18,7 +18,7 @@ export const GENERATE_PARTITION = 'persist:simbrief-generate'
 // Only used as a stable, consistent input to the signing request and the submitted
 // `outputpage` field — nothing actually needs to be reachable at this address, since
 // completion is detected by the popup window closing, not by a browser redirect back to it.
-const OUTPUT_PAGE = 'flightdeck.local/generate'
+const OUTPUT_PAGE = 'winglog.local/generate'
 
 /** The same `type=` value used both for signing and for the actual request — a saved
  *  airframe's internal ID takes priority, then a chosen SimBrief default type, then the

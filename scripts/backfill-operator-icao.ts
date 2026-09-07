@@ -46,7 +46,7 @@ function findAirlineByIata(iata: string) {
   return airlines.find((a) => a.iata.toLowerCase() === q)
 }
 
-const dbPath = process.env.FLIGHTDECK_DB_PATH ?? './flightdeck.db'
+const dbPath = process.env.WINGLOG_DB_PATH ?? './winglog.db'
 const { db } = createDb(dbPath)
 
 let updated = 0

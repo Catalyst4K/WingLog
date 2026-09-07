@@ -3,7 +3,7 @@ import type { SimbriefAirframeOption } from '../../shared/ipc'
 // Forum-documented, not in SimBrief's own official docs (docs/plans/
 // simbrief-airframe-picker.md) — same undocumented-external-system status as SimBrief's
 // OFP JSON schema. Fetched live, never vendored/stored — nothing here is redistributed by
-// Flightdeck, same model as fx-client.ts's Frankfurter call.
+// WingLog, same model as fx-client.ts's Frankfurter call.
 const AIRFRAMES_URL = 'https://www.simbrief.com/api/inputs.airframes.json'
 
 export interface RawAirframe {

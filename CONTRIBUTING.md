@@ -1,6 +1,6 @@
 # Contributing
 
-Flightdeck is a personal project, developed solo. Issues and discussion are welcome;
+WingLog is a personal project, developed solo. Issues and discussion are welcome;
 unsolicited pull requests may not be merged, and that's not a judgement on the code.
 
 If you do want to contribute, please read the licensing section first — it matters more
@@ -8,7 +8,7 @@ here than in most small projects, and it isn't negotiable after the fact.
 
 ## Licensing of contributions
 
-Flightdeck is distributed under the **GNU General Public License v3.0**
+WingLog is distributed under the **GNU General Public License v3.0**
 ([`LICENSE`](./LICENSE)). Copyright in the first-party code is held by Callum Jones, who
 **retains the option to offer this software under other terms as well**, including a
 commercial licence.

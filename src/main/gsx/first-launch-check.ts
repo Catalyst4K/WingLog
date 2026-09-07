@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs'
 import type { GsxFirstLaunchResult } from '@shared/ipc'
-import type { FlightdeckDb } from '../db/client'
+import type { WingLogDb } from '../db/client'
 import { getGsxSettings, hasCheckedGsxFirstLaunch, setCheckedGsxFirstLaunch, setGsxSettings } from '../db/settings-repo'
 import { defaultGsxReceiptsPath } from './default-path'
 
@@ -17,7 +17,7 @@ import { defaultGsxReceiptsPath } from './default-path'
  * Returns null on every call after the first — the one time this actually has something
  * to report, the flag hasn't been set yet; every later launch is a no-op check.
  */
-export function checkGsxFirstLaunch(db: FlightdeckDb): GsxFirstLaunchResult | null {
+export function checkGsxFirstLaunch(db: WingLogDb): GsxFirstLaunchResult | null {
   if (hasCheckedGsxFirstLaunch(db)) return null
   setCheckedGsxFirstLaunch(db)
 

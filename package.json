@@ -1,5 +1,5 @@
 {
-  "name": "flightdeck",
+  "name": "winglog",
   "version": "0.1.0",
   "description": "Local-first fleet, dispatch, tracking and logbook companion for MSFS 2024.",
   "private": true,

@@ -524,7 +524,7 @@ export interface DispatchDeparture {
 /**
  * Opens SimBrief's dispatch form pre-filled with a route and airframe. `simbriefAirframeId`
  * takes priority over `icaoType` when set (SimBrief uses the saved custom profile);
- * otherwise SimBrief falls back to its own default airframe for that type — Flightdeck
+ * otherwise SimBrief falls back to its own default airframe for that type — WingLog
  * doesn't need to implement that fallback itself. `airlineIcao`/`flightNumber`/`departure`
  * are optional prefills added on top of the original orig/dest/airframe set (docs/decisions.md,
  * SimBrief-generation entry) — each is only appended to the URL when present, so leaving
@@ -636,7 +636,7 @@ export const IpcChannels = {
   syncStatus: 'sync:status'
 } as const
 
-export interface FlightdeckApi {
+export interface WingLogApi {
   aircraftList: () => Promise<Aircraft[]>
   aircraftCreate: (aircraft: NewAircraft) => Promise<Aircraft>
   aircraftUpdate: (aircraft: AircraftUpdate) => Promise<Aircraft>

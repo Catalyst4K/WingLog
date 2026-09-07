@@ -2,12 +2,12 @@ import { readFile } from 'node:fs/promises'
 import { dialog, type BrowserWindow } from 'electron'
 import type { LogbookImportSummary } from '@shared/ipc'
 import { createAircraft, getAircraftByRegistration } from './aircraft-repo'
-import type { FlightdeckDb } from './client'
+import type { WingLogDb } from './client'
 import { createHistoricalFlight, listFlights } from './flight-repo'
 import { parseCsvRows, parseStkpRow } from './logbook-csv'
 
 export async function importLogbookCsv(
-  db: FlightdeckDb,
+  db: WingLogDb,
   window: BrowserWindow
 ): Promise<LogbookImportSummary | null> {
   const { canceled, filePaths } = await dialog.showOpenDialog(window, {
@@ -35,7 +35,7 @@ export async function importLogbookCsv(
     const { depIcao, arrIcao, registration, icaoType, flightNumber, actualOutUtc, actualInUtc } = parsed.data
     const label = `${registration} ${depIcao}-${arrIcao}`
 
-    // Most registrations in a personal STKP logbook aren't "your fleet" in Flightdeck's
+    // Most registrations in a personal STKP logbook aren't "your fleet" in WingLog's
     // sense (aircraft you manage) — they're just whatever you flew. Auto-create a minimal
     // fleet entry so the import doesn't skip almost everything; flesh it out in Fleet later.
     let aircraft = getAircraftByRegistration(db, registration)

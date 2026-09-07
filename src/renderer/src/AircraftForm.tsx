@@ -139,7 +139,7 @@ export function AircraftForm(props: {
     let cancelled = false
     const timer = setTimeout(() => {
       setLoadingAirframeOptions(true)
-      window.flightdeck
+      window.winglog
         .simbriefAirframesForType(trimmedIcaoType)
         .then((options) => {
           if (!cancelled) setAirframeOptions(options)
@@ -201,7 +201,7 @@ export function AircraftForm(props: {
     setCreatingAirframe(true)
     setLookupStatus(null)
     try {
-      const result = await window.flightdeck.simbriefCreateCustomAirframe(selectedOption.shareUrl)
+      const result = await window.winglog.simbriefCreateCustomAirframe(selectedOption.shareUrl)
       if (result) {
         set('simbriefAirframeId', result)
         setLookupStatus('Custom airframe saved.')
@@ -222,7 +222,7 @@ export function AircraftForm(props: {
     setLookingUp(true)
     setLookupStatus(null)
     try {
-      const result = await window.flightdeck.aircraftLookupByRegistration(registration)
+      const result = await window.winglog.aircraftLookupByRegistration(registration)
       if (!result) {
         setLookupStatus(`No match for "${registration}" — search for the type below.`)
         return
@@ -236,7 +236,7 @@ export function AircraftForm(props: {
       // have dozens of unrelated substring matches and never reach its own exact row
       // within airlineSearch's result cap (flight-test-findings-2026-09-06.md #1).
       const matchedAirline: AirlineOption | undefined = result.operatorIcao
-        ? await window.flightdeck.airlineFindByIcao(result.operatorIcao)
+        ? await window.winglog.airlineFindByIcao(result.operatorIcao)
         : undefined
       // Fills blanks only — never overwrites something already typed/edited.
       const hadSimbriefType = form.simbriefType.trim() !== ''
@@ -261,7 +261,7 @@ export function AircraftForm(props: {
       // free-text model name to fuzzy-match against if it doesn't. Only when nothing was
       // already set — same restraint as every other field Lookup touches.
       if (!hadSimbriefType) {
-        window.flightdeck.simbriefAirframesForType(result.icaoType).then((options) => {
+        window.winglog.simbriefAirframesForType(result.icaoType).then((options) => {
           if (options.some((o) => o.isDefault)) {
             setForm((current) => (current.simbriefType.trim() !== '' ? current : { ...current, simbriefType: result.icaoType }))
           }
@@ -321,7 +321,7 @@ export function AircraftForm(props: {
         <Combobox
           value={form.icaoType}
           onChange={(value) => set('icaoType', value.toUpperCase())}
-          search={(query) => window.flightdeck.aircraftTypeSearch(query)}
+          search={(query) => window.winglog.aircraftTypeSearch(query)}
           getOptionKey={(r: AircraftTypeOption) => `${r.icaoType}-${r.manufacturer}-${r.model}`}
           getOptionValue={(r) => r.icaoType}
           getOptionLabel={(r) => `${r.manufacturer} — ${r.model} (${r.icaoType})`}
@@ -346,7 +346,7 @@ export function AircraftForm(props: {
             set('operatorIata', item.iata)
             set('operatorIcao', item.icao)
           }}
-          search={(query) => window.flightdeck.airlineSearch(query)}
+          search={(query) => window.winglog.airlineSearch(query)}
           getOptionKey={(r: AirlineOption) => `${r.icao}-${r.name}`}
           getOptionValue={(r) => r.name}
           getOptionLabel={(r) => `${r.name} (${r.icao}${r.iata ? `/${r.iata}` : ''})`}
@@ -423,7 +423,7 @@ export function AircraftForm(props: {
           variant="outline"
           size="sm"
           className="w-fit"
-          onClick={() => void window.flightdeck.dispatchOpenSimBriefAirframes(form.simbriefAirframeId.trim() || null)}
+          onClick={() => void window.winglog.dispatchOpenSimBriefAirframes(form.simbriefAirframeId.trim() || null)}
         >
           Open airframes page
         </Button>

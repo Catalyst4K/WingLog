@@ -6,7 +6,7 @@ import { eq } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createAircraft, deleteAircraft, listAircraft } from '../db/aircraft-repo'
-import { createDb, type FlightdeckDb } from '../db/client'
+import { createDb, type WingLogDb } from '../db/client'
 import { addInvoicesForFlight } from '../db/flight-invoice-repo'
 import { createFlight } from '../db/flight-repo'
 import { getLandingByFlight } from '../db/landing-repo'
@@ -59,7 +59,7 @@ class FakeSyncServer implements SyncClient {
 const SESSION = { email: 'callum@example.com', token: 'test-token' }
 
 describe('sync-engine', () => {
-  let db: FlightdeckDb
+  let db: WingLogDb
   let tempDir: string
   let dbPath: string
   let server: FakeSyncServer
@@ -68,8 +68,8 @@ describe('sync-engine', () => {
     const created = createDb(':memory:')
     migrate(created.db, { migrationsFolder: 'drizzle' })
     db = created.db
-    tempDir = mkdtempSync(join(tmpdir(), 'flightdeck-sync-test-'))
-    dbPath = join(tempDir, 'flightdeck.db')
+    tempDir = mkdtempSync(join(tmpdir(), 'winglog-sync-test-'))
+    dbPath = join(tempDir, 'winglog.db')
     server = new FakeSyncServer()
   })
 

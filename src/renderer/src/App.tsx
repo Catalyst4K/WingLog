@@ -94,15 +94,15 @@ export default function App(): React.JSX.Element {
   }
 
   useEffect(() => {
-    window.flightdeck.settingsGetWeightUnit().then(setWeightUnit)
-    window.flightdeck.settingsGetAltitudeUnit().then(setAltitudeUnit)
-    window.flightdeck.settingsGetWindSpeedUnit().then(setWindSpeedUnit)
+    window.winglog.settingsGetWeightUnit().then(setWeightUnit)
+    window.winglog.settingsGetAltitudeUnit().then(setAltitudeUnit)
+    window.winglog.settingsGetWindSpeedUnit().then(setWindSpeedUnit)
   }, [])
 
   useEffect(() => {
     // A no-op (returns null) on every launch after the app's actual first-ever one —
     // see settingsCheckGsxFirstLaunch's doc comment.
-    window.flightdeck.settingsCheckGsxFirstLaunch().then((result) => {
+    window.winglog.settingsCheckGsxFirstLaunch().then((result) => {
       if (!result) return
       if (result.found) {
         toast.success('GSX ground-service tracking enabled — receipts folder found automatically.')
@@ -116,14 +116,14 @@ export default function App(): React.JSX.Element {
     // Pull current status in case the initial connect (main process starts it immediately
     // on app launch) already resolved before this component mounted — the push channel
     // below only delivers *future* changes, Electron doesn't replay missed IPC sends.
-    window.flightdeck.getSimConnectionStatus().then(setSimStatus)
-    const unsubscribeStatus = window.flightdeck.onSimConnectionStatus((status) => {
+    window.winglog.getSimConnectionStatus().then(setSimStatus)
+    const unsubscribeStatus = window.winglog.onSimConnectionStatus((status) => {
       setSimStatus(status)
       // The sim stopped sending updates — clear the last-known values rather than
       // leaving them frozen on screen (e.g. Track's map overlay) looking current.
       if (status.state !== 'connected') setTelemetry(null)
     })
-    const unsubscribeTelemetry = window.flightdeck.onSimTelemetry(setTelemetry)
+    const unsubscribeTelemetry = window.winglog.onSimTelemetry(setTelemetry)
     return () => {
       unsubscribeStatus()
       unsubscribeTelemetry()
@@ -132,17 +132,17 @@ export default function App(): React.JSX.Element {
 
   async function handleWeightUnitChange(unit: WeightUnit): Promise<void> {
     setWeightUnit(unit)
-    await window.flightdeck.settingsSetWeightUnit(unit)
+    await window.winglog.settingsSetWeightUnit(unit)
   }
 
   async function handleAltitudeUnitChange(unit: AltitudeUnit): Promise<void> {
     setAltitudeUnit(unit)
-    await window.flightdeck.settingsSetAltitudeUnit(unit)
+    await window.winglog.settingsSetAltitudeUnit(unit)
   }
 
   async function handleWindSpeedUnitChange(unit: WindSpeedUnit): Promise<void> {
     setWindSpeedUnit(unit)
-    await window.flightdeck.settingsSetWindSpeedUnit(unit)
+    await window.winglog.settingsSetWindSpeedUnit(unit)
   }
 
   return (

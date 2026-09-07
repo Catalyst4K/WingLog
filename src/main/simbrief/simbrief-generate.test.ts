@@ -27,7 +27,7 @@ describe('buildGenerateUrl', () => {
     expect(url.searchParams.get('type')).toBe('A388')
     expect(url.searchParams.get('apicode')).toBe('abc123')
     expect(url.searchParams.get('timestamp')).toBe('1788307200')
-    expect(url.searchParams.get('outputpage')).toBe('flightdeck.local/generate')
+    expect(url.searchParams.get('outputpage')).toBe('winglog.local/generate')
   })
 
   it('prefers a saved airframe ID over simbriefType and icaoType for `type`', () => {
@@ -108,7 +108,7 @@ describe('buildGenerateUrl', () => {
 })
 
 describe('extractSavedAirframeId', () => {
-  // Real URL a spike watched a Flightdeck-owned BrowserWindow navigate to right after a
+  // Real URL a spike watched a WingLog-owned BrowserWindow navigate to right after a
   // real "Save Airframe" click (docs/plans/simbrief-airframe-picker.md, 2026-09-07).
   it('extracts the airframe id from a real post-save navigation', () => {
     expect(extractSavedAirframeId('https://dispatch.simbrief.com/airframes/saved/1788802707601')).toBe(

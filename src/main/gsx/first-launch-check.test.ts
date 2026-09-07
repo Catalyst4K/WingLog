@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
-import { createDb, type FlightdeckDb } from '../db/client'
+import { createDb, type WingLogDb } from '../db/client'
 import { getGsxSettings, hasCheckedGsxFirstLaunch, setGsxSettings } from '../db/settings-repo'
 import { checkGsxFirstLaunch } from './first-launch-check'
 
@@ -15,7 +15,7 @@ import { checkGsxFirstLaunch } from './first-launch-check'
 // CI's build job runs on ubuntu-latest, where the real platform check would silently
 // short-circuit every case here to "not found" regardless of APPDATA.
 describe('checkGsxFirstLaunch', () => {
-  let db: FlightdeckDb
+  let db: WingLogDb
   let tempDir: string
   let originalAppData: string | undefined
   let originalPlatform: NodeJS.Platform
@@ -24,7 +24,7 @@ describe('checkGsxFirstLaunch', () => {
     const created = createDb(':memory:')
     migrate(created.db, { migrationsFolder: 'drizzle' })
     db = created.db
-    tempDir = mkdtempSync(join(tmpdir(), 'flightdeck-gsx-first-launch-'))
+    tempDir = mkdtempSync(join(tmpdir(), 'winglog-gsx-first-launch-'))
     originalAppData = process.env.APPDATA
     process.env.APPDATA = tempDir
     originalPlatform = process.platform

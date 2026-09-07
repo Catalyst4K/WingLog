@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { eq } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
-import { createDb, type FlightdeckDb } from './client'
+import { createDb, type WingLogDb } from './client'
 import { createAircraft, getAircraftByRegistration } from './aircraft-repo'
 import { createLanding, getLandingByFlight, type NewLanding } from './landing-repo'
 import { flight as flightTable } from './schema'
@@ -51,7 +51,7 @@ function newLandingFixture(flightId: number): NewLanding {
 }
 
 describe('flight repo', () => {
-  let db: FlightdeckDb
+  let db: WingLogDb
   let aircraftId: number
 
   beforeEach(() => {
