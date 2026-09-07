@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { desc, eq } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import type { Flight, FleetStats, LogbookStats, NewFlight } from '@shared/ipc'
 import { greatCircleDistanceNm } from '../airports/airport-search'
 import { aircraft, flight, flightInvoice, landing, trackPoint } from './schema'
@@ -49,6 +49,19 @@ export function listFlights(db: FlightdeckDb): Flight[] {
   // Order by id, not created_at: current_timestamp has 1-second resolution and two
   // flights created in the same second would otherwise tie with no defined order.
   return db.select().from(flight).orderBy(desc(flight.id)).all().map(toFlight)
+}
+
+/** An aircraft's completed flights, newest first — Fleet's per-tail flight list
+ *  (docs/plans/fleet-redesign.md #2). Filtered in the query rather than in the renderer,
+ *  since flightList() is already hundreds of rows on a well-used fleet and only grows. */
+export function listFlightsByAircraft(db: FlightdeckDb, aircraftId: number): Flight[] {
+  return db
+    .select()
+    .from(flight)
+    .where(and(eq(flight.status, 'completed'), eq(flight.aircraftId, aircraftId)))
+    .orderBy(desc(flight.actualInUtc))
+    .all()
+    .map(toFlight)
 }
 
 export function getFlight(db: FlightdeckDb, id: number): Flight | undefined {

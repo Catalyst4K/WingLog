@@ -19,9 +19,15 @@
       by IATA code from images.kiwi.com, a free keyless image CDN — img-src needs it
       alongside the existing OpenFreeMap/data: allowances.
     -->
+    <!--
+      Fleet livery photos (docs/plans/fleet-redesign.md #3, docs/decisions.md
+      2026-09-07): the thumbnail adsbdb's registration lookup returns is hosted directly
+      on airport-data.com (not a subdomain) — img-src needs it alongside the existing
+      allowances.
+    -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://tiles.openfreemap.org https://images.kiwi.com; connect-src 'self' https://tiles.openfreemap.org; worker-src 'self' blob:"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://tiles.openfreemap.org https://images.kiwi.com https://airport-data.com; connect-src 'self' https://tiles.openfreemap.org; worker-src 'self' blob:"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />

@@ -1,0 +1,1 @@
+ALTER TABLE `aircraft` ADD `photo_thumbnail_url` text;
