@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { desc, eq } from 'drizzle-orm'
+import { and, desc, eq, isNull } from 'drizzle-orm'
 import type { AircraftLanding, Landing } from '@shared/ipc'
 import { flight, landing } from './schema'
 import type { FlightdeckDb } from './client'
@@ -32,7 +32,11 @@ function toLanding(row: typeof landing.$inferSelect): Landing {
 export type NewLanding = Omit<Landing, 'id'>
 
 export function getLandingByFlight(db: FlightdeckDb, flightId: number): Landing | undefined {
-  const row = db.select().from(landing).where(eq(landing.flightId, flightId)).get()
+  const row = db
+    .select()
+    .from(landing)
+    .where(and(eq(landing.flightId, flightId), isNull(landing.deletedAt)))
+    .get()
   return row ? toLanding(row) : undefined
 }
 
@@ -66,7 +70,7 @@ export function listLandingsByAircraft(db: FlightdeckDb, aircraftId: number): Ai
     })
     .from(landing)
     .innerJoin(flight, eq(landing.flightId, flight.id))
-    .where(eq(flight.aircraftId, aircraftId))
+    .where(and(eq(flight.aircraftId, aircraftId), isNull(landing.deletedAt), isNull(flight.deletedAt)))
     .orderBy(desc(landing.touchdownTsUtc))
     .all()
     .map((row) => ({

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import type { FlightInvoice } from '@shared/ipc'
 import type { StoredInvoiceInput } from '../gsx/scan'
 import { flightInvoice } from './schema'
@@ -23,7 +23,12 @@ function toFlightInvoice(row: typeof flightInvoice.$inferSelect): FlightInvoice 
 }
 
 export function listInvoicesForFlight(db: FlightdeckDb, flightId: number): FlightInvoice[] {
-  return db.select().from(flightInvoice).where(eq(flightInvoice.flightId, flightId)).all().map(toFlightInvoice)
+  return db
+    .select()
+    .from(flightInvoice)
+    .where(and(eq(flightInvoice.flightId, flightId), isNull(flightInvoice.deletedAt)))
+    .all()
+    .map(toFlightInvoice)
 }
 
 /**

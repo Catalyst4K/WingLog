@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import type { Aircraft, AircraftUpdate, NewAircraft } from '@shared/ipc'
 import { aircraft, flight } from './schema'
 import type { FlightdeckDb } from './client'
@@ -22,11 +22,21 @@ function toAircraft(row: typeof aircraft.$inferSelect): Aircraft {
 }
 
 export function listAircraft(db: FlightdeckDb): Aircraft[] {
-  return db.select().from(aircraft).all().map(toAircraft)
+  return db.select().from(aircraft).where(isNull(aircraft.deletedAt)).all().map(toAircraft)
 }
 
+/** Filters out a soft-deleted aircraft — "is this registration already a live fleet
+ *  aircraft", the semantic every caller actually wants (import dedup, OFP-to-fleet
+ *  matching). One known edge case this doesn't solve: `registration` still carries a
+ *  UNIQUE constraint at the schema level, so re-adding a registration that belonged to a
+ *  now-deleted aircraft hits a raw constraint error on insert rather than a clean message —
+ *  acceptable for how rarely aircraft are deleted at all, not solved here. */
 export function getAircraftByRegistration(db: FlightdeckDb, registration: string): Aircraft | undefined {
-  const row = db.select().from(aircraft).where(eq(aircraft.registration, registration)).get()
+  const row = db
+    .select()
+    .from(aircraft)
+    .where(and(eq(aircraft.registration, registration), isNull(aircraft.deletedAt)))
+    .get()
   return row ? toAircraft(row) : undefined
 }
 
@@ -70,8 +80,27 @@ export function updateAircraft(db: FlightdeckDb, input: AircraftUpdate): Aircraf
   return row ? toAircraft(row) : undefined
 }
 
+/**
+ * Soft-delete (flightdeck-backend/docs/plans/cloud-sync-v2.md #3a) — a tombstone, not a
+ * hard DELETE, so the deletion itself propagates through cloud sync instead of the row
+ * just vanishing locally and getting resurrected by the next pull. Refuses to delete while
+ * any non-deleted flight still references this aircraft — previously an incidental
+ * consequence of the FK constraint a hard DELETE ran into, now checked explicitly since a
+ * tombstoned row no longer trips that constraint at all.
+ */
 export function deleteAircraft(db: FlightdeckDb, id: number): void {
-  db.delete(aircraft).where(eq(aircraft.id, id)).run()
+  const hasActiveFlights = db
+    .select({ id: flight.id })
+    .from(flight)
+    .where(and(eq(flight.aircraftId, id), isNull(flight.deletedAt)))
+    .get()
+  if (hasActiveFlights) {
+    throw new Error('This aircraft still has flights — replace it instead, or delete its flights first')
+  }
+  db.update(aircraft)
+    .set({ deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
+    .where(eq(aircraft.id, id))
+    .run()
 }
 
 export interface ReplaceAircraftInput {

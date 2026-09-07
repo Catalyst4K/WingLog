@@ -6,7 +6,13 @@
  * respectively; this class is just the glue plus in-memory status for the UI to poll.
  */
 import type { SyncStatus } from '@shared/ipc'
-import { login as backendLogin, logout as backendLogout, syncPull, syncPush } from '../backend/sync-client'
+import {
+  login as backendLogin,
+  logout as backendLogout,
+  provision as backendProvision,
+  syncPull,
+  syncPush
+} from '../backend/sync-client'
 import { clearSession, loadSession, saveSession, type StoredSession } from '../backend/session-store'
 import { getLastSyncCompletedAt, setLastSyncCompletedAt } from '../db/settings-repo'
 import type { FlightdeckDb } from '../db/client'
@@ -43,6 +49,12 @@ export class CloudSyncController {
     saveSession(this.userDataPath, this.session)
     this.lastError = null
     return this.getStatus()
+  }
+
+  /** Provision then log in — see sync-client.ts's provision() for the invite-code gate. */
+  async signup(email: string, password: string, inviteCode: string): Promise<SyncStatus> {
+    await backendProvision(email, password, inviteCode)
+    return this.login(email, password)
   }
 
   async logout(): Promise<SyncStatus> {
