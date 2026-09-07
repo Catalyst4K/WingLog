@@ -192,13 +192,13 @@ function AircraftFlightsCard(props: { aircraftId: number; onOpenFlight: (flightI
         {flights.length === 0 ? (
           <p className="text-sm text-muted-foreground">No completed flights yet.</p>
         ) : (
-          <div className="flex max-h-64 flex-col gap-0.5 overflow-y-auto">
+          <div className="flex max-h-64 flex-col divide-y divide-border overflow-y-auto">
             {flights.map((f) => (
               <button
                 key={f.id}
                 type="button"
                 onClick={() => props.onOpenFlight(f.id)}
-                className="flex items-center justify-between gap-3 rounded-sm px-1.5 py-1 text-left text-sm hover:bg-muted"
+                className="flex items-center justify-between gap-3 px-1.5 py-1.5 text-left text-sm transition-colors hover:bg-muted"
               >
                 <span className="text-muted-foreground">{formatDate(f.actualOutUtc)}</span>
                 <span className="text-foreground">{f.flightNumber ?? '—'}</span>
