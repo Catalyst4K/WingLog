@@ -323,7 +323,7 @@ function AircraftDetail(props: {
   const s = props.stats
   const retired = a.replacedByAircraftId !== null
   return (
-    <div className="flex max-w-lg flex-col gap-4">
+    <div className="flex max-w-4xl flex-col gap-4">
       <Button type="button" variant="ghost" size="sm" onClick={props.onBack} className="w-fit">
         <ArrowLeft />
         Back to fleet
@@ -353,32 +353,41 @@ function AircraftDetail(props: {
               .
             </p>
           )}
-          <AircraftPhoto thumbnailUrl={a.photoThumbnailUrl} />
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
-            <DetailField label="Airline" value={<AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />} />
-            <DetailField label="Current airport" value={a.currentIcao ?? s?.lastArrIcao ?? '—'} />
-            <DetailField label="Total hours" value={s ? s.totalHours.toFixed(1) : '0.0'} />
-            <DetailField label="Flights" value={s?.totalCycles ?? 0} />
-            <DetailField label="Last flight" value={formatDate(s?.lastFlightInUtc ?? null)} />
-          </dl>
-          <SimBriefProfileCard aircraft={a} />
-          <AircraftFlightsCard aircraftId={a.id} onOpenFlight={props.onOpenFlight} />
-          <LandingHistoryCard aircraftId={a.id} />
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={props.onEdit}>
-              <Pencil />
-              Edit
-            </Button>
-            {!retired && (
-              <Button type="button" variant="outline" size="sm" onClick={props.onReplace}>
-                <ArrowRightLeft />
-                Replace…
-              </Button>
-            )}
-            <Button type="button" variant="destructive" size="sm" onClick={props.onDelete}>
-              <Trash2 />
-              Delete
-            </Button>
+          <div className="flex flex-col gap-4 md:flex-row">
+            <div className="flex min-w-0 flex-1 flex-col gap-4">
+              <AircraftPhoto thumbnailUrl={a.photoThumbnailUrl} />
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+                <DetailField
+                  label="Airline"
+                  value={<AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />}
+                />
+                <DetailField label="Current airport" value={a.currentIcao ?? s?.lastArrIcao ?? '—'} />
+                <DetailField label="Total hours" value={s ? s.totalHours.toFixed(1) : '0.0'} />
+                <DetailField label="Flights" value={s?.totalCycles ?? 0} />
+                <DetailField label="Last flight" value={formatDate(s?.lastFlightInUtc ?? null)} />
+              </dl>
+              <SimBriefProfileCard aircraft={a} />
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={props.onEdit}>
+                  <Pencil />
+                  Edit
+                </Button>
+                {!retired && (
+                  <Button type="button" variant="outline" size="sm" onClick={props.onReplace}>
+                    <ArrowRightLeft />
+                    Replace…
+                  </Button>
+                )}
+                <Button type="button" variant="destructive" size="sm" onClick={props.onDelete}>
+                  <Trash2 />
+                  Delete
+                </Button>
+              </div>
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col gap-4">
+              <AircraftFlightsCard aircraftId={a.id} onOpenFlight={props.onOpenFlight} />
+              <LandingHistoryCard aircraftId={a.id} />
+            </div>
           </div>
         </CardContent>
       </Card>

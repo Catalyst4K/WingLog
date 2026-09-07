@@ -18,6 +18,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs scripts/db-migrate.ts",
     "db:backfill-operator-icao": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs scripts/backfill-operator-icao.ts",
+    "db:backfill-aircraft-photos": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs scripts/backfill-aircraft-photos.ts",
     "spike:simconnect": "tsx scripts/spike-simconnect.ts",
     "spike:landing": "tsx scripts/spike-landing.ts",
     "spike:route-simplify": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs scripts/spike-route-simplify.ts",
