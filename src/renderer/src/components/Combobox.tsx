@@ -77,7 +77,7 @@ export function Combobox<T>(props: {
               <button
                 type="button"
                 onClick={() => handlePick(item)}
-                className="block w-full px-2.5 py-1.5 text-left text-sm hover:bg-muted"
+                className="block w-full cursor-pointer px-2.5 py-1.5 text-left text-sm hover:bg-muted"
               >
                 {props.getOptionLabel(item)}
               </button>

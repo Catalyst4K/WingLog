@@ -200,7 +200,7 @@ function AircraftFlightsCard(props: { aircraftId: number; onOpenFlight: (flightI
                 key={f.id}
                 type="button"
                 onClick={() => props.onOpenFlight(f.id)}
-                className="flex items-center justify-between gap-3 px-1.5 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+                className="flex cursor-pointer items-center justify-between gap-3 px-1.5 py-1.5 text-left text-sm transition-colors hover:bg-muted"
               >
                 <span className="text-muted-foreground">{formatDate(f.actualOutUtc)}</span>
                 <span className="text-foreground">{f.flightNumber ?? '—'}</span>
@@ -355,7 +355,7 @@ function AircraftDetail(props: {
           {props.replacedBy ? (
             <button
               type="button"
-              className="font-medium text-foreground underline underline-offset-2"
+              className="cursor-pointer font-medium text-foreground underline underline-offset-2"
               onClick={() => props.onViewAircraft(props.replacedBy!.id)}
             >
               {props.replacedBy.registration}
@@ -650,7 +650,7 @@ export function FleetView(props: {
                       {replacement ? (
                         <button
                           type="button"
-                          className="text-foreground underline underline-offset-2"
+                          className="cursor-pointer text-foreground underline underline-offset-2"
                           onClick={(e) => {
                             e.stopPropagation()
                             setView({ kind: 'detail', id: replacement.id })

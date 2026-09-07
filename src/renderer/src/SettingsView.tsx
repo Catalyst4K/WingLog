@@ -569,14 +569,14 @@ export function SettingsView(props: {
                       <button
                         type="button"
                         onClick={() => setCloudAuthMode('login')}
-                        className={`flex-1 rounded-sm py-1 ${cloudAuthMode === 'login' ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground'}`}
+                        className={`flex-1 cursor-pointer rounded-sm py-1 ${cloudAuthMode === 'login' ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground'}`}
                       >
                         Log in
                       </button>
                       <button
                         type="button"
                         onClick={() => setCloudAuthMode('signup')}
-                        className={`flex-1 rounded-sm py-1 ${cloudAuthMode === 'signup' ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground'}`}
+                        className={`flex-1 cursor-pointer rounded-sm py-1 ${cloudAuthMode === 'signup' ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground'}`}
                       >
                         Sign up
                       </button>
