@@ -9,7 +9,7 @@
  * as spike-simconnect.ts/spike-landing.ts, so it doesn't need the app's path aliases to
  * resolve under tsx.
  *
- * Usage: FLIGHTDECK_DB_PATH=<path to a real flightdeck.db> npm run spike:route-simplify
+ * Usage: WINGLOG_DB_PATH=<path to a real winglog.db> npm run spike:route-simplify
  * (optionally FLIGHT_ID=<id> to pick a specific flight; defaults to whichever flight has
  * the most track_point rows)
  */
@@ -98,7 +98,7 @@ function simplifyToTargetCount<T extends LatLon>(points: T[], targetCount: numbe
   return { result: best, toleranceMeters: bestTolerance }
 }
 
-const dbPath = process.env['FLIGHTDECK_DB_PATH'] ?? './flightdeck.db'
+const dbPath = process.env['WINGLOG_DB_PATH'] ?? './winglog.db'
 const db = new Database(dbPath, { readonly: true })
 
 const flightId = process.env['FLIGHT_ID']

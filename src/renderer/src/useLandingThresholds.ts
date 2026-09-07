@@ -10,7 +10,7 @@ const DEFAULT_THRESHOLDS: LandingThresholds = { firmFpm: 480, hardFpm: 600 }
 export function useLandingThresholds(): LandingThresholds {
   const [thresholds, setThresholds] = useState<LandingThresholds>(DEFAULT_THRESHOLDS)
   useEffect(() => {
-    window.flightdeck.settingsGetLandingThresholds().then(setThresholds)
+    window.winglog.settingsGetLandingThresholds().then(setThresholds)
   }, [])
   return thresholds
 }

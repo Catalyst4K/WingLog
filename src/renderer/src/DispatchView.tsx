@@ -134,12 +134,12 @@ export function DispatchView(props: {
   useEffect(() => {
     // Retired aircraft (replacedByAircraftId set — docs/plans/aircraft-replacement.md) have
     // no flights of their own left and shouldn't be offered anywhere an aircraft is picked.
-    window.flightdeck.aircraftList().then((list) => setAircraft(list.filter((a) => a.replacedByAircraftId == null)))
-    window.flightdeck.logbookFleetStats().then(setFleetStats)
-    window.flightdeck.dispatchGenerationAvailable().then(setGenerationAvailable)
+    window.winglog.aircraftList().then((list) => setAircraft(list.filter((a) => a.replacedByAircraftId == null)))
+    window.winglog.logbookFleetStats().then(setFleetStats)
+    window.winglog.dispatchGenerationAvailable().then(setGenerationAvailable)
     // Source list for the advanced dialog's "Load settings from a previous flight" —
     // flightList already returns newest-first (docs/decisions.md).
-    window.flightdeck.flightList().then(setPastFlights)
+    window.winglog.flightList().then(setPastFlights)
   }, [])
 
   function handlePlanAircraftChange(id: number): void {
@@ -159,7 +159,7 @@ export function DispatchView(props: {
   async function handleOpenSimBrief(): Promise<void> {
     const selected = aircraft.find((a) => a.id === planAircraftId)
     if (!selected || !depIcao || !destIcao) return
-    await window.flightdeck.dispatchOpenSimBrief({
+    await window.winglog.dispatchOpenSimBrief({
       origIcao: depIcao,
       destIcao,
       icaoType: selected.icaoType,
@@ -207,7 +207,7 @@ export function DispatchView(props: {
     props.onOfpChange(null)
     setAirframeCapture(null)
     try {
-      applyFetchedOfp(await window.flightdeck.dispatchFetchOfp())
+      applyFetchedOfp(await window.winglog.dispatchFetchOfp())
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
     } finally {
@@ -222,7 +222,7 @@ export function DispatchView(props: {
     props.onOfpChange(null)
     setAirframeCapture(null)
     try {
-      const generated = await window.flightdeck.dispatchGenerateOfp({
+      const generated = await window.winglog.dispatchGenerateOfp({
         origIcao: depIcao,
         destIcao,
         icaoType: selected.icaoType,
@@ -247,7 +247,7 @@ export function DispatchView(props: {
     const target = aircraft.find((a) => a.id === airframeCapture.aircraftId)
     if (!target) return
     try {
-      const updated = await window.flightdeck.aircraftUpdate({ ...target, simbriefAirframeId: airframeCapture.airframeId })
+      const updated = await window.winglog.aircraftUpdate({ ...target, simbriefAirframeId: airframeCapture.airframeId })
       setAircraft((current) => current.map((a) => (a.id === updated.id ? updated : a)))
       setAirframeCapture(null)
       toast.success(`Saved this airframe to ${updated.registration}.`)
@@ -263,8 +263,8 @@ export function DispatchView(props: {
   async function handleFlyClick(): Promise<void> {
     if (!ofp || selectedAircraftId == null) return
     const [active, flights] = await Promise.all([
-      window.flightdeck.trackingGetActive(),
-      window.flightdeck.flightList()
+      window.winglog.trackingGetActive(),
+      window.winglog.flightList()
     ])
     const activeFlight = active ? flights.find((f) => f.id === active.flightId) : undefined
     const otherPlanned = flights.filter((f) => f.status === 'planned')
@@ -292,7 +292,7 @@ export function DispatchView(props: {
     if (!ofp || selectedAircraftId == null) return
     setSaving(true)
     try {
-      await window.flightdeck.flightCreate({
+      await window.winglog.flightCreate({
         aircraftId: selectedAircraftId,
         flightNumber: ofp.flightNumber,
         depIcao: ofp.depIcao,

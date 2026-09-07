@@ -2,7 +2,7 @@
  * Generates THIRD-PARTY-LICENSES.md — the notice document shipped inside the packaged
  * app (see electron-builder.yml's `files`).
  *
- * Why this is generated rather than hand-maintained: several of the licences Flightdeck
+ * Why this is generated rather than hand-maintained: several of the licences WingLog
  * depends on require the licence text and copyright notice to be *reproduced* in
  * distributions (MIT, BSD-3-Clause, Apache-2.0, ISC), and LGPL-3.0 requires rather more
  * than that (see the node-simconnect section it emits). A hand-written list silently goes
@@ -60,7 +60,7 @@ function findLicenceText(dir: string): { filename: string; text: string } | unde
 
 const HEADER = `# Third-party licences
 
-Flightdeck itself is licensed under the GNU General Public License v3.0 — see
+WingLog itself is licensed under the GNU General Public License v3.0 — see
 [\`LICENSE\`](./LICENSE). This document covers the third-party code and data distributed
 *with* it, and the obligations that come with them.
 
@@ -72,11 +72,11 @@ and re-run.
 
 ## GNU LGPL v3.0: node-simconnect
 
-Flightdeck's SimConnect layer depends on [node-simconnect][ns], which is licensed under
+WingLog's SimConnect layer depends on [node-simconnect][ns], which is licensed under
 the **GNU Lesser General Public License, version 3 or later**. This is the one dependency
 whose licence imposes obligations beyond attribution, so they're stated explicitly:
 
-- **The library is used unmodified.** Flightdeck ships the published npm package as-is;
+- **The library is used unmodified.** WingLog ships the published npm package as-is;
   no patches, no vendored fork.
 - **It is dynamically loaded, not statically combined.** The build externalizes it
   (\`externalizeDepsPlugin\` in \`electron.vite.config.ts\`), so the packaged main process
@@ -87,7 +87,7 @@ whose licence imposes obligations beyond attribution, so they're stated explicit
   user may replace it with a modified or newer version of the library and run the result.
 - **Corresponding source** for the exact version shipped is available from the upstream
   repository and from the npm registry, and on request from the copyright holder of
-  Flightdeck at no charge.
+  WingLog at no charge.
 - **The full LGPL v3.0 text** is reproduced below. LGPL v3.0 incorporates the terms of
   GPL v3.0 by reference; that text is in [\`LICENSE\`](./LICENSE).
 
@@ -103,7 +103,7 @@ Three reference datasets are vendored into the app. Their per-file provenance an
 are reproduced verbatim below, from \`resources/*.LICENSE.txt\` in the source repository.
 
 **Note on the airline database:** it is licensed under the Open Database License (ODbL)
-1.0, which is share-alike **for the database**. It does not place Flightdeck's own source
+1.0, which is share-alike **for the database**. It does not place WingLog's own source
 code under ODbL, but the dataset itself — and any redistributed derivative of it — must
 remain under a free/open licence, in any distribution of this app.
 
@@ -122,7 +122,7 @@ const RUNTIME_NOTE = `---
 
 ## Application runtime
 
-Flightdeck is distributed as an [Electron](https://www.electronjs.org/) application.
+WingLog is distributed as an [Electron](https://www.electronjs.org/) application.
 Electron is MIT-licensed and embeds Chromium and Node.js, which carry their own licences;
 electron-builder includes Electron's own licence files in the packaged application
 alongside this document.

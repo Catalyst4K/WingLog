@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { eq } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
-import { createDb, type FlightdeckDb } from './client'
+import { createDb, type WingLogDb } from './client'
 import { createAircraft, getAircraftByRegistration } from './aircraft-repo'
 import { createLanding, getLandingByFlight, type NewLanding } from './landing-repo'
+import { flight as flightTable } from './schema'
 import { createTrackPoint, listTrackPoints } from './track-point-repo'
 import { greatCircleDistanceNm } from '../airports/airport-search'
 import {
@@ -18,6 +20,7 @@ import {
   getLogbookStats,
   listCompletedFlights,
   listFlights,
+  listFlightsByAircraft,
   recordOff,
   recordOn,
   startFlight
@@ -48,7 +51,7 @@ function newLandingFixture(flightId: number): NewLanding {
 }
 
 describe('flight repo', () => {
-  let db: FlightdeckDb
+  let db: WingLogDb
   let aircraftId: number
 
   beforeEach(() => {
@@ -204,7 +207,7 @@ describe('flight repo', () => {
       expect(getFlight(db, active.id)?.status).toBe('active')
     })
 
-    it('deleteFlight removes the flight and its landing/track-point dependents', () => {
+    it('deleteFlight tombstones the flight and its landing dependent, hard-deleting track points', () => {
       const created = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' })
       startFlight(db, created.id, 10000)
       createTrackPoint(db, {
@@ -236,15 +239,24 @@ describe('flight repo', () => {
 
       deleteFlight(db, created.id)
 
-      expect(getFlight(db, created.id)).toBeUndefined()
-      expect(listTrackPoints(db, created.id)).toEqual([])
-      expect(getLandingByFlight(db, created.id)).toBeUndefined()
+      // A tombstone, not a hard delete — getFlight (an internal FK-resolution lookup) still
+      // finds the row, but every user-facing list filters it out, and the raw column
+      // confirms it's actually marked deleted, not silently untouched.
+      expect(getFlight(db, created.id)).toBeDefined()
+      expect(listFlights(db)).toEqual([])
+      expect(listCompletedFlights(db)).toEqual([])
+      const raw = db.select().from(flightTable).where(eq(flightTable.id, created.id)).get()
+      expect(raw?.deletedAt).not.toBeNull()
+      expect(listTrackPoints(db, created.id)).toEqual([]) // never synced, still hard-deleted
+      expect(getLandingByFlight(db, created.id)).toBeUndefined() // tombstoned, filtered out
     })
 
-    it('deleteFlight on a flight with no dependents is a no-op beyond removing the row', () => {
+    it('deleteFlight on a flight with no dependents still tombstones it', () => {
       const created = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' })
       deleteFlight(db, created.id)
-      expect(getFlight(db, created.id)).toBeUndefined()
+      expect(listFlights(db)).toEqual([])
+      const raw = db.select().from(flightTable).where(eq(flightTable.id, created.id)).get()
+      expect(raw?.deletedAt).not.toBeNull()
     })
   })
 
@@ -326,6 +338,27 @@ describe('flight repo', () => {
 
       const stats = getFleetStats(db)
       expect(stats.map((s) => s.registration)).toEqual(['G-ABCD'])
+    })
+
+    it('lists one aircraft\'s own completed flights, newest first, excluding other tails and planned flights', () => {
+      const secondAircraftId = createAircraft(db, { registration: 'G-WXYZ', icaoType: 'B738' }).id
+      createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' }) // stays planned, must be excluded
+
+      flyAndComplete(aircraftId, 'EGCC', 30, 500)
+      vi.setSystemTime(new Date('2026-09-01T14:00:00Z'))
+      flyAndComplete(secondAircraftId, 'EGKK', 90, 900) // other tail, must be excluded
+      vi.setSystemTime(new Date('2026-09-01T15:00:00Z'))
+      flyAndComplete(aircraftId, 'EGPH', 45, 700)
+
+      const flights = listFlightsByAircraft(db, aircraftId)
+      expect(flights.map((f) => f.arrIcao)).toEqual(['EGPH', 'EGCC'])
+      expect(flights.every((f) => f.aircraftId === aircraftId && f.status === 'completed')).toBe(true)
+    })
+
+    it('returns an empty list for an aircraft with no completed flights', () => {
+      const created = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' })
+      startFlight(db, created.id, 10000) // active, not completed
+      expect(listFlightsByAircraft(db, aircraftId)).toEqual([])
     })
 
     it('returns zeroed logbook stats when nothing has completed', () => {

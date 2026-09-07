@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   getAirportCoords,
   greatCircleDistanceNm,
+  greatCircleWaypoints,
   loadAirportCoords,
   loadAirports,
   searchAirportList,
@@ -117,5 +118,58 @@ describe('getAirportCoords / greatCircleDistanceNm (real vendored data)', () => 
   it('returns null when either airport is not in the vendored list', () => {
     expect(greatCircleDistanceNm('ZZZZ', 'VHHH')).toBeNull()
     expect(greatCircleDistanceNm('EGLL', 'ZZZZ')).toBeNull()
+  })
+})
+
+describe('greatCircleWaypoints (real vendored data)', () => {
+  it('returns null when either airport is not in the vendored list', () => {
+    expect(greatCircleWaypoints('ZZZZ', 'VHHH')).toBeNull()
+    expect(greatCircleWaypoints('EGLL', 'ZZZZ')).toBeNull()
+  })
+
+  it('starts and ends at the two airports, with the requested number of points', () => {
+    const points = greatCircleWaypoints('EGLL', 'KJFK', 10)
+    const dep = getAirportCoords('EGLL')
+    const arr = getAirportCoords('KJFK')
+    expect(points).toHaveLength(10)
+    expect(points?.[0][0]).toBeCloseTo(dep!.lon, 5)
+    expect(points?.[0][1]).toBeCloseTo(dep!.lat, 5)
+    expect(points?.[9][0]).toBeCloseTo(arr!.lon, 5)
+    expect(points?.[9][1]).toBeCloseTo(arr!.lat, 5)
+  })
+
+  it('curves toward the pole on a long-haul route, unlike a naive straight-line midpoint', () => {
+    // EGLL (London) <-> VHHH (Hong Kong): a real great circle between two northern-
+    // hemisphere points this far apart bows noticeably further north than a naive lat/lon
+    // lerp between the two endpoints — the actual point of doing spherical interpolation
+    // (a slerp through 3D Cartesian space) instead of a 2-point Mercator line.
+    const dep = getAirportCoords('EGLL')!
+    const arr = getAirportCoords('VHHH')!
+    const naiveMidLat = (dep.lat + arr.lat) / 2
+
+    const points = greatCircleWaypoints('EGLL', 'VHHH', 101)
+    const midLat = points?.[50][1]
+    expect(midLat).toBeGreaterThan(naiveMidLat + 5)
+  })
+
+  it('barely bows off a straight line for a short domestic pair', () => {
+    // EGLL (London Heathrow) <-> EGCC (Manchester): short enough that the great-circle
+    // midpoint should sit within a fraction of a degree of the naive lat/lon lerp, unlike
+    // the long-haul case above.
+    const dep = getAirportCoords('EGLL')!
+    const arr = getAirportCoords('EGCC')!
+    const naiveMidLat = (dep.lat + arr.lat) / 2
+    const naiveMidLon = (dep.lon + arr.lon) / 2
+
+    const points = greatCircleWaypoints('EGLL', 'EGCC', 11)
+    const [midLon, midLat] = points![5]
+    expect(midLat).toBeCloseTo(naiveMidLat, 1)
+    expect(midLon).toBeCloseTo(naiveMidLon, 1)
+  })
+
+  it('returns a single coordinate, not NaN, for a same-airport pair', () => {
+    const points = greatCircleWaypoints('EGLL', 'EGLL')
+    expect(points).toEqual([[expect.any(Number), expect.any(Number)]])
+    expect(points?.[0].every(Number.isFinite)).toBe(true)
   })
 })

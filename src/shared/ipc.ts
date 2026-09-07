@@ -28,6 +28,13 @@ export interface Aircraft {
    *  schema.ts. Null means "use icaoType as SimBrief's type parameter", same as before
    *  this field existed. */
   simbriefType: string | null
+  /** Denormalized label for whichever of simbriefAirframeId/simbriefType is currently set,
+   *  snapshotted when the community-airframe picker (docs/plans/simbrief-airframe-picker.md)
+   *  set it — null for a manually-typed id/type, or when nothing's set, in which case the
+   *  UI falls back to showing the plain id/type. All three travel together. */
+  simbriefAirframeDeveloper: string | null
+  simbriefAirframeEngines: string | null
+  simbriefAirframeRegistration: string | null
   currentIcao: string | null
   createdAt: string
   /** Set once this aircraft has been replaced by another (docs/plans/aircraft-replacement.md)
@@ -35,6 +42,10 @@ export interface Aircraft {
    *  selectable; anywhere an aircraft is picked (Dispatch's aircraft select, "new flight"
    *  flows) should filter these out — a retired aircraft has no flights of its own left. */
   replacedByAircraftId: number | null
+  /** Real-world livery photo thumbnail from adsbdb's registration lookup — see
+   *  schema.ts's photoThumbnailUrl comment. Null for a fictional/GA registration adsbdb
+   *  has no photo for, or one never looked up. */
+  photoThumbnailUrl: string | null
 }
 
 export interface NewAircraft {
@@ -45,7 +56,11 @@ export interface NewAircraft {
   operatorIcao?: string | null
   simbriefAirframeId?: string | null
   simbriefType?: string | null
+  simbriefAirframeDeveloper?: string | null
+  simbriefAirframeEngines?: string | null
+  simbriefAirframeRegistration?: string | null
   currentIcao?: string | null
+  photoThumbnailUrl?: string | null
 }
 
 export interface AircraftUpdate extends NewAircraft {
@@ -71,6 +86,10 @@ export interface AircraftLookupResult {
    *  matching adsbdb's free-text operator name against it. Null if adsbdb didn't have
    *  one for this aircraft. */
   operatorIcao: string | null
+  /** adsbdb's `url_photo_thumbnail` — see Aircraft.photoThumbnailUrl. Deliberately not
+   *  `url_photo` (full-size): confirmed live it 404s consistently, see docs/decisions.md,
+   *  2026-09-07. Null if adsbdb had no photo for this registration. */
+  photoThumbnailUrl: string | null
 }
 
 /** One match from the vendored OurAirports name/ICAO search — see resources/airports.csv. */
@@ -87,6 +106,31 @@ export interface AircraftTypeOption {
   model: string
   icaoType: string
   wakeCat: string
+}
+
+/**
+ * One saved airframe from SimBrief's own live `inputs.airframes.json` feed for a given
+ * ICAO type (docs/plans/simbrief-airframe-picker.md) — never vendored/stored, fetched
+ * fresh each time the picker opens. `isDefault` is SimBrief's own stock profile for the
+ * type (nothing to share/create — picking it just clears both simbrief_* fields).
+ * `developer`/`platform` are parsed from SimBrief's free-text `airframe_comments` (already
+ * filtered server-side to `platform === 'MSFS'` plus the stock default, so the renderer
+ * never sees an X-Plane/P3D entry) — null when the comment doesn't match the usual
+ * "Developer (Platform) - variant" shape, in which case `comments` is the only label.
+ */
+export interface SimbriefAirframeOption {
+  isDefault: boolean
+  developer: string | null
+  engines: string
+  /** Raw `airframe_comments` — always present, the guaranteed fallback label. */
+  comments: string
+  registration: string | null
+  /** SimBrief's own type code for this entry's parent group (e.g. "A20N") — what gets
+   *  written to aircraft.simbrief_type when this option is picked. */
+  simbriefType: string
+  /** Only present for a community (non-default) entry — SimBrief's own "Share Airframe"
+   *  link for it (docs/plans/simbrief-airframe-picker.md's confirmed share → Save flow). */
+  shareUrl: string | null
 }
 
 /** One match from the vendored OpenFlights airline database (see resources/airlines.csv). */
@@ -480,7 +524,7 @@ export interface DispatchDeparture {
 /**
  * Opens SimBrief's dispatch form pre-filled with a route and airframe. `simbriefAirframeId`
  * takes priority over `icaoType` when set (SimBrief uses the saved custom profile);
- * otherwise SimBrief falls back to its own default airframe for that type — Flightdeck
+ * otherwise SimBrief falls back to its own default airframe for that type — WingLog
  * doesn't need to implement that fallback itself. `airlineIcao`/`flightNumber`/`departure`
  * are optional prefills added on top of the original orig/dest/airframe set (docs/decisions.md,
  * SimBrief-generation entry) — each is only appended to the URL when present, so leaving
@@ -571,23 +615,28 @@ export const IpcChannels = {
   gsxOpenReceipt: 'gsx:open-receipt',
   logbookOpenOfpPdf: 'logbook:open-ofp-pdf',
   logbookGetLanding: 'logbook:get-landing',
+  logbookGreatCircleRoute: 'logbook:great-circle-route',
   fleetListLandings: 'fleet:list-landings',
+  fleetListFlights: 'fleet:list-flights',
   settingsGetLandingThresholds: 'settings:get-landing-thresholds',
   settingsSetLandingThresholds: 'settings:set-landing-thresholds',
   aircraftLookupByRegistration: 'aircraft:lookup-by-registration',
   aircraftTypeSearch: 'aircraft:type-search',
+  simbriefAirframesForType: 'simbrief:airframes-for-type',
+  simbriefCreateCustomAirframe: 'simbrief:create-custom-airframe',
   airportSearch: 'airport:search',
   airlineSearch: 'airline:search',
   airlineFindByIcao: 'airline:find-by-icao',
   weatherGetMetars: 'weather:get-metars',
   fxGetRate: 'fx:get-rate',
   authLogin: 'auth:login',
+  authSignup: 'auth:signup',
   authLogout: 'auth:logout',
   syncNow: 'sync:now',
   syncStatus: 'sync:status'
 } as const
 
-export interface FlightdeckApi {
+export interface WingLogApi {
   aircraftList: () => Promise<Aircraft[]>
   aircraftCreate: (aircraft: NewAircraft) => Promise<Aircraft>
   aircraftUpdate: (aircraft: AircraftUpdate) => Promise<Aircraft>
@@ -713,14 +762,35 @@ export interface FlightdeckApi {
    *  before this feature existed, or one with no landing phase reached (e.g. cancelled
    *  mid-air). */
   logbookGetLanding: (flightId: number) => Promise<Landing | null>
+  /** Great-circle fallback route for Logbook's flight-detail map, [lon, lat] pairs (docs/
+   *  plans/great-circle-fallback-route.md) — used only when the flight has no OFP-derived
+   *  route to draw (parseRouteFromOfpJson came back empty). Null if either ICAO isn't in
+   *  the vendored airport list. */
+  logbookGreatCircleRoute: (depIcao: string, arrIcao: string) => Promise<[number, number][] | null>
   /** An aircraft's full landing history, newest first — Fleet's per-tail detail page. */
   fleetListLandings: (aircraftId: number) => Promise<AircraftLanding[]>
+  /** An aircraft's completed flights, newest first — Fleet's per-tail detail page. Queried
+   *  directly rather than filtering flightList() client-side, since that list is already
+   *  hundreds of rows on a well-used fleet. */
+  fleetListFlights: (aircraftId: number) => Promise<Flight[]>
   settingsGetLandingThresholds: () => Promise<LandingThresholds>
   settingsSetLandingThresholds: (thresholds: LandingThresholds) => Promise<void>
   /** Looks up an aircraft by registration via adsbdb.com. Null if not found (not an error). */
   aircraftLookupByRegistration: (registration: string) => Promise<AircraftLookupResult | null>
   /** Searches the vendored ICAO Doc 8643 type-designator list. Empty for a query under 2 chars. */
   aircraftTypeSearch: (query: string) => Promise<AircraftTypeOption[]>
+  /** Fetches SimBrief's live `inputs.airframes.json` and returns every MSFS-platform
+   *  saved airframe for this ICAO type, plus the stock default (docs/plans/
+   *  simbrief-airframe-picker.md). Empty (not an error) for a type SimBrief doesn't
+   *  recognise, or if the fetch itself fails. */
+  simbriefAirframesForType: (icaoType: string) => Promise<SimbriefAirframeOption[]>
+  /**
+   * Opens a real, visible SimBrief share link and waits for the pilot to review and save
+   * it into their own account (docs/plans/simbrief-airframe-picker.md's confirmed share →
+   * Save flow) — resolves with the resulting `<pilot_id>_<airframe_id>` once observed, or
+   * null if the window was closed before a save completed.
+   */
+  simbriefCreateCustomAirframe: (shareUrl: string) => Promise<string | null>
   /** Searches the vendored OurAirports name/ICAO list. Empty for a query under 2 chars. */
   airportSearch: (query: string) => Promise<AirportOption[]>
   /** Searches the vendored OpenFlights airline list. Empty for a query under 2 chars. */
@@ -742,6 +812,11 @@ export interface FlightdeckApi {
    *  successful login persists the session (Electron's safeStorage) so it survives a
    *  restart without asking again. */
   authLogin: (email: string, password: string) => Promise<SyncStatus>
+  /** Creates a new account, then logs into it — gated behind an invite code checked
+   *  server-side (docs/plans/cloud-sync-v2.md); a wrong/missing code fails the same way a
+   *  wrong login would, not distinguishably. There is no self-serve public signup yet —
+   *  this exists so the one person who has the code doesn't need a separate CLI step. */
+  authSignup: (email: string, password: string, inviteCode: string) => Promise<SyncStatus>
   /** "Log out this device" — the stored session is cleared locally regardless of whether
    *  the backend round-trip to invalidate it server-side succeeds. */
   authLogout: () => Promise<SyncStatus>

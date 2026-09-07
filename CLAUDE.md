@@ -1,4 +1,4 @@
-# Flightdeck
+# WingLog
 
 Electron + React + TypeScript desktop app for tracking flights in Microsoft Flight
 Simulator 2024: fleet management, SimBrief dispatch, live SimConnect tracking, and a
@@ -108,7 +108,7 @@ docs/           User-facing content only, or empty — see the note at the top o
 - SimVar names, units, and per-aircraft-type overrides live only in
   `src/main/sim/simvars.ts`. Don't scatter SimVar strings through the codebase.
 - Every schema change is a Drizzle migration, generated via `npm run db:generate`.
-  Never hand-edit `flightdeck.db` or a migration file after it's been applied.
+  Never hand-edit `winglog.db` or a migration file after it's been applied.
 - Anything that sends data off the machine, stores credentials, or introduces an account
   or a server is a **decision, not an implementation detail**. Propose it, get agreement,
   and record it in `flightdeck-backend`'s `docs/decisions.md` before building it. Nothing
@@ -120,10 +120,16 @@ docs/           User-facing content only, or empty — see the note at the top o
   flown solo, not a platform.
 - Convert units at the IPC boundary (SI internally, aviation units only at the UI layer)
   — don't let sim-native and SI units mix inside the same layer.
+- **Don't hand work off to a session on the other machine unless you've been asked to, for
+  that specific piece of work.** Work sometimes runs in parallel across two machines (see
+  "Branching"), and delegating is genuinely useful — but "hand this batch off" is
+  authorisation for that batch, not a standing arrangement to keep doing it. Finish the
+  plan or the investigation, report back, and let the delegation be an explicit choice
+  each time.
 
 ## Security
 
-**The GitHub repo is public** (`github.com/Catalyst4K/flightdeck`), and the app is
+**The GitHub repo is public** (`github.com/Catalyst4K/WingLog`), and the app is
 distributed as an installable binary. Both mean mistakes here are visible and shipped, so
 treat security as part of finishing a change rather than a separate pass.
 
@@ -177,7 +183,7 @@ rather than assuming there isn't one:
   `npm audit` when adding one, and keep `package-lock.json` committed. A dependency that
   wants postinstall scripts or network access at build time deserves scrutiny.
 
-**A second trust boundary exists: the backend-service Flightdeck talks to over HTTPS**
+**A second trust boundary exists: the backend-service WingLog talks to over HTTPS**
 (a credential broker for SimBrief and Navigraph, living in its own private repo,
 `flightdeck-backend` — not this one). It changes how a couple of the rules above apply:
 - The base URL is one constant (matching the `simvars.ts` discipline above), always
@@ -185,7 +191,7 @@ rather than assuming there isn't one:
 - Its responses are external data like any other third-party input — parse them
   defensively, same as OFP/GSX JSON.
 - Nothing about its implementation, secrets, or deployment belongs in this repo. If you're
-  ever asked to change how Flightdeck talks to it, that's a change to `src/main/backend/`
+  ever asked to change how WingLog talks to it, that's a change to `src/main/backend/`
   calling an existing deployed endpoint — not a reason to touch, vendor, or inline anything
   from the other repo.
 

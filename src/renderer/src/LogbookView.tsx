@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis
 } from 'recharts'
-import { ArrowLeft, ArrowDown, ArrowUp, Trash2 } from 'lucide-react'
+import { ArrowLeft, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Aircraft, Flight, Landing, LogbookStats, TrackPoint, WeightUnit } from '@shared/ipc'
 import {
@@ -29,10 +29,12 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { FlightMap } from './FlightMap'
 import { GsxInvoicesCard } from './GsxInvoicesCard'
+import { useSortable } from './hooks/useSortable'
 import { LandingBadge } from './LandingBadge'
 import { classifyLanding } from './landing-severity'
-import { parseRouteFromOfpJson, parseWaypointsFromOfpJson } from './route'
-import { formatWeight, mToFt, msToFpm, msToKt } from './units'
+import { parseRouteFromOfpJson, parseWaypointsFromOfpJson, type Waypoint } from './route'
+import { SortableHead } from './SortableHead'
+import { formatMinutes, formatWeight, mToFt, msToFpm, msToKt } from './units'
 import { useLandingThresholds } from './useLandingThresholds'
 
 type View = { kind: 'list' } | { kind: 'detail'; id: number }
@@ -54,13 +56,6 @@ const CHART_TOOLTIP_STYLE = {
 // (e.g. "540 min") — hours read at a glance instead. Below it, a short flight's duration
 // in hours would round to one or two ticks total, which is worse than minutes, not better.
 const HOURS_AXIS_THRESHOLD_MIN = 90
-
-function formatMinutes(min: number | null): string {
-  if (min == null) return '—'
-  const hours = Math.floor(min / 60)
-  const minutes = Math.round(min % 60)
-  return `${hours}h ${minutes}m`
-}
 
 function formatDate(iso: string | null): string {
   return iso ? new Date(iso).toLocaleString() : '—'
@@ -86,7 +81,7 @@ function LandingCard(props: { flightId: number }): React.JSX.Element | null {
   const thresholds = useLandingThresholds()
 
   useEffect(() => {
-    window.flightdeck.logbookGetLanding(props.flightId).then(setLanding)
+    window.winglog.logbookGetLanding(props.flightId).then(setLanding)
   }, [props.flightId])
 
   if (!landing) return null
@@ -150,6 +145,9 @@ function FlightDetail(props: {
   aircraft: Aircraft | undefined
   weightUnit: WeightUnit
   onBack: () => void
+  /** True when onBack returns to the Fleet aircraft this flight was opened from, rather
+   *  than Logbook's own list — only changes the button label, not the navigation. */
+  backToAircraft: boolean
   onDeleted: () => void
 }): React.JSX.Element {
   const { flight, aircraft, weightUnit } = props
@@ -159,7 +157,7 @@ function FlightDetail(props: {
   async function handleConfirmDelete(): Promise<void> {
     setConfirmingDelete(false)
     try {
-      await window.flightdeck.flightDelete(flight.id)
+      await window.winglog.flightDelete(flight.id)
       props.onDeleted()
       toast.success('Flight deleted.')
     } catch (err) {
@@ -168,16 +166,45 @@ function FlightDetail(props: {
   }
 
   async function handleViewOfpPdf(): Promise<void> {
-    const opened = await window.flightdeck.logbookOpenOfpPdf(flight.id)
+    const opened = await window.winglog.logbookOpenOfpPdf(flight.id)
     if (!opened) toast.error('No OFP PDF available for this flight.')
   }
 
   useEffect(() => {
-    window.flightdeck.trackPointList(flight.id).then(setTrackPoints)
+    window.winglog.trackPointList(flight.id).then(setTrackPoints)
   }, [flight.id])
 
   const route = useMemo(() => parseRouteFromOfpJson(flight.ofpJson), [flight.ofpJson])
   const waypoints = useMemo(() => parseWaypointsFromOfpJson(flight.ofpJson), [flight.ofpJson])
+
+  // Fallback for a flight with no OFP-derived route (any CSV-imported historical flight,
+  // or one started directly from Track — docs/plans/great-circle-fallback-route.md): fetch
+  // a synthesized great-circle line only when the synchronous OFP parse above came back
+  // empty, so a flight that does have a real route never pays for this round trip.
+  const [fallbackRoute, setFallbackRoute] = useState<[number, number][]>([])
+  useEffect(() => {
+    if (route.length > 0) return
+    let cancelled = false
+    window.winglog.logbookGreatCircleRoute(flight.depIcao, flight.arrIcao).then((points) => {
+      if (!cancelled) setFallbackRoute(points ?? [])
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [route, flight.depIcao, flight.arrIcao])
+
+  const routeIsApproximate = route.length === 0 && fallbackRoute.length > 0
+  const displayRoute = route.length > 0 ? route : fallbackRoute
+  const displayWaypoints: Waypoint[] = useMemo(() => {
+    if (route.length > 0) return waypoints
+    if (fallbackRoute.length === 0) return []
+    const [depLon, depLat] = fallbackRoute[0]
+    const [arrLon, arrLat] = fallbackRoute[fallbackRoute.length - 1]
+    return [
+      { ident: flight.depIcao, lon: depLon, lat: depLat, altitudeFt: 0, segment: 'enroute' },
+      { ident: flight.arrIcao, lon: arrLon, lat: arrLat, altitudeFt: 0, segment: 'enroute' }
+    ]
+  }, [route, waypoints, fallbackRoute, flight.depIcao, flight.arrIcao])
 
   // Elapsed minutes since the first sample reads better on a chart than raw timestamps.
   // Memoized like route/waypoints above — trackPoints only actually changes once, when
@@ -221,7 +248,7 @@ function FlightDetail(props: {
       <div className="flex items-center justify-between">
         <Button type="button" variant="ghost" size="sm" onClick={props.onBack} className="w-fit">
           <ArrowLeft />
-          Back to logbook
+          {props.backToAircraft ? 'Back to aircraft' : 'Back to logbook'}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmingDelete(true)}>
           <Trash2 />
@@ -258,7 +285,13 @@ function FlightDetail(props: {
       </div>
 
       <div className="h-[min(36vh,360px)] min-h-56">
-        <FlightMap live={false} route={route} waypoints={waypoints} trackPoints={trackPoints} />
+        <FlightMap
+          live={false}
+          route={displayRoute}
+          waypoints={displayWaypoints}
+          trackPoints={trackPoints}
+          routeIsApproximate={routeIsApproximate}
+        />
       </div>
 
       {profile.length > 1 && (
@@ -406,7 +439,6 @@ function FlightDetail(props: {
 }
 
 type SortKey = 'date' | 'flight' | 'route' | 'aircraft' | 'block' | 'air' | 'fuel'
-type SortDir = 'asc' | 'desc'
 
 const SORT_COLUMNS: { key: SortKey; label: string }[] = [
   { key: 'date', label: 'Date' },
@@ -442,32 +474,6 @@ function compareFlights(
   }
 }
 
-function SortableHead(props: {
-  sortKey: SortKey
-  label: string
-  activeKey: SortKey
-  dir: SortDir
-  onSort: (key: SortKey) => void
-}): React.JSX.Element {
-  const active = props.sortKey === props.activeKey
-  return (
-    <TableHead
-      onClick={() => props.onSort(props.sortKey)}
-      className="cursor-pointer select-none whitespace-nowrap"
-    >
-      <span className="inline-flex items-center gap-1">
-        {props.label}
-        {active &&
-          (props.dir === 'asc' ? (
-            <ArrowUp className="size-3.5 text-muted-foreground" />
-          ) : (
-            <ArrowDown className="size-3.5 text-muted-foreground" />
-          ))}
-      </span>
-    </TableHead>
-  )
-}
-
 function LogbookRowsSkeleton(): React.JSX.Element {
   return (
     <>
@@ -484,20 +490,48 @@ function LogbookRowsSkeleton(): React.JSX.Element {
   )
 }
 
-export function LogbookView(props: { weightUnit: WeightUnit }): React.JSX.Element {
+export function LogbookView(props: {
+  weightUnit: WeightUnit
+  /** Set when another view (e.g. Fleet's per-aircraft flight list) navigated here to open
+   *  a specific flight directly, rather than the user picking one from the list. */
+  initialFlightId?: number | null
+  /** The Fleet aircraft this flight was opened from, if any — used to send "Back" there
+   *  instead of Logbook's own list. Only ever meaningful together with initialFlightId. */
+  initialFlightOriginAircraftId?: number | null
+  /** Called once initialFlightId has been consumed, so a later plain tab click into
+   *  Logbook (this component remounts each time, per App.tsx's conditional render)
+   *  doesn't keep reopening the same flight. */
+  onInitialFlightConsumed?: () => void
+  /** Navigates back to a specific Fleet aircraft — wired to "Back" when the current
+   *  detail view is the flight that was opened from that aircraft's flights list. */
+  onBackToAircraft?: (aircraftId: number) => void
+}): React.JSX.Element {
   const [flights, setFlights] = useState<Flight[]>([])
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
   const [stats, setStats] = useState<LogbookStats | null>(null)
-  const [view, setView] = useState<View>({ kind: 'list' })
+  const [view, setView] = useState<View>(
+    props.initialFlightId != null ? { kind: 'detail', id: props.initialFlightId } : { kind: 'list' }
+  )
   const [loading, setLoading] = useState(true)
-  const [sortKey, setSortKey] = useState<SortKey>('date')
-  const [sortDir, setSortDir] = useState<SortDir>('desc')
+  // Captured once at mount, independent of the props themselves — App.tsx clears
+  // pendingLogbookFlight (nulling these props) right after consuming them, but "was this
+  // detail view reached via a Fleet cross-navigation" needs to stay true for as long as
+  // the user is looking at that same flight, not just for the first render.
+  const [initialFlightId] = useState(props.initialFlightId ?? null)
+  const [initialFlightOriginAircraftId] = useState(props.initialFlightOriginAircraftId ?? null)
+
+  useEffect(() => {
+    if (props.initialFlightId != null) props.onInitialFlightConsumed?.()
+    // Only ever meant to run once, against the initial prop value — see the state
+    // initializer above, which already captured it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function reload(): Promise<void> {
     return Promise.all([
-      window.flightdeck.logbookListCompletedFlights(),
-      window.flightdeck.aircraftList(),
-      window.flightdeck.logbookGetStats()
+      window.winglog.logbookListCompletedFlights(),
+      window.winglog.aircraftList(),
+      window.winglog.logbookGetStats()
     ]).then(([flightList, aircraftList, logbookStats]) => {
       setFlights(flightList)
       setAircraft(aircraftList)
@@ -513,24 +547,34 @@ export function LogbookView(props: { weightUnit: WeightUnit }): React.JSX.Elemen
     return aircraft.find((a) => a.id === aircraftId)?.registration ?? `#${aircraftId}`
   }
 
-  function handleSort(key: SortKey): void {
-    if (key === sortKey) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
-    } else {
-      setSortKey(key)
-      setSortDir('asc')
-    }
-  }
+  const comparators = Object.fromEntries(
+    SORT_COLUMNS.map((col) => [col.key, (a: Flight, b: Flight) => compareFlights(a, b, col.key, registrationFor)])
+  ) as Record<SortKey, (a: Flight, b: Flight) => number>
+  const {
+    sortKey,
+    sortDir,
+    sortedRows: sortedFlights,
+    handleSort
+  } = useSortable<Flight, SortKey>(flights, comparators, 'date', 'desc')
 
   if (view.kind === 'detail') {
     const flight = flights.find((f) => f.id === view.id)
     if (!flight) return <p className="text-sm text-muted-foreground">Flight not found.</p>
+    // Only the exact flight that was opened from Fleet sends "Back" there — navigating
+    // to a different flight from Logbook's own list (even after arriving via Fleet)
+    // falls back to the ordinary "back to list" behaviour.
+    const cameFromFleet = flight.id === initialFlightId && initialFlightOriginAircraftId != null
     return (
       <FlightDetail
         flight={flight}
         aircraft={aircraft.find((a) => a.id === flight.aircraftId)}
         weightUnit={props.weightUnit}
-        onBack={() => setView({ kind: 'list' })}
+        backToAircraft={cameFromFleet}
+        onBack={
+          cameFromFleet
+            ? () => props.onBackToAircraft?.(initialFlightOriginAircraftId!)
+            : () => setView({ kind: 'list' })
+        }
         onDeleted={() => {
           setView({ kind: 'list' })
           reload()
@@ -538,11 +582,6 @@ export function LogbookView(props: { weightUnit: WeightUnit }): React.JSX.Elemen
       />
     )
   }
-
-  const sortedFlights = [...flights].sort((a, b) => {
-    const cmp = compareFlights(a, b, sortKey, registrationFor)
-    return sortDir === 'asc' ? cmp : -cmp
-  })
 
   return (
     <div className="flex flex-col gap-6">

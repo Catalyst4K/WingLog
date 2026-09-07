@@ -3,6 +3,6 @@
 // against the DB in Electron's userData directory.
 import { migrateDb } from '../src/main/db/migrate'
 
-const dbPath = process.env.FLIGHTDECK_DB_PATH ?? './flightdeck.db'
+const dbPath = process.env.WINGLOG_DB_PATH ?? './winglog.db'
 migrateDb(dbPath)
 console.log(`Migrated ${dbPath}`)

@@ -1,4 +1,4 @@
-# Flightdeck
+# WingLog
 
 A personal fleet-management, dispatch, live-tracking and logbook companion for
 Microsoft Flight Simulator — fleet → SimBrief dispatch → SimConnect tracking on a map →
@@ -27,7 +27,7 @@ than plain Node.
 
 ## Licence
 
-Flightdeck is free software, licensed under the **GNU General Public License v3.0** — see
+WingLog is free software, licensed under the **GNU General Public License v3.0** — see
 [`LICENSE`](./LICENSE). You may use, study, modify and redistribute it, including
 commercially; derivative works must also be GPL-3.0 and must make their source available.
 

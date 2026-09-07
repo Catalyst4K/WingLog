@@ -80,62 +80,64 @@ export function SettingsView(props: {
   })
   const [cloudEmail, setCloudEmail] = useState('')
   const [cloudPassword, setCloudPassword] = useState('')
+  const [cloudInviteCode, setCloudInviteCode] = useState('')
+  const [cloudAuthMode, setCloudAuthMode] = useState<'login' | 'signup'>('login')
   const [loggingIntoCloud, setLoggingIntoCloud] = useState(false)
   // Purely transient UI state, not persisted — this app has no routing beyond the top tab
   // bar, no reason to add any for a sub-navigation within one of its pages.
   const [category, setCategory] = useState<SettingsCategory>('units')
 
   useEffect(() => {
-    window.flightdeck.settingsGetSimbriefUsername().then((u) => setSimbriefUsername(u ?? ''))
-    window.flightdeck.dispatchSimbriefLoginStatus().then(setSimbriefLoggedIn)
-    window.flightdeck.settingsGetGsx().then(setGsx)
-    window.flightdeck.settingsGetLandingThresholds().then(setLandingThresholds)
-    window.flightdeck.syncStatus().then(setSyncStatus)
+    window.winglog.settingsGetSimbriefUsername().then((u) => setSimbriefUsername(u ?? ''))
+    window.winglog.dispatchSimbriefLoginStatus().then(setSimbriefLoggedIn)
+    window.winglog.settingsGetGsx().then(setGsx)
+    window.winglog.settingsGetLandingThresholds().then(setLandingThresholds)
+    window.winglog.syncStatus().then(setSyncStatus)
   }, [])
 
   async function handleSaveLandingThresholds(event: React.FormEvent): Promise<void> {
     event.preventDefault()
-    await window.flightdeck.settingsSetLandingThresholds(landingThresholds)
+    await window.winglog.settingsSetLandingThresholds(landingThresholds)
     toast.success('Landing thresholds saved.')
   }
 
   async function handleGsxToggle(enabled: boolean): Promise<void> {
     const next = { ...gsx, enabled }
     setGsx(next)
-    await window.flightdeck.settingsSetGsx(next)
+    await window.winglog.settingsSetGsx(next)
   }
 
   async function handleGsxBrowse(): Promise<void> {
-    const folderPath = await window.flightdeck.gsxBrowseFolder()
+    const folderPath = await window.winglog.gsxBrowseFolder()
     if (!folderPath) return
     const next = { ...gsx, folderPath }
     setGsx(next)
-    await window.flightdeck.settingsSetGsx(next)
+    await window.winglog.settingsSetGsx(next)
   }
 
   async function handleGsxCurrencyChange(displayCurrency: string): Promise<void> {
     const next = { ...gsx, displayCurrency }
     setGsx(next)
-    await window.flightdeck.settingsSetGsx(next)
+    await window.winglog.settingsSetGsx(next)
   }
 
   async function handleSaveSimbriefUsername(event: React.FormEvent): Promise<void> {
     event.preventDefault()
-    await window.flightdeck.settingsSetSimbriefUsername(simbriefUsername.trim())
+    await window.winglog.settingsSetSimbriefUsername(simbriefUsername.trim())
     toast.success('SimBrief username saved.')
   }
 
   async function handleLoginToNavigraph(): Promise<void> {
     setLoggingIn(true)
     try {
-      await window.flightdeck.dispatchLoginSimbrief()
-      const loggedIn = await window.flightdeck.dispatchSimbriefLoginStatus()
+      await window.winglog.dispatchLoginSimbrief()
+      const loggedIn = await window.winglog.dispatchSimbriefLoginStatus()
       setSimbriefLoggedIn(loggedIn)
       if (loggedIn && !simbriefUsername.trim()) {
-        const fetched = await window.flightdeck.dispatchFetchSimbriefUsername()
+        const fetched = await window.winglog.dispatchFetchSimbriefUsername()
         if (fetched) {
           setSimbriefUsername(fetched)
-          await window.flightdeck.settingsSetSimbriefUsername(fetched)
+          await window.winglog.settingsSetSimbriefUsername(fetched)
           toast.success(`SimBrief username filled in automatically: ${fetched}`)
         }
       }
@@ -147,7 +149,7 @@ export function SettingsView(props: {
   async function handleLogoutOfNavigraph(): Promise<void> {
     setLoggingOut(true)
     try {
-      await window.flightdeck.dispatchLogoutSimbrief()
+      await window.winglog.dispatchLogoutSimbrief()
       setSimbriefLoggedIn(false)
     } finally {
       setLoggingOut(false)
@@ -157,7 +159,7 @@ export function SettingsView(props: {
   async function handleImportAircraft(): Promise<void> {
     setImportingAircraft(true)
     try {
-      const summary = await window.flightdeck.aircraftImport()
+      const summary = await window.winglog.aircraftImport()
       if (summary) toast.success(summarizeAircraftImport(summary))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
@@ -168,7 +170,7 @@ export function SettingsView(props: {
 
   async function handleExportAircraft(): Promise<void> {
     try {
-      const saved = await window.flightdeck.aircraftExport()
+      const saved = await window.winglog.aircraftExport()
       if (saved) toast.success('Fleet exported.')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
@@ -179,7 +181,7 @@ export function SettingsView(props: {
     event.preventDefault()
     setLoggingIntoCloud(true)
     try {
-      const status = await window.flightdeck.authLogin(cloudEmail.trim(), cloudPassword)
+      const status = await window.winglog.authLogin(cloudEmail.trim(), cloudPassword)
       setSyncStatus(status)
       setCloudPassword('')
       toast.success('Logged in.')
@@ -190,13 +192,29 @@ export function SettingsView(props: {
     }
   }
 
+  async function handleCloudSignup(event: React.FormEvent): Promise<void> {
+    event.preventDefault()
+    setLoggingIntoCloud(true)
+    try {
+      const status = await window.winglog.authSignup(cloudEmail.trim(), cloudPassword, cloudInviteCode)
+      setSyncStatus(status)
+      setCloudPassword('')
+      setCloudInviteCode('')
+      toast.success('Account created and logged in.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    } finally {
+      setLoggingIntoCloud(false)
+    }
+  }
+
   async function handleCloudLogout(): Promise<void> {
-    setSyncStatus(await window.flightdeck.authLogout())
+    setSyncStatus(await window.winglog.authLogout())
   }
 
   async function handleSyncNow(): Promise<void> {
     setSyncStatus((current) => ({ ...current, syncing: true }))
-    const status = await window.flightdeck.syncNow()
+    const status = await window.winglog.syncNow()
     setSyncStatus(status)
     if (status.lastError) toast.error(status.lastError)
     else toast.success('Synced.')
@@ -205,7 +223,7 @@ export function SettingsView(props: {
   async function handleImportLogbook(): Promise<void> {
     setImportingLogbook(true)
     try {
-      const summary = await window.flightdeck.logbookImportCsv()
+      const summary = await window.winglog.logbookImportCsv()
       if (summary) toast.success(summarizeLogbookImport(summary))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
@@ -366,77 +384,6 @@ export function SettingsView(props: {
 
             <Card className="max-w-sm">
               <CardHeader>
-                <CardTitle>Cloud sync</CardTitle>
-                <CardDescription>
-                  Sync Fleet and Logbook across your machines. Off by default — nothing leaves this device
-                  until you log in.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-4">
-                {syncStatus.loggedIn ? (
-                  <>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm text-foreground">{syncStatus.email}</span>
-                      <Button type="button" variant="outline" size="sm" onClick={handleCloudLogout}>
-                        Log out
-                      </Button>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-xs text-muted-foreground">
-                        {syncStatus.lastSyncedAt
-                          ? `Last synced ${new Date(syncStatus.lastSyncedAt).toLocaleString()}`
-                          : 'Never synced yet.'}
-                      </p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleSyncNow}
-                        disabled={syncStatus.syncing}
-                      >
-                        {syncStatus.syncing ? 'Syncing…' : 'Sync now'}
-                      </Button>
-                    </div>
-                    {syncStatus.lastError && (
-                      <p className="text-xs text-destructive">{syncStatus.lastError}</p>
-                    )}
-                  </>
-                ) : (
-                  <form onSubmit={handleCloudLogin} className="flex flex-col gap-3">
-                    <Label className="flex flex-col items-start gap-1.5">
-                      Email
-                      <Input
-                        type="email"
-                        value={cloudEmail}
-                        onChange={(e) => setCloudEmail(e.target.value)}
-                        required
-                      />
-                    </Label>
-                    <Label className="flex flex-col items-start gap-1.5">
-                      Password
-                      <Input
-                        type="password"
-                        value={cloudPassword}
-                        onChange={(e) => setCloudPassword(e.target.value)}
-                        required
-                      />
-                    </Label>
-                    <Button
-                      type="submit"
-                      variant="outline"
-                      size="sm"
-                      className="w-fit"
-                      disabled={loggingIntoCloud}
-                    >
-                      {loggingIntoCloud ? 'Logging in…' : 'Log in'}
-                    </Button>
-                  </form>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="max-w-sm">
-              <CardHeader>
                 <CardTitle>GSX ground services</CardTitle>
                 <CardDescription>
                   Attach GSX Pro's catering/fuel/handling receipts to matching flights in your Logbook.
@@ -542,43 +489,159 @@ export function SettingsView(props: {
         </TabsContent>
 
         <TabsContent value="data" className="min-w-0">
-          <Card className="max-w-2xl">
-            <CardHeader>
-              <CardTitle>Data</CardTitle>
-              <CardDescription>Import or export your fleet and logbook as local files.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm text-foreground">Fleet (JSON)</span>
-                <div className="flex gap-2">
+          <div className="flex flex-wrap gap-4">
+            <Card className="max-w-sm">
+              <CardHeader>
+                <CardTitle>Data</CardTitle>
+                <CardDescription>Import or export your fleet and logbook as local files.</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-foreground">Fleet (JSON)</span>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleImportAircraft}
+                      disabled={importingAircraft}
+                    >
+                      {importingAircraft ? 'Importing…' : 'Import'}
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" onClick={handleExportAircraft}>
+                      Export
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-foreground">Logbook (CSV)</span>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={handleImportAircraft}
-                    disabled={importingAircraft}
+                    onClick={handleImportLogbook}
+                    disabled={importingLogbook}
                   >
-                    {importingAircraft ? 'Importing…' : 'Import'}
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={handleExportAircraft}>
-                    Export
+                    {importingLogbook ? 'Importing…' : 'Import'}
                   </Button>
                 </div>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm text-foreground">Logbook (CSV)</span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleImportLogbook}
-                  disabled={importingLogbook}
-                >
-                  {importingLogbook ? 'Importing…' : 'Import'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+
+            <Card className="max-w-sm">
+              <CardHeader>
+                <CardTitle>Cloud sync</CardTitle>
+                <CardDescription>
+                  Sync Fleet and Logbook across your machines. This is WingLog's own service, not a
+                  third party — off by default, nothing leaves this device until you log in.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4">
+                {syncStatus.loggedIn ? (
+                  <>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm text-foreground">{syncStatus.email}</span>
+                      <Button type="button" variant="outline" size="sm" onClick={handleCloudLogout}>
+                        Log out
+                      </Button>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs text-muted-foreground">
+                        {syncStatus.lastSyncedAt
+                          ? `Last synced ${new Date(syncStatus.lastSyncedAt).toLocaleString()}`
+                          : 'Never synced yet.'}
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSyncNow}
+                        disabled={syncStatus.syncing}
+                      >
+                        {syncStatus.syncing ? 'Syncing…' : 'Sync now'}
+                      </Button>
+                    </div>
+                    {syncStatus.lastError && <p className="text-xs text-destructive">{syncStatus.lastError}</p>}
+                  </>
+                ) : (
+                  <>
+                    <div className="flex gap-1 rounded-md bg-muted p-1 text-sm">
+                      <button
+                        type="button"
+                        onClick={() => setCloudAuthMode('login')}
+                        className={`flex-1 cursor-pointer rounded-sm py-1 ${cloudAuthMode === 'login' ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground'}`}
+                      >
+                        Log in
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCloudAuthMode('signup')}
+                        className={`flex-1 cursor-pointer rounded-sm py-1 ${cloudAuthMode === 'signup' ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground'}`}
+                      >
+                        Sign up
+                      </button>
+                    </div>
+                    <form
+                      onSubmit={cloudAuthMode === 'login' ? handleCloudLogin : handleCloudSignup}
+                      className="flex flex-col gap-3"
+                    >
+                      <Label className="flex flex-col items-start gap-1.5">
+                        Email
+                        <Input
+                          type="email"
+                          value={cloudEmail}
+                          onChange={(e) => setCloudEmail(e.target.value)}
+                          required
+                        />
+                      </Label>
+                      <Label className="flex flex-col items-start gap-1.5">
+                        Password
+                        <Input
+                          type="password"
+                          value={cloudPassword}
+                          onChange={(e) => setCloudPassword(e.target.value)}
+                          minLength={cloudAuthMode === 'signup' ? 12 : undefined}
+                          required
+                        />
+                      </Label>
+                      {cloudAuthMode === 'signup' && (
+                        <>
+                          <p className="text-xs text-muted-foreground">At least 12 characters.</p>
+                          <Label className="flex flex-col items-start gap-1.5">
+                            Invite code
+                            <Input
+                              type="password"
+                              value={cloudInviteCode}
+                              onChange={(e) => setCloudInviteCode(e.target.value)}
+                              required
+                            />
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Signup isn't public yet — this only works with an invite code from the app owner.
+                          </p>
+                        </>
+                      )}
+                      <Button
+                        type="submit"
+                        variant="outline"
+                        size="sm"
+                        className="w-fit"
+                        disabled={loggingIntoCloud}
+                      >
+                        {loggingIntoCloud
+                          ? cloudAuthMode === 'login'
+                            ? 'Logging in…'
+                            : 'Signing up…'
+                          : cloudAuthMode === 'login'
+                            ? 'Log in'
+                            : 'Sign up'}
+                      </Button>
+                    </form>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

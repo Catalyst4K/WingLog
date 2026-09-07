@@ -20,7 +20,7 @@ const GROUND_SPEED_STABLE_EPSILON_MS = 0.3 // ~0.6kt
 // Callum reported a real case this misses without a location check: MSFS's own flight-
 // picker/World Map screen runs a live background scene (parked, on the ground, perfectly
 // stationary — e.g. sitting at Boeing Field) that satisfies every check above just as well
-// as a genuinely armed, parked flight does. Arming happens on Flightdeck's "Fly" (a
+// as a genuinely armed, parked flight does. Arming happens on WingLog's "Fly" (a
 // `flightCreate`), which can land before the sim has even loaded the real flight if MSFS
 // is still on that menu — so this fired against the menu's placeholder position, then the
 // real load-in teleported the aircraft to the actual departure airport, recording one
@@ -55,7 +55,7 @@ const MAX_DEPARTURE_DISTANCE_DEG = 1.1
  * pressed, it could start against that stale data. **That trade-off turned out to bite
  * for real** (Callum, 2026-09-03): MSFS's own flight-picker/World Map screen runs a live
  * background scene — parked, on the ground, perfectly stationary — that's indistinguishable
- * from a real armed flight by every check above. Arming happens on Flightdeck's "Fly"
+ * from a real armed flight by every check above. Arming happens on WingLog's "Fly"
  * (`flightCreate`), which can land while MSFS is still sitting on that menu, so this fired
  * against the menu's placeholder position and then the real load-in teleported the
  * aircraft to the actual departure airport — one breadcrumb trail straight across the

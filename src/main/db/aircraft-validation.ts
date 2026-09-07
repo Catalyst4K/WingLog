@@ -7,7 +7,11 @@ const OPTIONAL_STRING_FIELDS = [
   'operatorIcao',
   'simbriefAirframeId',
   'simbriefType',
-  'currentIcao'
+  'simbriefAirframeDeveloper',
+  'simbriefAirframeEngines',
+  'simbriefAirframeRegistration',
+  'currentIcao',
+  'photoThumbnailUrl'
 ] as const
 
 export type AircraftInputResult = { data: NewAircraft } | { error: string }
@@ -30,7 +34,18 @@ export function parseAircraftInput(raw: unknown): AircraftInputResult {
 
   for (const field of OPTIONAL_STRING_FIELDS) {
     const value = input[field]
-    if (value === undefined || value === null || value === '') continue
+    // Genuinely absent (an older import file that never had this key) — leave it alone,
+    // don't touch whatever the row already has. A present-but-blank value (null or '') is
+    // different: it's the caller explicitly clearing the field, so it must become a real
+    // `null` here — not skipped — or an update's `.set()` never includes the column at
+    // all and silently leaves the previous value in place (confirmed live, docs/plans/
+    // simbrief-airframe-picker.md: switching a fleet aircraft off a custom SimBrief
+    // airframe back to blank had no effect until this distinction was added).
+    if (value === undefined) continue
+    if (value === null || value === '') {
+      fields[field] = null
+      continue
+    }
     if (typeof value !== 'string') return { error: `"${field}" must be a string` }
     fields[field] = value.trim()
   }

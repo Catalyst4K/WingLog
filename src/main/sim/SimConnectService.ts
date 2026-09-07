@@ -9,7 +9,7 @@ import {
 import type { SimConnectionStatus, SimTelemetry } from '@shared/ipc'
 import { SIM_VARS } from './simvars'
 
-const APP_NAME = 'Flightdeck'
+const APP_NAME = 'WingLog'
 const DEFINITION_ID = 0
 const REQUEST_ID = 0
 const PAUSE_EVENT_ID = 1

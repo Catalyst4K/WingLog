@@ -4,7 +4,7 @@ import {
   type AircraftUpdate,
   type AltitudeUnit,
   type DispatchOpenSimBriefParams,
-  type FlightdeckApi,
+  type WingLogApi,
   type GsxSettings,
   type LandingThresholds,
   type NewAircraft,
@@ -16,7 +16,7 @@ import {
   type WindSpeedUnit
 } from '@shared/ipc'
 
-const api: FlightdeckApi = {
+const api: WingLogApi = {
   aircraftList: () => ipcRenderer.invoke(IpcChannels.aircraftList),
   aircraftCreate: (aircraft: NewAircraft) => ipcRenderer.invoke(IpcChannels.aircraftCreate, aircraft),
   aircraftUpdate: (aircraft: AircraftUpdate) => ipcRenderer.invoke(IpcChannels.aircraftUpdate, aircraft),
@@ -88,13 +88,19 @@ const api: FlightdeckApi = {
   gsxOpenReceipt: (sourceHtmlPath: string) => ipcRenderer.invoke(IpcChannels.gsxOpenReceipt, sourceHtmlPath),
   logbookOpenOfpPdf: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookOpenOfpPdf, flightId),
   logbookGetLanding: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookGetLanding, flightId),
+  logbookGreatCircleRoute: (depIcao: string, arrIcao: string) =>
+    ipcRenderer.invoke(IpcChannels.logbookGreatCircleRoute, depIcao, arrIcao),
   fleetListLandings: (aircraftId: number) => ipcRenderer.invoke(IpcChannels.fleetListLandings, aircraftId),
+  fleetListFlights: (aircraftId: number) => ipcRenderer.invoke(IpcChannels.fleetListFlights, aircraftId),
   settingsGetLandingThresholds: () => ipcRenderer.invoke(IpcChannels.settingsGetLandingThresholds),
   settingsSetLandingThresholds: (thresholds: LandingThresholds) =>
     ipcRenderer.invoke(IpcChannels.settingsSetLandingThresholds, thresholds),
   aircraftLookupByRegistration: (registration: string) =>
     ipcRenderer.invoke(IpcChannels.aircraftLookupByRegistration, registration),
   aircraftTypeSearch: (query: string) => ipcRenderer.invoke(IpcChannels.aircraftTypeSearch, query),
+  simbriefAirframesForType: (icaoType: string) => ipcRenderer.invoke(IpcChannels.simbriefAirframesForType, icaoType),
+  simbriefCreateCustomAirframe: (shareUrl: string) =>
+    ipcRenderer.invoke(IpcChannels.simbriefCreateCustomAirframe, shareUrl),
   airportSearch: (query: string) => ipcRenderer.invoke(IpcChannels.airportSearch, query),
   airlineSearch: (query: string) => ipcRenderer.invoke(IpcChannels.airlineSearch, query),
   airlineFindByIcao: (icao: string) => ipcRenderer.invoke(IpcChannels.airlineFindByIcao, icao),
@@ -102,9 +108,11 @@ const api: FlightdeckApi = {
   fxGetRate: (targetCurrency: string, date?: string) =>
     ipcRenderer.invoke(IpcChannels.fxGetRate, targetCurrency, date),
   authLogin: (email: string, password: string) => ipcRenderer.invoke(IpcChannels.authLogin, email, password),
+  authSignup: (email: string, password: string, inviteCode: string) =>
+    ipcRenderer.invoke(IpcChannels.authSignup, email, password, inviteCode),
   authLogout: () => ipcRenderer.invoke(IpcChannels.authLogout),
   syncNow: () => ipcRenderer.invoke(IpcChannels.syncNow),
   syncStatus: () => ipcRenderer.invoke(IpcChannels.syncStatus)
 }
 
-contextBridge.exposeInMainWorld('flightdeck', api)
+contextBridge.exposeInMainWorld('winglog', api)

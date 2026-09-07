@@ -5,8 +5,8 @@ import { dirname, join } from 'node:path'
 import { eq } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { createAircraft } from '../db/aircraft-repo'
-import { createDb, type FlightdeckDb } from '../db/client'
+import { createAircraft, deleteAircraft, listAircraft } from '../db/aircraft-repo'
+import { createDb, type WingLogDb } from '../db/client'
 import { addInvoicesForFlight } from '../db/flight-invoice-repo'
 import { createFlight } from '../db/flight-repo'
 import { getLandingByFlight } from '../db/landing-repo'
@@ -59,7 +59,7 @@ class FakeSyncServer implements SyncClient {
 const SESSION = { email: 'callum@example.com', token: 'test-token' }
 
 describe('sync-engine', () => {
-  let db: FlightdeckDb
+  let db: WingLogDb
   let tempDir: string
   let dbPath: string
   let server: FakeSyncServer
@@ -68,8 +68,8 @@ describe('sync-engine', () => {
     const created = createDb(':memory:')
     migrate(created.db, { migrationsFolder: 'drizzle' })
     db = created.db
-    tempDir = mkdtempSync(join(tmpdir(), 'flightdeck-sync-test-'))
-    dbPath = join(tempDir, 'flightdeck.db')
+    tempDir = mkdtempSync(join(tmpdir(), 'winglog-sync-test-'))
+    dbPath = join(tempDir, 'winglog.db')
     server = new FakeSyncServer()
   })
 
@@ -242,6 +242,36 @@ describe('sync-engine', () => {
     await runSync(db, server, SESSION, dbPath)
     const rowA = db.select().from(aircraft).where(eq(aircraft.uuid, syncedUuid)).get()
     expect(rowA?.registration).toBe('G-FROM-B')
+  })
+
+  // The real bug this closes (flightdeck-backend/docs/plans/cloud-sync-v2.md #3a): a hard
+  // DELETE is indistinguishable from "never created" once it crosses the sync protocol, so
+  // a pull resurrects it on every other device. Confirms the tombstone fix end to end
+  // across two profiles, including the specific "further sync on the deleting profile
+  // itself doesn't undo its own deletion" case.
+  it('propagates a deletion to a second profile instead of the next pull resurrecting it', async () => {
+    const created = createAircraft(db, { registration: 'G-DELME', icaoType: 'A320' })
+    await runSync(db, server, SESSION, dbPath) // profile A pushes the aircraft
+
+    const dbB = createDb(':memory:')
+    migrate(dbB.db, { migrationsFolder: 'drizzle' })
+    const dbPathB = join(tempDir, 'profile-b-delete.db')
+    await runSync(dbB.db, server, SESSION, dbPathB) // profile B pulls it
+    expect(listAircraft(dbB.db).map((a) => a.registration)).toContain('G-DELME')
+
+    deleteAircraft(db, created.id) // profile A deletes it locally
+    expect(listAircraft(db)).toEqual([]) // gone locally, immediately
+
+    await runSync(db, server, SESSION, dbPath) // profile A pushes the tombstone
+    const resultB = await runSync(dbB.db, server, SESSION, dbPathB) // profile B pulls it
+
+    expect(resultB.tables.aircraft.pulled).toBe(1) // the tombstone update itself is a pull
+    expect(listAircraft(dbB.db)).toEqual([]) // deleted on B too, not resurrected
+
+    // The scenario the bug actually produced: syncing profile A again (nothing new to
+    // push/pull) must not somehow bring the aircraft back on A either.
+    await runSync(db, server, SESSION, dbPath)
+    expect(listAircraft(db)).toEqual([])
   })
 
   it('skips a landing whose parent flight has not been synced, without aborting the rest of the table', async () => {

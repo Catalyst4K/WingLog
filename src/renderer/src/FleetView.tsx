@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, ArrowRightLeft, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import type { Aircraft, AircraftLanding, FleetStats, NewAircraft } from '@shared/ipc'
+import type { Aircraft, AircraftLanding, Flight, FleetStats, NewAircraft } from '@shared/ipc'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,13 +26,27 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { AircraftForm } from './AircraftForm'
+import { AircraftPhoto } from './AircraftPhoto'
 import { AirlineLogo } from './AirlineLogo'
+import { useSortable } from './hooks/useSortable'
 import { LandingBadge } from './LandingBadge'
 import { classifyLanding } from './landing-severity'
+import { SortableHead } from './SortableHead'
+import { formatMinutes, msToFpm, msToKt } from './units'
 import { useLandingThresholds } from './useLandingThresholds'
-import { msToFpm, msToKt } from './units'
 
 type View = { kind: 'list' } | { kind: 'detail'; id: number } | { kind: 'new' } | { kind: 'edit'; id: number }
+
+type FleetSortKey = 'registration' | 'type' | 'airline' | 'location' | 'hours' | 'flights'
+
+const FLEET_SORT_COLUMNS: { key: FleetSortKey; label: string }[] = [
+  { key: 'registration', label: 'Registration' },
+  { key: 'type', label: 'Type' },
+  { key: 'airline', label: 'Airline' },
+  { key: 'location', label: 'Location' },
+  { key: 'hours', label: 'Hours' },
+  { key: 'flights', label: 'Flights' }
+]
 
 function formatDate(iso: string | null): string {
   return iso ? new Date(iso).toLocaleString() : '—'
@@ -57,19 +71,22 @@ function DetailField(props: { label: string; value: React.ReactNode }): React.JS
 }
 
 /**
- * Three states, per docs/decisions.md's fleet-simbrief-airframe entry — this deliberately
- * doesn't reimplement SimBrief's own airframe editor, just makes the link between a fleet
- * aircraft and its SimBrief profile visible and one click to reach:
- * - a custom profile is set: open *that* airframe's editor directly.
- * - no custom profile, but a SimBrief default type is chosen: show it, offer to change it
- *   or create a custom one instead.
- * - nothing set at all: explain the (usually fine) fallback and offer to create a profile.
+ * Display only (docs/plans/simbrief-airframe-picker.md) — picking or creating a profile
+ * now lives entirely in AircraftForm.tsx's edit view, not here. Three states, per
+ * docs/decisions.md's fleet-simbrief-airframe entry, just makes the current link between a
+ * fleet aircraft and its SimBrief profile visible and one click away to view:
+ * - a custom profile is set: show its registration/type (from the label the picker cached
+ *   when it was set — falls back to the raw id for one set before this plan, or typed by
+ *   hand), and a link to view it on SimBrief.
+ * - no custom profile, but a SimBrief default type is chosen: show its type, plus
+ *   engine/developer from the cached label when the picker set it.
+ * - nothing set at all: explain the (usually fine) fallback.
  */
 function SimBriefProfileCard(props: { aircraft: Aircraft }): React.JSX.Element {
   const a = props.aircraft
 
   function openAirframes(): void {
-    void window.flightdeck.dispatchOpenSimBriefAirframes(a.simbriefAirframeId)
+    void window.winglog.dispatchOpenSimBriefAirframes(a.simbriefAirframeId)
   }
 
   return (
@@ -81,31 +98,38 @@ function SimBriefProfileCard(props: { aircraft: Aircraft }): React.JSX.Element {
         {a.simbriefAirframeId ? (
           <>
             <p className="text-foreground">
-              Custom profile: <span className="font-mono">{a.simbriefAirframeId}</span>
+              Custom —{' '}
+              {a.simbriefAirframeRegistration ? (
+                <>
+                  {a.simbriefAirframeRegistration}
+                  {a.simbriefAirframeEngines ? ` (${a.simbriefAirframeEngines})` : ''}
+                </>
+              ) : (
+                <span className="font-mono">{a.simbriefAirframeId}</span>
+              )}
             </p>
             <Button type="button" variant="outline" size="sm" className="w-fit" onClick={openAirframes}>
               Open in SimBrief
             </Button>
           </>
         ) : a.simbriefType ? (
-          <>
-            <p className="text-foreground">
-              Using SimBrief default: <span className="font-mono">{a.simbriefType}</span>
-            </p>
-            <Button type="button" variant="outline" size="sm" className="w-fit" onClick={openAirframes}>
-              Create a custom airframe in SimBrief
-            </Button>
-          </>
+          <p className="text-foreground">
+            {a.simbriefAirframeDeveloper ? (
+              <>
+                {a.simbriefAirframeDeveloper}
+                {a.simbriefAirframeEngines ? ` — ${a.simbriefAirframeEngines}` : ''}
+              </>
+            ) : (
+              <>
+                Using SimBrief default: <span className="font-mono">{a.simbriefType}</span>
+              </>
+            )}
+          </p>
         ) : (
-          <>
-            <p className="text-muted-foreground">
-              No profile set — plans fall back to SimBrief's own default for {a.icaoType}, which is usually
-              fine and occasionally very wrong on weights (and therefore fuel).
-            </p>
-            <Button type="button" variant="outline" size="sm" className="w-fit" onClick={openAirframes}>
-              Create a custom airframe in SimBrief
-            </Button>
-          </>
+          <p className="text-muted-foreground">
+            No profile set — plans fall back to SimBrief's own default for {a.icaoType}, which is usually
+            close enough but can be off on weights (and therefore fuel).
+          </p>
         )}
       </CardContent>
     </Card>
@@ -121,7 +145,7 @@ function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
   const thresholds = useLandingThresholds()
 
   useEffect(() => {
-    window.flightdeck.fleetListLandings(props.aircraftId).then(setLandings)
+    window.winglog.fleetListLandings(props.aircraftId).then(setLandings)
   }, [props.aircraftId])
 
   return (
@@ -141,7 +165,9 @@ function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
                 <div key={l.id} className="flex items-center justify-between gap-3">
                   <span className="text-muted-foreground">{new Date(l.touchdownTsUtc).toLocaleDateString()}</span>
                   <span className="font-mono tabular-nums text-foreground">{fpm} fpm</span>
-                  <span className="text-foreground">{l.runwayIdent ?? '—'}</span>
+                  <span className="text-foreground">
+                    {l.arrIcao} {l.runwayIdent ?? '—'}
+                  </span>
                   <span className="text-muted-foreground">
                     {l.crosswindMs != null ? `${Math.round(msToKt(Math.abs(l.crosswindMs)))} kt xwind` : '—'}
                   </span>
@@ -149,6 +175,51 @@ function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
                 </div>
               )
             })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+/** An aircraft's own completed flights (docs/plans/fleet-redesign.md #2) — scrollable
+ *  rather than paginated per Callum's ask, same fixed-height/overflow-y-auto pattern as
+ *  LandingHistoryCard above so the detail page's own layout doesn't grow unbounded with
+ *  flight count (his real fleet has one aircraft with well over a hundred). Rows are
+ *  clickable, jumping to that flight's Logbook detail — the app's first cross-view
+ *  navigation, confirmed wanted rather than assumed. */
+function AircraftFlightsCard(props: { aircraftId: number; onOpenFlight: (flightId: number) => void }): React.JSX.Element {
+  const [flights, setFlights] = useState<Flight[]>([])
+
+  useEffect(() => {
+    window.winglog.fleetListFlights(props.aircraftId).then(setFlights)
+  }, [props.aircraftId])
+
+  return (
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle className="text-base">Flights</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {flights.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No completed flights yet.</p>
+        ) : (
+          <div className="flex max-h-64 flex-col divide-y divide-border overflow-y-auto">
+            {flights.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => props.onOpenFlight(f.id)}
+                className="flex cursor-pointer items-center justify-between gap-3 px-1.5 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+              >
+                <span className="text-muted-foreground">{formatDate(f.actualOutUtc)}</span>
+                <span className="text-foreground">{f.flightNumber ?? '—'}</span>
+                <span className="text-foreground">
+                  {f.depIcao} → {f.arrIcao}
+                </span>
+                <span className="font-mono tabular-nums text-muted-foreground">{formatMinutes(f.blockMinutes)}</span>
+              </button>
+            ))}
           </div>
         )}
       </CardContent>
@@ -179,7 +250,7 @@ function ReplaceAircraftDialog(props: {
   // already means a fresh target/flightCount — no need to reset them on `open` here, just
   // fetch once for whichever aircraft this instance was mounted for.
   useEffect(() => {
-    window.flightdeck
+    window.winglog
       .flightList()
       .then((flights) => setFlightCount(flights.filter((f) => f.aircraftId === props.aircraft.id).length))
   }, [props.aircraft.id])
@@ -257,85 +328,139 @@ function AircraftDetail(props: {
   onDelete: () => void
   onReplace: () => void
   onViewAircraft: (id: number) => void
+  onOpenFlight: (flightId: number) => void
   onBack: () => void
 }): React.JSX.Element {
   const a = props.aircraft
   const s = props.stats
   const retired = a.replacedByAircraftId !== null
   return (
-    <div className="flex max-w-lg flex-col gap-4">
-      <Button type="button" variant="ghost" size="sm" onClick={props.onBack} className="w-fit">
-        <ArrowLeft />
-        Back to fleet
-      </Button>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl">
-            {a.registration} — {a.icaoType}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          {retired && (
-            <p className="rounded-md bg-muted p-2 text-sm text-muted-foreground">
-              Retired — replaced by{' '}
-              {props.replacedBy ? (
-                <button
-                  type="button"
-                  className="font-medium text-foreground underline underline-offset-2"
-                  onClick={() => props.onViewAircraft(props.replacedBy!.id)}
-                >
-                  {props.replacedBy.registration}
-                </button>
-              ) : (
-                `#${a.replacedByAircraftId}`
-              )}
-              .
-            </p>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <Button type="button" variant="ghost" size="sm" onClick={props.onBack} className="w-fit">
+          <ArrowLeft />
+          Back to fleet
+        </Button>
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={props.onEdit}>
+            <Pencil />
+            Edit
+          </Button>
+          {!retired && (
+            <Button type="button" variant="outline" size="sm" onClick={props.onReplace}>
+              <ArrowRightLeft />
+              Replace…
+            </Button>
           )}
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
-            <DetailField label="Airline" value={<AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />} />
-            <DetailField label="Current airport" value={a.currentIcao ?? s?.lastArrIcao ?? '—'} />
-            <DetailField label="Total hours" value={s ? s.totalHours.toFixed(1) : '0.0'} />
-            <DetailField label="Flights" value={s?.totalCycles ?? 0} />
-            <DetailField label="Last flight" value={formatDate(s?.lastFlightInUtc ?? null)} />
-          </dl>
+          <Button type="button" variant="destructive" size="sm" onClick={props.onDelete}>
+            <Trash2 />
+            Delete
+          </Button>
+        </div>
+      </div>
+
+      {retired && (
+        <p className="rounded-md bg-muted p-2 text-sm text-muted-foreground">
+          Retired — replaced by{' '}
+          {props.replacedBy ? (
+            <button
+              type="button"
+              className="cursor-pointer font-medium text-foreground underline underline-offset-2"
+              onClick={() => props.onViewAircraft(props.replacedBy!.id)}
+            >
+              {props.replacedBy.registration}
+            </button>
+          ) : (
+            `#${a.replacedByAircraftId}`
+          )}
+          .
+        </p>
+      )}
+
+      <div className="flex flex-wrap gap-4">
+        <div className="flex min-w-72 flex-1 flex-col gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl">
+                {a.registration} — {a.icaoType}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <AircraftPhoto thumbnailUrl={a.photoThumbnailUrl} />
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+                <DetailField
+                  label="Airline"
+                  value={<AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />}
+                />
+                <DetailField label="Current airport" value={a.currentIcao ?? s?.lastArrIcao ?? '—'} />
+                <DetailField label="Total hours" value={s ? s.totalHours.toFixed(1) : '0.0'} />
+                <DetailField label="Flights" value={s?.totalCycles ?? 0} />
+                <DetailField label="Last flight" value={formatDate(s?.lastFlightInUtc ?? null)} />
+              </dl>
+            </CardContent>
+          </Card>
           <SimBriefProfileCard aircraft={a} />
+        </div>
+        <div className="flex min-w-72 flex-1 flex-col gap-4">
+          <AircraftFlightsCard aircraftId={a.id} onOpenFlight={props.onOpenFlight} />
           <LandingHistoryCard aircraftId={a.id} />
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={props.onEdit}>
-              <Pencil />
-              Edit
-            </Button>
-            {!retired && (
-              <Button type="button" variant="outline" size="sm" onClick={props.onReplace}>
-                <ArrowRightLeft />
-                Replace…
-              </Button>
-            )}
-            <Button type="button" variant="destructive" size="sm" onClick={props.onDelete}>
-              <Trash2 />
-              Delete
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   )
 }
 
-export function FleetView(): React.JSX.Element {
+export function FleetView(props: {
+  onOpenFlightInLogbook: (flightId: number, fromAircraftId: number) => void
+  /** Set when Logbook's "Back" returns here for a specific aircraft, rather than the
+   *  user picking one from the list. Mirrors LogbookView's own initialFlightId prop. */
+  initialAircraftId?: number | null
+  /** Called once initialAircraftId has been consumed — see LogbookView's
+   *  onInitialFlightConsumed for why this needs to happen exactly once. */
+  onInitialAircraftConsumed?: () => void
+}): React.JSX.Element {
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
   const [stats, setStats] = useState<FleetStats[]>([])
-  const [view, setView] = useState<View>({ kind: 'list' })
+  const [view, setView] = useState<View>(
+    props.initialAircraftId != null ? { kind: 'detail', id: props.initialAircraftId } : { kind: 'list' }
+  )
   const [deleteTarget, setDeleteTarget] = useState<Aircraft | null>(null)
   const [replaceTarget, setReplaceTarget] = useState<Aircraft | null>(null)
+
+  useEffect(() => {
+    if (props.initialAircraftId != null) props.onInitialAircraftConsumed?.()
+    // Only ever meant to run once, against the initial prop value — see the state
+    // initializer above, which already captured it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const activeAircraft = aircraft.filter((a) => a.replacedByAircraftId === null)
   const retiredAircraft = aircraft.filter((a) => a.replacedByAircraftId !== null)
 
+  function statsFor(aircraftId: number): FleetStats | undefined {
+    return stats.find((s) => s.aircraftId === aircraftId)
+  }
+
+  const fleetComparators: Record<FleetSortKey, (a: Aircraft, b: Aircraft) => number> = {
+    registration: (a, b) => a.registration.localeCompare(b.registration),
+    type: (a, b) => a.icaoType.localeCompare(b.icaoType),
+    airline: (a, b) => (a.operator ?? '').localeCompare(b.operator ?? ''),
+    location: (a, b) =>
+      (a.currentIcao ?? statsFor(a.id)?.lastArrIcao ?? '').localeCompare(
+        b.currentIcao ?? statsFor(b.id)?.lastArrIcao ?? ''
+      ),
+    hours: (a, b) => (statsFor(a.id)?.totalHours ?? 0) - (statsFor(b.id)?.totalHours ?? 0),
+    flights: (a, b) => (statsFor(a.id)?.totalCycles ?? 0) - (statsFor(b.id)?.totalCycles ?? 0)
+  }
+  const {
+    sortKey: activeSortKey,
+    sortDir: activeSortDir,
+    sortedRows: sortedActiveAircraft,
+    handleSort: handleActiveSort
+  } = useSortable<Aircraft, FleetSortKey>(activeAircraft, fleetComparators, 'registration')
+
   function reload(): Promise<void> {
-    return Promise.all([window.flightdeck.aircraftList(), window.flightdeck.logbookFleetStats()]).then(
+    return Promise.all([window.winglog.aircraftList(), window.winglog.logbookFleetStats()]).then(
       ([aircraftList, fleetStats]) => {
         setAircraft(aircraftList)
         setStats(fleetStats)
@@ -348,13 +473,13 @@ export function FleetView(): React.JSX.Element {
   }, [])
 
   async function handleCreate(data: NewAircraft): Promise<void> {
-    await window.flightdeck.aircraftCreate(data)
+    await window.winglog.aircraftCreate(data)
     await reload()
     setView({ kind: 'list' })
   }
 
   async function handleUpdate(id: number, data: NewAircraft): Promise<void> {
-    await window.flightdeck.aircraftUpdate({ id, ...data })
+    await window.winglog.aircraftUpdate({ id, ...data })
     await reload()
     setView({ kind: 'detail', id })
   }
@@ -364,7 +489,7 @@ export function FleetView(): React.JSX.Element {
     const target = deleteTarget
     setDeleteTarget(null)
     try {
-      await window.flightdeck.aircraftDelete(target.id)
+      await window.winglog.aircraftDelete(target.id)
       await reload()
       setView({ kind: 'list' })
       toast.success(`Deleted ${target.registration}.`)
@@ -378,7 +503,7 @@ export function FleetView(): React.JSX.Element {
     const target = replaceTarget
     const replacement = aircraft.find((a) => a.id === replacementId)
     try {
-      await window.flightdeck.aircraftReplace(target.id, replacementId)
+      await window.winglog.aircraftReplace(target.id, replacementId)
       await reload()
       toast.success(`${target.registration} retired, replaced by ${replacement?.registration ?? replacementId}.`)
       setView({ kind: 'detail', id: replacementId })
@@ -425,6 +550,7 @@ export function FleetView(): React.JSX.Element {
           onDelete={() => setDeleteTarget(existing)}
           onReplace={() => setReplaceTarget(existing)}
           onViewAircraft={(id) => setView({ kind: 'detail', id })}
+          onOpenFlight={(flightId) => props.onOpenFlightInLogbook(flightId, existing.id)}
           onBack={() => setView({ kind: 'list' })}
         />
         <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
@@ -472,16 +598,21 @@ export function FleetView(): React.JSX.Element {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Registration</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Airline</TableHead>
-              <TableHead>Hours</TableHead>
-              <TableHead>Flights</TableHead>
+              {FLEET_SORT_COLUMNS.map((col) => (
+                <SortableHead
+                  key={col.key}
+                  sortKey={col.key}
+                  label={col.label}
+                  activeKey={activeSortKey}
+                  dir={activeSortDir}
+                  onSort={handleActiveSort}
+                />
+              ))}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {activeAircraft.map((a) => {
-              const s = stats.find((stat) => stat.aircraftId === a.id)
+            {sortedActiveAircraft.map((a) => {
+              const s = statsFor(a.id)
               return (
                 <TableRow
                   key={a.id}
@@ -493,6 +624,7 @@ export function FleetView(): React.JSX.Element {
                   <TableCell>
                     <AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />
                   </TableCell>
+                  <TableCell>{a.currentIcao ?? s?.lastArrIcao ?? '—'}</TableCell>
                   <TableCell>{s ? s.totalHours.toFixed(1) : '0.0'}</TableCell>
                   <TableCell>{s?.totalCycles ?? 0}</TableCell>
                 </TableRow>
@@ -528,7 +660,7 @@ export function FleetView(): React.JSX.Element {
                       {replacement ? (
                         <button
                           type="button"
-                          className="text-foreground underline underline-offset-2"
+                          className="cursor-pointer text-foreground underline underline-offset-2"
                           onClick={(e) => {
                             e.stopPropagation()
                             setView({ kind: 'detail', id: replacement.id })

@@ -1,6 +1,6 @@
 # Security policy
 
-Flightdeck is a desktop application for a flight simulator. It has no server, no user
+WingLog is a desktop application for a flight simulator. It has no server, no user
 accounts, and stores its data in a local SQLite database — so the realistic risk surface
 is narrower than most software. That said, it does parse third-party data (SimBrief OFPs,
 GSX receipts, imported CSVs), open external URLs, and ship as an installable binary, and

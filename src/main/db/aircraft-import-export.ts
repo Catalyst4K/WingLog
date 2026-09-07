@@ -3,7 +3,7 @@ import { dialog, type BrowserWindow } from 'electron'
 import type { Aircraft, AircraftImportSummary, NewAircraft } from '@shared/ipc'
 import { createAircraft, getAircraftByRegistration, listAircraft } from './aircraft-repo'
 import { parseAircraftInput } from './aircraft-validation'
-import type { FlightdeckDb } from './client'
+import type { WingLogDb } from './client'
 
 /** Export format matches NewAircraft exactly — id/createdAt are assigned on import, not carried over. */
 function toExportRecord(a: Aircraft): NewAircraft {
@@ -19,10 +19,10 @@ function toExportRecord(a: Aircraft): NewAircraft {
   }
 }
 
-export async function exportAircraft(db: FlightdeckDb, window: BrowserWindow): Promise<boolean> {
+export async function exportAircraft(db: WingLogDb, window: BrowserWindow): Promise<boolean> {
   const { canceled, filePath } = await dialog.showSaveDialog(window, {
     title: 'Export fleet',
-    defaultPath: 'flightdeck-fleet.json',
+    defaultPath: 'winglog-fleet.json',
     filters: [{ name: 'JSON', extensions: ['json'] }]
   })
   if (canceled || !filePath) return false
@@ -33,7 +33,7 @@ export async function exportAircraft(db: FlightdeckDb, window: BrowserWindow): P
 }
 
 export async function importAircraft(
-  db: FlightdeckDb,
+  db: WingLogDb,
   window: BrowserWindow
 ): Promise<AircraftImportSummary | null> {
   const { canceled, filePaths } = await dialog.showOpenDialog(window, {

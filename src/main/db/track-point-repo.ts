@@ -1,7 +1,7 @@
 import { asc, eq } from 'drizzle-orm'
 import type { NewTrackPoint, TrackPoint } from '@shared/ipc'
 import { trackPoint } from './schema'
-import type { FlightdeckDb } from './client'
+import type { WingLogDb } from './client'
 
 function toTrackPoint(row: typeof trackPoint.$inferSelect): TrackPoint {
   return {
@@ -28,12 +28,12 @@ function toTrackPoint(row: typeof trackPoint.$inferSelect): TrackPoint {
   }
 }
 
-export function createTrackPoint(db: FlightdeckDb, input: NewTrackPoint): TrackPoint {
+export function createTrackPoint(db: WingLogDb, input: NewTrackPoint): TrackPoint {
   const [row] = db.insert(trackPoint).values(input).returning().all()
   return toTrackPoint(row)
 }
 
-export function listTrackPoints(db: FlightdeckDb, flightId: number): TrackPoint[] {
+export function listTrackPoints(db: WingLogDb, flightId: number): TrackPoint[] {
   return db
     .select()
     .from(trackPoint)

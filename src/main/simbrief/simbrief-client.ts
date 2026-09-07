@@ -124,6 +124,10 @@ function findStringField(value: unknown, key: string): string | undefined {
   return undefined
 }
 
+// Above the certified ceiling of essentially every civil aircraft — used only as a
+// fallback when a step's ident has no navlog match to cross-reference against.
+const MAX_PLAUSIBLE_FLIGHT_LEVEL_FT = 52_000
+
 /**
  * Parses SimBrief's `stepclimb_string` field — a flat "IDENT/CODE/IDENT/CODE/..." string
  * that mirrors the "FL STEPS" line on the OFP text itself. Confirmed against a real
@@ -135,11 +139,20 @@ function findStringField(value: unknown, key: string): string | undefined {
  * - A metric flight level, used once a flight crosses into airspace (e.g. China) that
  *   assigns levels in metres — in tens of metres (e.g. "1130" = 11,300 m ≈ 37,073 ft).
  *
- * The two ranges don't overlap in practice: no aircraft files a standard flight level at
- * or above FL1000, and no metric level is coded below 1000. A code >= 1000 is therefore
- * treated as metric.
+ * The two ranges genuinely overlap: China's metric RVSM levels run from roughly 600 m to
+ * 14,900 m, i.e. codes 0060-0990, so a code alone can't disambiguate (e.g. "0890" is a
+ * plausible FL890 *and* a plausible 8,900 m — a real case that broke an earlier
+ * code>=1000 threshold, see docs/decisions.md 2026-09-06/07). Resolved instead by
+ * cross-referencing `waypointAltitudesFt`, keyed by the same ident the step climb uses
+ * (built from the same OFP's `navlog.fix[]`, which gives the real altitude in feet with
+ * no guessing) — whichever notation's converted value lands closer to the known altitude
+ * wins. Only an ident with no navlog match falls back to a plausibility threshold: a
+ * "flight level" above ~FL520 must actually be metric.
  */
-export function parseStepClimbs(stepclimbString: string | undefined): SimBriefStepClimb[] {
+export function parseStepClimbs(
+  stepclimbString: string | undefined,
+  waypointAltitudesFt: ReadonlyMap<string, number> = new Map()
+): SimBriefStepClimb[] {
   if (!stepclimbString) return []
   const parts = stepclimbString.split('/')
   const climbs: SimBriefStepClimb[] = []
@@ -147,13 +160,22 @@ export function parseStepClimbs(stepclimbString: string | undefined): SimBriefSt
     const atIdent = parts[i]
     const code = Number(parts[i + 1])
     if (!Number.isFinite(code)) continue
-    if (code >= 1000) {
-      const meters = code * 10
-      climbs.push({ atIdent, toAltitudeFt: meters * FT_PER_M, native: { unit: 'm', value: meters } })
-    } else {
-      const feet = code * 100
-      climbs.push({ atIdent, toAltitudeFt: feet, native: { unit: 'ft', value: feet } })
-    }
+
+    const asFeet = code * 100
+    const asMeters = code * 10
+    const asMetersInFeet = asMeters * FT_PER_M
+    const knownAltitudeFt = waypointAltitudesFt.get(atIdent)
+
+    const isMetric =
+      knownAltitudeFt === undefined
+        ? asFeet > MAX_PLAUSIBLE_FLIGHT_LEVEL_FT
+        : Math.abs(asMetersInFeet - knownAltitudeFt) < Math.abs(asFeet - knownAltitudeFt)
+
+    climbs.push(
+      isMetric
+        ? { atIdent, toAltitudeFt: asMetersInFeet, native: { unit: 'm', value: asMeters } }
+        : { atIdent, toAltitudeFt: asFeet, native: { unit: 'ft', value: asFeet } }
+    )
   }
   return climbs
 }
@@ -186,6 +208,13 @@ export async function fetchLatestOfp(username: string): Promise<SimBriefOfp> {
     ? ((navlog as { fix: Record<string, unknown>[] }).fix as Record<string, unknown>[])
     : []
 
+  const waypoints = fixes.map((fix) => ({
+    ident: str(fix.ident),
+    altitudeFt: num(fix.altitude_feet ?? 0),
+    distanceNm: num(fix.distance ?? 0)
+  }))
+  const waypointAltitudesFt = new Map(waypoints.map((w) => [w.ident, w.altitudeFt] as const))
+
   return {
     ofpId: str(params.request_id),
     aircraftIcaoType: str(aircraft.icaocode),
@@ -207,12 +236,8 @@ export async function fetchLatestOfp(username: string): Promise<SimBriefOfp> {
     costIndex: optNum(general.costindex),
     simbriefIsCustom: str(aircraft.is_custom) === '1',
     simbriefInternalId: optStr(aircraft.internal_id),
-    waypoints: fixes.map((fix) => ({
-      ident: str(fix.ident),
-      altitudeFt: num(fix.altitude_feet ?? 0),
-      distanceNm: num(fix.distance ?? 0)
-    })),
-    stepClimbs: parseStepClimbs(findStringField(ofp, 'stepclimb_string')),
+    waypoints,
+    stepClimbs: parseStepClimbs(findStringField(ofp, 'stepclimb_string'), waypointAltitudesFt),
     rawJson: JSON.stringify(raw)
   }
 }

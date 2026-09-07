@@ -1,5 +1,5 @@
-appId: com.callumjones.flightdeck
-productName: Flightdeck
+appId: com.callumjones.winglog
+productName: WingLog
 directories:
   output: release
   buildResources: build

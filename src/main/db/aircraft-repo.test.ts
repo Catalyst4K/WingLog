@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { eq } from 'drizzle-orm'
-import { createDb, type FlightdeckDb } from './client'
-import { flight } from './schema'
+import { createDb, type WingLogDb } from './client'
+import { aircraft as aircraftTable, flight } from './schema'
 import {
   createAircraft,
   deleteAircraft,
@@ -14,7 +14,7 @@ import {
 import { createFlight } from './flight-repo'
 
 describe('aircraft repo', () => {
-  let db: FlightdeckDb
+  let db: WingLogDb
 
   beforeEach(() => {
     const created = createDb(':memory:')
@@ -75,10 +75,19 @@ describe('aircraft repo', () => {
     expect(listAircraft(db)).toEqual([updated])
   })
 
-  it('deletes an aircraft', () => {
+  it('deletes an aircraft (a tombstone, not a hard delete — still resolvable by id)', () => {
     const created = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' })
     deleteAircraft(db, created.id)
     expect(listAircraft(db)).toEqual([])
+    const raw = db.select().from(aircraftTable).where(eq(aircraftTable.id, created.id)).get()
+    expect(raw?.deletedAt).not.toBeNull()
+  })
+
+  it('refuses to delete an aircraft that still has a non-deleted flight', () => {
+    const created = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' })
+    createFlight(db, { aircraftId: created.id, depIcao: 'EGLL', arrIcao: 'VHHH' })
+    expect(() => deleteAircraft(db, created.id)).toThrow(/flights/)
+    expect(listAircraft(db)).toEqual([created])
   })
 
   describe('replaceAircraft', () => {

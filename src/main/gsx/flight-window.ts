@@ -1,5 +1,5 @@
 import { getAircraftById } from '../db/aircraft-repo'
-import type { FlightdeckDb } from '../db/client'
+import type { WingLogDb } from '../db/client'
 import { getFlight } from '../db/flight-repo'
 import type { FlightMatchWindow } from './matcher'
 
@@ -8,7 +8,7 @@ import type { FlightMatchWindow } from './matcher'
  *  they can never disagree about what "this flight's window" means. Falls back to
  *  scheduled times when actual ones aren't recorded yet (e.g. rescanning a planned
  *  flight), and returns null for a flight or aircraft that no longer exists. */
-export function buildFlightMatchWindow(db: FlightdeckDb, flightId: number): FlightMatchWindow | null {
+export function buildFlightMatchWindow(db: WingLogDb, flightId: number): FlightMatchWindow | null {
   const flight = getFlight(db, flightId)
   if (!flight) return null
   const aircraft = getAircraftById(db, flight.aircraftId)

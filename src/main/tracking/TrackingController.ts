@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import type { ActiveTracking, TrackPoint } from '@shared/ipc'
-import type { FlightdeckDb } from '../db/client'
+import type { WingLogDb } from '../db/client'
 import { addInvoicesForFlight } from '../db/flight-invoice-repo'
 import {
   abandonFlight,
@@ -24,6 +24,11 @@ import { deriveFlownRouteJson } from './route-simplify'
 
 interface TrackingControllerEvents {
   point: [TrackPoint]
+  /** Emitted whenever a flight reaches 'completed' — auto shutdown detection or a manual
+   *  finish() alike — so main/index.ts can trigger a background cloud sync
+   *  (flightdeck-backend/docs/plans/cloud-sync-v2.md #3) without this class needing to
+   *  know anything about sync itself. */
+  completed: [number]
 }
 
 /**
@@ -40,7 +45,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   private fuelOutFinalized = false
 
   constructor(
-    private readonly db: FlightdeckDb,
+    private readonly db: WingLogDb,
     private readonly simConnectService: SimConnectService
   ) {
     super()
@@ -79,10 +84,12 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
       }
 
       if (result.phase === 'shutdown') {
-        completeFlight(this.db, this.recorder.getFlightId(), telemetry.fuelTotalKg)
-        this.snapshotGsxInvoices(this.recorder.getFlightId())
-        this.deriveFlownRoute(this.recorder.getFlightId())
+        const flightId = this.recorder.getFlightId()
+        completeFlight(this.db, flightId, telemetry.fuelTotalKg)
+        this.snapshotGsxInvoices(flightId)
+        this.deriveFlownRoute(flightId)
         this.recorder = undefined
+        this.emit('completed', flightId)
       }
     })
     this.simConnectService.on('paused', (paused) => this.recorder?.setPaused(paused))
@@ -124,11 +131,13 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
    */
   finish(): void {
     if (!this.recorder) return
+    const flightId = this.recorder.getFlightId()
     const telemetry = this.simConnectService.getLastTelemetry()
-    completeFlight(this.db, this.recorder.getFlightId(), telemetry?.fuelTotalKg ?? 0)
-    this.snapshotGsxInvoices(this.recorder.getFlightId())
-    this.deriveFlownRoute(this.recorder.getFlightId())
+    completeFlight(this.db, flightId, telemetry?.fuelTotalKg ?? 0)
+    this.snapshotGsxInvoices(flightId)
+    this.deriveFlownRoute(flightId)
     this.recorder = undefined
+    this.emit('completed', flightId)
   }
 
   /**

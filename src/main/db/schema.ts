@@ -24,6 +24,15 @@ export const aircraft = sqliteTable('aircraft', {
   // vendored/validated list — SimBrief validates the type itself and falls back to its
   // own default on anything it doesn't recognise, same as icaoType already does.
   simbriefType: text('simbrief_type'),
+  // Denormalized label for whichever of simbriefAirframeId/simbriefType is currently set —
+  // snapshotted once, when the SimBrief community-airframe picker (docs/plans/
+  // simbrief-airframe-picker.md) sets either field, rather than re-resolved from SimBrief's
+  // live dataset on every Fleet-page render. Null for a manually-typed id/type (falls back
+  // to the plain id/type display) or when nothing's set. All three travel together — a
+  // picker choice always sets (or clears) them as a set, never independently.
+  simbriefAirframeDeveloper: text('simbrief_airframe_developer'),
+  simbriefAirframeEngines: text('simbrief_airframe_engines'),
+  simbriefAirframeRegistration: text('simbrief_airframe_registration'),
   currentIcao: text('current_icao'),
   createdAt: text('created_at')
     .notNull()
@@ -45,7 +54,24 @@ export const aircraft = sqliteTable('aircraft', {
   // the arrow-function form is required (and must be annotated AnySQLiteColumn —
   // `aircraft`'s own type isn't inferred yet while this object literal is still being
   // evaluated, so TS can't resolve `aircraft.id`'s type without the hint).
-  replacedByAircraftId: integer('replaced_by_aircraft_id').references((): AnySQLiteColumn => aircraft.id)
+  replacedByAircraftId: integer('replaced_by_aircraft_id').references((): AnySQLiteColumn => aircraft.id),
+  // Real-world livery photo thumbnail, from adsbdb's registration lookup (docs/plans/
+  // fleet-redesign.md #3) — stored at lookup time rather than fetched per detail-page
+  // view, matching this app's local-first bias; goes stale if the photo is replaced, an
+  // accepted tradeoff. Deliberately NOT adsbdb's `url_photo` (full-size): spot-checked
+  // live against two real registrations and it 404s consistently on both, while the
+  // thumbnail host serves reliably — see docs/decisions.md, 2026-09-07. No attribution
+  // metadata (photographer name) is available from adsbdb, so the UI credits
+  // airport-data.com as the source, not an individual photographer.
+  photoThumbnailUrl: text('photo_thumbnail_url'),
+  // Soft-delete tombstone (flightdeck-backend/docs/plans/cloud-sync-v2.md #3a) — a hard
+  // DELETE is indistinguishable from "never created" once it reaches the sync protocol, so
+  // a pull would resurrect it on every other device. Null (the default) means live; set
+  // means deleted, filtered out of every read path (listAircraft) but still synced like any
+  // other field change — deletedAt/updatedAt just ride the existing last-write-wins upsert,
+  // no special sync-engine handling needed. Never purged (see PLAN's "leaving them forever
+  // is simplest and, at this data volume, entirely affordable").
+  deletedAt: text('deleted_at')
 })
 
 // Flight table per PLAN.md §5. `law_kg` in that sketch was landing weight — named
@@ -99,7 +125,11 @@ export const flight = sqliteTable('flight', {
   // flight's own track_point rows at completion, for cloud sync and a second device's
   // map. Null for any flight that hasn't completed, or completed before this existed;
   // the full-resolution track_point table stays local-only and is never itself synced.
-  flownRouteJson: text('flown_route_json')
+  flownRouteJson: text('flown_route_json'),
+  // Soft-delete tombstone — see aircraft.deletedAt's comment for why. deleteFlight cascades
+  // this to the flight's own landing/flightInvoice rows too (track_point, never synced,
+  // stays hard-deleted as before).
+  deletedAt: text('deleted_at')
 })
 
 // Local app settings — key/value so future milestones (map tile source, etc.) don't need
@@ -136,7 +166,10 @@ export const flightInvoice = sqliteTable('flight_invoice', {
   // backfills it from the parent flight's createdAt instead, the closest real timestamp
   // available for a pre-existing receipt.
   uuid: text('uuid'),
-  updatedAt: text('updated_at')
+  updatedAt: text('updated_at'),
+  // Soft-delete tombstone, set by deleteFlight cascading from its parent flight — see
+  // aircraft.deletedAt's comment for why. No standalone delete path exists for this table.
+  deletedAt: text('deleted_at')
 })
 
 // track_point per PLAN.md §5 — "keep sparse; this table gets big". FlightRecorder
@@ -220,5 +253,8 @@ export const landing = sqliteTable('landing', {
   // migration backfills updatedAt from touchdownTsUtc, the closest real timestamp
   // available for a pre-existing landing record.
   uuid: text('uuid'),
-  updatedAt: text('updated_at')
+  updatedAt: text('updated_at'),
+  // Soft-delete tombstone, set by deleteFlight cascading from its parent flight — see
+  // aircraft.deletedAt's comment for why. No standalone delete path exists for this table.
+  deletedAt: text('deleted_at')
 })

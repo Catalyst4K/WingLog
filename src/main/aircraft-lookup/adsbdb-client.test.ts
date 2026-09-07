@@ -34,7 +34,12 @@ describe('fetchAircraftByRegistration', () => {
 
     const result = await fetchAircraftByRegistration('G-XWBS')
 
-    expect(result).toEqual({ icaoType: 'A35K', operator: 'British Airways', operatorIcao: 'BAW' })
+    expect(result).toEqual({
+      icaoType: 'A35K',
+      operator: 'British Airways',
+      operatorIcao: 'BAW',
+      photoThumbnailUrl: null
+    })
   })
 
   it('returns a null operatorIcao when adsbdb has no operator flag code for this aircraft', async () => {
@@ -51,7 +56,41 @@ describe('fetchAircraftByRegistration', () => {
 
     const result = await fetchAircraftByRegistration('G-XWBS')
 
-    expect(result).toEqual({ icaoType: 'A35K', operator: 'British Airways', operatorIcao: null })
+    expect(result).toEqual({
+      icaoType: 'A35K',
+      operator: 'British Airways',
+      operatorIcao: null,
+      photoThumbnailUrl: null
+    })
+  })
+
+  // Real response shape captured live from https://api.adsbdb.com/v0/aircraft/G-EZTK
+  // (docs/decisions.md, 2026-09-07) — deliberately maps url_photo_thumbnail, not
+  // url_photo (full-size): spot-checked live and the full-size URL 404s consistently.
+  it('maps url_photo_thumbnail to photoThumbnailUrl, ignoring the unreliable full-size url_photo', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          response: {
+            aircraft: {
+              icao_type: 'A320',
+              registered_owner: 'easyJet Airline',
+              url_photo: 'https://image.airport-data.com/aircraft/001685661.jpg',
+              url_photo_thumbnail: 'https://airport-data.com/images/aircraft/thumbnails/001/685/001685661.jpg'
+            }
+          }
+        })
+      }))
+    )
+
+    const result = await fetchAircraftByRegistration('G-EZTK')
+
+    expect(result?.photoThumbnailUrl).toBe(
+      'https://airport-data.com/images/aircraft/thumbnails/001/685/001685661.jpg'
+    )
   })
 
   it('returns null (not an error) for a 404 — a made-up or unrecognised registration', async () => {

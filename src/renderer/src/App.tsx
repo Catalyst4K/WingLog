@@ -70,17 +70,39 @@ export default function App(): React.JSX.Element {
   // planning this" from "already flying this, showing it for reference" apart, and that
   // distinction has to survive the same tab-switch-and-back as dispatchOfp itself.
   const [dispatchedOfpId, setDispatchedOfpId] = useState<string | null>(null)
+  // Set when Fleet's per-aircraft flight list navigates to a specific flight's Logbook
+  // detail. Lifted here (rather than local to LogbookView) because it has to survive the
+  // page switch from Fleet to Logbook that triggers it. Carries the originating aircraft
+  // id too, so Logbook's back button can return to that aircraft instead of always
+  // landing on Logbook's own list — see openFleetAircraft below for the reverse trip.
+  const [pendingLogbookFlight, setPendingLogbookFlight] = useState<{
+    flightId: number
+    fromAircraftId: number
+  } | null>(null)
+  // Mirror of the above for the trip back — set when Logbook's "Back" returns to a
+  // specific aircraft rather than the Fleet list.
+  const [pendingFleetAircraftId, setPendingFleetAircraftId] = useState<number | null>(null)
+
+  function openFlightInLogbook(flightId: number, fromAircraftId: number): void {
+    setPendingLogbookFlight({ flightId, fromAircraftId })
+    setPage('logbook')
+  }
+
+  function openFleetAircraft(aircraftId: number): void {
+    setPendingFleetAircraftId(aircraftId)
+    setPage('fleet')
+  }
 
   useEffect(() => {
-    window.flightdeck.settingsGetWeightUnit().then(setWeightUnit)
-    window.flightdeck.settingsGetAltitudeUnit().then(setAltitudeUnit)
-    window.flightdeck.settingsGetWindSpeedUnit().then(setWindSpeedUnit)
+    window.winglog.settingsGetWeightUnit().then(setWeightUnit)
+    window.winglog.settingsGetAltitudeUnit().then(setAltitudeUnit)
+    window.winglog.settingsGetWindSpeedUnit().then(setWindSpeedUnit)
   }, [])
 
   useEffect(() => {
     // A no-op (returns null) on every launch after the app's actual first-ever one —
     // see settingsCheckGsxFirstLaunch's doc comment.
-    window.flightdeck.settingsCheckGsxFirstLaunch().then((result) => {
+    window.winglog.settingsCheckGsxFirstLaunch().then((result) => {
       if (!result) return
       if (result.found) {
         toast.success('GSX ground-service tracking enabled — receipts folder found automatically.')
@@ -94,14 +116,14 @@ export default function App(): React.JSX.Element {
     // Pull current status in case the initial connect (main process starts it immediately
     // on app launch) already resolved before this component mounted — the push channel
     // below only delivers *future* changes, Electron doesn't replay missed IPC sends.
-    window.flightdeck.getSimConnectionStatus().then(setSimStatus)
-    const unsubscribeStatus = window.flightdeck.onSimConnectionStatus((status) => {
+    window.winglog.getSimConnectionStatus().then(setSimStatus)
+    const unsubscribeStatus = window.winglog.onSimConnectionStatus((status) => {
       setSimStatus(status)
       // The sim stopped sending updates — clear the last-known values rather than
       // leaving them frozen on screen (e.g. Track's map overlay) looking current.
       if (status.state !== 'connected') setTelemetry(null)
     })
-    const unsubscribeTelemetry = window.flightdeck.onSimTelemetry(setTelemetry)
+    const unsubscribeTelemetry = window.winglog.onSimTelemetry(setTelemetry)
     return () => {
       unsubscribeStatus()
       unsubscribeTelemetry()
@@ -110,17 +132,17 @@ export default function App(): React.JSX.Element {
 
   async function handleWeightUnitChange(unit: WeightUnit): Promise<void> {
     setWeightUnit(unit)
-    await window.flightdeck.settingsSetWeightUnit(unit)
+    await window.winglog.settingsSetWeightUnit(unit)
   }
 
   async function handleAltitudeUnitChange(unit: AltitudeUnit): Promise<void> {
     setAltitudeUnit(unit)
-    await window.flightdeck.settingsSetAltitudeUnit(unit)
+    await window.winglog.settingsSetAltitudeUnit(unit)
   }
 
   async function handleWindSpeedUnitChange(unit: WindSpeedUnit): Promise<void> {
     setWindSpeedUnit(unit)
-    await window.flightdeck.settingsSetWindSpeedUnit(unit)
+    await window.winglog.settingsSetWindSpeedUnit(unit)
   }
 
   return (
@@ -147,7 +169,13 @@ export default function App(): React.JSX.Element {
             (flight-test-findings-2026-09-06.md #7 — confirmed live: the outer <main> was
             measurably taller than the viewport, not this div). */}
         <div className="min-h-0 flex-1 overflow-auto p-8">
-          {page === 'fleet' && <FleetView />}
+          {page === 'fleet' && (
+            <FleetView
+              onOpenFlightInLogbook={openFlightInLogbook}
+              initialAircraftId={pendingFleetAircraftId}
+              onInitialAircraftConsumed={() => setPendingFleetAircraftId(null)}
+            />
+          )}
           <Suspense fallback={null}>
             {page === 'dispatch' && (
               <DispatchView
@@ -171,7 +199,15 @@ export default function App(): React.JSX.Element {
                 }}
               />
             )}
-            {page === 'logbook' && <LogbookView weightUnit={weightUnit} />}
+            {page === 'logbook' && (
+              <LogbookView
+                weightUnit={weightUnit}
+                initialFlightId={pendingLogbookFlight?.flightId ?? null}
+                initialFlightOriginAircraftId={pendingLogbookFlight?.fromAircraftId ?? null}
+                onInitialFlightConsumed={() => setPendingLogbookFlight(null)}
+                onBackToAircraft={openFleetAircraft}
+              />
+            )}
             {page === 'settings' && (
               <SettingsView
                 weightUnit={weightUnit}
