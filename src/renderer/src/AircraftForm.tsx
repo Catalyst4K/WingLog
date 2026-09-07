@@ -355,29 +355,38 @@ export function AircraftForm(props: {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label>SimBrief default profile</Label>
-        <Select value={selectedOptionKey ?? undefined} onValueChange={handleSelectAirframeOption}>
-          <SelectTrigger className="w-full">
-            <SelectValue
-              placeholder={
-                loadingAirframeOptions
-                  ? 'Loading…'
-                  : typeTooShort
-                    ? 'Enter an ICAO type above first'
-                    : displayedOptions.length === 0
-                      ? 'SimBrief doesn’t recognise this type'
-                      : '— choose —'
-              }
-            />
-          </SelectTrigger>
-          <SelectContent>
-            {displayedOptions.map((o, i) => (
-              <SelectItem key={i} value={String(i)}>
-                {optionLabel(o)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Label>Profile</Label>
+        <div className="flex w-full gap-1.5">
+          <Select value={selectedOptionKey ?? undefined} onValueChange={handleSelectAirframeOption}>
+            <SelectTrigger className="flex-1">
+              <SelectValue
+                placeholder={
+                  loadingAirframeOptions
+                    ? 'Loading…'
+                    : typeTooShort
+                      ? 'Enter an ICAO type above first'
+                      : displayedOptions.length === 0
+                        ? 'SimBrief doesn’t recognise this type'
+                        : '— choose —'
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {displayedOptions.map((o, i) => (
+                <SelectItem key={i} value={String(i)}>
+                  {optionLabel(o)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            type="text"
+            value={form.simbriefType}
+            onChange={(e) => handleManualSimbriefTypeChange(e.target.value)}
+            placeholder="or type ICAO code"
+            className="w-36"
+          />
+        </div>
         {selectedOption && !selectedOption.isDefault && (
           <Button
             type="button"
@@ -390,16 +399,10 @@ export function AircraftForm(props: {
             {creatingAirframe ? 'Waiting for SimBrief…' : 'Create a custom airframe in SimBrief'}
           </Button>
         )}
-        <Input
-          type="text"
-          value={form.simbriefType}
-          onChange={(e) => handleManualSimbriefTypeChange(e.target.value)}
-          placeholder="or type an ICAO code directly"
-        />
         <p className="text-xs text-muted-foreground">
           Live list from SimBrief's own community airframes for this type (MSFS only) — picking one fills the
-          type above, or creates a real saved profile in your SimBrief account. Used whenever no custom profile
-          is set below.
+          code alongside it, or creates a real saved profile in your SimBrief account. Used whenever no custom
+          profile is set below.
         </p>
       </div>
 
@@ -415,7 +418,19 @@ export function AircraftForm(props: {
             SimBrief's airframe editor (see the Fleet detail page for a direct link).
           </p>
         )}
-        <p className="text-xs text-muted-foreground">Leave blank to use the default profile above.</p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-fit"
+          onClick={() => void window.flightdeck.dispatchOpenSimBriefAirframes(form.simbriefAirframeId.trim() || null)}
+        >
+          Open airframes page
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          Leave blank to use the profile above. Already made one yourself in SimBrief? Open the airframes page
+          to find its id.
+        </p>
       </div>
 
       <div className="flex flex-col gap-1.5">
