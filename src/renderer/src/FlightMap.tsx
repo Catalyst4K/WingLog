@@ -45,6 +45,12 @@ function ensureWorkerReady(): Promise<void> {
 // positron over liberty: a low-color basemap reads better under a flight track overlay.
 const MAP_STYLE = 'https://tiles.openfreemap.org/styles/positron'
 const ROUTE_SOURCE_ID = 'planned-route'
+// Same source as ROUTE_SOURCE_ID's layer, drawn solid in the same blue as the flown trail
+// (TRAIL_SOURCE_ID's paint below) rather than a paint-property toggle on one layer —
+// line-dasharray has no "unset back to solid" value once a layer's been created with one
+// (docs/plans/great-circle-fallback-route.md), so a second layer with its own fixed paint,
+// switched by visibility, sidesteps that rather than fighting it.
+const ROUTE_APPROXIMATE_LAYER_ID = 'planned-route-approximate'
 const TRAIL_SOURCE_ID = 'breadcrumb-trail'
 // The per-frame animation below used to resend the *entire* trail (every committed point
 // plus the interpolated tip) to maplibre on every one of ~60 animation frames per sample —
@@ -125,6 +131,10 @@ export interface FlightMapProps {
   /** Live sim telemetry — shown as a small IAS/altitude/heading overlay at the map's
    *  bottom edge when present (TrackView only; Logbook/Dispatch don't pass it). */
   telemetry?: SimTelemetry | null
+  /** True when `route` is a synthesized great-circle line (docs/plans/
+   *  great-circle-fallback-route.md), not a real SimBrief-derived route — styled more
+   *  faintly, with a caption, so it can't be mistaken for a genuine planned route. */
+  routeIsApproximate?: boolean
 }
 
 // Stable reference for the default so the route/waypoint effect below doesn't re-fire on
@@ -136,7 +146,8 @@ export function FlightMap({
   waypoints = EMPTY_WAYPOINTS,
   trackPoints,
   live,
-  telemetry
+  telemetry,
+  routeIsApproximate = false
 }: FlightMapProps): React.JSX.Element {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
@@ -213,6 +224,17 @@ export function FlightMap({
           type: 'line',
           source: ROUTE_SOURCE_ID,
           paint: { 'line-color': '#888', 'line-width': 2, 'line-dasharray': [2, 2] }
+        })
+        // A synthesized great-circle route (docs/plans/great-circle-fallback-route.md) —
+        // same blue as the flown trail below, so it reads as an obvious, deliberate line
+        // rather than the faint "this isn't real data" grey a planned route normally gets.
+        // Hidden by default; the effect below toggles which of this pair is visible.
+        map.addLayer({
+          id: ROUTE_APPROXIMATE_LAYER_ID,
+          type: 'line',
+          source: ROUTE_SOURCE_ID,
+          layout: { visibility: 'none' },
+          paint: { 'line-color': '#1a73e8', 'line-width': 3 }
         })
 
         map.addSource(TRAIL_SOURCE_ID, { type: 'geojson', data: lineString([]) })
@@ -338,6 +360,17 @@ export function FlightMap({
     waypointSource?.setData(waypointFeatures(waypoints))
     if (live) fitBoundsTo(mapRef.current, route)
   }, [mapReady, route, waypoints, live])
+
+  // Switches which of the two route layers is visible — set via setLayoutProperty rather
+  // than baked in at creation, since Logbook resolves the fallback asynchronously after the
+  // map's one-time setup effect has already run (a real route is known synchronously and
+  // never needs this to change).
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return
+    const map = mapRef.current
+    map.setLayoutProperty(ROUTE_SOURCE_ID, 'visibility', routeIsApproximate ? 'none' : 'visible')
+    map.setLayoutProperty(ROUTE_APPROXIMATE_LAYER_ID, 'visibility', routeIsApproximate ? 'visible' : 'none')
+  }, [mapReady, routeIsApproximate])
 
   // Static (Logbook) mode: draw the whole trail once and fit the view to it. No follow,
   // no animation — the flight already happened.
@@ -520,6 +553,11 @@ export function FlightMap({
           Speed: {telemetry ? `${Math.round(msToKt(telemetry.indicatedAirspeedMs))} kt` : 'N/A'} · Altitude:{' '}
           {telemetry ? `${Math.round(mToFt(telemetry.altitudeM)).toLocaleString()} ft` : 'N/A'} · Heading:{' '}
           {telemetry ? `${Math.round(telemetry.headingTrueDeg)}°` : 'N/A'}
+        </div>
+      )}
+      {routeIsApproximate && (
+        <div className="absolute bottom-3 left-3 rounded-full border border-border bg-popover/85 px-3 py-1 text-xs text-muted-foreground backdrop-blur-sm">
+          Approximate route — no flight plan on file for this flight
         </div>
       )}
     </div>

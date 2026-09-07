@@ -32,7 +32,7 @@ import { GsxInvoicesCard } from './GsxInvoicesCard'
 import { useSortable } from './hooks/useSortable'
 import { LandingBadge } from './LandingBadge'
 import { classifyLanding } from './landing-severity'
-import { parseRouteFromOfpJson, parseWaypointsFromOfpJson } from './route'
+import { parseRouteFromOfpJson, parseWaypointsFromOfpJson, type Waypoint } from './route'
 import { SortableHead } from './SortableHead'
 import { formatMinutes, formatWeight, mToFt, msToFpm, msToKt } from './units'
 import { useLandingThresholds } from './useLandingThresholds'
@@ -177,6 +177,35 @@ function FlightDetail(props: {
   const route = useMemo(() => parseRouteFromOfpJson(flight.ofpJson), [flight.ofpJson])
   const waypoints = useMemo(() => parseWaypointsFromOfpJson(flight.ofpJson), [flight.ofpJson])
 
+  // Fallback for a flight with no OFP-derived route (any CSV-imported historical flight,
+  // or one started directly from Track — docs/plans/great-circle-fallback-route.md): fetch
+  // a synthesized great-circle line only when the synchronous OFP parse above came back
+  // empty, so a flight that does have a real route never pays for this round trip.
+  const [fallbackRoute, setFallbackRoute] = useState<[number, number][]>([])
+  useEffect(() => {
+    if (route.length > 0) return
+    let cancelled = false
+    window.flightdeck.logbookGreatCircleRoute(flight.depIcao, flight.arrIcao).then((points) => {
+      if (!cancelled) setFallbackRoute(points ?? [])
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [route, flight.depIcao, flight.arrIcao])
+
+  const routeIsApproximate = route.length === 0 && fallbackRoute.length > 0
+  const displayRoute = route.length > 0 ? route : fallbackRoute
+  const displayWaypoints: Waypoint[] = useMemo(() => {
+    if (route.length > 0) return waypoints
+    if (fallbackRoute.length === 0) return []
+    const [depLon, depLat] = fallbackRoute[0]
+    const [arrLon, arrLat] = fallbackRoute[fallbackRoute.length - 1]
+    return [
+      { ident: flight.depIcao, lon: depLon, lat: depLat, altitudeFt: 0, segment: 'enroute' },
+      { ident: flight.arrIcao, lon: arrLon, lat: arrLat, altitudeFt: 0, segment: 'enroute' }
+    ]
+  }, [route, waypoints, fallbackRoute, flight.depIcao, flight.arrIcao])
+
   // Elapsed minutes since the first sample reads better on a chart than raw timestamps.
   // Memoized like route/waypoints above — trackPoints only actually changes once, when
   // the fetch above resolves, so recomputing this on every unrelated re-render was pure
@@ -256,7 +285,13 @@ function FlightDetail(props: {
       </div>
 
       <div className="h-[min(36vh,360px)] min-h-56">
-        <FlightMap live={false} route={route} waypoints={waypoints} trackPoints={trackPoints} />
+        <FlightMap
+          live={false}
+          route={displayRoute}
+          waypoints={displayWaypoints}
+          trackPoints={trackPoints}
+          routeIsApproximate={routeIsApproximate}
+        />
       </div>
 
       {profile.length > 1 && (

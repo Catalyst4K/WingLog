@@ -88,6 +88,8 @@ const api: FlightdeckApi = {
   gsxOpenReceipt: (sourceHtmlPath: string) => ipcRenderer.invoke(IpcChannels.gsxOpenReceipt, sourceHtmlPath),
   logbookOpenOfpPdf: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookOpenOfpPdf, flightId),
   logbookGetLanding: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookGetLanding, flightId),
+  logbookGreatCircleRoute: (depIcao: string, arrIcao: string) =>
+    ipcRenderer.invoke(IpcChannels.logbookGreatCircleRoute, depIcao, arrIcao),
   fleetListLandings: (aircraftId: number) => ipcRenderer.invoke(IpcChannels.fleetListLandings, aircraftId),
   fleetListFlights: (aircraftId: number) => ipcRenderer.invoke(IpcChannels.fleetListFlights, aircraftId),
   settingsGetLandingThresholds: () => ipcRenderer.invoke(IpcChannels.settingsGetLandingThresholds),
