@@ -155,7 +155,9 @@ function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
                 <div key={l.id} className="flex items-center justify-between gap-3">
                   <span className="text-muted-foreground">{new Date(l.touchdownTsUtc).toLocaleDateString()}</span>
                   <span className="font-mono tabular-nums text-foreground">{fpm} fpm</span>
-                  <span className="text-foreground">{l.runwayIdent ?? '—'}</span>
+                  <span className="text-foreground">
+                    {l.arrIcao} {l.runwayIdent ?? '—'}
+                  </span>
                   <span className="text-muted-foreground">
                     {l.crosswindMs != null ? `${Math.round(msToKt(Math.abs(l.crosswindMs)))} kt xwind` : '—'}
                   </span>
@@ -398,12 +400,29 @@ function AircraftDetail(props: {
   )
 }
 
-export function FleetView(props: { onOpenFlightInLogbook: (flightId: number) => void }): React.JSX.Element {
+export function FleetView(props: {
+  onOpenFlightInLogbook: (flightId: number, fromAircraftId: number) => void
+  /** Set when Logbook's "Back" returns here for a specific aircraft, rather than the
+   *  user picking one from the list. Mirrors LogbookView's own initialFlightId prop. */
+  initialAircraftId?: number | null
+  /** Called once initialAircraftId has been consumed — see LogbookView's
+   *  onInitialFlightConsumed for why this needs to happen exactly once. */
+  onInitialAircraftConsumed?: () => void
+}): React.JSX.Element {
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
   const [stats, setStats] = useState<FleetStats[]>([])
-  const [view, setView] = useState<View>({ kind: 'list' })
+  const [view, setView] = useState<View>(
+    props.initialAircraftId != null ? { kind: 'detail', id: props.initialAircraftId } : { kind: 'list' }
+  )
   const [deleteTarget, setDeleteTarget] = useState<Aircraft | null>(null)
   const [replaceTarget, setReplaceTarget] = useState<Aircraft | null>(null)
+
+  useEffect(() => {
+    if (props.initialAircraftId != null) props.onInitialAircraftConsumed?.()
+    // Only ever meant to run once, against the initial prop value — see the state
+    // initializer above, which already captured it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const activeAircraft = aircraft.filter((a) => a.replacedByAircraftId === null)
   const retiredAircraft = aircraft.filter((a) => a.replacedByAircraftId !== null)
@@ -521,7 +540,7 @@ export function FleetView(props: { onOpenFlightInLogbook: (flightId: number) => 
           onDelete={() => setDeleteTarget(existing)}
           onReplace={() => setReplaceTarget(existing)}
           onViewAircraft={(id) => setView({ kind: 'detail', id })}
-          onOpenFlight={props.onOpenFlightInLogbook}
+          onOpenFlight={(flightId) => props.onOpenFlightInLogbook(flightId, existing.id)}
           onBack={() => setView({ kind: 'list' })}
         />
         <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>

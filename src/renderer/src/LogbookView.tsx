@@ -145,6 +145,9 @@ function FlightDetail(props: {
   aircraft: Aircraft | undefined
   weightUnit: WeightUnit
   onBack: () => void
+  /** True when onBack returns to the Fleet aircraft this flight was opened from, rather
+   *  than Logbook's own list — only changes the button label, not the navigation. */
+  backToAircraft: boolean
   onDeleted: () => void
 }): React.JSX.Element {
   const { flight, aircraft, weightUnit } = props
@@ -216,7 +219,7 @@ function FlightDetail(props: {
       <div className="flex items-center justify-between">
         <Button type="button" variant="ghost" size="sm" onClick={props.onBack} className="w-fit">
           <ArrowLeft />
-          Back to logbook
+          {props.backToAircraft ? 'Back to aircraft' : 'Back to logbook'}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmingDelete(true)}>
           <Trash2 />
@@ -457,10 +460,16 @@ export function LogbookView(props: {
   /** Set when another view (e.g. Fleet's per-aircraft flight list) navigated here to open
    *  a specific flight directly, rather than the user picking one from the list. */
   initialFlightId?: number | null
+  /** The Fleet aircraft this flight was opened from, if any — used to send "Back" there
+   *  instead of Logbook's own list. Only ever meaningful together with initialFlightId. */
+  initialFlightOriginAircraftId?: number | null
   /** Called once initialFlightId has been consumed, so a later plain tab click into
    *  Logbook (this component remounts each time, per App.tsx's conditional render)
    *  doesn't keep reopening the same flight. */
   onInitialFlightConsumed?: () => void
+  /** Navigates back to a specific Fleet aircraft — wired to "Back" when the current
+   *  detail view is the flight that was opened from that aircraft's flights list. */
+  onBackToAircraft?: (aircraftId: number) => void
 }): React.JSX.Element {
   const [flights, setFlights] = useState<Flight[]>([])
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
@@ -469,6 +478,12 @@ export function LogbookView(props: {
     props.initialFlightId != null ? { kind: 'detail', id: props.initialFlightId } : { kind: 'list' }
   )
   const [loading, setLoading] = useState(true)
+  // Captured once at mount, independent of the props themselves — App.tsx clears
+  // pendingLogbookFlight (nulling these props) right after consuming them, but "was this
+  // detail view reached via a Fleet cross-navigation" needs to stay true for as long as
+  // the user is looking at that same flight, not just for the first render.
+  const [initialFlightId] = useState(props.initialFlightId ?? null)
+  const [initialFlightOriginAircraftId] = useState(props.initialFlightOriginAircraftId ?? null)
 
   useEffect(() => {
     if (props.initialFlightId != null) props.onInitialFlightConsumed?.()
@@ -510,12 +525,21 @@ export function LogbookView(props: {
   if (view.kind === 'detail') {
     const flight = flights.find((f) => f.id === view.id)
     if (!flight) return <p className="text-sm text-muted-foreground">Flight not found.</p>
+    // Only the exact flight that was opened from Fleet sends "Back" there — navigating
+    // to a different flight from Logbook's own list (even after arriving via Fleet)
+    // falls back to the ordinary "back to list" behaviour.
+    const cameFromFleet = flight.id === initialFlightId && initialFlightOriginAircraftId != null
     return (
       <FlightDetail
         flight={flight}
         aircraft={aircraft.find((a) => a.id === flight.aircraftId)}
         weightUnit={props.weightUnit}
-        onBack={() => setView({ kind: 'list' })}
+        backToAircraft={cameFromFleet}
+        onBack={
+          cameFromFleet
+            ? () => props.onBackToAircraft?.(initialFlightOriginAircraftId!)
+            : () => setView({ kind: 'list' })
+        }
         onDeleted={() => {
           setView({ kind: 'list' })
           reload()

@@ -72,12 +72,25 @@ export default function App(): React.JSX.Element {
   const [dispatchedOfpId, setDispatchedOfpId] = useState<string | null>(null)
   // Set when Fleet's per-aircraft flight list navigates to a specific flight's Logbook
   // detail. Lifted here (rather than local to LogbookView) because it has to survive the
-  // page switch from Fleet to Logbook that triggers it.
-  const [pendingLogbookFlightId, setPendingLogbookFlightId] = useState<number | null>(null)
+  // page switch from Fleet to Logbook that triggers it. Carries the originating aircraft
+  // id too, so Logbook's back button can return to that aircraft instead of always
+  // landing on Logbook's own list — see openFleetAircraft below for the reverse trip.
+  const [pendingLogbookFlight, setPendingLogbookFlight] = useState<{
+    flightId: number
+    fromAircraftId: number
+  } | null>(null)
+  // Mirror of the above for the trip back — set when Logbook's "Back" returns to a
+  // specific aircraft rather than the Fleet list.
+  const [pendingFleetAircraftId, setPendingFleetAircraftId] = useState<number | null>(null)
 
-  function openFlightInLogbook(flightId: number): void {
-    setPendingLogbookFlightId(flightId)
+  function openFlightInLogbook(flightId: number, fromAircraftId: number): void {
+    setPendingLogbookFlight({ flightId, fromAircraftId })
     setPage('logbook')
+  }
+
+  function openFleetAircraft(aircraftId: number): void {
+    setPendingFleetAircraftId(aircraftId)
+    setPage('fleet')
   }
 
   useEffect(() => {
@@ -156,7 +169,13 @@ export default function App(): React.JSX.Element {
             (flight-test-findings-2026-09-06.md #7 — confirmed live: the outer <main> was
             measurably taller than the viewport, not this div). */}
         <div className="min-h-0 flex-1 overflow-auto p-8">
-          {page === 'fleet' && <FleetView onOpenFlightInLogbook={openFlightInLogbook} />}
+          {page === 'fleet' && (
+            <FleetView
+              onOpenFlightInLogbook={openFlightInLogbook}
+              initialAircraftId={pendingFleetAircraftId}
+              onInitialAircraftConsumed={() => setPendingFleetAircraftId(null)}
+            />
+          )}
           <Suspense fallback={null}>
             {page === 'dispatch' && (
               <DispatchView
@@ -183,8 +202,10 @@ export default function App(): React.JSX.Element {
             {page === 'logbook' && (
               <LogbookView
                 weightUnit={weightUnit}
-                initialFlightId={pendingLogbookFlightId}
-                onInitialFlightConsumed={() => setPendingLogbookFlightId(null)}
+                initialFlightId={pendingLogbookFlight?.flightId ?? null}
+                initialFlightOriginAircraftId={pendingLogbookFlight?.fromAircraftId ?? null}
+                onInitialFlightConsumed={() => setPendingLogbookFlight(null)}
+                onBackToAircraft={openFleetAircraft}
               />
             )}
             {page === 'settings' && (
