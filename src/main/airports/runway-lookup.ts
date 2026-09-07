@@ -5,7 +5,7 @@
 // app's vendored resources/airports.csv. Bundled via Vite's `?raw` import, same pattern
 // as airport-search.ts/icao-types.ts.
 import { columnIndex, parseCsvRows } from '../db/csv'
-import { angularDifference } from './landing-maths'
+import { angularDifference, positionRelativeToRunway } from './landing-maths'
 import runwaysRaw from '../../../resources/runways.csv?raw'
 
 export interface RunwayEnd {
@@ -37,24 +37,35 @@ export function loadRunwayEnds(raw: string): RunwayEnd[] {
   return ends
 }
 
-// Rough proxy for "is this candidate end even in the right place" — 1 degree of
-// latitude is ~111 km, far larger than any runway, but small enough to reliably tell two
-// different airports' runway ends apart without doing real great-circle distance for a
-// resolver that only ever compares candidates already filtered to one airport's ICAO.
-function roughDistance(aLat: number, aLon: number, bLat: number, bLon: number): number {
-  return Math.hypot(aLat - bLat, aLon - bLon)
-}
-
 // A touchdown heading more than this far from a runway end's published heading isn't
-// plausibly that end (e.g. matching 09 to a landing that was actually on 27) — leaves
-// resolveRunwayEnd to correctly return null rather than a confidently wrong runway.
-const MAX_HEADING_DIFFERENCE_DEG = 45
+// plausibly that end (e.g. matching 09 to a landing that was actually on 27). Wide on
+// purpose (was 45): heading's only real job here is picking which end of a strip was
+// used and rejecting the reciprocal — the geometry gates below do the actual work of
+// telling parallel runways apart, so heading doesn't need to be tight too.
+const MAX_HEADING_DIFFERENCE_DEG = 90
+
+// How far off the centreline a touchdown can be and still count as "on this runway".
+// Fixed and generous pending real per-runway width data (Phase 1, resources/runways.csv
+// re-vendored with `width_ft`) — real runways are 30-90m wide, so 100m already rejects a
+// different, parallel strip while tolerating GPS/heading noise on the real one.
+const LATERAL_TOLERANCE_M = 100
+
+// Along-track bounds a touchdown must fall within, relative to the threshold. Small
+// negative slack for GPS/threshold-position noise; the upper bound is a fixed generous
+// stand-in for real runway length (Phase 1) — the longest paved runways run to ~5.5km.
+const MIN_ALONG_TRACK_M = -50
+const MAX_ALONG_TRACK_M = 6000
 
 /**
- * Resolves a touchdown ICAO + heading + rough position to the nearest matching runway
- * end. Two candidate ends can share the same published heading (parallel runways, e.g.
- * 25L/25R) — proximity to the touchdown position breaks that tie, which is exactly the
- * case a naive "closest heading only" resolver gets silently wrong.
+ * Resolves a touchdown ICAO + heading + position to the matching runway end, using real
+ * geometry rather than heading alone. Two candidate ends can share the same published
+ * heading (parallel runways, e.g. 25L/25R) or, per real OurAirports data, publish
+ * slightly *different* integer-rounded headings for what are physically parallel strips
+ * (VHHH's 07L at 74°, 07C/07R at 71°) — either way, only position relative to each
+ * candidate's own threshold can tell them apart. A touchdown must fall within
+ * LATERAL_TOLERANCE_M of a candidate's centreline and within its along-track bounds to
+ * be considered at all; heading only breaks a tie between geometrically-plausible
+ * survivors.
  */
 export function resolveRunwayEnd(
   ends: RunwayEnd[],
@@ -72,9 +83,20 @@ export function resolveRunwayEnd(
     const headingDiff = angularDifference(touchdownHeadingDeg, end.headingTrueDeg)
     if (headingDiff > MAX_HEADING_DIFFERENCE_DEG) continue
 
-    // Heading match dominates the score; distance only breaks ties between ends whose
-    // headings are equally (or near-equally) plausible.
-    const score = headingDiff * 1000 + roughDistance(touchdownLat, touchdownLon, end.lat, end.lon)
+    const { distanceFromThresholdM, centrelineOffsetM } = positionRelativeToRunway(
+      touchdownLat,
+      touchdownLon,
+      end.lat,
+      end.lon,
+      end.headingTrueDeg
+    )
+    if (distanceFromThresholdM < MIN_ALONG_TRACK_M || distanceFromThresholdM > MAX_ALONG_TRACK_M) continue
+    if (Math.abs(centrelineOffsetM) > LATERAL_TOLERANCE_M) continue
+
+    // Position dominates the score — a candidate only reaches here already confirmed to
+    // be physically underneath the touchdown, so heading is a weak tiebreak between two
+    // otherwise-plausible ends, not the deciding factor.
+    const score = Math.abs(centrelineOffsetM) * 10 + headingDiff
     if (score < bestScore) {
       bestScore = score
       best = end
