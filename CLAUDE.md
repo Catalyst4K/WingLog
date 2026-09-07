@@ -90,6 +90,10 @@ npm run db:generate       # drizzle-kit generate, from src/main/db/schema.ts
 npm run db:migrate         # apply migrations
 ```
 
+`npm run package:win` builds the installer into `release/`. It's well over the file-sending
+size limit — don't attempt to send it in chat. Once it's built, just point to the
+directory (`release/`) rather than trying to deliver the file itself.
+
 ## Layout
 
 ```
