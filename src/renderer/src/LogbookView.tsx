@@ -185,7 +185,7 @@ function FlightDetail(props: {
   useEffect(() => {
     if (route.length > 0) return
     let cancelled = false
-    window.flightdeck.logbookGreatCircleRoute(flight.depIcao, flight.arrIcao).then((points) => {
+    window.winglog.logbookGreatCircleRoute(flight.depIcao, flight.arrIcao).then((points) => {
       if (!cancelled) setFallbackRoute(points ?? [])
     })
     return () => {

@@ -108,7 +108,7 @@ describe('buildGenerateUrl', () => {
 })
 
 describe('extractSavedAirframeId', () => {
-  // Real URL a spike watched a Flightdeck-owned BrowserWindow navigate to right after a
+  // Real URL a spike watched a WingLog-owned BrowserWindow navigate to right after a
   // real "Save Airframe" click (docs/plans/simbrief-airframe-picker.md, 2026-09-07).
   it('extracts the airframe id from a real post-save navigation', () => {
     expect(extractSavedAirframeId('https://dispatch.simbrief.com/airframes/saved/1788802707601')).toBe(

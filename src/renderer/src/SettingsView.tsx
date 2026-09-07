@@ -196,7 +196,7 @@ export function SettingsView(props: {
     event.preventDefault()
     setLoggingIntoCloud(true)
     try {
-      const status = await window.flightdeck.authSignup(cloudEmail.trim(), cloudPassword, cloudInviteCode)
+      const status = await window.winglog.authSignup(cloudEmail.trim(), cloudPassword, cloudInviteCode)
       setSyncStatus(status)
       setCloudPassword('')
       setCloudInviteCode('')
@@ -532,7 +532,7 @@ export function SettingsView(props: {
               <CardHeader>
                 <CardTitle>Cloud sync</CardTitle>
                 <CardDescription>
-                  Sync Fleet and Logbook across your machines. This is Flightdeck's own service, not a
+                  Sync Fleet and Logbook across your machines. This is WingLog's own service, not a
                   third party — off by default, nothing leaves this device until you log in.
                 </CardDescription>
               </CardHeader>

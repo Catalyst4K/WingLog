@@ -192,7 +192,7 @@ function AircraftFlightsCard(props: { aircraftId: number; onOpenFlight: (flightI
   const [flights, setFlights] = useState<Flight[]>([])
 
   useEffect(() => {
-    window.flightdeck.fleetListFlights(props.aircraftId).then(setFlights)
+    window.winglog.fleetListFlights(props.aircraftId).then(setFlights)
   }, [props.aircraftId])
 
   return (

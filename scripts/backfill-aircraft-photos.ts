@@ -27,7 +27,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const dbPath = process.env.FLIGHTDECK_DB_PATH ?? './flightdeck.db'
+  const dbPath = process.env.WINGLOG_DB_PATH ?? './winglog.db'
   const { db } = createDb(dbPath)
 
   const candidates = listAircraft(db).filter((a) => !a.photoThumbnailUrl)

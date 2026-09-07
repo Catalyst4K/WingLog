@@ -139,7 +139,7 @@ export function AircraftForm(props: {
     let cancelled = false
     const timer = setTimeout(() => {
       setLoadingAirframeOptions(true)
-      window.flightdeck
+      window.winglog
         .simbriefAirframesForType(trimmedIcaoType)
         .then((options) => {
           if (!cancelled) setAirframeOptions(options)
@@ -201,7 +201,7 @@ export function AircraftForm(props: {
     setCreatingAirframe(true)
     setLookupStatus(null)
     try {
-      const result = await window.flightdeck.simbriefCreateCustomAirframe(selectedOption.shareUrl)
+      const result = await window.winglog.simbriefCreateCustomAirframe(selectedOption.shareUrl)
       if (result) {
         set('simbriefAirframeId', result)
         setLookupStatus('Custom airframe saved.')
@@ -261,7 +261,7 @@ export function AircraftForm(props: {
       // free-text model name to fuzzy-match against if it doesn't. Only when nothing was
       // already set — same restraint as every other field Lookup touches.
       if (!hadSimbriefType) {
-        window.flightdeck.simbriefAirframesForType(result.icaoType).then((options) => {
+        window.winglog.simbriefAirframesForType(result.icaoType).then((options) => {
           if (options.some((o) => o.isDefault)) {
             setForm((current) => (current.simbriefType.trim() !== '' ? current : { ...current, simbriefType: result.icaoType }))
           }
@@ -423,7 +423,7 @@ export function AircraftForm(props: {
           variant="outline"
           size="sm"
           className="w-fit"
-          onClick={() => void window.flightdeck.dispatchOpenSimBriefAirframes(form.simbriefAirframeId.trim() || null)}
+          onClick={() => void window.winglog.dispatchOpenSimBriefAirframes(form.simbriefAirframeId.trim() || null)}
         >
           Open airframes page
         </Button>
