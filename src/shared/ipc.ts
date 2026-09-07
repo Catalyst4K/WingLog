@@ -592,6 +592,7 @@ export const IpcChannels = {
   weatherGetMetars: 'weather:get-metars',
   fxGetRate: 'fx:get-rate',
   authLogin: 'auth:login',
+  authSignup: 'auth:signup',
   authLogout: 'auth:logout',
   syncNow: 'sync:now',
   syncStatus: 'sync:status'
@@ -756,6 +757,11 @@ export interface FlightdeckApi {
    *  successful login persists the session (Electron's safeStorage) so it survives a
    *  restart without asking again. */
   authLogin: (email: string, password: string) => Promise<SyncStatus>
+  /** Creates a new account, then logs into it — gated behind an invite code checked
+   *  server-side (docs/plans/cloud-sync-v2.md); a wrong/missing code fails the same way a
+   *  wrong login would, not distinguishably. There is no self-serve public signup yet —
+   *  this exists so the one person who has the code doesn't need a separate CLI step. */
+  authSignup: (email: string, password: string, inviteCode: string) => Promise<SyncStatus>
   /** "Log out this device" — the stored session is cleared locally regardless of whether
    *  the backend round-trip to invalidate it server-side succeeds. */
   authLogout: () => Promise<SyncStatus>

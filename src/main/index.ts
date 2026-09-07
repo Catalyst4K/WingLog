@@ -114,12 +114,44 @@ app.whenReady().then(() => {
   Menu.setApplicationMenu(null)
   const window = createWindow()
 
+  // Cloud sync (flightdeck-backend/docs/plans/cloud-sync.md) — off by default; nothing
+  // above this point depends on it, and it's the only feature in the app that talks to
+  // flightdeck-backend for anything beyond the stateless SimBrief signing route.
+  // Constructed here, before any mutating handler below, so each of those can trigger a
+  // background sync after a successful write — event-driven push
+  // (flightdeck-backend/docs/plans/cloud-sync-v2.md #3).
+  const cloudSync = new CloudSyncController(db, dbPath, app.getPath('userData'))
+  // Pull-on-launch half of the same item: one sync at startup when a session already
+  // exists, so this device picks up whatever changed elsewhere since it last opened
+  // rather than waiting for the first local edit or a manual "Sync now". Fire-and-forget:
+  // syncNow() already catches its own errors into getStatus().lastError and never throws,
+  // and this must never block the window opening (e.g. offline at launch, the normal case
+  // for an app that runs alongside a flight sim for hours).
+  if (cloudSync.getStatus().loggedIn) void cloudSync.syncNow()
+
+  // Push-on-mutation half: debounced rather than one sync per write, so a burst (a fleet
+  // import, a fast sequence of tracking writes) doesn't fire a sync per row — syncNow()
+  // is already a full pull-then-push cycle across all four tables, reusing the same
+  // cursor-based mechanism "Sync now" and pull-on-launch use rather than a bespoke
+  // single-row push path, per CLAUDE.md's boring-implementation preference. Offline is the
+  // normal case, not the exception: a failed attempt just leaves lastSyncedAt where it
+  // was, so the very next successful sync (the next write, app relaunch, or manual "Sync
+  // now") naturally re-covers whatever this one missed — no separate retry/outbox needed.
+  let backgroundSyncTimer: NodeJS.Timeout | null = null
+  function scheduleBackgroundSync(): void {
+    if (!cloudSync.getStatus().loggedIn) return
+    if (backgroundSyncTimer) clearTimeout(backgroundSyncTimer)
+    backgroundSyncTimer = setTimeout(() => void cloudSync.syncNow(), 2000)
+  }
+
   ipcMain.handle(IpcChannels.aircraftList, () => listAircraft(db))
 
   ipcMain.handle(IpcChannels.aircraftCreate, (_event, input: unknown) => {
     const result = parseAircraftInput(input)
     if ('error' in result) throw new Error(result.error)
-    return createAircraft(db, result.data)
+    const created = createAircraft(db, result.data)
+    scheduleBackgroundSync()
+    return created
   })
 
   ipcMain.handle(IpcChannels.aircraftUpdate, (_event, input: AircraftUpdate) => {
@@ -128,18 +160,25 @@ app.whenReady().then(() => {
     if ('error' in result) throw new Error(result.error)
     const updated = updateAircraft(db, { id, ...result.data })
     if (!updated) throw new Error(`Aircraft ${id} not found`)
+    scheduleBackgroundSync()
     return updated
   })
 
   ipcMain.handle(IpcChannels.aircraftDelete, (_event, id: number) => {
     deleteAircraft(db, id)
+    scheduleBackgroundSync()
   })
 
   ipcMain.handle(IpcChannels.aircraftReplace, (_event, retiredId: number, replacementId: number) => {
     replaceAircraft(db, { retiredId, replacementId })
+    scheduleBackgroundSync()
   })
 
-  ipcMain.handle(IpcChannels.aircraftImport, () => importAircraft(db, window))
+  ipcMain.handle(IpcChannels.aircraftImport, async () => {
+    const summary = await importAircraft(db, window)
+    if (summary) scheduleBackgroundSync()
+    return summary
+  })
   ipcMain.handle(IpcChannels.aircraftExport, () => exportAircraft(db, window))
 
   ipcMain.handle(IpcChannels.flightList, () => listFlights(db))
@@ -276,6 +315,10 @@ app.whenReady().then(() => {
   trackingController.on('point', (point) => {
     if (!window.isDestroyed()) window.webContents.send(IpcChannels.trackingPoint, point)
   })
+  // Push-on-mutation's real-time case: a flight reaching 'completed' (auto shutdown
+  // detection or a manual finish()) is the highest-value moment to sync promptly, whether
+  // or not the user touches any other IPC channel afterward.
+  trackingController.on('completed', () => scheduleBackgroundSync())
 
   // Auto-starts tracking once the sim has genuinely settled into a freshly-planned flight
   // (docs/decisions.md, scripts/spike-flight-reload.ts) — "Start tracking" stays as the
@@ -313,23 +356,30 @@ app.whenReady().then(() => {
     abandonAllPlanned(db)
     const flight = createFlight(db, input)
     autoStartDetector.arm(flight.id, simConnectService.getLastTelemetry(), flight.depIcao)
+    scheduleBackgroundSync()
     return flight
   })
   ipcMain.handle(IpcChannels.flightCancel, (_event, id: number) => {
     abandonFlight(db, id)
     autoStartDetector.disarm()
+    scheduleBackgroundSync()
   })
   ipcMain.handle(IpcChannels.flightDelete, (_event, id: number) => {
     // Refuse to delete the flight currently being tracked out from under
     // TrackingController — stop() (same path flightCancel uses) first if it's the one.
     if (trackingController.getActive()?.flightId === id) trackingController.stop()
     deleteFlight(db, id)
+    scheduleBackgroundSync()
   })
 
   ipcMain.handle(IpcChannels.logbookListCompletedFlights, () => listCompletedFlights(db))
   ipcMain.handle(IpcChannels.logbookGetStats, () => getLogbookStats(db))
   ipcMain.handle(IpcChannels.logbookFleetStats, () => getFleetStats(db))
-  ipcMain.handle(IpcChannels.logbookImportCsv, () => importLogbookCsv(db, window))
+  ipcMain.handle(IpcChannels.logbookImportCsv, async () => {
+    const summary = await importLogbookCsv(db, window)
+    if (summary) scheduleBackgroundSync()
+    return summary
+  })
   ipcMain.handle(IpcChannels.logbookListInvoices, (_event, flightId: number) => listInvoicesForFlight(db, flightId))
 
   // GSX ground-service invoices (docs/decisions.md, gsx-invoices entry) — opt-in, off by
@@ -357,6 +407,7 @@ app.whenReady().then(() => {
 
     const result = await scanGsxFolder(settings.folderPath, matchWindow)
     const invoices = addInvoicesForFlight(db, flightId, result.matched)
+    if (result.matched.length > 0) scheduleBackgroundSync()
     return {
       invoices,
       notailCandidates: result.notailCandidates.map((f) => ({
@@ -373,7 +424,9 @@ app.whenReady().then(() => {
     if (!file) return listInvoicesForFlight(db, flightId)
     const invoice = await readReceipt(file)
     if (!invoice) return listInvoicesForFlight(db, flightId)
-    return addInvoicesForFlight(db, flightId, [invoice])
+    const invoices = addInvoicesForFlight(db, flightId, [invoice])
+    scheduleBackgroundSync()
+    return invoices
   })
 
   ipcMain.handle(IpcChannels.gsxOpenReceipt, (_event, sourceHtmlPath: string) => shell.openPath(sourceHtmlPath))
@@ -406,11 +459,10 @@ app.whenReady().then(() => {
     fetchExchangeRate(targetCurrency, date)
   )
 
-  // Cloud sync (flightdeck-backend/docs/plans/cloud-sync.md) — off by default; nothing
-  // above this point depends on it, and it's the only feature in the app that talks to
-  // flightdeck-backend for anything beyond the stateless SimBrief signing route.
-  const cloudSync = new CloudSyncController(db, dbPath, app.getPath('userData'))
   ipcMain.handle(IpcChannels.authLogin, (_event, email: string, password: string) => cloudSync.login(email, password))
+  ipcMain.handle(IpcChannels.authSignup, (_event, email: string, password: string, inviteCode: string) =>
+    cloudSync.signup(email, password, inviteCode)
+  )
   ipcMain.handle(IpcChannels.authLogout, () => cloudSync.logout())
   ipcMain.handle(IpcChannels.syncNow, () => cloudSync.syncNow())
   ipcMain.handle(IpcChannels.syncStatus, () => cloudSync.getStatus())

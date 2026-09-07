@@ -103,6 +103,8 @@ const api: FlightdeckApi = {
   fxGetRate: (targetCurrency: string, date?: string) =>
     ipcRenderer.invoke(IpcChannels.fxGetRate, targetCurrency, date),
   authLogin: (email: string, password: string) => ipcRenderer.invoke(IpcChannels.authLogin, email, password),
+  authSignup: (email: string, password: string, inviteCode: string) =>
+    ipcRenderer.invoke(IpcChannels.authSignup, email, password, inviteCode),
   authLogout: () => ipcRenderer.invoke(IpcChannels.authLogout),
   syncNow: () => ipcRenderer.invoke(IpcChannels.syncNow),
   syncStatus: () => ipcRenderer.invoke(IpcChannels.syncStatus)

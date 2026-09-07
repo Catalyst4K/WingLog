@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, isNull } from 'drizzle-orm'
 import type { Flight, FleetStats, LogbookStats, NewFlight } from '@shared/ipc'
 import { greatCircleDistanceNm } from '../airports/airport-search'
 import { aircraft, flight, flightInvoice, landing, trackPoint } from './schema'
@@ -48,7 +48,7 @@ function minutesBetween(startIso: string | null, endIso: string | null): number 
 export function listFlights(db: FlightdeckDb): Flight[] {
   // Order by id, not created_at: current_timestamp has 1-second resolution and two
   // flights created in the same second would otherwise tie with no defined order.
-  return db.select().from(flight).orderBy(desc(flight.id)).all().map(toFlight)
+  return db.select().from(flight).where(isNull(flight.deletedAt)).orderBy(desc(flight.id)).all().map(toFlight)
 }
 
 /** An aircraft's completed flights, newest first — Fleet's per-tail flight list
@@ -58,7 +58,7 @@ export function listFlightsByAircraft(db: FlightdeckDb, aircraftId: number): Fli
   return db
     .select()
     .from(flight)
-    .where(and(eq(flight.status, 'completed'), eq(flight.aircraftId, aircraftId)))
+    .where(and(eq(flight.status, 'completed'), eq(flight.aircraftId, aircraftId), isNull(flight.deletedAt)))
     .orderBy(desc(flight.actualInUtc))
     .all()
     .map(toFlight)
@@ -231,19 +231,21 @@ export function abandonFlight(db: FlightdeckDb, id: number): Flight | undefined 
 }
 
 /**
- * Removes a flight entirely — a bad test entry, or any flight that logged wrong data
- * (e.g. a phase-machine hiccup that produced a nonsense fuel-burn figure). None of
- * `landing`/`trackPoint`/`flightInvoice`'s FK references declare `onDelete: 'cascade'`
- * (schema.ts) and `client.ts` turns on `foreign_keys = ON`, so a bare delete of the
- * `flight` row would throw — clean up the three dependents first, in one transaction so
- * a mid-way failure can't leave the flight orphaned from only some of its data.
+ * Removes a flight — a bad test entry, or any flight that logged wrong data (e.g. a
+ * phase-machine hiccup that produced a nonsense fuel-burn figure). Soft-deletes the flight
+ * and cascades the same tombstone to its `landing`/`flightInvoice` rows (flightdeck-backend/
+ * docs/plans/cloud-sync-v2.md #3a) — all three are synced, so a hard DELETE would just get
+ * resurrected by the next pull on another device. `trackPoint` is never synced and stays
+ * hard-deleted, same as before. One transaction so a mid-way failure can't leave the flight
+ * tombstoned but its dependents still visible, or vice versa.
  */
 export function deleteFlight(db: FlightdeckDb, id: number): void {
+  const now = new Date().toISOString()
   db.transaction((tx) => {
     tx.delete(trackPoint).where(eq(trackPoint.flightId, id)).run()
-    tx.delete(landing).where(eq(landing.flightId, id)).run()
-    tx.delete(flightInvoice).where(eq(flightInvoice.flightId, id)).run()
-    tx.delete(flight).where(eq(flight.id, id)).run()
+    tx.update(landing).set({ deletedAt: now, updatedAt: now }).where(eq(landing.flightId, id)).run()
+    tx.update(flightInvoice).set({ deletedAt: now, updatedAt: now }).where(eq(flightInvoice.flightId, id)).run()
+    tx.update(flight).set({ deletedAt: now, updatedAt: now }).where(eq(flight.id, id)).run()
   })
 }
 
@@ -274,7 +276,7 @@ export function listCompletedFlights(db: FlightdeckDb): Flight[] {
   return db
     .select()
     .from(flight)
-    .where(eq(flight.status, 'completed'))
+    .where(and(eq(flight.status, 'completed'), isNull(flight.deletedAt)))
     .orderBy(desc(flight.actualInUtc))
     .all()
     .map(toFlight)

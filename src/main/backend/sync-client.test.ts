@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { login, logout, syncPull, syncPush } from './sync-client'
+import { login, logout, provision, syncPull, syncPush } from './sync-client'
 
 function fetchMock(status: number, body: unknown) {
   return vi.fn<(url: string, init?: RequestInit) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>>(
@@ -27,6 +27,25 @@ describe('login', () => {
   it('surfaces the same message on wrong password or unknown account', async () => {
     vi.stubGlobal('fetch', fetchMock(401, { error: 'invalid email or password' }))
     await expect(login('callum@example.com', 'wrong')).rejects.toThrow('invalid email or password')
+  })
+})
+
+describe('provision', () => {
+  it('posts email/password and sends the invite code as X-Provision-Secret', async () => {
+    const mock = fetchMock(200, { ok: true })
+    vi.stubGlobal('fetch', mock)
+
+    await provision('newuser@example.com', 'hunter22222222', 'the-invite-code')
+
+    const [url, init] = mock.mock.calls[0]
+    expect(url).toBe('https://flightdeck-backend.callum-jones5.workers.dev/auth/provision')
+    expect(JSON.parse(init?.body as string)).toEqual({ email: 'newuser@example.com', password: 'hunter22222222' })
+    expect((init?.headers as Record<string, string>)['X-Provision-Secret']).toBe('the-invite-code')
+  })
+
+  it('surfaces a wrong invite code as the same not-found error the route gives anyone else', async () => {
+    vi.stubGlobal('fetch', fetchMock(404, { error: 'not found' }))
+    await expect(provision('newuser@example.com', 'hunter22222222', 'wrong-code')).rejects.toThrow('not found')
   })
 })
 
