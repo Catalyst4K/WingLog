@@ -71,13 +71,16 @@ function DetailField(props: { label: string; value: React.ReactNode }): React.JS
 }
 
 /**
- * Three states, per docs/decisions.md's fleet-simbrief-airframe entry — this deliberately
- * doesn't reimplement SimBrief's own airframe editor, just makes the link between a fleet
- * aircraft and its SimBrief profile visible and one click to reach:
- * - a custom profile is set: open *that* airframe's editor directly.
- * - no custom profile, but a SimBrief default type is chosen: show it, offer to change it
- *   or create a custom one instead.
- * - nothing set at all: explain the (usually fine) fallback and offer to create a profile.
+ * Display only (docs/plans/simbrief-airframe-picker.md) — picking or creating a profile
+ * now lives entirely in AircraftForm.tsx's edit view, not here. Three states, per
+ * docs/decisions.md's fleet-simbrief-airframe entry, just makes the current link between a
+ * fleet aircraft and its SimBrief profile visible and one click away to view:
+ * - a custom profile is set: show its registration/type (from the label the picker cached
+ *   when it was set — falls back to the raw id for one set before this plan, or typed by
+ *   hand), and a link to view it on SimBrief.
+ * - no custom profile, but a SimBrief default type is chosen: show its type, plus
+ *   engine/developer from the cached label when the picker set it.
+ * - nothing set at all: explain the (usually fine) fallback.
  */
 function SimBriefProfileCard(props: { aircraft: Aircraft }): React.JSX.Element {
   const a = props.aircraft
@@ -95,31 +98,38 @@ function SimBriefProfileCard(props: { aircraft: Aircraft }): React.JSX.Element {
         {a.simbriefAirframeId ? (
           <>
             <p className="text-foreground">
-              Custom profile: <span className="font-mono">{a.simbriefAirframeId}</span>
+              Custom —{' '}
+              {a.simbriefAirframeRegistration ? (
+                <>
+                  {a.simbriefAirframeRegistration}
+                  {a.simbriefAirframeEngines ? ` (${a.simbriefAirframeEngines})` : ''}
+                </>
+              ) : (
+                <span className="font-mono">{a.simbriefAirframeId}</span>
+              )}
             </p>
             <Button type="button" variant="outline" size="sm" className="w-fit" onClick={openAirframes}>
               Open in SimBrief
             </Button>
           </>
         ) : a.simbriefType ? (
-          <>
-            <p className="text-foreground">
-              Using SimBrief default: <span className="font-mono">{a.simbriefType}</span>
-            </p>
-            <Button type="button" variant="outline" size="sm" className="w-fit" onClick={openAirframes}>
-              Create a custom airframe in SimBrief
-            </Button>
-          </>
+          <p className="text-foreground">
+            {a.simbriefAirframeDeveloper ? (
+              <>
+                {a.simbriefAirframeDeveloper}
+                {a.simbriefAirframeEngines ? ` — ${a.simbriefAirframeEngines}` : ''}
+              </>
+            ) : (
+              <>
+                Using SimBrief default: <span className="font-mono">{a.simbriefType}</span>
+              </>
+            )}
+          </p>
         ) : (
-          <>
-            <p className="text-muted-foreground">
-              No profile set — plans fall back to SimBrief's own default for {a.icaoType}, which is usually
-              fine and occasionally very wrong on weights (and therefore fuel).
-            </p>
-            <Button type="button" variant="outline" size="sm" className="w-fit" onClick={openAirframes}>
-              Create a custom airframe in SimBrief
-            </Button>
-          </>
+          <p className="text-muted-foreground">
+            No profile set — plans fall back to SimBrief's own default for {a.icaoType}, which is usually
+            close enough but can be off on weights (and therefore fuel).
+          </p>
         )}
       </CardContent>
     </Card>

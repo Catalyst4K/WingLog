@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { DispatchOpenSimBriefParams } from '../../shared/ipc'
 import { dispatchOptionsToUrlParams, type DispatchOptions } from '@shared/dispatch-options'
-import { buildGenerateUrl, GENERATE_PARTITION } from './simbrief-generate'
+import { buildGenerateUrl, extractSavedAirframeId, GENERATE_PARTITION } from './simbrief-generate'
 
 const BASE: DispatchOpenSimBriefParams = {
   origIcao: 'EGLL',
@@ -104,5 +104,26 @@ describe('buildGenerateUrl', () => {
     for (const [field, value] of extra) {
       expect(url.searchParams.get(field), `field "${field}"`).toBe(value)
     }
+  })
+})
+
+describe('extractSavedAirframeId', () => {
+  // Real URL a spike watched a Flightdeck-owned BrowserWindow navigate to right after a
+  // real "Save Airframe" click (docs/plans/simbrief-airframe-picker.md, 2026-09-07).
+  it('extracts the airframe id from a real post-save navigation', () => {
+    expect(extractSavedAirframeId('https://dispatch.simbrief.com/airframes/saved/1788802707601')).toBe(
+      '1788802707601'
+    )
+  })
+
+  // Every other navigation the share → login → save flow actually passes through, per
+  // the same live spike — none of these should be mistaken for the save itself.
+  it('returns null for every other navigation the share/login flow passes through', () => {
+    expect(extractSavedAirframeId('https://dispatch.simbrief.com/airframes/share/80_1709125568637')).toBeNull()
+    expect(extractSavedAirframeId('https://identity.api.navigraph.com/login?signin=abc123')).toBeNull()
+    expect(
+      extractSavedAirframeId('https://appleid.apple.com/auth/authorize?client_id=com.navigraph.identity-service')
+    ).toBeNull()
+    expect(extractSavedAirframeId('https://dispatch.simbrief.com/airframes')).toBeNull()
   })
 })

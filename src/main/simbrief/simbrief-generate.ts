@@ -106,24 +106,17 @@ export async function logoutOfSimbrief(): Promise<void> {
 }
 
 const ACCOUNT_PAGE_URL = 'https://www.simbrief.com/system/profile.php'
-
-/** The account-settings page renders this field's value via a JS-populated `<input>`
- *  after load (its shipped HTML has `value=""`) — confirmed live against a real account
- *  (docs/simbrief-notes.md). `data-key="user.navigraph.username"` is the same value
- *  SimBrief's own UI labels "Username" in the "Your SimBrief Data" section — Navigraph's
- *  acquisition unified the two, so this is the account's one real username, not something
- *  SimBrief-specific under the hood. */
-const USERNAME_DATA_KEY = 'user.navigraph.username'
 const ACCOUNT_PAGE_TIMEOUT_MS = 5000
 
-/** Reads the logged-in pilot's SimBrief username straight off their own account page, so
- *  Settings can offer to fill the username field automatically instead of requiring it be
- *  typed in — only meaningful to call once `isSimbriefLoggedIn()` is true. Returns `null`
- *  on anything unexpected (not logged in, page layout changed, timed out) rather than
- *  throwing — this is third-party page content, parsed defensively like any other
- *  external data, not something to let take down the settings flow if SimBrief changes
- *  their markup. */
-export async function fetchSimbriefUsername(): Promise<string | null> {
+/** Reads one field off SimBrief's own account-settings page — its "Your SimBrief Data"
+ *  section renders every field's value via a JS-populated `<input data-key="...">` after
+ *  load (the shipped HTML has `value=""`), confirmed live against a real account
+ *  (docs/simbrief-notes.md). Shared by fetchSimbriefUsername and fetchSimbriefPilotId, the
+ *  two fields actually needed so far. Returns `null` on anything unexpected (not logged
+ *  in, page layout changed, timed out) rather than throwing — this is third-party page
+ *  content, parsed defensively like any other external data, not something to let take
+ *  down a caller if SimBrief changes their markup. */
+async function readAccountField(dataKey: string): Promise<string | null> {
   const win = new BrowserWindow({
     show: false,
     webPreferences: { partition: GENERATE_PARTITION }
@@ -134,7 +127,7 @@ export async function fetchSimbriefUsername(): Promise<string | null> {
       new Promise((resolve) => {
         const start = Date.now()
         const check = () => {
-          const el = document.querySelector('input[data-key="${USERNAME_DATA_KEY}"]')
+          const el = document.querySelector('input[data-key="${dataKey}"]')
           if (el && el.value) return resolve(el.value)
           if (Date.now() - start > ${ACCOUNT_PAGE_TIMEOUT_MS}) return resolve(null)
           setTimeout(check, 200)
@@ -148,6 +141,24 @@ export async function fetchSimbriefUsername(): Promise<string | null> {
   } finally {
     win.destroy()
   }
+}
+
+/** `data-key="user.navigraph.username"` is the same value SimBrief's own UI labels
+ *  "Username" in the "Your SimBrief Data" section — Navigraph's acquisition unified the
+ *  two, so this is the account's one real username, not something SimBrief-specific under
+ *  the hood. Only meaningful to call once `isSimbriefLoggedIn()` is true. Used by Settings
+ *  to offer to fill the username field automatically instead of requiring it be typed in. */
+export function fetchSimbriefUsername(): Promise<string | null> {
+  return readAccountField('user.navigraph.username')
+}
+
+/** `data-key="user.pilot_id"` — the numeric half of a saved airframe's internal id
+ *  (`<pilot_id>_<airframe_id>`, docs/decisions.md §4) that a share link's URL doesn't
+ *  reveal on its own (docs/plans/simbrief-airframe-picker.md). Same page, same field-read
+ *  pattern already confirmed live for the username above — this is a new field on the
+ *  same "Your SimBrief Data" section, not a new mechanism. */
+export function fetchSimbriefPilotId(): Promise<string | null> {
+  return readAccountField('user.pilot_id')
 }
 
 /** Triggers a real SimBrief generation: gets the signing value from flightdeck-backend,
@@ -166,4 +177,60 @@ export async function generateOfp(params: DispatchOpenSimBriefParams): Promise<v
     outputPage: OUTPUT_PAGE
   })
   await openPopup(buildGenerateUrl(params, apicode, timestamp))
+}
+
+// Matches the URL SimBrief's own client-side router redirects to right after a save
+// (confirmed live, docs/plans/simbrief-airframe-picker.md — a real share link, a real
+// save, watched through a real BrowserWindow) — only the airframe_id half, never the
+// pilot_id, hence fetchSimbriefPilotId above.
+const SAVED_AIRFRAME_PATTERN = /\/airframes\/saved\/(\d+)/
+
+/** Pure URL-matching, exported for testing — the part of createCustomAirframeFromShare
+ *  that doesn't need a real BrowserWindow to exercise. Null for any URL that isn't the
+ *  post-save redirect (every other navigation the share/login flow passes through). */
+export function extractSavedAirframeId(url: string): string | null {
+  return url.match(SAVED_AIRFRAME_PATTERN)?.[1] ?? null
+}
+
+/**
+ * Opens a real, visible SimBrief airframe share link and waits for the pilot to review it
+ * and click **Save Airframe** in their own real session — confirmed live to be a genuine,
+ * sanctioned cross-user mechanism (SimBrief's own "Share Airframe" help text), not
+ * something that only resolves for the link's original owner. Resolves with the resulting
+ * `<pilot_id>_<airframe_id>` once the save's own navigation is observed, or `null` if the
+ * window was closed before that happened (the pilot backed out, or never finished
+ * logging in) — a cancellation, not an error.
+ */
+export function createCustomAirframeFromShare(shareUrl: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const win = new BrowserWindow({
+      width: 900,
+      height: 800,
+      webPreferences: { partition: GENERATE_PARTITION }
+    })
+    let settled = false
+
+    async function onNavigate(url: string): Promise<void> {
+      if (settled) return
+      const airframeId = extractSavedAirframeId(url)
+      if (!airframeId) return
+      settled = true
+      // Same persisted partition the pilot just logged into (if they needed to) —
+      // already-authenticated, no separate login step of its own.
+      const pilotId = await fetchSimbriefPilotId()
+      win.close()
+      resolve(pilotId ? `${pilotId}_${airframeId}` : null)
+    }
+
+    win.webContents.on('did-navigate', (_event, url) => void onNavigate(url))
+    win.webContents.on('did-navigate-in-page', (_event, url) => void onNavigate(url))
+    win.on('closed', () => {
+      if (!settled) {
+        settled = true
+        resolve(null)
+      }
+    })
+
+    win.loadURL(shareUrl)
+  })
 }

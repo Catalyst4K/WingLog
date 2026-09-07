@@ -47,4 +47,33 @@ describe('parseAircraftInput', () => {
     const result = parseAircraftInput({ registration: 'G-ABCD', icaoType: 'A320', operator: 42 })
     expect(result).toEqual({ error: '"operator" must be a string' })
   })
+
+  // Real bug, found live (docs/plans/simbrief-airframe-picker.md): a field the caller
+  // explicitly blanks must come back as `null`, not be dropped from `data` entirely — an
+  // update's `.set()` only touches columns actually present in its payload, so a dropped
+  // field silently leaves the row's existing value untouched instead of clearing it.
+  it('clears an explicitly blank optional field to null, rather than omitting it', () => {
+    const result = parseAircraftInput({
+      registration: 'G-ABCD',
+      icaoType: 'A320',
+      simbriefAirframeId: '',
+      operatorIata: null
+    })
+    expect(result).toEqual({
+      data: {
+        registration: 'G-ABCD',
+        icaoType: 'A320',
+        simbriefAirframeId: null,
+        operatorIata: null
+      }
+    })
+  })
+
+  it('still omits a field genuinely absent from the input, distinct from an explicit blank', () => {
+    const result = parseAircraftInput({ registration: 'G-ABCD', icaoType: 'A320' })
+    expect(result).toEqual({ data: { registration: 'G-ABCD', icaoType: 'A320' } })
+    if ('data' in result) {
+      expect('simbriefAirframeId' in result.data).toBe(false)
+    }
+  })
 })
