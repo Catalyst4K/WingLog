@@ -129,7 +129,7 @@ docs/           User-facing content only, or empty — see the note at the top o
 
 ## Security
 
-**The GitHub repo is public** (`github.com/Catalyst4K/flightdeck`), and the app is
+**The GitHub repo is public** (`github.com/Catalyst4K/WingLog`), and the app is
 distributed as an installable binary. Both mean mistakes here are visible and shipped, so
 treat security as part of finishing a change rather than a separate pass.
 
