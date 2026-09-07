@@ -65,9 +65,11 @@ import { defaultGsxReceiptsPath } from './gsx/default-path'
 import { checkGsxFirstLaunch } from './gsx/first-launch-check'
 import { buildFlightMatchWindow } from './gsx/flight-window'
 import { readReceipt, receiptFileFromPath, scanGsxFolder } from './gsx/scan'
+import { fetchAirframesForType } from './simbrief/simbrief-airframes'
 import { extractOfpPdfUrl } from './simbrief/ofp-pdf'
 import { fetchLatestOfp, type SimBriefOfp } from './simbrief/simbrief-client'
 import {
+  createCustomAirframeFromShare,
   fetchSimbriefUsername,
   generateOfp,
   isSimbriefLoggedIn,
@@ -451,6 +453,10 @@ app.whenReady().then(() => {
     fetchAircraftByRegistration(registration)
   )
   ipcMain.handle(IpcChannels.aircraftTypeSearch, (_event, query: string) => searchAircraftTypes(query))
+  ipcMain.handle(IpcChannels.simbriefAirframesForType, (_event, icaoType: string) => fetchAirframesForType(icaoType))
+  ipcMain.handle(IpcChannels.simbriefCreateCustomAirframe, (_event, shareUrl: string) =>
+    createCustomAirframeFromShare(shareUrl)
+  )
   ipcMain.handle(IpcChannels.airportSearch, (_event, query: string) => searchAirports(query))
   ipcMain.handle(IpcChannels.airlineSearch, (_event, query: string) => searchAirlines(query))
   ipcMain.handle(IpcChannels.airlineFindByIcao, (_event, icao: string) => findAirlineByIcao(icao))

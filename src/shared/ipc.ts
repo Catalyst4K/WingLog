@@ -28,6 +28,13 @@ export interface Aircraft {
    *  schema.ts. Null means "use icaoType as SimBrief's type parameter", same as before
    *  this field existed. */
   simbriefType: string | null
+  /** Denormalized label for whichever of simbriefAirframeId/simbriefType is currently set,
+   *  snapshotted when the community-airframe picker (docs/plans/simbrief-airframe-picker.md)
+   *  set it — null for a manually-typed id/type, or when nothing's set, in which case the
+   *  UI falls back to showing the plain id/type. All three travel together. */
+  simbriefAirframeDeveloper: string | null
+  simbriefAirframeEngines: string | null
+  simbriefAirframeRegistration: string | null
   currentIcao: string | null
   createdAt: string
   /** Set once this aircraft has been replaced by another (docs/plans/aircraft-replacement.md)
@@ -49,6 +56,9 @@ export interface NewAircraft {
   operatorIcao?: string | null
   simbriefAirframeId?: string | null
   simbriefType?: string | null
+  simbriefAirframeDeveloper?: string | null
+  simbriefAirframeEngines?: string | null
+  simbriefAirframeRegistration?: string | null
   currentIcao?: string | null
   photoThumbnailUrl?: string | null
 }
@@ -96,6 +106,31 @@ export interface AircraftTypeOption {
   model: string
   icaoType: string
   wakeCat: string
+}
+
+/**
+ * One saved airframe from SimBrief's own live `inputs.airframes.json` feed for a given
+ * ICAO type (docs/plans/simbrief-airframe-picker.md) — never vendored/stored, fetched
+ * fresh each time the picker opens. `isDefault` is SimBrief's own stock profile for the
+ * type (nothing to share/create — picking it just clears both simbrief_* fields).
+ * `developer`/`platform` are parsed from SimBrief's free-text `airframe_comments` (already
+ * filtered server-side to `platform === 'MSFS'` plus the stock default, so the renderer
+ * never sees an X-Plane/P3D entry) — null when the comment doesn't match the usual
+ * "Developer (Platform) - variant" shape, in which case `comments` is the only label.
+ */
+export interface SimbriefAirframeOption {
+  isDefault: boolean
+  developer: string | null
+  engines: string
+  /** Raw `airframe_comments` — always present, the guaranteed fallback label. */
+  comments: string
+  registration: string | null
+  /** SimBrief's own type code for this entry's parent group (e.g. "A20N") — what gets
+   *  written to aircraft.simbrief_type when this option is picked. */
+  simbriefType: string
+  /** Only present for a community (non-default) entry — SimBrief's own "Share Airframe"
+   *  link for it (docs/plans/simbrief-airframe-picker.md's confirmed share → Save flow). */
+  shareUrl: string | null
 }
 
 /** One match from the vendored OpenFlights airline database (see resources/airlines.csv). */
@@ -586,6 +621,8 @@ export const IpcChannels = {
   settingsSetLandingThresholds: 'settings:set-landing-thresholds',
   aircraftLookupByRegistration: 'aircraft:lookup-by-registration',
   aircraftTypeSearch: 'aircraft:type-search',
+  simbriefAirframesForType: 'simbrief:airframes-for-type',
+  simbriefCreateCustomAirframe: 'simbrief:create-custom-airframe',
   airportSearch: 'airport:search',
   airlineSearch: 'airline:search',
   airlineFindByIcao: 'airline:find-by-icao',
@@ -736,6 +773,18 @@ export interface FlightdeckApi {
   aircraftLookupByRegistration: (registration: string) => Promise<AircraftLookupResult | null>
   /** Searches the vendored ICAO Doc 8643 type-designator list. Empty for a query under 2 chars. */
   aircraftTypeSearch: (query: string) => Promise<AircraftTypeOption[]>
+  /** Fetches SimBrief's live `inputs.airframes.json` and returns every MSFS-platform
+   *  saved airframe for this ICAO type, plus the stock default (docs/plans/
+   *  simbrief-airframe-picker.md). Empty (not an error) for a type SimBrief doesn't
+   *  recognise, or if the fetch itself fails. */
+  simbriefAirframesForType: (icaoType: string) => Promise<SimbriefAirframeOption[]>
+  /**
+   * Opens a real, visible SimBrief share link and waits for the pilot to review and save
+   * it into their own account (docs/plans/simbrief-airframe-picker.md's confirmed share →
+   * Save flow) — resolves with the resulting `<pilot_id>_<airframe_id>` once observed, or
+   * null if the window was closed before a save completed.
+   */
+  simbriefCreateCustomAirframe: (shareUrl: string) => Promise<string | null>
   /** Searches the vendored OurAirports name/ICAO list. Empty for a query under 2 chars. */
   airportSearch: (query: string) => Promise<AirportOption[]>
   /** Searches the vendored OpenFlights airline list. Empty for a query under 2 chars. */

@@ -24,6 +24,15 @@ export const aircraft = sqliteTable('aircraft', {
   // vendored/validated list — SimBrief validates the type itself and falls back to its
   // own default on anything it doesn't recognise, same as icaoType already does.
   simbriefType: text('simbrief_type'),
+  // Denormalized label for whichever of simbriefAirframeId/simbriefType is currently set —
+  // snapshotted once, when the SimBrief community-airframe picker (docs/plans/
+  // simbrief-airframe-picker.md) sets either field, rather than re-resolved from SimBrief's
+  // live dataset on every Fleet-page render. Null for a manually-typed id/type (falls back
+  // to the plain id/type display) or when nothing's set. All three travel together — a
+  // picker choice always sets (or clears) them as a set, never independently.
+  simbriefAirframeDeveloper: text('simbrief_airframe_developer'),
+  simbriefAirframeEngines: text('simbrief_airframe_engines'),
+  simbriefAirframeRegistration: text('simbrief_airframe_registration'),
   currentIcao: text('current_icao'),
   createdAt: text('created_at')
     .notNull()

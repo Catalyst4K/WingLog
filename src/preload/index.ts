@@ -96,6 +96,9 @@ const api: FlightdeckApi = {
   aircraftLookupByRegistration: (registration: string) =>
     ipcRenderer.invoke(IpcChannels.aircraftLookupByRegistration, registration),
   aircraftTypeSearch: (query: string) => ipcRenderer.invoke(IpcChannels.aircraftTypeSearch, query),
+  simbriefAirframesForType: (icaoType: string) => ipcRenderer.invoke(IpcChannels.simbriefAirframesForType, icaoType),
+  simbriefCreateCustomAirframe: (shareUrl: string) =>
+    ipcRenderer.invoke(IpcChannels.simbriefCreateCustomAirframe, shareUrl),
   airportSearch: (query: string) => ipcRenderer.invoke(IpcChannels.airportSearch, query),
   airlineSearch: (query: string) => ipcRenderer.invoke(IpcChannels.airlineSearch, query),
   airlineFindByIcao: (icao: string) => ipcRenderer.invoke(IpcChannels.airlineFindByIcao, icao),
