@@ -86,6 +86,25 @@ describe('fetchLatestOfp', () => {
     expect(ofp.stepClimbs[3].toAltitudeFt).toBeCloseTo(11300 / 0.3048, 1)
   })
 
+  it('reads a sub-1000 metric step climb correctly end to end, cross-referencing the navlog', async () => {
+    // Real reported bug, 2026-09-06: 8,900 m coded "0890" was read as FL890 (89,000 ft)
+    // because 890 < 1000. Confirm the fix by wiring a matching navlog fix through
+    // fetchLatestOfp itself, not just calling parseStepClimbs directly.
+    const withMetricStep = fixture('kgs') as { general: Record<string, unknown>; navlog: { fix: unknown[] } }
+    withMetricStep.general.stepclimb_string = 'DUTUB/0890'
+    withMetricStep.navlog.fix.push({ ident: 'DUTUB', altitude_feet: String(8900 / 0.3048), distance: '400' })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, status: 200, json: async () => withMetricStep }))
+    )
+
+    const ofp = await fetchLatestOfp('LandingHangar711')
+
+    expect(ofp.stepClimbs).toEqual([
+      { atIdent: 'DUTUB', toAltitudeFt: expect.closeTo(8900 / 0.3048, 1), native: { unit: 'm', value: 8900 } }
+    ])
+  })
+
   it('finds stepclimb_string wherever it is nested in the response', async () => {
     const nested = fixture('kgs') as Record<string, unknown>
     nested.atc = { subsection: { stepclimb_string: 'DENAK/0350' } }
@@ -197,5 +216,30 @@ describe('parseStepClimbs', () => {
     expect(parseStepClimbs('DENAK/0350/TRAIL')).toEqual([
       { atIdent: 'DENAK', toAltitudeFt: 35000, native: { unit: 'ft', value: 35000 } }
     ])
+  })
+
+  // Real bug, 2026-09-06: Callum saw 8,900 m read as "89,000 ft" (27,127 m in metric
+  // display). "0890" < 1000 so the old code>=1000 threshold called it FL890, not 8,900 m —
+  // China's metric RVSM levels start well below 1000, so no threshold on the code alone
+  // can tell these apart. Cross-referencing the navlog altitude resolves it correctly.
+  it('reads a sub-1000 metric level correctly when the navlog altitude disambiguates it', () => {
+    const navlogAltitudesFt = new Map([['DUTUB', 8900 / 0.3048]])
+    const [climb] = parseStepClimbs('DUTUB/0890', navlogAltitudesFt)
+    expect(climb.native).toEqual({ unit: 'm', value: 8900 })
+    expect(climb.toAltitudeFt).toBeCloseTo(8900 / 0.3048, 1)
+  })
+
+  it('still reads a standard flight level correctly when the navlog altitude confirms it', () => {
+    const navlogAltitudesFt = new Map([['DENAK', 35000]])
+    expect(parseStepClimbs('DENAK/0350', navlogAltitudesFt)).toEqual([
+      { atIdent: 'DENAK', toAltitudeFt: 35000, native: { unit: 'ft', value: 35000 } }
+    ])
+  })
+
+  it('falls back to the plausibility threshold when the ident has no navlog match', () => {
+    // No navlog entry for DUTUB: code 890 -> asFeet 89,000 ft, past MAX_PLAUSIBLE_FLIGHT_LEVEL_FT,
+    // so it's correctly treated as metric even without a cross-reference.
+    const [climb] = parseStepClimbs('DUTUB/0890', new Map([['OTHER', 12000]]))
+    expect(climb.native).toEqual({ unit: 'm', value: 8900 })
   })
 })
