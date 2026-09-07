@@ -16,7 +16,8 @@ function toAircraft(row: typeof aircraft.$inferSelect): Aircraft {
     simbriefType: row.simbriefType,
     currentIcao: row.currentIcao,
     createdAt: row.createdAt,
-    replacedByAircraftId: row.replacedByAircraftId
+    replacedByAircraftId: row.replacedByAircraftId,
+    photoThumbnailUrl: row.photoThumbnailUrl
   }
 }
 

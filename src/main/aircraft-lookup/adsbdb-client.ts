@@ -28,6 +28,7 @@ interface AdsbdbAircraft {
   icao_type?: unknown
   registered_owner?: unknown
   registered_owner_operator_flag_code?: unknown
+  url_photo_thumbnail?: unknown
 }
 
 export async function fetchAircraftByRegistration(
@@ -53,6 +54,9 @@ export async function fetchAircraftByRegistration(
     operatorIcao:
       typeof aircraft.registered_owner_operator_flag_code === 'string'
         ? aircraft.registered_owner_operator_flag_code
-        : null
+        : null,
+    // Deliberately url_photo_thumbnail, not url_photo (full-size) — see
+    // docs/decisions.md, 2026-09-07: the full-size URL 404s consistently in practice.
+    photoThumbnailUrl: typeof aircraft.url_photo_thumbnail === 'string' ? aircraft.url_photo_thumbnail : null
   }
 }

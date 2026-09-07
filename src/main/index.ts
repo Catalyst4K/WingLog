@@ -40,7 +40,8 @@ import {
   getFlight,
   getLogbookStats,
   listCompletedFlights,
-  listFlights
+  listFlights,
+  listFlightsByAircraft
 } from './db/flight-repo'
 import { getLandingByFlight, listLandingsByAircraft } from './db/landing-repo'
 import { importLogbookCsv } from './db/logbook-import'
@@ -387,6 +388,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle(IpcChannels.logbookGetLanding, (_event, flightId: number) => getLandingByFlight(db, flightId) ?? null)
   ipcMain.handle(IpcChannels.fleetListLandings, (_event, aircraftId: number) => listLandingsByAircraft(db, aircraftId))
+  ipcMain.handle(IpcChannels.fleetListFlights, (_event, aircraftId: number) => listFlightsByAircraft(db, aircraftId))
   ipcMain.handle(IpcChannels.settingsGetLandingThresholds, () => getLandingThresholds(db))
   ipcMain.handle(IpcChannels.settingsSetLandingThresholds, (_event, thresholds: LandingThresholds) =>
     setLandingThresholds(db, thresholds)

@@ -89,6 +89,7 @@ const api: FlightdeckApi = {
   logbookOpenOfpPdf: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookOpenOfpPdf, flightId),
   logbookGetLanding: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookGetLanding, flightId),
   fleetListLandings: (aircraftId: number) => ipcRenderer.invoke(IpcChannels.fleetListLandings, aircraftId),
+  fleetListFlights: (aircraftId: number) => ipcRenderer.invoke(IpcChannels.fleetListFlights, aircraftId),
   settingsGetLandingThresholds: () => ipcRenderer.invoke(IpcChannels.settingsGetLandingThresholds),
   settingsSetLandingThresholds: (thresholds: LandingThresholds) =>
     ipcRenderer.invoke(IpcChannels.settingsSetLandingThresholds, thresholds),

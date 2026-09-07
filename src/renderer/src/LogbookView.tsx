@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis
 } from 'recharts'
-import { ArrowLeft, ArrowDown, ArrowUp, Trash2 } from 'lucide-react'
+import { ArrowLeft, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Aircraft, Flight, Landing, LogbookStats, TrackPoint, WeightUnit } from '@shared/ipc'
 import {
@@ -29,10 +29,12 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { FlightMap } from './FlightMap'
 import { GsxInvoicesCard } from './GsxInvoicesCard'
+import { useSortable } from './hooks/useSortable'
 import { LandingBadge } from './LandingBadge'
 import { classifyLanding } from './landing-severity'
 import { parseRouteFromOfpJson, parseWaypointsFromOfpJson } from './route'
-import { formatWeight, mToFt, msToFpm, msToKt } from './units'
+import { SortableHead } from './SortableHead'
+import { formatMinutes, formatWeight, mToFt, msToFpm, msToKt } from './units'
 import { useLandingThresholds } from './useLandingThresholds'
 
 type View = { kind: 'list' } | { kind: 'detail'; id: number }
@@ -54,13 +56,6 @@ const CHART_TOOLTIP_STYLE = {
 // (e.g. "540 min") — hours read at a glance instead. Below it, a short flight's duration
 // in hours would round to one or two ticks total, which is worse than minutes, not better.
 const HOURS_AXIS_THRESHOLD_MIN = 90
-
-function formatMinutes(min: number | null): string {
-  if (min == null) return '—'
-  const hours = Math.floor(min / 60)
-  const minutes = Math.round(min % 60)
-  return `${hours}h ${minutes}m`
-}
 
 function formatDate(iso: string | null): string {
   return iso ? new Date(iso).toLocaleString() : '—'
@@ -406,7 +401,6 @@ function FlightDetail(props: {
 }
 
 type SortKey = 'date' | 'flight' | 'route' | 'aircraft' | 'block' | 'air' | 'fuel'
-type SortDir = 'asc' | 'desc'
 
 const SORT_COLUMNS: { key: SortKey; label: string }[] = [
   { key: 'date', label: 'Date' },
@@ -442,32 +436,6 @@ function compareFlights(
   }
 }
 
-function SortableHead(props: {
-  sortKey: SortKey
-  label: string
-  activeKey: SortKey
-  dir: SortDir
-  onSort: (key: SortKey) => void
-}): React.JSX.Element {
-  const active = props.sortKey === props.activeKey
-  return (
-    <TableHead
-      onClick={() => props.onSort(props.sortKey)}
-      className="cursor-pointer select-none whitespace-nowrap"
-    >
-      <span className="inline-flex items-center gap-1">
-        {props.label}
-        {active &&
-          (props.dir === 'asc' ? (
-            <ArrowUp className="size-3.5 text-muted-foreground" />
-          ) : (
-            <ArrowDown className="size-3.5 text-muted-foreground" />
-          ))}
-      </span>
-    </TableHead>
-  )
-}
-
 function LogbookRowsSkeleton(): React.JSX.Element {
   return (
     <>
@@ -484,14 +452,30 @@ function LogbookRowsSkeleton(): React.JSX.Element {
   )
 }
 
-export function LogbookView(props: { weightUnit: WeightUnit }): React.JSX.Element {
+export function LogbookView(props: {
+  weightUnit: WeightUnit
+  /** Set when another view (e.g. Fleet's per-aircraft flight list) navigated here to open
+   *  a specific flight directly, rather than the user picking one from the list. */
+  initialFlightId?: number | null
+  /** Called once initialFlightId has been consumed, so a later plain tab click into
+   *  Logbook (this component remounts each time, per App.tsx's conditional render)
+   *  doesn't keep reopening the same flight. */
+  onInitialFlightConsumed?: () => void
+}): React.JSX.Element {
   const [flights, setFlights] = useState<Flight[]>([])
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
   const [stats, setStats] = useState<LogbookStats | null>(null)
-  const [view, setView] = useState<View>({ kind: 'list' })
+  const [view, setView] = useState<View>(
+    props.initialFlightId != null ? { kind: 'detail', id: props.initialFlightId } : { kind: 'list' }
+  )
   const [loading, setLoading] = useState(true)
-  const [sortKey, setSortKey] = useState<SortKey>('date')
-  const [sortDir, setSortDir] = useState<SortDir>('desc')
+
+  useEffect(() => {
+    if (props.initialFlightId != null) props.onInitialFlightConsumed?.()
+    // Only ever meant to run once, against the initial prop value — see the state
+    // initializer above, which already captured it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function reload(): Promise<void> {
     return Promise.all([
@@ -513,14 +497,15 @@ export function LogbookView(props: { weightUnit: WeightUnit }): React.JSX.Elemen
     return aircraft.find((a) => a.id === aircraftId)?.registration ?? `#${aircraftId}`
   }
 
-  function handleSort(key: SortKey): void {
-    if (key === sortKey) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
-    } else {
-      setSortKey(key)
-      setSortDir('asc')
-    }
-  }
+  const comparators = Object.fromEntries(
+    SORT_COLUMNS.map((col) => [col.key, (a: Flight, b: Flight) => compareFlights(a, b, col.key, registrationFor)])
+  ) as Record<SortKey, (a: Flight, b: Flight) => number>
+  const {
+    sortKey,
+    sortDir,
+    sortedRows: sortedFlights,
+    handleSort
+  } = useSortable<Flight, SortKey>(flights, comparators, 'date', 'desc')
 
   if (view.kind === 'detail') {
     const flight = flights.find((f) => f.id === view.id)
@@ -538,11 +523,6 @@ export function LogbookView(props: { weightUnit: WeightUnit }): React.JSX.Elemen
       />
     )
   }
-
-  const sortedFlights = [...flights].sort((a, b) => {
-    const cmp = compareFlights(a, b, sortKey, registrationFor)
-    return sortDir === 'asc' ? cmp : -cmp
-  })
 
   return (
     <div className="flex flex-col gap-6">

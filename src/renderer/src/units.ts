@@ -44,6 +44,14 @@ export function formatWeight(kg: number | null, unit: WeightUnit): string {
   return kg == null ? '—' : `${Math.round(kgToUnit(kg, unit)).toLocaleString()} ${unit}`
 }
 
+/** Shared by Logbook and Fleet's per-aircraft flight list. */
+export function formatMinutes(min: number | null): string {
+  if (min == null) return '—'
+  const hours = Math.floor(min / 60)
+  const minutes = Math.round(min % 60)
+  return `${hours}h ${minutes}m`
+}
+
 /**
  * Formats an altitude that came from a SimBrief OFP. `altitudeFt` should always be a
  * real feet value (see the AltitudeUnit doc comment in shared/ipc.ts) — 'ft'/'m' convert

@@ -45,7 +45,16 @@ export const aircraft = sqliteTable('aircraft', {
   // the arrow-function form is required (and must be annotated AnySQLiteColumn —
   // `aircraft`'s own type isn't inferred yet while this object literal is still being
   // evaluated, so TS can't resolve `aircraft.id`'s type without the hint).
-  replacedByAircraftId: integer('replaced_by_aircraft_id').references((): AnySQLiteColumn => aircraft.id)
+  replacedByAircraftId: integer('replaced_by_aircraft_id').references((): AnySQLiteColumn => aircraft.id),
+  // Real-world livery photo thumbnail, from adsbdb's registration lookup (docs/plans/
+  // fleet-redesign.md #3) — stored at lookup time rather than fetched per detail-page
+  // view, matching this app's local-first bias; goes stale if the photo is replaced, an
+  // accepted tradeoff. Deliberately NOT adsbdb's `url_photo` (full-size): spot-checked
+  // live against two real registrations and it 404s consistently on both, while the
+  // thumbnail host serves reliably — see docs/decisions.md, 2026-09-07. No attribution
+  // metadata (photographer name) is available from adsbdb, so the UI credits
+  // airport-data.com as the source, not an individual photographer.
+  photoThumbnailUrl: text('photo_thumbnail_url')
 })
 
 // Flight table per PLAN.md §5. `law_kg` in that sketch was landing weight — named

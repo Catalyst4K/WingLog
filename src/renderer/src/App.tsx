@@ -70,6 +70,15 @@ export default function App(): React.JSX.Element {
   // planning this" from "already flying this, showing it for reference" apart, and that
   // distinction has to survive the same tab-switch-and-back as dispatchOfp itself.
   const [dispatchedOfpId, setDispatchedOfpId] = useState<string | null>(null)
+  // Set when Fleet's per-aircraft flight list navigates to a specific flight's Logbook
+  // detail. Lifted here (rather than local to LogbookView) because it has to survive the
+  // page switch from Fleet to Logbook that triggers it.
+  const [pendingLogbookFlightId, setPendingLogbookFlightId] = useState<number | null>(null)
+
+  function openFlightInLogbook(flightId: number): void {
+    setPendingLogbookFlightId(flightId)
+    setPage('logbook')
+  }
 
   useEffect(() => {
     window.flightdeck.settingsGetWeightUnit().then(setWeightUnit)
@@ -147,7 +156,7 @@ export default function App(): React.JSX.Element {
             (flight-test-findings-2026-09-06.md #7 — confirmed live: the outer <main> was
             measurably taller than the viewport, not this div). */}
         <div className="min-h-0 flex-1 overflow-auto p-8">
-          {page === 'fleet' && <FleetView />}
+          {page === 'fleet' && <FleetView onOpenFlightInLogbook={openFlightInLogbook} />}
           <Suspense fallback={null}>
             {page === 'dispatch' && (
               <DispatchView
@@ -171,7 +180,13 @@ export default function App(): React.JSX.Element {
                 }}
               />
             )}
-            {page === 'logbook' && <LogbookView weightUnit={weightUnit} />}
+            {page === 'logbook' && (
+              <LogbookView
+                weightUnit={weightUnit}
+                initialFlightId={pendingLogbookFlightId}
+                onInitialFlightConsumed={() => setPendingLogbookFlightId(null)}
+              />
+            )}
             {page === 'settings' && (
               <SettingsView
                 weightUnit={weightUnit}

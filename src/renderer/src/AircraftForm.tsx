@@ -80,6 +80,10 @@ export function AircraftForm(props: {
   const [submitting, setSubmitting] = useState(false)
   const [lookupStatus, setLookupStatus] = useState<string | null>(null)
   const [lookingUp, setLookingUp] = useState(false)
+  // Not a visible form field — the user never types a photo URL, it only ever comes from
+  // a registration lookup (docs/plans/fleet-redesign.md #3). Kept out of FormState so
+  // toFormState/toNewAircraft don't need to round-trip a value nothing renders as input.
+  const [photoThumbnailUrl, setPhotoThumbnailUrl] = useState<string | null>(props.initial?.photoThumbnailUrl ?? null)
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]): void {
     setForm((current) => ({ ...current, [key]: value }))
@@ -121,6 +125,11 @@ export function AircraftForm(props: {
           operatorIcao: fillOperator ? (matchedAirline?.icao ?? result.operatorIcao ?? '') : current.operatorIcao
         }
       })
+      // Same "fill blanks only" restraint as the operator fields above — a re-run
+      // shouldn't clobber a photo already resolved by an earlier lookup.
+      if (photoThumbnailUrl === null && result.photoThumbnailUrl) {
+        setPhotoThumbnailUrl(result.photoThumbnailUrl)
+      }
       setLookupStatus(`Found: ${result.operator ?? 'unknown operator'}, ${result.icaoType}`)
     } catch (err) {
       setLookupStatus(err instanceof Error ? err.message : String(err))
@@ -134,7 +143,7 @@ export function AircraftForm(props: {
     setSubmitting(true)
     setError(null)
     try {
-      await props.onSubmit(toNewAircraft(form))
+      await props.onSubmit({ ...toNewAircraft(form), photoThumbnailUrl })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -176,7 +185,8 @@ export function AircraftForm(props: {
           placeholder="e.g. A350, Boeing, B77W, or type an ICAO code"
         />
         <p className="text-xs text-muted-foreground">
-          Registration lookup and aircraft type data via adsbdb.com (PlaneBase).
+          Registration lookup and aircraft type data via adsbdb.com (PlaneBase). Aircraft photos via
+          airport-data.com.
         </p>
       </div>
 

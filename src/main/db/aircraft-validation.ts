@@ -7,7 +7,8 @@ const OPTIONAL_STRING_FIELDS = [
   'operatorIcao',
   'simbriefAirframeId',
   'simbriefType',
-  'currentIcao'
+  'currentIcao',
+  'photoThumbnailUrl'
 ] as const
 
 export type AircraftInputResult = { data: NewAircraft } | { error: string }

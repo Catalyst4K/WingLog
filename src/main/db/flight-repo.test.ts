@@ -18,6 +18,7 @@ import {
   getLogbookStats,
   listCompletedFlights,
   listFlights,
+  listFlightsByAircraft,
   recordOff,
   recordOn,
   startFlight
@@ -326,6 +327,27 @@ describe('flight repo', () => {
 
       const stats = getFleetStats(db)
       expect(stats.map((s) => s.registration)).toEqual(['G-ABCD'])
+    })
+
+    it('lists one aircraft\'s own completed flights, newest first, excluding other tails and planned flights', () => {
+      const secondAircraftId = createAircraft(db, { registration: 'G-WXYZ', icaoType: 'B738' }).id
+      createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' }) // stays planned, must be excluded
+
+      flyAndComplete(aircraftId, 'EGCC', 30, 500)
+      vi.setSystemTime(new Date('2026-09-01T14:00:00Z'))
+      flyAndComplete(secondAircraftId, 'EGKK', 90, 900) // other tail, must be excluded
+      vi.setSystemTime(new Date('2026-09-01T15:00:00Z'))
+      flyAndComplete(aircraftId, 'EGPH', 45, 700)
+
+      const flights = listFlightsByAircraft(db, aircraftId)
+      expect(flights.map((f) => f.arrIcao)).toEqual(['EGPH', 'EGCC'])
+      expect(flights.every((f) => f.aircraftId === aircraftId && f.status === 'completed')).toBe(true)
+    })
+
+    it('returns an empty list for an aircraft with no completed flights', () => {
+      const created = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' })
+      startFlight(db, created.id, 10000) // active, not completed
+      expect(listFlightsByAircraft(db, aircraftId)).toEqual([])
     })
 
     it('returns zeroed logbook stats when nothing has completed', () => {

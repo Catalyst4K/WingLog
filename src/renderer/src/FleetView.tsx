@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, ArrowRightLeft, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import type { Aircraft, AircraftLanding, FleetStats, NewAircraft } from '@shared/ipc'
+import type { Aircraft, AircraftLanding, Flight, FleetStats, NewAircraft } from '@shared/ipc'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,13 +26,27 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { AircraftForm } from './AircraftForm'
+import { AircraftPhoto } from './AircraftPhoto'
 import { AirlineLogo } from './AirlineLogo'
+import { useSortable } from './hooks/useSortable'
 import { LandingBadge } from './LandingBadge'
 import { classifyLanding } from './landing-severity'
+import { SortableHead } from './SortableHead'
+import { formatMinutes, msToFpm, msToKt } from './units'
 import { useLandingThresholds } from './useLandingThresholds'
-import { msToFpm, msToKt } from './units'
 
 type View = { kind: 'list' } | { kind: 'detail'; id: number } | { kind: 'new' } | { kind: 'edit'; id: number }
+
+type FleetSortKey = 'registration' | 'type' | 'airline' | 'location' | 'hours' | 'flights'
+
+const FLEET_SORT_COLUMNS: { key: FleetSortKey; label: string }[] = [
+  { key: 'registration', label: 'Registration' },
+  { key: 'type', label: 'Type' },
+  { key: 'airline', label: 'Airline' },
+  { key: 'location', label: 'Location' },
+  { key: 'hours', label: 'Hours' },
+  { key: 'flights', label: 'Flights' }
+]
 
 function formatDate(iso: string | null): string {
   return iso ? new Date(iso).toLocaleString() : '—'
@@ -156,6 +170,51 @@ function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
   )
 }
 
+/** An aircraft's own completed flights (docs/plans/fleet-redesign.md #2) — scrollable
+ *  rather than paginated per Callum's ask, same fixed-height/overflow-y-auto pattern as
+ *  LandingHistoryCard above so the detail page's own layout doesn't grow unbounded with
+ *  flight count (his real fleet has one aircraft with well over a hundred). Rows are
+ *  clickable, jumping to that flight's Logbook detail — the app's first cross-view
+ *  navigation, confirmed wanted rather than assumed. */
+function AircraftFlightsCard(props: { aircraftId: number; onOpenFlight: (flightId: number) => void }): React.JSX.Element {
+  const [flights, setFlights] = useState<Flight[]>([])
+
+  useEffect(() => {
+    window.flightdeck.fleetListFlights(props.aircraftId).then(setFlights)
+  }, [props.aircraftId])
+
+  return (
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle className="text-base">Flights</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {flights.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No completed flights yet.</p>
+        ) : (
+          <div className="flex max-h-64 flex-col gap-0.5 overflow-y-auto">
+            {flights.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => props.onOpenFlight(f.id)}
+                className="flex items-center justify-between gap-3 rounded-sm px-1.5 py-1 text-left text-sm hover:bg-muted"
+              >
+                <span className="text-muted-foreground">{formatDate(f.actualOutUtc)}</span>
+                <span className="text-foreground">{f.flightNumber ?? '—'}</span>
+                <span className="text-foreground">
+                  {f.depIcao} → {f.arrIcao}
+                </span>
+                <span className="font-mono tabular-nums text-muted-foreground">{formatMinutes(f.blockMinutes)}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 /** A livery/registration change on an airframe still being flown (docs/plans/
  *  aircraft-replacement.md) — picks an existing, active fleet aircraft to take over this
  *  one's flight history. The target list deliberately excludes already-retired aircraft:
@@ -257,6 +316,7 @@ function AircraftDetail(props: {
   onDelete: () => void
   onReplace: () => void
   onViewAircraft: (id: number) => void
+  onOpenFlight: (flightId: number) => void
   onBack: () => void
 }): React.JSX.Element {
   const a = props.aircraft
@@ -293,6 +353,7 @@ function AircraftDetail(props: {
               .
             </p>
           )}
+          <AircraftPhoto thumbnailUrl={a.photoThumbnailUrl} />
           <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
             <DetailField label="Airline" value={<AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />} />
             <DetailField label="Current airport" value={a.currentIcao ?? s?.lastArrIcao ?? '—'} />
@@ -301,6 +362,7 @@ function AircraftDetail(props: {
             <DetailField label="Last flight" value={formatDate(s?.lastFlightInUtc ?? null)} />
           </dl>
           <SimBriefProfileCard aircraft={a} />
+          <AircraftFlightsCard aircraftId={a.id} onOpenFlight={props.onOpenFlight} />
           <LandingHistoryCard aircraftId={a.id} />
           <div className="flex gap-2">
             <Button type="button" variant="outline" size="sm" onClick={props.onEdit}>
@@ -324,7 +386,7 @@ function AircraftDetail(props: {
   )
 }
 
-export function FleetView(): React.JSX.Element {
+export function FleetView(props: { onOpenFlightInLogbook: (flightId: number) => void }): React.JSX.Element {
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
   const [stats, setStats] = useState<FleetStats[]>([])
   const [view, setView] = useState<View>({ kind: 'list' })
@@ -333,6 +395,28 @@ export function FleetView(): React.JSX.Element {
 
   const activeAircraft = aircraft.filter((a) => a.replacedByAircraftId === null)
   const retiredAircraft = aircraft.filter((a) => a.replacedByAircraftId !== null)
+
+  function statsFor(aircraftId: number): FleetStats | undefined {
+    return stats.find((s) => s.aircraftId === aircraftId)
+  }
+
+  const fleetComparators: Record<FleetSortKey, (a: Aircraft, b: Aircraft) => number> = {
+    registration: (a, b) => a.registration.localeCompare(b.registration),
+    type: (a, b) => a.icaoType.localeCompare(b.icaoType),
+    airline: (a, b) => (a.operator ?? '').localeCompare(b.operator ?? ''),
+    location: (a, b) =>
+      (a.currentIcao ?? statsFor(a.id)?.lastArrIcao ?? '').localeCompare(
+        b.currentIcao ?? statsFor(b.id)?.lastArrIcao ?? ''
+      ),
+    hours: (a, b) => (statsFor(a.id)?.totalHours ?? 0) - (statsFor(b.id)?.totalHours ?? 0),
+    flights: (a, b) => (statsFor(a.id)?.totalCycles ?? 0) - (statsFor(b.id)?.totalCycles ?? 0)
+  }
+  const {
+    sortKey: activeSortKey,
+    sortDir: activeSortDir,
+    sortedRows: sortedActiveAircraft,
+    handleSort: handleActiveSort
+  } = useSortable<Aircraft, FleetSortKey>(activeAircraft, fleetComparators, 'registration')
 
   function reload(): Promise<void> {
     return Promise.all([window.flightdeck.aircraftList(), window.flightdeck.logbookFleetStats()]).then(
@@ -425,6 +509,7 @@ export function FleetView(): React.JSX.Element {
           onDelete={() => setDeleteTarget(existing)}
           onReplace={() => setReplaceTarget(existing)}
           onViewAircraft={(id) => setView({ kind: 'detail', id })}
+          onOpenFlight={props.onOpenFlightInLogbook}
           onBack={() => setView({ kind: 'list' })}
         />
         <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
@@ -472,16 +557,21 @@ export function FleetView(): React.JSX.Element {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Registration</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Airline</TableHead>
-              <TableHead>Hours</TableHead>
-              <TableHead>Flights</TableHead>
+              {FLEET_SORT_COLUMNS.map((col) => (
+                <SortableHead
+                  key={col.key}
+                  sortKey={col.key}
+                  label={col.label}
+                  activeKey={activeSortKey}
+                  dir={activeSortDir}
+                  onSort={handleActiveSort}
+                />
+              ))}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {activeAircraft.map((a) => {
-              const s = stats.find((stat) => stat.aircraftId === a.id)
+            {sortedActiveAircraft.map((a) => {
+              const s = statsFor(a.id)
               return (
                 <TableRow
                   key={a.id}
@@ -493,6 +583,7 @@ export function FleetView(): React.JSX.Element {
                   <TableCell>
                     <AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />
                   </TableCell>
+                  <TableCell>{a.currentIcao ?? s?.lastArrIcao ?? '—'}</TableCell>
                   <TableCell>{s ? s.totalHours.toFixed(1) : '0.0'}</TableCell>
                   <TableCell>{s?.totalCycles ?? 0}</TableCell>
                 </TableRow>

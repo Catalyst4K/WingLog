@@ -35,6 +35,10 @@ export interface Aircraft {
    *  selectable; anywhere an aircraft is picked (Dispatch's aircraft select, "new flight"
    *  flows) should filter these out — a retired aircraft has no flights of its own left. */
   replacedByAircraftId: number | null
+  /** Real-world livery photo thumbnail from adsbdb's registration lookup — see
+   *  schema.ts's photoThumbnailUrl comment. Null for a fictional/GA registration adsbdb
+   *  has no photo for, or one never looked up. */
+  photoThumbnailUrl: string | null
 }
 
 export interface NewAircraft {
@@ -46,6 +50,7 @@ export interface NewAircraft {
   simbriefAirframeId?: string | null
   simbriefType?: string | null
   currentIcao?: string | null
+  photoThumbnailUrl?: string | null
 }
 
 export interface AircraftUpdate extends NewAircraft {
@@ -71,6 +76,10 @@ export interface AircraftLookupResult {
    *  matching adsbdb's free-text operator name against it. Null if adsbdb didn't have
    *  one for this aircraft. */
   operatorIcao: string | null
+  /** adsbdb's `url_photo_thumbnail` — see Aircraft.photoThumbnailUrl. Deliberately not
+   *  `url_photo` (full-size): confirmed live it 404s consistently, see docs/decisions.md,
+   *  2026-09-07. Null if adsbdb had no photo for this registration. */
+  photoThumbnailUrl: string | null
 }
 
 /** One match from the vendored OurAirports name/ICAO search — see resources/airports.csv. */
@@ -572,6 +581,7 @@ export const IpcChannels = {
   logbookOpenOfpPdf: 'logbook:open-ofp-pdf',
   logbookGetLanding: 'logbook:get-landing',
   fleetListLandings: 'fleet:list-landings',
+  fleetListFlights: 'fleet:list-flights',
   settingsGetLandingThresholds: 'settings:get-landing-thresholds',
   settingsSetLandingThresholds: 'settings:set-landing-thresholds',
   aircraftLookupByRegistration: 'aircraft:lookup-by-registration',
@@ -715,6 +725,10 @@ export interface FlightdeckApi {
   logbookGetLanding: (flightId: number) => Promise<Landing | null>
   /** An aircraft's full landing history, newest first — Fleet's per-tail detail page. */
   fleetListLandings: (aircraftId: number) => Promise<AircraftLanding[]>
+  /** An aircraft's completed flights, newest first — Fleet's per-tail detail page. Queried
+   *  directly rather than filtering flightList() client-side, since that list is already
+   *  hundreds of rows on a well-used fleet. */
+  fleetListFlights: (aircraftId: number) => Promise<Flight[]>
   settingsGetLandingThresholds: () => Promise<LandingThresholds>
   settingsSetLandingThresholds: (thresholds: LandingThresholds) => Promise<void>
   /** Looks up an aircraft by registration via adsbdb.com. Null if not found (not an error). */
