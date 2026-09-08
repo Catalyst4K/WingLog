@@ -56,6 +56,30 @@ function metersPerDegLon(atLatDeg: number): number {
   return METERS_PER_DEG_LAT * Math.cos(toRadians(atLatDeg))
 }
 
+/**
+ * Moves a point `distanceM` along `bearingDeg`, using the same flat-earth approximation as
+ * positionRelativeToRunway (accurate at runway/airport scale, not intended for anything
+ * longer-range) — its inverse: given a centre point and a bearing, find an end point,
+ * rather than given two points, find the along/cross-track distance. Used by
+ * src/main/navdata/runway-geometry.ts to derive a runway end's threshold from the
+ * SimConnect RUNWAY record's centre point (docs/navdata-notes.md: confirmed live that
+ * RUNWAY.LATITUDE/LONGITUDE is the strip's centre, not a threshold).
+ */
+export function destinationPoint(
+  lat: number,
+  lon: number,
+  bearingDeg: number,
+  distanceM: number
+): { lat: number; lon: number } {
+  const bearingRad = toRadians(bearingDeg)
+  const northM = distanceM * Math.cos(bearingRad)
+  const eastM = distanceM * Math.sin(bearingRad)
+  return {
+    lat: lat + northM / METERS_PER_DEG_LAT,
+    lon: lon + eastM / metersPerDegLon(lat)
+  }
+}
+
 export interface RunwayRelativePosition {
   /** Along the runway centreline from the threshold, in the direction of travel. */
   distanceFromThresholdM: number

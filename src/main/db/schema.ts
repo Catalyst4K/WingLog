@@ -258,3 +258,64 @@ export const landing = sqliteTable('landing', {
   // aircraft.deletedAt's comment for why. No standalone delete path exists for this table.
   deletedAt: text('deleted_at')
 })
+
+// Cached navdata for one airport, from src/main/navdata/'s NavdataProvider (Phase 3,
+// flightdeck-backend's docs/plans/navdata-without-navigraph.md) — SimConnect Facilities is
+// the only provider today, so there's no AIRAC package/subscription state to track; each
+// table is simply replaced wholesale for an ICAO whenever navdata-repo.ts's
+// replaceAirportNavdata re-fetches it. `source` stays a column (not hardcoded) so a future
+// second provider (e.g. Navigraph, if credentials ever arrive) is a new value here, not a
+// schema change. Never synced (no uuid/updatedAt) — purely a local cache of what the sim
+// itself already has, cheap to lose and re-fetch.
+export const navdataRunway = sqliteTable('navdata_runway', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  icao: text('icao').notNull(),
+  ident: text('ident').notNull(),
+  headingTrueDeg: real('heading_true_deg').notNull(),
+  lengthM: real('length_m').notNull(),
+  widthM: real('width_m').notNull(),
+  // Raw SimConnect surface-type integer, not yet mapped to a name — see facility-fields.ts.
+  surface: integer('surface').notNull(),
+  // This end's own threshold, derived from the RUNWAY record's centre ± length/2 along
+  // heading (navdata-notes.md: RUNWAY.LATITUDE/LONGITUDE is the strip's centre, confirmed
+  // live, not a threshold) — not the centre point itself.
+  thresholdLat: real('threshold_lat').notNull(),
+  thresholdLon: real('threshold_lon').notNull(),
+  source: text('source', { enum: ['sim-facility'] }).notNull(),
+  fetchedAt: text('fetched_at').notNull()
+})
+
+export const navdataProcedure = sqliteTable('navdata_procedure', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  icao: text('icao').notNull(),
+  kind: text('kind', { enum: ['sid', 'star'] }).notNull(),
+  identifier: text('identifier').notNull(),
+  transition: text('transition'),
+  // JSON array of runway idents this procedure's RUNWAY_TRANSITION list names, e.g.
+  // '["07L","07R"]' — null means no runway transitions were registered for it (applies to
+  // any runway), not "applies to none".
+  runwayIdentsJson: text('runway_idents_json'),
+  source: text('source', { enum: ['sim-facility'] }).notNull(),
+  fetchedAt: text('fetched_at').notNull()
+})
+
+// One row per leg of a procedure's own common leg list — see facility-fields.ts's module
+// doc comment for why transition-specific legs aren't cached here yet (unconfirmed whether
+// MSFS's facility API supports fetching them nested inside a transition record at all).
+export const navdataProcedureLeg = sqliteTable('navdata_procedure_leg', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  procedureId: integer('procedure_id')
+    .notNull()
+    .references(() => navdataProcedure.id),
+  seq: integer('seq').notNull(),
+  type: integer('type').notNull(),
+  fixIdent: text('fix_ident'),
+  fixType: text('fix_type'),
+  fixLatitude: real('fix_latitude').notNull(),
+  fixLongitude: real('fix_longitude').notNull(),
+  turnDirection: integer('turn_direction').notNull(),
+  courseDeg: real('course_deg').notNull(),
+  altitude1: real('altitude1').notNull(),
+  altitude2: real('altitude2').notNull(),
+  speedLimit: real('speed_limit').notNull()
+})

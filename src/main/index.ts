@@ -11,6 +11,7 @@ import {
   type DispatchOpenSimBriefParams,
   type GsxSettings,
   type LandingThresholds,
+  type NavdataProcedureKind,
   type NewFlight,
   type Theme,
   type WeightUnit
@@ -83,6 +84,8 @@ import {
   logoutOfSimbrief
 } from './simbrief/simbrief-generate'
 import { SimConnectService } from './sim/SimConnectService'
+import type { NavdataProvider } from './navdata/navdata-provider'
+import { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
 import { TrackingController } from './tracking/TrackingController'
 import { AutoStartDetector } from './tracking/AutoStartDetector'
 import { CloudSyncController } from './sync/cloud-sync-controller'
@@ -536,6 +539,27 @@ app.whenReady().then(() => {
 
   ipcMain.handle(IpcChannels.appGetVersion, () => app.getVersion())
   ipcMain.handle(IpcChannels.appOpenGithub, () => shell.openExternal('https://github.com/Catalyst4K/WingLog'))
+
+  // Navdata (Phase 3, flightdeck-backend's docs/plans/navdata-without-navigraph.md) — its
+  // own short-lived SimConnect connection per refresh, deliberately separate from
+  // simConnectService's live tracking connection (docs/navdata-notes.md's isolation
+  // finding). refreshAirport is the only channel that touches the sim; the rest are cache
+  // reads, so a Dispatch dropdown never blocks on a live SimConnect round-trip.
+  const navdataProvider: NavdataProvider = new SimFacilitiesProvider(db)
+  ipcMain.handle(IpcChannels.navdataRefreshAirport, (_event, icao: string) => navdataProvider.refreshAirport(icao))
+  ipcMain.handle(IpcChannels.navdataHasAirport, (_event, icao: string) => navdataProvider.hasAirport(icao))
+  ipcMain.handle(IpcChannels.navdataListRunways, (_event, icao: string) => navdataProvider.listRunways(icao))
+  ipcMain.handle(IpcChannels.navdataListSids, (_event, icao: string, runway?: string | null) =>
+    navdataProvider.listSids(icao, runway)
+  )
+  ipcMain.handle(IpcChannels.navdataListStars, (_event, icao: string, runway?: string | null) =>
+    navdataProvider.listStars(icao, runway)
+  )
+  ipcMain.handle(
+    IpcChannels.navdataGetProcedureWaypoints,
+    (_event, icao: string, kind: NavdataProcedureKind, identifier: string, transition?: string | null) =>
+      navdataProvider.getProcedureWaypoints(icao, kind, identifier, transition)
+  )
 
   // CI packaging check (see .github/workflows/package.yml): proves the built
   // binary launches, migrates the DB and renders a first frame, then exits
