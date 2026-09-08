@@ -128,3 +128,41 @@
     @apply font-sans;
   }
 }
+
+/*
+ * MapLibre GL JS ships its own control chrome (zoom buttons, attribution bar) via
+ * maplibre-gl.css, styled once for a light host page — not by the vector style JSON
+ * FlightMap.tsx now picks per theme, so switching to the dark map style left this chrome
+ * still a stark white box on top of it (docs/plans/settings-ui-page.md, confirmed live).
+ * Real selectors and default colors read directly from node_modules/maplibre-gl/dist/
+ * maplibre-gl.css, not guessed — `.maplibregl-ctrl-group{background:#fff}` and the
+ * *compound* selector `.maplibregl-ctrl.maplibregl-ctrl-attrib{background-color:hsla(0,
+ * 0%,100%,.5)}`. That second one matters: matching only `.maplibregl-ctrl-attrib` gives
+ * the same specificity as MapLibre's own two-class rule, and its CSS (imported inside
+ * FlightMap.tsx) loads after this file in the bundle, so an equal-specificity override
+ * here silently lost the cascade tie until this was confirmed live and the selector
+ * corrected to match compound-for-compound. The button icons are inline-SVG
+ * background-images with a baked-in fill color rather than `currentColor`, so
+ * `filter: invert()` is what actually flips them — a plain color override would do
+ * nothing there either.
+ */
+.dark .maplibregl-ctrl-group {
+  background: var(--popover);
+}
+.dark .maplibregl-ctrl-group button:not(:disabled):hover {
+  background-color: var(--muted);
+}
+.dark .maplibregl-ctrl-icon {
+  filter: invert(1) brightness(1.7);
+}
+.dark .maplibregl-ctrl.maplibregl-ctrl-attrib {
+  background-color: var(--popover);
+  color: var(--muted-foreground);
+}
+.dark .maplibregl-ctrl-attrib a {
+  color: var(--foreground);
+}
+.dark .maplibregl-ctrl-attrib-button {
+  filter: invert(1);
+  background-color: var(--muted);
+}

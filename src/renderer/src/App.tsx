@@ -7,6 +7,7 @@ import type {
   DispatchOfp,
   SimConnectionStatus,
   SimTelemetry,
+  Theme,
   WeightUnit,
   WindSpeedUnit
 } from '@shared/ipc'
@@ -78,6 +79,7 @@ export default function App(): React.JSX.Element {
   const [weightUnit, setWeightUnit] = useState<WeightUnit>('lb')
   const [altitudeUnit, setAltitudeUnit] = useState<AltitudeUnit>('ft')
   const [windSpeedUnit, setWindSpeedUnit] = useState<WindSpeedUnit>('kt')
+  const [theme, setTheme] = useState<Theme>('system')
   const [simStatus, setSimStatus] = useState<SimConnectionStatus>({ state: 'disconnected' })
   const [telemetry, setTelemetry] = useState<SimTelemetry | null>(null)
   // Lifted out of DispatchView (rather than local state there) for two reasons: Track
@@ -163,7 +165,29 @@ export default function App(): React.JSX.Element {
     window.winglog.settingsGetWeightUnit().then(setWeightUnit)
     window.winglog.settingsGetAltitudeUnit().then(setAltitudeUnit)
     window.winglog.settingsGetWindSpeedUnit().then(setWindSpeedUnit)
+    window.winglog.settingsGetTheme().then(setTheme)
   }, [])
+
+  // Applies the resolved theme by toggling the `dark` class index.css's tokens key off
+  // (docs/plans/settings-ui-page.md) — both palettes already existed as dead CSS before
+  // this, nothing ever added the class. 'system' resolves via prefers-color-scheme and
+  // keeps listening, so the app follows an OS appearance change made while it's open.
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    function applyResolvedTheme(): void {
+      const dark = theme === 'dark' || (theme === 'system' && media.matches)
+      document.documentElement.classList.toggle('dark', dark)
+    }
+    applyResolvedTheme()
+    if (theme !== 'system') return
+    media.addEventListener('change', applyResolvedTheme)
+    return () => media.removeEventListener('change', applyResolvedTheme)
+  }, [theme])
+
+  async function handleThemeChange(next: Theme): Promise<void> {
+    setTheme(next)
+    await window.winglog.settingsSetTheme(next)
+  }
 
   useEffect(() => {
     // A no-op (returns null) on every launch after the app's actual first-ever one —
@@ -289,6 +313,8 @@ export default function App(): React.JSX.Element {
                 onAltitudeUnitChange={handleAltitudeUnitChange}
                 windSpeedUnit={windSpeedUnit}
                 onWindSpeedUnitChange={handleWindSpeedUnitChange}
+                theme={theme}
+                onThemeChange={handleThemeChange}
                 resetSignal={settingsResetSignal}
               />
             )}

@@ -7,6 +7,7 @@ import type {
   LandingThresholds,
   LogbookImportSummary,
   SyncStatus,
+  Theme,
   WeightUnit,
   WindSpeedUnit
 } from '@shared/ipc'
@@ -20,8 +21,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useResetSignal } from './hooks/useResetSignal'
 import { NavigraphLogo } from './NavigraphLogo'
 
-type SettingsCategory = 'units' | 'tracking' | 'thirdParty' | 'data'
-const DEFAULT_SETTINGS_CATEGORY: SettingsCategory = 'units'
+type SettingsCategory = 'ui' | 'tracking' | 'thirdParty' | 'data'
+const DEFAULT_SETTINGS_CATEGORY: SettingsCategory = 'ui'
 
 // A curated, common-currency subset of what frankfurter.dev supports — enough for
 // "I want to see this in my own currency" without a second fetch just to populate a
@@ -36,6 +37,38 @@ const DISPLAY_CURRENCY_OPTIONS = [
   { code: 'JPY', label: 'JPY — Japanese Yen' },
   { code: 'CHF', label: 'CHF — Swiss Franc' }
 ]
+
+/** Label above an equal-width button group, one row of the UI page's Units/Theme cards
+ *  (docs/plans/settings-ui-page.md) — replaces the old label-beside-buttons rows, whose
+ *  button groups started at three different x positions depending on label length. Every
+ *  button gets the same min-width so a two-option row and a three-option row read as the
+ *  same kind of control. */
+function SegmentedRow<T extends string>(props: {
+  label: string
+  value: T
+  options: readonly { value: T; label: string }[]
+  onChange: (value: T) => void
+}): React.JSX.Element {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-sm text-muted-foreground">{props.label}</span>
+      <div className="flex gap-1.5">
+        {props.options.map((opt) => (
+          <Button
+            key={opt.value}
+            type="button"
+            size="sm"
+            variant={props.value === opt.value ? 'default' : 'outline'}
+            className="min-w-[4.5rem]"
+            onClick={() => props.onChange(opt.value)}
+          >
+            {opt.label}
+          </Button>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 function summarizeAircraftImport(summary: AircraftImportSummary): string {
   if (summary.skipped.length === 0) return `Imported ${summary.imported} aircraft.`
@@ -61,6 +94,8 @@ export function SettingsView(props: {
   onAltitudeUnitChange: (unit: AltitudeUnit) => void
   windSpeedUnit: WindSpeedUnit
   onWindSpeedUnitChange: (unit: WindSpeedUnit) => void
+  theme: Theme
+  onThemeChange: (theme: Theme) => void
   /** Bumped by App.tsx when the Settings tab is clicked while already active — returns to
    *  the first category (docs/plans/navigation-tab-behaviour.md). See useResetSignal. */
   resetSignal?: number
@@ -249,86 +284,77 @@ export function SettingsView(props: {
         className="items-start gap-6"
       >
         <TabsList variant="line" className="w-40 shrink-0">
-          <TabsTrigger value="units">Units</TabsTrigger>
+          <TabsTrigger value="ui">UI</TabsTrigger>
           <TabsTrigger value="tracking">Tracking</TabsTrigger>
           <TabsTrigger value="thirdParty">3rd party</TabsTrigger>
           <TabsTrigger value="data">Data</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="units" className="min-w-0">
+        <TabsContent value="ui" className="flex min-w-0 flex-col gap-4">
           <Card className="max-w-2xl">
             <CardHeader>
               <CardTitle>Units</CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-muted-foreground">Weights:</span>
-                <div className="flex gap-1.5">
-                  {(['kg', 'lb'] as const).map((unit) => (
-                    <Button
-                      key={unit}
-                      type="button"
-                      size="sm"
-                      variant={props.weightUnit === unit ? 'default' : 'outline'}
-                      onClick={() => props.onWeightUnitChange(unit)}
-                    >
-                      {unit}
-                    </Button>
-                  ))}
-                </div>
+            <CardContent className="flex flex-col gap-4">
+              <SegmentedRow
+                label="Weights"
+                value={props.weightUnit}
+                options={[
+                  { value: 'kg', label: 'kg' },
+                  { value: 'lb', label: 'lb' }
+                ]}
+                onChange={props.onWeightUnitChange}
+              />
+              <div className="flex flex-col gap-1.5">
+                <SegmentedRow
+                  label="OFP altitudes"
+                  value={props.altitudeUnit}
+                  options={[
+                    { value: 'ft', label: 'Feet' },
+                    { value: 'm', label: 'Meters' },
+                    { value: 'hybrid', label: 'Hybrid' }
+                  ]}
+                  onChange={props.onAltitudeUnitChange}
+                />
+                <p className="text-xs text-muted-foreground">
+                  "Hybrid" shows each step climb in whichever unit it was actually planned in — feet for a
+                  standard level, meters for a route crossing into airspace (e.g. China) that assigns levels
+                  in meters — rather than converting everything to one unit.
+                </p>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-muted-foreground">OFP altitudes:</span>
-                <div className="flex gap-1.5">
-                  {(
-                    [
-                      { unit: 'ft', label: 'Feet' },
-                      { unit: 'm', label: 'Meters' },
-                      { unit: 'hybrid', label: 'Hybrid' }
-                    ] as const
-                  ).map(({ unit, label }) => (
-                    <Button
-                      key={unit}
-                      type="button"
-                      size="sm"
-                      variant={props.altitudeUnit === unit ? 'default' : 'outline'}
-                      onClick={() => props.onAltitudeUnitChange(unit)}
-                    >
-                      {label}
-                    </Button>
-                  ))}
-                </div>
+              <div className="flex flex-col gap-1.5">
+                <SegmentedRow
+                  label="METAR wind speed"
+                  value={props.windSpeedUnit}
+                  options={[
+                    { value: 'kt', label: 'Knots' },
+                    { value: 'mps', label: 'm/s' }
+                  ]}
+                  onChange={props.onWindSpeedUnitChange}
+                />
+                <p className="text-xs text-muted-foreground">
+                  The raw METAR text on Dispatch always stays as reported — this only controls a separate
+                  formatted wind line shown alongside it.
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                "Hybrid" shows each step climb in whichever unit it was actually planned in — feet for a
-                standard level, meters for a route crossing into airspace (e.g. China) that assigns levels in
-                meters — rather than converting everything to one unit.
-              </p>
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-muted-foreground">METAR wind speed:</span>
-                <div className="flex gap-1.5">
-                  {(
-                    [
-                      { unit: 'kt', label: 'Knots' },
-                      { unit: 'mps', label: 'm/s' }
-                    ] as const
-                  ).map(({ unit, label }) => (
-                    <Button
-                      key={unit}
-                      type="button"
-                      size="sm"
-                      variant={props.windSpeedUnit === unit ? 'default' : 'outline'}
-                      onClick={() => props.onWindSpeedUnitChange(unit)}
-                    >
-                      {label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                The raw METAR text on Dispatch always stays as reported — this only controls a separate
-                formatted wind line shown alongside it.
-              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="max-w-2xl">
+            <CardHeader>
+              <CardTitle>Theme</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SegmentedRow
+                label="Appearance"
+                value={props.theme}
+                options={[
+                  { value: 'light', label: 'Light' },
+                  { value: 'dark', label: 'Dark' },
+                  { value: 'system', label: 'System' }
+                ]}
+                onChange={props.onThemeChange}
+              />
             </CardContent>
           </Card>
         </TabsContent>

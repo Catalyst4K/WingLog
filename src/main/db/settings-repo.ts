@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import type { AltitudeUnit, GsxSettings, LandingThresholds, WeightUnit, WindSpeedUnit } from '@shared/ipc'
+import type { AltitudeUnit, GsxSettings, LandingThresholds, Theme, WeightUnit, WindSpeedUnit } from '@shared/ipc'
 import { appSetting } from './schema'
 import type { WingLogDb } from './client'
 
@@ -7,6 +7,7 @@ const SIMBRIEF_USERNAME_KEY = 'simbriefUsername'
 const WEIGHT_UNIT_KEY = 'weightUnit'
 const ALTITUDE_UNIT_KEY = 'altitudeUnit'
 const WIND_SPEED_UNIT_KEY = 'windSpeedUnit'
+const THEME_KEY = 'theme'
 const GSX_ENABLED_KEY = 'gsxEnabled'
 const GSX_FOLDER_PATH_KEY = 'gsxFolderPath'
 const GSX_DISPLAY_CURRENCY_KEY = 'gsxDisplayCurrency'
@@ -64,6 +65,15 @@ export function getWindSpeedUnit(db: WingLogDb): WindSpeedUnit {
 
 export function setWindSpeedUnit(db: WingLogDb, unit: WindSpeedUnit): void {
   setSetting(db, WIND_SPEED_UNIT_KEY, unit)
+}
+
+export function getTheme(db: WingLogDb): Theme {
+  const value = getSetting(db, THEME_KEY)
+  return value === 'light' || value === 'dark' ? value : 'system'
+}
+
+export function setTheme(db: WingLogDb, theme: Theme): void {
+  setSetting(db, THEME_KEY, theme)
 }
 
 /** Default off, empty path (docs/decisions.md, gsx-invoices entry) — someone without GSX

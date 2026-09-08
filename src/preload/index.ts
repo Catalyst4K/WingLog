@@ -11,6 +11,7 @@ import {
   type NewFlight,
   type SimConnectionStatus,
   type SimTelemetry,
+  type Theme,
   type TrackPoint,
   type WeightUnit,
   type WindSpeedUnit
@@ -64,6 +65,8 @@ const api: WingLogApi = {
   settingsGetWindSpeedUnit: () => ipcRenderer.invoke(IpcChannels.settingsGetWindSpeedUnit),
   settingsSetWindSpeedUnit: (unit: WindSpeedUnit) =>
     ipcRenderer.invoke(IpcChannels.settingsSetWindSpeedUnit, unit),
+  settingsGetTheme: () => ipcRenderer.invoke(IpcChannels.settingsGetTheme),
+  settingsSetTheme: (theme: Theme) => ipcRenderer.invoke(IpcChannels.settingsSetTheme, theme),
   trackingStart: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingStart, flightId),
   trackingStop: () => ipcRenderer.invoke(IpcChannels.trackingStop),
   trackingFinish: () => ipcRenderer.invoke(IpcChannels.trackingFinish),

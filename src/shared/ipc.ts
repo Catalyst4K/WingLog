@@ -486,6 +486,14 @@ export interface DispatchOfp {
 export type WeightUnit = 'kg' | 'lb'
 
 /**
+ * Settings' UI page theme (docs/plans/settings-ui-page.md) — 'system' resolves via
+ * `window.matchMedia('(prefers-color-scheme: dark)')` and keeps listening, so a user on
+ * 'system' sees the app follow an OS appearance change made while it's open. Defaults to
+ * 'system' if never set.
+ */
+export type Theme = 'light' | 'dark' | 'system'
+
+/**
  * Display unit for OFP-derived altitudes (Dispatch's cruise altitude and step climbs).
  * A step climb point is sometimes a metric flight level rather than a standard one (e.g.
  * crossing Chinese airspace) — see parseStepClimbs in simbrief-client.ts for how that's
@@ -594,6 +602,8 @@ export const IpcChannels = {
   settingsSetAltitudeUnit: 'settings:set-altitude-unit',
   settingsGetWindSpeedUnit: 'settings:get-wind-speed-unit',
   settingsSetWindSpeedUnit: 'settings:set-wind-speed-unit',
+  settingsGetTheme: 'settings:get-theme',
+  settingsSetTheme: 'settings:set-theme',
   trackingStart: 'tracking:start',
   trackingStop: 'tracking:stop',
   trackingFinish: 'tracking:finish',
@@ -723,6 +733,8 @@ export interface WingLogApi {
   settingsSetAltitudeUnit: (unit: AltitudeUnit) => Promise<void>
   settingsGetWindSpeedUnit: () => Promise<WindSpeedUnit>
   settingsSetWindSpeedUnit: (unit: WindSpeedUnit) => Promise<void>
+  settingsGetTheme: () => Promise<Theme>
+  settingsSetTheme: (theme: Theme) => Promise<void>
   /** Begins tracking a planned flight. Throws if the sim isn't connected or another flight is already tracked. */
   trackingStart: (flightId: number) => Promise<void>
   /** Cancels tracking mid-flight; marks the flight 'abandoned' rather than 'completed'. */
