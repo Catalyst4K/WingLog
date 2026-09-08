@@ -523,6 +523,9 @@ app.whenReady().then(() => {
   ipcMain.handle(IpcChannels.syncNow, () => cloudSync.syncNow())
   ipcMain.handle(IpcChannels.syncStatus, () => cloudSync.getStatus())
 
+  ipcMain.handle(IpcChannels.appGetVersion, () => app.getVersion())
+  ipcMain.handle(IpcChannels.appOpenGithub, () => shell.openExternal('https://github.com/Catalyst4K/WingLog'))
+
   // CI packaging check (see .github/workflows/package.yml): proves the built
   // binary launches, migrates the DB and renders a first frame, then exits
   // clean — without needing a person at the keyboard on every platform.
