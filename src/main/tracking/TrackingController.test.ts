@@ -231,4 +231,91 @@ describe('TrackingController', () => {
     expect(() => controller.finish()).not.toThrow()
     expect(getFlight(db, flightId)?.status).toBe('planned')
   })
+
+  // Phase 5 (docs/plans/navdata-without-navigraph.md) — the renderer pushes live selection
+  // updates that neither completion trigger below (finish() or shutdown detection) can ask
+  // for directly, since neither round-trips through the renderer.
+  describe('procedure selection persistence', () => {
+    const selection = {
+      departureRunway: '27R',
+      sidIdent: 'BPK7F',
+      sidTransition: 'CLEEE',
+      starIdent: 'SIER7B',
+      starTransition: null,
+      approachIdent: 'ILS 07C',
+      approachTransition: 'LIMES'
+    }
+
+    it('writes the last-pushed selection into the flight row on finish()', () => {
+      sim.setLastTelemetry(telemetry({}))
+      const controller = new TrackingController(db, sim)
+      controller.start(flightId)
+      controller.setProcedureSelection(selection)
+      controller.finish()
+
+      const finished = getFlight(db, flightId)
+      expect(finished?.selectedDepartureRunway).toBe('27R')
+      expect(finished?.selectedSidIdent).toBe('BPK7F')
+      expect(finished?.selectedSidTransition).toBe('CLEEE')
+      expect(finished?.selectedStarIdent).toBe('SIER7B')
+      expect(finished?.selectedStarTransition).toBeNull()
+      expect(finished?.selectedApproachIdent).toBe('ILS 07C')
+      expect(finished?.selectedApproachTransition).toBe('LIMES')
+    })
+
+    it('writes the last-pushed selection at shutdown-detected completion too', () => {
+      sim.setLastTelemetry(telemetry({}))
+      const controller = new TrackingController(db, sim)
+      controller.start(flightId)
+      controller.setProcedureSelection(selection)
+
+      sim.emit('telemetry', telemetry({ engineCombustion1: true }))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 5 }))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 40 }))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 }))
+      for (let i = 0; i < 12; i++) {
+        sim.emit('telemetry', telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 230, verticalSpeedMs: 0.1 }))
+      }
+      for (let i = 0; i < 7; i++) {
+        sim.emit('telemetry', telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 200, verticalSpeedMs: -3 }))
+      }
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 65, verticalSpeedMs: -1.5 }))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 10 }))
+      sim.emit('telemetry', telemetry({ engineCombustion1: false, onGround: true, groundSpeedMs: 0, parkingBrakeOn: true }))
+
+      expect(getFlight(db, flightId)?.selectedApproachIdent).toBe('ILS 07C')
+    })
+
+    it('leaves whatever createFlight already wrote alone when nothing was ever pushed', () => {
+      const aircraftId = createAircraft(db, { registration: 'G-EFGH', icaoType: 'A320' }).id
+      const plannedFlightId = createFlight(db, {
+        aircraftId,
+        depIcao: 'EGLL',
+        arrIcao: 'VHHH',
+        selectedSidIdent: 'PLANNED_SID'
+      }).id
+      sim.setLastTelemetry(telemetry({}))
+      const controller = new TrackingController(db, sim)
+      controller.start(plannedFlightId)
+      controller.finish()
+
+      expect(getFlight(db, plannedFlightId)?.selectedSidIdent).toBe('PLANNED_SID')
+    })
+
+    it('never leaks a selection pushed for one flight onto the next one tracked', () => {
+      const aircraftId = createAircraft(db, { registration: 'G-EFGH', icaoType: 'A320' }).id
+      const secondFlightId = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' }).id
+
+      sim.setLastTelemetry(telemetry({}))
+      const controller = new TrackingController(db, sim)
+      controller.start(flightId)
+      controller.setProcedureSelection(selection)
+      controller.stop()
+
+      controller.start(secondFlightId)
+      controller.finish()
+
+      expect(getFlight(db, secondFlightId)?.selectedApproachIdent).toBeNull()
+    })
+  })
 })

@@ -24,7 +24,8 @@ import { useResetSignal } from './hooks/useResetSignal'
 import { useSortable } from './hooks/useSortable'
 import { LandingBadge } from './LandingBadge'
 import { classifyLanding } from './landing-severity'
-import { parseRouteFromOfpJson, parseWaypointsFromOfpJson, type Waypoint } from './route'
+import { selectionFromFlight, useLiveWaypoints } from './procedureSelection'
+import type { Waypoint } from './route'
 import { SortableHead } from './SortableHead'
 import { formatMinutes, formatWeight, mToFt, msToFpm, msToKt } from './units'
 import { useLandingThresholds } from './useLandingThresholds'
@@ -172,8 +173,12 @@ function FlightDetail(props: {
     window.winglog.trackPointList(flight.id).then(setTrackPoints)
   }, [flight.id])
 
-  const route = useMemo(() => parseRouteFromOfpJson(flight.ofpJson), [flight.ofpJson])
-  const waypoints = useMemo(() => parseWaypointsFromOfpJson(flight.ofpJson), [flight.ofpJson])
+  // The persisted selection (Track's live edits at flight completion) if this flight ever
+  // had one, else all-null — which reduces to exactly the old OFP-only rendering (Phase 5,
+  // docs/plans/navdata-without-navigraph.md). Shows what was actually flown, not just what
+  // SimBrief originally planned.
+  const waypoints = useLiveWaypoints(flight, selectionFromFlight(flight))
+  const route: [number, number][] = useMemo(() => waypoints.map((w) => [w.lon, w.lat]), [waypoints])
 
   // Fallback for a flight with no OFP-derived route (any CSV-imported historical flight,
   // or one started directly from Track — docs/plans/great-circle-fallback-route.md): fetch

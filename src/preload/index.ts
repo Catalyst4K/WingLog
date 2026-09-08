@@ -10,6 +10,7 @@ import {
   type NavdataProcedureKind,
   type NewAircraft,
   type NewFlight,
+  type ProcedureSelection,
   type SimConnectionStatus,
   type SimTelemetry,
   type Theme,
@@ -135,7 +136,9 @@ const api: WingLogApi = {
     identifier: string,
     runway?: string | null,
     transition?: string | null
-  ) => ipcRenderer.invoke(IpcChannels.navdataGetProcedureWaypoints, icao, kind, identifier, runway, transition)
+  ) => ipcRenderer.invoke(IpcChannels.navdataGetProcedureWaypoints, icao, kind, identifier, runway, transition),
+  trackingSetProcedureSelection: (selection: ProcedureSelection) =>
+    ipcRenderer.invoke(IpcChannels.trackingSetProcedureSelection, selection)
 }
 
 contextBridge.exposeInMainWorld('winglog', api)

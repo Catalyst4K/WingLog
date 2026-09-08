@@ -13,6 +13,7 @@ import {
   type LandingThresholds,
   type NavdataProcedureKind,
   type NewFlight,
+  type ProcedureSelection,
   type Theme,
   type WeightUnit
 } from '@shared/ipc'
@@ -392,6 +393,9 @@ app.whenReady().then(() => {
   ipcMain.handle(IpcChannels.trackingStop, () => trackingController.stop())
   ipcMain.handle(IpcChannels.trackingFinish, () => trackingController.finish())
   ipcMain.handle(IpcChannels.trackingGetActive, () => trackingController.getActive() ?? null)
+  ipcMain.handle(IpcChannels.trackingSetProcedureSelection, (_event, selection: ProcedureSelection) =>
+    trackingController.setProcedureSelection(selection)
+  )
   // Simplified for both callers (Logbook review and TrackView's resume-an-in-progress-
   // flight catch-up load) — storage itself stays full resolution regardless, this only
   // shapes what crosses IPC and gets rendered. Live tracking's own point-by-point stream

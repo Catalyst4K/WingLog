@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { and, desc, eq, isNull } from 'drizzle-orm'
-import type { Flight, FleetStats, LogbookStats, NewFlight } from '@shared/ipc'
+import type { Flight, FleetStats, LogbookStats, NewFlight, ProcedureSelection } from '@shared/ipc'
 import { greatCircleDistanceNm } from '../airports/airport-search'
 import { aircraft, flight, flightInvoice, landing, trackPoint } from './schema'
 import type { WingLogDb } from './client'
@@ -36,7 +36,14 @@ function toFlight(row: typeof flight.$inferSelect): Flight {
     ofpId: row.ofpId,
     ofpJson: row.ofpJson,
     simVersion: row.simVersion,
-    createdAt: row.createdAt
+    createdAt: row.createdAt,
+    selectedDepartureRunway: row.selectedDepartureRunway,
+    selectedSidIdent: row.selectedSidIdent,
+    selectedSidTransition: row.selectedSidTransition,
+    selectedStarIdent: row.selectedStarIdent,
+    selectedStarTransition: row.selectedStarTransition,
+    selectedApproachIdent: row.selectedApproachIdent,
+    selectedApproachTransition: row.selectedApproachTransition
   }
 }
 
@@ -268,6 +275,26 @@ export function abandonAllPlanned(db: WingLogDb): void {
 export function setFlownRoute(db: WingLogDb, id: number, flownRouteJson: string): void {
   db.update(flight)
     .set({ flownRouteJson, updatedAt: new Date().toISOString() })
+    .where(eq(flight.id, id))
+    .run()
+}
+
+/** Writes the live-selected procedures at flight completion (TrackingController), the
+ *  later of the two writes ProcedureSelection's doc comment describes — overwrites
+ *  whatever createFlight wrote at save time, since the pilot may have changed things
+ *  mid-flight after ATC actually assigned a runway/STAR/approach. */
+export function setSelectedProcedures(db: WingLogDb, id: number, selection: ProcedureSelection): void {
+  db.update(flight)
+    .set({
+      selectedDepartureRunway: selection.departureRunway,
+      selectedSidIdent: selection.sidIdent,
+      selectedSidTransition: selection.sidTransition,
+      selectedStarIdent: selection.starIdent,
+      selectedStarTransition: selection.starTransition,
+      selectedApproachIdent: selection.approachIdent,
+      selectedApproachTransition: selection.approachTransition,
+      updatedAt: new Date().toISOString()
+    })
     .where(eq(flight.id, id))
     .run()
 }

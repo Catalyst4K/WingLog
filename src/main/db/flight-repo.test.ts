@@ -23,6 +23,7 @@ import {
   listFlightsByAircraft,
   recordOff,
   recordOn,
+  setSelectedProcedures,
   startFlight
 } from './flight-repo'
 
@@ -101,6 +102,37 @@ describe('flight repo', () => {
 
   it('rejects a flight for a nonexistent aircraft', () => {
     expect(() => createFlight(db, { aircraftId: 99999, depIcao: 'EGLL', arrIcao: 'VHHH' })).toThrow()
+  })
+
+  it('stores the selected procedures given at creation, and lets setSelectedProcedures overwrite them (Phase 5)', () => {
+    const created = createFlight(db, {
+      aircraftId,
+      depIcao: 'EGLL',
+      arrIcao: 'VHHH',
+      selectedDepartureRunway: '27R',
+      selectedSidIdent: 'BPK7F'
+    })
+    expect(created.selectedDepartureRunway).toBe('27R')
+    expect(created.selectedSidIdent).toBe('BPK7F')
+    expect(created.selectedApproachIdent).toBeNull()
+
+    setSelectedProcedures(db, created.id, {
+      departureRunway: '27L',
+      sidIdent: 'DIFFERENT_SID',
+      sidTransition: null,
+      starIdent: 'SIER7B',
+      starTransition: 'WLKES',
+      approachIdent: 'ILS 07C',
+      approachTransition: 'LIMES'
+    })
+
+    const updated = getFlight(db, created.id)
+    expect(updated?.selectedDepartureRunway).toBe('27L')
+    expect(updated?.selectedSidIdent).toBe('DIFFERENT_SID')
+    expect(updated?.selectedStarIdent).toBe('SIER7B')
+    expect(updated?.selectedStarTransition).toBe('WLKES')
+    expect(updated?.selectedApproachIdent).toBe('ILS 07C')
+    expect(updated?.selectedApproachTransition).toBe('LIMES')
   })
 
   it('lists newest first', () => {

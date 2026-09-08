@@ -60,7 +60,7 @@ export function parseRouteFromOfpJson(ofpJson: string | null): [number, number][
   return points
 }
 
-export type RouteSegment = 'sid' | 'enroute' | 'star'
+export type RouteSegment = 'sid' | 'enroute' | 'star' | 'approach'
 
 export interface Waypoint {
   ident: string
@@ -202,15 +202,16 @@ export function formatEnrouteOnly(ofpJson: string | null): string {
 }
 
 /**
- * One chosen procedure override — `identifier` null means "use whatever SimBrief picked
- * for this segment", the same "each of the six is independently optional" model
- * docs/plans/sid-star-selection.md's §4 describes. `legs` is the real navdata waypoint
- * sequence already fetched for (identifier, runway, transition) via
- * window.winglog.navdataGetProcedureWaypoints — this function doesn't fetch anything
- * itself, it only splices what's already been fetched into the route.
+ * One selected procedure's real navdata waypoint sequence, already fetched for (identifier,
+ * runway, transition) via window.winglog.navdataGetProcedureWaypoints — this module doesn't
+ * fetch anything itself, it only splices what's already been fetched into the route. Unlike
+ * the old per-field "SimBrief default" sentinel this replaced, there's no separate
+ * "identifier: null means use SimBrief's choice" state: a slot with nothing selected is
+ * just omitted from the call entirely (pass `null` for the whole thing, not an object with
+ * a null identifier) — see shared/ipc.ts's ProcedureSelection doc comment.
  */
-export interface ProcedureOverride {
-  identifier: string | null
+export interface ProcedureLegs {
+  identifier: string
   legs: NavdataLeg[]
 }
 
@@ -230,24 +231,43 @@ function legsToWaypoints(legs: NavdataLeg[], segment: RouteSegment): Waypoint[] 
 }
 
 /**
- * Splices a real navdata-backed SID/STAR in place of SimBrief's own choice — the local,
- * no-round-trip-to-SimBrief override docs/plans/sid-star-selection.md's §3 describes.
- * `baseWaypoints` is SimBrief's own segmented route (segmentWaypoints' output); either
- * override is skipped (the base route's own segment passes through untouched) when its
- * `identifier` is null, i.e. "SimBrief default" was chosen — the same convention
- * DispatchView's dropdowns already use for "no override".
+ * Splices the currently-selected SID/STAR/approach into SimBrief's own segmented route —
+ * the live, no-save-step route docs/plans/navdata-without-navigraph.md's Phase 5 describes.
+ * `baseWaypoints` is SimBrief's own segmented route (segmentWaypoints' output). Each of
+ * `sid`/`star`/`approach` is independently optional (`null` leaves that part of the base
+ * route untouched — for `approach`, "untouched" means "not appended at all", since the base
+ * route never has one). SID/STAR replace their own segment; approach legs are appended
+ * after everything else, continuing on from wherever the STAR (real or SimBrief's own)
+ * currently ends — the full STAR-through-approach-to-runway path Callum described,
+ * including a real APPROACH_TRANSITION when one was matched (ProcedureSelector's
+ * auto-connect, or a manual choice) — the caller decides which transition's legs `approach`
+ * carries, this function only splices what it's given.
  */
-export function applyProcedureOverride(
+export function applyProcedureSelection(
   baseWaypoints: Waypoint[],
-  sidOverride: ProcedureOverride | null,
-  starOverride: ProcedureOverride | null
+  sid: ProcedureLegs | null,
+  star: ProcedureLegs | null,
+  approach: ProcedureLegs | null
 ): Waypoint[] {
   let result = baseWaypoints
-  if (sidOverride?.identifier != null) {
-    result = [...legsToWaypoints(sidOverride.legs, 'sid'), ...result.filter((w) => w.segment !== 'sid')]
+  if (sid) {
+    result = [...legsToWaypoints(sid.legs, 'sid'), ...result.filter((w) => w.segment !== 'sid')]
   }
-  if (starOverride?.identifier != null) {
-    result = [...result.filter((w) => w.segment !== 'star'), ...legsToWaypoints(starOverride.legs, 'star')]
+  if (star) {
+    result = [...result.filter((w) => w.segment !== 'star'), ...legsToWaypoints(star.legs, 'star')]
+  }
+  if (approach) {
+    result = [...result, ...legsToWaypoints(approach.legs, 'approach')]
   }
   return result
+}
+
+/** An approach's constructed identifier always ends with its runway ident ("ILS 07C",
+ *  "RNP Z 07R" — facility-fields.ts's ParsedApproachHeader) — the only place that runway
+ *  lives now that there's no separate arrival-runway selection. Used to filter STAR options/
+ *  legs to the runway the currently-chosen approach actually serves. */
+export function approachRunway(approachIdent: string | null): string | null {
+  if (!approachIdent) return null
+  const parts = approachIdent.trim().split(' ')
+  return parts[parts.length - 1] || null
 }

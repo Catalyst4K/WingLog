@@ -126,6 +126,20 @@ export const flight = sqliteTable('flight', {
   // map. Null for any flight that hasn't completed, or completed before this existed;
   // the full-resolution track_point table stays local-only and is never itself synced.
   flownRouteJson: text('flown_route_json'),
+  // The procedures actually chosen, live — written at flight save and again (overwriting)
+  // at flight completion, whichever is later, from Dispatch/Track's shared live-selection
+  // state (flightdeck-backend's docs/plans/navdata-without-navigraph.md, Phase 5). Null
+  // means nothing was ever chosen for that slot — a pre-Phase-5 flight, or a field the
+  // pilot never touched — not "SimBrief's own choice was deliberately kept": there's no
+  // separate "use SimBrief's choice" state any more, see shared/ipc.ts's
+  // ProcedureSelection doc comment.
+  selectedDepartureRunway: text('selected_departure_runway'),
+  selectedSidIdent: text('selected_sid_ident'),
+  selectedSidTransition: text('selected_sid_transition'),
+  selectedStarIdent: text('selected_star_ident'),
+  selectedStarTransition: text('selected_star_transition'),
+  selectedApproachIdent: text('selected_approach_ident'),
+  selectedApproachTransition: text('selected_approach_transition'),
   // Soft-delete tombstone — see aircraft.deletedAt's comment for why. deleteFlight cascades
   // this to the flight's own landing/flightInvoice rows too (track_point, never synced,
   // stays hard-deleted as before).

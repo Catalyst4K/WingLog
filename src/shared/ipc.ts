@@ -317,6 +317,45 @@ export interface Flight {
   ofpJson: string | null
   simVersion: string | null
   createdAt: string
+  /** The procedures actually chosen — Dispatch's/Track's live selection at whatever moment
+   *  it was last written (flight save, or flight completion, whichever is later — see
+   *  ProcedureSelection). Null fields mean nothing was ever chosen for that slot, not that
+   *  SimBrief's own choice was deliberately kept — this flight predates Phase 5, or nothing
+   *  was ever touched. Logbook falls back to the OFP's own SID/STAR when these are all
+   *  null (docs/plans/navdata-without-navigraph.md, Phase 5). */
+  selectedDepartureRunway: string | null
+  selectedSidIdent: string | null
+  selectedSidTransition: string | null
+  selectedStarIdent: string | null
+  selectedStarTransition: string | null
+  selectedApproachIdent: string | null
+  selectedApproachTransition: string | null
+}
+
+/**
+ * The live, currently-chosen procedures for a flight — Dispatch and Track both read/write
+ * the same lifted state (App.tsx), so switching tabs mid-adjustment never loses or
+ * disagrees about what's selected. Every field is independently optional; unlike the old
+ * per-field "SimBrief default" sentinel this replaced, there's no separate "use SimBrief's
+ * choice" state — a field just holds whatever identifier is actually current, seeded from
+ * SimBrief's own choice when an OFP first loads (docs/plans/navdata-without-navigraph.md,
+ * Phase 5). `approachIdent`/`approachTransition` have no SimBrief equivalent to seed from —
+ * SimBrief never plans an approach — so they start null and get an auto-picked default once
+ * real navdata loads (see ProcedureSelector.tsx's auto-default heuristic).
+ */
+export interface ProcedureSelection {
+  departureRunway: string | null
+  sidIdent: string | null
+  sidTransition: string | null
+  starIdent: string | null
+  starTransition: string | null
+  /** A constructed display identifier ("ILS 07C", "RNP Z 07R") — an approach's runway is
+   *  implied by this, there's no separate arrival-runway field any more. */
+  approachIdent: string | null
+  /** The approach's own entry transition — usually the real fix a STAR hands off at (e.g.
+   *  VHHH's "LIMES"), auto-connected from the current STAR's last waypoint when one
+   *  matches, but always independently overridable. */
+  approachTransition: string | null
 }
 
 /** Logbook's summary stats above the flight table — see flight-repo.ts's getLogbookStats.
@@ -428,6 +467,16 @@ export interface NewFlight {
   ldwKg?: number | null
   ofpId?: string | null
   ofpJson?: string | null
+  /** Whatever's currently selected at the moment the flight is saved — the "saved as
+   *  planned" write described on ProcedureSelection. Overwritten again at flight
+   *  completion if tracking pushes a later selection (TrackingController). */
+  selectedDepartureRunway?: string | null
+  selectedSidIdent?: string | null
+  selectedSidTransition?: string | null
+  selectedStarIdent?: string | null
+  selectedStarTransition?: string | null
+  selectedApproachIdent?: string | null
+  selectedApproachTransition?: string | null
 }
 
 export interface DispatchWaypoint {
@@ -699,7 +748,8 @@ export const IpcChannels = {
   navdataListSids: 'navdata:list-sids',
   navdataListStars: 'navdata:list-stars',
   navdataListApproaches: 'navdata:list-approaches',
-  navdataGetProcedureWaypoints: 'navdata:get-procedure-waypoints'
+  navdataGetProcedureWaypoints: 'navdata:get-procedure-waypoints',
+  trackingSetProcedureSelection: 'tracking:set-procedure-selection'
 } as const
 
 export interface WingLogApi {
@@ -930,4 +980,10 @@ export interface WingLogApi {
     runway?: string | null,
     transition?: string | null
   ) => Promise<NavdataLeg[]>
+  /** Pushes the current live selection to the main process so it's available whenever the
+   *  active flight completes — manual finish *or* automatic shutdown detection, neither of
+   *  which round-trips through the renderer (TrackingController). Call on every change
+   *  while a flight is actively being tracked; a no-op call with nothing tracked is
+   *  harmless (TrackingController just caches it for the flight that starts next). */
+  trackingSetProcedureSelection: (selection: ProcedureSelection) => Promise<void>
 }

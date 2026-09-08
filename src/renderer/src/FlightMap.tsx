@@ -286,9 +286,9 @@ export function FlightMap({
           source: WAYPOINT_SOURCE_ID,
           paint: {
             'circle-radius': 3,
-            // SID/STAR fixes stand out from plain enroute waypoints — same route.ts
-            // segmentation SimBrief itself reports (docs/decisions.md, sid-star-selection
-            // entry), not yet swappable for an alternate procedure (blocked on Navigraph).
+            // SID/STAR/approach fixes stand out from plain enroute waypoints — route.ts's
+            // segmentation, either SimBrief's own or a live navdata-backed selection
+            // (docs/plans/navdata-without-navigraph.md, Phase 5).
             'circle-color': [
               'match',
               ['get', 'segment'],
@@ -296,6 +296,8 @@ export function FlightMap({
               '#e67700',
               'star',
               '#7048e8',
+              'approach',
+              '#2f9e44',
               /* enroute */ '#888'
             ],
             'circle-stroke-width': 1,

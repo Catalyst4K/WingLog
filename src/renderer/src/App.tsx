@@ -5,6 +5,7 @@ import type {
   AltitudeUnit,
   AppPage,
   DispatchOfp,
+  ProcedureSelection,
   SimConnectionStatus,
   SimTelemetry,
   Theme,
@@ -16,6 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Toaster } from '@/components/ui/sonner'
 import { FleetView } from './FleetView'
+import { emptyProcedureSelection, seedProcedureSelectionFromOfp } from './procedureSelection'
 
 // Fleet is the default/first tab, so it's the one view kept eager — every other tab is
 // lazy so its JS (and, for Track/Logbook, the maplibre-gl and recharts they pull in —
@@ -91,6 +93,23 @@ export default function App(): React.JSX.Element {
   // planning this" from "already flying this, showing it for reference" apart, and that
   // distinction has to survive the same tab-switch-and-back as dispatchOfp itself.
   const [dispatchedOfpId, setDispatchedOfpId] = useState<string | null>(null)
+  // The live procedure selection — lifted here (not local to either view) so Dispatch and
+  // Track always agree on what's currently chosen, with no save step between them
+  // (docs/plans/navdata-without-navigraph.md, Phase 5). Re-seeded from SimBrief's own
+  // choice whenever a genuinely new OFP loads — see handleDispatchOfpChange below.
+  const [procedureSelection, setProcedureSelection] = useState<ProcedureSelection>(emptyProcedureSelection())
+
+  // Wraps setDispatchOfp so a *new* OFP (a different ofpId, including "cleared to null")
+  // always re-seeds the procedure selection from its own SimBrief choice — the previous
+  // plan's selection must never leak onto a different one. Re-fetching/re-saving the exact
+  // same OFP the user's already been editing (ofpId unchanged) leaves the selection alone,
+  // or every dropdown edit would be wiped out from under them.
+  function handleDispatchOfpChange(ofp: DispatchOfp | null): void {
+    if ((ofp?.ofpId ?? null) !== (dispatchOfp?.ofpId ?? null)) {
+      setProcedureSelection(ofp ? seedProcedureSelectionFromOfp(ofp.ofpJson) : emptyProcedureSelection())
+    }
+    setDispatchOfp(ofp)
+  }
   // Set when Fleet's per-aircraft flight list navigates to a specific flight's Logbook
   // detail. Lifted here (rather than local to LogbookView) because it has to survive the
   // page switch from Fleet to Logbook that triggers it. Carries the originating aircraft
@@ -280,17 +299,21 @@ export default function App(): React.JSX.Element {
                 windSpeedUnit={windSpeedUnit}
                 onPlanned={() => setPage('track')}
                 ofp={dispatchOfp}
-                onOfpChange={setDispatchOfp}
+                onOfpChange={handleDispatchOfpChange}
                 dispatchedOfpId={dispatchedOfpId}
                 onDispatchedOfpIdChange={setDispatchedOfpId}
+                selection={procedureSelection}
+                onSelectionChange={setProcedureSelection}
               />
             )}
             {page === 'track' && (
               <TrackView
-                previewOfpJson={dispatchOfp?.ofpJson ?? null}
+                previewOfp={dispatchOfp}
                 telemetry={telemetry}
+                selection={procedureSelection}
+                onSelectionChange={setProcedureSelection}
                 onFlightEnded={() => {
-                  setDispatchOfp(null)
+                  handleDispatchOfpChange(null)
                   setDispatchedOfpId(null)
                 }}
               />

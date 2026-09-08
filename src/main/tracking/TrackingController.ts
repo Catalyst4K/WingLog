@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import type { ActiveTracking, TrackPoint } from '@shared/ipc'
+import type { ActiveTracking, ProcedureSelection, TrackPoint } from '@shared/ipc'
 import type { WingLogDb } from '../db/client'
 import { addInvoicesForFlight } from '../db/flight-invoice-repo'
 import {
@@ -10,6 +10,7 @@ import {
   recordOff,
   recordOn,
   setFlownRoute,
+  setSelectedProcedures,
   startFlight
 } from '../db/flight-repo'
 import { createLanding } from '../db/landing-repo'
@@ -43,6 +44,11 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   private offRecorded = false
   private onRecorded = false
   private fuelOutFinalized = false
+  // Pushed live from the renderer (setProcedureSelection) while a flight is being tracked —
+  // cached here, not written to the DB until completion, since neither completion trigger
+  // below (auto shutdown detection or a manual finish()) round-trips through the renderer
+  // to ask it what's currently selected (docs/plans/navdata-without-navigraph.md, Phase 5).
+  private currentSelection: ProcedureSelection | undefined
 
   constructor(
     private readonly db: WingLogDb,
@@ -88,6 +94,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
         completeFlight(this.db, flightId, telemetry.fuelTotalKg)
         this.snapshotGsxInvoices(flightId)
         this.deriveFlownRoute(flightId)
+        this.persistSelection(flightId)
         this.recorder = undefined
         this.emit('completed', flightId)
       }
@@ -113,6 +120,17 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     this.offRecorded = false
     this.onRecorded = false
     this.fuelOutFinalized = false
+    // A stale selection from whatever flight was tracked previously must never leak onto
+    // this one — start with nothing cached; createFlight's own saved-at-plan-time values
+    // (if any) are untouched until/unless this flight's own selection gets pushed.
+    this.currentSelection = undefined
+  }
+
+  /** Called from the renderer (tracking:set-procedure-selection) on every live selection
+   *  change while a flight is being tracked — see the currentSelection field's own comment
+   *  for why this can't just be read on demand at completion time. */
+  setProcedureSelection(selection: ProcedureSelection): void {
+    this.currentSelection = selection
   }
 
   /** User cancelled tracking mid-flight, rather than reaching shutdown naturally. */
@@ -136,6 +154,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     completeFlight(this.db, flightId, telemetry?.fuelTotalKg ?? 0)
     this.snapshotGsxInvoices(flightId)
     this.deriveFlownRoute(flightId)
+    this.persistSelection(flightId)
     this.recorder = undefined
     this.emit('completed', flightId)
   }
@@ -169,5 +188,14 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     const points = listTrackPoints(this.db, flightId)
     const flownRouteJson = deriveFlownRouteJson(points)
     if (flownRouteJson) setFlownRoute(this.db, flightId, flownRouteJson)
+  }
+
+  /** Writes whatever selection the renderer last pushed — a no-op if nothing ever was
+   *  (e.g. tracking a flight from before Phase 5, or Track was never opened this session),
+   *  which leaves createFlight's own saved-at-plan-time values in place rather than
+   *  clobbering them with nulls. */
+  private persistSelection(flightId: number): void {
+    if (!this.currentSelection) return
+    setSelectedProcedures(this.db, flightId, this.currentSelection)
   }
 }
