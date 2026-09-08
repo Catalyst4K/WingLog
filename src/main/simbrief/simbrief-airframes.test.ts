@@ -26,6 +26,17 @@ const FIXTURE: RawAirframesResponse = {
         airframe_engines: 'CFM56-5B4/P',
         airframe_registration: 'G-FENX'
       },
+      // Real collision case (docs/simbrief-notes.md, 2026-09-08): same developer and
+      // engines as the entry above, so today's label formula alone can't tell them apart —
+      // only the "(SL)" in the comment does.
+      {
+        airframe_id: 1730058463659,
+        pilot_id: 80,
+        airframe_internal_id: '80_1730058463659',
+        airframe_comments: 'Fenix Simulations (MSFS) - A320 CFM (SL)',
+        airframe_engines: 'CFM56-5B4/P',
+        airframe_registration: 'G-FENX'
+      },
       {
         airframe_id: 1707996202186,
         pilot_id: 80,
@@ -41,6 +52,26 @@ const FIXTURE: RawAirframesResponse = {
         airframe_comments: 'ToLiss (X-Plane) - CFM56-5B4 [credit: Rodeo314]',
         airframe_engines: 'CFM56-5B4',
         airframe_registration: ''
+      },
+      // A real PMDG-shaped case (docs/simbrief-notes.md): the distinguishing text has no
+      // leading type code at all, just a bracketed credit suffix to strip.
+      {
+        airframe_id: 1761165451022,
+        pilot_id: 746599,
+        airframe_internal_id: '746599_1761165451022',
+        airframe_comments: 'PMDG (MSFS) - Dual Class [credit: PMDG Official]',
+        airframe_engines: 'CFM56-7B26',
+        airframe_registration: 'N738PM'
+      },
+      // A byte-for-byte duplicate of the entry above (same developer/variant/engines) —
+      // exercises the defensive dedup pass, decision 3.
+      {
+        airframe_id: 1761165999999,
+        pilot_id: 746599,
+        airframe_internal_id: '746599_1761165999999',
+        airframe_comments: 'PMDG (MSFS) - Dual Class [credit: PMDG Official]',
+        airframe_engines: 'CFM56-7B26',
+        airframe_registration: 'N738PM'
       }
     ]
   },
@@ -74,7 +105,9 @@ describe('parseAirframesForType', () => {
 
   it('includes the stock default plus MSFS community entries, filtering out X-Plane', () => {
     const options = parseAirframesForType(FIXTURE, 'A320')
-    expect(options).toHaveLength(3)
+    // 1 default + Fenix CFM + Fenix CFM (SL) + Fenix IAE + PMDG Dual Class (its exact
+    // duplicate collapsed away) — the X-Plane ToLiss entry excluded entirely.
+    expect(options).toHaveLength(5)
     expect(options.some((o) => o.comments.includes('ToLiss'))).toBe(false)
   })
 
@@ -116,5 +149,68 @@ describe('parseAirframesForType', () => {
   it('returns an empty registration as null, not an empty string', () => {
     const options = parseAirframesForType(FIXTURE, 'C130')
     expect(options.every((o) => o.registration === null)).toBe(true)
+  })
+
+  // docs/simbrief-notes.md, "Why near-identical community airframes collapse to the same
+  // label" — the real distinguishing text was already being fetched, just discarded.
+  it('extracts a variant, stripping the redundant leading type code', () => {
+    const options = parseAirframesForType(FIXTURE, 'A320')
+    const noSl = options.find((o) => o.comments === 'Fenix Simulations (MSFS) - A320 CFM')
+    const withSl = options.find((o) => o.comments === 'Fenix Simulations (MSFS) - A320 CFM (SL)')
+    expect(noSl?.variant).toBe('CFM')
+    expect(withSl?.variant).toBe('CFM (SL)')
+  })
+
+  it('does not strip a type-like prefix with no following space (e.g. A339X)', () => {
+    const fixtureWithGluedPrefix: RawAirframesResponse = {
+      A339: {
+        aircraft_icao: 'A339',
+        airframes: [
+          {
+            airframe_id: 1,
+            pilot_id: 1,
+            airframe_internal_id: '1_1',
+            airframe_comments: 'Headwind Simulations (MSFS) - A339X ACJ',
+            airframe_engines: 'TRENT 7000-72',
+            airframe_registration: ''
+          }
+        ]
+      }
+    }
+    const [option] = parseAirframesForType(fixtureWithGluedPrefix, 'A339')
+    expect(option.variant).toBe('A339X ACJ')
+  })
+
+  it('strips a trailing [credit: ...] suffix from the variant, keeping it in comments', () => {
+    const options = parseAirframesForType(FIXTURE, 'A320')
+    const pmdg = options.find((o) => o.developer === 'PMDG')
+    expect(pmdg?.variant).toBe('Dual Class')
+    expect(pmdg?.comments).toBe('PMDG (MSFS) - Dual Class [credit: PMDG Official]')
+  })
+
+  it('collapses an exact duplicate (same developer, variant and engines) to one entry', () => {
+    const options = parseAirframesForType(FIXTURE, 'A320')
+    const pmdgEntries = options.filter((o) => o.developer === 'PMDG')
+    expect(pmdgEntries).toHaveLength(1)
+  })
+
+  it('is null when the parsed remainder is empty after stripping the type prefix', () => {
+    const fixtureBareType: RawAirframesResponse = {
+      B738: {
+        aircraft_icao: 'B738',
+        airframes: [
+          {
+            airframe_id: 1,
+            pilot_id: 1,
+            airframe_internal_id: '1_1',
+            airframe_comments: 'Some Dev (MSFS) - B738',
+            airframe_engines: 'CFM56-7B',
+            airframe_registration: ''
+          }
+        ]
+      }
+    }
+    const [option] = parseAirframesForType(fixtureBareType, 'B738')
+    expect(option.variant).toBeNull()
   })
 })
