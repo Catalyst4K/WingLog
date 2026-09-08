@@ -11,14 +11,23 @@ import { type RawBuffer } from 'node-simconnect'
  *
  * Deliberately out of scope here: APPROACH/APPROACH_TRANSITION/FINAL_APPROACH_LEG/
  * MISSED_APPROACH_LEG (approach procedures, not needed by the six SID/STAR/runway dropdowns
- * this provider serves), and — separately, and worth flagging — the legs *inside* a
- * RUNWAY_TRANSITION or ENROUTE_TRANSITION. The spike only ever registered `N_APPROACH_LEGS`
- * (a count) on those two, never a nested `OPEN APPROACH_LEG`/`CLOSE APPROACH_LEG` block
- * inside them, so whether MSFS's facility API actually supports fetching a transition's own
- * legs that way is genuinely unconfirmed, not just unbuilt. `getProcedureWaypoints` below
- * only returns the procedure's own common legs (the DEPARTURE/ARRIVAL-level `APPROACH_LEG`
- * list, which the spike did fetch and observe correctly) until a follow-up spike confirms
- * the nested form.
+ * this provider serves).
+ *
+ * **Where a procedure's legs actually live is airport/procedure-dependent — confirmed live,
+ * 2026-09-08, against real EGLL and VHHH departures/arrivals** (a nested
+ * `OPEN APPROACH_LEG`/`CLOSE APPROACH_LEG` block *inside* `RUNWAY_TRANSITION` and
+ * `ENROUTE_TRANSITION` works — not something either the original spike or the SDK reference
+ * table made obvious, since only a leg *count* was ever requested there before). Every real
+ * SID seen at both airports had `N_APPROACH_LEGS = 0` at the procedure's own top level and
+ * all its real legs nested inside its one `RUNWAY_TRANSITION` (e.g. EGLL's BPK5K: 6 legs,
+ * all under its 09L runway transition); EGLL's STARs were the reverse — `N_RUNWAY_TRANSITIONS
+ * = 0` and every real leg at the procedure's own top level (e.g. ALES1H: 6 common legs, no
+ * transitions at all). No enroute-transition-nested legs were observed in either airport's
+ * data (VHHH's SIDs/STARs register zero enroute transitions outright; EGLL's do too) — the
+ * nesting is registered defensively below since it's the same confirmed mechanism, but it's
+ * untested against real data with a non-zero `N_ENROUTE_TRANSITIONS`. `getProcedureWaypoints`
+ * therefore concatenates all three groups (runway-transition legs, common legs,
+ * enroute-transition legs) rather than assuming legs live in only one place.
  */
 
 export const enum NavdataDefId {
@@ -199,10 +208,16 @@ export function addProcedureTreeDefinition(
   add('RUNWAY_NUMBER')
   add('RUNWAY_DESIGNATOR')
   add('N_APPROACH_LEGS')
+  add('OPEN APPROACH_LEG')
+  addLegFields((name) => addField(defId, name))
+  add('CLOSE APPROACH_LEG')
   add('CLOSE RUNWAY_TRANSITION')
   add('OPEN ENROUTE_TRANSITION')
   add('NAME')
   add('N_APPROACH_LEGS')
+  add('OPEN APPROACH_LEG')
+  addLegFields((name) => addField(defId, name))
+  add('CLOSE APPROACH_LEG')
   add('CLOSE ENROUTE_TRANSITION')
   add('OPEN APPROACH_LEG')
   addLegFields((name) => addField(defId, name))

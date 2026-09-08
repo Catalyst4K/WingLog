@@ -127,6 +127,20 @@
       "when": 1788886301082,
       "tag": "0017_rare_domino",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1788888182432,
+      "tag": "0018_cloudy_red_shift",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1788888192208,
+      "tag": "0019_deep_praxagora",
+      "breakpoints": true
     }
   ]
 }

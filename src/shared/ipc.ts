@@ -922,6 +922,7 @@ export interface WingLogApi {
     icao: string,
     kind: NavdataProcedureKind,
     identifier: string,
+    runway?: string | null,
     transition?: string | null
   ) => Promise<NavdataLeg[]>
 }

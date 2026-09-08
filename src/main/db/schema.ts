@@ -285,28 +285,48 @@ export const navdataRunway = sqliteTable('navdata_runway', {
   fetchedAt: text('fetched_at').notNull()
 })
 
+// One row per (icao, kind, identifier) — not per transition. Confirmed live, 2026-09-08
+// (docs/navdata-notes.md), that runway and enroute-transition variation are independent
+// axes on the same procedure, not row-multiplying dimensions: EGLL/VHHH's real SIDs have
+// exactly one runway transition each and zero enroute transitions; VHHH's STARs can have
+// several runway transitions (parallel-runway airports) and still zero enroute transitions.
+// Both lists are kept as metadata here for filtering/listing; navdataProcedureLeg (below)
+// is where the actual per-runway/per-transition leg data lives.
 export const navdataProcedure = sqliteTable('navdata_procedure', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   icao: text('icao').notNull(),
   kind: text('kind', { enum: ['sid', 'star'] }).notNull(),
   identifier: text('identifier').notNull(),
-  transition: text('transition'),
   // JSON array of runway idents this procedure's RUNWAY_TRANSITION list names, e.g.
   // '["07L","07R"]' — null means no runway transitions were registered for it (applies to
   // any runway), not "applies to none".
   runwayIdentsJson: text('runway_idents_json'),
+  // JSON array of this procedure's ENROUTE_TRANSITION names — null means none registered.
+  // Real airports checked so far (EGLL, VHHH) never had any; kept for when one does.
+  transitionNamesJson: text('transition_names_json'),
   source: text('source', { enum: ['sim-facility'] }).notNull(),
   fetchedAt: text('fetched_at').notNull()
 })
 
-// One row per leg of a procedure's own common leg list — see facility-fields.ts's module
-// doc comment for why transition-specific legs aren't cached here yet (unconfirmed whether
-// MSFS's facility API supports fetching them nested inside a transition record at all).
+// One row per leg. `runwayIdent`/`transitionName` are mutually exclusive: both null means
+// a common leg (registered on the procedure itself, outside any transition — where EGLL's
+// STARs put all of theirs); `runwayIdent` set means a leg nested inside that specific
+// RUNWAY_TRANSITION (where EGLL/VHHH's SIDs put all of theirs instead, and VHHH's STARs);
+// `transitionName` set means a leg nested inside that specific ENROUTE_TRANSITION —
+// confirmed as a real, supported nesting live, 2026-09-08, though no real procedure seen
+// so far actually has one (docs/navdata-notes.md). A full flyable path for a chosen
+// (runway, transition) pair is that runway's legs + the common legs + that transition's
+// legs, in that order — confirmed correct for a departure (initial climb-out, then the
+// shared body); NOT independently confirmed for an arrival, where real-world convention
+// suggests the reverse order (transition entry, then shared body, then runway-specific
+// final legs) may be correct instead — open item, not guessed at further than this.
 export const navdataProcedureLeg = sqliteTable('navdata_procedure_leg', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   procedureId: integer('procedure_id')
     .notNull()
     .references(() => navdataProcedure.id),
+  runwayIdent: text('runway_ident'),
+  transitionName: text('transition_name'),
   seq: integer('seq').notNull(),
   type: integer('type').notNull(),
   fixIdent: text('fix_ident'),

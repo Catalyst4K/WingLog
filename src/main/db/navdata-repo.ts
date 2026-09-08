@@ -1,7 +1,8 @@
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, isNull } from 'drizzle-orm'
 import type { NavdataLeg, NavdataProcedureOption, NavdataRunway, ProcedureKind } from '../navdata/navdata-provider'
 import { runwayEndsFromCentre } from '../navdata/runway-geometry'
 import type { FetchedAirportNavdata } from '../navdata/sim-facilities-fetch'
+import type { ParsedLeg } from '../sim/facility-fields'
 import type { WingLogDb } from './client'
 import { navdataProcedure, navdataProcedureLeg, navdataRunway } from './schema'
 
@@ -46,42 +47,52 @@ export function replaceAirportNavdata(db: WingLogDb, icao: string, fetched: Fetc
       ['sid', fetched.departures],
       ['star', fetched.arrivals]
     ] as const) {
-      for (const procedure of procedures) {
-        const transitions = procedure.transitionNames.length > 0 ? procedure.transitionNames : [null]
-        for (const transition of transitions) {
-          const [inserted] = tx
-            .insert(navdataProcedure)
-            .values({
-              icao,
-              kind,
-              identifier: procedure.name,
-              transition,
-              runwayIdentsJson: procedure.runwayIdents.length > 0 ? JSON.stringify(procedure.runwayIdents) : null,
-              source: 'sim-facility',
-              fetchedAt
-            })
-            .returning()
-            .all()
-          if (!inserted) continue
-          procedure.legs.forEach((leg, seq) => {
-            tx.insert(navdataProcedureLeg)
-              .values({
-                procedureId: inserted.id,
-                seq,
-                type: leg.type,
-                fixIdent: leg.fixIdent,
-                fixType: leg.fixType,
-                fixLatitude: leg.fixLatitude,
-                fixLongitude: leg.fixLongitude,
-                turnDirection: leg.turnDirection,
-                courseDeg: leg.courseDeg,
-                altitude1: leg.altitude1,
-                altitude2: leg.altitude2,
-                speedLimit: leg.speedLimit
-              })
-              .run()
+      for (const proc of procedures) {
+        const runwayIdents = proc.runwayTransitions.map((t) => t.runwayIdent)
+        const transitionNames = proc.enrouteTransitions.map((t) => t.name)
+        const [inserted] = tx
+          .insert(navdataProcedure)
+          .values({
+            icao,
+            kind,
+            identifier: proc.name,
+            runwayIdentsJson: runwayIdents.length > 0 ? JSON.stringify(runwayIdents) : null,
+            transitionNamesJson: transitionNames.length > 0 ? JSON.stringify(transitionNames) : null,
+            source: 'sim-facility',
+            fetchedAt
           })
+          .returning()
+          .all()
+        if (!inserted) continue
+
+        // A single incrementing seq across every group is fine — legs are read back
+        // filtered by (procedureId, runwayIdent, transitionName), and insertion order
+        // within each filtered group is preserved regardless of the counter being shared.
+        let seq = 0
+        const insertLeg = (leg: ParsedLeg, runwayIdent: string | null, transitionName: string | null): void => {
+          tx.insert(navdataProcedureLeg)
+            .values({
+              procedureId: inserted.id,
+              runwayIdent,
+              transitionName,
+              seq: seq++,
+              type: leg.type,
+              fixIdent: leg.fixIdent,
+              fixType: leg.fixType,
+              fixLatitude: leg.fixLatitude,
+              fixLongitude: leg.fixLongitude,
+              turnDirection: leg.turnDirection,
+              courseDeg: leg.courseDeg,
+              altitude1: leg.altitude1,
+              altitude2: leg.altitude2,
+              speedLimit: leg.speedLimit
+            })
+            .run()
         }
+
+        for (const leg of proc.commonLegs) insertLeg(leg, null, null)
+        for (const rt of proc.runwayTransitions) for (const leg of rt.legs) insertLeg(leg, rt.runwayIdent, null)
+        for (const et of proc.enrouteTransitions) for (const leg of et.legs) insertLeg(leg, null, et.name)
       }
     }
   })
@@ -110,7 +121,10 @@ export function listCachedRunways(db: WingLogDb, icao: string): NavdataRunway[] 
 }
 
 /** `runway`, when given, keeps only procedures with no runway transitions at all (apply to
- *  any runway) or whose runway-idents list names the requested runway. */
+ *  any runway) or whose runway-idents list names the requested runway. One stored procedure
+ *  row can expand into several options here — one per real ENROUTE_TRANSITION name, or a
+ *  single `transition: null` option when it has none (the common case so far, see
+ *  schema.ts). */
 export function listCachedProcedures(
   db: WingLogDb,
   icao: string,
@@ -128,32 +142,80 @@ export function listCachedProcedures(
       const idents = JSON.parse(row.runwayIdentsJson) as string[]
       return idents.includes(runway)
     })
-    .map((row) => ({ identifier: row.identifier, transition: row.transition }))
+    .flatMap((row) => {
+      const transitions: (string | null)[] = row.transitionNamesJson ? (JSON.parse(row.transitionNamesJson) as string[]) : [null]
+      return transitions.map((transition) => ({ identifier: row.identifier, transition }))
+    })
 }
 
-export function listCachedProcedureLegs(db: WingLogDb, icao: string, kind: ProcedureKind, identifier: string): NavdataLeg[] {
+function toNavdataLeg(row: typeof navdataProcedureLeg.$inferSelect): NavdataLeg {
+  return {
+    type: row.type,
+    fixIdent: row.fixIdent,
+    fixType: row.fixType,
+    fixLatitude: row.fixLatitude,
+    fixLongitude: row.fixLongitude,
+    turnDirection: row.turnDirection,
+    courseDeg: row.courseDeg,
+    altitude1: row.altitude1,
+    altitude2: row.altitude2,
+    speedLimit: row.speedLimit
+  }
+}
+
+/**
+ * The full ordered waypoint list for one (icao, kind, identifier) at a chosen runway/
+ * transition — that runway's own legs (if `runway` is given and the procedure has any),
+ * then the procedure's common legs, then that transition's own legs (if `transition` is
+ * given and the procedure has any). See schema.ts's navdataProcedureLeg comment for what's
+ * confirmed about this ordering (a departure, not yet an arrival) and why a leg group is
+ * only included when its selector is actually supplied — a procedure whose real legs live
+ * entirely inside one runway transition (most real SIDs, per docs/navdata-notes.md) returns
+ * nothing at all if the caller omits `runway`, rather than guessing which one to use.
+ */
+export function listCachedProcedureLegs(
+  db: WingLogDb,
+  icao: string,
+  kind: ProcedureKind,
+  identifier: string,
+  runway: string | null = null,
+  transition: string | null = null
+): NavdataLeg[] {
   const procedure = db
     .select({ id: navdataProcedure.id })
     .from(navdataProcedure)
     .where(and(eq(navdataProcedure.icao, icao), eq(navdataProcedure.kind, kind), eq(navdataProcedure.identifier, identifier)))
     .get()
   if (!procedure) return []
-  return db
+
+  const runwayLegs = runway
+    ? db
+        .select()
+        .from(navdataProcedureLeg)
+        .where(and(eq(navdataProcedureLeg.procedureId, procedure.id), eq(navdataProcedureLeg.runwayIdent, runway)))
+        .orderBy(navdataProcedureLeg.seq)
+        .all()
+    : []
+  const commonLegs = db
     .select()
     .from(navdataProcedureLeg)
-    .where(eq(navdataProcedureLeg.procedureId, procedure.id))
+    .where(
+      and(
+        eq(navdataProcedureLeg.procedureId, procedure.id),
+        isNull(navdataProcedureLeg.runwayIdent),
+        isNull(navdataProcedureLeg.transitionName)
+      )
+    )
     .orderBy(navdataProcedureLeg.seq)
     .all()
-    .map((row) => ({
-      type: row.type,
-      fixIdent: row.fixIdent,
-      fixType: row.fixType,
-      fixLatitude: row.fixLatitude,
-      fixLongitude: row.fixLongitude,
-      turnDirection: row.turnDirection,
-      courseDeg: row.courseDeg,
-      altitude1: row.altitude1,
-      altitude2: row.altitude2,
-      speedLimit: row.speedLimit
-    }))
+  const transitionLegs = transition
+    ? db
+        .select()
+        .from(navdataProcedureLeg)
+        .where(and(eq(navdataProcedureLeg.procedureId, procedure.id), eq(navdataProcedureLeg.transitionName, transition)))
+        .orderBy(navdataProcedureLeg.seq)
+        .all()
+    : []
+
+  return [...runwayLegs, ...commonLegs, ...transitionLegs].map(toNavdataLeg)
 }

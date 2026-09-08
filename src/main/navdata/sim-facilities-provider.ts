@@ -56,10 +56,7 @@ export class SimFacilitiesProvider implements NavdataProvider {
     return listCachedProcedures(this.db, icao, 'star', runway)
   }
 
-  // The interface's `transition` param exists for forward compatibility but is currently
-  // ignored — see navdata-provider.ts's doc comment. Omitted here entirely rather than
-  // named-and-unused: a narrower implementation still satisfies the wider interface type.
-  getProcedureWaypoints(icao: string, kind: ProcedureKind, identifier: string): NavdataLeg[] {
-    return listCachedProcedureLegs(this.db, icao, kind, identifier)
+  getProcedureWaypoints(icao: string, kind: ProcedureKind, identifier: string, runway?: string | null, transition?: string | null): NavdataLeg[] {
+    return listCachedProcedureLegs(this.db, icao, kind, identifier, runway, transition)
   }
 }

@@ -127,8 +127,13 @@ const api: WingLogApi = {
     ipcRenderer.invoke(IpcChannels.navdataListSids, icao, runway),
   navdataListStars: (icao: string, runway?: string | null) =>
     ipcRenderer.invoke(IpcChannels.navdataListStars, icao, runway),
-  navdataGetProcedureWaypoints: (icao: string, kind: NavdataProcedureKind, identifier: string, transition?: string | null) =>
-    ipcRenderer.invoke(IpcChannels.navdataGetProcedureWaypoints, icao, kind, identifier, transition)
+  navdataGetProcedureWaypoints: (
+    icao: string,
+    kind: NavdataProcedureKind,
+    identifier: string,
+    runway?: string | null,
+    transition?: string | null
+  ) => ipcRenderer.invoke(IpcChannels.navdataGetProcedureWaypoints, icao, kind, identifier, runway, transition)
 }
 
 contextBridge.exposeInMainWorld('winglog', api)

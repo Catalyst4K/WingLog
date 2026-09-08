@@ -557,8 +557,8 @@ app.whenReady().then(() => {
   )
   ipcMain.handle(
     IpcChannels.navdataGetProcedureWaypoints,
-    (_event, icao: string, kind: NavdataProcedureKind, identifier: string, transition?: string | null) =>
-      navdataProvider.getProcedureWaypoints(icao, kind, identifier, transition)
+    (_event, icao: string, kind: NavdataProcedureKind, identifier: string, runway?: string | null, transition?: string | null) =>
+      navdataProvider.getProcedureWaypoints(icao, kind, identifier, runway, transition)
   )
 
   // CI packaging check (see .github/workflows/package.yml): proves the built
