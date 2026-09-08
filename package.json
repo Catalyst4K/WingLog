@@ -21,6 +21,7 @@
     "db:backfill-aircraft-photos": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs scripts/backfill-aircraft-photos.ts",
     "spike:simconnect": "tsx scripts/spike-simconnect.ts",
     "spike:landing": "tsx scripts/spike-landing.ts",
+    "spike:facilities": "tsx scripts/spike-facilities.ts",
     "spike:route-simplify": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs scripts/spike-route-simplify.ts",
     "vendor:runways": "tsx scripts/vendor-runways.ts",
     "licenses:generate": "tsx scripts/generate-third-party-licenses.ts",
