@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { SimTelemetry } from '@shared/ipc'
+import type { RunwayEnd } from '../airports/runway-lookup'
 import { buildLandingRecord } from './landing-capture'
 
 function telemetry(overrides: Partial<SimTelemetry> = {}): SimTelemetry {
@@ -35,8 +36,20 @@ function telemetry(overrides: Partial<SimTelemetry> = {}): SimTelemetry {
   }
 }
 
-const RUNWAY_27L = { icao: 'EGLL', ident: '27L', lat: 51.4775, lon: -0.4614, headingTrueDeg: 270 }
-const resolveToRunway27L = (): typeof RUNWAY_27L => RUNWAY_27L
+const RUNWAY_27L: RunwayEnd = {
+  icao: 'EGLL',
+  ident: '27L',
+  lat: 51.4775,
+  lon: -0.4614,
+  headingTrueDeg: 270,
+  lengthM: null,
+  widthM: null,
+  displacedThresholdM: 0,
+  elevationM: null,
+  surface: null,
+  aimingPointDistanceM: null
+}
+const resolveToRunway27L = (): RunwayEnd => RUNWAY_27L
 const resolveToNoRunway = (): null => null
 
 describe('buildLandingRecord', () => {
@@ -94,6 +107,15 @@ describe('buildLandingRecord', () => {
     const record = buildLandingRecord(1, 'EGLL', telemetry(), 't', resolveToRunway27L)
     expect(record.distanceFromThresholdM).toBeCloseTo(0, 0)
     expect(record.centrelineOffsetM).toBeCloseTo(0, 0)
+  })
+
+  it('reports distanceFromThresholdM from the real, displaced threshold — not the physical runway end', () => {
+    // Touching down exactly at the physical end (0m along-track from runway-lookup.ts's
+    // perspective) should read as -100m from a threshold displaced 100m inboard: the
+    // aircraft is 100m short of where it's actually meant to land.
+    const displaced: RunwayEnd = { ...RUNWAY_27L, displacedThresholdM: 100 }
+    const record = buildLandingRecord(1, 'EGLL', telemetry(), 't', () => displaced)
+    expect(record.distanceFromThresholdM).toBeCloseTo(-100, 0)
   })
 
   it('leaves every runway-derived field null when no runway resolves', () => {
