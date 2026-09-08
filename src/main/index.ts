@@ -1,6 +1,7 @@
 import { join } from 'node:path'
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
 import { initLogger } from './logging/logger'
+import { backupDatabaseOnLaunch } from './db/backup'
 import {
   IpcChannels,
   type AircraftUpdate,
@@ -124,6 +125,16 @@ app.whenReady().then(() => {
       `Carried pre-rename data across from ${legacy.from}` +
         (legacy.sidecars.length > 0 ? ` (plus ${legacy.sidecars.join(', ')})` : '')
     )
+  }
+
+  // Safety net against a bad migration or a corrupted database (PLAN.md §M7) — snapshot
+  // whatever's there now, before migrateDb below applies this version's migrations to it.
+  // A no-op on a fresh install (backupDatabaseOnLaunch checks dbPath exists first).
+  try {
+    backupDatabaseOnLaunch(dbPath, join(userDataPath, 'backups'))
+  } catch (error) {
+    // Never block startup over a failed backup — logged for visibility, not fatal.
+    console.error('DB backup-on-launch failed:', error)
   }
 
   // app.getAppPath() is the project root in dev and the asar root when packaged — both
