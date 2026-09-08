@@ -649,7 +649,9 @@ export const IpcChannels = {
   authSignup: 'auth:signup',
   authLogout: 'auth:logout',
   syncNow: 'sync:now',
-  syncStatus: 'sync:status'
+  syncStatus: 'sync:status',
+  appGetVersion: 'app:get-version',
+  appOpenGithub: 'app:open-github'
 } as const
 
 export interface WingLogApi {
@@ -849,4 +851,12 @@ export interface WingLogApi {
    *  isn't needed at every call site. */
   syncNow: () => Promise<SyncStatus>
   syncStatus: () => Promise<SyncStatus>
+  /** The packaged app's version (package.json's, via Electron's app.getVersion()) —
+   *  Settings' About card, so a bug report can include which build it's from. */
+  appGetVersion: () => Promise<string>
+  /** Opens the GitHub repo in the default browser — a fixed URL, not user/third-party
+   *  data, but routed through shell.openExternal like every other external link rather
+   *  than a raw <a target="_blank"> (which Electron would otherwise open as a new
+   *  in-app window, not the system browser). */
+  appOpenGithub: () => Promise<void>
 }

@@ -21,7 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useResetSignal } from './hooks/useResetSignal'
 import { NavigraphLogo } from './NavigraphLogo'
 
-type SettingsCategory = 'ui' | 'tracking' | 'thirdParty' | 'data'
+type SettingsCategory = 'ui' | 'tracking' | 'thirdParty' | 'data' | 'about'
 const DEFAULT_SETTINGS_CATEGORY: SettingsCategory = 'ui'
 
 // A curated, common-currency subset of what frankfurter.dev supports — enough for
@@ -123,6 +123,7 @@ export function SettingsView(props: {
   const [cloudInviteCode, setCloudInviteCode] = useState('')
   const [cloudAuthMode, setCloudAuthMode] = useState<'login' | 'signup'>('login')
   const [loggingIntoCloud, setLoggingIntoCloud] = useState(false)
+  const [appVersion, setAppVersion] = useState('')
   // Purely transient UI state, not persisted — this app has no routing beyond the top tab
   // bar, no reason to add any for a sub-navigation within one of its pages.
   const [category, setCategory] = useState<SettingsCategory>(DEFAULT_SETTINGS_CATEGORY)
@@ -134,6 +135,7 @@ export function SettingsView(props: {
     window.winglog.settingsGetGsx().then(setGsx)
     window.winglog.settingsGetLandingThresholds().then(setLandingThresholds)
     window.winglog.syncStatus().then(setSyncStatus)
+    window.winglog.appGetVersion().then(setAppVersion)
   }, [])
 
   async function handleSaveLandingThresholds(event: React.FormEvent): Promise<void> {
@@ -288,6 +290,7 @@ export function SettingsView(props: {
           <TabsTrigger value="tracking">Tracking</TabsTrigger>
           <TabsTrigger value="thirdParty">3rd party</TabsTrigger>
           <TabsTrigger value="data">Data</TabsTrigger>
+          <TabsTrigger value="about">About</TabsTrigger>
         </TabsList>
 
         <TabsContent value="ui" className="flex min-w-0 flex-col gap-4">
@@ -674,6 +677,34 @@ export function SettingsView(props: {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="about" className="min-w-0">
+          <Card className="max-w-2xl">
+            <CardHeader>
+              <CardTitle>WingLog{appVersion ? ` v${appVersion}` : ''}</CardTitle>
+              <CardDescription>
+                A personal fleet-management, dispatch, live-tracking and logbook companion for Microsoft
+                Flight Simulator.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <p className="text-sm text-foreground">
+                WingLog is not affiliated with, endorsed by, or sponsored by Microsoft Corporation or Asobo
+                Studio. "Microsoft Flight Simulator" is a trademark of its respective owners.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Free and open source under the GNU General Public License v3.0.{' '}
+                <button
+                  type="button"
+                  onClick={() => window.winglog.appOpenGithub()}
+                  className="cursor-pointer underline underline-offset-2 hover:text-foreground"
+                >
+                  github.com/Catalyst4K/WingLog
+                </button>
+              </p>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
