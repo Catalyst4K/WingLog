@@ -2,16 +2,6 @@ import { useEffect, useState } from 'react'
 import { ArrowLeft, ArrowRightLeft, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Aircraft, AircraftLanding, Flight, FleetStats, NewAircraft } from '@shared/ipc'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle
-} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -28,6 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { AircraftForm } from './AircraftForm'
 import { AircraftPhoto } from './AircraftPhoto'
 import { AirlineLogo } from './AirlineLogo'
+import { useConfirm } from './hooks/useConfirm'
 import { useSortable } from './hooks/useSortable'
 import { LandingBadge } from './LandingBadge'
 import { classifyLanding } from './landing-severity'
@@ -311,8 +302,8 @@ function ReplaceAircraftDialog(props: {
           <Button type="button" variant="outline" onClick={() => props.onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="button" onClick={handleConfirm} disabled={!target || submitting}>
-            {submitting ? 'Replacing…' : 'Replace'}
+          <Button type="button" variant="destructive" onClick={handleConfirm} disabled={!target || submitting}>
+            {submitting ? 'Replacing…' : 'Replace aircraft'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -424,8 +415,8 @@ export function FleetView(props: {
   const [view, setView] = useState<View>(
     props.initialAircraftId != null ? { kind: 'detail', id: props.initialAircraftId } : { kind: 'list' }
   )
-  const [deleteTarget, setDeleteTarget] = useState<Aircraft | null>(null)
   const [replaceTarget, setReplaceTarget] = useState<Aircraft | null>(null)
+  const [confirm, confirmDialog] = useConfirm()
 
   useEffect(() => {
     if (props.initialAircraftId != null) props.onInitialAircraftConsumed?.()
@@ -484,10 +475,14 @@ export function FleetView(props: {
     setView({ kind: 'detail', id })
   }
 
-  async function handleConfirmDelete(): Promise<void> {
-    if (!deleteTarget) return
-    const target = deleteTarget
-    setDeleteTarget(null)
+  async function handleDelete(target: Aircraft): Promise<void> {
+    const ok = await confirm({
+      title: `Delete ${target.registration}?`,
+      description: 'This cannot be undone.',
+      confirmLabel: 'Delete aircraft',
+      destructive: true
+    })
+    if (!ok) return
     try {
       await window.winglog.aircraftDelete(target.id)
       await reload()
@@ -547,26 +542,13 @@ export function FleetView(props: {
           stats={stats.find((s) => s.aircraftId === existing.id)}
           replacedBy={aircraft.find((a) => a.id === existing.replacedByAircraftId)}
           onEdit={() => setView({ kind: 'edit', id: view.id })}
-          onDelete={() => setDeleteTarget(existing)}
+          onDelete={() => handleDelete(existing)}
           onReplace={() => setReplaceTarget(existing)}
           onViewAircraft={(id) => setView({ kind: 'detail', id })}
           onOpenFlight={(flightId) => props.onOpenFlightInLogbook(flightId, existing.id)}
           onBack={() => setView({ kind: 'list' })}
         />
-        <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete {deleteTarget?.registration}?</AlertDialogTitle>
-              <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction variant="destructive" onClick={handleConfirmDelete}>
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        {confirmDialog}
         {replaceTarget && (
           <ReplaceAircraftDialog
             aircraft={replaceTarget}

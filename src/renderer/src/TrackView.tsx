@@ -4,7 +4,6 @@ import type { ActiveTracking, Aircraft, Flight, SimTelemetry, TrackPoint } from 
 import {
   AlertDialog,
   AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -15,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { AirlineLogo } from './AirlineLogo'
 import { FlightMap } from './FlightMap'
+import { useConfirm } from './hooks/useConfirm'
 import { parseRouteFromOfpJson, parseWaypointsFromOfpJson } from './route'
 
 /** "Flight Num: [airline logo] BAW31   A35K · G-XWBS" — the identity strip shown for a
@@ -34,10 +34,6 @@ function FlightIdentity(props: { flightNumber: string; aircraft: Aircraft | unde
   )
 }
 
-type ConfirmAction =
-  | { kind: 'cancel-active'; title: string; description: string }
-  | { kind: 'finish'; title: string; description: string }
-  | { kind: 'cancel-planned'; id: number; title: string; description: string }
 
 export function TrackView(props: {
   /** The OFP most recently fetched in Dispatch, not yet saved as a flight — last-resort
@@ -57,7 +53,7 @@ export function TrackView(props: {
   const [active, setActive] = useState<ActiveTracking | null>(null)
   const [trackPoints, setTrackPoints] = useState<TrackPoint[]>([])
   const [starting, setStarting] = useState(false)
-  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null)
+  const [confirm, confirmDialog] = useConfirm()
   const [completedLabel, setCompletedLabel] = useState<string | null>(null)
   // The onTrackingPoint listener below is registered once on mount, so it closes over
   // whatever `flights`/`props.onFlightEnded` were at that time — refs kept in step with
@@ -124,28 +120,55 @@ export function TrackView(props: {
     }
   }
 
-  async function handleConfirm(): Promise<void> {
-    if (!confirmAction) return
-    const action = confirmAction
-    setConfirmAction(null)
+  async function handleCancelActive(): Promise<void> {
+    const ok = await confirm({
+      title: `Cancel ${activeLabel}?`,
+      description: 'The flight will be marked abandoned rather than completed.',
+      confirmLabel: 'Cancel flight',
+      destructive: true
+    })
+    if (!ok) return
     try {
-      if (action.kind === 'cancel-active') {
-        await window.winglog.trackingStop()
-        setActive(null)
-        setTrackPoints([])
-        await reload()
-        props.onFlightEnded?.()
-      } else if (action.kind === 'finish') {
-        await window.winglog.trackingFinish()
-        setActive(null)
-        setTrackPoints([])
-        await reload()
-        props.onFlightEnded?.()
-      } else {
-        await window.winglog.flightCancel(action.id)
-        await reload()
-        props.onFlightEnded?.()
-      }
+      await window.winglog.trackingStop()
+      setActive(null)
+      setTrackPoints([])
+      await reload()
+      props.onFlightEnded?.()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  async function handleFinish(): Promise<void> {
+    const ok = await confirm({
+      title: `Finish ${activeLabel} now?`,
+      description: 'Ends tracking immediately and saves the flight as completed.',
+      confirmLabel: 'Finish & save'
+    })
+    if (!ok) return
+    try {
+      await window.winglog.trackingFinish()
+      setActive(null)
+      setTrackPoints([])
+      await reload()
+      props.onFlightEnded?.()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  async function handleCancelPlanned(id: number, label: string): Promise<void> {
+    const ok = await confirm({
+      title: `Cancel ${label}?`,
+      description: 'This planned flight will be abandoned.',
+      confirmLabel: 'Cancel flight',
+      destructive: true
+    })
+    if (!ok) return
+    try {
+      await window.winglog.flightCancel(id)
+      await reload()
+      props.onFlightEnded?.()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
     }
@@ -203,31 +226,10 @@ export function TrackView(props: {
               </span>
             </div>
             <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                onClick={() =>
-                  setConfirmAction({
-                    kind: 'cancel-active',
-                    title: `Cancel ${activeLabel}?`,
-                    description: 'The flight will be marked abandoned rather than completed.'
-                  })
-                }
-              >
+              <Button type="button" variant="destructive" size="sm" onClick={handleCancelActive}>
                 Cancel flight
               </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() =>
-                  setConfirmAction({
-                    kind: 'finish',
-                    title: `Finish ${activeLabel} now?`,
-                    description: 'Ends tracking immediately and saves the flight as completed.'
-                  })
-                }
-              >
+              <Button type="button" size="sm" onClick={handleFinish}>
                 Finish & save
               </Button>
             </div>
@@ -251,14 +253,7 @@ export function TrackView(props: {
                       type="button"
                       variant="destructive"
                       size="sm"
-                      onClick={() =>
-                        setConfirmAction({
-                          kind: 'cancel-planned',
-                          id: f.id,
-                          title: `Cancel ${label}?`,
-                          description: 'This planned flight will be abandoned.'
-                        })
-                      }
+                      onClick={() => handleCancelPlanned(f.id, label)}
                     >
                       Cancel flight
                     </Button>
@@ -274,23 +269,7 @@ export function TrackView(props: {
         <FlightMap live route={route} waypoints={waypoints} trackPoints={trackPoints} telemetry={props.telemetry} />
       </div>
 
-      <AlertDialog open={confirmAction !== null} onOpenChange={(open) => !open && setConfirmAction(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{confirmAction?.title}</AlertDialogTitle>
-            <AlertDialogDescription>{confirmAction?.description}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Back</AlertDialogCancel>
-            <AlertDialogAction
-              variant={confirmAction?.kind === 'finish' ? 'default' : 'destructive'}
-              onClick={handleConfirm}
-            >
-              {confirmAction?.kind === 'finish' ? 'Finish & save' : 'Cancel flight'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {confirmDialog}
 
       <AlertDialog open={completedLabel !== null} onOpenChange={(open) => !open && setCompletedLabel(null)}>
         <AlertDialogContent>

@@ -13,22 +13,13 @@ import {
 import { ArrowLeft, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Aircraft, Flight, Landing, LogbookStats, TrackPoint, WeightUnit } from '@shared/ipc'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle
-} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { FlightMap } from './FlightMap'
 import { GsxInvoicesCard } from './GsxInvoicesCard'
+import { useConfirm } from './hooks/useConfirm'
 import { useSortable } from './hooks/useSortable'
 import { LandingBadge } from './LandingBadge'
 import { classifyLanding } from './landing-severity'
@@ -152,10 +143,16 @@ function FlightDetail(props: {
 }): React.JSX.Element {
   const { flight, aircraft, weightUnit } = props
   const [trackPoints, setTrackPoints] = useState<TrackPoint[]>([])
-  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [confirm, confirmDialog] = useConfirm()
 
-  async function handleConfirmDelete(): Promise<void> {
-    setConfirmingDelete(false)
+  async function handleDelete(): Promise<void> {
+    const ok = await confirm({
+      title: 'Delete this flight?',
+      description: `Its track (${trackPoints.length} point${trackPoints.length === 1 ? '' : 's'}), landing report and ground-service invoices go with it. This cannot be undone.`,
+      confirmLabel: 'Delete flight',
+      destructive: true
+    })
+    if (!ok) return
     try {
       await window.winglog.flightDelete(flight.id)
       props.onDeleted()
@@ -250,7 +247,7 @@ function FlightDetail(props: {
           <ArrowLeft />
           {props.backToAircraft ? 'Back to aircraft' : 'Back to logbook'}
         </Button>
-        <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmingDelete(true)}>
+        <Button type="button" variant="ghost" size="sm" onClick={handleDelete}>
           <Trash2 />
           Delete flight
         </Button>
@@ -417,23 +414,7 @@ function FlightDetail(props: {
         <GsxInvoicesCard flightId={flight.id} />
       </div>
 
-      <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this flight?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This removes the flight and its landing, GSX invoice, and track data permanently. This cannot be
-              undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={handleConfirmDelete}>
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {confirmDialog}
     </div>
   )
 }
