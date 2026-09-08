@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react'
-import { toast } from 'sonner'
 import type { NavdataProcedureOption, NavdataRunwayOption, ProcedureSelection } from '@shared/ipc'
-import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { approachRunway, parseRouteProcedures, type Waypoint } from './route'
@@ -84,46 +82,40 @@ export function ProcedureSelector(props: {
   const [sidOptions, setSidOptions] = useState<NavdataProcedureOption[]>([])
   const [starOptions, setStarOptions] = useState<NavdataProcedureOption[]>([])
   const [approachOptions, setApproachOptions] = useState<NavdataProcedureOption[]>([])
-  const [refreshing, setRefreshing] = useState(false)
+  // Bumped once the background sim refresh below resolves, so the four cache-read effects
+  // that follow (keyed on this alongside their own real deps) pick up whatever it just
+  // fetched — no manual "Refresh from sim" button needed, this makes staying current
+  // automatic instead.
+  const [refreshedAt, setRefreshedAt] = useState(0)
 
   function set(patch: Partial<ProcedureSelection>): void {
     onSelectionChange({ ...selection, ...patch })
   }
 
-  // Cache read on mount/airport change, plus a silent live-sim refresh — mirrors Phase 3's
-  // original DispatchView effect. Silent on failure: the sim may not be connected yet.
+  // Silent live-sim refresh on mount/airport change — failure is fine (the sim may not be
+  // connected yet), the four lists below already loaded whatever's cached the moment they
+  // mounted; this just tops them up once real navdata is available.
   useEffect(() => {
     const { depIcao, arrIcao } = airports
-    window.winglog.navdataListRunways(depIcao).then(setDepRunways)
-    Promise.allSettled([window.winglog.navdataRefreshAirport(depIcao), window.winglog.navdataRefreshAirport(arrIcao)])
-      .then(() => window.winglog.navdataListRunways(depIcao))
-      .then(setDepRunways)
-      .catch(() => {})
+    Promise.allSettled([window.winglog.navdataRefreshAirport(depIcao), window.winglog.navdataRefreshAirport(arrIcao)]).then(() =>
+      setRefreshedAt((n) => n + 1)
+    )
     // Deliberately narrower than `airports` itself — `ofp`/`previewFlight` are recreated on
     // every parent render (a fresh object each time, even when depIcao/arrIcao haven't
     // changed), and this fetch must only re-fire when the airport pair actually changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [airports.depIcao, airports.arrIcao])
 
-  async function handleRefresh(): Promise<void> {
-    setRefreshing(true)
-    try {
-      await Promise.all([window.winglog.navdataRefreshAirport(airports.depIcao), window.winglog.navdataRefreshAirport(airports.arrIcao)])
-      setDepRunways(await window.winglog.navdataListRunways(airports.depIcao))
-      toast.success('Navdata refreshed from the sim.')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : String(err))
-    } finally {
-      setRefreshing(false)
-    }
-  }
+  useEffect(() => {
+    window.winglog.navdataListRunways(airports.depIcao).then(setDepRunways)
+  }, [airports.depIcao, refreshedAt])
 
   useEffect(() => {
     window.winglog
       .navdataListSids(airports.depIcao, selection.departureRunway)
       .then(setSidOptions)
       .catch(() => setSidOptions([]))
-  }, [airports.depIcao, selection.departureRunway])
+  }, [airports.depIcao, selection.departureRunway, refreshedAt])
 
   // No separate arrival-runway selection any more — the currently-chosen approach's own
   // runway (encoded in its identifier) filters the STAR list, same as a real STAR only
@@ -134,7 +126,7 @@ export function ProcedureSelector(props: {
       .navdataListStars(airports.arrIcao, runway)
       .then(setStarOptions)
       .catch(() => setStarOptions([]))
-  }, [airports.arrIcao, selection.approachIdent])
+  }, [airports.arrIcao, selection.approachIdent, refreshedAt])
 
   // Every approach at the field, unfiltered — there's no runway picker to filter by any
   // more, the approach dropdown itself is how a runway gets chosen.
@@ -143,7 +135,7 @@ export function ProcedureSelector(props: {
       .navdataListApproaches(airports.arrIcao, null)
       .then(setApproachOptions)
       .catch(() => setApproachOptions([]))
-  }, [airports.arrIcao])
+  }, [airports.arrIcao, refreshedAt])
 
   // Auto-default the approach once real options exist and nothing's been chosen yet — see
   // pickDefaultApproachIdentifier's own doc comment for why this is a starting point, not a
@@ -180,62 +172,62 @@ export function ProcedureSelector(props: {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">Real alternatives from the sim, live-editable — no save needed.</span>
-        <Button type="button" variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing}>
-          {refreshing ? 'Refreshing…' : 'Refresh from sim'}
-        </Button>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <ProcedureSelect
-          label="Departure runway"
-          value={selection.departureRunway}
-          options={depRunwayIdents}
-          onChange={(v) => set({ departureRunway: v })}
-          disabled={depRunwayIdents.length === 0}
-        />
-        <ProcedureSelect
-          label="Approach"
-          value={selection.approachIdent}
-          options={approachIdentifiers}
-          onChange={(v) => set({ approachIdent: v, approachTransition: null })}
-          disabled={approachIdentifiers.length === 0}
-        />
-        <ProcedureSelect
-          label="SID"
-          value={selection.sidIdent}
-          options={sidIdentifiers}
-          onChange={(v) => set({ sidIdent: v, sidTransition: null })}
-          disabled={sidIdentifiers.length === 0}
-        />
-        <ProcedureSelect
-          label="STAR"
-          value={selection.starIdent}
-          options={starIdentifiers}
-          onChange={(v) => set({ starIdent: v, starTransition: null })}
-          disabled={starIdentifiers.length === 0}
-        />
-        <ProcedureSelect
-          label="SID transition"
-          value={selection.sidTransition}
-          options={sidTransitions}
-          onChange={(v) => set({ sidTransition: v })}
-          disabled={sidTransitions.length === 0}
-        />
-        <ProcedureSelect
-          label="STAR transition"
-          value={selection.starTransition}
-          options={starTransitions}
-          onChange={(v) => set({ starTransition: v })}
-          disabled={starTransitions.length === 0}
-        />
-        <ProcedureSelect
-          label="Approach transition"
-          value={selection.approachTransition}
-          options={approachTransitions}
-          onChange={(v) => set({ approachTransition: v })}
-          disabled={approachTransitions.length === 0}
-        />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-3">
+          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Departure</span>
+          <ProcedureSelect
+            label="Departure runway"
+            value={selection.departureRunway}
+            options={depRunwayIdents}
+            onChange={(v) => set({ departureRunway: v })}
+            disabled={depRunwayIdents.length === 0}
+          />
+          <ProcedureSelect
+            label="SID"
+            value={selection.sidIdent}
+            options={sidIdentifiers}
+            onChange={(v) => set({ sidIdent: v, sidTransition: null })}
+            disabled={sidIdentifiers.length === 0}
+          />
+          <ProcedureSelect
+            label="SID transition"
+            value={selection.sidTransition}
+            options={sidTransitions}
+            onChange={(v) => set({ sidTransition: v })}
+            disabled={sidTransitions.length === 0}
+          />
+        </div>
+        <div className="flex flex-col gap-3">
+          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Arrival</span>
+          <ProcedureSelect
+            label="Approach"
+            value={selection.approachIdent}
+            options={approachIdentifiers}
+            onChange={(v) => set({ approachIdent: v, approachTransition: null })}
+            disabled={approachIdentifiers.length === 0}
+          />
+          <ProcedureSelect
+            label="STAR"
+            value={selection.starIdent}
+            options={starIdentifiers}
+            onChange={(v) => set({ starIdent: v, starTransition: null })}
+            disabled={starIdentifiers.length === 0}
+          />
+          <ProcedureSelect
+            label="STAR transition"
+            value={selection.starTransition}
+            options={starTransitions}
+            onChange={(v) => set({ starTransition: v })}
+            disabled={starTransitions.length === 0}
+          />
+          <ProcedureSelect
+            label="Approach transition"
+            value={selection.approachTransition}
+            options={approachTransitions}
+            onChange={(v) => set({ approachTransition: v })}
+            disabled={approachTransitions.length === 0}
+          />
+        </div>
       </div>
     </div>
   )

@@ -12,7 +12,7 @@ import type {
 } from '@shared/ipc'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -426,12 +426,6 @@ export function DispatchView(props: {
             <Card size="sm">
               <CardHeader>
                 <CardTitle>Procedures</CardTitle>
-                <CardDescription>
-                  SimBrief's chosen runway, SID and STAR — or a real alternative from the sim itself. Changes
-                  here update the live map on Track immediately, no save needed; the approach isn't known
-                  until ATC assigns one, so keep adjusting it on Track during descent
-                  (docs/plans/navdata-without-navigraph.md).
-                </CardDescription>
               </CardHeader>
               <CardContent>
                 <ProcedureSelector

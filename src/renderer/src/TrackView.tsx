@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import type { ActiveTracking, Aircraft, DispatchOfp, Flight, ProcedureSelection, SimTelemetry, TrackPoint } from '@shared/ipc'
 import {
@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { AirlineLogo } from './AirlineLogo'
 import { FlightMap } from './FlightMap'
 import { useConfirm } from './hooks/useConfirm'
@@ -198,7 +199,12 @@ export function TrackView(props: {
   // preview uses, so the two can never disagree (docs/plans/navdata-without-navigraph.md,
   // Phase 5).
   const liveWaypoints = useLiveWaypoints(airports, props.selection)
-  const route: [number, number][] = liveWaypoints.map((w) => [w.lon, w.lat])
+  // Memoized so this stays reference-stable across renders liveWaypoints itself didn't
+  // change on (e.g. a telemetry update ticking TrackView) — FlightMap's fit-bounds effect
+  // keys off `route`'s identity, and an unmemoized `.map()` here recreated a "new" array on
+  // every one of those renders, resetting the user's zoom mid-flight (real regression,
+  // caught live: memoized everywhere else this pattern appears, LogbookView included).
+  const route: [number, number][] = useMemo(() => liveWaypoints.map((w) => [w.lon, w.lat]), [liveWaypoints])
 
   // Pushes the current selection to the main process whenever it changes while a flight is
   // actively being tracked — TrackingController caches it so it's available at completion
@@ -266,16 +272,31 @@ export function TrackView(props: {
       )}
 
       {airports && (
-        <Card size="sm">
-          <CardContent>
-            <ProcedureSelector
-              airports={airports}
-              selection={props.selection}
-              onSelectionChange={props.onSelectionChange}
-              liveWaypoints={liveWaypoints}
-            />
-          </CardContent>
-        </Card>
+        <div className="flex items-center gap-2">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button type="button" variant="outline" size="sm">
+                Procedures…
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Procedures</DialogTitle>
+              </DialogHeader>
+              <ProcedureSelector
+                airports={airports}
+                selection={props.selection}
+                onSelectionChange={props.onSelectionChange}
+                liveWaypoints={liveWaypoints}
+              />
+            </DialogContent>
+          </Dialog>
+          <span className="text-sm text-muted-foreground">
+            {[props.selection.sidIdent, props.selection.starIdent, props.selection.approachIdent]
+              .filter((v): v is string => v !== null)
+              .join(' · ') || 'Nothing selected yet'}
+          </span>
+        </div>
       )}
 
       <div className="min-h-0 flex-1">
