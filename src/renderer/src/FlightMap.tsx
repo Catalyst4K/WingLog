@@ -53,8 +53,21 @@ function ensureWorkerReady(): Promise<void> {
 // isn't rendering a map at all) — timeboxed, not perfected, per the plan's own framing.
 const MAP_STYLE_LIGHT = 'https://tiles.openfreemap.org/styles/positron'
 const MAP_STYLE_DARK = 'https://tiles.openfreemap.org/styles/dark'
-function currentMapStyle(): string {
-  return document.documentElement.classList.contains('dark') ? MAP_STYLE_DARK : MAP_STYLE_LIGHT
+function isDarkTheme(): boolean {
+  return document.documentElement.classList.contains('dark')
+}
+// `text-halo-color` draws a thin outline around each glyph, not a solid background behind
+// it — with a *dark* fill colour that outline is the only part of the letter that isn't
+// dark-on-dark, so on the dark basemap this app's own waypoint/taxiway labels (paint
+// properties fixed at layer-creation time, unrelated to the vector style's own colours)
+// went from readable to genuinely illegible once dark mode existed (real complaint,
+// 2026-09-08). Picked once alongside the basemap style below, same rationale for not
+// re-styling live if the theme changes mid-session.
+function waypointLabelColors(dark: boolean): { color: string; halo: string } {
+  return dark ? { color: '#c7d3e0', halo: '#05070a' } : { color: '#555', halo: '#fff' }
+}
+function taxiwayLabelColors(dark: boolean): { color: string; halo: string } {
+  return dark ? { color: '#e0b24d', halo: '#05070a' } : { color: '#7a5c00', halo: '#fff' }
 }
 const ROUTE_SOURCE_ID = 'planned-route'
 // Same source as ROUTE_SOURCE_ID's layer, drawn solid in the same blue as the flown trail
@@ -183,9 +196,10 @@ export function FlightMap({
 
     ensureWorkerReady().then(() => {
       if (cancelled || !mapContainerRef.current) return
+      const dark = isDarkTheme()
       const map = new MapLibreMap({
         container: mapContainerRef.current,
-        style: currentMapStyle(),
+        style: dark ? MAP_STYLE_DARK : MAP_STYLE_LIGHT,
         // Restores the live map's last camera position across a remount (docs/plans/
         // map-improvements.md, "cause B") instead of always starting at the whole-world
         // default — only for the live map (Logbook's static map fits its own bounds fresh
@@ -288,6 +302,7 @@ export function FlightMap({
             'circle-stroke-color': '#fff'
           }
         })
+        const waypointLabel = waypointLabelColors(dark)
         map.addLayer({
           id: `${WAYPOINT_SOURCE_ID}-label`,
           type: 'symbol',
@@ -305,7 +320,7 @@ export function FlightMap({
             'text-offset': [0, 1],
             'text-anchor': 'top'
           },
-          paint: { 'text-color': '#555', 'text-halo-color': '#fff', 'text-halo-width': 1 }
+          paint: { 'text-color': waypointLabel.color, 'text-halo-color': waypointLabel.halo, 'text-halo-width': 1 }
         })
 
         // Taxiway designators when zoomed into an airport (docs/plans/map-improvements.md
@@ -316,6 +331,7 @@ export function FlightMap({
         // Runway idents (`class == 'runway'`, e.g. "09L/27R") come from the same source
         // layer for free. Coverage is OSM-derived and varies by airport — a taxiway with no
         // `ref` in the data simply renders unlabelled, which degrades fine.
+        const taxiwayLabel = taxiwayLabelColors(dark)
         map.addLayer({
           id: 'aeroway-taxiway-label',
           type: 'symbol',
@@ -329,7 +345,7 @@ export function FlightMap({
             'symbol-placement': 'line',
             'text-letter-spacing': 0.05
           },
-          paint: { 'text-color': '#7a5c00', 'text-halo-color': '#fff', 'text-halo-width': 1.2 }
+          paint: { 'text-color': taxiwayLabel.color, 'text-halo-color': taxiwayLabel.halo, 'text-halo-width': 1.2 }
         })
 
         // A text glyph (e.g. '✈') isn't drawn pointing true north in every font, so

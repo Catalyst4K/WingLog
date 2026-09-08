@@ -49,9 +49,31 @@ function parseComment(comments: string, icaoType: string): { developer: string |
   return { developer: match[1].trim(), platform: match[2].trim(), variant: variant || null }
 }
 
+// A320-family classic (A318/A319/A320/A321 — not the neos, A19N/A20N/A21N, which ship
+// with Sharklets as standard and have no Wing Fence option at all) can be fitted with
+// either the original Wing Fence wingtip or the later Sharklet retrofit. Fenix's own
+// comments only ever tag the Sharklet case explicitly ("(SL)"), leaving the older (and
+// more common) Wing Fence case with no tag at all — confirmed real, Callum's own domain
+// knowledge, 2026-09-08. Left as-is, a Wing Fence entry just looks like it has no
+// distinguishing detail rather than "the other real wingtip option" — made explicit here
+// instead, mirroring what Fenix's own comments only bother to state for one side of the
+// pair. Scoped to Fenix specifically (Callum's own wording — "the profile for fenix...
+// wing fence profiles too"), not every A320-family developer: nothing confirms every other
+// addon's comments follow the same SL-only-tags-one-side convention, and guessing wrong
+// there would be actively misleading rather than just unhelpfully blank.
+const A320_CLASSIC_TYPES = new Set(['A318', 'A319', 'A320', 'A321'])
+const SHARKLET_PATTERN = /\bSL\b/i
+
+function withWingFenceMadeExplicit(variant: string | null, icaoType: string): string | null {
+  if (!A320_CLASSIC_TYPES.has(icaoType.toUpperCase())) return variant
+  if (variant && SHARKLET_PATTERN.test(variant)) return variant
+  return variant ? `${variant} (WF)` : 'WF'
+}
+
 function toOption(raw: RawAirframe, simbriefType: string): SimbriefAirframeOption {
   const isDefault = raw.airframe_id === false
-  const { developer, variant } = parseComment(raw.airframe_comments, simbriefType)
+  const { developer, variant: parsedVariant } = parseComment(raw.airframe_comments, simbriefType)
+  const variant = developer === 'Fenix Simulations' ? withWingFenceMadeExplicit(parsedVariant, simbriefType) : parsedVariant
   return {
     isDefault,
     developer,

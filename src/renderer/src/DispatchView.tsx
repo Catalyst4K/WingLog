@@ -592,16 +592,17 @@ export function DispatchView(props: {
                   </>
                 )}
 
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" onClick={handleDiscardPlan}>
-                    Discard plan
-                  </Button>
+                <div className="flex items-center gap-2">
                   <Button
                     type="button"
+                    size="lg"
                     onClick={handleFlyClick}
                     disabled={saving || alreadyFlown || selectedAircraftId == null}
                   >
                     {saving ? 'Starting…' : 'Fly'}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={handleDiscardPlan}>
+                    Discard plan
                   </Button>
                 </div>
               </CardContent>

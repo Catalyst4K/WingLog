@@ -157,8 +157,50 @@ describe('parseAirframesForType', () => {
     const options = parseAirframesForType(FIXTURE, 'A320')
     const noSl = options.find((o) => o.comments === 'Fenix Simulations (MSFS) - A320 CFM')
     const withSl = options.find((o) => o.comments === 'Fenix Simulations (MSFS) - A320 CFM (SL)')
-    expect(noSl?.variant).toBe('CFM')
+    // Fenix + A320-family classic: the no-tag entry gets Wing Fence made explicit
+    // (Callum's own domain knowledge, 2026-09-08) rather than staying blank.
+    expect(noSl?.variant).toBe('CFM (WF)')
     expect(withSl?.variant).toBe('CFM (SL)')
+  })
+
+  it('does not infer Wing Fence for a developer other than Fenix, even on A320-family', () => {
+    const fixtureOtherDeveloper: RawAirframesResponse = {
+      A320: {
+        aircraft_icao: 'A320',
+        airframes: [
+          {
+            airframe_id: 1,
+            pilot_id: 1,
+            airframe_internal_id: '1_1',
+            airframe_comments: 'Some Other Dev (MSFS) - Basic Livery',
+            airframe_engines: 'CFM56-5B4/P',
+            airframe_registration: ''
+          }
+        ]
+      }
+    }
+    const [option] = parseAirframesForType(fixtureOtherDeveloper, 'A320')
+    expect(option.variant).toBe('Basic Livery')
+  })
+
+  it('does not infer Wing Fence on an A320 neo (no such option exists)', () => {
+    const fixtureNeo: RawAirframesResponse = {
+      A20N: {
+        aircraft_icao: 'A20N',
+        airframes: [
+          {
+            airframe_id: 1,
+            pilot_id: 1,
+            airframe_internal_id: '1_1',
+            airframe_comments: 'Fenix Simulations (MSFS) - A20N CFM',
+            airframe_engines: 'LEAP-1A26',
+            airframe_registration: ''
+          }
+        ]
+      }
+    }
+    const [option] = parseAirframesForType(fixtureNeo, 'A20N')
+    expect(option.variant).toBe('CFM')
   })
 
   it('does not strip a type-like prefix with no following space (e.g. A339X)', () => {
