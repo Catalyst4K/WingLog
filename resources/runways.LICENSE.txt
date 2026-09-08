@@ -1,13 +1,22 @@
 runways.csv
 
 Source: https://davidmegginson.github.io/ourairports-data/runways.csv
-        (fetched 2026-09-03)
+        (fetched 2026-09-08)
 License: Public domain (OurAirports data)
 
 Trimmed from the full ~48k-row, 20-column, ~3.9 MB source to icao,ident,lat,lon,
-heading_true_deg — one row per usable runway end (both heading and threshold position
-present), for airports already present in the vendored resources/airports.csv (this
-app's ICAO-dispatchable set). Closed runways dropped. 23413 rows.
+heading_true_deg,length_ft,width_ft,displaced_threshold_ft,elevation_ft,surface — one row
+per usable runway end (both heading and threshold position present), for airports already
+present in the vendored resources/airports.csv (this app's ICAO-dispatchable set). Closed
+runways dropped. 23413 rows.
 
-Used by src/main/airports/runway-lookup.ts (landing analysis, PLAN.md M6) to resolve a
-touchdown position/heading to the nearest matching runway end.
+length_ft/width_ft/surface describe the whole physical strip (same value on both ends'
+rows); displaced_threshold_ft/elevation_ft are per-end. Any of the five may be blank where
+OurAirports has no value for that runway — most commonly at smaller/regional airports.
+
+Used by src/main/airports/runway-lookup.ts (landing analysis, PLAN.md M6; Phase 1 of
+flightdeck-backend's docs/plans/navdata-without-navigraph.md) to resolve a touchdown
+position/heading to the nearest matching runway end, using each end's own real
+width/length for matching tolerance rather than a fixed stand-in, report distance from the
+real (displacement-adjusted) landing threshold, and derive an ICAO Annex 14 aiming-point
+distance from length.

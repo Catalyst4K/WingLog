@@ -5,7 +5,7 @@ import {
   headwindComponent,
   positionRelativeToRunway
 } from '../airports/landing-maths'
-import { findRunwayEnd, type RunwayEnd } from '../airports/runway-lookup'
+import { distanceFromUsableThresholdM, findRunwayEnd, type RunwayEnd } from '../airports/runway-lookup'
 import type { NewLanding } from '../db/landing-repo'
 
 // Sanity clamp on G-force alone (PLAN.md §7's open risk register: a payware aircraft with
@@ -73,7 +73,11 @@ export function buildLandingRecord(
       : null,
     crabDeg: runway ? crabAngleDeg(telemetry.headingTrueDeg, runway.headingTrueDeg) : null,
     runwayIdent: runway?.ident ?? null,
-    distanceFromThresholdM: position?.distanceFromThresholdM ?? null,
+    // Distance from the real, usable (displacement-adjusted) threshold — Phase 1,
+    // resources/runways.csv's `displaced_threshold_ft` — not the raw physical-end distance
+    // `position` itself holds, which resolveRunway's gating uses instead (see
+    // runway-lookup.ts's RunwayEnd.lat doc comment for why those are different points).
+    distanceFromThresholdM: runway && position ? distanceFromUsableThresholdM(position, runway) : null,
     centrelineOffsetM: position?.centrelineOffsetM ?? null,
     flapSetting: Number.isFinite(telemetry.flapsHandleIndex) ? telemetry.flapsHandleIndex : null,
     touchdownSource: 'derived'
