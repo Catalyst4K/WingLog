@@ -43,7 +43,19 @@ function ensureWorkerReady(): Promise<void> {
 
 // docs/decisions.md, 2026-09-01 M4 tile source entry: OpenFreeMap, no key/quota/backend.
 // positron over liberty: a low-color basemap reads better under a flight track overlay.
-const MAP_STYLE = 'https://tiles.openfreemap.org/styles/positron'
+// 'dark' confirmed live 2026-09-08 (docs/plans/settings-ui-page.md) — a real OpenFreeMap-
+// hosted style, not assumed: `curl https://tiles.openfreemap.org/styles/dark` returns a
+// genuine style.json with a near-black background and matching muted layer colors, same
+// URL shape as positron's. Picked once at map creation from whatever theme is active then
+// (see documentElement's `dark` class, toggled by App.tsx) — deliberately not re-styled
+// live if the theme changes while a map is already mounted (rare: only 'system' resolving
+// differently mid-session, since every other theme change happens from Settings, which
+// isn't rendering a map at all) — timeboxed, not perfected, per the plan's own framing.
+const MAP_STYLE_LIGHT = 'https://tiles.openfreemap.org/styles/positron'
+const MAP_STYLE_DARK = 'https://tiles.openfreemap.org/styles/dark'
+function currentMapStyle(): string {
+  return document.documentElement.classList.contains('dark') ? MAP_STYLE_DARK : MAP_STYLE_LIGHT
+}
 const ROUTE_SOURCE_ID = 'planned-route'
 // Same source as ROUTE_SOURCE_ID's layer, drawn solid in the same blue as the flown trail
 // (TRAIL_SOURCE_ID's paint below) rather than a paint-property toggle on one layer —
@@ -173,7 +185,7 @@ export function FlightMap({
       if (cancelled || !mapContainerRef.current) return
       const map = new MapLibreMap({
         container: mapContainerRef.current,
-        style: MAP_STYLE,
+        style: currentMapStyle(),
         // Restores the live map's last camera position across a remount (docs/plans/
         // map-improvements.md, "cause B") instead of always starting at the whole-world
         // default — only for the live map (Logbook's static map fits its own bounds fresh

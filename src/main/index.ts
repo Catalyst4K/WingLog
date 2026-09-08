@@ -10,6 +10,7 @@ import {
   type GsxSettings,
   type LandingThresholds,
   type NewFlight,
+  type Theme,
   type WeightUnit
 } from '@shared/ipc'
 import { fetchAircraftByRegistration } from './aircraft-lookup/adsbdb-client'
@@ -51,12 +52,14 @@ import {
   getGsxSettings,
   getLandingThresholds,
   getSimbriefUsername,
+  getTheme,
   getWeightUnit,
   getWindSpeedUnit,
   setAltitudeUnit,
   setGsxSettings,
   setLandingThresholds,
   setSimbriefUsername,
+  setTheme,
   setWeightUnit,
   setWindSpeedUnit
 } from './db/settings-repo'
@@ -328,6 +331,8 @@ app.whenReady().then(() => {
   ipcMain.handle(IpcChannels.settingsSetAltitudeUnit, (_event, unit: AltitudeUnit) => setAltitudeUnit(db, unit))
   ipcMain.handle(IpcChannels.settingsGetWindSpeedUnit, () => getWindSpeedUnit(db))
   ipcMain.handle(IpcChannels.settingsSetWindSpeedUnit, (_event, unit: WindSpeedUnit) => setWindSpeedUnit(db, unit))
+  ipcMain.handle(IpcChannels.settingsGetTheme, () => getTheme(db))
+  ipcMain.handle(IpcChannels.settingsSetTheme, (_event, theme: Theme) => setTheme(db, theme))
 
   const simConnectService = new SimConnectService()
   ipcMain.handle(IpcChannels.simConnectionStatusGet, () => simConnectService.getStatus())

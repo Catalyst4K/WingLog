@@ -7,12 +7,14 @@ import {
   getLastSyncCompletedAt,
   getSetting,
   getSimbriefUsername,
+  getTheme,
   getWindSpeedUnit,
   setAltitudeUnit,
   setGsxSettings,
   setLastSyncCompletedAt,
   setSetting,
   setSimbriefUsername,
+  setTheme,
   setWindSpeedUnit
 } from './settings-repo'
 
@@ -66,6 +68,19 @@ describe('settings repo', () => {
     expect(getWindSpeedUnit(db)).toBe('mps')
     setWindSpeedUnit(db, 'kt')
     expect(getWindSpeedUnit(db)).toBe('kt')
+  })
+
+  it('defaults the theme to system when never set', () => {
+    expect(getTheme(db)).toBe('system')
+  })
+
+  it('round-trips the theme', () => {
+    setTheme(db, 'dark')
+    expect(getTheme(db)).toBe('dark')
+    setTheme(db, 'light')
+    expect(getTheme(db)).toBe('light')
+    setTheme(db, 'system')
+    expect(getTheme(db)).toBe('system')
   })
 
   it('defaults GSX settings to disabled, no folder, USD display', () => {
