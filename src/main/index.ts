@@ -42,7 +42,6 @@ import {
   abandonFlight,
   createFlight,
   deleteFlight,
-  getActiveFlight,
   getFleetStats,
   getFlight,
   getInProgressFlight,
@@ -404,14 +403,17 @@ if (!gotSingleInstanceLock) {
       app.on('before-quit', () => simConnectService.stop())
 
       const trackingController = new TrackingController(db, simConnectService)
-      // The previous process quit or crashed before this flight reached 'completed' or
-      // 'abandoned' — its DB row (OFP, route, everything Track's map needs) was never at
-      // risk, only the in-memory phase-detection state tracking it was lost with that process.
-      // Left as a choice for the user (not auto-resumed) since "pick tracking back up" is only
-      // right if the flight's actually still going in the sim — captured once here, at
-      // startup, and cleared the moment the renderer answers the resume/discard prompt this
-      // drives (trackingGetOrphanedFlight/trackingResumeOrphaned/trackingDiscardOrphaned below).
-      let orphanedActiveFlight = getActiveFlight(db)
+      // The one flight left "in progress" (planned or already active) when the previous
+      // process quit or crashed — its DB row (OFP, route, everything Dispatch/Track need)
+      // was never at risk, only TrackingController's in-memory phase-detection state, which
+      // only exists at all once a flight reaches 'active'. Left as a choice for the user
+      // (not auto-resumed/auto-continued) rather than assumed, since only the user can
+      // judge whether it's still relevant — captured once here, at startup, and cleared the
+      // moment the renderer answers the prompt this drives (trackingGetOrphanedFlight/
+      // trackingResumeOrphaned/trackingDiscardOrphaned below). trackingController.resume()
+      // itself already no-ops for a merely-'planned' flight (nothing was ever tracking it),
+      // so "resume" is safe to call unconditionally regardless of which status this is.
+      let orphanedFlight = getInProgressFlight(db)
 
       trackingController.on('point', (point) => {
         if (!window.isDestroyed()) window.webContents.send(IpcChannels.trackingPoint, point)
@@ -444,16 +446,16 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.trackingSetProcedureSelection, (_event, selection: ProcedureSelection) =>
         trackingController.setProcedureSelection(selection)
       )
-      ipcMain.handle(IpcChannels.trackingGetOrphanedFlight, () => orphanedActiveFlight ?? null)
+      ipcMain.handle(IpcChannels.trackingGetOrphanedFlight, () => orphanedFlight ?? null)
       ipcMain.handle(IpcChannels.trackingResumeOrphaned, (_event, flightId: number) => {
-        if (orphanedActiveFlight?.id !== flightId) return
+        if (orphanedFlight?.id !== flightId) return
         trackingController.resume(flightId)
-        orphanedActiveFlight = undefined
+        orphanedFlight = undefined
       })
       ipcMain.handle(IpcChannels.trackingDiscardOrphaned, (_event, flightId: number) => {
-        if (orphanedActiveFlight?.id !== flightId) return
+        if (orphanedFlight?.id !== flightId) return
         abandonFlight(db, flightId)
-        orphanedActiveFlight = undefined
+        orphanedFlight = undefined
         scheduleBackgroundSync()
       })
       // Simplified for both callers (Logbook review and TrackView's resume-an-in-progress-

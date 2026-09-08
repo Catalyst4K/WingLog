@@ -131,10 +131,13 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
    * app quit or crashed before shutdown detection (or a manual finish()) ever ran, so the
    * flight's own DB row (OFP, route, everything Track's map needs) was never at risk, only
    * this in-memory recorder was lost with the old process. Called once at startup
-   * (main/index.ts) if getActiveFlight finds one; a no-op otherwise. Starting phase comes
-   * from the flight's last persisted track_point rather than 'preflight', so an aircraft
-   * that's actually mid-air doesn't get stuck waiting for an on-ground transition that will
-   * never come (see FlightRecorder's own resume-parameter doc comment).
+   * (main/index.ts) if the resume/discard prompt's flight (getInProgressFlight — 'planned'
+   * or 'active') turns out to be 'active'; a safe no-op for a merely 'planned' one (there
+   * was never a recorder tracking it to begin with) or if nothing's in progress at all.
+   * Starting phase comes from the flight's last persisted track_point rather than
+   * 'preflight', so an aircraft that's actually mid-air doesn't get stuck waiting for an
+   * on-ground transition that will never come (see FlightRecorder's own resume-parameter
+   * doc comment).
    */
   resume(flightId: number): void {
     const flight = getFlight(this.db, flightId)

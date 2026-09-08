@@ -87,6 +87,28 @@ function connectionStatusVariant(status: SimConnectionStatus): 'default' | 'seco
   }
 }
 
+/** The resume/discard prompt covers two different situations under one flight row — a
+ *  genuinely 'active' one (WingLog quit or crashed mid-track, TrackingController's
+ *  in-memory phase-detection state was lost with it) and a merely 'planned' one (Fly was
+ *  pressed, but tracking never actually started before WingLog closed — nothing crashed,
+ *  there's just an unfinished plan). Same two choices either way (keep it or abandon it),
+ *  but the wording needs to say which one it actually is, not always claim tracking was
+ *  interrupted when it may never have started. */
+function orphanedFlightCopy(flight: Flight): { title: string; description: string; confirmLabel: string } {
+  const label = flight.flightNumber ?? `flight #${flight.id} (${flight.depIcao} → ${flight.arrIcao})`
+  return flight.status === 'active'
+    ? {
+        title: 'Resume tracking?',
+        description: `WingLog closed while ${label} was being tracked. Resume if it's still in progress in the sim, or discard it as abandoned.`,
+        confirmLabel: 'Resume tracking'
+      }
+    : {
+        title: 'Continue this flight?',
+        description: `WingLog closed with ${label} already planned but not yet started. Keep it and continue from Track, or discard it as abandoned.`,
+        confirmLabel: 'Keep it'
+      }
+}
+
 export default function App(): React.JSX.Element {
   const [page, setPage] = useState<AppPage>('fleet')
   const [weightUnit, setWeightUnit] = useState<WeightUnit>('lb')
@@ -109,11 +131,14 @@ export default function App(): React.JSX.Element {
   // (docs/plans/navdata-without-navigraph.md, Phase 5). Re-seeded from SimBrief's own
   // choice whenever a genuinely new OFP loads — see handleDispatchOfpChange below.
   const [procedureSelection, setProcedureSelection] = useState<ProcedureSelection>(emptyProcedureSelection())
-  // A flight left 'active' by a previous process that quit or crashed mid-flight — its own
-  // DB row (OFP, route, everything Track's map needs) was never at risk, only the
-  // in-memory phase-detection state tracking it. Resuming isn't automatic: it's only
-  // correct if the sim is actually still on that flight, which only the user can judge, so
-  // this drives a one-time prompt instead (checked once at startup below).
+  // The one flight left "in progress" (planned or already active) by a previous process —
+  // either a genuine crash/quit mid-track, or just Fly pressed and never followed through
+  // (no crash at all, tracking simply never started). Its own DB row (OFP, route,
+  // everything Dispatch/Track need) was never at risk either way, only TrackingController's
+  // in-memory phase-detection state, which only exists once a flight reaches 'active'.
+  // Neither resuming nor continuing is automatic — only the user can judge whether it's
+  // still relevant — so this drives a one-time prompt instead (checked once at startup
+  // below; orphanedFlightCopy adapts the wording to whichever status it actually is).
   const [orphanedFlight, setOrphanedFlight] = useState<Flight | null>(null)
 
   // Wraps setDispatchOfp so a *new* OFP (a different ofpId, including "cleared to null")
@@ -411,18 +436,20 @@ export default function App(): React.JSX.Element {
 
       <AlertDialog open={orphanedFlight !== null} onOpenChange={(open) => !open && setOrphanedFlight(null)}>
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Resume tracking?</AlertDialogTitle>
-            <AlertDialogDescription>
-              WingLog closed while{' '}
-              {orphanedFlight?.flightNumber ?? `flight #${orphanedFlight?.id} (${orphanedFlight?.depIcao} → ${orphanedFlight?.arrIcao})`}{' '}
-              was being tracked. Resume if it's still in progress in the sim, or discard it as abandoned.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleDiscardOrphaned}>Discard flight</AlertDialogCancel>
-            <AlertDialogAction onClick={handleResumeOrphaned}>Resume tracking</AlertDialogAction>
-          </AlertDialogFooter>
+          {orphanedFlight && (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{orphanedFlightCopy(orphanedFlight).title}</AlertDialogTitle>
+                <AlertDialogDescription>{orphanedFlightCopy(orphanedFlight).description}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={handleDiscardOrphaned}>Discard flight</AlertDialogCancel>
+                <AlertDialogAction onClick={handleResumeOrphaned}>
+                  {orphanedFlightCopy(orphanedFlight).confirmLabel}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          )}
         </AlertDialogContent>
       </AlertDialog>
     </main>
