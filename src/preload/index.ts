@@ -7,6 +7,7 @@ import {
   type WingLogApi,
   type GsxSettings,
   type LandingThresholds,
+  type NavdataProcedureKind,
   type NewAircraft,
   type NewFlight,
   type SimConnectionStatus,
@@ -118,7 +119,16 @@ const api: WingLogApi = {
   syncNow: () => ipcRenderer.invoke(IpcChannels.syncNow),
   syncStatus: () => ipcRenderer.invoke(IpcChannels.syncStatus),
   appGetVersion: () => ipcRenderer.invoke(IpcChannels.appGetVersion),
-  appOpenGithub: () => ipcRenderer.invoke(IpcChannels.appOpenGithub)
+  appOpenGithub: () => ipcRenderer.invoke(IpcChannels.appOpenGithub),
+  navdataRefreshAirport: (icao: string) => ipcRenderer.invoke(IpcChannels.navdataRefreshAirport, icao),
+  navdataHasAirport: (icao: string) => ipcRenderer.invoke(IpcChannels.navdataHasAirport, icao),
+  navdataListRunways: (icao: string) => ipcRenderer.invoke(IpcChannels.navdataListRunways, icao),
+  navdataListSids: (icao: string, runway?: string | null) =>
+    ipcRenderer.invoke(IpcChannels.navdataListSids, icao, runway),
+  navdataListStars: (icao: string, runway?: string | null) =>
+    ipcRenderer.invoke(IpcChannels.navdataListStars, icao, runway),
+  navdataGetProcedureWaypoints: (icao: string, kind: NavdataProcedureKind, identifier: string, transition?: string | null) =>
+    ipcRenderer.invoke(IpcChannels.navdataGetProcedureWaypoints, icao, kind, identifier, transition)
 }
 
 contextBridge.exposeInMainWorld('winglog', api)

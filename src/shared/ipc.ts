@@ -576,6 +576,47 @@ export interface SyncStatus {
   lastError: string | null
 }
 
+/**
+ * Navdata (Phase 3, flightdeck-backend's docs/plans/navdata-without-navigraph.md) — real
+ * runway/SID/STAR data from MSFS's own SimConnect Facilities API, cached locally per
+ * airport. `refresh` is the only channel that touches the sim; the rest read the cache, so
+ * a Dispatch dropdown doesn't wait on a live SimConnect round-trip on every keystroke.
+ */
+export interface NavdataRunwayOption {
+  ident: string
+  headingTrueDeg: number
+  lengthM: number
+  widthM: number
+  /** Raw SimConnect surface-type integer — not yet mapped to a name. */
+  surface: number
+  thresholdLat: number
+  thresholdLon: number
+}
+
+/** One selectable SID/STAR + transition combination — `transition` is null for "no
+ *  transition" (a procedure with none defined, or the direct-to-common-point option). */
+export interface NavdataProcedureOption {
+  identifier: string
+  transition: string | null
+}
+
+export type NavdataProcedureKind = 'sid' | 'star'
+
+/** One leg of a procedure's own common leg list — not yet split by transition, see
+ *  flightdeck's src/main/sim/facility-fields.ts for why. */
+export interface NavdataLeg {
+  type: number
+  fixIdent: string | null
+  fixType: string | null
+  fixLatitude: number
+  fixLongitude: number
+  turnDirection: number
+  courseDeg: number
+  altitude1: number
+  altitude2: number
+  speedLimit: number
+}
+
 export const IpcChannels = {
   aircraftList: 'aircraft:list',
   aircraftCreate: 'aircraft:create',
@@ -651,7 +692,13 @@ export const IpcChannels = {
   syncNow: 'sync:now',
   syncStatus: 'sync:status',
   appGetVersion: 'app:get-version',
-  appOpenGithub: 'app:open-github'
+  appOpenGithub: 'app:open-github',
+  navdataRefreshAirport: 'navdata:refresh-airport',
+  navdataHasAirport: 'navdata:has-airport',
+  navdataListRunways: 'navdata:list-runways',
+  navdataListSids: 'navdata:list-sids',
+  navdataListStars: 'navdata:list-stars',
+  navdataGetProcedureWaypoints: 'navdata:get-procedure-waypoints'
 } as const
 
 export interface WingLogApi {
@@ -859,4 +906,22 @@ export interface WingLogApi {
    *  than a raw <a target="_blank"> (which Electron would otherwise open as a new
    *  in-app window, not the system browser). */
   appOpenGithub: () => Promise<void>
+  /** Fetches fresh runway/SID/STAR data for `icao` from the sim and replaces the local
+   *  cache for it — the write path (call on OFP import, or a manual "Refresh from sim"
+   *  control). Throws if the sim isn't reachable or the fetch fails/times out. */
+  navdataRefreshAirport: (icao: string) => Promise<void>
+  /** True once navdataRefreshAirport has completed for this ICAO at least once — lets the
+   *  caller offer "refresh from sim" instead of showing an empty list as if it were final. */
+  navdataHasAirport: (icao: string) => Promise<boolean>
+  navdataListRunways: (icao: string) => Promise<NavdataRunwayOption[]>
+  /** `runway`, when given, filters to procedures that apply to it — a procedure with no
+   *  runway transitions registered at all is treated as applying to any runway. */
+  navdataListSids: (icao: string, runway?: string | null) => Promise<NavdataProcedureOption[]>
+  navdataListStars: (icao: string, runway?: string | null) => Promise<NavdataProcedureOption[]>
+  navdataGetProcedureWaypoints: (
+    icao: string,
+    kind: NavdataProcedureKind,
+    identifier: string,
+    transition?: string | null
+  ) => Promise<NavdataLeg[]>
 }
