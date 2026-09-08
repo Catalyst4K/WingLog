@@ -44,6 +44,7 @@ const api: WingLogApi = {
   flightCancel: (id: number) => ipcRenderer.invoke(IpcChannels.flightCancel, id),
   flightDelete: (id: number) => ipcRenderer.invoke(IpcChannels.flightDelete, id),
   dispatchFetchOfp: () => ipcRenderer.invoke(IpcChannels.dispatchFetchOfp),
+  dispatchGetInProgressFlight: () => ipcRenderer.invoke(IpcChannels.dispatchGetInProgressFlight),
   dispatchOpenSimBrief: (params: DispatchOpenSimBriefParams) =>
     ipcRenderer.invoke(IpcChannels.dispatchOpenSimBrief, params),
   dispatchOpenSimBriefAirframes: (airframeId: string | null) =>
@@ -138,7 +139,10 @@ const api: WingLogApi = {
     transition?: string | null
   ) => ipcRenderer.invoke(IpcChannels.navdataGetProcedureWaypoints, icao, kind, identifier, runway, transition),
   trackingSetProcedureSelection: (selection: ProcedureSelection) =>
-    ipcRenderer.invoke(IpcChannels.trackingSetProcedureSelection, selection)
+    ipcRenderer.invoke(IpcChannels.trackingSetProcedureSelection, selection),
+  trackingGetOrphanedFlight: () => ipcRenderer.invoke(IpcChannels.trackingGetOrphanedFlight),
+  trackingResumeOrphaned: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingResumeOrphaned, flightId),
+  trackingDiscardOrphaned: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingDiscardOrphaned, flightId)
 }
 
 contextBridge.exposeInMainWorld('winglog', api)

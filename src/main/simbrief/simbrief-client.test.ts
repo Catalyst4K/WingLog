@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fetchLatestOfp, parseStepClimbs } from './simbrief-client'
+import { fetchLatestOfp, parseOfp, parseStepClimbs } from './simbrief-client'
 
 // Minimal fixture using the real field names/shape verified against a live SimBrief OFP
 // response (see docs note in simbrief-client.ts) — not real personal flight data.
@@ -29,6 +29,25 @@ function fixture(units: 'kgs' | 'lbs'): unknown {
     }
   }
 }
+
+describe('parseOfp', () => {
+  // The reconstruction path this exists for: dispatchGetInProgressFlight round-trips a
+  // flight's own stored ofpJson (JSON.parse'd back to a plain object) through this exact
+  // function, not through a live fetch — same as fetchLatestOfp calls it, just fed
+  // JSON.parse(rawJson) directly rather than a fresh response.json().
+  it('parses a raw OFP object the same way fetchLatestOfp does', () => {
+    const ofp = parseOfp(JSON.parse(JSON.stringify(fixture('kgs'))))
+    expect(ofp.ofpId).toBe('12345')
+    expect(ofp.depIcao).toBe('EGLL')
+    expect(ofp.arrIcao).toBe('VHHH')
+    expect(ofp.fuelPlannedKg).toBe(85029)
+  })
+
+  it('throws on a non-object value rather than crashing on property access', () => {
+    expect(() => parseOfp(null)).toThrow('not a valid JSON object')
+    expect(() => parseOfp('garbage')).toThrow('not a valid JSON object')
+  })
+})
 
 describe('fetchLatestOfp', () => {
   afterEach(() => {
@@ -164,7 +183,10 @@ describe('fetchLatestOfp', () => {
       'fetch',
       vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ fetch: { status: 'Error' } }) }))
     )
-    await expect(fetchLatestOfp('nobody')).rejects.toThrow('nobody')
+    // parseOfp (shared with reconstructing a stored ofpJson, not just a fresh fetch) has
+    // no username to include here — fetchLatestOfp's own HTTP-failure case below still
+    // does, since that's the one case actually specific to which username was fetched.
+    await expect(fetchLatestOfp('nobody')).rejects.toThrow('SimBrief reported an error')
   })
 
   it('throws on a non-2xx HTTP response', async () => {

@@ -15,8 +15,10 @@ import {
   createHistoricalFlight,
   deleteFlight,
   finalizeFuelOut,
+  getActiveFlight,
   getFleetStats,
   getFlight,
+  getInProgressFlight,
   getLogbookStats,
   listCompletedFlights,
   listFlights,
@@ -198,6 +200,33 @@ describe('flight repo', () => {
       expect(completed?.blockMinutes).toBe(110) // 12:00 -> 13:50
       expect(completed?.airMinutes).toBe(90) // 12:10 -> 13:40
       expect(completed?.fuelBurnKg).toBe(6000) // 10000 - 4000
+    })
+
+    it('getActiveFlight finds the one flight left mid-tracking, for TrackingController.resume() at startup', () => {
+      expect(getActiveFlight(db)).toBeUndefined()
+
+      const created = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' })
+      startFlight(db, created.id, 10000)
+
+      expect(getActiveFlight(db)?.id).toBe(created.id)
+
+      completeFlight(db, created.id, 4000)
+      expect(getActiveFlight(db)).toBeUndefined()
+    })
+
+    it('getInProgressFlight finds a planned flight too, not just an active one — for restoring Dispatch after a restart', () => {
+      expect(getInProgressFlight(db)).toBeUndefined()
+
+      const created = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' })
+      // Still 'planned' — Fly was pressed, but tracking hasn't started (the sim hasn't
+      // settled yet, or the user just hasn't clicked Start tracking).
+      expect(getInProgressFlight(db)?.id).toBe(created.id)
+
+      startFlight(db, created.id, 10000)
+      expect(getInProgressFlight(db)?.id).toBe(created.id)
+
+      completeFlight(db, created.id, 4000)
+      expect(getInProgressFlight(db)).toBeUndefined()
     })
 
     it('finalizeFuelOut corrects the fuel_out_kg written by startFlight, and feeds into a later fuel-burn calculation', () => {

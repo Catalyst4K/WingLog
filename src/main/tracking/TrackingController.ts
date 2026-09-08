@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import type { ActiveTracking, ProcedureSelection, TrackPoint } from '@shared/ipc'
+import type { ActiveTracking, FlightPhase, ProcedureSelection, TrackPoint } from '@shared/ipc'
 import type { WingLogDb } from '../db/client'
 import { addInvoicesForFlight } from '../db/flight-invoice-repo'
 import {
@@ -123,6 +123,33 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     // A stale selection from whatever flight was tracked previously must never leak onto
     // this one — start with nothing cached; createFlight's own saved-at-plan-time values
     // (if any) are untouched until/unless this flight's own selection gets pushed.
+    this.currentSelection = undefined
+  }
+
+  /**
+   * Picks phase detection back up for a flight left 'active' by a previous process — the
+   * app quit or crashed before shutdown detection (or a manual finish()) ever ran, so the
+   * flight's own DB row (OFP, route, everything Track's map needs) was never at risk, only
+   * this in-memory recorder was lost with the old process. Called once at startup
+   * (main/index.ts) if getActiveFlight finds one; a no-op otherwise. Starting phase comes
+   * from the flight's last persisted track_point rather than 'preflight', so an aircraft
+   * that's actually mid-air doesn't get stuck waiting for an on-ground transition that will
+   * never come (see FlightRecorder's own resume-parameter doc comment).
+   */
+  resume(flightId: number): void {
+    const flight = getFlight(this.db, flightId)
+    if (!flight || flight.status !== 'active') return
+
+    const points = listTrackPoints(this.db, flightId)
+    const lastPhase: FlightPhase = points.length ? points[points.length - 1].phase : 'preflight'
+
+    this.recorder = new FlightRecorder(flightId, {
+      phase: lastPhase,
+      hasLanded: flight.actualOnUtc != null
+    })
+    this.offRecorded = flight.actualOffUtc != null
+    this.onRecorded = flight.actualOnUtc != null
+    this.fuelOutFinalized = this.offRecorded
     this.currentSelection = undefined
   }
 

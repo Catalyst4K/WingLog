@@ -749,7 +749,11 @@ export const IpcChannels = {
   navdataListStars: 'navdata:list-stars',
   navdataListApproaches: 'navdata:list-approaches',
   navdataGetProcedureWaypoints: 'navdata:get-procedure-waypoints',
-  trackingSetProcedureSelection: 'tracking:set-procedure-selection'
+  trackingSetProcedureSelection: 'tracking:set-procedure-selection',
+  trackingGetOrphanedFlight: 'tracking:get-orphaned-flight',
+  trackingResumeOrphaned: 'tracking:resume-orphaned',
+  trackingDiscardOrphaned: 'tracking:discard-orphaned',
+  dispatchGetInProgressFlight: 'dispatch:get-in-progress-flight'
 } as const
 
 export interface WingLogApi {
@@ -791,6 +795,13 @@ export interface WingLogApi {
   flightDelete: (id: number) => Promise<void>
   /** Fetches the SimBrief user's latest OFP. Throws if no username is set or the fetch fails. */
   dispatchFetchOfp: () => Promise<DispatchOfp>
+  /** The one flight currently "in progress" (planned or already active — see
+   *  getInProgressFlight) reconstructed back into Dispatch's own shape, so Dispatch shows
+   *  it again after a restart instead of a blank form — its own `dispatchOfp` is
+   *  renderer-only state that doesn't survive one, unlike Track's list, which reads this
+   *  same DB state directly and was never the problem. Null if nothing's in progress, or
+   *  the in-progress flight has no stored ofpJson (an ad hoc flight started from Track). */
+  dispatchGetInProgressFlight: () => Promise<{ flight: Flight; ofp: DispatchOfp } | null>
   /** Opens SimBrief's dispatch page in the default browser, pre-filled where possible. */
   dispatchOpenSimBrief: (params: DispatchOpenSimBriefParams) => Promise<void>
   /** Opens a saved airframe's editor on SimBrief (docs/decisions.md,
@@ -986,4 +997,15 @@ export interface WingLogApi {
    *  while a flight is actively being tracked; a no-op call with nothing tracked is
    *  harmless (TrackingController just caches it for the flight that starts next). */
   trackingSetProcedureSelection: (selection: ProcedureSelection) => Promise<void>
+  /** The flight left 'active' if the app quit or crashed before it reached 'completed' or
+   *  'abandoned' — checked once at startup (main/index.ts), so this only ever returns
+   *  non-null until the user answers the resume/discard prompt it's meant to drive (or
+   *  null immediately, the common case: nothing was orphaned). */
+  trackingGetOrphanedFlight: () => Promise<Flight | null>
+  /** User chose to resume the orphaned flight above — picks phase detection back up from
+   *  where its last persisted track point left off (TrackingController.resume). */
+  trackingResumeOrphaned: (flightId: number) => Promise<void>
+  /** User chose to discard the orphaned flight above — marks it abandoned rather than
+   *  leaving it stuck in 'active' forever. */
+  trackingDiscardOrphaned: (flightId: number) => Promise<void>
 }

@@ -56,7 +56,25 @@ export class FlightRecorder {
   // flight never reached 'shutdown' and auto-completion never fired.
   private hasLanded = false
 
-  constructor(private readonly flightId: number) {}
+  /**
+   * `resume` restarts phase detection mid-flight rather than at 'preflight' — used when
+   * TrackingController picks a flight's tracking back up after the app quit or crashed
+   * before it reached 'shutdown' (see getActiveFlight's doc comment). Without this, a
+   * resumed recorder would sit stuck at 'preflight' forever for an aircraft that's
+   * actually airborne — advancePhase's 'preflight' case only transitions on `t.onGround`,
+   * which never becomes true again mid-flight. `phase` comes from the flight's last
+   * persisted track_point (each point records the phase it was captured in); `hasLanded`
+   * from whether the flight row already has an actual_on_utc.
+   */
+  constructor(
+    private readonly flightId: number,
+    resume?: { phase: FlightPhase; hasLanded: boolean }
+  ) {
+    if (resume) {
+      this.phase = resume.phase
+      this.hasLanded = resume.hasLanded
+    }
+  }
 
   /** "Freeze the phase machine on pause" (PLAN.md §7) — no transitions, no points, while true. */
   setPaused(paused: boolean): void {

@@ -180,20 +180,21 @@ export function parseStepClimbs(
   return climbs
 }
 
-export async function fetchLatestOfp(username: string): Promise<SimBriefOfp> {
-  const url = `https://www.simbrief.com/api/xml.fetcher.php?username=${encodeURIComponent(username)}&json=1`
-  const response = await fetch(url)
-  const raw: unknown = await response.json().catch(() => undefined)
-
-  if (!response.ok || typeof raw !== 'object' || raw === null) {
-    throw new SimBriefError(`SimBrief fetch failed (HTTP ${response.status}) for username "${username}"`)
+/**
+ * Parses a SimBrief OFP JSON response (whether freshly fetched or read back out of a
+ * flight's own stored `ofpJson`, e.g. to reconstruct Dispatch's view of a flight that
+ * survived a restart — see dispatchGetInProgressFlight) into the shape the rest of the
+ * app works with. Pulled out of fetchLatestOfp so both callers share one parser rather
+ * than fetchLatestOfp being the only place this logic could ever run.
+ */
+export function parseOfp(raw: unknown): SimBriefOfp {
+  if (typeof raw !== 'object' || raw === null) {
+    throw new SimBriefError('SimBrief OFP is not a valid JSON object')
   }
 
   const ofp = raw as Record<string, Record<string, unknown> | undefined>
   if (ofp.fetch?.status !== 'Success') {
-    throw new SimBriefError(
-      `SimBrief reported an error for username "${username}": ${JSON.stringify(ofp.fetch)}`
-    )
+    throw new SimBriefError(`SimBrief reported an error: ${JSON.stringify(ofp.fetch)}`)
   }
 
   const { origin, destination, alternate, general, aircraft, weights, fuel, times, params, navlog } = ofp
@@ -240,4 +241,15 @@ export async function fetchLatestOfp(username: string): Promise<SimBriefOfp> {
     stepClimbs: parseStepClimbs(findStringField(ofp, 'stepclimb_string'), waypointAltitudesFt),
     rawJson: JSON.stringify(raw)
   }
+}
+
+export async function fetchLatestOfp(username: string): Promise<SimBriefOfp> {
+  const url = `https://www.simbrief.com/api/xml.fetcher.php?username=${encodeURIComponent(username)}&json=1`
+  const response = await fetch(url)
+  const raw: unknown = await response.json().catch(() => undefined)
+
+  if (!response.ok) {
+    throw new SimBriefError(`SimBrief fetch failed (HTTP ${response.status}) for username "${username}"`)
+  }
+  return parseOfp(raw)
 }
