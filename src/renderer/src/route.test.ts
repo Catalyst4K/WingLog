@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
+import type { NavdataLeg } from '@shared/ipc'
 import {
+  applyProcedureOverride,
   formatEnrouteOnly,
   parseRouteFromOfpJson,
   parseRouteProcedures,
   parseWaypointsFromOfpJson,
-  segmentWaypoints
+  type ProcedureOverride,
+  segmentWaypoints,
+  type Waypoint
 } from './route'
 
 describe('parseRouteFromOfpJson', () => {
@@ -290,5 +294,76 @@ describe('formatEnrouteOnly', () => {
   it('returns an empty string for null input or a missing route', () => {
     expect(formatEnrouteOnly(null)).toBe('')
     expect(formatEnrouteOnly(JSON.stringify({}))).toBe('')
+  })
+})
+
+describe('applyProcedureOverride', () => {
+  const baseWaypoints: Waypoint[] = [
+    { ident: 'SIMBRIEF_SID', lon: 1, lat: 1, altitudeFt: 2000, segment: 'sid' },
+    { ident: 'ENR1', lon: 2, lat: 2, altitudeFt: 35000, segment: 'enroute' },
+    { ident: 'ENR2', lon: 3, lat: 3, altitudeFt: 35000, segment: 'enroute' },
+    { ident: 'SIMBRIEF_STAR', lon: 4, lat: 4, altitudeFt: 8000, segment: 'star' }
+  ]
+
+  function leg(fixIdent: string | null, altitude1 = 0): NavdataLeg {
+    return {
+      type: 4,
+      fixIdent,
+      fixType: 'W',
+      fixLatitude: 10,
+      fixLongitude: 20,
+      turnDirection: 0,
+      courseDeg: 0,
+      altitude1,
+      altitude2: 0,
+      speedLimit: 0
+    }
+  }
+
+  it('passes the route through unchanged when both overrides are null', () => {
+    expect(applyProcedureOverride(baseWaypoints, null, null)).toEqual(baseWaypoints)
+  })
+
+  it('replaces only the SID segment when a SID override is chosen', () => {
+    const sidOverride: ProcedureOverride = { identifier: 'REAL_SID', legs: [leg('RWYFIX', 1500), leg('COMMON')] }
+    const result = applyProcedureOverride(baseWaypoints, sidOverride, null)
+    expect(result).toEqual([
+      { ident: 'RWYFIX', lon: 20, lat: 10, altitudeFt: 1500, segment: 'sid' },
+      { ident: 'COMMON', lon: 20, lat: 10, altitudeFt: 0, segment: 'sid' },
+      { ident: 'ENR1', lon: 2, lat: 2, altitudeFt: 35000, segment: 'enroute' },
+      { ident: 'ENR2', lon: 3, lat: 3, altitudeFt: 35000, segment: 'enroute' },
+      { ident: 'SIMBRIEF_STAR', lon: 4, lat: 4, altitudeFt: 8000, segment: 'star' }
+    ])
+  })
+
+  it('replaces only the STAR segment when a STAR override is chosen, leaving SID/enroute alone', () => {
+    const starOverride: ProcedureOverride = { identifier: 'REAL_STAR', legs: [leg('STARFIX')] }
+    const result = applyProcedureOverride(baseWaypoints, null, starOverride)
+    expect(result).toEqual([
+      { ident: 'SIMBRIEF_SID', lon: 1, lat: 1, altitudeFt: 2000, segment: 'sid' },
+      { ident: 'ENR1', lon: 2, lat: 2, altitudeFt: 35000, segment: 'enroute' },
+      { ident: 'ENR2', lon: 3, lat: 3, altitudeFt: 35000, segment: 'enroute' },
+      { ident: 'STARFIX', lon: 20, lat: 10, altitudeFt: 0, segment: 'star' }
+    ])
+  })
+
+  it('replaces both segments independently when both are overridden', () => {
+    const sidOverride: ProcedureOverride = { identifier: 'REAL_SID', legs: [leg('A')] }
+    const starOverride: ProcedureOverride = { identifier: 'REAL_STAR', legs: [leg('B')] }
+    const result = applyProcedureOverride(baseWaypoints, sidOverride, starOverride)
+    expect(result.map((w) => w.ident)).toEqual(['A', 'ENR1', 'ENR2', 'B'])
+  })
+
+  it('treats a null identifier as "use SimBrief default", even with legs present', () => {
+    const noOpOverride: ProcedureOverride = { identifier: null, legs: [leg('SHOULD_NOT_APPEAR')] }
+    expect(applyProcedureOverride(baseWaypoints, noOpOverride, noOpOverride)).toEqual(baseWaypoints)
+  })
+
+  it('drops a leg with no real fix (fixIdent null) rather than rendering a nameless waypoint', () => {
+    const sidOverride: ProcedureOverride = { identifier: 'REAL_SID', legs: [leg(null), leg('REAL')] }
+    const result = applyProcedureOverride(baseWaypoints, sidOverride, null)
+    expect(result.filter((w) => w.segment === 'sid')).toEqual([
+      { ident: 'REAL', lon: 20, lat: 10, altitudeFt: 0, segment: 'sid' }
+    ])
   })
 })
