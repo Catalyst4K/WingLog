@@ -121,6 +121,11 @@ export interface AircraftTypeOption {
 export interface SimbriefAirframeOption {
   isDefault: boolean
   developer: string | null
+  /** Whatever in `airframe_comments` distinguishes this entry from another with the same
+   *  developer/engines — e.g. "(SL)" vs "(WF)" on an A320, or a whole descriptive phrase
+   *  like "Dual Class" on a PMDG 737 (docs/simbrief-notes.md, 2026-09-08 entry). Null when
+   *  there's nothing beyond developer/engines to show, or the comment didn't parse at all. */
+  variant: string | null
   engines: string
   /** Raw `airframe_comments` — always present, the guaranteed fallback label. */
   comments: string
