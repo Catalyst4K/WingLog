@@ -299,6 +299,19 @@ app.whenReady().then(() => {
     return shell.openExternal(url)
   })
 
+  // Sibling of logbookOpenOfpPdf (docs/plans/dispatch-action-buttons.md) — a
+  // fetched-but-not-yet-flown Dispatch plan has no flight row to look the OFP JSON up by
+  // id, but the renderer already holds it (DispatchOfp.ofpJson), so it's passed straight
+  // through instead. extractOfpPdfUrl already treats its input as untrusted third-party
+  // JSON and validates the resulting URL (https: and www.simbrief.com only) before it ever
+  // reaches shell.openExternal — unchanged, must stay that way.
+  ipcMain.handle(IpcChannels.dispatchOpenOfpPdf, async (_event, ofpJson: string) => {
+    const url = extractOfpPdfUrl(ofpJson)
+    if (!url) return false
+    await shell.openExternal(url)
+    return true
+  })
+
   ipcMain.handle(IpcChannels.settingsGetSimbriefUsername, () => getSimbriefUsername(db) ?? null)
   ipcMain.handle(IpcChannels.settingsSetSimbriefUsername, (_event, username: string) =>
     setSimbriefUsername(db, username)
