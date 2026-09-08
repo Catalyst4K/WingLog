@@ -579,6 +579,7 @@ export const IpcChannels = {
   dispatchFetchOfp: 'dispatch:fetch-ofp',
   dispatchOpenSimBrief: 'dispatch:open-simbrief',
   dispatchOpenSimBriefAirframes: 'dispatch:open-simbrief-airframes',
+  dispatchOpenOfpPdf: 'dispatch:open-ofp-pdf',
   settingsGetSimbriefUsername: 'settings:get-simbrief-username',
   settingsSetSimbriefUsername: 'settings:set-simbrief-username',
   dispatchGenerateOfp: 'dispatch:generate-ofp',
@@ -681,6 +682,11 @@ export interface WingLogApi {
    *  fleet-simbrief-airframe entry — `.../airframes/saved/<id-suffix>`), or the plain
    *  saved-airframes list page when `airframeId` is null or has no recognisable suffix. */
   dispatchOpenSimBriefAirframes: (airframeId: string | null) => Promise<void>
+  /** Opens a loaded plan's raw OFP PDF straight from the fetched-but-not-yet-flown OFP JSON
+   *  (docs/plans/dispatch-action-buttons.md) — a sibling of logbookOpenOfpPdf reusing the
+   *  same extractOfpPdfUrl, just fed the renderer's own copy of the JSON instead of looking
+   *  a flight row up by id, since a Dispatch plan has no flight row until it's flown. */
+  dispatchOpenOfpPdf: (ofpJson: string) => Promise<boolean>
   settingsGetSimbriefUsername: () => Promise<string | null>
   settingsSetSimbriefUsername: (username: string) => Promise<void>
   /**

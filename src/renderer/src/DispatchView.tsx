@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { X } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Aircraft, AltitudeUnit, DispatchOfp, FleetStats, Flight, WeightUnit, WindSpeedUnit } from '@shared/ipc'
 import { Badge } from '@/components/ui/badge'
@@ -282,6 +281,15 @@ export function DispatchView(props: {
     props.onOfpChange(null)
   }
 
+  // Sibling of Logbook's handleViewOfpPdf (docs/plans/dispatch-action-buttons.md) — works
+  // for a plan that's only fetched, not flown yet, since it passes the OFP JSON the
+  // renderer already holds rather than looking a flight row up by id.
+  async function handleViewOfpPdf(): Promise<void> {
+    if (!ofp) return
+    const opened = await window.winglog.dispatchOpenOfpPdf(ofp.ofpJson)
+    if (!opened) toast.error('No OFP PDF available for this plan.')
+  }
+
   async function handleSaveFlight(): Promise<void> {
     if (!ofp || selectedAircraftId == null) return
     setSaving(true)
@@ -491,15 +499,8 @@ export function DispatchView(props: {
                 </CardTitle>
                 <CardAction className="flex items-center gap-2">
                   {alreadyFlown && <Badge variant="secondary">Flying</Badge>}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Discard plan"
-                    title="Discard plan"
-                    onClick={handleDiscardPlan}
-                  >
-                    <X />
+                  <Button type="button" variant="outline" size="sm" onClick={handleViewOfpPdf}>
+                    View OFP PDF
                   </Button>
                 </CardAction>
               </CardHeader>
@@ -588,12 +589,21 @@ export function DispatchView(props: {
                         one manually.
                       </p>
                     )}
-
-                    <Button type="button" onClick={handleFlyClick} disabled={saving || selectedAircraftId == null}>
-                      {saving ? 'Starting…' : 'Fly'}
-                    </Button>
                   </>
                 )}
+
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" onClick={handleDiscardPlan}>
+                    Discard plan
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleFlyClick}
+                    disabled={saving || alreadyFlown || selectedAircraftId == null}
+                  >
+                    {saving ? 'Starting…' : 'Fly'}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ) : (

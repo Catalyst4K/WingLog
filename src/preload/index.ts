@@ -45,6 +45,7 @@ const api: WingLogApi = {
     ipcRenderer.invoke(IpcChannels.dispatchOpenSimBrief, params),
   dispatchOpenSimBriefAirframes: (airframeId: string | null) =>
     ipcRenderer.invoke(IpcChannels.dispatchOpenSimBriefAirframes, airframeId),
+  dispatchOpenOfpPdf: (ofpJson: string) => ipcRenderer.invoke(IpcChannels.dispatchOpenOfpPdf, ofpJson),
   settingsGetSimbriefUsername: () => ipcRenderer.invoke(IpcChannels.settingsGetSimbriefUsername),
   settingsSetSimbriefUsername: (username: string) =>
     ipcRenderer.invoke(IpcChannels.settingsSetSimbriefUsername, username),
