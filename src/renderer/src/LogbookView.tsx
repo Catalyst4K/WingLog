@@ -20,6 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { FlightMap } from './FlightMap'
 import { GsxInvoicesCard } from './GsxInvoicesCard'
 import { useConfirm } from './hooks/useConfirm'
+import { useResetSignal } from './hooks/useResetSignal'
 import { useSortable } from './hooks/useSortable'
 import { LandingBadge } from './LandingBadge'
 import { classifyLanding } from './landing-severity'
@@ -479,13 +480,18 @@ export function LogbookView(props: {
   /** The Fleet aircraft this flight was opened from, if any — used to send "Back" there
    *  instead of Logbook's own list. Only ever meaningful together with initialFlightId. */
   initialFlightOriginAircraftId?: number | null
-  /** Called once initialFlightId has been consumed, so a later plain tab click into
-   *  Logbook (this component remounts each time, per App.tsx's conditional render)
+  /** Called once initialFlightId has been consumed, so navigating here again from a
+   *  different tab (this component remounts each time, per App.tsx's conditional render)
    *  doesn't keep reopening the same flight. */
   onInitialFlightConsumed?: () => void
   /** Navigates back to a specific Fleet aircraft — wired to "Back" when the current
    *  detail view is the flight that was opened from that aircraft's flights list. */
   onBackToAircraft?: (aircraftId: number) => void
+  /** Bumped by App.tsx when the Logbook tab is clicked while already active — returns to
+   *  the flight list without touching sort/filters (docs/plans/navigation-tab-behaviour.md).
+   *  Distinct from onInitialFlightConsumed above: that's a remount-time concern (arriving
+   *  from elsewhere), this is a same-mount concern (already here). See useResetSignal. */
+  resetSignal?: number
 }): React.JSX.Element {
   const [flights, setFlights] = useState<Flight[]>([])
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
@@ -494,6 +500,7 @@ export function LogbookView(props: {
     props.initialFlightId != null ? { kind: 'detail', id: props.initialFlightId } : { kind: 'list' }
   )
   const [loading, setLoading] = useState(true)
+  useResetSignal(props.resetSignal, () => setView({ kind: 'list' }))
   // Captured once at mount, independent of the props themselves — App.tsx clears
   // pendingLogbookFlight (nulling these props) right after consuming them, but "was this
   // detail view reached via a Fleet cross-navigation" needs to stay true for as long as

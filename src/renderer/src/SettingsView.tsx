@@ -17,9 +17,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useResetSignal } from './hooks/useResetSignal'
 import { NavigraphLogo } from './NavigraphLogo'
 
 type SettingsCategory = 'units' | 'tracking' | 'thirdParty' | 'data'
+const DEFAULT_SETTINGS_CATEGORY: SettingsCategory = 'units'
 
 // A curated, common-currency subset of what frankfurter.dev supports — enough for
 // "I want to see this in my own currency" without a second fetch just to populate a
@@ -59,6 +61,9 @@ export function SettingsView(props: {
   onAltitudeUnitChange: (unit: AltitudeUnit) => void
   windSpeedUnit: WindSpeedUnit
   onWindSpeedUnitChange: (unit: WindSpeedUnit) => void
+  /** Bumped by App.tsx when the Settings tab is clicked while already active — returns to
+   *  the first category (docs/plans/navigation-tab-behaviour.md). See useResetSignal. */
+  resetSignal?: number
 }): React.JSX.Element {
   const [simbriefUsername, setSimbriefUsername] = useState('')
   const [simbriefLoggedIn, setSimbriefLoggedIn] = useState<boolean | null>(null)
@@ -85,7 +90,8 @@ export function SettingsView(props: {
   const [loggingIntoCloud, setLoggingIntoCloud] = useState(false)
   // Purely transient UI state, not persisted — this app has no routing beyond the top tab
   // bar, no reason to add any for a sub-navigation within one of its pages.
-  const [category, setCategory] = useState<SettingsCategory>('units')
+  const [category, setCategory] = useState<SettingsCategory>(DEFAULT_SETTINGS_CATEGORY)
+  useResetSignal(props.resetSignal, () => setCategory(DEFAULT_SETTINGS_CATEGORY))
 
   useEffect(() => {
     window.winglog.settingsGetSimbriefUsername().then((u) => setSimbriefUsername(u ?? ''))

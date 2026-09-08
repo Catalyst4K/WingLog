@@ -11,6 +11,7 @@ import type {
   WindSpeedUnit
 } from '@shared/ipc'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Toaster } from '@/components/ui/sonner'
 import { FleetView } from './FleetView'
@@ -19,10 +20,14 @@ import { FleetView } from './FleetView'
 // lazy so its JS (and, for Track/Logbook, the maplibre-gl and recharts they pull in —
 // together the two heaviest dependencies in the app) doesn't get parsed and evaluated
 // until the user actually visits it. docs/decisions.md, memory-usage entry.
-const DispatchView = lazy(() => import('./DispatchView').then((m) => ({ default: m.DispatchView })))
-const TrackView = lazy(() => import('./TrackView').then((m) => ({ default: m.TrackView })))
-const LogbookView = lazy(() => import('./LogbookView').then((m) => ({ default: m.LogbookView })))
-const SettingsView = lazy(() => import('./SettingsView').then((m) => ({ default: m.SettingsView })))
+const loadDispatchView = () => import('./DispatchView').then((m) => ({ default: m.DispatchView }))
+const loadTrackView = () => import('./TrackView').then((m) => ({ default: m.TrackView }))
+const loadLogbookView = () => import('./LogbookView').then((m) => ({ default: m.LogbookView }))
+const loadSettingsView = () => import('./SettingsView').then((m) => ({ default: m.SettingsView }))
+const DispatchView = lazy(loadDispatchView)
+const TrackView = lazy(loadTrackView)
+const LogbookView = lazy(loadLogbookView)
+const SettingsView = lazy(loadSettingsView)
 
 const TABS: { page: AppPage; label: string; icon: typeof Plane }[] = [
   { page: 'fleet', label: 'Fleet', icon: Plane },
@@ -31,6 +36,20 @@ const TABS: { page: AppPage; label: string; icon: typeof Plane }[] = [
   { page: 'logbook', label: 'Logbook', icon: BookOpen },
   { page: 'settings', label: 'Settings', icon: SettingsIcon }
 ]
+
+/** Suspense's fallback for a lazy view's first render (docs/plans/navigation-tab-
+ *  behaviour.md) — belt-and-braces alongside the idle prefetch below, not the primary fix:
+ *  prefetching makes the cold-click delay go away, this just means a slow one (prefetch
+ *  hadn't finished yet) shows the page frame rather than nothing at all. */
+function PageSkeleton(): React.JSX.Element {
+  return (
+    <div className="flex flex-col gap-4">
+      <Skeleton className="h-8 w-40" />
+      <Skeleton className="h-32 w-full" />
+      <Skeleton className="h-32 w-full" />
+    </div>
+  )
+}
 
 function connectionStatusLabel(status: SimConnectionStatus): string {
   switch (status.state) {
@@ -82,11 +101,58 @@ export default function App(): React.JSX.Element {
   // Mirror of the above for the trip back — set when Logbook's "Back" returns to a
   // specific aircraft rather than the Fleet list.
   const [pendingFleetAircraftId, setPendingFleetAircraftId] = useState<number | null>(null)
+  // Bumped to tell an already-mounted view "return to your default view" — a tab click
+  // while already on that tab doesn't change `page`, so it doesn't remount the view (which
+  // would otherwise reset it for free) or fire Radix's onValueChange at all (docs/plans/
+  // navigation-tab-behaviour.md). Only Fleet/Logbook/Settings have a real list -> detail
+  // drill-down to reset this way; Dispatch/Track don't get one, see goToTab below.
+  const [fleetResetSignal, setFleetResetSignal] = useState(0)
+  const [logbookResetSignal, setLogbookResetSignal] = useState(0)
+  const [settingsResetSignal, setSettingsResetSignal] = useState(0)
 
   function openFlightInLogbook(flightId: number, fromAircraftId: number): void {
     setPendingLogbookFlight({ flightId, fromAircraftId })
     setPage('logbook')
   }
+
+  /** Always navigates to `targetPage` — including "return to its default view" when
+   *  already there, which a bare `setPage` can't do (Radix's Tabs only fires
+   *  `onValueChange` on an actual value change, so clicking the active tab is normally a
+   *  no-op). Dispatch and Track are deliberate exceptions: their lifted state
+   *  (`dispatchOfp`/`dispatchedOfpId`, Track's own in-progress tracking) is work in
+   *  progress, not navigation history — clearing it because the user clicked the tab
+   *  they're already on would be a data-loss bug wearing a UX fix's clothing. */
+  function goToTab(targetPage: AppPage): void {
+    if (targetPage !== page) {
+      setPage(targetPage)
+      return
+    }
+    if (targetPage === 'fleet') setFleetResetSignal((n) => n + 1)
+    if (targetPage === 'logbook') setLogbookResetSignal((n) => n + 1)
+    if (targetPage === 'settings') setSettingsResetSignal((n) => n + 1)
+  }
+
+  // Prefetches every lazy view's chunk once the app is idle after first paint, so by the
+  // time a tab is actually clicked its module is already in memory and `lazy` resolves
+  // synchronously — this is what actually removes the first-visit delay (docs/plans/
+  // navigation-tab-behaviour.md), the Suspense fallback below is just the safety net for
+  // whatever's still mid-fetch on a very cold click. requestIdleCallback isn't in every
+  // browser but always is in Electron/Chromium; the setTimeout fallback costs nothing.
+  useEffect(() => {
+    const idle: (cb: () => void) => number =
+      typeof window.requestIdleCallback === 'function'
+        ? window.requestIdleCallback
+        : (cb) => window.setTimeout(cb, 1)
+    const cancelIdle: (handle: number) => void =
+      typeof window.cancelIdleCallback === 'function' ? window.cancelIdleCallback : window.clearTimeout
+    const handle = idle(() => {
+      void loadDispatchView()
+      void loadTrackView()
+      void loadLogbookView()
+      void loadSettingsView()
+    })
+    return () => cancelIdle(handle)
+  }, [])
 
   function openFleetAircraft(aircraftId: number): void {
     setPendingFleetAircraftId(aircraftId)
@@ -151,7 +217,12 @@ export default function App(): React.JSX.Element {
         <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-3">
           <TabsList variant="line">
             {TABS.map(({ page: tabPage, label, icon: Icon }) => (
-              <TabsTrigger key={tabPage} value={tabPage} className="gap-1.5 px-3">
+              <TabsTrigger
+                key={tabPage}
+                value={tabPage}
+                className="gap-1.5 px-3"
+                onClick={() => goToTab(tabPage)}
+              >
                 <Icon />
                 {label}
               </TabsTrigger>
@@ -174,9 +245,10 @@ export default function App(): React.JSX.Element {
               onOpenFlightInLogbook={openFlightInLogbook}
               initialAircraftId={pendingFleetAircraftId}
               onInitialAircraftConsumed={() => setPendingFleetAircraftId(null)}
+              resetSignal={fleetResetSignal}
             />
           )}
-          <Suspense fallback={null}>
+          <Suspense fallback={<PageSkeleton />}>
             {page === 'dispatch' && (
               <DispatchView
                 weightUnit={weightUnit}
@@ -206,6 +278,7 @@ export default function App(): React.JSX.Element {
                 initialFlightOriginAircraftId={pendingLogbookFlight?.fromAircraftId ?? null}
                 onInitialFlightConsumed={() => setPendingLogbookFlight(null)}
                 onBackToAircraft={openFleetAircraft}
+                resetSignal={logbookResetSignal}
               />
             )}
             {page === 'settings' && (
@@ -216,6 +289,7 @@ export default function App(): React.JSX.Element {
                 onAltitudeUnitChange={handleAltitudeUnitChange}
                 windSpeedUnit={windSpeedUnit}
                 onWindSpeedUnitChange={handleWindSpeedUnitChange}
+                resetSignal={settingsResetSignal}
               />
             )}
           </Suspense>

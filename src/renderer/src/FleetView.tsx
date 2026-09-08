@@ -19,6 +19,7 @@ import { AircraftForm } from './AircraftForm'
 import { AircraftPhoto } from './AircraftPhoto'
 import { AirlineLogo } from './AirlineLogo'
 import { useConfirm } from './hooks/useConfirm'
+import { useResetSignal } from './hooks/useResetSignal'
 import { useSortable } from './hooks/useSortable'
 import { LandingBadge } from './LandingBadge'
 import { classifyLanding } from './landing-severity'
@@ -409,6 +410,9 @@ export function FleetView(props: {
   /** Called once initialAircraftId has been consumed — see LogbookView's
    *  onInitialFlightConsumed for why this needs to happen exactly once. */
   onInitialAircraftConsumed?: () => void
+  /** Bumped by App.tsx when the Fleet tab is clicked while already active — returns to
+   *  the aircraft list (docs/plans/navigation-tab-behaviour.md). See useResetSignal. */
+  resetSignal?: number
 }): React.JSX.Element {
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
   const [stats, setStats] = useState<FleetStats[]>([])
@@ -417,6 +421,8 @@ export function FleetView(props: {
   )
   const [replaceTarget, setReplaceTarget] = useState<Aircraft | null>(null)
   const [confirm, confirmDialog] = useConfirm()
+
+  useResetSignal(props.resetSignal, () => setView({ kind: 'list' }))
 
   useEffect(() => {
     if (props.initialAircraftId != null) props.onInitialAircraftConsumed?.()
