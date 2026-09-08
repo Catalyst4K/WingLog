@@ -2,16 +2,6 @@ import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Aircraft, AltitudeUnit, DispatchOfp, FleetStats, Flight, WeightUnit, WindSpeedUnit } from '@shared/ipc'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle
-} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -22,6 +12,7 @@ import { AirportSearch } from './AirportSearch'
 import { DispatchAdvancedDialog } from './DispatchAdvancedDialog'
 import { countSetOptions, defaultDispatchOptions, dispatchOptionsToUrlParams, type DispatchOptions } from '@shared/dispatch-options'
 import { defaultDepartureTime, fromDatetimeLocalValue, toDatetimeLocalValue, toSimBriefDeparture } from './dispatch-time'
+import { useConfirm } from './hooks/useConfirm'
 import { MetarPanel } from './MetarPanel'
 import { formatEnrouteOnly, parseRouteProcedures, type RouteProcedures } from './route'
 import { formatAltitude, formatWeight, mToFt } from './units'
@@ -111,9 +102,7 @@ export function DispatchView(props: {
   const [generating, setGenerating] = useState(false)
   const [generationAvailable, setGenerationAvailable] = useState(false)
   const [saving, setSaving] = useState(false)
-  // Set only when Fly would abandon a flight Track already has in progress — see
-  // handleFlyClick. Holds the warning text to show; null means no confirmation needed.
-  const [flyWarning, setFlyWarning] = useState<string | null>(null)
+  const [confirm, confirmDialog] = useConfirm()
   // Set after a fetch whose OFP was generated against a custom airframe that differs from
   // (or is missing on) the matched fleet aircraft — offered, not applied silently, same
   // as the registration-match heuristic (docs/decisions.md, fleet-simbrief-airframe entry).
@@ -268,24 +257,29 @@ export function DispatchView(props: {
     ])
     const activeFlight = active ? flights.find((f) => f.id === active.flightId) : undefined
     const otherPlanned = flights.filter((f) => f.status === 'planned')
-    if (activeFlight) {
-      setFlyWarning(
-        `This will abandon the flight currently being tracked, ${activeFlight.flightNumber ?? `#${activeFlight.id}`}.`
-      )
-    } else if (otherPlanned.length > 0) {
-      setFlyWarning(
-        otherPlanned.length === 1
-          ? `This will abandon the other planned flight, ${otherPlanned[0].flightNumber ?? `#${otherPlanned[0].id}`}.`
-          : `This will abandon ${otherPlanned.length} other planned flights.`
-      )
-    } else {
-      await handleSaveFlight()
+    const warning = activeFlight
+      ? `This will abandon the flight currently being tracked, ${activeFlight.flightNumber ?? `#${activeFlight.id}`}.`
+      : otherPlanned.length === 1
+        ? `This will abandon the other planned flight, ${otherPlanned[0].flightNumber ?? `#${otherPlanned[0].id}`}.`
+        : otherPlanned.length > 1
+          ? `This will abandon ${otherPlanned.length} other planned flights.`
+          : null
+    if (warning) {
+      const ok = await confirm({ title: 'Fly this plan instead?', description: warning, confirmLabel: 'Fly' })
+      if (!ok) return
     }
+    await handleSaveFlight()
   }
 
-  async function handleConfirmFly(): Promise<void> {
-    setFlyWarning(null)
-    await handleSaveFlight()
+  async function handleDiscardPlan(): Promise<void> {
+    const ok = await confirm({
+      title: 'Discard this plan?',
+      description: 'You can fetch it again from SimBrief.',
+      confirmLabel: 'Discard plan',
+      destructive: true
+    })
+    if (!ok) return
+    props.onOfpChange(null)
   }
 
   async function handleSaveFlight(): Promise<void> {
@@ -501,9 +495,9 @@ export function DispatchView(props: {
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    aria-label="Unload flight plan"
-                    title="Unload flight plan"
-                    onClick={() => props.onOfpChange(null)}
+                    aria-label="Discard plan"
+                    title="Discard plan"
+                    onClick={handleDiscardPlan}
                   >
                     <X />
                   </Button>
@@ -608,18 +602,7 @@ export function DispatchView(props: {
         </div>
       </div>
 
-      <AlertDialog open={flyWarning !== null} onOpenChange={(open) => !open && setFlyWarning(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Fly this plan instead?</AlertDialogTitle>
-            <AlertDialogDescription>{flyWarning}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Back</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmFly}>Fly</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {confirmDialog}
 
       <DispatchAdvancedDialog
         open={advancedOpen}
