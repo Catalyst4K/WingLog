@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import type { ActiveTracking, Aircraft, Flight, SimTelemetry, TrackPoint } from '@shared/ipc'
+import type { ActiveTracking, Aircraft, DispatchOfp, Flight, ProcedureSelection, SimTelemetry, TrackPoint } from '@shared/ipc'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,10 +12,12 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { AirlineLogo } from './AirlineLogo'
 import { FlightMap } from './FlightMap'
 import { useConfirm } from './hooks/useConfirm'
-import { parseRouteFromOfpJson, parseWaypointsFromOfpJson } from './route'
+import { ProcedureSelector } from './ProcedureSelector'
+import { useLiveWaypoints, type ProcedureAirports } from './procedureSelection'
 
 /** "Flight Num: [airline logo] BAW31   A35K · G-XWBS" — the identity strip shown for a
  *  flight on this page, whether it's actively being tracked or just queued up to start. */
@@ -38,9 +40,16 @@ function FlightIdentity(props: { flightNumber: string; aircraft: Aircraft | unde
 export function TrackView(props: {
   /** The OFP most recently fetched in Dispatch, not yet saved as a flight — last-resort
    *  preview so a route shows up here even before "Save as planned flight" is clicked. */
-  previewOfpJson?: string | null
+  previewOfp?: DispatchOfp | null
   /** Live sim telemetry, shown as a small overlay on the map. */
   telemetry?: SimTelemetry | null
+  /** The live procedure selection — lifted to App.tsx alongside dispatchOfp so Dispatch and
+   *  Track always agree on what's currently chosen (docs/plans/navdata-without-navigraph.md,
+   *  Phase 5). This is the real-world workflow the feature exists for: a pilot only learns
+   *  the assigned runway/STAR/approach from ATC mid-descent, so the dropdowns need to be
+   *  editable here, live, not just at Dispatch time. */
+  selection: ProcedureSelection
+  onSelectionChange: (next: ProcedureSelection) => void
   /** Called whenever a flight stops being current here — cancelled (active or planned),
    *  finished manually, or auto-completed via shutdown detection — so Dispatch's
    *  persisted OFP reference (which otherwise survives independently of this) can be
@@ -179,35 +188,32 @@ export function TrackView(props: {
   const activeLabel = activeFlight?.flightNumber ?? `flight #${active?.flightId}`
   // Before tracking starts, preview the most recently planned flight (flightList already
   // orders newest-first) so a freshly-dispatched plan shows up on the map immediately
-  // rather than only after "Start tracking" is clicked. If nothing's been saved yet,
-  // fall back to whatever OFP Dispatch most recently fetched — so the route shows up
-  // here even before "Save as planned flight".
+  // rather than only after "Start tracking" is clicked. If nothing's been saved yet, fall
+  // back to whatever OFP Dispatch most recently fetched — so the route (and the procedure
+  // dropdowns below) show up here even before "Save as planned flight". Both a Flight and a
+  // DispatchOfp structurally satisfy ProcedureAirports (depIcao/arrIcao/ofpJson), so no
+  // conversion needed either way.
   const previewFlight = activeFlight ?? plannedFlights[0]
-  // Two separate memos (rather than one combined one) so each keeps the same single,
-  // already-stable dependency shape — a flight object and a prop string don't compose
-  // well as one dependency array for React Compiler's manual-memoization check. Falls
-  // back to whatever OFP Dispatch most recently fetched (not yet saved as a flight) if
-  // there's no saved/active flight to preview yet.
-  const flightRoute = useMemo(
-    () => (previewFlight ? parseRouteFromOfpJson(previewFlight.ofpJson) : []),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [previewFlight?.ofpJson]
-  )
-  const flightWaypoints = useMemo(
-    () => (previewFlight ? parseWaypointsFromOfpJson(previewFlight.ofpJson) : []),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [previewFlight?.ofpJson]
-  )
-  const dispatchPreviewRoute = useMemo(
-    () => parseRouteFromOfpJson(props.previewOfpJson ?? null),
-    [props.previewOfpJson]
-  )
-  const dispatchPreviewWaypoints = useMemo(
-    () => parseWaypointsFromOfpJson(props.previewOfpJson ?? null),
-    [props.previewOfpJson]
-  )
-  const route = previewFlight ? flightRoute : dispatchPreviewRoute
-  const waypoints = previewFlight ? flightWaypoints : dispatchPreviewWaypoints
+  const airports: ProcedureAirports | null = previewFlight ?? props.previewOfp ?? null
+  // The live route with the current selection spliced in — the same function Dispatch's
+  // preview uses, so the two can never disagree (docs/plans/navdata-without-navigraph.md,
+  // Phase 5).
+  const liveWaypoints = useLiveWaypoints(airports, props.selection)
+  // Memoized so this stays reference-stable across renders liveWaypoints itself didn't
+  // change on (e.g. a telemetry update ticking TrackView) — FlightMap's fit-bounds effect
+  // keys off `route`'s identity, and an unmemoized `.map()` here recreated a "new" array on
+  // every one of those renders, resetting the user's zoom mid-flight (real regression,
+  // caught live: memoized everywhere else this pattern appears, LogbookView included).
+  const route: [number, number][] = useMemo(() => liveWaypoints.map((w) => [w.lon, w.lat]), [liveWaypoints])
+
+  // Pushes the current selection to the main process whenever it changes while a flight is
+  // actively being tracked — TrackingController caches it so it's available at completion
+  // regardless of which trigger fires (manual finish or automatic shutdown detection,
+  // neither of which round-trips through the renderer). A no-op before tracking starts.
+  useEffect(() => {
+    if (!active) return
+    window.winglog.trackingSetProcedureSelection(props.selection).catch(() => {})
+  }, [active, props.selection])
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -265,8 +271,36 @@ export function TrackView(props: {
         </div>
       )}
 
+      {airports && (
+        <div className="flex items-center gap-2">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button type="button" variant="outline" size="sm">
+                Procedures…
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Procedures</DialogTitle>
+              </DialogHeader>
+              <ProcedureSelector
+                airports={airports}
+                selection={props.selection}
+                onSelectionChange={props.onSelectionChange}
+                liveWaypoints={liveWaypoints}
+              />
+            </DialogContent>
+          </Dialog>
+          <span className="text-sm text-muted-foreground">
+            {[props.selection.sidIdent, props.selection.starIdent, props.selection.approachIdent]
+              .filter((v): v is string => v !== null)
+              .join(' · ') || 'Nothing selected yet'}
+          </span>
+        </div>
+      )}
+
       <div className="min-h-0 flex-1">
-        <FlightMap live route={route} waypoints={waypoints} trackPoints={trackPoints} telemetry={props.telemetry} />
+        <FlightMap live route={route} waypoints={liveWaypoints} trackPoints={trackPoints} telemetry={props.telemetry} />
       </div>
 
       {confirmDialog}

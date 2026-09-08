@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
-import type { FetchedAirportNavdata, FetchedProcedure } from '../navdata/sim-facilities-fetch'
+import type { FetchedAirportNavdata, FetchedApproach, FetchedProcedure } from '../navdata/sim-facilities-fetch'
 import type { ParsedLeg } from '../sim/facility-fields'
 import { createDb, type WingLogDb } from './client'
 import {
@@ -37,9 +37,19 @@ function procedure(fields: Pick<FetchedProcedure, 'name'> & Partial<FetchedProce
   }
 }
 
+function approach(fields: Pick<FetchedApproach, 'identifier' | 'runwayIdent'> & Partial<FetchedApproach>): FetchedApproach {
+  return {
+    transitions: [],
+    finalLegs: [],
+    expected: { transitions: 0, finalApproachLegs: 0, missedApproachLegs: 0 },
+    ...fields
+  }
+}
+
 function fetched(overrides: Partial<FetchedAirportNavdata> = {}): FetchedAirportNavdata {
   return {
     icao: 'EGLL',
+    approaches: [],
     runways: [
       {
         latitude: 51.4775,
@@ -171,6 +181,65 @@ describe('navdata repo', () => {
     // navdata_procedure_leg from the first fetch.
     expect(listCachedProcedureLegs(db, 'EGLL', 'sid', 'BPK7F', '27R')).toEqual([])
   })
+
+  it('caches an approach with its runway and transition names', () => {
+    replaceAirportNavdata(
+      db,
+      'VHHH',
+      fetched({
+        icao: 'VHHH',
+        approaches: [
+          approach({
+            identifier: 'RNAV Z 07R',
+            runwayIdent: '07R',
+            transitions: [{ name: 'LIMES', legs: [leg('LIMES'), leg('VH720')] }],
+            finalLegs: [leg('VH720'), leg('RW07R')]
+          })
+        ]
+      }),
+      '2026-09-08T12:00:00.000Z'
+    )
+
+    expect(listCachedProcedures(db, 'VHHH', 'approach', null)).toEqual([{ identifier: 'RNAV Z 07R', transition: 'LIMES' }])
+    expect(listCachedProcedures(db, 'VHHH', 'approach', '07R').map((p) => p.identifier)).toContain('RNAV Z 07R')
+    expect(listCachedProcedures(db, 'VHHH', 'approach', '25L')).toEqual([])
+  })
+
+  it(
+    'assembles an approach as transition legs then the final segment (reverse of a SID/STAR), ' +
+      'dropping the duplicate fix at the boundary',
+    () => {
+      replaceAirportNavdata(
+        db,
+        'VHHH',
+        fetched({
+          icao: 'VHHH',
+          approaches: [
+            approach({
+              identifier: 'RNAV Z 07R',
+              runwayIdent: '07R',
+              // VH720 is both the transition's own last leg and the final segment's first
+              // leg — real ARINC 424 shape confirmed live 2026-09-08 (docs/navdata-notes.md).
+              transitions: [{ name: 'LIMES', legs: [leg('LIMES'), leg('VH720')] }],
+              finalLegs: [leg('VH720'), leg('RW07R')]
+            })
+          ]
+        }),
+        '2026-09-08T12:00:00.000Z'
+      )
+
+      // No transition given — only the (deduped, but nothing to dedupe against) final segment.
+      expect(listCachedProcedureLegs(db, 'VHHH', 'approach', 'RNAV Z 07R').map((l) => l.fixIdent)).toEqual(['VH720', 'RW07R'])
+
+      // Transition given — transition legs first, then the final segment with the repeated
+      // boundary fix (VH720) dropped, not duplicated.
+      expect(listCachedProcedureLegs(db, 'VHHH', 'approach', 'RNAV Z 07R', undefined, 'LIMES').map((l) => l.fixIdent)).toEqual([
+        'LIMES',
+        'VH720',
+        'RW07R'
+      ])
+    }
+  )
 
   it('keeps a different airport untouched by a replace', () => {
     replaceAirportNavdata(db, 'EGLL', fetched(), '2026-09-08T12:00:00.000Z')

@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { NavdataLeg } from '@shared/ipc'
 import {
-  applyProcedureOverride,
+  applyProcedureSelection,
+  approachRunway,
   formatEnrouteOnly,
   parseRouteFromOfpJson,
   parseRouteProcedures,
   parseWaypointsFromOfpJson,
-  type ProcedureOverride,
+  type ProcedureLegs,
   segmentWaypoints,
   type Waypoint
 } from './route'
@@ -297,7 +298,7 @@ describe('formatEnrouteOnly', () => {
   })
 })
 
-describe('applyProcedureOverride', () => {
+describe('applyProcedureSelection', () => {
   const baseWaypoints: Waypoint[] = [
     { ident: 'SIMBRIEF_SID', lon: 1, lat: 1, altitudeFt: 2000, segment: 'sid' },
     { ident: 'ENR1', lon: 2, lat: 2, altitudeFt: 35000, segment: 'enroute' },
@@ -320,13 +321,13 @@ describe('applyProcedureOverride', () => {
     }
   }
 
-  it('passes the route through unchanged when both overrides are null', () => {
-    expect(applyProcedureOverride(baseWaypoints, null, null)).toEqual(baseWaypoints)
+  it('passes the route through unchanged when nothing is selected', () => {
+    expect(applyProcedureSelection(baseWaypoints, null, null, null)).toEqual(baseWaypoints)
   })
 
-  it('replaces only the SID segment when a SID override is chosen', () => {
-    const sidOverride: ProcedureOverride = { identifier: 'REAL_SID', legs: [leg('RWYFIX', 1500), leg('COMMON')] }
-    const result = applyProcedureOverride(baseWaypoints, sidOverride, null)
+  it('replaces only the SID segment when a SID is selected', () => {
+    const sid: ProcedureLegs = { identifier: 'REAL_SID', legs: [leg('RWYFIX', 1500), leg('COMMON')] }
+    const result = applyProcedureSelection(baseWaypoints, sid, null, null)
     expect(result).toEqual([
       { ident: 'RWYFIX', lon: 20, lat: 10, altitudeFt: 1500, segment: 'sid' },
       { ident: 'COMMON', lon: 20, lat: 10, altitudeFt: 0, segment: 'sid' },
@@ -336,9 +337,9 @@ describe('applyProcedureOverride', () => {
     ])
   })
 
-  it('replaces only the STAR segment when a STAR override is chosen, leaving SID/enroute alone', () => {
-    const starOverride: ProcedureOverride = { identifier: 'REAL_STAR', legs: [leg('STARFIX')] }
-    const result = applyProcedureOverride(baseWaypoints, null, starOverride)
+  it('replaces only the STAR segment when a STAR is selected, leaving SID/enroute alone', () => {
+    const star: ProcedureLegs = { identifier: 'REAL_STAR', legs: [leg('STARFIX')] }
+    const result = applyProcedureSelection(baseWaypoints, null, star, null)
     expect(result).toEqual([
       { ident: 'SIMBRIEF_SID', lon: 1, lat: 1, altitudeFt: 2000, segment: 'sid' },
       { ident: 'ENR1', lon: 2, lat: 2, altitudeFt: 35000, segment: 'enroute' },
@@ -347,23 +348,43 @@ describe('applyProcedureOverride', () => {
     ])
   })
 
-  it('replaces both segments independently when both are overridden', () => {
-    const sidOverride: ProcedureOverride = { identifier: 'REAL_SID', legs: [leg('A')] }
-    const starOverride: ProcedureOverride = { identifier: 'REAL_STAR', legs: [leg('B')] }
-    const result = applyProcedureOverride(baseWaypoints, sidOverride, starOverride)
+  it('replaces SID and STAR independently when both are selected', () => {
+    const sid: ProcedureLegs = { identifier: 'REAL_SID', legs: [leg('A')] }
+    const star: ProcedureLegs = { identifier: 'REAL_STAR', legs: [leg('B')] }
+    const result = applyProcedureSelection(baseWaypoints, sid, star, null)
     expect(result.map((w) => w.ident)).toEqual(['A', 'ENR1', 'ENR2', 'B'])
   })
 
-  it('treats a null identifier as "use SimBrief default", even with legs present', () => {
-    const noOpOverride: ProcedureOverride = { identifier: null, legs: [leg('SHOULD_NOT_APPEAR')] }
-    expect(applyProcedureOverride(baseWaypoints, noOpOverride, noOpOverride)).toEqual(baseWaypoints)
+  it('appends the approach after everything else, continuing on from the STAR', () => {
+    const star: ProcedureLegs = { identifier: 'REAL_STAR', legs: [leg('STARFIX')] }
+    const approach: ProcedureLegs = { identifier: 'ILS 07C', legs: [leg('LIMES'), leg('RW07C')] }
+    const result = applyProcedureSelection(baseWaypoints, null, star, approach)
+    expect(result.map((w) => [w.ident, w.segment])).toEqual([
+      ['SIMBRIEF_SID', 'sid'],
+      ['ENR1', 'enroute'],
+      ['ENR2', 'enroute'],
+      ['STARFIX', 'star'],
+      ['LIMES', 'approach'],
+      ['RW07C', 'approach']
+    ])
   })
 
   it('drops a leg with no real fix (fixIdent null) rather than rendering a nameless waypoint', () => {
-    const sidOverride: ProcedureOverride = { identifier: 'REAL_SID', legs: [leg(null), leg('REAL')] }
-    const result = applyProcedureOverride(baseWaypoints, sidOverride, null)
+    const sid: ProcedureLegs = { identifier: 'REAL_SID', legs: [leg(null), leg('REAL')] }
+    const result = applyProcedureSelection(baseWaypoints, sid, null, null)
     expect(result.filter((w) => w.segment === 'sid')).toEqual([
       { ident: 'REAL', lon: 20, lat: 10, altitudeFt: 0, segment: 'sid' }
     ])
+  })
+})
+
+describe('approachRunway', () => {
+  it('reads the trailing runway ident off a constructed approach identifier', () => {
+    expect(approachRunway('ILS 07C')).toBe('07C')
+    expect(approachRunway('RNAV Z 07R')).toBe('07R')
+  })
+
+  it('returns null for null input', () => {
+    expect(approachRunway(null)).toBeNull()
   })
 })

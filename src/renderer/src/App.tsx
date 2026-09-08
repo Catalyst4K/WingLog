@@ -5,17 +5,30 @@ import type {
   AltitudeUnit,
   AppPage,
   DispatchOfp,
+  Flight,
+  ProcedureSelection,
   SimConnectionStatus,
   SimTelemetry,
   Theme,
   WeightUnit,
   WindSpeedUnit
 } from '@shared/ipc'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Toaster } from '@/components/ui/sonner'
 import { FleetView } from './FleetView'
+import { emptyProcedureSelection, seedProcedureSelectionFromOfp, selectionFromFlight } from './procedureSelection'
 
 // Fleet is the default/first tab, so it's the one view kept eager — every other tab is
 // lazy so its JS (and, for Track/Logbook, the maplibre-gl and recharts they pull in —
@@ -91,6 +104,75 @@ export default function App(): React.JSX.Element {
   // planning this" from "already flying this, showing it for reference" apart, and that
   // distinction has to survive the same tab-switch-and-back as dispatchOfp itself.
   const [dispatchedOfpId, setDispatchedOfpId] = useState<string | null>(null)
+  // The live procedure selection — lifted here (not local to either view) so Dispatch and
+  // Track always agree on what's currently chosen, with no save step between them
+  // (docs/plans/navdata-without-navigraph.md, Phase 5). Re-seeded from SimBrief's own
+  // choice whenever a genuinely new OFP loads — see handleDispatchOfpChange below.
+  const [procedureSelection, setProcedureSelection] = useState<ProcedureSelection>(emptyProcedureSelection())
+  // A flight left 'active' by a previous process that quit or crashed mid-flight — its own
+  // DB row (OFP, route, everything Track's map needs) was never at risk, only the
+  // in-memory phase-detection state tracking it. Resuming isn't automatic: it's only
+  // correct if the sim is actually still on that flight, which only the user can judge, so
+  // this drives a one-time prompt instead (checked once at startup below).
+  const [orphanedFlight, setOrphanedFlight] = useState<Flight | null>(null)
+
+  // Wraps setDispatchOfp so a *new* OFP (a different ofpId, including "cleared to null")
+  // always re-seeds the procedure selection from its own SimBrief choice — the previous
+  // plan's selection must never leak onto a different one. Re-fetching/re-saving the exact
+  // same OFP the user's already been editing (ofpId unchanged) leaves the selection alone,
+  // or every dropdown edit would be wiped out from under them.
+  function handleDispatchOfpChange(ofp: DispatchOfp | null): void {
+    if ((ofp?.ofpId ?? null) !== (dispatchOfp?.ofpId ?? null)) {
+      setProcedureSelection(ofp ? seedProcedureSelectionFromOfp(ofp.ofpJson) : emptyProcedureSelection())
+    }
+    setDispatchOfp(ofp)
+  }
+
+  useEffect(() => {
+    window.winglog.trackingGetOrphanedFlight().then(setOrphanedFlight)
+  }, [])
+
+  // Restores Dispatch's own view of whatever flight is currently "in progress" (planned
+  // or already active) after a restart — its own dispatchOfp/dispatchedOfpId are
+  // renderer-only state that don't survive one, unlike Track's flight list, which reads
+  // the DB directly and was never the problem. Uses the raw setters, not
+  // handleDispatchOfpChange, so this doesn't also re-seed procedureSelection from
+  // SimBrief's own choice — selectionFromFlight below already restores whatever was last
+  // actually chosen (SimBrief's plan if nothing was ever touched, a live edit otherwise —
+  // see handleSaveFlight, which persists props.selection at the moment Fly is pressed).
+  useEffect(() => {
+    window.winglog.dispatchGetInProgressFlight().then((result) => {
+      if (!result) return
+      setDispatchOfp(result.ofp)
+      setDispatchedOfpId(result.ofp.ofpId)
+      setProcedureSelection(selectionFromFlight(result.flight))
+    })
+  }, [])
+
+  async function handleResumeOrphaned(): Promise<void> {
+    if (!orphanedFlight) return
+    await window.winglog.trackingResumeOrphaned(orphanedFlight.id)
+    // The flight's own persisted selection (whatever was last chosen before the crash),
+    // not a blank one — matches how a completed flight's Logbook map reads its selection
+    // back (selectionFromFlight), just resuming instead of reviewing.
+    setProcedureSelection(selectionFromFlight(orphanedFlight))
+    setPage('track')
+    setOrphanedFlight(null)
+  }
+
+  async function handleDiscardOrphaned(): Promise<void> {
+    if (!orphanedFlight) return
+    await window.winglog.trackingDiscardOrphaned(orphanedFlight.id)
+    // The dispatch-hydration effect above may have already restored Dispatch's view of
+    // this exact flight (it runs independently, before the user gets a chance to answer
+    // this prompt) — clear it back out rather than leaving Dispatch showing a "Flying"
+    // badge for a flight that's now abandoned.
+    if (orphanedFlight.ofpId && orphanedFlight.ofpId === dispatchOfp?.ofpId) {
+      handleDispatchOfpChange(null)
+      setDispatchedOfpId(null)
+    }
+    setOrphanedFlight(null)
+  }
   // Set when Fleet's per-aircraft flight list navigates to a specific flight's Logbook
   // detail. Lifted here (rather than local to LogbookView) because it has to survive the
   // page switch from Fleet to Logbook that triggers it. Carries the originating aircraft
@@ -280,17 +362,21 @@ export default function App(): React.JSX.Element {
                 windSpeedUnit={windSpeedUnit}
                 onPlanned={() => setPage('track')}
                 ofp={dispatchOfp}
-                onOfpChange={setDispatchOfp}
+                onOfpChange={handleDispatchOfpChange}
                 dispatchedOfpId={dispatchedOfpId}
                 onDispatchedOfpIdChange={setDispatchedOfpId}
+                selection={procedureSelection}
+                onSelectionChange={setProcedureSelection}
               />
             )}
             {page === 'track' && (
               <TrackView
-                previewOfpJson={dispatchOfp?.ofpJson ?? null}
+                previewOfp={dispatchOfp}
                 telemetry={telemetry}
+                selection={procedureSelection}
+                onSelectionChange={setProcedureSelection}
                 onFlightEnded={() => {
-                  setDispatchOfp(null)
+                  handleDispatchOfpChange(null)
                   setDispatchedOfpId(null)
                 }}
               />
@@ -322,6 +408,23 @@ export default function App(): React.JSX.Element {
         </div>
       </Tabs>
       <Toaster />
+
+      <AlertDialog open={orphanedFlight !== null} onOpenChange={(open) => !open && setOrphanedFlight(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Resume tracking?</AlertDialogTitle>
+            <AlertDialogDescription>
+              WingLog closed while{' '}
+              {orphanedFlight?.flightNumber ?? `flight #${orphanedFlight?.id} (${orphanedFlight?.depIcao} → ${orphanedFlight?.arrIcao})`}{' '}
+              was being tracked. Resume if it's still in progress in the sim, or discard it as abandoned.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleDiscardOrphaned}>Discard flight</AlertDialogCancel>
+            <AlertDialogAction onClick={handleResumeOrphaned}>Resume tracking</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   )
 }

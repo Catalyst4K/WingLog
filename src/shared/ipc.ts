@@ -317,6 +317,45 @@ export interface Flight {
   ofpJson: string | null
   simVersion: string | null
   createdAt: string
+  /** The procedures actually chosen — Dispatch's/Track's live selection at whatever moment
+   *  it was last written (flight save, or flight completion, whichever is later — see
+   *  ProcedureSelection). Null fields mean nothing was ever chosen for that slot, not that
+   *  SimBrief's own choice was deliberately kept — this flight predates Phase 5, or nothing
+   *  was ever touched. Logbook falls back to the OFP's own SID/STAR when these are all
+   *  null (docs/plans/navdata-without-navigraph.md, Phase 5). */
+  selectedDepartureRunway: string | null
+  selectedSidIdent: string | null
+  selectedSidTransition: string | null
+  selectedStarIdent: string | null
+  selectedStarTransition: string | null
+  selectedApproachIdent: string | null
+  selectedApproachTransition: string | null
+}
+
+/**
+ * The live, currently-chosen procedures for a flight — Dispatch and Track both read/write
+ * the same lifted state (App.tsx), so switching tabs mid-adjustment never loses or
+ * disagrees about what's selected. Every field is independently optional; unlike the old
+ * per-field "SimBrief default" sentinel this replaced, there's no separate "use SimBrief's
+ * choice" state — a field just holds whatever identifier is actually current, seeded from
+ * SimBrief's own choice when an OFP first loads (docs/plans/navdata-without-navigraph.md,
+ * Phase 5). `approachIdent`/`approachTransition` have no SimBrief equivalent to seed from —
+ * SimBrief never plans an approach — so they start null and get an auto-picked default once
+ * real navdata loads (see ProcedureSelector.tsx's auto-default heuristic).
+ */
+export interface ProcedureSelection {
+  departureRunway: string | null
+  sidIdent: string | null
+  sidTransition: string | null
+  starIdent: string | null
+  starTransition: string | null
+  /** A constructed display identifier ("ILS 07C", "RNP Z 07R") — an approach's runway is
+   *  implied by this, there's no separate arrival-runway field any more. */
+  approachIdent: string | null
+  /** The approach's own entry transition — usually the real fix a STAR hands off at (e.g.
+   *  VHHH's "LIMES"), auto-connected from the current STAR's last waypoint when one
+   *  matches, but always independently overridable. */
+  approachTransition: string | null
 }
 
 /** Logbook's summary stats above the flight table — see flight-repo.ts's getLogbookStats.
@@ -428,6 +467,16 @@ export interface NewFlight {
   ldwKg?: number | null
   ofpId?: string | null
   ofpJson?: string | null
+  /** Whatever's currently selected at the moment the flight is saved — the "saved as
+   *  planned" write described on ProcedureSelection. Overwritten again at flight
+   *  completion if tracking pushes a later selection (TrackingController). */
+  selectedDepartureRunway?: string | null
+  selectedSidIdent?: string | null
+  selectedSidTransition?: string | null
+  selectedStarIdent?: string | null
+  selectedStarTransition?: string | null
+  selectedApproachIdent?: string | null
+  selectedApproachTransition?: string | null
 }
 
 export interface DispatchWaypoint {
@@ -600,7 +649,7 @@ export interface NavdataProcedureOption {
   transition: string | null
 }
 
-export type NavdataProcedureKind = 'sid' | 'star'
+export type NavdataProcedureKind = 'sid' | 'star' | 'approach'
 
 /** One leg of a procedure's own common leg list — not yet split by transition, see
  *  flightdeck's src/main/sim/facility-fields.ts for why. */
@@ -698,7 +747,13 @@ export const IpcChannels = {
   navdataListRunways: 'navdata:list-runways',
   navdataListSids: 'navdata:list-sids',
   navdataListStars: 'navdata:list-stars',
-  navdataGetProcedureWaypoints: 'navdata:get-procedure-waypoints'
+  navdataListApproaches: 'navdata:list-approaches',
+  navdataGetProcedureWaypoints: 'navdata:get-procedure-waypoints',
+  trackingSetProcedureSelection: 'tracking:set-procedure-selection',
+  trackingGetOrphanedFlight: 'tracking:get-orphaned-flight',
+  trackingResumeOrphaned: 'tracking:resume-orphaned',
+  trackingDiscardOrphaned: 'tracking:discard-orphaned',
+  dispatchGetInProgressFlight: 'dispatch:get-in-progress-flight'
 } as const
 
 export interface WingLogApi {
@@ -740,6 +795,13 @@ export interface WingLogApi {
   flightDelete: (id: number) => Promise<void>
   /** Fetches the SimBrief user's latest OFP. Throws if no username is set or the fetch fails. */
   dispatchFetchOfp: () => Promise<DispatchOfp>
+  /** The one flight currently "in progress" (planned or already active — see
+   *  getInProgressFlight) reconstructed back into Dispatch's own shape, so Dispatch shows
+   *  it again after a restart instead of a blank form — its own `dispatchOfp` is
+   *  renderer-only state that doesn't survive one, unlike Track's list, which reads this
+   *  same DB state directly and was never the problem. Null if nothing's in progress, or
+   *  the in-progress flight has no stored ofpJson (an ad hoc flight started from Track). */
+  dispatchGetInProgressFlight: () => Promise<{ flight: Flight; ofp: DispatchOfp } | null>
   /** Opens SimBrief's dispatch page in the default browser, pre-filled where possible. */
   dispatchOpenSimBrief: (params: DispatchOpenSimBriefParams) => Promise<void>
   /** Opens a saved airframe's editor on SimBrief (docs/decisions.md,
@@ -918,6 +980,10 @@ export interface WingLogApi {
    *  runway transitions registered at all is treated as applying to any runway. */
   navdataListSids: (icao: string, runway?: string | null) => Promise<NavdataProcedureOption[]>
   navdataListStars: (icao: string, runway?: string | null) => Promise<NavdataProcedureOption[]>
+  /** `runway`, when given, filters to approaches for that runway — an approach always
+   *  belongs to exactly one, unlike a SID/STAR. `identifier` is a constructed display label
+   *  ("ILS 07C", "RNP Z 07R"), not a raw NAME — approaches have none of their own. */
+  navdataListApproaches: (icao: string, runway?: string | null) => Promise<NavdataProcedureOption[]>
   navdataGetProcedureWaypoints: (
     icao: string,
     kind: NavdataProcedureKind,
@@ -925,4 +991,21 @@ export interface WingLogApi {
     runway?: string | null,
     transition?: string | null
   ) => Promise<NavdataLeg[]>
+  /** Pushes the current live selection to the main process so it's available whenever the
+   *  active flight completes — manual finish *or* automatic shutdown detection, neither of
+   *  which round-trips through the renderer (TrackingController). Call on every change
+   *  while a flight is actively being tracked; a no-op call with nothing tracked is
+   *  harmless (TrackingController just caches it for the flight that starts next). */
+  trackingSetProcedureSelection: (selection: ProcedureSelection) => Promise<void>
+  /** The flight left 'active' if the app quit or crashed before it reached 'completed' or
+   *  'abandoned' — checked once at startup (main/index.ts), so this only ever returns
+   *  non-null until the user answers the resume/discard prompt it's meant to drive (or
+   *  null immediately, the common case: nothing was orphaned). */
+  trackingGetOrphanedFlight: () => Promise<Flight | null>
+  /** User chose to resume the orphaned flight above — picks phase detection back up from
+   *  where its last persisted track point left off (TrackingController.resume). */
+  trackingResumeOrphaned: (flightId: number) => Promise<void>
+  /** User chose to discard the orphaned flight above — marks it abandoned rather than
+   *  leaving it stuck in 'active' forever. */
+  trackingDiscardOrphaned: (flightId: number) => Promise<void>
 }

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { and, desc, eq, isNull } from 'drizzle-orm'
-import type { Flight, FleetStats, LogbookStats, NewFlight } from '@shared/ipc'
+import { and, desc, eq, isNull, or } from 'drizzle-orm'
+import type { Flight, FleetStats, LogbookStats, NewFlight, ProcedureSelection } from '@shared/ipc'
 import { greatCircleDistanceNm } from '../airports/airport-search'
 import { aircraft, flight, flightInvoice, landing, trackPoint } from './schema'
 import type { WingLogDb } from './client'
@@ -36,7 +36,14 @@ function toFlight(row: typeof flight.$inferSelect): Flight {
     ofpId: row.ofpId,
     ofpJson: row.ofpJson,
     simVersion: row.simVersion,
-    createdAt: row.createdAt
+    createdAt: row.createdAt,
+    selectedDepartureRunway: row.selectedDepartureRunway,
+    selectedSidIdent: row.selectedSidIdent,
+    selectedSidTransition: row.selectedSidTransition,
+    selectedStarIdent: row.selectedStarIdent,
+    selectedStarTransition: row.selectedStarTransition,
+    selectedApproachIdent: row.selectedApproachIdent,
+    selectedApproachTransition: row.selectedApproachTransition
   }
 }
 
@@ -66,6 +73,32 @@ export function listFlightsByAircraft(db: WingLogDb, aircraftId: number): Flight
 
 export function getFlight(db: WingLogDb, id: number): Flight | undefined {
   const row = db.select().from(flight).where(eq(flight.id, id)).get()
+  return row ? toFlight(row) : undefined
+}
+
+/** The one flight left mid-tracking if the app quit or crashed before it reached
+ *  'completed' or 'abandoned' — TrackingController.resume() uses this at startup to pick
+ *  phase-detection back up rather than leaving the flight orphaned (its own DB row,
+ *  OFP/route included, was never at risk — only the in-memory phase-detection state was
+ *  lost with the old process). Only one flight is ever meant to be 'active' at once (same
+ *  invariant flightCreate's own comment relies on), so the first match is authoritative. */
+export function getActiveFlight(db: WingLogDb): Flight | undefined {
+  const row = db.select().from(flight).where(eq(flight.status, 'active')).get()
+  return row ? toFlight(row) : undefined
+}
+
+/** The one flight currently "in progress" — planned (Dispatch's "Fly" pressed, tracking
+ *  not yet started) or active (already tracking) — if any. Broader than getActiveFlight:
+ *  used to restore Dispatch's own view of that flight after a restart (it otherwise only
+ *  has its own in-memory `dispatchOfp`, which doesn't survive one, unlike Track's list,
+ *  which already reads this same DB state directly). Same one-at-a-time invariant as
+ *  flightCreate relies on, so the first match is authoritative. */
+export function getInProgressFlight(db: WingLogDb): Flight | undefined {
+  const row = db
+    .select()
+    .from(flight)
+    .where(or(eq(flight.status, 'planned'), eq(flight.status, 'active')))
+    .get()
   return row ? toFlight(row) : undefined
 }
 
@@ -268,6 +301,26 @@ export function abandonAllPlanned(db: WingLogDb): void {
 export function setFlownRoute(db: WingLogDb, id: number, flownRouteJson: string): void {
   db.update(flight)
     .set({ flownRouteJson, updatedAt: new Date().toISOString() })
+    .where(eq(flight.id, id))
+    .run()
+}
+
+/** Writes the live-selected procedures at flight completion (TrackingController), the
+ *  later of the two writes ProcedureSelection's doc comment describes — overwrites
+ *  whatever createFlight wrote at save time, since the pilot may have changed things
+ *  mid-flight after ATC actually assigned a runway/STAR/approach. */
+export function setSelectedProcedures(db: WingLogDb, id: number, selection: ProcedureSelection): void {
+  db.update(flight)
+    .set({
+      selectedDepartureRunway: selection.departureRunway,
+      selectedSidIdent: selection.sidIdent,
+      selectedSidTransition: selection.sidTransition,
+      selectedStarIdent: selection.starIdent,
+      selectedStarTransition: selection.starTransition,
+      selectedApproachIdent: selection.approachIdent,
+      selectedApproachTransition: selection.approachTransition,
+      updatedAt: new Date().toISOString()
+    })
     .where(eq(flight.id, id))
     .run()
 }

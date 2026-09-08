@@ -10,11 +10,14 @@ import {
   NavdataDefId,
   addRunwayFields,
   addProcedureTreeDefinition,
+  addApproachTreeDefinition,
   parseAirportHeader,
   parseRunway,
   parseProcedureHeader,
   parseRunwayTransition,
   parseEnrouteTransition,
+  parseApproachHeader,
+  parseApproachTransition,
   parseLeg,
   type ParsedRunway,
   type ParsedLeg
@@ -56,11 +59,30 @@ export interface FetchedProcedure {
   expected: { runwayTransitions: number; enrouteTransitions: number; approachLegs: number }
 }
 
+export interface FetchedApproachTransition {
+  name: string
+  legs: ParsedLeg[]
+}
+
+export interface FetchedApproach {
+  /** Constructed display identifier, e.g. "ILS 07C" — see ParsedApproachHeader. */
+  identifier: string
+  runwayIdent: string
+  transitions: FetchedApproachTransition[]
+  /** The approach's own final segment — always common to every transition, per real ARINC
+   *  424 shape confirmed live 2026-09-08 (docs/navdata-notes.md): a transition's own last
+   *  leg and this list's first leg are the same fix, duplicated across both — a caller
+   *  assembling a flyable path needs to drop that repeat, not something fetched here. */
+  finalLegs: ParsedLeg[]
+  expected: { transitions: number; finalApproachLegs: number; missedApproachLegs: number }
+}
+
 export interface FetchedAirportNavdata {
   icao: string
   runways: ParsedRunway[]
   departures: FetchedProcedure[]
   arrivals: FetchedProcedure[]
+  approaches: FetchedApproach[]
 }
 
 const FETCH_TIMEOUT_MS = 20_000
@@ -76,6 +98,7 @@ function buildDefinitions(handle: SimConnectConnection): void {
   }
   addProcedureTreeDefinition(addField, NavdataDefId.DEPARTURES, 'DEPARTURE')
   addProcedureTreeDefinition(addField, NavdataDefId.ARRIVALS, 'ARRIVAL')
+  addApproachTreeDefinition(addField)
 }
 
 export function fetchAirportNavdata(handle: SimConnectConnection, icao: string): Promise<FetchedAirportNavdata> {
@@ -85,15 +108,24 @@ export function fetchAirportNavdata(handle: SimConnectConnection, icao: string):
     const runways: ParsedRunway[] = []
     const departures: FetchedProcedure[] = []
     const arrivals: FetchedProcedure[] = []
-    // A RUNWAY_TRANSITION/ENROUTE_TRANSITION/APPROACH_LEG record only carries its parent's
-    // uniqueRequestId (RecvFacilityData.parentUniqueRequestId), not which array it belongs
-    // in — these two maps track that link. An APPROACH_LEG's parent is either a procedure
-    // directly (a common leg) or one of its transitions (a transition-specific leg) —
-    // checked in that order below since transitionByUniqueRequestId is the more specific
-    // match when both could apply.
+    const approaches: FetchedApproach[] = []
+    // A RUNWAY_TRANSITION/ENROUTE_TRANSITION/APPROACH_TRANSITION/APPROACH_LEG record only
+    // carries its parent's uniqueRequestId (RecvFacilityData.parentUniqueRequestId), not
+    // which array it belongs in — these maps track that link. An APPROACH_LEG's parent is
+    // always one of its approach's transitions (an approach registers no top-level
+    // APPROACH_LEG of its own, only FINAL_APPROACH_LEG); a DEPARTURE/ARRIVAL's own
+    // APPROACH_LEG can be either a procedure directly (a common leg) or one of its
+    // transitions — checked in that order below since transitionByUniqueRequestId is the
+    // more specific match when both could apply.
     const procedureByUniqueRequestId = new Map<number, FetchedProcedure>()
-    const transitionByUniqueRequestId = new Map<number, FetchedRunwayTransition | FetchedEnrouteTransition>()
-    const pending = new Set<NavdataDefId>([NavdataDefId.RUNWAYS, NavdataDefId.DEPARTURES, NavdataDefId.ARRIVALS])
+    const transitionByUniqueRequestId = new Map<number, { legs: ParsedLeg[] }>()
+    const approachByUniqueRequestId = new Map<number, FetchedApproach>()
+    const pending = new Set<NavdataDefId>([
+      NavdataDefId.RUNWAYS,
+      NavdataDefId.DEPARTURES,
+      NavdataDefId.ARRIVALS,
+      NavdataDefId.APPROACHES
+    ])
     let settled = false
 
     const cleanup = (): void => {
@@ -107,7 +139,7 @@ export function fetchAirportNavdata(handle: SimConnectConnection, icao: string):
       if (settled) return
       settled = true
       cleanup()
-      resolve({ icao, runways, departures, arrivals })
+      resolve({ icao, runways, departures, arrivals, approaches })
     }
     const fail = (error: Error): void => {
       if (settled) return
@@ -178,6 +210,38 @@ export function fetchAirportNavdata(handle: SimConnectConnection, icao: string):
           procedureParent?.commonLegs.push(leg)
           break
         }
+        case FacilityDataType.APPROACH: {
+          const header = parseApproachHeader(d)
+          const approach: FetchedApproach = {
+            identifier: header.identifier,
+            runwayIdent: header.runwayIdent,
+            transitions: [],
+            finalLegs: [],
+            expected: {
+              transitions: header.nTransitions,
+              finalApproachLegs: header.nFinalApproachLegs,
+              missedApproachLegs: header.nMissedApproachLegs
+            }
+          }
+          approaches.push(approach)
+          approachByUniqueRequestId.set(recv.uniqueRequestId, approach)
+          break
+        }
+        case FacilityDataType.APPROACH_TRANSITION: {
+          const parsed = parseApproachTransition(d)
+          const parent = approachByUniqueRequestId.get(recv.parentUniqueRequestId)
+          if (!parent) break
+          const transition: FetchedApproachTransition = { name: parsed.name, legs: [] }
+          parent.transitions.push(transition)
+          transitionByUniqueRequestId.set(recv.uniqueRequestId, transition)
+          break
+        }
+        case FacilityDataType.FINAL_APPROACH_LEG: {
+          const leg = parseLeg(d)
+          const approachParent = approachByUniqueRequestId.get(recv.parentUniqueRequestId)
+          approachParent?.finalLegs.push(leg)
+          break
+        }
         default:
           break
       }
@@ -214,5 +278,6 @@ export function fetchAirportNavdata(handle: SimConnectConnection, icao: string):
     handle.requestFacilityData(NavdataDefId.RUNWAYS, NavdataDefId.RUNWAYS, icao)
     handle.requestFacilityData(NavdataDefId.DEPARTURES, NavdataDefId.DEPARTURES, icao)
     handle.requestFacilityData(NavdataDefId.ARRIVALS, NavdataDefId.ARRIVALS, icao)
+    handle.requestFacilityData(NavdataDefId.APPROACHES, NavdataDefId.APPROACHES, icao)
   })
 }

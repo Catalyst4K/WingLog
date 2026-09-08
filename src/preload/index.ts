@@ -10,6 +10,7 @@ import {
   type NavdataProcedureKind,
   type NewAircraft,
   type NewFlight,
+  type ProcedureSelection,
   type SimConnectionStatus,
   type SimTelemetry,
   type Theme,
@@ -43,6 +44,7 @@ const api: WingLogApi = {
   flightCancel: (id: number) => ipcRenderer.invoke(IpcChannels.flightCancel, id),
   flightDelete: (id: number) => ipcRenderer.invoke(IpcChannels.flightDelete, id),
   dispatchFetchOfp: () => ipcRenderer.invoke(IpcChannels.dispatchFetchOfp),
+  dispatchGetInProgressFlight: () => ipcRenderer.invoke(IpcChannels.dispatchGetInProgressFlight),
   dispatchOpenSimBrief: (params: DispatchOpenSimBriefParams) =>
     ipcRenderer.invoke(IpcChannels.dispatchOpenSimBrief, params),
   dispatchOpenSimBriefAirframes: (airframeId: string | null) =>
@@ -127,13 +129,20 @@ const api: WingLogApi = {
     ipcRenderer.invoke(IpcChannels.navdataListSids, icao, runway),
   navdataListStars: (icao: string, runway?: string | null) =>
     ipcRenderer.invoke(IpcChannels.navdataListStars, icao, runway),
+  navdataListApproaches: (icao: string, runway?: string | null) =>
+    ipcRenderer.invoke(IpcChannels.navdataListApproaches, icao, runway),
   navdataGetProcedureWaypoints: (
     icao: string,
     kind: NavdataProcedureKind,
     identifier: string,
     runway?: string | null,
     transition?: string | null
-  ) => ipcRenderer.invoke(IpcChannels.navdataGetProcedureWaypoints, icao, kind, identifier, runway, transition)
+  ) => ipcRenderer.invoke(IpcChannels.navdataGetProcedureWaypoints, icao, kind, identifier, runway, transition),
+  trackingSetProcedureSelection: (selection: ProcedureSelection) =>
+    ipcRenderer.invoke(IpcChannels.trackingSetProcedureSelection, selection),
+  trackingGetOrphanedFlight: () => ipcRenderer.invoke(IpcChannels.trackingGetOrphanedFlight),
+  trackingResumeOrphaned: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingResumeOrphaned, flightId),
+  trackingDiscardOrphaned: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingDiscardOrphaned, flightId)
 }
 
 contextBridge.exposeInMainWorld('winglog', api)

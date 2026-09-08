@@ -101,6 +101,28 @@ async function main(): Promise<void> {
     console.log(`\n${filtered.length} of ${sids.length} SIDs apply to runway ${testRunway} (runway-filter check)`)
   }
 
+  console.log(`\n${fetchedResult.approaches.length} approaches:`)
+  for (const a of fetchedResult.approaches.slice(0, 8)) {
+    console.log(`  ${a.identifier}  header: trans=${a.expected.transitions} final=${a.expected.finalApproachLegs} missed=${a.expected.missedApproachLegs}`)
+    console.log(`    final: ${legSummary(a.finalLegs.map((l) => l.fixIdent))}`)
+    for (const t of a.transitions) console.log(`    transition ${t.name}: ${legSummary(t.legs.map((l) => l.fixIdent))}`)
+  }
+  if (fetchedResult.approaches.length > 8) console.log(`  ...and ${fetchedResult.approaches.length - 8} more`)
+
+  const approaches = listCachedProcedures(db, icao, 'approach', null)
+  console.log(`\nCached ${approaches.length} approach options (identifier / transition):`)
+  for (const a of approaches.slice(0, 10)) console.log(`  ${a.identifier} / ${a.transition ?? '(none)'}`)
+
+  const withTransition = fetchedResult.approaches.find((a) => a.transitions.length > 0)
+  if (withTransition) {
+    const finalOnly = listCachedProcedureLegs(db, icao, 'approach', withTransition.identifier)
+    const withTrans = listCachedProcedureLegs(db, icao, 'approach', withTransition.identifier, null, withTransition.transitions[0]!.name)
+    console.log(`\n${withTransition.identifier}'s cached legs — final only: ${legSummary(finalOnly.map((l) => l.fixIdent))}`)
+    console.log(
+      `${withTransition.identifier}'s cached legs — with transition ${withTransition.transitions[0]!.name}: ${legSummary(withTrans.map((l) => l.fixIdent))}`
+    )
+  }
+
   sqlite.close()
 }
 
