@@ -1,5 +1,6 @@
 import { join } from 'node:path'
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
+import { initLogger } from './logging/logger'
 import {
   IpcChannels,
   type AircraftUpdate,
@@ -106,6 +107,9 @@ function createWindow(): BrowserWindow {
 
   return window
 }
+
+// Before anything else can throw — a crash logged nowhere is a crash nobody can debug.
+initLogger()
 
 app.whenReady().then(() => {
   const userDataPath = app.getPath('userData')
@@ -522,8 +526,11 @@ app.whenReady().then(() => {
   // Without this, a startup failure (e.g. a missing/broken migration) leaves the process
   // running with no window and no visible error — indistinguishable from "still loading"
   // until someone goes looking for it. A native dialog is the one thing guaranteed to work
-  // even if nothing else in the app initialized.
-  dialog.showErrorBox('WingLog failed to start', error instanceof Error ? error.stack ?? error.message : String(error))
+  // even if nothing else in the app initialized. console.error is routed to the log file by
+  // initLogger() above, so this failure is captured for a bug report too, not just shown once.
+  const message = error instanceof Error ? (error.stack ?? error.message) : String(error)
+  console.error('WingLog failed to start:', message)
+  dialog.showErrorBox('WingLog failed to start', message)
   app.exit(1)
 })
 
