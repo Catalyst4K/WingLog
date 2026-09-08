@@ -596,12 +596,13 @@ export function DispatchView(props: {
                   <Button
                     type="button"
                     size="lg"
+                    className="flex-[2]"
                     onClick={handleFlyClick}
                     disabled={saving || alreadyFlown || selectedAircraftId == null}
                   >
                     {saving ? 'Starting…' : 'Fly'}
                   </Button>
-                  <Button type="button" variant="outline" onClick={handleDiscardPlan}>
+                  <Button type="button" variant="outline" className="flex-1" onClick={handleDiscardPlan}>
                     Discard plan
                   </Button>
                 </div>
