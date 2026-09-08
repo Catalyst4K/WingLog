@@ -1,6 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import type { Aircraft, AltitudeUnit, DispatchOfp, FleetStats, Flight, WeightUnit, WindSpeedUnit } from '@shared/ipc'
+import type {
+  Aircraft,
+  AltitudeUnit,
+  DispatchOfp,
+  FleetStats,
+  Flight,
+  NavdataLeg,
+  NavdataProcedureOption,
+  NavdataRunwayOption,
+  WeightUnit,
+  WindSpeedUnit
+} from '@shared/ipc'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,7 +24,14 @@ import { countSetOptions, defaultDispatchOptions, dispatchOptionsToUrlParams, ty
 import { defaultDepartureTime, fromDatetimeLocalValue, toDatetimeLocalValue, toSimBriefDeparture } from './dispatch-time'
 import { useConfirm } from './hooks/useConfirm'
 import { MetarPanel } from './MetarPanel'
-import { formatEnrouteOnly, parseRouteProcedures, type RouteProcedures } from './route'
+import {
+  applyProcedureOverride,
+  formatEnrouteOnly,
+  parseRouteProcedures,
+  segmentWaypoints,
+  type ProcedureOverride,
+  type RouteProcedures
+} from './route'
 import { formatAltitude, formatWeight, mToFt } from './units'
 
 const NO_PROCEDURES: RouteProcedures = {
@@ -25,21 +43,39 @@ const NO_PROCEDURES: RouteProcedures = {
   arrivalRunway: null
 }
 
-/** One procedure dropdown. Real alternates need real navdata (blocked on Navigraph —
- *  docs/plans/sid-star-selection.md), so today each is autofilled with SimBrief's own
- *  choice and disabled when there isn't one — the map already colors SID/STAR waypoints
- *  by segment (FlightMap.tsx), so this box and the map already agree on the single value
- *  there is to show. Kept as a real Select (not a plain label) so a Navigraph-backed list
- *  of alternates drops in later without reshaping this box. */
-function ProcedureSelect(props: { label: string; value: string | null; onChange: (value: string) => void }): React.JSX.Element {
+/** One procedure dropdown, backed by real navdata (docs/plans/navdata-without-navigraph.md
+ *  Phase 3) — `options` is whatever's currently cached for this ICAO/kind, real
+ *  alternatives from MSFS's own SimConnect Facilities API. `null` is always offered as "use
+ *  SimBrief's own choice", via a sentinel value Radix's Select can't natively represent as
+ *  the empty string. */
+const SIMBRIEF_DEFAULT = '__simbrief_default__'
+
+function ProcedureSelect(props: {
+  label: string
+  value: string | null
+  options: string[]
+  onChange: (value: string | null) => void
+  disabled?: boolean
+}): React.JSX.Element {
   return (
     <div className="flex flex-col gap-1.5">
       <Label>{props.label}</Label>
-      <Select value={props.value ?? undefined} onValueChange={props.onChange} disabled={props.value == null}>
+      <Select
+        value={props.value ?? SIMBRIEF_DEFAULT}
+        onValueChange={(v) => props.onChange(v === SIMBRIEF_DEFAULT ? null : v)}
+        disabled={props.disabled}
+      >
         <SelectTrigger className="w-full">
           <SelectValue placeholder="None" />
         </SelectTrigger>
-        <SelectContent>{props.value != null && <SelectItem value={props.value}>{props.value}</SelectItem>}</SelectContent>
+        <SelectContent>
+          <SelectItem value={SIMBRIEF_DEFAULT}>SimBrief default</SelectItem>
+          {props.options.map((opt) => (
+            <SelectItem key={opt} value={opt}>
+              {opt}
+            </SelectItem>
+          ))}
+        </SelectContent>
       </Select>
     </div>
   )
@@ -108,16 +144,155 @@ export function DispatchView(props: {
   const [airframeCapture, setAirframeCapture] = useState<{ aircraftId: number; airframeId: string } | null>(null)
   // Departure/arrival runway, SID/STAR and their transitions — autofilled from whatever
   // SimBrief chose each time a new OFP comes in, independently editable per field
-  // thereafter (see ProcedureSelect's doc comment for why "editable" means one option today).
-  // Re-derived during render (not an effect) when the OFP identity changes, per React's own
-  // "adjusting state when a prop changes" pattern — an effect here would setState after an
-  // extra render, showing the previous plan's procedures for one frame.
+  // thereafter via real navdata (docs/plans/navdata-without-navigraph.md, Phase 3).
+  // `simbriefProcedures` is the untouched baseline, kept alongside `procedures` (the
+  // current, possibly-edited value) purely to detect whether a field has actually been
+  // overridden — see the effects below. Re-derived during render (not an effect) when the
+  // OFP identity changes, per React's own "adjusting state when a prop changes" pattern —
+  // an effect here would setState after an extra render, showing the previous plan's
+  // procedures for one frame.
   const [procedures, setProcedures] = useState<RouteProcedures>(NO_PROCEDURES)
+  const [simbriefProcedures, setSimbriefProcedures] = useState<RouteProcedures>(NO_PROCEDURES)
   const [proceduresForOfpId, setProceduresForOfpId] = useState<string | null>(null)
   if ((ofp?.ofpId ?? null) !== proceduresForOfpId) {
     setProceduresForOfpId(ofp?.ofpId ?? null)
-    setProcedures(ofp ? parseRouteProcedures(ofp.ofpJson) : NO_PROCEDURES)
+    const defaults = ofp ? parseRouteProcedures(ofp.ofpJson) : NO_PROCEDURES
+    setProcedures(defaults)
+    setSimbriefProcedures(defaults)
   }
+
+  // Real navdata for the six dropdowns above — cache reads (fast) plus an optional live
+  // sim fetch (navdataRefreshAirport, slow, only when explicitly triggered: automatically
+  // once per newly-loaded OFP, or via the "Refresh from sim" button).
+  const [depRunways, setDepRunways] = useState<NavdataRunwayOption[]>([])
+  const [arrRunways, setArrRunways] = useState<NavdataRunwayOption[]>([])
+  const [sidOptions, setSidOptions] = useState<NavdataProcedureOption[]>([])
+  const [starOptions, setStarOptions] = useState<NavdataProcedureOption[]>([])
+  const [navdataRefreshing, setNavdataRefreshing] = useState(false)
+  // The chosen SID/STAR's real waypoint legs, fetched only once its identifier actually
+  // differs from SimBrief's own choice — no point fetching legs for a procedure that isn't
+  // overriding anything.
+  const [sidLegs, setSidLegs] = useState<NavdataLeg[]>([])
+  const [starLegs, setStarLegs] = useState<NavdataLeg[]>([])
+
+  const loadNavdataRunways = useCallback(async (dep: string, arr: string): Promise<void> => {
+    const [dr, ar] = await Promise.all([window.winglog.navdataListRunways(dep), window.winglog.navdataListRunways(arr)])
+    setDepRunways(dr)
+    setArrRunways(ar)
+  }, [])
+
+  // Fetch on OFP import (docs/plans/navdata-without-navigraph.md, Phase 3) — fire-and-
+  // forget and silent on failure (the sim may simply not be connected yet, the normal case
+  // for dispatching before launching MSFS), unlike the manual refresh button below, which
+  // is a deliberate user action and does surface a failure.
+  useEffect(() => {
+    // The Procedures card (and everything reading depRunways/arrRunways/sidOptions/
+    // starOptions/sidLegs/starLegs below) only ever renders while `ofp` is set, so there's
+    // nothing to reset here when it's null — the stale arrays just sit unused. Every state
+    // update below happens inside a .then() callback, never synchronously in the effect
+    // body itself — cache reads first (fast, shows whatever's already known), then a live
+    // sim refresh, then the cache reads again once that settles.
+    if (!ofp) return
+    const { depIcao: dep, arrIcao: arr } = ofp
+    Promise.all([window.winglog.navdataListRunways(dep), window.winglog.navdataListRunways(arr)]).then(([dr, ar]) => {
+      setDepRunways(dr)
+      setArrRunways(ar)
+    })
+    Promise.allSettled([window.winglog.navdataRefreshAirport(dep), window.winglog.navdataRefreshAirport(arr)])
+      .then(() => Promise.all([window.winglog.navdataListRunways(dep), window.winglog.navdataListRunways(arr)]))
+      .then(([dr, ar]) => {
+        setDepRunways(dr)
+        setArrRunways(ar)
+      })
+  }, [ofp])
+
+  async function handleRefreshNavdata(): Promise<void> {
+    if (!ofp) return
+    setNavdataRefreshing(true)
+    try {
+      await Promise.all([window.winglog.navdataRefreshAirport(ofp.depIcao), window.winglog.navdataRefreshAirport(ofp.arrIcao)])
+      await loadNavdataRunways(ofp.depIcao, ofp.arrIcao)
+      toast.success('Navdata refreshed from the sim.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    } finally {
+      setNavdataRefreshing(false)
+    }
+  }
+
+  // Re-filtered (not re-fetched from the sim) whenever the chosen runway changes — a real
+  // SimConnect facility fetch already happened above; this is a cache read.
+  useEffect(() => {
+    if (!ofp) return
+    window.winglog
+      .navdataListSids(ofp.depIcao, procedures.departureRunway)
+      .then(setSidOptions)
+      .catch(() => setSidOptions([]))
+  }, [ofp, procedures.departureRunway, depRunways])
+
+  useEffect(() => {
+    if (!ofp) return
+    window.winglog
+      .navdataListStars(ofp.arrIcao, procedures.arrivalRunway)
+      .then(setStarOptions)
+      .catch(() => setStarOptions([]))
+  }, [ofp, procedures.arrivalRunway, arrRunways])
+
+  // Only fetch waypoints for a SID/STAR that's actually overriding SimBrief's own choice —
+  // applyProcedureOverride treats a matching identifier the same as "SimBrief default"
+  // regardless, so fetching here would just be wasted work. A stale sidLegs/starLegs left
+  // over from a previous override is harmless: sidOverride/starOverride below only ever
+  // reads it when the identifier condition still holds.
+  useEffect(() => {
+    if (!ofp || !procedures.sidIdent || procedures.sidIdent === simbriefProcedures.sidIdent) return
+    window.winglog
+      .navdataGetProcedureWaypoints(ofp.depIcao, 'sid', procedures.sidIdent, procedures.departureRunway, procedures.sidTransition)
+      .then(setSidLegs)
+      .catch(() => setSidLegs([]))
+  }, [ofp, procedures.sidIdent, procedures.departureRunway, procedures.sidTransition, simbriefProcedures.sidIdent])
+
+  useEffect(() => {
+    if (!ofp || !procedures.starIdent || procedures.starIdent === simbriefProcedures.starIdent) return
+    window.winglog
+      .navdataGetProcedureWaypoints(ofp.arrIcao, 'star', procedures.starIdent, procedures.arrivalRunway, procedures.starTransition)
+      .then(setStarLegs)
+      .catch(() => setStarLegs([]))
+  }, [ofp, procedures.starIdent, procedures.arrivalRunway, procedures.starTransition, simbriefProcedures.starIdent])
+
+  // The actually-effective route once any override is spliced in — null identifier (or one
+  // matching SimBrief's own) means "no override", so this equals SimBrief's own segmented
+  // route in the common case where nothing's been changed.
+  const sidOverride: ProcedureOverride | null =
+    procedures.sidIdent && procedures.sidIdent !== simbriefProcedures.sidIdent
+      ? { identifier: procedures.sidIdent, legs: sidLegs }
+      : null
+  const starOverride: ProcedureOverride | null =
+    procedures.starIdent && procedures.starIdent !== simbriefProcedures.starIdent
+      ? { identifier: procedures.starIdent, legs: starLegs }
+      : null
+  const overrideActive = sidOverride !== null || starOverride !== null
+  const previewWaypoints = ofp ? applyProcedureOverride(segmentWaypoints(ofp.ofpJson), sidOverride, starOverride) : []
+
+  const depRunwayIdents = depRunways.map((r) => r.ident)
+  const arrRunwayIdents = arrRunways.map((r) => r.ident)
+  const sidIdentifiers = [...new Set(sidOptions.map((o) => o.identifier))]
+  const starIdentifiers = [...new Set(starOptions.map((o) => o.identifier))]
+  const sidTransitions = [
+    ...new Set(
+      sidOptions
+        .filter((o) => o.identifier === procedures.sidIdent)
+        .map((o) => o.transition)
+        .filter((t): t is string => t !== null)
+    )
+  ]
+  const starTransitions = [
+    ...new Set(
+      starOptions
+        .filter((o) => o.identifier === procedures.starIdent)
+        .map((o) => o.transition)
+        .filter((t): t is string => t !== null)
+    )
+  ]
 
   useEffect(() => {
     // Retired aircraft (replacedByAircraftId set — docs/plans/aircraft-replacement.md) have
@@ -443,41 +618,73 @@ export function DispatchView(props: {
               <CardHeader>
                 <CardTitle>Procedures</CardTitle>
                 <CardDescription>
-                  SimBrief's chosen runways, SID and STAR. Swapping to a different procedure needs real
-                  navdata, which isn't wired in yet — see docs/plans/sid-star-selection.md.
+                  SimBrief's chosen runways, SID and STAR — or a real alternative from the sim itself
+                  (docs/plans/navdata-without-navigraph.md). Populated automatically once MSFS is connected;
+                  use Refresh if you started dispatch before launching it.
                 </CardDescription>
+                <CardAction>
+                  <Button type="button" variant="outline" size="sm" onClick={handleRefreshNavdata} disabled={navdataRefreshing}>
+                    {navdataRefreshing ? 'Refreshing…' : 'Refresh from sim'}
+                  </Button>
+                </CardAction>
               </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-3">
-                <ProcedureSelect
-                  label="Departure runway"
-                  value={procedures.departureRunway}
-                  onChange={(v) => setProcedures((p) => ({ ...p, departureRunway: v }))}
-                />
-                <ProcedureSelect
-                  label="Arrival runway"
-                  value={procedures.arrivalRunway}
-                  onChange={(v) => setProcedures((p) => ({ ...p, arrivalRunway: v }))}
-                />
-                <ProcedureSelect
-                  label="SID"
-                  value={procedures.sidIdent}
-                  onChange={(v) => setProcedures((p) => ({ ...p, sidIdent: v }))}
-                />
-                <ProcedureSelect
-                  label="STAR"
-                  value={procedures.starIdent}
-                  onChange={(v) => setProcedures((p) => ({ ...p, starIdent: v }))}
-                />
-                <ProcedureSelect
-                  label="SID transition"
-                  value={procedures.sidTransition}
-                  onChange={(v) => setProcedures((p) => ({ ...p, sidTransition: v }))}
-                />
-                <ProcedureSelect
-                  label="STAR transition"
-                  value={procedures.starTransition}
-                  onChange={(v) => setProcedures((p) => ({ ...p, starTransition: v }))}
-                />
+              <CardContent className="flex flex-col gap-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <ProcedureSelect
+                    label="Departure runway"
+                    value={procedures.departureRunway}
+                    options={depRunwayIdents}
+                    onChange={(v) => setProcedures((p) => ({ ...p, departureRunway: v }))}
+                    disabled={depRunwayIdents.length === 0}
+                  />
+                  <ProcedureSelect
+                    label="Arrival runway"
+                    value={procedures.arrivalRunway}
+                    options={arrRunwayIdents}
+                    onChange={(v) => setProcedures((p) => ({ ...p, arrivalRunway: v }))}
+                    disabled={arrRunwayIdents.length === 0}
+                  />
+                  <ProcedureSelect
+                    label="SID"
+                    value={procedures.sidIdent}
+                    options={sidIdentifiers}
+                    onChange={(v) => setProcedures((p) => ({ ...p, sidIdent: v, sidTransition: null }))}
+                    disabled={sidIdentifiers.length === 0}
+                  />
+                  <ProcedureSelect
+                    label="STAR"
+                    value={procedures.starIdent}
+                    options={starIdentifiers}
+                    onChange={(v) => setProcedures((p) => ({ ...p, starIdent: v, starTransition: null }))}
+                    disabled={starIdentifiers.length === 0}
+                  />
+                  <ProcedureSelect
+                    label="SID transition"
+                    value={procedures.sidTransition}
+                    options={sidTransitions}
+                    onChange={(v) => setProcedures((p) => ({ ...p, sidTransition: v }))}
+                    disabled={sidTransitions.length === 0}
+                  />
+                  <ProcedureSelect
+                    label="STAR transition"
+                    value={procedures.starTransition}
+                    options={starTransitions}
+                    onChange={(v) => setProcedures((p) => ({ ...p, starTransition: v }))}
+                    disabled={starTransitions.length === 0}
+                  />
+                </div>
+                {overrideActive && (
+                  <div className="rounded-md border border-border bg-muted/50 p-3 text-sm">
+                    <p className="font-medium text-foreground">Previewing with your override applied:</p>
+                    <p className="mt-1 max-h-16 overflow-auto text-muted-foreground">
+                      {previewWaypoints.map((w) => w.ident).join(' → ') || '(no waypoints)'}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Preview only — not yet saved onto the flight or reflected on the map (Track/Logbook still
+                      show SimBrief's own route).
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

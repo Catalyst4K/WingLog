@@ -1,3 +1,5 @@
+import type { NavdataLeg } from '@shared/ipc'
+
 function navlogFixes(ofpJson: string | null): Record<string, unknown>[] {
   if (!ofpJson) return []
   try {
@@ -197,4 +199,55 @@ export function formatEnrouteOnly(ofpJson: string | null): string {
     .split(/\s+/)
     .filter((token) => token && !procedureNames.has(token) && !procedureFixIdents.has(token))
     .join(' ')
+}
+
+/**
+ * One chosen procedure override — `identifier` null means "use whatever SimBrief picked
+ * for this segment", the same "each of the six is independently optional" model
+ * docs/plans/sid-star-selection.md's §4 describes. `legs` is the real navdata waypoint
+ * sequence already fetched for (identifier, runway, transition) via
+ * window.winglog.navdataGetProcedureWaypoints — this function doesn't fetch anything
+ * itself, it only splices what's already been fetched into the route.
+ */
+export interface ProcedureOverride {
+  identifier: string | null
+  legs: NavdataLeg[]
+}
+
+function legsToWaypoints(legs: NavdataLeg[], segment: RouteSegment): Waypoint[] {
+  return legs
+    .filter((leg): leg is NavdataLeg & { fixIdent: string } => leg.fixIdent !== null)
+    .map((leg) => ({
+      ident: leg.fixIdent,
+      lon: leg.fixLongitude,
+      lat: leg.fixLatitude,
+      // ALTITUDE1/2's exact "no restriction" sentinel isn't confirmed (facility-fields.ts) —
+      // treated as 0 here as the safest fallback, matching how a SimBrief fix with no
+      // altitude constraint already reads (parseWaypointsFromOfpJson's `?? 0`).
+      altitudeFt: leg.altitude1 > 0 ? leg.altitude1 : 0,
+      segment
+    }))
+}
+
+/**
+ * Splices a real navdata-backed SID/STAR in place of SimBrief's own choice — the local,
+ * no-round-trip-to-SimBrief override docs/plans/sid-star-selection.md's §3 describes.
+ * `baseWaypoints` is SimBrief's own segmented route (segmentWaypoints' output); either
+ * override is skipped (the base route's own segment passes through untouched) when its
+ * `identifier` is null, i.e. "SimBrief default" was chosen — the same convention
+ * DispatchView's dropdowns already use for "no override".
+ */
+export function applyProcedureOverride(
+  baseWaypoints: Waypoint[],
+  sidOverride: ProcedureOverride | null,
+  starOverride: ProcedureOverride | null
+): Waypoint[] {
+  let result = baseWaypoints
+  if (sidOverride?.identifier != null) {
+    result = [...legsToWaypoints(sidOverride.legs, 'sid'), ...result.filter((w) => w.segment !== 'sid')]
+  }
+  if (starOverride?.identifier != null) {
+    result = [...result.filter((w) => w.segment !== 'star'), ...legsToWaypoints(starOverride.legs, 'star')]
+  }
+  return result
 }
