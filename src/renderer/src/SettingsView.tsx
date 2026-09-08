@@ -134,7 +134,9 @@ export function SettingsView(props: {
     window.winglog.dispatchSimbriefLoginStatus().then(setSimbriefLoggedIn)
     window.winglog.settingsGetGsx().then(setGsx)
     window.winglog.settingsGetLandingThresholds().then(setLandingThresholds)
-    window.winglog.syncStatus().then(setSyncStatus)
+    // Cloud sync build-time flag (docs/plans/public-release-v1.md) — the syncStatus channel
+    // doesn't exist at all in a public build, so calling it would just reject.
+    if (__WINGLOG_CLOUD_SYNC_ENABLED__) window.winglog.syncStatus().then(setSyncStatus)
     window.winglog.appGetVersion().then(setAppVersion)
   }, [])
 
@@ -563,6 +565,10 @@ export function SettingsView(props: {
               </CardContent>
             </Card>
 
+            {/* Cloud sync build-time flag (docs/plans/public-release-v1.md, Decision 1) —
+                hidden entirely in a public build, not just disabled: the syncLogin/etc.
+                channels this card calls don't exist there at all (see index.ts). */}
+            {__WINGLOG_CLOUD_SYNC_ENABLED__ && (
             <Card className="max-w-sm">
               <CardHeader>
                 <CardTitle>Cloud sync</CardTitle>
@@ -676,6 +682,7 @@ export function SettingsView(props: {
                 )}
               </CardContent>
             </Card>
+            )}
           </div>
         </TabsContent>
 

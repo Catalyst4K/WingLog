@@ -515,13 +515,24 @@ app.whenReady().then(() => {
     fetchExchangeRate(targetCurrency, date)
   )
 
-  ipcMain.handle(IpcChannels.authLogin, (_event, email: string, password: string) => cloudSync.login(email, password))
-  ipcMain.handle(IpcChannels.authSignup, (_event, email: string, password: string, inviteCode: string) =>
-    cloudSync.signup(email, password, inviteCode)
-  )
-  ipcMain.handle(IpcChannels.authLogout, () => cloudSync.logout())
-  ipcMain.handle(IpcChannels.syncNow, () => cloudSync.syncNow())
-  ipcMain.handle(IpcChannels.syncStatus, () => cloudSync.getStatus())
+  // Cloud sync build-time flag (docs/plans/public-release-v1.md, Decision 1) — off in what
+  // ships publicly. cloudSync itself is still constructed above regardless (its
+  // pull-on-launch/background-sync scheduling stays harmless when logged out, which a
+  // public build always is: there's no public signup route to have gotten an account
+  // through in the first place), but these five channels — the only way to ever log in or
+  // trigger a sync — simply don't exist when the flag is off, rather than
+  // existing-but-refusing. See src/shared/build-flags.d.ts.
+  if (__WINGLOG_CLOUD_SYNC_ENABLED__) {
+    ipcMain.handle(IpcChannels.authLogin, (_event, email: string, password: string) =>
+      cloudSync.login(email, password)
+    )
+    ipcMain.handle(IpcChannels.authSignup, (_event, email: string, password: string, inviteCode: string) =>
+      cloudSync.signup(email, password, inviteCode)
+    )
+    ipcMain.handle(IpcChannels.authLogout, () => cloudSync.logout())
+    ipcMain.handle(IpcChannels.syncNow, () => cloudSync.syncNow())
+    ipcMain.handle(IpcChannels.syncStatus, () => cloudSync.getStatus())
+  }
 
   ipcMain.handle(IpcChannels.appGetVersion, () => app.getVersion())
   ipcMain.handle(IpcChannels.appOpenGithub, () => shell.openExternal('https://github.com/Catalyst4K/WingLog'))
