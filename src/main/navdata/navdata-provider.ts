@@ -50,9 +50,13 @@ export interface NavdataProvider {
    *  runway, not to none. */
   listSids(icao: string, runway?: string | null): NavdataProcedureOption[]
   listStars(icao: string, runway?: string | null): NavdataProcedureOption[]
-  /** The named procedure's own common legs. `transition` is accepted for forward
-   *  compatibility with a future per-transition version but currently ignored — see
-   *  facility-fields.ts's module doc comment for why transition-specific legs aren't
-   *  fetched/cached yet. */
-  getProcedureWaypoints(icao: string, kind: ProcedureKind, identifier: string, transition?: string | null): NavdataLeg[]
+  /**
+   * The full ordered waypoint list for this procedure at a chosen runway/transition —
+   * confirmed live (2026-09-08, docs/navdata-notes.md) that a real procedure's legs can
+   * live inside a specific runway transition, the procedure's own common list, a specific
+   * enroute transition, or some combination, so both selectors matter: omitting `runway`
+   * on a procedure whose real legs live entirely inside one runway transition (the common
+   * case for a SID) returns nothing, rather than guessing which runway's legs to use.
+   */
+  getProcedureWaypoints(icao: string, kind: ProcedureKind, identifier: string, runway?: string | null, transition?: string | null): NavdataLeg[]
 }

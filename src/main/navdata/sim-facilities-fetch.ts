@@ -30,13 +30,30 @@ import {
  * connection during the Phase 2 spike).
  */
 
+export interface FetchedRunwayTransition {
+  runwayIdent: string
+  legs: ParsedLeg[]
+}
+
+export interface FetchedEnrouteTransition {
+  name: string
+  legs: ParsedLeg[]
+}
+
 export interface FetchedProcedure {
   name: string
-  runwayIdents: string[]
-  transitionNames: string[]
-  /** The procedure's own common legs only — see facility-fields.ts's module doc comment
-   *  for why transition-specific legs aren't fetched yet. */
-  legs: ParsedLeg[]
+  runwayTransitions: FetchedRunwayTransition[]
+  enrouteTransitions: FetchedEnrouteTransition[]
+  /** Legs registered directly on the procedure, outside any transition — confirmed live,
+   *  2026-09-08, that this is where EGLL's STARs (zero transitions each) put every real
+   *  leg, while EGLL/VHHH's SIDs put theirs inside their one runway transition instead and
+   *  leave this empty — see facility-fields.ts's module doc comment. */
+  commonLegs: ParsedLeg[]
+  /** The procedure header's own N_RUNWAY_TRANSITIONS/N_ENROUTE_TRANSITIONS/N_APPROACH_LEGS
+   *  counts, kept alongside the arrays above so a caller can tell "the sim reported none"
+   *  apart from "some got dropped while parsing" — e.g. scripts/spike-navdata-provider.ts's
+   *  live diagnostic. */
+  expected: { runwayTransitions: number; enrouteTransitions: number; approachLegs: number }
 }
 
 export interface FetchedAirportNavdata {
@@ -70,9 +87,12 @@ export function fetchAirportNavdata(handle: SimConnectConnection, icao: string):
     const arrivals: FetchedProcedure[] = []
     // A RUNWAY_TRANSITION/ENROUTE_TRANSITION/APPROACH_LEG record only carries its parent's
     // uniqueRequestId (RecvFacilityData.parentUniqueRequestId), not which array it belongs
-    // in — this tracks that link, keyed by the parent DEPARTURE/ARRIVAL record's own
-    // uniqueRequestId.
+    // in — these two maps track that link. An APPROACH_LEG's parent is either a procedure
+    // directly (a common leg) or one of its transitions (a transition-specific leg) —
+    // checked in that order below since transitionByUniqueRequestId is the more specific
+    // match when both could apply.
     const procedureByUniqueRequestId = new Map<number, FetchedProcedure>()
+    const transitionByUniqueRequestId = new Map<number, FetchedRunwayTransition | FetchedEnrouteTransition>()
     const pending = new Set<NavdataDefId>([NavdataDefId.RUNWAYS, NavdataDefId.DEPARTURES, NavdataDefId.ARRIVALS])
     let settled = false
 
@@ -114,7 +134,17 @@ export function fetchAirportNavdata(handle: SimConnectConnection, icao: string):
         case FacilityDataType.DEPARTURE:
         case FacilityDataType.ARRIVAL: {
           const header = parseProcedureHeader(d)
-          const procedure: FetchedProcedure = { name: header.name, runwayIdents: [], transitionNames: [], legs: [] }
+          const procedure: FetchedProcedure = {
+            name: header.name,
+            runwayTransitions: [],
+            enrouteTransitions: [],
+            commonLegs: [],
+            expected: {
+              runwayTransitions: header.nRunwayTransitions,
+              enrouteTransitions: header.nEnrouteTransitions,
+              approachLegs: header.nApproachLegs
+            }
+          }
           ;(recv.userRequestId === NavdataDefId.DEPARTURES ? departures : arrivals).push(procedure)
           procedureByUniqueRequestId.set(recv.uniqueRequestId, procedure)
           break
@@ -122,19 +152,30 @@ export function fetchAirportNavdata(handle: SimConnectConnection, icao: string):
         case FacilityDataType.RUNWAY_TRANSITION: {
           const parsed = parseRunwayTransition(d)
           const parent = procedureByUniqueRequestId.get(recv.parentUniqueRequestId)
-          parent?.runwayIdents.push(parsed.runwayIdent)
+          if (!parent) break
+          const transition: FetchedRunwayTransition = { runwayIdent: parsed.runwayIdent, legs: [] }
+          parent.runwayTransitions.push(transition)
+          transitionByUniqueRequestId.set(recv.uniqueRequestId, transition)
           break
         }
         case FacilityDataType.ENROUTE_TRANSITION: {
           const parsed = parseEnrouteTransition(d)
           const parent = procedureByUniqueRequestId.get(recv.parentUniqueRequestId)
-          parent?.transitionNames.push(parsed.name)
+          if (!parent) break
+          const transition: FetchedEnrouteTransition = { name: parsed.name, legs: [] }
+          parent.enrouteTransitions.push(transition)
+          transitionByUniqueRequestId.set(recv.uniqueRequestId, transition)
           break
         }
         case FacilityDataType.APPROACH_LEG: {
           const leg = parseLeg(d)
-          const parent = procedureByUniqueRequestId.get(recv.parentUniqueRequestId)
-          parent?.legs.push(leg)
+          const transitionParent = transitionByUniqueRequestId.get(recv.parentUniqueRequestId)
+          if (transitionParent) {
+            transitionParent.legs.push(leg)
+            break
+          }
+          const procedureParent = procedureByUniqueRequestId.get(recv.parentUniqueRequestId)
+          procedureParent?.commonLegs.push(leg)
           break
         }
         default:

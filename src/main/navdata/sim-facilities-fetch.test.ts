@@ -126,6 +126,15 @@ describe('fetchAirportNavdata', () => {
       parentUniqueRequestId: 11,
       data: runwayTransitionBuffer(9, 0)
     })
+    // Nested inside the runway transition (parent 12), not the procedure (11) — this is
+    // where a real SID's legs actually live (docs/navdata-notes.md).
+    handle.emit('facilityData', {
+      type: FacilityDataType.APPROACH_LEG,
+      userRequestId: NavdataDefId.DEPARTURES,
+      uniqueRequestId: 15,
+      parentUniqueRequestId: 12,
+      data: legBuffer('RWYFIX')
+    })
     handle.emit('facilityData', {
       type: FacilityDataType.ENROUTE_TRANSITION,
       userRequestId: NavdataDefId.DEPARTURES,
@@ -133,6 +142,15 @@ describe('fetchAirportNavdata', () => {
       parentUniqueRequestId: 11,
       data: enrouteTransitionBuffer('CLEEE')
     })
+    // Nested inside the enroute transition (parent 13).
+    handle.emit('facilityData', {
+      type: FacilityDataType.APPROACH_LEG,
+      userRequestId: NavdataDefId.DEPARTURES,
+      uniqueRequestId: 16,
+      parentUniqueRequestId: 13,
+      data: legBuffer('ENRFIX')
+    })
+    // Parented directly to the procedure (11) — a common leg, outside any transition.
     handle.emit('facilityData', {
       type: FacilityDataType.APPROACH_LEG,
       userRequestId: NavdataDefId.DEPARTURES,
@@ -157,13 +175,12 @@ describe('fetchAirportNavdata', () => {
     expect(result.runways[0]!.primaryIdent).toBe('27')
     expect(result.arrivals).toEqual([])
     expect(result.departures).toHaveLength(1)
-    expect(result.departures[0]).toMatchObject({
-      name: 'BPK7F',
-      runwayIdents: ['09'],
-      transitionNames: ['CLEEE']
-    })
-    expect(result.departures[0]!.legs).toHaveLength(1)
-    expect(result.departures[0]!.legs[0]).toMatchObject({ fixIdent: 'BPK', fixType: 'W' })
+    const departure = result.departures[0]!
+    expect(departure.name).toBe('BPK7F')
+    expect(departure.commonLegs).toHaveLength(1)
+    expect(departure.commonLegs[0]).toMatchObject({ fixIdent: 'BPK', fixType: 'W' })
+    expect(departure.runwayTransitions).toEqual([{ runwayIdent: '09', legs: [expect.objectContaining({ fixIdent: 'RWYFIX' })] }])
+    expect(departure.enrouteTransitions).toEqual([{ name: 'CLEEE', legs: [expect.objectContaining({ fixIdent: 'ENRFIX' })] }])
   })
 
   it('registers the facility definitions and issues one request per definition, request id == definition id', async () => {

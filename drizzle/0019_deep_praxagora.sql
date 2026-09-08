@@ -1,0 +1,1 @@
+ALTER TABLE `navdata_procedure` DROP COLUMN `transition`;
