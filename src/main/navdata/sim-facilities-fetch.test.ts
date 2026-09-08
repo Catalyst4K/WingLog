@@ -54,6 +54,18 @@ function enrouteTransitionBuffer(name: string): RawBuffer {
   })
 }
 
+function approachBuffer(type: number, suffixCode: number, runwayNumber: number, runwayDesignator: number): RawBuffer {
+  return buffer((w) => {
+    w.writeInt32(type)
+    w.writeInt32(suffixCode)
+    w.writeInt32(runwayNumber)
+    w.writeInt32(runwayDesignator)
+    w.writeInt32(1)
+    w.writeInt32(1)
+    w.writeInt32(1)
+  })
+}
+
 function legBuffer(fixIcao: string): RawBuffer {
   return buffer((w) => {
     w.writeInt32(4)
@@ -83,6 +95,7 @@ function endAll(handle: FakeHandle): void {
   handle.emit('facilityDataEnd', { userRequestId: NavdataDefId.RUNWAYS })
   handle.emit('facilityDataEnd', { userRequestId: NavdataDefId.DEPARTURES })
   handle.emit('facilityDataEnd', { userRequestId: NavdataDefId.ARRIVALS })
+  handle.emit('facilityDataEnd', { userRequestId: NavdataDefId.APPROACHES })
 }
 
 describe('fetchAirportNavdata', () => {
@@ -183,6 +196,77 @@ describe('fetchAirportNavdata', () => {
     expect(departure.enrouteTransitions).toEqual([{ name: 'CLEEE', legs: [expect.objectContaining({ fixIdent: 'ENRFIX' })] }])
   })
 
+  it('reassembles an approach\'s transition legs and final segment, real VHHH RNP-Z-07R shape', async () => {
+    const handle = new FakeHandle()
+    const promise = fetchAirportNavdata(handle as unknown as SimConnectConnection, 'VHHH')
+
+    handle.emit('facilityData', {
+      type: FacilityDataType.AIRPORT,
+      userRequestId: NavdataDefId.APPROACHES,
+      uniqueRequestId: 30,
+      parentUniqueRequestId: 0,
+      data: airportBuffer('VHHH')
+    })
+    // type=10 (RNAV/RNP), suffixCode=90 ('Z'), runway 07R — real values captured live
+    // 2026-09-08 (docs/navdata-notes.md).
+    handle.emit('facilityData', {
+      type: FacilityDataType.APPROACH,
+      userRequestId: NavdataDefId.APPROACHES,
+      uniqueRequestId: 31,
+      parentUniqueRequestId: 30,
+      data: approachBuffer(10, 90, 7, 2)
+    })
+    handle.emit('facilityData', {
+      type: FacilityDataType.APPROACH_TRANSITION,
+      userRequestId: NavdataDefId.APPROACHES,
+      uniqueRequestId: 32,
+      parentUniqueRequestId: 31,
+      data: enrouteTransitionBuffer('LIMES')
+    })
+    // Nested inside the transition (parent 32) — the real STAR-handoff/IAF legs.
+    handle.emit('facilityData', {
+      type: FacilityDataType.APPROACH_LEG,
+      userRequestId: NavdataDefId.APPROACHES,
+      uniqueRequestId: 33,
+      parentUniqueRequestId: 32,
+      data: legBuffer('LIMES')
+    })
+    handle.emit('facilityData', {
+      type: FacilityDataType.APPROACH_LEG,
+      userRequestId: NavdataDefId.APPROACHES,
+      uniqueRequestId: 34,
+      parentUniqueRequestId: 32,
+      data: legBuffer('VH720')
+    })
+    // Parented directly to the approach (31), not the transition — the shared final segment.
+    handle.emit('facilityData', {
+      type: FacilityDataType.FINAL_APPROACH_LEG,
+      userRequestId: NavdataDefId.APPROACHES,
+      uniqueRequestId: 35,
+      parentUniqueRequestId: 31,
+      data: legBuffer('VH720')
+    })
+    handle.emit('facilityData', {
+      type: FacilityDataType.FINAL_APPROACH_LEG,
+      userRequestId: NavdataDefId.APPROACHES,
+      uniqueRequestId: 36,
+      parentUniqueRequestId: 31,
+      data: legBuffer('RW07R')
+    })
+
+    endAll(handle)
+
+    const result = await promise
+    expect(result.approaches).toHaveLength(1)
+    const approach = result.approaches[0]!
+    expect(approach.identifier).toBe('RNAV Z 07R')
+    expect(approach.runwayIdent).toBe('07R')
+    expect(approach.transitions).toEqual([
+      { name: 'LIMES', legs: [expect.objectContaining({ fixIdent: 'LIMES' }), expect.objectContaining({ fixIdent: 'VH720' })] }
+    ])
+    expect(approach.finalLegs.map((l) => l.fixIdent)).toEqual(['VH720', 'RW07R'])
+  })
+
   it('registers the facility definitions and issues one request per definition, request id == definition id', async () => {
     const handle = new FakeHandle()
     const promise = fetchAirportNavdata(handle as unknown as SimConnectConnection, 'VHHH')
@@ -190,6 +274,7 @@ describe('fetchAirportNavdata', () => {
     expect(handle.requestFacilityData).toHaveBeenCalledWith(NavdataDefId.RUNWAYS, NavdataDefId.RUNWAYS, 'VHHH')
     expect(handle.requestFacilityData).toHaveBeenCalledWith(NavdataDefId.DEPARTURES, NavdataDefId.DEPARTURES, 'VHHH')
     expect(handle.requestFacilityData).toHaveBeenCalledWith(NavdataDefId.ARRIVALS, NavdataDefId.ARRIVALS, 'VHHH')
+    expect(handle.requestFacilityData).toHaveBeenCalledWith(NavdataDefId.APPROACHES, NavdataDefId.APPROACHES, 'VHHH')
     expect(handle.addToFacilityDefinition).toHaveBeenCalled()
 
     // Settle the promise (clearing its pending 20s timeout) rather than leaving it dangling

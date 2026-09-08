@@ -127,6 +127,8 @@ const api: WingLogApi = {
     ipcRenderer.invoke(IpcChannels.navdataListSids, icao, runway),
   navdataListStars: (icao: string, runway?: string | null) =>
     ipcRenderer.invoke(IpcChannels.navdataListStars, icao, runway),
+  navdataListApproaches: (icao: string, runway?: string | null) =>
+    ipcRenderer.invoke(IpcChannels.navdataListApproaches, icao, runway),
   navdataGetProcedureWaypoints: (
     icao: string,
     kind: NavdataProcedureKind,

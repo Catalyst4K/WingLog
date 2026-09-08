@@ -600,7 +600,7 @@ export interface NavdataProcedureOption {
   transition: string | null
 }
 
-export type NavdataProcedureKind = 'sid' | 'star'
+export type NavdataProcedureKind = 'sid' | 'star' | 'approach'
 
 /** One leg of a procedure's own common leg list — not yet split by transition, see
  *  flightdeck's src/main/sim/facility-fields.ts for why. */
@@ -698,6 +698,7 @@ export const IpcChannels = {
   navdataListRunways: 'navdata:list-runways',
   navdataListSids: 'navdata:list-sids',
   navdataListStars: 'navdata:list-stars',
+  navdataListApproaches: 'navdata:list-approaches',
   navdataGetProcedureWaypoints: 'navdata:get-procedure-waypoints'
 } as const
 
@@ -918,6 +919,10 @@ export interface WingLogApi {
    *  runway transitions registered at all is treated as applying to any runway. */
   navdataListSids: (icao: string, runway?: string | null) => Promise<NavdataProcedureOption[]>
   navdataListStars: (icao: string, runway?: string | null) => Promise<NavdataProcedureOption[]>
+  /** `runway`, when given, filters to approaches for that runway — an approach always
+   *  belongs to exactly one, unlike a SID/STAR. `identifier` is a constructed display label
+   *  ("ILS 07C", "RNP Z 07R"), not a raw NAME — approaches have none of their own. */
+  navdataListApproaches: (icao: string, runway?: string | null) => Promise<NavdataProcedureOption[]>
   navdataGetProcedureWaypoints: (
     icao: string,
     kind: NavdataProcedureKind,

@@ -95,6 +95,53 @@ export function replaceAirportNavdata(db: WingLogDb, icao: string, fetched: Fetc
         for (const et of proc.enrouteTransitions) for (const leg of et.legs) insertLeg(leg, null, et.name)
       }
     }
+
+    // Approaches — same tables, reused per Finding 3/schema.ts's own comment: an approach's
+    // final segment stores as common legs (both tag columns null, same as a STAR with no
+    // runway transitions), its APPROACH_TRANSITION legs tag transitionName the same way an
+    // ENROUTE_TRANSITION's do. runwayIdentsJson is always a single-element array — an
+    // approach belongs to exactly one runway, never several.
+    for (const approach of fetched.approaches) {
+      const [inserted] = tx
+        .insert(navdataProcedure)
+        .values({
+          icao,
+          kind: 'approach',
+          identifier: approach.identifier,
+          runwayIdentsJson: JSON.stringify([approach.runwayIdent]),
+          transitionNamesJson: approach.transitions.length > 0 ? JSON.stringify(approach.transitions.map((t) => t.name)) : null,
+          source: 'sim-facility',
+          fetchedAt
+        })
+        .returning()
+        .all()
+      if (!inserted) continue
+
+      let seq = 0
+      const insertLeg = (leg: ParsedLeg, transitionName: string | null): void => {
+        tx.insert(navdataProcedureLeg)
+          .values({
+            procedureId: inserted.id,
+            runwayIdent: null,
+            transitionName,
+            seq: seq++,
+            type: leg.type,
+            fixIdent: leg.fixIdent,
+            fixType: leg.fixType,
+            fixLatitude: leg.fixLatitude,
+            fixLongitude: leg.fixLongitude,
+            turnDirection: leg.turnDirection,
+            courseDeg: leg.courseDeg,
+            altitude1: leg.altitude1,
+            altitude2: leg.altitude2,
+            speedLimit: leg.speedLimit
+          })
+          .run()
+      }
+
+      for (const leg of approach.finalLegs) insertLeg(leg, null)
+      for (const t of approach.transitions) for (const leg of t.legs) insertLeg(leg, t.name)
+    }
   })
 }
 
@@ -216,6 +263,18 @@ export function listCachedProcedureLegs(
         .orderBy(navdataProcedureLeg.seq)
         .all()
     : []
+
+  if (kind === 'approach') {
+    // Transition (IAF entry) legs first, then the shared final segment — the reverse of
+    // SID/STAR's order, confirmed live 2026-09-08 (docs/navdata-notes.md) to be correct for
+    // a real approach. Also drops the duplicate fix ARINC 424 always repeats at that
+    // boundary: the transition's own last leg and the final segment's first leg are the
+    // same fix.
+    const lastTransitionLeg = transitionLegs[transitionLegs.length - 1]
+    const dedupedCommonLegs =
+      lastTransitionLeg && commonLegs[0] && lastTransitionLeg.fixIdent === commonLegs[0].fixIdent ? commonLegs.slice(1) : commonLegs
+    return [...transitionLegs, ...dedupedCommonLegs].map(toNavdataLeg)
+  }
 
   return [...runwayLegs, ...commonLegs, ...transitionLegs].map(toNavdataLeg)
 }

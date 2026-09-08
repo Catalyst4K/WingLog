@@ -295,14 +295,21 @@ export const navdataRunway = sqliteTable('navdata_runway', {
 export const navdataProcedure = sqliteTable('navdata_procedure', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   icao: text('icao').notNull(),
-  kind: text('kind', { enum: ['sid', 'star'] }).notNull(),
+  kind: text('kind', { enum: ['sid', 'star', 'approach'] }).notNull(),
+  // For 'sid'/'star', a raw SimConnect NAME. For 'approach' (added 2026-09-08, Phase 5), a
+  // constructed display label ("ILS 07C", "RNP Z 07R") — approaches have no NAME field of
+  // their own, see facility-fields.ts's ParsedApproachHeader.
   identifier: text('identifier').notNull(),
   // JSON array of runway idents this procedure's RUNWAY_TRANSITION list names, e.g.
   // '["07L","07R"]' — null means no runway transitions were registered for it (applies to
-  // any runway), not "applies to none".
+  // any runway), not "applies to none". For 'approach', always a single-element array — an
+  // approach belongs to exactly one runway.
   runwayIdentsJson: text('runway_idents_json'),
   // JSON array of this procedure's ENROUTE_TRANSITION names — null means none registered.
-  // Real airports checked so far (EGLL, VHHH) never had any; kept for when one does.
+  // Real airports checked so far (EGLL, VHHH) never had any; kept for when one does. For
+  // 'approach', this is its APPROACH_TRANSITION names instead (e.g. '["LIMES","TD"]') —
+  // confirmed live that a transition's name is the real fix a STAR hands off at, the link
+  // used to auto-connect a chosen STAR onto a chosen approach.
   transitionNamesJson: text('transition_names_json'),
   source: text('source', { enum: ['sim-facility'] }).notNull(),
   fetchedAt: text('fetched_at').notNull()
@@ -320,6 +327,15 @@ export const navdataProcedure = sqliteTable('navdata_procedure', {
 // shared body); NOT independently confirmed for an arrival, where real-world convention
 // suggests the reverse order (transition entry, then shared body, then runway-specific
 // final legs) may be correct instead — open item, not guessed at further than this.
+//
+// For `kind: 'approach'` (added 2026-09-08, Phase 5): `runwayIdent` is never set (an
+// approach's one runway is on the procedure row instead, not per-leg); `transitionName`
+// set means a leg inside that APPROACH_TRANSITION (the STAR-handoff/IAF entry legs); both
+// null means the approach's own FINAL_APPROACH_LEG list. Order confirmed live to be the
+// *opposite* of the departure order above: transition legs first, then the final segment —
+// fly the transition inbound, then the shared final segment down to the runway. The
+// transition's last leg and the final segment's first leg are the same fix, duplicated —
+// a reader assembling the flyable path drops one (listCachedProcedureLegs does this).
 export const navdataProcedureLeg = sqliteTable('navdata_procedure_leg', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   procedureId: integer('procedure_id')

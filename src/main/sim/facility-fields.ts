@@ -9,9 +9,12 @@ import { type RawBuffer } from 'node-simconnect'
  * RUNWAY_TRANSITION, ENROUTE_TRANSITION and APPROACH_LEG record shapes all match what that
  * spike observed. Registration order = buffer read order, exactly like simvars.ts.
  *
- * Deliberately out of scope here: APPROACH/APPROACH_TRANSITION/FINAL_APPROACH_LEG/
- * MISSED_APPROACH_LEG (approach procedures, not needed by the six SID/STAR/runway dropdowns
- * this provider serves).
+ * APPROACH/APPROACH_TRANSITION/FINAL_APPROACH_LEG parsing added 2026-09-08 for
+ * flightdeck-backend's navdata-without-navigraph.md Phase 5 (real approach selection) —
+ * spike-confirmed live the same day against a real MSFS 2024 session
+ * (flightdeck-backend's docs/navdata-notes.md, "approach procedures, previously out of
+ * scope" entry). `MISSED_APPROACH_LEG` deliberately still unregistered — nothing built so
+ * far needs a go-around path.
  *
  * **Where a procedure's legs actually live is airport/procedure-dependent — confirmed live,
  * 2026-09-08, against real EGLL and VHHH departures/arrivals** (a nested
@@ -33,7 +36,8 @@ import { type RawBuffer } from 'node-simconnect'
 export const enum NavdataDefId {
   RUNWAYS = 10,
   DEPARTURES = 11,
-  ARRIVALS = 12
+  ARRIVALS = 12,
+  APPROACHES = 13
 }
 
 /** 0/1/2/3 = none/L/R/C — confirmed against two real airports with known real layouts
@@ -245,3 +249,89 @@ export function parseRunwayTransition(d: RawBuffer): ParsedRunwayTransition {
 export function parseEnrouteTransition(d: RawBuffer): ParsedEnrouteTransition {
   return { name: d.readString8(), nApproachLegs: d.readInt32() }
 }
+
+/** `APPROACH.TYPE`'s raw integer, mapped with confidence — cross-validated against real
+ *  EGLL/VHHH approach counts rather than an authoritative SDK table (none found), 2026-09-08
+ *  (flightdeck-backend's docs/navdata-notes.md): every runway end at both airports had
+ *  exactly one `type=4` and, where present, exactly one `type=5`, matching real published
+ *  ILS + LOC-only-backup pairs; `type=10` was the only one ever duplicated per runway,
+ *  matching real "RNP Y"/"RNP Z" pairs (confirmed via SUFFIX on VHHH 07R's two `type=10`
+ *  approaches). An unrecognized code falls back to its own raw number rather than a made-up
+ *  label — better to show "TYPE 7" than silently mislabel something as ILS. */
+const APPROACH_TYPE_LABELS: Record<number, string> = { 4: 'ILS', 5: 'LOC', 10: 'RNAV' }
+
+function approachTypeLabel(type: number): string {
+  return APPROACH_TYPE_LABELS[type] ?? `TYPE ${type}`
+}
+
+/** `APPROACH.SUFFIX`'s raw integer is the ASCII code of the approach's letter suffix (or
+ *  '0' for none) — confirmed clean 2026-09-08: 32/40 approaches seen had no suffix, the rest
+ *  were 'Y'/'Z'. Falls back to the raw character for anything outside that observed set
+ *  rather than assuming — the encoding itself (ASCII code of a single char) is confirmed,
+ *  just not every value it can take. */
+function suffixLetter(suffixCode: number): string {
+  if (suffixCode === 0 || suffixCode === 48) return ''
+  return String.fromCharCode(suffixCode)
+}
+
+export interface ParsedApproachHeader {
+  /** Constructed display identifier, e.g. "ILS 07C" / "RNP Z 07R" — approaches have no NAME
+   *  field of their own (unlike SID/STAR), so this is built from TYPE + runway + SUFFIX, the
+   *  same fields a real approach chart's own title is built from. */
+  identifier: string
+  runwayIdent: string
+  nTransitions: number
+  nFinalApproachLegs: number
+  nMissedApproachLegs: number
+}
+
+export function addApproachTreeDefinition(addField: (defId: NavdataDefId, name: string) => void): void {
+  const defId = NavdataDefId.APPROACHES
+  const add = (name: string): void => addField(defId, name)
+  add('OPEN AIRPORT')
+  add('ICAO')
+  add('N_APPROACHES')
+  add('OPEN APPROACH')
+  add('TYPE')
+  add('SUFFIX')
+  add('RUNWAY_NUMBER')
+  add('RUNWAY_DESIGNATOR')
+  add('N_TRANSITIONS')
+  add('N_FINAL_APPROACH_LEGS')
+  add('N_MISSED_APPROACH_LEGS')
+  add('OPEN APPROACH_TRANSITION')
+  add('NAME')
+  add('N_APPROACH_LEGS')
+  add('OPEN APPROACH_LEG')
+  addLegFields((name) => addField(defId, name))
+  add('CLOSE APPROACH_LEG')
+  add('CLOSE APPROACH_TRANSITION')
+  add('OPEN FINAL_APPROACH_LEG')
+  addLegFields((name) => addField(defId, name))
+  add('CLOSE FINAL_APPROACH_LEG')
+  add('CLOSE APPROACH')
+  add('CLOSE AIRPORT')
+}
+
+export function parseApproachHeader(d: RawBuffer): ParsedApproachHeader {
+  const type = d.readInt32()
+  const suffixCode = d.readInt32()
+  const runwayNumber = d.readInt32()
+  const runwayDesignator = d.readInt32()
+  const nTransitions = d.readInt32()
+  const nFinalApproachLegs = d.readInt32()
+  const nMissedApproachLegs = d.readInt32()
+  const rwyIdent = runwayIdent(runwayNumber, runwayDesignator)
+  const suffix = suffixLetter(suffixCode)
+  return {
+    identifier: `${approachTypeLabel(type)}${suffix ? ` ${suffix}` : ''} ${rwyIdent}`,
+    runwayIdent: rwyIdent,
+    nTransitions,
+    nFinalApproachLegs,
+    nMissedApproachLegs
+  }
+}
+
+/** Same field shape as an ENROUTE_TRANSITION (NAME, N_APPROACH_LEGS) — reused directly
+ *  rather than a duplicate parser. `parseEnrouteTransition`'s name is generic on purpose. */
+export const parseApproachTransition = parseEnrouteTransition

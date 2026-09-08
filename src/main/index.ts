@@ -555,6 +555,9 @@ app.whenReady().then(() => {
   ipcMain.handle(IpcChannels.navdataListStars, (_event, icao: string, runway?: string | null) =>
     navdataProvider.listStars(icao, runway)
   )
+  ipcMain.handle(IpcChannels.navdataListApproaches, (_event, icao: string, runway?: string | null) =>
+    navdataProvider.listApproaches(icao, runway)
+  )
   ipcMain.handle(
     IpcChannels.navdataGetProcedureWaypoints,
     (_event, icao: string, kind: NavdataProcedureKind, identifier: string, runway?: string | null, transition?: string | null) =>

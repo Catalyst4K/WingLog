@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { RawBuffer } from 'node-simconnect'
 import {
   parseAirportHeader,
+  parseApproachHeader,
   parseEnrouteTransition,
   parseLeg,
   parseProcedureHeader,
@@ -100,6 +101,43 @@ describe('parseEnrouteTransition', () => {
       w.writeInt32(6)
     })
     expect(parseEnrouteTransition(b)).toEqual({ name: 'CLEEE', nApproachLegs: 6 })
+  })
+})
+
+describe('parseApproachHeader', () => {
+  function approachBuffer(type: number, suffixCode: number, runwayNumber: number, runwayDesignator: number): RawBuffer {
+    return buffer((w) => {
+      w.writeInt32(type)
+      w.writeInt32(suffixCode)
+      w.writeInt32(runwayNumber)
+      w.writeInt32(runwayDesignator)
+      w.writeInt32(1)
+      w.writeInt32(4)
+      w.writeInt32(5)
+    })
+  }
+
+  it('builds "ILS 07C" for a real ILS approach with no suffix', () => {
+    // type=4, suffixCode=48 ('0') — real VHHH ILS 07C values, docs/navdata-notes.md.
+    const header = parseApproachHeader(approachBuffer(4, 48, 7, 3))
+    expect(header).toEqual({
+      identifier: 'ILS 07C',
+      runwayIdent: '07C',
+      nTransitions: 1,
+      nFinalApproachLegs: 4,
+      nMissedApproachLegs: 5
+    })
+  })
+
+  it('builds "RNAV Z 07R" for a suffixed RNP approach — real VHHH Y/Z pair scenario', () => {
+    // type=10, suffixCode=90 ('Z') — real VHHH RNP Z 07R values.
+    const header = parseApproachHeader(approachBuffer(10, 90, 7, 2))
+    expect(header.identifier).toBe('RNAV Z 07R')
+  })
+
+  it('falls back to a raw "TYPE n" label for an unrecognized type code, rather than guessing', () => {
+    const header = parseApproachHeader(approachBuffer(99, 48, 9, 1))
+    expect(header.identifier).toBe('TYPE 99 09L')
   })
 })
 

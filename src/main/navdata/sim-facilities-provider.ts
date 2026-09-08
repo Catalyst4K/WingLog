@@ -56,6 +56,10 @@ export class SimFacilitiesProvider implements NavdataProvider {
     return listCachedProcedures(this.db, icao, 'star', runway)
   }
 
+  listApproaches(icao: string, runway: string | null = null): NavdataProcedureOption[] {
+    return listCachedProcedures(this.db, icao, 'approach', runway)
+  }
+
   getProcedureWaypoints(icao: string, kind: ProcedureKind, identifier: string, runway?: string | null, transition?: string | null): NavdataLeg[] {
     return listCachedProcedureLegs(this.db, icao, kind, identifier, runway, transition)
   }
