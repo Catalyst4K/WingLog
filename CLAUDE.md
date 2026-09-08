@@ -41,8 +41,9 @@ design docs (in `flightdeck-backend`, see above), not numbered milestones:
    doesn't move yet, since `develop` can carry work that hasn't reached a release. A plan
    only counts as shipped once `develop`'s changes actually reach `main` on a release cut
    (see "Branching" below); that's the point its design doc moves from
-   `flightdeck-backend/docs/plans/` to nowhere — it just stays there, done. Nothing about
-   a shipped plan's doc needs to come back to this repo.
+   `flightdeck-backend/docs/plans/` into `flightdeck-backend/docs/plans/done/` — archived,
+   not deleted (adopted 2026-09-08, `docs/decisions.md`; earlier the rule was to delete
+   it). Nothing about a shipped plan's doc needs to come back to this repo.
 
 ## Branching
 
