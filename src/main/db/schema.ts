@@ -336,20 +336,25 @@ export const navdataProcedure = sqliteTable('navdata_procedure', {
 // `transitionName` set means a leg nested inside that specific ENROUTE_TRANSITION —
 // confirmed as a real, supported nesting live, 2026-09-08, though no real procedure seen
 // so far actually has one (docs/navdata-notes.md). A full flyable path for a chosen
-// (runway, transition) pair is that runway's legs + the common legs + that transition's
-// legs, in that order — confirmed correct for a departure (initial climb-out, then the
-// shared body); NOT independently confirmed for an arrival, where real-world convention
-// suggests the reverse order (transition entry, then shared body, then runway-specific
-// final legs) may be correct instead — open item, not guessed at further than this.
+// (runway, transition) pair is, for a SID: that runway's legs + the common legs + that
+// transition's legs, in that order (initial climb-out, then the shared body, then the exit
+// transition) — confirmed live 2026-09-08. For a STAR it's the reverse: that transition's
+// legs + the common legs + that runway's legs (transition entry, then the shared body, then
+// the runway-specific final legs) — confirmed live 2026-09-11 against a real STAR (YBBN
+// SMOK2A) with a non-empty common route, after the departure order was found to draw two
+// spurious lines across a real arrival (docs/plans/star-leg-ordering.md, flightdeck-backend).
 //
 // For `kind: 'approach'` (added 2026-09-08, Phase 5): `runwayIdent` is never set (an
 // approach's one runway is on the procedure row instead, not per-leg); `transitionName`
 // set means a leg inside that APPROACH_TRANSITION (the STAR-handoff/IAF entry legs); both
 // null means the approach's own FINAL_APPROACH_LEG list. Order confirmed live to be the
-// *opposite* of the departure order above: transition legs first, then the final segment —
-// fly the transition inbound, then the shared final segment down to the runway. The
-// transition's last leg and the final segment's first leg are the same fix, duplicated —
-// a reader assembling the flyable path drops one (listCachedProcedureLegs does this).
+// same as a STAR's: transition legs first, then the shared final segment — fly the
+// transition inbound, then the shared final segment down to the runway.
+//
+// ARINC 424 repeats the boundary fix between adjacent groups (a transition's last leg is
+// the same fix as the common route's first leg, or the common route's last leg the same as
+// a runway transition's first, depending on direction) — a reader assembling the flyable
+// path drops the duplicate at each boundary it crosses (listCachedProcedureLegs does this).
 export const navdataProcedureLeg = sqliteTable('navdata_procedure_leg', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   procedureId: integer('procedure_id')

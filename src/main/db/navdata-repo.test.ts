@@ -241,6 +241,72 @@ describe('navdata repo', () => {
     }
   )
 
+  it('assembles a STAR as enroute-transition legs, then common legs, then runway-transition legs (reverse of a SID)', () => {
+    replaceAirportNavdata(
+      db,
+      'YBBN',
+      fetched({
+        icao: 'YBBN',
+        departures: [],
+        arrivals: [
+          procedure({
+            name: 'MIXED2A',
+            enrouteTransitions: [{ name: 'ENTRANS', legs: [leg('ENRFIX')] }],
+            commonLegs: [leg('COMMON')],
+            runwayTransitions: [{ runwayIdent: '19L', legs: [leg('RWYFIX')] }]
+          })
+        ]
+      }),
+      '2026-09-11T08:00:00.000Z'
+    )
+
+    // No runway/transition given — only the common legs.
+    expect(listCachedProcedureLegs(db, 'YBBN', 'star', 'MIXED2A').map((l) => l.fixIdent)).toEqual(['COMMON'])
+
+    expect(listCachedProcedureLegs(db, 'YBBN', 'star', 'MIXED2A', '19L').map((l) => l.fixIdent)).toEqual([
+      'COMMON',
+      'RWYFIX'
+    ])
+    expect(listCachedProcedureLegs(db, 'YBBN', 'star', 'MIXED2A', '19L', 'ENTRANS').map((l) => l.fixIdent)).toEqual([
+      'ENRFIX',
+      'COMMON',
+      'RWYFIX'
+    ])
+  })
+
+  it(
+    'reproduces the real YBBN SMOK2A shape: a STAR with a non-empty common route sharing its ' +
+      'boundary fix with the runway transition — assembled correctly and deduped, not the ' +
+      "departure order that drew spurious lines back across the arrival",
+    () => {
+      replaceAirportNavdata(
+        db,
+        'YBBN',
+        fetched({
+          icao: 'YBBN',
+          departures: [],
+          arrivals: [
+            procedure({
+              name: 'SMOK2A',
+              // GARTH is both the common route's last leg and the runway transition's first
+              // leg — the real ARINC 424 shape found live 2026-09-11 (docs/navdata-notes.md).
+              commonLegs: [leg('SMOKA'), leg('OTGAT'), leg('GARTH')],
+              runwayTransitions: [
+                { runwayIdent: '19L', legs: [leg('GARTH'), leg('BURPA'), leg('IGBON'), leg('EMSIT'), leg('IRVUL'), leg('BETSO')] }
+              ]
+            })
+          ]
+        }),
+        '2026-09-11T08:00:00.000Z'
+      )
+
+      const legs = listCachedProcedureLegs(db, 'YBBN', 'star', 'SMOK2A', '19L').map((l) => l.fixIdent)
+      expect(legs).toEqual(['SMOKA', 'OTGAT', 'GARTH', 'BURPA', 'IGBON', 'EMSIT', 'IRVUL', 'BETSO'])
+      // GARTH appears exactly once, not duplicated across the common/runway boundary.
+      expect(legs.filter((f) => f === 'GARTH')).toHaveLength(1)
+    }
+  )
+
   it('keeps a different airport untouched by a replace', () => {
     replaceAirportNavdata(db, 'EGLL', fetched(), '2026-09-08T12:00:00.000Z')
     replaceAirportNavdata(db, 'VHHH', fetched({ icao: 'VHHH' }), '2026-09-08T12:00:00.000Z')
