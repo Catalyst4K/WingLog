@@ -178,6 +178,72 @@ describe('TrackingController', () => {
     expect(controller.getActive()?.phase).toBe('pushback')
   })
 
+  it(
+    'excludes a real in-session pause from the completed flight\'s block/air minutes ' +
+      '(real case: pausing mid-cruise to test this exact thing inflated the logged time)',
+    () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-09-01T12:00:00.000Z'))
+      sim.setLastTelemetry(telemetry({}))
+      const controller = new TrackingController(db, sim)
+      controller.start(flightId)
+
+      // preflight -> pushback -> taxi -> takeoff -> climb, each a real elapsed tick apart.
+      vi.setSystemTime(new Date('2026-09-01T12:01:00.000Z'))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true }))
+      vi.setSystemTime(new Date('2026-09-01T12:02:00.000Z'))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 5 }))
+      vi.setSystemTime(new Date('2026-09-01T12:03:00.000Z'))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 40 }))
+      vi.setSystemTime(new Date('2026-09-01T12:10:00.000Z'))
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+      )
+      expect(getFlight(db, flightId)?.actualOffUtc).toBe('2026-09-01T12:10:00.000Z')
+
+      // A real 20-minute pause mid-cruise.
+      vi.setSystemTime(new Date('2026-09-01T13:00:00.000Z'))
+      sim.emit('paused', true)
+      vi.setSystemTime(new Date('2026-09-01T13:20:00.000Z'))
+      sim.emit('paused', false)
+
+      // -> cruise -> descent -> landing (touchdown, actualOnUtc).
+      for (let i = 0; i < 12; i++) {
+        sim.emit(
+          'telemetry',
+          telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 230, verticalSpeedMs: 0.1 })
+        )
+      }
+      for (let i = 0; i < 7; i++) {
+        sim.emit(
+          'telemetry',
+          telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 200, verticalSpeedMs: -3 })
+        )
+      }
+      vi.setSystemTime(new Date('2026-09-01T14:00:00.000Z'))
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 65, verticalSpeedMs: -1.5 })
+      )
+      expect(getFlight(db, flightId)?.actualOnUtc).toBe('2026-09-01T14:00:00.000Z')
+
+      // -> taxi -> shutdown.
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 10 }))
+      vi.setSystemTime(new Date('2026-09-01T14:05:00.000Z'))
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: false, onGround: true, groundSpeedMs: 0, parkingBrakeOn: true })
+      )
+
+      const finished = getFlight(db, flightId)
+      expect(finished?.status).toBe('completed')
+      // Raw air time 12:10 -> 14:00 = 110 min, minus the 20-minute pause = 90.
+      expect(finished?.airMinutes).toBe(90)
+      vi.useRealTimers()
+    }
+  )
+
   it('abandons the flight on stop() rather than completing it', () => {
     sim.setLastTelemetry(telemetry({}))
     const controller = new TrackingController(db, sim)
