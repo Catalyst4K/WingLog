@@ -74,9 +74,10 @@ individually:
   bump.
 - Every `plan/<name>` branch targets `develop`. The two branches that predated this model
   (`plan/backend-service`, `plan/sid-star-selection`) never merged: both were superseded
-  (see `flightdeck-backend`'s `docs/plans/done/`). Checked 2026-09-11: their code commits
-  are on `develop` as rebased copies, and their only unique content — plan-doc edits — is
-  archived in that folder, so neither branch holds anything not captured elsewhere.
+  (see `flightdeck-backend`'s `docs/plans/done/`). Checked line by line 2026-09-11: their
+  code commits are on `develop` as rebased copies, and their unique docs — plan docs plus
+  two `decisions.md` entries that had never been copied across — are now in
+  `flightdeck-backend`, so neither branch holds anything not captured elsewhere.
 
 The M1/M6 rule generalises: for anything depending on a real external system whose
 behaviour isn't documented — SimConnect, SimBrief's JSON schema, GSX's receipt files, a
