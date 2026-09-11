@@ -88,11 +88,10 @@ individually:
   `fixes` into `develop` if that hasn't already happened. Tag the merge commit on `main` if
   it corresponds to a version bump.
 - Every `plan/<name>` branch targets `develop`. The two branches that predated this model
-  (`plan/backend-service`, `plan/sid-star-selection`) never merged: both were superseded
-  (see `flightdeck-backend`'s `docs/plans/done/`). Checked line by line 2026-09-11: their
-  code commits are on `develop` as rebased copies, and their unique docs — plan docs plus
-  two `decisions.md` entries that had never been copied across — are now in
-  `flightdeck-backend`, so neither branch holds anything not captured elsewhere.
+  (`plan/backend-service`, `plan/sid-star-selection`) never merged — both were superseded —
+  and were deleted 2026-09-11, after a line-by-line check confirmed their code was on
+  `develop` and their docs were in `flightdeck-backend` (`docs/plans/done/`). Delete a plan
+  branch once it's merged; don't leave them lying around.
 
 The M1/M6 rule generalises: for anything depending on a real external system whose
 behaviour isn't documented — SimConnect, SimBrief's JSON schema, GSX's receipt files, a
