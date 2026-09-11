@@ -37,13 +37,15 @@ design docs (in `flightdeck-backend`, see above), not numbered milestones:
    location is different.
 3. One plan, one branch, one PR into `develop`. Don't mix unrelated changes into a plan
    branch.
-4. A plan branch merging into `develop` is progress, not the finish line — its design doc
-   doesn't move yet, since `develop` can carry work that hasn't reached a release. A plan
-   only counts as shipped once `develop`'s changes actually reach `main` on a release cut
-   (see "Branching" below); that's the point its design doc moves from
-   `flightdeck-backend/docs/plans/` into `flightdeck-backend/docs/plans/done/` — archived,
-   not deleted (adopted 2026-09-08, `docs/decisions.md`; earlier the rule was to delete
-   it). Nothing about a shipped plan's doc needs to come back to this repo.
+4. When a plan's work is complete — built, merged, nothing in the plan left to do — its
+   design doc moves from `flightdeck-backend/docs/plans/` into
+   `flightdeck-backend/docs/plans/done/`, archived rather than deleted, with a header saying
+   whether the work has reached `main` yet or is still on `develop` awaiting a release cut
+   (see "Branching" below). Complete is not the same as released: `develop` can carry
+   finished work that hasn't shipped, and `PLAN.md` §10 tracks both. (Rule as of
+   2026-09-11 — see `docs/decisions.md`. Before that, a doc waited for `main` before
+   moving, and before 2026-09-08 it was deleted.) Nothing about a finished plan's doc needs
+   to come back to this repo.
 
 ## Branching
 
@@ -62,15 +64,19 @@ individually:
 - **`fixes`** — the equivalent branch for bug fixes: a `fix/<name>` branch per fix,
   targeting `fixes`, same direct-push workflow as `develop`. Kept separate from `develop`
   so a batch of bug fixes can go out as its own release without waiting on whatever
-  feature work happens to be in flight on `develop`.
+  feature work happens to be in flight on `develop`. **Exception**: `fixes` is cut from
+  `main`, so it can't carry a fix for code that exists only on `develop` (built, not yet
+  released). A fix like that branches off `develop` and merges back into `develop` instead.
 - **Cutting a release** means opening a PR from `develop` (or `fixes`) into `main` once a
-  meaningful batch is ready, merging it, and *then* moving every plan doc that just
-  reached `main` out of `flightdeck-backend/docs/plans/`, per step 4 above. Tag the merge
-  commit on `main` if it corresponds to a version bump.
-- Plan branches already open before this date (`plan/backend-service`,
-  `plan/sid-star-selection`) were **not** retargeted onto `develop` — not worth the churn
-  mid-flight. They still merge straight into `main` (via a PR, now required) when done.
-  Every plan branch created from here on targets `develop`.
+  meaningful batch is ready, merging it, and *then* updating the headers of the plan docs in
+  `flightdeck-backend/docs/plans/done/` whose work just reached `main` (and `PLAN.md` §10) to
+  say so, per step 4 above. Tag the merge commit on `main` if it corresponds to a version
+  bump.
+- Every `plan/<name>` branch targets `develop`. The two branches that predated this model
+  (`plan/backend-service`, `plan/sid-star-selection`) never merged: both were superseded
+  (see `flightdeck-backend`'s `docs/plans/done/`). Checked 2026-09-11: their code commits
+  are on `develop` as rebased copies, and their only unique content — plan-doc edits — is
+  archived in that folder, so neither branch holds anything not captured elsewhere.
 
 The M1/M6 rule generalises: for anything depending on a real external system whose
 behaviour isn't documented — SimConnect, SimBrief's JSON schema, GSX's receipt files, a
