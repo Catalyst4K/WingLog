@@ -18,4 +18,21 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm test
+      - run: npm run test:coverage
+
+  e2e:
+    # Not yet confirmed on real CI infrastructure (flightdeck-backend's
+    # docs/plans/test-coverage.md, open questions) — the launch recipe below was only
+    # spiked and confirmed locally on Windows. continue-on-error until a run here actually
+    # proves headless Electron works the same way on an ubuntu-latest runner.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: xvfb-run --auto-servernum npm run test:e2e

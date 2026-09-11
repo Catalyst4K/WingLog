@@ -286,3 +286,27 @@ Node ABI (via `postinstall`) — not the system Node ABI. That's why `npm test` 
 plain `node`/`tsx`: it's the same binary the app ships with, so there's only one build of
 the module to keep track of. Don't "simplify" these scripts back to bare `vitest`/`tsx` —
 that reintroduces an ABI mismatch and the native module fails to load.
+
+**Three layers, per `flightdeck-backend`'s `docs/plans/test-coverage.md`** (100% of
+business logic is the target; see that plan for the current real number and the exclusion
+list — Electron bootstrap, preload, vendored `components/ui/**`):
+
+- **Unit** (`vitest.config.ts`'s `'unit'` project, `node` environment, `*.test.ts`) — the
+  original main-process/shared/pure-logic suite described above.
+- **Renderer integration** (the `'renderer'` project, `jsdom`, `*.test.tsx`) — real React
+  components rendered with `@testing-library/react`, mocking only `window.winglog` (the one
+  seam the renderer is allowed to cross per this file's own Rules section) — never mock a
+  child component or a hook just to isolate one, since that stops testing the real wiring.
+- **Acceptance** (`e2e/*.spec.ts`, Playwright, `npm run test:e2e`) — drives the real built
+  app (`npm run build`'s `out/`), never the dev server. Every test launches its own isolated
+  instance via `e2e/launch-app.ts`'s `launchApp()`, which passes `--user-data-dir` pointed
+  at a fresh temp directory — **never launch Electron for a test any other way**: the
+  project root directory must be the first arg (not the entry script path — that breaks
+  `app.getAppPath()` and crashes migration), and the launching environment must not have
+  `ELECTRON_RUN_AS_NODE` set (leaks in from a shell that ran `npm test` earlier and breaks
+  the Electron launch with a cryptic `bad option` error) — `launchApp()` already handles
+  both, so use it rather than calling `_electron.launch()` directly.
+
+`npm run test:coverage` runs the unit + renderer suites with coverage and checks the
+threshold in `vitest.config.ts` — a ratchet, raised as real coverage improves, not the
+100% target itself; never lower it to make a red build green.
