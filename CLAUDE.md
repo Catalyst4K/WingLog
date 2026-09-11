@@ -61,17 +61,32 @@ individually:
   targets `develop`, not `main`. Direct pushes/merges into `develop` are still fine (no
   required PR there) — that's the low-friction, solo-dev workflow this project has always
   used, just one branch removed from `main` now.
-- **`fixes`** — the equivalent branch for bug fixes: a `fix/<name>` branch per fix,
-  targeting `fixes`, same direct-push workflow as `develop`. Kept separate from `develop`
-  so a batch of bug fixes can go out as its own release without waiting on whatever
-  feature work happens to be in flight on `develop`. **Exception**: `fixes` is cut from
-  `main`, so it can't carry a fix for code that exists only on `develop` (built, not yet
-  released). A fix like that branches off `develop` and merges back into `develop` instead.
-- **Cutting a release** means opening a PR from `develop` (or `fixes`) into `main` once a
-  meaningful batch is ready, merging it, and *then* updating the headers of the plan docs in
-  `flightdeck-backend/docs/plans/done/` whose work just reached `main` (and `PLAN.md` §10) to
-  say so, per step 4 above. Tag the merge commit on `main` if it corresponds to a version
-  bump.
+- **`fixes`** — the hotfix line: `main` plus any urgent fixes in flight, so a bug in
+  released code can reach users on its own without waiting for whatever feature work is
+  still unreleased on `develop`. Same direct-push workflow as `develop`. It is only ever
+  *behind* `main`, never ahead of it once a hotfix ships, so it goes stale between uses.
+- **`fix/<name>` branches — one per bug fix, off either `develop` or `fixes`**, depending on
+  where the fix needs to ship (adopted 2026-09-11; before that, every fix went through
+  `fixes`):
+  - **Off `develop`, back into `develop`** — the default. Always for a bug in code that
+    hasn't been released yet (it only exists on `develop`, so `fixes` can't even see it),
+    and for any released bug that can simply ship with the next normal release. The fix
+    lands where the newest code already is, so there's nothing to carry across later.
+  - **Off `fixes`, back into `fixes`** — only for a hotfix: a bug in released code that has
+    to reach users before `develop`'s pending work is ready. First fast-forward `fixes` to
+    `main` (`git merge --ff-only origin/main` — it will usually be behind). Once the fix is
+    merged, **merge `fixes` into `develop` the same day**. Fixes left sitting on `fixes`
+    alone have "never crossed over" before (2026-09-06, six of them), and a migration
+    generated on `fixes` collided with `develop`'s numbering once already, breaking a real
+    database (2026-09-05). So avoid schema changes in a hotfix; if one is unavoidable,
+    check its migration number against `develop`'s before merging.
+  - Unsure which? Use `develop`.
+- **Cutting a release** means opening a PR from `develop` (or, for a hotfix release,
+  `fixes`) into `main` once a meaningful batch is ready, merging it, and *then* updating the
+  headers of the plan docs in `flightdeck-backend/docs/plans/done/` whose work just reached
+  `main` (and `PLAN.md` §10) to say so, per step 4 above. After a hotfix release, merge
+  `fixes` into `develop` if that hasn't already happened. Tag the merge commit on `main` if
+  it corresponds to a version bump.
 - Every `plan/<name>` branch targets `develop`. The two branches that predated this model
   (`plan/backend-service`, `plan/sid-star-selection`) never merged: both were superseded
   (see `flightdeck-backend`'s `docs/plans/done/`). Checked line by line 2026-09-11: their
