@@ -40,6 +40,12 @@ Thumbs.db
 # Vitest / coverage
 coverage/
 
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
 # TypeScript incremental build info
 *.tsbuildinfo
 
