@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { parseAirframesForType, type RawAirframesResponse } from './simbrief-airframes'
 
 // Shaped like a real trimmed slice of inputs.airframes.json — the A320 fixture mirrors
@@ -254,5 +254,68 @@ describe('parseAirframesForType', () => {
     }
     const [option] = parseAirframesForType(fixtureBareType, 'B738')
     expect(option.variant).toBeNull()
+  })
+})
+
+describe('fetchAirframesForType', () => {
+  // fetchAirframesData caches its in-flight/resolved promise at module scope for the
+  // process lifetime (deliberately — see the file's own comment) — reset modules between
+  // tests so each one observes a fresh, uncached fetch.
+  beforeEach(() => {
+    vi.resetModules()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('parses a successful response for the requested type', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(FIXTURE)
+      })
+    )
+    const { fetchAirframesForType } = await import('./simbrief-airframes')
+
+    const options = await fetchAirframesForType('A320')
+
+    expect(options.some((o) => o.isDefault)).toBe(true)
+  })
+
+  it('returns an empty list for a type the response does not contain', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(FIXTURE) })
+    )
+    const { fetchAirframesForType } = await import('./simbrief-airframes')
+
+    expect(await fetchAirframesForType('B788')).toEqual([])
+  })
+
+  it('returns an empty list when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }))
+    const { fetchAirframesForType } = await import('./simbrief-airframes')
+
+    expect(await fetchAirframesForType('A320')).toEqual([])
+  })
+
+  it('returns an empty list when the fetch itself throws', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')))
+    const { fetchAirframesForType } = await import('./simbrief-airframes')
+
+    expect(await fetchAirframesForType('A320')).toEqual([])
+  })
+
+  it('only fetches once for repeated calls within the same process (cached)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(FIXTURE) })
+    vi.stubGlobal('fetch', fetchMock)
+    const { fetchAirframesForType } = await import('./simbrief-airframes')
+
+    await fetchAirframesForType('A320')
+    await fetchAirframesForType('B738')
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })

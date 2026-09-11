@@ -1,5 +1,79 @@
 import { describe, expect, it } from 'vitest'
-import { formatAltitude } from './units'
+import {
+  formatAltitude,
+  formatMinutes,
+  formatWeight,
+  kgToLb,
+  kgToUnit,
+  lbToKg,
+  mToFt,
+  msToFpm,
+  msToKt,
+  unitToKg
+} from './units'
+
+describe('weight conversions', () => {
+  it('converts kg to lb and back', () => {
+    expect(kgToLb(1)).toBeCloseTo(2.2046, 3)
+    expect(lbToKg(kgToLb(70))).toBeCloseTo(70, 6)
+  })
+
+  it('kgToUnit passes kg through unchanged, and converts to lb otherwise', () => {
+    expect(kgToUnit(70, 'kg')).toBe(70)
+    expect(kgToUnit(1, 'lb')).toBeCloseTo(2.2046, 3)
+  })
+
+  it('unitToKg passes kg through unchanged, and converts from lb otherwise', () => {
+    expect(unitToKg(70, 'kg')).toBe(70)
+    expect(unitToKg(kgToLb(70), 'lb')).toBeCloseTo(70, 6)
+  })
+})
+
+describe('distance/speed conversions', () => {
+  it('converts metres to feet', () => {
+    expect(mToFt(1)).toBeCloseTo(3.2808, 3)
+  })
+
+  it('converts m/s to knots', () => {
+    expect(msToKt(1)).toBeCloseTo(1.9438, 3)
+  })
+
+  it('converts m/s to feet per minute', () => {
+    expect(msToFpm(1)).toBeCloseTo(196.85, 1)
+  })
+})
+
+describe('formatWeight', () => {
+  it('renders an em dash for a null value', () => {
+    expect(formatWeight(null, 'kg')).toBe('—')
+  })
+
+  it('formats kg rounded and thousands-separated', () => {
+    expect(formatWeight(65432, 'kg')).toBe('65,432 kg')
+  })
+
+  it('formats lb, converted and rounded', () => {
+    expect(formatWeight(1000, 'lb')).toBe(`${Math.round(kgToLb(1000)).toLocaleString()} lb`)
+  })
+})
+
+describe('formatMinutes', () => {
+  it('renders an em dash for a null value', () => {
+    expect(formatMinutes(null)).toBe('—')
+  })
+
+  it('formats whole hours and minutes', () => {
+    expect(formatMinutes(125)).toBe('2h 5m')
+  })
+
+  it('rounds a fractional minute remainder', () => {
+    expect(formatMinutes(90.6)).toBe('1h 31m')
+  })
+
+  it('formats zero minutes', () => {
+    expect(formatMinutes(0)).toBe('0h 0m')
+  })
+})
 
 describe('formatAltitude', () => {
   it('formats feet rounded to the nearest 100 (a real flight level), thousands-separated', () => {

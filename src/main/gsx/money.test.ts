@@ -31,4 +31,8 @@ describe('parseUsdAmount', () => {
   it('returns null for a deliberately unparseable string rather than guessing', () => {
     expect(parseUsdAmount('some garbage ~ nonsense')).toBeNull()
   })
+
+  it('returns null rather than Infinity for a number so large it overflows', () => {
+    expect(parseUsdAmount(`£1.00 ~$ ${'9'.repeat(400)}`)).toBeNull()
+  })
 })

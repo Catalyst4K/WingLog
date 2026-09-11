@@ -59,4 +59,8 @@ describe('datetime-local round trip', () => {
   it('returns null for an empty value', () => {
     expect(fromDatetimeLocalValue('')).toBeNull()
   })
+
+  it('returns null for a non-empty value that does not parse as a date', () => {
+    expect(fromDatetimeLocalValue('9999-99-99T99:99')).toBeNull()
+  })
 })

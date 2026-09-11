@@ -7,9 +7,9 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createAircraft, deleteAircraft, listAircraft } from '../db/aircraft-repo'
 import { createDb, type WingLogDb } from '../db/client'
-import { addInvoicesForFlight } from '../db/flight-invoice-repo'
+import { addInvoicesForFlight, listInvoicesForFlight } from '../db/flight-invoice-repo'
 import { createFlight } from '../db/flight-repo'
-import { getLandingByFlight } from '../db/landing-repo'
+import { createLanding, getLandingByFlight } from '../db/landing-repo'
 import { getLastSyncedAt } from '../db/settings-repo'
 import { aircraft, flight, flightInvoice } from '../db/schema'
 import type { SyncRow, SyncTable } from '../backend/sync-client'
@@ -285,5 +285,234 @@ describe('sync-engine', () => {
 
     expect(result.tables.landing.skipped).toEqual(['orphan-landing'])
     expect(getLandingByFlight(db, 1)).toBeUndefined()
+  })
+
+  it('skips an aircraft, flight, or flightInvoice pull with malformed/missing required fields', async () => {
+    server.seed('aircraft', {
+      uuid: 'bad-aircraft',
+      updatedAt: '2026-09-04T10:00:00.000Z',
+      data: JSON.stringify({ registration: 'G-BAD' }) // icaoType missing
+    })
+    server.seed('flight', {
+      uuid: 'bad-flight',
+      updatedAt: '2026-09-04T10:00:00.000Z',
+      data: JSON.stringify({ aircraftUuid: 'whatever' }) // depIcao/arrIcao missing
+    })
+    server.seed('flightInvoice', {
+      uuid: 'bad-invoice',
+      updatedAt: '2026-09-04T10:00:00.000Z',
+      data: JSON.stringify({ flightUuid: 'whatever' }) // receiptId missing
+    })
+
+    const result = await runSync(db, server, SESSION, dbPath)
+
+    expect(result.tables.aircraft.skipped).toEqual(['bad-aircraft'])
+    expect(result.tables.flight.skipped).toEqual(['bad-flight'])
+    expect(result.tables.flightInvoice.skipped).toEqual(['bad-invoice'])
+  })
+
+  it('skips a pulled flight referencing an aircraft uuid that was never synced', async () => {
+    server.seed('flight', {
+      uuid: 'flight-for-unknown-aircraft',
+      updatedAt: '2026-09-04T10:00:00.000Z',
+      data: JSON.stringify({ aircraftUuid: 'no-such-aircraft', depIcao: 'EGLL', arrIcao: 'EGCC' })
+    })
+
+    const result = await runSync(db, server, SESSION, dbPath)
+
+    expect(result.tables.flight.skipped).toEqual(['flight-for-unknown-aircraft'])
+  })
+
+  it('skips an invalid (unparseable JSON) pulled row rather than throwing', async () => {
+    server.seed('aircraft', { uuid: 'bad-json', updatedAt: '2026-09-04T10:00:00.000Z', data: 'not json at all' })
+
+    const result = await runSync(db, server, SESSION, dbPath)
+
+    expect(result.tables.aircraft.skipped).toEqual(['bad-json'])
+  })
+
+  it('skips a pulled row whose data is valid JSON but not an object (e.g. a bare number)', async () => {
+    server.seed('aircraft', { uuid: 'not-an-object', updatedAt: '2026-09-04T10:00:00.000Z', data: '42' })
+
+    const result = await runSync(db, server, SESSION, dbPath)
+
+    expect(result.tables.aircraft.skipped).toEqual(['not-an-object'])
+  })
+
+  it('skips a pulled landing missing its required flightUuid field', async () => {
+    server.seed('landing', {
+      uuid: 'landing-no-flight-uuid',
+      updatedAt: '2026-09-04T10:00:00.000Z',
+      data: JSON.stringify({ touchdownTsUtc: '2026-09-04T10:00:00Z' })
+    })
+
+    const result = await runSync(db, server, SESSION, dbPath)
+
+    expect(result.tables.landing.skipped).toEqual(['landing-no-flight-uuid'])
+  })
+
+  it('does not push a flight whose own aircraft has no uuid yet, and retries it next sync', async () => {
+    const createdAircraft = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' })
+    db.update(aircraft).set({ uuid: null }).where(eq(aircraft.id, createdAircraft.id)).run()
+    createFlight(db, { aircraftId: createdAircraft.id, depIcao: 'EGLL', arrIcao: 'EGCC' })
+
+    const result = await runSync(db, server, SESSION, dbPath)
+
+    expect(result.tables.flight.pushed).toBe(0)
+    expect(await server.syncPull(SESSION.email, SESSION.token, 'flight', null)).toEqual([])
+  })
+
+  it('reports a real DB failure (unique constraint) applying a pulled row as skipped, not a crash', async () => {
+    // Two devices independently create an aircraft with the same registration before either
+    // has synced — the second one to be pulled here collides with the unique constraint
+    // already satisfied by the first, real local aircraft below.
+    createAircraft(db, { registration: 'G-DUPE', icaoType: 'A320' })
+    server.seed('aircraft', {
+      uuid: 'remote-dupe',
+      updatedAt: '2026-09-04T10:00:00.000Z',
+      data: JSON.stringify({ registration: 'G-DUPE', icaoType: 'B738' })
+    })
+
+    const result = await runSync(db, server, SESSION, dbPath)
+
+    expect(result.tables.aircraft.skipped).toEqual(['remote-dupe'])
+    expect(listAircraft(db).map((a) => a.registration)).toEqual(['G-DUPE'])
+  })
+
+  it('reports a real DB failure applying a pulled landing (missing NOT NULL fields) as skipped', async () => {
+    const createdAircraft = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' })
+    const createdFlight = createFlight(db, { aircraftId: createdAircraft.id, depIcao: 'EGLL', arrIcao: 'EGCC' })
+    await runSync(db, server, SESSION, dbPath) // so the flight has a synced uuid to reference
+    const flightUuid = db.select({ uuid: flight.uuid }).from(flight).where(eq(flight.id, createdFlight.id)).get()!
+      .uuid as string
+
+    server.seed('landing', {
+      uuid: 'incomplete-landing',
+      // After the uuid-establishing sync above, this table's cursor has already advanced —
+      // a fixed past timestamp would be filtered out by the fake server's own since-filter,
+      // same as a real one would.
+      updatedAt: '2099-01-01T00:00:00.000Z',
+      data: JSON.stringify({ flightUuid }) // every other NOT NULL landing field is missing
+    })
+
+    const result = await runSync(db, server, SESSION, dbPath)
+
+    expect(result.tables.landing.skipped).toEqual(['incomplete-landing'])
+  })
+
+  it('pushes a locally created landing, translating its flightId to the parent flight uuid', async () => {
+    const createdAircraft = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' })
+    const createdFlight = createFlight(db, { aircraftId: createdAircraft.id, depIcao: 'EGLL', arrIcao: 'EGCC' })
+    createLanding(db, {
+      flightId: createdFlight.id,
+      touchdownTsUtc: '2026-09-06T12:00:00.000Z',
+      verticalSpeedMs: -1.2,
+      gForce: 1.3,
+      pitchDeg: 2,
+      bankDeg: 0.5,
+      headingTrueDeg: 270,
+      indicatedAirspeedMs: 70,
+      groundSpeedMs: 68,
+      windSpeedMs: 5,
+      windDirectionDeg: 260,
+      headwindMs: null,
+      crosswindMs: null,
+      crabDeg: null,
+      runwayIdent: null,
+      distanceFromThresholdM: null,
+      centrelineOffsetM: null,
+      flapSetting: null,
+      touchdownSource: 'derived'
+    })
+
+    const result = await runSync(db, server, SESSION, dbPath)
+
+    expect(result.tables.landing.pushed).toBe(1)
+    const pushed = await server.syncPull(SESSION.email, SESSION.token, 'landing', null)
+    expect(pushed).toHaveLength(1)
+    const data = JSON.parse(pushed[0].data) as Record<string, unknown>
+    expect(data.flightUuid).toBeTypeOf('string')
+    expect(data.flightId).toBeUndefined()
+  })
+
+  it('does not push a landing or flightInvoice whose parent flight has no uuid yet, and retries it next sync', async () => {
+    const createdAircraft = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' })
+    const createdFlight = createFlight(db, { aircraftId: createdAircraft.id, depIcao: 'EGLL', arrIcao: 'EGCC' })
+    // Simulate a flight row with no uuid yet (schema.ts's uuid/updatedAt are nullable for
+    // exactly this kind of pre-existing-row edge case) — serializeLanding/
+    // serializeFlightInvoice must skip it rather than push a broken reference.
+    db.update(flight).set({ uuid: null }).where(eq(flight.id, createdFlight.id)).run()
+    createLanding(db, {
+      flightId: createdFlight.id,
+      touchdownTsUtc: '2026-09-06T12:00:00.000Z',
+      verticalSpeedMs: -1.2,
+      gForce: 1.3,
+      pitchDeg: 2,
+      bankDeg: 0.5,
+      headingTrueDeg: 270,
+      indicatedAirspeedMs: 70,
+      groundSpeedMs: 68,
+      windSpeedMs: 5,
+      windDirectionDeg: 260,
+      headwindMs: null,
+      crosswindMs: null,
+      crabDeg: null,
+      runwayIdent: null,
+      distanceFromThresholdM: null,
+      centrelineOffsetM: null,
+      flapSetting: null,
+      touchdownSource: 'derived'
+    })
+    addInvoicesForFlight(db, createdFlight.id, [
+      {
+        serviceGroup: 'fuel',
+        receiptId: 'r1',
+        issuedUtc: '2026-09-04T09:00:00Z',
+        icao: 'EGLL',
+        tail: 'G-ABCD',
+        operator: null,
+        totalUsd: 100,
+        totalText: '£80',
+        sourceHtmlPath: '/tmp/r1.html',
+        receiptJson: '{}'
+      }
+    ])
+
+    const result = await runSync(db, server, SESSION, dbPath)
+
+    expect(result.tables.landing.pushed).toBe(0)
+    expect(result.tables.flightInvoice.pushed).toBe(0)
+    expect(await server.syncPull(SESSION.email, SESSION.token, 'landing', null)).toEqual([])
+    expect(listInvoicesForFlight(db, createdFlight.id)).toHaveLength(1) // still there locally
+  })
+
+  it('reports a real DB failure applying a pulled flightInvoice (missing NOT NULL fields) as skipped', async () => {
+    const createdAircraft = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' })
+    const createdFlight = createFlight(db, { aircraftId: createdAircraft.id, depIcao: 'EGLL', arrIcao: 'EGCC' })
+    await runSync(db, server, SESSION, dbPath)
+    const flightUuid = db.select({ uuid: flight.uuid }).from(flight).where(eq(flight.id, createdFlight.id)).get()!
+      .uuid as string
+
+    server.seed('flightInvoice', {
+      uuid: 'incomplete-invoice',
+      updatedAt: '2099-01-01T00:00:00.000Z', // see the landing test above for why not a past date
+      data: JSON.stringify({ flightUuid, receiptId: 'RCPT-INCOMPLETE' }) // sourceHtmlPath etc. missing
+    })
+
+    const result = await runSync(db, server, SESSION, dbPath)
+
+    expect(result.tables.flightInvoice.skipped).toEqual(['incomplete-invoice'])
+  })
+
+  it('skips a flightInvoice pull referencing a flight uuid that was never synced', async () => {
+    server.seed('flightInvoice', {
+      uuid: 'invoice-for-unknown-flight',
+      updatedAt: '2026-09-04T10:00:00.000Z',
+      data: JSON.stringify({ flightUuid: 'no-such-flight', receiptId: 'RCPT-X' })
+    })
+
+    const result = await runSync(db, server, SESSION, dbPath)
+
+    expect(result.tables.flightInvoice.skipped).toEqual(['invoice-for-unknown-flight'])
   })
 })

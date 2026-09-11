@@ -56,14 +56,18 @@ export default defineConfig({
       // as the enforced threshold before the work to get there is done would break `npm
       // test` for every unrelated change in the meantime. Raise these numbers at the end
       // of each phase as real coverage improves (never lower them to make a red build
-      // green) until they reach 100 in the final phase. Current baseline, 2026-09-11:
-      // 49.64/40.85/39.19/50.72 (stmts/branch/func/line) — floored below that so a
-      // one-line nondeterministic dip doesn't flip this red on an unrelated PR.
+      // green) until they reach 100 in the final phase. Phase 1 baseline, 2026-09-11:
+      // 49.64/40.85/39.19/50.72. After Phase 2 (main-process gaps closed): 57.17/48/
+      // 46.23/58.2. After Phase 3's first batch (units.ts/dispatch-time.ts, plus
+      // AirlineLogo/NavigraphLogo/AircraftPhoto/SortableHead/Combobox components and the
+      // useSortable/useConfirm/useResetSignal hooks), same day: 59.32/49.79/50.05/60.4 —
+      // floored below that so a one-line nondeterministic dip doesn't flip this red on an
+      // unrelated PR.
       thresholds: {
-        statements: 49,
-        branches: 40,
-        functions: 39,
-        lines: 50
+        statements: 59,
+        branches: 49,
+        functions: 50,
+        lines: 60
       }
     }
   }

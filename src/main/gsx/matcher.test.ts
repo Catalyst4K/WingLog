@@ -55,6 +55,18 @@ describe('matchesFlight', () => {
   it('rejects when the flight has no window at all', () => {
     expect(matchesFlight(receipt(), window({ windowStartUtc: null, windowEndUtc: null }))).toBe(false)
   })
+
+  it('matches anything before the end when only windowEndUtc is set (no lower bound)', () => {
+    expect(
+      matchesFlight(receipt({ timestampUtc: '1990-01-01T00:00:00Z' }), window({ windowStartUtc: null }))
+    ).toBe(true)
+  })
+
+  it('matches anything after the start when only windowStartUtc is set (no upper bound)', () => {
+    expect(
+      matchesFlight(receipt({ timestampUtc: '2099-01-01T00:00:00Z' }), window({ windowEndUtc: null }))
+    ).toBe(true)
+  })
 })
 
 describe('isNotailCandidate', () => {
