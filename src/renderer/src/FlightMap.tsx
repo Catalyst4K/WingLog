@@ -79,7 +79,7 @@ const ROUTE_APPROXIMATE_LAYER_ID = 'planned-route-approximate'
 const TRAIL_SOURCE_ID = 'breadcrumb-trail'
 // The per-frame animation below used to resend the *entire* trail (every committed point
 // plus the interpolated tip) to maplibre on every one of ~60 animation frames per sample —
-// cost that grows with flight length, since priorCoords keeps getting longer all flight.
+// cost that grows with flight length, since the committed trail keeps getting longer all flight.
 // Splitting the animating segment into its own tiny 2-point source means each frame only
 // ever touches a constant-size payload; TRAIL_SOURCE_ID itself is only rewritten once per
 // real sample (not once per frame). Same paint style as the main trail so the two read as
@@ -109,6 +109,36 @@ interface LineStringFeature {
 
 function lineString(coords: [number, number][]): LineStringFeature {
   return { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords } }
+}
+
+interface MultiLineStringFeature {
+  type: 'Feature'
+  properties: Record<string, never>
+  geometry: { type: 'MultiLineString'; coordinates: [number, number][][] }
+}
+
+function multiLineString(segments: [number, number][][]): MultiLineStringFeature {
+  return { type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: segments } }
+}
+
+/** Splits a flight's trail at every resumeSegment boundary — never draws a line across a
+ *  restart's spawn-point/teleport-back artefacts (flightdeck-backend's docs/plans/
+ *  resume-track-cleanup.md), even before any cleanup logic decides which points within a
+ *  segment are themselves spurious. */
+function trailSegments(points: TrackPoint[]): [number, number][][] {
+  const segments: [number, number][][] = []
+  let current: [number, number][] = []
+  let currentSegment: number | undefined
+  for (const p of points) {
+    if (p.resumeSegment !== currentSegment) {
+      if (current.length > 0) segments.push(current)
+      current = []
+      currentSegment = p.resumeSegment
+    }
+    current.push([p.longitude, p.latitude])
+  }
+  if (current.length > 0) segments.push(current)
+  return segments
 }
 
 interface WaypointFeatureCollection {
@@ -408,7 +438,7 @@ export function FlightMap({
     if (!mapReady || !mapRef.current || live) return
     const coords: [number, number][] = trackPoints.map((p) => [p.longitude, p.latitude])
     const source = mapRef.current.getSource<GeoJSONSource>(TRAIL_SOURCE_ID)
-    source?.setData(lineString(coords))
+    source?.setData(multiLineString(trailSegments(trackPoints)))
 
     const last = trackPoints[trackPoints.length - 1]
     if (last && markerRef.current) {
@@ -453,15 +483,15 @@ export function FlightMap({
     const source = mapRef.current.getSource<GeoJSONSource>(TRAIL_SOURCE_ID)
     // Everything except the still-animating final leg — set once per real sample here, not
     // once per animation frame below, so this payload never grows on the frame's own cost.
-    const priorCoords: [number, number][] = trackPoints.slice(0, -1).map((p) => [p.longitude, p.latitude])
+    const priorPoints = trackPoints.slice(0, -1)
 
     if (!hasCenteredRef.current) {
       // First point of this mount: jump in to something usable rather than sitting at
       // whatever center/zoom the map was constructed with. No animation for this one —
       // it may be catching up on a whole batch of history from a resumed in-progress
-      // flight.
+      // flight, possibly spanning several resume segments.
       hasCenteredRef.current = true
-      source?.setData(lineString([...priorCoords, [to.longitude, to.latitude]]))
+      source?.setData(multiLineString(trailSegments(trackPoints)))
       tipSource?.setData(lineString([]))
       markerRef.current.setLngLat([to.longitude, to.latitude])
       markerRef.current.setRotation(to.headingTrueDeg)
@@ -477,8 +507,11 @@ export function FlightMap({
     }
 
     const from = trackPoints[trackPoints.length - 2]
-    if (!from) {
-      source?.setData(lineString([...priorCoords, [to.longitude, to.latitude]]))
+    // No prior point at all, or `to` starts a new resume segment — either way there's
+    // nothing in the same segment to animate the marker in from, so commit `to` straight
+    // to the trail instead of drawing a tip line across the gap.
+    if (!from || from.resumeSegment !== to.resumeSegment) {
+      source?.setData(multiLineString(trailSegments(trackPoints)))
       tipSource?.setData(lineString([]))
       markerRef.current.setLngLat([to.longitude, to.latitude])
       markerRef.current.setRotation(to.headingTrueDeg)
@@ -487,7 +520,7 @@ export function FlightMap({
     }
 
     // The committed trail is done for this sample — write it once, here, not per frame.
-    source?.setData(lineString(priorCoords))
+    source?.setData(multiLineString(trailSegments(priorPoints)))
 
     // Rotation shows the plane's actual nose heading (not the ground track the marker is
     // animating along) — the gap between the two through a turn or in a crosswind is

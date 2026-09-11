@@ -352,6 +352,31 @@ describe('TrackingController', () => {
       expect(resumed.getActive()?.phase).toBe('cruise')
     })
 
+    it('tags every point recorded after a resume with a new, incremented resumeSegment', () => {
+      const sim1 = fakeSimConnectService()
+      sim1.setLastTelemetry(telemetry({}))
+      const original = new TrackingController(db, sim1)
+      original.start(flightId)
+      sim1.emit('telemetry', telemetry({ engineCombustion1: true }))
+      expect(listTrackPoints(db, flightId).every((p) => p.resumeSegment === 0)).toBe(true)
+
+      const sim2 = fakeSimConnectService()
+      const resumed = new TrackingController(db, sim2)
+      resumed.resume(flightId)
+      sim2.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 5 }))
+
+      const points = listTrackPoints(db, flightId)
+      expect(points.slice(0, -1).every((p) => p.resumeSegment === 0)).toBe(true)
+      expect(points.at(-1)?.resumeSegment).toBe(1)
+
+      // A second resume in the same flight increments again, not just back to 1.
+      const sim3 = fakeSimConnectService()
+      const resumedAgain = new TrackingController(db, sim3)
+      resumedAgain.resume(flightId)
+      sim3.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 5 }))
+      expect(listTrackPoints(db, flightId).at(-1)?.resumeSegment).toBe(2)
+    })
+
     it('does not re-record off time or the fuel-out correction already locked in before the crash', () => {
       const sim1 = fakeSimConnectService()
       sim1.setLastTelemetry(telemetry({ fuelTotalKg: 9000 }))

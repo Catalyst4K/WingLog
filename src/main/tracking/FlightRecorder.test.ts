@@ -249,6 +249,18 @@ describe('FlightRecorder', () => {
     expect(result.point).toMatchObject({ flightId: 42, phase: 'preflight', latitude: 10, longitude: 20 })
   })
 
+  it('stamps every point with resumeSegment 0, the current sim rate, and no exclusion when never resumed', () => {
+    const recorder = new FlightRecorder(1)
+    const result = recorder.ingest(telemetry({ simRate: 4 }), at(1))
+    expect(result.point).toMatchObject({ resumeSegment: 0, simRate: 4, excludedReason: null })
+  })
+
+  it('stamps every point with the resume segment passed at construction, once resumed', () => {
+    const recorder = new FlightRecorder(1, { phase: 'cruise', hasLanded: false, resumeSegment: 2 })
+    const result = recorder.ingest(telemetry({ onGround: false, groundSpeedMs: 230 }), at(1))
+    expect(result.point).toMatchObject({ resumeSegment: 2 })
+  })
+
   it('does not re-enter takeoff on a post-landing speed blip (reverse thrust, real 2026-09-05 flight)', () => {
     const recorder = new FlightRecorder(1)
     let t = 0
