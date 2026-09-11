@@ -113,6 +113,21 @@ describe('fetchAircraftByRegistration', () => {
     await expect(fetchAircraftByRegistration('G-XWBS')).rejects.toThrow(/HTTP 500/)
   })
 
+  it('returns a null operator when adsbdb has no registered owner for this aircraft', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({ response: { aircraft: { icao_type: 'A35K' } } })
+      }))
+    )
+
+    const result = await fetchAircraftByRegistration('G-XWBS')
+
+    expect(result?.operator).toBeNull()
+  })
+
   it('throws when the response is missing the expected aircraft data', async () => {
     vi.stubGlobal(
       'fetch',

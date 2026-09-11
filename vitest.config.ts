@@ -58,14 +58,14 @@ export default defineConfig({
       // of each phase as real coverage improves (never lower them to make a red build
       // green) until they reach 100 in the final phase. Phase 1 baseline, 2026-09-11:
       // 49.64/40.85/39.19/50.72. Raised after Phase 2 (main-process gaps closed — every
-      // previously-0% module covered, sync-engine.ts to 100%), same day: 56.65/47.13/
-      // 45.52/57.88 — floored below that so a one-line nondeterministic dip doesn't flip
-      // this red on an unrelated PR.
+      // previously-0% module covered, sync-engine.ts to 100%, most other main-process files
+      // now 92%+), same day: 57.17/48/46.23/58.2 — floored below that so a one-line
+      // nondeterministic dip doesn't flip this red on an unrelated PR.
       thresholds: {
-        statements: 56,
-        branches: 47,
-        functions: 45,
-        lines: 57
+        statements: 57,
+        branches: 48,
+        functions: 46,
+        lines: 58
       }
     }
   }
