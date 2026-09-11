@@ -7,6 +7,7 @@ import {
   completeFlight,
   finalizeFuelOut,
   getFlight,
+  type PausedInterval,
   recordOff,
   recordOn,
   setFlownRoute,
@@ -49,6 +50,15 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   // below (auto shutdown detection or a manual finish()) round-trips through the renderer
   // to ask it what's currently selected (docs/plans/navdata-without-navigraph.md, Phase 5).
   private currentSelection: ProcedureSelection | undefined
+  // Real wall-clock spans the sim reported itself paused this session — used to keep
+  // completeFlight's block/air-time stats from counting time the aircraft wasn't actually
+  // going anywhere (see flight-repo.ts's own completeFlight comment). In-memory only, same
+  // as offRecorded/onRecorded/fuelOutFinalized above: a pause that happened before an
+  // app/process restart can't be recovered here, which is fine — that's a full resume, a
+  // different scenario (flightdeck-backend's docs/plans/resume-track-cleanup.md), not an
+  // in-session pause.
+  private pausedIntervals: PausedInterval[] = []
+  private openPauseStartIso: string | undefined
 
   constructor(
     private readonly db: WingLogDb,
@@ -91,7 +101,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
 
       if (result.phase === 'shutdown') {
         const flightId = this.recorder.getFlightId()
-        completeFlight(this.db, flightId, telemetry.fuelTotalKg)
+        completeFlight(this.db, flightId, telemetry.fuelTotalKg, this.closedPauseIntervals())
         this.snapshotGsxInvoices(flightId)
         this.deriveFlownRoute(flightId)
         this.persistSelection(flightId)
@@ -99,7 +109,24 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
         this.emit('completed', flightId)
       }
     })
-    this.simConnectService.on('paused', (paused) => this.recorder?.setPaused(paused))
+    this.simConnectService.on('paused', (paused) => {
+      this.recorder?.setPaused(paused)
+      if (!this.recorder) return
+      const nowIso = new Date().toISOString()
+      if (paused) {
+        this.openPauseStartIso ??= nowIso
+      } else if (this.openPauseStartIso) {
+        this.pausedIntervals.push({ startIso: this.openPauseStartIso, endIso: nowIso })
+        this.openPauseStartIso = undefined
+      }
+    })
+  }
+
+  /** `pausedIntervals` plus whatever pause is still open at completion time (the user can
+   *  hit "Finish now" while paused) — closed off at "now" so it's still counted. */
+  private closedPauseIntervals(): PausedInterval[] {
+    if (!this.openPauseStartIso) return this.pausedIntervals
+    return [...this.pausedIntervals, { startIso: this.openPauseStartIso, endIso: new Date().toISOString() }]
   }
 
   getActive(): ActiveTracking | undefined {
@@ -124,6 +151,8 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     // this one — start with nothing cached; createFlight's own saved-at-plan-time values
     // (if any) are untouched until/unless this flight's own selection gets pushed.
     this.currentSelection = undefined
+    this.pausedIntervals = []
+    this.openPauseStartIso = undefined
   }
 
   /**
@@ -154,6 +183,8 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     this.onRecorded = flight.actualOnUtc != null
     this.fuelOutFinalized = this.offRecorded
     this.currentSelection = undefined
+    this.pausedIntervals = []
+    this.openPauseStartIso = undefined
   }
 
   /** Called from the renderer (tracking:set-procedure-selection) on every live selection
@@ -181,7 +212,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     if (!this.recorder) return
     const flightId = this.recorder.getFlightId()
     const telemetry = this.simConnectService.getLastTelemetry()
-    completeFlight(this.db, flightId, telemetry?.fuelTotalKg ?? 0)
+    completeFlight(this.db, flightId, telemetry?.fuelTotalKg ?? 0, this.closedPauseIntervals())
     this.snapshotGsxInvoices(flightId)
     this.deriveFlownRoute(flightId)
     this.persistSelection(flightId)

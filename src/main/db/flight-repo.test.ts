@@ -202,6 +202,33 @@ describe('flight repo', () => {
       expect(completed?.fuelBurnKg).toBe(6000) // 10000 - 4000
     })
 
+    it(
+      'excludes real wall-clock time the sim was paused from block/air minutes — real case, ' +
+        'pausing mid-cruise to test this exact thing otherwise added the paused duration',
+      () => {
+        vi.setSystemTime(new Date('2026-09-01T12:00:00Z'))
+        const created = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' })
+        startFlight(db, created.id, 10000)
+
+        vi.setSystemTime(new Date('2026-09-01T12:10:00Z'))
+        recordOff(db, created.id)
+
+        vi.setSystemTime(new Date('2026-09-01T13:40:00Z'))
+        recordOn(db, created.id)
+
+        vi.setSystemTime(new Date('2026-09-01T13:50:00Z'))
+        // A 20-minute pause entirely inside the off->on window, plus a 5-minute one before
+        // liftoff (taxi) that should count against block time but not air time.
+        const completed = completeFlight(db, created.id, 4000, [
+          { startIso: '2026-09-01T12:03:00.000Z', endIso: '2026-09-01T12:08:00.000Z' },
+          { startIso: '2026-09-01T13:00:00.000Z', endIso: '2026-09-01T13:20:00.000Z' }
+        ])
+
+        expect(completed?.blockMinutes).toBe(85) // 110 raw - 5 (taxi pause) - 20 (cruise pause)
+        expect(completed?.airMinutes).toBe(70) // 90 raw - 20 (cruise pause; taxi pause is outside off->on)
+      }
+    )
+
     it('getActiveFlight finds the one flight left mid-tracking, for TrackingController.resume() at startup', () => {
       expect(getActiveFlight(db)).toBeUndefined()
 

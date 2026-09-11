@@ -52,6 +52,36 @@ function minutesBetween(startIso: string | null, endIso: string | null): number 
   return (new Date(endIso).getTime() - new Date(startIso).getTime()) / 60_000
 }
 
+/** One interval the sim was paused, wall-clock ISO timestamps — see completeFlight's own
+ *  comment for why this needs to exist at all. */
+export interface PausedInterval {
+  startIso: string
+  endIso: string
+}
+
+/** Same as minutesBetween, but with any paused wall-clock time inside [startIso, endIso]
+ *  subtracted first — a pause interval outside that window (e.g. a taxi-in pause after
+ *  touchdown, which doesn't touch airMinutes) contributes nothing. Floored at 0 so clock
+ *  skew between the paused/resumed events and the off/on timestamps can't produce a
+ *  negative duration. */
+function minutesBetweenExcludingPauses(
+  startIso: string | null,
+  endIso: string | null,
+  pausedIntervals: PausedInterval[]
+): number | null {
+  const raw = minutesBetween(startIso, endIso)
+  if (raw === null || !startIso || !endIso) return raw
+  const startMs = new Date(startIso).getTime()
+  const endMs = new Date(endIso).getTime()
+  let pausedMs = 0
+  for (const interval of pausedIntervals) {
+    const overlapStart = Math.max(new Date(interval.startIso).getTime(), startMs)
+    const overlapEnd = Math.min(new Date(interval.endIso).getTime(), endMs)
+    if (overlapEnd > overlapStart) pausedMs += overlapEnd - overlapStart
+  }
+  return Math.max(0, raw - pausedMs / 60_000)
+}
+
 export function listFlights(db: WingLogDb): Flight[] {
   // Order by id, not created_at: current_timestamp has 1-second resolution and two
   // flights created in the same second would otherwise tie with no defined order.
@@ -217,8 +247,22 @@ export function recordOn(db: WingLogDb, id: number): Flight | undefined {
   return row ? toFlight(row) : undefined
 }
 
-/** Block-in: shutdown reached. Derives block/air time and fuel burn from the timestamps already recorded. */
-export function completeFlight(db: WingLogDb, id: number, fuelInKg: number): Flight | undefined {
+/**
+ * Block-in: shutdown reached. Derives block/air time and fuel burn from the timestamps
+ * already recorded. `pausedIntervals` — real wall-clock spans the sim reported itself
+ * paused (TrackingController tracks these from SimConnectService's own 'paused' event,
+ * separate from the resume-track-cleanup work, which is about a full app/sim restart, not
+ * an in-session pause) — are excluded from both stats: without this, pausing the sim for
+ * an hour to test something mid-cruise added a real hour to the logged flight, since both
+ * stats were a plain wall-clock diff between the recorded timestamps (real case, Callum's
+ * flight 191, 2026-09-11).
+ */
+export function completeFlight(
+  db: WingLogDb,
+  id: number,
+  fuelInKg: number,
+  pausedIntervals: PausedInterval[] = []
+): Flight | undefined {
   const existing = getFlight(db, id)
   if (!existing) return undefined
 
@@ -229,8 +273,8 @@ export function completeFlight(db: WingLogDb, id: number, fuelInKg: number): Fli
       status: 'completed',
       actualInUtc,
       fuelInKg,
-      blockMinutes: minutesBetween(existing.actualOutUtc, actualInUtc),
-      airMinutes: minutesBetween(existing.actualOffUtc, existing.actualOnUtc),
+      blockMinutes: minutesBetweenExcludingPauses(existing.actualOutUtc, actualInUtc, pausedIntervals),
+      airMinutes: minutesBetweenExcludingPauses(existing.actualOffUtc, existing.actualOnUtc, pausedIntervals),
       fuelBurnKg: existing.fuelOutKg != null ? existing.fuelOutKg - fuelInKg : null,
       updatedAt: actualInUtc
     })
