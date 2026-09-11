@@ -4,17 +4,25 @@ import { createDb, type WingLogDb } from './client'
 import {
   getAltitudeUnit,
   getGsxSettings,
+  getLandingThresholds,
   getLastSyncCompletedAt,
+  getLastSyncedAt,
   getSetting,
   getSimbriefUsername,
   getTheme,
+  getWeightUnit,
   getWindSpeedUnit,
+  hasCheckedGsxFirstLaunch,
   setAltitudeUnit,
+  setCheckedGsxFirstLaunch,
   setGsxSettings,
+  setLandingThresholds,
   setLastSyncCompletedAt,
+  setLastSyncedAt,
   setSetting,
   setSimbriefUsername,
   setTheme,
+  setWeightUnit,
   setWindSpeedUnit
 } from './settings-repo'
 
@@ -109,5 +117,50 @@ describe('settings repo', () => {
     setLastSyncCompletedAt(db, '2026-09-06T12:00:00.000Z')
     setLastSyncCompletedAt(db, '')
     expect(getLastSyncCompletedAt(db)).toBeNull()
+  })
+
+  it('defaults the weight unit to lb when never set', () => {
+    expect(getWeightUnit(db)).toBe('lb')
+  })
+
+  it('round-trips the weight unit', () => {
+    setWeightUnit(db, 'kg')
+    expect(getWeightUnit(db)).toBe('kg')
+    setWeightUnit(db, 'lb')
+    expect(getWeightUnit(db)).toBe('lb')
+  })
+
+  it('defaults the GSX first-launch check to not-yet-run', () => {
+    expect(hasCheckedGsxFirstLaunch(db)).toBe(false)
+  })
+
+  it('marks the GSX first-launch check as run', () => {
+    setCheckedGsxFirstLaunch(db)
+    expect(hasCheckedGsxFirstLaunch(db)).toBe(true)
+  })
+
+  it('defaults landing thresholds when never set', () => {
+    expect(getLandingThresholds(db)).toEqual({ firmFpm: 480, hardFpm: 600 })
+  })
+
+  it('round-trips landing thresholds', () => {
+    setLandingThresholds(db, { firmFpm: 400, hardFpm: 550 })
+    expect(getLandingThresholds(db)).toEqual({ firmFpm: 400, hardFpm: 550 })
+  })
+
+  it('falls back to defaults for a stored threshold that is not a positive number', () => {
+    setSetting(db, 'firmLandingFpm', 'not-a-number')
+    setSetting(db, 'hardLandingFpm', '-100')
+    expect(getLandingThresholds(db)).toEqual({ firmFpm: 480, hardFpm: 600 })
+  })
+
+  it('defaults a table sync cursor to null when never set', () => {
+    expect(getLastSyncedAt(db, 'aircraft')).toBeNull()
+  })
+
+  it('round-trips a per-table sync cursor independently of other tables', () => {
+    setLastSyncedAt(db, 'aircraft', '2026-09-06T12:00:00.000Z')
+    expect(getLastSyncedAt(db, 'aircraft')).toBe('2026-09-06T12:00:00.000Z')
+    expect(getLastSyncedAt(db, 'flight')).toBeNull()
   })
 })
