@@ -148,10 +148,47 @@ docs/           User-facing content only, or empty — see the note at the top o
   — don't let sim-native and SI units mix inside the same layer.
 - **Don't hand work off to a session on the other machine unless you've been asked to, for
   that specific piece of work.** Work sometimes runs in parallel across two machines (see
-  "Branching"), and delegating is genuinely useful — but "hand this batch off" is
-  authorisation for that batch, not a standing arrangement to keep doing it. Finish the
-  plan or the investigation, report back, and let the delegation be an explicit choice
-  each time.
+  "Working across two machines" below), and delegating is genuinely useful — but "hand this
+  batch off" is authorisation for that batch, not a standing arrangement to keep doing it.
+  Finish the plan or the investigation, report back, and let the delegation be an explicit
+  choice each time.
+
+## Working across two machines
+
+A Mac session and a Windows session both work on this project, each with full write access
+to both repos. Git handles simultaneous work fine; what actually caused drift
+(2026-09-05 → 09-11, `flightdeck-backend`'s `docs/decisions.md` has the detail) was
+process: stale local clones, the same shared docs rewritten from both sides, statuses
+copied from other docs instead of checked, and work that only ever existed on one machine.
+Adopted 2026-09-11:
+
+1. **Run the sync check at the start and end of every session** —
+   `node scripts/sync-check.mjs` (or `npm run sync-check`) in `flightdeck-backend`; it
+   checks both repos. Don't start work until it shows no FAILs, and don't stop until it
+   shows none. WARNs mean "a person should look", not necessarily "fix".
+2. **Claim work before starting it.** Put your machine (Mac / Windows) in the "Claimed"
+   column of `flightdeck-backend/docs/plans/README.md`'s work queue and push that one-line
+   change straight away. Don't start anything the other machine has claimed. Clear the
+   claim when the work merges.
+3. **Edit the shared docs in one sitting.** `PLAN.md`, `docs/plans/README.md` and
+   `docs/decisions.md` are touched by both machines: pull, edit, commit, push — nothing
+   else in between. Never leave them edited-but-uncommitted while doing other work; that is
+   how both sides end up rewriting the same rows. `decisions.md` is append-only. A plan's
+   own doc is edited only by the machine that claimed that plan.
+4. **Check status, never recall it.** Anything written about whether something is merged,
+   released, deleted or in a given PR is checked with git at the moment it's written — not
+   copied from another doc and not from memory. Wrong PR numbers and a wrong "safe to
+   delete" were both written that way.
+5. **Docs land with the code.** When work merges, update its plan doc's header,
+   `PLAN.md` §10 and the plans README in the same sitting. The other machine should never
+   see merged code whose docs still say "not started".
+6. **Nothing lives on only one machine.** Every branch is pushed or deleted — backups
+   included (a local-only backup branch was lost with the Mac's disk image, 2026-09-08).
+   Keep clones outside cloud-synced folders like OneDrive, which can lock or partially sync
+   files inside `.git`.
+7. **When a pull conflicts in a shared doc**, resolve it row by row — never by taking one
+   side wholesale — then run the sync check again; it catches broken tables and dangling
+   links.
 
 ## Security
 
