@@ -57,15 +57,15 @@ export default defineConfig({
       // test` for every unrelated change in the meantime. Raise these numbers at the end
       // of each phase as real coverage improves (never lower them to make a red build
       // green) until they reach 100 in the final phase. Phase 1 baseline, 2026-09-11:
-      // 49.64/40.85/39.19/50.72. Raised after Phase 2 (main-process gaps closed — every
-      // previously-0% module covered, sync-engine.ts to 100%, most other main-process files
-      // now 92%+), same day: 57.17/48/46.23/58.2 — floored below that so a one-line
-      // nondeterministic dip doesn't flip this red on an unrelated PR.
+      // 49.64/40.85/39.19/50.72. After Phase 2 (main-process gaps closed): 57.17/48/
+      // 46.23/58.2. After Phase 3's first component/hook/pure-logic batch, same day:
+      // 58.16/49.1/48.14/59.2 — floored below that so a one-line nondeterministic dip
+      // doesn't flip this red on an unrelated PR.
       thresholds: {
-        statements: 57,
-        branches: 48,
-        functions: 46,
-        lines: 58
+        statements: 58,
+        branches: 49,
+        functions: 48,
+        lines: 59
       }
     }
   }
