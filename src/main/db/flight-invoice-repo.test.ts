@@ -119,6 +119,7 @@ describe('flight invoice repo', () => {
 
       const applied = upsertFlightInvoiceByUuid(db, {
         ...existing,
+        uuid: existing.uuid as string,
         totalUsd: 555,
         updatedAt: '2099-01-01T00:00:00.000Z'
       })
@@ -133,6 +134,7 @@ describe('flight invoice repo', () => {
 
       const applied = upsertFlightInvoiceByUuid(db, {
         ...existing,
+        uuid: existing.uuid as string,
         totalUsd: 1,
         updatedAt: '2000-01-01T00:00:00.000Z'
       })

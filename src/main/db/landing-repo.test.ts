@@ -158,6 +158,7 @@ describe('landing repo', () => {
 
       const applied = upsertLandingByUuid(db, {
         ...existing,
+        uuid: existing.uuid as string,
         verticalSpeedMs: -9,
         updatedAt: '2099-01-01T00:00:00.000Z'
       })
@@ -172,6 +173,7 @@ describe('landing repo', () => {
 
       const applied = upsertLandingByUuid(db, {
         ...existing,
+        uuid: existing.uuid as string,
         verticalSpeedMs: -9,
         updatedAt: '2000-01-01T00:00:00.000Z'
       })

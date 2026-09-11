@@ -56,14 +56,16 @@ export default defineConfig({
       // as the enforced threshold before the work to get there is done would break `npm
       // test` for every unrelated change in the meantime. Raise these numbers at the end
       // of each phase as real coverage improves (never lower them to make a red build
-      // green) until they reach 100 in the final phase. Current baseline, 2026-09-11:
-      // 49.64/40.85/39.19/50.72 (stmts/branch/func/line) — floored below that so a
-      // one-line nondeterministic dip doesn't flip this red on an unrelated PR.
+      // green) until they reach 100 in the final phase. Phase 1 baseline, 2026-09-11:
+      // 49.64/40.85/39.19/50.72. Raised after Phase 2 (main-process gaps closed — every
+      // previously-0% module covered, sync-engine.ts to 100%), same day: 56.65/47.13/
+      // 45.52/57.88 — floored below that so a one-line nondeterministic dip doesn't flip
+      // this red on an unrelated PR.
       thresholds: {
-        statements: 49,
-        branches: 40,
-        functions: 39,
-        lines: 50
+        statements: 56,
+        branches: 47,
+        functions: 45,
+        lines: 57
       }
     }
   }
