@@ -55,6 +55,13 @@ export class FlightRecorder {
   // (line below), which never happens again once truly on the ground rolling out, so the
   // flight never reached 'shutdown' and auto-completion never fired.
   private hasLanded = false
+  // Tags every point this recorder writes — 0 for a flight never resumed, incremented by
+  // TrackingController.resume() each time the app/process restarts mid-flight (see this
+  // class's own resume-parameter comment). Never touched by the phase machine itself; the
+  // map uses it to never draw a line across a restart's spawn-point/teleport-back
+  // artefacts, even before any cleanup logic decides which points within a segment are
+  // spurious (flightdeck-backend's docs/plans/resume-track-cleanup.md).
+  private resumeSegment = 0
 
   /**
    * `resume` restarts phase detection mid-flight rather than at 'preflight' — used when
@@ -64,15 +71,17 @@ export class FlightRecorder {
    * actually airborne — advancePhase's 'preflight' case only transitions on `t.onGround`,
    * which never becomes true again mid-flight. `phase` comes from the flight's last
    * persisted track_point (each point records the phase it was captured in); `hasLanded`
-   * from whether the flight row already has an actual_on_utc.
+   * from whether the flight row already has an actual_on_utc; `resumeSegment` is one more
+   * than the last persisted point's own segment (0 if there were no prior points at all).
    */
   constructor(
     private readonly flightId: number,
-    resume?: { phase: FlightPhase; hasLanded: boolean }
+    resume?: { phase: FlightPhase; hasLanded: boolean; resumeSegment: number }
   ) {
     if (resume) {
       this.phase = resume.phase
       this.hasLanded = resume.hasLanded
+      this.resumeSegment = resume.resumeSegment
     }
   }
 
@@ -225,7 +234,10 @@ export class FlightRecorder {
       fuelKg: t.fuelTotalKg,
       gForce: t.gForce,
       windSpeedMs: t.windSpeedMs,
-      windDirectionDeg: t.windDirectionDeg
+      windDirectionDeg: t.windDirectionDeg,
+      resumeSegment: this.resumeSegment,
+      simRate: t.simRate,
+      excludedReason: null
     }
   }
 }

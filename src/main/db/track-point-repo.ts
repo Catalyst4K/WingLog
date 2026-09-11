@@ -24,7 +24,10 @@ function toTrackPoint(row: typeof trackPoint.$inferSelect): TrackPoint {
     fuelKg: row.fuelKg,
     gForce: row.gForce,
     windSpeedMs: row.windSpeedMs,
-    windDirectionDeg: row.windDirectionDeg
+    windDirectionDeg: row.windDirectionDeg,
+    resumeSegment: row.resumeSegment,
+    simRate: row.simRate,
+    excludedReason: row.excludedReason
   }
 }
 

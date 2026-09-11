@@ -225,6 +225,23 @@ export interface TrackPoint {
   gForce: number
   windSpeedMs: number
   windDirectionDeg: number
+  /** Incremented each time TrackingController.resume() picks a flight back up after the
+   *  app/process restarted mid-flight — see flightdeck-backend's docs/plans/done/
+   *  resume-track-cleanup.md. 0 for a flight never resumed. The map draws one line per
+   *  segment and never joins across a boundary, so a restart's spawn-point/teleport-back
+   *  artefacts can't be drawn as a straight line across the gap even before any cleanup
+   *  logic runs. */
+  resumeSegment: number
+  /** Sim time compression at the moment this point was recorded — needed to tell a
+   *  legitimate high-speed-over-ground-at-4x sample apart from a physically impossible
+   *  teleport (flightdeck-backend's docs/plans/resume-track-cleanup.md). */
+  simRate: number
+  /** Set by the post-resume cleanup pass, never at record time — see the plan doc above.
+   *  Null means this point is genuine and should be shown; every consumer (the map, route
+   *  simplification, future stats) filters on this being null rather than deleting rows,
+   *  so the raw samples stay available for re-running the cleanup after a threshold
+   *  change. */
+  excludedReason: 'resume-spurious' | 'resume-superseded' | null
 }
 
 export type NewTrackPoint = Omit<TrackPoint, 'id'>

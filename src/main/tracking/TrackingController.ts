@@ -174,10 +174,15 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
 
     const points = listTrackPoints(this.db, flightId)
     const lastPhase: FlightPhase = points.length ? points[points.length - 1].phase : 'preflight'
+    // One more than whatever segment the flight was last recording in — 0 for a flight
+    // resumed for the first time, incrementing further on a second/third resume in the
+    // same flight (flightdeck-backend's docs/plans/resume-track-cleanup.md).
+    const resumeSegment = points.length ? points[points.length - 1].resumeSegment + 1 : 0
 
     this.recorder = new FlightRecorder(flightId, {
       phase: lastPhase,
-      hasLanded: flight.actualOnUtc != null
+      hasLanded: flight.actualOnUtc != null,
+      resumeSegment
     })
     this.offRecorded = flight.actualOffUtc != null
     this.onRecorded = flight.actualOnUtc != null

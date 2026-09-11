@@ -55,7 +55,10 @@ function trackPoint(latitude: number, longitude: number): TrackPoint {
     fuelKg: 0,
     gForce: 1,
     windSpeedMs: 0,
-    windDirectionDeg: 0
+    windDirectionDeg: 0,
+    resumeSegment: 0,
+    simRate: 1,
+    excludedReason: null
   }
 }
 

@@ -317,7 +317,10 @@ describe('flight repo', () => {
         fuelKg: 10000,
         gForce: 1,
         windSpeedMs: 0,
-        windDirectionDeg: 0
+        windDirectionDeg: 0,
+        resumeSegment: 0,
+        simRate: 1,
+        excludedReason: null
       })
       createLanding(db, newLandingFixture(created.id))
       completeFlight(db, created.id, 3700)

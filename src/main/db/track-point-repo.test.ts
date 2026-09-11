@@ -27,6 +27,9 @@ function samplePoint(flightId: number, overrides: Partial<NewTrackPoint> = {}): 
     gForce: 1,
     windSpeedMs: 0,
     windDirectionDeg: 0,
+    resumeSegment: 0,
+    simRate: 1,
+    excludedReason: null,
     ...overrides
   }
 }

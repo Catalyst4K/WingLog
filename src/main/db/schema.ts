@@ -225,7 +225,16 @@ export const trackPoint = sqliteTable('track_point', {
   // supplies real values explicitly, so these are never actually relied on going forward.
   gForce: real('g_force').notNull().default(1),
   windSpeedMs: real('wind_speed_ms').notNull().default(0),
-  windDirectionDeg: real('wind_direction_deg').notNull().default(0)
+  windDirectionDeg: real('wind_direction_deg').notNull().default(0),
+  // Resume-track cleanup (flightdeck-backend's docs/plans/resume-track-cleanup.md) — marks
+  // rather than deletes, so the raw samples stay available for re-running the cleanup after
+  // a threshold change. Defaults exist only so ALTER TABLE ADD COLUMN can backfill
+  // pre-existing rows (all as segment 0, sim rate 1x, nothing excluded — the only sane
+  // reading of "no resume ever happened" for a flight recorded before this existed); every
+  // new row from FlightRecorder.toTrackPoint always supplies real values explicitly.
+  resumeSegment: integer('resume_segment').notNull().default(0),
+  simRate: real('sim_rate').notNull().default(1),
+  excludedReason: text('excluded_reason', { enum: ['resume-spurious', 'resume-superseded'] })
 })
 
 // One row per flight's touchdown, captured where the phase machine already detects it
