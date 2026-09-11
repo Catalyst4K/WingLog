@@ -212,13 +212,14 @@ function toNavdataLeg(row: typeof navdataProcedureLeg.$inferSelect): NavdataLeg 
 
 /**
  * The full ordered waypoint list for one (icao, kind, identifier) at a chosen runway/
- * transition — that runway's own legs (if `runway` is given and the procedure has any),
- * then the procedure's common legs, then that transition's own legs (if `transition` is
- * given and the procedure has any). See schema.ts's navdataProcedureLeg comment for what's
- * confirmed about this ordering (a departure, not yet an arrival) and why a leg group is
- * only included when its selector is actually supplied — a procedure whose real legs live
- * entirely inside one runway transition (most real SIDs, per docs/navdata-notes.md) returns
- * nothing at all if the caller omits `runway`, rather than guessing which one to use.
+ * transition. A SID/approach's legs run runway-first (leave the runway, fly the common
+ * route, exit via the transition); a STAR's run transition-first (enter via the transition,
+ * fly the common route, then the runway-specific final legs) — the reverse order, confirmed
+ * live for both kinds (docs/navdata-notes.md). A leg group is only included when its
+ * selector is actually supplied — a procedure whose real legs live entirely inside one
+ * runway transition (most real SIDs, per docs/navdata-notes.md) returns nothing at all if
+ * the caller omits `runway`, rather than guessing which one to use. See schema.ts's
+ * navdataProcedureLeg comment for the full ordering rationale.
  */
 export function listCachedProcedureLegs(
   db: WingLogDb,
@@ -264,17 +265,36 @@ export function listCachedProcedureLegs(
         .all()
     : []
 
+  // ARINC 424 repeats the boundary fix between adjacent groups (the last leg of one is the
+  // first leg of the next) — drop the duplicate so the map doesn't get a zero-length segment
+  // and a doubled waypoint pin/label. `left`'s last leg and `right`'s first leg are compared;
+  // `right` loses its first leg when they match.
+  const dedupeBoundary = (left: typeof commonLegs, right: typeof commonLegs): typeof commonLegs => {
+    const lastLeft = left[left.length - 1]
+    return lastLeft && right[0] && lastLeft.fixIdent === right[0].fixIdent ? right.slice(1) : right
+  }
+
   if (kind === 'approach') {
     // Transition (IAF entry) legs first, then the shared final segment — the reverse of
     // SID/STAR's order, confirmed live 2026-09-08 (docs/navdata-notes.md) to be correct for
-    // a real approach. Also drops the duplicate fix ARINC 424 always repeats at that
-    // boundary: the transition's own last leg and the final segment's first leg are the
-    // same fix.
-    const lastTransitionLeg = transitionLegs[transitionLegs.length - 1]
-    const dedupedCommonLegs =
-      lastTransitionLeg && commonLegs[0] && lastTransitionLeg.fixIdent === commonLegs[0].fixIdent ? commonLegs.slice(1) : commonLegs
-    return [...transitionLegs, ...dedupedCommonLegs].map(toNavdataLeg)
+    // a real approach.
+    return [...transitionLegs, ...dedupeBoundary(transitionLegs, commonLegs)].map(toNavdataLeg)
   }
 
-  return [...runwayLegs, ...commonLegs, ...transitionLegs].map(toNavdataLeg)
+  if (kind === 'star') {
+    // Enter via the enroute transition, fly the shared common route, then the runway
+    // transition takes you down to the runway — the reverse of a SID's order. Confirmed
+    // live 2026-09-11 (docs/navdata-notes.md) against a real STAR (YBBN SMOK2A) with a
+    // non-empty common route: the departure order drew two spurious lines across the
+    // arrival, this order doesn't.
+    const dedupedCommon = dedupeBoundary(transitionLegs, commonLegs)
+    const dedupedRunway = dedupeBoundary(dedupedCommon.length > 0 ? dedupedCommon : transitionLegs, runwayLegs)
+    return [...transitionLegs, ...dedupedCommon, ...dedupedRunway].map(toNavdataLeg)
+  }
+
+  // SID: leave the runway (runway transition), fly the common route, then exit via the
+  // enroute transition. Confirmed live 2026-09-08 (docs/navdata-notes.md).
+  const dedupedCommon = dedupeBoundary(runwayLegs, commonLegs)
+  const dedupedTransition = dedupeBoundary(dedupedCommon.length > 0 ? dedupedCommon : runwayLegs, transitionLegs)
+  return [...runwayLegs, ...dedupedCommon, ...dedupedTransition].map(toNavdataLeg)
 }

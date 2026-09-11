@@ -76,22 +76,52 @@ export function selectionFromFlight(flight: {
  * go through the exact same path as an overridden one, with no separate case to keep in
  * sync.
  */
+/** Identifies which (icao, kind, ident, runway, transition) a fetched legs array answers,
+ *  so a resolving fetch can be checked against the *current* selection before it's used —
+ *  see useLiveWaypoints's own comment for why this exists. */
+interface FetchedLegs {
+  key: string
+  legs: NavdataLeg[]
+}
+
+function legsKey(icao: string, kind: string, ident: string, runway: string | null, transition: string | null): string {
+  return JSON.stringify([icao, kind, ident, runway, transition])
+}
+
 export function useLiveWaypoints(airports: ProcedureAirports | null, selection: ProcedureSelection): Waypoint[] {
-  const [sidLegs, setSidLegs] = useState<NavdataLeg[]>([])
-  const [starLegs, setStarLegs] = useState<NavdataLeg[]>([])
-  const [approachLegs, setApproachLegs] = useState<NavdataLeg[]>([])
+  const [sidLegs, setSidLegs] = useState<FetchedLegs | null>(null)
+  const [starLegs, setStarLegs] = useState<FetchedLegs | null>(null)
+  const [approachLegs, setApproachLegs] = useState<FetchedLegs | null>(null)
 
   // None of the three effects below reset their legs state when the corresponding
   // identifier goes null — deliberately: the assembly below only ever reads sidLegs/
   // starLegs/approachLegs when its identifier is non-null, so a stale array left over from
   // a previous selection is inert, never rendered. Matches the pattern already established
   // in this codebase for the same reason (DispatchView's original Phase 3 effects).
+  //
+  // Each effect also guards against out-of-order resolution: `ignore` (set in the cleanup)
+  // stops a stale fetch from calling setXLegs after a newer one has started, and the stored
+  // result is tagged with the exact arguments it was fetched for so the assembly below can
+  // refuse to use it once the selection has moved on but the fetch hasn't resolved yet.
+  // Real case this closes: ProcedureSelector auto-picks an approach once navdata loads, so a
+  // STAR fetch with `runway = null` can still be in flight when the auto-pick starts a
+  // second one with the approach's real runway — without this, whichever resolves last wins
+  // even if it's the stale one.
   useEffect(() => {
     if (!airports || !selection.sidIdent) return
+    let ignore = false
+    const key = legsKey(airports.depIcao, 'sid', selection.sidIdent, selection.departureRunway, selection.sidTransition)
     window.winglog
       .navdataGetProcedureWaypoints(airports.depIcao, 'sid', selection.sidIdent, selection.departureRunway, selection.sidTransition)
-      .then(setSidLegs)
-      .catch(() => setSidLegs([]))
+      .then((legs) => {
+        if (!ignore) setSidLegs({ key, legs })
+      })
+      .catch(() => {
+        if (!ignore) setSidLegs({ key, legs: [] })
+      })
+    return () => {
+      ignore = true
+    }
   }, [airports, selection.sidIdent, selection.departureRunway, selection.sidTransition])
 
   useEffect(() => {
@@ -100,18 +130,36 @@ export function useLiveWaypoints(airports: ProcedureAirports | null, selection: 
     // there's no separate arrival-runway selection any more, so the currently-chosen
     // approach's own runway (encoded in its identifier) is what filters this.
     const runway = approachRunway(selection.approachIdent)
+    let ignore = false
+    const key = legsKey(airports.arrIcao, 'star', selection.starIdent, runway, selection.starTransition)
     window.winglog
       .navdataGetProcedureWaypoints(airports.arrIcao, 'star', selection.starIdent, runway, selection.starTransition)
-      .then(setStarLegs)
-      .catch(() => setStarLegs([]))
+      .then((legs) => {
+        if (!ignore) setStarLegs({ key, legs })
+      })
+      .catch(() => {
+        if (!ignore) setStarLegs({ key, legs: [] })
+      })
+    return () => {
+      ignore = true
+    }
   }, [airports, selection.starIdent, selection.starTransition, selection.approachIdent])
 
   useEffect(() => {
     if (!airports || !selection.approachIdent) return
+    let ignore = false
+    const key = legsKey(airports.arrIcao, 'approach', selection.approachIdent, null, selection.approachTransition)
     window.winglog
       .navdataGetProcedureWaypoints(airports.arrIcao, 'approach', selection.approachIdent, null, selection.approachTransition)
-      .then(setApproachLegs)
-      .catch(() => setApproachLegs([]))
+      .then((legs) => {
+        if (!ignore) setApproachLegs({ key, legs })
+      })
+      .catch(() => {
+        if (!ignore) setApproachLegs({ key, legs: [] })
+      })
+    return () => {
+      ignore = true
+    }
   }, [airports, selection.approachIdent, selection.approachTransition])
 
   // Memoized so callers that key their own effects off this result (e.g. LogbookView's
@@ -120,18 +168,43 @@ export function useLiveWaypoints(airports: ProcedureAirports | null, selection: 
   return useMemo(() => {
     if (!airports) return []
     const base = segmentWaypoints(airports.ofpJson)
+
+    const sidKey = selection.sidIdent
+      ? legsKey(airports.depIcao, 'sid', selection.sidIdent, selection.departureRunway, selection.sidTransition)
+      : null
+    const starRunway = approachRunway(selection.approachIdent)
+    const starKey = selection.starIdent ? legsKey(airports.arrIcao, 'star', selection.starIdent, starRunway, selection.starTransition) : null
+    const approachKey = selection.approachIdent
+      ? legsKey(airports.arrIcao, 'approach', selection.approachIdent, null, selection.approachTransition)
+      : null
+
     // `legs.length > 0`, not just the identifier being set, gates each splice — an
     // identifier whose fetch hasn't resolved yet, or whose legs come back genuinely empty
     // (navdata not yet refreshed for this airport, or a naming mismatch between SimBrief's
     // own SID/STAR name and the sim's), must fall back to SimBrief's own base segment
     // rather than rendering a gap where that segment used to be. Only the SID/STAR base
     // has anything to fall back to — an approach with no legs yet just contributes nothing,
-    // same as no approach chosen at all.
+    // same as no approach chosen at all. The key check on top of that refuses a resolved
+    // fetch that no longer matches the current selection, rather than rendering it stale.
     return applyProcedureSelection(
       base,
-      selection.sidIdent && sidLegs.length > 0 ? { identifier: selection.sidIdent, legs: sidLegs } : null,
-      selection.starIdent && starLegs.length > 0 ? { identifier: selection.starIdent, legs: starLegs } : null,
-      selection.approachIdent && approachLegs.length > 0 ? { identifier: selection.approachIdent, legs: approachLegs } : null
+      sidKey && sidLegs?.key === sidKey && sidLegs.legs.length > 0 ? { identifier: selection.sidIdent!, legs: sidLegs.legs } : null,
+      starKey && starLegs?.key === starKey && starLegs.legs.length > 0 ? { identifier: selection.starIdent!, legs: starLegs.legs } : null,
+      approachKey && approachLegs?.key === approachKey && approachLegs.legs.length > 0
+        ? { identifier: selection.approachIdent!, legs: approachLegs.legs }
+        : null
     )
-  }, [airports, selection.sidIdent, selection.starIdent, selection.approachIdent, sidLegs, starLegs, approachLegs])
+  }, [
+    airports,
+    selection.sidIdent,
+    selection.departureRunway,
+    selection.sidTransition,
+    selection.starIdent,
+    selection.starTransition,
+    selection.approachIdent,
+    selection.approachTransition,
+    sidLegs,
+    starLegs,
+    approachLegs
+  ])
 }
