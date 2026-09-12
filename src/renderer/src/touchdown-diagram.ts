@@ -94,6 +94,35 @@ export function touchdownZonePairPositionsM(lengthM: number): number[] {
   return Array.from({ length: count }, (_, i) => (i + 1) * TOUCHDOWN_ZONE_PAIR_SPACING_M)
 }
 
+/**
+ * The real "countdown" bar-count pattern within each touchdown-zone group, ordered
+ * closest-to-threshold first — not identical single bars at every position, which is what
+ * originally shipped here before a real installed-app review caught it. Every real
+ * touchdown zone marking group is 1, 2, or 3 rectangular bars on each side of the
+ * centreline; the group nearest the threshold gets the most bars, decreasing to a single
+ * bar, and the two longest bands (4 and 6 groups) don't invent a new shape per group
+ * beyond that: a 4-group runway repeats the single bar for its last group (3,2,1,1 — never
+ * a genuinely new count), and a 6-group runway mirrors the taper back up for the far pairs
+ * (3,2,1,1,2,3). touchdownZonePairCountForLengthM's own comment already notes there's no
+ * 5-group band, so this table has no gap to fill for it.
+ */
+export function touchdownZoneBarCounts(totalGroups: number): number[] {
+  switch (totalGroups) {
+    case 1:
+      return [1]
+    case 2:
+      return [2, 1]
+    case 3:
+      return [3, 2, 1]
+    case 4:
+      return [3, 2, 1, 1]
+    case 6:
+      return [3, 2, 1, 1, 2, 3]
+    default:
+      return Array.from({ length: totalGroups }, () => 1)
+  }
+}
+
 export interface DiagramLayout {
   /** The visible window along the runway, physical-start frame — exposed mainly for tests;
    *  everything else below is already in px. */
@@ -118,7 +147,10 @@ export interface DiagramLayout {
   displaced: { startXPx: number; endXPx: number } | null
   thresholdStripeCount: number
   aimingPointXPx: number
-  touchdownZonePairXsPx: number[]
+  /** One entry per touchdown-zone group, closest-to-threshold first, paired with its real
+   *  bar count (touchdownZoneBarCounts) — replaces a flat position list now that groups
+   *  aren't all drawn the same way. */
+  touchdownZoneGroups: { xPx: number; barCount: number }[]
   touchdownZoneStartXPx: number
   touchdownZoneEndXPx: number
   touchdown: {
@@ -184,7 +216,10 @@ export function computeTouchdownDiagramLayout(
         : null,
     thresholdStripeCount: thresholdStripeCountForWidthM(runway.widthM),
     aimingPointXPx: toXPx(aimingPointPhysicalM),
-    touchdownZonePairXsPx: tdzPairPositionsM.map((m) => toXPx(runway.displacedThresholdM + m)),
+    touchdownZoneGroups: tdzPairPositionsM.map((m, i) => ({
+      xPx: toXPx(runway.displacedThresholdM + m),
+      barCount: touchdownZoneBarCounts(tdzPairPositionsM.length)[i]
+    })),
     touchdownZoneStartXPx: toXPx(runway.displacedThresholdM),
     touchdownZoneEndXPx: toXPx(touchdownZoneEndPhysicalM),
     touchdown: {

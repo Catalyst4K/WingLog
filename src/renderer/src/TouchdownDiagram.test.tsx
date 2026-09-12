@@ -17,23 +17,9 @@ describe('TouchdownDiagram', () => {
       <TouchdownDiagram
         runway={RUNWAY}
         touchdown={{ distanceFromThresholdM: 350, centrelineOffsetM: 4, groundSpeedMs: 60 }}
-        unit="ft"
       />
     )
     expect(screen.getByRole('img', { name: /27L/ })).toBeInTheDocument()
-  })
-
-  it('shows the distance/offset caption formatted in the chosen unit', () => {
-    render(
-      <TouchdownDiagram
-        runway={RUNWAY}
-        touchdown={{ distanceFromThresholdM: 350, centrelineOffsetM: 4, groundSpeedMs: 60 }}
-        unit="ft"
-      />
-    )
-    // 350m -> ~1148 ft; 4m right -> ~13 ft R.
-    expect(screen.getByText(/1,148 ft from threshold/)).toBeInTheDocument()
-    expect(screen.getByText(/13 ft R/)).toBeInTheDocument()
   })
 
   it('renders a touchdown dot even when the offset is past the runway edge', () => {
@@ -41,10 +27,43 @@ describe('TouchdownDiagram', () => {
       <TouchdownDiagram
         runway={RUNWAY}
         touchdown={{ distanceFromThresholdM: 350, centrelineOffsetM: 200, groundSpeedMs: 60 }}
-        unit="m"
       />
     )
     expect(container.querySelector('circle')).not.toBeNull()
+  })
+
+  it('runs vertically — the viewBox is taller than it is wide (Callum, 2026-09-12)', () => {
+    const { container } = render(
+      <TouchdownDiagram
+        runway={RUNWAY}
+        touchdown={{ distanceFromThresholdM: 350, centrelineOffsetM: 0, groundSpeedMs: 60 }}
+      />
+    )
+    const svg = container.querySelector('svg')!
+    const [, , widthPx, heightPx] = svg.getAttribute('viewBox')!.split(' ').map(Number)
+    expect(heightPx).toBeGreaterThan(widthPx)
+  })
+
+  it('sizes off height, not width, so it can shrink to fit alongside the field list (Callum, 2026-09-12)', () => {
+    const { container } = render(
+      <TouchdownDiagram
+        runway={RUNWAY}
+        touchdown={{ distanceFromThresholdM: 350, centrelineOffsetM: 0, groundSpeedMs: 60 }}
+      />
+    )
+    const svg = container.querySelector('svg')!
+    expect(svg.getAttribute('height')).toBe('100%')
+    expect(svg.getAttribute('width')).toBe('auto')
+  })
+
+  it('renders no caption text below the diagram (Callum, 2026-09-12: not necessary)', () => {
+    const { container } = render(
+      <TouchdownDiagram
+        runway={RUNWAY}
+        touchdown={{ distanceFromThresholdM: 350, centrelineOffsetM: 4, groundSpeedMs: 60 }}
+      />
+    )
+    expect(container.querySelector('p')).toBeNull()
   })
 
   it('draws the displaced-threshold indicator only when the runway has one', () => {
@@ -52,7 +71,6 @@ describe('TouchdownDiagram', () => {
       <TouchdownDiagram
         runway={RUNWAY}
         touchdown={{ distanceFromThresholdM: 350, centrelineOffsetM: 0, groundSpeedMs: 60 }}
-        unit="m"
       />
     )
     // The displaced-threshold line uses this distinctive dash pattern; the centreline uses
@@ -63,7 +81,6 @@ describe('TouchdownDiagram', () => {
       <TouchdownDiagram
         runway={{ ...RUNWAY, displacedThresholdM: 200 }}
         touchdown={{ distanceFromThresholdM: 350, centrelineOffsetM: 0, groundSpeedMs: 60 }}
-        unit="m"
       />
     )
     expect(displaced.container.querySelector('line[stroke-dasharray="6 4"]')).not.toBeNull()

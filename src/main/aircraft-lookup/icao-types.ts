@@ -9,6 +9,7 @@
 // rather than a runtime filesystem read, so it works identically in dev and packaged
 // builds with no extraResources/packaging path handling needed.
 import type { AircraftTypeOption } from '@shared/ipc'
+import type { WakeCategory } from '@shared/landing-score'
 import { columnIndex, parseCsvRows } from '../db/csv'
 import icaoTypesRaw from '../../../resources/icao-aircraft-types.csv?raw'
 
@@ -71,4 +72,34 @@ let allTypes: IcaoTypeRow[] | null = null
 export function searchAircraftTypes(query: string): AircraftTypeOption[] {
   allTypes ??= loadTypes(icaoTypesRaw)
   return searchTypes(allTypes, query)
+}
+
+function isWakeCategory(value: string): value is WakeCategory {
+  return value === 'L' || value === 'M' || value === 'H' || value === 'J'
+}
+
+/** Exact type-code → real ICAO wake-turbulence-category lookup, for landing-score.ts's
+ *  per-category baseline (docs/decisions.md, 2026-09-12) — as opposed to searchAircraftTypes'
+ *  fuzzy manufacturer/model/code search above. Null for a type absent from the vendored
+ *  data, or one whose real `wtc` value isn't a clean single category (e.g. "L/M", ~69 real
+ *  rows) — not guessed at. When a type code appears with more than one wtc value across
+ *  real rows, the first one loaded wins, same "don't overthink it" spirit as the rest of
+ *  this vendored-CSV lookup. */
+let wakeCategoryByType: Map<string, WakeCategory> | null = null
+
+function buildWakeCategoryIndex(types: IcaoTypeRow[]): Map<string, WakeCategory> {
+  const index = new Map<string, WakeCategory>()
+  for (const t of types) {
+    const upperType = t.icaoType.toUpperCase()
+    if (index.has(upperType)) continue
+    const wtc = t.wakeCat.trim().toUpperCase()
+    if (isWakeCategory(wtc)) index.set(upperType, wtc)
+  }
+  return index
+}
+
+export function getWakeCategory(icaoType: string): WakeCategory | null {
+  allTypes ??= loadTypes(icaoTypesRaw)
+  wakeCategoryByType ??= buildWakeCategoryIndex(allTypes)
+  return wakeCategoryByType.get(icaoType.toUpperCase()) ?? null
 }

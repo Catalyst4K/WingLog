@@ -87,6 +87,20 @@ export function formatCentrelineOffset(meters: number, unit: LandingDistanceUnit
   return `${Math.round(magnitude).toLocaleString()} ${unit}${side}`
 }
 
+/**
+ * Pitch at touchdown, for display only. `pitchDeg` is stored exactly as MSFS's own
+ * `PLANE PITCH DEGREES` SimVar reports it — negative for nose-up, positive for nose-down
+ * (confirmed against real captured data, flightdeck-backend's docs/simconnect-notes.md,
+ * 2026-09-03; landing-score.ts's PITCH_IDEAL_DEG relies on this same convention and must
+ * stay in that SimVar-native sign). That convention reads backwards to a pilot: normal
+ * aviation usage states a flare as a positive "4-7° nose-up," not a negative number
+ * (Callum, 2026-09-13 — "I think you forgot to flip the value for the user to read").
+ * This negates purely for display, so a -4.2° SimVar reading shows as "4.2°" here.
+ */
+export function formatPitchDeg(pitchDeg: number): string {
+  return `${(-pitchDeg).toFixed(1)}°`
+}
+
 export function formatAltitude(
   altitudeFt: number,
   unit: AltitudeUnit,

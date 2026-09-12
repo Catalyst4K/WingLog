@@ -130,6 +130,8 @@ function makeLanding(overrides: Partial<AircraftLanding> = {}): AircraftLanding 
     flightNumber: 'TA100',
     depIcao: 'EGLL',
     arrIcao: 'EGKK',
+    score: 95,
+    severity: 'none',
     ...overrides
   }
 }
@@ -145,7 +147,6 @@ function buildWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     fleetListLandings: vi.fn().mockResolvedValue([]),
     fleetListFlights: vi.fn().mockResolvedValue([]),
     flightList: vi.fn().mockResolvedValue([]),
-    settingsGetLandingThresholds: vi.fn().mockResolvedValue({ firmFpm: 480, hardFpm: 600 }),
     dispatchOpenSimBriefAirframes: vi.fn().mockResolvedValue(undefined),
     // AircraftForm's own dependencies, needed whenever the new/edit view mounts.
     simbriefAirframesForType: vi.fn().mockResolvedValue([]),
@@ -706,14 +707,15 @@ describe('FleetView', () => {
       expect(await screen.findByText('No landings recorded yet.')).toBeInTheDocument()
     })
 
-    it('lists landings with fpm, runway, crosswind and a severity badge', async () => {
+    it('lists landings with fpm, runway, crosswind and a score badge', async () => {
       setWinglog({
         aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
-        fleetListLandings: vi.fn().mockResolvedValue([makeLanding({ verticalSpeedMs: -1.5 })])
+        fleetListLandings: vi.fn().mockResolvedValue([makeLanding({ verticalSpeedMs: -1.5, score: 91 })])
       })
       render(<FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
       expect(await screen.findByText(/27L/)).toBeInTheDocument()
       expect(screen.getByText(/kt xwind/)).toBeInTheDocument()
+      expect(screen.getByText('91')).toBeInTheDocument()
     })
 
     it('shows a dash for crosswind and no runway ident when either is missing', async () => {
@@ -726,13 +728,17 @@ describe('FleetView', () => {
       expect(screen.getAllByText('—').length).toBeGreaterThan(0)
     })
 
-    it('shows a severity badge for a firm/hard landing', async () => {
+    it('shows a severity badge for a firm/hard landing, from the server-resolved severity', async () => {
+      // Severity is resolved server-side against the aircraft's own wake category
+      // (docs/decisions.md, 2026-09-12) — the client renders whatever fleetListLandings
+      // returns rather than re-classifying verticalSpeedMs itself.
       setWinglog({
         aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
-        fleetListLandings: vi.fn().mockResolvedValue([makeLanding({ verticalSpeedMs: -3.5 })]) // ~689 fpm -> hard
+        fleetListLandings: vi.fn().mockResolvedValue([makeLanding({ severity: 'hard', score: 15 })])
       })
       render(<FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
       expect(await screen.findByText('Hard')).toBeInTheDocument()
+      expect(screen.getByText('15')).toBeInTheDocument()
     })
   })
 

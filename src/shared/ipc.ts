@@ -276,12 +276,22 @@ export interface Landing {
   touchdownSource: 'simvar' | 'derived'
 }
 
-/** One row per aircraft-with-a-landing-record, newest first — Fleet's per-aircraft
- *  landing history. */
-export interface AircraftLanding extends Landing {
+/** One row per aircraft-with-a-landing-record, newest first, before its score is resolved
+ *  — landing-repo.ts's own return shape. See AircraftLanding below for the IPC-facing
+ *  version Fleet actually receives. */
+export interface AircraftLandingRow extends Landing {
   flightNumber: string | null
   depIcao: string
   arrIcao: string
+}
+
+/** Fleet's per-aircraft landing history, as sent over IPC. `score`/`severity` are resolved
+ *  server-side (main/index.ts's fleetListLandings handler) against this aircraft's own
+ *  wake category — never classified client-side, so Fleet and Logbook can't disagree about
+ *  a landing. */
+export interface AircraftLanding extends AircraftLandingRow {
+  score: number
+  severity: LandingSeverity
 }
 
 /**
@@ -304,14 +314,53 @@ export interface LandingRunway {
 
 export type LandingSeverity = 'none' | 'firm' | 'hard'
 
-/** Both in feet per minute (the unit pilots actually think in) — converted to/from the
- *  SI-stored touchdown vertical_speed_ms only where a severity is computed
- *  (src/renderer/src/landing-severity.ts), never stored in fpm anywhere else. Defaults
- *  are general-aviation-leaning, not universally correct across a C172-to-A380 fleet —
- *  adjustable in Settings rather than a hardcoded constant. */
-export interface LandingThresholds {
-  firmFpm: number
-  hardFpm: number
+export type LandingScoreCategoryKey =
+  | 'verticalSpeed'
+  | 'gForce'
+  | 'distanceFromAimingPoint'
+  | 'centrelineOffset'
+  | 'pitch'
+  | 'bank'
+  | 'crab'
+
+/** One scored input's own 0-100 contribution (landing-score.ts's LandingScoreBreakdown,
+ *  reshaped for the UI — see docs/decisions.md, 2026-09-12: Callum wanted a breakdown
+ *  popup showing "why" a score is what it is). Null when this input had no runway match to
+ *  score against (same null-handling as the stored landing fields themselves), never a
+ *  fabricated number. `label` is decided server-side so the renderer doesn't keep its own
+ *  copy of the key→label mapping. */
+export interface LandingScoreCategory {
+  key: LandingScoreCategoryKey
+  label: string
+  score: number | null
+  /** What "perfect" and "score reaches 0" are for this category, in its own natural unit
+   *  (fpm, degrees, g, or metres for the two runway-dependent ones) — real per-flight
+   *  numbers for the runway-dependent categories, not a fixed constant, since they come
+   *  from this specific runway's own real Annex-14/width data. Powers the breakdown
+   *  popup's per-category info button (docs/decisions.md, 2026-09-12). Null exactly when
+   *  `score` is null. */
+  ideal: number | null
+  tolerance: number | null
+}
+
+/** The 0-100 landing score plus its derived firm/hard classification — computed at read
+ *  time from a stored landing's own fields (src/main/db/landing-score-resolver.ts), not
+ *  stored itself, per docs/decisions.md (2026-09-12). No longer a Settings-configurable
+ *  value — see @shared/landing-score for the per-aircraft-category baseline this derives
+ *  from. `categories` backs the Logbook score-breakdown popup and the landing card's
+ *  per-field warning icons. */
+export interface LandingScoreResult {
+  score: number
+  severity: LandingSeverity
+  categories: LandingScoreCategory[]
+}
+
+/** One flight's score, for Logbook's list-view column (docs/plans/landing-scoring.md's
+ *  "Logbook UI" section) — omits any completed flight with no landing row (CSV-imported,
+ *  or tracked before landing capture shipped), which the list shows as "—" for. */
+export interface LandingScoreSummary {
+  flightId: number
+  score: number
 }
 
 export interface ActiveTracking {
@@ -772,8 +821,8 @@ export const IpcChannels = {
   logbookGreatCircleRoute: 'logbook:great-circle-route',
   fleetListLandings: 'fleet:list-landings',
   fleetListFlights: 'fleet:list-flights',
-  settingsGetLandingThresholds: 'settings:get-landing-thresholds',
-  settingsSetLandingThresholds: 'settings:set-landing-thresholds',
+  logbookGetLandingScore: 'logbook:get-landing-score',
+  logbookListFlightScores: 'logbook:list-flight-scores',
   aircraftLookupByRegistration: 'aircraft:lookup-by-registration',
   aircraftTypeSearch: 'aircraft:type-search',
   simbriefAirframesForType: 'simbrief:airframes-for-type',
@@ -961,8 +1010,12 @@ export interface WingLogApi {
    *  directly rather than filtering flightList() client-side, since that list is already
    *  hundreds of rows on a well-used fleet. */
   fleetListFlights: (aircraftId: number) => Promise<Flight[]>
-  settingsGetLandingThresholds: () => Promise<LandingThresholds>
-  settingsSetLandingThresholds: (thresholds: LandingThresholds) => Promise<void>
+  /** A flight's landing score/severity, if it has a landing row — null otherwise (same
+   *  cases logbookGetLanding returns null for). */
+  logbookGetLandingScore: (flightId: number) => Promise<LandingScoreResult | null>
+  /** Every completed flight's landing score, for Logbook's list-view column — omits any
+   *  flight with no landing row, which the list shows as "—" for (see LandingScoreSummary). */
+  logbookListFlightScores: () => Promise<LandingScoreSummary[]>
   /** Looks up an aircraft by registration via adsbdb.com. Null if not found (not an error). */
   aircraftLookupByRegistration: (registration: string) => Promise<AircraftLookupResult | null>
   /** Searches the vendored ICAO Doc 8643 type-designator list. Empty for a query under 2 chars. */

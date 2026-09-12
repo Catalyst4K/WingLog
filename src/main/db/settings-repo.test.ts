@@ -4,7 +4,6 @@ import { createDb, type WingLogDb } from './client'
 import {
   getAltitudeUnit,
   getGsxSettings,
-  getLandingThresholds,
   getLandingDistanceUnit,
   getLastSyncCompletedAt,
   getLastSyncedAt,
@@ -18,7 +17,6 @@ import {
   setCheckedGsxFirstLaunch,
   setGsxSettings,
   setLandingDistanceUnit,
-  setLandingThresholds,
   setLastSyncCompletedAt,
   setLastSyncedAt,
   setSetting,
@@ -150,21 +148,6 @@ describe('settings repo', () => {
   it('marks the GSX first-launch check as run', () => {
     setCheckedGsxFirstLaunch(db)
     expect(hasCheckedGsxFirstLaunch(db)).toBe(true)
-  })
-
-  it('defaults landing thresholds when never set', () => {
-    expect(getLandingThresholds(db)).toEqual({ firmFpm: 480, hardFpm: 600 })
-  })
-
-  it('round-trips landing thresholds', () => {
-    setLandingThresholds(db, { firmFpm: 400, hardFpm: 550 })
-    expect(getLandingThresholds(db)).toEqual({ firmFpm: 400, hardFpm: 550 })
-  })
-
-  it('falls back to defaults for a stored threshold that is not a positive number', () => {
-    setSetting(db, 'firmLandingFpm', 'not-a-number')
-    setSetting(db, 'hardLandingFpm', '-100')
-    expect(getLandingThresholds(db)).toEqual({ firmFpm: 480, hardFpm: 600 })
   })
 
   it('defaults a table sync cursor to null when never set', () => {

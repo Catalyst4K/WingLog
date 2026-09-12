@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis
 } from 'recharts'
-import { ArrowLeft, Trash2 } from 'lucide-react'
+import { ArrowLeft, TriangleAlert, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type {
   Aircraft,
@@ -18,6 +18,9 @@ import type {
   Landing,
   LandingDistanceUnit,
   LandingRunway,
+  LandingScoreCategoryKey,
+  LandingScoreResult,
+  LandingScoreSummary,
   LogbookStats,
   TrackPoint,
   WeightUnit
@@ -26,6 +29,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { cn } from '@/lib/utils'
 import { computeChartAxisTicks, formatTickLabel } from './chart-ticks'
 import { FlightMap } from './FlightMap'
 import { GsxInvoicesCard } from './GsxInvoicesCard'
@@ -33,7 +37,9 @@ import { useConfirm } from './hooks/useConfirm'
 import { useResetSignal } from './hooks/useResetSignal'
 import { useSortable } from './hooks/useSortable'
 import { LandingBadge } from './LandingBadge'
-import { classifyLanding } from './landing-severity'
+import { LandingScoreBadge } from './LandingScoreBadge'
+import { LandingScoreBreakdownDialog } from './LandingScoreBreakdownDialog'
+import { isCategoryBad } from './landing-score-ui'
 import { selectionFromFlight, useLiveWaypoints } from './procedureSelection'
 import type { Waypoint } from './route'
 import { SortableHead } from './SortableHead'
@@ -41,13 +47,13 @@ import { TouchdownDiagram } from './TouchdownDiagram'
 import {
   formatCentrelineOffset,
   formatMinutes,
+  formatPitchDeg,
   formatRunwayDistance,
   formatWeight,
   mToFt,
   msToFpm,
   msToKt
 } from './units'
-import { useLandingThresholds } from './useLandingThresholds'
 
 type View = { kind: 'list' } | { kind: 'detail'; id: number }
 
@@ -93,11 +99,29 @@ function formatDate(iso: string | null): string {
   return iso ? new Date(iso).toLocaleString() : '—'
 }
 
-function DetailField(props: { label: string; value: React.ReactNode }): React.JSX.Element {
+/** `warn` shows a small warning icon next to the label when this field's own score-
+ *  breakdown category came in below LandingScoreBreakdownDialog's bad threshold — a nudge
+ *  to open the breakdown rather than repeating the deduction number here too. */
+function DetailField(props: {
+  label: string
+  value: React.ReactNode
+  warn?: boolean
+  /** Merged onto the value <dd> — e.g. a slightly larger size for the one field (Landing
+   *  score) that should stand out from the rest of the list. */
+  valueClassName?: string
+}): React.JSX.Element {
   return (
     <>
-      <dt className="text-muted-foreground">{props.label}</dt>
-      <dd className="text-foreground">{props.value}</dd>
+      <dt className="flex items-center gap-1.5 text-muted-foreground">
+        {props.label}
+        {props.warn && (
+          <TriangleAlert
+            className="size-3.5 text-destructive"
+            aria-label="Below average — see the landing score breakdown"
+          />
+        )}
+      </dt>
+      <dd className={cn('text-foreground', props.valueClassName)}>{props.value}</dd>
     </>
   )
 }
@@ -108,10 +132,15 @@ function DetailField(props: { label: string; value: React.ReactNode }): React.JS
  *  rendering pattern the fuel chart above already uses: render nothing when there's no
  *  landing to show (the common case for any flight tracked before this feature existed),
  *  not an empty card. */
-function LandingCard(props: { flightId: number; landingDistanceUnit: LandingDistanceUnit }): React.JSX.Element | null {
+/** Exported so it's directly testable without mounting FlightDetail's FlightMap, which
+ *  LandingCard has no dependency on itself — LogbookView.test.tsx uses this. */
+export function LandingCard(props: {
+  flightId: number
+  landingDistanceUnit: LandingDistanceUnit
+}): React.JSX.Element | null {
   const [landing, setLanding] = useState<Landing | null | undefined>(undefined)
   const [runway, setRunway] = useState<LandingRunway | null>(null)
-  const thresholds = useLandingThresholds()
+  const [scoreResult, setScoreResult] = useState<LandingScoreResult | null>(null)
 
   useEffect(() => {
     // Fetched together (docs/plans/logbook-detail-improvements.md) rather than the runway
@@ -119,10 +148,12 @@ function LandingCard(props: { flightId: number; landingDistanceUnit: LandingDist
     // no-diagram height first and then grow once the runway arrives.
     Promise.all([
       window.winglog.logbookGetLanding(props.flightId),
-      window.winglog.logbookGetLandingRunway(props.flightId)
-    ]).then(([landingResult, runwayResult]) => {
+      window.winglog.logbookGetLandingRunway(props.flightId),
+      window.winglog.logbookGetLandingScore(props.flightId)
+    ]).then(([landingResult, runwayResult, scoreResultValue]) => {
       setLanding(landingResult)
       setRunway(runwayResult)
+      setScoreResult(scoreResultValue)
     })
   }, [props.flightId])
 
@@ -143,31 +174,49 @@ function LandingCard(props: { flightId: number; landingDistanceUnit: LandingDist
 
   if (!landing) return null
 
-  const severity = classifyLanding(landing.verticalSpeedMs, thresholds)
   const unit = props.landingDistanceUnit
+
+  function categoryScore(key: LandingScoreCategoryKey): number | null {
+    return scoreResult?.categories.find((c) => c.key === key)?.score ?? null
+  }
 
   return (
     <Card className="min-w-72 flex-1">
       <CardHeader>
         <CardTitle className="text-sm">Landing</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+      <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-start">
+        <dl className="grid flex-1 grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+          <DetailField
+            label="Landing score"
+            value={<LandingScoreBadge score={scoreResult?.score ?? null} />}
+            valueClassName="text-base font-semibold"
+          />
           <DetailField
             label="Touchdown rate"
+            warn={isCategoryBad(categoryScore('verticalSpeed'))}
             value={
               <span className="flex items-center gap-2">
                 {Math.round(msToFpm(landing.verticalSpeedMs))} fpm
-                <LandingBadge severity={severity} />
+                {scoreResult && <LandingBadge severity={scoreResult.severity} />}
               </span>
             }
           />
-          <DetailField label="G-force" value={landing.gForce.toFixed(2)} />
+          <DetailField label="G-force" value={landing.gForce.toFixed(2)} warn={isCategoryBad(categoryScore('gForce'))} />
           <DetailField
-            label="Pitch / Bank / Crab"
-            value={`${landing.pitchDeg.toFixed(1)}° / ${landing.bankDeg.toFixed(1)}° / ${
-              landing.crabDeg != null ? `${landing.crabDeg.toFixed(1)}°` : '—'
-            }`}
+            label="Pitch"
+            value={formatPitchDeg(landing.pitchDeg)}
+            warn={isCategoryBad(categoryScore('pitch'))}
+          />
+          <DetailField
+            label="Bank"
+            value={`${landing.bankDeg.toFixed(1)}°`}
+            warn={isCategoryBad(categoryScore('bank'))}
+          />
+          <DetailField
+            label="Crab"
+            value={landing.crabDeg != null ? `${landing.crabDeg.toFixed(1)}°` : '—'}
+            warn={isCategoryBad(categoryScore('crab'))}
           />
           <DetailField
             label="Airspeed / Ground speed"
@@ -184,6 +233,7 @@ function LandingCard(props: { flightId: number; landingDistanceUnit: LandingDist
           <DetailField label="Runway" value={landing.runwayIdent ?? '—'} />
           <DetailField
             label="Distance from threshold"
+            warn={isCategoryBad(categoryScore('distanceFromAimingPoint'))}
             value={
               landing.distanceFromThresholdM != null
                 ? formatRunwayDistance(landing.distanceFromThresholdM, unit)
@@ -192,19 +242,45 @@ function LandingCard(props: { flightId: number; landingDistanceUnit: LandingDist
           />
           <DetailField
             label="Centreline offset"
+            warn={isCategoryBad(categoryScore('centrelineOffset'))}
             value={landing.centrelineOffsetM != null ? formatCentrelineOffset(landing.centrelineOffsetM, unit) : '—'}
           />
         </dl>
-        {runway && landing.distanceFromThresholdM != null && (
-          <TouchdownDiagram
-            runway={runway}
-            touchdown={{
-              distanceFromThresholdM: landing.distanceFromThresholdM,
-              centrelineOffsetM: landing.centrelineOffsetM ?? 0,
-              groundSpeedMs: landing.groundSpeedMs
-            }}
-            unit={unit}
-          />
+        {scoreResult && (
+          // The breakdown trigger lives in this same right-hand column, centred above the
+          // diagram (Callum, 2026-09-13), rather than in the card header — a header
+          // button's own right-alignment doesn't line up with this narrower column's
+          // centre, and CardHeader/CardContent are separate layout contexts with no shared
+          // width to align against. Rendered whenever a score exists, independent of the
+          // diagram below it, since most categories still score without a runway match.
+          <div className="flex w-36 flex-shrink-0 flex-col items-center gap-2 self-start sm:w-40">
+            <LandingScoreBreakdownDialog
+              overall={scoreResult.score}
+              categories={scoreResult.categories}
+              unit={unit}
+              trigger={
+                <Button type="button" variant="outline" size="sm">
+                  Score breakdown
+                </Button>
+              }
+            />
+            {runway && landing.distanceFromThresholdM != null && (
+              // No bigger than the field list it sits alongside (Callum, 2026-09-12: the
+              // original width-only cap left height unconstrained, so a long runway's tall
+              // window could still dwarf the text next to it) — fixed height, width
+              // follows from the diagram's own aspect ratio (TouchdownDiagram.tsx).
+              <div className="flex h-56 w-full justify-center">
+                <TouchdownDiagram
+                  runway={runway}
+                  touchdown={{
+                    distanceFromThresholdM: landing.distanceFromThresholdM,
+                    centrelineOffsetM: landing.centrelineOffsetM ?? 0,
+                    groundSpeedMs: landing.groundSpeedMs
+                  }}
+                />
+              </div>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>
@@ -523,23 +599,26 @@ function FlightDetail(props: {
   )
 }
 
-type SortKey = 'date' | 'flight' | 'route' | 'aircraft' | 'block' | 'air' | 'fuel'
+type SortKey = 'date' | 'flight' | 'route' | 'aircraft' | 'block' | 'score' | 'fuel'
 
-const SORT_COLUMNS: { key: SortKey; label: string }[] = [
+// 'score' is last (Callum, 2026-09-12) — it's the column most worth glancing down as a
+// column, so it reads best at the row's end rather than interrupting block/fuel.
+const SORT_COLUMNS: { key: SortKey; label: string; className?: string }[] = [
   { key: 'date', label: 'Date' },
   { key: 'flight', label: 'Flight' },
   { key: 'route', label: 'Route' },
   { key: 'aircraft', label: 'Aircraft' },
   { key: 'block', label: 'Block' },
-  { key: 'air', label: 'Air' },
-  { key: 'fuel', label: 'Fuel burn' }
+  { key: 'fuel', label: 'Fuel burn' },
+  { key: 'score', label: 'Landing Score', className: 'text-center' }
 ]
 
 function compareFlights(
   a: Flight,
   b: Flight,
   key: SortKey,
-  registrationFor: (aircraftId: number) => string
+  registrationFor: (aircraftId: number) => string,
+  scoreFor: (flightId: number) => number | null
 ): number {
   switch (key) {
     case 'date':
@@ -552,8 +631,11 @@ function compareFlights(
       return registrationFor(a.aircraftId).localeCompare(registrationFor(b.aircraftId))
     case 'block':
       return (a.blockMinutes ?? 0) - (b.blockMinutes ?? 0)
-    case 'air':
-      return (a.airMinutes ?? 0) - (b.airMinutes ?? 0)
+    // A missing score (no landing row — a CSV import, or a flight tracked before landing
+    // capture shipped) sorts alongside a genuine 0, same convention 'block'/'fuel' above
+    // already use for their own nullable fields.
+    case 'score':
+      return (scoreFor(a.id) ?? 0) - (scoreFor(b.id) ?? 0)
     case 'fuel':
       return (a.fuelBurnKg ?? 0) - (b.fuelBurnKg ?? 0)
   }
@@ -600,6 +682,7 @@ export function LogbookView(props: {
   const [flights, setFlights] = useState<Flight[]>([])
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
   const [stats, setStats] = useState<LogbookStats | null>(null)
+  const [scores, setScores] = useState<LandingScoreSummary[]>([])
   const [view, setView] = useState<View>(
     props.initialFlightId != null ? { kind: 'detail', id: props.initialFlightId } : { kind: 'list' }
   )
@@ -623,11 +706,13 @@ export function LogbookView(props: {
     return Promise.all([
       window.winglog.logbookListCompletedFlights(),
       window.winglog.aircraftList(),
-      window.winglog.logbookGetStats()
-    ]).then(([flightList, aircraftList, logbookStats]) => {
+      window.winglog.logbookGetStats(),
+      window.winglog.logbookListFlightScores()
+    ]).then(([flightList, aircraftList, logbookStats, flightScores]) => {
       setFlights(flightList)
       setAircraft(aircraftList)
       setStats(logbookStats)
+      setScores(flightScores)
     })
   }
 
@@ -639,8 +724,15 @@ export function LogbookView(props: {
     return aircraft.find((a) => a.id === aircraftId)?.registration ?? `#${aircraftId}`
   }
 
+  function scoreFor(flightId: number): number | null {
+    return scores.find((s) => s.flightId === flightId)?.score ?? null
+  }
+
   const comparators = Object.fromEntries(
-    SORT_COLUMNS.map((col) => [col.key, (a: Flight, b: Flight) => compareFlights(a, b, col.key, registrationFor)])
+    SORT_COLUMNS.map((col) => [
+      col.key,
+      (a: Flight, b: Flight) => compareFlights(a, b, col.key, registrationFor, scoreFor)
+    ])
   ) as Record<SortKey, (a: Flight, b: Flight) => number>
   const {
     sortKey,
@@ -689,8 +781,8 @@ export function LogbookView(props: {
               <TableHead>Route</TableHead>
               <TableHead>Aircraft</TableHead>
               <TableHead>Block</TableHead>
-              <TableHead>Air</TableHead>
               <TableHead>Fuel burn</TableHead>
+              <TableHead className="text-center">Landing Score</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -733,6 +825,7 @@ export function LogbookView(props: {
                     activeKey={sortKey}
                     dir={sortDir}
                     onSort={handleSort}
+                    className={col.className}
                   />
                 ))}
               </TableRow>
@@ -751,8 +844,10 @@ export function LogbookView(props: {
                   </TableCell>
                   <TableCell>{registrationFor(f.aircraftId)}</TableCell>
                   <TableCell>{formatMinutes(f.blockMinutes)}</TableCell>
-                  <TableCell>{formatMinutes(f.airMinutes)}</TableCell>
                   <TableCell>{formatWeight(f.fuelBurnKg, props.weightUnit)}</TableCell>
+                  <TableCell className="text-center">
+                    <LandingScoreBadge score={scoreFor(f.id)} />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

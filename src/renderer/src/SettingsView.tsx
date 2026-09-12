@@ -5,7 +5,6 @@ import type {
   AltitudeUnit,
   GsxSettings,
   LandingDistanceUnit,
-  LandingThresholds,
   LogbookImportSummary,
   SyncStatus,
   Theme,
@@ -22,7 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useResetSignal } from './hooks/useResetSignal'
 import { NavigraphLogo } from './NavigraphLogo'
 
-type SettingsCategory = 'ui' | 'tracking' | 'thirdParty' | 'data' | 'about'
+type SettingsCategory = 'ui' | 'thirdParty' | 'data' | 'about'
 const DEFAULT_SETTINGS_CATEGORY: SettingsCategory = 'ui'
 
 // A curated, common-currency subset of what frankfurter.dev supports — enough for
@@ -110,10 +109,6 @@ export function SettingsView(props: {
   const [importingAircraft, setImportingAircraft] = useState(false)
   const [importingLogbook, setImportingLogbook] = useState(false)
   const [gsx, setGsx] = useState<GsxSettings>({ enabled: false, folderPath: null, displayCurrency: 'USD' })
-  const [landingThresholds, setLandingThresholds] = useState<LandingThresholds>({
-    firmFpm: 480,
-    hardFpm: 600
-  })
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
     loggedIn: false,
     email: null,
@@ -136,18 +131,11 @@ export function SettingsView(props: {
     window.winglog.settingsGetSimbriefUsername().then((u) => setSimbriefUsername(u ?? ''))
     window.winglog.dispatchSimbriefLoginStatus().then(setSimbriefLoggedIn)
     window.winglog.settingsGetGsx().then(setGsx)
-    window.winglog.settingsGetLandingThresholds().then(setLandingThresholds)
     // Cloud sync build-time flag (docs/plans/public-release-v1.md) — the syncStatus channel
     // doesn't exist at all in a public build, so calling it would just reject.
     if (__WINGLOG_CLOUD_SYNC_ENABLED__) window.winglog.syncStatus().then(setSyncStatus)
     window.winglog.appGetVersion().then(setAppVersion)
   }, [])
-
-  async function handleSaveLandingThresholds(event: React.FormEvent): Promise<void> {
-    event.preventDefault()
-    await window.winglog.settingsSetLandingThresholds(landingThresholds)
-    toast.success('Landing thresholds saved.')
-  }
 
   async function handleGsxToggle(enabled: boolean): Promise<void> {
     const next = { ...gsx, enabled }
@@ -292,7 +280,6 @@ export function SettingsView(props: {
       >
         <TabsList variant="line" className="w-40 shrink-0">
           <TabsTrigger value="ui">UI</TabsTrigger>
-          <TabsTrigger value="tracking">Tracking</TabsTrigger>
           <TabsTrigger value="thirdParty">3rd party</TabsTrigger>
           <TabsTrigger value="data">Data</TabsTrigger>
           <TabsTrigger value="about">About</TabsTrigger>
@@ -501,47 +488,6 @@ export function SettingsView(props: {
           </div>
         </TabsContent>
 
-        <TabsContent value="tracking" className="min-w-0">
-          <Card className="max-w-2xl">
-            <CardHeader>
-              <CardTitle>Landing severity</CardTitle>
-              <CardDescription>
-                Touchdown rate thresholds for the firm/hard badges on Fleet and Logbook landing records. Real
-                guidance varies by aircraft category — these are general-aviation-leaning defaults, not
-                universal.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSaveLandingThresholds} className="flex flex-col gap-3">
-                <div className="flex gap-3">
-                  <Label className="flex flex-1 flex-col items-start gap-1.5">
-                    Firm (fpm)
-                    <Input
-                      type="number"
-                      value={landingThresholds.firmFpm}
-                      onChange={(e) =>
-                        setLandingThresholds((current) => ({ ...current, firmFpm: Number(e.target.value) }))
-                      }
-                    />
-                  </Label>
-                  <Label className="flex flex-1 flex-col items-start gap-1.5">
-                    Hard (fpm)
-                    <Input
-                      type="number"
-                      value={landingThresholds.hardFpm}
-                      onChange={(e) =>
-                        setLandingThresholds((current) => ({ ...current, hardFpm: Number(e.target.value) }))
-                      }
-                    />
-                  </Label>
-                </div>
-                <Button type="submit" variant="outline" size="sm" className="w-fit">
-                  Save
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="data" className="min-w-0">
           <div className="flex flex-wrap gap-4">
