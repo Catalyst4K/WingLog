@@ -3,6 +3,7 @@ import {
   formatAltitude,
   formatCentrelineOffset,
   formatMinutes,
+  formatPitchDeg,
   formatRunwayDistance,
   formatWeight,
   kgToLb,
@@ -113,6 +114,24 @@ describe('formatRunwayDistance', () => {
 
   it('converts to feet, rounded and thousands-separated', () => {
     expect(formatRunwayDistance(400, 'ft')).toBe(`${Math.round(mToFt(400)).toLocaleString()} ft`)
+  })
+})
+
+describe('formatPitchDeg', () => {
+  it(
+    'negates the SimVar-native sign (negative = nose-up) so a flare reads as a positive ' +
+      'nose-up number, per normal pilot usage (Callum, 2026-09-13)',
+    () => {
+      expect(formatPitchDeg(-4.2)).toBe('4.2°')
+    }
+  )
+
+  it('shows a nose-down touchdown (positive SimVar value) as negative', () => {
+    expect(formatPitchDeg(2)).toBe('-2.0°')
+  })
+
+  it('formats a level touchdown as 0.0°, not -0.0°', () => {
+    expect(formatPitchDeg(0)).toBe('0.0°')
   })
 })
 

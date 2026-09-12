@@ -59,11 +59,16 @@ describe('describeCategoryTolerance', () => {
     )
   })
 
-  it('describes pitch using its own (negative) ideal', () => {
-    expect(describeCategoryTolerance('pitch', -4, 8, 'ft')).toBe(
-      'Ideal: -4° (nose-up flare). Score reaches 0 at -12° or 4°.'
-    )
-  })
+  it(
+    'flips pitch to a conventional positive nose-up reading — the internal `ideal` is ' +
+      'SimVar-signed (negative = nose-up), but a pilot reads a flare as a positive number ' +
+      '(Callum, 2026-09-13: "I think you forgot to flip the value")',
+    () => {
+      expect(describeCategoryTolerance('pitch', -4, 8, 'ft')).toBe(
+        'Ideal: 4° nose-up. Score reaches 0 at -4° or 12°.'
+      )
+    }
+  )
 
   it('describes bank and crab as symmetric ± bands around 0', () => {
     expect(describeCategoryTolerance('bank', 0, 8, 'ft')).toBe('Ideal: 0° (wings level). Score reaches 0 at ±8°.')

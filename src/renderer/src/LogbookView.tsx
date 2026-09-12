@@ -29,6 +29,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { cn } from '@/lib/utils'
 import { computeChartAxisTicks, formatTickLabel } from './chart-ticks'
 import { FlightMap } from './FlightMap'
 import { GsxInvoicesCard } from './GsxInvoicesCard'
@@ -46,6 +47,7 @@ import { TouchdownDiagram } from './TouchdownDiagram'
 import {
   formatCentrelineOffset,
   formatMinutes,
+  formatPitchDeg,
   formatRunwayDistance,
   formatWeight,
   mToFt,
@@ -100,7 +102,14 @@ function formatDate(iso: string | null): string {
 /** `warn` shows a small warning icon next to the label when this field's own score-
  *  breakdown category came in below LandingScoreBreakdownDialog's bad threshold — a nudge
  *  to open the breakdown rather than repeating the deduction number here too. */
-function DetailField(props: { label: string; value: React.ReactNode; warn?: boolean }): React.JSX.Element {
+function DetailField(props: {
+  label: string
+  value: React.ReactNode
+  warn?: boolean
+  /** Merged onto the value <dd> — e.g. a slightly larger size for the one field (Landing
+   *  score) that should stand out from the rest of the list. */
+  valueClassName?: string
+}): React.JSX.Element {
   return (
     <>
       <dt className="flex items-center gap-1.5 text-muted-foreground">
@@ -112,7 +121,7 @@ function DetailField(props: { label: string; value: React.ReactNode; warn?: bool
           />
         )}
       </dt>
-      <dd className="text-foreground">{props.value}</dd>
+      <dd className={cn('text-foreground', props.valueClassName)}>{props.value}</dd>
     </>
   )
 }
@@ -196,6 +205,11 @@ export function LandingCard(props: {
       <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <dl className="grid flex-1 grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
           <DetailField
+            label="Landing score"
+            value={<LandingScoreBadge score={scoreResult?.score ?? null} />}
+            valueClassName="text-base font-semibold"
+          />
+          <DetailField
             label="Touchdown rate"
             warn={isCategoryBad(categoryScore('verticalSpeed'))}
             value={
@@ -205,11 +219,10 @@ export function LandingCard(props: {
               </span>
             }
           />
-          <DetailField label="Landing score" value={<LandingScoreBadge score={scoreResult?.score ?? null} />} />
           <DetailField label="G-force" value={landing.gForce.toFixed(2)} warn={isCategoryBad(categoryScore('gForce'))} />
           <DetailField
             label="Pitch"
-            value={`${landing.pitchDeg.toFixed(1)}°`}
+            value={formatPitchDeg(landing.pitchDeg)}
             warn={isCategoryBad(categoryScore('pitch'))}
           />
           <DetailField
@@ -254,8 +267,12 @@ export function LandingCard(props: {
           // No bigger than the field list it sits alongside (Callum, 2026-09-12: the
           // original width-only cap left height unconstrained, so a long runway's tall
           // window could still dwarf the text next to it) — fixed height, width follows
-          // from the diagram's own aspect ratio (TouchdownDiagram.tsx).
-          <div className="flex h-64 flex-shrink-0 justify-center self-start">
+          // from the diagram's own aspect ratio (TouchdownDiagram.tsx). w-36/w-40 gives
+          // justify-center real room to work with — without an explicit width the column
+          // shrink-wraps the SVG exactly, leaving no slack to centre within, so the runway
+          // sat flush against the card's right edge instead of in the middle of its own
+          // column (Callum, 2026-09-13).
+          <div className="flex h-64 w-36 flex-shrink-0 justify-center self-start sm:w-40">
             <TouchdownDiagram
               runway={runway}
               touchdown={{

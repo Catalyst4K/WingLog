@@ -51,8 +51,16 @@ export function describeCategoryTolerance(
       return `Ideal: at or under ${Math.round(ideal)} fpm for this aircraft's wake category. Score reaches 0 at ${Math.round(ideal + tolerance)} fpm.`
     case 'gForce':
       return `Ideal: ${ideal.toFixed(1)} g. Score reaches 0 at ${(ideal - tolerance).toFixed(1)} g or ${(ideal + tolerance).toFixed(1)} g.`
-    case 'pitch':
-      return `Ideal: ${ideal}° (nose-up flare). Score reaches 0 at ${ideal - tolerance}° or ${ideal + tolerance}°.`
+    case 'pitch': {
+      // `ideal` here is landing-score.ts's PITCH_IDEAL_DEG, in the SimVar's own sign
+      // convention (negative = nose-up — see formatPitchDeg's doc comment in units.ts).
+      // Negating it for display reads as a normal pilot would say it (a positive "4°
+      // nose-up"), not backwards (Callum, 2026-09-13: "I think you forgot to flip the
+      // value"). The ± tolerance band is unaffected by the sign flip since it's symmetric
+      // around ideal either way.
+      const displayIdeal = -ideal
+      return `Ideal: ${displayIdeal}° nose-up. Score reaches 0 at ${displayIdeal - tolerance}° or ${displayIdeal + tolerance}°.`
+    }
     case 'bank':
       return `Ideal: ${ideal}° (wings level). Score reaches 0 at ±${tolerance}°.`
     case 'crab':
