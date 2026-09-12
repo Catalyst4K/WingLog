@@ -166,3 +166,18 @@
   filter: invert(1);
   background-color: var(--muted);
 }
+
+/*
+ * docs/plans/map-controls.md: while FlightMap.tsx's pan lock disables `dragPan`, MapLibre's
+ * grab-hand cursor doesn't follow — it comes from maplibre-gl.css's
+ * `.maplibregl-canvas-container.maplibregl-interactive{cursor:grab}`, keyed only on the
+ * map's general `interactive` constructor option (true here), not on any individual
+ * handler's enabled state. `.map-pan-locked` is toggled by FlightMap.tsx on the container
+ * div it renders (the map's own container, an ancestor of `.maplibregl-canvas-container`)
+ * whenever panning is locked. Three classes in this selector beats maplibre's own two-class
+ * rule on specificity alone, so this wins regardless of which stylesheet loads last (see
+ * the ctrl-group note above for why that matters here).
+ */
+.map-pan-locked .maplibregl-canvas-container.maplibregl-interactive {
+  cursor: default;
+}
