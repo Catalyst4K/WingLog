@@ -15,90 +15,19 @@ available, ask before assuming a default rather than guessing at unrecorded cont
 This repo's own `docs/` folder holds nothing but user-facing content (or is currently
 empty) — no development history, decisions, or plans belong here. If you're about to
 write a design doc or record a decision, it goes in `flightdeck-backend`'s `docs/plans/`
-or `docs/decisions.md`, never here — see "Starting a new piece of work" below.
+or `docs/decisions.md`, never here — see `flightdeck-backend`'s `CLAUDE.md` ("WingLog's
+plan-doc workflow") for the full workflow.
 
-## Starting a new piece of work
+## Working conventions
 
-This is a working app, not a from-scratch build. Ongoing feature work is organized as
-design docs (in `flightdeck-backend`, see above), not numbered milestones:
-
-1. Check `flightdeck-backend`'s `PLAN.md` §10 and `git branch -a` here for the current
-   list of `plan/<name>` branches. If the user's request matches one, read its plan doc
-   (`flightdeck-backend/docs/plans/<name>.md`) in full before touching code — it carries
-   context (what's verified against real data, what's still open) that isn't repeated
-   anywhere else.
-2. For a genuinely new feature with no existing plan: write one, following the shape of
-   the existing plans (context, what's confirmed vs. assumed, implementation, open
-   questions), in `flightdeck-backend`'s `docs/plans/<name>.md` — before writing
-   production code, same spike-first discipline as the M1/M6 rule below, generalised to
-   any undocumented external system (a third-party API, an undocumented file format), not
-   just SimConnect. The `plan/<name>` feature branch itself is created off `develop` (see
-   "Branching" below) and built in *this* repo, exactly as always — only the design doc's
-   location is different.
-3. One plan, one branch, one PR into `develop`. Don't mix unrelated changes into a plan
-   branch.
-4. When a plan's work is complete — built, merged, nothing in the plan left to do — its
-   design doc moves from `flightdeck-backend/docs/plans/` into
-   `flightdeck-backend/docs/plans/done/`, archived rather than deleted, with a header saying
-   whether the work has reached `main` yet or is still on `develop` awaiting a release cut
-   (see "Branching" below). Complete is not the same as released: `develop` can carry
-   finished work that hasn't shipped, and `PLAN.md` §10 tracks both. (Rule as of
-   2026-09-11 — see `docs/decisions.md`. Before that, a doc waited for `main` before
-   moving, and before 2026-09-08 it was deleted.) Nothing about a finished plan's doc needs
-   to come back to this repo.
-
-## Branching
-
-Adopted 2026-09-04 (`flightdeck-backend`'s `docs/decisions.md` has the full reasoning) to
-keep `main` a clean release history instead of every finished plan landing on it
-individually:
-
-- **`main`** — releases only. Requires a pull request to merge into (still solo: 0
-  required approvals, so merging your own PR is enough) and is protected against
-  force-push/deletion, same as before. The only things that should ever merge into `main`
-  are `develop` or `fixes`, batched up as a release.
-- **`develop`** — where finished feature work lands first. Every `plan/<name>` branch
-  targets `develop`, not `main`. Direct pushes/merges into `develop` are still fine (no
-  required PR there) — that's the low-friction, solo-dev workflow this project has always
-  used, just one branch removed from `main` now.
-- **`fixes`** — the hotfix line: `main` plus any urgent fixes in flight, so a bug in
-  released code can reach users on its own without waiting for whatever feature work is
-  still unreleased on `develop`. Same direct-push workflow as `develop`. It is only ever
-  *behind* `main`, never ahead of it once a hotfix ships, so it goes stale between uses.
-- **`fix/<name>` branches — one per bug fix, off either `develop` or `fixes`**, depending on
-  where the fix needs to ship (adopted 2026-09-11; before that, every fix went through
-  `fixes`):
-  - **Off `develop`, back into `develop`** — the default. Always for a bug in code that
-    hasn't been released yet (it only exists on `develop`, so `fixes` can't even see it),
-    and for any released bug that can simply ship with the next normal release. The fix
-    lands where the newest code already is, so there's nothing to carry across later.
-  - **Off `fixes`, back into `fixes`** — only for a hotfix: a bug in released code that has
-    to reach users before `develop`'s pending work is ready. First fast-forward `fixes` to
-    `main` (`git merge --ff-only origin/main` — it will usually be behind). Once the fix is
-    merged, **merge `fixes` into `develop` the same day**. Fixes left sitting on `fixes`
-    alone have "never crossed over" before (2026-09-06, six of them), and a migration
-    generated on `fixes` collided with `develop`'s numbering once already, breaking a real
-    database (2026-09-05). So avoid schema changes in a hotfix; if one is unavoidable,
-    check its migration number against `develop`'s before merging.
-  - Unsure which? Use `develop`.
-- **Cutting a release** means opening a PR from `develop` (or, for a hotfix release,
-  `fixes`) into `main` once a meaningful batch is ready, merging it, and *then* updating the
-  headers of the plan docs in `flightdeck-backend/docs/plans/done/` whose work just reached
-  `main` (and `PLAN.md` §10) to say so, per step 4 above. After a hotfix release, merge
-  `fixes` into `develop` if that hasn't already happened. Tag the merge commit on `main` if
-  it corresponds to a version bump.
-- Every `plan/<name>` branch targets `develop`. The two branches that predated this model
-  (`plan/backend-service`, `plan/sid-star-selection`) never merged — both were superseded —
-  and were deleted 2026-09-11, after a line-by-line check confirmed their code was on
-  `develop` and their docs were in `flightdeck-backend` (`docs/plans/done/`). Delete a plan
-  branch once it's merged; don't leave them lying around.
-
-The M1/M6 rule generalises: for anything depending on a real external system whose
-behaviour isn't documented — SimConnect, SimBrief's JSON schema, GSX's receipt files, a
-future Navigraph integration — write a throwaway script or read real captured data first,
-confirm actual behaviour, *then* build the production version. Don't build any of it from
-assumptions. Log anything surprising in `flightdeck-backend`'s matching `docs/*-notes.md`
-file (`simconnect-notes.md`, `simbrief-notes.md`, and so on) as you find it.
+The plan-doc workflow (how a new piece of work gets designed and branched), the full
+branching model (`main`/`develop`/`fixes`/`fix/<name>`), and the two-machine sync protocol
+all live in `flightdeck-backend`'s `CLAUDE.md` now, not here (moved 2026-09-13 — see
+`flightdeck-backend`'s `docs/decisions.md` for why). They're cross-repo process — how this
+project gets worked on — not something specific to this codebase, and keeping a second copy
+here would be exactly the drift risk that file's own Security cross-reference already avoids
+in the other direction. **Read it and treat its rules as binding here too**, the same way
+that file already treats this file's Security section as binding there.
 
 ## Commands (once scaffolded)
 
@@ -148,47 +77,20 @@ docs/           User-facing content only, or empty — see the note at the top o
   — don't let sim-native and SI units mix inside the same layer.
 - **Don't hand work off to a session on the other machine unless you've been asked to, for
   that specific piece of work.** Work sometimes runs in parallel across two machines (see
-  "Working across two machines" below), and delegating is genuinely useful — but "hand this
-  batch off" is authorisation for that batch, not a standing arrangement to keep doing it.
-  Finish the plan or the investigation, report back, and let the delegation be an explicit
-  choice each time.
+  `flightdeck-backend`'s `CLAUDE.md`, "Working across two machines"), and delegating is
+  genuinely useful — but "hand this batch off" is authorisation for that batch, not a
+  standing arrangement to keep doing it. Finish the plan or the investigation, report back,
+  and let the delegation be an explicit choice each time.
 
-## Working across two machines
+## Spike-first discipline
 
-A Mac session and a Windows session both work on this project, each with full write access
-to both repos. Git handles simultaneous work fine; what actually caused drift
-(2026-09-05 → 09-11, `flightdeck-backend`'s `docs/decisions.md` has the detail) was
-process: stale local clones, the same shared docs rewritten from both sides, statuses
-copied from other docs instead of checked, and work that only ever existed on one machine.
-Adopted 2026-09-11:
-
-1. **Run the sync check at the start and end of every session** —
-   `node scripts/sync-check.mjs` (or `npm run sync-check`) in `flightdeck-backend`; it
-   checks both repos. Don't start work until it shows no FAILs, and don't stop until it
-   shows none. WARNs mean "a person should look", not necessarily "fix".
-2. **Claim work before starting it.** Put your machine (Mac / Windows) in the "Claimed"
-   column of `flightdeck-backend/docs/plans/README.md`'s work queue and push that one-line
-   change straight away. Don't start anything the other machine has claimed. Clear the
-   claim when the work merges.
-3. **Edit the shared docs in one sitting.** `PLAN.md`, `docs/plans/README.md` and
-   `docs/decisions.md` are touched by both machines: pull, edit, commit, push — nothing
-   else in between. Never leave them edited-but-uncommitted while doing other work; that is
-   how both sides end up rewriting the same rows. `decisions.md` is append-only. A plan's
-   own doc is edited only by the machine that claimed that plan.
-4. **Check status, never recall it.** Anything written about whether something is merged,
-   released, deleted or in a given PR is checked with git at the moment it's written — not
-   copied from another doc and not from memory. Wrong PR numbers and a wrong "safe to
-   delete" were both written that way.
-5. **Docs land with the code.** When work merges, update its plan doc's header,
-   `PLAN.md` §10 and the plans README in the same sitting. The other machine should never
-   see merged code whose docs still say "not started".
-6. **Nothing lives on only one machine.** Every branch is pushed or deleted — backups
-   included (a local-only backup branch was lost with the Mac's disk image, 2026-09-08).
-   Keep clones outside cloud-synced folders like OneDrive, which can lock or partially sync
-   files inside `.git`.
-7. **When a pull conflicts in a shared doc**, resolve it row by row — never by taking one
-   side wholesale — then run the sync check again; it catches broken tables and dangling
-   links.
+For anything depending on a real external system whose behaviour isn't documented —
+SimConnect, SimBrief's JSON schema, GSX's receipt files, a future Navigraph integration —
+write a throwaway script or read real captured data first, confirm actual behaviour, *then*
+build the production version. Don't build any of it from assumptions. Log anything
+surprising in `flightdeck-backend`'s matching `docs/*-notes.md` file (`simconnect-notes.md`,
+`simbrief-notes.md`, and so on) as you find it. (The original M1/M6 milestones this rule is
+named for are long since done; the discipline they set outlived them.)
 
 ## Security
 
@@ -262,13 +164,13 @@ For the repo itself, these are worth having on and are free for public repos: De
 alerts, secret scanning with push protection, and branch protection on `main`, `develop`
 and `fixes` blocking force-push and branch deletion. `main` also requires a pull request
 to merge into it (0 required approvals — still solo, just a forced PR+diff step instead
-of a plain push), matching the branching model above; `develop`/`fixes` deliberately don't
-require a PR, since that's where day-to-day `plan/<name>`/`fix/<name>` branches merge and
-this is developed solo, pushing directly from more than one machine — see
-`scripts/github-repo-security.sh` for the full rationale on both. Note that GitHub Actions
-workflows here run on `pull_request` from forks — never add a workflow that exposes
-secrets to fork PRs (`pull_request_target` with a checkout of the PR head is the classic
-mistake).
+of a plain push), matching the branching model in `flightdeck-backend`'s `CLAUDE.md`;
+`develop`/`fixes` deliberately don't require a PR, since that's where day-to-day
+`plan/<name>`/`fix/<name>` branches merge and this is developed solo, pushing directly from
+more than one machine — see `scripts/github-repo-security.sh` for the full rationale on
+both. Note that GitHub Actions workflows here run on `pull_request` from forks — never add
+a workflow that exposes secrets to fork PRs (`pull_request_target` with a checkout of the
+PR head is the classic mistake).
 
 If you find something, say so plainly and fix it or flag it — don't quietly work around it.
 
