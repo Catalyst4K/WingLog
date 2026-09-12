@@ -196,7 +196,11 @@ export function AircraftForm(props: {
   function handleSelectAirframeOption(key: string): void {
     setSelectedOptionKey(key)
     const option = displayedOptions[Number(key)]
+    /* v8 ignore start -- defensive only: `key` is always one of displayedOptions' own
+     * indices (Select only ever calls onValueChange with a value from its own rendered
+     * SelectItems), so `option` is never actually undefined via any real interaction. */
     if (!option) return
+    /* v8 ignore stop */
     if (option.isDefault) {
       set('simbriefType', '')
       set('simbriefAirframeId', '')
