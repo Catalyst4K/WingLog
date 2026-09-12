@@ -5,6 +5,7 @@ import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&ur
 import { Locate, LocateFixed, ZoomIn, ZoomOut } from 'lucide-react'
 import type { SimTelemetry, TrackPoint } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
+import { mapInteraction } from './mapInteraction'
 import type { Waypoint } from './route'
 import { mToFt, msToKt } from './units'
 
@@ -236,6 +237,18 @@ export function FlightMap({
         // below regardless of what's passed here).
         center: (live && liveCameraState?.center) || [0, 0],
         zoom: (live && liveCameraState?.zoom) || 1,
+        // No 3D tilt, and no rotation either (docs/plans/map-controls.md) — MapLibre's
+        // defaults leave both on, both reachable via the same right-drag/Ctrl+drag
+        // gesture, and there's no compass or reset-north control in this app to undo an
+        // accidental rotation. `dragRotate: false` and the two `disableRotation()` calls
+        // below cover the rotation half (right-drag, and the two-finger touch/keyboard
+        // equivalents); `maxPitch: 0`/`touchPitch: false`/`pitchWithRotate: false` cover
+        // tilt. The aircraft marker already rotates to show heading, so a fixed north-up
+        // map loses nothing live tracking needs.
+        maxPitch: 0,
+        touchPitch: false,
+        pitchWithRotate: false,
+        dragRotate: false,
         // `compact: true` is MapLibre's own mechanism for exactly this attribution, and
         // OpenFreeMap's docs point to trusting MapLibre's default handling as sufficient
         // ("If you are using MapLibre, they are automatically added, you have nothing to
@@ -257,6 +270,10 @@ export function FlightMap({
         attributionControl: { compact: true }
       })
       mapRef.current = map
+      // dragRotate/pitchWithRotate above already stop the mouse-drag gesture; these two
+      // cover the touch and keyboard paths to rotation, which aren't constructor options.
+      map.touchZoomRotate.disableRotation()
+      map.keyboard.disableRotation()
 
       // Keeps liveCameraState current as the user pans/zooms or follow mode recentres —
       // not just captured once on unmount, so an unexpected early teardown (e.g. a fast
@@ -565,6 +582,41 @@ export function FlightMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [followEnabled])
 
+  // Track's map is also `live` before any track points exist (previewing a planned
+  // flight) — mapInteraction needs this so a pan lock keyed only on `live`/`followEnabled`
+  // doesn't freeze that empty preview (docs/plans/map-controls.md).
+  const hasAircraft = trackPoints.length > 0
+
+  // Locks panning while genuinely following (live + follow on + an aircraft to follow),
+  // and re-anchors zoom to the map's center while locked so it can't drag the view off the
+  // aircraft. Reapplied whenever any of the three inputs change; Logbook's static map and
+  // a not-yet-following live map always land back on MapLibre's own defaults.
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return
+    const map = mapRef.current
+    const config = mapInteraction(live, followEnabled, hasAircraft)
+
+    if (config.dragPan) map.dragPan.enable()
+    else map.dragPan.disable()
+
+    if (config.keyboard) map.keyboard.enable()
+    else map.keyboard.disable()
+
+    map.scrollZoom.enable(config.scrollZoom === true ? undefined : config.scrollZoom)
+    map.touchZoomRotate.enable(config.touchZoomRotate === true ? undefined : config.touchZoomRotate)
+
+    if (config.doubleClickZoom) map.doubleClickZoom.enable()
+    else map.doubleClickZoom.disable()
+
+    // MapLibre's grab-hand cursor comes from a CSS class keyed on the map's general
+    // `interactive` option (maplibre-gl.css's `.maplibregl-interactive` rule), not on
+    // individual handler state — disabling dragPan alone leaves the grab hand showing.
+    // This class, scoped under our own container and listed in index.css with enough
+    // specificity to win over maplibre's own rule regardless of stylesheet order, forces
+    // the cursor back to default while panning is locked.
+    mapContainerRef.current?.classList.toggle('map-pan-locked', !config.dragPan)
+  }, [mapReady, live, followEnabled, hasAircraft])
+
   const mapControlButtonClassName = 'bg-popover/85 backdrop-blur-sm hover:bg-popover'
 
   return (
@@ -577,15 +629,20 @@ export function FlightMap({
         {live && (
           <Button
             type="button"
-            variant="outline"
+            variant={followEnabled ? 'default' : 'outline'}
             size="icon-sm"
-            className={mapControlButtonClassName}
+            // "On" reads as a filled, cyan/sky-blue button rather than an icon tint —
+            // `text-accent` (shadcn's subtle hover-background color, not this app's brand
+            // cyan, which is `--primary`) made the "on" state nearly invisible in both
+            // themes (docs/plans/map-controls.md). Backdrop blur only matters for the
+            // outline style sitting over the map; the filled "on" state is opaque already.
+            className={followEnabled ? undefined : mapControlButtonClassName}
             aria-label={followEnabled ? 'Stop centering on aircraft' : 'Center on aircraft'}
             title={followEnabled ? 'Stop centering on aircraft' : 'Center on aircraft'}
             aria-pressed={followEnabled}
             onClick={() => setFollowEnabled((v) => !v)}
           >
-            {followEnabled ? <LocateFixed className="text-accent" /> : <Locate />}
+            {followEnabled ? <LocateFixed /> : <Locate />}
           </Button>
         )}
         <Button
