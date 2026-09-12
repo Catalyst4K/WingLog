@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis
 } from 'recharts'
-import { ArrowLeft, Trash2 } from 'lucide-react'
+import { ArrowLeft, TriangleAlert, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type {
   Aircraft,
@@ -18,6 +18,7 @@ import type {
   Landing,
   LandingDistanceUnit,
   LandingRunway,
+  LandingScoreCategoryKey,
   LandingScoreResult,
   LandingScoreSummary,
   LogbookStats,
@@ -36,6 +37,8 @@ import { useResetSignal } from './hooks/useResetSignal'
 import { useSortable } from './hooks/useSortable'
 import { LandingBadge } from './LandingBadge'
 import { LandingScoreBadge } from './LandingScoreBadge'
+import { LandingScoreBreakdownDialog } from './LandingScoreBreakdownDialog'
+import { isCategoryBad } from './landing-score-ui'
 import { selectionFromFlight, useLiveWaypoints } from './procedureSelection'
 import type { Waypoint } from './route'
 import { SortableHead } from './SortableHead'
@@ -94,10 +97,21 @@ function formatDate(iso: string | null): string {
   return iso ? new Date(iso).toLocaleString() : '—'
 }
 
-function DetailField(props: { label: string; value: React.ReactNode }): React.JSX.Element {
+/** `warn` shows a small warning icon next to the label when this field's own score-
+ *  breakdown category came in below LandingScoreBreakdownDialog's bad threshold — a nudge
+ *  to open the breakdown rather than repeating the deduction number here too. */
+function DetailField(props: { label: string; value: React.ReactNode; warn?: boolean }): React.JSX.Element {
   return (
     <>
-      <dt className="text-muted-foreground">{props.label}</dt>
+      <dt className="flex items-center gap-1.5 text-muted-foreground">
+        {props.label}
+        {props.warn && (
+          <TriangleAlert
+            className="size-3.5 text-destructive"
+            aria-label="Below average — see the landing score breakdown"
+          />
+        )}
+      </dt>
       <dd className="text-foreground">{props.value}</dd>
     </>
   )
@@ -153,6 +167,10 @@ export function LandingCard(props: {
 
   const unit = props.landingDistanceUnit
 
+  function categoryScore(key: LandingScoreCategoryKey): number | null {
+    return scoreResult?.categories.find((c) => c.key === key)?.score ?? null
+  }
+
   return (
     <Card className="min-w-72 flex-1">
       <CardHeader>
@@ -162,6 +180,7 @@ export function LandingCard(props: {
         <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
           <DetailField
             label="Touchdown rate"
+            warn={isCategoryBad(categoryScore('verticalSpeed'))}
             value={
               <span className="flex items-center gap-2">
                 {Math.round(msToFpm(landing.verticalSpeedMs))} fpm
@@ -171,14 +190,41 @@ export function LandingCard(props: {
           />
           <DetailField
             label="Landing score"
-            value={<LandingScoreBadge score={scoreResult?.score ?? null} />}
+            value={
+              scoreResult ? (
+                <LandingScoreBreakdownDialog
+                  overall={scoreResult.score}
+                  categories={scoreResult.categories}
+                  trigger={
+                    <button
+                      type="button"
+                      className="cursor-pointer"
+                      aria-label={`View landing score breakdown — ${scoreResult.score} out of 100`}
+                    >
+                      <LandingScoreBadge score={scoreResult.score} />
+                    </button>
+                  }
+                />
+              ) : (
+                <LandingScoreBadge score={null} />
+              )
+            }
           />
-          <DetailField label="G-force" value={landing.gForce.toFixed(2)} />
+          <DetailField label="G-force" value={landing.gForce.toFixed(2)} warn={isCategoryBad(categoryScore('gForce'))} />
           <DetailField
-            label="Pitch / Bank / Crab"
-            value={`${landing.pitchDeg.toFixed(1)}° / ${landing.bankDeg.toFixed(1)}° / ${
-              landing.crabDeg != null ? `${landing.crabDeg.toFixed(1)}°` : '—'
-            }`}
+            label="Pitch"
+            value={`${landing.pitchDeg.toFixed(1)}°`}
+            warn={isCategoryBad(categoryScore('pitch'))}
+          />
+          <DetailField
+            label="Bank"
+            value={`${landing.bankDeg.toFixed(1)}°`}
+            warn={isCategoryBad(categoryScore('bank'))}
+          />
+          <DetailField
+            label="Crab"
+            value={landing.crabDeg != null ? `${landing.crabDeg.toFixed(1)}°` : '—'}
+            warn={isCategoryBad(categoryScore('crab'))}
           />
           <DetailField
             label="Airspeed / Ground speed"
@@ -195,6 +241,7 @@ export function LandingCard(props: {
           <DetailField label="Runway" value={landing.runwayIdent ?? '—'} />
           <DetailField
             label="Distance from threshold"
+            warn={isCategoryBad(categoryScore('distanceFromAimingPoint'))}
             value={
               landing.distanceFromThresholdM != null
                 ? formatRunwayDistance(landing.distanceFromThresholdM, unit)
@@ -203,6 +250,7 @@ export function LandingCard(props: {
           />
           <DetailField
             label="Centreline offset"
+            warn={isCategoryBad(categoryScore('centrelineOffset'))}
             value={landing.centrelineOffsetM != null ? formatCentrelineOffset(landing.centrelineOffsetM, unit) : '—'}
           />
         </dl>
@@ -542,7 +590,7 @@ const SORT_COLUMNS: { key: SortKey; label: string }[] = [
   { key: 'route', label: 'Route' },
   { key: 'aircraft', label: 'Aircraft' },
   { key: 'block', label: 'Block' },
-  { key: 'score', label: 'Score' },
+  { key: 'score', label: 'Landing Score' },
   { key: 'fuel', label: 'Fuel burn' }
 ]
 
@@ -714,7 +762,7 @@ export function LogbookView(props: {
               <TableHead>Route</TableHead>
               <TableHead>Aircraft</TableHead>
               <TableHead>Block</TableHead>
-              <TableHead>Score</TableHead>
+              <TableHead>Landing Score</TableHead>
               <TableHead>Fuel burn</TableHead>
             </TableRow>
           </TableHeader>

@@ -1,7 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { Aircraft, Flight, Landing, LandingScoreResult, LandingScoreSummary, WingLogApi } from '@shared/ipc'
+import type {
+  Aircraft,
+  Flight,
+  Landing,
+  LandingScoreCategory,
+  LandingScoreCategoryKey,
+  LandingScoreResult,
+  LandingScoreSummary,
+  WingLogApi
+} from '@shared/ipc'
 import { LandingCard, LogbookView } from './LogbookView'
 
 afterEach(() => {
@@ -98,6 +107,34 @@ function makeLanding(overrides: Partial<Landing> = {}): Landing {
   }
 }
 
+const CATEGORY_LABELS: Record<LandingScoreCategoryKey, string> = {
+  verticalSpeed: 'Vertical speed',
+  gForce: 'G-force',
+  pitch: 'Pitch',
+  bank: 'Bank',
+  crab: 'Crab',
+  distanceFromAimingPoint: 'Distance from aiming point',
+  centrelineOffset: 'Centreline offset'
+}
+
+function makeCategories(overrides: Partial<Record<LandingScoreCategoryKey, number | null>> = {}): LandingScoreCategory[] {
+  const scores: Record<LandingScoreCategoryKey, number | null> = {
+    verticalSpeed: 90,
+    gForce: 95,
+    pitch: 90,
+    bank: 95,
+    crab: 90,
+    distanceFromAimingPoint: 85,
+    centrelineOffset: 90,
+    ...overrides
+  }
+  return (Object.keys(scores) as LandingScoreCategoryKey[]).map((key) => ({
+    key,
+    label: CATEGORY_LABELS[key],
+    score: scores[key]
+  }))
+}
+
 function buildWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
   return {
     logbookListCompletedFlights: vi.fn().mockResolvedValue([]),
@@ -125,7 +162,7 @@ describe('LogbookView list', () => {
 
     expect(await screen.findByText('87')).toBeInTheDocument()
     expect(screen.queryByRole('columnheader', { name: 'Air' })).not.toBeInTheDocument()
-    expect(screen.getByRole('columnheader', { name: 'Score' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Landing Score' })).toBeInTheDocument()
   })
 
   it('shows a dash for a completed flight with no landing row', async () => {
@@ -158,14 +195,14 @@ describe('LogbookView list', () => {
     render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
     await screen.findByText('HIGH')
 
-    await user.click(screen.getByRole('columnheader', { name: 'Score' }))
+    await user.click(screen.getByRole('columnheader', { name: 'Landing Score' }))
     const rowsAsc = screen.getAllByRole('row').slice(1) // drop the header row
     // Ascending by score, missing (NONE) treated as 0: NONE(0), LOW(10), HIGH(95).
     expect(within(rowsAsc[0]).getByText('NONE')).toBeInTheDocument()
     expect(within(rowsAsc[1]).getByText('LOW')).toBeInTheDocument()
     expect(within(rowsAsc[2]).getByText('HIGH')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('columnheader', { name: 'Score' }))
+    await user.click(screen.getByRole('columnheader', { name: 'Landing Score' }))
     const rowsDesc = screen.getAllByRole('row').slice(1)
     expect(within(rowsDesc[0]).getByText('HIGH')).toBeInTheDocument()
   })
@@ -178,7 +215,7 @@ describe('LandingCard', () => {
       logbookGetLandingRunway: vi.fn().mockResolvedValue(null),
       logbookGetLandingScore: vi
         .fn()
-        .mockResolvedValue({ score: 78, severity: 'firm' } satisfies LandingScoreResult)
+        .mockResolvedValue({ score: 78, severity: 'firm', categories: makeCategories() } satisfies LandingScoreResult)
     })
     render(<LandingCard flightId={1} landingDistanceUnit="ft" />)
 
@@ -209,5 +246,43 @@ describe('LandingCard', () => {
     expect(screen.getByText('—')).toBeInTheDocument()
     expect(screen.queryByText('Firm')).not.toBeInTheDocument()
     expect(screen.queryByText('Hard')).not.toBeInTheDocument()
+  })
+
+  it('shows a warning icon next to a field whose own category scored badly, not next to a good one', async () => {
+    setWinglog({
+      logbookGetLanding: vi.fn().mockResolvedValue(makeLanding()),
+      logbookGetLandingRunway: vi.fn().mockResolvedValue(null),
+      logbookGetLandingScore: vi.fn().mockResolvedValue({
+        score: 55,
+        severity: 'none',
+        categories: makeCategories({ crab: 10, pitch: 95 })
+      } satisfies LandingScoreResult)
+    })
+    render(<LandingCard flightId={1} landingDistanceUnit="ft" />)
+
+    const crabRow = await screen.findByText('Crab')
+    const pitchRow = screen.getByText('Pitch')
+    expect(crabRow.closest('dt')!.querySelector('svg')).not.toBeNull()
+    expect(pitchRow.closest('dt')!.querySelector('svg')).toBeNull()
+  })
+
+  it('opens the score breakdown dialog from the landing score badge', async () => {
+    const user = userEvent.setup()
+    setWinglog({
+      logbookGetLanding: vi.fn().mockResolvedValue(makeLanding()),
+      logbookGetLandingRunway: vi.fn().mockResolvedValue(null),
+      logbookGetLandingScore: vi.fn().mockResolvedValue({
+        score: 55,
+        severity: 'none',
+        categories: makeCategories({ crab: 10 })
+      } satisfies LandingScoreResult)
+    })
+    render(<LandingCard flightId={1} landingDistanceUnit="ft" />)
+
+    const trigger = await screen.findByRole('button', { name: /View landing score breakdown/ })
+    expect(screen.queryByText(/Landing score breakdown —/)).not.toBeInTheDocument()
+
+    await user.click(trigger)
+    expect(screen.getByText('Landing score breakdown — 55/100')).toBeInTheDocument()
   })
 })

@@ -314,14 +314,37 @@ export interface LandingRunway {
 
 export type LandingSeverity = 'none' | 'firm' | 'hard'
 
+export type LandingScoreCategoryKey =
+  | 'verticalSpeed'
+  | 'gForce'
+  | 'distanceFromAimingPoint'
+  | 'centrelineOffset'
+  | 'pitch'
+  | 'bank'
+  | 'crab'
+
+/** One scored input's own 0-100 contribution (landing-score.ts's LandingScoreBreakdown,
+ *  reshaped for the UI — see docs/decisions.md, 2026-09-12: Callum wanted a breakdown
+ *  popup showing "why" a score is what it is). Null when this input had no runway match to
+ *  score against (same null-handling as the stored landing fields themselves), never a
+ *  fabricated number. `label` is decided server-side so the renderer doesn't keep its own
+ *  copy of the key→label mapping. */
+export interface LandingScoreCategory {
+  key: LandingScoreCategoryKey
+  label: string
+  score: number | null
+}
+
 /** The 0-100 landing score plus its derived firm/hard classification — computed at read
  *  time from a stored landing's own fields (src/main/db/landing-score-resolver.ts), not
  *  stored itself, per docs/decisions.md (2026-09-12). No longer a Settings-configurable
  *  value — see @shared/landing-score for the per-aircraft-category baseline this derives
- *  from. */
+ *  from. `categories` backs the Logbook score-breakdown popup and the landing card's
+ *  per-field warning icons. */
 export interface LandingScoreResult {
   score: number
   severity: LandingSeverity
+  categories: LandingScoreCategory[]
 }
 
 /** One flight's score, for Logbook's list-view column (docs/plans/landing-scoring.md's

@@ -1,5 +1,11 @@
-import type { Landing, LandingScoreSummary, LandingSeverity } from '@shared/ipc'
-import { classifyLanding, computeLandingScore, deriveLandingThresholds, type LandingScoreInputs } from '@shared/landing-score'
+import type { Landing, LandingScoreCategory, LandingScoreCategoryKey, LandingScoreResult, LandingScoreSummary } from '@shared/ipc'
+import {
+  classifyLanding,
+  computeLandingScore,
+  deriveLandingThresholds,
+  type LandingScoreBreakdown,
+  type LandingScoreInputs
+} from '@shared/landing-score'
 import { getWakeCategory } from '../aircraft-lookup/icao-types'
 import { FALLBACK_LATERAL_TOLERANCE_M, findRunwayEndByIdent } from '../airports/runway-lookup'
 import { getAircraftById } from './aircraft-repo'
@@ -7,9 +13,33 @@ import type { WingLogDb } from './client'
 import { listCompletedFlights } from './flight-repo'
 import { getLandingByFlight } from './landing-repo'
 
-export interface ResolvedLandingScore {
-  score: number
-  severity: LandingSeverity
+// Order matches the landing card's own field order (touchdown rate, G-force, pitch, bank,
+// crab, then the two runway-dependent inputs) — the breakdown popup and the card's warning
+// icons both read top-to-bottom the same way the raw fields already do.
+const CATEGORY_LABELS: Record<LandingScoreCategoryKey, string> = {
+  verticalSpeed: 'Vertical speed',
+  gForce: 'G-force',
+  pitch: 'Pitch',
+  bank: 'Bank',
+  crab: 'Crab',
+  distanceFromAimingPoint: 'Distance from aiming point',
+  centrelineOffset: 'Centreline offset'
+}
+
+function toCategories(breakdown: LandingScoreBreakdown): LandingScoreCategory[] {
+  return [
+    { key: 'verticalSpeed', label: CATEGORY_LABELS.verticalSpeed, score: breakdown.inputs.verticalSpeed },
+    { key: 'gForce', label: CATEGORY_LABELS.gForce, score: breakdown.inputs.gForce },
+    { key: 'pitch', label: CATEGORY_LABELS.pitch, score: breakdown.inputs.pitch },
+    { key: 'bank', label: CATEGORY_LABELS.bank, score: breakdown.inputs.bank },
+    { key: 'crab', label: CATEGORY_LABELS.crab, score: breakdown.inputs.crab },
+    {
+      key: 'distanceFromAimingPoint',
+      label: CATEGORY_LABELS.distanceFromAimingPoint,
+      score: breakdown.inputs.distanceFromAimingPoint
+    },
+    { key: 'centrelineOffset', label: CATEGORY_LABELS.centrelineOffset, score: breakdown.inputs.centrelineOffset }
+  ]
 }
 
 /**
@@ -25,7 +55,7 @@ export function resolveLandingScore(
   landingRecord: Landing,
   arrIcao: string,
   icaoType: string | null
-): ResolvedLandingScore {
+): LandingScoreResult {
   const category = icaoType ? getWakeCategory(icaoType) : null
   const runwayEnd = landingRecord.runwayIdent ? findRunwayEndByIdent(arrIcao, landingRecord.runwayIdent) : null
 
@@ -52,9 +82,9 @@ export function resolveLandingScore(
     centrelineToleranceM: landingRecord.centrelineOffsetM !== null ? centrelineToleranceM : null
   }
 
-  const { overall } = computeLandingScore(inputs)
+  const breakdown = computeLandingScore(inputs)
   const severity = classifyLanding(landingRecord.verticalSpeedMs, deriveLandingThresholds(category))
-  return { score: overall, severity }
+  return { score: breakdown.overall, severity, categories: toCategories(breakdown) }
 }
 
 /**

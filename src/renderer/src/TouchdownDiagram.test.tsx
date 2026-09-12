@@ -47,6 +47,19 @@ describe('TouchdownDiagram', () => {
     expect(container.querySelector('circle')).not.toBeNull()
   })
 
+  it('runs vertically — the viewBox is taller than it is wide (Callum, 2026-09-12)', () => {
+    const { container } = render(
+      <TouchdownDiagram
+        runway={RUNWAY}
+        touchdown={{ distanceFromThresholdM: 350, centrelineOffsetM: 0, groundSpeedMs: 60 }}
+        unit="m"
+      />
+    )
+    const svg = container.querySelector('svg')!
+    const [, , widthPx, heightPx] = svg.getAttribute('viewBox')!.split(' ').map(Number)
+    expect(heightPx).toBeGreaterThan(widthPx)
+  })
+
   it('draws the displaced-threshold indicator only when the runway has one', () => {
     const undisplaced = render(
       <TouchdownDiagram

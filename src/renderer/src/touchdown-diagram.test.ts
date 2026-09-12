@@ -4,6 +4,7 @@ import {
   evenlySpacedYsPx,
   LATERAL_EXAGGERATION,
   thresholdStripeCountForWidthM,
+  touchdownZoneBarCounts,
   touchdownZonePairCountForLengthM,
   touchdownZonePairPositionsM,
   type DiagramRunway
@@ -44,6 +45,22 @@ describe('touchdownZonePairPositionsM', () => {
     expect(touchdownZonePairPositionsM(500)).toEqual([150])
     expect(touchdownZonePairPositionsM(1300)).toEqual([150, 300, 450])
     expect(touchdownZonePairPositionsM(3000)).toEqual([150, 300, 450, 600, 750, 900])
+  })
+})
+
+describe('touchdownZoneBarCounts', () => {
+  it.each([
+    [1, [1]],
+    [2, [2, 1]],
+    [3, [3, 2, 1]],
+    [4, [3, 2, 1, 1]],
+    [6, [3, 2, 1, 1, 2, 3]]
+  ])('gives the real countdown pattern %j for %d groups', (totalGroups, expected) => {
+    expect(touchdownZoneBarCounts(totalGroups)).toEqual(expected)
+  })
+
+  it('falls back to a flat 1-bar pattern for a group count with no real table entry', () => {
+    expect(touchdownZoneBarCounts(5)).toEqual([1, 1, 1, 1, 1])
   })
 })
 
@@ -169,6 +186,16 @@ describe('computeTouchdownDiagramLayout', () => {
     const expectedOffsetPx = 5 * layout.pxPerM * LATERAL_EXAGGERATION
     expect(layout.touchdown.yPx).toBeCloseTo(layout.heightPx / 2 + expectedOffsetPx, 6)
     expect(layout.lateralExaggeration).toBe(LATERAL_EXAGGERATION)
+  })
+
+  it('pairs each touchdown-zone group position with its real bar count', () => {
+    const layout = computeTouchdownDiagramLayout(
+      RUNWAY, // 3800m -> 6 groups
+      { distanceFromThresholdM: 350, centrelineOffsetM: 0, groundSpeedMs: 60 },
+      900
+    )
+    expect(layout.touchdownZoneGroups.map((g) => g.barCount)).toEqual([3, 2, 1, 1, 2, 3])
+    expect(layout.touchdownZoneGroups).toHaveLength(6)
   })
 
   it('derives height from the runway width and the exaggerated lateral scale', () => {
