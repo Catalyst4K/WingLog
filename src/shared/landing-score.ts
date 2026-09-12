@@ -113,7 +113,13 @@ export interface LandingScoreBreakdown {
 
 const GFORCE_IDEAL = 1.0
 const GFORCE_TOLERANCE = 1.0
-const PITCH_IDEAL_DEG = 4
+// MSFS's PLANE PITCH DEGREES (simvars.ts) is negative for nose-up, positive for nose-down
+// — confirmed two ways: flightdeck-backend's docs/simconnect-notes.md (2026-09-03) logged
+// -6.709° at a real touchdown, and a real WingLog user reported (2026-09-12) a consistent
+// flare across multiple of his own logged landings scoring as a pitch warning, which only
+// makes sense if the sign here was backwards. A "4° nose-up" ideal flare is therefore -4 in
+// this SimVar's own convention, not +4.
+const PITCH_IDEAL_DEG = -4
 const PITCH_TOLERANCE_DEG = 8
 const BANK_IDEAL_DEG = 0
 const BANK_TOLERANCE_DEG = 8

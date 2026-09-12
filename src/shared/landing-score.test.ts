@@ -57,7 +57,7 @@ const PERFECT_M: LandingScoreInputs = {
   category: 'M',
   verticalSpeedMs: msFromFpm(-100), // below ideal — one-sided, no penalty for being gentler
   gForce: 1.0,
-  pitchDeg: 4,
+  pitchDeg: -4, // ideal flare — negative is nose-up in MSFS's PLANE PITCH DEGREES
   bankDeg: 0,
   crabDeg: 0,
   distanceFromAimingPointM: 0,

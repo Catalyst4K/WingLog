@@ -176,8 +176,8 @@ export function LandingCard(props: {
       <CardHeader>
         <CardTitle className="text-sm">Landing</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+      <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-start">
+        <dl className="grid flex-1 grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
           <DetailField
             label="Touchdown rate"
             warn={isCategoryBad(categoryScore('verticalSpeed'))}
@@ -255,15 +255,20 @@ export function LandingCard(props: {
           />
         </dl>
         {runway && landing.distanceFromThresholdM != null && (
-          <TouchdownDiagram
-            runway={runway}
-            touchdown={{
-              distanceFromThresholdM: landing.distanceFromThresholdM,
-              centrelineOffsetM: landing.centrelineOffsetM ?? 0,
-              groundSpeedMs: landing.groundSpeedMs
-            }}
-            unit={unit}
-          />
+          // Small and alongside the field list (Callum, 2026-09-12), not a full-width
+          // element below it — the vertical orientation above already makes this a tall,
+          // narrow shape that suits a fixed-width side column.
+          <div className="w-28 flex-shrink-0 sm:w-32">
+            <TouchdownDiagram
+              runway={runway}
+              touchdown={{
+                distanceFromThresholdM: landing.distanceFromThresholdM,
+                centrelineOffsetM: landing.centrelineOffsetM ?? 0,
+                groundSpeedMs: landing.groundSpeedMs
+              }}
+              unit={unit}
+            />
+          </div>
         )}
       </CardContent>
     </Card>
