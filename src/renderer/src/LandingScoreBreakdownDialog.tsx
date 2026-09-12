@@ -3,7 +3,7 @@ import { TriangleAlert } from 'lucide-react'
 import type { LandingScoreCategory } from '@shared/ipc'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
-import { formatDeduction, isCategoryBad } from './landing-score-ui'
+import { categoryMaxPoints, formatDeduction, isCategoryBad } from './landing-score-ui'
 
 /**
  * Logbook's landing-score breakdown popup (docs/decisions.md, 2026-09-12) — lets Callum
@@ -38,8 +38,10 @@ export function LandingScoreBreakdownDialog(props: {
                   isCategoryBad(category.score) ? 'text-destructive' : 'text-foreground'
                 )}
               >
-                {formatDeduction(category.score)}
-                {category.score !== null && <span className="text-muted-foreground"> / 10</span>}
+                {formatDeduction(category.score, category.weight)}
+                {category.score !== null && (
+                  <span className="text-muted-foreground"> / {categoryMaxPoints(category.weight).toFixed(1)}</span>
+                )}
               </dd>
             </Fragment>
           ))}

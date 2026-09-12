@@ -24,10 +24,22 @@ function makeCategories(overrides: Partial<Record<string, number | null>> = {}):
     distanceFromAimingPoint: 'Distance from aiming point',
     centrelineOffset: 'Centreline offset'
   }
+  // Real weights (landing-score.ts's WEIGHTS) — matters here since the popup now scales
+  // each row's deduction/ceiling by its own weight, not a flat /10 for every row.
+  const weights: Record<string, number> = {
+    verticalSpeed: 25,
+    gForce: 15,
+    distanceFromAimingPoint: 20,
+    centrelineOffset: 10,
+    pitch: 10,
+    bank: 10,
+    crab: 10
+  }
   return Object.keys(base).map((key) => ({
     key: key as LandingScoreCategory['key'],
     label: labels[key],
-    score: base[key]
+    score: base[key],
+    weight: weights[key]
   }))
 }
 
@@ -47,7 +59,7 @@ describe('LandingScoreBreakdownDialog', () => {
     expect(screen.getByText('Landing score breakdown — 82/100')).toBeInTheDocument()
   })
 
-  it('shows each category as a deduction out of 10, 0 for a perfect input', async () => {
+  it('shows each category as a deduction against its own weighted ceiling, 0 for a perfect input', async () => {
     const user = userEvent.setup()
     render(
       <LandingScoreBreakdownDialog
@@ -58,8 +70,13 @@ describe('LandingScoreBreakdownDialog', () => {
     )
     await user.click(screen.getByRole('button', { name: 'Open' }))
 
-    expect(screen.getByText('0')).toBeInTheDocument() // verticalSpeed: perfect
-    expect(screen.getByText('-7.0')).toBeInTheDocument() // crab: (30-100)/10
+    // verticalSpeed: weight 25 -> ceiling 2.5, perfect score -> "0" (not scaled)
+    const verticalSpeedRow = screen.getByText('Vertical speed').nextElementSibling!
+    expect(verticalSpeedRow.textContent).toBe('0 / 2.5')
+
+    // crab: weight 10 -> ceiling 1.0, deduction -(10*(100-30)/1000) = -0.7
+    const crabRow = screen.getByText('Crab').nextElementSibling!
+    expect(crabRow.textContent).toBe('-0.7 / 1.0')
   })
 
   it('shows N/A for a category with no runway match, not a fabricated deduction', async () => {

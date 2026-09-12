@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
-import type { LandingDistanceUnit, LandingRunway } from '@shared/ipc'
+import type { LandingRunway } from '@shared/ipc'
 import { computeTouchdownDiagramLayout, evenlySpacedYsPx, type DiagramTouchdown } from './touchdown-diagram'
-import { formatCentrelineOffset, formatRunwayDistance } from './units'
 
 // A fixed reference width to lay the geometry out at — the <svg> itself scales to its
 // container via viewBox + width="100%", so this only has to be large enough that px-sized
@@ -130,7 +129,6 @@ function TouchdownZoneGroup(props: {
 export function TouchdownDiagram(props: {
   runway: LandingRunway
   touchdown: DiagramTouchdown
-  unit: LandingDistanceUnit
 }): React.JSX.Element {
   const layout = useMemo(
     () => computeTouchdownDiagramLayout(props.runway, props.touchdown, VIEWPORT_WIDTH_PX),
@@ -155,15 +153,20 @@ export function TouchdownDiagram(props: {
   const dot = rotatedPoint(layout.touchdown.xPx, layout.touchdown.yPx, layout.widthPx)
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <svg
-        viewBox={`0 0 ${svgWidthPx} ${svgHeightPx}`}
-        width="100%"
-        height="auto"
-        preserveAspectRatio="xMidYMid meet"
-        role="img"
-        aria-label={`Touchdown diagram for runway ${props.runway.ident}`}
-      >
+    <svg
+      viewBox={`0 0 ${svgWidthPx} ${svgHeightPx}`}
+      // Sized off height, not width (Callum, 2026-09-12: the diagram should be no bigger
+      // than the text list it sits alongside, not its own separately-sized block) — the
+      // parent column fixes the height (LogbookView.tsx) and this derives its own width
+      // from that via the aspect-ratio, rather than the old width:100%/height:auto which
+      // let a long runway's tall, narrow window grow past the field list's height.
+      width="auto"
+      height="100%"
+      style={{ aspectRatio: `${svgWidthPx} / ${svgHeightPx}`, display: 'block', margin: '0 auto' }}
+      preserveAspectRatio="xMidYMid meet"
+      role="img"
+      aria-label={`Touchdown diagram for runway ${props.runway.ident}`}
+    >
         {/* Approach area before the physical runway start, when the window extends into it. */}
         {layout.runwayStartXPx > 0 && (
           <rect {...rotatedRect(0, layout.runwayStartXPx, svgWidthPx / 2, svgWidthPx, layout.widthPx)} fill={APPROACH_COLOR} />
@@ -282,14 +285,6 @@ export function TouchdownDiagram(props: {
           stroke={MARKING_COLOR}
           strokeWidth={1.5}
         />
-      </svg>
-
-      <p className="text-xs text-muted-foreground">
-        {formatRunwayDistance(props.touchdown.distanceFromThresholdM, props.unit)} from threshold,{' '}
-        {formatCentrelineOffset(props.touchdown.centrelineOffsetM, props.unit)} · aiming point{' '}
-        {formatRunwayDistance(props.runway.aimingPointDistanceM, props.unit)} · lateral scale ×
-        {layout.lateralExaggeration} · exact touchdown point is within ~1s of ground roll behind the dot
-      </p>
-    </div>
+    </svg>
   )
 }

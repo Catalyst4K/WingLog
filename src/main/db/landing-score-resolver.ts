@@ -3,6 +3,7 @@ import {
   classifyLanding,
   computeLandingScore,
   deriveLandingThresholds,
+  WEIGHTS,
   type LandingScoreBreakdown,
   type LandingScoreInputs
 } from '@shared/landing-score'
@@ -28,17 +29,23 @@ const CATEGORY_LABELS: Record<LandingScoreCategoryKey, string> = {
 
 function toCategories(breakdown: LandingScoreBreakdown): LandingScoreCategory[] {
   return [
-    { key: 'verticalSpeed', label: CATEGORY_LABELS.verticalSpeed, score: breakdown.inputs.verticalSpeed },
-    { key: 'gForce', label: CATEGORY_LABELS.gForce, score: breakdown.inputs.gForce },
-    { key: 'pitch', label: CATEGORY_LABELS.pitch, score: breakdown.inputs.pitch },
-    { key: 'bank', label: CATEGORY_LABELS.bank, score: breakdown.inputs.bank },
-    { key: 'crab', label: CATEGORY_LABELS.crab, score: breakdown.inputs.crab },
+    { key: 'verticalSpeed', label: CATEGORY_LABELS.verticalSpeed, score: breakdown.inputs.verticalSpeed, weight: WEIGHTS.verticalSpeed },
+    { key: 'gForce', label: CATEGORY_LABELS.gForce, score: breakdown.inputs.gForce, weight: WEIGHTS.gForce },
+    { key: 'pitch', label: CATEGORY_LABELS.pitch, score: breakdown.inputs.pitch, weight: WEIGHTS.pitch },
+    { key: 'bank', label: CATEGORY_LABELS.bank, score: breakdown.inputs.bank, weight: WEIGHTS.bank },
+    { key: 'crab', label: CATEGORY_LABELS.crab, score: breakdown.inputs.crab, weight: WEIGHTS.crab },
     {
       key: 'distanceFromAimingPoint',
       label: CATEGORY_LABELS.distanceFromAimingPoint,
-      score: breakdown.inputs.distanceFromAimingPoint
+      score: breakdown.inputs.distanceFromAimingPoint,
+      weight: WEIGHTS.distanceFromAimingPoint
     },
-    { key: 'centrelineOffset', label: CATEGORY_LABELS.centrelineOffset, score: breakdown.inputs.centrelineOffset }
+    {
+      key: 'centrelineOffset',
+      label: CATEGORY_LABELS.centrelineOffset,
+      score: breakdown.inputs.centrelineOffset,
+      weight: WEIGHTS.centrelineOffset
+    }
   ]
 }
 

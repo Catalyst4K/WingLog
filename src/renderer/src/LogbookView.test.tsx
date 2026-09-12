@@ -117,6 +117,17 @@ const CATEGORY_LABELS: Record<LandingScoreCategoryKey, string> = {
   centrelineOffset: 'Centreline offset'
 }
 
+// Real weights (landing-score.ts's WEIGHTS) — the popup scales each row by its own weight.
+const CATEGORY_WEIGHTS: Record<LandingScoreCategoryKey, number> = {
+  verticalSpeed: 25,
+  gForce: 15,
+  distanceFromAimingPoint: 20,
+  centrelineOffset: 10,
+  pitch: 10,
+  bank: 10,
+  crab: 10
+}
+
 function makeCategories(overrides: Partial<Record<LandingScoreCategoryKey, number | null>> = {}): LandingScoreCategory[] {
   const scores: Record<LandingScoreCategoryKey, number | null> = {
     verticalSpeed: 90,
@@ -131,7 +142,8 @@ function makeCategories(overrides: Partial<Record<LandingScoreCategoryKey, numbe
   return (Object.keys(scores) as LandingScoreCategoryKey[]).map((key) => ({
     key,
     label: CATEGORY_LABELS[key],
-    score: scores[key]
+    score: scores[key],
+    weight: CATEGORY_WEIGHTS[key]
   }))
 }
 
@@ -266,7 +278,7 @@ describe('LandingCard', () => {
     expect(pitchRow.closest('dt')!.querySelector('svg')).toBeNull()
   })
 
-  it('opens the score breakdown dialog from the landing score badge', async () => {
+  it('opens the score breakdown dialog from the card header button', async () => {
     const user = userEvent.setup()
     setWinglog({
       logbookGetLanding: vi.fn().mockResolvedValue(makeLanding()),
@@ -279,7 +291,7 @@ describe('LandingCard', () => {
     })
     render(<LandingCard flightId={1} landingDistanceUnit="ft" />)
 
-    const trigger = await screen.findByRole('button', { name: /View landing score breakdown/ })
+    const trigger = await screen.findByRole('button', { name: 'Score breakdown' })
     expect(screen.queryByText(/Landing score breakdown —/)).not.toBeInTheDocument()
 
     await user.click(trigger)

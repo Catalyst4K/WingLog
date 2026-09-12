@@ -120,6 +120,24 @@ describe('computeLandingScore', () => {
     expect(result.overall).toBeLessThan(100)
   })
 
+  it(
+    'flags a 5° crab as a real drag on the score, not a shrug — tightened 2026-09-12 after ' +
+      'Callum reported a real 5.7° crab landing not reading as bad',
+    () => {
+      // Tolerance 9°: score(5) = round(100*(1-5/9)) = 44 — below LandingScoreBreakdownDialog's
+      // BAD_CATEGORY_THRESHOLD (50), landing-score-ui.ts.
+      const result = computeLandingScore({ ...PERFECT_M, crabDeg: 5 })
+      expect(result.inputs.crab).toBe(44)
+      expect(result.inputs.crab).toBeLessThan(50)
+    }
+  )
+
+  it('still scores a couple of degrees of crab gently, not as a cliff', () => {
+    // score(2) = round(100*(1-2/9)) = 78 — comfortably above the bad threshold.
+    const result = computeLandingScore({ ...PERFECT_M, crabDeg: 2 })
+    expect(result.inputs.crab).toBe(78)
+  })
+
   it('renormalizes over the available weight when there is no runway match', () => {
     const noRunway: LandingScoreInputs = {
       ...PERFECT_M,

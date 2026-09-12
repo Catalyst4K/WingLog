@@ -32,6 +32,28 @@ describe('SortableHead', () => {
     expect(container.querySelector('svg')).toBeInTheDocument()
   })
 
+  it('merges a passed className with its own layout classes rather than replacing them', () => {
+    render(
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <SortableHead
+              sortKey="name"
+              label="Name"
+              activeKey="age"
+              dir="asc"
+              onSort={vi.fn()}
+              className="text-center"
+            />
+          </TableRow>
+        </TableHeader>
+      </Table>
+    )
+    const th = screen.getByRole('columnheader')
+    expect(th.className).toContain('text-center')
+    expect(th.className).toContain('cursor-pointer')
+  })
+
   it('calls onSort with its own key when clicked', async () => {
     const onSort = vi.fn()
     const user = userEvent.setup()

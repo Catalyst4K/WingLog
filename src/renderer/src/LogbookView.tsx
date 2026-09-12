@@ -175,6 +175,22 @@ export function LandingCard(props: {
     <Card className="min-w-72 flex-1">
       <CardHeader>
         <CardTitle className="text-sm">Landing</CardTitle>
+        {scoreResult && (
+          // A distinct top-right control (Callum, 2026-09-12) — the old approach put the
+          // dialog's only trigger on the score badge itself, buried among a dozen other
+          // fields with no visual hint it was clickable.
+          <CardAction>
+            <LandingScoreBreakdownDialog
+              overall={scoreResult.score}
+              categories={scoreResult.categories}
+              trigger={
+                <Button type="button" variant="outline" size="sm">
+                  Score breakdown
+                </Button>
+              }
+            />
+          </CardAction>
+        )}
       </CardHeader>
       <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <dl className="grid flex-1 grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
@@ -188,28 +204,7 @@ export function LandingCard(props: {
               </span>
             }
           />
-          <DetailField
-            label="Landing score"
-            value={
-              scoreResult ? (
-                <LandingScoreBreakdownDialog
-                  overall={scoreResult.score}
-                  categories={scoreResult.categories}
-                  trigger={
-                    <button
-                      type="button"
-                      className="cursor-pointer"
-                      aria-label={`View landing score breakdown — ${scoreResult.score} out of 100`}
-                    >
-                      <LandingScoreBadge score={scoreResult.score} />
-                    </button>
-                  }
-                />
-              ) : (
-                <LandingScoreBadge score={null} />
-              )
-            }
-          />
+          <DetailField label="Landing score" value={<LandingScoreBadge score={scoreResult?.score ?? null} />} />
           <DetailField label="G-force" value={landing.gForce.toFixed(2)} warn={isCategoryBad(categoryScore('gForce'))} />
           <DetailField
             label="Pitch"
@@ -255,10 +250,11 @@ export function LandingCard(props: {
           />
         </dl>
         {runway && landing.distanceFromThresholdM != null && (
-          // Small and alongside the field list (Callum, 2026-09-12), not a full-width
-          // element below it — the vertical orientation above already makes this a tall,
-          // narrow shape that suits a fixed-width side column.
-          <div className="w-28 flex-shrink-0 sm:w-32">
+          // No bigger than the field list it sits alongside (Callum, 2026-09-12: the
+          // original width-only cap left height unconstrained, so a long runway's tall
+          // window could still dwarf the text next to it) — fixed height, width follows
+          // from the diagram's own aspect ratio (TouchdownDiagram.tsx).
+          <div className="h-64 flex-shrink-0 self-start">
             <TouchdownDiagram
               runway={runway}
               touchdown={{
@@ -266,7 +262,6 @@ export function LandingCard(props: {
                 centrelineOffsetM: landing.centrelineOffsetM ?? 0,
                 groundSpeedMs: landing.groundSpeedMs
               }}
-              unit={unit}
             />
           </div>
         )}
@@ -589,14 +584,16 @@ function FlightDetail(props: {
 
 type SortKey = 'date' | 'flight' | 'route' | 'aircraft' | 'block' | 'score' | 'fuel'
 
-const SORT_COLUMNS: { key: SortKey; label: string }[] = [
+// 'score' is last (Callum, 2026-09-12) — it's the column most worth glancing down as a
+// column, so it reads best at the row's end rather than interrupting block/fuel.
+const SORT_COLUMNS: { key: SortKey; label: string; className?: string }[] = [
   { key: 'date', label: 'Date' },
   { key: 'flight', label: 'Flight' },
   { key: 'route', label: 'Route' },
   { key: 'aircraft', label: 'Aircraft' },
   { key: 'block', label: 'Block' },
-  { key: 'score', label: 'Landing Score' },
-  { key: 'fuel', label: 'Fuel burn' }
+  { key: 'fuel', label: 'Fuel burn' },
+  { key: 'score', label: 'Landing Score', className: 'text-center' }
 ]
 
 function compareFlights(
@@ -767,8 +764,8 @@ export function LogbookView(props: {
               <TableHead>Route</TableHead>
               <TableHead>Aircraft</TableHead>
               <TableHead>Block</TableHead>
-              <TableHead>Landing Score</TableHead>
               <TableHead>Fuel burn</TableHead>
+              <TableHead className="text-center">Landing Score</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -811,6 +808,7 @@ export function LogbookView(props: {
                     activeKey={sortKey}
                     dir={sortDir}
                     onSort={handleSort}
+                    className={col.className}
                   />
                 ))}
               </TableRow>
@@ -829,10 +827,10 @@ export function LogbookView(props: {
                   </TableCell>
                   <TableCell>{registrationFor(f.aircraftId)}</TableCell>
                   <TableCell>{formatMinutes(f.blockMinutes)}</TableCell>
-                  <TableCell>
+                  <TableCell>{formatWeight(f.fuelBurnKg, props.weightUnit)}</TableCell>
+                  <TableCell className="text-center">
                     <LandingScoreBadge score={scoreFor(f.id)} />
                   </TableCell>
-                  <TableCell>{formatWeight(f.fuelBurnKg, props.weightUnit)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

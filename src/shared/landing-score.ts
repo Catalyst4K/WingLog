@@ -124,13 +124,21 @@ const PITCH_TOLERANCE_DEG = 8
 const BANK_IDEAL_DEG = 0
 const BANK_TOLERANCE_DEG = 8
 const CRAB_IDEAL_DEG = 0
-const CRAB_TOLERANCE_DEG = 15
+// Was 15 at first ship. Tightened 2026-09-12 (docs/decisions.md) after a real-use report:
+// Callum flagged that a 5.7° crab on a real landing wasn't showing as a bad category, and
+// argued anything past ~5° residual crab at touchdown is worth a warning — most technique
+// guidance has a pilot removing crab by touchdown (wing-low/de-crab), so a few degrees left
+// over is a genuine, if minor, miss rather than nothing. 9 puts 5° clearly under the bad
+// threshold (score 44) while still scoring 2-3° gently (78/67) and treating anything past
+// 9° as a complete miss — a judgement call, not a sourced limit, same register as the other
+// constants here.
+const CRAB_TOLERANCE_DEG = 9
 
 // Weights sum to 100 when every input is available (see computeLandingScore's
 // renormalization when some aren't). First-pass judgement calls, same honesty register as
 // the constants above — easy to retune later since the score is computed at read time, not
 // stored, so a change re-scores every historical landing automatically.
-const WEIGHTS = {
+export const WEIGHTS = {
   verticalSpeed: 25,
   gForce: 15,
   distanceFromAimingPoint: 20,
