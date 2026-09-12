@@ -6,6 +6,7 @@ import type {
   AppPage,
   DispatchOfp,
   Flight,
+  LandingDistanceUnit,
   ProcedureSelection,
   SimConnectionStatus,
   SimTelemetry,
@@ -114,6 +115,7 @@ export default function App(): React.JSX.Element {
   const [weightUnit, setWeightUnit] = useState<WeightUnit>('lb')
   const [altitudeUnit, setAltitudeUnit] = useState<AltitudeUnit>('ft')
   const [windSpeedUnit, setWindSpeedUnit] = useState<WindSpeedUnit>('kt')
+  const [landingDistanceUnit, setLandingDistanceUnit] = useState<LandingDistanceUnit>('ft')
   const [theme, setTheme] = useState<Theme>('system')
   const [simStatus, setSimStatus] = useState<SimConnectionStatus>({ state: 'disconnected' })
   const [telemetry, setTelemetry] = useState<SimTelemetry | null>(null)
@@ -272,6 +274,7 @@ export default function App(): React.JSX.Element {
     window.winglog.settingsGetWeightUnit().then(setWeightUnit)
     window.winglog.settingsGetAltitudeUnit().then(setAltitudeUnit)
     window.winglog.settingsGetWindSpeedUnit().then(setWindSpeedUnit)
+    window.winglog.settingsGetLandingDistanceUnit().then(setLandingDistanceUnit)
     window.winglog.settingsGetTheme().then(setTheme)
   }, [])
 
@@ -342,6 +345,11 @@ export default function App(): React.JSX.Element {
     await window.winglog.settingsSetWindSpeedUnit(unit)
   }
 
+  async function handleLandingDistanceUnitChange(unit: LandingDistanceUnit): Promise<void> {
+    setLandingDistanceUnit(unit)
+    await window.winglog.settingsSetLandingDistanceUnit(unit)
+  }
+
   return (
     <main className="flex h-screen flex-col">
       <Tabs value={page} onValueChange={(value) => setPage(value as AppPage)} className="min-h-0 flex-1 gap-0">
@@ -409,6 +417,7 @@ export default function App(): React.JSX.Element {
             {page === 'logbook' && (
               <LogbookView
                 weightUnit={weightUnit}
+                landingDistanceUnit={landingDistanceUnit}
                 initialFlightId={pendingLogbookFlight?.flightId ?? null}
                 initialFlightOriginAircraftId={pendingLogbookFlight?.fromAircraftId ?? null}
                 onInitialFlightConsumed={() => setPendingLogbookFlight(null)}
@@ -424,6 +433,8 @@ export default function App(): React.JSX.Element {
                 onAltitudeUnitChange={handleAltitudeUnitChange}
                 windSpeedUnit={windSpeedUnit}
                 onWindSpeedUnitChange={handleWindSpeedUnitChange}
+                landingDistanceUnit={landingDistanceUnit}
+                onLandingDistanceUnitChange={handleLandingDistanceUnitChange}
                 theme={theme}
                 onThemeChange={handleThemeChange}
                 resetSignal={settingsResetSignal}

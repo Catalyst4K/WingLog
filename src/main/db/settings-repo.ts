@@ -1,5 +1,13 @@
 import { eq } from 'drizzle-orm'
-import type { AltitudeUnit, GsxSettings, LandingThresholds, Theme, WeightUnit, WindSpeedUnit } from '@shared/ipc'
+import type {
+  AltitudeUnit,
+  GsxSettings,
+  LandingDistanceUnit,
+  LandingThresholds,
+  Theme,
+  WeightUnit,
+  WindSpeedUnit
+} from '@shared/ipc'
 import { appSetting } from './schema'
 import type { WingLogDb } from './client'
 
@@ -7,6 +15,7 @@ const SIMBRIEF_USERNAME_KEY = 'simbriefUsername'
 const WEIGHT_UNIT_KEY = 'weightUnit'
 const ALTITUDE_UNIT_KEY = 'altitudeUnit'
 const WIND_SPEED_UNIT_KEY = 'windSpeedUnit'
+const LANDING_DISTANCE_UNIT_KEY = 'landingDistanceUnit'
 const THEME_KEY = 'theme'
 const GSX_ENABLED_KEY = 'gsxEnabled'
 const GSX_FOLDER_PATH_KEY = 'gsxFolderPath'
@@ -65,6 +74,16 @@ export function getWindSpeedUnit(db: WingLogDb): WindSpeedUnit {
 
 export function setWindSpeedUnit(db: WingLogDb, unit: WindSpeedUnit): void {
   setSetting(db, WIND_SPEED_UNIT_KEY, unit)
+}
+
+/** Defaults to 'ft' — deliberately different from windSpeedUnit/altitudeUnit's own
+ *  defaults (docs/plans/logbook-detail-improvements.md, item 4: Callum's call). */
+export function getLandingDistanceUnit(db: WingLogDb): LandingDistanceUnit {
+  return getSetting(db, LANDING_DISTANCE_UNIT_KEY) === 'm' ? 'm' : 'ft'
+}
+
+export function setLandingDistanceUnit(db: WingLogDb, unit: LandingDistanceUnit): void {
+  setSetting(db, LANDING_DISTANCE_UNIT_KEY, unit)
 }
 
 export function getTheme(db: WingLogDb): Theme {

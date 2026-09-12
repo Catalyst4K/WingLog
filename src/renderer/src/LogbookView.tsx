@@ -12,11 +12,21 @@ import {
 } from 'recharts'
 import { ArrowLeft, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import type { Aircraft, Flight, Landing, LogbookStats, TrackPoint, WeightUnit } from '@shared/ipc'
+import type {
+  Aircraft,
+  Flight,
+  Landing,
+  LandingDistanceUnit,
+  LandingRunway,
+  LogbookStats,
+  TrackPoint,
+  WeightUnit
+} from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { computeChartAxisTicks, formatTickLabel } from './chart-ticks'
 import { FlightMap } from './FlightMap'
 import { GsxInvoicesCard } from './GsxInvoicesCard'
 import { useConfirm } from './hooks/useConfirm'
@@ -27,7 +37,16 @@ import { classifyLanding } from './landing-severity'
 import { selectionFromFlight, useLiveWaypoints } from './procedureSelection'
 import type { Waypoint } from './route'
 import { SortableHead } from './SortableHead'
-import { formatMinutes, formatWeight, mToFt, msToFpm, msToKt } from './units'
+import { TouchdownDiagram } from './TouchdownDiagram'
+import {
+  formatCentrelineOffset,
+  formatMinutes,
+  formatRunwayDistance,
+  formatWeight,
+  mToFt,
+  msToFpm,
+  msToKt
+} from './units'
 import { useLandingThresholds } from './useLandingThresholds'
 
 type View = { kind: 'list' } | { kind: 'detail'; id: number }
@@ -50,6 +69,26 @@ const CHART_TOOLTIP_STYLE = {
 // in hours would round to one or two ticks total, which is worse than minutes, not better.
 const HOURS_AXIS_THRESHOLD_MIN = 90
 
+/** Recharts' default tooltip puts the hovered time on its own header line and the value
+ *  below it — but the time is already readable straight off the axis (the vertical cursor
+ *  line still shows exactly where the hover is), so the header line just adds noise. This
+ *  shows only the formatted value, in the numeric-readout mono style used everywhere else
+ *  in the app (docs/plans/logbook-detail-improvements.md, item 2). */
+function ValueTooltip(props: {
+  active?: boolean
+  payload?: readonly { value?: number | string }[]
+  formatValue: (value: number) => string
+}): React.JSX.Element | null {
+  if (!props.active || !props.payload || props.payload.length === 0) return null
+  const raw = props.payload[0]?.value
+  if (typeof raw !== 'number') return null
+  return (
+    <div style={CHART_TOOLTIP_STYLE} className="px-2 py-1 font-mono text-sm tabular-nums">
+      {props.formatValue(raw)}
+    </div>
+  )
+}
+
 function formatDate(iso: string | null): string {
   return iso ? new Date(iso).toLocaleString() : '—'
 }
@@ -69,24 +108,50 @@ function DetailField(props: { label: string; value: React.ReactNode }): React.JS
  *  rendering pattern the fuel chart above already uses: render nothing when there's no
  *  landing to show (the common case for any flight tracked before this feature existed),
  *  not an empty card. */
-function LandingCard(props: { flightId: number }): React.JSX.Element | null {
+function LandingCard(props: { flightId: number; landingDistanceUnit: LandingDistanceUnit }): React.JSX.Element | null {
   const [landing, setLanding] = useState<Landing | null | undefined>(undefined)
+  const [runway, setRunway] = useState<LandingRunway | null>(null)
   const thresholds = useLandingThresholds()
 
   useEffect(() => {
-    window.winglog.logbookGetLanding(props.flightId).then(setLanding)
+    // Fetched together (docs/plans/logbook-detail-improvements.md) rather than the runway
+    // as a second effect keyed off `landing` — that would flash the card at its shorter,
+    // no-diagram height first and then grow once the runway arrives.
+    Promise.all([
+      window.winglog.logbookGetLanding(props.flightId),
+      window.winglog.logbookGetLandingRunway(props.flightId)
+    ]).then(([landingResult, runwayResult]) => {
+      setLanding(landingResult)
+      setRunway(runwayResult)
+    })
   }, [props.flightId])
+
+  // Still loading — render a skeleton at roughly the card's final height rather than
+  // nothing, so the layout doesn't jump once the fetch resolves.
+  if (landing === undefined) {
+    return (
+      <Card className="min-w-72 flex-1">
+        <CardHeader>
+          <CardTitle className="text-sm">Landing</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-40 w-full" />
+        </CardContent>
+      </Card>
+    )
+  }
 
   if (!landing) return null
 
   const severity = classifyLanding(landing.verticalSpeedMs, thresholds)
+  const unit = props.landingDistanceUnit
 
   return (
     <Card className="min-w-72 flex-1">
       <CardHeader>
         <CardTitle className="text-sm">Landing</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-4">
         <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
           <DetailField
             label="Touchdown rate"
@@ -120,14 +185,27 @@ function LandingCard(props: { flightId: number }): React.JSX.Element | null {
           <DetailField
             label="Distance from threshold"
             value={
-              landing.distanceFromThresholdM != null ? `${Math.round(landing.distanceFromThresholdM)} m` : '—'
+              landing.distanceFromThresholdM != null
+                ? formatRunwayDistance(landing.distanceFromThresholdM, unit)
+                : '—'
             }
           />
           <DetailField
             label="Centreline offset"
-            value={landing.centrelineOffsetM != null ? `${Math.round(landing.centrelineOffsetM)} m` : '—'}
+            value={landing.centrelineOffsetM != null ? formatCentrelineOffset(landing.centrelineOffsetM, unit) : '—'}
           />
         </dl>
+        {runway && landing.distanceFromThresholdM != null && (
+          <TouchdownDiagram
+            runway={runway}
+            touchdown={{
+              distanceFromThresholdM: landing.distanceFromThresholdM,
+              centrelineOffsetM: landing.centrelineOffsetM ?? 0,
+              groundSpeedMs: landing.groundSpeedMs
+            }}
+            unit={unit}
+          />
+        )}
       </CardContent>
     </Card>
   )
@@ -137,6 +215,7 @@ function FlightDetail(props: {
   flight: Flight
   aircraft: Aircraft | undefined
   weightUnit: WeightUnit
+  landingDistanceUnit: LandingDistanceUnit
   onBack: () => void
   /** True when onBack returns to the Fleet aircraft this flight was opened from, rather
    *  than Logbook's own list — only changes the button label, not the navigation. */
@@ -216,10 +295,14 @@ function FlightDetail(props: {
   const profile = useMemo(() => {
     const startMs = trackPoints.length ? new Date(trackPoints[0].tsUtc).getTime() : 0
     return trackPoints.map((p) => {
+      // Left unrounded — track points aren't evenly spaced in time (FlightRecorder samples
+      // 1-5s depending on phase, then track-simplify.ts's Douglas-Peucker pass keeps more
+      // points where the profile bends), so a real `type="number"` time axis needs each
+      // point's true elapsed time to plot the chart's actual shape, not just to label it
+      // (docs/plans/logbook-detail-improvements.md, item 1).
       const tMin = (new Date(p.tsUtc).getTime() - startMs) / 60000
       return {
-        tMin: Math.round(tMin * 10) / 10,
-        tHr: Math.round((tMin / 60) * 100) / 100,
+        tMin,
         altFt: Math.round(mToFt(p.altitudeM)),
         iasKt: Math.round(msToKt(p.indicatedAirspeedMs)),
         mach: Math.round(p.machSpeed * 100) / 100
@@ -228,10 +311,15 @@ function FlightDetail(props: {
   }, [trackPoints])
 
   // A long-haul's duration reads better in hours than as a three/four-digit minutes axis
-  // — see HOURS_AXIS_THRESHOLD_MIN above.
-  const useHoursAxis = (profile.at(-1)?.tMin ?? 0) > HOURS_AXIS_THRESHOLD_MIN
-  const timeAxisKey = useHoursAxis ? 'tHr' : 'tMin'
+  // — see HOURS_AXIS_THRESHOLD_MIN above. Both charts share the same `tMin` data field
+  // regardless: this only changes which tick ladder/label unit is used, not the axis's own
+  // domain, so climb/cruise/descent stay proportional to real elapsed time either way.
+  const durationMin = profile.at(-1)?.tMin ?? 0
+  const useHoursAxis = durationMin > HOURS_AXIS_THRESHOLD_MIN
+  const { ticksMin } = useMemo(() => computeChartAxisTicks(durationMin, useHoursAxis), [durationMin, useHoursAxis])
   const timeAxisUnit = useHoursAxis ? ' hr' : ' min'
+  const formatTimeTick = (value: number): string =>
+    useHoursAxis ? formatTickLabel(value / 60) : formatTickLabel(value)
 
   const [speedMode, setSpeedMode] = useState<'ias' | 'mach'>('ias')
   const speedDataKey = speedMode === 'ias' ? 'iasKt' : 'mach'
@@ -284,7 +372,7 @@ function FlightDetail(props: {
             </dl>
           </CardContent>
         </Card>
-        <LandingCard flightId={flight.id} />
+        <LandingCard flightId={flight.id} landingDistanceUnit={props.landingDistanceUnit} />
       </div>
 
       <div className="h-[min(36vh,360px)] min-h-56">
@@ -308,17 +396,23 @@ function FlightDetail(props: {
                 <LineChart data={profile}>
                   <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} />
                   <XAxis
-                    dataKey={timeAxisKey}
+                    dataKey="tMin"
+                    type="number"
+                    domain={[0, 'dataMax']}
+                    ticks={ticksMin}
+                    tickFormatter={formatTimeTick}
                     unit={timeAxisUnit}
                     stroke={CHART_AXIS_COLOR}
                     tick={{ fill: CHART_AXIS_COLOR }}
                   />
-                  <YAxis unit=" ft" width={70} stroke={CHART_AXIS_COLOR} tick={{ fill: CHART_AXIS_COLOR }} />
-                  <Tooltip
-                    formatter={(value) => `${value} ft`}
-                    labelFormatter={(label) => `${label}${timeAxisUnit}`}
-                    contentStyle={CHART_TOOLTIP_STYLE}
+                  <YAxis
+                    unit=" ft"
+                    width={70}
+                    stroke={CHART_AXIS_COLOR}
+                    tick={{ fill: CHART_AXIS_COLOR }}
+                    tickFormatter={(v: number) => v.toLocaleString()}
                   />
+                  <Tooltip content={<ValueTooltip formatValue={(v) => `${Math.round(v).toLocaleString()} ft`} />} />
                   <Line
                     type="monotone"
                     dataKey="altFt"
@@ -360,7 +454,11 @@ function FlightDetail(props: {
                 <LineChart data={profile}>
                   <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} />
                   <XAxis
-                    dataKey={timeAxisKey}
+                    dataKey="tMin"
+                    type="number"
+                    domain={[0, 'dataMax']}
+                    ticks={ticksMin}
+                    tickFormatter={formatTimeTick}
                     unit={timeAxisUnit}
                     stroke={CHART_AXIS_COLOR}
                     tick={{ fill: CHART_AXIS_COLOR }}
@@ -370,14 +468,14 @@ function FlightDetail(props: {
                     width={60}
                     stroke={CHART_AXIS_COLOR}
                     tick={{ fill: CHART_AXIS_COLOR }}
-                    tickFormatter={speedMode === 'mach' ? (v: number) => v.toFixed(2) : undefined}
+                    tickFormatter={speedMode === 'mach' ? (v: number) => v.toFixed(2) : (v: number) => v.toLocaleString()}
                   />
                   <Tooltip
-                    formatter={(value) =>
-                      speedMode === 'ias' ? `${value} kt` : `M${Number(value).toFixed(2)}`
+                    content={
+                      <ValueTooltip
+                        formatValue={(v) => (speedMode === 'ias' ? `${Math.round(v).toLocaleString()} kt` : `M${v.toFixed(2)}`)}
+                      />
                     }
-                    labelFormatter={(label) => `${label}${timeAxisUnit}`}
-                    contentStyle={CHART_TOOLTIP_STYLE}
                   />
                   <Line
                     type="monotone"
@@ -479,6 +577,7 @@ function LogbookRowsSkeleton(): React.JSX.Element {
 
 export function LogbookView(props: {
   weightUnit: WeightUnit
+  landingDistanceUnit: LandingDistanceUnit
   /** Set when another view (e.g. Fleet's per-aircraft flight list) navigated here to open
    *  a specific flight directly, rather than the user picking one from the list. */
   initialFlightId?: number | null
@@ -562,6 +661,7 @@ export function LogbookView(props: {
         flight={flight}
         aircraft={aircraft.find((a) => a.id === flight.aircraftId)}
         weightUnit={props.weightUnit}
+        landingDistanceUnit={props.landingDistanceUnit}
         backToAircraft={cameFromFleet}
         onBack={
           cameFromFleet

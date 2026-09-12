@@ -10,6 +10,7 @@ import {
   type DispatchOfp,
   type DispatchOpenSimBriefParams,
   type GsxSettings,
+  type LandingDistanceUnit,
   type LandingThresholds,
   type NavdataProcedureKind,
   type NewFlight,
@@ -23,6 +24,7 @@ import { findAirlineByIcao, searchAirlines } from './airlines/airline-search'
 import { fetchMetars } from './weather/metar-client'
 import { fetchExchangeRate } from './fx/fx-client'
 import { greatCircleWaypoints, searchAirports } from './airports/airport-search'
+import { findLandingRunway } from './airports/runway-lookup'
 import { createDb } from './db/client'
 import { migrateDb } from './db/migrate'
 import { migrateLegacyUserData } from './db/legacy-userdata'
@@ -55,6 +57,7 @@ import { importLogbookCsv } from './db/logbook-import'
 import {
   getAltitudeUnit,
   getGsxSettings,
+  getLandingDistanceUnit,
   getLandingThresholds,
   getSimbriefUsername,
   getTheme,
@@ -62,6 +65,7 @@ import {
   getWindSpeedUnit,
   setAltitudeUnit,
   setGsxSettings,
+  setLandingDistanceUnit,
   setLandingThresholds,
   setSimbriefUsername,
   setTheme,
@@ -388,6 +392,10 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.settingsSetWindSpeedUnit, (_event, unit: WindSpeedUnit) =>
         setWindSpeedUnit(db, unit)
       )
+      ipcMain.handle(IpcChannels.settingsGetLandingDistanceUnit, () => getLandingDistanceUnit(db))
+      ipcMain.handle(IpcChannels.settingsSetLandingDistanceUnit, (_event, unit: LandingDistanceUnit) =>
+        setLandingDistanceUnit(db, unit)
+      )
       ipcMain.handle(IpcChannels.settingsGetTheme, () => getTheme(db))
       ipcMain.handle(IpcChannels.settingsSetTheme, (_event, theme: Theme) => setTheme(db, theme))
 
@@ -571,6 +579,12 @@ if (!gotSingleInstanceLock) {
         IpcChannels.logbookGetLanding,
         (_event, flightId: number) => getLandingByFlight(db, flightId) ?? null
       )
+      ipcMain.handle(IpcChannels.logbookGetLandingRunway, (_event, flightId: number) => {
+        const landingFlight = getFlight(db, flightId)
+        const landingRecord = getLandingByFlight(db, flightId)
+        if (!landingFlight || !landingRecord?.runwayIdent) return null
+        return findLandingRunway(landingFlight.arrIcao, landingRecord.runwayIdent)
+      })
       ipcMain.handle(IpcChannels.logbookGreatCircleRoute, (_event, depIcao: string, arrIcao: string) =>
         greatCircleWaypoints(depIcao, arrIcao)
       )

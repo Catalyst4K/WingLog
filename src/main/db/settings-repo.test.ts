@@ -5,6 +5,7 @@ import {
   getAltitudeUnit,
   getGsxSettings,
   getLandingThresholds,
+  getLandingDistanceUnit,
   getLastSyncCompletedAt,
   getLastSyncedAt,
   getSetting,
@@ -16,6 +17,7 @@ import {
   setAltitudeUnit,
   setCheckedGsxFirstLaunch,
   setGsxSettings,
+  setLandingDistanceUnit,
   setLandingThresholds,
   setLastSyncCompletedAt,
   setLastSyncedAt,
@@ -76,6 +78,17 @@ describe('settings repo', () => {
     expect(getWindSpeedUnit(db)).toBe('mps')
     setWindSpeedUnit(db, 'kt')
     expect(getWindSpeedUnit(db)).toBe('kt')
+  })
+
+  it('defaults the landing distance unit to ft when never set', () => {
+    expect(getLandingDistanceUnit(db)).toBe('ft')
+  })
+
+  it('round-trips the landing distance unit', () => {
+    setLandingDistanceUnit(db, 'm')
+    expect(getLandingDistanceUnit(db)).toBe('m')
+    setLandingDistanceUnit(db, 'ft')
+    expect(getLandingDistanceUnit(db)).toBe('ft')
   })
 
   it('defaults the theme to system when never set', () => {

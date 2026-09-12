@@ -4,6 +4,7 @@
 // runway end (heading + threshold position both present) for airports already in this
 // app's vendored resources/airports.csv. Bundled via Vite's `?raw` import, same pattern
 // as airport-search.ts/icao-types.ts.
+import type { LandingRunway } from '@shared/ipc'
 import { columnIndex, parseCsvRows } from '../db/csv'
 import { angularDifference, positionRelativeToRunway, type RunwayRelativePosition } from './landing-maths'
 import runwaysRaw from '../../../resources/runways.csv?raw'
@@ -217,6 +218,45 @@ export function findRunwayEnd(
   touchdownLon: number
 ): RunwayEnd | null {
   return resolveRunwayEnd(getAllRunwayEnds(), icao, touchdownHeadingDeg, touchdownLat, touchdownLon)
+}
+
+/**
+ * Exact-ident lookup — resolving a stored landing's own `runwayIdent` back to its runway
+ * end (for the touchdown diagram, docs/plans/logbook-detail-improvements.md), as opposed
+ * to resolveRunwayEnd's position-based matching, which is only needed at capture time
+ * before the ident is known. Case-insensitive on the ICAO, exact on the ident (idents are
+ * already normalized to how they're stored — no case variation to absorb there).
+ */
+export function resolveRunwayEndByIdent(ends: RunwayEnd[], icao: string, ident: string): RunwayEnd | null {
+  const upperIcao = icao.toUpperCase()
+  return ends.find((end) => end.icao === upperIcao && end.ident === ident) ?? null
+}
+
+export function findRunwayEndByIdent(icao: string, ident: string): RunwayEnd | null {
+  return resolveRunwayEndByIdent(getAllRunwayEnds(), icao, ident)
+}
+
+/**
+ * Shapes a matched runway end into the touchdown diagram's IPC-facing shape — null when
+ * the end itself wasn't found, or it's missing length/width/aiming-point data (the same
+ * cases LandingCard's own fields already show as "—" for, so the diagram simply doesn't
+ * render rather than showing something that looks more precise than the data is).
+ */
+export function toLandingRunway(end: RunwayEnd | null): LandingRunway | null {
+  if (!end || end.lengthM == null || end.widthM == null || end.aimingPointDistanceM == null) return null
+  return {
+    ident: end.ident,
+    lengthM: end.lengthM,
+    widthM: end.widthM,
+    displacedThresholdM: end.displacedThresholdM,
+    aimingPointDistanceM: end.aimingPointDistanceM
+  }
+}
+
+/** Real, vendored-data version of toLandingRunway(findRunwayEndByIdent(...)) — what
+ *  main/index.ts's logbookGetLandingRunway handler actually calls. */
+export function findLandingRunway(icao: string, ident: string): LandingRunway | null {
+  return toLandingRunway(findRunwayEndByIdent(icao, ident))
 }
 
 /**
