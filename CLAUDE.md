@@ -310,3 +310,25 @@ list — Electron bootstrap, preload, vendored `components/ui/**`):
 `npm run test:coverage` runs the unit + renderer suites with coverage and checks the
 threshold in `vitest.config.ts` — a ratchet, raised as real coverage improves, not the
 100% target itself; never lower it to make a red build green.
+
+**Going forward (rule as of 2026-09-12 — see `flightdeck-backend`'s `docs/decisions.md`):
+every new feature and every fix carries its own tests in the right layer(s) above, written
+as part of the same branch, not backfilled later.** `test-coverage.md` exists to close the
+gap from years of code that shipped without this; the rule here is what keeps that gap from
+reopening. Before writing code, identify which layer(s) the change actually needs — most
+changes need only one:
+
+- **Pure logic** (a calculation, a parser, a state-machine transition, a formatter, a new
+  IPC handler's validation) → a unit test with real representative values for the case at
+  hand, not placeholders — the standard this file already asks of the phase-detection state
+  machine and the landing-analysis maths above.
+- **A renderer component's rendering or interaction, new or changed** → a renderer
+  integration test, mocking only `window.winglog` per the rule above.
+- **A new or changed user-facing flow** → a Playwright acceptance test, new or extended.
+
+A change spanning more than one layer (e.g. a new IPC channel backing a new UI control)
+needs a test in each layer it touches. This applies equally to a `plan/<name>` branch and a
+`fix/<name>` branch — a fix with no regression test is exactly the kind of gap this rule
+exists to prevent. The coverage ratchet in `vitest.config.ts` is the backstop, not the
+target: it only proves nothing dropped, not that the right things were tested, so use the
+judgement above rather than writing tests to satisfy the number.
