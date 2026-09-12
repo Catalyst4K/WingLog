@@ -250,7 +250,10 @@ function ReplaceAircraftDialog(props: {
   const target = props.candidates.find((c) => c.id === targetId) ?? null
 
   async function handleConfirm(): Promise<void> {
+    /* v8 ignore start -- defensive only: the Replace button is disabled whenever `!target`,
+     * so this can't fire from a real click. */
     if (!target) return
+    /* v8 ignore stop */
     setSubmitting(true)
     try {
       await props.onConfirm(target.id)
@@ -500,13 +503,21 @@ export function FleetView(props: {
   }
 
   async function handleConfirmReplace(replacementId: number): Promise<void> {
+    /* v8 ignore start -- defensive only: only ever called (as ReplaceAircraftDialog's
+     * onConfirm) while that dialog is mounted, which only happens while replaceTarget is
+     * set. */
     if (!replaceTarget) return
+    /* v8 ignore stop */
     const target = replaceTarget
+    // replacementId always comes from activeAircraft (the same `aircraft` state this closes
+    // over), so it's always found — the `?? replacementId` fallback below is defensive only.
     const replacement = aircraft.find((a) => a.id === replacementId)
     try {
       await window.winglog.aircraftReplace(target.id, replacementId)
       await reload()
+      /* v8 ignore start -- see the defensive-only note above `replacement` */
       toast.success(`${target.registration} retired, replaced by ${replacement?.registration ?? replacementId}.`)
+      /* v8 ignore stop */
       setView({ kind: 'detail', id: replacementId })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
@@ -525,7 +536,11 @@ export function FleetView(props: {
 
   if (view.kind === 'edit') {
     const existing = aircraft.find((a) => a.id === view.id)
+    /* v8 ignore start -- defensive only: `view.id` is only ever set (via onEdit) to an id
+     * that was just found in `aircraft` on the detail page a moment earlier, and nothing in
+     * this component removes an aircraft out from under an open edit view. */
     if (!existing) return <p className="text-sm text-muted-foreground">Aircraft not found.</p>
+    /* v8 ignore stop */
     return (
       <div className="flex flex-col gap-6">
         <h1 className="font-heading text-2xl font-semibold text-foreground">Edit {existing.registration}</h1>
