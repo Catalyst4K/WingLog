@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { loadTypes, searchAircraftTypes, searchTypes } from './icao-types'
+import { getWakeCategory, loadTypes, searchAircraftTypes, searchTypes } from './icao-types'
 
 // A handful of rows in the real resources/icao-aircraft-types.csv shape, not the full
 // 7389-row file — keeps these tests fast and focused on the search logic itself. Model
@@ -69,5 +69,37 @@ describe('searchAircraftTypes (real vendored data)', () => {
     const results = searchAircraftTypes('boeing')
     expect(results.length).toBeGreaterThan(0)
     expect(results.every((r) => r.manufacturer.toLowerCase().includes('boeing'))).toBe(true)
+  })
+})
+
+describe('getWakeCategory (real vendored data, docs/decisions.md 2026-09-12)', () => {
+  it('resolves L for a real light GA type', () => {
+    expect(getWakeCategory('C172')).toBe('L')
+  })
+
+  it('resolves M for real narrowbody types', () => {
+    expect(getWakeCategory('A320')).toBe('M')
+    expect(getWakeCategory('B738')).toBe('M')
+  })
+
+  it('resolves H for real widebody types', () => {
+    expect(getWakeCategory('A35K')).toBe('H')
+    expect(getWakeCategory('B77W')).toBe('H')
+  })
+
+  it('resolves J for the real super category (A380)', () => {
+    expect(getWakeCategory('A388')).toBe('J')
+  })
+
+  it('is case-insensitive', () => {
+    expect(getWakeCategory('c172')).toBe('L')
+  })
+
+  it('returns null for a type not in the vendored data', () => {
+    expect(getWakeCategory('NOTATYPE')).toBeNull()
+  })
+
+  it('returns null for a real type whose only wtc value is ambiguous ("L/M"), rather than guessing', () => {
+    expect(getWakeCategory('B350')).toBeNull()
   })
 })

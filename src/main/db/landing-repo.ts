@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { and, desc, eq, isNull } from 'drizzle-orm'
-import type { AircraftLanding, Landing } from '@shared/ipc'
+import type { AircraftLandingRow, Landing } from '@shared/ipc'
 import { flight, landing } from './schema'
 import type { WingLogDb } from './client'
 
@@ -60,7 +60,7 @@ export function createLanding(db: WingLogDb, input: NewLanding): Landing {
 
 /** Fleet's per-aircraft landing history — one join, newest first. Aircraft with no
  *  landing records (the common case for a while) simply return an empty array. */
-export function listLandingsByAircraft(db: WingLogDb, aircraftId: number): AircraftLanding[] {
+export function listLandingsByAircraft(db: WingLogDb, aircraftId: number): AircraftLandingRow[] {
   return db
     .select({
       landing: landing,

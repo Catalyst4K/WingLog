@@ -117,7 +117,10 @@ const MAX_HEADING_DIFFERENCE_DEG = 90
 // a candidate's own real widthM (Phase 1) isn't known — real runways are 30-90m wide, so
 // 100m already rejects a different, parallel strip while tolerating GPS/heading noise on
 // the real one. Used as a fallback only; see runwayLateralToleranceM below.
-const FALLBACK_LATERAL_TOLERANCE_M = 100
+// Exported for landing-score-resolver.ts's centreline-offset scoring tolerance, which
+// reuses this exact fallback when a runway's real width is unknown (docs/decisions.md,
+// 2026-09-12) — same value, not a second constant to keep in sync.
+export const FALLBACK_LATERAL_TOLERANCE_M = 100
 
 // Along-track bounds a touchdown must fall within, relative to the threshold. Small
 // negative slack for GPS/threshold-position noise, always applied regardless of real data

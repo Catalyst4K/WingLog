@@ -7,7 +7,6 @@ import {
   type WingLogApi,
   type GsxSettings,
   type LandingDistanceUnit,
-  type LandingThresholds,
   type NavdataProcedureKind,
   type NewAircraft,
   type NewFlight,
@@ -104,9 +103,8 @@ const api: WingLogApi = {
     ipcRenderer.invoke(IpcChannels.logbookGreatCircleRoute, depIcao, arrIcao),
   fleetListLandings: (aircraftId: number) => ipcRenderer.invoke(IpcChannels.fleetListLandings, aircraftId),
   fleetListFlights: (aircraftId: number) => ipcRenderer.invoke(IpcChannels.fleetListFlights, aircraftId),
-  settingsGetLandingThresholds: () => ipcRenderer.invoke(IpcChannels.settingsGetLandingThresholds),
-  settingsSetLandingThresholds: (thresholds: LandingThresholds) =>
-    ipcRenderer.invoke(IpcChannels.settingsSetLandingThresholds, thresholds),
+  logbookGetLandingScore: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookGetLandingScore, flightId),
+  logbookListFlightScores: () => ipcRenderer.invoke(IpcChannels.logbookListFlightScores),
   aircraftLookupByRegistration: (registration: string) =>
     ipcRenderer.invoke(IpcChannels.aircraftLookupByRegistration, registration),
   aircraftTypeSearch: (query: string) => ipcRenderer.invoke(IpcChannels.aircraftTypeSearch, query),

@@ -18,6 +18,8 @@ import type {
   Landing,
   LandingDistanceUnit,
   LandingRunway,
+  LandingScoreResult,
+  LandingScoreSummary,
   LogbookStats,
   TrackPoint,
   WeightUnit
@@ -33,7 +35,7 @@ import { useConfirm } from './hooks/useConfirm'
 import { useResetSignal } from './hooks/useResetSignal'
 import { useSortable } from './hooks/useSortable'
 import { LandingBadge } from './LandingBadge'
-import { classifyLanding } from './landing-severity'
+import { LandingScoreBadge } from './LandingScoreBadge'
 import { selectionFromFlight, useLiveWaypoints } from './procedureSelection'
 import type { Waypoint } from './route'
 import { SortableHead } from './SortableHead'
@@ -47,7 +49,6 @@ import {
   msToFpm,
   msToKt
 } from './units'
-import { useLandingThresholds } from './useLandingThresholds'
 
 type View = { kind: 'list' } | { kind: 'detail'; id: number }
 
@@ -108,10 +109,15 @@ function DetailField(props: { label: string; value: React.ReactNode }): React.JS
  *  rendering pattern the fuel chart above already uses: render nothing when there's no
  *  landing to show (the common case for any flight tracked before this feature existed),
  *  not an empty card. */
-function LandingCard(props: { flightId: number; landingDistanceUnit: LandingDistanceUnit }): React.JSX.Element | null {
+/** Exported so it's directly testable without mounting FlightDetail's FlightMap, which
+ *  LandingCard has no dependency on itself — LogbookView.test.tsx uses this. */
+export function LandingCard(props: {
+  flightId: number
+  landingDistanceUnit: LandingDistanceUnit
+}): React.JSX.Element | null {
   const [landing, setLanding] = useState<Landing | null | undefined>(undefined)
   const [runway, setRunway] = useState<LandingRunway | null>(null)
-  const thresholds = useLandingThresholds()
+  const [scoreResult, setScoreResult] = useState<LandingScoreResult | null>(null)
 
   useEffect(() => {
     // Fetched together (docs/plans/logbook-detail-improvements.md) rather than the runway
@@ -119,10 +125,12 @@ function LandingCard(props: { flightId: number; landingDistanceUnit: LandingDist
     // no-diagram height first and then grow once the runway arrives.
     Promise.all([
       window.winglog.logbookGetLanding(props.flightId),
-      window.winglog.logbookGetLandingRunway(props.flightId)
-    ]).then(([landingResult, runwayResult]) => {
+      window.winglog.logbookGetLandingRunway(props.flightId),
+      window.winglog.logbookGetLandingScore(props.flightId)
+    ]).then(([landingResult, runwayResult, scoreResultValue]) => {
       setLanding(landingResult)
       setRunway(runwayResult)
+      setScoreResult(scoreResultValue)
     })
   }, [props.flightId])
 
@@ -143,7 +151,6 @@ function LandingCard(props: { flightId: number; landingDistanceUnit: LandingDist
 
   if (!landing) return null
 
-  const severity = classifyLanding(landing.verticalSpeedMs, thresholds)
   const unit = props.landingDistanceUnit
 
   return (
@@ -158,9 +165,13 @@ function LandingCard(props: { flightId: number; landingDistanceUnit: LandingDist
             value={
               <span className="flex items-center gap-2">
                 {Math.round(msToFpm(landing.verticalSpeedMs))} fpm
-                <LandingBadge severity={severity} />
+                {scoreResult && <LandingBadge severity={scoreResult.severity} />}
               </span>
             }
+          />
+          <DetailField
+            label="Landing score"
+            value={<LandingScoreBadge score={scoreResult?.score ?? null} />}
           />
           <DetailField label="G-force" value={landing.gForce.toFixed(2)} />
           <DetailField
@@ -523,7 +534,7 @@ function FlightDetail(props: {
   )
 }
 
-type SortKey = 'date' | 'flight' | 'route' | 'aircraft' | 'block' | 'air' | 'fuel'
+type SortKey = 'date' | 'flight' | 'route' | 'aircraft' | 'block' | 'score' | 'fuel'
 
 const SORT_COLUMNS: { key: SortKey; label: string }[] = [
   { key: 'date', label: 'Date' },
@@ -531,7 +542,7 @@ const SORT_COLUMNS: { key: SortKey; label: string }[] = [
   { key: 'route', label: 'Route' },
   { key: 'aircraft', label: 'Aircraft' },
   { key: 'block', label: 'Block' },
-  { key: 'air', label: 'Air' },
+  { key: 'score', label: 'Score' },
   { key: 'fuel', label: 'Fuel burn' }
 ]
 
@@ -539,7 +550,8 @@ function compareFlights(
   a: Flight,
   b: Flight,
   key: SortKey,
-  registrationFor: (aircraftId: number) => string
+  registrationFor: (aircraftId: number) => string,
+  scoreFor: (flightId: number) => number | null
 ): number {
   switch (key) {
     case 'date':
@@ -552,8 +564,11 @@ function compareFlights(
       return registrationFor(a.aircraftId).localeCompare(registrationFor(b.aircraftId))
     case 'block':
       return (a.blockMinutes ?? 0) - (b.blockMinutes ?? 0)
-    case 'air':
-      return (a.airMinutes ?? 0) - (b.airMinutes ?? 0)
+    // A missing score (no landing row — a CSV import, or a flight tracked before landing
+    // capture shipped) sorts alongside a genuine 0, same convention 'block'/'fuel' above
+    // already use for their own nullable fields.
+    case 'score':
+      return (scoreFor(a.id) ?? 0) - (scoreFor(b.id) ?? 0)
     case 'fuel':
       return (a.fuelBurnKg ?? 0) - (b.fuelBurnKg ?? 0)
   }
@@ -600,6 +615,7 @@ export function LogbookView(props: {
   const [flights, setFlights] = useState<Flight[]>([])
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
   const [stats, setStats] = useState<LogbookStats | null>(null)
+  const [scores, setScores] = useState<LandingScoreSummary[]>([])
   const [view, setView] = useState<View>(
     props.initialFlightId != null ? { kind: 'detail', id: props.initialFlightId } : { kind: 'list' }
   )
@@ -623,11 +639,13 @@ export function LogbookView(props: {
     return Promise.all([
       window.winglog.logbookListCompletedFlights(),
       window.winglog.aircraftList(),
-      window.winglog.logbookGetStats()
-    ]).then(([flightList, aircraftList, logbookStats]) => {
+      window.winglog.logbookGetStats(),
+      window.winglog.logbookListFlightScores()
+    ]).then(([flightList, aircraftList, logbookStats, flightScores]) => {
       setFlights(flightList)
       setAircraft(aircraftList)
       setStats(logbookStats)
+      setScores(flightScores)
     })
   }
 
@@ -639,8 +657,15 @@ export function LogbookView(props: {
     return aircraft.find((a) => a.id === aircraftId)?.registration ?? `#${aircraftId}`
   }
 
+  function scoreFor(flightId: number): number | null {
+    return scores.find((s) => s.flightId === flightId)?.score ?? null
+  }
+
   const comparators = Object.fromEntries(
-    SORT_COLUMNS.map((col) => [col.key, (a: Flight, b: Flight) => compareFlights(a, b, col.key, registrationFor)])
+    SORT_COLUMNS.map((col) => [
+      col.key,
+      (a: Flight, b: Flight) => compareFlights(a, b, col.key, registrationFor, scoreFor)
+    ])
   ) as Record<SortKey, (a: Flight, b: Flight) => number>
   const {
     sortKey,
@@ -689,7 +714,7 @@ export function LogbookView(props: {
               <TableHead>Route</TableHead>
               <TableHead>Aircraft</TableHead>
               <TableHead>Block</TableHead>
-              <TableHead>Air</TableHead>
+              <TableHead>Score</TableHead>
               <TableHead>Fuel burn</TableHead>
             </TableRow>
           </TableHeader>
@@ -751,7 +776,9 @@ export function LogbookView(props: {
                   </TableCell>
                   <TableCell>{registrationFor(f.aircraftId)}</TableCell>
                   <TableCell>{formatMinutes(f.blockMinutes)}</TableCell>
-                  <TableCell>{formatMinutes(f.airMinutes)}</TableCell>
+                  <TableCell>
+                    <LandingScoreBadge score={scoreFor(f.id)} />
+                  </TableCell>
                   <TableCell>{formatWeight(f.fuelBurnKg, props.weightUnit)}</TableCell>
                 </TableRow>
               ))}

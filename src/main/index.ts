@@ -11,7 +11,6 @@ import {
   type DispatchOpenSimBriefParams,
   type GsxSettings,
   type LandingDistanceUnit,
-  type LandingThresholds,
   type NavdataProcedureKind,
   type NewFlight,
   type ProcedureSelection,
@@ -31,6 +30,7 @@ import { migrateLegacyUserData } from './db/legacy-userdata'
 import {
   createAircraft,
   deleteAircraft,
+  getAircraftById,
   getAircraftByRegistration,
   listAircraft,
   replaceAircraft,
@@ -53,12 +53,12 @@ import {
   listFlightsByAircraft
 } from './db/flight-repo'
 import { getLandingByFlight, listLandingsByAircraft } from './db/landing-repo'
+import { getLandingScoresForCompletedFlights, resolveLandingScore } from './db/landing-score-resolver'
 import { importLogbookCsv } from './db/logbook-import'
 import {
   getAltitudeUnit,
   getGsxSettings,
   getLandingDistanceUnit,
-  getLandingThresholds,
   getSimbriefUsername,
   getTheme,
   getWeightUnit,
@@ -66,7 +66,6 @@ import {
   setAltitudeUnit,
   setGsxSettings,
   setLandingDistanceUnit,
-  setLandingThresholds,
   setSimbriefUsername,
   setTheme,
   setWeightUnit,
@@ -585,18 +584,26 @@ if (!gotSingleInstanceLock) {
         if (!landingFlight || !landingRecord?.runwayIdent) return null
         return findLandingRunway(landingFlight.arrIcao, landingRecord.runwayIdent)
       })
+      ipcMain.handle(IpcChannels.logbookGetLandingScore, (_event, flightId: number) => {
+        const landingFlight = getFlight(db, flightId)
+        const landingRecord = getLandingByFlight(db, flightId)
+        if (!landingFlight || !landingRecord) return null
+        const icaoType = getAircraftById(db, landingFlight.aircraftId)?.icaoType ?? null
+        return resolveLandingScore(landingRecord, landingFlight.arrIcao, icaoType)
+      })
+      ipcMain.handle(IpcChannels.logbookListFlightScores, () => getLandingScoresForCompletedFlights(db))
       ipcMain.handle(IpcChannels.logbookGreatCircleRoute, (_event, depIcao: string, arrIcao: string) =>
         greatCircleWaypoints(depIcao, arrIcao)
       )
-      ipcMain.handle(IpcChannels.fleetListLandings, (_event, aircraftId: number) =>
-        listLandingsByAircraft(db, aircraftId)
-      )
+      ipcMain.handle(IpcChannels.fleetListLandings, (_event, aircraftId: number) => {
+        const icaoType = getAircraftById(db, aircraftId)?.icaoType ?? null
+        return listLandingsByAircraft(db, aircraftId).map((row) => ({
+          ...row,
+          ...resolveLandingScore(row, row.arrIcao, icaoType)
+        }))
+      })
       ipcMain.handle(IpcChannels.fleetListFlights, (_event, aircraftId: number) =>
         listFlightsByAircraft(db, aircraftId)
-      )
-      ipcMain.handle(IpcChannels.settingsGetLandingThresholds, () => getLandingThresholds(db))
-      ipcMain.handle(IpcChannels.settingsSetLandingThresholds, (_event, thresholds: LandingThresholds) =>
-        setLandingThresholds(db, thresholds)
       )
 
       ipcMain.handle(IpcChannels.aircraftLookupByRegistration, (_event, registration: string) =>

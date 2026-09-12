@@ -22,10 +22,9 @@ import { useConfirm } from './hooks/useConfirm'
 import { useResetSignal } from './hooks/useResetSignal'
 import { useSortable } from './hooks/useSortable'
 import { LandingBadge } from './LandingBadge'
-import { classifyLanding } from './landing-severity'
+import { LandingScoreBadge } from './LandingScoreBadge'
 import { SortableHead } from './SortableHead'
 import { formatMinutes, msToFpm, msToKt } from './units'
-import { useLandingThresholds } from './useLandingThresholds'
 
 type View = { kind: 'list' } | { kind: 'detail'; id: number } | { kind: 'new' } | { kind: 'edit'; id: number }
 
@@ -134,7 +133,6 @@ function SimBriefProfileCard(props: { aircraft: Aircraft }): React.JSX.Element {
  *  tracked since this feature shipped have a landing record at all. */
 function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
   const [landings, setLandings] = useState<AircraftLanding[]>([])
-  const thresholds = useLandingThresholds()
 
   useEffect(() => {
     window.winglog.fleetListLandings(props.aircraftId).then(setLandings)
@@ -152,7 +150,6 @@ function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
           <div className="flex flex-col gap-1.5 text-sm">
             {landings.map((l) => {
               const fpm = Math.round(msToFpm(l.verticalSpeedMs))
-              const severity = classifyLanding(l.verticalSpeedMs, thresholds)
               return (
                 <div key={l.id} className="flex items-center justify-between gap-3">
                   <span className="text-muted-foreground">{new Date(l.touchdownTsUtc).toLocaleDateString()}</span>
@@ -163,7 +160,8 @@ function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
                   <span className="text-muted-foreground">
                     {l.crosswindMs != null ? `${Math.round(msToKt(Math.abs(l.crosswindMs)))} kt xwind` : '—'}
                   </span>
-                  <LandingBadge severity={severity} />
+                  <LandingScoreBadge score={l.score} />
+                  <LandingBadge severity={l.severity} />
                 </div>
               )
             })}
