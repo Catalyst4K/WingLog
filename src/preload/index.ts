@@ -6,6 +6,7 @@ import {
   type DispatchOpenSimBriefParams,
   type WingLogApi,
   type GsxSettings,
+  type LandingDistanceUnit,
   type LandingThresholds,
   type NavdataProcedureKind,
   type NewAircraft,
@@ -68,6 +69,9 @@ const api: WingLogApi = {
   settingsGetWindSpeedUnit: () => ipcRenderer.invoke(IpcChannels.settingsGetWindSpeedUnit),
   settingsSetWindSpeedUnit: (unit: WindSpeedUnit) =>
     ipcRenderer.invoke(IpcChannels.settingsSetWindSpeedUnit, unit),
+  settingsGetLandingDistanceUnit: () => ipcRenderer.invoke(IpcChannels.settingsGetLandingDistanceUnit),
+  settingsSetLandingDistanceUnit: (unit: LandingDistanceUnit) =>
+    ipcRenderer.invoke(IpcChannels.settingsSetLandingDistanceUnit, unit),
   settingsGetTheme: () => ipcRenderer.invoke(IpcChannels.settingsGetTheme),
   settingsSetTheme: (theme: Theme) => ipcRenderer.invoke(IpcChannels.settingsSetTheme, theme),
   trackingStart: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingStart, flightId),
@@ -95,6 +99,7 @@ const api: WingLogApi = {
   gsxOpenReceipt: (sourceHtmlPath: string) => ipcRenderer.invoke(IpcChannels.gsxOpenReceipt, sourceHtmlPath),
   logbookOpenOfpPdf: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookOpenOfpPdf, flightId),
   logbookGetLanding: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookGetLanding, flightId),
+  logbookGetLandingRunway: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookGetLandingRunway, flightId),
   logbookGreatCircleRoute: (depIcao: string, arrIcao: string) =>
     ipcRenderer.invoke(IpcChannels.logbookGreatCircleRoute, depIcao, arrIcao),
   fleetListLandings: (aircraftId: number) => ipcRenderer.invoke(IpcChannels.fleetListLandings, aircraftId),

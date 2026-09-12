@@ -4,6 +4,7 @@ import type {
   AircraftImportSummary,
   AltitudeUnit,
   GsxSettings,
+  LandingDistanceUnit,
   LandingThresholds,
   LogbookImportSummary,
   SyncStatus,
@@ -94,6 +95,8 @@ export function SettingsView(props: {
   onAltitudeUnitChange: (unit: AltitudeUnit) => void
   windSpeedUnit: WindSpeedUnit
   onWindSpeedUnitChange: (unit: WindSpeedUnit) => void
+  landingDistanceUnit: LandingDistanceUnit
+  onLandingDistanceUnitChange: (unit: LandingDistanceUnit) => void
   theme: Theme
   onThemeChange: (theme: Theme) => void
   /** Bumped by App.tsx when the Settings tab is clicked while already active — returns to
@@ -340,6 +343,21 @@ export function SettingsView(props: {
                 <p className="text-xs text-muted-foreground">
                   The raw METAR text on Dispatch always stays as reported — this only controls a separate
                   formatted wind line shown alongside it.
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <SegmentedRow
+                  label="Landing distances"
+                  value={props.landingDistanceUnit}
+                  options={[
+                    { value: 'ft', label: 'Feet' },
+                    { value: 'm', label: 'Meters' }
+                  ]}
+                  onChange={props.onLandingDistanceUnitChange}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Distance from threshold and centreline offset on a Logbook flight's landing card, and its
+                  touchdown diagram. Touchdown rate stays fpm and speeds/wind stay knots regardless.
                 </p>
               </div>
             </CardContent>

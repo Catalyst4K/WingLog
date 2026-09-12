@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   formatAltitude,
+  formatCentrelineOffset,
   formatMinutes,
+  formatRunwayDistance,
   formatWeight,
   kgToLb,
   kgToUnit,
@@ -101,5 +103,33 @@ describe('formatAltitude', () => {
     // level — so hybrid shows that directly rather than a feet conversion.
     expect(formatAltitude(37073, 'hybrid', { unit: 'm', value: 11300 })).toBe('11,300 m')
     expect(formatAltitude(33000, 'hybrid', { unit: 'ft', value: 33000 })).toBe('33,000 ft')
+  })
+})
+
+describe('formatRunwayDistance', () => {
+  it('formats metres directly, thousands-separated', () => {
+    expect(formatRunwayDistance(1234, 'm')).toBe('1,234 m')
+  })
+
+  it('converts to feet, rounded and thousands-separated', () => {
+    expect(formatRunwayDistance(400, 'ft')).toBe(`${Math.round(mToFt(400)).toLocaleString()} ft`)
+  })
+})
+
+describe('formatCentrelineOffset', () => {
+  it('shows a positive offset as right', () => {
+    expect(formatCentrelineOffset(3.6576, 'ft')).toBe('12 ft R')
+  })
+
+  it('shows a negative offset as left, magnitude only', () => {
+    expect(formatCentrelineOffset(-2.4384, 'ft')).toBe('8 ft L')
+  })
+
+  it('formats in metres without converting', () => {
+    expect(formatCentrelineOffset(-5, 'm')).toBe('5 m L')
+  })
+
+  it('shows no side letter exactly on the centreline', () => {
+    expect(formatCentrelineOffset(0, 'ft')).toBe('0 ft')
   })
 })

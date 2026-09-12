@@ -1,6 +1,6 @@
 // SI is stored internally end-to-end; convert to aviation units only here, at the UI
 // layer, per docs/decisions.md §5.
-import type { AltitudeUnit, WeightUnit } from '@shared/ipc'
+import type { AltitudeUnit, LandingDistanceUnit, WeightUnit } from '@shared/ipc'
 
 const KG_PER_LB = 0.45359237
 
@@ -67,6 +67,26 @@ export function formatMinutes(min: number | null): string {
  * Rounding a value that's already a round hundred (every standard-level point) is a
  * no-op.
  */
+/** Distance from threshold / touchdown-diagram measurements — Logbook's own unit setting
+ *  (docs/plans/logbook-detail-improvements.md, item 4), separate from OFP altitudes and
+ *  wind speed. Whole units, thousands-separated, same rounding convention as formatWeight. */
+export function formatRunwayDistance(meters: number, unit: LandingDistanceUnit): string {
+  const value = unit === 'ft' ? mToFt(meters) : meters
+  return `${Math.round(value).toLocaleString()} ${unit}`
+}
+
+/**
+ * Centreline offset reads as a side, not a raw signed number — the sign convention
+ * (positive = right of centreline, looking in the landing direction — see landing-maths.ts's
+ * RunwayRelativePosition) isn't obvious to someone reading the card. Exactly on the
+ * centreline gets no letter, since "0 ft R" implies a side that isn't really there.
+ */
+export function formatCentrelineOffset(meters: number, unit: LandingDistanceUnit): string {
+  const magnitude = unit === 'ft' ? mToFt(Math.abs(meters)) : Math.abs(meters)
+  const side = meters > 0 ? ' R' : meters < 0 ? ' L' : ''
+  return `${Math.round(magnitude).toLocaleString()} ${unit}${side}`
+}
+
 export function formatAltitude(
   altitudeFt: number,
   unit: AltitudeUnit,

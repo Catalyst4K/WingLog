@@ -5,6 +5,8 @@ import {
   loadRunwayEnds,
   resolveAirportPosition,
   resolveRunwayEnd,
+  resolveRunwayEndByIdent,
+  toLandingRunway,
   type RunwayEnd
 } from './runway-lookup'
 
@@ -199,6 +201,63 @@ describe('aimingPointDistanceForLengthM', () => {
     [4223, 400]
   ])('maps a %dm runway to %dm (ICAO Annex 14 §5.2.5)', (lengthM, expected) => {
     expect(aimingPointDistanceForLengthM(lengthM)).toBe(expected)
+  })
+})
+
+describe('resolveRunwayEndByIdent', () => {
+  it('finds the exact end by icao + ident', () => {
+    const result = resolveRunwayEndByIdent(FIXTURE, 'KLAX', '25R')
+    expect(result?.ident).toBe('25R')
+  })
+
+  it('is case-insensitive on the ICAO but exact on the ident', () => {
+    expect(resolveRunwayEndByIdent(FIXTURE, 'klax', '25R')?.ident).toBe('25R')
+    expect(resolveRunwayEndByIdent(FIXTURE, 'KLAX', '25r')).toBeNull()
+  })
+
+  it('returns null when no end matches', () => {
+    expect(resolveRunwayEndByIdent(FIXTURE, 'KLAX', '09')).toBeNull()
+    expect(resolveRunwayEndByIdent(FIXTURE, 'ZZZZ', '25R')).toBeNull()
+  })
+})
+
+describe('toLandingRunway', () => {
+  const complete = runwayEnd({
+    icao: 'VHHH',
+    ident: '07L',
+    lat: 22.321074,
+    lon: 113.880692,
+    headingTrueDeg: 74,
+    lengthM: 3800,
+    widthM: 60,
+    displacedThresholdM: 100,
+    aimingPointDistanceM: 400
+  })
+
+  it('returns null for a null end', () => {
+    expect(toLandingRunway(null)).toBeNull()
+  })
+
+  it('returns null when length is unknown', () => {
+    expect(toLandingRunway({ ...complete, lengthM: null })).toBeNull()
+  })
+
+  it('returns null when width is unknown', () => {
+    expect(toLandingRunway({ ...complete, widthM: null })).toBeNull()
+  })
+
+  it('returns null when the aiming-point distance is unknown', () => {
+    expect(toLandingRunway({ ...complete, aimingPointDistanceM: null })).toBeNull()
+  })
+
+  it('shapes a complete end into the diagram-facing shape', () => {
+    expect(toLandingRunway(complete)).toEqual({
+      ident: '07L',
+      lengthM: 3800,
+      widthM: 60,
+      displacedThresholdM: 100,
+      aimingPointDistanceM: 400
+    })
   })
 })
 

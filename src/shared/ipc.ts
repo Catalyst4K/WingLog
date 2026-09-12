@@ -284,6 +284,24 @@ export interface AircraftLanding extends Landing {
   arrIcao: string
 }
 
+/**
+ * Runway geometry for Logbook's touchdown diagram (docs/plans/logbook-detail-improvements.md)
+ * — resolved in main from the flight's arrival airport plus the landing's own
+ * `runwayIdent`, against the same vendored runway-lookup data `landing-capture.ts` measured
+ * the stored `distanceFromThresholdM`/`centrelineOffsetM` against, so the diagram can never
+ * disagree with the numbers shown next to it. Null (from `logbookGetLandingRunway`) when
+ * the landing has no `runwayIdent`, or the matched runway end is missing the length/width/
+ * aiming-point data the diagram needs — the same cases the card's own fields already show
+ * as "—" for.
+ */
+export interface LandingRunway {
+  ident: string
+  lengthM: number
+  widthM: number
+  displacedThresholdM: number
+  aimingPointDistanceM: number
+}
+
 export type LandingSeverity = 'none' | 'firm' | 'hard'
 
 /** Both in feet per minute (the unit pilots actually think in) — converted to/from the
@@ -583,6 +601,16 @@ export type AltitudeUnit = 'ft' | 'm' | 'hybrid'
  *  formatted wind line alongside it. */
 export type WindSpeedUnit = 'kt' | 'mps'
 
+/**
+ * Display unit for Logbook's two runway-relative landing measurements (distance from
+ * threshold, centreline offset) and the touchdown diagram's labels — docs/plans/
+ * logbook-detail-improvements.md, item 4. Defaults to 'ft' (Callum's call), unlike most of
+ * this app's other unit settings — landing distances read most naturally in feet even for
+ * pilots who otherwise think in metric. Deliberately scoped to just these two fields:
+ * touchdown rate stays fpm and speeds/wind stay kt regardless of this setting.
+ */
+export type LandingDistanceUnit = 'ft' | 'm'
+
 /** The app's tabs — also the native menu bar's top-level items, see main/menu.ts. */
 export type AppPage = 'fleet' | 'dispatch' | 'track' | 'logbook' | 'settings'
 
@@ -714,6 +742,8 @@ export const IpcChannels = {
   settingsSetAltitudeUnit: 'settings:set-altitude-unit',
   settingsGetWindSpeedUnit: 'settings:get-wind-speed-unit',
   settingsSetWindSpeedUnit: 'settings:set-wind-speed-unit',
+  settingsGetLandingDistanceUnit: 'settings:get-landing-distance-unit',
+  settingsSetLandingDistanceUnit: 'settings:set-landing-distance-unit',
   settingsGetTheme: 'settings:get-theme',
   settingsSetTheme: 'settings:set-theme',
   trackingStart: 'tracking:start',
@@ -738,6 +768,7 @@ export const IpcChannels = {
   gsxOpenReceipt: 'gsx:open-receipt',
   logbookOpenOfpPdf: 'logbook:open-ofp-pdf',
   logbookGetLanding: 'logbook:get-landing',
+  logbookGetLandingRunway: 'logbook:get-landing-runway',
   logbookGreatCircleRoute: 'logbook:great-circle-route',
   fleetListLandings: 'fleet:list-landings',
   fleetListFlights: 'fleet:list-flights',
@@ -866,6 +897,8 @@ export interface WingLogApi {
   settingsSetAltitudeUnit: (unit: AltitudeUnit) => Promise<void>
   settingsGetWindSpeedUnit: () => Promise<WindSpeedUnit>
   settingsSetWindSpeedUnit: (unit: WindSpeedUnit) => Promise<void>
+  settingsGetLandingDistanceUnit: () => Promise<LandingDistanceUnit>
+  settingsSetLandingDistanceUnit: (unit: LandingDistanceUnit) => Promise<void>
   settingsGetTheme: () => Promise<Theme>
   settingsSetTheme: (theme: Theme) => Promise<void>
   /** Begins tracking a planned flight. Throws if the sim isn't connected or another flight is already tracked. */
@@ -913,6 +946,10 @@ export interface WingLogApi {
    *  before this feature existed, or one with no landing phase reached (e.g. cancelled
    *  mid-air). */
   logbookGetLanding: (flightId: number) => Promise<Landing | null>
+  /** The runway geometry the touchdown diagram draws against — see LandingRunway's doc
+   *  comment. `flightId` is validated in main (an unknown id, or a flight/landing with no
+   *  runwayIdent, just yields null, same as an unknown flight elsewhere in this API). */
+  logbookGetLandingRunway: (flightId: number) => Promise<LandingRunway | null>
   /** Great-circle fallback route for Logbook's flight-detail map, [lon, lat] pairs (docs/
    *  plans/great-circle-fallback-route.md) — used only when the flight has no OFP-derived
    *  route to draw (parseRouteFromOfpJson came back empty). Null if either ICAO isn't in
