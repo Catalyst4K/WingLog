@@ -117,17 +117,6 @@ const CATEGORY_LABELS: Record<LandingScoreCategoryKey, string> = {
   centrelineOffset: 'Centreline offset'
 }
 
-// Real weights (landing-score.ts's WEIGHTS) — the popup scales each row by its own weight.
-const CATEGORY_WEIGHTS: Record<LandingScoreCategoryKey, number> = {
-  verticalSpeed: 25,
-  gForce: 15,
-  distanceFromAimingPoint: 20,
-  centrelineOffset: 10,
-  pitch: 10,
-  bank: 10,
-  crab: 10
-}
-
 function makeCategories(overrides: Partial<Record<LandingScoreCategoryKey, number | null>> = {}): LandingScoreCategory[] {
   const scores: Record<LandingScoreCategoryKey, number | null> = {
     verticalSpeed: 90,
@@ -143,7 +132,8 @@ function makeCategories(overrides: Partial<Record<LandingScoreCategoryKey, numbe
     key,
     label: CATEGORY_LABELS[key],
     score: scores[key],
-    weight: CATEGORY_WEIGHTS[key]
+    ideal: scores[key] === null ? null : 0,
+    tolerance: scores[key] === null ? null : 10
   }))
 }
 

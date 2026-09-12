@@ -138,7 +138,11 @@ export function TouchdownDiagram(props: {
   const stripeLengthPx = Math.max(MIN_STRIPE_LENGTH_PX, 30 * layout.pxPerM)
   const aimingPointLengthPx = Math.max(MIN_MARK_LENGTH_PX, 22 * layout.pxPerM)
   const tdzGroupLengthPx = Math.max(MIN_MARK_LENGTH_PX, 18 * layout.pxPerM)
-  const dotRadiusPx = Math.max(4, Math.min(7, layout.heightPx * 0.08))
+  // Bumped up (Callum, 2026-09-12: "brighter or more obvious") now that the diagram itself
+  // renders noticeably smaller (sized off height, not width — see the <svg> below) — the
+  // old 4-7px radius was tuned for the diagram's original, bigger on-screen size and had
+  // shrunk to a few screen pixels along with everything else.
+  const dotRadiusPx = Math.max(6, Math.min(11, layout.heightPx * 0.12))
 
   // svgWidthPx/svgHeightPx are the on-screen dimensions after rotation — the diagram's
   // lateral extent (layout.heightPx) becomes the SVG's width, and its along-track extent
@@ -162,7 +166,7 @@ export function TouchdownDiagram(props: {
       // let a long runway's tall, narrow window grow past the field list's height.
       width="auto"
       height="100%"
-      style={{ aspectRatio: `${svgWidthPx} / ${svgHeightPx}`, display: 'block', margin: '0 auto' }}
+      style={{ aspectRatio: `${svgWidthPx} / ${svgHeightPx}`, display: 'block' }}
       preserveAspectRatio="xMidYMid meet"
       role="img"
       aria-label={`Touchdown diagram for runway ${props.runway.ident}`}
@@ -277,13 +281,22 @@ export function TouchdownDiagram(props: {
           strokeLinecap="round"
           opacity={0.6}
         />
+        {/* Soft halo behind the dot — makes the touchdown point read at a glance rather
+            than blending into the runway markings around it (Callum, 2026-09-12). */}
+        <circle
+          cx={dot.x}
+          cy={dot.y}
+          r={dotRadiusPx * 2.2}
+          fill={layout.touchdown.offRunwayLaterally ? 'var(--color-destructive)' : 'var(--color-primary)'}
+          opacity={0.25}
+        />
         <circle
           cx={dot.x}
           cy={dot.y}
           r={dotRadiusPx}
           fill={layout.touchdown.offRunwayLaterally ? 'var(--color-destructive)' : 'var(--color-primary)'}
           stroke={MARKING_COLOR}
-          strokeWidth={1.5}
+          strokeWidth={2.5}
         />
     </svg>
   )

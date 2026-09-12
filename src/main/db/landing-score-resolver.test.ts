@@ -65,6 +65,34 @@ describe('resolveLandingScore', () => {
     expect(result.severity).toBe('none')
   })
 
+  it("carries each category's real ideal/tolerance for the info popover, using this runway's own real data", () => {
+    const landingRecord = toLanding(makeLanding(1, { distanceFromThresholdM: 420, centrelineOffsetM: 5, crabDeg: 2 }))
+    const result = resolveLandingScore(landingRecord, 'EGLL', 'A320')
+
+    const verticalSpeed = result.categories.find((c) => c.key === 'verticalSpeed')!
+    expect(verticalSpeed).toMatchObject({ ideal: 130, tolerance: 390 }) // M category
+
+    const aimingPoint = result.categories.find((c) => c.key === 'distanceFromAimingPoint')!
+    expect(aimingPoint).toMatchObject({ ideal: 0, tolerance: EGLL_27L_AIMING_POINT_M })
+
+    const centreline = result.categories.find((c) => c.key === 'centrelineOffset')!
+    expect(centreline).toMatchObject({ ideal: 0, tolerance: EGLL_27L_HALF_WIDTH_M })
+  })
+
+  it('nulls out a category\'s ideal/tolerance exactly when its score is unavailable', () => {
+    const landingRecord = toLanding(
+      makeLanding(1, { runwayIdent: null, distanceFromThresholdM: null, centrelineOffsetM: null, crabDeg: null })
+    )
+    const result = resolveLandingScore(landingRecord, 'EGLL', 'A320')
+
+    for (const key of ['crab', 'distanceFromAimingPoint', 'centrelineOffset'] as const) {
+      const category = result.categories.find((c) => c.key === key)!
+      expect(category.score).toBeNull()
+      expect(category.ideal).toBeNull()
+      expect(category.tolerance).toBeNull()
+    }
+  })
+
   it('drops the runway-dependent inputs (still returns a score) when runwayIdent is null', () => {
     const landingRecord = toLanding(
       makeLanding(1, { runwayIdent: null, distanceFromThresholdM: null, centrelineOffsetM: null, crabDeg: null })

@@ -333,14 +333,14 @@ export interface LandingScoreCategory {
   key: LandingScoreCategoryKey
   label: string
   score: number | null
-  /** This category's share of the overall 0-100 score (sums to 100 across all 7) — lets
-   *  the breakdown popup show each deduction against its own real ceiling (weight/10)
-   *  instead of a flat "out of 10" that made a low-weight category (e.g. crab, weight 10)
-   *  look like it tanked the score as much as a high-weight one (verticalSpeed, weight 25)
-   *  — a real bug Callum caught (docs/decisions.md, 2026-09-12): a 90/100 landing showed
-   *  deductions summing to -8/10 across categories, not the ~-1/10 the overall score
-   *  actually reflects. */
-  weight: number
+  /** What "perfect" and "score reaches 0" are for this category, in its own natural unit
+   *  (fpm, degrees, g, or metres for the two runway-dependent ones) — real per-flight
+   *  numbers for the runway-dependent categories, not a fixed constant, since they come
+   *  from this specific runway's own real Annex-14/width data. Powers the breakdown
+   *  popup's per-category info button (docs/decisions.md, 2026-09-12). Null exactly when
+   *  `score` is null. */
+  ideal: number | null
+  tolerance: number | null
 }
 
 /** The 0-100 landing score plus its derived firm/hard classification — computed at read

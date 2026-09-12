@@ -98,6 +98,16 @@ export interface LandingScoreInputs {
   centrelineToleranceM: number | null
 }
 
+/** What "perfect" and "score reaches 0" actually are for one category, in that category's
+ *  own natural unit (fpm for verticalSpeed, degrees, g, or metres) — real per-flight numbers
+ *  for the two runway-dependent categories (their tolerance is this runway's own real
+ *  Annex-14 aiming-point distance / half its real width), fixed constants for the rest. */
+export interface LandingScoreCategoryDetail {
+  ideal: number
+  /** Deviation from `ideal` (same unit) at which this category's score reaches 0. */
+  tolerance: number
+}
+
 export interface LandingScoreBreakdown {
   overall: number
   inputs: {
@@ -108,6 +118,19 @@ export interface LandingScoreBreakdown {
     pitch: number
     bank: number
     crab: number | null
+  }
+  /** Mirrors `inputs`' keys — null exactly when the matching input is null (no runway
+   *  match), except `crab`: its ideal/tolerance are fixed constants independent of runway
+   *  data, so they're only null when there's truly nothing to show (kept parallel to
+   *  `crabDeg` rather than to the runway-dependent pair for that reason). */
+  details: {
+    verticalSpeed: LandingScoreCategoryDetail
+    gForce: LandingScoreCategoryDetail
+    distanceFromAimingPoint: LandingScoreCategoryDetail | null
+    centrelineOffset: LandingScoreCategoryDetail | null
+    pitch: LandingScoreCategoryDetail
+    bank: LandingScoreCategoryDetail
+    crab: LandingScoreCategoryDetail | null
   }
 }
 
@@ -138,7 +161,7 @@ const CRAB_TOLERANCE_DEG = 9
 // renormalization when some aren't). First-pass judgement calls, same honesty register as
 // the constants above — easy to retune later since the score is computed at read time, not
 // stored, so a change re-scores every historical landing automatically.
-export const WEIGHTS = {
+const WEIGHTS = {
   verticalSpeed: 25,
   gForce: 15,
   distanceFromAimingPoint: 20,
@@ -203,6 +226,17 @@ export function computeLandingScore(inputs: LandingScoreInputs): LandingScoreBre
 
   return {
     overall,
-    inputs: { verticalSpeed, gForce, distanceFromAimingPoint, centrelineOffset, pitch, bank, crab }
+    inputs: { verticalSpeed, gForce, distanceFromAimingPoint, centrelineOffset, pitch, bank, crab },
+    details: {
+      verticalSpeed: { ideal: idealFpm, tolerance: thresholds.hardFpm - idealFpm },
+      gForce: { ideal: GFORCE_IDEAL, tolerance: GFORCE_TOLERANCE },
+      pitch: { ideal: PITCH_IDEAL_DEG, tolerance: PITCH_TOLERANCE_DEG },
+      bank: { ideal: BANK_IDEAL_DEG, tolerance: BANK_TOLERANCE_DEG },
+      crab: inputs.crabDeg === null ? null : { ideal: CRAB_IDEAL_DEG, tolerance: CRAB_TOLERANCE_DEG },
+      distanceFromAimingPoint:
+        inputs.aimingPointToleranceM === null ? null : { ideal: 0, tolerance: inputs.aimingPointToleranceM },
+      centrelineOffset:
+        inputs.centrelineToleranceM === null ? null : { ideal: 0, tolerance: inputs.centrelineToleranceM }
+    }
   }
 }

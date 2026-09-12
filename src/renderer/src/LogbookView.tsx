@@ -183,6 +183,7 @@ export function LandingCard(props: {
             <LandingScoreBreakdownDialog
               overall={scoreResult.score}
               categories={scoreResult.categories}
+              unit={unit}
               trigger={
                 <Button type="button" variant="outline" size="sm">
                   Score breakdown
@@ -254,7 +255,7 @@ export function LandingCard(props: {
           // original width-only cap left height unconstrained, so a long runway's tall
           // window could still dwarf the text next to it) — fixed height, width follows
           // from the diagram's own aspect ratio (TouchdownDiagram.tsx).
-          <div className="h-64 flex-shrink-0 self-start">
+          <div className="flex h-64 flex-shrink-0 justify-center self-start">
             <TouchdownDiagram
               runway={runway}
               touchdown={{

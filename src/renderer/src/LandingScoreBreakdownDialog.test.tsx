@@ -4,6 +4,16 @@ import userEvent from '@testing-library/user-event'
 import type { LandingScoreCategory } from '@shared/ipc'
 import { LandingScoreBreakdownDialog } from './LandingScoreBreakdownDialog'
 
+const IDEAL_TOLERANCE: Record<string, { ideal: number; tolerance: number }> = {
+  verticalSpeed: { ideal: 130, tolerance: 390 },
+  gForce: { ideal: 1, tolerance: 1 },
+  pitch: { ideal: -4, tolerance: 8 },
+  bank: { ideal: 0, tolerance: 8 },
+  crab: { ideal: 0, tolerance: 9 },
+  distanceFromAimingPoint: { ideal: 0, tolerance: 400 },
+  centrelineOffset: { ideal: 0, tolerance: 12.5 }
+}
+
 function makeCategories(overrides: Partial<Record<string, number | null>> = {}): LandingScoreCategory[] {
   const base: Record<string, number | null> = {
     verticalSpeed: 90,
@@ -24,22 +34,12 @@ function makeCategories(overrides: Partial<Record<string, number | null>> = {}):
     distanceFromAimingPoint: 'Distance from aiming point',
     centrelineOffset: 'Centreline offset'
   }
-  // Real weights (landing-score.ts's WEIGHTS) — matters here since the popup now scales
-  // each row's deduction/ceiling by its own weight, not a flat /10 for every row.
-  const weights: Record<string, number> = {
-    verticalSpeed: 25,
-    gForce: 15,
-    distanceFromAimingPoint: 20,
-    centrelineOffset: 10,
-    pitch: 10,
-    bank: 10,
-    crab: 10
-  }
   return Object.keys(base).map((key) => ({
     key: key as LandingScoreCategory['key'],
     label: labels[key],
     score: base[key],
-    weight: weights[key]
+    ideal: base[key] === null ? null : IDEAL_TOLERANCE[key].ideal,
+    tolerance: base[key] === null ? null : IDEAL_TOLERANCE[key].tolerance
   }))
 }
 
@@ -50,6 +50,7 @@ describe('LandingScoreBreakdownDialog', () => {
       <LandingScoreBreakdownDialog
         overall={82}
         categories={makeCategories()}
+        unit="ft"
         trigger={<button type="button">View breakdown</button>}
       />
     )
@@ -59,24 +60,23 @@ describe('LandingScoreBreakdownDialog', () => {
     expect(screen.getByText('Landing score breakdown — 82/100')).toBeInTheDocument()
   })
 
-  it('shows each category as a deduction against its own weighted ceiling, 0 for a perfect input', async () => {
+  it('shows each category as a plain rating out of 10, not a weighted deduction', async () => {
     const user = userEvent.setup()
     render(
       <LandingScoreBreakdownDialog
         overall={90}
         categories={makeCategories({ verticalSpeed: 100, crab: 30 })}
+        unit="ft"
         trigger={<button type="button">Open</button>}
       />
     )
     await user.click(screen.getByRole('button', { name: 'Open' }))
 
-    // verticalSpeed: weight 25 -> ceiling 2.5, perfect score -> "0" (not scaled)
-    const verticalSpeedRow = screen.getByText('Vertical speed').nextElementSibling!
-    expect(verticalSpeedRow.textContent).toBe('0 / 2.5')
+    const verticalSpeedRow = screen.getByText('Vertical speed').closest('dt')!.nextElementSibling!
+    expect(verticalSpeedRow.textContent).toBe('10 / 10')
 
-    // crab: weight 10 -> ceiling 1.0, deduction -(10*(100-30)/1000) = -0.7
-    const crabRow = screen.getByText('Crab').nextElementSibling!
-    expect(crabRow.textContent).toBe('-0.7 / 1.0')
+    const crabRow = screen.getByText('Crab').closest('dt')!.nextElementSibling!
+    expect(crabRow.textContent).toBe('3 / 10') // 30 -> round(30/10) = 3
   })
 
   it('shows N/A for a category with no runway match, not a fabricated deduction', async () => {
@@ -85,6 +85,7 @@ describe('LandingScoreBreakdownDialog', () => {
       <LandingScoreBreakdownDialog
         overall={70}
         categories={makeCategories({ centrelineOffset: null, distanceFromAimingPoint: null, crab: null })}
+        unit="ft"
         trigger={<button type="button">Open</button>}
       />
     )
@@ -99,6 +100,7 @@ describe('LandingScoreBreakdownDialog', () => {
       <LandingScoreBreakdownDialog
         overall={60}
         categories={makeCategories({ crab: 20, pitch: 90 })}
+        unit="ft"
         trigger={<button type="button">Open</button>}
       />
     )
@@ -106,7 +108,26 @@ describe('LandingScoreBreakdownDialog', () => {
 
     const crabRow = screen.getByText('Crab').closest('dt')!
     const pitchRow = screen.getByText('Pitch').closest('dt')!
-    expect(crabRow.querySelector('svg')).not.toBeNull()
-    expect(pitchRow.querySelector('svg')).toBeNull()
+    expect(crabRow.querySelector('svg.text-destructive')).not.toBeNull()
+    expect(pitchRow.querySelector('svg.text-destructive')).toBeNull()
+  })
+
+  it("opens a per-category info popover showing that flight's real ideal/tolerance", async () => {
+    const user = userEvent.setup()
+    render(
+      <LandingScoreBreakdownDialog
+        overall={90}
+        categories={makeCategories()}
+        unit="m"
+        trigger={<button type="button">Open</button>}
+      />
+    )
+    await user.click(screen.getByRole('button', { name: 'Open' }))
+    expect(screen.queryByText(/aiming-point distance from the threshold/)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: "What's ideal for Distance from aiming point?" }))
+    expect(
+      screen.getByText(/Score reaches 0 at 400 m off it — this runway's own real aiming-point distance/)
+    ).toBeInTheDocument()
   })
 })

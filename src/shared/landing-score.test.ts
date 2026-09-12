@@ -159,4 +159,46 @@ describe('computeLandingScore', () => {
     const withM = computeLandingScore({ ...PERFECT_M, category: 'M' })
     expect(withNullCategory).toEqual(withM)
   })
+
+  describe('details', () => {
+    it("reports each fixed-constant category's real ideal/tolerance, category-scaled for vertical speed", () => {
+      const { details } = computeLandingScore(PERFECT_M)
+      // M: idealFpm 130, hardFpm 520 -> tolerance 390.
+      expect(details.verticalSpeed).toEqual({ ideal: 130, tolerance: 390 })
+      expect(details.gForce).toEqual({ ideal: 1, tolerance: 1 })
+      expect(details.pitch).toEqual({ ideal: -4, tolerance: 8 })
+      expect(details.bank).toEqual({ ideal: 0, tolerance: 8 })
+      expect(details.crab).toEqual({ ideal: 0, tolerance: 9 })
+    })
+
+    it("reports the runway-dependent categories' real per-flight tolerance (this runway's own data)", () => {
+      const { details } = computeLandingScore(PERFECT_M)
+      expect(details.distanceFromAimingPoint).toEqual({ ideal: 0, tolerance: 300 })
+      expect(details.centrelineOffset).toEqual({ ideal: 0, tolerance: 25 })
+    })
+
+    it('scales vertical speed ideal/tolerance to a different wake category', () => {
+      const { details } = computeLandingScore({ ...PERFECT_M, category: 'H' })
+      // H: idealFpm 110, hardFpm 440 -> tolerance 330.
+      expect(details.verticalSpeed).toEqual({ ideal: 110, tolerance: 330 })
+    })
+
+    it('is null exactly for the categories with no runway match, even though crab keeps its constant', () => {
+      const noRunway: LandingScoreInputs = {
+        ...PERFECT_M,
+        crabDeg: null,
+        distanceFromAimingPointM: null,
+        aimingPointToleranceM: null,
+        centrelineOffsetM: null,
+        centrelineToleranceM: null
+      }
+      const { details } = computeLandingScore(noRunway)
+      expect(details.distanceFromAimingPoint).toBeNull()
+      expect(details.centrelineOffset).toBeNull()
+      // crab's ideal/tolerance are fixed constants, not runway data — only null when crabDeg
+      // itself is unavailable, which it is here too, so this asserts the *reason* rather
+      // than assuming it follows the runway-dependent pair automatically.
+      expect(details.crab).toBeNull()
+    })
+  })
 })
