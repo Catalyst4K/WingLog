@@ -139,7 +139,12 @@ export function SettingsView(props: {
     window.winglog.settingsGetLandingThresholds().then(setLandingThresholds)
     // Cloud sync build-time flag (docs/plans/public-release-v1.md) — the syncStatus channel
     // doesn't exist at all in a public build, so calling it would just reject.
+    /* v8 ignore start -- vitest.config.ts's `define` fixes this flag at `true` for the whole
+     * test run (a single run can't hold both literal build values at once), so the "public
+     * build, skip this call" arm can't be exercised here; the real cloud-sync-disabled
+     * behavior is what public-release-v1.md's own build verifies, not a unit test's job. */
     if (__WINGLOG_CLOUD_SYNC_ENABLED__) window.winglog.syncStatus().then(setSyncStatus)
+    /* v8 ignore stop */
     window.winglog.appGetVersion().then(setAppVersion)
   }, [])
 
@@ -586,6 +591,9 @@ export function SettingsView(props: {
             {/* Cloud sync build-time flag (docs/plans/public-release-v1.md, Decision 1) —
                 hidden entirely in a public build, not just disabled: the syncLogin/etc.
                 channels this card calls don't exist there at all (see index.ts). */}
+            {/* v8 ignore next -- see the matching ignore on this flag's other call site above:
+                vitest.config.ts's `define` fixes it at `true`, so the "hidden in a public
+                build" arm of this && can't be exercised in this test run. */}
             {__WINGLOG_CLOUD_SYNC_ENABLED__ && (
             <Card className="max-w-sm">
               <CardHeader>
