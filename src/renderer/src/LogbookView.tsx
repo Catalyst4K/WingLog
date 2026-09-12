@@ -184,23 +184,6 @@ export function LandingCard(props: {
     <Card className="min-w-72 flex-1">
       <CardHeader>
         <CardTitle className="text-sm">Landing</CardTitle>
-        {scoreResult && (
-          // A distinct top-right control (Callum, 2026-09-12) — the old approach put the
-          // dialog's only trigger on the score badge itself, buried among a dozen other
-          // fields with no visual hint it was clickable.
-          <CardAction>
-            <LandingScoreBreakdownDialog
-              overall={scoreResult.score}
-              categories={scoreResult.categories}
-              unit={unit}
-              trigger={
-                <Button type="button" variant="outline" size="sm">
-                  Score breakdown
-                </Button>
-              }
-            />
-          </CardAction>
-        )}
       </CardHeader>
       <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <dl className="grid flex-1 grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
@@ -263,24 +246,40 @@ export function LandingCard(props: {
             value={landing.centrelineOffsetM != null ? formatCentrelineOffset(landing.centrelineOffsetM, unit) : '—'}
           />
         </dl>
-        {runway && landing.distanceFromThresholdM != null && (
-          // No bigger than the field list it sits alongside (Callum, 2026-09-12: the
-          // original width-only cap left height unconstrained, so a long runway's tall
-          // window could still dwarf the text next to it) — fixed height, width follows
-          // from the diagram's own aspect ratio (TouchdownDiagram.tsx). w-36/w-40 gives
-          // justify-center real room to work with — without an explicit width the column
-          // shrink-wraps the SVG exactly, leaving no slack to centre within, so the runway
-          // sat flush against the card's right edge instead of in the middle of its own
-          // column (Callum, 2026-09-13).
-          <div className="flex h-64 w-36 flex-shrink-0 justify-center self-start sm:w-40">
-            <TouchdownDiagram
-              runway={runway}
-              touchdown={{
-                distanceFromThresholdM: landing.distanceFromThresholdM,
-                centrelineOffsetM: landing.centrelineOffsetM ?? 0,
-                groundSpeedMs: landing.groundSpeedMs
-              }}
+        {scoreResult && (
+          // The breakdown trigger lives in this same right-hand column, centred above the
+          // diagram (Callum, 2026-09-13), rather than in the card header — a header
+          // button's own right-alignment doesn't line up with this narrower column's
+          // centre, and CardHeader/CardContent are separate layout contexts with no shared
+          // width to align against. Rendered whenever a score exists, independent of the
+          // diagram below it, since most categories still score without a runway match.
+          <div className="flex w-36 flex-shrink-0 flex-col items-center gap-2 self-start sm:w-40">
+            <LandingScoreBreakdownDialog
+              overall={scoreResult.score}
+              categories={scoreResult.categories}
+              unit={unit}
+              trigger={
+                <Button type="button" variant="outline" size="sm">
+                  Score breakdown
+                </Button>
+              }
             />
+            {runway && landing.distanceFromThresholdM != null && (
+              // No bigger than the field list it sits alongside (Callum, 2026-09-12: the
+              // original width-only cap left height unconstrained, so a long runway's tall
+              // window could still dwarf the text next to it) — fixed height, width
+              // follows from the diagram's own aspect ratio (TouchdownDiagram.tsx).
+              <div className="flex h-56 w-full justify-center">
+                <TouchdownDiagram
+                  runway={runway}
+                  touchdown={{
+                    distanceFromThresholdM: landing.distanceFromThresholdM,
+                    centrelineOffsetM: landing.centrelineOffsetM ?? 0,
+                    groundSpeedMs: landing.groundSpeedMs
+                  }}
+                />
+              </div>
+            )}
           </div>
         )}
       </CardContent>
