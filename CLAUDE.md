@@ -332,3 +332,14 @@ needs a test in each layer it touches. This applies equally to a `plan/<name>` b
 exists to prevent. The coverage ratchet in `vitest.config.ts` is the backstop, not the
 target: it only proves nothing dropped, not that the right things were tested, so use the
 judgement above rather than writing tests to satisfy the number.
+
+**Run the full suite only at a real checkpoint (rule as of 2026-09-13 — see
+`flightdeck-backend`'s `docs/decisions.md`).** The rule above is about what gets *written* —
+every change still needs its own real, relevant tests, every time. This rule is about how
+often the *whole* suite gets *re-run*: during day-to-day iteration on a change, run only the
+test file(s) actually relevant to what changed, not a full `npm test` / `npm run
+test:coverage` across all 80+ files each time. Run the complete battery —
+`typecheck` + `lint` + `test` + `test:coverage` + `build` — at a real checkpoint instead:
+opening or updating a PR, merging a branch, running `npm run package:win`, or cutting a
+release. If genuinely unsure whether a change is small enough to skip the full battery,
+run it rather than guess wrong on something that gates a release.
