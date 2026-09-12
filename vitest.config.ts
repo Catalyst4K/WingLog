@@ -15,6 +15,15 @@ export default defineConfig({
       '@': resolve('src/renderer/src')
     }
   },
+  // Mirrors electron.vite.config.ts's own `define` for this build-time flag (src/shared/
+  // build-flags.d.ts) — without it, any test that imports SettingsView.tsx throws a
+  // ReferenceError the moment the module evaluates, since `__WINGLOG_CLOUD_SYNC_ENABLED__`
+  // is a bare global identifier the bundler is expected to substitute, not a real export.
+  // Fixed at `true` (the "electron-vite dev"/Callum's-own-machine value) so the cloud-sync
+  // card's real UI is exercised in tests rather than permanently dark; the off-build's
+  // branch is narrowly `v8 ignore`d at its two call sites in SettingsView.tsx instead, since
+  // a single test run can't hold both literal values of a define at once.
+  define: { __WINGLOG_CLOUD_SYNC_ENABLED__: JSON.stringify(true) },
   test: {
     projects: [
       {
