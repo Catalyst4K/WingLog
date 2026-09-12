@@ -62,6 +62,11 @@ export function DispatchAdvancedDialog(props: {
 
   function handleLoadFrom(flightId: string): void {
     const flight = props.flights.find((f) => String(f.id) === flightId)
+    // Unreachable through the UI: the Select's own items are built from `loadable` (this
+    // same `flights` list already filtered to a truthy ofpJson), so a value it hands back
+    // always resolves to a flight that passes this guard. Kept as a defensive fallback
+    // rather than a non-null assertion, in case that invariant ever changes.
+    /* v8 ignore next */
     if (!flight?.ofpJson) return
     const loaded = dispatchOptionsFromApiParams(flight.ofpJson)
     if (!loaded) {
