@@ -234,7 +234,7 @@ export function DispatchView(props: {
     const activeFlight = active ? flights.find((f) => f.id === active.flightId) : undefined
     const otherPlanned = flights.filter((f) => f.status === 'planned')
     const warning = activeFlight
-      ? `This will abandon the flight currently being tracked, ${activeFlight.flightNumber ?? `#${activeFlight.id}`}.`
+      ? `This will delete the flight currently being tracked, ${activeFlight.flightNumber ?? `#${activeFlight.id}`}.`
       : otherPlanned.length === 1
         ? `This will abandon the other planned flight, ${otherPlanned[0].flightNumber ?? `#${otherPlanned[0].id}`}.`
         : otherPlanned.length > 1

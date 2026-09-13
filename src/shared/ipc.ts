@@ -964,7 +964,8 @@ export interface WingLogApi {
   settingsSetTheme: (theme: Theme) => Promise<void>
   /** Begins tracking a planned flight. Throws if the sim isn't connected or another flight is already tracked. */
   trackingStart: (flightId: number) => Promise<void>
-  /** Cancels tracking mid-flight; marks the flight 'abandoned' rather than 'completed'. */
+  /** Cancels tracking mid-flight — deletes the flight (and any track points it recorded)
+   *  rather than saving it as 'completed'. */
   trackingStop: () => Promise<void>
   /** Manually completes the actively tracked flight now, rather than waiting for automatic shutdown detection. */
   trackingFinish: () => Promise<void>
@@ -1136,7 +1137,7 @@ export interface WingLogApi {
   /** User chose to resume the orphaned flight above — picks phase detection back up from
    *  where its last persisted track point left off (TrackingController.resume). */
   trackingResumeOrphaned: (flightId: number) => Promise<void>
-  /** User chose to discard the orphaned flight above — marks it abandoned rather than
-   *  leaving it stuck in 'active' forever. */
+  /** User chose to discard the orphaned flight above — deletes it (and its track points)
+   *  rather than leaving it stuck in 'active' forever. */
   trackingDiscardOrphaned: (flightId: number) => Promise<void>
 }

@@ -146,7 +146,7 @@ export function TrackView(props: {
   async function handleCancelActive(): Promise<void> {
     const ok = await confirm({
       title: `Cancel ${activeLabel}?`,
-      description: 'The flight will be marked abandoned rather than completed.',
+      description: 'The flight and its recorded track will be deleted rather than saved as completed.',
       confirmLabel: 'Cancel flight',
       destructive: true
     })
@@ -183,7 +183,7 @@ export function TrackView(props: {
   async function handleCancelPlanned(id: number, label: string): Promise<void> {
     const ok = await confirm({
       title: `Cancel ${label}?`,
-      description: 'This planned flight will be abandoned.',
+      description: 'This planned flight will be deleted.',
       confirmLabel: 'Cancel flight',
       destructive: true
     })

@@ -92,20 +92,20 @@ function connectionStatusVariant(status: SimConnectionStatus): 'default' | 'seco
  *  genuinely 'active' one (WingLog quit or crashed mid-track, TrackingController's
  *  in-memory phase-detection state was lost with it) and a merely 'planned' one (Fly was
  *  pressed, but tracking never actually started before WingLog closed — nothing crashed,
- *  there's just an unfinished plan). Same two choices either way (keep it or abandon it),
- *  but the wording needs to say which one it actually is, not always claim tracking was
- *  interrupted when it may never have started. */
+ *  there's just an unfinished plan). Same two choices either way (keep it or discard/delete
+ *  it), but the wording needs to say which one it actually is, not always claim tracking
+ *  was interrupted when it may never have started. */
 function orphanedFlightCopy(flight: Flight): { title: string; description: string; confirmLabel: string } {
   const label = flight.flightNumber ?? `flight #${flight.id} (${flight.depIcao} → ${flight.arrIcao})`
   return flight.status === 'active'
     ? {
         title: 'Resume tracking?',
-        description: `WingLog closed while ${label} was being tracked. Resume if it's still in progress in the sim, or discard it as abandoned.`,
+        description: `WingLog closed while ${label} was being tracked. Resume if it's still in progress in the sim, or discard it to delete the flight.`,
         confirmLabel: 'Resume tracking'
       }
     : {
         title: 'Continue this flight?',
-        description: `WingLog closed with ${label} already planned but not yet started. Keep it and continue from Track, or discard it as abandoned.`,
+        description: `WingLog closed with ${label} already planned but not yet started. Keep it and continue from Track, or discard it to delete the flight.`,
         confirmLabel: 'Keep it'
       }
 }

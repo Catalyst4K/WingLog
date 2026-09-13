@@ -296,15 +296,17 @@ export function completeFlight(
   return row ? toFlight(row) : undefined
 }
 
-/** User cancelled tracking mid-flight — stop recording without pretending it completed normally. */
-export function abandonFlight(db: WingLogDb, id: number): Flight | undefined {
-  const [row] = db
-    .update(flight)
-    .set({ status: 'abandoned', updatedAt: new Date().toISOString() })
-    .where(eq(flight.id, id))
-    .returning()
-    .all()
-  return row ? toFlight(row) : undefined
+/** User cancelled tracking mid-flight, discarded an orphaned crash-recovery flight
+ *  (trackingDiscardOrphaned), or cancelled one that never got past 'planned' (flightCancel)
+ *  — deletes it outright via the same cascade as deleteFlight below, rather than leaving an
+ *  inert 'abandoned' row (and, for one that was actively tracked, its full track_point
+ *  history) sitting in the database with no purpose. Callum's call, 2026-09-13, after
+ *  finding a genuinely abandoned flight from an earlier crash-recovery test still holding
+ *  hundreds of real track points. `FlightStatus` keeps the `'abandoned'` value for any
+ *  historical row already in that state before this change — nothing new gets left there
+ *  going forward. */
+export function abandonFlight(db: WingLogDb, id: number): void {
+  deleteFlight(db, id)
 }
 
 /**

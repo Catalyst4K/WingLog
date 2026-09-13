@@ -275,11 +275,40 @@ describe('flight repo', () => {
       expect(getAircraftByRegistration(db, 'G-ABCD')?.currentIcao).toBe('VHHH')
     })
 
-    it('marks a cancelled flight abandoned rather than completed', () => {
+    it('deletes a cancelled flight outright, including its track points, rather than saving it as abandoned', () => {
       const created = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' })
       startFlight(db, created.id, 10000)
-      const abandoned = abandonFlight(db, created.id)
-      expect(abandoned?.status).toBe('abandoned')
+      createTrackPoint(db, {
+        flightId: created.id,
+        tsUtc: '2026-09-01T11:00:00.000Z',
+        latitude: 22.3,
+        longitude: 113.9,
+        altitudeM: 0,
+        altitudeAglM: 0,
+        indicatedAirspeedMs: 0,
+        machSpeed: 0,
+        groundSpeedMs: 0,
+        verticalSpeedMs: 0,
+        headingTrueDeg: 70,
+        pitchDeg: 0,
+        bankDeg: 0,
+        phase: 'preflight',
+        onGround: true,
+        fuelKg: 10000,
+        gForce: 1,
+        windSpeedMs: 0,
+        windDirectionDeg: 0,
+        resumeSegment: 0,
+        simRate: 1,
+        excludedReason: null
+      })
+
+      abandonFlight(db, created.id)
+
+      expect(listFlights(db)).toEqual([])
+      expect(listTrackPoints(db, created.id)).toEqual([])
+      const raw = db.select().from(flightTable).where(eq(flightTable.id, created.id)).get()
+      expect(raw?.deletedAt).not.toBeNull()
     })
 
     it('abandonAllPlanned abandons every planned flight, leaving other statuses untouched', () => {

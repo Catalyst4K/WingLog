@@ -4,7 +4,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import type { SimTelemetry } from '@shared/ipc'
 import { createDb, type WingLogDb } from '../db/client'
 import { createAircraft } from '../db/aircraft-repo'
-import { createFlight, getFlight } from '../db/flight-repo'
+import { createFlight, getFlight, listFlights } from '../db/flight-repo'
 import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
 import type { SimConnectService } from '../sim/SimConnectService'
 import { TrackingController } from './TrackingController'
@@ -244,13 +244,16 @@ describe('TrackingController', () => {
     }
   )
 
-  it('abandons the flight on stop() rather than completing it', () => {
+  it('deletes the flight on stop() rather than completing it or saving it as abandoned', () => {
     sim.setLastTelemetry(telemetry({}))
     const controller = new TrackingController(db, sim)
     controller.start(flightId)
     controller.stop()
 
-    expect(getFlight(db, flightId)?.status).toBe('abandoned')
+    // getFlight is an internal FK-resolution lookup that still finds a tombstoned row
+    // (flight-repo.test.ts's own deleteFlight tests rely on the same distinction) — every
+    // user-facing list is what actually needs to come back empty.
+    expect(listFlights(db)).toEqual([])
     expect(controller.getActive()).toBeUndefined()
   })
 
