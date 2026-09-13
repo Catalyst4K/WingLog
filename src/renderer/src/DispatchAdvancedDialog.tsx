@@ -40,8 +40,12 @@ function OptionField(props: {
         value={props.value ?? ''}
         placeholder={props.placeholder ?? (props.autoEligible ? 'blank = default, or "auto"' : 'blank = default')}
         onChange={(e) => {
-          const raw = e.target.value.trim()
+          const raw = e.target.value
           props.onChange(raw === '' ? null : raw)
+        }}
+        onBlur={(e) => {
+          const trimmed = e.target.value.trim()
+          props.onChange(trimmed === '' ? null : trimmed)
         }}
       />
     </Label>

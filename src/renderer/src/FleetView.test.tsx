@@ -166,40 +166,6 @@ function setWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
   return api
 }
 
-// Real bug, not fixed here (test-writing only, per this batch's instructions):
-// ReplaceAircraftDialog's handleConfirm awaits props.onConfirm with only a `finally`, no
-// `catch` — FleetView's own handleConfirmReplace shows a toast on failure then re-throws,
-// and that rethrow becomes a genuine unhandled rejection from the button's onClick (React
-// discards an event handler's returned promise). Confirmed harmless in a real browser
-// (Chromium just logs "Uncaught (in promise)"), but Node's own unhandledRejection detection
-// — which is what vitest's process-level failure-on-unhandled-rejection reporting is built
-// on — would otherwise fail this whole run. `run` still executes and its own assertions
-// still exercise/verify the real toast.error call; this just pre-empts the leftover
-// rejection rather than leaving it to fail the suite over a pre-existing bug this batch was
-// told not to fix.
-async function runExpectingUnhandledReplaceRejection(run: () => Promise<void>): Promise<void> {
-  const suppressExpectedRejection = (_reason: unknown, promise: Promise<unknown>): void => {
-    promise.catch(() => {})
-  }
-  // Reached via `globalThis` rather than the bare Node `process` global: this is a
-  // renderer-side test file (tsconfig.web.json, no Node types), even though it runs under
-  // Node/Electron in practice — see vitest.setup.renderer.ts for the same pattern.
-  const nodeProcess = (
-    globalThis as unknown as {
-      process: {
-        prependListener: (event: string, listener: (...args: never[]) => void) => void
-        off: (event: string, listener: (...args: never[]) => void) => void
-      }
-    }
-  ).process
-  nodeProcess.prependListener('unhandledRejection', suppressExpectedRejection)
-  try {
-    await run()
-  } finally {
-    nodeProcess.off('unhandledRejection', suppressExpectedRejection)
-  }
-}
-
 describe('FleetView', () => {
   it('shows the empty state when there are no active aircraft', async () => {
     setWinglog()
@@ -564,7 +530,7 @@ describe('FleetView', () => {
     expect(winglog.aircraftReplace).not.toHaveBeenCalled()
   })
 
-  it('shows a toast (and does not close) when replace fails', async () => {
+  it('shows a toast and keeps the dialog open when replace fails', async () => {
     const { toast } = await import('sonner')
     const source = makeAircraft({ id: 1, registration: 'G-OLDTAIL' })
     const target = makeAircraft({ id: 2, registration: 'G-NEWTAIL' })
@@ -578,10 +544,10 @@ describe('FleetView', () => {
     await user.click(screen.getByText('Replace…'))
     await screen.findByText('Replace G-OLDTAIL')
     await pickSelectOption(user, 'G-NEWTAIL — A320')
-    await runExpectingUnhandledReplaceRejection(async () => {
-      await user.click(screen.getByText('Replace aircraft'))
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('same aircraft'))
-    })
+
+    await user.click(screen.getByText('Replace aircraft'))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('same aircraft'))
+    expect(screen.getByText('Replace G-OLDTAIL')).toBeInTheDocument()
   })
 
   it('shows a stringified toast when replace fails with a non-Error', async () => {
@@ -598,10 +564,9 @@ describe('FleetView', () => {
     await user.click(screen.getByText('Replace…'))
     await screen.findByText('Replace G-OLDTAIL')
     await pickSelectOption(user, 'G-NEWTAIL — A320')
-    await runExpectingUnhandledReplaceRejection(async () => {
-      await user.click(screen.getByText('Replace aircraft'))
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('nope'))
-    })
+
+    await user.click(screen.getByText('Replace aircraft'))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('nope'))
   })
 
   it('excludes the aircraft being replaced from its own candidate list', async () => {

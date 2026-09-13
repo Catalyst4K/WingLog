@@ -256,6 +256,9 @@ function ReplaceAircraftDialog(props: {
     try {
       await props.onConfirm(target.id)
       props.onOpenChange(false)
+    } catch {
+      // The parent already surfaces the failure via toast; swallow it here so it doesn't
+      // become an unhandled rejection from this onClick handler, and leave the dialog open.
     } finally {
       setSubmitting(false)
     }

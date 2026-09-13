@@ -155,6 +155,31 @@ describe('DispatchAdvancedDialog', () => {
     expect(pax).toHaveValue('')
   })
 
+  it('preserves internal spaces while typing, and trims surrounding whitespace on blur', async () => {
+    const user = userEvent.setup()
+    render(<Harness flights={[]} />)
+
+    await user.click(screen.getByRole('tab', { name: 'Route' }))
+    const route = screen.getByLabelText('Route override')
+
+    await user.type(route, '  EGLL DCT KJFK  ')
+    expect(route).toHaveValue('  EGLL DCT KJFK  ')
+
+    await user.tab()
+    expect(route).toHaveValue('EGLL DCT KJFK')
+  })
+
+  it('blurring a field containing only whitespace clears it to blank', async () => {
+    const user = userEvent.setup()
+    render(<Harness flights={[]} />)
+
+    const pax = screen.getByLabelText('Passengers')
+    await user.type(pax, '   ')
+    await user.tab()
+    expect(pax).toHaveValue('')
+    expect(screen.getByText('Done (0 set)')).toBeInTheDocument()
+  })
+
   it('accepts the literal "auto" for an auto-eligible field, and shows its placeholder', () => {
     // The Load tab (active by default) has three autoEligible fields (Passengers, Manual
     // ZFW, Manual payload) sharing this placeholder.
@@ -261,11 +286,8 @@ describe('DispatchAdvancedDialog', () => {
     expect(screen.getByLabelText('Descent profile')).toHaveValue('85/300/250')
 
     await user.click(screen.getByRole('tab', { name: 'Route' }))
-    // Not "EGLL DCT KJFK": OptionField trims on every keystroke (see its own test below for
-    // the resulting quirk), so a space typed mid-string is stripped before the next
-    // character lands. A single token avoids that and still exercises the onChange wiring.
-    await user.type(screen.getByLabelText('Route override'), 'EGLLDCTKJFK')
-    expect(screen.getByLabelText('Route override')).toHaveValue('EGLLDCTKJFK')
+    await user.type(screen.getByLabelText('Route override'), 'EGLL DCT KJFK')
+    expect(screen.getByLabelText('Route override')).toHaveValue('EGLL DCT KJFK')
     await user.type(screen.getByLabelText('Departure runway'), '27L')
     expect(screen.getByLabelText('Departure runway')).toHaveValue('27L')
     await user.type(screen.getByLabelText('Arrival runway'), '04L')
