@@ -419,11 +419,7 @@ function FlightDetail(props: {
           {props.backToAircraft ? 'Back to aircraft' : 'Back to logbook'}
         </Button>
         <div className="flex items-center gap-2">
-          <TrackCleanupButton
-            flightId={flight.id}
-            hadResume={trackPoints.some((p) => p.resumeSegment > 0)}
-            onCleaned={setTrackPoints}
-          />
+          <TrackCleanupButton flightId={flight.id} onCleaned={setTrackPoints} />
           <Button type="button" variant="ghost" size="sm" onClick={handleDelete}>
             <Trash2 />
             Delete flight

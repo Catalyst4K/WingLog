@@ -47,15 +47,13 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
 }
 
 describe('TrackCleanupButton', () => {
-  it('renders nothing when the flight never resumed', () => {
+  it('always renders the button, regardless of resume history', () => {
+    // Rule 2 (resume-cleanup.ts) runs unconditionally and can find real junk on a flight
+    // where resumeSegment never changed at all — most notably one recorded before Phase 1
+    // existed (confirmed live 2026-09-13 against a real flight, CPA319/#191) — so there's
+    // no client-side signal that reliably rules this out ahead of actually asking.
     withWinglog()
-    const { container } = render(<TrackCleanupButton flightId={42} hadResume={false} onCleaned={vi.fn()} />)
-    expect(container).toBeEmptyDOMElement()
-  })
-
-  it('renders the button when the flight did resume', () => {
-    withWinglog()
-    render(<TrackCleanupButton flightId={42} hadResume={true} onCleaned={vi.fn()} />)
+    render(<TrackCleanupButton flightId={42} onCleaned={vi.fn()} />)
     expect(screen.getByRole('button', { name: /clean up track/i })).toBeInTheDocument()
   })
 
@@ -67,7 +65,7 @@ describe('TrackCleanupButton', () => {
       trackPointList: vi.fn().mockResolvedValue(cleaned)
     })
     const onCleaned = vi.fn()
-    render(<TrackCleanupButton flightId={42} hadResume={true} onCleaned={onCleaned} />)
+    render(<TrackCleanupButton flightId={42} onCleaned={onCleaned} />)
 
     await user.click(screen.getByRole('button', { name: /clean up track/i }))
 
@@ -86,7 +84,7 @@ describe('TrackCleanupButton', () => {
       trackPointList
     })
     const onCleaned = vi.fn()
-    render(<TrackCleanupButton flightId={42} hadResume={true} onCleaned={onCleaned} />)
+    render(<TrackCleanupButton flightId={42} onCleaned={onCleaned} />)
 
     await user.click(screen.getByRole('button', { name: /clean up track/i }))
 
@@ -98,7 +96,7 @@ describe('TrackCleanupButton', () => {
   it('shows a toast error and re-enables the button when the cleanup call fails', async () => {
     const user = userEvent.setup()
     withWinglog({ trackPointCleanup: vi.fn().mockRejectedValue(new Error('db locked')) })
-    render(<TrackCleanupButton flightId={42} hadResume={true} onCleaned={vi.fn()} />)
+    render(<TrackCleanupButton flightId={42} onCleaned={vi.fn()} />)
 
     await user.click(screen.getByRole('button', { name: /clean up track/i }))
 

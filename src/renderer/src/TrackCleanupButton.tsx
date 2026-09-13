@@ -12,18 +12,20 @@ import { Button } from '@/components/ui/button'
  * the live check missed something. Split out of LogbookView's FlightDetail (rather than
  * inlined there) the same way GsxInvoicesCard is, so it's directly testable without
  * mounting FlightDetail's FlightMap.
+ *
+ * Always shown, not gated on `resumeSegment > 0` (an earlier version was) — Rule 2 (the
+ * physically-impossible-jump test, resume-cleanup.ts) runs unconditionally and can find
+ * real junk on a flight where `resumeSegment` never changed at all, most notably any
+ * flight recorded before Phase 1 existed (confirmed live 2026-09-13 against a real flight,
+ * CPA319/#191: `resumeSegment` was 0 throughout, yet the cleanup pass still found and
+ * fixed its real restore-teleport). `applyTrackCleanup` already no-ops cheaply when
+ * there's nothing to find, so showing this unconditionally costs nothing on a clean flight.
  */
 export function TrackCleanupButton(props: {
   flightId: number
-  /** Only worth showing for a flight that actually resumed at least once — resumeSegment
-   *  only ever changes via a real resume() or a cleanup pass finding a standalone
-   *  mid-flight teleport, so a flight that never did either has nothing this could find. */
-  hadResume: boolean
   onCleaned: (points: TrackPoint[]) => void
-}): React.JSX.Element | null {
+}): React.JSX.Element {
   const [cleaningUp, setCleaningUp] = useState(false)
-
-  if (!props.hadResume) return null
 
   async function handleCleanupTrack(): Promise<void> {
     setCleaningUp(true)
