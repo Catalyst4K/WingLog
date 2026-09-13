@@ -36,21 +36,27 @@ export function formatCategoryScore(score: number | null): string {
  * "What would a perfect value look like on this flight" — real per-flight numbers, not a
  * generic description, since two of these (the aiming point and centreline tolerances) come
  * from this specific runway's own real Annex-14/width data and vary flight to flight
- * (Callum's request, 2026-09-12). `ideal`/`tolerance` are null exactly when the category
- * itself has no runway match to compute them from.
+ * (Callum's request, 2026-09-12). `ideal`/`toleranceBelow`/`toleranceAbove` are null exactly
+ * when the category itself has no runway match to compute them from. Only verticalSpeed's
+ * two tolerances actually differ (its real-world sweet spot isn't symmetric — @shared/
+ * landing-score's LandingRateBand, 2026-09-13); every other category has them equal, so its
+ * wording below still reads as a single ± band.
  */
 export function describeCategoryTolerance(
   key: LandingScoreCategoryKey,
   ideal: number | null,
-  tolerance: number | null,
+  toleranceBelow: number | null,
+  toleranceAbove: number | null,
   unit: LandingDistanceUnit
 ): string {
-  if (ideal === null || tolerance === null) return 'Not available for this landing — no matched runway.'
+  if (ideal === null || toleranceBelow === null || toleranceAbove === null) {
+    return 'Not available for this landing — no matched runway.'
+  }
   switch (key) {
     case 'verticalSpeed':
-      return `Ideal: at or under ${Math.round(ideal)} fpm for this aircraft's wake category. Score reaches 0 at ${Math.round(ideal + tolerance)} fpm.`
+      return `Sweet spot: ${Math.round(ideal)} fpm for this aircraft's wake category. Score decays below ${Math.round(ideal - toleranceBelow)} fpm and reaches 0 at ${Math.round(ideal + toleranceAbove)} fpm.`
     case 'gForce':
-      return `Ideal: ${ideal.toFixed(1)} g. Score reaches 0 at ${(ideal - tolerance).toFixed(1)} g or ${(ideal + tolerance).toFixed(1)} g.`
+      return `Ideal: ${ideal.toFixed(1)} g. Score reaches 0 at ${(ideal - toleranceBelow).toFixed(1)} g or ${(ideal + toleranceAbove).toFixed(1)} g.`
     case 'pitch': {
       // `ideal` here is landing-score.ts's PITCH_IDEAL_DEG, in the SimVar's own sign
       // convention (negative = nose-up — see formatPitchDeg's doc comment in units.ts).
@@ -59,15 +65,15 @@ export function describeCategoryTolerance(
       // value"). The ± tolerance band is unaffected by the sign flip since it's symmetric
       // around ideal either way.
       const displayIdeal = -ideal
-      return `Ideal: ${displayIdeal}° nose-up. Score reaches 0 at ${displayIdeal - tolerance}° or ${displayIdeal + tolerance}°.`
+      return `Ideal: ${displayIdeal}° nose-up. Score reaches 0 at ${displayIdeal - toleranceBelow}° or ${displayIdeal + toleranceAbove}°.`
     }
     case 'bank':
-      return `Ideal: ${ideal}° (wings level). Score reaches 0 at ±${tolerance}°.`
+      return `Ideal: ${ideal}° (wings level). Score reaches 0 at ±${toleranceBelow}°.`
     case 'crab':
-      return `Ideal: ${ideal}° (crab removed by touchdown). Score reaches 0 at ±${tolerance}°.`
+      return `Ideal: ${ideal}° (crab removed by touchdown). Score reaches 0 at ±${toleranceBelow}°.`
     case 'distanceFromAimingPoint':
-      return `Ideal: touchdown on the aiming point. Score reaches 0 at ${formatRunwayDistance(tolerance, unit)} off it — this runway's own real aiming-point distance from the threshold.`
+      return `Ideal: touchdown on the aiming point. Score reaches 0 at ${formatRunwayDistance(toleranceBelow, unit)} off it — this runway's own real aiming-point distance from the threshold.`
     case 'centrelineOffset':
-      return `Ideal: on the centreline. Score reaches 0 at ${formatRunwayDistance(tolerance, unit)} off it — half this runway's real width.`
+      return `Ideal: on the centreline. Score reaches 0 at ${formatRunwayDistance(toleranceBelow, unit)} off it — half this runway's real width.`
   }
 }

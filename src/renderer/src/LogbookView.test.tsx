@@ -133,7 +133,8 @@ function makeCategories(overrides: Partial<Record<LandingScoreCategoryKey, numbe
     label: CATEGORY_LABELS[key],
     score: scores[key],
     ideal: scores[key] === null ? null : 0,
-    tolerance: scores[key] === null ? null : 10
+    toleranceBelow: scores[key] === null ? null : 10,
+    toleranceAbove: scores[key] === null ? null : 10
   }))
 }
 

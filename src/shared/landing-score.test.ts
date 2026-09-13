@@ -7,20 +7,23 @@ function msFromFpm(fpm: number): number {
 }
 
 describe('deriveLandingThresholds', () => {
-  it('derives L (light GA): firm 375, hard 600', () => {
-    expect(deriveLandingThresholds('L')).toEqual({ firmFpm: 375, hardFpm: 600 })
+  // Landing Rate Sweet Spots by Weight Category (fpm) table, 2026-09-13 — sweet spot
+  // *2.5 / *4 respectively, same multiplier mechanism as before, just fed the new numbers.
+  it('derives L (light GA): sweet spot 90 -> firm 225, hard 360', () => {
+    expect(deriveLandingThresholds('L')).toEqual({ firmFpm: 225, hardFpm: 360 })
   })
 
-  it('derives M (narrowbody): firm 325, hard 520', () => {
-    expect(deriveLandingThresholds('M')).toEqual({ firmFpm: 325, hardFpm: 520 })
+  it('derives M (narrowbody): sweet spot 120 -> firm 300, hard 480', () => {
+    expect(deriveLandingThresholds('M')).toEqual({ firmFpm: 300, hardFpm: 480 })
   })
 
-  it('derives H (widebody): firm 275, hard 440', () => {
-    expect(deriveLandingThresholds('H')).toEqual({ firmFpm: 275, hardFpm: 440 })
+  it('derives H (widebody): sweet spot 150 -> firm 375, hard 600', () => {
+    expect(deriveLandingThresholds('H')).toEqual({ firmFpm: 375, hardFpm: 600 })
   })
 
-  it('derives J (super) the same as H — too sparse a category to differ', () => {
-    expect(deriveLandingThresholds('J')).toEqual(deriveLandingThresholds('H'))
+  it('derives J (super) higher than H — A380 nudged to a 160 sweet spot for its longer-travel gear', () => {
+    expect(deriveLandingThresholds('J')).toEqual({ firmFpm: 400, hardFpm: 640 })
+    expect(deriveLandingThresholds('J')).not.toEqual(deriveLandingThresholds('H'))
   })
 
   it('falls back to M for an unrecognised type', () => {
@@ -52,10 +55,10 @@ describe('classifyLanding', () => {
   })
 })
 
-// A perfect landing on every input, category M: 130fpm ideal, 0 deviation everywhere.
+// A perfect landing on every input, category M: 120fpm sweet spot, 0 deviation everywhere.
 const PERFECT_M: LandingScoreInputs = {
   category: 'M',
-  verticalSpeedMs: msFromFpm(-100), // below ideal — one-sided, no penalty for being gentler
+  verticalSpeedMs: msFromFpm(-120), // M's real sweet spot — two-sided now, so this is where it peaks
   gForce: 1.0,
   pitchDeg: -4, // ideal flare — negative is nose-up in MSFS's PLANE PITCH DEGREES
   bankDeg: 0,
@@ -105,19 +108,56 @@ describe('computeLandingScore', () => {
   })
 
   it('is category-sensitive: the same vertical speed scores differently for L vs H', () => {
-    // -450 fpm: firm-band for M (325-520) and H (275-440, actually past hard), gentle for L (ideal 150, hard 600).
+    // -450 fpm: past L's hard threshold (sweet 90, hard 360) — clamped to 0. Still firm-band
+    // for H (sweet 150, hard 600, tolerance 450) — a real, non-zero mid-range value. A light
+    // aircraft's much lower baseline means the same absolute fpm reads as far more violent
+    // for it than for a widebody, the reverse of the old flat-ideal design.
     const base = { ...PERFECT_M, verticalSpeedMs: msFromFpm(-450) }
     const light = computeLandingScore({ ...base, category: 'L' }).inputs.verticalSpeed
     const heavy = computeLandingScore({ ...base, category: 'H' }).inputs.verticalSpeed
-    expect(light).toBeGreaterThan(heavy)
+    expect(heavy).toBeGreaterThan(light)
   })
 
   it('scores a firm-band vertical speed as a real mid-range value, not a cliff', () => {
-    // M: ideal 130, hard 520, tolerance 390. Excess = 450-130=320. Score = round(100*(1-320/390)).
+    // M: sweet 120, hard 480, toleranceAbove 360. Excess = 450-120=330. Score = round(100*(1-330/360)).
     const result = computeLandingScore({ ...PERFECT_M, verticalSpeedMs: msFromFpm(-450) })
-    expect(result.inputs.verticalSpeed).toBe(18)
+    expect(result.inputs.verticalSpeed).toBe(8)
     expect(result.overall).toBeGreaterThan(0)
     expect(result.overall).toBeLessThan(100)
+  })
+
+  describe('vertical speed: two-sided decay around the real sweet spot (Landing Rate Sweet Spots table, 2026-09-13)', () => {
+    it('peaks at exactly the sweet spot, not just anywhere under the old flat ideal', () => {
+      // L: sweet spot 90fpm.
+      const result = computeLandingScore({ ...PERFECT_M, category: 'L', verticalSpeedMs: msFromFpm(-90) })
+      expect(result.inputs.verticalSpeed).toBe(100)
+    })
+
+    it('now penalizes a touchdown gentler than the sweet spot, unlike the old one-sided formula', () => {
+      // L: sweet 90, min 60 -> toleranceBelow 30. A 60fpm touchdown (right at the range's own
+      // floor) used to score 100 (softer-than-ideal was always free); now it's a real, non-zero
+      // deduction — light aircraft float/balloon more easily the softer they touch down.
+      const result = computeLandingScore({ ...PERFECT_M, category: 'L', verticalSpeedMs: msFromFpm(-60) })
+      expect(result.inputs.verticalSpeed).toBe(0)
+      expect(result.inputs.verticalSpeed).toBeLessThan(100)
+    })
+
+    it('decays gently for a landing only a little softer than the sweet spot, not a cliff', () => {
+      // L: sweet 90, toleranceBelow 30. Deviation = 75-90=-15. Score = round(100*(1-15/30)) = 50.
+      const result = computeLandingScore({ ...PERFECT_M, category: 'L', verticalSpeedMs: msFromFpm(-75) })
+      expect(result.inputs.verticalSpeed).toBe(50)
+    })
+
+    it("uses J's own nudged 160fpm sweet spot, distinct from H's 150", () => {
+      const atJSweetSpot = computeLandingScore({ ...PERFECT_M, category: 'J', verticalSpeedMs: msFromFpm(-160) })
+      const atHSweetSpotButJCategory = computeLandingScore({
+        ...PERFECT_M,
+        category: 'J',
+        verticalSpeedMs: msFromFpm(-150)
+      })
+      expect(atJSweetSpot.inputs.verticalSpeed).toBe(100)
+      expect(atHSweetSpotButJCategory.inputs.verticalSpeed).toBeLessThan(100)
+    })
   })
 
   it(
@@ -161,26 +201,26 @@ describe('computeLandingScore', () => {
   })
 
   describe('details', () => {
-    it("reports each fixed-constant category's real ideal/tolerance, category-scaled for vertical speed", () => {
+    it("reports each fixed-constant category's real ideal/tolerance, category-scaled and two-sided for vertical speed", () => {
       const { details } = computeLandingScore(PERFECT_M)
-      // M: idealFpm 130, hardFpm 520 -> tolerance 390.
-      expect(details.verticalSpeed).toEqual({ ideal: 130, tolerance: 390 })
-      expect(details.gForce).toEqual({ ideal: 1, tolerance: 1 })
-      expect(details.pitch).toEqual({ ideal: -4, tolerance: 8 })
-      expect(details.bank).toEqual({ ideal: 0, tolerance: 8 })
-      expect(details.crab).toEqual({ ideal: 0, tolerance: 9 })
+      // M: sweet 120, min 80 -> toleranceBelow 40; hard 480 -> toleranceAbove 360.
+      expect(details.verticalSpeed).toEqual({ ideal: 120, toleranceBelow: 40, toleranceAbove: 360 })
+      expect(details.gForce).toEqual({ ideal: 1, toleranceBelow: 1, toleranceAbove: 1 })
+      expect(details.pitch).toEqual({ ideal: -4, toleranceBelow: 8, toleranceAbove: 8 })
+      expect(details.bank).toEqual({ ideal: 0, toleranceBelow: 8, toleranceAbove: 8 })
+      expect(details.crab).toEqual({ ideal: 0, toleranceBelow: 9, toleranceAbove: 9 })
     })
 
     it("reports the runway-dependent categories' real per-flight tolerance (this runway's own data)", () => {
       const { details } = computeLandingScore(PERFECT_M)
-      expect(details.distanceFromAimingPoint).toEqual({ ideal: 0, tolerance: 300 })
-      expect(details.centrelineOffset).toEqual({ ideal: 0, tolerance: 25 })
+      expect(details.distanceFromAimingPoint).toEqual({ ideal: 0, toleranceBelow: 300, toleranceAbove: 300 })
+      expect(details.centrelineOffset).toEqual({ ideal: 0, toleranceBelow: 25, toleranceAbove: 25 })
     })
 
     it('scales vertical speed ideal/tolerance to a different wake category', () => {
       const { details } = computeLandingScore({ ...PERFECT_M, category: 'H' })
-      // H: idealFpm 110, hardFpm 440 -> tolerance 330.
-      expect(details.verticalSpeed).toEqual({ ideal: 110, tolerance: 330 })
+      // H: sweet 150, min 100 -> toleranceBelow 50; hard 600 -> toleranceAbove 450.
+      expect(details.verticalSpeed).toEqual({ ideal: 150, toleranceBelow: 50, toleranceAbove: 450 })
     })
 
     it('is null exactly for the categories with no runway match, even though crab keeps its constant', () => {
