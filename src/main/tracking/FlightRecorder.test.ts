@@ -10,6 +10,7 @@ function telemetry(overrides: Partial<SimTelemetry>): SimTelemetry {
     latitude: 51.4775,
     longitude: -0.4614,
     altitudeM: 25,
+    pressureAltitudeM: 25,
     altitudeAglM: 0,
     verticalSpeedMs: 0,
     indicatedAirspeedMs: 0,
@@ -247,6 +248,12 @@ describe('FlightRecorder', () => {
     const recorder = new FlightRecorder(42)
     const result = recorder.ingest(telemetry({ latitude: 10, longitude: 20 }), at(1))
     expect(result.point).toMatchObject({ flightId: 42, phase: 'preflight', latitude: 10, longitude: 20 })
+  })
+
+  it('records pressureAltitudeM straight from telemetry (logbook-detail-improvements.md, Phase 3)', () => {
+    const recorder = new FlightRecorder(1)
+    const result = recorder.ingest(telemetry({ altitudeM: 12000, pressureAltitudeM: 11850 }), at(1))
+    expect(result.point).toMatchObject({ altitudeM: 12000, pressureAltitudeM: 11850 })
   })
 
   it('stamps every point with resumeSegment 0, the current sim rate, and no exclusion when never resumed', () => {

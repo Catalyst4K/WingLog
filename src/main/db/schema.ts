@@ -199,6 +199,12 @@ export const trackPoint = sqliteTable('track_point', {
   latitude: real('latitude').notNull(),
   longitude: real('longitude').notNull(),
   altitudeM: real('altitude_m').notNull(),
+  // Barometric altitude with the Kohlsman on standard (flightdeck-backend's docs/plans/
+  // logbook-detail-improvements.md, Phase 3) — nullable, unlike every other telemetry
+  // column here: existing rows predate this and stay null forever, nothing backfills them.
+  // altitudeM (true/geometric) stays the source for everything geometric; this is read-only
+  // display data, used above the OFP's transition altitude.
+  pressureAltitudeM: real('pressure_altitude_m'),
   altitudeAglM: real('altitude_agl_m').notNull(),
   indicatedAirspeedMs: real('indicated_airspeed_ms').notNull(),
   // Default 0 only so ALTER TABLE ADD COLUMN can backfill pre-existing NOT NULL rows —

@@ -234,6 +234,7 @@ export class FlightRecorder {
       latitude: t.latitude,
       longitude: t.longitude,
       altitudeM: t.altitudeM,
+      pressureAltitudeM: t.pressureAltitudeM,
       altitudeAglM: t.altitudeAglM,
       indicatedAirspeedMs: t.indicatedAirspeedMs,
       machSpeed: t.machSpeed,

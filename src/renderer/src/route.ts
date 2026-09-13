@@ -19,28 +19,27 @@ function optStr(value: unknown): string | null {
   return typeof value === 'string' && value !== '' ? value : null
 }
 
-function generalSection(ofpJson: string | null): Record<string, unknown> {
+/** Reads one top-level OFP section by name — SimBrief's JSON is a flat object of named
+ *  sections (general, api_params, origin, destination, ...), each itself an object. Empty
+ *  object for a missing/malformed section or unparseable JSON, matching every other
+ *  "empty rather than throw" function in this module. */
+function objectSection(ofpJson: string | null, key: string): Record<string, unknown> {
   if (!ofpJson) return {}
   try {
-    const parsed = JSON.parse(ofpJson) as { general?: unknown }
-    return typeof parsed.general === 'object' && parsed.general !== null
-      ? (parsed.general as Record<string, unknown>)
-      : {}
+    const parsed = JSON.parse(ofpJson) as Record<string, unknown>
+    const section = parsed[key]
+    return typeof section === 'object' && section !== null ? (section as Record<string, unknown>) : {}
   } catch {
     return {}
   }
 }
 
+function generalSection(ofpJson: string | null): Record<string, unknown> {
+  return objectSection(ofpJson, 'general')
+}
+
 function apiParamsSection(ofpJson: string | null): Record<string, unknown> {
-  if (!ofpJson) return {}
-  try {
-    const parsed = JSON.parse(ofpJson) as { api_params?: unknown }
-    return typeof parsed.api_params === 'object' && parsed.api_params !== null
-      ? (parsed.api_params as Record<string, unknown>)
-      : {}
-  } catch {
-    return {}
-  }
+  return objectSection(ofpJson, 'api_params')
 }
 
 /**
@@ -290,6 +289,27 @@ export function applyProcedureSelection(
     result = [...result, ...legsToWaypoints(approach.legs, 'approach')]
   }
   return result
+}
+
+/** The origin's transition altitude and the destination's transition level, for Phase 3's
+ *  altitude display (logbook-detail-improvements.md, display-altitude.ts) — confirmed real
+ *  OFP fields, zero-padded strings (docs/simbrief-notes.md, 2026-09-13, e.g. `"09000"` for
+ *  VHHH), guarded the same `optStr`-then-`Number()` way every other optional SimBrief field
+ *  is. Null when either is missing (an older/malformed OFP, or a flight with no OFP at
+ *  all) — display-altitude.ts falls back to a fixed 18,000 ft both ways in that case. */
+export interface TransitionAltitudes {
+  transAltFt: number
+  transLevelFt: number
+}
+
+export function parseTransitionAltitudes(ofpJson: string | null): TransitionAltitudes | null {
+  const transAltStr = optStr(objectSection(ofpJson, 'origin').trans_alt)
+  const transLevelStr = optStr(objectSection(ofpJson, 'destination').trans_level)
+  if (transAltStr === null || transLevelStr === null) return null
+  const transAltFt = Number(transAltStr)
+  const transLevelFt = Number(transLevelStr)
+  if (!Number.isFinite(transAltFt) || !Number.isFinite(transLevelFt)) return null
+  return { transAltFt, transLevelFt }
 }
 
 /** An approach's constructed identifier always ends with its runway ident ("ILS 07C",

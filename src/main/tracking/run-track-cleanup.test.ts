@@ -14,6 +14,7 @@ function samplePoint(flightId: number, overrides: Partial<NewTrackPoint> = {}): 
     latitude: 0,
     longitude: 0,
     altitudeM: 10000,
+    pressureAltitudeM: null,
     altitudeAglM: 9900,
     indicatedAirspeedMs: 200,
     machSpeed: 0.6,

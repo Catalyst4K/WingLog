@@ -30,6 +30,11 @@ export const SIM_VARS = [
   // to -13,500ft — docs/decisions.md). PLANE ALTITUDE has no such dependency, so it's the
   // correct source for anything stored/plotted, not just displayed on a virtual altimeter.
   { key: 'altitudeM', name: 'PLANE ALTITUDE', unit: 'meters', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
+  // Barometric altitude with the Kohlsman on standard — sim-confirmed real and readable in
+  // meters, VHHH round trip, docs/simconnect-notes.md 2026-09-13 (logbook-detail-improvements.md
+  // Phase 3). Used only for display (above the transition altitude); PLANE ALTITUDE above
+  // stays the source for everything geometric, same as before this field existed.
+  { key: 'pressureAltitudeM', name: 'PRESSURE ALTITUDE', unit: 'meters', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
   { key: 'altitudeAglM', name: 'PLANE ALT ABOVE GROUND', unit: 'meters', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
   { key: 'verticalSpeedMs', name: 'VERTICAL SPEED', unit: 'meters per second', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
   { key: 'indicatedAirspeedMs', name: 'AIRSPEED INDICATED', unit: 'meters per second', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },

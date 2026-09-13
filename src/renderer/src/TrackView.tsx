@@ -18,6 +18,7 @@ import { FlightMap } from './FlightMap'
 import { useConfirm } from './hooks/useConfirm'
 import { ProcedureSelector } from './ProcedureSelector'
 import { useLiveWaypoints, type ProcedureAirports } from './procedureSelection'
+import { parseTransitionAltitudes } from './route'
 
 /** "Flight Num: [airline logo] BAW31   A35K · G-XWBS" — the identity strip shown for a
  *  flight on this page, whether it's actively being tracked or just queued up to start. */
@@ -220,6 +221,13 @@ export function TrackView(props: {
   // caught live: memoized everywhere else this pattern appears, LogbookView included).
   const route: [number, number][] = useMemo(() => liveWaypoints.map((w) => [w.lon, w.lat]), [liveWaypoints])
 
+  // For the map overlay's altitude display (docs/plans/logbook-detail-improvements.md,
+  // Phase 3) — a Flight and a DispatchOfp both carry ofpJson, same as ProcedureAirports
+  // above. Keyed on the string itself, not the whole `airports` object, which is recomputed
+  // fresh every render.
+  const airportsOfpJson = airports?.ofpJson ?? null
+  const telemetryTransition = useMemo(() => parseTransitionAltitudes(airportsOfpJson), [airportsOfpJson])
+
   // Pushes the current selection to the main process whenever it changes while a flight is
   // actively being tracked — TrackingController caches it so it's available at completion
   // regardless of which trigger fires (manual finish or automatic shutdown detection,
@@ -314,7 +322,15 @@ export function TrackView(props: {
       )}
 
       <div className="min-h-0 flex-1">
-        <FlightMap live route={route} waypoints={liveWaypoints} trackPoints={trackPoints} telemetry={props.telemetry} />
+        <FlightMap
+          live
+          route={route}
+          waypoints={liveWaypoints}
+          trackPoints={trackPoints}
+          telemetry={props.telemetry}
+          telemetryPhase={active?.phase}
+          telemetryTransition={telemetryTransition}
+        />
       </div>
 
       {confirmDialog}

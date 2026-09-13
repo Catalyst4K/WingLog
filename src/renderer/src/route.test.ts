@@ -6,6 +6,7 @@ import {
   formatEnrouteOnly,
   parseRouteFromOfpJson,
   parseRouteProcedures,
+  parseTransitionAltitudes,
   parseWaypointsFromOfpJson,
   type ProcedureLegs,
   segmentWaypoints,
@@ -125,6 +126,28 @@ describe('parseRouteProcedures', () => {
   it('returns nulls for missing general/api_params/null input', () => {
     expect(parseRouteProcedures(null)).toEqual(NONE)
     expect(parseRouteProcedures(JSON.stringify({}))).toEqual(NONE)
+  })
+})
+
+describe('parseTransitionAltitudes', () => {
+  // Real VHHH round trip's OFP fields, confirmed live (docs/simbrief-notes.md, 2026-09-13):
+  // zero-padded strings, not plain numbers.
+  it('reads real zero-padded trans_alt/trans_level strings', () => {
+    expect(
+      parseTransitionAltitudes(
+        JSON.stringify({ origin: { trans_alt: '09000' }, destination: { trans_level: '11000' } })
+      )
+    ).toEqual({ transAltFt: 9000, transLevelFt: 11000 })
+  })
+
+  it('returns null when either field is missing, guarding the {}-when-absent trap', () => {
+    expect(parseTransitionAltitudes(JSON.stringify({ origin: {}, destination: { trans_level: '11000' } }))).toBeNull()
+    expect(parseTransitionAltitudes(JSON.stringify({ origin: { trans_alt: '09000' }, destination: {} }))).toBeNull()
+  })
+
+  it('returns null for missing sections/null input', () => {
+    expect(parseTransitionAltitudes(null)).toBeNull()
+    expect(parseTransitionAltitudes(JSON.stringify({}))).toBeNull()
   })
 })
 

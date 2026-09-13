@@ -164,6 +164,14 @@ export interface SimTelemetry {
   latitude: number
   longitude: number
   altitudeM: number
+  /** Barometric altitude with the Kohlsman set to standard (1013.25 mb/29.92 in) —
+   *  logbook-detail-improvements.md Phase 3: what a correctly-flown PFD reads above the
+   *  transition altitude, independent of each aircraft's own altimeter implementation
+   *  (confirmed real and trustworthy for this live, flightdeck-backend's
+   *  docs/simconnect-notes.md, 2026-09-13 entry — unlike INDICATED ALTITUDE, which depends
+   *  on the aircraft's own Kohlsman setting and produced the -13,500 ft chart bug this
+   *  field exists to avoid repeating). */
+  pressureAltitudeM: number
   altitudeAglM: number
   verticalSpeedMs: number
   indicatedAirspeedMs: number
@@ -211,6 +219,11 @@ export interface TrackPoint {
   latitude: number
   longitude: number
   altitudeM: number
+  /** Null for any point recorded before this column existed (logbook-detail-improvements.md
+   *  Phase 3) — existing rows stay null forever, nothing backfills them. A non-null value
+   *  is always real going forward: FlightRecorder always supplies SimTelemetry's own
+   *  pressureAltitudeM, which SimConnect always returns once requested. */
+  pressureAltitudeM: number | null
   altitudeAglM: number
   indicatedAirspeedMs: number
   machSpeed: number

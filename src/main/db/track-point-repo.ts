@@ -12,6 +12,7 @@ function toTrackPoint(row: typeof trackPoint.$inferSelect): TrackPoint {
     latitude: row.latitude,
     longitude: row.longitude,
     altitudeM: row.altitudeM,
+    pressureAltitudeM: row.pressureAltitudeM,
     altitudeAglM: row.altitudeAglM,
     indicatedAirspeedMs: row.indicatedAirspeedMs,
     machSpeed: row.machSpeed,

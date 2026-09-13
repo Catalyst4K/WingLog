@@ -3,12 +3,13 @@ import { GeoJSONSource, LngLatBounds, Map as MapLibreMap, Marker, setWorkerUrl }
 import 'maplibre-gl/dist/maplibre-gl.css'
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { Locate, LocateFixed, ZoomIn, ZoomOut } from 'lucide-react'
-import type { SimTelemetry, TrackPoint } from '@shared/ipc'
+import type { FlightPhase, SimTelemetry, TrackPoint } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
+import { displayAltitude } from './display-altitude'
 import { mapInteraction } from './mapInteraction'
-import type { Waypoint } from './route'
+import type { TransitionAltitudes, Waypoint } from './route'
 import { filterVisibleTrackPoints } from './trackPointVisibility'
-import { mToFt, msToKt } from './units'
+import { msToKt } from './units'
 
 // maplibre-gl ships its tile-parsing worker as a separate chunk and locates it via its
 // own import.meta.url at runtime — a resolution that doesn't survive Vite's dependency
@@ -191,6 +192,13 @@ export interface FlightMapProps {
   /** Live sim telemetry — shown as a small IAS/altitude/heading overlay at the map's
    *  bottom edge when present (TrackView only; Logbook/Dispatch don't pass it). */
   telemetry?: SimTelemetry | null
+  /** The active flight's current phase — decides whether the overlay's altitude reads
+   *  pressure or true altitude (docs/plans/logbook-detail-improvements.md, Phase 3; see
+   *  display-altitude.ts). Only meaningful alongside `telemetry`; ignored otherwise. */
+  telemetryPhase?: FlightPhase
+  /** The flight's OFP transition altitude/level, for the same overlay calculation — null
+   *  falls back to a fixed 18,000 ft (see display-altitude.ts). */
+  telemetryTransition?: TransitionAltitudes | null
   /** True when `route` is a synthesized great-circle line (docs/plans/
    *  great-circle-fallback-route.md), not a real SimBrief-derived route — styled more
    *  faintly, with a caption, so it can't be mistaken for a genuine planned route. */
@@ -207,6 +215,8 @@ export function FlightMap({
   trackPoints: rawTrackPoints,
   live,
   telemetry,
+  telemetryPhase = 'cruise',
+  telemetryTransition = null,
   routeIsApproximate = false
 }: FlightMapProps): React.JSX.Element {
   const mapContainerRef = useRef<HTMLDivElement>(null)
@@ -690,8 +700,15 @@ export function FlightMap({
       {live && (
         <div className="absolute bottom-3 left-3 rounded-full border border-border bg-popover/85 px-3 py-1 font-mono text-xs text-popover-foreground backdrop-blur-sm">
           Speed: {telemetry ? `${Math.round(msToKt(telemetry.indicatedAirspeedMs))} kt` : 'N/A'} · Altitude:{' '}
-          {telemetry ? `${Math.round(mToFt(telemetry.altitudeM)).toLocaleString()} ft` : 'N/A'} · Heading:{' '}
-          {telemetry ? `${Math.round(telemetry.headingTrueDeg)}°` : 'N/A'}
+          {telemetry
+            ? `${Math.round(
+                displayAltitude(
+                  { altitudeM: telemetry.altitudeM, pressureAltitudeM: telemetry.pressureAltitudeM, phase: telemetryPhase },
+                  telemetryTransition
+                ).valueFt
+              ).toLocaleString()} ft`
+            : 'N/A'}{' '}
+          · Heading: {telemetry ? `${Math.round(telemetry.headingTrueDeg)}°` : 'N/A'}
         </div>
       )}
       {routeIsApproximate && (

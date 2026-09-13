@@ -10,6 +10,7 @@ function point(overrides: Partial<TrackPoint> = {}): TrackPoint {
     latitude: 0,
     longitude: 0,
     altitudeM: 0,
+    pressureAltitudeM: null,
     altitudeAglM: 0,
     indicatedAirspeedMs: 0,
     machSpeed: 0,

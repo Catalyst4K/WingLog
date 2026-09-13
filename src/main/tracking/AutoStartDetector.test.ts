@@ -9,6 +9,7 @@ function telemetry(overrides: Partial<SimTelemetry>): SimTelemetry {
     latitude: 51.4775,
     longitude: -0.4614,
     altitudeM: 25,
+    pressureAltitudeM: 25,
     altitudeAglM: 0,
     verticalSpeedMs: 0,
     indicatedAirspeedMs: 0,

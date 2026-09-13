@@ -1,0 +1,1 @@
+ALTER TABLE `track_point` ADD `pressure_altitude_m` real;

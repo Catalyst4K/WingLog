@@ -31,6 +31,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import { computeChartAxisTicks, formatTickLabel } from './chart-ticks'
+import { displayAltitude } from './display-altitude'
 import { FlightMap } from './FlightMap'
 import { GsxInvoicesCard } from './GsxInvoicesCard'
 import { useConfirm } from './hooks/useConfirm'
@@ -41,7 +42,7 @@ import { LandingScoreBadge } from './LandingScoreBadge'
 import { LandingScoreBreakdownDialog } from './LandingScoreBreakdownDialog'
 import { isCategoryBad } from './landing-score-ui'
 import { selectionFromFlight, useLiveWaypoints } from './procedureSelection'
-import type { Waypoint } from './route'
+import { parseTransitionAltitudes, type Waypoint } from './route'
 import { SortableHead } from './SortableHead'
 import { TouchdownDiagram } from './TouchdownDiagram'
 import { TrackCleanupButton } from './TrackCleanupButton'
@@ -51,7 +52,6 @@ import {
   formatPitchDeg,
   formatRunwayDistance,
   formatWeight,
-  mToFt,
   msToFpm,
   msToKt
 } from './units'
@@ -365,6 +365,12 @@ function FlightDetail(props: {
     ]
   }, [route, waypoints, fallbackRoute, flight.depIcao, flight.arrIcao])
 
+  // The origin's transition altitude / destination's transition level, for the altitude
+  // chart below (docs/plans/logbook-detail-improvements.md, Phase 3) — null for a flight
+  // with no OFP, or an older/malformed one; display-altitude.ts falls back to a fixed
+  // 18,000 ft both ways in that case.
+  const transition = useMemo(() => parseTransitionAltitudes(flight.ofpJson), [flight.ofpJson])
+
   // Elapsed minutes since the first sample reads better on a chart than raw timestamps.
   // Memoized like route/waypoints above — trackPoints only actually changes once, when
   // the fetch above resolves, so recomputing this on every unrelated re-render was pure
@@ -378,14 +384,23 @@ function FlightDetail(props: {
       // point's true elapsed time to plot the chart's actual shape, not just to label it
       // (docs/plans/logbook-detail-improvements.md, item 1).
       const tMin = (new Date(p.tsUtc).getTime() - startMs) / 60000
+      // Pressure altitude above the transition, true altitude below it — what the aircraft's
+      // own PFD actually showed (Phase 3), not always true/geometric altitude as before.
+      const alt = displayAltitude({ altitudeM: p.altitudeM, pressureAltitudeM: p.pressureAltitudeM, phase: p.phase }, transition)
       return {
         tMin,
-        altFt: Math.round(mToFt(p.altitudeM)),
+        altFt: Math.round(alt.valueFt),
+        altLabel: alt.label,
         iasKt: Math.round(msToKt(p.indicatedAirspeedMs)),
         mach: Math.round(p.machSpeed * 100) / 100
       }
     })
-  }, [trackPoints])
+  }, [trackPoints, transition])
+
+  // A flight with no pressure-altitude data at all (recorded before Phase 3 shipped) keeps
+  // showing true altitude throughout — labelled as such so the mismatch this whole plan
+  // exists to fix isn't re-reported as a new bug against old data.
+  const altitudeChartLabel = profile.at(-1)?.altLabel ?? 'Altitude'
 
   // A long-haul's duration reads better in hours than as a three/four-digit minutes axis
   // — see HOURS_AXIS_THRESHOLD_MIN above. Both charts share the same `tMin` data field
@@ -469,7 +484,7 @@ function FlightDetail(props: {
         <div className="flex flex-wrap gap-4">
           <Card className="min-w-72 flex-1">
             <CardHeader>
-              <CardTitle className="text-sm">Altitude</CardTitle>
+              <CardTitle className="text-sm">{altitudeChartLabel}</CardTitle>
             </CardHeader>
             <CardContent className="h-[220px]">
               <ResponsiveContainer width="100%" height="100%">
