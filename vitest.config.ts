@@ -69,14 +69,24 @@ export default defineConfig({
       // 49.64/40.85/39.19/50.72. After Phase 2 (main-process gaps closed): 57.17/48/
       // 46.23/58.2. After Phase 3's first batch (units.ts/dispatch-time.ts, plus
       // AirlineLogo/NavigraphLogo/AircraftPhoto/SortableHead/Combobox components and the
-      // useSortable/useConfirm/useResetSignal hooks), same day: 59.32/49.79/50.05/60.4 —
-      // floored below that so a one-line nondeterministic dip doesn't flip this red on an
-      // unrelated PR.
+      // useSortable/useConfirm/useResetSignal hooks), same day: 59.32/49.79/50.05/60.4.
+      // Consolidated bump once all 5 of Phase 3's remaining parallel batches merged
+      // (small-components, forms-views, dispatch-settings, app-flightmap, logbook):
+      // 97.01/91.77/96.42/98.32 — floored a couple of points below that so a one-line
+      // nondeterministic dip (recharts/maplibre-gl mock timing under load, see App.test.tsx/
+      // FlightMap.test.tsx/LogbookView.test.tsx's own notes on this) doesn't flip this red on
+      // an unrelated PR. Remaining real gaps, not chased further this phase — diminishing
+      // returns relative to the ground already covered: recharts' tick-formatter/tooltip
+      // callbacks (LogbookView.tsx) and a few other components' own tick-formatter callbacks,
+      // none of which execute without a real ResizeObserver-driven layout in a real browser;
+      // App.tsx's onPlanned/onFlightEnded callbacks, which need a full Dispatch-to-flying or
+      // Track-finish flow driven through real child views. Phase 4 (Playwright acceptance)
+      // and Phase 5 (CI enforcement at 100%) are what's left of this plan.
       thresholds: {
-        statements: 59,
-        branches: 49,
-        functions: 50,
-        lines: 60
+        statements: 95,
+        branches: 89,
+        functions: 94,
+        lines: 96
       }
     }
   }
