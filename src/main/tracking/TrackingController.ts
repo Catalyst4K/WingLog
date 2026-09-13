@@ -16,16 +16,28 @@ import {
 } from '../db/flight-repo'
 import { createLanding } from '../db/landing-repo'
 import { getGsxSettings } from '../db/settings-repo'
-import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
+import { applyTrackCleanup, createTrackPoint, listTrackPoints } from '../db/track-point-repo'
 import { buildFlightMatchWindow } from '../gsx/flight-window'
 import { scanGsxFolder } from '../gsx/scan'
 import type { SimConnectService } from '../sim/SimConnectService'
 import { FlightRecorder } from './FlightRecorder'
 import { buildLandingRecord } from './landing-capture'
+import {
+  computeTrackCleanup,
+  isPhysicallyImpossibleJump,
+  RESUME_CLEANUP_CONSTANTS,
+  type TrackCleanupResult
+} from './resume-cleanup'
 import { deriveFlownRouteJson } from './route-simplify'
 
 interface TrackingControllerEvents {
   point: [TrackPoint]
+  /** Emitted whenever a resume-cleanup pass (resume-cleanup.ts) actually changes something
+   *  — a point newly excluded, or retagged with a new resumeSegment — carrying every
+   *  affected point at its now-current values, so a live map (already holding the earlier,
+   *  since-corrected copies pushed via 'point') can patch them in place rather than wait
+   *  for flight completion to see the trail redraw correctly. */
+  pointsUpdated: [TrackPoint[]]
   /** Emitted whenever a flight reaches 'completed' — auto shutdown detection or a manual
    *  finish() alike — so main/index.ts can trigger a background cloud sync
    *  (flightdeck-backend/docs/plans/cloud-sync-v2.md #3) without this class needing to
@@ -55,10 +67,19 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   // going anywhere (see flight-repo.ts's own completeFlight comment). In-memory only, same
   // as offRecorded/onRecorded/fuelOutFinalized above: a pause that happened before an
   // app/process restart can't be recovered here, which is fine — that's a full resume, a
-  // different scenario (flightdeck-backend's docs/plans/resume-track-cleanup.md), not an
+  // different scenario (flightdeck-backend's docs/plans/done/resume-track-cleanup.md), not an
   // in-session pause.
   private pausedIntervals: PausedInterval[] = []
   private openPauseStartIso: string | undefined
+  // Live-jump detection for resume-cleanup.ts's Phase 2 (flightdeck-backend's docs/plans/
+  // resume-track-cleanup.md) — cheap, incremental, and separate from the full pass run at
+  // completion: lastPersistedPoint lets each new sample be checked against just its one
+  // predecessor (Rule 2 is a per-pair test) without re-scanning the whole flight on every
+  // tick. resumeWindowDeadlineMs is only used to know when a window has timed out with
+  // nothing resolving it (Case C) — the jump check itself runs unconditionally either way,
+  // per the design decided 2026-09-13 (see resume-cleanup.ts's own doc comment).
+  private lastPersistedPoint: TrackPoint | undefined
+  private resumeWindowDeadlineMs: number | undefined
 
   constructor(
     private readonly db: WingLogDb,
@@ -97,12 +118,14 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
       if (result.point) {
         const saved = createTrackPoint(this.db, result.point)
         this.emit('point', saved)
+        this.checkForLiveJump(saved)
       }
 
       if (result.phase === 'shutdown') {
         const flightId = this.recorder.getFlightId()
         completeFlight(this.db, flightId, telemetry.fuelTotalKg, this.closedPauseIntervals())
         this.snapshotGsxInvoices(flightId)
+        this.runTrackCleanup(flightId)
         this.deriveFlownRoute(flightId)
         this.persistSelection(flightId)
         this.recorder = undefined
@@ -153,6 +176,8 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     this.currentSelection = undefined
     this.pausedIntervals = []
     this.openPauseStartIso = undefined
+    this.lastPersistedPoint = undefined
+    this.resumeWindowDeadlineMs = undefined
   }
 
   /**
@@ -176,7 +201,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     const lastPhase: FlightPhase = points.length ? points[points.length - 1].phase : 'preflight'
     // One more than whatever segment the flight was last recording in — 0 for a flight
     // resumed for the first time, incrementing further on a second/third resume in the
-    // same flight (flightdeck-backend's docs/plans/resume-track-cleanup.md).
+    // same flight (flightdeck-backend's docs/plans/done/resume-track-cleanup.md).
     const resumeSegment = points.length ? points[points.length - 1].resumeSegment + 1 : 0
 
     this.recorder = new FlightRecorder(flightId, {
@@ -190,6 +215,13 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     this.currentSelection = undefined
     this.pausedIntervals = []
     this.openPauseStartIso = undefined
+    // Seeded with the anchor (the last point before this boundary) rather than left
+    // undefined, so the very first live sample recorded after resuming — the sim's spawn
+    // point — gets compared against it: a resumeSegment change with no jump test needed
+    // (the boundary itself), opening the window checkForLiveJump's Case A/B logic resolves
+    // inside (resume-cleanup.ts).
+    this.lastPersistedPoint = points.length ? points[points.length - 1] : undefined
+    this.resumeWindowDeadlineMs = Date.now() + RESUME_CLEANUP_CONSTANTS.RESUME_WINDOW_MS
   }
 
   /** Called from the renderer (tracking:set-procedure-selection) on every live selection
@@ -219,10 +251,67 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     const telemetry = this.simConnectService.getLastTelemetry()
     completeFlight(this.db, flightId, telemetry?.fuelTotalKg ?? 0, this.closedPauseIntervals())
     this.snapshotGsxInvoices(flightId)
+    this.runTrackCleanup(flightId)
     this.deriveFlownRoute(flightId)
     this.persistSelection(flightId)
     this.recorder = undefined
     this.emit('completed', flightId)
+  }
+
+  /**
+   * Incremental half of resume-cleanup.ts's Phase 2 — checked once per newly-persisted
+   * sample against just its immediate predecessor (Rule 2 is a per-pair test, so this
+   * never needs the whole flight's history to decide whether *this* pair looks like a
+   * jump). A real jump either resolves an open resume window (Case A/B) or, per the
+   * 2026-09-13 design decision, stands alone with none open at all (a payware aircraft's
+   * own save-state/reload feature, confirmed live with no WingLog resume anywhere near
+   * it) — either way `runTrackCleanup` below is the authoritative pass, cheap to run right
+   * now since it's bounded to one flight's own points, not per-tick cost.
+   */
+  private checkForLiveJump(saved: TrackPoint): void {
+    const previous = this.lastPersistedPoint
+    this.lastPersistedPoint = saved
+    if (this.resumeWindowDeadlineMs !== undefined && Date.now() > this.resumeWindowDeadlineMs) {
+      // Case C: window timed out with nothing resolving it — real flying continuing on,
+      // nothing more to do than the boundary Phase 1 already stamped.
+      this.resumeWindowDeadlineMs = undefined
+    }
+    // No predecessor yet, or `saved` is itself a resume boundary (a fresh resumeSegment) —
+    // neither is a pair Rule 2 evaluates; the boundary is exactly where a window opens
+    // (already set up by resume() itself), not something to jump-test against.
+    if (!previous || previous.resumeSegment !== saved.resumeSegment) return
+    if (!isPhysicallyImpossibleJump(previous, saved)) return
+    const result = this.runTrackCleanup(saved.flightId)
+    this.resumeWindowDeadlineMs = undefined
+    // A standalone jump (no resume window open) invents a new segment on the fly for
+    // whatever tail already existed at the moment this ran — `saved` itself, since nothing
+    // after it has been recorded yet. The recorder's own counter needs the same value, or
+    // every point recorded from here on would keep stamping the now-stale original segment
+    // instead of continuing the new one (FlightRecorder.bumpResumeSegment's own comment).
+    const ownReassignment = result?.segmentReassignments.find((r) => r.id === saved.id)
+    if (ownReassignment) this.recorder?.bumpResumeSegment(ownReassignment.resumeSegment)
+  }
+
+  /** Runs resume-cleanup.ts's pure function over this flight's full current history and
+   *  persists whatever it finds — called both live (checkForLiveJump, right when a jump
+   *  resolves something) and once more at completion as a backstop, matching the plan
+   *  doc's own "when a resume window resolves … and once more at flight completion". A
+   *  no-op write when nothing changed (applyTrackCleanup already short-circuits that), and
+   *  nothing is emitted in that case either — no already-drawn point needs correcting.
+   *  Returns the raw result so a live caller can react to specifics (checkForLiveJump uses
+   *  it to keep the recorder's own segment counter in step); undefined when nothing changed. */
+  private runTrackCleanup(flightId: number): TrackCleanupResult | undefined {
+    const points = listTrackPoints(this.db, flightId)
+    const result = computeTrackCleanup(points)
+    if (result.exclusions.length === 0 && result.segmentReassignments.length === 0) return undefined
+    applyTrackCleanup(this.db, result)
+    const changedIds = new Set([
+      ...result.exclusions.map((e) => e.id),
+      ...result.segmentReassignments.map((r) => r.id)
+    ])
+    const updated = listTrackPoints(this.db, flightId).filter((p) => changedIds.has(p.id))
+    this.emit('pointsUpdated', updated)
+    return result
   }
 
   /**
@@ -251,7 +340,11 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
    *  (unlike the GSX scan, no I/O involved), so no .catch needed — a thrown error here
    *  would already be a real bug, not an expected "folder missing" case. */
   private deriveFlownRoute(flightId: number): void {
-    const points = listTrackPoints(this.db, flightId)
+    // Called after runTrackCleanup above, so any junk this flight picked up is already
+    // flagged — excluded here the same way the map filters it (flightdeck-backend's
+    // docs/plans/done/resume-track-cleanup.md), so a crash-resume triangle or a mid-flight
+    // teleport never gets baked into the synced flown-route polyline.
+    const points = listTrackPoints(this.db, flightId).filter((p) => p.excludedReason == null)
     const flownRouteJson = deriveFlownRouteJson(points)
     if (flownRouteJson) setFlownRoute(this.db, flightId, flownRouteJson)
   }

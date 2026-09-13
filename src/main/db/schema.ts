@@ -226,7 +226,7 @@ export const trackPoint = sqliteTable('track_point', {
   gForce: real('g_force').notNull().default(1),
   windSpeedMs: real('wind_speed_ms').notNull().default(0),
   windDirectionDeg: real('wind_direction_deg').notNull().default(0),
-  // Resume-track cleanup (flightdeck-backend's docs/plans/resume-track-cleanup.md) — marks
+  // Resume-track cleanup (flightdeck-backend's docs/plans/done/resume-track-cleanup.md) — marks
   // rather than deletes, so the raw samples stay available for re-running the cleanup after
   // a threshold change. Defaults exist only so ALTER TABLE ADD COLUMN can backfill
   // pre-existing rows (all as segment 0, sim rate 1x, nothing excluded — the only sane

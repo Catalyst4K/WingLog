@@ -5,7 +5,7 @@ import type { SimTelemetry } from '@shared/ipc'
 import { createDb, type WingLogDb } from '../db/client'
 import { createAircraft } from '../db/aircraft-repo'
 import { createFlight, getFlight } from '../db/flight-repo'
-import { listTrackPoints } from '../db/track-point-repo'
+import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
 import type { SimConnectService } from '../sim/SimConnectService'
 import { TrackingController } from './TrackingController'
 
@@ -405,6 +405,144 @@ describe('TrackingController', () => {
 
       expect(getFlight(db, flightId)?.actualOffUtc).toBe(offAtCrash)
       expect(getFlight(db, flightId)?.fuelOutKg).toBe(fuelOutAtCrash)
+    })
+  })
+
+  // Phase 2 of flightdeck-backend's docs/plans/done/resume-track-cleanup.md — the actual
+  // junk-exclusion pass, live-wired through checkForLiveJump/runTrackCleanup rather than
+  // just the pure computeTrackCleanup function (resume-cleanup.test.ts covers that in
+  // isolation).
+  describe('resume-cleanup wiring', () => {
+    it('excludes the spawn-then-fly-back junk live, as soon as a restore teleport resolves an open resume window', () => {
+      vi.useFakeTimers()
+      const sim1 = fakeSimConnectService()
+      sim1.setLastTelemetry(telemetry({}))
+      const original = new TrackingController(db, sim1)
+      original.start(flightId)
+      sim1.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 100, latitude: 51.4775, longitude: -0.4614 })
+      )
+
+      const sim2 = fakeSimConnectService()
+      const resumed = new TrackingController(db, sim2)
+      const updates: number[][] = []
+      resumed.on('pointsUpdated', (points) => updates.push(points.map((p) => p.id)))
+      resumed.resume(flightId)
+
+      // Spawn point, far from the anchor — opens the resume window (Phase 1's boundary).
+      vi.advanceTimersByTime(5_000)
+      sim2.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 100, latitude: 52, longitude: 0 })
+      )
+      // The restore tool's teleport: instantly back near the anchor.
+      vi.advanceTimersByTime(5_000)
+      sim2.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 100, latitude: 51.4776, longitude: -0.4613 })
+      )
+
+      const points = listTrackPoints(db, flightId)
+      const spawn = points.find((p) => p.resumeSegment === 1 && p.latitude === 52)
+      expect(spawn?.excludedReason).toBe('resume-spurious')
+      const reentry = points.find((p) => p.latitude === 51.4776)
+      expect(reentry?.excludedReason).toBeNull()
+      expect(updates.flat()).toEqual([spawn?.id])
+    })
+
+    it('retags the far side of a mid-flight teleport with a new segment, live, even with no resume window open', () => {
+      vi.useFakeTimers()
+      const sim = fakeSimConnectService()
+      sim.setLastTelemetry(telemetry({}))
+      const controller = new TrackingController(db, sim)
+      controller.start(flightId)
+      const updates: number[][] = []
+      controller.on('pointsUpdated', (points) => updates.push(points.map((p) => p.id)))
+
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 100, latitude: 51.4775, longitude: -0.4614 })
+      )
+      vi.advanceTimersByTime(5_000)
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 100, latitude: 51.478, longitude: -0.462 })
+      )
+      // A payware aircraft's own save-state/reload feature teleports the aircraft — no
+      // resume() anywhere near this, matching the real flight 193 iniBuilds A350 case
+      // (resume-track-cleanup.md, "New real case found live, 2026-09-13").
+      vi.advanceTimersByTime(5_000)
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 100, latitude: 10, longitude: 10 })
+      )
+      vi.advanceTimersByTime(5_000)
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 100, latitude: 10.001, longitude: 10.001 })
+      )
+
+      const points = listTrackPoints(db, flightId)
+      expect(points.every((p) => p.excludedReason === null)).toBe(true)
+      const teleportedSegment = points.find((p) => p.latitude === 10)?.resumeSegment
+      expect(teleportedSegment).toBeDefined()
+      expect(teleportedSegment).not.toBe(0)
+      expect(points.find((p) => p.latitude === 10.001)?.resumeSegment).toBe(teleportedSegment)
+      expect(points.find((p) => p.latitude === 51.478)?.resumeSegment).toBe(0)
+      expect(updates.flat().length).toBeGreaterThan(0)
+    })
+
+    it('also runs as a backstop at flight completion, for a jump this process never live-observed', () => {
+      // Seeded directly via createTrackPoint rather than telemetry ticks, so
+      // checkForLiveJump never sees any of it — stands in for data this exact process
+      // didn't record live (e.g. a plain restart of the recorder without going through
+      // resume(), or a flight recorded before Phase 2 existed at all). finish()'s own
+      // runTrackCleanup call is the only thing that can catch this.
+      const sim = fakeSimConnectService()
+      sim.setLastTelemetry(telemetry({}))
+      const controller = new TrackingController(db, sim)
+      controller.start(flightId)
+
+      function seed(tsUtc: string, latitude: number, longitude: number): void {
+        createTrackPoint(db, {
+          flightId,
+          tsUtc,
+          latitude,
+          longitude,
+          altitudeM: 10000,
+          altitudeAglM: 9900,
+          indicatedAirspeedMs: 200,
+          machSpeed: 0.6,
+          groundSpeedMs: 200,
+          verticalSpeedMs: 0,
+          headingTrueDeg: 90,
+          pitchDeg: 2,
+          bankDeg: 0,
+          phase: 'cruise',
+          onGround: false,
+          fuelKg: 8000,
+          gForce: 1,
+          windSpeedMs: 0,
+          windDirectionDeg: 0,
+          resumeSegment: 0,
+          simRate: 1,
+          excludedReason: null
+        })
+      }
+      seed('2026-09-13T12:00:00.000Z', 0, 0)
+      seed('2026-09-13T12:00:05.000Z', 20, 20)
+      seed('2026-09-13T12:00:10.000Z', 20.001, 20.001)
+
+      controller.finish()
+
+      const points = listTrackPoints(db, flightId)
+      expect(points.every((p) => p.excludedReason === null)).toBe(true)
+      const teleportedSegment = points.find((p) => p.latitude === 20)?.resumeSegment
+      expect(teleportedSegment).toBeDefined()
+      expect(teleportedSegment).not.toBe(0)
+      expect(points.find((p) => p.latitude === 20.001)?.resumeSegment).toBe(teleportedSegment)
+      expect(points.find((p) => p.latitude === 0)?.resumeSegment).toBe(0)
     })
   })
 

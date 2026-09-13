@@ -57,10 +57,13 @@ export class FlightRecorder {
   private hasLanded = false
   // Tags every point this recorder writes — 0 for a flight never resumed, incremented by
   // TrackingController.resume() each time the app/process restarts mid-flight (see this
-  // class's own resume-parameter comment). Never touched by the phase machine itself; the
-  // map uses it to never draw a line across a restart's spawn-point/teleport-back
-  // artefacts, even before any cleanup logic decides which points within a segment are
-  // spurious (flightdeck-backend's docs/plans/resume-track-cleanup.md).
+  // class's own resume-parameter comment), or by bumpResumeSegment below when a
+  // resume-cleanup pass finds a physically-impossible jump with no resume() involved at
+  // all (flightdeck-backend's docs/plans/done/resume-track-cleanup.md — a payware aircraft's
+  // own save-state/reload feature, confirmed live 2026-09-13). Never touched by the phase
+  // machine itself; the map uses it to never draw a line across a spawn-point/teleport-back
+  // artefact, even before any cleanup logic decides which points within a segment are
+  // spurious.
   private resumeSegment = 0
 
   /**
@@ -88,6 +91,16 @@ export class FlightRecorder {
   /** "Freeze the phase machine on pause" (PLAN.md §7) — no transitions, no points, while true. */
   setPaused(paused: boolean): void {
     this.paused = paused
+  }
+
+  /** Called by TrackingController the moment a live resume-cleanup check finds a
+   *  physically-impossible jump with no resume window open (checkForLiveJump) — every
+   *  point from here on needs the new segment too, not just the one(s) the cleanup pass
+   *  could already see when it ran. Without this, points recorded after the jump but
+   *  before the next one would keep stamping the stale segment, splitting what should be
+   *  one continuous new segment in two. */
+  bumpResumeSegment(newSegment: number): void {
+    this.resumeSegment = newSegment
   }
 
   getPhase(): FlightPhase {

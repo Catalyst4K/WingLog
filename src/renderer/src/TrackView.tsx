@@ -112,7 +112,21 @@ export function TrackView(props: {
       )
       setActive({ flightId: point.flightId, phase: point.phase })
     })
-    return unsubscribe
+    // A resume-cleanup pass (flightdeck-backend's docs/plans/done/resume-track-cleanup.md) can
+    // flag a point as junk or retag its resumeSegment after it's already been pushed above
+    // and drawn — patch each affected point in place by id rather than waiting for a
+    // reload, so the trail corrects itself live instead of only once the flight completes.
+    const unsubscribeUpdated = window.winglog.onTrackingPointsUpdated((updated) => {
+      if (updated.length === 0) return
+      setTrackPoints((current) => {
+        const byId = new Map(updated.map((p) => [p.id, p]))
+        return current.map((p) => byId.get(p.id) ?? p)
+      })
+    })
+    return () => {
+      unsubscribe()
+      unsubscribeUpdated()
+    }
   }, [])
 
   async function handleStart(flightId: number): Promise<void> {

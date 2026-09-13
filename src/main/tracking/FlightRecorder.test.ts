@@ -261,6 +261,17 @@ describe('FlightRecorder', () => {
     expect(result.point).toMatchObject({ resumeSegment: 2 })
   })
 
+  it('stamps every subsequent point with a new segment after bumpResumeSegment, without needing a resume()', () => {
+    // Phase 2 of resume-track-cleanup.md — a live jump with no resume window open (e.g. a
+    // payware aircraft's own save-state/reload feature) bumps this directly, not via the
+    // resume constructor param.
+    const recorder = new FlightRecorder(1)
+    recorder.ingest(telemetry({}), at(1))
+    recorder.bumpResumeSegment(5)
+    const result = recorder.ingest(telemetry({}), at(3))
+    expect(result.point).toMatchObject({ resumeSegment: 5 })
+  })
+
   it('does not re-enter takeoff on a post-landing speed blip (reverse thrust, real 2026-09-05 flight)', () => {
     const recorder = new FlightRecorder(1)
     let t = 0

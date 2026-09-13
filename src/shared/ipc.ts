@@ -234,7 +234,7 @@ export interface TrackPoint {
   resumeSegment: number
   /** Sim time compression at the moment this point was recorded — needed to tell a
    *  legitimate high-speed-over-ground-at-4x sample apart from a physically impossible
-   *  teleport (flightdeck-backend's docs/plans/resume-track-cleanup.md). */
+   *  teleport (flightdeck-backend's docs/plans/done/resume-track-cleanup.md). */
   simRate: number
   /** Set by the post-resume cleanup pass, never at record time — see the plan doc above.
    *  Null means this point is genuine and should be shown; every consumer (the map, route
@@ -802,6 +802,7 @@ export const IpcChannels = {
   flightCancel: 'flight:cancel',
   flightDelete: 'flight:delete',
   trackingPoint: 'tracking:point',
+  trackingPointsUpdated: 'tracking:points-updated',
   trackPointList: 'track-point:list',
   logbookListCompletedFlights: 'logbook:list-completed-flights',
   logbookGetStats: 'logbook:get-stats',
@@ -959,6 +960,12 @@ export interface WingLogApi {
   trackingGetActive: () => Promise<ActiveTracking | null>
   trackPointList: (flightId: number) => Promise<TrackPoint[]>
   onTrackingPoint: (listener: (point: TrackPoint) => void) => () => void
+  /** Pushed whenever a resume-cleanup pass (flightdeck-backend's docs/plans/
+   *  resume-track-cleanup.md) changes an already-recorded point — newly excluded, or
+   *  retagged with a new resumeSegment — carrying each affected point at its now-current
+   *  value so a live map already showing the earlier copy (from onTrackingPoint) can patch
+   *  it in place. */
+  onTrackingPointsUpdated: (listener: (points: TrackPoint[]) => void) => () => void
   logbookListCompletedFlights: () => Promise<Flight[]>
   logbookGetStats: () => Promise<LogbookStats>
   logbookFleetStats: () => Promise<FleetStats[]>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { GeoJSONSource, LngLatBounds, Map as MapLibreMap, Marker, setWorkerUrl } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
@@ -7,6 +7,7 @@ import type { SimTelemetry, TrackPoint } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { mapInteraction } from './mapInteraction'
 import type { Waypoint } from './route'
+import { filterVisibleTrackPoints } from './trackPointVisibility'
 import { mToFt, msToKt } from './units'
 
 // maplibre-gl ships its tile-parsing worker as a separate chunk and locates it via its
@@ -176,6 +177,9 @@ export interface FlightMapProps {
   route: [number, number][]
   /** Per-fix waypoint pins along the planned route (ident labels), same source as `route`. */
   waypoints?: Waypoint[]
+  /** Every recorded point, unfiltered — points with a non-null `excludedReason` (junk from
+   *  a crash-resume or a mid-flight teleport, flightdeck-backend's docs/plans/
+   *  resume-track-cleanup.md) are dropped inside this component, not by the caller. */
   trackPoints: TrackPoint[]
   /**
    * true (TrackView): animated marker/camera follow as new points arrive.
@@ -200,7 +204,7 @@ const EMPTY_WAYPOINTS: Waypoint[] = []
 export function FlightMap({
   route,
   waypoints = EMPTY_WAYPOINTS,
-  trackPoints,
+  trackPoints: rawTrackPoints,
   live,
   telemetry,
   routeIsApproximate = false
@@ -212,6 +216,11 @@ export function FlightMap({
   // point in one batch (trackPointList), so length would jump straight past 1.
   const hasCenteredRef = useRef(false)
   const [mapReady, setMapReady] = useState(false)
+  // Points a resume-track-cleanup pass has flagged as junk (flightdeck-backend's docs/
+  // plans/resume-track-cleanup.md) never get drawn — filtered once here rather than in
+  // each effect below, so every index-based lookup (last point, [-2] for the animation's
+  // "from", trailSegments' own iteration) already only ever sees the real trail.
+  const trackPoints = useMemo(() => filterVisibleTrackPoints(rawTrackPoints), [rawTrackPoints])
   // Whether the camera keeps recentering on the aircraft as new track points arrive
   // (live mode only) — a user panning around to look at something shouldn't keep
   // getting yanked back. Defaults on, matching the always-follow behavior before this

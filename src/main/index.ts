@@ -425,6 +425,9 @@ if (!gotSingleInstanceLock) {
       trackingController.on('point', (point) => {
         if (!window.isDestroyed()) window.webContents.send(IpcChannels.trackingPoint, point)
       })
+      trackingController.on('pointsUpdated', (points) => {
+        if (!window.isDestroyed()) window.webContents.send(IpcChannels.trackingPointsUpdated, points)
+      })
       // Push-on-mutation's real-time case: a flight reaching 'completed' (auto shutdown
       // detection or a manual finish()) is the highest-value moment to sync promptly, whether
       // or not the user touches any other IPC channel afterward.
@@ -470,7 +473,7 @@ if (!gotSingleInstanceLock) {
       // shapes what crosses IPC and gets rendered. Live tracking's own point-by-point stream
       // (the 'point' event below) is completely separate and unaffected.
       ipcMain.handle(IpcChannels.trackPointList, (_event, flightId: number) =>
-        simplifyTrackPoints(listTrackPoints(db, flightId))
+        simplifyTrackPoints(listTrackPoints(db, flightId).filter((p) => p.excludedReason == null))
       )
 
       // Only one flight is ever meant to be "in progress" (planned or active) at once —
