@@ -5,6 +5,44 @@ import type { TrackPoint } from '@shared/ipc'
 import type { Waypoint } from './route'
 import type { FlightMapProps } from './FlightMap'
 
+/** The mocked maplibre-gl Map's real shape — deliberately not the real library's own `Map`
+ *  type, which has none of the extra test surface (sources/layers/handlers,
+ *  fireStyleLoad) this fake exposes for assertions. */
+interface FakeMapInstance {
+  container: HTMLElement
+  style: string
+  zoom: number
+  handlers: Record<string, (() => void)[]>
+  sources: Record<string, { setData: ReturnType<typeof vi.fn> }>
+  layers: Record<string, { paint?: Record<string, unknown>; layout?: Record<string, unknown> }>
+  dragPan: { enable: ReturnType<typeof vi.fn>; disable: ReturnType<typeof vi.fn> }
+  keyboard: { enable: ReturnType<typeof vi.fn>; disable: ReturnType<typeof vi.fn>; disableRotation: ReturnType<typeof vi.fn> }
+  scrollZoom: { enable: ReturnType<typeof vi.fn>; disable: ReturnType<typeof vi.fn> }
+  touchZoomRotate: {
+    enable: ReturnType<typeof vi.fn>
+    disable: ReturnType<typeof vi.fn>
+    disableRotation: ReturnType<typeof vi.fn>
+  }
+  doubleClickZoom: { enable: ReturnType<typeof vi.fn>; disable: ReturnType<typeof vi.fn> }
+  fitBounds: ReturnType<typeof vi.fn>
+  jumpTo: ReturnType<typeof vi.fn>
+  easeTo: ReturnType<typeof vi.fn>
+  zoomIn: ReturnType<typeof vi.fn>
+  zoomOut: ReturnType<typeof vi.fn>
+  remove: ReturnType<typeof vi.fn>
+  setLayoutProperty: ReturnType<typeof vi.fn>
+  getZoom(): number
+  fireStyleLoad(): void
+}
+
+interface FakeMarkerInstance {
+  setLngLat: ReturnType<typeof vi.fn>
+  setRotation: ReturnType<typeof vi.fn>
+  addTo: ReturnType<typeof vi.fn>
+  getElement(): HTMLElement
+  remove(): this
+}
+
 // FlightMap renders a real maplibre-gl map, which needs a real canvas/WebGL context that
 // jsdom doesn't provide (docs/plans/test-coverage.md's open question for this file). The
 // approach taken here — per the plan's own suggested carve-out — is to mock 'maplibre-gl'
@@ -40,20 +78,23 @@ vi.mock('maplibre-gl', () => {
     }
   }
 
+  const markerInstances: FakeMarker[] = []
+
   class FakeMarker {
     private el: HTMLElement
     constructor(opts: { element: HTMLElement }) {
       this.el = opts.element
+      markerInstances.push(this)
     }
     setLngLat = vi.fn()
     setRotation = vi.fn()
     getElement(): HTMLElement {
       return this.el
     }
-    addTo(map: FakeMap): this {
+    addTo = vi.fn((map: FakeMap): this => {
       map.container.appendChild(this.el)
       return this
-    }
+    })
     remove(): this {
       this.el.remove()
       return this
@@ -72,8 +113,12 @@ vi.mock('maplibre-gl', () => {
     layers: Record<string, { paint?: Record<string, unknown>; layout?: Record<string, unknown> }> = {}
     dragPan = { enable: vi.fn(), disable: vi.fn() }
     keyboard = { enable: vi.fn(), disable: vi.fn(), disableRotation: vi.fn() }
-    scrollZoom = { enable: vi.fn() }
-    touchZoomRotate = { enable: vi.fn(), disableRotation: vi.fn() }
+    // .disable() before .enable() forces MapLibre's own handlers to actually re-apply
+    // options that would otherwise no-op while already enabled (map-controls.md,
+    // 2026-09-13 live-verification entry) — both real methods, not just .enable(), so the
+    // fake must expose both.
+    scrollZoom = { enable: vi.fn(), disable: vi.fn() }
+    touchZoomRotate = { enable: vi.fn(), disable: vi.fn(), disableRotation: vi.fn() }
     doubleClickZoom = { enable: vi.fn(), disable: vi.fn() }
     fitBounds = vi.fn()
     jumpTo = vi.fn()
@@ -120,7 +165,8 @@ vi.mock('maplibre-gl', () => {
     LngLatBounds: FakeLngLatBounds,
     GeoJSONSource: class {},
     setWorkerUrl: vi.fn(),
-    __instances: instances
+    __instances: instances,
+    __markerInstances: markerInstances
   }
 })
 
@@ -139,6 +185,7 @@ function point(overrides: Partial<TrackPoint> = {}): TrackPoint {
     latitude: 51,
     longitude: -0.5,
     altitudeM: 1000,
+    pressureAltitudeM: null,
     altitudeAglM: 1000,
     indicatedAirspeedMs: 100,
     machSpeed: 0.3,
@@ -167,18 +214,25 @@ const WAYPOINT: Waypoint = { ident: 'ABC', lon: -0.5, lat: 51, altitudeFt: 5000,
 // workerReady singletons and its own __instances array.
 async function loadFlightMap(): Promise<{
   FlightMap: typeof import('./FlightMap').FlightMap
-  instances: InstanceType<typeof import('maplibre-gl').Map>[]
+  instances: FakeMapInstance[]
+  markerInstances: FakeMarkerInstance[]
 }> {
   // Fresh module graph every call (not just every test) — some tests call renderReady more
   // than once to compare two independent mounts (e.g. light vs dark theme), and each of
-  // those needs its own liveCameraState/workerReady singletons and its own __instances
-  // array, not an accumulating one.
+  // those needs its own liveCameraState/workerReady singletons.
   vi.resetModules()
   const mod = await import('./FlightMap')
   const maplibre = (await import('maplibre-gl')) as unknown as {
-    __instances: InstanceType<typeof import('maplibre-gl').Map>[]
+    __instances: FakeMapInstance[]
+    __markerInstances: FakeMarkerInstance[]
   }
-  return { FlightMap: mod.FlightMap, instances: maplibre.__instances }
+  // vi.resetModules() does not re-invoke this vi.mock factory in practice (confirmed live:
+  // without this, __instances keeps accumulating every FakeMap ever constructed across the
+  // whole file, not just this call) — clear it explicitly rather than relying on a fresh
+  // array, so `instances` always starts empty for this call regardless.
+  maplibre.__instances.length = 0
+  maplibre.__markerInstances.length = 0
+  return { FlightMap: mod.FlightMap, instances: maplibre.__instances, markerInstances: maplibre.__markerInstances }
 }
 
 /** Renders FlightMap, waits for the (mocked) map to be constructed, then fires
@@ -186,9 +240,9 @@ async function loadFlightMap(): Promise<{
  *  mapReady, matching maplibre-gl's own event (see FlightMap.tsx's comment on why
  *  'style.load' rather than 'load' is used). */
 async function renderReady(props: FlightMapProps): ReturnType<typeof loadFlightMap> extends Promise<infer T>
-  ? Promise<T & { rerender: (props: FlightMapProps) => void }>
+  ? Promise<T & { map: FakeMapInstance; rerender: (props: FlightMapProps) => void }>
   : never {
-  const { FlightMap, instances } = await loadFlightMap()
+  const { FlightMap, instances, markerInstances } = await loadFlightMap()
   const { rerender } = render(<FlightMap {...props} />)
   await waitFor(() => expect(instances.length).toBe(1))
   const map = instances[0]
@@ -198,6 +252,7 @@ async function renderReady(props: FlightMapProps): ReturnType<typeof loadFlightM
   return {
     FlightMap,
     instances,
+    markerInstances,
     map,
     rerender: (next: FlightMapProps) => rerender(<FlightMap {...next} />)
   } as never
@@ -256,6 +311,21 @@ describe('FlightMap', () => {
     expect(notLive.map.handlers['moveend'] ?? []).toHaveLength(0)
   })
 
+  it('records camera state on moveend, and uses it (no forced FOLLOW_ZOOM) for the first live track point', async () => {
+    const live = await renderReady({ route: [], trackPoints: [], live: true })
+    // Invoking the real handler exercises its body (records the map's current center/zoom
+    // into the module-level liveCameraState singleton) — must not throw.
+    expect(() => live.map.handlers['moveend']![0]()).not.toThrow()
+
+    // The first live track point arriving now sees a truthy liveCameraState (set just
+    // above, in this same module instance) and jumps straight to it with no explicit zoom,
+    // rather than forcing FOLLOW_ZOOM as it would on a genuinely fresh session.
+    await act(async () => {
+      live.rerender({ route: [], trackPoints: [point()], live: true })
+    })
+    expect(live.map.jumpTo).toHaveBeenCalledWith({ center: [point().longitude, point().latitude] })
+  })
+
   it('uses the light style by default and the dark style when the document is in dark mode', async () => {
     const light = await renderReady({ route: [], trackPoints: [], live: false })
     expect(light.map.style).toBe('https://tiles.openfreemap.org/styles/positron')
@@ -307,9 +377,19 @@ describe('FlightMap', () => {
       trackPoints: [],
       live: false
     })
-    // Not live: this route-drawing effect never calls fitBounds itself (the static-trail
-    // effect below handles fitting for non-live mode, with its own fallback logic).
-    expect(notLive.map.fitBounds).not.toHaveBeenCalled()
+    // Not live: the route-drawing effect itself never calls fitBounds (only the live-mode
+    // branch does) — but the separate static-mode trail effect always runs when not live,
+    // and falls back to fitting the planned route when there's no flown trail yet
+    // (FlightMap.tsx's "No flown trail to fit to yet" comment), so fitBounds still gets
+    // called once overall, with the route's own coordinates.
+    expect(notLive.map.fitBounds).toHaveBeenCalledTimes(1)
+    // FakeLngLatBounds.extend() is a no-op, so sw/ne both stay the first coordinate — real
+    // maplibre-gl would genuinely extend ne to cover every point, but this fake doesn't need
+    // to model that to prove fitBoundsTo was reached with the route's own coordinates.
+    expect(notLive.map.fitBounds).toHaveBeenCalledWith(
+      expect.objectContaining({ sw: [-0.5, 51], ne: [-0.5, 51] }),
+      { padding: 40, duration: 0 }
+    )
   })
 
   it('toggles which of the two route layers is visible based on routeIsApproximate', async () => {
@@ -331,7 +411,7 @@ describe('FlightMap', () => {
       // A restart boundary — trailSegments must never draw a line across this gap.
       point({ id: 3, longitude: 10, latitude: 40, resumeSegment: 1, headingTrueDeg: 270 })
     ]
-    const { map } = await renderReady({ route: [], trackPoints: points, live: false })
+    const { map, rerender, markerInstances } = await renderReady({ route: [], trackPoints: points, live: false })
 
     expect(map.sources[TRAIL_SOURCE_ID].setData).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -348,6 +428,14 @@ describe('FlightMap', () => {
       })
     )
     expect(map.fitBounds).toHaveBeenCalled()
+    expect(markerInstances[0].addTo).toHaveBeenCalledTimes(1)
+
+    // Re-running this effect with the marker already attached (e.g. a prop change unrelated
+    // to trackPoints) must not re-attach it a second time.
+    await act(async () => {
+      rerender({ route: [[-0.5, 51]], trackPoints: points, live: false })
+    })
+    expect(markerInstances[0].addTo).toHaveBeenCalledTimes(1)
   })
 
   it('static mode falls back to the planned route for fitBounds when there is no flown trail yet', async () => {
@@ -370,6 +458,20 @@ describe('FlightMap', () => {
     // confirms it actually attached, the same thing the component's own `.isConnected`
     // checks rely on.
     expect(instances).toHaveLength(1)
+    expect(map.container.querySelector('svg')).not.toBeNull()
+  })
+
+  it('live mode: the first track point does not move the camera when follow is already off', async () => {
+    const user = userEvent.setup()
+    const { map, rerender } = await renderReady({ route: [], trackPoints: [], live: true })
+    await user.click(screen.getByRole('button', { name: 'Stop centering on aircraft' }))
+
+    await act(async () => {
+      rerender({ route: [], trackPoints: [point()], live: true })
+    })
+    expect(map.jumpTo).not.toHaveBeenCalled()
+    // The marker still gets positioned regardless of follow — only the camera move is
+    // conditional on it.
     expect(map.container.querySelector('svg')).not.toBeNull()
   })
 
@@ -413,6 +515,55 @@ describe('FlightMap', () => {
       })
     )
     expect(map.easeTo).toHaveBeenCalledWith({ center: [1, 51], duration: 5000 })
+  })
+
+  it('re-schedules the animation frame while the interpolation is still in progress', async () => {
+    // Overrides the default beforeEach RAF stub (which always saturates t at 1 immediately)
+    // with a real queue, so this test can drive the animation across more than one frame
+    // and exercise the `t < 1` recursion itself (FlightMap.tsx's marker/tip interpolation).
+    const queue: FrameRequestCallback[] = []
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback): number => {
+      queue.push(cb)
+      return queue.length
+    })
+
+    const first = point({ id: 1, longitude: 0, latitude: 50, resumeSegment: 0, tsUtc: '2026-01-01T00:00:00.000Z' })
+    const second = point({
+      id: 2,
+      longitude: 1,
+      latitude: 51,
+      resumeSegment: 0,
+      tsUtc: '2026-01-01T00:00:05.000Z'
+    })
+    const { map, rerender } = await renderReady({ route: [], trackPoints: [first], live: true })
+
+    await act(async () => {
+      rerender({ route: [], trackPoints: [first, second], live: true })
+    })
+    expect(queue).toHaveLength(1)
+
+    // The component captures its own startTime a moment before this test does, so comparing
+    // against an exact expected coordinate would be flaky by a few ms of real elapsed time —
+    // asserting t is meaningfully between 0 and 1 (not saturated) is what this test cares
+    // about, not the precise interpolated position.
+    const startTime = performance.now()
+    act(() => queue.shift()!(startTime + 2500)) // halfway through the 5s interpolation: t ≈ 0.5
+    // Still short of t=1, so the step function re-scheduled itself for another frame.
+    expect(queue).toHaveLength(1)
+    const midCall = map.sources[TRAIL_TIP_SOURCE_ID].setData.mock.calls.at(-1)![0] as {
+      geometry: { coordinates: [number, number][] }
+    }
+    const [midLon, midLat] = midCall.geometry.coordinates[1]
+    expect(midLon).toBeGreaterThan(0)
+    expect(midLon).toBeLessThan(1)
+    expect(midLat).toBeGreaterThan(50)
+    expect(midLat).toBeLessThan(51)
+
+    act(() => queue.shift()!(startTime + 5000)) // reaches t = 1
+    expect(queue).toHaveLength(0)
+    expect(map.sources[TRAIL_TIP_SOURCE_ID].setData).toHaveBeenLastCalledWith(
+      expect.objectContaining({ geometry: { type: 'LineString', coordinates: [[0, 50], [1, 51]] } })
+    )
   })
 
   it('live mode: a point starting a new resume segment commits straight to the trail with no tip animation', async () => {
@@ -466,6 +617,17 @@ describe('FlightMap', () => {
     expect(map.easeTo).toHaveBeenCalledWith({ center: [-0.5, 51], duration: 500 })
   })
 
+  it('switching follow back on with no track points yet does not try to re-center', async () => {
+    const user = userEvent.setup()
+    const { map } = await renderReady({ route: [], trackPoints: [], live: true })
+
+    await user.click(screen.getByRole('button', { name: 'Stop centering on aircraft' }))
+    map.easeTo.mockClear()
+    await user.click(screen.getByRole('button', { name: 'Center on aircraft' }))
+
+    expect(map.easeTo).not.toHaveBeenCalled()
+  })
+
   it('zoom in/out buttons call straight through to the map', async () => {
     const user = userEvent.setup()
     const { map } = await renderReady({ route: [], trackPoints: [], live: false })
@@ -490,6 +652,7 @@ describe('FlightMap', () => {
         latitude: 0,
         longitude: 0,
         altitudeM: 3048,
+        pressureAltitudeM: 3048,
         altitudeAglM: 3048,
         verticalSpeedMs: 0,
         indicatedAirspeedMs: 128.6,

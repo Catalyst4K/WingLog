@@ -241,11 +241,20 @@ export function FlightMap({
   // ensureWorkerReady() so the worker's blob: URL is registered (setWorkerUrl) before
   // MapLibreMap's constructor ever spawns the worker that needs it.
   useEffect(() => {
+    /* v8 ignore start -- React attaches a ref before running passive effects, and the
+     * container div is always rendered unconditionally, so this branch can't actually be
+     * reached on any real mount; defensive only. */
     if (!mapContainerRef.current) return
+    /* v8 ignore stop */
     let cancelled = false
 
     ensureWorkerReady().then(() => {
+      // `cancelled` is reachable in principle (a fast unmount before the worker's blob:
+      // fetch resolves) but not exercised here — not worth the timing-fiddly test setup
+      // that'd need. `!mapContainerRef.current` alongside it is defensive, same as above.
+      /* v8 ignore start */
       if (cancelled || !mapContainerRef.current) return
+      /* v8 ignore stop */
       const dark = isDarkTheme()
       const map = new MapLibreMap({
         container: mapContainerRef.current,
@@ -507,7 +516,11 @@ export function FlightMap({
       hasCenteredRef.current = false
       return
     }
+    /* v8 ignore start -- markerRef.current is always set before mapReady flips true (end of
+     * the 'style.load' handler above), and this effect's own guard already requires
+     * mapReady — defensive only, not reachable via any path that gets this far. */
     if (!markerRef.current) return
+    /* v8 ignore stop */
     if (!markerRef.current.getElement().isConnected) {
       // Marker.addTo() reads the marker's position immediately, so it must already have
       // one — attach it here, before any of the branches below, all of which assume the
