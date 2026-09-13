@@ -348,6 +348,40 @@ describe('applyProcedureSelection', () => {
     ])
   })
 
+  it('drops the stale enroute tail when the OFP never named a STAR itself', () => {
+    // No fix here is tagged 'star' — the whole route reaches the destination as 'enroute',
+    // the real shape segmentWaypoints produces when general.star_ident is empty.
+    const noStarBase: Waypoint[] = [
+      { ident: 'SIMBRIEF_SID', lon: 1, lat: 1, altitudeFt: 2000, segment: 'sid' },
+      { ident: 'ENR1', lon: 2, lat: 2, altitudeFt: 35000, segment: 'enroute' },
+      { ident: 'ENR2', lon: 3, lat: 3, altitudeFt: 35000, segment: 'enroute' },
+      { ident: 'ENR3', lon: 4, lat: 4, altitudeFt: 8000, segment: 'enroute' }
+    ]
+    const star: ProcedureLegs = { identifier: 'REAL_STAR', legs: [leg('STARFIX')] }
+    const result = applyProcedureSelection(noStarBase, null, star, null)
+    expect(result.map((w) => [w.ident, w.segment])).toEqual([
+      ['SIMBRIEF_SID', 'sid'],
+      ['STARFIX', 'star']
+    ])
+  })
+
+  it('cuts the stale enroute tail at the STAR entry fix when the base route already passes through it', () => {
+    const noStarBase: Waypoint[] = [
+      { ident: 'SIMBRIEF_SID', lon: 1, lat: 1, altitudeFt: 2000, segment: 'sid' },
+      { ident: 'ENR1', lon: 2, lat: 2, altitudeFt: 35000, segment: 'enroute' },
+      { ident: 'LIMES', lon: 3, lat: 3, altitudeFt: 10000, segment: 'enroute' },
+      { ident: 'ENR3', lon: 4, lat: 4, altitudeFt: 8000, segment: 'enroute' }
+    ]
+    const star: ProcedureLegs = { identifier: 'REAL_STAR', legs: [leg('LIMES'), leg('STARFIX')] }
+    const result = applyProcedureSelection(noStarBase, null, star, null)
+    expect(result.map((w) => [w.ident, w.segment])).toEqual([
+      ['SIMBRIEF_SID', 'sid'],
+      ['ENR1', 'enroute'],
+      ['LIMES', 'star'],
+      ['STARFIX', 'star']
+    ])
+  })
+
   it('replaces SID and STAR independently when both are selected', () => {
     const sid: ProcedureLegs = { identifier: 'REAL_SID', legs: [leg('A')] }
     const star: ProcedureLegs = { identifier: 'REAL_STAR', legs: [leg('B')] }

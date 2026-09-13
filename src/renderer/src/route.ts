@@ -254,7 +254,37 @@ export function applyProcedureSelection(
     result = [...legsToWaypoints(sid.legs, 'sid'), ...result.filter((w) => w.segment !== 'sid')]
   }
   if (star) {
-    result = [...result.filter((w) => w.segment !== 'star'), ...legsToWaypoints(star.legs, 'star')]
+    const hadTaggedStar = result.some((w) => w.segment === 'star')
+    let base = result.filter((w) => w.segment !== 'star')
+    const starWaypoints = legsToWaypoints(star.legs, 'star')
+    // Whenever the OFP never named a STAR itself (general.star_ident empty), segmentWaypoints
+    // has nothing to tag the terminal-area fixes with, so they stay 'enroute' all the way to
+    // the destination. Filtering only 'star'-tagged fixes above leaves that stale tail in
+    // place, and a real navdata STAR just gets appended after it — confirmed live to fly SID
+    // -> SimBrief's full stale loop -> the chosen STAR -> runway (docs/navdata-notes.md,
+    // 2026-09-13). Cut that tail at the STAR's own entry fix if the base route happens to
+    // pass through it already; otherwise there's nothing else for it to join, so the whole
+    // contiguous enroute run back to the last SID/real-star fix is what the STAR replaces.
+    // Only when there was never a real 'star' tag to begin with — a route that already named
+    // its own STAR stops its 'enroute' block short of the destination, and that boundary is
+    // exactly right already.
+    if (
+      !hadTaggedStar &&
+      base.length > 0 &&
+      base[base.length - 1].segment === 'enroute' &&
+      starWaypoints.length > 0
+    ) {
+      const entryIdent = starWaypoints[0].ident
+      const joinIdx = base.findIndex((w) => w.segment === 'enroute' && w.ident === entryIdent)
+      if (joinIdx !== -1) {
+        base = base.slice(0, joinIdx)
+      } else {
+        let cut = base.length
+        while (cut > 0 && base[cut - 1].segment === 'enroute') cut--
+        base = base.slice(0, cut)
+      }
+    }
+    result = [...base, ...starWaypoints]
   }
   if (approach) {
     result = [...result, ...legsToWaypoints(approach.legs, 'approach')]
