@@ -96,6 +96,33 @@ describe('computeTrackCleanup', () => {
     expect(isPhysicallyImpossibleJump(shortPause, afterShortPause)).toBe(false)
   })
 
+  it('excludes the whole spawn-then-fly-then-restore stretch even with no resumeSegment change at all (flight 191/CPA319, confirmed live 2026-09-13)', () => {
+    // Callum's own report after the min(gsA,gsB) fix: it caught the restore-teleport but
+    // "left behind the bit of flying the A350 did after it loaded in until I was able to
+    // reload the save" — the spawn-jump and the restore-jump each opened/were checked
+    // against their own independent "no window open" case, so the real (if geographically
+    // meaningless) flying in between was resegmented, not excluded, and stayed visible as
+    // its own floating line. Since flight 191 predates Phase 1, resumeSegment is 0
+    // throughout — neither jump ever gets a real resume() boundary to open a window, so
+    // this only works if a lone jump can open its own provisional window that a *later*
+    // jump can still resolve as Case A, provided it lands back near where the window
+    // started (here, easily inside CASE_A_LANDING_RADIUS_KM of the anchor).
+    const anchor = pt(1, 0, 0, 0, { groundSpeedMs: 260.7 })
+    // ~81km away, near-stationary — the real spawn-relocation numbers.
+    const spawn = pt(2, 266.6, 81.23 / 111.32, 0, { groundSpeedMs: 8.8 })
+    // A few minutes of genuine flying at the wrong (post-crash) location.
+    const flying1 = pt(3, 300, 81.24 / 111.32, 0, { groundSpeedMs: 60 })
+    const flying2 = pt(4, 400, 81.3 / 111.32, 0, { groundSpeedMs: 90 })
+    // Restore teleport lands ~2.9nm behind the anchor, matching the plan's own calibration.
+    const restore = pt(5, 417.8, 0.001, 0.001, { groundSpeedMs: 216.9 })
+    const after = pt(6, 425, 0.01, 0.001, { groundSpeedMs: 200 })
+
+    const result = computeTrackCleanup([anchor, spawn, flying1, flying2, restore, after])
+    expect(result.exclusions.map((e) => e.id).sort()).toEqual([2, 3, 4])
+    expect(result.exclusions.every((e) => e.reason === 'resume-spurious')).toBe(true)
+    expect(result.segmentReassignments).toEqual([])
+  })
+
   it('does not flag a real 4x sim-rate cruise sample as a teleport', () => {
     // 250 m/s * 4x rate * 5s = 5000m = ~0.045 deg lat — under the 2x-multiplier threshold.
     const a = pt(1, 0, 0, 0, { groundSpeedMs: 250, simRate: 4 })
@@ -149,9 +176,12 @@ describe('computeTrackCleanup', () => {
   })
 
   it('Case B: excludes the pre-resume stretch the restore rewound onto, once the re-entry point matches it', () => {
-    const q = pt(1, 0, 0, 0, { headingTrueDeg: 90 })
-    const afterQ1 = pt(2, 5, 0.02, 0, { headingTrueDeg: 90 })
-    const afterQ2 = pt(3, 10, 0.04, 0, { headingTrueDeg: 90 })
+    // 30s/real-cruise-speed spacing so q -> afterQ1 -> afterQ2 themselves never look like a
+    // jump, while still landing well outside Case B's ~1nm tolerance of reentry (only q
+    // itself, close to (0,0), should match it).
+    const q = pt(1, 0, 0, 0, { headingTrueDeg: 90, groundSpeedMs: 250 })
+    const afterQ1 = pt(2, 30, 0.03, 0, { headingTrueDeg: 90, groundSpeedMs: 250 })
+    const afterQ2 = pt(3, 60, 0.06, 0, { headingTrueDeg: 90, groundSpeedMs: 250 })
     // Resume boundary — anchor was afterQ2, spawns far away.
     const spawn = pt(4, 300, 5, 5, { resumeSegment: 1 })
     // Restore teleport lands back essentially on top of Q, same heading — the sim rewound.

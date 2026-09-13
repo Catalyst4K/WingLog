@@ -16,16 +16,22 @@
  * A350's own save-state/reload feature teleporting the aircraft), which the
  * window-gated-only design would never have looked at.
  *
- * What actually differs based on whether a resume window is open at the moment a jump is
- * found is what the result means, not whether it's detected:
- * - Inside an active window: Case A (the restore-teleport triangle) and, from its re-entry
- *   point, Case B (rewind onto the already-flown track) — see the plan doc for the full
- *   picture with Callum's screenshot. Junk points are marked, not deleted.
- * - Outside any window (or after one has timed out — Case C): neither side is junk, both
- *   are real telemetry, so nothing is excluded. The aircraft is just somewhere else now;
- *   the fix is the same one Phase 1 already gives an explicit resume() — stop the map
- *   joining the two sides with a straight line — done here by handing the far side a new
- *   synthetic resumeSegment.
+ * A window opens either at a real resume() boundary (a resumeSegment change) or — settled
+ * live 2026-09-13, against flight 191/CPA319's real double-jump pattern (a spawn-relocation
+ * followed minutes later by a restore-teleport, neither ever touching resumeSegment since
+ * no WingLog resume() was involved) — at a lone jump found with no window already open.
+ * Either way, nothing about the window's contents is decided until it resolves:
+ * - A second jump lands back near the window's own anchor (within CASE_A_LANDING_RADIUS_KM)
+ *   → Case A: the whole in-between stretch is junk, plus Case B's rewind check from the
+ *   re-entry point. Unconditional for a resume()-opened window (the resume() call is
+ *   already strong evidence on its own); gated on the landing-radius match for a
+ *   jump-opened one, since a lone teleport alone is weaker evidence that a later jump is
+ *   really a restore of *it* rather than a second, unrelated event.
+ * - The window times out, or a real resume() boundary arrives before anything resolves it,
+ *   or the data just ends — neither side of the original jump is junk, both are real
+ *   telemetry; the aircraft (or the window's own pending stretch) is just somewhere else
+ *   now. Same fix Phase 1 already gives an explicit resume(): stop the map joining the two
+ *   sides with a straight line, via a new synthetic resumeSegment.
  */
 import type { TrackPoint } from '@shared/ipc'
 
@@ -46,10 +52,18 @@ const EARTH_RADIUS_KM = 6371
 const JUMP_DISTANCE_FLOOR_KM = 0.93
 const JUMP_SPEED_MULTIPLIER = 2
 
-/** Long enough for a save/restore tool to load — the plan's own starting value, still
- *  uncontradicted by the one real gap measured so far (266s on flight 191, 4m25s on
- *  flight 193 — both comfortably inside 5 minutes). */
-const RESUME_WINDOW_MS = 5 * 60 * 1000
+/** Long enough for a save/restore tool to load. The plan's original 5-minute guess
+ *  measured the wrong gap on its own reference flight (191): 266s and 4m25s (flight 193)
+ *  are both the *anchor-to-spawn* gap, not the window this constant actually needs to
+ *  cover — the window opens at the spawn point and needs to stay open until the restore
+ *  resolves it. Confirmed live 2026-09-13, running the real "Clean up track" pass against
+ *  flight 191's actual data: its real spawn-to-restore gap is ~426s (the iniBuilds A350
+ *  taking that long to reach the OFP screen and reload the save) — comfortably past the
+ *  old 5-minute window, so the window timed out and closed the case as an ordinary segment
+ *  break (Case C) before the restore-teleport ever arrived to resolve it as Case A. Moved
+ *  to 10 minutes — real headroom above the one real measurement in hand, not a tight fit
+ *  to it. */
+const RESUME_WINDOW_MS = 10 * 60 * 1000
 /** ~3 nm — moved up from the plan's original ~2 nm guess after the real flight 191 restore
  *  landed ~2.9 nm behind its anchor (docs/simconnect-notes.md, 2026-09-11). */
 const CASE_A_LANDING_RADIUS_KM = 3 * 1.852
@@ -124,13 +138,29 @@ function findRewindJoinIndex(
   return -1
 }
 
-/** `points` must already be ordered by id/ts for one flight. Landing-radius (Case A) isn't
- *  actually checked as a separate test here — the jump landing "close to the pre-resume
- *  track" and "rewinding onto it" (Case B) are the same haversine test at two different
- *  tolerances (~3nm vs ~1nm), and Case A's own radius only ever mattered for validating
- *  the spike's real numbers, not for classifying anything an unconditional Rule 2 hasn't
- *  already caught — kept here as the documented, calibrated constant regardless, since a
- *  future recalibration pass should have it named rather than inlined. */
+/** `points` must already be ordered by id/ts for one flight.
+ *
+ * A window opens either at a real `resume()` boundary (a `resumeSegment` change) or at a
+ * lone physically-impossible jump with no window already open — the latter is what turned
+ * out to matter live, 2026-09-13: a payware aircraft's save-state/reload feature (or a
+ * spawn-then-restore pair, flight 191/CPA319) never touches `resumeSegment` at all, since
+ * no WingLog `resume()` is involved. Either way, nothing is decided about the window's
+ * contents until it *resolves* — a second jump within it, a timeout, or the end of the
+ * data — so a stretch of real (if geographically meaningless) flying between two jumps
+ * never gets prematurely labelled.
+ *
+ * A window resolves as Case A (the in-between stretch excluded as junk, plus Case B's
+ * rewind check from the re-entry point) when a second jump's landing point comes back
+ * within `CASE_A_LANDING_RADIUS_KM` of the window's own anchor (the point right before it
+ * opened) — unconditionally for a `resume()`-opened window (the explicit `resume()` call is
+ * already strong enough evidence on its own that this is a genuine restore, confirmed
+ * against every real case seen so far), but only when that radius check actually passes
+ * for a jump-opened one, since a lone teleport is much weaker evidence that *this specific*
+ * later jump is a restore of *it* rather than a second, unrelated event. A jump-opened
+ * window that doesn't resolve as Case A (no second jump before timeout, or one that lands
+ * nowhere near the anchor) gets the same treatment Phase 1 already gives an explicit
+ * `resume()`: nothing excluded, just a new segment so the map stops drawing a straight
+ * line across it. */
 export function computeTrackCleanup(points: CleanupInputPoint[]): TrackCleanupResult {
   const exclusions: TrackCleanupResult['exclusions'] = []
   const excludedIds = new Set<number>()
@@ -138,7 +168,19 @@ export function computeTrackCleanup(points: CleanupInputPoint[]): TrackCleanupRe
   if (points.length < 2) return { exclusions, segmentReassignments: [] }
 
   let maxSegment = points.reduce((m, p) => Math.max(m, p.resumeSegment), 0)
-  let activeWindow: { boundaryIndex: number; boundaryTsMs: number; resumeSegment: number } | null = null
+  let activeWindow: { boundaryIndex: number; boundaryTsMs: number; openedByResume: boolean } | null = null
+
+  // A jump-opened window that never resolves as Case A (timeout, a real resume() boundary
+  // arriving, or the end of the data) gets a fresh segment for whatever it was holding —
+  // never a resume()-opened one, which already has its own real resumeSegment boundary.
+  function closeUnresolvedWindow(uptoIndexExclusive: number): void {
+    if (!activeWindow || activeWindow.openedByResume) return
+    maxSegment += 1
+    const newSegment = maxSegment
+    for (let k = activeWindow.boundaryIndex; k < uptoIndexExclusive; k++) {
+      segmentReassignments.set(points[k].id, newSegment)
+    }
+  }
 
   for (let i = 1; i < points.length; i++) {
     const a = points[i - 1]
@@ -146,23 +188,30 @@ export function computeTrackCleanup(points: CleanupInputPoint[]): TrackCleanupRe
 
     if (b.resumeSegment !== a.resumeSegment) {
       // A real TrackingController.resume() boundary — Phase 1 already breaks the line
-      // here; this just opens the window Case A/B evaluate inside.
-      activeWindow = { boundaryIndex: i, boundaryTsMs: Date.parse(b.tsUtc), resumeSegment: b.resumeSegment }
+      // here. Whatever jump-opened window was still pending never resolved as a restore;
+      // give it a new segment now, same as a timeout would, before opening this one.
+      closeUnresolvedWindow(i)
+      activeWindow = { boundaryIndex: i, boundaryTsMs: Date.parse(b.tsUtc), openedByResume: true }
       continue
     }
 
     if (activeWindow && Date.parse(b.tsUtc) - activeWindow.boundaryTsMs > RESUME_WINDOW_MS) {
-      // Case C: the window timed out with nothing resolving it — real flying continuing on,
-      // nothing more to do than the boundary Phase 1 already stamped.
+      // Case C: the window timed out with nothing resolving it — real flying continuing on.
+      closeUnresolvedWindow(i)
       activeWindow = null
     }
 
     if (!isPhysicallyImpossibleJump(a, b)) continue
 
-    if (activeWindow && a.resumeSegment === activeWindow.resumeSegment) {
+    const window = activeWindow
+    const resolvesAsRestore =
+      window != null &&
+      (window.openedByResume || haversineKm(points[window.boundaryIndex - 1], b) <= CASE_A_LANDING_RADIUS_KM)
+
+    if (window != null && resolvesAsRestore) {
       // Case A: everything from the boundary through `a` is the spawn-then-fly-back junk;
       // `b` is the real re-entry point.
-      for (let k = activeWindow.boundaryIndex; k <= i - 1; k++) {
+      for (let k = window.boundaryIndex; k <= i - 1; k++) {
         if (excludedIds.has(points[k].id)) continue
         exclusions.push({ id: points[k].id, reason: 'resume-spurious' })
         excludedIds.add(points[k].id)
@@ -172,30 +221,36 @@ export function computeTrackCleanup(points: CleanupInputPoint[]): TrackCleanupRe
       // only what came strictly after it, up to the anchor, is superseded. A join that
       // lands on the anchor itself (the ordinary, expected Case A outcome, not a rewind)
       // naturally excludes nothing more here, since there's nothing strictly between them.
-      const joinIndex = findRewindJoinIndex(points, activeWindow.boundaryIndex, b)
+      const joinIndex = findRewindJoinIndex(points, window.boundaryIndex, b)
       if (joinIndex !== -1) {
-        for (let k = joinIndex + 1; k < activeWindow.boundaryIndex; k++) {
+        for (let k = joinIndex + 1; k < window.boundaryIndex; k++) {
           if (excludedIds.has(points[k].id)) continue
           exclusions.push({ id: points[k].id, reason: 'resume-superseded' })
           excludedIds.add(points[k].id)
         }
       }
       activeWindow = null
+    } else if (activeWindow) {
+      // A second jump inside a jump-opened window, but it didn't land back near where the
+      // window started — not a restore of *this* window, just another, unrelated
+      // discontinuity. Close the old window with its own new segment, then let this jump
+      // open a fresh window of its own, exactly like the "no window open" case below.
+      closeUnresolvedWindow(i)
+      activeWindow = { boundaryIndex: i, boundaryTsMs: Date.parse(b.tsUtc), openedByResume: false }
     } else {
-      // A physically-impossible jump with no resume window open at all — e.g. a payware
+      // A physically-impossible jump with no window open at all — e.g. a payware
       // aircraft's own save-state/reload feature, confirmed live with no WingLog resume
-      // anywhere near it (resume-track-cleanup.md, "New real case found live, 2026-09-13").
-      // Neither side is junk; give everything from here to the end of this run of samples
-      // a new segment id so the map breaks the line instead of drawing a straight jump
-      // across it.
-      maxSegment += 1
-      const newSegment = maxSegment
-      const runSegment = b.resumeSegment
-      for (let k = i; k < points.length && points[k].resumeSegment === runSegment; k++) {
-        segmentReassignments.set(points[k].id, newSegment)
-      }
+      // anywhere near it (resume-track-cleanup.md, "New real case found live, 2026-09-13"),
+      // or the first half of a spawn-then-restore pair that likewise never touches
+      // resumeSegment (also confirmed live, flight 191/CPA319). Open a window rather than
+      // deciding anything yet — resolved above if a later jump lands back near here.
+      activeWindow = { boundaryIndex: i, boundaryTsMs: Date.parse(b.tsUtc), openedByResume: false }
     }
   }
+
+  // Anything still pending at the very end of the data never resolved — same treatment as
+  // a timeout.
+  closeUnresolvedWindow(points.length)
 
   return {
     exclusions,
