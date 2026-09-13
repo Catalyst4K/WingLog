@@ -33,9 +33,12 @@ function makeLanding(flightId: number, overrides: Partial<NewLanding> = {}): New
   }
 }
 
-// EGLL/27L, real vendored resources/runways.csv row: length_ft=12001 (>=2400m -> a 400m
-// Annex-14 aiming-point distance), width_ft=164 (~49.99m, half ~24.99m).
+// EGLL/27L, real vendored resources/runways.csv row: length_ft=12001 (~3657.9m, >=2400m ->
+// a 400m Annex-14 aiming-point distance and a 6-pair/900m touchdown zone), width_ft=164
+// (~49.99m, half ~24.99m).
+const EGLL_27L_LENGTH_M = 12001 * 0.3048
 const EGLL_27L_AIMING_POINT_M = 400
+const EGLL_27L_TOUCHDOWN_ZONE_END_M = 900
 const EGLL_27L_HALF_WIDTH_M = (164 * 0.3048) / 2
 
 function toLanding(newLanding: NewLanding): Landing {
@@ -57,7 +60,7 @@ describe('resolveLandingScore', () => {
       bankDeg: landingRecord.bankDeg,
       crabDeg: 2,
       distanceFromAimingPointM: 420 - EGLL_27L_AIMING_POINT_M,
-      aimingPointToleranceM: EGLL_27L_AIMING_POINT_M,
+      runwayLengthM: EGLL_27L_LENGTH_M,
       centrelineOffsetM: 5,
       centrelineToleranceM: EGLL_27L_HALF_WIDTH_M
     }
@@ -73,7 +76,7 @@ describe('resolveLandingScore', () => {
     expect(verticalSpeed).toMatchObject({ ideal: 120, tolerance: 360 }) // M category
 
     const aimingPoint = result.categories.find((c) => c.key === 'distanceFromAimingPoint')!
-    expect(aimingPoint).toMatchObject({ ideal: 0, tolerance: EGLL_27L_AIMING_POINT_M })
+    expect(aimingPoint).toMatchObject({ ideal: 0, tolerance: EGLL_27L_TOUCHDOWN_ZONE_END_M })
 
     const centreline = result.categories.find((c) => c.key === 'centrelineOffset')!
     expect(centreline).toMatchObject({ ideal: 0, tolerance: EGLL_27L_HALF_WIDTH_M })

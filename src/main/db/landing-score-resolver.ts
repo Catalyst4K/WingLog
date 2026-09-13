@@ -83,7 +83,7 @@ export function resolveLandingScore(
       landingRecord.distanceFromThresholdM !== null && aimingPointToleranceM !== null
         ? landingRecord.distanceFromThresholdM - aimingPointToleranceM
         : null,
-    aimingPointToleranceM: landingRecord.distanceFromThresholdM !== null ? aimingPointToleranceM : null,
+    runwayLengthM: landingRecord.distanceFromThresholdM !== null ? (runwayEnd?.lengthM ?? null) : null,
     centrelineOffsetM: landingRecord.centrelineOffsetM,
     centrelineToleranceM: landingRecord.centrelineOffsetM !== null ? centrelineToleranceM : null
   }

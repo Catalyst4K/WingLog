@@ -10,7 +10,7 @@ const IDEAL_TOLERANCE: Record<string, { ideal: number; tolerance: number }> = {
   pitch: { ideal: -4, tolerance: 8 },
   bank: { ideal: 0, tolerance: 8 },
   crab: { ideal: 0, tolerance: 9 },
-  distanceFromAimingPoint: { ideal: 0, tolerance: 400 },
+  distanceFromAimingPoint: { ideal: 0, tolerance: 900 },
   centrelineOffset: { ideal: 0, tolerance: 12.5 }
 }
 
@@ -123,11 +123,9 @@ describe('LandingScoreBreakdownDialog', () => {
       />
     )
     await user.click(screen.getByRole('button', { name: 'Open' }))
-    expect(screen.queryByText(/aiming-point distance from the threshold/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/off the graded touchdown zone entirely/)).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: "What's ideal for Distance from aiming point?" }))
-    expect(
-      screen.getByText(/Score reaches 0 at 400 m off it — this runway's own real aiming-point distance/)
-    ).toBeInTheDocument()
+    expect(screen.getByText(/Out to 900 m: 4 points off\. Beyond that: 0/)).toBeInTheDocument()
   })
 })

@@ -79,10 +79,17 @@ describe('describeCategoryTolerance', () => {
     )
   })
 
-  it('describes the runway-dependent categories in the chosen distance unit', () => {
-    expect(describeCategoryTolerance('distanceFromAimingPoint', 0, 400, 'm')).toBe(
-      "Ideal: touchdown on the aiming point. Score reaches 0 at 400 m off it — this runway's own real aiming-point distance from the threshold."
+  it('describes distance-from-aiming-point as three stepped bands, not a single reaches-0 number', () => {
+    // tolerance 900 -> a long (6-pair) runway's real touchdown zone; thirds land on clean
+    // round numbers (300/600/900) for a readable assertion.
+    expect(describeCategoryTolerance('distanceFromAimingPoint', 0, 900, 'm')).toBe(
+      'Ideal: touchdown on the aiming point, either direction. Within 300 m: perfect. ' +
+        'Out to 600 m: 2 points off (of 10). Out to 900 m: 4 points off. ' +
+        'Beyond that: 0 — off the graded touchdown zone entirely.'
     )
+  })
+
+  it('describes centreline offset in the chosen distance unit', () => {
     expect(describeCategoryTolerance('centrelineOffset', 0, 12.5, 'ft')).toBe(
       'Ideal: on the centreline. Score reaches 0 at 41 ft off it — half this runway\'s real width.'
     )

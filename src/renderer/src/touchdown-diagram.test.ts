@@ -5,7 +5,6 @@ import {
   LATERAL_EXAGGERATION,
   thresholdStripeCountForWidthM,
   touchdownZoneBarCounts,
-  touchdownZonePairCountForLengthM,
   touchdownZonePairPositionsM,
   type DiagramRunway
 } from './touchdown-diagram'
@@ -23,23 +22,9 @@ describe('thresholdStripeCountForWidthM', () => {
   })
 })
 
-describe('touchdownZonePairCountForLengthM', () => {
-  it.each([
-    [500, 1],
-    [899, 1],
-    [900, 2],
-    [1199, 2],
-    [1200, 3],
-    [1499, 3],
-    [1500, 4],
-    [2399, 4],
-    [2400, 6],
-    [4000, 6]
-  ])('maps a %dm runway to %d touchdown-zone pairs', (lengthM, expected) => {
-    expect(touchdownZonePairCountForLengthM(lengthM)).toBe(expected)
-  })
-})
-
+// touchdownZonePairCountForLengthM's own tests now live in @shared/landing-score.test.ts,
+// alongside its definition (moved there 2026-09-13 — see touchdown-diagram.ts's own doc
+// comment for why).
 describe('touchdownZonePairPositionsM', () => {
   it('spaces pairs every 150m starting at 150m, one per band count', () => {
     expect(touchdownZonePairPositionsM(500)).toEqual([150])

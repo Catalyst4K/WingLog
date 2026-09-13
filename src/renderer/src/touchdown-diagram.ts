@@ -9,7 +9,11 @@
  * pairs by landing distance available, §5.2.6) are sourced from the Manual of Aerodrome
  * Standards' tables — the same secondary source runway-lookup.ts's own
  * aimingPointDistanceForLengthM already cites — cross-checked against Annex 14's own text
- * describing the same bands (a fixed stripe/pair count per band, never interpolated).
+ * describing the same bands (a fixed stripe/pair count per band, never interpolated). The
+ * touchdown-zone pair count/spacing itself lives in @shared/landing-score now (2026-09-13,
+ * when the landing score started needing the same real geometry for its own stepped
+ * distance-from-aiming-point scale) — imported below rather than redefined here, so the
+ * diagram and the score can never quietly drift apart.
  *
  * Coordinates are all in the runway's own "physical-start" frame: 0 = the physical
  * beginning of the paved surface (the same point runway-lookup.ts's RunwayEnd.lat/lon
@@ -18,6 +22,7 @@
  * threshold instead, so every distance below adds `displacedThresholdM` once to get back
  * to this frame.
  */
+import { TOUCHDOWN_ZONE_PAIR_SPACING_M, touchdownZonePairCountForLengthM } from '@shared/landing-score'
 
 export interface DiagramRunway {
   lengthM: number
@@ -71,21 +76,6 @@ export function thresholdStripeCountForWidthM(widthM: number): number {
   if (widthM <= 45) return 12
   return 16
 }
-
-/** ICAO Annex 14 §5.2.6 touchdown zone marking — pair count by landing distance available
- *  (same source as thresholdStripeCountForWidthM: <900m→1, <1200m→2, <1500m→3, <2400m→4,
- *  ≥2400m→6 — note there is no "5 pairs" band). */
-export function touchdownZonePairCountForLengthM(lengthM: number): number {
-  if (lengthM < 900) return 1
-  if (lengthM < 1200) return 2
-  if (lengthM < 1500) return 3
-  if (lengthM < 2400) return 4
-  return 6
-}
-
-// Annex 14: touchdown-zone pairs are spaced every 150m, the first pair centred 150m from
-// the threshold.
-const TOUCHDOWN_ZONE_PAIR_SPACING_M = 150
 
 /** Touchdown-zone pair centres, usable-threshold-relative (add `displacedThresholdM` for
  *  the physical-start frame this module otherwise uses). */

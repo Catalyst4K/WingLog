@@ -101,10 +101,12 @@ export interface LandingScoreInputs {
   crabDeg: number | null
   /** Signed deviation from the runway's real aiming point (0 = touchdown exactly on it). */
   distanceFromAimingPointM: number | null
-  /** Where the aiming-point input's score hits 0 — the runway's own real Annex-14
-   *  aiming-point distance from the threshold (runway-lookup.ts's aimingPointDistanceM).
-   *  Null exactly when distanceFromAimingPointM is null. */
-  aimingPointToleranceM: number | null
+  /** This runway's own real paved length — touchdownZoneScore's real per-runway band count
+   *  (touchdownZonePairCountForLengthM) comes from this, same source and reasoning as
+   *  src/renderer/src/touchdown-diagram.ts's identical touchdown-zone marking geometry. Null
+   *  exactly when distanceFromAimingPointM is (no runway match, or a match with no real
+   *  length data — resolveLandingScore folds both cases into the same null). */
+  runwayLengthM: number | null
   /** Signed lateral offset from the runway centreline (0 = dead centre). */
   centrelineOffsetM: number | null
   /** Where the centreline input's score hits 0 — half the runway's real width, or
@@ -115,10 +117,13 @@ export interface LandingScoreInputs {
 
 /** What "perfect" and "score reaches 0" actually are for one category, in that category's
  *  own natural unit (fpm for verticalSpeed, degrees, g, or metres) — real per-flight numbers
- *  for the two runway-dependent categories (their tolerance is this runway's own real
- *  Annex-14 aiming-point distance / half its real width), fixed constants for the rest.
- *  Symmetric for every category, including verticalSpeed (2026-09-13 — see LandingRateBand's
- *  own doc comment for why it isn't tighter on the soft side). */
+ *  for the two runway-dependent categories (centrelineOffset's tolerance is this runway's
+ *  own real half-width; distanceFromAimingPoint's is its own real touchdown-zone marking
+ *  extent, touchdownZonePairCountForLengthM(runwayLengthM) pairs of TOUCHDOWN_ZONE_PAIR_
+ *  SPACING_M each — 2026-09-13, replacing a flat aimingPointToleranceM-based tolerance),
+ *  fixed constants for the rest. Symmetric for every category, including verticalSpeed
+ *  (2026-09-13 — see LandingRateBand's own doc comment for why it isn't tighter on the soft
+ *  side). */
 export interface LandingScoreCategoryDetail {
   ideal: number
   /** Deviation from `ideal` (same unit) at which this category's score reaches 0. */
@@ -174,6 +179,46 @@ const CRAB_IDEAL_DEG = 0
 // constants here.
 const CRAB_TOLERANCE_DEG = 9
 
+// ICAO Annex 14 §5.2.6 touchdown-zone marking — pair count by landing distance available
+// (Manual of Aerodrome Standards table, same secondary source runway-lookup.ts's own
+// aimingPointDistanceForLengthM already cites): <900m→1, <1200m→2, <1500m→3, <2400m→4,
+// ≥2400m→6 pairs (no "5 pairs" band). Spaced every 150m, the first pair centred 150m from
+// the (usable, displacement-adjusted) threshold — src/renderer/src/touchdown-diagram.ts's
+// TouchdownDiagram draws these same real positions; this is the one shared home for both so
+// the score and the diagram can never quietly drift apart (moved here from that file,
+// 2026-09-13, when the score started needing the same real geometry).
+export const TOUCHDOWN_ZONE_PAIR_SPACING_M = 150
+
+export function touchdownZonePairCountForLengthM(lengthM: number): number {
+  if (lengthM < 900) return 1
+  if (lengthM < 1200) return 2
+  if (lengthM < 1500) return 3
+  if (lengthM < 2400) return 4
+  return 6
+}
+
+// Touchdown-zone (piano-key) scoring for how far along the runway the touchdown landed from
+// the aiming point — a stepped scale rather than a smooth taper, matching how touchdown-zone
+// markings actually read in real life (which pair of stripes did you land within, not a
+// continuous distance), applied symmetrically either side of the aiming point per Callum's
+// own spec, 2026-09-13: dead on the aiming point is perfect; the next real marking interval
+// is 2 points down (out of 10); the one after that is 4 points down; past the last real
+// marking pair for this runway's own length is a genuine miss, straight to 0 — not a further
+// gentle taper, since going past the last real piano key means you're off the graded target
+// area altogether, not just "a bit further from ideal." Band count comes from the runway's
+// own real length (touchdownZonePairCountForLengthM above) rather than a fixed number, so a
+// long runway's genuinely wider marked touchdown zone (up to 900m/6 pairs) gets a more
+// forgiving graduated scale than a short one (as little as 150m/1 pair) — matching how much
+// real margin for error each actually has, the same reasoning LANDING_RATE_BANDS above
+// already applies to L's tighter fpm tolerance. -20 points (out of 100) per pair means a
+// 6-pair runway's staircase (100/80/60/40/20/0) reaches exactly 0 at its own last real pair,
+// with no separate cliff needed; shorter runways cliff straight to 0 right after whichever
+// pair is their last.
+function touchdownZoneScore(offsetM: number, pairCount: number): number {
+  const bandIndex = Math.floor(Math.abs(offsetM) / TOUCHDOWN_ZONE_PAIR_SPACING_M)
+  return bandIndex < pairCount ? Math.max(0, 100 - 20 * bandIndex) : 0
+}
+
 // Weights sum to 100 when every input is available (see computeLandingScore's
 // renormalization when some aren't). First-pass judgement calls, same honesty register as
 // the constants above — easy to retune later since the score is computed at read time, not
@@ -219,10 +264,12 @@ export function computeLandingScore(inputs: LandingScoreInputs): LandingScoreBre
   const pitch = linearScore(inputs.pitchDeg - PITCH_IDEAL_DEG, PITCH_TOLERANCE_DEG)
   const bank = linearScore(inputs.bankDeg - BANK_IDEAL_DEG, BANK_TOLERANCE_DEG)
   const crab = inputs.crabDeg === null ? null : linearScore(inputs.crabDeg - CRAB_IDEAL_DEG, CRAB_TOLERANCE_DEG)
+  const touchdownZonePairCount =
+    inputs.runwayLengthM === null ? null : touchdownZonePairCountForLengthM(inputs.runwayLengthM)
   const distanceFromAimingPoint =
-    inputs.distanceFromAimingPointM === null || inputs.aimingPointToleranceM === null
+    inputs.distanceFromAimingPointM === null || touchdownZonePairCount === null
       ? null
-      : linearScore(inputs.distanceFromAimingPointM, inputs.aimingPointToleranceM)
+      : touchdownZoneScore(inputs.distanceFromAimingPointM, touchdownZonePairCount)
   const centrelineOffset =
     inputs.centrelineOffsetM === null || inputs.centrelineToleranceM === null
       ? null
@@ -257,7 +304,9 @@ export function computeLandingScore(inputs: LandingScoreInputs): LandingScoreBre
       bank: { ideal: BANK_IDEAL_DEG, tolerance: BANK_TOLERANCE_DEG },
       crab: inputs.crabDeg === null ? null : { ideal: CRAB_IDEAL_DEG, tolerance: CRAB_TOLERANCE_DEG },
       distanceFromAimingPoint:
-        inputs.aimingPointToleranceM === null ? null : { ideal: 0, tolerance: inputs.aimingPointToleranceM },
+        touchdownZonePairCount === null
+          ? null
+          : { ideal: 0, tolerance: touchdownZonePairCount * TOUCHDOWN_ZONE_PAIR_SPACING_M },
       centrelineOffset:
         inputs.centrelineToleranceM === null ? null : { ideal: 0, tolerance: inputs.centrelineToleranceM }
     }

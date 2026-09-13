@@ -33,11 +33,13 @@ export function formatCategoryScore(score: number | null): string {
 }
 
 /**
- * "What would a perfect value look like on this flight" — real per-flight numbers, not a
- * generic description, since two of these (the aiming point and centreline tolerances) come
- * from this specific runway's own real Annex-14/width data and vary flight to flight
- * (Callum's request, 2026-09-12). `ideal`/`tolerance` are null exactly when the category
- * itself has no runway match to compute them from.
+ * "What would a perfect value look like on this flight" — real per-flight numbers where
+ * that's meaningful, not a generic description: centrelineOffset's tolerance comes from this
+ * specific runway's own real width (Callum's request, 2026-09-12). distanceFromAimingPoint's
+ * `ideal`/`tolerance` are gated on having a real runway match (same null-handling as the
+ * rest) but the scale itself is a fixed stepped one, not runway data (2026-09-13 — see
+ * touchdownZoneScore's own doc comment in @shared/landing-score). `ideal`/`tolerance` are
+ * null exactly when the category itself has no runway match to compute them from.
  */
 export function describeCategoryTolerance(
   key: LandingScoreCategoryKey,
@@ -69,8 +71,16 @@ export function describeCategoryTolerance(
       return `Ideal: ${ideal}° (wings level). Score reaches 0 at ±${tolerance}°.`
     case 'crab':
       return `Ideal: ${ideal}° (crab removed by touchdown). Score reaches 0 at ±${tolerance}°.`
-    case 'distanceFromAimingPoint':
-      return `Ideal: touchdown on the aiming point. Score reaches 0 at ${formatRunwayDistance(tolerance, unit)} off it — this runway's own real aiming-point distance from the threshold.`
+    case 'distanceFromAimingPoint': {
+      // Stepped, not a smooth taper (landing-score.ts's touchdownZoneScore, 2026-09-13) —
+      // matches how touchdown-zone markings actually read in real life: which pair of piano
+      // keys you landed within, not a continuous distance. `tolerance` is always 3 equal
+      // bands (Callum's own spec), so the two intermediate boundaries are exact thirds of it.
+      const firstBoundary = formatRunwayDistance(tolerance / 3, unit)
+      const secondBoundary = formatRunwayDistance((tolerance * 2) / 3, unit)
+      const outerBoundary = formatRunwayDistance(tolerance, unit)
+      return `Ideal: touchdown on the aiming point, either direction. Within ${firstBoundary}: perfect. Out to ${secondBoundary}: 2 points off (of 10). Out to ${outerBoundary}: 4 points off. Beyond that: 0 — off the graded touchdown zone entirely.`
+    }
     case 'centrelineOffset':
       return `Ideal: on the centreline. Score reaches 0 at ${formatRunwayDistance(tolerance, unit)} off it — half this runway's real width.`
   }
