@@ -44,6 +44,7 @@ import { selectionFromFlight, useLiveWaypoints } from './procedureSelection'
 import type { Waypoint } from './route'
 import { SortableHead } from './SortableHead'
 import { TouchdownDiagram } from './TouchdownDiagram'
+import { TrackCleanupButton } from './TrackCleanupButton'
 import {
   formatCentrelineOffset,
   formatMinutes,
@@ -417,10 +418,17 @@ function FlightDetail(props: {
           <ArrowLeft />
           {props.backToAircraft ? 'Back to aircraft' : 'Back to logbook'}
         </Button>
-        <Button type="button" variant="ghost" size="sm" onClick={handleDelete}>
-          <Trash2 />
-          Delete flight
-        </Button>
+        <div className="flex items-center gap-2">
+          <TrackCleanupButton
+            flightId={flight.id}
+            hadResume={trackPoints.some((p) => p.resumeSegment > 0)}
+            onCleaned={setTrackPoints}
+          />
+          <Button type="button" variant="ghost" size="sm" onClick={handleDelete}>
+            <Trash2 />
+            Delete flight
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-4">

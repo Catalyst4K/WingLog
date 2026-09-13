@@ -246,6 +246,16 @@ export interface TrackPoint {
 
 export type NewTrackPoint = Omit<TrackPoint, 'id'>
 
+/** Result of an on-demand resume-cleanup pass (the Logbook "Clean up track" button,
+ *  flightdeck-backend's docs/plans/done/resume-track-cleanup.md) — a manual trigger for a
+ *  flight that already completed, alongside the automatic live/completion-time pass
+ *  TrackingController already runs. Both `excludedCount`/`resegmentedCount` are 0 when
+ *  nothing needed fixing. */
+export interface TrackCleanupSummary {
+  excludedCount: number
+  resegmentedCount: number
+}
+
 /** One flight's touchdown record — see docs/decisions.md's landing-analysis entry.
  *  `runwayIdent`/`distanceFromThresholdM`/`centrelineOffsetM`/`headwindMs`/`crosswindMs`/
  *  `crabDeg` are null when no matching runway end was found (resources/runways.csv has no
@@ -804,6 +814,7 @@ export const IpcChannels = {
   trackingPoint: 'tracking:point',
   trackingPointsUpdated: 'tracking:points-updated',
   trackPointList: 'track-point:list',
+  trackPointCleanup: 'track-point:cleanup',
   logbookListCompletedFlights: 'logbook:list-completed-flights',
   logbookGetStats: 'logbook:get-stats',
   logbookFleetStats: 'logbook:fleet-stats',
@@ -960,12 +971,18 @@ export interface WingLogApi {
   trackingGetActive: () => Promise<ActiveTracking | null>
   trackPointList: (flightId: number) => Promise<TrackPoint[]>
   onTrackingPoint: (listener: (point: TrackPoint) => void) => () => void
-  /** Pushed whenever a resume-cleanup pass (flightdeck-backend's docs/plans/
+  /** Pushed whenever a resume-cleanup pass (flightdeck-backend's docs/plans/done/
    *  resume-track-cleanup.md) changes an already-recorded point — newly excluded, or
    *  retagged with a new resumeSegment — carrying each affected point at its now-current
    *  value so a live map already showing the earlier copy (from onTrackingPoint) can patch
    *  it in place. */
   onTrackingPointsUpdated: (listener: (points: TrackPoint[]) => void) => () => void
+  /** Manually re-runs the resume-cleanup pass for one already-completed flight — the
+   *  Logbook detail page's "Clean up track" button, alongside the automatic live/
+   *  completion-time pass TrackingController already runs on its own. Useful for a flight
+   *  completed before Phase 2 existed, or on the rare chance the live check missed
+   *  something. A no-op (both counts 0) when there's nothing to clean up. */
+  trackPointCleanup: (flightId: number) => Promise<TrackCleanupSummary>
   logbookListCompletedFlights: () => Promise<Flight[]>
   logbookGetStats: () => Promise<LogbookStats>
   logbookFleetStats: () => Promise<FleetStats[]>

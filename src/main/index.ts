@@ -50,7 +50,8 @@ import {
   getLogbookStats,
   listCompletedFlights,
   listFlights,
-  listFlightsByAircraft
+  listFlightsByAircraft,
+  setFlownRoute
 } from './db/flight-repo'
 import { getLandingByFlight, listLandingsByAircraft } from './db/landing-repo'
 import { getLandingScoresForCompletedFlights, resolveLandingScore } from './db/landing-score-resolver'
@@ -72,6 +73,8 @@ import {
   setWindSpeedUnit
 } from './db/settings-repo'
 import { listTrackPoints } from './db/track-point-repo'
+import { deriveFlownRouteJson } from './tracking/route-simplify'
+import { runTrackCleanupForFlight } from './tracking/run-track-cleanup'
 import { simplifyTrackPoints } from './tracking/track-simplify'
 import { defaultGsxReceiptsPath } from './gsx/default-path'
 import { checkGsxFirstLaunch } from './gsx/first-launch-check'
@@ -475,6 +478,23 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.trackPointList, (_event, flightId: number) =>
         simplifyTrackPoints(listTrackPoints(db, flightId).filter((p) => p.excludedReason == null))
       )
+      // Logbook's manual "Clean up track" button (flightdeck-backend's docs/plans/done/
+      // resume-track-cleanup.md) — the same cleanup pass TrackingController already runs
+      // live/at completion, run on demand for a flight with no active recorder at all
+      // (one completed before Phase 2 existed, or the rare case the live check missed
+      // something). Re-derives flownRouteJson from the now-corrected points afterward,
+      // same as TrackingController.deriveFlownRoute does at completion, so a synced copy
+      // doesn't keep the stale route — and syncs it, since track_point itself never syncs
+      // but flownRouteJson does.
+      ipcMain.handle(IpcChannels.trackPointCleanup, (_event, flightId: number) => {
+        const result = runTrackCleanupForFlight(db, flightId)
+        if (!result) return { excludedCount: 0, resegmentedCount: 0 }
+        const points = listTrackPoints(db, flightId).filter((p) => p.excludedReason == null)
+        const flownRouteJson = deriveFlownRouteJson(points)
+        if (flownRouteJson) setFlownRoute(db, flightId, flownRouteJson)
+        scheduleBackgroundSync()
+        return { excludedCount: result.exclusions.length, resegmentedCount: result.segmentReassignments.length }
+      })
 
       // Only one flight is ever meant to be "in progress" (planned or active) at once —
       // pressing "Fly" on a new plan replaces whatever was already planned or being tracked,

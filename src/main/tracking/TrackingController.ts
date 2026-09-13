@@ -16,18 +16,14 @@ import {
 } from '../db/flight-repo'
 import { createLanding } from '../db/landing-repo'
 import { getGsxSettings } from '../db/settings-repo'
-import { applyTrackCleanup, createTrackPoint, listTrackPoints } from '../db/track-point-repo'
+import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
 import { buildFlightMatchWindow } from '../gsx/flight-window'
 import { scanGsxFolder } from '../gsx/scan'
 import type { SimConnectService } from '../sim/SimConnectService'
 import { FlightRecorder } from './FlightRecorder'
 import { buildLandingRecord } from './landing-capture'
-import {
-  computeTrackCleanup,
-  isPhysicallyImpossibleJump,
-  RESUME_CLEANUP_CONSTANTS,
-  type TrackCleanupResult
-} from './resume-cleanup'
+import { isPhysicallyImpossibleJump, RESUME_CLEANUP_CONSTANTS, type TrackCleanupResult } from './resume-cleanup'
+import { runTrackCleanupForFlight } from './run-track-cleanup'
 import { deriveFlownRouteJson } from './route-simplify'
 
 interface TrackingControllerEvents {
@@ -292,19 +288,20 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     if (ownReassignment) this.recorder?.bumpResumeSegment(ownReassignment.resumeSegment)
   }
 
-  /** Runs resume-cleanup.ts's pure function over this flight's full current history and
-   *  persists whatever it finds — called both live (checkForLiveJump, right when a jump
-   *  resolves something) and once more at completion as a backstop, matching the plan
-   *  doc's own "when a resume window resolves … and once more at flight completion". A
-   *  no-op write when nothing changed (applyTrackCleanup already short-circuits that), and
-   *  nothing is emitted in that case either — no already-drawn point needs correcting.
-   *  Returns the raw result so a live caller can react to specifics (checkForLiveJump uses
-   *  it to keep the recorder's own segment counter in step); undefined when nothing changed. */
+  /** Runs run-track-cleanup.ts's shared cleanup pass over this flight's full current
+   *  history and persists whatever it finds — called both live (checkForLiveJump, right
+   *  when a jump resolves something) and once more at completion as a backstop, matching
+   *  the plan doc's own "when a resume window resolves … and once more at flight
+   *  completion". The Logbook "Clean up track" button (main/index.ts) calls the same
+   *  shared function directly for a flight with no active recorder at all — this method
+   *  only adds the live-map-patching concern on top, which only matters while a flight is
+   *  actively being tracked. A no-op write when nothing changed, and nothing is emitted in
+   *  that case either — no already-drawn point needs correcting. Returns the raw result so
+   *  a live caller can react to specifics (checkForLiveJump uses it to keep the recorder's
+   *  own segment counter in step); undefined when nothing changed. */
   private runTrackCleanup(flightId: number): TrackCleanupResult | undefined {
-    const points = listTrackPoints(this.db, flightId)
-    const result = computeTrackCleanup(points)
-    if (result.exclusions.length === 0 && result.segmentReassignments.length === 0) return undefined
-    applyTrackCleanup(this.db, result)
+    const result = runTrackCleanupForFlight(this.db, flightId)
+    if (!result) return undefined
     const changedIds = new Set([
       ...result.exclusions.map((e) => e.id),
       ...result.segmentReassignments.map((r) => r.id)
