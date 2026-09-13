@@ -181,3 +181,14 @@
 .map-pan-locked .maplibregl-canvas-container.maplibregl-interactive {
   cursor: default;
 }
+/* Live-verified 2026-09-13 (map-controls.md's own "needs a live tracking session" item):
+ * the rule above only covers the hover cursor. maplibre-gl.css has a SEPARATE
+ * `:active` rule (`.maplibregl-canvas-container.maplibregl-interactive:active{cursor:
+ * grabbing}`) for while a drag is actually held down, same specificity as ours (three
+ * classes vs. two classes + one pseudo-class) but for a different pseudo-state, so it was
+ * never overridden — the closed-hand "grabbing" cursor still appeared on click-and-hold
+ * even while panning was locked. Needs its own `:active` override, one class heavier than
+ * maplibre's, to win outright. */
+.map-pan-locked .maplibregl-canvas-container.maplibregl-interactive:active {
+  cursor: default;
+}

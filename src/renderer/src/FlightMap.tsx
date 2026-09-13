@@ -602,7 +602,17 @@ export function FlightMap({
     if (config.keyboard) map.keyboard.enable()
     else map.keyboard.disable()
 
+    // Live-verified 2026-09-13 (map-controls.md's own "needs a live tracking session" item):
+    // `ScrollZoomHandler.enable(options)` — and `TouchZoomRotateHandler`'s own pinch-zoom
+    // handler underneath it — early-return with NO effect if the handler `isEnabled()`
+    // already, which it always is here (MapLibre auto-enables both at map construction).
+    // So calling `.enable({ around: 'center' })` on its own, as this did before, silently
+    // never applied while locked — zooming while following kept anchoring to the cursor and
+    // dragging the view off the aircraft instead of staying centered. `.disable()` first
+    // forces the next `.enable()` to actually re-apply `around`.
+    map.scrollZoom.disable()
     map.scrollZoom.enable(config.scrollZoom === true ? undefined : config.scrollZoom)
+    map.touchZoomRotate.disable()
     map.touchZoomRotate.enable(config.touchZoomRotate === true ? undefined : config.touchZoomRotate)
 
     if (config.doubleClickZoom) map.doubleClickZoom.enable()
