@@ -348,12 +348,9 @@ export interface LandingScoreCategory {
    *  numbers for the runway-dependent categories, not a fixed constant, since they come
    *  from this specific runway's own real Annex-14/width data. Powers the breakdown
    *  popup's per-category info button (docs/decisions.md, 2026-09-12). Null exactly when
-   *  `score` is null. Split below/above `ideal` since verticalSpeed's real sweet spot isn't
-   *  symmetric (@shared/landing-score's LandingRateBand, 2026-09-13) — every other category
-   *  just has the two equal. */
+   *  `score` is null. */
   ideal: number | null
-  toleranceBelow: number | null
-  toleranceAbove: number | null
+  tolerance: number | null
 }
 
 /** The 0-100 landing score plus its derived firm/hard classification — computed at read

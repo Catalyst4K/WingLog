@@ -47,15 +47,16 @@ describe('formatCategoryScore', () => {
 })
 
 describe('describeCategoryTolerance', () => {
-  it('describes vertical speed against its real sweet spot, decaying on both sides', () => {
-    // M: sweet 120, toleranceBelow 40, toleranceAbove 360.
-    expect(describeCategoryTolerance('verticalSpeed', 120, 40, 360, 'ft')).toBe(
-      "Sweet spot: 120 fpm for this aircraft's wake category. Score decays below 80 fpm and reaches 0 at 480 fpm."
+  it('describes vertical speed against its real sweet spot, not penalizing a soft landing hard', () => {
+    // M: sweet 120, tolerance 360 -> firm-side zero at 480. Soft-side zero (120-360=-240) is
+    // never reachable (fpm can't go negative), so the copy doesn't mention it at all.
+    expect(describeCategoryTolerance('verticalSpeed', 120, 360, 'ft')).toBe(
+      "Sweet spot: 120 fpm for this aircraft's wake category. A softer touchdown is barely penalized — score only reaches 0 if too firm, at 480 fpm."
     )
   })
 
   it('describes g-force symmetrically around its ideal', () => {
-    expect(describeCategoryTolerance('gForce', 1, 1, 1, 'ft')).toBe(
+    expect(describeCategoryTolerance('gForce', 1, 1, 'ft')).toBe(
       'Ideal: 1.0 g. Score reaches 0 at 0.0 g or 2.0 g.'
     )
   })
@@ -65,30 +66,30 @@ describe('describeCategoryTolerance', () => {
       'SimVar-signed (negative = nose-up), but a pilot reads a flare as a positive number ' +
       '(Callum, 2026-09-13: "I think you forgot to flip the value")',
     () => {
-      expect(describeCategoryTolerance('pitch', -4, 8, 8, 'ft')).toBe(
+      expect(describeCategoryTolerance('pitch', -4, 8, 'ft')).toBe(
         'Ideal: 4° nose-up. Score reaches 0 at -4° or 12°.'
       )
     }
   )
 
   it('describes bank and crab as symmetric ± bands around 0', () => {
-    expect(describeCategoryTolerance('bank', 0, 8, 8, 'ft')).toBe('Ideal: 0° (wings level). Score reaches 0 at ±8°.')
-    expect(describeCategoryTolerance('crab', 0, 9, 9, 'ft')).toBe(
+    expect(describeCategoryTolerance('bank', 0, 8, 'ft')).toBe('Ideal: 0° (wings level). Score reaches 0 at ±8°.')
+    expect(describeCategoryTolerance('crab', 0, 9, 'ft')).toBe(
       'Ideal: 0° (crab removed by touchdown). Score reaches 0 at ±9°.'
     )
   })
 
   it('describes the runway-dependent categories in the chosen distance unit', () => {
-    expect(describeCategoryTolerance('distanceFromAimingPoint', 0, 400, 400, 'm')).toBe(
+    expect(describeCategoryTolerance('distanceFromAimingPoint', 0, 400, 'm')).toBe(
       "Ideal: touchdown on the aiming point. Score reaches 0 at 400 m off it — this runway's own real aiming-point distance from the threshold."
     )
-    expect(describeCategoryTolerance('centrelineOffset', 0, 12.5, 12.5, 'ft')).toBe(
+    expect(describeCategoryTolerance('centrelineOffset', 0, 12.5, 'ft')).toBe(
       'Ideal: on the centreline. Score reaches 0 at 41 ft off it — half this runway\'s real width.'
     )
   })
 
   it('reports unavailable rather than fabricating a value when there is no runway match', () => {
-    expect(describeCategoryTolerance('crab', null, null, null, 'ft')).toBe(
+    expect(describeCategoryTolerance('crab', null, null, 'ft')).toBe(
       'Not available for this landing — no matched runway.'
     )
   })

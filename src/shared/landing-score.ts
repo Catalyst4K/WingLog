@@ -11,10 +11,13 @@ export type WakeCategory = 'L' | 'M' | 'H' | 'J'
  * Real touchdown vertical-speed sweet spots per ICAO wake-turbulence category
  * (resources/icao-aircraft-types.csv's real `wtc` column) — informed judgement calls, not
  * sourced from a per-type manufacturer figure (same honest caveat this replaces carried —
- * see docs/decisions.md, 2026-09-12). `minFpm`/`maxFpm` bound the range within which a
- * touchdown reads as genuinely "ideal" for that category — score peaks at `sweetSpotFpm`
- * and decays toward either edge (computeLandingScore below), rather than the range acting
- * as a single hard in/out cutoff. J (only 2 rows of real vendored data — A380) shares H's
+ * see docs/decisions.md, 2026-09-12). `minFpm`/`maxFpm` are the category's real labelled
+ * "ideal range" — kept here as the source table's own reference data, not fed directly into
+ * computeLandingScore's own zero point: an early version made the score reach 0 right at
+ * `minFpm`, which Callum flagged as too harsh (2026-09-13) — a touchdown just under the
+ * labelled range is still a perfectly fine, gentle landing in the real world, not a failing
+ * one. The score's actual tolerance (see computeLandingScore) is wider and symmetric around
+ * `sweetSpotFpm` on both sides. J (only 2 rows of real vendored data — A380) shares H's
  * range (similar gear stroke/inertia) but its sweet spot is nudged 10fpm higher — the
  * A380's longer-travel gear takes a bit more sink rate to feel "right" on touchdown.
  */
@@ -113,16 +116,13 @@ export interface LandingScoreInputs {
 /** What "perfect" and "score reaches 0" actually are for one category, in that category's
  *  own natural unit (fpm for verticalSpeed, degrees, g, or metres) — real per-flight numbers
  *  for the two runway-dependent categories (their tolerance is this runway's own real
- *  Annex-14 aiming-point distance / half its real width), fixed constants for the rest. Split
- *  below/above `ideal` because verticalSpeed's real-world sweet spot isn't symmetric (a
- *  category's touchdown-rate band is tighter below the sweet spot than above it, per
- *  LANDING_RATE_BANDS) — every other category just has the two fields equal. */
+ *  Annex-14 aiming-point distance / half its real width), fixed constants for the rest.
+ *  Symmetric for every category, including verticalSpeed (2026-09-13 — see LandingRateBand's
+ *  own doc comment for why it isn't tighter on the soft side). */
 export interface LandingScoreCategoryDetail {
   ideal: number
-  /** Deviation below `ideal` (same unit) at which this category's score reaches 0. */
-  toleranceBelow: number
-  /** Deviation above `ideal` (same unit) at which this category's score reaches 0. */
-  toleranceAbove: number
+  /** Deviation from `ideal` (same unit) at which this category's score reaches 0. */
+  tolerance: number
 }
 
 export interface LandingScoreBreakdown {
@@ -196,17 +196,6 @@ function linearScore(deviation: number, tolerance: number): number {
   return Math.max(0, Math.min(100, Math.round(100 * (1 - magnitude / tolerance))))
 }
 
-/** `linearScore`, but the tolerance can differ depending on which side of `ideal` the
- *  deviation falls on — verticalSpeed is the only category that actually needs this. */
-function twoSidedScore(deviation: number, toleranceBelow: number, toleranceAbove: number): number {
-  return linearScore(deviation, deviation < 0 ? toleranceBelow : toleranceAbove)
-}
-
-/** Every non-verticalSpeed category's tolerance is symmetric — same value on both sides. */
-function symmetricDetail(ideal: number, tolerance: number): LandingScoreCategoryDetail {
-  return { ideal, toleranceBelow: tolerance, toleranceAbove: tolerance }
-}
-
 /**
  * The 0-100 landing score. Each of the 7 inputs is scored and clamped independently
  * before combining, so the combined score can't go negative on its own — there's no
@@ -216,17 +205,15 @@ export function computeLandingScore(inputs: LandingScoreInputs): LandingScoreBre
   const thresholds = deriveLandingThresholds(inputs.category)
   const band = landingRateBand(inputs.category)
   const actualFpm = Math.abs(msToFpm(inputs.verticalSpeedMs))
-  // Two-sided: peaks at the category's real sweet spot and decays toward both edges of its
-  // ideal range (flightdeck-backend's docs/plans/landing-scoring.md, "fpm sweet spots",
-  // 2026-09-13) rather than only penalizing an excessive descent rate. Below the sweet spot,
-  // score reaches 0 right at the range's own minFpm — a touchdown gentler than that reads as
-  // genuinely too soft for the category (float/balloon risk, worse the lighter the aircraft),
-  // not just "better than ideal". Above the sweet spot, score keeps the old wider tail out to
-  // the derived hard-landing threshold, since that side is the one with real structural risk.
-  const verticalSpeedDeviation = actualFpm - band.sweetSpotFpm
-  const verticalSpeedToleranceBelow = band.sweetSpotFpm - band.minFpm
-  const verticalSpeedToleranceAbove = thresholds.hardFpm - band.sweetSpotFpm
-  const verticalSpeed = twoSidedScore(verticalSpeedDeviation, verticalSpeedToleranceBelow, verticalSpeedToleranceAbove)
+  // Two-sided: peaks at the category's real sweet spot and decays symmetrically either side
+  // of it (flightdeck-backend's docs/plans/landing-scoring.md, "fpm sweet spots", 2026-09-13)
+  // rather than only penalizing an excessive descent rate. The tolerance is the same distance
+  // out as the derived hard-landing threshold — a first cut instead reached 0 right at the
+  // band's own minFpm on the soft side, which Callum found too harsh: a touchdown a little
+  // under the labelled range is still a fine, gentle landing, not a failing one, and there's
+  // no real safety case for punishing "too soft" anywhere near as hard as "too firm".
+  const verticalSpeedTolerance = thresholds.hardFpm - band.sweetSpotFpm
+  const verticalSpeed = linearScore(actualFpm - band.sweetSpotFpm, verticalSpeedTolerance)
 
   const gForce = linearScore(inputs.gForce - GFORCE_IDEAL, GFORCE_TOLERANCE)
   const pitch = linearScore(inputs.pitchDeg - PITCH_IDEAL_DEG, PITCH_TOLERANCE_DEG)
@@ -264,19 +251,15 @@ export function computeLandingScore(inputs: LandingScoreInputs): LandingScoreBre
     overall,
     inputs: { verticalSpeed, gForce, distanceFromAimingPoint, centrelineOffset, pitch, bank, crab },
     details: {
-      verticalSpeed: {
-        ideal: band.sweetSpotFpm,
-        toleranceBelow: verticalSpeedToleranceBelow,
-        toleranceAbove: verticalSpeedToleranceAbove
-      },
-      gForce: symmetricDetail(GFORCE_IDEAL, GFORCE_TOLERANCE),
-      pitch: symmetricDetail(PITCH_IDEAL_DEG, PITCH_TOLERANCE_DEG),
-      bank: symmetricDetail(BANK_IDEAL_DEG, BANK_TOLERANCE_DEG),
-      crab: inputs.crabDeg === null ? null : symmetricDetail(CRAB_IDEAL_DEG, CRAB_TOLERANCE_DEG),
+      verticalSpeed: { ideal: band.sweetSpotFpm, tolerance: verticalSpeedTolerance },
+      gForce: { ideal: GFORCE_IDEAL, tolerance: GFORCE_TOLERANCE },
+      pitch: { ideal: PITCH_IDEAL_DEG, tolerance: PITCH_TOLERANCE_DEG },
+      bank: { ideal: BANK_IDEAL_DEG, tolerance: BANK_TOLERANCE_DEG },
+      crab: inputs.crabDeg === null ? null : { ideal: CRAB_IDEAL_DEG, tolerance: CRAB_TOLERANCE_DEG },
       distanceFromAimingPoint:
-        inputs.aimingPointToleranceM === null ? null : symmetricDetail(0, inputs.aimingPointToleranceM),
+        inputs.aimingPointToleranceM === null ? null : { ideal: 0, tolerance: inputs.aimingPointToleranceM },
       centrelineOffset:
-        inputs.centrelineToleranceM === null ? null : symmetricDetail(0, inputs.centrelineToleranceM)
+        inputs.centrelineToleranceM === null ? null : { ideal: 0, tolerance: inputs.centrelineToleranceM }
     }
   }
 }

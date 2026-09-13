@@ -4,14 +4,14 @@ import userEvent from '@testing-library/user-event'
 import type { LandingScoreCategory } from '@shared/ipc'
 import { LandingScoreBreakdownDialog } from './LandingScoreBreakdownDialog'
 
-const IDEAL_TOLERANCE: Record<string, { ideal: number; toleranceBelow: number; toleranceAbove: number }> = {
-  verticalSpeed: { ideal: 120, toleranceBelow: 40, toleranceAbove: 360 },
-  gForce: { ideal: 1, toleranceBelow: 1, toleranceAbove: 1 },
-  pitch: { ideal: -4, toleranceBelow: 8, toleranceAbove: 8 },
-  bank: { ideal: 0, toleranceBelow: 8, toleranceAbove: 8 },
-  crab: { ideal: 0, toleranceBelow: 9, toleranceAbove: 9 },
-  distanceFromAimingPoint: { ideal: 0, toleranceBelow: 400, toleranceAbove: 400 },
-  centrelineOffset: { ideal: 0, toleranceBelow: 12.5, toleranceAbove: 12.5 }
+const IDEAL_TOLERANCE: Record<string, { ideal: number; tolerance: number }> = {
+  verticalSpeed: { ideal: 120, tolerance: 360 },
+  gForce: { ideal: 1, tolerance: 1 },
+  pitch: { ideal: -4, tolerance: 8 },
+  bank: { ideal: 0, tolerance: 8 },
+  crab: { ideal: 0, tolerance: 9 },
+  distanceFromAimingPoint: { ideal: 0, tolerance: 400 },
+  centrelineOffset: { ideal: 0, tolerance: 12.5 }
 }
 
 function makeCategories(overrides: Partial<Record<string, number | null>> = {}): LandingScoreCategory[] {
@@ -39,8 +39,7 @@ function makeCategories(overrides: Partial<Record<string, number | null>> = {}):
     label: labels[key],
     score: base[key],
     ideal: base[key] === null ? null : IDEAL_TOLERANCE[key].ideal,
-    toleranceBelow: base[key] === null ? null : IDEAL_TOLERANCE[key].toleranceBelow,
-    toleranceAbove: base[key] === null ? null : IDEAL_TOLERANCE[key].toleranceAbove
+    tolerance: base[key] === null ? null : IDEAL_TOLERANCE[key].tolerance
   }))
 }
 

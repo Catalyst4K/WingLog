@@ -43,8 +43,7 @@ function toCategories(breakdown: LandingScoreBreakdown): LandingScoreCategory[] 
       label: CATEGORY_LABELS[key],
       score: breakdown.inputs[key],
       ideal: detail?.ideal ?? null,
-      toleranceBelow: detail?.toleranceBelow ?? null,
-      toleranceAbove: detail?.toleranceAbove ?? null
+      tolerance: detail?.tolerance ?? null
     }
   })
 }

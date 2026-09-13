@@ -70,21 +70,13 @@ describe('resolveLandingScore', () => {
     const result = resolveLandingScore(landingRecord, 'EGLL', 'A320')
 
     const verticalSpeed = result.categories.find((c) => c.key === 'verticalSpeed')!
-    expect(verticalSpeed).toMatchObject({ ideal: 120, toleranceBelow: 40, toleranceAbove: 360 }) // M category
+    expect(verticalSpeed).toMatchObject({ ideal: 120, tolerance: 360 }) // M category
 
     const aimingPoint = result.categories.find((c) => c.key === 'distanceFromAimingPoint')!
-    expect(aimingPoint).toMatchObject({
-      ideal: 0,
-      toleranceBelow: EGLL_27L_AIMING_POINT_M,
-      toleranceAbove: EGLL_27L_AIMING_POINT_M
-    })
+    expect(aimingPoint).toMatchObject({ ideal: 0, tolerance: EGLL_27L_AIMING_POINT_M })
 
     const centreline = result.categories.find((c) => c.key === 'centrelineOffset')!
-    expect(centreline).toMatchObject({
-      ideal: 0,
-      toleranceBelow: EGLL_27L_HALF_WIDTH_M,
-      toleranceAbove: EGLL_27L_HALF_WIDTH_M
-    })
+    expect(centreline).toMatchObject({ ideal: 0, tolerance: EGLL_27L_HALF_WIDTH_M })
   })
 
   it('nulls out a category\'s ideal/tolerance exactly when its score is unavailable', () => {
@@ -97,8 +89,7 @@ describe('resolveLandingScore', () => {
       const category = result.categories.find((c) => c.key === key)!
       expect(category.score).toBeNull()
       expect(category.ideal).toBeNull()
-      expect(category.toleranceBelow).toBeNull()
-      expect(category.toleranceAbove).toBeNull()
+      expect(category.tolerance).toBeNull()
     }
   })
 
