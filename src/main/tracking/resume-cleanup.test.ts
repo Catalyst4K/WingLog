@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeTrackCleanup, type CleanupInputPoint } from './resume-cleanup'
+import { computeTrackCleanup, isPhysicallyImpossibleJump, type CleanupInputPoint } from './resume-cleanup'
 
 const BASE = Date.parse('2026-09-13T12:00:00.000Z')
 
@@ -40,6 +40,60 @@ describe('computeTrackCleanup', () => {
       points.push(pt(i, i * 5, i * 0.011, 0, { groundSpeedMs: 250 }))
     }
     expect(computeTrackCleanup(points)).toEqual({ exclusions: [], segmentReassignments: [] })
+  })
+
+  it('catches a real crash-relocation where the anchor\'s own stale high speed would otherwise mask it (flight 191/CPA319, confirmed live 2026-09-13)', () => {
+    // Real numbers: 266.647s gap, 81.23km, anchor still showing pre-crash cruise speed
+    // (260.7 m/s) while the freshly-respawned point reads near-stationary (8.8 m/s). Using
+    // max(gsA, gsB) here gives a ~139km threshold and lets this through — exactly what
+    // Callum found still drawn as a straight line after running Clean up track on this
+    // flight; min(gsA, gsB) gives ~4.7km and correctly flags it.
+    const a: CleanupInputPoint = {
+      id: 1,
+      tsUtc: '2026-09-10T22:06:00.237Z',
+      latitude: 10,
+      longitude: 110,
+      headingTrueDeg: 90,
+      groundSpeedMs: 260.7,
+      simRate: 1,
+      resumeSegment: 0
+    }
+    const b: CleanupInputPoint = {
+      id: 2,
+      tsUtc: '2026-09-10T22:10:26.884Z',
+      // ~81.23km east of `a` at this latitude.
+      latitude: 10,
+      longitude: 110 + 81.23 / (111.32 * Math.cos((10 * Math.PI) / 180)),
+      headingTrueDeg: 90,
+      groundSpeedMs: 8.8,
+      simRate: 1,
+      resumeSegment: 0
+    }
+    expect(isPhysicallyImpossibleJump(a, b)).toBe(true)
+  })
+
+  it('does not flag a real SimConnect-reconnect gap where both ends show consistent real cruise speed', () => {
+    // A dropped/reconnected telemetry connection can leave a similarly long gap with real
+    // distance covered — but unlike a crash-relocation, both ends read genuine, matching
+    // ground speed, since the aircraft never actually stopped flying. min(gsA, gsB) stays
+    // large here, same as max(gsA, gsB) would, so this is never mistaken for a teleport.
+    const a = pt(1, 0, 0, 0, { groundSpeedMs: 250 })
+    const b = pt(2, 266, 81.23 / 111.32, 0, { groundSpeedMs: 250 }) // ~81.23km north, 266s later
+    expect(isPhysicallyImpossibleJump(a, b)).toBe(false)
+  })
+
+  it('does not flag a real sim-pause with minor position drift (flight 191/CPA319\'s own two real pauses)', () => {
+    // Real numbers: a 2.7-hour pause with 0.56km of drift, and a 20-minute pause with
+    // 1.17km of drift — both well past any reasonable "sampling jitter" floor if taken at
+    // face value, but tiny next to the 81km/132km real relocations above. Confirms the
+    // floor doesn't need to shrink to catch real teleports, so pause-jitter still passes.
+    const longPause = pt(1, 0, 0, 0, { groundSpeedMs: 280.1 })
+    const afterLongPause = pt(2, 9865, 0.56 / 111.32, 0, { groundSpeedMs: 280.1 })
+    expect(isPhysicallyImpossibleJump(longPause, afterLongPause)).toBe(false)
+
+    const shortPause = pt(3, 0, 0, 0, { groundSpeedMs: 208.9 })
+    const afterShortPause = pt(4, 1209, 1.17 / 111.32, 0, { groundSpeedMs: 209.6 })
+    expect(isPhysicallyImpossibleJump(shortPause, afterShortPause)).toBe(false)
   })
 
   it('does not flag a real 4x sim-rate cruise sample as a teleport', () => {
@@ -114,9 +168,12 @@ describe('computeTrackCleanup', () => {
 
   it('Case C: excludes nothing when a resume window times out with no teleport (real flying continues)', () => {
     const anchor = pt(1, 0, 0, 0, { resumeSegment: 0 })
-    const boundary = pt(2, 100, 5, 5, { resumeSegment: 1 })
-    // Still flying normally, no jump, well past the 5-minute window.
-    const later = pt(3, 100 + 6 * 60, 5.5, 5.5, { resumeSegment: 1, groundSpeedMs: 0.001 })
+    const boundary = pt(2, 100, 5, 5, { resumeSegment: 1, groundSpeedMs: 200 })
+    // Still flying normally, no jump, well past the 5-minute window — both ends show the
+    // same real cruise speed, the actual signature of continuous flight (as opposed to
+    // one end reading near-zero because the aircraft had just respawned, the real
+    // discontinuity isPhysicallyImpossibleJump's own min(gsA, gsB) is built to catch).
+    const later = pt(3, 100 + 6 * 60, 5.5, 5.5, { resumeSegment: 1, groundSpeedMs: 200 })
     expect(computeTrackCleanup([anchor, boundary, later])).toEqual({ exclusions: [], segmentReassignments: [] })
   })
 

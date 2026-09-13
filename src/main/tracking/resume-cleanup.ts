@@ -74,18 +74,32 @@ function headingDeltaDeg(a: number, b: number): number {
   return Math.abs(((a - b + 540) % 360) - 180)
 }
 
-/** `distKm > 2 * max(gsA, gsB) * simRate * dt`, with a floor for sampling jitter — the
- *  plan doc's own formula (resume-track-cleanup.md, "Teleport"). `simRate` matters because
- *  at e.g. 4x time compression the aircraft legitimately covers four times the distance
- *  per wall-clock second; without it, cruise under time compression would look like
- *  teleporting. */
+/** `distKm > 2 * min(gsA, gsB) * simRate * dt`, with a floor for sampling jitter — the
+ *  plan doc's own formula (resume-track-cleanup.md, "Teleport") originally used `max`, but
+ *  that badly overestimates how far a crash/restart could plausibly have covered: real
+ *  flight 191 (CPA319) has a genuine 81km/266s spawn-relocation where the anchor's own
+ *  cruise ground speed (260.7 m/s) was still on record from *before* the crash, even
+ *  though nothing was actually flying for most of the gap — `max` extrapolated from that
+ *  stale high speed and let 81km through (threshold ~139km), while the spawn point's own
+ *  near-zero speed (8.8 m/s, freshly respawned) is the real signal something happened.
+ *  `min` catches this while still passing every already-confirmed real case: a genuine
+ *  SimConnect reconnect during continued cruise shows *consistent* real speed at both
+ *  ends (min is then still large, same as max would be), and a real sim-pause shows near-
+ *  zero position drift regardless of which speed is used. Confirmed live 2026-09-13
+ *  against flight 191's complete real track: `min` catches both of its genuine
+ *  discontinuities (the 81km spawn-relocation and the already-confirmed 132km restore-
+ *  teleport) with zero new false positives across all 7,889 points, including its own two
+ *  genuine sim-pause gaps (up to 2.7 hours, under half a km of drift each). `simRate`
+ *  matters because at e.g. 4x time compression the aircraft legitimately covers four times
+ *  the distance per wall-clock second; without it, cruise under time compression would
+ *  look like teleporting. */
 export function isPhysicallyImpossibleJump(a: CleanupInputPoint, b: CleanupInputPoint): boolean {
   const dtSec = (Date.parse(b.tsUtc) - Date.parse(a.tsUtc)) / 1000
   if (dtSec <= 0) return false
   const distKm = haversineKm(a, b)
-  const maxSpeedKmPerSec =
-    (JUMP_SPEED_MULTIPLIER * Math.max(a.groundSpeedMs, b.groundSpeedMs) * Math.max(a.simRate, b.simRate, 1)) / 1000
-  const thresholdKm = Math.max(maxSpeedKmPerSec * dtSec, JUMP_DISTANCE_FLOOR_KM)
+  const minSpeedKmPerSec =
+    (JUMP_SPEED_MULTIPLIER * Math.min(a.groundSpeedMs, b.groundSpeedMs) * Math.max(a.simRate, b.simRate, 1)) / 1000
+  const thresholdKm = Math.max(minSpeedKmPerSec * dtSec, JUMP_DISTANCE_FLOOR_KM)
   return distKm > thresholdKm
 }
 
