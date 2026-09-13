@@ -488,6 +488,9 @@ describe('DispatchView', () => {
       await user.click(fleetSelect)
       const matchedOption = await screen.findByRole('option', { name: /G-EFGH.*\(matched\)/ })
       expect(matchedOption).toBeInTheDocument()
+
+      await user.click(matchedOption)
+      expect(await within(fleetSelect).findByText(/G-EFGH/)).toBeInTheDocument()
     })
   })
 
@@ -563,7 +566,10 @@ describe('DispatchView', () => {
       await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
 
       await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
-      expect(screen.getByText('None')).toBeInTheDocument()
+      // Scoped to the "Steps" field specifically — the Procedures dropdowns elsewhere on
+      // this page also render placeholder "None" text, making a bare getByText ambiguous.
+      const stepsField = screen.getByText('Steps').parentElement as HTMLElement
+      expect(within(stepsField).getByText('None')).toBeInTheDocument()
       expect(screen.getByText('—')).toBeInTheDocument()
     })
 
@@ -715,7 +721,7 @@ describe('DispatchView', () => {
       await user.click(screen.getByRole('button', { name: 'Fly' }))
 
       const dialog = await screen.findByRole('alertdialog')
-      expect(within(dialog).getByText('This will abandon the flight currently being tracked, #5.')).toBeInTheDocument()
+      expect(within(dialog).getByText('This will delete the flight currently being tracked, #5.')).toBeInTheDocument()
       await user.click(within(dialog).getByText('Back'))
 
       expect(window.winglog.flightCreate).not.toHaveBeenCalled()
@@ -735,7 +741,7 @@ describe('DispatchView', () => {
 
       await user.click(screen.getByRole('button', { name: 'Fly' }))
       const dialog = await screen.findByRole('alertdialog')
-      expect(within(dialog).getByText('This will abandon the flight currently being tracked, BA9.')).toBeInTheDocument()
+      expect(within(dialog).getByText('This will delete the flight currently being tracked, BA9.')).toBeInTheDocument()
       await user.click(within(dialog).getByText('Fly'))
 
       await waitFor(() => expect(window.winglog.flightCreate).toHaveBeenCalled())
