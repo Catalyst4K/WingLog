@@ -68,11 +68,14 @@ describe('resolveRunwayEnd', () => {
     expect(result?.ident).toBe('07L')
   })
 
-  // Real vendored data for VHHH: three roughly-parallel runways whose published headings
-  // (OurAirports, integer-rounded) are 07C=71°, 07L=74°, 07R=71° — a real landing on 07L
-  // was previously scored against 07C (overnight-test-findings.md #7) because heading
-  // dominated the old scoring formula and 07C's heading (71) was closer to typical
-  // touchdown headings than 07L's (74). Position must decide this, not heading.
+  // VHHH's real published headings used to be 07C=71°, 07L=74°, 07R=71° — a real landing on
+  // 07L was previously scored against 07C (overnight-test-findings.md #7) because heading
+  // dominated the old scoring formula and 07C's heading (71) was closer to typical touchdown
+  // headings than 07L's (74). 07L's 74° was itself later found to be a genuine OurAirports
+  // data error and corrected to 71° (2026-09-13, runway-lookup.ts's own doc comment) — kept
+  // here as a synthetic fixture with the *old* value regardless, since the scenario this
+  // test defends against (candidates publishing different integer-rounded headings) is a
+  // real, general risk independent of this one airport's data now being fixed.
   const VHHH: RunwayEnd[] = [
     runwayEnd({ icao: 'VHHH', ident: '07C', lat: 22.3104, lon: 113.896004, headingTrueDeg: 71 }),
     runwayEnd({ icao: 'VHHH', ident: '07L', lat: 22.321074, lon: 113.880692, headingTrueDeg: 74 }),

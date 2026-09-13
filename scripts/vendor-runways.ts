@@ -12,6 +12,22 @@ const OUT_CSV = new URL('../resources/runways.csv', import.meta.url)
 const OUT_LICENSE = new URL('../resources/runways.LICENSE.txt', import.meta.url)
 const AIRPORTS_CSV = new URL('../resources/airports.csv', import.meta.url)
 
+// Known-bad upstream headings, keyed "ICAO,IDENT" — applied after the fetch so a re-run of
+// this script doesn't silently reintroduce a real data error OurAirports itself hasn't
+// fixed. VHHH's 07L/25R found 2026-09-13: published 74°/254° against 07C/07R's real 71°,
+// but 07L's own two threshold coordinates geometrically bear ~70.8° — matching its siblings
+// almost exactly (three physically-parallel strips should share a near-identical true
+// heading) and consistent with VHHH's real in-sim SimConnect facility centre point already
+// captured in docs/navdata-notes.md. Traced to two real landings (BAW31/HKE251) that scored
+// a spurious ~35-40m centreline-offset drift, proportional to touchdown distance past the
+// threshold — exactly what a ~3° heading error in the position-rotation maths produces
+// (runway-lookup.ts's positionRelativeToRunway), not real pilot variance. Remove an entry
+// here once OurAirports' own source data is confirmed fixed upstream.
+const HEADING_OVERRIDES: Record<string, number> = {
+  'VHHH,07L': 71,
+  'VHHH,25R': 251
+}
+
 // Minimal RFC4180 parser (quoted fields, "" as an escaped quote) — mirrors
 // src/main/db/csv.ts's parseCsvRows, kept standalone here since this script runs outside
 // the app's Vite build.
@@ -130,7 +146,9 @@ async function main(): Promise<void> {
       [row[iHeIdent], row[iHeLat], row[iHeLon], row[iHeHdg], row[iHeDisplaced], row[iHeElevation]]
     ]) {
       if (!ident || !lat || !lon || !hdg) continue
-      outRows.push([icao, ident, lat, lon, hdg, row[iLength] ?? '', row[iWidth] ?? '', displaced ?? '', elevation ?? '', row[iSurface] ?? ''])
+      const override = HEADING_OVERRIDES[`${icao},${ident}`]
+      const outHdg = override !== undefined ? String(override) : hdg
+      outRows.push([icao, ident, lat, lon, outHdg, row[iLength] ?? '', row[iWidth] ?? '', displaced ?? '', elevation ?? '', row[iSurface] ?? ''])
     }
   }
 
@@ -152,6 +170,10 @@ runways dropped. ${outRows.length - 1} rows.
 length_ft/width_ft/surface describe the whole physical strip (same value on both ends'
 rows); displaced_threshold_ft/elevation_ft are per-end. Any of the five may be blank where
 OurAirports has no value for that runway — most commonly at smaller/regional airports.
+
+heading_true_deg is patched post-fetch for a small HEADING_OVERRIDES list in this script
+(VHHH 07L/25R as of 2026-09-13) where OurAirports' own published value was confirmed wrong
+against the runway's own real geometry — see this script's own comment for the evidence.
 
 Used by src/main/airports/runway-lookup.ts (landing analysis, PLAN.md M6; Phase 1 of
 flightdeck-backend's docs/plans/navdata-without-navigraph.md) to resolve a touchdown

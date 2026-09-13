@@ -157,15 +157,20 @@ export function distanceFromUsableThresholdM(position: RunwayRelativePosition, e
 /**
  * Resolves a touchdown ICAO + heading + position to the matching runway end, using real
  * geometry rather than heading alone. Two candidate ends can share the same published
- * heading (parallel runways, e.g. 25L/25R) or, per real OurAirports data, publish
- * slightly *different* integer-rounded headings for what are physically parallel strips
- * (VHHH's 07L at 74°, 07C/07R at 71°) — either way, only position relative to each
- * candidate's own threshold can tell them apart. A touchdown must fall within a
- * candidate's own real lateral tolerance (half its published width, plus a fixed noise
- * margin — resources/runways.csv's `width_ft`, Phase 1) of its centreline and within its
- * along-track bounds (its own real length, same source) to be considered at all; heading
- * only breaks a tie between geometrically-plausible survivors. Falls back to fixed,
- * generous defaults for the rare candidate missing that data.
+ * heading (parallel runways, e.g. 25L/25R) or publish slightly *different* integer-rounded
+ * headings for what are physically parallel strips — either way, only position relative to
+ * each candidate's own threshold can tell them apart, so heading only breaks a tie between
+ * geometrically-plausible survivors rather than deciding on its own. (VHHH's 07L used to be
+ * exactly this case, published as 74° against 07C/07R's 71° — turned out to be a genuine
+ * OurAirports data error rather than a real integer-rounding quirk: 07L's own two threshold
+ * coordinates geometrically bear ~71°, matching its siblings, and headingTrueDeg was
+ * corrected to match, 2026-09-13. Kept as the design rationale here since the *general*
+ * risk — a future re-vendor reintroducing this, or a different airport with a real one —
+ * is exactly what this position-first design is defending against.) A touchdown must fall
+ * within a candidate's own real lateral tolerance (half its published width, plus a fixed
+ * noise margin — resources/runways.csv's `width_ft`, Phase 1) of its centreline and within
+ * its along-track bounds (its own real length, same source) to be considered at all. Falls
+ * back to fixed, generous defaults for the rare candidate missing that data.
  */
 export function resolveRunwayEnd(
   ends: RunwayEnd[],
