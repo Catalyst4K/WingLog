@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { toast } from 'sonner'
 import type {
   Aircraft,
   Flight,
@@ -9,13 +10,148 @@ import type {
   LandingScoreCategoryKey,
   LandingScoreResult,
   LandingScoreSummary,
+  TrackPoint,
   WingLogApi
 } from '@shared/ipc'
 import { LandingCard, LogbookView } from './LogbookView'
 
+vi.mock('sonner', () => ({
+  toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() }
+}))
+
+// FlightDetail renders a real FlightMap, which constructs a real maplibre-gl map needing a
+// canvas/WebGL context jsdom doesn't provide — same reason FlightMap.test.tsx/App.test.tsx
+// mock this module. Deliberately minimal: nothing here asserts against the map itself.
+vi.mock('maplibre-gl', () => {
+  class FakeHandler {
+    enable = vi.fn()
+    disable = vi.fn()
+    disableRotation = vi.fn()
+  }
+  class FakeMap {
+    container: HTMLElement
+    dragPan = new FakeHandler()
+    keyboard = new FakeHandler()
+    scrollZoom = new FakeHandler()
+    touchZoomRotate = new FakeHandler()
+    doubleClickZoom = new FakeHandler()
+    fitBounds = vi.fn()
+    jumpTo = vi.fn()
+    easeTo = vi.fn()
+    zoomIn = vi.fn()
+    zoomOut = vi.fn()
+    remove = vi.fn()
+    setLayoutProperty = vi.fn()
+    constructor(options: { container: HTMLElement }) {
+      this.container = options.container
+    }
+    on(event: string, cb: () => void): void {
+      if (event === 'style.load') queueMicrotask(cb)
+    }
+    off(): void {}
+    addSource(): void {}
+    addLayer(): void {}
+    getSource(): { setData: () => void } {
+      return { setData: vi.fn() }
+    }
+    getCenter(): { toArray: () => [number, number] } {
+      return { toArray: () => [0, 0] }
+    }
+    getZoom(): number {
+      return 1
+    }
+  }
+  class FakeMarker {
+    private el: HTMLElement
+    constructor(opts: { element: HTMLElement }) {
+      this.el = opts.element
+    }
+    setLngLat(): void {}
+    setRotation(): void {}
+    getElement(): HTMLElement {
+      return this.el
+    }
+    addTo(map: FakeMap): this {
+      map.container.appendChild(this.el)
+      return this
+    }
+    remove(): this {
+      this.el.remove()
+      return this
+    }
+  }
+  return {
+    Map: FakeMap,
+    Marker: FakeMarker,
+    LngLatBounds: class {
+      extend(): this {
+        return this
+      }
+    },
+    GeoJSONSource: class {},
+    setWorkerUrl: vi.fn()
+  }
+})
+
+beforeAll(() => {
+  Element.prototype.hasPointerCapture = () => false
+  Element.prototype.setPointerCapture = () => {}
+  Element.prototype.releasePointerCapture = () => {}
+  Element.prototype.scrollIntoView = () => {}
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ blob: () => Promise.resolve(new Blob()) }))
+  vi.stubGlobal(
+    'URL',
+    class extends URL {
+      static override createObjectURL = vi.fn(() => 'blob:mock')
+    }
+  )
+  // recharts' ResponsiveContainer measures via ResizeObserver, which jsdom doesn't
+  // implement — a no-op stub is enough for the chart cards themselves (title, mode toggle)
+  // to render; the actual chart canvas staying unmeasured/empty doesn't affect anything
+  // these tests assert on.
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe(): void {}
+      unobserve(): void {}
+      disconnect(): void {}
+    }
+  )
+})
+
 afterEach(() => {
   vi.clearAllMocks()
 })
+
+function makeTrackPoint(overrides: Partial<TrackPoint> = {}): TrackPoint {
+  return {
+    id: 1,
+    flightId: 1,
+    tsUtc: '2026-02-01T10:00:00.000Z',
+    latitude: 51.4775,
+    longitude: -0.4614,
+    altitudeM: 1000,
+    pressureAltitudeM: null,
+    altitudeAglM: 1000,
+    indicatedAirspeedMs: 100,
+    machSpeed: 0.3,
+    groundSpeedMs: 100,
+    verticalSpeedMs: 0,
+    headingTrueDeg: 270,
+    pitchDeg: 0,
+    bankDeg: 0,
+    phase: 'cruise',
+    onGround: false,
+    fuelKg: 5000,
+    gForce: 1,
+    windSpeedMs: 0,
+    windDirectionDeg: 0,
+    resumeSegment: 0,
+    simRate: 1,
+    excludedReason: null,
+    ...overrides
+  }
+}
 
 function makeAircraft(overrides: Partial<Aircraft> = {}): Aircraft {
   return {
@@ -143,6 +279,22 @@ function buildWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     aircraftList: vi.fn().mockResolvedValue([]),
     logbookGetStats: vi.fn().mockResolvedValue({ totalFlights: 0, totalBlockMinutes: 0, totalNm: 0 }),
     logbookListFlightScores: vi.fn().mockResolvedValue([]),
+    // FlightDetail (opened from the list)
+    trackPointList: vi.fn().mockResolvedValue([]),
+    logbookGetLanding: vi.fn().mockResolvedValue(null),
+    logbookGetLandingRunway: vi.fn().mockResolvedValue(null),
+    logbookGetLandingScore: vi.fn().mockResolvedValue(null),
+    logbookGreatCircleRoute: vi.fn().mockResolvedValue(null),
+    logbookOpenOfpPdf: vi.fn().mockResolvedValue(true),
+    flightDelete: vi.fn().mockResolvedValue(undefined),
+    trackPointCleanup: vi.fn().mockResolvedValue({ excludedCount: 0, resegmentedCount: 0 }),
+    // GsxInvoicesCard, mounted unconditionally inside FlightDetail
+    logbookListInvoices: vi.fn().mockResolvedValue([]),
+    settingsGetGsx: vi.fn().mockResolvedValue({ enabled: false, folderPath: null, displayCurrency: 'USD' }),
+    fxGetRate: vi.fn().mockResolvedValue(null),
+    gsxRescanFlight: vi.fn().mockResolvedValue({ invoices: [], notailCandidates: [] }),
+    gsxAttachNotailReceipt: vi.fn().mockResolvedValue([]),
+    gsxOpenReceipt: vi.fn().mockResolvedValue(undefined),
     ...overrides
   } as WingLogApi
 }
@@ -286,5 +438,338 @@ describe('LandingCard', () => {
 
     await user.click(trigger)
     expect(screen.getByText('Landing score breakdown — 55/100')).toBeInTheDocument()
+  })
+})
+
+describe('FlightDetail', () => {
+  it('opens a flight from the list and shows its summary', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight()]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()])
+    })
+    const user = userEvent.setup()
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    await user.click(await screen.findByText('TA100'))
+
+    expect(await screen.findByText('TA100 — EGLL → EGKK')).toBeInTheDocument()
+    expect(screen.getByText('G-ONE')).toBeInTheDocument()
+    expect(screen.getByText('2h 0m')).toBeInTheDocument() // block minutes: 120
+    expect(screen.getByText('1h 40m')).toBeInTheDocument() // air minutes: 100
+  })
+
+  it('returns to the list via "Back to logbook"', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight()]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()])
+    })
+    const user = userEvent.setup()
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    await user.click(await screen.findByText('TA100'))
+    await screen.findByText('TA100 — EGLL → EGKK')
+
+    await user.click(screen.getByRole('button', { name: 'Back to logbook' }))
+    expect(await screen.findByText('Logbook', { selector: 'h1' })).toBeInTheDocument()
+    expect(screen.getByText('TA100')).toBeInTheDocument()
+  })
+
+  it('opens directly via initialFlightId with a "Back to aircraft" button that calls back', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight({ id: 3 })]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()])
+    })
+    const onBackToAircraft = vi.fn()
+    render(
+      <LogbookView
+        weightUnit="kg"
+        landingDistanceUnit="ft"
+        initialFlightId={3}
+        initialFlightOriginAircraftId={7}
+        onBackToAircraft={onBackToAircraft}
+      />
+    )
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Back to aircraft' }))
+    expect(onBackToAircraft).toHaveBeenCalledWith(7)
+  })
+
+  it('deletes a flight after confirming, and returns to the list', async () => {
+    const winglog = setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValueOnce([makeFlight()]).mockResolvedValue([]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+      trackPointList: vi.fn().mockResolvedValue([makeTrackPoint()])
+    })
+    const user = userEvent.setup()
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    await user.click(await screen.findByText('TA100'))
+    await screen.findByText('TA100 — EGLL → EGKK')
+
+    await user.click(screen.getByRole('button', { name: 'Delete flight' }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByText(/1 point/)).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Delete flight' }))
+
+    expect(winglog.flightDelete).toHaveBeenCalledWith(1)
+    expect(await screen.findByText('No completed flights yet — track one, or import a CSV logbook from Settings → Data.')).toBeInTheDocument()
+  })
+
+  it('leaves the flight alone when the delete confirmation is cancelled', async () => {
+    const winglog = setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight()]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()])
+    })
+    const user = userEvent.setup()
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    await user.click(await screen.findByText('TA100'))
+    await screen.findByText('TA100 — EGLL → EGKK')
+
+    await user.click(screen.getByRole('button', { name: 'Delete flight' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Back' }))
+
+    expect(winglog.flightDelete).not.toHaveBeenCalled()
+    expect(screen.getByText('TA100 — EGLL → EGKK')).toBeInTheDocument()
+  })
+
+  it('shows an error toast with the stringified value when delete fails with a non-Error', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight()]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+      flightDelete: vi.fn().mockRejectedValue('boom')
+    })
+    const user = userEvent.setup()
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    await user.click(await screen.findByText('TA100'))
+    await screen.findByText('TA100 — EGLL → EGKK')
+
+    await user.click(screen.getByRole('button', { name: 'Delete flight' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Delete flight' }))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('boom'))
+    // The delete failed, so the detail page is still showing this flight.
+    expect(screen.getByText('TA100 — EGLL → EGKK')).toBeInTheDocument()
+  })
+
+  it('uses the real OFP-derived route and waypoints when the flight has one, skipping the great-circle fallback', async () => {
+    const ofpJson = JSON.stringify({
+      navlog: {
+        fix: [
+          { ident: 'EGLL', pos_lat: 51.4775, pos_long: -0.4614, altitude_feet: 0 },
+          { ident: 'MID', pos_lat: 51.3, pos_long: -0.3, altitude_feet: 5000 },
+          { ident: 'EGKK', pos_lat: 51.1481, pos_long: -0.1903, altitude_feet: 0 }
+        ]
+      }
+    })
+    const winglog = setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight({ ofpJson })]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()])
+    })
+    const user = userEvent.setup()
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    await user.click(await screen.findByText('TA100'))
+    await screen.findByText('TA100 — EGLL → EGKK')
+
+    expect(winglog.logbookGreatCircleRoute).not.toHaveBeenCalled()
+    expect(screen.queryByText('Approximate route — no flight plan on file for this flight')).not.toBeInTheDocument()
+  })
+
+  it('sorts the list by every column when its header is clicked', async () => {
+    const flightA = makeFlight({
+      id: 1,
+      flightNumber: 'BBB',
+      depIcao: 'EGLL',
+      arrIcao: 'EGKK',
+      actualOutUtc: '2026-02-02T10:00:00.000Z',
+      blockMinutes: 60,
+      fuelBurnKg: 1000
+    })
+    const flightB = makeFlight({
+      id: 2,
+      flightNumber: 'AAA',
+      depIcao: 'EGCC',
+      arrIcao: 'EGPH',
+      actualOutUtc: '2026-02-01T10:00:00.000Z',
+      blockMinutes: 90,
+      fuelBurnKg: 2000,
+      aircraftId: 2
+    })
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([flightA, flightB]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft({ id: 1, registration: 'G-BBB' }), makeAircraft({ id: 2, registration: 'G-AAA' })])
+    })
+    const user = userEvent.setup()
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    await screen.findByText('BBB')
+
+    function firstRowFlightNumber(): string {
+      return within(screen.getAllByRole('row')[1]).getAllByRole('cell')[1].textContent ?? ''
+    }
+
+    await user.click(screen.getByRole('columnheader', { name: 'Date' }))
+    expect(firstRowFlightNumber()).toBe('AAA')
+    await user.click(screen.getByRole('columnheader', { name: 'Flight' }))
+    expect(firstRowFlightNumber()).toBe('AAA')
+    await user.click(screen.getByRole('columnheader', { name: 'Route' }))
+    expect(firstRowFlightNumber()).toBe('AAA') // EGCC.. sorts before EGLL..
+    await user.click(screen.getByRole('columnheader', { name: 'Aircraft' }))
+    expect(firstRowFlightNumber()).toBe('AAA') // G-AAA sorts before G-BBB
+    await user.click(screen.getByRole('columnheader', { name: 'Block' }))
+    expect(firstRowFlightNumber()).toBe('BBB') // 60 < 90
+    await user.click(screen.getByRole('columnheader', { name: 'Fuel burn' }))
+    expect(firstRowFlightNumber()).toBe('BBB') // 1000 < 2000
+  })
+
+  it('shows "View OFP PDF" only for a flight with an OFP, and opens it', async () => {
+    const winglog = setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight({ ofpJson: '{}' })]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()])
+    })
+    const user = userEvent.setup()
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    await user.click(await screen.findByText('TA100'))
+
+    await user.click(await screen.findByRole('button', { name: 'View OFP PDF' }))
+    expect(winglog.logbookOpenOfpPdf).toHaveBeenCalledWith(1)
+  })
+
+  it('does not show "View OFP PDF" for a flight with no OFP', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight({ ofpJson: null })]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()])
+    })
+    const user = userEvent.setup()
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    await user.click(await screen.findByText('TA100'))
+    await screen.findByText('TA100 — EGLL → EGKK')
+    expect(screen.queryByRole('button', { name: 'View OFP PDF' })).not.toBeInTheDocument()
+  })
+
+  it('shows an error toast when the OFP has no PDF to open', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight({ ofpJson: '{}' })]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+      logbookOpenOfpPdf: vi.fn().mockResolvedValue(false)
+    })
+    const user = userEvent.setup()
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    await user.click(await screen.findByText('TA100'))
+    await user.click(await screen.findByRole('button', { name: 'View OFP PDF' }))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('No OFP PDF available for this flight.'))
+  })
+
+  it('renders altitude/speed charts once there are at least two track points, with an IAS/Mach toggle', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight()]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+      trackPointList: vi.fn().mockResolvedValue([
+        makeTrackPoint({ id: 1, tsUtc: '2026-02-01T10:00:00.000Z' }),
+        makeTrackPoint({ id: 2, tsUtc: '2026-02-01T10:05:00.000Z' })
+      ])
+    })
+    const user = userEvent.setup()
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    await user.click(await screen.findByText('TA100'))
+
+    expect(await screen.findByText('Speed (IAS)')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Mach' }))
+    expect(await screen.findByText('Speed (Mach)')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'IAS' }))
+    expect(await screen.findByText('Speed (IAS)')).toBeInTheDocument()
+  })
+
+  it('does not render the altitude/speed charts for a flight with fewer than two track points', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight()]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+      trackPointList: vi.fn().mockResolvedValue([makeTrackPoint()])
+    })
+    const user = userEvent.setup()
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    await user.click(await screen.findByText('TA100'))
+    await screen.findByText('TA100 — EGLL → EGKK')
+    expect(screen.queryByText(/Speed \(/)).not.toBeInTheDocument()
+  })
+
+  it('labels the altitude chart "True altitude" when no track point has a recorded pressure altitude', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight()]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+      trackPointList: vi.fn().mockResolvedValue([
+        makeTrackPoint({ id: 1, tsUtc: '2026-02-01T10:00:00.000Z', pressureAltitudeM: null }),
+        makeTrackPoint({ id: 2, tsUtc: '2026-02-01T10:05:00.000Z', pressureAltitudeM: null })
+      ])
+    })
+    const user = userEvent.setup()
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    await user.click(await screen.findByText('TA100'))
+    expect(await screen.findByText('True altitude')).toBeInTheDocument()
+  })
+
+  it('labels the altitude chart plainly "Altitude" once pressure altitude was recorded', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight()]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+      trackPointList: vi.fn().mockResolvedValue([
+        makeTrackPoint({ id: 1, tsUtc: '2026-02-01T10:00:00.000Z', pressureAltitudeM: 950 }),
+        makeTrackPoint({ id: 2, tsUtc: '2026-02-01T10:05:00.000Z', pressureAltitudeM: 960 })
+      ])
+    })
+    const user = userEvent.setup()
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    await user.click(await screen.findByText('TA100'))
+    expect(await screen.findByText('Altitude')).toBeInTheDocument()
+    expect(screen.queryByText('True altitude')).not.toBeInTheDocument()
+  })
+
+  it('shows the fuel planned-vs-actual chart only when the flight has a planned fuel figure', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight({ fuelPlannedKg: 5000, fuelBurnKg: 4200 })]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()])
+    })
+    const user = userEvent.setup()
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    await user.click(await screen.findByText('TA100'))
+    expect(await screen.findByText('Fuel planned vs actual')).toBeInTheDocument()
+  })
+
+  it('does not show the fuel chart for an ad hoc flight with no planned fuel figure', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight({ fuelPlannedKg: null })]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()])
+    })
+    const user = userEvent.setup()
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    await user.click(await screen.findByText('TA100'))
+    await screen.findByText('TA100 — EGLL → EGKK')
+    expect(screen.queryByText('Fuel planned vs actual')).not.toBeInTheDocument()
+  })
+
+  it('falls back to a great-circle route and shows the approximate-route caption for a flight with no OFP', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight({ ofpJson: null })]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+      logbookGreatCircleRoute: vi.fn().mockResolvedValue([
+        [-0.4614, 51.4775],
+        [-0.1903, 51.1481]
+      ])
+    })
+    const user = userEvent.setup()
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    await user.click(await screen.findByText('TA100'))
+    expect(await screen.findByText('Approximate route — no flight plan on file for this flight')).toBeInTheDocument()
+  })
+
+  it('resetSignal returns to the list without disturbing sort, but not on the initial mount', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight()]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()])
+    })
+    const user = userEvent.setup()
+    const { rerender } = render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" resetSignal={1} />)
+    await user.click(await screen.findByText('TA100'))
+    await screen.findByText('TA100 — EGLL → EGKK')
+
+    rerender(<LogbookView weightUnit="kg" landingDistanceUnit="ft" resetSignal={2} />)
+    expect(await screen.findByText('TA100')).toBeInTheDocument()
   })
 })
