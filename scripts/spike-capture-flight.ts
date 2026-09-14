@@ -36,6 +36,7 @@
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { SimConnectService } from '../src/main/sim/SimConnectService'
+import type { FlightFixtureEvent, FlightFixtureHeader } from '../src/main/sim/flight-fixture'
 import type { SimTelemetry } from '@shared/ipc'
 
 const scenario = process.argv[2]
@@ -61,13 +62,13 @@ let pauseEventCount = 0
 function writeHeaderOnce(telemetry: SimTelemetry): void {
   if (headerWritten) return
   headerWritten = true
-  const header = { scenario, aircraftType: aircraftOverride ?? telemetry.title, capturedAt, notes }
+  const header: FlightFixtureHeader = { scenario, aircraftType: aircraftOverride ?? telemetry.title, capturedAt, notes }
   writeFileSync(outputPath, JSON.stringify(header) + '\n')
   console.log(`Capturing to ${outputPath}`)
   console.log(`Header: ${JSON.stringify(header)}`)
 }
 
-function appendEvent(event: unknown): void {
+function appendEvent(event: FlightFixtureEvent): void {
   appendFileSync(outputPath, JSON.stringify(event) + '\n')
 }
 
