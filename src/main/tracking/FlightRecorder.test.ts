@@ -339,6 +339,38 @@ describe('FlightRecorder', () => {
     expect(recorder.getPhase()).toBe('shutdown')
   })
 
+  it('goes back to taxi on a rejected takeoff (aborted before ever leaving the ground)', () => {
+    const recorder = new FlightRecorder(1)
+    let t = 0
+    const step = (overrides: Partial<SimTelemetry>): void => {
+      t += 1
+      recorder.ingest(telemetry(overrides), at(t))
+    }
+
+    step({ engineCombustion1: true, parkingBrakeOn: true })
+    step({ engineCombustion1: true, parkingBrakeOn: false, groundSpeedMs: 5 })
+    step({ engineCombustion1: true, groundSpeedMs: 40, indicatedAirspeedMs: 38 }) // taxi -> takeoff
+    expect(recorder.getPhase()).toBe('takeoff')
+
+    // Aborts before ever getting airborne: decelerates back below ROLL_SPEED_MS, still on
+    // the ground the whole time — the real 2026-09-14 flight this bug was found on.
+    step({ engineCombustion1: true, onGround: true, groundSpeedMs: 10 })
+    expect(recorder.getPhase()).toBe('taxi')
+
+    // A real second takeoff attempt afterward still works — hasLanded is still false, so
+    // 'taxi' -> 'takeoff' -> 'climb' fires normally.
+    step({ engineCombustion1: true, onGround: true, groundSpeedMs: 45 })
+    expect(recorder.getPhase()).toBe('takeoff')
+    step({
+      engineCombustion1: true,
+      onGround: false,
+      groundSpeedMs: 90,
+      verticalSpeedMs: 12,
+      altitudeAglM: 20
+    })
+    expect(recorder.getPhase()).toBe('climb')
+  })
+
   it('goes back to climb on a go-around from landing (rejected landing, never slowed below roll speed)', () => {
     const recorder = new FlightRecorder(1)
     let t = 0
