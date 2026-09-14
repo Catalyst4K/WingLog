@@ -154,7 +154,15 @@ export class FlightRecorder {
         break
 
       case 'takeoff':
-        if (!t.onGround) this.phase = 'climb'
+        // A rejected takeoff — aborted before ever leaving the ground — has no way back to
+        // 'taxi' without this: the only other exit is !t.onGround, which never happens if
+        // the aircraft decelerates and taxis back instead of departing. Mirrors 'landing'
+        // below (the symmetric case: an aborted roll decelerating back below roll speed).
+        if (!t.onGround) {
+          this.phase = 'climb'
+          break
+        }
+        if (t.groundSpeedMs < ROLL_SPEED_MS) this.phase = 'taxi'
         break
 
       case 'climb':
