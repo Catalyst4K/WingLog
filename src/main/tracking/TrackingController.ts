@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import type { ActiveTracking, FlightPhase, ProcedureSelection, TrackPoint } from '@shared/ipc'
+import type { ActiveTracking, FlightPhase, ProcedureSelection, SimTelemetry, TrackPoint } from '@shared/ipc'
 import type { WingLogDb } from '../db/client'
 import { addInvoicesForFlight } from '../db/flight-invoice-repo'
 import {
@@ -81,6 +81,12 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   // per the design decided 2026-09-13 (see resume-cleanup.ts's own doc comment).
   private lastPersistedPoint: TrackPoint | undefined
   private resumeWindowDeadlineMs: number | undefined
+  // The raw tick immediately before the current one — every tick, not just persisted ones
+  // (unlike lastPersistedPoint above, which skips whatever a phase's downsampling drops).
+  // landing-capture.ts's buildLandingRecord needs this exact predecessor for a more honest
+  // touchdown vertical speed than the touchdown tick's own value (flightdeck-backend's
+  // docs/plans/flight-replay-harness.md, 2026-09-14 finding).
+  private previousTelemetry: SimTelemetry | undefined
 
   constructor(
     private readonly db: WingLogDb,
@@ -89,6 +95,8 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     super()
     this.simConnectService.on('telemetry', (telemetry) => {
       if (!this.recorder) return
+      const previousTelemetry = this.previousTelemetry
+      this.previousTelemetry = telemetry
       const result = this.recorder.ingest(telemetry, new Date())
 
       // The value startFlight wrote at tracking-start is only provisional (see
@@ -112,7 +120,17 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
         // loaded here for its arr_icao, which narrows the runway lookup to one airport.
         const flight = getFlight(this.db, flightId)
         if (flight) {
-          createLanding(this.db, buildLandingRecord(flightId, flight.arrIcao, telemetry, new Date().toISOString()))
+          createLanding(
+            this.db,
+            buildLandingRecord(
+              flightId,
+              flight.arrIcao,
+              telemetry,
+              new Date().toISOString(),
+              undefined,
+              previousTelemetry
+            )
+          )
         }
       }
 
@@ -160,7 +178,24 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   }
 
   start(flightId: number): void {
-    if (this.recorder) throw new Error(`Already tracking flight ${this.recorder.getFlightId()}`)
+    if (this.recorder) {
+      const stale = this.recorder.getFlightId()
+      // A *different* flight is still 'active' in memory. If it's made zero real progress —
+      // no track points recorded, never even got off the ground — it's almost certainly a
+      // stale artifact (a dispatch attempt abandoned mid-setup, or auto-start firing for a
+      // since-superseded plan) rather than something worth protecting, so retire it
+      // automatically instead of blocking the flight actually being started now. Without
+      // this, that stale flight was left stuck at status='active' forever — invisible for
+      // the rest of the session, surfacing only as a confusing "resume?" prompt on the
+      // *next* app restart (a real orphaned flight found 2026-09-14, flightdeck-backend's
+      // docs/plans/flight-replay-harness.md). Same flightId, or any flight with real
+      // progress, still throws — never silently restart a duplicate call or abandon actual
+      // data.
+      const staleFlight = getFlight(this.db, stale)
+      const hasProgress = staleFlight?.actualOffUtc != null || listTrackPoints(this.db, stale).length > 0
+      if (stale === flightId || hasProgress) throw new Error(`Already tracking flight ${stale}`)
+      this.stop()
+    }
     if (!getFlight(this.db, flightId)) throw new Error(`Flight ${flightId} not found`)
 
     const telemetry = this.simConnectService.getLastTelemetry()
@@ -179,6 +214,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     this.openPauseStartIso = undefined
     this.lastPersistedPoint = undefined
     this.resumeWindowDeadlineMs = undefined
+    this.previousTelemetry = undefined
   }
 
   /**
@@ -223,6 +259,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     // inside (resume-cleanup.ts).
     this.lastPersistedPoint = points.length ? points[points.length - 1] : undefined
     this.resumeWindowDeadlineMs = Date.now() + RESUME_CLEANUP_CONSTANTS.RESUME_WINDOW_MS
+    this.previousTelemetry = undefined
   }
 
   /** Called from the renderer (tracking:set-procedure-selection) on every live selection
