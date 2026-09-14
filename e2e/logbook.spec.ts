@@ -54,10 +54,15 @@ test('browses to a completed flight, sees its landing/track detail, and deletes 
     await expect(window.getByText('Touchdown rate')).toBeVisible()
     await expect(window.getByText('23R', { exact: true })).toBeVisible()
 
-    // Delete
+    // Delete — the confirm button shares its accessible name with the trigger that opened
+    // it, so the second click is scoped to the dialog itself. Passing under Windows/local
+    // but flaky under Linux CI otherwise (`getByRole('button', { name: 'Delete flight' })`
+    // unscoped can still resolve the original page button for a moment while the dialog's
+    // aria-hidden-on-background hasn't been applied yet).
     await window.getByRole('button', { name: 'Delete flight' }).click()
-    await expect(window.getByRole('heading', { name: 'Delete this flight?' })).toBeVisible()
-    await window.getByRole('button', { name: 'Delete flight' }).click()
+    const confirmDialog = window.getByRole('alertdialog')
+    await expect(confirmDialog.getByRole('heading', { name: 'Delete this flight?' })).toBeVisible()
+    await confirmDialog.getByRole('button', { name: 'Delete flight' }).click()
 
     await expect(window.getByRole('heading', { name: 'Logbook' })).toBeVisible()
     await expect(window.getByText('No completed flights yet')).toBeVisible()
