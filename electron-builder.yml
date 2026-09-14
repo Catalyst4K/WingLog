@@ -18,11 +18,14 @@ asarUnpack:
   # electron.vite.config.ts). See THIRD-PARTY-LICENSES.md.
   - node_modules/node-simconnect/**/*
 
-# Licence notices have to be readable in an installed copy, not sealed inside the asar.
+# Licence notices, and a getting-started guide, have to be readable in an installed copy,
+# not sealed inside the asar.
 extraResources:
   - LICENSE
   - COPYRIGHT
   - THIRD-PARTY-LICENSES.md
+  - from: docs/HOW-TO.md
+    to: How to.md
 
 # Windows is the primary target — MSFS (and therefore this app's real usage) is
 # Windows-only. macOS is built for development convenience; there is no plan to
