@@ -38,9 +38,9 @@ export interface LaunchAppOptions {
   env?: Record<string, string>
   /** Use this directory as `--user-data-dir` instead of a freshly created empty one — for
    *  a test that needs to launch against a pre-seeded `winglog.db` (see
-   *  seed-completed-flight.ts) rather than an empty database. Still isolated, still the
-   *  caller's responsibility to have created it and to clean it up (cleanup() below only
-   *  removes a directory it created itself). */
+   *  src/main/tracking/seed-e2e-completed-flight.test.ts) rather than an empty database.
+   *  Still isolated, still the caller's responsibility to have created it and to clean it
+   *  up (cleanup() below only removes a directory it created itself). */
   userDataDir?: string
 }
 
@@ -53,6 +53,12 @@ export async function launchApp(options: LaunchAppOptions = {}): Promise<Launche
   for (const [key, value] of Object.entries(process.env)) {
     if (value !== undefined && key !== 'ELECTRON_RUN_AS_NODE') env[key] = value
   }
+  // Headless CI's xvfb display has no real GPU — main/index.ts's matching check switches
+  // to a software WebGL2 implementation when this is set, avoiding a real crash confirmed
+  // live in Logbook's e2e test (FlightMap's maplibre-gl map failing to get a GPU context,
+  // then crashing the renderer on unmount). Always on for every e2e launch, real or local —
+  // never set anywhere real usage runs, so it can't affect a real user.
+  env.WINGLOG_E2E_SOFTWARE_GL = '1'
   Object.assign(env, options.env)
 
   const app = await electron.launch({

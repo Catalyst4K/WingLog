@@ -38,14 +38,6 @@ test.afterAll(() => {
 
 test('browses to a completed flight, sees its landing/track detail, and deletes it', async () => {
   const { window, cleanup } = await launchApp({ userDataDir })
-  // Diagnostic only, while chasing a CI-only ("body text: ''", window not closed) failure
-  // after navigating away from the flight-detail map — suspect a renderer crash (maplibre-
-  // gl's WebGL context under xvfb's software GL) rather than an app logic bug.
-  window.on('pageerror', (err) => console.log('[e2e diagnostic] pageerror:', err))
-  window.on('crash', () => console.log('[e2e diagnostic] page crashed'))
-  window.on('console', (msg) => {
-    if (msg.type() === 'error') console.log('[e2e diagnostic] console.error:', msg.text())
-  })
   try {
     await window.getByRole('tab', { name: 'Logbook' }).click()
     await expect(window.getByRole('heading', { name: 'Logbook' })).toBeVisible()
@@ -63,41 +55,19 @@ test('browses to a completed flight, sees its landing/track detail, and deletes 
     await expect(window.getByText('23R', { exact: true })).toBeVisible()
 
     // Delete — the confirm button shares its accessible name with the trigger that opened
-    // it, so the second click is scoped to the dialog itself. Passing under Windows/local
-    // but flaky under Linux CI otherwise (`getByRole('button', { name: 'Delete flight' })`
-    // unscoped can still resolve the original page button for a moment while the dialog's
-    // aria-hidden-on-background hasn't been applied yet).
+    // it, so the second click is scoped to the dialog itself, rather than a bare role query
+    // that could still resolve the original page button for a moment.
     await window.getByRole('button', { name: 'Delete flight' }).click()
     const confirmDialog = window.getByRole('alertdialog')
     await expect(confirmDialog.getByRole('heading', { name: 'Delete this flight?' })).toBeVisible()
     await confirmDialog.getByRole('button', { name: 'Delete flight' }).click()
-    // Confirms the click actually registered (dialog closes) before checking what's behind
-    // it — the dialog itself closes as soon as useConfirm()'s promise resolves, before
-    // handleDelete's actual `await window.winglog.flightDelete(...)` even runs, so this
-    // alone doesn't prove the delete succeeded — only that the confirm click landed.
     await expect(confirmDialog).toBeHidden()
 
-    const listHeading = window.getByRole('heading', { name: 'Logbook' })
-    try {
-      await expect(listHeading).toBeVisible({ timeout: 15_000 })
-    } catch (err) {
-      // A failed flightDelete IPC call surfaces as a toast, not a heading — this stays in
-      // detail view in that case (handleDelete's catch swallows it, never calling
-      // onDeleted()). Surface the toast text so a CI-only failure here is diagnosable from
-      // the log instead of just "heading never appeared".
-      const toastText = await window
-        .locator('[data-sonner-toast]')
-        .allTextContents()
-        .catch(() => ['<could not read toast>'])
-      const bodyText = await window
-        .locator('body')
-        .innerText()
-        .catch((e) => `<could not read body: ${e}>`)
-      throw new Error(
-        `Logbook heading never reappeared after delete. Toast content: ${JSON.stringify(toastText)}. Page closed: ${window.isClosed()}. Body text: ${JSON.stringify(bodyText)}`,
-        { cause: err }
-      )
-    }
+    // Navigating away unmounts FlightDetail's FlightMap (a real maplibre-gl/WebGL map) —
+    // a generous timeout here, since that teardown plus flightDelete's IPC round trip and
+    // LogbookView's own four-way reload() all take measurably longer on a loaded CI runner
+    // than locally.
+    await expect(window.getByRole('heading', { name: 'Logbook' })).toBeVisible({ timeout: 15_000 })
     await expect(window.getByText('No completed flights yet')).toBeVisible()
   } finally {
     await cleanup()

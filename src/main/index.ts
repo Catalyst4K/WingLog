@@ -124,6 +124,21 @@ function createWindow(): BrowserWindow {
 // Before anything else can throw — a crash logged nowhere is a crash nobody can debug.
 initLogger()
 
+// e2e-only (e2e/launch-app.ts always sets this): headless Linux CI's xvfb display has no
+// real GPU, and Electron's bundled Chromium doesn't reliably fall back to a working
+// software WebGL2 context on its own there — confirmed live via flightdeck-backend's
+// docs/plans/test-coverage.md Phase 4 (Logbook's e2e test), where FlightMap's maplibre-gl
+// map failed GPUInitializationError and then crashed the renderer on unmount
+// (`Cannot read properties of undefined (reading 'destroy')`) with no switch set. Real
+// users never hit this: WingLog only ships for Windows, always with a real GPU, and this
+// only takes effect at all when the env var is present, which nothing but the e2e harness
+// ever sets.
+if (process.env['WINGLOG_E2E_SOFTWARE_GL']) {
+  app.commandLine.appendSwitch('use-gl', 'angle')
+  app.commandLine.appendSwitch('use-angle', 'swiftshader')
+  app.commandLine.appendSwitch('ignore-gpu-blocklist')
+}
+
 // Without this, launching the exe again while a previous instance is still alive (a real
 // crash can leave the process hung rather than fully exiting, especially with native
 // modules like better-sqlite3/SimConnect in play — the exact scenario the resume/discard
