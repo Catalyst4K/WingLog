@@ -127,7 +127,7 @@ export function getInProgressFlight(db: WingLogDb): Flight | undefined {
   const row = db
     .select()
     .from(flight)
-    .where(or(eq(flight.status, 'planned'), eq(flight.status, 'active')))
+    .where(and(or(eq(flight.status, 'planned'), eq(flight.status, 'active')), isNull(flight.deletedAt)))
     .get()
   return row ? toFlight(row) : undefined
 }

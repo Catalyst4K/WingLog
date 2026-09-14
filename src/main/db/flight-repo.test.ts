@@ -256,6 +256,21 @@ describe('flight repo', () => {
       expect(getInProgressFlight(db)).toBeUndefined()
     })
 
+    it('getInProgressFlight ignores a soft-deleted flight even if its status is still planned/active', () => {
+      // abandonFlight (deleteFlight) tombstones via deletedAt — it never touches status
+      // itself, so a stale 'active' flight retired this way must be excluded on deletedAt,
+      // not status alone. A real flight was found stuck reappearing in the resume-or-
+      // discard prompt on every future launch because this filter was missing
+      // (flightdeck-backend's docs/plans/flight-replay-harness.md, 2026-09-14).
+      const created = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' })
+      startFlight(db, created.id, 10000)
+      expect(getInProgressFlight(db)?.id).toBe(created.id)
+
+      abandonFlight(db, created.id)
+      expect(getFlight(db, created.id)?.status).toBe('active') // status untouched by design
+      expect(getInProgressFlight(db)).toBeUndefined()
+    })
+
     it('finalizeFuelOut corrects the fuel_out_kg written by startFlight, and feeds into a later fuel-burn calculation', () => {
       const created = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' })
       startFlight(db, created.id, 10187) // provisional — a stale/pre-service reading

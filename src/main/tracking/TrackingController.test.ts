@@ -4,7 +4,8 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import type { SimTelemetry } from '@shared/ipc'
 import { createDb, type WingLogDb } from '../db/client'
 import { createAircraft } from '../db/aircraft-repo'
-import { createFlight, getFlight, listFlights } from '../db/flight-repo'
+import { createFlight, getFlight, getInProgressFlight, listFlights } from '../db/flight-repo'
+import { getLandingByFlight } from '../db/landing-repo'
 import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
 import type { SimConnectSource } from '../sim/SimConnectSource'
 import { TrackingController } from './TrackingController'
@@ -107,6 +108,35 @@ describe('TrackingController', () => {
     expect(() => controller.start(flightId)).toThrow('Already tracking')
   })
 
+  it('auto-abandons a different stale flight with zero real progress, then starts the new one', () => {
+    const aircraftId = createAircraft(db, { registration: 'G-WXYZ', icaoType: 'A320' }).id
+    const otherFlightId = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'EGCC' }).id
+
+    sim.setLastTelemetry(telemetry({}))
+    const controller = new TrackingController(db, sim)
+    controller.start(flightId) // still preflight: never took off, no points recorded
+
+    controller.start(otherFlightId)
+
+    expect(controller.getActive()).toEqual({ flightId: otherFlightId, phase: 'preflight' })
+    expect(getFlight(db, flightId)?.status).toBe('active') // status untouched, per deleteFlight
+    expect(getInProgressFlight(db)?.id).toBe(otherFlightId) // stale one no longer surfaces
+    expect(getFlight(db, otherFlightId)?.status).toBe('active')
+  })
+
+  it('still refuses to start a different flight once the current one has recorded real track points', () => {
+    const aircraftId = createAircraft(db, { registration: 'G-WXYZ', icaoType: 'A320' }).id
+    const otherFlightId = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'EGCC' }).id
+
+    sim.setLastTelemetry(telemetry({}))
+    const controller = new TrackingController(db, sim)
+    controller.start(flightId)
+    sim.emit('telemetry', telemetry({})) // first tick always persists a track_point
+
+    expect(() => controller.start(otherFlightId)).toThrow('Already tracking')
+    expect(controller.getActive()).toEqual({ flightId, phase: 'preflight' })
+  })
+
   it('persists points and emits them as telemetry streams in', () => {
     vi.useFakeTimers()
     sim.setLastTelemetry(telemetry({}))
@@ -165,6 +195,46 @@ describe('TrackingController', () => {
     const finished = getFlight(db, flightId)
     expect(finished?.status).toBe('completed')
     expect(controller.getActive()).toBeUndefined()
+  })
+
+  it('records the landing\'s verticalSpeedMs from the last airborne tick, not the touchdown tick', () => {
+    sim.setLastTelemetry(telemetry({}))
+    const controller = new TrackingController(db, sim)
+    controller.start(flightId)
+
+    sim.emit('telemetry', telemetry({ engineCombustion1: true }))
+    sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 5 }))
+    sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 40 }))
+    sim.emit(
+      'telemetry',
+      telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+    )
+    for (let i = 0; i < 12; i++) {
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 230, verticalSpeedMs: 0.1 })
+      )
+    }
+    for (let i = 0; i < 7; i++) {
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 200, verticalSpeedMs: -3 })
+      )
+    }
+    // Last airborne tick, still descending hard...
+    sim.emit(
+      'telemetry',
+      telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 65, verticalSpeedMs: -3.72 })
+    )
+    // ...then the touchdown tick itself, sink rate already bled off by gear compression —
+    // matches the real flare-timing gap the flight-replay-harness fixed this to fix.
+    sim.emit(
+      'telemetry',
+      telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 60, verticalSpeedMs: -0.83 })
+    )
+
+    const landing = getLandingByFlight(db, flightId)
+    expect(landing?.verticalSpeedMs).toBe(-3.72)
   })
 
   it('freezes recording while the sim reports paused', () => {
