@@ -16,7 +16,7 @@
     "test:e2e": "npm run build && playwright test",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p e2e/tsconfig.json",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs scripts/db-migrate.ts",
     "db:backfill-operator-icao": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs scripts/backfill-operator-icao.ts",
