@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, win32 } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb, type WingLogDb } from '../db/client'
@@ -14,6 +14,12 @@ import { checkGsxFirstLaunch } from './first-launch-check'
 // `npm test` normally runs on Windows locally (CLAUDE.md's Electron-as-Node runner), but
 // CI's build job runs on ubuntu-latest, where the real platform check would silently
 // short-circuit every case here to "not found" regardless of APPDATA.
+//
+// receiptsPath below is built with `win32.join`, not the ambient `join`, to match
+// defaultGsxReceiptsPath's own win32.join exactly (see that file's 2026-09-14 comment) —
+// on a POSIX host this creates one real filesystem entry whose literal name contains
+// backslashes rather than genuinely nested folders, but that's fine: existsSync only needs
+// the exact same string on both sides, which it now has.
 describe('checkGsxFirstLaunch', () => {
   let db: WingLogDb
   let tempDir: string
@@ -39,7 +45,7 @@ describe('checkGsxFirstLaunch', () => {
   })
 
   it('auto-enables GSX when the expected receipts folder exists', () => {
-    const receiptsPath = join(tempDir, 'Virtuali', 'GSX', 'Receipts')
+    const receiptsPath = win32.join(tempDir, 'Virtuali', 'GSX', 'Receipts')
     mkdirSync(receiptsPath, { recursive: true })
 
     const result = checkGsxFirstLaunch(db)
@@ -63,7 +69,7 @@ describe('checkGsxFirstLaunch', () => {
   })
 
   it('does not re-enable GSX on a second call after the user has since disabled it', () => {
-    const receiptsPath = join(tempDir, 'Virtuali', 'GSX', 'Receipts')
+    const receiptsPath = win32.join(tempDir, 'Virtuali', 'GSX', 'Receipts')
     mkdirSync(receiptsPath, { recursive: true })
     checkGsxFirstLaunch(db)
 
