@@ -63,8 +63,13 @@ test('browses to a completed flight, sees its landing/track detail, and deletes 
     const confirmDialog = window.getByRole('alertdialog')
     await expect(confirmDialog.getByRole('heading', { name: 'Delete this flight?' })).toBeVisible()
     await confirmDialog.getByRole('button', { name: 'Delete flight' }).click()
+    // Confirms the click actually registered (dialog closes) before checking what's behind
+    // it — isolates a genuinely un-clicked button from the CI-only slowness below, which is
+    // Real: flightDelete's IPC round trip plus LogbookView's own four-way reload() all
+    // landed comfortably inside the default 5s locally, but not on a loaded CI runner.
+    await expect(confirmDialog).toBeHidden()
 
-    await expect(window.getByRole('heading', { name: 'Logbook' })).toBeVisible()
+    await expect(window.getByRole('heading', { name: 'Logbook' })).toBeVisible({ timeout: 15_000 })
     await expect(window.getByText('No completed flights yet')).toBeVisible()
   } finally {
     await cleanup()
