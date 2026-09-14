@@ -81,7 +81,7 @@ test('browses to a completed flight, sees its landing/track detail, and deletes 
         .locator('[data-sonner-toast]')
         .allTextContents()
         .catch(() => ['<could not read toast>'])
-      throw new Error(`Logbook heading never reappeared after delete. Toast content: ${JSON.stringify(toastText)}. Original error: ${err}`)
+      throw new Error(`Logbook heading never reappeared after delete. Toast content: ${JSON.stringify(toastText)}`, { cause: err })
     }
     await expect(window.getByText('No completed flights yet')).toBeVisible()
   } finally {
