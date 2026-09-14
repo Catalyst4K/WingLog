@@ -14,6 +14,11 @@ release/
 *.db-shm
 !seed/*.db
 
+# Raw flight captures (scripts/spike-capture-flight.ts) — real coordinates/times, stays
+# local per CLAUDE.md's Security section. A trimmed/anonymized fixture derived from one is
+# what lands in the test suite, not the raw capture itself.
+flight-captures/
+
 # Personal data exports (e.g. a logbook CSV for testing the CSV importer) — never commit
 # real flight history. Add a !path exception if a data file genuinely needs vendoring.
 *.csv
