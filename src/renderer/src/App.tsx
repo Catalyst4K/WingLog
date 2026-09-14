@@ -5,24 +5,44 @@ import type {
   AltitudeUnit,
   AppPage,
   DispatchOfp,
+  Flight,
+  LandingDistanceUnit,
+  ProcedureSelection,
   SimConnectionStatus,
   SimTelemetry,
+  Theme,
   WeightUnit,
   WindSpeedUnit
 } from '@shared/ipc'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Toaster } from '@/components/ui/sonner'
 import { FleetView } from './FleetView'
+import { emptyProcedureSelection, seedProcedureSelectionFromOfp, selectionFromFlight } from './procedureSelection'
 
 // Fleet is the default/first tab, so it's the one view kept eager — every other tab is
 // lazy so its JS (and, for Track/Logbook, the maplibre-gl and recharts they pull in —
 // together the two heaviest dependencies in the app) doesn't get parsed and evaluated
 // until the user actually visits it. docs/decisions.md, memory-usage entry.
-const DispatchView = lazy(() => import('./DispatchView').then((m) => ({ default: m.DispatchView })))
-const TrackView = lazy(() => import('./TrackView').then((m) => ({ default: m.TrackView })))
-const LogbookView = lazy(() => import('./LogbookView').then((m) => ({ default: m.LogbookView })))
-const SettingsView = lazy(() => import('./SettingsView').then((m) => ({ default: m.SettingsView })))
+const loadDispatchView = () => import('./DispatchView').then((m) => ({ default: m.DispatchView }))
+const loadTrackView = () => import('./TrackView').then((m) => ({ default: m.TrackView }))
+const loadLogbookView = () => import('./LogbookView').then((m) => ({ default: m.LogbookView }))
+const loadSettingsView = () => import('./SettingsView').then((m) => ({ default: m.SettingsView }))
+const DispatchView = lazy(loadDispatchView)
+const TrackView = lazy(loadTrackView)
+const LogbookView = lazy(loadLogbookView)
+const SettingsView = lazy(loadSettingsView)
 
 const TABS: { page: AppPage; label: string; icon: typeof Plane }[] = [
   { page: 'fleet', label: 'Fleet', icon: Plane },
@@ -31,6 +51,20 @@ const TABS: { page: AppPage; label: string; icon: typeof Plane }[] = [
   { page: 'logbook', label: 'Logbook', icon: BookOpen },
   { page: 'settings', label: 'Settings', icon: SettingsIcon }
 ]
+
+/** Suspense's fallback for a lazy view's first render (docs/plans/navigation-tab-
+ *  behaviour.md) — belt-and-braces alongside the idle prefetch below, not the primary fix:
+ *  prefetching makes the cold-click delay go away, this just means a slow one (prefetch
+ *  hadn't finished yet) shows the page frame rather than nothing at all. */
+function PageSkeleton(): React.JSX.Element {
+  return (
+    <div className="flex flex-col gap-4">
+      <Skeleton className="h-8 w-40" />
+      <Skeleton className="h-32 w-full" />
+      <Skeleton className="h-32 w-full" />
+    </div>
+  )
+}
 
 function connectionStatusLabel(status: SimConnectionStatus): string {
   switch (status.state) {
@@ -54,11 +88,35 @@ function connectionStatusVariant(status: SimConnectionStatus): 'default' | 'seco
   }
 }
 
+/** The resume/discard prompt covers two different situations under one flight row — a
+ *  genuinely 'active' one (WingLog quit or crashed mid-track, TrackingController's
+ *  in-memory phase-detection state was lost with it) and a merely 'planned' one (Fly was
+ *  pressed, but tracking never actually started before WingLog closed — nothing crashed,
+ *  there's just an unfinished plan). Same two choices either way (keep it or discard/delete
+ *  it), but the wording needs to say which one it actually is, not always claim tracking
+ *  was interrupted when it may never have started. */
+function orphanedFlightCopy(flight: Flight): { title: string; description: string; confirmLabel: string } {
+  const label = flight.flightNumber ?? `flight #${flight.id} (${flight.depIcao} → ${flight.arrIcao})`
+  return flight.status === 'active'
+    ? {
+        title: 'Resume tracking?',
+        description: `WingLog closed while ${label} was being tracked. Resume if it's still in progress in the sim, or discard it to delete the flight.`,
+        confirmLabel: 'Resume tracking'
+      }
+    : {
+        title: 'Continue this flight?',
+        description: `WingLog closed with ${label} already planned but not yet started. Keep it and continue from Track, or discard it to delete the flight.`,
+        confirmLabel: 'Keep it'
+      }
+}
+
 export default function App(): React.JSX.Element {
   const [page, setPage] = useState<AppPage>('fleet')
   const [weightUnit, setWeightUnit] = useState<WeightUnit>('lb')
   const [altitudeUnit, setAltitudeUnit] = useState<AltitudeUnit>('ft')
   const [windSpeedUnit, setWindSpeedUnit] = useState<WindSpeedUnit>('kt')
+  const [landingDistanceUnit, setLandingDistanceUnit] = useState<LandingDistanceUnit>('ft')
+  const [theme, setTheme] = useState<Theme>('system')
   const [simStatus, setSimStatus] = useState<SimConnectionStatus>({ state: 'disconnected' })
   const [telemetry, setTelemetry] = useState<SimTelemetry | null>(null)
   // Lifted out of DispatchView (rather than local state there) for two reasons: Track
@@ -70,6 +128,78 @@ export default function App(): React.JSX.Element {
   // planning this" from "already flying this, showing it for reference" apart, and that
   // distinction has to survive the same tab-switch-and-back as dispatchOfp itself.
   const [dispatchedOfpId, setDispatchedOfpId] = useState<string | null>(null)
+  // The live procedure selection — lifted here (not local to either view) so Dispatch and
+  // Track always agree on what's currently chosen, with no save step between them
+  // (docs/plans/navdata-without-navigraph.md, Phase 5). Re-seeded from SimBrief's own
+  // choice whenever a genuinely new OFP loads — see handleDispatchOfpChange below.
+  const [procedureSelection, setProcedureSelection] = useState<ProcedureSelection>(emptyProcedureSelection())
+  // The one flight left "in progress" (planned or already active) by a previous process —
+  // either a genuine crash/quit mid-track, or just Fly pressed and never followed through
+  // (no crash at all, tracking simply never started). Its own DB row (OFP, route,
+  // everything Dispatch/Track need) was never at risk either way, only TrackingController's
+  // in-memory phase-detection state, which only exists once a flight reaches 'active'.
+  // Neither resuming nor continuing is automatic — only the user can judge whether it's
+  // still relevant — so this drives a one-time prompt instead (checked once at startup
+  // below; orphanedFlightCopy adapts the wording to whichever status it actually is).
+  const [orphanedFlight, setOrphanedFlight] = useState<Flight | null>(null)
+
+  // Wraps setDispatchOfp so a *new* OFP (a different ofpId, including "cleared to null")
+  // always re-seeds the procedure selection from its own SimBrief choice — the previous
+  // plan's selection must never leak onto a different one. Re-fetching/re-saving the exact
+  // same OFP the user's already been editing (ofpId unchanged) leaves the selection alone,
+  // or every dropdown edit would be wiped out from under them.
+  function handleDispatchOfpChange(ofp: DispatchOfp | null): void {
+    if ((ofp?.ofpId ?? null) !== (dispatchOfp?.ofpId ?? null)) {
+      setProcedureSelection(ofp ? seedProcedureSelectionFromOfp(ofp.ofpJson) : emptyProcedureSelection())
+    }
+    setDispatchOfp(ofp)
+  }
+
+  useEffect(() => {
+    window.winglog.trackingGetOrphanedFlight().then(setOrphanedFlight)
+  }, [])
+
+  // Restores Dispatch's own view of whatever flight is currently "in progress" (planned
+  // or already active) after a restart — its own dispatchOfp/dispatchedOfpId are
+  // renderer-only state that don't survive one, unlike Track's flight list, which reads
+  // the DB directly and was never the problem. Uses the raw setters, not
+  // handleDispatchOfpChange, so this doesn't also re-seed procedureSelection from
+  // SimBrief's own choice — selectionFromFlight below already restores whatever was last
+  // actually chosen (SimBrief's plan if nothing was ever touched, a live edit otherwise —
+  // see handleSaveFlight, which persists props.selection at the moment Fly is pressed).
+  useEffect(() => {
+    window.winglog.dispatchGetInProgressFlight().then((result) => {
+      if (!result) return
+      setDispatchOfp(result.ofp)
+      setDispatchedOfpId(result.ofp.ofpId)
+      setProcedureSelection(selectionFromFlight(result.flight))
+    })
+  }, [])
+
+  async function handleResumeOrphaned(): Promise<void> {
+    if (!orphanedFlight) return
+    await window.winglog.trackingResumeOrphaned(orphanedFlight.id)
+    // The flight's own persisted selection (whatever was last chosen before the crash),
+    // not a blank one — matches how a completed flight's Logbook map reads its selection
+    // back (selectionFromFlight), just resuming instead of reviewing.
+    setProcedureSelection(selectionFromFlight(orphanedFlight))
+    setPage('track')
+    setOrphanedFlight(null)
+  }
+
+  async function handleDiscardOrphaned(): Promise<void> {
+    if (!orphanedFlight) return
+    await window.winglog.trackingDiscardOrphaned(orphanedFlight.id)
+    // The dispatch-hydration effect above may have already restored Dispatch's view of
+    // this exact flight (it runs independently, before the user gets a chance to answer
+    // this prompt) — clear it back out rather than leaving Dispatch showing a "Flying"
+    // badge for a flight that's now abandoned.
+    if (orphanedFlight.ofpId && orphanedFlight.ofpId === dispatchOfp?.ofpId) {
+      handleDispatchOfpChange(null)
+      setDispatchedOfpId(null)
+    }
+    setOrphanedFlight(null)
+  }
   // Set when Fleet's per-aircraft flight list navigates to a specific flight's Logbook
   // detail. Lifted here (rather than local to LogbookView) because it has to survive the
   // page switch from Fleet to Logbook that triggers it. Carries the originating aircraft
@@ -82,11 +212,58 @@ export default function App(): React.JSX.Element {
   // Mirror of the above for the trip back — set when Logbook's "Back" returns to a
   // specific aircraft rather than the Fleet list.
   const [pendingFleetAircraftId, setPendingFleetAircraftId] = useState<number | null>(null)
+  // Bumped to tell an already-mounted view "return to your default view" — a tab click
+  // while already on that tab doesn't change `page`, so it doesn't remount the view (which
+  // would otherwise reset it for free) or fire Radix's onValueChange at all (docs/plans/
+  // navigation-tab-behaviour.md). Only Fleet/Logbook/Settings have a real list -> detail
+  // drill-down to reset this way; Dispatch/Track don't get one, see goToTab below.
+  const [fleetResetSignal, setFleetResetSignal] = useState(0)
+  const [logbookResetSignal, setLogbookResetSignal] = useState(0)
+  const [settingsResetSignal, setSettingsResetSignal] = useState(0)
 
   function openFlightInLogbook(flightId: number, fromAircraftId: number): void {
     setPendingLogbookFlight({ flightId, fromAircraftId })
     setPage('logbook')
   }
+
+  /** Always navigates to `targetPage` — including "return to its default view" when
+   *  already there, which a bare `setPage` can't do (Radix's Tabs only fires
+   *  `onValueChange` on an actual value change, so clicking the active tab is normally a
+   *  no-op). Dispatch and Track are deliberate exceptions: their lifted state
+   *  (`dispatchOfp`/`dispatchedOfpId`, Track's own in-progress tracking) is work in
+   *  progress, not navigation history — clearing it because the user clicked the tab
+   *  they're already on would be a data-loss bug wearing a UX fix's clothing. */
+  function goToTab(targetPage: AppPage): void {
+    if (targetPage !== page) {
+      setPage(targetPage)
+      return
+    }
+    if (targetPage === 'fleet') setFleetResetSignal((n) => n + 1)
+    if (targetPage === 'logbook') setLogbookResetSignal((n) => n + 1)
+    if (targetPage === 'settings') setSettingsResetSignal((n) => n + 1)
+  }
+
+  // Prefetches every lazy view's chunk once the app is idle after first paint, so by the
+  // time a tab is actually clicked its module is already in memory and `lazy` resolves
+  // synchronously — this is what actually removes the first-visit delay (docs/plans/
+  // navigation-tab-behaviour.md), the Suspense fallback below is just the safety net for
+  // whatever's still mid-fetch on a very cold click. requestIdleCallback isn't in every
+  // browser but always is in Electron/Chromium; the setTimeout fallback costs nothing.
+  useEffect(() => {
+    const idle: (cb: () => void) => number =
+      typeof window.requestIdleCallback === 'function'
+        ? window.requestIdleCallback
+        : (cb) => window.setTimeout(cb, 1)
+    const cancelIdle: (handle: number) => void =
+      typeof window.cancelIdleCallback === 'function' ? window.cancelIdleCallback : window.clearTimeout
+    const handle = idle(() => {
+      void loadDispatchView()
+      void loadTrackView()
+      void loadLogbookView()
+      void loadSettingsView()
+    })
+    return () => cancelIdle(handle)
+  }, [])
 
   function openFleetAircraft(aircraftId: number): void {
     setPendingFleetAircraftId(aircraftId)
@@ -97,7 +274,30 @@ export default function App(): React.JSX.Element {
     window.winglog.settingsGetWeightUnit().then(setWeightUnit)
     window.winglog.settingsGetAltitudeUnit().then(setAltitudeUnit)
     window.winglog.settingsGetWindSpeedUnit().then(setWindSpeedUnit)
+    window.winglog.settingsGetLandingDistanceUnit().then(setLandingDistanceUnit)
+    window.winglog.settingsGetTheme().then(setTheme)
   }, [])
+
+  // Applies the resolved theme by toggling the `dark` class index.css's tokens key off
+  // (docs/plans/settings-ui-page.md) — both palettes already existed as dead CSS before
+  // this, nothing ever added the class. 'system' resolves via prefers-color-scheme and
+  // keeps listening, so the app follows an OS appearance change made while it's open.
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    function applyResolvedTheme(): void {
+      const dark = theme === 'dark' || (theme === 'system' && media.matches)
+      document.documentElement.classList.toggle('dark', dark)
+    }
+    applyResolvedTheme()
+    if (theme !== 'system') return
+    media.addEventListener('change', applyResolvedTheme)
+    return () => media.removeEventListener('change', applyResolvedTheme)
+  }, [theme])
+
+  async function handleThemeChange(next: Theme): Promise<void> {
+    setTheme(next)
+    await window.winglog.settingsSetTheme(next)
+  }
 
   useEffect(() => {
     // A no-op (returns null) on every launch after the app's actual first-ever one —
@@ -145,13 +345,23 @@ export default function App(): React.JSX.Element {
     await window.winglog.settingsSetWindSpeedUnit(unit)
   }
 
+  async function handleLandingDistanceUnitChange(unit: LandingDistanceUnit): Promise<void> {
+    setLandingDistanceUnit(unit)
+    await window.winglog.settingsSetLandingDistanceUnit(unit)
+  }
+
   return (
     <main className="flex h-screen flex-col">
       <Tabs value={page} onValueChange={(value) => setPage(value as AppPage)} className="min-h-0 flex-1 gap-0">
         <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-3">
           <TabsList variant="line">
             {TABS.map(({ page: tabPage, label, icon: Icon }) => (
-              <TabsTrigger key={tabPage} value={tabPage} className="gap-1.5 px-3">
+              <TabsTrigger
+                key={tabPage}
+                value={tabPage}
+                className="gap-1.5 px-3"
+                onClick={() => goToTab(tabPage)}
+              >
                 <Icon />
                 {label}
               </TabsTrigger>
@@ -174,9 +384,10 @@ export default function App(): React.JSX.Element {
               onOpenFlightInLogbook={openFlightInLogbook}
               initialAircraftId={pendingFleetAircraftId}
               onInitialAircraftConsumed={() => setPendingFleetAircraftId(null)}
+              resetSignal={fleetResetSignal}
             />
           )}
-          <Suspense fallback={null}>
+          <Suspense fallback={<PageSkeleton />}>
             {page === 'dispatch' && (
               <DispatchView
                 weightUnit={weightUnit}
@@ -184,17 +395,21 @@ export default function App(): React.JSX.Element {
                 windSpeedUnit={windSpeedUnit}
                 onPlanned={() => setPage('track')}
                 ofp={dispatchOfp}
-                onOfpChange={setDispatchOfp}
+                onOfpChange={handleDispatchOfpChange}
                 dispatchedOfpId={dispatchedOfpId}
                 onDispatchedOfpIdChange={setDispatchedOfpId}
+                selection={procedureSelection}
+                onSelectionChange={setProcedureSelection}
               />
             )}
             {page === 'track' && (
               <TrackView
-                previewOfpJson={dispatchOfp?.ofpJson ?? null}
+                previewOfp={dispatchOfp}
                 telemetry={telemetry}
+                selection={procedureSelection}
+                onSelectionChange={setProcedureSelection}
                 onFlightEnded={() => {
-                  setDispatchOfp(null)
+                  handleDispatchOfpChange(null)
                   setDispatchedOfpId(null)
                 }}
               />
@@ -202,10 +417,12 @@ export default function App(): React.JSX.Element {
             {page === 'logbook' && (
               <LogbookView
                 weightUnit={weightUnit}
+                landingDistanceUnit={landingDistanceUnit}
                 initialFlightId={pendingLogbookFlight?.flightId ?? null}
                 initialFlightOriginAircraftId={pendingLogbookFlight?.fromAircraftId ?? null}
                 onInitialFlightConsumed={() => setPendingLogbookFlight(null)}
                 onBackToAircraft={openFleetAircraft}
+                resetSignal={logbookResetSignal}
               />
             )}
             {page === 'settings' && (
@@ -216,12 +433,36 @@ export default function App(): React.JSX.Element {
                 onAltitudeUnitChange={handleAltitudeUnitChange}
                 windSpeedUnit={windSpeedUnit}
                 onWindSpeedUnitChange={handleWindSpeedUnitChange}
+                landingDistanceUnit={landingDistanceUnit}
+                onLandingDistanceUnitChange={handleLandingDistanceUnitChange}
+                theme={theme}
+                onThemeChange={handleThemeChange}
+                resetSignal={settingsResetSignal}
               />
             )}
           </Suspense>
         </div>
       </Tabs>
       <Toaster />
+
+      <AlertDialog open={orphanedFlight !== null} onOpenChange={(open) => !open && setOrphanedFlight(null)}>
+        <AlertDialogContent>
+          {orphanedFlight && (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{orphanedFlightCopy(orphanedFlight).title}</AlertDialogTitle>
+                <AlertDialogDescription>{orphanedFlightCopy(orphanedFlight).description}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={handleDiscardOrphaned}>Discard flight</AlertDialogCancel>
+                <AlertDialogAction onClick={handleResumeOrphaned}>
+                  {orphanedFlightCopy(orphanedFlight).confirmLabel}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          )}
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   )
 }

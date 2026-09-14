@@ -28,7 +28,19 @@ describe('parseUsdAmount', () => {
     expect(parseUsdAmount('')).toBeNull()
   })
 
+  // Real strings from a KJFK flight (flightdeck-backend's flight-replay-harness.md,
+  // 2026-09-14) — GSX shows no "~" conversion at all when its own currency setting is
+  // already USD, unlike every other sample above.
+  it('parses a US-airport receipt with no currency conversion (no tilde at all)', () => {
+    expect(parseUsdAmount('$ 3,939.86')).toBe(3939.86)
+    expect(parseUsdAmount('$ 2,943.20')).toBe(2943.2)
+  })
+
   it('returns null for a deliberately unparseable string rather than guessing', () => {
     expect(parseUsdAmount('some garbage ~ nonsense')).toBeNull()
+  })
+
+  it('returns null rather than Infinity for a number so large it overflows', () => {
+    expect(parseUsdAmount(`£1.00 ~$ ${'9'.repeat(400)}`)).toBeNull()
   })
 })

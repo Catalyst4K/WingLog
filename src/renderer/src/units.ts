@@ -1,6 +1,6 @@
 // SI is stored internally end-to-end; convert to aviation units only here, at the UI
 // layer, per docs/decisions.md §5.
-import type { AltitudeUnit, WeightUnit } from '@shared/ipc'
+import type { AltitudeUnit, LandingDistanceUnit, WeightUnit } from '@shared/ipc'
 
 const KG_PER_LB = 0.45359237
 
@@ -67,6 +67,40 @@ export function formatMinutes(min: number | null): string {
  * Rounding a value that's already a round hundred (every standard-level point) is a
  * no-op.
  */
+/** Distance from threshold / touchdown-diagram measurements — Logbook's own unit setting
+ *  (docs/plans/logbook-detail-improvements.md, item 4), separate from OFP altitudes and
+ *  wind speed. Whole units, thousands-separated, same rounding convention as formatWeight. */
+export function formatRunwayDistance(meters: number, unit: LandingDistanceUnit): string {
+  const value = unit === 'ft' ? mToFt(meters) : meters
+  return `${Math.round(value).toLocaleString()} ${unit}`
+}
+
+/**
+ * Centreline offset reads as a side, not a raw signed number — the sign convention
+ * (positive = right of centreline, looking in the landing direction — see landing-maths.ts's
+ * RunwayRelativePosition) isn't obvious to someone reading the card. Exactly on the
+ * centreline gets no letter, since "0 ft R" implies a side that isn't really there.
+ */
+export function formatCentrelineOffset(meters: number, unit: LandingDistanceUnit): string {
+  const magnitude = unit === 'ft' ? mToFt(Math.abs(meters)) : Math.abs(meters)
+  const side = meters > 0 ? ' R' : meters < 0 ? ' L' : ''
+  return `${Math.round(magnitude).toLocaleString()} ${unit}${side}`
+}
+
+/**
+ * Pitch at touchdown, for display only. `pitchDeg` is stored exactly as MSFS's own
+ * `PLANE PITCH DEGREES` SimVar reports it — negative for nose-up, positive for nose-down
+ * (confirmed against real captured data, flightdeck-backend's docs/simconnect-notes.md,
+ * 2026-09-03; landing-score.ts's PITCH_IDEAL_DEG relies on this same convention and must
+ * stay in that SimVar-native sign). That convention reads backwards to a pilot: normal
+ * aviation usage states a flare as a positive "4-7° nose-up," not a negative number
+ * (Callum, 2026-09-13 — "I think you forgot to flip the value for the user to read").
+ * This negates purely for display, so a -4.2° SimVar reading shows as "4.2°" here.
+ */
+export function formatPitchDeg(pitchDeg: number): string {
+  return `${(-pitchDeg).toFixed(1)}°`
+}
+
 export function formatAltitude(
   altitudeFt: number,
   unit: AltitudeUnit,

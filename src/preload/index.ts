@@ -6,11 +6,14 @@ import {
   type DispatchOpenSimBriefParams,
   type WingLogApi,
   type GsxSettings,
-  type LandingThresholds,
+  type LandingDistanceUnit,
+  type NavdataProcedureKind,
   type NewAircraft,
   type NewFlight,
+  type ProcedureSelection,
   type SimConnectionStatus,
   type SimTelemetry,
+  type Theme,
   type TrackPoint,
   type WeightUnit,
   type WindSpeedUnit
@@ -41,10 +44,12 @@ const api: WingLogApi = {
   flightCancel: (id: number) => ipcRenderer.invoke(IpcChannels.flightCancel, id),
   flightDelete: (id: number) => ipcRenderer.invoke(IpcChannels.flightDelete, id),
   dispatchFetchOfp: () => ipcRenderer.invoke(IpcChannels.dispatchFetchOfp),
+  dispatchGetInProgressFlight: () => ipcRenderer.invoke(IpcChannels.dispatchGetInProgressFlight),
   dispatchOpenSimBrief: (params: DispatchOpenSimBriefParams) =>
     ipcRenderer.invoke(IpcChannels.dispatchOpenSimBrief, params),
   dispatchOpenSimBriefAirframes: (airframeId: string | null) =>
     ipcRenderer.invoke(IpcChannels.dispatchOpenSimBriefAirframes, airframeId),
+  dispatchOpenOfpPdf: (ofpJson: string) => ipcRenderer.invoke(IpcChannels.dispatchOpenOfpPdf, ofpJson),
   settingsGetSimbriefUsername: () => ipcRenderer.invoke(IpcChannels.settingsGetSimbriefUsername),
   settingsSetSimbriefUsername: (username: string) =>
     ipcRenderer.invoke(IpcChannels.settingsSetSimbriefUsername, username),
@@ -63,15 +68,26 @@ const api: WingLogApi = {
   settingsGetWindSpeedUnit: () => ipcRenderer.invoke(IpcChannels.settingsGetWindSpeedUnit),
   settingsSetWindSpeedUnit: (unit: WindSpeedUnit) =>
     ipcRenderer.invoke(IpcChannels.settingsSetWindSpeedUnit, unit),
+  settingsGetLandingDistanceUnit: () => ipcRenderer.invoke(IpcChannels.settingsGetLandingDistanceUnit),
+  settingsSetLandingDistanceUnit: (unit: LandingDistanceUnit) =>
+    ipcRenderer.invoke(IpcChannels.settingsSetLandingDistanceUnit, unit),
+  settingsGetTheme: () => ipcRenderer.invoke(IpcChannels.settingsGetTheme),
+  settingsSetTheme: (theme: Theme) => ipcRenderer.invoke(IpcChannels.settingsSetTheme, theme),
   trackingStart: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingStart, flightId),
   trackingStop: () => ipcRenderer.invoke(IpcChannels.trackingStop),
   trackingFinish: () => ipcRenderer.invoke(IpcChannels.trackingFinish),
   trackingGetActive: () => ipcRenderer.invoke(IpcChannels.trackingGetActive),
   trackPointList: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackPointList, flightId),
+  trackPointCleanup: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackPointCleanup, flightId),
   onTrackingPoint: (listener: (point: TrackPoint) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, point: TrackPoint): void => listener(point)
     ipcRenderer.on(IpcChannels.trackingPoint, handler)
     return () => ipcRenderer.removeListener(IpcChannels.trackingPoint, handler)
+  },
+  onTrackingPointsUpdated: (listener: (points: TrackPoint[]) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, points: TrackPoint[]): void => listener(points)
+    ipcRenderer.on(IpcChannels.trackingPointsUpdated, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.trackingPointsUpdated, handler)
   },
   logbookListCompletedFlights: () => ipcRenderer.invoke(IpcChannels.logbookListCompletedFlights),
   logbookGetStats: () => ipcRenderer.invoke(IpcChannels.logbookGetStats),
@@ -88,13 +104,13 @@ const api: WingLogApi = {
   gsxOpenReceipt: (sourceHtmlPath: string) => ipcRenderer.invoke(IpcChannels.gsxOpenReceipt, sourceHtmlPath),
   logbookOpenOfpPdf: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookOpenOfpPdf, flightId),
   logbookGetLanding: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookGetLanding, flightId),
+  logbookGetLandingRunway: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookGetLandingRunway, flightId),
   logbookGreatCircleRoute: (depIcao: string, arrIcao: string) =>
     ipcRenderer.invoke(IpcChannels.logbookGreatCircleRoute, depIcao, arrIcao),
   fleetListLandings: (aircraftId: number) => ipcRenderer.invoke(IpcChannels.fleetListLandings, aircraftId),
   fleetListFlights: (aircraftId: number) => ipcRenderer.invoke(IpcChannels.fleetListFlights, aircraftId),
-  settingsGetLandingThresholds: () => ipcRenderer.invoke(IpcChannels.settingsGetLandingThresholds),
-  settingsSetLandingThresholds: (thresholds: LandingThresholds) =>
-    ipcRenderer.invoke(IpcChannels.settingsSetLandingThresholds, thresholds),
+  logbookGetLandingScore: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookGetLandingScore, flightId),
+  logbookListFlightScores: () => ipcRenderer.invoke(IpcChannels.logbookListFlightScores),
   aircraftLookupByRegistration: (registration: string) =>
     ipcRenderer.invoke(IpcChannels.aircraftLookupByRegistration, registration),
   aircraftTypeSearch: (query: string) => ipcRenderer.invoke(IpcChannels.aircraftTypeSearch, query),
@@ -112,7 +128,30 @@ const api: WingLogApi = {
     ipcRenderer.invoke(IpcChannels.authSignup, email, password, inviteCode),
   authLogout: () => ipcRenderer.invoke(IpcChannels.authLogout),
   syncNow: () => ipcRenderer.invoke(IpcChannels.syncNow),
-  syncStatus: () => ipcRenderer.invoke(IpcChannels.syncStatus)
+  syncStatus: () => ipcRenderer.invoke(IpcChannels.syncStatus),
+  appGetVersion: () => ipcRenderer.invoke(IpcChannels.appGetVersion),
+  appOpenGithub: () => ipcRenderer.invoke(IpcChannels.appOpenGithub),
+  navdataRefreshAirport: (icao: string) => ipcRenderer.invoke(IpcChannels.navdataRefreshAirport, icao),
+  navdataHasAirport: (icao: string) => ipcRenderer.invoke(IpcChannels.navdataHasAirport, icao),
+  navdataListRunways: (icao: string) => ipcRenderer.invoke(IpcChannels.navdataListRunways, icao),
+  navdataListSids: (icao: string, runway?: string | null) =>
+    ipcRenderer.invoke(IpcChannels.navdataListSids, icao, runway),
+  navdataListStars: (icao: string, runway?: string | null) =>
+    ipcRenderer.invoke(IpcChannels.navdataListStars, icao, runway),
+  navdataListApproaches: (icao: string, runway?: string | null) =>
+    ipcRenderer.invoke(IpcChannels.navdataListApproaches, icao, runway),
+  navdataGetProcedureWaypoints: (
+    icao: string,
+    kind: NavdataProcedureKind,
+    identifier: string,
+    runway?: string | null,
+    transition?: string | null
+  ) => ipcRenderer.invoke(IpcChannels.navdataGetProcedureWaypoints, icao, kind, identifier, runway, transition),
+  trackingSetProcedureSelection: (selection: ProcedureSelection) =>
+    ipcRenderer.invoke(IpcChannels.trackingSetProcedureSelection, selection),
+  trackingGetOrphanedFlight: () => ipcRenderer.invoke(IpcChannels.trackingGetOrphanedFlight),
+  trackingResumeOrphaned: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingResumeOrphaned, flightId),
+  trackingDiscardOrphaned: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingDiscardOrphaned, flightId)
 }
 
 contextBridge.exposeInMainWorld('winglog', api)

@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { describe, expect, it } from 'vitest'
 import type { SimTelemetry } from '@shared/ipc'
-import type { SimConnectService } from '../sim/SimConnectService'
+import type { SimConnectSource } from '../sim/SimConnectSource'
 import { AutoStartDetector } from './AutoStartDetector'
 
 function telemetry(overrides: Partial<SimTelemetry>): SimTelemetry {
@@ -9,6 +9,7 @@ function telemetry(overrides: Partial<SimTelemetry>): SimTelemetry {
     latitude: 51.4775,
     longitude: -0.4614,
     altitudeM: 25,
+    pressureAltitudeM: 25,
     altitudeAglM: 0,
     verticalSpeedMs: 0,
     indicatedAirspeedMs: 0,
@@ -37,9 +38,9 @@ function telemetry(overrides: Partial<SimTelemetry>): SimTelemetry {
   }
 }
 
-/** A minimal SimConnectService double: just needs to be a real EventEmitter to `.on('telemetry', ...)` against. */
-function fakeSimConnectService(): SimConnectService {
-  return new EventEmitter() as unknown as SimConnectService
+/** A minimal SimConnectSource double: just needs to be a real EventEmitter to `.on('telemetry', ...)` against. */
+function fakeSimConnectService(): EventEmitter & SimConnectSource {
+  return new EventEmitter() as EventEmitter & SimConnectSource
 }
 
 // Matches telemetry()'s own default lat/lon, so every pre-existing test below (written

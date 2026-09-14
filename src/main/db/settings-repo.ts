@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import type { AltitudeUnit, GsxSettings, LandingThresholds, WeightUnit, WindSpeedUnit } from '@shared/ipc'
+import type { AltitudeUnit, GsxSettings, LandingDistanceUnit, Theme, WeightUnit, WindSpeedUnit } from '@shared/ipc'
 import { appSetting } from './schema'
 import type { WingLogDb } from './client'
 
@@ -7,20 +7,12 @@ const SIMBRIEF_USERNAME_KEY = 'simbriefUsername'
 const WEIGHT_UNIT_KEY = 'weightUnit'
 const ALTITUDE_UNIT_KEY = 'altitudeUnit'
 const WIND_SPEED_UNIT_KEY = 'windSpeedUnit'
+const LANDING_DISTANCE_UNIT_KEY = 'landingDistanceUnit'
+const THEME_KEY = 'theme'
 const GSX_ENABLED_KEY = 'gsxEnabled'
 const GSX_FOLDER_PATH_KEY = 'gsxFolderPath'
 const GSX_DISPLAY_CURRENCY_KEY = 'gsxDisplayCurrency'
 const GSX_FIRST_LAUNCH_CHECKED_KEY = 'gsxFirstLaunchChecked'
-const FIRM_LANDING_FPM_KEY = 'firmLandingFpm'
-const HARD_LANDING_FPM_KEY = 'hardLandingFpm'
-
-// General-aviation-leaning defaults, not universally correct — real published guidance
-// varies by aircraft category and airline, and this app spans a C172 to an A380
-// (docs/decisions.md, landing-analysis entry). ~600 fpm is a common "log it" trigger
-// industry-wide; "firm" sits enough below that to flag something noticeably brisk without
-// crying wolf on every slightly-firm-but-fine landing.
-const DEFAULT_FIRM_LANDING_FPM = 480
-const DEFAULT_HARD_LANDING_FPM = 600
 
 export function getSetting(db: WingLogDb, key: string): string | undefined {
   return db.select().from(appSetting).where(eq(appSetting.key, key)).get()?.value
@@ -66,6 +58,25 @@ export function setWindSpeedUnit(db: WingLogDb, unit: WindSpeedUnit): void {
   setSetting(db, WIND_SPEED_UNIT_KEY, unit)
 }
 
+/** Defaults to 'ft' — deliberately different from windSpeedUnit/altitudeUnit's own
+ *  defaults (docs/plans/logbook-detail-improvements.md, item 4: Callum's call). */
+export function getLandingDistanceUnit(db: WingLogDb): LandingDistanceUnit {
+  return getSetting(db, LANDING_DISTANCE_UNIT_KEY) === 'm' ? 'm' : 'ft'
+}
+
+export function setLandingDistanceUnit(db: WingLogDb, unit: LandingDistanceUnit): void {
+  setSetting(db, LANDING_DISTANCE_UNIT_KEY, unit)
+}
+
+export function getTheme(db: WingLogDb): Theme {
+  const value = getSetting(db, THEME_KEY)
+  return value === 'light' || value === 'dark' ? value : 'system'
+}
+
+export function setTheme(db: WingLogDb, theme: Theme): void {
+  setSetting(db, THEME_KEY, theme)
+}
+
 /** Default off, empty path (docs/decisions.md, gsx-invoices entry) — someone without GSX
  *  should never see anything from this feature. Auto-enabled only by
  *  checkGsxFirstLaunch below, and only when the expected receipts folder is actually
@@ -94,20 +105,6 @@ export function hasCheckedGsxFirstLaunch(db: WingLogDb): boolean {
 
 export function setCheckedGsxFirstLaunch(db: WingLogDb): void {
   setSetting(db, GSX_FIRST_LAUNCH_CHECKED_KEY, '1')
-}
-
-export function getLandingThresholds(db: WingLogDb): LandingThresholds {
-  const firm = Number(getSetting(db, FIRM_LANDING_FPM_KEY))
-  const hard = Number(getSetting(db, HARD_LANDING_FPM_KEY))
-  return {
-    firmFpm: Number.isFinite(firm) && firm > 0 ? firm : DEFAULT_FIRM_LANDING_FPM,
-    hardFpm: Number.isFinite(hard) && hard > 0 ? hard : DEFAULT_HARD_LANDING_FPM
-  }
-}
-
-export function setLandingThresholds(db: WingLogDb, thresholds: LandingThresholds): void {
-  setSetting(db, FIRM_LANDING_FPM_KEY, String(thresholds.firmFpm))
-  setSetting(db, HARD_LANDING_FPM_KEY, String(thresholds.hardFpm))
 }
 
 /** Per-table sync cursor (flightdeck-backend/docs/plans/cloud-sync.md's pull-then-push

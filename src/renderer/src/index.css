@@ -128,3 +128,67 @@
     @apply font-sans;
   }
 }
+
+/*
+ * MapLibre GL JS ships its own control chrome (zoom buttons, attribution bar) via
+ * maplibre-gl.css, styled once for a light host page — not by the vector style JSON
+ * FlightMap.tsx now picks per theme, so switching to the dark map style left this chrome
+ * still a stark white box on top of it (docs/plans/settings-ui-page.md, confirmed live).
+ * Real selectors and default colors read directly from node_modules/maplibre-gl/dist/
+ * maplibre-gl.css, not guessed — `.maplibregl-ctrl-group{background:#fff}` and the
+ * *compound* selector `.maplibregl-ctrl.maplibregl-ctrl-attrib{background-color:hsla(0,
+ * 0%,100%,.5)}`. That second one matters: matching only `.maplibregl-ctrl-attrib` gives
+ * the same specificity as MapLibre's own two-class rule, and its CSS (imported inside
+ * FlightMap.tsx) loads after this file in the bundle, so an equal-specificity override
+ * here silently lost the cascade tie until this was confirmed live and the selector
+ * corrected to match compound-for-compound. The button icons are inline-SVG
+ * background-images with a baked-in fill color rather than `currentColor`, so
+ * `filter: invert()` is what actually flips them — a plain color override would do
+ * nothing there either.
+ */
+.dark .maplibregl-ctrl-group {
+  background: var(--popover);
+}
+.dark .maplibregl-ctrl-group button:not(:disabled):hover {
+  background-color: var(--muted);
+}
+.dark .maplibregl-ctrl-icon {
+  filter: invert(1) brightness(1.7);
+}
+.dark .maplibregl-ctrl.maplibregl-ctrl-attrib {
+  background-color: var(--popover);
+  color: var(--muted-foreground);
+}
+.dark .maplibregl-ctrl-attrib a {
+  color: var(--foreground);
+}
+.dark .maplibregl-ctrl-attrib-button {
+  filter: invert(1);
+  background-color: var(--muted);
+}
+
+/*
+ * docs/plans/map-controls.md: while FlightMap.tsx's pan lock disables `dragPan`, MapLibre's
+ * grab-hand cursor doesn't follow — it comes from maplibre-gl.css's
+ * `.maplibregl-canvas-container.maplibregl-interactive{cursor:grab}`, keyed only on the
+ * map's general `interactive` constructor option (true here), not on any individual
+ * handler's enabled state. `.map-pan-locked` is toggled by FlightMap.tsx on the container
+ * div it renders (the map's own container, an ancestor of `.maplibregl-canvas-container`)
+ * whenever panning is locked. Three classes in this selector beats maplibre's own two-class
+ * rule on specificity alone, so this wins regardless of which stylesheet loads last (see
+ * the ctrl-group note above for why that matters here).
+ */
+.map-pan-locked .maplibregl-canvas-container.maplibregl-interactive {
+  cursor: default;
+}
+/* Live-verified 2026-09-13 (map-controls.md's own "needs a live tracking session" item):
+ * the rule above only covers the hover cursor. maplibre-gl.css has a SEPARATE
+ * `:active` rule (`.maplibregl-canvas-container.maplibregl-interactive:active{cursor:
+ * grabbing}`) for while a drag is actually held down, same specificity as ours (three
+ * classes vs. two classes + one pseudo-class) but for a different pseudo-state, so it was
+ * never overridden — the closed-hand "grabbing" cursor still appeared on click-and-hold
+ * even while panning was locked. Needs its own `:active` override, one class heavier than
+ * maplibre's, to win outright. */
+.map-pan-locked .maplibregl-canvas-container.maplibregl-interactive:active {
+  cursor: default;
+}

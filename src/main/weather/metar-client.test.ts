@@ -96,4 +96,32 @@ describe('fetchMetars', () => {
 
     await expect(fetchMetars(['EGLL'])).rejects.toThrow(/HTTP 500/)
   })
+
+  it('returns an empty array when the response body is not an array', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ unexpected: true }) }))
+    )
+
+    expect(await fetchMetars(['EGLL'])).toEqual([])
+  })
+
+  it('filters out entries missing icaoId/rawOb, and defaults an unknown reportTime/fltCat', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => [
+          { icaoId: 'EGLL' }, // no rawOb — dropped
+          { rawOb: 'METAR KJFK ...' }, // no icaoId — dropped
+          { icaoId: 'EGNM', rawOb: 'METAR EGNM ...', fltCat: 'SOMETHING_UNKNOWN' } // no reportTime
+        ]
+      }))
+    )
+
+    expect(await fetchMetars(['EGLL', 'KJFK', 'EGNM'])).toEqual([
+      { icao: 'EGNM', rawText: 'METAR EGNM ...', observedUtc: '', flightCategory: null }
+    ])
+  })
 })

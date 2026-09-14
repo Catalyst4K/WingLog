@@ -5,7 +5,7 @@ import {
   headwindComponent,
   positionRelativeToRunway
 } from '../airports/landing-maths'
-import { findRunwayEnd, type RunwayEnd } from '../airports/runway-lookup'
+import { distanceFromUsableThresholdM, findRunwayEnd, type RunwayEnd } from '../airports/runway-lookup'
 import type { NewLanding } from '../db/landing-repo'
 
 // Sanity clamp on G-force alone (PLAN.md §7's open risk register: a payware aircraft with
@@ -24,11 +24,22 @@ function clampGForce(value: number): number {
 /**
  * Builds one landing record from the telemetry tick where TrackingController detects
  * touchdown (descent -> landing, on-ground false->true). Always uses the ingested tick's
- * own values for vertical speed/pitch/bank ("derived") rather than a dedicated touchdown
+ * own values for pitch/bank/g-force/position ("derived") rather than a dedicated touchdown
  * SimVar — MSFS 2024's `PLANE TOUCHDOWN *` vars are unverified (docs/decisions.md,
  * landing-analysis entry; scripts/spike-landing.ts is ready to confirm them on a real
  * flight). `resolveRunway` is injectable for testing; defaults to the real vendored
  * lookup.
+ *
+ * Vertical speed is the one exception: it's read from `previousTelemetry` (the last sample
+ * *before* on-ground flipped true) when given, not the touchdown tick itself. Real
+ * comparison against an independent landing-rate tool (flightdeck-backend's docs/plans/
+ * flight-replay-harness.md, 2026-09-14) found the touchdown tick's own value under-reads
+ * true impact severity by 55-87% — a full second of gear compression has usually already
+ * happened by the time on-ground reads true at 1 Hz. The previous tick isn't perfect either
+ * (a flare landing inside the same 1 Hz gap can still fool it — left as an open question,
+ * not solved here) but is consistently closer to the real figure. Falls back to the
+ * touchdown tick's own value if no previous sample is available (e.g. touchdown detected on
+ * the very first tick after a resume).
  */
 export function buildLandingRecord(
   flightId: number,
@@ -40,7 +51,8 @@ export function buildLandingRecord(
     headingDeg: number,
     lat: number,
     lon: number
-  ) => RunwayEnd | null = findRunwayEnd
+  ) => RunwayEnd | null = findRunwayEnd,
+  previousTelemetry?: SimTelemetry
 ): NewLanding {
   const runway = resolveRunway(arrIcao, telemetry.headingTrueDeg, telemetry.latitude, telemetry.longitude)
   const position = runway
@@ -56,7 +68,7 @@ export function buildLandingRecord(
   return {
     flightId,
     touchdownTsUtc,
-    verticalSpeedMs: telemetry.verticalSpeedMs,
+    verticalSpeedMs: previousTelemetry?.verticalSpeedMs ?? telemetry.verticalSpeedMs,
     gForce: clampGForce(telemetry.gForce),
     pitchDeg: telemetry.pitchDeg,
     bankDeg: telemetry.bankDeg,
@@ -73,7 +85,11 @@ export function buildLandingRecord(
       : null,
     crabDeg: runway ? crabAngleDeg(telemetry.headingTrueDeg, runway.headingTrueDeg) : null,
     runwayIdent: runway?.ident ?? null,
-    distanceFromThresholdM: position?.distanceFromThresholdM ?? null,
+    // Distance from the real, usable (displacement-adjusted) threshold — Phase 1,
+    // resources/runways.csv's `displaced_threshold_ft` — not the raw physical-end distance
+    // `position` itself holds, which resolveRunway's gating uses instead (see
+    // runway-lookup.ts's RunwayEnd.lat doc comment for why those are different points).
+    distanceFromThresholdM: runway && position ? distanceFromUsableThresholdM(position, runway) : null,
     centrelineOffsetM: position?.centrelineOffsetM ?? null,
     flapSetting: Number.isFinite(telemetry.flapsHandleIndex) ? telemetry.flapsHandleIndex : null,
     touchdownSource: 'derived'

@@ -29,19 +29,55 @@ export type RawAirframesResponse = Record<string, RawAircraftEntry>
 // payware addon, e.g. "Lockheed C-130K Hercules [credit: KevinAviationHD]") fall back to
 // null developer/platform — comments is always present regardless.
 const COMMENT_PATTERN = /^(.+?)\s+\(([^)]+)\)\s*-\s*(.+)$/
+// The bit after the final "-" is genuinely free text (docs/simbrief-notes.md, "Why near-
+// identical community airframes collapse to the same label", 2026-09-08) — a real A320
+// entry looks like "A320 CFM (SL)", a real 737 one looks like "Dual Class [credit: PMDG
+// Official]", with no shared shape between them beyond "whatever tells this one apart from
+// its siblings." Stripped, not parsed further.
+const CREDIT_SUFFIX_PATTERN = /\s*\[credit:[^\]]*\]\s*$/i
 
-function parseDeveloperAndPlatform(comments: string): { developer: string | null; platform: string | null } {
+function parseComment(comments: string, icaoType: string): { developer: string | null; platform: string | null; variant: string | null } {
   const match = comments.match(COMMENT_PATTERN)
-  if (!match) return { developer: null, platform: null }
-  return { developer: match[1].trim(), platform: match[2].trim() }
+  if (!match) return { developer: null, platform: null, variant: null }
+  let variant = match[3].trim().replace(CREDIT_SUFFIX_PATTERN, '')
+  // Requires the type to be followed by whitespace or the end of the string, so a
+  // glued-together code like "A339X" (real data — not "A339 X") survives untouched rather
+  // than losing its trailing letter to a naive prefix strip, while a comment that's
+  // genuinely nothing but the bare type code correctly ends up with no variant at all.
+  const typePrefix = new RegExp(`^${icaoType}(\\s+|$)`, 'i')
+  variant = variant.replace(typePrefix, '').trim()
+  return { developer: match[1].trim(), platform: match[2].trim(), variant: variant || null }
+}
+
+// A320-family classic (A318/A319/A320/A321 — not the neos, A19N/A20N/A21N, which ship
+// with Sharklets as standard and have no Wing Fence option at all) can be fitted with
+// either the original Wing Fence wingtip or the later Sharklet retrofit. Fenix's own
+// comments only ever tag the Sharklet case explicitly ("(SL)"), leaving the older (and
+// more common) Wing Fence case with no tag at all — confirmed real, Callum's own domain
+// knowledge, 2026-09-08. Left as-is, a Wing Fence entry just looks like it has no
+// distinguishing detail rather than "the other real wingtip option" — made explicit here
+// instead, mirroring what Fenix's own comments only bother to state for one side of the
+// pair. Scoped to Fenix specifically (Callum's own wording — "the profile for fenix...
+// wing fence profiles too"), not every A320-family developer: nothing confirms every other
+// addon's comments follow the same SL-only-tags-one-side convention, and guessing wrong
+// there would be actively misleading rather than just unhelpfully blank.
+const A320_CLASSIC_TYPES = new Set(['A318', 'A319', 'A320', 'A321'])
+const SHARKLET_PATTERN = /\bSL\b/i
+
+function withWingFenceMadeExplicit(variant: string | null, icaoType: string): string | null {
+  if (!A320_CLASSIC_TYPES.has(icaoType.toUpperCase())) return variant
+  if (variant && SHARKLET_PATTERN.test(variant)) return variant
+  return variant ? `${variant} (WF)` : 'WF'
 }
 
 function toOption(raw: RawAirframe, simbriefType: string): SimbriefAirframeOption {
   const isDefault = raw.airframe_id === false
-  const { developer } = parseDeveloperAndPlatform(raw.airframe_comments)
+  const { developer, variant: parsedVariant } = parseComment(raw.airframe_comments, simbriefType)
+  const variant = developer === 'Fenix Simulations' ? withWingFenceMadeExplicit(parsedVariant, simbriefType) : parsedVariant
   return {
     isDefault,
     developer,
+    variant,
     engines: raw.airframe_engines,
     comments: raw.airframe_comments,
     registration: raw.airframe_registration || null,
@@ -60,10 +96,10 @@ export function parseAirframesForType(data: RawAirframesResponse, icaoType: stri
   const entry = data[icaoType]
   if (!entry) return []
 
-  return entry.airframes
+  const options = entry.airframes
     .filter((raw) => {
       if (raw.airframe_id === false) return true // always keep the stock default
-      const { platform } = parseDeveloperAndPlatform(raw.airframe_comments)
+      const { platform } = parseComment(raw.airframe_comments, entry.aircraft_icao)
       // Only exclude an entry explicitly tagged for a different sim — a comment with no
       // parseable platform at all (the 3.4% fallback case) isn't confirmed X-Plane/P3D
       // either, and excluding it would silently drop real MSFS-relevant entries for a
@@ -71,6 +107,20 @@ export function parseAirframesForType(data: RawAirframesResponse, icaoType: stri
       return platform === null || platform === 'MSFS'
     })
     .map((raw) => toOption(raw, entry.aircraft_icao))
+
+  // Genuine duplicates get collapsed, not shown as a meaningless choice (docs/plans/
+  // simbrief-airframe-picker-v2.md, decision 3) — none turned up in the real data checked
+  // for that plan (every apparent collision was distinguishable once `variant` existed),
+  // but nothing guarantees that stays true for every type SimBrief hosts, so this stays
+  // defensive rather than assumed unnecessary.
+  const seen = new Set<string>()
+  return options.filter((o) => {
+    if (o.isDefault) return true
+    const key = `${o.developer}|${o.variant}|${o.engines}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 // Parsed on first request, not at module load — no session ever needing this shouldn't pay

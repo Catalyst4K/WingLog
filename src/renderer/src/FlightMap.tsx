@@ -1,12 +1,15 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { GeoJSONSource, LngLatBounds, Map as MapLibreMap, Marker, setWorkerUrl } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { Locate, LocateFixed, ZoomIn, ZoomOut } from 'lucide-react'
-import type { SimTelemetry, TrackPoint } from '@shared/ipc'
+import type { FlightPhase, SimTelemetry, TrackPoint } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
-import type { Waypoint } from './route'
-import { mToFt, msToKt } from './units'
+import { displayAltitude } from './display-altitude'
+import { mapInteraction } from './mapInteraction'
+import type { TransitionAltitudes, Waypoint } from './route'
+import { filterVisibleTrackPoints } from './trackPointVisibility'
+import { msToKt } from './units'
 
 // maplibre-gl ships its tile-parsing worker as a separate chunk and locates it via its
 // own import.meta.url at runtime — a resolution that doesn't survive Vite's dependency
@@ -43,7 +46,32 @@ function ensureWorkerReady(): Promise<void> {
 
 // docs/decisions.md, 2026-09-01 M4 tile source entry: OpenFreeMap, no key/quota/backend.
 // positron over liberty: a low-color basemap reads better under a flight track overlay.
-const MAP_STYLE = 'https://tiles.openfreemap.org/styles/positron'
+// 'dark' confirmed live 2026-09-08 (docs/plans/settings-ui-page.md) — a real OpenFreeMap-
+// hosted style, not assumed: `curl https://tiles.openfreemap.org/styles/dark` returns a
+// genuine style.json with a near-black background and matching muted layer colors, same
+// URL shape as positron's. Picked once at map creation from whatever theme is active then
+// (see documentElement's `dark` class, toggled by App.tsx) — deliberately not re-styled
+// live if the theme changes while a map is already mounted (rare: only 'system' resolving
+// differently mid-session, since every other theme change happens from Settings, which
+// isn't rendering a map at all) — timeboxed, not perfected, per the plan's own framing.
+const MAP_STYLE_LIGHT = 'https://tiles.openfreemap.org/styles/positron'
+const MAP_STYLE_DARK = 'https://tiles.openfreemap.org/styles/dark'
+function isDarkTheme(): boolean {
+  return document.documentElement.classList.contains('dark')
+}
+// `text-halo-color` draws a thin outline around each glyph, not a solid background behind
+// it — with a *dark* fill colour that outline is the only part of the letter that isn't
+// dark-on-dark, so on the dark basemap this app's own waypoint/taxiway labels (paint
+// properties fixed at layer-creation time, unrelated to the vector style's own colours)
+// went from readable to genuinely illegible once dark mode existed (real complaint,
+// 2026-09-08). Picked once alongside the basemap style below, same rationale for not
+// re-styling live if the theme changes mid-session.
+function waypointLabelColors(dark: boolean): { color: string; halo: string } {
+  return dark ? { color: '#c7d3e0', halo: '#05070a' } : { color: '#555', halo: '#fff' }
+}
+function taxiwayLabelColors(dark: boolean): { color: string; halo: string } {
+  return dark ? { color: '#e0b24d', halo: '#05070a' } : { color: '#7a5c00', halo: '#fff' }
+}
 const ROUTE_SOURCE_ID = 'planned-route'
 // Same source as ROUTE_SOURCE_ID's layer, drawn solid in the same blue as the flown trail
 // (TRAIL_SOURCE_ID's paint below) rather than a paint-property toggle on one layer —
@@ -54,7 +82,7 @@ const ROUTE_APPROXIMATE_LAYER_ID = 'planned-route-approximate'
 const TRAIL_SOURCE_ID = 'breadcrumb-trail'
 // The per-frame animation below used to resend the *entire* trail (every committed point
 // plus the interpolated tip) to maplibre on every one of ~60 animation frames per sample —
-// cost that grows with flight length, since priorCoords keeps getting longer all flight.
+// cost that grows with flight length, since the committed trail keeps getting longer all flight.
 // Splitting the animating segment into its own tiny 2-point source means each frame only
 // ever touches a constant-size payload; TRAIL_SOURCE_ID itself is only rewritten once per
 // real sample (not once per frame). Same paint style as the main trail so the two read as
@@ -84,6 +112,36 @@ interface LineStringFeature {
 
 function lineString(coords: [number, number][]): LineStringFeature {
   return { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords } }
+}
+
+interface MultiLineStringFeature {
+  type: 'Feature'
+  properties: Record<string, never>
+  geometry: { type: 'MultiLineString'; coordinates: [number, number][][] }
+}
+
+function multiLineString(segments: [number, number][][]): MultiLineStringFeature {
+  return { type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: segments } }
+}
+
+/** Splits a flight's trail at every resumeSegment boundary — never draws a line across a
+ *  restart's spawn-point/teleport-back artefacts (flightdeck-backend's docs/plans/
+ *  resume-track-cleanup.md), even before any cleanup logic decides which points within a
+ *  segment are themselves spurious. */
+function trailSegments(points: TrackPoint[]): [number, number][][] {
+  const segments: [number, number][][] = []
+  let current: [number, number][] = []
+  let currentSegment: number | undefined
+  for (const p of points) {
+    if (p.resumeSegment !== currentSegment) {
+      if (current.length > 0) segments.push(current)
+      current = []
+      currentSegment = p.resumeSegment
+    }
+    current.push([p.longitude, p.latitude])
+  }
+  if (current.length > 0) segments.push(current)
+  return segments
 }
 
 interface WaypointFeatureCollection {
@@ -120,6 +178,9 @@ export interface FlightMapProps {
   route: [number, number][]
   /** Per-fix waypoint pins along the planned route (ident labels), same source as `route`. */
   waypoints?: Waypoint[]
+  /** Every recorded point, unfiltered — points with a non-null `excludedReason` (junk from
+   *  a crash-resume or a mid-flight teleport, flightdeck-backend's docs/plans/
+   *  resume-track-cleanup.md) are dropped inside this component, not by the caller. */
   trackPoints: TrackPoint[]
   /**
    * true (TrackView): animated marker/camera follow as new points arrive.
@@ -131,6 +192,13 @@ export interface FlightMapProps {
   /** Live sim telemetry — shown as a small IAS/altitude/heading overlay at the map's
    *  bottom edge when present (TrackView only; Logbook/Dispatch don't pass it). */
   telemetry?: SimTelemetry | null
+  /** The active flight's current phase — decides whether the overlay's altitude reads
+   *  pressure or true altitude (docs/plans/logbook-detail-improvements.md, Phase 3; see
+   *  display-altitude.ts). Only meaningful alongside `telemetry`; ignored otherwise. */
+  telemetryPhase?: FlightPhase
+  /** The flight's OFP transition altitude/level, for the same overlay calculation — null
+   *  falls back to a fixed 18,000 ft (see display-altitude.ts). */
+  telemetryTransition?: TransitionAltitudes | null
   /** True when `route` is a synthesized great-circle line (docs/plans/
    *  great-circle-fallback-route.md), not a real SimBrief-derived route — styled more
    *  faintly, with a caption, so it can't be mistaken for a genuine planned route. */
@@ -144,9 +212,11 @@ const EMPTY_WAYPOINTS: Waypoint[] = []
 export function FlightMap({
   route,
   waypoints = EMPTY_WAYPOINTS,
-  trackPoints,
+  trackPoints: rawTrackPoints,
   live,
   telemetry,
+  telemetryPhase = 'cruise',
+  telemetryTransition = null,
   routeIsApproximate = false
 }: FlightMapProps): React.JSX.Element {
   const mapContainerRef = useRef<HTMLDivElement>(null)
@@ -156,6 +226,11 @@ export function FlightMap({
   // point in one batch (trackPointList), so length would jump straight past 1.
   const hasCenteredRef = useRef(false)
   const [mapReady, setMapReady] = useState(false)
+  // Points a resume-track-cleanup pass has flagged as junk (flightdeck-backend's docs/
+  // plans/resume-track-cleanup.md) never get drawn — filtered once here rather than in
+  // each effect below, so every index-based lookup (last point, [-2] for the animation's
+  // "from", trailSegments' own iteration) already only ever sees the real trail.
+  const trackPoints = useMemo(() => filterVisibleTrackPoints(rawTrackPoints), [rawTrackPoints])
   // Whether the camera keeps recentering on the aircraft as new track points arrive
   // (live mode only) — a user panning around to look at something shouldn't keep
   // getting yanked back. Defaults on, matching the always-follow behavior before this
@@ -166,20 +241,42 @@ export function FlightMap({
   // ensureWorkerReady() so the worker's blob: URL is registered (setWorkerUrl) before
   // MapLibreMap's constructor ever spawns the worker that needs it.
   useEffect(() => {
+    /* v8 ignore start -- React attaches a ref before running passive effects, and the
+     * container div is always rendered unconditionally, so this branch can't actually be
+     * reached on any real mount; defensive only. */
     if (!mapContainerRef.current) return
+    /* v8 ignore stop */
     let cancelled = false
 
     ensureWorkerReady().then(() => {
+      // `cancelled` is reachable in principle (a fast unmount before the worker's blob:
+      // fetch resolves) but not exercised here — not worth the timing-fiddly test setup
+      // that'd need. `!mapContainerRef.current` alongside it is defensive, same as above.
+      /* v8 ignore start */
       if (cancelled || !mapContainerRef.current) return
+      /* v8 ignore stop */
+      const dark = isDarkTheme()
       const map = new MapLibreMap({
         container: mapContainerRef.current,
-        style: MAP_STYLE,
+        style: dark ? MAP_STYLE_DARK : MAP_STYLE_LIGHT,
         // Restores the live map's last camera position across a remount (docs/plans/
         // map-improvements.md, "cause B") instead of always starting at the whole-world
         // default — only for the live map (Logbook's static map fits its own bounds fresh
         // below regardless of what's passed here).
         center: (live && liveCameraState?.center) || [0, 0],
         zoom: (live && liveCameraState?.zoom) || 1,
+        // No 3D tilt, and no rotation either (docs/plans/map-controls.md) — MapLibre's
+        // defaults leave both on, both reachable via the same right-drag/Ctrl+drag
+        // gesture, and there's no compass or reset-north control in this app to undo an
+        // accidental rotation. `dragRotate: false` and the two `disableRotation()` calls
+        // below cover the rotation half (right-drag, and the two-finger touch/keyboard
+        // equivalents); `maxPitch: 0`/`touchPitch: false`/`pitchWithRotate: false` cover
+        // tilt. The aircraft marker already rotates to show heading, so a fixed north-up
+        // map loses nothing live tracking needs.
+        maxPitch: 0,
+        touchPitch: false,
+        pitchWithRotate: false,
+        dragRotate: false,
         // `compact: true` is MapLibre's own mechanism for exactly this attribution, and
         // OpenFreeMap's docs point to trusting MapLibre's default handling as sufficient
         // ("If you are using MapLibre, they are automatically added, you have nothing to
@@ -201,6 +298,10 @@ export function FlightMap({
         attributionControl: { compact: true }
       })
       mapRef.current = map
+      // dragRotate/pitchWithRotate above already stop the mouse-drag gesture; these two
+      // cover the touch and keyboard paths to rotation, which aren't constructor options.
+      map.touchZoomRotate.disableRotation()
+      map.keyboard.disableRotation()
 
       // Keeps liveCameraState current as the user pans/zooms or follow mode recentres —
       // not just captured once on unmount, so an unexpected early teardown (e.g. a fast
@@ -260,9 +361,9 @@ export function FlightMap({
           source: WAYPOINT_SOURCE_ID,
           paint: {
             'circle-radius': 3,
-            // SID/STAR fixes stand out from plain enroute waypoints — same route.ts
-            // segmentation SimBrief itself reports (docs/decisions.md, sid-star-selection
-            // entry), not yet swappable for an alternate procedure (blocked on Navigraph).
+            // SID/STAR/approach fixes stand out from plain enroute waypoints — route.ts's
+            // segmentation, either SimBrief's own or a live navdata-backed selection
+            // (docs/plans/navdata-without-navigraph.md, Phase 5).
             'circle-color': [
               'match',
               ['get', 'segment'],
@@ -270,12 +371,15 @@ export function FlightMap({
               '#e67700',
               'star',
               '#7048e8',
+              'approach',
+              '#2f9e44',
               /* enroute */ '#888'
             ],
             'circle-stroke-width': 1,
             'circle-stroke-color': '#fff'
           }
         })
+        const waypointLabel = waypointLabelColors(dark)
         map.addLayer({
           id: `${WAYPOINT_SOURCE_ID}-label`,
           type: 'symbol',
@@ -293,7 +397,7 @@ export function FlightMap({
             'text-offset': [0, 1],
             'text-anchor': 'top'
           },
-          paint: { 'text-color': '#555', 'text-halo-color': '#fff', 'text-halo-width': 1 }
+          paint: { 'text-color': waypointLabel.color, 'text-halo-color': waypointLabel.halo, 'text-halo-width': 1 }
         })
 
         // Taxiway designators when zoomed into an airport (docs/plans/map-improvements.md
@@ -304,6 +408,7 @@ export function FlightMap({
         // Runway idents (`class == 'runway'`, e.g. "09L/27R") come from the same source
         // layer for free. Coverage is OSM-derived and varies by airport — a taxiway with no
         // `ref` in the data simply renders unlabelled, which degrades fine.
+        const taxiwayLabel = taxiwayLabelColors(dark)
         map.addLayer({
           id: 'aeroway-taxiway-label',
           type: 'symbol',
@@ -317,7 +422,7 @@ export function FlightMap({
             'symbol-placement': 'line',
             'text-letter-spacing': 0.05
           },
-          paint: { 'text-color': '#7a5c00', 'text-halo-color': '#fff', 'text-halo-width': 1.2 }
+          paint: { 'text-color': taxiwayLabel.color, 'text-halo-color': taxiwayLabel.halo, 'text-halo-width': 1.2 }
         })
 
         // A text glyph (e.g. '✈') isn't drawn pointing true north in every font, so
@@ -378,7 +483,7 @@ export function FlightMap({
     if (!mapReady || !mapRef.current || live) return
     const coords: [number, number][] = trackPoints.map((p) => [p.longitude, p.latitude])
     const source = mapRef.current.getSource<GeoJSONSource>(TRAIL_SOURCE_ID)
-    source?.setData(lineString(coords))
+    source?.setData(multiLineString(trailSegments(trackPoints)))
 
     const last = trackPoints[trackPoints.length - 1]
     if (last && markerRef.current) {
@@ -411,7 +516,11 @@ export function FlightMap({
       hasCenteredRef.current = false
       return
     }
+    /* v8 ignore start -- markerRef.current is always set before mapReady flips true (end of
+     * the 'style.load' handler above), and this effect's own guard already requires
+     * mapReady — defensive only, not reachable via any path that gets this far. */
     if (!markerRef.current) return
+    /* v8 ignore stop */
     if (!markerRef.current.getElement().isConnected) {
       // Marker.addTo() reads the marker's position immediately, so it must already have
       // one — attach it here, before any of the branches below, all of which assume the
@@ -423,15 +532,15 @@ export function FlightMap({
     const source = mapRef.current.getSource<GeoJSONSource>(TRAIL_SOURCE_ID)
     // Everything except the still-animating final leg — set once per real sample here, not
     // once per animation frame below, so this payload never grows on the frame's own cost.
-    const priorCoords: [number, number][] = trackPoints.slice(0, -1).map((p) => [p.longitude, p.latitude])
+    const priorPoints = trackPoints.slice(0, -1)
 
     if (!hasCenteredRef.current) {
       // First point of this mount: jump in to something usable rather than sitting at
       // whatever center/zoom the map was constructed with. No animation for this one —
       // it may be catching up on a whole batch of history from a resumed in-progress
-      // flight.
+      // flight, possibly spanning several resume segments.
       hasCenteredRef.current = true
-      source?.setData(lineString([...priorCoords, [to.longitude, to.latitude]]))
+      source?.setData(multiLineString(trailSegments(trackPoints)))
       tipSource?.setData(lineString([]))
       markerRef.current.setLngLat([to.longitude, to.latitude])
       markerRef.current.setRotation(to.headingTrueDeg)
@@ -447,8 +556,11 @@ export function FlightMap({
     }
 
     const from = trackPoints[trackPoints.length - 2]
-    if (!from) {
-      source?.setData(lineString([...priorCoords, [to.longitude, to.latitude]]))
+    // No prior point at all, or `to` starts a new resume segment — either way there's
+    // nothing in the same segment to animate the marker in from, so commit `to` straight
+    // to the trail instead of drawing a tip line across the gap.
+    if (!from || from.resumeSegment !== to.resumeSegment) {
+      source?.setData(multiLineString(trailSegments(trackPoints)))
       tipSource?.setData(lineString([]))
       markerRef.current.setLngLat([to.longitude, to.latitude])
       markerRef.current.setRotation(to.headingTrueDeg)
@@ -457,7 +569,7 @@ export function FlightMap({
     }
 
     // The committed trail is done for this sample — write it once, here, not per frame.
-    source?.setData(lineString(priorCoords))
+    source?.setData(multiLineString(trailSegments(priorPoints)))
 
     // Rotation shows the plane's actual nose heading (not the ground track the marker is
     // animating along) — the gap between the two through a turn or in a crosswind is
@@ -502,6 +614,51 @@ export function FlightMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [followEnabled])
 
+  // Track's map is also `live` before any track points exist (previewing a planned
+  // flight) — mapInteraction needs this so a pan lock keyed only on `live`/`followEnabled`
+  // doesn't freeze that empty preview (docs/plans/map-controls.md).
+  const hasAircraft = trackPoints.length > 0
+
+  // Locks panning while genuinely following (live + follow on + an aircraft to follow),
+  // and re-anchors zoom to the map's center while locked so it can't drag the view off the
+  // aircraft. Reapplied whenever any of the three inputs change; Logbook's static map and
+  // a not-yet-following live map always land back on MapLibre's own defaults.
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return
+    const map = mapRef.current
+    const config = mapInteraction(live, followEnabled, hasAircraft)
+
+    if (config.dragPan) map.dragPan.enable()
+    else map.dragPan.disable()
+
+    if (config.keyboard) map.keyboard.enable()
+    else map.keyboard.disable()
+
+    // Live-verified 2026-09-13 (map-controls.md's own "needs a live tracking session" item):
+    // `ScrollZoomHandler.enable(options)` — and `TouchZoomRotateHandler`'s own pinch-zoom
+    // handler underneath it — early-return with NO effect if the handler `isEnabled()`
+    // already, which it always is here (MapLibre auto-enables both at map construction).
+    // So calling `.enable({ around: 'center' })` on its own, as this did before, silently
+    // never applied while locked — zooming while following kept anchoring to the cursor and
+    // dragging the view off the aircraft instead of staying centered. `.disable()` first
+    // forces the next `.enable()` to actually re-apply `around`.
+    map.scrollZoom.disable()
+    map.scrollZoom.enable(config.scrollZoom === true ? undefined : config.scrollZoom)
+    map.touchZoomRotate.disable()
+    map.touchZoomRotate.enable(config.touchZoomRotate === true ? undefined : config.touchZoomRotate)
+
+    if (config.doubleClickZoom) map.doubleClickZoom.enable()
+    else map.doubleClickZoom.disable()
+
+    // MapLibre's grab-hand cursor comes from a CSS class keyed on the map's general
+    // `interactive` option (maplibre-gl.css's `.maplibregl-interactive` rule), not on
+    // individual handler state — disabling dragPan alone leaves the grab hand showing.
+    // This class, scoped under our own container and listed in index.css with enough
+    // specificity to win over maplibre's own rule regardless of stylesheet order, forces
+    // the cursor back to default while panning is locked.
+    mapContainerRef.current?.classList.toggle('map-pan-locked', !config.dragPan)
+  }, [mapReady, live, followEnabled, hasAircraft])
+
   const mapControlButtonClassName = 'bg-popover/85 backdrop-blur-sm hover:bg-popover'
 
   return (
@@ -514,15 +671,20 @@ export function FlightMap({
         {live && (
           <Button
             type="button"
-            variant="outline"
+            variant={followEnabled ? 'default' : 'outline'}
             size="icon-sm"
-            className={mapControlButtonClassName}
+            // "On" reads as a filled, cyan/sky-blue button rather than an icon tint —
+            // `text-accent` (shadcn's subtle hover-background color, not this app's brand
+            // cyan, which is `--primary`) made the "on" state nearly invisible in both
+            // themes (docs/plans/map-controls.md). Backdrop blur only matters for the
+            // outline style sitting over the map; the filled "on" state is opaque already.
+            className={followEnabled ? undefined : mapControlButtonClassName}
             aria-label={followEnabled ? 'Stop centering on aircraft' : 'Center on aircraft'}
             title={followEnabled ? 'Stop centering on aircraft' : 'Center on aircraft'}
             aria-pressed={followEnabled}
             onClick={() => setFollowEnabled((v) => !v)}
           >
-            {followEnabled ? <LocateFixed className="text-accent" /> : <Locate />}
+            {followEnabled ? <LocateFixed /> : <Locate />}
           </Button>
         )}
         <Button
@@ -551,8 +713,15 @@ export function FlightMap({
       {live && (
         <div className="absolute bottom-3 left-3 rounded-full border border-border bg-popover/85 px-3 py-1 font-mono text-xs text-popover-foreground backdrop-blur-sm">
           Speed: {telemetry ? `${Math.round(msToKt(telemetry.indicatedAirspeedMs))} kt` : 'N/A'} · Altitude:{' '}
-          {telemetry ? `${Math.round(mToFt(telemetry.altitudeM)).toLocaleString()} ft` : 'N/A'} · Heading:{' '}
-          {telemetry ? `${Math.round(telemetry.headingTrueDeg)}°` : 'N/A'}
+          {telemetry
+            ? `${Math.round(
+                displayAltitude(
+                  { altitudeM: telemetry.altitudeM, pressureAltitudeM: telemetry.pressureAltitudeM, phase: telemetryPhase },
+                  telemetryTransition
+                ).valueFt
+              ).toLocaleString()} ft`
+            : 'N/A'}{' '}
+          · Heading: {telemetry ? `${Math.round(telemetry.headingTrueDeg)}°` : 'N/A'}
         </div>
       )}
       {routeIsApproximate && (

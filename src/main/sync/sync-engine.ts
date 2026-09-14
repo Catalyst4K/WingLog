@@ -123,7 +123,11 @@ function applyAircraft(db: WingLogDb, row: SyncRow): ApplyResult {
     } as Parameters<typeof upsertAircraftByUuid>[1])
     return { ok: true, applied }
   } catch (err) {
+    /* v8 ignore start -- better-sqlite3 always throws real Error instances; the String(err)
+     * arm exists only for TypeScript's sake (a catch variable is typed `unknown`), not a
+     * case real testing can trigger. */
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
+    /* v8 ignore stop */
   }
 }
 
@@ -155,7 +159,11 @@ function applyFlight(db: WingLogDb, row: SyncRow): ApplyResult {
     } as Parameters<typeof upsertFlightByUuid>[1])
     return { ok: true, applied }
   } catch (err) {
+    /* v8 ignore start -- unlike aircraft (unique registration) or landing/flightInvoice
+     * (required fields the malformed-data check above doesn't cover), the flight table has
+     * no constraint a row already passing that check can still violate at insert. */
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
+    /* v8 ignore stop */
   }
 }
 
@@ -185,7 +193,10 @@ function applyLanding(db: WingLogDb, row: SyncRow): ApplyResult {
     } as Parameters<typeof upsertLandingByUuid>[1])
     return { ok: true, applied }
   } catch (err) {
+    /* v8 ignore start -- see applyAircraft's identical catch for why the String(err) arm is
+     * excluded. */
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
+    /* v8 ignore stop */
   }
 }
 
@@ -220,7 +231,10 @@ function applyFlightInvoice(db: WingLogDb, row: SyncRow): ApplyResult {
     } as Parameters<typeof upsertFlightInvoiceByUuid>[1])
     return { ok: true, applied }
   } catch (err) {
+    /* v8 ignore start -- see applyAircraft's identical catch for why the String(err) arm is
+     * excluded. */
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
+    /* v8 ignore stop */
   }
 }
 

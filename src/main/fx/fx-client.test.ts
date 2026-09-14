@@ -89,6 +89,39 @@ describe('fetchExchangeRate', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it('returns null when the response body fails to parse as JSON at all', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => {
+          throw new SyntaxError('Unexpected token')
+        }
+      }))
+    )
+
+    expect(await fetchExchangeRate('GBP')).toBeNull()
+  })
+
+  it('returns null when the response body is valid JSON but not an object (e.g. a bare number)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, status: 200, json: async () => 42 }))
+    )
+
+    expect(await fetchExchangeRate('GBP')).toBeNull()
+  })
+
+  it('returns null when the target currency’s rate is present but not a finite number', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ rates: { GBP: 'not-a-number' } }) }))
+    )
+
+    expect(await fetchExchangeRate('GBP')).toBeNull()
+  })
+
   it('returns null for a future date (real 404 shape), not a throw', async () => {
     vi.stubGlobal(
       'fetch',

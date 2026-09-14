@@ -15,68 +15,19 @@ available, ask before assuming a default rather than guessing at unrecorded cont
 This repo's own `docs/` folder holds nothing but user-facing content (or is currently
 empty) — no development history, decisions, or plans belong here. If you're about to
 write a design doc or record a decision, it goes in `flightdeck-backend`'s `docs/plans/`
-or `docs/decisions.md`, never here — see "Starting a new piece of work" below.
+or `docs/decisions.md`, never here — see `flightdeck-backend`'s `CLAUDE.md` ("WingLog's
+plan-doc workflow") for the full workflow.
 
-## Starting a new piece of work
+## Working conventions
 
-This is a working app, not a from-scratch build. Ongoing feature work is organized as
-design docs (in `flightdeck-backend`, see above), not numbered milestones:
-
-1. Check `flightdeck-backend`'s `PLAN.md` §10 and `git branch -a` here for the current
-   list of `plan/<name>` branches. If the user's request matches one, read its plan doc
-   (`flightdeck-backend/docs/plans/<name>.md`) in full before touching code — it carries
-   context (what's verified against real data, what's still open) that isn't repeated
-   anywhere else.
-2. For a genuinely new feature with no existing plan: write one, following the shape of
-   the existing plans (context, what's confirmed vs. assumed, implementation, open
-   questions), in `flightdeck-backend`'s `docs/plans/<name>.md` — before writing
-   production code, same spike-first discipline as the M1/M6 rule below, generalised to
-   any undocumented external system (a third-party API, an undocumented file format), not
-   just SimConnect. The `plan/<name>` feature branch itself is created off `develop` (see
-   "Branching" below) and built in *this* repo, exactly as always — only the design doc's
-   location is different.
-3. One plan, one branch, one PR into `develop`. Don't mix unrelated changes into a plan
-   branch.
-4. A plan branch merging into `develop` is progress, not the finish line — its design doc
-   doesn't move yet, since `develop` can carry work that hasn't reached a release. A plan
-   only counts as shipped once `develop`'s changes actually reach `main` on a release cut
-   (see "Branching" below); that's the point its design doc moves from
-   `flightdeck-backend/docs/plans/` to nowhere — it just stays there, done. Nothing about
-   a shipped plan's doc needs to come back to this repo.
-
-## Branching
-
-Adopted 2026-09-04 (`flightdeck-backend`'s `docs/decisions.md` has the full reasoning) to
-keep `main` a clean release history instead of every finished plan landing on it
-individually:
-
-- **`main`** — releases only. Requires a pull request to merge into (still solo: 0
-  required approvals, so merging your own PR is enough) and is protected against
-  force-push/deletion, same as before. The only things that should ever merge into `main`
-  are `develop` or `fixes`, batched up as a release.
-- **`develop`** — where finished feature work lands first. Every `plan/<name>` branch
-  targets `develop`, not `main`. Direct pushes/merges into `develop` are still fine (no
-  required PR there) — that's the low-friction, solo-dev workflow this project has always
-  used, just one branch removed from `main` now.
-- **`fixes`** — the equivalent branch for bug fixes: a `fix/<name>` branch per fix,
-  targeting `fixes`, same direct-push workflow as `develop`. Kept separate from `develop`
-  so a batch of bug fixes can go out as its own release without waiting on whatever
-  feature work happens to be in flight on `develop`.
-- **Cutting a release** means opening a PR from `develop` (or `fixes`) into `main` once a
-  meaningful batch is ready, merging it, and *then* moving every plan doc that just
-  reached `main` out of `flightdeck-backend/docs/plans/`, per step 4 above. Tag the merge
-  commit on `main` if it corresponds to a version bump.
-- Plan branches already open before this date (`plan/backend-service`,
-  `plan/sid-star-selection`) were **not** retargeted onto `develop` — not worth the churn
-  mid-flight. They still merge straight into `main` (via a PR, now required) when done.
-  Every plan branch created from here on targets `develop`.
-
-The M1/M6 rule generalises: for anything depending on a real external system whose
-behaviour isn't documented — SimConnect, SimBrief's JSON schema, GSX's receipt files, a
-future Navigraph integration — write a throwaway script or read real captured data first,
-confirm actual behaviour, *then* build the production version. Don't build any of it from
-assumptions. Log anything surprising in `flightdeck-backend`'s matching `docs/*-notes.md`
-file (`simconnect-notes.md`, `simbrief-notes.md`, and so on) as you find it.
+The plan-doc workflow (how a new piece of work gets designed and branched), the full
+branching model (`main`/`develop`/`fixes`/`fix/<name>`), and the two-machine sync protocol
+all live in `flightdeck-backend`'s `CLAUDE.md` now, not here (moved 2026-09-13 — see
+`flightdeck-backend`'s `docs/decisions.md` for why). They're cross-repo process — how this
+project gets worked on — not something specific to this codebase, and keeping a second copy
+here would be exactly the drift risk that file's own Security cross-reference already avoids
+in the other direction. **Read it and treat its rules as binding here too**, the same way
+that file already treats this file's Security section as binding there.
 
 ## Commands (once scaffolded)
 
@@ -89,6 +40,10 @@ npm run typecheck        # tsc --noEmit
 npm run db:generate       # drizzle-kit generate, from src/main/db/schema.ts
 npm run db:migrate         # apply migrations
 ```
+
+`npm run package:win` builds the installer into `release/`. It's well over the file-sending
+size limit — don't attempt to send it in chat. Once it's built, just point to the
+directory (`release/`) rather than trying to deliver the file itself.
 
 ## Layout
 
@@ -122,10 +77,20 @@ docs/           User-facing content only, or empty — see the note at the top o
   — don't let sim-native and SI units mix inside the same layer.
 - **Don't hand work off to a session on the other machine unless you've been asked to, for
   that specific piece of work.** Work sometimes runs in parallel across two machines (see
-  "Branching"), and delegating is genuinely useful — but "hand this batch off" is
-  authorisation for that batch, not a standing arrangement to keep doing it. Finish the
-  plan or the investigation, report back, and let the delegation be an explicit choice
-  each time.
+  `flightdeck-backend`'s `CLAUDE.md`, "Working across two machines"), and delegating is
+  genuinely useful — but "hand this batch off" is authorisation for that batch, not a
+  standing arrangement to keep doing it. Finish the plan or the investigation, report back,
+  and let the delegation be an explicit choice each time.
+
+## Spike-first discipline
+
+For anything depending on a real external system whose behaviour isn't documented —
+SimConnect, SimBrief's JSON schema, GSX's receipt files, a future Navigraph integration —
+write a throwaway script or read real captured data first, confirm actual behaviour, *then*
+build the production version. Don't build any of it from assumptions. Log anything
+surprising in `flightdeck-backend`'s matching `docs/*-notes.md` file (`simconnect-notes.md`,
+`simbrief-notes.md`, and so on) as you find it. (The original M1/M6 milestones this rule is
+named for are long since done; the discipline they set outlived them.)
 
 ## Security
 
@@ -199,13 +164,13 @@ For the repo itself, these are worth having on and are free for public repos: De
 alerts, secret scanning with push protection, and branch protection on `main`, `develop`
 and `fixes` blocking force-push and branch deletion. `main` also requires a pull request
 to merge into it (0 required approvals — still solo, just a forced PR+diff step instead
-of a plain push), matching the branching model above; `develop`/`fixes` deliberately don't
-require a PR, since that's where day-to-day `plan/<name>`/`fix/<name>` branches merge and
-this is developed solo, pushing directly from more than one machine — see
-`scripts/github-repo-security.sh` for the full rationale on both. Note that GitHub Actions
-workflows here run on `pull_request` from forks — never add a workflow that exposes
-secrets to fork PRs (`pull_request_target` with a checkout of the PR head is the classic
-mistake).
+of a plain push), matching the branching model in `flightdeck-backend`'s `CLAUDE.md`;
+`develop`/`fixes` deliberately don't require a PR, since that's where day-to-day
+`plan/<name>`/`fix/<name>` branches merge and this is developed solo, pushing directly from
+more than one machine — see `scripts/github-repo-security.sh` for the full rationale on
+both. Note that GitHub Actions workflows here run on `pull_request` from forks — never add
+a workflow that exposes secrets to fork PRs (`pull_request_target` with a checkout of the
+PR head is the classic mistake).
 
 If you find something, say so plainly and fix it or flag it — don't quietly work around it.
 
@@ -223,3 +188,60 @@ Node ABI (via `postinstall`) — not the system Node ABI. That's why `npm test` 
 plain `node`/`tsx`: it's the same binary the app ships with, so there's only one build of
 the module to keep track of. Don't "simplify" these scripts back to bare `vitest`/`tsx` —
 that reintroduces an ABI mismatch and the native module fails to load.
+
+**Three layers, per `flightdeck-backend`'s `docs/plans/test-coverage.md`** (100% of
+business logic is the target; see that plan for the current real number and the exclusion
+list — Electron bootstrap, preload, vendored `components/ui/**`):
+
+- **Unit** (`vitest.config.ts`'s `'unit'` project, `node` environment, `*.test.ts`) — the
+  original main-process/shared/pure-logic suite described above.
+- **Renderer integration** (the `'renderer'` project, `jsdom`, `*.test.tsx`) — real React
+  components rendered with `@testing-library/react`, mocking only `window.winglog` (the one
+  seam the renderer is allowed to cross per this file's own Rules section) — never mock a
+  child component or a hook just to isolate one, since that stops testing the real wiring.
+- **Acceptance** (`e2e/*.spec.ts`, Playwright, `npm run test:e2e`) — drives the real built
+  app (`npm run build`'s `out/`), never the dev server. Every test launches its own isolated
+  instance via `e2e/launch-app.ts`'s `launchApp()`, which passes `--user-data-dir` pointed
+  at a fresh temp directory — **never launch Electron for a test any other way**: the
+  project root directory must be the first arg (not the entry script path — that breaks
+  `app.getAppPath()` and crashes migration), and the launching environment must not have
+  `ELECTRON_RUN_AS_NODE` set (leaks in from a shell that ran `npm test` earlier and breaks
+  the Electron launch with a cryptic `bad option` error) — `launchApp()` already handles
+  both, so use it rather than calling `_electron.launch()` directly.
+
+`npm run test:coverage` runs the unit + renderer suites with coverage and checks the
+threshold in `vitest.config.ts` — a ratchet, raised as real coverage improves, not the
+100% target itself; never lower it to make a red build green.
+
+**Going forward (rule as of 2026-09-12 — see `flightdeck-backend`'s `docs/decisions.md`):
+every new feature and every fix carries its own tests in the right layer(s) above, written
+as part of the same branch, not backfilled later.** `test-coverage.md` exists to close the
+gap from years of code that shipped without this; the rule here is what keeps that gap from
+reopening. Before writing code, identify which layer(s) the change actually needs — most
+changes need only one:
+
+- **Pure logic** (a calculation, a parser, a state-machine transition, a formatter, a new
+  IPC handler's validation) → a unit test with real representative values for the case at
+  hand, not placeholders — the standard this file already asks of the phase-detection state
+  machine and the landing-analysis maths above.
+- **A renderer component's rendering or interaction, new or changed** → a renderer
+  integration test, mocking only `window.winglog` per the rule above.
+- **A new or changed user-facing flow** → a Playwright acceptance test, new or extended.
+
+A change spanning more than one layer (e.g. a new IPC channel backing a new UI control)
+needs a test in each layer it touches. This applies equally to a `plan/<name>` branch and a
+`fix/<name>` branch — a fix with no regression test is exactly the kind of gap this rule
+exists to prevent. The coverage ratchet in `vitest.config.ts` is the backstop, not the
+target: it only proves nothing dropped, not that the right things were tested, so use the
+judgement above rather than writing tests to satisfy the number.
+
+**Run the full suite only at a real checkpoint (rule as of 2026-09-13 — see
+`flightdeck-backend`'s `docs/decisions.md`).** The rule above is about what gets *written* —
+every change still needs its own real, relevant tests, every time. This rule is about how
+often the *whole* suite gets *re-run*: during day-to-day iteration on a change, run only the
+test file(s) actually relevant to what changed, not a full `npm test` / `npm run
+test:coverage` across all 80+ files each time. Run the complete battery —
+`typecheck` + `lint` + `test` + `test:coverage` + `build` — at a real checkpoint instead:
+opening or updating a PR, merging a branch, running `npm run package:win`, or cutting a
+release. If genuinely unsure whether a change is small enough to skip the full battery,
+run it rather than guess wrong on something that gates a release.

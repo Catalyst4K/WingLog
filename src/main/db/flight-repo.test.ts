@@ -15,14 +15,17 @@ import {
   createHistoricalFlight,
   deleteFlight,
   finalizeFuelOut,
+  getActiveFlight,
   getFleetStats,
   getFlight,
+  getInProgressFlight,
   getLogbookStats,
   listCompletedFlights,
   listFlights,
   listFlightsByAircraft,
   recordOff,
   recordOn,
+  setSelectedProcedures,
   startFlight
 } from './flight-repo'
 
@@ -103,6 +106,37 @@ describe('flight repo', () => {
     expect(() => createFlight(db, { aircraftId: 99999, depIcao: 'EGLL', arrIcao: 'VHHH' })).toThrow()
   })
 
+  it('stores the selected procedures given at creation, and lets setSelectedProcedures overwrite them (Phase 5)', () => {
+    const created = createFlight(db, {
+      aircraftId,
+      depIcao: 'EGLL',
+      arrIcao: 'VHHH',
+      selectedDepartureRunway: '27R',
+      selectedSidIdent: 'BPK7F'
+    })
+    expect(created.selectedDepartureRunway).toBe('27R')
+    expect(created.selectedSidIdent).toBe('BPK7F')
+    expect(created.selectedApproachIdent).toBeNull()
+
+    setSelectedProcedures(db, created.id, {
+      departureRunway: '27L',
+      sidIdent: 'DIFFERENT_SID',
+      sidTransition: null,
+      starIdent: 'SIER7B',
+      starTransition: 'WLKES',
+      approachIdent: 'ILS 07C',
+      approachTransition: 'LIMES'
+    })
+
+    const updated = getFlight(db, created.id)
+    expect(updated?.selectedDepartureRunway).toBe('27L')
+    expect(updated?.selectedSidIdent).toBe('DIFFERENT_SID')
+    expect(updated?.selectedStarIdent).toBe('SIER7B')
+    expect(updated?.selectedStarTransition).toBe('WLKES')
+    expect(updated?.selectedApproachIdent).toBe('ILS 07C')
+    expect(updated?.selectedApproachTransition).toBe('LIMES')
+  })
+
   it('lists newest first', () => {
     const first = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' })
     const second = createFlight(db, { aircraftId, depIcao: 'VHHH', arrIcao: 'EGLL' })
@@ -168,6 +202,75 @@ describe('flight repo', () => {
       expect(completed?.fuelBurnKg).toBe(6000) // 10000 - 4000
     })
 
+    it(
+      'excludes real wall-clock time the sim was paused from block/air minutes — real case, ' +
+        'pausing mid-cruise to test this exact thing otherwise added the paused duration',
+      () => {
+        vi.setSystemTime(new Date('2026-09-01T12:00:00Z'))
+        const created = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' })
+        startFlight(db, created.id, 10000)
+
+        vi.setSystemTime(new Date('2026-09-01T12:10:00Z'))
+        recordOff(db, created.id)
+
+        vi.setSystemTime(new Date('2026-09-01T13:40:00Z'))
+        recordOn(db, created.id)
+
+        vi.setSystemTime(new Date('2026-09-01T13:50:00Z'))
+        // A 20-minute pause entirely inside the off->on window, plus a 5-minute one before
+        // liftoff (taxi) that should count against block time but not air time.
+        const completed = completeFlight(db, created.id, 4000, [
+          { startIso: '2026-09-01T12:03:00.000Z', endIso: '2026-09-01T12:08:00.000Z' },
+          { startIso: '2026-09-01T13:00:00.000Z', endIso: '2026-09-01T13:20:00.000Z' }
+        ])
+
+        expect(completed?.blockMinutes).toBe(85) // 110 raw - 5 (taxi pause) - 20 (cruise pause)
+        expect(completed?.airMinutes).toBe(70) // 90 raw - 20 (cruise pause; taxi pause is outside off->on)
+      }
+    )
+
+    it('getActiveFlight finds the one flight left mid-tracking, for TrackingController.resume() at startup', () => {
+      expect(getActiveFlight(db)).toBeUndefined()
+
+      const created = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' })
+      startFlight(db, created.id, 10000)
+
+      expect(getActiveFlight(db)?.id).toBe(created.id)
+
+      completeFlight(db, created.id, 4000)
+      expect(getActiveFlight(db)).toBeUndefined()
+    })
+
+    it('getInProgressFlight finds a planned flight too, not just an active one — for restoring Dispatch after a restart', () => {
+      expect(getInProgressFlight(db)).toBeUndefined()
+
+      const created = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' })
+      // Still 'planned' — Fly was pressed, but tracking hasn't started (the sim hasn't
+      // settled yet, or the user just hasn't clicked Start tracking).
+      expect(getInProgressFlight(db)?.id).toBe(created.id)
+
+      startFlight(db, created.id, 10000)
+      expect(getInProgressFlight(db)?.id).toBe(created.id)
+
+      completeFlight(db, created.id, 4000)
+      expect(getInProgressFlight(db)).toBeUndefined()
+    })
+
+    it('getInProgressFlight ignores a soft-deleted flight even if its status is still planned/active', () => {
+      // abandonFlight (deleteFlight) tombstones via deletedAt — it never touches status
+      // itself, so a stale 'active' flight retired this way must be excluded on deletedAt,
+      // not status alone. A real flight was found stuck reappearing in the resume-or-
+      // discard prompt on every future launch because this filter was missing
+      // (flightdeck-backend's docs/plans/flight-replay-harness.md, 2026-09-14).
+      const created = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' })
+      startFlight(db, created.id, 10000)
+      expect(getInProgressFlight(db)?.id).toBe(created.id)
+
+      abandonFlight(db, created.id)
+      expect(getFlight(db, created.id)?.status).toBe('active') // status untouched by design
+      expect(getInProgressFlight(db)).toBeUndefined()
+    })
+
     it('finalizeFuelOut corrects the fuel_out_kg written by startFlight, and feeds into a later fuel-burn calculation', () => {
       const created = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' })
       startFlight(db, created.id, 10187) // provisional — a stale/pre-service reading
@@ -187,11 +290,41 @@ describe('flight repo', () => {
       expect(getAircraftByRegistration(db, 'G-ABCD')?.currentIcao).toBe('VHHH')
     })
 
-    it('marks a cancelled flight abandoned rather than completed', () => {
+    it('deletes a cancelled flight outright, including its track points, rather than saving it as abandoned', () => {
       const created = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' })
       startFlight(db, created.id, 10000)
-      const abandoned = abandonFlight(db, created.id)
-      expect(abandoned?.status).toBe('abandoned')
+      createTrackPoint(db, {
+        flightId: created.id,
+        tsUtc: '2026-09-01T11:00:00.000Z',
+        latitude: 22.3,
+        longitude: 113.9,
+        altitudeM: 0,
+        pressureAltitudeM: null,
+        altitudeAglM: 0,
+        indicatedAirspeedMs: 0,
+        machSpeed: 0,
+        groundSpeedMs: 0,
+        verticalSpeedMs: 0,
+        headingTrueDeg: 70,
+        pitchDeg: 0,
+        bankDeg: 0,
+        phase: 'preflight',
+        onGround: true,
+        fuelKg: 10000,
+        gForce: 1,
+        windSpeedMs: 0,
+        windDirectionDeg: 0,
+        resumeSegment: 0,
+        simRate: 1,
+        excludedReason: null
+      })
+
+      abandonFlight(db, created.id)
+
+      expect(listFlights(db)).toEqual([])
+      expect(listTrackPoints(db, created.id)).toEqual([])
+      const raw = db.select().from(flightTable).where(eq(flightTable.id, created.id)).get()
+      expect(raw?.deletedAt).not.toBeNull()
     })
 
     it('abandonAllPlanned abandons every planned flight, leaving other statuses untouched', () => {
@@ -216,6 +349,7 @@ describe('flight repo', () => {
         latitude: 22.3,
         longitude: 113.9,
         altitudeM: 0,
+        pressureAltitudeM: null,
         altitudeAglM: 0,
         indicatedAirspeedMs: 0,
         machSpeed: 0,
@@ -229,7 +363,10 @@ describe('flight repo', () => {
         fuelKg: 10000,
         gForce: 1,
         windSpeedMs: 0,
-        windDirectionDeg: 0
+        windDirectionDeg: 0,
+        resumeSegment: 0,
+        simRate: 1,
+        excludedReason: null
       })
       createLanding(db, newLandingFixture(created.id))
       completeFlight(db, created.id, 3700)

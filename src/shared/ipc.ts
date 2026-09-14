@@ -121,6 +121,11 @@ export interface AircraftTypeOption {
 export interface SimbriefAirframeOption {
   isDefault: boolean
   developer: string | null
+  /** Whatever in `airframe_comments` distinguishes this entry from another with the same
+   *  developer/engines — e.g. "(SL)" vs "(WF)" on an A320, or a whole descriptive phrase
+   *  like "Dual Class" on a PMDG 737 (docs/simbrief-notes.md, 2026-09-08 entry). Null when
+   *  there's nothing beyond developer/engines to show, or the comment didn't parse at all. */
+  variant: string | null
   engines: string
   /** Raw `airframe_comments` — always present, the guaranteed fallback label. */
   comments: string
@@ -159,6 +164,14 @@ export interface SimTelemetry {
   latitude: number
   longitude: number
   altitudeM: number
+  /** Barometric altitude with the Kohlsman set to standard (1013.25 mb/29.92 in) —
+   *  logbook-detail-improvements.md Phase 3: what a correctly-flown PFD reads above the
+   *  transition altitude, independent of each aircraft's own altimeter implementation
+   *  (confirmed real and trustworthy for this live, flightdeck-backend's
+   *  docs/simconnect-notes.md, 2026-09-13 entry — unlike INDICATED ALTITUDE, which depends
+   *  on the aircraft's own Kohlsman setting and produced the -13,500 ft chart bug this
+   *  field exists to avoid repeating). */
+  pressureAltitudeM: number
   altitudeAglM: number
   verticalSpeedMs: number
   indicatedAirspeedMs: number
@@ -206,6 +219,11 @@ export interface TrackPoint {
   latitude: number
   longitude: number
   altitudeM: number
+  /** Null for any point recorded before this column existed (logbook-detail-improvements.md
+   *  Phase 3) — existing rows stay null forever, nothing backfills them. A non-null value
+   *  is always real going forward: FlightRecorder always supplies SimTelemetry's own
+   *  pressureAltitudeM, which SimConnect always returns once requested. */
+  pressureAltitudeM: number | null
   altitudeAglM: number
   indicatedAirspeedMs: number
   machSpeed: number
@@ -220,9 +238,36 @@ export interface TrackPoint {
   gForce: number
   windSpeedMs: number
   windDirectionDeg: number
+  /** Incremented each time TrackingController.resume() picks a flight back up after the
+   *  app/process restarted mid-flight — see flightdeck-backend's docs/plans/done/
+   *  resume-track-cleanup.md. 0 for a flight never resumed. The map draws one line per
+   *  segment and never joins across a boundary, so a restart's spawn-point/teleport-back
+   *  artefacts can't be drawn as a straight line across the gap even before any cleanup
+   *  logic runs. */
+  resumeSegment: number
+  /** Sim time compression at the moment this point was recorded — needed to tell a
+   *  legitimate high-speed-over-ground-at-4x sample apart from a physically impossible
+   *  teleport (flightdeck-backend's docs/plans/done/resume-track-cleanup.md). */
+  simRate: number
+  /** Set by the post-resume cleanup pass, never at record time — see the plan doc above.
+   *  Null means this point is genuine and should be shown; every consumer (the map, route
+   *  simplification, future stats) filters on this being null rather than deleting rows,
+   *  so the raw samples stay available for re-running the cleanup after a threshold
+   *  change. */
+  excludedReason: 'resume-spurious' | 'resume-superseded' | null
 }
 
 export type NewTrackPoint = Omit<TrackPoint, 'id'>
+
+/** Result of an on-demand resume-cleanup pass (the Logbook "Clean up track" button,
+ *  flightdeck-backend's docs/plans/done/resume-track-cleanup.md) — a manual trigger for a
+ *  flight that already completed, alongside the automatic live/completion-time pass
+ *  TrackingController already runs. Both `excludedCount`/`resegmentedCount` are 0 when
+ *  nothing needed fixing. */
+export interface TrackCleanupSummary {
+  excludedCount: number
+  resegmentedCount: number
+}
 
 /** One flight's touchdown record — see docs/decisions.md's landing-analysis entry.
  *  `runwayIdent`/`distanceFromThresholdM`/`centrelineOffsetM`/`headwindMs`/`crosswindMs`/
@@ -254,24 +299,91 @@ export interface Landing {
   touchdownSource: 'simvar' | 'derived'
 }
 
-/** One row per aircraft-with-a-landing-record, newest first — Fleet's per-aircraft
- *  landing history. */
-export interface AircraftLanding extends Landing {
+/** One row per aircraft-with-a-landing-record, newest first, before its score is resolved
+ *  — landing-repo.ts's own return shape. See AircraftLanding below for the IPC-facing
+ *  version Fleet actually receives. */
+export interface AircraftLandingRow extends Landing {
   flightNumber: string | null
   depIcao: string
   arrIcao: string
 }
 
+/** Fleet's per-aircraft landing history, as sent over IPC. `score`/`severity` are resolved
+ *  server-side (main/index.ts's fleetListLandings handler) against this aircraft's own
+ *  wake category — never classified client-side, so Fleet and Logbook can't disagree about
+ *  a landing. */
+export interface AircraftLanding extends AircraftLandingRow {
+  score: number
+  severity: LandingSeverity
+}
+
+/**
+ * Runway geometry for Logbook's touchdown diagram (docs/plans/logbook-detail-improvements.md)
+ * — resolved in main from the flight's arrival airport plus the landing's own
+ * `runwayIdent`, against the same vendored runway-lookup data `landing-capture.ts` measured
+ * the stored `distanceFromThresholdM`/`centrelineOffsetM` against, so the diagram can never
+ * disagree with the numbers shown next to it. Null (from `logbookGetLandingRunway`) when
+ * the landing has no `runwayIdent`, or the matched runway end is missing the length/width/
+ * aiming-point data the diagram needs — the same cases the card's own fields already show
+ * as "—" for.
+ */
+export interface LandingRunway {
+  ident: string
+  lengthM: number
+  widthM: number
+  displacedThresholdM: number
+  aimingPointDistanceM: number
+}
+
 export type LandingSeverity = 'none' | 'firm' | 'hard'
 
-/** Both in feet per minute (the unit pilots actually think in) — converted to/from the
- *  SI-stored touchdown vertical_speed_ms only where a severity is computed
- *  (src/renderer/src/landing-severity.ts), never stored in fpm anywhere else. Defaults
- *  are general-aviation-leaning, not universally correct across a C172-to-A380 fleet —
- *  adjustable in Settings rather than a hardcoded constant. */
-export interface LandingThresholds {
-  firmFpm: number
-  hardFpm: number
+export type LandingScoreCategoryKey =
+  | 'verticalSpeed'
+  | 'gForce'
+  | 'distanceFromAimingPoint'
+  | 'centrelineOffset'
+  | 'pitch'
+  | 'bank'
+  | 'crab'
+
+/** One scored input's own 0-100 contribution (landing-score.ts's LandingScoreBreakdown,
+ *  reshaped for the UI — see docs/decisions.md, 2026-09-12: Callum wanted a breakdown
+ *  popup showing "why" a score is what it is). Null when this input had no runway match to
+ *  score against (same null-handling as the stored landing fields themselves), never a
+ *  fabricated number. `label` is decided server-side so the renderer doesn't keep its own
+ *  copy of the key→label mapping. */
+export interface LandingScoreCategory {
+  key: LandingScoreCategoryKey
+  label: string
+  score: number | null
+  /** What "perfect" and "score reaches 0" are for this category, in its own natural unit
+   *  (fpm, degrees, g, or metres for the two runway-dependent ones) — real per-flight
+   *  numbers for the runway-dependent categories, not a fixed constant, since they come
+   *  from this specific runway's own real Annex-14/width data. Powers the breakdown
+   *  popup's per-category info button (docs/decisions.md, 2026-09-12). Null exactly when
+   *  `score` is null. */
+  ideal: number | null
+  tolerance: number | null
+}
+
+/** The 0-100 landing score plus its derived firm/hard classification — computed at read
+ *  time from a stored landing's own fields (src/main/db/landing-score-resolver.ts), not
+ *  stored itself, per docs/decisions.md (2026-09-12). No longer a Settings-configurable
+ *  value — see @shared/landing-score for the per-aircraft-category baseline this derives
+ *  from. `categories` backs the Logbook score-breakdown popup and the landing card's
+ *  per-field warning icons. */
+export interface LandingScoreResult {
+  score: number
+  severity: LandingSeverity
+  categories: LandingScoreCategory[]
+}
+
+/** One flight's score, for Logbook's list-view column (docs/plans/landing-scoring.md's
+ *  "Logbook UI" section) — omits any completed flight with no landing row (CSV-imported,
+ *  or tracked before landing capture shipped), which the list shows as "—" for. */
+export interface LandingScoreSummary {
+  flightId: number
+  score: number
 }
 
 export interface ActiveTracking {
@@ -312,6 +424,45 @@ export interface Flight {
   ofpJson: string | null
   simVersion: string | null
   createdAt: string
+  /** The procedures actually chosen — Dispatch's/Track's live selection at whatever moment
+   *  it was last written (flight save, or flight completion, whichever is later — see
+   *  ProcedureSelection). Null fields mean nothing was ever chosen for that slot, not that
+   *  SimBrief's own choice was deliberately kept — this flight predates Phase 5, or nothing
+   *  was ever touched. Logbook falls back to the OFP's own SID/STAR when these are all
+   *  null (docs/plans/navdata-without-navigraph.md, Phase 5). */
+  selectedDepartureRunway: string | null
+  selectedSidIdent: string | null
+  selectedSidTransition: string | null
+  selectedStarIdent: string | null
+  selectedStarTransition: string | null
+  selectedApproachIdent: string | null
+  selectedApproachTransition: string | null
+}
+
+/**
+ * The live, currently-chosen procedures for a flight — Dispatch and Track both read/write
+ * the same lifted state (App.tsx), so switching tabs mid-adjustment never loses or
+ * disagrees about what's selected. Every field is independently optional; unlike the old
+ * per-field "SimBrief default" sentinel this replaced, there's no separate "use SimBrief's
+ * choice" state — a field just holds whatever identifier is actually current, seeded from
+ * SimBrief's own choice when an OFP first loads (docs/plans/navdata-without-navigraph.md,
+ * Phase 5). `approachIdent`/`approachTransition` have no SimBrief equivalent to seed from —
+ * SimBrief never plans an approach — so they start null and get an auto-picked default once
+ * real navdata loads (see ProcedureSelector.tsx's auto-default heuristic).
+ */
+export interface ProcedureSelection {
+  departureRunway: string | null
+  sidIdent: string | null
+  sidTransition: string | null
+  starIdent: string | null
+  starTransition: string | null
+  /** A constructed display identifier ("ILS 07C", "RNP Z 07R") — an approach's runway is
+   *  implied by this, there's no separate arrival-runway field any more. */
+  approachIdent: string | null
+  /** The approach's own entry transition — usually the real fix a STAR hands off at (e.g.
+   *  VHHH's "LIMES"), auto-connected from the current STAR's last waypoint when one
+   *  matches, but always independently overridable. */
+  approachTransition: string | null
 }
 
 /** Logbook's summary stats above the flight table — see flight-repo.ts's getLogbookStats.
@@ -423,6 +574,16 @@ export interface NewFlight {
   ldwKg?: number | null
   ofpId?: string | null
   ofpJson?: string | null
+  /** Whatever's currently selected at the moment the flight is saved — the "saved as
+   *  planned" write described on ProcedureSelection. Overwritten again at flight
+   *  completion if tracking pushes a later selection (TrackingController). */
+  selectedDepartureRunway?: string | null
+  selectedSidIdent?: string | null
+  selectedSidTransition?: string | null
+  selectedStarIdent?: string | null
+  selectedStarTransition?: string | null
+  selectedApproachIdent?: string | null
+  selectedApproachTransition?: string | null
 }
 
 export interface DispatchWaypoint {
@@ -486,6 +647,14 @@ export interface DispatchOfp {
 export type WeightUnit = 'kg' | 'lb'
 
 /**
+ * Settings' UI page theme (docs/plans/settings-ui-page.md) — 'system' resolves via
+ * `window.matchMedia('(prefers-color-scheme: dark)')` and keeps listening, so a user on
+ * 'system' sees the app follow an OS appearance change made while it's open. Defaults to
+ * 'system' if never set.
+ */
+export type Theme = 'light' | 'dark' | 'system'
+
+/**
  * Display unit for OFP-derived altitudes (Dispatch's cruise altitude and step climbs).
  * A step climb point is sometimes a metric flight level rather than a standard one (e.g.
  * crossing Chinese airspace) — see parseStepClimbs in simbrief-client.ts for how that's
@@ -503,6 +672,16 @@ export type AltitudeUnit = 'ft' | 'm' | 'hybrid'
  *  is always shown verbatim regardless of this setting; it only controls a separately
  *  formatted wind line alongside it. */
 export type WindSpeedUnit = 'kt' | 'mps'
+
+/**
+ * Display unit for Logbook's two runway-relative landing measurements (distance from
+ * threshold, centreline offset) and the touchdown diagram's labels — docs/plans/
+ * logbook-detail-improvements.md, item 4. Defaults to 'ft' (Callum's call), unlike most of
+ * this app's other unit settings — landing distances read most naturally in feet even for
+ * pilots who otherwise think in metric. Deliberately scoped to just these two fields:
+ * touchdown rate stays fpm and speeds/wind stay kt regardless of this setting.
+ */
+export type LandingDistanceUnit = 'ft' | 'm'
 
 /** The app's tabs — also the native menu bar's top-level items, see main/menu.ts. */
 export type AppPage = 'fleet' | 'dispatch' | 'track' | 'logbook' | 'settings'
@@ -563,6 +742,47 @@ export interface SyncStatus {
   lastError: string | null
 }
 
+/**
+ * Navdata (Phase 3, flightdeck-backend's docs/plans/navdata-without-navigraph.md) — real
+ * runway/SID/STAR data from MSFS's own SimConnect Facilities API, cached locally per
+ * airport. `refresh` is the only channel that touches the sim; the rest read the cache, so
+ * a Dispatch dropdown doesn't wait on a live SimConnect round-trip on every keystroke.
+ */
+export interface NavdataRunwayOption {
+  ident: string
+  headingTrueDeg: number
+  lengthM: number
+  widthM: number
+  /** Raw SimConnect surface-type integer — not yet mapped to a name. */
+  surface: number
+  thresholdLat: number
+  thresholdLon: number
+}
+
+/** One selectable SID/STAR + transition combination — `transition` is null for "no
+ *  transition" (a procedure with none defined, or the direct-to-common-point option). */
+export interface NavdataProcedureOption {
+  identifier: string
+  transition: string | null
+}
+
+export type NavdataProcedureKind = 'sid' | 'star' | 'approach'
+
+/** One leg of a procedure's own common leg list — not yet split by transition, see
+ *  flightdeck's src/main/sim/facility-fields.ts for why. */
+export interface NavdataLeg {
+  type: number
+  fixIdent: string | null
+  fixType: string | null
+  fixLatitude: number
+  fixLongitude: number
+  turnDirection: number
+  courseDeg: number
+  altitude1: number
+  altitude2: number
+  speedLimit: number
+}
+
 export const IpcChannels = {
   aircraftList: 'aircraft:list',
   aircraftCreate: 'aircraft:create',
@@ -579,6 +799,7 @@ export const IpcChannels = {
   dispatchFetchOfp: 'dispatch:fetch-ofp',
   dispatchOpenSimBrief: 'dispatch:open-simbrief',
   dispatchOpenSimBriefAirframes: 'dispatch:open-simbrief-airframes',
+  dispatchOpenOfpPdf: 'dispatch:open-ofp-pdf',
   settingsGetSimbriefUsername: 'settings:get-simbrief-username',
   settingsSetSimbriefUsername: 'settings:set-simbrief-username',
   dispatchGenerateOfp: 'dispatch:generate-ofp',
@@ -593,6 +814,10 @@ export const IpcChannels = {
   settingsSetAltitudeUnit: 'settings:set-altitude-unit',
   settingsGetWindSpeedUnit: 'settings:get-wind-speed-unit',
   settingsSetWindSpeedUnit: 'settings:set-wind-speed-unit',
+  settingsGetLandingDistanceUnit: 'settings:get-landing-distance-unit',
+  settingsSetLandingDistanceUnit: 'settings:set-landing-distance-unit',
+  settingsGetTheme: 'settings:get-theme',
+  settingsSetTheme: 'settings:set-theme',
   trackingStart: 'tracking:start',
   trackingStop: 'tracking:stop',
   trackingFinish: 'tracking:finish',
@@ -600,7 +825,9 @@ export const IpcChannels = {
   flightCancel: 'flight:cancel',
   flightDelete: 'flight:delete',
   trackingPoint: 'tracking:point',
+  trackingPointsUpdated: 'tracking:points-updated',
   trackPointList: 'track-point:list',
+  trackPointCleanup: 'track-point:cleanup',
   logbookListCompletedFlights: 'logbook:list-completed-flights',
   logbookGetStats: 'logbook:get-stats',
   logbookFleetStats: 'logbook:fleet-stats',
@@ -615,11 +842,12 @@ export const IpcChannels = {
   gsxOpenReceipt: 'gsx:open-receipt',
   logbookOpenOfpPdf: 'logbook:open-ofp-pdf',
   logbookGetLanding: 'logbook:get-landing',
+  logbookGetLandingRunway: 'logbook:get-landing-runway',
   logbookGreatCircleRoute: 'logbook:great-circle-route',
   fleetListLandings: 'fleet:list-landings',
   fleetListFlights: 'fleet:list-flights',
-  settingsGetLandingThresholds: 'settings:get-landing-thresholds',
-  settingsSetLandingThresholds: 'settings:set-landing-thresholds',
+  logbookGetLandingScore: 'logbook:get-landing-score',
+  logbookListFlightScores: 'logbook:list-flight-scores',
   aircraftLookupByRegistration: 'aircraft:lookup-by-registration',
   aircraftTypeSearch: 'aircraft:type-search',
   simbriefAirframesForType: 'simbrief:airframes-for-type',
@@ -633,7 +861,21 @@ export const IpcChannels = {
   authSignup: 'auth:signup',
   authLogout: 'auth:logout',
   syncNow: 'sync:now',
-  syncStatus: 'sync:status'
+  syncStatus: 'sync:status',
+  appGetVersion: 'app:get-version',
+  appOpenGithub: 'app:open-github',
+  navdataRefreshAirport: 'navdata:refresh-airport',
+  navdataHasAirport: 'navdata:has-airport',
+  navdataListRunways: 'navdata:list-runways',
+  navdataListSids: 'navdata:list-sids',
+  navdataListStars: 'navdata:list-stars',
+  navdataListApproaches: 'navdata:list-approaches',
+  navdataGetProcedureWaypoints: 'navdata:get-procedure-waypoints',
+  trackingSetProcedureSelection: 'tracking:set-procedure-selection',
+  trackingGetOrphanedFlight: 'tracking:get-orphaned-flight',
+  trackingResumeOrphaned: 'tracking:resume-orphaned',
+  trackingDiscardOrphaned: 'tracking:discard-orphaned',
+  dispatchGetInProgressFlight: 'dispatch:get-in-progress-flight'
 } as const
 
 export interface WingLogApi {
@@ -675,12 +917,24 @@ export interface WingLogApi {
   flightDelete: (id: number) => Promise<void>
   /** Fetches the SimBrief user's latest OFP. Throws if no username is set or the fetch fails. */
   dispatchFetchOfp: () => Promise<DispatchOfp>
+  /** The one flight currently "in progress" (planned or already active — see
+   *  getInProgressFlight) reconstructed back into Dispatch's own shape, so Dispatch shows
+   *  it again after a restart instead of a blank form — its own `dispatchOfp` is
+   *  renderer-only state that doesn't survive one, unlike Track's list, which reads this
+   *  same DB state directly and was never the problem. Null if nothing's in progress, or
+   *  the in-progress flight has no stored ofpJson (an ad hoc flight started from Track). */
+  dispatchGetInProgressFlight: () => Promise<{ flight: Flight; ofp: DispatchOfp } | null>
   /** Opens SimBrief's dispatch page in the default browser, pre-filled where possible. */
   dispatchOpenSimBrief: (params: DispatchOpenSimBriefParams) => Promise<void>
   /** Opens a saved airframe's editor on SimBrief (docs/decisions.md,
    *  fleet-simbrief-airframe entry — `.../airframes/saved/<id-suffix>`), or the plain
    *  saved-airframes list page when `airframeId` is null or has no recognisable suffix. */
   dispatchOpenSimBriefAirframes: (airframeId: string | null) => Promise<void>
+  /** Opens a loaded plan's raw OFP PDF straight from the fetched-but-not-yet-flown OFP JSON
+   *  (docs/plans/dispatch-action-buttons.md) — a sibling of logbookOpenOfpPdf reusing the
+   *  same extractOfpPdfUrl, just fed the renderer's own copy of the JSON instead of looking
+   *  a flight row up by id, since a Dispatch plan has no flight row until it's flown. */
+  dispatchOpenOfpPdf: (ofpJson: string) => Promise<boolean>
   settingsGetSimbriefUsername: () => Promise<string | null>
   settingsSetSimbriefUsername: (username: string) => Promise<void>
   /**
@@ -717,15 +971,32 @@ export interface WingLogApi {
   settingsSetAltitudeUnit: (unit: AltitudeUnit) => Promise<void>
   settingsGetWindSpeedUnit: () => Promise<WindSpeedUnit>
   settingsSetWindSpeedUnit: (unit: WindSpeedUnit) => Promise<void>
+  settingsGetLandingDistanceUnit: () => Promise<LandingDistanceUnit>
+  settingsSetLandingDistanceUnit: (unit: LandingDistanceUnit) => Promise<void>
+  settingsGetTheme: () => Promise<Theme>
+  settingsSetTheme: (theme: Theme) => Promise<void>
   /** Begins tracking a planned flight. Throws if the sim isn't connected or another flight is already tracked. */
   trackingStart: (flightId: number) => Promise<void>
-  /** Cancels tracking mid-flight; marks the flight 'abandoned' rather than 'completed'. */
+  /** Cancels tracking mid-flight — deletes the flight (and any track points it recorded)
+   *  rather than saving it as 'completed'. */
   trackingStop: () => Promise<void>
   /** Manually completes the actively tracked flight now, rather than waiting for automatic shutdown detection. */
   trackingFinish: () => Promise<void>
   trackingGetActive: () => Promise<ActiveTracking | null>
   trackPointList: (flightId: number) => Promise<TrackPoint[]>
   onTrackingPoint: (listener: (point: TrackPoint) => void) => () => void
+  /** Pushed whenever a resume-cleanup pass (flightdeck-backend's docs/plans/done/
+   *  resume-track-cleanup.md) changes an already-recorded point — newly excluded, or
+   *  retagged with a new resumeSegment — carrying each affected point at its now-current
+   *  value so a live map already showing the earlier copy (from onTrackingPoint) can patch
+   *  it in place. */
+  onTrackingPointsUpdated: (listener: (points: TrackPoint[]) => void) => () => void
+  /** Manually re-runs the resume-cleanup pass for one already-completed flight — the
+   *  Logbook detail page's "Clean up track" button, alongside the automatic live/
+   *  completion-time pass TrackingController already runs on its own. Useful for a flight
+   *  completed before Phase 2 existed, or on the rare chance the live check missed
+   *  something. A no-op (both counts 0) when there's nothing to clean up. */
+  trackPointCleanup: (flightId: number) => Promise<TrackCleanupSummary>
   logbookListCompletedFlights: () => Promise<Flight[]>
   logbookGetStats: () => Promise<LogbookStats>
   logbookFleetStats: () => Promise<FleetStats[]>
@@ -762,6 +1033,10 @@ export interface WingLogApi {
    *  before this feature existed, or one with no landing phase reached (e.g. cancelled
    *  mid-air). */
   logbookGetLanding: (flightId: number) => Promise<Landing | null>
+  /** The runway geometry the touchdown diagram draws against — see LandingRunway's doc
+   *  comment. `flightId` is validated in main (an unknown id, or a flight/landing with no
+   *  runwayIdent, just yields null, same as an unknown flight elsewhere in this API). */
+  logbookGetLandingRunway: (flightId: number) => Promise<LandingRunway | null>
   /** Great-circle fallback route for Logbook's flight-detail map, [lon, lat] pairs (docs/
    *  plans/great-circle-fallback-route.md) — used only when the flight has no OFP-derived
    *  route to draw (parseRouteFromOfpJson came back empty). Null if either ICAO isn't in
@@ -773,8 +1048,12 @@ export interface WingLogApi {
    *  directly rather than filtering flightList() client-side, since that list is already
    *  hundreds of rows on a well-used fleet. */
   fleetListFlights: (aircraftId: number) => Promise<Flight[]>
-  settingsGetLandingThresholds: () => Promise<LandingThresholds>
-  settingsSetLandingThresholds: (thresholds: LandingThresholds) => Promise<void>
+  /** A flight's landing score/severity, if it has a landing row — null otherwise (same
+   *  cases logbookGetLanding returns null for). */
+  logbookGetLandingScore: (flightId: number) => Promise<LandingScoreResult | null>
+  /** Every completed flight's landing score, for Logbook's list-view column — omits any
+   *  flight with no landing row, which the list shows as "—" for (see LandingScoreSummary). */
+  logbookListFlightScores: () => Promise<LandingScoreSummary[]>
   /** Looks up an aircraft by registration via adsbdb.com. Null if not found (not an error). */
   aircraftLookupByRegistration: (registration: string) => Promise<AircraftLookupResult | null>
   /** Searches the vendored ICAO Doc 8643 type-designator list. Empty for a query under 2 chars. */
@@ -826,4 +1105,52 @@ export interface WingLogApi {
    *  isn't needed at every call site. */
   syncNow: () => Promise<SyncStatus>
   syncStatus: () => Promise<SyncStatus>
+  /** The packaged app's version (package.json's, via Electron's app.getVersion()) —
+   *  Settings' About card, so a bug report can include which build it's from. */
+  appGetVersion: () => Promise<string>
+  /** Opens the GitHub repo in the default browser — a fixed URL, not user/third-party
+   *  data, but routed through shell.openExternal like every other external link rather
+   *  than a raw <a target="_blank"> (which Electron would otherwise open as a new
+   *  in-app window, not the system browser). */
+  appOpenGithub: () => Promise<void>
+  /** Fetches fresh runway/SID/STAR data for `icao` from the sim and replaces the local
+   *  cache for it — the write path (call on OFP import, or a manual "Refresh from sim"
+   *  control). Throws if the sim isn't reachable or the fetch fails/times out. */
+  navdataRefreshAirport: (icao: string) => Promise<void>
+  /** True once navdataRefreshAirport has completed for this ICAO at least once — lets the
+   *  caller offer "refresh from sim" instead of showing an empty list as if it were final. */
+  navdataHasAirport: (icao: string) => Promise<boolean>
+  navdataListRunways: (icao: string) => Promise<NavdataRunwayOption[]>
+  /** `runway`, when given, filters to procedures that apply to it — a procedure with no
+   *  runway transitions registered at all is treated as applying to any runway. */
+  navdataListSids: (icao: string, runway?: string | null) => Promise<NavdataProcedureOption[]>
+  navdataListStars: (icao: string, runway?: string | null) => Promise<NavdataProcedureOption[]>
+  /** `runway`, when given, filters to approaches for that runway — an approach always
+   *  belongs to exactly one, unlike a SID/STAR. `identifier` is a constructed display label
+   *  ("ILS 07C", "RNP Z 07R"), not a raw NAME — approaches have none of their own. */
+  navdataListApproaches: (icao: string, runway?: string | null) => Promise<NavdataProcedureOption[]>
+  navdataGetProcedureWaypoints: (
+    icao: string,
+    kind: NavdataProcedureKind,
+    identifier: string,
+    runway?: string | null,
+    transition?: string | null
+  ) => Promise<NavdataLeg[]>
+  /** Pushes the current live selection to the main process so it's available whenever the
+   *  active flight completes — manual finish *or* automatic shutdown detection, neither of
+   *  which round-trips through the renderer (TrackingController). Call on every change
+   *  while a flight is actively being tracked; a no-op call with nothing tracked is
+   *  harmless (TrackingController just caches it for the flight that starts next). */
+  trackingSetProcedureSelection: (selection: ProcedureSelection) => Promise<void>
+  /** The flight left 'active' if the app quit or crashed before it reached 'completed' or
+   *  'abandoned' — checked once at startup (main/index.ts), so this only ever returns
+   *  non-null until the user answers the resume/discard prompt it's meant to drive (or
+   *  null immediately, the common case: nothing was orphaned). */
+  trackingGetOrphanedFlight: () => Promise<Flight | null>
+  /** User chose to resume the orphaned flight above — picks phase detection back up from
+   *  where its last persisted track point left off (TrackingController.resume). */
+  trackingResumeOrphaned: (flightId: number) => Promise<void>
+  /** User chose to discard the orphaned flight above — deletes it (and its track points)
+   *  rather than leaving it stuck in 'active' forever. */
+  trackingDiscardOrphaned: (flightId: number) => Promise<void>
 }

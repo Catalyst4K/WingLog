@@ -2,16 +2,6 @@ import { useEffect, useState } from 'react'
 import { ArrowLeft, ArrowRightLeft, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Aircraft, AircraftLanding, Flight, FleetStats, NewAircraft } from '@shared/ipc'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle
-} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -28,12 +18,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { AircraftForm } from './AircraftForm'
 import { AircraftPhoto } from './AircraftPhoto'
 import { AirlineLogo } from './AirlineLogo'
+import { useConfirm } from './hooks/useConfirm'
+import { useResetSignal } from './hooks/useResetSignal'
 import { useSortable } from './hooks/useSortable'
 import { LandingBadge } from './LandingBadge'
-import { classifyLanding } from './landing-severity'
+import { LandingScoreBadge } from './LandingScoreBadge'
 import { SortableHead } from './SortableHead'
 import { formatMinutes, msToFpm, msToKt } from './units'
-import { useLandingThresholds } from './useLandingThresholds'
 
 type View = { kind: 'list' } | { kind: 'detail'; id: number } | { kind: 'new' } | { kind: 'edit'; id: number }
 
@@ -142,7 +133,6 @@ function SimBriefProfileCard(props: { aircraft: Aircraft }): React.JSX.Element {
  *  tracked since this feature shipped have a landing record at all. */
 function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
   const [landings, setLandings] = useState<AircraftLanding[]>([])
-  const thresholds = useLandingThresholds()
 
   useEffect(() => {
     window.winglog.fleetListLandings(props.aircraftId).then(setLandings)
@@ -160,7 +150,6 @@ function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
           <div className="flex flex-col gap-1.5 text-sm">
             {landings.map((l) => {
               const fpm = Math.round(msToFpm(l.verticalSpeedMs))
-              const severity = classifyLanding(l.verticalSpeedMs, thresholds)
               return (
                 <div key={l.id} className="flex items-center justify-between gap-3">
                   <span className="text-muted-foreground">{new Date(l.touchdownTsUtc).toLocaleDateString()}</span>
@@ -171,7 +160,8 @@ function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
                   <span className="text-muted-foreground">
                     {l.crosswindMs != null ? `${Math.round(msToKt(Math.abs(l.crosswindMs)))} kt xwind` : '—'}
                   </span>
-                  <LandingBadge severity={severity} />
+                  <LandingScoreBadge score={l.score} />
+                  <LandingBadge severity={l.severity} />
                 </div>
               )
             })}
@@ -258,11 +248,17 @@ function ReplaceAircraftDialog(props: {
   const target = props.candidates.find((c) => c.id === targetId) ?? null
 
   async function handleConfirm(): Promise<void> {
+    /* v8 ignore start -- defensive only: the Replace button is disabled whenever `!target`,
+     * so this can't fire from a real click. */
     if (!target) return
+    /* v8 ignore stop */
     setSubmitting(true)
     try {
       await props.onConfirm(target.id)
       props.onOpenChange(false)
+    } catch {
+      // The parent already surfaces the failure via toast; swallow it here so it doesn't
+      // become an unhandled rejection from this onClick handler, and leave the dialog open.
     } finally {
       setSubmitting(false)
     }
@@ -311,8 +307,8 @@ function ReplaceAircraftDialog(props: {
           <Button type="button" variant="outline" onClick={() => props.onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="button" onClick={handleConfirm} disabled={!target || submitting}>
-            {submitting ? 'Replacing…' : 'Replace'}
+          <Button type="button" variant="destructive" onClick={handleConfirm} disabled={!target || submitting}>
+            {submitting ? 'Replacing…' : 'Replace aircraft'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -418,14 +414,19 @@ export function FleetView(props: {
   /** Called once initialAircraftId has been consumed — see LogbookView's
    *  onInitialFlightConsumed for why this needs to happen exactly once. */
   onInitialAircraftConsumed?: () => void
+  /** Bumped by App.tsx when the Fleet tab is clicked while already active — returns to
+   *  the aircraft list (docs/plans/navigation-tab-behaviour.md). See useResetSignal. */
+  resetSignal?: number
 }): React.JSX.Element {
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
   const [stats, setStats] = useState<FleetStats[]>([])
   const [view, setView] = useState<View>(
     props.initialAircraftId != null ? { kind: 'detail', id: props.initialAircraftId } : { kind: 'list' }
   )
-  const [deleteTarget, setDeleteTarget] = useState<Aircraft | null>(null)
   const [replaceTarget, setReplaceTarget] = useState<Aircraft | null>(null)
+  const [confirm, confirmDialog] = useConfirm()
+
+  useResetSignal(props.resetSignal, () => setView({ kind: 'list' }))
 
   useEffect(() => {
     if (props.initialAircraftId != null) props.onInitialAircraftConsumed?.()
@@ -484,10 +485,14 @@ export function FleetView(props: {
     setView({ kind: 'detail', id })
   }
 
-  async function handleConfirmDelete(): Promise<void> {
-    if (!deleteTarget) return
-    const target = deleteTarget
-    setDeleteTarget(null)
+  async function handleDelete(target: Aircraft): Promise<void> {
+    const ok = await confirm({
+      title: `Delete ${target.registration}?`,
+      description: 'This cannot be undone.',
+      confirmLabel: 'Delete aircraft',
+      destructive: true
+    })
+    if (!ok) return
     try {
       await window.winglog.aircraftDelete(target.id)
       await reload()
@@ -499,13 +504,21 @@ export function FleetView(props: {
   }
 
   async function handleConfirmReplace(replacementId: number): Promise<void> {
+    /* v8 ignore start -- defensive only: only ever called (as ReplaceAircraftDialog's
+     * onConfirm) while that dialog is mounted, which only happens while replaceTarget is
+     * set. */
     if (!replaceTarget) return
+    /* v8 ignore stop */
     const target = replaceTarget
+    // replacementId always comes from activeAircraft (the same `aircraft` state this closes
+    // over), so it's always found — the `?? replacementId` fallback below is defensive only.
     const replacement = aircraft.find((a) => a.id === replacementId)
     try {
       await window.winglog.aircraftReplace(target.id, replacementId)
       await reload()
+      /* v8 ignore start -- see the defensive-only note above `replacement` */
       toast.success(`${target.registration} retired, replaced by ${replacement?.registration ?? replacementId}.`)
+      /* v8 ignore stop */
       setView({ kind: 'detail', id: replacementId })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
@@ -524,7 +537,11 @@ export function FleetView(props: {
 
   if (view.kind === 'edit') {
     const existing = aircraft.find((a) => a.id === view.id)
+    /* v8 ignore start -- defensive only: `view.id` is only ever set (via onEdit) to an id
+     * that was just found in `aircraft` on the detail page a moment earlier, and nothing in
+     * this component removes an aircraft out from under an open edit view. */
     if (!existing) return <p className="text-sm text-muted-foreground">Aircraft not found.</p>
+    /* v8 ignore stop */
     return (
       <div className="flex flex-col gap-6">
         <h1 className="font-heading text-2xl font-semibold text-foreground">Edit {existing.registration}</h1>
@@ -547,26 +564,13 @@ export function FleetView(props: {
           stats={stats.find((s) => s.aircraftId === existing.id)}
           replacedBy={aircraft.find((a) => a.id === existing.replacedByAircraftId)}
           onEdit={() => setView({ kind: 'edit', id: view.id })}
-          onDelete={() => setDeleteTarget(existing)}
+          onDelete={() => handleDelete(existing)}
           onReplace={() => setReplaceTarget(existing)}
           onViewAircraft={(id) => setView({ kind: 'detail', id })}
           onOpenFlight={(flightId) => props.onOpenFlightInLogbook(flightId, existing.id)}
           onBack={() => setView({ kind: 'list' })}
         />
-        <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete {deleteTarget?.registration}?</AlertDialogTitle>
-              <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction variant="destructive" onClick={handleConfirmDelete}>
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        {confirmDialog}
         {replaceTarget && (
           <ReplaceAircraftDialog
             aircraft={replaceTarget}

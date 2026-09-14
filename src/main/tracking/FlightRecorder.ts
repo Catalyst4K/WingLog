@@ -55,12 +55,52 @@ export class FlightRecorder {
   // (line below), which never happens again once truly on the ground rolling out, so the
   // flight never reached 'shutdown' and auto-completion never fired.
   private hasLanded = false
+  // Tags every point this recorder writes — 0 for a flight never resumed, incremented by
+  // TrackingController.resume() each time the app/process restarts mid-flight (see this
+  // class's own resume-parameter comment), or by bumpResumeSegment below when a
+  // resume-cleanup pass finds a physically-impossible jump with no resume() involved at
+  // all (flightdeck-backend's docs/plans/done/resume-track-cleanup.md — a payware aircraft's
+  // own save-state/reload feature, confirmed live 2026-09-13). Never touched by the phase
+  // machine itself; the map uses it to never draw a line across a spawn-point/teleport-back
+  // artefact, even before any cleanup logic decides which points within a segment are
+  // spurious.
+  private resumeSegment = 0
 
-  constructor(private readonly flightId: number) {}
+  /**
+   * `resume` restarts phase detection mid-flight rather than at 'preflight' — used when
+   * TrackingController picks a flight's tracking back up after the app quit or crashed
+   * before it reached 'shutdown' (see getActiveFlight's doc comment). Without this, a
+   * resumed recorder would sit stuck at 'preflight' forever for an aircraft that's
+   * actually airborne — advancePhase's 'preflight' case only transitions on `t.onGround`,
+   * which never becomes true again mid-flight. `phase` comes from the flight's last
+   * persisted track_point (each point records the phase it was captured in); `hasLanded`
+   * from whether the flight row already has an actual_on_utc; `resumeSegment` is one more
+   * than the last persisted point's own segment (0 if there were no prior points at all).
+   */
+  constructor(
+    private readonly flightId: number,
+    resume?: { phase: FlightPhase; hasLanded: boolean; resumeSegment: number }
+  ) {
+    if (resume) {
+      this.phase = resume.phase
+      this.hasLanded = resume.hasLanded
+      this.resumeSegment = resume.resumeSegment
+    }
+  }
 
   /** "Freeze the phase machine on pause" (PLAN.md §7) — no transitions, no points, while true. */
   setPaused(paused: boolean): void {
     this.paused = paused
+  }
+
+  /** Called by TrackingController the moment a live resume-cleanup check finds a
+   *  physically-impossible jump with no resume window open (checkForLiveJump) — every
+   *  point from here on needs the new segment too, not just the one(s) the cleanup pass
+   *  could already see when it ran. Without this, points recorded after the jump but
+   *  before the next one would keep stamping the stale segment, splitting what should be
+   *  one continuous new segment in two. */
+  bumpResumeSegment(newSegment: number): void {
+    this.resumeSegment = newSegment
   }
 
   getPhase(): FlightPhase {
@@ -114,7 +154,15 @@ export class FlightRecorder {
         break
 
       case 'takeoff':
-        if (!t.onGround) this.phase = 'climb'
+        // A rejected takeoff — aborted before ever leaving the ground — has no way back to
+        // 'taxi' without this: the only other exit is !t.onGround, which never happens if
+        // the aircraft decelerates and taxis back instead of departing. Mirrors 'landing'
+        // below (the symmetric case: an aborted roll decelerating back below roll speed).
+        if (!t.onGround) {
+          this.phase = 'climb'
+          break
+        }
+        if (t.groundSpeedMs < ROLL_SPEED_MS) this.phase = 'taxi'
         break
 
       case 'climb':
@@ -194,6 +242,7 @@ export class FlightRecorder {
       latitude: t.latitude,
       longitude: t.longitude,
       altitudeM: t.altitudeM,
+      pressureAltitudeM: t.pressureAltitudeM,
       altitudeAglM: t.altitudeAglM,
       indicatedAirspeedMs: t.indicatedAirspeedMs,
       machSpeed: t.machSpeed,
@@ -207,7 +256,10 @@ export class FlightRecorder {
       fuelKg: t.fuelTotalKg,
       gForce: t.gForce,
       windSpeedMs: t.windSpeedMs,
-      windDirectionDeg: t.windDirectionDeg
+      windDirectionDeg: t.windDirectionDeg,
+      resumeSegment: this.resumeSegment,
+      simRate: t.simRate,
+      excludedReason: null
     }
   }
 }

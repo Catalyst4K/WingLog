@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest'
+import type { NavdataLeg } from '@shared/ipc'
 import {
+  applyProcedureSelection,
+  approachRunway,
   formatEnrouteOnly,
   parseRouteFromOfpJson,
   parseRouteProcedures,
+  parseTransitionAltitudes,
   parseWaypointsFromOfpJson,
-  segmentWaypoints
+  type ProcedureLegs,
+  segmentWaypoints,
+  type Waypoint
 } from './route'
 
 describe('parseRouteFromOfpJson', () => {
@@ -120,6 +126,28 @@ describe('parseRouteProcedures', () => {
   it('returns nulls for missing general/api_params/null input', () => {
     expect(parseRouteProcedures(null)).toEqual(NONE)
     expect(parseRouteProcedures(JSON.stringify({}))).toEqual(NONE)
+  })
+})
+
+describe('parseTransitionAltitudes', () => {
+  // Real VHHH round trip's OFP fields, confirmed live (docs/simbrief-notes.md, 2026-09-13):
+  // zero-padded strings, not plain numbers.
+  it('reads real zero-padded trans_alt/trans_level strings', () => {
+    expect(
+      parseTransitionAltitudes(
+        JSON.stringify({ origin: { trans_alt: '09000' }, destination: { trans_level: '11000' } })
+      )
+    ).toEqual({ transAltFt: 9000, transLevelFt: 11000 })
+  })
+
+  it('returns null when either field is missing, guarding the {}-when-absent trap', () => {
+    expect(parseTransitionAltitudes(JSON.stringify({ origin: {}, destination: { trans_level: '11000' } }))).toBeNull()
+    expect(parseTransitionAltitudes(JSON.stringify({ origin: { trans_alt: '09000' }, destination: {} }))).toBeNull()
+  })
+
+  it('returns null for missing sections/null input', () => {
+    expect(parseTransitionAltitudes(null)).toBeNull()
+    expect(parseTransitionAltitudes(JSON.stringify({}))).toBeNull()
   })
 })
 
@@ -290,5 +318,130 @@ describe('formatEnrouteOnly', () => {
   it('returns an empty string for null input or a missing route', () => {
     expect(formatEnrouteOnly(null)).toBe('')
     expect(formatEnrouteOnly(JSON.stringify({}))).toBe('')
+  })
+})
+
+describe('applyProcedureSelection', () => {
+  const baseWaypoints: Waypoint[] = [
+    { ident: 'SIMBRIEF_SID', lon: 1, lat: 1, altitudeFt: 2000, segment: 'sid' },
+    { ident: 'ENR1', lon: 2, lat: 2, altitudeFt: 35000, segment: 'enroute' },
+    { ident: 'ENR2', lon: 3, lat: 3, altitudeFt: 35000, segment: 'enroute' },
+    { ident: 'SIMBRIEF_STAR', lon: 4, lat: 4, altitudeFt: 8000, segment: 'star' }
+  ]
+
+  function leg(fixIdent: string | null, altitude1 = 0): NavdataLeg {
+    return {
+      type: 4,
+      fixIdent,
+      fixType: 'W',
+      fixLatitude: 10,
+      fixLongitude: 20,
+      turnDirection: 0,
+      courseDeg: 0,
+      altitude1,
+      altitude2: 0,
+      speedLimit: 0
+    }
+  }
+
+  it('passes the route through unchanged when nothing is selected', () => {
+    expect(applyProcedureSelection(baseWaypoints, null, null, null)).toEqual(baseWaypoints)
+  })
+
+  it('replaces only the SID segment when a SID is selected', () => {
+    const sid: ProcedureLegs = { identifier: 'REAL_SID', legs: [leg('RWYFIX', 1500), leg('COMMON')] }
+    const result = applyProcedureSelection(baseWaypoints, sid, null, null)
+    expect(result).toEqual([
+      { ident: 'RWYFIX', lon: 20, lat: 10, altitudeFt: 1500, segment: 'sid' },
+      { ident: 'COMMON', lon: 20, lat: 10, altitudeFt: 0, segment: 'sid' },
+      { ident: 'ENR1', lon: 2, lat: 2, altitudeFt: 35000, segment: 'enroute' },
+      { ident: 'ENR2', lon: 3, lat: 3, altitudeFt: 35000, segment: 'enroute' },
+      { ident: 'SIMBRIEF_STAR', lon: 4, lat: 4, altitudeFt: 8000, segment: 'star' }
+    ])
+  })
+
+  it('replaces only the STAR segment when a STAR is selected, leaving SID/enroute alone', () => {
+    const star: ProcedureLegs = { identifier: 'REAL_STAR', legs: [leg('STARFIX')] }
+    const result = applyProcedureSelection(baseWaypoints, null, star, null)
+    expect(result).toEqual([
+      { ident: 'SIMBRIEF_SID', lon: 1, lat: 1, altitudeFt: 2000, segment: 'sid' },
+      { ident: 'ENR1', lon: 2, lat: 2, altitudeFt: 35000, segment: 'enroute' },
+      { ident: 'ENR2', lon: 3, lat: 3, altitudeFt: 35000, segment: 'enroute' },
+      { ident: 'STARFIX', lon: 20, lat: 10, altitudeFt: 0, segment: 'star' }
+    ])
+  })
+
+  it('drops the stale enroute tail when the OFP never named a STAR itself', () => {
+    // No fix here is tagged 'star' — the whole route reaches the destination as 'enroute',
+    // the real shape segmentWaypoints produces when general.star_ident is empty.
+    const noStarBase: Waypoint[] = [
+      { ident: 'SIMBRIEF_SID', lon: 1, lat: 1, altitudeFt: 2000, segment: 'sid' },
+      { ident: 'ENR1', lon: 2, lat: 2, altitudeFt: 35000, segment: 'enroute' },
+      { ident: 'ENR2', lon: 3, lat: 3, altitudeFt: 35000, segment: 'enroute' },
+      { ident: 'ENR3', lon: 4, lat: 4, altitudeFt: 8000, segment: 'enroute' }
+    ]
+    const star: ProcedureLegs = { identifier: 'REAL_STAR', legs: [leg('STARFIX')] }
+    const result = applyProcedureSelection(noStarBase, null, star, null)
+    expect(result.map((w) => [w.ident, w.segment])).toEqual([
+      ['SIMBRIEF_SID', 'sid'],
+      ['STARFIX', 'star']
+    ])
+  })
+
+  it('cuts the stale enroute tail at the STAR entry fix when the base route already passes through it', () => {
+    const noStarBase: Waypoint[] = [
+      { ident: 'SIMBRIEF_SID', lon: 1, lat: 1, altitudeFt: 2000, segment: 'sid' },
+      { ident: 'ENR1', lon: 2, lat: 2, altitudeFt: 35000, segment: 'enroute' },
+      { ident: 'LIMES', lon: 3, lat: 3, altitudeFt: 10000, segment: 'enroute' },
+      { ident: 'ENR3', lon: 4, lat: 4, altitudeFt: 8000, segment: 'enroute' }
+    ]
+    const star: ProcedureLegs = { identifier: 'REAL_STAR', legs: [leg('LIMES'), leg('STARFIX')] }
+    const result = applyProcedureSelection(noStarBase, null, star, null)
+    expect(result.map((w) => [w.ident, w.segment])).toEqual([
+      ['SIMBRIEF_SID', 'sid'],
+      ['ENR1', 'enroute'],
+      ['LIMES', 'star'],
+      ['STARFIX', 'star']
+    ])
+  })
+
+  it('replaces SID and STAR independently when both are selected', () => {
+    const sid: ProcedureLegs = { identifier: 'REAL_SID', legs: [leg('A')] }
+    const star: ProcedureLegs = { identifier: 'REAL_STAR', legs: [leg('B')] }
+    const result = applyProcedureSelection(baseWaypoints, sid, star, null)
+    expect(result.map((w) => w.ident)).toEqual(['A', 'ENR1', 'ENR2', 'B'])
+  })
+
+  it('appends the approach after everything else, continuing on from the STAR', () => {
+    const star: ProcedureLegs = { identifier: 'REAL_STAR', legs: [leg('STARFIX')] }
+    const approach: ProcedureLegs = { identifier: 'ILS 07C', legs: [leg('LIMES'), leg('RW07C')] }
+    const result = applyProcedureSelection(baseWaypoints, null, star, approach)
+    expect(result.map((w) => [w.ident, w.segment])).toEqual([
+      ['SIMBRIEF_SID', 'sid'],
+      ['ENR1', 'enroute'],
+      ['ENR2', 'enroute'],
+      ['STARFIX', 'star'],
+      ['LIMES', 'approach'],
+      ['RW07C', 'approach']
+    ])
+  })
+
+  it('drops a leg with no real fix (fixIdent null) rather than rendering a nameless waypoint', () => {
+    const sid: ProcedureLegs = { identifier: 'REAL_SID', legs: [leg(null), leg('REAL')] }
+    const result = applyProcedureSelection(baseWaypoints, sid, null, null)
+    expect(result.filter((w) => w.segment === 'sid')).toEqual([
+      { ident: 'REAL', lon: 20, lat: 10, altitudeFt: 0, segment: 'sid' }
+    ])
+  })
+})
+
+describe('approachRunway', () => {
+  it('reads the trailing runway ident off a constructed approach identifier', () => {
+    expect(approachRunway('ILS 07C')).toBe('07C')
+    expect(approachRunway('RNAV Z 07R')).toBe('07R')
+  })
+
+  it('returns null for null input', () => {
+    expect(approachRunway(null)).toBeNull()
   })
 })

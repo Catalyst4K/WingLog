@@ -1,20 +1,18 @@
 import { useEffect, useState } from 'react'
-import { X } from 'lucide-react'
 import { toast } from 'sonner'
-import type { Aircraft, AltitudeUnit, DispatchOfp, FleetStats, Flight, WeightUnit, WindSpeedUnit } from '@shared/ipc'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle
-} from '@/components/ui/alert-dialog'
+import type {
+  Aircraft,
+  AltitudeUnit,
+  DispatchOfp,
+  FleetStats,
+  Flight,
+  ProcedureSelection,
+  WeightUnit,
+  WindSpeedUnit
+} from '@shared/ipc'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -22,38 +20,12 @@ import { AirportSearch } from './AirportSearch'
 import { DispatchAdvancedDialog } from './DispatchAdvancedDialog'
 import { countSetOptions, defaultDispatchOptions, dispatchOptionsToUrlParams, type DispatchOptions } from '@shared/dispatch-options'
 import { defaultDepartureTime, fromDatetimeLocalValue, toDatetimeLocalValue, toSimBriefDeparture } from './dispatch-time'
+import { useConfirm } from './hooks/useConfirm'
 import { MetarPanel } from './MetarPanel'
-import { formatEnrouteOnly, parseRouteProcedures, type RouteProcedures } from './route'
+import { ProcedureSelector } from './ProcedureSelector'
+import { useLiveWaypoints } from './procedureSelection'
+import { formatEnrouteOnly } from './route'
 import { formatAltitude, formatWeight, mToFt } from './units'
-
-const NO_PROCEDURES: RouteProcedures = {
-  departureRunway: null,
-  sidIdent: null,
-  sidTransition: null,
-  starIdent: null,
-  starTransition: null,
-  arrivalRunway: null
-}
-
-/** One procedure dropdown. Real alternates need real navdata (blocked on Navigraph —
- *  docs/plans/sid-star-selection.md), so today each is autofilled with SimBrief's own
- *  choice and disabled when there isn't one — the map already colors SID/STAR waypoints
- *  by segment (FlightMap.tsx), so this box and the map already agree on the single value
- *  there is to show. Kept as a real Select (not a plain label) so a Navigraph-backed list
- *  of alternates drops in later without reshaping this box. */
-function ProcedureSelect(props: { label: string; value: string | null; onChange: (value: string) => void }): React.JSX.Element {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <Label>{props.label}</Label>
-      <Select value={props.value ?? undefined} onValueChange={props.onChange} disabled={props.value == null}>
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder="None" />
-        </SelectTrigger>
-        <SelectContent>{props.value != null && <SelectItem value={props.value}>{props.value}</SelectItem>}</SelectContent>
-      </Select>
-    </div>
-  )
-}
 
 function formatUtc(iso: string): string {
   return `${iso.slice(0, 16).replace('T', ' ')}Z`
@@ -87,6 +59,10 @@ export function DispatchView(props: {
    *  tab switch the same way `ofp` does. */
   dispatchedOfpId: string | null
   onDispatchedOfpIdChange: (ofpId: string | null) => void
+  /** The live procedure selection — lifted to App.tsx so Dispatch and Track always agree on
+   *  what's currently chosen (docs/plans/navdata-without-navigraph.md, Phase 5). */
+  selection: ProcedureSelection
+  onSelectionChange: (next: ProcedureSelection) => void
 }): React.JSX.Element {
   const { ofp } = props
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
@@ -111,25 +87,14 @@ export function DispatchView(props: {
   const [generating, setGenerating] = useState(false)
   const [generationAvailable, setGenerationAvailable] = useState(false)
   const [saving, setSaving] = useState(false)
-  // Set only when Fly would abandon a flight Track already has in progress — see
-  // handleFlyClick. Holds the warning text to show; null means no confirmation needed.
-  const [flyWarning, setFlyWarning] = useState<string | null>(null)
+  const [confirm, confirmDialog] = useConfirm()
   // Set after a fetch whose OFP was generated against a custom airframe that differs from
   // (or is missing on) the matched fleet aircraft — offered, not applied silently, same
   // as the registration-match heuristic (docs/decisions.md, fleet-simbrief-airframe entry).
   const [airframeCapture, setAirframeCapture] = useState<{ aircraftId: number; airframeId: string } | null>(null)
-  // Departure/arrival runway, SID/STAR and their transitions — autofilled from whatever
-  // SimBrief chose each time a new OFP comes in, independently editable per field
-  // thereafter (see ProcedureSelect's doc comment for why "editable" means one option today).
-  // Re-derived during render (not an effect) when the OFP identity changes, per React's own
-  // "adjusting state when a prop changes" pattern — an effect here would setState after an
-  // extra render, showing the previous plan's procedures for one frame.
-  const [procedures, setProcedures] = useState<RouteProcedures>(NO_PROCEDURES)
-  const [proceduresForOfpId, setProceduresForOfpId] = useState<string | null>(null)
-  if ((ofp?.ofpId ?? null) !== proceduresForOfpId) {
-    setProceduresForOfpId(ofp?.ofpId ?? null)
-    setProcedures(ofp ? parseRouteProcedures(ofp.ofpJson) : NO_PROCEDURES)
-  }
+  // The live route with the current selection spliced in — single source of truth this and
+  // Track's map both render from (docs/plans/navdata-without-navigraph.md, Phase 5).
+  const liveWaypoints = useLiveWaypoints(ofp, props.selection)
 
   useEffect(() => {
     // Retired aircraft (replacedByAircraftId set — docs/plans/aircraft-replacement.md) have
@@ -268,24 +233,38 @@ export function DispatchView(props: {
     ])
     const activeFlight = active ? flights.find((f) => f.id === active.flightId) : undefined
     const otherPlanned = flights.filter((f) => f.status === 'planned')
-    if (activeFlight) {
-      setFlyWarning(
-        `This will abandon the flight currently being tracked, ${activeFlight.flightNumber ?? `#${activeFlight.id}`}.`
-      )
-    } else if (otherPlanned.length > 0) {
-      setFlyWarning(
-        otherPlanned.length === 1
-          ? `This will abandon the other planned flight, ${otherPlanned[0].flightNumber ?? `#${otherPlanned[0].id}`}.`
-          : `This will abandon ${otherPlanned.length} other planned flights.`
-      )
-    } else {
-      await handleSaveFlight()
+    const warning = activeFlight
+      ? `This will delete the flight currently being tracked, ${activeFlight.flightNumber ?? `#${activeFlight.id}`}.`
+      : otherPlanned.length === 1
+        ? `This will abandon the other planned flight, ${otherPlanned[0].flightNumber ?? `#${otherPlanned[0].id}`}.`
+        : otherPlanned.length > 1
+          ? `This will abandon ${otherPlanned.length} other planned flights.`
+          : null
+    if (warning) {
+      const ok = await confirm({ title: 'Fly this plan instead?', description: warning, confirmLabel: 'Fly' })
+      if (!ok) return
     }
+    await handleSaveFlight()
   }
 
-  async function handleConfirmFly(): Promise<void> {
-    setFlyWarning(null)
-    await handleSaveFlight()
+  async function handleDiscardPlan(): Promise<void> {
+    const ok = await confirm({
+      title: 'Discard this plan?',
+      description: 'You can fetch it again from SimBrief.',
+      confirmLabel: 'Discard plan',
+      destructive: true
+    })
+    if (!ok) return
+    props.onOfpChange(null)
+  }
+
+  // Sibling of Logbook's handleViewOfpPdf (docs/plans/dispatch-action-buttons.md) — works
+  // for a plan that's only fetched, not flown yet, since it passes the OFP JSON the
+  // renderer already holds rather than looking a flight row up by id.
+  async function handleViewOfpPdf(): Promise<void> {
+    if (!ofp) return
+    const opened = await window.winglog.dispatchOpenOfpPdf(ofp.ofpJson)
+    if (!opened) toast.error('No OFP PDF available for this plan.')
   }
 
   async function handleSaveFlight(): Promise<void> {
@@ -309,7 +288,14 @@ export function DispatchView(props: {
         towKg: ofp.towKg,
         ldwKg: ofp.ldwKg,
         ofpId: ofp.ofpId,
-        ofpJson: ofp.ofpJson
+        ofpJson: ofp.ofpJson,
+        selectedDepartureRunway: props.selection.departureRunway,
+        selectedSidIdent: props.selection.sidIdent,
+        selectedSidTransition: props.selection.sidTransition,
+        selectedStarIdent: props.selection.starIdent,
+        selectedStarTransition: props.selection.starTransition,
+        selectedApproachIdent: props.selection.approachIdent,
+        selectedApproachTransition: props.selection.approachTransition
       })
       // The OFP itself stays put — Dispatch doubles as a weights/info reference for
       // whatever's currently dispatched until it's overwritten by the next fetch (see
@@ -440,41 +426,13 @@ export function DispatchView(props: {
             <Card size="sm">
               <CardHeader>
                 <CardTitle>Procedures</CardTitle>
-                <CardDescription>
-                  SimBrief's chosen runways, SID and STAR. Swapping to a different procedure needs real
-                  navdata, which isn't wired in yet — see docs/plans/sid-star-selection.md.
-                </CardDescription>
               </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-3">
-                <ProcedureSelect
-                  label="Departure runway"
-                  value={procedures.departureRunway}
-                  onChange={(v) => setProcedures((p) => ({ ...p, departureRunway: v }))}
-                />
-                <ProcedureSelect
-                  label="Arrival runway"
-                  value={procedures.arrivalRunway}
-                  onChange={(v) => setProcedures((p) => ({ ...p, arrivalRunway: v }))}
-                />
-                <ProcedureSelect
-                  label="SID"
-                  value={procedures.sidIdent}
-                  onChange={(v) => setProcedures((p) => ({ ...p, sidIdent: v }))}
-                />
-                <ProcedureSelect
-                  label="STAR"
-                  value={procedures.starIdent}
-                  onChange={(v) => setProcedures((p) => ({ ...p, starIdent: v }))}
-                />
-                <ProcedureSelect
-                  label="SID transition"
-                  value={procedures.sidTransition}
-                  onChange={(v) => setProcedures((p) => ({ ...p, sidTransition: v }))}
-                />
-                <ProcedureSelect
-                  label="STAR transition"
-                  value={procedures.starTransition}
-                  onChange={(v) => setProcedures((p) => ({ ...p, starTransition: v }))}
+              <CardContent>
+                <ProcedureSelector
+                  airports={ofp}
+                  selection={props.selection}
+                  onSelectionChange={props.onSelectionChange}
+                  liveWaypoints={liveWaypoints}
                 />
               </CardContent>
             </Card>
@@ -497,15 +455,8 @@ export function DispatchView(props: {
                 </CardTitle>
                 <CardAction className="flex items-center gap-2">
                   {alreadyFlown && <Badge variant="secondary">Flying</Badge>}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Unload flight plan"
-                    title="Unload flight plan"
-                    onClick={() => props.onOfpChange(null)}
-                  >
-                    <X />
+                  <Button type="button" variant="outline" size="sm" onClick={handleViewOfpPdf}>
+                    View OFP PDF
                   </Button>
                 </CardAction>
               </CardHeader>
@@ -594,12 +545,23 @@ export function DispatchView(props: {
                         one manually.
                       </p>
                     )}
-
-                    <Button type="button" onClick={handleFlyClick} disabled={saving || selectedAircraftId == null}>
-                      {saving ? 'Starting…' : 'Fly'}
-                    </Button>
                   </>
                 )}
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    size="lg"
+                    className="flex-[2]"
+                    onClick={handleFlyClick}
+                    disabled={saving || alreadyFlown || selectedAircraftId == null}
+                  >
+                    {saving ? 'Starting…' : 'Fly'}
+                  </Button>
+                  <Button type="button" variant="outline" className="flex-1" onClick={handleDiscardPlan}>
+                    Discard plan
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ) : (
@@ -608,18 +570,7 @@ export function DispatchView(props: {
         </div>
       </div>
 
-      <AlertDialog open={flyWarning !== null} onOpenChange={(open) => !open && setFlyWarning(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Fly this plan instead?</AlertDialogTitle>
-            <AlertDialogDescription>{flyWarning}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Back</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmFly}>Fly</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {confirmDialog}
 
       <DispatchAdvancedDialog
         open={advancedOpen}

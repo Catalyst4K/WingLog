@@ -1,3 +1,5 @@
+import type { NavdataLeg } from '@shared/ipc'
+
 function navlogFixes(ofpJson: string | null): Record<string, unknown>[] {
   if (!ofpJson) return []
   try {
@@ -17,28 +19,27 @@ function optStr(value: unknown): string | null {
   return typeof value === 'string' && value !== '' ? value : null
 }
 
-function generalSection(ofpJson: string | null): Record<string, unknown> {
+/** Reads one top-level OFP section by name — SimBrief's JSON is a flat object of named
+ *  sections (general, api_params, origin, destination, ...), each itself an object. Empty
+ *  object for a missing/malformed section or unparseable JSON, matching every other
+ *  "empty rather than throw" function in this module. */
+function objectSection(ofpJson: string | null, key: string): Record<string, unknown> {
   if (!ofpJson) return {}
   try {
-    const parsed = JSON.parse(ofpJson) as { general?: unknown }
-    return typeof parsed.general === 'object' && parsed.general !== null
-      ? (parsed.general as Record<string, unknown>)
-      : {}
+    const parsed = JSON.parse(ofpJson) as Record<string, unknown>
+    const section = parsed[key]
+    return typeof section === 'object' && section !== null ? (section as Record<string, unknown>) : {}
   } catch {
     return {}
   }
 }
 
+function generalSection(ofpJson: string | null): Record<string, unknown> {
+  return objectSection(ofpJson, 'general')
+}
+
 function apiParamsSection(ofpJson: string | null): Record<string, unknown> {
-  if (!ofpJson) return {}
-  try {
-    const parsed = JSON.parse(ofpJson) as { api_params?: unknown }
-    return typeof parsed.api_params === 'object' && parsed.api_params !== null
-      ? (parsed.api_params as Record<string, unknown>)
-      : {}
-  } catch {
-    return {}
-  }
+  return objectSection(ofpJson, 'api_params')
 }
 
 /**
@@ -58,7 +59,7 @@ export function parseRouteFromOfpJson(ofpJson: string | null): [number, number][
   return points
 }
 
-export type RouteSegment = 'sid' | 'enroute' | 'star'
+export type RouteSegment = 'sid' | 'enroute' | 'star' | 'approach'
 
 export interface Waypoint {
   ident: string
@@ -197,4 +198,126 @@ export function formatEnrouteOnly(ofpJson: string | null): string {
     .split(/\s+/)
     .filter((token) => token && !procedureNames.has(token) && !procedureFixIdents.has(token))
     .join(' ')
+}
+
+/**
+ * One selected procedure's real navdata waypoint sequence, already fetched for (identifier,
+ * runway, transition) via window.winglog.navdataGetProcedureWaypoints — this module doesn't
+ * fetch anything itself, it only splices what's already been fetched into the route. Unlike
+ * the old per-field "SimBrief default" sentinel this replaced, there's no separate
+ * "identifier: null means use SimBrief's choice" state: a slot with nothing selected is
+ * just omitted from the call entirely (pass `null` for the whole thing, not an object with
+ * a null identifier) — see shared/ipc.ts's ProcedureSelection doc comment.
+ */
+export interface ProcedureLegs {
+  identifier: string
+  legs: NavdataLeg[]
+}
+
+function legsToWaypoints(legs: NavdataLeg[], segment: RouteSegment): Waypoint[] {
+  return legs
+    .filter((leg): leg is NavdataLeg & { fixIdent: string } => leg.fixIdent !== null)
+    .map((leg) => ({
+      ident: leg.fixIdent,
+      lon: leg.fixLongitude,
+      lat: leg.fixLatitude,
+      // ALTITUDE1/2's exact "no restriction" sentinel isn't confirmed (facility-fields.ts) —
+      // treated as 0 here as the safest fallback, matching how a SimBrief fix with no
+      // altitude constraint already reads (parseWaypointsFromOfpJson's `?? 0`).
+      altitudeFt: leg.altitude1 > 0 ? leg.altitude1 : 0,
+      segment
+    }))
+}
+
+/**
+ * Splices the currently-selected SID/STAR/approach into SimBrief's own segmented route —
+ * the live, no-save-step route docs/plans/navdata-without-navigraph.md's Phase 5 describes.
+ * `baseWaypoints` is SimBrief's own segmented route (segmentWaypoints' output). Each of
+ * `sid`/`star`/`approach` is independently optional (`null` leaves that part of the base
+ * route untouched — for `approach`, "untouched" means "not appended at all", since the base
+ * route never has one). SID/STAR replace their own segment; approach legs are appended
+ * after everything else, continuing on from wherever the STAR (real or SimBrief's own)
+ * currently ends — the full STAR-through-approach-to-runway path Callum described,
+ * including a real APPROACH_TRANSITION when one was matched (ProcedureSelector's
+ * auto-connect, or a manual choice) — the caller decides which transition's legs `approach`
+ * carries, this function only splices what it's given.
+ */
+export function applyProcedureSelection(
+  baseWaypoints: Waypoint[],
+  sid: ProcedureLegs | null,
+  star: ProcedureLegs | null,
+  approach: ProcedureLegs | null
+): Waypoint[] {
+  let result = baseWaypoints
+  if (sid) {
+    result = [...legsToWaypoints(sid.legs, 'sid'), ...result.filter((w) => w.segment !== 'sid')]
+  }
+  if (star) {
+    const hadTaggedStar = result.some((w) => w.segment === 'star')
+    let base = result.filter((w) => w.segment !== 'star')
+    const starWaypoints = legsToWaypoints(star.legs, 'star')
+    // Whenever the OFP never named a STAR itself (general.star_ident empty), segmentWaypoints
+    // has nothing to tag the terminal-area fixes with, so they stay 'enroute' all the way to
+    // the destination. Filtering only 'star'-tagged fixes above leaves that stale tail in
+    // place, and a real navdata STAR just gets appended after it — confirmed live to fly SID
+    // -> SimBrief's full stale loop -> the chosen STAR -> runway (docs/navdata-notes.md,
+    // 2026-09-13). Cut that tail at the STAR's own entry fix if the base route happens to
+    // pass through it already; otherwise there's nothing else for it to join, so the whole
+    // contiguous enroute run back to the last SID/real-star fix is what the STAR replaces.
+    // Only when there was never a real 'star' tag to begin with — a route that already named
+    // its own STAR stops its 'enroute' block short of the destination, and that boundary is
+    // exactly right already.
+    if (
+      !hadTaggedStar &&
+      base.length > 0 &&
+      base[base.length - 1].segment === 'enroute' &&
+      starWaypoints.length > 0
+    ) {
+      const entryIdent = starWaypoints[0].ident
+      const joinIdx = base.findIndex((w) => w.segment === 'enroute' && w.ident === entryIdent)
+      if (joinIdx !== -1) {
+        base = base.slice(0, joinIdx)
+      } else {
+        let cut = base.length
+        while (cut > 0 && base[cut - 1].segment === 'enroute') cut--
+        base = base.slice(0, cut)
+      }
+    }
+    result = [...base, ...starWaypoints]
+  }
+  if (approach) {
+    result = [...result, ...legsToWaypoints(approach.legs, 'approach')]
+  }
+  return result
+}
+
+/** The origin's transition altitude and the destination's transition level, for Phase 3's
+ *  altitude display (logbook-detail-improvements.md, display-altitude.ts) — confirmed real
+ *  OFP fields, zero-padded strings (docs/simbrief-notes.md, 2026-09-13, e.g. `"09000"` for
+ *  VHHH), guarded the same `optStr`-then-`Number()` way every other optional SimBrief field
+ *  is. Null when either is missing (an older/malformed OFP, or a flight with no OFP at
+ *  all) — display-altitude.ts falls back to a fixed 18,000 ft both ways in that case. */
+export interface TransitionAltitudes {
+  transAltFt: number
+  transLevelFt: number
+}
+
+export function parseTransitionAltitudes(ofpJson: string | null): TransitionAltitudes | null {
+  const transAltStr = optStr(objectSection(ofpJson, 'origin').trans_alt)
+  const transLevelStr = optStr(objectSection(ofpJson, 'destination').trans_level)
+  if (transAltStr === null || transLevelStr === null) return null
+  const transAltFt = Number(transAltStr)
+  const transLevelFt = Number(transLevelStr)
+  if (!Number.isFinite(transAltFt) || !Number.isFinite(transLevelFt)) return null
+  return { transAltFt, transLevelFt }
+}
+
+/** An approach's constructed identifier always ends with its runway ident ("ILS 07C",
+ *  "RNP Z 07R" — facility-fields.ts's ParsedApproachHeader) — the only place that runway
+ *  lives now that there's no separate arrival-runway selection. Used to filter STAR options/
+ *  legs to the runway the currently-chosen approach actually serves. */
+export function approachRunway(approachIdent: string | null): string | null {
+  if (!approachIdent) return null
+  const parts = approachIdent.trim().split(' ')
+  return parts[parts.length - 1] || null
 }

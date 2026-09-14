@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { and, desc, eq, isNull } from 'drizzle-orm'
-import type { Flight, FleetStats, LogbookStats, NewFlight } from '@shared/ipc'
+import { and, desc, eq, isNull, or } from 'drizzle-orm'
+import type { Flight, FleetStats, LogbookStats, NewFlight, ProcedureSelection } from '@shared/ipc'
 import { greatCircleDistanceNm } from '../airports/airport-search'
 import { aircraft, flight, flightInvoice, landing, trackPoint } from './schema'
 import type { WingLogDb } from './client'
@@ -36,13 +36,50 @@ function toFlight(row: typeof flight.$inferSelect): Flight {
     ofpId: row.ofpId,
     ofpJson: row.ofpJson,
     simVersion: row.simVersion,
-    createdAt: row.createdAt
+    createdAt: row.createdAt,
+    selectedDepartureRunway: row.selectedDepartureRunway,
+    selectedSidIdent: row.selectedSidIdent,
+    selectedSidTransition: row.selectedSidTransition,
+    selectedStarIdent: row.selectedStarIdent,
+    selectedStarTransition: row.selectedStarTransition,
+    selectedApproachIdent: row.selectedApproachIdent,
+    selectedApproachTransition: row.selectedApproachTransition
   }
 }
 
 function minutesBetween(startIso: string | null, endIso: string | null): number | null {
   if (!startIso || !endIso) return null
   return (new Date(endIso).getTime() - new Date(startIso).getTime()) / 60_000
+}
+
+/** One interval the sim was paused, wall-clock ISO timestamps — see completeFlight's own
+ *  comment for why this needs to exist at all. */
+export interface PausedInterval {
+  startIso: string
+  endIso: string
+}
+
+/** Same as minutesBetween, but with any paused wall-clock time inside [startIso, endIso]
+ *  subtracted first — a pause interval outside that window (e.g. a taxi-in pause after
+ *  touchdown, which doesn't touch airMinutes) contributes nothing. Floored at 0 so clock
+ *  skew between the paused/resumed events and the off/on timestamps can't produce a
+ *  negative duration. */
+function minutesBetweenExcludingPauses(
+  startIso: string | null,
+  endIso: string | null,
+  pausedIntervals: PausedInterval[]
+): number | null {
+  const raw = minutesBetween(startIso, endIso)
+  if (raw === null || !startIso || !endIso) return raw
+  const startMs = new Date(startIso).getTime()
+  const endMs = new Date(endIso).getTime()
+  let pausedMs = 0
+  for (const interval of pausedIntervals) {
+    const overlapStart = Math.max(new Date(interval.startIso).getTime(), startMs)
+    const overlapEnd = Math.min(new Date(interval.endIso).getTime(), endMs)
+    if (overlapEnd > overlapStart) pausedMs += overlapEnd - overlapStart
+  }
+  return Math.max(0, raw - pausedMs / 60_000)
 }
 
 export function listFlights(db: WingLogDb): Flight[] {
@@ -66,6 +103,32 @@ export function listFlightsByAircraft(db: WingLogDb, aircraftId: number): Flight
 
 export function getFlight(db: WingLogDb, id: number): Flight | undefined {
   const row = db.select().from(flight).where(eq(flight.id, id)).get()
+  return row ? toFlight(row) : undefined
+}
+
+/** The one flight left mid-tracking if the app quit or crashed before it reached
+ *  'completed' or 'abandoned' — TrackingController.resume() uses this at startup to pick
+ *  phase-detection back up rather than leaving the flight orphaned (its own DB row,
+ *  OFP/route included, was never at risk — only the in-memory phase-detection state was
+ *  lost with the old process). Only one flight is ever meant to be 'active' at once (same
+ *  invariant flightCreate's own comment relies on), so the first match is authoritative. */
+export function getActiveFlight(db: WingLogDb): Flight | undefined {
+  const row = db.select().from(flight).where(eq(flight.status, 'active')).get()
+  return row ? toFlight(row) : undefined
+}
+
+/** The one flight currently "in progress" — planned (Dispatch's "Fly" pressed, tracking
+ *  not yet started) or active (already tracking) — if any. Broader than getActiveFlight:
+ *  used to restore Dispatch's own view of that flight after a restart (it otherwise only
+ *  has its own in-memory `dispatchOfp`, which doesn't survive one, unlike Track's list,
+ *  which already reads this same DB state directly). Same one-at-a-time invariant as
+ *  flightCreate relies on, so the first match is authoritative. */
+export function getInProgressFlight(db: WingLogDb): Flight | undefined {
+  const row = db
+    .select()
+    .from(flight)
+    .where(and(or(eq(flight.status, 'planned'), eq(flight.status, 'active')), isNull(flight.deletedAt)))
+    .get()
   return row ? toFlight(row) : undefined
 }
 
@@ -184,8 +247,22 @@ export function recordOn(db: WingLogDb, id: number): Flight | undefined {
   return row ? toFlight(row) : undefined
 }
 
-/** Block-in: shutdown reached. Derives block/air time and fuel burn from the timestamps already recorded. */
-export function completeFlight(db: WingLogDb, id: number, fuelInKg: number): Flight | undefined {
+/**
+ * Block-in: shutdown reached. Derives block/air time and fuel burn from the timestamps
+ * already recorded. `pausedIntervals` — real wall-clock spans the sim reported itself
+ * paused (TrackingController tracks these from SimConnectService's own 'paused' event,
+ * separate from the resume-track-cleanup work, which is about a full app/sim restart, not
+ * an in-session pause) — are excluded from both stats: without this, pausing the sim for
+ * an hour to test something mid-cruise added a real hour to the logged flight, since both
+ * stats were a plain wall-clock diff between the recorded timestamps (real case, Callum's
+ * flight 191, 2026-09-11).
+ */
+export function completeFlight(
+  db: WingLogDb,
+  id: number,
+  fuelInKg: number,
+  pausedIntervals: PausedInterval[] = []
+): Flight | undefined {
   const existing = getFlight(db, id)
   if (!existing) return undefined
 
@@ -196,8 +273,8 @@ export function completeFlight(db: WingLogDb, id: number, fuelInKg: number): Fli
       status: 'completed',
       actualInUtc,
       fuelInKg,
-      blockMinutes: minutesBetween(existing.actualOutUtc, actualInUtc),
-      airMinutes: minutesBetween(existing.actualOffUtc, existing.actualOnUtc),
+      blockMinutes: minutesBetweenExcludingPauses(existing.actualOutUtc, actualInUtc, pausedIntervals),
+      airMinutes: minutesBetweenExcludingPauses(existing.actualOffUtc, existing.actualOnUtc, pausedIntervals),
       fuelBurnKg: existing.fuelOutKg != null ? existing.fuelOutKg - fuelInKg : null,
       updatedAt: actualInUtc
     })
@@ -219,15 +296,17 @@ export function completeFlight(db: WingLogDb, id: number, fuelInKg: number): Fli
   return row ? toFlight(row) : undefined
 }
 
-/** User cancelled tracking mid-flight — stop recording without pretending it completed normally. */
-export function abandonFlight(db: WingLogDb, id: number): Flight | undefined {
-  const [row] = db
-    .update(flight)
-    .set({ status: 'abandoned', updatedAt: new Date().toISOString() })
-    .where(eq(flight.id, id))
-    .returning()
-    .all()
-  return row ? toFlight(row) : undefined
+/** User cancelled tracking mid-flight, discarded an orphaned crash-recovery flight
+ *  (trackingDiscardOrphaned), or cancelled one that never got past 'planned' (flightCancel)
+ *  — deletes it outright via the same cascade as deleteFlight below, rather than leaving an
+ *  inert 'abandoned' row (and, for one that was actively tracked, its full track_point
+ *  history) sitting in the database with no purpose. Callum's call, 2026-09-13, after
+ *  finding a genuinely abandoned flight from an earlier crash-recovery test still holding
+ *  hundreds of real track points. `FlightStatus` keeps the `'abandoned'` value for any
+ *  historical row already in that state before this change — nothing new gets left there
+ *  going forward. */
+export function abandonFlight(db: WingLogDb, id: number): void {
+  deleteFlight(db, id)
 }
 
 /**
@@ -268,6 +347,26 @@ export function abandonAllPlanned(db: WingLogDb): void {
 export function setFlownRoute(db: WingLogDb, id: number, flownRouteJson: string): void {
   db.update(flight)
     .set({ flownRouteJson, updatedAt: new Date().toISOString() })
+    .where(eq(flight.id, id))
+    .run()
+}
+
+/** Writes the live-selected procedures at flight completion (TrackingController), the
+ *  later of the two writes ProcedureSelection's doc comment describes — overwrites
+ *  whatever createFlight wrote at save time, since the pilot may have changed things
+ *  mid-flight after ATC actually assigned a runway/STAR/approach. */
+export function setSelectedProcedures(db: WingLogDb, id: number, selection: ProcedureSelection): void {
+  db.update(flight)
+    .set({
+      selectedDepartureRunway: selection.departureRunway,
+      selectedSidIdent: selection.sidIdent,
+      selectedSidTransition: selection.sidTransition,
+      selectedStarIdent: selection.starIdent,
+      selectedStarTransition: selection.starTransition,
+      selectedApproachIdent: selection.approachIdent,
+      selectedApproachTransition: selection.approachTransition,
+      updatedAt: new Date().toISOString()
+    })
     .where(eq(flight.id, id))
     .run()
 }

@@ -35,4 +35,9 @@ describe('parseReceiptFilename', () => {
     expect(parseReceiptFilename('readme.txt')).toBeNull()
     expect(parseReceiptFilename('not_a_timestamp_EGLL_G-XWBS.json')).toBeNull()
   })
+
+  it('returns null for a timestamp that matches the pattern but is not a real date', () => {
+    // Month 13 — the right shape (8 digits + T + 6 digits + Z), but not a real calendar date.
+    expect(parseReceiptFilename('20261301T000000Z_EGLL_G-XWBS.json')).toBeNull()
+  })
 })

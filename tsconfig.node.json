@@ -23,6 +23,9 @@
   "include": [
     "electron.vite.config.ts",
     "drizzle.config.ts",
+    "vitest.config.ts",
+    "vitest.setup.renderer.ts",
+    "playwright.config.ts",
     "src/main/**/*",
     "src/preload/**/*",
     "src/shared/**/*",

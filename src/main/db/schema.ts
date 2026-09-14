@@ -126,6 +126,20 @@ export const flight = sqliteTable('flight', {
   // map. Null for any flight that hasn't completed, or completed before this existed;
   // the full-resolution track_point table stays local-only and is never itself synced.
   flownRouteJson: text('flown_route_json'),
+  // The procedures actually chosen, live — written at flight save and again (overwriting)
+  // at flight completion, whichever is later, from Dispatch/Track's shared live-selection
+  // state (flightdeck-backend's docs/plans/navdata-without-navigraph.md, Phase 5). Null
+  // means nothing was ever chosen for that slot — a pre-Phase-5 flight, or a field the
+  // pilot never touched — not "SimBrief's own choice was deliberately kept": there's no
+  // separate "use SimBrief's choice" state any more, see shared/ipc.ts's
+  // ProcedureSelection doc comment.
+  selectedDepartureRunway: text('selected_departure_runway'),
+  selectedSidIdent: text('selected_sid_ident'),
+  selectedSidTransition: text('selected_sid_transition'),
+  selectedStarIdent: text('selected_star_ident'),
+  selectedStarTransition: text('selected_star_transition'),
+  selectedApproachIdent: text('selected_approach_ident'),
+  selectedApproachTransition: text('selected_approach_transition'),
   // Soft-delete tombstone — see aircraft.deletedAt's comment for why. deleteFlight cascades
   // this to the flight's own landing/flightInvoice rows too (track_point, never synced,
   // stays hard-deleted as before).
@@ -185,6 +199,12 @@ export const trackPoint = sqliteTable('track_point', {
   latitude: real('latitude').notNull(),
   longitude: real('longitude').notNull(),
   altitudeM: real('altitude_m').notNull(),
+  // Barometric altitude with the Kohlsman on standard (flightdeck-backend's docs/plans/
+  // logbook-detail-improvements.md, Phase 3) — nullable, unlike every other telemetry
+  // column here: existing rows predate this and stay null forever, nothing backfills them.
+  // altitudeM (true/geometric) stays the source for everything geometric; this is read-only
+  // display data, used above the OFP's transition altitude.
+  pressureAltitudeM: real('pressure_altitude_m'),
   altitudeAglM: real('altitude_agl_m').notNull(),
   indicatedAirspeedMs: real('indicated_airspeed_ms').notNull(),
   // Default 0 only so ALTER TABLE ADD COLUMN can backfill pre-existing NOT NULL rows —
@@ -211,7 +231,16 @@ export const trackPoint = sqliteTable('track_point', {
   // supplies real values explicitly, so these are never actually relied on going forward.
   gForce: real('g_force').notNull().default(1),
   windSpeedMs: real('wind_speed_ms').notNull().default(0),
-  windDirectionDeg: real('wind_direction_deg').notNull().default(0)
+  windDirectionDeg: real('wind_direction_deg').notNull().default(0),
+  // Resume-track cleanup (flightdeck-backend's docs/plans/done/resume-track-cleanup.md) — marks
+  // rather than deletes, so the raw samples stay available for re-running the cleanup after
+  // a threshold change. Defaults exist only so ALTER TABLE ADD COLUMN can backfill
+  // pre-existing rows (all as segment 0, sim rate 1x, nothing excluded — the only sane
+  // reading of "no resume ever happened" for a flight recorded before this existed); every
+  // new row from FlightRecorder.toTrackPoint always supplies real values explicitly.
+  resumeSegment: integer('resume_segment').notNull().default(0),
+  simRate: real('sim_rate').notNull().default(1),
+  excludedReason: text('excluded_reason', { enum: ['resume-spurious', 'resume-superseded'] })
 })
 
 // One row per flight's touchdown, captured where the phase machine already detects it
@@ -257,4 +286,106 @@ export const landing = sqliteTable('landing', {
   // Soft-delete tombstone, set by deleteFlight cascading from its parent flight — see
   // aircraft.deletedAt's comment for why. No standalone delete path exists for this table.
   deletedAt: text('deleted_at')
+})
+
+// Cached navdata for one airport, from src/main/navdata/'s NavdataProvider (Phase 3,
+// flightdeck-backend's docs/plans/navdata-without-navigraph.md) — SimConnect Facilities is
+// the only provider today, so there's no AIRAC package/subscription state to track; each
+// table is simply replaced wholesale for an ICAO whenever navdata-repo.ts's
+// replaceAirportNavdata re-fetches it. `source` stays a column (not hardcoded) so a future
+// second provider (e.g. Navigraph, if credentials ever arrive) is a new value here, not a
+// schema change. Never synced (no uuid/updatedAt) — purely a local cache of what the sim
+// itself already has, cheap to lose and re-fetch.
+export const navdataRunway = sqliteTable('navdata_runway', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  icao: text('icao').notNull(),
+  ident: text('ident').notNull(),
+  headingTrueDeg: real('heading_true_deg').notNull(),
+  lengthM: real('length_m').notNull(),
+  widthM: real('width_m').notNull(),
+  // Raw SimConnect surface-type integer, not yet mapped to a name — see facility-fields.ts.
+  surface: integer('surface').notNull(),
+  // This end's own threshold, derived from the RUNWAY record's centre ± length/2 along
+  // heading (navdata-notes.md: RUNWAY.LATITUDE/LONGITUDE is the strip's centre, confirmed
+  // live, not a threshold) — not the centre point itself.
+  thresholdLat: real('threshold_lat').notNull(),
+  thresholdLon: real('threshold_lon').notNull(),
+  source: text('source', { enum: ['sim-facility'] }).notNull(),
+  fetchedAt: text('fetched_at').notNull()
+})
+
+// One row per (icao, kind, identifier) — not per transition. Confirmed live, 2026-09-08
+// (docs/navdata-notes.md), that runway and enroute-transition variation are independent
+// axes on the same procedure, not row-multiplying dimensions: EGLL/VHHH's real SIDs have
+// exactly one runway transition each and zero enroute transitions; VHHH's STARs can have
+// several runway transitions (parallel-runway airports) and still zero enroute transitions.
+// Both lists are kept as metadata here for filtering/listing; navdataProcedureLeg (below)
+// is where the actual per-runway/per-transition leg data lives.
+export const navdataProcedure = sqliteTable('navdata_procedure', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  icao: text('icao').notNull(),
+  kind: text('kind', { enum: ['sid', 'star', 'approach'] }).notNull(),
+  // For 'sid'/'star', a raw SimConnect NAME. For 'approach' (added 2026-09-08, Phase 5), a
+  // constructed display label ("ILS 07C", "RNP Z 07R") — approaches have no NAME field of
+  // their own, see facility-fields.ts's ParsedApproachHeader.
+  identifier: text('identifier').notNull(),
+  // JSON array of runway idents this procedure's RUNWAY_TRANSITION list names, e.g.
+  // '["07L","07R"]' — null means no runway transitions were registered for it (applies to
+  // any runway), not "applies to none". For 'approach', always a single-element array — an
+  // approach belongs to exactly one runway.
+  runwayIdentsJson: text('runway_idents_json'),
+  // JSON array of this procedure's ENROUTE_TRANSITION names — null means none registered.
+  // Real airports checked so far (EGLL, VHHH) never had any; kept for when one does. For
+  // 'approach', this is its APPROACH_TRANSITION names instead (e.g. '["LIMES","TD"]') —
+  // confirmed live that a transition's name is the real fix a STAR hands off at, the link
+  // used to auto-connect a chosen STAR onto a chosen approach.
+  transitionNamesJson: text('transition_names_json'),
+  source: text('source', { enum: ['sim-facility'] }).notNull(),
+  fetchedAt: text('fetched_at').notNull()
+})
+
+// One row per leg. `runwayIdent`/`transitionName` are mutually exclusive: both null means
+// a common leg (registered on the procedure itself, outside any transition — where EGLL's
+// STARs put all of theirs); `runwayIdent` set means a leg nested inside that specific
+// RUNWAY_TRANSITION (where EGLL/VHHH's SIDs put all of theirs instead, and VHHH's STARs);
+// `transitionName` set means a leg nested inside that specific ENROUTE_TRANSITION —
+// confirmed as a real, supported nesting live, 2026-09-08, though no real procedure seen
+// so far actually has one (docs/navdata-notes.md). A full flyable path for a chosen
+// (runway, transition) pair is, for a SID: that runway's legs + the common legs + that
+// transition's legs, in that order (initial climb-out, then the shared body, then the exit
+// transition) — confirmed live 2026-09-08. For a STAR it's the reverse: that transition's
+// legs + the common legs + that runway's legs (transition entry, then the shared body, then
+// the runway-specific final legs) — confirmed live 2026-09-11 against a real STAR (YBBN
+// SMOK2A) with a non-empty common route, after the departure order was found to draw two
+// spurious lines across a real arrival (docs/plans/star-leg-ordering.md, flightdeck-backend).
+//
+// For `kind: 'approach'` (added 2026-09-08, Phase 5): `runwayIdent` is never set (an
+// approach's one runway is on the procedure row instead, not per-leg); `transitionName`
+// set means a leg inside that APPROACH_TRANSITION (the STAR-handoff/IAF entry legs); both
+// null means the approach's own FINAL_APPROACH_LEG list. Order confirmed live to be the
+// same as a STAR's: transition legs first, then the shared final segment — fly the
+// transition inbound, then the shared final segment down to the runway.
+//
+// ARINC 424 repeats the boundary fix between adjacent groups (a transition's last leg is
+// the same fix as the common route's first leg, or the common route's last leg the same as
+// a runway transition's first, depending on direction) — a reader assembling the flyable
+// path drops the duplicate at each boundary it crosses (listCachedProcedureLegs does this).
+export const navdataProcedureLeg = sqliteTable('navdata_procedure_leg', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  procedureId: integer('procedure_id')
+    .notNull()
+    .references(() => navdataProcedure.id),
+  runwayIdent: text('runway_ident'),
+  transitionName: text('transition_name'),
+  seq: integer('seq').notNull(),
+  type: integer('type').notNull(),
+  fixIdent: text('fix_ident'),
+  fixType: text('fix_type'),
+  fixLatitude: real('fix_latitude').notNull(),
+  fixLongitude: real('fix_longitude').notNull(),
+  turnDirection: integer('turn_direction').notNull(),
+  courseDeg: real('course_deg').notNull(),
+  altitude1: real('altitude1').notNull(),
+  altitude2: real('altitude2').notNull(),
+  speedLimit: real('speed_limit').notNull()
 })

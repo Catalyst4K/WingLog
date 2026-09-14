@@ -79,10 +79,28 @@ function Field(props: {
 /** A short label for one dropdown row — the stock entry gets a fixed label (nothing to
  *  attribute it to), a community entry prefers its parsed developer, falling back to the
  *  raw comment for the ~3% that don't match SimBrief's usual naming shape (docs/plans/
- *  simbrief-airframe-picker.md). */
+ *  simbrief-airframe-picker.md). The type never appears here — options are fetched per
+ *  type, so it's identical on every row and can't help distinguish them (docs/plans/
+ *  simbrief-airframe-picker-v2.md, decision 1). `variant` is whatever the raw comment adds
+ *  beyond developer/engines (e.g. "(SL)" on an A320, a whole phrase like "Dual Class" on a
+ *  PMDG 737 — docs/simbrief-notes.md) — shown only when the parse actually found one. */
 function optionLabel(o: SimbriefAirframeOption): string {
   if (o.isDefault) return `SimBrief default (${o.engines})`
-  return `${o.developer ?? o.comments} — ${o.engines}`
+  const variant = o.variant ? ` — ${o.variant}` : ''
+  return `${o.developer ?? o.comments}${variant} — ${o.engines}`
+}
+
+/** Same idea as optionLabel, but for the collapsed Select value and Fleet's read-only
+ *  display — contexts with no dropdown of sibling rows around them to establish the type
+ *  from, unlike optionLabel's own rows (decision 2, docs/plans/simbrief-airframe-
+ *  picker-v2.md). Skips appending the type onto the raw-comment fallback case (no
+ *  `developer`) — that text is already a full, self-contained description, not built to
+ *  have a type code glued onto the end of it. */
+function selectedOptionLabel(o: SimbriefAirframeOption): string {
+  if (o.isDefault) return `SimBrief default ${o.simbriefType} (${o.engines})`
+  if (!o.developer) return o.comments
+  const variant = o.variant ? ` — ${o.variant}` : ''
+  return `${o.developer} ${o.simbriefType}${variant} — ${o.engines}`
 }
 
 export function AircraftForm(props: {
@@ -178,7 +196,11 @@ export function AircraftForm(props: {
   function handleSelectAirframeOption(key: string): void {
     setSelectedOptionKey(key)
     const option = displayedOptions[Number(key)]
+    /* v8 ignore start -- defensive only: `key` is always one of displayedOptions' own
+     * indices (Select only ever calls onValueChange with a value from its own rendered
+     * SelectItems), so `option` is never actually undefined via any real interaction. */
     if (!option) return
+    /* v8 ignore stop */
     if (option.isDefault) {
       set('simbriefType', '')
       set('simbriefAirframeId', '')
@@ -369,7 +391,9 @@ export function AircraftForm(props: {
                         ? 'SimBrief doesn’t recognise this type'
                         : '— choose —'
                 }
-              />
+              >
+                {selectedOption ? selectedOptionLabel(selectedOption) : undefined}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {displayedOptions.map((o, i) => (

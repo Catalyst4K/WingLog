@@ -4,15 +4,25 @@ import { createDb, type WingLogDb } from './client'
 import {
   getAltitudeUnit,
   getGsxSettings,
+  getLandingDistanceUnit,
   getLastSyncCompletedAt,
+  getLastSyncedAt,
   getSetting,
   getSimbriefUsername,
+  getTheme,
+  getWeightUnit,
   getWindSpeedUnit,
+  hasCheckedGsxFirstLaunch,
   setAltitudeUnit,
+  setCheckedGsxFirstLaunch,
   setGsxSettings,
+  setLandingDistanceUnit,
   setLastSyncCompletedAt,
+  setLastSyncedAt,
   setSetting,
   setSimbriefUsername,
+  setTheme,
+  setWeightUnit,
   setWindSpeedUnit
 } from './settings-repo'
 
@@ -68,6 +78,30 @@ describe('settings repo', () => {
     expect(getWindSpeedUnit(db)).toBe('kt')
   })
 
+  it('defaults the landing distance unit to ft when never set', () => {
+    expect(getLandingDistanceUnit(db)).toBe('ft')
+  })
+
+  it('round-trips the landing distance unit', () => {
+    setLandingDistanceUnit(db, 'm')
+    expect(getLandingDistanceUnit(db)).toBe('m')
+    setLandingDistanceUnit(db, 'ft')
+    expect(getLandingDistanceUnit(db)).toBe('ft')
+  })
+
+  it('defaults the theme to system when never set', () => {
+    expect(getTheme(db)).toBe('system')
+  })
+
+  it('round-trips the theme', () => {
+    setTheme(db, 'dark')
+    expect(getTheme(db)).toBe('dark')
+    setTheme(db, 'light')
+    expect(getTheme(db)).toBe('light')
+    setTheme(db, 'system')
+    expect(getTheme(db)).toBe('system')
+  })
+
   it('defaults GSX settings to disabled, no folder, USD display', () => {
     expect(getGsxSettings(db)).toEqual({ enabled: false, folderPath: null, displayCurrency: 'USD' })
   })
@@ -94,5 +128,35 @@ describe('settings repo', () => {
     setLastSyncCompletedAt(db, '2026-09-06T12:00:00.000Z')
     setLastSyncCompletedAt(db, '')
     expect(getLastSyncCompletedAt(db)).toBeNull()
+  })
+
+  it('defaults the weight unit to lb when never set', () => {
+    expect(getWeightUnit(db)).toBe('lb')
+  })
+
+  it('round-trips the weight unit', () => {
+    setWeightUnit(db, 'kg')
+    expect(getWeightUnit(db)).toBe('kg')
+    setWeightUnit(db, 'lb')
+    expect(getWeightUnit(db)).toBe('lb')
+  })
+
+  it('defaults the GSX first-launch check to not-yet-run', () => {
+    expect(hasCheckedGsxFirstLaunch(db)).toBe(false)
+  })
+
+  it('marks the GSX first-launch check as run', () => {
+    setCheckedGsxFirstLaunch(db)
+    expect(hasCheckedGsxFirstLaunch(db)).toBe(true)
+  })
+
+  it('defaults a table sync cursor to null when never set', () => {
+    expect(getLastSyncedAt(db, 'aircraft')).toBeNull()
+  })
+
+  it('round-trips a per-table sync cursor independently of other tables', () => {
+    setLastSyncedAt(db, 'aircraft', '2026-09-06T12:00:00.000Z')
+    expect(getLastSyncedAt(db, 'aircraft')).toBe('2026-09-06T12:00:00.000Z')
+    expect(getLastSyncedAt(db, 'flight')).toBeNull()
   })
 })

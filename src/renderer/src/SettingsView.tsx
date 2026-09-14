@@ -4,9 +4,10 @@ import type {
   AircraftImportSummary,
   AltitudeUnit,
   GsxSettings,
-  LandingThresholds,
+  LandingDistanceUnit,
   LogbookImportSummary,
   SyncStatus,
+  Theme,
   WeightUnit,
   WindSpeedUnit
 } from '@shared/ipc'
@@ -17,9 +18,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useResetSignal } from './hooks/useResetSignal'
 import { NavigraphLogo } from './NavigraphLogo'
 
-type SettingsCategory = 'units' | 'tracking' | 'thirdParty' | 'data'
+type SettingsCategory = 'ui' | 'thirdParty' | 'data' | 'about'
+const DEFAULT_SETTINGS_CATEGORY: SettingsCategory = 'ui'
 
 // A curated, common-currency subset of what frankfurter.dev supports — enough for
 // "I want to see this in my own currency" without a second fetch just to populate a
@@ -34,6 +37,38 @@ const DISPLAY_CURRENCY_OPTIONS = [
   { code: 'JPY', label: 'JPY — Japanese Yen' },
   { code: 'CHF', label: 'CHF — Swiss Franc' }
 ]
+
+/** Label above an equal-width button group, one row of the UI page's Units/Theme cards
+ *  (docs/plans/settings-ui-page.md) — replaces the old label-beside-buttons rows, whose
+ *  button groups started at three different x positions depending on label length. Every
+ *  button gets the same min-width so a two-option row and a three-option row read as the
+ *  same kind of control. */
+function SegmentedRow<T extends string>(props: {
+  label: string
+  value: T
+  options: readonly { value: T; label: string }[]
+  onChange: (value: T) => void
+}): React.JSX.Element {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-sm text-muted-foreground">{props.label}</span>
+      <div className="flex gap-1.5">
+        {props.options.map((opt) => (
+          <Button
+            key={opt.value}
+            type="button"
+            size="sm"
+            variant={props.value === opt.value ? 'default' : 'outline'}
+            className="min-w-[4.5rem]"
+            onClick={() => props.onChange(opt.value)}
+          >
+            {opt.label}
+          </Button>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 function summarizeAircraftImport(summary: AircraftImportSummary): string {
   if (summary.skipped.length === 0) return `Imported ${summary.imported} aircraft.`
@@ -59,6 +94,13 @@ export function SettingsView(props: {
   onAltitudeUnitChange: (unit: AltitudeUnit) => void
   windSpeedUnit: WindSpeedUnit
   onWindSpeedUnitChange: (unit: WindSpeedUnit) => void
+  landingDistanceUnit: LandingDistanceUnit
+  onLandingDistanceUnitChange: (unit: LandingDistanceUnit) => void
+  theme: Theme
+  onThemeChange: (theme: Theme) => void
+  /** Bumped by App.tsx when the Settings tab is clicked while already active — returns to
+   *  the first category (docs/plans/navigation-tab-behaviour.md). See useResetSignal. */
+  resetSignal?: number
 }): React.JSX.Element {
   const [simbriefUsername, setSimbriefUsername] = useState('')
   const [simbriefLoggedIn, setSimbriefLoggedIn] = useState<boolean | null>(null)
@@ -67,10 +109,6 @@ export function SettingsView(props: {
   const [importingAircraft, setImportingAircraft] = useState(false)
   const [importingLogbook, setImportingLogbook] = useState(false)
   const [gsx, setGsx] = useState<GsxSettings>({ enabled: false, folderPath: null, displayCurrency: 'USD' })
-  const [landingThresholds, setLandingThresholds] = useState<LandingThresholds>({
-    firmFpm: 480,
-    hardFpm: 600
-  })
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
     loggedIn: false,
     email: null,
@@ -83,23 +121,26 @@ export function SettingsView(props: {
   const [cloudInviteCode, setCloudInviteCode] = useState('')
   const [cloudAuthMode, setCloudAuthMode] = useState<'login' | 'signup'>('login')
   const [loggingIntoCloud, setLoggingIntoCloud] = useState(false)
+  const [appVersion, setAppVersion] = useState('')
   // Purely transient UI state, not persisted — this app has no routing beyond the top tab
   // bar, no reason to add any for a sub-navigation within one of its pages.
-  const [category, setCategory] = useState<SettingsCategory>('units')
+  const [category, setCategory] = useState<SettingsCategory>(DEFAULT_SETTINGS_CATEGORY)
+  useResetSignal(props.resetSignal, () => setCategory(DEFAULT_SETTINGS_CATEGORY))
 
   useEffect(() => {
     window.winglog.settingsGetSimbriefUsername().then((u) => setSimbriefUsername(u ?? ''))
     window.winglog.dispatchSimbriefLoginStatus().then(setSimbriefLoggedIn)
     window.winglog.settingsGetGsx().then(setGsx)
-    window.winglog.settingsGetLandingThresholds().then(setLandingThresholds)
-    window.winglog.syncStatus().then(setSyncStatus)
+    // Cloud sync build-time flag (docs/plans/public-release-v1.md) — the syncStatus channel
+    // doesn't exist at all in a public build, so calling it would just reject.
+    /* v8 ignore start -- vitest.config.ts's `define` fixes this flag at `true` for the whole
+     * test run (a single run can't hold both literal build values at once), so the "public
+     * build, skip this call" arm can't be exercised here; the real cloud-sync-disabled
+     * behavior is what public-release-v1.md's own build verifies, not a unit test's job. */
+    if (__WINGLOG_CLOUD_SYNC_ENABLED__) window.winglog.syncStatus().then(setSyncStatus)
+    /* v8 ignore stop */
+    window.winglog.appGetVersion().then(setAppVersion)
   }, [])
-
-  async function handleSaveLandingThresholds(event: React.FormEvent): Promise<void> {
-    event.preventDefault()
-    await window.winglog.settingsSetLandingThresholds(landingThresholds)
-    toast.success('Landing thresholds saved.')
-  }
 
   async function handleGsxToggle(enabled: boolean): Promise<void> {
     const next = { ...gsx, enabled }
@@ -243,86 +284,92 @@ export function SettingsView(props: {
         className="items-start gap-6"
       >
         <TabsList variant="line" className="w-40 shrink-0">
-          <TabsTrigger value="units">Units</TabsTrigger>
-          <TabsTrigger value="tracking">Tracking</TabsTrigger>
+          <TabsTrigger value="ui">UI</TabsTrigger>
           <TabsTrigger value="thirdParty">3rd party</TabsTrigger>
           <TabsTrigger value="data">Data</TabsTrigger>
+          <TabsTrigger value="about">About</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="units" className="min-w-0">
+        <TabsContent value="ui" className="flex min-w-0 flex-col gap-4">
           <Card className="max-w-2xl">
             <CardHeader>
               <CardTitle>Units</CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-muted-foreground">Weights:</span>
-                <div className="flex gap-1.5">
-                  {(['kg', 'lb'] as const).map((unit) => (
-                    <Button
-                      key={unit}
-                      type="button"
-                      size="sm"
-                      variant={props.weightUnit === unit ? 'default' : 'outline'}
-                      onClick={() => props.onWeightUnitChange(unit)}
-                    >
-                      {unit}
-                    </Button>
-                  ))}
-                </div>
+            <CardContent className="flex flex-col gap-4">
+              <SegmentedRow
+                label="Weights"
+                value={props.weightUnit}
+                options={[
+                  { value: 'kg', label: 'kg' },
+                  { value: 'lb', label: 'lb' }
+                ]}
+                onChange={props.onWeightUnitChange}
+              />
+              <div className="flex flex-col gap-1.5">
+                <SegmentedRow
+                  label="OFP altitudes"
+                  value={props.altitudeUnit}
+                  options={[
+                    { value: 'ft', label: 'Feet' },
+                    { value: 'm', label: 'Meters' },
+                    { value: 'hybrid', label: 'Hybrid' }
+                  ]}
+                  onChange={props.onAltitudeUnitChange}
+                />
+                <p className="text-xs text-muted-foreground">
+                  "Hybrid" shows each step climb in whichever unit it was actually planned in — feet for a
+                  standard level, meters for a route crossing into airspace (e.g. China) that assigns levels
+                  in meters — rather than converting everything to one unit.
+                </p>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-muted-foreground">OFP altitudes:</span>
-                <div className="flex gap-1.5">
-                  {(
-                    [
-                      { unit: 'ft', label: 'Feet' },
-                      { unit: 'm', label: 'Meters' },
-                      { unit: 'hybrid', label: 'Hybrid' }
-                    ] as const
-                  ).map(({ unit, label }) => (
-                    <Button
-                      key={unit}
-                      type="button"
-                      size="sm"
-                      variant={props.altitudeUnit === unit ? 'default' : 'outline'}
-                      onClick={() => props.onAltitudeUnitChange(unit)}
-                    >
-                      {label}
-                    </Button>
-                  ))}
-                </div>
+              <div className="flex flex-col gap-1.5">
+                <SegmentedRow
+                  label="METAR wind speed"
+                  value={props.windSpeedUnit}
+                  options={[
+                    { value: 'kt', label: 'Knots' },
+                    { value: 'mps', label: 'm/s' }
+                  ]}
+                  onChange={props.onWindSpeedUnitChange}
+                />
+                <p className="text-xs text-muted-foreground">
+                  The raw METAR text on Dispatch always stays as reported — this only controls a separate
+                  formatted wind line shown alongside it.
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                "Hybrid" shows each step climb in whichever unit it was actually planned in — feet for a
-                standard level, meters for a route crossing into airspace (e.g. China) that assigns levels in
-                meters — rather than converting everything to one unit.
-              </p>
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-muted-foreground">METAR wind speed:</span>
-                <div className="flex gap-1.5">
-                  {(
-                    [
-                      { unit: 'kt', label: 'Knots' },
-                      { unit: 'mps', label: 'm/s' }
-                    ] as const
-                  ).map(({ unit, label }) => (
-                    <Button
-                      key={unit}
-                      type="button"
-                      size="sm"
-                      variant={props.windSpeedUnit === unit ? 'default' : 'outline'}
-                      onClick={() => props.onWindSpeedUnitChange(unit)}
-                    >
-                      {label}
-                    </Button>
-                  ))}
-                </div>
+              <div className="flex flex-col gap-1.5">
+                <SegmentedRow
+                  label="Landing distances"
+                  value={props.landingDistanceUnit}
+                  options={[
+                    { value: 'ft', label: 'Feet' },
+                    { value: 'm', label: 'Meters' }
+                  ]}
+                  onChange={props.onLandingDistanceUnitChange}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Distance from threshold and centreline offset on a Logbook flight's landing card, and its
+                  touchdown diagram. Touchdown rate stays fpm and speeds/wind stay knots regardless.
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                The raw METAR text on Dispatch always stays as reported — this only controls a separate
-                formatted wind line shown alongside it.
-              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="max-w-2xl">
+            <CardHeader>
+              <CardTitle>Theme</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SegmentedRow
+                label="Appearance"
+                value={props.theme}
+                options={[
+                  { value: 'light', label: 'Light' },
+                  { value: 'dark', label: 'Dark' },
+                  { value: 'system', label: 'System' }
+                ]}
+                onChange={props.onThemeChange}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -446,47 +493,6 @@ export function SettingsView(props: {
           </div>
         </TabsContent>
 
-        <TabsContent value="tracking" className="min-w-0">
-          <Card className="max-w-2xl">
-            <CardHeader>
-              <CardTitle>Landing severity</CardTitle>
-              <CardDescription>
-                Touchdown rate thresholds for the firm/hard badges on Fleet and Logbook landing records. Real
-                guidance varies by aircraft category — these are general-aviation-leaning defaults, not
-                universal.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSaveLandingThresholds} className="flex flex-col gap-3">
-                <div className="flex gap-3">
-                  <Label className="flex flex-1 flex-col items-start gap-1.5">
-                    Firm (fpm)
-                    <Input
-                      type="number"
-                      value={landingThresholds.firmFpm}
-                      onChange={(e) =>
-                        setLandingThresholds((current) => ({ ...current, firmFpm: Number(e.target.value) }))
-                      }
-                    />
-                  </Label>
-                  <Label className="flex flex-1 flex-col items-start gap-1.5">
-                    Hard (fpm)
-                    <Input
-                      type="number"
-                      value={landingThresholds.hardFpm}
-                      onChange={(e) =>
-                        setLandingThresholds((current) => ({ ...current, hardFpm: Number(e.target.value) }))
-                      }
-                    />
-                  </Label>
-                </div>
-                <Button type="submit" variant="outline" size="sm" className="w-fit">
-                  Save
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="data" className="min-w-0">
           <div className="flex flex-wrap gap-4">
@@ -528,6 +534,13 @@ export function SettingsView(props: {
               </CardContent>
             </Card>
 
+            {/* Cloud sync build-time flag (docs/plans/public-release-v1.md, Decision 1) —
+                hidden entirely in a public build, not just disabled: the syncLogin/etc.
+                channels this card calls don't exist there at all (see index.ts). */}
+            {/* v8 ignore next -- see the matching ignore on this flag's other call site above:
+                vitest.config.ts's `define` fixes it at `true`, so the "hidden in a public
+                build" arm of this && can't be exercised in this test run. */}
+            {__WINGLOG_CLOUD_SYNC_ENABLED__ && (
             <Card className="max-w-sm">
               <CardHeader>
                 <CardTitle>Cloud sync</CardTitle>
@@ -641,7 +654,36 @@ export function SettingsView(props: {
                 )}
               </CardContent>
             </Card>
+            )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="about" className="min-w-0">
+          <Card className="max-w-2xl">
+            <CardHeader>
+              <CardTitle>WingLog{appVersion ? ` v${appVersion}` : ''}</CardTitle>
+              <CardDescription>
+                A personal fleet-management, dispatch, live-tracking and logbook companion for Microsoft
+                Flight Simulator.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <p className="text-sm text-foreground">
+                WingLog is not affiliated with, endorsed by, or sponsored by Microsoft Corporation or Asobo
+                Studio. "Microsoft Flight Simulator" is a trademark of its respective owners.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Free and open source under the GNU General Public License v3.0.{' '}
+                <button
+                  type="button"
+                  onClick={() => window.winglog.appOpenGithub()}
+                  className="cursor-pointer underline underline-offset-2 hover:text-foreground"
+                >
+                  github.com/Catalyst4K/WingLog
+                </button>
+              </p>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

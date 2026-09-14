@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import type { FlightInvoice, GsxNotailCandidate } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
@@ -45,9 +46,13 @@ function InvoiceRow(props: { invoice: FlightInvoice }): React.JSX.Element {
   const detail = parseDetail(inv.receiptJson)
 
   return (
-    <details className="rounded-md border border-border p-2.5 text-sm">
+    <details className="group rounded-md border border-border p-2.5 text-sm">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
-        <span className="text-foreground">
+        <span className="flex items-center gap-1.5 text-foreground">
+          <ChevronRight
+            aria-hidden="true"
+            className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90"
+          />
           {SERVICE_GROUP_LABEL[inv.serviceGroup]}
           {inv.operator ? ` — ${inv.operator}` : ''}
         </span>

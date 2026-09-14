@@ -12,6 +12,22 @@ const OUT_CSV = new URL('../resources/runways.csv', import.meta.url)
 const OUT_LICENSE = new URL('../resources/runways.LICENSE.txt', import.meta.url)
 const AIRPORTS_CSV = new URL('../resources/airports.csv', import.meta.url)
 
+// Known-bad upstream headings, keyed "ICAO,IDENT" — applied after the fetch so a re-run of
+// this script doesn't silently reintroduce a real data error OurAirports itself hasn't
+// fixed. VHHH's 07L/25R found 2026-09-13: published 74°/254° against 07C/07R's real 71°,
+// but 07L's own two threshold coordinates geometrically bear ~70.8° — matching its siblings
+// almost exactly (three physically-parallel strips should share a near-identical true
+// heading) and consistent with VHHH's real in-sim SimConnect facility centre point already
+// captured in docs/navdata-notes.md. Traced to two real landings (BAW31/HKE251) that scored
+// a spurious ~35-40m centreline-offset drift, proportional to touchdown distance past the
+// threshold — exactly what a ~3° heading error in the position-rotation maths produces
+// (runway-lookup.ts's positionRelativeToRunway), not real pilot variance. Remove an entry
+// here once OurAirports' own source data is confirmed fixed upstream.
+const HEADING_OVERRIDES: Record<string, number> = {
+  'VHHH,07L': 71,
+  'VHHH,25R': 251
+}
+
 // Minimal RFC4180 parser (quoted fields, "" as an escaped quote) — mirrors
 // src/main/db/csv.ts's parseCsvRows, kept standalone here since this script runs outside
 // the app's Vite build.
@@ -76,6 +92,18 @@ async function main(): Promise<void> {
   const iHeLat = idx('he_latitude_deg')
   const iHeLon = idx('he_longitude_deg')
   const iHeHdg = idx('he_heading_degT')
+  // Phase 1 (docs/plans/navdata-without-navigraph.md, flightdeck-backend) — real extent
+  // gating and threshold-displacement/aiming-point maths, replacing the fixed stand-in
+  // constants runway-lookup.ts used until now. length_ft/width_ft/surface describe the
+  // whole physical strip (shared by both ends); the displaced-threshold/elevation columns
+  // are per-end.
+  const iLength = idx('length_ft')
+  const iWidth = idx('width_ft')
+  const iSurface = idx('surface')
+  const iLeDisplaced = idx('le_displaced_threshold_ft')
+  const iLeElevation = idx('le_elevation_ft')
+  const iHeDisplaced = idx('he_displaced_threshold_ft')
+  const iHeElevation = idx('he_elevation_ft')
 
   // Only ICAO-dispatchable airports — same 4-letter icao_code/gps_code cut
   // resources/airports.csv already made, so runway rows can't outnumber the airports this
@@ -86,7 +114,18 @@ async function main(): Promise<void> {
       .map((r) => r[0]?.toUpperCase())
   )
 
-  const outHeader = ['icao', 'ident', 'lat', 'lon', 'heading_true_deg']
+  const outHeader = [
+    'icao',
+    'ident',
+    'lat',
+    'lon',
+    'heading_true_deg',
+    'length_ft',
+    'width_ft',
+    'displaced_threshold_ft',
+    'elevation_ft',
+    'surface'
+  ]
   const outRows: string[][] = [outHeader]
 
   for (const row of rows) {
@@ -97,13 +136,19 @@ async function main(): Promise<void> {
     // Each runway has two ends, published/queried independently — a landing on 27L needs
     // the 27L threshold specifically, not 09R's. Row per usable end (heading + position
     // both present); an end with neither is useless for crosswind/threshold-distance
-    // maths and dropped rather than kept as a row of blanks.
-    for (const [ident, lat, lon, hdg] of [
-      [row[iLeIdent], row[iLeLat], row[iLeLon], row[iLeHdg]],
-      [row[iHeIdent], row[iHeLat], row[iHeLon], row[iHeHdg]]
+    // maths and dropped rather than kept as a row of blanks. length_ft/width_ft/surface
+    // are the same for both ends (Phase 1); displaced_threshold_ft/elevation_ft are
+    // per-end. All four are left blank when OurAirports has no value — runway-lookup.ts
+    // treats a blank displaced_threshold_ft the same as a real zero (no displacement),
+    // since a displacement it doesn't know about is indistinguishable from none anyway.
+    for (const [ident, lat, lon, hdg, displaced, elevation] of [
+      [row[iLeIdent], row[iLeLat], row[iLeLon], row[iLeHdg], row[iLeDisplaced], row[iLeElevation]],
+      [row[iHeIdent], row[iHeLat], row[iHeLon], row[iHeHdg], row[iHeDisplaced], row[iHeElevation]]
     ]) {
       if (!ident || !lat || !lon || !hdg) continue
-      outRows.push([icao, ident, lat, lon, hdg])
+      const override = HEADING_OVERRIDES[`${icao},${ident}`]
+      const outHdg = override !== undefined ? String(override) : hdg
+      outRows.push([icao, ident, lat, lon, outHdg, row[iLength] ?? '', row[iWidth] ?? '', displaced ?? '', elevation ?? '', row[iSurface] ?? ''])
     }
   }
 
@@ -117,12 +162,25 @@ Source: ${SOURCE_URL}
 License: Public domain (OurAirports data)
 
 Trimmed from the full ~48k-row, 20-column, ~3.9 MB source to icao,ident,lat,lon,
-heading_true_deg — one row per usable runway end (both heading and threshold position
-present), for airports already present in the vendored resources/airports.csv (this
-app's ICAO-dispatchable set). Closed runways dropped. ${outRows.length - 1} rows.
+heading_true_deg,length_ft,width_ft,displaced_threshold_ft,elevation_ft,surface — one row
+per usable runway end (both heading and threshold position present), for airports already
+present in the vendored resources/airports.csv (this app's ICAO-dispatchable set). Closed
+runways dropped. ${outRows.length - 1} rows.
 
-Used by src/main/airports/runway-lookup.ts (landing analysis, PLAN.md M6) to resolve a
-touchdown position/heading to the nearest matching runway end.
+length_ft/width_ft/surface describe the whole physical strip (same value on both ends'
+rows); displaced_threshold_ft/elevation_ft are per-end. Any of the five may be blank where
+OurAirports has no value for that runway — most commonly at smaller/regional airports.
+
+heading_true_deg is patched post-fetch for a small HEADING_OVERRIDES list in this script
+(VHHH 07L/25R as of 2026-09-13) where OurAirports' own published value was confirmed wrong
+against the runway's own real geometry — see this script's own comment for the evidence.
+
+Used by src/main/airports/runway-lookup.ts (landing analysis, PLAN.md M6; Phase 1 of
+flightdeck-backend's docs/plans/navdata-without-navigraph.md) to resolve a touchdown
+position/heading to the nearest matching runway end, using each end's own real
+width/length for matching tolerance rather than a fixed stand-in, report distance from the
+real (displacement-adjusted) landing threshold, and derive an ICAO Annex 14 aiming-point
+distance from length.
 `
   writeFileSync(OUT_LICENSE, license, 'utf-8')
 

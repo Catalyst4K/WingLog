@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { findAirlineByIcao, loadAirlines, searchAirlineList, searchAirlines } from './airline-search'
+import { findAirlineByIata, findAirlineByIcao, loadAirlines, searchAirlineList, searchAirlines } from './airline-search'
 
 // Shaped like the real trimmed resources/airlines.csv, including a name containing a
 // comma (quoted) and a row with no IATA code (some carriers genuinely have none).
@@ -83,5 +83,23 @@ describe('findAirlineByIcao (real vendored data)', () => {
 
   it('returns undefined for an empty string', () => {
     expect(findAirlineByIcao('')).toBeUndefined()
+  })
+})
+
+describe('findAirlineByIata (real vendored data)', () => {
+  it('finds an airline by its exact IATA code', () => {
+    expect(findAirlineByIata('SQ')?.name).toBe('Singapore Airlines')
+  })
+
+  it('is case-insensitive', () => {
+    expect(findAirlineByIata('sq')?.name).toBe('Singapore Airlines')
+  })
+
+  it('returns undefined for an unknown code', () => {
+    expect(findAirlineByIata('ZZ9')).toBeUndefined()
+  })
+
+  it('returns undefined for an empty string', () => {
+    expect(findAirlineByIata('')).toBeUndefined()
   })
 })

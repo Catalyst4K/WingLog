@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { SimTelemetry } from '@shared/ipc'
+import type { RunwayEnd } from '../airports/runway-lookup'
 import { buildLandingRecord } from './landing-capture'
 
 function telemetry(overrides: Partial<SimTelemetry> = {}): SimTelemetry {
@@ -7,6 +8,7 @@ function telemetry(overrides: Partial<SimTelemetry> = {}): SimTelemetry {
     latitude: 51.4775,
     longitude: -0.4614,
     altitudeM: 25,
+    pressureAltitudeM: 25,
     altitudeAglM: 0,
     verticalSpeedMs: -1.5,
     indicatedAirspeedMs: 70,
@@ -35,8 +37,20 @@ function telemetry(overrides: Partial<SimTelemetry> = {}): SimTelemetry {
   }
 }
 
-const RUNWAY_27L = { icao: 'EGLL', ident: '27L', lat: 51.4775, lon: -0.4614, headingTrueDeg: 270 }
-const resolveToRunway27L = (): typeof RUNWAY_27L => RUNWAY_27L
+const RUNWAY_27L: RunwayEnd = {
+  icao: 'EGLL',
+  ident: '27L',
+  lat: 51.4775,
+  lon: -0.4614,
+  headingTrueDeg: 270,
+  lengthM: null,
+  widthM: null,
+  displacedThresholdM: 0,
+  elevationM: null,
+  surface: null,
+  aimingPointDistanceM: null
+}
+const resolveToRunway27L = (): RunwayEnd => RUNWAY_27L
 const resolveToNoRunway = (): null => null
 
 describe('buildLandingRecord', () => {
@@ -96,6 +110,15 @@ describe('buildLandingRecord', () => {
     expect(record.centrelineOffsetM).toBeCloseTo(0, 0)
   })
 
+  it('reports distanceFromThresholdM from the real, displaced threshold — not the physical runway end', () => {
+    // Touching down exactly at the physical end (0m along-track from runway-lookup.ts's
+    // perspective) should read as -100m from a threshold displaced 100m inboard: the
+    // aircraft is 100m short of where it's actually meant to land.
+    const displaced: RunwayEnd = { ...RUNWAY_27L, displacedThresholdM: 100 }
+    const record = buildLandingRecord(1, 'EGLL', telemetry(), 't', () => displaced)
+    expect(record.distanceFromThresholdM).toBeCloseTo(-100, 0)
+  })
+
   it('leaves every runway-derived field null when no runway resolves', () => {
     const record = buildLandingRecord(1, 'ZZZZ', telemetry(), 't', resolveToNoRunway)
     expect(record.runwayIdent).toBeNull()
@@ -121,5 +144,39 @@ describe('buildLandingRecord', () => {
   it('keeps a plausible G-force reading exactly as reported', () => {
     const record = buildLandingRecord(1, 'EGLL', telemetry({ gForce: 1.8 }), 't', resolveToRunway27L)
     expect(record.gForce).toBe(1.8)
+  })
+
+  it('takes verticalSpeedMs from previousTelemetry (the last airborne tick), not the touchdown tick', () => {
+    // Real 2026-09-14 finding: the touchdown tick's own vertical speed under-reads true
+    // impact severity by 55-87% (a full second of gear compression usually already
+    // happened by the time on-ground reads true at 1 Hz) — the tick just before is
+    // consistently closer to the real figure.
+    const record = buildLandingRecord(
+      1,
+      'EGLL',
+      telemetry({ verticalSpeedMs: -0.83 }), // touchdown tick, post-contact
+      't',
+      resolveToRunway27L,
+      telemetry({ verticalSpeedMs: -3.72 }) // previous tick, still airborne
+    )
+    expect(record.verticalSpeedMs).toBe(-3.72)
+  })
+
+  it('falls back to the touchdown tick\'s own verticalSpeedMs when no previous tick is available', () => {
+    const record = buildLandingRecord(1, 'EGLL', telemetry({ verticalSpeedMs: -1.5 }), 't', resolveToRunway27L)
+    expect(record.verticalSpeedMs).toBe(-1.5)
+  })
+
+  it('only substitutes verticalSpeedMs from previousTelemetry — every other field still comes from the touchdown tick', () => {
+    const record = buildLandingRecord(
+      1,
+      'EGLL',
+      telemetry({ verticalSpeedMs: -0.83, pitchDeg: -3.5, gForce: 1.68 }),
+      't',
+      resolveToRunway27L,
+      telemetry({ verticalSpeedMs: -3.72, pitchDeg: -8, gForce: 1.0 })
+    )
+    expect(record.pitchDeg).toBe(-3.5)
+    expect(record.gForce).toBe(1.68)
   })
 })
