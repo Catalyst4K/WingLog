@@ -92,6 +92,7 @@ import {
   logoutOfSimbrief
 } from './simbrief/simbrief-generate'
 import { SimConnectService } from './sim/SimConnectService'
+import { ReplaySimConnectService, type ReplayMode } from './sim/ReplaySimConnectService'
 import type { NavdataProvider } from './navdata/navdata-provider'
 import { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
 import { TrackingController } from './tracking/TrackingController'
@@ -401,7 +402,22 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.settingsGetTheme, () => getTheme(db))
       ipcMain.handle(IpcChannels.settingsSetTheme, (_event, theme: Theme) => setTheme(db, theme))
 
-      const simConnectService = new SimConnectService()
+      // Phase 3's injection seam (flightdeck-backend's docs/plans/flight-replay-harness.md,
+      // closing test-coverage.md Phase 4's open question): WINGLOG_E2E_FIXTURE, when set,
+      // swaps in a ReplaySimConnectService driven by a captured NDJSON fixture instead of a
+      // live sim connection — for an e2e/Playwright context that wants Track to actually
+      // receive telemetry without a running MSFS. Unset (every normal launch) behaves exactly
+      // as before. Both classes satisfy SimConnectSource, the interface TrackingController
+      // actually depends on, so no cast is needed either way.
+      const replayFixture = process.env.WINGLOG_E2E_FIXTURE
+      const simConnectService: SimConnectService | ReplaySimConnectService = replayFixture
+        ? new ReplaySimConnectService(replayFixture, {
+            mode: (process.env.WINGLOG_E2E_REPLAY_MODE as ReplayMode | undefined) ?? 'paced',
+            speedMultiplier: process.env.WINGLOG_E2E_REPLAY_SPEED
+              ? Number(process.env.WINGLOG_E2E_REPLAY_SPEED)
+              : undefined
+          })
+        : new SimConnectService()
       ipcMain.handle(IpcChannels.simConnectionStatusGet, () => simConnectService.getStatus())
       simConnectService.on('telemetry', (telemetry) => {
         if (!window.isDestroyed()) window.webContents.send(IpcChannels.simTelemetry, telemetry)

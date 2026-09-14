@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import type { SimTelemetry } from '@shared/ipc'
 import { airportPosition } from '../airports/runway-lookup'
-import type { SimConnectService } from '../sim/SimConnectService'
+import type { SimConnectSource } from '../sim/SimConnectSource'
 
 // scripts/spike-flight-reload.ts, sim-confirmed against a real MSFS 2024 reload (see
 // docs/decisions.md): loading a different flight produces roughly a minute of telemetry
@@ -73,7 +73,7 @@ export class AutoStartDetector extends EventEmitter<{ ready: [number] }> {
   private referencePosition: { lat: number; lon: number } | null = null
 
   constructor(
-    simConnectService: SimConnectService,
+    simConnectService: SimConnectSource,
     private readonly resolveAirportPosition: (icao: string) => { lat: number; lon: number } | null = airportPosition
   ) {
     super()

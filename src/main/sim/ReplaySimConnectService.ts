@@ -40,11 +40,8 @@ export interface ReplaySimConnectServiceOptions {
  * start()/stop()/getStatus()/getLastTelemetry(), the same telemetry/status/paused events)
  * so TrackingController can be driven by a recorded flight instead of a live sim — per
  * flightdeck-backend's docs/plans/flight-replay-harness.md Phase 1. TrackingController's
- * constructor is typed to the concrete SimConnectService class (which has private fields,
- * making it nominally — not just structurally — typed), so a caller hands this to it with
- * the same `as unknown as SimConnectService` cast TrackingController.test.ts's ad hoc
- * fakeSimConnectService() already uses; changing that constructor's type is Phase 3's
- * main/index.ts injection-seam work, not this class's job.
+ * constructor takes SimConnectSource (Phase 3), the structural interface this class
+ * satisfies directly — no cast needed to hand an instance to it.
  */
 export class ReplaySimConnectService extends EventEmitter<ReplaySimConnectServiceEvents> {
   readonly header: FlightFixtureHeader

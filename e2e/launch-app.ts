@@ -30,7 +30,15 @@ export interface LaunchedApp {
   cleanup: () => Promise<void>
 }
 
-export async function launchApp(): Promise<LaunchedApp> {
+export interface LaunchAppOptions {
+  /** Extra env vars for this launch only — merged over the inherited environment, never
+   *  mutating process.env, so concurrent tests can request different fixtures safely. Used
+   *  to drive main/index.ts's replay seam (WINGLOG_E2E_FIXTURE and friends — flightdeck-
+   *  backend's docs/plans/flight-replay-harness.md Phase 3) without a live sim. */
+  env?: Record<string, string>
+}
+
+export async function launchApp(options: LaunchAppOptions = {}): Promise<LaunchedApp> {
   const projectRoot = process.cwd()
   const userDataDir = mkdtempSync(join(tmpdir(), 'winglog-e2e-'))
 
@@ -38,6 +46,7 @@ export async function launchApp(): Promise<LaunchedApp> {
   for (const [key, value] of Object.entries(process.env)) {
     if (value !== undefined && key !== 'ELECTRON_RUN_AS_NODE') env[key] = value
   }
+  Object.assign(env, options.env)
 
   const app = await electron.launch({
     args: [projectRoot, `--user-data-dir=${userDataDir}`],
