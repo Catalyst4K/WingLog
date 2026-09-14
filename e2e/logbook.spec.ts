@@ -64,12 +64,25 @@ test('browses to a completed flight, sees its landing/track detail, and deletes 
     await expect(confirmDialog.getByRole('heading', { name: 'Delete this flight?' })).toBeVisible()
     await confirmDialog.getByRole('button', { name: 'Delete flight' }).click()
     // Confirms the click actually registered (dialog closes) before checking what's behind
-    // it — isolates a genuinely un-clicked button from the CI-only slowness below, which is
-    // Real: flightDelete's IPC round trip plus LogbookView's own four-way reload() all
-    // landed comfortably inside the default 5s locally, but not on a loaded CI runner.
+    // it — the dialog itself closes as soon as useConfirm()'s promise resolves, before
+    // handleDelete's actual `await window.winglog.flightDelete(...)` even runs, so this
+    // alone doesn't prove the delete succeeded — only that the confirm click landed.
     await expect(confirmDialog).toBeHidden()
 
-    await expect(window.getByRole('heading', { name: 'Logbook' })).toBeVisible({ timeout: 15_000 })
+    const listHeading = window.getByRole('heading', { name: 'Logbook' })
+    try {
+      await expect(listHeading).toBeVisible({ timeout: 15_000 })
+    } catch (err) {
+      // A failed flightDelete IPC call surfaces as a toast, not a heading — this stays in
+      // detail view in that case (handleDelete's catch swallows it, never calling
+      // onDeleted()). Surface the toast text so a CI-only failure here is diagnosable from
+      // the log instead of just "heading never appeared".
+      const toastText = await window
+        .locator('[data-sonner-toast]')
+        .allTextContents()
+        .catch(() => ['<could not read toast>'])
+      throw new Error(`Logbook heading never reappeared after delete. Toast content: ${JSON.stringify(toastText)}. Original error: ${err}`)
+    }
     await expect(window.getByText('No completed flights yet')).toBeVisible()
   } finally {
     await cleanup()

@@ -37,10 +37,14 @@ test('selecting a fleet aircraft prefills the plan, and the Advanced dialog open
     await expect(page.getByRole('heading', { name: 'Dispatch' })).toBeVisible()
 
     // Selecting the aircraft prefills departure from its currentIcao (DispatchView.tsx's
-    // handlePlanAircraftChange).
+    // handlePlanAircraftChange). The option is awaited explicitly (not just clicked) since
+    // Radix's Select portal can still be mid-open on a loaded CI runner even though the
+    // click itself already auto-waits for actionability.
     await page.getByRole('combobox').first().click()
-    await page.getByRole('option', { name: /G-DISP/ }).click()
-    await expect(page.getByText('EGLL', { exact: true }).first()).toBeVisible()
+    const option = page.getByRole('option', { name: /G-DISP/ })
+    await expect(option).toBeVisible({ timeout: 10_000 })
+    await option.click()
+    await expect(page.getByText('EGLL', { exact: true }).first()).toBeVisible({ timeout: 10_000 })
 
     // Advanced dialog opens and closes without touching anything network-dependent.
     await page.getByRole('button', { name: /Advanced/ }).click()
