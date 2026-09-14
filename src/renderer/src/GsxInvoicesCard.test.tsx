@@ -64,6 +64,15 @@ describe('GsxInvoicesCard', () => {
     expect(screen.getAllByText('—').length).toBeGreaterThan(0)
   })
 
+  it('shows an expand-affordance chevron on each row, next to the service label', async () => {
+    withWinglog({ logbookListInvoices: vi.fn().mockResolvedValue([invoice({ serviceGroup: 'fuel' })]) })
+    render(<GsxInvoicesCard flightId={42} />)
+
+    const label = await screen.findByText('Fuel')
+    const summary = label.closest('summary')
+    expect(summary?.querySelector('svg')).toBeInTheDocument()
+  })
+
   it('re-fetches when flightId changes', async () => {
     const logbookListInvoices = vi.fn().mockResolvedValue([])
     withWinglog({ logbookListInvoices })
