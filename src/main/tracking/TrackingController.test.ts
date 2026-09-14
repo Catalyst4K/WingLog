@@ -6,7 +6,7 @@ import { createDb, type WingLogDb } from '../db/client'
 import { createAircraft } from '../db/aircraft-repo'
 import { createFlight, getFlight, listFlights } from '../db/flight-repo'
 import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
-import type { SimConnectService } from '../sim/SimConnectService'
+import type { SimConnectSource } from '../sim/SimConnectSource'
 import { TrackingController } from './TrackingController'
 
 function telemetry(overrides: Partial<SimTelemetry>): SimTelemetry {
@@ -43,13 +43,15 @@ function telemetry(overrides: Partial<SimTelemetry>): SimTelemetry {
   }
 }
 
-/** A minimal SimConnectService double: real EventEmitter plus a settable "last telemetry". */
-function fakeSimConnectService(): SimConnectService & {
-  setLastTelemetry: (t: SimTelemetry | undefined) => void
-} {
-  const emitter = new EventEmitter() as unknown as SimConnectService & {
+/** A minimal SimConnectSource double: real EventEmitter plus a settable "last telemetry". */
+function fakeSimConnectService(): EventEmitter &
+  SimConnectSource & {
     setLastTelemetry: (t: SimTelemetry | undefined) => void
-  }
+  } {
+  const emitter = new EventEmitter() as EventEmitter &
+    SimConnectSource & {
+      setLastTelemetry: (t: SimTelemetry | undefined) => void
+    }
   let last: SimTelemetry | undefined
   emitter.getLastTelemetry = () => last
   emitter.setLastTelemetry = (t) => {

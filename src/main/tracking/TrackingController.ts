@@ -19,7 +19,7 @@ import { getGsxSettings } from '../db/settings-repo'
 import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
 import { buildFlightMatchWindow } from '../gsx/flight-window'
 import { scanGsxFolder } from '../gsx/scan'
-import type { SimConnectService } from '../sim/SimConnectService'
+import type { SimConnectSource } from '../sim/SimConnectSource'
 import { FlightRecorder } from './FlightRecorder'
 import { buildLandingRecord } from './landing-capture'
 import { isPhysicallyImpossibleJump, RESUME_CLEANUP_CONSTANTS, type TrackCleanupResult } from './resume-cleanup'
@@ -47,6 +47,11 @@ interface TrackingControllerEvents {
  * single-active-flight model. Subscribes to SimConnectService once at construction and
  * stays subscribed regardless of whether a flight is currently being tracked, so start()
  * doesn't race a telemetry tick that arrived just before it.
+ *
+ * Constructor takes a SimConnectSource, not the concrete SimConnectService class — the
+ * structural interface both SimConnectService and ReplaySimConnectService satisfy, per
+ * flightdeck-backend's docs/plans/flight-replay-harness.md Phase 3. main/index.ts is the
+ * only place that decides which concrete implementation gets constructed.
  */
 export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   private recorder: FlightRecorder | undefined
@@ -79,7 +84,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
 
   constructor(
     private readonly db: WingLogDb,
-    private readonly simConnectService: SimConnectService
+    private readonly simConnectService: SimConnectSource
   ) {
     super()
     this.simConnectService.on('telemetry', (telemetry) => {
