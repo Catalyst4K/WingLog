@@ -38,6 +38,14 @@ test.afterAll(() => {
 
 test('browses to a completed flight, sees its landing/track detail, and deletes it', async () => {
   const { window, cleanup } = await launchApp({ userDataDir })
+  // Diagnostic only, while chasing a CI-only ("body text: ''", window not closed) failure
+  // after navigating away from the flight-detail map — suspect a renderer crash (maplibre-
+  // gl's WebGL context under xvfb's software GL) rather than an app logic bug.
+  window.on('pageerror', (err) => console.log('[e2e diagnostic] pageerror:', err))
+  window.on('crash', () => console.log('[e2e diagnostic] page crashed'))
+  window.on('console', (msg) => {
+    if (msg.type() === 'error') console.log('[e2e diagnostic] console.error:', msg.text())
+  })
   try {
     await window.getByRole('tab', { name: 'Logbook' }).click()
     await expect(window.getByRole('heading', { name: 'Logbook' })).toBeVisible()
