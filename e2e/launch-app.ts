@@ -36,11 +36,18 @@ export interface LaunchAppOptions {
    *  to drive main/index.ts's replay seam (WINGLOG_E2E_FIXTURE and friends — flightdeck-
    *  backend's docs/plans/flight-replay-harness.md Phase 3) without a live sim. */
   env?: Record<string, string>
+  /** Use this directory as `--user-data-dir` instead of a freshly created empty one — for
+   *  a test that needs to launch against a pre-seeded `winglog.db` (see
+   *  seed-completed-flight.ts) rather than an empty database. Still isolated, still the
+   *  caller's responsibility to have created it and to clean it up (cleanup() below only
+   *  removes a directory it created itself). */
+  userDataDir?: string
 }
 
 export async function launchApp(options: LaunchAppOptions = {}): Promise<LaunchedApp> {
   const projectRoot = process.cwd()
-  const userDataDir = mkdtempSync(join(tmpdir(), 'winglog-e2e-'))
+  const ownedUserDataDir = options.userDataDir === undefined
+  const userDataDir = options.userDataDir ?? mkdtempSync(join(tmpdir(), 'winglog-e2e-'))
 
   const env: Record<string, string> = {}
   for (const [key, value] of Object.entries(process.env)) {
@@ -61,7 +68,7 @@ export async function launchApp(options: LaunchAppOptions = {}): Promise<Launche
     window,
     cleanup: async () => {
       await app.close()
-      rmSync(userDataDir, { recursive: true, force: true })
+      if (ownedUserDataDir) rmSync(userDataDir, { recursive: true, force: true })
     }
   }
 }

@@ -1,0 +1,67 @@
+import { execFileSync } from 'node:child_process'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { test, expect } from '@playwright/test'
+import { launchApp } from './launch-app'
+
+/**
+ * Logbook's browse/detail/delete flow against the real built app, per flightdeck-backend's
+ * docs/plans/test-coverage.md Phase 4. Logbook only ever shows *completed* flights, and
+ * there's no way to reach that state through the UI alone without either a live sim or a
+ * network-dependent SimBrief OFP (Dispatch's "Fetch"/"Generate" both hit a real external
+ * service — not something a headless CI run can rely on). So this seeds one real completed
+ * flight first, via src/main/tracking/seed-e2e-completed-flight.test.ts — which runs the
+ * same committed replay fixture flight-replay.test.ts already replays through the real
+ * TrackingController/FlightRecorder/landing-capture pipeline, just written to a real db
+ * file instead of `:memory:` — then launches the app pointed at that pre-seeded profile
+ * instead of an empty one.
+ */
+let userDataDir: string
+
+test.beforeAll(() => {
+  userDataDir = mkdtempSync(join(tmpdir(), 'winglog-e2e-logbook-'))
+  const dbPath = join(userDataDir, 'winglog.db')
+  // Same electron-as-node recipe as package.json's db:migrate/test scripts (better-sqlite3
+  // is built for Electron's Node ABI) — the real binary directly (not the node_modules/.bin
+  // shim), since that's a .cmd on Windows and execFileSync can't run one without a shell.
+  const electronBin = join('node_modules', 'electron', 'dist', process.platform === 'win32' ? 'electron.exe' : 'electron')
+  execFileSync(electronBin, ['./node_modules/vitest/vitest.mjs', 'run', 'src/main/tracking/seed-e2e-completed-flight.test.ts'], {
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', WINGLOG_E2E_SEED_DB_PATH: dbPath },
+    stdio: 'inherit'
+  })
+})
+
+test.afterAll(() => {
+  rmSync(userDataDir, { recursive: true, force: true })
+})
+
+test('browses to a completed flight, sees its landing/track detail, and deletes it', async () => {
+  const { window, cleanup } = await launchApp({ userDataDir })
+  try {
+    await window.getByRole('tab', { name: 'Logbook' }).click()
+    await expect(window.getByRole('heading', { name: 'Logbook' })).toBeVisible()
+    await expect(window.getByText('Total flights')).toBeVisible()
+
+    // The seeded flight — G-TEST, EGLL -> EGCC
+    const row = window.getByRole('row', { name: /EGLL.*EGCC/ })
+    await expect(row).toBeVisible()
+    await row.click()
+
+    // Flight detail: header, landing card (real captured landing data), and the map
+    await expect(window.getByText('EGLL → EGCC')).toBeVisible()
+    await expect(window.getByText('Landing', { exact: true })).toBeVisible()
+    await expect(window.getByText('Touchdown rate')).toBeVisible()
+    await expect(window.getByText('23R', { exact: true })).toBeVisible()
+
+    // Delete
+    await window.getByRole('button', { name: 'Delete flight' }).click()
+    await expect(window.getByRole('heading', { name: 'Delete this flight?' })).toBeVisible()
+    await window.getByRole('button', { name: 'Delete flight' }).click()
+
+    await expect(window.getByRole('heading', { name: 'Logbook' })).toBeVisible()
+    await expect(window.getByText('No completed flights yet')).toBeVisible()
+  } finally {
+    await cleanup()
+  }
+})
