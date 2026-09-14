@@ -22,12 +22,11 @@ jobs:
       - run: npm run test:coverage
 
   e2e:
-    # Not yet confirmed on real CI infrastructure (flightdeck-backend's
-    # docs/plans/test-coverage.md, open questions) — the launch recipe below was only
-    # spiked and confirmed locally on Windows. continue-on-error until a run here actually
-    # proves headless Electron works the same way on an ubuntu-latest runner.
+    # Confirmed working on real ubuntu-latest CI 2026-09-14 (flightdeck-backend's
+    # docs/plans/test-coverage.md Phase 5) — a manual workflow_dispatch run against
+    # develop's real codebase passed cleanly, closing the open question this
+    # continue-on-error guard existed for.
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
