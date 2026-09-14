@@ -23,6 +23,19 @@ on a map, and land in a logbook that actually analyses how you flew — touchdow
 G-force, crosswind, centreline offset, a 0–100 landing score, all of it. Everything lives
 in a local SQLite database on your own machine. No account, no cloud, no subscription.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/logbook-detail.png" width="800" alt="Logbook flight detail — landing score, touchdown diagram, and flown route on the map"><br/>
+  <sub>A flight's Logbook detail — real landing analysis, touchdown diagram, and track on the map.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/fleet.png" width="32%" alt="Fleet list">
+  <img src="docs/screenshots/dispatch.png" width="32%" alt="Dispatch — SimBrief OFP, procedures and route">
+  <img src="docs/screenshots/logbook-list.png" width="32%" alt="Logbook — flight history and totals">
+</p>
+
 ## Features
 
 - **Fleet** — track your aircraft: registration, type, airline, current location, hours
