@@ -358,6 +358,29 @@ describe('TrackView', () => {
       expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
     })
 
+    it('hides the Free flight card once a real flight plan is loaded (dispatched via "Fly")', async () => {
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
+        flightList: vi.fn().mockResolvedValue([makeFlight()])
+      })
+      renderTrack()
+      // Wait for the planned flight's own card to settle rather than asserting on absence
+      // immediately, which would pass trivially before the flightList fetch resolves.
+      await screen.findByText('Start tracking')
+      expect(screen.queryByText('Flying something already?')).not.toBeInTheDocument()
+      expect(screen.queryByText('Free flight')).not.toBeInTheDocument()
+    })
+
+    it('suppresses the detection banner too once a real flight plan is loaded', async () => {
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
+        flightList: vi.fn().mockResolvedValue([makeFlight()])
+      })
+      renderTrack({ telemetry: makeTelemetry({ onGround: false }) })
+      await screen.findByText('Start tracking') // wait for the planned-flight card to settle
+      expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
+    })
+
     it('dismisses the banner without opening the dialog, and it stays hidden until the episode resets', async () => {
       setWinglog()
       const user = userEvent.setup()

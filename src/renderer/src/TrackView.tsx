@@ -233,9 +233,13 @@ export function TrackView(props: {
 
   // The passive detection banner (free-flight-tracking.md): sim connected, nothing being
   // tracked, and the aircraft is either moving on the ground or airborne — never fires just
-  // because the sim is loaded and parked.
+  // because the sim is loaded and parked. Suppressed whenever a real planned flight is
+  // already loaded (dispatched via "Fly"): that flight's own card already offers "Start
+  // tracking", and the banner's button starts an unrelated free flight instead, which would
+  // just create a second, parallel flight rather than tracking the one already planned.
   const showBanner =
     !active &&
+    plannedFlights.length === 0 &&
     !!props.telemetry &&
     (!props.telemetry.onGround || props.telemetry.groundSpeedMs > GROUND_MOVEMENT_THRESHOLD_MS)
   // Resets the dismissal the moment the trigger condition itself goes false (parked again,
@@ -330,17 +334,19 @@ export function TrackView(props: {
             </Card>
           )}
 
-          <Card>
-            <CardContent className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium text-foreground">Flying something already?</p>
-                <p className="text-sm text-muted-foreground">Start tracking it — no SimBrief plan needed.</p>
-              </div>
-              <Button type="button" variant="outline" size="sm" onClick={handleOpenFreeFlight}>
-                Free flight
-              </Button>
-            </CardContent>
-          </Card>
+          {plannedFlights.length === 0 && (
+            <Card>
+              <CardContent className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Flying something already?</p>
+                  <p className="text-sm text-muted-foreground">Start tracking it — no SimBrief plan needed.</p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={handleOpenFreeFlight}>
+                  Free flight
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           {plannedFlights.map((f) => {
             const label = f.flightNumber ?? `${f.depIcao} → ${f.arrIcao}`
