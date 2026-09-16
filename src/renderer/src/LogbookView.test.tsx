@@ -10,6 +10,7 @@ import type {
   LandingScoreCategoryKey,
   LandingScoreResult,
   LandingScoreSummary,
+  LandingWithDetails,
   TrackPoint,
   WingLogApi
 } from '@shared/ipc'
@@ -245,6 +246,15 @@ function makeLanding(overrides: Partial<Landing> = {}): Landing {
   }
 }
 
+function makeLandingWithDetails(overrides: Partial<LandingWithDetails> = {}): LandingWithDetails {
+  return {
+    ...makeLanding(),
+    runway: null,
+    score: null,
+    ...overrides
+  }
+}
+
 const CATEGORY_LABELS: Record<LandingScoreCategoryKey, string> = {
   verticalSpeed: 'Vertical speed',
   gForce: 'G-force',
@@ -283,9 +293,7 @@ function buildWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     logbookListFlightScores: vi.fn().mockResolvedValue([]),
     // FlightDetail (opened from the list)
     trackPointList: vi.fn().mockResolvedValue([]),
-    logbookGetLanding: vi.fn().mockResolvedValue(null),
-    logbookGetLandingRunway: vi.fn().mockResolvedValue(null),
-    logbookGetLandingScore: vi.fn().mockResolvedValue(null),
+    logbookListLandings: vi.fn().mockResolvedValue([]),
     logbookGreatCircleRoute: vi.fn().mockResolvedValue(null),
     logbookOpenOfpPdf: vi.fn().mockResolvedValue(true),
     flightDelete: vi.fn().mockResolvedValue(undefined),
@@ -367,11 +375,11 @@ describe('LogbookView list', () => {
 describe('LandingCard', () => {
   it('renders the fetched score and severity', async () => {
     setWinglog({
-      logbookGetLanding: vi.fn().mockResolvedValue(makeLanding()),
-      logbookGetLandingRunway: vi.fn().mockResolvedValue(null),
-      logbookGetLandingScore: vi
-        .fn()
-        .mockResolvedValue({ score: 78, severity: 'firm', categories: makeCategories() } satisfies LandingScoreResult)
+      logbookListLandings: vi.fn().mockResolvedValue([
+        makeLandingWithDetails({
+          score: { score: 78, severity: 'firm', categories: makeCategories() } satisfies LandingScoreResult
+        })
+      ])
     })
     render(<LandingCard flightId={1} landingDistanceUnit="ft" />)
 
@@ -381,9 +389,7 @@ describe('LandingCard', () => {
 
   it('renders nothing extra when the flight has no landing row', async () => {
     setWinglog({
-      logbookGetLanding: vi.fn().mockResolvedValue(null),
-      logbookGetLandingRunway: vi.fn().mockResolvedValue(null),
-      logbookGetLandingScore: vi.fn().mockResolvedValue(null)
+      logbookListLandings: vi.fn().mockResolvedValue([])
     })
     const { container } = render(<LandingCard flightId={1} landingDistanceUnit="ft" />)
 
@@ -392,9 +398,7 @@ describe('LandingCard', () => {
 
   it('shows a dash for the score while none/hard badge is absent for a "none" severity landing', async () => {
     setWinglog({
-      logbookGetLanding: vi.fn().mockResolvedValue(makeLanding()),
-      logbookGetLandingRunway: vi.fn().mockResolvedValue(null),
-      logbookGetLandingScore: vi.fn().mockResolvedValue(null)
+      logbookListLandings: vi.fn().mockResolvedValue([makeLandingWithDetails()])
     })
     render(<LandingCard flightId={1} landingDistanceUnit="ft" />)
 
@@ -406,13 +410,15 @@ describe('LandingCard', () => {
 
   it('shows a warning icon next to a field whose own category scored badly, not next to a good one', async () => {
     setWinglog({
-      logbookGetLanding: vi.fn().mockResolvedValue(makeLanding()),
-      logbookGetLandingRunway: vi.fn().mockResolvedValue(null),
-      logbookGetLandingScore: vi.fn().mockResolvedValue({
-        score: 55,
-        severity: 'none',
-        categories: makeCategories({ crab: 10, pitch: 95 })
-      } satisfies LandingScoreResult)
+      logbookListLandings: vi.fn().mockResolvedValue([
+        makeLandingWithDetails({
+          score: {
+            score: 55,
+            severity: 'none',
+            categories: makeCategories({ crab: 10, pitch: 95 })
+          } satisfies LandingScoreResult
+        })
+      ])
     })
     render(<LandingCard flightId={1} landingDistanceUnit="ft" />)
 
@@ -425,13 +431,15 @@ describe('LandingCard', () => {
   it('opens the score breakdown dialog from the card header button', async () => {
     const user = userEvent.setup()
     setWinglog({
-      logbookGetLanding: vi.fn().mockResolvedValue(makeLanding()),
-      logbookGetLandingRunway: vi.fn().mockResolvedValue(null),
-      logbookGetLandingScore: vi.fn().mockResolvedValue({
-        score: 55,
-        severity: 'none',
-        categories: makeCategories({ crab: 10 })
-      } satisfies LandingScoreResult)
+      logbookListLandings: vi.fn().mockResolvedValue([
+        makeLandingWithDetails({
+          score: {
+            score: 55,
+            severity: 'none',
+            categories: makeCategories({ crab: 10 })
+          } satisfies LandingScoreResult
+        })
+      ])
     })
     render(<LandingCard flightId={1} landingDistanceUnit="ft" />)
 
@@ -440,6 +448,20 @@ describe('LandingCard', () => {
 
     await user.click(trigger)
     expect(screen.getByText('Landing score breakdown — 55/100')).toBeInTheDocument()
+  })
+
+  it('defaults to the final touchdown when a flight has more than one', async () => {
+    setWinglog({
+      logbookListLandings: vi.fn().mockResolvedValue([
+        makeLandingWithDetails({ seq: 1, verticalSpeedMs: -1.5 }),
+        makeLandingWithDetails({ seq: 2, verticalSpeedMs: -3.2 })
+      ])
+    })
+    render(<LandingCard flightId={1} landingDistanceUnit="ft" />)
+
+    // -3.2 m/s -> ~630 fpm, -1.5 m/s -> ~295 fpm — asserting the final landing's own
+    // figure is shown, not the first one's.
+    expect(await screen.findByText(/630 fpm/)).toBeInTheDocument()
   })
 })
 

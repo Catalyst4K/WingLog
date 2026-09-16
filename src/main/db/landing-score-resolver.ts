@@ -112,7 +112,8 @@ export function getLandingScoresForCompletedFlights(db: WingLogDb): LandingScore
     if (!icaoTypeByAircraftId.has(f.aircraftId)) {
       icaoTypeByAircraftId.set(f.aircraftId, getAircraftById(db, f.aircraftId)?.icaoType ?? null)
     }
-    const { score } = resolveLandingScore(landingRecord, f.arrIcao, icaoTypeByAircraftId.get(f.aircraftId) ?? null)
+    const icao = landingRecord.icao ?? f.arrIcao
+    const { score } = resolveLandingScore(landingRecord, icao, icaoTypeByAircraftId.get(f.aircraftId) ?? null)
     summaries.push({ flightId: f.id, score })
   }
 

@@ -393,6 +393,31 @@ export interface LandingScoreSummary {
   score: number
 }
 
+/** One touchdown with its runway geometry and score already resolved server-side
+ *  (flightdeck-backend's docs/plans/multiple-landings.md) — `logbookListLandings`'s own
+ *  return shape, replacing the three separate logbookGetLanding/-Runway/-Score calls the
+ *  Logbook detail page used to make per flight. `runway`/`score` are null under the same
+ *  conditions the old per-call versions returned null for (no runwayIdent match, or
+ *  nothing to score against). */
+export interface LandingWithDetails extends Landing {
+  runway: LandingRunway | null
+  score: LandingScoreResult | null
+}
+
+/** One row for the Logbook Landings sub-tab (flightdeck-backend's docs/plans/
+ *  multiple-landings.md Phase 2/3) — every touchdown across every non-deleted flight,
+ *  joined with enough flight/aircraft context to sort and link back. Mirrors
+ *  AircraftLandingRow's shape (which is scoped to one aircraft already); this one spans
+ *  the whole fleet. */
+export interface LandingListRow extends Landing {
+  flightNumber: string | null
+  aircraftRegistration: string
+  depIcao: string
+  arrIcao: string
+  score: number | null
+  severity: LandingSeverity | null
+}
+
 export interface ActiveTracking {
   flightId: number
   phase: FlightPhase
@@ -848,12 +873,11 @@ export const IpcChannels = {
   gsxAttachNotailReceipt: 'gsx:attach-notail-receipt',
   gsxOpenReceipt: 'gsx:open-receipt',
   logbookOpenOfpPdf: 'logbook:open-ofp-pdf',
-  logbookGetLanding: 'logbook:get-landing',
-  logbookGetLandingRunway: 'logbook:get-landing-runway',
+  logbookListLandings: 'logbook:list-landings',
+  logbookListAllLandings: 'logbook:list-all-landings',
   logbookGreatCircleRoute: 'logbook:great-circle-route',
   fleetListLandings: 'fleet:list-landings',
   fleetListFlights: 'fleet:list-flights',
-  logbookGetLandingScore: 'logbook:get-landing-score',
   logbookListFlightScores: 'logbook:list-flight-scores',
   aircraftLookupByRegistration: 'aircraft:lookup-by-registration',
   aircraftTypeSearch: 'aircraft:type-search',
@@ -1036,14 +1060,15 @@ export interface WingLogApi {
    *  doesn't yield a safe URL to open — e.g. an ad-hoc flight, or an older SimBrief
    *  response shaped differently than expected. */
   logbookOpenOfpPdf: (flightId: number) => Promise<boolean>
-  /** The flight's touchdown record, if one was captured — null for any flight tracked
-   *  before this feature existed, or one with no landing phase reached (e.g. cancelled
-   *  mid-air). */
-  logbookGetLanding: (flightId: number) => Promise<Landing | null>
-  /** The runway geometry the touchdown diagram draws against — see LandingRunway's doc
-   *  comment. `flightId` is validated in main (an unknown id, or a flight/landing with no
-   *  runwayIdent, just yields null, same as an unknown flight elsewhere in this API). */
-  logbookGetLandingRunway: (flightId: number) => Promise<LandingRunway | null>
+  /** Every touchdown recorded for a flight, in touchdown order, each with its runway
+   *  geometry and score already resolved (flightdeck-backend's docs/plans/
+   *  multiple-landings.md) — replaces the old logbookGetLanding/-Runway/-Score trio with
+   *  one call. Empty for any flight tracked before landing capture existed, or with no
+   *  landing phase reached (e.g. cancelled mid-air). */
+  logbookListLandings: (flightId: number) => Promise<LandingWithDetails[]>
+  /** Every touchdown across every non-deleted flight, newest first — the Logbook Landings
+   *  sub-tab (flightdeck-backend's docs/plans/multiple-landings.md Phase 3). */
+  logbookListAllLandings: () => Promise<LandingListRow[]>
   /** Great-circle fallback route for Logbook's flight-detail map, [lon, lat] pairs (docs/
    *  plans/great-circle-fallback-route.md) — used only when the flight has no OFP-derived
    *  route to draw (parseRouteFromOfpJson came back empty). Null if either ICAO isn't in
@@ -1055,9 +1080,6 @@ export interface WingLogApi {
    *  directly rather than filtering flightList() client-side, since that list is already
    *  hundreds of rows on a well-used fleet. */
   fleetListFlights: (aircraftId: number) => Promise<Flight[]>
-  /** A flight's landing score/severity, if it has a landing row — null otherwise (same
-   *  cases logbookGetLanding returns null for). */
-  logbookGetLandingScore: (flightId: number) => Promise<LandingScoreResult | null>
   /** Every completed flight's landing score, for Logbook's list-view column — omits any
    *  flight with no landing row, which the list shows as "—" for (see LandingScoreSummary). */
   logbookListFlightScores: () => Promise<LandingScoreSummary[]>

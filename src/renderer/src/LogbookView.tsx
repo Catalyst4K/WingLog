@@ -15,12 +15,10 @@ import { toast } from 'sonner'
 import type {
   Aircraft,
   Flight,
-  Landing,
   LandingDistanceUnit,
-  LandingRunway,
   LandingScoreCategoryKey,
-  LandingScoreResult,
   LandingScoreSummary,
+  LandingWithDetails,
   LogbookStats,
   TrackPoint,
   WeightUnit
@@ -139,28 +137,15 @@ export function LandingCard(props: {
   flightId: number
   landingDistanceUnit: LandingDistanceUnit
 }): React.JSX.Element | null {
-  const [landing, setLanding] = useState<Landing | null | undefined>(undefined)
-  const [runway, setRunway] = useState<LandingRunway | null>(null)
-  const [scoreResult, setScoreResult] = useState<LandingScoreResult | null>(null)
+  const [landings, setLandings] = useState<LandingWithDetails[] | undefined>(undefined)
 
   useEffect(() => {
-    // Fetched together (docs/plans/logbook-detail-improvements.md) rather than the runway
-    // as a second effect keyed off `landing` — that would flash the card at its shorter,
-    // no-diagram height first and then grow once the runway arrives.
-    Promise.all([
-      window.winglog.logbookGetLanding(props.flightId),
-      window.winglog.logbookGetLandingRunway(props.flightId),
-      window.winglog.logbookGetLandingScore(props.flightId)
-    ]).then(([landingResult, runwayResult, scoreResultValue]) => {
-      setLanding(landingResult)
-      setRunway(runwayResult)
-      setScoreResult(scoreResultValue)
-    })
+    window.winglog.logbookListLandings(props.flightId).then(setLandings)
   }, [props.flightId])
 
   // Still loading — render a skeleton at roughly the card's final height rather than
   // nothing, so the layout doesn't jump once the fetch resolves.
-  if (landing === undefined) {
+  if (landings === undefined) {
     return (
       <Card className="min-w-72 flex-1">
         <CardHeader>
@@ -173,8 +158,14 @@ export function LandingCard(props: {
     )
   }
 
-  if (!landing) return null
+  if (landings.length === 0) return null
 
+  // Defaults to the final touchdown — the one that ended the flight — matching Logbook's
+  // own flights-list score column (flightdeck-backend's docs/plans/multiple-landings.md).
+  // Per-landing tabs for switching between several are Phase 3, not built yet.
+  const landing = landings[landings.length - 1]
+  const runway = landing.runway
+  const scoreResult = landing.score
   const unit = props.landingDistanceUnit
 
   function categoryScore(key: LandingScoreCategoryKey): number | null {

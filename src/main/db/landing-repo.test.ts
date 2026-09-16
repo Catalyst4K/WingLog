@@ -9,6 +9,7 @@ import type { NewLanding } from './landing-repo'
 import {
   createLanding,
   getLandingByFlight,
+  listAllLandings,
   listLandingsByAircraft,
   listLandingsByFlight,
   listLandingsForSync,
@@ -148,6 +149,50 @@ describe('landing repo', () => {
       createLanding(db, makeLanding(flightId))
       db.update(flight).set({ deletedAt: new Date().toISOString() }).where(eq(flight.id, flightId)).run()
       expect(listLandingsByAircraft(db, aircraftId)).toEqual([])
+    })
+  })
+
+  describe('listAllLandings', () => {
+    it('returns an empty array when nothing has landed yet', () => {
+      expect(listAllLandings(db)).toEqual([])
+    })
+
+    it('spans every aircraft, newest touchdown first, with flight/aircraft context attached', () => {
+      const otherAircraftId = createAircraft(db, { registration: 'G-WXYZ', icaoType: 'B738' }).id
+      const otherFlight = createFlight(db, {
+        aircraftId: otherAircraftId,
+        depIcao: 'EGCC',
+        arrIcao: 'EGLL',
+        flightNumber: 'BA200'
+      })
+      createLanding(db, makeLanding(flightId, { touchdownTsUtc: '2026-09-01T00:00:00.000Z' }))
+      createLanding(db, makeLanding(otherFlight.id, { touchdownTsUtc: '2026-09-06T12:00:00.000Z' }))
+
+      const rows = listAllLandings(db)
+      expect(rows).toHaveLength(2)
+      expect(rows[0].touchdownTsUtc).toBe('2026-09-06T12:00:00.000Z')
+      expect(rows[0].aircraftRegistration).toBe('G-WXYZ')
+      expect(rows[0].flightNumber).toBe('BA200')
+      expect(rows[0].icaoType).toBe('B738')
+      expect(rows[1].aircraftRegistration).toBe('G-ABCD')
+    })
+
+    it('returns every landing for a flight with several, not just the last one', () => {
+      createLanding(db, makeLanding(flightId, { seq: 1, touchdownTsUtc: '2026-09-06T12:00:00.000Z' }))
+      createLanding(db, makeLanding(flightId, { seq: 2, touchdownTsUtc: '2026-09-06T12:05:00.000Z' }))
+      expect(listAllLandings(db)).toHaveLength(2)
+    })
+
+    it('excludes landings whose flight is soft-deleted', () => {
+      createLanding(db, makeLanding(flightId))
+      db.update(flight).set({ deletedAt: new Date().toISOString() }).where(eq(flight.id, flightId)).run()
+      expect(listAllLandings(db)).toEqual([])
+    })
+
+    it('excludes a soft-deleted landing itself', () => {
+      const created = createLanding(db, makeLanding(flightId))
+      db.update(landing).set({ deletedAt: new Date().toISOString() }).where(eq(landing.id, created.id)).run()
+      expect(listAllLandings(db)).toEqual([])
     })
   })
 

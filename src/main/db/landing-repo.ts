@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { and, asc, desc, eq, isNull } from 'drizzle-orm'
 import type { AircraftLandingRow, Landing } from '@shared/ipc'
-import { flight, landing } from './schema'
+import { aircraft, flight, landing } from './schema'
 import type { WingLogDb } from './client'
 
 function toLanding(row: typeof landing.$inferSelect): Landing {
@@ -97,6 +97,45 @@ export function listLandingsByAircraft(db: WingLogDb, aircraftId: number): Aircr
       flightNumber: row.flightNumber,
       depIcao: row.depIcao,
       arrIcao: row.arrIcao
+    }))
+}
+
+/** Every touchdown across every non-deleted flight, newest first — the Logbook Landings
+ *  sub-tab (flightdeck-backend's docs/plans/multiple-landings.md Phase 2/3), spanning the
+ *  whole fleet rather than one aircraft (listLandingsByAircraft above). Score is resolved
+ *  by the caller (main/index.ts), same composition as listLandingsByAircraft's own
+ *  fleetListLandings handler. */
+export function listAllLandings(db: WingLogDb): (Landing & {
+  flightNumber: string | null
+  aircraftRegistration: string
+  /** Not part of the IPC-facing shape — only here so the caller can resolve a score
+   *  against this landing's own aircraft without a second query per row. */
+  icaoType: string | null
+  depIcao: string
+  arrIcao: string
+})[] {
+  return db
+    .select({
+      landing: landing,
+      flightNumber: flight.flightNumber,
+      depIcao: flight.depIcao,
+      arrIcao: flight.arrIcao,
+      aircraftRegistration: aircraft.registration,
+      icaoType: aircraft.icaoType
+    })
+    .from(landing)
+    .innerJoin(flight, eq(landing.flightId, flight.id))
+    .innerJoin(aircraft, eq(flight.aircraftId, aircraft.id))
+    .where(and(isNull(landing.deletedAt), isNull(flight.deletedAt)))
+    .orderBy(desc(landing.touchdownTsUtc))
+    .all()
+    .map((row) => ({
+      ...toLanding(row.landing),
+      flightNumber: row.flightNumber,
+      depIcao: row.depIcao,
+      arrIcao: row.arrIcao,
+      aircraftRegistration: row.aircraftRegistration,
+      icaoType: row.icaoType
     }))
 }
 
