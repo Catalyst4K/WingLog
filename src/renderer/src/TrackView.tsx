@@ -28,17 +28,25 @@ import { StartFreeFlightDialog } from './StartFreeFlightDialog'
 const GROUND_MOVEMENT_THRESHOLD_MS = 0.5
 
 /** "Flight Num: [airline logo] BAW31   A35K · G-XWBS" — the identity strip shown for a
- *  flight on this page, whether it's actively being tracked or just queued up to start. */
-function FlightIdentity(props: { flightNumber: string; aircraft: Aircraft | undefined }): React.JSX.Element {
+ *  flight on this page, whether it's actively being tracked or just queued up to start.
+ *  Falls back to simIcaoType/simRegistration (a free flight tracked with no fleet
+ *  aircraft — free-flight-tracking.md's "don't add to fleet" option) when there's no
+ *  linked Aircraft to read type/registration from. */
+function FlightIdentity(props: {
+  flightNumber: string
+  aircraft: Aircraft | undefined
+  simIcaoType?: string | null
+  simRegistration?: string | null
+}): React.JSX.Element {
+  const icaoType = props.aircraft?.icaoType ?? props.simIcaoType
+  const registration = props.aircraft?.registration ?? props.simRegistration
   return (
     <span className="flex items-center gap-1.5 text-sm text-foreground">
       <span className="font-medium text-foreground">Flight Num:</span>
       <AirlineLogo iata={props.aircraft?.operatorIata ?? null} />
       <span>{props.flightNumber}</span>
-      {props.aircraft && (
-        <span className="text-muted-foreground">
-          {props.aircraft.icaoType} · {props.aircraft.registration}
-        </span>
+      {(icaoType || registration) && (
+        <span className="text-muted-foreground">{[icaoType, registration].filter(Boolean).join(' · ')}</span>
       )}
     </span>
   )
@@ -318,6 +326,8 @@ export function TrackView(props: {
               <FlightIdentity
                 flightNumber={activeLabel}
                 aircraft={aircraft.find((a) => a.id === activeFlight?.aircraftId)}
+                simIcaoType={activeFlight?.simIcaoType}
+                simRegistration={activeFlight?.simRegistration}
               />
               <span className="text-sm text-muted-foreground">
                 Phase: <span className="font-mono capitalize">{active.phase}</span>

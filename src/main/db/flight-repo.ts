@@ -9,6 +9,8 @@ function toFlight(row: typeof flight.$inferSelect): Flight {
   return {
     id: row.id,
     aircraftId: row.aircraftId,
+    simRegistration: row.simRegistration,
+    simIcaoType: row.simIcaoType,
     status: row.status,
     flightNumber: row.flightNumber,
     depIcao: row.depIcao,
@@ -145,7 +147,11 @@ export function createFlight(db: WingLogDb, input: NewFlight): Flight {
 }
 
 export interface NewFreeFlightInput {
-  aircraftId: number
+  /** Null when the pilot chose not to add this aircraft to the fleet — simRegistration/
+   *  simIcaoType are then required instead, carrying its identity on the flight row itself. */
+  aircraftId: number | null
+  simRegistration?: string | null
+  simIcaoType?: string | null
   depIcao: string
   arrIcao: string
   flightNumber: string | null
@@ -165,6 +171,8 @@ export function createFreeFlight(db: WingLogDb, input: NewFreeFlightInput): Flig
     .insert(flight)
     .values({
       aircraftId: input.aircraftId,
+      simRegistration: input.simRegistration ?? null,
+      simIcaoType: input.simIcaoType ?? null,
       status: 'active',
       flightNumber: input.flightNumber,
       depIcao: input.depIcao,
@@ -334,8 +342,10 @@ export function completeFlight(
   // otherwise it'd only ever reflect wherever the aircraft was manually set to once.
   // Only wired into the real-time completion path (TrackingController → completeFlight),
   // not CSV-imported historical flights (logbook-import.ts's createHistoricalFlight),
-  // since an import isn't guaranteed to process rows in chronological order.
-  if (row)
+  // since an import isn't guaranteed to process rows in chronological order. Skipped
+  // entirely for a free flight tracked with no fleet aircraft (aircraftId null) — there's
+  // no aircraft record to update.
+  if (row && existing.aircraftId != null)
     db.update(aircraft)
       .set({ currentIcao: existing.arrIcao })
       .where(eq(aircraft.id, existing.aircraftId))
@@ -457,6 +467,7 @@ export function getFleetStats(db: WingLogDb): FleetStats[] {
 
   const byAircraft = new Map<number, FleetStats>()
   for (const f of completed) {
+    if (f.aircraftId == null) continue // free flight tracked with no fleet aircraft
     const registration = aircraftById.get(f.aircraftId)
     if (!registration) continue // orphaned flight row, e.g. its aircraft was deleted
 

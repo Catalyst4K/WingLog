@@ -318,7 +318,11 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
    * renderer, e.g. to switch Track's view onto it immediately.
    */
   startFree(input: {
-    aircraftId: number
+    /** Null when the pilot chose not to add this aircraft to the fleet — simRegistration/
+     *  simIcaoType are then required instead. */
+    aircraftId: number | null
+    simRegistration?: string | null
+    simIcaoType?: string | null
     depIcao: string
     arrIcao: string
     flightNumber: string | null
@@ -338,6 +342,8 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
 
     const flight = createFreeFlight(this.db, {
       aircraftId: input.aircraftId,
+      simRegistration: input.simRegistration,
+      simIcaoType: input.simIcaoType,
       depIcao: input.depIcao,
       arrIcao: input.arrIcao,
       flightNumber: input.flightNumber,
@@ -349,8 +355,9 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     // atcId fleet match, an existing title memory, or a brand-new fleet tail) — "whatever
     // the user confirms is what gets written," so the next flight in the same add-on
     // skips straight to the memory lookup (free-flight-tracking.md's aircraft-resolution
-    // order).
-    rememberAircraftForTitle(this.db, telemetry.title, input.aircraftId)
+    // order). Skipped when the pilot chose not to add a fleet aircraft at all — there's
+    // nothing to remember this title as next time.
+    if (input.aircraftId != null) rememberAircraftForTitle(this.db, telemetry.title, input.aircraftId)
 
     const seededPhase = seedPhaseFromTelemetry(telemetry)
     this.recorder = new FlightRecorder(flight.id, { phase: seededPhase, hasLanded: false, resumeSegment: 0 })

@@ -202,6 +202,22 @@ describe('flight repo', () => {
       expect(created.depIcao).toBe('ZZZZ')
       expect(created.arrIcao).toBe('ZZZZ')
     })
+
+    it('accepts a null aircraftId, keeping the sim-reported identity on the flight row instead — not mandatory to add to fleet', () => {
+      const created = createFreeFlight(db, {
+        aircraftId: null,
+        simRegistration: 'G-TEST',
+        simIcaoType: 'C172',
+        depIcao: 'VHHH',
+        arrIcao: 'VHHH',
+        flightNumber: null,
+        fuelOutKg: 500
+      })
+      expect(created.aircraftId).toBeNull()
+      expect(created.simRegistration).toBe('G-TEST')
+      expect(created.simIcaoType).toBe('C172')
+      expect(created.status).toBe('active')
+    })
   })
 
   describe('setArrIcao (free-flight-tracking.md)', () => {
@@ -343,6 +359,23 @@ describe('flight repo', () => {
       completeFlight(db, created.id, 4000)
 
       expect(getAircraftByRegistration(db, 'G-ABCD')?.currentIcao).toBe('VHHH')
+    })
+
+    it('completes a free flight with no fleet aircraft without touching the aircraft table', () => {
+      const created = createFreeFlight(db, {
+        aircraftId: null,
+        simRegistration: 'G-TEST',
+        simIcaoType: 'C172',
+        depIcao: 'VHHH',
+        arrIcao: 'VHHH',
+        flightNumber: null,
+        fuelOutKg: 500
+      })
+      const completed = completeFlight(db, created.id, 400)
+      expect(completed?.status).toBe('completed')
+      // No aircraft row exists to have been touched — this just confirms completion
+      // doesn't throw trying to update one that was never there.
+      expect(getAircraftByRegistration(db, 'G-ABCD')?.currentIcao).toBeNull()
     })
 
     it('deletes a cancelled flight outright, including its track points, rather than saving it as abandoned', () => {
@@ -526,6 +559,23 @@ describe('flight repo', () => {
 
     it('omits an aircraft with no completed flights, even if it has a planned one', () => {
       createAircraft(db, { registration: 'G-IDLE', icaoType: 'A320' })
+      flyAndComplete(aircraftId, 'EGCC', 30, 500)
+
+      const stats = getFleetStats(db)
+      expect(stats.map((s) => s.registration)).toEqual(['G-ABCD'])
+    })
+
+    it('omits a completed free flight with no fleet aircraft, rather than crashing on its null aircraftId', () => {
+      const freeFlight = createFreeFlight(db, {
+        aircraftId: null,
+        simRegistration: 'G-TEST',
+        simIcaoType: 'C172',
+        depIcao: 'VHHH',
+        arrIcao: 'VHHH',
+        flightNumber: null,
+        fuelOutKg: 500
+      })
+      completeFlight(db, freeFlight.id, 400)
       flyAndComplete(aircraftId, 'EGCC', 30, 500)
 
       const stats = getFleetStats(db)

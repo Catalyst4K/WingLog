@@ -9,10 +9,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AirportSearch } from './AirportSearch'
 import { Combobox } from './components/Combobox'
 
-/** Select's own value type is always a string — this sentinel picks "create a new fleet
- *  aircraft" out of the list of real aircraft ids (free-flight-tracking.md's aircraft-
- *  resolution step 3, "Add <reg> (<type>) to fleet"). */
+/** Select's own value type is always a string — these sentinels pick the two non-fleet-id
+ *  choices out of the list of real aircraft ids: "create a new fleet aircraft"
+ *  (free-flight-tracking.md's aircraft-resolution step 3, "Add <reg> (<type>) to fleet")
+ *  and "don't add one at all" — Callum's call, 2026-09-16: adding to the fleet shouldn't
+ *  be mandatory just to track a flight. The registration/type are still captured (and
+ *  still auto-filled from the sim) either way, just kept on the flight row itself
+ *  (Flight.simRegistration/simIcaoType) instead of a new aircraft record. */
 const NEW_AIRCRAFT = '__new__'
+const NO_AIRCRAFT = '__none__'
 
 interface FormState {
   registration: string
@@ -112,15 +117,22 @@ export function StartFreeFlightDialog(props: {
   }
 
   const creatingNew = selectedAircraftId === NEW_AIRCRAFT
+  const addingNone = selectedAircraftId === NO_AIRCRAFT
   const nonRetiredAircraft = props.aircraft.filter((a) => a.replacedByAircraftId === null)
-  const selectedExisting = creatingNew ? undefined : props.aircraft.find((a) => String(a.id) === selectedAircraftId)
+  const selectedExisting =
+    creatingNew || addingNone ? undefined : props.aircraft.find((a) => String(a.id) === selectedAircraftId)
+  // Registration/type stay editable whenever there's no existing fleet aircraft already
+  // supplying them — both the "add to fleet" and "don't add to fleet" choices need them.
+  const showIdentityFields = creatingNew || addingNone
 
   async function handleSubmit(): Promise<void> {
     if (!props.telemetry) return
     setSubmitting(true)
     setError(null)
     try {
-      let aircraftId: number
+      let aircraftId: number | null = null
+      let simRegistration: string | null = null
+      let simIcaoType: string | null = null
       if (creatingNew) {
         if (!form.registration.trim() || !form.icaoType.trim()) {
           throw new Error('Enter a registration and type for the new aircraft.')
@@ -130,6 +142,12 @@ export function StartFreeFlightDialog(props: {
           icaoType: form.icaoType.trim().toUpperCase()
         })
         aircraftId = created.id
+      } else if (addingNone) {
+        if (!form.registration.trim() || !form.icaoType.trim()) {
+          throw new Error('Enter a registration and type.')
+        }
+        simRegistration = form.registration.trim()
+        simIcaoType = form.icaoType.trim().toUpperCase()
       } else if (selectedExisting) {
         aircraftId = selectedExisting.id
       } else {
@@ -138,6 +156,8 @@ export function StartFreeFlightDialog(props: {
 
       const flightId = await window.winglog.trackingStartFree({
         aircraftId,
+        simRegistration,
+        simIcaoType,
         depIcao: form.depIcao.trim() || null,
         arrIcao: form.arrIcao.trim() || null,
         flightNumber: form.flightNumber.trim() || null
@@ -179,6 +199,7 @@ export function StartFreeFlightDialog(props: {
                   <SelectItem value={NEW_AIRCRAFT}>
                     Add {form.registration || 'new aircraft'} {form.icaoType ? `(${form.icaoType})` : ''} to fleet
                   </SelectItem>
+                  <SelectItem value={NO_AIRCRAFT}>Don&apos;t add to fleet — just track this flight</SelectItem>
                   {nonRetiredAircraft.map((a) => (
                     <SelectItem key={a.id} value={String(a.id)}>
                       {a.registration} — {a.icaoType}
@@ -188,7 +209,7 @@ export function StartFreeFlightDialog(props: {
               </Select>
             </div>
 
-            {creatingNew ? (
+            {showIdentityFields ? (
               <>
                 <div className="flex flex-col gap-1.5">
                   <Label className="flex flex-col items-start gap-1.5">
@@ -200,8 +221,9 @@ export function StartFreeFlightDialog(props: {
                     />
                   </Label>
                   <span className="text-xs text-muted-foreground">
-                    What MSFS's own aircraft-configuration page has set for this aircraft — matched to your fleet
-                    automatically next time.
+                    {creatingNew
+                      ? "What MSFS's own aircraft-configuration page has set for this aircraft — matched to your fleet automatically next time."
+                      : "What MSFS's own aircraft-configuration page has set for this aircraft. Not added to your fleet, so you'll fill this in again next time."}
                   </span>
                 </div>
                 <div className="flex flex-col gap-1.5">

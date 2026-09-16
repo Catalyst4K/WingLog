@@ -435,7 +435,12 @@ export interface ActiveTracking {
  * leaving either column null, matching the plan's schema-migration-avoidance reasoning.
  */
 export interface StartFreeFlightInput {
-  aircraftId: number
+  /** Null when the pilot chose not to add this aircraft to the fleet at all — see
+   *  simRegistration/simIcaoType below, which carry its identity instead in that case. */
+  aircraftId: number | null
+  /** Required together with a null aircraftId; ignored (should be null) otherwise. */
+  simRegistration: string | null
+  simIcaoType: string | null
   depIcao: string | null
   arrIcao: string | null
   flightNumber: string | null
@@ -456,7 +461,14 @@ export interface FreeFlightPrefill {
 
 export interface Flight {
   id: number
-  aircraftId: number
+  /** Null for a free flight tracked without adding an aircraft to the fleet — see
+   *  simRegistration/simIcaoType, which carry its identity in that case instead. */
+  aircraftId: number | null
+  /** Set only when aircraftId is null — the sim-reported registration/type at free-flight
+   *  start (free-flight-tracking.md's "don't add to fleet" option), kept for display since
+   *  there's no linked aircraft record to read it from otherwise. */
+  simRegistration: string | null
+  simIcaoType: string | null
   status: FlightStatus
   flightNumber: string | null
   depIcao: string

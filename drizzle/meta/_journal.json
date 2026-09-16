@@ -169,6 +169,13 @@
       "when": 1789577786175,
       "tag": "0023_lively_charles_xavier",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1789597774833,
+      "tag": "0024_brainy_rocket_racer",
+      "breakpoints": true
     }
   ]
 }

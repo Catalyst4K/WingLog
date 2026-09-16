@@ -180,6 +180,8 @@ function makeFlight(overrides: Partial<Flight> = {}): Flight {
   return {
     id: 1,
     aircraftId: 1,
+    simRegistration: null,
+    simIcaoType: null,
     status: 'completed',
     flightNumber: 'TA100',
     depIcao: 'EGLL',
@@ -423,6 +425,31 @@ describe('LogbookView list', () => {
     expect(within(freeRow).getByText('Free flight')).toBeInTheDocument()
     const dispatchedRow = screen.getByText('DISPATCHED').closest('tr')!
     expect(within(dispatchedRow).queryByText('Free flight')).not.toBeInTheDocument()
+  })
+
+  it('shows the flight\'s own sim-reported registration for a free flight tracked with no fleet aircraft — not mandatory to add one', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([
+        makeFlight({
+          id: 1,
+          flightNumber: 'FREE1',
+          aircraftId: null,
+          simRegistration: 'G-TEST',
+          simIcaoType: 'C172',
+          ofpJson: null,
+          actualOffUtc: '2026-02-01T10:05:00.000Z'
+        })
+      ]),
+      aircraftList: vi.fn().mockResolvedValue([]),
+      logbookListFlightScores: vi.fn().mockResolvedValue([])
+    })
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+
+    const row = (await screen.findByText('FREE1')).closest('tr')!
+    expect(within(row).getByText('G-TEST')).toBeInTheDocument()
+
+    await userEvent.click(row)
+    expect(await screen.findByText('G-TEST')).toBeInTheDocument()
   })
 
   it('does not badge a CSV-imported flight (no OFP, but also never actually flown live) as a free flight', async () => {

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type {
@@ -17,6 +17,16 @@ import { TrackView } from './TrackView'
 // and isn't a spy — mock it so `toast.error`/`toast.success` assertions work, matching the
 // one IPC-adjacent seam (window.winglog) this batch's other tests mock.
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+
+// jsdom has no real pointer-capture implementation, which Radix's Select throws on when a
+// test actually opens the dropdown (rather than relying on its default selection) — same
+// polyfill DispatchView.test.tsx/FleetView.test.tsx/SettingsView.test.tsx already needed.
+beforeAll(() => {
+  Element.prototype.hasPointerCapture = () => false
+  Element.prototype.setPointerCapture = () => {}
+  Element.prototype.releasePointerCapture = () => {}
+  Element.prototype.scrollIntoView = () => {}
+})
 
 afterEach(() => {
   vi.clearAllMocks()
@@ -118,6 +128,8 @@ function makeFlight(overrides: Partial<Flight> = {}): Flight {
   return {
     id: 1,
     aircraftId: 1,
+    simRegistration: null,
+    simIcaoType: null,
     status: 'planned',
     flightNumber: 'BAW31',
     depIcao: 'EGLL',
@@ -476,11 +488,53 @@ describe('TrackView', () => {
 
       expect(trackingStartFree).toHaveBeenCalledWith({
         aircraftId: AIRCRAFT.id,
+        simRegistration: null,
+        simIcaoType: null,
         depIcao: 'EGLL',
         arrIcao: null,
         flightNumber: null
       })
       expect(await screen.findByText('Phase:')).toBeInTheDocument()
+    })
+
+    it('shows the flight\'s own sim-reported identity in the active card when tracking with no fleet aircraft — not mandatory to add one', async () => {
+      const trackingStartFree = vi.fn().mockResolvedValue(5)
+      const freeFlight = makeFlight({
+        id: 5,
+        status: 'active',
+        aircraftId: null,
+        simRegistration: 'G-TEST',
+        simIcaoType: 'C172',
+        flightNumber: null,
+        ofpJson: null
+      })
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([]),
+        flightList: vi.fn().mockResolvedValueOnce([]).mockResolvedValue([freeFlight]),
+        trackingStartFree,
+        trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue({
+          registration: 'G-TEST',
+          icaoType: 'C172',
+          icaoTypeAmbiguous: false,
+          suggestedDepIcao: null,
+          rememberedAircraftId: null
+        }),
+        trackingGetActive: vi
+          .fn()
+          .mockResolvedValueOnce(null)
+          .mockResolvedValue({ flightId: 5, phase: 'preflight' })
+      })
+      const user = userEvent.setup()
+      renderTrack({ telemetry: makeTelemetry({ atcId: 'G-TEST', atcModel: 'C172' }) })
+
+      await user.click(await screen.findByText('Free flight'))
+      await screen.findByText('Start a free flight')
+      await user.click(screen.getByRole('combobox'))
+      await user.click(await screen.findByRole('option', { name: /Don.t add to fleet/ }))
+      await user.click(screen.getByText('Start tracking'))
+
+      expect(await screen.findByText('Phase:')).toBeInTheDocument()
+      expect(screen.getByText('C172 · G-TEST')).toBeInTheDocument()
     })
   })
 

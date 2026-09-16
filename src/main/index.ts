@@ -499,13 +499,25 @@ if (!gotSingleInstanceLock) {
         trackingController.start(flightId)
       })
       ipcMain.handle(IpcChannels.trackingStartFree, (_event, input: StartFreeFlightInput) => {
-        const aircraft = getAircraftById(db, input.aircraftId)
-        if (!aircraft || aircraft.replacedByAircraftId !== null) {
-          throw new Error(`Aircraft ${input.aircraftId} not found or retired`)
+        let simRegistration: string | null = null
+        let simIcaoType: string | null = null
+        if (input.aircraftId != null) {
+          const aircraft = getAircraftById(db, input.aircraftId)
+          if (!aircraft || aircraft.replacedByAircraftId !== null) {
+            throw new Error(`Aircraft ${input.aircraftId} not found or retired`)
+          }
+        } else {
+          simRegistration = input.simRegistration?.trim() || ''
+          simIcaoType = input.simIcaoType?.trim().toUpperCase() || ''
+          if (!simRegistration || !simIcaoType) {
+            throw new Error('Registration and type are required when not adding to the fleet.')
+          }
         }
         autoStartDetector.disarm()
         const flightId = trackingController.startFree({
           aircraftId: input.aircraftId,
+          simRegistration,
+          simIcaoType,
           depIcao: normalizeFreeFlightIcao(input.depIcao),
           arrIcao: normalizeFreeFlightIcao(input.arrIcao),
           flightNumber: input.flightNumber?.trim() || null
@@ -667,7 +679,10 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.logbookListLandings, (_event, flightId: number) => {
         const landingFlight = getFlight(db, flightId)
         if (!landingFlight) return []
-        const icaoType = getAircraftById(db, landingFlight.aircraftId)?.icaoType ?? null
+        const icaoType =
+          landingFlight.aircraftId != null
+            ? (getAircraftById(db, landingFlight.aircraftId)?.icaoType ?? null)
+            : landingFlight.simIcaoType
         return listLandingsByFlight(db, flightId).map((landingRecord) => {
           // This touchdown's own resolved airport, falling back to the flight's filed
           // arrival — same icao the capture itself narrowed the runway search by

@@ -82,9 +82,17 @@ export const aircraft = sqliteTable('aircraft', {
 // fills them in; M3 only ever writes a 'planned' row from a fetched OFP.
 export const flight = sqliteTable('flight', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  aircraftId: integer('aircraft_id')
-    .notNull()
-    .references(() => aircraft.id),
+  // Nullable since free-flight-tracking.md's "don't add to fleet" option (added after this
+  // was NOT NULL from M3 onward) — a free flight can be tracked without ever creating or
+  // linking a fleet aircraft. simRegistration/simIcaoType below carry the sim-reported
+  // identity in that case; when aircraftId is set, those two stay null and the aircraft
+  // table is the source of truth instead, same as before.
+  aircraftId: integer('aircraft_id').references(() => aircraft.id),
+  // As read from the sim at free-flight start (StartFreeFlightDialog's own prefill/parse),
+  // kept only for a flight with no aircraftId — the identity a fleet aircraft record would
+  // otherwise have provided. Always null together with a non-null aircraftId.
+  simRegistration: text('sim_registration'),
+  simIcaoType: text('sim_icao_type'),
   status: text('status', { enum: ['planned', 'active', 'completed', 'abandoned'] })
     .notNull()
     .default('planned'),

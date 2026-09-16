@@ -1,10 +1,20 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Aircraft, FreeFlightPrefill, SimTelemetry, WingLogApi } from '@shared/ipc'
 import { StartFreeFlightDialog } from './StartFreeFlightDialog'
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+
+// jsdom has no real pointer-capture implementation, which Radix's Select throws on when a
+// test actually opens the dropdown (rather than relying on its default selection) — same
+// polyfill DispatchView.test.tsx/FleetView.test.tsx/SettingsView.test.tsx already needed.
+beforeAll(() => {
+  Element.prototype.hasPointerCapture = () => false
+  Element.prototype.setPointerCapture = () => {}
+  Element.prototype.releasePointerCapture = () => {}
+  Element.prototype.scrollIntoView = () => {}
+})
 
 afterEach(() => {
   vi.clearAllMocks()
@@ -175,6 +185,8 @@ describe('StartFreeFlightDialog', () => {
     await waitFor(() => expect(aircraftCreate).toHaveBeenCalledWith({ registration: 'N999', icaoType: 'C172' }))
     expect(trackingStartFree).toHaveBeenCalledWith({
       aircraftId: 42,
+      simRegistration: null,
+      simIcaoType: null,
       depIcao: 'EGLL',
       arrIcao: null,
       flightNumber: null
@@ -196,6 +208,8 @@ describe('StartFreeFlightDialog', () => {
     await waitFor(() =>
       expect(trackingStartFree).toHaveBeenCalledWith({
         aircraftId: AIRCRAFT.id,
+        simRegistration: null,
+        simIcaoType: null,
         depIcao: 'EGLL',
         arrIcao: null,
         flightNumber: 'VA123'
@@ -228,6 +242,8 @@ describe('StartFreeFlightDialog', () => {
     await waitFor(() =>
       expect(trackingStartFree).toHaveBeenCalledWith({
         aircraftId: 99,
+        simRegistration: null,
+        simIcaoType: null,
         depIcao: 'EGCC',
         arrIcao: 'EGKK',
         flightNumber: null
@@ -268,6 +284,57 @@ describe('StartFreeFlightDialog', () => {
 
     await user.click(screen.getByText('Start tracking'))
     await waitFor(() => expect(aircraftCreate).toHaveBeenCalledWith({ registration: 'N999', icaoType: 'A20N' }))
+  })
+
+  it('lets a free flight be tracked without adding to fleet — not mandatory (Callum, 2026-09-16)', async () => {
+    const trackingStartFree = vi.fn().mockResolvedValue(9)
+    const aircraftCreate = vi.fn()
+    setWinglog({
+      trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue(makePrefill({ registration: 'G-TEST', icaoType: 'C172' })),
+      trackingStartFree,
+      aircraftCreate
+    })
+    const user = userEvent.setup()
+    renderDialog({ aircraft: [] })
+
+    await waitFor(() => expect(screen.getByLabelText('Registration')).toHaveValue('G-TEST'))
+    await user.click(screen.getByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: /Don.t add to fleet/ }))
+    // Still shown and editable — not added to a fleet doesn't mean not captured.
+    expect(screen.getByLabelText('Registration')).toHaveValue('G-TEST')
+
+    await user.click(screen.getByText('Start tracking'))
+
+    await waitFor(() =>
+      expect(trackingStartFree).toHaveBeenCalledWith({
+        aircraftId: null,
+        simRegistration: 'G-TEST',
+        simIcaoType: 'C172',
+        depIcao: 'EGLL',
+        arrIcao: null,
+        flightNumber: null
+      })
+    )
+    expect(aircraftCreate).not.toHaveBeenCalled()
+  })
+
+  it('requires a registration and type when tracking without a fleet aircraft', async () => {
+    const trackingStartFree = vi.fn()
+    setWinglog({
+      trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue(makePrefill({ registration: '', icaoType: null })),
+      trackingStartFree
+    })
+    const user = userEvent.setup()
+    renderDialog({ aircraft: [] })
+
+    await waitFor(() => expect(screen.getByLabelText('Registration')).toHaveValue(''))
+    await user.click(screen.getByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: /Don.t add to fleet/ }))
+
+    await user.click(screen.getByText('Start tracking'))
+
+    expect(await screen.findByText('Enter a registration and type.')).toBeInTheDocument()
+    expect(trackingStartFree).not.toHaveBeenCalled()
   })
 
   it('shows a toast and keeps the dialog open when trackingStartFree throws', async () => {

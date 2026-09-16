@@ -121,11 +121,16 @@ export function listAllLandings(db: WingLogDb): (Landing & {
       depIcao: flight.depIcao,
       arrIcao: flight.arrIcao,
       aircraftRegistration: aircraft.registration,
-      icaoType: aircraft.icaoType
+      icaoType: aircraft.icaoType,
+      simRegistration: flight.simRegistration,
+      simIcaoType: flight.simIcaoType
     })
     .from(landing)
     .innerJoin(flight, eq(landing.flightId, flight.id))
-    .innerJoin(aircraft, eq(flight.aircraftId, aircraft.id))
+    // Left, not inner — a free flight tracked with no fleet aircraft has a null
+    // flight.aircraftId, which would otherwise silently drop its landings from this list
+    // entirely. simRegistration/simIcaoType (below) stand in for the missing join instead.
+    .leftJoin(aircraft, eq(flight.aircraftId, aircraft.id))
     .where(and(isNull(landing.deletedAt), isNull(flight.deletedAt)))
     .orderBy(desc(landing.touchdownTsUtc))
     .all()
@@ -134,8 +139,8 @@ export function listAllLandings(db: WingLogDb): (Landing & {
       flightNumber: row.flightNumber,
       depIcao: row.depIcao,
       arrIcao: row.arrIcao,
-      aircraftRegistration: row.aircraftRegistration,
-      icaoType: row.icaoType
+      aircraftRegistration: row.aircraftRegistration ?? row.simRegistration ?? '—',
+      icaoType: row.icaoType ?? row.simIcaoType
     }))
 }
 

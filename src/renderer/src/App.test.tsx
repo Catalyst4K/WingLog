@@ -143,6 +143,8 @@ function makeFlight(overrides: Partial<Flight> = {}): Flight {
   return {
     id: 1,
     aircraftId: 1,
+    simRegistration: null,
+    simIcaoType: null,
     status: 'completed',
     flightNumber: 'TA100',
     depIcao: 'EGLL',

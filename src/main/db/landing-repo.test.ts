@@ -3,7 +3,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { eq } from 'drizzle-orm'
 import { createDb, type WingLogDb } from './client'
 import { createAircraft } from './aircraft-repo'
-import { createFlight } from './flight-repo'
+import { createFlight, createFreeFlight } from './flight-repo'
 import { flight, landing } from './schema'
 import type { NewLanding } from './landing-repo'
 import {
@@ -175,6 +175,23 @@ describe('landing repo', () => {
       expect(rows[0].flightNumber).toBe('BA200')
       expect(rows[0].icaoType).toBe('B738')
       expect(rows[1].aircraftRegistration).toBe('G-ABCD')
+    })
+
+    it('falls back to the flight\'s own sim-reported registration/type for a free flight tracked with no fleet aircraft', () => {
+      const freeFlight = createFreeFlight(db, {
+        aircraftId: null,
+        simRegistration: 'G-TEST',
+        simIcaoType: 'C172',
+        depIcao: 'VHHH',
+        arrIcao: 'VHHH',
+        flightNumber: null,
+        fuelOutKg: 500
+      })
+      createLanding(db, makeLanding(freeFlight.id, { touchdownTsUtc: '2026-09-10T00:00:00.000Z' }))
+
+      const row = listAllLandings(db).find((r) => r.flightId === freeFlight.id)
+      expect(row?.aircraftRegistration).toBe('G-TEST')
+      expect(row?.icaoType).toBe('C172')
     })
 
     it('returns every landing for a flight with several, not just the last one', () => {

@@ -9,8 +9,10 @@ import { launchApp } from './launch-app'
  * Uses the same committed replay fixture src/main/tracking/flight-replay.test.ts already
  * drives through TrackingController.startFree at the module level; this test's own job is
  * proving the renderer's plumbing on top of it — the Free flight card, the dialog's
- * prefill/aircraft-creation, and the finished flight actually landing in Logbook — not
- * re-proving the capture logic itself.
+ * prefill/"don't add to fleet" option, and the finished flight actually landing in Logbook —
+ * not re-proving the capture logic itself. Deliberately picks "don't add to fleet" (Callum's
+ * call, 2026-09-16 — adding one shouldn't be mandatory just to track a flight) rather than
+ * the default "add to fleet" choice, through the real dialog/IPC/DB round trip.
  *
  * Paced mode, not instant (unlike track-replay.spec.ts's own connection-badge check, which
  * only needs main's own pulled getSimConnectionStatus and never touches telemetry): the
@@ -41,9 +43,13 @@ test('starts a free flight from Track and finds it, completed, in the Logbook', 
     await window.getByRole('button', { name: 'Free flight' }).click()
     await expect(window.getByText('Start a free flight')).toBeVisible()
     // A fresh profile has no fleet aircraft at all — the dialog defaults to offering to add
-    // the sim-reported registration/type (the fixture's scrubbed G-TEST, a real C172), which
-    // this just accepts as-is rather than picking an existing tail.
+    // the sim-reported registration/type (the fixture's scrubbed G-TEST, a real C172).
     await expect(window.getByText(/Add G-TEST \(C172\) to fleet/)).toBeVisible()
+    // Adding to the fleet shouldn't be mandatory just to track a flight (Callum, 2026-09-16)
+    // — pick "don't add to fleet" instead, still through the real dialog/IPC/DB round trip.
+    await window.getByRole('combobox').click()
+    await window.getByRole('option', { name: "Don't add to fleet — just track this flight" }).click()
+    await expect(window.getByLabel('Registration')).toHaveValue('G-TEST')
     await window.getByRole('button', { name: 'Start tracking' }).click()
 
     // Now actively tracking, with no planned flight ever having existed for it.

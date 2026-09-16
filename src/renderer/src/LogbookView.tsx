@@ -522,7 +522,7 @@ function FlightDetail(props: {
           </CardHeader>
           <CardContent>
             <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
-              <DetailField label="Aircraft" value={aircraft?.registration ?? '—'} />
+              <DetailField label="Aircraft" value={aircraft?.registration ?? flight.simRegistration ?? '—'} />
               <DetailField label="Date" value={formatDate(flight.actualOutUtc)} />
               <DetailField label="Block time" value={formatMinutes(flight.blockMinutes)} />
               <DetailField label="Air time" value={formatMinutes(flight.airMinutes)} />
@@ -700,7 +700,7 @@ function compareFlights(
   a: Flight,
   b: Flight,
   key: SortKey,
-  registrationFor: (aircraftId: number) => string,
+  registrationFor: (flight: Flight) => string,
   scoreFor: (flightId: number) => number | null
 ): number {
   switch (key) {
@@ -711,7 +711,7 @@ function compareFlights(
     case 'route':
       return `${a.depIcao}${a.arrIcao}`.localeCompare(`${b.depIcao}${b.arrIcao}`)
     case 'aircraft':
-      return registrationFor(a.aircraftId).localeCompare(registrationFor(b.aircraftId))
+      return registrationFor(a).localeCompare(registrationFor(b))
     case 'block':
       return (a.blockMinutes ?? 0) - (b.blockMinutes ?? 0)
     // A missing score (no landing row — a CSV import, or a flight tracked before landing
@@ -921,8 +921,13 @@ export function LogbookView(props: {
     reload().finally(() => setLoading(false))
   }, [])
 
-  function registrationFor(aircraftId: number): string {
-    return aircraft.find((a) => a.id === aircraftId)?.registration ?? `#${aircraftId}`
+  /** A free flight tracked with no fleet aircraft has no aircraftId to look up — falls back
+   *  to the sim-reported registration recorded directly on the flight row instead. */
+  function registrationFor(flight: Flight): string {
+    if (flight.aircraftId != null) {
+      return aircraft.find((a) => a.id === flight.aircraftId)?.registration ?? `#${flight.aircraftId}`
+    }
+    return flight.simRegistration ?? '—'
   }
 
   function scoreFor(flightId: number): number | null {
@@ -1068,7 +1073,7 @@ export function LogbookView(props: {
                         <TableCell>
                           {displayIcao(f.depIcao)} → {displayIcao(f.arrIcao)}
                         </TableCell>
-                        <TableCell>{registrationFor(f.aircraftId)}</TableCell>
+                        <TableCell>{registrationFor(f)}</TableCell>
                         <TableCell>{formatMinutes(f.blockMinutes)}</TableCell>
                         <TableCell>{formatWeight(f.fuelBurnKg, props.weightUnit)}</TableCell>
                         <TableCell className="text-center">
