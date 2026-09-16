@@ -6,6 +6,7 @@ import type {
   Aircraft,
   Flight,
   Landing,
+  LandingListRow,
   LandingScoreCategory,
   LandingScoreCategoryKey,
   LandingScoreResult,
@@ -14,7 +15,7 @@ import type {
   TrackPoint,
   WingLogApi
 } from '@shared/ipc'
-import { LandingCard, LogbookView } from './LogbookView'
+import { LandingCard, LandingsTable, LogbookView } from './LogbookView'
 
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() }
@@ -255,6 +256,19 @@ function makeLandingWithDetails(overrides: Partial<LandingWithDetails> = {}): La
   }
 }
 
+function makeLandingListRow(overrides: Partial<LandingListRow> = {}): LandingListRow {
+  return {
+    ...makeLanding(),
+    flightNumber: 'TA100',
+    aircraftRegistration: 'G-ONE',
+    depIcao: 'EGLL',
+    arrIcao: 'EGKK',
+    score: null,
+    severity: null,
+    ...overrides
+  }
+}
+
 const CATEGORY_LABELS: Record<LandingScoreCategoryKey, string> = {
   verticalSpeed: 'Vertical speed',
   gForce: 'G-force',
@@ -294,6 +308,7 @@ function buildWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     // FlightDetail (opened from the list)
     trackPointList: vi.fn().mockResolvedValue([]),
     logbookListLandings: vi.fn().mockResolvedValue([]),
+    logbookListAllLandings: vi.fn().mockResolvedValue([]),
     logbookGreatCircleRoute: vi.fn().mockResolvedValue(null),
     logbookOpenOfpPdf: vi.fn().mockResolvedValue(true),
     flightDelete: vi.fn().mockResolvedValue(undefined),
@@ -320,7 +335,9 @@ describe('LogbookView list', () => {
     setWinglog({
       logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight({ id: 1 })]),
       aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
-      logbookListFlightScores: vi.fn().mockResolvedValue([{ flightId: 1, score: 87 } satisfies LandingScoreSummary])
+      logbookListFlightScores: vi.fn().mockResolvedValue([
+        { flightId: 1, score: 87, landingCount: 1 } satisfies LandingScoreSummary
+      ])
     })
     render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
 
@@ -351,8 +368,8 @@ describe('LogbookView list', () => {
       ]),
       aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
       logbookListFlightScores: vi.fn().mockResolvedValue([
-        { flightId: 1, score: 95 },
-        { flightId: 2, score: 10 }
+        { flightId: 1, score: 95, landingCount: 1 },
+        { flightId: 2, score: 10, landingCount: 1 }
       ] satisfies LandingScoreSummary[])
     })
     const user = userEvent.setup()
@@ -369,6 +386,66 @@ describe('LogbookView list', () => {
     await user.click(screen.getByRole('columnheader', { name: 'Landing Score' }))
     const rowsDesc = screen.getAllByRole('row').slice(1)
     expect(within(rowsDesc[0]).getByText('HIGH')).toBeInTheDocument()
+  })
+
+  it('shows a ×N badge next to the score for a flight with more than one landing, and none for exactly one', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([
+        makeFlight({ id: 1, flightNumber: 'CIRCUITS' }),
+        makeFlight({ id: 2, flightNumber: 'SINGLE' })
+      ]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+      logbookListFlightScores: vi.fn().mockResolvedValue([
+        { flightId: 1, score: 80, landingCount: 3 },
+        { flightId: 2, score: 90, landingCount: 1 }
+      ] satisfies LandingScoreSummary[])
+    })
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+
+    const circuitsRow = (await screen.findByText('CIRCUITS')).closest('tr')!
+    expect(within(circuitsRow).getByText('×3')).toBeInTheDocument()
+    const singleRow = screen.getByText('SINGLE').closest('tr')!
+    expect(within(singleRow).queryByText(/×/)).not.toBeInTheDocument()
+  })
+
+  it('offers a Flights | Landings tab switcher, and the Landings tab shows logbookListAllLandings data', async () => {
+    const user = userEvent.setup()
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight({ id: 1 })]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+      logbookListFlightScores: vi.fn().mockResolvedValue([]),
+      logbookListAllLandings: vi.fn().mockResolvedValue([
+        makeLandingListRow({ id: 1, flightId: 1, flightNumber: 'TA100' })
+      ])
+    })
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    await screen.findByText('TA100')
+
+    await user.click(screen.getByRole('tab', { name: 'Landings' }))
+    // "Touchdown rate" is a column unique to the Landings sub-tab's own table (the flights
+    // table has no such column) — its appearance proves logbookListAllLandings' data made
+    // it onto the page, not just that "TA100" happens to also be the flight number.
+    expect(await screen.findByRole('columnheader', { name: /Touchdown rate/ })).toBeInTheDocument()
+  })
+
+  it('opens a flight\'s detail when a row is clicked from the Landings sub-tab', async () => {
+    const user = userEvent.setup()
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight({ id: 1 })]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+      logbookListFlightScores: vi.fn().mockResolvedValue([]),
+      logbookListAllLandings: vi.fn().mockResolvedValue([
+        makeLandingListRow({ id: 1, flightId: 1, flightNumber: 'TA100' })
+      ])
+    })
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    await screen.findByText('TA100')
+
+    await user.click(screen.getByRole('tab', { name: 'Landings' }))
+    const row = (await screen.findByRole('columnheader', { name: /Touchdown rate/ })).closest('table')!
+    await user.click(within(row).getByText('TA100'))
+
+    expect(await screen.findByText('TA100 — EGLL → EGKK')).toBeInTheDocument()
   })
 })
 
@@ -462,6 +539,163 @@ describe('LandingCard', () => {
     // -3.2 m/s -> ~630 fpm, -1.5 m/s -> ~295 fpm — asserting the final landing's own
     // figure is shown, not the first one's.
     expect(await screen.findByText(/630 fpm/)).toBeInTheDocument()
+  })
+
+  it('shows no switcher at all for a flight with only one landing', async () => {
+    setWinglog({
+      logbookListLandings: vi.fn().mockResolvedValue([makeLandingWithDetails({ id: 1, seq: 1 })])
+    })
+    render(<LandingCard flightId={1} landingDistanceUnit="ft" />)
+
+    await screen.findByText('Touchdown rate')
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+  })
+
+  it('offers tabs (not a select) for up to 4 landings, and switches the shown figures on click', async () => {
+    const user = userEvent.setup()
+    setWinglog({
+      logbookListLandings: vi.fn().mockResolvedValue([
+        makeLandingWithDetails({ id: 1, seq: 1, runwayIdent: '27L', verticalSpeedMs: -0.5 }),
+        makeLandingWithDetails({ id: 2, seq: 2, runwayIdent: '27R', verticalSpeedMs: -3.5 })
+      ])
+    })
+    render(<LandingCard flightId={1} landingDistanceUnit="ft" />)
+
+    expect(await screen.findByRole('tablist')).toBeInTheDocument()
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    // Defaults to the final (second) landing: -3.5 m/s -> ~689 fpm.
+    expect(await screen.findByText(/689 fpm/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('tab', { name: /27L/ }))
+    // -0.5 m/s -> ~98 fpm, the first landing's own figure.
+    expect(await screen.findByText(/98 fpm/)).toBeInTheDocument()
+  })
+
+  it('offers a select instead of tabs beyond the tab threshold', async () => {
+    setWinglog({
+      logbookListLandings: vi.fn().mockResolvedValue([
+        makeLandingWithDetails({ id: 1, seq: 1, runwayIdent: '01' }),
+        makeLandingWithDetails({ id: 2, seq: 2, runwayIdent: '02' }),
+        makeLandingWithDetails({ id: 3, seq: 3, runwayIdent: '03' }),
+        makeLandingWithDetails({ id: 4, seq: 4, runwayIdent: '04' }),
+        makeLandingWithDetails({ id: 5, seq: 5, runwayIdent: '05' })
+      ])
+    })
+    render(<LandingCard flightId={1} landingDistanceUnit="ft" />)
+
+    expect(await screen.findByRole('combobox')).toBeInTheDocument()
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
+  })
+})
+
+describe('LandingsTable', () => {
+  it('renders one row per landing, across different flights and aircraft', async () => {
+    setWinglog({
+      logbookListAllLandings: vi.fn().mockResolvedValue([
+        makeLandingListRow({ id: 1, flightId: 1, aircraftRegistration: 'G-ONE', flightNumber: 'TA100' }),
+        makeLandingListRow({ id: 2, flightId: 2, aircraftRegistration: 'G-TWO', flightNumber: 'TA200' })
+      ])
+    })
+    render(<LandingsTable onOpenFlight={vi.fn()} />)
+
+    expect(await screen.findByText('G-ONE')).toBeInTheDocument()
+    expect(screen.getByText('G-TWO')).toBeInTheDocument()
+    expect(screen.getByText('TA100')).toBeInTheDocument()
+    expect(screen.getByText('TA200')).toBeInTheDocument()
+  })
+
+  it('shows a placeholder message when nothing has landed yet', async () => {
+    setWinglog({ logbookListAllLandings: vi.fn().mockResolvedValue([]) })
+    render(<LandingsTable onOpenFlight={vi.fn()} />)
+
+    expect(await screen.findByText('No landings recorded yet.')).toBeInTheDocument()
+  })
+
+  it('calls onOpenFlight with the row\'s own flightId when clicked', async () => {
+    const user = userEvent.setup()
+    const onOpenFlight = vi.fn()
+    setWinglog({
+      logbookListAllLandings: vi.fn().mockResolvedValue([makeLandingListRow({ id: 1, flightId: 42 })])
+    })
+    render(<LandingsTable onOpenFlight={onOpenFlight} />)
+
+    const row = (await screen.findByText('TA100')).closest('tr')!
+    await user.click(row)
+    expect(onOpenFlight).toHaveBeenCalledWith(42)
+  })
+
+  it('sorts by touchdown rate, worst first, on header click', async () => {
+    const user = userEvent.setup()
+    setWinglog({
+      logbookListAllLandings: vi.fn().mockResolvedValue([
+        makeLandingListRow({ id: 1, flightId: 1, flightNumber: 'SOFT', verticalSpeedMs: -0.5 }),
+        makeLandingListRow({ id: 2, flightId: 2, flightNumber: 'FIRM', verticalSpeedMs: -3.5 })
+      ])
+    })
+    render(<LandingsTable onOpenFlight={vi.fn()} />)
+    await screen.findByText('SOFT')
+
+    await user.click(screen.getByRole('columnheader', { name: /Touchdown rate/ }))
+    const rowsAsc = screen.getAllByRole('row').slice(1)
+    expect(within(rowsAsc[0]).getByText('FIRM')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('columnheader', { name: /Touchdown rate/ }))
+    const rowsDesc = screen.getAllByRole('row').slice(1)
+    expect(within(rowsDesc[0]).getByText('SOFT')).toBeInTheDocument()
+  })
+
+  it('sorts by score, treating a missing score the same as zero', async () => {
+    const user = userEvent.setup()
+    setWinglog({
+      logbookListAllLandings: vi.fn().mockResolvedValue([
+        makeLandingListRow({ id: 1, flightId: 1, flightNumber: 'HIGH', score: 90, severity: 'none' }),
+        makeLandingListRow({ id: 2, flightId: 2, flightNumber: 'NONE', score: null, severity: null })
+      ])
+    })
+    render(<LandingsTable onOpenFlight={vi.fn()} />)
+    await screen.findByText('HIGH')
+
+    await user.click(screen.getByRole('columnheader', { name: 'Score' }))
+    const rowsAsc = screen.getAllByRole('row').slice(1)
+    expect(within(rowsAsc[0]).getByText('NONE')).toBeInTheDocument()
+  })
+
+  it('sorts by aircraft, airport/runway, and flight number', async () => {
+    const user = userEvent.setup()
+    setWinglog({
+      logbookListAllLandings: vi.fn().mockResolvedValue([
+        makeLandingListRow({
+          id: 1,
+          flightId: 1,
+          flightNumber: 'ZULU',
+          aircraftRegistration: 'G-ZULU',
+          icao: 'ZZZZ',
+          runwayIdent: '09'
+        }),
+        makeLandingListRow({
+          id: 2,
+          flightId: 2,
+          flightNumber: 'ALPHA',
+          aircraftRegistration: 'G-ALPHA',
+          icao: 'AAAA',
+          runwayIdent: '27'
+        })
+      ])
+    })
+    render(<LandingsTable onOpenFlight={vi.fn()} />)
+    await screen.findByText('ZULU')
+
+    // Each click sets that column as the new sort key ascending (useSortable's own
+    // behaviour) — 'G-ALPHA'/'AAAA'/'ALPHA' all sort before their 'Z...' counterparts.
+    await user.click(screen.getByRole('columnheader', { name: 'Aircraft' }))
+    expect(within(screen.getAllByRole('row')[1]).getByText('ALPHA')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('columnheader', { name: 'Airport / Runway' }))
+    expect(within(screen.getAllByRole('row')[1]).getByText('ALPHA')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('columnheader', { name: 'Flight' }))
+    expect(within(screen.getAllByRole('row')[1]).getByText('ALPHA')).toBeInTheDocument()
   })
 })
 

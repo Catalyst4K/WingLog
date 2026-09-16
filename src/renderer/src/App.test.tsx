@@ -301,6 +301,7 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     logbookGetStats: vi.fn().mockResolvedValue({ totalFlights: 0, totalBlockMinutes: 0, totalNm: 0 }),
     logbookListFlightScores: vi.fn().mockResolvedValue([]),
     logbookListLandings: vi.fn().mockResolvedValue([]),
+    logbookListAllLandings: vi.fn().mockResolvedValue([]),
     logbookGreatCircleRoute: vi.fn().mockResolvedValue(null),
     logbookListInvoices: vi.fn().mockResolvedValue([]),
     // SettingsView (lazy)

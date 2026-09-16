@@ -387,10 +387,13 @@ export interface LandingScoreResult {
 
 /** One flight's score, for Logbook's list-view column (docs/plans/landing-scoring.md's
  *  "Logbook UI" section) — omits any completed flight with no landing row (CSV-imported,
- *  or tracked before landing capture shipped), which the list shows as "—" for. */
+ *  or tracked before landing capture shipped), which the list shows as "—" for. `score` is
+ *  against the *final* touchdown (flightdeck-backend's docs/plans/multiple-landings.md);
+ *  `landingCount` backs the list's "×3" badge for a flight with more than one. */
 export interface LandingScoreSummary {
   flightId: number
   score: number
+  landingCount: number
 }
 
 /** One touchdown with its runway geometry and score already resolved server-side
