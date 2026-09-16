@@ -74,6 +74,7 @@ import {
   setWindSpeedUnit
 } from './db/settings-repo'
 import { listTrackPoints } from './db/track-point-repo'
+import { getFreeFlightPrefill } from './tracking/free-flight'
 import { deriveFlownRouteJson } from './tracking/route-simplify'
 import { runTrackCleanupForFlight } from './tracking/run-track-cleanup'
 import { simplifyTrackPoints } from './tracking/track-simplify'
@@ -512,6 +513,13 @@ if (!gotSingleInstanceLock) {
         scheduleBackgroundSync()
         return flightId
       })
+      ipcMain.handle(
+        IpcChannels.trackingGetFreeFlightPrefill,
+        (
+          _event,
+          input: { atcId: string; atcModel: string; title: string; latitude: number; longitude: number }
+        ) => getFreeFlightPrefill(db, input)
+      )
       ipcMain.handle(IpcChannels.trackingStop, () => trackingController.stop())
       ipcMain.handle(IpcChannels.trackingFinish, () => trackingController.finish())
       ipcMain.handle(IpcChannels.trackingGetActive, () => trackingController.getActive() ?? null)

@@ -19,6 +19,13 @@ import { useConfirm } from './hooks/useConfirm'
 import { ProcedureSelector } from './ProcedureSelector'
 import { useLiveWaypoints, type ProcedureAirports } from './procedureSelection'
 import { parseTransitionAltitudes } from './route'
+import { StartFreeFlightDialog } from './StartFreeFlightDialog'
+
+// Display-only duplicate of FlightRecorder's own MOVING_MS (~1kt) — the renderer can't
+// import main-process code (this repo's own layout rule), and this threshold only decides
+// whether to *show a prompt*, never anything persisted, so a second small constant here is
+// cheaper than a round trip for it.
+const GROUND_MOVEMENT_THRESHOLD_MS = 0.5
 
 /** "Flight Num: [airline logo] BAW31   A35K · G-XWBS" — the identity strip shown for a
  *  flight on this page, whether it's actively being tracked or just queued up to start. */
@@ -65,6 +72,12 @@ export function TrackView(props: {
   const [starting, setStarting] = useState(false)
   const [confirm, confirmDialog] = useConfirm()
   const [completedLabel, setCompletedLabel] = useState<string | null>(null)
+  const [freeFlightDialogOpen, setFreeFlightDialogOpen] = useState(false)
+  // Reset per-episode, not per app session (free-flight-tracking.md's open question #1 is
+  // explicit that the exact banner-annoyance tradeoff is still undecided) — see the effect
+  // below that clears this the moment the trigger condition itself goes false, so a later,
+  // genuinely new stretch of flying prompts again rather than staying silenced forever.
+  const [bannerDismissed, setBannerDismissed] = useState(false)
   // The onTrackingPoint listener below is registered once on mount, so it closes over
   // whatever `flights`/`props.onFlightEnded` were at that time — refs kept in step with
   // the real values let it use both without going stale.
@@ -144,6 +157,22 @@ export function TrackView(props: {
     }
   }
 
+  /** Mirrors handleStart's post-start bookkeeping — the dialog itself already handled the
+   *  IPC call and its own error reporting, this only runs on success. */
+  async function handleFreeFlightStarted(): Promise<void> {
+    setActive(await window.winglog.trackingGetActive())
+    setTrackPoints([])
+    await reload()
+  }
+
+  function handleOpenFreeFlight(): void {
+    if (!props.telemetry) {
+      toast.error('Not connected to the sim.')
+      return
+    }
+    setFreeFlightDialogOpen(true)
+  }
+
   async function handleCancelActive(): Promise<void> {
     const ok = await confirm({
       title: `Cancel ${activeLabel}?`,
@@ -201,6 +230,23 @@ export function TrackView(props: {
   const plannedFlights = flights.filter((f) => f.status === 'planned')
   const activeFlight = active ? flights.find((f) => f.id === active.flightId) : undefined
   const activeLabel = activeFlight?.flightNumber ?? `flight #${active?.flightId}`
+
+  // The passive detection banner (free-flight-tracking.md): sim connected, nothing being
+  // tracked, and the aircraft is either moving on the ground or airborne — never fires just
+  // because the sim is loaded and parked.
+  const showBanner =
+    !active &&
+    !!props.telemetry &&
+    (!props.telemetry.onGround || props.telemetry.groundSpeedMs > GROUND_MOVEMENT_THRESHOLD_MS)
+  // Resets the dismissal the moment the trigger condition itself goes false (parked again,
+  // or tracking started) — adjusted during render, React's own documented pattern for state
+  // that depends on another value changing, same as AircraftForm.tsx's own
+  // committedIcaoTypeForOptions.
+  const [prevShowBanner, setPrevShowBanner] = useState(showBanner)
+  if (showBanner !== prevShowBanner) {
+    setPrevShowBanner(showBanner)
+    if (!showBanner) setBannerDismissed(false)
+  }
   // Before tracking starts, preview the most recently planned flight (flightList already
   // orders newest-first) so a freshly-dispatched plan shows up on the map immediately
   // rather than only after "Start tracking" is clicked. If nothing's been saved yet, fall
@@ -263,10 +309,39 @@ export function TrackView(props: {
             </div>
           </CardContent>
         </Card>
-      ) : plannedFlights.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No planned flights to track — dispatch one first.</p>
       ) : (
         <div className="flex flex-col gap-2">
+          {showBanner && !bannerDismissed && (
+            <Card className="border-primary/50 bg-primary/5">
+              <CardContent className="flex items-center justify-between gap-4">
+                <p className="text-sm text-foreground">
+                  {props.telemetry?.atcId || 'An aircraft'} is{' '}
+                  {props.telemetry?.onGround ? 'moving on the ground' : 'airborne'} — start tracking?
+                </p>
+                <div className="flex gap-2">
+                  <Button type="button" size="sm" onClick={handleOpenFreeFlight}>
+                    Start tracking
+                  </Button>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setBannerDismissed(true)}>
+                    Not now
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardContent className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-foreground">Flying something already?</p>
+                <p className="text-sm text-muted-foreground">Start tracking it — no SimBrief plan needed.</p>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={handleOpenFreeFlight}>
+                Free flight
+              </Button>
+            </CardContent>
+          </Card>
+
           {plannedFlights.map((f) => {
             const label = f.flightNumber ?? `${f.depIcao} → ${f.arrIcao}`
             return (
@@ -334,6 +409,16 @@ export function TrackView(props: {
       </div>
 
       {confirmDialog}
+
+      <StartFreeFlightDialog
+        open={freeFlightDialogOpen}
+        onOpenChange={setFreeFlightDialogOpen}
+        telemetry={props.telemetry ?? null}
+        aircraft={aircraft}
+        onStarted={() => {
+          void handleFreeFlightStarted()
+        }}
+      />
 
       <AlertDialog open={completedLabel !== null} onOpenChange={(open) => !open && setCompletedLabel(null)}>
         <AlertDialogContent>

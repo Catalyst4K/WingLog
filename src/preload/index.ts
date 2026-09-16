@@ -76,6 +76,7 @@ const api: WingLogApi = {
   settingsSetTheme: (theme: Theme) => ipcRenderer.invoke(IpcChannels.settingsSetTheme, theme),
   trackingStart: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingStart, flightId),
   trackingStartFree: (input: StartFreeFlightInput) => ipcRenderer.invoke(IpcChannels.trackingStartFree, input),
+  trackingGetFreeFlightPrefill: (input) => ipcRenderer.invoke(IpcChannels.trackingGetFreeFlightPrefill, input),
   trackingStop: () => ipcRenderer.invoke(IpcChannels.trackingStop),
   trackingFinish: () => ipcRenderer.invoke(IpcChannels.trackingFinish),
   trackingGetActive: () => ipcRenderer.invoke(IpcChannels.trackingGetActive),

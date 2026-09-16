@@ -441,6 +441,19 @@ export interface StartFreeFlightInput {
   flightNumber: string | null
 }
 
+/**
+ * Everything the "Start a free flight" dialog needs to prefill itself, resolved in main
+ * from the live telemetry the renderer already has (free-flight-tracking.md's
+ * aircraft-resolution table). See free-flight.ts's getFreeFlightPrefill for the composition.
+ */
+export interface FreeFlightPrefill {
+  registration: string
+  icaoType: string | null
+  icaoTypeAmbiguous: boolean
+  suggestedDepIcao: string | null
+  rememberedAircraftId: number | null
+}
+
 export interface Flight {
   id: number
   aircraftId: number
@@ -870,6 +883,7 @@ export const IpcChannels = {
   settingsSetTheme: 'settings:set-theme',
   trackingStart: 'tracking:start',
   trackingStartFree: 'tracking:start-free-flight',
+  trackingGetFreeFlightPrefill: 'tracking:get-free-flight-prefill',
   trackingStop: 'tracking:stop',
   trackingFinish: 'tracking:finish',
   trackingGetActive: 'tracking:get-active',
@@ -1031,6 +1045,15 @@ export interface WingLogApi {
    *  stage, no filed OFP, seeded from whatever the sim is already doing (mid-air included).
    *  Resolves to the new flight's id. Same throw conditions as trackingStart. */
   trackingStartFree: (input: StartFreeFlightInput) => Promise<number>
+  /** Resolves the "Start a free flight" dialog's prefill from the current sim telemetry —
+   *  call once when the dialog opens, not on every telemetry tick. */
+  trackingGetFreeFlightPrefill: (input: {
+    atcId: string
+    atcModel: string
+    title: string
+    latitude: number
+    longitude: number
+  }) => Promise<FreeFlightPrefill>
   /** Cancels tracking mid-flight — deletes the flight (and any track points it recorded)
    *  rather than saving it as 'completed'. */
   trackingStop: () => Promise<void>

@@ -226,6 +226,17 @@ function buildWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     onTrackingPoint: vi.fn(() => () => {}),
     onTrackingPointsUpdated: vi.fn(() => () => {}),
     trackingStart: vi.fn().mockResolvedValue(undefined),
+    trackingStartFree: vi.fn().mockResolvedValue(1),
+    trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue({
+      registration: 'TEST',
+      icaoType: null,
+      icaoTypeAmbiguous: false,
+      suggestedDepIcao: null,
+      rememberedAircraftId: null
+    }),
+    aircraftCreate: vi.fn().mockResolvedValue(AIRCRAFT),
+    aircraftTypeSearch: vi.fn().mockResolvedValue([]),
+    airportSearch: vi.fn().mockResolvedValue([]),
     trackingStop: vi.fn().mockResolvedValue(undefined),
     trackingFinish: vi.fn().mockResolvedValue(undefined),
     flightCancel: vi.fn().mockResolvedValue(undefined),
@@ -254,13 +265,175 @@ function renderTrack(
   return render(<TrackView {...props} selection={selection} onSelectionChange={onSelectionChange} />)
 }
 
+function makeTelemetry(overrides: Partial<SimTelemetry> = {}): SimTelemetry {
+  return {
+    latitude: 51.4775,
+    longitude: -0.4614,
+    altitudeM: 25,
+    pressureAltitudeM: 25,
+    altitudeAglM: 0,
+    verticalSpeedMs: 0,
+    indicatedAirspeedMs: 0,
+    trueAirspeedMs: 0,
+    machSpeed: 0,
+    groundSpeedMs: 0,
+    headingTrueDeg: 270,
+    pitchDeg: 0,
+    bankDeg: 0,
+    onGround: true,
+    gForce: 1,
+    fuelTotalKg: 10000,
+    totalWeightKg: 70000,
+    windSpeedMs: 3,
+    windDirectionDeg: 250,
+    engineCombustion1: false,
+    gearHandlePosition: 1,
+    flapsHandleIndex: 0,
+    parkingBrakeOn: true,
+    atcId: 'G-EUYY',
+    atcModel: 'A320',
+    title: 'Test Aircraft',
+    simRate: 1,
+    slewActive: false,
+    ...overrides
+  }
+}
+
 describe('TrackView', () => {
-  it('shows the empty state when there is nothing planned or active', async () => {
+  it('shows the Free flight card in place of the old dead-end empty state when nothing is planned or active', async () => {
     setWinglog()
     renderTrack()
-    expect(await screen.findByText('No planned flights to track — dispatch one first.')).toBeInTheDocument()
+    expect(await screen.findByText('Flying something already?')).toBeInTheDocument()
+    expect(screen.getByText('Free flight')).toBeInTheDocument()
     // Nothing planned/active/preview — no Procedures affordance either.
     expect(screen.queryByText('Procedures…')).not.toBeInTheDocument()
+  })
+
+  describe('free flight (free-flight-tracking.md)', () => {
+    it('opens the Start a free flight dialog from the Free flight card', async () => {
+      setWinglog()
+      const user = userEvent.setup()
+      renderTrack({ telemetry: makeTelemetry() })
+      await user.click(await screen.findByText('Free flight'))
+      expect(await screen.findByText('Start a free flight')).toBeInTheDocument()
+    })
+
+    it('shows a toast instead of opening the dialog when the sim is not connected', async () => {
+      const { toast } = await import('sonner')
+      setWinglog()
+      const user = userEvent.setup()
+      renderTrack({ telemetry: null })
+      await user.click(await screen.findByText('Free flight'))
+      expect(screen.queryByText('Start a free flight')).not.toBeInTheDocument()
+      expect(toast.error).toHaveBeenCalledWith('Not connected to the sim.')
+    })
+
+    it('shows the passive detection banner when the sim reports the aircraft airborne with nothing tracked', async () => {
+      setWinglog()
+      renderTrack({ telemetry: makeTelemetry({ onGround: false }) })
+      expect(await screen.findByText(/G-EUYY is airborne — start tracking\?/)).toBeInTheDocument()
+    })
+
+    it('shows the banner for ground movement too, not just airborne', async () => {
+      setWinglog()
+      renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 5 }) })
+      expect(await screen.findByText(/G-EUYY is moving on the ground — start tracking\?/)).toBeInTheDocument()
+    })
+
+    it('does not show the banner for a stationary, parked aircraft', async () => {
+      setWinglog()
+      renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 0 }) })
+      await screen.findByText('Free flight') // wait for the view to settle
+      expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
+    })
+
+    it('does not show the banner while a flight is already being tracked', async () => {
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
+        flightList: vi.fn().mockResolvedValue([makeFlight({ status: 'active' })]),
+        trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'cruise' })
+      })
+      renderTrack({ telemetry: makeTelemetry({ onGround: false }) })
+      await screen.findByText('cruise') // wait for the active-flight card to settle
+      expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
+    })
+
+    it('dismisses the banner without opening the dialog, and it stays hidden until the episode resets', async () => {
+      setWinglog()
+      const user = userEvent.setup()
+      const { rerender } = renderTrack({ telemetry: makeTelemetry({ onGround: false }) })
+      await screen.findByText(/start tracking\?/)
+      await user.click(screen.getByText('Not now'))
+      expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
+      expect(screen.queryByText('Start a free flight')).not.toBeInTheDocument()
+
+      // Still airborne, same episode — stays dismissed.
+      rerender(
+        <TrackView
+          telemetry={makeTelemetry({ onGround: false, groundSpeedMs: 1 })}
+          selection={emptyProcedureSelection()}
+          onSelectionChange={vi.fn()}
+        />
+      )
+      expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
+
+      // Parked again — the episode ends, clearing the dismissal.
+      rerender(
+        <TrackView
+          telemetry={makeTelemetry({ onGround: true, groundSpeedMs: 0 })}
+          selection={emptyProcedureSelection()}
+          onSelectionChange={vi.fn()}
+        />
+      )
+      expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
+
+      // Airborne again — a new episode, prompts again.
+      rerender(
+        <TrackView
+          telemetry={makeTelemetry({ onGround: false })}
+          selection={emptyProcedureSelection()}
+          onSelectionChange={vi.fn()}
+        />
+      )
+      expect(await screen.findByText(/start tracking\?/)).toBeInTheDocument()
+    })
+
+    it('starts tracking a free flight end to end: prefill, fleet match on atcId, and the resulting active card', async () => {
+      const trackingStartFree = vi.fn().mockResolvedValue(5)
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
+        flightList: vi.fn().mockResolvedValue([]),
+        trackingStartFree,
+        trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue({
+          registration: AIRCRAFT.registration, // matches the fleet aircraft's own registration
+          icaoType: 'A35K',
+          icaoTypeAmbiguous: false,
+          suggestedDepIcao: 'EGLL',
+          rememberedAircraftId: null
+        }),
+        trackingGetActive: vi
+          .fn()
+          .mockResolvedValueOnce(null) // initial mount
+          .mockResolvedValue({ flightId: 5, phase: 'preflight' }) // after starting
+      })
+      const user = userEvent.setup()
+      renderTrack({ telemetry: makeTelemetry() })
+
+      await user.click(await screen.findByText('Free flight'))
+      await screen.findByText('Start a free flight')
+      // The fleet match on atcId resolves automatically — no manual aircraft pick needed.
+      await waitFor(() => expect(screen.getByText(`${AIRCRAFT.registration} — ${AIRCRAFT.icaoType}`)).toBeInTheDocument())
+
+      await user.click(screen.getByText('Start tracking'))
+
+      expect(trackingStartFree).toHaveBeenCalledWith({
+        aircraftId: AIRCRAFT.id,
+        depIcao: 'EGLL',
+        arrIcao: null,
+        flightNumber: null
+      })
+      expect(await screen.findByText('Phase:')).toBeInTheDocument()
+    })
   })
 
   it('lists planned flights with a Start tracking button each, and shows the Procedures affordance', async () => {
@@ -625,7 +798,7 @@ describe('TrackView', () => {
       })
     })
     renderTrack()
-    await screen.findByText('No planned flights to track — dispatch one first.')
+    await screen.findByText('Flying something already?')
     pointListener?.(makeTrackPoint({ phase: 'shutdown', flightId: 77 }))
     expect(await screen.findByText(/Flight #77 was automatically detected/)).toBeInTheDocument()
   })
@@ -657,7 +830,7 @@ describe('TrackView', () => {
     const unsubscribe = vi.fn()
     setWinglog({ onTrackingPoint: vi.fn(() => unsubscribe) })
     const { unmount } = renderTrack()
-    await screen.findByText('No planned flights to track — dispatch one first.')
+    await screen.findByText('Flying something already?')
     unmount()
     expect(unsubscribe).toHaveBeenCalled()
   })
@@ -684,7 +857,7 @@ describe('TrackView', () => {
     })
     setWinglog()
     renderTrack({ previewOfp })
-    await screen.findByText('No planned flights to track — dispatch one first.')
+    await screen.findByText('Flying something already?')
     // The Dispatch preview still counts as "airports" for the Procedures affordance.
     expect(screen.getByText('Procedures…')).toBeInTheDocument()
   })
@@ -692,7 +865,7 @@ describe('TrackView', () => {
   it('has no Procedures affordance without a planned/active flight or a Dispatch preview', async () => {
     setWinglog()
     renderTrack({ previewOfp: null })
-    await screen.findByText('No planned flights to track — dispatch one first.')
+    await screen.findByText('Flying something already?')
     expect(screen.queryByText('Procedures…')).not.toBeInTheDocument()
   })
 
@@ -729,7 +902,7 @@ describe('TrackView', () => {
       slewActive: false
     }
     renderTrack({ telemetry })
-    await screen.findByText('No planned flights to track — dispatch one first.')
+    await screen.findByText('Flying something already?')
   })
 
   it('loads existing track points for an already-active flight on mount', async () => {
