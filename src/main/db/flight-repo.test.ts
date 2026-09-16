@@ -32,6 +32,8 @@ import {
 function newLandingFixture(flightId: number): NewLanding {
   return {
     flightId,
+    seq: 1,
+    icao: 'EGCC',
     touchdownTsUtc: '2026-09-01T12:00:00.000Z',
     verticalSpeedMs: -1.5,
     gForce: 1.2,

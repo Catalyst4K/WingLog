@@ -162,6 +162,13 @@
       "when": 1789326089368,
       "tag": "0022_bizarre_cobalt_man",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1789577786175,
+      "tag": "0023_lively_charles_xavier",
+      "breakpoints": true
     }
   ]
 }

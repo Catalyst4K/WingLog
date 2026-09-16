@@ -10,6 +10,7 @@ import {
   createLanding,
   getLandingByFlight,
   listLandingsByAircraft,
+  listLandingsByFlight,
   listLandingsForSync,
   upsertLandingByUuid
 } from './landing-repo'
@@ -17,6 +18,8 @@ import {
 function makeLanding(flightId: number, overrides: Partial<NewLanding> = {}): NewLanding {
   return {
     flightId,
+    seq: 1,
+    icao: 'EGCC',
     touchdownTsUtc: '2026-09-06T12:00:00.000Z',
     verticalSpeedMs: -1.2,
     gForce: 1.3,
@@ -68,14 +71,50 @@ describe('landing repo', () => {
     expect(getLandingByFlight(db, flightId)).toBeUndefined()
   })
 
-  it('replaces the existing landing on a re-capture rather than duplicating it', () => {
-    const first = createLanding(db, makeLanding(flightId, { verticalSpeedMs: -1.0 }))
-    const second = createLanding(db, makeLanding(flightId, { verticalSpeedMs: -3.5 }))
+  it('replaces the existing landing on a re-capture of the same seq rather than duplicating it', () => {
+    const first = createLanding(db, makeLanding(flightId, { seq: 1, verticalSpeedMs: -1.0 }))
+    const second = createLanding(db, makeLanding(flightId, { seq: 1, verticalSpeedMs: -3.5 }))
 
     expect(second.id).toBe(first.id)
     expect(getLandingByFlight(db, flightId)?.verticalSpeedMs).toBe(-3.5)
     const rows = db.select().from(landing).all()
     expect(rows).toHaveLength(1)
+  })
+
+  it('keeps a second touchdown as its own row when it has a different seq', () => {
+    const first = createLanding(db, makeLanding(flightId, { seq: 1, verticalSpeedMs: -1.0 }))
+    const second = createLanding(db, makeLanding(flightId, { seq: 2, verticalSpeedMs: -3.5, icao: 'EGLL' }))
+
+    expect(second.id).not.toBe(first.id)
+    const rows = db.select().from(landing).where(eq(landing.flightId, flightId)).all()
+    expect(rows).toHaveLength(2)
+  })
+
+  describe('listLandingsByFlight', () => {
+    it('returns every landing for a flight, in touchdown order', () => {
+      createLanding(db, makeLanding(flightId, { seq: 2, touchdownTsUtc: '2026-09-06T12:05:00.000Z' }))
+      createLanding(db, makeLanding(flightId, { seq: 1, touchdownTsUtc: '2026-09-06T12:00:00.000Z' }))
+
+      const rows = listLandingsByFlight(db, flightId)
+      expect(rows.map((r) => r.seq)).toEqual([1, 2])
+    })
+
+    it('returns an empty array for a flight with no landings', () => {
+      expect(listLandingsByFlight(db, flightId)).toEqual([])
+    })
+
+    it('excludes a soft-deleted landing', () => {
+      const created = createLanding(db, makeLanding(flightId, { seq: 1 }))
+      db.update(landing).set({ deletedAt: new Date().toISOString() }).where(eq(landing.id, created.id)).run()
+      expect(listLandingsByFlight(db, flightId)).toEqual([])
+    })
+  })
+
+  it('getLandingByFlight returns the most recent touchdown, not the first', () => {
+    createLanding(db, makeLanding(flightId, { seq: 1, verticalSpeedMs: -1.0 }))
+    createLanding(db, makeLanding(flightId, { seq: 2, verticalSpeedMs: -3.5 }))
+    expect(getLandingByFlight(db, flightId)?.seq).toBe(2)
+    expect(getLandingByFlight(db, flightId)?.verticalSpeedMs).toBe(-3.5)
   })
 
   it('keeps the original uuid across a re-capture', () => {

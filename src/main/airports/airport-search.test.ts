@@ -4,7 +4,9 @@ import {
   greatCircleDistanceNm,
   greatCircleWaypoints,
   loadAirportCoords,
+  loadAirportLocations,
   loadAirports,
+  nearestAirport,
   searchAirportList,
   searchAirports
 } from './airport-search'
@@ -171,5 +173,49 @@ describe('greatCircleWaypoints (real vendored data)', () => {
     const points = greatCircleWaypoints('EGLL', 'EGLL')
     expect(points).toEqual([[expect.any(Number), expect.any(Number)]])
     expect(points?.[0].every(Number.isFinite)).toBe(true)
+  })
+})
+
+// Real, not synthetic: the old Kai Tak site (22.3157, 114.2036 — the real touchdown
+// position from flight-captures/tier2-vfr-no-ofp-short-hop-*.ndjson, multiple-landings.md's
+// own motivating flight). Checked live against the real vendored CSV 2026-09-16: unlike
+// that plan doc's claim, there is no VHHX/"closed" row here at all — the two nearest rows
+// are genuinely heliports (Wan Chai ~4.7km, Shun Tak ~6.4km), with the nearest real
+// airfield (Shek Kong Air Base, medium_airport) at ~19km. That's exactly the case the
+// heliport exclusion exists for, so it's used as the real-data regression instead of the
+// undocumented Kai Tak row the plan assumed.
+const OLD_KAI_TAK_SITE = { lat: 22.315718703486187, lon: 114.20363925721735 }
+
+describe('nearestAirport (real vendored data)', () => {
+  it('prefers a real airfield over a much closer heliport, when both are in range', () => {
+    expect(nearestAirport(OLD_KAI_TAK_SITE.lat, OLD_KAI_TAK_SITE.lon, 15)).toBe('VHSK')
+  })
+
+  it('falls back to the heliport when nothing else is in range', () => {
+    expect(nearestAirport(OLD_KAI_TAK_SITE.lat, OLD_KAI_TAK_SITE.lon, 5)).toBe('HK07')
+  })
+
+  it('returns null when nothing vendored is within range at all', () => {
+    // The middle of the Pacific — nothing should be within 1nm.
+    expect(nearestAirport(10, -160, 1)).toBeNull()
+  })
+
+  it('returns the exact airport for a position right on top of a well-known field', () => {
+    const egll = getAirportCoords('EGLL')!
+    expect(nearestAirport(egll.lat, egll.lon, 5)).toBe('EGLL')
+  })
+})
+
+describe('loadAirportLocations', () => {
+  const FIXTURE = `icao,name,municipality,iso_country,type,latitude_deg,longitude_deg
+EGLL,London Heathrow Airport,London,GB,large_airport,51.4706,-0.461941
+K00A,Total RF Heliport,Bensalem,US,heliport,40.070985,-74.933689
+ZZZZ,No Coordinates Airport,Nowhere,ZZ,small_airport,,`
+
+  it('parses lat/lon/type keyed by ICAO, skipping rows with no coordinates', () => {
+    const locations = loadAirportLocations(FIXTURE)
+    expect(locations.get('EGLL')).toEqual({ lat: 51.4706, lon: -0.461941, type: 'large_airport' })
+    expect(locations.get('K00A')?.type).toBe('heliport')
+    expect(locations.has('ZZZZ')).toBe(false)
   })
 })

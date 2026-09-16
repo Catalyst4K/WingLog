@@ -11,6 +11,8 @@ import { getLandingScoresForCompletedFlights, resolveLandingScore } from './land
 function makeLanding(flightId: number, overrides: Partial<NewLanding> = {}): NewLanding {
   return {
     flightId,
+    seq: 1,
+    icao: 'EGCC',
     touchdownTsUtc: '2026-09-12T12:00:00.000Z',
     verticalSpeedMs: -1.2,
     gForce: 1.1,

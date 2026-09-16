@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { and, desc, eq, isNull } from 'drizzle-orm'
+import { and, asc, desc, eq, isNull } from 'drizzle-orm'
 import type { AircraftLandingRow, Landing } from '@shared/ipc'
 import { flight, landing } from './schema'
 import type { WingLogDb } from './client'
@@ -8,6 +8,8 @@ function toLanding(row: typeof landing.$inferSelect): Landing {
   return {
     id: row.id,
     flightId: row.flightId,
+    seq: row.seq,
+    icao: row.icao,
     touchdownTsUtc: row.touchdownTsUtc,
     verticalSpeedMs: row.verticalSpeedMs,
     gForce: row.gForce,
@@ -31,28 +33,45 @@ function toLanding(row: typeof landing.$inferSelect): Landing {
 
 export type NewLanding = Omit<Landing, 'id'>
 
+/** The flight's most recent touchdown — the one Logbook's landing card defaults to
+ *  (flightdeck-backend's docs/plans/multiple-landings.md). Kept alongside
+ *  listLandingsByFlight below for callers that only ever cared about "the" landing. */
 export function getLandingByFlight(db: WingLogDb, flightId: number): Landing | undefined {
   const row = db
     .select()
     .from(landing)
     .where(and(eq(landing.flightId, flightId), isNull(landing.deletedAt)))
+    .orderBy(desc(landing.seq))
     .get()
   return row ? toLanding(row) : undefined
 }
 
+/** Every touchdown recorded for a flight, in the order they happened. */
+export function listLandingsByFlight(db: WingLogDb, flightId: number): Landing[] {
+  return db
+    .select()
+    .from(landing)
+    .where(and(eq(landing.flightId, flightId), isNull(landing.deletedAt)))
+    .orderBy(asc(landing.seq))
+    .all()
+    .map(toLanding)
+}
+
 /**
- * flight.flight_id is unique — at most one landing per flight, so a re-capture (e.g. a
- * rescan) replaces rather than duplicates. `set` deliberately omits `uuid`: a re-capture
- * of an existing landing keeps its original sync identity rather than minting a new one,
- * while a genuinely new row gets one from `values` (flightdeck-backend/docs/plans/
- * cloud-sync.md) — updatedAt bumps either way, so a re-capture still re-syncs.
+ * (flight_id, seq) is the unique target now, not flight_id alone — a flight can have many
+ * touchdowns (flightdeck-backend's docs/plans/multiple-landings.md), but a re-capture of
+ * the *same* touchdown (e.g. a replay) still replaces rather than duplicates. `set`
+ * deliberately omits `uuid`: a re-capture of an existing landing keeps its original sync
+ * identity rather than minting a new one, while a genuinely new row gets one from `values`
+ * (flightdeck-backend/docs/plans/cloud-sync.md) — updatedAt bumps either way, so a
+ * re-capture still re-syncs.
  */
 export function createLanding(db: WingLogDb, input: NewLanding): Landing {
   const now = new Date().toISOString()
   const [row] = db
     .insert(landing)
     .values({ ...input, uuid: randomUUID(), updatedAt: now })
-    .onConflictDoUpdate({ target: landing.flightId, set: { ...input, updatedAt: now } })
+    .onConflictDoUpdate({ target: [landing.flightId, landing.seq], set: { ...input, updatedAt: now } })
     .returning()
     .all()
   return toLanding(row)

@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { type AnySQLiteColumn, integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { type AnySQLiteColumn, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 
 // Identity + linkage only, per docs/decisions.md's 2026-09-01 Fleet-simplification entry:
 // all performance data (weights, equip, PBN, wake cat...) lives in the linked SimBrief
@@ -243,50 +243,68 @@ export const trackPoint = sqliteTable('track_point', {
   excludedReason: text('excluded_reason', { enum: ['resume-spurious', 'resume-superseded'] })
 })
 
-// One row per flight's touchdown, captured where the phase machine already detects it
-// (descent -> landing, the on-ground false->true transition — TrackingController's
-// existing onRecorded-guarded branch). SI throughout per docs/decisions.md §5. Runway
-// fields are null when no matching runway end was found in resources/runways.csv (an
-// unlisted airstrip, or a match outside the plausible heading tolerance) — a landing
-// record without runway context is still worth having (touchdown rate, G, wind alone).
-export const landing = sqliteTable('landing', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  flightId: integer('flight_id')
-    .notNull()
-    .unique()
-    .references(() => flight.id),
-  touchdownTsUtc: text('touchdown_ts_utc').notNull(),
-  verticalSpeedMs: real('vertical_speed_ms').notNull(),
-  gForce: real('g_force').notNull(),
-  pitchDeg: real('pitch_deg').notNull(),
-  bankDeg: real('bank_deg').notNull(),
-  headingTrueDeg: real('heading_true_deg').notNull(),
-  indicatedAirspeedMs: real('indicated_airspeed_ms').notNull(),
-  groundSpeedMs: real('ground_speed_ms').notNull(),
-  windSpeedMs: real('wind_speed_ms').notNull(),
-  windDirectionDeg: real('wind_direction_deg').notNull(),
-  headwindMs: real('headwind_ms'),
-  crosswindMs: real('crosswind_ms'),
-  crabDeg: real('crab_deg'),
-  runwayIdent: text('runway_ident'),
-  distanceFromThresholdM: real('distance_from_threshold_m'),
-  centrelineOffsetM: real('centreline_offset_m'),
-  flapSetting: integer('flap_setting'),
-  // 'derived' throughout — scripts/spike-landing.ts confirmed 2026-09-04 that MSFS 2024's
-  // dedicated touchdown SimVars disagree with the derived value in trend, not just
-  // magnitude, across a real bounce; nothing writes 'simvar'.
-  touchdownSource: text('touchdown_source', { enum: ['simvar', 'derived'] })
-    .notNull()
-    .default('derived'),
-  // See aircraft.uuid's comment for why these are nullable rather than NOT NULL. The
-  // migration backfills updatedAt from touchdownTsUtc, the closest real timestamp
-  // available for a pre-existing landing record.
-  uuid: text('uuid'),
-  updatedAt: text('updated_at'),
-  // Soft-delete tombstone, set by deleteFlight cascading from its parent flight — see
-  // aircraft.deletedAt's comment for why. No standalone delete path exists for this table.
-  deletedAt: text('deleted_at')
-})
+// One row per touchdown — many per flight (flightdeck-backend's docs/plans/
+// multiple-landings.md). Captured off the raw on-ground false->true transition directly
+// (TrackingController), not the phase machine's descent -> landing edge, which has real
+// holes for circuit flying (see that plan's "finding that changes the design"). SI
+// throughout per docs/decisions.md §5. Runway fields are null when no matching runway end
+// was found in resources/runways.csv (an unlisted airstrip, or a match outside the
+// plausible heading tolerance) — a landing record without runway context is still worth
+// having (touchdown rate, G, wind alone).
+export const landing = sqliteTable(
+  'landing',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    flightId: integer('flight_id')
+      .notNull()
+      .references(() => flight.id),
+    // 1-based, per flight, in touchdown order — gives every landing a stable identity
+    // (Logbook's "Landing 2") and, paired with flightId, a conflict target that keeps a
+    // re-capture (a replay, a rescan) idempotent now that flightId alone isn't unique.
+    // Default exists only so SQLite's ALTER TABLE ADD COLUMN can backfill every
+    // pre-existing (necessarily single) landing as seq 1 — same pattern as
+    // trackPoint.gForce etc. above; every new row from buildLandingRecord always supplies
+    // a real value explicitly.
+    seq: integer('seq').notNull().default(1),
+    // The airport *this* touchdown happened at, resolved from position at capture time
+    // (nearestAirport, airport-search.ts) — not assumed to be flight.arr_icao, which is
+    // wrong the moment a flight touches down somewhere else (a circuit, a diversion, a
+    // free flight with no filed arrival). Null when nothing vendored is in range.
+    icao: text('icao'),
+    touchdownTsUtc: text('touchdown_ts_utc').notNull(),
+    verticalSpeedMs: real('vertical_speed_ms').notNull(),
+    gForce: real('g_force').notNull(),
+    pitchDeg: real('pitch_deg').notNull(),
+    bankDeg: real('bank_deg').notNull(),
+    headingTrueDeg: real('heading_true_deg').notNull(),
+    indicatedAirspeedMs: real('indicated_airspeed_ms').notNull(),
+    groundSpeedMs: real('ground_speed_ms').notNull(),
+    windSpeedMs: real('wind_speed_ms').notNull(),
+    windDirectionDeg: real('wind_direction_deg').notNull(),
+    headwindMs: real('headwind_ms'),
+    crosswindMs: real('crosswind_ms'),
+    crabDeg: real('crab_deg'),
+    runwayIdent: text('runway_ident'),
+    distanceFromThresholdM: real('distance_from_threshold_m'),
+    centrelineOffsetM: real('centreline_offset_m'),
+    flapSetting: integer('flap_setting'),
+    // 'derived' throughout — scripts/spike-landing.ts confirmed 2026-09-04 that MSFS 2024's
+    // dedicated touchdown SimVars disagree with the derived value in trend, not just
+    // magnitude, across a real bounce; nothing writes 'simvar'.
+    touchdownSource: text('touchdown_source', { enum: ['simvar', 'derived'] })
+      .notNull()
+      .default('derived'),
+    // See aircraft.uuid's comment for why these are nullable rather than NOT NULL. The
+    // migration backfills updatedAt from touchdownTsUtc, the closest real timestamp
+    // available for a pre-existing landing record.
+    uuid: text('uuid'),
+    updatedAt: text('updated_at'),
+    // Soft-delete tombstone, set by deleteFlight cascading from its parent flight — see
+    // aircraft.deletedAt's comment for why. No standalone delete path exists for this table.
+    deletedAt: text('deleted_at')
+  },
+  (table) => [uniqueIndex('landing_flight_id_seq_idx').on(table.flightId, table.seq)]
+)
 
 // Cached navdata for one airport, from src/main/navdata/'s NavdataProvider (Phase 3,
 // flightdeck-backend's docs/plans/navdata-without-navigraph.md) — SimConnect Facilities is

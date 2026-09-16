@@ -276,6 +276,13 @@ export interface TrackCleanupSummary {
 export interface Landing {
   id: number
   flightId: number
+  /** 1-based, per flight, in touchdown order (flightdeck-backend's docs/plans/
+   *  multiple-landings.md) — a flight can have several, one per real touchdown. */
+  seq: number
+  /** The airport this specific touchdown happened at, resolved from position at capture
+   *  time — not necessarily the flight's filed arrival (a circuit, a diversion, a free
+   *  flight with no filed one). Null when nothing vendored was in range. */
+  icao: string | null
   touchdownTsUtc: string
   verticalSpeedMs: number
   gForce: number

@@ -221,6 +221,8 @@ function makeLanding(overrides: Partial<Landing> = {}): Landing {
   return {
     id: 1,
     flightId: 1,
+    seq: 1,
+    icao: 'EGKK',
     touchdownTsUtc: '2026-02-01T12:00:00.000Z',
     verticalSpeedMs: -1.5,
     gForce: 1.2,
