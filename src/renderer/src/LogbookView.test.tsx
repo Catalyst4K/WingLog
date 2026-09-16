@@ -408,6 +408,51 @@ describe('LogbookView list', () => {
     expect(within(singleRow).queryByText(/×/)).not.toBeInTheDocument()
   })
 
+  it('shows a Free flight badge for a flight tracked with no OFP and a real liftoff, not for a dispatched one', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([
+        makeFlight({ id: 1, flightNumber: 'FREE1', ofpJson: null, actualOffUtc: '2026-02-01T10:05:00.000Z' }),
+        makeFlight({ id: 2, flightNumber: 'DISPATCHED', ofpJson: '{}' })
+      ]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+      logbookListFlightScores: vi.fn().mockResolvedValue([])
+    })
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+
+    const freeRow = (await screen.findByText('FREE1')).closest('tr')!
+    expect(within(freeRow).getByText('Free flight')).toBeInTheDocument()
+    const dispatchedRow = screen.getByText('DISPATCHED').closest('tr')!
+    expect(within(dispatchedRow).queryByText('Free flight')).not.toBeInTheDocument()
+  })
+
+  it('does not badge a CSV-imported flight (no OFP, but also never actually flown live) as a free flight', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([
+        makeFlight({ id: 1, flightNumber: 'IMPORTED', ofpJson: null, actualOffUtc: null })
+      ]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+      logbookListFlightScores: vi.fn().mockResolvedValue([])
+    })
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+
+    const row = (await screen.findByText('IMPORTED')).closest('tr')!
+    expect(within(row).queryByText('Free flight')).not.toBeInTheDocument()
+  })
+
+  it('renders a ZZZZ dep/arr as Unknown, never the raw placeholder code', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([
+        makeFlight({ id: 1, flightNumber: 'UNKN', depIcao: 'VHHH', arrIcao: 'ZZZZ' })
+      ]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+      logbookListFlightScores: vi.fn().mockResolvedValue([])
+    })
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+
+    expect(await screen.findByText('VHHH → Unknown')).toBeInTheDocument()
+    expect(screen.queryByText(/ZZZZ/)).not.toBeInTheDocument()
+  })
+
   it('offers a Flights | Landings tab switcher, and the Landings tab shows logbookListAllLandings data', async () => {
     const user = userEvent.setup()
     setWinglog({
@@ -605,6 +650,16 @@ describe('LandingsTable', () => {
     expect(screen.getByText('TA200')).toBeInTheDocument()
   })
 
+  it('renders a landing\'s ZZZZ icao as Unknown, never the raw placeholder', async () => {
+    setWinglog({
+      logbookListAllLandings: vi.fn().mockResolvedValue([makeLandingListRow({ id: 1, flightId: 1, icao: 'ZZZZ' })])
+    })
+    render(<LandingsTable onOpenFlight={vi.fn()} />)
+
+    expect(await screen.findByText(/^Unknown/)).toBeInTheDocument()
+    expect(screen.queryByText(/ZZZZ/)).not.toBeInTheDocument()
+  })
+
   it('shows a placeholder message when nothing has landed yet', async () => {
     setWinglog({ logbookListAllLandings: vi.fn().mockResolvedValue([]) })
     render(<LandingsTable onOpenFlight={vi.fn()} />)
@@ -713,6 +768,21 @@ describe('FlightDetail', () => {
     expect(screen.getByText('G-ONE')).toBeInTheDocument()
     expect(screen.getByText('2h 0m')).toBeInTheDocument() // block minutes: 120
     expect(screen.getByText('1h 40m')).toBeInTheDocument() // air minutes: 100
+  })
+
+  it('shows Unknown for a ZZZZ arrival and a Free flight badge on the detail header', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([
+        makeFlight({ arrIcao: 'ZZZZ', ofpJson: null, actualOffUtc: '2026-02-01T10:05:00.000Z' })
+      ]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()])
+    })
+    const user = userEvent.setup()
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    await user.click(await screen.findByText('TA100'))
+
+    expect(await screen.findByText('TA100 — EGLL → Unknown')).toBeInTheDocument()
+    expect(screen.getByText('Free flight')).toBeInTheDocument()
   })
 
   it('returns to the list via "Back to logbook"', async () => {

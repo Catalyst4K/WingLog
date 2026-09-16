@@ -326,6 +326,23 @@ describe('FleetView', () => {
     expect(screen.getAllByText('—').length).toBeGreaterThan(0)
   })
 
+  it('renders a ZZZZ current airport (an unresolved free-flight landing) as Unknown, both in the list and the detail page', async () => {
+    setWinglog({
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft({ currentIcao: 'ZZZZ' })]),
+      logbookFleetStats: vi.fn().mockResolvedValue([makeStats()])
+    })
+    const user = userEvent.setup()
+    render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
+
+    expect(await screen.findByText('Unknown')).toBeInTheDocument()
+    expect(screen.queryByText('ZZZZ')).not.toBeInTheDocument()
+
+    await user.click(screen.getByText('G-ONE'))
+    expect(await screen.findByText('G-ONE — A320')).toBeInTheDocument()
+    expect(screen.getByText('Unknown')).toBeInTheDocument()
+    expect(screen.queryByText('ZZZZ')).not.toBeInTheDocument()
+  })
+
   it('shows a "not found" message for an unknown initial aircraft id, and consumes the prop once', async () => {
     setWinglog({ aircraftList: vi.fn().mockResolvedValue([]) })
     const onConsumed = vi.fn()

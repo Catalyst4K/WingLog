@@ -34,6 +34,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { computeChartAxisTicks, formatTickLabel } from './chart-ticks'
 import { displayAltitude } from './display-altitude'
+import { displayIcao } from './display-icao'
 import { FlightMap } from './FlightMap'
 import { GsxInvoicesCard } from './GsxInvoicesCard'
 import { useConfirm } from './hooks/useConfirm'
@@ -100,6 +101,20 @@ function ValueTooltip(props: {
 
 function formatDate(iso: string | null): string {
   return iso ? new Date(iso).toLocaleString() : '—'
+}
+
+/**
+ * A flight actually tracked live through free-flight-tracking.md, not a dispatched one and
+ * not a CSV import — neither of those two other origins is directly recorded on the row, so
+ * this infers it from the two things that are: no OFP (`ofpJson` null, same as a CSV import)
+ * *and* a real liftoff was recorded (`actualOffUtc` set, which a CSV import never has —
+ * logbook-import.ts's createHistoricalFlight only ever supplies block-time timestamps, not
+ * off/on). A free flight that never left the ground before "Finish & save" won't show the
+ * badge — an acceptable miss for what's purely a display label, not something anything else
+ * depends on.
+ */
+function isFreeFlight(flight: Flight): boolean {
+  return !flight.ofpJson && flight.actualOffUtc != null
 }
 
 /** `warn` shows a small warning icon next to the label when this field's own score-
@@ -488,8 +503,14 @@ function FlightDetail(props: {
       <div className="flex flex-wrap gap-4">
         <Card className="min-w-72 flex-1">
           <CardHeader>
-            <CardTitle>
-              {flight.flightNumber ?? `Flight #${flight.id}`} — {flight.depIcao} → {flight.arrIcao}
+            <CardTitle className="flex flex-wrap items-center gap-2">
+              {flight.flightNumber ?? `Flight #${flight.id}`} — {displayIcao(flight.depIcao)} →{' '}
+              {displayIcao(flight.arrIcao)}
+              {isFreeFlight(flight) && (
+                <Badge variant="outline" className="text-xs font-normal">
+                  Free flight
+                </Badge>
+              )}
             </CardTitle>
             {flight.ofpJson && (
               <CardAction>
@@ -821,7 +842,7 @@ export function LandingsTable(props: { onOpenFlight: (flightId: number) => void 
             <TableCell>{formatDate(l.touchdownTsUtc)}</TableCell>
             <TableCell>{l.aircraftRegistration}</TableCell>
             <TableCell>
-              {l.icao ?? '—'}
+              {l.icao ? displayIcao(l.icao) : '—'}
               {l.runwayIdent ? ` / ${l.runwayIdent}` : ''}
             </TableCell>
             <TableCell>{l.flightNumber ?? `Flight #${l.flightId}`}</TableCell>
@@ -1034,9 +1055,18 @@ export function LogbookView(props: {
                         className="cursor-pointer"
                       >
                         <TableCell>{formatDate(f.actualOutUtc)}</TableCell>
-                        <TableCell>{f.flightNumber ?? '—'}</TableCell>
                         <TableCell>
-                          {f.depIcao} → {f.arrIcao}
+                          <span className="inline-flex items-center gap-1.5">
+                            {f.flightNumber ?? '—'}
+                            {isFreeFlight(f) && (
+                              <Badge variant="outline" className="text-xs font-normal">
+                                Free flight
+                              </Badge>
+                            )}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {displayIcao(f.depIcao)} → {displayIcao(f.arrIcao)}
                         </TableCell>
                         <TableCell>{registrationFor(f.aircraftId)}</TableCell>
                         <TableCell>{formatMinutes(f.blockMinutes)}</TableCell>

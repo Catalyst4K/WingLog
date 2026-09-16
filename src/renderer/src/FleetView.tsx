@@ -18,6 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { AircraftForm } from './AircraftForm'
 import { AircraftPhoto } from './AircraftPhoto'
 import { AirlineLogo } from './AirlineLogo'
+import { displayIcao } from './display-icao'
 import { useConfirm } from './hooks/useConfirm'
 import { useResetSignal } from './hooks/useResetSignal'
 import { useSortable } from './hooks/useSortable'
@@ -330,6 +331,7 @@ function AircraftDetail(props: {
   const a = props.aircraft
   const s = props.stats
   const retired = a.replacedByAircraftId !== null
+  const currentIcao = a.currentIcao ?? s?.lastArrIcao ?? null
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
@@ -388,7 +390,7 @@ function AircraftDetail(props: {
                   label="Airline"
                   value={<AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />}
                 />
-                <DetailField label="Current airport" value={a.currentIcao ?? s?.lastArrIcao ?? '—'} />
+                <DetailField label="Current airport" value={currentIcao ? displayIcao(currentIcao) : '—'} />
                 <DetailField label="Total hours" value={s ? s.totalHours.toFixed(1) : '0.0'} />
                 <DetailField label="Flights" value={s?.totalCycles ?? 0} />
                 <DetailField label="Last flight" value={formatDate(s?.lastFlightInUtc ?? null)} />
@@ -617,6 +619,7 @@ export function FleetView(props: {
           <TableBody>
             {sortedActiveAircraft.map((a) => {
               const s = statsFor(a.id)
+              const icao = a.currentIcao ?? s?.lastArrIcao ?? null
               return (
                 <TableRow
                   key={a.id}
@@ -628,7 +631,7 @@ export function FleetView(props: {
                   <TableCell>
                     <AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />
                   </TableCell>
-                  <TableCell>{a.currentIcao ?? s?.lastArrIcao ?? '—'}</TableCell>
+                  <TableCell>{icao ? displayIcao(icao) : '—'}</TableCell>
                   <TableCell>{s ? s.totalHours.toFixed(1) : '0.0'}</TableCell>
                   <TableCell>{s?.totalCycles ?? 0}</TableCell>
                 </TableRow>
