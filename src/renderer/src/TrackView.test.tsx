@@ -299,6 +299,24 @@ function makeTelemetry(overrides: Partial<SimTelemetry> = {}): SimTelemetry {
   }
 }
 
+/** Feeds one telemetry sample through rerender, as a fresh object each time — mirrors the
+ *  sim's real ~1Hz push, where every sample is a new object reference. TrackView.tsx's
+ *  passive banner counts consecutive samples by that reference changing, so a test that
+ *  wants to simulate several real ticks (rather than one static prop) needs to rerender with
+ *  a new object each time, not just pass the same telemetry once. */
+function pushTelemetry(
+  rerender: ReturnType<typeof render>['rerender'],
+  overrides: Partial<SimTelemetry> = {}
+): void {
+  rerender(
+    <TrackView
+      telemetry={makeTelemetry(overrides)}
+      selection={emptyProcedureSelection()}
+      onSelectionChange={vi.fn()}
+    />
+  )
+}
+
 describe('TrackView', () => {
   it('shows the Free flight card in place of the old dead-end empty state when nothing is planned or active', async () => {
     setWinglog()
@@ -328,16 +346,33 @@ describe('TrackView', () => {
       expect(toast.error).toHaveBeenCalledWith('Not connected to the sim.')
     })
 
-    it('shows the passive detection banner when the sim reports the aircraft airborne with nothing tracked', async () => {
+    it('shows the passive detection banner once the sim reports the aircraft airborne for several consecutive samples', async () => {
       setWinglog()
-      renderTrack({ telemetry: makeTelemetry({ onGround: false }) })
+      const { rerender } = renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 0 }) })
+      pushTelemetry(rerender, { onGround: false })
+      pushTelemetry(rerender, { onGround: false })
+      pushTelemetry(rerender, { onGround: false })
       expect(await screen.findByText(/G-EUYY is airborne — start tracking\?/)).toBeInTheDocument()
     })
 
     it('shows the banner for ground movement too, not just airborne', async () => {
       setWinglog()
-      renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 5 }) })
+      const { rerender } = renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 0 }) })
+      pushTelemetry(rerender, { onGround: true, groundSpeedMs: 5 })
+      pushTelemetry(rerender, { onGround: true, groundSpeedMs: 5 })
+      pushTelemetry(rerender, { onGround: true, groundSpeedMs: 5 })
       expect(await screen.findByText(/G-EUYY is moving on the ground — start tracking\?/)).toBeInTheDocument()
+    })
+
+    it('does not show the banner from a single transient telemetry sample — a real leftover/garbage blip Callum saw live (docs/simconnect-notes.md, 2026-09-16)', async () => {
+      setWinglog()
+      const { rerender } = renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 0 }) })
+      // One bad sample claiming airborne, then straight back to parked — exactly what a
+      // stale/leftover SimConnect read looked like in practice.
+      pushTelemetry(rerender, { onGround: false })
+      pushTelemetry(rerender, { onGround: true, groundSpeedMs: 0 })
+      pushTelemetry(rerender, { onGround: true, groundSpeedMs: 0 })
+      expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
     })
 
     it('does not show the banner for a stationary, parked aircraft', async () => {
@@ -384,40 +419,30 @@ describe('TrackView', () => {
     it('dismisses the banner without opening the dialog, and it stays hidden until the episode resets', async () => {
       setWinglog()
       const user = userEvent.setup()
-      const { rerender } = renderTrack({ telemetry: makeTelemetry({ onGround: false }) })
+      const { rerender } = renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 0 }) })
+      pushTelemetry(rerender, { onGround: false })
+      pushTelemetry(rerender, { onGround: false })
+      pushTelemetry(rerender, { onGround: false })
       await screen.findByText(/start tracking\?/)
       await user.click(screen.getByText('Not now'))
       expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
       expect(screen.queryByText('Start a free flight')).not.toBeInTheDocument()
 
       // Still airborne, same episode — stays dismissed.
-      rerender(
-        <TrackView
-          telemetry={makeTelemetry({ onGround: false, groundSpeedMs: 1 })}
-          selection={emptyProcedureSelection()}
-          onSelectionChange={vi.fn()}
-        />
-      )
+      pushTelemetry(rerender, { onGround: false, groundSpeedMs: 1 })
       expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
 
       // Parked again — the episode ends, clearing the dismissal.
-      rerender(
-        <TrackView
-          telemetry={makeTelemetry({ onGround: true, groundSpeedMs: 0 })}
-          selection={emptyProcedureSelection()}
-          onSelectionChange={vi.fn()}
-        />
-      )
+      pushTelemetry(rerender, { onGround: true, groundSpeedMs: 0 })
       expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
 
-      // Airborne again — a new episode, prompts again.
-      rerender(
-        <TrackView
-          telemetry={makeTelemetry({ onGround: false })}
-          selection={emptyProcedureSelection()}
-          onSelectionChange={vi.fn()}
-        />
-      )
+      // Airborne again — a new episode, but a lone sample still isn't enough to prompt yet.
+      pushTelemetry(rerender, { onGround: false })
+      expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
+
+      // Sustained across a few more samples — prompts again.
+      pushTelemetry(rerender, { onGround: false })
+      pushTelemetry(rerender, { onGround: false })
       expect(await screen.findByText(/start tracking\?/)).toBeInTheDocument()
     })
 

@@ -231,17 +231,37 @@ export function TrackView(props: {
   const activeFlight = active ? flights.find((f) => f.id === active.flightId) : undefined
   const activeLabel = activeFlight?.flightNumber ?? `flight #${active?.flightId}`
 
+  // Raw per-sample trigger for the passive banner below — moving on the ground or airborne.
+  // Not used directly: a single sample of this can't be trusted on its own. Callum saw this
+  // live (2026-09-16, sitting at MSFS's World Map with no flight loaded at all) — WingLog
+  // briefly showed the aircraft as airborne, then it corrected itself a moment later.
+  // AutoStartDetector already documents this same family of transient garbage for the
+  // on-the-ground case (a reload's telemetry "looks plausible but isn't" for the better
+  // part of a minute) and requires several consecutive stable samples before trusting it;
+  // this banner had no equivalent guard. See docs/simconnect-notes.md, 2026-09-16.
+  const bannerRawTrigger =
+    !!props.telemetry &&
+    (!props.telemetry.onGround || props.telemetry.groundSpeedMs > GROUND_MOVEMENT_THRESHOLD_MS)
+  const BANNER_SUSTAIN_SAMPLES = 3 // ~3s at the sim's 1Hz telemetry push rate
+  // Counts consecutive samples agreeing with bannerRawTrigger, adjusted during render (same
+  // pattern as prevShowBanner below) keyed on telemetry object identity — a fresh reference
+  // arrives with every push, so this reliably detects "a new sample arrived" without a
+  // useEffect.
+  const [prevTelemetryForBanner, setPrevTelemetryForBanner] = useState(props.telemetry)
+  const [bannerSustainedCount, setBannerSustainedCount] = useState(bannerRawTrigger ? 1 : 0)
+  if (props.telemetry !== prevTelemetryForBanner) {
+    setPrevTelemetryForBanner(props.telemetry)
+    setBannerSustainedCount(bannerRawTrigger ? bannerSustainedCount + 1 : 0)
+  }
+
   // The passive detection banner (free-flight-tracking.md): sim connected, nothing being
-  // tracked, and the aircraft is either moving on the ground or airborne — never fires just
-  // because the sim is loaded and parked. Suppressed whenever a real planned flight is
+  // tracked, and the aircraft is either moving on the ground or airborne for several
+  // consecutive samples running (not just one — see bannerRawTrigger above) — never fires
+  // just because the sim is loaded and parked. Suppressed whenever a real planned flight is
   // already loaded (dispatched via "Fly"): that flight's own card already offers "Start
   // tracking", and the banner's button starts an unrelated free flight instead, which would
   // just create a second, parallel flight rather than tracking the one already planned.
-  const showBanner =
-    !active &&
-    plannedFlights.length === 0 &&
-    !!props.telemetry &&
-    (!props.telemetry.onGround || props.telemetry.groundSpeedMs > GROUND_MOVEMENT_THRESHOLD_MS)
+  const showBanner = !active && plannedFlights.length === 0 && bannerSustainedCount >= BANNER_SUSTAIN_SAMPLES
   // Resets the dismissal the moment the trigger condition itself goes false (parked again,
   // or tracking started) — adjusted during render, React's own documented pattern for state
   // that depends on another value changing, same as AircraftForm.tsx's own
