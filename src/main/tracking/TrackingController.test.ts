@@ -6,6 +6,7 @@ import { createDb, type WingLogDb } from '../db/client'
 import { createAircraft } from '../db/aircraft-repo'
 import { createFlight, getFlight, getInProgressFlight, listFlights } from '../db/flight-repo'
 import { getLandingByFlight, listLandingsByFlight } from '../db/landing-repo'
+import { getAircraftIdForTitle } from '../db/settings-repo'
 import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
 import type { SimConnectSource } from '../sim/SimConnectSource'
 import { TrackingController } from './TrackingController'
@@ -372,6 +373,153 @@ describe('TrackingController', () => {
     const controller = new TrackingController(db, sim)
     expect(() => controller.finish()).not.toThrow()
     expect(getFlight(db, flightId)?.status).toBe('planned')
+  })
+
+  describe('startFree (free-flight-tracking.md)', () => {
+    let freeAircraftId: number
+
+    beforeEach(() => {
+      freeAircraftId = createAircraft(db, { registration: 'G-FREE', icaoType: 'C172' }).id
+    })
+
+    it('refuses to start without a live telemetry sample', () => {
+      const controller = new TrackingController(db, sim)
+      expect(() =>
+        controller.startFree({ aircraftId: freeAircraftId, depIcao: 'EGLL', arrIcao: 'ZZZZ', flightNumber: null })
+      ).toThrow('Not connected')
+    })
+
+    it('creates the flight directly at active, with no planned stage, and starts tracking it', () => {
+      sim.setLastTelemetry(telemetry({ fuelTotalKg: 3200, title: 'Cessna 172 Classic' }))
+      const controller = new TrackingController(db, sim)
+      const newFlightId = controller.startFree({
+        aircraftId: freeAircraftId,
+        depIcao: 'EGLL',
+        arrIcao: 'ZZZZ',
+        flightNumber: null
+      })
+
+      const created = getFlight(db, newFlightId)
+      expect(created?.status).toBe('active')
+      expect(created?.fuelOutKg).toBe(3200)
+      expect(created?.ofpJson).toBeNull()
+      expect(controller.getActive()).toEqual({ flightId: newFlightId, phase: 'preflight' })
+    })
+
+    it('seeds phase detection from the current telemetry rather than always starting at preflight', () => {
+      sim.setLastTelemetry(telemetry({ onGround: false, verticalSpeedMs: 0, groundSpeedMs: 120 }))
+      const controller = new TrackingController(db, sim)
+      const newFlightId = controller.startFree({
+        aircraftId: freeAircraftId,
+        depIcao: 'EGLL',
+        arrIcao: 'ZZZZ',
+        flightNumber: null
+      })
+      expect(controller.getActive()).toEqual({ flightId: newFlightId, phase: 'cruise' })
+    })
+
+    it('records off-block time immediately for a flight seeded already airborne, not waiting for a climb edge that will never come', () => {
+      sim.setLastTelemetry(telemetry({ onGround: false, verticalSpeedMs: 0, groundSpeedMs: 120 }))
+      const controller = new TrackingController(db, sim)
+      const newFlightId = controller.startFree({
+        aircraftId: freeAircraftId,
+        depIcao: 'EGLL',
+        arrIcao: 'ZZZZ',
+        flightNumber: null
+      })
+      expect(getFlight(db, newFlightId)?.actualOffUtc).not.toBeNull()
+    })
+
+    it('leaves off-block time unset for a flight seeded on the ground, same as a normal dispatched start', () => {
+      sim.setLastTelemetry(telemetry({ onGround: true, groundSpeedMs: 0 }))
+      const controller = new TrackingController(db, sim)
+      const newFlightId = controller.startFree({
+        aircraftId: freeAircraftId,
+        depIcao: 'EGLL',
+        arrIcao: 'ZZZZ',
+        flightNumber: null
+      })
+      expect(getFlight(db, newFlightId)?.actualOffUtc).toBeNull()
+    })
+
+    it('remembers the title -> aircraft mapping so a later flight in the same add-on can resolve it', () => {
+      sim.setLastTelemetry(telemetry({ title: 'FenixA320 IAE SL' }))
+      const controller = new TrackingController(db, sim)
+      controller.startFree({ aircraftId: freeAircraftId, depIcao: 'EGLL', arrIcao: 'ZZZZ', flightNumber: null })
+      expect(getAircraftIdForTitle(db, 'FenixA320 IAE SL')).toBe(freeAircraftId)
+    })
+
+    it('resolves arrival from position at touchdown, overwriting the ZZZZ placeholder', () => {
+      sim.setLastTelemetry(telemetry({ onGround: true, groundSpeedMs: 0 }))
+      const controller = new TrackingController(db, sim)
+      const newFlightId = controller.startFree({
+        aircraftId: freeAircraftId,
+        depIcao: 'ZZZZ',
+        arrIcao: 'ZZZZ',
+        flightNumber: null
+      })
+
+      sim.emit('telemetry', telemetry({ engineCombustion1: true }))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 5 }))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 40 }))
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+      )
+      for (let i = 0; i < 4; i++) {
+        sim.emit(
+          'telemetry',
+          telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+        )
+      }
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 60, verticalSpeedMs: -1.5 })
+      )
+
+      // The default telemetry() fixture's lat/lon sits at real Heathrow coordinates.
+      expect(getFlight(db, newFlightId)?.arrIcao).toBe('EGLL')
+    })
+
+    it('never overwrites a dispatched flight\'s filed arrival, even on a real touchdown elsewhere', () => {
+      // The outer beforeEach's flightId files EGLL -> VHHH via the normal createFlight/
+      // start() path, not startFree() — arrival resolution must stay off for it.
+      sim.setLastTelemetry(telemetry({}))
+      const controller = new TrackingController(db, sim)
+      controller.start(flightId)
+
+      sim.emit('telemetry', telemetry({ engineCombustion1: true }))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 5 }))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 40 }))
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+      )
+      for (let i = 0; i < 4; i++) {
+        sim.emit(
+          'telemetry',
+          telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+        )
+      }
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 60, verticalSpeedMs: -1.5 })
+      )
+
+      // Real telemetry position resolves to EGLL, but the filed arrival (VHHH) must survive.
+      expect(getFlight(db, flightId)?.arrIcao).toBe('VHHH')
+    })
+
+    it('refuses to start a second free flight while one is already being tracked with real progress', () => {
+      sim.setLastTelemetry(telemetry({}))
+      const controller = new TrackingController(db, sim)
+      controller.startFree({ aircraftId: freeAircraftId, depIcao: 'EGLL', arrIcao: 'ZZZZ', flightNumber: null })
+      sim.emit('telemetry', telemetry({})) // first tick always persists a track_point
+
+      expect(() =>
+        controller.startFree({ aircraftId: freeAircraftId, depIcao: 'EGLL', arrIcao: 'ZZZZ', flightNumber: null })
+      ).toThrow('Already tracking flight')
+    })
   })
 
   // Crash recovery: the app quit or crashed before this flight reached 'completed' or

@@ -14,6 +14,7 @@ import {
   type NavdataProcedureKind,
   type NewFlight,
   type ProcedureSelection,
+  type StartFreeFlightInput,
   type Theme,
   type WeightUnit
 } from '@shared/ipc'
@@ -98,6 +99,18 @@ import { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
 import { TrackingController } from './tracking/TrackingController'
 import { AutoStartDetector } from './tracking/AutoStartDetector'
 import { CloudSyncController } from './sync/cloud-sync-controller'
+
+/**
+ * A blank/unresolved depIcao or arrIcao from the free-flight dialog becomes 'ZZZZ' — ICAO's
+ * own "no location indicator assigned" code, not an invented sentinel — rather than leaving
+ * either NOT NULL column null (free-flight-tracking.md's "When there's genuinely no
+ * airport"). Whatever is given is trimmed/uppercased the same way AirportSearch's own
+ * choices already are.
+ */
+function normalizeFreeFlightIcao(icao: string | null): string {
+  const trimmed = icao?.trim().toUpperCase()
+  return trimmed || 'ZZZZ'
+}
 
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
@@ -483,6 +496,21 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.trackingStart, (_event, flightId: number) => {
         autoStartDetector.disarm()
         trackingController.start(flightId)
+      })
+      ipcMain.handle(IpcChannels.trackingStartFree, (_event, input: StartFreeFlightInput) => {
+        const aircraft = getAircraftById(db, input.aircraftId)
+        if (!aircraft || aircraft.replacedByAircraftId !== null) {
+          throw new Error(`Aircraft ${input.aircraftId} not found or retired`)
+        }
+        autoStartDetector.disarm()
+        const flightId = trackingController.startFree({
+          aircraftId: input.aircraftId,
+          depIcao: normalizeFreeFlightIcao(input.depIcao),
+          arrIcao: normalizeFreeFlightIcao(input.arrIcao),
+          flightNumber: input.flightNumber?.trim() || null
+        })
+        scheduleBackgroundSync()
+        return flightId
       })
       ipcMain.handle(IpcChannels.trackingStop, () => trackingController.stop())
       ipcMain.handle(IpcChannels.trackingFinish, () => trackingController.finish())

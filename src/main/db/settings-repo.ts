@@ -135,3 +135,22 @@ export function getLastSyncCompletedAt(db: WingLogDb): string | null {
 export function setLastSyncCompletedAt(db: WingLogDb, isoTimestamp: string): void {
   setSetting(db, LAST_SYNC_COMPLETED_KEY, isoTimestamp)
 }
+
+/** A remembered `title` -> fleet aircraft mapping (free-flight-tracking.md's aircraft-
+ *  resolution step 2: "I've seen this aircraft before, it's my G-EUYY") — namespaced
+ *  app_setting rows, same pattern as getLastSyncedAt's per-table cursor above, rather than
+ *  a new table for what's a small map keyed by an add-on's own title string. */
+function titleAircraftKey(title: string): string {
+  return `freeFlightTitleAircraft:${title}`
+}
+
+export function getAircraftIdForTitle(db: WingLogDb, title: string): number | undefined {
+  const raw = getSetting(db, titleAircraftKey(title))
+  if (!raw) return undefined
+  const id = Number(raw)
+  return Number.isInteger(id) ? id : undefined
+}
+
+export function rememberAircraftForTitle(db: WingLogDb, title: string, aircraftId: number): void {
+  setSetting(db, titleAircraftKey(title), String(aircraftId))
+}

@@ -144,6 +144,54 @@ export function createFlight(db: WingLogDb, input: NewFlight): Flight {
   return toFlight(row)
 }
 
+export interface NewFreeFlightInput {
+  aircraftId: number
+  depIcao: string
+  arrIcao: string
+  flightNumber: string | null
+  fuelOutKg: number
+  simVersion?: string
+}
+
+/**
+ * Creates a flight that skips the 'planned' stage entirely — free-flight-tracking.md:
+ * tracking a flight the pilot is already in, with no SimBrief plan and no Dispatch "Fly"
+ * press to transition from. Goes straight to 'active' with actualOutUtc/fuelOutKg/simVersion
+ * already set — the same fields startFlight otherwise fills in on the planned -> active
+ * transition, written here directly since there's no earlier 'planned' row for this flight.
+ */
+export function createFreeFlight(db: WingLogDb, input: NewFreeFlightInput): Flight {
+  const [row] = db
+    .insert(flight)
+    .values({
+      aircraftId: input.aircraftId,
+      status: 'active',
+      flightNumber: input.flightNumber,
+      depIcao: input.depIcao,
+      arrIcao: input.arrIcao,
+      actualOutUtc: new Date().toISOString(),
+      fuelOutKg: input.fuelOutKg,
+      simVersion: input.simVersion,
+      uuid: randomUUID(),
+      updatedAt: new Date().toISOString()
+    })
+    .returning()
+    .all()
+  return toFlight(row)
+}
+
+/**
+ * Overwrites a free flight's arrival with wherever it actually landed
+ * (free-flight-tracking.md, "Arrival is resolved, not filed") — called at touchdown and
+ * again at completion in case of a taxi to a different field, always before completeFlight
+ * runs (that function copies arr_icao into aircraft.current_icao). The caller
+ * (TrackingController) scopes this to free flights only — a dispatched flight keeps its
+ * filed arrival even on a real diversion, a separate, already-known gap this doesn't touch.
+ */
+export function setArrIcao(db: WingLogDb, id: number, arrIcao: string): void {
+  db.update(flight).set({ arrIcao, updatedAt: new Date().toISOString() }).where(eq(flight.id, id)).run()
+}
+
 export interface HistoricalFlightInput {
   aircraftId: number
   depIcao: string

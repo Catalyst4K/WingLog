@@ -12,6 +12,7 @@ import {
   abandonFlight,
   completeFlight,
   createFlight,
+  createFreeFlight,
   createHistoricalFlight,
   deleteFlight,
   finalizeFuelOut,
@@ -25,6 +26,7 @@ import {
   listFlightsByAircraft,
   recordOff,
   recordOn,
+  setArrIcao,
   setSelectedProcedures,
   startFlight
 } from './flight-repo'
@@ -166,6 +168,57 @@ describe('flight repo', () => {
     expect(created.blockMinutes).toBe(754) // 22:16 -> next day 10:50
     expect(created.airMinutes).toBeNull() // no off/on data in a summary logbook export
     expect(created.fuelBurnKg).toBeNull()
+  })
+
+  describe('createFreeFlight (free-flight-tracking.md)', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-09-16T14:00:00Z'))
+    })
+
+    it('goes straight to active with actualOutUtc/fuelOutKg already set, skipping planned', () => {
+      const created = createFreeFlight(db, {
+        aircraftId,
+        depIcao: 'EGLL',
+        arrIcao: 'ZZZZ',
+        flightNumber: null,
+        fuelOutKg: 3500
+      })
+      expect(created.status).toBe('active')
+      expect(created.actualOutUtc).toBe('2026-09-16T14:00:00.000Z')
+      expect(created.fuelOutKg).toBe(3500)
+      expect(created.ofpJson).toBeNull()
+    })
+
+    it('accepts a null-coalesced flight number and a ZZZZ placeholder arrival', () => {
+      const created = createFreeFlight(db, {
+        aircraftId,
+        depIcao: 'ZZZZ',
+        arrIcao: 'ZZZZ',
+        flightNumber: null,
+        fuelOutKg: 3500
+      })
+      expect(created.flightNumber).toBeNull()
+      expect(created.depIcao).toBe('ZZZZ')
+      expect(created.arrIcao).toBe('ZZZZ')
+    })
+  })
+
+  describe('setArrIcao (free-flight-tracking.md)', () => {
+    it('overwrites arr_icao in place, leaving everything else untouched', () => {
+      const created = createFreeFlight(db, {
+        aircraftId,
+        depIcao: 'EGLL',
+        arrIcao: 'ZZZZ',
+        flightNumber: null,
+        fuelOutKg: 3500
+      })
+      setArrIcao(db, created.id, 'EGCC')
+      const updated = getFlight(db, created.id)
+      expect(updated?.arrIcao).toBe('EGCC')
+      expect(updated?.depIcao).toBe('EGLL')
+      expect(updated?.status).toBe('active')
+    })
   })
 
   describe('tracking lifecycle', () => {

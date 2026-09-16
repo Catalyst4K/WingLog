@@ -426,6 +426,21 @@ export interface ActiveTracking {
   phase: FlightPhase
 }
 
+/**
+ * The confirmed fields from free-flight-tracking.md's "Start a free flight" dialog —
+ * everything the dialog resolved/let the pilot edit, ready to create the flight and start
+ * tracking it directly at 'active' with no earlier 'planned' stage. `null` for depIcao/
+ * arrIcao means the dialog had nothing to prefill and the pilot left it blank — main
+ * resolves that to 'ZZZZ' (ICAO's own "no location indicator assigned" code) rather than
+ * leaving either column null, matching the plan's schema-migration-avoidance reasoning.
+ */
+export interface StartFreeFlightInput {
+  aircraftId: number
+  depIcao: string | null
+  arrIcao: string | null
+  flightNumber: string | null
+}
+
 export interface Flight {
   id: number
   aircraftId: number
@@ -854,6 +869,7 @@ export const IpcChannels = {
   settingsGetTheme: 'settings:get-theme',
   settingsSetTheme: 'settings:set-theme',
   trackingStart: 'tracking:start',
+  trackingStartFree: 'tracking:start-free-flight',
   trackingStop: 'tracking:stop',
   trackingFinish: 'tracking:finish',
   trackingGetActive: 'tracking:get-active',
@@ -1011,6 +1027,10 @@ export interface WingLogApi {
   settingsSetTheme: (theme: Theme) => Promise<void>
   /** Begins tracking a planned flight. Throws if the sim isn't connected or another flight is already tracked. */
   trackingStart: (flightId: number) => Promise<void>
+  /** Creates and starts tracking a free flight (free-flight-tracking.md) — no planned
+   *  stage, no filed OFP, seeded from whatever the sim is already doing (mid-air included).
+   *  Resolves to the new flight's id. Same throw conditions as trackingStart. */
+  trackingStartFree: (input: StartFreeFlightInput) => Promise<number>
   /** Cancels tracking mid-flight — deletes the flight (and any track points it recorded)
    *  rather than saving it as 'completed'. */
   trackingStop: () => Promise<void>

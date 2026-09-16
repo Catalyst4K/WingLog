@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb, type WingLogDb } from './client'
 import {
+  getAircraftIdForTitle,
   getAltitudeUnit,
   getGsxSettings,
   getLandingDistanceUnit,
@@ -13,6 +14,7 @@ import {
   getWeightUnit,
   getWindSpeedUnit,
   hasCheckedGsxFirstLaunch,
+  rememberAircraftForTitle,
   setAltitudeUnit,
   setCheckedGsxFirstLaunch,
   setGsxSettings,
@@ -158,5 +160,29 @@ describe('settings repo', () => {
     setLastSyncedAt(db, 'aircraft', '2026-09-06T12:00:00.000Z')
     expect(getLastSyncedAt(db, 'aircraft')).toBe('2026-09-06T12:00:00.000Z')
     expect(getLastSyncedAt(db, 'flight')).toBeNull()
+  })
+
+  describe('title -> fleet aircraft memory (free-flight-tracking.md)', () => {
+    it('returns undefined for a title never seen before', () => {
+      expect(getAircraftIdForTitle(db, 'FenixA320 IAE SL')).toBeUndefined()
+    })
+
+    it('round-trips a remembered title -> aircraft mapping', () => {
+      rememberAircraftForTitle(db, 'FenixA320 IAE SL', 7)
+      expect(getAircraftIdForTitle(db, 'FenixA320 IAE SL')).toBe(7)
+    })
+
+    it('keeps two different titles independent', () => {
+      rememberAircraftForTitle(db, 'FenixA320 IAE SL', 7)
+      rememberAircraftForTitle(db, 'A350-900 (Default Cabin)', 9)
+      expect(getAircraftIdForTitle(db, 'FenixA320 IAE SL')).toBe(7)
+      expect(getAircraftIdForTitle(db, 'A350-900 (Default Cabin)')).toBe(9)
+    })
+
+    it('overwrites a stale mapping when the same title is remembered again', () => {
+      rememberAircraftForTitle(db, 'FenixA320 IAE SL', 7)
+      rememberAircraftForTitle(db, 'FenixA320 IAE SL', 12)
+      expect(getAircraftIdForTitle(db, 'FenixA320 IAE SL')).toBe(12)
+    })
   })
 })
