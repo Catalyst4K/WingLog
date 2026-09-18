@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import type { ActiveTracking, Aircraft, DispatchOfp, Flight, ProcedureSelection, SimTelemetry, TrackPoint } from '@shared/ipc'
+import type {
+  ActiveTracking,
+  Aircraft,
+  DispatchOfp,
+  Flight,
+  MapLanguage,
+  ProcedureSelection,
+  SimTelemetry,
+  TrackPoint
+} from '@shared/ipc'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,6 +68,8 @@ export function TrackView(props: {
   previewOfp?: DispatchOfp | null
   /** Live sim telemetry, shown as a small overlay on the map. */
   telemetry?: SimTelemetry | null
+  /** Language of the map's place names (Settings → UI). */
+  mapLanguage?: MapLanguage
   /** The live procedure selection — lifted to App.tsx alongside dispatchOfp so Dispatch and
    *  Track always agree on what's currently chosen (docs/plans/navdata-without-navigraph.md,
    *  Phase 5). This is the real-world workflow the feature exists for: a pilot only learns
@@ -462,6 +473,7 @@ export function TrackView(props: {
           telemetry={active ? props.telemetry : null}
           telemetryPhase={active?.phase}
           telemetryTransition={telemetryTransition}
+          mapLanguage={props.mapLanguage}
         />
       </div>
 

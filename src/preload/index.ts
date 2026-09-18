@@ -8,6 +8,7 @@ import {
   type WingLogApi,
   type GsxSettings,
   type LandingDistanceUnit,
+  type MapLanguage,
   type NavdataProcedureKind,
   type NewAircraft,
   type NewFlight,
@@ -71,6 +72,9 @@ const api: WingLogApi = {
   settingsGetAltitudeUnit: () => ipcRenderer.invoke(IpcChannels.settingsGetAltitudeUnit),
   settingsSetAltitudeUnit: (unit: AltitudeUnit) =>
     ipcRenderer.invoke(IpcChannels.settingsSetAltitudeUnit, unit),
+  settingsGetMapLanguage: () => ipcRenderer.invoke(IpcChannels.settingsGetMapLanguage),
+  settingsSetMapLanguage: (language: MapLanguage) =>
+    ipcRenderer.invoke(IpcChannels.settingsSetMapLanguage, language),
   settingsGetWindSpeedUnit: () => ipcRenderer.invoke(IpcChannels.settingsGetWindSpeedUnit),
   settingsSetWindSpeedUnit: (unit: WindSpeedUnit) =>
     ipcRenderer.invoke(IpcChannels.settingsSetWindSpeedUnit, unit),

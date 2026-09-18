@@ -13,6 +13,7 @@ import {
   type DispatchOpenSimBriefParams,
   type GsxSettings,
   type LandingDistanceUnit,
+  type MapLanguage,
   type NavdataProcedureKind,
   type NewFlight,
   type ProcedureSelection,
@@ -69,6 +70,7 @@ import {
   getSimbriefUsername,
   getTheme,
   getWeightUnit,
+  getMapLanguage,
   getWindSpeedUnit,
   setAltitudeUnit,
   setGsxSettings,
@@ -76,6 +78,7 @@ import {
   setSimbriefUsername,
   setTheme,
   setWeightUnit,
+  setMapLanguage,
   setWindSpeedUnit
 } from './db/settings-repo'
 import { listTrackPoints } from './db/track-point-repo'
@@ -443,6 +446,10 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.settingsGetAltitudeUnit, () => getAltitudeUnit(db))
       ipcMain.handle(IpcChannels.settingsSetAltitudeUnit, (_event, unit: AltitudeUnit) =>
         setAltitudeUnit(db, unit)
+      )
+      ipcMain.handle(IpcChannels.settingsGetMapLanguage, () => getMapLanguage(db))
+      ipcMain.handle(IpcChannels.settingsSetMapLanguage, (_event, language: MapLanguage) =>
+        setMapLanguage(db, language)
       )
       ipcMain.handle(IpcChannels.settingsGetWindSpeedUnit, () => getWindSpeedUnit(db))
       ipcMain.handle(IpcChannels.settingsSetWindSpeedUnit, (_event, unit: WindSpeedUnit) =>

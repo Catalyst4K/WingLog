@@ -8,11 +8,13 @@ import type {
   GsxSettings,
   LandingDistanceUnit,
   LogbookImportSummary,
+  MapLanguage,
   SyncStatus,
   Theme,
   WeightUnit,
   WindSpeedUnit
 } from '@shared/ipc'
+import { MAP_LANGUAGES } from './map-labels'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -60,7 +62,7 @@ function SegmentedRow<T extends string>(props: {
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-sm text-muted-foreground">{props.label}</span>
-      <div className="flex gap-1.5">
+      <div className="flex flex-wrap gap-1.5">
         {props.options.map((opt) => (
           <Button
             key={opt.value}
@@ -150,6 +152,8 @@ export function SettingsView(props: {
   onWindSpeedUnitChange: (unit: WindSpeedUnit) => void
   landingDistanceUnit: LandingDistanceUnit
   onLandingDistanceUnitChange: (unit: LandingDistanceUnit) => void
+  mapLanguage: MapLanguage
+  onMapLanguageChange: (language: MapLanguage) => void
   theme: Theme
   onThemeChange: (theme: Theme) => void
   /** Bumped by App.tsx when the Settings tab is clicked while already active — returns to
@@ -392,6 +396,18 @@ export function SettingsView(props: {
                   "Hybrid" shows each step climb in whichever unit it was actually planned in — feet for a
                   standard level, meters for a route crossing into airspace (e.g. China) that assigns levels
                   in meters — rather than converting everything to one unit.
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <SegmentedRow
+                  label="Map language"
+                  value={props.mapLanguage}
+                  options={MAP_LANGUAGES}
+                  onChange={props.onMapLanguageChange}
+                />
+                <p className="text-xs text-muted-foreground">
+                  The language of place names on the Track and Logbook maps. "Local" shows each place in its
+                  own language. Only the map changes — the rest of the app stays in English.
                 </p>
               </div>
               <div className="flex flex-col gap-1.5">

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb, type WingLogDb } from './client'
+import { appSetting } from './schema'
 import {
   getAircraftIdForTitle,
   getAltitudeUnit,
@@ -12,6 +13,7 @@ import {
   getSimbriefUsername,
   getTheme,
   getWeightUnit,
+  getMapLanguage,
   getWindSpeedUnit,
   hasCheckedGsxFirstLaunch,
   rememberAircraftForTitle,
@@ -25,6 +27,7 @@ import {
   setSimbriefUsername,
   setTheme,
   setWeightUnit,
+  setMapLanguage,
   setWindSpeedUnit
 } from './settings-repo'
 
@@ -67,6 +70,22 @@ describe('settings repo', () => {
     expect(getAltitudeUnit(db)).toBe('m')
     setAltitudeUnit(db, 'hybrid')
     expect(getAltitudeUnit(db)).toBe('hybrid')
+  })
+
+  it('defaults the map language to English, and round-trips every supported language', () => {
+    expect(getMapLanguage(db)).toBe('en')
+    for (const language of ['local', 'de', 'es', 'fr', 'it', 'ru', 'en'] as const) {
+      setMapLanguage(db, language)
+      expect(getMapLanguage(db)).toBe(language)
+    }
+  })
+
+  it('ignores an unknown map language on write, and reads a corrupt stored value as English', () => {
+    setMapLanguage(db, 'de')
+    setMapLanguage(db, 'xx' as never)
+    expect(getMapLanguage(db)).toBe('de')
+    db.insert(appSetting).values({ key: 'mapLanguage', value: 'klingon' }).onConflictDoUpdate({ target: appSetting.key, set: { value: 'klingon' } }).run()
+    expect(getMapLanguage(db)).toBe('en')
   })
 
   it('defaults the wind speed unit to kt when never set', () => {

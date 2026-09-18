@@ -242,6 +242,8 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     settingsGetWeightUnit: vi.fn().mockResolvedValue('lb'),
     settingsGetAltitudeUnit: vi.fn().mockResolvedValue('ft'),
     settingsGetWindSpeedUnit: vi.fn().mockResolvedValue('kt'),
+    settingsGetMapLanguage: vi.fn().mockResolvedValue('en'),
+    settingsSetMapLanguage: vi.fn().mockResolvedValue(undefined),
     settingsGetLandingDistanceUnit: vi.fn().mockResolvedValue('ft'),
     settingsGetTheme: vi.fn().mockResolvedValue('system'),
     settingsSetTheme: vi.fn().mockResolvedValue(undefined),
@@ -418,7 +420,10 @@ describe('App', () => {
       onSimTelemetry: vi.fn((listener) => {
         telemetryListener = listener
         return () => {}
-      })
+      }),
+      // The map overlay only reads live telemetry once tracking has started
+      // (docs/plans/beta-ui-polish.md item 1), so this needs an active flight.
+      trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'cruise' })
     })
     render(<App />)
     await screen.findByText('Fleet', { selector: 'h1' })

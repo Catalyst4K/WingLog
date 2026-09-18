@@ -82,6 +82,8 @@ function renderSettings(
       onWindSpeedUnitChange={props.onWindSpeedUnitChange ?? vi.fn()}
       landingDistanceUnit={props.landingDistanceUnit ?? 'ft'}
       onLandingDistanceUnitChange={props.onLandingDistanceUnitChange ?? vi.fn()}
+      mapLanguage={props.mapLanguage ?? 'en'}
+      onMapLanguageChange={props.onMapLanguageChange ?? vi.fn()}
       theme={props.theme ?? 'system'}
       onThemeChange={props.onThemeChange ?? vi.fn()}
       resetSignal={props.resetSignal}
@@ -146,6 +148,8 @@ describe('SettingsView', () => {
           onWindSpeedUnitChange={vi.fn()}
           landingDistanceUnit="ft"
           onLandingDistanceUnitChange={vi.fn()}
+          mapLanguage="en"
+          onMapLanguageChange={vi.fn()}
           theme="system"
           onThemeChange={vi.fn()}
           resetSignal={1}
@@ -164,6 +168,8 @@ describe('SettingsView', () => {
           onWindSpeedUnitChange={vi.fn()}
           landingDistanceUnit="ft"
           onLandingDistanceUnitChange={vi.fn()}
+          mapLanguage="en"
+          onMapLanguageChange={vi.fn()}
           theme="system"
           onThemeChange={vi.fn()}
           resetSignal={2}
@@ -361,6 +367,20 @@ describe('SettingsView', () => {
       await user.click(await screen.findByRole('option', { name: /GBP/ }))
 
       expect(winglog.settingsSetGsx).toHaveBeenCalledWith(expect.objectContaining({ displayCurrency: 'GBP' }))
+    })
+  })
+
+  describe('Map language', () => {
+    it('offers every language, marks the current one, and reports a change', async () => {
+      const onMapLanguageChange = vi.fn()
+      const user = userEvent.setup()
+      renderSettings({ mapLanguage: 'en', onMapLanguageChange })
+
+      for (const label of ['English', 'Local', 'Deutsch', 'Español', 'Français', 'Italiano', 'Русский']) {
+        expect(await screen.findByRole('button', { name: label })).toBeInTheDocument()
+      }
+      await user.click(screen.getByRole('button', { name: 'Deutsch' }))
+      expect(onMapLanguageChange).toHaveBeenCalledWith('de')
     })
   })
 

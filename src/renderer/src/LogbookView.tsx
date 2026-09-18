@@ -16,6 +16,7 @@ import type {
   Aircraft,
   Flight,
   LandingDistanceUnit,
+  MapLanguage,
   LandingListRow,
   LandingScoreCategoryKey,
   LandingScoreSummary,
@@ -364,6 +365,7 @@ function FlightDetail(props: {
   fleetAircraft: Aircraft[]
   weightUnit: WeightUnit
   landingDistanceUnit: LandingDistanceUnit
+  mapLanguage?: MapLanguage
   onBack: () => void
   /** True when onBack returns to the Fleet aircraft this flight was opened from, rather
    *  than Logbook's own list — only changes the button label, not the navigation. */
@@ -566,6 +568,7 @@ function FlightDetail(props: {
           waypoints={displayWaypoints}
           trackPoints={trackPoints}
           routeIsApproximate={routeIsApproximate}
+          mapLanguage={props.mapLanguage}
         />
       </div>
 
@@ -895,6 +898,7 @@ export function LandingsTable(props: { onOpenFlight: (flightId: number) => void 
 export function LogbookView(props: {
   weightUnit: WeightUnit
   landingDistanceUnit: LandingDistanceUnit
+  mapLanguage?: MapLanguage
   /** Set when another view (e.g. Fleet's per-aircraft flight list) navigated here to open
    *  a specific flight directly, rather than the user picking one from the list. */
   initialFlightId?: number | null
@@ -1002,6 +1006,7 @@ export function LogbookView(props: {
         fleetAircraft={aircraft}
         weightUnit={props.weightUnit}
         landingDistanceUnit={props.landingDistanceUnit}
+        mapLanguage={props.mapLanguage}
         backToAircraft={cameFromFleet}
         onBack={
           cameFromFleet

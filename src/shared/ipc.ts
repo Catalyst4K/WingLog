@@ -758,6 +758,10 @@ export type AltitudeUnit = 'ft' | 'm' | 'hybrid'
  *  formatted wind line alongside it. */
 export type WindSpeedUnit = 'kt' | 'mps'
 
+/** Language of the base map's place names (flightdeck-backend docs/plans/
+ *  map-language-and-declutter.md). 'local' is each place's own native name. */
+export type MapLanguage = 'local' | 'en' | 'de' | 'es' | 'fr' | 'it' | 'ru'
+
 /**
  * Display unit for Logbook's two runway-relative landing measurements (distance from
  * threshold, centreline offset) and the touchdown diagram's labels — docs/plans/
@@ -901,6 +905,8 @@ export const IpcChannels = {
   settingsSetWeightUnit: 'settings:set-weight-unit',
   settingsGetAltitudeUnit: 'settings:get-altitude-unit',
   settingsSetAltitudeUnit: 'settings:set-altitude-unit',
+  settingsGetMapLanguage: 'settings:get-map-language',
+  settingsSetMapLanguage: 'settings:set-map-language',
   settingsGetWindSpeedUnit: 'settings:get-wind-speed-unit',
   settingsSetWindSpeedUnit: 'settings:set-wind-speed-unit',
   settingsGetLandingDistanceUnit: 'settings:get-landing-distance-unit',
@@ -1076,6 +1082,8 @@ export interface WingLogApi {
   settingsSetWeightUnit: (unit: WeightUnit) => Promise<void>
   settingsGetAltitudeUnit: () => Promise<AltitudeUnit>
   settingsSetAltitudeUnit: (unit: AltitudeUnit) => Promise<void>
+  settingsGetMapLanguage: () => Promise<MapLanguage>
+  settingsSetMapLanguage: (language: MapLanguage) => Promise<void>
   settingsGetWindSpeedUnit: () => Promise<WindSpeedUnit>
   settingsSetWindSpeedUnit: (unit: WindSpeedUnit) => Promise<void>
   settingsGetLandingDistanceUnit: () => Promise<LandingDistanceUnit>
