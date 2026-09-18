@@ -7,6 +7,7 @@ import type {
   DispatchOfp,
   Flight,
   LandingDistanceUnit,
+  MapLanguage,
   ProcedureSelection,
   SimConnectionStatus,
   SimTelemetry,
@@ -115,6 +116,7 @@ export default function App(): React.JSX.Element {
   const [weightUnit, setWeightUnit] = useState<WeightUnit>('lb')
   const [altitudeUnit, setAltitudeUnit] = useState<AltitudeUnit>('ft')
   const [windSpeedUnit, setWindSpeedUnit] = useState<WindSpeedUnit>('kt')
+  const [mapLanguage, setMapLanguage] = useState<MapLanguage>('en')
   const [landingDistanceUnit, setLandingDistanceUnit] = useState<LandingDistanceUnit>('ft')
   const [theme, setTheme] = useState<Theme>('system')
   const [simStatus, setSimStatus] = useState<SimConnectionStatus>({ state: 'disconnected' })
@@ -274,6 +276,7 @@ export default function App(): React.JSX.Element {
     window.winglog.settingsGetWeightUnit().then(setWeightUnit)
     window.winglog.settingsGetAltitudeUnit().then(setAltitudeUnit)
     window.winglog.settingsGetWindSpeedUnit().then(setWindSpeedUnit)
+    window.winglog.settingsGetMapLanguage().then(setMapLanguage)
     window.winglog.settingsGetLandingDistanceUnit().then(setLandingDistanceUnit)
     window.winglog.settingsGetTheme().then(setTheme)
   }, [])
@@ -338,6 +341,11 @@ export default function App(): React.JSX.Element {
   async function handleAltitudeUnitChange(unit: AltitudeUnit): Promise<void> {
     setAltitudeUnit(unit)
     await window.winglog.settingsSetAltitudeUnit(unit)
+  }
+
+  async function handleMapLanguageChange(language: MapLanguage): Promise<void> {
+    setMapLanguage(language)
+    await window.winglog.settingsSetMapLanguage(language)
   }
 
   async function handleWindSpeedUnitChange(unit: WindSpeedUnit): Promise<void> {
@@ -406,6 +414,7 @@ export default function App(): React.JSX.Element {
               <TrackView
                 previewOfp={dispatchOfp}
                 telemetry={telemetry}
+                mapLanguage={mapLanguage}
                 selection={procedureSelection}
                 onSelectionChange={setProcedureSelection}
                 onFlightEnded={() => {
@@ -418,6 +427,7 @@ export default function App(): React.JSX.Element {
               <LogbookView
                 weightUnit={weightUnit}
                 landingDistanceUnit={landingDistanceUnit}
+                mapLanguage={mapLanguage}
                 initialFlightId={pendingLogbookFlight?.flightId ?? null}
                 initialFlightOriginAircraftId={pendingLogbookFlight?.fromAircraftId ?? null}
                 onInitialFlightConsumed={() => setPendingLogbookFlight(null)}
@@ -435,6 +445,8 @@ export default function App(): React.JSX.Element {
                 onWindSpeedUnitChange={handleWindSpeedUnitChange}
                 landingDistanceUnit={landingDistanceUnit}
                 onLandingDistanceUnitChange={handleLandingDistanceUnitChange}
+                mapLanguage={mapLanguage}
+                onMapLanguageChange={handleMapLanguageChange}
                 theme={theme}
                 onThemeChange={handleThemeChange}
                 resetSignal={settingsResetSignal}

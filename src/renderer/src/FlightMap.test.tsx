@@ -9,6 +9,9 @@ import type { FlightMapProps } from './FlightMap'
  *  type, which has none of the extra test surface (sources/layers/handlers,
  *  fireStyleLoad) this fake exposes for assertions. */
 interface FakeMapInstance {
+  styleLayers: unknown[]
+  getStyle: ReturnType<typeof vi.fn>
+  setLayerZoomRange: ReturnType<typeof vi.fn>
   container: HTMLElement
   style: string
   zoom: number
@@ -127,6 +130,10 @@ vi.mock('maplibre-gl', () => {
     zoomOut = vi.fn()
     remove = vi.fn()
     setLayoutProperty = vi.fn()
+    // The hosted base style's own layers (map-labels.ts reads these on every style.load).
+    styleLayers: unknown[] = []
+    getStyle = vi.fn(() => ({ layers: this.styleLayers }))
+    setLayerZoomRange = vi.fn()
 
     constructor(options: { container: HTMLElement; style: string; center: unknown; zoom: number }) {
       this.container = options.container
@@ -337,6 +344,88 @@ describe('FlightMap', () => {
     // dark flag — confirms the real-complaint fix (dark-on-dark label halos) is wired up.
     expect(dark.map.layers[`${WAYPOINT_SOURCE_ID}-label`].paint?.['text-color']).toBe('#c7d3e0')
     expect(dark.map.layers['aeroway-taxiway-label'].paint?.['text-color']).toBe('#e0b24d')
+  })
+
+  describe('map language and declutter (docs/plans/map-language-and-declutter.md)', () => {
+    const TWO_LINE = ['case', ['has', 'name:nonlatin'], ['concat', ['get', 'name:latin'], '\n', ['get', 'name:nonlatin']], ['get', 'name']]
+    const STYLE_LAYERS = [
+      {
+        id: 'label_village',
+        type: 'symbol',
+        'source-layer': 'place',
+        minzoom: 9,
+        filter: ['==', ['get', 'class'], 'village'],
+        layout: { 'text-field': TWO_LINE }
+      },
+      { id: 'label_city', type: 'symbol', 'source-layer': 'place', minzoom: 3, filter: ['==', ['get', 'class'], 'city'], layout: { 'text-field': TWO_LINE } }
+    ]
+
+    /** Renders, seeds the base style's layers, then fires style.load like maplibre would. */
+    async function renderWithStyle(props: Partial<FlightMapProps>): ReturnType<typeof loadFlightMap> extends Promise<infer T>
+      ? Promise<T & { map: FakeMapInstance; rerender: (next: FlightMapProps) => void }>
+      : never {
+      const { FlightMap, instances, markerInstances } = await loadFlightMap()
+      const base: FlightMapProps = { route: [], trackPoints: [], live: false, ...props }
+      const { rerender } = render(<FlightMap {...base} />)
+      await waitFor(() => expect(instances.length).toBe(1))
+      const map = instances[0]
+      map.styleLayers = STYLE_LAYERS
+      await act(async () => {
+        map.fireStyleLoad()
+      })
+      return { FlightMap, instances, markerInstances, map, rerender: (next: FlightMapProps) => rerender(<FlightMap {...next} />) } as never
+    }
+
+    const textFieldCalls = (map: FakeMapInstance): unknown[][] =>
+      map.setLayoutProperty.mock.calls.filter((c) => c[1] === 'text-field')
+
+    it('collapses the two-line labels to English by default and pushes village labels to a later zoom', async () => {
+      const { map } = await renderWithStyle({})
+
+      const rewritten = textFieldCalls(map).map((c) => c[0])
+      expect(rewritten).toEqual(expect.arrayContaining(['label_village', 'label_city']))
+      expect(textFieldCalls(map)[0]?.[2]).toEqual(['coalesce', ['get', 'name:en'], ['get', 'name_en'], ['get', 'name:latin'], ['get', 'name']])
+      // village 9 -> 10, keeping the style's own maxzoom (unset -> 24); the city is untouched.
+      expect(map.setLayerZoomRange).toHaveBeenCalledWith('label_village', 10, 24)
+      expect(map.setLayerZoomRange).not.toHaveBeenCalledWith('label_city', expect.anything(), expect.anything())
+    })
+
+    it('uses the chosen language, and re-applies on every style load (a theme switch drops the changes)', async () => {
+      const { map } = await renderWithStyle({ mapLanguage: 'de' })
+      expect(textFieldCalls(map)[0]?.[2]).toEqual(['coalesce', ['get', 'name:de'], ['get', 'name:latin'], ['get', 'name']])
+
+      const before = textFieldCalls(map).length
+      await act(async () => {
+        map.fireStyleLoad()
+      })
+      expect(textFieldCalls(map).length).toBeGreaterThan(before)
+    })
+
+    it('follows a language change while the map is open', async () => {
+      const { map, rerender } = await renderWithStyle({ mapLanguage: 'en' })
+      map.setLayoutProperty.mockClear()
+
+      rerender({ route: [], trackPoints: [], live: false, mapLanguage: 'fr' })
+
+      await waitFor(() =>
+        expect(textFieldCalls(map)[0]?.[2]).toEqual(['coalesce', ['get', 'name:fr'], ['get', 'name:latin'], ['get', 'name']])
+      )
+    })
+
+    it('leaves the map alone, without throwing, when the style cannot be read', async () => {
+      const { FlightMap, instances } = await loadFlightMap()
+      render(<FlightMap route={[]} trackPoints={[]} live={false} />)
+      await waitFor(() => expect(instances.length).toBe(1))
+      instances[0].getStyle.mockImplementation(() => {
+        throw new Error('style not ready')
+      })
+      await act(async () => {
+        instances[0].fireStyleLoad()
+      })
+      expect(textFieldCalls(instances[0])).toEqual([])
+      // Its own layers still got added — the failure was contained.
+      expect(instances[0].layers[ROUTE_SOURCE_ID]).toBeDefined()
+    })
   })
 
   it('draws the planned route and waypoint pins once ready', async () => {

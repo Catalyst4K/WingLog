@@ -23,6 +23,7 @@ function leg(fixIdent: string, overrides: Partial<ParsedLeg> = {}): ParsedLeg {
     altitude1: 6000,
     altitude2: 0,
     speedLimit: 250,
+    routeDistanceM: 0,
     ...overrides
   }
 }
@@ -182,6 +183,68 @@ describe('navdata repo', () => {
     expect(listCachedProcedureLegs(db, 'EGLL', 'sid', 'BPK7F', '27R')).toEqual([])
   })
 
+  it('offers a synthetic Visual approach (transition Vectors) for every cached runway end, filtered by runway', () => {
+    replaceAirportNavdata(db, 'EGLL', fetched(), '2026-09-18T12:00:00.000Z')
+
+    expect(listCachedProcedures(db, 'EGLL', 'approach', null)).toEqual([
+      { identifier: 'Visual 27R', transition: 'Vectors' },
+      { identifier: 'Visual 09L', transition: 'Vectors' }
+    ])
+    expect(listCachedProcedures(db, 'EGLL', 'approach', '09L')).toEqual([{ identifier: 'Visual 09L', transition: 'Vectors' }])
+    // Never offered for SIDs/STARs, or for an airport with nothing cached.
+    expect(listCachedProcedures(db, 'EGLL', 'star', null)).toEqual([])
+    expect(listCachedProcedures(db, 'ZZZZ', 'approach', null)).toEqual([])
+  })
+
+  it('builds a Visual approach\'s legs from the runway threshold: join point 10 nm out on the extended centreline, then the threshold', () => {
+    replaceAirportNavdata(db, 'EGLL', fetched(), '2026-09-18T12:00:00.000Z')
+    const runway = listCachedRunways(db, 'EGLL').find((r) => r.ident === '27R')!
+
+    const legs = listCachedProcedureLegs(db, 'EGLL', 'approach', 'Visual 27R', null, 'Vectors')
+
+    expect(legs.map((l) => l.fixIdent)).toEqual(['27R/10', 'RW27R'])
+    expect(legs[1]).toEqual(expect.objectContaining({ fixLatitude: runway.thresholdLat, fixLongitude: runway.thresholdLon, fixType: 'R' }))
+    // 27R lands on heading 270, so the join point is due east of the threshold (the
+    // aircraft approaches flying west) — ~10 nm = 18,520 m of longitude at this latitude.
+    const join = legs[0]!
+    expect(join.fixLatitude).toBeCloseTo(runway.thresholdLat, 3)
+    const eastM = (join.fixLongitude - runway.thresholdLon) * 111320 * Math.cos((runway.thresholdLat * Math.PI) / 180)
+    expect(eastM).toBeCloseTo(18520, -2)
+  })
+
+  it('returns no legs for a Visual approach whose runway is not cached', () => {
+    replaceAirportNavdata(db, 'EGLL', fetched(), '2026-09-18T12:00:00.000Z')
+    expect(listCachedProcedureLegs(db, 'EGLL', 'approach', 'Visual 99X')).toEqual([])
+  })
+
+  it("round-trips an FC leg's distance so the transition's LAM/11 endpoint can be placed", () => {
+    replaceAirportNavdata(
+      db,
+      'EGLL',
+      fetched({
+        icao: 'EGLL',
+        approaches: [
+          approach({
+            identifier: 'ILS 27R',
+            runwayIdent: '27R',
+            transitions: [
+              { name: 'LAM', legs: [leg('LAM', { type: 9, fixType: 'V', courseDeg: 272, routeDistanceM: 20372 }), leg('D125O', { type: 7 })] }
+            ],
+            finalLegs: [leg('CF27R')]
+          })
+        ]
+      }),
+      '2026-09-18T12:00:00.000Z'
+    )
+
+    const legs = listCachedProcedureLegs(db, 'EGLL', 'approach', 'ILS 27R', null, 'LAM')
+    expect(legs.map((l) => [l.fixIdent, l.type, l.routeDistanceM])).toEqual([
+      ['LAM', 9, 20372],
+      ['D125O', 7, 0],
+      ['CF27R', 4, 0]
+    ])
+  })
+
   it('caches an approach with its runway and transition names', () => {
     replaceAirportNavdata(
       db,
@@ -200,7 +263,10 @@ describe('navdata repo', () => {
       '2026-09-08T12:00:00.000Z'
     )
 
-    expect(listCachedProcedures(db, 'VHHH', 'approach', null)).toEqual([{ identifier: 'RNAV Z 07R', transition: 'LIMES' }])
+    // Visual approaches (docs/plans/visual-approach.md) are synthesised on top of the real ones.
+    expect(listCachedProcedures(db, 'VHHH', 'approach', null).filter((p) => !p.identifier.startsWith('Visual '))).toEqual([
+      { identifier: 'RNAV Z 07R', transition: 'LIMES' }
+    ])
     expect(listCachedProcedures(db, 'VHHH', 'approach', '07R').map((p) => p.identifier)).toContain('RNAV Z 07R')
     expect(listCachedProcedures(db, 'VHHH', 'approach', '25L')).toEqual([])
   })

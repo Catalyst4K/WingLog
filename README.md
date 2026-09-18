@@ -36,6 +36,12 @@ in a local SQLite database on your own machine. No account, no cloud, no subscri
   <img src="docs/screenshots/logbook-list.png" width="32%" alt="Logbook — flight history and totals">
 </p>
 
+<p align="center">
+  <img src="docs/screenshots/track-live.png" width="49%" alt="Track — a live long-haul flight drawn on the map with speed, altitude and heading">
+  <img src="docs/screenshots/track-route-detail.png" width="49%" alt="Track — the planned route with waypoints and the departure procedure plotted">
+</p>
+<p align="center"><sub>Track — live position from SimConnect against the planned route, with waypoints and procedures.</sub></p>
+
 ## Features
 
 - **Fleet** — track your aircraft: registration, type, airline, current location, hours

@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb, type WingLogDb } from './client'
+import { appSetting } from './schema'
 import {
+  getAircraftIdForTitle,
   getAltitudeUnit,
   getGsxSettings,
   getLandingDistanceUnit,
@@ -11,8 +13,10 @@ import {
   getSimbriefUsername,
   getTheme,
   getWeightUnit,
+  getMapLanguage,
   getWindSpeedUnit,
   hasCheckedGsxFirstLaunch,
+  rememberAircraftForTitle,
   setAltitudeUnit,
   setCheckedGsxFirstLaunch,
   setGsxSettings,
@@ -23,6 +27,7 @@ import {
   setSimbriefUsername,
   setTheme,
   setWeightUnit,
+  setMapLanguage,
   setWindSpeedUnit
 } from './settings-repo'
 
@@ -65,6 +70,22 @@ describe('settings repo', () => {
     expect(getAltitudeUnit(db)).toBe('m')
     setAltitudeUnit(db, 'hybrid')
     expect(getAltitudeUnit(db)).toBe('hybrid')
+  })
+
+  it('defaults the map language to English, and round-trips every supported language', () => {
+    expect(getMapLanguage(db)).toBe('en')
+    for (const language of ['local', 'de', 'es', 'fr', 'it', 'ru', 'en'] as const) {
+      setMapLanguage(db, language)
+      expect(getMapLanguage(db)).toBe(language)
+    }
+  })
+
+  it('ignores an unknown map language on write, and reads a corrupt stored value as English', () => {
+    setMapLanguage(db, 'de')
+    setMapLanguage(db, 'xx' as never)
+    expect(getMapLanguage(db)).toBe('de')
+    db.insert(appSetting).values({ key: 'mapLanguage', value: 'klingon' }).onConflictDoUpdate({ target: appSetting.key, set: { value: 'klingon' } }).run()
+    expect(getMapLanguage(db)).toBe('en')
   })
 
   it('defaults the wind speed unit to kt when never set', () => {
@@ -158,5 +179,29 @@ describe('settings repo', () => {
     setLastSyncedAt(db, 'aircraft', '2026-09-06T12:00:00.000Z')
     expect(getLastSyncedAt(db, 'aircraft')).toBe('2026-09-06T12:00:00.000Z')
     expect(getLastSyncedAt(db, 'flight')).toBeNull()
+  })
+
+  describe('title -> fleet aircraft memory (free-flight-tracking.md)', () => {
+    it('returns undefined for a title never seen before', () => {
+      expect(getAircraftIdForTitle(db, 'FenixA320 IAE SL')).toBeUndefined()
+    })
+
+    it('round-trips a remembered title -> aircraft mapping', () => {
+      rememberAircraftForTitle(db, 'FenixA320 IAE SL', 7)
+      expect(getAircraftIdForTitle(db, 'FenixA320 IAE SL')).toBe(7)
+    })
+
+    it('keeps two different titles independent', () => {
+      rememberAircraftForTitle(db, 'FenixA320 IAE SL', 7)
+      rememberAircraftForTitle(db, 'A350-900 (Default Cabin)', 9)
+      expect(getAircraftIdForTitle(db, 'FenixA320 IAE SL')).toBe(7)
+      expect(getAircraftIdForTitle(db, 'A350-900 (Default Cabin)')).toBe(9)
+    })
+
+    it('overwrites a stale mapping when the same title is remembered again', () => {
+      rememberAircraftForTitle(db, 'FenixA320 IAE SL', 7)
+      rememberAircraftForTitle(db, 'FenixA320 IAE SL', 12)
+      expect(getAircraftIdForTitle(db, 'FenixA320 IAE SL')).toBe(12)
+    })
   })
 })

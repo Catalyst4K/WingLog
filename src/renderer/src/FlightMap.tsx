@@ -1,11 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { GeoJSONSource, LngLatBounds, Map as MapLibreMap, Marker, setWorkerUrl } from 'maplibre-gl'
+import {
+  GeoJSONSource,
+  LngLatBounds,
+  Map as MapLibreMap,
+  Marker,
+  setWorkerUrl,
+  type ExpressionSpecification
+} from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { Locate, LocateFixed, ZoomIn, ZoomOut } from 'lucide-react'
-import type { FlightPhase, SimTelemetry, TrackPoint } from '@shared/ipc'
+import type { FlightPhase, MapLanguage, SimTelemetry, TrackPoint } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { displayAltitude } from './display-altitude'
+import { planStyleChanges, type StyleLayerLike } from './map-labels'
 import { mapInteraction } from './mapInteraction'
 import type { TransitionAltitudes, Waypoint } from './route'
 import { filterVisibleTrackPoints } from './trackPointVisibility'
@@ -164,6 +172,28 @@ function waypointFeatures(waypoints: Waypoint[]): WaypointFeatureCollection {
   }
 }
 
+/**
+ * Rewrites the hosted base style's name labels to one language and pushes low-value place
+ * labels to a later zoom (map-labels.ts). Best-effort by design: it's a third-party style
+ * with no version pin, so any surprise — a missing layer, a changed shape — leaves the map
+ * as the style drew it rather than breaking it.
+ */
+function applyLabelStyle(map: MapLibreMap, language: MapLanguage): void {
+  try {
+    const layers = map.getStyle().layers as unknown as StyleLayerLike[]
+    for (const change of planStyleChanges(layers, language)) {
+      if (change.textField)
+        map.setLayoutProperty(change.id, 'text-field', change.textField as ExpressionSpecification)
+      if (change.minzoom !== undefined) {
+        const maxzoom = layers.find((l) => l.id === change.id)?.maxzoom ?? 24
+        map.setLayerZoomRange(change.id, change.minzoom, maxzoom)
+      }
+    }
+  } catch {
+    // Leave the style alone.
+  }
+}
+
 function fitBoundsTo(map: MapLibreMap, coords: [number, number][]): void {
   if (coords.length > 1) {
     const bounds = coords.reduce((b, coord) => b.extend(coord), new LngLatBounds(coords[0], coords[0]))
@@ -203,6 +233,9 @@ export interface FlightMapProps {
    *  great-circle-fallback-route.md), not a real SimBrief-derived route — styled more
    *  faintly, with a caption, so it can't be mistaken for a genuine planned route. */
   routeIsApproximate?: boolean
+  /** Language of the base map's place names (Settings → UI → Map language). Defaults to
+   *  English. Applied to the hosted style's own labels — see map-labels.ts. */
+  mapLanguage?: MapLanguage
 }
 
 // Stable reference for the default so the route/waypoint effect below doesn't re-fire on
@@ -217,7 +250,8 @@ export function FlightMap({
   telemetry,
   telemetryPhase = 'cruise',
   telemetryTransition = null,
-  routeIsApproximate = false
+  routeIsApproximate = false,
+  mapLanguage = 'en'
 }: FlightMapProps): React.JSX.Element {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
@@ -226,6 +260,10 @@ export function FlightMap({
   // point in one batch (trackPointList), so length would jump straight past 1.
   const hasCenteredRef = useRef(false)
   const [mapReady, setMapReady] = useState(false)
+  // Read by the 'style.load' handler, which is registered once at map creation — a ref so
+  // it always sees the current language rather than the one from the first render.
+  const mapLanguageRef = useRef(mapLanguage)
+  mapLanguageRef.current = mapLanguage
   // Points a resume-track-cleanup pass has flagged as junk (flightdeck-backend's docs/
   // plans/resume-track-cleanup.md) never get drawn — filtered once here rather than in
   // each effect below, so every index-based lookup (last point, [-2] for the animation's
@@ -319,6 +357,8 @@ export function FlightMap({
       // needed to safely add sources/layers (sim-confirmed: 'load' never fired within 10s
       // in manual testing here, 'style.load' fires almost immediately).
       map.on('style.load', () => {
+        // A theme switch reloads the style and drops these, so re-apply on every load.
+        applyLabelStyle(map, mapLanguageRef.current)
         map.addSource(ROUTE_SOURCE_ID, { type: 'geojson', data: lineString([]) })
         map.addLayer({
           id: ROUTE_SOURCE_ID,
@@ -397,7 +437,11 @@ export function FlightMap({
             'text-offset': [0, 1],
             'text-anchor': 'top'
           },
-          paint: { 'text-color': waypointLabel.color, 'text-halo-color': waypointLabel.halo, 'text-halo-width': 1 }
+          paint: {
+            'text-color': waypointLabel.color,
+            'text-halo-color': waypointLabel.halo,
+            'text-halo-width': 1
+          }
         })
 
         // Taxiway designators when zoomed into an airport (docs/plans/map-improvements.md
@@ -422,7 +466,11 @@ export function FlightMap({
             'symbol-placement': 'line',
             'text-letter-spacing': 0.05
           },
-          paint: { 'text-color': taxiwayLabel.color, 'text-halo-color': taxiwayLabel.halo, 'text-halo-width': 1.2 }
+          paint: {
+            'text-color': taxiwayLabel.color,
+            'text-halo-color': taxiwayLabel.halo,
+            'text-halo-width': 1.2
+          }
         })
 
         // A text glyph (e.g. '✈') isn't drawn pointing true north in every font, so
@@ -465,6 +513,13 @@ export function FlightMap({
     waypointSource?.setData(waypointFeatures(waypoints))
     if (live) fitBoundsTo(mapRef.current, route)
   }, [mapReady, route, waypoints, live])
+
+  // A language change while the map is open (only possible from a remount today, since
+  // Settings is its own tab, but cheap to keep correct) re-applies to the loaded style.
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return
+    applyLabelStyle(mapRef.current, mapLanguage)
+  }, [mapReady, mapLanguage])
 
   // Switches which of the two route layers is visible — set via setLayoutProperty rather
   // than baked in at creation, since Logbook resolves the fallback asynchronously after the
@@ -716,7 +771,11 @@ export function FlightMap({
           {telemetry
             ? `${Math.round(
                 displayAltitude(
-                  { altitudeM: telemetry.altitudeM, pressureAltitudeM: telemetry.pressureAltitudeM, phase: telemetryPhase },
+                  {
+                    altitudeM: telemetry.altitudeM,
+                    pressureAltitudeM: telemetry.pressureAltitudeM,
+                    phase: telemetryPhase
+                  },
                   telemetryTransition
                 ).valueFt
               ).toLocaleString()} ft`

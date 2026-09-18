@@ -45,6 +45,7 @@ function makeAircraft(overrides: Partial<Aircraft> = {}): Aircraft {
     currentIcao: 'EGLL',
     createdAt: '2026-01-01T00:00:00.000Z',
     replacedByAircraftId: null,
+    retiredAt: null,
     photoThumbnailUrl: null,
     ...overrides
   }
@@ -66,6 +67,9 @@ function makeFlight(overrides: Partial<Flight> = {}): Flight {
   return {
     id: 1,
     aircraftId: 1,
+    simRegistration: null,
+    simIcaoType: null,
+    simTitle: null,
     status: 'completed',
     flightNumber: 'TA100',
     depIcao: 'EGLL',
@@ -146,6 +150,8 @@ function buildWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     aircraftUpdate: vi.fn(),
     aircraftDelete: vi.fn().mockResolvedValue(undefined),
     aircraftReplace: vi.fn().mockResolvedValue(undefined),
+    aircraftRetire: vi.fn().mockResolvedValue(undefined),
+    aircraftUnretire: vi.fn().mockResolvedValue(undefined),
     fleetListLandings: vi.fn().mockResolvedValue([]),
     fleetListFlights: vi.fn().mockResolvedValue([]),
     flightList: vi.fn().mockResolvedValue([]),
@@ -261,20 +267,25 @@ describe('FleetView', () => {
     setWinglog({ aircraftList: vi.fn().mockResolvedValue([active, retired]) })
     const user = userEvent.setup()
     render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
+    // Retired aircraft sit behind their own folder tab, not in the active list.
+    await screen.findByText('G-NEW')
+    expect(screen.queryByText('G-OLD')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'Retired (1)' }))
     await screen.findByText('G-OLD')
-    expect(screen.getByText('Retired')).toBeInTheDocument()
 
     // Clicking the replacement link opens that aircraft's detail without following the row's
     // own onClick (stopPropagation) — and shows a "Retired — replaced by" banner.
-    await user.click(screen.getByRole('button', { name: 'G-NEW' }))
+    await user.click(screen.getByRole('button', { name: 'Replaced by G-NEW' }))
     expect(await screen.findByText(/^G-NEW — A320$/)).toBeInTheDocument()
   })
 
   it('shows a bare id fallback when a retired aircraft’s replacement is not in the fleet', async () => {
     const retired = makeAircraft({ id: 2, registration: 'G-OLD', replacedByAircraftId: 999 })
     setWinglog({ aircraftList: vi.fn().mockResolvedValue([retired]) })
+    const user = userEvent.setup()
     render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
-    expect(await screen.findByText('#999')).toBeInTheDocument()
+    await user.click(await screen.findByRole('tab', { name: 'Retired (1)' }))
+    expect(await screen.findByText('Replaced by #999')).toBeInTheDocument()
   })
 
   it('opens a retired aircraft’s own detail page from its row, and its replaced-by link navigates onward', async () => {
@@ -283,6 +294,7 @@ describe('FleetView', () => {
     setWinglog({ aircraftList: vi.fn().mockResolvedValue([active, retired]) })
     const user = userEvent.setup()
     render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
+    await user.click(await screen.findByRole('tab', { name: 'Retired (1)' }))
     await screen.findByText('G-OLD')
     // Click the row itself, not the replacement link within it.
     await user.click(screen.getByText('G-OLD'))
@@ -291,6 +303,112 @@ describe('FleetView', () => {
 
     await user.click(screen.getByRole('button', { name: 'G-NEW' }))
     expect(await screen.findByText('G-NEW — A320')).toBeInTheDocument()
+  })
+
+  describe('plain Retire (docs/plans/fleet-retire.md)', () => {
+    it('retires an aircraft after confirming, saying its history is kept', async () => {
+      const winglog = setWinglog({
+        aircraftList: vi
+          .fn()
+          .mockResolvedValueOnce([makeAircraft({ id: 4, registration: 'G-RET' })])
+          .mockResolvedValue([makeAircraft({ id: 4, registration: 'G-RET', retiredAt: '2026-09-18T12:00:00.000Z' })]),
+        aircraftRetire: vi.fn().mockResolvedValue(undefined)
+      })
+      const user = userEvent.setup()
+      render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
+      await user.click(await screen.findByText('G-RET'))
+      await user.click(await screen.findByRole('button', { name: 'Retire' }))
+
+      expect(await screen.findByText('Retire G-RET?')).toBeInTheDocument()
+      expect(screen.getByText(/flight history stays on it/)).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Retire aircraft' }))
+
+      await waitFor(() => expect(winglog.aircraftRetire).toHaveBeenCalledWith(4))
+      // The detail page now reads as retired, with history kept, and offers Un-retire instead of Retire/Replace.
+      expect(await screen.findByText(/Retired on .* its flight history is kept\./)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Un-retire' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Retire' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Replace/ })).not.toBeInTheDocument()
+    })
+
+    it('does nothing when the Retire confirmation is cancelled', async () => {
+      const winglog = setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([makeAircraft({ id: 4, registration: 'G-RET' })]),
+        aircraftRetire: vi.fn().mockResolvedValue(undefined)
+      })
+      const user = userEvent.setup()
+      render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
+      await user.click(await screen.findByText('G-RET'))
+      await user.click(await screen.findByRole('button', { name: 'Retire' }))
+      await screen.findByText('Retire G-RET?')
+      await user.click(screen.getByText('Back'))
+      expect(winglog.aircraftRetire).not.toHaveBeenCalled()
+    })
+
+    it('shows a toast when retiring fails', async () => {
+      const { toast } = await import('sonner')
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([makeAircraft({ id: 4, registration: 'G-RET' })]),
+        aircraftRetire: vi.fn().mockRejectedValue(new Error('already retired'))
+      })
+      const user = userEvent.setup()
+      render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
+      await user.click(await screen.findByText('G-RET'))
+      await user.click(await screen.findByRole('button', { name: 'Retire' }))
+      await user.click(await screen.findByRole('button', { name: 'Retire aircraft' }))
+      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('already retired'))
+    })
+
+    it('lists a plainly retired aircraft under the Retired tab with its date, and Un-retire brings it back', async () => {
+      const winglog = setWinglog({
+        aircraftList: vi
+          .fn()
+          .mockResolvedValueOnce([
+            makeAircraft({ id: 1, registration: 'G-LIVE' }),
+            makeAircraft({ id: 2, registration: 'G-OLD', retiredAt: '2026-09-18T12:00:00.000Z' })
+          ])
+          .mockResolvedValue([
+            makeAircraft({ id: 1, registration: 'G-LIVE' }),
+            makeAircraft({ id: 2, registration: 'G-OLD' })
+          ]),
+        aircraftUnretire: vi.fn().mockResolvedValue(undefined)
+      })
+      const user = userEvent.setup()
+      render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
+      await screen.findByText('G-LIVE')
+      expect(screen.getByRole('tab', { name: 'Active (1)' })).toBeInTheDocument()
+      await user.click(screen.getByRole('tab', { name: 'Retired (1)' }))
+      expect(await screen.findByRole('cell', { name: /^Retired 18/ })).toBeInTheDocument()
+
+      await user.click(screen.getByText('G-OLD'))
+      await user.click(await screen.findByRole('button', { name: 'Un-retire' }))
+      await waitFor(() => expect(winglog.aircraftUnretire).toHaveBeenCalledWith(2))
+      expect(await screen.findByRole('button', { name: 'Retire' })).toBeInTheDocument()
+    })
+
+    it('offers no Un-retire on a replaced aircraft, and shows a toast if un-retiring fails', async () => {
+      const { toast } = await import('sonner')
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([
+          makeAircraft({ id: 1, registration: 'G-NEW' }),
+          makeAircraft({ id: 2, registration: 'G-REPL', replacedByAircraftId: 1 }),
+          makeAircraft({ id: 3, registration: 'G-PLAIN', retiredAt: '2026-09-18T12:00:00.000Z' })
+        ]),
+        aircraftUnretire: vi.fn().mockRejectedValue(new Error('nope'))
+      })
+      const user = userEvent.setup()
+      render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
+      await user.click(await screen.findByRole('tab', { name: 'Retired (2)' }))
+      await user.click(await screen.findByText('G-REPL'))
+      await screen.findByText(/Retired — replaced by/)
+      expect(screen.queryByRole('button', { name: 'Un-retire' })).not.toBeInTheDocument()
+
+      await user.click(screen.getByText('Back to fleet'))
+      await user.click(await screen.findByRole('tab', { name: 'Retired (2)' }))
+      await user.click(await screen.findByText('G-PLAIN'))
+      await user.click(await screen.findByRole('button', { name: 'Un-retire' }))
+      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('nope'))
+    })
   })
 
   it('opens an aircraft’s detail page from the active table, and Back returns to the list', async () => {
@@ -324,6 +442,23 @@ describe('FleetView', () => {
     render(<FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
     await screen.findByText('G-ONE — A320')
     expect(screen.getAllByText('—').length).toBeGreaterThan(0)
+  })
+
+  it('renders a ZZZZ current airport (an unresolved free-flight landing) as Unknown, both in the list and the detail page', async () => {
+    setWinglog({
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft({ currentIcao: 'ZZZZ' })]),
+      logbookFleetStats: vi.fn().mockResolvedValue([makeStats()])
+    })
+    const user = userEvent.setup()
+    render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
+
+    expect(await screen.findByText('Unknown')).toBeInTheDocument()
+    expect(screen.queryByText('ZZZZ')).not.toBeInTheDocument()
+
+    await user.click(screen.getByText('G-ONE'))
+    expect(await screen.findByText('G-ONE — A320')).toBeInTheDocument()
+    expect(screen.getByText('Unknown')).toBeInTheDocument()
+    expect(screen.queryByText('ZZZZ')).not.toBeInTheDocument()
   })
 
   it('shows a "not found" message for an unknown initial aircraft id, and consumes the prop once', async () => {

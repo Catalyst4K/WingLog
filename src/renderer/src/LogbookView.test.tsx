@@ -171,6 +171,7 @@ function makeAircraft(overrides: Partial<Aircraft> = {}): Aircraft {
     currentIcao: 'EGLL',
     createdAt: '2026-01-01T00:00:00.000Z',
     replacedByAircraftId: null,
+    retiredAt: null,
     photoThumbnailUrl: null,
     ...overrides
   }
@@ -180,6 +181,9 @@ function makeFlight(overrides: Partial<Flight> = {}): Flight {
   return {
     id: 1,
     aircraftId: 1,
+    simRegistration: null,
+    simIcaoType: null,
+    simTitle: null,
     status: 'completed',
     flightNumber: 'TA100',
     depIcao: 'EGLL',
@@ -408,6 +412,76 @@ describe('LogbookView list', () => {
     expect(within(singleRow).queryByText(/×/)).not.toBeInTheDocument()
   })
 
+  it('shows a Free flight badge for a flight tracked with no OFP and a real liftoff, not for a dispatched one', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([
+        makeFlight({ id: 1, flightNumber: 'FREE1', ofpJson: null, actualOffUtc: '2026-02-01T10:05:00.000Z' }),
+        makeFlight({ id: 2, flightNumber: 'DISPATCHED', ofpJson: '{}' })
+      ]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+      logbookListFlightScores: vi.fn().mockResolvedValue([])
+    })
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+
+    const freeRow = (await screen.findByText('FREE1')).closest('tr')!
+    expect(within(freeRow).getByText('Free flight')).toBeInTheDocument()
+    const dispatchedRow = screen.getByText('DISPATCHED').closest('tr')!
+    expect(within(dispatchedRow).queryByText('Free flight')).not.toBeInTheDocument()
+  })
+
+  it('shows the flight\'s own sim-reported registration for a free flight tracked with no fleet aircraft — not mandatory to add one', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([
+        makeFlight({
+          id: 1,
+          flightNumber: 'FREE1',
+          aircraftId: null,
+          simRegistration: 'G-TEST',
+          simIcaoType: 'C172',
+          ofpJson: null,
+          actualOffUtc: '2026-02-01T10:05:00.000Z'
+        })
+      ]),
+      aircraftList: vi.fn().mockResolvedValue([]),
+      logbookListFlightScores: vi.fn().mockResolvedValue([])
+    })
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+
+    const row = (await screen.findByText('FREE1')).closest('tr')!
+    expect(within(row).getByText('G-TEST')).toBeInTheDocument()
+
+    await userEvent.click(row)
+    expect(await screen.findByText('G-TEST')).toBeInTheDocument()
+  })
+
+  it('does not badge a CSV-imported flight (no OFP, but also never actually flown live) as a free flight', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([
+        makeFlight({ id: 1, flightNumber: 'IMPORTED', ofpJson: null, actualOffUtc: null })
+      ]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+      logbookListFlightScores: vi.fn().mockResolvedValue([])
+    })
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+
+    const row = (await screen.findByText('IMPORTED')).closest('tr')!
+    expect(within(row).queryByText('Free flight')).not.toBeInTheDocument()
+  })
+
+  it('renders a ZZZZ dep/arr as Unknown, never the raw placeholder code', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([
+        makeFlight({ id: 1, flightNumber: 'UNKN', depIcao: 'VHHH', arrIcao: 'ZZZZ' })
+      ]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+      logbookListFlightScores: vi.fn().mockResolvedValue([])
+    })
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+
+    expect(await screen.findByText('VHHH → Unknown')).toBeInTheDocument()
+    expect(screen.queryByText(/ZZZZ/)).not.toBeInTheDocument()
+  })
+
   it('offers a Flights | Landings tab switcher, and the Landings tab shows logbookListAllLandings data', async () => {
     const user = userEvent.setup()
     setWinglog({
@@ -426,6 +500,31 @@ describe('LogbookView list', () => {
     // table has no such column) — its appearance proves logbookListAllLandings' data made
     // it onto the page, not just that "TA100" happens to also be the flight number.
     expect(await screen.findByRole('columnheader', { name: /Touchdown rate/ })).toBeInTheDocument()
+  })
+
+  it('sits the folder tabs between the totals and the table, and keeps arrow-key navigation', async () => {
+    const user = userEvent.setup()
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight({ id: 1 })]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+      logbookListFlightScores: vi.fn().mockResolvedValue([]),
+      logbookListAllLandings: vi.fn().mockResolvedValue([makeLandingListRow({ id: 1, flightId: 1 })])
+    })
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    await screen.findByText('TA100')
+
+    const totals = screen.getByText('Total flights')
+    const flightsTab = screen.getByRole('tab', { name: 'Flights' })
+    const table = screen.getByRole('table')
+    expect(totals.compareDocumentPosition(flightsTab) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(flightsTab.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    // Radix's roving focus survives the restyle: arrow right moves to and activates Landings.
+    flightsTab.focus()
+    await user.keyboard('{ArrowRight}')
+    expect(screen.getByRole('tab', { name: 'Landings' })).toHaveAttribute('data-state', 'active')
+    expect(await screen.findByRole('columnheader', { name: /Touchdown rate/ })).toBeInTheDocument()
+    expect(screen.getByText('Total flights')).toBeInTheDocument()
   })
 
   it('opens a flight\'s detail when a row is clicked from the Landings sub-tab', async () => {
@@ -462,6 +561,25 @@ describe('LandingCard', () => {
 
     expect(await screen.findByText('78')).toBeInTheDocument()
     expect(screen.getByText('Firm')).toBeInTheDocument()
+  })
+
+  it('lets long labels and values shrink and wrap instead of overlapping when the card narrows', async () => {
+    setWinglog({
+      logbookListLandings: vi.fn().mockResolvedValue([
+        makeLandingWithDetails({
+          score: { score: 78, severity: 'firm', categories: makeCategories() } satisfies LandingScoreResult
+        })
+      ])
+    })
+    const { container } = render(<LandingCard flightId={1} landingDistanceUnit="ft" />)
+
+    const label = await screen.findByText('Airspeed / Ground speed')
+    expect(label).toHaveClass('min-w-0', 'break-words')
+    expect(label.nextElementSibling).toHaveClass('min-w-0', 'break-words')
+    // Shrinkable grid tracks (a bare `1fr` can't go below its content's width) and a
+    // container query, since the card's width depends on the layout around it.
+    expect(container.querySelector('dl')).toHaveClass('grid-cols-[minmax(0,1fr)_minmax(0,1fr)]')
+    expect(container.querySelector('[data-slot="card"]')).toHaveClass('@container')
   })
 
   it('renders nothing extra when the flight has no landing row', async () => {
@@ -605,6 +723,16 @@ describe('LandingsTable', () => {
     expect(screen.getByText('TA200')).toBeInTheDocument()
   })
 
+  it('renders a landing\'s ZZZZ icao as Unknown, never the raw placeholder', async () => {
+    setWinglog({
+      logbookListAllLandings: vi.fn().mockResolvedValue([makeLandingListRow({ id: 1, flightId: 1, icao: 'ZZZZ' })])
+    })
+    render(<LandingsTable onOpenFlight={vi.fn()} />)
+
+    expect(await screen.findByText(/^Unknown/)).toBeInTheDocument()
+    expect(screen.queryByText(/ZZZZ/)).not.toBeInTheDocument()
+  })
+
   it('shows a placeholder message when nothing has landed yet', async () => {
     setWinglog({ logbookListAllLandings: vi.fn().mockResolvedValue([]) })
     render(<LandingsTable onOpenFlight={vi.fn()} />)
@@ -713,6 +841,90 @@ describe('FlightDetail', () => {
     expect(screen.getByText('G-ONE')).toBeInTheDocument()
     expect(screen.getByText('2h 0m')).toBeInTheDocument() // block minutes: 120
     expect(screen.getByText('1h 40m')).toBeInTheDocument() // air minutes: 100
+  })
+
+  it('shows Unknown for a ZZZZ arrival and a Free flight badge on the detail header', async () => {
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([
+        makeFlight({ arrIcao: 'ZZZZ', ofpJson: null, actualOffUtc: '2026-02-01T10:05:00.000Z' })
+      ]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()])
+    })
+    const user = userEvent.setup()
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    await user.click(await screen.findByText('TA100'))
+
+    expect(await screen.findByText('TA100 — EGLL → Unknown')).toBeInTheDocument()
+    expect(screen.getByText('Free flight')).toBeInTheDocument()
+  })
+
+  describe('"Add to fleet" (free-flight-tracking.md follow-up)', () => {
+    function freeFlightNoAircraft(overrides: Partial<Flight> = {}): Flight {
+      return makeFlight({
+        aircraftId: null,
+        simRegistration: 'G-TEST',
+        simIcaoType: 'C172',
+        ofpJson: null,
+        actualOffUtc: '2026-02-01T10:05:00.000Z',
+        ...overrides
+      })
+    }
+
+    it('shows "Add to fleet" only for a free flight with no linked aircraft', async () => {
+      setWinglog({
+        logbookListCompletedFlights: vi.fn().mockResolvedValue([freeFlightNoAircraft()]),
+        aircraftList: vi.fn().mockResolvedValue([])
+      })
+      const user = userEvent.setup()
+      render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+      await user.click(await screen.findByText('TA100'))
+
+      expect(await screen.findByRole('button', { name: 'Add to fleet' })).toBeInTheDocument()
+    })
+
+    it('hides "Add to fleet" for an ordinary dispatched flight with a linked aircraft', async () => {
+      setWinglog({
+        logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight()]),
+        aircraftList: vi.fn().mockResolvedValue([makeAircraft()])
+      })
+      const user = userEvent.setup()
+      render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+      await user.click(await screen.findByText('TA100'))
+      await screen.findByText('TA100 — EGLL → EGKK')
+
+      expect(screen.queryByRole('button', { name: 'Add to fleet' })).not.toBeInTheDocument()
+    })
+
+    it('creates a new fleet aircraft from the sim-reported identity and links it, then reloads', async () => {
+      const aircraftCreate = vi.fn().mockResolvedValue(makeAircraft({ id: 42, registration: 'G-TEST', icaoType: 'C172' }))
+      const flightLinkAircraft = vi.fn().mockResolvedValue(freeFlightNoAircraft({ aircraftId: 42, simRegistration: null, simIcaoType: null }))
+      const aircraftList = vi
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValue([makeAircraft({ id: 42, registration: 'G-TEST', icaoType: 'C172' })])
+      setWinglog({
+        logbookListCompletedFlights: vi.fn().mockResolvedValue([freeFlightNoAircraft()]),
+        aircraftList,
+        aircraftTypeSearch: vi.fn().mockResolvedValue([]),
+        aircraftCreate,
+        flightLinkAircraft
+      })
+      const user = userEvent.setup()
+      render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+      await user.click(await screen.findByText('TA100'))
+      await user.click(await screen.findByRole('button', { name: 'Add to fleet' }))
+
+      expect(await screen.findByLabelText('Registration')).toHaveValue('G-TEST')
+      // Two buttons now say "Add to fleet" — the trigger (still in the page behind the
+      // dialog) and the dialog's own submit button, which is always the later one in
+      // document order.
+      const buttons = screen.getAllByRole('button', { name: 'Add to fleet' })
+      await user.click(buttons[buttons.length - 1])
+
+      await waitFor(() => expect(aircraftCreate).toHaveBeenCalledWith({ registration: 'G-TEST', icaoType: 'C172' }))
+      await waitFor(() => expect(flightLinkAircraft).toHaveBeenCalledWith(1, 42))
+      await waitFor(() => expect(aircraftList).toHaveBeenCalledTimes(2))
+    })
   })
 
   it('returns to the list via "Back to logbook"', async () => {

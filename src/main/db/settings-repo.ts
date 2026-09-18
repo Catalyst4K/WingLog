@@ -1,5 +1,13 @@
 import { eq } from 'drizzle-orm'
-import type { AltitudeUnit, GsxSettings, LandingDistanceUnit, Theme, WeightUnit, WindSpeedUnit } from '@shared/ipc'
+import type {
+  AltitudeUnit,
+  GsxSettings,
+  LandingDistanceUnit,
+  MapLanguage,
+  Theme,
+  WeightUnit,
+  WindSpeedUnit
+} from '@shared/ipc'
 import { appSetting } from './schema'
 import type { WingLogDb } from './client'
 
@@ -7,6 +15,9 @@ const SIMBRIEF_USERNAME_KEY = 'simbriefUsername'
 const WEIGHT_UNIT_KEY = 'weightUnit'
 const ALTITUDE_UNIT_KEY = 'altitudeUnit'
 const WIND_SPEED_UNIT_KEY = 'windSpeedUnit'
+const MAP_LANGUAGE_KEY = 'mapLanguage'
+
+const MAP_LANGUAGES: readonly MapLanguage[] = ['local', 'en', 'de', 'es', 'fr', 'it', 'ru']
 const LANDING_DISTANCE_UNIT_KEY = 'landingDistanceUnit'
 const THEME_KEY = 'theme'
 const GSX_ENABLED_KEY = 'gsxEnabled'
@@ -48,6 +59,19 @@ export function getAltitudeUnit(db: WingLogDb): AltitudeUnit {
 
 export function setAltitudeUnit(db: WingLogDb, unit: AltitudeUnit): void {
   setSetting(db, ALTITUDE_UNIT_KEY, unit)
+}
+
+/** Defaults to English (docs/plans/map-language-and-declutter.md) — a stored value that isn't
+ *  a known language (a hand-edited or future-version row) also reads as English. */
+export function getMapLanguage(db: WingLogDb): MapLanguage {
+  const value = getSetting(db, MAP_LANGUAGE_KEY)
+  return MAP_LANGUAGES.find((l) => l === value) ?? 'en'
+}
+
+/** Validated here rather than trusted from the renderer; an unknown value is ignored. */
+export function setMapLanguage(db: WingLogDb, language: MapLanguage): void {
+  if (!MAP_LANGUAGES.includes(language)) return
+  setSetting(db, MAP_LANGUAGE_KEY, language)
 }
 
 export function getWindSpeedUnit(db: WingLogDb): WindSpeedUnit {
@@ -134,4 +158,23 @@ export function getLastSyncCompletedAt(db: WingLogDb): string | null {
 
 export function setLastSyncCompletedAt(db: WingLogDb, isoTimestamp: string): void {
   setSetting(db, LAST_SYNC_COMPLETED_KEY, isoTimestamp)
+}
+
+/** A remembered `title` -> fleet aircraft mapping (free-flight-tracking.md's aircraft-
+ *  resolution step 2: "I've seen this aircraft before, it's my G-EUYY") — namespaced
+ *  app_setting rows, same pattern as getLastSyncedAt's per-table cursor above, rather than
+ *  a new table for what's a small map keyed by an add-on's own title string. */
+function titleAircraftKey(title: string): string {
+  return `freeFlightTitleAircraft:${title}`
+}
+
+export function getAircraftIdForTitle(db: WingLogDb, title: string): number | undefined {
+  const raw = getSetting(db, titleAircraftKey(title))
+  if (!raw) return undefined
+  const id = Number(raw)
+  return Number.isInteger(id) ? id : undefined
+}
+
+export function rememberAircraftForTitle(db: WingLogDb, title: string, aircraftId: number): void {
+  setSetting(db, titleAircraftKey(title), String(aircraftId))
 }

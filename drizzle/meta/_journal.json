@@ -169,6 +169,34 @@
       "when": 1789577786175,
       "tag": "0023_lively_charles_xavier",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1789597774833,
+      "tag": "0024_brainy_rocket_racer",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1789758412073,
+      "tag": "0025_wakeful_sasquatch",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1789766613062,
+      "tag": "0026_modern_zodiak",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "6",
+      "when": 1789767205164,
+      "tag": "0027_cynical_rawhide_kid",
+      "breakpoints": true
     }
   ]
 }

@@ -55,6 +55,10 @@ export const aircraft = sqliteTable('aircraft', {
   // `aircraft`'s own type isn't inferred yet while this object literal is still being
   // evaluated, so TS can't resolve `aircraft.id`'s type without the hint).
   replacedByAircraftId: integer('replaced_by_aircraft_id').references((): AnySQLiteColumn => aircraft.id),
+  // ISO 8601 UTC. Set by a plain Retire (flightdeck-backend docs/plans/fleet-retire.md): the
+  // aircraft keeps its own flights, unlike replacedByAircraftId above. Retired means either
+  // column is set — see src/shared/aircraft.ts's isRetired.
+  retiredAt: text('retired_at'),
   // Real-world livery photo thumbnail, from adsbdb's registration lookup (docs/plans/
   // fleet-redesign.md #3) — stored at lookup time rather than fetched per detail-page
   // view, matching this app's local-first bias; goes stale if the photo is replaced, an
@@ -82,9 +86,23 @@ export const aircraft = sqliteTable('aircraft', {
 // fills them in; M3 only ever writes a 'planned' row from a fetched OFP.
 export const flight = sqliteTable('flight', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  aircraftId: integer('aircraft_id')
-    .notNull()
-    .references(() => aircraft.id),
+  // Nullable since free-flight-tracking.md's "don't add to fleet" option (added after this
+  // was NOT NULL from M3 onward) — a free flight can be tracked without ever creating or
+  // linking a fleet aircraft. simRegistration/simIcaoType below carry the sim-reported
+  // identity in that case; when aircraftId is set, those two stay null and the aircraft
+  // table is the source of truth instead, same as before.
+  aircraftId: integer('aircraft_id').references(() => aircraft.id),
+  // As read from the sim at free-flight start (StartFreeFlightDialog's own prefill/parse),
+  // kept only for a flight with no aircraftId — the identity a fleet aircraft record would
+  // otherwise have provided. Always null together with a non-null aircraftId.
+  simRegistration: text('sim_registration'),
+  simIcaoType: text('sim_icao_type'),
+  // The raw sim `title` at free-flight start (e.g. "FenixA320 IAE SL") — same
+  // null-together-with-aircraftId convention as the two fields above. Exists only so
+  // linkAircraftToFlight (flight-repo.ts) can seed the title -> aircraft memory
+  // (settings-repo.ts's rememberAircraftForTitle) retroactively, when "Add to fleet" happens
+  // from Logbook after the flight completes rather than inline in the start dialog.
+  simTitle: text('sim_title'),
   status: text('status', { enum: ['planned', 'active', 'completed', 'abandoned'] })
     .notNull()
     .default('planned'),
@@ -405,5 +423,8 @@ export const navdataProcedureLeg = sqliteTable('navdata_procedure_leg', {
   courseDeg: real('course_deg').notNull(),
   altitude1: real('altitude1').notNull(),
   altitude2: real('altitude2').notNull(),
-  speedLimit: real('speed_limit').notNull()
+  speedLimit: real('speed_limit').notNull(),
+  // Metres; only set for FC/FD legs (see ParsedLeg.routeDistanceM). Default 0 covers legs
+  // cached before this column existed — they read as "no distance known" until refreshed.
+  routeDistanceM: real('route_distance_m').notNull().default(0)
 })

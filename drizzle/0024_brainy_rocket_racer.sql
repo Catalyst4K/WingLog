@@ -1,0 +1,52 @@
+PRAGMA foreign_keys=OFF;--> statement-breakpoint
+CREATE TABLE `__new_flight` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`aircraft_id` integer,
+	`sim_registration` text,
+	`sim_icao_type` text,
+	`status` text DEFAULT 'planned' NOT NULL,
+	`flight_number` text,
+	`dep_icao` text NOT NULL,
+	`arr_icao` text NOT NULL,
+	`altn_icao` text,
+	`route_string` text,
+	`cruise_alt_m` real,
+	`sched_out_utc` text,
+	`sched_in_utc` text,
+	`actual_out_utc` text,
+	`actual_off_utc` text,
+	`actual_on_utc` text,
+	`actual_in_utc` text,
+	`block_minutes` real,
+	`air_minutes` real,
+	`fuel_planned_kg` real,
+	`fuel_out_kg` real,
+	`fuel_in_kg` real,
+	`fuel_burn_kg` real,
+	`pax` integer,
+	`cargo_kg` real,
+	`zfw_kg` real,
+	`tow_kg` real,
+	`ldw_kg` real,
+	`ofp_id` text,
+	`ofp_json` text,
+	`sim_version` text,
+	`created_at` text DEFAULT (current_timestamp) NOT NULL,
+	`uuid` text,
+	`updated_at` text,
+	`flown_route_json` text,
+	`selected_departure_runway` text,
+	`selected_sid_ident` text,
+	`selected_sid_transition` text,
+	`selected_star_ident` text,
+	`selected_star_transition` text,
+	`selected_approach_ident` text,
+	`selected_approach_transition` text,
+	`deleted_at` text,
+	FOREIGN KEY (`aircraft_id`) REFERENCES `aircraft`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+INSERT INTO `__new_flight`("id", "aircraft_id", "status", "flight_number", "dep_icao", "arr_icao", "altn_icao", "route_string", "cruise_alt_m", "sched_out_utc", "sched_in_utc", "actual_out_utc", "actual_off_utc", "actual_on_utc", "actual_in_utc", "block_minutes", "air_minutes", "fuel_planned_kg", "fuel_out_kg", "fuel_in_kg", "fuel_burn_kg", "pax", "cargo_kg", "zfw_kg", "tow_kg", "ldw_kg", "ofp_id", "ofp_json", "sim_version", "created_at", "uuid", "updated_at", "flown_route_json", "selected_departure_runway", "selected_sid_ident", "selected_sid_transition", "selected_star_ident", "selected_star_transition", "selected_approach_ident", "selected_approach_transition", "deleted_at") SELECT "id", "aircraft_id", "status", "flight_number", "dep_icao", "arr_icao", "altn_icao", "route_string", "cruise_alt_m", "sched_out_utc", "sched_in_utc", "actual_out_utc", "actual_off_utc", "actual_on_utc", "actual_in_utc", "block_minutes", "air_minutes", "fuel_planned_kg", "fuel_out_kg", "fuel_in_kg", "fuel_burn_kg", "pax", "cargo_kg", "zfw_kg", "tow_kg", "ldw_kg", "ofp_id", "ofp_json", "sim_version", "created_at", "uuid", "updated_at", "flown_route_json", "selected_departure_runway", "selected_sid_ident", "selected_sid_transition", "selected_star_ident", "selected_star_transition", "selected_approach_ident", "selected_approach_transition", "deleted_at" FROM `flight`;--> statement-breakpoint
+DROP TABLE `flight`;--> statement-breakpoint
+ALTER TABLE `__new_flight` RENAME TO `flight`;--> statement-breakpoint
+PRAGMA foreign_keys=ON;

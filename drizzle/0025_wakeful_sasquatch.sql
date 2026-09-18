@@ -1,0 +1,1 @@
+ALTER TABLE `flight` ADD `sim_title` text;

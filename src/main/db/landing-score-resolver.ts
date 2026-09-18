@@ -115,11 +115,19 @@ export function getLandingScoresForCompletedFlights(db: WingLogDb): LandingScore
     if (landings.length === 0) continue
     const finalLanding = landings[landings.length - 1]
 
-    if (!icaoTypeByAircraftId.has(f.aircraftId)) {
-      icaoTypeByAircraftId.set(f.aircraftId, getAircraftById(db, f.aircraftId)?.icaoType ?? null)
+    // A free flight tracked with no fleet aircraft has no aircraftId to look up — its own
+    // simIcaoType (the sim-reported type, recorded at free-flight start) stands in instead.
+    let icaoType: string | null
+    if (f.aircraftId != null) {
+      if (!icaoTypeByAircraftId.has(f.aircraftId)) {
+        icaoTypeByAircraftId.set(f.aircraftId, getAircraftById(db, f.aircraftId)?.icaoType ?? null)
+      }
+      icaoType = icaoTypeByAircraftId.get(f.aircraftId) ?? null
+    } else {
+      icaoType = f.simIcaoType
     }
     const icao = finalLanding.icao ?? f.arrIcao
-    const { score } = resolveLandingScore(finalLanding, icao, icaoTypeByAircraftId.get(f.aircraftId) ?? null)
+    const { score } = resolveLandingScore(finalLanding, icao, icaoType)
     summaries.push({ flightId: f.id, score, landingCount: landings.length })
   }
 

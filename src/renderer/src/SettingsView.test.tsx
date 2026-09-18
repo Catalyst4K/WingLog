@@ -47,6 +47,8 @@ function createWinglog(overrides: Record<string, unknown> = {}): typeof window.w
     authLogout: vi.fn().mockResolvedValue(makeSyncStatus()),
     syncNow: vi.fn().mockResolvedValue(makeSyncStatus()),
     logbookImportCsv: vi.fn().mockResolvedValue(null),
+    logbookImportJson: vi.fn().mockResolvedValue(null),
+    logbookExport: vi.fn().mockResolvedValue(false),
     appOpenGithub: vi.fn().mockResolvedValue(undefined),
     ...overrides
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -80,6 +82,8 @@ function renderSettings(
       onWindSpeedUnitChange={props.onWindSpeedUnitChange ?? vi.fn()}
       landingDistanceUnit={props.landingDistanceUnit ?? 'ft'}
       onLandingDistanceUnitChange={props.onLandingDistanceUnitChange ?? vi.fn()}
+      mapLanguage={props.mapLanguage ?? 'en'}
+      onMapLanguageChange={props.onMapLanguageChange ?? vi.fn()}
       theme={props.theme ?? 'system'}
       onThemeChange={props.onThemeChange ?? vi.fn()}
       resetSignal={props.resetSignal}
@@ -96,6 +100,19 @@ describe('SettingsView', () => {
       expect(screen.queryByText('Credentials')).not.toBeInTheDocument()
     })
 
+    it('marks only the selected category with a chevron, and moves it on selection', async () => {
+      const user = userEvent.setup()
+      renderSettings()
+      const uiTab = screen.getByRole('tab', { name: 'UI' })
+      const dataTab = screen.getByRole('tab', { name: 'Data' })
+      expect(within(uiTab).getByTestId('settings-active-chevron')).toBeInTheDocument()
+      expect(within(dataTab).queryByTestId('settings-active-chevron')).not.toBeInTheDocument()
+      expect(screen.getAllByTestId('settings-active-chevron')).toHaveLength(1)
+      await user.click(dataTab)
+      expect(within(dataTab).getByTestId('settings-active-chevron')).toBeInTheDocument()
+      expect(within(uiTab).queryByTestId('settings-active-chevron')).not.toBeInTheDocument()
+    })
+
     it('switches to the 3rd party category', async () => {
       const user = userEvent.setup()
       renderSettings()
@@ -108,8 +125,8 @@ describe('SettingsView', () => {
       const user = userEvent.setup()
       renderSettings()
       await user.click(screen.getByRole('tab', { name: 'Data' }))
-      expect(await screen.findByText('Fleet (JSON)')).toBeInTheDocument()
-      expect(screen.getByText('Logbook (CSV)')).toBeInTheDocument()
+      expect(await screen.findByRole('region', { name: 'Fleet data' })).toBeInTheDocument()
+      expect(screen.getByRole('region', { name: 'Logbook data' })).toBeInTheDocument()
     })
 
     it('switches to the About category', async () => {
@@ -131,6 +148,8 @@ describe('SettingsView', () => {
           onWindSpeedUnitChange={vi.fn()}
           landingDistanceUnit="ft"
           onLandingDistanceUnitChange={vi.fn()}
+          mapLanguage="en"
+          onMapLanguageChange={vi.fn()}
           theme="system"
           onThemeChange={vi.fn()}
           resetSignal={1}
@@ -149,6 +168,8 @@ describe('SettingsView', () => {
           onWindSpeedUnitChange={vi.fn()}
           landingDistanceUnit="ft"
           onLandingDistanceUnitChange={vi.fn()}
+          mapLanguage="en"
+          onMapLanguageChange={vi.fn()}
           theme="system"
           onThemeChange={vi.fn()}
           resetSignal={2}
@@ -349,6 +370,20 @@ describe('SettingsView', () => {
     })
   })
 
+  describe('Map language', () => {
+    it('offers every language, marks the current one, and reports a change', async () => {
+      const onMapLanguageChange = vi.fn()
+      const user = userEvent.setup()
+      renderSettings({ mapLanguage: 'en', onMapLanguageChange })
+
+      for (const label of ['English', 'Local', 'Deutsch', 'Español', 'Français', 'Italiano', 'Русский']) {
+        expect(await screen.findByRole('button', { name: label })).toBeInTheDocument()
+      }
+      await user.click(screen.getByRole('button', { name: 'Deutsch' }))
+      expect(onMapLanguageChange).toHaveBeenCalledWith('de')
+    })
+  })
+
   describe('Data import/export', () => {
     it('imports a fleet with no skipped rows', async () => {
       setWinglog({ aircraftImport: vi.fn().mockResolvedValue({ imported: 4, skipped: [] }) })
@@ -408,7 +443,7 @@ describe('SettingsView', () => {
       const user = userEvent.setup()
       renderSettings()
       await user.click(screen.getByRole('tab', { name: 'Data' }))
-      await user.click(screen.getByRole('button', { name: 'Export' }))
+      await user.click((await screen.findAllByRole('button', { name: 'Export' }))[0])
       await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Fleet exported.'))
     })
 
@@ -417,7 +452,7 @@ describe('SettingsView', () => {
       const user = userEvent.setup()
       renderSettings()
       await user.click(screen.getByRole('tab', { name: 'Data' }))
-      await user.click(screen.getByRole('button', { name: 'Export' }))
+      await user.click((await screen.findAllByRole('button', { name: 'Export' }))[0])
       expect(toast.success).not.toHaveBeenCalled()
     })
 
@@ -426,7 +461,7 @@ describe('SettingsView', () => {
       const user = userEvent.setup()
       renderSettings()
       await user.click(screen.getByRole('tab', { name: 'Data' }))
-      await user.click(screen.getByRole('button', { name: 'Export' }))
+      await user.click((await screen.findAllByRole('button', { name: 'Export' }))[0])
       await waitFor(() => expect(toast.error).toHaveBeenCalledWith('permission denied'))
     })
 
@@ -435,8 +470,76 @@ describe('SettingsView', () => {
       const user = userEvent.setup()
       renderSettings()
       await user.click(screen.getByRole('tab', { name: 'Data' }))
-      await user.click(screen.getByRole('button', { name: 'Export' }))
+      await user.click((await screen.findAllByRole('button', { name: 'Export' }))[0])
       await waitFor(() => expect(toast.error).toHaveBeenCalledWith('boom'))
+    })
+
+    it('defaults to JSON for Fleet and CSV for Logbook, and passes the chosen format through', async () => {
+      const winglog = setWinglog({
+        aircraftImport: vi.fn().mockResolvedValue(null),
+        aircraftExport: vi.fn().mockResolvedValue(true)
+      })
+      const user = userEvent.setup()
+      renderSettings()
+      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      const fleet = within(await screen.findByRole('region', { name: 'Fleet data' }))
+
+      await user.click(fleet.getByRole('button', { name: 'Import' }))
+      await waitFor(() => expect(winglog.aircraftImport).toHaveBeenLastCalledWith('json'))
+
+      await user.click(fleet.getByRole('button', { name: 'CSV' }))
+      await user.click(fleet.getByRole('button', { name: 'Import' }))
+      await waitFor(() => expect(winglog.aircraftImport).toHaveBeenLastCalledWith('csv'))
+      await user.click(fleet.getByRole('button', { name: 'Export' }))
+      await waitFor(() => expect(winglog.aircraftExport).toHaveBeenLastCalledWith('csv'))
+    })
+
+    it('routes a Logbook import to the CSV or JSON channel by the chosen format', async () => {
+      const winglog = setWinglog({
+        logbookImportCsv: vi.fn().mockResolvedValue({ imported: 1, aircraftCreated: 0, skipped: [] }),
+        logbookImportJson: vi.fn().mockResolvedValue({ imported: 2, aircraftCreated: 0, skipped: [] })
+      })
+      const user = userEvent.setup()
+      renderSettings()
+      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      const logbook = within(await screen.findByRole('region', { name: 'Logbook data' }))
+
+      await user.click(logbook.getByRole('button', { name: 'Import' }))
+      await waitFor(() => expect(winglog.logbookImportCsv).toHaveBeenCalledTimes(1))
+      expect(winglog.logbookImportJson).not.toHaveBeenCalled()
+
+      await user.click(logbook.getByRole('button', { name: 'JSON' }))
+      await user.click(logbook.getByRole('button', { name: 'Import' }))
+      await waitFor(() => expect(winglog.logbookImportJson).toHaveBeenCalledTimes(1))
+      await waitFor(() => expect(toast.success).toHaveBeenLastCalledWith('Imported 2 flights.'))
+    })
+
+    it('exports the logbook in the chosen format, toasting only when a file was saved', async () => {
+      const winglog = setWinglog({ logbookExport: vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false) })
+      const user = userEvent.setup()
+      renderSettings()
+      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      const logbook = within(await screen.findByRole('region', { name: 'Logbook data' }))
+
+      await user.click(logbook.getByRole('button', { name: 'Export' }))
+      await waitFor(() => expect(winglog.logbookExport).toHaveBeenLastCalledWith('csv'))
+      await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Logbook exported.'))
+
+      vi.mocked(toast.success).mockClear()
+      await user.click(logbook.getByRole('button', { name: 'JSON' }))
+      await user.click(logbook.getByRole('button', { name: 'Export' }))
+      await waitFor(() => expect(winglog.logbookExport).toHaveBeenLastCalledWith('json'))
+      expect(toast.success).not.toHaveBeenCalled()
+    })
+
+    it('shows a toast when a logbook export fails', async () => {
+      setWinglog({ logbookExport: vi.fn().mockRejectedValue(new Error('disk full')) })
+      const user = userEvent.setup()
+      renderSettings()
+      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      const logbook = within(await screen.findByRole('region', { name: 'Logbook data' }))
+      await user.click(logbook.getByRole('button', { name: 'Export' }))
+      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('disk full'))
     })
 
     it('imports a logbook CSV, including newly created aircraft and skips, and shows the summary toast', async () => {

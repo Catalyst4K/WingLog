@@ -134,6 +134,11 @@ function applyAircraft(db: WingLogDb, row: SyncRow): ApplyResult {
 // --- flight -----------------------------------------------------------------------------
 
 function serializeFlight(db: WingLogDb, row: ReturnType<typeof listFlightsForSync>[number]): SyncRow | null {
+  // A free flight tracked with no fleet aircraft (free-flight-tracking.md's "don't add to
+  // fleet" option) has no aircraftId at all, and cloud-sync.md's row shape has no field for
+  // that case yet — stays local-only for now, same as the "no uuid" case below, rather than
+  // widening the sync payload without a matching decision recorded.
+  if (row.aircraftId == null) return null
   const aircraftUuid = getAircraftUuidById(db, row.aircraftId)
   if (!aircraftUuid) return null // parent aircraft has no uuid yet — shouldn't happen, see schema.ts
   return {

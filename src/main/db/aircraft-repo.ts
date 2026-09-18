@@ -20,6 +20,7 @@ function toAircraft(row: typeof aircraft.$inferSelect): Aircraft {
     currentIcao: row.currentIcao,
     createdAt: row.createdAt,
     replacedByAircraftId: row.replacedByAircraftId,
+    retiredAt: row.retiredAt,
     photoThumbnailUrl: row.photoThumbnailUrl
   }
 }
@@ -155,6 +156,34 @@ export function replaceAircraft(db: WingLogDb, input: ReplaceAircraftInput): Air
   const row = db.select().from(aircraft).where(eq(aircraft.id, retiredId)).get()
   if (!row) throw new Error(`Aircraft ${retiredId} not found after replace`)
   return toAircraft(row)
+}
+
+/** Plain Retire (docs/plans/fleet-retire.md): the aircraft keeps its own flights and simply
+ *  stops being selectable. Bumps updatedAt so cloud sync carries it. `currentIcao` is left
+ *  as-is. Rejects a missing, soft-deleted or already-retired (retired *or* replaced) one. */
+export function retireAircraft(db: WingLogDb, id: number): Aircraft {
+  const row = db.select().from(aircraft).where(and(eq(aircraft.id, id), isNull(aircraft.deletedAt))).get()
+  if (!row) throw new Error(`Aircraft ${id} not found`)
+  if (row.replacedByAircraftId !== null || row.retiredAt !== null) {
+    throw new Error(`${row.registration} is already retired`)
+  }
+  const now = new Date().toISOString()
+  db.update(aircraft).set({ retiredAt: now, updatedAt: now }).where(eq(aircraft.id, id)).run()
+  return toAircraft({ ...row, retiredAt: now, updatedAt: now })
+}
+
+/** Reverses retireAircraft. A *replaced* aircraft can't come back this way — its flights
+ *  were moved to the replacement, so reactivating it would resurrect an empty duplicate. */
+export function unretireAircraft(db: WingLogDb, id: number): Aircraft {
+  const row = db.select().from(aircraft).where(and(eq(aircraft.id, id), isNull(aircraft.deletedAt))).get()
+  if (!row) throw new Error(`Aircraft ${id} not found`)
+  if (row.replacedByAircraftId !== null) {
+    throw new Error(`${row.registration} was replaced and can't be un-retired`)
+  }
+  if (row.retiredAt === null) throw new Error(`${row.registration} is not retired`)
+  const now = new Date().toISOString()
+  db.update(aircraft).set({ retiredAt: null, updatedAt: now }).where(eq(aircraft.id, id)).run()
+  return toAircraft({ ...row, retiredAt: null, updatedAt: now })
 }
 
 /** Rows with uuid/updatedAt set (every row written by this app version — see the

@@ -10,6 +10,9 @@ function flight(overrides: Partial<Flight> = {}): Flight {
   return {
     id: 1,
     aircraftId: 1,
+    simRegistration: null,
+    simIcaoType: null,
+    simTitle: null,
     status: 'planned',
     flightNumber: null,
     depIcao: 'EGLL',

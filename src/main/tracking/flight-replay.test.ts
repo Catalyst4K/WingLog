@@ -13,6 +13,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
+import { nearestAirport } from '../airports/airport-search'
 import { createAircraft } from '../db/aircraft-repo'
 import { createDb } from '../db/client'
 import { createFlight, getFlight } from '../db/flight-repo'
@@ -127,6 +128,70 @@ describe('flight replay harness (real fixture) — multiple landings', () => {
       expect(ids.size).toBe(landings.length)
 
       expect(getFlight(db, flight.id)?.status).toBe('active') // never reached shutdown
+      replay.stop()
+    },
+    60_000
+  )
+})
+
+describe('flight replay harness (real fixture) — free flight tracking', () => {
+  it(
+    'replays a real VHHH VFR hop with no OFP through TrackingController.startFree, producing a complete ' +
+      'logbook entry — the exact scenario 2026-09-14 flight 5 confirmed could not be tracked at all before ' +
+      'free-flight-tracking.md',
+    async () => {
+      const { db } = createDb(':memory:')
+      migrate(db, { migrationsFolder: 'drizzle' })
+
+      const replay = new ReplaySimConnectService(fixturePath('tier2-vfr-no-ofp-short-hop.ndjson'), {
+        mode: 'instant'
+      })
+      const firstTelemetry = replay.getLastTelemetry()
+      if (!firstTelemetry) throw new Error('fixture has no telemetry')
+      const aircraft = createAircraft(db, { registration: 'G-TEST', icaoType: 'C172' })
+
+      const controller = new TrackingController(db, replay)
+
+      // Resolved from position, the same way the real "Start a free flight" dialog's
+      // Departure field would — nothing was ever filed for this flight, the whole point of
+      // the scenario (free-flight-tracking.md's aircraft-identity table, VHHH is real
+      // vendored data at this exact position, not assumed).
+      const depIcao = nearestAirport(firstTelemetry.latitude, firstTelemetry.longitude, 15) ?? 'ZZZZ'
+      expect(depIcao).toBe('VHHH')
+
+      const flightId = controller.startFree({ aircraftId: aircraft.id, depIcao, arrIcao: 'ZZZZ', flightNumber: null })
+
+      await new Promise<void>((resolve) => {
+        replay.on('replayComplete', resolve)
+        replay.start()
+      })
+
+      // Same real-data quirk this plan's own circuits fixture hit (see the describe block
+      // above): the capture ends parked but with the engine still running and the parking
+      // brake never set, so shutdown detection never fires on its own — a pilot would press
+      // "Finish & save" here, which is exactly what this does.
+      controller.finish()
+
+      const finalFlight = getFlight(db, flightId)
+      const points = listTrackPoints(db, flightId)
+      const landing = getLandingByFlight(db, flightId)
+
+      expect(finalFlight?.status).toBe('completed')
+      // Genuinely no plan filed — the whole reason this flight needed free-flight-tracking.md
+      // at all, not just a completion-time coincidence.
+      expect(finalFlight?.ofpJson).toBeNull()
+      expect(finalFlight?.depIcao).toBe('VHHH')
+      // Arrival resolved from the real touchdown position (free-flight-tracking.md's
+      // "Arrival is resolved, not filed"), not left as the ZZZZ placeholder this flight
+      // started with.
+      expect(finalFlight?.arrIcao).not.toBe('ZZZZ')
+      expect(finalFlight?.arrIcao).toMatch(/^[A-Z0-9]{4}$/)
+      expect(finalFlight?.actualOffUtc).toBeTruthy()
+      expect(finalFlight?.actualOnUtc).toBeTruthy()
+      expect(points.length).toBeGreaterThan(0)
+      expect(landing).toBeDefined()
+      expect(landing?.icao).toBe(finalFlight?.arrIcao)
+
       replay.stop()
     },
     60_000

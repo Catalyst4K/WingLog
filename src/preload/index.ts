@@ -3,16 +3,19 @@ import {
   IpcChannels,
   type AircraftUpdate,
   type AltitudeUnit,
+  type DataFormat,
   type DispatchOpenSimBriefParams,
   type WingLogApi,
   type GsxSettings,
   type LandingDistanceUnit,
+  type MapLanguage,
   type NavdataProcedureKind,
   type NewAircraft,
   type NewFlight,
   type ProcedureSelection,
   type SimConnectionStatus,
   type SimTelemetry,
+  type StartFreeFlightInput,
   type Theme,
   type TrackPoint,
   type WeightUnit,
@@ -26,8 +29,10 @@ const api: WingLogApi = {
   aircraftDelete: (id: number) => ipcRenderer.invoke(IpcChannels.aircraftDelete, id),
   aircraftReplace: (retiredId: number, replacementId: number) =>
     ipcRenderer.invoke(IpcChannels.aircraftReplace, retiredId, replacementId),
-  aircraftImport: () => ipcRenderer.invoke(IpcChannels.aircraftImport),
-  aircraftExport: () => ipcRenderer.invoke(IpcChannels.aircraftExport),
+  aircraftRetire: (id: number) => ipcRenderer.invoke(IpcChannels.aircraftRetire, id),
+  aircraftUnretire: (id: number) => ipcRenderer.invoke(IpcChannels.aircraftUnretire, id),
+  aircraftImport: (format?: DataFormat) => ipcRenderer.invoke(IpcChannels.aircraftImport, format),
+  aircraftExport: (format?: DataFormat) => ipcRenderer.invoke(IpcChannels.aircraftExport, format),
   getSimConnectionStatus: () => ipcRenderer.invoke(IpcChannels.simConnectionStatusGet),
   onSimTelemetry: (listener: (telemetry: SimTelemetry) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, telemetry: SimTelemetry): void => listener(telemetry)
@@ -43,6 +48,8 @@ const api: WingLogApi = {
   flightCreate: (flight: NewFlight) => ipcRenderer.invoke(IpcChannels.flightCreate, flight),
   flightCancel: (id: number) => ipcRenderer.invoke(IpcChannels.flightCancel, id),
   flightDelete: (id: number) => ipcRenderer.invoke(IpcChannels.flightDelete, id),
+  flightLinkAircraft: (flightId: number, aircraftId: number) =>
+    ipcRenderer.invoke(IpcChannels.flightLinkAircraft, flightId, aircraftId),
   dispatchFetchOfp: () => ipcRenderer.invoke(IpcChannels.dispatchFetchOfp),
   dispatchGetInProgressFlight: () => ipcRenderer.invoke(IpcChannels.dispatchGetInProgressFlight),
   dispatchOpenSimBrief: (params: DispatchOpenSimBriefParams) =>
@@ -65,6 +72,9 @@ const api: WingLogApi = {
   settingsGetAltitudeUnit: () => ipcRenderer.invoke(IpcChannels.settingsGetAltitudeUnit),
   settingsSetAltitudeUnit: (unit: AltitudeUnit) =>
     ipcRenderer.invoke(IpcChannels.settingsSetAltitudeUnit, unit),
+  settingsGetMapLanguage: () => ipcRenderer.invoke(IpcChannels.settingsGetMapLanguage),
+  settingsSetMapLanguage: (language: MapLanguage) =>
+    ipcRenderer.invoke(IpcChannels.settingsSetMapLanguage, language),
   settingsGetWindSpeedUnit: () => ipcRenderer.invoke(IpcChannels.settingsGetWindSpeedUnit),
   settingsSetWindSpeedUnit: (unit: WindSpeedUnit) =>
     ipcRenderer.invoke(IpcChannels.settingsSetWindSpeedUnit, unit),
@@ -74,6 +84,8 @@ const api: WingLogApi = {
   settingsGetTheme: () => ipcRenderer.invoke(IpcChannels.settingsGetTheme),
   settingsSetTheme: (theme: Theme) => ipcRenderer.invoke(IpcChannels.settingsSetTheme, theme),
   trackingStart: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingStart, flightId),
+  trackingStartFree: (input: StartFreeFlightInput) => ipcRenderer.invoke(IpcChannels.trackingStartFree, input),
+  trackingGetFreeFlightPrefill: (input) => ipcRenderer.invoke(IpcChannels.trackingGetFreeFlightPrefill, input),
   trackingStop: () => ipcRenderer.invoke(IpcChannels.trackingStop),
   trackingFinish: () => ipcRenderer.invoke(IpcChannels.trackingFinish),
   trackingGetActive: () => ipcRenderer.invoke(IpcChannels.trackingGetActive),
@@ -93,6 +105,8 @@ const api: WingLogApi = {
   logbookGetStats: () => ipcRenderer.invoke(IpcChannels.logbookGetStats),
   logbookFleetStats: () => ipcRenderer.invoke(IpcChannels.logbookFleetStats),
   logbookImportCsv: () => ipcRenderer.invoke(IpcChannels.logbookImportCsv),
+  logbookImportJson: () => ipcRenderer.invoke(IpcChannels.logbookImportJson),
+  logbookExport: (format: DataFormat) => ipcRenderer.invoke(IpcChannels.logbookExport, format),
   logbookListInvoices: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookListInvoices, flightId),
   settingsGetGsx: () => ipcRenderer.invoke(IpcChannels.settingsGetGsx),
   settingsSetGsx: (settings: GsxSettings) => ipcRenderer.invoke(IpcChannels.settingsSetGsx, settings),

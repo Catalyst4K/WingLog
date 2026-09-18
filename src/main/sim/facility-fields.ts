@@ -146,6 +146,11 @@ export interface ParsedLeg {
   altitude1: number
   altitude2: number
   speedLimit: number
+  /** ROUTE_DISTANCE, metres. Only meaningful for distance-terminated legs — FC (type 9) and
+   *  FD (type 10) — where `fixIdent` is the navaid the leg is anchored to and this is how far
+   *  along `courseDeg` it runs (confirmed live 2026-09-18: EGLL's LAM transition FC leg reads
+   *  20372 m = 11.0 nm, the FMC's "LAM/11"). 0 for every other leg type. */
+  routeDistanceM: number
 }
 
 const FIX_TYPE_CODES: Record<number, ParsedLeg['fixType']> = { 87: 'W', 86: 'V', 78: 'N', 82: 'R' }
@@ -164,6 +169,7 @@ export function addLegFields(addField: (name: string) => void): void {
   addField('ALTITUDE1')
   addField('ALTITUDE2')
   addField('SPEED_LIMIT')
+  addField('ROUTE_DISTANCE')
 }
 
 export function parseLeg(d: RawBuffer): ParsedLeg {
@@ -177,6 +183,7 @@ export function parseLeg(d: RawBuffer): ParsedLeg {
   const altitude1 = d.readFloat32()
   const altitude2 = d.readFloat32()
   const speedLimit = d.readFloat32()
+  const routeDistanceM = d.readFloat32()
   return {
     type,
     fixIdent: fixIcaoRaw.trim() === '' ? null : fixIcaoRaw,
@@ -187,7 +194,8 @@ export function parseLeg(d: RawBuffer): ParsedLeg {
     courseDeg,
     altitude1,
     altitude2,
-    speedLimit
+    speedLimit,
+    routeDistanceM
   }
 }
 

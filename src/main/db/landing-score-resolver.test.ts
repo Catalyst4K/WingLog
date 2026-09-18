@@ -4,7 +4,7 @@ import type { Landing } from '@shared/ipc'
 import { computeLandingScore, type LandingScoreInputs } from '@shared/landing-score'
 import { createAircraft } from './aircraft-repo'
 import { createDb, type WingLogDb } from './client'
-import { completeFlight, createFlight } from './flight-repo'
+import { completeFlight, createFlight, createFreeFlight } from './flight-repo'
 import { createLanding, type NewLanding } from './landing-repo'
 import { getLandingScoresForCompletedFlights, resolveLandingScore } from './landing-score-resolver'
 
@@ -165,6 +165,26 @@ describe('getLandingScoresForCompletedFlights', () => {
 
   it('returns an empty array when there are no completed flights with a landing', () => {
     expect(getLandingScoresForCompletedFlights(db)).toEqual([])
+  })
+
+  it('scores a free flight with no fleet aircraft using its own sim-reported type', () => {
+    const freeFlight = createFreeFlight(db, {
+      aircraftId: null,
+      simRegistration: 'G-TEST',
+      simIcaoType: 'C172',
+      depIcao: 'VHHH',
+      arrIcao: 'VHHH',
+      flightNumber: null,
+      fuelOutKg: 500
+    })
+    createLanding(db, makeLanding(freeFlight.id))
+    completeFlight(db, freeFlight.id, 400)
+
+    const summaries = getLandingScoresForCompletedFlights(db)
+    expect(summaries).toHaveLength(1)
+    expect(summaries[0].flightId).toBe(freeFlight.id)
+    expect(summaries[0].score).toBeGreaterThanOrEqual(0)
+    expect(summaries[0].score).toBeLessThanOrEqual(100)
   })
 
   it('scores against the final touchdown and reports the real count for a flight with several', () => {
