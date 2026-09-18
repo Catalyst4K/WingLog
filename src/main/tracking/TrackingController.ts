@@ -344,6 +344,11 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
       aircraftId: input.aircraftId,
       simRegistration: input.simRegistration,
       simIcaoType: input.simIcaoType,
+      // Only kept for a flight with no linked aircraft yet — same convention as
+      // simRegistration/simIcaoType above. Lets a later Logbook "Add to fleet" remember this
+      // add-on retroactively (linkAircraftToFlight); redundant when aircraftId is already set
+      // here, since rememberAircraftForTitle below already runs immediately in that case.
+      simTitle: input.aircraftId == null ? telemetry.title : null,
       depIcao: input.depIcao,
       arrIcao: input.arrIcao,
       flightNumber: input.flightNumber,

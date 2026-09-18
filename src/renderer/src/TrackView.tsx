@@ -250,7 +250,15 @@ export function TrackView(props: {
   const bannerRawTrigger =
     !!props.telemetry &&
     (!props.telemetry.onGround || props.telemetry.groundSpeedMs > GROUND_MOVEMENT_THRESHOLD_MS)
-  const BANNER_SUSTAIN_SAMPLES = 3 // ~3s at the sim's 1Hz telemetry push rate
+  // Raised from 3 to match AutoStartDetector's own proven bar (8 consecutive 1Hz samples) for
+  // the analogous "is this real or reload garbage" problem — a reasonable tightening, not a
+  // confirmed fix: AutoStartDetector's 8-sample number is proven against a *flight-to-flight*
+  // reload specifically (docs/decisions.md, 2026-09-02), not "sitting at the main menu before
+  // anything is loaded," which hasn't actually been captured. If a false trigger still shows
+  // up before a flight is loaded, the next step is a throwaway capture script through that
+  // specific transition (same shape as the old spike-capture-flight.ts/spike-flight-reload.ts
+  // precedent), not a third guess at the sample count.
+  const BANNER_SUSTAIN_SAMPLES = 8
   // Counts consecutive samples agreeing with bannerRawTrigger, adjusted during render (same
   // pattern as prevShowBanner below) keyed on telemetry object identity — a fresh reference
   // arrives with every push, so this reliably detects "a new sample arrived" without a
@@ -258,8 +266,19 @@ export function TrackView(props: {
   const [prevTelemetryForBanner, setPrevTelemetryForBanner] = useState(props.telemetry)
   const [bannerSustainedCount, setBannerSustainedCount] = useState(bannerRawTrigger ? 1 : 0)
   if (props.telemetry !== prevTelemetryForBanner) {
+    // `title` changing is a new episode — confirmed (docs/decisions.md, 2026-09-02) as the
+    // one signal that changes instantly and reliably across a reload, unlike position/
+    // altitude/onGround, which can hold a stale, plausible-looking value for the better part
+    // of a minute. Restarting the sustain count from scratch here, rather than trusting
+    // whatever count a *different* aircraft's telemetry had already built toward the
+    // threshold, also fixes a real bug: a false pre-load trigger that blends straight into a
+    // real one (both satisfying bannerRawTrigger, with no false moment in between) used to
+    // mean bannerDismissed — set from dismissing the false alarm — silently suppressed the
+    // real, later episode too, since the showBanner-goes-false reset below never fired.
+    const titleChanged = (prevTelemetryForBanner?.title ?? null) !== (props.telemetry?.title ?? null)
     setPrevTelemetryForBanner(props.telemetry)
-    setBannerSustainedCount(bannerRawTrigger ? bannerSustainedCount + 1 : 0)
+    setBannerSustainedCount(bannerRawTrigger ? (titleChanged ? 1 : bannerSustainedCount + 1) : 0)
+    if (titleChanged) setBannerDismissed(false)
   }
 
   // The passive detection banner (free-flight-tracking.md): sim connected, nothing being

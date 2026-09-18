@@ -469,6 +469,10 @@ export interface Flight {
    *  there's no linked aircraft record to read it from otherwise. */
   simRegistration: string | null
   simIcaoType: string | null
+  /** The raw sim `title` at free-flight start, set only alongside the two fields above —
+   *  powers a retroactive title -> aircraft memory when "Add to fleet" happens later from
+   *  Logbook (flightLinkAircraft) instead of inline in the start dialog. */
+  simTitle: string | null
   status: FlightStatus
   flightNumber: string | null
   depIcao: string
@@ -901,6 +905,7 @@ export const IpcChannels = {
   trackingGetActive: 'tracking:get-active',
   flightCancel: 'flight:cancel',
   flightDelete: 'flight:delete',
+  flightLinkAircraft: 'flight:link-aircraft',
   trackingPoint: 'tracking:point',
   trackingPointsUpdated: 'tracking:points-updated',
   trackPointList: 'track-point:list',
@@ -991,6 +996,14 @@ export interface WingLogApi {
   /** Permanently deletes a flight and its landing/invoice/track-point rows — a completed
    *  or abandoned flight with bad data, not an in-progress one (use flightCancel for that). */
   flightDelete: (id: number) => Promise<void>
+  /** Links a fleet aircraft (existing or just created via aircraftCreate) to a completed
+   *  free flight that was tracked with no aircraft at all — Logbook's post-flight "Add to
+   *  fleet" flow, replacing the fleet-creation option that used to live inline in the start
+   *  dialog. Nulls the flight's simRegistration/simIcaoType/simTitle, backfills the
+   *  aircraft's currentIcao from the flight's arrival, and remembers the title -> aircraft
+   *  mapping for next time. Throws if the flight already has a linked aircraft or the
+   *  aircraft is retired/missing. */
+  flightLinkAircraft: (flightId: number, aircraftId: number) => Promise<Flight>
   /** Fetches the SimBrief user's latest OFP. Throws if no username is set or the fetch fails. */
   dispatchFetchOfp: () => Promise<DispatchOfp>
   /** The one flight currently "in progress" (planned or already active — see

@@ -8,11 +8,11 @@ import { launchApp } from './launch-app'
  * have no path into WingLog at all (TrackView only listed `status === 'planned'` flights).
  * Uses the same committed replay fixture src/main/tracking/flight-replay.test.ts already
  * drives through TrackingController.startFree at the module level; this test's own job is
- * proving the renderer's plumbing on top of it — the Free flight card, the dialog's
- * prefill/"don't add to fleet" option, and the finished flight actually landing in Logbook —
- * not re-proving the capture logic itself. Deliberately picks "don't add to fleet" (Callum's
- * call, 2026-09-16 — adding one shouldn't be mandatory just to track a flight) rather than
- * the default "add to fleet" choice, through the real dialog/IPC/DB round trip.
+ * proving the renderer's plumbing on top of it — the Free flight card, the dialog's prefill
+ * (now defaulting to "don't add to fleet" — Callum's follow-up call: fleet creation moved
+ * out of this dialog entirely, so it's no longer a choice to make here at all), the finished
+ * flight landing in Logbook, and Logbook's own "Add to fleet" round trip afterward — not
+ * re-proving the capture logic itself.
  *
  * Paced mode, not instant (unlike track-replay.spec.ts's own connection-badge check, which
  * only needs main's own pulled getSimConnectionStatus and never touches telemetry): the
@@ -42,13 +42,11 @@ test('starts a free flight from Track and finds it, completed, in the Logbook', 
 
     await window.getByRole('button', { name: 'Free flight' }).click()
     await expect(window.getByText('Start a free flight')).toBeVisible()
-    // A fresh profile has no fleet aircraft at all — the dialog defaults to offering to add
-    // the sim-reported registration/type (the fixture's scrubbed G-TEST, a real C172).
-    await expect(window.getByText(/Add G-TEST \(C172\) to fleet/)).toBeVisible()
-    // Adding to the fleet shouldn't be mandatory just to track a flight (Callum, 2026-09-16)
-    // — pick "don't add to fleet" instead, still through the real dialog/IPC/DB round trip.
-    await window.getByRole('combobox').click()
-    await window.getByRole('option', { name: "Don't add to fleet — just track this flight" }).click()
+    // A fresh profile has no fleet aircraft and no remembered title — "don't add to fleet"
+    // is the default now (fleet creation moved to Logbook's own "Add to fleet", post-flight),
+    // so no picking is needed here at all. The sim-reported registration/type (the fixture's
+    // scrubbed G-TEST, a real C172) is still captured on the flight row either way.
+    await expect(window.getByText("Don't add to fleet — just track this flight")).toBeVisible()
     await expect(window.getByLabel('Registration')).toHaveValue('G-TEST')
     await window.getByRole('button', { name: 'Start tracking' }).click()
 
@@ -72,6 +70,20 @@ test('starts a free flight from Track and finds it, completed, in the Logbook', 
     // The Free flight badge (Phase 4) — this row has no ofp_json, distinguishing it from a
     // dispatched flight without a new column.
     await expect(row.getByText('Free flight')).toBeVisible()
+
+    // Logbook's own "Add to fleet" — the fleet-creation flow relocated here from the start
+    // dialog. Prefilled from the flight's own sim-reported identity, editable, through the
+    // real dialog/IPC/DB round trip.
+    await row.click()
+    await window.getByRole('button', { name: 'Add to fleet' }).click()
+    await expect(window.getByRole('heading', { name: 'Add to fleet' })).toBeVisible()
+    await expect(window.getByLabel('Registration')).toHaveValue('G-TEST')
+    await window.getByRole('dialog').getByRole('button', { name: 'Add to fleet' }).click()
+
+    // Linked — the detail page's own Aircraft field now reads from the fleet record rather
+    // than the flight's sim-reported fields, and the "Add to fleet" trigger is gone.
+    await expect(window.getByText('G-TEST', { exact: true })).toBeVisible()
+    await expect(window.getByRole('button', { name: 'Add to fleet' })).toBeHidden()
   } finally {
     await cleanup()
   }

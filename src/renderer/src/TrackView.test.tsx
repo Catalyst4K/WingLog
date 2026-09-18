@@ -130,6 +130,7 @@ function makeFlight(overrides: Partial<Flight> = {}): Flight {
     aircraftId: 1,
     simRegistration: null,
     simIcaoType: null,
+    simTitle: null,
     status: 'planned',
     flightNumber: 'BAW31',
     depIcao: 'EGLL',
@@ -361,18 +362,23 @@ describe('TrackView', () => {
     it('shows the passive detection banner once the sim reports the aircraft airborne for several consecutive samples', async () => {
       setWinglog()
       const { rerender } = renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 0 }) })
-      pushTelemetry(rerender, { onGround: false })
-      pushTelemetry(rerender, { onGround: false })
-      pushTelemetry(rerender, { onGround: false })
+      for (let i = 0; i < 8; i++) pushTelemetry(rerender, { onGround: false })
       expect(await screen.findByText(/G-EUYY is airborne — start tracking\?/)).toBeInTheDocument()
+    })
+
+    it('does not show the banner until the sustain threshold is reached — 8 consecutive samples, matching AutoStartDetector\'s own proven bar', async () => {
+      setWinglog()
+      const { rerender } = renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 0 }) })
+      for (let i = 0; i < 7; i++) pushTelemetry(rerender, { onGround: false })
+      expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
+      pushTelemetry(rerender, { onGround: false }) // the 8th sample
+      expect(await screen.findByText(/start tracking\?/)).toBeInTheDocument()
     })
 
     it('shows the banner for ground movement too, not just airborne', async () => {
       setWinglog()
       const { rerender } = renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 0 }) })
-      pushTelemetry(rerender, { onGround: true, groundSpeedMs: 5 })
-      pushTelemetry(rerender, { onGround: true, groundSpeedMs: 5 })
-      pushTelemetry(rerender, { onGround: true, groundSpeedMs: 5 })
+      for (let i = 0; i < 8; i++) pushTelemetry(rerender, { onGround: true, groundSpeedMs: 5 })
       expect(await screen.findByText(/G-EUYY is moving on the ground — start tracking\?/)).toBeInTheDocument()
     })
 
@@ -432,9 +438,7 @@ describe('TrackView', () => {
       setWinglog()
       const user = userEvent.setup()
       const { rerender } = renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 0 }) })
-      pushTelemetry(rerender, { onGround: false })
-      pushTelemetry(rerender, { onGround: false })
-      pushTelemetry(rerender, { onGround: false })
+      for (let i = 0; i < 8; i++) pushTelemetry(rerender, { onGround: false })
       await screen.findByText(/start tracking\?/)
       await user.click(screen.getByText('Not now'))
       expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
@@ -452,24 +456,44 @@ describe('TrackView', () => {
       pushTelemetry(rerender, { onGround: false })
       expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
 
-      // Sustained across a few more samples — prompts again.
-      pushTelemetry(rerender, { onGround: false })
-      pushTelemetry(rerender, { onGround: false })
+      // Sustained across enough more samples — prompts again. (The lone sample above already
+      // counted as 1 of the 8 needed, so 7 more reaches the threshold.)
+      for (let i = 0; i < 7; i++) pushTelemetry(rerender, { onGround: false })
       expect(await screen.findByText(/start tracking\?/)).toBeInTheDocument()
     })
 
-    it('starts tracking a free flight end to end: prefill, fleet match on atcId, and the resulting active card', async () => {
+    it('clears a dismissal on a title change even when the raw trigger never goes false in between — the real bug Callum hit (dismissed a false pre-load trigger, which blended straight into the real flight\'s own trigger, and the banner never came back)', async () => {
+      setWinglog()
+      const user = userEvent.setup()
+      const { rerender } = renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 0 }) })
+      // The false pre-load episode — sustained long enough to prompt, then dismissed.
+      for (let i = 0; i < 8; i++) pushTelemetry(rerender, { onGround: false, title: 'Stale previous session' })
+      await screen.findByText(/start tracking\?/)
+      await user.click(screen.getByText('Not now'))
+      expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
+
+      // The real flight loads — title changes, but the raw trigger stays true throughout
+      // (no parked/settled moment in between, unlike the ordinary episode-reset case above).
+      // Under the old logic (reset only on the raw trigger going false) this would stay
+      // dismissed forever. Sustaining across the new episode's own 8 samples should prompt
+      // again regardless.
+      for (let i = 0; i < 8; i++) pushTelemetry(rerender, { onGround: false, title: 'FenixA320 IAE SL' })
+      expect(await screen.findByText(/start tracking\?/)).toBeInTheDocument()
+    })
+
+    it('starts tracking a free flight end to end: prefill, a remembered title match, and the resulting active card', async () => {
       const trackingStartFree = vi.fn().mockResolvedValue(5)
       setWinglog({
         aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
         flightList: vi.fn().mockResolvedValue([]),
         trackingStartFree,
         trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue({
-          registration: AIRCRAFT.registration, // matches the fleet aircraft's own registration
+          registration: 'F-WWTD', // deliberately doesn't match AIRCRAFT's own registration —
+          // resolution is title-memory only now, not a registration match.
           icaoType: 'A35K',
           icaoTypeAmbiguous: false,
           suggestedDepIcao: 'EGLL',
-          rememberedAircraftId: null
+          rememberedAircraftId: AIRCRAFT.id
         }),
         trackingGetActive: vi
           .fn()
@@ -481,7 +505,7 @@ describe('TrackView', () => {
 
       await user.click(await screen.findByText('Free flight'))
       await screen.findByText('Start a free flight')
-      // The fleet match on atcId resolves automatically — no manual aircraft pick needed.
+      // The remembered title -> aircraft match resolves automatically — no manual pick needed.
       await waitFor(() => expect(screen.getByText(`${AIRCRAFT.registration} — ${AIRCRAFT.icaoType}`)).toBeInTheDocument())
 
       await user.click(screen.getByText('Start tracking'))

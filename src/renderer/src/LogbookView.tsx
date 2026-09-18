@@ -32,6 +32,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
+import { AddFlightToFleetDialog } from './AddFlightToFleetDialog'
 import { computeChartAxisTicks, formatTickLabel } from './chart-ticks'
 import { displayAltitude } from './display-altitude'
 import { displayIcao } from './display-icao'
@@ -349,6 +350,9 @@ export function LandingCard(props: {
 function FlightDetail(props: {
   flight: Flight
   aircraft: Aircraft | undefined
+  /** The full fleet — only needed to power AddFlightToFleetDialog's "link to existing"
+   *  choice, unlike `aircraft` above (this flight's own linked aircraft, if any). */
+  fleetAircraft: Aircraft[]
   weightUnit: WeightUnit
   landingDistanceUnit: LandingDistanceUnit
   onBack: () => void
@@ -356,10 +360,15 @@ function FlightDetail(props: {
    *  than Logbook's own list — only changes the button label, not the navigation. */
   backToAircraft: boolean
   onDeleted: () => void
+  /** Called after AddFlightToFleetDialog successfully links this flight to a fleet aircraft
+   *  — the caller reloads its own flight/aircraft lists so the rest of the app (Fleet stats,
+   *  the flights table) picks up the change immediately. */
+  onAircraftLinked: () => void
 }): React.JSX.Element {
   const { flight, aircraft, weightUnit } = props
   const [trackPoints, setTrackPoints] = useState<TrackPoint[]>([])
   const [confirm, confirmDialog] = useConfirm()
+  const [addToFleetOpen, setAddToFleetOpen] = useState(false)
 
   async function handleDelete(): Promise<void> {
     const ok = await confirm({
@@ -516,6 +525,13 @@ function FlightDetail(props: {
               <CardAction>
                 <Button type="button" variant="outline" size="sm" onClick={handleViewOfpPdf}>
                   View OFP PDF
+                </Button>
+              </CardAction>
+            )}
+            {isFreeFlight(flight) && flight.aircraftId == null && (
+              <CardAction>
+                <Button type="button" variant="outline" size="sm" onClick={() => setAddToFleetOpen(true)}>
+                  Add to fleet
                 </Button>
               </CardAction>
             )}
@@ -678,6 +694,15 @@ function FlightDetail(props: {
       </div>
 
       {confirmDialog}
+      {isFreeFlight(flight) && flight.aircraftId == null && (
+        <AddFlightToFleetDialog
+          open={addToFleetOpen}
+          onOpenChange={setAddToFleetOpen}
+          flight={flight}
+          fleetAircraft={props.fleetAircraft}
+          onLinked={() => props.onAircraftLinked()}
+        />
+      )}
     </div>
   )
 }
@@ -965,6 +990,7 @@ export function LogbookView(props: {
       <FlightDetail
         flight={flight}
         aircraft={aircraft.find((a) => a.id === flight.aircraftId)}
+        fleetAircraft={aircraft}
         weightUnit={props.weightUnit}
         landingDistanceUnit={props.landingDistanceUnit}
         backToAircraft={cameFromFleet}
@@ -977,6 +1003,7 @@ export function LogbookView(props: {
           setView({ kind: 'list' })
           reload()
         }}
+        onAircraftLinked={() => reload()}
       />
     )
   }

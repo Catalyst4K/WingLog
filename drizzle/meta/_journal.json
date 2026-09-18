@@ -176,6 +176,13 @@
       "when": 1789597774833,
       "tag": "0024_brainy_rocket_racer",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1789758412073,
+      "tag": "0025_wakeful_sasquatch",
+      "breakpoints": true
     }
   ]
 }

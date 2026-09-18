@@ -12,6 +12,7 @@ function flight(overrides: Partial<Flight> = {}): Flight {
     aircraftId: 1,
     simRegistration: null,
     simIcaoType: null,
+    simTitle: null,
     status: 'planned',
     flightNumber: null,
     depIcao: 'EGLL',

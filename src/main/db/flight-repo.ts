@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { and, desc, eq, isNull, or } from 'drizzle-orm'
 import type { Flight, FleetStats, LogbookStats, NewFlight, ProcedureSelection } from '@shared/ipc'
 import { greatCircleDistanceNm } from '../airports/airport-search'
+import { rememberAircraftForTitle } from './settings-repo'
 import { aircraft, flight, flightInvoice, landing, trackPoint } from './schema'
 import type { WingLogDb } from './client'
 
@@ -11,6 +12,7 @@ function toFlight(row: typeof flight.$inferSelect): Flight {
     aircraftId: row.aircraftId,
     simRegistration: row.simRegistration,
     simIcaoType: row.simIcaoType,
+    simTitle: row.simTitle,
     status: row.status,
     flightNumber: row.flightNumber,
     depIcao: row.depIcao,
@@ -152,6 +154,10 @@ export interface NewFreeFlightInput {
   aircraftId: number | null
   simRegistration?: string | null
   simIcaoType?: string | null
+  /** The raw sim `title` at free-flight start — only meaningful alongside a null aircraftId,
+   *  same convention as simRegistration/simIcaoType. Lets a later Logbook "Add to fleet"
+   *  (linkAircraftToFlight) seed the title -> aircraft memory retroactively. */
+  simTitle?: string | null
   depIcao: string
   arrIcao: string
   flightNumber: string | null
@@ -173,6 +179,7 @@ export function createFreeFlight(db: WingLogDb, input: NewFreeFlightInput): Flig
       aircraftId: input.aircraftId,
       simRegistration: input.simRegistration ?? null,
       simIcaoType: input.simIcaoType ?? null,
+      simTitle: input.simTitle ?? null,
       status: 'active',
       flightNumber: input.flightNumber,
       depIcao: input.depIcao,
@@ -198,6 +205,43 @@ export function createFreeFlight(db: WingLogDb, input: NewFreeFlightInput): Flig
  */
 export function setArrIcao(db: WingLogDb, id: number, arrIcao: string): void {
   db.update(flight).set({ arrIcao, updatedAt: new Date().toISOString() }).where(eq(flight.id, id)).run()
+}
+
+/**
+ * Links a fleet aircraft to a flight that was tracked as a free flight with no aircraft at
+ * all — Callum's follow-up call on free-flight-tracking.md: adding to the fleet doesn't have
+ * to happen at flight-start time, it can happen later from Logbook once the pilot decides the
+ * aircraft is worth keeping. Nulls simRegistration/simIcaoType/simTitle to preserve the
+ * schema's "always null together with a non-null aircraftId" invariant, backfills
+ * aircraft.currentIcao the same way completeFlight does (this flight already completed
+ * without ever going through that write, since it had no aircraft to write it for), and
+ * remembers the flight's own simTitle -> aircraft mapping so the next free flight in the same
+ * add-on auto-matches, same as if fleet creation had happened inline at start.
+ */
+export function linkAircraftToFlight(db: WingLogDb, id: number, aircraftId: number): Flight | undefined {
+  const existing = getFlight(db, id)
+  if (!existing) return undefined
+
+  const [row] = db
+    .update(flight)
+    .set({
+      aircraftId,
+      simRegistration: null,
+      simIcaoType: null,
+      simTitle: null,
+      updatedAt: new Date().toISOString()
+    })
+    .where(eq(flight.id, id))
+    .returning()
+    .all()
+  if (!row) return undefined
+
+  if (existing.arrIcao !== 'ZZZZ') {
+    db.update(aircraft).set({ currentIcao: existing.arrIcao }).where(eq(aircraft.id, aircraftId)).run()
+  }
+  if (existing.simTitle) rememberAircraftForTitle(db, existing.simTitle, aircraftId)
+
+  return toFlight(row)
 }
 
 export interface HistoricalFlightInput {

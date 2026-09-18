@@ -182,6 +182,7 @@ function makeFlight(overrides: Partial<Flight> = {}): Flight {
     aircraftId: 1,
     simRegistration: null,
     simIcaoType: null,
+    simTitle: null,
     status: 'completed',
     flightNumber: 'TA100',
     depIcao: 'EGLL',
@@ -810,6 +811,75 @@ describe('FlightDetail', () => {
 
     expect(await screen.findByText('TA100 — EGLL → Unknown')).toBeInTheDocument()
     expect(screen.getByText('Free flight')).toBeInTheDocument()
+  })
+
+  describe('"Add to fleet" (free-flight-tracking.md follow-up)', () => {
+    function freeFlightNoAircraft(overrides: Partial<Flight> = {}): Flight {
+      return makeFlight({
+        aircraftId: null,
+        simRegistration: 'G-TEST',
+        simIcaoType: 'C172',
+        ofpJson: null,
+        actualOffUtc: '2026-02-01T10:05:00.000Z',
+        ...overrides
+      })
+    }
+
+    it('shows "Add to fleet" only for a free flight with no linked aircraft', async () => {
+      setWinglog({
+        logbookListCompletedFlights: vi.fn().mockResolvedValue([freeFlightNoAircraft()]),
+        aircraftList: vi.fn().mockResolvedValue([])
+      })
+      const user = userEvent.setup()
+      render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+      await user.click(await screen.findByText('TA100'))
+
+      expect(await screen.findByRole('button', { name: 'Add to fleet' })).toBeInTheDocument()
+    })
+
+    it('hides "Add to fleet" for an ordinary dispatched flight with a linked aircraft', async () => {
+      setWinglog({
+        logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight()]),
+        aircraftList: vi.fn().mockResolvedValue([makeAircraft()])
+      })
+      const user = userEvent.setup()
+      render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+      await user.click(await screen.findByText('TA100'))
+      await screen.findByText('TA100 — EGLL → EGKK')
+
+      expect(screen.queryByRole('button', { name: 'Add to fleet' })).not.toBeInTheDocument()
+    })
+
+    it('creates a new fleet aircraft from the sim-reported identity and links it, then reloads', async () => {
+      const aircraftCreate = vi.fn().mockResolvedValue(makeAircraft({ id: 42, registration: 'G-TEST', icaoType: 'C172' }))
+      const flightLinkAircraft = vi.fn().mockResolvedValue(freeFlightNoAircraft({ aircraftId: 42, simRegistration: null, simIcaoType: null }))
+      const aircraftList = vi
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValue([makeAircraft({ id: 42, registration: 'G-TEST', icaoType: 'C172' })])
+      setWinglog({
+        logbookListCompletedFlights: vi.fn().mockResolvedValue([freeFlightNoAircraft()]),
+        aircraftList,
+        aircraftTypeSearch: vi.fn().mockResolvedValue([]),
+        aircraftCreate,
+        flightLinkAircraft
+      })
+      const user = userEvent.setup()
+      render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+      await user.click(await screen.findByText('TA100'))
+      await user.click(await screen.findByRole('button', { name: 'Add to fleet' }))
+
+      expect(await screen.findByLabelText('Registration')).toHaveValue('G-TEST')
+      // Two buttons now say "Add to fleet" — the trigger (still in the page behind the
+      // dialog) and the dialog's own submit button, which is always the later one in
+      // document order.
+      const buttons = screen.getAllByRole('button', { name: 'Add to fleet' })
+      await user.click(buttons[buttons.length - 1])
+
+      await waitFor(() => expect(aircraftCreate).toHaveBeenCalledWith({ registration: 'G-TEST', icaoType: 'C172' }))
+      await waitFor(() => expect(flightLinkAircraft).toHaveBeenCalledWith(1, 42))
+      await waitFor(() => expect(aircraftList).toHaveBeenCalledTimes(2))
+    })
   })
 
   it('returns to the list via "Back to logbook"', async () => {

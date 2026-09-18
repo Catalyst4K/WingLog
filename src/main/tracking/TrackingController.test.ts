@@ -449,6 +449,32 @@ describe('TrackingController', () => {
       expect(getAircraftIdForTitle(db, 'FenixA320 IAE SL')).toBe(freeAircraftId)
     })
 
+    it('leaves simTitle null on the flight row when a fleet aircraft is already linked at start', () => {
+      sim.setLastTelemetry(telemetry({ title: 'FenixA320 IAE SL' }))
+      const controller = new TrackingController(db, sim)
+      const newFlightId = controller.startFree({
+        aircraftId: freeAircraftId,
+        depIcao: 'EGLL',
+        arrIcao: 'ZZZZ',
+        flightNumber: null
+      })
+      expect(getFlight(db, newFlightId)?.simTitle).toBeNull()
+    })
+
+    it('stores simTitle on the flight row when tracked with no linked aircraft, so Logbook can remember it later', () => {
+      sim.setLastTelemetry(telemetry({ title: 'FenixA320 IAE SL' }))
+      const controller = new TrackingController(db, sim)
+      const newFlightId = controller.startFree({
+        aircraftId: null,
+        simRegistration: 'G-TEST',
+        simIcaoType: 'A20N',
+        depIcao: 'EGLL',
+        arrIcao: 'ZZZZ',
+        flightNumber: null
+      })
+      expect(getFlight(db, newFlightId)?.simTitle).toBe('FenixA320 IAE SL')
+    })
+
     it('resolves arrival from position at touchdown, overwriting the ZZZZ placeholder', () => {
       sim.setLastTelemetry(telemetry({ onGround: true, groundSpeedMs: 0 }))
       const controller = new TrackingController(db, sim)

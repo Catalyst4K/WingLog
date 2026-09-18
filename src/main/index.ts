@@ -50,6 +50,7 @@ import {
   getInProgressFlight,
   getLogbookStats,
   listCompletedFlights,
+  linkAircraftToFlight,
   listFlights,
   listFlightsByAircraft,
   setFlownRoute
@@ -597,6 +598,18 @@ if (!gotSingleInstanceLock) {
         if (trackingController.getActive()?.flightId === id) trackingController.stop()
         deleteFlight(db, id)
         scheduleBackgroundSync()
+      })
+      ipcMain.handle(IpcChannels.flightLinkAircraft, (_event, flightId: number, aircraftId: number) => {
+        const existingFlight = getFlight(db, flightId)
+        if (!existingFlight) throw new Error(`Flight ${flightId} not found`)
+        if (existingFlight.aircraftId != null) throw new Error(`Flight ${flightId} already has a linked aircraft`)
+        const aircraftRow = getAircraftById(db, aircraftId)
+        if (!aircraftRow || aircraftRow.replacedByAircraftId !== null) {
+          throw new Error(`Aircraft ${aircraftId} not found or retired`)
+        }
+        const updated = linkAircraftToFlight(db, flightId, aircraftId)
+        scheduleBackgroundSync()
+        return updated
       })
 
       ipcMain.handle(IpcChannels.logbookListCompletedFlights, () => listCompletedFlights(db))

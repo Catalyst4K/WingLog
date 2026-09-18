@@ -2,9 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { eq } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb, type WingLogDb } from './client'
-import { createAircraft, getAircraftByRegistration } from './aircraft-repo'
+import { createAircraft, getAircraftById, getAircraftByRegistration } from './aircraft-repo'
 import { createLanding, getLandingByFlight, type NewLanding } from './landing-repo'
 import { flight as flightTable } from './schema'
+import { getAircraftIdForTitle } from './settings-repo'
 import { createTrackPoint, listTrackPoints } from './track-point-repo'
 import { greatCircleDistanceNm } from '../airports/airport-search'
 import {
@@ -21,6 +22,7 @@ import {
   getFlight,
   getInProgressFlight,
   getLogbookStats,
+  linkAircraftToFlight,
   listCompletedFlights,
   listFlights,
   listFlightsByAircraft,
@@ -208,6 +210,7 @@ describe('flight repo', () => {
         aircraftId: null,
         simRegistration: 'G-TEST',
         simIcaoType: 'C172',
+        simTitle: 'FenixA320 IAE SL',
         depIcao: 'VHHH',
         arrIcao: 'VHHH',
         flightNumber: null,
@@ -216,6 +219,7 @@ describe('flight repo', () => {
       expect(created.aircraftId).toBeNull()
       expect(created.simRegistration).toBe('G-TEST')
       expect(created.simIcaoType).toBe('C172')
+      expect(created.simTitle).toBe('FenixA320 IAE SL')
       expect(created.status).toBe('active')
     })
   })
@@ -234,6 +238,69 @@ describe('flight repo', () => {
       expect(updated?.arrIcao).toBe('EGCC')
       expect(updated?.depIcao).toBe('EGLL')
       expect(updated?.status).toBe('active')
+    })
+  })
+
+  describe('linkAircraftToFlight — Logbook "Add to fleet" (free-flight-tracking.md follow-up)', () => {
+    it('links the aircraft, nulls the sim-reported identity, backfills currentIcao, and remembers the title', () => {
+      const freeAircraftId = createAircraft(db, { registration: 'G-NEW', icaoType: 'C172' }).id
+      const created = createFreeFlight(db, {
+        aircraftId: null,
+        simRegistration: 'G-TEST',
+        simIcaoType: 'C172',
+        simTitle: 'FenixA320 IAE SL',
+        depIcao: 'VHHH',
+        arrIcao: 'EGLL',
+        flightNumber: null,
+        fuelOutKg: 500
+      })
+
+      const linked = linkAircraftToFlight(db, created.id, freeAircraftId)
+
+      expect(linked?.aircraftId).toBe(freeAircraftId)
+      expect(linked?.simRegistration).toBeNull()
+      expect(linked?.simIcaoType).toBeNull()
+      expect(linked?.simTitle).toBeNull()
+      expect(getAircraftById(db, freeAircraftId)?.currentIcao).toBe('EGLL')
+      expect(getAircraftIdForTitle(db, 'FenixA320 IAE SL')).toBe(freeAircraftId)
+    })
+
+    it('does not backfill currentIcao from an unresolved ZZZZ arrival', () => {
+      const freeAircraftId = createAircraft(db, { registration: 'G-NEW', icaoType: 'C172' }).id
+      const created = createFreeFlight(db, {
+        aircraftId: null,
+        simRegistration: 'G-TEST',
+        simIcaoType: 'C172',
+        depIcao: 'ZZZZ',
+        arrIcao: 'ZZZZ',
+        flightNumber: null,
+        fuelOutKg: 500
+      })
+
+      linkAircraftToFlight(db, created.id, freeAircraftId)
+
+      expect(getAircraftById(db, freeAircraftId)?.currentIcao).toBeNull()
+    })
+
+    it('skips the title memory when the flight predates simTitle being recorded', () => {
+      const freeAircraftId = createAircraft(db, { registration: 'G-NEW', icaoType: 'C172' }).id
+      const created = createFreeFlight(db, {
+        aircraftId: null,
+        simRegistration: 'G-TEST',
+        simIcaoType: 'C172',
+        depIcao: 'EGLL',
+        arrIcao: 'EGLL',
+        flightNumber: null,
+        fuelOutKg: 500
+      })
+
+      expect(() => linkAircraftToFlight(db, created.id, freeAircraftId)).not.toThrow()
+      expect(getAircraftIdForTitle(db, '')).toBeUndefined()
+    })
+
+    it('returns undefined for a nonexistent flight', () => {
+      const freeAircraftId = createAircraft(db, { registration: 'G-NEW', icaoType: 'C172' }).id
+      expect(linkAircraftToFlight(db, 99999, freeAircraftId)).toBeUndefined()
     })
   })
 

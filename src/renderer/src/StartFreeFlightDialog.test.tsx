@@ -113,36 +113,74 @@ function renderDialog(
 }
 
 describe('StartFreeFlightDialog', () => {
-  it('resolves a fleet match on atcId automatically, without offering to create a new aircraft', async () => {
-    setWinglog()
+  it('does not auto-match on atcId any more — registration alone never selects a fleet aircraft', async () => {
+    setWinglog({ trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue(makePrefill({ registration: 'G-EUYY' })) })
+    renderDialog({ aircraft: [AIRCRAFT] })
+    await waitFor(() => expect(screen.getByText("Don't add to fleet — just track this flight")).toBeInTheDocument())
+    expect(screen.getByLabelText('Registration')).toHaveValue('G-EUYY')
+  })
+
+  it('resolves a title-memory match automatically, without offering to create a new aircraft', async () => {
+    setWinglog({
+      trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue(
+        makePrefill({ registration: 'G-EUYY', rememberedAircraftId: AIRCRAFT.id })
+      )
+    })
     renderDialog({ aircraft: [AIRCRAFT] })
     await waitFor(() => expect(screen.getByText('G-EUYY — A320')).toBeInTheDocument())
     expect(screen.queryByLabelText('Registration')).not.toBeInTheDocument()
   })
 
-  it('excludes a retired aircraft from the fleet match, falling back to "add new"', async () => {
-    setWinglog({ trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue(makePrefill({ registration: 'G-OLD' })) })
+  it('excludes a retired aircraft from the title-memory match, defaulting to "don\'t add to fleet"', async () => {
+    setWinglog({
+      trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue(
+        makePrefill({ registration: 'G-OLD', rememberedAircraftId: RETIRED_AIRCRAFT.id })
+      )
+    })
     renderDialog({ aircraft: [RETIRED_AIRCRAFT] })
     await waitFor(() => expect(screen.getByLabelText('Registration')).toHaveValue('G-OLD'))
   })
 
-  it('falls back to the remembered title -> aircraft mapping when atcId matches nothing', async () => {
+  it('defaults to "don\'t add to fleet" with editable, prefilled registration/type when nothing matches', async () => {
+    setWinglog({
+      trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue(makePrefill({ registration: 'N12345', icaoType: 'C172' }))
+    })
+    renderDialog({ aircraft: [] })
+    await waitFor(() => expect(screen.getByLabelText('Registration')).toHaveValue('N12345'))
+    expect(screen.getByText("Don't add to fleet — just track this flight")).toBeInTheDocument()
+    expect(screen.queryByText(/to fleet$/)).toBeNull()
+  })
+
+  it('shows the raw sim title as the Airframe line, verbatim', async () => {
+    setWinglog()
+    renderDialog({ aircraft: [], telemetry: makeTelemetry({ title: 'A350-900 (Default Cabin)' }) })
+    expect(await screen.findByText('A350-900 (Default Cabin)')).toBeInTheDocument()
+  })
+
+  it('shows a non-blocking registration-mismatch hint when a remembered aircraft\'s on-file registration disagrees with the sim', async () => {
     setWinglog({
       trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue(
         makePrefill({ registration: 'F-WWTD', rememberedAircraftId: AIRCRAFT.id })
       )
     })
     renderDialog({ aircraft: [AIRCRAFT] })
-    await waitFor(() => expect(screen.getByText('G-EUYY — A320')).toBeInTheDocument())
+    expect(await screen.findByText(/Registration on file for this aircraft is G-EUYY/)).toBeInTheDocument()
+    expect(screen.getByText(/the sim currently\s*reports F-WWTD/)).toBeInTheDocument()
   })
 
-  it('defaults to "add new aircraft" with editable, prefilled registration/type when nothing matches', async () => {
+  it('never blocks submission on a registration mismatch — it is a hint, not a validation error', async () => {
+    const trackingStartFree = vi.fn().mockResolvedValue(1)
     setWinglog({
-      trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue(makePrefill({ registration: 'N12345', icaoType: 'C172' }))
+      trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue(
+        makePrefill({ registration: 'F-WWTD', rememberedAircraftId: AIRCRAFT.id })
+      ),
+      trackingStartFree
     })
-    renderDialog({ aircraft: [] })
-    await waitFor(() => expect(screen.getByLabelText('Registration')).toHaveValue('N12345'))
-    expect(screen.getByText(/Add N12345 \(C172\) to fleet/)).toBeInTheDocument()
+    const user = userEvent.setup()
+    renderDialog({ aircraft: [AIRCRAFT] })
+    await screen.findByText(/Registration on file for this aircraft is G-EUYY/)
+    await user.click(screen.getByText('Start tracking'))
+    await waitFor(() => expect(trackingStartFree).toHaveBeenCalledWith(expect.objectContaining({ aircraftId: AIRCRAFT.id })))
   })
 
   it('shows a warning when the parsed type is ambiguous', async () => {
@@ -166,43 +204,17 @@ describe('StartFreeFlightDialog', () => {
     expect(await screen.findByText('sim disconnected mid-fetch')).toBeInTheDocument()
   })
 
-  it('creates a new fleet aircraft, then starts the free flight with its id', async () => {
-    const aircraftCreate = vi.fn().mockResolvedValue({ ...AIRCRAFT, id: 42 })
-    const trackingStartFree = vi.fn().mockResolvedValue(7)
-    const onStarted = vi.fn()
-    const onOpenChange = vi.fn()
+  it('sends the edited callsign/departure/destination, not just the prefilled defaults, against a remembered aircraft', async () => {
+    const trackingStartFree = vi.fn().mockResolvedValue(1)
     setWinglog({
-      trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue(makePrefill({ registration: 'N999', icaoType: 'C172' })),
-      aircraftCreate,
+      trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue(makePrefill({ rememberedAircraftId: AIRCRAFT.id })),
       trackingStartFree
     })
-    const user = userEvent.setup()
-    renderDialog({ aircraft: [], onStarted, onOpenChange })
-
-    await waitFor(() => expect(screen.getByLabelText('Registration')).toHaveValue('N999'))
-    await user.click(screen.getByText('Start tracking'))
-
-    await waitFor(() => expect(aircraftCreate).toHaveBeenCalledWith({ registration: 'N999', icaoType: 'C172' }))
-    expect(trackingStartFree).toHaveBeenCalledWith({
-      aircraftId: 42,
-      simRegistration: null,
-      simIcaoType: null,
-      depIcao: 'EGLL',
-      arrIcao: null,
-      flightNumber: null
-    })
-    expect(onStarted).toHaveBeenCalledWith(7)
-    expect(onOpenChange).toHaveBeenCalledWith(false)
-  })
-
-  it('sends the edited departure/destination/flight number, not just the prefilled defaults', async () => {
-    const trackingStartFree = vi.fn().mockResolvedValue(1)
-    setWinglog({ trackingStartFree })
     const user = userEvent.setup()
     renderDialog({ aircraft: [AIRCRAFT] })
 
     await waitFor(() => expect(screen.getByText('G-EUYY — A320')).toBeInTheDocument())
-    await user.type(screen.getByLabelText('Flight number'), 'VA123')
+    await user.type(screen.getByLabelText('Callsign / flight number'), 'VA123')
     await user.click(screen.getByText('Start tracking'))
 
     await waitFor(() =>
@@ -217,7 +229,7 @@ describe('StartFreeFlightDialog', () => {
     )
   })
 
-  it('lets every prefilled field be edited by hand before submitting', async () => {
+  it('lets every prefilled field be edited by hand before submitting, tracked with no fleet aircraft', async () => {
     const trackingStartFree = vi.fn().mockResolvedValue(1)
     setWinglog({
       trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue(makePrefill({ registration: 'N999', icaoType: 'C172' })),
@@ -241,9 +253,9 @@ describe('StartFreeFlightDialog', () => {
 
     await waitFor(() =>
       expect(trackingStartFree).toHaveBeenCalledWith({
-        aircraftId: 99,
-        simRegistration: null,
-        simIcaoType: null,
+        aircraftId: null,
+        simRegistration: 'N1234',
+        simIcaoType: 'C172',
         depIcao: 'EGCC',
         arrIcao: 'EGKK',
         flightNumber: null
@@ -254,7 +266,10 @@ describe('StartFreeFlightDialog', () => {
   it('closes without submitting anything when Cancel is clicked', async () => {
     const trackingStartFree = vi.fn()
     const onOpenChange = vi.fn()
-    setWinglog({ trackingStartFree })
+    setWinglog({
+      trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue(makePrefill({ rememberedAircraftId: AIRCRAFT.id })),
+      trackingStartFree
+    })
     const user = userEvent.setup()
     renderDialog({ aircraft: [AIRCRAFT], onOpenChange })
 
@@ -265,13 +280,13 @@ describe('StartFreeFlightDialog', () => {
     expect(trackingStartFree).not.toHaveBeenCalled()
   })
 
-  it('lets a hand-typed type override clear the ambiguous-type warning and flow through to aircraftCreate', async () => {
-    const aircraftCreate = vi.fn().mockResolvedValue({ ...AIRCRAFT, id: 55 })
+  it('lets a hand-typed type override clear the ambiguous-type warning and flow through to trackingStartFree', async () => {
+    const trackingStartFree = vi.fn().mockResolvedValue(1)
     setWinglog({
       trackingGetFreeFlightPrefill: vi
         .fn()
         .mockResolvedValue(makePrefill({ registration: 'N999', icaoType: 'A320', icaoTypeAmbiguous: true })),
-      aircraftCreate
+      trackingStartFree
     })
     const user = userEvent.setup()
     renderDialog({ aircraft: [] })
@@ -283,7 +298,9 @@ describe('StartFreeFlightDialog', () => {
     expect(screen.queryByText(/this add-on has more than one variant/)).not.toBeInTheDocument()
 
     await user.click(screen.getByText('Start tracking'))
-    await waitFor(() => expect(aircraftCreate).toHaveBeenCalledWith({ registration: 'N999', icaoType: 'A20N' }))
+    await waitFor(() =>
+      expect(trackingStartFree).toHaveBeenCalledWith(expect.objectContaining({ simIcaoType: 'A20N' }))
+    )
   })
 
   it('lets a free flight be tracked without adding to fleet — not mandatory (Callum, 2026-09-16)', async () => {
@@ -339,7 +356,10 @@ describe('StartFreeFlightDialog', () => {
 
   it('shows a toast and keeps the dialog open when trackingStartFree throws', async () => {
     const { toast } = await import('sonner')
-    setWinglog({ trackingStartFree: vi.fn().mockRejectedValue(new Error('Not connected to the sim')) })
+    setWinglog({
+      trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue(makePrefill({ rememberedAircraftId: AIRCRAFT.id })),
+      trackingStartFree: vi.fn().mockRejectedValue(new Error('Not connected to the sim'))
+    })
     const onOpenChange = vi.fn()
     const user = userEvent.setup()
     renderDialog({ aircraft: [AIRCRAFT], onOpenChange })

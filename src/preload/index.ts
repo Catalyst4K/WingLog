@@ -44,6 +44,8 @@ const api: WingLogApi = {
   flightCreate: (flight: NewFlight) => ipcRenderer.invoke(IpcChannels.flightCreate, flight),
   flightCancel: (id: number) => ipcRenderer.invoke(IpcChannels.flightCancel, id),
   flightDelete: (id: number) => ipcRenderer.invoke(IpcChannels.flightDelete, id),
+  flightLinkAircraft: (flightId: number, aircraftId: number) =>
+    ipcRenderer.invoke(IpcChannels.flightLinkAircraft, flightId, aircraftId),
   dispatchFetchOfp: () => ipcRenderer.invoke(IpcChannels.dispatchFetchOfp),
   dispatchGetInProgressFlight: () => ipcRenderer.invoke(IpcChannels.dispatchGetInProgressFlight),
   dispatchOpenSimBrief: (params: DispatchOpenSimBriefParams) =>

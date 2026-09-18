@@ -9,14 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AirportSearch } from './AirportSearch'
 import { Combobox } from './components/Combobox'
 
-/** Select's own value type is always a string — these sentinels pick the two non-fleet-id
- *  choices out of the list of real aircraft ids: "create a new fleet aircraft"
- *  (free-flight-tracking.md's aircraft-resolution step 3, "Add <reg> (<type>) to fleet")
- *  and "don't add one at all" — Callum's call, 2026-09-16: adding to the fleet shouldn't
- *  be mandatory just to track a flight. The registration/type are still captured (and
- *  still auto-filled from the sim) either way, just kept on the flight row itself
- *  (Flight.simRegistration/simIcaoType) instead of a new aircraft record. */
-const NEW_AIRCRAFT = '__new__'
+/** Select's own value type is always a string — this sentinel picks "don't add to fleet"
+ *  out of the list of real aircraft ids. Fleet creation no longer happens inline here at
+ *  all (Callum's call: it's friction for something that should be purely optional, and
+ *  belongs in Logbook after a flight is tracked, once there's a real flight to attach it
+ *  to — see LogbookView's AddFlightToFleetDialog). Not adding to the fleet is the default
+ *  whenever there's no remembered title match; the registration/type are still captured
+ *  (and still auto-filled from the sim) on the flight row itself
+ *  (Flight.simRegistration/simIcaoType) either way. */
 const NO_AIRCRAFT = '__none__'
 
 interface FormState {
@@ -52,8 +52,16 @@ export function StartFreeFlightDialog(props: {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(props.open && !props.telemetry ? 'Not connected to the sim.' : null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
-  const [selectedAircraftId, setSelectedAircraftId] = useState<string>(NEW_AIRCRAFT)
+  const [selectedAircraftId, setSelectedAircraftId] = useState<string>(NO_AIRCRAFT)
   const [icaoTypeAmbiguous, setIcaoTypeAmbiguous] = useState(false)
+  // Set when a remembered title match's own on-file registration disagrees with what the sim
+  // currently reports — Callum's call: registration can't be trusted as an identifier (he
+  // doesn't necessarily change it per aircraft), but it's still worth surfacing as a
+  // non-blocking cross-check once title-memory has already picked an aircraft. Cleared
+  // whenever the pilot picks a different aircraft than the one this hint is about.
+  const [registrationMismatch, setRegistrationMismatch] = useState<{ aircraftId: number; onFile: string } | null>(
+    null
+  )
 
   // Resets the form the moment the dialog opens — adjusted during render (React's own
   // documented pattern for state depending on another value changing, same as
@@ -64,8 +72,9 @@ export function StartFreeFlightDialog(props: {
     setPrevOpen(props.open)
     if (props.open) {
       setForm(EMPTY_FORM)
-      setSelectedAircraftId(NEW_AIRCRAFT)
+      setSelectedAircraftId(NO_AIRCRAFT)
       setIcaoTypeAmbiguous(false)
+      setRegistrationMismatch(null)
       setError(props.telemetry ? null : 'Not connected to the sim.')
       setLoading(!!props.telemetry)
     }
@@ -86,18 +95,16 @@ export function StartFreeFlightDialog(props: {
         longitude: telemetry.longitude
       })
       .then((prefill) => {
-        // Step 1 (fleet match on atcId) happens here, client-side — the aircraft list is
-        // already loaded by TrackView, no IPC needed for it. Step 2 (title memory) came
-        // back from the prefill call itself. Free-flight-tracking.md's resolution order.
-        const fleetMatch = props.aircraft.find(
-          (a) => a.replacedByAircraftId === null && a.registration.toUpperCase() === prefill.registration.toUpperCase()
-        )
+        // Aircraft resolution is title-memory only now — Callum's call: registration isn't a
+        // reliable identifier (he doesn't necessarily change it per aircraft), so it's no
+        // longer used to auto-select a fleet row, only as a non-blocking cross-check below.
+        // The aircraft list is already loaded by TrackView, no extra IPC needed for the
+        // lookup itself.
         const remembered =
           prefill.rememberedAircraftId != null
             ? props.aircraft.find((a) => a.id === prefill.rememberedAircraftId && a.replacedByAircraftId === null)
             : undefined
-        const matched = fleetMatch ?? remembered
-        setSelectedAircraftId(matched ? String(matched.id) : NEW_AIRCRAFT)
+        setSelectedAircraftId(remembered ? String(remembered.id) : NO_AIRCRAFT)
         setForm({
           registration: prefill.registration,
           icaoType: prefill.icaoType ?? '',
@@ -106,6 +113,11 @@ export function StartFreeFlightDialog(props: {
           flightNumber: ''
         })
         setIcaoTypeAmbiguous(prefill.icaoTypeAmbiguous)
+        setRegistrationMismatch(
+          remembered && remembered.registration.toUpperCase() !== prefill.registration.toUpperCase()
+            ? { aircraftId: remembered.id, onFile: remembered.registration }
+            : null
+        )
       })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoading(false))
@@ -116,14 +128,13 @@ export function StartFreeFlightDialog(props: {
     setForm((current) => ({ ...current, [key]: value }))
   }
 
-  const creatingNew = selectedAircraftId === NEW_AIRCRAFT
   const addingNone = selectedAircraftId === NO_AIRCRAFT
   const nonRetiredAircraft = props.aircraft.filter((a) => a.replacedByAircraftId === null)
-  const selectedExisting =
-    creatingNew || addingNone ? undefined : props.aircraft.find((a) => String(a.id) === selectedAircraftId)
-  // Registration/type stay editable whenever there's no existing fleet aircraft already
-  // supplying them — both the "add to fleet" and "don't add to fleet" choices need them.
-  const showIdentityFields = creatingNew || addingNone
+  const selectedExisting = addingNone ? undefined : props.aircraft.find((a) => String(a.id) === selectedAircraftId)
+  // Registration/type are only ever editable when tracking with no linked fleet aircraft —
+  // fleet creation no longer happens inline here at all, so there's no other branch that
+  // needs them.
+  const showIdentityFields = addingNone
 
   async function handleSubmit(): Promise<void> {
     if (!props.telemetry) return
@@ -133,16 +144,7 @@ export function StartFreeFlightDialog(props: {
       let aircraftId: number | null = null
       let simRegistration: string | null = null
       let simIcaoType: string | null = null
-      if (creatingNew) {
-        if (!form.registration.trim() || !form.icaoType.trim()) {
-          throw new Error('Enter a registration and type for the new aircraft.')
-        }
-        const created = await window.winglog.aircraftCreate({
-          registration: form.registration.trim(),
-          icaoType: form.icaoType.trim().toUpperCase()
-        })
-        aircraftId = created.id
-      } else if (addingNone) {
+      if (addingNone) {
         if (!form.registration.trim() || !form.icaoType.trim()) {
           throw new Error('Enter a registration and type.')
         }
@@ -189,6 +191,25 @@ export function StartFreeFlightDialog(props: {
           <p className="text-sm text-muted-foreground">Reading the sim…</p>
         ) : (
           <div className="flex flex-col gap-4">
+            {/* The add-on's own display string, verbatim — what Callum (and most add-ons'
+             *  own EFB panels) actually recognise the aircraft by, unlike atcModel's
+             *  localisation-token/marketing-name mess that parseAircraftIdentity has to
+             *  unwrap for the Type field below. Purely informational, nothing stored. */}
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xs font-medium text-muted-foreground">Airframe</span>
+              <span className="text-sm font-medium text-foreground">{props.telemetry?.title || 'Unknown aircraft'}</span>
+            </div>
+
+            <Label className="flex flex-col items-start gap-1.5">
+              Callsign / flight number
+              <Input
+                type="text"
+                value={form.flightNumber}
+                onChange={(e) => set('flightNumber', e.target.value)}
+                placeholder="Optional"
+              />
+            </Label>
+
             <div className="flex flex-col gap-1.5">
               <Label>Aircraft</Label>
               <Select value={selectedAircraftId} onValueChange={setSelectedAircraftId}>
@@ -196,9 +217,6 @@ export function StartFreeFlightDialog(props: {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NEW_AIRCRAFT}>
-                    Add {form.registration || 'new aircraft'} {form.icaoType ? `(${form.icaoType})` : ''} to fleet
-                  </SelectItem>
                   <SelectItem value={NO_AIRCRAFT}>Don&apos;t add to fleet — just track this flight</SelectItem>
                   {nonRetiredAircraft.map((a) => (
                     <SelectItem key={a.id} value={String(a.id)}>
@@ -207,25 +225,19 @@ export function StartFreeFlightDialog(props: {
                   ))}
                 </SelectContent>
               </Select>
+              {registrationMismatch && String(registrationMismatch.aircraftId) === selectedAircraftId && (
+                <span className="text-xs text-amber-600 dark:text-amber-500">
+                  Registration on file for this aircraft is {registrationMismatch.onFile} — the sim currently
+                  reports {form.registration || 'nothing'}. Still the right aircraft?
+                </span>
+              )}
+              {/* Fleet creation doesn't happen here any more — pick "Don't add to fleet" and
+               *  use Logbook's "Add to fleet" once the flight is tracked, if it's worth
+               *  keeping. */}
             </div>
 
             {showIdentityFields ? (
               <>
-                <div className="flex flex-col gap-1.5">
-                  <Label className="flex flex-col items-start gap-1.5">
-                    Registration
-                    <Input
-                      type="text"
-                      value={form.registration}
-                      onChange={(e) => set('registration', e.target.value)}
-                    />
-                  </Label>
-                  <span className="text-xs text-muted-foreground">
-                    {creatingNew
-                      ? "What MSFS's own aircraft-configuration page has set for this aircraft — matched to your fleet automatically next time."
-                      : "What MSFS's own aircraft-configuration page has set for this aircraft. Not added to your fleet, so you'll fill this in again next time."}
-                  </span>
-                </div>
                 <div className="flex flex-col gap-1.5">
                   <Label>Type</Label>
                   <Combobox
@@ -246,6 +258,21 @@ export function StartFreeFlightDialog(props: {
                     </span>
                   )}
                 </div>
+                <div className="flex flex-col gap-1">
+                  <Label className="flex flex-col items-start gap-1.5 text-xs text-muted-foreground">
+                    Registration
+                    <Input
+                      type="text"
+                      value={form.registration}
+                      onChange={(e) => set('registration', e.target.value)}
+                      className="text-sm"
+                    />
+                  </Label>
+                  <span className="text-xs text-muted-foreground">
+                    What MSFS's own aircraft-configuration page has set for this aircraft — not used to identify
+                    it automatically, but stored for reference and shown in Logbook.
+                  </span>
+                </div>
               </>
             ) : null}
 
@@ -263,16 +290,6 @@ export function StartFreeFlightDialog(props: {
                 />
               </div>
             </div>
-
-            <Label className="flex flex-col items-start gap-1.5">
-              Flight number
-              <Input
-                type="text"
-                value={form.flightNumber}
-                onChange={(e) => set('flightNumber', e.target.value)}
-                placeholder="Optional"
-              />
-            </Label>
           </div>
         )}
 

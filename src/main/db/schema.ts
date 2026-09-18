@@ -93,6 +93,12 @@ export const flight = sqliteTable('flight', {
   // otherwise have provided. Always null together with a non-null aircraftId.
   simRegistration: text('sim_registration'),
   simIcaoType: text('sim_icao_type'),
+  // The raw sim `title` at free-flight start (e.g. "FenixA320 IAE SL") — same
+  // null-together-with-aircraftId convention as the two fields above. Exists only so
+  // linkAircraftToFlight (flight-repo.ts) can seed the title -> aircraft memory
+  // (settings-repo.ts's rememberAircraftForTitle) retroactively, when "Add to fleet" happens
+  // from Logbook after the flight completes rather than inline in the start dialog.
+  simTitle: text('sim_title'),
   status: text('status', { enum: ['planned', 'active', 'completed', 'abandoned'] })
     .notNull()
     .default('planned'),
