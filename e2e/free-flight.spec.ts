@@ -22,8 +22,8 @@ import { launchApp } from './launch-app'
  * pushing before the separate renderer process has even mounted far enough to attach its
  * listener, and every tick sent to nobody is simply lost. Paced mode at 200x still finishes
  * in a few real seconds, but spreads ticks out enough that the renderer's subscription
- * reliably wins the race — confirmed by waiting for a real (non-"N/A") speed reading below
- * before touching anything that depends on telemetry.
+ * reliably wins the race — confirmed by waiting for a real telemetry push to reach the renderer
+ * below before touching anything that depends on telemetry.
  */
 test('starts a free flight from Track and finds it, completed, in the Logbook', async () => {
   const fixturePath = join(process.cwd(), 'src/main/tracking/__fixtures__/tier2-vfr-no-ofp-short-hop.ndjson')
@@ -38,7 +38,18 @@ test('starts a free flight from Track and finds it, completed, in the Logbook', 
   try {
     await window.getByRole('tab', { name: 'Track' }).click()
     await expect(window.getByRole('heading', { name: 'Track' })).toBeVisible()
-    await expect(window.getByText(/Speed: \d/)).toBeVisible({ timeout: 15_000 })
+    // Telemetry has reached the renderer once a push arrives here — App subscribed at mount,
+    // before this listener, so it has seen at least this message too. (The map overlay used to
+    // be the signal, but it only shows live values once tracking has started.)
+    await window.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          const off = window.winglog.onSimTelemetry(() => {
+            off()
+            resolve()
+          })
+        })
+    )
 
     await window.getByRole('button', { name: 'Free flight' }).click()
     await expect(window.getByText('Start a free flight')).toBeVisible()
