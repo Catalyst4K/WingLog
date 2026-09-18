@@ -160,7 +160,7 @@ describe('parseLogbook — untrusted input', () => {
   it('treats a non-numeric or infinite metric as absent rather than throwing or storing NaN', () => {
     const [row] = parseLogbook(csv('G-ABCD,A320,,EGLL,EGCC,2026-09-01T10:00:00Z,2026-09-01T11:00:00Z,lots'), 'csv')
     expect('record' in row! && row.record.blockMinutes).toBeNull()
-    const json = JSON.stringify([{ registration: 'G-ABCD', icaoType: 'A320', depIcao: 'EGLL', arrIcao: 'EGCC', outUtc: '2026-09-01T10:00:00Z', inUtc: '2026-09-01T11:00:00Z', fuelOutKg: 1e999, airMinutes: '45' }])
+    const json = JSON.stringify([{ registration: 'G-ABCD', icaoType: 'A320', depIcao: 'EGLL', arrIcao: 'EGCC', outUtc: '2026-09-01T10:00:00Z', inUtc: '2026-09-01T11:00:00Z', fuelOutKg: '1e999', airMinutes: '45' }])
     const [j] = parseLogbook(json, 'json')
     expect('record' in j! && [j.record.fuelOutKg, j.record.airMinutes]).toEqual([null, 45])
   })
