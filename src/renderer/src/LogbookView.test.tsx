@@ -377,6 +377,25 @@ describe('LandingCard', () => {
     expect(screen.getByText('Firm')).toBeInTheDocument()
   })
 
+  it('lets long labels and values shrink and wrap instead of overlapping when the card narrows', async () => {
+    setWinglog({
+      logbookGetLanding: vi.fn().mockResolvedValue(makeLanding()),
+      logbookGetLandingRunway: vi.fn().mockResolvedValue(null),
+      logbookGetLandingScore: vi
+        .fn()
+        .mockResolvedValue({ score: 78, severity: 'firm', categories: makeCategories() } satisfies LandingScoreResult)
+    })
+    const { container } = render(<LandingCard flightId={1} landingDistanceUnit="ft" />)
+
+    const label = await screen.findByText('Airspeed / Ground speed')
+    expect(label).toHaveClass('min-w-0', 'break-words')
+    expect(label.nextElementSibling).toHaveClass('min-w-0', 'break-words')
+    // Shrinkable grid tracks (a bare `1fr` can't go below its content's width) and a
+    // container query, since the card's width depends on the layout around it.
+    expect(container.querySelector('dl')).toHaveClass('grid-cols-[minmax(0,1fr)_minmax(0,1fr)]')
+    expect(container.querySelector('[data-slot="card"]')).toHaveClass('@container')
+  })
+
   it('renders nothing extra when the flight has no landing row', async () => {
     setWinglog({
       logbookGetLanding: vi.fn().mockResolvedValue(null),

@@ -103,6 +103,12 @@ function formatDate(iso: string | null): string {
 /** `warn` shows a small warning icon next to the label when this field's own score-
  *  breakdown category came in below LandingScoreBreakdownDialog's bad threshold — a nudge
  *  to open the breakdown rather than repeating the deduction number here too. */
+/** Two label/value columns whose tracks may shrink below their content's width
+ *  (`minmax(0, 1fr)`, not the bare `1fr` of `grid-cols-2`, which can't) - otherwise a long
+ *  label or mono-font value overflows into its neighbour when the window narrows (beta
+ *  feedback 2026-09-18). Paired with DetailField's `min-w-0 break-words`. */
+export const DETAIL_GRID_CLASS = 'grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-6 gap-y-1.5 text-sm'
+
 function DetailField(props: {
   label: string
   value: React.ReactNode
@@ -113,7 +119,7 @@ function DetailField(props: {
 }): React.JSX.Element {
   return (
     <>
-      <dt className="flex items-center gap-1.5 text-muted-foreground">
+      <dt className="flex min-w-0 items-center gap-1.5 break-words text-muted-foreground">
         {props.label}
         {props.warn && (
           <TriangleAlert
@@ -122,7 +128,7 @@ function DetailField(props: {
           />
         )}
       </dt>
-      <dd className={cn('text-foreground', props.valueClassName)}>{props.value}</dd>
+      <dd className={cn('min-w-0 break-words text-foreground', props.valueClassName)}>{props.value}</dd>
     </>
   )
 }
@@ -182,12 +188,14 @@ export function LandingCard(props: {
   }
 
   return (
-    <Card className="min-w-72 flex-1">
+    // `@container` + `@lg:` rather than the viewport's `sm:` - the card's width depends on
+    // the layout around it (it wraps beside other cards), not just the window.
+    <Card className="@container min-w-72 flex-1">
       <CardHeader>
         <CardTitle className="text-sm">Landing</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-start">
-        <dl className="grid flex-1 grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+      <CardContent className="flex flex-col gap-4 @lg:flex-row @lg:items-start">
+        <dl className={cn(DETAIL_GRID_CLASS, 'min-w-0 flex-1')}>
           <DetailField
             label="Landing score"
             value={<LandingScoreBadge score={scoreResult?.score ?? null} />}
@@ -254,7 +262,7 @@ export function LandingCard(props: {
           // centre, and CardHeader/CardContent are separate layout contexts with no shared
           // width to align against. Rendered whenever a score exists, independent of the
           // diagram below it, since most categories still score without a runway match.
-          <div className="flex w-36 flex-shrink-0 flex-col items-center gap-2 self-start sm:w-40">
+          <div className="flex w-full flex-shrink-0 flex-col items-center gap-2 self-start @lg:w-40">
             <LandingScoreBreakdownDialog
               overall={scoreResult.score}
               categories={scoreResult.categories}
@@ -457,7 +465,7 @@ function FlightDetail(props: {
             )}
           </CardHeader>
           <CardContent>
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+            <dl className={DETAIL_GRID_CLASS}>
               <DetailField label="Aircraft" value={aircraft?.registration ?? '—'} />
               <DetailField label="Date" value={formatDate(flight.actualOutUtc)} />
               <DetailField label="Block time" value={formatMinutes(flight.blockMinutes)} />
