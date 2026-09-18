@@ -363,6 +363,27 @@ describe('applyProcedureSelection', () => {
     expect(end.segment).toBe(result.find((w) => w.ident === 'LAM')!.segment)
   })
 
+  it('joins a STAR to a Visual approach with a straight STAR-end -> join point -> threshold line', () => {
+    const star: ProcedureLegs = { identifier: 'REAL_STAR', legs: [leg('IAF1'), leg('STAREND')] }
+    const visual: ProcedureLegs = {
+      identifier: 'Visual 27R',
+      legs: [
+        leg('27R/10', 0, { type: 15, fixLatitude: 51.4776, fixLongitude: -0.15 }),
+        leg('RW27R', 0, { type: 18, fixType: 'R', fixLatitude: 51.4776, fixLongitude: -0.4614 })
+      ]
+    }
+
+    const result = applyProcedureSelection(baseWaypoints, null, star, visual)
+
+    // "Vectors" is just adjacency: the approach's first waypoint follows the STAR's last one.
+    expect(result.slice(-4).map((w) => [w.ident, w.segment])).toEqual([
+      ['IAF1', 'star'],
+      ['STAREND', 'star'],
+      ['27R/10', 'approach'],
+      ['RW27R', 'approach']
+    ])
+  })
+
   it('draws only the navaid for an FC/FD leg with no stored distance (cached before ROUTE_DISTANCE existed)', () => {
     const old = leg('OCK', 0, { type: 10, fixType: 'V', courseDeg: 74, routeDistanceM: 0 })
     const result = applyProcedureSelection(baseWaypoints, null, null, { identifier: 'ILS 27R', legs: [old] })

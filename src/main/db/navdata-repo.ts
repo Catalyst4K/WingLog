@@ -1,6 +1,8 @@
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import type { NavdataLeg, NavdataProcedureOption, NavdataRunway, ProcedureKind } from '../navdata/navdata-provider'
 import { runwayEndsFromCentre } from '../navdata/runway-geometry'
+import { visualApproachRunway } from '@shared/visual-approach'
+import { visualApproachLegs, visualApproachOptions } from '../navdata/visual-approach'
 import type { FetchedAirportNavdata } from '../navdata/sim-facilities-fetch'
 import type { ParsedLeg } from '../sim/facility-fields'
 import type { WingLogDb } from './client'
@@ -185,7 +187,7 @@ export function listCachedProcedures(
     .from(navdataProcedure)
     .where(and(eq(navdataProcedure.icao, icao), eq(navdataProcedure.kind, kind)))
     .all()
-  return rows
+  const real = rows
     .filter((row) => {
       if (!runway || !row.runwayIdentsJson) return true
       const idents = JSON.parse(row.runwayIdentsJson) as string[]
@@ -195,6 +197,9 @@ export function listCachedProcedures(
       const transitions: (string | null)[] = row.transitionNamesJson ? (JSON.parse(row.transitionNamesJson) as string[]) : [null]
       return transitions.map((transition) => ({ identifier: row.identifier, transition }))
     })
+  // A visual approach is offered for every cached runway alongside the real instrument
+  // approaches — only once the airport has any cached navdata at all (no runways, no options).
+  return kind === 'approach' ? [...real, ...visualApproachOptions(listCachedRunways(db, icao), runway)] : real
 }
 
 function toNavdataLeg(row: typeof navdataProcedureLeg.$inferSelect): NavdataLeg {
@@ -232,6 +237,14 @@ export function listCachedProcedureLegs(
   runway: string | null = null,
   transition: string | null = null
 ): NavdataLeg[] {
+  if (kind === 'approach') {
+    // Synthetic, not in navdata_procedure — built from the runway's own cached threshold.
+    const visualRunway = visualApproachRunway(identifier)
+    if (visualRunway !== null) {
+      const end = listCachedRunways(db, icao).find((r) => r.ident === visualRunway)
+      return end ? visualApproachLegs(end) : []
+    }
+  }
   const procedure = db
     .select({ id: navdataProcedure.id })
     .from(navdataProcedure)

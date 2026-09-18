@@ -297,6 +297,42 @@ describe('ProcedureSelector', () => {
     await waitFor(() => expect(latest?.approachIdent).toBe('ILS 07R'))
   })
 
+  it('never auto-picks the synthetic Visual approach over a real one, but does when it is all there is', async () => {
+    withWinglog({
+      navdataListApproaches: vi.fn().mockResolvedValue([proc('Visual 07R', 'Vectors'), proc('ILS 07R'), proc('RNAV Z 07R')])
+    })
+    let latest: ProcedureSelection | null = null
+    const first = render(<Harness airports={airports()} onSelectionChange={(s) => (latest = s)} />)
+    await waitFor(() => expect(latest?.approachIdent).toBe('ILS 07R'))
+    first.unmount()
+
+    withWinglog({ navdataListApproaches: vi.fn().mockResolvedValue([proc('Visual 07R', 'Vectors')]) })
+    latest = null
+    render(<Harness airports={airports()} onSelectionChange={(s) => (latest = s)} />)
+    await waitFor(() => expect(latest?.approachIdent).toBe('Visual 07R'))
+  })
+
+  it('offers Visual as an approach and Vectors as its only transition, and filters STARs by its runway', async () => {
+    const listStars = vi.fn().mockResolvedValue([])
+    withWinglog({
+      navdataListApproaches: vi.fn().mockResolvedValue([proc('ILS 07R'), proc('Visual 07R', 'Vectors')]),
+      navdataListStars: listStars
+    })
+    const user = userEvent.setup()
+    let latest: ProcedureSelection | null = null
+    render(<Harness airports={airports()} onSelectionChange={(s) => (latest = s)} />)
+
+    await user.click(selectFor('Approach'))
+    await user.click(await screen.findByRole('option', { name: 'Visual 07R' }))
+    expect(latest).toEqual(expect.objectContaining({ approachIdent: 'Visual 07R' }))
+
+    await user.click(selectFor('Approach transition'))
+    expect(await screen.findByRole('option', { name: 'Vectors' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'ILS 07R' })).not.toBeInTheDocument()
+    // The runway is read from the identifier's tail, same as for a real approach.
+    await waitFor(() => expect(listStars).toHaveBeenLastCalledWith('KJFK', '07R'))
+  })
+
   it('restricts the auto-picked approach to the OFP\'s planned arrival runway when one is set', async () => {
     const ofpJson = JSON.stringify({ api_params: { destrwy: '25L' }, general: {} })
     withWinglog({

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { NavdataProcedureOption, NavdataRunwayOption, ProcedureSelection } from '@shared/ipc'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { isVisualApproach } from '@shared/visual-approach'
 import { approachRunway, parseRouteProcedures, type Waypoint } from './route'
 import type { ProcedureAirports } from './procedureSelection'
 
@@ -45,7 +46,11 @@ function ProcedureSelect(props: {
  *  is a sane default that's instantly correctable from the dropdown, not a guess to get
  *  right. */
 export function pickDefaultApproachIdentifier(options: NavdataProcedureOption[]): string | null {
-  const identifiers = [...new Set(options.map((o) => o.identifier))].sort()
+  const all = [...new Set(options.map((o) => o.identifier))].sort()
+  // The synthetic Visual approach stays opt-in (docs/plans/visual-approach.md) — it's only
+  // ever the default at a field with no instrument approach at all.
+  const instrument = all.filter((id) => !isVisualApproach(id))
+  const identifiers = instrument.length > 0 ? instrument : all
   if (identifiers.length === 0) return null
   return identifiers.find((id) => id.startsWith('ILS ')) ?? identifiers.find((id) => id.startsWith('LOC ')) ?? identifiers[0]!
 }
