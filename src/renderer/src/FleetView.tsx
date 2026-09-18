@@ -651,13 +651,12 @@ export function FleetView(props: {
     )
   }
 
-  const activeList = (
-    <>
-      activeAircraft.length === 0 ? (
+  const activeList =
+    activeAircraft.length === 0 ? (
       <p className="text-sm text-muted-foreground">
         No active aircraft — add one, or import a fleet from Settings → Data.
       </p>
-      ) : (
+    ) : (
       <Table>
         <TableHeader>
           <TableRow>
@@ -696,9 +695,7 @@ export function FleetView(props: {
           })}
         </TableBody>
       </Table>
-      )
-    </>
-  )
+    )
 
   const retiredList = (
     <div className="flex flex-col gap-2">

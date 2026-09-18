@@ -183,6 +183,29 @@ describe('FleetView', () => {
     ).toBeInTheDocument()
   })
 
+  it('shows only the table when there are active aircraft — no empty-state message, no stray code text', async () => {
+    setWinglog({ aircraftList: vi.fn().mockResolvedValue([makeAircraft({ id: 1, registration: 'G-LIVE' })]) })
+    const { container } = render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
+    await screen.findByText('G-LIVE')
+    expect(screen.queryByText(/No active aircraft/)).not.toBeInTheDocument()
+    expect(container.textContent).not.toMatch(/activeAircraft|\?\s*\(/)
+  })
+
+  it('does the same inside the Active tab when retired aircraft exist too', async () => {
+    setWinglog({
+      aircraftList: vi
+        .fn()
+        .mockResolvedValue([
+          makeAircraft({ id: 1, registration: 'G-LIVE' }),
+          makeAircraft({ id: 2, registration: 'G-OLD', retiredAt: '2026-09-18T12:00:00.000Z' })
+        ])
+    })
+    const { container } = render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
+    await screen.findByText('G-LIVE')
+    expect(screen.queryByText(/No active aircraft/)).not.toBeInTheDocument()
+    expect(container.textContent).not.toMatch(/activeAircraft|\?\s*\(/)
+  })
+
   it('lists active aircraft with their stats, defaulting hours/flights to 0.0/0 with no stats row', async () => {
     setWinglog({
       aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
