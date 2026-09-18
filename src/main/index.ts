@@ -1,3 +1,4 @@
+import { isRetired } from '@shared/aircraft'
 import { join } from 'node:path'
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
 import { initLogger } from './logging/logger'
@@ -35,6 +36,8 @@ import {
   getAircraftByRegistration,
   listAircraft,
   replaceAircraft,
+  retireAircraft,
+  unretireAircraft,
   updateAircraft
 } from './db/aircraft-repo'
 import { parseAircraftInput } from './db/aircraft-validation'
@@ -271,6 +274,20 @@ if (!gotSingleInstanceLock) {
         scheduleBackgroundSync()
       })
 
+      // Validated here, not just in the renderer — the renderer isn't a security boundary.
+      const requireAircraftId = (id: unknown): number => {
+        if (typeof id !== 'number' || !Number.isInteger(id)) throw new Error('Invalid aircraft id')
+        return id
+      }
+      ipcMain.handle(IpcChannels.aircraftRetire, (_event, id: unknown) => {
+        retireAircraft(db, requireAircraftId(id))
+        scheduleBackgroundSync()
+      })
+      ipcMain.handle(IpcChannels.aircraftUnretire, (_event, id: unknown) => {
+        unretireAircraft(db, requireAircraftId(id))
+        scheduleBackgroundSync()
+      })
+
       ipcMain.handle(IpcChannels.aircraftImport, async () => {
         const summary = await importAircraft(db, window)
         if (summary) scheduleBackgroundSync()
@@ -504,7 +521,7 @@ if (!gotSingleInstanceLock) {
         let simIcaoType: string | null = null
         if (input.aircraftId != null) {
           const aircraft = getAircraftById(db, input.aircraftId)
-          if (!aircraft || aircraft.replacedByAircraftId !== null) {
+          if (!aircraft || isRetired(aircraft)) {
             throw new Error(`Aircraft ${input.aircraftId} not found or retired`)
           }
         } else {
@@ -604,7 +621,7 @@ if (!gotSingleInstanceLock) {
         if (!existingFlight) throw new Error(`Flight ${flightId} not found`)
         if (existingFlight.aircraftId != null) throw new Error(`Flight ${flightId} already has a linked aircraft`)
         const aircraftRow = getAircraftById(db, aircraftId)
-        if (!aircraftRow || aircraftRow.replacedByAircraftId !== null) {
+        if (!aircraftRow || isRetired(aircraftRow)) {
           throw new Error(`Aircraft ${aircraftId} not found or retired`)
         }
         const updated = linkAircraftToFlight(db, flightId, aircraftId)

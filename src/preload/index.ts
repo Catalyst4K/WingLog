@@ -27,6 +27,8 @@ const api: WingLogApi = {
   aircraftDelete: (id: number) => ipcRenderer.invoke(IpcChannels.aircraftDelete, id),
   aircraftReplace: (retiredId: number, replacementId: number) =>
     ipcRenderer.invoke(IpcChannels.aircraftReplace, retiredId, replacementId),
+  aircraftRetire: (id: number) => ipcRenderer.invoke(IpcChannels.aircraftRetire, id),
+  aircraftUnretire: (id: number) => ipcRenderer.invoke(IpcChannels.aircraftUnretire, id),
   aircraftImport: () => ipcRenderer.invoke(IpcChannels.aircraftImport),
   aircraftExport: () => ipcRenderer.invoke(IpcChannels.aircraftExport),
   getSimConnectionStatus: () => ipcRenderer.invoke(IpcChannels.simConnectionStatusGet),

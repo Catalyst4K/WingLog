@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import type { Aircraft, AircraftTypeOption, Flight } from '@shared/ipc'
+import { isRetired } from '@shared/aircraft'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -30,7 +31,7 @@ export function AddFlightToFleetDialog(props: {
   fleetAircraft: Aircraft[]
   onLinked: (flight: Flight) => void
 }): React.JSX.Element {
-  const nonRetiredAircraft = props.fleetAircraft.filter((a) => a.replacedByAircraftId === null)
+  const nonRetiredAircraft = props.fleetAircraft.filter((a) => !isRetired(a))
   const [selected, setSelected] = useState<string>(nonRetiredAircraft.length > 0 ? EXISTING : 'new')
   const [registration, setRegistration] = useState(props.flight.simRegistration ?? '')
   const [icaoType, setIcaoType] = useState(props.flight.simIcaoType ?? '')

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, ArrowRightLeft, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Archive, ArchiveRestore, ArrowLeft, ArrowRightLeft, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { isRetired } from '@shared/aircraft'
 import type { Aircraft, AircraftLanding, Flight, FleetStats, NewAircraft } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -18,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { AircraftForm } from './AircraftForm'
 import { AircraftPhoto } from './AircraftPhoto'
 import { AirlineLogo } from './AirlineLogo'
+import { FolderTabs, FolderTabsContent, FolderTabsList, FolderTabsTrigger } from './components/FolderTabs'
 import { displayIcao } from './display-icao'
 import { useConfirm } from './hooks/useConfirm'
 import { useResetSignal } from './hooks/useResetSignal'
@@ -153,7 +155,9 @@ function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
               const fpm = Math.round(msToFpm(l.verticalSpeedMs))
               return (
                 <div key={l.id} className="flex items-center justify-between gap-3">
-                  <span className="text-muted-foreground">{new Date(l.touchdownTsUtc).toLocaleDateString()}</span>
+                  <span className="text-muted-foreground">
+                    {new Date(l.touchdownTsUtc).toLocaleDateString()}
+                  </span>
                   <span className="font-mono tabular-nums text-foreground">{fpm} fpm</span>
                   <span className="text-foreground">
                     {l.arrIcao} {l.runwayIdent ?? '—'}
@@ -179,7 +183,10 @@ function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
  *  flight count (his real fleet has one aircraft with well over a hundred). Rows are
  *  clickable, jumping to that flight's Logbook detail — the app's first cross-view
  *  navigation, confirmed wanted rather than assumed. */
-function AircraftFlightsCard(props: { aircraftId: number; onOpenFlight: (flightId: number) => void }): React.JSX.Element {
+function AircraftFlightsCard(props: {
+  aircraftId: number
+  onOpenFlight: (flightId: number) => void
+}): React.JSX.Element {
   const [flights, setFlights] = useState<Flight[]>([])
 
   useEffect(() => {
@@ -208,7 +215,9 @@ function AircraftFlightsCard(props: { aircraftId: number; onOpenFlight: (flightI
                 <span className="text-foreground">
                   {f.depIcao} → {f.arrIcao}
                 </span>
-                <span className="font-mono tabular-nums text-muted-foreground">{formatMinutes(f.blockMinutes)}</span>
+                <span className="font-mono tabular-nums text-muted-foreground">
+                  {formatMinutes(f.blockMinutes)}
+                </span>
               </button>
             ))}
           </div>
@@ -271,9 +280,8 @@ function ReplaceAircraftDialog(props: {
         <DialogHeader>
           <DialogTitle>Replace {props.aircraft.registration}</DialogTitle>
           <DialogDescription>
-            Moves this aircraft's flight history onto another fleet aircraft and marks it
-            retired — for a livery or registration change on the same physical airframe, not
-            a genuine retirement.
+            Moves this aircraft's flight history onto another fleet aircraft and marks it retired — for a
+            livery or registration change on the same physical airframe, not a genuine retirement.
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3">
@@ -308,7 +316,12 @@ function ReplaceAircraftDialog(props: {
           <Button type="button" variant="outline" onClick={() => props.onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="button" variant="destructive" onClick={handleConfirm} disabled={!target || submitting}>
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={handleConfirm}
+            disabled={!target || submitting}
+          >
             {submitting ? 'Replacing…' : 'Replace aircraft'}
           </Button>
         </DialogFooter>
@@ -324,13 +337,16 @@ function AircraftDetail(props: {
   onEdit: () => void
   onDelete: () => void
   onReplace: () => void
+  onRetire: () => void
+  onUnretire: () => void
   onViewAircraft: (id: number) => void
   onOpenFlight: (flightId: number) => void
   onBack: () => void
 }): React.JSX.Element {
   const a = props.aircraft
   const s = props.stats
-  const retired = a.replacedByAircraftId !== null
+  const retired = isRetired(a)
+  const replaced = a.replacedByAircraftId !== null
   const currentIcao = a.currentIcao ?? s?.lastArrIcao ?? null
   return (
     <div className="flex flex-col gap-4">
@@ -350,6 +366,18 @@ function AircraftDetail(props: {
               Replace…
             </Button>
           )}
+          {!retired && (
+            <Button type="button" variant="outline" size="sm" onClick={props.onRetire}>
+              <Archive />
+              Retire
+            </Button>
+          )}
+          {retired && !replaced && (
+            <Button type="button" variant="outline" size="sm" onClick={props.onUnretire}>
+              <ArchiveRestore />
+              Un-retire
+            </Button>
+          )}
           <Button type="button" variant="destructive" size="sm" onClick={props.onDelete}>
             <Trash2 />
             Delete
@@ -357,7 +385,13 @@ function AircraftDetail(props: {
         </div>
       </div>
 
-      {retired && (
+      {retired && !replaced && (
+        <p className="rounded-md bg-muted p-2 text-sm text-muted-foreground">
+          Retired{a.retiredAt ? ` on ${formatDate(a.retiredAt)}` : ''} — its flight history is kept.
+        </p>
+      )}
+
+      {replaced && (
         <p className="rounded-md bg-muted p-2 text-sm text-muted-foreground">
           Retired — replaced by{' '}
           {props.replacedBy ? (
@@ -437,8 +471,8 @@ export function FleetView(props: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const activeAircraft = aircraft.filter((a) => a.replacedByAircraftId === null)
-  const retiredAircraft = aircraft.filter((a) => a.replacedByAircraftId !== null)
+  const activeAircraft = aircraft.filter((a) => !isRetired(a))
+  const retiredAircraft = aircraft.filter((a) => isRetired(a))
 
   function statsFor(aircraftId: number): FleetStats | undefined {
     return stats.find((s) => s.aircraftId === aircraftId)
@@ -505,6 +539,33 @@ export function FleetView(props: {
     }
   }
 
+  async function handleRetire(target: Aircraft): Promise<void> {
+    const ok = await confirm({
+      title: `Retire ${target.registration}?`,
+      description:
+        'It will move to the Retired list and can no longer be picked for new flights. Its flight history stays on it — nothing moves to another aircraft. You can un-retire it later.',
+      confirmLabel: 'Retire aircraft'
+    })
+    if (!ok) return
+    try {
+      await window.winglog.aircraftRetire(target.id)
+      await reload()
+      toast.success(`${target.registration} retired.`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  async function handleUnretire(target: Aircraft): Promise<void> {
+    try {
+      await window.winglog.aircraftUnretire(target.id)
+      await reload()
+      toast.success(`${target.registration} is active again.`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
+    }
+  }
+
   async function handleConfirmReplace(replacementId: number): Promise<void> {
     /* v8 ignore start -- defensive only: only ever called (as ReplaceAircraftDialog's
      * onConfirm) while that dialog is mounted, which only happens while replaceTarget is
@@ -519,7 +580,9 @@ export function FleetView(props: {
       await window.winglog.aircraftReplace(target.id, replacementId)
       await reload()
       /* v8 ignore start -- see the defensive-only note above `replacement` */
-      toast.success(`${target.registration} retired, replaced by ${replacement?.registration ?? replacementId}.`)
+      toast.success(
+        `${target.registration} retired, replaced by ${replacement?.registration ?? replacementId}.`
+      )
       /* v8 ignore stop */
       setView({ kind: 'detail', id: replacementId })
     } catch (err) {
@@ -568,6 +631,8 @@ export function FleetView(props: {
           onEdit={() => setView({ kind: 'edit', id: view.id })}
           onDelete={() => handleDelete(existing)}
           onReplace={() => setReplaceTarget(existing)}
+          onRetire={() => void handleRetire(existing)}
+          onUnretire={() => void handleUnretire(existing)}
           onViewAircraft={(id) => setView({ kind: 'detail', id })}
           onOpenFlight={(flightId) => props.onOpenFlightInLogbook(flightId, existing.id)}
           onBack={() => setView({ kind: 'list' })}
@@ -586,6 +651,102 @@ export function FleetView(props: {
     )
   }
 
+  const activeList = (
+    <>
+      activeAircraft.length === 0 ? (
+      <p className="text-sm text-muted-foreground">
+        No active aircraft — add one, or import a fleet from Settings → Data.
+      </p>
+      ) : (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {FLEET_SORT_COLUMNS.map((col) => (
+              <SortableHead
+                key={col.key}
+                sortKey={col.key}
+                label={col.label}
+                activeKey={activeSortKey}
+                dir={activeSortDir}
+                onSort={handleActiveSort}
+              />
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {sortedActiveAircraft.map((a) => {
+            const s = statsFor(a.id)
+            const icao = a.currentIcao ?? s?.lastArrIcao ?? null
+            return (
+              <TableRow
+                key={a.id}
+                onClick={() => setView({ kind: 'detail', id: a.id })}
+                className="cursor-pointer"
+              >
+                <TableCell className="font-medium">{a.registration}</TableCell>
+                <TableCell>{a.icaoType}</TableCell>
+                <TableCell>
+                  <AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />
+                </TableCell>
+                <TableCell>{icao ? displayIcao(icao) : '—'}</TableCell>
+                <TableCell>{s ? s.totalHours.toFixed(1) : '0.0'}</TableCell>
+                <TableCell>{s?.totalCycles ?? 0}</TableCell>
+              </TableRow>
+            )
+          })}
+        </TableBody>
+      </Table>
+      )
+    </>
+  )
+
+  const retiredList = (
+    <div className="flex flex-col gap-2">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Registration</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Status</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {retiredAircraft.map((a) => {
+            const replacement = aircraft.find((c) => c.id === a.replacedByAircraftId)
+            return (
+              <TableRow
+                key={a.id}
+                onClick={() => setView({ kind: 'detail', id: a.id })}
+                className="cursor-pointer text-muted-foreground"
+              >
+                <TableCell className="font-medium">{a.registration}</TableCell>
+                <TableCell>{a.icaoType}</TableCell>
+                <TableCell>
+                  {a.replacedByAircraftId === null ? (
+                    `Retired${a.retiredAt ? ` ${formatDate(a.retiredAt)}` : ''}`
+                  ) : replacement ? (
+                    <button
+                      type="button"
+                      className="cursor-pointer text-foreground underline underline-offset-2"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setView({ kind: 'detail', id: replacement.id })
+                      }}
+                    >
+                      Replaced by {replacement.registration}
+                    </button>
+                  ) : (
+                    `Replaced by #${a.replacedByAircraftId}`
+                  )}
+                </TableCell>
+              </TableRow>
+            )
+          })}
+        </TableBody>
+      </Table>
+    </div>
+  )
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -596,95 +757,21 @@ export function FleetView(props: {
         </Button>
       </div>
 
-      {activeAircraft.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No active aircraft — add one, or import a fleet from Settings → Data.
-        </p>
+      {retiredAircraft.length === 0 ? (
+        activeList
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {FLEET_SORT_COLUMNS.map((col) => (
-                <SortableHead
-                  key={col.key}
-                  sortKey={col.key}
-                  label={col.label}
-                  activeKey={activeSortKey}
-                  dir={activeSortDir}
-                  onSort={handleActiveSort}
-                />
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sortedActiveAircraft.map((a) => {
-              const s = statsFor(a.id)
-              const icao = a.currentIcao ?? s?.lastArrIcao ?? null
-              return (
-                <TableRow
-                  key={a.id}
-                  onClick={() => setView({ kind: 'detail', id: a.id })}
-                  className="cursor-pointer"
-                >
-                  <TableCell className="font-medium">{a.registration}</TableCell>
-                  <TableCell>{a.icaoType}</TableCell>
-                  <TableCell>
-                    <AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />
-                  </TableCell>
-                  <TableCell>{icao ? displayIcao(icao) : '—'}</TableCell>
-                  <TableCell>{s ? s.totalHours.toFixed(1) : '0.0'}</TableCell>
-                  <TableCell>{s?.totalCycles ?? 0}</TableCell>
-                </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
-      )}
-
-      {retiredAircraft.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <h2 className="font-heading text-lg font-semibold text-foreground">Retired</h2>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Registration</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Replaced by</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {retiredAircraft.map((a) => {
-                const replacement = aircraft.find((c) => c.id === a.replacedByAircraftId)
-                return (
-                  <TableRow
-                    key={a.id}
-                    onClick={() => setView({ kind: 'detail', id: a.id })}
-                    className="cursor-pointer text-muted-foreground"
-                  >
-                    <TableCell className="font-medium">{a.registration}</TableCell>
-                    <TableCell>{a.icaoType}</TableCell>
-                    <TableCell>
-                      {replacement ? (
-                        <button
-                          type="button"
-                          className="cursor-pointer text-foreground underline underline-offset-2"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setView({ kind: 'detail', id: replacement.id })
-                          }}
-                        >
-                          {replacement.registration}
-                        </button>
-                      ) : (
-                        `#${a.replacedByAircraftId}`
-                      )}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        </div>
+        <FolderTabs defaultValue="active" className="gap-0">
+          <FolderTabsList>
+            <FolderTabsTrigger value="active">Active ({activeAircraft.length})</FolderTabsTrigger>
+            <FolderTabsTrigger value="retired">Retired ({retiredAircraft.length})</FolderTabsTrigger>
+          </FolderTabsList>
+          <FolderTabsContent value="active" className="pt-4">
+            {activeList}
+          </FolderTabsContent>
+          <FolderTabsContent value="retired" className="pt-4">
+            {retiredList}
+          </FolderTabsContent>
+        </FolderTabs>
       )}
     </div>
   )

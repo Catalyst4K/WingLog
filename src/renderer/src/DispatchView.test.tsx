@@ -36,6 +36,7 @@ function makeAircraft(overrides: Partial<Aircraft> = {}): Aircraft {
     currentIcao: 'EGLL',
     createdAt: '2026-01-01T00:00:00.000Z',
     replacedByAircraftId: null,
+    retiredAt: null,
     photoThumbnailUrl: null,
     ...overrides
   }
@@ -198,9 +199,11 @@ function selectTriggerNear(labelText: string): HTMLElement {
 describe('DispatchView', () => {
   it('loads aircraft (filtering retired ones), fleet stats and past flights on mount', async () => {
     const retired = makeAircraft({ id: 9, registration: 'G-OLD', replacedByAircraftId: 1 })
+    // Plainly retired (flights kept, docs/plans/fleet-retire.md) is filtered the same way.
+    const plainlyRetired = makeAircraft({ id: 10, registration: 'G-PUT', retiredAt: '2026-09-18T12:00:00.000Z' })
     const other = makeAircraft({ id: 2, registration: 'G-EFGH', operator: null })
     window.winglog = createWinglog({
-      aircraftList: vi.fn().mockResolvedValue([makeAircraft(), retired, other])
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft(), retired, plainlyRetired, other])
     })
     const user = userEvent.setup()
     render(<Harness />)
@@ -209,6 +212,7 @@ describe('DispatchView', () => {
     expect(await screen.findByRole('option', { name: /G-ABCD/ })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: /G-EFGH/ })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: /G-OLD/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /G-PUT/ })).not.toBeInTheDocument()
   })
 
   it('shows no airport for the METAR panel until one is set', () => {

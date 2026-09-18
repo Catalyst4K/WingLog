@@ -42,6 +42,9 @@ export interface Aircraft {
    *  selectable; anywhere an aircraft is picked (Dispatch's aircraft select, "new flight"
    *  flows) should filter these out — a retired aircraft has no flights of its own left. */
   replacedByAircraftId: number | null
+  /** ISO 8601 UTC of a plain Retire (docs/plans/fleet-retire.md) — flights stay on this
+   *  aircraft, unlike a replace. Use `isRetired` (shared/aircraft.ts), not this alone. */
+  retiredAt: string | null
   /** Real-world livery photo thumbnail from adsbdb's registration lookup — see
    *  schema.ts's photoThumbnailUrl comment. Null for a fictional/GA registration adsbdb
    *  has no photo for, or one never looked up. */
@@ -870,6 +873,8 @@ export const IpcChannels = {
   aircraftUpdate: 'aircraft:update',
   aircraftDelete: 'aircraft:delete',
   aircraftReplace: 'aircraft:replace',
+  aircraftRetire: 'aircraft:retire',
+  aircraftUnretire: 'aircraft:unretire',
   aircraftImport: 'aircraft:import',
   aircraftExport: 'aircraft:export',
   simTelemetry: 'sim:telemetry',
@@ -974,6 +979,12 @@ export interface WingLogApi {
    * the two ids match, either aircraft doesn't exist, or `retiredId` is already retired.
    */
   aircraftReplace: (retiredId: number, replacementId: number) => Promise<void>
+  /** Retires an aircraft *without* moving its flights (docs/plans/fleet-retire.md). Throws if
+   *  it doesn't exist or is already retired (retired or replaced). */
+  aircraftRetire: (id: number) => Promise<void>
+  /** Reverses aircraftRetire. Throws unless the aircraft was plainly retired — a *replaced*
+   *  aircraft can't be un-retired, its flights already live on the replacement. */
+  aircraftUnretire: (id: number) => Promise<void>
   /** Opens a native file-open dialog in the main process; null if the user cancels. */
   aircraftImport: () => Promise<AircraftImportSummary | null>
   /** Opens a native file-save dialog in the main process; false if the user cancels. */

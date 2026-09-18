@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import type { Aircraft, AircraftTypeOption, SimTelemetry } from '@shared/ipc'
+import { isRetired } from '@shared/aircraft'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -102,7 +103,7 @@ export function StartFreeFlightDialog(props: {
         // lookup itself.
         const remembered =
           prefill.rememberedAircraftId != null
-            ? props.aircraft.find((a) => a.id === prefill.rememberedAircraftId && a.replacedByAircraftId === null)
+            ? props.aircraft.find((a) => a.id === prefill.rememberedAircraftId && !isRetired(a))
             : undefined
         setSelectedAircraftId(remembered ? String(remembered.id) : NO_AIRCRAFT)
         setForm({
@@ -129,7 +130,7 @@ export function StartFreeFlightDialog(props: {
   }
 
   const addingNone = selectedAircraftId === NO_AIRCRAFT
-  const nonRetiredAircraft = props.aircraft.filter((a) => a.replacedByAircraftId === null)
+  const nonRetiredAircraft = props.aircraft.filter((a) => !isRetired(a))
   const selectedExisting = addingNone ? undefined : props.aircraft.find((a) => String(a.id) === selectedAircraftId)
   // Registration/type are only ever editable when tracking with no linked fleet aircraft —
   // fleet creation no longer happens inline here at all, so there's no other branch that

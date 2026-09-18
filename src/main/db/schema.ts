@@ -55,6 +55,10 @@ export const aircraft = sqliteTable('aircraft', {
   // `aircraft`'s own type isn't inferred yet while this object literal is still being
   // evaluated, so TS can't resolve `aircraft.id`'s type without the hint).
   replacedByAircraftId: integer('replaced_by_aircraft_id').references((): AnySQLiteColumn => aircraft.id),
+  // ISO 8601 UTC. Set by a plain Retire (flightdeck-backend docs/plans/fleet-retire.md): the
+  // aircraft keeps its own flights, unlike replacedByAircraftId above. Retired means either
+  // column is set — see src/shared/aircraft.ts's isRetired.
+  retiredAt: text('retired_at'),
   // Real-world livery photo thumbnail, from adsbdb's registration lookup (docs/plans/
   // fleet-redesign.md #3) — stored at lookup time rather than fetched per detail-page
   // view, matching this app's local-first bias; goes stale if the photo is replaced, an

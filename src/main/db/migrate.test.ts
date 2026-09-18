@@ -112,4 +112,40 @@ describe('migrateDb', () => {
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1)
     sqlite.close()
   })
+
+  // Migration 0027 (aircraft.retired_at) is a plain ADD COLUMN, but per CLAUDE.md every
+  // migration gets checked against a database with real rows — an aircraft with a flight
+  // already FK'd to it must survive with retired_at defaulting to NULL (i.e. still active).
+  it('upgrades a populated database through migration 0027, leaving existing aircraft active with their flights', () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'winglog-migrate-0027-test-'))
+    const dbPath = join(tempDir, 'winglog.db')
+    const realDrizzleDir = join(process.cwd(), 'drizzle')
+    const baselineDir = join(tempDir, 'drizzle-baseline')
+    mkdirSync(join(baselineDir, 'meta'), { recursive: true })
+    for (const f of readdirSync(realDrizzleDir)) {
+      if (f.endsWith('.sql') && !f.startsWith('0027_')) copyFileSync(join(realDrizzleDir, f), join(baselineDir, f))
+    }
+    const journal = JSON.parse(readFileSync(join(realDrizzleDir, 'meta', '_journal.json'), 'utf-8'))
+    journal.entries = journal.entries.filter((e: { tag: string }) => !e.tag.startsWith('0027_'))
+    writeFileSync(join(baselineDir, 'meta', '_journal.json'), JSON.stringify(journal, null, 2))
+
+    const baseline = createDb(dbPath)
+    migrate(baseline.db, { migrationsFolder: baselineDir })
+    baseline.sqlite
+      .prepare(`INSERT INTO aircraft (id, registration, icao_type, created_at) VALUES (1, 'G-REAL', 'A320', '2026-01-01')`)
+      .run()
+    baseline.sqlite
+      .prepare(
+        `INSERT INTO flight (id, aircraft_id, status, dep_icao, arr_icao, created_at) VALUES (1, 1, 'completed', 'EGLL', 'VHHH', '2026-01-01')`
+      )
+      .run()
+    baseline.sqlite.close()
+
+    expect(() => migrateDb(dbPath, realDrizzleDir)).not.toThrow()
+
+    const { sqlite } = createDb(dbPath)
+    expect(sqlite.prepare('select retired_at from aircraft where id = 1').get()).toEqual({ retired_at: null })
+    expect(sqlite.prepare('select aircraft_id from flight where id = 1').get()).toEqual({ aircraft_id: 1 })
+    sqlite.close()
+  })
 })
