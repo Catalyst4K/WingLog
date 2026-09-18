@@ -419,5 +419,8 @@ export const navdataProcedureLeg = sqliteTable('navdata_procedure_leg', {
   courseDeg: real('course_deg').notNull(),
   altitude1: real('altitude1').notNull(),
   altitude2: real('altitude2').notNull(),
-  speedLimit: real('speed_limit').notNull()
+  speedLimit: real('speed_limit').notNull(),
+  // Metres; only set for FC/FD legs (see ParsedLeg.routeDistanceM). Default 0 covers legs
+  // cached before this column existed — they read as "no distance known" until refreshed.
+  routeDistanceM: real('route_distance_m').notNull().default(0)
 })

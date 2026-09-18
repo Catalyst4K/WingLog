@@ -183,6 +183,13 @@
       "when": 1789758412073,
       "tag": "0025_wakeful_sasquatch",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1789766613062,
+      "tag": "0026_modern_zodiak",
+      "breakpoints": true
     }
   ]
 }

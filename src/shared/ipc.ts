@@ -860,6 +860,8 @@ export interface NavdataLeg {
   altitude1: number
   altitude2: number
   speedLimit: number
+  /** Metres along `courseDeg` from `fixIdent` — FC/FD legs only, 0 otherwise. */
+  routeDistanceM: number
 }
 
 export const IpcChannels = {

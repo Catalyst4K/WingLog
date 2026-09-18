@@ -85,7 +85,8 @@ export function replaceAirportNavdata(db: WingLogDb, icao: string, fetched: Fetc
               courseDeg: leg.courseDeg,
               altitude1: leg.altitude1,
               altitude2: leg.altitude2,
-              speedLimit: leg.speedLimit
+              speedLimit: leg.speedLimit,
+              routeDistanceM: leg.routeDistanceM
             })
             .run()
         }
@@ -134,7 +135,8 @@ export function replaceAirportNavdata(db: WingLogDb, icao: string, fetched: Fetc
             courseDeg: leg.courseDeg,
             altitude1: leg.altitude1,
             altitude2: leg.altitude2,
-            speedLimit: leg.speedLimit
+            speedLimit: leg.speedLimit,
+            routeDistanceM: leg.routeDistanceM
           })
           .run()
       }
@@ -206,7 +208,8 @@ function toNavdataLeg(row: typeof navdataProcedureLeg.$inferSelect): NavdataLeg 
     courseDeg: row.courseDeg,
     altitude1: row.altitude1,
     altitude2: row.altitude2,
-    speedLimit: row.speedLimit
+    speedLimit: row.speedLimit,
+    routeDistanceM: row.routeDistanceM
   }
 }
 

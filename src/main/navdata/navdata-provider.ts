@@ -32,6 +32,7 @@ export interface NavdataLeg {
   altitude1: number
   altitude2: number
   speedLimit: number
+  routeDistanceM: number
 }
 
 export type ProcedureKind = 'sid' | 'star' | 'approach'

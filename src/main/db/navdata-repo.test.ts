@@ -23,6 +23,7 @@ function leg(fixIdent: string, overrides: Partial<ParsedLeg> = {}): ParsedLeg {
     altitude1: 6000,
     altitude2: 0,
     speedLimit: 250,
+    routeDistanceM: 0,
     ...overrides
   }
 }
@@ -180,6 +181,34 @@ describe('navdata repo', () => {
     // The stale BPK7F's legs must have gone with it — no orphaned rows left in
     // navdata_procedure_leg from the first fetch.
     expect(listCachedProcedureLegs(db, 'EGLL', 'sid', 'BPK7F', '27R')).toEqual([])
+  })
+
+  it("round-trips an FC leg's distance so the transition's LAM/11 endpoint can be placed", () => {
+    replaceAirportNavdata(
+      db,
+      'EGLL',
+      fetched({
+        icao: 'EGLL',
+        approaches: [
+          approach({
+            identifier: 'ILS 27R',
+            runwayIdent: '27R',
+            transitions: [
+              { name: 'LAM', legs: [leg('LAM', { type: 9, fixType: 'V', courseDeg: 272, routeDistanceM: 20372 }), leg('D125O', { type: 7 })] }
+            ],
+            finalLegs: [leg('CF27R')]
+          })
+        ]
+      }),
+      '2026-09-18T12:00:00.000Z'
+    )
+
+    const legs = listCachedProcedureLegs(db, 'EGLL', 'approach', 'ILS 27R', null, 'LAM')
+    expect(legs.map((l) => [l.fixIdent, l.type, l.routeDistanceM])).toEqual([
+      ['LAM', 9, 20372],
+      ['D125O', 7, 0],
+      ['CF27R', 4, 0]
+    ])
   })
 
   it('caches an approach with its runway and transition names', () => {
