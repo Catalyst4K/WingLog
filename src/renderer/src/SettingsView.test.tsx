@@ -96,6 +96,19 @@ describe('SettingsView', () => {
       expect(screen.queryByText('Credentials')).not.toBeInTheDocument()
     })
 
+    it('marks only the selected category with a chevron, and moves it on selection', async () => {
+      const user = userEvent.setup()
+      renderSettings()
+      const uiTab = screen.getByRole('tab', { name: 'UI' })
+      const dataTab = screen.getByRole('tab', { name: 'Data' })
+      expect(within(uiTab).getByTestId('settings-active-chevron')).toBeInTheDocument()
+      expect(within(dataTab).queryByTestId('settings-active-chevron')).not.toBeInTheDocument()
+      expect(screen.getAllByTestId('settings-active-chevron')).toHaveLength(1)
+      await user.click(dataTab)
+      expect(within(dataTab).getByTestId('settings-active-chevron')).toBeInTheDocument()
+      expect(within(uiTab).queryByTestId('settings-active-chevron')).not.toBeInTheDocument()
+    })
+
     it('switches to the 3rd party category', async () => {
       const user = userEvent.setup()
       renderSettings()
