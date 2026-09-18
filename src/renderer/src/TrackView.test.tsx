@@ -696,40 +696,55 @@ describe('TrackView', () => {
     expect(screen.queryByText('Procedures…')).not.toBeInTheDocument()
   })
 
-  it('passes live telemetry through to the map without crashing', async () => {
+  const OVERLAY_TELEMETRY: SimTelemetry = {
+    latitude: 51.47,
+    longitude: -0.45,
+    altitudeM: 1000,
+    pressureAltitudeM: 1000,
+    altitudeAglM: 900,
+    verticalSpeedMs: 0,
+    indicatedAirspeedMs: 120,
+    trueAirspeedMs: 130,
+    machSpeed: 0.3,
+    groundSpeedMs: 125,
+    headingTrueDeg: 270,
+    pitchDeg: 2,
+    bankDeg: 0,
+    onGround: false,
+    gForce: 1,
+    fuelTotalKg: 50000,
+    totalWeightKg: 200000,
+    windSpeedMs: 5,
+    windDirectionDeg: 250,
+    engineCombustion1: true,
+    gearHandlePosition: 0,
+    flapsHandleIndex: 0,
+    parkingBrakeOn: false,
+    atcId: 'BAW31',
+    atcModel: 'A35K',
+    title: 'Airbus A350-1000',
+    simRate: 1,
+    slewActive: false
+  }
+
+  it('keeps the map overlay at N/A while telemetry is present but no flight is being tracked', async () => {
     setWinglog()
-    const telemetry: SimTelemetry = {
-      latitude: 51.47,
-      longitude: -0.45,
-      altitudeM: 1000,
-      pressureAltitudeM: 1000,
-      altitudeAglM: 900,
-      verticalSpeedMs: 0,
-      indicatedAirspeedMs: 120,
-      trueAirspeedMs: 130,
-      machSpeed: 0.3,
-      groundSpeedMs: 125,
-      headingTrueDeg: 270,
-      pitchDeg: 2,
-      bankDeg: 0,
-      onGround: false,
-      gForce: 1,
-      fuelTotalKg: 50000,
-      totalWeightKg: 200000,
-      windSpeedMs: 5,
-      windDirectionDeg: 250,
-      engineCombustion1: true,
-      gearHandlePosition: 0,
-      flapsHandleIndex: 0,
-      parkingBrakeOn: false,
-      atcId: 'BAW31',
-      atcModel: 'A35K',
-      title: 'Airbus A350-1000',
-      simRate: 1,
-      slewActive: false
-    }
-    renderTrack({ telemetry })
+    renderTrack({ telemetry: OVERLAY_TELEMETRY })
     await screen.findByText('No planned flights to track — dispatch one first.')
+    expect(screen.getByText(/Speed: N\/A/)).toBeInTheDocument()
+    expect(screen.queryByText(/Heading: 270°/)).not.toBeInTheDocument()
+  })
+
+  it('populates the map overlay from live telemetry once tracking is active', async () => {
+    setWinglog({
+      aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
+      flightList: vi.fn().mockResolvedValue([makeFlight({ status: 'active' })]),
+      trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'taxi' })
+    })
+    renderTrack({ telemetry: OVERLAY_TELEMETRY })
+    await screen.findByText('taxi')
+    expect(screen.getByText(/Heading: 270°/)).toBeInTheDocument()
+    expect(screen.getByText(/Speed: 233 kt/)).toBeInTheDocument()
   })
 
   it('loads existing track points for an already-active flight on mount', async () => {
