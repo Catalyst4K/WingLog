@@ -103,6 +103,18 @@ export interface AirportOption {
   isoCountry: string
 }
 
+/** OurAirports' `type` values WingLog keeps for the VFR map overlay. */
+export type AirfieldType = 'large_airport' | 'medium_airport' | 'small_airport' | 'heliport' | 'seaplane_base'
+
+/** One airfield with its position — the VFR overlay's airfields layer (resources/airports.csv). */
+export interface Airfield {
+  icao: string
+  name: string
+  type: AirfieldType
+  latitude: number
+  longitude: number
+}
+
 /** One match from the vendored ICAO Doc 8643 type-designator list (see resources/). */
 export interface AircraftTypeOption {
   manufacturer: string
@@ -952,6 +964,7 @@ export const IpcChannels = {
   simbriefAirframesForType: 'simbrief:airframes-for-type',
   simbriefCreateCustomAirframe: 'simbrief:create-custom-airframe',
   airportSearch: 'airport:search',
+  airportListAirfields: 'airport:list-airfields',
   airlineSearch: 'airline:search',
   airlineFindByIcao: 'airline:find-by-icao',
   weatherGetMetars: 'weather:get-metars',
@@ -1204,6 +1217,9 @@ export interface WingLogApi {
   simbriefCreateCustomAirframe: (shareUrl: string) => Promise<string | null>
   /** Searches the vendored OurAirports name/ICAO list. Empty for a query under 2 chars. */
   airportSearch: (query: string) => Promise<AirportOption[]>
+  /** Every airfield with a position (~43k, from the same vendored list) — for the Track
+   *  map's VFR overlay. Loaded on demand, only when that overlay is first switched on. */
+  airportListAirfields: () => Promise<Airfield[]>
   /** Searches the vendored OpenFlights airline list. Empty for a query under 2 chars. */
   airlineSearch: (query: string) => Promise<AirlineOption[]>
   /** Exact ICAO-code lookup against the same vendored airline list — for resolving an
