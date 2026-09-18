@@ -44,7 +44,10 @@ test('starts a free flight from Track and finds it, completed, in the Logbook', 
     await window.evaluate(
       () =>
         new Promise<void>((resolve) => {
-          const off = window.winglog.onSimTelemetry(() => {
+          // `globalThis`, not `window`: inside this callback (run in the page) TypeScript would
+          // otherwise resolve `window` to the Playwright Page variable of the same name.
+          const api = (globalThis as unknown as { winglog: { onSimTelemetry: (l: () => void) => () => void } }).winglog
+          const off = api.onSimTelemetry(() => {
             off()
             resolve()
           })
