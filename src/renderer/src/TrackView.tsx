@@ -457,7 +457,9 @@ export function TrackView(props: {
           route={route}
           waypoints={liveWaypoints}
           trackPoints={trackPoints}
-          telemetry={props.telemetry}
+          // Only shown once tracking has officially started — before that the sim can hold
+          // stale values from a previous session (beta feedback 2026-09-18).
+          telemetry={active ? props.telemetry : null}
           telemetryPhase={active?.phase}
           telemetryTransition={telemetryTransition}
         />

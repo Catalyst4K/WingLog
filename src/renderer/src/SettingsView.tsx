@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import type {
   AircraftImportSummary,
@@ -23,6 +24,12 @@ import { NavigraphLogo } from './NavigraphLogo'
 
 type SettingsCategory = 'ui' | 'thirdParty' | 'data' | 'about'
 const DEFAULT_SETTINGS_CATEGORY: SettingsCategory = 'ui'
+const SETTINGS_CATEGORIES: { value: SettingsCategory; label: string }[] = [
+  { value: 'ui', label: 'UI' },
+  { value: 'thirdParty', label: '3rd party' },
+  { value: 'data', label: 'Data' },
+  { value: 'about', label: 'About' }
+]
 
 // A curated, common-currency subset of what frankfurter.dev supports — enough for
 // "I want to see this in my own currency" without a second fetch just to populate a
@@ -283,11 +290,13 @@ export function SettingsView(props: {
         onValueChange={(value) => setCategory(value as SettingsCategory)}
         className="items-start gap-6"
       >
-        <TabsList variant="line" className="w-40 shrink-0">
-          <TabsTrigger value="ui">UI</TabsTrigger>
-          <TabsTrigger value="thirdParty">3rd party</TabsTrigger>
-          <TabsTrigger value="data">Data</TabsTrigger>
-          <TabsTrigger value="about">About</TabsTrigger>
+        <TabsList variant="line" className="w-40 shrink-0 self-stretch border-r border-border/40 pr-3">
+          {SETTINGS_CATEGORIES.map(({ value, label }) => (
+            <TabsTrigger key={value} value={value}>
+              {label}
+              {category === value && <ChevronRight data-testid="settings-active-chevron" className="ml-auto" />}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         <TabsContent value="ui" className="flex min-w-0 flex-col gap-4">

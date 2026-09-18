@@ -501,6 +501,31 @@ describe('LogbookView list', () => {
     expect(await screen.findByRole('columnheader', { name: /Touchdown rate/ })).toBeInTheDocument()
   })
 
+  it('sits the folder tabs between the totals and the table, and keeps arrow-key navigation', async () => {
+    const user = userEvent.setup()
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight({ id: 1 })]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+      logbookListFlightScores: vi.fn().mockResolvedValue([]),
+      logbookListAllLandings: vi.fn().mockResolvedValue([makeLandingListRow({ id: 1, flightId: 1 })])
+    })
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    await screen.findByText('TA100')
+
+    const totals = screen.getByText('Total flights')
+    const flightsTab = screen.getByRole('tab', { name: 'Flights' })
+    const table = screen.getByRole('table')
+    expect(totals.compareDocumentPosition(flightsTab) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(flightsTab.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    // Radix's roving focus survives the restyle: arrow right moves to and activates Landings.
+    flightsTab.focus()
+    await user.keyboard('{ArrowRight}')
+    expect(screen.getByRole('tab', { name: 'Landings' })).toHaveAttribute('data-state', 'active')
+    expect(await screen.findByRole('columnheader', { name: /Touchdown rate/ })).toBeInTheDocument()
+    expect(screen.getByText('Total flights')).toBeInTheDocument()
+  })
+
   it('opens a flight\'s detail when a row is clicked from the Landings sub-tab', async () => {
     const user = userEvent.setup()
     setWinglog({
@@ -535,6 +560,25 @@ describe('LandingCard', () => {
 
     expect(await screen.findByText('78')).toBeInTheDocument()
     expect(screen.getByText('Firm')).toBeInTheDocument()
+  })
+
+  it('lets long labels and values shrink and wrap instead of overlapping when the card narrows', async () => {
+    setWinglog({
+      logbookListLandings: vi.fn().mockResolvedValue([
+        makeLandingWithDetails({
+          score: { score: 78, severity: 'firm', categories: makeCategories() } satisfies LandingScoreResult
+        })
+      ])
+    })
+    const { container } = render(<LandingCard flightId={1} landingDistanceUnit="ft" />)
+
+    const label = await screen.findByText('Airspeed / Ground speed')
+    expect(label).toHaveClass('min-w-0', 'break-words')
+    expect(label.nextElementSibling).toHaveClass('min-w-0', 'break-words')
+    // Shrinkable grid tracks (a bare `1fr` can't go below its content's width) and a
+    // container query, since the card's width depends on the layout around it.
+    expect(container.querySelector('dl')).toHaveClass('grid-cols-[minmax(0,1fr)_minmax(0,1fr)]')
+    expect(container.querySelector('[data-slot="card"]')).toHaveClass('@container')
   })
 
   it('renders nothing extra when the flight has no landing row', async () => {
