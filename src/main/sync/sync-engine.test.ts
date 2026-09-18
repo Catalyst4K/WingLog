@@ -405,6 +405,8 @@ describe('sync-engine', () => {
     const createdFlight = createFlight(db, { aircraftId: createdAircraft.id, depIcao: 'EGLL', arrIcao: 'EGCC' })
     createLanding(db, {
       flightId: createdFlight.id,
+      seq: 1,
+      icao: null,
       touchdownTsUtc: '2026-09-06T12:00:00.000Z',
       verticalSpeedMs: -1.2,
       gForce: 1.3,
@@ -443,7 +445,9 @@ describe('sync-engine', () => {
     // serializeFlightInvoice must skip it rather than push a broken reference.
     db.update(flight).set({ uuid: null }).where(eq(flight.id, createdFlight.id)).run()
     createLanding(db, {
+      seq: 1,
       flightId: createdFlight.id,
+      icao: null,
       touchdownTsUtc: '2026-09-06T12:00:00.000Z',
       verticalSpeedMs: -1.2,
       gForce: 1.3,

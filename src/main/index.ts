@@ -53,7 +53,7 @@ import {
   listFlightsByAircraft,
   setFlownRoute
 } from './db/flight-repo'
-import { getLandingByFlight, listLandingsByAircraft } from './db/landing-repo'
+import { listAllLandings, listLandingsByAircraft, listLandingsByFlight } from './db/landing-repo'
 import { getLandingScoresForCompletedFlights, resolveLandingScore } from './db/landing-score-resolver'
 import { importLogbookCsv } from './db/logbook-import'
 import {
@@ -628,33 +628,43 @@ if (!gotSingleInstanceLock) {
         return true
       })
 
-      ipcMain.handle(
-        IpcChannels.logbookGetLanding,
-        (_event, flightId: number) => getLandingByFlight(db, flightId) ?? null
-      )
-      ipcMain.handle(IpcChannels.logbookGetLandingRunway, (_event, flightId: number) => {
+      ipcMain.handle(IpcChannels.logbookListLandings, (_event, flightId: number) => {
         const landingFlight = getFlight(db, flightId)
-        const landingRecord = getLandingByFlight(db, flightId)
-        if (!landingFlight || !landingRecord?.runwayIdent) return null
-        return findLandingRunway(landingFlight.arrIcao, landingRecord.runwayIdent)
-      })
-      ipcMain.handle(IpcChannels.logbookGetLandingScore, (_event, flightId: number) => {
-        const landingFlight = getFlight(db, flightId)
-        const landingRecord = getLandingByFlight(db, flightId)
-        if (!landingFlight || !landingRecord) return null
+        if (!landingFlight) return []
         const icaoType = getAircraftById(db, landingFlight.aircraftId)?.icaoType ?? null
-        return resolveLandingScore(landingRecord, landingFlight.arrIcao, icaoType)
+        return listLandingsByFlight(db, flightId).map((landingRecord) => {
+          // This touchdown's own resolved airport, falling back to the flight's filed
+          // arrival — same icao the capture itself narrowed the runway search by
+          // (TrackingController), so the read side can never disagree with what was
+          // actually measured.
+          const icao = landingRecord.icao ?? landingFlight.arrIcao
+          return {
+            ...landingRecord,
+            runway: landingRecord.runwayIdent ? findLandingRunway(icao, landingRecord.runwayIdent) : null,
+            score: resolveLandingScore(landingRecord, icao, icaoType)
+          }
+        })
       })
+      ipcMain.handle(IpcChannels.logbookListAllLandings, () =>
+        listAllLandings(db).map(({ icaoType, ...row }) => {
+          const icao = row.icao ?? row.arrIcao
+          const { score, severity } = resolveLandingScore(row, icao, icaoType)
+          return { ...row, score, severity }
+        })
+      )
       ipcMain.handle(IpcChannels.logbookListFlightScores, () => getLandingScoresForCompletedFlights(db))
       ipcMain.handle(IpcChannels.logbookGreatCircleRoute, (_event, depIcao: string, arrIcao: string) =>
         greatCircleWaypoints(depIcao, arrIcao)
       )
       ipcMain.handle(IpcChannels.fleetListLandings, (_event, aircraftId: number) => {
         const icaoType = getAircraftById(db, aircraftId)?.icaoType ?? null
-        return listLandingsByAircraft(db, aircraftId).map((row) => ({
-          ...row,
-          ...resolveLandingScore(row, row.arrIcao, icaoType)
-        }))
+        return listLandingsByAircraft(db, aircraftId).map((row) => {
+          const icao = row.icao ?? row.arrIcao
+          return {
+            ...row,
+            ...resolveLandingScore(row, icao, icaoType)
+          }
+        })
       })
       ipcMain.handle(IpcChannels.fleetListFlights, (_event, aircraftId: number) =>
         listFlightsByAircraft(db, aircraftId)

@@ -15,20 +15,22 @@ import { toast } from 'sonner'
 import type {
   Aircraft,
   Flight,
-  Landing,
   LandingDistanceUnit,
-  LandingRunway,
+  LandingListRow,
   LandingScoreCategoryKey,
-  LandingScoreResult,
   LandingScoreSummary,
+  LandingWithDetails,
   LogbookStats,
   TrackPoint,
   WeightUnit
 } from '@shared/ipc'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { computeChartAxisTicks, formatTickLabel } from './chart-ticks'
 import { displayAltitude } from './display-altitude'
@@ -139,34 +141,44 @@ function DetailField(props: {
  *  rendering pattern the fuel chart above already uses: render nothing when there's no
  *  landing to show (the common case for any flight tracked before this feature existed),
  *  not an empty card. */
+// Above this many landings, per-landing tabs across the card header would shrink to
+// unreadable — a Select takes over instead (Callum's design, 2026-09-16). 4 is the plan
+// doc's own recommendation from the card's layout, not a measured breakpoint — worth a
+// look at the real card at the narrowest supported width if it ever looks cramped.
+const LANDING_TAB_THRESHOLD = 4
+
+/** Label for one landing in the tabs/select switcher — runway plus touchdown time when a
+ *  runway resolved, otherwise just its position in the sequence ("Landing 2"). */
+function landingLabel(landing: LandingWithDetails, index: number): string {
+  const time = new Date(landing.touchdownTsUtc).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return landing.runwayIdent ? `${landing.runwayIdent} ${time}` : `Landing ${index + 1}`
+}
+
 /** Exported so it's directly testable without mounting FlightDetail's FlightMap, which
  *  LandingCard has no dependency on itself — LogbookView.test.tsx uses this. */
 export function LandingCard(props: {
   flightId: number
   landingDistanceUnit: LandingDistanceUnit
 }): React.JSX.Element | null {
-  const [landing, setLanding] = useState<Landing | null | undefined>(undefined)
-  const [runway, setRunway] = useState<LandingRunway | null>(null)
-  const [scoreResult, setScoreResult] = useState<LandingScoreResult | null>(null)
+  const [landings, setLandings] = useState<LandingWithDetails[] | undefined>(undefined)
+  // Index into `landings`, not a landing id — simpler to default ("the last one") and to
+  // drive both the tabs and the select from the same piece of state. Reset per flight by
+  // the fetch effect below, not derived inline, so switching flights doesn't strand the
+  // previous flight's selected index against the new one's (possibly shorter) list.
+  const [selectedIndex, setSelectedIndex] = useState(0)
 
   useEffect(() => {
-    // Fetched together (docs/plans/logbook-detail-improvements.md) rather than the runway
-    // as a second effect keyed off `landing` — that would flash the card at its shorter,
-    // no-diagram height first and then grow once the runway arrives.
-    Promise.all([
-      window.winglog.logbookGetLanding(props.flightId),
-      window.winglog.logbookGetLandingRunway(props.flightId),
-      window.winglog.logbookGetLandingScore(props.flightId)
-    ]).then(([landingResult, runwayResult, scoreResultValue]) => {
-      setLanding(landingResult)
-      setRunway(runwayResult)
-      setScoreResult(scoreResultValue)
+    window.winglog.logbookListLandings(props.flightId).then((result) => {
+      setLandings(result)
+      // Defaults to the final touchdown — the one that ended the flight — matching
+      // Logbook's own flights-list score column.
+      setSelectedIndex(Math.max(0, result.length - 1))
     })
   }, [props.flightId])
 
   // Still loading — render a skeleton at roughly the card's final height rather than
   // nothing, so the layout doesn't jump once the fetch resolves.
-  if (landing === undefined) {
+  if (landings === undefined) {
     return (
       <Card className="min-w-72 flex-1">
         <CardHeader>
@@ -179,8 +191,11 @@ export function LandingCard(props: {
     )
   }
 
-  if (!landing) return null
+  if (landings.length === 0) return null
 
+  const landing = landings[Math.min(selectedIndex, landings.length - 1)]
+  const runway = landing.runway
+  const scoreResult = landing.score
   const unit = props.landingDistanceUnit
 
   function categoryScore(key: LandingScoreCategoryKey): number | null {
@@ -193,6 +208,34 @@ export function LandingCard(props: {
     <Card className="@container min-w-72 flex-1">
       <CardHeader>
         <CardTitle className="text-sm">Landing</CardTitle>
+        {landings.length > 1 && (
+          <CardAction>
+            {landings.length <= LANDING_TAB_THRESHOLD ? (
+              <Tabs value={String(selectedIndex)} onValueChange={(v) => setSelectedIndex(Number(v))}>
+                <TabsList aria-label="Select landing">
+                  {landings.map((l, i) => (
+                    <TabsTrigger key={l.id} value={String(i)}>
+                      {landingLabel(l, i)}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            ) : (
+              <Select value={String(selectedIndex)} onValueChange={(v) => setSelectedIndex(Number(v))}>
+                <SelectTrigger className="w-40" size="sm" aria-label="Select landing">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {landings.map((l, i) => (
+                    <SelectItem key={l.id} value={String(i)}>
+                      {landingLabel(l, i)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </CardAction>
+        )}
       </CardHeader>
       <CardContent className="flex flex-col gap-4 @lg:flex-row @lg:items-start">
         <dl className={cn(DETAIL_GRID_CLASS, 'min-w-0 flex-1')}>
@@ -684,6 +727,124 @@ function LogbookRowsSkeleton(): React.JSX.Element {
   )
 }
 
+type LandingSortKey = 'date' | 'aircraft' | 'airport' | 'flight' | 'rate' | 'gforce' | 'score'
+
+const LANDING_SORT_COLUMNS: { key: LandingSortKey; label: string; className?: string }[] = [
+  { key: 'date', label: 'Date' },
+  { key: 'aircraft', label: 'Aircraft' },
+  { key: 'airport', label: 'Airport / Runway' },
+  { key: 'flight', label: 'Flight' },
+  { key: 'rate', label: 'Touchdown rate' },
+  { key: 'gforce', label: 'G-force' },
+  { key: 'score', label: 'Score', className: 'text-center' }
+]
+
+function compareLandingRows(a: LandingListRow, b: LandingListRow, key: LandingSortKey): number {
+  switch (key) {
+    case 'date':
+      return a.touchdownTsUtc.localeCompare(b.touchdownTsUtc)
+    case 'aircraft':
+      return a.aircraftRegistration.localeCompare(b.aircraftRegistration)
+    case 'airport':
+      return `${a.icao ?? ''}${a.runwayIdent ?? ''}`.localeCompare(`${b.icao ?? ''}${b.runwayIdent ?? ''}`)
+    case 'flight':
+      return (a.flightNumber ?? '').localeCompare(b.flightNumber ?? '')
+    case 'rate':
+      return a.verticalSpeedMs - b.verticalSpeedMs
+    case 'gforce':
+      return a.gForce - b.gForce
+    // A missing score sorts alongside a genuine 0, same convention the flights table's own
+    // score column already uses.
+    case 'score':
+      return (a.score ?? 0) - (b.score ?? 0)
+  }
+}
+
+/** The Logbook Landings sub-tab (flightdeck-backend's docs/plans/multiple-landings.md
+ *  Phase 3) — every touchdown across the whole fleet, one row per landing rather than one
+ *  row per flight. Exported for direct testing, same reasoning as LandingCard above. */
+export function LandingsTable(props: { onOpenFlight: (flightId: number) => void }): React.JSX.Element {
+  const [landings, setLandings] = useState<LandingListRow[] | undefined>(undefined)
+
+  useEffect(() => {
+    window.winglog.logbookListAllLandings().then(setLandings)
+  }, [])
+
+  const comparators = Object.fromEntries(
+    LANDING_SORT_COLUMNS.map((col) => [
+      col.key,
+      (a: LandingListRow, b: LandingListRow) => compareLandingRows(a, b, col.key)
+    ])
+  ) as Record<LandingSortKey, (a: LandingListRow, b: LandingListRow) => number>
+  const {
+    sortKey,
+    sortDir,
+    sortedRows: sortedLandings,
+    handleSort
+  } = useSortable<LandingListRow, LandingSortKey>(landings ?? [], comparators, 'date', 'desc')
+
+  if (landings === undefined) {
+    return (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {LANDING_SORT_COLUMNS.map((col) => (
+              <TableHead key={col.key} className={col.className}>
+                {col.label}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <LogbookRowsSkeleton />
+        </TableBody>
+      </Table>
+    )
+  }
+
+  if (landings.length === 0) {
+    return <p className="text-sm text-muted-foreground">No landings recorded yet.</p>
+  }
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          {LANDING_SORT_COLUMNS.map((col) => (
+            <SortableHead
+              key={col.key}
+              sortKey={col.key}
+              label={col.label}
+              activeKey={sortKey}
+              dir={sortDir}
+              onSort={handleSort}
+              className={col.className}
+            />
+          ))}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {sortedLandings.map((l) => (
+          <TableRow key={l.id} onClick={() => props.onOpenFlight(l.flightId)} className="cursor-pointer">
+            <TableCell>{formatDate(l.touchdownTsUtc)}</TableCell>
+            <TableCell>{l.aircraftRegistration}</TableCell>
+            <TableCell>
+              {l.icao ?? '—'}
+              {l.runwayIdent ? ` / ${l.runwayIdent}` : ''}
+            </TableCell>
+            <TableCell>{l.flightNumber ?? `Flight #${l.flightId}`}</TableCell>
+            <TableCell>{Math.round(msToFpm(l.verticalSpeedMs))} fpm</TableCell>
+            <TableCell>{l.gForce.toFixed(2)}</TableCell>
+            <TableCell className="text-center">
+              <LandingScoreBadge score={l.score} />
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  )
+}
+
 export function LogbookView(props: {
   weightUnit: WeightUnit
   landingDistanceUnit: LandingDistanceUnit
@@ -755,6 +916,13 @@ export function LogbookView(props: {
     return scores.find((s) => s.flightId === flightId)?.score ?? null
   }
 
+  /** Landing count for the flights list's "×3" badge (flightdeck-backend's docs/plans/
+   *  multiple-landings.md) — 0 for a flight with no landing row, same cases scoreFor
+   *  returns null for. */
+  function landingCountFor(flightId: number): number {
+    return scores.find((s) => s.flightId === flightId)?.landingCount ?? 0
+  }
+
   const comparators = Object.fromEntries(
     SORT_COLUMNS.map((col) => [
       col.key,
@@ -799,88 +967,111 @@ export function LogbookView(props: {
     <div className="flex flex-col gap-6">
       <h1 className="font-heading text-2xl font-semibold text-foreground">Logbook</h1>
 
-      {loading ? (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Flight</TableHead>
-              <TableHead>Route</TableHead>
-              <TableHead>Aircraft</TableHead>
-              <TableHead>Block</TableHead>
-              <TableHead>Fuel burn</TableHead>
-              <TableHead className="text-center">Landing Score</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <LogbookRowsSkeleton />
-          </TableBody>
-        </Table>
-      ) : flights.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No completed flights yet — track one, or import a CSV logbook from Settings → Data.
-        </p>
-      ) : (
-        <>
-          <div className="flex flex-wrap gap-8">
-            <div>
-              <p className="text-xs tracking-wide text-muted-foreground uppercase">Total flights</p>
-              <p className="text-xl font-semibold text-foreground">{stats?.totalFlights ?? flights.length}</p>
-            </div>
-            <div>
-              <p className="text-xs tracking-wide text-muted-foreground uppercase">Total flight hours</p>
-              <p className="text-xl font-semibold text-foreground">
-                {formatMinutes(stats?.totalBlockMinutes ?? null)}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs tracking-wide text-muted-foreground uppercase">Total miles flown</p>
-              <p className="text-xl font-semibold text-foreground">
-                {stats ? `${Math.round(stats.totalNm).toLocaleString()} nm` : '—'}
-              </p>
-            </div>
-          </div>
+      <Tabs defaultValue="flights">
+        <TabsList>
+          <TabsTrigger value="flights">Flights</TabsTrigger>
+          <TabsTrigger value="landings">Landings</TabsTrigger>
+        </TabsList>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {SORT_COLUMNS.map((col) => (
-                  <SortableHead
-                    key={col.key}
-                    sortKey={col.key}
-                    label={col.label}
-                    activeKey={sortKey}
-                    dir={sortDir}
-                    onSort={handleSort}
-                    className={col.className}
-                  />
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedFlights.map((f) => (
-                <TableRow
-                  key={f.id}
-                  onClick={() => setView({ kind: 'detail', id: f.id })}
-                  className="cursor-pointer"
-                >
-                  <TableCell>{formatDate(f.actualOutUtc)}</TableCell>
-                  <TableCell>{f.flightNumber ?? '—'}</TableCell>
-                  <TableCell>
-                    {f.depIcao} → {f.arrIcao}
-                  </TableCell>
-                  <TableCell>{registrationFor(f.aircraftId)}</TableCell>
-                  <TableCell>{formatMinutes(f.blockMinutes)}</TableCell>
-                  <TableCell>{formatWeight(f.fuelBurnKg, props.weightUnit)}</TableCell>
-                  <TableCell className="text-center">
-                    <LandingScoreBadge score={scoreFor(f.id)} />
-                  </TableCell>
+        <TabsContent value="flights">
+          {loading ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Flight</TableHead>
+                  <TableHead>Route</TableHead>
+                  <TableHead>Aircraft</TableHead>
+                  <TableHead>Block</TableHead>
+                  <TableHead>Fuel burn</TableHead>
+                  <TableHead className="text-center">Landing Score</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </>
-      )}
+              </TableHeader>
+              <TableBody>
+                <LogbookRowsSkeleton />
+              </TableBody>
+            </Table>
+          ) : flights.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No completed flights yet — track one, or import a CSV logbook from Settings → Data.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-6">
+              <div className="flex flex-wrap gap-8">
+                <div>
+                  <p className="text-xs tracking-wide text-muted-foreground uppercase">Total flights</p>
+                  <p className="text-xl font-semibold text-foreground">{stats?.totalFlights ?? flights.length}</p>
+                </div>
+                <div>
+                  <p className="text-xs tracking-wide text-muted-foreground uppercase">Total flight hours</p>
+                  <p className="text-xl font-semibold text-foreground">
+                    {formatMinutes(stats?.totalBlockMinutes ?? null)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs tracking-wide text-muted-foreground uppercase">Total miles flown</p>
+                  <p className="text-xl font-semibold text-foreground">
+                    {stats ? `${Math.round(stats.totalNm).toLocaleString()} nm` : '—'}
+                  </p>
+                </div>
+              </div>
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {SORT_COLUMNS.map((col) => (
+                      <SortableHead
+                        key={col.key}
+                        sortKey={col.key}
+                        label={col.label}
+                        activeKey={sortKey}
+                        dir={sortDir}
+                        onSort={handleSort}
+                        className={col.className}
+                      />
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedFlights.map((f) => {
+                    const landingCount = landingCountFor(f.id)
+                    return (
+                      <TableRow
+                        key={f.id}
+                        onClick={() => setView({ kind: 'detail', id: f.id })}
+                        className="cursor-pointer"
+                      >
+                        <TableCell>{formatDate(f.actualOutUtc)}</TableCell>
+                        <TableCell>{f.flightNumber ?? '—'}</TableCell>
+                        <TableCell>
+                          {f.depIcao} → {f.arrIcao}
+                        </TableCell>
+                        <TableCell>{registrationFor(f.aircraftId)}</TableCell>
+                        <TableCell>{formatMinutes(f.blockMinutes)}</TableCell>
+                        <TableCell>{formatWeight(f.fuelBurnKg, props.weightUnit)}</TableCell>
+                        <TableCell className="text-center">
+                          <span className="inline-flex items-center gap-1.5">
+                            <LandingScoreBadge score={scoreFor(f.id)} />
+                            {landingCount > 1 && (
+                              <Badge variant="outline" className="text-xs">
+                                ×{landingCount}
+                              </Badge>
+                            )}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="landings">
+          <LandingsTable onOpenFlight={(id) => setView({ kind: 'detail', id })} />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

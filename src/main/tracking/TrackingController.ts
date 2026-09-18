@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events'
 import type { ActiveTracking, FlightPhase, ProcedureSelection, SimTelemetry, TrackPoint } from '@shared/ipc'
+import { nearestAirport } from '../airports/airport-search'
 import type { WingLogDb } from '../db/client'
 import { addInvoicesForFlight } from '../db/flight-invoice-repo'
 import {
@@ -14,7 +15,7 @@ import {
   setSelectedProcedures,
   startFlight
 } from '../db/flight-repo'
-import { createLanding } from '../db/landing-repo'
+import { createLanding, listLandingsByFlight } from '../db/landing-repo'
 import { getGsxSettings } from '../db/settings-repo'
 import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
 import { buildFlightMatchWindow } from '../gsx/flight-window'
@@ -25,6 +26,18 @@ import { buildLandingRecord } from './landing-capture'
 import { isPhysicallyImpossibleJump, RESUME_CLEANUP_CONSTANTS, type TrackCleanupResult } from './resume-cleanup'
 import { runTrackCleanupForFlight } from './run-track-cleanup'
 import { deriveFlownRouteJson } from './route-simplify'
+
+// A touchdown only counts as a *new* one after this many consecutive airborne samples
+// since the last one — at the 1 Hz telemetry rate every SimConnect period request uses
+// (SimConnectService), a handful of seconds genuinely airborne rules out a rollout bounce
+// (gear compression briefly reporting on-ground->off->on again) without missing a real
+// short circuit hop (flightdeck-backend's docs/plans/multiple-landings.md).
+const MIN_AIRBORNE_SAMPLES_FOR_NEW_TOUCHDOWN = 3
+// How far from the touchdown position to look for the airport it happened at
+// (nearestAirport, airport-search.ts) before falling back to the flight's filed arrival —
+// generous enough to cover a long runway's far end or a touchdown just short of the
+// threshold, tight enough not to pick up a different nearby field.
+const LANDING_ICAO_SEARCH_RADIUS_NM = 5
 
 interface TrackingControllerEvents {
   point: [TrackPoint]
@@ -56,8 +69,24 @@ interface TrackingControllerEvents {
 export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   private recorder: FlightRecorder | undefined
   private offRecorded = false
-  private onRecorded = false
   private fuelOutFinalized = false
+  // Landing capture (flightdeck-backend's docs/plans/multiple-landings.md) — keyed off the
+  // raw telemetry.onGround false->true edge directly, independent of the phase machine's
+  // own descent -> landing transition, which has real holes for circuit flying (a tight
+  // circuit that never holds level for ten seconds never reaches 'descent' at all).
+  // landingSeq is 0 until the first touchdown, then increments per touchdown captured —
+  // it, not a boolean, is what lets every touchdown get its own row instead of only the
+  // first. wasOnGround starts undefined (no prior tick to compare against) so the very
+  // first tick of a flight already on the ground can never itself read as an edge.
+  // airborneStreak counts consecutive airborne samples since the last ground contact —
+  // gated against MIN_AIRBORNE_SAMPLES_FOR_NEW_TOUCHDOWN so a rollout bounce (gear
+  // compression briefly reporting on-ground->off->on) doesn't count as landing #2.
+  private landingSeq = 0
+  private wasOnGround: boolean | undefined
+  private airborneStreak = 0
+  // Mirrors FlightRecorder's own `paused` flag — detectTouchdown needs the same guard the
+  // phase machine applies internally, since it now runs independently of it.
+  private paused = false
   // Pushed live from the renderer (setProcedureSelection) while a flight is being tracked —
   // cached here, not written to the DB until completion, since neither completion trigger
   // below (auto shutdown detection or a manual finish()) round-trips through the renderer
@@ -111,27 +140,14 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
         this.offRecorded = true
         recordOff(this.db, this.recorder.getFlightId())
       }
-      if (result.phase === 'landing' && !this.onRecorded) {
-        this.onRecorded = true
-        const flightId = this.recorder.getFlightId()
-        recordOn(this.db, flightId)
-        // Same tick, same on-ground false->true transition M6's own touchdown detection
-        // targets (docs/decisions.md, landing-analysis entry) — the flight row is already
-        // loaded here for its arr_icao, which narrows the runway lookup to one airport.
-        const flight = getFlight(this.db, flightId)
-        if (flight) {
-          createLanding(
-            this.db,
-            buildLandingRecord(
-              flightId,
-              flight.arrIcao,
-              telemetry,
-              new Date().toISOString(),
-              undefined,
-              previousTelemetry
-            )
-          )
-        }
+
+      // Independent of the phase machine's own descent -> landing edge — keyed off the raw
+      // telemetry directly so a circuit that never reaches 'descent' still gets its
+      // touchdown captured (flightdeck-backend's docs/plans/multiple-landings.md). Guarded
+      // the same way FlightRecorder.ingest guards phase advancement, since a slew teleport
+      // or a paused sim can otherwise report a nonsensical onGround flip.
+      if (!this.paused && !telemetry.slewActive) {
+        this.detectTouchdown(telemetry, previousTelemetry)
       }
 
       if (result.point) {
@@ -152,6 +168,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
       }
     })
     this.simConnectService.on('paused', (paused) => {
+      this.paused = paused
       this.recorder?.setPaused(paused)
       if (!this.recorder) return
       const nowIso = new Date().toISOString()
@@ -162,6 +179,41 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
         this.openPauseStartIso = undefined
       }
     })
+  }
+
+  /**
+   * Captures a touchdown on the raw telemetry.onGround false->true edge, independent of
+   * the phase machine (flightdeck-backend's docs/plans/multiple-landings.md) — called for
+   * every tick while a flight is tracked (guarded by the caller against pause/slew).
+   * `wasOnGround`/`airborneStreak` are read before being updated for this tick, so the
+   * hysteresis check sees how many consecutive airborne samples preceded *this* ground
+   * contact, not this one itself.
+   */
+  private detectTouchdown(telemetry: SimTelemetry, previousTelemetry: SimTelemetry | undefined): void {
+    if (!this.recorder) return
+    const isTouchdown =
+      this.wasOnGround === false &&
+      telemetry.onGround &&
+      this.airborneStreak >= MIN_AIRBORNE_SAMPLES_FOR_NEW_TOUCHDOWN
+    this.wasOnGround = telemetry.onGround
+    this.airborneStreak = telemetry.onGround ? 0 : this.airborneStreak + 1
+    if (!isTouchdown) return
+
+    const flightId = this.recorder.getFlightId()
+    // Last-wins, not first: air_minutes should span first liftoff -> *final* touchdown,
+    // not stop counting at the first one a circuit flies.
+    recordOn(this.db, flightId)
+    this.landingSeq += 1
+    const flight = getFlight(this.db, flightId)
+    if (!flight) return
+    // This touchdown's own airport, not assumed to be the flight's filed arrival — a
+    // circuit, a diversion, or a free flight can land somewhere else. Falls back to
+    // arr_icao when nothing vendored is close enough to resolve.
+    const icao = nearestAirport(telemetry.latitude, telemetry.longitude, LANDING_ICAO_SEARCH_RADIUS_NM) ?? flight.arrIcao
+    createLanding(
+      this.db,
+      buildLandingRecord(flightId, this.landingSeq, icao, telemetry, new Date().toISOString(), undefined, previousTelemetry)
+    )
   }
 
   /** `pausedIntervals` plus whatever pause is still open at completion time (the user can
@@ -204,7 +256,9 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     startFlight(this.db, flightId, telemetry.fuelTotalKg)
     this.recorder = new FlightRecorder(flightId)
     this.offRecorded = false
-    this.onRecorded = false
+    this.landingSeq = 0
+    this.wasOnGround = undefined
+    this.airborneStreak = 0
     this.fuelOutFinalized = false
     // A stale selection from whatever flight was tracked previously must never leak onto
     // this one — start with nothing cached; createFlight's own saved-at-plan-time values
@@ -247,7 +301,11 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
       resumeSegment
     })
     this.offRecorded = flight.actualOffUtc != null
-    this.onRecorded = flight.actualOnUtc != null
+    // Continues the same seq sequence rather than restarting it — a resume mid-circuit
+    // must not overwrite landing #1 with what should be landing #2.
+    this.landingSeq = listLandingsByFlight(this.db, flightId).length
+    this.wasOnGround = undefined
+    this.airborneStreak = 0
     this.fuelOutFinalized = this.offRecorded
     this.currentSelection = undefined
     this.pausedIntervals = []

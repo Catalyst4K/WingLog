@@ -11,7 +11,7 @@ import { FALLBACK_LATERAL_TOLERANCE_M, findRunwayEndByIdent } from '../airports/
 import { getAircraftById } from './aircraft-repo'
 import type { WingLogDb } from './client'
 import { listCompletedFlights } from './flight-repo'
-import { getLandingByFlight } from './landing-repo'
+import { listLandingsByFlight } from './landing-repo'
 
 // Order matches the landing card's own field order (touchdown rate, G-force, pitch, bank,
 // crab, then the two runway-dependent inputs) — the breakdown popup and the card's warning
@@ -100,20 +100,27 @@ export function resolveLandingScore(
  * list shows "—" for those rather than a fabricated score. Deliberately not one query with
  * every join inlined — completed-flights-with-a-landing is a small, bounded set, and
  * reusing the existing repo functions here keeps this in step with them automatically.
+ *
+ * Scores against the *final* touchdown (flightdeck-backend's docs/plans/
+ * multiple-landings.md) — the one that ended the flight, matching LandingCard's own
+ * default — with `landingCount` alongside it so the list can show a "×3" badge for a flight
+ * with several without a second round trip.
  */
 export function getLandingScoresForCompletedFlights(db: WingLogDb): LandingScoreSummary[] {
   const icaoTypeByAircraftId = new Map<number, string | null>()
   const summaries: LandingScoreSummary[] = []
 
   for (const f of listCompletedFlights(db)) {
-    const landingRecord = getLandingByFlight(db, f.id)
-    if (!landingRecord) continue
+    const landings = listLandingsByFlight(db, f.id)
+    if (landings.length === 0) continue
+    const finalLanding = landings[landings.length - 1]
 
     if (!icaoTypeByAircraftId.has(f.aircraftId)) {
       icaoTypeByAircraftId.set(f.aircraftId, getAircraftById(db, f.aircraftId)?.icaoType ?? null)
     }
-    const { score } = resolveLandingScore(landingRecord, f.arrIcao, icaoTypeByAircraftId.get(f.aircraftId) ?? null)
-    summaries.push({ flightId: f.id, score })
+    const icao = finalLanding.icao ?? f.arrIcao
+    const { score } = resolveLandingScore(finalLanding, icao, icaoTypeByAircraftId.get(f.aircraftId) ?? null)
+    summaries.push({ flightId: f.id, score, landingCount: landings.length })
   }
 
   return summaries
