@@ -11,6 +11,8 @@ import { getLandingScoresForCompletedFlights, resolveLandingScore } from './land
 function makeLanding(flightId: number, overrides: Partial<NewLanding> = {}): NewLanding {
   return {
     flightId,
+    seq: 1,
+    icao: 'EGCC',
     touchdownTsUtc: '2026-09-12T12:00:00.000Z',
     verticalSpeedMs: -1.2,
     gForce: 1.1,
@@ -158,9 +160,32 @@ describe('getLandingScoresForCompletedFlights', () => {
     expect(summaries[0].flightId).toBe(withLanding.id)
     expect(summaries[0].score).toBeGreaterThanOrEqual(0)
     expect(summaries[0].score).toBeLessThanOrEqual(100)
+    expect(summaries[0].landingCount).toBe(1)
   })
 
   it('returns an empty array when there are no completed flights with a landing', () => {
     expect(getLandingScoresForCompletedFlights(db)).toEqual([])
+  })
+
+  it('scores against the final touchdown and reports the real count for a flight with several', () => {
+    const flight = createFlight(db, { aircraftId, depIcao: 'EGCC', arrIcao: 'EGLL' })
+    // A soft first touchdown...
+    createLanding(db, makeLanding(flight.id, { seq: 1, verticalSpeedMs: -0.2, gForce: 1.0 }))
+    // ...then a firm final one — the score should reflect this one, not the first.
+    createLanding(db, makeLanding(flight.id, { seq: 2, verticalSpeedMs: -3.5, gForce: 1.9 }))
+    completeFlight(db, flight.id, 4000)
+
+    const summaries = getLandingScoresForCompletedFlights(db)
+    expect(summaries).toHaveLength(1)
+    expect(summaries[0].landingCount).toBe(2)
+
+    // Matches the landing's own icao ('EGCC', the makeLanding default — not the flight's
+    // filed EGLL arrival), same as getLandingScoresForCompletedFlights itself resolves.
+    const finalOnlyScore = resolveLandingScore(
+      { ...makeLanding(flight.id), id: 2, seq: 2, verticalSpeedMs: -3.5, gForce: 1.9 } as Landing,
+      'EGCC',
+      'A320'
+    ).score
+    expect(summaries[0].score).toBe(finalOnlyScore)
   })
 })

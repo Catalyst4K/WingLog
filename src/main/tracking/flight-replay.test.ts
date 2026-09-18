@@ -16,15 +16,16 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createAircraft } from '../db/aircraft-repo'
 import { createDb } from '../db/client'
 import { createFlight, getFlight } from '../db/flight-repo'
-import { getLandingByFlight } from '../db/landing-repo'
+import { getLandingByFlight, listLandingsByFlight } from '../db/landing-repo'
 import { listTrackPoints } from '../db/track-point-repo'
 import { ReplaySimConnectService } from '../sim/ReplaySimConnectService'
 import { TrackingController } from './TrackingController'
 
-const FIXTURE_PATH = new URL('./__fixtures__/short-hop-egll-egcc.ndjson', import.meta.url).pathname.replace(
-  /^\/([A-Za-z]:)/,
-  '$1'
-)
+function fixturePath(name: string): string {
+  return new URL(`./__fixtures__/${name}`, import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')
+}
+
+const FIXTURE_PATH = fixturePath('short-hop-egll-egcc.ndjson')
 
 describe('flight replay harness (real fixture)', () => {
   it(
@@ -73,6 +74,59 @@ describe('flight replay harness (real fixture)', () => {
       expect(landing).toBeDefined()
       expect(landing?.runwayIdent).toBe('23R')
 
+      replay.stop()
+    },
+    60_000
+  )
+})
+
+describe('flight replay harness (real fixture) — multiple landings', () => {
+  it(
+    'captures every real touchdown of a circuits flight, including the firm landing that ' +
+      'the old one-per-flight capture used to lose (flightdeck-backend docs/plans/multiple-landings.md)',
+    async () => {
+      const { db } = createDb(':memory:')
+      migrate(db, { migrationsFolder: 'drizzle' })
+
+      const replay = new ReplaySimConnectService(fixturePath('tier2-circuits-firm-landing-goaround-crash.ndjson'), {
+        mode: 'instant'
+      })
+      const aircraft = createAircraft(db, { registration: 'REPLAY', icaoType: replay.header.aircraftType })
+      const flight = createFlight(db, { aircraftId: aircraft.id, depIcao: 'VHHH', arrIcao: 'VHHH' })
+
+      const controller = new TrackingController(db, replay)
+
+      // This fixture ends with a real crash, not a normal shutdown (parking brake never
+      // sets, engines never stop) — 'completed' never fires, only replayComplete. That
+      // itself is worth asserting: a flight this plan's own real motivating case produces
+      // must not silently pretend to complete normally.
+      await new Promise<void>((resolve) => {
+        replay.on('replayComplete', resolve)
+        controller.start(flight.id)
+        replay.start()
+      })
+
+      const landings = listLandingsByFlight(db, flight.id)
+
+      // Independently re-derived from the raw fixture's own onGround transitions with the
+      // same hysteresis TrackingController.detectTouchdown applies (>=3 consecutive
+      // airborne samples) — not asserting an arbitrary number.
+      expect(landings.map((l) => l.seq)).toEqual([1, 2, 3, 4])
+
+      // The real finding this plan exists to fix: flight 198's deliberately firm landing
+      // (g-force 1.68, flight-replay-harness.md's 2026-09-14 entry) used to be overwritten
+      // by an earlier accidental soft touchdown under the old one-row-per-flight capture.
+      // It must now survive as its own row rather than being lost.
+      const firmLanding = landings.find((l) => l.gForce > 1.5)
+      expect(firmLanding).toBeDefined()
+      expect(firmLanding?.gForce).toBeCloseTo(1.68, 1)
+
+      // Every captured landing is a real, distinct touchdown — none accidentally collapsed
+      // onto another's row.
+      const ids = new Set(landings.map((l) => l.id))
+      expect(ids.size).toBe(landings.length)
+
+      expect(getFlight(db, flight.id)?.status).toBe('active') // never reached shutdown
       replay.stop()
     },
     60_000

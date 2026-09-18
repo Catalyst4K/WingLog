@@ -66,9 +66,51 @@ test('browses to a completed flight, sees its landing/track detail, and deletes 
     // Navigating away unmounts FlightDetail's FlightMap (a real maplibre-gl/WebGL map) —
     // a generous timeout here, since that teardown plus flightDelete's IPC round trip and
     // LogbookView's own four-way reload() all take measurably longer on a loaded CI runner
-    // than locally.
+    // than locally. Only this flight is gone — the other seeded flight (G-CIRC, used by
+    // the Landings sub-tab test below) is untouched, so the list isn't empty.
     await expect(window.getByRole('heading', { name: 'Logbook' })).toBeVisible({ timeout: 15_000 })
-    await expect(window.getByText('No completed flights yet')).toBeVisible()
+    await expect(window.getByRole('row', { name: /EGLL.*EGCC/ })).toHaveCount(0)
+  } finally {
+    await cleanup()
+  }
+})
+
+test('browses the Landings sub-tab and switches between a flight\'s several landings (flightdeck-backend docs/plans/multiple-landings.md)', async () => {
+  const { window, cleanup } = await launchApp({ userDataDir })
+  try {
+    await window.getByRole('tab', { name: 'Logbook' }).click()
+    await expect(window.getByRole('heading', { name: 'Logbook' })).toBeVisible()
+
+    // The seeded circuits flight (G-CIRC, VHHH) shows a ×N badge next to its score, on the
+    // default Flights tab.
+    const circuitsRow = window.getByRole('row', { name: /G-CIRC/ })
+    await expect(circuitsRow).toBeVisible()
+    await expect(circuitsRow.getByText(/×\d/)).toBeVisible()
+
+    // The Landings sub-tab lists every touchdown across the fleet, not one row per flight.
+    await window.getByRole('tab', { name: 'Landings' }).click()
+    await expect(window.getByRole('columnheader', { name: /Touchdown rate/ })).toBeVisible()
+    const landingRows = window.getByRole('row', { name: /G-CIRC/ })
+    await expect(landingRows).toHaveCount(4)
+
+    // Clicking a landing opens its flight, same as clicking a flight row does.
+    await landingRows.first().click()
+    await expect(window.getByText('G-CIRC')).toBeVisible()
+    await expect(window.getByText('Landing', { exact: true })).toBeVisible()
+
+    // Several landings on one flight: a tab per touchdown, defaulting to the final one.
+    // Scoped to the card's own labeled tablist — the app's top-level nav uses role="tab"
+    // too, and an unscoped query would pick those up as well. Selected by position, not by
+    // name: several of this real flight's touch-and-goes share the same runway and (thanks
+    // to instant-mode replay compressing the whole flight into a few real seconds) the same
+    // to-the-minute touchdown time, so labels aren't guaranteed unique here the way they
+    // would be across a real flight's actual elapsed time.
+    const landingTabs = window.getByRole('tablist', { name: 'Select landing' }).getByRole('tab')
+    await expect(landingTabs).toHaveCount(4)
+    await expect(landingTabs.last()).toHaveAttribute('data-state', 'active') // defaults to final
+    await landingTabs.first().click()
+    await expect(landingTabs.first()).toHaveAttribute('data-state', 'active')
+    await expect(landingTabs.last()).toHaveAttribute('data-state', 'inactive')
   } finally {
     await cleanup()
   }

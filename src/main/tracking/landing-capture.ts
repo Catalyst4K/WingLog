@@ -22,13 +22,20 @@ function clampGForce(value: number): number {
 }
 
 /**
- * Builds one landing record from the telemetry tick where TrackingController detects
- * touchdown (descent -> landing, on-ground false->true). Always uses the ingested tick's
- * own values for pitch/bank/g-force/position ("derived") rather than a dedicated touchdown
- * SimVar — MSFS 2024's `PLANE TOUCHDOWN *` vars are unverified (docs/decisions.md,
- * landing-analysis entry; scripts/spike-landing.ts is ready to confirm them on a real
- * flight). `resolveRunway` is injectable for testing; defaults to the real vendored
- * lookup.
+ * Builds one landing record from the telemetry tick where TrackingController detects a
+ * touchdown — the raw on-ground false->true transition (flightdeck-backend's docs/plans/
+ * multiple-landings.md), not the phase machine's descent -> landing edge, which has real
+ * holes for circuit flying. Always uses the ingested tick's own values for
+ * pitch/bank/g-force/position ("derived") rather than a dedicated touchdown SimVar — MSFS
+ * 2024's `PLANE TOUCHDOWN *` vars are unverified (docs/decisions.md, landing-analysis
+ * entry; scripts/spike-landing.ts is ready to confirm them on a real flight).
+ * `resolveRunway` is injectable for testing; defaults to the real vendored lookup.
+ *
+ * `icao` is this specific touchdown's own resolved airport (TrackingController's
+ * nearestAirport-then-flight.arrIcao-fallback), not assumed to be the flight's filed
+ * arrival — a circuit, a diversion, or (once free-flight-tracking.md lands) a flight with
+ * no filed arrival at all can touch down somewhere else. Null skips runway resolution
+ * entirely, same as an unresolvable one already did.
  *
  * Vertical speed is the one exception: it's read from `previousTelemetry` (the last sample
  * *before* on-ground flipped true) when given, not the touchdown tick itself. Real
@@ -43,7 +50,8 @@ function clampGForce(value: number): number {
  */
 export function buildLandingRecord(
   flightId: number,
-  arrIcao: string,
+  seq: number,
+  icao: string | null,
   telemetry: SimTelemetry,
   touchdownTsUtc: string,
   resolveRunway: (
@@ -54,7 +62,7 @@ export function buildLandingRecord(
   ) => RunwayEnd | null = findRunwayEnd,
   previousTelemetry?: SimTelemetry
 ): NewLanding {
-  const runway = resolveRunway(arrIcao, telemetry.headingTrueDeg, telemetry.latitude, telemetry.longitude)
+  const runway = icao ? resolveRunway(icao, telemetry.headingTrueDeg, telemetry.latitude, telemetry.longitude) : null
   const position = runway
     ? positionRelativeToRunway(
         telemetry.latitude,
@@ -67,6 +75,8 @@ export function buildLandingRecord(
 
   return {
     flightId,
+    seq,
+    icao,
     touchdownTsUtc,
     verticalSpeedMs: previousTelemetry?.verticalSpeedMs ?? telemetry.verticalSpeedMs,
     gForce: clampGForce(telemetry.gForce),

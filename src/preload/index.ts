@@ -103,13 +103,12 @@ const api: WingLogApi = {
     ipcRenderer.invoke(IpcChannels.gsxAttachNotailReceipt, flightId, jsonPath),
   gsxOpenReceipt: (sourceHtmlPath: string) => ipcRenderer.invoke(IpcChannels.gsxOpenReceipt, sourceHtmlPath),
   logbookOpenOfpPdf: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookOpenOfpPdf, flightId),
-  logbookGetLanding: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookGetLanding, flightId),
-  logbookGetLandingRunway: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookGetLandingRunway, flightId),
+  logbookListLandings: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookListLandings, flightId),
+  logbookListAllLandings: () => ipcRenderer.invoke(IpcChannels.logbookListAllLandings),
   logbookGreatCircleRoute: (depIcao: string, arrIcao: string) =>
     ipcRenderer.invoke(IpcChannels.logbookGreatCircleRoute, depIcao, arrIcao),
   fleetListLandings: (aircraftId: number) => ipcRenderer.invoke(IpcChannels.fleetListLandings, aircraftId),
   fleetListFlights: (aircraftId: number) => ipcRenderer.invoke(IpcChannels.fleetListFlights, aircraftId),
-  logbookGetLandingScore: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookGetLandingScore, flightId),
   logbookListFlightScores: () => ipcRenderer.invoke(IpcChannels.logbookListFlightScores),
   aircraftLookupByRegistration: (registration: string) =>
     ipcRenderer.invoke(IpcChannels.aircraftLookupByRegistration, registration),
