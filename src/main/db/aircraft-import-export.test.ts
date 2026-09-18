@@ -122,3 +122,67 @@ describe('aircraft import/export', () => {
     })
   })
 })
+
+describe('aircraft CSV import/export (docs/plans/data-export-import.md)', () => {
+  let db: WingLogDb
+  let dir: string
+
+  beforeEach(() => {
+    const created = createDb(':memory:')
+    migrate(created.db, { migrationsFolder: 'drizzle' })
+    db = created.db
+    dir = mkdtempSync(join(tmpdir(), 'winglog-aircraft-csv-'))
+    showSaveDialog.mockReset()
+    showOpenDialog.mockReset()
+  })
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('exports the fleet as CSV with a .csv default name and filter', async () => {
+    createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320', operator: 'Test, Air' })
+    const filePath = join(dir, 'fleet.csv')
+    showSaveDialog.mockResolvedValue({ canceled: false, filePath })
+
+    expect(await exportAircraft(db, FAKE_WINDOW, 'csv')).toBe(true)
+
+    expect(showSaveDialog).toHaveBeenCalledWith(
+      FAKE_WINDOW,
+      expect.objectContaining({ defaultPath: 'winglog-fleet.csv', filters: [{ name: 'CSV', extensions: ['csv'] }] })
+    )
+    expect(readFileSync(filePath, 'utf-8')).toBe(
+      'registration,icaoType,operator,operatorIata,operatorIcao,simbriefAirframeId,simbriefType,currentIcao\r\n' +
+        'G-ABCD,A320,"Test, Air",,,,,\r\n'
+    )
+  })
+
+  it('round-trips a fleet through CSV, skipping existing registrations and invalid rows with a reason', async () => {
+    createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320', operator: 'Test, Air', currentIcao: 'EGLL' })
+    const filePath = join(dir, 'fleet.csv')
+    showSaveDialog.mockResolvedValue({ canceled: false, filePath })
+    await exportAircraft(db, FAKE_WINDOW, 'csv')
+    writeFileSync(filePath, readFileSync(filePath, 'utf-8') + ',B738,,,,,,\r\nG-NEWW,B738,Other Air,,,,,\r\n', 'utf-8')
+
+    const target = createDb(':memory:')
+    migrate(target.db, { migrationsFolder: 'drizzle' })
+    showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [filePath] })
+    const first = await importAircraft(target.db, FAKE_WINDOW, 'csv')
+    expect(first?.imported).toBe(2)
+    expect(first?.skipped).toEqual([{ registration: '(unknown)', reason: '"registration" is required' }])
+    expect(listAircraft(target.db).map((a) => [a.registration, a.operator, a.currentIcao])).toEqual([
+      ['G-ABCD', 'Test, Air', 'EGLL'],
+      ['G-NEWW', 'Other Air', null]
+    ])
+
+    const second = await importAircraft(target.db, FAKE_WINDOW, 'csv')
+    expect(second?.imported).toBe(0)
+  })
+
+  it('imports JSON when no format is given (the original behaviour)', async () => {
+    const filePath = join(dir, 'fleet.json')
+    writeFileSync(filePath, '[{"registration":"G-JSON","icaoType":"A320"}]', 'utf-8')
+    showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [filePath] })
+    expect((await importAircraft(db, FAKE_WINDOW))?.imported).toBe(1)
+  })
+})

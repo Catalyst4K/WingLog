@@ -630,6 +630,9 @@ export interface LogbookImportSkip {
   reason: string
 }
 
+/** File format for Settings → Data's Fleet/Logbook import and export. */
+export type DataFormat = 'csv' | 'json'
+
 export interface LogbookImportSummary {
   imported: number
   /** Aircraft auto-created for a registration not already in the fleet — see logbook-import.ts. */
@@ -921,6 +924,8 @@ export const IpcChannels = {
   logbookGetStats: 'logbook:get-stats',
   logbookFleetStats: 'logbook:fleet-stats',
   logbookImportCsv: 'logbook:import-csv',
+  logbookImportJson: 'logbook:import-json',
+  logbookExport: 'logbook:export',
   logbookListInvoices: 'logbook:list-invoices',
   settingsGetGsx: 'settings:get-gsx',
   settingsSetGsx: 'settings:set-gsx',
@@ -986,9 +991,9 @@ export interface WingLogApi {
    *  aircraft can't be un-retired, its flights already live on the replacement. */
   aircraftUnretire: (id: number) => Promise<void>
   /** Opens a native file-open dialog in the main process; null if the user cancels. */
-  aircraftImport: () => Promise<AircraftImportSummary | null>
+  aircraftImport: (format?: DataFormat) => Promise<AircraftImportSummary | null>
   /** Opens a native file-save dialog in the main process; false if the user cancels. */
-  aircraftExport: () => Promise<boolean>
+  aircraftExport: (format?: DataFormat) => Promise<boolean>
   /**
    * Current status, for a renderer mounting after the initial connect already happened —
    * `onSimConnectionStatus` only delivers *future* changes, since Electron doesn't replay
@@ -1116,7 +1121,13 @@ export interface WingLogApi {
   logbookGetStats: () => Promise<LogbookStats>
   logbookFleetStats: () => Promise<FleetStats[]>
   /** Opens a native file-open dialog in the main process; null if the user cancels. */
+  /** Imports SimToolkitPro's CSV *or* WingLog's own CSV export (told apart by header). */
   logbookImportCsv: () => Promise<LogbookImportSummary | null>
+  /** Imports WingLog's own JSON export. Native file-open dialog; null if cancelled. */
+  logbookImportJson: () => Promise<LogbookImportSummary | null>
+  /** Summary export of every completed flight (not a backup — no OFP/track points). Native
+   *  file-save dialog; false if cancelled. */
+  logbookExport: (format: DataFormat) => Promise<boolean>
   /** Ground-service invoices already stored for a flight (docs/decisions.md,
    *  gsx-invoices entry) — snapshotted at completion, not read live from disk. Empty for
    *  any flight with no matched receipts, which is the normal case. */

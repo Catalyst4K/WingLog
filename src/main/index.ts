@@ -7,6 +7,7 @@ import {
   IpcChannels,
   type AircraftUpdate,
   type AltitudeUnit,
+  type DataFormat,
   type WindSpeedUnit,
   type DispatchOfp,
   type DispatchOpenSimBriefParams,
@@ -60,7 +61,7 @@ import {
 } from './db/flight-repo'
 import { listAllLandings, listLandingsByAircraft, listLandingsByFlight } from './db/landing-repo'
 import { getLandingScoresForCompletedFlights, resolveLandingScore } from './db/landing-score-resolver'
-import { importLogbookCsv } from './db/logbook-import'
+import { exportLogbook, importLogbookCsv, importLogbookJson } from './db/logbook-import'
 import {
   getAltitudeUnit,
   getGsxSettings,
@@ -288,12 +289,17 @@ if (!gotSingleInstanceLock) {
         scheduleBackgroundSync()
       })
 
-      ipcMain.handle(IpcChannels.aircraftImport, async () => {
-        const summary = await importAircraft(db, window)
+      // The format comes from the renderer, so it's checked here — anything but 'csv' is
+      // treated as the default, 'json', rather than trusted as an arbitrary string.
+      const asDataFormat = (format: unknown): DataFormat => (format === 'csv' ? 'csv' : 'json')
+      ipcMain.handle(IpcChannels.aircraftImport, async (_event, format?: unknown) => {
+        const summary = await importAircraft(db, window, asDataFormat(format))
         if (summary) scheduleBackgroundSync()
         return summary
       })
-      ipcMain.handle(IpcChannels.aircraftExport, () => exportAircraft(db, window))
+      ipcMain.handle(IpcChannels.aircraftExport, (_event, format?: unknown) =>
+        exportAircraft(db, window, asDataFormat(format))
+      )
 
       ipcMain.handle(IpcChannels.flightList, () => listFlights(db))
 
@@ -637,6 +643,14 @@ if (!gotSingleInstanceLock) {
         if (summary) scheduleBackgroundSync()
         return summary
       })
+      ipcMain.handle(IpcChannels.logbookImportJson, async () => {
+        const summary = await importLogbookJson(db, window)
+        if (summary) scheduleBackgroundSync()
+        return summary
+      })
+      ipcMain.handle(IpcChannels.logbookExport, (_event, format?: unknown) =>
+        exportLogbook(db, window, asDataFormat(format))
+      )
       ipcMain.handle(IpcChannels.logbookListInvoices, (_event, flightId: number) =>
         listInvoicesForFlight(db, flightId)
       )

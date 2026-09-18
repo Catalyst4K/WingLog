@@ -251,6 +251,11 @@ export interface HistoricalFlightInput {
   flightNumber: string | null
   actualOutUtc: string
   actualInUtc: string
+  /** Only present when the source file carries them (WingLog's own export does; SimToolkitPro's doesn't). */
+  airMinutes?: number | null
+  fuelOutKg?: number | null
+  fuelInKg?: number | null
+  fuelBurnKg?: number | null
 }
 
 /**
@@ -272,6 +277,10 @@ export function createHistoricalFlight(db: WingLogDb, input: HistoricalFlightInp
       actualOutUtc: input.actualOutUtc,
       actualInUtc: input.actualInUtc,
       blockMinutes: minutesBetween(input.actualOutUtc, input.actualInUtc),
+      airMinutes: input.airMinutes ?? null,
+      fuelOutKg: input.fuelOutKg ?? null,
+      fuelInKg: input.fuelInKg ?? null,
+      fuelBurnKg: input.fuelBurnKg ?? null,
       uuid: randomUUID(),
       updatedAt: new Date().toISOString()
     })

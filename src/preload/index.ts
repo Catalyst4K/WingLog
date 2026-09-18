@@ -3,6 +3,7 @@ import {
   IpcChannels,
   type AircraftUpdate,
   type AltitudeUnit,
+  type DataFormat,
   type DispatchOpenSimBriefParams,
   type WingLogApi,
   type GsxSettings,
@@ -29,8 +30,8 @@ const api: WingLogApi = {
     ipcRenderer.invoke(IpcChannels.aircraftReplace, retiredId, replacementId),
   aircraftRetire: (id: number) => ipcRenderer.invoke(IpcChannels.aircraftRetire, id),
   aircraftUnretire: (id: number) => ipcRenderer.invoke(IpcChannels.aircraftUnretire, id),
-  aircraftImport: () => ipcRenderer.invoke(IpcChannels.aircraftImport),
-  aircraftExport: () => ipcRenderer.invoke(IpcChannels.aircraftExport),
+  aircraftImport: (format?: DataFormat) => ipcRenderer.invoke(IpcChannels.aircraftImport, format),
+  aircraftExport: (format?: DataFormat) => ipcRenderer.invoke(IpcChannels.aircraftExport, format),
   getSimConnectionStatus: () => ipcRenderer.invoke(IpcChannels.simConnectionStatusGet),
   onSimTelemetry: (listener: (telemetry: SimTelemetry) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, telemetry: SimTelemetry): void => listener(telemetry)
@@ -100,6 +101,8 @@ const api: WingLogApi = {
   logbookGetStats: () => ipcRenderer.invoke(IpcChannels.logbookGetStats),
   logbookFleetStats: () => ipcRenderer.invoke(IpcChannels.logbookFleetStats),
   logbookImportCsv: () => ipcRenderer.invoke(IpcChannels.logbookImportCsv),
+  logbookImportJson: () => ipcRenderer.invoke(IpcChannels.logbookImportJson),
+  logbookExport: (format: DataFormat) => ipcRenderer.invoke(IpcChannels.logbookExport, format),
   logbookListInvoices: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookListInvoices, flightId),
   settingsGetGsx: () => ipcRenderer.invoke(IpcChannels.settingsGetGsx),
   settingsSetGsx: (settings: GsxSettings) => ipcRenderer.invoke(IpcChannels.settingsSetGsx, settings),
