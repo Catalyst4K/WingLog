@@ -131,6 +131,7 @@ const api: WingLogApi = {
   simbriefCreateCustomAirframe: (shareUrl: string) =>
     ipcRenderer.invoke(IpcChannels.simbriefCreateCustomAirframe, shareUrl),
   airportSearch: (query: string) => ipcRenderer.invoke(IpcChannels.airportSearch, query),
+  airportListAirfields: () => ipcRenderer.invoke(IpcChannels.airportListAirfields),
   airlineSearch: (query: string) => ipcRenderer.invoke(IpcChannels.airlineSearch, query),
   airlineFindByIcao: (icao: string) => ipcRenderer.invoke(IpcChannels.airlineFindByIcao, icao),
   weatherGetMetars: (icaoCodes: string[]) => ipcRenderer.invoke(IpcChannels.weatherGetMetars, icaoCodes),

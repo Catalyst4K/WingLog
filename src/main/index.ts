@@ -26,6 +26,7 @@ import { searchAircraftTypes } from './aircraft-lookup/icao-types'
 import { findAirlineByIcao, searchAirlines } from './airlines/airline-search'
 import { fetchMetars } from './weather/metar-client'
 import { fetchExchangeRate } from './fx/fx-client'
+import { listAirfields } from './airports/airfields'
 import { greatCircleWaypoints, searchAirports } from './airports/airport-search'
 import { findLandingRunway } from './airports/runway-lookup'
 import { createDb } from './db/client'
@@ -783,6 +784,7 @@ if (!gotSingleInstanceLock) {
         createCustomAirframeFromShare(shareUrl)
       )
       ipcMain.handle(IpcChannels.airportSearch, (_event, query: string) => searchAirports(query))
+      ipcMain.handle(IpcChannels.airportListAirfields, () => listAirfields())
       ipcMain.handle(IpcChannels.airlineSearch, (_event, query: string) => searchAirlines(query))
       ipcMain.handle(IpcChannels.airlineFindByIcao, (_event, icao: string) => findAirlineByIcao(icao))
       ipcMain.handle(IpcChannels.weatherGetMetars, (_event, icaoCodes: string[]) => fetchMetars(icaoCodes))

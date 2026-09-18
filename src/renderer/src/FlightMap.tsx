@@ -9,7 +9,7 @@ import {
 } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
-import { Locate, LocateFixed, ZoomIn, ZoomOut } from 'lucide-react'
+import { Locate, LocateFixed, Radar, ZoomIn, ZoomOut } from 'lucide-react'
 import type { FlightPhase, MapLanguage, SimTelemetry, TrackPoint } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { displayAltitude } from './display-altitude'
@@ -17,6 +17,7 @@ import { planStyleChanges, type StyleLayerLike } from './map-labels'
 import { mapInteraction } from './mapInteraction'
 import type { TransitionAltitudes, Waypoint } from './route'
 import { filterVisibleTrackPoints } from './trackPointVisibility'
+import { useVfrOverlay } from './useVfrOverlay'
 import { msToKt } from './units'
 
 // maplibre-gl ships its tile-parsing worker as a separate chunk and locates it via its
@@ -714,6 +715,15 @@ export function FlightMap({
     mapContainerRef.current?.classList.toggle('map-pan-locked', !config.dragPan)
   }, [mapReady, live, followEnabled, hasAircraft])
 
+  const vfr = useVfrOverlay({
+    mapRef,
+    mapReady,
+    live,
+    telemetry,
+    trackPoints,
+    routeLayerId: ROUTE_SOURCE_ID
+  })
+
   const mapControlButtonClassName = 'bg-popover/85 backdrop-blur-sm hover:bg-popover'
 
   return (
@@ -740,6 +750,24 @@ export function FlightMap({
             onClick={() => setFollowEnabled((v) => !v)}
           >
             {followEnabled ? <LocateFixed /> : <Locate />}
+          </Button>
+        )}
+        {live && (
+          <Button
+            type="button"
+            variant={vfr.enabled ? 'default' : 'outline'}
+            size="icon-sm"
+            className={vfr.enabled ? undefined : mapControlButtonClassName}
+            aria-label={vfr.enabled ? 'Hide VFR overlay' : 'Show VFR overlay'}
+            title={
+              vfr.enabled
+                ? 'Hide VFR overlay'
+                : 'Show VFR overlay — airfields, range rings, scale, recent track'
+            }
+            aria-pressed={vfr.enabled}
+            onClick={vfr.toggle}
+          >
+            <Radar />
           </Button>
         )}
         <Button
@@ -781,6 +809,14 @@ export function FlightMap({
               ).toLocaleString()} ft`
             : 'N/A'}{' '}
           · Heading: {telemetry ? `${Math.round(telemetry.headingTrueDeg)}°` : 'N/A'}
+        </div>
+      )}
+      {live && vfr.enabled && vfr.nearestText && (
+        <div
+          className="absolute top-3 left-3 rounded-full border border-border bg-popover/85 px-3 py-1 font-mono text-xs text-popover-foreground backdrop-blur-sm"
+          aria-label="Nearest airfield"
+        >
+          Nearest: {vfr.nearestText}
         </div>
       )}
       {routeIsApproximate && (
