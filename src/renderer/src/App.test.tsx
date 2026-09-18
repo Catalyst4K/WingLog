@@ -414,7 +414,10 @@ describe('App', () => {
       onSimTelemetry: vi.fn((listener) => {
         telemetryListener = listener
         return () => {}
-      })
+      }),
+      // The map overlay only reads live telemetry once tracking has started
+      // (docs/plans/beta-ui-polish.md item 1), so this needs an active flight.
+      trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'cruise' })
     })
     render(<App />)
     await screen.findByText('Fleet', { selector: 'h1' })
