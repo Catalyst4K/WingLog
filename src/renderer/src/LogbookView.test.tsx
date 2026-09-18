@@ -428,6 +428,31 @@ describe('LogbookView list', () => {
     expect(await screen.findByRole('columnheader', { name: /Touchdown rate/ })).toBeInTheDocument()
   })
 
+  it('sits the folder tabs between the totals and the table, and keeps arrow-key navigation', async () => {
+    const user = userEvent.setup()
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight({ id: 1 })]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+      logbookListFlightScores: vi.fn().mockResolvedValue([]),
+      logbookListAllLandings: vi.fn().mockResolvedValue([makeLandingListRow({ id: 1, flightId: 1 })])
+    })
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    await screen.findByText('TA100')
+
+    const totals = screen.getByText('Total flights')
+    const flightsTab = screen.getByRole('tab', { name: 'Flights' })
+    const table = screen.getByRole('table')
+    expect(totals.compareDocumentPosition(flightsTab) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(flightsTab.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    // Radix's roving focus survives the restyle: arrow right moves to and activates Landings.
+    flightsTab.focus()
+    await user.keyboard('{ArrowRight}')
+    expect(screen.getByRole('tab', { name: 'Landings' })).toHaveAttribute('data-state', 'active')
+    expect(await screen.findByRole('columnheader', { name: /Touchdown rate/ })).toBeInTheDocument()
+    expect(screen.getByText('Total flights')).toBeInTheDocument()
+  })
+
   it('opens a flight\'s detail when a row is clicked from the Landings sub-tab', async () => {
     const user = userEvent.setup()
     setWinglog({
@@ -466,11 +491,11 @@ describe('LandingCard', () => {
 
   it('lets long labels and values shrink and wrap instead of overlapping when the card narrows', async () => {
     setWinglog({
-      logbookGetLanding: vi.fn().mockResolvedValue(makeLanding()),
-      logbookGetLandingRunway: vi.fn().mockResolvedValue(null),
-      logbookGetLandingScore: vi
-        .fn()
-        .mockResolvedValue({ score: 78, severity: 'firm', categories: makeCategories() } satisfies LandingScoreResult)
+      logbookListLandings: vi.fn().mockResolvedValue([
+        makeLandingWithDetails({
+          score: { score: 78, severity: 'firm', categories: makeCategories() } satisfies LandingScoreResult
+        })
+      ])
     })
     const { container } = render(<LandingCard flightId={1} landingDistanceUnit="ft" />)
 

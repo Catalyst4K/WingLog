@@ -30,7 +30,8 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/componen
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { FolderTabs, FolderTabsContent, FolderTabsList, FolderTabsTrigger } from './components/FolderTabs'
 import { cn } from '@/lib/utils'
 import { computeChartAxisTicks, formatTickLabel } from './chart-ticks'
 import { displayAltitude } from './display-altitude'
@@ -967,13 +968,34 @@ export function LogbookView(props: {
     <div className="flex flex-col gap-6">
       <h1 className="font-heading text-2xl font-semibold text-foreground">Logbook</h1>
 
-      <Tabs defaultValue="flights">
-        <TabsList>
-          <TabsTrigger value="flights">Flights</TabsTrigger>
-          <TabsTrigger value="landings">Landings</TabsTrigger>
-        </TabsList>
+      {!loading && flights.length > 0 && (
+            <div className="flex flex-wrap gap-8">
+              <div>
+                <p className="text-xs tracking-wide text-muted-foreground uppercase">Total flights</p>
+                <p className="text-xl font-semibold text-foreground">{stats?.totalFlights ?? flights.length}</p>
+              </div>
+              <div>
+                <p className="text-xs tracking-wide text-muted-foreground uppercase">Total flight hours</p>
+                <p className="text-xl font-semibold text-foreground">
+                  {formatMinutes(stats?.totalBlockMinutes ?? null)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs tracking-wide text-muted-foreground uppercase">Total miles flown</p>
+                <p className="text-xl font-semibold text-foreground">
+                  {stats ? `${Math.round(stats.totalNm).toLocaleString()} nm` : '—'}
+                </p>
+              </div>
+            </div>
+      )}
 
-        <TabsContent value="flights">
+      <FolderTabs defaultValue="flights" className="gap-0">
+        <FolderTabsList>
+          <FolderTabsTrigger value="flights">Flights</FolderTabsTrigger>
+          <FolderTabsTrigger value="landings">Landings</FolderTabsTrigger>
+        </FolderTabsList>
+
+        <FolderTabsContent value="flights" className="pt-4">
           {loading ? (
             <Table>
               <TableHeader>
@@ -997,25 +1019,6 @@ export function LogbookView(props: {
             </p>
           ) : (
             <div className="flex flex-col gap-6">
-              <div className="flex flex-wrap gap-8">
-                <div>
-                  <p className="text-xs tracking-wide text-muted-foreground uppercase">Total flights</p>
-                  <p className="text-xl font-semibold text-foreground">{stats?.totalFlights ?? flights.length}</p>
-                </div>
-                <div>
-                  <p className="text-xs tracking-wide text-muted-foreground uppercase">Total flight hours</p>
-                  <p className="text-xl font-semibold text-foreground">
-                    {formatMinutes(stats?.totalBlockMinutes ?? null)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs tracking-wide text-muted-foreground uppercase">Total miles flown</p>
-                  <p className="text-xl font-semibold text-foreground">
-                    {stats ? `${Math.round(stats.totalNm).toLocaleString()} nm` : '—'}
-                  </p>
-                </div>
-              </div>
-
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -1066,12 +1069,12 @@ export function LogbookView(props: {
               </Table>
             </div>
           )}
-        </TabsContent>
+        </FolderTabsContent>
 
-        <TabsContent value="landings">
+        <FolderTabsContent value="landings" className="pt-4">
           <LandingsTable onOpenFlight={(id) => setView({ kind: 'detail', id })} />
-        </TabsContent>
-      </Tabs>
+        </FolderTabsContent>
+      </FolderTabs>
     </div>
   )
 }
