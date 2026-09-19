@@ -992,6 +992,7 @@ export const IpcChannels = {
   navdataGetProcedureWaypoints: 'navdata:get-procedure-waypoints',
   trackingSetProcedureSelection: 'tracking:set-procedure-selection',
   trackingSetDestination: 'tracking:set-destination',
+  trackingSetDeparture: 'tracking:set-departure',
   trackingGetOrphanedFlight: 'tracking:get-orphaned-flight',
   trackingResumeOrphaned: 'tracking:resume-orphaned',
   trackingDiscardOrphaned: 'tracking:discard-orphaned',
@@ -1302,6 +1303,8 @@ export interface WingLogApi {
    *  the start dialog's Destination is optional, and this is how one is added afterwards. A
    *  plan, not a promise: the real touchdown still resolves the actual arrival. */
   trackingSetDestination: (icao: string | null) => Promise<void>
+  /** Same, for the departure airport (v1.1.2). */
+  trackingSetDeparture: (icao: string | null) => Promise<void>
   /** The flight left 'active' if the app quit or crashed before it reached 'completed' or
    *  'abandoned' — checked once at startup (main/index.ts), so this only ever returns
    *  non-null until the user answers the resume/discard prompt it's meant to drive (or

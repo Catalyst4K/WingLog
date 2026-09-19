@@ -71,7 +71,7 @@ test('starts a free flight from Track and finds it, completed, in the Logbook', 
     // blank). Goes through the real IPC and DB, and the card reads it back.
     await expect(window.getByText('Destination: Unknown')).toBeVisible()
     await window.getByPlaceholder('Set destination').fill('VHHH')
-    await window.getByRole('button', { name: 'Set', exact: true }).click()
+    await window.getByRole('button', { name: 'Set destination' }).click()
     await expect(window.getByText('Destination: VHHH')).toBeVisible()
 
     // This fixture's capture ends parked but with the engine still running and the parking

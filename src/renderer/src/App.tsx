@@ -413,6 +413,7 @@ export default function App(): React.JSX.Element {
             )}
             {page === 'track' && (
               <TrackView
+                windSpeedUnit={windSpeedUnit}
                 previewOfp={dispatchOfp}
                 telemetry={telemetry}
                 mapLanguage={mapLanguage}

@@ -13,6 +13,7 @@ import {
   recordOff,
   recordOn,
   setArrIcao,
+  setDepIcao,
   setFlownRoute,
   setSelectedProcedures,
   startFlight
@@ -502,6 +503,16 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     const normalized = icao?.trim().toUpperCase() || 'ZZZZ'
     if (!/^[A-Z0-9]{2,5}$/.test(normalized)) throw new Error('That is not a valid airport code')
     setArrIcao(this.db, this.recorder.getFlightId(), normalized)
+  }
+
+  /** Sets the departure of the free flight being tracked (blank/null = "not set", ZZZZ) —
+   *  the start dialog leaves it optional, and the Weather dialog reads it. */
+  setDeparture(icao: string | null): void {
+    if (!this.recorder) throw new Error('No flight is being tracked')
+    if (!this.isFreeFlight) throw new Error("A planned flight's departure comes from its flight plan")
+    const normalized = icao?.trim().toUpperCase() || 'ZZZZ'
+    if (!/^[A-Z0-9]{2,5}$/.test(normalized)) throw new Error('That is not a valid airport code')
+    setDepIcao(this.db, this.recorder.getFlightId(), normalized)
   }
 
   /** User cancelled tracking mid-flight, rather than reaching shutdown naturally. */

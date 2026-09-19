@@ -8,7 +8,8 @@ import type {
   MapLanguage,
   ProcedureSelection,
   SimTelemetry,
-  TrackPoint
+  TrackPoint,
+  WindSpeedUnit
 } from '@shared/ipc'
 import {
   AlertDialog,
@@ -27,7 +28,8 @@ import { FlightMap } from './FlightMap'
 import { useConfirm } from './hooks/useConfirm'
 import { ProcedureSelector } from './ProcedureSelector'
 import { flightLabel } from './flight-label'
-import { FreeFlightDestination } from './FreeFlightDestination'
+import { FreeFlightAirport } from './FreeFlightAirport'
+import { MetarPanel } from './MetarPanel'
 import { useLiveWaypoints, type ProcedureAirports } from './procedureSelection'
 import { parseTransitionAltitudes } from './route'
 import { StartFreeFlightDialog } from './StartFreeFlightDialog'
@@ -64,6 +66,11 @@ function FlightIdentity(props: {
 }
 
 
+/** A real airport code for the Weather dialog — a free flight's unset airports are `ZZZZ`. */
+function realIcao(icao: string | null | undefined): string | null {
+  return icao && icao !== 'ZZZZ' ? icao : null
+}
+
 export function TrackView(props: {
   /** The OFP most recently fetched in Dispatch, not yet saved as a flight — last-resort
    *  preview so a route shows up here even before "Save as planned flight" is clicked. */
@@ -85,6 +92,8 @@ export function TrackView(props: {
    *  cleared too, rather than going on claiming to reference a flight that's no longer
    *  in progress. */
   onFlightEnded?: () => void
+  /** Wind unit for the Weather dialog's METARs (Settings). */
+  windSpeedUnit?: WindSpeedUnit
 }): React.JSX.Element {
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
   const [flights, setFlights] = useState<Flight[]>([])
@@ -375,8 +384,9 @@ export function TrackView(props: {
             </div>
           </CardContent>
           {activeFlight && !activeFlight.ofpJson && (
-            <CardContent>
-              <FreeFlightDestination key={activeFlight.arrIcao} arrIcao={activeFlight.arrIcao} onChanged={reload} />
+            <CardContent className="flex flex-wrap gap-x-6 gap-y-2">
+              <FreeFlightAirport key={`dep-${activeFlight.depIcao}`} kind="departure" icao={activeFlight.depIcao} onChanged={reload} />
+              <FreeFlightAirport key={`arr-${activeFlight.arrIcao}`} kind="destination" icao={activeFlight.arrIcao} onChanged={reload} />
             </CardContent>
           )}
         </Card>
@@ -441,8 +451,30 @@ export function TrackView(props: {
         </div>
       )}
 
-      {airports && !(airports.depIcao === 'ZZZZ' && airports.arrIcao === 'ZZZZ') && (
+      {(airports || active) && (
         <div className="flex items-center gap-2">
+          {/* Weather for the departure, destination and alternate of whatever is being flown —
+           *  for a free flight, whatever was set in the card above — plus a Custom airport. */}
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button type="button" variant="outline" size="sm">
+                Weather…
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Weather</DialogTitle>
+              </DialogHeader>
+              <MetarPanel
+                depIcao={realIcao(airports?.depIcao)}
+                arrIcao={realIcao(airports?.arrIcao)}
+                altnIcao={realIcao(airports?.altnIcao)}
+                windSpeedUnit={props.windSpeedUnit ?? 'kt'}
+              />
+            </DialogContent>
+          </Dialog>
+          {airports && !(airports.depIcao === 'ZZZZ' && airports.arrIcao === 'ZZZZ') && (
+            <>
           <Dialog>
             <DialogTrigger asChild>
               <Button type="button" variant="outline" size="sm">
@@ -471,6 +503,8 @@ export function TrackView(props: {
               .filter((v): v is string => v !== null)
               .join(' · ') || 'Nothing selected yet'}
           </span>
+            </>
+          )}
         </div>
       )}
 
