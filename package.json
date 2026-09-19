@@ -26,6 +26,7 @@
     "spike:altitude": "tsx scripts/spike-altitude.ts",
     "spike:live-position": "tsx scripts/spike-live-position.ts",
     "spike:facilities": "tsx scripts/spike-facilities.ts",
+    "spike:airport-list": "tsx scripts/spike-airport-list.ts",
     "spike:capture-flight": "tsx scripts/spike-capture-flight.ts",
     "spike:navdata-provider": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs scripts/spike-navdata-provider.ts",
     "spike:route-simplify": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs scripts/spike-route-simplify.ts",
