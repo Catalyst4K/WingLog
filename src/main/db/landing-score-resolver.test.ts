@@ -4,13 +4,15 @@ import type { Landing } from '@shared/ipc'
 import { computeLandingScore, type LandingScoreInputs } from '@shared/landing-score'
 import { createAircraft } from './aircraft-repo'
 import { createDb, type WingLogDb } from './client'
-import { completeFlight, createFlight } from './flight-repo'
+import { completeFlight, createFlight, createFreeFlight } from './flight-repo'
 import { createLanding, type NewLanding } from './landing-repo'
 import { getLandingScoresForCompletedFlights, resolveLandingScore } from './landing-score-resolver'
 
 function makeLanding(flightId: number, overrides: Partial<NewLanding> = {}): NewLanding {
   return {
     flightId,
+    seq: 1,
+    icao: 'EGCC',
     touchdownTsUtc: '2026-09-12T12:00:00.000Z',
     verticalSpeedMs: -1.2,
     gForce: 1.1,
@@ -158,9 +160,52 @@ describe('getLandingScoresForCompletedFlights', () => {
     expect(summaries[0].flightId).toBe(withLanding.id)
     expect(summaries[0].score).toBeGreaterThanOrEqual(0)
     expect(summaries[0].score).toBeLessThanOrEqual(100)
+    expect(summaries[0].landingCount).toBe(1)
   })
 
   it('returns an empty array when there are no completed flights with a landing', () => {
     expect(getLandingScoresForCompletedFlights(db)).toEqual([])
+  })
+
+  it('scores a free flight with no fleet aircraft using its own sim-reported type', () => {
+    const freeFlight = createFreeFlight(db, {
+      aircraftId: null,
+      simRegistration: 'G-TEST',
+      simIcaoType: 'C172',
+      depIcao: 'VHHH',
+      arrIcao: 'VHHH',
+      flightNumber: null,
+      fuelOutKg: 500
+    })
+    createLanding(db, makeLanding(freeFlight.id))
+    completeFlight(db, freeFlight.id, 400)
+
+    const summaries = getLandingScoresForCompletedFlights(db)
+    expect(summaries).toHaveLength(1)
+    expect(summaries[0].flightId).toBe(freeFlight.id)
+    expect(summaries[0].score).toBeGreaterThanOrEqual(0)
+    expect(summaries[0].score).toBeLessThanOrEqual(100)
+  })
+
+  it('scores against the final touchdown and reports the real count for a flight with several', () => {
+    const flight = createFlight(db, { aircraftId, depIcao: 'EGCC', arrIcao: 'EGLL' })
+    // A soft first touchdown...
+    createLanding(db, makeLanding(flight.id, { seq: 1, verticalSpeedMs: -0.2, gForce: 1.0 }))
+    // ...then a firm final one — the score should reflect this one, not the first.
+    createLanding(db, makeLanding(flight.id, { seq: 2, verticalSpeedMs: -3.5, gForce: 1.9 }))
+    completeFlight(db, flight.id, 4000)
+
+    const summaries = getLandingScoresForCompletedFlights(db)
+    expect(summaries).toHaveLength(1)
+    expect(summaries[0].landingCount).toBe(2)
+
+    // Matches the landing's own icao ('EGCC', the makeLanding default — not the flight's
+    // filed EGLL arrival), same as getLandingScoresForCompletedFlights itself resolves.
+    const finalOnlyScore = resolveLandingScore(
+      { ...makeLanding(flight.id), id: 2, seq: 2, verticalSpeedMs: -3.5, gForce: 1.9 } as Landing,
+      'EGCC',
+      'A320'
+    ).score
+    expect(summaries[0].score).toBe(finalOnlyScore)
   })
 })

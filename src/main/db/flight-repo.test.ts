@@ -2,9 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { eq } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb, type WingLogDb } from './client'
-import { createAircraft, getAircraftByRegistration } from './aircraft-repo'
+import { createAircraft, getAircraftById, getAircraftByRegistration } from './aircraft-repo'
 import { createLanding, getLandingByFlight, type NewLanding } from './landing-repo'
 import { flight as flightTable } from './schema'
+import { getAircraftIdForTitle } from './settings-repo'
 import { createTrackPoint, listTrackPoints } from './track-point-repo'
 import { greatCircleDistanceNm } from '../airports/airport-search'
 import {
@@ -12,6 +13,7 @@ import {
   abandonFlight,
   completeFlight,
   createFlight,
+  createFreeFlight,
   createHistoricalFlight,
   deleteFlight,
   finalizeFuelOut,
@@ -20,11 +22,13 @@ import {
   getFlight,
   getInProgressFlight,
   getLogbookStats,
+  linkAircraftToFlight,
   listCompletedFlights,
   listFlights,
   listFlightsByAircraft,
   recordOff,
   recordOn,
+  setArrIcao,
   setSelectedProcedures,
   startFlight
 } from './flight-repo'
@@ -32,6 +36,8 @@ import {
 function newLandingFixture(flightId: number): NewLanding {
   return {
     flightId,
+    seq: 1,
+    icao: 'EGCC',
     touchdownTsUtc: '2026-09-01T12:00:00.000Z',
     verticalSpeedMs: -1.5,
     gForce: 1.2,
@@ -166,6 +172,138 @@ describe('flight repo', () => {
     expect(created.fuelBurnKg).toBeNull()
   })
 
+  describe('createFreeFlight (free-flight-tracking.md)', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-09-16T14:00:00Z'))
+    })
+
+    it('goes straight to active with actualOutUtc/fuelOutKg already set, skipping planned', () => {
+      const created = createFreeFlight(db, {
+        aircraftId,
+        depIcao: 'EGLL',
+        arrIcao: 'ZZZZ',
+        flightNumber: null,
+        fuelOutKg: 3500
+      })
+      expect(created.status).toBe('active')
+      expect(created.actualOutUtc).toBe('2026-09-16T14:00:00.000Z')
+      expect(created.fuelOutKg).toBe(3500)
+      expect(created.ofpJson).toBeNull()
+    })
+
+    it('accepts a null-coalesced flight number and a ZZZZ placeholder arrival', () => {
+      const created = createFreeFlight(db, {
+        aircraftId,
+        depIcao: 'ZZZZ',
+        arrIcao: 'ZZZZ',
+        flightNumber: null,
+        fuelOutKg: 3500
+      })
+      expect(created.flightNumber).toBeNull()
+      expect(created.depIcao).toBe('ZZZZ')
+      expect(created.arrIcao).toBe('ZZZZ')
+    })
+
+    it('accepts a null aircraftId, keeping the sim-reported identity on the flight row instead — not mandatory to add to fleet', () => {
+      const created = createFreeFlight(db, {
+        aircraftId: null,
+        simRegistration: 'G-TEST',
+        simIcaoType: 'C172',
+        simTitle: 'FenixA320 IAE SL',
+        depIcao: 'VHHH',
+        arrIcao: 'VHHH',
+        flightNumber: null,
+        fuelOutKg: 500
+      })
+      expect(created.aircraftId).toBeNull()
+      expect(created.simRegistration).toBe('G-TEST')
+      expect(created.simIcaoType).toBe('C172')
+      expect(created.simTitle).toBe('FenixA320 IAE SL')
+      expect(created.status).toBe('active')
+    })
+  })
+
+  describe('setArrIcao (free-flight-tracking.md)', () => {
+    it('overwrites arr_icao in place, leaving everything else untouched', () => {
+      const created = createFreeFlight(db, {
+        aircraftId,
+        depIcao: 'EGLL',
+        arrIcao: 'ZZZZ',
+        flightNumber: null,
+        fuelOutKg: 3500
+      })
+      setArrIcao(db, created.id, 'EGCC')
+      const updated = getFlight(db, created.id)
+      expect(updated?.arrIcao).toBe('EGCC')
+      expect(updated?.depIcao).toBe('EGLL')
+      expect(updated?.status).toBe('active')
+    })
+  })
+
+  describe('linkAircraftToFlight — Logbook "Add to fleet" (free-flight-tracking.md follow-up)', () => {
+    it('links the aircraft, nulls the sim-reported identity, backfills currentIcao, and remembers the title', () => {
+      const freeAircraftId = createAircraft(db, { registration: 'G-NEW', icaoType: 'C172' }).id
+      const created = createFreeFlight(db, {
+        aircraftId: null,
+        simRegistration: 'G-TEST',
+        simIcaoType: 'C172',
+        simTitle: 'FenixA320 IAE SL',
+        depIcao: 'VHHH',
+        arrIcao: 'EGLL',
+        flightNumber: null,
+        fuelOutKg: 500
+      })
+
+      const linked = linkAircraftToFlight(db, created.id, freeAircraftId)
+
+      expect(linked?.aircraftId).toBe(freeAircraftId)
+      expect(linked?.simRegistration).toBeNull()
+      expect(linked?.simIcaoType).toBeNull()
+      expect(linked?.simTitle).toBeNull()
+      expect(getAircraftById(db, freeAircraftId)?.currentIcao).toBe('EGLL')
+      expect(getAircraftIdForTitle(db, 'FenixA320 IAE SL')).toBe(freeAircraftId)
+    })
+
+    it('does not backfill currentIcao from an unresolved ZZZZ arrival', () => {
+      const freeAircraftId = createAircraft(db, { registration: 'G-NEW', icaoType: 'C172' }).id
+      const created = createFreeFlight(db, {
+        aircraftId: null,
+        simRegistration: 'G-TEST',
+        simIcaoType: 'C172',
+        depIcao: 'ZZZZ',
+        arrIcao: 'ZZZZ',
+        flightNumber: null,
+        fuelOutKg: 500
+      })
+
+      linkAircraftToFlight(db, created.id, freeAircraftId)
+
+      expect(getAircraftById(db, freeAircraftId)?.currentIcao).toBeNull()
+    })
+
+    it('skips the title memory when the flight predates simTitle being recorded', () => {
+      const freeAircraftId = createAircraft(db, { registration: 'G-NEW', icaoType: 'C172' }).id
+      const created = createFreeFlight(db, {
+        aircraftId: null,
+        simRegistration: 'G-TEST',
+        simIcaoType: 'C172',
+        depIcao: 'EGLL',
+        arrIcao: 'EGLL',
+        flightNumber: null,
+        fuelOutKg: 500
+      })
+
+      expect(() => linkAircraftToFlight(db, created.id, freeAircraftId)).not.toThrow()
+      expect(getAircraftIdForTitle(db, '')).toBeUndefined()
+    })
+
+    it('returns undefined for a nonexistent flight', () => {
+      const freeAircraftId = createAircraft(db, { registration: 'G-NEW', icaoType: 'C172' }).id
+      expect(linkAircraftToFlight(db, 99999, freeAircraftId)).toBeUndefined()
+    })
+  })
+
   describe('tracking lifecycle', () => {
     beforeEach(() => {
       vi.useFakeTimers()
@@ -288,6 +426,23 @@ describe('flight repo', () => {
       completeFlight(db, created.id, 4000)
 
       expect(getAircraftByRegistration(db, 'G-ABCD')?.currentIcao).toBe('VHHH')
+    })
+
+    it('completes a free flight with no fleet aircraft without touching the aircraft table', () => {
+      const created = createFreeFlight(db, {
+        aircraftId: null,
+        simRegistration: 'G-TEST',
+        simIcaoType: 'C172',
+        depIcao: 'VHHH',
+        arrIcao: 'VHHH',
+        flightNumber: null,
+        fuelOutKg: 500
+      })
+      const completed = completeFlight(db, created.id, 400)
+      expect(completed?.status).toBe('completed')
+      // No aircraft row exists to have been touched — this just confirms completion
+      // doesn't throw trying to update one that was never there.
+      expect(getAircraftByRegistration(db, 'G-ABCD')?.currentIcao).toBeNull()
     })
 
     it('deletes a cancelled flight outright, including its track points, rather than saving it as abandoned', () => {
@@ -471,6 +626,23 @@ describe('flight repo', () => {
 
     it('omits an aircraft with no completed flights, even if it has a planned one', () => {
       createAircraft(db, { registration: 'G-IDLE', icaoType: 'A320' })
+      flyAndComplete(aircraftId, 'EGCC', 30, 500)
+
+      const stats = getFleetStats(db)
+      expect(stats.map((s) => s.registration)).toEqual(['G-ABCD'])
+    })
+
+    it('omits a completed free flight with no fleet aircraft, rather than crashing on its null aircraftId', () => {
+      const freeFlight = createFreeFlight(db, {
+        aircraftId: null,
+        simRegistration: 'G-TEST',
+        simIcaoType: 'C172',
+        depIcao: 'VHHH',
+        arrIcao: 'VHHH',
+        flightNumber: null,
+        fuelOutKg: 500
+      })
+      completeFlight(db, freeFlight.id, 400)
       flyAndComplete(aircraftId, 'EGCC', 30, 500)
 
       const stats = getFleetStats(db)

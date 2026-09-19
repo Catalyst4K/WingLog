@@ -91,6 +91,15 @@ export function getAirportCoords(icao: string): { lat: number; lon: number } | n
 
 const EARTH_RADIUS_NM = 3440.065
 
+export function haversineNm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const lat1Rad = (lat1 * Math.PI) / 180
+  const lat2Rad = (lat2 * Math.PI) / 180
+  const dLat = ((lat2 - lat1) * Math.PI) / 180
+  const dLon = ((lon2 - lon1) * Math.PI) / 180
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.sin(dLon / 2) ** 2
+  return 2 * EARTH_RADIUS_NM * Math.asin(Math.sqrt(a))
+}
+
 /**
  * Great-circle (as-the-crow-flies) distance between two airports, in nautical miles —
  * used for Logbook's total-distance stat, not a routed distance. Null if either ICAO
@@ -101,13 +110,7 @@ export function greatCircleDistanceNm(depIcao: string, arrIcao: string): number 
   const dep = getAirportCoords(depIcao)
   const arr = getAirportCoords(arrIcao)
   if (!dep || !arr) return null
-
-  const lat1Rad = (dep.lat * Math.PI) / 180
-  const lat2Rad = (arr.lat * Math.PI) / 180
-  const dLat = ((arr.lat - dep.lat) * Math.PI) / 180
-  const dLon = ((arr.lon - dep.lon) * Math.PI) / 180
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.sin(dLon / 2) ** 2
-  return 2 * EARTH_RADIUS_NM * Math.asin(Math.sqrt(a))
+  return haversineNm(dep.lat, dep.lon, arr.lat, arr.lon)
 }
 
 /**
@@ -163,4 +166,76 @@ export function greatCircleWaypoints(
     coords.push([(lon * 180) / Math.PI, (lat * 180) / Math.PI])
   }
   return coords
+}
+
+interface AirportLocation {
+  lat: number
+  lon: number
+  type: string
+}
+
+// Types this vendored slice actually contains, checked live (2026-09-16): heliport,
+// small_airport, seaplane_base, balloonport, medium_airport, large_airport — no 'closed'
+// row survived the original CSV trim (docs/decisions.md, 2026-09-01), so that exclusion
+// below is defensive rather than exercised by the current data; kept because OurAirports'
+// own schema uses it and a future re-vendor could reintroduce one.
+const NON_PRIMARY_AIRPORT_TYPES = new Set(['heliport', 'closed'])
+
+export function loadAirportLocations(raw: string): Map<string, AirportLocation> {
+  const [header, ...rows] = parseCsvRows(raw)
+  const icaoIdx = columnIndex(header, 'icao')
+  const typeIdx = columnIndex(header, 'type')
+  const latIdx = columnIndex(header, 'latitude_deg')
+  const lonIdx = columnIndex(header, 'longitude_deg')
+
+  const locations = new Map<string, AirportLocation>()
+  for (const row of rows) {
+    const icao = row[icaoIdx]
+    const latRaw = row[latIdx]
+    const lonRaw = row[lonIdx]
+    if (!icao || !latRaw || !lonRaw) continue
+    const lat = Number(latRaw)
+    const lon = Number(lonRaw)
+    if (Number.isFinite(lat) && Number.isFinite(lon)) locations.set(icao, { lat, lon, type: row[typeIdx] ?? '' })
+  }
+  return locations
+}
+
+let airportLocations: Map<string, AirportLocation> | null = null
+
+/**
+ * The nearest vendored airport to a position — the reverse of getAirportCoords, needed by
+ * both multiple-landings.md (per-touchdown ICAO, replacing the assumption that a touchdown
+ * happens at flight.arr_icao) and free-flight-tracking.md (departure/arrival for a flight
+ * with no filed plan). Prefers a real airfield over a heliport/closed strip when both are
+ * within range — a heliport is the literal nearest point in real vendored data checked
+ * against Hong Kong's old Kai Tak site (2026-09-16: Wan Chai and Shun Tak heliports sit
+ * closer than the nearest real airfield there) — but falls back to one if that's genuinely
+ * all that's in range, rather than reporting nothing. Null when nothing at all is within
+ * maxDistanceNm.
+ */
+export function nearestAirport(lat: number, lon: number, maxDistanceNm: number): string | null {
+  airportLocations ??= loadAirportLocations(airportsRaw)
+
+  let bestIcao: string | null = null
+  let bestDistance = Infinity
+  let bestFallbackIcao: string | null = null
+  let bestFallbackDistance = Infinity
+
+  for (const [icao, location] of airportLocations) {
+    const distance = haversineNm(lat, lon, location.lat, location.lon)
+    if (distance > maxDistanceNm) continue
+    if (NON_PRIMARY_AIRPORT_TYPES.has(location.type)) {
+      if (distance < bestFallbackDistance) {
+        bestFallbackDistance = distance
+        bestFallbackIcao = icao
+      }
+      continue
+    }
+    if (distance < bestDistance) {
+      bestDistance = distance
+      bestIcao = icao
+    }
+  }
+  return bestIcao ?? bestFallbackIcao
 }

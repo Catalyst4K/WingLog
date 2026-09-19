@@ -63,7 +63,18 @@ docs/           User-facing content only, or empty — see the note at the top o
 - SimVar names, units, and per-aircraft-type overrides live only in
   `src/main/sim/simvars.ts`. Don't scatter SimVar strings through the codebase.
 - Every schema change is a Drizzle migration, generated via `npm run db:generate`.
-  Never hand-edit `winglog.db` or a migration file after it's been applied.
+  Never hand-edit `winglog.db` or a migration file after it's been applied. **Any migration
+  that recreates a table** (SQLite can't `ALTER COLUMN` — loosening a `NOT NULL`, changing
+  a type, etc. all go through drizzle-kit's `CREATE __new_x` / copy / `DROP TABLE x` /
+  rename dance) **needs real verification against a database with child rows still FK'd to
+  it**, not just an empty or near-empty one — the migration's own `PRAGMA
+  foreign_keys=OFF` is a no-op once drizzle's migrator opens its own transaction (real
+  incident, 2026-09-17: migration 0024 crashed every real install on launch with
+  `DROP TABLE` failing on a live FK constraint; an empty-ish test DB never exercised it).
+  `src/main/db/migrate.ts`'s `migrateDb` now toggles the pragma itself, outside that
+  transaction — but also double-check drizzle-kit's generated SQL by hand before trusting
+  it: for this same migration it tried to `SELECT` two brand-new columns out of the
+  *pre-migration* table, which would have failed on its own.
 - Anything that sends data off the machine, stores credentials, or introduces an account
   or a server is a **decision, not an implementation detail**. Propose it, get agreement,
   and record it in `flightdeck-backend`'s `docs/decisions.md` before building it. Nothing

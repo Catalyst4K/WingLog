@@ -1,3 +1,4 @@
+import { isRetired } from '@shared/aircraft'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import type {
@@ -99,7 +100,7 @@ export function DispatchView(props: {
   useEffect(() => {
     // Retired aircraft (replacedByAircraftId set — docs/plans/aircraft-replacement.md) have
     // no flights of their own left and shouldn't be offered anywhere an aircraft is picked.
-    window.winglog.aircraftList().then((list) => setAircraft(list.filter((a) => a.replacedByAircraftId == null)))
+    window.winglog.aircraftList().then((list) => setAircraft(list.filter((a) => !isRetired(a))))
     window.winglog.logbookFleetStats().then(setFleetStats)
     window.winglog.dispatchGenerationAvailable().then(setGenerationAvailable)
     // Source list for the advanced dialog's "Load settings from a previous flight" —

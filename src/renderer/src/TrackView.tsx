@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import type { ActiveTracking, Aircraft, DispatchOfp, Flight, ProcedureSelection, SimTelemetry, TrackPoint } from '@shared/ipc'
+import type {
+  ActiveTracking,
+  Aircraft,
+  DispatchOfp,
+  Flight,
+  MapLanguage,
+  ProcedureSelection,
+  SimTelemetry,
+  TrackPoint
+} from '@shared/ipc'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,19 +28,34 @@ import { useConfirm } from './hooks/useConfirm'
 import { ProcedureSelector } from './ProcedureSelector'
 import { useLiveWaypoints, type ProcedureAirports } from './procedureSelection'
 import { parseTransitionAltitudes } from './route'
+import { StartFreeFlightDialog } from './StartFreeFlightDialog'
+
+// Display-only duplicate of FlightRecorder's own MOVING_MS (~1kt) — the renderer can't
+// import main-process code (this repo's own layout rule), and this threshold only decides
+// whether to *show a prompt*, never anything persisted, so a second small constant here is
+// cheaper than a round trip for it.
+const GROUND_MOVEMENT_THRESHOLD_MS = 0.5
 
 /** "Flight Num: [airline logo] BAW31   A35K · G-XWBS" — the identity strip shown for a
- *  flight on this page, whether it's actively being tracked or just queued up to start. */
-function FlightIdentity(props: { flightNumber: string; aircraft: Aircraft | undefined }): React.JSX.Element {
+ *  flight on this page, whether it's actively being tracked or just queued up to start.
+ *  Falls back to simIcaoType/simRegistration (a free flight tracked with no fleet
+ *  aircraft — free-flight-tracking.md's "don't add to fleet" option) when there's no
+ *  linked Aircraft to read type/registration from. */
+function FlightIdentity(props: {
+  flightNumber: string
+  aircraft: Aircraft | undefined
+  simIcaoType?: string | null
+  simRegistration?: string | null
+}): React.JSX.Element {
+  const icaoType = props.aircraft?.icaoType ?? props.simIcaoType
+  const registration = props.aircraft?.registration ?? props.simRegistration
   return (
     <span className="flex items-center gap-1.5 text-sm text-foreground">
       <span className="font-medium text-foreground">Flight Num:</span>
       <AirlineLogo iata={props.aircraft?.operatorIata ?? null} />
       <span>{props.flightNumber}</span>
-      {props.aircraft && (
-        <span className="text-muted-foreground">
-          {props.aircraft.icaoType} · {props.aircraft.registration}
-        </span>
+      {(icaoType || registration) && (
+        <span className="text-muted-foreground">{[icaoType, registration].filter(Boolean).join(' · ')}</span>
       )}
     </span>
   )
@@ -44,6 +68,8 @@ export function TrackView(props: {
   previewOfp?: DispatchOfp | null
   /** Live sim telemetry, shown as a small overlay on the map. */
   telemetry?: SimTelemetry | null
+  /** Language of the map's place names (Settings → UI). */
+  mapLanguage?: MapLanguage
   /** The live procedure selection — lifted to App.tsx alongside dispatchOfp so Dispatch and
    *  Track always agree on what's currently chosen (docs/plans/navdata-without-navigraph.md,
    *  Phase 5). This is the real-world workflow the feature exists for: a pilot only learns
@@ -65,6 +91,12 @@ export function TrackView(props: {
   const [starting, setStarting] = useState(false)
   const [confirm, confirmDialog] = useConfirm()
   const [completedLabel, setCompletedLabel] = useState<string | null>(null)
+  const [freeFlightDialogOpen, setFreeFlightDialogOpen] = useState(false)
+  // Reset per-episode, not per app session (free-flight-tracking.md's open question #1 is
+  // explicit that the exact banner-annoyance tradeoff is still undecided) — see the effect
+  // below that clears this the moment the trigger condition itself goes false, so a later,
+  // genuinely new stretch of flying prompts again rather than staying silenced forever.
+  const [bannerDismissed, setBannerDismissed] = useState(false)
   // The onTrackingPoint listener below is registered once on mount, so it closes over
   // whatever `flights`/`props.onFlightEnded` were at that time — refs kept in step with
   // the real values let it use both without going stale.
@@ -144,6 +176,22 @@ export function TrackView(props: {
     }
   }
 
+  /** Mirrors handleStart's post-start bookkeeping — the dialog itself already handled the
+   *  IPC call and its own error reporting, this only runs on success. */
+  async function handleFreeFlightStarted(): Promise<void> {
+    setActive(await window.winglog.trackingGetActive())
+    setTrackPoints([])
+    await reload()
+  }
+
+  function handleOpenFreeFlight(): void {
+    if (!props.telemetry) {
+      toast.error('Not connected to the sim.')
+      return
+    }
+    setFreeFlightDialogOpen(true)
+  }
+
   async function handleCancelActive(): Promise<void> {
     const ok = await confirm({
       title: `Cancel ${activeLabel}?`,
@@ -201,6 +249,66 @@ export function TrackView(props: {
   const plannedFlights = flights.filter((f) => f.status === 'planned')
   const activeFlight = active ? flights.find((f) => f.id === active.flightId) : undefined
   const activeLabel = activeFlight?.flightNumber ?? `flight #${active?.flightId}`
+
+  // Raw per-sample trigger for the passive banner below — moving on the ground or airborne.
+  // Not used directly: a single sample of this can't be trusted on its own. Callum saw this
+  // live (2026-09-16, sitting at MSFS's World Map with no flight loaded at all) — WingLog
+  // briefly showed the aircraft as airborne, then it corrected itself a moment later.
+  // AutoStartDetector already documents this same family of transient garbage for the
+  // on-the-ground case (a reload's telemetry "looks plausible but isn't" for the better
+  // part of a minute) and requires several consecutive stable samples before trusting it;
+  // this banner had no equivalent guard. See docs/simconnect-notes.md, 2026-09-16.
+  const bannerRawTrigger =
+    !!props.telemetry &&
+    (!props.telemetry.onGround || props.telemetry.groundSpeedMs > GROUND_MOVEMENT_THRESHOLD_MS)
+  // Raised from 3 to match AutoStartDetector's own proven bar (8 consecutive 1Hz samples) for
+  // the analogous "is this real or reload garbage" problem — a reasonable tightening, not a
+  // confirmed fix: AutoStartDetector's 8-sample number is proven against a *flight-to-flight*
+  // reload specifically (docs/decisions.md, 2026-09-02), not "sitting at the main menu before
+  // anything is loaded," which hasn't actually been captured. If a false trigger still shows
+  // up before a flight is loaded, the next step is a throwaway capture script through that
+  // specific transition (same shape as the old spike-capture-flight.ts/spike-flight-reload.ts
+  // precedent), not a third guess at the sample count.
+  const BANNER_SUSTAIN_SAMPLES = 8
+  // Counts consecutive samples agreeing with bannerRawTrigger, adjusted during render (same
+  // pattern as prevShowBanner below) keyed on telemetry object identity — a fresh reference
+  // arrives with every push, so this reliably detects "a new sample arrived" without a
+  // useEffect.
+  const [prevTelemetryForBanner, setPrevTelemetryForBanner] = useState(props.telemetry)
+  const [bannerSustainedCount, setBannerSustainedCount] = useState(bannerRawTrigger ? 1 : 0)
+  if (props.telemetry !== prevTelemetryForBanner) {
+    // `title` changing is a new episode — confirmed (docs/decisions.md, 2026-09-02) as the
+    // one signal that changes instantly and reliably across a reload, unlike position/
+    // altitude/onGround, which can hold a stale, plausible-looking value for the better part
+    // of a minute. Restarting the sustain count from scratch here, rather than trusting
+    // whatever count a *different* aircraft's telemetry had already built toward the
+    // threshold, also fixes a real bug: a false pre-load trigger that blends straight into a
+    // real one (both satisfying bannerRawTrigger, with no false moment in between) used to
+    // mean bannerDismissed — set from dismissing the false alarm — silently suppressed the
+    // real, later episode too, since the showBanner-goes-false reset below never fired.
+    const titleChanged = (prevTelemetryForBanner?.title ?? null) !== (props.telemetry?.title ?? null)
+    setPrevTelemetryForBanner(props.telemetry)
+    setBannerSustainedCount(bannerRawTrigger ? (titleChanged ? 1 : bannerSustainedCount + 1) : 0)
+    if (titleChanged) setBannerDismissed(false)
+  }
+
+  // The passive detection banner (free-flight-tracking.md): sim connected, nothing being
+  // tracked, and the aircraft is either moving on the ground or airborne for several
+  // consecutive samples running (not just one — see bannerRawTrigger above) — never fires
+  // just because the sim is loaded and parked. Suppressed whenever a real planned flight is
+  // already loaded (dispatched via "Fly"): that flight's own card already offers "Start
+  // tracking", and the banner's button starts an unrelated free flight instead, which would
+  // just create a second, parallel flight rather than tracking the one already planned.
+  const showBanner = !active && plannedFlights.length === 0 && bannerSustainedCount >= BANNER_SUSTAIN_SAMPLES
+  // Resets the dismissal the moment the trigger condition itself goes false (parked again,
+  // or tracking started) — adjusted during render, React's own documented pattern for state
+  // that depends on another value changing, same as AircraftForm.tsx's own
+  // committedIcaoTypeForOptions.
+  const [prevShowBanner, setPrevShowBanner] = useState(showBanner)
+  if (showBanner !== prevShowBanner) {
+    setPrevShowBanner(showBanner)
+    if (!showBanner) setBannerDismissed(false)
+  }
   // Before tracking starts, preview the most recently planned flight (flightList already
   // orders newest-first) so a freshly-dispatched plan shows up on the map immediately
   // rather than only after "Start tracking" is clicked. If nothing's been saved yet, fall
@@ -248,6 +356,8 @@ export function TrackView(props: {
               <FlightIdentity
                 flightNumber={activeLabel}
                 aircraft={aircraft.find((a) => a.id === activeFlight?.aircraftId)}
+                simIcaoType={activeFlight?.simIcaoType}
+                simRegistration={activeFlight?.simRegistration}
               />
               <span className="text-sm text-muted-foreground">
                 Phase: <span className="font-mono capitalize">{active.phase}</span>
@@ -263,10 +373,41 @@ export function TrackView(props: {
             </div>
           </CardContent>
         </Card>
-      ) : plannedFlights.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No planned flights to track — dispatch one first.</p>
       ) : (
         <div className="flex flex-col gap-2">
+          {showBanner && !bannerDismissed && (
+            <Card className="border-primary/50 bg-primary/5">
+              <CardContent className="flex items-center justify-between gap-4">
+                <p className="text-sm text-foreground">
+                  {props.telemetry?.atcId || 'An aircraft'} is{' '}
+                  {props.telemetry?.onGround ? 'moving on the ground' : 'airborne'} — start tracking?
+                </p>
+                <div className="flex gap-2">
+                  <Button type="button" size="sm" onClick={handleOpenFreeFlight}>
+                    Start tracking
+                  </Button>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setBannerDismissed(true)}>
+                    Not now
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {plannedFlights.length === 0 && (
+            <Card>
+              <CardContent className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Flying something already?</p>
+                  <p className="text-sm text-muted-foreground">Start tracking it — no SimBrief plan needed.</p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={handleOpenFreeFlight}>
+                  Free flight
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
           {plannedFlights.map((f) => {
             const label = f.flightNumber ?? `${f.depIcao} → ${f.arrIcao}`
             return (
@@ -327,13 +468,26 @@ export function TrackView(props: {
           route={route}
           waypoints={liveWaypoints}
           trackPoints={trackPoints}
-          telemetry={props.telemetry}
+          // Only shown once tracking has officially started — before that the sim can hold
+          // stale values from a previous session (beta feedback 2026-09-18).
+          telemetry={active ? props.telemetry : null}
           telemetryPhase={active?.phase}
           telemetryTransition={telemetryTransition}
+          mapLanguage={props.mapLanguage}
         />
       </div>
 
       {confirmDialog}
+
+      <StartFreeFlightDialog
+        open={freeFlightDialogOpen}
+        onOpenChange={setFreeFlightDialogOpen}
+        telemetry={props.telemetry ?? null}
+        aircraft={aircraft}
+        onStarted={() => {
+          void handleFreeFlightStarted()
+        }}
+      />
 
       <AlertDialog open={completedLabel !== null} onOpenChange={(open) => !open && setCompletedLabel(null)}>
         <AlertDialogContent>

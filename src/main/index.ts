@@ -1,3 +1,4 @@
+import { isRetired } from '@shared/aircraft'
 import { join } from 'node:path'
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
 import { initLogger } from './logging/logger'
@@ -6,14 +7,17 @@ import {
   IpcChannels,
   type AircraftUpdate,
   type AltitudeUnit,
+  type DataFormat,
   type WindSpeedUnit,
   type DispatchOfp,
   type DispatchOpenSimBriefParams,
   type GsxSettings,
   type LandingDistanceUnit,
+  type MapLanguage,
   type NavdataProcedureKind,
   type NewFlight,
   type ProcedureSelection,
+  type StartFreeFlightInput,
   type Theme,
   type WeightUnit
 } from '@shared/ipc'
@@ -22,6 +26,7 @@ import { searchAircraftTypes } from './aircraft-lookup/icao-types'
 import { findAirlineByIcao, searchAirlines } from './airlines/airline-search'
 import { fetchMetars } from './weather/metar-client'
 import { fetchExchangeRate } from './fx/fx-client'
+import { listAirfields } from './airports/airfields'
 import { greatCircleWaypoints, searchAirports } from './airports/airport-search'
 import { findLandingRunway } from './airports/runway-lookup'
 import { createDb } from './db/client'
@@ -34,6 +39,8 @@ import {
   getAircraftByRegistration,
   listAircraft,
   replaceAircraft,
+  retireAircraft,
+  unretireAircraft,
   updateAircraft
 } from './db/aircraft-repo'
 import { parseAircraftInput } from './db/aircraft-validation'
@@ -49,13 +56,14 @@ import {
   getInProgressFlight,
   getLogbookStats,
   listCompletedFlights,
+  linkAircraftToFlight,
   listFlights,
   listFlightsByAircraft,
   setFlownRoute
 } from './db/flight-repo'
-import { getLandingByFlight, listLandingsByAircraft } from './db/landing-repo'
+import { listAllLandings, listLandingsByAircraft, listLandingsByFlight } from './db/landing-repo'
 import { getLandingScoresForCompletedFlights, resolveLandingScore } from './db/landing-score-resolver'
-import { importLogbookCsv } from './db/logbook-import'
+import { exportLogbook, importLogbookCsv, importLogbookJson } from './db/logbook-import'
 import {
   getAltitudeUnit,
   getGsxSettings,
@@ -63,6 +71,7 @@ import {
   getSimbriefUsername,
   getTheme,
   getWeightUnit,
+  getMapLanguage,
   getWindSpeedUnit,
   setAltitudeUnit,
   setGsxSettings,
@@ -70,9 +79,11 @@ import {
   setSimbriefUsername,
   setTheme,
   setWeightUnit,
+  setMapLanguage,
   setWindSpeedUnit
 } from './db/settings-repo'
 import { listTrackPoints } from './db/track-point-repo'
+import { getFreeFlightPrefill } from './tracking/free-flight'
 import { deriveFlownRouteJson } from './tracking/route-simplify'
 import { runTrackCleanupForFlight } from './tracking/run-track-cleanup'
 import { simplifyTrackPoints } from './tracking/track-simplify'
@@ -95,9 +106,22 @@ import { SimConnectService } from './sim/SimConnectService'
 import { ReplaySimConnectService, type ReplayMode } from './sim/ReplaySimConnectService'
 import type { NavdataProvider } from './navdata/navdata-provider'
 import { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
+import { SimAirfieldResolver } from './airports/sim-airfield'
 import { TrackingController } from './tracking/TrackingController'
 import { AutoStartDetector } from './tracking/AutoStartDetector'
 import { CloudSyncController } from './sync/cloud-sync-controller'
+
+/**
+ * A blank/unresolved depIcao or arrIcao from the free-flight dialog becomes 'ZZZZ' — ICAO's
+ * own "no location indicator assigned" code, not an invented sentinel — rather than leaving
+ * either NOT NULL column null (free-flight-tracking.md's "When there's genuinely no
+ * airport"). Whatever is given is trimmed/uppercased the same way AirportSearch's own
+ * choices already are.
+ */
+function normalizeFreeFlightIcao(icao: string | null): string {
+  const trimmed = icao?.trim().toUpperCase()
+  return trimmed || 'ZZZZ'
+}
 
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
@@ -256,12 +280,31 @@ if (!gotSingleInstanceLock) {
         scheduleBackgroundSync()
       })
 
-      ipcMain.handle(IpcChannels.aircraftImport, async () => {
-        const summary = await importAircraft(db, window)
+      // Validated here, not just in the renderer — the renderer isn't a security boundary.
+      const requireAircraftId = (id: unknown): number => {
+        if (typeof id !== 'number' || !Number.isInteger(id)) throw new Error('Invalid aircraft id')
+        return id
+      }
+      ipcMain.handle(IpcChannels.aircraftRetire, (_event, id: unknown) => {
+        retireAircraft(db, requireAircraftId(id))
+        scheduleBackgroundSync()
+      })
+      ipcMain.handle(IpcChannels.aircraftUnretire, (_event, id: unknown) => {
+        unretireAircraft(db, requireAircraftId(id))
+        scheduleBackgroundSync()
+      })
+
+      // The format comes from the renderer, so it's checked here — anything but 'csv' is
+      // treated as the default, 'json', rather than trusted as an arbitrary string.
+      const asDataFormat = (format: unknown): DataFormat => (format === 'csv' ? 'csv' : 'json')
+      ipcMain.handle(IpcChannels.aircraftImport, async (_event, format?: unknown) => {
+        const summary = await importAircraft(db, window, asDataFormat(format))
         if (summary) scheduleBackgroundSync()
         return summary
       })
-      ipcMain.handle(IpcChannels.aircraftExport, () => exportAircraft(db, window))
+      ipcMain.handle(IpcChannels.aircraftExport, (_event, format?: unknown) =>
+        exportAircraft(db, window, asDataFormat(format))
+      )
 
       ipcMain.handle(IpcChannels.flightList, () => listFlights(db))
 
@@ -406,6 +449,10 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.settingsSetAltitudeUnit, (_event, unit: AltitudeUnit) =>
         setAltitudeUnit(db, unit)
       )
+      ipcMain.handle(IpcChannels.settingsGetMapLanguage, () => getMapLanguage(db))
+      ipcMain.handle(IpcChannels.settingsSetMapLanguage, (_event, language: MapLanguage) =>
+        setMapLanguage(db, language)
+      )
       ipcMain.handle(IpcChannels.settingsGetWindSpeedUnit, () => getWindSpeedUnit(db))
       ipcMain.handle(IpcChannels.settingsSetWindSpeedUnit, (_event, unit: WindSpeedUnit) =>
         setWindSpeedUnit(db, unit)
@@ -443,7 +490,13 @@ if (!gotSingleInstanceLock) {
       simConnectService.start()
       app.on('before-quit', () => simConnectService.stop())
 
-      const trackingController = new TrackingController(db, simConnectService)
+      // Replay mode has no live sim to ask for a touchdown's airfield.
+      const simAirfieldResolver = replayFixture ? undefined : new SimAirfieldResolver()
+      const trackingController = new TrackingController(
+        db,
+        simConnectService,
+        simAirfieldResolver && ((lat, lon, heading) => simAirfieldResolver.resolve(lat, lon, heading))
+      )
       // The one flight left "in progress" (planned or already active) when the previous
       // process quit or crashed — its DB row (OFP, route, everything Dispatch/Track need)
       // was never at risk, only TrackingController's in-memory phase-detection state, which
@@ -484,6 +537,40 @@ if (!gotSingleInstanceLock) {
         autoStartDetector.disarm()
         trackingController.start(flightId)
       })
+      ipcMain.handle(IpcChannels.trackingStartFree, (_event, input: StartFreeFlightInput) => {
+        let simRegistration: string | null = null
+        let simIcaoType: string | null = null
+        if (input.aircraftId != null) {
+          const aircraft = getAircraftById(db, input.aircraftId)
+          if (!aircraft || isRetired(aircraft)) {
+            throw new Error(`Aircraft ${input.aircraftId} not found or retired`)
+          }
+        } else {
+          simRegistration = input.simRegistration?.trim() || ''
+          simIcaoType = input.simIcaoType?.trim().toUpperCase() || ''
+          if (!simRegistration || !simIcaoType) {
+            throw new Error('Registration and type are required when not adding to the fleet.')
+          }
+        }
+        autoStartDetector.disarm()
+        const flightId = trackingController.startFree({
+          aircraftId: input.aircraftId,
+          simRegistration,
+          simIcaoType,
+          depIcao: normalizeFreeFlightIcao(input.depIcao),
+          arrIcao: normalizeFreeFlightIcao(input.arrIcao),
+          flightNumber: input.flightNumber?.trim() || null
+        })
+        scheduleBackgroundSync()
+        return flightId
+      })
+      ipcMain.handle(
+        IpcChannels.trackingGetFreeFlightPrefill,
+        (
+          _event,
+          input: { atcId: string; atcModel: string; title: string; latitude: number; longitude: number }
+        ) => getFreeFlightPrefill(db, input)
+      )
       ipcMain.handle(IpcChannels.trackingStop, () => trackingController.stop())
       ipcMain.handle(IpcChannels.trackingFinish, () => trackingController.finish())
       ipcMain.handle(IpcChannels.trackingGetActive, () => trackingController.getActive() ?? null)
@@ -550,6 +637,18 @@ if (!gotSingleInstanceLock) {
         deleteFlight(db, id)
         scheduleBackgroundSync()
       })
+      ipcMain.handle(IpcChannels.flightLinkAircraft, (_event, flightId: number, aircraftId: number) => {
+        const existingFlight = getFlight(db, flightId)
+        if (!existingFlight) throw new Error(`Flight ${flightId} not found`)
+        if (existingFlight.aircraftId != null) throw new Error(`Flight ${flightId} already has a linked aircraft`)
+        const aircraftRow = getAircraftById(db, aircraftId)
+        if (!aircraftRow || isRetired(aircraftRow)) {
+          throw new Error(`Aircraft ${aircraftId} not found or retired`)
+        }
+        const updated = linkAircraftToFlight(db, flightId, aircraftId)
+        scheduleBackgroundSync()
+        return updated
+      })
 
       ipcMain.handle(IpcChannels.logbookListCompletedFlights, () => listCompletedFlights(db))
       ipcMain.handle(IpcChannels.logbookGetStats, () => getLogbookStats(db))
@@ -559,6 +658,14 @@ if (!gotSingleInstanceLock) {
         if (summary) scheduleBackgroundSync()
         return summary
       })
+      ipcMain.handle(IpcChannels.logbookImportJson, async () => {
+        const summary = await importLogbookJson(db, window)
+        if (summary) scheduleBackgroundSync()
+        return summary
+      })
+      ipcMain.handle(IpcChannels.logbookExport, (_event, format?: unknown) =>
+        exportLogbook(db, window, asDataFormat(format))
+      )
       ipcMain.handle(IpcChannels.logbookListInvoices, (_event, flightId: number) =>
         listInvoicesForFlight(db, flightId)
       )
@@ -628,33 +735,46 @@ if (!gotSingleInstanceLock) {
         return true
       })
 
-      ipcMain.handle(
-        IpcChannels.logbookGetLanding,
-        (_event, flightId: number) => getLandingByFlight(db, flightId) ?? null
+      ipcMain.handle(IpcChannels.logbookListLandings, (_event, flightId: number) => {
+        const landingFlight = getFlight(db, flightId)
+        if (!landingFlight) return []
+        const icaoType =
+          landingFlight.aircraftId != null
+            ? (getAircraftById(db, landingFlight.aircraftId)?.icaoType ?? null)
+            : landingFlight.simIcaoType
+        return listLandingsByFlight(db, flightId).map((landingRecord) => {
+          // This touchdown's own resolved airport, falling back to the flight's filed
+          // arrival — same icao the capture itself narrowed the runway search by
+          // (TrackingController), so the read side can never disagree with what was
+          // actually measured.
+          const icao = landingRecord.icao ?? landingFlight.arrIcao
+          return {
+            ...landingRecord,
+            runway: landingRecord.runwayIdent ? findLandingRunway(icao, landingRecord.runwayIdent) : null,
+            score: resolveLandingScore(landingRecord, icao, icaoType)
+          }
+        })
+      })
+      ipcMain.handle(IpcChannels.logbookListAllLandings, () =>
+        listAllLandings(db).map(({ icaoType, ...row }) => {
+          const icao = row.icao ?? row.arrIcao
+          const { score, severity } = resolveLandingScore(row, icao, icaoType)
+          return { ...row, score, severity }
+        })
       )
-      ipcMain.handle(IpcChannels.logbookGetLandingRunway, (_event, flightId: number) => {
-        const landingFlight = getFlight(db, flightId)
-        const landingRecord = getLandingByFlight(db, flightId)
-        if (!landingFlight || !landingRecord?.runwayIdent) return null
-        return findLandingRunway(landingFlight.arrIcao, landingRecord.runwayIdent)
-      })
-      ipcMain.handle(IpcChannels.logbookGetLandingScore, (_event, flightId: number) => {
-        const landingFlight = getFlight(db, flightId)
-        const landingRecord = getLandingByFlight(db, flightId)
-        if (!landingFlight || !landingRecord) return null
-        const icaoType = getAircraftById(db, landingFlight.aircraftId)?.icaoType ?? null
-        return resolveLandingScore(landingRecord, landingFlight.arrIcao, icaoType)
-      })
       ipcMain.handle(IpcChannels.logbookListFlightScores, () => getLandingScoresForCompletedFlights(db))
       ipcMain.handle(IpcChannels.logbookGreatCircleRoute, (_event, depIcao: string, arrIcao: string) =>
         greatCircleWaypoints(depIcao, arrIcao)
       )
       ipcMain.handle(IpcChannels.fleetListLandings, (_event, aircraftId: number) => {
         const icaoType = getAircraftById(db, aircraftId)?.icaoType ?? null
-        return listLandingsByAircraft(db, aircraftId).map((row) => ({
-          ...row,
-          ...resolveLandingScore(row, row.arrIcao, icaoType)
-        }))
+        return listLandingsByAircraft(db, aircraftId).map((row) => {
+          const icao = row.icao ?? row.arrIcao
+          return {
+            ...row,
+            ...resolveLandingScore(row, icao, icaoType)
+          }
+        })
       })
       ipcMain.handle(IpcChannels.fleetListFlights, (_event, aircraftId: number) =>
         listFlightsByAircraft(db, aircraftId)
@@ -671,6 +791,7 @@ if (!gotSingleInstanceLock) {
         createCustomAirframeFromShare(shareUrl)
       )
       ipcMain.handle(IpcChannels.airportSearch, (_event, query: string) => searchAirports(query))
+      ipcMain.handle(IpcChannels.airportListAirfields, () => listAirfields())
       ipcMain.handle(IpcChannels.airlineSearch, (_event, query: string) => searchAirlines(query))
       ipcMain.handle(IpcChannels.airlineFindByIcao, (_event, icao: string) => findAirlineByIcao(icao))
       ipcMain.handle(IpcChannels.weatherGetMetars, (_event, icaoCodes: string[]) => fetchMetars(icaoCodes))

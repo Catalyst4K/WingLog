@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { and, desc, eq, isNull, or } from 'drizzle-orm'
 import type { Flight, FleetStats, LogbookStats, NewFlight, ProcedureSelection } from '@shared/ipc'
 import { greatCircleDistanceNm } from '../airports/airport-search'
+import { rememberAircraftForTitle } from './settings-repo'
 import { aircraft, flight, flightInvoice, landing, trackPoint } from './schema'
 import type { WingLogDb } from './client'
 
@@ -9,6 +10,9 @@ function toFlight(row: typeof flight.$inferSelect): Flight {
   return {
     id: row.id,
     aircraftId: row.aircraftId,
+    simRegistration: row.simRegistration,
+    simIcaoType: row.simIcaoType,
+    simTitle: row.simTitle,
     status: row.status,
     flightNumber: row.flightNumber,
     depIcao: row.depIcao,
@@ -144,6 +148,102 @@ export function createFlight(db: WingLogDb, input: NewFlight): Flight {
   return toFlight(row)
 }
 
+export interface NewFreeFlightInput {
+  /** Null when the pilot chose not to add this aircraft to the fleet — simRegistration/
+   *  simIcaoType are then required instead, carrying its identity on the flight row itself. */
+  aircraftId: number | null
+  simRegistration?: string | null
+  simIcaoType?: string | null
+  /** The raw sim `title` at free-flight start — only meaningful alongside a null aircraftId,
+   *  same convention as simRegistration/simIcaoType. Lets a later Logbook "Add to fleet"
+   *  (linkAircraftToFlight) seed the title -> aircraft memory retroactively. */
+  simTitle?: string | null
+  depIcao: string
+  arrIcao: string
+  flightNumber: string | null
+  fuelOutKg: number
+  simVersion?: string
+}
+
+/**
+ * Creates a flight that skips the 'planned' stage entirely — free-flight-tracking.md:
+ * tracking a flight the pilot is already in, with no SimBrief plan and no Dispatch "Fly"
+ * press to transition from. Goes straight to 'active' with actualOutUtc/fuelOutKg/simVersion
+ * already set — the same fields startFlight otherwise fills in on the planned -> active
+ * transition, written here directly since there's no earlier 'planned' row for this flight.
+ */
+export function createFreeFlight(db: WingLogDb, input: NewFreeFlightInput): Flight {
+  const [row] = db
+    .insert(flight)
+    .values({
+      aircraftId: input.aircraftId,
+      simRegistration: input.simRegistration ?? null,
+      simIcaoType: input.simIcaoType ?? null,
+      simTitle: input.simTitle ?? null,
+      status: 'active',
+      flightNumber: input.flightNumber,
+      depIcao: input.depIcao,
+      arrIcao: input.arrIcao,
+      actualOutUtc: new Date().toISOString(),
+      fuelOutKg: input.fuelOutKg,
+      simVersion: input.simVersion,
+      uuid: randomUUID(),
+      updatedAt: new Date().toISOString()
+    })
+    .returning()
+    .all()
+  return toFlight(row)
+}
+
+/**
+ * Overwrites a free flight's arrival with wherever it actually landed
+ * (free-flight-tracking.md, "Arrival is resolved, not filed") — called at touchdown and
+ * again at completion in case of a taxi to a different field, always before completeFlight
+ * runs (that function copies arr_icao into aircraft.current_icao). The caller
+ * (TrackingController) scopes this to free flights only — a dispatched flight keeps its
+ * filed arrival even on a real diversion, a separate, already-known gap this doesn't touch.
+ */
+export function setArrIcao(db: WingLogDb, id: number, arrIcao: string): void {
+  db.update(flight).set({ arrIcao, updatedAt: new Date().toISOString() }).where(eq(flight.id, id)).run()
+}
+
+/**
+ * Links a fleet aircraft to a flight that was tracked as a free flight with no aircraft at
+ * all — Callum's follow-up call on free-flight-tracking.md: adding to the fleet doesn't have
+ * to happen at flight-start time, it can happen later from Logbook once the pilot decides the
+ * aircraft is worth keeping. Nulls simRegistration/simIcaoType/simTitle to preserve the
+ * schema's "always null together with a non-null aircraftId" invariant, backfills
+ * aircraft.currentIcao the same way completeFlight does (this flight already completed
+ * without ever going through that write, since it had no aircraft to write it for), and
+ * remembers the flight's own simTitle -> aircraft mapping so the next free flight in the same
+ * add-on auto-matches, same as if fleet creation had happened inline at start.
+ */
+export function linkAircraftToFlight(db: WingLogDb, id: number, aircraftId: number): Flight | undefined {
+  const existing = getFlight(db, id)
+  if (!existing) return undefined
+
+  const [row] = db
+    .update(flight)
+    .set({
+      aircraftId,
+      simRegistration: null,
+      simIcaoType: null,
+      simTitle: null,
+      updatedAt: new Date().toISOString()
+    })
+    .where(eq(flight.id, id))
+    .returning()
+    .all()
+  if (!row) return undefined
+
+  if (existing.arrIcao !== 'ZZZZ') {
+    db.update(aircraft).set({ currentIcao: existing.arrIcao }).where(eq(aircraft.id, aircraftId)).run()
+  }
+  if (existing.simTitle) rememberAircraftForTitle(db, existing.simTitle, aircraftId)
+
+  return toFlight(row)
+}
+
 export interface HistoricalFlightInput {
   aircraftId: number
   depIcao: string
@@ -151,6 +251,11 @@ export interface HistoricalFlightInput {
   flightNumber: string | null
   actualOutUtc: string
   actualInUtc: string
+  /** Only present when the source file carries them (WingLog's own export does; SimToolkitPro's doesn't). */
+  airMinutes?: number | null
+  fuelOutKg?: number | null
+  fuelInKg?: number | null
+  fuelBurnKg?: number | null
 }
 
 /**
@@ -172,6 +277,10 @@ export function createHistoricalFlight(db: WingLogDb, input: HistoricalFlightInp
       actualOutUtc: input.actualOutUtc,
       actualInUtc: input.actualInUtc,
       blockMinutes: minutesBetween(input.actualOutUtc, input.actualInUtc),
+      airMinutes: input.airMinutes ?? null,
+      fuelOutKg: input.fuelOutKg ?? null,
+      fuelInKg: input.fuelInKg ?? null,
+      fuelBurnKg: input.fuelBurnKg ?? null,
       uuid: randomUUID(),
       updatedAt: new Date().toISOString()
     })
@@ -286,8 +395,10 @@ export function completeFlight(
   // otherwise it'd only ever reflect wherever the aircraft was manually set to once.
   // Only wired into the real-time completion path (TrackingController → completeFlight),
   // not CSV-imported historical flights (logbook-import.ts's createHistoricalFlight),
-  // since an import isn't guaranteed to process rows in chronological order.
-  if (row)
+  // since an import isn't guaranteed to process rows in chronological order. Skipped
+  // entirely for a free flight tracked with no fleet aircraft (aircraftId null) — there's
+  // no aircraft record to update.
+  if (row && existing.aircraftId != null)
     db.update(aircraft)
       .set({ currentIcao: existing.arrIcao })
       .where(eq(aircraft.id, existing.aircraftId))
@@ -409,6 +520,7 @@ export function getFleetStats(db: WingLogDb): FleetStats[] {
 
   const byAircraft = new Map<number, FleetStats>()
   for (const f of completed) {
+    if (f.aircraftId == null) continue // free flight tracked with no fleet aircraft
     const registration = aircraftById.get(f.aircraftId)
     if (!registration) continue // orphaned flight row, e.g. its aircraft was deleted
 

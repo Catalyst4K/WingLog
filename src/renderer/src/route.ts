@@ -214,19 +214,51 @@ export interface ProcedureLegs {
   legs: NavdataLeg[]
 }
 
+const METRES_PER_NM = 1852
+const EARTH_RADIUS_M = 6371008.8
+
+/** FC (fix to distance) and FD (fix to DME) — ARINC 424 leg types 9 and 10 in the sim's
+ *  Facilities data. Their fix is the navaid the leg is anchored to; the leg *ends* a
+ *  ROUTE_DISTANCE along COURSE from it (flightdeck-backend docs/navdata-notes.md, 2026-09-18). */
+const DISTANCE_TERMINATED_LEG_TYPES = new Set([9, 10])
+
+/** Great-circle destination point. COURSE is treated as a true bearing although the sim
+ *  reports it magnetic (TRUE_DEGREE reads 0) and no variation is available per leg — a few
+ *  degrees of error over a leg of ~10 nm is well under the map's own precision. */
+function destinationPoint(lat: number, lon: number, bearingDeg: number, distanceM: number): { lat: number; lon: number } {
+  const rad = Math.PI / 180
+  const d = distanceM / EARTH_RADIUS_M
+  const brg = bearingDeg * rad
+  const lat1 = lat * rad
+  const lon1 = lon * rad
+  const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(brg))
+  const lon2 = lon1 + Math.atan2(Math.sin(brg) * Math.sin(d) * Math.cos(lat1), Math.cos(d) - Math.sin(lat1) * Math.sin(lat2))
+  return { lat: lat2 / rad, lon: ((((lon2 / rad) + 540) % 360) - 180) }
+}
+
 function legsToWaypoints(legs: NavdataLeg[], segment: RouteSegment): Waypoint[] {
-  return legs
-    .filter((leg): leg is NavdataLeg & { fixIdent: string } => leg.fixIdent !== null)
-    .map((leg) => ({
-      ident: leg.fixIdent,
-      lon: leg.fixLongitude,
-      lat: leg.fixLatitude,
-      // ALTITUDE1/2's exact "no restriction" sentinel isn't confirmed (facility-fields.ts) —
-      // treated as 0 here as the safest fallback, matching how a SimBrief fix with no
-      // altitude constraint already reads (parseWaypointsFromOfpJson's `?? 0`).
-      altitudeFt: leg.altitude1 > 0 ? leg.altitude1 : 0,
-      segment
-    }))
+  const waypoints: Waypoint[] = []
+  for (const leg of legs) {
+    if (leg.fixIdent === null) continue
+    // ALTITUDE1/2's exact "no restriction" sentinel isn't confirmed (facility-fields.ts) —
+    // treated as 0 here as the safest fallback, matching how a SimBrief fix with no
+    // altitude constraint already reads (parseWaypointsFromOfpJson's `?? 0`).
+    const altitudeFt = leg.altitude1 > 0 ? leg.altitude1 : 0
+    waypoints.push({ ident: leg.fixIdent, lon: leg.fixLongitude, lat: leg.fixLatitude, altitudeFt, segment })
+    if (DISTANCE_TERMINATED_LEG_TYPES.has(leg.type) && leg.routeDistanceM > 0) {
+      // The point the FMC labels "<navaid>/<nm>" (e.g. LAM/11) — otherwise the map only ever
+      // showed the navaid itself and the aircraft flew on to a point it never drew.
+      const end = destinationPoint(leg.fixLatitude, leg.fixLongitude, leg.courseDeg, leg.routeDistanceM)
+      waypoints.push({
+        ident: `${leg.fixIdent}/${Math.round(leg.routeDistanceM / METRES_PER_NM)}`,
+        lon: end.lon,
+        lat: end.lat,
+        altitudeFt,
+        segment
+      })
+    }
+  }
+  return waypoints
 }
 
 /**

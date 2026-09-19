@@ -51,3 +51,39 @@ test('create, view, edit, and delete an aircraft', async () => {
     await cleanup()
   }
 })
+
+/**
+ * Plain Retire (flightdeck-backend docs/plans/fleet-retire.md) through the real app — the
+ * aircraft leaves the active list for the Retired tab (history kept, unlike Replace), and
+ * Un-retire brings it back. Exercises the real IPC handlers and the 0027 migration.
+ */
+test('retire an aircraft, find it under Retired, then un-retire it', async () => {
+  const { window, cleanup } = await launchApp()
+  try {
+    await window.getByRole('button', { name: 'New aircraft' }).click()
+    await window.getByRole('textbox').first().fill('G-RETI')
+    await window.getByPlaceholder('e.g. A350, Boeing, B77W, or type an ICAO code').fill('A320')
+    await window.getByRole('button', { name: 'Save' }).click()
+    await expect(window.getByRole('cell', { name: 'G-RETI' })).toBeVisible()
+
+    await window.getByRole('row', { name: /G-RETI/ }).click()
+    await window.getByRole('button', { name: 'Retire', exact: true }).click()
+    await expect(window.getByRole('heading', { name: 'Retire G-RETI?' })).toBeVisible()
+    await window.getByRole('button', { name: 'Retire aircraft' }).click()
+    await expect(window.getByText(/its flight history is kept/)).toBeVisible()
+
+    await window.getByRole('button', { name: 'Back to fleet' }).click()
+    await expect(window.getByText('No active aircraft')).toBeVisible()
+    await window.getByRole('tab', { name: 'Retired (1)' }).click()
+    await expect(window.getByRole('cell', { name: 'G-RETI' })).toBeVisible()
+
+    await window.getByRole('row', { name: /G-RETI/ }).click()
+    await window.getByRole('button', { name: 'Un-retire' }).click()
+    await expect(window.getByRole('button', { name: 'Retire', exact: true })).toBeVisible()
+
+    await window.getByRole('button', { name: 'Back to fleet' }).click()
+    await expect(window.getByRole('cell', { name: 'G-RETI' })).toBeVisible()
+  } finally {
+    await cleanup()
+  }
+})

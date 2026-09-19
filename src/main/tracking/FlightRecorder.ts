@@ -3,10 +3,13 @@ import type { FlightPhase, NewTrackPoint, SimTelemetry } from '@shared/ipc'
 // Thresholds are first-pass estimates (PLAN.md doesn't prescribe exact values) — expect
 // to refine these after watching a few real flights track through every phase; see
 // docs/simconnect-notes.md for anything that turns out surprising.
-const MOVING_MS = 0.5 // ~1 kt — any ground movement at all, used for pushback detection
+// Exported: free-flight.ts's seedPhaseFromTelemetry reuses these same two thresholds to
+// seed a mid-session-started flight into the phase it would already be in had the machine
+// been running the whole time, rather than inventing separate seeding-only numbers.
+export const MOVING_MS = 0.5 // ~1 kt — any ground movement at all, used for pushback detection
 const TAXI_SPEED_MS = 2.6 // ~5 kt — established taxi under own power vs. still being pushed
 const ROLL_SPEED_MS = 18 // ~35 kt — takeoff-roll / landing-rollout boundary vs. taxi speed
-const LEVEL_VS_MS = 0.5 // ~100 fpm — vertical speed magnitude counted as "level"
+export const LEVEL_VS_MS = 0.5 // ~100 fpm — vertical speed magnitude counted as "level"
 const DESCENT_VS_MS = -1.0 // ~-200 fpm — sustained descent rate that ends cruise
 const LEVEL_SUSTAIN_SAMPLES = 10 // consecutive 1 Hz samples of level flight to confirm cruise
 const DESCENT_SUSTAIN_SAMPLES = 5 // consecutive samples of descent to confirm leaving cruise

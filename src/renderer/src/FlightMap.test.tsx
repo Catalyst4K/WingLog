@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { TrackPoint } from '@shared/ipc'
+import type { SimTelemetry, TrackPoint } from '@shared/ipc'
 import type { Waypoint } from './route'
 import type { FlightMapProps } from './FlightMap'
 
@@ -9,6 +9,13 @@ import type { FlightMapProps } from './FlightMap'
  *  type, which has none of the extra test surface (sources/layers/handlers,
  *  fireStyleLoad) this fake exposes for assertions. */
 interface FakeMapInstance {
+  controls: { opts?: { unit?: string } }[]
+  addControl: ReturnType<typeof vi.fn>
+  removeControl: ReturnType<typeof vi.fn>
+  getLayer: (id: string) => unknown
+  styleLayers: unknown[]
+  getStyle: ReturnType<typeof vi.fn>
+  setLayerZoomRange: ReturnType<typeof vi.fn>
   container: HTMLElement
   style: string
   zoom: number
@@ -16,7 +23,11 @@ interface FakeMapInstance {
   sources: Record<string, { setData: ReturnType<typeof vi.fn> }>
   layers: Record<string, { paint?: Record<string, unknown>; layout?: Record<string, unknown> }>
   dragPan: { enable: ReturnType<typeof vi.fn>; disable: ReturnType<typeof vi.fn> }
-  keyboard: { enable: ReturnType<typeof vi.fn>; disable: ReturnType<typeof vi.fn>; disableRotation: ReturnType<typeof vi.fn> }
+  keyboard: {
+    enable: ReturnType<typeof vi.fn>
+    disable: ReturnType<typeof vi.fn>
+    disableRotation: ReturnType<typeof vi.fn>
+  }
   scrollZoom: { enable: ReturnType<typeof vi.fn>; disable: ReturnType<typeof vi.fn> }
   touchZoomRotate: {
     enable: ReturnType<typeof vi.fn>
@@ -127,6 +138,20 @@ vi.mock('maplibre-gl', () => {
     zoomOut = vi.fn()
     remove = vi.fn()
     setLayoutProperty = vi.fn()
+    controls: unknown[] = []
+    addControl = vi.fn((control: unknown) => {
+      this.controls.push(control)
+    })
+    removeControl = vi.fn((control: unknown) => {
+      this.controls = this.controls.filter((c) => c !== control)
+    })
+    getLayer(id: string): unknown {
+      return this.layers[id]
+    }
+    // The hosted base style's own layers (map-labels.ts reads these on every style.load).
+    styleLayers: unknown[] = []
+    getStyle = vi.fn(() => ({ layers: this.styleLayers }))
+    setLayerZoomRange = vi.fn()
 
     constructor(options: { container: HTMLElement; style: string; center: unknown; zoom: number }) {
       this.container = options.container
@@ -164,6 +189,9 @@ vi.mock('maplibre-gl', () => {
     Marker: FakeMarker,
     LngLatBounds: FakeLngLatBounds,
     GeoJSONSource: class {},
+    ScaleControl: class {
+      constructor(public opts?: { unit?: string }) {}
+    },
     setWorkerUrl: vi.fn(),
     __instances: instances,
     __markerInstances: markerInstances
@@ -232,14 +260,20 @@ async function loadFlightMap(): Promise<{
   // array, so `instances` always starts empty for this call regardless.
   maplibre.__instances.length = 0
   maplibre.__markerInstances.length = 0
-  return { FlightMap: mod.FlightMap, instances: maplibre.__instances, markerInstances: maplibre.__markerInstances }
+  return {
+    FlightMap: mod.FlightMap,
+    instances: maplibre.__instances,
+    markerInstances: maplibre.__markerInstances
+  }
 }
 
 /** Renders FlightMap, waits for the (mocked) map to be constructed, then fires
  *  'style.load' — the point at which the real component adds every source/layer and flips
  *  mapReady, matching maplibre-gl's own event (see FlightMap.tsx's comment on why
  *  'style.load' rather than 'load' is used). */
-async function renderReady(props: FlightMapProps): ReturnType<typeof loadFlightMap> extends Promise<infer T>
+async function renderReady(
+  props: FlightMapProps
+): ReturnType<typeof loadFlightMap> extends Promise<infer T>
   ? Promise<T & { map: FakeMapInstance; rerender: (props: FlightMapProps) => void }>
   : never {
   const { FlightMap, instances, markerInstances } = await loadFlightMap()
@@ -274,9 +308,12 @@ beforeEach(() => {
     return 1
   })
   vi.stubGlobal('cancelAnimationFrame', vi.fn())
-  vi.stubGlobal('URL', class extends URL {
-    static override createObjectURL = vi.fn(() => 'blob:mock')
-  })
+  vi.stubGlobal(
+    'URL',
+    class extends URL {
+      static override createObjectURL = vi.fn(() => 'blob:mock')
+    }
+  )
 })
 
 afterEach(() => {
@@ -339,6 +376,327 @@ describe('FlightMap', () => {
     expect(dark.map.layers['aeroway-taxiway-label'].paint?.['text-color']).toBe('#e0b24d')
   })
 
+  describe('map language and declutter (docs/plans/map-language-and-declutter.md)', () => {
+    const TWO_LINE = [
+      'case',
+      ['has', 'name:nonlatin'],
+      ['concat', ['get', 'name:latin'], '\n', ['get', 'name:nonlatin']],
+      ['get', 'name']
+    ]
+    const STYLE_LAYERS = [
+      {
+        id: 'label_village',
+        type: 'symbol',
+        'source-layer': 'place',
+        minzoom: 9,
+        filter: ['==', ['get', 'class'], 'village'],
+        layout: { 'text-field': TWO_LINE }
+      },
+      {
+        id: 'label_city',
+        type: 'symbol',
+        'source-layer': 'place',
+        minzoom: 3,
+        filter: ['==', ['get', 'class'], 'city'],
+        layout: { 'text-field': TWO_LINE }
+      }
+    ]
+
+    /** Renders, seeds the base style's layers, then fires style.load like maplibre would. */
+    async function renderWithStyle(
+      props: Partial<FlightMapProps>
+    ): ReturnType<typeof loadFlightMap> extends Promise<infer T>
+      ? Promise<T & { map: FakeMapInstance; rerender: (next: FlightMapProps) => void }>
+      : never {
+      const { FlightMap, instances, markerInstances } = await loadFlightMap()
+      const base: FlightMapProps = { route: [], trackPoints: [], live: false, ...props }
+      const { rerender } = render(<FlightMap {...base} />)
+      await waitFor(() => expect(instances.length).toBe(1))
+      const map = instances[0]
+      map.styleLayers = STYLE_LAYERS
+      await act(async () => {
+        map.fireStyleLoad()
+      })
+      return {
+        FlightMap,
+        instances,
+        markerInstances,
+        map,
+        rerender: (next: FlightMapProps) => rerender(<FlightMap {...next} />)
+      } as never
+    }
+
+    const textFieldCalls = (map: FakeMapInstance): unknown[][] =>
+      map.setLayoutProperty.mock.calls.filter((c) => c[1] === 'text-field')
+
+    it('collapses the two-line labels to English by default and pushes village labels to a later zoom', async () => {
+      const { map } = await renderWithStyle({})
+
+      const rewritten = textFieldCalls(map).map((c) => c[0])
+      expect(rewritten).toEqual(expect.arrayContaining(['label_village', 'label_city']))
+      expect(textFieldCalls(map)[0]?.[2]).toEqual([
+        'coalesce',
+        ['get', 'name:en'],
+        ['get', 'name_en'],
+        ['get', 'name:latin'],
+        ['get', 'name']
+      ])
+      // village 9 -> 10, keeping the style's own maxzoom (unset -> 24); the city is untouched.
+      expect(map.setLayerZoomRange).toHaveBeenCalledWith('label_village', 10, 24)
+      expect(map.setLayerZoomRange).not.toHaveBeenCalledWith(
+        'label_city',
+        expect.anything(),
+        expect.anything()
+      )
+    })
+
+    it('uses the chosen language, and re-applies on every style load (a theme switch drops the changes)', async () => {
+      const { map } = await renderWithStyle({ mapLanguage: 'de' })
+      expect(textFieldCalls(map)[0]?.[2]).toEqual([
+        'coalesce',
+        ['get', 'name:de'],
+        ['get', 'name:latin'],
+        ['get', 'name']
+      ])
+
+      const before = textFieldCalls(map).length
+      await act(async () => {
+        map.fireStyleLoad()
+      })
+      expect(textFieldCalls(map).length).toBeGreaterThan(before)
+    })
+
+    it('follows a language change while the map is open', async () => {
+      const { map, rerender } = await renderWithStyle({ mapLanguage: 'en' })
+      map.setLayoutProperty.mockClear()
+
+      rerender({ route: [], trackPoints: [], live: false, mapLanguage: 'fr' })
+
+      await waitFor(() =>
+        expect(textFieldCalls(map)[0]?.[2]).toEqual([
+          'coalesce',
+          ['get', 'name:fr'],
+          ['get', 'name:latin'],
+          ['get', 'name']
+        ])
+      )
+    })
+
+    it('leaves the map alone, without throwing, when the style cannot be read', async () => {
+      const { FlightMap, instances } = await loadFlightMap()
+      render(<FlightMap route={[]} trackPoints={[]} live={false} />)
+      await waitFor(() => expect(instances.length).toBe(1))
+      instances[0].getStyle.mockImplementation(() => {
+        throw new Error('style not ready')
+      })
+      await act(async () => {
+        instances[0].fireStyleLoad()
+      })
+      expect(textFieldCalls(instances[0])).toEqual([])
+      // Its own layers still got added — the failure was contained.
+      expect(instances[0].layers[ROUTE_SOURCE_ID]).toBeDefined()
+    })
+  })
+
+  describe('VFR overlay (docs/plans/map-language-and-declutter.md, Part C)', () => {
+    const AIRFIELDS = [
+      { icao: 'EGLL', name: 'Heathrow', type: 'large_airport', latitude: 51.4706, longitude: -0.4619 },
+      { icao: 'EGKB', name: 'Biggin Hill', type: 'small_airport', latitude: 51.3308, longitude: 0.0325 },
+      { icao: 'EGLW', name: 'London Heliport', type: 'heliport', latitude: 51.4697, longitude: -0.1791 }
+    ]
+    const TELEMETRY = { latitude: 51.4787, longitude: -0.2956 } as SimTelemetry
+
+    // A factory, not a promise: a rejected promise created up front would be "unhandled"
+    // until the component under test attached its own handler.
+    function stubWinglog(
+      list: () => Promise<unknown> = () => Promise.resolve(AIRFIELDS)
+    ): ReturnType<typeof vi.fn> {
+      const airportListAirfields = vi.fn().mockImplementation(list)
+      ;(window as unknown as { winglog: unknown }).winglog = { airportListAirfields }
+      return airportListAirfields
+    }
+
+    const VFR_LAYERS = [
+      'vfr-airfields-major',
+      'vfr-airfields-major-label',
+      'vfr-airfields-small',
+      'vfr-airfields-small-label',
+      'vfr-airfields-minor',
+      'vfr-airfields-minor-label',
+      'vfr-range-rings-line',
+      'vfr-range-rings-label',
+      'vfr-recent-trail'
+    ]
+
+    const toggleButton = (): HTMLElement => screen.getByRole('button', { name: /VFR overlay/ })
+
+    it('is off by default: nothing loaded, no layers, no scale bar', async () => {
+      const list = stubWinglog()
+      const { map } = await renderReady({ route: [], trackPoints: [], live: true })
+
+      expect(toggleButton()).toHaveAttribute('aria-pressed', 'false')
+      expect(list).not.toHaveBeenCalled()
+      expect(map.layers['vfr-airfields-major']).toBeUndefined()
+      expect(map.controls).toEqual([])
+    })
+
+    it("offers no overlay on a finished flight's static map", async () => {
+      stubWinglog()
+      await renderReady({ route: [], trackPoints: [], live: false })
+      expect(screen.queryByRole('button', { name: /VFR overlay/ })).not.toBeInTheDocument()
+    })
+
+    it('switching it on loads the airfields once and adds every layer, under the route, with a nautical scale bar', async () => {
+      const list = stubWinglog()
+      const user = userEvent.setup()
+      const { map } = await renderReady({
+        route: [],
+        trackPoints: [point()],
+        live: true,
+        telemetry: TELEMETRY
+      })
+
+      await user.click(toggleButton())
+
+      await waitFor(() => expect(list).toHaveBeenCalledTimes(1))
+      for (const id of VFR_LAYERS) expect(map.layers[id], id).toBeDefined()
+      await waitFor(() => expect(map.sources['vfr-airfields'].setData).toHaveBeenCalled())
+      const airfieldData = map.sources['vfr-airfields'].setData.mock.calls.at(-1)?.[0] as {
+        features: unknown[]
+      }
+      expect(airfieldData.features).toHaveLength(3)
+      expect(map.addControl).toHaveBeenCalledTimes(1)
+      expect(map.controls[0]?.opts).toEqual({ unit: 'nautical' })
+      expect(toggleButton()).toHaveAttribute('aria-pressed', 'true')
+    })
+
+    it('only shows small strips and heliports at closer zooms than airports', async () => {
+      stubWinglog()
+      const user = userEvent.setup()
+      const { map } = await renderReady({ route: [], trackPoints: [point()], live: true })
+      await user.click(toggleButton())
+      await waitFor(() => expect(map.layers['vfr-airfields-minor']).toBeDefined())
+
+      const minzoom = (id: string): number => (map.layers[id] as unknown as { minzoom: number }).minzoom
+      expect(minzoom('vfr-airfields-major')).toBeLessThan(minzoom('vfr-airfields-small'))
+      expect(minzoom('vfr-airfields-small')).toBeLessThan(minzoom('vfr-airfields-minor'))
+      expect(minzoom('vfr-airfields-major')).toBeLessThan(minzoom('vfr-airfields-major-label'))
+    })
+
+    it('draws three range rings and the last-10-minutes trail around the aircraft', async () => {
+      stubWinglog()
+      const user = userEvent.setup()
+      const points = [0, 4, 8, 12, 16].map((m, i) =>
+        point({
+          id: i + 1,
+          tsUtc: new Date(Date.UTC(2026, 0, 1, 12, m)).toISOString(),
+          longitude: -0.5 + i * 0.01
+        })
+      )
+      const { map } = await renderReady({ route: [], trackPoints: points, live: true, telemetry: TELEMETRY })
+      await user.click(toggleButton())
+
+      await waitFor(() => expect(map.sources['vfr-range-rings'].setData).toHaveBeenCalled())
+      const rings = map.sources['vfr-range-rings'].setData.mock.calls.at(-1)?.[0] as {
+        features: { geometry: { type: string } }[]
+      }
+      expect(rings.features.filter((f) => f.geometry.type === 'LineString')).toHaveLength(3)
+      const trail = map.sources['vfr-recent-trail'].setData.mock.calls.at(-1)?.[0] as {
+        geometry: { coordinates: unknown[][] }
+      }
+      // Newest is minute 16 -> only minutes 8, 12 and 16 fall inside the 10-minute window.
+      expect(trail.geometry.coordinates[0]).toHaveLength(3)
+    })
+
+    it('shows the nearest landable airfield (not a heliport) with distance and bearing', async () => {
+      stubWinglog()
+      const user = userEvent.setup()
+      await renderReady({ route: [], trackPoints: [point()], live: true, telemetry: TELEMETRY })
+
+      expect(screen.queryByLabelText('Nearest airfield')).not.toBeInTheDocument()
+      await user.click(toggleButton())
+
+      const chip = await screen.findByLabelText('Nearest airfield')
+      expect(chip.textContent).toMatch(/^Nearest: EGLL Heathrow · \d+(\.\d)? nm · 2\d\d°$/)
+    })
+
+    it('switching it off hides the layers and removes the scale bar, keeping them for next time', async () => {
+      stubWinglog()
+      const user = userEvent.setup()
+      const { map } = await renderReady({
+        route: [],
+        trackPoints: [point()],
+        live: true,
+        telemetry: TELEMETRY
+      })
+      await user.click(toggleButton())
+      await waitFor(() => expect(map.controls).toHaveLength(1))
+      map.setLayoutProperty.mockClear()
+
+      await user.click(toggleButton())
+
+      for (const id of VFR_LAYERS)
+        expect(map.setLayoutProperty).toHaveBeenCalledWith(id, 'visibility', 'none')
+      expect(map.removeControl).toHaveBeenCalledTimes(1)
+      expect(map.controls).toEqual([])
+      expect(screen.queryByLabelText('Nearest airfield')).not.toBeInTheDocument()
+    })
+
+    it('does not re-request the airfields when toggled off and on again', async () => {
+      const list = stubWinglog()
+      const user = userEvent.setup()
+      await renderReady({ route: [], trackPoints: [point()], live: true, telemetry: TELEMETRY })
+      await user.click(toggleButton())
+      await waitFor(() => expect(list).toHaveBeenCalledTimes(1))
+      await user.click(toggleButton())
+      await user.click(toggleButton())
+      expect(list).toHaveBeenCalledTimes(1)
+    })
+
+    it('remembers being on across a remount (leaving Track and coming back)', async () => {
+      const list = stubWinglog()
+      const user = userEvent.setup()
+      const { FlightMap, instances, rerender } = await renderReady({
+        route: [],
+        trackPoints: [point()],
+        live: true
+      })
+      await user.click(toggleButton())
+      await waitFor(() => expect(list).toHaveBeenCalledTimes(1))
+      cleanup()
+
+      instances.length = 0
+      render(<FlightMap route={[]} trackPoints={[point()]} live />)
+      await waitFor(() => expect(instances.length).toBe(1))
+      await act(async () => {
+        instances[0].fireStyleLoad()
+      })
+
+      expect(toggleButton()).toHaveAttribute('aria-pressed', 'true')
+      await waitFor(() => expect(instances[0].layers['vfr-range-rings-line']).toBeDefined())
+      // The list is cached in the renderer — no second trip over IPC.
+      expect(list).toHaveBeenCalledTimes(1)
+      void rerender
+    })
+
+    it('still draws rings and the scale bar when the airfield list cannot be loaded', async () => {
+      stubWinglog(() => Promise.reject(new Error('ipc down')))
+      const user = userEvent.setup()
+      const { map } = await renderReady({
+        route: [],
+        trackPoints: [point()],
+        live: true,
+        telemetry: TELEMETRY
+      })
+
+      await user.click(toggleButton())
+
+      await waitFor(() => expect(map.controls).toHaveLength(1))
+      await waitFor(() => expect(map.sources['vfr-range-rings'].setData).toHaveBeenCalled())
+      expect(screen.queryByLabelText('Nearest airfield')).not.toBeInTheDocument()
+    })
+  })
+
   it('draws the planned route and waypoint pins once ready', async () => {
     const route: [number, number][] = [
       [-0.5, 51],
@@ -393,7 +751,12 @@ describe('FlightMap', () => {
   })
 
   it('toggles which of the two route layers is visible based on routeIsApproximate', async () => {
-    const { map, rerender } = await renderReady({ route: [], trackPoints: [], live: false, routeIsApproximate: false })
+    const { map, rerender } = await renderReady({
+      route: [],
+      trackPoints: [],
+      live: false,
+      routeIsApproximate: false
+    })
     expect(map.setLayoutProperty).toHaveBeenCalledWith(ROUTE_SOURCE_ID, 'visibility', 'visible')
     expect(map.setLayoutProperty).toHaveBeenCalledWith(ROUTE_APPROXIMATE_LAYER_ID, 'visibility', 'none')
 
@@ -411,7 +774,11 @@ describe('FlightMap', () => {
       // A restart boundary — trailSegments must never draw a line across this gap.
       point({ id: 3, longitude: 10, latitude: 40, resumeSegment: 1, headingTrueDeg: 270 })
     ]
-    const { map, rerender, markerInstances } = await renderReady({ route: [], trackPoints: points, live: false })
+    const { map, rerender, markerInstances } = await renderReady({
+      route: [],
+      trackPoints: points,
+      live: false
+    })
 
     expect(map.sources[TRAIL_SOURCE_ID].setData).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -487,7 +854,13 @@ describe('FlightMap', () => {
   })
 
   it('live mode: a second point in the same resume segment commits the prior trail and animates the tip', async () => {
-    const first = point({ id: 1, longitude: 0, latitude: 50, resumeSegment: 0, tsUtc: '2026-01-01T00:00:00.000Z' })
+    const first = point({
+      id: 1,
+      longitude: 0,
+      latitude: 50,
+      resumeSegment: 0,
+      tsUtc: '2026-01-01T00:00:00.000Z'
+    })
     const second = point({
       id: 2,
       longitude: 1,
@@ -511,7 +884,13 @@ describe('FlightMap', () => {
     // source's last write already reflects the interpolation's end (the `to` point).
     expect(map.sources[TRAIL_TIP_SOURCE_ID].setData).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        geometry: { type: 'LineString', coordinates: [[0, 50], [1, 51]] }
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [0, 50],
+            [1, 51]
+          ]
+        }
       })
     )
     expect(map.easeTo).toHaveBeenCalledWith({ center: [1, 51], duration: 5000 })
@@ -527,7 +906,13 @@ describe('FlightMap', () => {
       return queue.length
     })
 
-    const first = point({ id: 1, longitude: 0, latitude: 50, resumeSegment: 0, tsUtc: '2026-01-01T00:00:00.000Z' })
+    const first = point({
+      id: 1,
+      longitude: 0,
+      latitude: 50,
+      resumeSegment: 0,
+      tsUtc: '2026-01-01T00:00:00.000Z'
+    })
     const second = point({
       id: 2,
       longitude: 1,
@@ -562,7 +947,15 @@ describe('FlightMap', () => {
     act(() => queue.shift()!(startTime + 5000)) // reaches t = 1
     expect(queue).toHaveLength(0)
     expect(map.sources[TRAIL_TIP_SOURCE_ID].setData).toHaveBeenLastCalledWith(
-      expect.objectContaining({ geometry: { type: 'LineString', coordinates: [[0, 50], [1, 51]] } })
+      expect.objectContaining({
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [0, 50],
+            [1, 51]
+          ]
+        }
+      })
     )
   })
 

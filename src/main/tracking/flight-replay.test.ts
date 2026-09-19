@@ -13,18 +13,20 @@
  */
 import { describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
+import { nearestAirport } from '../airports/airport-search'
 import { createAircraft } from '../db/aircraft-repo'
 import { createDb } from '../db/client'
 import { createFlight, getFlight } from '../db/flight-repo'
-import { getLandingByFlight } from '../db/landing-repo'
+import { getLandingByFlight, listLandingsByFlight } from '../db/landing-repo'
 import { listTrackPoints } from '../db/track-point-repo'
 import { ReplaySimConnectService } from '../sim/ReplaySimConnectService'
 import { TrackingController } from './TrackingController'
 
-const FIXTURE_PATH = new URL('./__fixtures__/short-hop-egll-egcc.ndjson', import.meta.url).pathname.replace(
-  /^\/([A-Za-z]:)/,
-  '$1'
-)
+function fixturePath(name: string): string {
+  return new URL(`./__fixtures__/${name}`, import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')
+}
+
+const FIXTURE_PATH = fixturePath('short-hop-egll-egcc.ndjson')
 
 describe('flight replay harness (real fixture)', () => {
   it(
@@ -72,6 +74,123 @@ describe('flight replay harness (real fixture)', () => {
       expect(points.length).toBeGreaterThan(0)
       expect(landing).toBeDefined()
       expect(landing?.runwayIdent).toBe('23R')
+
+      replay.stop()
+    },
+    60_000
+  )
+})
+
+describe('flight replay harness (real fixture) — multiple landings', () => {
+  it(
+    'captures every real touchdown of a circuits flight, including the firm landing that ' +
+      'the old one-per-flight capture used to lose (flightdeck-backend docs/plans/multiple-landings.md)',
+    async () => {
+      const { db } = createDb(':memory:')
+      migrate(db, { migrationsFolder: 'drizzle' })
+
+      const replay = new ReplaySimConnectService(fixturePath('tier2-circuits-firm-landing-goaround-crash.ndjson'), {
+        mode: 'instant'
+      })
+      const aircraft = createAircraft(db, { registration: 'REPLAY', icaoType: replay.header.aircraftType })
+      const flight = createFlight(db, { aircraftId: aircraft.id, depIcao: 'VHHH', arrIcao: 'VHHH' })
+
+      const controller = new TrackingController(db, replay)
+
+      // This fixture ends with a real crash, not a normal shutdown (parking brake never
+      // sets, engines never stop) — 'completed' never fires, only replayComplete. That
+      // itself is worth asserting: a flight this plan's own real motivating case produces
+      // must not silently pretend to complete normally.
+      await new Promise<void>((resolve) => {
+        replay.on('replayComplete', resolve)
+        controller.start(flight.id)
+        replay.start()
+      })
+
+      const landings = listLandingsByFlight(db, flight.id)
+
+      // Independently re-derived from the raw fixture's own onGround transitions with the
+      // same hysteresis TrackingController.detectTouchdown applies (>=3 consecutive
+      // airborne samples) — not asserting an arbitrary number.
+      expect(landings.map((l) => l.seq)).toEqual([1, 2, 3, 4])
+
+      // The real finding this plan exists to fix: flight 198's deliberately firm landing
+      // (g-force 1.68, flight-replay-harness.md's 2026-09-14 entry) used to be overwritten
+      // by an earlier accidental soft touchdown under the old one-row-per-flight capture.
+      // It must now survive as its own row rather than being lost.
+      const firmLanding = landings.find((l) => l.gForce > 1.5)
+      expect(firmLanding).toBeDefined()
+      expect(firmLanding?.gForce).toBeCloseTo(1.68, 1)
+
+      // Every captured landing is a real, distinct touchdown — none accidentally collapsed
+      // onto another's row.
+      const ids = new Set(landings.map((l) => l.id))
+      expect(ids.size).toBe(landings.length)
+
+      expect(getFlight(db, flight.id)?.status).toBe('active') // never reached shutdown
+      replay.stop()
+    },
+    60_000
+  )
+})
+
+describe('flight replay harness (real fixture) — free flight tracking', () => {
+  it(
+    'replays a real VHHH VFR hop with no OFP through TrackingController.startFree, producing a complete ' +
+      'logbook entry — the exact scenario 2026-09-14 flight 5 confirmed could not be tracked at all before ' +
+      'free-flight-tracking.md',
+    async () => {
+      const { db } = createDb(':memory:')
+      migrate(db, { migrationsFolder: 'drizzle' })
+
+      const replay = new ReplaySimConnectService(fixturePath('tier2-vfr-no-ofp-short-hop.ndjson'), {
+        mode: 'instant'
+      })
+      const firstTelemetry = replay.getLastTelemetry()
+      if (!firstTelemetry) throw new Error('fixture has no telemetry')
+      const aircraft = createAircraft(db, { registration: 'G-TEST', icaoType: 'C172' })
+
+      const controller = new TrackingController(db, replay)
+
+      // Resolved from position, the same way the real "Start a free flight" dialog's
+      // Departure field would — nothing was ever filed for this flight, the whole point of
+      // the scenario (free-flight-tracking.md's aircraft-identity table, VHHH is real
+      // vendored data at this exact position, not assumed).
+      const depIcao = nearestAirport(firstTelemetry.latitude, firstTelemetry.longitude, 15) ?? 'ZZZZ'
+      expect(depIcao).toBe('VHHH')
+
+      const flightId = controller.startFree({ aircraftId: aircraft.id, depIcao, arrIcao: 'ZZZZ', flightNumber: null })
+
+      await new Promise<void>((resolve) => {
+        replay.on('replayComplete', resolve)
+        replay.start()
+      })
+
+      // Same real-data quirk this plan's own circuits fixture hit (see the describe block
+      // above): the capture ends parked but with the engine still running and the parking
+      // brake never set, so shutdown detection never fires on its own — a pilot would press
+      // "Finish & save" here, which is exactly what this does.
+      controller.finish()
+
+      const finalFlight = getFlight(db, flightId)
+      const points = listTrackPoints(db, flightId)
+      const landing = getLandingByFlight(db, flightId)
+
+      expect(finalFlight?.status).toBe('completed')
+      // Genuinely no plan filed — the whole reason this flight needed free-flight-tracking.md
+      // at all, not just a completion-time coincidence.
+      expect(finalFlight?.ofpJson).toBeNull()
+      expect(finalFlight?.depIcao).toBe('VHHH')
+      // Arrival resolved from the real touchdown position (free-flight-tracking.md's
+      // "Arrival is resolved, not filed"), not left as the ZZZZ placeholder this flight
+      // started with.
+      expect(finalFlight?.arrIcao).not.toBe('ZZZZ')
+      expect(finalFlight?.arrIcao).toMatch(/^[A-Z0-9]{4}$/)
+      expect(finalFlight?.actualOffUtc).toBeTruthy()
+      expect(finalFlight?.actualOnUtc).toBeTruthy()
+      expect(points.length).toBeGreaterThan(0)
+      expect(landing).toBeDefined()
+      expect(landing?.icao).toBe(finalFlight?.arrIcao)
 
       replay.stop()
     },

@@ -1,51 +1,43 @@
-import { readFile, writeFile } from 'node:fs/promises'
+import { writeFile } from 'node:fs/promises'
 import { dialog, type BrowserWindow } from 'electron'
-import type { Aircraft, AircraftImportSummary, NewAircraft } from '@shared/ipc'
+import type { AircraftImportSummary, DataFormat } from '@shared/ipc'
 import { createAircraft, getAircraftByRegistration, listAircraft } from './aircraft-repo'
+import { parseAircraftRecords, serializeAircraft, toAircraftExportRecord } from './aircraft-portable'
 import { parseAircraftInput } from './aircraft-validation'
 import type { WingLogDb } from './client'
+import { readImportFile } from './import-limits'
 
-/** Export format matches NewAircraft exactly — id/createdAt are assigned on import, not carried over. */
-function toExportRecord(a: Aircraft): NewAircraft {
-  return {
-    registration: a.registration,
-    icaoType: a.icaoType,
-    operator: a.operator,
-    operatorIata: a.operatorIata,
-    operatorIcao: a.operatorIcao,
-    simbriefAirframeId: a.simbriefAirframeId,
-    simbriefType: a.simbriefType,
-    currentIcao: a.currentIcao
-  }
-}
-
-export async function exportAircraft(db: WingLogDb, window: BrowserWindow): Promise<boolean> {
+export async function exportAircraft(
+  db: WingLogDb,
+  window: BrowserWindow,
+  format: DataFormat = 'json'
+): Promise<boolean> {
   const { canceled, filePath } = await dialog.showSaveDialog(window, {
     title: 'Export fleet',
-    defaultPath: 'winglog-fleet.json',
-    filters: [{ name: 'JSON', extensions: ['json'] }]
+    defaultPath: `winglog-fleet.${format}`,
+    filters: [{ name: format.toUpperCase(), extensions: [format] }]
   })
   if (canceled || !filePath) return false
 
-  const records = listAircraft(db).map(toExportRecord)
-  await writeFile(filePath, JSON.stringify(records, null, 2), 'utf-8')
+  const records = listAircraft(db).map(toAircraftExportRecord)
+  await writeFile(filePath, serializeAircraft(records, format), 'utf-8')
   return true
 }
 
 export async function importAircraft(
   db: WingLogDb,
-  window: BrowserWindow
+  window: BrowserWindow,
+  format: DataFormat = 'json'
 ): Promise<AircraftImportSummary | null> {
   const { canceled, filePaths } = await dialog.showOpenDialog(window, {
     title: 'Import fleet',
-    filters: [{ name: 'JSON', extensions: ['json'] }],
+    filters: [{ name: format.toUpperCase(), extensions: [format] }],
     properties: ['openFile']
   })
   if (canceled || filePaths.length === 0) return null
 
-  const raw = await readFile(filePaths[0], 'utf-8')
-  const parsed: unknown = JSON.parse(raw)
-  const records = Array.isArray(parsed) ? parsed : [parsed]
+  const path = filePaths[0]
+  const records = parseAircraftRecords(await readImportFile(path, 'That file is too large to be a fleet export'), format)
 
   const summary: AircraftImportSummary = { imported: 0, skipped: [] }
   for (const record of records) {
@@ -53,7 +45,8 @@ export async function importAircraft(
     const registration =
       typeof record === 'object' &&
       record !== null &&
-      typeof (record as { registration?: unknown }).registration === 'string'
+      typeof (record as { registration?: unknown }).registration === 'string' &&
+      (record as { registration: string }).registration.trim() !== ''
         ? (record as { registration: string }).registration
         : '(unknown)'
 

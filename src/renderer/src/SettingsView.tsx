@@ -1,16 +1,20 @@
 import { useEffect, useState } from 'react'
+import { ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import type {
   AircraftImportSummary,
   AltitudeUnit,
+  DataFormat,
   GsxSettings,
   LandingDistanceUnit,
   LogbookImportSummary,
+  MapLanguage,
   SyncStatus,
   Theme,
   WeightUnit,
   WindSpeedUnit
 } from '@shared/ipc'
+import { MAP_LANGUAGES } from './map-labels'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -23,6 +27,12 @@ import { NavigraphLogo } from './NavigraphLogo'
 
 type SettingsCategory = 'ui' | 'thirdParty' | 'data' | 'about'
 const DEFAULT_SETTINGS_CATEGORY: SettingsCategory = 'ui'
+const SETTINGS_CATEGORIES: { value: SettingsCategory; label: string }[] = [
+  { value: 'ui', label: 'UI' },
+  { value: 'thirdParty', label: '3rd party' },
+  { value: 'data', label: 'Data' },
+  { value: 'about', label: 'About' }
+]
 
 // A curated, common-currency subset of what frankfurter.dev supports — enough for
 // "I want to see this in my own currency" without a second fetch just to populate a
@@ -52,7 +62,7 @@ function SegmentedRow<T extends string>(props: {
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-sm text-muted-foreground">{props.label}</span>
-      <div className="flex gap-1.5">
+      <div className="flex flex-wrap gap-1.5">
         {props.options.map((opt) => (
           <Button
             key={opt.value}
@@ -67,6 +77,52 @@ function SegmentedRow<T extends string>(props: {
         ))}
       </div>
     </div>
+  )
+}
+
+const DATA_FORMATS = [
+  { value: 'csv', label: 'CSV' },
+  { value: 'json', label: 'JSON' }
+] as const
+
+/** One Import/Export pair with its own format picker — Fleet and Logbook each get one
+ *  (flightdeck-backend docs/plans/data-export-import.md). */
+function DataSection(props: {
+  title: string
+  hint: string
+  format: DataFormat
+  onFormatChange: (format: DataFormat) => void
+  importing: boolean
+  onImport: () => void
+  onExport: () => void
+}): React.JSX.Element {
+  return (
+    <section aria-label={`${props.title} data`} className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm font-medium text-foreground">{props.title}</span>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={props.onImport}
+            disabled={props.importing}
+          >
+            {props.importing ? 'Importing…' : 'Import'}
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={props.onExport}>
+            Export
+          </Button>
+        </div>
+      </div>
+      <SegmentedRow
+        label="File format"
+        value={props.format}
+        options={DATA_FORMATS}
+        onChange={props.onFormatChange}
+      />
+      <p className="text-xs text-muted-foreground">{props.hint}</p>
+    </section>
   )
 }
 
@@ -96,6 +152,8 @@ export function SettingsView(props: {
   onWindSpeedUnitChange: (unit: WindSpeedUnit) => void
   landingDistanceUnit: LandingDistanceUnit
   onLandingDistanceUnitChange: (unit: LandingDistanceUnit) => void
+  mapLanguage: MapLanguage
+  onMapLanguageChange: (language: MapLanguage) => void
   theme: Theme
   onThemeChange: (theme: Theme) => void
   /** Bumped by App.tsx when the Settings tab is clicked while already active — returns to
@@ -108,6 +166,8 @@ export function SettingsView(props: {
   const [loggingOut, setLoggingOut] = useState(false)
   const [importingAircraft, setImportingAircraft] = useState(false)
   const [importingLogbook, setImportingLogbook] = useState(false)
+  const [fleetFormat, setFleetFormat] = useState<DataFormat>('json')
+  const [logbookFormat, setLogbookFormat] = useState<DataFormat>('csv')
   const [gsx, setGsx] = useState<GsxSettings>({ enabled: false, folderPath: null, displayCurrency: 'USD' })
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
     loggedIn: false,
@@ -200,7 +260,7 @@ export function SettingsView(props: {
   async function handleImportAircraft(): Promise<void> {
     setImportingAircraft(true)
     try {
-      const summary = await window.winglog.aircraftImport()
+      const summary = await window.winglog.aircraftImport(fleetFormat)
       if (summary) toast.success(summarizeAircraftImport(summary))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
@@ -211,7 +271,7 @@ export function SettingsView(props: {
 
   async function handleExportAircraft(): Promise<void> {
     try {
-      const saved = await window.winglog.aircraftExport()
+      const saved = await window.winglog.aircraftExport(fleetFormat)
       if (saved) toast.success('Fleet exported.')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
@@ -264,12 +324,24 @@ export function SettingsView(props: {
   async function handleImportLogbook(): Promise<void> {
     setImportingLogbook(true)
     try {
-      const summary = await window.winglog.logbookImportCsv()
+      const summary =
+        logbookFormat === 'csv'
+          ? await window.winglog.logbookImportCsv()
+          : await window.winglog.logbookImportJson()
       if (summary) toast.success(summarizeLogbookImport(summary))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
     } finally {
       setImportingLogbook(false)
+    }
+  }
+
+  async function handleExportLogbook(): Promise<void> {
+    try {
+      const saved = await window.winglog.logbookExport(logbookFormat)
+      if (saved) toast.success('Logbook exported.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err))
     }
   }
 
@@ -283,11 +355,15 @@ export function SettingsView(props: {
         onValueChange={(value) => setCategory(value as SettingsCategory)}
         className="items-start gap-6"
       >
-        <TabsList variant="line" className="w-40 shrink-0">
-          <TabsTrigger value="ui">UI</TabsTrigger>
-          <TabsTrigger value="thirdParty">3rd party</TabsTrigger>
-          <TabsTrigger value="data">Data</TabsTrigger>
-          <TabsTrigger value="about">About</TabsTrigger>
+        <TabsList variant="line" className="w-40 shrink-0 self-stretch border-r border-border/40 pr-3">
+          {SETTINGS_CATEGORIES.map(({ value, label }) => (
+            <TabsTrigger key={value} value={value}>
+              {label}
+              {category === value && (
+                <ChevronRight data-testid="settings-active-chevron" className="ml-auto" />
+              )}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         <TabsContent value="ui" className="flex min-w-0 flex-col gap-4">
@@ -320,6 +396,18 @@ export function SettingsView(props: {
                   "Hybrid" shows each step climb in whichever unit it was actually planned in — feet for a
                   standard level, meters for a route crossing into airspace (e.g. China) that assigns levels
                   in meters — rather than converting everything to one unit.
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <SegmentedRow
+                  label="Map language"
+                  value={props.mapLanguage}
+                  options={MAP_LANGUAGES}
+                  onChange={props.onMapLanguageChange}
+                />
+                <p className="text-xs text-muted-foreground">
+                  The language of place names on the Track and Logbook maps. "Local" shows each place in its
+                  own language. Only the map changes — the rest of the app stays in English.
                 </p>
               </div>
               <div className="flex flex-col gap-1.5">
@@ -493,7 +581,6 @@ export function SettingsView(props: {
           </div>
         </TabsContent>
 
-
         <TabsContent value="data" className="min-w-0">
           <div className="flex flex-wrap gap-4">
             <Card className="max-w-sm">
@@ -502,35 +589,24 @@ export function SettingsView(props: {
                 <CardDescription>Import or export your fleet and logbook as local files.</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm text-foreground">Fleet (JSON)</span>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleImportAircraft}
-                      disabled={importingAircraft}
-                    >
-                      {importingAircraft ? 'Importing…' : 'Import'}
-                    </Button>
-                    <Button type="button" variant="outline" size="sm" onClick={handleExportAircraft}>
-                      Export
-                    </Button>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm text-foreground">Logbook (CSV)</span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleImportLogbook}
-                    disabled={importingLogbook}
-                  >
-                    {importingLogbook ? 'Importing…' : 'Import'}
-                  </Button>
-                </div>
+                <DataSection
+                  title="Fleet"
+                  hint="Registration, type, operator and current airport. Importing skips registrations you already have."
+                  format={fleetFormat}
+                  onFormatChange={setFleetFormat}
+                  importing={importingAircraft}
+                  onImport={handleImportAircraft}
+                  onExport={handleExportAircraft}
+                />
+                <DataSection
+                  title="Logbook"
+                  hint="A summary of every completed flight, with its landing — not a full backup (no route or OFP data). Import reads WingLog's own files, and SimToolkitPro CSVs."
+                  format={logbookFormat}
+                  onFormatChange={setLogbookFormat}
+                  importing={importingLogbook}
+                  onImport={handleImportLogbook}
+                  onExport={handleExportLogbook}
+                />
               </CardContent>
             </Card>
 
@@ -541,119 +617,122 @@ export function SettingsView(props: {
                 vitest.config.ts's `define` fixes it at `true`, so the "hidden in a public
                 build" arm of this && can't be exercised in this test run. */}
             {__WINGLOG_CLOUD_SYNC_ENABLED__ && (
-            <Card className="max-w-sm">
-              <CardHeader>
-                <CardTitle>Cloud sync</CardTitle>
-                <CardDescription>
-                  Sync Fleet and Logbook across your machines. This is WingLog's own service, not a
-                  third party — off by default, nothing leaves this device until you log in.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-4">
-                {syncStatus.loggedIn ? (
-                  <>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm text-foreground">{syncStatus.email}</span>
-                      <Button type="button" variant="outline" size="sm" onClick={handleCloudLogout}>
-                        Log out
-                      </Button>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-xs text-muted-foreground">
-                        {syncStatus.lastSyncedAt
-                          ? `Last synced ${new Date(syncStatus.lastSyncedAt).toLocaleString()}`
-                          : 'Never synced yet.'}
-                      </p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleSyncNow}
-                        disabled={syncStatus.syncing}
-                      >
-                        {syncStatus.syncing ? 'Syncing…' : 'Sync now'}
-                      </Button>
-                    </div>
-                    {syncStatus.lastError && <p className="text-xs text-destructive">{syncStatus.lastError}</p>}
-                  </>
-                ) : (
-                  <>
-                    <div className="flex gap-1 rounded-md bg-muted p-1 text-sm">
-                      <button
-                        type="button"
-                        onClick={() => setCloudAuthMode('login')}
-                        className={`flex-1 cursor-pointer rounded-sm py-1 ${cloudAuthMode === 'login' ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground'}`}
-                      >
-                        Log in
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCloudAuthMode('signup')}
-                        className={`flex-1 cursor-pointer rounded-sm py-1 ${cloudAuthMode === 'signup' ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground'}`}
-                      >
-                        Sign up
-                      </button>
-                    </div>
-                    <form
-                      onSubmit={cloudAuthMode === 'login' ? handleCloudLogin : handleCloudSignup}
-                      className="flex flex-col gap-3"
-                    >
-                      <Label className="flex flex-col items-start gap-1.5">
-                        Email
-                        <Input
-                          type="email"
-                          value={cloudEmail}
-                          onChange={(e) => setCloudEmail(e.target.value)}
-                          required
-                        />
-                      </Label>
-                      <Label className="flex flex-col items-start gap-1.5">
-                        Password
-                        <Input
-                          type="password"
-                          value={cloudPassword}
-                          onChange={(e) => setCloudPassword(e.target.value)}
-                          minLength={cloudAuthMode === 'signup' ? 12 : undefined}
-                          required
-                        />
-                      </Label>
-                      {cloudAuthMode === 'signup' && (
-                        <>
-                          <p className="text-xs text-muted-foreground">At least 12 characters.</p>
-                          <Label className="flex flex-col items-start gap-1.5">
-                            Invite code
-                            <Input
-                              type="password"
-                              value={cloudInviteCode}
-                              onChange={(e) => setCloudInviteCode(e.target.value)}
-                              required
-                            />
-                          </Label>
-                          <p className="text-xs text-muted-foreground">
-                            Signup isn't public yet — this only works with an invite code from the app owner.
-                          </p>
-                        </>
+              <Card className="max-w-sm">
+                <CardHeader>
+                  <CardTitle>Cloud sync</CardTitle>
+                  <CardDescription>
+                    Sync Fleet and Logbook across your machines. This is WingLog's own service, not a third
+                    party — off by default, nothing leaves this device until you log in.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-4">
+                  {syncStatus.loggedIn ? (
+                    <>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm text-foreground">{syncStatus.email}</span>
+                        <Button type="button" variant="outline" size="sm" onClick={handleCloudLogout}>
+                          Log out
+                        </Button>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-xs text-muted-foreground">
+                          {syncStatus.lastSyncedAt
+                            ? `Last synced ${new Date(syncStatus.lastSyncedAt).toLocaleString()}`
+                            : 'Never synced yet.'}
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleSyncNow}
+                          disabled={syncStatus.syncing}
+                        >
+                          {syncStatus.syncing ? 'Syncing…' : 'Sync now'}
+                        </Button>
+                      </div>
+                      {syncStatus.lastError && (
+                        <p className="text-xs text-destructive">{syncStatus.lastError}</p>
                       )}
-                      <Button
-                        type="submit"
-                        variant="outline"
-                        size="sm"
-                        className="w-fit"
-                        disabled={loggingIntoCloud}
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex gap-1 rounded-md bg-muted p-1 text-sm">
+                        <button
+                          type="button"
+                          onClick={() => setCloudAuthMode('login')}
+                          className={`flex-1 cursor-pointer rounded-sm py-1 ${cloudAuthMode === 'login' ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground'}`}
+                        >
+                          Log in
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCloudAuthMode('signup')}
+                          className={`flex-1 cursor-pointer rounded-sm py-1 ${cloudAuthMode === 'signup' ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground'}`}
+                        >
+                          Sign up
+                        </button>
+                      </div>
+                      <form
+                        onSubmit={cloudAuthMode === 'login' ? handleCloudLogin : handleCloudSignup}
+                        className="flex flex-col gap-3"
                       >
-                        {loggingIntoCloud
-                          ? cloudAuthMode === 'login'
-                            ? 'Logging in…'
-                            : 'Signing up…'
-                          : cloudAuthMode === 'login'
-                            ? 'Log in'
-                            : 'Sign up'}
-                      </Button>
-                    </form>
-                  </>
-                )}
-              </CardContent>
-            </Card>
+                        <Label className="flex flex-col items-start gap-1.5">
+                          Email
+                          <Input
+                            type="email"
+                            value={cloudEmail}
+                            onChange={(e) => setCloudEmail(e.target.value)}
+                            required
+                          />
+                        </Label>
+                        <Label className="flex flex-col items-start gap-1.5">
+                          Password
+                          <Input
+                            type="password"
+                            value={cloudPassword}
+                            onChange={(e) => setCloudPassword(e.target.value)}
+                            minLength={cloudAuthMode === 'signup' ? 12 : undefined}
+                            required
+                          />
+                        </Label>
+                        {cloudAuthMode === 'signup' && (
+                          <>
+                            <p className="text-xs text-muted-foreground">At least 12 characters.</p>
+                            <Label className="flex flex-col items-start gap-1.5">
+                              Invite code
+                              <Input
+                                type="password"
+                                value={cloudInviteCode}
+                                onChange={(e) => setCloudInviteCode(e.target.value)}
+                                required
+                              />
+                            </Label>
+                            <p className="text-xs text-muted-foreground">
+                              Signup isn't public yet — this only works with an invite code from the app
+                              owner.
+                            </p>
+                          </>
+                        )}
+                        <Button
+                          type="submit"
+                          variant="outline"
+                          size="sm"
+                          className="w-fit"
+                          disabled={loggingIntoCloud}
+                        >
+                          {loggingIntoCloud
+                            ? cloudAuthMode === 'login'
+                              ? 'Logging in…'
+                              : 'Signing up…'
+                            : cloudAuthMode === 'login'
+                              ? 'Log in'
+                              : 'Sign up'}
+                        </Button>
+                      </form>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
             )}
           </div>
         </TabsContent>

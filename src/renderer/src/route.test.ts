@@ -329,7 +329,7 @@ describe('applyProcedureSelection', () => {
     { ident: 'SIMBRIEF_STAR', lon: 4, lat: 4, altitudeFt: 8000, segment: 'star' }
   ]
 
-  function leg(fixIdent: string | null, altitude1 = 0): NavdataLeg {
+  function leg(fixIdent: string | null, altitude1 = 0, overrides: Partial<NavdataLeg> = {}): NavdataLeg {
     return {
       type: 4,
       fixIdent,
@@ -340,12 +340,54 @@ describe('applyProcedureSelection', () => {
       courseDeg: 0,
       altitude1,
       altitude2: 0,
-      speedLimit: 0
+      speedLimit: 0,
+      routeDistanceM: 0,
+      ...overrides
     }
   }
 
   it('passes the route through unchanged when nothing is selected', () => {
     expect(applyProcedureSelection(baseWaypoints, null, null, null)).toEqual(baseWaypoints)
+  })
+
+  it('plots an FC leg as its navaid plus the computed distance endpoint, labelled like the FMC (LAM → LAM/11)', () => {
+    // EGLL ILS 27R, LAM transition — real values confirmed live 2026-09-18.
+    const lam = leg('LAM', 0, { type: 9, fixType: 'V', fixLatitude: 51.646, fixLongitude: 0.1517, courseDeg: 272, routeDistanceM: 20372 })
+    const result = applyProcedureSelection(baseWaypoints, null, null, { identifier: 'ILS 27R', legs: [lam, leg('D125O')] })
+    const idents = result.map((w) => w.ident)
+    expect(idents.slice(-3)).toEqual(['LAM', 'LAM/11', 'D125O'])
+    const end = result.find((w) => w.ident === 'LAM/11')!
+    // 11 nm on a bearing of 272° from LAM: almost due west, a touch north.
+    expect(end.lat).toBeCloseTo(51.652, 2)
+    expect(end.lon).toBeCloseTo(-0.143, 2)
+    expect(end.segment).toBe(result.find((w) => w.ident === 'LAM')!.segment)
+  })
+
+  it('joins a STAR to a Visual approach with a straight STAR-end -> join point -> threshold line', () => {
+    const star: ProcedureLegs = { identifier: 'REAL_STAR', legs: [leg('IAF1'), leg('STAREND')] }
+    const visual: ProcedureLegs = {
+      identifier: 'Visual 27R',
+      legs: [
+        leg('27R/10', 0, { type: 15, fixLatitude: 51.4776, fixLongitude: -0.15 }),
+        leg('RW27R', 0, { type: 18, fixType: 'R', fixLatitude: 51.4776, fixLongitude: -0.4614 })
+      ]
+    }
+
+    const result = applyProcedureSelection(baseWaypoints, null, star, visual)
+
+    // "Vectors" is just adjacency: the approach's first waypoint follows the STAR's last one.
+    expect(result.slice(-4).map((w) => [w.ident, w.segment])).toEqual([
+      ['IAF1', 'star'],
+      ['STAREND', 'star'],
+      ['27R/10', 'approach'],
+      ['RW27R', 'approach']
+    ])
+  })
+
+  it('draws only the navaid for an FC/FD leg with no stored distance (cached before ROUTE_DISTANCE existed)', () => {
+    const old = leg('OCK', 0, { type: 10, fixType: 'V', courseDeg: 74, routeDistanceM: 0 })
+    const result = applyProcedureSelection(baseWaypoints, null, null, { identifier: 'ILS 27R', legs: [old] })
+    expect(result.filter((w) => w.ident.startsWith('OCK'))).toHaveLength(1)
   })
 
   it('replaces only the SID segment when a SID is selected', () => {

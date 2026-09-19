@@ -35,6 +35,7 @@ const FULL_AIRCRAFT: Aircraft = {
   currentIcao: 'EGLL',
   createdAt: '2026-01-01T00:00:00.000Z',
   replacedByAircraftId: null,
+  retiredAt: null,
   photoThumbnailUrl: 'https://airport-data.com/images/aircraft/thumbnails/001/685/001685661.jpg'
 }
 
@@ -53,6 +54,7 @@ const MINIMAL_AIRCRAFT: Aircraft = {
   currentIcao: null,
   createdAt: '2026-01-01T00:00:00.000Z',
   replacedByAircraftId: null,
+  retiredAt: null,
   photoThumbnailUrl: null
 }
 

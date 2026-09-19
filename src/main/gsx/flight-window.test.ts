@@ -3,7 +3,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { eq } from 'drizzle-orm'
 import { createDb, type WingLogDb } from './../db/client'
 import { createAircraft } from '../db/aircraft-repo'
-import { createFlight } from '../db/flight-repo'
+import { createFlight, createFreeFlight } from '../db/flight-repo'
 import { flight as flightTable } from '../db/schema'
 import { buildFlightMatchWindow } from './flight-window'
 
@@ -56,5 +56,20 @@ describe('buildFlightMatchWindow', () => {
     const window = buildFlightMatchWindow(db, flight.id)
     expect(window?.windowStartUtc).toBe('2026-09-06T10:05:00.000Z')
     expect(window?.windowEndUtc).toBe('2026-09-06T11:10:00.000Z')
+  })
+
+  it('falls back to the sim-reported registration for a free flight tracked with no fleet aircraft', () => {
+    const freeFlight = createFreeFlight(db, {
+      aircraftId: null,
+      simRegistration: 'G-TEST',
+      simIcaoType: 'C172',
+      depIcao: 'VHHH',
+      arrIcao: 'VHHH',
+      flightNumber: null,
+      fuelOutKg: 500
+    })
+
+    const window = buildFlightMatchWindow(db, freeFlight.id)
+    expect(window?.registration).toBe('G-TEST')
   })
 })

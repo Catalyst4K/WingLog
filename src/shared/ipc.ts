@@ -42,6 +42,9 @@ export interface Aircraft {
    *  selectable; anywhere an aircraft is picked (Dispatch's aircraft select, "new flight"
    *  flows) should filter these out — a retired aircraft has no flights of its own left. */
   replacedByAircraftId: number | null
+  /** ISO 8601 UTC of a plain Retire (docs/plans/fleet-retire.md) — flights stay on this
+   *  aircraft, unlike a replace. Use `isRetired` (shared/aircraft.ts), not this alone. */
+  retiredAt: string | null
   /** Real-world livery photo thumbnail from adsbdb's registration lookup — see
    *  schema.ts's photoThumbnailUrl comment. Null for a fictional/GA registration adsbdb
    *  has no photo for, or one never looked up. */
@@ -98,6 +101,18 @@ export interface AirportOption {
   name: string
   municipality: string | null
   isoCountry: string
+}
+
+/** OurAirports' `type` values WingLog keeps for the VFR map overlay. */
+export type AirfieldType = 'large_airport' | 'medium_airport' | 'small_airport' | 'heliport' | 'seaplane_base'
+
+/** One airfield with its position — the VFR overlay's airfields layer (resources/airports.csv). */
+export interface Airfield {
+  icao: string
+  name: string
+  type: AirfieldType
+  latitude: number
+  longitude: number
 }
 
 /** One match from the vendored ICAO Doc 8643 type-designator list (see resources/). */
@@ -276,6 +291,13 @@ export interface TrackCleanupSummary {
 export interface Landing {
   id: number
   flightId: number
+  /** 1-based, per flight, in touchdown order (flightdeck-backend's docs/plans/
+   *  multiple-landings.md) — a flight can have several, one per real touchdown. */
+  seq: number
+  /** The airport this specific touchdown happened at, resolved from position at capture
+   *  time — not necessarily the flight's filed arrival (a circuit, a diversion, a free
+   *  flight with no filed one). Null when nothing vendored was in range. */
+  icao: string | null
   touchdownTsUtc: string
   verticalSpeedMs: number
   gForce: number
@@ -380,10 +402,38 @@ export interface LandingScoreResult {
 
 /** One flight's score, for Logbook's list-view column (docs/plans/landing-scoring.md's
  *  "Logbook UI" section) — omits any completed flight with no landing row (CSV-imported,
- *  or tracked before landing capture shipped), which the list shows as "—" for. */
+ *  or tracked before landing capture shipped), which the list shows as "—" for. `score` is
+ *  against the *final* touchdown (flightdeck-backend's docs/plans/multiple-landings.md);
+ *  `landingCount` backs the list's "×3" badge for a flight with more than one. */
 export interface LandingScoreSummary {
   flightId: number
   score: number
+  landingCount: number
+}
+
+/** One touchdown with its runway geometry and score already resolved server-side
+ *  (flightdeck-backend's docs/plans/multiple-landings.md) — `logbookListLandings`'s own
+ *  return shape, replacing the three separate logbookGetLanding/-Runway/-Score calls the
+ *  Logbook detail page used to make per flight. `runway`/`score` are null under the same
+ *  conditions the old per-call versions returned null for (no runwayIdent match, or
+ *  nothing to score against). */
+export interface LandingWithDetails extends Landing {
+  runway: LandingRunway | null
+  score: LandingScoreResult | null
+}
+
+/** One row for the Logbook Landings sub-tab (flightdeck-backend's docs/plans/
+ *  multiple-landings.md Phase 2/3) — every touchdown across every non-deleted flight,
+ *  joined with enough flight/aircraft context to sort and link back. Mirrors
+ *  AircraftLandingRow's shape (which is scoped to one aircraft already); this one spans
+ *  the whole fleet. */
+export interface LandingListRow extends Landing {
+  flightNumber: string | null
+  aircraftRegistration: string
+  depIcao: string
+  arrIcao: string
+  score: number | null
+  severity: LandingSeverity | null
 }
 
 export interface ActiveTracking {
@@ -391,9 +441,53 @@ export interface ActiveTracking {
   phase: FlightPhase
 }
 
+/**
+ * The confirmed fields from free-flight-tracking.md's "Start a free flight" dialog —
+ * everything the dialog resolved/let the pilot edit, ready to create the flight and start
+ * tracking it directly at 'active' with no earlier 'planned' stage. `null` for depIcao/
+ * arrIcao means the dialog had nothing to prefill and the pilot left it blank — main
+ * resolves that to 'ZZZZ' (ICAO's own "no location indicator assigned" code) rather than
+ * leaving either column null, matching the plan's schema-migration-avoidance reasoning.
+ */
+export interface StartFreeFlightInput {
+  /** Null when the pilot chose not to add this aircraft to the fleet at all — see
+   *  simRegistration/simIcaoType below, which carry its identity instead in that case. */
+  aircraftId: number | null
+  /** Required together with a null aircraftId; ignored (should be null) otherwise. */
+  simRegistration: string | null
+  simIcaoType: string | null
+  depIcao: string | null
+  arrIcao: string | null
+  flightNumber: string | null
+}
+
+/**
+ * Everything the "Start a free flight" dialog needs to prefill itself, resolved in main
+ * from the live telemetry the renderer already has (free-flight-tracking.md's
+ * aircraft-resolution table). See free-flight.ts's getFreeFlightPrefill for the composition.
+ */
+export interface FreeFlightPrefill {
+  registration: string
+  icaoType: string | null
+  icaoTypeAmbiguous: boolean
+  suggestedDepIcao: string | null
+  rememberedAircraftId: number | null
+}
+
 export interface Flight {
   id: number
-  aircraftId: number
+  /** Null for a free flight tracked without adding an aircraft to the fleet — see
+   *  simRegistration/simIcaoType, which carry its identity in that case instead. */
+  aircraftId: number | null
+  /** Set only when aircraftId is null — the sim-reported registration/type at free-flight
+   *  start (free-flight-tracking.md's "don't add to fleet" option), kept for display since
+   *  there's no linked aircraft record to read it from otherwise. */
+  simRegistration: string | null
+  simIcaoType: string | null
+  /** The raw sim `title` at free-flight start, set only alongside the two fields above —
+   *  powers a retroactive title -> aircraft memory when "Add to fleet" happens later from
+   *  Logbook (flightLinkAircraft) instead of inline in the start dialog. */
+  simTitle: string | null
   status: FlightStatus
   flightNumber: string | null
   depIcao: string
@@ -548,6 +642,9 @@ export interface LogbookImportSkip {
   reason: string
 }
 
+/** File format for Settings → Data's Fleet/Logbook import and export. */
+export type DataFormat = 'csv' | 'json'
+
 export interface LogbookImportSummary {
   imported: number
   /** Aircraft auto-created for a registration not already in the fleet — see logbook-import.ts. */
@@ -673,6 +770,10 @@ export type AltitudeUnit = 'ft' | 'm' | 'hybrid'
  *  formatted wind line alongside it. */
 export type WindSpeedUnit = 'kt' | 'mps'
 
+/** Language of the base map's place names (flightdeck-backend docs/plans/
+ *  map-language-and-declutter.md). 'local' is each place's own native name. */
+export type MapLanguage = 'local' | 'en' | 'de' | 'es' | 'fr' | 'it' | 'ru'
+
 /**
  * Display unit for Logbook's two runway-relative landing measurements (distance from
  * threshold, centreline offset) and the touchdown diagram's labels — docs/plans/
@@ -781,6 +882,8 @@ export interface NavdataLeg {
   altitude1: number
   altitude2: number
   speedLimit: number
+  /** Metres along `courseDeg` from `fixIdent` — FC/FD legs only, 0 otherwise. */
+  routeDistanceM: number
 }
 
 export const IpcChannels = {
@@ -789,6 +892,8 @@ export const IpcChannels = {
   aircraftUpdate: 'aircraft:update',
   aircraftDelete: 'aircraft:delete',
   aircraftReplace: 'aircraft:replace',
+  aircraftRetire: 'aircraft:retire',
+  aircraftUnretire: 'aircraft:unretire',
   aircraftImport: 'aircraft:import',
   aircraftExport: 'aircraft:export',
   simTelemetry: 'sim:telemetry',
@@ -812,6 +917,8 @@ export const IpcChannels = {
   settingsSetWeightUnit: 'settings:set-weight-unit',
   settingsGetAltitudeUnit: 'settings:get-altitude-unit',
   settingsSetAltitudeUnit: 'settings:set-altitude-unit',
+  settingsGetMapLanguage: 'settings:get-map-language',
+  settingsSetMapLanguage: 'settings:set-map-language',
   settingsGetWindSpeedUnit: 'settings:get-wind-speed-unit',
   settingsSetWindSpeedUnit: 'settings:set-wind-speed-unit',
   settingsGetLandingDistanceUnit: 'settings:get-landing-distance-unit',
@@ -819,11 +926,14 @@ export const IpcChannels = {
   settingsGetTheme: 'settings:get-theme',
   settingsSetTheme: 'settings:set-theme',
   trackingStart: 'tracking:start',
+  trackingStartFree: 'tracking:start-free-flight',
+  trackingGetFreeFlightPrefill: 'tracking:get-free-flight-prefill',
   trackingStop: 'tracking:stop',
   trackingFinish: 'tracking:finish',
   trackingGetActive: 'tracking:get-active',
   flightCancel: 'flight:cancel',
   flightDelete: 'flight:delete',
+  flightLinkAircraft: 'flight:link-aircraft',
   trackingPoint: 'tracking:point',
   trackingPointsUpdated: 'tracking:points-updated',
   trackPointList: 'track-point:list',
@@ -832,6 +942,8 @@ export const IpcChannels = {
   logbookGetStats: 'logbook:get-stats',
   logbookFleetStats: 'logbook:fleet-stats',
   logbookImportCsv: 'logbook:import-csv',
+  logbookImportJson: 'logbook:import-json',
+  logbookExport: 'logbook:export',
   logbookListInvoices: 'logbook:list-invoices',
   settingsGetGsx: 'settings:get-gsx',
   settingsSetGsx: 'settings:set-gsx',
@@ -841,18 +953,18 @@ export const IpcChannels = {
   gsxAttachNotailReceipt: 'gsx:attach-notail-receipt',
   gsxOpenReceipt: 'gsx:open-receipt',
   logbookOpenOfpPdf: 'logbook:open-ofp-pdf',
-  logbookGetLanding: 'logbook:get-landing',
-  logbookGetLandingRunway: 'logbook:get-landing-runway',
+  logbookListLandings: 'logbook:list-landings',
+  logbookListAllLandings: 'logbook:list-all-landings',
   logbookGreatCircleRoute: 'logbook:great-circle-route',
   fleetListLandings: 'fleet:list-landings',
   fleetListFlights: 'fleet:list-flights',
-  logbookGetLandingScore: 'logbook:get-landing-score',
   logbookListFlightScores: 'logbook:list-flight-scores',
   aircraftLookupByRegistration: 'aircraft:lookup-by-registration',
   aircraftTypeSearch: 'aircraft:type-search',
   simbriefAirframesForType: 'simbrief:airframes-for-type',
   simbriefCreateCustomAirframe: 'simbrief:create-custom-airframe',
   airportSearch: 'airport:search',
+  airportListAirfields: 'airport:list-airfields',
   airlineSearch: 'airline:search',
   airlineFindByIcao: 'airline:find-by-icao',
   weatherGetMetars: 'weather:get-metars',
@@ -891,10 +1003,16 @@ export interface WingLogApi {
    * the two ids match, either aircraft doesn't exist, or `retiredId` is already retired.
    */
   aircraftReplace: (retiredId: number, replacementId: number) => Promise<void>
+  /** Retires an aircraft *without* moving its flights (docs/plans/fleet-retire.md). Throws if
+   *  it doesn't exist or is already retired (retired or replaced). */
+  aircraftRetire: (id: number) => Promise<void>
+  /** Reverses aircraftRetire. Throws unless the aircraft was plainly retired — a *replaced*
+   *  aircraft can't be un-retired, its flights already live on the replacement. */
+  aircraftUnretire: (id: number) => Promise<void>
   /** Opens a native file-open dialog in the main process; null if the user cancels. */
-  aircraftImport: () => Promise<AircraftImportSummary | null>
+  aircraftImport: (format?: DataFormat) => Promise<AircraftImportSummary | null>
   /** Opens a native file-save dialog in the main process; false if the user cancels. */
-  aircraftExport: () => Promise<boolean>
+  aircraftExport: (format?: DataFormat) => Promise<boolean>
   /**
    * Current status, for a renderer mounting after the initial connect already happened —
    * `onSimConnectionStatus` only delivers *future* changes, since Electron doesn't replay
@@ -915,6 +1033,14 @@ export interface WingLogApi {
   /** Permanently deletes a flight and its landing/invoice/track-point rows — a completed
    *  or abandoned flight with bad data, not an in-progress one (use flightCancel for that). */
   flightDelete: (id: number) => Promise<void>
+  /** Links a fleet aircraft (existing or just created via aircraftCreate) to a completed
+   *  free flight that was tracked with no aircraft at all — Logbook's post-flight "Add to
+   *  fleet" flow, replacing the fleet-creation option that used to live inline in the start
+   *  dialog. Nulls the flight's simRegistration/simIcaoType/simTitle, backfills the
+   *  aircraft's currentIcao from the flight's arrival, and remembers the title -> aircraft
+   *  mapping for next time. Throws if the flight already has a linked aircraft or the
+   *  aircraft is retired/missing. */
+  flightLinkAircraft: (flightId: number, aircraftId: number) => Promise<Flight>
   /** Fetches the SimBrief user's latest OFP. Throws if no username is set or the fetch fails. */
   dispatchFetchOfp: () => Promise<DispatchOfp>
   /** The one flight currently "in progress" (planned or already active — see
@@ -969,6 +1095,8 @@ export interface WingLogApi {
   settingsSetWeightUnit: (unit: WeightUnit) => Promise<void>
   settingsGetAltitudeUnit: () => Promise<AltitudeUnit>
   settingsSetAltitudeUnit: (unit: AltitudeUnit) => Promise<void>
+  settingsGetMapLanguage: () => Promise<MapLanguage>
+  settingsSetMapLanguage: (language: MapLanguage) => Promise<void>
   settingsGetWindSpeedUnit: () => Promise<WindSpeedUnit>
   settingsSetWindSpeedUnit: (unit: WindSpeedUnit) => Promise<void>
   settingsGetLandingDistanceUnit: () => Promise<LandingDistanceUnit>
@@ -977,6 +1105,19 @@ export interface WingLogApi {
   settingsSetTheme: (theme: Theme) => Promise<void>
   /** Begins tracking a planned flight. Throws if the sim isn't connected or another flight is already tracked. */
   trackingStart: (flightId: number) => Promise<void>
+  /** Creates and starts tracking a free flight (free-flight-tracking.md) — no planned
+   *  stage, no filed OFP, seeded from whatever the sim is already doing (mid-air included).
+   *  Resolves to the new flight's id. Same throw conditions as trackingStart. */
+  trackingStartFree: (input: StartFreeFlightInput) => Promise<number>
+  /** Resolves the "Start a free flight" dialog's prefill from the current sim telemetry —
+   *  call once when the dialog opens, not on every telemetry tick. */
+  trackingGetFreeFlightPrefill: (input: {
+    atcId: string
+    atcModel: string
+    title: string
+    latitude: number
+    longitude: number
+  }) => Promise<FreeFlightPrefill>
   /** Cancels tracking mid-flight — deletes the flight (and any track points it recorded)
    *  rather than saving it as 'completed'. */
   trackingStop: () => Promise<void>
@@ -1001,7 +1142,13 @@ export interface WingLogApi {
   logbookGetStats: () => Promise<LogbookStats>
   logbookFleetStats: () => Promise<FleetStats[]>
   /** Opens a native file-open dialog in the main process; null if the user cancels. */
+  /** Imports SimToolkitPro's CSV *or* WingLog's own CSV export (told apart by header). */
   logbookImportCsv: () => Promise<LogbookImportSummary | null>
+  /** Imports WingLog's own JSON export. Native file-open dialog; null if cancelled. */
+  logbookImportJson: () => Promise<LogbookImportSummary | null>
+  /** Summary export of every completed flight (not a backup — no OFP/track points). Native
+   *  file-save dialog; false if cancelled. */
+  logbookExport: (format: DataFormat) => Promise<boolean>
   /** Ground-service invoices already stored for a flight (docs/decisions.md,
    *  gsx-invoices entry) — snapshotted at completion, not read live from disk. Empty for
    *  any flight with no matched receipts, which is the normal case. */
@@ -1029,14 +1176,15 @@ export interface WingLogApi {
    *  doesn't yield a safe URL to open — e.g. an ad-hoc flight, or an older SimBrief
    *  response shaped differently than expected. */
   logbookOpenOfpPdf: (flightId: number) => Promise<boolean>
-  /** The flight's touchdown record, if one was captured — null for any flight tracked
-   *  before this feature existed, or one with no landing phase reached (e.g. cancelled
-   *  mid-air). */
-  logbookGetLanding: (flightId: number) => Promise<Landing | null>
-  /** The runway geometry the touchdown diagram draws against — see LandingRunway's doc
-   *  comment. `flightId` is validated in main (an unknown id, or a flight/landing with no
-   *  runwayIdent, just yields null, same as an unknown flight elsewhere in this API). */
-  logbookGetLandingRunway: (flightId: number) => Promise<LandingRunway | null>
+  /** Every touchdown recorded for a flight, in touchdown order, each with its runway
+   *  geometry and score already resolved (flightdeck-backend's docs/plans/
+   *  multiple-landings.md) — replaces the old logbookGetLanding/-Runway/-Score trio with
+   *  one call. Empty for any flight tracked before landing capture existed, or with no
+   *  landing phase reached (e.g. cancelled mid-air). */
+  logbookListLandings: (flightId: number) => Promise<LandingWithDetails[]>
+  /** Every touchdown across every non-deleted flight, newest first — the Logbook Landings
+   *  sub-tab (flightdeck-backend's docs/plans/multiple-landings.md Phase 3). */
+  logbookListAllLandings: () => Promise<LandingListRow[]>
   /** Great-circle fallback route for Logbook's flight-detail map, [lon, lat] pairs (docs/
    *  plans/great-circle-fallback-route.md) — used only when the flight has no OFP-derived
    *  route to draw (parseRouteFromOfpJson came back empty). Null if either ICAO isn't in
@@ -1048,9 +1196,6 @@ export interface WingLogApi {
    *  directly rather than filtering flightList() client-side, since that list is already
    *  hundreds of rows on a well-used fleet. */
   fleetListFlights: (aircraftId: number) => Promise<Flight[]>
-  /** A flight's landing score/severity, if it has a landing row — null otherwise (same
-   *  cases logbookGetLanding returns null for). */
-  logbookGetLandingScore: (flightId: number) => Promise<LandingScoreResult | null>
   /** Every completed flight's landing score, for Logbook's list-view column — omits any
    *  flight with no landing row, which the list shows as "—" for (see LandingScoreSummary). */
   logbookListFlightScores: () => Promise<LandingScoreSummary[]>
@@ -1072,6 +1217,9 @@ export interface WingLogApi {
   simbriefCreateCustomAirframe: (shareUrl: string) => Promise<string | null>
   /** Searches the vendored OurAirports name/ICAO list. Empty for a query under 2 chars. */
   airportSearch: (query: string) => Promise<AirportOption[]>
+  /** Every airfield with a position (~43k, from the same vendored list) — for the Track
+   *  map's VFR overlay. Loaded on demand, only when that overlay is first switched on. */
+  airportListAirfields: () => Promise<Airfield[]>
   /** Searches the vendored OpenFlights airline list. Empty for a query under 2 chars. */
   airlineSearch: (query: string) => Promise<AirlineOption[]>
   /** Exact ICAO-code lookup against the same vendored airline list — for resolving an

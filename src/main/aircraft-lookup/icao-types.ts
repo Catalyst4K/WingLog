@@ -42,7 +42,10 @@ const MAX_RESULTS = 20
 // The source data hyphenates model numbers ("A-350-1000 XWB"), which a search for the
 // obvious "A350" (no hyphen) would otherwise miss entirely — verified against the real
 // vendored file, not a hypothetical. Stripped from both sides of the comparison.
-function normalize(s: string): string {
+// Exported: aircraft-identity.ts reuses this exact rule to tell an exact model match from
+// a looser substring one when free flight's atcModel parsing hits the A320/A20N variant
+// ambiguity, rather than re-deriving the same normalization independently.
+export function normalize(s: string): string {
   return s.toLowerCase().replace(/-/g, '')
 }
 

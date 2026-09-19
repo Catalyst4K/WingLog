@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type {
@@ -17,6 +17,16 @@ import { TrackView } from './TrackView'
 // and isn't a spy — mock it so `toast.error`/`toast.success` assertions work, matching the
 // one IPC-adjacent seam (window.winglog) this batch's other tests mock.
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+
+// jsdom has no real pointer-capture implementation, which Radix's Select throws on when a
+// test actually opens the dropdown (rather than relying on its default selection) — same
+// polyfill DispatchView.test.tsx/FleetView.test.tsx/SettingsView.test.tsx already needed.
+beforeAll(() => {
+  Element.prototype.hasPointerCapture = () => false
+  Element.prototype.setPointerCapture = () => {}
+  Element.prototype.releasePointerCapture = () => {}
+  Element.prototype.scrollIntoView = () => {}
+})
 
 afterEach(() => {
   vi.clearAllMocks()
@@ -111,6 +121,7 @@ const AIRCRAFT: Aircraft = {
   currentIcao: 'EGLL',
   createdAt: '2026-01-01T00:00:00.000Z',
   replacedByAircraftId: null,
+  retiredAt: null,
   photoThumbnailUrl: null
 }
 
@@ -118,6 +129,9 @@ function makeFlight(overrides: Partial<Flight> = {}): Flight {
   return {
     id: 1,
     aircraftId: 1,
+    simRegistration: null,
+    simIcaoType: null,
+    simTitle: null,
     status: 'planned',
     flightNumber: 'BAW31',
     depIcao: 'EGLL',
@@ -226,6 +240,17 @@ function buildWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     onTrackingPoint: vi.fn(() => () => {}),
     onTrackingPointsUpdated: vi.fn(() => () => {}),
     trackingStart: vi.fn().mockResolvedValue(undefined),
+    trackingStartFree: vi.fn().mockResolvedValue(1),
+    trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue({
+      registration: 'TEST',
+      icaoType: null,
+      icaoTypeAmbiguous: false,
+      suggestedDepIcao: null,
+      rememberedAircraftId: null
+    }),
+    aircraftCreate: vi.fn().mockResolvedValue(AIRCRAFT),
+    aircraftTypeSearch: vi.fn().mockResolvedValue([]),
+    airportSearch: vi.fn().mockResolvedValue([]),
     trackingStop: vi.fn().mockResolvedValue(undefined),
     trackingFinish: vi.fn().mockResolvedValue(undefined),
     flightCancel: vi.fn().mockResolvedValue(undefined),
@@ -254,13 +279,288 @@ function renderTrack(
   return render(<TrackView {...props} selection={selection} onSelectionChange={onSelectionChange} />)
 }
 
+function makeTelemetry(overrides: Partial<SimTelemetry> = {}): SimTelemetry {
+  return {
+    latitude: 51.4775,
+    longitude: -0.4614,
+    altitudeM: 25,
+    pressureAltitudeM: 25,
+    altitudeAglM: 0,
+    verticalSpeedMs: 0,
+    indicatedAirspeedMs: 0,
+    trueAirspeedMs: 0,
+    machSpeed: 0,
+    groundSpeedMs: 0,
+    headingTrueDeg: 270,
+    pitchDeg: 0,
+    bankDeg: 0,
+    onGround: true,
+    gForce: 1,
+    fuelTotalKg: 10000,
+    totalWeightKg: 70000,
+    windSpeedMs: 3,
+    windDirectionDeg: 250,
+    engineCombustion1: false,
+    gearHandlePosition: 1,
+    flapsHandleIndex: 0,
+    parkingBrakeOn: true,
+    atcId: 'G-EUYY',
+    atcModel: 'A320',
+    title: 'Test Aircraft',
+    simRate: 1,
+    slewActive: false,
+    ...overrides
+  }
+}
+
+/** Feeds one telemetry sample through rerender, as a fresh object each time — mirrors the
+ *  sim's real ~1Hz push, where every sample is a new object reference. TrackView.tsx's
+ *  passive banner counts consecutive samples by that reference changing, so a test that
+ *  wants to simulate several real ticks (rather than one static prop) needs to rerender with
+ *  a new object each time, not just pass the same telemetry once. */
+function pushTelemetry(
+  rerender: ReturnType<typeof render>['rerender'],
+  overrides: Partial<SimTelemetry> = {}
+): void {
+  rerender(
+    <TrackView
+      telemetry={makeTelemetry(overrides)}
+      selection={emptyProcedureSelection()}
+      onSelectionChange={vi.fn()}
+    />
+  )
+}
+
 describe('TrackView', () => {
-  it('shows the empty state when there is nothing planned or active', async () => {
+  it('shows the Free flight card in place of the old dead-end empty state when nothing is planned or active', async () => {
     setWinglog()
     renderTrack()
-    expect(await screen.findByText('No planned flights to track — dispatch one first.')).toBeInTheDocument()
+    expect(await screen.findByText('Flying something already?')).toBeInTheDocument()
+    expect(screen.getByText('Free flight')).toBeInTheDocument()
     // Nothing planned/active/preview — no Procedures affordance either.
     expect(screen.queryByText('Procedures…')).not.toBeInTheDocument()
+  })
+
+  describe('free flight (free-flight-tracking.md)', () => {
+    it('opens the Start a free flight dialog from the Free flight card', async () => {
+      setWinglog()
+      const user = userEvent.setup()
+      renderTrack({ telemetry: makeTelemetry() })
+      await user.click(await screen.findByText('Free flight'))
+      expect(await screen.findByText('Start a free flight')).toBeInTheDocument()
+    })
+
+    it('shows a toast instead of opening the dialog when the sim is not connected', async () => {
+      const { toast } = await import('sonner')
+      setWinglog()
+      const user = userEvent.setup()
+      renderTrack({ telemetry: null })
+      await user.click(await screen.findByText('Free flight'))
+      expect(screen.queryByText('Start a free flight')).not.toBeInTheDocument()
+      expect(toast.error).toHaveBeenCalledWith('Not connected to the sim.')
+    })
+
+    it('shows the passive detection banner once the sim reports the aircraft airborne for several consecutive samples', async () => {
+      setWinglog()
+      const { rerender } = renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 0 }) })
+      for (let i = 0; i < 8; i++) pushTelemetry(rerender, { onGround: false })
+      expect(await screen.findByText(/G-EUYY is airborne — start tracking\?/)).toBeInTheDocument()
+    })
+
+    it('does not show the banner until the sustain threshold is reached — 8 consecutive samples, matching AutoStartDetector\'s own proven bar', async () => {
+      setWinglog()
+      const { rerender } = renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 0 }) })
+      for (let i = 0; i < 7; i++) pushTelemetry(rerender, { onGround: false })
+      expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
+      pushTelemetry(rerender, { onGround: false }) // the 8th sample
+      expect(await screen.findByText(/start tracking\?/)).toBeInTheDocument()
+    })
+
+    it('shows the banner for ground movement too, not just airborne', async () => {
+      setWinglog()
+      const { rerender } = renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 0 }) })
+      for (let i = 0; i < 8; i++) pushTelemetry(rerender, { onGround: true, groundSpeedMs: 5 })
+      expect(await screen.findByText(/G-EUYY is moving on the ground — start tracking\?/)).toBeInTheDocument()
+    })
+
+    it('does not show the banner from a single transient telemetry sample — a real leftover/garbage blip Callum saw live (docs/simconnect-notes.md, 2026-09-16)', async () => {
+      setWinglog()
+      const { rerender } = renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 0 }) })
+      // One bad sample claiming airborne, then straight back to parked — exactly what a
+      // stale/leftover SimConnect read looked like in practice.
+      pushTelemetry(rerender, { onGround: false })
+      pushTelemetry(rerender, { onGround: true, groundSpeedMs: 0 })
+      pushTelemetry(rerender, { onGround: true, groundSpeedMs: 0 })
+      expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
+    })
+
+    it('does not show the banner for a stationary, parked aircraft', async () => {
+      setWinglog()
+      renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 0 }) })
+      await screen.findByText('Free flight') // wait for the view to settle
+      expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
+    })
+
+    it('does not show the banner while a flight is already being tracked', async () => {
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
+        flightList: vi.fn().mockResolvedValue([makeFlight({ status: 'active' })]),
+        trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'cruise' })
+      })
+      renderTrack({ telemetry: makeTelemetry({ onGround: false }) })
+      await screen.findByText('cruise') // wait for the active-flight card to settle
+      expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
+    })
+
+    it('hides the Free flight card once a real flight plan is loaded (dispatched via "Fly")', async () => {
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
+        flightList: vi.fn().mockResolvedValue([makeFlight()])
+      })
+      renderTrack()
+      // Wait for the planned flight's own card to settle rather than asserting on absence
+      // immediately, which would pass trivially before the flightList fetch resolves.
+      await screen.findByText('Start tracking')
+      expect(screen.queryByText('Flying something already?')).not.toBeInTheDocument()
+      expect(screen.queryByText('Free flight')).not.toBeInTheDocument()
+    })
+
+    it('suppresses the detection banner too once a real flight plan is loaded', async () => {
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
+        flightList: vi.fn().mockResolvedValue([makeFlight()])
+      })
+      renderTrack({ telemetry: makeTelemetry({ onGround: false }) })
+      await screen.findByText('Start tracking') // wait for the planned-flight card to settle
+      expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
+    })
+
+    it('dismisses the banner without opening the dialog, and it stays hidden until the episode resets', async () => {
+      setWinglog()
+      const user = userEvent.setup()
+      const { rerender } = renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 0 }) })
+      for (let i = 0; i < 8; i++) pushTelemetry(rerender, { onGround: false })
+      await screen.findByText(/start tracking\?/)
+      await user.click(screen.getByText('Not now'))
+      expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
+      expect(screen.queryByText('Start a free flight')).not.toBeInTheDocument()
+
+      // Still airborne, same episode — stays dismissed.
+      pushTelemetry(rerender, { onGround: false, groundSpeedMs: 1 })
+      expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
+
+      // Parked again — the episode ends, clearing the dismissal.
+      pushTelemetry(rerender, { onGround: true, groundSpeedMs: 0 })
+      expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
+
+      // Airborne again — a new episode, but a lone sample still isn't enough to prompt yet.
+      pushTelemetry(rerender, { onGround: false })
+      expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
+
+      // Sustained across enough more samples — prompts again. (The lone sample above already
+      // counted as 1 of the 8 needed, so 7 more reaches the threshold.)
+      for (let i = 0; i < 7; i++) pushTelemetry(rerender, { onGround: false })
+      expect(await screen.findByText(/start tracking\?/)).toBeInTheDocument()
+    })
+
+    it('clears a dismissal on a title change even when the raw trigger never goes false in between — the real bug Callum hit (dismissed a false pre-load trigger, which blended straight into the real flight\'s own trigger, and the banner never came back)', async () => {
+      setWinglog()
+      const user = userEvent.setup()
+      const { rerender } = renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 0 }) })
+      // The false pre-load episode — sustained long enough to prompt, then dismissed.
+      for (let i = 0; i < 8; i++) pushTelemetry(rerender, { onGround: false, title: 'Stale previous session' })
+      await screen.findByText(/start tracking\?/)
+      await user.click(screen.getByText('Not now'))
+      expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
+
+      // The real flight loads — title changes, but the raw trigger stays true throughout
+      // (no parked/settled moment in between, unlike the ordinary episode-reset case above).
+      // Under the old logic (reset only on the raw trigger going false) this would stay
+      // dismissed forever. Sustaining across the new episode's own 8 samples should prompt
+      // again regardless.
+      for (let i = 0; i < 8; i++) pushTelemetry(rerender, { onGround: false, title: 'FenixA320 IAE SL' })
+      expect(await screen.findByText(/start tracking\?/)).toBeInTheDocument()
+    })
+
+    it('starts tracking a free flight end to end: prefill, a remembered title match, and the resulting active card', async () => {
+      const trackingStartFree = vi.fn().mockResolvedValue(5)
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
+        flightList: vi.fn().mockResolvedValue([]),
+        trackingStartFree,
+        trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue({
+          registration: 'F-WWTD', // deliberately doesn't match AIRCRAFT's own registration —
+          // resolution is title-memory only now, not a registration match.
+          icaoType: 'A35K',
+          icaoTypeAmbiguous: false,
+          suggestedDepIcao: 'EGLL',
+          rememberedAircraftId: AIRCRAFT.id
+        }),
+        trackingGetActive: vi
+          .fn()
+          .mockResolvedValueOnce(null) // initial mount
+          .mockResolvedValue({ flightId: 5, phase: 'preflight' }) // after starting
+      })
+      const user = userEvent.setup()
+      renderTrack({ telemetry: makeTelemetry() })
+
+      await user.click(await screen.findByText('Free flight'))
+      await screen.findByText('Start a free flight')
+      // The remembered title -> aircraft match resolves automatically — no manual pick needed.
+      await waitFor(() => expect(screen.getByText(`${AIRCRAFT.registration} — ${AIRCRAFT.icaoType}`)).toBeInTheDocument())
+
+      await user.click(screen.getByText('Start tracking'))
+
+      expect(trackingStartFree).toHaveBeenCalledWith({
+        aircraftId: AIRCRAFT.id,
+        simRegistration: null,
+        simIcaoType: null,
+        depIcao: 'EGLL',
+        arrIcao: null,
+        flightNumber: null
+      })
+      expect(await screen.findByText('Phase:')).toBeInTheDocument()
+    })
+
+    it('shows the flight\'s own sim-reported identity in the active card when tracking with no fleet aircraft — not mandatory to add one', async () => {
+      const trackingStartFree = vi.fn().mockResolvedValue(5)
+      const freeFlight = makeFlight({
+        id: 5,
+        status: 'active',
+        aircraftId: null,
+        simRegistration: 'G-TEST',
+        simIcaoType: 'C172',
+        flightNumber: null,
+        ofpJson: null
+      })
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([]),
+        flightList: vi.fn().mockResolvedValueOnce([]).mockResolvedValue([freeFlight]),
+        trackingStartFree,
+        trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue({
+          registration: 'G-TEST',
+          icaoType: 'C172',
+          icaoTypeAmbiguous: false,
+          suggestedDepIcao: null,
+          rememberedAircraftId: null
+        }),
+        trackingGetActive: vi
+          .fn()
+          .mockResolvedValueOnce(null)
+          .mockResolvedValue({ flightId: 5, phase: 'preflight' })
+      })
+      const user = userEvent.setup()
+      renderTrack({ telemetry: makeTelemetry({ atcId: 'G-TEST', atcModel: 'C172' }) })
+
+      await user.click(await screen.findByText('Free flight'))
+      await screen.findByText('Start a free flight')
+      await user.click(screen.getByRole('combobox'))
+      await user.click(await screen.findByRole('option', { name: 'None' }))
+      await user.click(screen.getByText('Start tracking'))
+
+      expect(await screen.findByText('Phase:')).toBeInTheDocument()
+      expect(screen.getByText('C172 · G-TEST')).toBeInTheDocument()
+    })
   })
 
   it('lists planned flights with a Start tracking button each, and shows the Procedures affordance', async () => {
@@ -625,7 +925,7 @@ describe('TrackView', () => {
       })
     })
     renderTrack()
-    await screen.findByText('No planned flights to track — dispatch one first.')
+    await screen.findByText('Flying something already?')
     pointListener?.(makeTrackPoint({ phase: 'shutdown', flightId: 77 }))
     expect(await screen.findByText(/Flight #77 was automatically detected/)).toBeInTheDocument()
   })
@@ -657,7 +957,7 @@ describe('TrackView', () => {
     const unsubscribe = vi.fn()
     setWinglog({ onTrackingPoint: vi.fn(() => unsubscribe) })
     const { unmount } = renderTrack()
-    await screen.findByText('No planned flights to track — dispatch one first.')
+    await screen.findByText('Flying something already?')
     unmount()
     expect(unsubscribe).toHaveBeenCalled()
   })
@@ -684,7 +984,7 @@ describe('TrackView', () => {
     })
     setWinglog()
     renderTrack({ previewOfp })
-    await screen.findByText('No planned flights to track — dispatch one first.')
+    await screen.findByText('Flying something already?')
     // The Dispatch preview still counts as "airports" for the Procedures affordance.
     expect(screen.getByText('Procedures…')).toBeInTheDocument()
   })
@@ -692,44 +992,59 @@ describe('TrackView', () => {
   it('has no Procedures affordance without a planned/active flight or a Dispatch preview', async () => {
     setWinglog()
     renderTrack({ previewOfp: null })
-    await screen.findByText('No planned flights to track — dispatch one first.')
+    await screen.findByText('Flying something already?')
     expect(screen.queryByText('Procedures…')).not.toBeInTheDocument()
   })
 
-  it('passes live telemetry through to the map without crashing', async () => {
+  const OVERLAY_TELEMETRY: SimTelemetry = {
+    latitude: 51.47,
+    longitude: -0.45,
+    altitudeM: 1000,
+    pressureAltitudeM: 1000,
+    altitudeAglM: 900,
+    verticalSpeedMs: 0,
+    indicatedAirspeedMs: 120,
+    trueAirspeedMs: 130,
+    machSpeed: 0.3,
+    groundSpeedMs: 125,
+    headingTrueDeg: 270,
+    pitchDeg: 2,
+    bankDeg: 0,
+    onGround: false,
+    gForce: 1,
+    fuelTotalKg: 50000,
+    totalWeightKg: 200000,
+    windSpeedMs: 5,
+    windDirectionDeg: 250,
+    engineCombustion1: true,
+    gearHandlePosition: 0,
+    flapsHandleIndex: 0,
+    parkingBrakeOn: false,
+    atcId: 'BAW31',
+    atcModel: 'A35K',
+    title: 'Airbus A350-1000',
+    simRate: 1,
+    slewActive: false
+  }
+
+  it('keeps the map overlay at N/A while telemetry is present but no flight is being tracked', async () => {
     setWinglog()
-    const telemetry: SimTelemetry = {
-      latitude: 51.47,
-      longitude: -0.45,
-      altitudeM: 1000,
-      pressureAltitudeM: 1000,
-      altitudeAglM: 900,
-      verticalSpeedMs: 0,
-      indicatedAirspeedMs: 120,
-      trueAirspeedMs: 130,
-      machSpeed: 0.3,
-      groundSpeedMs: 125,
-      headingTrueDeg: 270,
-      pitchDeg: 2,
-      bankDeg: 0,
-      onGround: false,
-      gForce: 1,
-      fuelTotalKg: 50000,
-      totalWeightKg: 200000,
-      windSpeedMs: 5,
-      windDirectionDeg: 250,
-      engineCombustion1: true,
-      gearHandlePosition: 0,
-      flapsHandleIndex: 0,
-      parkingBrakeOn: false,
-      atcId: 'BAW31',
-      atcModel: 'A35K',
-      title: 'Airbus A350-1000',
-      simRate: 1,
-      slewActive: false
-    }
-    renderTrack({ telemetry })
-    await screen.findByText('No planned flights to track — dispatch one first.')
+    renderTrack({ telemetry: OVERLAY_TELEMETRY })
+    await screen.findByText('Flying something already?')
+    expect(screen.getByText(/Speed: N\/A/)).toBeInTheDocument()
+    expect(screen.queryByText(/Heading: 270°/)).not.toBeInTheDocument()
+  })
+
+  it('populates the map overlay from live telemetry once tracking is active', async () => {
+    setWinglog({
+      aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
+      flightList: vi.fn().mockResolvedValue([makeFlight({ status: 'active' })]),
+      trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'taxi' })
+    })
+    renderTrack({ telemetry: OVERLAY_TELEMETRY })
+    await screen.findByText('taxi')
+    expect(screen.getByText(/Heading: 270°/)).toBeInTheDocument()
+    expect(screen.getByText(/Speed: 233 kt/)).toBeInTheDocument()
   })
 
   it('loads existing track points for an already-active flight on mount', async () => {

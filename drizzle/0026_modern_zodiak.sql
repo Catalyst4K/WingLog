@@ -1,0 +1,1 @@
+ALTER TABLE `navdata_procedure_leg` ADD `route_distance_m` real DEFAULT 0 NOT NULL;

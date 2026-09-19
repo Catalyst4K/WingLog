@@ -86,6 +86,12 @@ describe('flight invoice repo', () => {
     it('excludes rows updated at or before since', () => {
       addInvoicesForFlight(db, flightId, [makeInvoice({ receiptId: 'A' })])
       const cutoff = db.select().from(flightInvoice).get()!.updatedAt as string
+      // updatedAt has millisecond resolution: without this, B can land in the same
+      // millisecond as A and read as "at or before" the cutoff, failing intermittently.
+      const start = Date.now()
+      while (Date.now() === start) {
+        /* wait for the clock to tick */
+      }
       addInvoicesForFlight(db, flightId, [makeInvoice({ receiptId: 'B' })])
       const rows = listFlightInvoicesForSync(db, cutoff)
       expect(rows.map((r) => r.receiptId)).toEqual(['B'])

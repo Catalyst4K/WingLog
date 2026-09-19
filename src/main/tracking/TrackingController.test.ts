@@ -5,7 +5,8 @@ import type { SimTelemetry } from '@shared/ipc'
 import { createDb, type WingLogDb } from '../db/client'
 import { createAircraft } from '../db/aircraft-repo'
 import { createFlight, getFlight, getInProgressFlight, listFlights } from '../db/flight-repo'
-import { getLandingByFlight } from '../db/landing-repo'
+import { getLandingByFlight, listLandingsByFlight } from '../db/landing-repo'
+import { getAircraftIdForTitle } from '../db/settings-repo'
 import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
 import type { SimConnectSource } from '../sim/SimConnectSource'
 import { TrackingController } from './TrackingController'
@@ -374,6 +375,179 @@ describe('TrackingController', () => {
     expect(getFlight(db, flightId)?.status).toBe('planned')
   })
 
+  describe('startFree (free-flight-tracking.md)', () => {
+    let freeAircraftId: number
+
+    beforeEach(() => {
+      freeAircraftId = createAircraft(db, { registration: 'G-FREE', icaoType: 'C172' }).id
+    })
+
+    it('refuses to start without a live telemetry sample', () => {
+      const controller = new TrackingController(db, sim)
+      expect(() =>
+        controller.startFree({ aircraftId: freeAircraftId, depIcao: 'EGLL', arrIcao: 'ZZZZ', flightNumber: null })
+      ).toThrow('Not connected')
+    })
+
+    it('creates the flight directly at active, with no planned stage, and starts tracking it', () => {
+      sim.setLastTelemetry(telemetry({ fuelTotalKg: 3200, title: 'Cessna 172 Classic' }))
+      const controller = new TrackingController(db, sim)
+      const newFlightId = controller.startFree({
+        aircraftId: freeAircraftId,
+        depIcao: 'EGLL',
+        arrIcao: 'ZZZZ',
+        flightNumber: null
+      })
+
+      const created = getFlight(db, newFlightId)
+      expect(created?.status).toBe('active')
+      expect(created?.fuelOutKg).toBe(3200)
+      expect(created?.ofpJson).toBeNull()
+      expect(controller.getActive()).toEqual({ flightId: newFlightId, phase: 'preflight' })
+    })
+
+    it('seeds phase detection from the current telemetry rather than always starting at preflight', () => {
+      sim.setLastTelemetry(telemetry({ onGround: false, verticalSpeedMs: 0, groundSpeedMs: 120 }))
+      const controller = new TrackingController(db, sim)
+      const newFlightId = controller.startFree({
+        aircraftId: freeAircraftId,
+        depIcao: 'EGLL',
+        arrIcao: 'ZZZZ',
+        flightNumber: null
+      })
+      expect(controller.getActive()).toEqual({ flightId: newFlightId, phase: 'cruise' })
+    })
+
+    it('records off-block time immediately for a flight seeded already airborne, not waiting for a climb edge that will never come', () => {
+      sim.setLastTelemetry(telemetry({ onGround: false, verticalSpeedMs: 0, groundSpeedMs: 120 }))
+      const controller = new TrackingController(db, sim)
+      const newFlightId = controller.startFree({
+        aircraftId: freeAircraftId,
+        depIcao: 'EGLL',
+        arrIcao: 'ZZZZ',
+        flightNumber: null
+      })
+      expect(getFlight(db, newFlightId)?.actualOffUtc).not.toBeNull()
+    })
+
+    it('leaves off-block time unset for a flight seeded on the ground, same as a normal dispatched start', () => {
+      sim.setLastTelemetry(telemetry({ onGround: true, groundSpeedMs: 0 }))
+      const controller = new TrackingController(db, sim)
+      const newFlightId = controller.startFree({
+        aircraftId: freeAircraftId,
+        depIcao: 'EGLL',
+        arrIcao: 'ZZZZ',
+        flightNumber: null
+      })
+      expect(getFlight(db, newFlightId)?.actualOffUtc).toBeNull()
+    })
+
+    it('remembers the title -> aircraft mapping so a later flight in the same add-on can resolve it', () => {
+      sim.setLastTelemetry(telemetry({ title: 'FenixA320 IAE SL' }))
+      const controller = new TrackingController(db, sim)
+      controller.startFree({ aircraftId: freeAircraftId, depIcao: 'EGLL', arrIcao: 'ZZZZ', flightNumber: null })
+      expect(getAircraftIdForTitle(db, 'FenixA320 IAE SL')).toBe(freeAircraftId)
+    })
+
+    it('leaves simTitle null on the flight row when a fleet aircraft is already linked at start', () => {
+      sim.setLastTelemetry(telemetry({ title: 'FenixA320 IAE SL' }))
+      const controller = new TrackingController(db, sim)
+      const newFlightId = controller.startFree({
+        aircraftId: freeAircraftId,
+        depIcao: 'EGLL',
+        arrIcao: 'ZZZZ',
+        flightNumber: null
+      })
+      expect(getFlight(db, newFlightId)?.simTitle).toBeNull()
+    })
+
+    it('stores simTitle on the flight row when tracked with no linked aircraft, so Logbook can remember it later', () => {
+      sim.setLastTelemetry(telemetry({ title: 'FenixA320 IAE SL' }))
+      const controller = new TrackingController(db, sim)
+      const newFlightId = controller.startFree({
+        aircraftId: null,
+        simRegistration: 'G-TEST',
+        simIcaoType: 'A20N',
+        depIcao: 'EGLL',
+        arrIcao: 'ZZZZ',
+        flightNumber: null
+      })
+      expect(getFlight(db, newFlightId)?.simTitle).toBe('FenixA320 IAE SL')
+    })
+
+    it('resolves arrival from position at touchdown, overwriting the ZZZZ placeholder', () => {
+      sim.setLastTelemetry(telemetry({ onGround: true, groundSpeedMs: 0 }))
+      const controller = new TrackingController(db, sim)
+      const newFlightId = controller.startFree({
+        aircraftId: freeAircraftId,
+        depIcao: 'ZZZZ',
+        arrIcao: 'ZZZZ',
+        flightNumber: null
+      })
+
+      sim.emit('telemetry', telemetry({ engineCombustion1: true }))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 5 }))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 40 }))
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+      )
+      for (let i = 0; i < 4; i++) {
+        sim.emit(
+          'telemetry',
+          telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+        )
+      }
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 60, verticalSpeedMs: -1.5 })
+      )
+
+      // The default telemetry() fixture's lat/lon sits at real Heathrow coordinates.
+      expect(getFlight(db, newFlightId)?.arrIcao).toBe('EGLL')
+    })
+
+    it('never overwrites a dispatched flight\'s filed arrival, even on a real touchdown elsewhere', () => {
+      // The outer beforeEach's flightId files EGLL -> VHHH via the normal createFlight/
+      // start() path, not startFree() — arrival resolution must stay off for it.
+      sim.setLastTelemetry(telemetry({}))
+      const controller = new TrackingController(db, sim)
+      controller.start(flightId)
+
+      sim.emit('telemetry', telemetry({ engineCombustion1: true }))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 5 }))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 40 }))
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+      )
+      for (let i = 0; i < 4; i++) {
+        sim.emit(
+          'telemetry',
+          telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+        )
+      }
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 60, verticalSpeedMs: -1.5 })
+      )
+
+      // Real telemetry position resolves to EGLL, but the filed arrival (VHHH) must survive.
+      expect(getFlight(db, flightId)?.arrIcao).toBe('VHHH')
+    })
+
+    it('refuses to start a second free flight while one is already being tracked with real progress', () => {
+      sim.setLastTelemetry(telemetry({}))
+      const controller = new TrackingController(db, sim)
+      controller.startFree({ aircraftId: freeAircraftId, depIcao: 'EGLL', arrIcao: 'ZZZZ', flightNumber: null })
+      sim.emit('telemetry', telemetry({})) // first tick always persists a track_point
+
+      expect(() =>
+        controller.startFree({ aircraftId: freeAircraftId, depIcao: 'EGLL', arrIcao: 'ZZZZ', flightNumber: null })
+      ).toThrow('Already tracking flight')
+    })
+  })
+
   // Crash recovery: the app quit or crashed before this flight reached 'completed' or
   // 'abandoned', leaving its row 'active' with no in-memory recorder to match — simulated
   // here with two separate TrackingController/SimConnectService pairs sharing the same db,
@@ -707,6 +881,348 @@ describe('TrackingController', () => {
       controller.finish()
 
       expect(getFlight(db, secondFlightId)?.selectedApproachIdent).toBeNull()
+    })
+  })
+
+  // flightdeck-backend's docs/plans/multiple-landings.md — touchdown detection moved off
+  // the phase machine's descent -> landing edge (which has real holes for circuit flying)
+  // onto the raw telemetry.onGround transition directly.
+  describe('multiple landings', () => {
+    it('captures a touchdown even while the phase machine is still in \'climb\' (a tight circuit that never reaches descent)', () => {
+      sim.setLastTelemetry(telemetry({}))
+      const controller = new TrackingController(db, sim)
+      controller.start(flightId)
+
+      sim.emit('telemetry', telemetry({ engineCombustion1: true }))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 5 }))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 40 }))
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+      )
+      expect(controller.getActive()?.phase).toBe('climb')
+
+      // A handful more airborne samples, still climbing hard — enough to clear the
+      // airborne hysteresis, nowhere near LEVEL_SUSTAIN_SAMPLES (10), so the phase machine
+      // never reaches 'cruise' let alone 'descent'/'landing'.
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+      )
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+      )
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+      )
+
+      // Touches back down — a tight circuit.
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 60, verticalSpeedMs: -1.5 })
+      )
+
+      expect(controller.getActive()?.phase).toBe('climb') // the phase machine itself never noticed
+      expect(getFlight(db, flightId)?.actualOnUtc).toBeTruthy()
+      const landings = listLandingsByFlight(db, flightId)
+      expect(landings).toHaveLength(1)
+      expect(landings[0].seq).toBe(1)
+    })
+
+    it('gives a second real touchdown its own row with the next seq, not overwriting the first', () => {
+      sim.setLastTelemetry(telemetry({}))
+      const controller = new TrackingController(db, sim)
+      controller.start(flightId)
+
+      sim.emit('telemetry', telemetry({ engineCombustion1: true }))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 5 }))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 40 }))
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+      )
+      for (let i = 0; i < 4; i++) {
+        sim.emit(
+          'telemetry',
+          telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+        )
+      }
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 60, verticalSpeedMs: -1.5 })
+      )
+      expect(listLandingsByFlight(db, flightId)).toHaveLength(1)
+
+      // A touch-and-go: back into the air, well clear of the hysteresis, then down again —
+      // the last airborne tick's verticalSpeedMs is what buildLandingRecord actually
+      // stores (it reads the pre-touchdown sample, not the touchdown tick itself; see
+      // landing-capture.ts's own doc comment).
+      for (let i = 0; i < 3; i++) {
+        sim.emit(
+          'telemetry',
+          telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 10 })
+        )
+      }
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 65, verticalSpeedMs: -2.1 })
+      )
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 55, verticalSpeedMs: -0.9 })
+      )
+
+      const landings = listLandingsByFlight(db, flightId)
+      expect(landings.map((l) => l.seq)).toEqual([1, 2])
+      expect(landings[1].verticalSpeedMs).toBe(-2.1)
+    })
+
+    it('does not count a rollout bounce (too few airborne samples) as a second landing', () => {
+      sim.setLastTelemetry(telemetry({}))
+      const controller = new TrackingController(db, sim)
+      controller.start(flightId)
+
+      sim.emit('telemetry', telemetry({ engineCombustion1: true }))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 5 }))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 40 }))
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+      )
+      for (let i = 0; i < 4; i++) {
+        sim.emit(
+          'telemetry',
+          telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+        )
+      }
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 60, verticalSpeedMs: -1.5 })
+      )
+      expect(listLandingsByFlight(db, flightId)).toHaveLength(1)
+
+      // Gear-compression bounce: airborne for just one sample, well under
+      // MIN_AIRBORNE_SAMPLES_FOR_NEW_TOUCHDOWN (3) — must not register as landing #2.
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 58, verticalSpeedMs: -0.2 })
+      )
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 56, verticalSpeedMs: -0.1 })
+      )
+
+      expect(listLandingsByFlight(db, flightId)).toHaveLength(1)
+    })
+
+    it("resolves each landing's own icao from touchdown position, not assumed to be the flight's filed arrival", () => {
+      // The default flight fixture (beforeEach) files EGLL -> VHHH, but every telemetry
+      // sample here sits at real Heathrow coordinates — the touchdown should resolve to
+      // EGLL from position, not fall back to the filed (and wrong) VHHH.
+      sim.setLastTelemetry(telemetry({}))
+      const controller = new TrackingController(db, sim)
+      controller.start(flightId)
+
+      sim.emit('telemetry', telemetry({ engineCombustion1: true }))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 5 }))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 40 }))
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+      )
+      for (let i = 0; i < 4; i++) {
+        sim.emit(
+          'telemetry',
+          telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+        )
+      }
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 60, verticalSpeedMs: -1.5 })
+      )
+
+      expect(getLandingByFlight(db, flightId)?.icao).toBe('EGLL')
+    })
+
+    it('falls back to the flight\'s filed arrival when no vendored airport is in range of the touchdown', () => {
+      sim.setLastTelemetry(telemetry({ latitude: 10, longitude: -160 })) // open Pacific
+      const controller = new TrackingController(db, sim)
+      controller.start(flightId)
+
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, latitude: 10, longitude: -160 }))
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, groundSpeedMs: 5, latitude: 10, longitude: -160 })
+      )
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, groundSpeedMs: 40, latitude: 10, longitude: -160 })
+      )
+      sim.emit(
+        'telemetry',
+        telemetry({
+          engineCombustion1: true,
+          onGround: false,
+          groundSpeedMs: 90,
+          verticalSpeedMs: 12,
+          latitude: 10,
+          longitude: -160
+        })
+      )
+      for (let i = 0; i < 4; i++) {
+        sim.emit(
+          'telemetry',
+          telemetry({
+            engineCombustion1: true,
+            onGround: false,
+            groundSpeedMs: 90,
+            verticalSpeedMs: 12,
+            latitude: 10,
+            longitude: -160
+          })
+        )
+      }
+      sim.emit(
+        'telemetry',
+        telemetry({
+          engineCombustion1: true,
+          onGround: true,
+          groundSpeedMs: 60,
+          verticalSpeedMs: -1.5,
+          latitude: 10,
+          longitude: -160
+        })
+      )
+
+      expect(getLandingByFlight(db, flightId)?.icao).toBe('VHHH') // flight.arrIcao fallback
+    })
+
+    describe('sim airfield upgrade (landing-airfield-from-sim.md)', () => {
+      const pos = { latitude: 22.3148, longitude: 114.2043 } // Kai Tak: not in the vendored list
+
+      function flyCircuit(controller: TrackingController, overrides: Partial<SimTelemetry>): void {
+        sim.setLastTelemetry(telemetry({ ...overrides }))
+        controller.start(flightId)
+        const air = { engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12, ...overrides }
+        sim.emit('telemetry', telemetry({ engineCombustion1: true, ...overrides }))
+        sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 40, ...overrides }))
+        for (let i = 0; i < 5; i++) sim.emit('telemetry', telemetry(air))
+        sim.emit(
+          'telemetry',
+          telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 60, verticalSpeedMs: -1.5, ...overrides })
+        )
+      }
+
+      const kaiTakRunway = {
+        icao: 'VHHX',
+        ident: '13',
+        lat: pos.latitude,
+        lon: pos.longitude,
+        headingTrueDeg: 134,
+        lengthM: 3479,
+        widthM: 50,
+        displacedThresholdM: 0,
+        elevationM: null,
+        surface: null,
+        aimingPointDistanceM: 400
+      }
+
+      it("replaces a heliport/unknown attribution with the sim's airfield and runway once it answers", async () => {
+        const resolveSimAirfield = vi.fn().mockResolvedValue({ icao: 'VHHX', runway: kaiTakRunway })
+        const controller = new TrackingController(db, sim, resolveSimAirfield)
+        flyCircuit(controller, { ...pos, headingTrueDeg: 134 })
+
+        // Recorded straight away from vendored data (no runway there)...
+        expect(getLandingByFlight(db, flightId)?.runwayIdent).toBeNull()
+        await vi.waitFor(() => expect(getLandingByFlight(db, flightId)?.icao).toBe('VHHX'))
+        const landing = getLandingByFlight(db, flightId)
+        expect(landing?.runwayIdent).toBe('13')
+        expect(landing?.distanceFromThresholdM).not.toBeNull()
+        expect(resolveSimAirfield).toHaveBeenCalledWith(pos.latitude, pos.longitude, 134)
+        expect(listLandingsByFlight(db, flightId)).toHaveLength(1)
+      })
+
+      it('keeps the vendored record when the sim has no answer or fails', async () => {
+        const resolveSimAirfield = vi.fn().mockResolvedValueOnce(null)
+        const controller = new TrackingController(db, sim, resolveSimAirfield)
+        flyCircuit(controller, { ...pos, headingTrueDeg: 134 })
+        await vi.waitFor(() => expect(resolveSimAirfield).toHaveBeenCalled())
+        expect(getLandingByFlight(db, flightId)?.runwayIdent).toBeNull()
+        expect(getLandingByFlight(db, flightId)?.icao).toBe('HK07') // the vendored heliport fallback — the very case this feature exists for
+      })
+
+      it('survives a rejecting resolver', async () => {
+        const resolveSimAirfield = vi.fn().mockRejectedValue(new Error('no sim'))
+        const controller = new TrackingController(db, sim, resolveSimAirfield)
+        flyCircuit(controller, { ...pos, headingTrueDeg: 134 })
+        await vi.waitFor(() => expect(resolveSimAirfield).toHaveBeenCalled())
+        expect(listLandingsByFlight(db, flightId)).toHaveLength(1)
+      })
+
+      it('does not ask the sim when the vendored data already resolved a runway', () => {
+        const resolveSimAirfield = vi.fn()
+        const controller = new TrackingController(db, sim, resolveSimAirfield)
+        // Heathrow's 27L threshold area, heading 270: vendored runway lookup succeeds.
+        flyCircuit(controller, { latitude: 51.4775, longitude: -0.4614, headingTrueDeg: 270 })
+        expect(getLandingByFlight(db, flightId)?.runwayIdent).not.toBeNull()
+        expect(resolveSimAirfield).not.toHaveBeenCalled()
+      })
+    })
+
+    it('makes actual_on_utc last-wins, spanning first liftoff to the final touchdown', () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-09-01T12:00:00.000Z'))
+      sim.setLastTelemetry(telemetry({}))
+      const controller = new TrackingController(db, sim)
+      controller.start(flightId)
+
+      vi.setSystemTime(new Date('2026-09-01T12:01:00.000Z'))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true }))
+      vi.setSystemTime(new Date('2026-09-01T12:02:00.000Z'))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 5 }))
+      vi.setSystemTime(new Date('2026-09-01T12:03:00.000Z'))
+      sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 40 }))
+      vi.setSystemTime(new Date('2026-09-01T12:10:00.000Z'))
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+      )
+      expect(getFlight(db, flightId)?.actualOffUtc).toBe('2026-09-01T12:10:00.000Z')
+
+      for (let i = 0; i < 4; i++) {
+        vi.advanceTimersByTime(1_000)
+        sim.emit(
+          'telemetry',
+          telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+        )
+      }
+      // Landing #1 — a touch-and-go, not the flight's actual end.
+      vi.setSystemTime(new Date('2026-09-01T12:20:00.000Z'))
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 60, verticalSpeedMs: -1.5 })
+      )
+      expect(getFlight(db, flightId)?.actualOnUtc).toBe('2026-09-01T12:20:00.000Z')
+
+      for (let i = 0; i < 4; i++) {
+        vi.advanceTimersByTime(1_000)
+        sim.emit(
+          'telemetry',
+          telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 10 })
+        )
+      }
+      // Landing #2 — the real, final touchdown, ten minutes later.
+      vi.setSystemTime(new Date('2026-09-01T12:30:00.000Z'))
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 55, verticalSpeedMs: -2.1 })
+      )
+
+      // actual_on_utc reflects the *last* touchdown, not the first.
+      expect(getFlight(db, flightId)?.actualOnUtc).toBe('2026-09-01T12:30:00.000Z')
+      vi.useRealTimers()
     })
   })
 })

@@ -142,18 +142,19 @@ describe('parseApproachHeader', () => {
 })
 
 describe('parseLeg', () => {
-  function legBuffer(overrides: Partial<{ fixIcao: string; fixTypeCode: number }> = {}): RawBuffer {
+  function legBuffer(overrides: Partial<{ fixIcao: string; fixTypeCode: number; routeDistanceM: number; type: number; courseDeg: number }> = {}): RawBuffer {
     return buffer((w) => {
-      w.writeInt32(4)
+      w.writeInt32(overrides.type ?? 4)
       w.writeString8(overrides.fixIcao ?? 'BPK')
       w.writeInt32(overrides.fixTypeCode ?? 87) // 'W'
       w.writeFloat64(51.5)
       w.writeFloat64(-0.2)
       w.writeInt32(0)
-      w.writeFloat32(270)
+      w.writeFloat32(overrides.courseDeg ?? 270)
       w.writeFloat32(6000)
       w.writeFloat32(4000)
       w.writeFloat32(250)
+      w.writeFloat32(overrides.routeDistanceM ?? 0)
     })
   }
 
@@ -169,8 +170,16 @@ describe('parseLeg', () => {
       courseDeg: 270,
       altitude1: 6000,
       altitude2: 4000,
-      speedLimit: 250
+      speedLimit: 250,
+      routeDistanceM: 0
     })
+  })
+
+  it("reads ROUTE_DISTANCE (metres) — EGLL ILS 27R's LAM transition FC leg, confirmed live 2026-09-18", () => {
+    const leg = parseLeg(legBuffer({ type: 9, fixIcao: 'LAM', fixTypeCode: 86, courseDeg: 272, routeDistanceM: 20372 }))
+    expect(leg.type).toBe(9)
+    expect(leg.courseDeg).toBe(272)
+    expect(leg.routeDistanceM).toBe(20372) // 11.0 nm — the FMC's "LAM/11"
   })
 
   it('maps every confirmed fix-type code (docs/navdata-notes.md)', () => {
