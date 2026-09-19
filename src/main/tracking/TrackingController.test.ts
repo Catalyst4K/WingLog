@@ -1099,6 +1099,78 @@ describe('TrackingController', () => {
       expect(getLandingByFlight(db, flightId)?.icao).toBe('VHHH') // flight.arrIcao fallback
     })
 
+    describe('sim airfield upgrade (landing-airfield-from-sim.md)', () => {
+      const pos = { latitude: 22.3148, longitude: 114.2043 } // Kai Tak: not in the vendored list
+
+      function flyCircuit(controller: TrackingController, overrides: Partial<SimTelemetry>): void {
+        sim.setLastTelemetry(telemetry({ ...overrides }))
+        controller.start(flightId)
+        const air = { engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12, ...overrides }
+        sim.emit('telemetry', telemetry({ engineCombustion1: true, ...overrides }))
+        sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 40, ...overrides }))
+        for (let i = 0; i < 5; i++) sim.emit('telemetry', telemetry(air))
+        sim.emit(
+          'telemetry',
+          telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 60, verticalSpeedMs: -1.5, ...overrides })
+        )
+      }
+
+      const kaiTakRunway = {
+        icao: 'VHHX',
+        ident: '13',
+        lat: pos.latitude,
+        lon: pos.longitude,
+        headingTrueDeg: 134,
+        lengthM: 3479,
+        widthM: 50,
+        displacedThresholdM: 0,
+        elevationM: null,
+        surface: null,
+        aimingPointDistanceM: 400
+      }
+
+      it("replaces a heliport/unknown attribution with the sim's airfield and runway once it answers", async () => {
+        const resolveSimAirfield = vi.fn().mockResolvedValue({ icao: 'VHHX', runway: kaiTakRunway })
+        const controller = new TrackingController(db, sim, resolveSimAirfield)
+        flyCircuit(controller, { ...pos, headingTrueDeg: 134 })
+
+        // Recorded straight away from vendored data (no runway there)...
+        expect(getLandingByFlight(db, flightId)?.runwayIdent).toBeNull()
+        await vi.waitFor(() => expect(getLandingByFlight(db, flightId)?.icao).toBe('VHHX'))
+        const landing = getLandingByFlight(db, flightId)
+        expect(landing?.runwayIdent).toBe('13')
+        expect(landing?.distanceFromThresholdM).not.toBeNull()
+        expect(resolveSimAirfield).toHaveBeenCalledWith(pos.latitude, pos.longitude, 134)
+        expect(listLandingsByFlight(db, flightId)).toHaveLength(1)
+      })
+
+      it('keeps the vendored record when the sim has no answer or fails', async () => {
+        const resolveSimAirfield = vi.fn().mockResolvedValueOnce(null)
+        const controller = new TrackingController(db, sim, resolveSimAirfield)
+        flyCircuit(controller, { ...pos, headingTrueDeg: 134 })
+        await vi.waitFor(() => expect(resolveSimAirfield).toHaveBeenCalled())
+        expect(getLandingByFlight(db, flightId)?.runwayIdent).toBeNull()
+        expect(getLandingByFlight(db, flightId)?.icao).toBe('HK07') // the vendored heliport fallback — the very case this feature exists for
+      })
+
+      it('survives a rejecting resolver', async () => {
+        const resolveSimAirfield = vi.fn().mockRejectedValue(new Error('no sim'))
+        const controller = new TrackingController(db, sim, resolveSimAirfield)
+        flyCircuit(controller, { ...pos, headingTrueDeg: 134 })
+        await vi.waitFor(() => expect(resolveSimAirfield).toHaveBeenCalled())
+        expect(listLandingsByFlight(db, flightId)).toHaveLength(1)
+      })
+
+      it('does not ask the sim when the vendored data already resolved a runway', () => {
+        const resolveSimAirfield = vi.fn()
+        const controller = new TrackingController(db, sim, resolveSimAirfield)
+        // Heathrow's 27L threshold area, heading 270: vendored runway lookup succeeds.
+        flyCircuit(controller, { latitude: 51.4775, longitude: -0.4614, headingTrueDeg: 270 })
+        expect(getLandingByFlight(db, flightId)?.runwayIdent).not.toBeNull()
+        expect(resolveSimAirfield).not.toHaveBeenCalled()
+      })
+    })
+
     it('makes actual_on_utc last-wins, spanning first liftoff to the final touchdown', () => {
       vi.useFakeTimers()
       vi.setSystemTime(new Date('2026-09-01T12:00:00.000Z'))

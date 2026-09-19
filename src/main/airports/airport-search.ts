@@ -91,7 +91,7 @@ export function getAirportCoords(icao: string): { lat: number; lon: number } | n
 
 const EARTH_RADIUS_NM = 3440.065
 
-function haversineNm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+export function haversineNm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const lat1Rad = (lat1 * Math.PI) / 180
   const lat2Rad = (lat2 * Math.PI) / 180
   const dLat = ((lat2 - lat1) * Math.PI) / 180

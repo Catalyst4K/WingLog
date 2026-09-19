@@ -66,9 +66,6 @@ open('WingLog airport-list spike', Protocol.SunRise)
     handle.on('airportList', (list) => {
       listCount++
       airports.push(...list.airports.map((a) => ({ icao: a.icao, region: a.region, lat: a.latitude, lon: a.longitude })))
-      console.log(
-        `airportList packet ${list.entryNumber + 1}/${list.outOf}: ${list.airports.length} airports (+${Date.now() - started}ms)`
-      )
       if (list.entryNumber + 1 >= list.outOf) report()
     })
 
@@ -78,7 +75,9 @@ open('WingLog airport-list spike', Protocol.SunRise)
       reported = true
       console.log(`Total airports received: ${airports.length} in ${Date.now() - started}ms (${listCount} packets)`)
       if (lat === null || lon === null) {
-        console.log('No aircraft position yet — is a flight loaded?')
+        console.log('No aircraft position yet — waiting for the flight to load...')
+        reported = false
+        setTimeout(report, 2000)
         return
       }
       const near = airports

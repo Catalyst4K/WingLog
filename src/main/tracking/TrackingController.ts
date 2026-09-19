@@ -18,6 +18,7 @@ import {
   startFlight
 } from '../db/flight-repo'
 import { createLanding, listLandingsByFlight } from '../db/landing-repo'
+import type { SimAirfieldMatch } from '../airports/sim-airfield'
 import { getGsxSettings, rememberAircraftForTitle } from '../db/settings-repo'
 import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
 import { buildFlightMatchWindow } from '../gsx/flight-window'
@@ -127,7 +128,11 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
 
   constructor(
     private readonly db: WingLogDb,
-    private readonly simConnectService: SimConnectSource
+    private readonly simConnectService: SimConnectSource,
+    /** Asks the sim which airfield/runway a touchdown was on, for fields the vendored
+     *  airport list doesn't know (landing-airfield-from-sim.md). Omitted in tests and in
+     *  replay mode, where there's no live sim to ask. */
+    private readonly resolveSimAirfield?: (lat: number, lon: number, headingTrueDeg: number) => Promise<SimAirfieldMatch | null>
   ) {
     super()
     this.simConnectService.on('telemetry', (telemetry) => {
@@ -219,24 +224,59 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     // circuit, a diversion, or a free flight can land somewhere else. Falls back to
     // arr_icao when nothing vendored is close enough to resolve.
     const resolvedIcao = nearestAirport(telemetry.latitude, telemetry.longitude, LANDING_ICAO_SEARCH_RADIUS_NM)
-    createLanding(
-      this.db,
-      buildLandingRecord(
-        flightId,
-        this.landingSeq,
-        resolvedIcao ?? flight.arrIcao,
-        telemetry,
-        new Date().toISOString(),
-        undefined,
-        previousTelemetry
-      )
+    const seq = this.landingSeq
+    const touchdownTsUtc = new Date().toISOString()
+    const record = buildLandingRecord(
+      flightId,
+      seq,
+      resolvedIcao ?? flight.arrIcao,
+      telemetry,
+      touchdownTsUtc,
+      undefined,
+      previousTelemetry
     )
+    createLanding(this.db, record)
+    // No runway from the vendored data — a scenery add-on, a closed field, a strip missing
+    // from OurAirports (the Kai Tak touch-and-go landed on a nearby heliport's code with no
+    // runway). The sim knows those; ask it and upgrade the row once it answers.
+    if (record.runwayIdent === null) {
+      void this.upgradeLandingFromSim(flightId, seq, telemetry, touchdownTsUtc, previousTelemetry)
+    }
     // A free flight's arr_icao is a placeholder ('ZZZZ' or an unconfirmed guess) until
     // something real is known — the touchdown position is that first real signal
     // (free-flight-tracking.md's "Arrival is resolved, not filed"). A dispatched flight's
     // filed arrival is left alone even when this resolves to somewhere else (a real
     // diversion), a separate, already-known gap this isn't scoped to fix.
     if (this.isFreeFlight && resolvedIcao) setArrIcao(this.db, flightId, resolvedIcao)
+  }
+
+  /** Replaces a landing's airfield/runway (and everything derived from the runway) with the
+   *  sim's answer when it has one. The touchdown itself was already recorded from vendored
+   *  data, so a missing, slow or failing sim just leaves that record as it was. */
+  private async upgradeLandingFromSim(
+    flightId: number,
+    seq: number,
+    telemetry: SimTelemetry,
+    touchdownTsUtc: string,
+    previousTelemetry: SimTelemetry | undefined
+  ): Promise<void> {
+    if (!this.resolveSimAirfield) return
+    try {
+      const match = await this.resolveSimAirfield(telemetry.latitude, telemetry.longitude, telemetry.headingTrueDeg)
+      if (!match) return
+      createLanding(
+        this.db,
+        buildLandingRecord(flightId, seq, match.icao, telemetry, touchdownTsUtc, () => match.runway, previousTelemetry)
+      )
+      // Free flight: the arrival was set from the (wrong) vendored guess — correct it, but
+      // only while this is still the latest touchdown, so a late answer never overwrites a
+      // later landing's arrival.
+      if (this.isFreeFlight && this.recorder?.getFlightId() === flightId && this.landingSeq === seq) {
+        setArrIcao(this.db, flightId, match.icao)
+      }
+    } catch {
+      // Best effort only.
+    }
   }
 
   /** Re-resolves a free flight's arrival at completion, in case of a taxi to a different

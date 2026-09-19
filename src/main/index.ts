@@ -106,6 +106,7 @@ import { SimConnectService } from './sim/SimConnectService'
 import { ReplaySimConnectService, type ReplayMode } from './sim/ReplaySimConnectService'
 import type { NavdataProvider } from './navdata/navdata-provider'
 import { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
+import { SimAirfieldResolver } from './airports/sim-airfield'
 import { TrackingController } from './tracking/TrackingController'
 import { AutoStartDetector } from './tracking/AutoStartDetector'
 import { CloudSyncController } from './sync/cloud-sync-controller'
@@ -489,7 +490,13 @@ if (!gotSingleInstanceLock) {
       simConnectService.start()
       app.on('before-quit', () => simConnectService.stop())
 
-      const trackingController = new TrackingController(db, simConnectService)
+      // Replay mode has no live sim to ask for a touchdown's airfield.
+      const simAirfieldResolver = replayFixture ? undefined : new SimAirfieldResolver()
+      const trackingController = new TrackingController(
+        db,
+        simConnectService,
+        simAirfieldResolver && ((lat, lon, heading) => simAirfieldResolver.resolve(lat, lon, heading))
+      )
       // The one flight left "in progress" (planned or already active) when the previous
       // process quit or crashed — its DB row (OFP, route, everything Dispatch/Track need)
       // was never at risk, only TrackingController's in-memory phase-detection state, which
