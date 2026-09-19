@@ -78,9 +78,9 @@ flight show up here automatically too, once GSX tracking is enabled (see below).
   ground-service tracking. WingLog checks for GSX's receipts folder automatically on
   first launch; toggle it here if you need to turn it on/off or point it at a
   non-default folder.
-- **Data** — import an existing fleet (CSV) or logbook (CSV or JSON), or export your own
-  back out (fleet CSV; logbook CSV or JSON). It's your data; nothing here is a one-way door.
-- **Map language** — choose the language of place names on the map.
+- **Data** — import an existing fleet or logbook, or export your own back out, as JSON or
+  CSV (pick the file format first). It's your data; nothing here is a one-way door.
+- **Map language** (under *UI*) — choose the language of place names on the map.
 - **Fleet → Retire** — take an aircraft out of use without losing its flight history; it
   moves to the *Retired* tab and can be un-retired.
 

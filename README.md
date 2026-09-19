@@ -65,8 +65,8 @@ in a local SQLite database on your own machine. No account, no cloud, no subscri
   Kai Tak) is resolved from the sim itself.
 - **GSX ground-service tracking** — automatically finds GSX Pro's receipts and attaches
   catering/fuel/handling costs to the matching flight in your Logbook.
-- **Import/export** — bring in an existing fleet (CSV) or logbook (CSV/JSON), export your
-  data back out. Your database, not a lock-in.
+- **Import/export** — bring in an existing fleet or logbook and export your data back out,
+  as JSON or CSV. Your database, not a lock-in.
 - **Runs entirely on your machine.** No account, no server, no telemetry. The only network
   call WingLog ever makes on your behalf is to SimBrief, to generate the OFP you asked
   for.
