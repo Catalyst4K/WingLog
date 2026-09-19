@@ -165,11 +165,19 @@ function DetailField(props: {
 // look at the real card at the narrowest supported width if it ever looks cramped.
 const LANDING_TAB_THRESHOLD = 4
 
-/** Label for one landing in the tabs/select switcher — runway plus touchdown time when a
- *  runway resolved, otherwise just its position in the sequence ("Landing 2"). */
-function landingLabel(landing: LandingWithDetails, index: number): string {
-  const time = new Date(landing.touchdownTsUtc).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  return landing.runwayIdent ? `${landing.runwayIdent} ${time}` : `Landing ${index + 1}`
+/** Labels for the tabs/select switcher: the airfield and which attempt it was *at that
+ *  airfield* ("VHHX 1", "VHHH 1", then "VHHH 2") — not a runway and a clock time, which read as
+ *  data rather than as "which landing is this" (Callum, 2026-09-19). A touchdown with no
+ *  resolved airfield falls back to its position in the whole sequence ("Landing 2"). The
+ *  runway is still shown inside the card itself. */
+export function landingLabels(landings: { icao: string | null }[]): string[] {
+  const attempts = new Map<string, number>()
+  return landings.map((l, index) => {
+    if (!l.icao) return `Landing ${index + 1}`
+    const attempt = (attempts.get(l.icao) ?? 0) + 1
+    attempts.set(l.icao, attempt)
+    return `${displayIcao(l.icao)} ${attempt}`
+  })
 }
 
 /** Exported so it's directly testable without mounting FlightDetail's FlightMap, which
@@ -211,6 +219,7 @@ export function LandingCard(props: {
 
   if (landings.length === 0) return null
 
+  const labels = landingLabels(landings)
   const landing = landings[Math.min(selectedIndex, landings.length - 1)]
   const runway = landing.runway
   const scoreResult = landing.score
@@ -233,7 +242,7 @@ export function LandingCard(props: {
                 <TabsList aria-label="Select landing">
                   {landings.map((l, i) => (
                     <TabsTrigger key={l.id} value={String(i)}>
-                      {landingLabel(l, i)}
+                      {labels[i]}
                     </TabsTrigger>
                   ))}
                 </TabsList>
@@ -246,7 +255,7 @@ export function LandingCard(props: {
                 <SelectContent>
                   {landings.map((l, i) => (
                     <SelectItem key={l.id} value={String(i)}>
-                      {landingLabel(l, i)}
+                      {labels[i]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -272,7 +281,11 @@ export function LandingCard(props: {
               </span>
             }
           />
-          <DetailField label="G-force" value={landing.gForce.toFixed(2)} warn={isCategoryBad(categoryScore('gForce'))} />
+          <DetailField
+            label="G-force"
+            value={landing.gForce.toFixed(2)}
+            warn={isCategoryBad(categoryScore('gForce'))}
+          />
           <DetailField
             label="Pitch"
             value={formatPitchDeg(landing.pitchDeg)}
@@ -313,7 +326,11 @@ export function LandingCard(props: {
           <DetailField
             label="Centreline offset"
             warn={isCategoryBad(categoryScore('centrelineOffset'))}
-            value={landing.centrelineOffsetM != null ? formatCentrelineOffset(landing.centrelineOffsetM, unit) : '—'}
+            value={
+              landing.centrelineOffsetM != null
+                ? formatCentrelineOffset(landing.centrelineOffsetM, unit)
+                : '—'
+            }
           />
         </dl>
         {scoreResult && (
@@ -464,7 +481,10 @@ function FlightDetail(props: {
       const tMin = (new Date(p.tsUtc).getTime() - startMs) / 60000
       // Pressure altitude above the transition, true altitude below it — what the aircraft's
       // own PFD actually showed (Phase 3), not always true/geometric altitude as before.
-      const alt = displayAltitude({ altitudeM: p.altitudeM, pressureAltitudeM: p.pressureAltitudeM, phase: p.phase }, transition)
+      const alt = displayAltitude(
+        { altitudeM: p.altitudeM, pressureAltitudeM: p.pressureAltitudeM, phase: p.phase },
+        transition
+      )
       return {
         tMin,
         altFt: Math.round(alt.valueFt),
@@ -486,7 +506,10 @@ function FlightDetail(props: {
   // domain, so climb/cruise/descent stay proportional to real elapsed time either way.
   const durationMin = profile.at(-1)?.tMin ?? 0
   const useHoursAxis = durationMin > HOURS_AXIS_THRESHOLD_MIN
-  const { ticksMin } = useMemo(() => computeChartAxisTicks(durationMin, useHoursAxis), [durationMin, useHoursAxis])
+  const { ticksMin } = useMemo(
+    () => computeChartAxisTicks(durationMin, useHoursAxis),
+    [durationMin, useHoursAxis]
+  )
   const timeAxisUnit = useHoursAxis ? ' hr' : ' min'
   const formatTimeTick = (value: number): string =>
     useHoursAxis ? formatTickLabel(value / 60) : formatTickLabel(value)
@@ -599,7 +622,9 @@ function FlightDetail(props: {
                     tick={{ fill: CHART_AXIS_COLOR }}
                     tickFormatter={(v: number) => v.toLocaleString()}
                   />
-                  <Tooltip content={<ValueTooltip formatValue={(v) => `${Math.round(v).toLocaleString()} ft`} />} />
+                  <Tooltip
+                    content={<ValueTooltip formatValue={(v) => `${Math.round(v).toLocaleString()} ft`} />}
+                  />
                   <Line
                     type="monotone"
                     dataKey="altFt"
@@ -655,12 +680,16 @@ function FlightDetail(props: {
                     width={60}
                     stroke={CHART_AXIS_COLOR}
                     tick={{ fill: CHART_AXIS_COLOR }}
-                    tickFormatter={speedMode === 'mach' ? (v: number) => v.toFixed(2) : (v: number) => v.toLocaleString()}
+                    tickFormatter={
+                      speedMode === 'mach' ? (v: number) => v.toFixed(2) : (v: number) => v.toLocaleString()
+                    }
                   />
                   <Tooltip
                     content={
                       <ValueTooltip
-                        formatValue={(v) => (speedMode === 'ias' ? `${Math.round(v).toLocaleString()} kt` : `M${v.toFixed(2)}`)}
+                        formatValue={(v) =>
+                          speedMode === 'ias' ? `${Math.round(v).toLocaleString()} kt` : `M${v.toFixed(2)}`
+                        }
                       />
                     }
                   />
@@ -779,11 +808,13 @@ function LogbookRowsSkeleton(): React.JSX.Element {
 
 type LandingSortKey = 'date' | 'aircraft' | 'airport' | 'flight' | 'rate' | 'gforce' | 'score'
 
+// Same column positions as the Flights table (Date, Flight, Route~Airport, Aircraft, ..., Score)
+// so switching between the two tabs doesn't shuffle the headers around under the cursor.
 const LANDING_SORT_COLUMNS: { key: LandingSortKey; label: string; className?: string }[] = [
   { key: 'date', label: 'Date' },
-  { key: 'aircraft', label: 'Aircraft' },
-  { key: 'airport', label: 'Airport / Runway' },
   { key: 'flight', label: 'Flight' },
+  { key: 'airport', label: 'Airport / Runway' },
+  { key: 'aircraft', label: 'Aircraft' },
   { key: 'rate', label: 'Touchdown rate' },
   { key: 'gforce', label: 'G-force' },
   { key: 'score', label: 'Score', className: 'text-center' }
@@ -813,12 +844,19 @@ function compareLandingRows(a: LandingListRow, b: LandingListRow, key: LandingSo
 /** The Logbook Landings sub-tab (flightdeck-backend's docs/plans/multiple-landings.md
  *  Phase 3) — every touchdown across the whole fleet, one row per landing rather than one
  *  row per flight. Exported for direct testing, same reasoning as LandingCard above. */
-export function LandingsTable(props: { onOpenFlight: (flightId: number) => void }): React.JSX.Element {
-  const [landings, setLandings] = useState<LandingListRow[] | undefined>(undefined)
+export function LandingsTable(props: {
+  onOpenFlight: (flightId: number) => void
+  /** Already-fetched rows (LogbookView loads them with the flights, so switching to this tab
+   *  is instant with no skeleton). Omit to have the table fetch its own. */
+  landings?: LandingListRow[]
+}): React.JSX.Element {
+  const [ownLandings, setOwnLandings] = useState<LandingListRow[] | undefined>(undefined)
 
   useEffect(() => {
-    window.winglog.logbookListAllLandings().then(setLandings)
-  }, [])
+    if (props.landings !== undefined) return
+    window.winglog.logbookListAllLandings().then(setOwnLandings)
+  }, [props.landings])
+  const landings = props.landings ?? ownLandings
 
   const comparators = Object.fromEntries(
     LANDING_SORT_COLUMNS.map((col) => [
@@ -877,12 +915,12 @@ export function LandingsTable(props: { onOpenFlight: (flightId: number) => void 
         {sortedLandings.map((l) => (
           <TableRow key={l.id} onClick={() => props.onOpenFlight(l.flightId)} className="cursor-pointer">
             <TableCell>{formatDate(l.touchdownTsUtc)}</TableCell>
-            <TableCell>{l.aircraftRegistration}</TableCell>
+            <TableCell>{l.flightNumber ?? `Flight #${l.flightId}`}</TableCell>
             <TableCell>
               {l.icao ? displayIcao(l.icao) : '—'}
               {l.runwayIdent ? ` / ${l.runwayIdent}` : ''}
             </TableCell>
-            <TableCell>{l.flightNumber ?? `Flight #${l.flightId}`}</TableCell>
+            <TableCell>{l.aircraftRegistration}</TableCell>
             <TableCell>{Math.round(msToFpm(l.verticalSpeedMs))} fpm</TableCell>
             <TableCell>{l.gForce.toFixed(2)}</TableCell>
             <TableCell className="text-center">
@@ -922,6 +960,7 @@ export function LogbookView(props: {
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
   const [stats, setStats] = useState<LogbookStats | null>(null)
   const [scores, setScores] = useState<LandingScoreSummary[]>([])
+  const [allLandings, setAllLandings] = useState<LandingListRow[] | undefined>(undefined)
   const [view, setView] = useState<View>(
     props.initialFlightId != null ? { kind: 'detail', id: props.initialFlightId } : { kind: 'list' }
   )
@@ -946,12 +985,14 @@ export function LogbookView(props: {
       window.winglog.logbookListCompletedFlights(),
       window.winglog.aircraftList(),
       window.winglog.logbookGetStats(),
-      window.winglog.logbookListFlightScores()
-    ]).then(([flightList, aircraftList, logbookStats, flightScores]) => {
+      window.winglog.logbookListFlightScores(),
+      window.winglog.logbookListAllLandings()
+    ]).then(([flightList, aircraftList, logbookStats, flightScores, landingRows]) => {
       setFlights(flightList)
       setAircraft(aircraftList)
       setStats(logbookStats)
       setScores(flightScores)
+      setAllLandings(landingRows)
     })
   }
 
@@ -1027,24 +1068,24 @@ export function LogbookView(props: {
       <h1 className="font-heading text-2xl font-semibold text-foreground">Logbook</h1>
 
       {!loading && flights.length > 0 && (
-            <div className="flex flex-wrap gap-8">
-              <div>
-                <p className="text-xs tracking-wide text-muted-foreground uppercase">Total flights</p>
-                <p className="text-xl font-semibold text-foreground">{stats?.totalFlights ?? flights.length}</p>
-              </div>
-              <div>
-                <p className="text-xs tracking-wide text-muted-foreground uppercase">Total flight hours</p>
-                <p className="text-xl font-semibold text-foreground">
-                  {formatMinutes(stats?.totalBlockMinutes ?? null)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs tracking-wide text-muted-foreground uppercase">Total miles flown</p>
-                <p className="text-xl font-semibold text-foreground">
-                  {stats ? `${Math.round(stats.totalNm).toLocaleString()} nm` : '—'}
-                </p>
-              </div>
-            </div>
+        <div className="flex flex-wrap gap-8">
+          <div>
+            <p className="text-xs tracking-wide text-muted-foreground uppercase">Total flights</p>
+            <p className="text-xl font-semibold text-foreground">{stats?.totalFlights ?? flights.length}</p>
+          </div>
+          <div>
+            <p className="text-xs tracking-wide text-muted-foreground uppercase">Total flight hours</p>
+            <p className="text-xl font-semibold text-foreground">
+              {formatMinutes(stats?.totalBlockMinutes ?? null)}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs tracking-wide text-muted-foreground uppercase">Total miles flown</p>
+            <p className="text-xl font-semibold text-foreground">
+              {stats ? `${Math.round(stats.totalNm).toLocaleString()} nm` : '—'}
+            </p>
+          </div>
+        </div>
       )}
 
       <FolderTabs defaultValue="flights" className="gap-0">
@@ -1139,7 +1180,7 @@ export function LogbookView(props: {
         </FolderTabsContent>
 
         <FolderTabsContent value="landings" className="pt-4">
-          <LandingsTable onOpenFlight={(id) => setView({ kind: 'detail', id })} />
+          <LandingsTable landings={allLandings} onOpenFlight={(id) => setView({ kind: 'detail', id })} />
         </FolderTabsContent>
       </FolderTabs>
     </div>

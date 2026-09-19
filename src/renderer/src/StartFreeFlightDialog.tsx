@@ -3,7 +3,14 @@ import { toast } from 'sonner'
 import type { Aircraft, AircraftTypeOption, SimTelemetry } from '@shared/ipc'
 import { isRetired } from '@shared/aircraft'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -51,7 +58,9 @@ export function StartFreeFlightDialog(props: {
   // second render onward.
   const [loading, setLoading] = useState(props.open && !!props.telemetry)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(props.open && !props.telemetry ? 'Not connected to the sim.' : null)
+  const [error, setError] = useState<string | null>(
+    props.open && !props.telemetry ? 'Not connected to the sim.' : null
+  )
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [selectedAircraftId, setSelectedAircraftId] = useState<string>(NO_AIRCRAFT)
   const [icaoTypeAmbiguous, setIcaoTypeAmbiguous] = useState(false)
@@ -60,9 +69,10 @@ export function StartFreeFlightDialog(props: {
   // doesn't necessarily change it per aircraft), but it's still worth surfacing as a
   // non-blocking cross-check once title-memory has already picked an aircraft. Cleared
   // whenever the pilot picks a different aircraft than the one this hint is about.
-  const [registrationMismatch, setRegistrationMismatch] = useState<{ aircraftId: number; onFile: string } | null>(
-    null
-  )
+  const [registrationMismatch, setRegistrationMismatch] = useState<{
+    aircraftId: number
+    onFile: string
+  } | null>(null)
 
   // Resets the form the moment the dialog opens — adjusted during render (React's own
   // documented pattern for state depending on another value changing, same as
@@ -131,7 +141,9 @@ export function StartFreeFlightDialog(props: {
 
   const addingNone = selectedAircraftId === NO_AIRCRAFT
   const nonRetiredAircraft = props.aircraft.filter((a) => !isRetired(a))
-  const selectedExisting = addingNone ? undefined : props.aircraft.find((a) => String(a.id) === selectedAircraftId)
+  const selectedExisting = addingNone
+    ? undefined
+    : props.aircraft.find((a) => String(a.id) === selectedAircraftId)
   // Registration/type are only ever editable when tracking with no linked fleet aircraft —
   // fleet creation no longer happens inline here at all, so there's no other branch that
   // needs them.
@@ -181,8 +193,11 @@ export function StartFreeFlightDialog(props: {
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Start a free flight</DialogTitle>
+          {/* The add-on's own display string, verbatim — what most add-ons' own EFB panels
+           *  recognise the aircraft by (unlike atcModel's localisation-token mess that
+           *  parseAircraftIdentity has to unwrap for the Type field). Informational only. */}
           <DialogDescription>
-            Tracking begins immediately from wherever the aircraft is right now — no SimBrief plan needed.
+            {props.telemetry?.title || 'Tracking starts from where the aircraft is now.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -191,54 +206,46 @@ export function StartFreeFlightDialog(props: {
         {loading ? (
           <p className="text-sm text-muted-foreground">Reading the sim…</p>
         ) : (
-          <div className="flex flex-col gap-4">
-            {/* The add-on's own display string, verbatim — what Callum (and most add-ons'
-             *  own EFB panels) actually recognise the aircraft by, unlike atcModel's
-             *  localisation-token/marketing-name mess that parseAircraftIdentity has to
-             *  unwrap for the Type field below. Purely informational, nothing stored. */}
-            <div className="flex flex-col gap-0.5">
-              <span className="text-xs font-medium text-muted-foreground">Airframe</span>
-              <span className="text-sm font-medium text-foreground">{props.telemetry?.title || 'Unknown aircraft'}</span>
+          <div className="flex flex-col gap-3">
+            {/* Fleet creation doesn't happen here — "None" tracks the flight with the sim's own
+             *  registration/type, and Logbook's "Add to fleet" is there afterwards if it's
+             *  worth keeping. */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label>Aircraft</Label>
+                <Select value={selectedAircraftId} onValueChange={setSelectedAircraftId}>
+                  <SelectTrigger className="w-full" aria-label="Aircraft">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_AIRCRAFT}>None</SelectItem>
+                    {nonRetiredAircraft.map((a) => (
+                      <SelectItem key={a.id} value={String(a.id)}>
+                        {a.registration} — {a.icaoType}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Label className="flex flex-col items-start gap-1.5">
+                Callsign
+                <Input
+                  type="text"
+                  value={form.flightNumber}
+                  onChange={(e) => set('flightNumber', e.target.value)}
+                  placeholder="Optional"
+                />
+              </Label>
             </div>
-
-            <Label className="flex flex-col items-start gap-1.5">
-              Callsign / flight number
-              <Input
-                type="text"
-                value={form.flightNumber}
-                onChange={(e) => set('flightNumber', e.target.value)}
-                placeholder="Optional"
-              />
-            </Label>
-
-            <div className="flex flex-col gap-1.5">
-              <Label>Aircraft</Label>
-              <Select value={selectedAircraftId} onValueChange={setSelectedAircraftId}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_AIRCRAFT}>Don&apos;t add to fleet — just track this flight</SelectItem>
-                  {nonRetiredAircraft.map((a) => (
-                    <SelectItem key={a.id} value={String(a.id)}>
-                      {a.registration} — {a.icaoType}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {registrationMismatch && String(registrationMismatch.aircraftId) === selectedAircraftId && (
-                <span className="text-xs text-amber-600 dark:text-amber-500">
-                  Registration on file for this aircraft is {registrationMismatch.onFile} — the sim currently
-                  reports {form.registration || 'nothing'}. Still the right aircraft?
-                </span>
-              )}
-              {/* Fleet creation doesn't happen here any more — pick "Don't add to fleet" and
-               *  use Logbook's "Add to fleet" once the flight is tracked, if it's worth
-               *  keeping. */}
-            </div>
+            {registrationMismatch && String(registrationMismatch.aircraftId) === selectedAircraftId && (
+              <span className="text-xs text-amber-600 dark:text-amber-500">
+                Registration on file for this aircraft is {registrationMismatch.onFile} — the sim currently
+                reports {form.registration || 'nothing'}. Still the right aircraft?
+              </span>
+            )}
 
             {showIdentityFields ? (
-              <>
+              <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <Label>Type</Label>
                   <Combobox
@@ -251,43 +258,36 @@ export function StartFreeFlightDialog(props: {
                     getOptionKey={(r: AircraftTypeOption) => `${r.icaoType}-${r.manufacturer}-${r.model}`}
                     getOptionValue={(r) => r.icaoType}
                     getOptionLabel={(r) => `${r.manufacturer} — ${r.model} (${r.icaoType})`}
-                    placeholder="e.g. A350, Boeing, B77W, or type an ICAO code"
+                    placeholder="e.g. C172 or Cessna"
                   />
-                  {icaoTypeAmbiguous && (
-                    <span className="text-xs text-amber-600 dark:text-amber-500">
-                      Guessed from the sim — this add-on has more than one variant, double-check it.
-                    </span>
-                  )}
                 </div>
-                <div className="flex flex-col gap-1">
-                  <Label className="flex flex-col items-start gap-1.5 text-xs text-muted-foreground">
-                    Registration
-                    <Input
-                      type="text"
-                      value={form.registration}
-                      onChange={(e) => set('registration', e.target.value)}
-                      className="text-sm"
-                    />
-                  </Label>
-                  <span className="text-xs text-muted-foreground">
-                    What MSFS's own aircraft-configuration page has set for this aircraft — not used to identify
-                    it automatically, but stored for reference and shown in Logbook.
+                <Label className="flex flex-col items-start gap-1.5">
+                  Registration
+                  <Input
+                    type="text"
+                    value={form.registration}
+                    onChange={(e) => set('registration', e.target.value)}
+                  />
+                </Label>
+                {icaoTypeAmbiguous && (
+                  <span className="col-span-2 text-xs text-amber-600 dark:text-amber-500">
+                    Type guessed from the sim — this add-on has more than one variant, double-check it.
                   </span>
-                </div>
-              </>
+                )}
+              </div>
             ) : null}
 
-            <div className="flex gap-3">
-              <div className="flex flex-1 flex-col gap-1.5">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
                 <Label>Departure</Label>
                 <AirportSearch value={form.depIcao} onChange={(v) => set('depIcao', v)} />
               </div>
-              <div className="flex flex-1 flex-col gap-1.5">
+              <div className="flex flex-col gap-1.5">
                 <Label>Destination</Label>
                 <AirportSearch
                   value={form.arrIcao}
                   onChange={(v) => set('arrIcao', v)}
-                  placeholder="Leave blank — filled in on landing"
+                  placeholder="Filled in on landing"
                 />
               </div>
             </div>

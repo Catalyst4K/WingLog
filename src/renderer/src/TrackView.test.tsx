@@ -555,7 +555,7 @@ describe('TrackView', () => {
       await user.click(await screen.findByText('Free flight'))
       await screen.findByText('Start a free flight')
       await user.click(screen.getByRole('combobox'))
-      await user.click(await screen.findByRole('option', { name: /Don.t add to fleet/ }))
+      await user.click(await screen.findByRole('option', { name: 'None' }))
       await user.click(screen.getByText('Start tracking'))
 
       expect(await screen.findByText('Phase:')).toBeInTheDocument()

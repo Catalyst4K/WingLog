@@ -60,7 +60,7 @@ test('starts a free flight from Track and finds it, completed, in the Logbook', 
     // is the default now (fleet creation moved to Logbook's own "Add to fleet", post-flight),
     // so no picking is needed here at all. The sim-reported registration/type (the fixture's
     // scrubbed G-TEST, a real C172) is still captured on the flight row either way.
-    await expect(window.getByText("Don't add to fleet — just track this flight")).toBeVisible()
+    await expect(window.getByRole('combobox', { name: 'Aircraft' })).toContainText('None')
     await expect(window.getByLabel('Registration')).toHaveValue('G-TEST')
     await window.getByRole('button', { name: 'Start tracking' }).click()
 
