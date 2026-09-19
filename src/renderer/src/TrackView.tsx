@@ -26,6 +26,7 @@ import { AirlineLogo } from './AirlineLogo'
 import { FlightMap } from './FlightMap'
 import { useConfirm } from './hooks/useConfirm'
 import { ProcedureSelector } from './ProcedureSelector'
+import { flightLabel } from './flight-label'
 import { useLiveWaypoints, type ProcedureAirports } from './procedureSelection'
 import { parseTransitionAltitudes } from './route'
 import { StartFreeFlightDialog } from './StartFreeFlightDialog'
@@ -133,7 +134,7 @@ export function TrackView(props: {
         // backend already completed. Matters most for a turnaround: staying on this page
         // between legs means there's no page remount to accidentally paper over it.
         const completed = flightsRef.current.find((f) => f.id === point.flightId)
-        setCompletedLabel(completed?.flightNumber ?? `Flight #${point.flightId}`)
+        setCompletedLabel(flightLabel(completed))
         setActive(null)
         setTrackPoints([])
         reload()
@@ -248,7 +249,7 @@ export function TrackView(props: {
 
   const plannedFlights = flights.filter((f) => f.status === 'planned')
   const activeFlight = active ? flights.find((f) => f.id === active.flightId) : undefined
-  const activeLabel = activeFlight?.flightNumber ?? `flight #${active?.flightId}`
+  const activeLabel = flightLabel(activeFlight)
 
   // Raw per-sample trigger for the passive banner below — moving on the ground or airborne.
   // Not used directly: a single sample of this can't be trusted on its own. Callum saw this
@@ -409,7 +410,7 @@ export function TrackView(props: {
           )}
 
           {plannedFlights.map((f) => {
-            const label = f.flightNumber ?? `${f.depIcao} → ${f.arrIcao}`
+            const label = flightLabel(f)
             return (
               <Card key={f.id}>
                 <CardContent className="flex items-center justify-between gap-4">
@@ -494,7 +495,7 @@ export function TrackView(props: {
           <AlertDialogHeader>
             <AlertDialogTitle>Flight ended</AlertDialogTitle>
             <AlertDialogDescription>
-              {completedLabel} was automatically detected as complete and saved to your logbook.
+              {(completedLabel ?? '').charAt(0).toUpperCase() + (completedLabel ?? '').slice(1)} was automatically detected as complete and saved to your logbook.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

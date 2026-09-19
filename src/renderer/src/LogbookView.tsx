@@ -547,8 +547,8 @@ function FlightDetail(props: {
         <Card className="min-w-72 flex-1">
           <CardHeader>
             <CardTitle className="flex flex-wrap items-center gap-2">
-              {flight.flightNumber ?? `Flight #${flight.id}`} — {displayIcao(flight.depIcao)} →{' '}
-              {displayIcao(flight.arrIcao)}
+              {flight.flightNumber ? `${flight.flightNumber} — ` : ''}
+              {displayIcao(flight.depIcao)} → {displayIcao(flight.arrIcao)}
               {isFreeFlight(flight) && (
                 <Badge variant="outline" className="text-xs font-normal">
                   Free flight
@@ -915,7 +915,7 @@ export function LandingsTable(props: {
         {sortedLandings.map((l) => (
           <TableRow key={l.id} onClick={() => props.onOpenFlight(l.flightId)} className="cursor-pointer">
             <TableCell>{formatDate(l.touchdownTsUtc)}</TableCell>
-            <TableCell>{l.flightNumber ?? `Flight #${l.flightId}`}</TableCell>
+            <TableCell>{l.flightNumber ?? '—'}</TableCell>
             <TableCell>
               {l.icao ? displayIcao(l.icao) : '—'}
               {l.runwayIdent ? ` / ${l.runwayIdent}` : ''}

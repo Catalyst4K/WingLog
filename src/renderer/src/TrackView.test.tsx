@@ -666,14 +666,15 @@ describe('TrackView', () => {
     expect(screen.getByText('Finish & save')).toBeInTheDocument()
   })
 
-  it('falls back to a bare flight-id label when the active flight is not in the flight list', async () => {
+  it('falls back to a generic label (never the database id) when the active flight is not in the flight list', async () => {
     setWinglog({
       aircraftList: vi.fn().mockResolvedValue([]),
       flightList: vi.fn().mockResolvedValue([]),
       trackingGetActive: vi.fn().mockResolvedValue({ flightId: 42, phase: 'taxi' })
     })
     renderTrack()
-    expect(await screen.findByText('flight #42')).toBeInTheDocument()
+    expect(await screen.findByText('this flight')).toBeInTheDocument()
+    expect(screen.queryByText(/#42/)).not.toBeInTheDocument()
   })
 
   it('cancelling the active flight confirms, then stops tracking and notifies onFlightEnded', async () => {
@@ -914,7 +915,7 @@ describe('TrackView', () => {
     expect(screen.queryByText('Flight ended')).not.toBeInTheDocument()
   })
 
-  it('falls back to a bare flight-id label in the "flight ended" dialog when the flight is unknown', async () => {
+  it('falls back to a generic label (never the database id) in the "flight ended" banner when the flight is unknown', async () => {
     let pointListener: ((point: TrackPoint) => void) | undefined
     setWinglog({
       aircraftList: vi.fn().mockResolvedValue([]),
@@ -927,7 +928,7 @@ describe('TrackView', () => {
     renderTrack()
     await screen.findByText('Flying something already?')
     pointListener?.(makeTrackPoint({ phase: 'shutdown', flightId: 77 }))
-    expect(await screen.findByText(/Flight #77 was automatically detected/)).toBeInTheDocument()
+    expect(await screen.findByText(/This flight was automatically detected/)).toBeInTheDocument()
   })
 
   it('accumulates track points for the same flight and resets on a new flight id', async () => {
