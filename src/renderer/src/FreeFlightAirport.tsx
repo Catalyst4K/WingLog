@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { AirportSearch } from './AirportSearch'
-import { displayIcao } from './display-icao'
 
 const VALID_ICAO = /^[A-Z0-9]{2,5}$/
 
@@ -40,24 +39,24 @@ export function FreeFlightAirport(props: {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="text-sm text-muted-foreground">
-        {noun}: {displayIcao(props.icao)}
-      </span>
+    <div className="flex items-center gap-2">
+      <span className="text-sm text-muted-foreground">{noun}</span>
       <div className="w-56">
-        <AirportSearch value={value} onChange={setValue} placeholder={`Set ${props.kind}`} />
+        <AirportSearch value={value} onChange={setValue} placeholder="Not set" />
       </div>
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        aria-label={`Set ${props.kind}`}
-        disabled={!canSet || saving}
-        onClick={() => save(candidate)}
-      >
-        Set
-      </Button>
-      {isSet && (
+      {canSet && (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          aria-label={`Set ${props.kind}`}
+          disabled={saving}
+          onClick={() => save(candidate)}
+        >
+          Set
+        </Button>
+      )}
+      {isSet && !canSet && (
         <Button
           type="button"
           size="sm"

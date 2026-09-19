@@ -346,6 +346,11 @@ describe('TrackView', () => {
   })
 
   describe('free-flight destination while tracking (v1.1.1)', () => {
+    /** The airport box in the "Departure" / "Destination" row of the free-flight card. */
+    function boxFor(label: 'Departure' | 'Destination'): HTMLInputElement {
+      return screen.getByText(label).closest('div')!.querySelector('input')!
+    }
+
     function activeFree(overrides: Partial<Flight> = {}): Flight {
       return makeFlight({
         id: 5,
@@ -376,14 +381,14 @@ describe('TrackView', () => {
       const user = userEvent.setup()
       renderTrack()
 
-      expect(await screen.findByText('Destination: Unknown')).toBeInTheDocument()
-      const setButton = screen.getByRole('button', { name: 'Set destination' })
-      expect(setButton).toBeDisabled()
-      await user.type(screen.getByPlaceholderText('Set destination'), 'vhhx')
-      await user.click(setButton)
+      await screen.findByText('Destination')
+      expect(boxFor('Destination')).toHaveValue('')
+      expect(screen.queryByRole('button', { name: 'Set destination' })).not.toBeInTheDocument() // nothing typed yet
+      await user.type(boxFor('Destination'), 'vhhx')
+      await user.click(screen.getByRole('button', { name: 'Set destination' }))
 
       await waitFor(() => expect(trackingSetDestination).toHaveBeenCalledWith('VHHX'))
-      expect(await screen.findByText('Destination: VHHX')).toBeInTheDocument()
+      await waitFor(() => expect(boxFor('Destination')).toHaveValue('VHHX'))
       expect(screen.getByRole('button', { name: 'Clear destination' })).toBeInTheDocument()
     })
 
@@ -411,7 +416,8 @@ describe('TrackView', () => {
       })
       const user = userEvent.setup()
       const view = renderTrack()
-      await user.type(await screen.findByPlaceholderText('Set destination'), 'EGLL')
+      await screen.findByText('Destination')
+      await user.type(boxFor('Destination'), 'EGLL')
       await user.click(screen.getByRole('button', { name: 'Set destination' }))
       await waitFor(() => expect(trackingSetDestination).toHaveBeenCalled())
       view.unmount()
@@ -423,7 +429,7 @@ describe('TrackView', () => {
       })
       renderTrack()
       await screen.findByText('Phase:')
-      expect(screen.queryByPlaceholderText('Set destination')).not.toBeInTheDocument()
+      expect(screen.queryByText('Destination')).not.toBeInTheDocument()
     })
 
     it('sets the departure the same way, and both feed the Weather dialog (Dep / Dest tabs) apart from Custom', async () => {
@@ -443,11 +449,12 @@ describe('TrackView', () => {
       const user = userEvent.setup()
       renderTrack()
 
-      expect(await screen.findByText('Departure: Unknown')).toBeInTheDocument()
-      await user.type(screen.getByPlaceholderText('Set departure'), 'vhhh')
+      await screen.findByText('Departure')
+      expect(boxFor('Departure')).toHaveValue('')
+      await user.type(boxFor('Departure'), 'vhhh')
       await user.click(screen.getByRole('button', { name: 'Set departure' }))
       await waitFor(() => expect(trackingSetDeparture).toHaveBeenCalledWith('VHHH'))
-      expect(await screen.findByText('Departure: VHHH')).toBeInTheDocument()
+      await waitFor(() => expect(boxFor('Departure')).toHaveValue('VHHH'))
 
       await user.click(screen.getByRole('button', { name: 'Weather…' }))
       await waitFor(() => expect(weatherGetMetars).toHaveBeenCalledWith(expect.arrayContaining(['VHHH', 'VHHX'])))
@@ -475,7 +482,7 @@ describe('TrackView', () => {
         trackingGetActive: vi.fn().mockResolvedValue({ flightId: 5, phase: 'cruise' })
       })
       renderTrack()
-      await screen.findByText('Destination: Unknown')
+      await screen.findByText('Destination')
       expect(screen.queryByRole('button', { name: 'Procedures…' })).not.toBeInTheDocument()
     })
   })

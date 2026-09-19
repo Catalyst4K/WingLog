@@ -69,10 +69,14 @@ test('starts a free flight from Track and finds it, completed, in the Logbook', 
 
     // v1.1.1: a destination can be added after tracking has started (the dialog left it
     // blank). Goes through the real IPC and DB, and the card reads it back.
-    await expect(window.getByText('Destination: Unknown')).toBeVisible()
-    await window.getByPlaceholder('Set destination').fill('VHHH')
+    // The start dialog has its own Destination field — wait for it to be gone before looking
+    // for the card's.
+    await expect(window.getByText('Start a free flight')).toBeHidden()
+    const destinationBox = window.getByText('Destination', { exact: true }).locator('..').getByRole('textbox')
+    await expect(destinationBox).toHaveValue('')
+    await destinationBox.fill('VHHH')
     await window.getByRole('button', { name: 'Set destination' }).click()
-    await expect(window.getByText('Destination: VHHH')).toBeVisible()
+    await expect(destinationBox).toHaveValue('VHHH')
 
     // This fixture's capture ends parked but with the engine still running and the parking
     // brake never set (flight-replay.test.ts's own describe block has the same real-data
