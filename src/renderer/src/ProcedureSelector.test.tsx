@@ -289,6 +289,68 @@ describe('ProcedureSelector', () => {
     expect(latest).toEqual(expect.objectContaining({ approachTransition: 'TD' }))
   })
 
+  describe('"None" option (v1.1.1)', () => {
+    it('offers None in a dropdown, and picking it clears an earlier SID pick and its transition', async () => {
+      withWinglog({ navdataListSids: vi.fn().mockResolvedValue([proc('DET2G', 'DET')]) })
+      const user = userEvent.setup()
+      let latest: ProcedureSelection | null = null
+      render(
+        <Harness
+          airports={airports()}
+          initialSelection={{ ...emptyProcedureSelection(), sidIdent: 'DET2G', sidTransition: 'DET' }}
+          onSelectionChange={(s) => (latest = s)}
+        />
+      )
+
+      await waitFor(() => expect(selectFor('SID')).not.toBeDisabled())
+      await user.click(selectFor('SID'))
+      await user.click(await screen.findByRole('option', { name: 'None' }))
+
+      expect(latest).toEqual(expect.objectContaining({ sidIdent: null, sidTransition: null }))
+    })
+
+    it('clears a transition on its own', async () => {
+      withWinglog({ navdataListStars: vi.fn().mockResolvedValue([proc('BNN1A', 'BNN'), proc('BNN1A', 'LAM')]) })
+      const user = userEvent.setup()
+      let latest: ProcedureSelection | null = null
+      render(
+        <Harness
+          airports={airports()}
+          initialSelection={{ ...emptyProcedureSelection(), starIdent: 'BNN1A', starTransition: 'LAM' }}
+          onSelectionChange={(s) => (latest = s)}
+        />
+      )
+      await waitFor(() => expect(selectFor('STAR transition')).not.toBeDisabled())
+      await user.click(selectFor('STAR transition'))
+      await user.click(await screen.findByRole('option', { name: 'None' }))
+      expect(latest).toEqual(expect.objectContaining({ starIdent: 'BNN1A', starTransition: null }))
+    })
+
+    it('does not auto-pick an approach again after the pilot clears it — even after the dialog is reopened', async () => {
+      withWinglog({ navdataListApproaches: vi.fn().mockResolvedValue([proc('ILS 07R'), proc('LOC 07R')]) })
+      const user = userEvent.setup()
+      let latest: ProcedureSelection | null = null
+      const first = render(
+        <Harness airports={airports({ arrIcao: 'VHHH' })} onSelectionChange={(s) => (latest = s)} />
+      )
+      await waitFor(() => expect(latest?.approachIdent).toBe('ILS 07R'))
+
+      await user.click(selectFor('Approach'))
+      await user.click(await screen.findByRole('option', { name: 'None' }))
+      await waitFor(() => expect(latest?.approachIdent).toBeNull())
+      // Give an (incorrect) auto-default the chance to fire.
+      await new Promise((r) => setTimeout(r, 30))
+      expect(latest?.approachIdent).toBeNull()
+
+      // Reopening the Procedures dialog remounts the selector with the same (cleared) selection.
+      first.unmount()
+      let remounted: ProcedureSelection | null = null
+      render(<Harness airports={airports({ arrIcao: 'VHHH' })} onSelectionChange={(s) => (remounted = s)} />)
+      await new Promise((r) => setTimeout(r, 30))
+      expect(remounted).toBeNull() // nothing was auto-selected, so no change was reported
+    })
+  })
+
   it('auto-picks a default approach once options load, when nothing is chosen yet', async () => {
     withWinglog({ navdataListApproaches: vi.fn().mockResolvedValue([proc('RNAV Z 07R'), proc('ILS 07R'), proc('LOC 07R')]) })
     let latest: ProcedureSelection | null = null

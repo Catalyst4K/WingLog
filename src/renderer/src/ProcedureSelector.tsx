@@ -12,6 +12,13 @@ import type { ProcedureAirports } from './procedureSelection'
  *  selection, seeded from SimBrief's own choice but otherwise indistinguishable from any
  *  other pick — same `undefined`-for-"nothing chosen" convention already used elsewhere in
  *  this app (e.g. DispatchView's own aircraft picker). */
+const NONE_OPTION = '__none__'
+
+/** Airports whose approach the pilot has deliberately cleared with "None", so the auto-default
+ *  below doesn't put one straight back (including after the Procedures dialog is closed and
+ *  reopened, which remounts this component). Keyed by the plan as well as the airports. */
+const approachCleared = new Set<string>()
+
 function ProcedureSelect(props: {
   label: string
   value: string | null
@@ -22,11 +29,18 @@ function ProcedureSelect(props: {
   return (
     <div className="flex flex-col gap-1.5">
       <Label>{props.label}</Label>
-      <Select value={props.value ?? undefined} onValueChange={props.onChange} disabled={props.disabled}>
+      <Select
+        value={props.value ?? undefined}
+        onValueChange={(v) => props.onChange(v === NONE_OPTION ? null : v)}
+        disabled={props.disabled}
+      >
         <SelectTrigger className="w-full">
           <SelectValue placeholder="None" />
         </SelectTrigger>
         <SelectContent>
+          {/* Radix Select can't return to "nothing chosen" on its own, so an explicit item
+           *  clears a pick made by mistake (Callum, 2026-09-19). */}
+          <SelectItem value={NONE_OPTION}>None</SelectItem>
           {props.options.map((opt) => (
             <SelectItem key={opt} value={opt}>
               {opt}
@@ -145,14 +159,15 @@ export function ProcedureSelector(props: {
   // Auto-default the approach once real options exist and nothing's been chosen yet — see
   // pickDefaultApproachIdentifier's own doc comment for why this is a starting point, not a
   // guess to get right.
+  const approachKey = `${airports.depIcao}>${airports.arrIcao}|${airports.ofpJson?.slice(0, 300) ?? ''}`
   useEffect(() => {
-    if (selection.approachIdent || approachOptions.length === 0) return
+    if (selection.approachIdent || approachOptions.length === 0 || approachCleared.has(approachKey)) return
     const plannedRunway = parseRouteProcedures(airports.ofpJson).arrivalRunway
     const candidates = plannedRunway ? approachOptions.filter((o) => approachRunway(o.identifier) === plannedRunway) : approachOptions
     const pick = pickDefaultApproachIdentifier(candidates)
     if (pick) set({ approachIdent: pick })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [approachOptions, selection.approachIdent, airports.ofpJson])
+  }, [approachOptions, selection.approachIdent, airports.ofpJson, approachKey])
 
   // Auto-connect the approach's own entry transition to wherever the current STAR actually
   // ends, when one matches — confirmed live that a real APPROACH_TRANSITION's name is the
@@ -208,7 +223,11 @@ export function ProcedureSelector(props: {
             label="Approach"
             value={selection.approachIdent}
             options={approachIdentifiers}
-            onChange={(v) => set({ approachIdent: v, approachTransition: null })}
+            onChange={(v) => {
+              if (v === null) approachCleared.add(approachKey)
+              else approachCleared.delete(approachKey)
+              set({ approachIdent: v, approachTransition: null })
+            }}
             disabled={approachIdentifiers.length === 0}
           />
           <ProcedureSelect
