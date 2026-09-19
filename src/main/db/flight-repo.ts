@@ -47,7 +47,8 @@ function toFlight(row: typeof flight.$inferSelect): Flight {
     selectedStarIdent: row.selectedStarIdent,
     selectedStarTransition: row.selectedStarTransition,
     selectedApproachIdent: row.selectedApproachIdent,
-    selectedApproachTransition: row.selectedApproachTransition
+    selectedApproachTransition: row.selectedApproachTransition,
+    selectedArrivalIcao: row.selectedArrivalIcao
   }
 }
 
@@ -476,6 +477,7 @@ export function setSelectedProcedures(db: WingLogDb, id: number, selection: Proc
       selectedStarTransition: selection.starTransition,
       selectedApproachIdent: selection.approachIdent,
       selectedApproachTransition: selection.approachTransition,
+      selectedArrivalIcao: selection.arrivalIcao,
       updatedAt: new Date().toISOString()
     })
     .where(eq(flight.id, id))

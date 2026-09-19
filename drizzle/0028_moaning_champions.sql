@@ -1,0 +1,1 @@
+ALTER TABLE `flight` ADD `selected_arrival_icao` text;

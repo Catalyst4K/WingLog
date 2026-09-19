@@ -289,6 +289,85 @@ describe('ProcedureSelector', () => {
     expect(latest).toEqual(expect.objectContaining({ approachTransition: 'TD' }))
   })
 
+  describe('alternate as the arrival airport (v1.1.1)', () => {
+    it('offers no switch when the plan has no alternate, or it is the destination itself', async () => {
+      withWinglog()
+      const { rerender } = render(<Harness airports={airports({ altnIcao: null })} />)
+      expect(screen.queryByText('Arrival airport')).not.toBeInTheDocument()
+      rerender(<Harness airports={airports({ altnIcao: 'KJFK' })} />)
+      expect(screen.queryByText('Arrival airport')).not.toBeInTheDocument()
+    })
+
+    it("switching to the alternate lists the alternate's STARs and approaches, refreshes its navdata, and clears the old picks", async () => {
+      const navdataListApproaches = vi.fn((icao: string) =>
+        Promise.resolve(icao === 'KEWR' ? [proc('ILS 04R')] : [proc('ILS 04L'), proc('ILS 22R')])
+      )
+      const navdataListStars = vi.fn().mockResolvedValue([])
+      const api = withWinglog({ navdataListApproaches, navdataListStars })
+      const user = userEvent.setup()
+      let latest: ProcedureSelection | null = null
+      const history: ProcedureSelection[] = []
+      render(
+        <Harness
+          airports={airports({ altnIcao: 'KEWR' })}
+          initialSelection={{ ...emptyProcedureSelection(), starIdent: 'DEEZZ5', approachIdent: 'ILS 22R', approachTransition: 'X' }}
+          onSelectionChange={(s) => {
+            latest = s
+            history.push(s)
+          }}
+        />
+      )
+      await waitFor(() => expect(navdataListApproaches).toHaveBeenCalledWith('KJFK', null))
+
+      await user.click(selectFor('Arrival airport'))
+      await user.click(await screen.findByRole('option', { name: 'Alternate — KEWR' }))
+
+      // The switch itself starts clean (the auto-default then fills in the alternate's approach).
+      expect(history[0]).toEqual(
+        expect.objectContaining({ arrivalIcao: 'KEWR', starIdent: null, starTransition: null, approachIdent: null, approachTransition: null })
+      )
+      await waitFor(() => expect(api.navdataRefreshAirport).toHaveBeenCalledWith('KEWR'))
+      await waitFor(() => expect(navdataListApproaches).toHaveBeenCalledWith('KEWR', null))
+      // ...and the alternate's approach is what gets auto-picked, not the destination's.
+      await waitFor(() => expect(latest?.approachIdent).toBe('ILS 04R'))
+    })
+
+    it('switching back to the destination clears the alternate and restores the destination lists', async () => {
+      const navdataListApproaches = vi.fn().mockResolvedValue([proc('ILS 22R')])
+      withWinglog({ navdataListApproaches })
+      const user = userEvent.setup()
+      const history: ProcedureSelection[] = []
+      render(
+        <Harness
+          airports={airports({ altnIcao: 'KEWR' })}
+          initialSelection={{ ...emptyProcedureSelection(), arrivalIcao: 'KEWR', approachIdent: 'ILS 04R' }}
+          onSelectionChange={(s) => history.push(s)}
+        />
+      )
+      expect(selectFor('Arrival airport')).toHaveTextContent('Alternate — KEWR')
+      await user.click(selectFor('Arrival airport'))
+      await user.click(await screen.findByRole('option', { name: 'Destination — KJFK' }))
+      expect(history[0]).toEqual(expect.objectContaining({ arrivalIcao: null, approachIdent: null }))
+      await waitFor(() => expect(navdataListApproaches).toHaveBeenCalledWith('KJFK', null))
+      await waitFor(() => expect(history[history.length - 1]?.approachIdent).toBe('ILS 22R'))
+    })
+
+    it('does not restrict the alternate\'s auto-picked approach to the OFP\'s planned destination runway', async () => {
+      const ofpJson = JSON.stringify({ general: { route_ifps: '', sid_ident: '', star_ident: '' }, destination: { plan_rwy: '22R' } })
+      withWinglog({ navdataListApproaches: vi.fn().mockResolvedValue([proc('ILS 04R'), proc('ILS 22R')]) })
+      let latest: ProcedureSelection | null = null
+      render(
+        <Harness
+          airports={airports({ altnIcao: 'KEWR', ofpJson })}
+          initialSelection={{ ...emptyProcedureSelection(), arrivalIcao: 'KEWR' }}
+          onSelectionChange={(s) => (latest = s)}
+        />
+      )
+      // Both approaches were candidates (04R sorts first among ILS), not only the planned 22R.
+      await waitFor(() => expect(latest?.approachIdent).toBe('ILS 04R'))
+    })
+  })
+
   describe('"None" option (v1.1.1)', () => {
     it('offers None in a dropdown, and picking it clears an earlier SID pick and its transition', async () => {
       withWinglog({ navdataListSids: vi.fn().mockResolvedValue([proc('DET2G', 'DET')]) })

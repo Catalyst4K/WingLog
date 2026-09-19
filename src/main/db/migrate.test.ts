@@ -123,10 +123,10 @@ describe('migrateDb', () => {
     const baselineDir = join(tempDir, 'drizzle-baseline')
     mkdirSync(join(baselineDir, 'meta'), { recursive: true })
     for (const f of readdirSync(realDrizzleDir)) {
-      if (f.endsWith('.sql') && !f.startsWith('0027_')) copyFileSync(join(realDrizzleDir, f), join(baselineDir, f))
+      if (f.endsWith('.sql') && !f.startsWith('0027_') && !f.startsWith('0028_')) copyFileSync(join(realDrizzleDir, f), join(baselineDir, f))
     }
     const journal = JSON.parse(readFileSync(join(realDrizzleDir, 'meta', '_journal.json'), 'utf-8'))
-    journal.entries = journal.entries.filter((e: { tag: string }) => !e.tag.startsWith('0027_'))
+    journal.entries = journal.entries.filter((e: { tag: string }) => !e.tag.startsWith('0027_') && !e.tag.startsWith('0028_'))
     writeFileSync(join(baselineDir, 'meta', '_journal.json'), JSON.stringify(journal, null, 2))
 
     const baseline = createDb(dbPath)
@@ -146,6 +146,49 @@ describe('migrateDb', () => {
     const { sqlite } = createDb(dbPath)
     expect(sqlite.prepare('select retired_at from aircraft where id = 1').get()).toEqual({ retired_at: null })
     expect(sqlite.prepare('select aircraft_id from flight where id = 1').get()).toEqual({ aircraft_id: 1 })
+    sqlite.close()
+  })
+
+  // Migration 0028 (flight.selected_arrival_icao, v1.1.1) — likewise a plain ADD COLUMN, checked
+  // against a populated database: an existing flight, with a saved STAR/approach selection and
+  // a landing FK'd to it, keeps everything and reads the filed destination (NULL) as its arrival.
+  it('upgrades a populated database through migration 0028, keeping flights, selections and landings', () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'winglog-migrate-0028-test-'))
+    const dbPath = join(tempDir, 'winglog.db')
+    const realDrizzleDir = join(process.cwd(), 'drizzle')
+    const baselineDir = join(tempDir, 'drizzle-baseline')
+    mkdirSync(join(baselineDir, 'meta'), { recursive: true })
+    for (const f of readdirSync(realDrizzleDir)) {
+      if (f.endsWith('.sql') && !f.startsWith('0028_')) copyFileSync(join(realDrizzleDir, f), join(baselineDir, f))
+    }
+    const journal = JSON.parse(readFileSync(join(realDrizzleDir, 'meta', '_journal.json'), 'utf-8'))
+    journal.entries = journal.entries.filter((e: { tag: string }) => !e.tag.startsWith('0028_'))
+    writeFileSync(join(baselineDir, 'meta', '_journal.json'), JSON.stringify(journal, null, 2))
+
+    const baseline = createDb(dbPath)
+    migrate(baseline.db, { migrationsFolder: baselineDir })
+    baseline.sqlite
+      .prepare(`INSERT INTO aircraft (id, registration, icao_type, created_at) VALUES (1, 'G-REAL', 'A320', '2026-01-01')`)
+      .run()
+    baseline.sqlite
+      .prepare(
+        `INSERT INTO flight (id, aircraft_id, status, dep_icao, arr_icao, created_at, selected_star_ident, selected_approach_ident) VALUES (1, 1, 'completed', 'EGLL', 'VHHH', '2026-01-01', 'SIER7B', 'ILS 07C')`
+      )
+      .run()
+    baseline.sqlite
+      .prepare(
+        `INSERT INTO landing (flight_id, seq, icao, touchdown_ts_utc, vertical_speed_ms, g_force, pitch_deg, bank_deg, heading_true_deg, indicated_airspeed_ms, ground_speed_ms, wind_speed_ms, wind_direction_deg) VALUES (1, 1, 'VHHH', '2026-01-01T10:00:00Z', -1, 1, 3, 0, 70, 70, 65, 3, 250)`
+      )
+      .run()
+    baseline.sqlite.close()
+
+    expect(() => migrateDb(dbPath, realDrizzleDir)).not.toThrow()
+
+    const { sqlite } = createDb(dbPath)
+    expect(
+      sqlite.prepare('select selected_star_ident, selected_approach_ident, selected_arrival_icao from flight where id = 1').get()
+    ).toEqual({ selected_star_ident: 'SIER7B', selected_approach_ident: 'ILS 07C', selected_arrival_icao: null })
+    expect(sqlite.prepare('select count(*) c from landing where flight_id = 1').get()).toEqual({ c: 1 })
     sqlite.close()
   })
 })

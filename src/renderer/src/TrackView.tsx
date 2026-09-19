@@ -462,7 +462,12 @@ export function TrackView(props: {
             </DialogContent>
           </Dialog>
           <span className="text-sm text-muted-foreground">
-            {[props.selection.sidIdent, props.selection.starIdent, props.selection.approachIdent]
+            {[
+              props.selection.arrivalIcao ? `Alternate ${props.selection.arrivalIcao}` : null,
+              props.selection.sidIdent,
+              props.selection.starIdent,
+              props.selection.approachIdent
+            ]
               .filter((v): v is string => v !== null)
               .join(' · ') || 'Nothing selected yet'}
           </span>

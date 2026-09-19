@@ -297,7 +297,8 @@ export function DispatchView(props: {
         selectedStarIdent: props.selection.starIdent,
         selectedStarTransition: props.selection.starTransition,
         selectedApproachIdent: props.selection.approachIdent,
-        selectedApproachTransition: props.selection.approachTransition
+        selectedApproachTransition: props.selection.approachTransition,
+        selectedArrivalIcao: props.selection.arrivalIcao
       })
       // The OFP itself stays put — Dispatch doubles as a weights/info reference for
       // whatever's currently dispatched until it's overwritten by the next fetch (see

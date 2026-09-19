@@ -278,9 +278,13 @@ export function applyProcedureSelection(
   baseWaypoints: Waypoint[],
   sid: ProcedureLegs | null,
   star: ProcedureLegs | null,
-  approach: ProcedureLegs | null
+  approach: ProcedureLegs | null,
+  options: { alternateArrival?: boolean } = {}
 ): Waypoint[] {
   let result = baseWaypoints
+  // Arriving somewhere other than the filed destination (v1.1.1): SimBrief's own STAR for
+  // the destination isn't part of that route, whether or not an alternate STAR is chosen.
+  if (options.alternateArrival) result = result.filter((w) => w.segment !== 'star')
   if (sid) {
     result = [...legsToWaypoints(sid.legs, 'sid'), ...result.filter((w) => w.segment !== 'sid')]
   }
@@ -299,8 +303,11 @@ export function applyProcedureSelection(
     // Only when there was never a real 'star' tag to begin with — a route that already named
     // its own STAR stops its 'enroute' block short of the destination, and that boundary is
     // exactly right already.
+    // (Not for an alternate arrival: its STAR has no reason to join the filed route's tail,
+    // and cutting "the whole contiguous enroute run" would delete the entire cruise.)
     if (
       !hadTaggedStar &&
+      !options.alternateArrival &&
       base.length > 0 &&
       base[base.length - 1].segment === 'enroute' &&
       starWaypoints.length > 0

@@ -854,7 +854,8 @@ describe('TrackingController', () => {
       starIdent: 'SIER7B',
       starTransition: null,
       approachIdent: 'ILS 07C',
-      approachTransition: 'LIMES'
+      approachTransition: 'LIMES',
+      arrivalIcao: 'EGKK'
     }
 
     it('writes the last-pushed selection into the flight row on finish()', () => {
@@ -870,6 +871,7 @@ describe('TrackingController', () => {
       expect(finished?.selectedSidTransition).toBe('CLEEE')
       expect(finished?.selectedStarIdent).toBe('SIER7B')
       expect(finished?.selectedStarTransition).toBeNull()
+      expect(finished?.selectedArrivalIcao).toBe('EGKK')
       expect(finished?.selectedApproachIdent).toBe('ILS 07C')
       expect(finished?.selectedApproachTransition).toBe('LIMES')
     })

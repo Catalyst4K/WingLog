@@ -531,6 +531,9 @@ export interface Flight {
   selectedStarTransition: string | null
   selectedApproachIdent: string | null
   selectedApproachTransition: string | null
+  /** The airport the selected STAR/approach are for — the alternate when the pilot switched the
+   *  Procedures dialog to it; null = the filed destination. */
+  selectedArrivalIcao: string | null
 }
 
 /**
@@ -557,6 +560,9 @@ export interface ProcedureSelection {
    *  VHHH's "LIMES"), auto-connected from the current STAR's last waypoint when one
    *  matches, but always independently overridable. */
   approachTransition: string | null
+  /** Which airport the STAR/approach dropdowns are for: `null` = the filed destination, or the
+   *  alternate's ICAO when the pilot switched to it for a diversion (v1.1.1). */
+  arrivalIcao: string | null
 }
 
 /** Logbook's summary stats above the flight table — see flight-repo.ts's getLogbookStats.
@@ -681,6 +687,7 @@ export interface NewFlight {
   selectedStarTransition?: string | null
   selectedApproachIdent?: string | null
   selectedApproachTransition?: string | null
+  selectedArrivalIcao?: string | null
 }
 
 export interface DispatchWaypoint {
