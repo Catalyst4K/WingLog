@@ -27,6 +27,7 @@ import { FlightMap } from './FlightMap'
 import { useConfirm } from './hooks/useConfirm'
 import { ProcedureSelector } from './ProcedureSelector'
 import { flightLabel } from './flight-label'
+import { FreeFlightDestination } from './FreeFlightDestination'
 import { useLiveWaypoints, type ProcedureAirports } from './procedureSelection'
 import { parseTransitionAltitudes } from './route'
 import { StartFreeFlightDialog } from './StartFreeFlightDialog'
@@ -373,6 +374,11 @@ export function TrackView(props: {
               </Button>
             </div>
           </CardContent>
+          {activeFlight && !activeFlight.ofpJson && (
+            <CardContent>
+              <FreeFlightDestination key={activeFlight.arrIcao} arrIcao={activeFlight.arrIcao} onChanged={reload} />
+            </CardContent>
+          )}
         </Card>
       ) : (
         <div className="flex flex-col gap-2">
@@ -435,7 +441,7 @@ export function TrackView(props: {
         </div>
       )}
 
-      {airports && (
+      {airports && !(airports.depIcao === 'ZZZZ' && airports.arrIcao === 'ZZZZ') && (
         <div className="flex items-center gap-2">
           <Dialog>
             <DialogTrigger asChild>

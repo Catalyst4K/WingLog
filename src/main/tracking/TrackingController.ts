@@ -489,6 +489,21 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     this.currentSelection = selection
   }
 
+  /**
+   * Sets the destination of the free flight being tracked (blank/null = "not set", stored as
+   * ZZZZ like the start dialog does). Only a free flight — a dispatched flight's arrival is
+   * its filed one. Deliberately a plan rather than a promise: the touchdown still resolves
+   * the real arrival from position, so a diversion is recorded truthfully whatever was
+   * entered here.
+   */
+  setDestination(icao: string | null): void {
+    if (!this.recorder) throw new Error('No flight is being tracked')
+    if (!this.isFreeFlight) throw new Error("A planned flight's destination comes from its flight plan")
+    const normalized = icao?.trim().toUpperCase() || 'ZZZZ'
+    if (!/^[A-Z0-9]{2,5}$/.test(normalized)) throw new Error('That is not a valid airport code')
+    setArrIcao(this.db, this.recorder.getFlightId(), normalized)
+  }
+
   /** User cancelled tracking mid-flight, rather than reaching shutdown naturally. */
   stop(): void {
     if (!this.recorder) return

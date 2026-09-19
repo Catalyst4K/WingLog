@@ -301,6 +301,7 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     trackingStop: vi.fn().mockResolvedValue(undefined),
     trackingFinish: vi.fn().mockResolvedValue(undefined),
     flightCancel: vi.fn().mockResolvedValue(undefined),
+    trackingSetDestination: vi.fn().mockResolvedValue(undefined),
     trackingSetProcedureSelection: vi.fn().mockResolvedValue(undefined),
     // LogbookView (lazy)
     logbookListCompletedFlights: vi.fn().mockResolvedValue([]),

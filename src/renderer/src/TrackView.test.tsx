@@ -254,6 +254,7 @@ function buildWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     trackingStop: vi.fn().mockResolvedValue(undefined),
     trackingFinish: vi.fn().mockResolvedValue(undefined),
     flightCancel: vi.fn().mockResolvedValue(undefined),
+    trackingSetDestination: vi.fn().mockResolvedValue(undefined),
     trackingSetProcedureSelection: vi.fn().mockResolvedValue(undefined),
     navdataRefreshAirport: vi.fn().mockResolvedValue(undefined),
     navdataListRunways: vi.fn().mockResolvedValue([]),
@@ -339,6 +340,99 @@ describe('TrackView', () => {
     expect(screen.getByText('Free flight')).toBeInTheDocument()
     // Nothing planned/active/preview — no Procedures affordance either.
     expect(screen.queryByText('Procedures…')).not.toBeInTheDocument()
+  })
+
+  describe('free-flight destination while tracking (v1.1.1)', () => {
+    function activeFree(overrides: Partial<Flight> = {}): Flight {
+      return makeFlight({
+        id: 5,
+        status: 'active',
+        aircraftId: null,
+        simRegistration: 'G-TEST',
+        simIcaoType: 'C172',
+        flightNumber: null,
+        ofpJson: null,
+        depIcao: 'VHHH',
+        arrIcao: 'ZZZZ',
+        ...overrides
+      })
+    }
+
+    it('shows an unset destination as Unknown, and setting one calls the IPC and reloads the flight', async () => {
+      const trackingSetDestination = vi.fn().mockResolvedValue(undefined)
+      const flightList = vi
+        .fn()
+        .mockResolvedValueOnce([activeFree()])
+        .mockResolvedValue([activeFree({ arrIcao: 'VHHX' })])
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([]),
+        flightList,
+        trackingSetDestination,
+        trackingGetActive: vi.fn().mockResolvedValue({ flightId: 5, phase: 'cruise' })
+      })
+      const user = userEvent.setup()
+      renderTrack()
+
+      expect(await screen.findByText('Destination: Unknown')).toBeInTheDocument()
+      const setButton = screen.getByRole('button', { name: 'Set' })
+      expect(setButton).toBeDisabled()
+      await user.type(screen.getByPlaceholderText('Set destination'), 'vhhx')
+      await user.click(setButton)
+
+      await waitFor(() => expect(trackingSetDestination).toHaveBeenCalledWith('VHHX'))
+      expect(await screen.findByText('Destination: VHHX')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Clear' })).toBeInTheDocument()
+    })
+
+    it('clears an existing destination with null', async () => {
+      const trackingSetDestination = vi.fn().mockResolvedValue(undefined)
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([]),
+        flightList: vi.fn().mockResolvedValue([activeFree({ arrIcao: 'VHHX' })]),
+        trackingSetDestination,
+        trackingGetActive: vi.fn().mockResolvedValue({ flightId: 5, phase: 'cruise' })
+      })
+      const user = userEvent.setup()
+      renderTrack()
+      await user.click(await screen.findByRole('button', { name: 'Clear' }))
+      await waitFor(() => expect(trackingSetDestination).toHaveBeenCalledWith(null))
+    })
+
+    it('surfaces a rejected update as a toast, and is not offered for a planned (OFP) flight', async () => {
+      const trackingSetDestination = vi.fn().mockRejectedValue(new Error('That is not a valid airport code'))
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([]),
+        flightList: vi.fn().mockResolvedValue([activeFree()]),
+        trackingSetDestination,
+        trackingGetActive: vi.fn().mockResolvedValue({ flightId: 5, phase: 'cruise' })
+      })
+      const user = userEvent.setup()
+      const view = renderTrack()
+      await user.type(await screen.findByPlaceholderText('Set destination'), 'EGLL')
+      await user.click(screen.getByRole('button', { name: 'Set' }))
+      await waitFor(() => expect(trackingSetDestination).toHaveBeenCalled())
+      view.unmount()
+
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([]),
+        flightList: vi.fn().mockResolvedValue([makeFlight({ id: 5, status: 'active', ofpJson: '{}' })]),
+        trackingGetActive: vi.fn().mockResolvedValue({ flightId: 5, phase: 'cruise' })
+      })
+      renderTrack()
+      await screen.findByText('Phase:')
+      expect(screen.queryByPlaceholderText('Set destination')).not.toBeInTheDocument()
+    })
+
+    it('hides the Procedures button while neither airport is known', async () => {
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([]),
+        flightList: vi.fn().mockResolvedValue([activeFree({ depIcao: 'ZZZZ' })]),
+        trackingGetActive: vi.fn().mockResolvedValue({ flightId: 5, phase: 'cruise' })
+      })
+      renderTrack()
+      await screen.findByText('Destination: Unknown')
+      expect(screen.queryByRole('button', { name: 'Procedures…' })).not.toBeInTheDocument()
+    })
   })
 
   describe('free flight (free-flight-tracking.md)', () => {
