@@ -35,6 +35,24 @@ following your chosen SID/STAR/approach. If WingLog closes or crashes mid-flight
 offer to resume tracking (or discard the flight) the next time you open it — nothing is
 lost.
 
+**No flight plan? Track a free flight.** Flying something without a SimBrief plan — a
+VFR hop, a circuit, a sightseeing loop — press **Free flight** (or **Start tracking** on
+the banner that appears when WingLog sees you moving). Aircraft defaults to *None*, so
+starting is one click; add it to your Fleet later from the Logbook if it's worth keeping.
+While tracking, the card above the map has **Departure** and **Destination** boxes — fill
+either in whenever you know them. The real arrival is still worked out from where you
+actually touch down.
+
+**Procedures…** lets you change the SID, STAR, approach and transitions live (pick
+*None* to remove one). For a flight with an alternate, switch **Arrival airport** to the
+alternate to see its STARs and approaches — handy for a diversion. **Weather…** opens the
+METARs for your departure, destination and alternate (and any airport you look up under
+*Custom*).
+
+**Map overlay.** The radar button on the map switches on a VFR overlay: every airfield
+(small strips and heliports too), 5/10/20 nm range rings, a nautical scale bar, the last
+ten minutes of track picked out, and the nearest airfield.
+
 ## 4. Review the flight (Logbook)
 
 Once you've landed and the flight ends, it shows up in **Logbook** with the full picture:
@@ -42,6 +60,11 @@ block and air time, fuel burn, your flown route on a map, altitude/speed charts,
 real landing report — touchdown rate, G-force, pitch, bank, crosswind, centreline offset,
 distance from threshold, and a 0–100 landing score with a breakdown of exactly which
 category cost you points.
+
+Circuits and touch-and-goes are recorded too: every touchdown gets its own landing, shown
+on the **Landings** tab and labelled by airfield and attempt (`VHHH 1`, `VHHH 2`). A landing
+at a field missing from WingLog's built-in airport list — a scenery add-on, or a closed
+airport like Kai Tak — is looked up from the sim itself, runway included.
 
 If you use GSX Pro for ground handling, its catering/fuel/handling receipts for this
 flight show up here automatically too, once GSX tracking is enabled (see below).
@@ -55,8 +78,11 @@ flight show up here automatically too, once GSX tracking is enabled (see below).
   ground-service tracking. WingLog checks for GSX's receipts folder automatically on
   first launch; toggle it here if you need to turn it on/off or point it at a
   non-default folder.
-- **Data** — import an existing fleet (JSON) or logbook (CSV), or export your own back
-  out. It's your data; nothing here is a one-way door.
+- **Data** — import an existing fleet or logbook, or export your own back out, as JSON or
+  CSV (pick the file format first). It's your data; nothing here is a one-way door.
+- **Map language** (under *UI*) — choose the language of place names on the map.
+- **Fleet → Retire** — take an aircraft out of use without losing its flight history; it
+  moves to the *Retired* tab and can be un-retired.
 
 ## Notes
 
