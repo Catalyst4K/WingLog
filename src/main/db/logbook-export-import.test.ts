@@ -16,18 +16,12 @@ import {
   importLogbookJson
 } from './logbook-import'
 
-const { showOpenDialog, showSaveDialog, size } = vi.hoisted(() => ({
+const { showOpenDialog, showSaveDialog } = vi.hoisted(() => ({
   showOpenDialog: vi.fn(),
-  showSaveDialog: vi.fn(),
-  size: { value: undefined as number | undefined }
+  showSaveDialog: vi.fn()
 }))
 
 vi.mock('electron', () => ({ dialog: { showOpenDialog, showSaveDialog } }))
-// The size guard is exercised by faking `stat`; everything else reads the real temp file.
-vi.mock('node:fs/promises', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:fs/promises')>()
-  return { ...actual, stat: async (p: string) => (size.value === undefined ? actual.stat(p) : { size: size.value }) }
-})
 
 const FAKE_WINDOW = {} as BrowserWindow
 
@@ -109,7 +103,6 @@ describe('logbook export → import round trip', () => {
     dir = mkdtempSync(join(tmpdir(), 'winglog-logbook-roundtrip-'))
     showOpenDialog.mockReset()
     showSaveDialog.mockReset()
-    size.value = undefined
   })
 
   afterEach(() => {
@@ -168,8 +161,7 @@ describe('logbook export → import round trip', () => {
 
   it('refuses an implausibly large import file before reading it', async () => {
     const filePath = join(dir, 'huge.json')
-    writeFileSync(filePath, '[]', 'utf-8')
-    size.value = 26 * 1024 * 1024
+    writeFileSync(filePath, Buffer.alloc(26 * 1024 * 1024, 0x20))
     showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [filePath] })
     await expect(importLogbookJson(freshDb(), FAKE_WINDOW)).rejects.toThrow('too large')
   })

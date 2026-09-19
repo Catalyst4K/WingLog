@@ -1,11 +1,11 @@
-import { readFile, stat, writeFile } from 'node:fs/promises'
+import { writeFile } from 'node:fs/promises'
 import { dialog, type BrowserWindow } from 'electron'
 import type { AircraftImportSummary, DataFormat } from '@shared/ipc'
 import { createAircraft, getAircraftByRegistration, listAircraft } from './aircraft-repo'
 import { parseAircraftRecords, serializeAircraft, toAircraftExportRecord } from './aircraft-portable'
 import { parseAircraftInput } from './aircraft-validation'
 import type { WingLogDb } from './client'
-import { MAX_IMPORT_BYTES } from './import-limits'
+import { readImportFile } from './import-limits'
 
 export async function exportAircraft(
   db: WingLogDb,
@@ -37,8 +37,7 @@ export async function importAircraft(
   if (canceled || filePaths.length === 0) return null
 
   const path = filePaths[0]
-  if ((await stat(path)).size > MAX_IMPORT_BYTES) throw new Error('That file is too large to be a fleet export')
-  const records = parseAircraftRecords(await readFile(path, 'utf-8'), format)
+  const records = parseAircraftRecords(await readImportFile(path, 'That file is too large to be a fleet export'), format)
 
   const summary: AircraftImportSummary = { imported: 0, skipped: [] }
   for (const record of records) {

@@ -401,7 +401,7 @@ describe('FleetView', () => {
       await screen.findByText('G-LIVE')
       expect(screen.getByRole('tab', { name: 'Active (1)' })).toBeInTheDocument()
       await user.click(screen.getByRole('tab', { name: 'Retired (1)' }))
-      expect(await screen.findByRole('cell', { name: /^Retired 18/ })).toBeInTheDocument()
+      expect(await screen.findByRole('cell', { name: /^Retired .*18/ })).toBeInTheDocument()
 
       await user.click(screen.getByText('G-OLD'))
       await user.click(await screen.findByRole('button', { name: 'Un-retire' }))

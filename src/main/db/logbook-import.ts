@@ -1,10 +1,10 @@
-import { readFile, stat, writeFile } from 'node:fs/promises'
+import { writeFile } from 'node:fs/promises'
 import { dialog, type BrowserWindow } from 'electron'
 import type { DataFormat, LogbookImportSummary } from '@shared/ipc'
 import { createAircraft, getAircraftByRegistration, listAircraft } from './aircraft-repo'
 import type { WingLogDb } from './client'
 import { createHistoricalFlight, listFlights } from './flight-repo'
-import { MAX_IMPORT_BYTES } from './import-limits'
+import { readImportFile as readCappedFile } from './import-limits'
 import { getLandingByFlight } from './landing-repo'
 import { parseCsvRows, parseStkpRow } from './logbook-csv'
 import { isWingLogLogbookCsv, parseLogbook, serializeLogbook, toLogbookRecord } from './logbook-portable'
@@ -90,9 +90,8 @@ export function importFlightRows(db: WingLogDb, rows: ImportRow[]): LogbookImpor
 
 /** Reads a user-picked file, refusing anything implausibly large. The path always comes
  *  from a native dialog, never from the renderer. */
-async function readImportFile(path: string): Promise<string> {
-  if ((await stat(path)).size > MAX_IMPORT_BYTES) throw new Error('That file is too large to be a logbook export')
-  return readFile(path, 'utf-8')
+function readImportFile(path: string): Promise<string> {
+  return readCappedFile(path, 'That file is too large to be a logbook export')
 }
 
 /** SimToolkitPro's CSV (the original importer) *or* WingLog's own CSV export, told apart
