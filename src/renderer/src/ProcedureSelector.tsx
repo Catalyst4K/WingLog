@@ -4,7 +4,8 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { isVisualApproach } from '@shared/visual-approach'
 import { approachRunway, parseRouteProcedures, type Waypoint } from './route'
-import type { ProcedureAirports } from './procedureSelection'
+import { arrivalAirport, type ProcedureAirports } from './procedureSelection'
+import { displayIcao } from './display-icao'
 
 /** One procedure dropdown, backed by real navdata (docs/plans/navdata-without-navigraph.md
  *  Phase 3/5) — `options` is whatever's currently cached for this ICAO/kind. No "SimBrief
@@ -12,6 +13,13 @@ import type { ProcedureAirports } from './procedureSelection'
  *  selection, seeded from SimBrief's own choice but otherwise indistinguishable from any
  *  other pick — same `undefined`-for-"nothing chosen" convention already used elsewhere in
  *  this app (e.g. DispatchView's own aircraft picker). */
+const NONE_OPTION = '__none__'
+
+/** Airports whose approach the pilot has deliberately cleared with "None", so the auto-default
+ *  below doesn't put one straight back (including after the Procedures dialog is closed and
+ *  reopened, which remounts this component). Keyed by the plan as well as the airports. */
+const approachCleared = new Set<string>()
+
 function ProcedureSelect(props: {
   label: string
   value: string | null
@@ -22,11 +30,18 @@ function ProcedureSelect(props: {
   return (
     <div className="flex flex-col gap-1.5">
       <Label>{props.label}</Label>
-      <Select value={props.value ?? undefined} onValueChange={props.onChange} disabled={props.disabled}>
+      <Select
+        value={props.value ?? undefined}
+        onValueChange={(v) => props.onChange(v === NONE_OPTION ? null : v)}
+        disabled={props.disabled}
+      >
         <SelectTrigger className="w-full">
           <SelectValue placeholder="None" />
         </SelectTrigger>
         <SelectContent>
+          {/* Radix Select can't return to "nothing chosen" on its own, so an explicit item
+           *  clears a pick made by mistake (Callum, 2026-09-19). */}
+          <SelectItem value={NONE_OPTION}>None</SelectItem>
           {props.options.map((opt) => (
             <SelectItem key={opt} value={opt}>
               {opt}
@@ -87,6 +102,12 @@ export function ProcedureSelector(props: {
   const [sidOptions, setSidOptions] = useState<NavdataProcedureOption[]>([])
   const [starOptions, setStarOptions] = useState<NavdataProcedureOption[]>([])
   const [approachOptions, setApproachOptions] = useState<NavdataProcedureOption[]>([])
+  // Which airport `approachOptions` were fetched for — switching to the alternate leaves the
+  // destination's list in place until the new fetch lands, and the auto-default below must
+  // not pick from that stale list.
+  const [approachOptionsFor, setApproachOptionsFor] = useState('')
+  const arrIcao = arrivalAirport(airports, selection)
+  const altnIcao = airports.altnIcao && airports.altnIcao !== airports.arrIcao && airports.altnIcao !== 'ZZZZ' ? airports.altnIcao : null
   // Bumped once the background sim refresh below resolves, so the four cache-read effects
   // that follow (keyed on this alongside their own real deps) pick up whatever it just
   // fetched — no manual "Refresh from sim" button needed, this makes staying current
@@ -101,15 +122,16 @@ export function ProcedureSelector(props: {
   // connected yet), the four lists below already loaded whatever's cached the moment they
   // mounted; this just tops them up once real navdata is available.
   useEffect(() => {
-    const { depIcao, arrIcao } = airports
-    Promise.allSettled([window.winglog.navdataRefreshAirport(depIcao), window.winglog.navdataRefreshAirport(arrIcao)]).then(() =>
+    // The destination and — when there is one and it's being used — the alternate.
+    const toRefresh = new Set([airports.depIcao, airports.arrIcao, arrIcao])
+    Promise.allSettled([...toRefresh].map((icao) => window.winglog.navdataRefreshAirport(icao))).then(() =>
       setRefreshedAt((n) => n + 1)
     )
     // Deliberately narrower than `airports` itself — `ofp`/`previewFlight` are recreated on
     // every parent render (a fresh object each time, even when depIcao/arrIcao haven't
     // changed), and this fetch must only re-fire when the airport pair actually changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [airports.depIcao, airports.arrIcao])
+  }, [airports.depIcao, airports.arrIcao, arrIcao])
 
   useEffect(() => {
     window.winglog.navdataListRunways(airports.depIcao).then(setDepRunways)
@@ -128,31 +150,39 @@ export function ProcedureSelector(props: {
   useEffect(() => {
     const runway = approachRunway(selection.approachIdent)
     window.winglog
-      .navdataListStars(airports.arrIcao, runway)
+      .navdataListStars(arrIcao, runway)
       .then(setStarOptions)
       .catch(() => setStarOptions([]))
-  }, [airports.arrIcao, selection.approachIdent, refreshedAt])
+  }, [arrIcao, selection.approachIdent, refreshedAt])
 
   // Every approach at the field, unfiltered — there's no runway picker to filter by any
   // more, the approach dropdown itself is how a runway gets chosen.
   useEffect(() => {
     window.winglog
-      .navdataListApproaches(airports.arrIcao, null)
-      .then(setApproachOptions)
-      .catch(() => setApproachOptions([]))
-  }, [airports.arrIcao, refreshedAt])
+      .navdataListApproaches(arrIcao, null)
+      .then((options) => {
+        setApproachOptions(options)
+        setApproachOptionsFor(arrIcao)
+      })
+      .catch(() => {
+        setApproachOptions([])
+        setApproachOptionsFor(arrIcao)
+      })
+  }, [arrIcao, refreshedAt])
 
   // Auto-default the approach once real options exist and nothing's been chosen yet — see
   // pickDefaultApproachIdentifier's own doc comment for why this is a starting point, not a
   // guess to get right.
+  const approachKey = `${airports.depIcao}>${arrIcao}|${airports.ofpJson?.slice(0, 300) ?? ''}`
   useEffect(() => {
-    if (selection.approachIdent || approachOptions.length === 0) return
-    const plannedRunway = parseRouteProcedures(airports.ofpJson).arrivalRunway
+    if (selection.approachIdent || approachOptions.length === 0 || approachOptionsFor !== arrIcao || approachCleared.has(approachKey)) return
+    // The OFP's planned runway is the filed destination's — not applicable to the alternate.
+    const plannedRunway = arrIcao === airports.arrIcao ? parseRouteProcedures(airports.ofpJson).arrivalRunway : null
     const candidates = plannedRunway ? approachOptions.filter((o) => approachRunway(o.identifier) === plannedRunway) : approachOptions
     const pick = pickDefaultApproachIdentifier(candidates)
     if (pick) set({ approachIdent: pick })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [approachOptions, selection.approachIdent, airports.ofpJson])
+  }, [approachOptions, approachOptionsFor, arrIcao, selection.approachIdent, airports.ofpJson, approachKey])
 
   // Auto-connect the approach's own entry transition to wherever the current STAR actually
   // ends, when one matches — confirmed live that a real APPROACH_TRANSITION's name is the
@@ -204,11 +234,41 @@ export function ProcedureSelector(props: {
         </div>
         <div className="flex flex-col gap-3">
           <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Arrival</span>
+          {altnIcao && (
+            <div className="flex flex-col gap-1.5">
+              <Label>Arrival airport</Label>
+              <Select
+                value={selection.arrivalIcao ? 'alternate' : 'destination'}
+                onValueChange={(v) =>
+                  // The STAR/approach picked belong to the airport being left — start clean.
+                  set({
+                    arrivalIcao: v === 'alternate' ? altnIcao : null,
+                    starIdent: null,
+                    starTransition: null,
+                    approachIdent: null,
+                    approachTransition: null
+                  })
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="destination">Destination — {displayIcao(airports.arrIcao)}</SelectItem>
+                  <SelectItem value="alternate">Alternate — {altnIcao}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <ProcedureSelect
             label="Approach"
             value={selection.approachIdent}
             options={approachIdentifiers}
-            onChange={(v) => set({ approachIdent: v, approachTransition: null })}
+            onChange={(v) => {
+              if (v === null) approachCleared.add(approachKey)
+              else approachCleared.delete(approachKey)
+              set({ approachIdent: v, approachTransition: null })
+            }}
             disabled={approachIdentifiers.length === 0}
           />
           <ProcedureSelect

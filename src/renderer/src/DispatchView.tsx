@@ -24,6 +24,7 @@ import { defaultDepartureTime, fromDatetimeLocalValue, toDatetimeLocalValue, toS
 import { useConfirm } from './hooks/useConfirm'
 import { MetarPanel } from './MetarPanel'
 import { ProcedureSelector } from './ProcedureSelector'
+import { flightLabel } from './flight-label'
 import { useLiveWaypoints } from './procedureSelection'
 import { formatEnrouteOnly } from './route'
 import { formatAltitude, formatWeight, mToFt } from './units'
@@ -235,9 +236,9 @@ export function DispatchView(props: {
     const activeFlight = active ? flights.find((f) => f.id === active.flightId) : undefined
     const otherPlanned = flights.filter((f) => f.status === 'planned')
     const warning = activeFlight
-      ? `This will delete the flight currently being tracked, ${activeFlight.flightNumber ?? `#${activeFlight.id}`}.`
+      ? `This will delete the flight currently being tracked, ${flightLabel(activeFlight)}.`
       : otherPlanned.length === 1
-        ? `This will abandon the other planned flight, ${otherPlanned[0].flightNumber ?? `#${otherPlanned[0].id}`}.`
+        ? `This will abandon the other planned flight, ${flightLabel(otherPlanned[0])}.`
         : otherPlanned.length > 1
           ? `This will abandon ${otherPlanned.length} other planned flights.`
           : null
@@ -296,7 +297,8 @@ export function DispatchView(props: {
         selectedStarIdent: props.selection.starIdent,
         selectedStarTransition: props.selection.starTransition,
         selectedApproachIdent: props.selection.approachIdent,
-        selectedApproachTransition: props.selection.approachTransition
+        selectedApproachTransition: props.selection.approachTransition,
+        selectedArrivalIcao: props.selection.arrivalIcao
       })
       // The OFP itself stays put — Dispatch doubles as a weights/info reference for
       // whatever's currently dispatched until it's overwritten by the next fetch (see

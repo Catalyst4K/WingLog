@@ -26,6 +26,8 @@ import { AirlineLogo } from './AirlineLogo'
 import { FlightMap } from './FlightMap'
 import { useConfirm } from './hooks/useConfirm'
 import { ProcedureSelector } from './ProcedureSelector'
+import { flightLabel } from './flight-label'
+import { FreeFlightDestination } from './FreeFlightDestination'
 import { useLiveWaypoints, type ProcedureAirports } from './procedureSelection'
 import { parseTransitionAltitudes } from './route'
 import { StartFreeFlightDialog } from './StartFreeFlightDialog'
@@ -133,7 +135,7 @@ export function TrackView(props: {
         // backend already completed. Matters most for a turnaround: staying on this page
         // between legs means there's no page remount to accidentally paper over it.
         const completed = flightsRef.current.find((f) => f.id === point.flightId)
-        setCompletedLabel(completed?.flightNumber ?? `Flight #${point.flightId}`)
+        setCompletedLabel(flightLabel(completed))
         setActive(null)
         setTrackPoints([])
         reload()
@@ -248,7 +250,7 @@ export function TrackView(props: {
 
   const plannedFlights = flights.filter((f) => f.status === 'planned')
   const activeFlight = active ? flights.find((f) => f.id === active.flightId) : undefined
-  const activeLabel = activeFlight?.flightNumber ?? `flight #${active?.flightId}`
+  const activeLabel = flightLabel(activeFlight)
 
   // Raw per-sample trigger for the passive banner below — moving on the ground or airborne.
   // Not used directly: a single sample of this can't be trusted on its own. Callum saw this
@@ -372,6 +374,11 @@ export function TrackView(props: {
               </Button>
             </div>
           </CardContent>
+          {activeFlight && !activeFlight.ofpJson && (
+            <CardContent>
+              <FreeFlightDestination key={activeFlight.arrIcao} arrIcao={activeFlight.arrIcao} onChanged={reload} />
+            </CardContent>
+          )}
         </Card>
       ) : (
         <div className="flex flex-col gap-2">
@@ -409,7 +416,7 @@ export function TrackView(props: {
           )}
 
           {plannedFlights.map((f) => {
-            const label = f.flightNumber ?? `${f.depIcao} → ${f.arrIcao}`
+            const label = flightLabel(f)
             return (
               <Card key={f.id}>
                 <CardContent className="flex items-center justify-between gap-4">
@@ -434,7 +441,7 @@ export function TrackView(props: {
         </div>
       )}
 
-      {airports && (
+      {airports && !(airports.depIcao === 'ZZZZ' && airports.arrIcao === 'ZZZZ') && (
         <div className="flex items-center gap-2">
           <Dialog>
             <DialogTrigger asChild>
@@ -455,7 +462,12 @@ export function TrackView(props: {
             </DialogContent>
           </Dialog>
           <span className="text-sm text-muted-foreground">
-            {[props.selection.sidIdent, props.selection.starIdent, props.selection.approachIdent]
+            {[
+              props.selection.arrivalIcao ? `Alternate ${props.selection.arrivalIcao}` : null,
+              props.selection.sidIdent,
+              props.selection.starIdent,
+              props.selection.approachIdent
+            ]
               .filter((v): v is string => v !== null)
               .join(' · ') || 'Nothing selected yet'}
           </span>
@@ -494,7 +506,7 @@ export function TrackView(props: {
           <AlertDialogHeader>
             <AlertDialogTitle>Flight ended</AlertDialogTitle>
             <AlertDialogDescription>
-              {completedLabel} was automatically detected as complete and saved to your logbook.
+              {(completedLabel ?? '').charAt(0).toUpperCase() + (completedLabel ?? '').slice(1)} was automatically detected as complete and saved to your logbook.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

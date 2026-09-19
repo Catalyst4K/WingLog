@@ -475,6 +475,42 @@ describe('applyProcedureSelection', () => {
       { ident: 'REAL', lon: 20, lat: 10, altitudeFt: 0, segment: 'sid' }
     ])
   })
+
+  describe('alternate arrival (v1.1.1)', () => {
+    const altStar = { identifier: 'ALT1A', legs: [leg('ALTFIX', 5000), leg('ALTFIX2', 3000)] }
+    const altApproach = { identifier: 'ILS 09', legs: [leg('ALTFAF', 2000)] }
+
+    it("drops the filed destination's STAR and follows the enroute with the alternate's STAR and approach", () => {
+      const result = applyProcedureSelection(baseWaypoints, null, altStar, altApproach, { alternateArrival: true })
+      expect(result.map((w) => w.ident)).toEqual([
+        'SIMBRIEF_SID',
+        'ENR1',
+        'ENR2',
+        'ALTFIX',
+        'ALTFIX2',
+        'ALTFAF'
+      ])
+    })
+
+    it('does not cut the whole cruise when the OFP never tagged a STAR (the destination-arrival tail cut is skipped)', () => {
+      const untagged: Waypoint[] = [
+        { ident: 'SID', lon: 1, lat: 1, altitudeFt: 2000, segment: 'sid' },
+        { ident: 'ENR1', lon: 2, lat: 2, altitudeFt: 35000, segment: 'enroute' },
+        { ident: 'ENR2', lon: 3, lat: 3, altitudeFt: 35000, segment: 'enroute' }
+      ]
+      const result = applyProcedureSelection(untagged, null, altStar, null, { alternateArrival: true })
+      expect(result.map((w) => w.ident)).toEqual(['SID', 'ENR1', 'ENR2', 'ALTFIX', 'ALTFIX2'])
+    })
+
+    it('still drops the destination STAR when no alternate STAR is chosen yet', () => {
+      const result = applyProcedureSelection(baseWaypoints, null, null, altApproach, { alternateArrival: true })
+      expect(result.map((w) => w.ident)).toEqual(['SIMBRIEF_SID', 'ENR1', 'ENR2', 'ALTFAF'])
+    })
+
+    it('leaves the filed route alone when the flag is off', () => {
+      expect(applyProcedureSelection(baseWaypoints, null, null, null, { alternateArrival: false })).toEqual(baseWaypoints)
+    })
+  })
 })
 
 describe('approachRunway', () => {

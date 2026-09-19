@@ -430,6 +430,52 @@ describe('TrackingController', () => {
       expect(getFlight(db, newFlightId)?.actualOffUtc).not.toBeNull()
     })
 
+    describe('setDestination (v1.1.1)', () => {
+      function startFreeFlight(): { controller: TrackingController; id: number } {
+        sim.setLastTelemetry(telemetry({}))
+        const controller = new TrackingController(db, sim)
+        const id = controller.startFree({ aircraftId: freeAircraftId, depIcao: 'VHHH', arrIcao: 'ZZZZ', flightNumber: null })
+        return { controller, id }
+      }
+
+      it('sets the destination of the free flight being tracked, normalised, and clears it back to ZZZZ', () => {
+        const { controller, id } = startFreeFlight()
+        controller.setDestination(' vhhx ')
+        expect(getFlight(db, id)?.arrIcao).toBe('VHHX')
+        controller.setDestination(null)
+        expect(getFlight(db, id)?.arrIcao).toBe('ZZZZ')
+        controller.setDestination('')
+        expect(getFlight(db, id)?.arrIcao).toBe('ZZZZ')
+      })
+
+      it('rejects something that is not an airport code, leaving the flight untouched', () => {
+        const { controller, id } = startFreeFlight()
+        expect(() => controller.setDestination("X'; DROP TABLE flight;--")).toThrow('not a valid airport code')
+        expect(() => controller.setDestination('A')).toThrow('not a valid airport code')
+        expect(getFlight(db, id)?.arrIcao).toBe('ZZZZ')
+      })
+
+      it('refuses when nothing is being tracked, and for a planned (OFP) flight', () => {
+        expect(() => new TrackingController(db, sim).setDestination('VHHH')).toThrow('No flight is being tracked')
+
+        sim.setLastTelemetry(telemetry({}))
+        const controller = new TrackingController(db, sim)
+        controller.start(flightId) // a dispatched flight, not a free one
+        expect(() => controller.setDestination('VHHH')).toThrow('flight plan')
+      })
+
+      it('still lets the real touchdown decide the arrival afterwards', () => {
+        const { controller, id } = startFreeFlight()
+        controller.setDestination('EGKK') // planned, but the touchdown below is at Heathrow
+        const air = { engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 }
+        sim.emit('telemetry', telemetry({ engineCombustion1: true }))
+        sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 40 }))
+        for (let i = 0; i < 5; i++) sim.emit('telemetry', telemetry(air))
+        sim.emit('telemetry', telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 60, verticalSpeedMs: -1.5 }))
+        expect(getFlight(db, id)?.arrIcao).toBe('EGLL')
+      })
+    })
+
     it('leaves off-block time unset for a flight seeded on the ground, same as a normal dispatched start', () => {
       sim.setLastTelemetry(telemetry({ onGround: true, groundSpeedMs: 0 }))
       const controller = new TrackingController(db, sim)
@@ -808,7 +854,8 @@ describe('TrackingController', () => {
       starIdent: 'SIER7B',
       starTransition: null,
       approachIdent: 'ILS 07C',
-      approachTransition: 'LIMES'
+      approachTransition: 'LIMES',
+      arrivalIcao: 'EGKK'
     }
 
     it('writes the last-pushed selection into the flight row on finish()', () => {
@@ -824,6 +871,7 @@ describe('TrackingController', () => {
       expect(finished?.selectedSidTransition).toBe('CLEEE')
       expect(finished?.selectedStarIdent).toBe('SIER7B')
       expect(finished?.selectedStarTransition).toBeNull()
+      expect(finished?.selectedArrivalIcao).toBe('EGKK')
       expect(finished?.selectedApproachIdent).toBe('ILS 07C')
       expect(finished?.selectedApproachTransition).toBe('LIMES')
     })

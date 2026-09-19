@@ -158,6 +158,9 @@ export const flight = sqliteTable('flight', {
   selectedStarTransition: text('selected_star_transition'),
   selectedApproachIdent: text('selected_approach_ident'),
   selectedApproachTransition: text('selected_approach_transition'),
+  // The airport the selected STAR/approach belong to when the pilot switched the Procedures
+  // dialog to the alternate (a diversion); null = the filed destination (v1.1.1).
+  selectedArrivalIcao: text('selected_arrival_icao'),
   // Soft-delete tombstone — see aircraft.deletedAt's comment for why. deleteFlight cascades
   // this to the flight's own landing/flightInvoice rows too (track_point, never synced,
   // stays hard-deleted as before).

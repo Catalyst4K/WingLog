@@ -131,7 +131,8 @@ describe('flight repo', () => {
       starIdent: 'SIER7B',
       starTransition: 'WLKES',
       approachIdent: 'ILS 07C',
-      approachTransition: 'LIMES'
+      approachTransition: 'LIMES',
+      arrivalIcao: 'EGKK'
     })
 
     const updated = getFlight(db, created.id)
@@ -141,6 +142,7 @@ describe('flight repo', () => {
     expect(updated?.selectedStarTransition).toBe('WLKES')
     expect(updated?.selectedApproachIdent).toBe('ILS 07C')
     expect(updated?.selectedApproachTransition).toBe('LIMES')
+    expect(updated?.selectedArrivalIcao).toBe('EGKK')
   })
 
   it('lists newest first', () => {

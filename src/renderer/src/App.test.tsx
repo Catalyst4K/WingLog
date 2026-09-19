@@ -182,6 +182,7 @@ function makeFlight(overrides: Partial<Flight> = {}): Flight {
     selectedStarTransition: null,
     selectedApproachIdent: null,
     selectedApproachTransition: null,
+    selectedArrivalIcao: null,
     ...overrides
   }
 }
@@ -301,6 +302,7 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     trackingStop: vi.fn().mockResolvedValue(undefined),
     trackingFinish: vi.fn().mockResolvedValue(undefined),
     flightCancel: vi.fn().mockResolvedValue(undefined),
+    trackingSetDestination: vi.fn().mockResolvedValue(undefined),
     trackingSetProcedureSelection: vi.fn().mockResolvedValue(undefined),
     // LogbookView (lazy)
     logbookListCompletedFlights: vi.fn().mockResolvedValue([]),
@@ -529,7 +531,7 @@ describe('App', () => {
     render(<App />)
 
     expect(await screen.findByText('Continue this flight?')).toBeInTheDocument()
-    expect(screen.getByText(/flight #6 \(EGLL → KJFK\) already planned but not yet started/)).toBeInTheDocument()
+    expect(screen.getByText(/EGLL → KJFK already planned but not yet started/)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Discard flight' }))
     expect(winglog.trackingDiscardOrphaned).toHaveBeenCalledWith(6)

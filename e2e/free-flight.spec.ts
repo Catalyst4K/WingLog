@@ -67,6 +67,13 @@ test('starts a free flight from Track and finds it, completed, in the Logbook', 
     // Now actively tracking, with no planned flight ever having existed for it.
     await expect(window.getByText(/Phase:/)).toBeVisible()
 
+    // v1.1.1: a destination can be added after tracking has started (the dialog left it
+    // blank). Goes through the real IPC and DB, and the card reads it back.
+    await expect(window.getByText('Destination: Unknown')).toBeVisible()
+    await window.getByPlaceholder('Set destination').fill('VHHH')
+    await window.getByRole('button', { name: 'Set', exact: true }).click()
+    await expect(window.getByText('Destination: VHHH')).toBeVisible()
+
     // This fixture's capture ends parked but with the engine still running and the parking
     // brake never set (flight-replay.test.ts's own describe block has the same real-data
     // quirk) — shutdown detection never fires on its own, so a pilot presses "Finish & save"

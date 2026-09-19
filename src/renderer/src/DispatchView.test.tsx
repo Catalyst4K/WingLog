@@ -84,6 +84,7 @@ function makeFlight(overrides: Partial<Flight> = {}): Flight {
     selectedStarTransition: null,
     selectedApproachIdent: null,
     selectedApproachTransition: null,
+    selectedArrivalIcao: null,
     ...overrides
   }
 }
@@ -728,7 +729,7 @@ describe('DispatchView', () => {
       await user.click(screen.getByRole('button', { name: 'Fly' }))
 
       const dialog = await screen.findByRole('alertdialog')
-      expect(within(dialog).getByText('This will delete the flight currently being tracked, #5.')).toBeInTheDocument()
+      expect(within(dialog).getByText('This will delete the flight currently being tracked, EGLL → EDDF.')).toBeInTheDocument()
       await user.click(within(dialog).getByText('Back'))
 
       expect(window.winglog.flightCreate).not.toHaveBeenCalled()
@@ -754,7 +755,7 @@ describe('DispatchView', () => {
       await waitFor(() => expect(window.winglog.flightCreate).toHaveBeenCalled())
     })
 
-    it('warns about a single other planned flight, using its id when it has no flight number', async () => {
+    it('warns about a single other planned flight, naming it by route when it has no flight number', async () => {
       window.winglog = createWinglog({
         aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
         dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp({ matchedAircraftId: 1 })),
@@ -767,7 +768,7 @@ describe('DispatchView', () => {
 
       await user.click(screen.getByRole('button', { name: 'Fly' }))
       const dialog = await screen.findByRole('alertdialog')
-      expect(within(dialog).getByText('This will abandon the other planned flight, #7.')).toBeInTheDocument()
+      expect(within(dialog).getByText('This will abandon the other planned flight, EGLL → EDDF.')).toBeInTheDocument()
     })
 
     it('warns about a single other planned flight by flight number when it has one', async () => {

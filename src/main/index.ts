@@ -574,6 +574,10 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.trackingStop, () => trackingController.stop())
       ipcMain.handle(IpcChannels.trackingFinish, () => trackingController.finish())
       ipcMain.handle(IpcChannels.trackingGetActive, () => trackingController.getActive() ?? null)
+      ipcMain.handle(IpcChannels.trackingSetDestination, (_event, icao: unknown) => {
+        if (icao !== null && typeof icao !== 'string') throw new Error('Invalid destination')
+        trackingController.setDestination(icao)
+      })
       ipcMain.handle(IpcChannels.trackingSetProcedureSelection, (_event, selection: ProcedureSelection) =>
         trackingController.setProcedureSelection(selection)
       )

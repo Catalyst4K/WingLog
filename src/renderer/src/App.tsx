@@ -30,6 +30,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Toaster } from '@/components/ui/sonner'
 import { FleetView } from './FleetView'
+import { flightLabel } from './flight-label'
 import { emptyProcedureSelection, seedProcedureSelectionFromOfp, selectionFromFlight } from './procedureSelection'
 
 // Fleet is the default/first tab, so it's the one view kept eager — every other tab is
@@ -97,7 +98,7 @@ function connectionStatusVariant(status: SimConnectionStatus): 'default' | 'seco
  *  it), but the wording needs to say which one it actually is, not always claim tracking
  *  was interrupted when it may never have started. */
 function orphanedFlightCopy(flight: Flight): { title: string; description: string; confirmLabel: string } {
-  const label = flight.flightNumber ?? `flight #${flight.id} (${flight.depIcao} → ${flight.arrIcao})`
+  const label = flightLabel(flight)
   return flight.status === 'active'
     ? {
         title: 'Resume tracking?',

@@ -8,6 +8,9 @@ import { applyProcedureSelection, approachRunway, parseRouteProcedures, segmentW
 export interface ProcedureAirports {
   depIcao: string
   arrIcao: string
+  /** The plan's alternate, when there is one — the Procedures dialog can switch its arrival
+   *  dropdowns to it for a diversion (v1.1.1). */
+  altnIcao?: string | null
   ofpJson: string | null
 }
 
@@ -19,7 +22,8 @@ export function emptyProcedureSelection(): ProcedureSelection {
     starIdent: null,
     starTransition: null,
     approachIdent: null,
-    approachTransition: null
+    approachTransition: null,
+    arrivalIcao: null
   }
 }
 
@@ -35,7 +39,8 @@ export function seedProcedureSelectionFromOfp(ofpJson: string | null): Procedure
     starIdent: p.starIdent,
     starTransition: p.starTransition,
     approachIdent: null,
-    approachTransition: null
+    approachTransition: null,
+    arrivalIcao: null
   }
 }
 
@@ -53,6 +58,7 @@ export function selectionFromFlight(flight: {
   selectedStarTransition: string | null
   selectedApproachIdent: string | null
   selectedApproachTransition: string | null
+  selectedArrivalIcao?: string | null
 }): ProcedureSelection {
   return {
     departureRunway: flight.selectedDepartureRunway,
@@ -61,7 +67,8 @@ export function selectionFromFlight(flight: {
     starIdent: flight.selectedStarIdent,
     starTransition: flight.selectedStarTransition,
     approachIdent: flight.selectedApproachIdent,
-    approachTransition: flight.selectedApproachTransition
+    approachTransition: flight.selectedApproachTransition,
+    arrivalIcao: flight.selectedArrivalIcao ?? null
   }
 }
 
@@ -86,6 +93,12 @@ interface FetchedLegs {
 
 function legsKey(icao: string, kind: string, ident: string, runway: string | null, transition: string | null): string {
   return JSON.stringify([icao, kind, ident, runway, transition])
+}
+
+/** The airport the STAR/approach are for: the filed destination, or the alternate when the
+ *  pilot switched to it. */
+export function arrivalAirport(airports: ProcedureAirports, selection: ProcedureSelection): string {
+  return selection.arrivalIcao ?? airports.arrIcao
 }
 
 export function useLiveWaypoints(airports: ProcedureAirports | null, selection: ProcedureSelection): Waypoint[] {
@@ -130,10 +143,11 @@ export function useLiveWaypoints(airports: ProcedureAirports | null, selection: 
     // there's no separate arrival-runway selection any more, so the currently-chosen
     // approach's own runway (encoded in its identifier) is what filters this.
     const runway = approachRunway(selection.approachIdent)
+    const arrIcao = arrivalAirport(airports, selection)
     let ignore = false
-    const key = legsKey(airports.arrIcao, 'star', selection.starIdent, runway, selection.starTransition)
+    const key = legsKey(arrIcao, 'star', selection.starIdent, runway, selection.starTransition)
     window.winglog
-      .navdataGetProcedureWaypoints(airports.arrIcao, 'star', selection.starIdent, runway, selection.starTransition)
+      .navdataGetProcedureWaypoints(arrIcao, 'star', selection.starIdent, runway, selection.starTransition)
       .then((legs) => {
         if (!ignore) setStarLegs({ key, legs })
       })
@@ -143,14 +157,15 @@ export function useLiveWaypoints(airports: ProcedureAirports | null, selection: 
     return () => {
       ignore = true
     }
-  }, [airports, selection.starIdent, selection.starTransition, selection.approachIdent])
+  }, [airports, selection.starIdent, selection.starTransition, selection.approachIdent, selection.arrivalIcao])
 
   useEffect(() => {
     if (!airports || !selection.approachIdent) return
+    const arrIcao = arrivalAirport(airports, selection)
     let ignore = false
-    const key = legsKey(airports.arrIcao, 'approach', selection.approachIdent, null, selection.approachTransition)
+    const key = legsKey(arrIcao, 'approach', selection.approachIdent, null, selection.approachTransition)
     window.winglog
-      .navdataGetProcedureWaypoints(airports.arrIcao, 'approach', selection.approachIdent, null, selection.approachTransition)
+      .navdataGetProcedureWaypoints(arrIcao, 'approach', selection.approachIdent, null, selection.approachTransition)
       .then((legs) => {
         if (!ignore) setApproachLegs({ key, legs })
       })
@@ -160,7 +175,7 @@ export function useLiveWaypoints(airports: ProcedureAirports | null, selection: 
     return () => {
       ignore = true
     }
-  }, [airports, selection.approachIdent, selection.approachTransition])
+  }, [airports, selection.approachIdent, selection.approachTransition, selection.arrivalIcao])
 
   // Memoized so callers that key their own effects off this result (e.g. LogbookView's
   // great-circle-fallback check) see a stable reference across renders that don't actually
@@ -173,9 +188,10 @@ export function useLiveWaypoints(airports: ProcedureAirports | null, selection: 
       ? legsKey(airports.depIcao, 'sid', selection.sidIdent, selection.departureRunway, selection.sidTransition)
       : null
     const starRunway = approachRunway(selection.approachIdent)
-    const starKey = selection.starIdent ? legsKey(airports.arrIcao, 'star', selection.starIdent, starRunway, selection.starTransition) : null
+    const arrIcao = arrivalAirport(airports, selection)
+    const starKey = selection.starIdent ? legsKey(arrIcao, 'star', selection.starIdent, starRunway, selection.starTransition) : null
     const approachKey = selection.approachIdent
-      ? legsKey(airports.arrIcao, 'approach', selection.approachIdent, null, selection.approachTransition)
+      ? legsKey(arrIcao, 'approach', selection.approachIdent, null, selection.approachTransition)
       : null
 
     // `legs.length > 0`, not just the identifier being set, gates each splice — an
@@ -192,7 +208,9 @@ export function useLiveWaypoints(airports: ProcedureAirports | null, selection: 
       starKey && starLegs?.key === starKey && starLegs.legs.length > 0 ? { identifier: selection.starIdent!, legs: starLegs.legs } : null,
       approachKey && approachLegs?.key === approachKey && approachLegs.legs.length > 0
         ? { identifier: selection.approachIdent!, legs: approachLegs.legs }
-        : null
+        : null,
+      // Diverting: the filed destination's own STAR no longer applies.
+      { alternateArrival: arrIcao !== airports.arrIcao }
     )
   }, [
     airports,
@@ -203,6 +221,7 @@ export function useLiveWaypoints(airports: ProcedureAirports | null, selection: 
     selection.starTransition,
     selection.approachIdent,
     selection.approachTransition,
+    selection.arrivalIcao,
     sidLegs,
     starLegs,
     approachLegs

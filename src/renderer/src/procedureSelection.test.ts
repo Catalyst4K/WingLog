@@ -10,7 +10,8 @@ describe('emptyProcedureSelection', () => {
       starIdent: null,
       starTransition: null,
       approachIdent: null,
-      approachTransition: null
+      approachTransition: null,
+      arrivalIcao: null
     })
   })
 })
@@ -28,7 +29,8 @@ describe('seedProcedureSelectionFromOfp', () => {
       starIdent: 'PUCKY1',
       starTransition: 'WLKES',
       approachIdent: null,
-      approachTransition: null
+      approachTransition: null,
+      arrivalIcao: null
     })
   })
 
@@ -46,7 +48,8 @@ describe('selectionFromFlight', () => {
       selectedStarIdent: 'SIER7B',
       selectedStarTransition: null,
       selectedApproachIdent: 'ILS 07C',
-      selectedApproachTransition: 'LIMES'
+      selectedApproachTransition: 'LIMES',
+      selectedArrivalIcao: 'EGKK'
     }
     expect(selectionFromFlight(flight)).toEqual({
       departureRunway: '27R',
@@ -55,7 +58,22 @@ describe('selectionFromFlight', () => {
       starIdent: 'SIER7B',
       starTransition: null,
       approachIdent: 'ILS 07C',
-      approachTransition: 'LIMES'
+      approachTransition: 'LIMES',
+      arrivalIcao: 'EGKK'
     })
+  })
+
+  it('reads a pre-1.1.1 flight (no arrival airport recorded) as the filed destination', () => {
+    expect(
+      selectionFromFlight({
+        selectedDepartureRunway: null,
+        selectedSidIdent: null,
+        selectedSidTransition: null,
+        selectedStarIdent: null,
+        selectedStarTransition: null,
+        selectedApproachIdent: null,
+        selectedApproachTransition: null
+      }).arrivalIcao
+    ).toBeNull()
   })
 })

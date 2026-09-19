@@ -531,6 +531,9 @@ export interface Flight {
   selectedStarTransition: string | null
   selectedApproachIdent: string | null
   selectedApproachTransition: string | null
+  /** The airport the selected STAR/approach are for — the alternate when the pilot switched the
+   *  Procedures dialog to it; null = the filed destination. */
+  selectedArrivalIcao: string | null
 }
 
 /**
@@ -557,6 +560,9 @@ export interface ProcedureSelection {
    *  VHHH's "LIMES"), auto-connected from the current STAR's last waypoint when one
    *  matches, but always independently overridable. */
   approachTransition: string | null
+  /** Which airport the STAR/approach dropdowns are for: `null` = the filed destination, or the
+   *  alternate's ICAO when the pilot switched to it for a diversion (v1.1.1). */
+  arrivalIcao: string | null
 }
 
 /** Logbook's summary stats above the flight table — see flight-repo.ts's getLogbookStats.
@@ -681,6 +687,7 @@ export interface NewFlight {
   selectedStarTransition?: string | null
   selectedApproachIdent?: string | null
   selectedApproachTransition?: string | null
+  selectedArrivalIcao?: string | null
 }
 
 export interface DispatchWaypoint {
@@ -984,6 +991,7 @@ export const IpcChannels = {
   navdataListApproaches: 'navdata:list-approaches',
   navdataGetProcedureWaypoints: 'navdata:get-procedure-waypoints',
   trackingSetProcedureSelection: 'tracking:set-procedure-selection',
+  trackingSetDestination: 'tracking:set-destination',
   trackingGetOrphanedFlight: 'tracking:get-orphaned-flight',
   trackingResumeOrphaned: 'tracking:resume-orphaned',
   trackingDiscardOrphaned: 'tracking:discard-orphaned',
@@ -1290,6 +1298,10 @@ export interface WingLogApi {
    *  while a flight is actively being tracked; a no-op call with nothing tracked is
    *  harmless (TrackingController just caches it for the flight that starts next). */
   trackingSetProcedureSelection: (selection: ProcedureSelection) => Promise<void>
+  /** Sets (or, with null/blank, clears) the destination of the free flight being tracked —
+   *  the start dialog's Destination is optional, and this is how one is added afterwards. A
+   *  plan, not a promise: the real touchdown still resolves the actual arrival. */
+  trackingSetDestination: (icao: string | null) => Promise<void>
   /** The flight left 'active' if the app quit or crashed before it reached 'completed' or
    *  'abandoned' — checked once at startup (main/index.ts), so this only ever returns
    *  non-null until the user answers the resume/discard prompt it's meant to drive (or
