@@ -54,15 +54,19 @@ in a local SQLite database on your own machine. No account, no cloud, no subscri
 - **Track** — live position, altitude, speed and phase-of-flight, read straight from
   SimConnect and drawn on a real-time map as you fly. Automatically detects takeoff,
   landing and taxi-in — most flights need no manual "start tracking" at all. Survives a
-  WingLog restart mid-flight.
+  WingLog restart mid-flight. No flight plan? **Free flight** tracks anything you fly —
+  aircraft optional, departure and destination fill in as you go — with METARs one click
+  away, and an optional VFR overlay (airfields, range rings, recent track).
 - **Logbook** — every completed flight, with block/air time, fuel burn, a flown-route map,
   altitude/speed charts, and a real landing report: touchdown rate, G-force, pitch, bank,
   crosswind, centreline offset, distance from threshold, and a 0–100 landing score with a
-  category-by-category breakdown.
+  category-by-category breakdown. Circuits and touch-and-goes get a landing each, and a
+  field missing from the built-in airport list (a scenery add-on, or a closed airport like
+  Kai Tak) is resolved from the sim itself.
 - **GSX ground-service tracking** — automatically finds GSX Pro's receipts and attaches
   catering/fuel/handling costs to the matching flight in your Logbook.
-- **Import/export** — bring in an existing fleet or logbook (CSV), export your data back
-  out. Your database, not a lock-in.
+- **Import/export** — bring in an existing fleet (CSV) or logbook (CSV/JSON), export your
+  data back out. Your database, not a lock-in.
 - **Runs entirely on your machine.** No account, no server, no telemetry. The only network
   call WingLog ever makes on your behalf is to SimBrief, to generate the OFP you asked
   for.
