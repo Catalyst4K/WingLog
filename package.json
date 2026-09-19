@@ -1,6 +1,6 @@
 {
   "name": "winglog",
-  "version": "1.0.0-beta.1",
+  "version": "1.1.0",
   "description": "Local-first fleet, dispatch, tracking and logbook companion for MSFS 2024.",
   "private": true,
   "author": "Callum Jones",
