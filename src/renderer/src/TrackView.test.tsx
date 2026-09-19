@@ -256,6 +256,8 @@ function buildWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     trackingFinish: vi.fn().mockResolvedValue(undefined),
     flightCancel: vi.fn().mockResolvedValue(undefined),
     trackingSetDestination: vi.fn().mockResolvedValue(undefined),
+    trackingSetDeparture: vi.fn().mockResolvedValue(undefined),
+    weatherGetMetars: vi.fn().mockResolvedValue([]),
     trackingSetProcedureSelection: vi.fn().mockResolvedValue(undefined),
     navdataRefreshAirport: vi.fn().mockResolvedValue(undefined),
     navdataListRunways: vi.fn().mockResolvedValue([]),
@@ -344,6 +346,11 @@ describe('TrackView', () => {
   })
 
   describe('free-flight destination while tracking (v1.1.1)', () => {
+    /** The airport box in the "Departure" / "Destination" row of the free-flight card. */
+    function boxFor(label: 'Departure' | 'Destination'): HTMLInputElement {
+      return screen.getByText(label).closest('div')!.querySelector('input')!
+    }
+
     function activeFree(overrides: Partial<Flight> = {}): Flight {
       return makeFlight({
         id: 5,
@@ -374,15 +381,15 @@ describe('TrackView', () => {
       const user = userEvent.setup()
       renderTrack()
 
-      expect(await screen.findByText('Destination: Unknown')).toBeInTheDocument()
-      const setButton = screen.getByRole('button', { name: 'Set' })
-      expect(setButton).toBeDisabled()
-      await user.type(screen.getByPlaceholderText('Set destination'), 'vhhx')
-      await user.click(setButton)
+      await screen.findByText('Destination')
+      expect(boxFor('Destination')).toHaveValue('')
+      expect(screen.queryByRole('button', { name: 'Set destination' })).not.toBeInTheDocument() // nothing typed yet
+      await user.type(boxFor('Destination'), 'vhhx')
+      await user.click(screen.getByRole('button', { name: 'Set destination' }))
 
       await waitFor(() => expect(trackingSetDestination).toHaveBeenCalledWith('VHHX'))
-      expect(await screen.findByText('Destination: VHHX')).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Clear' })).toBeInTheDocument()
+      await waitFor(() => expect(boxFor('Destination')).toHaveValue('VHHX'))
+      expect(screen.getByRole('button', { name: 'Clear destination' })).toBeInTheDocument()
     })
 
     it('clears an existing destination with null', async () => {
@@ -395,7 +402,7 @@ describe('TrackView', () => {
       })
       const user = userEvent.setup()
       renderTrack()
-      await user.click(await screen.findByRole('button', { name: 'Clear' }))
+      await user.click(await screen.findByRole('button', { name: 'Clear destination' }))
       await waitFor(() => expect(trackingSetDestination).toHaveBeenCalledWith(null))
     })
 
@@ -409,8 +416,9 @@ describe('TrackView', () => {
       })
       const user = userEvent.setup()
       const view = renderTrack()
-      await user.type(await screen.findByPlaceholderText('Set destination'), 'EGLL')
-      await user.click(screen.getByRole('button', { name: 'Set' }))
+      await screen.findByText('Destination')
+      await user.type(boxFor('Destination'), 'EGLL')
+      await user.click(screen.getByRole('button', { name: 'Set destination' }))
       await waitFor(() => expect(trackingSetDestination).toHaveBeenCalled())
       view.unmount()
 
@@ -421,7 +429,50 @@ describe('TrackView', () => {
       })
       renderTrack()
       await screen.findByText('Phase:')
-      expect(screen.queryByPlaceholderText('Set destination')).not.toBeInTheDocument()
+      expect(screen.queryByText('Destination')).not.toBeInTheDocument()
+    })
+
+    it('sets the departure the same way, and both feed the Weather dialog (Dep / Dest tabs) apart from Custom', async () => {
+      const trackingSetDeparture = vi.fn().mockResolvedValue(undefined)
+      const weatherGetMetars = vi.fn().mockResolvedValue([])
+      const flightList = vi
+        .fn()
+        .mockResolvedValueOnce([activeFree({ depIcao: 'ZZZZ', arrIcao: 'VHHX' })])
+        .mockResolvedValue([activeFree({ depIcao: 'VHHH', arrIcao: 'VHHX' })])
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([]),
+        flightList,
+        trackingSetDeparture,
+        weatherGetMetars,
+        trackingGetActive: vi.fn().mockResolvedValue({ flightId: 5, phase: 'cruise' })
+      })
+      const user = userEvent.setup()
+      renderTrack()
+
+      await screen.findByText('Departure')
+      expect(boxFor('Departure')).toHaveValue('')
+      await user.type(boxFor('Departure'), 'vhhh')
+      await user.click(screen.getByRole('button', { name: 'Set departure' }))
+      await waitFor(() => expect(trackingSetDeparture).toHaveBeenCalledWith('VHHH'))
+      await waitFor(() => expect(boxFor('Departure')).toHaveValue('VHHH'))
+
+      await user.click(screen.getByRole('button', { name: 'Weather…' }))
+      await waitFor(() => expect(weatherGetMetars).toHaveBeenCalledWith(expect.arrayContaining(['VHHH', 'VHHX'])))
+      expect(screen.getByRole('tab', { name: 'Dep' })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: 'Dest' })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: 'Custom' })).toBeInTheDocument()
+    })
+
+    it('offers the Weather dialog (Custom still usable) even before any airport is known', async () => {
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([]),
+        flightList: vi.fn().mockResolvedValue([activeFree({ depIcao: 'ZZZZ', arrIcao: 'ZZZZ' })]),
+        trackingGetActive: vi.fn().mockResolvedValue({ flightId: 5, phase: 'cruise' })
+      })
+      const user = userEvent.setup()
+      renderTrack()
+      await user.click(await screen.findByRole('button', { name: 'Weather…' }))
+      expect(await screen.findByRole('tab', { name: 'Custom' })).toBeInTheDocument()
     })
 
     it('hides the Procedures button while neither airport is known', async () => {
@@ -431,7 +482,7 @@ describe('TrackView', () => {
         trackingGetActive: vi.fn().mockResolvedValue({ flightId: 5, phase: 'cruise' })
       })
       renderTrack()
-      await screen.findByText('Destination: Unknown')
+      await screen.findByText('Destination')
       expect(screen.queryByRole('button', { name: 'Procedures…' })).not.toBeInTheDocument()
     })
   })

@@ -430,6 +430,35 @@ describe('TrackingController', () => {
       expect(getFlight(db, newFlightId)?.actualOffUtc).not.toBeNull()
     })
 
+    describe('setDeparture (v1.1.2)', () => {
+      function startFreeFlight(): { controller: TrackingController; id: number } {
+        sim.setLastTelemetry(telemetry({}))
+        const controller = new TrackingController(db, sim)
+        const id = controller.startFree({ aircraftId: freeAircraftId, depIcao: 'ZZZZ', arrIcao: 'ZZZZ', flightNumber: null })
+        return { controller, id }
+      }
+
+      it('sets, normalises and clears the departure of the free flight being tracked', () => {
+        const { controller, id } = startFreeFlight()
+        controller.setDeparture(' vhhh ')
+        expect(getFlight(db, id)?.depIcao).toBe('VHHH')
+        controller.setDeparture(null)
+        expect(getFlight(db, id)?.depIcao).toBe('ZZZZ')
+      })
+
+      it('rejects a bad code, and refuses with nothing tracked or for a planned flight', () => {
+        const { controller, id } = startFreeFlight()
+        expect(() => controller.setDeparture('nope!')).toThrow('not a valid airport code')
+        expect(getFlight(db, id)?.depIcao).toBe('ZZZZ')
+        expect(() => new TrackingController(db, sim).setDeparture('VHHH')).toThrow('No flight is being tracked')
+        controller.stop()
+        sim.setLastTelemetry(telemetry({}))
+        const planned = new TrackingController(db, sim)
+        planned.start(flightId)
+        expect(() => planned.setDeparture('VHHH')).toThrow('flight plan')
+      })
+    })
+
     describe('setDestination (v1.1.1)', () => {
       function startFreeFlight(): { controller: TrackingController; id: number } {
         sim.setLastTelemetry(telemetry({}))

@@ -578,6 +578,10 @@ if (!gotSingleInstanceLock) {
         if (icao !== null && typeof icao !== 'string') throw new Error('Invalid destination')
         trackingController.setDestination(icao)
       })
+      ipcMain.handle(IpcChannels.trackingSetDeparture, (_event, icao: unknown) => {
+        if (icao !== null && typeof icao !== 'string') throw new Error('Invalid departure')
+        trackingController.setDeparture(icao)
+      })
       ipcMain.handle(IpcChannels.trackingSetProcedureSelection, (_event, selection: ProcedureSelection) =>
         trackingController.setProcedureSelection(selection)
       )

@@ -164,6 +164,7 @@ const api: WingLogApi = {
   trackingSetProcedureSelection: (selection: ProcedureSelection) =>
     ipcRenderer.invoke(IpcChannels.trackingSetProcedureSelection, selection),
   trackingSetDestination: (icao: string | null) => ipcRenderer.invoke(IpcChannels.trackingSetDestination, icao),
+  trackingSetDeparture: (icao: string | null) => ipcRenderer.invoke(IpcChannels.trackingSetDeparture, icao),
   trackingGetOrphanedFlight: () => ipcRenderer.invoke(IpcChannels.trackingGetOrphanedFlight),
   trackingResumeOrphaned: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingResumeOrphaned, flightId),
   trackingDiscardOrphaned: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingDiscardOrphaned, flightId)

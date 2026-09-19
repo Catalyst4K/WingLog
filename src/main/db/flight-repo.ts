@@ -208,6 +208,11 @@ export function setArrIcao(db: WingLogDb, id: number, arrIcao: string): void {
   db.update(flight).set({ arrIcao, updatedAt: new Date().toISOString() }).where(eq(flight.id, id)).run()
 }
 
+/** A free flight's departure, set by the pilot after tracking has started (v1.1.2). */
+export function setDepIcao(db: WingLogDb, id: number, depIcao: string): void {
+  db.update(flight).set({ depIcao, updatedAt: new Date().toISOString() }).where(eq(flight.id, id)).run()
+}
+
 /**
  * Links a fleet aircraft to a flight that was tracked as a free flight with no aircraft at
  * all — Callum's follow-up call on free-flight-tracking.md: adding to the fleet doesn't have
