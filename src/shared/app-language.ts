@@ -1,5 +1,9 @@
 // Resolves AppLanguage's 'system' value to an actual language i18next can load — pure
-// logic, testable without a live Electron/OS locale (docs/plans/v1-2.md Part 3).
+// logic, testable without a live Electron/OS locale (docs/plans/v1-2.md Part 3). Lives in
+// src/shared rather than src/renderer since both the renderer's own i18next instance
+// (i18n.ts) and the main process's (src/main/i18n.ts, main-process strings) need it — main
+// already reads the persisted AppLanguage setting directly (settings-repo.ts's
+// getAppLanguage) and calls app.getLocale() itself, with no IPC round-trip either way.
 import type { AppLanguage } from '@shared/ipc'
 
 /** Every language this app actually has a catalogue for, English included — the set

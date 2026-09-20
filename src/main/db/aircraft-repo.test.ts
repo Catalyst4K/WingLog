@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { eq } from 'drizzle-orm'
+import { setMainLanguage } from '../i18n'
 import { createDb, type WingLogDb } from './client'
 import { aircraft as aircraftTable, flight } from './schema'
 import {
@@ -22,6 +23,10 @@ describe('aircraft repo', () => {
     const created = createDb(':memory:')
     migrate(created.db, { migrationsFolder: 'drizzle' })
     db = created.db
+  })
+
+  afterEach(() => {
+    setMainLanguage('en', 'en-US')
   })
 
   it('starts empty', () => {
@@ -229,6 +234,13 @@ describe('aircraft repo', () => {
       expect(() => unretireAircraft(db, 999)).toThrow('Aircraft 999 not found')
       // Its flights already moved to the replacement — reactivating it would be an empty duplicate.
       expect(() => unretireAircraft(db, old.id)).toThrow("G-GONE was replaced and can't be un-retired")
+    })
+
+    it('throws these business-rule messages in the active main-process language, not always English', () => {
+      setMainLanguage('de', 'en-US')
+      const a = createAircraft(db, { registration: 'G-ONE', icaoType: 'A320' })
+      retireAircraft(db, a.id)
+      expect(() => retireAircraft(db, a.id)).toThrow('G-ONE ist bereits ausgemustert')
     })
   })
 })

@@ -6,6 +6,7 @@
  * respectively; this class is just the glue plus in-memory status for the UI to poll.
  */
 import type { SyncStatus } from '@shared/ipc'
+import { t } from '../i18n'
 import {
   login as backendLogin,
   logout as backendLogout,
@@ -73,7 +74,7 @@ export class CloudSyncController {
   }
 
   async syncNow(): Promise<SyncStatus> {
-    if (!this.session) throw new Error('Not logged in')
+    if (!this.session) throw new Error(t('errors.notLoggedIn'))
     if (this.syncing) return this.getStatus() // already running — don't overlap two syncs
     this.syncing = true
     try {

@@ -1,0 +1,49 @@
+{
+  "dialogs": {
+    "exportFleet": "Exportar flota",
+    "importFleet": "Importar flota",
+    "exportLogbook": "Exportar Logbook",
+    "importLogbookCsv": "Importar CSV de Logbook",
+    "importLogbookJson": "Importar JSON de Logbook",
+    "gsxReceiptsFolder": "Carpeta de recibos de GSX"
+  },
+  "startupFailed": "WingLog no se pudo iniciar",
+  "errors": {
+    "aircraftHasFlights": "Esta aeronave todavía tiene vuelos — reemplácela en su lugar, o elimine primero sus vuelos",
+    "aircraftCannotReplaceSelf": "Una aeronave no puede reemplazarse a sí misma",
+    "aircraftAlreadyReplaced": "{{registration}} ya ha sido reemplazada",
+    "aircraftAlreadyRetired": "{{registration}} ya está retirada",
+    "aircraftReplacedCannotUnretire": "{{registration}} fue reemplazada y no se puede reactivar",
+    "aircraftNotRetired": "{{registration}} no está retirada",
+    "expectedAnObject": "Se esperaba un objeto",
+    "fieldRequired": "\"{{field}}\" es obligatorio",
+    "fieldMustBeString": "\"{{field}}\" debe ser una cadena de texto",
+    "fleetExportTooLarge": "Ese archivo es demasiado grande para ser una exportación de flota",
+    "csvFileEmpty": "El archivo CSV está vacío",
+    "registrationAlreadyExists": "la matrícula ya existe",
+    "alreadyImported": "ya importado",
+    "logbookExportTooLarge": "Ese archivo es demasiado grande para ser una exportación de Logbook",
+    "missingOrMalformedField": "campo obligatorio ausente o mal formado",
+    "inBlockBeforeOutBlock": "La hora de bloque de llegada es anterior a la de salida",
+    "expectedJsonArrayOfFlights": "Se esperaba un array JSON de vuelos",
+    "invalidAircraftId": "ID de aeronave no válido",
+    "setSimbriefUsernameFirst": "Configure primero su nombre de usuario de SimBrief",
+    "noNewPlanGenerated": "No se generó ningún plan nuevo — puede que la ventana se cerrara antes de terminar",
+    "registrationAndTypeRequired": "La matrícula y el tipo son obligatorios si no se añade a la flota.",
+    "invalidDestination": "Destino no válido",
+    "invalidDeparture": "Origen no válido",
+    "flightAlreadyHasLinkedAircraft": "El vuelo {{flightId}} ya tiene una aeronave vinculada",
+    "aircraftNotFoundOrRetired": "Aeronave {{id}} no encontrada o retirada",
+    "notConnectedToSim": "No conectado al simulador",
+    "plannedFlightDestinationFromPlan": "El destino de un vuelo planificado proviene de su plan de vuelo",
+    "plannedFlightDepartureFromPlan": "El origen de un vuelo planificado proviene de su plan de vuelo",
+    "notValidAirportCode": "Ese no es un código de aeropuerto válido",
+    "noFlightBeingTracked": "No se está registrando ningún vuelo",
+    "credentialEncryptionUnavailable": "El cifrado de credenciales a nivel del sistema operativo no está disponible en este equipo",
+    "notLoggedIn": "No has iniciado sesión"
+  },
+  "labels": {
+    "unknownRegistration": "(desconocida)",
+    "unreadableRow": "(fila ilegible)"
+  }
+}

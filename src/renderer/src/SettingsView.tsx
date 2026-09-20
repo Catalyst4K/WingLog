@@ -17,7 +17,7 @@ import type {
   WeightUnit,
   WindSpeedUnit
 } from '@shared/ipc'
-import { APP_LANGUAGE_OPTIONS } from './app-language'
+import { APP_LANGUAGE_OPTIONS } from '@shared/app-language'
 import { MAP_LANGUAGES } from './map-labels'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

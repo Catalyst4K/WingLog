@@ -1,4 +1,5 @@
 import type { Aircraft, DataFormat, NewAircraft } from '@shared/ipc'
+import { t } from '../i18n'
 import { parseCsvRows, toCsv } from './csv'
 
 /** The fields a fleet export carries — NewAircraft's identity subset. id/createdAt are
@@ -47,7 +48,7 @@ export function parseAircraftRecords(text: string, format: DataFormat): unknown[
     return Array.isArray(parsed) ? parsed : [parsed]
   }
   const [header, ...rows] = parseCsvRows(text)
-  if (!header) throw new Error('The CSV file is empty')
+  if (!header) throw new Error(t('errors.csvFileEmpty'))
   return rows.map((row) => {
     const record: Record<string, string> = {}
     header.forEach((name, i) => {

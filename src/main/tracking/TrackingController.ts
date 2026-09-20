@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events'
 import type { ActiveTracking, FlightPhase, ProcedureSelection, SimTelemetry, TrackPoint } from '@shared/ipc'
+import { t } from '../i18n'
 import { nearestAirport } from '../airports/airport-search'
 import type { WingLogDb } from '../db/client'
 import { addInvoicesForFlight } from '../db/flight-invoice-repo'
@@ -326,7 +327,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     if (!getFlight(this.db, flightId)) throw new Error(`Flight ${flightId} not found`)
 
     const telemetry = this.simConnectService.getLastTelemetry()
-    if (!telemetry) throw new Error('Not connected to the sim')
+    if (!telemetry) throw new Error(t('errors.notConnectedToSim'))
 
     startFlight(this.db, flightId, telemetry.fuelTotalKg)
     this.recorder = new FlightRecorder(flightId)
@@ -379,7 +380,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     }
 
     const telemetry = this.simConnectService.getLastTelemetry()
-    if (!telemetry) throw new Error('Not connected to the sim')
+    if (!telemetry) throw new Error(t('errors.notConnectedToSim'))
 
     const flight = createFreeFlight(this.db, {
       aircraftId: input.aircraftId,
@@ -498,20 +499,20 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
    * entered here.
    */
   setDestination(icao: string | null): void {
-    if (!this.recorder) throw new Error('No flight is being tracked')
-    if (!this.isFreeFlight) throw new Error("A planned flight's destination comes from its flight plan")
+    if (!this.recorder) throw new Error(t('errors.noFlightBeingTracked'))
+    if (!this.isFreeFlight) throw new Error(t('errors.plannedFlightDestinationFromPlan'))
     const normalized = icao?.trim().toUpperCase() || 'ZZZZ'
-    if (!/^[A-Z0-9]{2,5}$/.test(normalized)) throw new Error('That is not a valid airport code')
+    if (!/^[A-Z0-9]{2,5}$/.test(normalized)) throw new Error(t('errors.notValidAirportCode'))
     setArrIcao(this.db, this.recorder.getFlightId(), normalized)
   }
 
   /** Sets the departure of the free flight being tracked (blank/null = "not set", ZZZZ) —
    *  the start dialog leaves it optional, and the Weather dialog reads it. */
   setDeparture(icao: string | null): void {
-    if (!this.recorder) throw new Error('No flight is being tracked')
-    if (!this.isFreeFlight) throw new Error("A planned flight's departure comes from its flight plan")
+    if (!this.recorder) throw new Error(t('errors.noFlightBeingTracked'))
+    if (!this.isFreeFlight) throw new Error(t('errors.plannedFlightDepartureFromPlan'))
     const normalized = icao?.trim().toUpperCase() || 'ZZZZ'
-    if (!/^[A-Z0-9]{2,5}$/.test(normalized)) throw new Error('That is not a valid airport code')
+    if (!/^[A-Z0-9]{2,5}$/.test(normalized)) throw new Error(t('errors.notValidAirportCode'))
     setDepIcao(this.db, this.recorder.getFlightId(), normalized)
   }
 

@@ -1,6 +1,7 @@
 import { writeFile } from 'node:fs/promises'
 import { dialog, type BrowserWindow } from 'electron'
 import type { AircraftImportSummary, DataFormat } from '@shared/ipc'
+import { t } from '../i18n'
 import { createAircraft, getAircraftByRegistration, listAircraft } from './aircraft-repo'
 import { parseAircraftRecords, serializeAircraft, toAircraftExportRecord } from './aircraft-portable'
 import { parseAircraftInput } from './aircraft-validation'
@@ -13,7 +14,7 @@ export async function exportAircraft(
   format: DataFormat = 'json'
 ): Promise<boolean> {
   const { canceled, filePath } = await dialog.showSaveDialog(window, {
-    title: 'Export fleet',
+    title: t('dialogs.exportFleet'),
     defaultPath: `winglog-fleet.${format}`,
     filters: [{ name: format.toUpperCase(), extensions: [format] }]
   })
@@ -30,14 +31,14 @@ export async function importAircraft(
   format: DataFormat = 'json'
 ): Promise<AircraftImportSummary | null> {
   const { canceled, filePaths } = await dialog.showOpenDialog(window, {
-    title: 'Import fleet',
+    title: t('dialogs.importFleet'),
     filters: [{ name: format.toUpperCase(), extensions: [format] }],
     properties: ['openFile']
   })
   if (canceled || filePaths.length === 0) return null
 
   const path = filePaths[0]
-  const records = parseAircraftRecords(await readImportFile(path, 'That file is too large to be a fleet export'), format)
+  const records = parseAircraftRecords(await readImportFile(path, t('errors.fleetExportTooLarge')), format)
 
   const summary: AircraftImportSummary = { imported: 0, skipped: [] }
   for (const record of records) {
@@ -48,14 +49,14 @@ export async function importAircraft(
       typeof (record as { registration?: unknown }).registration === 'string' &&
       (record as { registration: string }).registration.trim() !== ''
         ? (record as { registration: string }).registration
-        : '(unknown)'
+        : t('labels.unknownRegistration')
 
     if ('error' in result) {
       summary.skipped.push({ registration, reason: result.error })
       continue
     }
     if (getAircraftByRegistration(db, result.data.registration)) {
-      summary.skipped.push({ registration: result.data.registration, reason: 'registration already exists' })
+      summary.skipped.push({ registration: result.data.registration, reason: t('errors.registrationAlreadyExists') })
       continue
     }
     createAircraft(db, result.data)

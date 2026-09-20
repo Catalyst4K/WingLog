@@ -18,7 +18,7 @@ import type {
   WeightUnit,
   WindSpeedUnit
 } from '@shared/ipc'
-import { resolveAppLanguage } from './app-language'
+import { resolveAppLanguage } from '@shared/app-language'
 import i18n from './i18n'
 import {
   AlertDialog,

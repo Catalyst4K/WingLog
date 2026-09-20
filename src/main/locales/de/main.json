@@ -1,0 +1,49 @@
+{
+  "dialogs": {
+    "exportFleet": "Flotte exportieren",
+    "importFleet": "Flotte importieren",
+    "exportLogbook": "Logbuch exportieren",
+    "importLogbookCsv": "Logbuch-CSV importieren",
+    "importLogbookJson": "Logbuch-JSON importieren",
+    "gsxReceiptsFolder": "GSX-Belegordner"
+  },
+  "startupFailed": "WingLog konnte nicht gestartet werden",
+  "errors": {
+    "aircraftHasFlights": "Dieses Flugzeug hat noch Flüge — ersetzen Sie es stattdessen, oder löschen Sie zuerst seine Flüge",
+    "aircraftCannotReplaceSelf": "Ein Flugzeug kann sich nicht selbst ersetzen",
+    "aircraftAlreadyReplaced": "{{registration}} wurde bereits ersetzt",
+    "aircraftAlreadyRetired": "{{registration}} ist bereits ausgemustert",
+    "aircraftReplacedCannotUnretire": "{{registration}} wurde ersetzt und kann nicht reaktiviert werden",
+    "aircraftNotRetired": "{{registration}} ist nicht ausgemustert",
+    "expectedAnObject": "Ein Objekt wurde erwartet",
+    "fieldRequired": "\"{{field}}\" ist erforderlich",
+    "fieldMustBeString": "\"{{field}}\" muss eine Zeichenfolge sein",
+    "fleetExportTooLarge": "Diese Datei ist zu groß, um ein Flotten-Export zu sein",
+    "csvFileEmpty": "Die CSV-Datei ist leer",
+    "registrationAlreadyExists": "Kennzeichen existiert bereits",
+    "alreadyImported": "bereits importiert",
+    "logbookExportTooLarge": "Diese Datei ist zu groß, um ein Logbuch-Export zu sein",
+    "missingOrMalformedField": "fehlendes oder fehlerhaftes Pflichtfeld",
+    "inBlockBeforeOutBlock": "Die Ankunfts-Blockzeit liegt vor der Abflug-Blockzeit",
+    "expectedJsonArrayOfFlights": "Ein JSON-Array von Flügen wurde erwartet",
+    "invalidAircraftId": "Ungültige Flugzeug-ID",
+    "setSimbriefUsernameFirst": "Legen Sie zuerst Ihren SimBrief-Benutzernamen fest",
+    "noNewPlanGenerated": "Es wurde kein neuer Plan erstellt — möglicherweise wurde das Fenster vor Abschluss geschlossen",
+    "registrationAndTypeRequired": "Kennzeichen und Typ sind erforderlich, wenn das Flugzeug nicht zur Flotte hinzugefügt wird.",
+    "invalidDestination": "Ungültiges Ziel",
+    "invalidDeparture": "Ungültiger Abflugort",
+    "flightAlreadyHasLinkedAircraft": "Flug {{flightId}} hat bereits ein verknüpftes Flugzeug",
+    "aircraftNotFoundOrRetired": "Flugzeug {{id}} nicht gefunden oder ausgemustert",
+    "notConnectedToSim": "Nicht mit dem Simulator verbunden",
+    "plannedFlightDestinationFromPlan": "Das Ziel eines geplanten Flugs stammt aus seinem Flugplan",
+    "plannedFlightDepartureFromPlan": "Der Abflugort eines geplanten Flugs stammt aus seinem Flugplan",
+    "notValidAirportCode": "Das ist kein gültiger Flughafencode",
+    "noFlightBeingTracked": "Es wird kein Flug aufgezeichnet",
+    "credentialEncryptionUnavailable": "Betriebssystemseitige Anmeldedatenverschlüsselung ist auf diesem Gerät nicht verfügbar",
+    "notLoggedIn": "Nicht angemeldet"
+  },
+  "labels": {
+    "unknownRegistration": "(unbekannt)",
+    "unreadableRow": "(unlesbare Zeile)"
+  }
+}
