@@ -192,5 +192,95 @@
       "found": "Отслеживание наземного обслуживания GSX включено — папка с чеками найдена автоматически.",
       "notFound": "Отслеживание наземного обслуживания GSX выключено — включите его в настройках, если вы используете GSX."
     }
+  },
+  "fleetView": {
+    "title": "Флот",
+    "newAircraft": "Новое воздушное судно",
+    "editAircraft": "Редактировать {{registration}}",
+    "aircraftNotFound": "Воздушное судно не найдено.",
+    "noActiveAircraft": "Нет активных воздушных судов — добавьте одно или импортируйте флот через Настройки → Данные.",
+    "activeTab": "Активные ({{count}})",
+    "retiredTab": "Списанные ({{count}})",
+    "retiredStatus": "Списан{{date}}",
+    "replacedBy": "Заменён на {{registration}}",
+    "replacedByUnknown": "Заменён на #{{id}}",
+    "sortColumns": {
+      "registration": "Регистрация",
+      "type": "Тип",
+      "airline": "Авиакомпания",
+      "location": "Местоположение",
+      "hours": "Часы",
+      "flights": "Рейсы"
+    },
+    "retiredTable": {
+      "registration": "Регистрация",
+      "type": "Тип",
+      "status": "Статус"
+    },
+    "simbriefProfile": {
+      "cardTitle": "Профиль SimBrief",
+      "custom": "Пользовательский —",
+      "openInSimBrief": "Открыть в SimBrief",
+      "usingDefault": "Используется профиль SimBrief по умолчанию:",
+      "noProfile": "Профиль не задан — планы используют собственный профиль SimBrief по умолчанию для {{icaoType}}, что обычно достаточно точно, но может отличаться по весам (а значит, и по топливу)."
+    },
+    "landingHistory": {
+      "cardTitle": "История посадок",
+      "empty": "Посадок пока не зафиксировано.",
+      "crosswind": "{{kt}} уз бокового ветра"
+    },
+    "flights": {
+      "cardTitle": "Рейсы",
+      "empty": "Завершённых рейсов пока нет."
+    },
+    "replaceDialog": {
+      "title": "Заменить {{registration}}",
+      "description": "Переносит историю рейсов этого воздушного судна на другое судно флота и помечает его как списанное — для смены окраски или регистрации на том же физическом планере, а не как настоящее списание.",
+      "replacementAircraft": "Замещающее судно",
+      "selectPlaceholder": "— выбрать —",
+      "checkingFlightHistory": "Проверка истории рейсов…",
+      "flightsWillMove_one": "Будет перемещён {{count}} рейс",
+      "flightsWillMove_few": "Будут перемещены {{count}} рейса",
+      "flightsWillMove_many": "Будет перемещено {{count}} рейсов",
+      "flightsWillMove_other": "Будет перемещено {{count}} рейсов",
+      "moveSummary": "{{flightsWillMove}} с {{from}} на {{to}}; {{from}} будет помечен как списанный. Это действие нельзя отменить в интерфейсе.",
+      "cancel": "Отмена",
+      "replacing": "Замена…",
+      "confirm": "Заменить судно"
+    },
+    "detail": {
+      "backToFleet": "Назад к флоту",
+      "edit": "Редактировать",
+      "replace": "Заменить…",
+      "retire": "Списать",
+      "unretire": "Восстановить",
+      "delete": "Удалить",
+      "retiredNote": "Списан{{date}} — история его рейсов сохраняется.",
+      "retiredOn": " {{date}}",
+      "replacedPrefix": "Списан — заменён на",
+      "fields": {
+        "airline": "Авиакомпания",
+        "currentAirport": "Текущий аэропорт",
+        "totalHours": "Всего часов",
+        "flights": "Рейсы",
+        "lastFlight": "Последний рейс"
+      }
+    },
+    "confirmDelete": {
+      "title": "Удалить {{registration}}?",
+      "description": "Это действие нельзя отменить.",
+      "confirmLabel": "Удалить судно"
+    },
+    "confirmRetire": {
+      "title": "Списать {{registration}}?",
+      "description": "Судно переместится в список списанных и больше не будет доступно для выбора в новых рейсах. История его рейсов остаётся при нём — ничего не переносится на другое судно. Позже вы сможете восстановить его.",
+      "confirmLabel": "Списать судно"
+    },
+    "toasts": {
+      "deleted": "{{registration}} удалён.",
+      "retired": "{{registration}} списан.",
+      "unretired": "{{registration}} снова активен.",
+      "replaced": "{{registration}} списан, заменён на {{replacement}}."
+    }
   }
 }

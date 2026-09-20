@@ -178,5 +178,93 @@
       "found": "Tracciamento dei servizi di terra GSX attivato — cartella ricevute trovata automaticamente.",
       "notFound": "Il tracciamento dei servizi di terra GSX è disattivato — attivalo in Impostazioni se usi GSX."
     }
+  },
+  "fleetView": {
+    "title": "Flotta",
+    "newAircraft": "Nuovo aeromobile",
+    "editAircraft": "Modifica {{registration}}",
+    "aircraftNotFound": "Aeromobile non trovato.",
+    "noActiveAircraft": "Nessun aeromobile attivo — aggiungine uno, oppure importa una flotta da Impostazioni → Dati.",
+    "activeTab": "Attivi ({{count}})",
+    "retiredTab": "Ritirati ({{count}})",
+    "retiredStatus": "Ritirato{{date}}",
+    "replacedBy": "Sostituito da {{registration}}",
+    "replacedByUnknown": "Sostituito da #{{id}}",
+    "sortColumns": {
+      "registration": "Immatricolazione",
+      "type": "Tipo",
+      "airline": "Compagnia",
+      "location": "Posizione",
+      "hours": "Ore",
+      "flights": "Voli"
+    },
+    "retiredTable": {
+      "registration": "Immatricolazione",
+      "type": "Tipo",
+      "status": "Stato"
+    },
+    "simbriefProfile": {
+      "cardTitle": "Profilo SimBrief",
+      "custom": "Personalizzato —",
+      "openInSimBrief": "Apri in SimBrief",
+      "usingDefault": "Utilizza il valore predefinito di SimBrief:",
+      "noProfile": "Nessun profilo impostato — i piani ricadono sul valore predefinito di SimBrief per {{icaoType}}, di solito sufficiente ma può differire sui pesi (e quindi sul carburante)."
+    },
+    "landingHistory": {
+      "cardTitle": "Cronologia atterraggi",
+      "empty": "Nessun atterraggio ancora registrato.",
+      "crosswind": "{{kt}} kt di vento al traverso"
+    },
+    "flights": {
+      "cardTitle": "Voli",
+      "empty": "Nessun volo completato ancora."
+    },
+    "replaceDialog": {
+      "title": "Sostituisci {{registration}}",
+      "description": "Trasferisce la cronologia voli di questo aeromobile su un altro aeromobile della flotta e lo segna come ritirato — per un cambio di livrea o immatricolazione sulla stessa cellula fisica, non un ritiro vero e proprio.",
+      "replacementAircraft": "Aeromobile sostitutivo",
+      "selectPlaceholder": "— seleziona —",
+      "checkingFlightHistory": "Controllo della cronologia voli…",
+      "flightsWillMove_one": "{{count}} volo verrà trasferito",
+      "flightsWillMove_other": "{{count}} voli verranno trasferiti",
+      "moveSummary": "{{flightsWillMove}} da {{from}} a {{to}}; {{from}} verrà segnato come ritirato. Questa azione non può essere annullata dall'interfaccia.",
+      "cancel": "Annulla",
+      "replacing": "Sostituzione…",
+      "confirm": "Sostituisci aeromobile"
+    },
+    "detail": {
+      "backToFleet": "Torna alla flotta",
+      "edit": "Modifica",
+      "replace": "Sostituisci…",
+      "retire": "Ritira",
+      "unretire": "Riattiva",
+      "delete": "Elimina",
+      "retiredNote": "Ritirato{{date}} — la sua cronologia voli viene mantenuta.",
+      "retiredOn": " il {{date}}",
+      "replacedPrefix": "Ritirato — sostituito da",
+      "fields": {
+        "airline": "Compagnia",
+        "currentAirport": "Aeroporto attuale",
+        "totalHours": "Ore totali",
+        "flights": "Voli",
+        "lastFlight": "Ultimo volo"
+      }
+    },
+    "confirmDelete": {
+      "title": "Eliminare {{registration}}?",
+      "description": "Questa azione non può essere annullata.",
+      "confirmLabel": "Elimina aeromobile"
+    },
+    "confirmRetire": {
+      "title": "Ritirare {{registration}}?",
+      "description": "Verrà spostato nell'elenco dei ritirati e non potrà più essere scelto per nuovi voli. La sua cronologia voli resta su di esso — nulla viene trasferito su un altro aeromobile. Potrai riattivarlo in seguito.",
+      "confirmLabel": "Ritira aeromobile"
+    },
+    "toasts": {
+      "deleted": "{{registration}} eliminato.",
+      "retired": "{{registration}} ritirato.",
+      "unretired": "{{registration}} è di nuovo attivo.",
+      "replaced": "{{registration}} ritirato, sostituito da {{replacement}}."
+    }
   }
 }

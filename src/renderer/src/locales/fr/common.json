@@ -178,5 +178,93 @@
       "found": "Suivi des services au sol GSX activé — dossier des reçus trouvé automatiquement.",
       "notFound": "Le suivi des services au sol GSX est désactivé — activez-le dans les Paramètres si vous utilisez GSX."
     }
+  },
+  "fleetView": {
+    "title": "Flotte",
+    "newAircraft": "Nouvel appareil",
+    "editAircraft": "Modifier {{registration}}",
+    "aircraftNotFound": "Appareil introuvable.",
+    "noActiveAircraft": "Aucun appareil actif — ajoutez-en un, ou importez une flotte depuis Paramètres → Données.",
+    "activeTab": "Actifs ({{count}})",
+    "retiredTab": "Retirés ({{count}})",
+    "retiredStatus": "Retiré{{date}}",
+    "replacedBy": "Remplacé par {{registration}}",
+    "replacedByUnknown": "Remplacé par #{{id}}",
+    "sortColumns": {
+      "registration": "Immatriculation",
+      "type": "Type",
+      "airline": "Compagnie",
+      "location": "Emplacement",
+      "hours": "Heures",
+      "flights": "Vols"
+    },
+    "retiredTable": {
+      "registration": "Immatriculation",
+      "type": "Type",
+      "status": "Statut"
+    },
+    "simbriefProfile": {
+      "cardTitle": "Profil SimBrief",
+      "custom": "Personnalisé —",
+      "openInSimBrief": "Ouvrir dans SimBrief",
+      "usingDefault": "Utilise la valeur par défaut de SimBrief :",
+      "noProfile": "Aucun profil défini — les plans utilisent la valeur par défaut de SimBrief pour {{icaoType}}, généralement suffisante mais pouvant différer sur les masses (et donc le carburant)."
+    },
+    "landingHistory": {
+      "cardTitle": "Historique des atterrissages",
+      "empty": "Aucun atterrissage enregistré pour le moment.",
+      "crosswind": "{{kt}} kt de vent traversier"
+    },
+    "flights": {
+      "cardTitle": "Vols",
+      "empty": "Aucun vol terminé pour le moment."
+    },
+    "replaceDialog": {
+      "title": "Remplacer {{registration}}",
+      "description": "Transfère l'historique de vol de cet appareil vers un autre appareil de la flotte et le marque comme retiré — pour un changement de livrée ou d'immatriculation sur la même cellule physique, pas un véritable retrait.",
+      "replacementAircraft": "Appareil de remplacement",
+      "selectPlaceholder": "— sélectionner —",
+      "checkingFlightHistory": "Vérification de l'historique de vol…",
+      "flightsWillMove_one": "{{count}} vol sera transféré",
+      "flightsWillMove_other": "{{count}} vols seront transférés",
+      "moveSummary": "{{flightsWillMove}} de {{from}} vers {{to}} ; {{from}} sera marqué comme retiré. Ceci ne peut pas être annulé depuis l'interface.",
+      "cancel": "Annuler",
+      "replacing": "Remplacement…",
+      "confirm": "Remplacer l'appareil"
+    },
+    "detail": {
+      "backToFleet": "Retour à la flotte",
+      "edit": "Modifier",
+      "replace": "Remplacer…",
+      "retire": "Retirer",
+      "unretire": "Réactiver",
+      "delete": "Supprimer",
+      "retiredNote": "Retiré{{date}} — son historique de vol est conservé.",
+      "retiredOn": " le {{date}}",
+      "replacedPrefix": "Retiré — remplacé par",
+      "fields": {
+        "airline": "Compagnie",
+        "currentAirport": "Aéroport actuel",
+        "totalHours": "Heures totales",
+        "flights": "Vols",
+        "lastFlight": "Dernier vol"
+      }
+    },
+    "confirmDelete": {
+      "title": "Supprimer {{registration}} ?",
+      "description": "Ceci ne peut pas être annulé.",
+      "confirmLabel": "Supprimer l'appareil"
+    },
+    "confirmRetire": {
+      "title": "Retirer {{registration}} ?",
+      "description": "Il passera dans la liste des appareils retirés et ne pourra plus être choisi pour de nouveaux vols. Son historique de vol reste sur lui — rien n'est transféré vers un autre appareil. Vous pourrez le réactiver plus tard.",
+      "confirmLabel": "Retirer l'appareil"
+    },
+    "toasts": {
+      "deleted": "{{registration}} supprimé.",
+      "retired": "{{registration}} retiré.",
+      "unretired": "{{registration}} est de nouveau actif.",
+      "replaced": "{{registration}} retiré, remplacé par {{replacement}}."
+    }
   }
 }

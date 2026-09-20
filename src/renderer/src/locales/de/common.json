@@ -176,5 +176,93 @@
       "found": "GSX-Bodendienst-Tracking aktiviert — Belege-Ordner wurde automatisch gefunden.",
       "notFound": "GSX-Bodendienst-Tracking ist ausgeschaltet — aktiviere es in den Einstellungen, wenn du GSX nutzt."
     }
+  },
+  "fleetView": {
+    "title": "Flotte",
+    "newAircraft": "Neues Flugzeug",
+    "editAircraft": "{{registration}} bearbeiten",
+    "aircraftNotFound": "Flugzeug nicht gefunden.",
+    "noActiveAircraft": "Keine aktiven Flugzeuge — füge eines hinzu oder importiere eine Flotte über Einstellungen → Daten.",
+    "activeTab": "Aktiv ({{count}})",
+    "retiredTab": "Ausgemustert ({{count}})",
+    "retiredStatus": "Ausgemustert{{date}}",
+    "replacedBy": "Ersetzt durch {{registration}}",
+    "replacedByUnknown": "Ersetzt durch #{{id}}",
+    "sortColumns": {
+      "registration": "Kennzeichen",
+      "type": "Typ",
+      "airline": "Airline",
+      "location": "Standort",
+      "hours": "Stunden",
+      "flights": "Flüge"
+    },
+    "retiredTable": {
+      "registration": "Kennzeichen",
+      "type": "Typ",
+      "status": "Status"
+    },
+    "simbriefProfile": {
+      "cardTitle": "SimBrief-Profil",
+      "custom": "Benutzerdefiniert —",
+      "openInSimBrief": "In SimBrief öffnen",
+      "usingDefault": "Verwendet SimBrief-Standard:",
+      "noProfile": "Kein Profil festgelegt — Pläne greifen auf SimBriefs eigenen Standard für {{icaoType}} zurück, was meist ausreicht, aber bei Gewichten (und damit Treibstoff) abweichen kann."
+    },
+    "landingHistory": {
+      "cardTitle": "Landungsverlauf",
+      "empty": "Noch keine Landungen erfasst.",
+      "crosswind": "{{kt}} kt Seitenwind"
+    },
+    "flights": {
+      "cardTitle": "Flüge",
+      "empty": "Noch keine abgeschlossenen Flüge."
+    },
+    "replaceDialog": {
+      "title": "{{registration}} ersetzen",
+      "description": "Überträgt die Flughistorie dieses Flugzeugs auf ein anderes Flottenflugzeug und markiert es als ausgemustert — für einen Lackierungs- oder Kennzeichenwechsel an derselben physischen Zelle, keine echte Ausmusterung.",
+      "replacementAircraft": "Ersatzflugzeug",
+      "selectPlaceholder": "— auswählen —",
+      "checkingFlightHistory": "Flughistorie wird geprüft…",
+      "flightsWillMove_one": "{{count}} Flug wird verschoben",
+      "flightsWillMove_other": "{{count}} Flüge werden verschoben",
+      "moveSummary": "{{flightsWillMove}} von {{from}} zu {{to}}; {{from}} wird als ausgemustert markiert. Dies kann in der Oberfläche nicht rückgängig gemacht werden.",
+      "cancel": "Abbrechen",
+      "replacing": "Wird ersetzt…",
+      "confirm": "Flugzeug ersetzen"
+    },
+    "detail": {
+      "backToFleet": "Zurück zur Flotte",
+      "edit": "Bearbeiten",
+      "replace": "Ersetzen…",
+      "retire": "Ausmustern",
+      "unretire": "Reaktivieren",
+      "delete": "Löschen",
+      "retiredNote": "Ausgemustert{{date}} — die Flughistorie bleibt erhalten.",
+      "retiredOn": " am {{date}}",
+      "replacedPrefix": "Ausgemustert — ersetzt durch",
+      "fields": {
+        "airline": "Airline",
+        "currentAirport": "Aktueller Flughafen",
+        "totalHours": "Gesamtstunden",
+        "flights": "Flüge",
+        "lastFlight": "Letzter Flug"
+      }
+    },
+    "confirmDelete": {
+      "title": "{{registration}} löschen?",
+      "description": "Dies kann nicht rückgängig gemacht werden.",
+      "confirmLabel": "Flugzeug löschen"
+    },
+    "confirmRetire": {
+      "title": "{{registration}} ausmustern?",
+      "description": "Es wird in die Liste der ausgemusterten Flugzeuge verschoben und kann nicht mehr für neue Flüge ausgewählt werden. Seine Flughistorie bleibt bei ihm — nichts wird auf ein anderes Flugzeug übertragen. Du kannst es später reaktivieren.",
+      "confirmLabel": "Flugzeug ausmustern"
+    },
+    "toasts": {
+      "deleted": "{{registration}} gelöscht.",
+      "retired": "{{registration}} ausgemustert.",
+      "unretired": "{{registration}} ist wieder aktiv.",
+      "replaced": "{{registration}} ausgemustert, ersetzt durch {{replacement}}."
+    }
   }
 }

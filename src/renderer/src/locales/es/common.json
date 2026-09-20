@@ -178,5 +178,93 @@
       "found": "Seguimiento de servicios de tierra GSX activado — carpeta de recibos encontrada automáticamente.",
       "notFound": "El seguimiento de servicios de tierra GSX está desactivado — actívalo en Ajustes si usas GSX."
     }
+  },
+  "fleetView": {
+    "title": "Flota",
+    "newAircraft": "Nueva aeronave",
+    "editAircraft": "Editar {{registration}}",
+    "aircraftNotFound": "Aeronave no encontrada.",
+    "noActiveAircraft": "No hay aeronaves activas — añade una, o importa una flota desde Ajustes → Datos.",
+    "activeTab": "Activas ({{count}})",
+    "retiredTab": "Retiradas ({{count}})",
+    "retiredStatus": "Retirada{{date}}",
+    "replacedBy": "Reemplazada por {{registration}}",
+    "replacedByUnknown": "Reemplazada por #{{id}}",
+    "sortColumns": {
+      "registration": "Matrícula",
+      "type": "Tipo",
+      "airline": "Aerolínea",
+      "location": "Ubicación",
+      "hours": "Horas",
+      "flights": "Vuelos"
+    },
+    "retiredTable": {
+      "registration": "Matrícula",
+      "type": "Tipo",
+      "status": "Estado"
+    },
+    "simbriefProfile": {
+      "cardTitle": "Perfil de SimBrief",
+      "custom": "Personalizado —",
+      "openInSimBrief": "Abrir en SimBrief",
+      "usingDefault": "Usando el valor predeterminado de SimBrief:",
+      "noProfile": "No hay un perfil establecido — los planes recurren al valor predeterminado de SimBrief para {{icaoType}}, que normalmente es suficiente pero puede diferir en pesos (y por tanto en combustible)."
+    },
+    "landingHistory": {
+      "cardTitle": "Historial de aterrizajes",
+      "empty": "Aún no hay aterrizajes registrados.",
+      "crosswind": "{{kt}} kt de viento cruzado"
+    },
+    "flights": {
+      "cardTitle": "Vuelos",
+      "empty": "Aún no hay vuelos completados."
+    },
+    "replaceDialog": {
+      "title": "Reemplazar {{registration}}",
+      "description": "Traslada el historial de vuelos de esta aeronave a otra aeronave de la flota y la marca como retirada — para un cambio de librea o matrícula en la misma célula física, no una retirada real.",
+      "replacementAircraft": "Aeronave de reemplazo",
+      "selectPlaceholder": "— selecciona —",
+      "checkingFlightHistory": "Comprobando el historial de vuelos…",
+      "flightsWillMove_one": "Se trasladará {{count}} vuelo",
+      "flightsWillMove_other": "Se trasladarán {{count}} vuelos",
+      "moveSummary": "{{flightsWillMove}} de {{from}} a {{to}}; {{from}} se marcará como retirada. Esto no se puede deshacer desde la interfaz.",
+      "cancel": "Cancelar",
+      "replacing": "Reemplazando…",
+      "confirm": "Reemplazar aeronave"
+    },
+    "detail": {
+      "backToFleet": "Volver a la flota",
+      "edit": "Editar",
+      "replace": "Reemplazar…",
+      "retire": "Retirar",
+      "unretire": "Reactivar",
+      "delete": "Eliminar",
+      "retiredNote": "Retirada{{date}} — se conserva su historial de vuelos.",
+      "retiredOn": " el {{date}}",
+      "replacedPrefix": "Retirada — reemplazada por",
+      "fields": {
+        "airline": "Aerolínea",
+        "currentAirport": "Aeropuerto actual",
+        "totalHours": "Horas totales",
+        "flights": "Vuelos",
+        "lastFlight": "Último vuelo"
+      }
+    },
+    "confirmDelete": {
+      "title": "¿Eliminar {{registration}}?",
+      "description": "Esto no se puede deshacer.",
+      "confirmLabel": "Eliminar aeronave"
+    },
+    "confirmRetire": {
+      "title": "¿Retirar {{registration}}?",
+      "description": "Se moverá a la lista de retiradas y ya no podrá elegirse para nuevos vuelos. Su historial de vuelos permanece con ella — nada se traslada a otra aeronave. Podrás reactivarla más tarde.",
+      "confirmLabel": "Retirar aeronave"
+    },
+    "toasts": {
+      "deleted": "{{registration}} eliminada.",
+      "retired": "{{registration}} retirada.",
+      "unretired": "{{registration}} está activa de nuevo.",
+      "replaced": "{{registration}} retirada, reemplazada por {{replacement}}."
+    }
   }
 }
