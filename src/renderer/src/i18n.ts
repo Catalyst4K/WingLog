@@ -33,12 +33,12 @@ void i18n.use(initReactI18next).init({
   // All resources are bundled upfront (no backend/lazy loader), so there's nothing to
   // suspend for — avoids every translated component needing its own Suspense boundary, in
   // both the real app and every renderer test.
-  react: { useSuspense: false },
-  // Forces init() to finish synchronously rather than deferring to a microtask — resources
-  // are already in memory, so there's nothing to genuinely wait on, and this avoids a race
-  // where a component could render (in a test, or on real app startup) before translations
-  // are ready.
-  initImmediate: false
+  react: { useSuspense: false }
+  // No initAsync/initImmediate setting needed here: i18next only defers init to a
+  // setTimeout when it has no bundled `resources` to load synchronously from (see its own
+  // init()) — since every catalogue above is already in memory, init() always finishes
+  // synchronously on its own, avoiding a race where a component could render (in a test, or
+  // on real app startup) before translations are ready.
 })
 
 export default i18n

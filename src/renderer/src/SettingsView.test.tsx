@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from 'sonner'
 import type { GsxSettings, SyncStatus } from '@shared/ipc'
+import i18n from './i18n'
 import { SettingsView } from './SettingsView'
 
 vi.mock('sonner', () => ({
@@ -94,6 +95,35 @@ function renderSettings(
 }
 
 describe('SettingsView', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en')
+  })
+
+  it('renders its title and units in the active i18next language, not a hardcoded English string', async () => {
+    await i18n.changeLanguage('de')
+    renderSettings()
+    expect(await screen.findByText('Einstellungen')).toBeInTheDocument()
+    expect(screen.getByText('Einheiten')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Über' })).toBeInTheDocument()
+  })
+
+  it('composes a pluralized import summary toast in the active i18next language', async () => {
+    await i18n.changeLanguage('de')
+    setWinglog({
+      aircraftImport: vi
+        .fn()
+        .mockResolvedValue({ imported: 2, skipped: [{ registration: 'G-DUP', reason: 'already exists' }] })
+    })
+    const user = userEvent.setup()
+    renderSettings()
+    await user.click(screen.getByRole('tab', { name: 'Daten' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Importieren' }))[0])
+
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith('2 Flugzeuge importiert. 1 übersprungen: G-DUP (already exists)')
+    )
+  })
+
   describe('category tabs', () => {
     it('shows the UI category (Units, Theme) by default', async () => {
       renderSettings()

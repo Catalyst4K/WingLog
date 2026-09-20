@@ -23,5 +23,125 @@
   },
   "aircraftPhoto": {
     "credit": "Photo via airport-data.com"
+  },
+  "settingsView": {
+    "title": "Settings",
+    "categories": {
+      "ui": "UI",
+      "thirdParty": "3rd party",
+      "data": "Data",
+      "about": "About"
+    },
+    "units": {
+      "cardTitle": "Units",
+      "weights": "Weights",
+      "ofpAltitudes": "OFP altitudes",
+      "feet": "Feet",
+      "meters": "Meters",
+      "hybrid": "Hybrid",
+      "hybridHint": "\"Hybrid\" shows each step climb in whichever unit it was actually planned in — feet for a standard level, meters for a route crossing into airspace (e.g. China) that assigns levels in meters — rather than converting everything to one unit.",
+      "appLanguage": "App language",
+      "appLanguageHint": "\"System\" follows your OS's own language, falling back to English if this app doesn't have a translation for it yet. Translation is being rolled out one part of the app at a time — most of the UI is still English regardless of this setting. Real aviation terms (ILS, STAR, SID, FL, QNH, ICAO idents) and anything from SimBrief always stay in English.",
+      "mapLanguage": "Map language",
+      "mapLanguageHint": "The language of place names on the Track and Logbook maps. \"Local\" shows each place in its own language — independent of the app language above.",
+      "metarWindSpeed": "METAR wind speed",
+      "knots": "Knots",
+      "metarWindSpeedHint": "The raw METAR text on Dispatch always stays as reported — this only controls a separate formatted wind line shown alongside it.",
+      "landingDistances": "Landing distances",
+      "landingDistancesHint": "Distance from threshold and centreline offset on a Logbook flight's landing card, and its touchdown diagram. Touchdown rate stays fpm and speeds/wind stay knots regardless."
+    },
+    "theme": {
+      "cardTitle": "Theme",
+      "appearance": "Appearance",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
+    "credentials": {
+      "cardTitle": "Credentials",
+      "description": "Used by Dispatch to fetch and generate plans on SimBrief.",
+      "simbriefUsername": "SimBrief username",
+      "usernamePlaceholder": "Navigraph Alias",
+      "save": "Save",
+      "loggedIn": "Logged in",
+      "loggingOut": "Logging out…",
+      "logOut": "Log out",
+      "loggingIn": "Logging in…",
+      "logInWithNavigraph": "Log in with Navigraph"
+    },
+    "gsx": {
+      "cardTitle": "GSX ground services",
+      "description": "Attach GSX Pro's catering/fuel/handling receipts to matching flights in your Logbook. Windows only (GSX itself is Windows-only) — off by default, and nothing here shows up until enabled.",
+      "enabled": "Enabled",
+      "on": "On",
+      "off": "Off",
+      "receiptsFolder": "Receipts folder",
+      "notSet": "Not set",
+      "browse": "Browse…",
+      "pathHint": "Usually %APPDATA%\\Virtuali\\GSX\\Receipts. A path that's wrong or no longer exists just means no receipts are found — never an error.",
+      "displayCurrency": "Display currency",
+      "currencyHint": "GSX totals convert using a live rate fetched at the time you view them — nothing is stored converted."
+    },
+    "currencyOptions": {
+      "usd": "USD — US Dollar (no conversion)",
+      "gbp": "GBP — British Pound",
+      "eur": "EUR — Euro",
+      "cad": "CAD — Canadian Dollar",
+      "aud": "AUD — Australian Dollar",
+      "nzd": "NZD — New Zealand Dollar",
+      "jpy": "JPY — Japanese Yen",
+      "chf": "CHF — Swiss Franc"
+    },
+    "data": {
+      "cardTitle": "Data",
+      "description": "Import or export your fleet and logbook as local files.",
+      "fleetTitle": "Fleet",
+      "fleetHint": "Registration, type, operator and current airport. Importing skips registrations you already have.",
+      "logbookTitle": "Logbook",
+      "logbookHint": "A summary of every completed flight, with its landing — not a full backup (no route or OFP data). Import reads WingLog's own files, and SimToolkitPro CSVs.",
+      "fileFormat": "File format",
+      "regionLabel": "{{title}} data",
+      "import": "Import",
+      "importing": "Importing…",
+      "export": "Export",
+      "aircraftImported_one": "Imported {{count}} aircraft.",
+      "aircraftImported_other": "Imported {{count}} aircraft.",
+      "aircraftImportedWithSkipped": "{{imported}} Skipped {{count}}: {{skipped}}",
+      "flightsImported_one": "Imported {{count}} flight",
+      "flightsImported_other": "Imported {{count}} flights",
+      "aircraftAddedSuffix_one": " (added {{count}} aircraft to your fleet)",
+      "aircraftAddedSuffix_other": " (added {{count}} aircraft to your fleet)",
+      "skippedSuffix": "Skipped {{count}}: {{skipped}}",
+      "fleetExported": "Fleet exported.",
+      "logbookExported": "Logbook exported."
+    },
+    "cloudSync": {
+      "cardTitle": "Cloud sync",
+      "description": "Sync Fleet and Logbook across your machines. This is WingLog's own service, not a third party — off by default, nothing leaves this device until you log in.",
+      "logOut": "Log out",
+      "neverSyncedYet": "Never synced yet.",
+      "lastSynced": "Last synced {{date}}",
+      "syncNow": "Sync now",
+      "syncing": "Syncing…",
+      "logIn": "Log in",
+      "signUp": "Sign up",
+      "email": "Email",
+      "password": "Password",
+      "atLeast12Chars": "At least 12 characters.",
+      "inviteCode": "Invite code",
+      "signupHint": "Signup isn't public yet — this only works with an invite code from the app owner.",
+      "loggingIn": "Logging in…",
+      "signingUp": "Signing up…",
+      "loggedInToast": "Logged in.",
+      "accountCreatedToast": "Account created and logged in.",
+      "syncedToast": "Synced."
+    },
+    "about": {
+      "description": "A personal fleet-management, dispatch, live-tracking and logbook companion for Microsoft Flight Simulator.",
+      "disclaimer": "WingLog is not affiliated with, endorsed by, or sponsored by Microsoft Corporation or Asobo Studio. \"Microsoft Flight Simulator\" is a trademark of its respective owners.",
+      "license": "Free and open source under the GNU General Public License v3.0."
+    },
+    "usernameSavedToast": "SimBrief username saved.",
+    "usernameAutoFilledToast": "SimBrief username filled in automatically: {{username}}"
   }
 }

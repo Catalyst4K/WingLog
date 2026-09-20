@@ -23,5 +23,125 @@
   },
   "aircraftPhoto": {
     "credit": "Foto via airport-data.com"
+  },
+  "settingsView": {
+    "title": "Einstellungen",
+    "categories": {
+      "ui": "UI",
+      "thirdParty": "Drittanbieter",
+      "data": "Daten",
+      "about": "Über"
+    },
+    "units": {
+      "cardTitle": "Einheiten",
+      "weights": "Gewichte",
+      "ofpAltitudes": "OFP-Höhen",
+      "feet": "Fuß",
+      "meters": "Meter",
+      "hybrid": "Hybrid",
+      "hybridHint": "„Hybrid“ zeigt jeden Steigflug-Abschnitt in der Einheit, in der er tatsächlich geplant wurde — Fuß für ein Standard-Flugniveau, Meter für eine Strecke, die in einen Luftraum führt (z. B. China), der Flughöhen in Metern zuweist — statt alles in eine Einheit umzurechnen.",
+      "appLanguage": "App-Sprache",
+      "appLanguageHint": "„System“ folgt der Sprache deines Betriebssystems und weicht auf Englisch aus, wenn für diese Sprache noch keine Übersetzung existiert. Die Übersetzung wird nach und nach eingeführt — der Großteil der Oberfläche ist unabhängig von dieser Einstellung noch auf Englisch. Echte Luftfahrtbegriffe (ILS, STAR, SID, FL, QNH, ICAO-Kennungen) und alles von SimBrief bleiben immer auf Englisch.",
+      "mapLanguage": "Kartensprache",
+      "mapLanguageHint": "Die Sprache der Ortsnamen auf den Track- und Logbuch-Karten. „Lokal“ zeigt jeden Ort in seiner eigenen Sprache — unabhängig von der App-Sprache oben.",
+      "metarWindSpeed": "METAR-Windgeschwindigkeit",
+      "knots": "Knoten",
+      "metarWindSpeedHint": "Der rohe METAR-Text im Dispatch bleibt immer wie gemeldet — dies steuert nur eine separat formatierte Windzeile daneben.",
+      "landingDistances": "Landedistanzen",
+      "landingDistancesHint": "Abstand zur Schwelle und seitlicher Versatz zur Mittellinie auf der Landekarte eines Logbuchflugs sowie im Aufsetzdiagramm. Die Sinkrate bleibt fpm, Geschwindigkeiten/Wind bleiben Knoten."
+    },
+    "theme": {
+      "cardTitle": "Design",
+      "appearance": "Erscheinungsbild",
+      "light": "Hell",
+      "dark": "Dunkel",
+      "system": "System"
+    },
+    "credentials": {
+      "cardTitle": "Zugangsdaten",
+      "description": "Wird von Dispatch verwendet, um Pläne auf SimBrief abzurufen und zu erstellen.",
+      "simbriefUsername": "SimBrief-Benutzername",
+      "usernamePlaceholder": "Navigraph-Alias",
+      "save": "Speichern",
+      "loggedIn": "Angemeldet",
+      "loggingOut": "Abmeldung…",
+      "logOut": "Abmelden",
+      "loggingIn": "Anmeldung…",
+      "logInWithNavigraph": "Mit Navigraph anmelden"
+    },
+    "gsx": {
+      "cardTitle": "GSX-Bodendienste",
+      "description": "Verknüpft GSX-Pro-Belege für Catering/Betankung/Abfertigung mit passenden Flügen in deinem Logbuch. Nur Windows (GSX selbst ist Windows-only) — standardmäßig deaktiviert, nichts erscheint hier, bis es aktiviert wird.",
+      "enabled": "Aktiviert",
+      "on": "Ein",
+      "off": "Aus",
+      "receiptsFolder": "Belege-Ordner",
+      "notSet": "Nicht festgelegt",
+      "browse": "Durchsuchen…",
+      "pathHint": "Normalerweise %APPDATA%\\Virtuali\\GSX\\Receipts. Ein falscher oder nicht mehr vorhandener Pfad bedeutet nur, dass keine Belege gefunden werden — nie ein Fehler.",
+      "displayCurrency": "Anzeigewährung",
+      "currencyHint": "GSX-Summen werden mit einem live abgerufenen Kurs zum Zeitpunkt der Anzeige umgerechnet — nichts wird umgerechnet gespeichert."
+    },
+    "currencyOptions": {
+      "usd": "USD — US-Dollar (keine Umrechnung)",
+      "gbp": "GBP — Britisches Pfund",
+      "eur": "EUR — Euro",
+      "cad": "CAD — Kanadischer Dollar",
+      "aud": "AUD — Australischer Dollar",
+      "nzd": "NZD — Neuseeland-Dollar",
+      "jpy": "JPY — Japanischer Yen",
+      "chf": "CHF — Schweizer Franken"
+    },
+    "data": {
+      "cardTitle": "Daten",
+      "description": "Importiere oder exportiere deine Flotte und dein Logbuch als lokale Dateien.",
+      "fleetTitle": "Flotte",
+      "fleetHint": "Kennzeichen, Typ, Betreiber und aktueller Flughafen. Beim Import werden bereits vorhandene Kennzeichen übersprungen.",
+      "logbookTitle": "Logbuch",
+      "logbookHint": "Eine Zusammenfassung jedes abgeschlossenen Flugs mit seiner Landung — kein vollständiges Backup (keine Routen- oder OFP-Daten). Der Import liest WingLogs eigene Dateien sowie SimToolkitPro-CSVs.",
+      "fileFormat": "Dateiformat",
+      "regionLabel": "{{title}}-Daten",
+      "import": "Importieren",
+      "importing": "Importiert…",
+      "export": "Exportieren",
+      "aircraftImported_one": "{{count}} Flugzeug importiert.",
+      "aircraftImported_other": "{{count}} Flugzeuge importiert.",
+      "aircraftImportedWithSkipped": "{{imported}} {{count}} übersprungen: {{skipped}}",
+      "flightsImported_one": "{{count}} Flug importiert",
+      "flightsImported_other": "{{count}} Flüge importiert",
+      "aircraftAddedSuffix_one": " ({{count}} Flugzeug zur Flotte hinzugefügt)",
+      "aircraftAddedSuffix_other": " ({{count}} Flugzeuge zur Flotte hinzugefügt)",
+      "skippedSuffix": "{{count}} übersprungen: {{skipped}}",
+      "fleetExported": "Flotte exportiert.",
+      "logbookExported": "Logbuch exportiert."
+    },
+    "cloudSync": {
+      "cardTitle": "Cloud-Synchronisierung",
+      "description": "Synchronisiert Flotte und Logbuch über deine Geräte hinweg. Dies ist WingLogs eigener Dienst, kein Drittanbieter — standardmäßig deaktiviert, nichts verlässt dieses Gerät, bis du dich anmeldest.",
+      "logOut": "Abmelden",
+      "neverSyncedYet": "Noch nie synchronisiert.",
+      "lastSynced": "Zuletzt synchronisiert {{date}}",
+      "syncNow": "Jetzt synchronisieren",
+      "syncing": "Synchronisierung…",
+      "logIn": "Anmelden",
+      "signUp": "Registrieren",
+      "email": "E-Mail",
+      "password": "Passwort",
+      "atLeast12Chars": "Mindestens 12 Zeichen.",
+      "inviteCode": "Einladungscode",
+      "signupHint": "Die Registrierung ist noch nicht öffentlich — dies funktioniert nur mit einem Einladungscode vom App-Betreiber.",
+      "loggingIn": "Anmeldung…",
+      "signingUp": "Registrierung…",
+      "loggedInToast": "Angemeldet.",
+      "accountCreatedToast": "Konto erstellt und angemeldet.",
+      "syncedToast": "Synchronisiert."
+    },
+    "about": {
+      "description": "Ein persönlicher Begleiter für Flottenverwaltung, Dispatch, Live-Tracking und Logbuch für Microsoft Flight Simulator.",
+      "disclaimer": "WingLog steht in keiner Verbindung zu Microsoft Corporation oder Asobo Studio und wird nicht von ihnen unterstützt oder gesponsert. „Microsoft Flight Simulator“ ist eine Marke ihrer jeweiligen Inhaber.",
+      "license": "Frei und quelloffen unter der GNU General Public License v3.0."
+    },
+    "usernameSavedToast": "SimBrief-Benutzername gespeichert.",
+    "usernameAutoFilledToast": "SimBrief-Benutzername automatisch ausgefüllt: {{username}}"
   }
 }
