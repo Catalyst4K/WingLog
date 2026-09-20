@@ -122,6 +122,40 @@ describe('resolveLandingScore', () => {
     )
   })
 
+  it(
+    'floors a dangerous-exceedance score at 0 for display, and reports dangerousExceedance ' +
+      "true — computeLandingScore's own overall can go negative internally (landing-scoring-v2.md, " +
+      '2026-09-20), but nothing downstream of resolveLandingScore should ever see that',
+    () => {
+      // -1000fpm ≈ -5.08 m/s — well past every category's hard threshold. Every other
+      // category is also pushed bad, so the weighted average alone is already near 0 before
+      // the flat deduction pushes it negative (a landing with e.g. a perfect touchdown point
+      // could otherwise offset the deduction back above 0, which isn't what this test is
+      // checking for).
+      const landingRecord = toLanding(
+        makeLanding(1, {
+          verticalSpeedMs: -5.08,
+          gForce: 3.0,
+          pitchDeg: 20,
+          bankDeg: 30,
+          crabDeg: 40,
+          distanceFromThresholdM: 5000,
+          centrelineOffsetM: 100
+        })
+      )
+      const result = resolveLandingScore(landingRecord, 'EGLL', 'C172') // C172 -> L, lowest thresholds
+      expect(result.dangerousExceedance).toBe(true)
+      expect(result.score).toBe(0)
+      expect(result.score).toBeGreaterThanOrEqual(0)
+    }
+  )
+
+  it('reports dangerousExceedance false for an ordinary landing', () => {
+    const landingRecord = toLanding(makeLanding(1))
+    const result = resolveLandingScore(landingRecord, 'EGLL', 'A320')
+    expect(result.dangerousExceedance).toBe(false)
+  })
+
   it('derives severity from the category-scaled thresholds, not a fixed universal one', () => {
     // -450 fpm ≈ -2.286 m/s: firm for both M (300-480) and H (375-600), hard for L (225-360)
     // — a light aircraft's much lower sweet spot means the same absolute fpm reads as far

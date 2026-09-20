@@ -112,6 +112,35 @@ describe('LandingScoreBreakdownDialog', () => {
     expect(pitchRow.querySelector('svg.text-destructive')).toBeNull()
   })
 
+  it('shows a dangerous-exceedance penalty note when the flag is set', async () => {
+    const user = userEvent.setup()
+    render(
+      <LandingScoreBreakdownDialog
+        overall={20}
+        categories={makeCategories({ verticalSpeed: 0 })}
+        dangerousExceedance
+        unit="ft"
+        trigger={<button type="button">Open</button>}
+      />
+    )
+    await user.click(screen.getByRole('button', { name: 'Open' }))
+    expect(screen.getByText(/Dangerous touchdown rate/)).toBeInTheDocument()
+  })
+
+  it('shows no penalty note for an ordinary landing', async () => {
+    const user = userEvent.setup()
+    render(
+      <LandingScoreBreakdownDialog
+        overall={90}
+        categories={makeCategories()}
+        unit="ft"
+        trigger={<button type="button">Open</button>}
+      />
+    )
+    await user.click(screen.getByRole('button', { name: 'Open' }))
+    expect(screen.queryByText(/Dangerous touchdown rate/)).not.toBeInTheDocument()
+  })
+
   it("opens a per-category info popover showing that flight's real ideal/tolerance", async () => {
     const user = userEvent.setup()
     render(

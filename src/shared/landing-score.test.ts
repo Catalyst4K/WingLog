@@ -111,27 +111,42 @@ describe('computeLandingScore', () => {
     })
   })
 
-  it('floors a genuinely dangerous landing at 0, never negative, across categories', () => {
-    const dangerous: LandingScoreInputs = {
-      category: 'M',
-      verticalSpeedMs: msFromFpm(-1000),
-      gForce: 3.0,
-      pitchDeg: 20,
-      bankDeg: 30,
-      crabDeg: 40,
-      distanceFromAimingPointM: 1000,
-      runwayLengthM: 3000, // 6-pair zone, 900m end -> 1000m offset is well past it
-      centrelineOffsetM: 100,
-      centrelineToleranceM: 25
-    }
-    const result = computeLandingScore(dangerous)
-    expect(result.overall).toBe(0)
-    expect(Object.values(result.inputs)).toEqual([0, 0, 0, 0, 0, 0, 0])
+  it(
+    'floors every category at 0 individually, but lets overall go negative once the ' +
+      'dangerous-exceedance deduction applies (landing-scoring-v2.md, 2026-09-20 — v1 had ' +
+      'no such deduction and floored overall at 0 too; v2 deliberately reopened that)',
+    () => {
+      const dangerous: LandingScoreInputs = {
+        category: 'M',
+        verticalSpeedMs: msFromFpm(-1000),
+        gForce: 3.0,
+        pitchDeg: 20,
+        bankDeg: 30,
+        crabDeg: 40,
+        distanceFromAimingPointM: 1000,
+        runwayLengthM: 3000, // 6-pair zone, 900m end -> 1000m offset is well past it
+        centrelineOffsetM: 100,
+        centrelineToleranceM: 25
+      }
+      const result = computeLandingScore(dangerous)
+      // Every category is individually clamped to 0 -> weighted average is 0 -> minus the
+      // flat DANGEROUS_EXCEEDANCE_DEDUCTION (20) -> -20. Flooring THIS raw value at 0 for
+      // display is the caller's job (landing-score-resolver.ts), not computeLandingScore's.
+      expect(result.overall).toBe(-20)
+      expect(result.dangerousExceedance).toBe(true)
+      expect(Object.values(result.inputs)).toEqual([0, 0, 0, 0, 0, 0, 0])
 
-    // Same absolute vertical speed scores worse for a lighter category (lower ideal/hard
-    // baseline) — proves the score is genuinely category-sensitive, not just VS-in-fpm.
-    const lightDangerous = computeLandingScore({ ...dangerous, category: 'L' })
-    expect(lightDangerous.inputs.verticalSpeed).toBe(0)
+      // Same absolute vertical speed scores worse for a lighter category (lower ideal/hard
+      // baseline) — proves the score is genuinely category-sensitive, not just VS-in-fpm.
+      const lightDangerous = computeLandingScore({ ...dangerous, category: 'L' })
+      expect(lightDangerous.inputs.verticalSpeed).toBe(0)
+    }
+  )
+
+  it('is not dangerous, and applies no deduction, for a landing that never reaches the hard threshold', () => {
+    const result = computeLandingScore(PERFECT_M)
+    expect(result.dangerousExceedance).toBe(false)
+    expect(result.overall).toBe(100)
   })
 
   it('is category-sensitive: the same vertical speed scores differently for L vs H', () => {
@@ -146,9 +161,10 @@ describe('computeLandingScore', () => {
   })
 
   it('scores a firm-band vertical speed as a real mid-range value, not a cliff', () => {
-    // M: sweet 120, hard 480, toleranceAbove 360. Excess = 450-120=330. Score = round(100*(1-330/360)).
+    // M: sweet 120, hard 480, tolerance 360. Excess = 450-120=330.
+    // Score = round(100*(1-(330/360)^2)) = round(100*(1-0.8403)) = 16.
     const result = computeLandingScore({ ...PERFECT_M, verticalSpeedMs: msFromFpm(-450) })
-    expect(result.inputs.verticalSpeed).toBe(8)
+    expect(result.inputs.verticalSpeed).toBe(16)
     expect(result.overall).toBeGreaterThan(0)
     expect(result.overall).toBeLessThan(100)
   })
@@ -163,39 +179,51 @@ describe('computeLandingScore', () => {
     it(
       'only barely penalizes a touchdown gentler than the sweet spot — a first cut zeroed it ' +
         "out right at the range's own floor, which Callum flagged as too harsh (2026-09-13): a " +
-        'landing a little under the labelled range is still a fine, gentle one in the real world',
+        'landing a little under the labelled range is still a fine, gentle one in the real world ' +
+        '— even gentler under the v2 tapered curve (landing-scoring-v2.md, 2026-09-20), which is ' +
+        'flat by design near ideal',
       () => {
         // L: sweet 90, tolerance 270 (same distance as the firm side's hard threshold, 360).
-        // 60fpm (the range's own labelled floor) used to score exactly 0 — now still 89.
+        // 60fpm (the range's own labelled floor): deviation 30.
+        // Score = round(100*(1-(30/270)^2)) = round(100*(1-0.0123)) = 99.
         const result = computeLandingScore({ ...PERFECT_M, category: 'L', verticalSpeedMs: msFromFpm(-60) })
-        expect(result.inputs.verticalSpeed).toBe(89)
+        expect(result.inputs.verticalSpeed).toBe(99)
       }
     )
 
     it('stays high even for an unrealistically soft touchdown, since the soft side never truly fails', () => {
-      // L: sweet 90, tolerance 270. Deviation at 0fpm = -90. Score = round(100*(1-90/270)) = 67.
+      // L: sweet 90, tolerance 270. Deviation at 0fpm = 90.
+      // Score = round(100*(1-(90/270)^2)) = round(100*(1-0.1111)) = 89.
       // The formula's own "zero" point for this side (90-270=-180) is negative — physically
       // unreachable, since fpm can't go below 0 — so a real landing never actually bottoms out
       // for being too soft, only for being too firm.
       const result = computeLandingScore({ ...PERFECT_M, category: 'L', verticalSpeedMs: 0 })
-      expect(result.inputs.verticalSpeed).toBe(67)
+      expect(result.inputs.verticalSpeed).toBe(89)
     })
 
-    it('decays gently for a landing only a little softer than the sweet spot, not a cliff', () => {
-      // L: sweet 90, tolerance 270. Deviation = 75-90=-15. Score = round(100*(1-15/270)) = 94.
-      const result = computeLandingScore({ ...PERFECT_M, category: 'L', verticalSpeedMs: msFromFpm(-75) })
-      expect(result.inputs.verticalSpeed).toBe(94)
+    it('decays gently for a landing noticeably softer than the sweet spot, not a cliff', () => {
+      // L: sweet 90, tolerance 270. A deviation as small as 15fpm now rounds back to 100 under
+      // the v2 tapered curve — deliberately flat near ideal (landing-scoring-v2.md,
+      // 2026-09-20) — so this uses a bigger, still-realistic gap to show real, non-cliff decay.
+      // Deviation = 90-45=45. Score = round(100*(1-(45/270)^2)) = round(100*(1-0.0278)) = 97.
+      const result = computeLandingScore({ ...PERFECT_M, category: 'L', verticalSpeedMs: msFromFpm(-45) })
+      expect(result.inputs.verticalSpeed).toBe(97)
     })
 
     it("uses J's own nudged 160fpm sweet spot, distinct from H's 150", () => {
       const atJSweetSpot = computeLandingScore({ ...PERFECT_M, category: 'J', verticalSpeedMs: msFromFpm(-160) })
-      const atHSweetSpotButJCategory = computeLandingScore({
-        ...PERFECT_M,
-        category: 'J',
-        verticalSpeedMs: msFromFpm(-150)
-      })
       expect(atJSweetSpot.inputs.verticalSpeed).toBe(100)
-      expect(atHSweetSpotButJCategory.inputs.verticalSpeed).toBeLessThan(100)
+      expect(atJSweetSpot.details.verticalSpeed.ideal).toBe(160)
+      const atHSweetSpotButJCategory = computeLandingScore({ ...PERFECT_M, category: 'H', verticalSpeedMs: msFromFpm(-150) })
+      // H's own ideal (150) is J's, so scoring J against that exact same category confirms
+      // the two bands are genuinely distinct, not the same table under two names.
+      expect(atHSweetSpotButJCategory.details.verticalSpeed.ideal).toBe(150)
+
+      // A deviation small enough to matter needs to be sizeable given the tapered curve's
+      // own flatness near ideal (10fpm off J's sweet spot still rounds to 100) — 60fpm off
+      // clearly shows J's own tolerance (480) still applies, not H's narrower one (450).
+      const wellOffJSweetSpot = computeLandingScore({ ...PERFECT_M, category: 'J', verticalSpeedMs: msFromFpm(-100) })
+      expect(wellOffJSweetSpot.inputs.verticalSpeed).toBeLessThan(100)
     })
   })
 
@@ -256,20 +284,22 @@ describe('computeLandingScore', () => {
 
   it(
     'flags a 5° crab as a real drag on the score, not a shrug — tightened 2026-09-12 after ' +
-      'Callum reported a real 5.7° crab landing not reading as bad',
+      "Callum reported a real 5.7° crab landing not reading as bad, and retightened again " +
+      '2026-09-20 when switching to the tapered (quadratic) curve pushed it back above the ' +
+      'bad threshold (landing-scoring-v2.md — see CRAB_TOLERANCE_DEG\'s own doc comment)',
     () => {
-      // Tolerance 9°: score(5) = round(100*(1-5/9)) = 44 — below LandingScoreBreakdownDialog's
-      // BAD_CATEGORY_THRESHOLD (50), landing-score-ui.ts.
+      // Tolerance 6.5°: score(5) = round(100*(1-(5/6.5)^2)) = 41 — below
+      // LandingScoreBreakdownDialog's BAD_CATEGORY_THRESHOLD (50), landing-score-ui.ts.
       const result = computeLandingScore({ ...PERFECT_M, crabDeg: 5 })
-      expect(result.inputs.crab).toBe(44)
+      expect(result.inputs.crab).toBe(41)
       expect(result.inputs.crab).toBeLessThan(50)
     }
   )
 
   it('still scores a couple of degrees of crab gently, not as a cliff', () => {
-    // score(2) = round(100*(1-2/9)) = 78 — comfortably above the bad threshold.
+    // score(2) = round(100*(1-(2/6.5)^2)) = 91 — comfortably above the bad threshold.
     const result = computeLandingScore({ ...PERFECT_M, crabDeg: 2 })
-    expect(result.inputs.crab).toBe(78)
+    expect(result.inputs.crab).toBe(91)
   })
 
   it('renormalizes over the available weight when there is no runway match', () => {
@@ -302,7 +332,7 @@ describe('computeLandingScore', () => {
       expect(details.gForce).toEqual({ ideal: 1, tolerance: 1 })
       expect(details.pitch).toEqual({ ideal: -4, tolerance: 8 })
       expect(details.bank).toEqual({ ideal: 0, tolerance: 8 })
-      expect(details.crab).toEqual({ ideal: 0, tolerance: 9 })
+      expect(details.crab).toEqual({ ideal: 0, tolerance: 6.5 })
     })
 
     it("reports the runway-dependent categories' real per-flight tolerance (this runway's own data)", () => {

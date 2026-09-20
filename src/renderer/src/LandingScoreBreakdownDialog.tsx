@@ -16,6 +16,10 @@ export function LandingScoreBreakdownDialog(props: {
   categories: LandingScoreCategory[]
   unit: LandingDistanceUnit
   trigger: React.ReactNode
+  /** True when a flat dangerous-exceedance deduction (landing-scoring-v2.md, 2026-09-20)
+   *  is already baked into `overall` — shown as its own line so a low score doesn't read
+   *  as unexplained when no single category below is bad enough to account for it. */
+  dangerousExceedance?: boolean
 }): React.JSX.Element {
   return (
     <Dialog>
@@ -24,6 +28,13 @@ export function LandingScoreBreakdownDialog(props: {
         <DialogHeader>
           <DialogTitle>Landing score breakdown — {props.overall}/100</DialogTitle>
         </DialogHeader>
+        {props.dangerousExceedance && (
+          <p className="flex items-center gap-1.5 text-sm text-destructive">
+            <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
+            Dangerous touchdown rate — a 20-point penalty is already included above, on top of
+            the vertical speed category's own score.
+          </p>
+        )}
         <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-sm">
           {props.categories.map((category) => (
             <Fragment key={category.key}>
