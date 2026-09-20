@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { TrackCleanupSummary, TrackPoint, WingLogApi } from '@shared/ipc'
+import i18n from './i18n'
 import { TrackCleanupButton } from './TrackCleanupButton'
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
@@ -48,6 +49,28 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
 }
 
 describe('TrackCleanupButton', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en')
+  })
+
+  it('reports what changed in the active i18next language, not a hardcoded English string', async () => {
+    await i18n.changeLanguage('de')
+    const user = userEvent.setup()
+    withWinglog({
+      trackPointCleanup: vi.fn().mockResolvedValue({ excludedCount: 3, resegmentedCount: 1 }),
+      trackPointList: vi.fn().mockResolvedValue([])
+    })
+    render(<TrackCleanupButton flightId={42} onCleaned={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: /track bereinigen/i }))
+
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith(
+        expect.stringContaining('3 fehlerhafte Punkte entfernt, 1 Punkt neu segmentiert')
+      )
+    )
+  })
+
   it('always renders the button, regardless of resume history', () => {
     // Rule 2 (resume-cleanup.ts) runs unconditionally and can find real junk on a flight
     // where resumeSegment never changed at all — most notably one recorded before Phase 1

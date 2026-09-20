@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Real-world livery photo thumbnail (docs/plans/fleet-redesign.md #3). Deliberately just
@@ -13,6 +14,7 @@ export function AircraftPhoto(props: { thumbnailUrl: string | null }): React.JSX
   // Tracks the URL that failed, not a plain boolean, so switching to a different
   // aircraft's (different) URL naturally resets this without an effect.
   const [failedUrl, setFailedUrl] = useState<string | null>(null)
+  const { t } = useTranslation()
 
   if (!props.thumbnailUrl || props.thumbnailUrl === failedUrl) return null
 
@@ -24,7 +26,7 @@ export function AircraftPhoto(props: { thumbnailUrl: string | null }): React.JSX
         className="max-h-40 rounded-md border border-border object-cover"
         onError={() => setFailedUrl(props.thumbnailUrl)}
       />
-      <figcaption className="text-xs text-muted-foreground">Photo via airport-data.com</figcaption>
+      <figcaption className="text-xs text-muted-foreground">{t('aircraftPhoto.credit')}</figcaption>
     </figure>
   )
 }

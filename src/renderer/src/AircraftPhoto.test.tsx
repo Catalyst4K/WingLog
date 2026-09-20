@@ -1,10 +1,21 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { fireEvent, render } from '@testing-library/react'
+import i18n from './i18n'
 import { AircraftPhoto } from './AircraftPhoto'
 
 const URL = 'https://airport-data.com/images/aircraft/thumbnails/001/685/001685661.jpg'
 
 describe('AircraftPhoto', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en')
+  })
+
+  it('renders the attribution caption in the active i18next language, not a hardcoded English string', async () => {
+    await i18n.changeLanguage('de')
+    const { getByText } = render(<AircraftPhoto thumbnailUrl={URL} />)
+    expect(getByText('Foto via airport-data.com')).toBeInTheDocument()
+  })
+
   it('renders nothing when there is no thumbnail URL', () => {
     const { container } = render(<AircraftPhoto thumbnailUrl={null} />)
     expect(container).toBeEmptyDOMElement()

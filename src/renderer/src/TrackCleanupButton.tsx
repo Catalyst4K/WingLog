@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Wrench } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import type { TrackPoint } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 
@@ -26,24 +27,25 @@ export function TrackCleanupButton(props: {
   onCleaned: (points: TrackPoint[]) => void
 }): React.JSX.Element {
   const [cleaningUp, setCleaningUp] = useState(false)
+  const { t } = useTranslation()
 
   async function handleCleanupTrack(): Promise<void> {
     setCleaningUp(true)
     try {
       const result = await window.winglog.trackPointCleanup(props.flightId)
       if (result.excludedCount === 0 && result.resegmentedCount === 0) {
-        toast.success('Nothing to clean up — this track already looks right.')
+        toast.success(t('trackCleanupButton.nothingToCleanUp'))
         return
       }
       props.onCleaned(await window.winglog.trackPointList(props.flightId))
       const parts: string[] = []
       if (result.excludedCount > 0) {
-        parts.push(`${result.excludedCount} junk point${result.excludedCount === 1 ? '' : 's'} excluded`)
+        parts.push(t('trackCleanupButton.excludedCount', { count: result.excludedCount }))
       }
       if (result.resegmentedCount > 0) {
-        parts.push(`${result.resegmentedCount} point${result.resegmentedCount === 1 ? '' : 's'} re-segmented`)
+        parts.push(t('trackCleanupButton.resegmentedCount', { count: result.resegmentedCount }))
       }
-      toast.success(`Track cleaned up: ${parts.join(', ')}.`)
+      toast.success(t('trackCleanupButton.cleanedUp', { parts: parts.join(', ') }))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
     } finally {
@@ -54,7 +56,7 @@ export function TrackCleanupButton(props: {
   return (
     <Button type="button" variant="ghost" size="sm" onClick={handleCleanupTrack} disabled={cleaningUp}>
       <Wrench />
-      {cleaningUp ? 'Cleaning up…' : 'Clean up track'}
+      {cleaningUp ? t('trackCleanupButton.cleaningUp') : t('trackCleanupButton.button')}
     </Button>
   )
 }

@@ -3,5 +3,25 @@
     "title": "Landing score breakdown — {{score}}/100",
     "whatsIdealFor": "What's ideal for {{label}}?",
     "outOfTen": " / 10"
+  },
+  "landingBadge": {
+    "hard": "Hard",
+    "firm": "Firm"
+  },
+  "trackCleanupButton": {
+    "button": "Clean up track",
+    "cleaningUp": "Cleaning up…",
+    "nothingToCleanUp": "Nothing to clean up — this track already looks right.",
+    "excludedCount_one": "{{count}} junk point excluded",
+    "excludedCount_other": "{{count}} junk points excluded",
+    "resegmentedCount_one": "{{count}} point re-segmented",
+    "resegmentedCount_other": "{{count}} points re-segmented",
+    "cleanedUp": "Track cleaned up: {{parts}}."
+  },
+  "touchdownDiagram": {
+    "ariaLabel": "Touchdown diagram for runway {{ident}}"
+  },
+  "aircraftPhoto": {
+    "credit": "Photo via airport-data.com"
   }
 }

@@ -12,14 +12,23 @@ import ru from './ru/common.json'
 
 const CATALOGUES: Record<string, unknown> = { de, es, fr, it: itLocale, ru }
 
-/** Every leaf key path in a nested translation object, e.g. "landingScoreBreakdown.title". */
+// i18next plural suffixes (CLDR categories) — a key like "excludedCount_one" and
+// "excludedCount_few" are the same logical string in different languages' plural forms, not
+// separate translatable concepts, so different locales are allowed to define a different
+// *set* of these (Russian's one/few/many/other vs. English's one/other) for the same base
+// key without failing the completeness check below.
+const PLURAL_SUFFIX = /_(zero|one|two|few|many|other)$/
+
+/** Every leaf key path in a nested translation object, e.g. "landingScoreBreakdown.title" —
+ *  with any trailing plural suffix stripped back to its base key first. */
 function keyPaths(obj: Record<string, unknown>, prefix = ''): string[] {
-  return Object.entries(obj).flatMap(([key, value]) => {
+  const paths = Object.entries(obj).flatMap(([key, value]) => {
     const path = prefix ? `${prefix}.${key}` : key
     return value !== null && typeof value === 'object' && !Array.isArray(value)
       ? keyPaths(value as Record<string, unknown>, path)
-      : [path]
+      : [path.replace(PLURAL_SUFFIX, '')]
   })
+  return [...new Set(paths)]
 }
 
 describe('locale catalogue completeness', () => {

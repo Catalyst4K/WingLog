@@ -1,7 +1,27 @@
 {
   "landingScoreBreakdown": {
     "title": "Desglose de la puntuación de aterrizaje — {{score}}/100",
-    "whatsIdealFor": "¿Qué es lo ideal para {{label}}?",
+    "whatsIdealFor": "¿Qué es ideal para {{label}}?",
     "outOfTen": " / 10"
+  },
+  "landingBadge": {
+    "hard": "Dura",
+    "firm": "Firme"
+  },
+  "trackCleanupButton": {
+    "button": "Limpiar trayectoria",
+    "cleaningUp": "Limpiando…",
+    "nothingToCleanUp": "Nada que limpiar — esta trayectoria ya tiene buen aspecto.",
+    "excludedCount_one": "{{count}} punto erróneo excluido",
+    "excludedCount_other": "{{count}} puntos erróneos excluidos",
+    "resegmentedCount_one": "{{count}} punto resegmentado",
+    "resegmentedCount_other": "{{count}} puntos resegmentados",
+    "cleanedUp": "Trayectoria limpiada: {{parts}}."
+  },
+  "touchdownDiagram": {
+    "ariaLabel": "Diagrama de aterrizaje de la pista {{ident}}"
+  },
+  "aircraftPhoto": {
+    "credit": "Foto vía airport-data.com"
   }
 }

@@ -1,7 +1,31 @@
 {
   "landingScoreBreakdown": {
     "title": "Разбор оценки посадки — {{score}}/100",
-    "whatsIdealFor": "Что является идеальным для {{label}}?",
+    "whatsIdealFor": "Что является идеалом для {{label}}?",
     "outOfTen": " / 10"
+  },
+  "landingBadge": {
+    "hard": "Жёсткая",
+    "firm": "Твёрдая"
+  },
+  "trackCleanupButton": {
+    "button": "Очистить трек",
+    "cleaningUp": "Очистка…",
+    "nothingToCleanUp": "Нечего очищать — этот трек уже выглядит правильно.",
+    "excludedCount_one": "{{count}} лишняя точка исключена",
+    "excludedCount_few": "{{count}} лишние точки исключены",
+    "excludedCount_many": "{{count}} лишних точек исключено",
+    "excludedCount_other": "{{count}} лишних точек исключено",
+    "resegmentedCount_one": "{{count}} точка переразмечена",
+    "resegmentedCount_few": "{{count}} точки переразмечены",
+    "resegmentedCount_many": "{{count}} точек переразмечено",
+    "resegmentedCount_other": "{{count}} точек переразмечено",
+    "cleanedUp": "Трек очищен: {{parts}}."
+  },
+  "touchdownDiagram": {
+    "ariaLabel": "Схема приземления для ВПП {{ident}}"
+  },
+  "aircraftPhoto": {
+    "credit": "Фото с сайта airport-data.com"
   }
 }

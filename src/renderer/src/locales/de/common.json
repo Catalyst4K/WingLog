@@ -3,5 +3,25 @@
     "title": "Landungswertung — {{score}}/100",
     "whatsIdealFor": "Was ist ideal für {{label}}?",
     "outOfTen": " / 10"
+  },
+  "landingBadge": {
+    "hard": "Hart",
+    "firm": "Fest"
+  },
+  "trackCleanupButton": {
+    "button": "Track bereinigen",
+    "cleaningUp": "Bereinigung…",
+    "nothingToCleanUp": "Nichts zu bereinigen — dieser Track sieht bereits richtig aus.",
+    "excludedCount_one": "{{count}} fehlerhafter Punkt entfernt",
+    "excludedCount_other": "{{count}} fehlerhafte Punkte entfernt",
+    "resegmentedCount_one": "{{count}} Punkt neu segmentiert",
+    "resegmentedCount_other": "{{count}} Punkte neu segmentiert",
+    "cleanedUp": "Track bereinigt: {{parts}}."
+  },
+  "touchdownDiagram": {
+    "ariaLabel": "Aufsetzdiagramm für Landebahn {{ident}}"
+  },
+  "aircraftPhoto": {
+    "credit": "Foto via airport-data.com"
   }
 }

@@ -1,7 +1,27 @@
 {
   "landingScoreBreakdown": {
     "title": "Détail de la note d'atterrissage — {{score}}/100",
-    "whatsIdealFor": "Quel est l'idéal pour {{label}} ?",
+    "whatsIdealFor": "Qu'est-ce qui est idéal pour {{label}} ?",
     "outOfTen": " / 10"
+  },
+  "landingBadge": {
+    "hard": "Dure",
+    "firm": "Ferme"
+  },
+  "trackCleanupButton": {
+    "button": "Nettoyer la trajectoire",
+    "cleaningUp": "Nettoyage…",
+    "nothingToCleanUp": "Rien à nettoyer — cette trajectoire semble déjà correcte.",
+    "excludedCount_one": "{{count}} point parasite exclu",
+    "excludedCount_other": "{{count}} points parasites exclus",
+    "resegmentedCount_one": "{{count}} point resegmenté",
+    "resegmentedCount_other": "{{count}} points resegmentés",
+    "cleanedUp": "Trajectoire nettoyée : {{parts}}."
+  },
+  "touchdownDiagram": {
+    "ariaLabel": "Schéma d'atterrissage pour la piste {{ident}}"
+  },
+  "aircraftPhoto": {
+    "credit": "Photo via airport-data.com"
   }
 }
