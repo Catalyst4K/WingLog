@@ -118,6 +118,14 @@ open('WingLog landing-rate spike', Protocol.SunRise)
     let previousBaselineFpm: number | null = null
     let baselineFpmAtDetection: number | null = null
     let wasOnGroundBaseline = false
+    // Bug found on the second live run (2026-09-20, docs/simconnect-notes.md): the script
+    // was (re)started while already on the ground taxiing, and wasOnGroundBaseline/
+    // previousBaselineFpm both default as if it always starts mid-air. That made the very
+    // first-ever baseline tick (onGround already true) look like a fresh touchdown against
+    // a previousBaselineFpm that had never been set — "undefined" — and armed the high-rate
+    // stream with an empty ring buffer, hence the null/0 near-contact peaks. Seed state from
+    // the first tick instead of evaluating transitions against it.
+    let hasBaselineTick = false
     // Bug found on the first live run (2026-09-20, docs/simconnect-notes.md): without this
     // latch, sitting on the ground afterwards (AGL reads a low-but-nonzero value) kept
     // re-satisfying the arm condition below every baseline tick, restarting the high-rate
@@ -125,6 +133,11 @@ open('WingLog landing-rate spike', Protocol.SunRise)
     // Only true right after a real departure (onGround true -> false above the trigger
     // altitude); false again the moment a landing has been captured, until the next one.
     let awaitingLanding = true
+    // Also found on the second live run: taxiing produced brief onGround/AGL flicker (bumps,
+    // gear compression, tight turns) that read as a "genuine liftoff" and re-armed the whole
+    // cycle while stationary on a taxiway. Require a real altitude margin, not just the
+    // boolean, before treating it as an actual departure.
+    const LIFTOFF_AGL_MARGIN_M = 3
 
     function startHighRate(): void {
       if (highRateActive) return
@@ -165,6 +178,13 @@ open('WingLog landing-rate spike', Protocol.SunRise)
         const fpm = msToFpm(verticalSpeedMs)
         log('baseline-tick', { altAglM, fpm, onGround, gForce })
 
+        if (!hasBaselineTick) {
+          hasBaselineTick = true
+          wasOnGroundBaseline = onGround
+          previousBaselineFpm = fpm
+          return
+        }
+
         if (!highRateActive && awaitingLanding && altAglM < HIGH_RATE_TRIGGER_AGL_M && altAglM > 0) startHighRate()
 
         if (!wasOnGroundBaseline && onGround) {
@@ -178,7 +198,9 @@ open('WingLog landing-rate spike', Protocol.SunRise)
         // bounce back into the air) re-arms detection for the next approach — supports
         // multiple landings in one run, and means a go-around's own low pass before the
         // real landing gets its own, separate peak rather than contaminating the next one.
-        if (wasOnGroundBaseline && !onGround) {
+        // Requires a real altitude margin (not just the boolean) so taxi bumps/turns can't
+        // masquerade as a departure — see LIFTOFF_AGL_MARGIN_M above.
+        if (wasOnGroundBaseline && !onGround && altAglM > LIFTOFF_AGL_MARGIN_M) {
           awaitingLanding = true
           touchdownAt = null
         }
