@@ -1,7 +1,8 @@
 // Landing score (0-100, floored for display) — flightdeck-backend's docs/plans/
 // landing-scoring.md ("Final design", settled 2026-09-12), reworked by
-// landing-scoring-v2.md (2026-09-20): tapered (quadratic) falloff replacing the original
-// straight-line taper, plus a separate dangerous-exceedance deduction. Pure, no I/O:
+// landing-scoring-v2.md (2026-09-20): tapered falloff (fraction^1.5 — see taperedScore's
+// own history for why not a full square) replacing the original straight-line taper, plus a
+// separate dangerous-exceedance deduction. Pure, no I/O:
 // usable from both the main process (which
 // resolves the runway/wake-category lookups this needs real vendored data for — see
 // src/main/db/landing-score-resolver.ts) and the renderer (for tests/rendering only, never
@@ -190,10 +191,12 @@ const CRAB_IDEAL_DEG = 0
 // over is a genuine, if minor, miss rather than nothing. 9 put 5° clearly under the bad
 // threshold (score 44) under the original straight-line taper.
 // Retightened to 6.5, 2026-09-20 (landing-scoring-v2.md): switching taperedScore's shape
-// from linear to quadratic (see that function's own doc comment) is deliberately gentler
-// near ideal, which pushed 5° back up to 69 — silently undoing the exact real-incident fix
-// above. 6.5 restores the same intent under the new curve (5° -> 41, clearly under 50; 2°
-// -> 91, still gentle) — a re-derived judgement call, not a re-sourced limit.
+// from linear to quadratic (fraction^2) is deliberately gentler near ideal, which pushed 5°
+// back up to 69 — silently undoing the exact real-incident fix above. 6.5 restored the same
+// intent under that curve (5° -> 41, clearly under 50). Left unchanged when the curve was
+// retuned again the same day from fraction^2 to fraction^1.5 (see taperedScore's own
+// history) — 6.5 still keeps 5° comfortably under the bad threshold at the new exponent
+// (5° -> 33; 2° -> 83, still gentle), so no further retuning was needed here.
 const CRAB_TOLERANCE_DEG = 6.5
 
 // ICAO Annex 14 §5.2.6 touchdown-zone marking — pair count by landing distance available
@@ -252,20 +255,31 @@ const WEIGHTS = {
 
 // Landing scoring v2 (flightdeck-backend's docs/plans/landing-scoring-v2.md, Callum's
 // answered decisions, 2026-09-20): the falloff was a judgement call, no concrete real
-// landing to calibrate the shape against — a tapered (quadratic-style) curve, gentle near
-// ideal and steep near/past tolerance, replacing the old straight-line taper. Was called
-// linearScore; renamed since it's no longer linear.
-/** Quadratic falloff to 0 at `tolerance` past `ideal` (deviation already `actual - ideal`),
- *  clamped to [0,100] so a single input can never go negative on its own. Squaring the
- *  fraction of tolerance used means a small deviation barely moves the score (flat near
- *  ideal) while the same absolute step matters far more as it approaches tolerance (steep
- *  near/past it) — the opposite shape from a straight-line taper, which penalizes every
- *  increment equally regardless of how close to ideal it started. */
+// landing to calibrate the shape against — a tapered curve, gentle near ideal and steep
+// near/past tolerance, replacing the old straight-line taper. Was called linearScore;
+// renamed since it's no longer linear. The exponent was first tried as a full square
+// (quadratic — fraction^2), but a real BAW32 flight the same day showed it was too
+// generous through the *middle* of the range: a touchdown vertical speed and a crab both
+// only halfway through their tolerance still scored ~76-78/100, not the ~50 "halfway
+// should feel like half" a real pilot expected (Callum, 2026-09-20). Retuned that same day
+// to fraction^1.5 — still gentler than a straight line near ideal (a small deviation barely
+// moves the score) but far less generous through the middle than squaring was (halfway
+// through tolerance now scores ~65, not ~76).
+/** Tapered falloff to 0 at `tolerance` past `ideal` (deviation already `actual - ideal`),
+ *  clamped to [0,100] so a single input can never go negative on its own. Raising the
+ *  fraction of tolerance used to a power > 1 means a small deviation barely moves the score
+ *  (flat near ideal) while the same absolute step matters more as it approaches tolerance
+ *  (steeper near/past it) — the opposite shape from a straight-line taper, which penalizes
+ *  every increment equally regardless of how close to ideal it started. The exponent
+ *  controls how much of that "flat near ideal" character survives into the middle of the
+ *  range — see this function's own history above for why 1.5 replaced a full square. */
+const TAPER_EXPONENT = 1.5
+
 function taperedScore(deviation: number, tolerance: number): number {
   const magnitude = Math.abs(deviation)
   if (tolerance <= 0) return magnitude === 0 ? 100 : 0
   const fraction = magnitude / tolerance
-  return Math.max(0, Math.min(100, Math.round(100 * (1 - fraction * fraction))))
+  return Math.max(0, Math.min(100, Math.round(100 * (1 - fraction ** TAPER_EXPONENT))))
 }
 
 // Judgement call, same honesty register as the rest of this file's constants — no real
