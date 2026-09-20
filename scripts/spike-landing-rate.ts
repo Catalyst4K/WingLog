@@ -23,6 +23,14 @@
  *   npm run spike:landing-rate
  * Log the answers in flightdeck-backend's docs/simconnect-notes.md before any production
  * code is written against this.
+ *
+ * v2, 2026-09-20, after the first live run found two bugs in this script (not in
+ * SimConnect) — see docs/simconnect-notes.md's 2026-09-20 entry: the peak tracker now
+ * resets on every fresh arming (a go-around/low pass no longer contaminates the real
+ * landing's number), re-arming now requires a genuine liftoff since the last capture
+ * rather than just "AGL reads below the trigger" (which was also true while parked,
+ * causing an infinite start/stop loop), and the peak is now split into before- and
+ * after-contact so a rollout bounce can't masquerade as touchdown severity.
  */
 import { appendFileSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -73,18 +81,36 @@ open('WingLog landing-rate spike', Protocol.SunRise)
     let touchdownAt: number | null = null
     let peakFpmHighRate = 0
     let peakGHighRate = 0
+    // Split so a rollout bounce/gear-rebound after contact (real physics, not noise, but a
+    // different question from "how hard did it actually touch down") can't masquerade as
+    // the pre-contact severity number scoring actually cares about.
+    let peakFpmPreTouchdown = 0
+    let peakFpmPostTouchdown = 0
     // The value production code would have used: the 1 Hz baseline tick immediately
     // before on-ground flips true (previousTelemetry, per landing-capture.ts's own doc
     // comment on why it uses the previous tick rather than the touchdown tick itself).
     let previousBaselineFpm: number | null = null
     let baselineFpmAtDetection: number | null = null
     let wasOnGroundBaseline = false
+    // Bug found on the first live run (2026-09-20, docs/simconnect-notes.md): without this
+    // latch, sitting on the ground afterwards (AGL reads a low-but-nonzero value) kept
+    // re-satisfying the arm condition below every baseline tick, restarting the high-rate
+    // stream and re-triggering the "5s since touchdown" stop on every single tick forever.
+    // Only true right after a real departure (onGround true -> false above the trigger
+    // altitude); false again the moment a landing has been captured, until the next one.
+    let awaitingLanding = true
 
     function startHighRate(): void {
       if (highRateActive) return
       highRateActive = true
       highRateStartedAt = Date.now()
       highRateTickCount = 0
+      // Also found on the first run: an earlier low pass/go-around's peak survived,
+      // unrelated, all the way to the real landing 97s later. Reset on every fresh arming.
+      peakFpmHighRate = 0
+      peakGHighRate = 0
+      peakFpmPreTouchdown = 0
+      peakFpmPostTouchdown = 0
       console.log('Starting high-rate stream (SIM_FRAME)...')
       handle.requestDataOnSimObject(HIGH_RATE_REQ, HIGH_RATE_DEF, SimConnectConstants.OBJECT_ID_USER, SimConnectPeriod.SIM_FRAME)
     }
@@ -110,7 +136,7 @@ open('WingLog landing-rate spike', Protocol.SunRise)
         const fpm = msToFpm(verticalSpeedMs)
         log('baseline-tick', { altAglM, fpm, onGround, gForce })
 
-        if (!highRateActive && altAglM < HIGH_RATE_TRIGGER_AGL_M && altAglM > 0) startHighRate()
+        if (!highRateActive && awaitingLanding && altAglM < HIGH_RATE_TRIGGER_AGL_M && altAglM > 0) startHighRate()
 
         if (!wasOnGroundBaseline && onGround) {
           touchdownAt = Date.now()
@@ -118,6 +144,14 @@ open('WingLog landing-rate spike', Protocol.SunRise)
           console.log(
             `Baseline touchdown detected. Previous-tick fpm (what production code uses today): ${previousBaselineFpm?.toFixed(0)}`
           )
+        }
+        // Genuinely airborne again (a real departure, a go-around, a touch-and-go's own
+        // bounce back into the air) re-arms detection for the next approach — supports
+        // multiple landings in one run, and means a go-around's own low pass before the
+        // real landing gets its own, separate peak rather than contaminating the next one.
+        if (wasOnGroundBaseline && !onGround) {
+          awaitingLanding = true
+          touchdownAt = null
         }
         wasOnGroundBaseline = onGround
         previousBaselineFpm = fpm
@@ -133,14 +167,17 @@ open('WingLog landing-rate spike', Protocol.SunRise)
         if (touchdownAt === null || Date.now() - touchdownAt < HIGH_RATE_STOP_AFTER_TOUCHDOWN_MS) {
           peakFpmHighRate = Math.max(peakFpmHighRate, Math.abs(fpm))
           peakGHighRate = Math.max(peakGHighRate, gForce)
+          if (touchdownAt === null) peakFpmPreTouchdown = Math.max(peakFpmPreTouchdown, Math.abs(fpm))
+          else peakFpmPostTouchdown = Math.max(peakFpmPostTouchdown, Math.abs(fpm))
         }
         if (touchdownAt !== null && Date.now() - touchdownAt >= HIGH_RATE_STOP_AFTER_TOUCHDOWN_MS) {
           stopHighRate()
+          awaitingLanding = false // captured; don't re-arm until a real liftoff happens
           console.log(
-            `Peak high-rate fpm around touchdown: ${peakFpmHighRate.toFixed(0)} (vs. baseline's ${baselineFpmAtDetection?.toFixed(0)}) — ` +
-              `peak G: ${peakGHighRate.toFixed(2)}`
+            `Peak fpm before contact: ${peakFpmPreTouchdown.toFixed(0)} — after contact (rollout/bounce): ${peakFpmPostTouchdown.toFixed(0)} — ` +
+              `vs. baseline's previous-tick: ${baselineFpmAtDetection?.toFixed(0)} — peak G: ${peakGHighRate.toFixed(2)}`
           )
-          log('comparison', { peakFpmHighRate, baselineFpmAtDetection, peakGHighRate })
+          log('comparison', { peakFpmPreTouchdown, peakFpmPostTouchdown, baselineFpmAtDetection, peakGHighRate })
         }
       }
     })
