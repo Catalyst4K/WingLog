@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import type {
   AircraftImportSummary,
   AltitudeUnit,
+  AppLanguage,
   DataFormat,
   GsxSettings,
   LandingDistanceUnit,
@@ -14,6 +15,7 @@ import type {
   WeightUnit,
   WindSpeedUnit
 } from '@shared/ipc'
+import { APP_LANGUAGE_OPTIONS } from './app-language'
 import { MAP_LANGUAGES } from './map-labels'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -62,7 +64,10 @@ function SegmentedRow<T extends string>(props: {
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-sm text-muted-foreground">{props.label}</span>
-      <div className="flex flex-wrap gap-1.5">
+      {/* Grouped and labelled so two rows with overlapping option labels (App language and
+       *  Map language both offer "Deutsch", "Español", etc.) can still be queried
+       *  unambiguously, in tests and by assistive tech alike. */}
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label={props.label}>
         {props.options.map((opt) => (
           <Button
             key={opt.value}
@@ -154,6 +159,8 @@ export function SettingsView(props: {
   onLandingDistanceUnitChange: (unit: LandingDistanceUnit) => void
   mapLanguage: MapLanguage
   onMapLanguageChange: (language: MapLanguage) => void
+  appLanguage: AppLanguage
+  onAppLanguageChange: (language: AppLanguage) => void
   theme: Theme
   onThemeChange: (theme: Theme) => void
   /** Bumped by App.tsx when the Settings tab is clicked while already active — returns to
@@ -400,6 +407,20 @@ export function SettingsView(props: {
               </div>
               <div className="flex flex-col gap-1.5">
                 <SegmentedRow
+                  label="App language"
+                  value={props.appLanguage}
+                  options={APP_LANGUAGE_OPTIONS}
+                  onChange={props.onAppLanguageChange}
+                />
+                <p className="text-xs text-muted-foreground">
+                  "System" follows your OS's own language, falling back to English if this app doesn't have a
+                  translation for it yet. Translation is being rolled out one part of the app at a time — most
+                  of the UI is still English regardless of this setting. Real aviation terms (ILS, STAR, SID,
+                  FL, QNH, ICAO idents) and anything from SimBrief always stay in English.
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <SegmentedRow
                   label="Map language"
                   value={props.mapLanguage}
                   options={MAP_LANGUAGES}
@@ -407,7 +428,7 @@ export function SettingsView(props: {
                 />
                 <p className="text-xs text-muted-foreground">
                   The language of place names on the Track and Logbook maps. "Local" shows each place in its
-                  own language. Only the map changes — the rest of the app stays in English.
+                  own language — independent of the app language above.
                 </p>
               </div>
               <div className="flex flex-col gap-1.5">

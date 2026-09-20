@@ -3,6 +3,7 @@ import { BookOpen, Plane, Radar, Route, Settings as SettingsIcon } from 'lucide-
 import { toast } from 'sonner'
 import type {
   AltitudeUnit,
+  AppLanguage,
   AppPage,
   DispatchOfp,
   Flight,
@@ -15,6 +16,8 @@ import type {
   WeightUnit,
   WindSpeedUnit
 } from '@shared/ipc'
+import { resolveAppLanguage } from './app-language'
+import i18n from './i18n'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -118,6 +121,7 @@ export default function App(): React.JSX.Element {
   const [altitudeUnit, setAltitudeUnit] = useState<AltitudeUnit>('ft')
   const [windSpeedUnit, setWindSpeedUnit] = useState<WindSpeedUnit>('kt')
   const [mapLanguage, setMapLanguage] = useState<MapLanguage>('en')
+  const [appLanguage, setAppLanguage] = useState<AppLanguage>('system')
   const [landingDistanceUnit, setLandingDistanceUnit] = useState<LandingDistanceUnit>('ft')
   const [theme, setTheme] = useState<Theme>('system')
   const [simStatus, setSimStatus] = useState<SimConnectionStatus>({ state: 'disconnected' })
@@ -280,6 +284,12 @@ export default function App(): React.JSX.Element {
     window.winglog.settingsGetMapLanguage().then(setMapLanguage)
     window.winglog.settingsGetLandingDistanceUnit().then(setLandingDistanceUnit)
     window.winglog.settingsGetTheme().then(setTheme)
+    Promise.all([window.winglog.settingsGetAppLanguage(), window.winglog.settingsGetSystemLocale()]).then(
+      ([saved, systemLocale]) => {
+        setAppLanguage(saved)
+        void i18n.changeLanguage(resolveAppLanguage(saved, systemLocale))
+      }
+    )
   }, [])
 
   // Applies the resolved theme by toggling the `dark` class index.css's tokens key off
@@ -347,6 +357,13 @@ export default function App(): React.JSX.Element {
   async function handleMapLanguageChange(language: MapLanguage): Promise<void> {
     setMapLanguage(language)
     await window.winglog.settingsSetMapLanguage(language)
+  }
+
+  async function handleAppLanguageChange(language: AppLanguage): Promise<void> {
+    setAppLanguage(language)
+    await window.winglog.settingsSetAppLanguage(language)
+    const systemLocale = await window.winglog.settingsGetSystemLocale()
+    void i18n.changeLanguage(resolveAppLanguage(language, systemLocale))
   }
 
   async function handleWindSpeedUnitChange(unit: WindSpeedUnit): Promise<void> {
@@ -449,6 +466,8 @@ export default function App(): React.JSX.Element {
                 onLandingDistanceUnitChange={handleLandingDistanceUnitChange}
                 mapLanguage={mapLanguage}
                 onMapLanguageChange={handleMapLanguageChange}
+                appLanguage={appLanguage}
+                onAppLanguageChange={handleAppLanguageChange}
                 theme={theme}
                 onThemeChange={handleThemeChange}
                 resetSignal={settingsResetSignal}

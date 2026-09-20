@@ -7,6 +7,7 @@ import {
   IpcChannels,
   type AircraftUpdate,
   type AltitudeUnit,
+  type AppLanguage,
   type DataFormat,
   type WindSpeedUnit,
   type DispatchOfp,
@@ -66,6 +67,7 @@ import { getLandingScoresForCompletedFlights, resolveLandingScore } from './db/l
 import { exportLogbook, importLogbookCsv, importLogbookJson } from './db/logbook-import'
 import {
   getAltitudeUnit,
+  getAppLanguage,
   getGsxSettings,
   getLandingDistanceUnit,
   getSimbriefUsername,
@@ -74,6 +76,7 @@ import {
   getMapLanguage,
   getWindSpeedUnit,
   setAltitudeUnit,
+  setAppLanguage,
   setGsxSettings,
   setLandingDistanceUnit,
   setSimbriefUsername,
@@ -453,6 +456,13 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.settingsSetMapLanguage, (_event, language: MapLanguage) =>
         setMapLanguage(db, language)
       )
+      ipcMain.handle(IpcChannels.settingsGetAppLanguage, () => getAppLanguage(db))
+      ipcMain.handle(IpcChannels.settingsSetAppLanguage, (_event, language: AppLanguage) =>
+        setAppLanguage(db, language)
+      )
+      // Not a stored setting — just what the OS itself reports, for resolving AppLanguage's
+      // 'system' value client-side (app-language.ts's resolveAppLanguage).
+      ipcMain.handle(IpcChannels.settingsGetSystemLocale, () => app.getLocale())
       ipcMain.handle(IpcChannels.settingsGetWindSpeedUnit, () => getWindSpeedUnit(db))
       ipcMain.handle(IpcChannels.settingsSetWindSpeedUnit, (_event, unit: WindSpeedUnit) =>
         setWindSpeedUnit(db, unit)

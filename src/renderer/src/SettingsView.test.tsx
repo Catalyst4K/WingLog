@@ -84,6 +84,8 @@ function renderSettings(
       onLandingDistanceUnitChange={props.onLandingDistanceUnitChange ?? vi.fn()}
       mapLanguage={props.mapLanguage ?? 'en'}
       onMapLanguageChange={props.onMapLanguageChange ?? vi.fn()}
+      appLanguage={props.appLanguage ?? 'system'}
+      onAppLanguageChange={props.onAppLanguageChange ?? vi.fn()}
       theme={props.theme ?? 'system'}
       onThemeChange={props.onThemeChange ?? vi.fn()}
       resetSignal={props.resetSignal}
@@ -150,6 +152,8 @@ describe('SettingsView', () => {
           onLandingDistanceUnitChange={vi.fn()}
           mapLanguage="en"
           onMapLanguageChange={vi.fn()}
+          appLanguage="system"
+          onAppLanguageChange={vi.fn()}
           theme="system"
           onThemeChange={vi.fn()}
           resetSignal={1}
@@ -170,6 +174,8 @@ describe('SettingsView', () => {
           onLandingDistanceUnitChange={vi.fn()}
           mapLanguage="en"
           onMapLanguageChange={vi.fn()}
+          appLanguage="system"
+          onAppLanguageChange={vi.fn()}
           theme="system"
           onThemeChange={vi.fn()}
           resetSignal={2}
@@ -376,11 +382,27 @@ describe('SettingsView', () => {
       const user = userEvent.setup()
       renderSettings({ mapLanguage: 'en', onMapLanguageChange })
 
+      const group = within(await screen.findByRole('group', { name: 'Map language' }))
       for (const label of ['English', 'Local', 'Deutsch', 'Español', 'Français', 'Italiano', 'Русский']) {
-        expect(await screen.findByRole('button', { name: label })).toBeInTheDocument()
+        expect(group.getByRole('button', { name: label })).toBeInTheDocument()
       }
-      await user.click(screen.getByRole('button', { name: 'Deutsch' }))
+      await user.click(group.getByRole('button', { name: 'Deutsch' }))
       expect(onMapLanguageChange).toHaveBeenCalledWith('de')
+    })
+  })
+
+  describe('App language', () => {
+    it('offers every language plus System, marks the current one, and reports a change', async () => {
+      const onAppLanguageChange = vi.fn()
+      const user = userEvent.setup()
+      renderSettings({ appLanguage: 'system', onAppLanguageChange })
+
+      const group = within(await screen.findByRole('group', { name: 'App language' }))
+      for (const label of ['System', 'English', 'Deutsch', 'Español', 'Français', 'Italiano', 'Русский']) {
+        expect(group.getByRole('button', { name: label })).toBeInTheDocument()
+      }
+      await user.click(group.getByRole('button', { name: 'Deutsch' }))
+      expect(onAppLanguageChange).toHaveBeenCalledWith('de')
     })
   })
 

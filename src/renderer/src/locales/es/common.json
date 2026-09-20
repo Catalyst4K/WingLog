@@ -1,0 +1,7 @@
+{
+  "landingScoreBreakdown": {
+    "title": "Desglose de la puntuación de aterrizaje — {{score}}/100",
+    "whatsIdealFor": "¿Qué es lo ideal para {{label}}?",
+    "outOfTen": " / 10"
+  }
+}

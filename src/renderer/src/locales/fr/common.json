@@ -1,0 +1,7 @@
+{
+  "landingScoreBreakdown": {
+    "title": "Détail de la note d'atterrissage — {{score}}/100",
+    "whatsIdealFor": "Quel est l'idéal pour {{label}} ?",
+    "outOfTen": " / 10"
+  }
+}

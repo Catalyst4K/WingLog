@@ -1,0 +1,7 @@
+{
+  "landingScoreBreakdown": {
+    "title": "Разбор оценки посадки — {{score}}/100",
+    "whatsIdealFor": "Что является идеальным для {{label}}?",
+    "outOfTen": " / 10"
+  }
+}

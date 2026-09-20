@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import type {
   AltitudeUnit,
+  AppLanguage,
   GsxSettings,
   LandingDistanceUnit,
   MapLanguage,
@@ -16,8 +17,10 @@ const WEIGHT_UNIT_KEY = 'weightUnit'
 const ALTITUDE_UNIT_KEY = 'altitudeUnit'
 const WIND_SPEED_UNIT_KEY = 'windSpeedUnit'
 const MAP_LANGUAGE_KEY = 'mapLanguage'
+const APP_LANGUAGE_KEY = 'appLanguage'
 
 const MAP_LANGUAGES: readonly MapLanguage[] = ['local', 'en', 'de', 'es', 'fr', 'it', 'ru']
+const APP_LANGUAGES: readonly AppLanguage[] = ['system', 'en', 'de', 'es', 'fr', 'it', 'ru']
 const LANDING_DISTANCE_UNIT_KEY = 'landingDistanceUnit'
 const THEME_KEY = 'theme'
 const GSX_ENABLED_KEY = 'gsxEnabled'
@@ -72,6 +75,21 @@ export function getMapLanguage(db: WingLogDb): MapLanguage {
 export function setMapLanguage(db: WingLogDb, language: MapLanguage): void {
   if (!MAP_LANGUAGES.includes(language)) return
   setSetting(db, MAP_LANGUAGE_KEY, language)
+}
+
+/** Defaults to 'system' (docs/plans/v1-2.md Part 3, decisions.md 2026-09-20) — resolved to
+ *  an actual language client-side (app-language.ts's resolveAppLanguage), against the OS's
+ *  own locale, falling back to English. A stored value that isn't a known language (a
+ *  hand-edited or future-version row) also reads as 'system'. */
+export function getAppLanguage(db: WingLogDb): AppLanguage {
+  const value = getSetting(db, APP_LANGUAGE_KEY)
+  return APP_LANGUAGES.find((l) => l === value) ?? 'system'
+}
+
+/** Validated here rather than trusted from the renderer; an unknown value is ignored. */
+export function setAppLanguage(db: WingLogDb, language: AppLanguage): void {
+  if (!APP_LANGUAGES.includes(language)) return
+  setSetting(db, APP_LANGUAGE_KEY, language)
 }
 
 export function getWindSpeedUnit(db: WingLogDb): WindSpeedUnit {
