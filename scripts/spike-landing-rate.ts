@@ -185,7 +185,14 @@ open('WingLog landing-rate spike', Protocol.SunRise)
           return
         }
 
-        if (!highRateActive && awaitingLanding && altAglM < HIGH_RATE_TRIGGER_AGL_M && altAglM > 0) startHighRate()
+        // Bug found on the third live run (2026-09-20, docs/simconnect-notes.md): AGL alone
+        // is also true during the takeoff roll/initial climb, not just on approach — arming
+        // while still genuinely on the ground (still rolling) reset wasOnGroundHighRate to
+        // false against a same-tick onGround still true, tripping an immediate bogus
+        // "precise touchdown" with an empty ring buffer, same failure shape as the cold-start
+        // bug above. Require actually airborne, not just the altitude band, before arming.
+        if (!highRateActive && awaitingLanding && !onGround && altAglM < HIGH_RATE_TRIGGER_AGL_M && altAglM > 0)
+          startHighRate()
 
         if (!wasOnGroundBaseline && onGround) {
           touchdownAt = Date.now()
