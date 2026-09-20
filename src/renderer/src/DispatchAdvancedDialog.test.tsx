@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Flight } from '@shared/ipc'
 import { defaultDispatchOptions, type DispatchOptions } from '@shared/dispatch-options'
+import i18n from './i18n'
 import { DispatchAdvancedDialog } from './DispatchAdvancedDialog'
 
 function flight(overrides: Partial<Flight> = {}): Flight {
@@ -68,6 +69,19 @@ function Harness(props: { flights: Flight[]; open?: boolean }): React.JSX.Elemen
 }
 
 describe('DispatchAdvancedDialog', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en')
+  })
+
+  it('renders its title and field labels in the active i18next language, not a hardcoded English string', async () => {
+    await i18n.changeLanguage('de')
+    render(<Harness flights={[]} />)
+    expect(screen.getByText('Erweiterte Dispatch-Optionen')).toBeInTheDocument()
+    expect(screen.getByLabelText('Passagiere')).toBeInTheDocument()
+    expect(screen.getByText('Fertig (0 gesetzt)')).toBeInTheDocument()
+  })
+
+
   it('renders nothing (a closed dialog) when open is false', () => {
     render(<Harness flights={[]} open={false} />)
     expect(screen.queryByText('Advanced dispatch options')).not.toBeInTheDocument()

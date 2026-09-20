@@ -3,6 +3,7 @@ import {
   IpcChannels,
   type AircraftUpdate,
   type AltitudeUnit,
+  type AppLanguage,
   type DataFormat,
   type DispatchOpenSimBriefParams,
   type WingLogApi,
@@ -75,6 +76,10 @@ const api: WingLogApi = {
   settingsGetMapLanguage: () => ipcRenderer.invoke(IpcChannels.settingsGetMapLanguage),
   settingsSetMapLanguage: (language: MapLanguage) =>
     ipcRenderer.invoke(IpcChannels.settingsSetMapLanguage, language),
+  settingsGetAppLanguage: () => ipcRenderer.invoke(IpcChannels.settingsGetAppLanguage),
+  settingsSetAppLanguage: (language: AppLanguage) =>
+    ipcRenderer.invoke(IpcChannels.settingsSetAppLanguage, language),
+  settingsGetSystemLocale: () => ipcRenderer.invoke(IpcChannels.settingsGetSystemLocale),
   settingsGetWindSpeedUnit: () => ipcRenderer.invoke(IpcChannels.settingsGetWindSpeedUnit),
   settingsSetWindSpeedUnit: (unit: WindSpeedUnit) =>
     ipcRenderer.invoke(IpcChannels.settingsSetWindSpeedUnit, unit),

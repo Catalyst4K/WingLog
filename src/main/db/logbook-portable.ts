@@ -1,4 +1,5 @@
 import type { Aircraft, DataFormat, Flight, Landing } from '@shared/ipc'
+import { t } from '../i18n'
 import { columnIndex, parseCsvRows, toCsv } from './csv'
 
 /**
@@ -148,20 +149,23 @@ const icao = (value: unknown): string | null => {
 /** Validates one untrusted object (a JSON element, or a CSV row keyed by header) — a bad
  *  field degrades to a skipped row with a reason, never a throw. */
 function toRecord(raw: unknown, csv: boolean): ParsedLogbookRow {
-  if (typeof raw !== 'object' || raw === null) return { error: 'Expected an object', label: '(unreadable row)' }
+  if (typeof raw !== 'object' || raw === null) {
+    return { error: t('errors.expectedAnObject'), label: t('labels.unreadableRow') }
+  }
   const o = raw as Record<string, unknown>
   const registration = text(o['registration'])
   const dep = icao(o[csv ? 'dep_icao' : 'depIcao'])
   const arr = icao(o[csv ? 'arr_icao' : 'arrIcao'])
-  const label = [registration, dep && arr ? `${dep}-${arr}` : null].filter(Boolean).join(' ') || '(unreadable row)'
+  const label =
+    [registration, dep && arr ? `${dep}-${arr}` : null].filter(Boolean).join(' ') || t('labels.unreadableRow')
 
   const icaoType = text(o[csv ? 'aircraft_type' : 'icaoType'])
   const outUtc = isoInstant(o[csv ? 'out_utc' : 'outUtc'])
   const inUtc = isoInstant(o[csv ? 'in_utc' : 'inUtc'])
   if (!registration || !icaoType || !dep || !arr || !outUtc || !inUtc) {
-    return { error: 'missing or malformed required field', label }
+    return { error: t('errors.missingOrMalformedField'), label }
   }
-  if (Date.parse(inUtc) < Date.parse(outUtc)) return { error: 'in-block time is before out-block time', label }
+  if (Date.parse(inUtc) < Date.parse(outUtc)) return { error: t('errors.inBlockBeforeOutBlock'), label }
 
   const landingRaw = csv ? null : (o['landing'] as Record<string, unknown> | null | undefined)
   const landingSource = csv ? o : landingRaw
@@ -205,11 +209,11 @@ export function isWingLogLogbookCsv(header: string[]): boolean {
 export function parseLogbook(textInput: string, format: DataFormat): ParsedLogbookRow[] {
   if (format === 'json') {
     const parsed: unknown = JSON.parse(textInput)
-    if (!Array.isArray(parsed)) throw new Error('Expected a JSON array of flights')
+    if (!Array.isArray(parsed)) throw new Error(t('errors.expectedJsonArrayOfFlights'))
     return parsed.map((row) => toRecord(row, false))
   }
   const [header, ...rows] = parseCsvRows(textInput)
-  if (!header) throw new Error('The CSV file is empty')
+  if (!header) throw new Error(t('errors.csvFileEmpty'))
   const names = header.map((h) => h.toLowerCase())
   return rows.map((row) => toRecord(Object.fromEntries(names.map((name, i) => [name, row[i] ?? ''])), true))
 }

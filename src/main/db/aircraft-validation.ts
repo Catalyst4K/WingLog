@@ -1,4 +1,5 @@
 import type { NewAircraft } from '@shared/ipc'
+import { t } from '../i18n'
 
 const REQUIRED_STRING_FIELDS = ['registration', 'icaoType'] as const
 const OPTIONAL_STRING_FIELDS = [
@@ -22,13 +23,13 @@ export type AircraftInputResult = { data: NewAircraft } | { error: string }
  * by create, update and bulk import so all three enforce the same rules.
  */
 export function parseAircraftInput(raw: unknown): AircraftInputResult {
-  if (typeof raw !== 'object' || raw === null) return { error: 'Expected an object' }
+  if (typeof raw !== 'object' || raw === null) return { error: t('errors.expectedAnObject') }
   const input = raw as Record<string, unknown>
   const fields: Record<string, unknown> = {}
 
   for (const field of REQUIRED_STRING_FIELDS) {
     const value = input[field]
-    if (typeof value !== 'string' || value.trim() === '') return { error: `"${field}" is required` }
+    if (typeof value !== 'string' || value.trim() === '') return { error: t('errors.fieldRequired', { field }) }
     fields[field] = value.trim()
   }
 
@@ -46,7 +47,7 @@ export function parseAircraftInput(raw: unknown): AircraftInputResult {
       fields[field] = null
       continue
     }
-    if (typeof value !== 'string') return { error: `"${field}" must be a string` }
+    if (typeof value !== 'string') return { error: t('errors.fieldMustBeString', { field }) }
     fields[field] = value.trim()
   }
 

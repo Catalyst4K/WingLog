@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Archive, ArchiveRestore, ArrowLeft, ArrowRightLeft, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { isRetired } from '@shared/aircraft'
 import type { Aircraft, AircraftLanding, Flight, FleetStats, NewAircraft } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
@@ -33,14 +35,16 @@ type View = { kind: 'list' } | { kind: 'detail'; id: number } | { kind: 'new' } 
 
 type FleetSortKey = 'registration' | 'type' | 'airline' | 'location' | 'hours' | 'flights'
 
-const FLEET_SORT_COLUMNS: { key: FleetSortKey; label: string }[] = [
-  { key: 'registration', label: 'Registration' },
-  { key: 'type', label: 'Type' },
-  { key: 'airline', label: 'Airline' },
-  { key: 'location', label: 'Location' },
-  { key: 'hours', label: 'Hours' },
-  { key: 'flights', label: 'Flights' }
-]
+function fleetSortColumns(t: TFunction): { key: FleetSortKey; label: string }[] {
+  return [
+    { key: 'registration', label: t('fleetView.sortColumns.registration') },
+    { key: 'type', label: t('fleetView.sortColumns.type') },
+    { key: 'airline', label: t('fleetView.sortColumns.airline') },
+    { key: 'location', label: t('fleetView.sortColumns.location') },
+    { key: 'hours', label: t('fleetView.sortColumns.hours') },
+    { key: 'flights', label: t('fleetView.sortColumns.flights') }
+  ]
+}
 
 function formatDate(iso: string | null): string {
   return iso ? new Date(iso).toLocaleString() : '—'
@@ -77,6 +81,7 @@ function DetailField(props: { label: string; value: React.ReactNode }): React.JS
  * - nothing set at all: explain the (usually fine) fallback.
  */
 function SimBriefProfileCard(props: { aircraft: Aircraft }): React.JSX.Element {
+  const { t } = useTranslation()
   const a = props.aircraft
 
   function openAirframes(): void {
@@ -86,13 +91,13 @@ function SimBriefProfileCard(props: { aircraft: Aircraft }): React.JSX.Element {
   return (
     <Card size="sm">
       <CardHeader>
-        <CardTitle className="text-base">SimBrief profile</CardTitle>
+        <CardTitle className="text-base">{t('fleetView.simbriefProfile.cardTitle')}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-2 text-sm">
         {a.simbriefAirframeId ? (
           <>
             <p className="text-foreground">
-              Custom —{' '}
+              {t('fleetView.simbriefProfile.custom')}{' '}
               {a.simbriefAirframeRegistration ? (
                 <>
                   {a.simbriefAirframeRegistration}
@@ -103,7 +108,7 @@ function SimBriefProfileCard(props: { aircraft: Aircraft }): React.JSX.Element {
               )}
             </p>
             <Button type="button" variant="outline" size="sm" className="w-fit" onClick={openAirframes}>
-              Open in SimBrief
+              {t('fleetView.simbriefProfile.openInSimBrief')}
             </Button>
           </>
         ) : a.simbriefType ? (
@@ -115,14 +120,13 @@ function SimBriefProfileCard(props: { aircraft: Aircraft }): React.JSX.Element {
               </>
             ) : (
               <>
-                Using SimBrief default: <span className="font-mono">{a.simbriefType}</span>
+                {t('fleetView.simbriefProfile.usingDefault')} <span className="font-mono">{a.simbriefType}</span>
               </>
             )}
           </p>
         ) : (
           <p className="text-muted-foreground">
-            No profile set — plans fall back to SimBrief's own default for {a.icaoType}, which is usually
-            close enough but can be off on weights (and therefore fuel).
+            {t('fleetView.simbriefProfile.noProfile', { icaoType: a.icaoType })}
           </p>
         )}
       </CardContent>
@@ -135,6 +139,7 @@ function SimBriefProfileCard(props: { aircraft: Aircraft }): React.JSX.Element {
  *  over its life in the fleet. Empty state is the common case for a while: only flights
  *  tracked since this feature shipped have a landing record at all. */
 function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
+  const { t } = useTranslation()
   const [landings, setLandings] = useState<AircraftLanding[]>([])
 
   useEffect(() => {
@@ -144,11 +149,11 @@ function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
   return (
     <Card size="sm">
       <CardHeader>
-        <CardTitle className="text-base">Landing history</CardTitle>
+        <CardTitle className="text-base">{t('fleetView.landingHistory.cardTitle')}</CardTitle>
       </CardHeader>
       <CardContent>
         {landings.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No landings recorded yet.</p>
+          <p className="text-sm text-muted-foreground">{t('fleetView.landingHistory.empty')}</p>
         ) : (
           <div className="flex flex-col gap-1.5 text-sm">
             {landings.map((l) => {
@@ -163,7 +168,9 @@ function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
                     {l.arrIcao} {l.runwayIdent ?? '—'}
                   </span>
                   <span className="text-muted-foreground">
-                    {l.crosswindMs != null ? `${Math.round(msToKt(Math.abs(l.crosswindMs)))} kt xwind` : '—'}
+                    {l.crosswindMs != null
+                      ? t('fleetView.landingHistory.crosswind', { kt: Math.round(msToKt(Math.abs(l.crosswindMs))) })
+                      : '—'}
                   </span>
                   <LandingScoreBadge score={l.score} />
                   <LandingBadge severity={l.severity} />
@@ -187,6 +194,7 @@ function AircraftFlightsCard(props: {
   aircraftId: number
   onOpenFlight: (flightId: number) => void
 }): React.JSX.Element {
+  const { t } = useTranslation()
   const [flights, setFlights] = useState<Flight[]>([])
 
   useEffect(() => {
@@ -196,11 +204,11 @@ function AircraftFlightsCard(props: {
   return (
     <Card size="sm">
       <CardHeader>
-        <CardTitle className="text-base">Flights</CardTitle>
+        <CardTitle className="text-base">{t('fleetView.flights.cardTitle')}</CardTitle>
       </CardHeader>
       <CardContent>
         {flights.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No completed flights yet.</p>
+          <p className="text-sm text-muted-foreground">{t('fleetView.flights.empty')}</p>
         ) : (
           <div className="flex max-h-64 flex-col divide-y divide-border overflow-y-auto">
             {flights.map((f) => (
@@ -241,6 +249,7 @@ function ReplaceAircraftDialog(props: {
   onOpenChange: (open: boolean) => void
   onConfirm: (replacementId: number) => Promise<void>
 }): React.JSX.Element {
+  const { t } = useTranslation()
   const [targetId, setTargetId] = useState<number | null>(null)
   const [flightCount, setFlightCount] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -278,21 +287,18 @@ function ReplaceAircraftDialog(props: {
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Replace {props.aircraft.registration}</DialogTitle>
-          <DialogDescription>
-            Moves this aircraft's flight history onto another fleet aircraft and marks it retired — for a
-            livery or registration change on the same physical airframe, not a genuine retirement.
-          </DialogDescription>
+          <DialogTitle>{t('fleetView.replaceDialog.title', { registration: props.aircraft.registration })}</DialogTitle>
+          <DialogDescription>{t('fleetView.replaceDialog.description')}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3">
           <Label className="flex flex-col items-start gap-1.5">
-            Replacement aircraft
+            {t('fleetView.replaceDialog.replacementAircraft')}
             <Select
               value={targetId != null ? String(targetId) : undefined}
               onValueChange={(v) => setTargetId(Number(v))}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="— select —" />
+                <SelectValue placeholder={t('fleetView.replaceDialog.selectPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {props.candidates.map((c) => (
@@ -305,16 +311,20 @@ function ReplaceAircraftDialog(props: {
           </Label>
           {target && (
             <p className="text-sm text-muted-foreground">
-              {flightCount === null ? 'Checking flight history…' : `${flightCount} flight(s) will move`} from{' '}
-              <span className="font-medium text-foreground">{props.aircraft.registration}</span> to{' '}
-              <span className="font-medium text-foreground">{target.registration}</span>;{' '}
-              {props.aircraft.registration} will be marked retired. This cannot be undone from the UI.
+              {t('fleetView.replaceDialog.moveSummary', {
+                flightsWillMove:
+                  flightCount === null
+                    ? t('fleetView.replaceDialog.checkingFlightHistory')
+                    : t('fleetView.replaceDialog.flightsWillMove', { count: flightCount }),
+                from: props.aircraft.registration,
+                to: target.registration
+              })}
             </p>
           )}
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => props.onOpenChange(false)}>
-            Cancel
+            {t('fleetView.replaceDialog.cancel')}
           </Button>
           <Button
             type="button"
@@ -322,7 +332,7 @@ function ReplaceAircraftDialog(props: {
             onClick={handleConfirm}
             disabled={!target || submitting}
           >
-            {submitting ? 'Replacing…' : 'Replace aircraft'}
+            {submitting ? t('fleetView.replaceDialog.replacing') : t('fleetView.replaceDialog.confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -343,6 +353,7 @@ function AircraftDetail(props: {
   onOpenFlight: (flightId: number) => void
   onBack: () => void
 }): React.JSX.Element {
+  const { t } = useTranslation()
   const a = props.aircraft
   const s = props.stats
   const retired = isRetired(a)
@@ -353,47 +364,49 @@ function AircraftDetail(props: {
       <div className="flex items-center justify-between">
         <Button type="button" variant="ghost" size="sm" onClick={props.onBack} className="w-fit">
           <ArrowLeft />
-          Back to fleet
+          {t('fleetView.detail.backToFleet')}
         </Button>
         <div className="flex gap-2">
           <Button type="button" variant="outline" size="sm" onClick={props.onEdit}>
             <Pencil />
-            Edit
+            {t('fleetView.detail.edit')}
           </Button>
           {!retired && (
             <Button type="button" variant="outline" size="sm" onClick={props.onReplace}>
               <ArrowRightLeft />
-              Replace…
+              {t('fleetView.detail.replace')}
             </Button>
           )}
           {!retired && (
             <Button type="button" variant="outline" size="sm" onClick={props.onRetire}>
               <Archive />
-              Retire
+              {t('fleetView.detail.retire')}
             </Button>
           )}
           {retired && !replaced && (
             <Button type="button" variant="outline" size="sm" onClick={props.onUnretire}>
               <ArchiveRestore />
-              Un-retire
+              {t('fleetView.detail.unretire')}
             </Button>
           )}
           <Button type="button" variant="destructive" size="sm" onClick={props.onDelete}>
             <Trash2 />
-            Delete
+            {t('fleetView.detail.delete')}
           </Button>
         </div>
       </div>
 
       {retired && !replaced && (
         <p className="rounded-md bg-muted p-2 text-sm text-muted-foreground">
-          Retired{a.retiredAt ? ` on ${formatDate(a.retiredAt)}` : ''} — its flight history is kept.
+          {t('fleetView.detail.retiredNote', {
+            date: a.retiredAt ? t('fleetView.detail.retiredOn', { date: formatDate(a.retiredAt) }) : ''
+          })}
         </p>
       )}
 
       {replaced && (
         <p className="rounded-md bg-muted p-2 text-sm text-muted-foreground">
-          Retired — replaced by{' '}
+          {t('fleetView.detail.replacedPrefix')}{' '}
           {props.replacedBy ? (
             <button
               type="button"
@@ -421,13 +434,19 @@ function AircraftDetail(props: {
               <AircraftPhoto thumbnailUrl={a.photoThumbnailUrl} />
               <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
                 <DetailField
-                  label="Airline"
+                  label={t('fleetView.detail.fields.airline')}
                   value={<AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />}
                 />
-                <DetailField label="Current airport" value={currentIcao ? displayIcao(currentIcao) : '—'} />
-                <DetailField label="Total hours" value={s ? s.totalHours.toFixed(1) : '0.0'} />
-                <DetailField label="Flights" value={s?.totalCycles ?? 0} />
-                <DetailField label="Last flight" value={formatDate(s?.lastFlightInUtc ?? null)} />
+                <DetailField
+                  label={t('fleetView.detail.fields.currentAirport')}
+                  value={currentIcao ? displayIcao(currentIcao) : '—'}
+                />
+                <DetailField label={t('fleetView.detail.fields.totalHours')} value={s ? s.totalHours.toFixed(1) : '0.0'} />
+                <DetailField label={t('fleetView.detail.fields.flights')} value={s?.totalCycles ?? 0} />
+                <DetailField
+                  label={t('fleetView.detail.fields.lastFlight')}
+                  value={formatDate(s?.lastFlightInUtc ?? null)}
+                />
               </dl>
             </CardContent>
           </Card>
@@ -454,6 +473,7 @@ export function FleetView(props: {
    *  the aircraft list (docs/plans/navigation-tab-behaviour.md). See useResetSignal. */
   resetSignal?: number
 }): React.JSX.Element {
+  const { t } = useTranslation()
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
   const [stats, setStats] = useState<FleetStats[]>([])
   const [view, setView] = useState<View>(
@@ -523,9 +543,9 @@ export function FleetView(props: {
 
   async function handleDelete(target: Aircraft): Promise<void> {
     const ok = await confirm({
-      title: `Delete ${target.registration}?`,
-      description: 'This cannot be undone.',
-      confirmLabel: 'Delete aircraft',
+      title: t('fleetView.confirmDelete.title', { registration: target.registration }),
+      description: t('fleetView.confirmDelete.description'),
+      confirmLabel: t('fleetView.confirmDelete.confirmLabel'),
       destructive: true
     })
     if (!ok) return
@@ -533,7 +553,7 @@ export function FleetView(props: {
       await window.winglog.aircraftDelete(target.id)
       await reload()
       setView({ kind: 'list' })
-      toast.success(`Deleted ${target.registration}.`)
+      toast.success(t('fleetView.toasts.deleted', { registration: target.registration }))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
     }
@@ -541,16 +561,15 @@ export function FleetView(props: {
 
   async function handleRetire(target: Aircraft): Promise<void> {
     const ok = await confirm({
-      title: `Retire ${target.registration}?`,
-      description:
-        'It will move to the Retired list and can no longer be picked for new flights. Its flight history stays on it — nothing moves to another aircraft. You can un-retire it later.',
-      confirmLabel: 'Retire aircraft'
+      title: t('fleetView.confirmRetire.title', { registration: target.registration }),
+      description: t('fleetView.confirmRetire.description'),
+      confirmLabel: t('fleetView.confirmRetire.confirmLabel')
     })
     if (!ok) return
     try {
       await window.winglog.aircraftRetire(target.id)
       await reload()
-      toast.success(`${target.registration} retired.`)
+      toast.success(t('fleetView.toasts.retired', { registration: target.registration }))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
     }
@@ -560,7 +579,7 @@ export function FleetView(props: {
     try {
       await window.winglog.aircraftUnretire(target.id)
       await reload()
-      toast.success(`${target.registration} is active again.`)
+      toast.success(t('fleetView.toasts.unretired', { registration: target.registration }))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
     }
@@ -581,7 +600,10 @@ export function FleetView(props: {
       await reload()
       /* v8 ignore start -- see the defensive-only note above `replacement` */
       toast.success(
-        `${target.registration} retired, replaced by ${replacement?.registration ?? replacementId}.`
+        t('fleetView.toasts.replaced', {
+          registration: target.registration,
+          replacement: replacement?.registration ?? replacementId
+        })
       )
       /* v8 ignore stop */
       setView({ kind: 'detail', id: replacementId })
@@ -594,7 +616,7 @@ export function FleetView(props: {
   if (view.kind === 'new') {
     return (
       <div className="flex flex-col gap-6">
-        <h1 className="font-heading text-2xl font-semibold text-foreground">New aircraft</h1>
+        <h1 className="font-heading text-2xl font-semibold text-foreground">{t('fleetView.newAircraft')}</h1>
         <AircraftForm onSubmit={handleCreate} onCancel={() => setView({ kind: 'list' })} />
       </div>
     )
@@ -605,11 +627,13 @@ export function FleetView(props: {
     /* v8 ignore start -- defensive only: `view.id` is only ever set (via onEdit) to an id
      * that was just found in `aircraft` on the detail page a moment earlier, and nothing in
      * this component removes an aircraft out from under an open edit view. */
-    if (!existing) return <p className="text-sm text-muted-foreground">Aircraft not found.</p>
+    if (!existing) return <p className="text-sm text-muted-foreground">{t('fleetView.aircraftNotFound')}</p>
     /* v8 ignore stop */
     return (
       <div className="flex flex-col gap-6">
-        <h1 className="font-heading text-2xl font-semibold text-foreground">Edit {existing.registration}</h1>
+        <h1 className="font-heading text-2xl font-semibold text-foreground">
+          {t('fleetView.editAircraft', { registration: existing.registration })}
+        </h1>
         <AircraftForm
           initial={existing}
           onSubmit={(data) => handleUpdate(view.id, data)}
@@ -621,7 +645,7 @@ export function FleetView(props: {
 
   if (view.kind === 'detail') {
     const existing = aircraft.find((a) => a.id === view.id)
-    if (!existing) return <p className="text-sm text-muted-foreground">Aircraft not found.</p>
+    if (!existing) return <p className="text-sm text-muted-foreground">{t('fleetView.aircraftNotFound')}</p>
     return (
       <>
         <AircraftDetail
@@ -653,14 +677,12 @@ export function FleetView(props: {
 
   const activeList =
     activeAircraft.length === 0 ? (
-      <p className="text-sm text-muted-foreground">
-        No active aircraft — add one, or import a fleet from Settings → Data.
-      </p>
+      <p className="text-sm text-muted-foreground">{t('fleetView.noActiveAircraft')}</p>
     ) : (
       <Table>
         <TableHeader>
           <TableRow>
-            {FLEET_SORT_COLUMNS.map((col) => (
+            {fleetSortColumns(t).map((col) => (
               <SortableHead
                 key={col.key}
                 sortKey={col.key}
@@ -702,9 +724,9 @@ export function FleetView(props: {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Registration</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>Status</TableHead>
+            <TableHead>{t('fleetView.retiredTable.registration')}</TableHead>
+            <TableHead>{t('fleetView.retiredTable.type')}</TableHead>
+            <TableHead>{t('fleetView.retiredTable.status')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -720,7 +742,9 @@ export function FleetView(props: {
                 <TableCell>{a.icaoType}</TableCell>
                 <TableCell>
                   {a.replacedByAircraftId === null ? (
-                    `Retired${a.retiredAt ? ` ${formatDate(a.retiredAt)}` : ''}`
+                    t('fleetView.retiredStatus', {
+                      date: a.retiredAt ? t('fleetView.detail.retiredOn', { date: formatDate(a.retiredAt) }) : ''
+                    })
                   ) : replacement ? (
                     <button
                       type="button"
@@ -730,10 +754,10 @@ export function FleetView(props: {
                         setView({ kind: 'detail', id: replacement.id })
                       }}
                     >
-                      Replaced by {replacement.registration}
+                      {t('fleetView.replacedBy', { registration: replacement.registration })}
                     </button>
                   ) : (
-                    `Replaced by #${a.replacedByAircraftId}`
+                    t('fleetView.replacedByUnknown', { id: a.replacedByAircraftId })
                   )}
                 </TableCell>
               </TableRow>
@@ -747,10 +771,10 @@ export function FleetView(props: {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
-        <h1 className="font-heading text-2xl font-semibold text-foreground">Fleet</h1>
+        <h1 className="font-heading text-2xl font-semibold text-foreground">{t('fleetView.title')}</h1>
         <Button type="button" size="sm" onClick={() => setView({ kind: 'new' })}>
           <Plus />
-          New aircraft
+          {t('fleetView.newAircraft')}
         </Button>
       </div>
 
@@ -759,8 +783,12 @@ export function FleetView(props: {
       ) : (
         <FolderTabs defaultValue="active" className="gap-0">
           <FolderTabsList>
-            <FolderTabsTrigger value="active">Active ({activeAircraft.length})</FolderTabsTrigger>
-            <FolderTabsTrigger value="retired">Retired ({retiredAircraft.length})</FolderTabsTrigger>
+            <FolderTabsTrigger value="active">
+              {t('fleetView.activeTab', { count: activeAircraft.length })}
+            </FolderTabsTrigger>
+            <FolderTabsTrigger value="retired">
+              {t('fleetView.retiredTab', { count: retiredAircraft.length })}
+            </FolderTabsTrigger>
           </FolderTabsList>
           <FolderTabsContent value="active" className="pt-4">
             {activeList}

@@ -1,6 +1,7 @@
 import { writeFile } from 'node:fs/promises'
 import { dialog, type BrowserWindow } from 'electron'
 import type { DataFormat, LogbookImportSummary } from '@shared/ipc'
+import { t } from '../i18n'
 import { createAircraft, getAircraftByRegistration, listAircraft } from './aircraft-repo'
 import type { WingLogDb } from './client'
 import { createHistoricalFlight, listFlights } from './flight-repo'
@@ -65,7 +66,7 @@ export function importFlightRows(db: WingLogDb, rows: ImportRow[]): LogbookImpor
         f.actualOutUtc === actualOutUtc
     )
     if (isDuplicate) {
-      summary.skipped.push({ label, reason: 'already imported' })
+      summary.skipped.push({ label, reason: t('errors.alreadyImported') })
       continue
     }
 
@@ -91,14 +92,14 @@ export function importFlightRows(db: WingLogDb, rows: ImportRow[]): LogbookImpor
 /** Reads a user-picked file, refusing anything implausibly large. The path always comes
  *  from a native dialog, never from the renderer. */
 function readImportFile(path: string): Promise<string> {
-  return readCappedFile(path, 'That file is too large to be a logbook export')
+  return readCappedFile(path, t('errors.logbookExportTooLarge'))
 }
 
 /** SimToolkitPro's CSV (the original importer) *or* WingLog's own CSV export, told apart
  *  by header — so one Import button handles both. */
 export async function importLogbookCsv(db: WingLogDb, window: BrowserWindow): Promise<LogbookImportSummary | null> {
   const { canceled, filePaths } = await dialog.showOpenDialog(window, {
-    title: 'Import logbook CSV',
+    title: t('dialogs.importLogbookCsv'),
     filters: [{ name: 'CSV', extensions: ['csv'] }],
     properties: ['openFile']
   })
@@ -115,7 +116,7 @@ export async function importLogbookCsv(db: WingLogDb, window: BrowserWindow): Pr
     dataRows.map((row): ImportRow => {
       const parsed = parseStkpRow(header, row)
       if ('error' in parsed) {
-        return { label: row.slice(0, 3).join(' ') || '(unreadable row)', error: parsed.error }
+        return { label: row.slice(0, 3).join(' ') || t('labels.unreadableRow'), error: parsed.error }
       }
       return { label: `${parsed.data.registration} ${parsed.data.depIcao}-${parsed.data.arrIcao}`, data: parsed.data }
     })
@@ -124,7 +125,7 @@ export async function importLogbookCsv(db: WingLogDb, window: BrowserWindow): Pr
 
 export async function importLogbookJson(db: WingLogDb, window: BrowserWindow): Promise<LogbookImportSummary | null> {
   const { canceled, filePaths } = await dialog.showOpenDialog(window, {
-    title: 'Import logbook JSON',
+    title: t('dialogs.importLogbookJson'),
     filters: [{ name: 'JSON', extensions: ['json'] }],
     properties: ['openFile']
   })
@@ -167,7 +168,7 @@ export function buildLogbookExport(db: WingLogDb, format: DataFormat): string {
 
 export async function exportLogbook(db: WingLogDb, window: BrowserWindow, format: DataFormat): Promise<boolean> {
   const { canceled, filePath } = await dialog.showSaveDialog(window, {
-    title: 'Export logbook',
+    title: t('dialogs.exportLogbook'),
     defaultPath: `winglog-logbook.${format}`,
     filters: [{ name: format.toUpperCase(), extensions: [format] }]
   })

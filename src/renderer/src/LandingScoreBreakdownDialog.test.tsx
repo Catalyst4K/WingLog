@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { LandingScoreCategory } from '@shared/ipc'
+import i18n from './i18n'
 import { LandingScoreBreakdownDialog } from './LandingScoreBreakdownDialog'
 
 const IDEAL_TOLERANCE: Record<string, { ideal: number; tolerance: number }> = {
@@ -44,6 +45,28 @@ function makeCategories(overrides: Partial<Record<string, number | null>> = {}):
 }
 
 describe('LandingScoreBreakdownDialog', () => {
+  // i18n is a global singleton — every test in this file (and the app-wide default) assumes
+  // English unless a test explicitly changes it, so it must never leak into another test.
+  afterEach(async () => {
+    await i18n.changeLanguage('en')
+  })
+
+  it('renders the title and per-category info label in the active i18next language, not a hardcoded English string', async () => {
+    await i18n.changeLanguage('de')
+    const user = userEvent.setup()
+    render(
+      <LandingScoreBreakdownDialog
+        overall={82}
+        categories={makeCategories()}
+        unit="ft"
+        trigger={<button type="button">Öffnen</button>}
+      />
+    )
+    await user.click(screen.getByRole('button', { name: 'Öffnen' }))
+    expect(screen.getByText('Landungswertung — 82/100')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Was ist ideal für Vertical speed?' })).toBeInTheDocument()
+  })
+
   it('opens from its trigger and shows the overall score', async () => {
     const user = userEvent.setup()
     render(
@@ -110,6 +133,35 @@ describe('LandingScoreBreakdownDialog', () => {
     const pitchRow = screen.getByText('Pitch').closest('dt')!
     expect(crabRow.querySelector('svg.text-destructive')).not.toBeNull()
     expect(pitchRow.querySelector('svg.text-destructive')).toBeNull()
+  })
+
+  it('shows a dangerous-exceedance penalty note when the flag is set', async () => {
+    const user = userEvent.setup()
+    render(
+      <LandingScoreBreakdownDialog
+        overall={20}
+        categories={makeCategories({ verticalSpeed: 0 })}
+        dangerousExceedance
+        unit="ft"
+        trigger={<button type="button">Open</button>}
+      />
+    )
+    await user.click(screen.getByRole('button', { name: 'Open' }))
+    expect(screen.getByText(/Dangerous touchdown rate/)).toBeInTheDocument()
+  })
+
+  it('shows no penalty note for an ordinary landing', async () => {
+    const user = userEvent.setup()
+    render(
+      <LandingScoreBreakdownDialog
+        overall={90}
+        categories={makeCategories()}
+        unit="ft"
+        trigger={<button type="button">Open</button>}
+      />
+    )
+    await user.click(screen.getByRole('button', { name: 'Open' }))
+    expect(screen.queryByText(/Dangerous touchdown rate/)).not.toBeInTheDocument()
   })
 
   it("opens a per-category info popover showing that flight's real ideal/tolerance", async () => {

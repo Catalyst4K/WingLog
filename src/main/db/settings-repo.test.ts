@@ -5,6 +5,7 @@ import { appSetting } from './schema'
 import {
   getAircraftIdForTitle,
   getAltitudeUnit,
+  getAppLanguage,
   getGsxSettings,
   getLandingDistanceUnit,
   getLastSyncCompletedAt,
@@ -18,6 +19,7 @@ import {
   hasCheckedGsxFirstLaunch,
   rememberAircraftForTitle,
   setAltitudeUnit,
+  setAppLanguage,
   setCheckedGsxFirstLaunch,
   setGsxSettings,
   setLandingDistanceUnit,
@@ -86,6 +88,22 @@ describe('settings repo', () => {
     expect(getMapLanguage(db)).toBe('de')
     db.insert(appSetting).values({ key: 'mapLanguage', value: 'klingon' }).onConflictDoUpdate({ target: appSetting.key, set: { value: 'klingon' } }).run()
     expect(getMapLanguage(db)).toBe('en')
+  })
+
+  it('defaults the app language to "system", and round-trips every supported language', () => {
+    expect(getAppLanguage(db)).toBe('system')
+    for (const language of ['de', 'es', 'fr', 'it', 'ru', 'en', 'system'] as const) {
+      setAppLanguage(db, language)
+      expect(getAppLanguage(db)).toBe(language)
+    }
+  })
+
+  it('ignores an unknown app language on write, and reads a corrupt stored value as "system"', () => {
+    setAppLanguage(db, 'de')
+    setAppLanguage(db, 'xx' as never)
+    expect(getAppLanguage(db)).toBe('de')
+    db.insert(appSetting).values({ key: 'appLanguage', value: 'klingon' }).onConflictDoUpdate({ target: appSetting.key, set: { value: 'klingon' } }).run()
+    expect(getAppLanguage(db)).toBe('system')
   })
 
   it('defaults the wind speed unit to kt when never set', () => {

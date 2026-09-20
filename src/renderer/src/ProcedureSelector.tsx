@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { NavdataProcedureOption, NavdataRunwayOption, ProcedureSelection } from '@shared/ipc'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -27,6 +28,7 @@ function ProcedureSelect(props: {
   onChange: (value: string | null) => void
   disabled?: boolean
 }): React.JSX.Element {
+  const { t } = useTranslation()
   return (
     <div className="flex flex-col gap-1.5">
       <Label>{props.label}</Label>
@@ -36,12 +38,12 @@ function ProcedureSelect(props: {
         disabled={props.disabled}
       >
         <SelectTrigger className="w-full">
-          <SelectValue placeholder="None" />
+          <SelectValue placeholder={t('procedureSelector.none')} />
         </SelectTrigger>
         <SelectContent>
           {/* Radix Select can't return to "nothing chosen" on its own, so an explicit item
            *  clears a pick made by mistake (Callum, 2026-09-19). */}
-          <SelectItem value={NONE_OPTION}>None</SelectItem>
+          <SelectItem value={NONE_OPTION}>{t('procedureSelector.none')}</SelectItem>
           {props.options.map((opt) => (
             <SelectItem key={opt} value={opt}>
               {opt}
@@ -97,6 +99,7 @@ export function ProcedureSelector(props: {
    *  for the approach-transition auto-connect below. */
   liveWaypoints: Waypoint[]
 }): React.JSX.Element {
+  const { t } = useTranslation()
   const { airports, selection, onSelectionChange, liveWaypoints } = props
   const [depRunways, setDepRunways] = useState<NavdataRunwayOption[]>([])
   const [sidOptions, setSidOptions] = useState<NavdataProcedureOption[]>([])
@@ -209,23 +212,25 @@ export function ProcedureSelector(props: {
     <div className="flex flex-col gap-3">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-3">
-          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Departure</span>
+          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            {t('procedureSelector.departure')}
+          </span>
           <ProcedureSelect
-            label="Departure runway"
+            label={t('procedureSelector.departureRunway')}
             value={selection.departureRunway}
             options={depRunwayIdents}
             onChange={(v) => set({ departureRunway: v })}
             disabled={depRunwayIdents.length === 0}
           />
           <ProcedureSelect
-            label="SID"
+            label={t('procedureSelector.sid')}
             value={selection.sidIdent}
             options={sidIdentifiers}
             onChange={(v) => set({ sidIdent: v, sidTransition: null })}
             disabled={sidIdentifiers.length === 0}
           />
           <ProcedureSelect
-            label="SID transition"
+            label={t('procedureSelector.sidTransition')}
             value={selection.sidTransition}
             options={sidTransitions}
             onChange={(v) => set({ sidTransition: v })}
@@ -233,10 +238,12 @@ export function ProcedureSelector(props: {
           />
         </div>
         <div className="flex flex-col gap-3">
-          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Arrival</span>
+          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            {t('procedureSelector.arrival')}
+          </span>
           {altnIcao && (
             <div className="flex flex-col gap-1.5">
-              <Label>Arrival airport</Label>
+              <Label>{t('procedureSelector.arrivalAirport')}</Label>
               <Select
                 value={selection.arrivalIcao ? 'alternate' : 'destination'}
                 onValueChange={(v) =>
@@ -254,14 +261,16 @@ export function ProcedureSelector(props: {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="destination">Destination — {displayIcao(airports.arrIcao)}</SelectItem>
-                  <SelectItem value="alternate">Alternate — {altnIcao}</SelectItem>
+                  <SelectItem value="destination">
+                    {t('procedureSelector.destination', { icao: displayIcao(airports.arrIcao) })}
+                  </SelectItem>
+                  <SelectItem value="alternate">{t('procedureSelector.alternate', { icao: altnIcao })}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           )}
           <ProcedureSelect
-            label="Approach"
+            label={t('procedureSelector.approach')}
             value={selection.approachIdent}
             options={approachIdentifiers}
             onChange={(v) => {
@@ -272,21 +281,21 @@ export function ProcedureSelector(props: {
             disabled={approachIdentifiers.length === 0}
           />
           <ProcedureSelect
-            label="STAR"
+            label={t('procedureSelector.star')}
             value={selection.starIdent}
             options={starIdentifiers}
             onChange={(v) => set({ starIdent: v, starTransition: null })}
             disabled={starIdentifiers.length === 0}
           />
           <ProcedureSelect
-            label="STAR transition"
+            label={t('procedureSelector.starTransition')}
             value={selection.starTransition}
             options={starTransitions}
             onChange={(v) => set({ starTransition: v })}
             disabled={starTransitions.length === 0}
           />
           <ProcedureSelect
-            label="Approach transition"
+            label={t('procedureSelector.approachTransition')}
             value={selection.approachTransition}
             options={approachTransitions}
             onChange={(v) => set({ approachTransition: v })}

@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { NavdataProcedureOption, NavdataRunwayOption, ProcedureSelection, WingLogApi } from '@shared/ipc'
+import i18n from './i18n'
 import { ProcedureSelector } from './ProcedureSelector'
 import { emptyProcedureSelection, type ProcedureAirports } from './procedureSelection'
 import type { Waypoint } from './route'
@@ -66,6 +67,20 @@ function selectFor(labelText: string): HTMLElement {
 }
 
 describe('ProcedureSelector', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en')
+  })
+
+  it('renders its labels in the active i18next language, keeping SID/STAR untranslated (real aviation terms of art)', async () => {
+    await i18n.changeLanguage('de')
+    withWinglog()
+    render(<Harness airports={airports()} />)
+    expect(await screen.findByText('Startbahn')).toBeInTheDocument()
+    expect(screen.getByText('SID')).toBeInTheDocument()
+    expect(screen.getByText('STAR')).toBeInTheDocument()
+    expect(screen.getByText('Anflug')).toBeInTheDocument()
+  })
+
   it('refreshes navdata for both airports on mount', async () => {
     const navdataRefreshAirport = vi.fn().mockResolvedValue(undefined)
     withWinglog({ navdataRefreshAirport })

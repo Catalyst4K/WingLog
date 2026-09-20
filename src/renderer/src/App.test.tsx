@@ -2,6 +2,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from 'sonner'
+import i18n from './i18n'
 import type {
   Aircraft,
   DispatchOfp,
@@ -245,6 +246,9 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     settingsGetWindSpeedUnit: vi.fn().mockResolvedValue('kt'),
     settingsGetMapLanguage: vi.fn().mockResolvedValue('en'),
     settingsSetMapLanguage: vi.fn().mockResolvedValue(undefined),
+    settingsGetAppLanguage: vi.fn().mockResolvedValue('system'),
+    settingsSetAppLanguage: vi.fn().mockResolvedValue(undefined),
+    settingsGetSystemLocale: vi.fn().mockResolvedValue('en-US'),
     settingsGetLandingDistanceUnit: vi.fn().mockResolvedValue('ft'),
     settingsGetTheme: vi.fn().mockResolvedValue('system'),
     settingsSetTheme: vi.fn().mockResolvedValue(undefined),
@@ -373,6 +377,24 @@ async function clickTab(user: ReturnType<typeof userEvent.setup>, name: string):
 }
 
 describe('App', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en')
+  })
+
+  it('renders its tabs and connection badge in the active i18next language, not a hardcoded English string', async () => {
+    // FleetView (the default tab) isn't itself translated yet — this only asserts App.tsx's
+    // own strings, not the still-English view it renders alongside them. The persisted
+    // language must be mocked as 'de' explicitly too, or App.tsx's own mount effect
+    // resolves 'system' back to English (the default mock) and clobbers this.
+    setWinglog({ settingsGetAppLanguage: vi.fn().mockResolvedValue('de') })
+    await i18n.changeLanguage('de')
+    render(<App />)
+    for (const name of ['Flotte', 'Dispatch', 'Track', 'Logbuch', 'Einstellungen']) {
+      expect(await screen.findByRole('tab', { name })).toBeInTheDocument()
+    }
+    expect(screen.getByText('SimConnect: getrennt')).toBeInTheDocument()
+  })
+
   it('shows Fleet by default, with every tab and the SimConnect badge', async () => {
     render(<App />)
     expect(await screen.findByText('Fleet', { selector: 'h1' })).toBeInTheDocument()

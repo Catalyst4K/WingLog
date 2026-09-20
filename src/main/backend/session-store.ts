@@ -10,6 +10,7 @@
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { safeStorage } from 'electron'
+import { t } from '../i18n'
 
 export interface StoredSession {
   email: string
@@ -23,7 +24,7 @@ function sessionFilePath(userDataPath: string): string {
 
 export function saveSession(userDataPath: string, session: StoredSession): void {
   if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error('OS-level credential encryption is not available on this machine')
+    throw new Error(t('errors.credentialEncryptionUnavailable'))
   }
   writeFileSync(sessionFilePath(userDataPath), safeStorage.encryptString(JSON.stringify(session)))
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import type { Aircraft, AircraftTypeOption, SimTelemetry } from '@shared/ipc'
 import { isRetired } from '@shared/aircraft'
 import { Button } from '@/components/ui/button'
@@ -51,6 +52,7 @@ export function StartFreeFlightDialog(props: {
   aircraft: Aircraft[]
   onStarted: (flightId: number) => void
 }): React.JSX.Element {
+  const { t } = useTranslation()
   // Seeded from `open`/`telemetry` at construction time too, not just the render-phase
   // adjustment below — a dialog that happens to mount already open (this component makes
   // no assumption it's always mounted closed, even though TrackView's own usage today
@@ -59,7 +61,7 @@ export function StartFreeFlightDialog(props: {
   const [loading, setLoading] = useState(props.open && !!props.telemetry)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(
-    props.open && !props.telemetry ? 'Not connected to the sim.' : null
+    props.open && !props.telemetry ? t('startFreeFlightDialog.notConnected') : null
   )
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [selectedAircraftId, setSelectedAircraftId] = useState<string>(NO_AIRCRAFT)
@@ -86,7 +88,7 @@ export function StartFreeFlightDialog(props: {
       setSelectedAircraftId(NO_AIRCRAFT)
       setIcaoTypeAmbiguous(false)
       setRegistrationMismatch(null)
-      setError(props.telemetry ? null : 'Not connected to the sim.')
+      setError(props.telemetry ? null : t('startFreeFlightDialog.notConnected'))
       setLoading(!!props.telemetry)
     }
   }
@@ -159,14 +161,14 @@ export function StartFreeFlightDialog(props: {
       let simIcaoType: string | null = null
       if (addingNone) {
         if (!form.registration.trim() || !form.icaoType.trim()) {
-          throw new Error('Enter a registration and type.')
+          throw new Error(t('startFreeFlightDialog.enterRegistrationAndType'))
         }
         simRegistration = form.registration.trim()
         simIcaoType = form.icaoType.trim().toUpperCase()
       } else if (selectedExisting) {
         aircraftId = selectedExisting.id
       } else {
-        throw new Error('Choose an aircraft.')
+        throw new Error(t('startFreeFlightDialog.chooseAnAircraft'))
       }
 
       const flightId = await window.winglog.trackingStartFree({
@@ -192,19 +194,19 @@ export function StartFreeFlightDialog(props: {
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Start a free flight</DialogTitle>
+          <DialogTitle>{t('startFreeFlightDialog.title')}</DialogTitle>
           {/* The add-on's own display string, verbatim — what most add-ons' own EFB panels
            *  recognise the aircraft by (unlike atcModel's localisation-token mess that
            *  parseAircraftIdentity has to unwrap for the Type field). Informational only. */}
           <DialogDescription>
-            {props.telemetry?.title || 'Tracking starts from where the aircraft is now.'}
+            {props.telemetry?.title || t('startFreeFlightDialog.trackingStartsFromNow')}
           </DialogDescription>
         </DialogHeader>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
         {loading ? (
-          <p className="text-sm text-muted-foreground">Reading the sim…</p>
+          <p className="text-sm text-muted-foreground">{t('startFreeFlightDialog.readingTheSim')}</p>
         ) : (
           <div className="flex flex-col gap-3">
             {/* Fleet creation doesn't happen here — "None" tracks the flight with the sim's own
@@ -212,13 +214,13 @@ export function StartFreeFlightDialog(props: {
              *  worth keeping. */}
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
-                <Label>Aircraft</Label>
+                <Label>{t('startFreeFlightDialog.aircraft')}</Label>
                 <Select value={selectedAircraftId} onValueChange={setSelectedAircraftId}>
-                  <SelectTrigger className="w-full" aria-label="Aircraft">
+                  <SelectTrigger className="w-full" aria-label={t('startFreeFlightDialog.aircraft')}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NO_AIRCRAFT}>None</SelectItem>
+                    <SelectItem value={NO_AIRCRAFT}>{t('startFreeFlightDialog.none')}</SelectItem>
                     {nonRetiredAircraft.map((a) => (
                       <SelectItem key={a.id} value={String(a.id)}>
                         {a.registration} — {a.icaoType}
@@ -228,26 +230,28 @@ export function StartFreeFlightDialog(props: {
                 </Select>
               </div>
               <Label className="flex flex-col items-start gap-1.5">
-                Callsign
+                {t('startFreeFlightDialog.callsign')}
                 <Input
                   type="text"
                   value={form.flightNumber}
                   onChange={(e) => set('flightNumber', e.target.value)}
-                  placeholder="Optional"
+                  placeholder={t('startFreeFlightDialog.optional')}
                 />
               </Label>
             </div>
             {registrationMismatch && String(registrationMismatch.aircraftId) === selectedAircraftId && (
               <span className="text-xs text-amber-600 dark:text-amber-500">
-                Registration on file for this aircraft is {registrationMismatch.onFile} — the sim currently
-                reports {form.registration || 'nothing'}. Still the right aircraft?
+                {t('startFreeFlightDialog.registrationMismatch', {
+                  onFile: registrationMismatch.onFile,
+                  reported: form.registration || t('startFreeFlightDialog.nothing')
+                })}
               </span>
             )}
 
             {showIdentityFields ? (
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
-                  <Label>Type</Label>
+                  <Label>{t('startFreeFlightDialog.type')}</Label>
                   <Combobox
                     value={form.icaoType}
                     onChange={(value) => {
@@ -258,11 +262,11 @@ export function StartFreeFlightDialog(props: {
                     getOptionKey={(r: AircraftTypeOption) => `${r.icaoType}-${r.manufacturer}-${r.model}`}
                     getOptionValue={(r) => r.icaoType}
                     getOptionLabel={(r) => `${r.manufacturer} — ${r.model} (${r.icaoType})`}
-                    placeholder="e.g. C172 or Cessna"
+                    placeholder={t('startFreeFlightDialog.typePlaceholder')}
                   />
                 </div>
                 <Label className="flex flex-col items-start gap-1.5">
-                  Registration
+                  {t('startFreeFlightDialog.registration')}
                   <Input
                     type="text"
                     value={form.registration}
@@ -271,7 +275,7 @@ export function StartFreeFlightDialog(props: {
                 </Label>
                 {icaoTypeAmbiguous && (
                   <span className="col-span-2 text-xs text-amber-600 dark:text-amber-500">
-                    Type guessed from the sim — this add-on has more than one variant, double-check it.
+                    {t('startFreeFlightDialog.typeAmbiguous')}
                   </span>
                 )}
               </div>
@@ -279,15 +283,15 @@ export function StartFreeFlightDialog(props: {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
-                <Label>Departure</Label>
+                <Label>{t('startFreeFlightDialog.departure')}</Label>
                 <AirportSearch value={form.depIcao} onChange={(v) => set('depIcao', v)} />
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label>Destination</Label>
+                <Label>{t('startFreeFlightDialog.destination')}</Label>
                 <AirportSearch
                   value={form.arrIcao}
                   onChange={(v) => set('arrIcao', v)}
-                  placeholder="Filled in on landing"
+                  placeholder={t('startFreeFlightDialog.filledInOnLanding')}
                 />
               </div>
             </div>
@@ -296,10 +300,10 @@ export function StartFreeFlightDialog(props: {
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => props.onOpenChange(false)}>
-            Cancel
+            {t('startFreeFlightDialog.cancel')}
           </Button>
           <Button type="button" onClick={handleSubmit} disabled={loading || submitting || !props.telemetry}>
-            {submitting ? 'Starting…' : 'Start tracking'}
+            {submitting ? t('startFreeFlightDialog.starting') : t('startFreeFlightDialog.startTracking')}
           </Button>
         </DialogFooter>
       </DialogContent>

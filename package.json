@@ -1,6 +1,6 @@
 {
   "name": "winglog",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "description": "Local-first fleet, dispatch, tracking and logbook companion for MSFS 2024.",
   "private": true,
   "author": "Callum Jones",
@@ -27,6 +27,7 @@
     "spike:live-position": "tsx scripts/spike-live-position.ts",
     "spike:facilities": "tsx scripts/spike-facilities.ts",
     "spike:airport-list": "tsx scripts/spike-airport-list.ts",
+    "spike:landing-rate": "tsx scripts/spike-landing-rate.ts",
     "spike:capture-flight": "tsx scripts/spike-capture-flight.ts",
     "spike:navdata-provider": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs scripts/spike-navdata-provider.ts",
     "spike:route-simplify": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs scripts/spike-route-simplify.ts",
@@ -43,6 +44,7 @@
     "clsx": "^2.1.1",
     "drizzle-orm": "0.45.2",
     "electron-log": "^5.4.4",
+    "i18next": "^26.4.2",
     "lucide-react": "^1.39.0",
     "maplibre-gl": "^6.6.0",
     "next-themes": "^0.4.6",
@@ -50,6 +52,7 @@
     "radix-ui": "^1.6.7",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "react-i18next": "^17.0.14",
     "recharts": "^3.10.1",
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.6.0"

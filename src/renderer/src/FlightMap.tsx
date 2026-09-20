@@ -10,6 +10,7 @@ import {
 import 'maplibre-gl/dist/maplibre-gl.css'
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { Locate, LocateFixed, Radar, ZoomIn, ZoomOut } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { FlightPhase, MapLanguage, SimTelemetry, TrackPoint } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { displayAltitude } from './display-altitude'
@@ -254,6 +255,7 @@ export function FlightMap({
   routeIsApproximate = false,
   mapLanguage = 'en'
 }: FlightMapProps): React.JSX.Element {
+  const { t } = useTranslation()
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const markerRef = useRef<Marker | null>(null)
@@ -744,8 +746,8 @@ export function FlightMap({
             // themes (docs/plans/map-controls.md). Backdrop blur only matters for the
             // outline style sitting over the map; the filled "on" state is opaque already.
             className={followEnabled ? undefined : mapControlButtonClassName}
-            aria-label={followEnabled ? 'Stop centering on aircraft' : 'Center on aircraft'}
-            title={followEnabled ? 'Stop centering on aircraft' : 'Center on aircraft'}
+            aria-label={followEnabled ? t('flightMap.stopCentering') : t('flightMap.centerOnAircraft')}
+            title={followEnabled ? t('flightMap.stopCentering') : t('flightMap.centerOnAircraft')}
             aria-pressed={followEnabled}
             onClick={() => setFollowEnabled((v) => !v)}
           >
@@ -758,12 +760,8 @@ export function FlightMap({
             variant={vfr.enabled ? 'default' : 'outline'}
             size="icon-sm"
             className={vfr.enabled ? undefined : mapControlButtonClassName}
-            aria-label={vfr.enabled ? 'Hide VFR overlay' : 'Show VFR overlay'}
-            title={
-              vfr.enabled
-                ? 'Hide VFR overlay'
-                : 'Show VFR overlay — airfields, range rings, scale, recent track'
-            }
+            aria-label={vfr.enabled ? t('flightMap.hideVfrOverlay') : t('flightMap.showVfrOverlay')}
+            title={vfr.enabled ? t('flightMap.hideVfrOverlay') : t('flightMap.showVfrOverlayTitle')}
             aria-pressed={vfr.enabled}
             onClick={vfr.toggle}
           >
@@ -775,8 +773,8 @@ export function FlightMap({
           variant="outline"
           size="icon-sm"
           className={mapControlButtonClassName}
-          aria-label="Zoom in"
-          title="Zoom in"
+          aria-label={t('flightMap.zoomIn')}
+          title={t('flightMap.zoomIn')}
           onClick={() => mapRef.current?.zoomIn()}
         >
           <ZoomIn />
@@ -786,8 +784,8 @@ export function FlightMap({
           variant="outline"
           size="icon-sm"
           className={mapControlButtonClassName}
-          aria-label="Zoom out"
-          title="Zoom out"
+          aria-label={t('flightMap.zoomOut')}
+          title={t('flightMap.zoomOut')}
           onClick={() => mapRef.current?.zoomOut()}
         >
           <ZoomOut />
@@ -795,7 +793,8 @@ export function FlightMap({
       </div>
       {live && (
         <div className="absolute bottom-3 left-3 rounded-full border border-border bg-popover/85 px-3 py-1 font-mono text-xs text-popover-foreground backdrop-blur-sm">
-          Speed: {telemetry ? `${Math.round(msToKt(telemetry.indicatedAirspeedMs))} kt` : 'N/A'} · Altitude:{' '}
+          {t('flightMap.speed')} {telemetry ? `${Math.round(msToKt(telemetry.indicatedAirspeedMs))} kt` : t('flightMap.na')}{' '}
+          · {t('flightMap.altitude')}{' '}
           {telemetry
             ? `${Math.round(
                 displayAltitude(
@@ -807,21 +806,21 @@ export function FlightMap({
                   telemetryTransition
                 ).valueFt
               ).toLocaleString()} ft`
-            : 'N/A'}{' '}
-          · Heading: {telemetry ? `${Math.round(telemetry.headingTrueDeg)}°` : 'N/A'}
+            : t('flightMap.na')}{' '}
+          · {t('flightMap.heading')} {telemetry ? `${Math.round(telemetry.headingTrueDeg)}°` : t('flightMap.na')}
         </div>
       )}
       {live && vfr.enabled && vfr.nearestText && (
         <div
           className="absolute top-3 left-3 rounded-full border border-border bg-popover/85 px-3 py-1 font-mono text-xs text-popover-foreground backdrop-blur-sm"
-          aria-label="Nearest airfield"
+          aria-label={t('flightMap.nearestAirfield')}
         >
-          Nearest: {vfr.nearestText}
+          {t('flightMap.nearest')} {vfr.nearestText}
         </div>
       )}
       {routeIsApproximate && (
         <div className="absolute bottom-3 left-3 rounded-full border border-border bg-popover/85 px-3 py-1 text-xs text-muted-foreground backdrop-blur-sm">
-          Approximate route — no flight plan on file for this flight
+          {t('flightMap.approximateRoute')}
         </div>
       )}
     </div>

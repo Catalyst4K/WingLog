@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import type { LandingRunway } from '@shared/ipc'
+import i18n from './i18n'
 import { TouchdownDiagram } from './TouchdownDiagram'
 
 const RUNWAY: LandingRunway = {
@@ -12,6 +13,21 @@ const RUNWAY: LandingRunway = {
 }
 
 describe('TouchdownDiagram', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en')
+  })
+
+  it('renders the accessible label in the active i18next language, not a hardcoded English string', async () => {
+    await i18n.changeLanguage('de')
+    render(
+      <TouchdownDiagram
+        runway={RUNWAY}
+        touchdown={{ distanceFromThresholdM: 350, centrelineOffsetM: 4, groundSpeedMs: 60 }}
+      />
+    )
+    expect(screen.getByRole('img', { name: 'Aufsetzdiagramm für Landebahn 27L' })).toBeInTheDocument()
+  })
+
   it('renders an accessible label naming the runway', () => {
     render(
       <TouchdownDiagram

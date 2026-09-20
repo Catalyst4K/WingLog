@@ -395,9 +395,18 @@ export interface LandingScoreCategory {
  *  from. `categories` backs the Logbook score-breakdown popup and the landing card's
  *  per-field warning icons. */
 export interface LandingScoreResult {
+  /** Floored at 0 for display — the underlying computeLandingScore can go negative
+   *  internally once the dangerous-exceedance deduction applies (landing-scoring-v2.md,
+   *  2026-09-20); flooring happens once, server-side (landing-score-resolver.ts), so every
+   *  consumer of this field already sees the real display value. */
   score: number
   severity: LandingSeverity
   categories: LandingScoreCategory[]
+  /** True when the touchdown reached this category's own hard-landing threshold — a flat
+   *  deduction already applied to `score` above, not just one zeroed category. Lets the
+   *  breakdown dialog explain why the score dropped by more than any single category could
+   *  account for. */
+  dangerousExceedance: boolean
 }
 
 /** One flight's score, for Logbook's list-view column (docs/plans/landing-scoring.md's
@@ -782,6 +791,19 @@ export type WindSpeedUnit = 'kt' | 'mps'
 export type MapLanguage = 'local' | 'en' | 'de' | 'es' | 'fr' | 'it' | 'ru'
 
 /**
+ * The app's own UI display language (flightdeck-backend docs/plans/v1-2.md Part 3,
+ * decisions.md 2026-09-20) — distinct from MapLanguage above, which only ever affects map
+ * place names. 'system' (the default) resolves to the OS's own locale client-side
+ * (app-language.ts's resolveAppLanguage), falling back to English when no catalogue exists
+ * yet for it; the rest are an explicit override, persisted once chosen. Real aviation terms
+ * of art (ILS, STAR, SID, FL, QNH, ICAO idents) and anything sourced from SimBrief (which
+ * has no documented language support of its own) stay in English regardless of this
+ * setting. First-pass scope is the renderer only — main-process strings (native dialog
+ * titles, the startup error box) aren't covered by this yet.
+ */
+export type AppLanguage = 'system' | 'en' | 'de' | 'es' | 'fr' | 'it' | 'ru'
+
+/**
  * Display unit for Logbook's two runway-relative landing measurements (distance from
  * threshold, centreline offset) and the touchdown diagram's labels — docs/plans/
  * logbook-detail-improvements.md, item 4. Defaults to 'ft' (Callum's call), unlike most of
@@ -926,6 +948,9 @@ export const IpcChannels = {
   settingsSetAltitudeUnit: 'settings:set-altitude-unit',
   settingsGetMapLanguage: 'settings:get-map-language',
   settingsSetMapLanguage: 'settings:set-map-language',
+  settingsGetAppLanguage: 'settings:get-app-language',
+  settingsSetAppLanguage: 'settings:set-app-language',
+  settingsGetSystemLocale: 'settings:get-system-locale',
   settingsGetWindSpeedUnit: 'settings:get-wind-speed-unit',
   settingsSetWindSpeedUnit: 'settings:set-wind-speed-unit',
   settingsGetLandingDistanceUnit: 'settings:get-landing-distance-unit',
@@ -1106,6 +1131,12 @@ export interface WingLogApi {
   settingsSetAltitudeUnit: (unit: AltitudeUnit) => Promise<void>
   settingsGetMapLanguage: () => Promise<MapLanguage>
   settingsSetMapLanguage: (language: MapLanguage) => Promise<void>
+  settingsGetAppLanguage: () => Promise<AppLanguage>
+  settingsSetAppLanguage: (language: AppLanguage) => Promise<void>
+  /** The OS's own locale (Electron's `app.getLocale()`) — used to resolve AppLanguage's
+   *  'system' value to an actual supported language client-side (app-language.ts's
+   *  resolveAppLanguage). Not itself a setting; nothing persists it. */
+  settingsGetSystemLocale: () => Promise<string>
   settingsGetWindSpeedUnit: () => Promise<WindSpeedUnit>
   settingsSetWindSpeedUnit: (unit: WindSpeedUnit) => Promise<void>
   settingsGetLandingDistanceUnit: () => Promise<LandingDistanceUnit>

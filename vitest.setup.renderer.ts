@@ -1,6 +1,12 @@
 import { afterEach } from 'vitest'
 import { cleanup } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
+// Initializes i18next once for every renderer test (docs/plans/v1-2.md Part 3: "tests
+// render with a fixed locale (English)") — a component using useTranslation() needs an
+// initialized i18next instance to render at all, and fixing the language here means every
+// existing test's literal English string assertions keep working without each one needing
+// its own setup.
+import './src/renderer/src/i18n'
 
 // Explicit rather than relying on @testing-library/react's own auto-cleanup, which only
 // registers itself against a global `afterEach` — this project imports test globals

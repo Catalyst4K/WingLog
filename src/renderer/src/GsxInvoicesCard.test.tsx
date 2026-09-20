@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { FlightInvoice, GsxNotailCandidate, GsxSettings, WingLogApi } from '@shared/ipc'
+import i18n from './i18n'
 import { GsxInvoicesCard } from './GsxInvoicesCard'
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
@@ -42,6 +43,20 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
 }
 
 describe('GsxInvoicesCard', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en')
+  })
+
+  it('renders its title and empty state in the active i18next language, not a hardcoded English string', async () => {
+    await i18n.changeLanguage('de')
+    withWinglog()
+    render(<GsxInvoicesCard flightId={42} />)
+    expect(screen.getByText('Bodendienste')).toBeInTheDocument()
+    expect(
+      await screen.findByText(/Diesem Flug wurden noch keine GSX-Belege zugeordnet/)
+    ).toBeInTheDocument()
+  })
+
   it('shows the empty-state message when there are no invoices', async () => {
     withWinglog()
     render(<GsxInvoicesCard flightId={42} />)
