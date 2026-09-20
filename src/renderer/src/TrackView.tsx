@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import type {
   ActiveTracking,
   Aircraft,
@@ -51,11 +52,12 @@ function FlightIdentity(props: {
   simIcaoType?: string | null
   simRegistration?: string | null
 }): React.JSX.Element {
+  const { t } = useTranslation()
   const icaoType = props.aircraft?.icaoType ?? props.simIcaoType
   const registration = props.aircraft?.registration ?? props.simRegistration
   return (
     <span className="flex items-center gap-1.5 text-sm text-foreground">
-      <span className="font-medium text-foreground">Flight Num:</span>
+      <span className="font-medium text-foreground">{t('trackView.flightNum')}</span>
       <AirlineLogo iata={props.aircraft?.operatorIata ?? null} />
       <span>{props.flightNumber}</span>
       {(icaoType || registration) && (
@@ -95,6 +97,7 @@ export function TrackView(props: {
   /** Wind unit for the Weather dialog's METARs (Settings). */
   windSpeedUnit?: WindSpeedUnit
 }): React.JSX.Element {
+  const { t } = useTranslation()
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
   const [flights, setFlights] = useState<Flight[]>([])
   const [active, setActive] = useState<ActiveTracking | null>(null)
@@ -197,7 +200,7 @@ export function TrackView(props: {
 
   function handleOpenFreeFlight(): void {
     if (!props.telemetry) {
-      toast.error('Not connected to the sim.')
+      toast.error(t('trackView.notConnected'))
       return
     }
     setFreeFlightDialogOpen(true)
@@ -205,9 +208,9 @@ export function TrackView(props: {
 
   async function handleCancelActive(): Promise<void> {
     const ok = await confirm({
-      title: `Cancel ${activeLabel}?`,
-      description: 'The flight and its recorded track will be deleted rather than saved as completed.',
-      confirmLabel: 'Cancel flight',
+      title: t('trackView.cancelFlightTitle', { label: activeLabel }),
+      description: t('trackView.cancelActiveDescription'),
+      confirmLabel: t('trackView.cancelFlight'),
       destructive: true
     })
     if (!ok) return
@@ -224,9 +227,9 @@ export function TrackView(props: {
 
   async function handleFinish(): Promise<void> {
     const ok = await confirm({
-      title: `Finish ${activeLabel} now?`,
-      description: 'Ends tracking immediately and saves the flight as completed.',
-      confirmLabel: 'Finish & save'
+      title: t('trackView.finishFlightTitle', { label: activeLabel }),
+      description: t('trackView.finishDescription'),
+      confirmLabel: t('trackView.finishAndSave')
     })
     if (!ok) return
     try {
@@ -242,9 +245,9 @@ export function TrackView(props: {
 
   async function handleCancelPlanned(id: number, label: string): Promise<void> {
     const ok = await confirm({
-      title: `Cancel ${label}?`,
-      description: 'This planned flight will be deleted.',
-      confirmLabel: 'Cancel flight',
+      title: t('trackView.cancelFlightTitle', { label }),
+      description: t('trackView.cancelPlannedDescription'),
+      confirmLabel: t('trackView.cancelFlight'),
       destructive: true
     })
     if (!ok) return
@@ -358,7 +361,7 @@ export function TrackView(props: {
 
   return (
     <div className="flex h-full flex-col gap-4">
-      <h1 className="font-heading text-2xl font-semibold text-foreground">Track</h1>
+      <h1 className="font-heading text-2xl font-semibold text-foreground">{t('trackView.title')}</h1>
 
       {active ? (
         <Card>
@@ -371,15 +374,15 @@ export function TrackView(props: {
                 simRegistration={activeFlight?.simRegistration}
               />
               <span className="text-sm text-muted-foreground">
-                Phase: <span className="font-mono capitalize">{active.phase}</span>
+                {t('trackView.phase')} <span className="font-mono capitalize">{active.phase}</span>
               </span>
             </div>
             <div className="flex gap-2">
               <Button type="button" variant="destructive" size="sm" onClick={handleCancelActive}>
-                Cancel flight
+                {t('trackView.cancelFlight')}
               </Button>
               <Button type="button" size="sm" onClick={handleFinish}>
-                Finish & save
+                {t('trackView.finishAndSave')}
               </Button>
             </div>
           </CardContent>
@@ -396,15 +399,20 @@ export function TrackView(props: {
             <Card className="border-primary/50 bg-primary/5">
               <CardContent className="flex items-center justify-between gap-4">
                 <p className="text-sm text-foreground">
-                  {props.telemetry?.atcId || 'An aircraft'} is{' '}
-                  {props.telemetry?.onGround ? 'moving on the ground' : 'airborne'} — start tracking?
+                  {props.telemetry?.onGround
+                    ? t('trackView.movingOnGroundBanner', {
+                        aircraft: props.telemetry?.atcId || t('trackView.anAircraft')
+                      })
+                    : t('trackView.airborneBanner', {
+                        aircraft: props.telemetry?.atcId || t('trackView.anAircraft')
+                      })}
                 </p>
                 <div className="flex gap-2">
                   <Button type="button" size="sm" onClick={handleOpenFreeFlight}>
-                    Start tracking
+                    {t('trackView.startTracking')}
                   </Button>
                   <Button type="button" variant="ghost" size="sm" onClick={() => setBannerDismissed(true)}>
-                    Not now
+                    {t('trackView.notNow')}
                   </Button>
                 </div>
               </CardContent>
@@ -415,11 +423,11 @@ export function TrackView(props: {
             <Card>
               <CardContent className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-medium text-foreground">Flying something already?</p>
-                  <p className="text-sm text-muted-foreground">Start tracking it — no SimBrief plan needed.</p>
+                  <p className="text-sm font-medium text-foreground">{t('trackView.flyingSomethingAlready')}</p>
+                  <p className="text-sm text-muted-foreground">{t('trackView.startTrackingNoPlanNeeded')}</p>
                 </div>
                 <Button type="button" variant="outline" size="sm" onClick={handleOpenFreeFlight}>
-                  Free flight
+                  {t('trackView.freeFlight')}
                 </Button>
               </CardContent>
             </Card>
@@ -433,7 +441,7 @@ export function TrackView(props: {
                   <FlightIdentity flightNumber={label} aircraft={aircraft.find((a) => a.id === f.aircraftId)} />
                   <div className="flex gap-2">
                     <Button type="button" size="sm" disabled={starting} onClick={() => handleStart(f.id)}>
-                      Start tracking
+                      {t('trackView.startTracking')}
                     </Button>
                     <Button
                       type="button"
@@ -441,7 +449,7 @@ export function TrackView(props: {
                       size="sm"
                       onClick={() => handleCancelPlanned(f.id, label)}
                     >
-                      Cancel flight
+                      {t('trackView.cancelFlight')}
                     </Button>
                   </div>
                 </CardContent>
@@ -458,12 +466,12 @@ export function TrackView(props: {
           <Dialog>
             <DialogTrigger asChild>
               <Button type="button" variant="outline" size="sm">
-                Weather…
+                {t('trackView.weatherEllipsis')}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Weather</DialogTitle>
+                <DialogTitle>{t('trackView.weather')}</DialogTitle>
               </DialogHeader>
               <MetarPanel
                 depIcao={realIcao(airports?.depIcao)}
@@ -478,12 +486,12 @@ export function TrackView(props: {
           <Dialog>
             <DialogTrigger asChild>
               <Button type="button" variant="outline" size="sm">
-                Procedures…
+                {t('trackView.proceduresEllipsis')}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-2xl">
               <DialogHeader>
-                <DialogTitle>Procedures</DialogTitle>
+                <DialogTitle>{t('trackView.procedures')}</DialogTitle>
               </DialogHeader>
               <ProcedureSelector
                 airports={airports}
@@ -495,13 +503,13 @@ export function TrackView(props: {
           </Dialog>
           <span className="text-sm text-muted-foreground">
             {[
-              props.selection.arrivalIcao ? `Alternate ${props.selection.arrivalIcao}` : null,
+              props.selection.arrivalIcao ? t('trackView.alternateIcao', { icao: props.selection.arrivalIcao }) : null,
               props.selection.sidIdent,
               props.selection.starIdent,
               props.selection.approachIdent
             ]
               .filter((v): v is string => v !== null)
-              .join(' · ') || 'Nothing selected yet'}
+              .join(' · ') || t('trackView.nothingSelectedYet')}
           </span>
             </>
           )}
@@ -538,13 +546,16 @@ export function TrackView(props: {
       <AlertDialog open={completedLabel !== null} onOpenChange={(open) => !open && setCompletedLabel(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Flight ended</AlertDialogTitle>
+            <AlertDialogTitle>{t('trackView.flightEnded')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {(completedLabel ?? '').charAt(0).toUpperCase() + (completedLabel ?? '').slice(1)} was automatically detected as complete and saved to your logbook.
+              {t('trackView.autoDetectedComplete', {
+                label:
+                  (completedLabel ?? '').charAt(0).toUpperCase() + (completedLabel ?? '').slice(1)
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setCompletedLabel(null)}>OK</AlertDialogAction>
+            <AlertDialogAction onClick={() => setCompletedLabel(null)}>{t('trackView.ok')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
