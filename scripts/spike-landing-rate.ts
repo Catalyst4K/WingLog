@@ -26,11 +26,20 @@
  *
  * v2, 2026-09-20, after the first live run found two bugs in this script (not in
  * SimConnect) — see docs/simconnect-notes.md's 2026-09-20 entry: the peak tracker now
- * resets on every fresh arming (a go-around/low pass no longer contaminates the real
- * landing's number), re-arming now requires a genuine liftoff since the last capture
- * rather than just "AGL reads below the trigger" (which was also true while parked,
- * causing an infinite start/stop loop), and the peak is now split into before- and
+ * resets on every fresh arming, re-arming now requires a genuine liftoff since the last
+ * capture rather than just "AGL reads below the trigger" (which was also true while
+ * parked, causing an infinite start/stop loop), and the peak is split into before- and
  * after-contact so a rollout bounce can't masquerade as touchdown severity.
+ *
+ * v3, same day, after Callum flagged what the first run's own "97 seconds before
+ * touchdown" peak actually was: a real, single, continuous approach where he descended
+ * unusually early and quickly, not a separate go-around. That means "peak anywhere below
+ * 500m AGL" is itself the wrong window — a real approach can spend well over a minute
+ * below that altitude with nothing to do with how hard the touchdown itself was. This
+ * version keeps that whole-window figure only as context and adds the number that
+ * actually matters: the peak within a short rolling buffer of the last few seconds
+ * *before* ground contact, computed from the high-rate stream's own touchdown moment
+ * (more precise than the baseline's 1 Hz one) rather than the whole armed window.
  */
 import { appendFileSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -54,6 +63,12 @@ const HIGH_RATE_TRIGGER_AGL_M = 500
 // How long after touchdown to keep the high-rate stream running, to see the true rollout
 // bounce/settle behaviour too, before switching back off.
 const HIGH_RATE_STOP_AFTER_TOUCHDOWN_MS = 5_000
+// The real window(s) worth comparing against today's single 1 Hz "previous tick" value —
+// short enough that an early, unrelated steep-descent segment minutes before touchdown
+// can't be included, per the 2026-09-20 real-flight finding above.
+const NEAR_CONTACT_WINDOWS_MS = [1_000, 2_000, 5_000]
+// How far back the rolling buffer keeps ticks — must cover the largest window above.
+const RING_BUFFER_MS = Math.max(...NEAR_CONTACT_WINDOWS_MS)
 
 const M_PER_FT = 0.3048
 const msToFpm = (ms: number): number => (ms / M_PER_FT) * 60
@@ -83,9 +98,20 @@ open('WingLog landing-rate spike', Protocol.SunRise)
     let peakGHighRate = 0
     // Split so a rollout bounce/gear-rebound after contact (real physics, not noise, but a
     // different question from "how hard did it actually touch down") can't masquerade as
-    // the pre-contact severity number scoring actually cares about.
+    // the pre-contact severity number scoring actually cares about. Whole-window figures —
+    // kept as context only; per the 2026-09-20 finding, NOT the number that answers "how
+    // hard did it touch down" on its own.
     let peakFpmPreTouchdown = 0
     let peakFpmPostTouchdown = 0
+    // Rolling buffer of recent high-rate ticks, pruned to RING_BUFFER_MS — lets the actual
+    // near-contact peak be computed retrospectively once the precise touchdown moment is
+    // known, rather than needing to guess the window in advance.
+    const ringBuffer: { t: number; fpm: number }[] = []
+    let wasOnGroundHighRate = false
+    // ms-precise touchdown moment from the high-rate stream itself (vs. touchdownAt below,
+    // which is the baseline's own coarser 1 Hz detection, kept separately so
+    // baselineFpmAtDetection still faithfully mimics today's exact production behaviour).
+    let preciseTouchdownAt: number | null = null
     // The value production code would have used: the 1 Hz baseline tick immediately
     // before on-ground flips true (previousTelemetry, per landing-capture.ts's own doc
     // comment on why it uses the previous tick rather than the touchdown tick itself).
@@ -111,6 +137,9 @@ open('WingLog landing-rate spike', Protocol.SunRise)
       peakGHighRate = 0
       peakFpmPreTouchdown = 0
       peakFpmPostTouchdown = 0
+      ringBuffer.length = 0
+      wasOnGroundHighRate = false
+      preciseTouchdownAt = null
       console.log('Starting high-rate stream (SIM_FRAME)...')
       handle.requestDataOnSimObject(HIGH_RATE_REQ, HIGH_RATE_DEF, SimConnectConstants.OBJECT_ID_USER, SimConnectPeriod.SIM_FRAME)
     }
@@ -163,18 +192,42 @@ open('WingLog landing-rate spike', Protocol.SunRise)
         const onGround = recv.data.readInt32() === 1
         const gForce = recv.data.readFloat64()
         const fpm = msToFpm(verticalSpeedMs)
+        const now = Date.now()
         log('high-rate-tick', { fpm, onGround, gForce })
-        if (touchdownAt === null || Date.now() - touchdownAt < HIGH_RATE_STOP_AFTER_TOUCHDOWN_MS) {
+
+        ringBuffer.push({ t: now, fpm })
+        while (ringBuffer.length > 0 && ringBuffer[0]!.t < now - RING_BUFFER_MS) ringBuffer.shift()
+
+        // The precise moment, to the tick, that this stream itself saw ground contact —
+        // independent of the baseline's own coarser 1 Hz detection (touchdownAt), which
+        // exists only to faithfully reproduce what today's production code would compute.
+        if (!wasOnGroundHighRate && onGround && preciseTouchdownAt === null) {
+          preciseTouchdownAt = now
+          const nearContact = Object.fromEntries(
+            NEAR_CONTACT_WINDOWS_MS.map((windowMs) => {
+              const inWindow = ringBuffer.filter((p) => p.t >= now - windowMs && p.t < now)
+              const peak = inWindow.length > 0 ? Math.max(...inWindow.map((p) => Math.abs(p.fpm))) : null
+              return [`last${windowMs}ms`, peak]
+            })
+          )
+          console.log(`Precise touchdown. Peak fpm in the last N ms before contact: ${JSON.stringify(nearContact)}`)
+          log('near-contact-peaks', nearContact)
+        }
+        wasOnGroundHighRate = onGround
+
+        if (touchdownAt === null || now - touchdownAt < HIGH_RATE_STOP_AFTER_TOUCHDOWN_MS) {
           peakFpmHighRate = Math.max(peakFpmHighRate, Math.abs(fpm))
           peakGHighRate = Math.max(peakGHighRate, gForce)
           if (touchdownAt === null) peakFpmPreTouchdown = Math.max(peakFpmPreTouchdown, Math.abs(fpm))
           else peakFpmPostTouchdown = Math.max(peakFpmPostTouchdown, Math.abs(fpm))
         }
-        if (touchdownAt !== null && Date.now() - touchdownAt >= HIGH_RATE_STOP_AFTER_TOUCHDOWN_MS) {
+        if (touchdownAt !== null && now - touchdownAt >= HIGH_RATE_STOP_AFTER_TOUCHDOWN_MS) {
           stopHighRate()
           awaitingLanding = false // captured; don't re-arm until a real liftoff happens
           console.log(
-            `Peak fpm before contact: ${peakFpmPreTouchdown.toFixed(0)} — after contact (rollout/bounce): ${peakFpmPostTouchdown.toFixed(0)} — ` +
+            `Whole-window peak before contact (context only, spans the full sub-500m segment — ` +
+              `see near-contact peaks above for the number that actually matters): ${peakFpmPreTouchdown.toFixed(0)}. ` +
+              `After contact (rollout/bounce): ${peakFpmPostTouchdown.toFixed(0)} — ` +
               `vs. baseline's previous-tick: ${baselineFpmAtDetection?.toFixed(0)} — peak G: ${peakGHighRate.toFixed(2)}`
           )
           log('comparison', { peakFpmPreTouchdown, peakFpmPostTouchdown, baselineFpmAtDetection, peakGHighRate })
