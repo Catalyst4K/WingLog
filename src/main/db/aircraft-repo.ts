@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { and, eq, isNull } from 'drizzle-orm'
 import type { Aircraft, AircraftUpdate, NewAircraft } from '@shared/ipc'
+import { t } from '../i18n'
 import { aircraft, flight } from './schema'
 import type { WingLogDb } from './client'
 
@@ -99,7 +100,7 @@ export function deleteAircraft(db: WingLogDb, id: number): void {
     .where(and(eq(flight.aircraftId, id), isNull(flight.deletedAt)))
     .get()
   if (hasActiveFlights) {
-    throw new Error('This aircraft still has flights — replace it instead, or delete its flights first')
+    throw new Error(t('errors.aircraftHasFlights'))
   }
   db.update(aircraft)
     .set({ deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
@@ -127,12 +128,12 @@ export interface ReplaceAircraftInput {
  */
 export function replaceAircraft(db: WingLogDb, input: ReplaceAircraftInput): Aircraft {
   const { retiredId, replacementId } = input
-  if (retiredId === replacementId) throw new Error('An aircraft cannot replace itself')
+  if (retiredId === replacementId) throw new Error(t('errors.aircraftCannotReplaceSelf'))
 
   const retired = db.select().from(aircraft).where(eq(aircraft.id, retiredId)).get()
   if (!retired) throw new Error(`Aircraft ${retiredId} not found`)
   if (retired.replacedByAircraftId !== null) {
-    throw new Error(`${retired.registration} has already been replaced`)
+    throw new Error(t('errors.aircraftAlreadyReplaced', { registration: retired.registration }))
   }
 
   const replacement = db.select().from(aircraft).where(eq(aircraft.id, replacementId)).get()
@@ -165,7 +166,7 @@ export function retireAircraft(db: WingLogDb, id: number): Aircraft {
   const row = db.select().from(aircraft).where(and(eq(aircraft.id, id), isNull(aircraft.deletedAt))).get()
   if (!row) throw new Error(`Aircraft ${id} not found`)
   if (row.replacedByAircraftId !== null || row.retiredAt !== null) {
-    throw new Error(`${row.registration} is already retired`)
+    throw new Error(t('errors.aircraftAlreadyRetired', { registration: row.registration }))
   }
   const now = new Date().toISOString()
   db.update(aircraft).set({ retiredAt: now, updatedAt: now }).where(eq(aircraft.id, id)).run()
@@ -178,9 +179,9 @@ export function unretireAircraft(db: WingLogDb, id: number): Aircraft {
   const row = db.select().from(aircraft).where(and(eq(aircraft.id, id), isNull(aircraft.deletedAt))).get()
   if (!row) throw new Error(`Aircraft ${id} not found`)
   if (row.replacedByAircraftId !== null) {
-    throw new Error(`${row.registration} was replaced and can't be un-retired`)
+    throw new Error(t('errors.aircraftReplacedCannotUnretire', { registration: row.registration }))
   }
-  if (row.retiredAt === null) throw new Error(`${row.registration} is not retired`)
+  if (row.retiredAt === null) throw new Error(t('errors.aircraftNotRetired', { registration: row.registration }))
   const now = new Date().toISOString()
   db.update(aircraft).set({ retiredAt: null, updatedAt: now }).where(eq(aircraft.id, id)).run()
   return toAircraft({ ...row, retiredAt: null, updatedAt: now })

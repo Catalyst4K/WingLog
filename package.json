@@ -44,6 +44,7 @@
     "clsx": "^2.1.1",
     "drizzle-orm": "0.45.2",
     "electron-log": "^5.4.4",
+    "i18next": "^26.4.2",
     "lucide-react": "^1.39.0",
     "maplibre-gl": "^6.6.0",
     "next-themes": "^0.4.6",
@@ -51,6 +52,7 @@
     "radix-ui": "^1.6.7",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "react-i18next": "^17.0.14",
     "recharts": "^3.10.1",
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.6.0"

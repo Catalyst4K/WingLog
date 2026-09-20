@@ -4,6 +4,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from 'sonner'
 import type { Aircraft, DispatchOfp, FleetStats, Flight, ProcedureSelection } from '@shared/ipc'
+import i18n from './i18n'
 import { DispatchView } from './DispatchView'
 import { emptyProcedureSelection } from './procedureSelection'
 
@@ -198,6 +199,20 @@ function selectTriggerNear(labelText: string): HTMLElement {
 }
 
 describe('DispatchView', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en')
+  })
+
+  it('renders its title and placeholder message in the active i18next language, not a hardcoded English string', async () => {
+    await i18n.changeLanguage('de')
+    render(<Harness />)
+    expect(screen.getByText('Dispatch')).toBeInTheDocument()
+    expect(screen.getByText('Flug planen')).toBeInTheDocument()
+    expect(
+      screen.getByText('Plane oder rufe einen Flug ab, um hier die Details zu sehen.')
+    ).toBeInTheDocument()
+  })
+
   it('loads aircraft (filtering retired ones), fleet stats and past flights on mount', async () => {
     const retired = makeAircraft({ id: 9, registration: 'G-OLD', replacedByAircraftId: 1 })
     // Plainly retired (flights kept, docs/plans/fleet-retire.md) is filtered the same way.

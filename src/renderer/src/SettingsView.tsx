@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import type {
   AircraftImportSummary,
   AltitudeUnit,
+  AppLanguage,
   DataFormat,
   GsxSettings,
   LandingDistanceUnit,
@@ -14,6 +17,7 @@ import type {
   WeightUnit,
   WindSpeedUnit
 } from '@shared/ipc'
+import { APP_LANGUAGE_OPTIONS } from '@shared/app-language'
 import { MAP_LANGUAGES } from './map-labels'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -27,26 +31,31 @@ import { NavigraphLogo } from './NavigraphLogo'
 
 type SettingsCategory = 'ui' | 'thirdParty' | 'data' | 'about'
 const DEFAULT_SETTINGS_CATEGORY: SettingsCategory = 'ui'
-const SETTINGS_CATEGORIES: { value: SettingsCategory; label: string }[] = [
-  { value: 'ui', label: 'UI' },
-  { value: 'thirdParty', label: '3rd party' },
-  { value: 'data', label: 'Data' },
-  { value: 'about', label: 'About' }
-]
+
+function settingsCategories(t: TFunction): { value: SettingsCategory; label: string }[] {
+  return [
+    { value: 'ui', label: t('settingsView.categories.ui') },
+    { value: 'thirdParty', label: t('settingsView.categories.thirdParty') },
+    { value: 'data', label: t('settingsView.categories.data') },
+    { value: 'about', label: t('settingsView.categories.about') }
+  ]
+}
 
 // A curated, common-currency subset of what frankfurter.dev supports — enough for
 // "I want to see this in my own currency" without a second fetch just to populate a
 // dropdown (the currency list itself barely ever changes).
-const DISPLAY_CURRENCY_OPTIONS = [
-  { code: 'USD', label: 'USD — US Dollar (no conversion)' },
-  { code: 'GBP', label: 'GBP — British Pound' },
-  { code: 'EUR', label: 'EUR — Euro' },
-  { code: 'CAD', label: 'CAD — Canadian Dollar' },
-  { code: 'AUD', label: 'AUD — Australian Dollar' },
-  { code: 'NZD', label: 'NZD — New Zealand Dollar' },
-  { code: 'JPY', label: 'JPY — Japanese Yen' },
-  { code: 'CHF', label: 'CHF — Swiss Franc' }
-]
+function displayCurrencyOptions(t: TFunction): { code: string; label: string }[] {
+  return [
+    { code: 'USD', label: t('settingsView.currencyOptions.usd') },
+    { code: 'GBP', label: t('settingsView.currencyOptions.gbp') },
+    { code: 'EUR', label: t('settingsView.currencyOptions.eur') },
+    { code: 'CAD', label: t('settingsView.currencyOptions.cad') },
+    { code: 'AUD', label: t('settingsView.currencyOptions.aud') },
+    { code: 'NZD', label: t('settingsView.currencyOptions.nzd') },
+    { code: 'JPY', label: t('settingsView.currencyOptions.jpy') },
+    { code: 'CHF', label: t('settingsView.currencyOptions.chf') }
+  ]
+}
 
 /** Label above an equal-width button group, one row of the UI page's Units/Theme cards
  *  (docs/plans/settings-ui-page.md) — replaces the old label-beside-buttons rows, whose
@@ -62,7 +71,10 @@ function SegmentedRow<T extends string>(props: {
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-sm text-muted-foreground">{props.label}</span>
-      <div className="flex flex-wrap gap-1.5">
+      {/* Grouped and labelled so two rows with overlapping option labels (App language and
+       *  Map language both offer "Deutsch", "Español", etc.) can still be queried
+       *  unambiguously, in tests and by assistive tech alike. */}
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label={props.label}>
         {props.options.map((opt) => (
           <Button
             key={opt.value}
@@ -96,8 +108,9 @@ function DataSection(props: {
   onImport: () => void
   onExport: () => void
 }): React.JSX.Element {
+  const { t } = useTranslation()
   return (
-    <section aria-label={`${props.title} data`} className="flex flex-col gap-2">
+    <section aria-label={t('settingsView.data.regionLabel', { title: props.title })} className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm font-medium text-foreground">{props.title}</span>
         <div className="flex gap-2">
@@ -108,15 +121,15 @@ function DataSection(props: {
             onClick={props.onImport}
             disabled={props.importing}
           >
-            {props.importing ? 'Importing…' : 'Import'}
+            {props.importing ? t('settingsView.data.importing') : t('settingsView.data.import')}
           </Button>
           <Button type="button" variant="outline" size="sm" onClick={props.onExport}>
-            Export
+            {t('settingsView.data.export')}
           </Button>
         </div>
       </div>
       <SegmentedRow
-        label="File format"
+        label={t('settingsView.data.fileFormat')}
         value={props.format}
         options={DATA_FORMATS}
         onChange={props.onFormatChange}
@@ -126,21 +139,24 @@ function DataSection(props: {
   )
 }
 
-function summarizeAircraftImport(summary: AircraftImportSummary): string {
-  if (summary.skipped.length === 0) return `Imported ${summary.imported} aircraft.`
+function summarizeAircraftImport(summary: AircraftImportSummary, t: TFunction): string {
+  const imported = t('settingsView.data.aircraftImported', { count: summary.imported })
+  if (summary.skipped.length === 0) return imported
   const skipped = summary.skipped.map((s) => `${s.registration} (${s.reason})`).join(', ')
-  return `Imported ${summary.imported} aircraft. Skipped ${summary.skipped.length}: ${skipped}`
+  return t('settingsView.data.aircraftImportedWithSkipped', { imported, count: summary.skipped.length, skipped })
 }
 
-function summarizeLogbookImport(summary: LogbookImportSummary): string {
-  const flightsLabel = `${summary.imported} flight${summary.imported === 1 ? '' : 's'}`
-  const aircraftLabel =
-    summary.aircraftCreated > 0 ? ` (added ${summary.aircraftCreated} aircraft to your fleet)` : ''
-  const skippedLabel =
-    summary.skipped.length > 0
-      ? ` Skipped ${summary.skipped.length}: ${summary.skipped.map((s) => `${s.label} (${s.reason})`).join(', ')}`
-      : ''
-  return `Imported ${flightsLabel}${aircraftLabel}.${skippedLabel}`
+function summarizeLogbookImport(summary: LogbookImportSummary, t: TFunction): string {
+  let result = t('settingsView.data.flightsImported', { count: summary.imported })
+  if (summary.aircraftCreated > 0) {
+    result += t('settingsView.data.aircraftAddedSuffix', { count: summary.aircraftCreated })
+  }
+  result += '.'
+  if (summary.skipped.length > 0) {
+    const skipped = summary.skipped.map((s) => `${s.label} (${s.reason})`).join(', ')
+    result += ' ' + t('settingsView.data.skippedSuffix', { count: summary.skipped.length, skipped })
+  }
+  return result
 }
 
 export function SettingsView(props: {
@@ -154,12 +170,15 @@ export function SettingsView(props: {
   onLandingDistanceUnitChange: (unit: LandingDistanceUnit) => void
   mapLanguage: MapLanguage
   onMapLanguageChange: (language: MapLanguage) => void
+  appLanguage: AppLanguage
+  onAppLanguageChange: (language: AppLanguage) => void
   theme: Theme
   onThemeChange: (theme: Theme) => void
   /** Bumped by App.tsx when the Settings tab is clicked while already active — returns to
    *  the first category (docs/plans/navigation-tab-behaviour.md). See useResetSignal. */
   resetSignal?: number
 }): React.JSX.Element {
+  const { t } = useTranslation()
   const [simbriefUsername, setSimbriefUsername] = useState('')
   const [simbriefLoggedIn, setSimbriefLoggedIn] = useState<boolean | null>(null)
   const [loggingIn, setLoggingIn] = useState(false)
@@ -225,7 +244,7 @@ export function SettingsView(props: {
   async function handleSaveSimbriefUsername(event: React.FormEvent): Promise<void> {
     event.preventDefault()
     await window.winglog.settingsSetSimbriefUsername(simbriefUsername.trim())
-    toast.success('SimBrief username saved.')
+    toast.success(t('settingsView.usernameSavedToast'))
   }
 
   async function handleLoginToNavigraph(): Promise<void> {
@@ -239,7 +258,7 @@ export function SettingsView(props: {
         if (fetched) {
           setSimbriefUsername(fetched)
           await window.winglog.settingsSetSimbriefUsername(fetched)
-          toast.success(`SimBrief username filled in automatically: ${fetched}`)
+          toast.success(t('settingsView.usernameAutoFilledToast', { username: fetched }))
         }
       }
     } finally {
@@ -261,7 +280,7 @@ export function SettingsView(props: {
     setImportingAircraft(true)
     try {
       const summary = await window.winglog.aircraftImport(fleetFormat)
-      if (summary) toast.success(summarizeAircraftImport(summary))
+      if (summary) toast.success(summarizeAircraftImport(summary, t))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
     } finally {
@@ -272,7 +291,7 @@ export function SettingsView(props: {
   async function handleExportAircraft(): Promise<void> {
     try {
       const saved = await window.winglog.aircraftExport(fleetFormat)
-      if (saved) toast.success('Fleet exported.')
+      if (saved) toast.success(t('settingsView.data.fleetExported'))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
     }
@@ -285,7 +304,7 @@ export function SettingsView(props: {
       const status = await window.winglog.authLogin(cloudEmail.trim(), cloudPassword)
       setSyncStatus(status)
       setCloudPassword('')
-      toast.success('Logged in.')
+      toast.success(t('settingsView.cloudSync.loggedInToast'))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
     } finally {
@@ -301,7 +320,7 @@ export function SettingsView(props: {
       setSyncStatus(status)
       setCloudPassword('')
       setCloudInviteCode('')
-      toast.success('Account created and logged in.')
+      toast.success(t('settingsView.cloudSync.accountCreatedToast'))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
     } finally {
@@ -318,7 +337,7 @@ export function SettingsView(props: {
     const status = await window.winglog.syncNow()
     setSyncStatus(status)
     if (status.lastError) toast.error(status.lastError)
-    else toast.success('Synced.')
+    else toast.success(t('settingsView.cloudSync.syncedToast'))
   }
 
   async function handleImportLogbook(): Promise<void> {
@@ -328,7 +347,7 @@ export function SettingsView(props: {
         logbookFormat === 'csv'
           ? await window.winglog.logbookImportCsv()
           : await window.winglog.logbookImportJson()
-      if (summary) toast.success(summarizeLogbookImport(summary))
+      if (summary) toast.success(summarizeLogbookImport(summary, t))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
     } finally {
@@ -339,7 +358,7 @@ export function SettingsView(props: {
   async function handleExportLogbook(): Promise<void> {
     try {
       const saved = await window.winglog.logbookExport(logbookFormat)
-      if (saved) toast.success('Logbook exported.')
+      if (saved) toast.success(t('settingsView.data.logbookExported'))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
     }
@@ -347,7 +366,7 @@ export function SettingsView(props: {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="font-heading text-2xl font-semibold text-foreground">Settings</h1>
+      <h1 className="font-heading text-2xl font-semibold text-foreground">{t('settingsView.title')}</h1>
 
       <Tabs
         orientation="vertical"
@@ -356,7 +375,7 @@ export function SettingsView(props: {
         className="items-start gap-6"
       >
         <TabsList variant="line" className="w-40 shrink-0 self-stretch border-r border-border/40 pr-3">
-          {SETTINGS_CATEGORIES.map(({ value, label }) => (
+          {settingsCategories(t).map(({ value, label }) => (
             <TabsTrigger key={value} value={value}>
               {label}
               {category === value && (
@@ -369,11 +388,11 @@ export function SettingsView(props: {
         <TabsContent value="ui" className="flex min-w-0 flex-col gap-4">
           <Card className="max-w-2xl">
             <CardHeader>
-              <CardTitle>Units</CardTitle>
+              <CardTitle>{t('settingsView.units.cardTitle')}</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               <SegmentedRow
-                label="Weights"
+                label={t('settingsView.units.weights')}
                 value={props.weightUnit}
                 options={[
                   { value: 'kg', label: 'kg' },
@@ -383,78 +402,74 @@ export function SettingsView(props: {
               />
               <div className="flex flex-col gap-1.5">
                 <SegmentedRow
-                  label="OFP altitudes"
+                  label={t('settingsView.units.ofpAltitudes')}
                   value={props.altitudeUnit}
                   options={[
-                    { value: 'ft', label: 'Feet' },
-                    { value: 'm', label: 'Meters' },
-                    { value: 'hybrid', label: 'Hybrid' }
+                    { value: 'ft', label: t('settingsView.units.feet') },
+                    { value: 'm', label: t('settingsView.units.meters') },
+                    { value: 'hybrid', label: t('settingsView.units.hybrid') }
                   ]}
                   onChange={props.onAltitudeUnitChange}
                 />
-                <p className="text-xs text-muted-foreground">
-                  "Hybrid" shows each step climb in whichever unit it was actually planned in — feet for a
-                  standard level, meters for a route crossing into airspace (e.g. China) that assigns levels
-                  in meters — rather than converting everything to one unit.
-                </p>
+                <p className="text-xs text-muted-foreground">{t('settingsView.units.hybridHint')}</p>
               </div>
               <div className="flex flex-col gap-1.5">
                 <SegmentedRow
-                  label="Map language"
+                  label={t('settingsView.units.appLanguage')}
+                  value={props.appLanguage}
+                  options={APP_LANGUAGE_OPTIONS}
+                  onChange={props.onAppLanguageChange}
+                />
+                <p className="text-xs text-muted-foreground">{t('settingsView.units.appLanguageHint')}</p>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <SegmentedRow
+                  label={t('settingsView.units.mapLanguage')}
                   value={props.mapLanguage}
                   options={MAP_LANGUAGES}
                   onChange={props.onMapLanguageChange}
                 />
-                <p className="text-xs text-muted-foreground">
-                  The language of place names on the Track and Logbook maps. "Local" shows each place in its
-                  own language. Only the map changes — the rest of the app stays in English.
-                </p>
+                <p className="text-xs text-muted-foreground">{t('settingsView.units.mapLanguageHint')}</p>
               </div>
               <div className="flex flex-col gap-1.5">
                 <SegmentedRow
-                  label="METAR wind speed"
+                  label={t('settingsView.units.metarWindSpeed')}
                   value={props.windSpeedUnit}
                   options={[
-                    { value: 'kt', label: 'Knots' },
+                    { value: 'kt', label: t('settingsView.units.knots') },
                     { value: 'mps', label: 'm/s' }
                   ]}
                   onChange={props.onWindSpeedUnitChange}
                 />
-                <p className="text-xs text-muted-foreground">
-                  The raw METAR text on Dispatch always stays as reported — this only controls a separate
-                  formatted wind line shown alongside it.
-                </p>
+                <p className="text-xs text-muted-foreground">{t('settingsView.units.metarWindSpeedHint')}</p>
               </div>
               <div className="flex flex-col gap-1.5">
                 <SegmentedRow
-                  label="Landing distances"
+                  label={t('settingsView.units.landingDistances')}
                   value={props.landingDistanceUnit}
                   options={[
-                    { value: 'ft', label: 'Feet' },
-                    { value: 'm', label: 'Meters' }
+                    { value: 'ft', label: t('settingsView.units.feet') },
+                    { value: 'm', label: t('settingsView.units.meters') }
                   ]}
                   onChange={props.onLandingDistanceUnitChange}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Distance from threshold and centreline offset on a Logbook flight's landing card, and its
-                  touchdown diagram. Touchdown rate stays fpm and speeds/wind stay knots regardless.
-                </p>
+                <p className="text-xs text-muted-foreground">{t('settingsView.units.landingDistancesHint')}</p>
               </div>
             </CardContent>
           </Card>
 
           <Card className="max-w-2xl">
             <CardHeader>
-              <CardTitle>Theme</CardTitle>
+              <CardTitle>{t('settingsView.theme.cardTitle')}</CardTitle>
             </CardHeader>
             <CardContent>
               <SegmentedRow
-                label="Appearance"
+                label={t('settingsView.theme.appearance')}
                 value={props.theme}
                 options={[
-                  { value: 'light', label: 'Light' },
-                  { value: 'dark', label: 'Dark' },
-                  { value: 'system', label: 'System' }
+                  { value: 'light', label: t('settingsView.theme.light') },
+                  { value: 'dark', label: t('settingsView.theme.dark') },
+                  { value: 'system', label: t('settingsView.theme.system') }
                 ]}
                 onChange={props.onThemeChange}
               />
@@ -466,28 +481,28 @@ export function SettingsView(props: {
           <div className="flex flex-wrap gap-4">
             <Card className="max-w-sm">
               <CardHeader>
-                <CardTitle>Credentials</CardTitle>
-                <CardDescription>Used by Dispatch to fetch and generate plans on SimBrief.</CardDescription>
+                <CardTitle>{t('settingsView.credentials.cardTitle')}</CardTitle>
+                <CardDescription>{t('settingsView.credentials.description')}</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 <form onSubmit={handleSaveSimbriefUsername} className="flex items-end gap-2">
                   <Label className="flex flex-1 flex-col items-start gap-1.5">
-                    SimBrief username
+                    {t('settingsView.credentials.simbriefUsername')}
                     <Input
                       value={simbriefUsername}
                       onChange={(e) => setSimbriefUsername(e.target.value)}
-                      placeholder="Navigraph Alias"
+                      placeholder={t('settingsView.credentials.usernamePlaceholder')}
                     />
                   </Label>
                   <Button type="submit" variant="outline" size="sm">
-                    Save
+                    {t('settingsView.credentials.save')}
                   </Button>
                 </form>
                 {simbriefLoggedIn ? (
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <NavigraphLogo className="size-6" />
-                      <Badge variant="default">Logged in</Badge>
+                      <Badge variant="default">{t('settingsView.credentials.loggedIn')}</Badge>
                     </div>
                     <Button
                       type="button"
@@ -496,7 +511,7 @@ export function SettingsView(props: {
                       onClick={handleLogoutOfNavigraph}
                       disabled={loggingOut}
                     >
-                      {loggingOut ? 'Logging out…' : 'Log out'}
+                      {loggingOut ? t('settingsView.credentials.loggingOut') : t('settingsView.credentials.logOut')}
                     </Button>
                   </div>
                 ) : (
@@ -510,7 +525,9 @@ export function SettingsView(props: {
                   >
                     <NavigraphLogo className="size-8" />
                     <span className="text-sm font-medium">
-                      {loggingIn ? 'Logging in…' : 'Log in with Navigraph'}
+                      {loggingIn
+                        ? t('settingsView.credentials.loggingIn')
+                        : t('settingsView.credentials.logInWithNavigraph')}
                     </span>
                   </Button>
                 )}
@@ -519,52 +536,45 @@ export function SettingsView(props: {
 
             <Card className="max-w-sm">
               <CardHeader>
-                <CardTitle>GSX ground services</CardTitle>
-                <CardDescription>
-                  Attach GSX Pro's catering/fuel/handling receipts to matching flights in your Logbook.
-                  Windows only (GSX itself is Windows-only) — off by default, and nothing here shows up until
-                  enabled.
-                </CardDescription>
+                <CardTitle>{t('settingsView.gsx.cardTitle')}</CardTitle>
+                <CardDescription>{t('settingsView.gsx.description')}</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-3">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm text-foreground">Enabled</span>
+                  <span className="text-sm text-foreground">{t('settingsView.gsx.enabled')}</span>
                   <Button
                     type="button"
                     size="sm"
                     variant={gsx.enabled ? 'default' : 'outline'}
                     onClick={() => handleGsxToggle(!gsx.enabled)}
                   >
-                    {gsx.enabled ? 'On' : 'Off'}
+                    {gsx.enabled ? t('settingsView.gsx.on') : t('settingsView.gsx.off')}
                   </Button>
                 </div>
                 <Label className="flex flex-col items-start gap-1.5">
-                  Receipts folder
+                  {t('settingsView.gsx.receiptsFolder')}
                   <div className="flex w-full gap-1.5">
                     <Input
                       type="text"
                       readOnly
                       value={gsx.folderPath ?? ''}
-                      placeholder="Not set"
+                      placeholder={t('settingsView.gsx.notSet')}
                       className="flex-1"
                     />
                     <Button type="button" variant="outline" size="sm" onClick={handleGsxBrowse}>
-                      Browse…
+                      {t('settingsView.gsx.browse')}
                     </Button>
                   </div>
                 </Label>
-                <p className="text-xs text-muted-foreground">
-                  Usually %APPDATA%\Virtuali\GSX\Receipts. A path that's wrong or no longer exists just means
-                  no receipts are found — never an error.
-                </p>
+                <p className="text-xs text-muted-foreground">{t('settingsView.gsx.pathHint')}</p>
                 <Label className="flex flex-col items-start gap-1.5">
-                  Display currency
+                  {t('settingsView.gsx.displayCurrency')}
                   <Select value={gsx.displayCurrency} onValueChange={handleGsxCurrencyChange}>
                     <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {DISPLAY_CURRENCY_OPTIONS.map((c) => (
+                      {displayCurrencyOptions(t).map((c) => (
                         <SelectItem key={c.code} value={c.code}>
                           {c.label}
                         </SelectItem>
@@ -572,10 +582,7 @@ export function SettingsView(props: {
                     </SelectContent>
                   </Select>
                 </Label>
-                <p className="text-xs text-muted-foreground">
-                  GSX totals convert using a live rate fetched at the time you view them — nothing is stored
-                  converted.
-                </p>
+                <p className="text-xs text-muted-foreground">{t('settingsView.gsx.currencyHint')}</p>
               </CardContent>
             </Card>
           </div>
@@ -585,13 +592,13 @@ export function SettingsView(props: {
           <div className="flex flex-wrap gap-4">
             <Card className="max-w-sm">
               <CardHeader>
-                <CardTitle>Data</CardTitle>
-                <CardDescription>Import or export your fleet and logbook as local files.</CardDescription>
+                <CardTitle>{t('settingsView.data.cardTitle')}</CardTitle>
+                <CardDescription>{t('settingsView.data.description')}</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 <DataSection
-                  title="Fleet"
-                  hint="Registration, type, operator and current airport. Importing skips registrations you already have."
+                  title={t('settingsView.data.fleetTitle')}
+                  hint={t('settingsView.data.fleetHint')}
                   format={fleetFormat}
                   onFormatChange={setFleetFormat}
                   importing={importingAircraft}
@@ -599,8 +606,8 @@ export function SettingsView(props: {
                   onExport={handleExportAircraft}
                 />
                 <DataSection
-                  title="Logbook"
-                  hint="A summary of every completed flight, with its landing — not a full backup (no route or OFP data). Import reads WingLog's own files, and SimToolkitPro CSVs."
+                  title={t('settingsView.data.logbookTitle')}
+                  hint={t('settingsView.data.logbookHint')}
                   format={logbookFormat}
                   onFormatChange={setLogbookFormat}
                   importing={importingLogbook}
@@ -619,11 +626,8 @@ export function SettingsView(props: {
             {__WINGLOG_CLOUD_SYNC_ENABLED__ && (
               <Card className="max-w-sm">
                 <CardHeader>
-                  <CardTitle>Cloud sync</CardTitle>
-                  <CardDescription>
-                    Sync Fleet and Logbook across your machines. This is WingLog's own service, not a third
-                    party — off by default, nothing leaves this device until you log in.
-                  </CardDescription>
+                  <CardTitle>{t('settingsView.cloudSync.cardTitle')}</CardTitle>
+                  <CardDescription>{t('settingsView.cloudSync.description')}</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4">
                   {syncStatus.loggedIn ? (
@@ -631,14 +635,16 @@ export function SettingsView(props: {
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-sm text-foreground">{syncStatus.email}</span>
                         <Button type="button" variant="outline" size="sm" onClick={handleCloudLogout}>
-                          Log out
+                          {t('settingsView.cloudSync.logOut')}
                         </Button>
                       </div>
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-xs text-muted-foreground">
                           {syncStatus.lastSyncedAt
-                            ? `Last synced ${new Date(syncStatus.lastSyncedAt).toLocaleString()}`
-                            : 'Never synced yet.'}
+                            ? t('settingsView.cloudSync.lastSynced', {
+                                date: new Date(syncStatus.lastSyncedAt).toLocaleString()
+                              })
+                            : t('settingsView.cloudSync.neverSyncedYet')}
                         </p>
                         <Button
                           type="button"
@@ -647,7 +653,7 @@ export function SettingsView(props: {
                           onClick={handleSyncNow}
                           disabled={syncStatus.syncing}
                         >
-                          {syncStatus.syncing ? 'Syncing…' : 'Sync now'}
+                          {syncStatus.syncing ? t('settingsView.cloudSync.syncing') : t('settingsView.cloudSync.syncNow')}
                         </Button>
                       </div>
                       {syncStatus.lastError && (
@@ -662,14 +668,14 @@ export function SettingsView(props: {
                           onClick={() => setCloudAuthMode('login')}
                           className={`flex-1 cursor-pointer rounded-sm py-1 ${cloudAuthMode === 'login' ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground'}`}
                         >
-                          Log in
+                          {t('settingsView.cloudSync.logIn')}
                         </button>
                         <button
                           type="button"
                           onClick={() => setCloudAuthMode('signup')}
                           className={`flex-1 cursor-pointer rounded-sm py-1 ${cloudAuthMode === 'signup' ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground'}`}
                         >
-                          Sign up
+                          {t('settingsView.cloudSync.signUp')}
                         </button>
                       </div>
                       <form
@@ -677,7 +683,7 @@ export function SettingsView(props: {
                         className="flex flex-col gap-3"
                       >
                         <Label className="flex flex-col items-start gap-1.5">
-                          Email
+                          {t('settingsView.cloudSync.email')}
                           <Input
                             type="email"
                             value={cloudEmail}
@@ -686,7 +692,7 @@ export function SettingsView(props: {
                           />
                         </Label>
                         <Label className="flex flex-col items-start gap-1.5">
-                          Password
+                          {t('settingsView.cloudSync.password')}
                           <Input
                             type="password"
                             value={cloudPassword}
@@ -697,9 +703,9 @@ export function SettingsView(props: {
                         </Label>
                         {cloudAuthMode === 'signup' && (
                           <>
-                            <p className="text-xs text-muted-foreground">At least 12 characters.</p>
+                            <p className="text-xs text-muted-foreground">{t('settingsView.cloudSync.atLeast12Chars')}</p>
                             <Label className="flex flex-col items-start gap-1.5">
-                              Invite code
+                              {t('settingsView.cloudSync.inviteCode')}
                               <Input
                                 type="password"
                                 value={cloudInviteCode}
@@ -707,10 +713,7 @@ export function SettingsView(props: {
                                 required
                               />
                             </Label>
-                            <p className="text-xs text-muted-foreground">
-                              Signup isn't public yet — this only works with an invite code from the app
-                              owner.
-                            </p>
+                            <p className="text-xs text-muted-foreground">{t('settingsView.cloudSync.signupHint')}</p>
                           </>
                         )}
                         <Button
@@ -722,11 +725,11 @@ export function SettingsView(props: {
                         >
                           {loggingIntoCloud
                             ? cloudAuthMode === 'login'
-                              ? 'Logging in…'
-                              : 'Signing up…'
+                              ? t('settingsView.cloudSync.loggingIn')
+                              : t('settingsView.cloudSync.signingUp')
                             : cloudAuthMode === 'login'
-                              ? 'Log in'
-                              : 'Sign up'}
+                              ? t('settingsView.cloudSync.logIn')
+                              : t('settingsView.cloudSync.signUp')}
                         </Button>
                       </form>
                     </>
@@ -741,18 +744,12 @@ export function SettingsView(props: {
           <Card className="max-w-2xl">
             <CardHeader>
               <CardTitle>WingLog{appVersion ? ` v${appVersion}` : ''}</CardTitle>
-              <CardDescription>
-                A personal fleet-management, dispatch, live-tracking and logbook companion for Microsoft
-                Flight Simulator.
-              </CardDescription>
+              <CardDescription>{t('settingsView.about.description')}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
-              <p className="text-sm text-foreground">
-                WingLog is not affiliated with, endorsed by, or sponsored by Microsoft Corporation or Asobo
-                Studio. "Microsoft Flight Simulator" is a trademark of its respective owners.
-              </p>
+              <p className="text-sm text-foreground">{t('settingsView.about.disclaimer')}</p>
               <p className="text-xs text-muted-foreground">
-                Free and open source under the GNU General Public License v3.0.{' '}
+                {t('settingsView.about.license')}{' '}
                 <button
                   type="button"
                   onClick={() => window.winglog.appOpenGithub()}

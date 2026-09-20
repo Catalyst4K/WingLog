@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Aircraft, AircraftLanding, Flight, FleetStats, WingLogApi } from '@shared/ipc'
+import i18n from './i18n'
 import { FleetView } from './FleetView'
 
 // sonner's real toast has nothing to render into in these tests (no <Toaster/> mounted)
@@ -176,6 +177,20 @@ function setWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
 }
 
 describe('FleetView', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en')
+  })
+
+  it('renders its title and empty state in the active i18next language, not a hardcoded English string', async () => {
+    await i18n.changeLanguage('de')
+    setWinglog()
+    render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
+    expect(await screen.findByText('Flotte')).toBeInTheDocument()
+    expect(
+      screen.getByText('Keine aktiven Flugzeuge — füge eines hinzu oder importiere eine Flotte über Einstellungen → Daten.')
+    ).toBeInTheDocument()
+  })
+
   it('shows the empty state when there are no active aircraft', async () => {
     setWinglog()
     render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
@@ -652,7 +667,7 @@ describe('FleetView', () => {
     expect(await screen.findByText('Replace G-OLDTAIL')).toBeInTheDocument()
 
     await pickSelectOption(user, 'G-NEWTAIL — A320')
-    expect(await screen.findByText(/2 flight\(s\) will move/)).toBeInTheDocument()
+    expect(await screen.findByText(/2 flights will move/)).toBeInTheDocument()
 
     await user.click(screen.getByText('Replace aircraft'))
     await waitFor(() => expect(winglog.aircraftReplace).toHaveBeenCalledWith(1, 2))
@@ -674,7 +689,7 @@ describe('FleetView', () => {
     expect(await screen.findByText(/Checking flight history…/)).toBeInTheDocument()
 
     resolveFlights([makeFlight({ aircraftId: 1 })])
-    expect(await screen.findByText(/1 flight\(s\) will move/)).toBeInTheDocument()
+    expect(await screen.findByText(/1 flight will move/)).toBeInTheDocument()
   })
 
   it('cancelling the replace dialog leaves the aircraft untouched', async () => {

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +30,7 @@ interface ConfirmOptions {
  * once the user picks an option — await it inline rather than juggling open state by hand.
  */
 export function useConfirm(): [(options: ConfirmOptions) => Promise<boolean>, React.JSX.Element] {
+  const { t } = useTranslation()
   const [pending, setPending] = useState<{ options: ConfirmOptions; resolve: (value: boolean) => void } | null>(
     null
   )
@@ -50,7 +52,9 @@ export function useConfirm(): [(options: ConfirmOptions) => Promise<boolean>, Re
           <AlertDialogDescription>{pending?.options.description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => settle(false)}>{pending?.options.cancelLabel ?? 'Back'}</AlertDialogCancel>
+          <AlertDialogCancel onClick={() => settle(false)}>
+            {pending?.options.cancelLabel ?? t('useConfirm.back')}
+          </AlertDialogCancel>
           <AlertDialogAction
             variant={pending?.options.destructive ? 'destructive' : 'default'}
             onClick={() => settle(true)}

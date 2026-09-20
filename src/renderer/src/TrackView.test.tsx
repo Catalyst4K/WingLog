@@ -10,6 +10,7 @@ import type {
   TrackPoint,
   WingLogApi
 } from '@shared/ipc'
+import i18n from './i18n'
 import { emptyProcedureSelection } from './procedureSelection'
 import { TrackView } from './TrackView'
 
@@ -336,6 +337,19 @@ function pushTelemetry(
 }
 
 describe('TrackView', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en')
+  })
+
+  it('renders its title and free-flight card in the active i18next language, not a hardcoded English string', async () => {
+    await i18n.changeLanguage('de')
+    setWinglog()
+    renderTrack()
+    expect(screen.getByText('Track')).toBeInTheDocument()
+    expect(await screen.findByText('Fliegst du schon etwas?')).toBeInTheDocument()
+    expect(screen.getByText('Freier Flug')).toBeInTheDocument()
+  })
+
   it('shows the Free flight card in place of the old dead-end empty state when nothing is planned or active', async () => {
     setWinglog()
     renderTrack()

@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { MetarReport, WingLogApi } from '@shared/ipc'
+import i18n from './i18n'
 import { MetarPanel } from './MetarPanel'
 
 function withWinglog(overrides: Partial<WingLogApi> = {}): void {
@@ -22,6 +23,18 @@ function report(overrides: Partial<MetarReport> & Pick<MetarReport, 'icao'>): Me
 }
 
 describe('MetarPanel', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en')
+  })
+
+  it('renders its empty state and tab labels in the active i18next language, not a hardcoded English string', async () => {
+    await i18n.changeLanguage('de')
+    withWinglog()
+    render(<MetarPanel depIcao={null} arrIcao={null} altnIcao={null} windSpeedUnit="kt" />)
+    expect(screen.getByText('Kein Flughafen festgelegt.')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Ziel' })).toBeInTheDocument()
+  })
+
   it('shows "No airport set." for a slot with no ICAO, and does not fetch at all', async () => {
     const weatherGetMetars = vi.fn().mockResolvedValue([])
     withWinglog({ weatherGetMetars })

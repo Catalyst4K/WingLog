@@ -2,11 +2,13 @@ import { isRetired } from '@shared/aircraft'
 import { join } from 'node:path'
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
 import { initLogger } from './logging/logger'
+import { setMainLanguage, t } from './i18n'
 import { backupDatabaseOnLaunch } from './db/backup'
 import {
   IpcChannels,
   type AircraftUpdate,
   type AltitudeUnit,
+  type AppLanguage,
   type DataFormat,
   type WindSpeedUnit,
   type DispatchOfp,
@@ -66,6 +68,7 @@ import { getLandingScoresForCompletedFlights, resolveLandingScore } from './db/l
 import { exportLogbook, importLogbookCsv, importLogbookJson } from './db/logbook-import'
 import {
   getAltitudeUnit,
+  getAppLanguage,
   getGsxSettings,
   getLandingDistanceUnit,
   getSimbriefUsername,
@@ -74,6 +77,7 @@ import {
   getMapLanguage,
   getWindSpeedUnit,
   setAltitudeUnit,
+  setAppLanguage,
   setGsxSettings,
   setLandingDistanceUnit,
   setSimbriefUsername,
@@ -215,6 +219,14 @@ if (!gotSingleInstanceLock) {
       migrateDb(dbPath, join(app.getAppPath(), 'drizzle'))
       const { db } = createDb(dbPath)
 
+      // Main-process strings (native dialog titles, thrown validation messages that reach
+      // the renderer verbatim as a toast) follow the same persisted setting the renderer
+      // does — no IPC round-trip needed, since main already owns this DB row directly
+      // (settings-repo.ts's getAppLanguage) and app.getLocale() is a synchronous Electron
+      // API. Re-called from the settingsSetAppLanguage handler below on every change, so a
+      // freshly thrown error picks up a new language with no restart needed.
+      setMainLanguage(getAppLanguage(db), app.getLocale())
+
       // No native menu bar — in-app navigation (the top tab bar in App.tsx) is the only
       // way to move around; a bare File/Edit/Window bar above it was clutter, not useful.
       Menu.setApplicationMenu(null)
@@ -282,7 +294,7 @@ if (!gotSingleInstanceLock) {
 
       // Validated here, not just in the renderer — the renderer isn't a security boundary.
       const requireAircraftId = (id: unknown): number => {
-        if (typeof id !== 'number' || !Number.isInteger(id)) throw new Error('Invalid aircraft id')
+        if (typeof id !== 'number' || !Number.isInteger(id)) throw new Error(t('errors.invalidAircraftId'))
         return id
       }
       ipcMain.handle(IpcChannels.aircraftRetire, (_event, id: unknown) => {
@@ -316,7 +328,7 @@ if (!gotSingleInstanceLock) {
 
       ipcMain.handle(IpcChannels.dispatchFetchOfp, async (): Promise<DispatchOfp> => {
         const username = getSimbriefUsername(db)
-        if (!username) throw new Error('Set your SimBrief username first')
+        if (!username) throw new Error(t('errors.setSimbriefUsernameFirst'))
         return mapOfpForIpc(await fetchLatestOfp(username))
       })
 
@@ -336,7 +348,7 @@ if (!gotSingleInstanceLock) {
         IpcChannels.dispatchGenerateOfp,
         async (_event, params: DispatchOpenSimBriefParams): Promise<DispatchOfp> => {
           const username = getSimbriefUsername(db)
-          if (!username) throw new Error('Set your SimBrief username first')
+          if (!username) throw new Error(t('errors.setSimbriefUsernameFirst'))
 
           // Baseline for the "did a new plan actually appear" check below — best-effort, a
           // pilot with no prior OFP at all is a valid starting state, not an error.
@@ -348,7 +360,7 @@ if (!gotSingleInstanceLock) {
 
           const ofp = await fetchLatestOfp(username)
           if (ofp.ofpId === baselineOfpId) {
-            throw new Error('No new plan was generated — the window may have been closed before finishing')
+            throw new Error(t('errors.noNewPlanGenerated'))
           }
           return mapOfpForIpc(ofp)
         }
@@ -453,6 +465,14 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.settingsSetMapLanguage, (_event, language: MapLanguage) =>
         setMapLanguage(db, language)
       )
+      ipcMain.handle(IpcChannels.settingsGetAppLanguage, () => getAppLanguage(db))
+      ipcMain.handle(IpcChannels.settingsSetAppLanguage, (_event, language: AppLanguage) => {
+        setAppLanguage(db, language)
+        setMainLanguage(language, app.getLocale())
+      })
+      // Not a stored setting — just what the OS itself reports, for resolving AppLanguage's
+      // 'system' value client-side (app-language.ts's resolveAppLanguage).
+      ipcMain.handle(IpcChannels.settingsGetSystemLocale, () => app.getLocale())
       ipcMain.handle(IpcChannels.settingsGetWindSpeedUnit, () => getWindSpeedUnit(db))
       ipcMain.handle(IpcChannels.settingsSetWindSpeedUnit, (_event, unit: WindSpeedUnit) =>
         setWindSpeedUnit(db, unit)
@@ -543,13 +563,13 @@ if (!gotSingleInstanceLock) {
         if (input.aircraftId != null) {
           const aircraft = getAircraftById(db, input.aircraftId)
           if (!aircraft || isRetired(aircraft)) {
-            throw new Error(`Aircraft ${input.aircraftId} not found or retired`)
+            throw new Error(t('errors.aircraftNotFoundOrRetired', { id: input.aircraftId }))
           }
         } else {
           simRegistration = input.simRegistration?.trim() || ''
           simIcaoType = input.simIcaoType?.trim().toUpperCase() || ''
           if (!simRegistration || !simIcaoType) {
-            throw new Error('Registration and type are required when not adding to the fleet.')
+            throw new Error(t('errors.registrationAndTypeRequired'))
           }
         }
         autoStartDetector.disarm()
@@ -575,11 +595,11 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.trackingFinish, () => trackingController.finish())
       ipcMain.handle(IpcChannels.trackingGetActive, () => trackingController.getActive() ?? null)
       ipcMain.handle(IpcChannels.trackingSetDestination, (_event, icao: unknown) => {
-        if (icao !== null && typeof icao !== 'string') throw new Error('Invalid destination')
+        if (icao !== null && typeof icao !== 'string') throw new Error(t('errors.invalidDestination'))
         trackingController.setDestination(icao)
       })
       ipcMain.handle(IpcChannels.trackingSetDeparture, (_event, icao: unknown) => {
-        if (icao !== null && typeof icao !== 'string') throw new Error('Invalid departure')
+        if (icao !== null && typeof icao !== 'string') throw new Error(t('errors.invalidDeparture'))
         trackingController.setDeparture(icao)
       })
       ipcMain.handle(IpcChannels.trackingSetProcedureSelection, (_event, selection: ProcedureSelection) =>
@@ -648,10 +668,12 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.flightLinkAircraft, (_event, flightId: number, aircraftId: number) => {
         const existingFlight = getFlight(db, flightId)
         if (!existingFlight) throw new Error(`Flight ${flightId} not found`)
-        if (existingFlight.aircraftId != null) throw new Error(`Flight ${flightId} already has a linked aircraft`)
+        if (existingFlight.aircraftId != null) {
+          throw new Error(t('errors.flightAlreadyHasLinkedAircraft', { flightId }))
+        }
         const aircraftRow = getAircraftById(db, aircraftId)
         if (!aircraftRow || isRetired(aircraftRow)) {
-          throw new Error(`Aircraft ${aircraftId} not found or retired`)
+          throw new Error(t('errors.aircraftNotFoundOrRetired', { id: aircraftId }))
         }
         const updated = linkAircraftToFlight(db, flightId, aircraftId)
         scheduleBackgroundSync()
@@ -690,7 +712,7 @@ if (!gotSingleInstanceLock) {
 
       ipcMain.handle(IpcChannels.gsxBrowseFolder, async () => {
         const { canceled, filePaths } = await dialog.showOpenDialog(window, {
-          title: 'GSX receipts folder',
+          title: t('dialogs.gsxReceiptsFolder'),
           defaultPath: defaultGsxReceiptsPath() ?? undefined,
           properties: ['openDirectory']
         })
@@ -888,7 +910,7 @@ if (!gotSingleInstanceLock) {
       // initLogger() above, so this failure is captured for a bug report too, not just shown once.
       const message = error instanceof Error ? (error.stack ?? error.message) : String(error)
       console.error('WingLog failed to start:', message)
-      dialog.showErrorBox('WingLog failed to start', message)
+      dialog.showErrorBox(t('startupFailed'), message)
       app.exit(1)
     })
 

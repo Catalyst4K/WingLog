@@ -1,0 +1,49 @@
+{
+  "dialogs": {
+    "exportFleet": "Export fleet",
+    "importFleet": "Import fleet",
+    "exportLogbook": "Export logbook",
+    "importLogbookCsv": "Import logbook CSV",
+    "importLogbookJson": "Import logbook JSON",
+    "gsxReceiptsFolder": "GSX receipts folder"
+  },
+  "startupFailed": "WingLog failed to start",
+  "errors": {
+    "aircraftHasFlights": "This aircraft still has flights — replace it instead, or delete its flights first",
+    "aircraftCannotReplaceSelf": "An aircraft cannot replace itself",
+    "aircraftAlreadyReplaced": "{{registration}} has already been replaced",
+    "aircraftAlreadyRetired": "{{registration}} is already retired",
+    "aircraftReplacedCannotUnretire": "{{registration}} was replaced and can't be un-retired",
+    "aircraftNotRetired": "{{registration}} is not retired",
+    "expectedAnObject": "Expected an object",
+    "fieldRequired": "\"{{field}}\" is required",
+    "fieldMustBeString": "\"{{field}}\" must be a string",
+    "fleetExportTooLarge": "That file is too large to be a fleet export",
+    "csvFileEmpty": "The CSV file is empty",
+    "registrationAlreadyExists": "registration already exists",
+    "alreadyImported": "already imported",
+    "logbookExportTooLarge": "That file is too large to be a logbook export",
+    "missingOrMalformedField": "missing or malformed required field",
+    "inBlockBeforeOutBlock": "in-block time is before out-block time",
+    "expectedJsonArrayOfFlights": "Expected a JSON array of flights",
+    "invalidAircraftId": "Invalid aircraft id",
+    "setSimbriefUsernameFirst": "Set your SimBrief username first",
+    "noNewPlanGenerated": "No new plan was generated — the window may have been closed before finishing",
+    "registrationAndTypeRequired": "Registration and type are required when not adding to the fleet.",
+    "invalidDestination": "Invalid destination",
+    "invalidDeparture": "Invalid departure",
+    "flightAlreadyHasLinkedAircraft": "Flight {{flightId}} already has a linked aircraft",
+    "aircraftNotFoundOrRetired": "Aircraft {{id}} not found or retired",
+    "notConnectedToSim": "Not connected to the sim",
+    "plannedFlightDestinationFromPlan": "A planned flight's destination comes from its flight plan",
+    "plannedFlightDepartureFromPlan": "A planned flight's departure comes from its flight plan",
+    "notValidAirportCode": "That is not a valid airport code",
+    "noFlightBeingTracked": "No flight is being tracked",
+    "credentialEncryptionUnavailable": "OS-level credential encryption is not available on this machine",
+    "notLoggedIn": "Not logged in"
+  },
+  "labels": {
+    "unknownRegistration": "(unknown)",
+    "unreadableRow": "(unreadable row)"
+  }
+}

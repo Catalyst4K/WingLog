@@ -1,8 +1,11 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { BookOpen, Plane, Radar, Route, Settings as SettingsIcon } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import type {
   AltitudeUnit,
+  AppLanguage,
   AppPage,
   DispatchOfp,
   Flight,
@@ -15,6 +18,8 @@ import type {
   WeightUnit,
   WindSpeedUnit
 } from '@shared/ipc'
+import { resolveAppLanguage } from '@shared/app-language'
+import i18n from './i18n'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,13 +51,15 @@ const TrackView = lazy(loadTrackView)
 const LogbookView = lazy(loadLogbookView)
 const SettingsView = lazy(loadSettingsView)
 
-const TABS: { page: AppPage; label: string; icon: typeof Plane }[] = [
-  { page: 'fleet', label: 'Fleet', icon: Plane },
-  { page: 'dispatch', label: 'Dispatch', icon: Route },
-  { page: 'track', label: 'Track', icon: Radar },
-  { page: 'logbook', label: 'Logbook', icon: BookOpen },
-  { page: 'settings', label: 'Settings', icon: SettingsIcon }
-]
+function appTabs(t: TFunction): { page: AppPage; label: string; icon: typeof Plane }[] {
+  return [
+    { page: 'fleet', label: t('app.tabs.fleet'), icon: Plane },
+    { page: 'dispatch', label: t('app.tabs.dispatch'), icon: Route },
+    { page: 'track', label: t('app.tabs.track'), icon: Radar },
+    { page: 'logbook', label: t('app.tabs.logbook'), icon: BookOpen },
+    { page: 'settings', label: t('app.tabs.settings'), icon: SettingsIcon }
+  ]
+}
 
 /** Suspense's fallback for a lazy view's first render (docs/plans/navigation-tab-
  *  behaviour.md) — belt-and-braces alongside the idle prefetch below, not the primary fix:
@@ -68,15 +75,19 @@ function PageSkeleton(): React.JSX.Element {
   )
 }
 
-function connectionStatusLabel(status: SimConnectionStatus): string {
+function connectionStatusLabel(status: SimConnectionStatus, t: TFunction): string {
   switch (status.state) {
     case 'connected':
-      return `Connected (SimConnect ${status.simConnectVersion})`
+      return t('app.connection.connected', { version: status.simConnectVersion })
     case 'connecting':
-      return 'Connecting…'
+      return t('app.connection.connecting')
     case 'disconnected':
-      return 'Disconnected — retrying'
+      return t('app.connection.disconnected')
   }
+}
+
+function connectionStateLabel(status: SimConnectionStatus, t: TFunction): string {
+  return t(`app.connection.states.${status.state}`)
 }
 
 function connectionStatusVariant(status: SimConnectionStatus): 'default' | 'secondary' | 'destructive' {
@@ -97,27 +108,32 @@ function connectionStatusVariant(status: SimConnectionStatus): 'default' | 'seco
  *  there's just an unfinished plan). Same two choices either way (keep it or discard/delete
  *  it), but the wording needs to say which one it actually is, not always claim tracking
  *  was interrupted when it may never have started. */
-function orphanedFlightCopy(flight: Flight): { title: string; description: string; confirmLabel: string } {
+function orphanedFlightCopy(
+  flight: Flight,
+  t: TFunction
+): { title: string; description: string; confirmLabel: string } {
   const label = flightLabel(flight)
   return flight.status === 'active'
     ? {
-        title: 'Resume tracking?',
-        description: `WingLog closed while ${label} was being tracked. Resume if it's still in progress in the sim, or discard it to delete the flight.`,
-        confirmLabel: 'Resume tracking'
+        title: t('app.orphanedFlight.resumeTitle'),
+        description: t('app.orphanedFlight.resumeDescription', { label }),
+        confirmLabel: t('app.orphanedFlight.resumeConfirm')
       }
     : {
-        title: 'Continue this flight?',
-        description: `WingLog closed with ${label} already planned but not yet started. Keep it and continue from Track, or discard it to delete the flight.`,
-        confirmLabel: 'Keep it'
+        title: t('app.orphanedFlight.continueTitle'),
+        description: t('app.orphanedFlight.continueDescription', { label }),
+        confirmLabel: t('app.orphanedFlight.continueConfirm')
       }
 }
 
 export default function App(): React.JSX.Element {
+  const { t } = useTranslation()
   const [page, setPage] = useState<AppPage>('fleet')
   const [weightUnit, setWeightUnit] = useState<WeightUnit>('lb')
   const [altitudeUnit, setAltitudeUnit] = useState<AltitudeUnit>('ft')
   const [windSpeedUnit, setWindSpeedUnit] = useState<WindSpeedUnit>('kt')
   const [mapLanguage, setMapLanguage] = useState<MapLanguage>('en')
+  const [appLanguage, setAppLanguage] = useState<AppLanguage>('system')
   const [landingDistanceUnit, setLandingDistanceUnit] = useState<LandingDistanceUnit>('ft')
   const [theme, setTheme] = useState<Theme>('system')
   const [simStatus, setSimStatus] = useState<SimConnectionStatus>({ state: 'disconnected' })
@@ -280,6 +296,12 @@ export default function App(): React.JSX.Element {
     window.winglog.settingsGetMapLanguage().then(setMapLanguage)
     window.winglog.settingsGetLandingDistanceUnit().then(setLandingDistanceUnit)
     window.winglog.settingsGetTheme().then(setTheme)
+    Promise.all([window.winglog.settingsGetAppLanguage(), window.winglog.settingsGetSystemLocale()]).then(
+      ([saved, systemLocale]) => {
+        setAppLanguage(saved)
+        void i18n.changeLanguage(resolveAppLanguage(saved, systemLocale))
+      }
+    )
   }, [])
 
   // Applies the resolved theme by toggling the `dark` class index.css's tokens key off
@@ -308,10 +330,13 @@ export default function App(): React.JSX.Element {
     // see settingsCheckGsxFirstLaunch's doc comment.
     window.winglog.settingsCheckGsxFirstLaunch().then((result) => {
       if (!result) return
+      // i18n.t directly, not the hook's t — this only runs once at mount (checking a
+      // one-time flag), so it must not depend on a value that changes on every language
+      // switch just to satisfy the exhaustive-deps rule.
       if (result.found) {
-        toast.success('GSX ground-service tracking enabled — receipts folder found automatically.')
+        toast.success(i18n.t('app.gsxFirstLaunch.found'))
       } else {
-        toast.info('GSX ground-service tracking is off — enable it in Settings if you use GSX.')
+        toast.info(i18n.t('app.gsxFirstLaunch.notFound'))
       }
     })
   }, [])
@@ -349,6 +374,13 @@ export default function App(): React.JSX.Element {
     await window.winglog.settingsSetMapLanguage(language)
   }
 
+  async function handleAppLanguageChange(language: AppLanguage): Promise<void> {
+    setAppLanguage(language)
+    await window.winglog.settingsSetAppLanguage(language)
+    const systemLocale = await window.winglog.settingsGetSystemLocale()
+    void i18n.changeLanguage(resolveAppLanguage(language, systemLocale))
+  }
+
   async function handleWindSpeedUnitChange(unit: WindSpeedUnit): Promise<void> {
     setWindSpeedUnit(unit)
     await window.winglog.settingsSetWindSpeedUnit(unit)
@@ -364,7 +396,7 @@ export default function App(): React.JSX.Element {
       <Tabs value={page} onValueChange={(value) => setPage(value as AppPage)} className="min-h-0 flex-1 gap-0">
         <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-3">
           <TabsList variant="line">
-            {TABS.map(({ page: tabPage, label, icon: Icon }) => (
+            {appTabs(t).map(({ page: tabPage, label, icon: Icon }) => (
               <TabsTrigger
                 key={tabPage}
                 value={tabPage}
@@ -376,8 +408,8 @@ export default function App(): React.JSX.Element {
               </TabsTrigger>
             ))}
           </TabsList>
-          <Badge variant={connectionStatusVariant(simStatus)} title={connectionStatusLabel(simStatus)}>
-            SimConnect: {simStatus.state}
+          <Badge variant={connectionStatusVariant(simStatus)} title={connectionStatusLabel(simStatus, t)}>
+            {t('app.connection.badge', { state: connectionStateLabel(simStatus, t) })}
           </Badge>
         </header>
 
@@ -449,6 +481,8 @@ export default function App(): React.JSX.Element {
                 onLandingDistanceUnitChange={handleLandingDistanceUnitChange}
                 mapLanguage={mapLanguage}
                 onMapLanguageChange={handleMapLanguageChange}
+                appLanguage={appLanguage}
+                onAppLanguageChange={handleAppLanguageChange}
                 theme={theme}
                 onThemeChange={handleThemeChange}
                 resetSignal={settingsResetSignal}
@@ -464,13 +498,15 @@ export default function App(): React.JSX.Element {
           {orphanedFlight && (
             <>
               <AlertDialogHeader>
-                <AlertDialogTitle>{orphanedFlightCopy(orphanedFlight).title}</AlertDialogTitle>
-                <AlertDialogDescription>{orphanedFlightCopy(orphanedFlight).description}</AlertDialogDescription>
+                <AlertDialogTitle>{orphanedFlightCopy(orphanedFlight, t).title}</AlertDialogTitle>
+                <AlertDialogDescription>{orphanedFlightCopy(orphanedFlight, t).description}</AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel onClick={handleDiscardOrphaned}>Discard flight</AlertDialogCancel>
+                <AlertDialogCancel onClick={handleDiscardOrphaned}>
+                  {t('app.orphanedFlight.discard')}
+                </AlertDialogCancel>
                 <AlertDialogAction onClick={handleResumeOrphaned}>
-                  {orphanedFlightCopy(orphanedFlight).confirmLabel}
+                  {orphanedFlightCopy(orphanedFlight, t).confirmLabel}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </>

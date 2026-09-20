@@ -4,6 +4,7 @@
 // DepDate (DD/MM/YY), DepTime (HHMM), ArrDate (DD/MM/YY), ArrTime (HHMM).
 // Callsign/Network aren't stored: WingLog's Flight has no matching field for either.
 
+import { t } from '../i18n'
 import { columnIndex, parseCsvRows } from './csv'
 
 export { parseCsvRows }
@@ -49,7 +50,7 @@ export function parseStkpRow(header: string[], row: string[]): { data: StkpLogRo
   )
 
   if (!depIcao || !arrIcao || !registration || !icaoType || !actualOutUtc || !actualInUtc) {
-    return { error: 'missing or malformed required field' }
+    return { error: t('errors.missingOrMalformedField') }
   }
   return { data: { depIcao, arrIcao, registration, icaoType, flightNumber, actualOutUtc, actualInUtc } }
 }

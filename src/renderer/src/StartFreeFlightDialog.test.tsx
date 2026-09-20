@@ -2,6 +2,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Aircraft, FreeFlightPrefill, SimTelemetry, WingLogApi } from '@shared/ipc'
+import i18n from './i18n'
 import { StartFreeFlightDialog } from './StartFreeFlightDialog'
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
@@ -114,6 +115,20 @@ function renderDialog(
 }
 
 describe('StartFreeFlightDialog', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en')
+  })
+
+  it('renders its title and field labels in the active i18next language, not a hardcoded English string', async () => {
+    await i18n.changeLanguage('de')
+    setWinglog()
+    renderDialog()
+    expect(await screen.findByText('Freien Flug starten')).toBeInTheDocument()
+    expect(screen.getByText('Rufzeichen')).toBeInTheDocument()
+    expect(screen.getByText('Verfolgung starten')).toBeInTheDocument()
+  })
+
+
   it('does not auto-match on atcId any more — registration alone never selects a fleet aircraft', async () => {
     setWinglog({
       trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue(makePrefill({ registration: 'G-EUYY' }))

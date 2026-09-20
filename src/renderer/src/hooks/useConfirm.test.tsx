@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import i18n from '../i18n'
 import { useConfirm } from './useConfirm'
 
 function Harness(props: { destructive?: boolean }): React.JSX.Element {
@@ -28,6 +29,18 @@ function Harness(props: { destructive?: boolean }): React.JSX.Element {
 }
 
 describe('useConfirm', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en')
+  })
+
+  it('renders the default cancel label in the active i18next language, not a hardcoded English string', async () => {
+    await i18n.changeLanguage('de')
+    const user = userEvent.setup()
+    render(<Harness />)
+    await user.click(screen.getByText('Ask'))
+    expect(screen.getByText('Zurück')).toBeInTheDocument()
+  })
+
   it('renders no dialog content until confirm() is called', () => {
     render(<Harness />)
     expect(screen.queryByText('Delete this flight?')).not.toBeInTheDocument()

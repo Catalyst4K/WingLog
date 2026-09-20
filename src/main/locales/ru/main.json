@@ -1,0 +1,49 @@
+{
+  "dialogs": {
+    "exportFleet": "Экспортировать флот",
+    "importFleet": "Импортировать флот",
+    "exportLogbook": "Экспортировать логбук",
+    "importLogbookCsv": "Импортировать CSV логбука",
+    "importLogbookJson": "Импортировать JSON логбука",
+    "gsxReceiptsFolder": "Папка чеков GSX"
+  },
+  "startupFailed": "Не удалось запустить WingLog",
+  "errors": {
+    "aircraftHasFlights": "У этого воздушного судна ещё есть рейсы — замените его или сначала удалите его рейсы",
+    "aircraftCannotReplaceSelf": "Воздушное судно не может заменить само себя",
+    "aircraftAlreadyReplaced": "{{registration}} уже заменено",
+    "aircraftAlreadyRetired": "{{registration}} уже выведено из эксплуатации",
+    "aircraftReplacedCannotUnretire": "{{registration}} было заменено, и его нельзя вернуть в эксплуатацию",
+    "aircraftNotRetired": "{{registration}} не выведено из эксплуатации",
+    "expectedAnObject": "Ожидался объект",
+    "fieldRequired": "\"{{field}}\" обязательно",
+    "fieldMustBeString": "\"{{field}}\" должно быть строкой",
+    "fleetExportTooLarge": "Этот файл слишком большой, чтобы быть экспортом флота",
+    "csvFileEmpty": "CSV-файл пуст",
+    "registrationAlreadyExists": "такая регистрация уже существует",
+    "alreadyImported": "уже импортировано",
+    "logbookExportTooLarge": "Этот файл слишком большой, чтобы быть экспортом логбука",
+    "missingOrMalformedField": "отсутствует или повреждено обязательное поле",
+    "inBlockBeforeOutBlock": "Время прибытия на стоянку раньше времени убытия со стоянки",
+    "expectedJsonArrayOfFlights": "Ожидался JSON-массив рейсов",
+    "invalidAircraftId": "Неверный ID воздушного судна",
+    "setSimbriefUsernameFirst": "Сначала укажите имя пользователя SimBrief",
+    "noNewPlanGenerated": "Новый план не был создан — возможно, окно было закрыто до завершения",
+    "registrationAndTypeRequired": "Регистрация и тип обязательны, если судно не добавляется в флот.",
+    "invalidDestination": "Недопустимый пункт назначения",
+    "invalidDeparture": "Недопустимый пункт вылета",
+    "flightAlreadyHasLinkedAircraft": "К рейсу {{flightId}} уже привязано воздушное судно",
+    "aircraftNotFoundOrRetired": "Воздушное судно {{id}} не найдено или выведено из эксплуатации",
+    "notConnectedToSim": "Нет подключения к симулятору",
+    "plannedFlightDestinationFromPlan": "Пункт назначения запланированного рейса определяется его планом полёта",
+    "plannedFlightDepartureFromPlan": "Пункт вылета запланированного рейса определяется его планом полёта",
+    "notValidAirportCode": "Это не действительный код аэропорта",
+    "noFlightBeingTracked": "Ни один рейс сейчас не отслеживается",
+    "credentialEncryptionUnavailable": "Шифрование учётных данных на уровне ОС недоступно на этом компьютере",
+    "notLoggedIn": "Вход не выполнен"
+  },
+  "labels": {
+    "unknownRegistration": "(неизвестно)",
+    "unreadableRow": "(нечитаемая строка)"
+  }
+}

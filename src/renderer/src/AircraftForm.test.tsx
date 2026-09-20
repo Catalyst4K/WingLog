@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Aircraft, AirlineOption, SimbriefAirframeOption, WingLogApi } from '@shared/ipc'
+import i18n from './i18n'
 import { AircraftForm } from './AircraftForm'
 
 // Radix Select renders a visually-hidden native <option> (for form autofill) alongside the
@@ -132,6 +133,19 @@ const DEFAULT_OPTION: SimbriefAirframeOption = {
 }
 
 describe('AircraftForm', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en')
+  })
+
+  it('renders its labels and buttons in the active i18next language, not a hardcoded English string', async () => {
+    await i18n.changeLanguage('de')
+    render(<AircraftForm onSubmit={vi.fn()} onCancel={vi.fn()} />)
+    expect(screen.getByText('Kennzeichen')).toBeInTheDocument()
+    expect(screen.getByText('Nachschlagen')).toBeInTheDocument()
+    expect(screen.getByText('Speichern')).toBeInTheDocument()
+    expect(screen.getByText('Abbrechen')).toBeInTheDocument()
+  })
+
   it('renders an empty form in create mode', () => {
     const { container } = render(<AircraftForm onSubmit={vi.fn()} onCancel={vi.fn()} />)
     const inputs = textInputs(container)

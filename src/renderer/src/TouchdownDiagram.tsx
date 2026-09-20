@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { LandingRunway } from '@shared/ipc'
 import { computeTouchdownDiagramLayout, evenlySpacedYsPx, type DiagramTouchdown } from './touchdown-diagram'
 
@@ -130,6 +131,7 @@ export function TouchdownDiagram(props: {
   runway: LandingRunway
   touchdown: DiagramTouchdown
 }): React.JSX.Element {
+  const { t } = useTranslation()
   const layout = useMemo(
     () => computeTouchdownDiagramLayout(props.runway, props.touchdown, VIEWPORT_WIDTH_PX),
     [props.runway, props.touchdown]
@@ -169,7 +171,7 @@ export function TouchdownDiagram(props: {
       style={{ aspectRatio: `${svgWidthPx} / ${svgHeightPx}`, display: 'block' }}
       preserveAspectRatio="xMidYMid meet"
       role="img"
-      aria-label={`Touchdown diagram for runway ${props.runway.ident}`}
+      aria-label={t('touchdownDiagram.ariaLabel', { ident: props.runway.ident })}
     >
         {/* Approach area before the physical runway start, when the window extends into it. */}
         {layout.runwayStartXPx > 0 && (

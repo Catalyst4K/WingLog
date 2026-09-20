@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { AirportSearch } from './AirportSearch'
 
@@ -17,7 +18,8 @@ export function FreeFlightAirport(props: {
   icao: string
   onChanged: () => void
 }): React.JSX.Element {
-  const noun = props.kind === 'departure' ? 'Departure' : 'Destination'
+  const { t } = useTranslation()
+  const noun = props.kind === 'departure' ? t('freeFlightAirport.departure') : t('freeFlightAirport.destination')
   const isSet = props.icao !== 'ZZZZ'
   const [value, setValue] = useState(isSet ? props.icao : '')
   const [saving, setSaving] = useState(false)
@@ -42,18 +44,20 @@ export function FreeFlightAirport(props: {
     <div className="flex items-center gap-2">
       <span className="text-sm text-muted-foreground">{noun}</span>
       <div className="w-56">
-        <AirportSearch value={value} onChange={setValue} placeholder="Not set" />
+        <AirportSearch value={value} onChange={setValue} placeholder={t('freeFlightAirport.notSet')} />
       </div>
       {canSet && (
         <Button
           type="button"
           size="sm"
           variant="outline"
-          aria-label={`Set ${props.kind}`}
+          aria-label={
+            props.kind === 'departure' ? t('freeFlightAirport.setDeparture') : t('freeFlightAirport.setDestination')
+          }
           disabled={saving}
           onClick={() => save(candidate)}
         >
-          Set
+          {t('freeFlightAirport.set')}
         </Button>
       )}
       {isSet && !canSet && (
@@ -61,11 +65,15 @@ export function FreeFlightAirport(props: {
           type="button"
           size="sm"
           variant="ghost"
-          aria-label={`Clear ${props.kind}`}
+          aria-label={
+            props.kind === 'departure'
+              ? t('freeFlightAirport.clearDeparture')
+              : t('freeFlightAirport.clearDestination')
+          }
           disabled={saving}
           onClick={() => save(null)}
         >
-          Clear
+          {t('freeFlightAirport.clear')}
         </Button>
       )}
     </div>

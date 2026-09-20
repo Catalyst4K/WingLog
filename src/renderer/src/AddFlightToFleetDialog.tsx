@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import type { Aircraft, AircraftTypeOption, Flight } from '@shared/ipc'
 import { isRetired } from '@shared/aircraft'
 import { Button } from '@/components/ui/button'
@@ -31,6 +32,7 @@ export function AddFlightToFleetDialog(props: {
   fleetAircraft: Aircraft[]
   onLinked: (flight: Flight) => void
 }): React.JSX.Element {
+  const { t } = useTranslation()
   const nonRetiredAircraft = props.fleetAircraft.filter((a) => !isRetired(a))
   const [selected, setSelected] = useState<string>(nonRetiredAircraft.length > 0 ? EXISTING : 'new')
   const [registration, setRegistration] = useState(props.flight.simRegistration ?? '')
@@ -48,7 +50,7 @@ export function AddFlightToFleetDialog(props: {
       let aircraftId: number
       if (creatingNew) {
         if (!registration.trim() || !icaoType.trim()) {
-          throw new Error('Enter a registration and type for the new aircraft.')
+          throw new Error(t('addFlightToFleetDialog.enterRegistrationAndType'))
         }
         const created = await window.winglog.aircraftCreate({
           registration: registration.trim(),
@@ -56,7 +58,7 @@ export function AddFlightToFleetDialog(props: {
         })
         aircraftId = created.id
       } else {
-        if (!existingId) throw new Error('Choose an aircraft.')
+        if (!existingId) throw new Error(t('addFlightToFleetDialog.chooseAnAircraft'))
         aircraftId = Number(existingId)
       }
       const updated = await window.winglog.flightLinkAircraft(props.flight.id, aircraftId)
@@ -75,10 +77,8 @@ export function AddFlightToFleetDialog(props: {
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add to fleet</DialogTitle>
-          <DialogDescription>
-            Link this flight to a fleet aircraft — as a brand new tail, or one you already have.
-          </DialogDescription>
+          <DialogTitle>{t('addFlightToFleetDialog.title')}</DialogTitle>
+          <DialogDescription>{t('addFlightToFleetDialog.description')}</DialogDescription>
         </DialogHeader>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
@@ -86,14 +86,14 @@ export function AddFlightToFleetDialog(props: {
         <div className="flex flex-col gap-4">
           {nonRetiredAircraft.length > 0 && (
             <div className="flex flex-col gap-1.5">
-              <Label>Aircraft</Label>
+              <Label>{t('addFlightToFleetDialog.aircraft')}</Label>
               <Select value={selected} onValueChange={setSelected}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={EXISTING}>Link to an existing fleet aircraft</SelectItem>
-                  <SelectItem value="new">Add as a new fleet aircraft</SelectItem>
+                  <SelectItem value={EXISTING}>{t('addFlightToFleetDialog.linkToExisting')}</SelectItem>
+                  <SelectItem value="new">{t('addFlightToFleetDialog.addAsNew')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -102,11 +102,11 @@ export function AddFlightToFleetDialog(props: {
           {creatingNew ? (
             <>
               <Label className="flex flex-col items-start gap-1.5">
-                Registration
+                {t('addFlightToFleetDialog.registration')}
                 <Input type="text" value={registration} onChange={(e) => setRegistration(e.target.value)} />
               </Label>
               <div className="flex flex-col gap-1.5">
-                <Label>Type</Label>
+                <Label>{t('addFlightToFleetDialog.type')}</Label>
                 <Combobox
                   value={icaoType}
                   onChange={(value) => setIcaoType(value.toUpperCase())}
@@ -114,13 +114,13 @@ export function AddFlightToFleetDialog(props: {
                   getOptionKey={(r: AircraftTypeOption) => `${r.icaoType}-${r.manufacturer}-${r.model}`}
                   getOptionValue={(r) => r.icaoType}
                   getOptionLabel={(r) => `${r.manufacturer} — ${r.model} (${r.icaoType})`}
-                  placeholder="e.g. A350, Boeing, B77W, or type an ICAO code"
+                  placeholder={t('addFlightToFleetDialog.typePlaceholder')}
                 />
               </div>
             </>
           ) : (
             <div className="flex flex-col gap-1.5">
-              <Label>Existing aircraft</Label>
+              <Label>{t('addFlightToFleetDialog.existingAircraft')}</Label>
               <Select value={existingId} onValueChange={setExistingId}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -139,10 +139,10 @@ export function AddFlightToFleetDialog(props: {
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => props.onOpenChange(false)}>
-            Cancel
+            {t('addFlightToFleetDialog.cancel')}
           </Button>
           <Button type="button" onClick={handleSubmit} disabled={submitting}>
-            {submitting ? 'Adding…' : 'Add to fleet'}
+            {submitting ? t('addFlightToFleetDialog.adding') : t('addFlightToFleetDialog.addToFleet')}
           </Button>
         </DialogFooter>
       </DialogContent>

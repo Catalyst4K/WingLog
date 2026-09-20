@@ -29,6 +29,7 @@
     "src/main/**/*",
     "src/preload/**/*",
     "src/shared/**/*",
-    "scripts/**/*"
+    "scripts/**/*",
+    "src/renderer/src/i18n.ts"
   ]
 }

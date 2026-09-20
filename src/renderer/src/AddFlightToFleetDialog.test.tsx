@@ -2,6 +2,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Aircraft, Flight, WingLogApi } from '@shared/ipc'
+import i18n from './i18n'
 import { AddFlightToFleetDialog } from './AddFlightToFleetDialog'
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
@@ -113,6 +114,19 @@ function renderDialog(
 }
 
 describe('AddFlightToFleetDialog', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en')
+  })
+
+  it('renders its title and buttons in the active i18next language, not a hardcoded English string', async () => {
+    await i18n.changeLanguage('de')
+    setWinglog()
+    renderDialog()
+    expect(screen.getByRole('heading', { name: 'Zur Flotte hinzufügen' })).toBeInTheDocument()
+    expect(screen.getByText('Abbrechen')).toBeInTheDocument()
+  })
+
+
   it('defaults to creating a new aircraft, prefilled from the flight\'s sim-reported identity, when the fleet is empty', () => {
     setWinglog()
     renderDialog({ fleetAircraft: [] })
