@@ -145,5 +145,38 @@
     },
     "usernameSavedToast": "Usuario de SimBrief guardado.",
     "usernameAutoFilledToast": "Usuario de SimBrief completado automáticamente: {{username}}"
+  },
+  "app": {
+    "tabs": {
+      "fleet": "Flota",
+      "dispatch": "Dispatch",
+      "track": "Track",
+      "logbook": "Logbook",
+      "settings": "Ajustes"
+    },
+    "connection": {
+      "connected": "Conectado (SimConnect {{version}})",
+      "connecting": "Conectando…",
+      "disconnected": "Desconectado — reintentando",
+      "states": {
+        "connected": "conectado",
+        "connecting": "conectando",
+        "disconnected": "desconectado"
+      },
+      "badge": "SimConnect: {{state}}"
+    },
+    "orphanedFlight": {
+      "resumeTitle": "¿Reanudar el seguimiento?",
+      "resumeDescription": "WingLog se cerró mientras se seguía {{label}}. Reanuda si todavía está en curso en el simulador, o descártalo para eliminar el vuelo.",
+      "resumeConfirm": "Reanudar seguimiento",
+      "continueTitle": "¿Continuar con este vuelo?",
+      "continueDescription": "WingLog se cerró con {{label}} ya planificado pero aún no iniciado. Consérvalo y continúa desde Track, o descártalo para eliminar el vuelo.",
+      "continueConfirm": "Conservarlo",
+      "discard": "Descartar vuelo"
+    },
+    "gsxFirstLaunch": {
+      "found": "Seguimiento de servicios de tierra GSX activado — carpeta de recibos encontrada automáticamente.",
+      "notFound": "El seguimiento de servicios de tierra GSX está desactivado — actívalo en Ajustes si usas GSX."
+    }
   }
 }

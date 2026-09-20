@@ -145,5 +145,38 @@
     },
     "usernameSavedToast": "Nom d'utilisateur SimBrief enregistré.",
     "usernameAutoFilledToast": "Nom d'utilisateur SimBrief rempli automatiquement : {{username}}"
+  },
+  "app": {
+    "tabs": {
+      "fleet": "Flotte",
+      "dispatch": "Dispatch",
+      "track": "Track",
+      "logbook": "Logbook",
+      "settings": "Paramètres"
+    },
+    "connection": {
+      "connected": "Connecté (SimConnect {{version}})",
+      "connecting": "Connexion…",
+      "disconnected": "Déconnecté — nouvelle tentative",
+      "states": {
+        "connected": "connecté",
+        "connecting": "connexion",
+        "disconnected": "déconnecté"
+      },
+      "badge": "SimConnect : {{state}}"
+    },
+    "orphanedFlight": {
+      "resumeTitle": "Reprendre le suivi ?",
+      "resumeDescription": "WingLog s'est fermé pendant que {{label}} était suivi. Reprenez si le vol est toujours en cours dans le simulateur, ou abandonnez-le pour supprimer le vol.",
+      "resumeConfirm": "Reprendre le suivi",
+      "continueTitle": "Continuer ce vol ?",
+      "continueDescription": "WingLog s'est fermé alors que {{label}} était déjà planifié mais pas encore commencé. Conservez-le et continuez depuis Track, ou abandonnez-le pour supprimer le vol.",
+      "continueConfirm": "Le conserver",
+      "discard": "Abandonner le vol"
+    },
+    "gsxFirstLaunch": {
+      "found": "Suivi des services au sol GSX activé — dossier des reçus trouvé automatiquement.",
+      "notFound": "Le suivi des services au sol GSX est désactivé — activez-le dans les Paramètres si vous utilisez GSX."
+    }
   }
 }

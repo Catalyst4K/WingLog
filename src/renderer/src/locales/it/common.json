@@ -145,5 +145,38 @@
     },
     "usernameSavedToast": "Nome utente SimBrief salvato.",
     "usernameAutoFilledToast": "Nome utente SimBrief compilato automaticamente: {{username}}"
+  },
+  "app": {
+    "tabs": {
+      "fleet": "Flotta",
+      "dispatch": "Dispatch",
+      "track": "Track",
+      "logbook": "Logbook",
+      "settings": "Impostazioni"
+    },
+    "connection": {
+      "connected": "Connesso (SimConnect {{version}})",
+      "connecting": "Connessione…",
+      "disconnected": "Disconnesso — nuovo tentativo",
+      "states": {
+        "connected": "connesso",
+        "connecting": "connessione",
+        "disconnected": "disconnesso"
+      },
+      "badge": "SimConnect: {{state}}"
+    },
+    "orphanedFlight": {
+      "resumeTitle": "Riprendere il tracciamento?",
+      "resumeDescription": "WingLog si è chiuso mentre {{label}} veniva tracciato. Riprendi se è ancora in corso nel simulatore, oppure scartalo per eliminare il volo.",
+      "resumeConfirm": "Riprendi tracciamento",
+      "continueTitle": "Continuare questo volo?",
+      "continueDescription": "WingLog si è chiuso con {{label}} già pianificato ma non ancora iniziato. Mantienilo e continua da Track, oppure scartalo per eliminare il volo.",
+      "continueConfirm": "Mantienilo",
+      "discard": "Scarta volo"
+    },
+    "gsxFirstLaunch": {
+      "found": "Tracciamento dei servizi di terra GSX attivato — cartella ricevute trovata automaticamente.",
+      "notFound": "Il tracciamento dei servizi di terra GSX è disattivato — attivalo in Impostazioni se usi GSX."
+    }
   }
 }

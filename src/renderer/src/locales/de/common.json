@@ -143,5 +143,38 @@
     },
     "usernameSavedToast": "SimBrief-Benutzername gespeichert.",
     "usernameAutoFilledToast": "SimBrief-Benutzername automatisch ausgefüllt: {{username}}"
+  },
+  "app": {
+    "tabs": {
+      "fleet": "Flotte",
+      "dispatch": "Dispatch",
+      "track": "Track",
+      "logbook": "Logbuch",
+      "settings": "Einstellungen"
+    },
+    "connection": {
+      "connected": "Verbunden (SimConnect {{version}})",
+      "connecting": "Verbindung wird hergestellt…",
+      "disconnected": "Getrennt — erneuter Versuch",
+      "states": {
+        "connected": "verbunden",
+        "connecting": "verbindet",
+        "disconnected": "getrennt"
+      },
+      "badge": "SimConnect: {{state}}"
+    },
+    "orphanedFlight": {
+      "resumeTitle": "Tracking fortsetzen?",
+      "resumeDescription": "WingLog wurde geschlossen, während {{label}} verfolgt wurde. Setze fort, wenn der Flug im Sim noch läuft, oder verwirf ihn, um den Flug zu löschen.",
+      "resumeConfirm": "Tracking fortsetzen",
+      "continueTitle": "Diesen Flug fortsetzen?",
+      "continueDescription": "WingLog wurde geschlossen, während {{label}} bereits geplant, aber noch nicht gestartet war. Behalte ihn und setze in Track fort, oder verwirf ihn, um den Flug zu löschen.",
+      "continueConfirm": "Behalten",
+      "discard": "Flug verwerfen"
+    },
+    "gsxFirstLaunch": {
+      "found": "GSX-Bodendienst-Tracking aktiviert — Belege-Ordner wurde automatisch gefunden.",
+      "notFound": "GSX-Bodendienst-Tracking ist ausgeschaltet — aktiviere es in den Einstellungen, wenn du GSX nutzt."
+    }
   }
 }

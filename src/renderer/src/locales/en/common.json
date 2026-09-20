@@ -143,5 +143,38 @@
     },
     "usernameSavedToast": "SimBrief username saved.",
     "usernameAutoFilledToast": "SimBrief username filled in automatically: {{username}}"
+  },
+  "app": {
+    "tabs": {
+      "fleet": "Fleet",
+      "dispatch": "Dispatch",
+      "track": "Track",
+      "logbook": "Logbook",
+      "settings": "Settings"
+    },
+    "connection": {
+      "connected": "Connected (SimConnect {{version}})",
+      "connecting": "Connecting…",
+      "disconnected": "Disconnected — retrying",
+      "states": {
+        "connected": "connected",
+        "connecting": "connecting",
+        "disconnected": "disconnected"
+      },
+      "badge": "SimConnect: {{state}}"
+    },
+    "orphanedFlight": {
+      "resumeTitle": "Resume tracking?",
+      "resumeDescription": "WingLog closed while {{label}} was being tracked. Resume if it's still in progress in the sim, or discard it to delete the flight.",
+      "resumeConfirm": "Resume tracking",
+      "continueTitle": "Continue this flight?",
+      "continueDescription": "WingLog closed with {{label}} already planned but not yet started. Keep it and continue from Track, or discard it to delete the flight.",
+      "continueConfirm": "Keep it",
+      "discard": "Discard flight"
+    },
+    "gsxFirstLaunch": {
+      "found": "GSX ground-service tracking enabled — receipts folder found automatically.",
+      "notFound": "GSX ground-service tracking is off — enable it in Settings if you use GSX."
+    }
   }
 }

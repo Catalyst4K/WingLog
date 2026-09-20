@@ -159,5 +159,38 @@
     },
     "usernameSavedToast": "Имя пользователя SimBrief сохранено.",
     "usernameAutoFilledToast": "Имя пользователя SimBrief заполнено автоматически: {{username}}"
+  },
+  "app": {
+    "tabs": {
+      "fleet": "Флот",
+      "dispatch": "Диспетчеризация",
+      "track": "Трек",
+      "logbook": "Логбук",
+      "settings": "Настройки"
+    },
+    "connection": {
+      "connected": "Подключено (SimConnect {{version}})",
+      "connecting": "Подключение…",
+      "disconnected": "Отключено — повтор попытки",
+      "states": {
+        "connected": "подключено",
+        "connecting": "подключение",
+        "disconnected": "отключено"
+      },
+      "badge": "SimConnect: {{state}}"
+    },
+    "orphanedFlight": {
+      "resumeTitle": "Продолжить отслеживание?",
+      "resumeDescription": "WingLog был закрыт во время отслеживания {{label}}. Продолжите, если полёт всё ещё выполняется в симуляторе, или отмените, чтобы удалить полёт.",
+      "resumeConfirm": "Продолжить отслеживание",
+      "continueTitle": "Продолжить этот полёт?",
+      "continueDescription": "WingLog был закрыт, когда {{label}} уже был запланирован, но ещё не начат. Сохраните его и продолжите в разделе Track, или отмените, чтобы удалить полёт.",
+      "continueConfirm": "Сохранить",
+      "discard": "Отменить полёт"
+    },
+    "gsxFirstLaunch": {
+      "found": "Отслеживание наземного обслуживания GSX включено — папка с чеками найдена автоматически.",
+      "notFound": "Отслеживание наземного обслуживания GSX выключено — включите его в настройках, если вы используете GSX."
+    }
   }
 }
