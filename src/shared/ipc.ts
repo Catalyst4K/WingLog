@@ -395,9 +395,18 @@ export interface LandingScoreCategory {
  *  from. `categories` backs the Logbook score-breakdown popup and the landing card's
  *  per-field warning icons. */
 export interface LandingScoreResult {
+  /** Floored at 0 for display — the underlying computeLandingScore can go negative
+   *  internally once the dangerous-exceedance deduction applies (landing-scoring-v2.md,
+   *  2026-09-20); flooring happens once, server-side (landing-score-resolver.ts), so every
+   *  consumer of this field already sees the real display value. */
   score: number
   severity: LandingSeverity
   categories: LandingScoreCategory[]
+  /** True when the touchdown reached this category's own hard-landing threshold — a flat
+   *  deduction already applied to `score` above, not just one zeroed category. Lets the
+   *  breakdown dialog explain why the score dropped by more than any single category could
+   *  account for. */
+  dangerousExceedance: boolean
 }
 
 /** One flight's score, for Logbook's list-view column (docs/plans/landing-scoring.md's

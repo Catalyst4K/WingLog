@@ -90,7 +90,16 @@ export function resolveLandingScore(
 
   const breakdown = computeLandingScore(inputs)
   const severity = classifyLanding(landingRecord.verticalSpeedMs, deriveLandingThresholds(category))
-  return { score: breakdown.overall, severity, categories: toCategories(breakdown) }
+  // breakdown.overall can be negative once the dangerous-exceedance deduction applies —
+  // floored here, once, for every consumer of the display-facing score (Callum, 2026-09-20:
+  // "the overall score floors at 0 for display even though the math can go negative
+  // internally").
+  return {
+    score: Math.max(0, breakdown.overall),
+    severity,
+    categories: toCategories(breakdown),
+    dangerousExceedance: breakdown.dangerousExceedance
+  }
 }
 
 /**

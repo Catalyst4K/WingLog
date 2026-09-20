@@ -185,6 +185,37 @@ describe('buildLandingRecord', () => {
     expect(record.verticalSpeedMs).toBe(-3.72)
   })
 
+  it('prefers touchdownSeverity (high-rate near-contact peak) over previousTelemetry when both are given', () => {
+    // Real 2026-09-20 finding: the high-rate near-contact peak is more representative of
+    // true touchdown severity than the primary 1 Hz stream's own previous tick, which can
+    // miss by 55-87% in either direction depending on where its 1-second grid falls
+    // relative to the flare.
+    const record = buildLandingRecord(
+      1,
+      1,
+      'EGLL',
+      telemetry({ verticalSpeedMs: -0.83 }), // touchdown tick, post-contact
+      't',
+      resolveToRunway27L,
+      telemetry({ verticalSpeedMs: -3.72 }), // previous tick, still airborne
+      { verticalSpeedMs: -4.5 } // high-rate near-contact peak
+    )
+    expect(record.verticalSpeedMs).toBe(-4.5)
+  })
+
+  it('falls back to previousTelemetry when no touchdownSeverity is given (a replayed flight)', () => {
+    const record = buildLandingRecord(
+      1,
+      1,
+      'EGLL',
+      telemetry({ verticalSpeedMs: -0.83 }),
+      't',
+      resolveToRunway27L,
+      telemetry({ verticalSpeedMs: -3.72 })
+    )
+    expect(record.verticalSpeedMs).toBe(-3.72)
+  })
+
   it('falls back to the touchdown tick\'s own verticalSpeedMs when no previous tick is available', () => {
     const record = buildLandingRecord(1, 1, 'EGLL', telemetry({ verticalSpeedMs: -1.5 }), 't', resolveToRunway27L)
     expect(record.verticalSpeedMs).toBe(-1.5)

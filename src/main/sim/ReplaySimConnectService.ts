@@ -1,12 +1,19 @@
 import { EventEmitter } from 'node:events'
 import { readFileSync } from 'node:fs'
 import type { SimConnectionStatus, SimTelemetry } from '@shared/ipc'
+import type { TouchdownSeverity } from './SimConnectSource'
 import { parseFlightFixture, type FlightFixtureEvent, type FlightFixtureHeader } from './flight-fixture'
 
 interface ReplaySimConnectServiceEvents {
   telemetry: [SimTelemetry]
   status: [SimConnectionStatus]
   paused: [boolean]
+  // Declared, never emitted — recorded fixtures are 1 Hz only, with no high-rate data to
+  // derive it from. Needed only so this class keeps structurally satisfying SimConnectSource
+  // (SimConnectSource.ts), which TrackingController's constructor requires; the touchdown
+  // vertical speed simply falls back to previousTelemetry for a replayed flight, same as
+  // before this event existed.
+  touchdownSeverity: [TouchdownSeverity]
   /** Not part of SimConnectService's own contract — fires once every fixture event has
    *  been replayed, so a driving script/test knows when it's safe to inspect the result
    *  instead of guessing at a timeout. */
