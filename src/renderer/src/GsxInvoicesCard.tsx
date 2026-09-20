@@ -1,15 +1,14 @@
 import { useEffect, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import type { FlightInvoice, GsxNotailCandidate } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
-const SERVICE_GROUP_LABEL: Record<FlightInvoice['serviceGroup'], string> = {
-  catering: 'Catering',
-  fuel: 'Fuel',
-  handling: 'Handling',
-  passengerBus: 'Passenger bus'
+function serviceGroupLabel(group: FlightInvoice['serviceGroup'], t: TFunction): string {
+  return t(`gsxInvoicesCard.serviceGroup.${group}`)
 }
 
 interface ReceiptDetail {
@@ -42,6 +41,7 @@ function rateKey(currency: string, date: string): string {
 }
 
 function InvoiceRow(props: { invoice: FlightInvoice }): React.JSX.Element {
+  const { t } = useTranslation()
   const inv = props.invoice
   const detail = parseDetail(inv.receiptJson)
 
@@ -53,7 +53,7 @@ function InvoiceRow(props: { invoice: FlightInvoice }): React.JSX.Element {
             aria-hidden="true"
             className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90"
           />
-          {SERVICE_GROUP_LABEL[inv.serviceGroup]}
+          {serviceGroupLabel(inv.serviceGroup, t)}
           {inv.operator ? ` — ${inv.operator}` : ''}
         </span>
         <span className="flex items-center gap-3">
@@ -67,7 +67,7 @@ function InvoiceRow(props: { invoice: FlightInvoice }): React.JSX.Element {
               void window.winglog.gsxOpenReceipt(inv.sourceHtmlPath)
             }}
           >
-            Open receipt
+            {t('gsxInvoicesCard.openReceipt')}
           </Button>
         </span>
       </summary>
@@ -107,6 +107,7 @@ function InvoiceRow(props: { invoice: FlightInvoice }): React.JSX.Element {
 }
 
 export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element {
+  const { t } = useTranslation()
   const [invoices, setInvoices] = useState<FlightInvoice[]>([])
   const [notailCandidates, setNotailCandidates] = useState<GsxNotailCandidate[]>([])
   const [rescanning, setRescanning] = useState(false)
@@ -194,18 +195,16 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
   return (
     <Card className="min-w-72 max-w-2xl flex-1">
       <CardHeader>
-        <CardTitle className="text-sm">Ground services</CardTitle>
+        <CardTitle className="text-sm">{t('gsxInvoicesCard.title')}</CardTitle>
         <CardAction>
           <Button type="button" variant="outline" size="sm" onClick={handleRescan} disabled={rescanning}>
-            {rescanning ? 'Scanning…' : 'Rescan'}
+            {rescanning ? t('gsxInvoicesCard.scanning') : t('gsxInvoicesCard.rescan')}
           </Button>
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
         {invoices.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No GSX receipts matched to this flight yet — enable GSX in Settings and rescan.
-          </p>
+          <p className="text-sm text-muted-foreground">{t('gsxInvoicesCard.empty')}</p>
         ) : (
           <>
             {invoices.map((inv) => (
@@ -213,7 +212,7 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
             ))}
             {hasAnyUsdTotal && (
               <div className="flex justify-between border-t border-border pt-2 text-sm">
-                <span className="text-muted-foreground">Total ({displayCode})</span>
+                <span className="text-muted-foreground">{t('gsxInvoicesCard.total', { code: displayCode })}</span>
                 <span className="font-mono tabular-nums text-foreground">{formattedTotal}</span>
               </div>
             )}
@@ -222,16 +221,14 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
 
         {notailCandidates.length > 0 && (
           <div className="flex flex-col gap-1.5 border-t border-border pt-2">
-            <span className="text-xs text-muted-foreground">
-              Possibly this flight — tail unknown on the receipt, so not attached automatically:
-            </span>
+            <span className="text-xs text-muted-foreground">{t('gsxInvoicesCard.notailHint')}</span>
             {notailCandidates.map((c) => (
               <div key={c.jsonPath} className="flex items-center justify-between gap-3 text-sm">
                 <span className="text-foreground">
-                  {SERVICE_GROUP_LABEL[c.serviceGroup]} · {c.icao} · {new Date(c.issuedUtc).toLocaleString()}
+                  {serviceGroupLabel(c.serviceGroup, t)} · {c.icao} · {new Date(c.issuedUtc).toLocaleString()}
                 </span>
                 <Button type="button" variant="outline" size="sm" onClick={() => handleAttach(c)}>
-                  Attach
+                  {t('gsxInvoicesCard.attach')}
                 </Button>
               </div>
             ))}

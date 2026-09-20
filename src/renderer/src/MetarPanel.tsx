@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import type { MetarReport, WindSpeedUnit } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -16,12 +18,12 @@ const FLIGHT_CATEGORY_CLASS: Record<NonNullable<MetarReport['flightCategory']>, 
   LIFR: 'text-destructive font-semibold'
 }
 
-function formatObservedAgo(observedUtc: string): string {
+function formatObservedAgo(observedUtc: string, t: TFunction): string {
   if (!observedUtc) return ''
   const minutes = Math.round((Date.now() - new Date(observedUtc).getTime()) / 60000)
-  if (minutes < 1) return 'just now'
-  if (minutes < 60) return `${minutes} min ago`
-  return `${Math.round(minutes / 60)} h ago`
+  if (minutes < 1) return t('metarPanel.justNow')
+  if (minutes < 60) return t('metarPanel.minAgo', { count: minutes })
+  return t('metarPanel.hAgo', { count: Math.round(minutes / 60) })
 }
 
 function MetarBody(props: {
@@ -30,9 +32,12 @@ function MetarBody(props: {
   report: MetarReport | undefined
   windSpeedUnit: WindSpeedUnit
 }): React.JSX.Element {
-  if (!props.icao) return <p className="text-xs text-muted-foreground">No airport set.</p>
-  if (props.loading && !props.report) return <p className="text-xs text-muted-foreground">Fetching…</p>
-  if (!props.report) return <p className="text-xs text-muted-foreground">No current METAR for {props.icao}.</p>
+  const { t } = useTranslation()
+  if (!props.icao) return <p className="text-xs text-muted-foreground">{t('metarPanel.noAirportSet')}</p>
+  if (props.loading && !props.report) return <p className="text-xs text-muted-foreground">{t('metarPanel.fetching')}</p>
+  if (!props.report) {
+    return <p className="text-xs text-muted-foreground">{t('metarPanel.noCurrentMetar', { icao: props.icao })}</p>
+  }
   // Parsed client-side, display-only — the raw text below is always the source of truth,
   // never rewritten in place (docs/plans/flight-test-findings-2026-09-06.md #5).
   const wind = parseWindGroup(props.report.rawText)
@@ -45,7 +50,7 @@ function MetarBody(props: {
             {props.report.flightCategory}
           </span>
         )}
-        <span className="text-xs text-muted-foreground">{formatObservedAgo(props.report.observedUtc)}</span>
+        <span className="text-xs text-muted-foreground">{formatObservedAgo(props.report.observedUtc, t)}</span>
       </div>
       {wind && <p className="text-xs text-foreground">{formatWind(wind, props.windSpeedUnit)}</p>}
       <p className="font-mono text-xs break-words text-foreground">{props.report.rawText}</p>
@@ -67,6 +72,7 @@ export function MetarPanel(props: {
   altnIcao: string | null
   windSpeedUnit: WindSpeedUnit
 }): React.JSX.Element {
+  const { t } = useTranslation()
   const [tab, setTab] = useState<Slot>('departure')
   const [customIcao, setCustomIcao] = useState('')
   const [debouncedCustomIcao, setDebouncedCustomIcao] = useState('')
@@ -120,16 +126,16 @@ export function MetarPanel(props: {
           <div className="flex items-center gap-2">
             <TabsList className="w-full flex-1">
               <TabsTrigger value="departure" className="px-1.5 text-xs">
-                Dep
+                {t('metarPanel.dep')}
               </TabsTrigger>
               <TabsTrigger value="destination" className="px-1.5 text-xs">
-                Dest
+                {t('metarPanel.dest')}
               </TabsTrigger>
               <TabsTrigger value="alternate" className="px-1.5 text-xs">
-                Altn
+                {t('metarPanel.altn')}
               </TabsTrigger>
               <TabsTrigger value="custom" className="px-1.5 text-xs">
-                Custom
+                {t('metarPanel.custom')}
               </TabsTrigger>
             </TabsList>
             <Button
@@ -137,7 +143,7 @@ export function MetarPanel(props: {
               variant="ghost"
               size="icon-xs"
               onClick={() => setRefreshKey((k) => k + 1)}
-              title="Refresh METAR"
+              title={t('metarPanel.refreshMetar')}
             >
               <RefreshCw />
             </Button>
@@ -167,7 +173,7 @@ export function MetarPanel(props: {
             />
           </TabsContent>
           <TabsContent value="custom" className="flex flex-col gap-2">
-            <AirportSearch value={customIcao} onChange={setCustomIcao} placeholder="Enter an ICAO code" />
+            <AirportSearch value={customIcao} onChange={setCustomIcao} placeholder={t('metarPanel.enterIcaoCode')} />
             <MetarBody
               icao={customIcao || null}
               loading={loading}

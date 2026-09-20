@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Flight } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import {
@@ -32,13 +33,17 @@ function OptionField(props: {
   placeholder?: string
   autoEligible?: boolean
 }): React.JSX.Element {
+  const { t } = useTranslation()
   return (
     <Label className="flex flex-col items-start gap-1.5">
       {props.label}
       <Input
         type="text"
         value={props.value ?? ''}
-        placeholder={props.placeholder ?? (props.autoEligible ? 'blank = default, or "auto"' : 'blank = default')}
+        placeholder={
+          props.placeholder ??
+          (props.autoEligible ? t('dispatchAdvancedDialog.blankOrAuto') : t('dispatchAdvancedDialog.blankDefault'))
+        }
         onChange={(e) => {
           const raw = e.target.value
           props.onChange(raw === '' ? null : raw)
@@ -60,6 +65,7 @@ export function DispatchAdvancedDialog(props: {
   /** Recent flights with a stored OFP — source list for "Load settings from…". */
   flights: Flight[]
 }): React.JSX.Element {
+  const { t } = useTranslation()
   const [loadedFrom, setLoadedFrom] = useState<string | null>(null)
   const set = <K extends keyof DispatchOptions>(key: K, value: OptionValue): void =>
     props.onOptionsChange({ ...props.options, [key]: value })
@@ -87,19 +93,16 @@ export function DispatchAdvancedDialog(props: {
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Advanced dispatch options</DialogTitle>
-          <DialogDescription>
-            Every field is optional and blank by default — leaving all of them untouched produces the same
-            SimBrief request as today.
-          </DialogDescription>
+          <DialogTitle>{t('dispatchAdvancedDialog.title')}</DialogTitle>
+          <DialogDescription>{t('dispatchAdvancedDialog.description')}</DialogDescription>
         </DialogHeader>
 
         {loadable.length > 0 && (
           <div className="flex flex-col gap-1.5">
-            <Label>Load settings from a previous flight</Label>
+            <Label>{t('dispatchAdvancedDialog.loadFromPreviousFlight')}</Label>
             <Select onValueChange={handleLoadFrom}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="— select a past flight —" />
+                <SelectValue placeholder={t('dispatchAdvancedDialog.selectPastFlight')} />
               </SelectTrigger>
               <SelectContent>
                 {loadable.map((f) => (
@@ -112,8 +115,7 @@ export function DispatchAdvancedDialog(props: {
             </Select>
             {loadedFrom && (
               <p className="text-xs text-muted-foreground">
-                Loaded from {loadedFrom} — departure date/time was not restored, since it's always the one
-                thing worth setting fresh.
+                {t('dispatchAdvancedDialog.loadedFrom', { loadedFrom })}
               </p>
             )}
           </div>
@@ -121,22 +123,31 @@ export function DispatchAdvancedDialog(props: {
 
         <Tabs defaultValue="load">
           <TabsList>
-            <TabsTrigger value="load">Load</TabsTrigger>
-            <TabsTrigger value="fuel">Fuel</TabsTrigger>
-            <TabsTrigger value="cruise">Cruise</TabsTrigger>
-            <TabsTrigger value="route">Route</TabsTrigger>
+            <TabsTrigger value="load">{t('dispatchAdvancedDialog.tabs.load')}</TabsTrigger>
+            <TabsTrigger value="fuel">{t('dispatchAdvancedDialog.tabs.fuel')}</TabsTrigger>
+            <TabsTrigger value="cruise">{t('dispatchAdvancedDialog.tabs.cruise')}</TabsTrigger>
+            <TabsTrigger value="route">{t('dispatchAdvancedDialog.tabs.route')}</TabsTrigger>
           </TabsList>
           <TabsContent value="load" className="grid grid-cols-2 gap-3">
-            <OptionField label="Passengers" value={props.options.pax} onChange={(v) => set('pax', v)} autoEligible />
-            <OptionField label="Cargo (kg)" value={props.options.cargo} onChange={(v) => set('cargo', v)} />
             <OptionField
-              label="Manual ZFW"
+              label={t('dispatchAdvancedDialog.fields.passengers')}
+              value={props.options.pax}
+              onChange={(v) => set('pax', v)}
+              autoEligible
+            />
+            <OptionField
+              label={t('dispatchAdvancedDialog.fields.cargo')}
+              value={props.options.cargo}
+              onChange={(v) => set('cargo', v)}
+            />
+            <OptionField
+              label={t('dispatchAdvancedDialog.fields.manualZfw')}
               value={props.options.manualzfw}
               onChange={(v) => set('manualzfw', v)}
               autoEligible
             />
             <OptionField
-              label="Manual payload"
+              label={t('dispatchAdvancedDialog.fields.manualPayload')}
               value={props.options.manualpayload}
               onChange={(v) => set('manualpayload', v)}
               autoEligible
@@ -144,66 +155,99 @@ export function DispatchAdvancedDialog(props: {
           </TabsContent>
           <TabsContent value="fuel" className="grid grid-cols-2 gap-3">
             <OptionField
-              label="Fuel factor"
+              label={t('dispatchAdvancedDialog.fields.fuelFactor')}
               value={props.options.fuelfactor}
               onChange={(v) => set('fuelfactor', v)}
-              placeholder="e.g. 1.0"
+              placeholder={t('dispatchAdvancedDialog.placeholders.fuelFactor')}
             />
-            <OptionField label="Extra fuel (kg)" value={props.options.addedfuel} onChange={(v) => set('addedfuel', v)} />
             <OptionField
-              label="Contingency %"
+              label={t('dispatchAdvancedDialog.fields.extraFuel')}
+              value={props.options.addedfuel}
+              onChange={(v) => set('addedfuel', v)}
+            />
+            <OptionField
+              label={t('dispatchAdvancedDialog.fields.contingencyPct')}
               value={props.options.contpct}
               onChange={(v) => set('contpct', v)}
               autoEligible
             />
             <OptionField
-              label="Reserve rule"
+              label={t('dispatchAdvancedDialog.fields.reserveRule')}
               value={props.options.resvrule}
               onChange={(v) => set('resvrule', v)}
               autoEligible
             />
-            <OptionField label="Taxi out (min)" value={props.options.taxiout} onChange={(v) => set('taxiout', v)} />
-            <OptionField label="Taxi in (min)" value={props.options.taxiin} onChange={(v) => set('taxiin', v)} />
-            <OptionField label="Tankering (kg)" value={props.options.tankering} onChange={(v) => set('tankering', v)} />
-          </TabsContent>
-          <TabsContent value="cruise" className="grid grid-cols-2 gap-3">
-            <OptionField label="Cost index" value={props.options.civalue} onChange={(v) => set('civalue', v)} />
             <OptionField
-              label="Cruise mode"
-              value={props.options.cruisemode}
-              onChange={(v) => set('cruisemode', v)}
-              placeholder="e.g. CI, LRC, MMO"
+              label={t('dispatchAdvancedDialog.fields.taxiOut')}
+              value={props.options.taxiout}
+              onChange={(v) => set('taxiout', v)}
             />
             <OptionField
-              label="Cruise sub-mode"
+              label={t('dispatchAdvancedDialog.fields.taxiIn')}
+              value={props.options.taxiin}
+              onChange={(v) => set('taxiin', v)}
+            />
+            <OptionField
+              label={t('dispatchAdvancedDialog.fields.tankering')}
+              value={props.options.tankering}
+              onChange={(v) => set('tankering', v)}
+            />
+          </TabsContent>
+          <TabsContent value="cruise" className="grid grid-cols-2 gap-3">
+            <OptionField
+              label={t('dispatchAdvancedDialog.fields.costIndex')}
+              value={props.options.civalue}
+              onChange={(v) => set('civalue', v)}
+            />
+            <OptionField
+              label={t('dispatchAdvancedDialog.fields.cruiseMode')}
+              value={props.options.cruisemode}
+              onChange={(v) => set('cruisemode', v)}
+              placeholder={t('dispatchAdvancedDialog.placeholders.cruiseMode')}
+            />
+            <OptionField
+              label={t('dispatchAdvancedDialog.fields.cruiseSubMode')}
               value={props.options.cruisesub}
               onChange={(v) => set('cruisesub', v)}
               autoEligible
             />
-            <OptionField label="Flight level" value={props.options.fl} onChange={(v) => set('fl', v)} placeholder="e.g. 350" />
             <OptionField
-              label="Climb profile"
-              value={props.options.climb}
-              onChange={(v) => set('climb', v)}
-              placeholder="e.g. 250/320/84"
+              label={t('dispatchAdvancedDialog.fields.flightLevel')}
+              value={props.options.fl}
+              onChange={(v) => set('fl', v)}
+              placeholder={t('dispatchAdvancedDialog.placeholders.flightLevel')}
             />
             <OptionField
-              label="Descent profile"
+              label={t('dispatchAdvancedDialog.fields.climbProfile')}
+              value={props.options.climb}
+              onChange={(v) => set('climb', v)}
+              placeholder={t('dispatchAdvancedDialog.placeholders.climbProfile')}
+            />
+            <OptionField
+              label={t('dispatchAdvancedDialog.fields.descentProfile')}
               value={props.options.descent}
               onChange={(v) => set('descent', v)}
-              placeholder="e.g. 85/300/250"
+              placeholder={t('dispatchAdvancedDialog.placeholders.descentProfile')}
             />
           </TabsContent>
           <TabsContent value="route" className="flex flex-col gap-3">
             <OptionField
-              label="Route override"
+              label={t('dispatchAdvancedDialog.fields.routeOverride')}
               value={props.options.route}
               onChange={(v) => set('route', v)}
-              placeholder="leave blank to let SimBrief plan it"
+              placeholder={t('dispatchAdvancedDialog.placeholders.routeOverride')}
             />
             <div className="grid grid-cols-2 gap-3">
-              <OptionField label="Departure runway" value={props.options.origrwy} onChange={(v) => set('origrwy', v)} />
-              <OptionField label="Arrival runway" value={props.options.destrwy} onChange={(v) => set('destrwy', v)} />
+              <OptionField
+                label={t('dispatchAdvancedDialog.fields.departureRunway')}
+                value={props.options.origrwy}
+                onChange={(v) => set('origrwy', v)}
+              />
+              <OptionField
+                label={t('dispatchAdvancedDialog.fields.arrivalRunway')}
+                value={props.options.destrwy}
+                onChange={(v) => set('destrwy', v)}
+              />
             </div>
           </TabsContent>
         </Tabs>
@@ -218,10 +262,10 @@ export function DispatchAdvancedDialog(props: {
               setLoadedFrom(null)
             }}
           >
-            Reset to defaults
+            {t('dispatchAdvancedDialog.resetToDefaults')}
           </Button>
           <Button type="button" size="sm" onClick={() => props.onOpenChange(false)}>
-            Done ({countSetOptions(props.options)} set)
+            {t('dispatchAdvancedDialog.done', { count: countSetOptions(props.options) })}
           </Button>
         </DialogFooter>
       </DialogContent>

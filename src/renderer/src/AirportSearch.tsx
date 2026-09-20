@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { AirportOption } from '@shared/ipc'
 import { Combobox } from './components/Combobox'
 
@@ -12,6 +13,7 @@ export function AirportSearch(props: {
   onChange: (icao: string) => void
   placeholder?: string
 }): React.JSX.Element {
+  const { t } = useTranslation()
   return (
     <Combobox
       value={props.value}
@@ -22,7 +24,7 @@ export function AirportSearch(props: {
       getOptionLabel={(r) =>
         `${r.icao} — ${r.name}${r.municipality ? ` (${r.municipality}, ${r.isoCountry})` : ` (${r.isoCountry})`}`
       }
-      placeholder={props.placeholder ?? 'ICAO or search by name'}
+      placeholder={props.placeholder ?? t('airportSearch.placeholder')}
     />
   )
 }
