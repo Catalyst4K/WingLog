@@ -238,6 +238,85 @@ describe('TrackingController', () => {
     expect(landing?.verticalSpeedMs).toBe(-3.72)
   })
 
+  it('prefers a fresh touchdownSeverity reading (high-rate stream) over previousTelemetry', () => {
+    vi.useFakeTimers()
+    sim.setLastTelemetry(telemetry({}))
+    const controller = new TrackingController(db, sim)
+    controller.start(flightId)
+
+    sim.emit('telemetry', telemetry({ engineCombustion1: true }))
+    sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 5 }))
+    sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 40 }))
+    sim.emit(
+      'telemetry',
+      telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+    )
+    for (let i = 0; i < 12; i++) {
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 230, verticalSpeedMs: 0.1 })
+      )
+    }
+    for (let i = 0; i < 7; i++) {
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 200, verticalSpeedMs: -3 })
+      )
+    }
+    sim.emit(
+      'telemetry',
+      telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 65, verticalSpeedMs: -3.72 })
+    )
+    // The high-rate stream detects ground contact fractionally before the primary 1 Hz
+    // stream's own onGround edge, per SimConnectService's own real design.
+    sim.emit('touchdownSeverity', { verticalSpeedMs: -4.5 })
+    sim.emit(
+      'telemetry',
+      telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 60, verticalSpeedMs: -0.83 })
+    )
+
+    expect(getLandingByFlight(db, flightId)?.verticalSpeedMs).toBe(-4.5)
+  })
+
+  it('ignores a stale touchdownSeverity reading, falling back to previousTelemetry instead', () => {
+    vi.useFakeTimers()
+    sim.setLastTelemetry(telemetry({}))
+    const controller = new TrackingController(db, sim)
+    controller.start(flightId)
+
+    sim.emit('telemetry', telemetry({ engineCombustion1: true }))
+    sim.emit(
+      'telemetry',
+      telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+    )
+    for (let i = 0; i < 12; i++) {
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 230, verticalSpeedMs: 0.1 })
+      )
+    }
+    // A touchdownSeverity reading that arrives, then goes stale (a much earlier bounce/false
+    // start) before the real touchdown tick — must not be reused for this touchdown.
+    sim.emit('touchdownSeverity', { verticalSpeedMs: -99 })
+    vi.advanceTimersByTime(3_001)
+    for (let i = 0; i < 7; i++) {
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 200, verticalSpeedMs: -3 })
+      )
+    }
+    sim.emit(
+      'telemetry',
+      telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 65, verticalSpeedMs: -3.72 })
+    )
+    sim.emit(
+      'telemetry',
+      telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 60, verticalSpeedMs: -0.83 })
+    )
+
+    expect(getLandingByFlight(db, flightId)?.verticalSpeedMs).toBe(-3.72)
+  })
+
   it('freezes recording while the sim reports paused', () => {
     sim.setLastTelemetry(telemetry({}))
     const controller = new TrackingController(db, sim)

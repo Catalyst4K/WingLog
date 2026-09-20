@@ -7,6 +7,7 @@ import {
 } from '../airports/landing-maths'
 import { distanceFromUsableThresholdM, findRunwayEnd, type RunwayEnd } from '../airports/runway-lookup'
 import type { NewLanding } from '../db/landing-repo'
+import type { TouchdownSeverity } from '../sim/SimConnectSource'
 
 // Sanity clamp on G-force alone (PLAN.md §7's open risk register: a payware aircraft with
 // unused/miscalibrated SimVars can report an obviously-impossible reading). Range is
@@ -37,16 +38,22 @@ function clampGForce(value: number): number {
  * no filed arrival at all can touch down somewhere else. Null skips runway resolution
  * entirely, same as an unresolvable one already did.
  *
- * Vertical speed is the one exception: it's read from `previousTelemetry` (the last sample
- * *before* on-ground flipped true) when given, not the touchdown tick itself. Real
- * comparison against an independent landing-rate tool (flightdeck-backend's docs/plans/
- * flight-replay-harness.md, 2026-09-14) found the touchdown tick's own value under-reads
- * true impact severity by 55-87% — a full second of gear compression has usually already
- * happened by the time on-ground reads true at 1 Hz. The previous tick isn't perfect either
- * (a flare landing inside the same 1 Hz gap can still fool it — left as an open question,
- * not solved here) but is consistently closer to the real figure. Falls back to the
- * touchdown tick's own value if no previous sample is available (e.g. touchdown detected on
- * the very first tick after a resume).
+ * Vertical speed prefers `touchdownSeverity` (v1.2 Part 1, SimConnectService's second
+ * high-rate stream) when given: the peak vertical speed in the last second before ground
+ * contact, sampled far more densely than the primary 1 Hz stream. Real flights
+ * (docs/simconnect-notes.md, 2026-09-20) found the 1 Hz-derived value below can miss true
+ * touchdown severity by 55-87%, in either direction depending on where the 1-second grid
+ * happens to fall relative to each landing's own flare — the high-rate reading fixes that
+ * directly instead of guessing at a correction factor.
+ *
+ * Falls back to `previousTelemetry` (the last sample *before* on-ground flipped true) when
+ * no high-rate reading is available (a replayed flight, or a live one where the high-rate
+ * stream didn't arm in time). Real comparison against an independent landing-rate tool
+ * (flightdeck-backend's docs/plans/flight-replay-harness.md, 2026-09-14) found the touchdown
+ * tick's own value under-reads true impact severity by 55-87% — a full second of gear
+ * compression has usually already happened by the time on-ground reads true at 1 Hz. Falls
+ * back further still to the touchdown tick's own value if neither is available (e.g.
+ * touchdown detected on the very first tick after a resume).
  */
 export function buildLandingRecord(
   flightId: number,
@@ -60,7 +67,8 @@ export function buildLandingRecord(
     lat: number,
     lon: number
   ) => RunwayEnd | null = findRunwayEnd,
-  previousTelemetry?: SimTelemetry
+  previousTelemetry?: SimTelemetry,
+  touchdownSeverity?: TouchdownSeverity
 ): NewLanding {
   const runway = icao ? resolveRunway(icao, telemetry.headingTrueDeg, telemetry.latitude, telemetry.longitude) : null
   const position = runway
@@ -78,7 +86,7 @@ export function buildLandingRecord(
     seq,
     icao,
     touchdownTsUtc,
-    verticalSpeedMs: previousTelemetry?.verticalSpeedMs ?? telemetry.verticalSpeedMs,
+    verticalSpeedMs: touchdownSeverity?.verticalSpeedMs ?? previousTelemetry?.verticalSpeedMs ?? telemetry.verticalSpeedMs,
     gForce: clampGForce(telemetry.gForce),
     pitchDeg: telemetry.pitchDeg,
     bankDeg: telemetry.bankDeg,

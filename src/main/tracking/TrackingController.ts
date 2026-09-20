@@ -24,7 +24,7 @@ import { getGsxSettings, rememberAircraftForTitle } from '../db/settings-repo'
 import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
 import { buildFlightMatchWindow } from '../gsx/flight-window'
 import { scanGsxFolder } from '../gsx/scan'
-import type { SimConnectSource } from '../sim/SimConnectSource'
+import type { SimConnectSource, TouchdownSeverity } from '../sim/SimConnectSource'
 import { FlightRecorder } from './FlightRecorder'
 import { seedPhaseFromTelemetry } from './free-flight'
 import { buildLandingRecord } from './landing-capture'
@@ -38,6 +38,14 @@ import { deriveFlownRouteJson } from './route-simplify'
 // (gear compression briefly reporting on-ground->off->on again) without missing a real
 // short circuit hop (flightdeck-backend's docs/plans/multiple-landings.md).
 const MIN_AIRBORNE_SAMPLES_FOR_NEW_TOUCHDOWN = 3
+// How long a cached touchdownSeverity reading (SimConnectService's high-rate stream, v1.2
+// Part 1) stays usable after it arrives, before detectTouchdown falls back to
+// previousTelemetry instead. The high-rate stream detects ground contact from its own,
+// far denser sampling, so its reading should arrive at essentially the same real-world
+// moment as (or fractionally before) the primary 1 Hz stream's own onGround edge that
+// triggers detectTouchdown — this window is generous slack for event-loop/IPC jitter, not
+// an attempt to correlate two different touchdowns.
+const TOUCHDOWN_SEVERITY_FRESHNESS_MS = 3_000
 // How far from the touchdown position to look for the airport it happened at
 // (nearestAirport, airport-search.ts) before falling back to the flight's filed arrival —
 // generous enough to cover a long runway's far end or a touchdown just short of the
@@ -126,6 +134,13 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   // touchdown vertical speed than the touchdown tick's own value (flightdeck-backend's
   // docs/plans/flight-replay-harness.md, 2026-09-14 finding).
   private previousTelemetry: SimTelemetry | undefined
+  // Latest touchdown-severity reading from SimConnectService's high-rate stream (v1.2 Part
+  // 1), with the wall-clock time it arrived — undefined for a replayed flight (never
+  // emitted) or before the high-rate stream has captured anything yet this session.
+  // Time-windowed rather than cleared on every telemetry tick: it must survive from the
+  // moment it arrives (fractionally before the primary stream's own touchdown edge) until
+  // detectTouchdown actually fires for the same touchdown.
+  private lastTouchdownSeverity: { result: TouchdownSeverity; atMs: number } | undefined
 
   constructor(
     private readonly db: WingLogDb,
@@ -136,6 +151,9 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     private readonly resolveSimAirfield?: (lat: number, lon: number, headingTrueDeg: number) => Promise<SimAirfieldMatch | null>
   ) {
     super()
+    this.simConnectService.on('touchdownSeverity', (result) => {
+      this.lastTouchdownSeverity = { result, atMs: Date.now() }
+    })
     this.simConnectService.on('telemetry', (telemetry) => {
       if (!this.recorder) return
       const previousTelemetry = this.previousTelemetry
@@ -227,6 +245,15 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     const resolvedIcao = nearestAirport(telemetry.latitude, telemetry.longitude, LANDING_ICAO_SEARCH_RADIUS_NM)
     const seq = this.landingSeq
     const touchdownTsUtc = new Date().toISOString()
+    // Consumed once per touchdown — a reading recent enough for *this* one must not linger
+    // to be mistaken for the next (MIN_AIRBORNE_SAMPLES_FOR_NEW_TOUCHDOWN's own hysteresis
+    // already keeps real touchdowns further apart than TOUCHDOWN_SEVERITY_FRESHNESS_MS, but
+    // clearing it is cheap insurance against relying on that timing alone).
+    const touchdownSeverity =
+      this.lastTouchdownSeverity && Date.now() - this.lastTouchdownSeverity.atMs <= TOUCHDOWN_SEVERITY_FRESHNESS_MS
+        ? this.lastTouchdownSeverity.result
+        : undefined
+    this.lastTouchdownSeverity = undefined
     const record = buildLandingRecord(
       flightId,
       seq,
@@ -234,14 +261,15 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
       telemetry,
       touchdownTsUtc,
       undefined,
-      previousTelemetry
+      previousTelemetry,
+      touchdownSeverity
     )
     createLanding(this.db, record)
     // No runway from the vendored data — a scenery add-on, a closed field, a strip missing
     // from OurAirports (the Kai Tak touch-and-go landed on a nearby heliport's code with no
     // runway). The sim knows those; ask it and upgrade the row once it answers.
     if (record.runwayIdent === null) {
-      void this.upgradeLandingFromSim(flightId, seq, telemetry, touchdownTsUtc, previousTelemetry)
+      void this.upgradeLandingFromSim(flightId, seq, telemetry, touchdownTsUtc, previousTelemetry, touchdownSeverity)
     }
     // A free flight's arr_icao is a placeholder ('ZZZZ' or an unconfirmed guess) until
     // something real is known — the touchdown position is that first real signal
@@ -259,7 +287,8 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     seq: number,
     telemetry: SimTelemetry,
     touchdownTsUtc: string,
-    previousTelemetry: SimTelemetry | undefined
+    previousTelemetry: SimTelemetry | undefined,
+    touchdownSeverity: TouchdownSeverity | undefined
   ): Promise<void> {
     if (!this.resolveSimAirfield) return
     try {
@@ -267,7 +296,16 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
       if (!match) return
       createLanding(
         this.db,
-        buildLandingRecord(flightId, seq, match.icao, telemetry, touchdownTsUtc, () => match.runway, previousTelemetry)
+        buildLandingRecord(
+          flightId,
+          seq,
+          match.icao,
+          telemetry,
+          touchdownTsUtc,
+          () => match.runway,
+          previousTelemetry,
+          touchdownSeverity
+        )
       )
       // Free flight: the arrival was set from the (wrong) vendored guess — correct it, but
       // only while this is still the latest touchdown, so a late answer never overwrites a
@@ -345,6 +383,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     this.lastPersistedPoint = undefined
     this.resumeWindowDeadlineMs = undefined
     this.previousTelemetry = undefined
+    this.lastTouchdownSeverity = undefined
   }
 
   /**
@@ -425,6 +464,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     this.lastPersistedPoint = undefined
     this.resumeWindowDeadlineMs = undefined
     this.previousTelemetry = undefined
+    this.lastTouchdownSeverity = undefined
     return flight.id
   }
 
@@ -481,6 +521,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     this.lastPersistedPoint = points.length ? points[points.length - 1] : undefined
     this.resumeWindowDeadlineMs = Date.now() + RESUME_CLEANUP_CONSTANTS.RESUME_WINDOW_MS
     this.previousTelemetry = undefined
+    this.lastTouchdownSeverity = undefined
   }
 
   /** Called from the renderer (tracking:set-procedure-selection) on every live selection
