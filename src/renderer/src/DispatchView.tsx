@@ -1,6 +1,7 @@
 import { isRetired } from '@shared/aircraft'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import type {
   Aircraft,
   AltitudeUnit,
@@ -66,6 +67,7 @@ export function DispatchView(props: {
   selection: ProcedureSelection
   onSelectionChange: (next: ProcedureSelection) => void
 }): React.JSX.Element {
+  const { t } = useTranslation()
   const { ofp } = props
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
   const [fleetStats, setFleetStats] = useState<FleetStats[]>([])
@@ -163,7 +165,10 @@ export function DispatchView(props: {
         // silent (docs/decisions.md, fleet-simbrief-airframe entry, "make a wrong ID
         // visible").
         toast.warning(
-          `This plan used SimBrief's default airframe, not ${matched.registration}'s saved profile (${matched.simbriefAirframeId}) — the saved ID may be wrong.`
+          t('dispatchView.usedDefaultAirframe', {
+            registration: matched.registration,
+            airframeId: matched.simbriefAirframeId
+          })
         )
       }
     }
@@ -201,7 +206,7 @@ export function DispatchView(props: {
         extra: dispatchOptionsToUrlParams(dispatchOptions)
       })
       applyFetchedOfp(generated)
-      toast.success('Plan generated.')
+      toast.success(t('dispatchView.planGenerated'))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
     } finally {
@@ -217,7 +222,7 @@ export function DispatchView(props: {
       const updated = await window.winglog.aircraftUpdate({ ...target, simbriefAirframeId: airframeCapture.airframeId })
       setAircraft((current) => current.map((a) => (a.id === updated.id ? updated : a)))
       setAirframeCapture(null)
-      toast.success(`Saved this airframe to ${updated.registration}.`)
+      toast.success(t('dispatchView.savedAirframeTo', { registration: updated.registration }))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
     }
@@ -236,14 +241,18 @@ export function DispatchView(props: {
     const activeFlight = active ? flights.find((f) => f.id === active.flightId) : undefined
     const otherPlanned = flights.filter((f) => f.status === 'planned')
     const warning = activeFlight
-      ? `This will delete the flight currently being tracked, ${flightLabel(activeFlight)}.`
+      ? t('dispatchView.willDeleteTracked', { label: flightLabel(activeFlight) })
       : otherPlanned.length === 1
-        ? `This will abandon the other planned flight, ${flightLabel(otherPlanned[0])}.`
+        ? t('dispatchView.willAbandonOne', { label: flightLabel(otherPlanned[0]) })
         : otherPlanned.length > 1
-          ? `This will abandon ${otherPlanned.length} other planned flights.`
+          ? t('dispatchView.willAbandonMany', { count: otherPlanned.length })
           : null
     if (warning) {
-      const ok = await confirm({ title: 'Fly this plan instead?', description: warning, confirmLabel: 'Fly' })
+      const ok = await confirm({
+        title: t('dispatchView.flyThisPlanInstead'),
+        description: warning,
+        confirmLabel: t('dispatchView.fly')
+      })
       if (!ok) return
     }
     await handleSaveFlight()
@@ -251,9 +260,9 @@ export function DispatchView(props: {
 
   async function handleDiscardPlan(): Promise<void> {
     const ok = await confirm({
-      title: 'Discard this plan?',
-      description: 'You can fetch it again from SimBrief.',
-      confirmLabel: 'Discard plan',
+      title: t('dispatchView.discardThisPlan'),
+      description: t('dispatchView.canFetchAgain'),
+      confirmLabel: t('dispatchView.discardPlan'),
       destructive: true
     })
     if (!ok) return
@@ -266,7 +275,7 @@ export function DispatchView(props: {
   async function handleViewOfpPdf(): Promise<void> {
     if (!ofp) return
     const opened = await window.winglog.dispatchOpenOfpPdf(ofp.ofpJson)
-    if (!opened) toast.error('No OFP PDF available for this plan.')
+    if (!opened) toast.error(t('dispatchView.noOfpPdfAvailable'))
   }
 
   async function handleSaveFlight(): Promise<void> {
@@ -327,28 +336,28 @@ export function DispatchView(props: {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="font-heading text-2xl font-semibold text-foreground">Dispatch</h1>
+      <h1 className="font-heading text-2xl font-semibold text-foreground">{t('dispatchView.title')}</h1>
 
       <div className="flex flex-wrap items-start gap-4">
         <div className="flex min-w-72 max-w-md flex-1 flex-col gap-4">
           <Card>
             <CardHeader>
-              <CardTitle>Plan a flight</CardTitle>
+              <CardTitle>{t('dispatchView.planAFlight')}</CardTitle>
               <CardAction>
                 <Button type="button" variant="outline" size="sm" onClick={handleFetch} disabled={fetching || generating}>
-                  {fetching ? 'Fetching…' : 'Fetch latest OFP'}
+                  {fetching ? t('dispatchView.fetching') : t('dispatchView.fetchLatestOfp')}
                 </Button>
               </CardAction>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
               <div className="flex flex-col gap-1.5">
-                <Label>Aircraft</Label>
+                <Label>{t('dispatchView.aircraft')}</Label>
                 <Select
                   value={planAircraftId != null ? String(planAircraftId) : undefined}
                   onValueChange={(v) => handlePlanAircraftChange(Number(v))}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="— select —" />
+                    <SelectValue placeholder={t('dispatchView.selectPlaceholder')} />
                   </SelectTrigger>
                   <SelectContent>
                     {aircraft.map((a) => (
@@ -360,35 +369,35 @@ export function DispatchView(props: {
                 </Select>
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label>Departure</Label>
+                <Label>{t('dispatchView.departure')}</Label>
                 <AirportSearch value={depIcao} onChange={setDepIcao} />
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label>Destination</Label>
+                <Label>{t('dispatchView.destination')}</Label>
                 <AirportSearch value={destIcao} onChange={setDestIcao} />
               </div>
               <div className="flex gap-3">
                 <Label className="flex flex-1 flex-col items-start gap-1.5">
-                  Airline ICAO
+                  {t('dispatchView.airlineIcao')}
                   <Input
                     type="text"
                     value={airlineIcao}
                     onChange={(e) => setAirlineIcao(e.target.value.toUpperCase())}
-                    placeholder="e.g. BAW"
+                    placeholder={t('dispatchView.airlineIcaoPlaceholder')}
                   />
                 </Label>
                 <Label className="flex flex-1 flex-col items-start gap-1.5">
-                  Flight number
+                  {t('dispatchView.flightNumber')}
                   <Input
                     type="text"
                     value={flightNumber}
                     onChange={(e) => setFlightNumber(e.target.value)}
-                    placeholder="e.g. 02"
+                    placeholder={t('dispatchView.flightNumberPlaceholder')}
                   />
                 </Label>
               </div>
               <Label className="flex flex-col items-start gap-1.5">
-                Departure (UTC/Z)
+                {t('dispatchView.departureUtc')}
                 <Input
                   type="datetime-local"
                   value={departureUtc ? toDatetimeLocalValue(departureUtc) : ''}
@@ -403,7 +412,7 @@ export function DispatchView(props: {
                     onClick={handleGenerate}
                     disabled={planAircraftId == null || !depIcao || !destIcao || generating}
                   >
-                    {generating ? 'Generating…' : 'Generate…'}
+                    {generating ? t('dispatchView.generating') : t('dispatchView.generate')}
                   </Button>
                 ) : (
                   // Fallback for a build with no SimBrief API key available at all (e.g.
@@ -415,11 +424,13 @@ export function DispatchView(props: {
                     onClick={handleOpenSimBrief}
                     disabled={planAircraftId == null || !depIcao || !destIcao}
                   >
-                    Plan on SimBrief…
+                    {t('dispatchView.planOnSimBrief')}
                   </Button>
                 )}
                 <Button type="button" variant="outline" onClick={() => setAdvancedOpen(true)}>
-                  Advanced{countSetOptions(dispatchOptions) > 0 ? ` (${countSetOptions(dispatchOptions)})` : ''}
+                  {countSetOptions(dispatchOptions) > 0
+                    ? t('dispatchView.advancedWithCount', { count: countSetOptions(dispatchOptions) })
+                    : t('dispatchView.advanced')}
                 </Button>
               </div>
             </CardContent>
@@ -428,7 +439,7 @@ export function DispatchView(props: {
           {ofp && (
             <Card size="sm">
               <CardHeader>
-                <CardTitle>Procedures</CardTitle>
+                <CardTitle>{t('dispatchView.procedures')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <ProcedureSelector
@@ -454,12 +465,17 @@ export function DispatchView(props: {
             <Card>
               <CardHeader>
                 <CardTitle>
-                  {ofp.flightNumber}: {ofp.depIcao} → {ofp.arrIcao} (altn {ofp.altnIcao})
+                  {t('dispatchView.ofpTitle', {
+                    flightNumber: ofp.flightNumber,
+                    dep: ofp.depIcao,
+                    arr: ofp.arrIcao,
+                    altn: ofp.altnIcao
+                  })}
                 </CardTitle>
                 <CardAction className="flex items-center gap-2">
-                  {alreadyFlown && <Badge variant="secondary">Flying</Badge>}
+                  {alreadyFlown && <Badge variant="secondary">{t('dispatchView.flying')}</Badge>}
                   <Button type="button" variant="outline" size="sm" onClick={handleViewOfpPdf}>
-                    View OFP PDF
+                    {t('dispatchView.viewOfpPdf')}
                   </Button>
                 </CardAction>
               </CardHeader>
@@ -467,42 +483,46 @@ export function DispatchView(props: {
                 {airframeCapture && (
                   <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/50 p-3 text-sm">
                     <span className="text-foreground">
-                      This plan used a custom SimBrief airframe not saved to{' '}
-                      {aircraft.find((a) => a.id === airframeCapture.aircraftId)?.registration}.
+                      {t('dispatchView.usedCustomAirframeNotSaved', {
+                        registration: aircraft.find((a) => a.id === airframeCapture.aircraftId)?.registration
+                      })}
                     </span>
                     <Button type="button" size="sm" variant="outline" onClick={handleSaveAirframe}>
-                      Save this airframe
+                      {t('dispatchView.saveThisAirframe')}
                     </Button>
                   </div>
                 )}
                 <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
                   <DetailField
-                    label="Aircraft (OFP)"
+                    label={t('dispatchView.fields.aircraftOfp')}
                     value={`${ofp.aircraftIcaoType} ${ofp.aircraftRegistration}`}
                   />
                   <DetailField
-                    label="Cruise altitude"
+                    label={t('dispatchView.fields.cruiseAltitude')}
                     value={formatAltitude(mToFt(ofp.cruiseAltM), props.altitudeUnit)}
                   />
                   <DetailField
-                    label="Scheduled out / in"
+                    label={t('dispatchView.fields.scheduledOutIn')}
                     value={`${formatUtc(ofp.schedOutUtc)} / ${formatUtc(ofp.schedInUtc)}`}
                   />
-                  <DetailField label="Planned fuel" value={formatWeight(ofp.fuelPlannedKg, props.weightUnit)} />
                   <DetailField
-                    label="Pax / cargo"
+                    label={t('dispatchView.fields.plannedFuel')}
+                    value={formatWeight(ofp.fuelPlannedKg, props.weightUnit)}
+                  />
+                  <DetailField
+                    label={t('dispatchView.fields.paxCargo')}
                     value={`${ofp.pax} / ${formatWeight(ofp.cargoKg, props.weightUnit)}`}
                   />
                   <DetailField
-                    label="ZFW / TOW / LDW"
+                    label={t('dispatchView.fields.zfwTowLdw')}
                     value={`${formatWeight(ofp.zfwKg, props.weightUnit)} / ${formatWeight(ofp.towKg, props.weightUnit)} / ${formatWeight(ofp.ldwKg, props.weightUnit)}`}
                   />
-                  <DetailField label="Cost index" value={ofp.costIndex ?? '—'} />
+                  <DetailField label={t('dispatchView.fields.costIndex')} value={ofp.costIndex ?? '—'} />
                 </dl>
                 <div className="flex flex-col gap-1.5 text-sm">
-                  <span className="text-muted-foreground">Steps</span>
+                  <span className="text-muted-foreground">{t('dispatchView.steps')}</span>
                   {ofp.stepClimbs.length === 0 ? (
-                    <span className="text-foreground">None</span>
+                    <span className="text-foreground">{t('dispatchView.none')}</span>
                   ) : (
                     <div className="flex flex-wrap gap-1.5">
                       {ofp.stepClimbs.map((climb) => (
@@ -517,26 +537,26 @@ export function DispatchView(props: {
                   )}
                 </div>
                 <div className="flex flex-col gap-1.5 text-sm">
-                  <span className="text-muted-foreground">Route</span>
+                  <span className="text-muted-foreground">{t('dispatchView.route')}</span>
                   <p className="max-h-16 overflow-auto text-foreground">{formatEnrouteOnly(ofp.ofpJson)}</p>
                 </div>
 
                 {!alreadyFlown && (
                   <>
                     <div className="flex flex-col gap-1.5">
-                      <Label>Fleet aircraft</Label>
+                      <Label>{t('dispatchView.fleetAircraft')}</Label>
                       <Select
                         value={selectedAircraftId != null ? String(selectedAircraftId) : undefined}
                         onValueChange={(v) => setSelectedAircraftId(Number(v))}
                       >
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder="— select —" />
+                          <SelectValue placeholder={t('dispatchView.selectPlaceholder')} />
                         </SelectTrigger>
                         <SelectContent>
                           {aircraft.map((a) => (
                             <SelectItem key={a.id} value={String(a.id)}>
                               {a.registration} — {a.icaoType}
-                              {a.registration === ofp.aircraftRegistration ? ' (matched)' : ''}
+                              {a.registration === ofp.aircraftRegistration ? ` ${t('dispatchView.matched')}` : ''}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -544,8 +564,9 @@ export function DispatchView(props: {
                     </div>
                     {ofp.matchedAircraftId == null && selectedAircraftId == null && (
                       <p className="text-sm text-muted-foreground">
-                        No fleet aircraft matches tail {ofp.aircraftRegistration || '(none in OFP)'} — pick
-                        one manually.
+                        {t('dispatchView.noFleetAircraftMatches', {
+                          tail: ofp.aircraftRegistration || t('dispatchView.noneInOfp')
+                        })}
                       </p>
                     )}
                   </>
@@ -559,16 +580,16 @@ export function DispatchView(props: {
                     onClick={handleFlyClick}
                     disabled={saving || alreadyFlown || selectedAircraftId == null}
                   >
-                    {saving ? 'Starting…' : 'Fly'}
+                    {saving ? t('dispatchView.starting') : t('dispatchView.fly')}
                   </Button>
                   <Button type="button" variant="outline" className="flex-1" onClick={handleDiscardPlan}>
-                    Discard plan
+                    {t('dispatchView.discardPlan')}
                   </Button>
                 </div>
               </CardContent>
             </Card>
           ) : (
-            <p className="text-sm text-muted-foreground">Plan or fetch a flight to see its details here.</p>
+            <p className="text-sm text-muted-foreground">{t('dispatchView.planOrFetchPrompt')}</p>
           )}
         </div>
       </div>
