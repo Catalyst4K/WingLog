@@ -250,7 +250,10 @@ open('WingLog landing-rate spike', Protocol.SunRise)
           if (touchdownAt === null) peakFpmPreTouchdown = Math.max(peakFpmPreTouchdown, Math.abs(fpm))
           else peakFpmPostTouchdown = Math.max(peakFpmPostTouchdown, Math.abs(fpm))
         }
-        if (touchdownAt !== null && now - touchdownAt >= HIGH_RATE_STOP_AFTER_TOUCHDOWN_MS) {
+        // highRateActive guard: a couple of high-rate ticks can still arrive after
+        // requestDataOnSimObject(..., NEVER) takes effect (found on the third live run,
+        // 2026-09-20) — without it, this block re-fired its summary for every leftover tick.
+        if (highRateActive && touchdownAt !== null && now - touchdownAt >= HIGH_RATE_STOP_AFTER_TOUCHDOWN_MS) {
           stopHighRate()
           awaitingLanding = false // captured; don't re-arm until a real liftoff happens
           console.log(
