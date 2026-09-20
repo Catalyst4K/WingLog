@@ -593,7 +593,12 @@ describe('LandingCard', () => {
     setWinglog({
       logbookListLandings: vi.fn().mockResolvedValue([
         makeLandingWithDetails({
-          score: { score: 78, severity: 'firm', categories: makeCategories() } satisfies LandingScoreResult
+          score: {
+            score: 78,
+            severity: 'firm',
+            categories: makeCategories(),
+            dangerousExceedance: false
+          } satisfies LandingScoreResult
         })
       ])
     })
@@ -607,7 +612,12 @@ describe('LandingCard', () => {
     setWinglog({
       logbookListLandings: vi.fn().mockResolvedValue([
         makeLandingWithDetails({
-          score: { score: 78, severity: 'firm', categories: makeCategories() } satisfies LandingScoreResult
+          score: {
+            score: 78,
+            severity: 'firm',
+            categories: makeCategories(),
+            dangerousExceedance: false
+          } satisfies LandingScoreResult
         })
       ])
     })
@@ -650,7 +660,8 @@ describe('LandingCard', () => {
           score: {
             score: 55,
             severity: 'none',
-            categories: makeCategories({ crab: 10, pitch: 95 })
+            categories: makeCategories({ crab: 10, pitch: 95 }),
+            dangerousExceedance: false
           } satisfies LandingScoreResult
         })
       ])
@@ -671,7 +682,8 @@ describe('LandingCard', () => {
           score: {
             score: 55,
             severity: 'none',
-            categories: makeCategories({ crab: 10 })
+            categories: makeCategories({ crab: 10 }),
+            dangerousExceedance: false
           } satisfies LandingScoreResult
         })
       ])
