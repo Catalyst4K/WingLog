@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import type { Aircraft, AircraftTypeOption, AirlineOption, NewAircraft, SimbriefAirframeOption } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -84,8 +86,8 @@ function Field(props: {
  *  simbrief-airframe-picker-v2.md, decision 1). `variant` is whatever the raw comment adds
  *  beyond developer/engines (e.g. "(SL)" on an A320, a whole phrase like "Dual Class" on a
  *  PMDG 737 — docs/simbrief-notes.md) — shown only when the parse actually found one. */
-function optionLabel(o: SimbriefAirframeOption): string {
-  if (o.isDefault) return `SimBrief default (${o.engines})`
+function optionLabel(o: SimbriefAirframeOption, t: TFunction): string {
+  if (o.isDefault) return t('aircraftForm.simbriefDefaultOption', { engines: o.engines })
   const variant = o.variant ? ` — ${o.variant}` : ''
   return `${o.developer ?? o.comments}${variant} — ${o.engines}`
 }
@@ -96,8 +98,8 @@ function optionLabel(o: SimbriefAirframeOption): string {
  *  picker-v2.md). Skips appending the type onto the raw-comment fallback case (no
  *  `developer`) — that text is already a full, self-contained description, not built to
  *  have a type code glued onto the end of it. */
-function selectedOptionLabel(o: SimbriefAirframeOption): string {
-  if (o.isDefault) return `SimBrief default ${o.simbriefType} (${o.engines})`
+function selectedOptionLabel(o: SimbriefAirframeOption, t: TFunction): string {
+  if (o.isDefault) return t('aircraftForm.simbriefDefaultSelected', { simbriefType: o.simbriefType, engines: o.engines })
   if (!o.developer) return o.comments
   const variant = o.variant ? ` — ${o.variant}` : ''
   return `${o.developer} ${o.simbriefType}${variant} — ${o.engines}`
@@ -108,6 +110,7 @@ export function AircraftForm(props: {
   onSubmit: (data: NewAircraft) => Promise<void>
   onCancel: () => void
 }): React.JSX.Element {
+  const { t } = useTranslation()
   const [form, setForm] = useState<FormState>(props.initial ? toFormState(props.initial) : EMPTY_FORM)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -226,9 +229,9 @@ export function AircraftForm(props: {
       const result = await window.winglog.simbriefCreateCustomAirframe(selectedOption.shareUrl)
       if (result) {
         set('simbriefAirframeId', result)
-        setLookupStatus('Custom airframe saved.')
+        setLookupStatus(t('aircraftForm.customAirframeSaved'))
       } else {
-        setLookupStatus('No airframe was saved — the window was closed before finishing.')
+        setLookupStatus(t('aircraftForm.customAirframeNotSaved'))
       }
     } finally {
       setCreatingAirframe(false)
@@ -238,7 +241,7 @@ export function AircraftForm(props: {
   async function handleLookup(): Promise<void> {
     const registration = form.registration.trim()
     if (!registration) {
-      setLookupStatus('Enter a registration first.')
+      setLookupStatus(t('aircraftForm.enterRegistrationFirst'))
       return
     }
     setLookingUp(true)
@@ -246,7 +249,7 @@ export function AircraftForm(props: {
     try {
       const result = await window.winglog.aircraftLookupByRegistration(registration)
       if (!result) {
-        setLookupStatus(`No match for "${registration}" — search for the type below.`)
+        setLookupStatus(t('aircraftForm.noMatch', { registration }))
         return
       }
       // adsbdb also returns the operator's actual ICAO code — resolve the exact vendored
@@ -289,7 +292,9 @@ export function AircraftForm(props: {
           }
         })
       }
-      setLookupStatus(`Found: ${result.operator ?? 'unknown operator'}, ${result.icaoType}`)
+      setLookupStatus(
+        t('aircraftForm.found', { operator: result.operator ?? t('aircraftForm.unknownOperator'), icaoType: result.icaoType })
+      )
     } catch (err) {
       setLookupStatus(err instanceof Error ? err.message : String(err))
     } finally {
@@ -321,7 +326,7 @@ export function AircraftForm(props: {
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <Label className="flex flex-col items-start gap-1.5">
-        Registration
+        {t('aircraftForm.registration')}
         <div className="flex w-full gap-1.5">
           <Input
             type="text"
@@ -331,7 +336,7 @@ export function AircraftForm(props: {
             className="flex-1"
           />
           <Button type="button" variant="outline" size="sm" onClick={handleLookup} disabled={lookingUp}>
-            {lookingUp ? '…' : 'Look up'}
+            {lookingUp ? '…' : t('aircraftForm.lookUp')}
           </Button>
         </div>
       </Label>
@@ -339,7 +344,7 @@ export function AircraftForm(props: {
       {lookupStatus && <p className="text-sm text-muted-foreground">{lookupStatus}</p>}
 
       <div className="flex flex-col gap-1.5">
-        <Label>ICAO type</Label>
+        <Label>{t('aircraftForm.icaoType')}</Label>
         <Combobox
           value={form.icaoType}
           onChange={(value) => set('icaoType', value.toUpperCase())}
@@ -347,16 +352,13 @@ export function AircraftForm(props: {
           getOptionKey={(r: AircraftTypeOption) => `${r.icaoType}-${r.manufacturer}-${r.model}`}
           getOptionValue={(r) => r.icaoType}
           getOptionLabel={(r) => `${r.manufacturer} — ${r.model} (${r.icaoType})`}
-          placeholder="e.g. A350, Boeing, B77W, or type an ICAO code"
+          placeholder={t('aircraftForm.icaoTypePlaceholder')}
         />
-        <p className="text-xs text-muted-foreground">
-          Registration lookup and aircraft type data via adsbdb.com (PlaneBase). Aircraft photos via
-          airport-data.com.
-        </p>
+        <p className="text-xs text-muted-foreground">{t('aircraftForm.icaoTypeHint')}</p>
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label>Airline</Label>
+        <Label>{t('aircraftForm.airline')}</Label>
         <Combobox
           value={form.operator}
           onChange={(value) => {
@@ -372,33 +374,33 @@ export function AircraftForm(props: {
           getOptionKey={(r: AirlineOption) => `${r.icao}-${r.name}`}
           getOptionValue={(r) => r.name}
           getOptionLabel={(r) => `${r.name} (${r.icao}${r.iata ? `/${r.iata}` : ''})`}
-          placeholder="e.g. British Airways, BAW, or type a name"
+          placeholder={t('aircraftForm.airlinePlaceholder')}
         />
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label>Profile</Label>
+        <Label>{t('aircraftForm.profile')}</Label>
         <div className="flex w-full gap-1.5">
           <Select value={selectedOptionKey ?? undefined} onValueChange={handleSelectAirframeOption}>
             <SelectTrigger className="flex-1">
               <SelectValue
                 placeholder={
                   loadingAirframeOptions
-                    ? 'Loading…'
+                    ? t('aircraftForm.loading')
                     : typeTooShort
-                      ? 'Enter an ICAO type above first'
+                      ? t('aircraftForm.enterIcaoTypeFirst')
                       : displayedOptions.length === 0
-                        ? 'SimBrief doesn’t recognise this type'
-                        : '— choose —'
+                        ? t('aircraftForm.simbriefUnrecognisedType')
+                        : t('aircraftForm.choose')
                 }
               >
-                {selectedOption ? selectedOptionLabel(selectedOption) : undefined}
+                {selectedOption ? selectedOptionLabel(selectedOption, t) : undefined}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {displayedOptions.map((o, i) => (
                 <SelectItem key={i} value={String(i)}>
-                  {optionLabel(o)}
+                  {optionLabel(o, t)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -407,7 +409,7 @@ export function AircraftForm(props: {
             type="text"
             value={form.simbriefType}
             onChange={(e) => handleManualSimbriefTypeChange(e.target.value)}
-            placeholder="or type ICAO code"
+            placeholder={t('aircraftForm.orTypeIcaoCode')}
             className="w-36"
           />
         </div>
@@ -420,27 +422,20 @@ export function AircraftForm(props: {
             onClick={handleCreateCustomAirframe}
             disabled={creatingAirframe}
           >
-            {creatingAirframe ? 'Waiting for SimBrief…' : 'Create a custom airframe in SimBrief'}
+            {creatingAirframe ? t('aircraftForm.waitingForSimBrief') : t('aircraftForm.createCustomAirframe')}
           </Button>
         )}
-        <p className="text-xs text-muted-foreground">
-          Live list from SimBrief's own community airframes for this type (MSFS only) — picking one fills the
-          code alongside it, or creates a real saved profile in your SimBrief account. Used whenever no custom
-          profile is set below.
-        </p>
+        <p className="text-xs text-muted-foreground">{t('aircraftForm.profileHint')}</p>
       </div>
 
       <div className="flex flex-col gap-1.5">
         <Field
-          label="Custom airframe profile"
+          label={t('aircraftForm.customAirframeProfile')}
           value={form.simbriefAirframeId}
           onChange={handleManualSimbriefAirframeIdChange}
         />
         {form.simbriefAirframeId.trim() !== '' && !/^\d+_\d+$/.test(form.simbriefAirframeId.trim()) && (
-          <p className="text-xs text-amber-600 dark:text-amber-500">
-            Saved airframe IDs normally look like "123456_1582090020" — double-check this against
-            SimBrief's airframe editor (see the Fleet detail page for a direct link).
-          </p>
+          <p className="text-xs text-amber-600 dark:text-amber-500">{t('aircraftForm.airframeIdWarning')}</p>
         )}
         <Button
           type="button"
@@ -449,25 +444,22 @@ export function AircraftForm(props: {
           className="w-fit"
           onClick={() => void window.winglog.dispatchOpenSimBriefAirframes(form.simbriefAirframeId.trim() || null)}
         >
-          Open airframes page
+          {t('aircraftForm.openAirframesPage')}
         </Button>
-        <p className="text-xs text-muted-foreground">
-          Leave blank to use the profile above. Already made one yourself in SimBrief? Open the airframes page
-          to find its id.
-        </p>
+        <p className="text-xs text-muted-foreground">{t('aircraftForm.customAirframeHint')}</p>
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label>Current airport</Label>
+        <Label>{t('aircraftForm.currentAirport')}</Label>
         <AirportSearch value={form.currentIcao} onChange={(v) => set('currentIcao', v)} />
       </div>
 
       <div className="flex gap-2">
         <Button type="submit" disabled={submitting}>
-          {submitting ? 'Saving…' : 'Save'}
+          {submitting ? t('aircraftForm.saving') : t('aircraftForm.save')}
         </Button>
         <Button type="button" variant="outline" onClick={props.onCancel} disabled={submitting}>
-          Cancel
+          {t('aircraftForm.cancel')}
         </Button>
       </div>
     </form>
