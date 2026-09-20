@@ -3,6 +3,7 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { SimTelemetry, TrackPoint } from '@shared/ipc'
 import type { Waypoint } from './route'
+import i18n from './i18n'
 import type { FlightMapProps } from './FlightMap'
 
 /** The mocked maplibre-gl Map's real shape — deliberately not the real library's own `Map`
@@ -322,6 +323,18 @@ afterEach(() => {
 })
 
 describe('FlightMap', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en')
+  })
+
+  it('renders its map controls and telemetry readout in the active i18next language, not a hardcoded English string', async () => {
+    await i18n.changeLanguage('de')
+    await renderReady({ route: [], trackPoints: [], live: true, telemetry: null })
+    expect(screen.getByRole('button', { name: 'Zentrierung auf Flugzeug stoppen' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Vergrößern' })).toBeInTheDocument()
+    expect(screen.getByText(/Geschwindigkeit: k\. A\./)).toBeInTheDocument()
+  })
+
   it('constructs the map once the worker is ready and adds every source/layer on style.load', async () => {
     const { map } = await renderReady({ route: [], trackPoints: [], live: true })
     expect(Object.keys(map.sources)).toEqual(

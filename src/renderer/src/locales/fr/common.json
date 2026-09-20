@@ -535,5 +535,21 @@
     "flightEnded": "Vol terminé",
     "autoDetectedComplete": "{{label}} a été automatiquement détecté comme terminé et enregistré dans votre logbook.",
     "ok": "OK"
+  },
+  "flightMap": {
+    "stopCentering": "Arrêter de centrer sur l'appareil",
+    "centerOnAircraft": "Centrer sur l'appareil",
+    "hideVfrOverlay": "Masquer la superposition VFR",
+    "showVfrOverlay": "Afficher la superposition VFR",
+    "showVfrOverlayTitle": "Afficher la superposition VFR — aérodromes, cercles de distance, échelle, trace récente",
+    "zoomIn": "Zoomer",
+    "zoomOut": "Dézoomer",
+    "speed": "Vitesse :",
+    "altitude": "Altitude :",
+    "heading": "Cap :",
+    "na": "N/D",
+    "nearestAirfield": "Aérodrome le plus proche",
+    "nearest": "Le plus proche :",
+    "approximateRoute": "Route approximative — aucun plan de vol enregistré pour ce vol"
   }
 }

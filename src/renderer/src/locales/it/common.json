@@ -535,5 +535,21 @@
     "flightEnded": "Volo terminato",
     "autoDetectedComplete": "{{label}} è stato rilevato automaticamente come completato e salvato nel logbook.",
     "ok": "OK"
+  },
+  "flightMap": {
+    "stopCentering": "Interrompi centratura sull'aeromobile",
+    "centerOnAircraft": "Centra sull'aeromobile",
+    "hideVfrOverlay": "Nascondi overlay VFR",
+    "showVfrOverlay": "Mostra overlay VFR",
+    "showVfrOverlayTitle": "Mostra overlay VFR — aeroporti, anelli di distanza, scala, traccia recente",
+    "zoomIn": "Aumenta zoom",
+    "zoomOut": "Riduci zoom",
+    "speed": "Velocità:",
+    "altitude": "Altitudine:",
+    "heading": "Prua:",
+    "na": "N/D",
+    "nearestAirfield": "Aeroporto più vicino",
+    "nearest": "Più vicino:",
+    "approximateRoute": "Rotta approssimativa — nessun piano di volo registrato per questo volo"
   }
 }

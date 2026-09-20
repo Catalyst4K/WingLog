@@ -533,5 +533,21 @@
     "flightEnded": "Flight ended",
     "autoDetectedComplete": "{{label}} was automatically detected as complete and saved to your logbook.",
     "ok": "OK"
+  },
+  "flightMap": {
+    "stopCentering": "Stop centering on aircraft",
+    "centerOnAircraft": "Center on aircraft",
+    "hideVfrOverlay": "Hide VFR overlay",
+    "showVfrOverlay": "Show VFR overlay",
+    "showVfrOverlayTitle": "Show VFR overlay — airfields, range rings, scale, recent track",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "speed": "Speed:",
+    "altitude": "Altitude:",
+    "heading": "Heading:",
+    "na": "N/A",
+    "nearestAirfield": "Nearest airfield",
+    "nearest": "Nearest:",
+    "approximateRoute": "Approximate route — no flight plan on file for this flight"
   }
 }
