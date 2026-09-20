@@ -549,5 +549,80 @@
     "nearestAirfield": "Nearest airfield",
     "nearest": "Nearest:",
     "approximateRoute": "Approximate route — no flight plan on file for this flight"
+  },
+  "logbookView": {
+    "belowAverage": "Below average",
+    "landingCard": {
+      "title": "Landing",
+      "selectLanding": "Select landing",
+      "landingScore": "Landing score",
+      "touchdownRate": "Touchdown rate",
+      "gForce": "G-force",
+      "pitch": "Pitch",
+      "bank": "Bank",
+      "crab": "Crab",
+      "airspeedGroundSpeed": "Airspeed / Ground speed",
+      "headwindCrosswind": "Headwind / Crosswind",
+      "runway": "Runway",
+      "distanceFromThreshold": "Distance from threshold",
+      "centrelineOffset": "Centreline offset",
+      "scoreBreakdown": "Score breakdown"
+    },
+    "deleteFlightConfirmTitle": "Delete this flight?",
+    "deleteFlightConfirmDescription_one": "Its track ({{count}} point), landing report and ground-service invoices go with it. This cannot be undone.",
+    "deleteFlightConfirmDescription_other": "Its track ({{count}} points), landing report and ground-service invoices go with it. This cannot be undone.",
+    "deleteFlight": "Delete flight",
+    "flightDeleted": "Flight deleted.",
+    "noOfpPdfForFlight": "No OFP PDF available for this flight.",
+    "backToAircraft": "Back to aircraft",
+    "backToLogbook": "Back to logbook",
+    "freeFlight": "Free flight",
+    "viewOfpPdf": "View OFP PDF",
+    "addToFleet": "Add to fleet",
+    "fields": {
+      "aircraft": "Aircraft",
+      "date": "Date",
+      "blockTime": "Block time",
+      "airTime": "Air time",
+      "fuelBurn": "Fuel burn",
+      "fuelPlanned": "Fuel planned"
+    },
+    "altitude": "Altitude",
+    "trueAltitude": "True altitude",
+    "speedTitle": "Speed ({{mode}})",
+    "fuelPlannedVsActual": "Fuel planned vs actual",
+    "fuelPlanned": "Planned",
+    "fuelActual": "Actual",
+    "sortColumns": {
+      "date": "Date",
+      "flight": "Flight",
+      "route": "Route",
+      "aircraft": "Aircraft",
+      "block": "Block",
+      "fuelBurn": "Fuel burn",
+      "landingScore": "Landing Score"
+    },
+    "landingSortColumns": {
+      "date": "Date",
+      "flight": "Flight",
+      "airport": "Airport / Runway",
+      "aircraft": "Aircraft",
+      "touchdownRate": "Touchdown rate",
+      "gForce": "G-force",
+      "score": "Score"
+    },
+    "landingsEmpty": "No landings recorded yet.",
+    "title": "Logbook",
+    "stats": {
+      "totalFlights": "Total flights",
+      "totalFlightHours": "Total flight hours",
+      "totalMilesFlown": "Total miles flown"
+    },
+    "tabs": {
+      "flights": "Flights",
+      "landings": "Landings"
+    },
+    "noCompletedFlights": "No completed flights yet — track one, or import a CSV logbook from Settings → Data.",
+    "flightNotFound": "Flight not found."
   }
 }

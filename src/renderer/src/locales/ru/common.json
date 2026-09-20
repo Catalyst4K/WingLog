@@ -570,5 +570,82 @@
     "nearestAirfield": "Ближайший аэродром",
     "nearest": "Ближайший:",
     "approximateRoute": "Приблизительный маршрут — план полёта для этого рейса отсутствует"
+  },
+  "logbookView": {
+    "belowAverage": "Ниже среднего",
+    "landingCard": {
+      "title": "Посадка",
+      "selectLanding": "Выбрать посадку",
+      "landingScore": "Оценка посадки",
+      "touchdownRate": "Скорость касания",
+      "gForce": "Перегрузка",
+      "pitch": "Тангаж",
+      "bank": "Крен",
+      "crab": "Угол сноса",
+      "airspeedGroundSpeed": "Приборная скорость / Путевая скорость",
+      "headwindCrosswind": "Встречный ветер / Боковой ветер",
+      "runway": "ВПП",
+      "distanceFromThreshold": "Расстояние от торца ВПП",
+      "centrelineOffset": "Отклонение от осевой линии",
+      "scoreBreakdown": "Детализация оценки"
+    },
+    "deleteFlightConfirmTitle": "Удалить этот рейс?",
+    "deleteFlightConfirmDescription_one": "Его трек ({{count}} точка), отчёт о посадке и чеки наземного обслуживания будут удалены вместе с ним. Это действие нельзя отменить.",
+    "deleteFlightConfirmDescription_few": "Его трек ({{count}} точки), отчёт о посадке и чеки наземного обслуживания будут удалены вместе с ним. Это действие нельзя отменить.",
+    "deleteFlightConfirmDescription_many": "Его трек ({{count}} точек), отчёт о посадке и чеки наземного обслуживания будут удалены вместе с ним. Это действие нельзя отменить.",
+    "deleteFlightConfirmDescription_other": "Его трек ({{count}} точек), отчёт о посадке и чеки наземного обслуживания будут удалены вместе с ним. Это действие нельзя отменить.",
+    "deleteFlight": "Удалить рейс",
+    "flightDeleted": "Рейс удалён.",
+    "noOfpPdfForFlight": "PDF OFP для этого рейса недоступен.",
+    "backToAircraft": "Назад к воздушному судну",
+    "backToLogbook": "Назад в логбук",
+    "freeFlight": "Свободный полёт",
+    "viewOfpPdf": "Просмотреть PDF OFP",
+    "addToFleet": "Добавить в флот",
+    "fields": {
+      "aircraft": "Воздушное судно",
+      "date": "Дата",
+      "blockTime": "Блочное время",
+      "airTime": "Полётное время",
+      "fuelBurn": "Расход топлива",
+      "fuelPlanned": "Плановое топливо"
+    },
+    "altitude": "Высота",
+    "trueAltitude": "Истинная высота",
+    "speedTitle": "Скорость ({{mode}})",
+    "fuelPlannedVsActual": "Плановое и фактическое топливо",
+    "fuelPlanned": "План",
+    "fuelActual": "Факт",
+    "sortColumns": {
+      "date": "Дата",
+      "flight": "Рейс",
+      "route": "Маршрут",
+      "aircraft": "Воздушное судно",
+      "block": "Блок",
+      "fuelBurn": "Расход топлива",
+      "landingScore": "Оценка посадки"
+    },
+    "landingSortColumns": {
+      "date": "Дата",
+      "flight": "Рейс",
+      "airport": "Аэропорт / ВПП",
+      "aircraft": "Воздушное судно",
+      "touchdownRate": "Скорость касания",
+      "gForce": "Перегрузка",
+      "score": "Оценка"
+    },
+    "landingsEmpty": "Посадок пока не зафиксировано.",
+    "title": "Логбук",
+    "stats": {
+      "totalFlights": "Всего рейсов",
+      "totalFlightHours": "Всего часов налёта",
+      "totalMilesFlown": "Всего пройдено миль"
+    },
+    "tabs": {
+      "flights": "Рейсы",
+      "landings": "Посадки"
+    },
+    "noCompletedFlights": "Пока нет завершённых рейсов — начните отслеживание или импортируйте CSV-логбук через Настройки → Данные.",
+    "flightNotFound": "Рейс не найден."
   }
 }

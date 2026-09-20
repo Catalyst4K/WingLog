@@ -549,5 +549,80 @@
     "nearestAirfield": "Nächster Flugplatz",
     "nearest": "Nächster:",
     "approximateRoute": "Ungefähre Route — kein Flugplan für diesen Flug hinterlegt"
+  },
+  "logbookView": {
+    "belowAverage": "Unterdurchschnittlich",
+    "landingCard": {
+      "title": "Landung",
+      "selectLanding": "Landung auswählen",
+      "landingScore": "Landungsbewertung",
+      "touchdownRate": "Sinkrate beim Aufsetzen",
+      "gForce": "G-Kraft",
+      "pitch": "Nickwinkel",
+      "bank": "Querneigung",
+      "crab": "Vorhaltewinkel",
+      "airspeedGroundSpeed": "Fluggeschwindigkeit / Geschwindigkeit über Grund",
+      "headwindCrosswind": "Gegenwind / Seitenwind",
+      "runway": "Landebahn",
+      "distanceFromThreshold": "Abstand zur Schwelle",
+      "centrelineOffset": "Abweichung von der Mittellinie",
+      "scoreBreakdown": "Bewertungsdetails"
+    },
+    "deleteFlightConfirmTitle": "Diesen Flug löschen?",
+    "deleteFlightConfirmDescription_one": "Die Flugspur ({{count}} Punkt), der Landungsbericht und die Bodenservice-Belege werden mit gelöscht. Dies kann nicht rückgängig gemacht werden.",
+    "deleteFlightConfirmDescription_other": "Die Flugspur ({{count}} Punkte), der Landungsbericht und die Bodenservice-Belege werden mit gelöscht. Dies kann nicht rückgängig gemacht werden.",
+    "deleteFlight": "Flug löschen",
+    "flightDeleted": "Flug gelöscht.",
+    "noOfpPdfForFlight": "Kein OFP-PDF für diesen Flug verfügbar.",
+    "backToAircraft": "Zurück zum Flugzeug",
+    "backToLogbook": "Zurück zum Logbuch",
+    "freeFlight": "Freier Flug",
+    "viewOfpPdf": "OFP-PDF ansehen",
+    "addToFleet": "Zur Flotte hinzufügen",
+    "fields": {
+      "aircraft": "Flugzeug",
+      "date": "Datum",
+      "blockTime": "Blockzeit",
+      "airTime": "Flugzeit",
+      "fuelBurn": "Treibstoffverbrauch",
+      "fuelPlanned": "Geplanter Treibstoff"
+    },
+    "altitude": "Höhe",
+    "trueAltitude": "Wahre Höhe",
+    "speedTitle": "Geschwindigkeit ({{mode}})",
+    "fuelPlannedVsActual": "Geplanter vs. tatsächlicher Treibstoff",
+    "fuelPlanned": "Geplant",
+    "fuelActual": "Tatsächlich",
+    "sortColumns": {
+      "date": "Datum",
+      "flight": "Flug",
+      "route": "Strecke",
+      "aircraft": "Flugzeug",
+      "block": "Block",
+      "fuelBurn": "Treibstoffverbrauch",
+      "landingScore": "Landungsbewertung"
+    },
+    "landingSortColumns": {
+      "date": "Datum",
+      "flight": "Flug",
+      "airport": "Flughafen / Landebahn",
+      "aircraft": "Flugzeug",
+      "touchdownRate": "Sinkrate beim Aufsetzen",
+      "gForce": "G-Kraft",
+      "score": "Bewertung"
+    },
+    "landingsEmpty": "Noch keine Landungen erfasst.",
+    "title": "Logbuch",
+    "stats": {
+      "totalFlights": "Flüge insgesamt",
+      "totalFlightHours": "Flugstunden insgesamt",
+      "totalMilesFlown": "Geflogene Meilen insgesamt"
+    },
+    "tabs": {
+      "flights": "Flüge",
+      "landings": "Landungen"
+    },
+    "noCompletedFlights": "Noch keine abgeschlossenen Flüge — einen tracken oder ein CSV-Logbuch über Einstellungen → Daten importieren.",
+    "flightNotFound": "Flug nicht gefunden."
   }
 }

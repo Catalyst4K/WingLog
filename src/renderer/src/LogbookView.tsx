@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import {
   Bar,
   BarChart,
@@ -137,15 +139,13 @@ function DetailField(props: {
    *  score) that should stand out from the rest of the list. */
   valueClassName?: string
 }): React.JSX.Element {
+  const { t } = useTranslation()
   return (
     <>
       <dt className="flex min-w-0 items-center gap-1.5 break-words text-muted-foreground">
         {props.label}
         {props.warn && (
-          <TriangleAlert
-            className="size-3.5 text-destructive"
-            aria-label="Below average — see the landing score breakdown"
-          />
+          <TriangleAlert className="size-3.5 text-destructive" aria-label={t('logbookView.belowAverage')} />
         )}
       </dt>
       <dd className={cn('min-w-0 break-words text-foreground', props.valueClassName)}>{props.value}</dd>
@@ -170,6 +170,10 @@ const LANDING_TAB_THRESHOLD = 4
  *  data rather than as "which landing is this" (Callum, 2026-09-19). A touchdown with no
  *  resolved airfield falls back to its position in the whole sequence ("Landing 2"). The
  *  runway is still shown inside the card itself. */
+// Not yet translated — a pure exported function with its own unit tests asserting exact
+// English output, same deliberate gap as flight-label.ts's "this flight"/"flight from X"
+// (docs/plans/v1-2.md Part 3). displayIcao's own "Unknown" fallback (for ZZZZ) is the same
+// kind of gap, already shipped untranslated across Fleet/Dispatch/Track.
 export function landingLabels(landings: { icao: string | null }[]): string[] {
   const attempts = new Map<string, number>()
   return landings.map((l, index) => {
@@ -186,6 +190,7 @@ export function LandingCard(props: {
   flightId: number
   landingDistanceUnit: LandingDistanceUnit
 }): React.JSX.Element | null {
+  const { t } = useTranslation()
   const [landings, setLandings] = useState<LandingWithDetails[] | undefined>(undefined)
   // Index into `landings`, not a landing id — simpler to default ("the last one") and to
   // drive both the tabs and the select from the same piece of state. Reset per flight by
@@ -208,7 +213,7 @@ export function LandingCard(props: {
     return (
       <Card className="min-w-72 flex-1">
         <CardHeader>
-          <CardTitle className="text-sm">Landing</CardTitle>
+          <CardTitle className="text-sm">{t('logbookView.landingCard.title')}</CardTitle>
         </CardHeader>
         <CardContent>
           <Skeleton className="h-40 w-full" />
@@ -234,12 +239,12 @@ export function LandingCard(props: {
     // the layout around it (it wraps beside other cards), not just the window.
     <Card className="@container min-w-72 flex-1">
       <CardHeader>
-        <CardTitle className="text-sm">Landing</CardTitle>
+        <CardTitle className="text-sm">{t('logbookView.landingCard.title')}</CardTitle>
         {landings.length > 1 && (
           <CardAction>
             {landings.length <= LANDING_TAB_THRESHOLD ? (
               <Tabs value={String(selectedIndex)} onValueChange={(v) => setSelectedIndex(Number(v))}>
-                <TabsList aria-label="Select landing">
+                <TabsList aria-label={t('logbookView.landingCard.selectLanding')}>
                   {landings.map((l, i) => (
                     <TabsTrigger key={l.id} value={String(i)}>
                       {labels[i]}
@@ -249,7 +254,7 @@ export function LandingCard(props: {
               </Tabs>
             ) : (
               <Select value={String(selectedIndex)} onValueChange={(v) => setSelectedIndex(Number(v))}>
-                <SelectTrigger className="w-40" size="sm" aria-label="Select landing">
+                <SelectTrigger className="w-40" size="sm" aria-label={t('logbookView.landingCard.selectLanding')}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -267,12 +272,12 @@ export function LandingCard(props: {
       <CardContent className="flex flex-col gap-4 @lg:flex-row @lg:items-start">
         <dl className={cn(DETAIL_GRID_CLASS, 'min-w-0 flex-1')}>
           <DetailField
-            label="Landing score"
+            label={t('logbookView.landingCard.landingScore')}
             value={<LandingScoreBadge score={scoreResult?.score ?? null} />}
             valueClassName="text-base font-semibold"
           />
           <DetailField
-            label="Touchdown rate"
+            label={t('logbookView.landingCard.touchdownRate')}
             warn={isCategoryBad(categoryScore('verticalSpeed'))}
             value={
               <span className="flex items-center gap-2">
@@ -282,40 +287,40 @@ export function LandingCard(props: {
             }
           />
           <DetailField
-            label="G-force"
+            label={t('logbookView.landingCard.gForce')}
             value={landing.gForce.toFixed(2)}
             warn={isCategoryBad(categoryScore('gForce'))}
           />
           <DetailField
-            label="Pitch"
+            label={t('logbookView.landingCard.pitch')}
             value={formatPitchDeg(landing.pitchDeg)}
             warn={isCategoryBad(categoryScore('pitch'))}
           />
           <DetailField
-            label="Bank"
+            label={t('logbookView.landingCard.bank')}
             value={`${landing.bankDeg.toFixed(1)}°`}
             warn={isCategoryBad(categoryScore('bank'))}
           />
           <DetailField
-            label="Crab"
+            label={t('logbookView.landingCard.crab')}
             value={landing.crabDeg != null ? `${landing.crabDeg.toFixed(1)}°` : '—'}
             warn={isCategoryBad(categoryScore('crab'))}
           />
           <DetailField
-            label="Airspeed / Ground speed"
+            label={t('logbookView.landingCard.airspeedGroundSpeed')}
             value={`${Math.round(msToKt(landing.indicatedAirspeedMs))} / ${Math.round(msToKt(landing.groundSpeedMs))} kt`}
           />
           <DetailField
-            label="Headwind / Crosswind"
+            label={t('logbookView.landingCard.headwindCrosswind')}
             value={
               landing.headwindMs != null && landing.crosswindMs != null
                 ? `${Math.round(msToKt(landing.headwindMs))} / ${Math.round(msToKt(landing.crosswindMs))} kt`
                 : '—'
             }
           />
-          <DetailField label="Runway" value={landing.runwayIdent ?? '—'} />
+          <DetailField label={t('logbookView.landingCard.runway')} value={landing.runwayIdent ?? '—'} />
           <DetailField
-            label="Distance from threshold"
+            label={t('logbookView.landingCard.distanceFromThreshold')}
             warn={isCategoryBad(categoryScore('distanceFromAimingPoint'))}
             value={
               landing.distanceFromThresholdM != null
@@ -324,7 +329,7 @@ export function LandingCard(props: {
             }
           />
           <DetailField
-            label="Centreline offset"
+            label={t('logbookView.landingCard.centrelineOffset')}
             warn={isCategoryBad(categoryScore('centrelineOffset'))}
             value={
               landing.centrelineOffsetM != null
@@ -347,7 +352,7 @@ export function LandingCard(props: {
               unit={unit}
               trigger={
                 <Button type="button" variant="outline" size="sm">
-                  Score breakdown
+                  {t('logbookView.landingCard.scoreBreakdown')}
                 </Button>
               }
             />
@@ -393,6 +398,7 @@ function FlightDetail(props: {
    *  the flights table) picks up the change immediately. */
   onAircraftLinked: () => void
 }): React.JSX.Element {
+  const { t } = useTranslation()
   const { flight, aircraft, weightUnit } = props
   const [trackPoints, setTrackPoints] = useState<TrackPoint[]>([])
   const [confirm, confirmDialog] = useConfirm()
@@ -400,16 +406,16 @@ function FlightDetail(props: {
 
   async function handleDelete(): Promise<void> {
     const ok = await confirm({
-      title: 'Delete this flight?',
-      description: `Its track (${trackPoints.length} point${trackPoints.length === 1 ? '' : 's'}), landing report and ground-service invoices go with it. This cannot be undone.`,
-      confirmLabel: 'Delete flight',
+      title: t('logbookView.deleteFlightConfirmTitle'),
+      description: t('logbookView.deleteFlightConfirmDescription', { count: trackPoints.length }),
+      confirmLabel: t('logbookView.deleteFlight'),
       destructive: true
     })
     if (!ok) return
     try {
       await window.winglog.flightDelete(flight.id)
       props.onDeleted()
-      toast.success('Flight deleted.')
+      toast.success(t('logbookView.flightDeleted'))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
     }
@@ -417,7 +423,7 @@ function FlightDetail(props: {
 
   async function handleViewOfpPdf(): Promise<void> {
     const opened = await window.winglog.logbookOpenOfpPdf(flight.id)
-    if (!opened) toast.error('No OFP PDF available for this flight.')
+    if (!opened) toast.error(t('logbookView.noOfpPdfForFlight'))
   }
 
   useEffect(() => {
@@ -522,8 +528,8 @@ function FlightDetail(props: {
   const fuelData =
     flight.fuelPlannedKg != null
       ? [
-          { name: 'Planned', kg: flight.fuelPlannedKg },
-          { name: 'Actual', kg: flight.fuelBurnKg ?? 0 }
+          { name: t('logbookView.fuelPlanned'), kg: flight.fuelPlannedKg },
+          { name: t('logbookView.fuelActual'), kg: flight.fuelBurnKg ?? 0 }
         ]
       : null
 
@@ -532,13 +538,13 @@ function FlightDetail(props: {
       <div className="flex items-center justify-between">
         <Button type="button" variant="ghost" size="sm" onClick={props.onBack} className="w-fit">
           <ArrowLeft />
-          {props.backToAircraft ? 'Back to aircraft' : 'Back to logbook'}
+          {props.backToAircraft ? t('logbookView.backToAircraft') : t('logbookView.backToLogbook')}
         </Button>
         <div className="flex items-center gap-2">
           <TrackCleanupButton flightId={flight.id} onCleaned={setTrackPoints} />
           <Button type="button" variant="ghost" size="sm" onClick={handleDelete}>
             <Trash2 />
-            Delete flight
+            {t('logbookView.deleteFlight')}
           </Button>
         </div>
       </div>
@@ -551,33 +557,42 @@ function FlightDetail(props: {
               {displayIcao(flight.depIcao)} → {displayIcao(flight.arrIcao)}
               {isFreeFlight(flight) && (
                 <Badge variant="outline" className="text-xs font-normal">
-                  Free flight
+                  {t('logbookView.freeFlight')}
                 </Badge>
               )}
             </CardTitle>
             {flight.ofpJson && (
               <CardAction>
                 <Button type="button" variant="outline" size="sm" onClick={handleViewOfpPdf}>
-                  View OFP PDF
+                  {t('logbookView.viewOfpPdf')}
                 </Button>
               </CardAction>
             )}
             {isFreeFlight(flight) && flight.aircraftId == null && (
               <CardAction>
                 <Button type="button" variant="outline" size="sm" onClick={() => setAddToFleetOpen(true)}>
-                  Add to fleet
+                  {t('logbookView.addToFleet')}
                 </Button>
               </CardAction>
             )}
           </CardHeader>
           <CardContent>
             <dl className={DETAIL_GRID_CLASS}>
-              <DetailField label="Aircraft" value={aircraft?.registration ?? flight.simRegistration ?? '—'} />
-              <DetailField label="Date" value={formatDate(flight.actualOutUtc)} />
-              <DetailField label="Block time" value={formatMinutes(flight.blockMinutes)} />
-              <DetailField label="Air time" value={formatMinutes(flight.airMinutes)} />
-              <DetailField label="Fuel burn" value={formatWeight(flight.fuelBurnKg, weightUnit)} />
-              <DetailField label="Fuel planned" value={formatWeight(flight.fuelPlannedKg, weightUnit)} />
+              <DetailField
+                label={t('logbookView.fields.aircraft')}
+                value={aircraft?.registration ?? flight.simRegistration ?? '—'}
+              />
+              <DetailField label={t('logbookView.fields.date')} value={formatDate(flight.actualOutUtc)} />
+              <DetailField label={t('logbookView.fields.blockTime')} value={formatMinutes(flight.blockMinutes)} />
+              <DetailField label={t('logbookView.fields.airTime')} value={formatMinutes(flight.airMinutes)} />
+              <DetailField
+                label={t('logbookView.fields.fuelBurn')}
+                value={formatWeight(flight.fuelBurnKg, weightUnit)}
+              />
+              <DetailField
+                label={t('logbookView.fields.fuelPlanned')}
+                value={formatWeight(flight.fuelPlannedKg, weightUnit)}
+              />
             </dl>
           </CardContent>
         </Card>
@@ -599,7 +614,9 @@ function FlightDetail(props: {
         <div className="flex flex-wrap gap-4">
           <Card className="min-w-72 flex-1">
             <CardHeader>
-              <CardTitle className="text-sm">{altitudeChartLabel}</CardTitle>
+              <CardTitle className="text-sm">
+                {altitudeChartLabel === 'True altitude' ? t('logbookView.trueAltitude') : t('logbookView.altitude')}
+              </CardTitle>
             </CardHeader>
             <CardContent className="h-[220px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -639,7 +656,9 @@ function FlightDetail(props: {
           </Card>
           <Card className="min-w-72 flex-1">
             <CardHeader>
-              <CardTitle className="text-sm">Speed ({speedMode === 'ias' ? 'IAS' : 'Mach'})</CardTitle>
+              <CardTitle className="text-sm">
+                {t('logbookView.speedTitle', { mode: speedMode === 'ias' ? 'IAS' : 'Mach' })}
+              </CardTitle>
               <CardAction>
                 <div className="flex gap-1">
                   <Button
@@ -712,7 +731,7 @@ function FlightDetail(props: {
         {fuelData && (
           <Card className="min-w-72 max-w-96 flex-1">
             <CardHeader>
-              <CardTitle className="text-sm">Fuel planned vs actual</CardTitle>
+              <CardTitle className="text-sm">{t('logbookView.fuelPlannedVsActual')}</CardTitle>
             </CardHeader>
             <CardContent className="h-[200px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -752,15 +771,19 @@ type SortKey = 'date' | 'flight' | 'route' | 'aircraft' | 'block' | 'score' | 'f
 
 // 'score' is last (Callum, 2026-09-12) — it's the column most worth glancing down as a
 // column, so it reads best at the row's end rather than interrupting block/fuel.
-const SORT_COLUMNS: { key: SortKey; label: string; className?: string }[] = [
-  { key: 'date', label: 'Date' },
-  { key: 'flight', label: 'Flight' },
-  { key: 'route', label: 'Route' },
-  { key: 'aircraft', label: 'Aircraft' },
-  { key: 'block', label: 'Block' },
-  { key: 'fuel', label: 'Fuel burn' },
-  { key: 'score', label: 'Landing Score', className: 'text-center' }
-]
+const SORT_KEYS: SortKey[] = ['date', 'flight', 'route', 'aircraft', 'block', 'fuel', 'score']
+
+function sortColumns(t: TFunction): { key: SortKey; label: string; className?: string }[] {
+  return [
+    { key: 'date', label: t('logbookView.sortColumns.date') },
+    { key: 'flight', label: t('logbookView.sortColumns.flight') },
+    { key: 'route', label: t('logbookView.sortColumns.route') },
+    { key: 'aircraft', label: t('logbookView.sortColumns.aircraft') },
+    { key: 'block', label: t('logbookView.sortColumns.block') },
+    { key: 'fuel', label: t('logbookView.sortColumns.fuelBurn') },
+    { key: 'score', label: t('logbookView.sortColumns.landingScore'), className: 'text-center' }
+  ]
+}
 
 function compareFlights(
   a: Flight,
@@ -810,15 +833,19 @@ type LandingSortKey = 'date' | 'aircraft' | 'airport' | 'flight' | 'rate' | 'gfo
 
 // Same column positions as the Flights table (Date, Flight, Route~Airport, Aircraft, ..., Score)
 // so switching between the two tabs doesn't shuffle the headers around under the cursor.
-const LANDING_SORT_COLUMNS: { key: LandingSortKey; label: string; className?: string }[] = [
-  { key: 'date', label: 'Date' },
-  { key: 'flight', label: 'Flight' },
-  { key: 'airport', label: 'Airport / Runway' },
-  { key: 'aircraft', label: 'Aircraft' },
-  { key: 'rate', label: 'Touchdown rate' },
-  { key: 'gforce', label: 'G-force' },
-  { key: 'score', label: 'Score', className: 'text-center' }
-]
+const LANDING_SORT_KEYS: LandingSortKey[] = ['date', 'flight', 'airport', 'aircraft', 'rate', 'gforce', 'score']
+
+function landingSortColumns(t: TFunction): { key: LandingSortKey; label: string; className?: string }[] {
+  return [
+    { key: 'date', label: t('logbookView.landingSortColumns.date') },
+    { key: 'flight', label: t('logbookView.landingSortColumns.flight') },
+    { key: 'airport', label: t('logbookView.landingSortColumns.airport') },
+    { key: 'aircraft', label: t('logbookView.landingSortColumns.aircraft') },
+    { key: 'rate', label: t('logbookView.landingSortColumns.touchdownRate') },
+    { key: 'gforce', label: t('logbookView.landingSortColumns.gForce') },
+    { key: 'score', label: t('logbookView.landingSortColumns.score'), className: 'text-center' }
+  ]
+}
 
 function compareLandingRows(a: LandingListRow, b: LandingListRow, key: LandingSortKey): number {
   switch (key) {
@@ -850,6 +877,7 @@ export function LandingsTable(props: {
    *  is instant with no skeleton). Omit to have the table fetch its own. */
   landings?: LandingListRow[]
 }): React.JSX.Element {
+  const { t } = useTranslation()
   const [ownLandings, setOwnLandings] = useState<LandingListRow[] | undefined>(undefined)
 
   useEffect(() => {
@@ -859,10 +887,7 @@ export function LandingsTable(props: {
   const landings = props.landings ?? ownLandings
 
   const comparators = Object.fromEntries(
-    LANDING_SORT_COLUMNS.map((col) => [
-      col.key,
-      (a: LandingListRow, b: LandingListRow) => compareLandingRows(a, b, col.key)
-    ])
+    LANDING_SORT_KEYS.map((key) => [key, (a: LandingListRow, b: LandingListRow) => compareLandingRows(a, b, key)])
   ) as Record<LandingSortKey, (a: LandingListRow, b: LandingListRow) => number>
   const {
     sortKey,
@@ -876,7 +901,7 @@ export function LandingsTable(props: {
       <Table>
         <TableHeader>
           <TableRow>
-            {LANDING_SORT_COLUMNS.map((col) => (
+            {landingSortColumns(t).map((col) => (
               <TableHead key={col.key} className={col.className}>
                 {col.label}
               </TableHead>
@@ -891,14 +916,14 @@ export function LandingsTable(props: {
   }
 
   if (landings.length === 0) {
-    return <p className="text-sm text-muted-foreground">No landings recorded yet.</p>
+    return <p className="text-sm text-muted-foreground">{t('logbookView.landingsEmpty')}</p>
   }
 
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          {LANDING_SORT_COLUMNS.map((col) => (
+          {landingSortColumns(t).map((col) => (
             <SortableHead
               key={col.key}
               sortKey={col.key}
@@ -956,6 +981,7 @@ export function LogbookView(props: {
    *  from elsewhere), this is a same-mount concern (already here). See useResetSignal. */
   resetSignal?: number
 }): React.JSX.Element {
+  const { t } = useTranslation()
   const [flights, setFlights] = useState<Flight[]>([])
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
   const [stats, setStats] = useState<LogbookStats | null>(null)
@@ -1021,10 +1047,7 @@ export function LogbookView(props: {
   }
 
   const comparators = Object.fromEntries(
-    SORT_COLUMNS.map((col) => [
-      col.key,
-      (a: Flight, b: Flight) => compareFlights(a, b, col.key, registrationFor, scoreFor)
-    ])
+    SORT_KEYS.map((key) => [key, (a: Flight, b: Flight) => compareFlights(a, b, key, registrationFor, scoreFor)])
   ) as Record<SortKey, (a: Flight, b: Flight) => number>
   const {
     sortKey,
@@ -1035,7 +1058,7 @@ export function LogbookView(props: {
 
   if (view.kind === 'detail') {
     const flight = flights.find((f) => f.id === view.id)
-    if (!flight) return <p className="text-sm text-muted-foreground">Flight not found.</p>
+    if (!flight) return <p className="text-sm text-muted-foreground">{t('logbookView.flightNotFound')}</p>
     // Only the exact flight that was opened from Fleet sends "Back" there — navigating
     // to a different flight from Logbook's own list (even after arriving via Fleet)
     // falls back to the ordinary "back to list" behaviour.
@@ -1065,22 +1088,28 @@ export function LogbookView(props: {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="font-heading text-2xl font-semibold text-foreground">Logbook</h1>
+      <h1 className="font-heading text-2xl font-semibold text-foreground">{t('logbookView.title')}</h1>
 
       {!loading && flights.length > 0 && (
         <div className="flex flex-wrap gap-8">
           <div>
-            <p className="text-xs tracking-wide text-muted-foreground uppercase">Total flights</p>
+            <p className="text-xs tracking-wide text-muted-foreground uppercase">
+              {t('logbookView.stats.totalFlights')}
+            </p>
             <p className="text-xl font-semibold text-foreground">{stats?.totalFlights ?? flights.length}</p>
           </div>
           <div>
-            <p className="text-xs tracking-wide text-muted-foreground uppercase">Total flight hours</p>
+            <p className="text-xs tracking-wide text-muted-foreground uppercase">
+              {t('logbookView.stats.totalFlightHours')}
+            </p>
             <p className="text-xl font-semibold text-foreground">
               {formatMinutes(stats?.totalBlockMinutes ?? null)}
             </p>
           </div>
           <div>
-            <p className="text-xs tracking-wide text-muted-foreground uppercase">Total miles flown</p>
+            <p className="text-xs tracking-wide text-muted-foreground uppercase">
+              {t('logbookView.stats.totalMilesFlown')}
+            </p>
             <p className="text-xl font-semibold text-foreground">
               {stats ? `${Math.round(stats.totalNm).toLocaleString()} nm` : '—'}
             </p>
@@ -1090,8 +1119,8 @@ export function LogbookView(props: {
 
       <FolderTabs defaultValue="flights" className="gap-0">
         <FolderTabsList>
-          <FolderTabsTrigger value="flights">Flights</FolderTabsTrigger>
-          <FolderTabsTrigger value="landings">Landings</FolderTabsTrigger>
+          <FolderTabsTrigger value="flights">{t('logbookView.tabs.flights')}</FolderTabsTrigger>
+          <FolderTabsTrigger value="landings">{t('logbookView.tabs.landings')}</FolderTabsTrigger>
         </FolderTabsList>
 
         <FolderTabsContent value="flights" className="pt-4">
@@ -1099,13 +1128,11 @@ export function LogbookView(props: {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Flight</TableHead>
-                  <TableHead>Route</TableHead>
-                  <TableHead>Aircraft</TableHead>
-                  <TableHead>Block</TableHead>
-                  <TableHead>Fuel burn</TableHead>
-                  <TableHead className="text-center">Landing Score</TableHead>
+                  {sortColumns(t).map((col) => (
+                    <TableHead key={col.key} className={col.className}>
+                      {col.label}
+                    </TableHead>
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1113,15 +1140,13 @@ export function LogbookView(props: {
               </TableBody>
             </Table>
           ) : flights.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No completed flights yet — track one, or import a CSV logbook from Settings → Data.
-            </p>
+            <p className="text-sm text-muted-foreground">{t('logbookView.noCompletedFlights')}</p>
           ) : (
             <div className="flex flex-col gap-6">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {SORT_COLUMNS.map((col) => (
+                    {sortColumns(t).map((col) => (
                       <SortableHead
                         key={col.key}
                         sortKey={col.key}
@@ -1149,7 +1174,7 @@ export function LogbookView(props: {
                             {f.flightNumber ?? '—'}
                             {isFreeFlight(f) && (
                               <Badge variant="outline" className="text-xs font-normal">
-                                Free flight
+                                {t('logbookView.freeFlight')}
                               </Badge>
                             )}
                           </span>

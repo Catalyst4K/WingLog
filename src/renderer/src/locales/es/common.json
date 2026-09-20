@@ -551,5 +551,80 @@
     "nearestAirfield": "Aeródromo más cercano",
     "nearest": "Más cercano:",
     "approximateRoute": "Ruta aproximada — no hay plan de vuelo registrado para este vuelo"
+  },
+  "logbookView": {
+    "belowAverage": "Por debajo del promedio",
+    "landingCard": {
+      "title": "Aterrizaje",
+      "selectLanding": "Seleccionar aterrizaje",
+      "landingScore": "Puntuación de aterrizaje",
+      "touchdownRate": "Velocidad de aterrizaje",
+      "gForce": "Fuerza G",
+      "pitch": "Cabeceo",
+      "bank": "Alabeo",
+      "crab": "Ángulo de deriva",
+      "airspeedGroundSpeed": "Velocidad aerodinámica / Velocidad respecto al suelo",
+      "headwindCrosswind": "Viento de frente / Viento cruzado",
+      "runway": "Pista",
+      "distanceFromThreshold": "Distancia al umbral",
+      "centrelineOffset": "Desviación de la línea central",
+      "scoreBreakdown": "Desglose de la puntuación"
+    },
+    "deleteFlightConfirmTitle": "¿Eliminar este vuelo?",
+    "deleteFlightConfirmDescription_one": "Su trayectoria ({{count}} punto), el informe de aterrizaje y los recibos de servicios en tierra se eliminarán también. Esto no se puede deshacer.",
+    "deleteFlightConfirmDescription_other": "Su trayectoria ({{count}} puntos), el informe de aterrizaje y los recibos de servicios en tierra se eliminarán también. Esto no se puede deshacer.",
+    "deleteFlight": "Eliminar vuelo",
+    "flightDeleted": "Vuelo eliminado.",
+    "noOfpPdfForFlight": "No hay PDF de OFP disponible para este vuelo.",
+    "backToAircraft": "Volver a la aeronave",
+    "backToLogbook": "Volver al logbook",
+    "freeFlight": "Vuelo libre",
+    "viewOfpPdf": "Ver PDF de OFP",
+    "addToFleet": "Añadir a la flota",
+    "fields": {
+      "aircraft": "Aeronave",
+      "date": "Fecha",
+      "blockTime": "Tiempo de bloque",
+      "airTime": "Tiempo de vuelo",
+      "fuelBurn": "Combustible consumido",
+      "fuelPlanned": "Combustible planificado"
+    },
+    "altitude": "Altitud",
+    "trueAltitude": "Altitud verdadera",
+    "speedTitle": "Velocidad ({{mode}})",
+    "fuelPlannedVsActual": "Combustible planificado frente al real",
+    "fuelPlanned": "Planificado",
+    "fuelActual": "Real",
+    "sortColumns": {
+      "date": "Fecha",
+      "flight": "Vuelo",
+      "route": "Ruta",
+      "aircraft": "Aeronave",
+      "block": "Bloque",
+      "fuelBurn": "Combustible consumido",
+      "landingScore": "Puntuación de aterrizaje"
+    },
+    "landingSortColumns": {
+      "date": "Fecha",
+      "flight": "Vuelo",
+      "airport": "Aeropuerto / Pista",
+      "aircraft": "Aeronave",
+      "touchdownRate": "Velocidad de aterrizaje",
+      "gForce": "Fuerza G",
+      "score": "Puntuación"
+    },
+    "landingsEmpty": "Aún no hay aterrizajes registrados.",
+    "title": "Logbook",
+    "stats": {
+      "totalFlights": "Vuelos totales",
+      "totalFlightHours": "Horas de vuelo totales",
+      "totalMilesFlown": "Millas voladas totales"
+    },
+    "tabs": {
+      "flights": "Vuelos",
+      "landings": "Aterrizajes"
+    },
+    "noCompletedFlights": "Aún no hay vuelos completados — registra uno, o importa un logbook CSV desde Ajustes → Datos.",
+    "flightNotFound": "Vuelo no encontrado."
   }
 }

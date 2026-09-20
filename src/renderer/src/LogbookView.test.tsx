@@ -15,6 +15,7 @@ import type {
   TrackPoint,
   WingLogApi
 } from '@shared/ipc'
+import i18n from './i18n'
 import { LandingCard, LandingsTable, landingLabels, LogbookView } from './LogbookView'
 
 vi.mock('sonner', () => ({
@@ -1369,5 +1370,30 @@ describe('FlightDetail', () => {
 
     rerender(<LogbookView weightUnit="kg" landingDistanceUnit="ft" resetSignal={2} />)
     expect(await screen.findByText('TA100')).toBeInTheDocument()
+  })
+})
+
+describe('LogbookView translations', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('en')
+  })
+
+  it('renders the list and flight-detail views in the active i18next language, not hardcoded English strings', async () => {
+    await i18n.changeLanguage('de')
+    setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight({ id: 1 })]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()])
+    })
+    const user = userEvent.setup()
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+
+    expect(await screen.findByText('Logbuch', { selector: 'h1' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Flüge' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Landungen' })).toBeInTheDocument()
+
+    await user.click(screen.getByText('TA100'))
+    expect(await screen.findByRole('button', { name: /Zurück zum Logbuch/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Flug löschen/ })).toBeInTheDocument()
+    expect(screen.getByText('Datum')).toBeInTheDocument()
   })
 })
