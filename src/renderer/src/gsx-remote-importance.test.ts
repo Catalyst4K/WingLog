@@ -4,6 +4,7 @@ import { gsxMenuSignature, isImportantGsxMenu } from './gsx-remote-importance'
 
 function menu(overrides: Partial<GsxRemoteMenuState> = {}): GsxRemoteMenuState {
   return {
+    menuShown: true,
     title: '',
     header: '',
     subtitle: '',
@@ -65,6 +66,18 @@ describe('isImportantGsxMenu', () => {
   it('does not flag the boarding-related tug-attach follow-up by a near-miss title', () => {
     expect(
       isImportantGsxMenu(menu({ title: 'Attach pushback tug?', entries: ['Yes', 'No'] }))
+    ).toBe(false)
+  })
+
+  it('does not flag a matching title while the menu is closed (stale entries)', () => {
+    expect(
+      isImportantGsxMenu(
+        menu({
+          menuShown: false,
+          title: 'Select refueling level',
+          entries: [' 35% - 14700 USGAL / 44674 kg']
+        })
+      )
     ).toBe(false)
   })
 })

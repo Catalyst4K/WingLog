@@ -72,7 +72,11 @@ const SERVICES: GsxRemoteServiceStatus[] = [
   }
 ]
 
-const MENU: GsxRemoteMenuState = {
+// The real wire shape: `menuShown` is GSX's own SEPARATE top-level key, a sibling of
+// `menu`, not nested inside it (docs/gsx-notes.md, 2026-09-21) — RAW_MENU is what a real
+// `/menu` snapshot/patch value looks like; MENU is the combined shape GsxRemoteService
+// exposes to callers via getMenu(), used in assertions below.
+const RAW_MENU = {
   title: 'Ground Services',
   header: '',
   subtitle: '',
@@ -81,6 +85,7 @@ const MENU: GsxRemoteMenuState = {
   disabled: [false, false],
   layout: 't9'
 }
+const MENU: GsxRemoteMenuState = { ...RAW_MENU, menuShown: true }
 
 const PROMPT: GsxRemotePromptState = {
   kind: 'text',
@@ -118,7 +123,15 @@ describe('GsxRemoteService', () => {
     service.start()
     instances[0].simulateOpen()
 
-    instances[0].simulateMessage({ v: 1, type: 'snapshot', ts: 1, services: SERVICES, menu: MENU, prompt: null })
+    instances[0].simulateMessage({
+      v: 1,
+      type: 'snapshot',
+      ts: 1,
+      services: SERVICES,
+      menu: RAW_MENU,
+      menuShown: true,
+      prompt: null
+    })
 
     expect(service.getServices()).toEqual(SERVICES)
     expect(service.getMenu()).toEqual(MENU)
@@ -131,7 +144,15 @@ describe('GsxRemoteService', () => {
     const service = new GsxRemoteService('localhost', 8744, ctor)
     service.start()
     instances[0].simulateOpen()
-    instances[0].simulateMessage({ v: 1, type: 'snapshot', ts: 1, services: [], menu: MENU, prompt: null })
+    instances[0].simulateMessage({
+      v: 1,
+      type: 'snapshot',
+      ts: 1,
+      services: [],
+      menu: RAW_MENU,
+      menuShown: true,
+      prompt: null
+    })
 
     instances[0].simulateMessage({ v: 1, type: 'patch', ts: 2, path: '/services', value: SERVICES })
 
@@ -145,7 +166,15 @@ describe('GsxRemoteService', () => {
     const service = new GsxRemoteService('localhost', 8744, ctor)
     service.start()
     instances[0].simulateOpen()
-    instances[0].simulateMessage({ v: 1, type: 'snapshot', ts: 1, services: [], menu: MENU, prompt: PROMPT })
+    instances[0].simulateMessage({
+      v: 1,
+      type: 'snapshot',
+      ts: 1,
+      services: [],
+      menu: RAW_MENU,
+      menuShown: true,
+      prompt: PROMPT
+    })
 
     instances[0].simulateMessage({ v: 1, type: 'patch', ts: 2, path: '/prompt', value: null })
 
@@ -162,7 +191,15 @@ describe('GsxRemoteService', () => {
     service.on('menu', menuListener)
     service.start()
     instances[0].simulateOpen()
-    instances[0].simulateMessage({ v: 1, type: 'snapshot', ts: 1, services: [], menu: MENU, prompt: null })
+    instances[0].simulateMessage({
+      v: 1,
+      type: 'snapshot',
+      ts: 1,
+      services: [],
+      menu: RAW_MENU,
+      menuShown: true,
+      prompt: null
+    })
     servicesListener.mockClear()
     menuListener.mockClear()
 
@@ -178,7 +215,16 @@ describe('GsxRemoteService', () => {
     const service = new GsxRemoteService('localhost', 8744, ctor)
 
     expect(service.getServices()).toEqual([])
-    expect(service.getMenu()).toEqual({ title: '', header: '', subtitle: '', entries: [], icons: [], disabled: [], layout: '' })
+    expect(service.getMenu()).toEqual({
+      menuShown: false,
+      title: '',
+      header: '',
+      subtitle: '',
+      entries: [],
+      icons: [],
+      disabled: [],
+      layout: ''
+    })
     expect(service.getPrompt()).toBeNull()
   })
 
@@ -259,13 +305,72 @@ describe('GsxRemoteService', () => {
     const service = new GsxRemoteService('localhost', 8744, ctor)
     service.start()
     instances[0].simulateOpen()
-    instances[0].simulateMessage({ v: 1, type: 'snapshot', ts: 1, services: SERVICES, menu: MENU, prompt: null })
+    instances[0].simulateMessage({
+      v: 1,
+      type: 'snapshot',
+      ts: 1,
+      services: SERVICES,
+      menu: RAW_MENU,
+      menuShown: true,
+      prompt: null
+    })
 
     service.reconfigure('192.168.1.50', 8091)
 
     expect(instances[0].closed).toBe(true)
     expect(instances[1].url).toBe('ws://192.168.1.50:8091/')
     expect(service.getServices()).toEqual([]) // stale state from the old connection is gone
+    service.stop()
+  })
+
+  it('a menuShown-only patch also emits a menu event (entries can be stale while closed)', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new GsxRemoteService('localhost', 8744, ctor)
+    const menuListener = vi.fn()
+    service.on('menu', menuListener)
+    service.start()
+    instances[0].simulateOpen()
+    instances[0].simulateMessage({
+      v: 1,
+      type: 'snapshot',
+      ts: 1,
+      services: [],
+      menu: RAW_MENU,
+      menuShown: true,
+      prompt: null
+    })
+    menuListener.mockClear()
+
+    instances[0].simulateMessage({ v: 1, type: 'patch', ts: 2, path: '/menuShown', value: false })
+
+    expect(menuListener).toHaveBeenCalledWith(expect.objectContaining({ menuShown: false }))
+    expect(service.getMenu().menuShown).toBe(false)
+    service.stop()
+  })
+
+  it('toggleMenu() sends menu.toggle when closed, menu.close when open', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new GsxRemoteService('localhost', 8744, ctor)
+    service.start()
+    instances[0].simulateOpen()
+    instances[0].sent = []
+
+    service.toggleMenu()
+    expect(instances[0].sent).toEqual([{ type: 'command', verb: 'menu.toggle' }])
+
+    instances[0].simulateMessage({
+      v: 1,
+      type: 'snapshot',
+      ts: 1,
+      services: [],
+      menu: RAW_MENU,
+      menuShown: true,
+      prompt: null
+    })
+    instances[0].sent = []
+
+    service.toggleMenu()
+    expect(instances[0].sent).toEqual([{ type: 'command', verb: 'menu.close' }])
     service.stop()
   })
 })

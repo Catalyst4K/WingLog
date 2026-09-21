@@ -693,8 +693,17 @@ export interface GsxRemoteServiceStatus {
  * menu.js, "reads NO services array, recognizes NO ids/names") — every interactive step,
  * including provider choice when GSX asks, is just another snapshot of this shape. WingLog's
  * UI must render it the same way: whatever's in `entries` right now, picked by index.
+ *
+ * `menuShown` is a *separate* flag from having entries — confirmed live, 2026-09-21
+ * (flightdeck-backend's docs/gsx-notes.md): the menu tree only actually opens once
+ * something sends `menu.toggle` (GSX's own client does this from a permanent, always-
+ * visible header the user taps — entirely independent of the in-sim panel; that's how a
+ * real GSX remote works without the in-sim menu ever opening). `entries` can be non-empty
+ * while `menuShown` is false; GSX's own client gates rendering on
+ * `menuShown && menu.entries.length`, and WingLog's UI must too.
  */
 export interface GsxRemoteMenuState {
+  menuShown: boolean
   title: string
   header: string
   subtitle: string
@@ -1108,6 +1117,7 @@ export const IpcChannels = {
   gsxRemoteMenu: 'gsx-remote:menu',
   gsxRemotePrompt: 'gsx-remote:prompt',
   gsxRemotePickMenu: 'gsx-remote:pick-menu',
+  gsxRemoteToggleMenu: 'gsx-remote:toggle-menu',
   gsxRemoteSubmitPrompt: 'gsx-remote:submit-prompt',
   gsxRemoteCancelPrompt: 'gsx-remote:cancel-prompt'
 } as const
@@ -1449,6 +1459,12 @@ export interface WingLogApi {
   /** Picks the menu entry at this index — the *only* interaction GSX's own menu model
    *  exposes (docs/gsx-notes.md). No-op if not connected. */
   gsxRemotePickMenu: (index: number) => Promise<void>
+  /** Opens the menu tree if it's currently closed, or closes it if open — same single
+   *  toggle GSX's own client's permanent header sends (`menu.toggle`/`menu.close`). This
+   *  is how a real GSX remote opens the menu without the in-sim panel ever opening; WingLog
+   *  needs to call it explicitly, the same way, rather than passively waiting for someone
+   *  else to have already opened it (docs/gsx-notes.md). */
+  gsxRemoteToggleMenu: () => Promise<void>
   gsxRemoteSubmitPrompt: (gen: number, text: string) => Promise<void>
   gsxRemoteCancelPrompt: (gen: number) => Promise<void>
 }

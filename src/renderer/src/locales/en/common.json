@@ -654,7 +654,8 @@
     "notConfigured": "GSX Remote Control is off. Enable it and set a port in Settings → 3rd party.",
     "connecting": "Connecting to GSX…",
     "disconnected": "Not connected to GSX.",
-    "menuEmpty": "No menu open — the ground-services menu will appear here once GSX shows one.",
+    "menuHeaderClosed": "GSX Menu",
+    "tapToOpen": "Tap to open",
     "services": "Services",
     "ok": "OK",
     "cancel": "Cancel"

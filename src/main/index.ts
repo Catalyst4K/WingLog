@@ -798,6 +798,7 @@ if (!gotSingleInstanceLock) {
       })
       ipcMain.handle(IpcChannels.gsxRemoteGetStatus, () => gsxRemoteService?.getStatus() ?? { state: 'disconnected', lastError: null })
       ipcMain.handle(IpcChannels.gsxRemotePickMenu, (_event, index: number) => gsxRemoteService?.pickMenu(index))
+      ipcMain.handle(IpcChannels.gsxRemoteToggleMenu, () => gsxRemoteService?.toggleMenu())
       ipcMain.handle(IpcChannels.gsxRemoteSubmitPrompt, (_event, gen: number, text: string) =>
         gsxRemoteService?.submitPrompt(gen, text)
       )
