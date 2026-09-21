@@ -44,7 +44,7 @@ function toCategories(breakdown: LandingScoreBreakdown): LandingScoreCategory[] 
       score: breakdown.inputs[key],
       ideal: detail?.ideal ?? null,
       tolerance: detail?.tolerance ?? null,
-      dangerous: breakdown.dangerousCategories.includes(key)
+      dangerousPenalty: breakdown.dangerPenalties[key] ?? 0
     }
   })
 }
@@ -98,8 +98,7 @@ export function resolveLandingScore(
   return {
     score: Math.max(0, breakdown.overall),
     severity,
-    categories: toCategories(breakdown),
-    dangerousCategories: breakdown.dangerousCategories
+    categories: toCategories(breakdown)
   }
 }
 

@@ -105,11 +105,12 @@ export interface LandingScoreInputs {
   crabDeg: number | null
   /** Signed deviation from the runway's real aiming point (0 = touchdown exactly on it). */
   distanceFromAimingPointM: number | null
-  /** This runway's own real paved length — touchdownZoneScore's real per-runway band count
-   *  (touchdownZonePairCountForLengthM) comes from this, same source and reasoning as
-   *  src/renderer/src/touchdown-diagram.ts's identical touchdown-zone marking geometry. Null
-   *  exactly when distanceFromAimingPointM is (no runway match, or a match with no real
-   *  length data — resolveLandingScore folds both cases into the same null). */
+  /** This runway's own real paved length — distanceFromAimingPoint's real per-runway
+   *  tolerance width (touchdownZonePairCountForLengthM pairs of TOUCHDOWN_ZONE_PAIR_SPACING_M)
+   *  comes from this, same source and reasoning as src/renderer/src/touchdown-diagram.ts's
+   *  identical touchdown-zone marking geometry. Null exactly when distanceFromAimingPointM is
+   *  (no runway match, or a match with no real length data — resolveLandingScore folds both
+   *  cases into the same null). */
   runwayLengthM: number | null
   /** Signed lateral offset from the runway centreline (0 = dead centre). */
   centrelineOffsetM: number | null
@@ -142,19 +143,20 @@ export interface LandingScoreBreakdown {
    *  negative value is real information (how far past dangerous this landing was), not
    *  a bug to hide here. */
   overall: number
-  /** Every category whose deviation reached or exceeded its own tolerance this landing —
-   *  i.e. where taperedScore/touchdownZoneScore would have gone negative before clamping to
-   *  0, not just "scored badly". Each one applies its own flat DANGEROUS_EXCEEDANCE_DEDUCTION
-   *  on `overall`, stacking when more than one category is this bad at once. Originally
-   *  vertical-speed-only (Callum's real example was an H category touchdown past 600fpm,
-   *  landing-scoring-v2.md, 2026-09-20) but generalised to every category 2026-09-21 after a
+  /** Every category whose deviation reached or exceeded its own tolerance this landing,
+   *  mapped to its own scaled danger penalty (see dangerPenaltyForFraction's own doc
+   *  comment) — i.e. where taperedScore would have gone negative before clamping to 0, not
+   *  just "scored badly". Each entry's penalty is subtracted from `overall`, stacking when
+   *  more than one category is this bad at once. Originally vertical-speed-only, a flat 20
+   *  points (Callum's real example was an H category touchdown past 600fpm,
+   *  landing-scoring-v2.md, 2026-09-20); generalised to every category 2026-09-21 after a
    *  real free-flight landing (VHHH, SF50) bottomed out both crab (-7.19°, tolerance 6.5°)
    *  and distance-from-aiming-point (~965m past the last real touchdown-zone pair)
-   *  simultaneously with no visible penalty for either — Callum's point being a category
-   *  pegged at its absolute floor is a real safety-relevant miss (side-loading the gear on
-   *  a big residual crab; running long into the runway), not just "worse than most". Empty
-   *  when nothing exceeded. */
-  dangerousCategories: LandingScoreCategoryKey[]
+   *  simultaneously with no visible penalty for either; then rescaled the same day from that
+   *  flat 20 to a 1-10 range by how far past tolerance the deviation actually is (Callum:
+   *  "not a fan of the flat -20 penalty... a landing that just grazes the danger line
+   *  shouldn't cost the same as one that blew way past it"). Empty when nothing exceeded. */
+  dangerPenalties: Partial<Record<LandingScoreCategoryKey, number>>
   inputs: {
     verticalSpeed: number
     gForce: number
@@ -213,8 +215,11 @@ const CRAB_TOLERANCE_DEG = 6.5
 // ≥2400m→6 pairs (no "5 pairs" band). Spaced every 150m, the first pair centred 150m from
 // the (usable, displacement-adjusted) threshold — src/renderer/src/touchdown-diagram.ts's
 // TouchdownDiagram draws these same real positions; this is the one shared home for both so
-// the score and the diagram can never quietly drift apart (moved here from that file,
-// 2026-09-13, when the score started needing the same real geometry).
+// the diagram's own real marking geometry and the score's distanceFromAimingPoint tolerance
+// (pairCount * this spacing, computeLandingScore below) can never quietly drift apart (moved
+// here from that file, 2026-09-13, when the score started needing the same real geometry).
+// The score itself stopped using these as discrete steps 2026-09-21 (see taperedScore's own
+// history) — they now only set how wide the tolerance is, same as every other category.
 export const TOUCHDOWN_ZONE_PAIR_SPACING_M = 150
 
 export function touchdownZonePairCountForLengthM(lengthM: number): number {
@@ -223,29 +228,6 @@ export function touchdownZonePairCountForLengthM(lengthM: number): number {
   if (lengthM < 1500) return 3
   if (lengthM < 2400) return 4
   return 6
-}
-
-// Touchdown-zone (piano-key) scoring for how far along the runway the touchdown landed from
-// the aiming point — a stepped scale rather than a smooth taper, matching how touchdown-zone
-// markings actually read in real life (which pair of stripes did you land within, not a
-// continuous distance), applied symmetrically either side of the aiming point per Callum's
-// own spec, 2026-09-13: dead on the aiming point is perfect; the next real marking interval
-// is 2 points down (out of 10); the one after that is 4 points down; past the last real
-// marking pair for this runway's own length is a genuine miss, straight to 0 — not a further
-// gentle taper, since going past the last real piano key means you're off the graded target
-// area altogether, not just "a bit further from ideal." Band count comes from the runway's
-// own real length (touchdownZonePairCountForLengthM above) rather than a fixed number, so a
-// long runway's genuinely wider marked touchdown zone (up to 900m/6 pairs) gets a more
-// forgiving graduated scale than a short one (as little as 150m/1 pair) — matching how much
-// real margin for error each actually has, the same reasoning LANDING_RATE_BANDS above
-// already applies to L's tighter fpm tolerance. -20 points (out of 100) per pair means a
-// 6-pair runway's staircase (100/80/60/40/20/0) reaches exactly 0 at its own last real pair,
-// with no separate cliff needed; shorter runways cliff straight to 0 right after whichever
-// pair is their last.
-function touchdownZoneScore(offsetM: number, pairCount: number): CategoryScore {
-  const bandIndex = Math.floor(Math.abs(offsetM) / TOUCHDOWN_ZONE_PAIR_SPACING_M)
-  const exceeded = bandIndex >= pairCount
-  return { score: exceeded ? 0 : Math.max(0, 100 - 20 * bandIndex), exceeded }
 }
 
 // Weights sum to 100 when every input is available (see computeLandingScore's
@@ -288,29 +270,40 @@ interface CategoryScore {
   score: number
   /** True when `deviation` reached or passed `tolerance` — i.e. the raw curve would have
    *  gone negative before clamping to 0, not just landed on a low-but-still-nonzero score.
-   *  Feeds `dangerousCategories` below (2026-09-21). */
+   *  Feeds `dangerPenalties` below (2026-09-21). */
   exceeded: boolean
+  /** 0 when not `exceeded`; otherwise this category's own scaled penalty — see
+   *  dangerPenaltyForFraction's own doc comment. */
+  dangerPenalty: number
+}
+
+// A deviation that's only just crossed into "dangerous" (fraction just past 1 — barely at
+// the category's own hard limit) shouldn't cost the same as one that blew well past it.
+// Scaled linearly from DANGER_PENALTY_MIN at fraction 1.0 to DANGER_PENALTY_MAX at fraction
+// DANGER_PENALTY_MAX_FRACTION (150% of the dangerous value) and beyond — Callum's own
+// calibration, 2026-09-21, replacing a flat 20-point hit regardless of how far over the line
+// a landing actually was.
+const DANGER_PENALTY_MIN = 1
+const DANGER_PENALTY_MAX = 10
+const DANGER_PENALTY_MAX_FRACTION = 1.5
+
+function dangerPenaltyForFraction(fraction: number): number {
+  if (fraction < 1) return 0
+  const severity = Math.min(1, (fraction - 1) / (DANGER_PENALTY_MAX_FRACTION - 1))
+  return Math.round(DANGER_PENALTY_MIN + severity * (DANGER_PENALTY_MAX - DANGER_PENALTY_MIN))
 }
 
 function taperedScore(deviation: number, tolerance: number): CategoryScore {
   const magnitude = Math.abs(deviation)
-  if (tolerance <= 0) return { score: magnitude === 0 ? 100 : 0, exceeded: magnitude !== 0 }
+  if (tolerance <= 0) {
+    const exceeded = magnitude !== 0
+    return { score: exceeded ? 0 : 100, exceeded, dangerPenalty: exceeded ? DANGER_PENALTY_MAX : 0 }
+  }
   const fraction = magnitude / tolerance
   const score = Math.max(0, Math.min(100, Math.round(100 * (1 - fraction ** TAPER_EXPONENT))))
-  return { score, exceeded: fraction >= 1 }
+  const exceeded = fraction >= 1
+  return { score, exceeded, dangerPenalty: exceeded ? dangerPenaltyForFraction(fraction) : 0 }
 }
-
-// Judgement call, same honesty register as the rest of this file's constants — no real
-// hard-landing data yet to calibrate the exact size against (docs/simconnect-notes.md,
-// 2026-09-20's spike only captured normal landings). Applied flat, once per exceeding
-// category, on top of the normal weighted average — not folded into that category's own
-// already-zeroed score, so a dangerous touchdown reads as worse than "just one category
-// bottomed out," which a hard landing with otherwise-good pitch/bank/centreline could
-// otherwise mask. Stacks when more than one category exceeds at once (2026-09-21) — a
-// landing that's both dangerously long AND dangerously crabbed is genuinely worse than
-// either alone, not capped at a single flat deduction regardless of how many ways it went
-// wrong.
-const DANGEROUS_EXCEEDANCE_DEDUCTION = 20
 
 /**
  * The 0-100 landing score (0-100 for display; see LandingScoreBreakdown's own doc comment
@@ -340,10 +333,12 @@ export function computeLandingScore(inputs: LandingScoreInputs): LandingScoreBre
   const crab = inputs.crabDeg === null ? null : taperedScore(inputs.crabDeg - CRAB_IDEAL_DEG, CRAB_TOLERANCE_DEG)
   const touchdownZonePairCount =
     inputs.runwayLengthM === null ? null : touchdownZonePairCountForLengthM(inputs.runwayLengthM)
+  const distanceFromAimingPointTolerance =
+    touchdownZonePairCount === null ? null : touchdownZonePairCount * TOUCHDOWN_ZONE_PAIR_SPACING_M
   const distanceFromAimingPoint =
-    inputs.distanceFromAimingPointM === null || touchdownZonePairCount === null
+    inputs.distanceFromAimingPointM === null || distanceFromAimingPointTolerance === null
       ? null
-      : touchdownZoneScore(inputs.distanceFromAimingPointM, touchdownZonePairCount)
+      : taperedScore(inputs.distanceFromAimingPointM, distanceFromAimingPointTolerance)
   const centrelineOffset =
     inputs.centrelineOffsetM === null || inputs.centrelineToleranceM === null
       ? null
@@ -361,19 +356,23 @@ export function computeLandingScore(inputs: LandingScoreInputs): LandingScoreBre
 
   let weightedSum = 0
   let availableWeight = 0
-  const dangerousCategories: LandingScoreCategoryKey[] = []
+  let totalDangerPenalty = 0
+  const dangerPenalties: Partial<Record<LandingScoreCategoryKey, number>> = {}
   for (const { key, weight, result } of scored) {
     if (result === null) continue
     weightedSum += weight * result.score
     availableWeight += weight
-    if (result.exceeded) dangerousCategories.push(key)
+    if (result.exceeded) {
+      dangerPenalties[key] = result.dangerPenalty
+      totalDangerPenalty += result.dangerPenalty
+    }
   }
   const weightedOverall = availableWeight === 0 ? 0 : Math.round(weightedSum / availableWeight)
-  const overall = weightedOverall - dangerousCategories.length * DANGEROUS_EXCEEDANCE_DEDUCTION
+  const overall = weightedOverall - totalDangerPenalty
 
   return {
     overall,
-    dangerousCategories,
+    dangerPenalties,
     inputs: {
       verticalSpeed: verticalSpeed.score,
       gForce: gForce.score,
@@ -390,9 +389,7 @@ export function computeLandingScore(inputs: LandingScoreInputs): LandingScoreBre
       bank: { ideal: BANK_IDEAL_DEG, tolerance: BANK_TOLERANCE_DEG },
       crab: inputs.crabDeg === null ? null : { ideal: CRAB_IDEAL_DEG, tolerance: CRAB_TOLERANCE_DEG },
       distanceFromAimingPoint:
-        touchdownZonePairCount === null
-          ? null
-          : { ideal: 0, tolerance: touchdownZonePairCount * TOUCHDOWN_ZONE_PAIR_SPACING_M },
+        distanceFromAimingPointTolerance === null ? null : { ideal: 0, tolerance: distanceFromAimingPointTolerance },
       centrelineOffset:
         inputs.centrelineToleranceM === null ? null : { ideal: 0, tolerance: inputs.centrelineToleranceM }
     }

@@ -79,13 +79,11 @@ describe('describeCategoryTolerance', () => {
     )
   })
 
-  it('describes distance-from-aiming-point as three stepped bands, not a single reaches-0 number', () => {
-    // tolerance 900 -> a long (6-pair) runway's real touchdown zone; thirds land on clean
-    // round numbers (300/600/900) for a readable assertion.
+  it('describes distance-from-aiming-point as a single reaches-0 number, tapered like every other category', () => {
+    // tolerance 900 -> a long (6-pair) runway's real touchdown zone.
     expect(describeCategoryTolerance('distanceFromAimingPoint', 0, 900, 'm')).toBe(
-      'Ideal: touchdown on the aiming point, either direction. Within 300 m: perfect. ' +
-        'Out to 600 m: 2 points off (of 10). Out to 900 m: 4 points off. ' +
-        'Beyond that: 0 — off the graded touchdown zone entirely.'
+      "Ideal: touchdown on the aiming point, either direction. Score reaches 0 at 900 m — " +
+        "this runway's own real touchdown-zone marking extent."
     )
   })
 

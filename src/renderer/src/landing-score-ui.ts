@@ -35,11 +35,12 @@ export function formatCategoryScore(score: number | null): string {
 /**
  * "What would a perfect value look like on this flight" — real per-flight numbers where
  * that's meaningful, not a generic description: centrelineOffset's tolerance comes from this
- * specific runway's own real width (Callum's request, 2026-09-12). distanceFromAimingPoint's
- * `ideal`/`tolerance` are gated on having a real runway match (same null-handling as the
- * rest) but the scale itself is a fixed stepped one, not runway data (2026-09-13 — see
- * touchdownZoneScore's own doc comment in @shared/landing-score). `ideal`/`tolerance` are
- * null exactly when the category itself has no runway match to compute them from.
+ * specific runway's own real width (Callum's request, 2026-09-12), and
+ * distanceFromAimingPoint's from this runway's own real touchdown-zone marking extent
+ * (touchdownZonePairCountForLengthM pairs of TOUCHDOWN_ZONE_PAIR_SPACING_M — 2026-09-13).
+ * Both are gated on having a real runway match (same null-handling as the rest); `ideal`/
+ * `tolerance` are null exactly when the category itself has no runway match to compute them
+ * from.
  */
 export function describeCategoryTolerance(
   key: LandingScoreCategoryKey,
@@ -71,16 +72,12 @@ export function describeCategoryTolerance(
       return `Ideal: ${ideal}° (wings level). Score reaches 0 at ±${tolerance}°.`
     case 'crab':
       return `Ideal: ${ideal}° (crab removed by touchdown). Score reaches 0 at ±${tolerance}°.`
-    case 'distanceFromAimingPoint': {
-      // Stepped, not a smooth taper (landing-score.ts's touchdownZoneScore, 2026-09-13) —
-      // matches how touchdown-zone markings actually read in real life: which pair of piano
-      // keys you landed within, not a continuous distance. `tolerance` is always 3 equal
-      // bands (Callum's own spec), so the two intermediate boundaries are exact thirds of it.
-      const firstBoundary = formatRunwayDistance(tolerance / 3, unit)
-      const secondBoundary = formatRunwayDistance((tolerance * 2) / 3, unit)
-      const outerBoundary = formatRunwayDistance(tolerance, unit)
-      return `Ideal: touchdown on the aiming point, either direction. Within ${firstBoundary}: perfect. Out to ${secondBoundary}: 2 points off (of 10). Out to ${outerBoundary}: 4 points off. Beyond that: 0 — off the graded touchdown zone entirely.`
-    }
+    case 'distanceFromAimingPoint':
+      // Was a stepped scale (piano-key bands) until 2026-09-21, when Callum pointed out it
+      // made some scores impossible to land on and asked for the same tapered logic as every
+      // other category — a little long or short now costs less than a lot long or short,
+      // same shape as bank/crab below.
+      return `Ideal: touchdown on the aiming point, either direction. Score reaches 0 at ${formatRunwayDistance(tolerance, unit)} — this runway's own real touchdown-zone marking extent.`
     case 'centrelineOffset':
       return `Ideal: on the centreline. Score reaches 0 at ${formatRunwayDistance(tolerance, unit)} off it — half this runway's real width.`
   }
