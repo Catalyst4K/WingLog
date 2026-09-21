@@ -8,11 +8,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils'
 import { describeCategoryTolerance, formatCategoryScore, isCategoryBad } from './landing-score-ui'
 
-// Applied once per category in `dangerousCategories` (shared/landing-score.ts's
-// DANGEROUS_EXCEEDANCE_DEDUCTION) — duplicated here only for the banner's own wording, not
-// re-derived from `overall` (which the dialog never gets the pre-deduction value for).
-const DANGEROUS_EXCEEDANCE_DEDUCTION = 20
-
 /**
  * Logbook's landing-score breakdown popup (docs/decisions.md, 2026-09-12) — lets Callum
  * see exactly which of the score's 7 inputs pulled it down, not just the combined number.
@@ -32,7 +27,8 @@ export function LandingScoreBreakdownDialog(props: {
   trigger: React.ReactNode
 }): React.JSX.Element {
   const { t } = useTranslation()
-  const dangerousCategories = props.categories.filter((category) => category.dangerous)
+  const dangerousCategories = props.categories.filter((category) => category.dangerousPenalty > 0)
+  const totalDangerPenalty = dangerousCategories.reduce((sum, category) => sum + category.dangerousPenalty, 0)
   return (
     <Dialog>
       <DialogTrigger asChild>{props.trigger}</DialogTrigger>
@@ -45,7 +41,7 @@ export function LandingScoreBreakdownDialog(props: {
             <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
             {t('landingScoreBreakdown.dangerousBanner', {
               list: dangerousCategories.map((category) => category.label).join(', '),
-              penalty: dangerousCategories.length * DANGEROUS_EXCEEDANCE_DEDUCTION
+              penalty: totalDangerPenalty
             })}
           </p>
         )}
@@ -57,8 +53,10 @@ export function LandingScoreBreakdownDialog(props: {
                   <TriangleAlert className="size-3.5 text-destructive" aria-hidden="true" />
                 )}
                 {category.label}
-                {category.dangerous && (
-                  <Badge variant="destructive">{t('landingScoreBreakdown.dangerousBadge')}</Badge>
+                {category.dangerousPenalty > 0 && (
+                  <Badge variant="destructive">
+                    {t('landingScoreBreakdown.dangerousBadge', { penalty: category.dangerousPenalty })}
+                  </Badge>
                 )}
                 <Popover>
                   <PopoverTrigger asChild>

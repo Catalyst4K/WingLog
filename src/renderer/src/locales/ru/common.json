@@ -4,7 +4,7 @@
     "whatsIdealFor": "Что является идеалом для {{label}}?",
     "outOfTen": " / 10",
     "dangerousBanner": "Превышен безопасный предел: {{list}} — штраф в {{penalty}} очков уже включён выше.",
-    "dangerousBadge": "Опасно"
+    "dangerousBadge": "Опасно (-{{penalty}})"
   },
   "landingBadge": {
     "hard": "Жёсткая",
