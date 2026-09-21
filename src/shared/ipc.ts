@@ -652,6 +652,68 @@ export interface GsxSettings {
   displayCurrency: string
 }
 
+/**
+ * GSX Remote Control — a live control link to GSX Pro's own "Remote Client" WebSocket
+ * (flightdeck-backend's docs/plans/gsx-remote-control.md; real findings in docs/gsx-notes.md).
+ * Unrelated to GsxSettings above, which is the file-based receipts feature. Port is
+ * genuinely user-configurable in GSX's own settings — never assume a default is correct.
+ */
+export interface GsxRemoteSettings {
+  enabled: boolean
+  host: string
+  port: number | null
+}
+
+export type GsxRemoteConnectionState = 'disconnected' | 'connecting' | 'connected'
+
+export interface GsxRemoteConnectionStatus {
+  state: GsxRemoteConnectionState
+  /** Set only when state is 'disconnected' after a real connection attempt failed. */
+  lastError: string | null
+}
+
+/** One entry of GSX's own `state.services` — read-only status, not the control surface
+ *  (that's GsxRemoteMenuState below). Field names/shapes are GSX's own wire format
+ *  verbatim, confirmed live 2026-09-21 (docs/gsx-notes.md). */
+export interface GsxRemoteServiceStatus {
+  id: string
+  displayName: string
+  state: string
+  stateText: string
+  icon: string
+  canTrigger: boolean
+  canBypass: boolean
+  operator?: string
+  statusText: string
+  progressText: string
+}
+
+/**
+ * GSX's own live menu — the real control surface. Deliberately generic (GSX's own client,
+ * menu.js, "reads NO services array, recognizes NO ids/names") — every interactive step,
+ * including provider choice when GSX asks, is just another snapshot of this shape. WingLog's
+ * UI must render it the same way: whatever's in `entries` right now, picked by index.
+ */
+export interface GsxRemoteMenuState {
+  title: string
+  header: string
+  subtitle: string
+  entries: string[]
+  icons: string[]
+  disabled: boolean[]
+  layout: string
+}
+
+/** GSX's free-text modal (Save/Rename Location, etc.) — unrelated to menu/provider choice. */
+export interface GsxRemotePromptState {
+  kind: 'text'
+  gen: number
+  title: string
+  description: string
+  default: string
+  maxLength: number
+}
+
 /** Result of the one-time, first-ever-launch check for GSX's expected receipts folder
  *  (flight-test-findings-2026-09-06.md #4) — `found` means the folder existed and GSX was
  *  auto-enabled against it. Only ever returned once, on the launch the check actually
@@ -1029,7 +1091,17 @@ export const IpcChannels = {
   trackingGetOrphanedFlight: 'tracking:get-orphaned-flight',
   trackingResumeOrphaned: 'tracking:resume-orphaned',
   trackingDiscardOrphaned: 'tracking:discard-orphaned',
-  dispatchGetInProgressFlight: 'dispatch:get-in-progress-flight'
+  dispatchGetInProgressFlight: 'dispatch:get-in-progress-flight',
+  settingsGetGsxRemote: 'settings:get-gsx-remote',
+  settingsSetGsxRemote: 'settings:set-gsx-remote',
+  gsxRemoteGetStatus: 'gsx-remote:get-status',
+  gsxRemoteStatus: 'gsx-remote:status',
+  gsxRemoteServices: 'gsx-remote:services',
+  gsxRemoteMenu: 'gsx-remote:menu',
+  gsxRemotePrompt: 'gsx-remote:prompt',
+  gsxRemotePickMenu: 'gsx-remote:pick-menu',
+  gsxRemoteSubmitPrompt: 'gsx-remote:submit-prompt',
+  gsxRemoteCancelPrompt: 'gsx-remote:cancel-prompt'
 } as const
 
 export interface WingLogApi {
@@ -1355,4 +1427,20 @@ export interface WingLogApi {
   /** User chose to discard the orphaned flight above — deletes it (and its track points)
    *  rather than leaving it stuck in 'active' forever. */
   trackingDiscardOrphaned: (flightId: number) => Promise<void>
+  settingsGetGsxRemote: () => Promise<GsxRemoteSettings>
+  /** Changing host/port/enabled restarts the live connection (or stops it, if disabled). */
+  settingsSetGsxRemote: (settings: GsxRemoteSettings) => Promise<void>
+  /** Current status, for a renderer mounting after the initial connect already happened —
+   *  same reasoning as getSimConnectionStatus above. */
+  gsxRemoteGetStatus: () => Promise<GsxRemoteConnectionStatus>
+  onGsxRemoteStatus: (listener: (status: GsxRemoteConnectionStatus) => void) => () => void
+  onGsxRemoteServices: (listener: (services: GsxRemoteServiceStatus[]) => void) => () => void
+  onGsxRemoteMenu: (listener: (menu: GsxRemoteMenuState) => void) => () => void
+  /** Pushed with null when GSX clears the prompt (answered, cancelled, or a new connection). */
+  onGsxRemotePrompt: (listener: (prompt: GsxRemotePromptState | null) => void) => () => void
+  /** Picks the menu entry at this index — the *only* interaction GSX's own menu model
+   *  exposes (docs/gsx-notes.md). No-op if not connected. */
+  gsxRemotePickMenu: (index: number) => Promise<void>
+  gsxRemoteSubmitPrompt: (gen: number, text: string) => Promise<void>
+  gsxRemoteCancelPrompt: (gen: number) => Promise<void>
 }

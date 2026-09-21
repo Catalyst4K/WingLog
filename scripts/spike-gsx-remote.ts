@@ -72,6 +72,8 @@ async function probePort(port: number): Promise<void> {
   console.log(`  first 500 chars of body:\n${body.slice(0, 500)}`);
 }
 
+export {} // forces module scope, avoiding a global-scope name clash with the sibling spike script
+
 async function main() {
   const explicitPort = parsePortArg();
   const ports = explicitPort !== null ? [explicitPort] : DEFAULT_CANDIDATE_PORTS;
