@@ -205,9 +205,14 @@ const CRAB_IDEAL_DEG = 0
 // back up to 69 — silently undoing the exact real-incident fix above. 6.5 restored the same
 // intent under that curve (5° -> 41, clearly under 50). Left unchanged when the curve was
 // retuned again the same day from fraction^2 to fraction^1.5 (see taperedScore's own
-// history) — 6.5 still keeps 5° comfortably under the bad threshold at the new exponent
-// (5° -> 33; 2° -> 83, still gentle), so no further retuning was needed here.
-const CRAB_TOLERANCE_DEG = 6.5
+// history) — 6.5 still keeps 5° comfortably under the bad threshold at the new exponent.
+// Set to a flat 5, 2026-09-21: Callum's original intent (2026-09-12, above) was always that
+// 5° should be *the* limit, not just comfortably under some other bad-threshold number — the
+// 6.5 figure crept in only as a side effect of retuning the curve shape, not a deliberate
+// choice to loosen the actual degree limit. 5 now means exactly what it says: 5° of residual
+// crab at touchdown is the line, scoring exactly 0 and triggering the dangerous-exceedance
+// penalty at that point, not somewhere past it.
+const CRAB_TOLERANCE_DEG = 5
 
 // ICAO Annex 14 §5.2.6 touchdown-zone marking — pair count by landing distance available
 // (Manual of Aerodrome Standards table, same secondary source runway-lookup.ts's own
