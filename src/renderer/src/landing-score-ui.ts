@@ -71,7 +71,7 @@ export function describeCategoryTolerance(
     case 'bank':
       return `Ideal: ${ideal}° (wings level). Score reaches 0 at ±${tolerance}°.`
     case 'crab':
-      return `Ideal: ${ideal}° (crab removed by touchdown). Score reaches 0 at ±${tolerance}°.`
+      return `Ideal: ${ideal}°. Score reaches 0 at ±${tolerance}°.`
     case 'distanceFromAimingPoint':
       // Was a stepped scale (piano-key bands) until 2026-09-21, when Callum pointed out it
       // made some scores impossible to land on and asked for the same tapered logic as every

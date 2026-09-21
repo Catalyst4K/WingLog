@@ -75,7 +75,7 @@ describe('describeCategoryTolerance', () => {
   it('describes bank and crab as symmetric ± bands around 0', () => {
     expect(describeCategoryTolerance('bank', 0, 8, 'ft')).toBe('Ideal: 0° (wings level). Score reaches 0 at ±8°.')
     expect(describeCategoryTolerance('crab', 0, 9, 'ft')).toBe(
-      'Ideal: 0° (crab removed by touchdown). Score reaches 0 at ±9°.'
+      'Ideal: 0°. Score reaches 0 at ±9°.'
     )
   })
 
