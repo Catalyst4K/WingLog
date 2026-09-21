@@ -387,7 +387,7 @@ export interface LandingScoreCategory {
   ideal: number | null
   tolerance: number | null
   /** 0 when this category's own deviation stayed within tolerance; otherwise its own scaled
-   *  danger penalty (1-10, further over tolerance scores higher, capped at 10 from 150% of
+   *  danger penalty (1-10, further over tolerance scores higher, capped at 10 from 125% of
    *  the dangerous value onward — shared/landing-score.ts's dangerPenaltyForFraction) already
    *  subtracted from `LandingScoreResult.score`. Lets the breakdown popup mark this category
    *  more strongly than the plain <50 "bad" warning every other poor score already gets, and
