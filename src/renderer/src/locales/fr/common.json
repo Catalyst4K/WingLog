@@ -643,5 +643,15 @@
     },
     "noCompletedFlights": "Aucun vol terminé pour l'instant — suivez-en un, ou importez un CSV de carnet depuis Paramètres → Données.",
     "flightNotFound": "Vol introuvable."
+  },
+  "gsxRemotePanel": {
+    "loading": "Chargement…",
+    "notConfigured": "GSX Remote Control est désactivé. Activez-le et définissez un port dans Paramètres → Tiers.",
+    "connecting": "Connexion à GSX…",
+    "disconnected": "Non connecté à GSX.",
+    "menuEmpty": "Aucun menu ouvert — le menu des services au sol apparaîtra ici dès que GSX en affichera un.",
+    "services": "Services",
+    "ok": "OK",
+    "cancel": "Annuler"
   }
 }
