@@ -349,7 +349,6 @@ export function LandingCard(props: {
             <LandingScoreBreakdownDialog
               overall={scoreResult.score}
               categories={scoreResult.categories}
-              dangerousExceedance={scoreResult.dangerousExceedance}
               unit={unit}
               trigger={
                 <Button type="button" variant="outline" size="sm">

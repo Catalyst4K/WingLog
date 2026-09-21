@@ -2,7 +2,9 @@
   "landingScoreBreakdown": {
     "title": "Разбор оценки посадки — {{score}}/100",
     "whatsIdealFor": "Что является идеалом для {{label}}?",
-    "outOfTen": " / 10"
+    "outOfTen": " / 10",
+    "dangerousBanner": "Превышен безопасный предел: {{list}} — штраф в {{penalty}} очков уже включён выше.",
+    "dangerousBadge": "Опасно"
   },
   "landingBadge": {
     "hard": "Жёсткая",

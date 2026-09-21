@@ -7,7 +7,7 @@
 // resolves the runway/wake-category lookups this needs real vendored data for — see
 // src/main/db/landing-score-resolver.ts) and the renderer (for tests/rendering only, never
 // for its own I/O — the renderer still never touches the filesystem, per CLAUDE.md).
-import type { LandingSeverity } from './ipc'
+import type { LandingScoreCategoryKey, LandingSeverity } from './ipc'
 
 export type WakeCategory = 'L' | 'M' | 'H' | 'J'
 
@@ -135,18 +135,26 @@ export interface LandingScoreCategoryDetail {
 }
 
 export interface LandingScoreBreakdown {
-  /** The real computed score — can go negative once the dangerous-exceedance deduction
-   *  applies (docs/decisions.md, 2026-09-20: "the overall score floors at 0 for display
+  /** The real computed score — can go negative once the dangerous-exceedance deduction(s)
+   *  apply (docs/decisions.md, 2026-09-20: "the overall score floors at 0 for display
    *  even though the math can go negative internally"). Flooring for display is the
    *  caller's job (src/main/db/landing-score-resolver.ts), not this function's — a
    *  negative value is real information (how far past dangerous this landing was), not
    *  a bug to hide here. */
   overall: number
-  /** True when the touchdown vertical speed reached this category's own hard-landing
-   *  threshold (`deriveLandingThresholds`'s `hardFpm`) — Callum's real example was an H
-   *  category touchdown past 600fpm, which is exactly that category's own hardFpm, not a
-   *  flat number across categories. Triggers DANGEROUS_EXCEEDANCE_DEDUCTION on `overall`. */
-  dangerousExceedance: boolean
+  /** Every category whose deviation reached or exceeded its own tolerance this landing —
+   *  i.e. where taperedScore/touchdownZoneScore would have gone negative before clamping to
+   *  0, not just "scored badly". Each one applies its own flat DANGEROUS_EXCEEDANCE_DEDUCTION
+   *  on `overall`, stacking when more than one category is this bad at once. Originally
+   *  vertical-speed-only (Callum's real example was an H category touchdown past 600fpm,
+   *  landing-scoring-v2.md, 2026-09-20) but generalised to every category 2026-09-21 after a
+   *  real free-flight landing (VHHH, SF50) bottomed out both crab (-7.19°, tolerance 6.5°)
+   *  and distance-from-aiming-point (~965m past the last real touchdown-zone pair)
+   *  simultaneously with no visible penalty for either — Callum's point being a category
+   *  pegged at its absolute floor is a real safety-relevant miss (side-loading the gear on
+   *  a big residual crab; running long into the runway), not just "worse than most". Empty
+   *  when nothing exceeded. */
+  dangerousCategories: LandingScoreCategoryKey[]
   inputs: {
     verticalSpeed: number
     gForce: number
@@ -234,9 +242,10 @@ export function touchdownZonePairCountForLengthM(lengthM: number): number {
 // 6-pair runway's staircase (100/80/60/40/20/0) reaches exactly 0 at its own last real pair,
 // with no separate cliff needed; shorter runways cliff straight to 0 right after whichever
 // pair is their last.
-function touchdownZoneScore(offsetM: number, pairCount: number): number {
+function touchdownZoneScore(offsetM: number, pairCount: number): CategoryScore {
   const bandIndex = Math.floor(Math.abs(offsetM) / TOUCHDOWN_ZONE_PAIR_SPACING_M)
-  return bandIndex < pairCount ? Math.max(0, 100 - 20 * bandIndex) : 0
+  const exceeded = bandIndex >= pairCount
+  return { score: exceeded ? 0 : Math.max(0, 100 - 20 * bandIndex), exceeded }
 }
 
 // Weights sum to 100 when every input is available (see computeLandingScore's
@@ -275,29 +284,41 @@ const WEIGHTS = {
  *  range — see this function's own history above for why 1.5 replaced a full square. */
 const TAPER_EXPONENT = 1.5
 
-function taperedScore(deviation: number, tolerance: number): number {
+interface CategoryScore {
+  score: number
+  /** True when `deviation` reached or passed `tolerance` — i.e. the raw curve would have
+   *  gone negative before clamping to 0, not just landed on a low-but-still-nonzero score.
+   *  Feeds `dangerousCategories` below (2026-09-21). */
+  exceeded: boolean
+}
+
+function taperedScore(deviation: number, tolerance: number): CategoryScore {
   const magnitude = Math.abs(deviation)
-  if (tolerance <= 0) return magnitude === 0 ? 100 : 0
+  if (tolerance <= 0) return { score: magnitude === 0 ? 100 : 0, exceeded: magnitude !== 0 }
   const fraction = magnitude / tolerance
-  return Math.max(0, Math.min(100, Math.round(100 * (1 - fraction ** TAPER_EXPONENT))))
+  const score = Math.max(0, Math.min(100, Math.round(100 * (1 - fraction ** TAPER_EXPONENT))))
+  return { score, exceeded: fraction >= 1 }
 }
 
 // Judgement call, same honesty register as the rest of this file's constants — no real
 // hard-landing data yet to calibrate the exact size against (docs/simconnect-notes.md,
-// 2026-09-20's spike only captured normal landings). Applied once, flat, on top of the
-// normal weighted average — not folded into verticalSpeed's own already-zeroed category
-// score, so a dangerous touchdown reads as worse than "just the vertical-speed category
+// 2026-09-20's spike only captured normal landings). Applied flat, once per exceeding
+// category, on top of the normal weighted average — not folded into that category's own
+// already-zeroed score, so a dangerous touchdown reads as worse than "just one category
 // bottomed out," which a hard landing with otherwise-good pitch/bank/centreline could
-// otherwise mask.
+// otherwise mask. Stacks when more than one category exceeds at once (2026-09-21) — a
+// landing that's both dangerously long AND dangerously crabbed is genuinely worse than
+// either alone, not capped at a single flat deduction regardless of how many ways it went
+// wrong.
 const DANGEROUS_EXCEEDANCE_DEDUCTION = 20
 
 /**
  * The 0-100 landing score (0-100 for display; see LandingScoreBreakdown's own doc comment
  * on `overall` for why the raw value here can be negative). Each of the 7 inputs is scored
  * and clamped to [0,100] independently before combining, so no single input can drag
- * `overall` negative on its own — only the separate dangerous-exceedance deduction can
+ * `overall` negative on its own — only the separate dangerous-exceedance deduction(s) can
  * (landing-scoring-v2.md, 2026-09-20, reopening docs/decisions.md's 2026-09-12 "no separate
- * dangerous floor step" — v1 deliberately had none; v2 added exactly one, on purpose).
+ * dangerous floor step" — v1 deliberately had none; v2 added one, per category, on purpose).
  */
 export function computeLandingScore(inputs: LandingScoreInputs): LandingScoreBreakdown {
   const thresholds = deriveLandingThresholds(inputs.category)
@@ -312,7 +333,6 @@ export function computeLandingScore(inputs: LandingScoreInputs): LandingScoreBre
   // no real safety case for punishing "too soft" anywhere near as hard as "too firm".
   const verticalSpeedTolerance = thresholds.hardFpm - band.sweetSpotFpm
   const verticalSpeed = taperedScore(actualFpm - band.sweetSpotFpm, verticalSpeedTolerance)
-  const dangerousExceedance = actualFpm >= thresholds.hardFpm
 
   const gForce = taperedScore(inputs.gForce - GFORCE_IDEAL, GFORCE_TOLERANCE)
   const pitch = taperedScore(inputs.pitchDeg - PITCH_IDEAL_DEG, PITCH_TOLERANCE_DEG)
@@ -329,30 +349,40 @@ export function computeLandingScore(inputs: LandingScoreInputs): LandingScoreBre
       ? null
       : taperedScore(inputs.centrelineOffsetM, inputs.centrelineToleranceM)
 
-  const scored: { weight: number; score: number | null }[] = [
-    { weight: WEIGHTS.verticalSpeed, score: verticalSpeed },
-    { weight: WEIGHTS.gForce, score: gForce },
-    { weight: WEIGHTS.distanceFromAimingPoint, score: distanceFromAimingPoint },
-    { weight: WEIGHTS.centrelineOffset, score: centrelineOffset },
-    { weight: WEIGHTS.pitch, score: pitch },
-    { weight: WEIGHTS.bank, score: bank },
-    { weight: WEIGHTS.crab, score: crab }
+  const scored: { key: LandingScoreCategoryKey; weight: number; result: CategoryScore | null }[] = [
+    { key: 'verticalSpeed', weight: WEIGHTS.verticalSpeed, result: verticalSpeed },
+    { key: 'gForce', weight: WEIGHTS.gForce, result: gForce },
+    { key: 'distanceFromAimingPoint', weight: WEIGHTS.distanceFromAimingPoint, result: distanceFromAimingPoint },
+    { key: 'centrelineOffset', weight: WEIGHTS.centrelineOffset, result: centrelineOffset },
+    { key: 'pitch', weight: WEIGHTS.pitch, result: pitch },
+    { key: 'bank', weight: WEIGHTS.bank, result: bank },
+    { key: 'crab', weight: WEIGHTS.crab, result: crab }
   ]
 
   let weightedSum = 0
   let availableWeight = 0
-  for (const { weight, score } of scored) {
-    if (score === null) continue
-    weightedSum += weight * score
+  const dangerousCategories: LandingScoreCategoryKey[] = []
+  for (const { key, weight, result } of scored) {
+    if (result === null) continue
+    weightedSum += weight * result.score
     availableWeight += weight
+    if (result.exceeded) dangerousCategories.push(key)
   }
   const weightedOverall = availableWeight === 0 ? 0 : Math.round(weightedSum / availableWeight)
-  const overall = dangerousExceedance ? weightedOverall - DANGEROUS_EXCEEDANCE_DEDUCTION : weightedOverall
+  const overall = weightedOverall - dangerousCategories.length * DANGEROUS_EXCEEDANCE_DEDUCTION
 
   return {
     overall,
-    dangerousExceedance,
-    inputs: { verticalSpeed, gForce, distanceFromAimingPoint, centrelineOffset, pitch, bank, crab },
+    dangerousCategories,
+    inputs: {
+      verticalSpeed: verticalSpeed.score,
+      gForce: gForce.score,
+      distanceFromAimingPoint: distanceFromAimingPoint?.score ?? null,
+      centrelineOffset: centrelineOffset?.score ?? null,
+      pitch: pitch.score,
+      bank: bank.score,
+      crab: crab?.score ?? null
+    },
     details: {
       verticalSpeed: { ideal: band.sweetSpotFpm, tolerance: verticalSpeedTolerance },
       gForce: { ideal: GFORCE_IDEAL, tolerance: GFORCE_TOLERANCE },

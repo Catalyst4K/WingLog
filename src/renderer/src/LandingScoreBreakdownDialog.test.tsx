@@ -15,7 +15,10 @@ const IDEAL_TOLERANCE: Record<string, { ideal: number; tolerance: number }> = {
   centrelineOffset: { ideal: 0, tolerance: 12.5 }
 }
 
-function makeCategories(overrides: Partial<Record<string, number | null>> = {}): LandingScoreCategory[] {
+function makeCategories(
+  overrides: Partial<Record<string, number | null>> = {},
+  dangerousKeys: string[] = []
+): LandingScoreCategory[] {
   const base: Record<string, number | null> = {
     verticalSpeed: 90,
     gForce: 95,
@@ -40,7 +43,8 @@ function makeCategories(overrides: Partial<Record<string, number | null>> = {}):
     label: labels[key],
     score: base[key],
     ideal: base[key] === null ? null : IDEAL_TOLERANCE[key].ideal,
-    tolerance: base[key] === null ? null : IDEAL_TOLERANCE[key].tolerance
+    tolerance: base[key] === null ? null : IDEAL_TOLERANCE[key].tolerance,
+    dangerous: dangerousKeys.includes(key)
   }))
 }
 
@@ -135,22 +139,39 @@ describe('LandingScoreBreakdownDialog', () => {
     expect(pitchRow.querySelector('svg.text-destructive')).toBeNull()
   })
 
-  it('shows a dangerous-exceedance penalty note when the flag is set', async () => {
+  it('shows a dangerous-exceedance penalty note naming the exceeding category when one is dangerous', async () => {
     const user = userEvent.setup()
     render(
       <LandingScoreBreakdownDialog
         overall={20}
-        categories={makeCategories({ verticalSpeed: 0 })}
-        dangerousExceedance
+        categories={makeCategories({ verticalSpeed: 0 }, ['verticalSpeed'])}
         unit="ft"
         trigger={<button type="button">Open</button>}
       />
     )
     await user.click(screen.getByRole('button', { name: 'Open' }))
-    expect(screen.getByText(/Dangerous touchdown rate/)).toBeInTheDocument()
+    expect(screen.getByText(/Safe limit exceeded: Vertical speed — a 20-point penalty/)).toBeInTheDocument()
+    const verticalSpeedRow = screen.getByText('Vertical speed').closest('dt')!
+    expect(verticalSpeedRow.querySelector('[data-slot="badge"]')).not.toBeNull()
   })
 
-  it('shows no penalty note for an ordinary landing', async () => {
+  it('names every dangerous category and stacks the penalty total when more than one is dangerous', async () => {
+    const user = userEvent.setup()
+    render(
+      <LandingScoreBreakdownDialog
+        overall={0}
+        categories={makeCategories({ crab: 0, distanceFromAimingPoint: 0 }, ['crab', 'distanceFromAimingPoint'])}
+        unit="ft"
+        trigger={<button type="button">Open</button>}
+      />
+    )
+    await user.click(screen.getByRole('button', { name: 'Open' }))
+    expect(
+      screen.getByText(/Safe limit exceeded: Crab, Distance from aiming point — a 40-point penalty/)
+    ).toBeInTheDocument()
+  })
+
+  it('shows no penalty note or badge for an ordinary landing', async () => {
     const user = userEvent.setup()
     render(
       <LandingScoreBreakdownDialog
@@ -161,7 +182,8 @@ describe('LandingScoreBreakdownDialog', () => {
       />
     )
     await user.click(screen.getByRole('button', { name: 'Open' }))
-    expect(screen.queryByText(/Dangerous touchdown rate/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Safe limit exceeded/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Dangerous')).not.toBeInTheDocument()
   })
 
   it("opens a per-category info popover showing that flight's real ideal/tolerance", async () => {
