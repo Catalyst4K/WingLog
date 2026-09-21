@@ -2,7 +2,9 @@
   "landingScoreBreakdown": {
     "title": "Dettaglio del punteggio di atterraggio — {{score}}/100",
     "whatsIdealFor": "Cos'è ideale per {{label}}?",
-    "outOfTen": " / 10"
+    "outOfTen": " / 10",
+    "dangerousBanner": "Limite di sicurezza superato: {{list}} — una penalità di {{penalty}} punti è già inclusa sopra.",
+    "dangerousBadge": "Pericoloso"
   },
   "landingBadge": {
     "hard": "Dura",

@@ -129,11 +129,14 @@ describe('computeLandingScore', () => {
         centrelineToleranceM: 25
       }
       const result = computeLandingScore(dangerous)
-      // Every category is individually clamped to 0 -> weighted average is 0 -> minus the
-      // flat DANGEROUS_EXCEEDANCE_DEDUCTION (20) -> -20. Flooring THIS raw value at 0 for
+      // Every category is individually clamped to 0 -> weighted average is 0. All 7 also
+      // exceed their own tolerance (2026-09-21 — generalised beyond vertical-speed-only), so
+      // 7 * DANGEROUS_EXCEEDANCE_DEDUCTION (20) -> -140. Flooring THIS raw value at 0 for
       // display is the caller's job (landing-score-resolver.ts), not computeLandingScore's.
-      expect(result.overall).toBe(-20)
-      expect(result.dangerousExceedance).toBe(true)
+      expect(result.overall).toBe(-140)
+      expect(result.dangerousCategories.sort()).toEqual(
+        ['verticalSpeed', 'gForce', 'distanceFromAimingPoint', 'centrelineOffset', 'pitch', 'bank', 'crab'].sort()
+      )
       expect(Object.values(result.inputs)).toEqual([0, 0, 0, 0, 0, 0, 0])
 
       // Same absolute vertical speed scores worse for a lighter category (lower ideal/hard
@@ -145,8 +148,25 @@ describe('computeLandingScore', () => {
 
   it('is not dangerous, and applies no deduction, for a landing that never reaches the hard threshold', () => {
     const result = computeLandingScore(PERFECT_M)
-    expect(result.dangerousExceedance).toBe(false)
+    expect(result.dangerousCategories).toEqual([])
     expect(result.overall).toBe(100)
+  })
+
+  it('lists only the categories that actually exceeded, and stacks their deductions — real ' +
+    'VHHH free-flight landing, 2026-09-21: a 7.19° crab (tolerance 6.5°) and a touchdown ' +
+    "~965m past the runway's last real touchdown-zone pair, together, with an otherwise " +
+    "soft, well-centred touchdown that shouldn't itself be flagged", () => {
+    const result = computeLandingScore({
+      ...PERFECT_M,
+      crabDeg: 7.19,
+      runwayLengthM: 3800, // long enough for 6 pairs (900m zone)
+      distanceFromAimingPointM: 965
+    })
+    expect(result.dangerousCategories.sort()).toEqual(['crab', 'distanceFromAimingPoint'].sort())
+    // Weighted average: crab (weight 10) and distanceFromAimingPoint (weight 20) both 0;
+    // everything else stays perfect (100). (0*30 + 100*70) / 100 = 70. Minus 2 *
+    // DANGEROUS_EXCEEDANCE_DEDUCTION (20) = 30.
+    expect(result.overall).toBe(30)
   })
 
   it('is category-sensitive: the same vertical speed scores differently for L vs H', () => {
