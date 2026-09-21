@@ -96,8 +96,8 @@
       "off": "Выкл",
       "host": "Хост",
       "port": "Порт",
-      "portPlaceholder": "напр. 8090",
-      "portHint": "Указан в настройках GSX Pro, в разделе Remote Client — зависит от установки, поэтому безопасного значения по умолчанию нет.",
+      "portPlaceholder": "8744",
+      "portHint": "8744 — это реальный порт GSX по умолчанию, но его можно изменить в настройках самого GSX, в разделе Remote Client — проверьте там, если подключение не удаётся.",
       "statusConnected": "Подключено",
       "statusConnecting": "Подключение…",
       "statusDisconnected": "Отключено"
@@ -181,6 +181,7 @@
       "fleet": "Флот",
       "dispatch": "Диспетчеризация",
       "track": "Трек",
+      "gsx": "Наземное обслуживание",
       "logbook": "Логбук",
       "settings": "Настройки"
     },
@@ -203,6 +204,9 @@
       "continueDescription": "WingLog был закрыт, когда {{label}} уже был запланирован, но ещё не начат. Сохраните его и продолжите в разделе Track, или отмените, чтобы удалить полёт.",
       "continueConfirm": "Сохранить",
       "discard": "Отменить полёт"
+    },
+    "gsxImportantPrompt": {
+      "title": "GSX требует вашего ответа"
     },
     "gsxFirstLaunch": {
       "found": "Отслеживание наземного обслуживания GSX включено — папка с чеками найдена автоматически.",
@@ -563,8 +567,6 @@
     "freeFlight": "Свободный полёт",
     "weatherEllipsis": "Погода…",
     "weather": "Погода",
-    "groundServicesEllipsis": "Наземное обслуживание…",
-    "groundServices": "Наземное обслуживание",
     "proceduresEllipsis": "Процедуры…",
     "procedures": "Процедуры",
     "alternateIcao": "Запасной {{icao}}",
@@ -665,6 +667,9 @@
     },
     "noCompletedFlights": "Пока нет завершённых рейсов — начните отслеживание или импортируйте CSV-логбук через Настройки → Данные.",
     "flightNotFound": "Рейс не найден."
+  },
+  "gsxRemoteView": {
+    "title": "Наземное обслуживание"
   },
   "gsxRemotePanel": {
     "loading": "Загрузка…",

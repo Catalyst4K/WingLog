@@ -92,8 +92,8 @@
       "off": "No",
       "host": "Host",
       "port": "Porta",
-      "portPlaceholder": "es. 8090",
-      "portHint": "Si trova nelle impostazioni di GSX Pro, alla voce Remote Client — varia in base all'installazione, quindi non esiste un valore predefinito sicuro.",
+      "portPlaceholder": "8744",
+      "portHint": "8744 è il valore predefinito reale di GSX, ma è configurabile nelle impostazioni di GSX stesso, alla voce Remote Client — controlla lì se la connessione non funziona.",
       "statusConnected": "Connesso",
       "statusConnecting": "Connessione…",
       "statusDisconnected": "Disconnesso"
@@ -167,6 +167,7 @@
       "fleet": "Flotta",
       "dispatch": "Dispatch",
       "track": "Track",
+      "gsx": "Servizi di terra",
       "logbook": "Logbook",
       "settings": "Impostazioni"
     },
@@ -189,6 +190,9 @@
       "continueDescription": "WingLog si è chiuso con {{label}} già pianificato ma non ancora iniziato. Mantienilo e continua da Track, oppure scartalo per eliminare il volo.",
       "continueConfirm": "Mantienilo",
       "discard": "Scarta volo"
+    },
+    "gsxImportantPrompt": {
+      "title": "GSX ha bisogno di una tua risposta"
     },
     "gsxFirstLaunch": {
       "found": "Tracciamento dei servizi di terra GSX attivato — cartella ricevute trovata automaticamente.",
@@ -544,8 +548,6 @@
     "freeFlight": "Volo libero",
     "weatherEllipsis": "Meteo…",
     "weather": "Meteo",
-    "groundServicesEllipsis": "Servizi di terra…",
-    "groundServices": "Servizi di terra",
     "proceduresEllipsis": "Procedure…",
     "procedures": "Procedure",
     "alternateIcao": "Alternato {{icao}}",
@@ -644,6 +646,9 @@
     },
     "noCompletedFlights": "Ancora nessun volo completato — traccia un volo, oppure importa un logbook CSV da Impostazioni → Dati.",
     "flightNotFound": "Volo non trovato."
+  },
+  "gsxRemoteView": {
+    "title": "Servizi di terra"
   },
   "gsxRemotePanel": {
     "loading": "Caricamento…",

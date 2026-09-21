@@ -156,19 +156,19 @@ describe('settings repo', () => {
     })
   })
 
-  it('defaults GSX Remote settings to disabled, localhost, no port', () => {
-    expect(getGsxRemoteSettings(db)).toEqual({ enabled: false, host: 'localhost', port: null })
+  it('defaults GSX Remote settings to disabled, localhost, GSX\'s real default port 8744', () => {
+    expect(getGsxRemoteSettings(db)).toEqual({ enabled: false, host: 'localhost', port: 8744 })
   })
 
-  it('round-trips GSX Remote settings, including a user-configured non-default port', () => {
-    setGsxRemoteSettings(db, { enabled: true, host: '192.168.1.50', port: 8744 })
-    expect(getGsxRemoteSettings(db)).toEqual({ enabled: true, host: '192.168.1.50', port: 8744 })
+  it('round-trips GSX Remote settings, including a genuinely different port', () => {
+    setGsxRemoteSettings(db, { enabled: true, host: '192.168.1.50', port: 8091 })
+    expect(getGsxRemoteSettings(db)).toEqual({ enabled: true, host: '192.168.1.50', port: 8091 })
   })
 
-  it('clears a previously-set port back to null', () => {
-    setGsxRemoteSettings(db, { enabled: true, host: 'localhost', port: 8744 })
+  it('falls back to the default port 8744 once a custom one is cleared', () => {
+    setGsxRemoteSettings(db, { enabled: true, host: 'localhost', port: 8091 })
     setGsxRemoteSettings(db, { enabled: false, host: 'localhost', port: null })
-    expect(getGsxRemoteSettings(db)).toEqual({ enabled: false, host: 'localhost', port: null })
+    expect(getGsxRemoteSettings(db)).toEqual({ enabled: false, host: 'localhost', port: 8744 })
   })
 
   it('defaults the last-synced-completed timestamp to null when never set', () => {

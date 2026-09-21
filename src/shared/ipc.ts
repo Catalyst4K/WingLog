@@ -884,7 +884,7 @@ export type AppLanguage = 'system' | 'en' | 'de' | 'es' | 'fr' | 'it' | 'ru'
 export type LandingDistanceUnit = 'ft' | 'm'
 
 /** The app's tabs — also the native menu bar's top-level items, see main/menu.ts. */
-export type AppPage = 'fleet' | 'dispatch' | 'track' | 'logbook' | 'settings'
+export type AppPage = 'fleet' | 'dispatch' | 'track' | 'gsx' | 'logbook' | 'settings'
 
 /**
  * A departure time to prefill on SimBrief's form, already split into the shape its input

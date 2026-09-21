@@ -92,8 +92,8 @@
       "off": "Aus",
       "host": "Host",
       "port": "Port",
-      "portPlaceholder": "z. B. 8090",
-      "portHint": "Zu finden in GSX Pros eigenen Einstellungen unter Remote Client — variiert je nach Installation, daher gibt es hier keinen sicheren Standardwert.",
+      "portPlaceholder": "8744",
+      "portHint": "8744 ist GSX' eigener Standardwert, aber unter Remote Client in GSX' eigenen Einstellungen konfigurierbar — dort nachsehen, falls keine Verbindung zustande kommt.",
       "statusConnected": "Verbunden",
       "statusConnecting": "Verbinde…",
       "statusDisconnected": "Getrennt"
@@ -165,6 +165,7 @@
       "fleet": "Flotte",
       "dispatch": "Dispatch",
       "track": "Track",
+      "gsx": "Bodendienste",
       "logbook": "Logbuch",
       "settings": "Einstellungen"
     },
@@ -187,6 +188,9 @@
       "continueDescription": "WingLog wurde geschlossen, während {{label}} bereits geplant, aber noch nicht gestartet war. Behalte ihn und setze in Track fort, oder verwirf ihn, um den Flug zu löschen.",
       "continueConfirm": "Behalten",
       "discard": "Flug verwerfen"
+    },
+    "gsxImportantPrompt": {
+      "title": "GSX benötigt deine Eingabe"
     },
     "gsxFirstLaunch": {
       "found": "GSX-Bodendienst-Tracking aktiviert — Belege-Ordner wurde automatisch gefunden.",
@@ -542,8 +546,6 @@
     "freeFlight": "Freier Flug",
     "weatherEllipsis": "Wetter…",
     "weather": "Wetter",
-    "groundServicesEllipsis": "Bodendienste…",
-    "groundServices": "Bodendienste",
     "proceduresEllipsis": "Verfahren…",
     "procedures": "Verfahren",
     "alternateIcao": "Ausweichflughafen {{icao}}",
@@ -642,6 +644,9 @@
     },
     "noCompletedFlights": "Noch keine abgeschlossenen Flüge — einen tracken oder ein CSV-Logbuch über Einstellungen → Daten importieren.",
     "flightNotFound": "Flug nicht gefunden."
+  },
+  "gsxRemoteView": {
+    "title": "Bodendienste"
   },
   "gsxRemotePanel": {
     "loading": "Wird geladen…",

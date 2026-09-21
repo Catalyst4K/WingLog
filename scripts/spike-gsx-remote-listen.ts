@@ -17,6 +17,8 @@
  * this is all local sim state) into flightdeck-backend's docs/gsx-notes.md.
  */
 
+import * as fs from 'node:fs'
+
 export {} // forces module scope, avoiding a global-scope name clash with the sibling spike script
 
 function parsePortArg(): number {
@@ -42,15 +44,11 @@ ws.addEventListener('open', () => {
 
 ws.addEventListener('message', (event) => {
   const raw = typeof event.data === 'string' ? event.data : String(event.data);
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    console.log(`[unparseable message] ${raw.slice(0, 200)}`);
-    return;
-  }
-  console.log(`\n[${new Date().toISOString()}]`);
-  console.log(JSON.stringify(parsed, null, 2).slice(0, 4000));
+  // Synchronous, single-line writes: a pretty-printed multi-KB block can get cut off
+  // mid-write if the process is killed (e.g. by `timeout`) before the buffered write
+  // drains — seen live, 2026-09-21, as a deterministic same-byte-offset truncation.
+  // One compact JSON line per message is small enough to always land atomically.
+  fs.appendFileSync(1, `${new Date().toISOString()} ${raw}\n`);
 });
 
 ws.addEventListener('close', (event) => {

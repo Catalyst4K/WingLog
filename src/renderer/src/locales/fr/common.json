@@ -92,8 +92,8 @@
       "off": "Désactivé",
       "host": "Hôte",
       "port": "Port",
-      "portPlaceholder": "ex. 8090",
-      "portHint": "À trouver dans les paramètres de GSX Pro, sous Remote Client — varie selon l'installation, donc aucune valeur par défaut fiable n'est proposée.",
+      "portPlaceholder": "8744",
+      "portHint": "8744 est la valeur par défaut réelle de GSX, mais elle est configurable dans les paramètres de GSX lui-même, sous Remote Client — à vérifier là si la connexion échoue.",
       "statusConnected": "Connecté",
       "statusConnecting": "Connexion…",
       "statusDisconnected": "Déconnecté"
@@ -167,6 +167,7 @@
       "fleet": "Flotte",
       "dispatch": "Dispatch",
       "track": "Track",
+      "gsx": "Services au sol",
       "logbook": "Logbook",
       "settings": "Paramètres"
     },
@@ -189,6 +190,9 @@
       "continueDescription": "WingLog s'est fermé alors que {{label}} était déjà planifié mais pas encore commencé. Conservez-le et continuez depuis Track, ou abandonnez-le pour supprimer le vol.",
       "continueConfirm": "Le conserver",
       "discard": "Abandonner le vol"
+    },
+    "gsxImportantPrompt": {
+      "title": "GSX a besoin de votre réponse"
     },
     "gsxFirstLaunch": {
       "found": "Suivi des services au sol GSX activé — dossier des reçus trouvé automatiquement.",
@@ -544,8 +548,6 @@
     "freeFlight": "Vol libre",
     "weatherEllipsis": "Météo…",
     "weather": "Météo",
-    "groundServicesEllipsis": "Services au sol…",
-    "groundServices": "Services au sol",
     "proceduresEllipsis": "Procédures…",
     "procedures": "Procédures",
     "alternateIcao": "Déroutement {{icao}}",
@@ -644,6 +646,9 @@
     },
     "noCompletedFlights": "Aucun vol terminé pour l'instant — suivez-en un, ou importez un logbook CSV depuis Paramètres → Données.",
     "flightNotFound": "Vol introuvable."
+  },
+  "gsxRemoteView": {
+    "title": "Services au sol"
   },
   "gsxRemotePanel": {
     "loading": "Chargement…",

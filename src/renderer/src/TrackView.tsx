@@ -30,7 +30,6 @@ import { useConfirm } from './hooks/useConfirm'
 import { ProcedureSelector } from './ProcedureSelector'
 import { flightLabel } from './flight-label'
 import { FreeFlightAirport } from './FreeFlightAirport'
-import { GsxRemotePanel } from './GsxRemotePanel'
 import { MetarPanel } from './MetarPanel'
 import { useLiveWaypoints, type ProcedureAirports } from './procedureSelection'
 import { parseTransitionAltitudes } from './route'
@@ -516,22 +515,6 @@ export function TrackView(props: {
           )}
         </div>
       )}
-
-      <div className="flex items-center gap-2">
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button type="button" variant="outline" size="sm">
-              {t('trackView.groundServicesEllipsis')}
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>{t('trackView.groundServices')}</DialogTitle>
-            </DialogHeader>
-            <GsxRemotePanel />
-          </DialogContent>
-        </Dialog>
-      </div>
 
       <div className="min-h-0 flex-1">
         <FlightMap
