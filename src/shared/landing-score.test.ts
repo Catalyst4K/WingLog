@@ -133,7 +133,7 @@ describe('computeLandingScore', () => {
       // exceed their own tolerance (2026-09-21 — generalised beyond vertical-speed-only), each
       // with its own 1-10 scaled penalty (dangerPenaltyForFraction) rather than a flat 20:
       // verticalSpeed (fraction 880/360=2.44), gForce (2/1=2), centrelineOffset (100/25=4),
-      // pitch (24/8=3) and bank (30/8=3.75) are all well past their default 1.25x max-out
+      // pitch (24/6=4) and bank (30/8=3.75) are all well past their default 1.25x max-out
       // point, so they cap at 10. crab (40/5=8) is even further past its own gentler 1.5x
       // max-out point, so it caps at 10 too. distanceFromAimingPoint is the odd one out —
       // 1000m against a 900m tolerance (6-pair zone) is only fraction 1.11, barely past the
@@ -413,7 +413,7 @@ describe('computeLandingScore', () => {
       // M: sweet 120, hard 480 -> tolerance 360, same on both sides.
       expect(details.verticalSpeed).toEqual({ ideal: 120, tolerance: 360 })
       expect(details.gForce).toEqual({ ideal: 1, tolerance: 1 })
-      expect(details.pitch).toEqual({ ideal: -4, tolerance: 8 })
+      expect(details.pitch).toEqual({ ideal: -4, tolerance: 6 })
       expect(details.bank).toEqual({ ideal: 0, tolerance: 8 })
       expect(details.crab).toEqual({ ideal: 0, tolerance: 5 })
     })

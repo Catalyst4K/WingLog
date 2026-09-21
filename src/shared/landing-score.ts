@@ -190,7 +190,10 @@ const GFORCE_TOLERANCE = 1.0
 // makes sense if the sign here was backwards. A "4° nose-up" ideal flare is therefore -4 in
 // this SimVar's own convention, not +4.
 const PITCH_IDEAL_DEG = -4
-const PITCH_TOLERANCE_DEG = 8
+// Was 8 (range -4° to 12° nose-up). Tightened to 6, 2026-09-21 (Callum): the acceptable
+// range should be -2° to 10° nose-up, with 4° staying the sweet spot — symmetric around the
+// same ideal, just a narrower band either side of it.
+const PITCH_TOLERANCE_DEG = 6
 const BANK_IDEAL_DEG = 0
 const BANK_TOLERANCE_DEG = 8
 const CRAB_IDEAL_DEG = 0
