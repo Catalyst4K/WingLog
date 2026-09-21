@@ -335,6 +335,7 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     onGsxRemoteMenu: vi.fn(() => () => {}),
     onGsxRemotePrompt: vi.fn(() => () => {}),
     gsxRemotePickMenu: vi.fn().mockResolvedValue(undefined),
+    gsxRemoteToggleMenu: vi.fn().mockResolvedValue(undefined),
     gsxRemoteSubmitPrompt: vi.fn().mockResolvedValue(undefined),
     gsxRemoteCancelPrompt: vi.fn().mockResolvedValue(undefined),
     syncStatus: vi.fn().mockResolvedValue(makeSyncStatus()),
@@ -710,6 +711,7 @@ describe('App', () => {
     }
 
     const FUEL_MENU: GsxRemoteMenuState = {
+      menuShown: true,
       title: 'Select refueling level',
       header: 'Select refueling level',
       subtitle: '',
@@ -752,6 +754,7 @@ describe('App', () => {
       await screen.findByText('Fleet', { selector: 'h1' })
 
       push({
+        menuShown: true,
         title: '',
         header: '',
         subtitle: '',
@@ -760,6 +763,17 @@ describe('App', () => {
         disabled: [false, false],
         layout: 't9'
       })
+
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(screen.queryByText('GSX needs your input')).not.toBeInTheDocument()
+    })
+
+    it('does not show the global dialog for a matching title while menuShown is false (regression: must not passively wait for the in-sim menu)', async () => {
+      const { push } = withMenuListener()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+
+      push({ ...FUEL_MENU, menuShown: false })
 
       await new Promise((resolve) => setTimeout(resolve, 50))
       expect(screen.queryByText('GSX needs your input')).not.toBeInTheDocument()

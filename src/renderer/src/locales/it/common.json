@@ -655,7 +655,8 @@
     "notConfigured": "GSX Remote Control è disattivato. Attivalo e imposta una porta in Impostazioni → Terze parti.",
     "connecting": "Connessione a GSX…",
     "disconnected": "Non connesso a GSX.",
-    "menuEmpty": "Nessun menu aperto — il menu dei servizi di terra apparirà qui non appena GSX ne mostrerà uno.",
+    "menuHeaderClosed": "Menu GSX",
+    "tapToOpen": "Tocca per aprire",
     "services": "Servizi",
     "ok": "OK",
     "cancel": "Annulla"

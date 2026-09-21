@@ -28,6 +28,7 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): void {
     onGsxRemoteMenu: vi.fn().mockReturnValue(() => {}),
     onGsxRemotePrompt: vi.fn().mockReturnValue(() => {}),
     gsxRemotePickMenu: vi.fn().mockResolvedValue(undefined),
+    gsxRemoteToggleMenu: vi.fn().mockResolvedValue(undefined),
     gsxRemoteSubmitPrompt: vi.fn().mockResolvedValue(undefined),
     gsxRemoteCancelPrompt: vi.fn().mockResolvedValue(undefined),
     ...overrides
@@ -56,11 +57,50 @@ describe('GsxRemotePanel', () => {
     expect(await screen.findByText('Connecting to GSX…')).toBeInTheDocument()
   })
 
-  it('shows an empty-menu message once connected with no menu open', async () => {
+  it('shows the closed-menu header once connected with no menu open', async () => {
     withWinglog()
     render(<GsxRemotePanel />)
 
-    expect(await screen.findByText(/No menu open/)).toBeInTheDocument()
+    expect(await screen.findByText('GSX Menu')).toBeInTheDocument()
+    expect(screen.getByText('Tap to open')).toBeInTheDocument()
+  })
+
+  it('clicking the header calls gsxRemoteToggleMenu', async () => {
+    const gsxRemoteToggleMenu = vi.fn().mockResolvedValue(undefined)
+    withWinglog({ gsxRemoteToggleMenu })
+    const user = userEvent.setup()
+    render(<GsxRemotePanel />)
+    await screen.findByText('Tap to open')
+
+    await user.click(screen.getByRole('button', { name: /GSX Menu/ }))
+
+    expect(gsxRemoteToggleMenu).toHaveBeenCalled()
+  })
+
+  it('does not render entries while menuShown is false, even with stale entries present', async () => {
+    let menuListener: (menu: GsxRemoteMenuState) => void = () => {}
+    withWinglog({
+      onGsxRemoteMenu: vi.fn((listener) => {
+        menuListener = listener
+        return () => {}
+      })
+    })
+    render(<GsxRemotePanel />)
+    await screen.findByText('Tap to open')
+
+    menuListener({
+      menuShown: false,
+      title: 'Ground Services',
+      header: '',
+      subtitle: '',
+      entries: ['Request Refueling', 'Request Catering'],
+      icons: ['', ''],
+      disabled: [false, false],
+      layout: 't9'
+    })
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Request Refueling' })).not.toBeInTheDocument())
+    expect(screen.getByText('Tap to open')).toBeInTheDocument()
   })
 
   it('renders the live menu generically and picks an entry by index', async () => {
@@ -79,9 +119,10 @@ describe('GsxRemotePanel', () => {
       })
     })
     render(<GsxRemotePanel />)
-    await screen.findByText(/No menu open/)
+    await screen.findByText('Tap to open')
 
     menuListener({
+      menuShown: true,
       title: 'Ground Services',
       header: '',
       subtitle: '',
@@ -111,7 +152,7 @@ describe('GsxRemotePanel', () => {
       })
     })
     render(<GsxRemotePanel />)
-    await screen.findByText(/No menu open/)
+    await screen.findByText('Tap to open')
 
     servicesListener([
       {
@@ -144,7 +185,7 @@ describe('GsxRemotePanel', () => {
       })
     })
     render(<GsxRemotePanel />)
-    await screen.findByText(/No menu open/)
+    await screen.findByText('Tap to open')
 
     promptListener({ kind: 'text', gen: 7, title: 'Save Location', description: '', default: '', maxLength: 64 })
     const input = await screen.findByRole('textbox')
@@ -166,7 +207,7 @@ describe('GsxRemotePanel', () => {
       })
     })
     render(<GsxRemotePanel />)
-    await screen.findByText(/No menu open/)
+    await screen.findByText('Tap to open')
 
     promptListener({ kind: 'text', gen: 9, title: 'Rename', description: '', default: 'Flight 1', maxLength: 64 })
     const user = userEvent.setup()
@@ -187,7 +228,7 @@ describe('GsxRemotePanel', () => {
       onGsxRemotePrompt: vi.fn().mockReturnValue(unsubscribePrompt)
     })
     const { unmount } = render(<GsxRemotePanel />)
-    await screen.findByText(/No menu open/)
+    await screen.findByText('Tap to open')
 
     unmount()
 

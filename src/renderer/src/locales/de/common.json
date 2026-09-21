@@ -653,7 +653,8 @@
     "notConfigured": "GSX Remote Control ist deaktiviert. Aktiviere es und lege einen Port fest unter Einstellungen → Drittanbieter.",
     "connecting": "Verbindung zu GSX wird hergestellt…",
     "disconnected": "Nicht mit GSX verbunden.",
-    "menuEmpty": "Kein Menü geöffnet — das Bodendienste-Menü erscheint hier, sobald GSX eines anzeigt.",
+    "menuHeaderClosed": "GSX-Menü",
+    "tapToOpen": "Antippen zum Öffnen",
     "services": "Dienste",
     "ok": "OK",
     "cancel": "Abbrechen"

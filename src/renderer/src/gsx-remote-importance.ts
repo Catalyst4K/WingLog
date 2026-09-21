@@ -16,7 +16,10 @@ import type { GsxRemoteMenuState } from '@shared/ipc'
 const IMPORTANT_MENU_TITLES = ['Select pushback direction', 'Select refueling level']
 
 export function isImportantGsxMenu(menu: GsxRemoteMenuState): boolean {
-  if (menu.entries.length === 0) return false
+  // `menuShown` is a real, separate flag from having entries (docs/gsx-notes.md,
+  // 2026-09-21) — entries can be stale/leftover while the menu itself is closed, so this
+  // must gate on both, exactly like GSX's own client does.
+  if (!menu.menuShown || menu.entries.length === 0) return false
   const title = menu.title || menu.header
   return IMPORTANT_MENU_TITLES.some((known) => title === known)
 }
