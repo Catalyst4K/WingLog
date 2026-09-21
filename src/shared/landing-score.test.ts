@@ -133,7 +133,7 @@ describe('computeLandingScore', () => {
       // exceed their own tolerance (2026-09-21 — generalised beyond vertical-speed-only), each
       // with its own 1-10 scaled penalty (dangerPenaltyForFraction) rather than a flat 20:
       // verticalSpeed (fraction 880/360=2.44), gForce (2/1=2), centrelineOffset (100/25=4),
-      // pitch (24/8=3), bank (30/8=3.75) and crab (40/6.5=6.15) are all >=1.25x their own
+      // pitch (24/8=3), bank (30/8=3.75) and crab (40/5=8) are all >=1.25x their own
       // tolerance (the max-out point, tightened same day from 1.5x — "the penalty should get
       // higher quicker"), so they max out at 10. distanceFromAimingPoint is the odd one out —
       // 1000m against a 900m tolerance (6-pair zone) is only fraction 1.11, barely past the
@@ -166,9 +166,9 @@ describe('computeLandingScore', () => {
   it(
     'lists only the categories that actually exceeded, and scales + stacks their deductions ' +
       'by how far past tolerance each one is — real VHHH free-flight landing, 2026-09-21: a ' +
-      '7.19° crab (tolerance 6.5°, fraction 1.106) and a touchdown ~965m past the runway\'s ' +
-      "last real touchdown-zone pair (900m tolerance, fraction 1.072), together, with an " +
-      "otherwise soft, well-centred touchdown that shouldn't itself be flagged",
+      "7.19° crab and a touchdown ~965m past the runway's last real touchdown-zone pair " +
+      "(900m tolerance), together, with an otherwise soft, well-centred touchdown that " +
+      "shouldn't itself be flagged",
     () => {
       const result = computeLandingScore({
         ...PERFECT_M,
@@ -176,14 +176,15 @@ describe('computeLandingScore', () => {
         runwayLengthM: 3800, // long enough for 6 pairs (900m zone)
         distanceFromAimingPointM: 965
       })
-      // Both are only just past their own tolerance (not anywhere near the 1.25x fraction
-      // that maxes the penalty at 10), so each gets a light scaled penalty, not a flat 20:
-      // crab: severity (1.106-1)/0.25=0.425 -> round(1+0.425*9)=5.
-      // distanceFromAimingPoint: severity (1.072-1)/0.25=0.289 -> round(1+0.289*9)=4.
-      expect(result.dangerPenalties).toEqual({ crab: 5, distanceFromAimingPoint: 4 })
+      // Crab tolerance is now 5° (tightened from 6.5, same day): fraction = 7.19/5 = 1.438,
+      // already past the 1.25x fraction that maxes the penalty out — so crab caps at 10, not
+      // a light scaled hit. distanceFromAimingPoint is still only just past its own 900m
+      // tolerance: fraction = 965/900 = 1.072, severity (1.072-1)/0.25=0.289 ->
+      // round(1+0.289*9)=4.
+      expect(result.dangerPenalties).toEqual({ crab: 10, distanceFromAimingPoint: 4 })
       // Weighted average: crab (weight 10) and distanceFromAimingPoint (weight 20) both 0;
-      // everything else stays perfect (100). (0*30 + 100*70) / 100 = 70. Minus (5 + 4) = 61.
-      expect(result.overall).toBe(61)
+      // everything else stays perfect (100). (0*30 + 100*70) / 100 = 70. Minus (10 + 4) = 56.
+      expect(result.overall).toBe(56)
     }
   )
 
@@ -320,42 +321,46 @@ describe('computeLandingScore', () => {
   )
 
   it(
-    'flags a 5° crab as a real drag on the score, not a shrug — tightened 2026-09-12 after ' +
-      "Callum reported a real 5.7° crab landing not reading as bad, and retightened again " +
-      '2026-09-20 when switching to the tapered (quadratic) curve pushed it back above the ' +
-      'bad threshold (landing-scoring-v2.md — see CRAB_TOLERANCE_DEG\'s own doc comment)',
+    'reads exactly 5° of crab as the real limit itself — scoring 0 and triggering a light ' +
+      "dangerous-exceedance penalty, not just \"bad\" — Callum's original intent from " +
+      '2026-09-12 (after a real 5.7° crab landing didn\'t read as bad) was that 5° should be ' +
+      "the line; 6.5 had crept in only as a side effect of retuning the curve shape " +
+      "(landing-scoring-v2.md) and was flattened back to a plain 5 on 2026-09-21, once " +
+      "Callum noticed the drift",
     () => {
-      // Tolerance 6.5°: score(5) = round(100*(1-(5/6.5)^1.5)) = 33 — below
-      // LandingScoreBreakdownDialog's BAD_CATEGORY_THRESHOLD (50), landing-score-ui.ts.
       const result = computeLandingScore({ ...PERFECT_M, crabDeg: 5 })
-      expect(result.inputs.crab).toBe(33)
-      expect(result.inputs.crab).toBeLessThan(50)
+      expect(result.inputs.crab).toBe(0)
+      // fraction exactly 1.0 -> severity 0 -> the lightest possible danger penalty (1), not
+      // the full 10 a landing that blew well past the limit would get.
+      expect(result.dangerPenalties).toEqual({ crab: 1 })
     }
   )
 
   it('still scores a couple of degrees of crab gently, not as a cliff', () => {
-    // score(2) = round(100*(1-(2/6.5)^1.5)) = 83 — comfortably above the bad threshold.
+    // Tolerance 5°. score(2) = round(100*(1-(2/5)^1.5)) = 75 — comfortably above the bad
+    // threshold, and nowhere near the 5° limit.
     const result = computeLandingScore({ ...PERFECT_M, crabDeg: 2 })
-    expect(result.inputs.crab).toBe(83)
+    expect(result.inputs.crab).toBe(75)
   })
 
   it(
-    "doesn't read a deviation halfway through tolerance as still-mostly-good — real BAW32 " +
-      'flight, 2026-09-20: a -359fpm touchdown (H category) and a 3.2° crab, both roughly ' +
-      "halfway through their own tolerance, each scored ~78/~76 under the tapered curve's " +
-      "first cut (a full square, fraction^2) — Callum's own read was that halfway to the " +
-      "limit should feel closer to half credit, not still comfortably good. Retuned the " +
-      "same day from fraction^2 to fraction^1.5 (taperedScore's own history) to bring the " +
-      'middle of the range down without re-flattening the near-ideal end a straight line would.',
+    "doesn't read a deviation approaching tolerance as still-mostly-good — real BAW32 " +
+      'flight, 2026-09-20: a -359fpm touchdown (H category), roughly halfway through its own ' +
+      "tolerance, scored ~78 under the tapered curve's first cut (a full square, " +
+      "fraction^2) — Callum's own read was that halfway to the limit should feel closer to " +
+      "half credit, not still comfortably good. Retuned the same day from fraction^2 to " +
+      "fraction^1.5 (taperedScore's own history) to bring the middle of the range down " +
+      'without re-flattening the near-ideal end a straight line would.',
     () => {
       // H: sweet 150, hard 600, tolerance 450. |−359| − 150 = 209. fraction = 209/450 = 0.4644.
       // score = round(100*(1-0.4644^1.5)) = 68.
       const verticalSpeed = computeLandingScore({ ...PERFECT_M, category: 'H', verticalSpeedMs: msFromFpm(-359) })
       expect(verticalSpeed.inputs.verticalSpeed).toBe(68)
 
-      // Crab tolerance 6.5°. fraction = 3.2/6.5 = 0.4923. score = round(100*(1-0.4923^1.5)) = 65.
+      // Crab tolerance 5° (tightened from 6.5, 2026-09-21). fraction = 3.2/5 = 0.64.
+      // score = round(100*(1-0.64^1.5)) = 49.
       const crab = computeLandingScore({ ...PERFECT_M, crabDeg: 3.2 })
-      expect(crab.inputs.crab).toBe(65)
+      expect(crab.inputs.crab).toBe(49)
     }
   )
 
@@ -389,7 +394,7 @@ describe('computeLandingScore', () => {
       expect(details.gForce).toEqual({ ideal: 1, tolerance: 1 })
       expect(details.pitch).toEqual({ ideal: -4, tolerance: 8 })
       expect(details.bank).toEqual({ ideal: 0, tolerance: 8 })
-      expect(details.crab).toEqual({ ideal: 0, tolerance: 6.5 })
+      expect(details.crab).toEqual({ ideal: 0, tolerance: 5 })
     })
 
     it("reports the runway-dependent categories' real per-flight tolerance (this runway's own data)", () => {
