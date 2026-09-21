@@ -133,9 +133,9 @@ describe('computeLandingScore', () => {
       // exceed their own tolerance (2026-09-21 — generalised beyond vertical-speed-only), each
       // with its own 1-10 scaled penalty (dangerPenaltyForFraction) rather than a flat 20:
       // verticalSpeed (fraction 880/360=2.44), gForce (2/1=2), centrelineOffset (100/25=4),
-      // pitch (24/8=3), bank (30/8=3.75) and crab (40/5=8) are all >=1.25x their own
-      // tolerance (the max-out point, tightened same day from 1.5x — "the penalty should get
-      // higher quicker"), so they max out at 10. distanceFromAimingPoint is the odd one out —
+      // pitch (24/8=3) and bank (30/8=3.75) are all well past their default 1.25x max-out
+      // point, so they cap at 10. crab (40/5=8) is even further past its own gentler 1.5x
+      // max-out point, so it caps at 10 too. distanceFromAimingPoint is the odd one out —
       // 1000m against a 900m tolerance (6-pair zone) is only fraction 1.11, barely past the
       // line: severity (1.11-1)/0.25=0.444 -> round(1+0.444*9)=5. Total deduction: 10*6 + 5 = 65.
       expect(result.overall).toBe(-65)
@@ -176,15 +176,16 @@ describe('computeLandingScore', () => {
         runwayLengthM: 3800, // long enough for 6 pairs (900m zone)
         distanceFromAimingPointM: 965
       })
-      // Crab tolerance is now 5° (tightened from 6.5, same day): fraction = 7.19/5 = 1.438,
-      // already past the 1.25x fraction that maxes the penalty out — so crab caps at 10, not
-      // a light scaled hit. distanceFromAimingPoint is still only just past its own 900m
-      // tolerance: fraction = 965/900 = 1.072, severity (1.072-1)/0.25=0.289 ->
-      // round(1+0.289*9)=4.
-      expect(result.dangerPenalties).toEqual({ crab: 10, distanceFromAimingPoint: 4 })
+      // Crab tolerance is now 5° (tightened from 6.5, same day): fraction = 7.19/5 = 1.438.
+      // Crab's own max-out point is a gentler 1.5x (not the default 1.25x — real testing
+      // showed crab needs a slower ramp than distance-from-aiming-point, 2026-09-21):
+      // severity (1.438-1)/0.5=0.876 -> round(1+0.876*9)=9, not yet fully capped.
+      // distanceFromAimingPoint still uses the default 1.25x ramp: fraction = 965/900 =
+      // 1.072, severity (1.072-1)/0.25=0.289 -> round(1+0.289*9)=4.
+      expect(result.dangerPenalties).toEqual({ crab: 9, distanceFromAimingPoint: 4 })
       // Weighted average: crab (weight 10) and distanceFromAimingPoint (weight 20) both 0;
-      // everything else stays perfect (100). (0*30 + 100*70) / 100 = 70. Minus (10 + 4) = 56.
-      expect(result.overall).toBe(56)
+      // everything else stays perfect (100). (0*30 + 100*70) / 100 = 70. Minus (9 + 4) = 57.
+      expect(result.overall).toBe(57)
     }
   )
 
@@ -342,6 +343,26 @@ describe('computeLandingScore', () => {
     const result = computeLandingScore({ ...PERFECT_M, crabDeg: 2 })
     expect(result.inputs.crab).toBe(75)
   })
+
+  it(
+    "ramps crab's own danger penalty more gently than distance-from-aiming-point at the " +
+      'same fraction past tolerance — real testing showed the two need different paces ' +
+      "(2026-09-21): distance felt right maxing out fast (1.25x), but that same pace felt " +
+      'too harsh for crab, which wanted the gentler 1.5x ramp back',
+    () => {
+      // Both at fraction 1.2 past their own tolerance — crab: 5 * 1.2 = 6; distance (900m
+      // tolerance): 900 * 1.2 = 1080.
+      const result = computeLandingScore({
+        ...PERFECT_M,
+        crabDeg: 6,
+        runwayLengthM: 3000,
+        distanceFromAimingPointM: 1080
+      })
+      // crab: severity (1.2-1)/(1.5-1)=0.4 -> round(1+0.4*9)=5.
+      // distanceFromAimingPoint: severity (1.2-1)/(1.25-1)=0.8 -> round(1+0.8*9)=8.
+      expect(result.dangerPenalties).toEqual({ crab: 5, distanceFromAimingPoint: 8 })
+    }
+  )
 
   it(
     "doesn't read a deviation approaching tolerance as still-mostly-good — real BAW32 " +

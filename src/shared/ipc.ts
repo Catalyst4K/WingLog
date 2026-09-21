@@ -387,11 +387,13 @@ export interface LandingScoreCategory {
   ideal: number | null
   tolerance: number | null
   /** 0 when this category's own deviation stayed within tolerance; otherwise its own scaled
-   *  danger penalty (1-10, further over tolerance scores higher, capped at 10 from 125% of
-   *  the dangerous value onward — shared/landing-score.ts's dangerPenaltyForFraction) already
-   *  subtracted from `LandingScoreResult.score`. Lets the breakdown popup mark this category
-   *  more strongly than the plain <50 "bad" warning every other poor score already gets, and
-   *  show exactly how much it cost (docs/decisions.md, 2026-09-21). */
+   *  danger penalty (1-10, further over tolerance scores higher, capped at 10 once the
+   *  deviation reaches this category's own maxFraction of the dangerous value — 125% for
+   *  most categories, 150% for crab specifically, since real testing showed the two need
+   *  different ramps; shared/landing-score.ts's dangerPenaltyForFraction) already subtracted
+   *  from `LandingScoreResult.score`. Lets the breakdown popup mark this category more
+   *  strongly than the plain <50 "bad" warning every other poor score already gets, and show
+   *  exactly how much it cost (docs/decisions.md, 2026-09-21). */
   dangerousPenalty: number
 }
 
