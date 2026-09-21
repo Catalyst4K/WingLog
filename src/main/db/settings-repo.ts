@@ -155,15 +155,16 @@ export function setCheckedGsxFirstLaunch(db: WingLogDb): void {
   setSetting(db, GSX_FIRST_LAUNCH_CHECKED_KEY, '1')
 }
 
-/** Default off, empty host, null port — GSX's Remote Client port is genuinely
- *  user-configurable (docs/gsx-notes.md, 2026-09-21 spike: confirmed 8090 is NOT a safe
- *  default), so this is never silently guessed. */
+/** Default off, localhost, port 8744 — GSX's own real default Remote Client port (Callum,
+ *  2026-09-21, confirmed directly; the community-cited 8090 is not it — docs/gsx-notes.md).
+ *  Still genuinely user-configurable in GSX's own settings, so the field stays editable —
+ *  this is a sensible pre-fill, not treated as the only possible value. */
 export function getGsxRemoteSettings(db: WingLogDb): GsxRemoteSettings {
   const port = getSetting(db, GSX_REMOTE_PORT_KEY)
   return {
     enabled: getSetting(db, GSX_REMOTE_ENABLED_KEY) === '1',
     host: getSetting(db, GSX_REMOTE_HOST_KEY) || 'localhost',
-    port: port ? Number(port) : null
+    port: port ? Number(port) : 8744
   }
 }
 

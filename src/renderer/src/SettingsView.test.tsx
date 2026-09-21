@@ -529,11 +529,11 @@ describe('SettingsView', () => {
       await user.click(screen.getByRole('tab', { name: '3rd party' }))
       const card = within(await findCard())
 
-      const portInput = card.getByPlaceholderText('e.g. 8090')
-      await user.type(portInput, '8744')
+      const portInput = card.getByPlaceholderText('8744')
+      await user.type(portInput, '8091')
       portInput.blur()
 
-      await waitFor(() => expect(winglog.settingsSetGsxRemote).toHaveBeenCalledWith(expect.objectContaining({ port: 8744 })))
+      await waitFor(() => expect(winglog.settingsSetGsxRemote).toHaveBeenCalledWith(expect.objectContaining({ port: 8091 })))
     })
 
     it('does not save an out-of-range port', async () => {
@@ -543,7 +543,7 @@ describe('SettingsView', () => {
       await user.click(screen.getByRole('tab', { name: '3rd party' }))
       const card = within(await findCard())
 
-      const portInput = card.getByPlaceholderText('e.g. 8090')
+      const portInput = card.getByPlaceholderText('8744')
       await user.type(portInput, '99999')
       portInput.blur()
 

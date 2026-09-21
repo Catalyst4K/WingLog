@@ -266,12 +266,6 @@ function buildWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     navdataListStars: vi.fn().mockResolvedValue([]),
     navdataListApproaches: vi.fn().mockResolvedValue([]),
     navdataGetProcedureWaypoints: vi.fn().mockResolvedValue([]),
-    settingsGetGsxRemote: vi.fn().mockResolvedValue({ enabled: false, host: 'localhost', port: null }),
-    gsxRemoteGetStatus: vi.fn().mockResolvedValue({ state: 'disconnected', lastError: null }),
-    onGsxRemoteStatus: vi.fn(() => () => {}),
-    onGsxRemoteServices: vi.fn(() => () => {}),
-    onGsxRemoteMenu: vi.fn(() => () => {}),
-    onGsxRemotePrompt: vi.fn(() => () => {}),
     ...overrides
   } as WingLogApi
 }
@@ -363,19 +357,6 @@ describe('TrackView', () => {
     expect(screen.getByText('Free flight')).toBeInTheDocument()
     // Nothing planned/active/preview — no Procedures affordance either.
     expect(screen.queryByText('Procedures…')).not.toBeInTheDocument()
-  })
-
-  it('opens the Ground services dialog, showing GsxRemotePanel regardless of flight state', async () => {
-    setWinglog()
-    const user = userEvent.setup()
-    renderTrack()
-    await screen.findByText('Flying something already?')
-
-    await user.click(screen.getByRole('button', { name: 'Ground services…' }))
-
-    expect(screen.getByRole('heading', { name: 'Ground services' })).toBeInTheDocument()
-    // GSX Remote is disabled by the default mock — GsxRemotePanel's own not-configured state.
-    expect(await screen.findByText(/GSX Remote Control is off/)).toBeInTheDocument()
   })
 
   describe('free-flight destination while tracking (v1.1.1)', () => {
