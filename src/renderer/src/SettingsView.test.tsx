@@ -2,7 +2,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from 'sonner'
-import type { GsxSettings, SyncStatus } from '@shared/ipc'
+import type { GsxRemoteConnectionStatus, GsxRemoteSettings, GsxSettings, SyncStatus } from '@shared/ipc'
 import i18n from './i18n'
 import { SettingsView } from './SettingsView'
 
@@ -28,6 +28,14 @@ function makeSyncStatus(overrides: Partial<SyncStatus> = {}): SyncStatus {
   return { loggedIn: false, email: null, syncing: false, lastSyncedAt: null, lastError: null, ...overrides }
 }
 
+function makeGsxRemote(overrides: Partial<GsxRemoteSettings> = {}): GsxRemoteSettings {
+  return { enabled: false, host: 'localhost', port: null, ...overrides }
+}
+
+function makeGsxRemoteStatus(overrides: Partial<GsxRemoteConnectionStatus> = {}): GsxRemoteConnectionStatus {
+  return { state: 'disconnected', lastError: null, ...overrides }
+}
+
 function createWinglog(overrides: Record<string, unknown> = {}): typeof window.winglog {
   return {
     settingsGetSimbriefUsername: vi.fn().mockResolvedValue(null),
@@ -37,6 +45,10 @@ function createWinglog(overrides: Record<string, unknown> = {}): typeof window.w
     appGetVersion: vi.fn().mockResolvedValue('1.2.3'),
     settingsSetGsx: vi.fn().mockResolvedValue(undefined),
     gsxBrowseFolder: vi.fn().mockResolvedValue(null),
+    settingsGetGsxRemote: vi.fn().mockResolvedValue(makeGsxRemote()),
+    settingsSetGsxRemote: vi.fn().mockResolvedValue(undefined),
+    gsxRemoteGetStatus: vi.fn().mockResolvedValue(makeGsxRemoteStatus()),
+    onGsxRemoteStatus: vi.fn().mockReturnValue(() => {}),
     settingsSetSimbriefUsername: vi.fn().mockResolvedValue(undefined),
     dispatchLoginSimbrief: vi.fn().mockResolvedValue(undefined),
     dispatchFetchSimbriefUsername: vi.fn().mockResolvedValue(null),
@@ -425,14 +437,15 @@ describe('SettingsView', () => {
       const user = userEvent.setup()
       renderSettings()
       await user.click(screen.getByRole('tab', { name: '3rd party' }))
-      const toggle = await screen.findByRole('button', { name: 'Off' })
+      const card = within((await screen.findByText('GSX ground services')).closest('[data-slot="card"]') as HTMLElement)
+      const toggle = await card.findByRole('button', { name: 'Off' })
 
       await user.click(toggle)
-      expect(await screen.findByRole('button', { name: 'On' })).toBeInTheDocument()
+      expect(await card.findByRole('button', { name: 'On' })).toBeInTheDocument()
       expect(winglog.settingsSetGsx).toHaveBeenCalledWith(expect.objectContaining({ enabled: true }))
 
-      await user.click(screen.getByRole('button', { name: 'On' }))
-      expect(await screen.findByRole('button', { name: 'Off' })).toBeInTheDocument()
+      await user.click(card.getByRole('button', { name: 'On' }))
+      expect(await card.findByRole('button', { name: 'Off' })).toBeInTheDocument()
       expect(winglog.settingsSetGsx).toHaveBeenLastCalledWith(expect.objectContaining({ enabled: false }))
     })
 
@@ -467,6 +480,120 @@ describe('SettingsView', () => {
       await user.click(await screen.findByRole('option', { name: /GBP/ }))
 
       expect(winglog.settingsSetGsx).toHaveBeenCalledWith(expect.objectContaining({ displayCurrency: 'GBP' }))
+    })
+  })
+
+  describe('GSX Remote Control', () => {
+    function findCard(): Promise<HTMLElement> {
+      return screen.findByText('GSX Remote Control').then((el) => el.closest('[data-slot="card"]') as HTMLElement)
+    }
+
+    it('toggles enabled on and off, persisting each change', async () => {
+      const winglog = setWinglog({ settingsGetGsxRemote: vi.fn().mockResolvedValue(makeGsxRemote({ enabled: false })) })
+      const user = userEvent.setup()
+      renderSettings()
+      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      const card = within(await findCard())
+      const toggle = await card.findByRole('button', { name: 'Off' })
+
+      await user.click(toggle)
+      expect(await card.findByRole('button', { name: 'On' })).toBeInTheDocument()
+      expect(winglog.settingsSetGsxRemote).toHaveBeenCalledWith(expect.objectContaining({ enabled: true }))
+
+      await user.click(card.getByRole('button', { name: 'On' }))
+      expect(await card.findByRole('button', { name: 'Off' })).toBeInTheDocument()
+      expect(winglog.settingsSetGsxRemote).toHaveBeenLastCalledWith(expect.objectContaining({ enabled: false }))
+    })
+
+    it('saves a host change', async () => {
+      const winglog = setWinglog({ settingsGetGsxRemote: vi.fn().mockResolvedValue(makeGsxRemote({ host: 'localhost' })) })
+      const user = userEvent.setup()
+      renderSettings()
+      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      const card = within(await findCard())
+
+      const hostInput = await card.findByDisplayValue('localhost')
+      await user.clear(hostInput)
+      await user.type(hostInput, '192.168.1.50')
+      hostInput.blur()
+
+      await waitFor(() =>
+        expect(winglog.settingsSetGsxRemote).toHaveBeenLastCalledWith(expect.objectContaining({ host: '192.168.1.50' }))
+      )
+    })
+
+    it('saves a valid port on blur', async () => {
+      const winglog = setWinglog({ settingsGetGsxRemote: vi.fn().mockResolvedValue(makeGsxRemote({ port: null })) })
+      const user = userEvent.setup()
+      renderSettings()
+      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      const card = within(await findCard())
+
+      const portInput = card.getByPlaceholderText('e.g. 8090')
+      await user.type(portInput, '8744')
+      portInput.blur()
+
+      await waitFor(() => expect(winglog.settingsSetGsxRemote).toHaveBeenCalledWith(expect.objectContaining({ port: 8744 })))
+    })
+
+    it('does not save an out-of-range port', async () => {
+      const winglog = setWinglog({ settingsGetGsxRemote: vi.fn().mockResolvedValue(makeGsxRemote({ port: null })) })
+      const user = userEvent.setup()
+      renderSettings()
+      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      const card = within(await findCard())
+
+      const portInput = card.getByPlaceholderText('e.g. 8090')
+      await user.type(portInput, '99999')
+      portInput.blur()
+
+      await waitFor(() => expect(portInput).toHaveValue(99999))
+      expect(winglog.settingsSetGsxRemote).not.toHaveBeenCalled()
+    })
+
+    it('shows a status badge only while enabled, reflecting the live connection state', async () => {
+      setWinglog({
+        settingsGetGsxRemote: vi.fn().mockResolvedValue(makeGsxRemote({ enabled: true, port: 8744 })),
+        gsxRemoteGetStatus: vi.fn().mockResolvedValue(makeGsxRemoteStatus({ state: 'connected' }))
+      })
+      const user = userEvent.setup()
+      renderSettings()
+      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      const card = within(await findCard())
+
+      expect(await card.findByText('Connected')).toBeInTheDocument()
+    })
+
+    it('hides the status badge while disabled', async () => {
+      setWinglog({ settingsGetGsxRemote: vi.fn().mockResolvedValue(makeGsxRemote({ enabled: false })) })
+      const user = userEvent.setup()
+      renderSettings()
+      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      const card = within(await findCard())
+
+      expect(card.queryByText('Connected')).not.toBeInTheDocument()
+      expect(card.queryByText('Disconnected')).not.toBeInTheDocument()
+    })
+
+    it('updates the status badge from a live onGsxRemoteStatus push', async () => {
+      let pushStatus: (status: GsxRemoteConnectionStatus) => void = () => {}
+      setWinglog({
+        settingsGetGsxRemote: vi.fn().mockResolvedValue(makeGsxRemote({ enabled: true, port: 8744 })),
+        gsxRemoteGetStatus: vi.fn().mockResolvedValue(makeGsxRemoteStatus({ state: 'connecting' })),
+        onGsxRemoteStatus: vi.fn((listener: (status: GsxRemoteConnectionStatus) => void) => {
+          pushStatus = listener
+          return () => {}
+        })
+      })
+      const user = userEvent.setup()
+      renderSettings()
+      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      const card = within(await findCard())
+      await card.findByText('Connecting…')
+
+      pushStatus(makeGsxRemoteStatus({ state: 'connected' }))
+
+      expect(await card.findByText('Connected')).toBeInTheDocument()
     })
   })
 

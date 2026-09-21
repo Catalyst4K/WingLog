@@ -85,6 +85,20 @@
       "displayCurrency": "Moneda de visualización",
       "currencyHint": "Los totales de GSX se convierten usando una tasa obtenida en el momento en que los consultas — nada se guarda ya convertido."
     },
+    "gsxRemote": {
+      "cardTitle": "Control remoto GSX",
+      "description": "Control de servicios de tierra en vivo, reconstruido dentro de WingLog a partir de la propia conexión Remote Client de GSX Pro — no es una copia incrustada de la página de GSX. Desactivado por defecto. El puerto del Remote Client de GSX se configura en los propios ajustes de GSX, no se adivina aquí.",
+      "enabled": "Habilitado",
+      "on": "Activado",
+      "off": "Desactivado",
+      "host": "Host",
+      "port": "Puerto",
+      "portPlaceholder": "p. ej. 8090",
+      "portHint": "Se encuentra en los propios ajustes de GSX Pro, en Remote Client — varía según la instalación, así que no hay un valor predeterminado seguro.",
+      "statusConnected": "Conectado",
+      "statusConnecting": "Conectando…",
+      "statusDisconnected": "Desconectado"
+    },
     "currencyOptions": {
       "usd": "USD — Dólar estadounidense (sin conversión)",
       "gbp": "GBP — Libra esterlina",

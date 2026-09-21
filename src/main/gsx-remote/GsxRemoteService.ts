@@ -202,8 +202,9 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
 
   private handleMessage(message: GsxMessage): void {
     if (message.type === 'snapshot') {
-      const { type: _type, ...rest } = message as SnapshotMessage
-      this.state = rest
+      const snapshot: Record<string, unknown> = { ...(message as SnapshotMessage) }
+      delete snapshot.type
+      this.state = snapshot
       this.emit('services', this.getServices())
       this.emit('menu', this.getMenu())
       this.emit('prompt', this.getPrompt())
