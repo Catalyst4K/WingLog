@@ -280,12 +280,13 @@ interface CategoryScore {
 // A deviation that's only just crossed into "dangerous" (fraction just past 1 — barely at
 // the category's own hard limit) shouldn't cost the same as one that blew well past it.
 // Scaled linearly from DANGER_PENALTY_MIN at fraction 1.0 to DANGER_PENALTY_MAX at fraction
-// DANGER_PENALTY_MAX_FRACTION (150% of the dangerous value) and beyond — Callum's own
-// calibration, 2026-09-21, replacing a flat 20-point hit regardless of how far over the line
-// a landing actually was.
+// DANGER_PENALTY_MAX_FRACTION and beyond — Callum's own calibration, 2026-09-21, replacing a
+// flat 20-point hit regardless of how far over the line a landing actually was. First tried
+// at 150% of the dangerous value; tightened the same day to 125% ("the penalty should get
+// higher quicker") after Callum felt 150% let it ramp up too slowly.
 const DANGER_PENALTY_MIN = 1
 const DANGER_PENALTY_MAX = 10
-const DANGER_PENALTY_MAX_FRACTION = 1.5
+const DANGER_PENALTY_MAX_FRACTION = 1.25
 
 function dangerPenaltyForFraction(fraction: number): number {
   if (fraction < 1) return 0

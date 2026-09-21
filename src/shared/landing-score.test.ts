@@ -133,15 +133,16 @@ describe('computeLandingScore', () => {
       // exceed their own tolerance (2026-09-21 — generalised beyond vertical-speed-only), each
       // with its own 1-10 scaled penalty (dangerPenaltyForFraction) rather than a flat 20:
       // verticalSpeed (fraction 880/360=2.44), gForce (2/1=2), centrelineOffset (100/25=4),
-      // pitch (24/8=3), bank (30/8=3.75) and crab (40/6.5=6.15) are all >=1.5x their own
-      // tolerance, so they max out at 10. distanceFromAimingPoint is the odd one out — 1000m
-      // against a 900m tolerance (6-pair zone) is only fraction 1.11, barely past the line, so
-      // it scores a light 3, not 10. Total deduction: 10*6 + 3 = 63.
-      expect(result.overall).toBe(-63)
+      // pitch (24/8=3), bank (30/8=3.75) and crab (40/6.5=6.15) are all >=1.25x their own
+      // tolerance (the max-out point, tightened same day from 1.5x — "the penalty should get
+      // higher quicker"), so they max out at 10. distanceFromAimingPoint is the odd one out —
+      // 1000m against a 900m tolerance (6-pair zone) is only fraction 1.11, barely past the
+      // line: severity (1.11-1)/0.25=0.444 -> round(1+0.444*9)=5. Total deduction: 10*6 + 5 = 65.
+      expect(result.overall).toBe(-65)
       expect(result.dangerPenalties).toEqual({
         verticalSpeed: 10,
         gForce: 10,
-        distanceFromAimingPoint: 3,
+        distanceFromAimingPoint: 5,
         centrelineOffset: 10,
         pitch: 10,
         bank: 10,
@@ -175,14 +176,14 @@ describe('computeLandingScore', () => {
         runwayLengthM: 3800, // long enough for 6 pairs (900m zone)
         distanceFromAimingPointM: 965
       })
-      // Both are only just past their own tolerance (not anywhere near the 1.5x fraction
+      // Both are only just past their own tolerance (not anywhere near the 1.25x fraction
       // that maxes the penalty at 10), so each gets a light scaled penalty, not a flat 20:
-      // crab: severity (1.106-1)/0.5=0.212 -> round(1+0.212*9)=3.
-      // distanceFromAimingPoint: severity (1.072-1)/0.5=0.144 -> round(1+0.144*9)=2.
-      expect(result.dangerPenalties).toEqual({ crab: 3, distanceFromAimingPoint: 2 })
+      // crab: severity (1.106-1)/0.25=0.425 -> round(1+0.425*9)=5.
+      // distanceFromAimingPoint: severity (1.072-1)/0.25=0.289 -> round(1+0.289*9)=4.
+      expect(result.dangerPenalties).toEqual({ crab: 5, distanceFromAimingPoint: 4 })
       // Weighted average: crab (weight 10) and distanceFromAimingPoint (weight 20) both 0;
-      // everything else stays perfect (100). (0*30 + 100*70) / 100 = 70. Minus (3 + 2) = 65.
-      expect(result.overall).toBe(65)
+      // everything else stays perfect (100). (0*30 + 100*70) / 100 = 70. Minus (5 + 4) = 61.
+      expect(result.overall).toBe(61)
     }
   )
 
