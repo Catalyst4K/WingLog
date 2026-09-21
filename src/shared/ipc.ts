@@ -386,6 +386,11 @@ export interface LandingScoreCategory {
    *  `score` is null. */
   ideal: number | null
   tolerance: number | null
+  /** True when this category's own deviation reached or exceeded its tolerance — i.e. it's
+   *  in `LandingScoreResult.dangerousCategories` below, not just scored badly. Lets the
+   *  breakdown popup mark it more strongly than the plain <50 "bad" warning every other
+   *  poor score already gets (docs/decisions.md, 2026-09-21). */
+  dangerous: boolean
 }
 
 /** The 0-100 landing score plus its derived firm/hard classification — computed at read
@@ -402,11 +407,15 @@ export interface LandingScoreResult {
   score: number
   severity: LandingSeverity
   categories: LandingScoreCategory[]
-  /** True when the touchdown reached this category's own hard-landing threshold — a flat
-   *  deduction already applied to `score` above, not just one zeroed category. Lets the
-   *  breakdown dialog explain why the score dropped by more than any single category could
-   *  account for. */
-  dangerousExceedance: boolean
+  /** Every category that reached or exceeded its own tolerance this landing — a flat
+   *  deduction per entry is already applied to `score` above, not just those categories'
+   *  own zeroed scores. Lets the breakdown dialog explain why the score dropped by more
+   *  than the categories' plain numbers could account for, and name which one(s) did it.
+   *  Originally vertical-speed-only (hard landings); generalised to every category
+   *  2026-09-21 (docs/decisions.md) after a real landing bottomed out crab and
+   *  distance-from-aiming-point together with no visible penalty for either. Empty when
+   *  nothing exceeded. */
+  dangerousCategories: LandingScoreCategoryKey[]
 }
 
 /** One flight's score, for Logbook's list-view column (docs/plans/landing-scoring.md's

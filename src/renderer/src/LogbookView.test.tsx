@@ -303,7 +303,8 @@ function makeCategories(
     label: CATEGORY_LABELS[key],
     score: scores[key],
     ideal: scores[key] === null ? null : 0,
-    tolerance: scores[key] === null ? null : 10
+    tolerance: scores[key] === null ? null : 10,
+    dangerous: false
   }))
 }
 
@@ -598,7 +599,7 @@ describe('LandingCard', () => {
             score: 78,
             severity: 'firm',
             categories: makeCategories(),
-            dangerousExceedance: false
+            dangerousCategories: []
           } satisfies LandingScoreResult
         })
       ])
@@ -617,7 +618,7 @@ describe('LandingCard', () => {
             score: 78,
             severity: 'firm',
             categories: makeCategories(),
-            dangerousExceedance: false
+            dangerousCategories: []
           } satisfies LandingScoreResult
         })
       ])
@@ -662,7 +663,7 @@ describe('LandingCard', () => {
             score: 55,
             severity: 'none',
             categories: makeCategories({ crab: 10, pitch: 95 }),
-            dangerousExceedance: false
+            dangerousCategories: []
           } satisfies LandingScoreResult
         })
       ])
@@ -684,7 +685,7 @@ describe('LandingCard', () => {
             score: 55,
             severity: 'none',
             categories: makeCategories({ crab: 10 }),
-            dangerousExceedance: false
+            dangerousCategories: []
           } satisfies LandingScoreResult
         })
       ])

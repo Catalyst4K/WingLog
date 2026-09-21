@@ -43,7 +43,8 @@ function toCategories(breakdown: LandingScoreBreakdown): LandingScoreCategory[] 
       label: CATEGORY_LABELS[key],
       score: breakdown.inputs[key],
       ideal: detail?.ideal ?? null,
-      tolerance: detail?.tolerance ?? null
+      tolerance: detail?.tolerance ?? null,
+      dangerous: breakdown.dangerousCategories.includes(key)
     }
   })
 }
@@ -90,15 +91,15 @@ export function resolveLandingScore(
 
   const breakdown = computeLandingScore(inputs)
   const severity = classifyLanding(landingRecord.verticalSpeedMs, deriveLandingThresholds(category))
-  // breakdown.overall can be negative once the dangerous-exceedance deduction applies —
-  // floored here, once, for every consumer of the display-facing score (Callum, 2026-09-20:
+  // breakdown.overall can be negative once one or more dangerous-exceedance deductions apply
+  // — floored here, once, for every consumer of the display-facing score (Callum, 2026-09-20:
   // "the overall score floors at 0 for display even though the math can go negative
   // internally").
   return {
     score: Math.max(0, breakdown.overall),
     severity,
     categories: toCategories(breakdown),
-    dangerousExceedance: breakdown.dangerousExceedance
+    dangerousCategories: breakdown.dangerousCategories
   }
 }
 
