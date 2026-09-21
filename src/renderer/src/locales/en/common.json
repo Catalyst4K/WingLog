@@ -542,6 +542,8 @@
     "freeFlight": "Free flight",
     "weatherEllipsis": "Weather…",
     "weather": "Weather",
+    "groundServicesEllipsis": "Ground services…",
+    "groundServices": "Ground services",
     "proceduresEllipsis": "Procedures…",
     "procedures": "Procedures",
     "alternateIcao": "Alternate {{icao}}",

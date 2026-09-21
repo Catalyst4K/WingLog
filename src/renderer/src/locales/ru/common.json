@@ -563,6 +563,8 @@
     "freeFlight": "Свободный полёт",
     "weatherEllipsis": "Погода…",
     "weather": "Погода",
+    "groundServicesEllipsis": "Наземное обслуживание…",
+    "groundServices": "Наземное обслуживание",
     "proceduresEllipsis": "Процедуры…",
     "procedures": "Процедуры",
     "alternateIcao": "Запасной {{icao}}",

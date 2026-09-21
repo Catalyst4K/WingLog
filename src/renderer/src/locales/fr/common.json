@@ -544,6 +544,8 @@
     "freeFlight": "Vol libre",
     "weatherEllipsis": "Météo…",
     "weather": "Météo",
+    "groundServicesEllipsis": "Services au sol…",
+    "groundServices": "Services au sol",
     "proceduresEllipsis": "Procédures…",
     "procedures": "Procédures",
     "alternateIcao": "Déroutement {{icao}}",
