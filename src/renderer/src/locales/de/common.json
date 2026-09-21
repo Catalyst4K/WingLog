@@ -543,6 +543,8 @@
     "freeFlight": "Freier Flug",
     "weatherEllipsis": "Wetter…",
     "weather": "Wetter",
+    "groundServicesEllipsis": "Bodendienste…",
+    "groundServices": "Bodendienste",
     "proceduresEllipsis": "Verfahren…",
     "procedures": "Verfahren",
     "alternateIcao": "Ausweichflughafen {{icao}}",

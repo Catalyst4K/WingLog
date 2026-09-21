@@ -545,6 +545,8 @@
     "freeFlight": "Volo libero",
     "weatherEllipsis": "Meteo…",
     "weather": "Meteo",
+    "groundServicesEllipsis": "Servizi di terra…",
+    "groundServices": "Servizi di terra",
     "proceduresEllipsis": "Procedure…",
     "procedures": "Procedure",
     "alternateIcao": "Alternato {{icao}}",
