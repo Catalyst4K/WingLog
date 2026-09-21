@@ -6,6 +6,7 @@ import {
   getAircraftIdForTitle,
   getAltitudeUnit,
   getAppLanguage,
+  getGsxRemoteSettings,
   getGsxSettings,
   getLandingDistanceUnit,
   getLastSyncCompletedAt,
@@ -21,6 +22,7 @@ import {
   setAltitudeUnit,
   setAppLanguage,
   setCheckedGsxFirstLaunch,
+  setGsxRemoteSettings,
   setGsxSettings,
   setLandingDistanceUnit,
   setLastSyncCompletedAt,
@@ -152,6 +154,21 @@ describe('settings repo', () => {
       folderPath: 'C:\\GSX\\Receipts',
       displayCurrency: 'GBP'
     })
+  })
+
+  it('defaults GSX Remote settings to disabled, localhost, no port', () => {
+    expect(getGsxRemoteSettings(db)).toEqual({ enabled: false, host: 'localhost', port: null })
+  })
+
+  it('round-trips GSX Remote settings, including a user-configured non-default port', () => {
+    setGsxRemoteSettings(db, { enabled: true, host: '192.168.1.50', port: 8744 })
+    expect(getGsxRemoteSettings(db)).toEqual({ enabled: true, host: '192.168.1.50', port: 8744 })
+  })
+
+  it('clears a previously-set port back to null', () => {
+    setGsxRemoteSettings(db, { enabled: true, host: 'localhost', port: 8744 })
+    setGsxRemoteSettings(db, { enabled: false, host: 'localhost', port: null })
+    expect(getGsxRemoteSettings(db)).toEqual({ enabled: false, host: 'localhost', port: null })
   })
 
   it('defaults the last-synced-completed timestamp to null when never set', () => {

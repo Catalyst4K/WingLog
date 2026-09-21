@@ -13,6 +13,7 @@ import {
   type WindSpeedUnit,
   type DispatchOfp,
   type DispatchOpenSimBriefParams,
+  type GsxRemoteSettings,
   type GsxSettings,
   type LandingDistanceUnit,
   type MapLanguage,
@@ -69,6 +70,7 @@ import { exportLogbook, importLogbookCsv, importLogbookJson } from './db/logbook
 import {
   getAltitudeUnit,
   getAppLanguage,
+  getGsxRemoteSettings,
   getGsxSettings,
   getLandingDistanceUnit,
   getSimbriefUsername,
@@ -78,6 +80,7 @@ import {
   getWindSpeedUnit,
   setAltitudeUnit,
   setAppLanguage,
+  setGsxRemoteSettings,
   setGsxSettings,
   setLandingDistanceUnit,
   setSimbriefUsername,
@@ -108,6 +111,7 @@ import {
 } from './simbrief/simbrief-generate'
 import { SimConnectService } from './sim/SimConnectService'
 import { ReplaySimConnectService, type ReplayMode } from './sim/ReplaySimConnectService'
+import { GsxRemoteService } from './gsx-remote/GsxRemoteService'
 import type { NavdataProvider } from './navdata/navdata-provider'
 import { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
 import { SimAirfieldResolver } from './airports/sim-airfield'
@@ -756,6 +760,48 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.gsxOpenReceipt, (_event, sourceHtmlPath: string) =>
         shell.openPath(sourceHtmlPath)
       )
+
+      // GSX Remote Control (flightdeck-backend's docs/plans/gsx-remote-control.md; live
+      // protocol confirmed docs/gsx-notes.md, 2026-09-21) — unrelated to the file-based GSX
+      // invoices above. Native reimplementation (docs/decisions.md, 2026-09-21 Option C):
+      // GsxRemoteService owns the WebSocket, renderer only ever gets typed IPC. Off by
+      // default; opt-in per user-entered host/port, same reasoning as GSX invoices' folder
+      // path — GSX's Remote Client port is genuinely user-configurable, never assumed.
+      let gsxRemoteService: GsxRemoteService | undefined
+      const startGsxRemoteIfConfigured = (): void => {
+        gsxRemoteService?.stop()
+        gsxRemoteService = undefined
+        const settings = getGsxRemoteSettings(db)
+        if (!settings.enabled || !settings.port) return
+        gsxRemoteService = new GsxRemoteService(settings.host, settings.port)
+        gsxRemoteService.on('status', (status) => {
+          if (!window.isDestroyed()) window.webContents.send(IpcChannels.gsxRemoteStatus, status)
+        })
+        gsxRemoteService.on('services', (services) => {
+          if (!window.isDestroyed()) window.webContents.send(IpcChannels.gsxRemoteServices, services)
+        })
+        gsxRemoteService.on('menu', (menu) => {
+          if (!window.isDestroyed()) window.webContents.send(IpcChannels.gsxRemoteMenu, menu)
+        })
+        gsxRemoteService.on('prompt', (prompt) => {
+          if (!window.isDestroyed()) window.webContents.send(IpcChannels.gsxRemotePrompt, prompt)
+        })
+        gsxRemoteService.start()
+      }
+      startGsxRemoteIfConfigured()
+      app.on('before-quit', () => gsxRemoteService?.stop())
+
+      ipcMain.handle(IpcChannels.settingsGetGsxRemote, () => getGsxRemoteSettings(db))
+      ipcMain.handle(IpcChannels.settingsSetGsxRemote, (_event, settings: GsxRemoteSettings) => {
+        setGsxRemoteSettings(db, settings)
+        startGsxRemoteIfConfigured()
+      })
+      ipcMain.handle(IpcChannels.gsxRemoteGetStatus, () => gsxRemoteService?.getStatus() ?? { state: 'disconnected', lastError: null })
+      ipcMain.handle(IpcChannels.gsxRemotePickMenu, (_event, index: number) => gsxRemoteService?.pickMenu(index))
+      ipcMain.handle(IpcChannels.gsxRemoteSubmitPrompt, (_event, gen: number, text: string) =>
+        gsxRemoteService?.submitPrompt(gen, text)
+      )
+      ipcMain.handle(IpcChannels.gsxRemoteCancelPrompt, (_event, gen: number) => gsxRemoteService?.cancelPrompt(gen))
 
       ipcMain.handle(IpcChannels.logbookOpenOfpPdf, async (_event, flightId: number) => {
         const flight = getFlight(db, flightId)
