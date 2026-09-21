@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
-import type { Landing } from '@shared/ipc'
+import type { Landing, LandingScoreCategoryKey } from '@shared/ipc'
 import { computeLandingScore, type LandingScoreInputs } from '@shared/landing-score'
 import { createAircraft } from './aircraft-repo'
 import { createDb, type WingLogDb } from './client'
@@ -123,16 +123,15 @@ describe('resolveLandingScore', () => {
   })
 
   it(
-    'floors a dangerous-exceedance score at 0 for display, and reports every exceeding ' +
-      "category in dangerousCategories — computeLandingScore's own overall can go negative " +
-      'internally (landing-scoring-v2.md, 2026-09-20), but nothing downstream of ' +
-      'resolveLandingScore should ever see that',
+    'floors a dangerous-exceedance score at 0 for display, and maxes out every exceeding ' +
+      "category's own 1-10 scaled dangerousPenalty when it's wildly past tolerance — " +
+      "computeLandingScore's own overall can go negative internally (landing-scoring-v2.md, " +
+      '2026-09-20), but nothing downstream of resolveLandingScore should ever see that',
     () => {
-      // -1000fpm ≈ -5.08 m/s — well past every category's hard threshold. Every other
-      // category is also pushed bad, so the weighted average alone is already near 0 before
-      // the flat deductions push it negative (a landing with e.g. a perfect touchdown point
-      // could otherwise offset the deduction back above 0, which isn't what this test is
-      // checking for).
+      // -1000fpm ≈ -5.08 m/s — well past every category's hard threshold, and every other
+      // category similarly overshoots by several multiples of its own tolerance, so each
+      // one's dangerousPenalty caps at 10 (shared/landing-score.ts's
+      // DANGER_PENALTY_MAX_FRACTION), not just barely crossing into dangerous territory.
       const landingRecord = toLanding(
         makeLanding(1, {
           verticalSpeedMs: -5.08,
@@ -146,24 +145,33 @@ describe('resolveLandingScore', () => {
       )
       const result = resolveLandingScore(landingRecord, 'EGLL', 'C172') // C172 -> L, lowest thresholds
       // Every one of the 7 categories is pushed past its own tolerance here, not just
-      // vertical speed (2026-09-21 — see LandingScoreBreakdown.dangerousCategories's own
-      // doc comment for why this generalised beyond hard landings).
-      expect(result.dangerousCategories.sort()).toEqual(
-        ['verticalSpeed', 'gForce', 'distanceFromAimingPoint', 'centrelineOffset', 'pitch', 'bank', 'crab'].sort()
-      )
+      // vertical speed (2026-09-21 — see LandingScoreCategory.dangerousPenalty's own doc
+      // comment for why this generalised beyond hard landings).
+      const dangerousKeys: LandingScoreCategoryKey[] = [
+        'verticalSpeed',
+        'gForce',
+        'distanceFromAimingPoint',
+        'centrelineOffset',
+        'pitch',
+        'bank',
+        'crab'
+      ]
+      for (const key of dangerousKeys) {
+        expect(result.categories.find((c) => c.key === key)?.dangerousPenalty).toBe(10)
+      }
       expect(result.score).toBe(0)
       expect(result.score).toBeGreaterThanOrEqual(0)
     }
   )
 
-  it('reports an empty dangerousCategories for an ordinary landing', () => {
+  it('reports a 0 dangerousPenalty on every category for an ordinary landing', () => {
     // makeLanding's own default pitchDeg (4) sits exactly on pitch's tolerance boundary
     // (ideal -4, tolerance 8 -> deviation 8) — genuinely "0/10" for that one category, so
     // overridden here to something unambiguously mid-range; this test is about there being
     // no dangerous exceedance at all, not about pitch specifically.
     const landingRecord = toLanding(makeLanding(1, { pitchDeg: -4 }))
     const result = resolveLandingScore(landingRecord, 'EGLL', 'A320')
-    expect(result.dangerousCategories).toEqual([])
+    expect(result.categories.every((c) => c.dangerousPenalty === 0)).toBe(true)
   })
 
   it('derives severity from the category-scaled thresholds, not a fixed universal one', () => {

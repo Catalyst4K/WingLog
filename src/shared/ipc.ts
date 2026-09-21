@@ -386,11 +386,13 @@ export interface LandingScoreCategory {
    *  `score` is null. */
   ideal: number | null
   tolerance: number | null
-  /** True when this category's own deviation reached or exceeded its tolerance — i.e. it's
-   *  in `LandingScoreResult.dangerousCategories` below, not just scored badly. Lets the
-   *  breakdown popup mark it more strongly than the plain <50 "bad" warning every other
-   *  poor score already gets (docs/decisions.md, 2026-09-21). */
-  dangerous: boolean
+  /** 0 when this category's own deviation stayed within tolerance; otherwise its own scaled
+   *  danger penalty (1-10, further over tolerance scores higher, capped at 10 from 150% of
+   *  the dangerous value onward — shared/landing-score.ts's dangerPenaltyForFraction) already
+   *  subtracted from `LandingScoreResult.score`. Lets the breakdown popup mark this category
+   *  more strongly than the plain <50 "bad" warning every other poor score already gets, and
+   *  show exactly how much it cost (docs/decisions.md, 2026-09-21). */
+  dangerousPenalty: number
 }
 
 /** The 0-100 landing score plus its derived firm/hard classification — computed at read
@@ -401,21 +403,16 @@ export interface LandingScoreCategory {
  *  per-field warning icons. */
 export interface LandingScoreResult {
   /** Floored at 0 for display — the underlying computeLandingScore can go negative
-   *  internally once the dangerous-exceedance deduction applies (landing-scoring-v2.md,
-   *  2026-09-20); flooring happens once, server-side (landing-score-resolver.ts), so every
+   *  internally once one or more categories' dangerousPenalty applies (landing-scoring-v2.md,
+   *  2026-09-20; rescaled from a flat per-category deduction to a severity-scaled one,
+   *  2026-09-21); flooring happens once, server-side (landing-score-resolver.ts), so every
    *  consumer of this field already sees the real display value. */
   score: number
   severity: LandingSeverity
+  /** Each category's own `dangerousPenalty` (see LandingScoreCategory) is what's already
+   *  baked into `score` above — there's no separate top-level list here since every
+   *  category already carries its own answer to "was this one dangerous, and by how much". */
   categories: LandingScoreCategory[]
-  /** Every category that reached or exceeded its own tolerance this landing — a flat
-   *  deduction per entry is already applied to `score` above, not just those categories'
-   *  own zeroed scores. Lets the breakdown dialog explain why the score dropped by more
-   *  than the categories' plain numbers could account for, and name which one(s) did it.
-   *  Originally vertical-speed-only (hard landings); generalised to every category
-   *  2026-09-21 (docs/decisions.md) after a real landing bottomed out crab and
-   *  distance-from-aiming-point together with no visible penalty for either. Empty when
-   *  nothing exceeded. */
-  dangerousCategories: LandingScoreCategoryKey[]
 }
 
 /** One flight's score, for Logbook's list-view column (docs/plans/landing-scoring.md's

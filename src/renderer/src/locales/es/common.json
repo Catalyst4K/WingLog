@@ -4,7 +4,7 @@
     "whatsIdealFor": "¿Qué es ideal para {{label}}?",
     "outOfTen": " / 10",
     "dangerousBanner": "Límite seguro superado: {{list}} — ya se ha incluido arriba una penalización de {{penalty}} puntos.",
-    "dangerousBadge": "Peligroso"
+    "dangerousBadge": "Peligroso (-{{penalty}})"
   },
   "landingBadge": {
     "hard": "Dura",
