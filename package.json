@@ -29,6 +29,7 @@
     "spike:airport-list": "tsx scripts/spike-airport-list.ts",
     "spike:landing-rate": "tsx scripts/spike-landing-rate.ts",
     "spike:capture-flight": "tsx scripts/spike-capture-flight.ts",
+    "spike:gsx-remote": "tsx scripts/spike-gsx-remote.ts",
     "spike:navdata-provider": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs scripts/spike-navdata-provider.ts",
     "spike:route-simplify": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs scripts/spike-route-simplify.ts",
     "vendor:runways": "tsx scripts/vendor-runways.ts",
