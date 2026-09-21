@@ -285,21 +285,31 @@ interface CategoryScore {
 // A deviation that's only just crossed into "dangerous" (fraction just past 1 — barely at
 // the category's own hard limit) shouldn't cost the same as one that blew well past it.
 // Scaled linearly from DANGER_PENALTY_MIN at fraction 1.0 to DANGER_PENALTY_MAX at fraction
-// DANGER_PENALTY_MAX_FRACTION and beyond — Callum's own calibration, 2026-09-21, replacing a
-// flat 20-point hit regardless of how far over the line a landing actually was. First tried
-// at 150% of the dangerous value; tightened the same day to 125% ("the penalty should get
-// higher quicker") after Callum felt 150% let it ramp up too slowly.
+// maxFraction and beyond — Callum's own calibration, 2026-09-21, replacing a flat 20-point
+// hit regardless of how far over the line a landing actually was. First tried as one number
+// (1.5, then tightened to 1.25 the same day — "the penalty should get higher quicker") for
+// every category, but real testing showed the two didn't suit each other: distance-from-
+// aiming-point felt right maxing out fast (1.25 — a long landing is dangerous quickly, so it
+// should bite hard soon after crossing the line), while crab felt too harsh at that same
+// pace and wanted the gentler 1.5 ramp back. `maxFraction` is now per category rather than
+// one shared constant for exactly that reason.
 const DANGER_PENALTY_MIN = 1
 const DANGER_PENALTY_MAX = 10
-const DANGER_PENALTY_MAX_FRACTION = 1.25
+const DEFAULT_DANGER_PENALTY_MAX_FRACTION = 1.25
+// Crab's own ramp is gentler than the default — see the history above.
+const CRAB_DANGER_PENALTY_MAX_FRACTION = 1.5
 
-function dangerPenaltyForFraction(fraction: number): number {
+function dangerPenaltyForFraction(fraction: number, maxFraction: number): number {
   if (fraction < 1) return 0
-  const severity = Math.min(1, (fraction - 1) / (DANGER_PENALTY_MAX_FRACTION - 1))
+  const severity = Math.min(1, (fraction - 1) / (maxFraction - 1))
   return Math.round(DANGER_PENALTY_MIN + severity * (DANGER_PENALTY_MAX - DANGER_PENALTY_MIN))
 }
 
-function taperedScore(deviation: number, tolerance: number): CategoryScore {
+function taperedScore(
+  deviation: number,
+  tolerance: number,
+  maxFraction: number = DEFAULT_DANGER_PENALTY_MAX_FRACTION
+): CategoryScore {
   const magnitude = Math.abs(deviation)
   if (tolerance <= 0) {
     const exceeded = magnitude !== 0
@@ -308,7 +318,7 @@ function taperedScore(deviation: number, tolerance: number): CategoryScore {
   const fraction = magnitude / tolerance
   const score = Math.max(0, Math.min(100, Math.round(100 * (1 - fraction ** TAPER_EXPONENT))))
   const exceeded = fraction >= 1
-  return { score, exceeded, dangerPenalty: exceeded ? dangerPenaltyForFraction(fraction) : 0 }
+  return { score, exceeded, dangerPenalty: exceeded ? dangerPenaltyForFraction(fraction, maxFraction) : 0 }
 }
 
 /**
@@ -336,7 +346,10 @@ export function computeLandingScore(inputs: LandingScoreInputs): LandingScoreBre
   const gForce = taperedScore(inputs.gForce - GFORCE_IDEAL, GFORCE_TOLERANCE)
   const pitch = taperedScore(inputs.pitchDeg - PITCH_IDEAL_DEG, PITCH_TOLERANCE_DEG)
   const bank = taperedScore(inputs.bankDeg - BANK_IDEAL_DEG, BANK_TOLERANCE_DEG)
-  const crab = inputs.crabDeg === null ? null : taperedScore(inputs.crabDeg - CRAB_IDEAL_DEG, CRAB_TOLERANCE_DEG)
+  const crab =
+    inputs.crabDeg === null
+      ? null
+      : taperedScore(inputs.crabDeg - CRAB_IDEAL_DEG, CRAB_TOLERANCE_DEG, CRAB_DANGER_PENALTY_MAX_FRACTION)
   const touchdownZonePairCount =
     inputs.runwayLengthM === null ? null : touchdownZonePairCountForLengthM(inputs.runwayLengthM)
   const distanceFromAimingPointTolerance =
