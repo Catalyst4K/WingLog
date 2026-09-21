@@ -640,5 +640,15 @@
     },
     "noCompletedFlights": "No completed flights yet — track one, or import a CSV logbook from Settings → Data.",
     "flightNotFound": "Flight not found."
+  },
+  "gsxRemotePanel": {
+    "loading": "Loading…",
+    "notConfigured": "GSX Remote Control is off. Enable it and set a port in Settings → 3rd party.",
+    "connecting": "Connecting to GSX…",
+    "disconnected": "Not connected to GSX.",
+    "menuEmpty": "No menu open — the ground-services menu will appear here once GSX shows one.",
+    "services": "Services",
+    "ok": "OK",
+    "cancel": "Cancel"
   }
 }
