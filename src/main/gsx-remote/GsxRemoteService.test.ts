@@ -478,4 +478,131 @@ describe('GsxRemoteService', () => {
     expect(instances[0].sent).toEqual([{ type: 'command', verb: 'menu.close' }])
     service.stop()
   })
+
+  // Real wire shapes, confirmed live 2026-09-23 (docs/gsx-notes.md) by reading GSX's own
+  // shipped menu.js source directly — STATIC_COMMANDS' ids/labels, and a real
+  // commandIcons/commandIconsSvg/simbrief capture from a live VHHH session.
+  const COMMAND_ICONS = {
+    CUSTOMIZE_AIRPORT_POSITION: 'data:image/png;base64,AAA',
+    CUSTOMIZE_AIRPLANE: 'data:image/png;base64,BBB',
+    SETTINGS: 'data:image/png;base64,CCC',
+    RESTART_COUATL: 'data:image/png;base64,DDD',
+    RELOAD_SIMBRIEF: 'data:image/png;base64,EEE'
+  }
+  const COMMAND_ICONS_SVG = {
+    CUSTOMIZE_AIRPORT_POSITION: 'data:image/svg+xml;base64,AAA',
+    RESTART_COUATL: 'data:image/svg+xml;base64,DDD'
+  }
+
+  it('lists all three static commands with null icons before GSX has sent commandIcons, and no simbrief', () => {
+    const { ctor } = makeCtor()
+    const service = new GsxRemoteService('localhost', 8744, ctor)
+
+    expect(service.getCommandBar()).toEqual({
+      commands: [
+        { id: 'CUSTOMIZE_AIRPORT_POSITION', label: 'Customize Airport', iconUri: null, confirm: false },
+        { id: 'CUSTOMIZE_AIRPLANE', label: 'Customize Aircraft', iconUri: null, confirm: false },
+        { id: 'RESTART_COUATL', label: 'Restart Couatl', iconUri: null, confirm: true }
+      ],
+      simbrief: null,
+      simbriefIconUri: null
+    })
+  })
+
+  it('combines commandIcons/commandIconsSvg/simbrief into the three real commands, excluding SETTINGS', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new GsxRemoteService('localhost', 8744, ctor)
+    service.start()
+    instances[0].simulateOpen()
+
+    instances[0].simulateMessage({
+      v: 1,
+      type: 'snapshot',
+      ts: 1,
+      services: [],
+      menu: RAW_MENU,
+      menuShown: true,
+      prompt: null,
+      commandIcons: COMMAND_ICONS,
+      commandIconsSvg: COMMAND_ICONS_SVG,
+      simbrief: { status: 'loaded', error: '', gen: 3 }
+    })
+
+    expect(service.getCommandBar()).toEqual({
+      commands: [
+        // SVG preferred over PNG when both exist, per menu.js's own fallback order.
+        { id: 'CUSTOMIZE_AIRPORT_POSITION', label: 'Customize Airport', iconUri: 'data:image/svg+xml;base64,AAA', confirm: false },
+        // PNG-only when no SVG exists for this id.
+        { id: 'CUSTOMIZE_AIRPLANE', label: 'Customize Aircraft', iconUri: 'data:image/png;base64,BBB', confirm: false },
+        { id: 'RESTART_COUATL', label: 'Restart Couatl', iconUri: 'data:image/svg+xml;base64,DDD', confirm: true }
+      ],
+      simbrief: { status: 'loaded', error: '', gen: 3 },
+      simbriefIconUri: 'data:image/png;base64,EEE'
+    })
+    service.stop()
+  })
+
+  it('still lists all three commands with a null icon if GSX has not sent one for that id yet', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new GsxRemoteService('localhost', 8744, ctor)
+    service.start()
+    instances[0].simulateOpen()
+
+    instances[0].simulateMessage({
+      v: 1,
+      type: 'snapshot',
+      ts: 1,
+      services: [],
+      menu: RAW_MENU,
+      menuShown: true,
+      prompt: null
+    })
+
+    const commandBar = service.getCommandBar()
+    expect(commandBar.commands.map((c) => c.id)).toEqual(['CUSTOMIZE_AIRPORT_POSITION', 'CUSTOMIZE_AIRPLANE', 'RESTART_COUATL'])
+    expect(commandBar.commands.every((c) => c.iconUri === null)).toBe(true)
+    service.stop()
+  })
+
+  it('emits a commandBar event for a commandIcons/commandIconsSvg/simbrief patch, not for an unrelated one', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new GsxRemoteService('localhost', 8744, ctor)
+    const commandBarListener = vi.fn()
+    service.on('commandBar', commandBarListener)
+    service.start()
+    instances[0].simulateOpen()
+    instances[0].simulateMessage({
+      v: 1,
+      type: 'snapshot',
+      ts: 1,
+      services: [],
+      menu: RAW_MENU,
+      menuShown: true,
+      prompt: null
+    })
+    commandBarListener.mockClear()
+
+    instances[0].simulateMessage({ v: 1, type: 'patch', ts: 2, path: '/services', value: SERVICES })
+    expect(commandBarListener).not.toHaveBeenCalled()
+
+    instances[0].simulateMessage({ v: 1, type: 'patch', ts: 3, path: '/commandIcons', value: COMMAND_ICONS })
+    instances[0].simulateMessage({ v: 1, type: 'patch', ts: 4, path: '/simbrief', value: { status: 'error', error: 'x', gen: 1 } })
+    expect(commandBarListener).toHaveBeenCalledTimes(2)
+    service.stop()
+  })
+
+  it('runCommand sends command.run with the id, GSX\'s own real wire shape', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new GsxRemoteService('localhost', 8744, ctor)
+    service.start()
+    instances[0].simulateOpen()
+    instances[0].sent = []
+
+    service.runCommand('RESTART_COUATL')
+    expect(instances[0].sent).toEqual([{ type: 'command', verb: 'command.run', args: { command: 'RESTART_COUATL' } }])
+
+    service.runCommand('RELOAD_SIMBRIEF')
+    expect(instances[0].sent[1]).toEqual({ type: 'command', verb: 'command.run', args: { command: 'RELOAD_SIMBRIEF' } })
+    service.stop()
+  })
 })

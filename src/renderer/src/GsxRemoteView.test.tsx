@@ -15,7 +15,9 @@ function withWinglog(): void {
     gsxRemoteGetMenu: vi.fn().mockResolvedValue({ menuShown: false, title: '', header: '', subtitle: '', entries: [], icons: [], disabled: [], layout: '' }),
     onGsxRemoteMenu: vi.fn().mockReturnValue(() => {}),
     gsxRemoteGetPrompt: vi.fn().mockResolvedValue(null),
-    onGsxRemotePrompt: vi.fn().mockReturnValue(() => {})
+    onGsxRemotePrompt: vi.fn().mockReturnValue(() => {}),
+    gsxRemoteGetCommandBar: vi.fn().mockResolvedValue({ commands: [], simbrief: null, simbriefIconUri: null }),
+    onGsxRemoteCommandBar: vi.fn().mockReturnValue(() => {})
   } as unknown as WingLogApi
 }
 

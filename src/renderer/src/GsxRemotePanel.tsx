@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight } from 'lucide-react'
 import type {
+  GsxRemoteCommandBar,
+  GsxRemoteCommandId,
   GsxRemoteConnectionStatus,
   GsxRemoteGateInfo,
   GsxRemoteMenuState,
@@ -33,6 +35,17 @@ const EMPTY_MENU: GsxRemoteMenuState = {
   icons: [],
   disabled: [],
   layout: ''
+}
+
+const EMPTY_COMMAND_BAR: GsxRemoteCommandBar = { commands: [], simbrief: null, simbriefIconUri: null }
+
+// GSX's own client text (menu.js), kept verbatim — same convention as gsxMenu.title/entries
+// elsewhere in this feature: it's GSX's own product text, not ours to translate.
+const RELOAD_SIMBRIEF_LABEL = 'Reload SimBrief'
+const SIMBRIEF_SUB_TEXT: Record<string, string> = {
+  loading: 'Downloading...',
+  loaded: 'Plan loaded',
+  error: 'Error'
 }
 
 /**
@@ -83,6 +96,114 @@ function GateHeader(props: { gate: GsxRemoteGateInfo | null }): React.JSX.Elemen
             </Badge>
           ))}
         </div>
+      )}
+    </div>
+  )
+}
+
+const RESTART_CONFIRM_MS = 4000
+// GSX's own real timeout for its optimistic "downloading" state (menu.js's SB_TIMEOUT_MS) —
+// matched, not invented, so a stuck reload clears at the same point GSX's own client would.
+const SIMBRIEF_TIMEOUT_MS = 30000
+
+/**
+ * The three remotely-triggerable command-bar buttons (Customize Airport/Aircraft, Restart
+ * Couatl) plus the separate, differently-styled SimBrief reload button — mirrors `menu.js`'s
+ * own `commandBtn()`/`simbriefBtn()` behaviour, including RESTART_COUATL's tap-to-arm/tap-
+ * to-confirm pattern and the SimBrief button's optimistic "Downloading..." state, both
+ * confirmed live 2026-09-23 by reading GSX's own shipped source, not guessed.
+ */
+function CommandBar(props: {
+  commandBar: GsxRemoteCommandBar
+  onRun: (id: GsxRemoteCommandId) => void
+}): React.JSX.Element | null {
+  const { t } = useTranslation()
+  const [armed, setArmed] = useState<string | null>(null)
+  const armedTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  // The gen recorded at the moment "Reload SimBrief" was clicked, or null when no reload is
+  // in flight — not "is it loading" as its own boolean. Whether it's *still* loading is
+  // derived below, straight from comparing this against the live simbrief.gen (React's own
+  // "don't sync state you can compute" guidance — mirrors simbriefBtn()'s own gen check
+  // exactly, without needing an effect to keep a separate flag in sync with it).
+  const [simbriefClickGen, setSimbriefClickGen] = useState<number | null>(null)
+  const simbriefTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const simbrief = props.commandBar.simbrief
+  const simbriefLoading = simbriefClickGen !== null && !(typeof simbrief?.gen === 'number' && simbrief.gen > simbriefClickGen)
+
+  useEffect(
+    () => () => {
+      clearTimeout(armedTimer.current)
+      clearTimeout(simbriefTimer.current)
+    },
+    []
+  )
+
+  if (props.commandBar.commands.length === 0 && !simbrief) return null
+
+  function handleCommandClick(id: 'CUSTOMIZE_AIRPORT_POSITION' | 'CUSTOMIZE_AIRPLANE' | 'RESTART_COUATL', confirm: boolean): void {
+    if (confirm && armed !== id) {
+      setArmed(id)
+      clearTimeout(armedTimer.current)
+      armedTimer.current = setTimeout(() => setArmed(null), RESTART_CONFIRM_MS)
+      return
+    }
+    setArmed(null)
+    clearTimeout(armedTimer.current)
+    props.onRun(id)
+  }
+
+  function handleSimbriefClick(): void {
+    setSimbriefClickGen(typeof simbrief?.gen === 'number' ? simbrief.gen : -1)
+    clearTimeout(simbriefTimer.current)
+    // Safety fallback only — the real clear happens above, the moment GSX's own gen bump
+    // arrives and this component re-renders; this timer only fires if that never happens.
+    simbriefTimer.current = setTimeout(() => setSimbriefClickGen(null), SIMBRIEF_TIMEOUT_MS)
+    props.onRun('RELOAD_SIMBRIEF')
+  }
+
+  // GSX's own client text (menu.js's simbriefBtn), kept verbatim, same as the command
+  // labels below — not ours to translate.
+  const simbriefSub = simbriefLoading
+    ? SIMBRIEF_SUB_TEXT.loading
+    : simbrief?.status === 'loaded'
+      ? SIMBRIEF_SUB_TEXT.loaded
+      : simbrief?.status === 'error'
+        ? simbrief.error || SIMBRIEF_SUB_TEXT.error
+        : null
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <p className="text-sm font-medium text-foreground">{t('gsxRemotePanel.commands')}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {props.commandBar.commands.map((c) => (
+          <Button
+            key={c.id}
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-auto gap-1.5 py-1.5 text-xs"
+            onClick={() => handleCommandClick(c.id, c.confirm)}
+          >
+            {c.iconUri && <img src={c.iconUri} alt="" className="size-4" />}
+            {armed === c.id ? 'Confirm restart?' : c.label}
+          </Button>
+        ))}
+      </div>
+      {simbrief && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={simbriefLoading}
+          className="h-auto w-full justify-start gap-1.5 py-1.5 text-xs"
+          onClick={handleSimbriefClick}
+        >
+          {props.commandBar.simbriefIconUri && <img src={props.commandBar.simbriefIconUri} alt="" className="size-4" />}
+          <span className="flex flex-col items-start">
+            <span>{RELOAD_SIMBRIEF_LABEL}</span>
+            {simbriefSub && <span className="text-[10px] font-normal text-muted-foreground">{simbriefSub}</span>}
+          </span>
+        </Button>
       )}
     </div>
   )
@@ -234,6 +355,7 @@ export function GsxRemotePanel(): React.JSX.Element {
   const [gate, setGate] = useState<GsxRemoteGateInfo | null>(null)
   const [menu, setMenu] = useState<GsxRemoteMenuState>(EMPTY_MENU)
   const [prompt, setPrompt] = useState<GsxRemotePromptState | null>(null)
+  const [commandBar, setCommandBar] = useState<GsxRemoteCommandBar>(EMPTY_COMMAND_BAR)
 
   useEffect(() => {
     window.winglog.settingsGetGsxRemote().then(setSettings)
@@ -247,17 +369,20 @@ export function GsxRemotePanel(): React.JSX.Element {
     window.winglog.gsxRemoteGetGateInfo().then(setGate)
     window.winglog.gsxRemoteGetMenu().then(setMenu)
     window.winglog.gsxRemoteGetPrompt().then(setPrompt)
+    window.winglog.gsxRemoteGetCommandBar().then(setCommandBar)
     const unsubscribeStatus = window.winglog.onGsxRemoteStatus(setStatus)
     const unsubscribeServices = window.winglog.onGsxRemoteServices(setServices)
     const unsubscribeGate = window.winglog.onGsxRemoteGate(setGate)
     const unsubscribeMenu = window.winglog.onGsxRemoteMenu(setMenu)
     const unsubscribePrompt = window.winglog.onGsxRemotePrompt(setPrompt)
+    const unsubscribeCommandBar = window.winglog.onGsxRemoteCommandBar(setCommandBar)
     return () => {
       unsubscribeStatus()
       unsubscribeServices()
       unsubscribeGate()
       unsubscribeMenu()
       unsubscribePrompt()
+      unsubscribeCommandBar()
     }
   }, [])
 
@@ -282,6 +407,7 @@ export function GsxRemotePanel(): React.JSX.Element {
         />
       )}
       <GateHeader gate={gate} />
+      <CommandBar commandBar={commandBar} onRun={(id) => window.winglog.gsxRemoteRunCommand(id)} />
       <MenuHeader menu={menu} onToggle={() => window.winglog.gsxRemoteToggleMenu()} />
       <MenuEntries menu={menu} onPick={(index) => window.winglog.gsxRemotePickMenu(index)} />
       <ServicesList services={services} />

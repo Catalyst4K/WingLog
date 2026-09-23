@@ -678,6 +678,7 @@
     "disconnected": "Нет подключения к GSX.",
     "menuHeaderClosed": "Меню GSX",
     "tapToOpen": "Нажмите, чтобы открыть",
+    "commands": "Команды",
     "services": "Службы",
     "provider": "Поставщик: {{name}}",
     "showMoreServices_one": "Показать ещё {{count}} услугу",

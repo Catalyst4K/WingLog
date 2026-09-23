@@ -7,6 +7,8 @@ import {
   type DataFormat,
   type DispatchOpenSimBriefParams,
   type WingLogApi,
+  type GsxRemoteCommandBar,
+  type GsxRemoteCommandId,
   type GsxRemoteConnectionStatus,
   type GsxRemoteGateInfo,
   type GsxRemoteMenuState,
@@ -211,10 +213,17 @@ const api: WingLogApi = {
     ipcRenderer.on(IpcChannels.gsxRemotePrompt, handler)
     return () => ipcRenderer.removeListener(IpcChannels.gsxRemotePrompt, handler)
   },
+  gsxRemoteGetCommandBar: () => ipcRenderer.invoke(IpcChannels.gsxRemoteGetCommandBar),
+  onGsxRemoteCommandBar: (listener: (commandBar: GsxRemoteCommandBar) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, commandBar: GsxRemoteCommandBar): void => listener(commandBar)
+    ipcRenderer.on(IpcChannels.gsxRemoteCommandBar, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.gsxRemoteCommandBar, handler)
+  },
   gsxRemotePickMenu: (index: number) => ipcRenderer.invoke(IpcChannels.gsxRemotePickMenu, index),
   gsxRemoteToggleMenu: () => ipcRenderer.invoke(IpcChannels.gsxRemoteToggleMenu),
   gsxRemoteSubmitPrompt: (gen: number, text: string) => ipcRenderer.invoke(IpcChannels.gsxRemoteSubmitPrompt, gen, text),
-  gsxRemoteCancelPrompt: (gen: number) => ipcRenderer.invoke(IpcChannels.gsxRemoteCancelPrompt, gen)
+  gsxRemoteCancelPrompt: (gen: number) => ipcRenderer.invoke(IpcChannels.gsxRemoteCancelPrompt, gen),
+  gsxRemoteRunCommand: (id: GsxRemoteCommandId) => ipcRenderer.invoke(IpcChannels.gsxRemoteRunCommand, id)
 }
 
 contextBridge.exposeInMainWorld('winglog', api)
