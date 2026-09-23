@@ -259,16 +259,29 @@ describe('SettingsView', () => {
       expect(onThemeChange).toHaveBeenCalledWith('dark')
     })
 
-    it('keeps each unit row\'s explanation out of sight until its info button is clicked', async () => {
+    it('keeps most unit rows\' explanations out of sight until their info button is clicked', async () => {
       const user = userEvent.setup()
       renderSettings()
 
-      // Not shown up front (flightdeck-backend docs/plans/v1-2.md Part 4 — these five hints
-      // used to be permanent paragraphs; now they're behind an info popover, one per row).
-      expect(screen.queryByText(/rather than converting everything to one unit/)).not.toBeInTheDocument()
+      // Not shown up front (flightdeck-backend docs/plans/v1-2.md Part 4 — four of these
+      // hints used to be permanent paragraphs; now they're behind an info popover, one per
+      // row).
+      expect(screen.queryByText(/falling back to English if this app doesn't have a translation/)).not.toBeInTheDocument()
 
-      await user.click(screen.getByRole('button', { name: 'More info about OFP altitudes' }))
-      expect(await screen.findByText(/rather than converting everything to one unit/)).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'More info about App language' }))
+      expect(
+        await screen.findByText(/falling back to English if this app doesn't have a translation/)
+      ).toBeInTheDocument()
+    })
+
+    it("keeps the OFP altitudes row's Hybrid explanation always visible, not behind a popover", async () => {
+      // "Hybrid" isn't self-explanatory the way Feet/Meters are — hiding what it means
+      // behind a click was a real regression, not a decluttering win (Callum, 2026-09-23).
+      renderSettings()
+      expect(
+        await screen.findByText(/rather than converting everything to one unit/)
+      ).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'More info about OFP altitudes' })).not.toBeInTheDocument()
     })
   })
 
