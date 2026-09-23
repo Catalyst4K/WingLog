@@ -43,12 +43,12 @@
       "appLanguage": "应用语言",
       "appLanguageHint": "“跟随系统”会使用操作系统本身的语言，若本应用尚无对应翻译则回退为英文。翻译正在逐个界面推进中 — 目前大部分界面仍为英文，与此设置无关。真正的航空术语（ILS、STAR、SID、FL、QNH、ICAO 代码）以及来自 SimBrief 的内容始终保持英文。",
       "mapLanguage": "地图语言",
-      "mapLanguageHint": "Track 和 Logbook 地图上地名所用的语言。“本地”会以当地语言显示每个地名 — 与上面的应用语言互不影响。",
+      "mapLanguageHint": "追踪和飞行日志地图上地名所用的语言。“本地”会以当地语言显示每个地名 — 与上面的应用语言互不影响。",
       "metarWindSpeed": "METAR 风速",
       "knots": "节",
-      "metarWindSpeedHint": "Dispatch 上的原始 METAR 文本始终按报文原样显示 — 此设置只影响旁边另外显示的格式化风速行。",
+      "metarWindSpeedHint": "签派中的原始 METAR 文本始终按报文原样显示 — 此设置只影响旁边另外显示的格式化风速行。",
       "landingDistances": "落地距离",
-      "landingDistancesHint": "Logbook 中某次落地卡片上的“距入口距离”“中线偏移”，以及其接地示意图所用的单位。下降率始终以 fpm 显示，速度与风速始终以节显示，不受此设置影响。",
+      "landingDistancesHint": "飞行日志中某次落地卡片上的“距入口距离”“中线偏移”，以及其接地示意图所用的单位。下降率始终以 fpm 显示，速度与风速始终以节显示，不受此设置影响。",
       "moreInfoFor": "关于{{label}}的更多信息"
     },
     "theme": {
@@ -60,7 +60,7 @@
     },
     "credentials": {
       "cardTitle": "账号凭据",
-      "description": "供 Dispatch 用于在 SimBrief 上获取和生成计划。",
+      "description": "供签派用于在 SimBrief 上获取和生成计划。",
       "simbriefUsername": "SimBrief 用户名",
       "usernamePlaceholder": "Navigraph 别名",
       "save": "保存",
@@ -72,7 +72,7 @@
     },
     "gsx": {
       "cardTitle": "GSX 地面服务",
-      "description": "将 GSX Pro 的配餐/加油/地面服务收据附加到 Logbook 中对应的航班上。仅支持 Windows（GSX 本身也仅支持 Windows）；未开启前不会附加任何内容。",
+      "description": "将 GSX Pro 的配餐/加油/地面服务收据附加到飞行日志中对应的航班上。仅支持 Windows（GSX 本身也仅支持 Windows）；未开启前不会附加任何内容。",
       "enabled": "启用",
       "on": "开",
       "off": "关",
@@ -95,10 +95,10 @@
     },
     "data": {
       "cardTitle": "数据",
-      "description": "将机队和 Logbook 数据导入或导出为本地文件。",
+      "description": "将机队和飞行日志数据导入或导出为本地文件。",
       "fleetTitle": "机队",
       "fleetHint": "注册号、机型、航空公司及当前所在机场。导入时会跳过已存在的注册号。",
-      "logbookTitle": "Logbook",
+      "logbookTitle": "飞行日志",
       "logbookHint": "每次已完成航班及其落地情况的摘要 — 并非完整备份（不含航路或 OFP 数据）。导入支持 WingLog 自身的文件格式，以及 SimToolkitPro 的 CSV。",
       "fileFormat": "文件格式",
       "regionLabel": "{{title}}数据",
@@ -111,11 +111,11 @@
       "aircraftAddedSuffix_other": "（向机队新增了 {{count}} 架飞机）",
       "skippedSuffix": "已跳过 {{count}} 个：{{skipped}}",
       "fleetExported": "机队已导出。",
-      "logbookExported": "Logbook 已导出。"
+      "logbookExported": "飞行日志已导出。"
     },
     "cloudSync": {
       "cardTitle": "云同步",
-      "description": "在你的多台设备间同步机队和 Logbook 数据。这是 WingLog 自身提供的服务，并非第三方 — 登录前不会有任何数据离开本机。",
+      "description": "在你的多台设备间同步机队和飞行日志数据。这是 WingLog 自身提供的服务，并非第三方 — 登录前不会有任何数据离开本机。",
       "logOut": "退出登录",
       "neverSyncedYet": "尚未同步过。",
       "lastSynced": "上次同步：{{date}}",
@@ -135,7 +135,7 @@
       "syncedToast": "已同步。"
     },
     "about": {
-      "description": "适用于 Microsoft Flight Simulator 的个人机队管理、Dispatch、实时航迹追踪与 Logbook 伴侣应用。",
+      "description": "适用于 Microsoft Flight Simulator 的个人机队管理、签派、实时航迹追踪与飞行日志伴侣应用。",
       "disclaimer": "WingLog 与 Microsoft Corporation 或 Asobo Studio 没有任何关联，未获其认可，也未获其赞助。“Microsoft Flight Simulator”是其各自所有者的商标。",
       "license": "根据 GNU General Public License v3.0 免费开源发布。"
     },
@@ -166,7 +166,7 @@
       "resumeDescription": "在追踪 {{label}} 期间 WingLog 被关闭。如果该航班在模拟器中仍在进行，请点击恢复；否则可放弃以删除该航班。",
       "resumeConfirm": "恢复追踪",
       "continueTitle": "继续这个航班？",
-      "continueDescription": "WingLog 关闭时 {{label}} 已计划但尚未开始。可保留并在 Track 中继续，或放弃以删除该航班。",
+      "continueDescription": "WingLog 关闭时 {{label}} 已计划但尚未开始。可保留并在追踪中继续，或放弃以删除该航班。",
       "continueConfirm": "保留",
       "discard": "放弃航班"
     },
@@ -288,7 +288,7 @@
     "customAirframeSaved": "自定义机型配置已保存。",
     "customAirframeNotSaved": "未保存任何机型配置 — 窗口在完成前已被关闭。",
     "customAirframeProfile": "自定义机型配置",
-    "airframeIdWarning": "已保存的机型配置 ID 通常类似“123456_1582090020” — 请在 SimBrief 的机型编辑器中核对（Fleet 详情页有直达链接）。",
+    "airframeIdWarning": "已保存的机型配置 ID 通常类似“123456_1582090020” — 请在 SimBrief 的机型编辑器中核对（机队详情页有直达链接）。",
     "openAirframesPage": "打开机型配置页面",
     "customAirframeHint": "留空则使用上方的配置。已在 SimBrief 中自行创建过？打开机型配置页面查找其 ID。",
     "currentAirport": "当前所在机场",
@@ -374,7 +374,7 @@
   "dispatchAdvancedDialog": {
     "blankOrAuto": "留空 = 默认值，或填“auto”",
     "blankDefault": "留空 = 默认值",
-    "title": "高级 Dispatch 选项",
+    "title": "高级签派选项",
     "description": "每个字段均为可选且默认留空 — 全部保持不动将生成与目前相同的 SimBrief 请求。",
     "loadFromPreviousFlight": "从历史航班加载设置",
     "selectPastFlight": "— 选择历史航班 —",
@@ -479,7 +479,7 @@
       "zfwTowLdw": "ZFW / TOW / LDW",
       "costIndex": "成本指数"
     },
-    "steps": "步骤",
+    "steps": "爬升阶梯",
     "none": "无",
     "route": "航路",
     "fleetAircraft": "机队飞机",
@@ -528,7 +528,7 @@
     "alternateIcao": "备降 {{icao}}",
     "nothingSelectedYet": "尚未选择",
     "flightEnded": "航班已结束",
-    "autoDetectedComplete": "{{label}} 已被自动识别为完成，并保存到你的 Logbook。",
+    "autoDetectedComplete": "{{label}} 已被自动识别为完成，并保存到你的飞行日志。",
     "ok": "确定"
   },
   "flightMap": {
@@ -571,7 +571,7 @@
     "flightDeleted": "航班已删除。",
     "noOfpPdfForFlight": "此航班暂无可用的 OFP PDF。",
     "backToAircraft": "返回飞机",
-    "backToLogbook": "返回 Logbook",
+    "backToLogbook": "返回飞行日志",
     "freeFlight": "自由飞行",
     "viewOfpPdf": "查看 OFP PDF",
     "addToFleet": "加入机队",
