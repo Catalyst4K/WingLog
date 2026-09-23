@@ -238,7 +238,15 @@ export function GsxRemotePanel(): React.JSX.Element {
   useEffect(() => {
     window.winglog.settingsGetGsxRemote().then(setSettings)
     window.winglog.gsxRemoteGetStatus().then(setStatus)
+    // Current-value fetches on mount, not just the live subscriptions below — GSX only
+    // pushes services/menu/prompt on a *change*, so a panel mounting (or remounting, e.g.
+    // switching tabs and back) after GSX already sent its snapshot would otherwise show
+    // nothing until the next patch. Real gap found writing this feature's first Playwright
+    // test (flightdeck-backend's docs/plans/gsx-remote-control.md).
+    window.winglog.gsxRemoteGetServices().then(setServices)
     window.winglog.gsxRemoteGetGateInfo().then(setGate)
+    window.winglog.gsxRemoteGetMenu().then(setMenu)
+    window.winglog.gsxRemoteGetPrompt().then(setPrompt)
     const unsubscribeStatus = window.winglog.onGsxRemoteStatus(setStatus)
     const unsubscribeServices = window.winglog.onGsxRemoteServices(setServices)
     const unsubscribeGate = window.winglog.onGsxRemoteGate(setGate)

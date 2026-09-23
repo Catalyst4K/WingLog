@@ -25,10 +25,13 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): void {
     settingsGetGsxRemote: vi.fn().mockResolvedValue(makeSettings()),
     gsxRemoteGetStatus: vi.fn().mockResolvedValue(makeStatus()),
     onGsxRemoteStatus: vi.fn().mockReturnValue(() => {}),
+    gsxRemoteGetServices: vi.fn().mockResolvedValue([]),
     onGsxRemoteServices: vi.fn().mockReturnValue(() => {}),
     gsxRemoteGetGateInfo: vi.fn().mockResolvedValue(null),
     onGsxRemoteGate: vi.fn().mockReturnValue(() => {}),
+    gsxRemoteGetMenu: vi.fn().mockResolvedValue({ menuShown: false, title: '', header: '', subtitle: '', entries: [], icons: [], disabled: [], layout: '' }),
     onGsxRemoteMenu: vi.fn().mockReturnValue(() => {}),
+    gsxRemoteGetPrompt: vi.fn().mockResolvedValue(null),
     onGsxRemotePrompt: vi.fn().mockReturnValue(() => {}),
     gsxRemotePickMenu: vi.fn().mockResolvedValue(undefined),
     gsxRemoteToggleMenu: vi.fn().mockResolvedValue(undefined),
@@ -287,6 +290,43 @@ describe('GsxRemotePanel', () => {
     await screen.findByText('Tap to open')
 
     expect(screen.queryByText(/VHHH/)).not.toBeInTheDocument()
+  })
+
+  it('shows services/menu/prompt already known at mount, not just future pushes', async () => {
+    // A real gap found writing this feature's Playwright test: GSX only pushes
+    // services/menu/prompt on a *change*, so a panel mounting (or remounting) after GSX
+    // already sent its snapshot needs its own current-value fetch, same as status/gate
+    // already had — otherwise it shows nothing until the next patch happens to arrive.
+    withWinglog({
+      gsxRemoteGetServices: vi.fn().mockResolvedValue([
+        { id: 'Boarding', displayName: 'Board', state: 'requested', stateText: '', icon: '', canTrigger: false, canBypass: false, statusText: 'Already in progress', progressText: '' }
+      ]),
+      gsxRemoteGetMenu: vi.fn().mockResolvedValue({
+        menuShown: true,
+        title: 'Already-open menu',
+        header: '',
+        subtitle: '',
+        entries: ['Option A'],
+        icons: [],
+        disabled: [false],
+        layout: 'list'
+      }),
+      gsxRemoteGetPrompt: vi.fn().mockResolvedValue({
+        kind: 'text',
+        gen: 5,
+        title: 'Already-open prompt',
+        description: '',
+        default: '',
+        maxLength: 64
+      })
+    })
+    render(<GsxRemotePanel />)
+
+    expect(await screen.findByText('Board')).toBeInTheDocument()
+    expect(screen.getByText('Already in progress')).toBeInTheDocument()
+    expect(screen.getByText('Already-open menu')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Option A' })).toBeInTheDocument()
+    expect(screen.getByText('Already-open prompt')).toBeInTheDocument()
   })
 
   it('hides idle secondary services behind a "show more" toggle, keeps primary/active ones visible', async () => {

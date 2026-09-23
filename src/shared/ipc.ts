@@ -1159,10 +1159,13 @@ export const IpcChannels = {
   settingsSetGsxRemote: 'settings:set-gsx-remote',
   gsxRemoteGetStatus: 'gsx-remote:get-status',
   gsxRemoteStatus: 'gsx-remote:status',
+  gsxRemoteGetServices: 'gsx-remote:get-services',
   gsxRemoteServices: 'gsx-remote:services',
   gsxRemoteGetGateInfo: 'gsx-remote:get-gate-info',
   gsxRemoteGate: 'gsx-remote:gate',
+  gsxRemoteGetMenu: 'gsx-remote:get-menu',
   gsxRemoteMenu: 'gsx-remote:menu',
+  gsxRemoteGetPrompt: 'gsx-remote:get-prompt',
   gsxRemotePrompt: 'gsx-remote:prompt',
   gsxRemotePickMenu: 'gsx-remote:pick-menu',
   gsxRemoteToggleMenu: 'gsx-remote:toggle-menu',
@@ -1500,11 +1503,20 @@ export interface WingLogApi {
    *  same reasoning as getSimConnectionStatus above. */
   gsxRemoteGetStatus: () => Promise<GsxRemoteConnectionStatus>
   onGsxRemoteStatus: (listener: (status: GsxRemoteConnectionStatus) => void) => () => void
+  /** Current services, for a renderer mounting after GSX already pushed a snapshot — without
+   *  this, a panel mounted (or remounted, e.g. by switching tabs and back) after connect but
+   *  before the next `services` patch would show nothing until GSX happened to send one. */
+  gsxRemoteGetServices: () => Promise<GsxRemoteServiceStatus[]>
   onGsxRemoteServices: (listener: (services: GsxRemoteServiceStatus[]) => void) => () => void
   /** Current gate info, for a renderer mounting after the initial connect already happened. */
   gsxRemoteGetGateInfo: () => Promise<GsxRemoteGateInfo | null>
   onGsxRemoteGate: (listener: (gate: GsxRemoteGateInfo | null) => void) => () => void
+  /** Current menu, same "mounting late shouldn't mean missing state" reasoning as
+   *  gsxRemoteGetServices above. */
+  gsxRemoteGetMenu: () => Promise<GsxRemoteMenuState>
   onGsxRemoteMenu: (listener: (menu: GsxRemoteMenuState) => void) => () => void
+  /** Current prompt, same reasoning as gsxRemoteGetServices/gsxRemoteGetMenu above. */
+  gsxRemoteGetPrompt: () => Promise<GsxRemotePromptState | null>
   /** Pushed with null when GSX clears the prompt (answered, cancelled, or a new connection). */
   onGsxRemotePrompt: (listener: (prompt: GsxRemotePromptState | null) => void) => () => void
   /** Picks the menu entry at this index — the *only* interaction GSX's own menu model

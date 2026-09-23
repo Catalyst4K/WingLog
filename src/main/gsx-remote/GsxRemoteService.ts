@@ -12,7 +12,7 @@ import type {
  *  real GSX install (mirrors SimConnectService's OpenSimConnect injection). */
 export type WebSocketCtor = typeof NodeWebSocket
 
-const EMPTY_MENU: GsxRemoteMenuState = {
+export const EMPTY_MENU: GsxRemoteMenuState = {
   menuShown: false,
   title: '',
   header: '',
