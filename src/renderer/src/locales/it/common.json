@@ -50,7 +50,8 @@
       "knots": "Nodi",
       "metarWindSpeedHint": "Il testo METAR grezzo in Dispatch rimane sempre come riportato — questo controlla solo una riga del vento formattata separatamente, mostrata accanto.",
       "landingDistances": "Distanze di atterraggio",
-      "landingDistancesHint": "Distanza dalla soglia e scostamento dall'asse centrale nella scheda di atterraggio di un volo del Logbook, e nel suo diagramma di atterraggio. Il rateo di atterraggio resta in fpm e velocità/vento restano in nodi."
+      "landingDistancesHint": "Distanza dalla soglia e scostamento dall'asse centrale nella scheda di atterraggio di un volo del Logbook, e nel suo diagramma di atterraggio. Il rateo di atterraggio resta in fpm e velocità/vento restano in nodi.",
+      "moreInfoFor": "Maggiori informazioni su {{label}}"
     },
     "theme": {
       "cardTitle": "Tema",
@@ -73,7 +74,7 @@
     },
     "gsx": {
       "cardTitle": "Servizi di terra GSX",
-      "description": "Allega le ricevute di catering/carburante/handling di GSX Pro ai voli corrispondenti nel tuo Logbook. Solo Windows (GSX stesso è solo per Windows) — disattivato per impostazione predefinita, e qui non appare nulla finché non viene attivato.",
+      "description": "Allega le ricevute di catering/carburante/handling di GSX Pro ai voli corrispondenti nel tuo Logbook. Solo Windows (GSX stesso è solo per Windows); non viene allegato nulla finché non viene attivato.",
       "enabled": "Attivato",
       "on": "Sì",
       "off": "No",
@@ -121,7 +122,7 @@
     },
     "cloudSync": {
       "cardTitle": "Sincronizzazione cloud",
-      "description": "Sincronizza la tua flotta e il tuo logbook tra i tuoi dispositivi. Questo è un servizio proprio di WingLog, non di terze parti — disattivato per impostazione predefinita, nulla lascia questo dispositivo finché non accedi.",
+      "description": "Sincronizza la tua flotta e il tuo logbook tra i tuoi dispositivi. Questo è un servizio proprio di WingLog, non di terze parti — nulla lascia questo dispositivo finché non accedi.",
       "logOut": "Disconnetti",
       "neverSyncedYet": "Mai sincronizzato.",
       "lastSynced": "Ultima sincronizzazione {{date}}",

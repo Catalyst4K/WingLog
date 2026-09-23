@@ -50,7 +50,8 @@
       "knots": "Nudos",
       "metarWindSpeedHint": "El texto METAR sin procesar en Dispatch siempre se mantiene tal como se informó — esto solo controla una línea de viento formateada aparte, mostrada junto a él.",
       "landingDistances": "Distancias de aterrizaje",
-      "landingDistancesHint": "Distancia desde el umbral y desplazamiento respecto al eje central en la tarjeta de aterrizaje de un vuelo del Logbook, y en su diagrama de toma de contacto. La tasa de toma de contacto se mantiene en fpm y las velocidades/el viento en nudos."
+      "landingDistancesHint": "Distancia desde el umbral y desplazamiento respecto al eje central en la tarjeta de aterrizaje de un vuelo del Logbook, y en su diagrama de toma de contacto. La tasa de toma de contacto se mantiene en fpm y las velocidades/el viento en nudos.",
+      "moreInfoFor": "Más información sobre {{label}}"
     },
     "theme": {
       "cardTitle": "Tema",
@@ -73,7 +74,7 @@
     },
     "gsx": {
       "cardTitle": "Servicios de tierra GSX",
-      "description": "Adjunta los recibos de catering/combustible/asistencia de GSX Pro a los vuelos correspondientes de tu Logbook. Solo Windows (GSX en sí es exclusivo de Windows) — desactivado por defecto, y nada aparece aquí hasta activarlo.",
+      "description": "Adjunta los recibos de catering/combustible/asistencia de GSX Pro a los vuelos correspondientes de tu Logbook. Solo Windows (GSX en sí es exclusivo de Windows); no se adjunta nada hasta que esto se active.",
       "enabled": "Habilitado",
       "on": "Activado",
       "off": "Desactivado",
@@ -121,7 +122,7 @@
     },
     "cloudSync": {
       "cardTitle": "Sincronización en la nube",
-      "description": "Sincroniza tu flota y tu logbook entre tus dispositivos. Este es el propio servicio de WingLog, no un tercero — desactivado por defecto, nada sale de este dispositivo hasta que inicies sesión.",
+      "description": "Sincroniza tu flota y tu logbook entre tus dispositivos. Este es el propio servicio de WingLog, no un tercero — nada sale de este dispositivo hasta que inicies sesión.",
       "logOut": "Cerrar sesión",
       "neverSyncedYet": "Nunca sincronizado.",
       "lastSynced": "Última sincronización {{date}}",

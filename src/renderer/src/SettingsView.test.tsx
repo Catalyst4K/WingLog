@@ -244,8 +244,9 @@ describe('SettingsView', () => {
       const user = userEvent.setup()
       const onLandingDistanceUnitChange = vi.fn()
       renderSettings({ landingDistanceUnit: 'ft', onLandingDistanceUnitChange })
-      // Scoped to this row specifically — "OFP altitudes" also has a "Meters" option.
-      const landingRow = screen.getByText('Landing distances').parentElement as HTMLElement
+      // Scoped to this row's own button group specifically — "OFP altitudes" also has a
+      // "Meters" option.
+      const landingRow = screen.getByRole('group', { name: 'Landing distances' })
       await user.click(within(landingRow).getByRole('button', { name: 'Meters' }))
       expect(onLandingDistanceUnitChange).toHaveBeenCalledWith('m')
     })
@@ -256,6 +257,18 @@ describe('SettingsView', () => {
       renderSettings({ theme: 'system', onThemeChange })
       await user.click(screen.getByRole('button', { name: 'Dark' }))
       expect(onThemeChange).toHaveBeenCalledWith('dark')
+    })
+
+    it('keeps each unit row\'s explanation out of sight until its info button is clicked', async () => {
+      const user = userEvent.setup()
+      renderSettings()
+
+      // Not shown up front (flightdeck-backend docs/plans/v1-2.md Part 4 — these five hints
+      // used to be permanent paragraphs; now they're behind an info popover, one per row).
+      expect(screen.queryByText(/rather than converting everything to one unit/)).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'More info about OFP altitudes' }))
+      expect(await screen.findByText(/rather than converting everything to one unit/)).toBeInTheDocument()
     })
   })
 
@@ -356,6 +369,14 @@ describe('SettingsView', () => {
   })
 
   describe('GSX ground services', () => {
+    it("doesn't restate that it's off by default — the Enabled toggle already shows that", async () => {
+      const user = userEvent.setup()
+      renderSettings()
+      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      expect(await screen.findByText(/nothing is attached until this is turned on/)).toBeInTheDocument()
+      expect(screen.queryByText(/off by default/i)).not.toBeInTheDocument()
+    })
+
     it('toggles enabled on and off, persisting each change', async () => {
       const winglog = setWinglog({ settingsGetGsx: vi.fn().mockResolvedValue(makeGsx({ enabled: false })) })
       const user = userEvent.setup()
@@ -652,6 +673,14 @@ describe('SettingsView', () => {
   })
 
   describe('Cloud sync', () => {
+    it("doesn't restate that it's off by default alongside \"until you log in\"", async () => {
+      const user = userEvent.setup()
+      renderSettings()
+      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      expect(await screen.findByText(/nothing leaves this device until you log in/)).toBeInTheDocument()
+      expect(screen.queryByText(/off by default/i)).not.toBeInTheDocument()
+    })
+
     it('logs in with the trimmed email and password', async () => {
       const winglog = setWinglog({
         authLogin: vi.fn().mockResolvedValue(makeSyncStatus({ loggedIn: true, email: 'pilot@example.com' }))

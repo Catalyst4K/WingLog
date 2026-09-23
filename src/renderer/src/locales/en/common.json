@@ -50,7 +50,8 @@
       "knots": "Knots",
       "metarWindSpeedHint": "The raw METAR text on Dispatch always stays as reported — this only controls a separate formatted wind line shown alongside it.",
       "landingDistances": "Landing distances",
-      "landingDistancesHint": "Distance from threshold and centreline offset on a Logbook flight's landing card, and its touchdown diagram. Touchdown rate stays fpm and speeds/wind stay knots regardless."
+      "landingDistancesHint": "Distance from threshold and centreline offset on a Logbook flight's landing card, and its touchdown diagram. Touchdown rate stays fpm and speeds/wind stay knots regardless.",
+      "moreInfoFor": "More info about {{label}}"
     },
     "theme": {
       "cardTitle": "Theme",
@@ -73,7 +74,7 @@
     },
     "gsx": {
       "cardTitle": "GSX ground services",
-      "description": "Attach GSX Pro's catering/fuel/handling receipts to matching flights in your Logbook. Windows only (GSX itself is Windows-only) — off by default, and nothing here shows up until enabled.",
+      "description": "Attach GSX Pro's catering/fuel/handling receipts to matching flights in your Logbook. Windows only (GSX itself is Windows-only); nothing is attached until this is turned on.",
       "enabled": "Enabled",
       "on": "On",
       "off": "Off",
@@ -119,7 +120,7 @@
     },
     "cloudSync": {
       "cardTitle": "Cloud sync",
-      "description": "Sync Fleet and Logbook across your machines. This is WingLog's own service, not a third party — off by default, nothing leaves this device until you log in.",
+      "description": "Sync Fleet and Logbook across your machines. This is WingLog's own service, not a third party — nothing leaves this device until you log in.",
       "logOut": "Log out",
       "neverSyncedYet": "Never synced yet.",
       "lastSynced": "Last synced {{date}}",

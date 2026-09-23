@@ -50,7 +50,8 @@
       "knots": "Nœuds",
       "metarWindSpeedHint": "Le texte METAR brut dans Dispatch reste toujours tel que reçu — ceci ne contrôle qu'une ligne de vent formatée séparément, affichée à côté.",
       "landingDistances": "Distances d'atterrissage",
-      "landingDistancesHint": "Distance depuis le seuil et écart par rapport à l'axe sur la fiche d'atterrissage d'un vol du Logbook, ainsi que sur son schéma d'atterrissage. Le taux de toucher des roues reste en fpm et les vitesses/le vent restent en nœuds."
+      "landingDistancesHint": "Distance depuis le seuil et écart par rapport à l'axe sur la fiche d'atterrissage d'un vol du Logbook, ainsi que sur son schéma d'atterrissage. Le taux de toucher des roues reste en fpm et les vitesses/le vent restent en nœuds.",
+      "moreInfoFor": "Plus d'informations sur {{label}}"
     },
     "theme": {
       "cardTitle": "Thème",
@@ -73,7 +74,7 @@
     },
     "gsx": {
       "cardTitle": "Services au sol GSX",
-      "description": "Associe les reçus de catering/carburant/assistance de GSX Pro aux vols correspondants de votre Logbook. Windows uniquement (GSX lui-même est exclusif à Windows) — désactivé par défaut, rien n'apparaît ici tant que ce n'est pas activé.",
+      "description": "Associe les reçus de catering/carburant/assistance de GSX Pro aux vols correspondants de votre Logbook. Windows uniquement (GSX lui-même est exclusif à Windows) ; rien n'est associé tant que ce n'est pas activé.",
       "enabled": "Activé",
       "on": "Activé",
       "off": "Désactivé",
@@ -121,7 +122,7 @@
     },
     "cloudSync": {
       "cardTitle": "Synchronisation cloud",
-      "description": "Synchronise votre flotte et votre logbook entre vos appareils. C'est le service propre de WingLog, pas un tiers — désactivé par défaut, rien ne quitte cet appareil tant que vous ne vous connectez pas.",
+      "description": "Synchronise votre flotte et votre logbook entre vos appareils. C'est le service propre de WingLog, pas un tiers — rien ne quitte cet appareil tant que vous ne vous connectez pas.",
       "logOut": "Se déconnecter",
       "neverSyncedYet": "Jamais synchronisé.",
       "lastSynced": "Dernière synchronisation {{date}}",

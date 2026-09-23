@@ -50,7 +50,8 @@
       "knots": "Knoten",
       "metarWindSpeedHint": "Der rohe METAR-Text im Dispatch bleibt immer wie gemeldet — dies steuert nur eine separat formatierte Windzeile daneben.",
       "landingDistances": "Landedistanzen",
-      "landingDistancesHint": "Abstand zur Schwelle und seitlicher Versatz zur Mittellinie auf der Landekarte eines Logbuchflugs sowie im Aufsetzdiagramm. Die Sinkrate bleibt fpm, Geschwindigkeiten/Wind bleiben Knoten."
+      "landingDistancesHint": "Abstand zur Schwelle und seitlicher Versatz zur Mittellinie auf der Landekarte eines Logbuchflugs sowie im Aufsetzdiagramm. Die Sinkrate bleibt fpm, Geschwindigkeiten/Wind bleiben Knoten.",
+      "moreInfoFor": "Mehr Infos zu {{label}}"
     },
     "theme": {
       "cardTitle": "Design",
@@ -73,7 +74,7 @@
     },
     "gsx": {
       "cardTitle": "GSX-Bodendienste",
-      "description": "Verknüpft GSX-Pro-Belege für Catering/Betankung/Abfertigung mit passenden Flügen in deinem Logbuch. Nur Windows (GSX selbst ist Windows-only) — standardmäßig deaktiviert, nichts erscheint hier, bis es aktiviert wird.",
+      "description": "Verknüpft GSX-Pro-Belege für Catering/Betankung/Abfertigung mit passenden Flügen in deinem Logbuch. Nur Windows (GSX selbst ist Windows-only); es wird nichts angehängt, bis dies aktiviert ist.",
       "enabled": "Aktiviert",
       "on": "Ein",
       "off": "Aus",
@@ -119,7 +120,7 @@
     },
     "cloudSync": {
       "cardTitle": "Cloud-Synchronisierung",
-      "description": "Synchronisiert Flotte und Logbuch über deine Geräte hinweg. Dies ist WingLogs eigener Dienst, kein Drittanbieter — standardmäßig deaktiviert, nichts verlässt dieses Gerät, bis du dich anmeldest.",
+      "description": "Synchronisiert Flotte und Logbuch über deine Geräte hinweg. Dies ist WingLogs eigener Dienst, kein Drittanbieter — nichts verlässt dieses Gerät, bis du dich anmeldest.",
       "logOut": "Abmelden",
       "neverSyncedYet": "Noch nie synchronisiert.",
       "lastSynced": "Zuletzt synchronisiert {{date}}",
