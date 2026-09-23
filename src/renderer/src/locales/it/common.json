@@ -86,7 +86,7 @@
     },
     "gsxRemote": {
       "cardTitle": "Controllo remoto GSX",
-      "description": "Controllo live dei servizi di terra, ricostruito all'interno di WingLog a partire dalla connessione Remote Client di GSX Pro — non è una copia incorporata della pagina di GSX. Disattivato per impostazione predefinita. La porta del Remote Client di GSX si imposta nelle impostazioni di GSX stesso, non viene indovinata qui.",
+      "description": "Controllo live dei servizi di terra, ricostruito all'interno di WingLog a partire dalla connessione Remote Client di GSX Pro — non è una copia incorporata della pagina di GSX.",
       "enabled": "Attivato",
       "on": "Sì",
       "off": "No",

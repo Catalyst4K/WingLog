@@ -86,7 +86,7 @@
     },
     "gsxRemote": {
       "cardTitle": "GSX Remote Control",
-      "description": "Live ground-service control, rebuilt inside WingLog from GSX Pro's own Remote Client connection — not an embedded copy of GSX's page. Off by default. GSX's Remote Client port is set in GSX's own settings, not guessed here.",
+      "description": "Live ground-service control, rebuilt inside WingLog from GSX Pro's own Remote Client connection — not an embedded copy of GSX's page.",
       "enabled": "Enabled",
       "on": "On",
       "off": "Off",

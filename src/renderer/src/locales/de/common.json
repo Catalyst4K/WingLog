@@ -86,7 +86,7 @@
     },
     "gsxRemote": {
       "cardTitle": "GSX Remote Control",
-      "description": "Live-Steuerung der Bodenabfertigung, innerhalb von WingLog aus GSX Pros eigener Remote-Client-Verbindung neu aufgebaut — keine eingebettete Kopie der GSX-Seite. Standardmäßig deaktiviert. Der Port des GSX-Remote-Clients wird in GSX' eigenen Einstellungen festgelegt und hier nicht geraten.",
+      "description": "Live-Steuerung der Bodenabfertigung, innerhalb von WingLog aus GSX Pros eigener Remote-Client-Verbindung neu aufgebaut — keine eingebettete Kopie der GSX-Seite.",
       "enabled": "Aktiviert",
       "on": "Ein",
       "off": "Aus",
