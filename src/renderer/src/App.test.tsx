@@ -389,7 +389,7 @@ describe('App', () => {
     setWinglog({ settingsGetAppLanguage: vi.fn().mockResolvedValue('de') })
     await i18n.changeLanguage('de')
     render(<App />)
-    for (const name of ['Flotte', 'Dispatch', 'Track', 'Logbuch', 'Einstellungen']) {
+    for (const name of ['Flotte', 'Flugplanung', 'Flugverfolgung', 'Logbuch', 'Einstellungen']) {
       expect(await screen.findByRole('tab', { name })).toBeInTheDocument()
     }
     expect(screen.getByText('SimConnect: getrennt')).toBeInTheDocument()

@@ -2,9 +2,9 @@
   "dialogs": {
     "exportFleet": "Esporta flotta",
     "importFleet": "Importa flotta",
-    "exportLogbook": "Esporta Logbook",
-    "importLogbookCsv": "Importa CSV del Logbook",
-    "importLogbookJson": "Importa JSON del Logbook",
+    "exportLogbook": "Esporta libretto",
+    "importLogbookCsv": "Importa CSV del libretto",
+    "importLogbookJson": "Importa JSON del libretto",
     "gsxReceiptsFolder": "Cartella ricevute GSX"
   },
   "startupFailed": "Avvio di WingLog non riuscito",
@@ -22,7 +22,7 @@
     "csvFileEmpty": "Il file CSV è vuoto",
     "registrationAlreadyExists": "l'immatricolazione esiste già",
     "alreadyImported": "già importato",
-    "logbookExportTooLarge": "Questo file è troppo grande per essere un'esportazione del Logbook",
+    "logbookExportTooLarge": "Questo file è troppo grande per essere un'esportazione del libretto",
     "missingOrMalformedField": "campo obbligatorio mancante o non valido",
     "inBlockBeforeOutBlock": "L'orario di blocco in arrivo precede quello di partenza",
     "expectedJsonArrayOfFlights": "Era previsto un array JSON di voli",

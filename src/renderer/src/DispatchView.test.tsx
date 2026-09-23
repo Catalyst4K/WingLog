@@ -206,7 +206,7 @@ describe('DispatchView', () => {
   it('renders its title and placeholder message in the active i18next language, not a hardcoded English string', async () => {
     await i18n.changeLanguage('de')
     render(<Harness />)
-    expect(screen.getByText('Dispatch')).toBeInTheDocument()
+    expect(screen.getByText('Flugplanung')).toBeInTheDocument()
     expect(screen.getByText('Flug planen')).toBeInTheDocument()
     expect(
       screen.getByText('Plane oder rufe einen Flug ab, um hier die Details zu sehen.')

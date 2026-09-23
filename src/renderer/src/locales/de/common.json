@@ -45,10 +45,10 @@
       "appLanguage": "App-Sprache",
       "appLanguageHint": "„System“ folgt der Sprache deines Betriebssystems und weicht auf Englisch aus, wenn für diese Sprache noch keine Übersetzung existiert. Die Übersetzung wird nach und nach eingeführt — der Großteil der Oberfläche ist unabhängig von dieser Einstellung noch auf Englisch. Echte Luftfahrtbegriffe (ILS, STAR, SID, FL, QNH, ICAO-Kennungen) und alles von SimBrief bleiben immer auf Englisch.",
       "mapLanguage": "Kartensprache",
-      "mapLanguageHint": "Die Sprache der Ortsnamen auf den Track- und Logbuch-Karten. „Lokal“ zeigt jeden Ort in seiner eigenen Sprache — unabhängig von der App-Sprache oben.",
+      "mapLanguageHint": "Die Sprache der Ortsnamen auf den Karten von Flugverfolgung und Logbuch. „Lokal“ zeigt jeden Ort in seiner eigenen Sprache — unabhängig von der App-Sprache oben.",
       "metarWindSpeed": "METAR-Windgeschwindigkeit",
       "knots": "Knoten",
-      "metarWindSpeedHint": "Der rohe METAR-Text im Dispatch bleibt immer wie gemeldet — dies steuert nur eine separat formatierte Windzeile daneben.",
+      "metarWindSpeedHint": "Der rohe METAR-Text in der Flugplanung bleibt immer wie gemeldet — dies steuert nur eine separat formatierte Windzeile daneben.",
       "landingDistances": "Landedistanzen",
       "landingDistancesHint": "Abstand zur Schwelle und seitlicher Versatz zur Mittellinie auf der Landekarte eines Logbuchflugs sowie im Aufsetzdiagramm. Die Sinkrate bleibt fpm, Geschwindigkeiten/Wind bleiben Knoten.",
       "moreInfoFor": "Mehr Infos zu {{label}}"
@@ -62,7 +62,7 @@
     },
     "credentials": {
       "cardTitle": "Zugangsdaten",
-      "description": "Wird von Dispatch verwendet, um Pläne auf SimBrief abzurufen und zu erstellen.",
+      "description": "Wird von der Flugplanung verwendet, um Pläne auf SimBrief abzurufen und zu erstellen.",
       "simbriefUsername": "SimBrief-Benutzername",
       "usernamePlaceholder": "Navigraph-Alias",
       "save": "Speichern",
@@ -140,7 +140,7 @@
       "syncedToast": "Synchronisiert."
     },
     "about": {
-      "description": "Ein persönlicher Begleiter für Flottenverwaltung, Dispatch, Live-Tracking und Logbuch für Microsoft Flight Simulator.",
+      "description": "Ein persönlicher Begleiter für Flottenverwaltung, Flugplanung, Live-Tracking und Logbuch für Microsoft Flight Simulator.",
       "disclaimer": "WingLog steht in keiner Verbindung zu Microsoft Corporation oder Asobo Studio und wird nicht von ihnen unterstützt oder gesponsert. „Microsoft Flight Simulator“ ist eine Marke ihrer jeweiligen Inhaber.",
       "license": "Frei und quelloffen unter der GNU General Public License v3.0."
     },
@@ -150,8 +150,8 @@
   "app": {
     "tabs": {
       "fleet": "Flotte",
-      "dispatch": "Dispatch",
-      "track": "Track",
+      "dispatch": "Flugplanung",
+      "track": "Flugverfolgung",
       "logbook": "Logbuch",
       "settings": "Einstellungen"
     },
@@ -171,7 +171,7 @@
       "resumeDescription": "WingLog wurde geschlossen, während {{label}} verfolgt wurde. Setze fort, wenn der Flug im Sim noch läuft, oder verwirf ihn, um den Flug zu löschen.",
       "resumeConfirm": "Tracking fortsetzen",
       "continueTitle": "Diesen Flug fortsetzen?",
-      "continueDescription": "WingLog wurde geschlossen, während {{label}} bereits geplant, aber noch nicht gestartet war. Behalte ihn und setze in Track fort, oder verwirf ihn, um den Flug zu löschen.",
+      "continueDescription": "WingLog wurde geschlossen, während {{label}} bereits geplant, aber noch nicht gestartet war. Behalte ihn und setze in der Flugverfolgung fort, oder verwirf ihn, um den Flug zu löschen.",
       "continueConfirm": "Behalten",
       "discard": "Flug verwerfen"
     },
@@ -380,7 +380,7 @@
   "dispatchAdvancedDialog": {
     "blankOrAuto": "leer = Standard, oder „auto“",
     "blankDefault": "leer = Standard",
-    "title": "Erweiterte Dispatch-Optionen",
+    "title": "Erweiterte Flugplanungsoptionen",
     "description": "Jedes Feld ist optional und standardmäßig leer — lässt du alle unverändert, entsteht dieselbe SimBrief-Anfrage wie heute.",
     "loadFromPreviousFlight": "Einstellungen aus einem früheren Flug laden",
     "selectPastFlight": "— vergangenen Flug auswählen —",
@@ -452,7 +452,7 @@
     "back": "Zurück"
   },
   "dispatchView": {
-    "title": "Dispatch",
+    "title": "Flugplanung",
     "planAFlight": "Flug planen",
     "fetching": "Wird abgerufen…",
     "fetchLatestOfp": "Neuestes OFP abrufen",
@@ -509,7 +509,7 @@
   },
   "trackView": {
     "flightNum": "Flugnummer:",
-    "title": "Track",
+    "title": "Flugverfolgung",
     "phase": "Phase:",
     "cancelFlight": "Flug abbrechen",
     "finishAndSave": "Beenden & speichern",
