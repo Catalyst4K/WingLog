@@ -261,6 +261,24 @@ describe('GsxRemotePanel', () => {
 
     expect(await screen.findByText('Gate N6')).toBeInTheDocument()
     expect(screen.getByText('VHHH · Hong Kong Intl · (N) T1 North')).toBeInTheDocument()
+    // gateProperties is GSX's own free-text amenity-tag list, rendered as plain badges.
+    expect(screen.getByText('Gate Heavy')).toBeInTheDocument()
+    expect(screen.getByText('jetway')).toBeInTheDocument()
+  })
+
+  it('shows no amenity badges when GSX reports none for the gate', async () => {
+    withWinglog({
+      gsxRemoteGetGateInfo: vi.fn().mockResolvedValue({
+        airportIcao: 'VHHH',
+        airportName: 'Hong Kong Intl',
+        parking: '(N) T1 North|Gate N6',
+        gateProperties: []
+      } satisfies GsxRemoteGateInfo)
+    })
+    render(<GsxRemotePanel />)
+
+    expect(await screen.findByText('Gate N6')).toBeInTheDocument()
+    expect(screen.queryByText('jetway')).not.toBeInTheDocument()
   })
 
   it('renders nothing for the gate section before GSX has resolved one', async () => {

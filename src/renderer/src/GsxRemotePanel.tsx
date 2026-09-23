@@ -9,6 +9,7 @@ import type {
   GsxRemoteServiceStatus,
   GsxRemoteSettings
 } from '@shared/ipc'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -64,13 +65,25 @@ function MenuHeader(props: { menu: GsxRemoteMenuState; onToggle: () => void }): 
   )
 }
 
+/** `gateProperties` is GSX's own free-text amenity-tag list ("jetway", "no stairs", "max
+ *  wingspan 70m") — rendered as plain badges, never matched against a fixed set, per
+ *  `gsx-remote-format.ts`'s own doc comment on the type. */
 function GateHeader(props: { gate: GsxRemoteGateInfo | null }): React.JSX.Element | null {
   if (!props.gate) return null
   const { gateLabel, area } = parseGsxParking(props.gate.parking)
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="flex flex-col gap-1">
       <span className="text-sm font-medium text-foreground">{gateLabel}</span>
       <span className="text-xs text-muted-foreground">{gateSubtitle(props.gate, area)}</span>
+      {props.gate.gateProperties.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {props.gate.gateProperties.map((property) => (
+            <Badge key={property} variant="outline" className="h-auto py-0 text-[10px] font-normal">
+              {property}
+            </Badge>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
