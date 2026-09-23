@@ -50,6 +50,31 @@ test.describe('GSX Remote Control', () => {
       await page.getByText('Show 1 more service').click()
       await expect(page.getByText('GPU')).toBeVisible()
 
+      // The command bar — real command.run verb, confirmed by reading GSX's own shipped
+      // menu.js source (not guessed), including Restart Couatl's tap-to-arm/tap-to-confirm.
+      await expect(page.getByText('Customize Airport')).toBeVisible()
+      await page.getByText('Customize Aircraft').click()
+      await expect
+        .poll(() => server.receivedCommands.at(-1))
+        .toEqual({ verb: 'command.run', args: { command: 'CUSTOMIZE_AIRPLANE' } })
+
+      await page.getByText('Restart Couatl').click()
+      await expect(page.getByText('Confirm restart?')).toBeVisible()
+      expect(server.receivedCommands.some((c) => c.verb === 'command.run' && c.args?.command === 'RESTART_COUATL')).toBe(false)
+      await page.getByText('Confirm restart?').click()
+      await expect
+        .poll(() => server.receivedCommands.at(-1))
+        .toEqual({ verb: 'command.run', args: { command: 'RESTART_COUATL' } })
+
+      // SimBrief's own wide button, its real status text, and the real "reload" command.
+      await expect(page.getByText('Reload SimBrief')).toBeVisible()
+      await expect(page.getByText('Plan loaded')).toBeVisible()
+      await page.getByText('Reload SimBrief').click()
+      await expect
+        .poll(() => server.receivedCommands.at(-1))
+        .toEqual({ verb: 'command.run', args: { command: 'RELOAD_SIMBRIEF' } })
+      await expect(page.getByText('Downloading...')).toBeVisible()
+
       // Opening the menu sends the real command real GSX remotes send (menu.js's own
       // `cmd(closed ? "menu.toggle" : "menu.close")`) — not just passively mirroring state.
       await page.getByText('GSX Menu').click()

@@ -1,12 +1,26 @@
 import { EventEmitter } from 'node:events'
 import { WebSocket as NodeWebSocket } from 'node:http'
 import type {
+  GsxRemoteCommand,
+  GsxRemoteCommandBar,
+  GsxRemoteCommandId,
   GsxRemoteConnectionStatus,
   GsxRemoteGateInfo,
   GsxRemoteMenuState,
   GsxRemotePromptState,
   GsxRemoteServiceStatus
 } from '@shared/ipc'
+
+/** GSX's own four static command-bar buttons — confirmed live 2026-09-23 by reading
+ *  `menu.js`'s own `STATIC_COMMANDS` array directly (id/label, verbatim), not reconstructed
+ *  from the wire alone (the wire only ever carries icon images keyed by these ids, never
+ *  labels). `SETTINGS` is deliberately excluded here — see `GsxRemoteCommand`'s own doc
+ *  comment in `src/shared/ipc.ts` for why. */
+const STATIC_COMMANDS: { id: GsxRemoteCommand['id']; label: string; confirm: boolean }[] = [
+  { id: 'CUSTOMIZE_AIRPORT_POSITION', label: 'Customize Airport', confirm: false },
+  { id: 'CUSTOMIZE_AIRPLANE', label: 'Customize Aircraft', confirm: false },
+  { id: 'RESTART_COUATL', label: 'Restart Couatl', confirm: true }
+]
 
 /** Matches the global/`node:http` WebSocket constructor — injected so tests don't need a
  *  real GSX install (mirrors SimConnectService's OpenSimConnect injection). */
@@ -30,12 +44,15 @@ const RECONNECT_MIN_MS = 250
 const RECONNECT_MAX_MS = 600
 const RECONNECT_BACKOFF_FACTOR = 1.6
 
+export const EMPTY_COMMAND_BAR: GsxRemoteCommandBar = { commands: [], simbrief: null, simbriefIconUri: null }
+
 interface GsxRemoteServiceEvents {
   status: [GsxRemoteConnectionStatus]
   services: [GsxRemoteServiceStatus[]]
   gate: [GsxRemoteGateInfo | null]
   menu: [GsxRemoteMenuState]
   prompt: [GsxRemotePromptState | null]
+  commandBar: [GsxRemoteCommandBar]
 }
 
 /** GSX's own wire message — see docs/gsx-notes.md for the real shape, confirmed live
@@ -71,6 +88,21 @@ function isPromptState(value: unknown): value is GsxRemotePromptState {
  *  `{icao, name, country}`. Only `icao`/`name` are used; `country` isn't shown anywhere. */
 function isRawAirport(value: unknown): value is { icao: string; name: string } {
   return typeof value === 'object' && value !== null && typeof (value as { icao?: unknown }).icao === 'string'
+}
+
+/** The raw wire `/commandIcons` or `/commandIconsSvg` object — `{COMMAND_ID: dataUri}`,
+ *  confirmed live 2026-09-23. */
+function isIconMap(value: unknown): value is Record<string, string> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isRawSimBrief(value: unknown): value is { status: string; error: string; gen: number } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { status?: unknown }).status === 'string' &&
+    typeof (value as { gen?: unknown }).gen === 'number'
+  )
 }
 
 /**
@@ -139,6 +171,39 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
       parking,
       gateProperties: Array.isArray(gateProperties) ? gateProperties.filter((p) => typeof p === 'string') : []
     }
+  }
+
+  /** `state.commandIcons`/`commandIconsSvg`/`simbrief` combined into the three
+   *  remotely-triggerable command-bar buttons plus SimBrief's reload state — confirmed live
+   *  2026-09-23 (docs/gsx-notes.md). SVG icons preferred over PNG, mirroring `menu.js`'s own
+   *  `s.commandIconsSvg || s.commandIcons` fallback order. A command with no icon in either
+   *  map yet (GSX hasn't sent one) still appears, with `iconUri: null` — `STATIC_COMMANDS`'
+   *  ids/labels are static, not conditional on the icon having arrived. */
+  getCommandBar(): GsxRemoteCommandBar {
+    const svgIcons = this.state.commandIconsSvg
+    const pngIcons = this.state.commandIcons
+    const svg = isIconMap(svgIcons) ? svgIcons : {}
+    const png = isIconMap(pngIcons) ? pngIcons : {}
+    const commands: GsxRemoteCommand[] = STATIC_COMMANDS.map((c) => ({
+      id: c.id,
+      label: c.label,
+      iconUri: svg[c.id] ?? png[c.id] ?? null,
+      confirm: c.confirm
+    }))
+    const simbrief = this.state.simbrief
+    return {
+      commands,
+      simbrief: isRawSimBrief(simbrief) ? simbrief : null,
+      simbriefIconUri: svg.RELOAD_SIMBRIEF ?? png.RELOAD_SIMBRIEF ?? null
+    }
+  }
+
+  /** Runs one of the three command-bar commands — GSX's own client's exact wire shape
+   *  (`menu.js`: `cmd("command.run", { command: c.id })`). The confirm-before-restart
+   *  behaviour is a UI concern (GsxRemotePanel), not enforced here, same as GSX's own
+   *  client keeps it in menu.js rather than in its own transport layer. */
+  runCommand(id: GsxRemoteCommandId): void {
+    this.sendCommand('command.run', { command: id })
   }
 
   start(): void {
@@ -253,6 +318,7 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
       this.emit('gate', this.getGateInfo())
       this.emit('menu', this.getMenu())
       this.emit('prompt', this.getPrompt())
+      this.emit('commandBar', this.getCommandBar())
       return
     }
     if (message.type === 'patch') {
@@ -266,6 +332,9 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
         this.emit('gate', this.getGateInfo())
       } else if (key === 'menu' || key === 'menuShown') this.emit('menu', this.getMenu())
       else if (key === 'prompt') this.emit('prompt', this.getPrompt())
+      else if (key === 'commandIcons' || key === 'commandIconsSvg' || key === 'simbrief') {
+        this.emit('commandBar', this.getCommandBar())
+      }
     }
   }
 

@@ -656,6 +656,7 @@
     "disconnected": "Nicht mit GSX verbunden.",
     "menuHeaderClosed": "GSX-Menü",
     "tapToOpen": "Antippen zum Öffnen",
+    "commands": "Befehle",
     "services": "Dienste",
     "provider": "Anbieter: {{name}}",
     "showMoreServices_one": "{{count}} weiteren Dienst anzeigen",

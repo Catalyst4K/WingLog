@@ -734,6 +734,55 @@ export interface GsxRemoteGateInfo {
   gateProperties: string[]
 }
 
+/** One of GSX's four static command-bar buttons — confirmed live 2026-09-23, both from real
+ *  `state.commandIcons`/`commandIconsSvg` wire payloads AND by reading GSX's own shipped
+ *  `menu.js` source directly (unminified, served from the Remote Client's own HTTP root —
+ *  same discipline as reading `menuHead()`'s source for the menu.toggle fix). `menu.js`'s
+ *  own comment: "the ONLY a-priori knowledge is the four static command.run ids (which never
+ *  change)" — `id`/`label` mirrored verbatim from its `STATIC_COMMANDS` array, not
+ *  reconstructed from the wire alone (the wire only carries icon images, keyed by these same
+ *  ids, not labels). **`SETTINGS` is deliberately excluded** — `menu.js`'s own click handler
+ *  never sends a `command.run` for it; it opens GSX's own in-page settings form
+ *  (`Settings.open()`, client-side only), which WingLog has no way to reach without
+ *  embedding — exactly the exception Option C existed to avoid. Only the three real
+ *  remotely-triggerable commands are exposed here. */
+export interface GsxRemoteCommand {
+  id: 'CUSTOMIZE_AIRPORT_POSITION' | 'CUSTOMIZE_AIRPLANE' | 'RESTART_COUATL'
+  label: string
+  /** A data: URI (SVG preferred, PNG fallback — mirrors `menu.js`'s own
+   *  `s.commandIconsSvg || s.commandIcons` order) or null if GSX hasn't sent an icon for it. */
+  iconUri: string | null
+  /** RESTART_COUATL only, per `menu.js`'s own `c.confirm` flag — the real client requires a
+   *  second tap within 4s before it actually sends `command.run`, rather than firing on the
+   *  first tap. */
+  confirm: boolean
+}
+
+/** `state.simbrief` — confirmed live 2026-09-23: `{status, error, gen}`. Drives the
+ *  command bar's SimBrief reload button; `gen` is bumped by GSX once a reload genuinely
+ *  finishes, which is what `menu.js`'s own client uses to clear its optimistic "downloading"
+ *  state (mirrored the same way here, not on a timer alone). */
+export interface GsxRemoteSimBriefState {
+  status: string
+  error: string
+  gen: number
+}
+
+export interface GsxRemoteCommandBar {
+  commands: GsxRemoteCommand[]
+  simbrief: GsxRemoteSimBriefState | null
+  /** RELOAD_SIMBRIEF's own icon — from the same `commandIcons`/`commandIconsSvg` maps as
+   *  every `GsxRemoteCommand`, but RELOAD_SIMBRIEF isn't itself a `GsxRemoteCommand` (its
+   *  wide-button styling and optimistic busy/loaded/error state are genuinely different from
+   *  the three plain command-bar buttons, per `menu.js`'s own separate `simbriefBtn()`). */
+  simbriefIconUri: string | null
+}
+
+/** Every id `command.run` actually accepts — the three `GsxRemoteCommand` ids plus
+ *  RELOAD_SIMBRIEF, which isn't itself a `GsxRemoteCommand` (see `GsxRemoteCommandBar`'s own
+ *  doc comment) but runs the exact same way over the wire. */
+export type GsxRemoteCommandId = GsxRemoteCommand['id'] | 'RELOAD_SIMBRIEF'
+
 /**
  * GSX's own live menu — the real control surface. Deliberately generic (GSX's own client,
  * menu.js, "reads NO services array, recognizes NO ids/names") — every interactive step,
@@ -1167,10 +1216,13 @@ export const IpcChannels = {
   gsxRemoteMenu: 'gsx-remote:menu',
   gsxRemoteGetPrompt: 'gsx-remote:get-prompt',
   gsxRemotePrompt: 'gsx-remote:prompt',
+  gsxRemoteGetCommandBar: 'gsx-remote:get-command-bar',
+  gsxRemoteCommandBar: 'gsx-remote:command-bar',
   gsxRemotePickMenu: 'gsx-remote:pick-menu',
   gsxRemoteToggleMenu: 'gsx-remote:toggle-menu',
   gsxRemoteSubmitPrompt: 'gsx-remote:submit-prompt',
-  gsxRemoteCancelPrompt: 'gsx-remote:cancel-prompt'
+  gsxRemoteCancelPrompt: 'gsx-remote:cancel-prompt',
+  gsxRemoteRunCommand: 'gsx-remote:run-command'
 } as const
 
 export interface WingLogApi {
@@ -1519,6 +1571,12 @@ export interface WingLogApi {
   gsxRemoteGetPrompt: () => Promise<GsxRemotePromptState | null>
   /** Pushed with null when GSX clears the prompt (answered, cancelled, or a new connection). */
   onGsxRemotePrompt: (listener: (prompt: GsxRemotePromptState | null) => void) => () => void
+  /** The three remotely-triggerable command-bar buttons plus SimBrief's own reload state —
+   *  see GsxRemoteCommand's doc comment for why SETTINGS is never included. Combines
+   *  `state.commandIcons`/`commandIconsSvg`/`simbrief`, same "separate top-level wire keys,
+   *  one value for callers" pattern as gate/menu. */
+  gsxRemoteGetCommandBar: () => Promise<GsxRemoteCommandBar>
+  onGsxRemoteCommandBar: (listener: (commandBar: GsxRemoteCommandBar) => void) => () => void
   /** Picks the menu entry at this index — the *only* interaction GSX's own menu model
    *  exposes (docs/gsx-notes.md). No-op if not connected. */
   gsxRemotePickMenu: (index: number) => Promise<void>
@@ -1530,4 +1588,7 @@ export interface WingLogApi {
   gsxRemoteToggleMenu: () => Promise<void>
   gsxRemoteSubmitPrompt: (gen: number, text: string) => Promise<void>
   gsxRemoteCancelPrompt: (gen: number) => Promise<void>
+  /** Runs one of the three command-bar commands (`command.run`) — GSX's own client requires
+   *  a second confirming call for RESTART_COUATL (the UI enforces this, not this method). */
+  gsxRemoteRunCommand: (id: GsxRemoteCommandId) => Promise<void>
 }

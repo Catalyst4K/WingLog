@@ -33,10 +33,13 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): void {
     onGsxRemoteMenu: vi.fn().mockReturnValue(() => {}),
     gsxRemoteGetPrompt: vi.fn().mockResolvedValue(null),
     onGsxRemotePrompt: vi.fn().mockReturnValue(() => {}),
+    gsxRemoteGetCommandBar: vi.fn().mockResolvedValue({ commands: [], simbrief: null, simbriefIconUri: null }),
+    onGsxRemoteCommandBar: vi.fn().mockReturnValue(() => {}),
     gsxRemotePickMenu: vi.fn().mockResolvedValue(undefined),
     gsxRemoteToggleMenu: vi.fn().mockResolvedValue(undefined),
     gsxRemoteSubmitPrompt: vi.fn().mockResolvedValue(undefined),
     gsxRemoteCancelPrompt: vi.fn().mockResolvedValue(undefined),
+    gsxRemoteRunCommand: vi.fn().mockResolvedValue(undefined),
     ...overrides
   } as unknown as WingLogApi
 }
@@ -230,12 +233,14 @@ describe('GsxRemotePanel', () => {
     const unsubscribeGate = vi.fn()
     const unsubscribeMenu = vi.fn()
     const unsubscribePrompt = vi.fn()
+    const unsubscribeCommandBar = vi.fn()
     withWinglog({
       onGsxRemoteStatus: vi.fn().mockReturnValue(unsubscribeStatus),
       onGsxRemoteServices: vi.fn().mockReturnValue(unsubscribeServices),
       onGsxRemoteGate: vi.fn().mockReturnValue(unsubscribeGate),
       onGsxRemoteMenu: vi.fn().mockReturnValue(unsubscribeMenu),
-      onGsxRemotePrompt: vi.fn().mockReturnValue(unsubscribePrompt)
+      onGsxRemotePrompt: vi.fn().mockReturnValue(unsubscribePrompt),
+      onGsxRemoteCommandBar: vi.fn().mockReturnValue(unsubscribeCommandBar)
     })
     const { unmount } = render(<GsxRemotePanel />)
     await screen.findByText('Tap to open')
@@ -248,6 +253,7 @@ describe('GsxRemotePanel', () => {
       expect(unsubscribeGate).toHaveBeenCalled()
       expect(unsubscribeMenu).toHaveBeenCalled()
       expect(unsubscribePrompt).toHaveBeenCalled()
+      expect(unsubscribeCommandBar).toHaveBeenCalled()
     })
   })
 
@@ -430,5 +436,83 @@ describe('GsxRemotePanel', () => {
     expect(await screen.findByText('0 / 344')).toBeInTheDocument()
     expect(screen.getByText('Front: 0 / 7 ULDs')).toBeInTheDocument()
     expect(screen.getByText('Rear: 0 / 6 ULDs')).toBeInTheDocument()
+  })
+
+  const COMMAND_BAR = {
+    commands: [
+      { id: 'CUSTOMIZE_AIRPORT_POSITION' as const, label: 'Customize Airport', iconUri: null, confirm: false },
+      { id: 'CUSTOMIZE_AIRPLANE' as const, label: 'Customize Aircraft', iconUri: null, confirm: false },
+      { id: 'RESTART_COUATL' as const, label: 'Restart Couatl', iconUri: null, confirm: true }
+    ],
+    simbrief: { status: 'loaded', error: '', gen: 3 },
+    simbriefIconUri: null
+  }
+
+  it('renders the command bar and runs a plain command on the first tap', async () => {
+    const gsxRemoteRunCommand = vi.fn().mockResolvedValue(undefined)
+    withWinglog({ gsxRemoteGetCommandBar: vi.fn().mockResolvedValue(COMMAND_BAR), gsxRemoteRunCommand })
+    render(<GsxRemotePanel />)
+    const user = userEvent.setup()
+
+    expect(await screen.findByText('Customize Airport')).toBeInTheDocument()
+    expect(screen.getByText('Customize Aircraft')).toBeInTheDocument()
+
+    await user.click(screen.getByText('Customize Airport'))
+    expect(gsxRemoteRunCommand).toHaveBeenCalledWith('CUSTOMIZE_AIRPORT_POSITION')
+  })
+
+  it('requires a second tap to confirm before running Restart Couatl', async () => {
+    const gsxRemoteRunCommand = vi.fn().mockResolvedValue(undefined)
+    withWinglog({ gsxRemoteGetCommandBar: vi.fn().mockResolvedValue(COMMAND_BAR), gsxRemoteRunCommand })
+    render(<GsxRemotePanel />)
+    const user = userEvent.setup()
+    await screen.findByText('Restart Couatl')
+
+    await user.click(screen.getByText('Restart Couatl'))
+    expect(gsxRemoteRunCommand).not.toHaveBeenCalled()
+    // GSX's own client text (menu.js), shown in place of the label while armed.
+    expect(await screen.findByText('Confirm restart?')).toBeInTheDocument()
+
+    await user.click(screen.getByText('Confirm restart?'))
+    expect(gsxRemoteRunCommand).toHaveBeenCalledWith('RESTART_COUATL')
+  })
+
+  it('shows the SimBrief reload button with its real status sub-text, and an optimistic "Downloading..." until GSX bumps gen', async () => {
+    let commandBarListener: (commandBar: typeof COMMAND_BAR) => void = () => {}
+    const gsxRemoteRunCommand = vi.fn().mockResolvedValue(undefined)
+    withWinglog({
+      gsxRemoteGetCommandBar: vi.fn().mockResolvedValue(COMMAND_BAR),
+      onGsxRemoteCommandBar: vi.fn((listener) => {
+        commandBarListener = listener
+        return () => {}
+      }),
+      gsxRemoteRunCommand
+    })
+    render(<GsxRemotePanel />)
+    const user = userEvent.setup()
+
+    expect(await screen.findByText('Reload SimBrief')).toBeInTheDocument()
+    expect(screen.getByText('Plan loaded')).toBeInTheDocument()
+
+    await user.click(screen.getByText('Reload SimBrief'))
+    expect(gsxRemoteRunCommand).toHaveBeenCalledWith('RELOAD_SIMBRIEF')
+    expect(await screen.findByText('Downloading...')).toBeInTheDocument()
+
+    // A live push with the same gen (3) doesn't clear it — only a genuinely bumped gen does,
+    // mirroring menu.js's own simbriefBtn() check exactly.
+    commandBarListener({ ...COMMAND_BAR, simbrief: { status: 'loaded', error: '', gen: 3 } })
+    expect(screen.getByText('Downloading...')).toBeInTheDocument()
+
+    commandBarListener({ ...COMMAND_BAR, simbrief: { status: 'loaded', error: '', gen: 4 } })
+    expect(await screen.findByText('Plan loaded')).toBeInTheDocument()
+  })
+
+  it('renders nothing for the command bar when GSX has no commands or simbrief state at all', async () => {
+    withWinglog({ gsxRemoteGetCommandBar: vi.fn().mockResolvedValue({ commands: [], simbrief: null, simbriefIconUri: null }) })
+    render(<GsxRemotePanel />)
+    await screen.findByText('Tap to open')
+
+    expect(screen.queryByText('Restart Couatl')).not.toBeInTheDocument()
+    expect(screen.queryByText('Reload SimBrief')).not.toBeInTheDocument()
   })
 })

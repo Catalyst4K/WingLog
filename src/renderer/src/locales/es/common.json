@@ -658,6 +658,7 @@
     "disconnected": "Sin conexión con GSX.",
     "menuHeaderClosed": "Menú de GSX",
     "tapToOpen": "Toca para abrir",
+    "commands": "Comandos",
     "services": "Servicios",
     "provider": "Proveedor: {{name}}",
     "showMoreServices_one": "Mostrar {{count}} servicio más",

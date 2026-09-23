@@ -13,6 +13,7 @@ import {
   type WindSpeedUnit,
   type DispatchOfp,
   type DispatchOpenSimBriefParams,
+  type GsxRemoteCommandId,
   type GsxRemoteSettings,
   type GsxSettings,
   type LandingDistanceUnit,
@@ -111,7 +112,7 @@ import {
 } from './simbrief/simbrief-generate'
 import { SimConnectService } from './sim/SimConnectService'
 import { ReplaySimConnectService, type ReplayMode } from './sim/ReplaySimConnectService'
-import { EMPTY_MENU, GsxRemoteService } from './gsx-remote/GsxRemoteService'
+import { EMPTY_COMMAND_BAR, EMPTY_MENU, GsxRemoteService } from './gsx-remote/GsxRemoteService'
 import type { NavdataProvider } from './navdata/navdata-provider'
 import { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
 import { SimAirfieldResolver } from './airports/sim-airfield'
@@ -789,6 +790,9 @@ if (!gotSingleInstanceLock) {
         gsxRemoteService.on('prompt', (prompt) => {
           if (!window.isDestroyed()) window.webContents.send(IpcChannels.gsxRemotePrompt, prompt)
         })
+        gsxRemoteService.on('commandBar', (commandBar) => {
+          if (!window.isDestroyed()) window.webContents.send(IpcChannels.gsxRemoteCommandBar, commandBar)
+        })
         gsxRemoteService.start()
       }
       startGsxRemoteIfConfigured()
@@ -804,12 +808,14 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.gsxRemoteGetGateInfo, () => gsxRemoteService?.getGateInfo() ?? null)
       ipcMain.handle(IpcChannels.gsxRemoteGetMenu, () => gsxRemoteService?.getMenu() ?? EMPTY_MENU)
       ipcMain.handle(IpcChannels.gsxRemoteGetPrompt, () => gsxRemoteService?.getPrompt() ?? null)
+      ipcMain.handle(IpcChannels.gsxRemoteGetCommandBar, () => gsxRemoteService?.getCommandBar() ?? EMPTY_COMMAND_BAR)
       ipcMain.handle(IpcChannels.gsxRemotePickMenu, (_event, index: number) => gsxRemoteService?.pickMenu(index))
       ipcMain.handle(IpcChannels.gsxRemoteToggleMenu, () => gsxRemoteService?.toggleMenu())
       ipcMain.handle(IpcChannels.gsxRemoteSubmitPrompt, (_event, gen: number, text: string) =>
         gsxRemoteService?.submitPrompt(gen, text)
       )
       ipcMain.handle(IpcChannels.gsxRemoteCancelPrompt, (_event, gen: number) => gsxRemoteService?.cancelPrompt(gen))
+      ipcMain.handle(IpcChannels.gsxRemoteRunCommand, (_event, id: GsxRemoteCommandId) => gsxRemoteService?.runCommand(id))
 
       ipcMain.handle(IpcChannels.logbookOpenOfpPdf, async (_event, flightId: number) => {
         const flight = getFlight(db, flightId)
