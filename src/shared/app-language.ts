@@ -10,7 +10,7 @@ import type { AppLanguage } from '@shared/ipc'
  *  i18next is initialized with (i18n.ts) and the set SUPPORTED_APP_LANGUAGES's own values
  *  (minus 'system') are checked against below. Growing this means adding a real catalogue
  *  under locales/<code>/, not just adding a code here. */
-export const SUPPORTED_LANGUAGES = ['en', 'de', 'es', 'fr', 'it', 'ru'] as const
+export const SUPPORTED_LANGUAGES = ['en', 'de', 'es', 'fr', 'it', 'ru', 'zh-CN', 'zh-TW'] as const
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number]
 
 /**
@@ -20,11 +20,24 @@ export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number]
  * (before any '-') and checks it against the languages this app actually has a catalogue
  * for; anything else — an unsupported language, or a locale string that doesn't parse —
  * falls back to English, never throws.
+ *
+ * Chinese is the one exception to plain primary-subtag matching: `zh-CN` and `zh-TW` share
+ * the same subtag ('zh'), so the *script/region* has to disambiguate which catalogue to use.
+ * Electron/Chromium's documented locale codes for Chinese are `zh-CN`, `zh-TW` and `zh-HK`
+ * (see AppLanguage's own doc comment in ipc.ts) — HK maps to the Traditional catalogue too
+ * since there's no separate `zh-HK` one yet (post-release-roadmap.md notes it as a later,
+ * smaller follow-up). A bare 'zh' with no region, or any other unrecognised zh-* region,
+ * defaults to Simplified — the larger of the two audiences — rather than falling back to
+ * English, since either script is a much better guess for a Chinese-locale user than none.
  */
 export function resolveAppLanguage(setting: AppLanguage, systemLocale: string): SupportedLanguage {
   if (setting !== 'system') return setting
+  const lowered = systemLocale.toLowerCase()
   // String.split always returns at least one element, even for '' — never undefined.
-  const primarySubtag = systemLocale.split('-')[0].toLowerCase()
+  const primarySubtag = lowered.split('-')[0]
+  if (primarySubtag === 'zh') {
+    return /-(tw|hk|mo|hant)\b/.test(lowered) ? 'zh-TW' : 'zh-CN'
+  }
   return (SUPPORTED_LANGUAGES as readonly string[]).includes(primarySubtag) ? (primarySubtag as SupportedLanguage) : 'en'
 }
 
@@ -37,5 +50,7 @@ export const APP_LANGUAGE_OPTIONS: readonly { value: AppLanguage; label: string 
   { value: 'es', label: 'Español' },
   { value: 'fr', label: 'Français' },
   { value: 'it', label: 'Italiano' },
-  { value: 'ru', label: 'Русский' }
+  { value: 'ru', label: 'Русский' },
+  { value: 'zh-CN', label: '简体中文' },
+  { value: 'zh-TW', label: '繁體中文' }
 ]

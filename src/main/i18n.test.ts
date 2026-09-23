@@ -29,4 +29,11 @@ describe('main-process i18n', () => {
     setMainLanguage('de', 'en-US')
     expect(t('errors.aircraftAlreadyRetired', { registration: 'G-ONE' })).toBe('G-ONE ist bereits ausgemustert')
   })
+
+  it("resolves a Taiwan/Hong Kong-shaped system locale to zh-TW, mainland/bare 'zh' to zh-CN", () => {
+    setMainLanguage('system', 'zh-TW')
+    expect(t('errors.notConnectedToSim')).toBe('尚未連線到模擬器')
+    setMainLanguage('system', 'zh-CN')
+    expect(t('errors.notConnectedToSim')).toBe('尚未连接到模拟器')
+  })
 })

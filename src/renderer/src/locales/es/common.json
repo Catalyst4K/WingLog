@@ -45,12 +45,13 @@
       "appLanguage": "Idioma de la app",
       "appLanguageHint": "«Sistema» sigue el idioma de tu sistema operativo y usa inglés si esta app aún no tiene traducción para él. La traducción se está implementando poco a poco — la mayor parte de la interfaz sigue en inglés independientemente de este ajuste. Los términos aeronáuticos reales (ILS, STAR, SID, FL, QNH, indicativos ICAO) y todo lo procedente de SimBrief permanecen siempre en inglés.",
       "mapLanguage": "Idioma del mapa",
-      "mapLanguageHint": "El idioma de los nombres de lugares en los mapas de Track y Logbook. «Local» muestra cada lugar en su propio idioma — independiente del idioma de la app anterior.",
+      "mapLanguageHint": "El idioma de los nombres de lugares en los mapas de Seguimiento y Bitácora. «Local» muestra cada lugar en su propio idioma — independiente del idioma de la app anterior.",
       "metarWindSpeed": "Velocidad del viento METAR",
       "knots": "Nudos",
-      "metarWindSpeedHint": "El texto METAR sin procesar en Dispatch siempre se mantiene tal como se informó — esto solo controla una línea de viento formateada aparte, mostrada junto a él.",
+      "metarWindSpeedHint": "El texto METAR sin procesar en Despacho siempre se mantiene tal como se informó — esto solo controla una línea de viento formateada aparte, mostrada junto a él.",
       "landingDistances": "Distancias de aterrizaje",
-      "landingDistancesHint": "Distancia desde el umbral y desplazamiento respecto al eje central en la tarjeta de aterrizaje de un vuelo del Logbook, y en su diagrama de toma de contacto. La tasa de toma de contacto se mantiene en fpm y las velocidades/el viento en nudos."
+      "landingDistancesHint": "Distancia desde el umbral y desplazamiento respecto al eje central en la tarjeta de aterrizaje de un vuelo de la Bitácora, y en su diagrama de toma de contacto. La tasa de toma de contacto se mantiene en fpm y las velocidades/el viento en nudos.",
+      "moreInfoFor": "Más información sobre {{label}}"
     },
     "theme": {
       "cardTitle": "Tema",
@@ -61,7 +62,7 @@
     },
     "credentials": {
       "cardTitle": "Credenciales",
-      "description": "Usado por Dispatch para obtener y generar planes en SimBrief.",
+      "description": "Usado por Despacho para obtener y generar planes en SimBrief.",
       "simbriefUsername": "Usuario de SimBrief",
       "usernamePlaceholder": "Alias de Navigraph",
       "save": "Guardar",
@@ -73,7 +74,7 @@
     },
     "gsx": {
       "cardTitle": "Servicios de tierra GSX",
-      "description": "Adjunta los recibos de catering/combustible/asistencia de GSX Pro a los vuelos correspondientes de tu Logbook. Solo Windows (GSX en sí es exclusivo de Windows) — desactivado por defecto, y nada aparece aquí hasta activarlo.",
+      "description": "Adjunta los recibos de catering/combustible/asistencia de GSX Pro a los vuelos correspondientes de tu Bitácora. Solo Windows (GSX en sí es exclusivo de Windows); no se adjunta nada hasta que esto se active.",
       "enabled": "Habilitado",
       "on": "Activado",
       "off": "Desactivado",
@@ -96,10 +97,10 @@
     },
     "data": {
       "cardTitle": "Datos",
-      "description": "Importa o exporta tu flota y tu logbook como archivos locales.",
+      "description": "Importa o exporta tu flota y tu bitácora como archivos locales.",
       "fleetTitle": "Flota",
       "fleetHint": "Matrícula, tipo, operador y aeropuerto actual. La importación omite las matrículas que ya tienes.",
-      "logbookTitle": "Logbook",
+      "logbookTitle": "Bitácora",
       "logbookHint": "Un resumen de cada vuelo completado, con su aterrizaje — no es una copia de seguridad completa (sin datos de ruta ni de OFP). La importación lee los propios archivos de WingLog y los CSV de SimToolkitPro.",
       "fileFormat": "Formato de archivo",
       "regionLabel": "Datos de {{title}}",
@@ -117,11 +118,11 @@
       "skippedSuffix_one": "{{count}} omitida: {{skipped}}",
       "skippedSuffix_other": "{{count}} omitidas: {{skipped}}",
       "fleetExported": "Flota exportada.",
-      "logbookExported": "Logbook exportado."
+      "logbookExported": "Bitácora exportada."
     },
     "cloudSync": {
       "cardTitle": "Sincronización en la nube",
-      "description": "Sincroniza tu flota y tu logbook entre tus dispositivos. Este es el propio servicio de WingLog, no un tercero — desactivado por defecto, nada sale de este dispositivo hasta que inicies sesión.",
+      "description": "Sincroniza tu flota y tu bitácora entre tus dispositivos. Este es el propio servicio de WingLog, no un tercero — nada sale de este dispositivo hasta que inicies sesión.",
       "logOut": "Cerrar sesión",
       "neverSyncedYet": "Nunca sincronizado.",
       "lastSynced": "Última sincronización {{date}}",
@@ -141,7 +142,7 @@
       "syncedToast": "Sincronizado."
     },
     "about": {
-      "description": "Un compañero personal de gestión de flota, dispatch, seguimiento en vivo y logbook para Microsoft Flight Simulator.",
+      "description": "Un compañero personal de gestión de flota, despacho, seguimiento en vivo y bitácora para Microsoft Flight Simulator.",
       "disclaimer": "WingLog no está afiliado con Microsoft Corporation ni con Asobo Studio, ni cuenta con su respaldo o patrocinio. «Microsoft Flight Simulator» es una marca de sus respectivos propietarios.",
       "license": "Software libre y de código abierto bajo la GNU General Public License v3.0."
     },
@@ -151,9 +152,9 @@
   "app": {
     "tabs": {
       "fleet": "Flota",
-      "dispatch": "Dispatch",
-      "track": "Track",
-      "logbook": "Logbook",
+      "dispatch": "Despacho",
+      "track": "Seguimiento",
+      "logbook": "Bitácora",
       "settings": "Ajustes"
     },
     "connection": {
@@ -172,7 +173,7 @@
       "resumeDescription": "WingLog se cerró mientras se seguía {{label}}. Reanuda si todavía está en curso en el simulador, o descártalo para eliminar el vuelo.",
       "resumeConfirm": "Reanudar seguimiento",
       "continueTitle": "¿Continuar con este vuelo?",
-      "continueDescription": "WingLog se cerró con {{label}} ya planificado pero aún no iniciado. Consérvalo y continúa desde Track, o descártalo para eliminar el vuelo.",
+      "continueDescription": "WingLog se cerró con {{label}} ya planificado pero aún no iniciado. Consérvalo y continúa desde Seguimiento, o descártalo para eliminar el vuelo.",
       "continueConfirm": "Conservarlo",
       "discard": "Descartar vuelo"
     },
@@ -453,7 +454,7 @@
     "back": "Atrás"
   },
   "dispatchView": {
-    "title": "Dispatch",
+    "title": "Despacho",
     "planAFlight": "Planificar un vuelo",
     "fetching": "Obteniendo…",
     "fetchLatestOfp": "Obtener el último OFP",
@@ -510,7 +511,7 @@
   },
   "trackView": {
     "flightNum": "N.º de vuelo:",
-    "title": "Track",
+    "title": "Seguimiento",
     "phase": "Fase:",
     "cancelFlight": "Cancelar vuelo",
     "finishAndSave": "Finalizar y guardar",
@@ -535,7 +536,7 @@
     "alternateIcao": "Alternativo {{icao}}",
     "nothingSelectedYet": "Nada seleccionado todavía",
     "flightEnded": "Vuelo finalizado",
-    "autoDetectedComplete": "{{label}} se detectó automáticamente como completado y se guardó en tu logbook.",
+    "autoDetectedComplete": "{{label}} se detectó automáticamente como completado y se guardó en tu bitácora.",
     "ok": "Aceptar"
   },
   "flightMap": {
@@ -579,7 +580,7 @@
     "flightDeleted": "Vuelo eliminado.",
     "noOfpPdfForFlight": "No hay PDF de OFP disponible para este vuelo.",
     "backToAircraft": "Volver a la aeronave",
-    "backToLogbook": "Volver al logbook",
+    "backToLogbook": "Volver a la bitácora",
     "freeFlight": "Vuelo libre",
     "viewOfpPdf": "Ver PDF de OFP",
     "addToFleet": "Añadir a la flota",
@@ -616,7 +617,7 @@
       "score": "Puntuación"
     },
     "landingsEmpty": "Aún no hay aterrizajes registrados.",
-    "title": "Logbook",
+    "title": "Bitácora",
     "stats": {
       "totalFlights": "Vuelos totales",
       "totalFlightHours": "Horas de vuelo totales",
@@ -626,7 +627,7 @@
       "flights": "Vuelos",
       "landings": "Aterrizajes"
     },
-    "noCompletedFlights": "Aún no hay vuelos completados — registra uno, o importa un logbook CSV desde Ajustes → Datos.",
+    "noCompletedFlights": "Aún no hay vuelos completados — registra uno, o importa un CSV de bitácora desde Ajustes → Datos.",
     "flightNotFound": "Vuelo no encontrado."
   }
 }

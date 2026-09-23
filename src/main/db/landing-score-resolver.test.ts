@@ -165,10 +165,10 @@ describe('resolveLandingScore', () => {
   )
 
   it('reports a 0 dangerousPenalty on every category for an ordinary landing', () => {
-    // makeLanding's own default pitchDeg (4) sits exactly on pitch's tolerance boundary
-    // (ideal -4, tolerance 8 -> deviation 8) — genuinely "0/10" for that one category, so
-    // overridden here to something unambiguously mid-range; this test is about there being
-    // no dangerous exceedance at all, not about pitch specifically.
+    // makeLanding's own default pitchDeg (4) is past pitch's own tolerance (ideal -4,
+    // tolerance 6 -> deviation 8) since it was tightened 2026-09-21, which would flag this
+    // one category dangerous — overridden here to the exact ideal instead; this test is
+    // about there being no dangerous exceedance at all, not about pitch specifically.
     const landingRecord = toLanding(makeLanding(1, { pitchDeg: -4 }))
     const result = resolveLandingScore(landingRecord, 'EGLL', 'A320')
     expect(result.categories.every((c) => c.dangerousPenalty === 0)).toBe(true)

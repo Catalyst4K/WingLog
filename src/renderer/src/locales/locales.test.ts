@@ -9,8 +9,10 @@ import es from './es/common.json'
 import fr from './fr/common.json'
 import itLocale from './it/common.json'
 import ru from './ru/common.json'
+import zhCN from './zh-CN/common.json'
+import zhTW from './zh-TW/common.json'
 
-const CATALOGUES: Record<string, unknown> = { de, es, fr, it: itLocale, ru }
+const CATALOGUES: Record<string, unknown> = { de, es, fr, it: itLocale, ru, 'zh-CN': zhCN, 'zh-TW': zhTW }
 
 // i18next plural suffixes (CLDR categories) — a key like "excludedCount_one" and
 // "excludedCount_few" are the same logical string in different languages' plural forms, not

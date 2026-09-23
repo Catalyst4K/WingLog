@@ -12,8 +12,10 @@ import es from './es/main.json'
 import fr from './fr/main.json'
 import itLocale from './it/main.json'
 import ru from './ru/main.json'
+import zhCN from './zh-CN/main.json'
+import zhTW from './zh-TW/main.json'
 
-const CATALOGUES: Record<string, unknown> = { de, es, fr, it: itLocale, ru }
+const CATALOGUES: Record<string, unknown> = { de, es, fr, it: itLocale, ru, 'zh-CN': zhCN, 'zh-TW': zhTW }
 
 function keyPaths(obj: Record<string, unknown>, prefix = ''): string[] {
   return Object.entries(obj).flatMap(([key, value]) => {

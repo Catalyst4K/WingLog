@@ -107,6 +107,36 @@ describe('SettingsView', () => {
     expect(screen.getByRole('tab', { name: 'Über' })).toBeInTheDocument()
   })
 
+  it('renders in Simplified and Traditional Chinese, two catalogues sharing a language but not a script', async () => {
+    await i18n.changeLanguage('zh-CN')
+    const { unmount } = renderSettings()
+    expect(await screen.findByText('设置')).toBeInTheDocument()
+    expect(screen.getByText('单位')).toBeInTheDocument()
+    unmount()
+
+    await i18n.changeLanguage('zh-TW')
+    renderSettings()
+    expect(await screen.findByText('設定')).toBeInTheDocument()
+    expect(screen.getByText('單位')).toBeInTheDocument()
+  })
+
+  it('composes a pluralized import summary toast in Chinese, whose plural rule has only one category ("other")', async () => {
+    await i18n.changeLanguage('zh-CN')
+    setWinglog({
+      aircraftImport: vi
+        .fn()
+        .mockResolvedValue({ imported: 2, skipped: [{ registration: 'G-DUP', reason: 'already exists' }] })
+    })
+    const user = userEvent.setup()
+    renderSettings()
+    await user.click(screen.getByRole('tab', { name: '数据' }))
+    await user.click((await screen.findAllByRole('button', { name: '导入' }))[0])
+
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith('已导入 2 架飞机。 已跳过 1 个：G-DUP (already exists)')
+    )
+  })
+
   it('composes a pluralized import summary toast in the active i18next language', async () => {
     await i18n.changeLanguage('de')
     setWinglog({
@@ -244,8 +274,9 @@ describe('SettingsView', () => {
       const user = userEvent.setup()
       const onLandingDistanceUnitChange = vi.fn()
       renderSettings({ landingDistanceUnit: 'ft', onLandingDistanceUnitChange })
-      // Scoped to this row specifically — "OFP altitudes" also has a "Meters" option.
-      const landingRow = screen.getByText('Landing distances').parentElement as HTMLElement
+      // Scoped to this row's own button group specifically — "OFP altitudes" also has a
+      // "Meters" option.
+      const landingRow = screen.getByRole('group', { name: 'Landing distances' })
       await user.click(within(landingRow).getByRole('button', { name: 'Meters' }))
       expect(onLandingDistanceUnitChange).toHaveBeenCalledWith('m')
     })
@@ -256,6 +287,31 @@ describe('SettingsView', () => {
       renderSettings({ theme: 'system', onThemeChange })
       await user.click(screen.getByRole('button', { name: 'Dark' }))
       expect(onThemeChange).toHaveBeenCalledWith('dark')
+    })
+
+    it('keeps most unit rows\' explanations out of sight until their info button is clicked', async () => {
+      const user = userEvent.setup()
+      renderSettings()
+
+      // Not shown up front (flightdeck-backend docs/plans/v1-2.md Part 4 — four of these
+      // hints used to be permanent paragraphs; now they're behind an info popover, one per
+      // row).
+      expect(screen.queryByText(/falling back to English if this app doesn't have a translation/)).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'More info about App language' }))
+      expect(
+        await screen.findByText(/falling back to English if this app doesn't have a translation/)
+      ).toBeInTheDocument()
+    })
+
+    it("keeps the OFP altitudes row's Hybrid explanation always visible, not behind a popover", async () => {
+      // "Hybrid" isn't self-explanatory the way Feet/Meters are — hiding what it means
+      // behind a click was a real regression, not a decluttering win (Callum, 2026-09-23).
+      renderSettings()
+      expect(
+        await screen.findByText(/rather than converting everything to one unit/)
+      ).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'More info about OFP altitudes' })).not.toBeInTheDocument()
     })
   })
 
@@ -356,6 +412,14 @@ describe('SettingsView', () => {
   })
 
   describe('GSX ground services', () => {
+    it("doesn't restate that it's off by default — the Enabled toggle already shows that", async () => {
+      const user = userEvent.setup()
+      renderSettings()
+      await user.click(screen.getByRole('tab', { name: '3rd party' }))
+      expect(await screen.findByText(/nothing is attached until this is turned on/)).toBeInTheDocument()
+      expect(screen.queryByText(/off by default/i)).not.toBeInTheDocument()
+    })
+
     it('toggles enabled on and off, persisting each change', async () => {
       const winglog = setWinglog({ settingsGetGsx: vi.fn().mockResolvedValue(makeGsx({ enabled: false })) })
       const user = userEvent.setup()
@@ -428,7 +492,17 @@ describe('SettingsView', () => {
       renderSettings({ appLanguage: 'system', onAppLanguageChange })
 
       const group = within(await screen.findByRole('group', { name: 'App language' }))
-      for (const label of ['System', 'English', 'Deutsch', 'Español', 'Français', 'Italiano', 'Русский']) {
+      for (const label of [
+        'System',
+        'English',
+        'Deutsch',
+        'Español',
+        'Français',
+        'Italiano',
+        'Русский',
+        '简体中文',
+        '繁體中文'
+      ]) {
         expect(group.getByRole('button', { name: label })).toBeInTheDocument()
       }
       await user.click(group.getByRole('button', { name: 'Deutsch' }))
@@ -652,6 +726,14 @@ describe('SettingsView', () => {
   })
 
   describe('Cloud sync', () => {
+    it("doesn't restate that it's off by default alongside \"until you log in\"", async () => {
+      const user = userEvent.setup()
+      renderSettings()
+      await user.click(screen.getByRole('tab', { name: 'Data' }))
+      expect(await screen.findByText(/nothing leaves this device until you log in/)).toBeInTheDocument()
+      expect(screen.queryByText(/off by default/i)).not.toBeInTheDocument()
+    })
+
     it('logs in with the trimmed email and password', async () => {
       const winglog = setWinglog({
         authLogin: vi.fn().mockResolvedValue(makeSyncStatus({ loggedIn: true, email: 'pilot@example.com' }))

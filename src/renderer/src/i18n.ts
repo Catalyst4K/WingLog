@@ -12,6 +12,8 @@ import es from './locales/es/common.json'
 import fr from './locales/fr/common.json'
 import it from './locales/it/common.json'
 import ru from './locales/ru/common.json'
+import zhCN from './locales/zh-CN/common.json'
+import zhTW from './locales/zh-TW/common.json'
 
 void i18n.use(initReactI18next).init({
   resources: {
@@ -20,7 +22,9 @@ void i18n.use(initReactI18next).init({
     es: { common: es },
     fr: { common: fr },
     it: { common: it },
-    ru: { common: ru }
+    ru: { common: ru },
+    'zh-CN': { common: zhCN },
+    'zh-TW': { common: zhTW }
   },
   // Real language is set once App.tsx has read the persisted AppLanguage setting and
   // resolved it against the OS locale (app-language.ts's resolveAppLanguage) — English is

@@ -389,7 +389,7 @@ describe('App', () => {
     setWinglog({ settingsGetAppLanguage: vi.fn().mockResolvedValue('de') })
     await i18n.changeLanguage('de')
     render(<App />)
-    for (const name of ['Flotte', 'Dispatch', 'Track', 'Logbuch', 'Einstellungen']) {
+    for (const name of ['Flotte', 'Flugplanung', 'Flugverfolgung', 'Logbuch', 'Einstellungen']) {
       expect(await screen.findByRole('tab', { name })).toBeInTheDocument()
     }
     expect(screen.getByText('SimConnect: getrennt')).toBeInTheDocument()
@@ -491,14 +491,14 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: 'lb' }))
     expect(winglog.settingsSetWeightUnit).toHaveBeenCalledWith('lb')
 
-    const altitudeRow = screen.getByText('OFP altitudes').parentElement as HTMLElement
+    const altitudeRow = screen.getByRole('group', { name: 'OFP altitudes' })
     await user.click(within(altitudeRow).getByRole('button', { name: 'Meters' }))
     expect(winglog.settingsSetAltitudeUnit).toHaveBeenCalledWith('m')
 
     await user.click(screen.getByRole('button', { name: 'm/s' }))
     expect(winglog.settingsSetWindSpeedUnit).toHaveBeenCalledWith('mps')
 
-    const landingRow = screen.getByText('Landing distances').parentElement as HTMLElement
+    const landingRow = screen.getByRole('group', { name: 'Landing distances' })
     await user.click(within(landingRow).getByRole('button', { name: 'Meters' }))
     expect(winglog.settingsSetLandingDistanceUnit).toHaveBeenCalledWith('m')
 
