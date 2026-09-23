@@ -662,6 +662,7 @@
     "provider": "Proveedor: {{name}}",
     "showMoreServices_one": "Mostrar {{count}} servicio más",
     "showMoreServices_other": "Mostrar {{count}} servicios más",
+    "waitingFor": "Esperando: {{reason}}",
     "ok": "Aceptar",
     "cancel": "Cancelar"
   }

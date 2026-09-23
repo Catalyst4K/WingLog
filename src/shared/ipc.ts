@@ -680,6 +680,12 @@ export interface GsxRemoteConnectionStatus {
  *  re-parsing `statusText`'s free text for them. */
 export interface GsxRemoteServiceDetail {
   phase?: string
+  /** Free-text blocking conditions ("BaggageTrainEmptyFront to clear the way"), present only
+   *  while GSX is actually stuck on something — confirmed live 2026-09-23 (docs/gsx-notes.md,
+   *  round 11) on a real Boarding session hitting a vehicle-pathing conflict. Shown alongside
+   *  whichever other `detail` fields are present (e.g. `pax`), not instead of them — GSX
+   *  keeps reporting real pax/cargo counts even while waiting. */
+  waitingFor?: string[]
   fuel?: {
     current: number
     target: number

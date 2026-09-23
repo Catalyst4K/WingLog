@@ -438,6 +438,74 @@ describe('GsxRemotePanel', () => {
     expect(screen.getByText('Rear: 0 / 6 ULDs')).toBeInTheDocument()
   })
 
+  it('shows why a service is stuck alongside its real progress, not instead of it', async () => {
+    // Real capture, 2026-09-23 (docs/gsx-notes.md round 11): a live Boarding session hit a
+    // vehicle-pathing conflict — `detail.waitingFor` fired while `detail.pax`/`cargo` kept
+    // reporting real (unmoving) counts, not empty ones. The bug this guards against: the pax
+    // branch firing and silently dropping `waitingFor`, so the counts show but never explain
+    // why they've stopped.
+    let servicesListener: (services: GsxRemoteServiceStatus[]) => void = () => {}
+    withWinglog({
+      onGsxRemoteServices: vi.fn((listener) => {
+        servicesListener = listener
+        return () => {}
+      })
+    })
+    render(<GsxRemotePanel />)
+    await screen.findByText('Tap to open')
+
+    servicesListener([
+      {
+        id: 'Boarding',
+        displayName: 'Board',
+        state: 'performing',
+        stateText: 'Boarding service is being performed',
+        icon: 'boarding',
+        canTrigger: false,
+        canBypass: false,
+        statusText: 'waiting for BaggageTrainEmptyFront to clear the way\npax 0/367',
+        progressText: '0/13',
+        detail: {
+          phase: 'rear stairs approaching, front loader raising belt',
+          waitingFor: ['BaggageTrainEmptyFront to clear the way'],
+          pax: { done: 0, total: 367 }
+        }
+      }
+    ])
+
+    expect(await screen.findByText('Waiting: BaggageTrainEmptyFront to clear the way')).toBeInTheDocument()
+    expect(screen.getByText('0 / 367')).toBeInTheDocument()
+  })
+
+  it('shows why a service is stuck even with no structured detail to fall back on', async () => {
+    let servicesListener: (services: GsxRemoteServiceStatus[]) => void = () => {}
+    withWinglog({
+      onGsxRemoteServices: vi.fn((listener) => {
+        servicesListener = listener
+        return () => {}
+      })
+    })
+    render(<GsxRemotePanel />)
+    await screen.findByText('Tap to open')
+
+    servicesListener([
+      {
+        id: 'Departure',
+        displayName: 'Pushback',
+        state: 'performing',
+        stateText: 'Departure service is being performed',
+        icon: 'departure',
+        canTrigger: false,
+        canBypass: false,
+        statusText: 'waiting for GroundHandlingVehicle to clear the way',
+        progressText: '',
+        detail: { waitingFor: ['GroundHandlingVehicle to clear the way'] }
+      }
+    ])
+
+    expect(await screen.findByText('Waiting: GroundHandlingVehicle to clear the way')).toBeInTheDocument()
+  })
+
   const COMMAND_BAR = {
     commands: [
       { id: 'CUSTOMIZE_AIRPORT_POSITION' as const, label: 'Customize Airport', iconUri: null, confirm: false },
