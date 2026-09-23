@@ -686,6 +686,7 @@
     "showMoreServices_few": "Показать ещё {{count}} услуги",
     "showMoreServices_many": "Показать ещё {{count}} услуг",
     "showMoreServices_other": "Показать ещё {{count}} услуг",
+    "waitingFor": "Ожидание: {{reason}}",
     "ok": "ОК",
     "cancel": "Отмена"
   }

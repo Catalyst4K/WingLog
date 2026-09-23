@@ -663,6 +663,7 @@
     "provider": "Prestataire : {{name}}",
     "showMoreServices_one": "Afficher {{count}} service de plus",
     "showMoreServices_other": "Afficher {{count}} services de plus",
+    "waitingFor": "En attente : {{reason}}",
     "ok": "OK",
     "cancel": "Annuler"
   }

@@ -245,23 +245,46 @@ function MenuEntries(props: { menu: GsxRemoteMenuState; onPick: (index: number) 
 /** Structured `detail` fields (fuel current/target, pax/cargo counts) render as nicely
  *  formatted numbers instead of `statusText`'s free text — real shapes confirmed live
  *  2026-09-21 (docs/gsx-notes.md, round 6/7 captures). Falls back to `statusText`/`stateText`
- *  for every other service, unchanged from before. */
+ *  for every other service, unchanged from before. `detail.waitingFor` (real vehicle-pathing
+ *  stalls, confirmed live 2026-09-23, round 11) renders alongside whichever branch is active
+ *  rather than replacing it — GSX keeps reporting real pax/cargo counts even while stuck, and
+ *  the counts alone don't explain why they've stopped moving. */
 function ServiceProgress(props: { service: GsxRemoteServiceStatus }): React.JSX.Element | null {
+  const { t } = useTranslation()
   const detail = props.service.detail
+  const waitingFor = detail?.waitingFor
+  const waitingLine =
+    waitingFor && waitingFor.length > 0 ? (
+      <span className="text-amber-600 dark:text-amber-500">
+        {t('gsxRemotePanel.waitingFor', { reason: waitingFor.join('; ') })}
+      </span>
+    ) : null
+
   if (detail?.fuel) {
-    return <span className="text-muted-foreground">{formatFuelProgress(detail.fuel)}</span>
+    return (
+      <span className="flex flex-col text-muted-foreground">
+        {waitingLine}
+        <span>{formatFuelProgress(detail.fuel)}</span>
+      </span>
+    )
   }
   if (detail?.pax) {
     return (
       <span className="flex flex-col text-muted-foreground">
+        {waitingLine}
         <span>{formatPaxProgress(detail.pax)}</span>
         {detail.cargo?.map((cargo) => <span key={cargo.hold}>{formatCargoProgress(cargo)}</span>)}
       </span>
     )
   }
   const fallback = props.service.statusText || props.service.stateText
-  if (!fallback) return null
-  return <span className="whitespace-pre-line text-muted-foreground">{fallback}</span>
+  if (!fallback && !waitingLine) return null
+  return (
+    <span className="flex flex-col text-muted-foreground">
+      {waitingLine}
+      {fallback && <span className="whitespace-pre-line">{fallback}</span>}
+    </span>
+  )
 }
 
 function ServiceRow(props: { service: GsxRemoteServiceStatus }): React.JSX.Element {

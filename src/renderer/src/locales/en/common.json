@@ -661,6 +661,7 @@
     "provider": "Provider: {{name}}",
     "showMoreServices_one": "Show {{count}} more service",
     "showMoreServices_other": "Show {{count}} more services",
+    "waitingFor": "Waiting: {{reason}}",
     "ok": "OK",
     "cancel": "Cancel"
   }
