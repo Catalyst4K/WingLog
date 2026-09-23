@@ -345,7 +345,7 @@ describe('TrackView', () => {
     await i18n.changeLanguage('de')
     setWinglog()
     renderTrack()
-    expect(screen.getByText('Track')).toBeInTheDocument()
+    expect(screen.getByText('Flugverfolgung')).toBeInTheDocument()
     expect(await screen.findByText('Fliegst du schon etwas?')).toBeInTheDocument()
     expect(screen.getByText('Freier Flug')).toBeInTheDocument()
   })

@@ -76,7 +76,7 @@ describe('DispatchAdvancedDialog', () => {
   it('renders its title and field labels in the active i18next language, not a hardcoded English string', async () => {
     await i18n.changeLanguage('de')
     render(<Harness flights={[]} />)
-    expect(screen.getByText('Erweiterte Dispatch-Optionen')).toBeInTheDocument()
+    expect(screen.getByText('Erweiterte Flugplanungsoptionen')).toBeInTheDocument()
     expect(screen.getByLabelText('Passagiere')).toBeInTheDocument()
     expect(screen.getByText('Fertig (0 gesetzt)')).toBeInTheDocument()
   })
