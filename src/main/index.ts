@@ -111,7 +111,7 @@ import {
 } from './simbrief/simbrief-generate'
 import { SimConnectService } from './sim/SimConnectService'
 import { ReplaySimConnectService, type ReplayMode } from './sim/ReplaySimConnectService'
-import { GsxRemoteService } from './gsx-remote/GsxRemoteService'
+import { EMPTY_MENU, GsxRemoteService } from './gsx-remote/GsxRemoteService'
 import type { NavdataProvider } from './navdata/navdata-provider'
 import { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
 import { SimAirfieldResolver } from './airports/sim-airfield'
@@ -800,7 +800,10 @@ if (!gotSingleInstanceLock) {
         startGsxRemoteIfConfigured()
       })
       ipcMain.handle(IpcChannels.gsxRemoteGetStatus, () => gsxRemoteService?.getStatus() ?? { state: 'disconnected', lastError: null })
+      ipcMain.handle(IpcChannels.gsxRemoteGetServices, () => gsxRemoteService?.getServices() ?? [])
       ipcMain.handle(IpcChannels.gsxRemoteGetGateInfo, () => gsxRemoteService?.getGateInfo() ?? null)
+      ipcMain.handle(IpcChannels.gsxRemoteGetMenu, () => gsxRemoteService?.getMenu() ?? EMPTY_MENU)
+      ipcMain.handle(IpcChannels.gsxRemoteGetPrompt, () => gsxRemoteService?.getPrompt() ?? null)
       ipcMain.handle(IpcChannels.gsxRemotePickMenu, (_event, index: number) => gsxRemoteService?.pickMenu(index))
       ipcMain.handle(IpcChannels.gsxRemoteToggleMenu, () => gsxRemoteService?.toggleMenu())
       ipcMain.handle(IpcChannels.gsxRemoteSubmitPrompt, (_event, gen: number, text: string) =>

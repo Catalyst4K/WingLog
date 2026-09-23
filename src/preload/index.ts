@@ -187,6 +187,7 @@ const api: WingLogApi = {
     ipcRenderer.on(IpcChannels.gsxRemoteStatus, handler)
     return () => ipcRenderer.removeListener(IpcChannels.gsxRemoteStatus, handler)
   },
+  gsxRemoteGetServices: () => ipcRenderer.invoke(IpcChannels.gsxRemoteGetServices),
   onGsxRemoteServices: (listener: (services: GsxRemoteServiceStatus[]) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, services: GsxRemoteServiceStatus[]): void => listener(services)
     ipcRenderer.on(IpcChannels.gsxRemoteServices, handler)
@@ -198,11 +199,13 @@ const api: WingLogApi = {
     ipcRenderer.on(IpcChannels.gsxRemoteGate, handler)
     return () => ipcRenderer.removeListener(IpcChannels.gsxRemoteGate, handler)
   },
+  gsxRemoteGetMenu: () => ipcRenderer.invoke(IpcChannels.gsxRemoteGetMenu),
   onGsxRemoteMenu: (listener: (menu: GsxRemoteMenuState) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, menu: GsxRemoteMenuState): void => listener(menu)
     ipcRenderer.on(IpcChannels.gsxRemoteMenu, handler)
     return () => ipcRenderer.removeListener(IpcChannels.gsxRemoteMenu, handler)
   },
+  gsxRemoteGetPrompt: () => ipcRenderer.invoke(IpcChannels.gsxRemoteGetPrompt),
   onGsxRemotePrompt: (listener: (prompt: GsxRemotePromptState | null) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, prompt: GsxRemotePromptState | null): void => listener(prompt)
     ipcRenderer.on(IpcChannels.gsxRemotePrompt, handler)
