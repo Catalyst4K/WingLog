@@ -38,8 +38,16 @@ console.log(`Connecting to ${url} ...`);
 const ws = new WebSocket(url);
 
 ws.addEventListener('open', () => {
-  console.log('OPEN — subscribing to state/prompts/toasts');
-  ws.send(JSON.stringify({ type: 'subscribe', channels: ['state', 'prompts', 'toasts'] }));
+  // Round 6, 2026-09-21: also subscribing to billing/gate/handlerData/handlerSet/settings —
+  // seen in the `hello` handshake's `capabilities` list but never actually subscribed to or
+  // captured. Needed before building gate display / invoice pricing in the UI.
+  console.log('OPEN — subscribing to state/prompts/toasts/billing/gate/handlerData/handlerSet/settings');
+  ws.send(
+    JSON.stringify({
+      type: 'subscribe',
+      channels: ['state', 'prompts', 'toasts', 'billing', 'gate', 'handlerData', 'handlerSet', 'settings']
+    })
+  );
 });
 
 ws.addEventListener('message', (event) => {

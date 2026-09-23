@@ -87,6 +87,26 @@ const RAW_MENU = {
 }
 const MENU: GsxRemoteMenuState = { ...RAW_MENU, menuShown: true }
 
+// Real wire shape, confirmed live 2026-09-21 (docs/gsx-notes.md, round 6/7 captures): a
+// real VHHH session's `airport`/`parking`/`gateProperties` top-level keys, and a real
+// Refueling `detail` (fuel + a live bill) and Boarding `detail` (pax + per-hold cargo).
+const AIRPORT = { icao: 'VHHH', name: 'Hong Kong Intl', country: 'Hong Kong' }
+const PARKING = '(N) T1 North|Gate N6'
+const GATE_PROPERTIES = ['Gate Heavy', 'jetway', 'no stairs']
+const SERVICE_WITH_DETAIL: GsxRemoteServiceStatus = {
+  id: 'Refueling',
+  displayName: 'Refuel',
+  state: 'performing',
+  stateText: 'Refueling service is being performed',
+  icon: 'refueling',
+  canTrigger: false,
+  canBypass: false,
+  operator: 'AFSC',
+  statusText: 'pumping\nfuel 15357/81488 kg\naircraft 15606→30963 kg\nBill $24272',
+  progressText: '19%',
+  detail: { phase: 'pumping', fuel: { current: 15357, target: 81488, unit: 'kg', startTotal: 15606, aircraftTotal: 30963 }, bill: 24272 }
+}
+
 const PROMPT: GsxRemotePromptState = {
   kind: 'text',
   gen: 3,
@@ -345,6 +365,91 @@ describe('GsxRemoteService', () => {
 
     expect(menuListener).toHaveBeenCalledWith(expect.objectContaining({ menuShown: false }))
     expect(service.getMenu().menuShown).toBe(false)
+    service.stop()
+  })
+
+  it('returns null gate info before any airport/parking data arrives', () => {
+    const { ctor } = makeCtor()
+    const service = new GsxRemoteService('localhost', 8744, ctor)
+
+    expect(service.getGateInfo()).toBeNull()
+  })
+
+  it('combines airport/parking/gateProperties into gate info from a snapshot', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new GsxRemoteService('localhost', 8744, ctor)
+    service.start()
+    instances[0].simulateOpen()
+
+    instances[0].simulateMessage({
+      v: 1,
+      type: 'snapshot',
+      ts: 1,
+      services: [],
+      menu: RAW_MENU,
+      menuShown: true,
+      prompt: null,
+      airport: AIRPORT,
+      parking: PARKING,
+      gateProperties: GATE_PROPERTIES
+    })
+
+    expect(service.getGateInfo()).toEqual({
+      airportIcao: 'VHHH',
+      airportName: 'Hong Kong Intl',
+      parking: PARKING,
+      gateProperties: GATE_PROPERTIES
+    })
+    service.stop()
+  })
+
+  it('emits a gate event for an airport/parking/gateProperties patch, not for an unrelated one', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new GsxRemoteService('localhost', 8744, ctor)
+    const gateListener = vi.fn()
+    service.on('gate', gateListener)
+    service.start()
+    instances[0].simulateOpen()
+    instances[0].simulateMessage({
+      v: 1,
+      type: 'snapshot',
+      ts: 1,
+      services: [],
+      menu: RAW_MENU,
+      menuShown: true,
+      prompt: null
+    })
+    gateListener.mockClear()
+
+    instances[0].simulateMessage({ v: 1, type: 'patch', ts: 2, path: '/services', value: SERVICES })
+    expect(gateListener).not.toHaveBeenCalled()
+
+    instances[0].simulateMessage({ v: 1, type: 'patch', ts: 3, path: '/airport', value: AIRPORT })
+    instances[0].simulateMessage({ v: 1, type: 'patch', ts: 4, path: '/parking', value: PARKING })
+
+    expect(gateListener).toHaveBeenCalledTimes(2)
+    expect(service.getGateInfo()).toEqual({ airportIcao: 'VHHH', airportName: 'Hong Kong Intl', parking: PARKING, gateProperties: [] })
+    service.stop()
+  })
+
+  it('passes a service\'s structured detail (fuel/bill) through unchanged', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new GsxRemoteService('localhost', 8744, ctor)
+    service.start()
+    instances[0].simulateOpen()
+
+    instances[0].simulateMessage({
+      v: 1,
+      type: 'snapshot',
+      ts: 1,
+      services: [SERVICE_WITH_DETAIL],
+      menu: RAW_MENU,
+      menuShown: true,
+      prompt: null
+    })
+
+    expect(service.getServices()).toEqual([SERVICE_WITH_DETAIL])
+    expect(service.getServices()[0].detail?.bill).toBe(24272)
     service.stop()
   })
 

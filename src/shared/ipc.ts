@@ -672,6 +672,37 @@ export interface GsxRemoteConnectionStatus {
   lastError: string | null
 }
 
+/** Per-service structured progress/billing, from GSX's own `state.services[].detail` —
+ *  every field is service-specific and optional, since a given service only ever populates
+ *  the fields it actually has. Shapes confirmed live 2026-09-21 (docs/gsx-notes.md, round
+ *  6/7 captures): a real Refueling detail (`fuel`/`bill`) and a real Boarding detail
+ *  (`pax`/`cargo`) — used to format fuel/boarding progress numerically instead of
+ *  re-parsing `statusText`'s free text for them. */
+export interface GsxRemoteServiceDetail {
+  phase?: string
+  fuel?: {
+    current: number
+    target: number
+    unit: string
+    startTotal: number
+    aircraftTotal: number
+  }
+  /** A live running bill for this service, in USD — confirmed live on Refueling
+   *  (`detail.bill: 24272`, matching "Bill $24272" in the same message's `statusText`).
+   *  Present once GSX starts billing the service, absent before then. */
+  bill?: number
+  pax?: { done: number; total: number }
+  cargo?: {
+    hold: string
+    unit: string
+    done: number
+    total: number
+    trip: number
+    trips: number
+    train: string
+  }[]
+}
+
 /** One entry of GSX's own `state.services` — read-only status, not the control surface
  *  (that's GsxRemoteMenuState below). Field names/shapes are GSX's own wire format
  *  verbatim, confirmed live 2026-09-21 (docs/gsx-notes.md). */
@@ -686,6 +717,21 @@ export interface GsxRemoteServiceStatus {
   operator?: string
   statusText: string
   progressText: string
+  detail?: GsxRemoteServiceDetail
+}
+
+/** The parking/gate GSX has resolved the aircraft to, from `state.airport`/`state.parking`/
+ *  `state.gateProperties` — confirmed live 2026-09-21 (docs/gsx-notes.md, round 6 capture): a
+ *  real VHHH session returned `parking: "(N) T1 North|Gate N6"` (area and gate joined by a
+ *  single "|", not two separate fields GSX exposes) and `gateProperties: ["Gate Heavy",
+ *  "SafeDockT42", "jetway", "underground fuel", "no stairs", "no bus", "max wingspan 70m"]`
+ *  — free-text amenity tags, not a fixed enum, so rendered as plain labels, never matched
+ *  against a known list. Null until GSX has resolved a gate for this session. */
+export interface GsxRemoteGateInfo {
+  airportIcao: string
+  airportName: string
+  parking: string
+  gateProperties: string[]
 }
 
 /**
@@ -1106,6 +1152,8 @@ export const IpcChannels = {
   gsxRemoteGetStatus: 'gsx-remote:get-status',
   gsxRemoteStatus: 'gsx-remote:status',
   gsxRemoteServices: 'gsx-remote:services',
+  gsxRemoteGetGateInfo: 'gsx-remote:get-gate-info',
+  gsxRemoteGate: 'gsx-remote:gate',
   gsxRemoteMenu: 'gsx-remote:menu',
   gsxRemotePrompt: 'gsx-remote:prompt',
   gsxRemotePickMenu: 'gsx-remote:pick-menu',
@@ -1445,6 +1493,9 @@ export interface WingLogApi {
   gsxRemoteGetStatus: () => Promise<GsxRemoteConnectionStatus>
   onGsxRemoteStatus: (listener: (status: GsxRemoteConnectionStatus) => void) => () => void
   onGsxRemoteServices: (listener: (services: GsxRemoteServiceStatus[]) => void) => () => void
+  /** Current gate info, for a renderer mounting after the initial connect already happened. */
+  gsxRemoteGetGateInfo: () => Promise<GsxRemoteGateInfo | null>
+  onGsxRemoteGate: (listener: (gate: GsxRemoteGateInfo | null) => void) => () => void
   onGsxRemoteMenu: (listener: (menu: GsxRemoteMenuState) => void) => () => void
   /** Pushed with null when GSX clears the prompt (answered, cancelled, or a new connection). */
   onGsxRemotePrompt: (listener: (prompt: GsxRemotePromptState | null) => void) => () => void

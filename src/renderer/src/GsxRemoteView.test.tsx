@@ -9,6 +9,8 @@ function withWinglog(): void {
     gsxRemoteGetStatus: vi.fn().mockResolvedValue({ state: 'disconnected', lastError: null }),
     onGsxRemoteStatus: vi.fn().mockReturnValue(() => {}),
     onGsxRemoteServices: vi.fn().mockReturnValue(() => {}),
+    gsxRemoteGetGateInfo: vi.fn().mockResolvedValue(null),
+    onGsxRemoteGate: vi.fn().mockReturnValue(() => {}),
     onGsxRemoteMenu: vi.fn().mockReturnValue(() => {}),
     onGsxRemotePrompt: vi.fn().mockReturnValue(() => {})
   } as unknown as WingLogApi

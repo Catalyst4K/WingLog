@@ -332,6 +332,8 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     gsxRemoteGetStatus: vi.fn().mockResolvedValue({ state: 'disconnected', lastError: null }),
     onGsxRemoteStatus: vi.fn(() => () => {}),
     onGsxRemoteServices: vi.fn(() => () => {}),
+    gsxRemoteGetGateInfo: vi.fn().mockResolvedValue(null),
+    onGsxRemoteGate: vi.fn(() => () => {}),
     onGsxRemoteMenu: vi.fn(() => () => {}),
     onGsxRemotePrompt: vi.fn(() => () => {}),
     gsxRemotePickMenu: vi.fn().mockResolvedValue(undefined),

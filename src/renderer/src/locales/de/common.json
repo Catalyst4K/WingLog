@@ -656,6 +656,9 @@
     "menuHeaderClosed": "GSX-Menü",
     "tapToOpen": "Antippen zum Öffnen",
     "services": "Dienste",
+    "provider": "Anbieter: {{name}}",
+    "showMoreServices_one": "{{count}} weiteren Dienst anzeigen",
+    "showMoreServices_other": "{{count}} weitere Dienste anzeigen",
     "ok": "OK",
     "cancel": "Abbrechen"
   }
