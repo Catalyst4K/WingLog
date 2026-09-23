@@ -780,6 +780,9 @@ if (!gotSingleInstanceLock) {
         gsxRemoteService.on('services', (services) => {
           if (!window.isDestroyed()) window.webContents.send(IpcChannels.gsxRemoteServices, services)
         })
+        gsxRemoteService.on('gate', (gate) => {
+          if (!window.isDestroyed()) window.webContents.send(IpcChannels.gsxRemoteGate, gate)
+        })
         gsxRemoteService.on('menu', (menu) => {
           if (!window.isDestroyed()) window.webContents.send(IpcChannels.gsxRemoteMenu, menu)
         })
@@ -797,6 +800,7 @@ if (!gotSingleInstanceLock) {
         startGsxRemoteIfConfigured()
       })
       ipcMain.handle(IpcChannels.gsxRemoteGetStatus, () => gsxRemoteService?.getStatus() ?? { state: 'disconnected', lastError: null })
+      ipcMain.handle(IpcChannels.gsxRemoteGetGateInfo, () => gsxRemoteService?.getGateInfo() ?? null)
       ipcMain.handle(IpcChannels.gsxRemotePickMenu, (_event, index: number) => gsxRemoteService?.pickMenu(index))
       ipcMain.handle(IpcChannels.gsxRemoteToggleMenu, () => gsxRemoteService?.toggleMenu())
       ipcMain.handle(IpcChannels.gsxRemoteSubmitPrompt, (_event, gen: number, text: string) =>

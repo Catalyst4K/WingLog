@@ -659,6 +659,9 @@
     "menuHeaderClosed": "Menu GSX",
     "tapToOpen": "Toucher pour ouvrir",
     "services": "Services",
+    "provider": "Prestataire : {{name}}",
+    "showMoreServices_one": "Afficher {{count}} service de plus",
+    "showMoreServices_other": "Afficher {{count}} services de plus",
     "ok": "OK",
     "cancel": "Annuler"
   }

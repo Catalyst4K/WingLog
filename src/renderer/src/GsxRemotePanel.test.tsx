@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type {
   GsxRemoteConnectionStatus,
+  GsxRemoteGateInfo,
   GsxRemoteMenuState,
   GsxRemotePromptState,
   GsxRemoteServiceStatus,
@@ -25,6 +26,8 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): void {
     gsxRemoteGetStatus: vi.fn().mockResolvedValue(makeStatus()),
     onGsxRemoteStatus: vi.fn().mockReturnValue(() => {}),
     onGsxRemoteServices: vi.fn().mockReturnValue(() => {}),
+    gsxRemoteGetGateInfo: vi.fn().mockResolvedValue(null),
+    onGsxRemoteGate: vi.fn().mockReturnValue(() => {}),
     onGsxRemoteMenu: vi.fn().mockReturnValue(() => {}),
     onGsxRemotePrompt: vi.fn().mockReturnValue(() => {}),
     gsxRemotePickMenu: vi.fn().mockResolvedValue(undefined),
@@ -171,7 +174,9 @@ describe('GsxRemotePanel', () => {
 
     expect(await screen.findByText('Refuel')).toBeInTheDocument()
     expect(screen.getByText(/on the way, ETA 24 secs/)).toBeInTheDocument()
-    expect(screen.getByText(/World Fuel Services/)).toBeInTheDocument()
+    // Labelled explicitly ("Provider: X") rather than the bare name alone, so it isn't
+    // mistaken for the service's own status — Callum's call after seeing an early build.
+    expect(screen.getByText('Provider: World Fuel Services')).toBeInTheDocument()
   })
 
   it('shows a text prompt and submits the typed answer', async () => {
@@ -219,11 +224,13 @@ describe('GsxRemotePanel', () => {
   it('unsubscribes from every live channel on unmount', async () => {
     const unsubscribeStatus = vi.fn()
     const unsubscribeServices = vi.fn()
+    const unsubscribeGate = vi.fn()
     const unsubscribeMenu = vi.fn()
     const unsubscribePrompt = vi.fn()
     withWinglog({
       onGsxRemoteStatus: vi.fn().mockReturnValue(unsubscribeStatus),
       onGsxRemoteServices: vi.fn().mockReturnValue(unsubscribeServices),
+      onGsxRemoteGate: vi.fn().mockReturnValue(unsubscribeGate),
       onGsxRemoteMenu: vi.fn().mockReturnValue(unsubscribeMenu),
       onGsxRemotePrompt: vi.fn().mockReturnValue(unsubscribePrompt)
     })
@@ -235,8 +242,135 @@ describe('GsxRemotePanel', () => {
     await waitFor(() => {
       expect(unsubscribeStatus).toHaveBeenCalled()
       expect(unsubscribeServices).toHaveBeenCalled()
+      expect(unsubscribeGate).toHaveBeenCalled()
       expect(unsubscribeMenu).toHaveBeenCalled()
       expect(unsubscribePrompt).toHaveBeenCalled()
     })
+  })
+
+  it('shows the gate GSX has resolved, split into a headline label and a subtitle', async () => {
+    withWinglog({
+      gsxRemoteGetGateInfo: vi.fn().mockResolvedValue({
+        airportIcao: 'VHHH',
+        airportName: 'Hong Kong Intl',
+        parking: '(N) T1 North|Gate N6',
+        gateProperties: ['Gate Heavy', 'jetway']
+      } satisfies GsxRemoteGateInfo)
+    })
+    render(<GsxRemotePanel />)
+
+    expect(await screen.findByText('Gate N6')).toBeInTheDocument()
+    expect(screen.getByText('VHHH · Hong Kong Intl · (N) T1 North')).toBeInTheDocument()
+  })
+
+  it('renders nothing for the gate section before GSX has resolved one', async () => {
+    withWinglog()
+    render(<GsxRemotePanel />)
+    await screen.findByText('Tap to open')
+
+    expect(screen.queryByText(/VHHH/)).not.toBeInTheDocument()
+  })
+
+  it('hides idle secondary services behind a "show more" toggle, keeps primary/active ones visible', async () => {
+    let servicesListener: (services: GsxRemoteServiceStatus[]) => void = () => {}
+    withWinglog({
+      onGsxRemoteServices: vi.fn((listener) => {
+        servicesListener = listener
+        return () => {}
+      })
+    })
+    render(<GsxRemotePanel />)
+    await screen.findByText('Tap to open')
+
+    servicesListener([
+      { id: 'Boarding', displayName: 'Board', state: 'requested', stateText: '', icon: '', canTrigger: false, canBypass: false, statusText: '', progressText: '' },
+      { id: 'GPU', displayName: 'GPU', state: 'available', stateText: '', icon: '', canTrigger: true, canBypass: false, statusText: '', progressText: '' },
+      { id: 'DeIce', displayName: 'De-Ice', state: 'performing', stateText: '', icon: '', canTrigger: false, canBypass: false, statusText: '', progressText: '' }
+    ])
+
+    expect(await screen.findByText('Board')).toBeInTheDocument()
+    expect(screen.getByText('De-Ice')).toBeInTheDocument() // active secondary service, shown directly
+    // Idle secondary service: present but folded inside a closed <details>, not shown directly.
+    expect(screen.getByText('GPU').closest('details')).not.toHaveAttribute('open')
+    expect(screen.getByText('Show 1 more service')).toBeInTheDocument()
+
+    const user = userEvent.setup()
+    await user.click(screen.getByText('Show 1 more service'))
+
+    expect(screen.getByText('GPU').closest('details')).toHaveAttribute('open')
+  })
+
+  it('shows a service\'s live bill and formatted fuel progress instead of raw statusText', async () => {
+    let servicesListener: (services: GsxRemoteServiceStatus[]) => void = () => {}
+    withWinglog({
+      onGsxRemoteServices: vi.fn((listener) => {
+        servicesListener = listener
+        return () => {}
+      })
+    })
+    render(<GsxRemotePanel />)
+    await screen.findByText('Tap to open')
+
+    servicesListener([
+      {
+        id: 'Refueling',
+        displayName: 'Refuel',
+        state: 'performing',
+        stateText: 'Refueling service is being performed',
+        icon: 'refueling',
+        canTrigger: false,
+        canBypass: false,
+        operator: 'AFSC',
+        statusText: 'pumping\nfuel 15357/81488 kg\naircraft 15606→30963 kg\nBill $24272',
+        progressText: '19%',
+        detail: {
+          phase: 'pumping',
+          fuel: { current: 15357, target: 81488, unit: 'kg', startTotal: 15606, aircraftTotal: 30963 },
+          bill: 24272
+        }
+      }
+    ])
+
+    expect(await screen.findByText('15,357 / 81,488 kg')).toBeInTheDocument()
+    expect(screen.getByText(/24,272/)).toBeInTheDocument()
+    expect(screen.queryByText(/pumping\\nfuel/)).not.toBeInTheDocument()
+  })
+
+  it('shows formatted boarding pax/cargo progress instead of raw statusText', async () => {
+    let servicesListener: (services: GsxRemoteServiceStatus[]) => void = () => {}
+    withWinglog({
+      onGsxRemoteServices: vi.fn((listener) => {
+        servicesListener = listener
+        return () => {}
+      })
+    })
+    render(<GsxRemotePanel />)
+    await screen.findByText('Tap to open')
+
+    servicesListener([
+      {
+        id: 'Boarding',
+        displayName: 'Board',
+        state: 'requested',
+        stateText: 'Boarding service has been requested',
+        icon: 'boarding',
+        canTrigger: false,
+        canBypass: false,
+        statusText: 'approaching\npax 0/344\nfront hold 0/7 ULDs (train 1 of 2, idle)',
+        progressText: '344/344',
+        detail: {
+          phase: 'approaching',
+          pax: { done: 0, total: 344 },
+          cargo: [
+            { hold: 'front', unit: 'ULDs', done: 0, total: 7, trip: 1, trips: 2, train: 'idle' },
+            { hold: 'rear', unit: 'ULDs', done: 0, total: 6, trip: 1, trips: 2, train: 'idle' }
+          ]
+        }
+      }
+    ])
+
+    expect(await screen.findByText('0 / 344')).toBeInTheDocument()
+    expect(screen.getByText('Front: 0 / 7 ULDs')).toBeInTheDocument()
+    expect(screen.getByText('Rear: 0 / 6 ULDs')).toBeInTheDocument()
   })
 })

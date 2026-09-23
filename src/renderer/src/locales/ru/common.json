@@ -680,6 +680,11 @@
     "menuHeaderClosed": "Меню GSX",
     "tapToOpen": "Нажмите, чтобы открыть",
     "services": "Службы",
+    "provider": "Поставщик: {{name}}",
+    "showMoreServices_one": "Показать ещё {{count}} услугу",
+    "showMoreServices_few": "Показать ещё {{count}} услуги",
+    "showMoreServices_many": "Показать ещё {{count}} услуг",
+    "showMoreServices_other": "Показать ещё {{count}} услуг",
     "ok": "ОК",
     "cancel": "Отмена"
   }

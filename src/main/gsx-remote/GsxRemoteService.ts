@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events'
 import { WebSocket as NodeWebSocket } from 'node:http'
 import type {
   GsxRemoteConnectionStatus,
+  GsxRemoteGateInfo,
   GsxRemoteMenuState,
   GsxRemotePromptState,
   GsxRemoteServiceStatus
@@ -32,6 +33,7 @@ const RECONNECT_BACKOFF_FACTOR = 1.6
 interface GsxRemoteServiceEvents {
   status: [GsxRemoteConnectionStatus]
   services: [GsxRemoteServiceStatus[]]
+  gate: [GsxRemoteGateInfo | null]
   menu: [GsxRemoteMenuState]
   prompt: [GsxRemotePromptState | null]
 }
@@ -63,6 +65,12 @@ function isRawMenu(value: unknown): value is Omit<GsxRemoteMenuState, 'menuShown
 
 function isPromptState(value: unknown): value is GsxRemotePromptState {
   return typeof value === 'object' && value !== null && (value as { kind?: unknown }).kind === 'text'
+}
+
+/** The raw wire `/airport` object — confirmed live 2026-09-21 (docs/gsx-notes.md, round 6):
+ *  `{icao, name, country}`. Only `icao`/`name` are used; `country` isn't shown anywhere. */
+function isRawAirport(value: unknown): value is { icao: string; name: string } {
+  return typeof value === 'object' && value !== null && typeof (value as { icao?: unknown }).icao === 'string'
 }
 
 /**
@@ -113,6 +121,24 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
   getPrompt(): GsxRemotePromptState | null {
     const value = this.state.prompt
     return isPromptState(value) ? value : null
+  }
+
+  /** `state.airport`/`state.parking`/`state.gateProperties` — three separate top-level wire
+   *  keys combined into one value for callers, same reasoning as getMenu's menuShown combine
+   *  above. Confirmed live 2026-09-21, real VHHH session (docs/gsx-notes.md, round 6). Null
+   *  until GSX has resolved a gate (`airport`/`parking` genuinely absent until then, not just
+   *  empty — confirmed from the same capture's boot-time snapshot). */
+  getGateInfo(): GsxRemoteGateInfo | null {
+    const airport = this.state.airport
+    const parking = this.state.parking
+    if (!isRawAirport(airport) || typeof parking !== 'string') return null
+    const gateProperties = this.state.gateProperties
+    return {
+      airportIcao: airport.icao,
+      airportName: airport.name,
+      parking,
+      gateProperties: Array.isArray(gateProperties) ? gateProperties.filter((p) => typeof p === 'string') : []
+    }
   }
 
   start(): void {
@@ -224,6 +250,7 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
       delete snapshot.type
       this.state = snapshot
       this.emit('services', this.getServices())
+      this.emit('gate', this.getGateInfo())
       this.emit('menu', this.getMenu())
       this.emit('prompt', this.getPrompt())
       return
@@ -235,7 +262,9 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
       else this.state[key] = value
 
       if (key === 'services') this.emit('services', this.getServices())
-      else if (key === 'menu' || key === 'menuShown') this.emit('menu', this.getMenu())
+      else if (key === 'airport' || key === 'parking' || key === 'gateProperties') {
+        this.emit('gate', this.getGateInfo())
+      } else if (key === 'menu' || key === 'menuShown') this.emit('menu', this.getMenu())
       else if (key === 'prompt') this.emit('prompt', this.getPrompt())
     }
   }

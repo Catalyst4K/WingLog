@@ -8,6 +8,7 @@ import {
   type DispatchOpenSimBriefParams,
   type WingLogApi,
   type GsxRemoteConnectionStatus,
+  type GsxRemoteGateInfo,
   type GsxRemoteMenuState,
   type GsxRemotePromptState,
   type GsxRemoteServiceStatus,
@@ -190,6 +191,12 @@ const api: WingLogApi = {
     const handler = (_event: Electron.IpcRendererEvent, services: GsxRemoteServiceStatus[]): void => listener(services)
     ipcRenderer.on(IpcChannels.gsxRemoteServices, handler)
     return () => ipcRenderer.removeListener(IpcChannels.gsxRemoteServices, handler)
+  },
+  gsxRemoteGetGateInfo: () => ipcRenderer.invoke(IpcChannels.gsxRemoteGetGateInfo),
+  onGsxRemoteGate: (listener: (gate: GsxRemoteGateInfo | null) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, gate: GsxRemoteGateInfo | null): void => listener(gate)
+    ipcRenderer.on(IpcChannels.gsxRemoteGate, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.gsxRemoteGate, handler)
   },
   onGsxRemoteMenu: (listener: (menu: GsxRemoteMenuState) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, menu: GsxRemoteMenuState): void => listener(menu)
