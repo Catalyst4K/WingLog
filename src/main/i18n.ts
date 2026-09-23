@@ -14,6 +14,8 @@ import es from './locales/es/main.json'
 import fr from './locales/fr/main.json'
 import it from './locales/it/main.json'
 import ru from './locales/ru/main.json'
+import zhCN from './locales/zh-CN/main.json'
+import zhTW from './locales/zh-TW/main.json'
 
 const instance: I18nInstance = i18next.createInstance()
 void instance.init({
@@ -23,7 +25,9 @@ void instance.init({
     es: { main: es },
     fr: { main: fr },
     it: { main: it },
-    ru: { main: ru }
+    ru: { main: ru },
+    'zh-CN': { main: zhCN },
+    'zh-TW': { main: zhTW }
   },
   lng: 'en',
   fallbackLng: 'en',

@@ -107,6 +107,36 @@ describe('SettingsView', () => {
     expect(screen.getByRole('tab', { name: 'Über' })).toBeInTheDocument()
   })
 
+  it('renders in Simplified and Traditional Chinese, two catalogues sharing a language but not a script', async () => {
+    await i18n.changeLanguage('zh-CN')
+    const { unmount } = renderSettings()
+    expect(await screen.findByText('设置')).toBeInTheDocument()
+    expect(screen.getByText('单位')).toBeInTheDocument()
+    unmount()
+
+    await i18n.changeLanguage('zh-TW')
+    renderSettings()
+    expect(await screen.findByText('設定')).toBeInTheDocument()
+    expect(screen.getByText('單位')).toBeInTheDocument()
+  })
+
+  it('composes a pluralized import summary toast in Chinese, whose plural rule has only one category ("other")', async () => {
+    await i18n.changeLanguage('zh-CN')
+    setWinglog({
+      aircraftImport: vi
+        .fn()
+        .mockResolvedValue({ imported: 2, skipped: [{ registration: 'G-DUP', reason: 'already exists' }] })
+    })
+    const user = userEvent.setup()
+    renderSettings()
+    await user.click(screen.getByRole('tab', { name: '数据' }))
+    await user.click((await screen.findAllByRole('button', { name: '导入' }))[0])
+
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith('已导入 2 架飞机。 已跳过 1 个：G-DUP (already exists)')
+    )
+  })
+
   it('composes a pluralized import summary toast in the active i18next language', async () => {
     await i18n.changeLanguage('de')
     setWinglog({
@@ -462,7 +492,17 @@ describe('SettingsView', () => {
       renderSettings({ appLanguage: 'system', onAppLanguageChange })
 
       const group = within(await screen.findByRole('group', { name: 'App language' }))
-      for (const label of ['System', 'English', 'Deutsch', 'Español', 'Français', 'Italiano', 'Русский']) {
+      for (const label of [
+        'System',
+        'English',
+        'Deutsch',
+        'Español',
+        'Français',
+        'Italiano',
+        'Русский',
+        '简体中文',
+        '繁體中文'
+      ]) {
         expect(group.getByRole('button', { name: label })).toBeInTheDocument()
       }
       await user.click(group.getByRole('button', { name: 'Deutsch' }))
