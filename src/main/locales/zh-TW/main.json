@@ -1,0 +1,49 @@
+{
+  "dialogs": {
+    "exportFleet": "匯出機隊",
+    "importFleet": "匯入機隊",
+    "exportLogbook": "匯出飛行日誌",
+    "importLogbookCsv": "匯入 CSV 飛行日誌",
+    "importLogbookJson": "匯入 JSON 飛行日誌",
+    "gsxReceiptsFolder": "GSX 收據資料夾"
+  },
+  "startupFailed": "WingLog 啟動失敗",
+  "errors": {
+    "aircraftHasFlights": "此飛機仍有航班 — 請改用「取代」，或先刪除其航班",
+    "aircraftCannotReplaceSelf": "飛機不能取代自身",
+    "aircraftAlreadyReplaced": "{{registration}} 已被取代",
+    "aircraftAlreadyRetired": "{{registration}} 已經除役",
+    "aircraftReplacedCannotUnretire": "{{registration}} 已被取代，無法取消除役",
+    "aircraftNotRetired": "{{registration}} 並非除役狀態",
+    "expectedAnObject": "應為一個物件",
+    "fieldRequired": "「{{field}}」為必填欄位",
+    "fieldMustBeString": "「{{field}}」必須為字串",
+    "fleetExportTooLarge": "該檔案過大，不可能是機隊匯出檔",
+    "csvFileEmpty": "CSV 檔案是空的",
+    "registrationAlreadyExists": "註冊號已存在",
+    "alreadyImported": "已匯入過",
+    "logbookExportTooLarge": "該檔案過大，不可能是飛行日誌匯出檔",
+    "missingOrMalformedField": "缺少必填欄位或欄位格式有誤",
+    "inBlockBeforeOutBlock": "入檔時間早於出檔時間",
+    "expectedJsonArrayOfFlights": "應為航班的 JSON 陣列",
+    "invalidAircraftId": "無效的飛機 ID",
+    "setSimbriefUsernameFirst": "請先設定你的 SimBrief 使用者名稱",
+    "noNewPlanGenerated": "未產生新計畫 — 視窗可能在完成前已被關閉",
+    "registrationAndTypeRequired": "若不加入機隊，則註冊號與機型為必填項目。",
+    "invalidDestination": "無效的目的地",
+    "invalidDeparture": "無效的起飛地",
+    "flightAlreadyHasLinkedAircraft": "航班 {{flightId}} 已關聯了一架飛機",
+    "aircraftNotFoundOrRetired": "找不到飛機 {{id}}，或該飛機已除役",
+    "notConnectedToSim": "尚未連線到模擬器",
+    "plannedFlightDestinationFromPlan": "已規劃航班的目的地來自其飛行計畫",
+    "plannedFlightDepartureFromPlan": "已規劃航班的起飛地來自其飛行計畫",
+    "notValidAirportCode": "這不是有效的機場代碼",
+    "noFlightBeingTracked": "目前沒有正在追蹤的航班",
+    "credentialEncryptionUnavailable": "此裝置上無法使用作業系統層級的憑證加密",
+    "notLoggedIn": "尚未登入"
+  },
+  "labels": {
+    "unknownRegistration": "（未知）",
+    "unreadableRow": "（無法讀取的資料列）"
+  }
+}

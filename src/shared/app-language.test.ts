@@ -22,7 +22,7 @@ describe('resolveAppLanguage', () => {
 
   it("falls back to English for 'system' when the OS locale isn't a supported language", () => {
     expect(resolveAppLanguage('system', 'ja-JP')).toBe('en')
-    expect(resolveAppLanguage('system', 'zh-CN')).toBe('en')
+    expect(resolveAppLanguage('system', 'ko-KR')).toBe('en')
   })
 
   it("falls back to English for 'system' rather than throwing on a malformed locale string", () => {
@@ -31,5 +31,33 @@ describe('resolveAppLanguage', () => {
 
   it('is case-insensitive when matching the primary subtag', () => {
     expect(resolveAppLanguage('system', 'DE-de')).toBe('de')
+  })
+
+  describe('Chinese: zh-CN and zh-TW share a primary subtag, so region/script decides', () => {
+    it("resolves mainland/Singapore-shaped locales to Simplified (zh-CN)", () => {
+      expect(resolveAppLanguage('system', 'zh-CN')).toBe('zh-CN')
+      expect(resolveAppLanguage('system', 'zh-SG')).toBe('zh-CN')
+    })
+
+    it('resolves Taiwan/Hong Kong/Macau-shaped locales, and an explicit Hant script tag, to Traditional (zh-TW)', () => {
+      expect(resolveAppLanguage('system', 'zh-TW')).toBe('zh-TW')
+      expect(resolveAppLanguage('system', 'zh-HK')).toBe('zh-TW')
+      expect(resolveAppLanguage('system', 'zh-MO')).toBe('zh-TW')
+      expect(resolveAppLanguage('system', 'zh-Hant-TW')).toBe('zh-TW')
+    })
+
+    it('defaults a bare or unrecognised zh-* locale to Simplified rather than falling back to English', () => {
+      expect(resolveAppLanguage('system', 'zh')).toBe('zh-CN')
+      expect(resolveAppLanguage('system', 'zh-Hans-CN')).toBe('zh-CN')
+    })
+
+    it('is case-insensitive for the region/script check too', () => {
+      expect(resolveAppLanguage('system', 'ZH-tw')).toBe('zh-TW')
+    })
+
+    it('an explicit override for either Chinese catalogue wins outright, regardless of the system locale', () => {
+      expect(resolveAppLanguage('zh-CN', 'zh-TW')).toBe('zh-CN')
+      expect(resolveAppLanguage('zh-TW', 'zh-CN')).toBe('zh-TW')
+    })
   })
 })

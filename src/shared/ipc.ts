@@ -806,10 +806,18 @@ export type MapLanguage = 'local' | 'en' | 'de' | 'es' | 'fr' | 'it' | 'ru'
  * yet for it; the rest are an explicit override, persisted once chosen. Real aviation terms
  * of art (ILS, STAR, SID, FL, QNH, ICAO idents) and anything sourced from SimBrief (which
  * has no documented language support of its own) stay in English regardless of this
- * setting. First-pass scope is the renderer only — main-process strings (native dialog
- * titles, the startup error box) aren't covered by this yet.
+ * setting. Covers both the renderer and main-process strings (native dialog titles, the
+ * startup error box's title) — see src/main/i18n.ts.
+ *
+ * `zh-CN`/`zh-TW` are two separate catalogues, not one 'zh' with a region: Simplified and
+ * Traditional Chinese are different written forms (and Traditional's own real-world
+ * terminology differs further by region — Taiwan vs. Hong Kong — `zh-TW` covers Taiwan
+ * only for now, see app-language.ts). Electron's `app.getLocale()` is documented to return
+ * exactly these codes for Chinese locales (electronjs.org/docs/latest/api/app#appgetlocale,
+ * "Some examples of returned values are en-US, zh-CN") — not independently confirmed live
+ * against a real Chinese-locale Windows install from this repo.
  */
-export type AppLanguage = 'system' | 'en' | 'de' | 'es' | 'fr' | 'it' | 'ru'
+export type AppLanguage = 'system' | 'en' | 'de' | 'es' | 'fr' | 'it' | 'ru' | 'zh-CN' | 'zh-TW'
 
 /**
  * Display unit for Logbook's two runway-relative landing measurements (distance from
