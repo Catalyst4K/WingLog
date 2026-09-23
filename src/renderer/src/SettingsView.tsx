@@ -425,18 +425,23 @@ export function SettingsView(props: {
                 ]}
                 onChange={props.onWeightUnitChange}
               />
-              <SegmentedRow
-                label={t('settingsView.units.ofpAltitudes')}
-                value={props.altitudeUnit}
-                options={[
-                  { value: 'ft', label: t('settingsView.units.feet') },
-                  { value: 'm', label: t('settingsView.units.meters') },
-                  { value: 'hybrid', label: t('settingsView.units.hybrid') }
-                ]}
-                onChange={props.onAltitudeUnitChange}
-                hint={t('settingsView.units.hybridHint')}
-                hintAriaLabel={t('settingsView.units.moreInfoFor', { label: t('settingsView.units.ofpAltitudes') })}
-              />
+              {/* No popover here, unlike the rows below — "Hybrid" isn't a self-explanatory
+               *  option the way Feet/Meters are, so its explanation is what the option
+               *  *means*, not a supplementary caveat. Hiding it behind a click was a
+               *  regression (Callum, 2026-09-23), not a decluttering win. */}
+              <div className="flex flex-col gap-1.5">
+                <SegmentedRow
+                  label={t('settingsView.units.ofpAltitudes')}
+                  value={props.altitudeUnit}
+                  options={[
+                    { value: 'ft', label: t('settingsView.units.feet') },
+                    { value: 'm', label: t('settingsView.units.meters') },
+                    { value: 'hybrid', label: t('settingsView.units.hybrid') }
+                  ]}
+                  onChange={props.onAltitudeUnitChange}
+                />
+                <p className="text-xs text-muted-foreground">{t('settingsView.units.hybridHint')}</p>
+              </div>
               <SegmentedRow
                 label={t('settingsView.units.appLanguage')}
                 value={props.appLanguage}
