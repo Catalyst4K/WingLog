@@ -213,7 +213,9 @@
     },
     "flights": {
       "cardTitle": "航班",
-      "empty": "暂无已完成的航班。"
+      "empty": "暂无已完成的航班。",
+      "fuelOnBoard": "上次航班后机上燃油：",
+      "fuelOnBoardFrom": "（{{route}}，{{date}}）"
     },
     "replaceDialog": {
       "title": "替代 {{registration}}",
@@ -475,6 +477,8 @@
       "cruiseAltitude": "巡航高度",
       "scheduledOutIn": "计划推出/到达时间",
       "plannedFuel": "计划燃油",
+      "fuelOnBoard": "机上燃油",
+      "upliftNeeded": "需加注",
       "paxCargo": "旅客/货物",
       "zfwTowLdw": "ZFW / TOW / LDW",
       "costIndex": "成本指数"

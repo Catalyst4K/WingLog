@@ -218,7 +218,9 @@
     },
     "flights": {
       "cardTitle": "Flüge",
-      "empty": "Noch keine abgeschlossenen Flüge."
+      "empty": "Noch keine abgeschlossenen Flüge.",
+      "fuelOnBoard": "Kraftstoff an Bord nach letztem Flug:",
+      "fuelOnBoardFrom": "({{route}}, {{date}})"
     },
     "replaceDialog": {
       "title": "{{registration}} ersetzen",
@@ -481,6 +483,8 @@
       "cruiseAltitude": "Reiseflughöhe",
       "scheduledOutIn": "Geplant Abflug / Ankunft",
       "plannedFuel": "Geplanter Treibstoff",
+      "fuelOnBoard": "Treibstoff an Bord",
+      "upliftNeeded": "Nachzutanken",
       "paxCargo": "Passagiere / Fracht",
       "zfwTowLdw": "ZFW / TOW / LDW",
       "costIndex": "Cost Index"

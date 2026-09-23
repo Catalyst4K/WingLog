@@ -234,7 +234,9 @@
     },
     "flights": {
       "cardTitle": "Рейсы",
-      "empty": "Завершённых рейсов пока нет."
+      "empty": "Завершённых рейсов пока нет.",
+      "fuelOnBoard": "Топливо на борту после последнего рейса:",
+      "fuelOnBoardFrom": "({{route}}, {{date}})"
     },
     "replaceDialog": {
       "title": "Заменить {{registration}}",
@@ -499,6 +501,8 @@
       "cruiseAltitude": "Крейсерская высота",
       "scheduledOutIn": "Плановые вылет / прилёт",
       "plannedFuel": "Плановое топливо",
+      "fuelOnBoard": "Топливо на борту",
+      "upliftNeeded": "Требуется дозаправка",
       "paxCargo": "Пассажиры / груз",
       "zfwTowLdw": "ZFW / TOW / LDW",
       "costIndex": "Индекс стоимости"

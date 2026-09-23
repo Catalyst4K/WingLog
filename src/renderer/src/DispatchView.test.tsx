@@ -126,6 +126,7 @@ function createWinglog(overrides: Record<string, unknown> = {}): typeof window.w
     logbookFleetStats: vi.fn().mockResolvedValue([]),
     dispatchGenerationAvailable: vi.fn().mockResolvedValue(true),
     flightList: vi.fn().mockResolvedValue([]),
+    fleetListFlights: vi.fn().mockResolvedValue([]),
     dispatchOpenSimBrief: vi.fn().mockResolvedValue(undefined),
     dispatchGenerateOfp: vi.fn().mockResolvedValue(makeOfp()),
     dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp()),
@@ -604,6 +605,54 @@ describe('DispatchView', () => {
 
       await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
       expect(screen.getByText('ABCDE')).toBeInTheDocument()
+    })
+
+    it("shows fuel on board and uplift needed, from the matched aircraft's last completed flight", async () => {
+      // docs/plans/fleet-maintenance.md, Part 2: "top up to the plan" is Callum's own
+      // practical use case — makeOfp()'s matchedAircraftId is 1, so fleetListFlights(1)
+      // is what DispatchView's own selectedAircraftId effect ends up calling.
+      window.winglog = createWinglog({
+        dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp({ fuelPlannedKg: 5000 })),
+        fleetListFlights: vi.fn().mockResolvedValue([makeFlight({ fuelInKg: 3000 })])
+      })
+      const user = userEvent.setup()
+      render(<Harness />)
+      await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
+      await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
+
+      expect(await screen.findByText('Fuel on board')).toBeInTheDocument()
+      expect(screen.getByText('3,000 kg')).toBeInTheDocument()
+      expect(screen.getByText('Uplift needed')).toBeInTheDocument()
+      expect(screen.getByText('2,000 kg')).toBeInTheDocument()
+    })
+
+    it('shows no uplift needed section when the aircraft already has enough fuel on board', async () => {
+      window.winglog = createWinglog({
+        dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp({ fuelPlannedKg: 5000 })),
+        fleetListFlights: vi.fn().mockResolvedValue([makeFlight({ fuelInKg: 6000 })])
+      })
+      const user = userEvent.setup()
+      render(<Harness />)
+      await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
+      await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
+
+      expect(await screen.findByText('Fuel on board')).toBeInTheDocument()
+      expect(screen.getByText('6,000 kg')).toBeInTheDocument()
+      expect(screen.getByText('0 kg')).toBeInTheDocument()
+    })
+
+    it('shows neither fuel field when the matched aircraft has no completed flights yet', async () => {
+      window.winglog = createWinglog({
+        dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp({ fuelPlannedKg: 5000 })),
+        fleetListFlights: vi.fn().mockResolvedValue([])
+      })
+      const user = userEvent.setup()
+      render(<Harness />)
+      await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
+      await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
+
+      expect(screen.queryByText('Fuel on board')).not.toBeInTheDocument()
+      expect(screen.queryByText('Uplift needed')).not.toBeInTheDocument()
     })
 
     it('shows a hint when no fleet aircraft matches the OFP registration', async () => {

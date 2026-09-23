@@ -218,7 +218,9 @@
     },
     "flights": {
       "cardTitle": "Flights",
-      "empty": "No completed flights yet."
+      "empty": "No completed flights yet.",
+      "fuelOnBoard": "Fuel on board after last flight:",
+      "fuelOnBoardFrom": "({{route}}, {{date}})"
     },
     "replaceDialog": {
       "title": "Replace {{registration}}",
@@ -481,6 +483,8 @@
       "cruiseAltitude": "Cruise altitude",
       "scheduledOutIn": "Scheduled out / in",
       "plannedFuel": "Planned fuel",
+      "fuelOnBoard": "Fuel on board",
+      "upliftNeeded": "Uplift needed",
       "paxCargo": "Pax / cargo",
       "zfwTowLdw": "ZFW / TOW / LDW",
       "costIndex": "Cost index"
