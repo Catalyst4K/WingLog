@@ -9,6 +9,7 @@ import {
   type WingLogApi,
   type GsxSettings,
   type LandingDistanceUnit,
+  type MaintenanceAddonSettings,
   type MapLanguage,
   type NavdataProcedureKind,
   type NewAircraft,
@@ -128,6 +129,11 @@ const api: WingLogApi = {
     ipcRenderer.invoke(IpcChannels.logbookGreatCircleRoute, depIcao, arrIcao),
   fleetListLandings: (aircraftId: number) => ipcRenderer.invoke(IpcChannels.fleetListLandings, aircraftId),
   fleetListFlights: (aircraftId: number) => ipcRenderer.invoke(IpcChannels.fleetListFlights, aircraftId),
+  settingsGetMaintenanceAddon: () => ipcRenderer.invoke(IpcChannels.settingsGetMaintenanceAddon),
+  settingsSetMaintenanceAddon: (settings: MaintenanceAddonSettings) =>
+    ipcRenderer.invoke(IpcChannels.settingsSetMaintenanceAddon, settings),
+  maintenanceAddonBrowseFolder: () => ipcRenderer.invoke(IpcChannels.maintenanceAddonBrowseFolder),
+  fleetGetMaintenance: (aircraftId: number) => ipcRenderer.invoke(IpcChannels.fleetGetMaintenance, aircraftId),
   logbookListFlightScores: () => ipcRenderer.invoke(IpcChannels.logbookListFlightScores),
   aircraftLookupByRegistration: (registration: string) =>
     ipcRenderer.invoke(IpcChannels.aircraftLookupByRegistration, registration),

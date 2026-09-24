@@ -83,6 +83,14 @@
       "displayCurrency": "顯示貨幣",
       "currencyHint": "GSX 總額會在你查看時依即時匯率換算 — 儲存的資料本身不會被轉換。"
     },
+    "maintenanceAddon": {
+      "cardTitle": "附加元件維護資料",
+      "description": "在機隊詳情頁顯示 PMDG 777 或 iniBuilds A350 自身記錄的該機身維護資料。僅供檢視 — 這裡的內容永遠不會寫回模擬器。",
+      "addonFolder": "附加元件資料夾",
+      "notSet": "未設定",
+      "browse": "瀏覽…",
+      "pathHint": "模擬器的 WASM 儲存資料夾 — 即包含 pmdg-aircraft-77w 和/或 inibuilds-aircraft-a350 的那個資料夾，而不是某個附加元件自己的資料檔案。路徑錯誤或不存在只會導致找不到資料 — 不會出現錯誤。"
+    },
     "currencyOptions": {
       "usd": "USD — 美元（不換算）",
       "gbp": "GBP — 英鎊",
@@ -210,6 +218,26 @@
       "cardTitle": "落地紀錄",
       "empty": "尚無落地紀錄。",
       "crosswind": "{{kt}} 節側風"
+    },
+    "maintenance": {
+      "cardTitle": "維護資料",
+      "empty": "未找到該機身的附加元件維護資料（支援 PMDG 777、iniBuilds A350）。",
+      "fields": {
+        "oilQuantity": "{{index}} 號發動機機油量",
+        "engineHours": "{{index}} 號發動機小時數",
+        "wheelMain": "主起落架 {{index}} 號機輪",
+        "wheelNose": "前起落架 {{index}} 號機輪",
+        "hydraulicsVolume": "{{index}} 號液壓系統容量",
+        "hydraulicsTemp": "{{index}} 號液壓系統溫度",
+        "hydraulicsReservoir": "{{index}} 號液壓系統儲液量",
+        "fuelVolume": "{{index}} 號油箱容量",
+        "fuelTemperature": "{{index}} 號油箱溫度",
+        "apuHours": "APU 小時數",
+        "apuOilQuantity": "APU 機油量",
+        "apuStartCycles": "APU 啟動循環數",
+        "batteryPct": "{{index}} 號電池",
+        "batteryEmergencyPct": "{{index}} 號應急電池"
+      }
     },
     "flights": {
       "cardTitle": "航班",

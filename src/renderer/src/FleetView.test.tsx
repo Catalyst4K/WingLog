@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { Aircraft, AircraftLanding, Flight, FleetStats, WingLogApi } from '@shared/ipc'
+import type { Aircraft, AircraftLanding, Flight, FleetStats, MaintenanceReport, WingLogApi } from '@shared/ipc'
 import i18n from './i18n'
 import { FleetView } from './FleetView'
 
@@ -156,6 +156,7 @@ function buildWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     aircraftUnretire: vi.fn().mockResolvedValue(undefined),
     fleetListLandings: vi.fn().mockResolvedValue([]),
     fleetListFlights: vi.fn().mockResolvedValue([]),
+    fleetGetMaintenance: vi.fn().mockResolvedValue(null),
     flightList: vi.fn().mockResolvedValue([]),
     dispatchOpenSimBriefAirframes: vi.fn().mockResolvedValue(undefined),
     // AircraftForm's own dependencies, needed whenever the new/edit view mounts.
@@ -880,6 +881,81 @@ describe('FleetView', () => {
       render(<FleetView weightUnit="kg" onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
       expect(await screen.findByText('Hard')).toBeInTheDocument()
       expect(screen.getByText('15')).toBeInTheDocument()
+    })
+  })
+
+  describe('AircraftMaintenanceCard', () => {
+    it('shows the empty state when nothing is configured (fleetGetMaintenance resolves null)', async () => {
+      setWinglog({ aircraftList: vi.fn().mockResolvedValue([makeAircraft()]) })
+      render(<FleetView weightUnit="kg" onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
+      expect(await screen.findByText('No third-party maintenance data found for this tail (PMDG 777, iniBuilds A350 supported).')).toBeInTheDocument()
+    })
+
+    it('shows the empty state when the file was found but had no recognized sections', async () => {
+      const report: MaintenanceReport = { addon: 'pmdg777', groups: [] }
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+        fleetGetMaintenance: vi.fn().mockResolvedValue(report)
+      })
+      render(<FleetView weightUnit="kg" onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
+      expect(await screen.findByText('No third-party maintenance data found for this tail (PMDG 777, iniBuilds A350 supported).')).toBeInTheDocument()
+    })
+
+    it('renders labels and values for a populated report', async () => {
+      const report: MaintenanceReport = {
+        addon: 'pmdg777',
+        groups: [
+          {
+            key: 'engines',
+            fields: [
+              { key: 'oilQuantity', index: 1, value: '1854' },
+              { key: 'oilQuantity', index: 2, value: '1740' }
+            ]
+          }
+        ]
+      }
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+        fleetGetMaintenance: vi.fn().mockResolvedValue(report)
+      })
+      render(<FleetView weightUnit="kg" onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
+      expect(await screen.findByText('Engine 1 oil quantity')).toBeInTheDocument()
+      expect(screen.getByText('1854')).toBeInTheDocument()
+      expect(screen.getByText('Engine 2 oil quantity')).toBeInTheDocument()
+      expect(screen.getByText('1740')).toBeInTheDocument()
+    })
+
+    it('renders correctly when only some groups are present, not assuming all four', async () => {
+      const report: MaintenanceReport = {
+        addon: 'pmdg777',
+        groups: [{ key: 'fuel', fields: [{ key: 'fuelVolume', index: 1, value: '10300' }] }]
+      }
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+        fleetGetMaintenance: vi.fn().mockResolvedValue(report)
+      })
+      render(<FleetView weightUnit="kg" onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
+      expect(await screen.findByText('Fuel tank 1 volume')).toBeInTheDocument()
+      expect(screen.getByText('10300')).toBeInTheDocument()
+    })
+
+    it('renders an iniBuilds A350 report using the same generic card, including its own field keys', async () => {
+      const report: MaintenanceReport = {
+        addon: 'inibuildsA350',
+        groups: [
+          { key: 'apu', fields: [{ key: 'apuHours', value: '1565.109009' }] },
+          { key: 'electrical', fields: [{ key: 'batteryPct', index: 1, value: '97.234558' }] }
+        ]
+      }
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+        fleetGetMaintenance: vi.fn().mockResolvedValue(report)
+      })
+      render(<FleetView weightUnit="kg" onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
+      expect(await screen.findByText('APU hours')).toBeInTheDocument()
+      expect(screen.getByText('1565.109009')).toBeInTheDocument()
+      expect(screen.getByText('Battery 1')).toBeInTheDocument()
+      expect(screen.getByText('97.234558')).toBeInTheDocument()
     })
   })
 

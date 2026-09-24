@@ -85,6 +85,14 @@
       "displayCurrency": "Moneda de visualización",
       "currencyHint": "Los totales de GSX se convierten usando una tasa obtenida en el momento en que los consultas — nada se guarda ya convertido."
     },
+    "maintenanceAddon": {
+      "cardTitle": "Datos de mantenimiento de complementos",
+      "description": "Muestra los datos de mantenimiento registrados por PMDG 777 o iniBuilds A350 para un avión en su página de detalle de Flota. Solo lectura — nada de esto se escribe nunca de vuelta al simulador.",
+      "addonFolder": "Carpeta de datos del complemento",
+      "notSet": "No establecida",
+      "browse": "Examinar…",
+      "pathHint": "La carpeta de almacenamiento WASM del simulador — la que contiene pmdg-aircraft-77w y/o inibuilds-aircraft-a350, no el archivo de datos de un complemento en particular. Una ruta incorrecta o que ya no existe solo significa que no se encuentran datos — nunca un error."
+    },
     "currencyOptions": {
       "usd": "USD — Dólar estadounidense (sin conversión)",
       "gbp": "GBP — Libra esterlina",
@@ -217,6 +225,26 @@
       "cardTitle": "Historial de aterrizajes",
       "empty": "Aún no hay aterrizajes registrados.",
       "crosswind": "{{kt}} kt de viento cruzado"
+    },
+    "maintenance": {
+      "cardTitle": "Mantenimiento",
+      "empty": "No se encontraron datos de mantenimiento de complementos para este avión (compatible con PMDG 777, iniBuilds A350).",
+      "fields": {
+        "oilQuantity": "Cantidad de aceite del motor {{index}}",
+        "engineHours": "Horas del motor {{index}}",
+        "wheelMain": "Rueda del tren principal {{index}}",
+        "wheelNose": "Rueda del tren de morro {{index}}",
+        "hydraulicsVolume": "Volumen del sistema hidráulico {{index}}",
+        "hydraulicsTemp": "Temperatura del sistema hidráulico {{index}}",
+        "hydraulicsReservoir": "Depósito del sistema hidráulico {{index}}",
+        "fuelVolume": "Volumen del tanque de combustible {{index}}",
+        "fuelTemperature": "Temperatura del tanque de combustible {{index}}",
+        "apuHours": "Horas del APU",
+        "apuOilQuantity": "Cantidad de aceite del APU",
+        "apuStartCycles": "Ciclos de arranque del APU",
+        "batteryPct": "Batería {{index}}",
+        "batteryEmergencyPct": "Batería de emergencia {{index}}"
+      }
     },
     "flights": {
       "cardTitle": "Vuelos",

@@ -4,7 +4,15 @@ import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { isRetired } from '@shared/aircraft'
-import type { Aircraft, AircraftLanding, Flight, FleetStats, NewAircraft, WeightUnit } from '@shared/ipc'
+import type {
+  Aircraft,
+  AircraftLanding,
+  Flight,
+  FleetStats,
+  MaintenanceReport,
+  NewAircraft,
+  WeightUnit
+} from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -178,6 +186,47 @@ function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
                 </div>
               )
             })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+/** Third-party maintenance data (PMDG 777, iniBuilds A350 — whichever add-on's adapter
+ *  matches first), read live from the add-on's own files (docs/plans/fleet-maintenance.md
+ *  Part 1, flightdeck-backend) — read-only, nothing here is ever written back to the sim.
+ *  `null` and an empty `groups` report both render the same empty state: whether nothing's
+ *  configured, no file matched this tail, or the file was found but had no recognized
+ *  sections, there's equally nothing to show. */
+function AircraftMaintenanceCard(props: { aircraftId: number }): React.JSX.Element {
+  const { t } = useTranslation()
+  const [report, setReport] = useState<MaintenanceReport | null>(null)
+
+  useEffect(() => {
+    window.winglog.fleetGetMaintenance(props.aircraftId).then(setReport)
+  }, [props.aircraftId])
+
+  const rows = report?.groups.flatMap((group) => group.fields.map((field) => ({ groupKey: group.key, ...field }))) ?? []
+
+  return (
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle className="text-base">{t('fleetView.maintenance.cardTitle')}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t('fleetView.maintenance.empty')}</p>
+        ) : (
+          <div className="flex flex-col gap-1.5 text-sm">
+            {rows.map((row) => (
+              <div key={`${row.groupKey}.${row.key}.${row.index ?? ''}`} className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">
+                  {t(`fleetView.maintenance.fields.${row.key}`, { index: row.index })}
+                </span>
+                <span className="font-mono tabular-nums text-foreground">{row.value}</span>
+              </div>
+            ))}
           </div>
         )}
       </CardContent>
@@ -476,6 +525,7 @@ function AircraftDetail(props: {
         <div className="flex min-w-72 flex-1 flex-col gap-4">
           <AircraftFlightsCard aircraftId={a.id} weightUnit={props.weightUnit} onOpenFlight={props.onOpenFlight} />
           <LandingHistoryCard aircraftId={a.id} />
+          <AircraftMaintenanceCard aircraftId={a.id} />
         </div>
       </div>
     </div>

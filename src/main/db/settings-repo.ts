@@ -4,6 +4,7 @@ import type {
   AppLanguage,
   GsxSettings,
   LandingDistanceUnit,
+  MaintenanceAddonSettings,
   MapLanguage,
   Theme,
   WeightUnit,
@@ -27,6 +28,7 @@ const GSX_ENABLED_KEY = 'gsxEnabled'
 const GSX_FOLDER_PATH_KEY = 'gsxFolderPath'
 const GSX_DISPLAY_CURRENCY_KEY = 'gsxDisplayCurrency'
 const GSX_FIRST_LAUNCH_CHECKED_KEY = 'gsxFirstLaunchChecked'
+const MAINTENANCE_ADDON_FOLDER_PATH_KEY = 'maintenanceAddonFolderPath'
 
 export function getSetting(db: WingLogDb, key: string): string | undefined {
   return db.select().from(appSetting).where(eq(appSetting.key, key)).get()?.value
@@ -147,6 +149,18 @@ export function hasCheckedGsxFirstLaunch(db: WingLogDb): boolean {
 
 export function setCheckedGsxFirstLaunch(db: WingLogDb): void {
   setSetting(db, GSX_FIRST_LAUNCH_CHECKED_KEY, '1')
+}
+
+/** One shared folder, covering every third-party maintenance-data add-on (PMDG 777,
+ *  iniBuilds A350) — see MaintenanceAddonSettings. Default empty (no folder). Unlike GSX
+ *  there's no `enabled` flag: this only ever reads on AircraftDetail mount, at zero cost
+ *  when unconfigured, so "folder path set" already fully gates the feature. */
+export function getMaintenanceAddonSettings(db: WingLogDb): MaintenanceAddonSettings {
+  return { folderPath: getSetting(db, MAINTENANCE_ADDON_FOLDER_PATH_KEY) || null }
+}
+
+export function setMaintenanceAddonSettings(db: WingLogDb, settings: MaintenanceAddonSettings): void {
+  setSetting(db, MAINTENANCE_ADDON_FOLDER_PATH_KEY, settings.folderPath ?? '')
 }
 
 /** Per-table sync cursor (flightdeck-backend/docs/plans/cloud-sync.md's pull-then-push

@@ -85,6 +85,14 @@
       "displayCurrency": "Valuta di visualizzazione",
       "currencyHint": "I totali GSX vengono convertiti usando un tasso ottenuto in tempo reale al momento della visualizzazione — nulla viene salvato già convertito."
     },
+    "maintenanceAddon": {
+      "cardTitle": "Dati di manutenzione add-on",
+      "description": "Mostra i dati di manutenzione registrati da PMDG 777 o iniBuilds A350 per un aereo nella sua pagina di dettaglio Flotta. Sola lettura — nulla qui viene mai riscritto nel simulatore.",
+      "addonFolder": "Cartella dati add-on",
+      "notSet": "Non impostata",
+      "browse": "Sfoglia…",
+      "pathHint": "La cartella di archiviazione WASM del simulatore — quella che contiene pmdg-aircraft-77w e/o inibuilds-aircraft-a350, non il file dati di un singolo add-on. Un percorso errato o non più esistente significa solo che non vengono trovati dati — mai un errore."
+    },
     "currencyOptions": {
       "usd": "USD — Dollaro statunitense (nessuna conversione)",
       "gbp": "GBP — Sterlina britannica",
@@ -217,6 +225,26 @@
       "cardTitle": "Cronologia atterraggi",
       "empty": "Nessun atterraggio ancora registrato.",
       "crosswind": "{{kt}} kt di vento al traverso"
+    },
+    "maintenance": {
+      "cardTitle": "Manutenzione",
+      "empty": "Nessun dato di manutenzione add-on trovato per questo aereo (supportati PMDG 777, iniBuilds A350).",
+      "fields": {
+        "oilQuantity": "Quantità olio motore {{index}}",
+        "engineHours": "Ore motore {{index}}",
+        "wheelMain": "Ruota carrello principale {{index}}",
+        "wheelNose": "Ruota carrello anteriore {{index}}",
+        "hydraulicsVolume": "Volume sistema idraulico {{index}}",
+        "hydraulicsTemp": "Temperatura sistema idraulico {{index}}",
+        "hydraulicsReservoir": "Serbatoio sistema idraulico {{index}}",
+        "fuelVolume": "Volume serbatoio carburante {{index}}",
+        "fuelTemperature": "Temperatura serbatoio carburante {{index}}",
+        "apuHours": "Ore APU",
+        "apuOilQuantity": "Quantità olio APU",
+        "apuStartCycles": "Cicli di avviamento APU",
+        "batteryPct": "Batteria {{index}}",
+        "batteryEmergencyPct": "Batteria di emergenza {{index}}"
+      }
     },
     "flights": {
       "cardTitle": "Voli",
