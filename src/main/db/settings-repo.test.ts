@@ -6,6 +6,7 @@ import {
   getAircraftIdForTitle,
   getAltitudeUnit,
   getAppLanguage,
+  getGsxRemoteSettings,
   getGsxSettings,
   getLandingDistanceUnit,
   getLastSyncCompletedAt,
@@ -22,6 +23,7 @@ import {
   setAltitudeUnit,
   setAppLanguage,
   setCheckedGsxFirstLaunch,
+  setGsxRemoteSettings,
   setGsxSettings,
   setLandingDistanceUnit,
   setLastSyncCompletedAt,
@@ -163,6 +165,21 @@ describe('settings repo', () => {
   it('round-trips the maintenance add-on folder path', () => {
     setMaintenanceAddonSettings(db, { folderPath: 'C:\\WASM' })
     expect(getMaintenanceAddonSettings(db)).toEqual({ folderPath: 'C:\\WASM' })
+  })
+
+  it('defaults GSX Remote settings to disabled, localhost, GSX\'s real default port 8744', () => {
+    expect(getGsxRemoteSettings(db)).toEqual({ enabled: false, host: 'localhost', port: 8744 })
+  })
+
+  it('round-trips GSX Remote settings, including a genuinely different port', () => {
+    setGsxRemoteSettings(db, { enabled: true, host: '192.168.1.50', port: 8091 })
+    expect(getGsxRemoteSettings(db)).toEqual({ enabled: true, host: '192.168.1.50', port: 8091 })
+  })
+
+  it('falls back to the default port 8744 once a custom one is cleared', () => {
+    setGsxRemoteSettings(db, { enabled: true, host: 'localhost', port: 8091 })
+    setGsxRemoteSettings(db, { enabled: false, host: 'localhost', port: null })
+    expect(getGsxRemoteSettings(db)).toEqual({ enabled: false, host: 'localhost', port: 8744 })
   })
 
   it('defaults the last-synced-completed timestamp to null when never set', () => {

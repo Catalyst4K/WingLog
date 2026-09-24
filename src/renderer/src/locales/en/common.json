@@ -93,6 +93,20 @@
       "browse": "Browse…",
       "pathHint": "The sim's WASM storage folder — the one containing pmdg-aircraft-77w and/or inibuilds-aircraft-a350, not either add-on's own data file. A path that's wrong or no longer exists just means no data is found — never an error."
     },
+    "gsxRemote": {
+      "cardTitle": "GSX Remote Control",
+      "description": "Live ground-service control, rebuilt inside WingLog from GSX Pro's own Remote Client connection — not an embedded copy of GSX's page.",
+      "enabled": "Enabled",
+      "on": "On",
+      "off": "Off",
+      "host": "Host",
+      "port": "Port",
+      "portPlaceholder": "8744",
+      "portHint": "8744 is GSX's own default, but it's configurable under Remote Client in GSX's own settings — check there if this doesn't connect.",
+      "statusConnected": "Connected",
+      "statusConnecting": "Connecting…",
+      "statusDisconnected": "Disconnected"
+    },
     "currencyOptions": {
       "usd": "USD — US Dollar (no conversion)",
       "gbp": "GBP — British Pound",
@@ -160,6 +174,7 @@
       "fleet": "Fleet",
       "dispatch": "Dispatch",
       "track": "Track",
+      "gsx": "Ground services",
       "logbook": "Logbook",
       "settings": "Settings"
     },
@@ -182,6 +197,9 @@
       "continueDescription": "WingLog closed with {{label}} already planned but not yet started. Keep it and continue from Track, or discard it to delete the flight.",
       "continueConfirm": "Keep it",
       "discard": "Discard flight"
+    },
+    "gsxImportantPrompt": {
+      "title": "GSX needs your input"
     },
     "gsxFirstLaunch": {
       "found": "GSX ground-service tracking enabled — receipts folder found automatically.",
@@ -659,5 +677,24 @@
     },
     "noCompletedFlights": "No completed flights yet — track one, or import a CSV logbook from Settings → Data.",
     "flightNotFound": "Flight not found."
+  },
+  "gsxRemoteView": {
+    "title": "Ground services"
+  },
+  "gsxRemotePanel": {
+    "loading": "Loading…",
+    "notConfigured": "GSX Remote Control is off. Enable it and set a port in Settings → 3rd party.",
+    "connecting": "Connecting to GSX…",
+    "disconnected": "Not connected to GSX.",
+    "menuHeaderClosed": "GSX Menu",
+    "tapToOpen": "Tap to open",
+    "commands": "Commands",
+    "services": "Services",
+    "provider": "Provider: {{name}}",
+    "showMoreServices_one": "Show {{count}} more service",
+    "showMoreServices_other": "Show {{count}} more services",
+    "waitingFor": "Waiting: {{reason}}",
+    "ok": "OK",
+    "cancel": "Cancel"
   }
 }

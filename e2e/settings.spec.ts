@@ -43,10 +43,13 @@ test('changes units, theme, SimBrief username, and GSX settings, all persisted',
 
     // GSX — the auto-enable-on-first-launch check (first-launch-check.ts) may already have
     // flipped this on if this machine's real APPDATA\Virtuali\GSX\Receipts exists, so assert
-    // the toggle flips state rather than assuming a fixed starting value.
+    // the toggle flips state rather than assuming a fixed starting value. Scoped to this
+    // card specifically — the separate GSX Remote Control card (plan/gsx-remote-control)
+    // has its own, differently-purposed "Off"/"On" toggle with the same button text.
+    const gsxCard = page.locator('[data-slot="card"]').filter({ hasText: 'GSX ground services' })
     const initiallyEnabled = (await page.evaluate(() => window.winglog.settingsGetGsx())).enabled
-    await page.getByRole('button', { name: initiallyEnabled ? 'On' : 'Off', exact: true }).click()
-    await expect(page.getByRole('button', { name: initiallyEnabled ? 'Off' : 'On', exact: true })).toBeVisible()
+    await gsxCard.getByRole('button', { name: initiallyEnabled ? 'On' : 'Off', exact: true }).click()
+    await expect(gsxCard.getByRole('button', { name: initiallyEnabled ? 'Off' : 'On', exact: true })).toBeVisible()
     expect((await page.evaluate(() => window.winglog.settingsGetGsx())).enabled).toBe(!initiallyEnabled)
   } finally {
     await cleanup()

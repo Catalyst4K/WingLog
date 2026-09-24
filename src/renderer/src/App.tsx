@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { BookOpen, Plane, Radar, Route, Settings as SettingsIcon } from 'lucide-react'
+import { BookOpen, Plane, Radar, Route, Settings as SettingsIcon, Truck } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -9,6 +9,7 @@ import type {
   AppPage,
   DispatchOfp,
   Flight,
+  GsxRemoteMenuState,
   LandingDistanceUnit,
   MapLanguage,
   ProcedureSelection,
@@ -31,11 +32,14 @@ import {
   AlertDialogTitle
 } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Toaster } from '@/components/ui/sonner'
 import { FleetView } from './FleetView'
 import { flightLabel } from './flight-label'
+import { gsxMenuSignature, isImportantGsxMenu } from './gsx-remote-importance'
 import { emptyProcedureSelection, seedProcedureSelectionFromOfp, selectionFromFlight } from './procedureSelection'
 
 // Fleet is the default/first tab, so it's the one view kept eager — every other tab is
@@ -44,10 +48,12 @@ import { emptyProcedureSelection, seedProcedureSelectionFromOfp, selectionFromFl
 // until the user actually visits it. docs/decisions.md, memory-usage entry.
 const loadDispatchView = () => import('./DispatchView').then((m) => ({ default: m.DispatchView }))
 const loadTrackView = () => import('./TrackView').then((m) => ({ default: m.TrackView }))
+const loadGsxRemoteView = () => import('./GsxRemoteView').then((m) => ({ default: m.GsxRemoteView }))
 const loadLogbookView = () => import('./LogbookView').then((m) => ({ default: m.LogbookView }))
 const loadSettingsView = () => import('./SettingsView').then((m) => ({ default: m.SettingsView }))
 const DispatchView = lazy(loadDispatchView)
 const TrackView = lazy(loadTrackView)
+const GsxRemoteView = lazy(loadGsxRemoteView)
 const LogbookView = lazy(loadLogbookView)
 const SettingsView = lazy(loadSettingsView)
 
@@ -56,6 +62,7 @@ function appTabs(t: TFunction): { page: AppPage; label: string; icon: typeof Pla
     { page: 'fleet', label: t('app.tabs.fleet'), icon: Plane },
     { page: 'dispatch', label: t('app.tabs.dispatch'), icon: Route },
     { page: 'track', label: t('app.tabs.track'), icon: Radar },
+    { page: 'gsx', label: t('app.tabs.gsx'), icon: Truck },
     { page: 'logbook', label: t('app.tabs.logbook'), icon: BookOpen },
     { page: 'settings', label: t('app.tabs.settings'), icon: SettingsIcon }
   ]
@@ -161,6 +168,16 @@ export default function App(): React.JSX.Element {
   // still relevant — so this drives a one-time prompt instead (checked once at startup
   // below; orphanedFlightCopy adapts the wording to whichever status it actually is).
   const [orphanedFlight, setOrphanedFlight] = useState<Flight | null>(null)
+  // GSX's live menu, tracked here (not just inside GsxRemoteView) so an "important" one —
+  // pushback direction, fuel amount, Callum's explicit call, 2026-09-21 — can interrupt
+  // wherever the user currently is, not just when they happen to be on the GSX tab.
+  // Everything else GSX might ask stays confined to that tab, unflagged, resolved by GSX's
+  // own default/timeout if nobody answers there (flightdeck-backend's docs/gsx-notes.md).
+  const [gsxMenu, setGsxMenu] = useState<GsxRemoteMenuState | null>(null)
+  // Remembers which exact menu the user dismissed without answering, so closing the global
+  // prompt doesn't just reopen itself on the next unrelated re-render — only a genuinely
+  // different menu (a new signature) triggers it again.
+  const [dismissedGsxMenuKey, setDismissedGsxMenuKey] = useState<string | null>(null)
 
   // Wraps setDispatchOfp so a *new* OFP (a different ofpId, including "cleared to null")
   // always re-seeds the procedure selection from its own SimBrief choice — the previous
@@ -219,6 +236,14 @@ export default function App(): React.JSX.Element {
     }
     setOrphanedFlight(null)
   }
+
+  function handlePickGsxMenu(index: number): void {
+    window.winglog.gsxRemotePickMenu(index)
+    // GSX will clear/replace state.menu itself once the pick is processed — no need to
+    // clear gsxMenu here too, and doing so would just make the dialog flash closed then
+    // (possibly) reopen for the next patch.
+  }
+
   // Set when Fleet's per-aircraft flight list navigates to a specific flight's Logbook
   // detail. Lifted here (rather than local to LogbookView) because it has to survive the
   // page switch from Fleet to Logbook that triggers it. Carries the originating aircraft
@@ -278,6 +303,7 @@ export default function App(): React.JSX.Element {
     const handle = idle(() => {
       void loadDispatchView()
       void loadTrackView()
+      void loadGsxRemoteView()
       void loadLogbookView()
       void loadSettingsView()
     })
@@ -339,6 +365,10 @@ export default function App(): React.JSX.Element {
         toast.info(i18n.t('app.gsxFirstLaunch.notFound'))
       }
     })
+  }, [])
+
+  useEffect(() => {
+    return window.winglog.onGsxRemoteMenu(setGsxMenu)
   }, [])
 
   useEffect(() => {
@@ -458,6 +488,7 @@ export default function App(): React.JSX.Element {
                 }}
               />
             )}
+            {page === 'gsx' && <GsxRemoteView />}
             {page === 'logbook' && (
               <LogbookView
                 weightUnit={weightUnit}
@@ -514,6 +545,42 @@ export default function App(): React.JSX.Element {
           )}
         </AlertDialogContent>
       </AlertDialog>
+
+      {(() => {
+        const important = gsxMenu !== null && isImportantGsxMenu(gsxMenu)
+        const menuKey = gsxMenu && important ? gsxMenuSignature(gsxMenu) : null
+        const open = page !== 'gsx' && menuKey !== null && menuKey !== dismissedGsxMenuKey
+        return (
+          <Dialog open={open} onOpenChange={(next) => !next && menuKey && setDismissedGsxMenuKey(menuKey)}>
+            <DialogContent className="sm:max-w-md">
+              {gsxMenu && (
+                <>
+                  <DialogHeader>
+                    <DialogTitle>{t('app.gsxImportantPrompt.title')}</DialogTitle>
+                  </DialogHeader>
+                  {/* GSX's own text, verbatim — not translated, same convention as
+                      SimBrief-sourced data (third-party content, not ours to translate). */}
+                  <p className="text-sm font-medium text-foreground">{gsxMenu.title || gsxMenu.header}</p>
+                  <div className="flex flex-col gap-1.5">
+                    {gsxMenu.entries.map((entry, index) => (
+                      <Button
+                        key={`${index}-${entry}`}
+                        type="button"
+                        variant="outline"
+                        disabled={gsxMenu.disabled[index] === true}
+                        className="h-auto whitespace-normal py-2 text-left justify-start"
+                        onClick={() => handlePickGsxMenu(index)}
+                      >
+                        {entry}
+                      </Button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </DialogContent>
+          </Dialog>
+        )
+      })()}
     </main>
   )
 }

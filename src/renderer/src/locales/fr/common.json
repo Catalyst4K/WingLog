@@ -93,6 +93,20 @@
       "browse": "Parcourir…",
       "pathHint": "Le dossier de stockage WASM du simulateur — celui qui contient pmdg-aircraft-77w et/ou inibuilds-aircraft-a350, pas le fichier de données d'un add-on en particulier. Un chemin incorrect ou qui n'existe plus signifie simplement qu'aucune donnée n'est trouvée — jamais une erreur."
     },
+    "gsxRemote": {
+      "cardTitle": "Contrôle à distance GSX",
+      "description": "Contrôle en direct des services au sol, recréé dans WingLog à partir de la propre connexion Remote Client de GSX Pro — pas une copie intégrée de la page GSX.",
+      "enabled": "Activé",
+      "on": "Activé",
+      "off": "Désactivé",
+      "host": "Hôte",
+      "port": "Port",
+      "portPlaceholder": "8744",
+      "portHint": "8744 est la valeur par défaut réelle de GSX, mais elle est configurable dans les paramètres de GSX lui-même, sous Remote Client — à vérifier là si la connexion échoue.",
+      "statusConnected": "Connecté",
+      "statusConnecting": "Connexion…",
+      "statusDisconnected": "Déconnecté"
+    },
     "currencyOptions": {
       "usd": "USD — Dollar américain (sans conversion)",
       "gbp": "GBP — Livre sterling",
@@ -162,6 +176,7 @@
       "fleet": "Flotte",
       "dispatch": "Régulation",
       "track": "Suivi",
+      "gsx": "Services au sol",
       "logbook": "Carnet",
       "settings": "Paramètres"
     },
@@ -184,6 +199,9 @@
       "continueDescription": "WingLog s'est fermé alors que {{label}} était déjà planifié mais pas encore commencé. Conservez-le et continuez depuis Suivi, ou abandonnez-le pour supprimer le vol.",
       "continueConfirm": "Le conserver",
       "discard": "Abandonner le vol"
+    },
+    "gsxImportantPrompt": {
+      "title": "GSX a besoin de votre réponse"
     },
     "gsxFirstLaunch": {
       "found": "Suivi des services au sol GSX activé — dossier des reçus trouvé automatiquement.",
@@ -661,5 +679,24 @@
     },
     "noCompletedFlights": "Aucun vol terminé pour l'instant — suivez-en un, ou importez un CSV de carnet depuis Paramètres → Données.",
     "flightNotFound": "Vol introuvable."
+  },
+  "gsxRemoteView": {
+    "title": "Services au sol"
+  },
+  "gsxRemotePanel": {
+    "loading": "Chargement…",
+    "notConfigured": "GSX Remote Control est désactivé. Activez-le et définissez un port dans Paramètres → Tiers.",
+    "connecting": "Connexion à GSX…",
+    "disconnected": "Non connecté à GSX.",
+    "menuHeaderClosed": "Menu GSX",
+    "tapToOpen": "Toucher pour ouvrir",
+    "commands": "Commandes",
+    "services": "Services",
+    "provider": "Prestataire : {{name}}",
+    "showMoreServices_one": "Afficher {{count}} service de plus",
+    "showMoreServices_other": "Afficher {{count}} services de plus",
+    "waitingFor": "En attente : {{reason}}",
+    "ok": "OK",
+    "cancel": "Annuler"
   }
 }

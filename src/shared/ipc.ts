@@ -692,6 +692,178 @@ export interface MaintenanceReport {
   groups: MaintenanceGroup[]
 }
 
+/**
+ * GSX Remote Control — a live control link to GSX Pro's own "Remote Client" WebSocket
+ * (flightdeck-backend's docs/plans/gsx-remote-control.md; real findings in docs/gsx-notes.md).
+ * Unrelated to GsxSettings above, which is the file-based receipts feature. Port is
+ * genuinely user-configurable in GSX's own settings — never assume a default is correct.
+ */
+export interface GsxRemoteSettings {
+  enabled: boolean
+  host: string
+  port: number | null
+}
+
+export type GsxRemoteConnectionState = 'disconnected' | 'connecting' | 'connected'
+
+export interface GsxRemoteConnectionStatus {
+  state: GsxRemoteConnectionState
+  /** Set only when state is 'disconnected' after a real connection attempt failed. */
+  lastError: string | null
+}
+
+/** Per-service structured progress/billing, from GSX's own `state.services[].detail` —
+ *  every field is service-specific and optional, since a given service only ever populates
+ *  the fields it actually has. Shapes confirmed live 2026-09-21 (docs/gsx-notes.md, round
+ *  6/7 captures): a real Refueling detail (`fuel`/`bill`) and a real Boarding detail
+ *  (`pax`/`cargo`) — used to format fuel/boarding progress numerically instead of
+ *  re-parsing `statusText`'s free text for them. */
+export interface GsxRemoteServiceDetail {
+  phase?: string
+  /** Free-text blocking conditions ("BaggageTrainEmptyFront to clear the way"), present only
+   *  while GSX is actually stuck on something — confirmed live 2026-09-23 (docs/gsx-notes.md,
+   *  round 11) on a real Boarding session hitting a vehicle-pathing conflict. Shown alongside
+   *  whichever other `detail` fields are present (e.g. `pax`), not instead of them — GSX
+   *  keeps reporting real pax/cargo counts even while waiting. */
+  waitingFor?: string[]
+  fuel?: {
+    current: number
+    target: number
+    unit: string
+    startTotal: number
+    aircraftTotal: number
+  }
+  /** A live running bill for this service, in USD — confirmed live on Refueling
+   *  (`detail.bill: 24272`, matching "Bill $24272" in the same message's `statusText`).
+   *  Present once GSX starts billing the service, absent before then. */
+  bill?: number
+  pax?: { done: number; total: number }
+  cargo?: {
+    hold: string
+    unit: string
+    done: number
+    total: number
+    trip: number
+    trips: number
+    train: string
+  }[]
+}
+
+/** One entry of GSX's own `state.services` — read-only status, not the control surface
+ *  (that's GsxRemoteMenuState below). Field names/shapes are GSX's own wire format
+ *  verbatim, confirmed live 2026-09-21 (docs/gsx-notes.md). */
+export interface GsxRemoteServiceStatus {
+  id: string
+  displayName: string
+  state: string
+  stateText: string
+  icon: string
+  canTrigger: boolean
+  canBypass: boolean
+  operator?: string
+  statusText: string
+  progressText: string
+  detail?: GsxRemoteServiceDetail
+}
+
+/** The parking/gate GSX has resolved the aircraft to, from `state.airport`/`state.parking`/
+ *  `state.gateProperties` — confirmed live 2026-09-21 (docs/gsx-notes.md, round 6 capture): a
+ *  real VHHH session returned `parking: "(N) T1 North|Gate N6"` (area and gate joined by a
+ *  single "|", not two separate fields GSX exposes) and `gateProperties: ["Gate Heavy",
+ *  "SafeDockT42", "jetway", "underground fuel", "no stairs", "no bus", "max wingspan 70m"]`
+ *  — free-text amenity tags, not a fixed enum, so rendered as plain labels, never matched
+ *  against a known list. Null until GSX has resolved a gate for this session. */
+export interface GsxRemoteGateInfo {
+  airportIcao: string
+  airportName: string
+  parking: string
+  gateProperties: string[]
+}
+
+/** One of GSX's four static command-bar buttons — confirmed live 2026-09-23, both from real
+ *  `state.commandIcons`/`commandIconsSvg` wire payloads AND by reading GSX's own shipped
+ *  `menu.js` source directly (unminified, served from the Remote Client's own HTTP root —
+ *  same discipline as reading `menuHead()`'s source for the menu.toggle fix). `menu.js`'s
+ *  own comment: "the ONLY a-priori knowledge is the four static command.run ids (which never
+ *  change)" — `id`/`label` mirrored verbatim from its `STATIC_COMMANDS` array, not
+ *  reconstructed from the wire alone (the wire only carries icon images, keyed by these same
+ *  ids, not labels). **`SETTINGS` is deliberately excluded** — `menu.js`'s own click handler
+ *  never sends a `command.run` for it; it opens GSX's own in-page settings form
+ *  (`Settings.open()`, client-side only), which WingLog has no way to reach without
+ *  embedding — exactly the exception Option C existed to avoid. Only the three real
+ *  remotely-triggerable commands are exposed here. */
+export interface GsxRemoteCommand {
+  id: 'CUSTOMIZE_AIRPORT_POSITION' | 'CUSTOMIZE_AIRPLANE' | 'RESTART_COUATL'
+  label: string
+  /** A data: URI (SVG preferred, PNG fallback — mirrors `menu.js`'s own
+   *  `s.commandIconsSvg || s.commandIcons` order) or null if GSX hasn't sent an icon for it. */
+  iconUri: string | null
+  /** RESTART_COUATL only, per `menu.js`'s own `c.confirm` flag — the real client requires a
+   *  second tap within 4s before it actually sends `command.run`, rather than firing on the
+   *  first tap. */
+  confirm: boolean
+}
+
+/** `state.simbrief` — confirmed live 2026-09-23: `{status, error, gen}`. Drives the
+ *  command bar's SimBrief reload button; `gen` is bumped by GSX once a reload genuinely
+ *  finishes, which is what `menu.js`'s own client uses to clear its optimistic "downloading"
+ *  state (mirrored the same way here, not on a timer alone). */
+export interface GsxRemoteSimBriefState {
+  status: string
+  error: string
+  gen: number
+}
+
+export interface GsxRemoteCommandBar {
+  commands: GsxRemoteCommand[]
+  simbrief: GsxRemoteSimBriefState | null
+  /** RELOAD_SIMBRIEF's own icon — from the same `commandIcons`/`commandIconsSvg` maps as
+   *  every `GsxRemoteCommand`, but RELOAD_SIMBRIEF isn't itself a `GsxRemoteCommand` (its
+   *  wide-button styling and optimistic busy/loaded/error state are genuinely different from
+   *  the three plain command-bar buttons, per `menu.js`'s own separate `simbriefBtn()`). */
+  simbriefIconUri: string | null
+}
+
+/** Every id `command.run` actually accepts — the three `GsxRemoteCommand` ids plus
+ *  RELOAD_SIMBRIEF, which isn't itself a `GsxRemoteCommand` (see `GsxRemoteCommandBar`'s own
+ *  doc comment) but runs the exact same way over the wire. */
+export type GsxRemoteCommandId = GsxRemoteCommand['id'] | 'RELOAD_SIMBRIEF'
+
+/**
+ * GSX's own live menu — the real control surface. Deliberately generic (GSX's own client,
+ * menu.js, "reads NO services array, recognizes NO ids/names") — every interactive step,
+ * including provider choice when GSX asks, is just another snapshot of this shape. WingLog's
+ * UI must render it the same way: whatever's in `entries` right now, picked by index.
+ *
+ * `menuShown` is a *separate* flag from having entries — confirmed live, 2026-09-21
+ * (flightdeck-backend's docs/gsx-notes.md): the menu tree only actually opens once
+ * something sends `menu.toggle` (GSX's own client does this from a permanent, always-
+ * visible header the user taps — entirely independent of the in-sim panel; that's how a
+ * real GSX remote works without the in-sim menu ever opening). `entries` can be non-empty
+ * while `menuShown` is false; GSX's own client gates rendering on
+ * `menuShown && menu.entries.length`, and WingLog's UI must too.
+ */
+export interface GsxRemoteMenuState {
+  menuShown: boolean
+  title: string
+  header: string
+  subtitle: string
+  entries: string[]
+  icons: string[]
+  disabled: boolean[]
+  layout: string
+}
+
+/** GSX's free-text modal (Save/Rename Location, etc.) — unrelated to menu/provider choice. */
+export interface GsxRemotePromptState {
+  kind: 'text'
+  gen: number
+  title: string
+  description: string
+  default: string
+  maxLength: number
+}
+
 /** Result of the one-time, first-ever-launch check for GSX's expected receipts folder
  *  (flight-test-findings-2026-09-06.md #4) — `found` means the folder existed and GSX was
  *  auto-enabled against it. Only ever returned once, on the launch the check actually
@@ -870,7 +1042,7 @@ export type AppLanguage = 'system' | 'en' | 'de' | 'es' | 'fr' | 'it' | 'ru' | '
 export type LandingDistanceUnit = 'ft' | 'm'
 
 /** The app's tabs — also the native menu bar's top-level items, see main/menu.ts. */
-export type AppPage = 'fleet' | 'dispatch' | 'track' | 'logbook' | 'settings'
+export type AppPage = 'fleet' | 'dispatch' | 'track' | 'gsx' | 'logbook' | 'settings'
 
 /**
  * A departure time to prefill on SimBrief's form, already split into the shape its input
@@ -1081,7 +1253,26 @@ export const IpcChannels = {
   trackingGetOrphanedFlight: 'tracking:get-orphaned-flight',
   trackingResumeOrphaned: 'tracking:resume-orphaned',
   trackingDiscardOrphaned: 'tracking:discard-orphaned',
-  dispatchGetInProgressFlight: 'dispatch:get-in-progress-flight'
+  dispatchGetInProgressFlight: 'dispatch:get-in-progress-flight',
+  settingsGetGsxRemote: 'settings:get-gsx-remote',
+  settingsSetGsxRemote: 'settings:set-gsx-remote',
+  gsxRemoteGetStatus: 'gsx-remote:get-status',
+  gsxRemoteStatus: 'gsx-remote:status',
+  gsxRemoteGetServices: 'gsx-remote:get-services',
+  gsxRemoteServices: 'gsx-remote:services',
+  gsxRemoteGetGateInfo: 'gsx-remote:get-gate-info',
+  gsxRemoteGate: 'gsx-remote:gate',
+  gsxRemoteGetMenu: 'gsx-remote:get-menu',
+  gsxRemoteMenu: 'gsx-remote:menu',
+  gsxRemoteGetPrompt: 'gsx-remote:get-prompt',
+  gsxRemotePrompt: 'gsx-remote:prompt',
+  gsxRemoteGetCommandBar: 'gsx-remote:get-command-bar',
+  gsxRemoteCommandBar: 'gsx-remote:command-bar',
+  gsxRemotePickMenu: 'gsx-remote:pick-menu',
+  gsxRemoteToggleMenu: 'gsx-remote:toggle-menu',
+  gsxRemoteSubmitPrompt: 'gsx-remote:submit-prompt',
+  gsxRemoteCancelPrompt: 'gsx-remote:cancel-prompt',
+  gsxRemoteRunCommand: 'gsx-remote:run-command'
 } as const
 
 export interface WingLogApi {
@@ -1420,4 +1611,47 @@ export interface WingLogApi {
   /** User chose to discard the orphaned flight above — deletes it (and its track points)
    *  rather than leaving it stuck in 'active' forever. */
   trackingDiscardOrphaned: (flightId: number) => Promise<void>
+  settingsGetGsxRemote: () => Promise<GsxRemoteSettings>
+  /** Changing host/port/enabled restarts the live connection (or stops it, if disabled). */
+  settingsSetGsxRemote: (settings: GsxRemoteSettings) => Promise<void>
+  /** Current status, for a renderer mounting after the initial connect already happened —
+   *  same reasoning as getSimConnectionStatus above. */
+  gsxRemoteGetStatus: () => Promise<GsxRemoteConnectionStatus>
+  onGsxRemoteStatus: (listener: (status: GsxRemoteConnectionStatus) => void) => () => void
+  /** Current services, for a renderer mounting after GSX already pushed a snapshot — without
+   *  this, a panel mounted (or remounted, e.g. by switching tabs and back) after connect but
+   *  before the next `services` patch would show nothing until GSX happened to send one. */
+  gsxRemoteGetServices: () => Promise<GsxRemoteServiceStatus[]>
+  onGsxRemoteServices: (listener: (services: GsxRemoteServiceStatus[]) => void) => () => void
+  /** Current gate info, for a renderer mounting after the initial connect already happened. */
+  gsxRemoteGetGateInfo: () => Promise<GsxRemoteGateInfo | null>
+  onGsxRemoteGate: (listener: (gate: GsxRemoteGateInfo | null) => void) => () => void
+  /** Current menu, same "mounting late shouldn't mean missing state" reasoning as
+   *  gsxRemoteGetServices above. */
+  gsxRemoteGetMenu: () => Promise<GsxRemoteMenuState>
+  onGsxRemoteMenu: (listener: (menu: GsxRemoteMenuState) => void) => () => void
+  /** Current prompt, same reasoning as gsxRemoteGetServices/gsxRemoteGetMenu above. */
+  gsxRemoteGetPrompt: () => Promise<GsxRemotePromptState | null>
+  /** Pushed with null when GSX clears the prompt (answered, cancelled, or a new connection). */
+  onGsxRemotePrompt: (listener: (prompt: GsxRemotePromptState | null) => void) => () => void
+  /** The three remotely-triggerable command-bar buttons plus SimBrief's own reload state —
+   *  see GsxRemoteCommand's doc comment for why SETTINGS is never included. Combines
+   *  `state.commandIcons`/`commandIconsSvg`/`simbrief`, same "separate top-level wire keys,
+   *  one value for callers" pattern as gate/menu. */
+  gsxRemoteGetCommandBar: () => Promise<GsxRemoteCommandBar>
+  onGsxRemoteCommandBar: (listener: (commandBar: GsxRemoteCommandBar) => void) => () => void
+  /** Picks the menu entry at this index — the *only* interaction GSX's own menu model
+   *  exposes (docs/gsx-notes.md). No-op if not connected. */
+  gsxRemotePickMenu: (index: number) => Promise<void>
+  /** Opens the menu tree if it's currently closed, or closes it if open — same single
+   *  toggle GSX's own client's permanent header sends (`menu.toggle`/`menu.close`). This
+   *  is how a real GSX remote opens the menu without the in-sim panel ever opening; WingLog
+   *  needs to call it explicitly, the same way, rather than passively waiting for someone
+   *  else to have already opened it (docs/gsx-notes.md). */
+  gsxRemoteToggleMenu: () => Promise<void>
+  gsxRemoteSubmitPrompt: (gen: number, text: string) => Promise<void>
+  gsxRemoteCancelPrompt: (gen: number) => Promise<void>
+  /** Runs one of the three command-bar commands (`command.run`) — GSX's own client requires
+   *  a second confirming call for RESTART_COUATL (the UI enforces this, not this method). */
+  gsxRemoteRunCommand: (id: GsxRemoteCommandId) => Promise<void>
 }

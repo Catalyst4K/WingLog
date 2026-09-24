@@ -91,6 +91,20 @@
       "browse": "浏览…",
       "pathHint": "模拟器的 WASM 存储文件夹 — 即包含 pmdg-aircraft-77w 和/或 inibuilds-aircraft-a350 的那个文件夹，而不是某个插件自己的数据文件。路径错误或不存在只会导致找不到数据 — 不会报错。"
     },
+    "gsxRemote": {
+      "cardTitle": "GSX 远程控制",
+      "description": "地面服务的实时控制，在 WingLog 内部基于 GSX Pro 自身的 Remote Client 连接重建而成 — 并非 GSX 页面的内嵌副本。",
+      "enabled": "启用",
+      "on": "开",
+      "off": "关",
+      "host": "主机",
+      "port": "端口",
+      "portPlaceholder": "8744",
+      "portHint": "8744 是 GSX 自身的默认端口，但可以在 GSX 自身设置中的 Remote Client 下修改 — 如果连接失败，请在那里检查。",
+      "statusConnected": "已连接",
+      "statusConnecting": "正在连接…",
+      "statusDisconnected": "未连接"
+    },
     "currencyOptions": {
       "usd": "USD — 美元（不换算）",
       "gbp": "GBP — 英镑",
@@ -155,6 +169,7 @@
       "fleet": "机队",
       "dispatch": "签派",
       "track": "追踪",
+      "gsx": "地面服务",
       "logbook": "飞行日志",
       "settings": "设置"
     },
@@ -181,6 +196,9 @@
     "gsxFirstLaunch": {
       "found": "GSX 地面服务追踪已启用 — 已自动找到收据文件夹。",
       "notFound": "GSX 地面服务追踪未启用 — 如果你使用 GSX，请在设置中开启。"
+    },
+    "gsxImportantPrompt": {
+      "title": "GSX 需要你的输入"
     }
   },
   "fleetView": {
@@ -652,5 +670,23 @@
     },
     "noCompletedFlights": "暂无已完成的航班 — 去追踪一次飞行，或从“设置 → 数据”导入 CSV 飞行日志。",
     "flightNotFound": "未找到该航班。"
+  },
+  "gsxRemoteView": {
+    "title": "地面服务"
+  },
+  "gsxRemotePanel": {
+    "loading": "加载中…",
+    "notConfigured": "GSX 远程控制已关闭。请在设置 → 第三方中启用并设置端口。",
+    "connecting": "正在连接 GSX…",
+    "disconnected": "未连接到 GSX。",
+    "menuHeaderClosed": "GSX 菜单",
+    "tapToOpen": "点击打开",
+    "commands": "命令",
+    "services": "服务",
+    "provider": "供应商：{{name}}",
+    "showMoreServices_other": "显示另外 {{count}} 项服务",
+    "waitingFor": "等待：{{reason}}",
+    "ok": "确定",
+    "cancel": "取消"
   }
 }

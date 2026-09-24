@@ -29,6 +29,8 @@
     "spike:airport-list": "tsx scripts/spike-airport-list.ts",
     "spike:landing-rate": "tsx scripts/spike-landing-rate.ts",
     "spike:capture-flight": "tsx scripts/spike-capture-flight.ts",
+    "spike:gsx-remote": "tsx scripts/spike-gsx-remote.ts",
+    "spike:gsx-remote-listen": "tsx scripts/spike-gsx-remote-listen.ts",
     "spike:navdata-provider": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs scripts/spike-navdata-provider.ts",
     "spike:route-simplify": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs scripts/spike-route-simplify.ts",
     "vendor:runways": "tsx scripts/vendor-runways.ts",
@@ -69,6 +71,7 @@
     "@types/node": "26.4.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.5",
+    "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "5.2.0",
     "@vitest/coverage-v8": "^4.1.11",
     "cross-env": "10.1.0",
@@ -89,7 +92,8 @@
     "typescript": "5.9.3",
     "typescript-eslint": "8.69.0",
     "vite": "7.3.6",
-    "vitest": "4.1.11"
+    "vitest": "4.1.11",
+    "ws": "^8.21.3"
   },
   "overrides": {
     "esbuild": ">=0.25.0"
