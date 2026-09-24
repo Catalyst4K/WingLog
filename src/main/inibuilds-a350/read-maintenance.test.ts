@@ -106,4 +106,16 @@ describe('readIniBuildsA350Maintenance', () => {
     const report = await readIniBuildsA350Maintenance(root, 'G-XWBS')
     expect(report).toBeNull()
   })
+
+  it('finds the package folder under an MSFS2024 sibling when it is not directly under folderPath', async () => {
+    // Confirmed real case, flightdeck-backend's docs/wasm-maintenance-notes.md: a Store
+    // install nests every add-on's package folder under WASM/MSFS2024/, not directly under
+    // the WASM folder a user would naturally pick in the folder browser.
+    const dir = join(root, 'MSFS2024', 'inibuilds-aircraft-a350', 'work', 'Maintenance', 'A350-1000 (Default Cabin)')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'INIBUILDS-A35K-BAW_G-XWBS.data'), FIXTURE, 'utf-8')
+
+    const report = await readIniBuildsA350Maintenance(root, 'G-XWBS')
+    expect(report?.addon).toBe('inibuildsA350')
+  })
 })

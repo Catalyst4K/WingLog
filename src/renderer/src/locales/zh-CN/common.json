@@ -89,7 +89,7 @@
       "addonFolder": "插件数据文件夹",
       "notSet": "未设置",
       "browse": "浏览…",
-      "pathHint": "模拟器的 WASM 存储文件夹 — 即包含 pmdg-aircraft-77w 和/或 inibuilds-aircraft-a350 的那个文件夹，而不是某个插件自己的数据文件。路径错误或不存在只会导致找不到数据 — 不会报错。"
+      "pathHint": "模拟器的 WASM 存储文件夹（而不是某个插件自己的数据文件）— 通常是名称直接就叫“WASM”的那个文件夹。无论你的安装是否将插件又嵌套在更深一层的 MSFS2024 文件夹下，都能正常识别。路径错误或不存在只会导致找不到数据 — 不会报错。"
     },
     "gsxRemote": {
       "cardTitle": "GSX 远程控制",

@@ -67,4 +67,26 @@ describe('readPmdg777Maintenance', () => {
     const report = await readPmdg777Maintenance(root, 'G-XWBS')
     expect(report).toEqual({ addon: 'pmdg777', groups: [] })
   })
+
+  it('finds the package folder under an MSFS2024 sibling when it is not directly under folderPath', async () => {
+    // Confirmed real case, flightdeck-backend's docs/wasm-maintenance-notes.md: a Store
+    // install nests every add-on's package folder under WASM/MSFS2024/, not directly under
+    // the WASM folder a user would naturally pick in the folder browser.
+    const dir = join(root, 'MSFS2024', 'pmdg-aircraft-77w', 'work', 'Aircraft')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'G-XWBS.hours'), FIXTURE, 'utf-8')
+
+    const report = await readPmdg777Maintenance(root, 'G-XWBS')
+    expect(report?.addon).toBe('pmdg777')
+  })
+
+  it('prefers the package folder directly under folderPath over an MSFS2024 sibling when both exist', async () => {
+    writeHoursFile('G-XWBS', FIXTURE)
+    const nestedDir = join(root, 'MSFS2024', 'pmdg-aircraft-77w', 'work', 'Aircraft')
+    mkdirSync(nestedDir, { recursive: true })
+    writeFileSync(join(nestedDir, 'G-XWBS.hours'), '[Engines]\nOilQ_Last.0=1\n', 'utf-8')
+
+    const report = await readPmdg777Maintenance(root, 'G-XWBS')
+    expect(report?.groups[0]?.fields[0]).toEqual({ key: 'oilQuantity', index: 1, value: '1854' })
+  })
 })

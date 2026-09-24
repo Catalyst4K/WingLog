@@ -91,7 +91,7 @@
       "addonFolder": "Add-on data folder",
       "notSet": "Not set",
       "browse": "Browse…",
-      "pathHint": "The sim's WASM storage folder — the one containing pmdg-aircraft-77w and/or inibuilds-aircraft-a350, not either add-on's own data file. A path that's wrong or no longer exists just means no data is found — never an error."
+      "pathHint": "The sim's WASM storage folder (not either add-on's own data file) — usually the folder literally named \"WASM\". Works whether or not your install nests add-ons one level deeper under an MSFS2024 folder. A path that's wrong or no longer exists just means no data is found — never an error."
     },
     "gsxRemote": {
       "cardTitle": "GSX Remote Control",

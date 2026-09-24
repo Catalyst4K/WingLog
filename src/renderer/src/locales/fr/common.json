@@ -91,7 +91,7 @@
       "addonFolder": "Dossier de données de l'add-on",
       "notSet": "Non défini",
       "browse": "Parcourir…",
-      "pathHint": "Le dossier de stockage WASM du simulateur — celui qui contient pmdg-aircraft-77w et/ou inibuilds-aircraft-a350, pas le fichier de données d'un add-on en particulier. Un chemin incorrect ou qui n'existe plus signifie simplement qu'aucune donnée n'est trouvée — jamais une erreur."
+      "pathHint": "Le dossier de stockage WASM du simulateur (pas le fichier de données d'un add-on en particulier) — généralement le dossier nommé littéralement « WASM ». Fonctionne que votre installation imbrique ou non les add-ons un niveau plus bas, sous un dossier MSFS2024. Un chemin incorrect ou qui n'existe plus signifie simplement qu'aucune donnée n'est trouvée — jamais une erreur."
     },
     "gsxRemote": {
       "cardTitle": "Contrôle à distance GSX",

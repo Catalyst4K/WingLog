@@ -91,7 +91,7 @@
       "addonFolder": "Carpeta de datos del complemento",
       "notSet": "No establecida",
       "browse": "Examinar…",
-      "pathHint": "La carpeta de almacenamiento WASM del simulador — la que contiene pmdg-aircraft-77w y/o inibuilds-aircraft-a350, no el archivo de datos de un complemento en particular. Una ruta incorrecta o que ya no existe solo significa que no se encuentran datos — nunca un error."
+      "pathHint": "La carpeta de almacenamiento WASM del simulador (no el archivo de datos de un complemento en particular) — normalmente la carpeta llamada literalmente «WASM». Funciona tanto si tu instalación anida los complementos un nivel más abajo, bajo una carpeta MSFS2024, como si no. Una ruta incorrecta o que ya no existe solo significa que no se encuentran datos — nunca un error."
     },
     "gsxRemote": {
       "cardTitle": "Control remoto GSX",

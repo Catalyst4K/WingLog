@@ -1,6 +1,7 @@
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { MaintenanceReport } from '@shared/ipc'
+import { resolvePackageDir } from '../wasm-maintenance/package-dir'
 import { buildMaintenanceReport } from './maintenance'
 
 /** Where a matched `.data` file was found for one aircraft's most recent Fleet check —
@@ -56,22 +57,26 @@ async function findMatchingFiles(maintenanceDir: string, registration: string): 
 }
 
 /** Reads and parses whichever `.data` file under
- *  `<folderPath>/inibuilds-aircraft-a350/work/Maintenance/<variant>/` has the given
+ *  `<inibuilds-aircraft-a350 package dir>/work/Maintenance/<variant>/` has the given
  *  registration in its filename. When more than one livery's file matches (a tail with
  *  several installed liveries), the most recently modified one wins — the one the sim most
  *  recently wrote, matching whichever livery was actually flown last.
  *
- *  Returns null for every reason there's nothing to show: no folder configured, no
- *  `Maintenance` directory, or no file with this registration in its name (this aircraft
- *  isn't an A350, or it is but every installed livery for it happens to be an unbranded
- *  default/"commons" pack with no registration in its filename) — never throws. */
+ *  Returns null for every reason there's nothing to show: no folder configured, the package
+ *  folder isn't found under it (see resolvePackageDir), no `Maintenance` directory, or no
+ *  file with this registration in its name (this aircraft isn't an A350, or it is but every
+ *  installed livery for it happens to be an unbranded default/"commons" pack with no
+ *  registration in its filename) — never throws. */
 export async function readIniBuildsA350Maintenance(
   folderPath: string | null,
   registration: string
 ): Promise<MaintenanceReport | null> {
   if (!folderPath) return null
 
-  const maintenanceDir = join(folderPath, 'inibuilds-aircraft-a350', 'work', 'Maintenance')
+  const packageDir = await resolvePackageDir(folderPath, 'inibuilds-aircraft-a350')
+  if (!packageDir) return null
+
+  const maintenanceDir = join(packageDir, 'work', 'Maintenance')
   const matches = await findMatchingFiles(maintenanceDir, registration)
   if (matches.length === 0) return null
 

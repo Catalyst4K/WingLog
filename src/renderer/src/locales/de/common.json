@@ -91,7 +91,7 @@
       "addonFolder": "Add-on-Datenordner",
       "notSet": "Nicht festgelegt",
       "browse": "Durchsuchen…",
-      "pathHint": "Der WASM-Speicherordner des Simulators — der Ordner, der pmdg-aircraft-77w und/oder inibuilds-aircraft-a350 enthält, nicht die Datendatei eines einzelnen Add-ons selbst. Ein falscher oder nicht mehr vorhandener Pfad bedeutet nur, dass keine Daten gefunden werden — nie ein Fehler."
+      "pathHint": "Der WASM-Speicherordner des Simulators (nicht die Datendatei eines einzelnen Add-ons selbst) — meist der Ordner, der wörtlich „WASM“ heißt. Funktioniert unabhängig davon, ob deine Installation Add-ons eine Ebene tiefer unter einem MSFS2024-Ordner verschachtelt. Ein falscher oder nicht mehr vorhandener Pfad bedeutet nur, dass keine Daten gefunden werden — nie ein Fehler."
     },
     "gsxRemote": {
       "cardTitle": "GSX Remote Control",
