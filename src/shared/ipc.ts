@@ -652,6 +652,46 @@ export interface GsxSettings {
   displayCurrency: string
 }
 
+/** One shared folder setting for every third-party add-on's maintenance-data adapter (PMDG
+ *  777, iniBuilds A350, …) — in every real install seen so far (docs/wasm-maintenance-notes.md,
+ *  flightdeck-backend) each add-on's own package folder is a sibling under the same sim WASM
+ *  storage folder, so asking the user to browse to that one parent folder once covers every
+ *  supported add-on, rather than asking again per add-on. */
+export interface MaintenanceAddonSettings {
+  folderPath: string | null
+}
+
+/** One labeled value on the Fleet detail page's maintenance card, e.g. an engine's oil
+ *  quantity or a wheel's assembly state — see docs/wasm-maintenance-notes.md
+ *  (flightdeck-backend) for what's actually confirmed from real PMDG 777/iniBuilds A350
+ *  files. `key` names a translation template (fleetView.maintenance.fields.<key>), never a
+ *  raw add-on key string; `index` is interpolated into that template where it names a
+ *  specific position (an engine, wheel, hydraulic system, fuel tank, battery). `value` is a
+ *  plain formatted number, main-process side — real-world units/scale for these fields
+ *  aren't confirmed, so no unit is invented here or in the renderer. */
+export interface MaintenanceField {
+  key: string
+  index?: number
+  value: string
+}
+
+export interface MaintenanceGroup {
+  key: 'engines' | 'wheels' | 'hydraulics' | 'fuel' | 'apu' | 'electrical'
+  fields: MaintenanceField[]
+}
+
+export type MaintenanceAddon = 'pmdg777' | 'inibuildsA350'
+
+/** A read-only snapshot of one aircraft's third-party maintenance data, read live from its
+ *  add-on's own files on `AircraftDetail` mount — never stored, never synced (it's derived
+ *  from local files the user already has). `groups` is empty when the file was found but had
+ *  no recognized sections (e.g. a pure-whitespace file); see fleetGetMaintenance for when
+ *  this is null instead. */
+export interface MaintenanceReport {
+  addon: MaintenanceAddon
+  groups: MaintenanceGroup[]
+}
+
 /** Result of the one-time, first-ever-launch check for GSX's expected receipts folder
  *  (flight-test-findings-2026-09-06.md #4) — `found` means the folder existed and GSX was
  *  auto-enabled against it. Only ever returned once, on the launch the check actually
@@ -997,6 +1037,10 @@ export const IpcChannels = {
   settingsSetGsx: 'settings:set-gsx',
   settingsCheckGsxFirstLaunch: 'settings:check-gsx-first-launch',
   gsxBrowseFolder: 'gsx:browse-folder',
+  settingsGetMaintenanceAddon: 'settings:get-maintenance-addon',
+  settingsSetMaintenanceAddon: 'settings:set-maintenance-addon',
+  maintenanceAddonBrowseFolder: 'maintenance-addon:browse-folder',
+  fleetGetMaintenance: 'fleet:get-maintenance',
   gsxRescanFlight: 'gsx:rescan-flight',
   gsxAttachNotailReceipt: 'gsx:attach-notail-receipt',
   gsxOpenReceipt: 'gsx:open-receipt',
@@ -1252,6 +1296,19 @@ export interface WingLogApi {
    *  directly rather than filtering flightList() client-side, since that list is already
    *  hundreds of rows on a well-used fleet. */
   fleetListFlights: (aircraftId: number) => Promise<Flight[]>
+  settingsGetMaintenanceAddon: () => Promise<MaintenanceAddonSettings>
+  settingsSetMaintenanceAddon: (settings: MaintenanceAddonSettings) => Promise<void>
+  /** Opens a native folder-picker dialog; null if the user cancels. No default path is ever
+   *  guessed — every add-on's own package folder name is an opaque, install-varying hash
+   *  (a Store package family name, in PMDG's case), and a silently-wrong guess is worse than
+   *  an empty box. */
+  maintenanceAddonBrowseFolder: () => Promise<string | null>
+  /** This aircraft's third-party maintenance data (PMDG 777, iniBuilds A350 — whichever
+   *  add-on's adapter matches first), read live from its own files — null for every reason
+   *  there's nothing to show (no folder configured, no file matched this registration, or
+   *  this aircraft isn't a supported add-on at all); a non-null report with an empty
+   *  `groups` array means a file was found but had no recognized sections. */
+  fleetGetMaintenance: (aircraftId: number) => Promise<MaintenanceReport | null>
   /** Every completed flight's landing score, for Logbook's list-view column — omits any
    *  flight with no landing row, which the list shows as "—" for (see LandingScoreSummary). */
   logbookListFlightScores: () => Promise<LandingScoreSummary[]>

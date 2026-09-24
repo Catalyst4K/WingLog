@@ -85,6 +85,14 @@
       "displayCurrency": "Anzeigewährung",
       "currencyHint": "GSX-Summen werden mit einem live abgerufenen Kurs zum Zeitpunkt der Anzeige umgerechnet — nichts wird umgerechnet gespeichert."
     },
+    "maintenanceAddon": {
+      "cardTitle": "Add-on-Wartungsdaten",
+      "description": "Zeigt PMDG 777's oder iniBuilds A350's eigene erfasste Wartungsdaten für ein Flugzeug auf dessen Flotten-Detailseite. Nur lesend — nichts hiervon wird je in den Simulator zurückgeschrieben.",
+      "addonFolder": "Add-on-Datenordner",
+      "notSet": "Nicht festgelegt",
+      "browse": "Durchsuchen…",
+      "pathHint": "Der WASM-Speicherordner des Simulators — der Ordner, der pmdg-aircraft-77w und/oder inibuilds-aircraft-a350 enthält, nicht die Datendatei eines einzelnen Add-ons selbst. Ein falscher oder nicht mehr vorhandener Pfad bedeutet nur, dass keine Daten gefunden werden — nie ein Fehler."
+    },
     "currencyOptions": {
       "usd": "USD — US-Dollar (keine Umrechnung)",
       "gbp": "GBP — Britisches Pfund",
@@ -216,9 +224,31 @@
       "empty": "Noch keine Landungen erfasst.",
       "crosswind": "{{kt}} kt Seitenwind"
     },
+    "maintenance": {
+      "cardTitle": "Wartung",
+      "empty": "Keine Wartungsdaten von Drittanbietern für dieses Flugzeug gefunden (PMDG 777, iniBuilds A350 unterstützt).",
+      "fields": {
+        "oilQuantity": "Ölmenge Triebwerk {{index}}",
+        "engineHours": "Triebwerk {{index}} Stunden",
+        "wheelMain": "Hauptfahrwerksrad {{index}}",
+        "wheelNose": "Bugfahrwerksrad {{index}}",
+        "hydraulicsVolume": "Hydrauliksystem {{index}} Volumen",
+        "hydraulicsTemp": "Hydrauliksystem {{index}} Temperatur",
+        "hydraulicsReservoir": "Hydrauliksystem {{index}} Reservoir",
+        "fuelVolume": "Kraftstofftank {{index}} Volumen",
+        "fuelTemperature": "Kraftstofftank {{index}} Temperatur",
+        "apuHours": "APU-Stunden",
+        "apuOilQuantity": "APU-Ölmenge",
+        "apuStartCycles": "APU-Startzyklen",
+        "batteryPct": "Batterie {{index}}",
+        "batteryEmergencyPct": "Notbatterie {{index}}"
+      }
+    },
     "flights": {
       "cardTitle": "Flüge",
-      "empty": "Noch keine abgeschlossenen Flüge."
+      "empty": "Noch keine abgeschlossenen Flüge.",
+      "fuelOnBoard": "Kraftstoff an Bord nach letztem Flug:",
+      "fuelOnBoardFrom": "({{route}}, {{date}})"
     },
     "replaceDialog": {
       "title": "{{registration}} ersetzen",
@@ -481,6 +511,8 @@
       "cruiseAltitude": "Reiseflughöhe",
       "scheduledOutIn": "Geplant Abflug / Ankunft",
       "plannedFuel": "Geplanter Treibstoff",
+      "fuelOnBoard": "Treibstoff an Bord",
+      "upliftNeeded": "Nachzutanken",
       "paxCargo": "Passagiere / Fracht",
       "zfwTowLdw": "ZFW / TOW / LDW",
       "costIndex": "Cost Index"

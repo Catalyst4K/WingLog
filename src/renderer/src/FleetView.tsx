@@ -4,7 +4,15 @@ import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { isRetired } from '@shared/aircraft'
-import type { Aircraft, AircraftLanding, Flight, FleetStats, NewAircraft } from '@shared/ipc'
+import type {
+  Aircraft,
+  AircraftLanding,
+  Flight,
+  FleetStats,
+  MaintenanceReport,
+  NewAircraft,
+  WeightUnit
+} from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -23,13 +31,14 @@ import { AircraftPhoto } from './AircraftPhoto'
 import { AirlineLogo } from './AirlineLogo'
 import { FolderTabs, FolderTabsContent, FolderTabsList, FolderTabsTrigger } from './components/FolderTabs'
 import { displayIcao } from './display-icao'
+import { lastKnownFuelOnBoard } from './fleet-fuel'
 import { useConfirm } from './hooks/useConfirm'
 import { useResetSignal } from './hooks/useResetSignal'
 import { useSortable } from './hooks/useSortable'
 import { LandingBadge } from './LandingBadge'
 import { LandingScoreBadge } from './LandingScoreBadge'
 import { SortableHead } from './SortableHead'
-import { formatMinutes, msToFpm, msToKt } from './units'
+import { formatMinutes, formatWeight, msToFpm, msToKt } from './units'
 
 type View = { kind: 'list' } | { kind: 'detail'; id: number } | { kind: 'new' } | { kind: 'edit'; id: number }
 
@@ -184,6 +193,47 @@ function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
   )
 }
 
+/** Third-party maintenance data (PMDG 777, iniBuilds A350 — whichever add-on's adapter
+ *  matches first), read live from the add-on's own files (docs/plans/fleet-maintenance.md
+ *  Part 1, flightdeck-backend) — read-only, nothing here is ever written back to the sim.
+ *  `null` and an empty `groups` report both render the same empty state: whether nothing's
+ *  configured, no file matched this tail, or the file was found but had no recognized
+ *  sections, there's equally nothing to show. */
+function AircraftMaintenanceCard(props: { aircraftId: number }): React.JSX.Element {
+  const { t } = useTranslation()
+  const [report, setReport] = useState<MaintenanceReport | null>(null)
+
+  useEffect(() => {
+    window.winglog.fleetGetMaintenance(props.aircraftId).then(setReport)
+  }, [props.aircraftId])
+
+  const rows = report?.groups.flatMap((group) => group.fields.map((field) => ({ groupKey: group.key, ...field }))) ?? []
+
+  return (
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle className="text-base">{t('fleetView.maintenance.cardTitle')}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t('fleetView.maintenance.empty')}</p>
+        ) : (
+          <div className="flex flex-col gap-1.5 text-sm">
+            {rows.map((row) => (
+              <div key={`${row.groupKey}.${row.key}.${row.index ?? ''}`} className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">
+                  {t(`fleetView.maintenance.fields.${row.key}`, { index: row.index })}
+                </span>
+                <span className="font-mono tabular-nums text-foreground">{row.value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 /** An aircraft's own completed flights (docs/plans/fleet-redesign.md #2) — scrollable
  *  rather than paginated per Callum's ask, same fixed-height/overflow-y-auto pattern as
  *  LandingHistoryCard above so the detail page's own layout doesn't grow unbounded with
@@ -192,6 +242,7 @@ function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
  *  navigation, confirmed wanted rather than assumed. */
 function AircraftFlightsCard(props: {
   aircraftId: number
+  weightUnit: WeightUnit
   onOpenFlight: (flightId: number) => void
 }): React.JSX.Element {
   const { t } = useTranslation()
@@ -201,12 +252,30 @@ function AircraftFlightsCard(props: {
     window.winglog.fleetListFlights(props.aircraftId).then(setFlights)
   }, [props.aircraftId])
 
+  // docs/plans/fleet-maintenance.md, Part 2: "fuel on board" for realistic fuelling next
+  // time, derived from the same newest-first completed-flights list this card already
+  // fetches — no separate IPC round trip needed.
+  const fuelFlight = lastKnownFuelOnBoard(flights)
+
   return (
     <Card size="sm">
       <CardHeader>
         <CardTitle className="text-base">{t('fleetView.flights.cardTitle')}</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-3">
+        {fuelFlight && (
+          <p className="text-sm">
+            <span className="text-muted-foreground">{t('fleetView.flights.fuelOnBoard')} </span>
+            <span className="font-medium text-foreground">{formatWeight(fuelFlight.fuelInKg, props.weightUnit)}</span>
+            <span className="text-muted-foreground">
+              {' '}
+              {t('fleetView.flights.fuelOnBoardFrom', {
+                route: `${fuelFlight.depIcao} → ${fuelFlight.arrIcao}`,
+                date: formatDate(fuelFlight.actualInUtc)
+              })}
+            </span>
+          </p>
+        )}
         {flights.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t('fleetView.flights.empty')}</p>
         ) : (
@@ -344,6 +413,7 @@ function AircraftDetail(props: {
   aircraft: Aircraft
   stats: FleetStats | undefined
   replacedBy: Aircraft | undefined
+  weightUnit: WeightUnit
   onEdit: () => void
   onDelete: () => void
   onReplace: () => void
@@ -453,8 +523,9 @@ function AircraftDetail(props: {
           <SimBriefProfileCard aircraft={a} />
         </div>
         <div className="flex min-w-72 flex-1 flex-col gap-4">
-          <AircraftFlightsCard aircraftId={a.id} onOpenFlight={props.onOpenFlight} />
+          <AircraftFlightsCard aircraftId={a.id} weightUnit={props.weightUnit} onOpenFlight={props.onOpenFlight} />
           <LandingHistoryCard aircraftId={a.id} />
+          <AircraftMaintenanceCard aircraftId={a.id} />
         </div>
       </div>
     </div>
@@ -462,6 +533,7 @@ function AircraftDetail(props: {
 }
 
 export function FleetView(props: {
+  weightUnit: WeightUnit
   onOpenFlightInLogbook: (flightId: number, fromAircraftId: number) => void
   /** Set when Logbook's "Back" returns here for a specific aircraft, rather than the
    *  user picking one from the list. Mirrors LogbookView's own initialFlightId prop. */
@@ -652,6 +724,7 @@ export function FleetView(props: {
           aircraft={existing}
           stats={stats.find((s) => s.aircraftId === existing.id)}
           replacedBy={aircraft.find((a) => a.id === existing.replacedByAircraftId)}
+          weightUnit={props.weightUnit}
           onEdit={() => setView({ kind: 'edit', id: view.id })}
           onDelete={() => handleDelete(existing)}
           onReplace={() => setReplaceTarget(existing)}

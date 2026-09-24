@@ -422,6 +422,7 @@ export default function App(): React.JSX.Element {
         <div className="min-h-0 flex-1 overflow-auto p-8">
           {page === 'fleet' && (
             <FleetView
+              weightUnit={weightUnit}
               onOpenFlightInLogbook={openFlightInLogbook}
               initialAircraftId={pendingFleetAircraftId}
               onInitialAircraftConsumed={() => setPendingFleetAircraftId(null)}

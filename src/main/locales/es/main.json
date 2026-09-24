@@ -5,7 +5,8 @@
     "exportLogbook": "Exportar bitácora",
     "importLogbookCsv": "Importar CSV de bitácora",
     "importLogbookJson": "Importar JSON de bitácora",
-    "gsxReceiptsFolder": "Carpeta de recibos de GSX"
+    "gsxReceiptsFolder": "Carpeta de recibos de GSX",
+    "maintenanceAddonFolder": "Carpeta de datos de mantenimiento de complementos"
   },
   "startupFailed": "WingLog no se pudo iniciar",
   "errors": {

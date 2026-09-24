@@ -11,6 +11,7 @@ import type {
   GsxSettings,
   LandingDistanceUnit,
   LogbookImportSummary,
+  MaintenanceAddonSettings,
   MapLanguage,
   SyncStatus,
   Theme,
@@ -213,6 +214,7 @@ export function SettingsView(props: {
   const [fleetFormat, setFleetFormat] = useState<DataFormat>('json')
   const [logbookFormat, setLogbookFormat] = useState<DataFormat>('csv')
   const [gsx, setGsx] = useState<GsxSettings>({ enabled: false, folderPath: null, displayCurrency: 'USD' })
+  const [maintenanceAddon, setMaintenanceAddon] = useState<MaintenanceAddonSettings>({ folderPath: null })
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
     loggedIn: false,
     email: null,
@@ -235,6 +237,7 @@ export function SettingsView(props: {
     window.winglog.settingsGetSimbriefUsername().then((u) => setSimbriefUsername(u ?? ''))
     window.winglog.dispatchSimbriefLoginStatus().then(setSimbriefLoggedIn)
     window.winglog.settingsGetGsx().then(setGsx)
+    window.winglog.settingsGetMaintenanceAddon().then(setMaintenanceAddon)
     // Cloud sync build-time flag (docs/plans/public-release-v1.md) — the syncStatus channel
     // doesn't exist at all in a public build, so calling it would just reject.
     /* v8 ignore start -- vitest.config.ts's `define` fixes this flag at `true` for the whole
@@ -264,6 +267,14 @@ export function SettingsView(props: {
     const next = { ...gsx, displayCurrency }
     setGsx(next)
     await window.winglog.settingsSetGsx(next)
+  }
+
+  async function handleMaintenanceAddonBrowse(): Promise<void> {
+    const folderPath = await window.winglog.maintenanceAddonBrowseFolder()
+    if (!folderPath) return
+    const next = { folderPath }
+    setMaintenanceAddon(next)
+    await window.winglog.settingsSetMaintenanceAddon(next)
   }
 
   async function handleSaveSimbriefUsername(event: React.FormEvent): Promise<void> {
@@ -608,6 +619,31 @@ export function SettingsView(props: {
                   </Select>
                 </Label>
                 <p className="text-xs text-muted-foreground">{t('settingsView.gsx.currencyHint')}</p>
+              </CardContent>
+            </Card>
+
+            <Card className="max-w-sm">
+              <CardHeader>
+                <CardTitle>{t('settingsView.maintenanceAddon.cardTitle')}</CardTitle>
+                <CardDescription>{t('settingsView.maintenanceAddon.description')}</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                <Label className="flex flex-col items-start gap-1.5">
+                  {t('settingsView.maintenanceAddon.addonFolder')}
+                  <div className="flex w-full gap-1.5">
+                    <Input
+                      type="text"
+                      readOnly
+                      value={maintenanceAddon.folderPath ?? ''}
+                      placeholder={t('settingsView.maintenanceAddon.notSet')}
+                      className="flex-1"
+                    />
+                    <Button type="button" variant="outline" size="sm" onClick={handleMaintenanceAddonBrowse}>
+                      {t('settingsView.maintenanceAddon.browse')}
+                    </Button>
+                  </div>
+                </Label>
+                <p className="text-xs text-muted-foreground">{t('settingsView.maintenanceAddon.pathHint')}</p>
               </CardContent>
             </Card>
           </div>

@@ -85,6 +85,14 @@
       "displayCurrency": "Display currency",
       "currencyHint": "GSX totals convert using a live rate fetched at the time you view them — nothing is stored converted."
     },
+    "maintenanceAddon": {
+      "cardTitle": "Add-on maintenance data",
+      "description": "Shows PMDG 777 or iniBuilds A350's own recorded maintenance data for a tail on its Fleet detail page. Read-only — nothing here is ever written back to the sim.",
+      "addonFolder": "Add-on data folder",
+      "notSet": "Not set",
+      "browse": "Browse…",
+      "pathHint": "The sim's WASM storage folder — the one containing pmdg-aircraft-77w and/or inibuilds-aircraft-a350, not either add-on's own data file. A path that's wrong or no longer exists just means no data is found — never an error."
+    },
     "currencyOptions": {
       "usd": "USD — US Dollar (no conversion)",
       "gbp": "GBP — British Pound",
@@ -216,9 +224,31 @@
       "empty": "No landings recorded yet.",
       "crosswind": "{{kt}} kt xwind"
     },
+    "maintenance": {
+      "cardTitle": "Maintenance",
+      "empty": "No third-party maintenance data found for this tail (PMDG 777, iniBuilds A350 supported).",
+      "fields": {
+        "oilQuantity": "Engine {{index}} oil quantity",
+        "engineHours": "Engine {{index}} hours",
+        "wheelMain": "Main gear wheel {{index}}",
+        "wheelNose": "Nose gear wheel {{index}}",
+        "hydraulicsVolume": "Hydraulic system {{index}} volume",
+        "hydraulicsTemp": "Hydraulic system {{index}} temperature",
+        "hydraulicsReservoir": "Hydraulic system {{index}} reservoir",
+        "fuelVolume": "Fuel tank {{index}} volume",
+        "fuelTemperature": "Fuel tank {{index}} temperature",
+        "apuHours": "APU hours",
+        "apuOilQuantity": "APU oil quantity",
+        "apuStartCycles": "APU start cycles",
+        "batteryPct": "Battery {{index}}",
+        "batteryEmergencyPct": "Emergency battery {{index}}"
+      }
+    },
     "flights": {
       "cardTitle": "Flights",
-      "empty": "No completed flights yet."
+      "empty": "No completed flights yet.",
+      "fuelOnBoard": "Fuel on board after last flight:",
+      "fuelOnBoardFrom": "({{route}}, {{date}})"
     },
     "replaceDialog": {
       "title": "Replace {{registration}}",
@@ -481,6 +511,8 @@
       "cruiseAltitude": "Cruise altitude",
       "scheduledOutIn": "Scheduled out / in",
       "plannedFuel": "Planned fuel",
+      "fuelOnBoard": "Fuel on board",
+      "upliftNeeded": "Uplift needed",
       "paxCargo": "Pax / cargo",
       "zfwTowLdw": "ZFW / TOW / LDW",
       "costIndex": "Cost index"

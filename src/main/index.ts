@@ -15,6 +15,7 @@ import {
   type DispatchOpenSimBriefParams,
   type GsxSettings,
   type LandingDistanceUnit,
+  type MaintenanceAddonSettings,
   type MapLanguage,
   type NavdataProcedureKind,
   type NewFlight,
@@ -71,6 +72,7 @@ import {
   getAppLanguage,
   getGsxSettings,
   getLandingDistanceUnit,
+  getMaintenanceAddonSettings,
   getSimbriefUsername,
   getTheme,
   getWeightUnit,
@@ -80,6 +82,7 @@ import {
   setAppLanguage,
   setGsxSettings,
   setLandingDistanceUnit,
+  setMaintenanceAddonSettings,
   setSimbriefUsername,
   setTheme,
   setWeightUnit,
@@ -95,6 +98,8 @@ import { defaultGsxReceiptsPath } from './gsx/default-path'
 import { checkGsxFirstLaunch } from './gsx/first-launch-check'
 import { buildFlightMatchWindow } from './gsx/flight-window'
 import { readReceipt, receiptFileFromPath, scanGsxFolder } from './gsx/scan'
+import { readPmdg777Maintenance } from './pmdg/read-maintenance'
+import { readIniBuildsA350Maintenance } from './inibuilds-a350/read-maintenance'
 import { fetchAirframesForType } from './simbrief/simbrief-airframes'
 import { extractOfpPdfUrl } from './simbrief/ofp-pdf'
 import { fetchLatestOfp, parseOfp, type SimBriefOfp } from './simbrief/simbrief-client'
@@ -809,6 +814,31 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.fleetListFlights, (_event, aircraftId: number) =>
         listFlightsByAircraft(db, aircraftId)
       )
+
+      // Third-party maintenance data — PMDG 777, iniBuilds A350 (docs/plans/fleet-
+      // maintenance.md Part 1, flightdeck-backend) — read-only, off by default (no folder
+      // configured), a no-op everywhere below until one is set. One shared folder setting
+      // covers every add-on (see MaintenanceAddonSettings); no default is ever guessed (see
+      // maintenanceAddonBrowseFolder below).
+      ipcMain.handle(IpcChannels.settingsGetMaintenanceAddon, () => getMaintenanceAddonSettings(db))
+      ipcMain.handle(IpcChannels.settingsSetMaintenanceAddon, (_event, settings: MaintenanceAddonSettings) =>
+        setMaintenanceAddonSettings(db, settings)
+      )
+      ipcMain.handle(IpcChannels.maintenanceAddonBrowseFolder, async () => {
+        const { canceled, filePaths } = await dialog.showOpenDialog(window, {
+          title: t('dialogs.maintenanceAddonFolder'),
+          properties: ['openDirectory']
+        })
+        return canceled || filePaths.length === 0 ? null : filePaths[0]
+      })
+      ipcMain.handle(IpcChannels.fleetGetMaintenance, async (_event, aircraftId: number) => {
+        const registration = getAircraftById(db, aircraftId)?.registration
+        if (!registration) return null
+        const { folderPath } = getMaintenanceAddonSettings(db)
+        const pmdgReport = await readPmdg777Maintenance(folderPath, registration)
+        if (pmdgReport) return pmdgReport
+        return readIniBuildsA350Maintenance(folderPath, registration)
+      })
 
       ipcMain.handle(IpcChannels.aircraftLookupByRegistration, (_event, registration: string) =>
         fetchAircraftByRegistration(registration)
