@@ -7,9 +7,12 @@ describe('formatMaintenanceValue', () => {
     expect(formatMaintenanceValue('batteryEmergencyPct', '4.5')).toBe('5%')
   })
 
-  it('rounds APU/engine hours to one decimal place with an "h" suffix', () => {
-    expect(formatMaintenanceValue('apuHours', '1565.109009')).toBe('1565.1 h')
-    expect(formatMaintenanceValue('engineHours', '7045.364258')).toBe('7045.4 h')
+  it('converts APU/engine hours from seconds to hours, rounded to one decimal with an "h" suffix', () => {
+    // Real values from Callum's own B-LRJ (2026-09-25): apu_hours 30160.400391 confirmed
+    // against the sim's own "just over 8 hours" reading only once divided by 3600 — the
+    // field is misleadingly named, it's seconds, not hours.
+    expect(formatMaintenanceValue('apuHours', '30160.400391')).toBe('8.4 h')
+    expect(formatMaintenanceValue('engineHours', '532691.937500')).toBe('148 h')
   })
 
   it('rounds a start-cycle count to a whole number with no suffix', () => {

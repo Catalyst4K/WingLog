@@ -10,10 +10,13 @@
  *  voltage/capacity figure. */
 const PERCENT_FIELDS = new Set(['batteryPct', 'batteryEmergencyPct'])
 
-/** Confirmed literal accumulated running hours. `oilQuantity` is deliberately excluded here
- *  even though it's shown alongside these — its unit still isn't confirmed, only that the
- *  raw number itself is meaningful to Callum without one. */
+/** Accumulated running time — but the raw field is in seconds, not hours despite the name
+ *  (confirmed by Callum, 2026-09-25: a real B-LRJ apu_hours of 30160.400391 matches "just
+ *  over 8 hours" only once divided by 3600, not read as-is). `oilQuantity` is deliberately
+ *  excluded here even though it's shown alongside these — its unit still isn't confirmed,
+ *  only that the raw number itself is meaningful to Callum without one. */
 const HOURS_FIELDS = new Set(['apuHours', 'engineHours'])
+const SECONDS_PER_HOUR = 3600
 
 /** Confirmed meaningful but with no real-world unit — shown rounded to one decimal place
  *  rather than the source file's raw ~6 decimal digits of floating-point noise.
@@ -35,7 +38,7 @@ export function formatMaintenanceValue(key: string, rawValue: string): string {
   const n = Number(rawValue)
   if (!Number.isFinite(n)) return rawValue
   if (PERCENT_FIELDS.has(key)) return `${roundTo(n, 0)}%`
-  if (HOURS_FIELDS.has(key)) return `${roundTo(n, 1)} h`
+  if (HOURS_FIELDS.has(key)) return `${roundTo(n / SECONDS_PER_HOUR, 1)} h`
   if (ROUNDED_WHOLE_FIELDS.has(key)) return roundTo(n, 0)
   if (ROUNDED_ONE_DECIMAL_FIELDS.has(key)) return roundTo(n, 1)
   return rawValue

@@ -943,7 +943,7 @@ describe('FleetView', () => {
       const report: MaintenanceReport = {
         addon: 'inibuildsA350',
         groups: [
-          { key: 'apu', fields: [{ key: 'apuHours', value: '1565.109009' }] },
+          { key: 'apu', fields: [{ key: 'apuHours', value: '30160.400391' }] },
           { key: 'electrical', fields: [{ key: 'batteryPct', index: 1, value: '97.234558' }] }
         ]
       }
@@ -953,10 +953,12 @@ describe('FleetView', () => {
       })
       render(<FleetView weightUnit="kg" onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
       expect(await screen.findByText('APU hours')).toBeInTheDocument()
-      // Rounded and unit-suffixed for display, not the source file's raw ~6-decimal value —
-      // fleet-maintenance-format.test.ts covers the rounding rules themselves; this only
-      // confirms the card actually wires them in.
-      expect(screen.getByText('1565.1 h')).toBeInTheDocument()
+      // Converted from the source file's raw seconds and rounded for display, not shown
+      // as-is — fleet-maintenance-format.test.ts covers the conversion/rounding rules
+      // themselves; this only confirms the card actually wires them in. 30160.400391s is a
+      // real captured value (Callum's B-LRJ, 2026-09-25), confirmed against the sim's own
+      // "just over 8 hours" APU reading.
+      expect(screen.getByText('8.4 h')).toBeInTheDocument()
       expect(screen.getByText('Battery 1')).toBeInTheDocument()
       expect(screen.getByText('97%')).toBeInTheDocument()
     })
