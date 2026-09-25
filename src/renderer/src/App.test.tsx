@@ -9,6 +9,7 @@ import type {
   Flight,
   FleetStats,
   GsxFirstLaunchResult,
+  GsxRemoteMenuState,
   SimConnectionStatus,
   SimTelemetry,
   SyncStatus,
@@ -326,6 +327,25 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     settingsGetGsx: vi.fn().mockResolvedValue({ enabled: false, folderPath: null, displayCurrency: 'USD' }),
     settingsSetGsx: vi.fn().mockResolvedValue(undefined),
     gsxBrowseFolder: vi.fn().mockResolvedValue(null),
+    settingsGetGsxRemote: vi.fn().mockResolvedValue({ enabled: false, host: 'localhost', port: null }),
+    settingsSetGsxRemote: vi.fn().mockResolvedValue(undefined),
+    gsxRemoteGetStatus: vi.fn().mockResolvedValue({ state: 'disconnected', lastError: null }),
+    onGsxRemoteStatus: vi.fn(() => () => {}),
+    gsxRemoteGetServices: vi.fn().mockResolvedValue([]),
+    onGsxRemoteServices: vi.fn(() => () => {}),
+    gsxRemoteGetGateInfo: vi.fn().mockResolvedValue(null),
+    onGsxRemoteGate: vi.fn(() => () => {}),
+    gsxRemoteGetMenu: vi.fn().mockResolvedValue({ menuShown: false, title: '', header: '', subtitle: '', entries: [], icons: [], disabled: [], layout: '' }),
+    onGsxRemoteMenu: vi.fn(() => () => {}),
+    gsxRemoteGetPrompt: vi.fn().mockResolvedValue(null),
+    onGsxRemotePrompt: vi.fn(() => () => {}),
+    gsxRemoteGetCommandBar: vi.fn().mockResolvedValue({ commands: [], simbrief: null, simbriefIconUri: null }),
+    onGsxRemoteCommandBar: vi.fn(() => () => {}),
+    gsxRemotePickMenu: vi.fn().mockResolvedValue(undefined),
+    gsxRemoteToggleMenu: vi.fn().mockResolvedValue(undefined),
+    gsxRemoteSubmitPrompt: vi.fn().mockResolvedValue(undefined),
+    gsxRemoteCancelPrompt: vi.fn().mockResolvedValue(undefined),
+    gsxRemoteRunCommand: vi.fn().mockResolvedValue(undefined),
     syncStatus: vi.fn().mockResolvedValue(makeSyncStatus()),
     authLogin: vi.fn().mockResolvedValue(makeSyncStatus()),
     authSignup: vi.fn().mockResolvedValue(makeSyncStatus()),
@@ -389,7 +409,7 @@ describe('App', () => {
     setWinglog({ settingsGetAppLanguage: vi.fn().mockResolvedValue('de') })
     await i18n.changeLanguage('de')
     render(<App />)
-    for (const name of ['Flotte', 'Flugplanung', 'Flugverfolgung', 'Logbuch', 'Einstellungen']) {
+    for (const name of ['Flotte', 'Flugplanung', 'Flugverfolgung', 'Bodendienste', 'Logbuch', 'Einstellungen']) {
       expect(await screen.findByRole('tab', { name })).toBeInTheDocument()
     }
     expect(screen.getByText('SimConnect: getrennt')).toBeInTheDocument()
@@ -398,7 +418,7 @@ describe('App', () => {
   it('shows Fleet by default, with every tab and the SimConnect badge', async () => {
     render(<App />)
     expect(await screen.findByText('Fleet', { selector: 'h1' })).toBeInTheDocument()
-    for (const name of ['Fleet', 'Dispatch', 'Track', 'Logbook', 'Settings']) {
+    for (const name of ['Fleet', 'Dispatch', 'Track', 'Ground services', 'Logbook', 'Settings']) {
       expect(screen.getByRole('tab', { name })).toBeInTheDocument()
     }
     expect(screen.getByText('SimConnect: disconnected')).toBeInTheDocument()
@@ -421,6 +441,9 @@ describe('App', () => {
 
       await clickTab(user, 'Track')
       expect(await screen.findByText('Track', { selector: 'h1' }, lazyTimeout)).toBeInTheDocument()
+
+      await clickTab(user, 'Ground services')
+      expect(await screen.findByText('Ground services', { selector: 'h1' }, lazyTimeout)).toBeInTheDocument()
 
       await clickTab(user, 'Logbook')
       expect(await screen.findByText('Logbook', { selector: 'h1' }, lazyTimeout)).toBeInTheDocument()
@@ -681,5 +704,119 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: 'Back to aircraft' }))
     expect(await screen.findByText('G-ABCD — A320')).toBeInTheDocument()
+  })
+
+  describe('GSX important-menu global prompt', () => {
+    function withMenuListener(): { push: (menu: GsxRemoteMenuState) => void; winglog: WingLogApi } {
+      let listener: ((menu: GsxRemoteMenuState) => void) | undefined
+      const winglog = setWinglog({
+        onGsxRemoteMenu: vi.fn((l) => {
+          listener = l
+          return () => {}
+        })
+      })
+      return { push: (menu) => listener?.(menu), winglog }
+    }
+
+    const FUEL_MENU: GsxRemoteMenuState = {
+      menuShown: true,
+      title: 'Select refueling level',
+      header: 'Select refueling level',
+      subtitle: '',
+      entries: [' 76% - BLOCK FUEL from Simbrief - 31949 USGAL / 97095 kg', 'Custom refueling using default Fuel menu'],
+      icons: ['', ''],
+      disabled: [false, false],
+      layout: 'list'
+    }
+
+    it('shows a global dialog for an important menu (fuel amount) while on another tab', async () => {
+      const { push } = withMenuListener()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+
+      push(FUEL_MENU)
+
+      expect(await screen.findByText('GSX needs your input')).toBeInTheDocument()
+      expect(screen.getByText('Select refueling level')).toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: /76% - BLOCK FUEL from Simbrief/ })
+      ).toBeInTheDocument()
+    })
+
+    it('picking an entry calls gsxRemotePickMenu with its index', async () => {
+      const { push, winglog } = withMenuListener()
+      const user = userEvent.setup()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+      push(FUEL_MENU)
+      await screen.findByText('GSX needs your input')
+
+      await user.click(screen.getByRole('button', { name: 'Custom refueling using default Fuel menu' }))
+
+      expect(winglog.gsxRemotePickMenu).toHaveBeenCalledWith(1)
+    })
+
+    it('does not show the global dialog for a menu that is not on the important list', async () => {
+      const { push } = withMenuListener()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+
+      push({
+        menuShown: true,
+        title: '',
+        header: '',
+        subtitle: '',
+        entries: ['Request Deboarding', 'Request Catering service'],
+        icons: ['', ''],
+        disabled: [false, false],
+        layout: 't9'
+      })
+
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(screen.queryByText('GSX needs your input')).not.toBeInTheDocument()
+    })
+
+    it('does not show the global dialog for a matching title while menuShown is false (regression: must not passively wait for the in-sim menu)', async () => {
+      const { push } = withMenuListener()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+
+      push({ ...FUEL_MENU, menuShown: false })
+
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(screen.queryByText('GSX needs your input')).not.toBeInTheDocument()
+    })
+
+    it('does not show the global dialog while already on the GSX tab', async () => {
+      const { push } = withMenuListener()
+      const user = userEvent.setup()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+      await clickTab(user, 'Ground services')
+      await screen.findByText('Ground services', { selector: 'h1' }, { timeout: 10000 })
+
+      push(FUEL_MENU)
+
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(screen.queryByText('GSX needs your input')).not.toBeInTheDocument()
+    })
+
+    it('dismissing the dialog does not immediately reopen it for the same unanswered menu', async () => {
+      const { push } = withMenuListener()
+      const user = userEvent.setup()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+      push(FUEL_MENU)
+      await screen.findByText('GSX needs your input')
+
+      await user.keyboard('{Escape}')
+      await waitFor(() => expect(screen.queryByText('GSX needs your input')).not.toBeInTheDocument())
+
+      // Re-pushing the exact same menu (GSX itself hasn't changed anything) should not
+      // reopen it — only a genuinely different menu should.
+      push(FUEL_MENU)
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(screen.queryByText('GSX needs your input')).not.toBeInTheDocument()
+    })
   })
 })

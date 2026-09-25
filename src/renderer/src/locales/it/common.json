@@ -85,6 +85,20 @@
       "displayCurrency": "Valuta di visualizzazione",
       "currencyHint": "I totali GSX vengono convertiti usando un tasso ottenuto in tempo reale al momento della visualizzazione — nulla viene salvato già convertito."
     },
+    "gsxRemote": {
+      "cardTitle": "Controllo remoto GSX",
+      "description": "Controllo live dei servizi di terra, ricostruito all'interno di WingLog a partire dalla connessione Remote Client di GSX Pro — non è una copia incorporata della pagina di GSX.",
+      "enabled": "Attivato",
+      "on": "Sì",
+      "off": "No",
+      "host": "Host",
+      "port": "Porta",
+      "portPlaceholder": "8744",
+      "portHint": "8744 è il valore predefinito reale di GSX, ma è configurabile nelle impostazioni di GSX stesso, alla voce Remote Client — controlla lì se la connessione non funziona.",
+      "statusConnected": "Connesso",
+      "statusConnecting": "Connessione…",
+      "statusDisconnected": "Disconnesso"
+    },
     "currencyOptions": {
       "usd": "USD — Dollaro statunitense (nessuna conversione)",
       "gbp": "GBP — Sterlina britannica",
@@ -154,6 +168,7 @@
       "fleet": "Flotta",
       "dispatch": "Pianificazione",
       "track": "Monitoraggio",
+      "gsx": "Servizi di terra",
       "logbook": "Libretto",
       "settings": "Impostazioni"
     },
@@ -176,6 +191,9 @@
       "continueDescription": "WingLog si è chiuso con {{label}} già pianificato ma non ancora iniziato. Mantienilo e continua da Monitoraggio, oppure scartalo per eliminare il volo.",
       "continueConfirm": "Mantienilo",
       "discard": "Scarta volo"
+    },
+    "gsxImportantPrompt": {
+      "title": "GSX ha bisogno di una tua risposta"
     },
     "gsxFirstLaunch": {
       "found": "Tracciamento dei servizi di terra GSX attivato — cartella ricevute trovata automaticamente.",
@@ -629,5 +647,24 @@
     },
     "noCompletedFlights": "Ancora nessun volo completato — traccia un volo, oppure importa un CSV del libretto da Impostazioni → Dati.",
     "flightNotFound": "Volo non trovato."
+  },
+  "gsxRemoteView": {
+    "title": "Servizi di terra"
+  },
+  "gsxRemotePanel": {
+    "loading": "Caricamento…",
+    "notConfigured": "GSX Remote Control è disattivato. Attivalo e imposta una porta in Impostazioni → Terze parti.",
+    "connecting": "Connessione a GSX…",
+    "disconnected": "Non connesso a GSX.",
+    "menuHeaderClosed": "Menu GSX",
+    "tapToOpen": "Tocca per aprire",
+    "commands": "Comandi",
+    "services": "Servizi",
+    "provider": "Fornitore: {{name}}",
+    "showMoreServices_one": "Mostra {{count}} altro servizio",
+    "showMoreServices_other": "Mostra {{count}} altri servizi",
+    "waitingFor": "In attesa: {{reason}}",
+    "ok": "OK",
+    "cancel": "Annulla"
   }
 }

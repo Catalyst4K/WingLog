@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import type {
   AltitudeUnit,
   AppLanguage,
+  GsxRemoteSettings,
   GsxSettings,
   LandingDistanceUnit,
   MapLanguage,
@@ -27,6 +28,11 @@ const GSX_ENABLED_KEY = 'gsxEnabled'
 const GSX_FOLDER_PATH_KEY = 'gsxFolderPath'
 const GSX_DISPLAY_CURRENCY_KEY = 'gsxDisplayCurrency'
 const GSX_FIRST_LAUNCH_CHECKED_KEY = 'gsxFirstLaunchChecked'
+// GSX Remote Control (docs/plans/gsx-remote-control.md) — unrelated to the GSX_* keys
+// above, which are the file-based receipts feature.
+const GSX_REMOTE_ENABLED_KEY = 'gsxRemoteEnabled'
+const GSX_REMOTE_HOST_KEY = 'gsxRemoteHost'
+const GSX_REMOTE_PORT_KEY = 'gsxRemotePort'
 
 export function getSetting(db: WingLogDb, key: string): string | undefined {
   return db.select().from(appSetting).where(eq(appSetting.key, key)).get()?.value
@@ -147,6 +153,25 @@ export function hasCheckedGsxFirstLaunch(db: WingLogDb): boolean {
 
 export function setCheckedGsxFirstLaunch(db: WingLogDb): void {
   setSetting(db, GSX_FIRST_LAUNCH_CHECKED_KEY, '1')
+}
+
+/** Default off, localhost, port 8744 — GSX's own real default Remote Client port (Callum,
+ *  2026-09-21, confirmed directly; the community-cited 8090 is not it — docs/gsx-notes.md).
+ *  Still genuinely user-configurable in GSX's own settings, so the field stays editable —
+ *  this is a sensible pre-fill, not treated as the only possible value. */
+export function getGsxRemoteSettings(db: WingLogDb): GsxRemoteSettings {
+  const port = getSetting(db, GSX_REMOTE_PORT_KEY)
+  return {
+    enabled: getSetting(db, GSX_REMOTE_ENABLED_KEY) === '1',
+    host: getSetting(db, GSX_REMOTE_HOST_KEY) || 'localhost',
+    port: port ? Number(port) : 8744
+  }
+}
+
+export function setGsxRemoteSettings(db: WingLogDb, settings: GsxRemoteSettings): void {
+  setSetting(db, GSX_REMOTE_ENABLED_KEY, settings.enabled ? '1' : '0')
+  setSetting(db, GSX_REMOTE_HOST_KEY, settings.host || 'localhost')
+  setSetting(db, GSX_REMOTE_PORT_KEY, settings.port ? String(settings.port) : '')
 }
 
 /** Per-table sync cursor (flightdeck-backend/docs/plans/cloud-sync.md's pull-then-push

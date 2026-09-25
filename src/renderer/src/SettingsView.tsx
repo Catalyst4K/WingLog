@@ -8,6 +8,8 @@ import type {
   AltitudeUnit,
   AppLanguage,
   DataFormat,
+  GsxRemoteConnectionStatus,
+  GsxRemoteSettings,
   GsxSettings,
   LandingDistanceUnit,
   LogbookImportSummary,
@@ -213,6 +215,15 @@ export function SettingsView(props: {
   const [fleetFormat, setFleetFormat] = useState<DataFormat>('json')
   const [logbookFormat, setLogbookFormat] = useState<DataFormat>('csv')
   const [gsx, setGsx] = useState<GsxSettings>({ enabled: false, folderPath: null, displayCurrency: 'USD' })
+  const [gsxRemote, setGsxRemote] = useState<GsxRemoteSettings>({ enabled: false, host: 'localhost', port: null })
+  // Free-typed while editing — kept separate from gsxRemote.port (number | null) so an
+  // in-progress edit (e.g. a momentarily empty field) never round-trips through Number()
+  // and silently becomes 0.
+  const [gsxRemotePortInput, setGsxRemotePortInput] = useState('')
+  const [gsxRemoteStatus, setGsxRemoteStatus] = useState<GsxRemoteConnectionStatus>({
+    state: 'disconnected',
+    lastError: null
+  })
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
     loggedIn: false,
     email: null,
@@ -235,6 +246,11 @@ export function SettingsView(props: {
     window.winglog.settingsGetSimbriefUsername().then((u) => setSimbriefUsername(u ?? ''))
     window.winglog.dispatchSimbriefLoginStatus().then(setSimbriefLoggedIn)
     window.winglog.settingsGetGsx().then(setGsx)
+    window.winglog.settingsGetGsxRemote().then((settings) => {
+      setGsxRemote(settings)
+      setGsxRemotePortInput(settings.port != null ? String(settings.port) : '')
+    })
+    window.winglog.gsxRemoteGetStatus().then(setGsxRemoteStatus)
     // Cloud sync build-time flag (docs/plans/public-release-v1.md) — the syncStatus channel
     // doesn't exist at all in a public build, so calling it would just reject.
     /* v8 ignore start -- vitest.config.ts's `define` fixes this flag at `true` for the whole
@@ -244,6 +260,10 @@ export function SettingsView(props: {
     if (__WINGLOG_CLOUD_SYNC_ENABLED__) window.winglog.syncStatus().then(setSyncStatus)
     /* v8 ignore stop */
     window.winglog.appGetVersion().then(setAppVersion)
+  }, [])
+
+  useEffect(() => {
+    return window.winglog.onGsxRemoteStatus(setGsxRemoteStatus)
   }, [])
 
   async function handleGsxToggle(enabled: boolean): Promise<void> {
@@ -264,6 +284,27 @@ export function SettingsView(props: {
     const next = { ...gsx, displayCurrency }
     setGsx(next)
     await window.winglog.settingsSetGsx(next)
+  }
+
+  async function handleGsxRemoteToggle(enabled: boolean): Promise<void> {
+    const next = { ...gsxRemote, enabled }
+    setGsxRemote(next)
+    await window.winglog.settingsSetGsxRemote(next)
+  }
+
+  async function handleGsxRemoteHostChange(host: string): Promise<void> {
+    const next = { ...gsxRemote, host }
+    setGsxRemote(next)
+    await window.winglog.settingsSetGsxRemote(next)
+  }
+
+  async function commitGsxRemotePort(): Promise<void> {
+    const trimmed = gsxRemotePortInput.trim()
+    const port = trimmed ? Number(trimmed) : null
+    if (port !== null && (!Number.isInteger(port) || port <= 0 || port > 65535)) return
+    const next = { ...gsxRemote, port }
+    setGsxRemote(next)
+    await window.winglog.settingsSetGsxRemote(next)
   }
 
   async function handleSaveSimbriefUsername(event: React.FormEvent): Promise<void> {
@@ -608,6 +649,65 @@ export function SettingsView(props: {
                   </Select>
                 </Label>
                 <p className="text-xs text-muted-foreground">{t('settingsView.gsx.currencyHint')}</p>
+              </CardContent>
+            </Card>
+
+            <Card className="max-w-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between gap-2">
+                  {t('settingsView.gsxRemote.cardTitle')}
+                  {gsxRemote.enabled && (
+                    <Badge variant={gsxRemoteStatus.state === 'connected' ? 'default' : gsxRemoteStatus.state === 'connecting' ? 'secondary' : 'outline'}>
+                      {gsxRemoteStatus.state === 'connected'
+                        ? t('settingsView.gsxRemote.statusConnected')
+                        : gsxRemoteStatus.state === 'connecting'
+                          ? t('settingsView.gsxRemote.statusConnecting')
+                          : t('settingsView.gsxRemote.statusDisconnected')}
+                    </Badge>
+                  )}
+                </CardTitle>
+                <CardDescription>{t('settingsView.gsxRemote.description')}</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-foreground">{t('settingsView.gsxRemote.enabled')}</span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={gsxRemote.enabled ? 'default' : 'outline'}
+                    onClick={() => handleGsxRemoteToggle(!gsxRemote.enabled)}
+                  >
+                    {gsxRemote.enabled ? t('settingsView.gsxRemote.on') : t('settingsView.gsxRemote.off')}
+                  </Button>
+                </div>
+                <Label className="flex flex-col items-start gap-1.5">
+                  {t('settingsView.gsxRemote.host')}
+                  <Input
+                    type="text"
+                    value={gsxRemote.host}
+                    onChange={(e) => handleGsxRemoteHostChange(e.target.value)}
+                  />
+                </Label>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    commitGsxRemotePort()
+                  }}
+                >
+                  <Label className="flex flex-col items-start gap-1.5">
+                    {t('settingsView.gsxRemote.port')}
+                    <Input
+                      type="number"
+                      min={1}
+                      max={65535}
+                      value={gsxRemotePortInput}
+                      placeholder={t('settingsView.gsxRemote.portPlaceholder')}
+                      onChange={(e) => setGsxRemotePortInput(e.target.value)}
+                      onBlur={() => commitGsxRemotePort()}
+                    />
+                  </Label>
+                </form>
+                <p className="text-xs text-muted-foreground">{t('settingsView.gsxRemote.portHint')}</p>
               </CardContent>
             </Card>
           </div>

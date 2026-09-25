@@ -85,6 +85,20 @@
       "displayCurrency": "Anzeigewährung",
       "currencyHint": "GSX-Summen werden mit einem live abgerufenen Kurs zum Zeitpunkt der Anzeige umgerechnet — nichts wird umgerechnet gespeichert."
     },
+    "gsxRemote": {
+      "cardTitle": "GSX Remote Control",
+      "description": "Live-Steuerung der Bodenabfertigung, innerhalb von WingLog aus GSX Pros eigener Remote-Client-Verbindung neu aufgebaut — keine eingebettete Kopie der GSX-Seite.",
+      "enabled": "Aktiviert",
+      "on": "Ein",
+      "off": "Aus",
+      "host": "Host",
+      "port": "Port",
+      "portPlaceholder": "8744",
+      "portHint": "8744 ist GSX' eigener Standardwert, aber unter Remote Client in GSX' eigenen Einstellungen konfigurierbar — dort nachsehen, falls keine Verbindung zustande kommt.",
+      "statusConnected": "Verbunden",
+      "statusConnecting": "Verbinde…",
+      "statusDisconnected": "Getrennt"
+    },
     "currencyOptions": {
       "usd": "USD — US-Dollar (keine Umrechnung)",
       "gbp": "GBP — Britisches Pfund",
@@ -152,6 +166,7 @@
       "fleet": "Flotte",
       "dispatch": "Flugplanung",
       "track": "Flugverfolgung",
+      "gsx": "Bodendienste",
       "logbook": "Logbuch",
       "settings": "Einstellungen"
     },
@@ -174,6 +189,9 @@
       "continueDescription": "WingLog wurde geschlossen, während {{label}} bereits geplant, aber noch nicht gestartet war. Behalte ihn und setze in der Flugverfolgung fort, oder verwirf ihn, um den Flug zu löschen.",
       "continueConfirm": "Behalten",
       "discard": "Flug verwerfen"
+    },
+    "gsxImportantPrompt": {
+      "title": "GSX benötigt deine Eingabe"
     },
     "gsxFirstLaunch": {
       "found": "GSX-Bodendienst-Tracking aktiviert — Belege-Ordner wurde automatisch gefunden.",
@@ -627,5 +645,24 @@
     },
     "noCompletedFlights": "Noch keine abgeschlossenen Flüge — einen tracken oder ein CSV-Logbuch über Einstellungen → Daten importieren.",
     "flightNotFound": "Flug nicht gefunden."
+  },
+  "gsxRemoteView": {
+    "title": "Bodendienste"
+  },
+  "gsxRemotePanel": {
+    "loading": "Wird geladen…",
+    "notConfigured": "GSX Remote Control ist deaktiviert. Aktiviere es und lege einen Port fest unter Einstellungen → Drittanbieter.",
+    "connecting": "Verbindung zu GSX wird hergestellt…",
+    "disconnected": "Nicht mit GSX verbunden.",
+    "menuHeaderClosed": "GSX-Menü",
+    "tapToOpen": "Antippen zum Öffnen",
+    "commands": "Befehle",
+    "services": "Dienste",
+    "provider": "Anbieter: {{name}}",
+    "showMoreServices_one": "{{count}} weiteren Dienst anzeigen",
+    "showMoreServices_other": "{{count}} weitere Dienste anzeigen",
+    "waitingFor": "Wartet: {{reason}}",
+    "ok": "OK",
+    "cancel": "Abbrechen"
   }
 }

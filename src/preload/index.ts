@@ -7,6 +7,14 @@ import {
   type DataFormat,
   type DispatchOpenSimBriefParams,
   type WingLogApi,
+  type GsxRemoteCommandBar,
+  type GsxRemoteCommandId,
+  type GsxRemoteConnectionStatus,
+  type GsxRemoteGateInfo,
+  type GsxRemoteMenuState,
+  type GsxRemotePromptState,
+  type GsxRemoteServiceStatus,
+  type GsxRemoteSettings,
   type GsxSettings,
   type LandingDistanceUnit,
   type MapLanguage,
@@ -172,7 +180,50 @@ const api: WingLogApi = {
   trackingSetDeparture: (icao: string | null) => ipcRenderer.invoke(IpcChannels.trackingSetDeparture, icao),
   trackingGetOrphanedFlight: () => ipcRenderer.invoke(IpcChannels.trackingGetOrphanedFlight),
   trackingResumeOrphaned: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingResumeOrphaned, flightId),
-  trackingDiscardOrphaned: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingDiscardOrphaned, flightId)
+  trackingDiscardOrphaned: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingDiscardOrphaned, flightId),
+  settingsGetGsxRemote: () => ipcRenderer.invoke(IpcChannels.settingsGetGsxRemote),
+  settingsSetGsxRemote: (settings: GsxRemoteSettings) => ipcRenderer.invoke(IpcChannels.settingsSetGsxRemote, settings),
+  gsxRemoteGetStatus: () => ipcRenderer.invoke(IpcChannels.gsxRemoteGetStatus),
+  onGsxRemoteStatus: (listener: (status: GsxRemoteConnectionStatus) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, status: GsxRemoteConnectionStatus): void => listener(status)
+    ipcRenderer.on(IpcChannels.gsxRemoteStatus, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.gsxRemoteStatus, handler)
+  },
+  gsxRemoteGetServices: () => ipcRenderer.invoke(IpcChannels.gsxRemoteGetServices),
+  onGsxRemoteServices: (listener: (services: GsxRemoteServiceStatus[]) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, services: GsxRemoteServiceStatus[]): void => listener(services)
+    ipcRenderer.on(IpcChannels.gsxRemoteServices, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.gsxRemoteServices, handler)
+  },
+  gsxRemoteGetGateInfo: () => ipcRenderer.invoke(IpcChannels.gsxRemoteGetGateInfo),
+  onGsxRemoteGate: (listener: (gate: GsxRemoteGateInfo | null) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, gate: GsxRemoteGateInfo | null): void => listener(gate)
+    ipcRenderer.on(IpcChannels.gsxRemoteGate, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.gsxRemoteGate, handler)
+  },
+  gsxRemoteGetMenu: () => ipcRenderer.invoke(IpcChannels.gsxRemoteGetMenu),
+  onGsxRemoteMenu: (listener: (menu: GsxRemoteMenuState) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, menu: GsxRemoteMenuState): void => listener(menu)
+    ipcRenderer.on(IpcChannels.gsxRemoteMenu, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.gsxRemoteMenu, handler)
+  },
+  gsxRemoteGetPrompt: () => ipcRenderer.invoke(IpcChannels.gsxRemoteGetPrompt),
+  onGsxRemotePrompt: (listener: (prompt: GsxRemotePromptState | null) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, prompt: GsxRemotePromptState | null): void => listener(prompt)
+    ipcRenderer.on(IpcChannels.gsxRemotePrompt, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.gsxRemotePrompt, handler)
+  },
+  gsxRemoteGetCommandBar: () => ipcRenderer.invoke(IpcChannels.gsxRemoteGetCommandBar),
+  onGsxRemoteCommandBar: (listener: (commandBar: GsxRemoteCommandBar) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, commandBar: GsxRemoteCommandBar): void => listener(commandBar)
+    ipcRenderer.on(IpcChannels.gsxRemoteCommandBar, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.gsxRemoteCommandBar, handler)
+  },
+  gsxRemotePickMenu: (index: number) => ipcRenderer.invoke(IpcChannels.gsxRemotePickMenu, index),
+  gsxRemoteToggleMenu: () => ipcRenderer.invoke(IpcChannels.gsxRemoteToggleMenu),
+  gsxRemoteSubmitPrompt: (gen: number, text: string) => ipcRenderer.invoke(IpcChannels.gsxRemoteSubmitPrompt, gen, text),
+  gsxRemoteCancelPrompt: (gen: number) => ipcRenderer.invoke(IpcChannels.gsxRemoteCancelPrompt, gen),
+  gsxRemoteRunCommand: (id: GsxRemoteCommandId) => ipcRenderer.invoke(IpcChannels.gsxRemoteRunCommand, id)
 }
 
 contextBridge.exposeInMainWorld('winglog', api)

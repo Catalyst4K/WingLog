@@ -89,6 +89,20 @@
       "displayCurrency": "Валюта отображения",
       "currencyHint": "Суммы GSX конвертируются по курсу, полученному в реальном времени в момент просмотра — ничего не сохраняется уже сконвертированным."
     },
+    "gsxRemote": {
+      "cardTitle": "Удалённое управление GSX",
+      "description": "Управление наземным обслуживанием в реальном времени, воссозданное внутри WingLog на основе собственного Remote Client-соединения GSX Pro — а не встроенная копия страницы GSX.",
+      "enabled": "Включено",
+      "on": "Вкл",
+      "off": "Выкл",
+      "host": "Хост",
+      "port": "Порт",
+      "portPlaceholder": "8744",
+      "portHint": "8744 — это реальный порт GSX по умолчанию, но его можно изменить в настройках самого GSX, в разделе Remote Client — проверьте там, если подключение не удаётся.",
+      "statusConnected": "Подключено",
+      "statusConnecting": "Подключение…",
+      "statusDisconnected": "Отключено"
+    },
     "currencyOptions": {
       "usd": "USD — доллар США (без конвертации)",
       "gbp": "GBP — фунт стерлингов",
@@ -168,6 +182,7 @@
       "fleet": "Флот",
       "dispatch": "Диспетчеризация",
       "track": "Трек",
+      "gsx": "Наземное обслуживание",
       "logbook": "Логбук",
       "settings": "Настройки"
     },
@@ -190,6 +205,9 @@
       "continueDescription": "WingLog был закрыт, когда {{label}} уже был запланирован, но ещё не начат. Сохраните его и продолжите в разделе Track, или отмените, чтобы удалить полёт.",
       "continueConfirm": "Сохранить",
       "discard": "Отменить полёт"
+    },
+    "gsxImportantPrompt": {
+      "title": "GSX требует вашего ответа"
     },
     "gsxFirstLaunch": {
       "found": "Отслеживание наземного обслуживания GSX включено — папка с чеками найдена автоматически.",
@@ -650,5 +668,26 @@
     },
     "noCompletedFlights": "Пока нет завершённых рейсов — начните отслеживание или импортируйте CSV-логбук через Настройки → Данные.",
     "flightNotFound": "Рейс не найден."
+  },
+  "gsxRemoteView": {
+    "title": "Наземное обслуживание"
+  },
+  "gsxRemotePanel": {
+    "loading": "Загрузка…",
+    "notConfigured": "GSX Remote Control отключён. Включите его и укажите порт в разделе Настройки → Сторонние сервисы.",
+    "connecting": "Подключение к GSX…",
+    "disconnected": "Нет подключения к GSX.",
+    "menuHeaderClosed": "Меню GSX",
+    "tapToOpen": "Нажмите, чтобы открыть",
+    "commands": "Команды",
+    "services": "Службы",
+    "provider": "Поставщик: {{name}}",
+    "showMoreServices_one": "Показать ещё {{count}} услугу",
+    "showMoreServices_few": "Показать ещё {{count}} услуги",
+    "showMoreServices_many": "Показать ещё {{count}} услуг",
+    "showMoreServices_other": "Показать ещё {{count}} услуг",
+    "waitingFor": "Ожидание: {{reason}}",
+    "ok": "ОК",
+    "cancel": "Отмена"
   }
 }
