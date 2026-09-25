@@ -83,6 +83,20 @@
       "displayCurrency": "顯示貨幣",
       "currencyHint": "GSX 總額會在你查看時依即時匯率換算 — 儲存的資料本身不會被轉換。"
     },
+    "gsxRemote": {
+      "cardTitle": "GSX 遠端控制",
+      "description": "地勤服務的即時控制，在 WingLog 內部基於 GSX Pro 自身的 Remote Client 連線重建而成 — 並非 GSX 頁面的內嵌副本。",
+      "enabled": "啟用",
+      "on": "開",
+      "off": "關",
+      "host": "主機",
+      "port": "連接埠",
+      "portPlaceholder": "8744",
+      "portHint": "8744 是 GSX 自身的預設連接埠，但可以在 GSX 自身設定中的 Remote Client 下修改 — 如果連線失敗，請在那裡檢查。",
+      "statusConnected": "已連線",
+      "statusConnecting": "連線中…",
+      "statusDisconnected": "未連線"
+    },
     "currencyOptions": {
       "usd": "USD — 美元（不換算）",
       "gbp": "GBP — 英鎊",
@@ -147,6 +161,7 @@
       "fleet": "機隊",
       "dispatch": "簽派",
       "track": "追蹤",
+      "gsx": "地面服務",
       "logbook": "飛行日誌",
       "settings": "設定"
     },
@@ -173,6 +188,9 @@
     "gsxFirstLaunch": {
       "found": "GSX 地面服務追蹤已啟用 — 已自動找到收據資料夾。",
       "notFound": "GSX 地面服務追蹤未啟用 — 若你使用 GSX，請在設定中開啟。"
+    },
+    "gsxImportantPrompt": {
+      "title": "GSX 需要你的輸入"
     }
   },
   "fleetView": {
@@ -620,5 +638,23 @@
     },
     "noCompletedFlights": "尚無已完成的航班 — 去追蹤一趟飛行，或從「設定 → 資料」匯入 CSV 飛行日誌。",
     "flightNotFound": "找不到該航班。"
+  },
+  "gsxRemoteView": {
+    "title": "地面服務"
+  },
+  "gsxRemotePanel": {
+    "loading": "載入中…",
+    "notConfigured": "GSX 遠端控制已關閉。請在設定 → 第三方中啟用並設定連接埠。",
+    "connecting": "正在連線至 GSX…",
+    "disconnected": "未連線至 GSX。",
+    "menuHeaderClosed": "GSX 選單",
+    "tapToOpen": "點擊開啟",
+    "commands": "指令",
+    "services": "服務",
+    "provider": "供應商：{{name}}",
+    "showMoreServices_other": "顯示另外 {{count}} 項服務",
+    "waitingFor": "等待：{{reason}}",
+    "ok": "確定",
+    "cancel": "取消"
   }
 }
