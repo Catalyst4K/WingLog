@@ -269,6 +269,8 @@
         "hydraulicsVolume": "Объём гидросистемы {{index}}",
         "hydraulicsTemp": "Температура гидросистемы {{index}}",
         "hydraulicsReservoir": "Резервуар гидросистемы {{index}}",
+        "hydraulicsReservoirYellow": "Резервуар жёлтой гидросистемы",
+        "hydraulicsReservoirGreen": "Резервуар зелёной гидросистемы",
         "fuelVolume": "Объём топливного бака {{index}}",
         "fuelTemperature": "Температура топливного бака {{index}}",
         "apuHours": "Наработка ВСУ",

@@ -253,6 +253,8 @@
         "hydraulicsVolume": "Hydraulic system {{index}} volume",
         "hydraulicsTemp": "Hydraulic system {{index}} temperature",
         "hydraulicsReservoir": "Hydraulic system {{index}} reservoir",
+        "hydraulicsReservoirYellow": "Yellow hydraulics reservoir",
+        "hydraulicsReservoirGreen": "Green hydraulics reservoir",
         "fuelVolume": "Fuel tank {{index}} volume",
         "fuelTemperature": "Fuel tank {{index}} temperature",
         "apuHours": "APU hours",

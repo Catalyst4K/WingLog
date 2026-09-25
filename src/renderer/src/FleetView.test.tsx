@@ -953,9 +953,36 @@ describe('FleetView', () => {
       })
       render(<FleetView weightUnit="kg" onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
       expect(await screen.findByText('APU hours')).toBeInTheDocument()
-      expect(screen.getByText('1565.109009')).toBeInTheDocument()
+      // Rounded and unit-suffixed for display, not the source file's raw ~6-decimal value —
+      // fleet-maintenance-format.test.ts covers the rounding rules themselves; this only
+      // confirms the card actually wires them in.
+      expect(screen.getByText('1565.1 h')).toBeInTheDocument()
       expect(screen.getByText('Battery 1')).toBeInTheDocument()
-      expect(screen.getByText('97.234558')).toBeInTheDocument()
+      expect(screen.getByText('97%')).toBeInTheDocument()
+    })
+
+    it('labels the A350 hydraulics reservoirs by colour (Yellow/Green), not by index', async () => {
+      const report: MaintenanceReport = {
+        addon: 'inibuildsA350',
+        groups: [
+          {
+            key: 'hydraulics',
+            fields: [
+              { key: 'hydraulicsReservoir', index: 1, value: '41.691605' },
+              { key: 'hydraulicsReservoir', index: 2, value: '32.251915' }
+            ]
+          }
+        ]
+      }
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+        fleetGetMaintenance: vi.fn().mockResolvedValue(report)
+      })
+      render(<FleetView weightUnit="kg" onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
+      expect(await screen.findByText('Yellow hydraulics reservoir')).toBeInTheDocument()
+      expect(screen.getByText('41.7')).toBeInTheDocument()
+      expect(screen.getByText('Green hydraulics reservoir')).toBeInTheDocument()
+      expect(screen.getByText('32.3')).toBeInTheDocument()
     })
   })
 

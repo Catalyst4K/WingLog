@@ -32,6 +32,7 @@ import { AirlineLogo } from './AirlineLogo'
 import { FolderTabs, FolderTabsContent, FolderTabsList, FolderTabsTrigger } from './components/FolderTabs'
 import { displayIcao } from './display-icao'
 import { lastKnownFuelOnBoard } from './fleet-fuel'
+import { formatMaintenanceValue, maintenanceFieldLabelKey } from './fleet-maintenance-format'
 import { useConfirm } from './hooks/useConfirm'
 import { useResetSignal } from './hooks/useResetSignal'
 import { useSortable } from './hooks/useSortable'
@@ -222,9 +223,11 @@ function AircraftMaintenanceCard(props: { aircraftId: number }): React.JSX.Eleme
             {rows.map((row) => (
               <div key={`${row.groupKey}.${row.key}.${row.index ?? ''}`} className="flex items-center justify-between gap-3">
                 <span className="text-muted-foreground">
-                  {t(`fleetView.maintenance.fields.${row.key}`, { index: row.index })}
+                  {t(maintenanceFieldLabelKey(row.key, row.index), { index: row.index })}
                 </span>
-                <span className="font-mono tabular-nums text-foreground">{row.value}</span>
+                <span className="font-mono tabular-nums text-foreground">
+                  {formatMaintenanceValue(row.key, row.value)}
+                </span>
               </div>
             ))}
           </div>

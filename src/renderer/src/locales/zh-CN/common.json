@@ -248,6 +248,8 @@
         "hydraulicsVolume": "{{index}} 号液压系统容量",
         "hydraulicsTemp": "{{index}} 号液压系统温度",
         "hydraulicsReservoir": "{{index}} 号液压系统储液量",
+        "hydraulicsReservoirYellow": "黄色液压系统储液量",
+        "hydraulicsReservoirGreen": "绿色液压系统储液量",
         "fuelVolume": "{{index}} 号油箱容量",
         "fuelTemperature": "{{index}} 号油箱温度",
         "apuHours": "APU 小时数",

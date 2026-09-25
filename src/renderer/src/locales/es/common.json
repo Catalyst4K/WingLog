@@ -255,6 +255,8 @@
         "hydraulicsVolume": "Volumen del sistema hidráulico {{index}}",
         "hydraulicsTemp": "Temperatura del sistema hidráulico {{index}}",
         "hydraulicsReservoir": "Depósito del sistema hidráulico {{index}}",
+        "hydraulicsReservoirYellow": "Depósito del sistema hidráulico amarillo",
+        "hydraulicsReservoirGreen": "Depósito del sistema hidráulico verde",
         "fuelVolume": "Volumen del tanque de combustible {{index}}",
         "fuelTemperature": "Temperatura del tanque de combustible {{index}}",
         "apuHours": "Horas del APU",
