@@ -104,6 +104,7 @@ import { buildFlightMatchWindow } from './gsx/flight-window'
 import { readReceipt, receiptFileFromPath, scanGsxFolder } from './gsx/scan'
 import { readPmdg777Maintenance } from './pmdg/read-maintenance'
 import { readIniBuildsA350Maintenance } from './inibuilds-a350/read-maintenance'
+import { resolveMaintenanceAddon } from './wasm-maintenance/addon-for-type'
 import { fetchAirframesForType } from './simbrief/simbrief-airframes'
 import { extractOfpPdfUrl } from './simbrief/ofp-pdf'
 import { fetchLatestOfp, parseOfp, type SimBriefOfp } from './simbrief/simbrief-client'
@@ -892,12 +893,19 @@ if (!gotSingleInstanceLock) {
         return canceled || filePaths.length === 0 ? null : filePaths[0]
       })
       ipcMain.handle(IpcChannels.fleetGetMaintenance, async (_event, aircraftId: number) => {
-        const registration = getAircraftById(db, aircraftId)?.registration
-        if (!registration) return null
+        const aircraftRow = getAircraftById(db, aircraftId)
+        if (!aircraftRow) return null
+        // Which adapter applies is decided by the aircraft's own known type, never by
+        // "whichever add-on's file happens to exist" — PMDG's and iniBuilds' own WASM
+        // folders can each independently have a file for the same real-world registration
+        // (e.g. B-LRJ), and trying one unconditionally before the other showed the wrong
+        // add-on's data on a real aircraft (Callum, 2026-09-25).
+        const addon = resolveMaintenanceAddon(aircraftRow.icaoType)
+        if (!addon) return null
         const { folderPath } = getMaintenanceAddonSettings(db)
-        const pmdgReport = await readPmdg777Maintenance(folderPath, registration)
-        if (pmdgReport) return pmdgReport
-        return readIniBuildsA350Maintenance(folderPath, registration)
+        return addon === 'pmdg777'
+          ? readPmdg777Maintenance(folderPath, aircraftRow.registration)
+          : readIniBuildsA350Maintenance(folderPath, aircraftRow.registration)
       })
 
       ipcMain.handle(IpcChannels.aircraftLookupByRegistration, (_event, registration: string) =>
