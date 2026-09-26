@@ -112,6 +112,19 @@ export interface LandingScoreInputs {
    *  (no runway match, or a match with no real length data — resolveLandingScore folds both
    *  cases into the same null). */
   runwayLengthM: number | null
+  /** This runway end's real ICAO Annex 14 aiming-point-marking distance from the threshold
+   *  (runway-lookup.ts's aimingPointDistanceForLengthM) — needed alongside runwayLengthM
+   *  because the touchdown-zone markings' real extent (touchdownZonePairCountForLengthM
+   *  pairs) is measured from the *threshold*, while distanceFromAimingPointM is measured
+   *  from the aiming point, which already sits 150-400m down the runway from that same
+   *  threshold. Real incident, 2026-09-26: a WSSS-EGLL landing that touched down right at
+   *  the last real touchdown-zone marker (~900m from threshold on EGLL's runways) scored
+   *  ~57/100 for distance, not 0, because the tolerance was being computed as the full
+   *  pairCount*150 (900m) measured from the aiming point instead of from the threshold —
+   *  silently extending the zero point 400m past where the real marking actually ends. Null
+   *  in exactly the same cases as runwayLengthM (no runway match, or no real aiming-point
+   *  data). */
+  aimingPointDistanceM: number | null
   /** Signed lateral offset from the runway centreline (0 = dead centre). */
   centrelineOffsetM: number | null
   /** Where the centreline input's score hits 0 — half the runway's real width, or
@@ -123,12 +136,15 @@ export interface LandingScoreInputs {
 /** What "perfect" and "score reaches 0" actually are for one category, in that category's
  *  own natural unit (fpm for verticalSpeed, degrees, g, or metres) — real per-flight numbers
  *  for the two runway-dependent categories (centrelineOffset's tolerance is this runway's
- *  own real half-width; distanceFromAimingPoint's is its own real touchdown-zone marking
- *  extent, touchdownZonePairCountForLengthM(runwayLengthM) pairs of TOUCHDOWN_ZONE_PAIR_
- *  SPACING_M each — 2026-09-13, replacing a flat aimingPointToleranceM-based tolerance),
- *  fixed constants for the rest. Symmetric for every category, including verticalSpeed
- *  (2026-09-13 — see LandingRateBand's own doc comment for why it isn't tighter on the soft
- *  side). */
+ *  own real half-width; distanceFromAimingPoint's is the real distance, from the aiming
+ *  point, to the last real touchdown-zone marker — touchdownZonePairCountForLengthM(
+ *  runwayLengthM) pairs of TOUCHDOWN_ZONE_PAIR_SPACING_M each, measured back from that
+ *  marker's own threshold-relative position to the aiming point, not the marker's full
+ *  threshold-relative distance on its own — 2026-09-13, replacing a flat
+ *  aimingPointToleranceM-based tolerance; corrected 2026-09-26, see aimingPointDistanceM's
+ *  own doc comment for the real incident), fixed constants for the rest. Symmetric for every
+ *  category, including verticalSpeed (2026-09-13 — see LandingRateBand's own doc comment for
+ *  why it isn't tighter on the soft side). */
 export interface LandingScoreCategoryDetail {
   ideal: number
   /** Deviation from `ideal` (same unit) at which this category's score reaches 0. */
@@ -355,8 +371,18 @@ export function computeLandingScore(inputs: LandingScoreInputs): LandingScoreBre
       : taperedScore(inputs.crabDeg - CRAB_IDEAL_DEG, CRAB_TOLERANCE_DEG, CRAB_DANGER_PENALTY_MAX_FRACTION)
   const touchdownZonePairCount =
     inputs.runwayLengthM === null ? null : touchdownZonePairCountForLengthM(inputs.runwayLengthM)
+  // Tolerance = distance from the aiming point (where distanceFromAimingPointM is measured
+  // from) to the last real touchdown-zone marker (which is measured from the threshold) —
+  // not the marker's full threshold-relative distance on its own (see aimingPointDistanceM's
+  // own doc comment for the real incident this fixes). Clamped at 0 for the rare short/
+  // medium runway band where the aiming point marking sits beyond the single touchdown-zone
+  // pair (e.g. 800-900m runways: 1 pair at 150m, but the aiming point at 250m) — taperedScore
+  // treats a zero-or-negative tolerance as "any deviation at all scores 0", which is the
+  // correct read for a runway that short: there's no real slack left to taper over.
   const distanceFromAimingPointTolerance =
-    touchdownZonePairCount === null ? null : touchdownZonePairCount * TOUCHDOWN_ZONE_PAIR_SPACING_M
+    touchdownZonePairCount === null || inputs.aimingPointDistanceM === null
+      ? null
+      : Math.max(0, touchdownZonePairCount * TOUCHDOWN_ZONE_PAIR_SPACING_M - inputs.aimingPointDistanceM)
   const distanceFromAimingPoint =
     inputs.distanceFromAimingPointM === null || distanceFromAimingPointTolerance === null
       ? null
