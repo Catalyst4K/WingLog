@@ -44,6 +44,8 @@ function toCategories(breakdown: LandingScoreBreakdown): LandingScoreCategory[] 
       score: breakdown.inputs[key],
       ideal: detail?.ideal ?? null,
       tolerance: detail?.tolerance ?? null,
+      toleranceShort: detail?.toleranceShort ?? null,
+      toleranceLong: detail?.toleranceLong ?? null,
       dangerousPenalty: breakdown.dangerPenalties[key] ?? 0
     }
   })

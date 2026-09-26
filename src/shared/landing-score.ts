@@ -113,17 +113,20 @@ export interface LandingScoreInputs {
    *  cases into the same null). */
   runwayLengthM: number | null
   /** This runway end's real ICAO Annex 14 aiming-point-marking distance from the threshold
-   *  (runway-lookup.ts's aimingPointDistanceForLengthM) — needed alongside runwayLengthM
-   *  because the touchdown-zone markings' real extent (touchdownZonePairCountForLengthM
-   *  pairs) is measured from the *threshold*, while distanceFromAimingPointM is measured
-   *  from the aiming point, which already sits 150-400m down the runway from that same
-   *  threshold. Real incident, 2026-09-26: a WSSS-EGLL landing that touched down right at
-   *  the last real touchdown-zone marker (~900m from threshold on EGLL's runways) scored
-   *  ~57/100 for distance, not 0, because the tolerance was being computed as the full
-   *  pairCount*150 (900m) measured from the aiming point instead of from the threshold —
-   *  silently extending the zero point 400m past where the real marking actually ends. Null
-   *  in exactly the same cases as runwayLengthM (no runway match, or no real aiming-point
-   *  data). */
+   *  (runway-lookup.ts's aimingPointDistanceForLengthM). distanceFromAimingPoint is the only
+   *  category with two distinct real physical hard limits, not one symmetric tolerance
+   *  either side of ideal (Callum, 2026-09-26, after a WSSS-EGLL landing that touched down
+   *  right at the last real touchdown-zone marker scored ~57/100 instead of 0 under an
+   *  earlier, symmetric-only fix attempt the same day): touching down at the *threshold*
+   *  should score 0 (too short), and touching down at the last real touchdown-zone *marker*
+   *  should score 0 (too long) — the aiming point sits somewhere in between, real and
+   *  usually off-centre (150-400m from the threshold, per aimingPointDistanceForLengthM's own
+   *  bands), not symmetric between those two landmarks. computeLandingScore therefore scores
+   *  this category against two different tolerances depending on which side of the aiming
+   *  point the touchdown fell: `aimingPointDistanceM` itself toward the threshold, and
+   *  touchdownZonePairCountForLengthM(runwayLengthM) pairs of TOUCHDOWN_ZONE_PAIR_SPACING_M
+   *  minus `aimingPointDistanceM` away from it. Null in exactly the same cases as
+   *  runwayLengthM (no runway match, or no real aiming-point data). */
   aimingPointDistanceM: number | null
   /** Signed lateral offset from the runway centreline (0 = dead centre). */
   centrelineOffsetM: number | null
@@ -136,19 +139,26 @@ export interface LandingScoreInputs {
 /** What "perfect" and "score reaches 0" actually are for one category, in that category's
  *  own natural unit (fpm for verticalSpeed, degrees, g, or metres) — real per-flight numbers
  *  for the two runway-dependent categories (centrelineOffset's tolerance is this runway's
- *  own real half-width; distanceFromAimingPoint's is the real distance, from the aiming
- *  point, to the last real touchdown-zone marker — touchdownZonePairCountForLengthM(
- *  runwayLengthM) pairs of TOUCHDOWN_ZONE_PAIR_SPACING_M each, measured back from that
- *  marker's own threshold-relative position to the aiming point, not the marker's full
- *  threshold-relative distance on its own — 2026-09-13, replacing a flat
- *  aimingPointToleranceM-based tolerance; corrected 2026-09-26, see aimingPointDistanceM's
- *  own doc comment for the real incident), fixed constants for the rest. Symmetric for every
- *  category, including verticalSpeed (2026-09-13 — see LandingRateBand's own doc comment for
- *  why it isn't tighter on the soft side). */
+ *  own real half-width). Symmetric for every category, including verticalSpeed (2026-09-13
+ *  — see LandingRateBand's own doc comment for why it isn't tighter on the soft side) —
+ *  except distanceFromAimingPoint (2026-09-26, see aimingPointDistanceM's own doc comment),
+ *  the only one with two distinct real physical hard limits rather than one tolerance
+ *  either side of ideal: `tolerance` still holds a single representative value (the long
+ *  side, toward the far end of the runway) for any generic consumer, but `toleranceShort`/
+ *  `toleranceLong` carry the real asymmetric pair. */
 export interface LandingScoreCategoryDetail {
   ideal: number
-  /** Deviation from `ideal` (same unit) at which this category's score reaches 0. */
+  /** Deviation from `ideal` (same unit) at which this category's score reaches 0. For
+   *  distanceFromAimingPoint specifically, this equals `toleranceLong` — see this
+   *  interface's own doc comment above. */
   tolerance: number
+  /** distanceFromAimingPoint only — the real tolerance toward the threshold (touching down
+   *  short of the aiming point). null for every other category. */
+  toleranceShort: number | null
+  /** distanceFromAimingPoint only — the real tolerance away from the threshold (touching
+   *  down long of the aiming point) — the same value as `tolerance` above. null for every
+   *  other category. */
+  toleranceLong: number | null
 }
 
 export interface LandingScoreBreakdown {
@@ -340,6 +350,18 @@ function taperedScore(
   return { score, exceeded, dangerPenalty: exceeded ? dangerPenaltyForFraction(fraction, maxFraction) : 0 }
 }
 
+/** distanceFromAimingPoint's own scoring, the only category taperedScore alone can't cover:
+ *  two real physical hard limits (the threshold, and the last real touchdown-zone marker)
+ *  rather than one tolerance either side of `ideal` (0 = the aiming point) — see
+ *  aimingPointDistanceM's own doc comment for why (2026-09-26). `deviation` is already
+ *  signed the same way as elsewhere (`actual - ideal`): negative means short of the aiming
+ *  point (toward the threshold), positive means long of it (toward the far marker) — so the
+ *  sign alone picks which real tolerance applies, everything past that is the same tapered
+ *  curve as every other category. */
+function asymmetricTaperedScore(deviation: number, toleranceShort: number, toleranceLong: number): CategoryScore {
+  return taperedScore(deviation, deviation <= 0 ? toleranceShort : toleranceLong)
+}
+
 /**
  * The 0-100 landing score (0-100 for display; see LandingScoreBreakdown's own doc comment
  * on `overall` for why the raw value here can be negative). Each of the 7 inputs is scored
@@ -371,22 +393,31 @@ export function computeLandingScore(inputs: LandingScoreInputs): LandingScoreBre
       : taperedScore(inputs.crabDeg - CRAB_IDEAL_DEG, CRAB_TOLERANCE_DEG, CRAB_DANGER_PENALTY_MAX_FRACTION)
   const touchdownZonePairCount =
     inputs.runwayLengthM === null ? null : touchdownZonePairCountForLengthM(inputs.runwayLengthM)
-  // Tolerance = distance from the aiming point (where distanceFromAimingPointM is measured
-  // from) to the last real touchdown-zone marker (which is measured from the threshold) —
-  // not the marker's full threshold-relative distance on its own (see aimingPointDistanceM's
-  // own doc comment for the real incident this fixes). Clamped at 0 for the rare short/
-  // medium runway band where the aiming point marking sits beyond the single touchdown-zone
-  // pair (e.g. 800-900m runways: 1 pair at 150m, but the aiming point at 250m) — taperedScore
-  // treats a zero-or-negative tolerance as "any deviation at all scores 0", which is the
-  // correct read for a runway that short: there's no real slack left to taper over.
-  const distanceFromAimingPointTolerance =
+  // Two real physical hard limits, not one symmetric tolerance (Callum, 2026-09-26 — see
+  // aimingPointDistanceM's own doc comment): toward the threshold, the real tolerance is
+  // just the aiming point's own distance from it — score reaches 0 exactly at the threshold.
+  // Away from the threshold, it's the gap from the aiming point to the last real
+  // touchdown-zone marker (that marker's own threshold-relative distance,
+  // touchdownZonePairCount * 150m, minus the aiming point's), clamped at 0 for the rare
+  // short/medium runway band where the aiming point marking sits beyond the single
+  // touchdown-zone pair (e.g. 800-900m runways: 1 pair at 150m, but the aiming point at
+  // 250m) — taperedScore treats a zero-or-negative tolerance as "any deviation at all scores
+  // 0", the correct read for a runway that short.
+  const distanceFromAimingPointToleranceShort = inputs.aimingPointDistanceM === null ? null : inputs.aimingPointDistanceM
+  const distanceFromAimingPointToleranceLong =
     touchdownZonePairCount === null || inputs.aimingPointDistanceM === null
       ? null
       : Math.max(0, touchdownZonePairCount * TOUCHDOWN_ZONE_PAIR_SPACING_M - inputs.aimingPointDistanceM)
   const distanceFromAimingPoint =
-    inputs.distanceFromAimingPointM === null || distanceFromAimingPointTolerance === null
+    inputs.distanceFromAimingPointM === null ||
+    distanceFromAimingPointToleranceShort === null ||
+    distanceFromAimingPointToleranceLong === null
       ? null
-      : taperedScore(inputs.distanceFromAimingPointM, distanceFromAimingPointTolerance)
+      : asymmetricTaperedScore(
+          inputs.distanceFromAimingPointM,
+          distanceFromAimingPointToleranceShort,
+          distanceFromAimingPointToleranceLong
+        )
   const centrelineOffset =
     inputs.centrelineOffsetM === null || inputs.centrelineToleranceM === null
       ? null
@@ -431,15 +462,27 @@ export function computeLandingScore(inputs: LandingScoreInputs): LandingScoreBre
       crab: crab?.score ?? null
     },
     details: {
-      verticalSpeed: { ideal: band.sweetSpotFpm, tolerance: verticalSpeedTolerance },
-      gForce: { ideal: GFORCE_IDEAL, tolerance: GFORCE_TOLERANCE },
-      pitch: { ideal: PITCH_IDEAL_DEG, tolerance: PITCH_TOLERANCE_DEG },
-      bank: { ideal: BANK_IDEAL_DEG, tolerance: BANK_TOLERANCE_DEG },
-      crab: inputs.crabDeg === null ? null : { ideal: CRAB_IDEAL_DEG, tolerance: CRAB_TOLERANCE_DEG },
+      verticalSpeed: { ideal: band.sweetSpotFpm, tolerance: verticalSpeedTolerance, toleranceShort: null, toleranceLong: null },
+      gForce: { ideal: GFORCE_IDEAL, tolerance: GFORCE_TOLERANCE, toleranceShort: null, toleranceLong: null },
+      pitch: { ideal: PITCH_IDEAL_DEG, tolerance: PITCH_TOLERANCE_DEG, toleranceShort: null, toleranceLong: null },
+      bank: { ideal: BANK_IDEAL_DEG, tolerance: BANK_TOLERANCE_DEG, toleranceShort: null, toleranceLong: null },
+      crab:
+        inputs.crabDeg === null
+          ? null
+          : { ideal: CRAB_IDEAL_DEG, tolerance: CRAB_TOLERANCE_DEG, toleranceShort: null, toleranceLong: null },
       distanceFromAimingPoint:
-        distanceFromAimingPointTolerance === null ? null : { ideal: 0, tolerance: distanceFromAimingPointTolerance },
+        distanceFromAimingPointToleranceShort === null || distanceFromAimingPointToleranceLong === null
+          ? null
+          : {
+              ideal: 0,
+              tolerance: distanceFromAimingPointToleranceLong,
+              toleranceShort: distanceFromAimingPointToleranceShort,
+              toleranceLong: distanceFromAimingPointToleranceLong
+            },
       centrelineOffset:
-        inputs.centrelineToleranceM === null ? null : { ideal: 0, tolerance: inputs.centrelineToleranceM }
+        inputs.centrelineToleranceM === null
+          ? null
+          : { ideal: 0, tolerance: inputs.centrelineToleranceM, toleranceShort: null, toleranceLong: null }
     }
   }
 }

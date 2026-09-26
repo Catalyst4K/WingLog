@@ -83,7 +83,15 @@ describe('resolveLandingScore', () => {
     expect(verticalSpeed).toMatchObject({ ideal: 120, tolerance: 360 }) // M category
 
     const aimingPoint = result.categories.find((c) => c.key === 'distanceFromAimingPoint')!
-    expect(aimingPoint).toMatchObject({ ideal: 0, tolerance: EGLL_27L_AIMING_POINT_TOLERANCE_M })
+    expect(aimingPoint).toMatchObject({
+      ideal: 0,
+      tolerance: EGLL_27L_AIMING_POINT_TOLERANCE_M,
+      // Asymmetric since 2026-09-26: short = the aiming point's own real distance back to
+      // the threshold, long = its distance to the last real touchdown-zone marker (the same
+      // as `tolerance` above).
+      toleranceShort: EGLL_27L_AIMING_POINT_M,
+      toleranceLong: EGLL_27L_AIMING_POINT_TOLERANCE_M
+    })
 
     const centreline = result.categories.find((c) => c.key === 'centrelineOffset')!
     expect(centreline).toMatchObject({ ideal: 0, tolerance: EGLL_27L_HALF_WIDTH_M })

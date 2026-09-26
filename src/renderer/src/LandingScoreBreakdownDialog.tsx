@@ -69,7 +69,14 @@ export function LandingScoreBreakdownDialog(props: {
                     </button>
                   </PopoverTrigger>
                   <PopoverContent>
-                    {describeCategoryTolerance(category.key, category.ideal, category.tolerance, props.unit)}
+                    {describeCategoryTolerance(
+                      category.key,
+                      category.ideal,
+                      category.tolerance,
+                      props.unit,
+                      category.toleranceShort,
+                      category.toleranceLong
+                    )}
                   </PopoverContent>
                 </Popover>
               </dt>

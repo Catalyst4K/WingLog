@@ -276,7 +276,10 @@ describe('computeLandingScore', () => {
   describe(
     'distance from aiming point: tapered like every other category (Callum, 2026-09-21 — ' +
       'replacing the old stepped piano-key scale, which made some scores impossible to land ' +
-      'on and didn\'t punish "a lot long" any harder than "a little long")',
+      'on and didn\'t punish "a lot long" any harder than "a little long"), but with its own ' +
+      'asymmetric tolerance either side of the aiming point since 2026-09-26 (see ' +
+      "aimingPointDistanceM's own doc comment) — the threshold and the last real " +
+      "touchdown-zone marker are two different real distances from it, not one shared value",
     () => {
       it('is perfect dead on the aiming point', () => {
         const result = computeLandingScore({ ...PERFECT_M, distanceFromAimingPointM: 0 })
@@ -292,13 +295,20 @@ describe('computeLandingScore', () => {
         expect(result.inputs.distanceFromAimingPoint).toBe(92)
       })
 
-      it("doesn't read a touchdown halfway through the zone as still-mostly-good, symmetric either direction", () => {
-        // Real tolerance 500m (see above). fraction = 250/500 = 0.5. score = round(100*(1-0.5^1.5)) = 65.
-        const long = computeLandingScore({ ...PERFECT_M, distanceFromAimingPointM: 250 })
-        const short = computeLandingScore({ ...PERFECT_M, distanceFromAimingPointM: -250 })
-        expect(long.inputs.distanceFromAimingPoint).toBe(65)
-        expect(short.inputs.distanceFromAimingPoint).toBe(65)
-      })
+      it(
+        "doesn't read a touchdown halfway through the zone as still-mostly-good — and, since " +
+          "the two sides are asymmetric (2026-09-26, see aimingPointDistanceM's own doc " +
+          "comment), 'halfway' means half of *that side's own* real tolerance: long uses the " +
+          '500m long tolerance (250 = 0.5 of it), short uses the 400m short tolerance (200 = ' +
+          '0.5 of it) — different absolute distances, same fraction, same score',
+        () => {
+          // fraction = 0.5 either way. score = round(100*(1-0.5^1.5)) = 65.
+          const long = computeLandingScore({ ...PERFECT_M, distanceFromAimingPointM: 250 })
+          const short = computeLandingScore({ ...PERFECT_M, distanceFromAimingPointM: -200 })
+          expect(long.inputs.distanceFromAimingPoint).toBe(65)
+          expect(short.inputs.distanceFromAimingPoint).toBe(65)
+        }
+      )
 
       it(
         "reaches 0 exactly at the runway's own real touchdown-zone edge — real incident, " +
@@ -352,10 +362,13 @@ describe('computeLandingScore', () => {
       })
 
       it(
-        "clamps tolerance to 0, not negative, for the rare short-runway band where the real " +
-          'aiming point sits beyond the single touchdown-zone pair (800-900m: 1 pair at 150m, ' +
-          'but a 250m aiming-point distance) — any deviation at all scores 0 rather than the ' +
-          'formula going the wrong direction',
+        "clamps the long-side tolerance to 0, not negative, for the rare short-runway band " +
+          'where the real aiming point sits beyond the single touchdown-zone pair (800-900m: ' +
+          '1 pair at 150m, but a 250m aiming-point distance) — any long-side deviation at all ' +
+          "scores 0 rather than the formula going the wrong direction. The short-side " +
+          "tolerance is unaffected (it's just the aiming point's own distance from the " +
+          "threshold, always positive) — this landing is 1m long of the aiming point, so it's " +
+          'the clamped long side that applies here.',
         () => {
           const result = computeLandingScore({
             ...PERFECT_M,
@@ -363,7 +376,12 @@ describe('computeLandingScore', () => {
             aimingPointDistanceM: 250,
             distanceFromAimingPointM: 1
           })
-          expect(result.details.distanceFromAimingPoint).toEqual({ ideal: 0, tolerance: 0 })
+          expect(result.details.distanceFromAimingPoint).toEqual({
+            ideal: 0,
+            tolerance: 0,
+            toleranceShort: 250,
+            toleranceLong: 0
+          })
           expect(result.inputs.distanceFromAimingPoint).toBe(0)
         }
       )
@@ -459,35 +477,47 @@ describe('computeLandingScore', () => {
   })
 
   describe('details', () => {
-    it("reports each fixed-constant category's real ideal/tolerance, category-scaled and symmetric for vertical speed", () => {
+    it("reports each fixed-constant category's real ideal/tolerance, category-scaled and symmetric for vertical speed — toleranceShort/toleranceLong stay null, since only distanceFromAimingPoint is asymmetric", () => {
       const { details } = computeLandingScore(PERFECT_M)
       // M: sweet 120, hard 480 -> tolerance 360, same on both sides.
-      expect(details.verticalSpeed).toEqual({ ideal: 120, tolerance: 360 })
-      expect(details.gForce).toEqual({ ideal: 1, tolerance: 1 })
-      expect(details.pitch).toEqual({ ideal: -4, tolerance: 6 })
-      expect(details.bank).toEqual({ ideal: 0, tolerance: 8 })
-      expect(details.crab).toEqual({ ideal: 0, tolerance: 5 })
+      expect(details.verticalSpeed).toEqual({ ideal: 120, tolerance: 360, toleranceShort: null, toleranceLong: null })
+      expect(details.gForce).toEqual({ ideal: 1, tolerance: 1, toleranceShort: null, toleranceLong: null })
+      expect(details.pitch).toEqual({ ideal: -4, tolerance: 6, toleranceShort: null, toleranceLong: null })
+      expect(details.bank).toEqual({ ideal: 0, tolerance: 8, toleranceShort: null, toleranceLong: null })
+      expect(details.crab).toEqual({ ideal: 0, tolerance: 5, toleranceShort: null, toleranceLong: null })
     })
 
     it("reports the runway-dependent categories' real per-flight tolerance (this runway's own data)", () => {
       const { details } = computeLandingScore(PERFECT_M)
-      // runwayLengthM 3000 -> 6 pairs * 150m = 900m from the threshold, minus the 400m real
-      // aiming-point distance -> 500m real tolerance from the aiming point.
-      expect(details.distanceFromAimingPoint).toEqual({ ideal: 0, tolerance: 500 })
-      expect(details.centrelineOffset).toEqual({ ideal: 0, tolerance: 25 })
+      // runwayLengthM 3000 -> 6 pairs * 150m = 900m from the threshold. Asymmetric around the
+      // 400m real aiming-point distance (2026-09-26): toleranceShort = 400m (back to the
+      // threshold), toleranceLong = 900-400=500m (out to the last real marker). `tolerance`
+      // mirrors toleranceLong for any generic consumer.
+      expect(details.distanceFromAimingPoint).toEqual({
+        ideal: 0,
+        tolerance: 500,
+        toleranceShort: 400,
+        toleranceLong: 500
+      })
+      expect(details.centrelineOffset).toEqual({ ideal: 0, tolerance: 25, toleranceShort: null, toleranceLong: null })
     })
 
     it("scales distance-from-aiming-point tolerance to a shorter runway's smaller real touchdown zone", () => {
       const { details } = computeLandingScore({ ...PERFECT_M, runwayLengthM: 1200, aimingPointDistanceM: 300 })
-      // 1200m -> 3 pairs * 150m = 450m from the threshold, minus its 300m real aiming-point
-      // distance -> 150m real tolerance.
-      expect(details.distanceFromAimingPoint).toEqual({ ideal: 0, tolerance: 150 })
+      // 1200m -> 3 pairs * 150m = 450m from the threshold. toleranceShort = 300m (its own
+      // aiming-point distance), toleranceLong = 450-300=150m.
+      expect(details.distanceFromAimingPoint).toEqual({
+        ideal: 0,
+        tolerance: 150,
+        toleranceShort: 300,
+        toleranceLong: 150
+      })
     })
 
     it('scales vertical speed ideal/tolerance to a different wake category', () => {
       const { details } = computeLandingScore({ ...PERFECT_M, category: 'H' })
       // H: sweet 150, hard 600 -> tolerance 450.
-      expect(details.verticalSpeed).toEqual({ ideal: 150, tolerance: 450 })
+      expect(details.verticalSpeed).toEqual({ ideal: 150, tolerance: 450, toleranceShort: null, toleranceLong: null })
     })
 
     it('is null exactly for the categories with no runway match, even though crab keeps its constant', () => {
