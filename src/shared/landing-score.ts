@@ -327,6 +327,15 @@ const DANGER_PENALTY_MAX = 10
 const DEFAULT_DANGER_PENALTY_MAX_FRACTION = 1.25
 // Crab's own ramp is gentler than the default — see the history above.
 const CRAB_DANGER_PENALTY_MAX_FRACTION = 1.5
+// distanceFromAimingPoint's own ramp, loosened from the 1.25 default to match crab's gentler
+// 1.5 (Callum, 2026-09-26): the 1.25 figure above was tuned against this category's old,
+// too-wide tolerance (900m, before the same-day fix split it into a real, narrower
+// asymmetric short/long pair — see aimingPointDistanceM's own doc comment). Against the
+// correct ~500m long-side tolerance, 1.25 meant a touchdown only ~55m past the real last
+// touchdown-zone marker already scored a 5-point penalty and ~125m past maxed out at 10 —
+// "harsh for just past the last aiming point" once the tolerance itself stopped absorbing
+// the difference. 1.5 gives the same real distances roughly half that penalty.
+const DISTANCE_FROM_AIMING_POINT_DANGER_PENALTY_MAX_FRACTION = 1.5
 
 function dangerPenaltyForFraction(fraction: number, maxFraction: number): number {
   if (fraction < 1) return 0
@@ -358,8 +367,13 @@ function taperedScore(
  *  point (toward the threshold), positive means long of it (toward the far marker) — so the
  *  sign alone picks which real tolerance applies, everything past that is the same tapered
  *  curve as every other category. */
-function asymmetricTaperedScore(deviation: number, toleranceShort: number, toleranceLong: number): CategoryScore {
-  return taperedScore(deviation, deviation <= 0 ? toleranceShort : toleranceLong)
+function asymmetricTaperedScore(
+  deviation: number,
+  toleranceShort: number,
+  toleranceLong: number,
+  maxFraction: number
+): CategoryScore {
+  return taperedScore(deviation, deviation <= 0 ? toleranceShort : toleranceLong, maxFraction)
 }
 
 /**
@@ -416,7 +430,8 @@ export function computeLandingScore(inputs: LandingScoreInputs): LandingScoreBre
       : asymmetricTaperedScore(
           inputs.distanceFromAimingPointM,
           distanceFromAimingPointToleranceShort,
-          distanceFromAimingPointToleranceLong
+          distanceFromAimingPointToleranceLong,
+          DISTANCE_FROM_AIMING_POINT_DANGER_PENALTY_MAX_FRACTION
         )
   const centrelineOffset =
     inputs.centrelineOffsetM === null || inputs.centrelineToleranceM === null

@@ -412,23 +412,28 @@ describe('computeLandingScore', () => {
   })
 
   it(
-    "ramps crab's own danger penalty more gently than distance-from-aiming-point at the " +
-      'same fraction past tolerance — real testing showed the two need different paces ' +
-      "(2026-09-21): distance felt right maxing out fast (1.25x), but that same pace felt " +
-      'too harsh for crab, which wanted the gentler 1.5x ramp back',
+    "ramps crab's and distance-from-aiming-point's own danger penalties more gently than " +
+      "the 1.25x default — both share crab's original 1.5x pace now (real testing, " +
+      '2026-09-21, found 1.25x too harsh for crab; distance-from-aiming-point was retuned to ' +
+      "match it 2026-09-26, once its own tolerance shrank to the real touchdown-zone extent " +
+      "and the old 1.25x pace started maxing out only ~125m past the real last marker — " +
+      "\"harsh for just past\" (Callum) — while gForce (no per-category override) still uses " +
+      'the stricter 1.25x default',
     () => {
-      // Both at fraction 1.2 past their own tolerance — crab: 5 * 1.2 = 6; distance (real
-      // 500m tolerance): 500 * 1.2 = 600.
+      // All three at fraction 1.2 past their own tolerance — crab: 5 * 1.2 = 6; distance
+      // (real 500m tolerance): 500 * 1.2 = 600; gForce (tolerance 1.0): 1.0 * 1.2 = 1.2.
       const result = computeLandingScore({
         ...PERFECT_M,
         crabDeg: 6,
+        gForce: 2.2, // PERFECT_M's own gForce ideal (1.0) + 1.2
         runwayLengthM: 3000,
         aimingPointDistanceM: 400,
         distanceFromAimingPointM: 600
       })
-      // crab: severity (1.2-1)/(1.5-1)=0.4 -> round(1+0.4*9)=5.
-      // distanceFromAimingPoint: severity (1.2-1)/(1.25-1)=0.8 -> round(1+0.8*9)=8.
-      expect(result.dangerPenalties).toEqual({ crab: 5, distanceFromAimingPoint: 8 })
+      // crab and distanceFromAimingPoint (both 1.5x): severity (1.2-1)/(1.5-1)=0.4 ->
+      // round(1+0.4*9)=5. gForce (default 1.25x): severity (1.2-1)/(1.25-1)=0.8 ->
+      // round(1+0.8*9)=8.
+      expect(result.dangerPenalties).toEqual({ crab: 5, distanceFromAimingPoint: 5, gForce: 8 })
     }
   )
 
