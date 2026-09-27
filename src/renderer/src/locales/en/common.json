@@ -167,7 +167,19 @@
       "license": "Free and open source under the GNU General Public License v3.0."
     },
     "usernameSavedToast": "SimBrief username saved.",
-    "usernameAutoFilledToast": "SimBrief username filled in automatically: {{username}}"
+    "usernameAutoFilledToast": "SimBrief username filled in automatically: {{username}}",
+    "beyondAtc": {
+      "cardTitle": "BeyondATC",
+      "description": "Live ATC panel and remote control, connected to BeyondATC's own local WebSocket — not an embedded copy of BeyondATC's own app.",
+      "enabled": "Enabled",
+      "on": "On",
+      "off": "Off",
+      "host": "Host",
+      "hostHint": "BeyondATC always listens on port 41716 — only the host is configurable, for a future LAN setup.",
+      "statusConnected": "Connected",
+      "statusConnecting": "Connecting…",
+      "statusDisconnected": "Disconnected"
+    }
   },
   "app": {
     "tabs": {
@@ -175,6 +187,7 @@
       "dispatch": "Dispatch",
       "track": "Track",
       "gsx": "Ground services",
+      "beyondAtc": "BeyondATC",
       "logbook": "Logbook",
       "settings": "Settings"
     },
@@ -698,5 +711,35 @@
     "waitingFor": "Waiting: {{reason}}",
     "ok": "OK",
     "cancel": "Cancel"
+  },
+  "beyondAtcView": {
+    "title": "BeyondATC"
+  },
+  "beyondAtcPanel": {
+    "loading": "Loading…",
+    "notConfigured": "BeyondATC integration is off. Turn it on under Settings → 3rd party.",
+    "connecting": "Connecting to BeyondATC…",
+    "disconnected": "Not connected to BeyondATC.",
+    "tunedTo": "Tuned to {{station}} ({{frequency}})",
+    "progress": "{{from}} → {{to}} · {{pct}}%",
+    "transcript": "Transcript",
+    "actions": "Actions",
+    "frequencyUnknown": "—",
+    "frequencyPlaceholder": "118.850",
+    "setFrequency": "Set",
+    "commsMode": {
+      "queued": "Queued",
+      "ready": "Ready",
+      "awaiting": "Awaiting response",
+      "speaking": "Speaking",
+      "request": "Request logged",
+      "traffic": "Traffic"
+    },
+    "speaker": {
+      "player": "You",
+      "atc": "ATC",
+      "traffic": "Traffic",
+      "atcTraffic": "ATC → Traffic"
+    }
   }
 }

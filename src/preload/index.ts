@@ -4,6 +4,10 @@ import {
   type AircraftUpdate,
   type AltitudeUnit,
   type AppLanguage,
+  type BeyondAtcConnectionStatus,
+  type BeyondAtcSettings,
+  type BeyondAtcState,
+  type BeyondAtcTranscriptEntry,
   type DataFormat,
   type DispatchOpenSimBriefParams,
   type WingLogApi,
@@ -229,7 +233,30 @@ const api: WingLogApi = {
   gsxRemoteToggleMenu: () => ipcRenderer.invoke(IpcChannels.gsxRemoteToggleMenu),
   gsxRemoteSubmitPrompt: (gen: number, text: string) => ipcRenderer.invoke(IpcChannels.gsxRemoteSubmitPrompt, gen, text),
   gsxRemoteCancelPrompt: (gen: number) => ipcRenderer.invoke(IpcChannels.gsxRemoteCancelPrompt, gen),
-  gsxRemoteRunCommand: (id: GsxRemoteCommandId) => ipcRenderer.invoke(IpcChannels.gsxRemoteRunCommand, id)
+  gsxRemoteRunCommand: (id: GsxRemoteCommandId) => ipcRenderer.invoke(IpcChannels.gsxRemoteRunCommand, id),
+  settingsGetBeyondAtc: () => ipcRenderer.invoke(IpcChannels.settingsGetBeyondAtc),
+  settingsSetBeyondAtc: (settings: BeyondAtcSettings) => ipcRenderer.invoke(IpcChannels.settingsSetBeyondAtc, settings),
+  beyondAtcGetStatus: () => ipcRenderer.invoke(IpcChannels.beyondAtcGetStatus),
+  onBeyondAtcStatus: (listener: (status: BeyondAtcConnectionStatus) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, status: BeyondAtcConnectionStatus): void => listener(status)
+    ipcRenderer.on(IpcChannels.beyondAtcStatus, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.beyondAtcStatus, handler)
+  },
+  beyondAtcGetState: () => ipcRenderer.invoke(IpcChannels.beyondAtcGetState),
+  onBeyondAtcState: (listener: (state: BeyondAtcState) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, state: BeyondAtcState): void => listener(state)
+    ipcRenderer.on(IpcChannels.beyondAtcState, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.beyondAtcState, handler)
+  },
+  beyondAtcGetTranscript: () => ipcRenderer.invoke(IpcChannels.beyondAtcGetTranscript),
+  onBeyondAtcTranscript: (listener: (transcript: BeyondAtcTranscriptEntry[]) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, transcript: BeyondAtcTranscriptEntry[]): void => listener(transcript)
+    ipcRenderer.on(IpcChannels.beyondAtcTranscript, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.beyondAtcTranscript, handler)
+  },
+  beyondAtcSetAction: (label: string) => ipcRenderer.invoke(IpcChannels.beyondAtcSetAction, label),
+  beyondAtcSetFrequency: (frequency: string) => ipcRenderer.invoke(IpcChannels.beyondAtcSetFrequency, frequency),
+  beyondAtcSetFrequencyCom2: (frequency: string) => ipcRenderer.invoke(IpcChannels.beyondAtcSetFrequencyCom2, frequency)
 }
 
 contextBridge.exposeInMainWorld('winglog', api)

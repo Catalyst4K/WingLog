@@ -2,7 +2,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from 'sonner'
-import type { GsxRemoteConnectionStatus, GsxRemoteSettings, GsxSettings, SyncStatus } from '@shared/ipc'
+import type { BeyondAtcConnectionStatus, BeyondAtcSettings, GsxRemoteConnectionStatus, GsxRemoteSettings, GsxSettings, SyncStatus } from '@shared/ipc'
 import i18n from './i18n'
 import { SettingsView } from './SettingsView'
 
@@ -36,6 +36,14 @@ function makeGsxRemoteStatus(overrides: Partial<GsxRemoteConnectionStatus> = {})
   return { state: 'disconnected', lastError: null, ...overrides }
 }
 
+function makeBeyondAtc(overrides: Partial<BeyondAtcSettings> = {}): BeyondAtcSettings {
+  return { enabled: false, host: 'localhost', ...overrides }
+}
+
+function makeBeyondAtcStatus(overrides: Partial<BeyondAtcConnectionStatus> = {}): BeyondAtcConnectionStatus {
+  return { state: 'disconnected', lastError: null, ...overrides }
+}
+
 function createWinglog(overrides: Record<string, unknown> = {}): typeof window.winglog {
   return {
     settingsGetSimbriefUsername: vi.fn().mockResolvedValue(null),
@@ -52,6 +60,10 @@ function createWinglog(overrides: Record<string, unknown> = {}): typeof window.w
     settingsSetGsxRemote: vi.fn().mockResolvedValue(undefined),
     gsxRemoteGetStatus: vi.fn().mockResolvedValue(makeGsxRemoteStatus()),
     onGsxRemoteStatus: vi.fn().mockReturnValue(() => {}),
+    settingsGetBeyondAtc: vi.fn().mockResolvedValue(makeBeyondAtc()),
+    settingsSetBeyondAtc: vi.fn().mockResolvedValue(undefined),
+    beyondAtcGetStatus: vi.fn().mockResolvedValue(makeBeyondAtcStatus()),
+    onBeyondAtcStatus: vi.fn().mockReturnValue(() => {}),
     settingsSetSimbriefUsername: vi.fn().mockResolvedValue(undefined),
     dispatchLoginSimbrief: vi.fn().mockResolvedValue(undefined),
     dispatchFetchSimbriefUsername: vi.fn().mockResolvedValue(null),
@@ -104,6 +116,8 @@ function renderSettings(
       onAppLanguageChange={props.onAppLanguageChange ?? vi.fn()}
       theme={props.theme ?? 'system'}
       onThemeChange={props.onThemeChange ?? vi.fn()}
+      onGsxRemoteEnabledChange={props.onGsxRemoteEnabledChange ?? vi.fn()}
+      onBeyondAtcEnabledChange={props.onBeyondAtcEnabledChange ?? vi.fn()}
       resetSignal={props.resetSignal}
     />
   )
@@ -231,6 +245,8 @@ describe('SettingsView', () => {
           onAppLanguageChange={vi.fn()}
           theme="system"
           onThemeChange={vi.fn()}
+          onGsxRemoteEnabledChange={vi.fn()}
+          onBeyondAtcEnabledChange={vi.fn()}
           resetSignal={1}
         />
       )
@@ -253,6 +269,8 @@ describe('SettingsView', () => {
           onAppLanguageChange={vi.fn()}
           theme="system"
           onThemeChange={vi.fn()}
+          onGsxRemoteEnabledChange={vi.fn()}
+          onBeyondAtcEnabledChange={vi.fn()}
           resetSignal={2}
         />
       )

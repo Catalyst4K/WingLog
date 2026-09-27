@@ -381,6 +381,17 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     gsxRemoteSubmitPrompt: vi.fn().mockResolvedValue(undefined),
     gsxRemoteCancelPrompt: vi.fn().mockResolvedValue(undefined),
     gsxRemoteRunCommand: vi.fn().mockResolvedValue(undefined),
+    settingsGetBeyondAtc: vi.fn().mockResolvedValue({ enabled: false, host: 'localhost' }),
+    settingsSetBeyondAtc: vi.fn().mockResolvedValue(undefined),
+    beyondAtcGetStatus: vi.fn().mockResolvedValue({ state: 'disconnected', lastError: null }),
+    onBeyondAtcStatus: vi.fn(() => () => {}),
+    beyondAtcGetState: vi.fn().mockResolvedValue({ facility: null, com2: null, callsign: null, commsState: null, progress: null, actions: [] }),
+    onBeyondAtcState: vi.fn(() => () => {}),
+    beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
+    onBeyondAtcTranscript: vi.fn(() => () => {}),
+    beyondAtcSetAction: vi.fn().mockResolvedValue(undefined),
+    beyondAtcSetFrequency: vi.fn().mockResolvedValue(undefined),
+    beyondAtcSetFrequencyCom2: vi.fn().mockResolvedValue(undefined),
     syncStatus: vi.fn().mockResolvedValue(makeSyncStatus()),
     authLogin: vi.fn().mockResolvedValue(makeSyncStatus()),
     authSignup: vi.fn().mockResolvedValue(makeSyncStatus()),
@@ -441,27 +452,46 @@ describe('App', () => {
     // own strings, not the still-English view it renders alongside them. The persisted
     // language must be mocked as 'de' explicitly too, or App.tsx's own mount effect
     // resolves 'system' back to English (the default mock) and clobbers this.
-    setWinglog({ settingsGetAppLanguage: vi.fn().mockResolvedValue('de') })
+    setWinglog({
+      settingsGetAppLanguage: vi.fn().mockResolvedValue('de'),
+      settingsGetGsxRemote: vi.fn().mockResolvedValue({ enabled: true, host: 'localhost', port: 8744 }),
+      settingsGetBeyondAtc: vi.fn().mockResolvedValue({ enabled: true, host: 'localhost' })
+    })
     await i18n.changeLanguage('de')
     render(<App />)
-    for (const name of ['Flotte', 'Flugplanung', 'Flugverfolgung', 'Bodendienste', 'Logbuch', 'Einstellungen']) {
+    for (const name of ['Flotte', 'Flugplanung', 'Flugverfolgung', 'Bodendienste', 'BeyondATC', 'Logbuch', 'Einstellungen']) {
       expect(await screen.findByRole('tab', { name })).toBeInTheDocument()
     }
     expect(screen.getByText('SimConnect: getrennt')).toBeInTheDocument()
   })
 
-  it('shows Fleet by default, with every tab and the SimConnect badge', async () => {
+  it('shows Fleet by default, with every enabled tab and the SimConnect badge', async () => {
+    setWinglog({
+      settingsGetGsxRemote: vi.fn().mockResolvedValue({ enabled: true, host: 'localhost', port: 8744 }),
+      settingsGetBeyondAtc: vi.fn().mockResolvedValue({ enabled: true, host: 'localhost' })
+    })
     render(<App />)
     expect(await screen.findByText('Fleet', { selector: 'h1' })).toBeInTheDocument()
-    for (const name of ['Fleet', 'Dispatch', 'Track', 'Ground services', 'Logbook', 'Settings']) {
+    for (const name of ['Fleet', 'Dispatch', 'Track', 'Ground services', 'BeyondATC', 'Logbook', 'Settings']) {
       expect(screen.getByRole('tab', { name })).toBeInTheDocument()
     }
     expect(screen.getByText('SimConnect: disconnected')).toBeInTheDocument()
   })
 
+  it('hides the GSX Remote Control and BeyondATC tabs until their settings are enabled', async () => {
+    render(<App />)
+    await screen.findByText('Fleet', { selector: 'h1' })
+    expect(screen.queryByRole('tab', { name: 'Ground services' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'BeyondATC' })).not.toBeInTheDocument()
+  })
+
   it(
     'navigates to every other tab, lazily loading its real view',
     async () => {
+      setWinglog({
+        settingsGetGsxRemote: vi.fn().mockResolvedValue({ enabled: true, host: 'localhost', port: 8744 }),
+        settingsGetBeyondAtc: vi.fn().mockResolvedValue({ enabled: true, host: 'localhost' })
+      })
       const user = userEvent.setup()
       render(<App />)
       await screen.findByText('Fleet', { selector: 'h1' })
@@ -479,6 +509,9 @@ describe('App', () => {
 
       await clickTab(user, 'Ground services')
       expect(await screen.findByText('Ground services', { selector: 'h1' }, lazyTimeout)).toBeInTheDocument()
+
+      await clickTab(user, 'BeyondATC')
+      expect(await screen.findByText('BeyondATC', { selector: 'h1' }, lazyTimeout)).toBeInTheDocument()
 
       await clickTab(user, 'Logbook')
       expect(await screen.findByText('Logbook', { selector: 'h1' }, lazyTimeout)).toBeInTheDocument()
@@ -773,13 +806,14 @@ describe('App', () => {
   })
 
   describe('GSX important-menu global prompt', () => {
-    function withMenuListener(): { push: (menu: GsxRemoteMenuState) => void; winglog: WingLogApi } {
+    function withMenuListener(overrides: Partial<WingLogApi> = {}): { push: (menu: GsxRemoteMenuState) => void; winglog: WingLogApi } {
       let listener: ((menu: GsxRemoteMenuState) => void) | undefined
       const winglog = setWinglog({
         onGsxRemoteMenu: vi.fn((l) => {
           listener = l
           return () => {}
-        })
+        }),
+        ...overrides
       })
       return { push: (menu) => listener?.(menu), winglog }
     }
@@ -854,7 +888,9 @@ describe('App', () => {
     })
 
     it('does not show the global dialog while already on the GSX tab', async () => {
-      const { push } = withMenuListener()
+      const { push } = withMenuListener({
+        settingsGetGsxRemote: vi.fn().mockResolvedValue({ enabled: true, host: 'localhost', port: 8744 })
+      })
       const user = userEvent.setup()
       render(<App />)
       await screen.findByText('Fleet', { selector: 'h1' })

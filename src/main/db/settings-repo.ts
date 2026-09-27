@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import type {
   AltitudeUnit,
   AppLanguage,
+  BeyondAtcSettings,
   GsxRemoteSettings,
   GsxSettings,
   LandingDistanceUnit,
@@ -35,6 +36,8 @@ const MAINTENANCE_ADDON_FOLDER_PATH_KEY = 'maintenanceAddonFolderPath'
 const GSX_REMOTE_ENABLED_KEY = 'gsxRemoteEnabled'
 const GSX_REMOTE_HOST_KEY = 'gsxRemoteHost'
 const GSX_REMOTE_PORT_KEY = 'gsxRemotePort'
+const BEYONDATC_ENABLED_KEY = 'beyondAtcEnabled'
+const BEYONDATC_HOST_KEY = 'beyondAtcHost'
 
 export function getSetting(db: WingLogDb, key: string): string | undefined {
   return db.select().from(appSetting).where(eq(appSetting.key, key)).get()?.value
@@ -186,6 +189,22 @@ export function setGsxRemoteSettings(db: WingLogDb, settings: GsxRemoteSettings)
   setSetting(db, GSX_REMOTE_ENABLED_KEY, settings.enabled ? '1' : '0')
   setSetting(db, GSX_REMOTE_HOST_KEY, settings.host || 'localhost')
   setSetting(db, GSX_REMOTE_PORT_KEY, settings.port ? String(settings.port) : '')
+}
+
+/** Default off, localhost — unlike GSX's Remote Client, BeyondATC's own local WebSocket
+ *  server port (41716, BeyondAtcService's BEYONDATC_PORT) isn't user-configurable on
+ *  BeyondATC's own side (confirmed live, flightdeck-backend's docs/beyondatc-notes.md), so
+ *  there's no port setting to store here. */
+export function getBeyondAtcSettings(db: WingLogDb): BeyondAtcSettings {
+  return {
+    enabled: getSetting(db, BEYONDATC_ENABLED_KEY) === '1',
+    host: getSetting(db, BEYONDATC_HOST_KEY) || 'localhost'
+  }
+}
+
+export function setBeyondAtcSettings(db: WingLogDb, settings: BeyondAtcSettings): void {
+  setSetting(db, BEYONDATC_ENABLED_KEY, settings.enabled ? '1' : '0')
+  setSetting(db, BEYONDATC_HOST_KEY, settings.host || 'localhost')
 }
 
 /** Per-table sync cursor (flightdeck-backend/docs/plans/cloud-sync.md's pull-then-push

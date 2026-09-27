@@ -169,7 +169,19 @@
       "license": "Software libre y de código abierto bajo la GNU General Public License v3.0."
     },
     "usernameSavedToast": "Usuario de SimBrief guardado.",
-    "usernameAutoFilledToast": "Usuario de SimBrief completado automáticamente: {{username}}"
+    "usernameAutoFilledToast": "Usuario de SimBrief completado automáticamente: {{username}}",
+    "beyondAtc": {
+      "cardTitle": "BeyondATC",
+      "description": "Panel de ATC en vivo y control remoto, conectado a la propia conexión WebSocket local de BeyondATC — no es una copia incrustada de la app de BeyondATC.",
+      "enabled": "Habilitado",
+      "on": "Activado",
+      "off": "Desactivado",
+      "host": "Host",
+      "hostHint": "BeyondATC siempre escucha en el puerto 41716 — solo el host es configurable, pensado para una futura configuración en red local.",
+      "statusConnected": "Conectado",
+      "statusConnecting": "Conectando…",
+      "statusDisconnected": "Desconectado"
+    }
   },
   "app": {
     "tabs": {
@@ -177,6 +189,7 @@
       "dispatch": "Despacho",
       "track": "Seguimiento",
       "gsx": "Servicios de tierra",
+      "beyondAtc": "BeyondATC",
       "logbook": "Bitácora",
       "settings": "Ajustes"
     },
@@ -700,5 +713,35 @@
     "waitingFor": "Esperando: {{reason}}",
     "ok": "Aceptar",
     "cancel": "Cancelar"
+  },
+  "beyondAtcView": {
+    "title": "BeyondATC"
+  },
+  "beyondAtcPanel": {
+    "loading": "Cargando…",
+    "notConfigured": "La integración con BeyondATC está desactivada. Actívala en Ajustes → Terceros.",
+    "connecting": "Conectando con BeyondATC…",
+    "disconnected": "Sin conexión con BeyondATC.",
+    "tunedTo": "Sintonizado en {{station}} ({{frequency}})",
+    "progress": "{{from}} → {{to}} · {{pct}}%",
+    "transcript": "Transcripción",
+    "actions": "Acciones",
+    "frequencyUnknown": "—",
+    "frequencyPlaceholder": "118.850",
+    "setFrequency": "Fijar",
+    "commsMode": {
+      "queued": "En cola",
+      "ready": "Listo",
+      "awaiting": "Esperando respuesta",
+      "speaking": "Hablando",
+      "request": "Solicitud registrada",
+      "traffic": "Tráfico"
+    },
+    "speaker": {
+      "player": "Tú",
+      "atc": "ATC",
+      "traffic": "Tráfico",
+      "atcTraffic": "ATC → Tráfico"
+    }
   }
 }

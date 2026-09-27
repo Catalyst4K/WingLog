@@ -7,6 +7,8 @@ import type {
   AircraftImportSummary,
   AltitudeUnit,
   AppLanguage,
+  BeyondAtcConnectionStatus,
+  BeyondAtcSettings,
   DataFormat,
   GsxRemoteConnectionStatus,
   GsxRemoteSettings,
@@ -202,6 +204,12 @@ export function SettingsView(props: {
   onAppLanguageChange: (language: AppLanguage) => void
   theme: Theme
   onThemeChange: (theme: Theme) => void
+  /** Mirrors this toggle's live value up to App.tsx, which gates the GSX Remote Control tab
+   *  on it (Callum, 2026-09-27) — App.tsx doesn't otherwise see this card's own settings
+   *  state, which lives entirely in this component. */
+  onGsxRemoteEnabledChange: (enabled: boolean) => void
+  /** Same reasoning as onGsxRemoteEnabledChange, for the BeyondATC tab. */
+  onBeyondAtcEnabledChange: (enabled: boolean) => void
   /** Bumped by App.tsx when the Settings tab is clicked while already active — returns to
    *  the first category (docs/plans/navigation-tab-behaviour.md). See useResetSignal. */
   resetSignal?: number
@@ -226,6 +234,11 @@ export function SettingsView(props: {
     state: 'disconnected',
     lastError: null
   })
+  const [beyondAtc, setBeyondAtc] = useState<BeyondAtcSettings>({ enabled: false, host: 'localhost' })
+  const [beyondAtcStatus, setBeyondAtcStatus] = useState<BeyondAtcConnectionStatus>({
+    state: 'disconnected',
+    lastError: null
+  })
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
     loggedIn: false,
     email: null,
@@ -244,6 +257,10 @@ export function SettingsView(props: {
   const [category, setCategory] = useState<SettingsCategory>(DEFAULT_SETTINGS_CATEGORY)
   useResetSignal(props.resetSignal, () => setCategory(DEFAULT_SETTINGS_CATEGORY))
 
+  // Destructured so the mount effect below can list them as real dependencies (eslint's
+  // exhaustive-deps) instead of reaching into `props` directly, which it can't track.
+  const { onGsxRemoteEnabledChange, onBeyondAtcEnabledChange } = props
+
   useEffect(() => {
     window.winglog.settingsGetSimbriefUsername().then((u) => setSimbriefUsername(u ?? ''))
     window.winglog.dispatchSimbriefLoginStatus().then(setSimbriefLoggedIn)
@@ -252,8 +269,14 @@ export function SettingsView(props: {
     window.winglog.settingsGetGsxRemote().then((settings) => {
       setGsxRemote(settings)
       setGsxRemotePortInput(settings.port != null ? String(settings.port) : '')
+      onGsxRemoteEnabledChange(settings.enabled)
     })
     window.winglog.gsxRemoteGetStatus().then(setGsxRemoteStatus)
+    window.winglog.settingsGetBeyondAtc().then((settings) => {
+      setBeyondAtc(settings)
+      onBeyondAtcEnabledChange(settings.enabled)
+    })
+    window.winglog.beyondAtcGetStatus().then(setBeyondAtcStatus)
     // Cloud sync build-time flag (docs/plans/public-release-v1.md) — the syncStatus channel
     // doesn't exist at all in a public build, so calling it would just reject.
     /* v8 ignore start -- vitest.config.ts's `define` fixes this flag at `true` for the whole
@@ -263,10 +286,14 @@ export function SettingsView(props: {
     if (__WINGLOG_CLOUD_SYNC_ENABLED__) window.winglog.syncStatus().then(setSyncStatus)
     /* v8 ignore stop */
     window.winglog.appGetVersion().then(setAppVersion)
-  }, [])
+  }, [onGsxRemoteEnabledChange, onBeyondAtcEnabledChange])
 
   useEffect(() => {
     return window.winglog.onGsxRemoteStatus(setGsxRemoteStatus)
+  }, [])
+
+  useEffect(() => {
+    return window.winglog.onBeyondAtcStatus(setBeyondAtcStatus)
   }, [])
 
   async function handleGsxToggle(enabled: boolean): Promise<void> {
@@ -300,6 +327,7 @@ export function SettingsView(props: {
   async function handleGsxRemoteToggle(enabled: boolean): Promise<void> {
     const next = { ...gsxRemote, enabled }
     setGsxRemote(next)
+    props.onGsxRemoteEnabledChange(enabled)
     await window.winglog.settingsSetGsxRemote(next)
   }
 
@@ -316,6 +344,19 @@ export function SettingsView(props: {
     const next = { ...gsxRemote, port }
     setGsxRemote(next)
     await window.winglog.settingsSetGsxRemote(next)
+  }
+
+  async function handleBeyondAtcToggle(enabled: boolean): Promise<void> {
+    const next = { ...beyondAtc, enabled }
+    setBeyondAtc(next)
+    props.onBeyondAtcEnabledChange(enabled)
+    await window.winglog.settingsSetBeyondAtc(next)
+  }
+
+  async function handleBeyondAtcHostChange(host: string): Promise<void> {
+    const next = { ...beyondAtc, host }
+    setBeyondAtc(next)
+    await window.winglog.settingsSetBeyondAtc(next)
   }
 
   async function handleSaveSimbriefUsername(event: React.FormEvent): Promise<void> {
@@ -744,6 +785,46 @@ export function SettingsView(props: {
                   </Label>
                 </form>
                 <p className="text-xs text-muted-foreground">{t('settingsView.gsxRemote.portHint')}</p>
+              </CardContent>
+            </Card>
+
+            <Card className="max-w-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between gap-2">
+                  {t('settingsView.beyondAtc.cardTitle')}
+                  {beyondAtc.enabled && (
+                    <Badge variant={beyondAtcStatus.state === 'connected' ? 'default' : beyondAtcStatus.state === 'connecting' ? 'secondary' : 'outline'}>
+                      {beyondAtcStatus.state === 'connected'
+                        ? t('settingsView.beyondAtc.statusConnected')
+                        : beyondAtcStatus.state === 'connecting'
+                          ? t('settingsView.beyondAtc.statusConnecting')
+                          : t('settingsView.beyondAtc.statusDisconnected')}
+                    </Badge>
+                  )}
+                </CardTitle>
+                <CardDescription>{t('settingsView.beyondAtc.description')}</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-foreground">{t('settingsView.beyondAtc.enabled')}</span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={beyondAtc.enabled ? 'default' : 'outline'}
+                    onClick={() => handleBeyondAtcToggle(!beyondAtc.enabled)}
+                  >
+                    {beyondAtc.enabled ? t('settingsView.beyondAtc.on') : t('settingsView.beyondAtc.off')}
+                  </Button>
+                </div>
+                <Label className="flex flex-col items-start gap-1.5">
+                  {t('settingsView.beyondAtc.host')}
+                  <Input
+                    type="text"
+                    value={beyondAtc.host}
+                    onChange={(e) => handleBeyondAtcHostChange(e.target.value)}
+                  />
+                </Label>
+                <p className="text-xs text-muted-foreground">{t('settingsView.beyondAtc.hostHint')}</p>
               </CardContent>
             </Card>
           </div>
