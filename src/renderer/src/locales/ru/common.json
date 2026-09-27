@@ -183,7 +183,19 @@
       "license": "Свободное и открытое ПО по лицензии GNU General Public License v3.0."
     },
     "usernameSavedToast": "Имя пользователя SimBrief сохранено.",
-    "usernameAutoFilledToast": "Имя пользователя SimBrief заполнено автоматически: {{username}}"
+    "usernameAutoFilledToast": "Имя пользователя SimBrief заполнено автоматически: {{username}}",
+    "beyondAtc": {
+      "cardTitle": "BeyondATC",
+      "description": "Панель живого радиообмена и удалённое управление, подключённые к собственному локальному WebSocket-соединению BeyondATC — а не встроенная копия приложения BeyondATC.",
+      "enabled": "Включено",
+      "on": "Вкл",
+      "off": "Выкл",
+      "host": "Хост",
+      "hostHint": "BeyondATC всегда слушает порт 41716 — настраивается только хост, на будущее для локальной сети.",
+      "statusConnected": "Подключено",
+      "statusConnecting": "Подключение…",
+      "statusDisconnected": "Отключено"
+    }
   },
   "app": {
     "tabs": {
@@ -191,6 +203,7 @@
       "dispatch": "Диспетчеризация",
       "track": "Трек",
       "gsx": "Наземное обслуживание",
+      "beyondAtc": "BeyondATC",
       "logbook": "Логбук",
       "settings": "Настройки"
     },
@@ -723,5 +736,35 @@
     "waitingFor": "Ожидание: {{reason}}",
     "ok": "ОК",
     "cancel": "Отмена"
+  },
+  "beyondAtcView": {
+    "title": "BeyondATC"
+  },
+  "beyondAtcPanel": {
+    "loading": "Загрузка…",
+    "notConfigured": "Интеграция с BeyondATC отключена. Включите её в разделе Настройки → Сторонние сервисы.",
+    "connecting": "Подключение к BeyondATC…",
+    "disconnected": "Нет подключения к BeyondATC.",
+    "tunedTo": "Настроено на {{station}} ({{frequency}})",
+    "progress": "{{from}} → {{to}} · {{pct}}%",
+    "transcript": "Радиообмен",
+    "actions": "Действия",
+    "frequencyUnknown": "—",
+    "frequencyPlaceholder": "118.850",
+    "setFrequency": "Задать",
+    "commsMode": {
+      "queued": "В очереди",
+      "ready": "Готово",
+      "awaiting": "Ожидание ответа",
+      "speaking": "Говорит",
+      "request": "Запрос зафиксирован",
+      "traffic": "Трафик"
+    },
+    "speaker": {
+      "player": "Вы",
+      "atc": "Диспетчер",
+      "traffic": "Трафик",
+      "atcTraffic": "Диспетчер → Трафик"
+    }
   }
 }

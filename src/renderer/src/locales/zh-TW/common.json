@@ -162,7 +162,19 @@
       "license": "依 GNU General Public License v3.0 免費且開放原始碼發布。"
     },
     "usernameSavedToast": "SimBrief 使用者名稱已儲存。",
-    "usernameAutoFilledToast": "已自動填入 SimBrief 使用者名稱：{{username}}"
+    "usernameAutoFilledToast": "已自動填入 SimBrief 使用者名稱：{{username}}",
+    "beyondAtc": {
+      "cardTitle": "BeyondATC",
+      "description": "即時管制面板與遠端控制，連線至 BeyondATC 自身的本機 WebSocket 連線 — 並非 BeyondATC 應用程式的內嵌副本。",
+      "enabled": "啟用",
+      "on": "開",
+      "off": "關",
+      "host": "主機",
+      "hostHint": "BeyondATC 一律監聽 41716 連接埠 — 僅主機可設定，為未來的區域網路設定預留。",
+      "statusConnected": "已連線",
+      "statusConnecting": "連線中…",
+      "statusDisconnected": "未連線"
+    }
   },
   "app": {
     "tabs": {
@@ -170,6 +182,7 @@
       "dispatch": "簽派",
       "track": "追蹤",
       "gsx": "地面服務",
+      "beyondAtc": "BeyondATC",
       "logbook": "飛行日誌",
       "settings": "設定"
     },
@@ -690,5 +703,35 @@
     "waitingFor": "等待：{{reason}}",
     "ok": "確定",
     "cancel": "取消"
+  },
+  "beyondAtcView": {
+    "title": "BeyondATC"
+  },
+  "beyondAtcPanel": {
+    "loading": "載入中…",
+    "notConfigured": "BeyondATC 整合已關閉。請在設定 → 第三方中啟用。",
+    "connecting": "正在連線至 BeyondATC…",
+    "disconnected": "未連線至 BeyondATC。",
+    "tunedTo": "已調至 {{station}}（{{frequency}}）",
+    "progress": "{{from}} → {{to}} · {{pct}}%",
+    "transcript": "通話紀錄",
+    "actions": "操作",
+    "frequencyUnknown": "—",
+    "frequencyPlaceholder": "118.850",
+    "setFrequency": "設定",
+    "commsMode": {
+      "queued": "排隊中",
+      "ready": "就緒",
+      "awaiting": "等待回應",
+      "speaking": "通話中",
+      "request": "請求已記錄",
+      "traffic": "其他機組"
+    },
+    "speaker": {
+      "player": "你",
+      "atc": "管制員",
+      "traffic": "其他機組",
+      "atcTraffic": "管制員 → 其他機組"
+    }
   }
 }

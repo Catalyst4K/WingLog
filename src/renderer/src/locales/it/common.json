@@ -169,7 +169,19 @@
       "license": "Libero e open source sotto licenza GNU General Public License v3.0."
     },
     "usernameSavedToast": "Nome utente SimBrief salvato.",
-    "usernameAutoFilledToast": "Nome utente SimBrief compilato automaticamente: {{username}}"
+    "usernameAutoFilledToast": "Nome utente SimBrief compilato automaticamente: {{username}}",
+    "beyondAtc": {
+      "cardTitle": "BeyondATC",
+      "description": "Pannello ATC live e controllo remoto, collegato alla connessione WebSocket locale di BeyondATC — non è una copia incorporata dell'app di BeyondATC.",
+      "enabled": "Attivato",
+      "on": "Sì",
+      "off": "No",
+      "host": "Host",
+      "hostHint": "BeyondATC è sempre in ascolto sulla porta 41716 — è configurabile solo l'host, in vista di una futura configurazione in rete locale.",
+      "statusConnected": "Connesso",
+      "statusConnecting": "Connessione…",
+      "statusDisconnected": "Disconnesso"
+    }
   },
   "app": {
     "tabs": {
@@ -177,6 +189,7 @@
       "dispatch": "Pianificazione",
       "track": "Monitoraggio",
       "gsx": "Servizi di terra",
+      "beyondAtc": "BeyondATC",
       "logbook": "Libretto",
       "settings": "Impostazioni"
     },
@@ -700,5 +713,35 @@
     "waitingFor": "In attesa: {{reason}}",
     "ok": "OK",
     "cancel": "Annulla"
+  },
+  "beyondAtcView": {
+    "title": "BeyondATC"
+  },
+  "beyondAtcPanel": {
+    "loading": "Caricamento…",
+    "notConfigured": "L'integrazione BeyondATC è disattivata. Attivala in Impostazioni → Terze parti.",
+    "connecting": "Connessione a BeyondATC…",
+    "disconnected": "Non connesso a BeyondATC.",
+    "tunedTo": "Sintonizzato su {{station}} ({{frequency}})",
+    "progress": "{{from}} → {{to}} · {{pct}}%",
+    "transcript": "Trascrizione",
+    "actions": "Azioni",
+    "frequencyUnknown": "—",
+    "frequencyPlaceholder": "118.850",
+    "setFrequency": "Imposta",
+    "commsMode": {
+      "queued": "In coda",
+      "ready": "Pronto",
+      "awaiting": "In attesa di risposta",
+      "speaking": "In corso",
+      "request": "Richiesta registrata",
+      "traffic": "Traffico"
+    },
+    "speaker": {
+      "player": "Tu",
+      "atc": "ATC",
+      "traffic": "Traffico",
+      "atcTraffic": "ATC → Traffico"
+    }
   }
 }

@@ -6,6 +6,7 @@ import {
   getAircraftIdForTitle,
   getAltitudeUnit,
   getAppLanguage,
+  getBeyondAtcSettings,
   getGsxRemoteSettings,
   getGsxSettings,
   getLandingDistanceUnit,
@@ -22,6 +23,7 @@ import {
   rememberAircraftForTitle,
   setAltitudeUnit,
   setAppLanguage,
+  setBeyondAtcSettings,
   setCheckedGsxFirstLaunch,
   setGsxRemoteSettings,
   setGsxSettings,
@@ -180,6 +182,15 @@ describe('settings repo', () => {
     setGsxRemoteSettings(db, { enabled: true, host: 'localhost', port: 8091 })
     setGsxRemoteSettings(db, { enabled: false, host: 'localhost', port: null })
     expect(getGsxRemoteSettings(db)).toEqual({ enabled: false, host: 'localhost', port: 8744 })
+  })
+
+  it('defaults BeyondATC settings to disabled, localhost — no port field, it is fixed', () => {
+    expect(getBeyondAtcSettings(db)).toEqual({ enabled: false, host: 'localhost' })
+  })
+
+  it('round-trips BeyondATC settings', () => {
+    setBeyondAtcSettings(db, { enabled: true, host: '192.168.1.50' })
+    expect(getBeyondAtcSettings(db)).toEqual({ enabled: true, host: '192.168.1.50' })
   })
 
   it('defaults the last-synced-completed timestamp to null when never set', () => {

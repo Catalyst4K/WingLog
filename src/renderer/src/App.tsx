@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { BookOpen, Plane, Radar, Route, Settings as SettingsIcon, Truck } from 'lucide-react'
+import { BookOpen, Plane, Radar, Radio, Route, Settings as SettingsIcon, Truck } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -49,20 +49,26 @@ import { emptyProcedureSelection, seedProcedureSelectionFromOfp, selectionFromFl
 const loadDispatchView = () => import('./DispatchView').then((m) => ({ default: m.DispatchView }))
 const loadTrackView = () => import('./TrackView').then((m) => ({ default: m.TrackView }))
 const loadGsxRemoteView = () => import('./GsxRemoteView').then((m) => ({ default: m.GsxRemoteView }))
+const loadBeyondAtcView = () => import('./BeyondAtcView').then((m) => ({ default: m.BeyondAtcView }))
 const loadLogbookView = () => import('./LogbookView').then((m) => ({ default: m.LogbookView }))
 const loadSettingsView = () => import('./SettingsView').then((m) => ({ default: m.SettingsView }))
 const DispatchView = lazy(loadDispatchView)
 const TrackView = lazy(loadTrackView)
 const GsxRemoteView = lazy(loadGsxRemoteView)
+const BeyondAtcView = lazy(loadBeyondAtcView)
 const LogbookView = lazy(loadLogbookView)
 const SettingsView = lazy(loadSettingsView)
 
-function appTabs(t: TFunction): { page: AppPage; label: string; icon: typeof Plane }[] {
+/** GSX Remote Control and BeyondATC's own tabs are gated on their settings' `enabled` flag
+ *  (Callum, 2026-09-27) — hidden until turned on in Settings, rather than always shown
+ *  regardless of configuration. */
+function appTabs(t: TFunction, gsxRemoteEnabled: boolean, beyondAtcEnabled: boolean): { page: AppPage; label: string; icon: typeof Plane }[] {
   return [
     { page: 'fleet', label: t('app.tabs.fleet'), icon: Plane },
     { page: 'dispatch', label: t('app.tabs.dispatch'), icon: Route },
     { page: 'track', label: t('app.tabs.track'), icon: Radar },
-    { page: 'gsx', label: t('app.tabs.gsx'), icon: Truck },
+    ...(gsxRemoteEnabled ? [{ page: 'gsx' as const, label: t('app.tabs.gsx'), icon: Truck }] : []),
+    ...(beyondAtcEnabled ? [{ page: 'beyondatc' as const, label: t('app.tabs.beyondAtc'), icon: Radio }] : []),
     { page: 'logbook', label: t('app.tabs.logbook'), icon: BookOpen },
     { page: 'settings', label: t('app.tabs.settings'), icon: SettingsIcon }
   ]
@@ -143,6 +149,12 @@ export default function App(): React.JSX.Element {
   const [appLanguage, setAppLanguage] = useState<AppLanguage>('system')
   const [landingDistanceUnit, setLandingDistanceUnit] = useState<LandingDistanceUnit>('ft')
   const [theme, setTheme] = useState<Theme>('system')
+  // Gates the GSX Remote Control / BeyondATC tabs (appTabs below) — both start hidden until
+  // their own settings are loaded, then track live toggles from SettingsView via the
+  // onXEnabledChange callbacks passed to it, so a tab appears/disappears immediately rather
+  // than only after the next app restart.
+  const [gsxRemoteEnabled, setGsxRemoteEnabled] = useState(false)
+  const [beyondAtcEnabled, setBeyondAtcEnabled] = useState(false)
   const [simStatus, setSimStatus] = useState<SimConnectionStatus>({ state: 'disconnected' })
   const [telemetry, setTelemetry] = useState<SimTelemetry | null>(null)
   // Lifted out of DispatchView (rather than local state there) for two reasons: Track
@@ -310,7 +322,7 @@ export default function App(): React.JSX.Element {
    *  progress, not navigation history — clearing it because the user clicked the tab
    *  they're already on would be a data-loss bug wearing a UX fix's clothing. */
   function goToTab(targetPage: AppPage): void {
-    if (targetPage !== page) {
+    if (targetPage !== effectivePage) {
       setPage(targetPage)
       return
     }
@@ -336,6 +348,7 @@ export default function App(): React.JSX.Element {
       void loadDispatchView()
       void loadTrackView()
       void loadGsxRemoteView()
+      void loadBeyondAtcView()
       void loadLogbookView()
       void loadSettingsView()
     })
@@ -354,6 +367,8 @@ export default function App(): React.JSX.Element {
     window.winglog.settingsGetMapLanguage().then(setMapLanguage)
     window.winglog.settingsGetLandingDistanceUnit().then(setLandingDistanceUnit)
     window.winglog.settingsGetTheme().then(setTheme)
+    window.winglog.settingsGetGsxRemote().then((settings) => setGsxRemoteEnabled(settings.enabled))
+    window.winglog.settingsGetBeyondAtc().then((settings) => setBeyondAtcEnabled(settings.enabled))
     Promise.all([window.winglog.settingsGetAppLanguage(), window.winglog.settingsGetSystemLocale()]).then(
       ([saved, systemLocale]) => {
         setAppLanguage(saved)
@@ -361,6 +376,13 @@ export default function App(): React.JSX.Element {
       }
     )
   }, [])
+
+  // Disabling the tab you're currently viewing (from Settings, in the same window) shouldn't
+  // strand you on a now-hidden page — derived during render rather than an effect calling
+  // setPage, per this project's own "don't setState-in-effect what you can compute" rule
+  // (flightdeck-backend's docs/decisions.md, the GSX command-bar SimBrief-loading fix).
+  const effectivePage: AppPage =
+    (page === 'gsx' && !gsxRemoteEnabled) || (page === 'beyondatc' && !beyondAtcEnabled) ? 'fleet' : page
 
   // Applies the resolved theme by toggling the `dark` class index.css's tokens key off
   // (docs/plans/settings-ui-page.md) — both palettes already existed as dead CSS before
@@ -455,10 +477,10 @@ export default function App(): React.JSX.Element {
 
   return (
     <main className="flex h-screen flex-col">
-      <Tabs value={page} onValueChange={(value) => setPage(value as AppPage)} className="min-h-0 flex-1 gap-0">
+      <Tabs value={effectivePage} onValueChange={(value) => setPage(value as AppPage)} className="min-h-0 flex-1 gap-0">
         <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-3">
           <TabsList variant="line">
-            {appTabs(t).map(({ page: tabPage, label, icon: Icon }) => (
+            {appTabs(t, gsxRemoteEnabled, beyondAtcEnabled).map(({ page: tabPage, label, icon: Icon }) => (
               <TabsTrigger
                 key={tabPage}
                 value={tabPage}
@@ -482,7 +504,7 @@ export default function App(): React.JSX.Element {
             (flight-test-findings-2026-09-06.md #7 — confirmed live: the outer <main> was
             measurably taller than the viewport, not this div). */}
         <div className="min-h-0 flex-1 overflow-auto p-8">
-          {page === 'fleet' && (
+          {effectivePage === 'fleet' && (
             <FleetView
               weightUnit={weightUnit}
               onOpenFlightInLogbook={openFlightInLogbook}
@@ -492,7 +514,7 @@ export default function App(): React.JSX.Element {
             />
           )}
           <Suspense fallback={<PageSkeleton />}>
-            {page === 'dispatch' && (
+            {effectivePage === 'dispatch' && (
               <DispatchView
                 weightUnit={weightUnit}
                 altitudeUnit={altitudeUnit}
@@ -506,7 +528,7 @@ export default function App(): React.JSX.Element {
                 onSelectionChange={setProcedureSelection}
               />
             )}
-            {page === 'track' && (
+            {effectivePage === 'track' && (
               <TrackView
                 windSpeedUnit={windSpeedUnit}
                 previewOfp={dispatchOfp}
@@ -517,8 +539,9 @@ export default function App(): React.JSX.Element {
                 onFlightEnded={handleFlightEnded}
               />
             )}
-            {page === 'gsx' && <GsxRemoteView />}
-            {page === 'logbook' && (
+            {effectivePage === 'gsx' && <GsxRemoteView />}
+            {effectivePage === 'beyondatc' && <BeyondAtcView />}
+            {effectivePage === 'logbook' && (
               <LogbookView
                 weightUnit={weightUnit}
                 landingDistanceUnit={landingDistanceUnit}
@@ -530,7 +553,7 @@ export default function App(): React.JSX.Element {
                 resetSignal={logbookResetSignal}
               />
             )}
-            {page === 'settings' && (
+            {effectivePage === 'settings' && (
               <SettingsView
                 weightUnit={weightUnit}
                 onWeightUnitChange={handleWeightUnitChange}
@@ -546,6 +569,8 @@ export default function App(): React.JSX.Element {
                 onAppLanguageChange={handleAppLanguageChange}
                 theme={theme}
                 onThemeChange={handleThemeChange}
+                onGsxRemoteEnabledChange={setGsxRemoteEnabled}
+                onBeyondAtcEnabledChange={setBeyondAtcEnabled}
                 resetSignal={settingsResetSignal}
               />
             )}
@@ -578,7 +603,7 @@ export default function App(): React.JSX.Element {
       {(() => {
         const important = gsxMenu !== null && isImportantGsxMenu(gsxMenu)
         const menuKey = gsxMenu && important ? gsxMenuSignature(gsxMenu) : null
-        const open = page !== 'gsx' && menuKey !== null && menuKey !== dismissedGsxMenuKey
+        const open = effectivePage !== 'gsx' && menuKey !== null && menuKey !== dismissedGsxMenuKey
         return (
           <Dialog open={open} onOpenChange={(next) => !next && menuKey && setDismissedGsxMenuKey(menuKey)}>
             <DialogContent className="sm:max-w-md">

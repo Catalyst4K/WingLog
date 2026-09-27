@@ -167,7 +167,19 @@
       "license": "Frei und quelloffen unter der GNU General Public License v3.0."
     },
     "usernameSavedToast": "SimBrief-Benutzername gespeichert.",
-    "usernameAutoFilledToast": "SimBrief-Benutzername automatisch ausgefüllt: {{username}}"
+    "usernameAutoFilledToast": "SimBrief-Benutzername automatisch ausgefüllt: {{username}}",
+    "beyondAtc": {
+      "cardTitle": "BeyondATC",
+      "description": "Live-ATC-Anzeige und Fernsteuerung, verbunden mit BeyondATCs eigener lokaler WebSocket-Verbindung — keine eingebettete Kopie von BeyondATCs eigener App.",
+      "enabled": "Aktiviert",
+      "on": "Ein",
+      "off": "Aus",
+      "host": "Host",
+      "hostHint": "BeyondATC lauscht immer auf Port 41716 — nur der Host ist konfigurierbar, für eine spätere LAN-Einrichtung.",
+      "statusConnected": "Verbunden",
+      "statusConnecting": "Verbinde…",
+      "statusDisconnected": "Getrennt"
+    }
   },
   "app": {
     "tabs": {
@@ -175,6 +187,7 @@
       "dispatch": "Flugplanung",
       "track": "Flugverfolgung",
       "gsx": "Bodendienste",
+      "beyondAtc": "BeyondATC",
       "logbook": "Logbuch",
       "settings": "Einstellungen"
     },
@@ -698,5 +711,35 @@
     "waitingFor": "Wartet: {{reason}}",
     "ok": "OK",
     "cancel": "Abbrechen"
+  },
+  "beyondAtcView": {
+    "title": "BeyondATC"
+  },
+  "beyondAtcPanel": {
+    "loading": "Wird geladen…",
+    "notConfigured": "BeyondATC-Integration ist deaktiviert. Aktiviere sie unter Einstellungen → Drittanbieter.",
+    "connecting": "Verbindung zu BeyondATC wird hergestellt…",
+    "disconnected": "Nicht mit BeyondATC verbunden.",
+    "tunedTo": "Eingestellt auf {{station}} ({{frequency}})",
+    "progress": "{{from}} → {{to}} · {{pct}}%",
+    "transcript": "Funkverkehr",
+    "actions": "Aktionen",
+    "frequencyUnknown": "—",
+    "frequencyPlaceholder": "118.850",
+    "setFrequency": "Setzen",
+    "commsMode": {
+      "queued": "In Warteschlange",
+      "ready": "Bereit",
+      "awaiting": "Warte auf Antwort",
+      "speaking": "Spricht",
+      "request": "Anfrage protokolliert",
+      "traffic": "Verkehr"
+    },
+    "speaker": {
+      "player": "Du",
+      "atc": "ATC",
+      "traffic": "Verkehr",
+      "atcTraffic": "ATC → Verkehr"
+    }
   }
 }

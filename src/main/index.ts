@@ -13,6 +13,7 @@ import {
   type WindSpeedUnit,
   type DispatchOfp,
   type DispatchOpenSimBriefParams,
+  type BeyondAtcSettings,
   type GsxRemoteCommandId,
   type GsxRemoteSettings,
   type GsxSettings,
@@ -72,6 +73,7 @@ import { exportLogbook, importLogbookCsv, importLogbookJson } from './db/logbook
 import {
   getAltitudeUnit,
   getAppLanguage,
+  getBeyondAtcSettings,
   getGsxRemoteSettings,
   getGsxSettings,
   getLandingDistanceUnit,
@@ -83,6 +85,7 @@ import {
   getWindSpeedUnit,
   setAltitudeUnit,
   setAppLanguage,
+  setBeyondAtcSettings,
   setGsxRemoteSettings,
   setGsxSettings,
   setLandingDistanceUnit,
@@ -119,6 +122,7 @@ import {
 import { SimConnectService } from './sim/SimConnectService'
 import { ReplaySimConnectService, type ReplayMode } from './sim/ReplaySimConnectService'
 import { EMPTY_COMMAND_BAR, EMPTY_MENU, GsxRemoteService } from './gsx-remote/GsxRemoteService'
+import { BeyondAtcService, EMPTY_STATE as BEYONDATC_EMPTY_STATE } from './beyondatc/BeyondAtcService'
 import type { NavdataProvider } from './navdata/navdata-provider'
 import { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
 import { SimAirfieldResolver } from './airports/sim-airfield'
@@ -822,6 +826,45 @@ if (!gotSingleInstanceLock) {
       )
       ipcMain.handle(IpcChannels.gsxRemoteCancelPrompt, (_event, gen: number) => gsxRemoteService?.cancelPrompt(gen))
       ipcMain.handle(IpcChannels.gsxRemoteRunCommand, (_event, id: GsxRemoteCommandId) => gsxRemoteService?.runCommand(id))
+
+      // BeyondATC integration (flightdeck-backend's docs/plans/beyondatc-integration.md;
+      // live protocol confirmed docs/beyondatc-notes.md, 2026-09-25). Off by default,
+      // opt-in per user-entered host — unlike GSX Remote, the port is fixed
+      // (BeyondAtcService's own BEYONDATC_PORT), so there's no port to validate here.
+      let beyondAtcService: BeyondAtcService | undefined
+      const startBeyondAtcIfConfigured = (): void => {
+        beyondAtcService?.stop()
+        beyondAtcService = undefined
+        const settings = getBeyondAtcSettings(db)
+        if (!settings.enabled) return
+        beyondAtcService = new BeyondAtcService(settings.host)
+        beyondAtcService.on('status', (status) => {
+          if (!window.isDestroyed()) window.webContents.send(IpcChannels.beyondAtcStatus, status)
+        })
+        beyondAtcService.on('state', (state) => {
+          if (!window.isDestroyed()) window.webContents.send(IpcChannels.beyondAtcState, state)
+        })
+        beyondAtcService.on('transcript', (transcript) => {
+          if (!window.isDestroyed()) window.webContents.send(IpcChannels.beyondAtcTranscript, transcript)
+        })
+        beyondAtcService.start()
+      }
+      startBeyondAtcIfConfigured()
+      app.on('before-quit', () => beyondAtcService?.stop())
+
+      ipcMain.handle(IpcChannels.settingsGetBeyondAtc, () => getBeyondAtcSettings(db))
+      ipcMain.handle(IpcChannels.settingsSetBeyondAtc, (_event, settings: BeyondAtcSettings) => {
+        setBeyondAtcSettings(db, settings)
+        startBeyondAtcIfConfigured()
+      })
+      ipcMain.handle(IpcChannels.beyondAtcGetStatus, () => beyondAtcService?.getStatus() ?? { state: 'disconnected', lastError: null })
+      ipcMain.handle(IpcChannels.beyondAtcGetState, () => beyondAtcService?.getState() ?? BEYONDATC_EMPTY_STATE)
+      ipcMain.handle(IpcChannels.beyondAtcGetTranscript, () => beyondAtcService?.getTranscript() ?? [])
+      ipcMain.handle(IpcChannels.beyondAtcSetAction, (_event, label: string) => beyondAtcService?.setAction(label))
+      ipcMain.handle(IpcChannels.beyondAtcSetFrequency, (_event, frequency: string) => beyondAtcService?.setFrequency(frequency))
+      ipcMain.handle(IpcChannels.beyondAtcSetFrequencyCom2, (_event, frequency: string) =>
+        beyondAtcService?.setFrequencyCom2(frequency)
+      )
 
       ipcMain.handle(IpcChannels.logbookOpenOfpPdf, async (_event, flightId: number) => {
         const flight = getFlight(db, flightId)

@@ -872,6 +872,87 @@ export interface GsxRemotePromptState {
   maxLength: number
 }
 
+/**
+ * BeyondATC integration — a live control link to `BeyondATC.exe`'s own local WebSocket
+ * server (flightdeck-backend's docs/plans/beyondatc-integration.md; real protocol findings
+ * in docs/beyondatc-notes.md, confirmed live 2026-09-25). Unlike GSX's Remote Client, the
+ * port is fixed (`41716`, confirmed on BeyondATC's own side, not user-configurable) — only
+ * `host` and `enabled` are real settings.
+ */
+export interface BeyondAtcSettings {
+  enabled: boolean
+  host: string
+}
+
+export type BeyondAtcConnectionState = 'disconnected' | 'connecting' | 'connected'
+
+export interface BeyondAtcConnectionStatus {
+  state: BeyondAtcConnectionState
+  /** Set only when state is 'disconnected' after a real connection attempt failed. */
+  lastError: string | null
+}
+
+/** `Facility: <name>|<frequency>` — the station BeyondATC currently has the pilot tuned
+ *  to on COM1, confirmed live (docs/beyondatc-notes.md). */
+export interface BeyondAtcFacility {
+  name: string
+  frequency: string
+}
+
+/** `Com2: {"label","frequency","monitor"}`, confirmed live. */
+export interface BeyondAtcCom2 {
+  label: string
+  frequency: string
+  monitor: boolean
+}
+
+/** `Callsign: {"full","shortForm"}`, confirmed live. */
+export interface BeyondAtcCallsign {
+  full: string
+  shortForm: string
+}
+
+/** `CommsState: {"mode","text"}` — the live interaction lifecycle (queued → ready →
+ *  awaiting response → speaking → request logged → ready), confirmed live via a real
+ *  Radio Check trace (docs/beyondatc-notes.md). Drives the panel's "who's talking/awaiting"
+ *  indicator, same idea as GSX Remote's own status badge. */
+export interface BeyondAtcCommsState {
+  mode: 'queued' | 'ready' | 'awaiting' | 'speaking' | 'request' | 'traffic'
+  text: string
+}
+
+/** `Progress: {"from","to","pct"}`, confirmed live. */
+export interface BeyondAtcProgress {
+  from: string
+  to: string
+  pct: number
+}
+
+/** Combined live state BeyondAtcPanel needs — deliberately narrower than every key
+ *  docs/beyondatc-notes.md catalogues (DATIS, CPDLC code, auto-tune/respond, settings, …
+ *  aren't surfaced here; nothing needed by Parts 1-2 of the plan). Unrecognised/unparsed
+ *  wire keys are simply never reflected here, not an error. */
+export interface BeyondAtcState {
+  facility: BeyondAtcFacility | null
+  com2: BeyondAtcCom2 | null
+  callsign: BeyondAtcCallsign | null
+  commsState: BeyondAtcCommsState | null
+  progress: BeyondAtcProgress | null
+  /** The live `Actions` menu — bracket/`¬`-separated plain labels on the wire (confirmed
+   *  live, NOT JSON despite the `[...]` syntax), parsed into a plain string list. Empty
+   *  when BeyondATC currently has no menu offered. */
+  actions: string[]
+}
+
+/** One live transcript line — `Player`/`ATC` are the pilot/controller's own spoken lines;
+ *  `Traffic`/`ATCTraffic` are an AI aircraft's own radio calls and ATC's response to them.
+ *  Kept as a bounded ring buffer by BeyondAtcService (last 100), not persisted. */
+export interface BeyondAtcTranscriptEntry {
+  speaker: 'player' | 'atc' | 'traffic' | 'atcTraffic'
+  text: string
+  ts: number
+}
+
 /** Result of the one-time, first-ever-launch check for GSX's expected receipts folder
  *  (flight-test-findings-2026-09-06.md #4) — `found` means the folder existed and GSX was
  *  auto-enabled against it. Only ever returned once, on the launch the check actually
@@ -1050,7 +1131,7 @@ export type AppLanguage = 'system' | 'en' | 'de' | 'es' | 'fr' | 'it' | 'ru' | '
 export type LandingDistanceUnit = 'ft' | 'm'
 
 /** The app's tabs — also the native menu bar's top-level items, see main/menu.ts. */
-export type AppPage = 'fleet' | 'dispatch' | 'track' | 'gsx' | 'logbook' | 'settings'
+export type AppPage = 'fleet' | 'dispatch' | 'track' | 'gsx' | 'beyondatc' | 'logbook' | 'settings'
 
 /**
  * A departure time to prefill on SimBrief's form, already split into the shape its input
@@ -1280,7 +1361,18 @@ export const IpcChannels = {
   gsxRemoteToggleMenu: 'gsx-remote:toggle-menu',
   gsxRemoteSubmitPrompt: 'gsx-remote:submit-prompt',
   gsxRemoteCancelPrompt: 'gsx-remote:cancel-prompt',
-  gsxRemoteRunCommand: 'gsx-remote:run-command'
+  gsxRemoteRunCommand: 'gsx-remote:run-command',
+  settingsGetBeyondAtc: 'settings:get-beyondatc',
+  settingsSetBeyondAtc: 'settings:set-beyondatc',
+  beyondAtcGetStatus: 'beyondatc:get-status',
+  beyondAtcStatus: 'beyondatc:status',
+  beyondAtcGetState: 'beyondatc:get-state',
+  beyondAtcState: 'beyondatc:state',
+  beyondAtcGetTranscript: 'beyondatc:get-transcript',
+  beyondAtcTranscript: 'beyondatc:transcript',
+  beyondAtcSetAction: 'beyondatc:set-action',
+  beyondAtcSetFrequency: 'beyondatc:set-frequency',
+  beyondAtcSetFrequencyCom2: 'beyondatc:set-frequency-com2'
 } as const
 
 export interface WingLogApi {
@@ -1662,4 +1754,23 @@ export interface WingLogApi {
   /** Runs one of the three command-bar commands (`command.run`) — GSX's own client requires
    *  a second confirming call for RESTART_COUATL (the UI enforces this, not this method). */
   gsxRemoteRunCommand: (id: GsxRemoteCommandId) => Promise<void>
+  settingsGetBeyondAtc: () => Promise<BeyondAtcSettings>
+  /** Changing host/enabled restarts the live connection (or stops it, if disabled). Port is
+   *  fixed (BeyondAtcService's own BEYONDATC_PORT), never sent from here. */
+  settingsSetBeyondAtc: (settings: BeyondAtcSettings) => Promise<void>
+  /** Current status, for a renderer mounting after the initial connect already happened. */
+  beyondAtcGetStatus: () => Promise<BeyondAtcConnectionStatus>
+  onBeyondAtcStatus: (listener: (status: BeyondAtcConnectionStatus) => void) => () => void
+  /** Current combined state, same "mounting late shouldn't mean missing state" reasoning as
+   *  GSX Remote's own getServices/getMenu. */
+  beyondAtcGetState: () => Promise<BeyondAtcState>
+  onBeyondAtcState: (listener: (state: BeyondAtcState) => void) => () => void
+  /** The current transcript buffer (last 100 lines), for a renderer mounting mid-flight. */
+  beyondAtcGetTranscript: () => Promise<BeyondAtcTranscriptEntry[]>
+  onBeyondAtcTranscript: (listener: (transcript: BeyondAtcTranscriptEntry[]) => void) => () => void
+  /** Fires the given entry from the live Actions list (`set_action`) — no-op if not
+   *  connected. */
+  beyondAtcSetAction: (label: string) => Promise<void>
+  beyondAtcSetFrequency: (frequency: string) => Promise<void>
+  beyondAtcSetFrequencyCom2: (frequency: string) => Promise<void>
 }
