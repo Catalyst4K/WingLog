@@ -5,13 +5,18 @@ import type { LandingScoreCategory } from '@shared/ipc'
 import i18n from './i18n'
 import { LandingScoreBreakdownDialog } from './LandingScoreBreakdownDialog'
 
-const IDEAL_TOLERANCE: Record<string, { ideal: number; tolerance: number }> = {
+const IDEAL_TOLERANCE: Record<
+  string,
+  { ideal: number; tolerance: number; toleranceShort?: number; toleranceLong?: number }
+> = {
   verticalSpeed: { ideal: 120, tolerance: 360 },
   gForce: { ideal: 1, tolerance: 1 },
   pitch: { ideal: -4, tolerance: 8 },
   bank: { ideal: 0, tolerance: 8 },
   crab: { ideal: 0, tolerance: 9 },
-  distanceFromAimingPoint: { ideal: 0, tolerance: 900 },
+  // Asymmetric since 2026-09-26 — toleranceShort (toward the threshold) and toleranceLong
+  // (toward the far touchdown-zone marker, same value as `tolerance`).
+  distanceFromAimingPoint: { ideal: 0, tolerance: 500, toleranceShort: 400, toleranceLong: 500 },
   centrelineOffset: { ideal: 0, tolerance: 12.5 }
 }
 
@@ -44,6 +49,8 @@ function makeCategories(
     score: base[key],
     ideal: base[key] === null ? null : IDEAL_TOLERANCE[key].ideal,
     tolerance: base[key] === null ? null : IDEAL_TOLERANCE[key].tolerance,
+    toleranceShort: base[key] === null ? null : (IDEAL_TOLERANCE[key].toleranceShort ?? null),
+    toleranceLong: base[key] === null ? null : (IDEAL_TOLERANCE[key].toleranceLong ?? null),
     dangerousPenalty: dangerousPenalties[key] ?? 0
   }))
 }
@@ -202,6 +209,10 @@ describe('LandingScoreBreakdownDialog', () => {
     expect(screen.queryByText(/touchdown-zone marking extent/)).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: "What's ideal for Distance from aiming point?" }))
-    expect(screen.getByText(/Score reaches 0 at 900 m — this runway's own real touchdown-zone marking extent\./)).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        /Score reaches 0 at the threshold \(400 m short of the aiming point\) or at 500 m past it — this runway's own real touchdown-zone marking extent\./
+      )
+    ).toBeInTheDocument()
   })
 })

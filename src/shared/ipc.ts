@@ -386,6 +386,14 @@ export interface LandingScoreCategory {
    *  `score` is null. */
   ideal: number | null
   tolerance: number | null
+  /** distanceFromAimingPoint only — the real tolerance toward the threshold and away from it
+   *  respectively, since that's the only category with two distinct real physical hard
+   *  limits rather than one tolerance either side of `ideal` (shared/landing-score.ts's
+   *  LandingScoreCategoryDetail, 2026-09-26). `tolerance` above still holds `toleranceLong`
+   *  for any generic consumer. null for every other category, and null together with
+   *  `tolerance` whenever this category has no runway match. */
+  toleranceShort: number | null
+  toleranceLong: number | null
   /** 0 when this category's own deviation stayed within tolerance; otherwise its own scaled
    *  danger penalty (1-10, further over tolerance scores higher, capped at 10 once the
    *  deviation reaches this category's own maxFraction of the dangerous value — 125% for

@@ -44,6 +44,8 @@ function toCategories(breakdown: LandingScoreBreakdown): LandingScoreCategory[] 
       score: breakdown.inputs[key],
       ideal: detail?.ideal ?? null,
       tolerance: detail?.tolerance ?? null,
+      toleranceShort: detail?.toleranceShort ?? null,
+      toleranceLong: detail?.toleranceLong ?? null,
       dangerousPenalty: breakdown.dangerPenalties[key] ?? 0
     }
   })
@@ -85,6 +87,7 @@ export function resolveLandingScore(
         ? landingRecord.distanceFromThresholdM - aimingPointToleranceM
         : null,
     runwayLengthM: landingRecord.distanceFromThresholdM !== null ? (runwayEnd?.lengthM ?? null) : null,
+    aimingPointDistanceM: landingRecord.distanceFromThresholdM !== null ? aimingPointToleranceM : null,
     centrelineOffsetM: landingRecord.centrelineOffsetM,
     centrelineToleranceM: landingRecord.centrelineOffsetM !== null ? centrelineToleranceM : null
   }

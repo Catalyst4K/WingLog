@@ -79,13 +79,16 @@ describe('describeCategoryTolerance', () => {
     )
   })
 
-  it('describes distance-from-aiming-point as a single reaches-0 number, tapered like every other category', () => {
-    // tolerance 900 -> a long (6-pair) runway's real touchdown zone.
-    expect(describeCategoryTolerance('distanceFromAimingPoint', 0, 900, 'm')).toBe(
-      "Ideal: touchdown on the aiming point, either direction. Score reaches 0 at 900 m — " +
-        "this runway's own real touchdown-zone marking extent."
-    )
-  })
+  it(
+    'describes distance-from-aiming-point with two different reaches-0 distances, since it has ' +
+      'two distinct real physical hard limits (2026-09-26) rather than one shared tolerance',
+    () => {
+      expect(describeCategoryTolerance('distanceFromAimingPoint', 0, 500, 'm', 400, 500)).toBe(
+        'Ideal: touchdown on the aiming point. Score reaches 0 at the threshold (400 m short of ' +
+          "the aiming point) or at 500 m past it — this runway's own real touchdown-zone marking extent."
+      )
+    }
+  )
 
   it('describes centreline offset in the chosen distance unit', () => {
     expect(describeCategoryTolerance('centrelineOffset', 0, 12.5, 'ft')).toBe(

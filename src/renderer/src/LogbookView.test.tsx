@@ -304,6 +304,8 @@ function makeCategories(
     score: scores[key],
     ideal: scores[key] === null ? null : 0,
     tolerance: scores[key] === null ? null : 10,
+    toleranceShort: null,
+    toleranceLong: null,
     dangerousPenalty: 0
   }))
 }

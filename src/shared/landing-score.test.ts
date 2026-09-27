@@ -81,8 +81,13 @@ describe('classifyLanding', () => {
 })
 
 // A perfect landing on every input, category M: 120fpm sweet spot, 0 deviation everywhere.
-// runwayLengthM 3000 -> a long (>=2400m), 6-pair touchdown zone — a typical major-airport
-// runway, used as the baseline for tests that aren't specifically about zone length.
+// runwayLengthM 3000 -> a long (>=2400m), 6-pair touchdown zone (900m from threshold), with
+// a real 400m aiming-point distance for that same length band -> distanceFromAimingPoint's
+// real tolerance is 900-400=500m (the distance from the aiming point to the last real
+// marker, not the marker's own 900m distance from the threshold — see
+// LandingScoreInputs.aimingPointDistanceM's own doc comment, 2026-09-26) — a typical
+// major-airport runway, used as the baseline for tests that aren't specifically about zone
+// length.
 const PERFECT_M: LandingScoreInputs = {
   category: 'M',
   verticalSpeedMs: msFromFpm(-120), // M's real sweet spot — two-sided now, so this is where it peaks
@@ -92,6 +97,7 @@ const PERFECT_M: LandingScoreInputs = {
   crabDeg: 0,
   distanceFromAimingPointM: 0,
   runwayLengthM: 3000,
+  aimingPointDistanceM: 400,
   centrelineOffsetM: 0,
   centrelineToleranceM: 25
 }
@@ -124,7 +130,8 @@ describe('computeLandingScore', () => {
         bankDeg: 30,
         crabDeg: 40,
         distanceFromAimingPointM: 1000,
-        runwayLengthM: 3000, // 6-pair zone, 900m end -> 1000m offset is well past it
+        runwayLengthM: 3000, // 6-pair zone -> real tolerance 900-400=500m -> 1000m is well past it
+        aimingPointDistanceM: 400,
         centrelineOffsetM: 100,
         centrelineToleranceM: 25
       }
@@ -133,16 +140,15 @@ describe('computeLandingScore', () => {
       // exceed their own tolerance (2026-09-21 — generalised beyond vertical-speed-only), each
       // with its own 1-10 scaled penalty (dangerPenaltyForFraction) rather than a flat 20:
       // verticalSpeed (fraction 880/360=2.44), gForce (2/1=2), centrelineOffset (100/25=4),
-      // pitch (24/6=4) and bank (30/8=3.75) are all well past their default 1.25x max-out
-      // point, so they cap at 10. crab (40/5=8) is even further past its own gentler 1.5x
-      // max-out point, so it caps at 10 too. distanceFromAimingPoint is the odd one out —
-      // 1000m against a 900m tolerance (6-pair zone) is only fraction 1.11, barely past the
-      // line: severity (1.11-1)/0.25=0.444 -> round(1+0.444*9)=5. Total deduction: 10*6 + 5 = 65.
-      expect(result.overall).toBe(-65)
+      // pitch (24/6=4), bank (30/8=3.75) and distanceFromAimingPoint (1000/500=2.0) are all
+      // well past their default 1.25x max-out point, so they cap at 10. crab (40/5=8) is even
+      // further past its own gentler 1.5x max-out point, so it caps at 10 too. Total
+      // deduction: 10*7 = 70.
+      expect(result.overall).toBe(-70)
       expect(result.dangerPenalties).toEqual({
         verticalSpeed: 10,
         gForce: 10,
-        distanceFromAimingPoint: 5,
+        distanceFromAimingPoint: 10,
         centrelineOffset: 10,
         pitch: 10,
         bank: 10,
@@ -166,26 +172,26 @@ describe('computeLandingScore', () => {
   it(
     'lists only the categories that actually exceeded, and scales + stacks their deductions ' +
       'by how far past tolerance each one is — real VHHH free-flight landing, 2026-09-21: a ' +
-      "7.19° crab and a touchdown ~965m past the runway's last real touchdown-zone pair " +
-      "(900m tolerance), together, with an otherwise soft, well-centred touchdown that " +
-      "shouldn't itself be flagged",
+      "7.19° crab and a touchdown ~965m past the aiming point (real 500m tolerance), " +
+      "together, with an otherwise soft, well-centred touchdown that shouldn't itself be " +
+      'flagged',
     () => {
       const result = computeLandingScore({
         ...PERFECT_M,
         crabDeg: 7.19,
-        runwayLengthM: 3800, // long enough for 6 pairs (900m zone)
+        runwayLengthM: 3800, // long enough for 6 pairs -> real tolerance 900-400=500m
         distanceFromAimingPointM: 965
       })
       // Crab tolerance is now 5° (tightened from 6.5, same day): fraction = 7.19/5 = 1.438.
       // Crab's own max-out point is a gentler 1.5x (not the default 1.25x — real testing
       // showed crab needs a slower ramp than distance-from-aiming-point, 2026-09-21):
       // severity (1.438-1)/0.5=0.876 -> round(1+0.876*9)=9, not yet fully capped.
-      // distanceFromAimingPoint still uses the default 1.25x ramp: fraction = 965/900 =
-      // 1.072, severity (1.072-1)/0.25=0.289 -> round(1+0.289*9)=4.
-      expect(result.dangerPenalties).toEqual({ crab: 9, distanceFromAimingPoint: 4 })
+      // distanceFromAimingPoint uses the default 1.25x ramp against its real 500m tolerance:
+      // fraction = 965/500 = 1.93, severity min(1, (1.93-1)/0.25)=1 -> fully capped at 10.
+      expect(result.dangerPenalties).toEqual({ crab: 9, distanceFromAimingPoint: 10 })
       // Weighted average: crab (weight 10) and distanceFromAimingPoint (weight 20) both 0;
-      // everything else stays perfect (100). (0*30 + 100*70) / 100 = 70. Minus (9 + 4) = 57.
-      expect(result.overall).toBe(57)
+      // everything else stays perfect (100). (0*30 + 100*70) / 100 = 70. Minus (9 + 10) = 51.
+      expect(result.overall).toBe(51)
     }
   )
 
@@ -270,7 +276,10 @@ describe('computeLandingScore', () => {
   describe(
     'distance from aiming point: tapered like every other category (Callum, 2026-09-21 — ' +
       'replacing the old stepped piano-key scale, which made some scores impossible to land ' +
-      'on and didn\'t punish "a lot long" any harder than "a little long")',
+      'on and didn\'t punish "a lot long" any harder than "a little long"), but with its own ' +
+      'asymmetric tolerance either side of the aiming point since 2026-09-26 (see ' +
+      "aimingPointDistanceM's own doc comment) — the threshold and the last real " +
+      "touchdown-zone marker are two different real distances from it, not one shared value",
     () => {
       it('is perfect dead on the aiming point', () => {
         const result = computeLandingScore({ ...PERFECT_M, distanceFromAimingPointM: 0 })
@@ -278,46 +287,104 @@ describe('computeLandingScore', () => {
       })
 
       it('decays gently for a touchdown a little off the aiming point, not a cliff', () => {
-        // PERFECT_M's 3000m runway -> 6 pairs -> 900m tolerance. fraction = 90/900 = 0.1.
-        // score = round(100*(1-0.1^1.5)) = 97.
+        // PERFECT_M's 3000m runway -> 6 pairs (900m from threshold), 400m real aiming-point
+        // distance -> real tolerance 900-400=500m (the gap between the aiming point and the
+        // last real marker — see aimingPointDistanceM's own doc comment, 2026-09-26).
+        // fraction = 90/500 = 0.18. score = round(100*(1-0.18^1.5)) = 92.
         const result = computeLandingScore({ ...PERFECT_M, distanceFromAimingPointM: 90 })
-        expect(result.inputs.distanceFromAimingPoint).toBe(97)
-      })
-
-      it("doesn't read a touchdown halfway through the zone as still-mostly-good, symmetric either direction", () => {
-        // fraction = 450/900 = 0.5. score = round(100*(1-0.5^1.5)) = 65.
-        const long = computeLandingScore({ ...PERFECT_M, distanceFromAimingPointM: 450 })
-        const short = computeLandingScore({ ...PERFECT_M, distanceFromAimingPointM: -450 })
-        expect(long.inputs.distanceFromAimingPoint).toBe(65)
-        expect(short.inputs.distanceFromAimingPoint).toBe(65)
-      })
-
-      it("reaches 0 exactly at the runway's own real touchdown-zone edge", () => {
-        const result = computeLandingScore({ ...PERFECT_M, distanceFromAimingPointM: 900 })
-        expect(result.inputs.distanceFromAimingPoint).toBe(0)
+        expect(result.inputs.distanceFromAimingPoint).toBe(92)
       })
 
       it(
-        "scales with the runway's own real tolerance, not a fixed absolute distance — the " +
-          'same fraction of tolerance scores identically on a short runway (1 pair, 150m) ' +
-          'and a long one (6 pairs, 900m)',
+        "doesn't read a touchdown halfway through the zone as still-mostly-good — and, since " +
+          "the two sides are asymmetric (2026-09-26, see aimingPointDistanceM's own doc " +
+          "comment), 'halfway' means half of *that side's own* real tolerance: long uses the " +
+          '500m long tolerance (250 = 0.5 of it), short uses the 400m short tolerance (200 = ' +
+          '0.5 of it) — different absolute distances, same fraction, same score',
         () => {
-          const shortRunway = computeLandingScore({ ...PERFECT_M, runwayLengthM: 700, distanceFromAimingPointM: 149 })
+          // fraction = 0.5 either way. score = round(100*(1-0.5^1.5)) = 65.
+          const long = computeLandingScore({ ...PERFECT_M, distanceFromAimingPointM: 250 })
+          const short = computeLandingScore({ ...PERFECT_M, distanceFromAimingPointM: -200 })
+          expect(long.inputs.distanceFromAimingPoint).toBe(65)
+          expect(short.inputs.distanceFromAimingPoint).toBe(65)
+        }
+      )
+
+      it(
+        "reaches 0 exactly at the runway's own real touchdown-zone edge — real incident, " +
+          '2026-09-26: a touchdown right at the last real marker (900m from the threshold on ' +
+          "a 6-pair runway) used to score ~57 here, because the tolerance was measured as the " +
+          "marker's full 900m distance from the *threshold* instead of its real 500m distance " +
+          'from the *aiming point* (which distanceFromAimingPointM is itself relative to)',
+        () => {
+          const result = computeLandingScore({ ...PERFECT_M, distanceFromAimingPointM: 500 })
+          expect(result.inputs.distanceFromAimingPoint).toBe(0)
+        }
+      )
+
+      it(
+        "scales with the runway's own real tolerance, not a fixed absolute distance — the " +
+          'same fraction of tolerance scores identically on a shorter runway (3 pairs/450m, ' +
+          '300m aiming point -> 150m real tolerance) and a longer one (6 pairs/900m, 400m ' +
+          'aiming point -> 500m real tolerance)',
+        () => {
+          const shortRunway = computeLandingScore({
+            ...PERFECT_M,
+            runwayLengthM: 1200,
+            aimingPointDistanceM: 300,
+            distanceFromAimingPointM: 135 // 0.9 of its own 150m tolerance
+          })
           const longRunwayEquivalent = computeLandingScore({
             ...PERFECT_M,
             runwayLengthM: 3000,
-            distanceFromAimingPointM: 894 // same 149/150 fraction of tolerance
+            aimingPointDistanceM: 400,
+            distanceFromAimingPointM: 450 // same 0.9 fraction of its own 500m tolerance
           })
           expect(shortRunway.inputs.distanceFromAimingPoint).toBe(longRunwayEquivalent.inputs.distanceFromAimingPoint)
         }
       )
 
       it('gives a longer runway a more forgiving scale than a short one for the same absolute offset', () => {
-        const longRunway = computeLandingScore({ ...PERFECT_M, runwayLengthM: 3000, distanceFromAimingPointM: 500 })
-        const shortRunway = computeLandingScore({ ...PERFECT_M, runwayLengthM: 700, distanceFromAimingPointM: 500 })
+        const longRunway = computeLandingScore({
+          ...PERFECT_M,
+          runwayLengthM: 3000,
+          aimingPointDistanceM: 400, // real tolerance 500m
+          distanceFromAimingPointM: 400
+        })
+        const shortRunway = computeLandingScore({
+          ...PERFECT_M,
+          runwayLengthM: 1200,
+          aimingPointDistanceM: 300, // real tolerance 150m
+          distanceFromAimingPointM: 400
+        })
         expect(longRunway.inputs.distanceFromAimingPoint).toBeGreaterThan(0)
         expect(shortRunway.inputs.distanceFromAimingPoint).toBe(0)
       })
+
+      it(
+        "clamps the long-side tolerance to 0, not negative, for the rare short-runway band " +
+          'where the real aiming point sits beyond the single touchdown-zone pair (800-900m: ' +
+          '1 pair at 150m, but a 250m aiming-point distance) — any long-side deviation at all ' +
+          "scores 0 rather than the formula going the wrong direction. The short-side " +
+          "tolerance is unaffected (it's just the aiming point's own distance from the " +
+          "threshold, always positive) — this landing is 1m long of the aiming point, so it's " +
+          'the clamped long side that applies here.',
+        () => {
+          const result = computeLandingScore({
+            ...PERFECT_M,
+            runwayLengthM: 850,
+            aimingPointDistanceM: 250,
+            distanceFromAimingPointM: 1
+          })
+          expect(result.details.distanceFromAimingPoint).toEqual({
+            ideal: 0,
+            tolerance: 0,
+            toleranceShort: 250,
+            toleranceLong: 0
+          })
+          expect(result.inputs.distanceFromAimingPoint).toBe(0)
+        }
+      )
     }
   )
 
@@ -345,22 +412,28 @@ describe('computeLandingScore', () => {
   })
 
   it(
-    "ramps crab's own danger penalty more gently than distance-from-aiming-point at the " +
-      'same fraction past tolerance — real testing showed the two need different paces ' +
-      "(2026-09-21): distance felt right maxing out fast (1.25x), but that same pace felt " +
-      'too harsh for crab, which wanted the gentler 1.5x ramp back',
+    "ramps crab's and distance-from-aiming-point's own danger penalties more gently than " +
+      "the 1.25x default — both share crab's original 1.5x pace now (real testing, " +
+      '2026-09-21, found 1.25x too harsh for crab; distance-from-aiming-point was retuned to ' +
+      "match it 2026-09-26, once its own tolerance shrank to the real touchdown-zone extent " +
+      "and the old 1.25x pace started maxing out only ~125m past the real last marker — " +
+      "\"harsh for just past\" (Callum) — while gForce (no per-category override) still uses " +
+      'the stricter 1.25x default',
     () => {
-      // Both at fraction 1.2 past their own tolerance — crab: 5 * 1.2 = 6; distance (900m
-      // tolerance): 900 * 1.2 = 1080.
+      // All three at fraction 1.2 past their own tolerance — crab: 5 * 1.2 = 6; distance
+      // (real 500m tolerance): 500 * 1.2 = 600; gForce (tolerance 1.0): 1.0 * 1.2 = 1.2.
       const result = computeLandingScore({
         ...PERFECT_M,
         crabDeg: 6,
+        gForce: 2.2, // PERFECT_M's own gForce ideal (1.0) + 1.2
         runwayLengthM: 3000,
-        distanceFromAimingPointM: 1080
+        aimingPointDistanceM: 400,
+        distanceFromAimingPointM: 600
       })
-      // crab: severity (1.2-1)/(1.5-1)=0.4 -> round(1+0.4*9)=5.
-      // distanceFromAimingPoint: severity (1.2-1)/(1.25-1)=0.8 -> round(1+0.8*9)=8.
-      expect(result.dangerPenalties).toEqual({ crab: 5, distanceFromAimingPoint: 8 })
+      // crab and distanceFromAimingPoint (both 1.5x): severity (1.2-1)/(1.5-1)=0.4 ->
+      // round(1+0.4*9)=5. gForce (default 1.25x): severity (1.2-1)/(1.25-1)=0.8 ->
+      // round(1+0.8*9)=8.
+      expect(result.dangerPenalties).toEqual({ crab: 5, distanceFromAimingPoint: 5, gForce: 8 })
     }
   )
 
@@ -391,6 +464,7 @@ describe('computeLandingScore', () => {
       crabDeg: null,
       distanceFromAimingPointM: null,
       runwayLengthM: null,
+      aimingPointDistanceM: null,
       centrelineOffsetM: null,
       centrelineToleranceM: null
     }
@@ -408,33 +482,47 @@ describe('computeLandingScore', () => {
   })
 
   describe('details', () => {
-    it("reports each fixed-constant category's real ideal/tolerance, category-scaled and symmetric for vertical speed", () => {
+    it("reports each fixed-constant category's real ideal/tolerance, category-scaled and symmetric for vertical speed — toleranceShort/toleranceLong stay null, since only distanceFromAimingPoint is asymmetric", () => {
       const { details } = computeLandingScore(PERFECT_M)
       // M: sweet 120, hard 480 -> tolerance 360, same on both sides.
-      expect(details.verticalSpeed).toEqual({ ideal: 120, tolerance: 360 })
-      expect(details.gForce).toEqual({ ideal: 1, tolerance: 1 })
-      expect(details.pitch).toEqual({ ideal: -4, tolerance: 6 })
-      expect(details.bank).toEqual({ ideal: 0, tolerance: 8 })
-      expect(details.crab).toEqual({ ideal: 0, tolerance: 5 })
+      expect(details.verticalSpeed).toEqual({ ideal: 120, tolerance: 360, toleranceShort: null, toleranceLong: null })
+      expect(details.gForce).toEqual({ ideal: 1, tolerance: 1, toleranceShort: null, toleranceLong: null })
+      expect(details.pitch).toEqual({ ideal: -4, tolerance: 6, toleranceShort: null, toleranceLong: null })
+      expect(details.bank).toEqual({ ideal: 0, tolerance: 8, toleranceShort: null, toleranceLong: null })
+      expect(details.crab).toEqual({ ideal: 0, tolerance: 5, toleranceShort: null, toleranceLong: null })
     })
 
     it("reports the runway-dependent categories' real per-flight tolerance (this runway's own data)", () => {
       const { details } = computeLandingScore(PERFECT_M)
-      // runwayLengthM 3000 -> 6 pairs * 150m.
-      expect(details.distanceFromAimingPoint).toEqual({ ideal: 0, tolerance: 900 })
-      expect(details.centrelineOffset).toEqual({ ideal: 0, tolerance: 25 })
+      // runwayLengthM 3000 -> 6 pairs * 150m = 900m from the threshold. Asymmetric around the
+      // 400m real aiming-point distance (2026-09-26): toleranceShort = 400m (back to the
+      // threshold), toleranceLong = 900-400=500m (out to the last real marker). `tolerance`
+      // mirrors toleranceLong for any generic consumer.
+      expect(details.distanceFromAimingPoint).toEqual({
+        ideal: 0,
+        tolerance: 500,
+        toleranceShort: 400,
+        toleranceLong: 500
+      })
+      expect(details.centrelineOffset).toEqual({ ideal: 0, tolerance: 25, toleranceShort: null, toleranceLong: null })
     })
 
     it("scales distance-from-aiming-point tolerance to a shorter runway's smaller real touchdown zone", () => {
-      const { details } = computeLandingScore({ ...PERFECT_M, runwayLengthM: 700 })
-      // 700m -> 1 pair * 150m.
-      expect(details.distanceFromAimingPoint).toEqual({ ideal: 0, tolerance: 150 })
+      const { details } = computeLandingScore({ ...PERFECT_M, runwayLengthM: 1200, aimingPointDistanceM: 300 })
+      // 1200m -> 3 pairs * 150m = 450m from the threshold. toleranceShort = 300m (its own
+      // aiming-point distance), toleranceLong = 450-300=150m.
+      expect(details.distanceFromAimingPoint).toEqual({
+        ideal: 0,
+        tolerance: 150,
+        toleranceShort: 300,
+        toleranceLong: 150
+      })
     })
 
     it('scales vertical speed ideal/tolerance to a different wake category', () => {
       const { details } = computeLandingScore({ ...PERFECT_M, category: 'H' })
       // H: sweet 150, hard 600 -> tolerance 450.
-      expect(details.verticalSpeed).toEqual({ ideal: 150, tolerance: 450 })
+      expect(details.verticalSpeed).toEqual({ ideal: 150, tolerance: 450, toleranceShort: null, toleranceLong: null })
     })
 
     it('is null exactly for the categories with no runway match, even though crab keeps its constant', () => {
@@ -443,6 +531,7 @@ describe('computeLandingScore', () => {
         crabDeg: null,
         distanceFromAimingPointM: null,
         runwayLengthM: null,
+        aimingPointDistanceM: null,
         centrelineOffsetM: null,
         centrelineToleranceM: null
       }
