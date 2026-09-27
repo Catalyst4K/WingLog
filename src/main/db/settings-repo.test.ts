@@ -11,6 +11,7 @@ import {
   getLandingDistanceUnit,
   getLastSyncCompletedAt,
   getLastSyncedAt,
+  getMaintenanceAddonSettings,
   getSetting,
   getSimbriefUsername,
   getTheme,
@@ -27,6 +28,7 @@ import {
   setLandingDistanceUnit,
   setLastSyncCompletedAt,
   setLastSyncedAt,
+  setMaintenanceAddonSettings,
   setSetting,
   setSimbriefUsername,
   setTheme,
@@ -154,6 +156,15 @@ describe('settings repo', () => {
       folderPath: 'C:\\GSX\\Receipts',
       displayCurrency: 'GBP'
     })
+  })
+
+  it('defaults the maintenance add-on settings to no folder', () => {
+    expect(getMaintenanceAddonSettings(db)).toEqual({ folderPath: null })
+  })
+
+  it('round-trips the maintenance add-on folder path', () => {
+    setMaintenanceAddonSettings(db, { folderPath: 'C:\\WASM' })
+    expect(getMaintenanceAddonSettings(db)).toEqual({ folderPath: 'C:\\WASM' })
   })
 
   it('defaults GSX Remote settings to disabled, localhost, GSX\'s real default port 8744', () => {

@@ -22,6 +22,7 @@ import { AirportSearch } from './AirportSearch'
 import { DispatchAdvancedDialog } from './DispatchAdvancedDialog'
 import { countSetOptions, defaultDispatchOptions, dispatchOptionsToUrlParams, type DispatchOptions } from '@shared/dispatch-options'
 import { defaultDepartureTime, fromDatetimeLocalValue, toDatetimeLocalValue, toSimBriefDeparture } from './dispatch-time'
+import { lastKnownFuelOnBoard } from './fleet-fuel'
 import { useConfirm } from './hooks/useConfirm'
 import { MetarPanel } from './MetarPanel'
 import { ProcedureSelector } from './ProcedureSelector'
@@ -76,6 +77,11 @@ export function DispatchView(props: {
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [selectedAircraftId, setSelectedAircraftId] = useState<number | null>(null)
   const [planAircraftId, setPlanAircraftId] = useState<number | null>(null)
+  // The selected aircraft's own completed flights, for "fuel on board after last flight"
+  // (flightdeck-backend's docs/plans/fleet-maintenance.md, Part 2) — a separate fetch from
+  // pastFlights below, which is every flight regardless of aircraft, for a different purpose
+  // (the advanced dialog's "load settings from a previous flight").
+  const [selectedAircraftFlights, setSelectedAircraftFlights] = useState<Flight[]>([])
   const [depIcao, setDepIcao] = useState('')
   const [destIcao, setDestIcao] = useState('')
   // Airline ICAO prefills from the selected aircraft's operatorIcao but stays editable —
@@ -110,6 +116,23 @@ export function DispatchView(props: {
     // flightList already returns newest-first (docs/decisions.md).
     window.winglog.flightList().then(setPastFlights)
   }, [])
+
+  useEffect(() => {
+    if (selectedAircraftId == null) return
+    window.winglog.fleetListFlights(selectedAircraftId).then(setSelectedAircraftFlights)
+  }, [selectedAircraftId])
+
+  // Guarded on selectedAircraftId rather than clearing selectedAircraftFlights when it goes
+  // null (e.g. "Discard plan") — that would mean calling setState synchronously in the effect
+  // above just to reset it, when checking here achieves the same thing during render instead.
+  const fuelOnBoardFlight = selectedAircraftId != null ? lastKnownFuelOnBoard(selectedAircraftFlights) : null
+  // "top up to the plan" — Callum's own practical use case for this. A convenience number
+  // only, never sent to the sim; clamped to 0 rather than shown negative when the aircraft
+  // already has more on board than planned.
+  const upliftNeededKg =
+    fuelOnBoardFlight?.fuelInKg != null && ofp?.fuelPlannedKg != null
+      ? Math.max(0, ofp.fuelPlannedKg - fuelOnBoardFlight.fuelInKg)
+      : null
 
   function handlePlanAircraftChange(id: number): void {
     setPlanAircraftId(id)
@@ -509,6 +532,18 @@ export function DispatchView(props: {
                     label={t('dispatchView.fields.plannedFuel')}
                     value={formatWeight(ofp.fuelPlannedKg, props.weightUnit)}
                   />
+                  {fuelOnBoardFlight && (
+                    <DetailField
+                      label={t('dispatchView.fields.fuelOnBoard')}
+                      value={formatWeight(fuelOnBoardFlight.fuelInKg, props.weightUnit)}
+                    />
+                  )}
+                  {upliftNeededKg != null && (
+                    <DetailField
+                      label={t('dispatchView.fields.upliftNeeded')}
+                      value={formatWeight(upliftNeededKg, props.weightUnit)}
+                    />
+                  )}
                   <DetailField
                     label={t('dispatchView.fields.paxCargo')}
                     value={`${ofp.pax} / ${formatWeight(ofp.cargoKg, props.weightUnit)}`}

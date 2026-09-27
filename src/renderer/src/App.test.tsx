@@ -13,6 +13,7 @@ import type {
   SimConnectionStatus,
   SimTelemetry,
   SyncStatus,
+  TrackPoint,
   WingLogApi
 } from '@shared/ipc'
 import App from './App'
@@ -231,6 +232,36 @@ function makeOfp(overrides: Partial<DispatchOfp> = {}): DispatchOfp {
   }
 }
 
+function makeTrackPoint(overrides: Partial<TrackPoint> = {}): TrackPoint {
+  return {
+    id: 1,
+    flightId: 1,
+    tsUtc: '2026-01-01T00:00:00.000Z',
+    latitude: 51.47,
+    longitude: -0.45,
+    altitudeM: 1000,
+    pressureAltitudeM: null,
+    altitudeAglM: 900,
+    indicatedAirspeedMs: 100,
+    machSpeed: 0.3,
+    groundSpeedMs: 100,
+    verticalSpeedMs: 0,
+    headingTrueDeg: 270,
+    pitchDeg: 2,
+    bankDeg: 0,
+    phase: 'cruise',
+    onGround: false,
+    fuelKg: 1000,
+    gForce: 1,
+    windSpeedMs: 5,
+    windDirectionDeg: 270,
+    resumeSegment: 0,
+    simRate: 1,
+    excludedReason: null,
+    ...overrides
+  }
+}
+
 function makeSyncStatus(overrides: Partial<SyncStatus> = {}): SyncStatus {
   return { loggedIn: false, email: null, syncing: false, lastSyncedAt: null, lastError: null, ...overrides }
 }
@@ -274,6 +305,7 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     aircraftReplace: vi.fn().mockResolvedValue(undefined),
     fleetListLandings: vi.fn().mockResolvedValue([]),
     fleetListFlights: vi.fn().mockResolvedValue([]),
+    fleetGetMaintenance: vi.fn().mockResolvedValue(null),
     dispatchOpenSimBriefAirframes: vi.fn().mockResolvedValue(undefined),
     simbriefAirframesForType: vi.fn().mockResolvedValue([]),
     simbriefCreateCustomAirframe: vi.fn().mockResolvedValue(null),
@@ -327,6 +359,9 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     settingsGetGsx: vi.fn().mockResolvedValue({ enabled: false, folderPath: null, displayCurrency: 'USD' }),
     settingsSetGsx: vi.fn().mockResolvedValue(undefined),
     gsxBrowseFolder: vi.fn().mockResolvedValue(null),
+    settingsGetMaintenanceAddon: vi.fn().mockResolvedValue({ folderPath: null }),
+    settingsSetMaintenanceAddon: vi.fn().mockResolvedValue(undefined),
+    maintenanceAddonBrowseFolder: vi.fn().mockResolvedValue(null),
     settingsGetGsxRemote: vi.fn().mockResolvedValue({ enabled: false, host: 'localhost', port: null }),
     settingsSetGsxRemote: vi.fn().mockResolvedValue(undefined),
     gsxRemoteGetStatus: vi.fn().mockResolvedValue({ state: 'disconnected', lastError: null }),
@@ -618,6 +653,37 @@ describe('App', () => {
 
     await clickTab(user, 'Dispatch')
     expect(await screen.findByText(`${ofp.flightNumber}: ${ofp.depIcao} → ${ofp.arrIcao} (altn ${ofp.altnIcao})`)).toBeInTheDocument()
+  })
+
+  it('clears Dispatch’s OFP/route once tracking auto-completes, even if Track was never opened', async () => {
+    // Real bug (2026-09-27): a flight auto-completing via shutdown detection only cleared
+    // Dispatch's stale OFP/route through TrackView's own onTrackingPoint subscription — which
+    // only exists while Track is actually mounted. Staying on Dispatch (or any other tab) the
+    // whole flight, as a pilot who isn't watching the map usually would, left it showing the
+    // finished flight's info forever. This never visits Track at all.
+    const ofp = makeOfp()
+    const inProgress = makeFlight({ status: 'active', ofpId: ofp.ofpId })
+    let pointListener: ((point: TrackPoint) => void) | undefined
+    setWinglog({
+      dispatchGetInProgressFlight: vi.fn().mockResolvedValue({ flight: inProgress, ofp }),
+      onTrackingPoint: vi.fn((listener) => {
+        pointListener = listener
+        return () => {}
+      })
+    })
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByText('Fleet', { selector: 'h1' })
+
+    await clickTab(user, 'Dispatch')
+    expect(await screen.findByText(`${ofp.flightNumber}: ${ofp.depIcao} → ${ofp.arrIcao} (altn ${ofp.altnIcao})`)).toBeInTheDocument()
+
+    pointListener?.(makeTrackPoint({ phase: 'shutdown', flightId: inProgress.id }))
+
+    expect(await screen.findByText('Plan or fetch a flight to see its details here.')).toBeInTheDocument()
+    expect(
+      screen.queryByText(`${ofp.flightNumber}: ${ofp.depIcao} → ${ofp.arrIcao} (altn ${ofp.altnIcao})`)
+    ).not.toBeInTheDocument()
   })
 
   it('keeps a lifted OFP alive across a Dispatch -> Track -> Dispatch round trip', async () => {

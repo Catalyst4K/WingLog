@@ -85,6 +85,14 @@
       "displayCurrency": "Moneda de visualización",
       "currencyHint": "Los totales de GSX se convierten usando una tasa obtenida en el momento en que los consultas — nada se guarda ya convertido."
     },
+    "maintenanceAddon": {
+      "cardTitle": "Datos de mantenimiento de complementos",
+      "description": "Muestra los datos de mantenimiento registrados por PMDG 777 o iniBuilds A350 para un avión en su página de detalle de Flota. Solo lectura — nada de esto se escribe nunca de vuelta al simulador.",
+      "addonFolder": "Carpeta de datos del complemento",
+      "notSet": "No establecida",
+      "browse": "Examinar…",
+      "pathHint": "La carpeta de almacenamiento WASM del simulador (no el archivo de datos de un complemento en particular) — normalmente la carpeta llamada literalmente «WASM». Funciona tanto si tu instalación anida los complementos un nivel más abajo, bajo una carpeta MSFS2024, como si no. Una ruta incorrecta o que ya no existe solo significa que no se encuentran datos — nunca un error."
+    },
     "gsxRemote": {
       "cardTitle": "Control remoto GSX",
       "description": "Control de servicios de tierra en vivo, reconstruido dentro de WingLog a partir de la propia conexión Remote Client de GSX Pro — no es una copia incrustada de la página de GSX.",
@@ -236,9 +244,33 @@
       "empty": "Aún no hay aterrizajes registrados.",
       "crosswind": "{{kt}} kt de viento cruzado"
     },
+    "maintenance": {
+      "cardTitle": "Mantenimiento",
+      "empty": "No se encontraron datos de mantenimiento de complementos para este avión (compatible con PMDG 777, iniBuilds A350).",
+      "fields": {
+        "oilQuantity": "Cantidad de aceite del motor {{index}}",
+        "engineHours": "Horas del motor {{index}}",
+        "wheelMain": "Rueda del tren principal {{index}}",
+        "wheelNose": "Rueda del tren de morro {{index}}",
+        "hydraulicsVolume": "Volumen del sistema hidráulico {{index}}",
+        "hydraulicsTemp": "Temperatura del sistema hidráulico {{index}}",
+        "hydraulicsReservoir": "Depósito del sistema hidráulico {{index}}",
+        "hydraulicsReservoirYellow": "Depósito del sistema hidráulico amarillo",
+        "hydraulicsReservoirGreen": "Depósito del sistema hidráulico verde",
+        "fuelVolume": "Volumen del tanque de combustible {{index}}",
+        "fuelTemperature": "Temperatura del tanque de combustible {{index}}",
+        "apuHours": "Horas del APU",
+        "apuOilQuantity": "Cantidad de aceite del APU",
+        "apuStartCycles": "Ciclos de arranque del APU",
+        "batteryPct": "Batería {{index}}",
+        "batteryEmergencyPct": "Batería de emergencia {{index}}"
+      }
+    },
     "flights": {
       "cardTitle": "Vuelos",
-      "empty": "Aún no hay vuelos completados."
+      "empty": "Aún no hay vuelos completados.",
+      "fuelOnBoard": "Combustible a bordo tras el último vuelo:",
+      "fuelOnBoardFrom": "({{route}}, {{date}})"
     },
     "replaceDialog": {
       "title": "Reemplazar {{registration}}",
@@ -501,6 +533,8 @@
       "cruiseAltitude": "Altitud de crucero",
       "scheduledOutIn": "Salida / llegada programada",
       "plannedFuel": "Combustible planificado",
+      "fuelOnBoard": "Combustible a bordo",
+      "upliftNeeded": "Repostaje necesario",
       "paxCargo": "Pasajeros / carga",
       "zfwTowLdw": "ZFW / TOW / LDW",
       "costIndex": "Índice de coste"

@@ -13,6 +13,7 @@ import type {
   GsxSettings,
   LandingDistanceUnit,
   LogbookImportSummary,
+  MaintenanceAddonSettings,
   MapLanguage,
   SyncStatus,
   Theme,
@@ -215,6 +216,7 @@ export function SettingsView(props: {
   const [fleetFormat, setFleetFormat] = useState<DataFormat>('json')
   const [logbookFormat, setLogbookFormat] = useState<DataFormat>('csv')
   const [gsx, setGsx] = useState<GsxSettings>({ enabled: false, folderPath: null, displayCurrency: 'USD' })
+  const [maintenanceAddon, setMaintenanceAddon] = useState<MaintenanceAddonSettings>({ folderPath: null })
   const [gsxRemote, setGsxRemote] = useState<GsxRemoteSettings>({ enabled: false, host: 'localhost', port: null })
   // Free-typed while editing — kept separate from gsxRemote.port (number | null) so an
   // in-progress edit (e.g. a momentarily empty field) never round-trips through Number()
@@ -246,6 +248,7 @@ export function SettingsView(props: {
     window.winglog.settingsGetSimbriefUsername().then((u) => setSimbriefUsername(u ?? ''))
     window.winglog.dispatchSimbriefLoginStatus().then(setSimbriefLoggedIn)
     window.winglog.settingsGetGsx().then(setGsx)
+    window.winglog.settingsGetMaintenanceAddon().then(setMaintenanceAddon)
     window.winglog.settingsGetGsxRemote().then((settings) => {
       setGsxRemote(settings)
       setGsxRemotePortInput(settings.port != null ? String(settings.port) : '')
@@ -284,6 +287,14 @@ export function SettingsView(props: {
     const next = { ...gsx, displayCurrency }
     setGsx(next)
     await window.winglog.settingsSetGsx(next)
+  }
+
+  async function handleMaintenanceAddonBrowse(): Promise<void> {
+    const folderPath = await window.winglog.maintenanceAddonBrowseFolder()
+    if (!folderPath) return
+    const next = { folderPath }
+    setMaintenanceAddon(next)
+    await window.winglog.settingsSetMaintenanceAddon(next)
   }
 
   async function handleGsxRemoteToggle(enabled: boolean): Promise<void> {
@@ -649,6 +660,31 @@ export function SettingsView(props: {
                   </Select>
                 </Label>
                 <p className="text-xs text-muted-foreground">{t('settingsView.gsx.currencyHint')}</p>
+              </CardContent>
+            </Card>
+
+            <Card className="max-w-sm">
+              <CardHeader>
+                <CardTitle>{t('settingsView.maintenanceAddon.cardTitle')}</CardTitle>
+                <CardDescription>{t('settingsView.maintenanceAddon.description')}</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                <Label className="flex flex-col items-start gap-1.5">
+                  {t('settingsView.maintenanceAddon.addonFolder')}
+                  <div className="flex w-full gap-1.5">
+                    <Input
+                      type="text"
+                      readOnly
+                      value={maintenanceAddon.folderPath ?? ''}
+                      placeholder={t('settingsView.maintenanceAddon.notSet')}
+                      className="flex-1"
+                    />
+                    <Button type="button" variant="outline" size="sm" onClick={handleMaintenanceAddonBrowse}>
+                      {t('settingsView.maintenanceAddon.browse')}
+                    </Button>
+                  </div>
+                </Label>
+                <p className="text-xs text-muted-foreground">{t('settingsView.maintenanceAddon.pathHint')}</p>
               </CardContent>
             </Card>
 

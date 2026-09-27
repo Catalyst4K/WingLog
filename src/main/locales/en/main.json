@@ -5,7 +5,8 @@
     "exportLogbook": "Export logbook",
     "importLogbookCsv": "Import logbook CSV",
     "importLogbookJson": "Import logbook JSON",
-    "gsxReceiptsFolder": "GSX receipts folder"
+    "gsxReceiptsFolder": "GSX receipts folder",
+    "maintenanceAddonFolder": "Add-on maintenance data folder"
   },
   "startupFailed": "WingLog failed to start",
   "errors": {

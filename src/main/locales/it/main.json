@@ -5,7 +5,8 @@
     "exportLogbook": "Esporta libretto",
     "importLogbookCsv": "Importa CSV del libretto",
     "importLogbookJson": "Importa JSON del libretto",
-    "gsxReceiptsFolder": "Cartella ricevute GSX"
+    "gsxReceiptsFolder": "Cartella ricevute GSX",
+    "maintenanceAddonFolder": "Cartella dati di manutenzione add-on"
   },
   "startupFailed": "Avvio di WingLog non riuscito",
   "errors": {

@@ -5,7 +5,8 @@
     "exportLogbook": "匯出飛行日誌",
     "importLogbookCsv": "匯入 CSV 飛行日誌",
     "importLogbookJson": "匯入 JSON 飛行日誌",
-    "gsxReceiptsFolder": "GSX 收據資料夾"
+    "gsxReceiptsFolder": "GSX 收據資料夾",
+    "maintenanceAddonFolder": "附加元件維護資料夾"
   },
   "startupFailed": "WingLog 啟動失敗",
   "errors": {

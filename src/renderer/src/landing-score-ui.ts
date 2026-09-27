@@ -46,7 +46,9 @@ export function describeCategoryTolerance(
   key: LandingScoreCategoryKey,
   ideal: number | null,
   tolerance: number | null,
-  unit: LandingDistanceUnit
+  unit: LandingDistanceUnit,
+  toleranceShort: number | null = null,
+  toleranceLong: number | null = null
 ): string {
   if (ideal === null || tolerance === null) return 'Not available for this landing — no matched runway.'
   switch (key) {
@@ -75,9 +77,12 @@ export function describeCategoryTolerance(
     case 'distanceFromAimingPoint':
       // Was a stepped scale (piano-key bands) until 2026-09-21, when Callum pointed out it
       // made some scores impossible to land on and asked for the same tapered logic as every
-      // other category — a little long or short now costs less than a lot long or short,
-      // same shape as bank/crab below.
-      return `Ideal: touchdown on the aiming point, either direction. Score reaches 0 at ${formatRunwayDistance(tolerance, unit)} — this runway's own real touchdown-zone marking extent.`
+      // other category. Asymmetric since 2026-09-26 (Callum) — the aiming point isn't
+      // symmetric between the runway's two real hard limits, so a single ± tolerance either
+      // read as too lenient toward the threshold or too harsh toward the far marker
+      // depending which one it was tuned to. toleranceShort/toleranceLong are null together
+      // with `tolerance` above, so this case is only reached with both real.
+      return `Ideal: touchdown on the aiming point. Score reaches 0 at the threshold (${formatRunwayDistance(toleranceShort ?? 0, unit)} short of the aiming point) or at ${formatRunwayDistance(toleranceLong ?? 0, unit)} past it — this runway's own real touchdown-zone marking extent.`
     case 'centrelineOffset':
       return `Ideal: on the centreline. Score reaches 0 at ${formatRunwayDistance(tolerance, unit)} off it — half this runway's real width.`
   }
