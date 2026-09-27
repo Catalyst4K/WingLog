@@ -45,9 +45,6 @@ function createWinglog(overrides: Record<string, unknown> = {}): typeof window.w
     appGetVersion: vi.fn().mockResolvedValue('1.2.3'),
     settingsSetGsx: vi.fn().mockResolvedValue(undefined),
     gsxBrowseFolder: vi.fn().mockResolvedValue(null),
-    settingsGetMaintenanceAddon: vi.fn().mockResolvedValue({ folderPath: null }),
-    settingsSetMaintenanceAddon: vi.fn().mockResolvedValue(undefined),
-    maintenanceAddonBrowseFolder: vi.fn().mockResolvedValue(null),
     settingsGetGsxRemote: vi.fn().mockResolvedValue(makeGsxRemote()),
     settingsSetGsxRemote: vi.fn().mockResolvedValue(undefined),
     gsxRemoteGetStatus: vi.fn().mockResolvedValue(makeGsxRemoteStatus()),
@@ -457,10 +454,9 @@ describe('SettingsView', () => {
       const user = userEvent.setup()
       renderSettings()
       await user.click(screen.getByRole('tab', { name: '3rd party' }))
-      const card = within((await screen.findByText('GSX ground services')).closest('[data-slot="card"]') as HTMLElement)
-      await user.click(card.getByRole('button', { name: 'Browse…' }))
+      await user.click(await screen.findByRole('button', { name: 'Browse…' }))
 
-      expect(await card.findByDisplayValue('C:\\GSX\\Receipts')).toBeInTheDocument()
+      expect(await screen.findByDisplayValue('C:\\GSX\\Receipts')).toBeInTheDocument()
       expect(winglog.settingsSetGsx).toHaveBeenCalledWith(expect.objectContaining({ folderPath: 'C:\\GSX\\Receipts' }))
     })
 
@@ -469,10 +465,9 @@ describe('SettingsView', () => {
       const user = userEvent.setup()
       renderSettings()
       await user.click(screen.getByRole('tab', { name: '3rd party' }))
-      const card = within((await screen.findByText('GSX ground services')).closest('[data-slot="card"]') as HTMLElement)
-      await user.click(card.getByRole('button', { name: 'Browse…' }))
+      await user.click(await screen.findByRole('button', { name: 'Browse…' }))
 
-      expect(card.getByPlaceholderText('Not set')).toHaveValue('')
+      expect(screen.getByPlaceholderText('Not set')).toHaveValue('')
       expect(winglog.settingsSetGsx).not.toHaveBeenCalled()
     })
 
@@ -485,46 +480,6 @@ describe('SettingsView', () => {
       await user.click(await screen.findByRole('option', { name: /GBP/ }))
 
       expect(winglog.settingsSetGsx).toHaveBeenCalledWith(expect.objectContaining({ displayCurrency: 'GBP' }))
-    })
-  })
-
-  describe('Add-on maintenance data', () => {
-    it('shows "Not set" for the add-on folder by default', async () => {
-      const user = userEvent.setup()
-      renderSettings()
-      await user.click(screen.getByRole('tab', { name: '3rd party' }))
-      const card = within(
-        (await screen.findByText('Add-on maintenance data')).closest('[data-slot="card"]') as HTMLElement
-      )
-      expect(card.getByPlaceholderText('Not set')).toHaveValue('')
-    })
-
-    it('browses for an add-on folder and saves the chosen path', async () => {
-      const winglog = setWinglog({ maintenanceAddonBrowseFolder: vi.fn().mockResolvedValue('C:\\WASM') })
-      const user = userEvent.setup()
-      renderSettings()
-      await user.click(screen.getByRole('tab', { name: '3rd party' }))
-      const card = within(
-        (await screen.findByText('Add-on maintenance data')).closest('[data-slot="card"]') as HTMLElement
-      )
-      await user.click(card.getByRole('button', { name: 'Browse…' }))
-
-      expect(await card.findByDisplayValue('C:\\WASM')).toBeInTheDocument()
-      expect(winglog.settingsSetMaintenanceAddon).toHaveBeenCalledWith({ folderPath: 'C:\\WASM' })
-    })
-
-    it('leaves the folder path untouched when the browse dialog is cancelled', async () => {
-      const winglog = setWinglog({ maintenanceAddonBrowseFolder: vi.fn().mockResolvedValue(null) })
-      const user = userEvent.setup()
-      renderSettings()
-      await user.click(screen.getByRole('tab', { name: '3rd party' }))
-      const card = within(
-        (await screen.findByText('Add-on maintenance data')).closest('[data-slot="card"]') as HTMLElement
-      )
-      await user.click(card.getByRole('button', { name: 'Browse…' }))
-
-      expect(card.getByPlaceholderText('Not set')).toHaveValue('')
-      expect(winglog.settingsSetMaintenanceAddon).not.toHaveBeenCalled()
     })
   })
 
