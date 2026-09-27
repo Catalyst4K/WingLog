@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { BookOpen, Plane, Radar, Route, Settings as SettingsIcon, Truck } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
@@ -190,6 +190,38 @@ export default function App(): React.JSX.Element {
     }
     setDispatchOfp(ofp)
   }
+
+  // Called whenever a flight stops being current — cancelled, finished manually, or
+  // auto-completed via shutdown detection — so Dispatch's own OFP/route reference doesn't
+  // go on claiming to reference a flight that's no longer in progress. Passed to TrackView
+  // as onFlightEnded for the manual cases (only reachable while Track is actually mounted),
+  // and also driven directly below for the auto-detected shutdown case, which must clear
+  // this regardless of which tab the user is on when it fires — see the effect below.
+  function handleFlightEnded(): void {
+    handleDispatchOfpChange(null)
+    setDispatchedOfpId(null)
+  }
+
+  // Kept in sync with the latest handleFlightEnded closure on every render (same pattern as
+  // TrackView's own onFlightEndedRef) so the mount-once subscription below never calls back
+  // into a stale `dispatchOfp` from whatever render happened to be current when it first
+  // subscribed.
+  const handleFlightEndedRef = useRef(handleFlightEnded)
+  useEffect(() => {
+    handleFlightEndedRef.current = handleFlightEnded
+  })
+
+  // A flight can auto-complete (shutdown detection) while the user is on any tab, not just
+  // Track — TrackView's own onTrackingPoint subscription only exists while it's mounted, so
+  // relying on that alone left Dispatch showing a finished flight's OFP/route indefinitely
+  // whenever Track wasn't open at the moment shutdown fired (real report, 2026-09-27).
+  // Subscribed here instead, at the top level, so it fires no matter what's currently on
+  // screen.
+  useEffect(() => {
+    return window.winglog.onTrackingPoint((point) => {
+      if (point.phase === 'shutdown') handleFlightEndedRef.current()
+    })
+  }, [])
 
   useEffect(() => {
     window.winglog.trackingGetOrphanedFlight().then(setOrphanedFlight)
@@ -482,10 +514,7 @@ export default function App(): React.JSX.Element {
                 mapLanguage={mapLanguage}
                 selection={procedureSelection}
                 onSelectionChange={setProcedureSelection}
-                onFlightEnded={() => {
-                  handleDispatchOfpChange(null)
-                  setDispatchedOfpId(null)
-                }}
+                onFlightEnded={handleFlightEnded}
               />
             )}
             {page === 'gsx' && <GsxRemoteView />}
