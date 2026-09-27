@@ -253,8 +253,6 @@
         "hydraulicsVolume": "Hydrauliksystem {{index}} Volumen",
         "hydraulicsTemp": "Hydrauliksystem {{index}} Temperatur",
         "hydraulicsReservoir": "Hydrauliksystem {{index}} Reservoir",
-        "hydraulicsReservoirYellow": "Gelbes Hydrauliksystem – Reservoir",
-        "hydraulicsReservoirGreen": "Grünes Hydrauliksystem – Reservoir",
         "fuelVolume": "Kraftstofftank {{index}} Volumen",
         "fuelTemperature": "Kraftstofftank {{index}} Temperatur",
         "apuHours": "APU-Stunden",
