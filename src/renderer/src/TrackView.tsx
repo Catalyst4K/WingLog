@@ -528,6 +528,8 @@ export function TrackView(props: {
           telemetryPhase={active?.phase}
           telemetryTransition={telemetryTransition}
           mapLanguage={props.mapLanguage}
+          depIcao={realIcao(airports?.depIcao)}
+          arrIcao={realIcao(airports?.arrIcao)}
         />
       </div>
 

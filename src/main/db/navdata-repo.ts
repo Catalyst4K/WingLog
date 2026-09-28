@@ -1,12 +1,12 @@
 import { and, eq, inArray, isNull } from 'drizzle-orm'
-import type { NavdataLeg, NavdataProcedureOption, NavdataRunway, ProcedureKind } from '../navdata/navdata-provider'
+import type { NavdataLeg, NavdataProcedureOption, NavdataRunway, NavdataTaxiSegment, ProcedureKind } from '../navdata/navdata-provider'
 import { runwayEndsFromCentre } from '../navdata/runway-geometry'
 import { visualApproachRunway } from '@shared/visual-approach'
 import { visualApproachLegs, visualApproachOptions } from '../navdata/visual-approach'
-import type { FetchedAirportNavdata } from '../navdata/sim-facilities-fetch'
+import type { FetchedAirportNavdata, FetchedTaxiNetwork } from '../navdata/sim-facilities-fetch'
 import type { ParsedLeg } from '../sim/facility-fields'
 import type { WingLogDb } from './client'
-import { navdataProcedure, navdataProcedureLeg, navdataRunway } from './schema'
+import { navdataProcedure, navdataProcedureLeg, navdataRunway, navdataTaxiSegment } from './schema'
 
 /** Replaces every cached row for `icao` with what was just fetched — one transaction, so a
  *  mid-way failure can't leave a stale runway list next to a fresh procedure list. Matches
@@ -313,4 +313,46 @@ export function listCachedProcedureLegs(
   const dedupedCommon = dedupeBoundary(runwayLegs, commonLegs)
   const dedupedTransition = dedupeBoundary(dedupedCommon.length > 0 ? dedupedCommon : runwayLegs, transitionLegs)
   return [...runwayLegs, ...dedupedCommon, ...dedupedTransition].map(toNavdataLeg)
+}
+
+/** Same "replace wholesale per airport per fetch" shape as replaceAirportNavdata, its own
+ *  table — a taxi-network refresh never touches the runway/procedure cache. */
+export function replaceAirportTaxiSegments(db: WingLogDb, icao: string, fetched: FetchedTaxiNetwork, fetchedAt: string): void {
+  db.transaction((tx) => {
+    tx.delete(navdataTaxiSegment).where(eq(navdataTaxiSegment.icao, icao)).run()
+    for (const segment of fetched.segments) {
+      tx.insert(navdataTaxiSegment)
+        .values({
+          icao,
+          startLat: segment.startLat,
+          startLon: segment.startLon,
+          endLat: segment.endLat,
+          endLon: segment.endLon,
+          name: segment.name,
+          source: 'sim-facility',
+          fetchedAt
+        })
+        .run()
+    }
+  })
+}
+
+export function hasCachedTaxiNetwork(db: WingLogDb, icao: string): boolean {
+  const row = db.select({ id: navdataTaxiSegment.id }).from(navdataTaxiSegment).where(eq(navdataTaxiSegment.icao, icao)).get()
+  return row !== undefined
+}
+
+export function listCachedTaxiSegments(db: WingLogDb, icao: string): NavdataTaxiSegment[] {
+  return db
+    .select()
+    .from(navdataTaxiSegment)
+    .where(eq(navdataTaxiSegment.icao, icao))
+    .all()
+    .map((row) => ({
+      startLat: row.startLat,
+      startLon: row.startLon,
+      endLat: row.endLat,
+      endLon: row.endLon,
+      name: row.name
+    }))
 }

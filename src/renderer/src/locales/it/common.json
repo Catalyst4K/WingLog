@@ -618,6 +618,10 @@
     "na": "N/D",
     "nearestAirfield": "Aeroporto più vicino",
     "nearest": "Più vicino:",
+    "hideTaxiChart": "Nascondi carta di rullaggio",
+    "showTaxiChart": "Mostra carta di rullaggio",
+    "showTaxiChartTitle": "Mostra carta di rullaggio — rete completa delle vie di rullaggio dell'aeroporto di partenza/arrivo",
+    "loadingTaxiChart": "Caricamento della carta di rullaggio per {{icao}}… può richiedere alcuni minuti per gli aeroporti grandi",
     "approximateRoute": "Rotta approssimativa — nessun piano di volo registrato per questo volo"
   },
   "logbookView": {

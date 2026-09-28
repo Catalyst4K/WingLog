@@ -618,6 +618,10 @@
     "na": "N/D",
     "nearestAirfield": "Aeródromo más cercano",
     "nearest": "Más cercano:",
+    "hideTaxiChart": "Ocultar carta de rodaje",
+    "showTaxiChart": "Mostrar carta de rodaje",
+    "showTaxiChartTitle": "Mostrar carta de rodaje — red completa de calles de rodaje del aeropuerto de salida/llegada",
+    "loadingTaxiChart": "Cargando la carta de rodaje de {{icao}}… puede tardar varios minutos en aeropuertos grandes",
     "approximateRoute": "Ruta aproximada — no hay plan de vuelo registrado para este vuelo"
   },
   "logbookView": {

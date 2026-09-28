@@ -431,3 +431,22 @@ export const navdataProcedureLeg = sqliteTable('navdata_procedure_leg', {
   // cached before this column existed — they read as "no distance known" until refreshed.
   routeDistanceM: real('route_distance_m').notNull().default(0)
 })
+
+// One row per taxi-network segment (a single TAXI_PATH record, resolved down to real lat/lon
+// endpoints — see fetchTaxiNetwork in sim-facilities-fetch.ts). Deliberately flat, no separate
+// points table: BIAS_X/BIAS_Z -> lat/lon conversion and NAME_INDEX -> name resolution both
+// happen before a row is ever written, so a read is a plain SELECT, no join. No `type` column —
+// both TYPE 1 and TYPE 4 (see facility-fields.ts's NavdataDefId comment) are fetched and
+// merged, since which is really "Taxi" vs "Path" is unconfirmed and this app doesn't
+// distinguish them for rendering purposes.
+export const navdataTaxiSegment = sqliteTable('navdata_taxi_segment', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  icao: text('icao').notNull(),
+  startLat: real('start_lat').notNull(),
+  startLon: real('start_lon').notNull(),
+  endLat: real('end_lat').notNull(),
+  endLon: real('end_lon').notNull(),
+  name: text('name'),
+  source: text('source', { enum: ['sim-facility'] }).notNull(),
+  fetchedAt: text('fetched_at').notNull()
+})

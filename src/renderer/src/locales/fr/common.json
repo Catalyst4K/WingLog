@@ -618,6 +618,10 @@
     "na": "N/D",
     "nearestAirfield": "Aérodrome le plus proche",
     "nearest": "Le plus proche :",
+    "hideTaxiChart": "Masquer la carte de circulation au sol",
+    "showTaxiChart": "Afficher la carte de circulation au sol",
+    "showTaxiChartTitle": "Afficher la carte de circulation au sol — réseau complet des voies de circulation de l'aéroport de départ/arrivée",
+    "loadingTaxiChart": "Chargement de la carte de circulation au sol pour {{icao}}… peut prendre plusieurs minutes sur les grands aéroports",
     "approximateRoute": "Route approximative — aucun plan de vol enregistré pour ce vol"
   },
   "logbookView": {

@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events'
 import { describe, expect, it, vi } from 'vitest'
 import { FacilityDataType, RawBuffer, type SimConnectConnection } from 'node-simconnect'
 import { NavdataDefId } from '../sim/facility-fields'
-import { fetchAirportNavdata } from './sim-facilities-fetch'
+import { fetchAirportNavdata, fetchTaxiNetwork } from './sim-facilities-fetch'
 
 function buffer(write: (b: RawBuffer) => void): RawBuffer {
   const b = new RawBuffer(0)
@@ -89,6 +89,7 @@ function legBuffer(fixIcao: string): RawBuffer {
 class FakeHandle extends EventEmitter {
   addToFacilityDefinition = vi.fn()
   requestFacilityData = vi.fn()
+  addFacilityDataDefinitionFilter = vi.fn()
 }
 
 function endAll(handle: FakeHandle): void {
@@ -311,5 +312,174 @@ describe('fetchAirportNavdata', () => {
 
     const result = await promise
     expect(result.runways).toEqual([])
+  })
+})
+
+function airportLatLonBuffer(icao: string, latitude: number, longitude: number): RawBuffer {
+  return buffer((w) => {
+    w.writeString8(icao)
+    w.writeFloat64(latitude)
+    w.writeFloat64(longitude)
+  })
+}
+
+function taxiPointBuffer(biasX: number, biasZ: number): RawBuffer {
+  return buffer((w) => {
+    w.writeFloat32(biasX)
+    w.writeFloat32(biasZ)
+  })
+}
+
+function taxiPathBuffer(type: number, start: number, end: number, nameIndex: number): RawBuffer {
+  return buffer((w) => {
+    w.writeInt32(type)
+    w.writeInt32(start)
+    w.writeInt32(end)
+    w.writeInt32(nameIndex)
+  })
+}
+
+function taxiNameBuffer(name: string): RawBuffer {
+  return buffer((w) => w.writeString8(name))
+}
+
+function endAllTaxi(handle: FakeHandle): void {
+  handle.emit('facilityDataEnd', { userRequestId: NavdataDefId.TAXI_POINTS })
+  handle.emit('facilityDataEnd', { userRequestId: NavdataDefId.TAXI_PATHS_TYPE_1 })
+  handle.emit('facilityDataEnd', { userRequestId: NavdataDefId.TAXI_PATHS_TYPE_4 })
+  handle.emit('facilityDataEnd', { userRequestId: NavdataDefId.TAXI_NAMES })
+}
+
+describe('fetchTaxiNetwork', () => {
+  it('registers two filtered TAXI_PATH definitions (TYPE 1 and TYPE 4) and requests all four', () => {
+    const handle = new FakeHandle()
+    void fetchTaxiNetwork(handle as unknown as SimConnectConnection, 'EGKB')
+
+    expect(handle.requestFacilityData).toHaveBeenCalledWith(NavdataDefId.TAXI_POINTS, NavdataDefId.TAXI_POINTS, 'EGKB')
+    expect(handle.requestFacilityData).toHaveBeenCalledWith(NavdataDefId.TAXI_PATHS_TYPE_1, NavdataDefId.TAXI_PATHS_TYPE_1, 'EGKB')
+    expect(handle.requestFacilityData).toHaveBeenCalledWith(NavdataDefId.TAXI_PATHS_TYPE_4, NavdataDefId.TAXI_PATHS_TYPE_4, 'EGKB')
+    expect(handle.requestFacilityData).toHaveBeenCalledWith(NavdataDefId.TAXI_NAMES, NavdataDefId.TAXI_NAMES, 'EGKB')
+    expect(handle.addFacilityDataDefinitionFilter).toHaveBeenCalledWith(NavdataDefId.TAXI_PATHS_TYPE_1, 'AIRPORT:TAXI_PATH:TYPE', expect.anything())
+    expect(handle.addFacilityDataDefinitionFilter).toHaveBeenCalledWith(NavdataDefId.TAXI_PATHS_TYPE_4, 'AIRPORT:TAXI_PATH:TYPE', expect.anything())
+  })
+
+  it('resolves points/paths from both filtered TYPE requests into real lat/lon segments, and NAME_INDEX into names', async () => {
+    const handle = new FakeHandle()
+    const promise = fetchTaxiNetwork(handle as unknown as SimConnectConnection, 'EGKB')
+
+    // Real EGKB reference point + two real captured TAXI_POINT records (the runway 03/21
+    // centerline's threshold points, 2026-09-28).
+    handle.emit('facilityData', {
+      type: FacilityDataType.AIRPORT,
+      userRequestId: NavdataDefId.TAXI_POINTS,
+      itemIndex: 0xffffffff,
+      data: airportLatLonBuffer('EGKB', 51.33098021149635, 0.03246232867240906)
+    })
+    handle.emit('facilityData', {
+      type: FacilityDataType.TAXI_POINT,
+      userRequestId: NavdataDefId.TAXI_POINTS,
+      itemIndex: 0,
+      data: taxiPointBuffer(389.0379, 823.5693)
+    })
+    handle.emit('facilityData', {
+      type: FacilityDataType.TAXI_POINT,
+      userRequestId: NavdataDefId.TAXI_POINTS,
+      itemIndex: 7,
+      data: taxiPointBuffer(-394.4898, -794.5173)
+    })
+
+    // A TYPE-1 path and a TYPE-4 path, from the two separate filtered requests — both must
+    // end up merged into the result.
+    handle.emit('facilityData', {
+      type: FacilityDataType.AIRPORT,
+      userRequestId: NavdataDefId.TAXI_PATHS_TYPE_1,
+      itemIndex: 0xffffffff,
+      data: airportLatLonBuffer('EGKB', 51.33098021149635, 0.03246232867240906)
+    })
+    handle.emit('facilityData', {
+      type: FacilityDataType.TAXI_PATH,
+      userRequestId: NavdataDefId.TAXI_PATHS_TYPE_1,
+      itemIndex: 0,
+      data: taxiPathBuffer(1, 0, 7, 0) // unnamed (NAME_INDEX 0)
+    })
+    handle.emit('facilityData', {
+      type: FacilityDataType.AIRPORT,
+      userRequestId: NavdataDefId.TAXI_PATHS_TYPE_4,
+      itemIndex: 0xffffffff,
+      data: airportLatLonBuffer('EGKB', 51.33098021149635, 0.03246232867240906)
+    })
+    handle.emit('facilityData', {
+      type: FacilityDataType.TAXI_PATH,
+      userRequestId: NavdataDefId.TAXI_PATHS_TYPE_4,
+      itemIndex: 0,
+      data: taxiPathBuffer(4, 7, 0, 1) // named, NAME_INDEX 1 -> "A"
+    })
+
+    handle.emit('facilityData', {
+      type: FacilityDataType.AIRPORT,
+      userRequestId: NavdataDefId.TAXI_NAMES,
+      itemIndex: 0xffffffff,
+      data: airportLatLonBuffer('EGKB', 51.33098021149635, 0.03246232867240906)
+    })
+    handle.emit('facilityData', {
+      type: FacilityDataType.TAXI_NAME,
+      userRequestId: NavdataDefId.TAXI_NAMES,
+      itemIndex: 0,
+      data: taxiNameBuffer('')
+    })
+    handle.emit('facilityData', {
+      type: FacilityDataType.TAXI_NAME,
+      userRequestId: NavdataDefId.TAXI_NAMES,
+      itemIndex: 1,
+      data: taxiNameBuffer('A')
+    })
+
+    endAllTaxi(handle)
+
+    const result = await promise
+    expect(result.icao).toBe('EGKB')
+    expect(result.segments).toHaveLength(2)
+    expect(result.segments.find((s) => s.name === null)).toMatchObject({
+      startLat: expect.closeTo(51.33823, 3),
+      startLon: expect.closeTo(0.03809, 3)
+    })
+    expect(result.segments.find((s) => s.name === 'A')).toBeDefined()
+  })
+
+  it('drops a path whose START/END point was never received, rather than emitting a broken segment', async () => {
+    const handle = new FakeHandle()
+    const promise = fetchTaxiNetwork(handle as unknown as SimConnectConnection, 'EGKB')
+
+    handle.emit('facilityData', {
+      type: FacilityDataType.AIRPORT,
+      userRequestId: NavdataDefId.TAXI_POINTS,
+      itemIndex: 0xffffffff,
+      data: airportLatLonBuffer('EGKB', 51.33098021149635, 0.03246232867240906)
+    })
+    // Only point 0 arrives — point 99 (referenced by the path below) never does.
+    handle.emit('facilityData', {
+      type: FacilityDataType.TAXI_POINT,
+      userRequestId: NavdataDefId.TAXI_POINTS,
+      itemIndex: 0,
+      data: taxiPointBuffer(0, 0)
+    })
+    handle.emit('facilityData', {
+      type: FacilityDataType.TAXI_PATH,
+      userRequestId: NavdataDefId.TAXI_PATHS_TYPE_1,
+      itemIndex: 0,
+      data: taxiPathBuffer(1, 0, 99, 0)
+    })
+
+    endAllTaxi(handle)
+
+    const result = await promise
+    expect(result.segments).toEqual([])
+  })
+
+  it('rejects on a SimConnect exception rather than hanging forever', async () => {
+    const handle = new FakeHandle()
+    const promise = fetchTaxiNetwork(handle as unknown as SimConnectConnection, 'ZZZZ')
+    handle.emit('exception', { exceptionName: 'ERROR', index: 0, sendId: 1 })
+    await expect(promise).rejects.toThrow(/ZZZZ/)
   })
 })

@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { RawBuffer } from 'node-simconnect'
 import {
+  biasToLatLon,
   parseAirportHeader,
+  parseAirportHeaderWithLatLon,
   parseApproachHeader,
   parseEnrouteTransition,
   parseLeg,
   parseProcedureHeader,
   parseRunway,
   parseRunwayTransition,
+  parseTaxiName,
+  parseTaxiPath,
+  parseTaxiPoint,
   runwayIdent
 } from './facility-fields'
 
@@ -195,5 +200,112 @@ describe('parseLeg', () => {
 
   it('returns null fixIdent for a blank FIX_ICAO', () => {
     expect(parseLeg(legBuffer({ fixIcao: '' })).fixIdent).toBeNull()
+  })
+})
+
+describe('parseAirportHeaderWithLatLon', () => {
+  it('reads ICAO + LATITUDE + LONGITUDE, real EGKB reference point', () => {
+    const b = buffer((w) => {
+      w.writeString8('EGKB')
+      w.writeFloat64(51.33098021149635)
+      w.writeFloat64(0.03246232867240906)
+    })
+    expect(parseAirportHeaderWithLatLon(b)).toEqual({
+      icao: 'EGKB',
+      latitude: 51.33098021149635,
+      longitude: 0.03246232867240906
+    })
+  })
+})
+
+describe('parseTaxiPoint', () => {
+  it('reads BIAS_X/BIAS_Z', () => {
+    const b = buffer((w) => {
+      w.writeFloat32(389.0379)
+      w.writeFloat32(823.5693)
+    })
+    const point = parseTaxiPoint(b)
+    expect(point.biasX).toBeCloseTo(389.0379, 2)
+    expect(point.biasZ).toBeCloseTo(823.5693, 2)
+  })
+})
+
+describe('parseTaxiPath', () => {
+  it('reads TYPE/START/END/NAME_INDEX', () => {
+    const b = buffer((w) => {
+      w.writeInt32(4)
+      w.writeInt32(27)
+      w.writeInt32(28)
+      w.writeInt32(1)
+    })
+    expect(parseTaxiPath(b)).toEqual({ type: 4, start: 27, end: 28, nameIndex: 1 })
+  })
+
+  it('maps NAME_INDEX 0 to null — the real "no name" sentinel, confirmed live 2026-09-28, not a missing/error case', () => {
+    const b = buffer((w) => {
+      w.writeInt32(2)
+      w.writeInt32(345)
+      w.writeInt32(2)
+      w.writeInt32(0)
+    })
+    expect(parseTaxiPath(b).nameIndex).toBeNull()
+  })
+})
+
+describe('parseTaxiName', () => {
+  it('reads NAME', () => {
+    const b = buffer((w) => w.writeString8('A'))
+    expect(parseTaxiName(b)).toEqual({ name: 'A' })
+  })
+})
+
+describe('biasToLatLon', () => {
+  it('returns the reference point unchanged for zero bias', () => {
+    const result = biasToLatLon(51.33098021149635, 0.03246232867240906, 0, 0)
+    expect(result.latitude).toBeCloseTo(51.33098021149635, 9)
+    expect(result.longitude).toBeCloseTo(0.03246232867240906, 9)
+  })
+
+  it('east/north bias moves latitude/longitude in the expected direction', () => {
+    const result = biasToLatLon(51.33098021149635, 0.03246232867240906, 1000, 1000)
+    expect(result.latitude).toBeGreaterThan(51.33098021149635) // north = higher latitude
+    expect(result.longitude).toBeGreaterThan(0.03246232867240906) // east = higher longitude
+  })
+
+  it('matches EGKB runway 03/21\'s real heading and length within noise — confirmed live 2026-09-28 (flightdeck-backend docs/navdata-notes.md)', () => {
+    // Real TAXI_POINT values for the runway centerline's two extreme threshold points,
+    // captured live against Callum's MSFS session. Real RUNWAY facility data for the same
+    // airport: HEADING 25.64043617248535 deg, LENGTH 1800.79833984375 m.
+    const refLat = 51.33098021149635
+    const refLon = 0.03246232867240906
+    const start = biasToLatLon(refLat, refLon, 389.03790283203125, 823.5693359375)
+    const end = biasToLatLon(refLat, refLon, -394.4898376464844, -794.517333984375)
+
+    const toRad = (deg: number): number => (deg * Math.PI) / 180
+    const bearingDeg = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+      const dLon = toRad(lon2 - lon1)
+      const y = Math.sin(dLon) * Math.cos(toRad(lat2))
+      const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon)
+      return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360
+    }
+    const distanceM = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+      const R = 6371000
+      const dLat = toRad(lat2 - lat1)
+      const dLon = toRad(lon2 - lon1)
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
+      return 2 * R * Math.asin(Math.sqrt(a))
+    }
+
+    const bearing = bearingDeg(start.latitude, start.longitude, end.latitude, end.longitude)
+    const distance = distanceM(start.latitude, start.longitude, end.latitude, end.longitude)
+
+    // A straight segment's bearing is only defined up to which end you start from (START/END
+    // are arbitrary, not "inbound"/"outbound") - either direction matching the real runway's
+    // published heading (25.64 deg) is the correct confirmation, same as the live spike found
+    // (25.8 deg one way, its reciprocal ~205.8 the other). Real length 1800.8m either way.
+    const reciprocal = (bearing + 180) % 360
+    const closestToReal = Math.min(Math.abs(bearing - 25.64), Math.abs(reciprocal - 25.64))
+    expect(closestToReal).toBeLessThan(0.5)
+    expect(distance).toBeCloseTo(1800.8, -2)
   })
 })

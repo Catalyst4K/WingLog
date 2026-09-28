@@ -710,6 +710,157 @@ describe('FlightMap', () => {
     })
   })
 
+  describe('Taxi chart overlay (flightdeck-backend docs/plans/taxi-network-overlay.md)', () => {
+    const DEP_SEGMENTS = [{ startLat: 51.338, startLon: 0.038, endLat: 51.324, endLon: 0.027, name: null }]
+    const ARR_SEGMENTS = [{ startLat: 22.31, startLon: 113.91, endLat: 22.32, endLon: 113.92, name: 'C' }]
+
+    function stubWinglog(cached: Record<string, boolean> = {}): {
+      hasTaxiNetwork: ReturnType<typeof vi.fn>
+      refreshTaxiNetwork: ReturnType<typeof vi.fn>
+      getTaxiNetwork: ReturnType<typeof vi.fn>
+    } {
+      const segmentsByIcao: Record<string, unknown> = { EGKB: DEP_SEGMENTS, VHHH: ARR_SEGMENTS }
+      const hasTaxiNetwork = vi.fn().mockImplementation((icao: string) => Promise.resolve(cached[icao] ?? false))
+      const refreshTaxiNetwork = vi.fn().mockResolvedValue(undefined)
+      const getTaxiNetwork = vi.fn().mockImplementation((icao: string) => Promise.resolve(segmentsByIcao[icao] ?? []))
+      ;(window as unknown as { winglog: unknown }).winglog = {
+        navdataHasTaxiNetwork: hasTaxiNetwork,
+        navdataRefreshTaxiNetwork: refreshTaxiNetwork,
+        navdataGetTaxiNetwork: getTaxiNetwork
+      }
+      return { hasTaxiNetwork, refreshTaxiNetwork, getTaxiNetwork }
+    }
+
+    const toggleButton = (): HTMLElement => screen.getByRole('button', { name: /taxi chart/i })
+
+    it('is off by default: nothing fetched, no layer', async () => {
+      const { hasTaxiNetwork } = stubWinglog()
+      const { map } = await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB' })
+
+      expect(toggleButton()).toHaveAttribute('aria-pressed', 'false')
+      expect(hasTaxiNetwork).not.toHaveBeenCalled()
+      expect(map.layers['taxi-chart-line']).toBeUndefined()
+    })
+
+    it('is offered even on a finished flight\'s static map, unlike the VFR overlay', async () => {
+      stubWinglog()
+      await renderReady({ route: [], trackPoints: [], live: false, depIcao: 'EGKB' })
+      expect(toggleButton()).toBeInTheDocument()
+    })
+
+    it('switching it on refreshes an uncached airport, then loads and draws its segments', async () => {
+      const { hasTaxiNetwork, refreshTaxiNetwork, getTaxiNetwork } = stubWinglog()
+      const user = userEvent.setup()
+      const { map } = await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB' })
+
+      await user.click(toggleButton())
+
+      await waitFor(() => expect(hasTaxiNetwork).toHaveBeenCalledWith('EGKB'))
+      expect(refreshTaxiNetwork).toHaveBeenCalledWith('EGKB')
+      await waitFor(() => expect(getTaxiNetwork).toHaveBeenCalledWith('EGKB'))
+      await waitFor(() => {
+        const data = map.sources['taxi-chart']?.setData.mock.calls.at(-1)?.[0] as { features: unknown[] } | undefined
+        expect(data?.features).toHaveLength(1)
+      })
+      expect(toggleButton()).toHaveAttribute('aria-pressed', 'true')
+    })
+
+    it('does not refresh an already-cached airport', async () => {
+      const { hasTaxiNetwork, refreshTaxiNetwork, getTaxiNetwork } = stubWinglog({ EGKB: true })
+      const user = userEvent.setup()
+      await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB' })
+
+      await user.click(toggleButton())
+
+      await waitFor(() => expect(getTaxiNetwork).toHaveBeenCalledWith('EGKB'))
+      expect(hasTaxiNetwork).toHaveBeenCalledWith('EGKB')
+      expect(refreshTaxiNetwork).not.toHaveBeenCalled()
+    })
+
+    it('loads departure and arrival independently, merging both into one chart', async () => {
+      const { getTaxiNetwork } = stubWinglog({ EGKB: true, VHHH: true })
+      const user = userEvent.setup()
+      const { map } = await renderReady({
+        route: [],
+        trackPoints: [],
+        live: true,
+        depIcao: 'EGKB',
+        arrIcao: 'VHHH'
+      })
+
+      await user.click(toggleButton())
+
+      await waitFor(() => expect(getTaxiNetwork).toHaveBeenCalledWith('EGKB'))
+      await waitFor(() => expect(getTaxiNetwork).toHaveBeenCalledWith('VHHH'))
+      await waitFor(() => {
+        const data = map.sources['taxi-chart']?.setData.mock.calls.at(-1)?.[0] as { features: unknown[] } | undefined
+        expect(data?.features).toHaveLength(2)
+      })
+    })
+
+    it('shows a loading message for the airport currently being fetched', async () => {
+      let resolveRefresh: (() => void) | undefined
+      const hasTaxiNetwork = vi.fn().mockResolvedValue(false)
+      const refreshTaxiNetwork = vi.fn().mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveRefresh = resolve
+          })
+      )
+      const getTaxiNetwork = vi.fn().mockResolvedValue(DEP_SEGMENTS)
+      ;(window as unknown as { winglog: unknown }).winglog = { navdataHasTaxiNetwork: hasTaxiNetwork, navdataRefreshTaxiNetwork: refreshTaxiNetwork, navdataGetTaxiNetwork: getTaxiNetwork }
+      const user = userEvent.setup()
+      await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB' })
+
+      await user.click(toggleButton())
+
+      expect(await screen.findByText(/EGKB/)).toBeInTheDocument()
+      await act(async () => {
+        resolveRefresh?.()
+      })
+      await waitFor(() => expect(screen.queryByText(/EGKB/)).not.toBeInTheDocument())
+    })
+
+    it('switching it off hides the layer, keeping it cached for next time', async () => {
+      const { getTaxiNetwork } = stubWinglog()
+      const user = userEvent.setup()
+      const { map } = await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB' })
+      await user.click(toggleButton())
+      await waitFor(() => expect(getTaxiNetwork).toHaveBeenCalledWith('EGKB'))
+      map.setLayoutProperty.mockClear()
+
+      await user.click(toggleButton())
+
+      expect(map.setLayoutProperty).toHaveBeenCalledWith('taxi-chart-line', 'visibility', 'none')
+    })
+
+    it('does not re-fetch when toggled off and on again', async () => {
+      const { getTaxiNetwork } = stubWinglog()
+      const user = userEvent.setup()
+      await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB' })
+      await user.click(toggleButton())
+      await waitFor(() => expect(getTaxiNetwork).toHaveBeenCalledTimes(1))
+      await user.click(toggleButton())
+      await user.click(toggleButton())
+      expect(getTaxiNetwork).toHaveBeenCalledTimes(1)
+    })
+
+    it('clears the loading message and leaves the rest of the map working when the fetch fails', async () => {
+      const hasTaxiNetwork = vi.fn().mockResolvedValue(false)
+      const refreshTaxiNetwork = vi.fn().mockRejectedValue(new Error('sim not running'))
+      const getTaxiNetwork = vi.fn().mockResolvedValue([])
+      ;(window as unknown as { winglog: unknown }).winglog = { navdataHasTaxiNetwork: hasTaxiNetwork, navdataRefreshTaxiNetwork: refreshTaxiNetwork, navdataGetTaxiNetwork: getTaxiNetwork }
+      const user = userEvent.setup()
+      await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB' })
+
+      await user.click(toggleButton())
+
+      await waitFor(() => expect(refreshTaxiNetwork).toHaveBeenCalledWith('EGKB'))
+      await waitFor(() => expect(screen.queryByText(/EGKB/)).not.toBeInTheDocument())
+      expect(toggleButton()).toHaveAttribute('aria-pressed', 'true')
+    })
+  })
+
   it('draws the planned route and waypoint pins once ready', async () => {
     const route: [number, number][] = [
       [-0.5, 51],

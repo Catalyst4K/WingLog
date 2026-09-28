@@ -37,7 +37,16 @@ export const enum NavdataDefId {
   RUNWAYS = 10,
   DEPARTURES = 11,
   ARRIVALS = 12,
-  APPROACHES = 13
+  APPROACHES = 13,
+  TAXI_POINTS = 14,
+  /** Two separate definitions for the same TAXI_PATH shape, filtered to different `TYPE`
+   *  values — a facility data definition's filter (`addFacilityDataDefinitionFilter`) matches
+   *  exactly one value, and which numeric `TYPE` is really "Taxi" vs "Path" is unconfirmed
+   *  (flightdeck-backend's docs/navdata-notes.md, 2026-09-28) — TYPE 1 and TYPE 4 are both
+   *  fetched and merged rather than guessing one. */
+  TAXI_PATHS_TYPE_1 = 15,
+  TAXI_PATHS_TYPE_4 = 16,
+  TAXI_NAMES = 17
 }
 
 /** 0/1/2/3 = none/L/R/C — confirmed against two real airports with known real layouts
@@ -61,6 +70,32 @@ export function addAirportIcaoField(addField: (name: string) => void): void {
 
 export function parseAirportHeader(d: RawBuffer): ParsedAirportHeader {
   return { icao: d.readString8() }
+}
+
+export interface ParsedAirportHeaderWithLatLon {
+  icao: string
+  latitude: number
+  longitude: number
+}
+
+/** Every taxi-network definition below registers this same shape at the airport level (not
+ *  just `addAirportIcaoField`'s ICAO-only shape) — even the three that don't themselves need
+ *  the reference point — so every request's AIRPORT record has an identical buffer layout,
+ *  sidestepping the per-definition buffer-shape gotcha `fetchAirportNavdata`'s own comment
+ *  describes. Only the TAXI_POINTS fetch actually uses the lat/lon (as the reference point for
+ *  `biasToLatLon`). */
+export function addAirportIcaoLatLonFields(addField: (name: string) => void): void {
+  addField('OPEN AIRPORT')
+  addField('ICAO')
+  addField('LATITUDE')
+  addField('LONGITUDE')
+}
+
+export function parseAirportHeaderWithLatLon(d: RawBuffer): ParsedAirportHeaderWithLatLon {
+  const icao = d.readString8()
+  const latitude = d.readFloat64()
+  const longitude = d.readFloat64()
+  return { icao, latitude, longitude }
 }
 
 export interface ParsedRunway {
@@ -343,3 +378,81 @@ export function parseApproachHeader(d: RawBuffer): ParsedApproachHeader {
 /** Same field shape as an ENROUTE_TRANSITION (NAME, N_APPROACH_LEGS) — reused directly
  *  rather than a duplicate parser. `parseEnrouteTransition`'s name is generic on purpose. */
 export const parseApproachTransition = parseEnrouteTransition
+
+/** Metres per degree of latitude, WGS84 mean — confirmed accurate enough for this app's
+ *  purpose (a reference overlay, not navigation-grade positioning) live 2026-09-28: converting
+ *  EGKB's real runway 03/21 threshold points this way and comparing against the runway's own
+ *  real HEADING/LENGTH gave a bearing within 0.2° and a distance within 5m over a ~1.8km
+ *  baseline (flightdeck-backend's docs/navdata-notes.md). */
+const METRES_PER_DEGREE_LATITUDE = 111_320
+
+/** `TAXI_POINT`'s `BIAS_X`/`BIAS_Z` are metre offsets from the airport's own reference point —
+ *  no LATITUDE/LONGITUDE of their own. Axis convention confirmed live 2026-09-28: `BIAS_X` =
+ *  metres east, `BIAS_Z` = metres north, true-north aligned, plain flat local tangent plane —
+ *  no rotation or magnetic-variance correction needed (docs/navdata-notes.md). */
+export function biasToLatLon(
+  refLatitude: number,
+  refLongitude: number,
+  biasX: number,
+  biasZ: number
+): { latitude: number; longitude: number } {
+  const latitude = refLatitude + biasZ / METRES_PER_DEGREE_LATITUDE
+  const longitude = refLongitude + biasX / (METRES_PER_DEGREE_LATITUDE * Math.cos((refLatitude * Math.PI) / 180))
+  return { latitude, longitude }
+}
+
+export interface ParsedTaxiPoint {
+  biasX: number
+  biasZ: number
+}
+
+export function addTaxiPointFields(addField: (name: string) => void): void {
+  addField('BIAS_X')
+  addField('BIAS_Z')
+}
+
+export function parseTaxiPoint(d: RawBuffer): ParsedTaxiPoint {
+  const biasX = d.readFloat32()
+  const biasZ = d.readFloat32()
+  return { biasX, biasZ }
+}
+
+export interface ParsedTaxiPath {
+  type: number
+  /** Index into the airport's TAXI_POINT list (docs/navdata-notes.md, 2026-09-28: confirmed
+   *  this indexes the *unfiltered* point list — TAXI_POINT itself is never filtered, exactly
+   *  because filtering it would desync these indices). */
+  start: number
+  end: number
+  /** Index into the airport's TAXI_NAME list, or `null` for index 0 — confirmed live
+   *  2026-09-28 to be the real "no name" sentinel, not a missing/error case
+   *  (docs/navdata-notes.md). */
+  nameIndex: number | null
+}
+
+export function addTaxiPathFields(addField: (name: string) => void): void {
+  addField('TYPE')
+  addField('START')
+  addField('END')
+  addField('NAME_INDEX')
+}
+
+export function parseTaxiPath(d: RawBuffer): ParsedTaxiPath {
+  const type = d.readInt32()
+  const start = d.readInt32()
+  const end = d.readInt32()
+  const nameIndex = d.readInt32()
+  return { type, start, end, nameIndex: nameIndex === 0 ? null : nameIndex }
+}
+
+export interface ParsedTaxiName {
+  name: string
+}
+
+export function addTaxiNameFields(addField: (name: string) => void): void {
+  addField('NAME')
+}
+
+export function parseTaxiName(d: RawBuffer): ParsedTaxiName {
+  return { name: d.readString8() }
+}

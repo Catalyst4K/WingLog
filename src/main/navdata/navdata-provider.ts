@@ -37,6 +37,14 @@ export interface NavdataLeg {
 
 export type ProcedureKind = 'sid' | 'star' | 'approach'
 
+export interface NavdataTaxiSegment {
+  startLat: number
+  startLon: number
+  endLat: number
+  endLon: number
+  name: string | null
+}
+
 export interface NavdataProvider {
   /** Fetches fresh navdata for `icao` from the sim and replaces the cache for it — the
    *  write path (called on OFP import, and from a manual "Refresh from sim" control).
@@ -73,4 +81,12 @@ export interface NavdataProvider {
    * runway) — with the duplicate fix ARINC 424 repeats at that boundary dropped.
    */
   getProcedureWaypoints(icao: string, kind: ProcedureKind, identifier: string, runway?: string | null, transition?: string | null): NavdataLeg[]
+  /** Fetches an airport's full taxiway network and replaces the cache for it. Unlike
+   *  `refreshAirport`, this is genuinely slow for a large airport (minutes, not seconds —
+   *  flightdeck-backend's docs/navdata-notes.md, 2026-09-28) — only ever call this from an
+   *  explicit user action, never automatically. */
+  refreshTaxiNetwork(icao: string): Promise<void>
+  /** True once at least one refreshTaxiNetwork(icao) has completed for this ICAO. */
+  hasTaxiNetwork(icao: string): boolean
+  getTaxiNetwork(icao: string): NavdataTaxiSegment[]
 }
