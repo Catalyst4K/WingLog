@@ -924,4 +924,160 @@ describe('App', () => {
       expect(screen.queryByText('GSX needs your input')).not.toBeInTheDocument()
     })
   })
+
+  describe('ATC clearance prompt (BeyondATC Part 3)', () => {
+    function withTranscriptListener(
+      overrides: Partial<WingLogApi> = {}
+    ): { push: (transcript: { speaker: 'player' | 'atc' | 'traffic' | 'atcTraffic'; text: string; ts: number }[]) => void; winglog: WingLogApi } {
+      let listener: ((transcript: { speaker: 'player' | 'atc' | 'traffic' | 'atcTraffic'; text: string; ts: number }[]) => void) | undefined
+      const winglog = setWinglog({
+        // Active tracking is what makes TrackView actually push procedureSelection back to
+        // the main process (its own effect gates on it) — this is how the tests below assert
+        // "the selection actually changed" without needing a full ProcedureSelector render.
+        trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'cruise' }),
+        onBeyondAtcTranscript: vi.fn((l) => {
+          listener = l
+          return () => {}
+        }),
+        ...overrides
+      })
+      return { push: (transcript) => listener?.(transcript), winglog }
+    }
+
+    async function openTrackTab(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+      await clickTab(user, 'Track')
+      await screen.findByText('Track', { selector: 'h1' })
+    }
+
+    it('shows the prompt for a real departure clearance and applies it on Update', async () => {
+      const { push, winglog } = withTranscriptListener()
+      const user = userEvent.setup()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+      await openTrackTab(user)
+
+      push([{ speaker: 'atc', text: 'Test 830, Test Delivery, cleared to Pudong via VMR9B departure, runway 20C, climb via SID to 11000 feet, squawk 3136.', ts: 1000 }])
+
+      expect(await screen.findByText('Update procedure from ATC clearance?')).toBeInTheDocument()
+      expect(screen.getByText(/^SID:/)).toBeInTheDocument()
+      expect(screen.getByText(/^Departure runway:/)).toBeInTheDocument()
+      expect(screen.getByText('VMR9B')).toBeInTheDocument()
+      expect(screen.getByText('20C')).toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'Update' }))
+
+      await waitFor(() =>
+        expect(winglog.trackingSetProcedureSelection).toHaveBeenLastCalledWith(
+          expect.objectContaining({ sidIdent: 'VMR9B', departureRunway: '20C' })
+        )
+      )
+      expect(screen.queryByText('Update procedure from ATC clearance?')).not.toBeInTheDocument()
+    })
+
+    it('dismissing the prompt leaves the selection unchanged', async () => {
+      const { push, winglog } = withTranscriptListener()
+      const user = userEvent.setup()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+      await openTrackTab(user)
+      const callsBeforePush = vi.mocked(winglog.trackingSetProcedureSelection).mock.calls.length
+
+      push([{ speaker: 'atc', text: 'Test 830, cleared AND1 arrival, runway 17R.', ts: 1000 }])
+      await screen.findByText('Update procedure from ATC clearance?')
+
+      await user.click(screen.getByRole('button', { name: 'Dismiss' }))
+
+      await waitFor(() => expect(screen.queryByText('Update procedure from ATC clearance?')).not.toBeInTheDocument())
+      expect(vi.mocked(winglog.trackingSetProcedureSelection).mock.calls.length).toBe(callsBeforePush)
+    })
+
+    it('never prompts for a non-clearance ATC line', async () => {
+      const { push } = withTranscriptListener()
+      const user = userEvent.setup()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+      await openTrackTab(user)
+
+      push([{ speaker: 'atc', text: 'Test 830, contact Test Radar 134.7.', ts: 1000 }])
+
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(screen.queryByText('Update procedure from ATC clearance?')).not.toBeInTheDocument()
+    })
+
+    it('never prompts for a traffic (another aircraft) clearance line', async () => {
+      const { push } = withTranscriptListener()
+      const user = userEvent.setup()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+      await openTrackTab(user)
+
+      push([{ speaker: 'atcTraffic', text: 'Other 42, cleared AND1 arrival, runway 17R.', ts: 1000 }])
+
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(screen.queryByText('Update procedure from ATC clearance?')).not.toBeInTheDocument()
+    })
+
+    it('does not re-prompt for the same transcript entry delivered again', async () => {
+      const { push } = withTranscriptListener()
+      const user = userEvent.setup()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+      await openTrackTab(user)
+
+      const entry: { speaker: 'atc'; text: string; ts: number } = {
+        speaker: 'atc',
+        text: 'Test 830, cleared AND1 arrival, runway 17R.',
+        ts: 1000
+      }
+      push([entry])
+      await screen.findByText('Update procedure from ATC clearance?')
+      await user.click(screen.getByRole('button', { name: 'Dismiss' }))
+      await waitFor(() => expect(screen.queryByText('Update procedure from ATC clearance?')).not.toBeInTheDocument())
+
+      // The whole buffer is re-delivered (onBeyondAtcTranscript's real shape) with nothing new.
+      push([entry])
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(screen.queryByText('Update procedure from ATC clearance?')).not.toBeInTheDocument()
+    })
+
+    it('a later transition-less "cleared" approach message does not erase an already-accepted transition', async () => {
+      const { push, winglog } = withTranscriptListener()
+      const user = userEvent.setup()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+      await openTrackTab(user)
+
+      push([
+        {
+          speaker: 'atc',
+          text: 'Test 830 Test Approach, QNH 1012 expect the ILS-Z approach runway 17R with the PD201 transition.',
+          ts: 1000
+        }
+      ])
+      await screen.findByText('Update procedure from ATC clearance?')
+      await user.click(screen.getByRole('button', { name: 'Update' }))
+      await waitFor(() =>
+        expect(winglog.trackingSetProcedureSelection).toHaveBeenLastCalledWith(
+          expect.objectContaining({ approachIdent: 'ILS Z 17R', approachTransition: 'PD201' })
+        )
+      )
+      const callsAfterFirstAccept = vi.mocked(winglog.trackingSetProcedureSelection).mock.calls.length
+
+      // The real BeyondATC sequence: the later "cleared" confirmation restates the same
+      // approach/runway but never repeats the transition. Its parsed fields are just
+      // { approachIdent: 'ILS Z 17R' } — identical to what's already selected, so this must
+      // not prompt at all, and definitely must not null out the transition already accepted.
+      push([
+        { speaker: 'atc', text: 'Test 830 Test Approach, QNH 1012 expect the ILS-Z approach runway 17R with the PD201 transition.', ts: 1000 },
+        { speaker: 'atc', text: 'Test 830, cleared direct PD201, cross PD201 at or above 900m, cleared ILS-Z approach runway 17R.', ts: 2000 }
+      ])
+
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(screen.queryByText('Update procedure from ATC clearance?')).not.toBeInTheDocument()
+      expect(vi.mocked(winglog.trackingSetProcedureSelection).mock.calls.length).toBe(callsAfterFirstAccept)
+      expect(winglog.trackingSetProcedureSelection).toHaveBeenLastCalledWith(
+        expect.objectContaining({ approachIdent: 'ILS Z 17R', approachTransition: 'PD201' })
+      )
+    })
+  })
 })

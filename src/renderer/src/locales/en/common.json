@@ -217,6 +217,11 @@
     "gsxFirstLaunch": {
       "found": "GSX ground-service tracking enabled — receipts folder found automatically.",
       "notFound": "GSX ground-service tracking is off — enable it in Settings if you use GSX."
+    },
+    "atcClearancePrompt": {
+      "title": "Update procedure from ATC clearance?",
+      "update": "Update",
+      "dismiss": "Dismiss"
     }
   },
   "fleetView": {
