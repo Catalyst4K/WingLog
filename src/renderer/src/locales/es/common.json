@@ -725,6 +725,7 @@
     "loading": "Cargando…",
     "notConfigured": "La integración con BeyondATC está desactivada. Actívala en Ajustes → Terceros.",
     "connecting": "Conectando con BeyondATC…",
+    "connected": "Conectado a BeyondATC.",
     "disconnected": "Sin conexión con BeyondATC.",
     "tunedTo": "Sintonizado en {{station}} ({{frequency}})",
     "progress": "{{from}} → {{to}} · {{pct}}%",

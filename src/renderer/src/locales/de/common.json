@@ -723,6 +723,7 @@
     "loading": "Wird geladen…",
     "notConfigured": "BeyondATC-Integration ist deaktiviert. Aktiviere sie unter Einstellungen → Drittanbieter.",
     "connecting": "Verbindung zu BeyondATC wird hergestellt…",
+    "connected": "Mit BeyondATC verbunden.",
     "disconnected": "Nicht mit BeyondATC verbunden.",
     "tunedTo": "Eingestellt auf {{station}} ({{frequency}})",
     "progress": "{{from}} → {{to}} · {{pct}}%",

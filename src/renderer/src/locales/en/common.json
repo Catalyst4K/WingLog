@@ -723,6 +723,7 @@
     "loading": "Loading…",
     "notConfigured": "BeyondATC integration is off. Turn it on under Settings → 3rd party.",
     "connecting": "Connecting to BeyondATC…",
+    "connected": "Connected to BeyondATC.",
     "disconnected": "Not connected to BeyondATC.",
     "tunedTo": "Tuned to {{station}} ({{frequency}})",
     "progress": "{{from}} → {{to}} · {{pct}}%",

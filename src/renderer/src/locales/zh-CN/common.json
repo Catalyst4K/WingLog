@@ -715,6 +715,7 @@
     "loading": "加载中…",
     "notConfigured": "BeyondATC 集成已关闭。请在设置 → 第三方中启用。",
     "connecting": "正在连接 BeyondATC…",
+    "connected": "已连接到 BeyondATC。",
     "disconnected": "未连接到 BeyondATC。",
     "tunedTo": "已调至 {{station}}（{{frequency}}）",
     "progress": "{{from}} → {{to}} · {{pct}}%",

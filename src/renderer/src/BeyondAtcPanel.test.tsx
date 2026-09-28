@@ -54,6 +54,13 @@ describe('BeyondAtcPanel', () => {
     expect(await screen.findByText('Not connected to BeyondATC.')).toBeInTheDocument()
   })
 
+  it('shows a persistent connected message even with nothing else to display (real gap found live, 2026-09-28)', async () => {
+    withWinglog()
+    render(<BeyondAtcPanel />)
+
+    expect(await screen.findByText('Connected to BeyondATC.')).toBeInTheDocument()
+  })
+
   it('renders the tuned facility, callsign and progress once connected', async () => {
     withWinglog({
       beyondAtcGetState: vi.fn().mockResolvedValue(
