@@ -1232,6 +1232,17 @@ export interface NavdataLeg {
   routeDistanceM: number
 }
 
+/** One taxiway-network segment (a single TAXI_PATH record, resolved to real lat/lon
+ *  endpoints) — the full set for an airport is a basic taxi chart, not a specific route.
+ *  `name` is the taxiway identifier (e.g. "C", "W1"), or null for an unnamed segment. */
+export interface NavdataTaxiSegment {
+  startLat: number
+  startLon: number
+  endLat: number
+  endLon: number
+  name: string | null
+}
+
 export const IpcChannels = {
   aircraftList: 'aircraft:list',
   aircraftCreate: 'aircraft:create',
@@ -1336,6 +1347,9 @@ export const IpcChannels = {
   navdataListStars: 'navdata:list-stars',
   navdataListApproaches: 'navdata:list-approaches',
   navdataGetProcedureWaypoints: 'navdata:get-procedure-waypoints',
+  navdataRefreshTaxiNetwork: 'navdata:refresh-taxi-network',
+  navdataHasTaxiNetwork: 'navdata:has-taxi-network',
+  navdataGetTaxiNetwork: 'navdata:get-taxi-network',
   trackingSetProcedureSelection: 'tracking:set-procedure-selection',
   trackingSetDestination: 'tracking:set-destination',
   trackingSetDeparture: 'tracking:set-departure',
@@ -1688,6 +1702,13 @@ export interface WingLogApi {
     runway?: string | null,
     transition?: string | null
   ) => Promise<NavdataLeg[]>
+  /** Fetches an airport's full taxiway network from the sim and replaces the cache for it.
+   *  Genuinely slow for a large airport (minutes, not seconds) — only ever call this from an
+   *  explicit user action (a "load taxi chart" toggle), never automatically. */
+  navdataRefreshTaxiNetwork: (icao: string) => Promise<void>
+  /** True once navdataRefreshTaxiNetwork has completed for this ICAO at least once. */
+  navdataHasTaxiNetwork: (icao: string) => Promise<boolean>
+  navdataGetTaxiNetwork: (icao: string) => Promise<NavdataTaxiSegment[]>
   /** Pushes the current live selection to the main process so it's available whenever the
    *  active flight completes — manual finish *or* automatic shutdown detection, neither of
    *  which round-trips through the renderer (TrackingController). Call on every change

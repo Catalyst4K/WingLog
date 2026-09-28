@@ -184,6 +184,9 @@ const api: WingLogApi = {
     runway?: string | null,
     transition?: string | null
   ) => ipcRenderer.invoke(IpcChannels.navdataGetProcedureWaypoints, icao, kind, identifier, runway, transition),
+  navdataRefreshTaxiNetwork: (icao: string) => ipcRenderer.invoke(IpcChannels.navdataRefreshTaxiNetwork, icao),
+  navdataHasTaxiNetwork: (icao: string) => ipcRenderer.invoke(IpcChannels.navdataHasTaxiNetwork, icao),
+  navdataGetTaxiNetwork: (icao: string) => ipcRenderer.invoke(IpcChannels.navdataGetTaxiNetwork, icao),
   trackingSetProcedureSelection: (selection: ProcedureSelection) =>
     ipcRenderer.invoke(IpcChannels.trackingSetProcedureSelection, selection),
   trackingSetDestination: (icao: string | null) => ipcRenderer.invoke(IpcChannels.trackingSetDestination, icao),

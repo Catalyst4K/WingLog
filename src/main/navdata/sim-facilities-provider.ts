@@ -2,13 +2,16 @@ import { open as defaultOpen, Protocol } from 'node-simconnect'
 import type { WingLogDb } from '../db/client'
 import {
   hasCachedAirport,
+  hasCachedTaxiNetwork,
   listCachedProcedureLegs,
   listCachedProcedures,
   listCachedRunways,
-  replaceAirportNavdata
+  listCachedTaxiSegments,
+  replaceAirportNavdata,
+  replaceAirportTaxiSegments
 } from '../db/navdata-repo'
-import type { NavdataLeg, NavdataProcedureOption, NavdataProvider, NavdataRunway, ProcedureKind } from './navdata-provider'
-import { fetchAirportNavdata } from './sim-facilities-fetch'
+import type { NavdataLeg, NavdataProcedureOption, NavdataProvider, NavdataRunway, NavdataTaxiSegment, ProcedureKind } from './navdata-provider'
+import { fetchAirportNavdata, fetchTaxiNetwork } from './sim-facilities-fetch'
 
 const APP_NAME = 'WingLog navdata'
 
@@ -62,5 +65,23 @@ export class SimFacilitiesProvider implements NavdataProvider {
 
   getProcedureWaypoints(icao: string, kind: ProcedureKind, identifier: string, runway?: string | null, transition?: string | null): NavdataLeg[] {
     return listCachedProcedureLegs(this.db, icao, kind, identifier, runway, transition)
+  }
+
+  async refreshTaxiNetwork(icao: string): Promise<void> {
+    const { handle } = await this.openSimConnect(APP_NAME, Protocol.SunRise)
+    try {
+      const fetched = await fetchTaxiNetwork(handle, icao)
+      replaceAirportTaxiSegments(this.db, icao, fetched, new Date().toISOString())
+    } finally {
+      handle.close()
+    }
+  }
+
+  hasTaxiNetwork(icao: string): boolean {
+    return hasCachedTaxiNetwork(this.db, icao)
+  }
+
+  getTaxiNetwork(icao: string): NavdataTaxiSegment[] {
+    return listCachedTaxiSegments(this.db, icao)
   }
 }

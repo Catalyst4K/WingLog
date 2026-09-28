@@ -616,6 +616,10 @@
     "na": "N/A",
     "nearestAirfield": "Nearest airfield",
     "nearest": "Nearest:",
+    "hideTaxiChart": "Hide taxi chart",
+    "showTaxiChart": "Show taxi chart",
+    "showTaxiChartTitle": "Show taxi chart — full taxiway network at the departure/arrival airport",
+    "loadingTaxiChart": "Loading taxi chart for {{icao}}… this can take a few minutes at large airports",
     "approximateRoute": "Approximate route — no flight plan on file for this flight"
   },
   "logbookView": {

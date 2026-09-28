@@ -143,6 +143,9 @@ function createWinglog(overrides: Record<string, unknown> = {}): typeof window.w
     navdataListStars: vi.fn().mockResolvedValue([]),
     navdataListApproaches: vi.fn().mockResolvedValue([]),
     navdataGetProcedureWaypoints: vi.fn().mockResolvedValue([]),
+    navdataRefreshTaxiNetwork: vi.fn().mockResolvedValue(undefined),
+    navdataHasTaxiNetwork: vi.fn().mockResolvedValue(false),
+    navdataGetTaxiNetwork: vi.fn().mockResolvedValue([]),
     ...overrides
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any

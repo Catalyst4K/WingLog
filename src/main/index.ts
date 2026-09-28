@@ -1031,6 +1031,15 @@ if (!gotSingleInstanceLock) {
           transition?: string | null
         ) => navdataProvider.getProcedureWaypoints(icao, kind, identifier, runway, transition)
       )
+      ipcMain.handle(IpcChannels.navdataRefreshTaxiNetwork, (_event, icao: string) =>
+        navdataProvider.refreshTaxiNetwork(icao)
+      )
+      ipcMain.handle(IpcChannels.navdataHasTaxiNetwork, (_event, icao: string) =>
+        navdataProvider.hasTaxiNetwork(icao)
+      )
+      ipcMain.handle(IpcChannels.navdataGetTaxiNetwork, (_event, icao: string) =>
+        navdataProvider.getTaxiNetwork(icao)
+      )
 
       // CI packaging check (see .github/workflows/package.yml): proves the built
       // binary launches, migrates the DB and renders a first frame, then exits

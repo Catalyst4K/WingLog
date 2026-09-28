@@ -610,6 +610,10 @@
     "na": "無資料",
     "nearestAirfield": "最近機場",
     "nearest": "最近：",
+    "hideTaxiChart": "隱藏滑行圖",
+    "showTaxiChart": "顯示滑行圖",
+    "showTaxiChartTitle": "顯示滑行圖 — 出發/抵達機場的完整滑行道網路",
+    "loadingTaxiChart": "正在載入 {{icao}} 的滑行圖……大型機場可能需要幾分鐘",
     "approximateRoute": "近似航路 — 此航班沒有存檔的飛行計畫"
   },
   "logbookView": {

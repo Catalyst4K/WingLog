@@ -9,7 +9,7 @@ import {
 } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
-import { Locate, LocateFixed, Radar, ZoomIn, ZoomOut } from 'lucide-react'
+import { Locate, LocateFixed, Radar, Waypoints, ZoomIn, ZoomOut } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { FlightPhase, MapLanguage, SimTelemetry, TrackPoint } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
@@ -18,6 +18,7 @@ import { planStyleChanges, type StyleLayerLike } from './map-labels'
 import { mapInteraction } from './mapInteraction'
 import type { TransitionAltitudes, Waypoint } from './route'
 import { filterVisibleTrackPoints } from './trackPointVisibility'
+import { useTaxiChartOverlay } from './useTaxiChartOverlay'
 import { useVfrOverlay } from './useVfrOverlay'
 import { msToKt } from './units'
 
@@ -238,6 +239,12 @@ export interface FlightMapProps {
   /** Language of the base map's place names (Settings → UI → Map language). Defaults to
    *  English. Applied to the hosted style's own labels — see map-labels.ts. */
   mapLanguage?: MapLanguage
+  /** Departure/arrival ICAOs, for the taxi chart overlay (flightdeck-backend's docs/plans/
+   *  taxi-network-overlay.md) — null/omitted when unknown (e.g. a free flight). Available in
+   *  both live and replay, unlike the VFR overlay, since it's static reference data with no
+   *  "now" to depend on. */
+  depIcao?: string | null
+  arrIcao?: string | null
 }
 
 // Stable reference for the default so the route/waypoint effect below doesn't re-fire on
@@ -253,7 +260,9 @@ export function FlightMap({
   telemetryPhase = 'cruise',
   telemetryTransition = null,
   routeIsApproximate = false,
-  mapLanguage = 'en'
+  mapLanguage = 'en',
+  depIcao = null,
+  arrIcao = null
 }: FlightMapProps): React.JSX.Element {
   const { t } = useTranslation()
   const mapContainerRef = useRef<HTMLDivElement>(null)
@@ -726,6 +735,8 @@ export function FlightMap({
     routeLayerId: ROUTE_SOURCE_ID
   })
 
+  const taxiChart = useTaxiChartOverlay({ mapRef, mapReady, depIcao, arrIcao })
+
   const mapControlButtonClassName = 'bg-popover/85 backdrop-blur-sm hover:bg-popover'
 
   return (
@@ -768,6 +779,18 @@ export function FlightMap({
             <Radar />
           </Button>
         )}
+        <Button
+          type="button"
+          variant={taxiChart.enabled ? 'default' : 'outline'}
+          size="icon-sm"
+          className={taxiChart.enabled ? undefined : mapControlButtonClassName}
+          aria-label={taxiChart.enabled ? t('flightMap.hideTaxiChart') : t('flightMap.showTaxiChart')}
+          title={taxiChart.enabled ? t('flightMap.hideTaxiChart') : t('flightMap.showTaxiChartTitle')}
+          aria-pressed={taxiChart.enabled}
+          onClick={taxiChart.toggle}
+        >
+          <Waypoints />
+        </Button>
         <Button
           type="button"
           variant="outline"
@@ -816,6 +839,14 @@ export function FlightMap({
           aria-label={t('flightMap.nearestAirfield')}
         >
           {t('flightMap.nearest')} {vfr.nearestText}
+        </div>
+      )}
+      {taxiChart.enabled && taxiChart.loadingIcao && (
+        <div
+          className="absolute right-3 bottom-3 rounded-full border border-border bg-popover/85 px-3 py-1 font-mono text-xs text-popover-foreground backdrop-blur-sm"
+          aria-label={t('flightMap.loadingTaxiChart', { icao: taxiChart.loadingIcao })}
+        >
+          {t('flightMap.loadingTaxiChart', { icao: taxiChart.loadingIcao })}
         </div>
       )}
       {routeIsApproximate && (

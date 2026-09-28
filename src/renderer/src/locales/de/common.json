@@ -616,6 +616,10 @@
     "na": "k. A.",
     "nearestAirfield": "Nächster Flugplatz",
     "nearest": "Nächster:",
+    "hideTaxiChart": "Rollkarte ausblenden",
+    "showTaxiChart": "Rollkarte anzeigen",
+    "showTaxiChartTitle": "Rollkarte anzeigen — vollständiges Rollwegnetz des Abflug-/Zielflughafens",
+    "loadingTaxiChart": "Rollkarte für {{icao}} wird geladen … kann bei großen Flughäfen einige Minuten dauern",
     "approximateRoute": "Ungefähre Route — kein Flugplan für diesen Flug hinterlegt"
   },
   "logbookView": {
