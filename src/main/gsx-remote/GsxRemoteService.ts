@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { WebSocket as NodeWebSocket } from 'node:http'
+import { WebSocket as NodeWebSocket } from 'ws'
 import type {
   GsxRemoteCommand,
   GsxRemoteCommandBar,
@@ -22,8 +22,14 @@ const STATIC_COMMANDS: { id: GsxRemoteCommand['id']; label: string; confirm: boo
   { id: 'RESTART_COUATL', label: 'Restart Couatl', confirm: true }
 ]
 
-/** Matches the global/`node:http` WebSocket constructor — injected so tests don't need a
- *  real GSX install (mirrors SimConnectService's OpenSimConnect injection). */
+/** The `ws` npm package's WebSocket, not the global/`node:http` one — switched preventively,
+ *  2026-09-28, after confirming live that BeyondAtcService's identical import silently drops
+ *  every line after the first in a large multi-line message burst (Node's built-in WebSocket
+ *  mishandling fragmentation that `ws` reassembles correctly). GSX's own `commandIcons`/
+ *  `commandIconsSvg` snapshots (base64 image data URIs, potentially several KB) are a
+ *  plausible real trigger for the same bug, not yet independently reproduced live. Injected
+ *  so tests don't need a real GSX install (mirrors SimConnectService's OpenSimConnect
+ *  injection). */
 export type WebSocketCtor = typeof NodeWebSocket
 
 export const EMPTY_MENU: GsxRemoteMenuState = {
