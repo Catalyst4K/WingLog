@@ -19,6 +19,7 @@ import { mapInteraction } from './mapInteraction'
 import type { TransitionAltitudes, Waypoint } from './route'
 import { filterVisibleTrackPoints } from './trackPointVisibility'
 import { useTaxiChartOverlay } from './useTaxiChartOverlay'
+import { useTaxiRouteHighlight } from './useTaxiRouteHighlight'
 import { useVfrOverlay } from './useVfrOverlay'
 import { msToKt } from './units'
 
@@ -736,6 +737,7 @@ export function FlightMap({
   })
 
   const taxiChart = useTaxiChartOverlay({ mapRef, mapReady, depIcao, arrIcao })
+  useTaxiRouteHighlight({ mapRef, mapReady, enabled: taxiChart.enabled })
 
   const mapControlButtonClassName = 'bg-popover/85 backdrop-blur-sm hover:bg-popover'
 
