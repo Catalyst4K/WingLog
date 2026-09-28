@@ -11,6 +11,39 @@ import { migrateDb } from './migrate'
 // root — see electron-builder.yml and src/main/index.ts for the fix (an explicit,
 // app.getAppPath()-derived migrationsFolder). Both call shapes need to keep working:
 // scripts/db-migrate.ts and every other test rely on the cwd-relative default.
+/** A migration's leading 4-digit sequence number, e.g. 'drizzle/0027_foo.sql' -> 27. */
+function migrationNumber(tagOrFilename: string): number {
+  const match = /(\d{4})_/.exec(tagOrFilename)
+  if (!match) throw new Error(`Not a migration filename/tag: ${tagOrFilename}`)
+  return Number(match[1])
+}
+
+/** Builds a "baseline" migrations folder containing only migrations strictly before
+ *  `fromNumberInclusive` — the schema shape a real pre-existing database was in right before
+ *  that migration (and everything after it) existed. Deliberately excludes *everything* from
+ *  `fromNumberInclusive` onward, not just the one migration under test — drizzle's migrator
+ *  tracks progress by each migration's own generation timestamp (`folderMillis`), applying
+ *  anything newer than the last-applied one (sqlite-core/dialect.js's `migrate()`), not by
+ *  count or by individual hash. A baseline that skipped only the migration under test but
+ *  accidentally *included* a later one (e.g. because a new migration was added after it and
+ *  this exclusion list wasn't updated) would record that later migration's timestamp as "last
+ *  applied" — which, being newer, would then cause the real migrateDb run afterward to skip
+ *  every older migration in between as "already applied", including the very one the test
+ *  means to exercise. A real incident, 2026-09-28: adding migration 0029 silently broke the
+ *  0027 and 0028 tests below this exact way, `migrateDb` never threw, and the resulting
+ *  database was just silently missing both migrations' columns. */
+function buildBaselineMigrationsFolder(realDrizzleDir: string, baselineDir: string, fromNumberInclusive: number): void {
+  mkdirSync(join(baselineDir, 'meta'), { recursive: true })
+  for (const f of readdirSync(realDrizzleDir)) {
+    if (f.endsWith('.sql') && migrationNumber(f) < fromNumberInclusive) copyFileSync(join(realDrizzleDir, f), join(baselineDir, f))
+  }
+  const journal = JSON.parse(readFileSync(join(realDrizzleDir, 'meta', '_journal.json'), 'utf-8')) as {
+    entries: { tag: string }[]
+  }
+  journal.entries = journal.entries.filter((e) => migrationNumber(e.tag) < fromNumberInclusive)
+  writeFileSync(join(baselineDir, 'meta', '_journal.json'), JSON.stringify(journal, null, 2))
+}
+
 describe('migrateDb', () => {
   let tempDir: string
 
@@ -58,20 +91,12 @@ describe('migrateDb', () => {
     tempDir = mkdtempSync(join(tmpdir(), 'winglog-migrate-0024-test-'))
     const dbPath = join(tempDir, 'winglog.db')
 
-    // A migrations folder containing everything except 0024 — brings a fresh DB up to
+    // A migrations folder containing everything before 0024 — brings a fresh DB up to
     // exactly the schema shape a real pre-existing user database was in before this
     // migration existed.
     const realDrizzleDir = join(process.cwd(), 'drizzle')
     const baselineDir = join(tempDir, 'drizzle-baseline')
-    mkdirSync(join(baselineDir, 'meta'), { recursive: true })
-    for (const f of readdirSync(realDrizzleDir)) {
-      if (f.endsWith('.sql') && !f.startsWith('0024_')) {
-        copyFileSync(join(realDrizzleDir, f), join(baselineDir, f))
-      }
-    }
-    const journal = JSON.parse(readFileSync(join(realDrizzleDir, 'meta', '_journal.json'), 'utf-8'))
-    journal.entries = journal.entries.filter((e: { tag: string }) => !e.tag.startsWith('0024_'))
-    writeFileSync(join(baselineDir, 'meta', '_journal.json'), JSON.stringify(journal, null, 2))
+    buildBaselineMigrationsFolder(realDrizzleDir, baselineDir, 24)
 
     const baseline = createDb(dbPath)
     migrate(baseline.db, { migrationsFolder: baselineDir })
@@ -121,13 +146,7 @@ describe('migrateDb', () => {
     const dbPath = join(tempDir, 'winglog.db')
     const realDrizzleDir = join(process.cwd(), 'drizzle')
     const baselineDir = join(tempDir, 'drizzle-baseline')
-    mkdirSync(join(baselineDir, 'meta'), { recursive: true })
-    for (const f of readdirSync(realDrizzleDir)) {
-      if (f.endsWith('.sql') && !f.startsWith('0027_') && !f.startsWith('0028_')) copyFileSync(join(realDrizzleDir, f), join(baselineDir, f))
-    }
-    const journal = JSON.parse(readFileSync(join(realDrizzleDir, 'meta', '_journal.json'), 'utf-8'))
-    journal.entries = journal.entries.filter((e: { tag: string }) => !e.tag.startsWith('0027_') && !e.tag.startsWith('0028_'))
-    writeFileSync(join(baselineDir, 'meta', '_journal.json'), JSON.stringify(journal, null, 2))
+    buildBaselineMigrationsFolder(realDrizzleDir, baselineDir, 27)
 
     const baseline = createDb(dbPath)
     migrate(baseline.db, { migrationsFolder: baselineDir })
@@ -157,13 +176,7 @@ describe('migrateDb', () => {
     const dbPath = join(tempDir, 'winglog.db')
     const realDrizzleDir = join(process.cwd(), 'drizzle')
     const baselineDir = join(tempDir, 'drizzle-baseline')
-    mkdirSync(join(baselineDir, 'meta'), { recursive: true })
-    for (const f of readdirSync(realDrizzleDir)) {
-      if (f.endsWith('.sql') && !f.startsWith('0028_')) copyFileSync(join(realDrizzleDir, f), join(baselineDir, f))
-    }
-    const journal = JSON.parse(readFileSync(join(realDrizzleDir, 'meta', '_journal.json'), 'utf-8'))
-    journal.entries = journal.entries.filter((e: { tag: string }) => !e.tag.startsWith('0028_'))
-    writeFileSync(join(baselineDir, 'meta', '_journal.json'), JSON.stringify(journal, null, 2))
+    buildBaselineMigrationsFolder(realDrizzleDir, baselineDir, 28)
 
     const baseline = createDb(dbPath)
     migrate(baseline.db, { migrationsFolder: baselineDir })
