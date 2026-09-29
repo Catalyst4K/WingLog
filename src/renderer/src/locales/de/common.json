@@ -731,6 +731,19 @@
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
     "setFrequency": "Setzen",
+    "clearance": {
+      "title": "Freigabe",
+      "runway": "Bahn",
+      "sid": "SID",
+      "star": "STAR",
+      "approach": "Anflug",
+      "transition": "Transition",
+      "altitude": "Höhe",
+      "altitudeValue": "{{altitude}} ft",
+      "squawk": "Squawk",
+      "nextFrequency": "Nächste Frequenz",
+      "nextFrequencyValue": "{{station}} {{frequency}}"
+    },
     "commsMode": {
       "queued": "In Warteschlange",
       "ready": "Bereit",

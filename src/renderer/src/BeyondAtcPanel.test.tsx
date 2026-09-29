@@ -116,6 +116,34 @@ describe('BeyondAtcPanel', () => {
     scrollIntoView.mockRestore()
   })
 
+  it('shows the boxed clearance readout once a real clearance line is parsed from the transcript', async () => {
+    const transcript: BeyondAtcTranscriptEntry[] = [
+      {
+        speaker: 'atc',
+        text: 'Cathay 116 Heavy, Brisbane Departure, cleared to Sydney via VMR9B departure, runway 01, climb via SID to 11000 feet, squawk 3136.',
+        ts: 1
+      }
+    ]
+    withWinglog({ beyondAtcGetTranscript: vi.fn().mockResolvedValue(transcript) })
+    render(<BeyondAtcPanel />)
+
+    expect(await screen.findByText('Clearance')).toBeInTheDocument()
+    expect(screen.getByText('01')).toBeInTheDocument()
+    expect(screen.getByText('VMR9B')).toBeInTheDocument()
+    expect(screen.getByText('11000 ft')).toBeInTheDocument()
+    expect(screen.getByText('3136')).toBeInTheDocument()
+  })
+
+  it('renders no clearance card when nothing in the transcript has been recognised yet', async () => {
+    withWinglog({
+      beyondAtcGetTranscript: vi.fn().mockResolvedValue([{ speaker: 'atc', text: 'Cathay 116 Heavy, readability 5.', ts: 1 }])
+    })
+    render(<BeyondAtcPanel />)
+
+    await screen.findByText('Cathay 116 Heavy, readability 5.')
+    expect(screen.queryByText('Clearance')).not.toBeInTheDocument()
+  })
+
   it('clicking an action button calls beyondAtcSetAction with the exact label', async () => {
     const beyondAtcSetAction = vi.fn().mockResolvedValue(undefined)
     withWinglog({

@@ -731,6 +731,19 @@
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
     "setFrequency": "Set",
+    "clearance": {
+      "title": "Clearance",
+      "runway": "Runway",
+      "sid": "SID",
+      "star": "STAR",
+      "approach": "Approach",
+      "transition": "Transition",
+      "altitude": "Altitude",
+      "altitudeValue": "{{altitude}} ft",
+      "squawk": "Squawk",
+      "nextFrequency": "Next freq",
+      "nextFrequencyValue": "{{station}} {{frequency}}"
+    },
     "commsMode": {
       "queued": "Queued",
       "ready": "Ready",

@@ -756,6 +756,19 @@
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
     "setFrequency": "Задать",
+    "clearance": {
+      "title": "Разрешение",
+      "runway": "ВПП",
+      "sid": "SID",
+      "star": "STAR",
+      "approach": "Заход",
+      "transition": "Транзишн",
+      "altitude": "Высота",
+      "altitudeValue": "{{altitude}} фт",
+      "squawk": "Сквок",
+      "nextFrequency": "Следующая частота",
+      "nextFrequencyValue": "{{station}} {{frequency}}"
+    },
     "commsMode": {
       "queued": "В очереди",
       "ready": "Готово",

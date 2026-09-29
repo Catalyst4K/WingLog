@@ -733,6 +733,19 @@
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
     "setFrequency": "Régler",
+    "clearance": {
+      "title": "Clairance",
+      "runway": "Piste",
+      "sid": "SID",
+      "star": "STAR",
+      "approach": "Approche",
+      "transition": "Transition",
+      "altitude": "Altitude",
+      "altitudeValue": "{{altitude}} ft",
+      "squawk": "Transpondeur",
+      "nextFrequency": "Prochaine fréquence",
+      "nextFrequencyValue": "{{station}} {{frequency}}"
+    },
     "commsMode": {
       "queued": "En file d'attente",
       "ready": "Prêt",

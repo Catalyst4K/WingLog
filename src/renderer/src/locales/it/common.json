@@ -733,6 +733,19 @@
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
     "setFrequency": "Imposta",
+    "clearance": {
+      "title": "Autorizzazione",
+      "runway": "Pista",
+      "sid": "SID",
+      "star": "STAR",
+      "approach": "Avvicinamento",
+      "transition": "Transizione",
+      "altitude": "Quota",
+      "altitudeValue": "{{altitude}} ft",
+      "squawk": "Squawk",
+      "nextFrequency": "Prossima frequenza",
+      "nextFrequencyValue": "{{station}} {{frequency}}"
+    },
     "commsMode": {
       "queued": "In coda",
       "ready": "Pronto",

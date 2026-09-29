@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { BeyondAtcConnectionStatus, BeyondAtcSettings, BeyondAtcState, BeyondAtcTranscriptEntry } from '@shared/ipc'
 import { BeyondAtcActionsPanel } from './BeyondAtcActionsPanel'
+import { buildClearanceReadout, type ClearanceReadout } from './beyondAtcClearanceReadout'
 
 const EMPTY_STATE: BeyondAtcState = {
   facility: null,
@@ -65,6 +66,56 @@ function StatusCard(props: { state: BeyondAtcState }): React.JSX.Element | null 
   )
 }
 
+function ClearanceField(props: { label: string; value: string }): React.JSX.Element {
+  return (
+    <div className="flex flex-col">
+      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{props.label}</span>
+      <span className="font-medium text-foreground">{props.value}</span>
+    </div>
+  )
+}
+
+/** The boxed clearance readout (flightdeck-backend's docs/plans/beyondatc-panel-redesign.md,
+ *  item 4) — distinct labelled fields instead of a wall of transcript text, built from
+ *  `beyondAtcClearanceReadout.ts`'s real-capture-based parser. Layout is WingLog's own take
+ *  (a labelled grid, matching this panel's/`GsxRemotePanel`'s existing card style) rather
+ *  than a pixel copy of BeyondATC's own toolbar UI — that toolbar's markup wasn't available
+ *  to read in this environment, only its command vocabulary (docs/beyondatc-notes.md) was
+ *  already on file. Hidden entirely until the first recognised clearance line arrives. */
+function ClearanceCard(props: { readout: ClearanceReadout }): React.JSX.Element | null {
+  const { t } = useTranslation()
+  const r = props.readout
+  if (Object.keys(r).length === 0) return null
+  return (
+    <div className="flex flex-col gap-1.5 rounded-md border border-border/60 p-2">
+      <p className="text-sm font-medium text-foreground">{t('beyondAtcPanel.clearance.title')}</p>
+      <div className="grid grid-cols-3 gap-x-3 gap-y-1.5 text-xs">
+        {r.runway && <ClearanceField label={t('beyondAtcPanel.clearance.runway')} value={r.runway} />}
+        {r.sidIdent && <ClearanceField label={t('beyondAtcPanel.clearance.sid')} value={r.sidIdent} />}
+        {r.starIdent && <ClearanceField label={t('beyondAtcPanel.clearance.star')} value={r.starIdent} />}
+        {r.approachIdent && <ClearanceField label={t('beyondAtcPanel.clearance.approach')} value={r.approachIdent} />}
+        {r.approachTransition && <ClearanceField label={t('beyondAtcPanel.clearance.transition')} value={r.approachTransition} />}
+        {r.altitudeFt !== undefined && (
+          <ClearanceField
+            label={t('beyondAtcPanel.clearance.altitude')}
+            value={t('beyondAtcPanel.clearance.altitudeValue', { altitude: r.altitudeFt })}
+          />
+        )}
+        {r.squawk && <ClearanceField label={t('beyondAtcPanel.clearance.squawk')} value={r.squawk} />}
+        {r.nextFrequency && (
+          <ClearanceField
+            label={t('beyondAtcPanel.clearance.nextFrequency')}
+            value={t('beyondAtcPanel.clearance.nextFrequencyValue', {
+              station: r.nextFrequencyStation ?? '',
+              frequency: r.nextFrequency
+            })}
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
 /** Always expanded (per flightdeck-backend's docs/plans/beyondatc-panel-redesign.md — kept
  *  as-is rather than collapsing), but scroll-anchored to the latest line: a real flight's
  *  transcript can run long, and without this the newest exchange is scrolled out of view
@@ -105,6 +156,7 @@ export function BeyondAtcPanel(): React.JSX.Element {
   const [status, setStatus] = useState<BeyondAtcConnectionStatus>({ state: 'disconnected', lastError: null })
   const [state, setState] = useState<BeyondAtcState>(EMPTY_STATE)
   const [transcript, setTranscript] = useState<BeyondAtcTranscriptEntry[]>([])
+  const clearanceReadout = useMemo(() => buildClearanceReadout(transcript), [transcript])
 
   useEffect(() => {
     window.winglog.settingsGetBeyondAtc().then(setSettings)
@@ -135,6 +187,7 @@ export function BeyondAtcPanel(): React.JSX.Element {
         </p>
       )}
       <StatusCard state={state} />
+      <ClearanceCard readout={clearanceReadout} />
       <BeyondAtcActionsPanel
         actions={state.actions}
         onSelectAction={(label) => window.winglog.beyondAtcSetAction(label)}

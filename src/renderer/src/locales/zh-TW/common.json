@@ -723,6 +723,19 @@
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
     "setFrequency": "設定",
+    "clearance": {
+      "title": "許可",
+      "runway": "跑道",
+      "sid": "離場程序",
+      "star": "進場程序",
+      "approach": "進場",
+      "transition": "過渡",
+      "altitude": "高度",
+      "altitudeValue": "{{altitude}} 英尺",
+      "squawk": "詢答機編碼",
+      "nextFrequency": "下一頻率",
+      "nextFrequencyValue": "{{station}} {{frequency}}"
+    },
     "commsMode": {
       "queued": "排隊中",
       "ready": "就緒",
