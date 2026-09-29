@@ -13,7 +13,18 @@ function makeStatus(overrides: Partial<BeyondAtcConnectionStatus> = {}): BeyondA
 }
 
 function makeState(overrides: Partial<BeyondAtcState> = {}): BeyondAtcState {
-  return { facility: null, com2: null, callsign: null, commsState: null, progress: null, actions: [], ...overrides }
+  return {
+    facility: null,
+    com2: null,
+    callsign: null,
+    commsState: null,
+    progress: null,
+    actions: [],
+    autoTune: null,
+    autoRespond: null,
+    frequencies: [],
+    ...overrides
+  }
 }
 
 function withWinglog(overrides: Partial<WingLogApi> = {}): void {
@@ -28,6 +39,8 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): void {
     beyondAtcSetAction: vi.fn().mockResolvedValue(undefined),
     beyondAtcSetFrequency: vi.fn().mockResolvedValue(undefined),
     beyondAtcSetFrequencyCom2: vi.fn().mockResolvedValue(undefined),
+    beyondAtcSetAutoTune: vi.fn().mockResolvedValue(undefined),
+    beyondAtcSetAutoRespond: vi.fn().mockResolvedValue(undefined),
     ...overrides
   } as unknown as WingLogApi
 }
@@ -156,6 +169,50 @@ describe('BeyondAtcPanel', () => {
     await user.click(await screen.findByRole('button', { name: 'Radio Check' }))
 
     expect(beyondAtcSetAction).toHaveBeenCalledWith('Radio Check')
+  })
+
+  it('clicking an AutoTune toggle calls beyondAtcSetAutoTune with the flipped value', async () => {
+    const beyondAtcSetAutoTune = vi.fn().mockResolvedValue(undefined)
+    withWinglog({
+      beyondAtcGetState: vi.fn().mockResolvedValue(makeState({ autoTune: true, autoRespond: false })),
+      beyondAtcSetAutoTune
+    })
+    const user = userEvent.setup()
+    render(<BeyondAtcPanel />)
+
+    await user.click(await screen.findByRole('button', { name: 'Auto-tune: On' }))
+
+    expect(beyondAtcSetAutoTune).toHaveBeenCalledWith(false)
+  })
+
+  it('picking a frequency from the real list calls beyondAtcSetFrequency', async () => {
+    const beyondAtcSetFrequency = vi.fn().mockResolvedValue(undefined)
+    withWinglog({
+      beyondAtcGetState: vi.fn().mockResolvedValue(
+        makeState({
+          facility: { name: 'Changi UNICOM', frequency: '122.800' },
+          frequencies: [
+            {
+              airport: 'WSSS',
+              airportName: 'Changi',
+              frequency: '124.050',
+              name: 'SINGAPORE APPROACH',
+              type: 'Approach',
+              stationType: '',
+              runways: '02L'
+            }
+          ]
+        })
+      ),
+      beyondAtcSetFrequency
+    })
+    const user = userEvent.setup()
+    render(<BeyondAtcPanel />)
+
+    await user.click((await screen.findAllByRole('combobox'))[0])
+    await user.click(await screen.findByRole('option', { name: 'SINGAPORE APPROACH 124.050' }))
+
+    expect(beyondAtcSetFrequency).toHaveBeenCalledWith('124.050')
   })
 
   it('subscribes to live status/state/transcript updates and unsubscribes on unmount', async () => {

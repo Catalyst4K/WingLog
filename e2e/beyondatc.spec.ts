@@ -1,6 +1,12 @@
 import { test, expect } from '@playwright/test'
 import { launchApp } from './launch-app'
-import { FakeBeyondAtcServer, RADIO_CHECK_RESPONSE, RADIO_CHECK_SNAPSHOT } from './beyondatc-server'
+import {
+  AUTO_SETTINGS_SNAPSHOT,
+  FakeBeyondAtcServer,
+  FREQUENCIES_RESPONSE,
+  RADIO_CHECK_RESPONSE,
+  RADIO_CHECK_SNAPSHOT
+} from './beyondatc-server'
 
 /**
  * Drives `BeyondAtcService`'s real WebSocket client through a real launched app — unit/
@@ -41,6 +47,19 @@ test.describe('BeyondATC integration', () => {
       server.sendLines(...RADIO_CHECK_RESPONSE)
       await expect(page.getByText('Cathay 116 Heavy, radio check.')).toBeVisible()
       await expect(page.getByText('Cathay 116 Heavy, readability 5.')).toBeVisible()
+
+      // BeyondAtcService requests the real frequency list itself, right after connecting —
+      // confirmed live 2026-09-29 (docs/beyondatc-notes.md).
+      await expect.poll(() => server.receivedCommands).toContain('frequencies')
+      server.sendLines(...FREQUENCIES_RESPONSE)
+      server.sendLines(...AUTO_SETTINGS_SNAPSHOT)
+
+      await page.getByRole('combobox', { name: 'Choose a frequency…' }).first().click()
+      await page.getByRole('option', { name: 'SINGAPORE APPROACH 124.050' }).click()
+      await expect.poll(() => server.receivedCommands.at(-1)).toBe('set_frequency: 124.050')
+
+      await page.getByRole('button', { name: 'Auto-tune: On' }).click()
+      await expect.poll(() => server.receivedCommands.at(-1)).toBe('set_autotune: false')
     } finally {
       await cleanup()
       await server.stop()

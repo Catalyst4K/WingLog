@@ -10,7 +10,10 @@ const EMPTY_STATE: BeyondAtcState = {
   callsign: null,
   commsState: null,
   progress: null,
-  actions: []
+  actions: [],
+  autoTune: null,
+  autoRespond: null,
+  frequencies: []
 }
 
 const COMMS_MODE_KEY: Record<NonNullable<BeyondAtcState['commsState']>['mode'], string> = {
@@ -195,6 +198,11 @@ export function BeyondAtcPanel(): React.JSX.Element {
         com2Frequency={state.com2?.frequency ?? null}
         onSetFrequency={(frequency) => window.winglog.beyondAtcSetFrequency(frequency)}
         onSetFrequencyCom2={(frequency) => window.winglog.beyondAtcSetFrequencyCom2(frequency)}
+        frequencyOptions={state.frequencies}
+        autoTune={state.autoTune}
+        autoRespond={state.autoRespond}
+        onSetAutoTune={(value) => window.winglog.beyondAtcSetAutoTune(value)}
+        onSetAutoRespond={(value) => window.winglog.beyondAtcSetAutoRespond(value)}
       />
       <Transcript entries={transcript} />
     </div>

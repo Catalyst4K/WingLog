@@ -259,7 +259,9 @@ const api: WingLogApi = {
   },
   beyondAtcSetAction: (label: string) => ipcRenderer.invoke(IpcChannels.beyondAtcSetAction, label),
   beyondAtcSetFrequency: (frequency: string) => ipcRenderer.invoke(IpcChannels.beyondAtcSetFrequency, frequency),
-  beyondAtcSetFrequencyCom2: (frequency: string) => ipcRenderer.invoke(IpcChannels.beyondAtcSetFrequencyCom2, frequency)
+  beyondAtcSetFrequencyCom2: (frequency: string) => ipcRenderer.invoke(IpcChannels.beyondAtcSetFrequencyCom2, frequency),
+  beyondAtcSetAutoTune: (value: boolean) => ipcRenderer.invoke(IpcChannels.beyondAtcSetAutoTune, value),
+  beyondAtcSetAutoRespond: (value: boolean) => ipcRenderer.invoke(IpcChannels.beyondAtcSetAutoRespond, value)
 }
 
 contextBridge.exposeInMainWorld('winglog', api)

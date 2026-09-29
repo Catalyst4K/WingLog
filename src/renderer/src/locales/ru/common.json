@@ -756,6 +756,16 @@
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
     "setFrequency": "Задать",
+    "selectFrequency": "Выбрать частоту…",
+    "enroute": "В маршруте",
+    "settings": {
+      "title": "Настройки",
+      "autoTune": "Автонастройка",
+      "autoRespond": "Автоответ",
+      "on": "Вкл",
+      "off": "Выкл",
+      "unknown": "—"
+    },
     "clearance": {
       "title": "Разрешение",
       "runway": "ВПП",

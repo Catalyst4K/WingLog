@@ -733,6 +733,16 @@
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
     "setFrequency": "Imposta",
+    "selectFrequency": "Scegli una frequenza…",
+    "enroute": "In rotta",
+    "settings": {
+      "title": "Impostazioni",
+      "autoTune": "Auto-sintonia",
+      "autoRespond": "Risposta automatica",
+      "on": "Attivo",
+      "off": "Disattivo",
+      "unknown": "—"
+    },
     "clearance": {
       "title": "Autorizzazione",
       "runway": "Pista",

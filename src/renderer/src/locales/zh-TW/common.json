@@ -723,6 +723,16 @@
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
     "setFrequency": "設定",
+    "selectFrequency": "選擇頻率…",
+    "enroute": "航路",
+    "settings": {
+      "title": "設定",
+      "autoTune": "自動調頻",
+      "autoRespond": "自動應答",
+      "on": "開",
+      "off": "關",
+      "unknown": "—"
+    },
     "clearance": {
       "title": "許可",
       "runway": "跑道",

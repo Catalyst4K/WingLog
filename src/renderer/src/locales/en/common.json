@@ -731,6 +731,16 @@
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
     "setFrequency": "Set",
+    "selectFrequency": "Choose a frequency…",
+    "enroute": "Enroute",
+    "settings": {
+      "title": "Settings",
+      "autoTune": "Auto-tune",
+      "autoRespond": "Auto-respond",
+      "on": "On",
+      "off": "Off",
+      "unknown": "—"
+    },
     "clearance": {
       "title": "Clearance",
       "runway": "Runway",

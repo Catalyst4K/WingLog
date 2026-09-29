@@ -731,6 +731,16 @@
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
     "setFrequency": "Setzen",
+    "selectFrequency": "Frequenz wählen…",
+    "enroute": "Streckenflug",
+    "settings": {
+      "title": "Einstellungen",
+      "autoTune": "Auto-Einstellung",
+      "autoRespond": "Auto-Antwort",
+      "on": "An",
+      "off": "Aus",
+      "unknown": "—"
+    },
     "clearance": {
       "title": "Freigabe",
       "runway": "Bahn",

@@ -928,10 +928,27 @@ export interface BeyondAtcProgress {
   pct: number
 }
 
+/** One entry of the real `Frequencies: [...]` response to the `frequencies` command —
+ *  confirmed live 2026-09-29 (flightdeck-backend's docs/beyondatc-notes.md), a genuine
+ *  structured station list for every airport in the flight plan, not the local-UI-only
+ *  no-op it was previously suspected to be. `airport`/`airportName`/`stationType`/`runways`
+ *  are sometimes empty strings (the one real enroute Center entry captured had no airport
+ *  tied to it); `cpdlcLogonCode` was only ever present on that same entry, so it's optional. */
+export interface BeyondAtcFrequencyOption {
+  airport: string
+  airportName: string
+  frequency: string
+  name: string
+  type: string
+  stationType: string
+  runways: string
+  cpdlcLogonCode?: string
+}
+
 /** Combined live state BeyondAtcPanel needs — deliberately narrower than every key
- *  docs/beyondatc-notes.md catalogues (DATIS, CPDLC code, auto-tune/respond, settings, …
- *  aren't surfaced here; nothing needed by Parts 1-2 of the plan). Unrecognised/unparsed
- *  wire keys are simply never reflected here, not an error. */
+ *  docs/beyondatc-notes.md catalogues (DATIS, CPDLC code, settings, … aren't surfaced here;
+ *  nothing needed by this panel). Unrecognised/unparsed wire keys are simply never reflected
+ *  here, not an error. */
 export interface BeyondAtcState {
   facility: BeyondAtcFacility | null
   com2: BeyondAtcCom2 | null
@@ -942,6 +959,15 @@ export interface BeyondAtcState {
    *  live, NOT JSON despite the `[...]` syntax), parsed into a plain string list. Empty
    *  when BeyondATC currently has no menu offered. */
   actions: string[]
+  /** `AutoTune`/`AutoRespond: <bool>` — bare lowercase `true`/`false` on the wire (confirmed
+   *  live 2026-09-29, not JSON, not `True`/`False`), null until the first snapshot arrives.
+   *  `set_autotune`/`set_autorespond` (below) are confirmed working two-way control, same
+   *  live session. */
+  autoTune: boolean | null
+  autoRespond: boolean | null
+  /** Populated from the real `Frequencies` response — see `BeyondAtcFrequencyOption`. Empty
+   *  until `BeyondAtcService` requests it right after connecting. */
+  frequencies: BeyondAtcFrequencyOption[]
 }
 
 /** One live transcript line — `Player`/`ATC` are the pilot/controller's own spoken lines;
@@ -1386,7 +1412,9 @@ export const IpcChannels = {
   beyondAtcTranscript: 'beyondatc:transcript',
   beyondAtcSetAction: 'beyondatc:set-action',
   beyondAtcSetFrequency: 'beyondatc:set-frequency',
-  beyondAtcSetFrequencyCom2: 'beyondatc:set-frequency-com2'
+  beyondAtcSetFrequencyCom2: 'beyondatc:set-frequency-com2',
+  beyondAtcSetAutoTune: 'beyondatc:set-autotune',
+  beyondAtcSetAutoRespond: 'beyondatc:set-autorespond'
 } as const
 
 export interface WingLogApi {
@@ -1794,4 +1822,8 @@ export interface WingLogApi {
   beyondAtcSetAction: (label: string) => Promise<void>
   beyondAtcSetFrequency: (frequency: string) => Promise<void>
   beyondAtcSetFrequencyCom2: (frequency: string) => Promise<void>
+  /** `set_autotune`/`set_autorespond` — confirmed working two-way control, 2026-09-29
+   *  (flightdeck-backend's docs/beyondatc-notes.md). No-op if not connected. */
+  beyondAtcSetAutoTune: (value: boolean) => Promise<void>
+  beyondAtcSetAutoRespond: (value: boolean) => Promise<void>
 }

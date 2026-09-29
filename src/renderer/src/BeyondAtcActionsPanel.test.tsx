@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { BeyondAtcFrequencyOption } from '@shared/ipc'
 import { BeyondAtcActionsPanel, type BeyondAtcActionsPanelProps } from './BeyondAtcActionsPanel'
 
 function makeProps(overrides: Partial<BeyondAtcActionsPanelProps> = {}): BeyondAtcActionsPanelProps {
@@ -11,6 +12,24 @@ function makeProps(overrides: Partial<BeyondAtcActionsPanelProps> = {}): BeyondA
     com2Frequency: null,
     onSetFrequency: vi.fn(),
     onSetFrequencyCom2: vi.fn(),
+    frequencyOptions: [],
+    autoTune: null,
+    autoRespond: null,
+    onSetAutoTune: vi.fn(),
+    onSetAutoRespond: vi.fn(),
+    ...overrides
+  }
+}
+
+function makeFrequencyOption(overrides: Partial<BeyondAtcFrequencyOption> = {}): BeyondAtcFrequencyOption {
+  return {
+    airport: 'WSSS',
+    airportName: 'Changi',
+    frequency: '124.050',
+    name: 'SINGAPORE APPROACH',
+    type: 'Approach',
+    stationType: '',
+    runways: '02L',
     ...overrides
   }
 }
@@ -77,5 +96,50 @@ describe('BeyondAtcActionsPanel', () => {
     await user.click(screen.getAllByRole('button', { name: 'Set' })[0])
 
     expect(onSetFrequency).not.toHaveBeenCalled()
+  })
+
+  it('does not show a frequency picker when no options are known, only manual entry', () => {
+    render(<BeyondAtcActionsPanel {...makeProps({ com1Frequency: '118.850' })} />)
+
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+  })
+
+  it('picking a frequency from the real BeyondATC list calls onSetFrequency with its value', async () => {
+    const onSetFrequency = vi.fn()
+    const user = userEvent.setup()
+    const options: BeyondAtcFrequencyOption[] = [
+      makeFrequencyOption(),
+      makeFrequencyOption({ airport: '', airportName: '', frequency: '134.400', name: 'Singapore Radar', type: 'Center' })
+    ]
+    render(<BeyondAtcActionsPanel {...makeProps({ com1Frequency: '118.850', frequencyOptions: options, onSetFrequency })} />)
+
+    await user.click(screen.getAllByRole('combobox')[0])
+    expect(screen.getByText('Changi')).toBeInTheDocument()
+    expect(screen.getByText('Enroute')).toBeInTheDocument()
+    await user.click(await screen.findByRole('option', { name: 'SINGAPORE APPROACH 124.050' }))
+
+    expect(onSetFrequency).toHaveBeenCalledWith('124.050')
+  })
+
+  it('renders no settings block while AutoTune/AutoRespond are both still unknown', () => {
+    render(<BeyondAtcActionsPanel {...makeProps({ com1Frequency: '118.850' })} />)
+
+    expect(screen.queryByText('Settings')).not.toBeInTheDocument()
+  })
+
+  it('shows the current AutoTune/AutoRespond state and toggles them on click', async () => {
+    const onSetAutoTune = vi.fn()
+    const onSetAutoRespond = vi.fn()
+    const user = userEvent.setup()
+    render(<BeyondAtcActionsPanel {...makeProps({ autoTune: true, autoRespond: false, onSetAutoTune, onSetAutoRespond })} />)
+
+    expect(screen.getByRole('button', { name: 'Auto-tune: On' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Auto-respond: Off' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Auto-tune: On' }))
+    await user.click(screen.getByRole('button', { name: 'Auto-respond: Off' }))
+
+    expect(onSetAutoTune).toHaveBeenCalledWith(false)
+    expect(onSetAutoRespond).toHaveBeenCalledWith(true)
   })
 })

@@ -14,7 +14,10 @@ function withWinglog(): void {
       callsign: null,
       commsState: null,
       progress: null,
-      actions: []
+      actions: [],
+      autoTune: null,
+      autoRespond: null,
+      frequencies: []
     }),
     onBeyondAtcState: vi.fn().mockReturnValue(() => {}),
     beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
