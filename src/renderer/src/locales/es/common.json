@@ -737,6 +737,7 @@
     "frequencyPlaceholder": "118.850",
     "setFrequency": "Fijar",
     "selectFrequency": "Elige una frecuencia…",
+    "frequenciesButton": "Frecuencias",
     "departure": "Salida",
     "arrival": "Llegada",
     "noFrequencies": "Aún no hay frecuencias para este aeropuerto.",

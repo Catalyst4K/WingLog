@@ -727,6 +727,7 @@
     "frequencyPlaceholder": "118.850",
     "setFrequency": "设置",
     "selectFrequency": "选择频率…",
+    "frequenciesButton": "频率",
     "departure": "离场",
     "arrival": "进场",
     "noFrequencies": "该机场暂无频率。",

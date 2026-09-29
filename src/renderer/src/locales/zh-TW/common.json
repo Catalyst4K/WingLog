@@ -727,6 +727,7 @@
     "frequencyPlaceholder": "118.850",
     "setFrequency": "設定",
     "selectFrequency": "選擇頻率…",
+    "frequenciesButton": "頻率",
     "departure": "離場",
     "arrival": "進場",
     "noFrequencies": "該機場暫無頻率。",

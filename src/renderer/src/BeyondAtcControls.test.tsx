@@ -110,7 +110,7 @@ describe('BeyondAtcRadios', () => {
   it('does not show a frequency picker button when no options are known, only manual entry', () => {
     render(<BeyondAtcRadios {...makeRadiosProps()} />)
 
-    expect(screen.queryByRole('button', { name: 'Choose a frequency…' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Frequencies' })).not.toBeInTheDocument()
   })
 
   it('splits the real frequency list into Departure/Arrival tabs by matching Progress.from/to, runway shown next to the frequency it applies to', async () => {
@@ -127,7 +127,7 @@ describe('BeyondAtcRadios', () => {
       />
     )
 
-    await user.click(screen.getAllByRole('button', { name: 'Choose a frequency…' })[0])
+    await user.click(screen.getAllByRole('button', { name: 'Frequencies' })[0])
     // Departure tab (default): the WSSS station (with its runway) and the enroute Center
     // entry (no runway), but not the ZSPD-only station. Each button leads with the real
     // category (Approach/Center), not just BeyondATC's own station name.
@@ -151,7 +151,7 @@ describe('BeyondAtcRadios', () => {
     ]
     render(<BeyondAtcRadios {...makeRadiosProps({ frequencyOptions: options, progress: { from: 'WSSS', to: 'ZSPD', pct: 0 } })} />)
 
-    await user.click(screen.getAllByRole('button', { name: 'Choose a frequency…' })[0])
+    await user.click(screen.getAllByRole('button', { name: 'Frequencies' })[0])
 
     expect(await screen.findByRole('button', { name: 'Delivery — SINGAPORE 121.650' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'ATIS — WSSS 128.600' })).toBeInTheDocument()

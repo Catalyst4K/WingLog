@@ -760,6 +760,7 @@
     "frequencyPlaceholder": "118.850",
     "setFrequency": "Задать",
     "selectFrequency": "Выбрать частоту…",
+    "frequenciesButton": "Частоты",
     "departure": "Вылет",
     "arrival": "Прилёт",
     "noFrequencies": "Для этого аэропорта пока нет частот.",

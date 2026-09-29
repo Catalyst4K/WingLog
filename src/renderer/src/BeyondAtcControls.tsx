@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Headset } from 'lucide-react'
 import type { BeyondAtcCom2, BeyondAtcFacility, BeyondAtcFrequencyOption, BeyondAtcProgress } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -152,8 +153,13 @@ function FrequencyPicker(props: {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs">
-          {t('beyondAtcPanel.selectFrequency')}
+        <Button
+          type="button"
+          size="sm"
+          className="h-7 gap-1 bg-blue-600 px-2 text-xs text-white hover:bg-blue-500"
+        >
+          <Headset className="size-3.5" aria-hidden />
+          {t('beyondAtcPanel.frequenciesButton')}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
