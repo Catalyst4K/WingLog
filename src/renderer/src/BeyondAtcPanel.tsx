@@ -117,15 +117,26 @@ function RadiosCard(props: React.ComponentProps<typeof BeyondAtcRadios>): React.
 
 /** Always visible, same as `ActionsCard`'s Radios sibling — an empty scrollable box rather
  *  than disappearing entirely, so the right column doesn't jump around as the panel connects
- *  (flightdeck-backend's docs/plans/beyondatc-panel-redesign.md). Sized to match the left
- *  column's natural height (Actions + Radios stacked), not a fixed max-height — the parent
- *  row's `items-stretch` does the matching, this card just fills whatever that comes out to
- *  (`flex-1 min-h-0` at every level down to the list itself, the standard flexbox recipe for
- *  "fill remaining space with an internally-scrolling list" rather than letting the card grow
- *  past its column and scroll the whole page instead). Always expanded (kept as-is rather
- *  than collapsing), but scroll-anchored to the latest line: a real flight's transcript can
- *  run long, and without this the newest exchange is scrolled out of view unless the pilot
- *  scrolls manually. */
+ *  (flightdeck-backend's docs/plans/beyondatc-panel-redesign.md). Fills the real, bounded
+ *  height `BeyondAtcView`/`BeyondAtcPanel` propagate down from the window's own available
+ *  space (`h-full` on `BeyondAtcView`'s root, `flex-1` the rest of the way down, all the way
+ *  from App.tsx) — its own list never grows past that, scrolling internally instead
+ *  (`min-h-0`/`flex-1` at every level down to the `<ul>` itself).
+ *
+ *  **The parent row is CSS Grid, not a flex row — this matters, confirmed the hard way.**
+ *  A flexbox version (`flex flex-wrap items-stretch`) looked identical in the DOM (every
+ *  `min-h-0`/`flex-1` class present at every level) but didn't actually cap this card:
+ *  `align-items: stretch` on a flex-wrap row did not reliably give this column a definite
+ *  height for its `min-h-0` descendants to resolve against, so the list just rendered at its
+ *  full natural height regardless. Confirmed live via a Playwright screenshot + a DOM rect
+ *  dump against a real 80-line transcript — the list grew to 1651px and the whole *page*
+ *  scrolled to follow the newest line (via `scrollIntoView` below) instead of the card's own
+ *  list, pushing every other card off screen entirely. Grid's track-sizing algorithm
+ *  resolves a genuinely definite height for every cell in a row *before* laying out its
+ *  contents — confirmed fixed with the identical rect dump afterward (452px, matching the
+ *  left column, not 1651px). Kept as always-expanded (not collapsible), but scroll-anchored
+ *  to the latest line: without that, a long transcript's newest exchange stays scrolled out
+ *  of view within its own now-correctly-bounded box. */
 function TranscriptCard(props: { entries: BeyondAtcTranscriptEntry[] }): React.JSX.Element {
   const { t } = useTranslation()
   const latestRef = useRef<HTMLLIElement>(null)
@@ -160,12 +171,14 @@ function TranscriptCard(props: { entries: BeyondAtcTranscriptEntry[] }): React.J
  * BeyondATC already pushed state doesn't show nothing until the next line arrives.
  *
  * Card-grid layout (flightdeck-backend's docs/plans/beyondatc-panel-redesign.md, second
- * design pass, 2026-09-29): a compact info strip on top, then a dispatch-style two-column
- * area below — Actions + Radios on the left, a scrollable Transcript on the right — starting
- * from `DispatchView`'s own `min-w-72 max-w-md flex-1` + `min-w-72 flex-1` column convention,
- * but `items-stretch` rather than DispatchView's `items-start`: Callum's own call, so the
- * Transcript column matches the left column's natural height instead of growing on its own —
- * see `TranscriptCard`'s own doc comment for how that height then reaches its inner list.
+ * design pass, 2026-09-29): a compact info strip on top, then a two-column area below —
+ * Actions + Radios on the left (their own natural height, `self-start`), a Transcript on the
+ * right that matches that height exactly with its own internal scroll. The row is CSS Grid
+ * (`grid-cols-[minmax(18rem,28rem)_minmax(18rem,1fr)]`, roughly `DispatchView`'s own
+ * `min-w-72 max-w-md flex-1` / `min-w-72 flex-1` column widths translated into grid tracks),
+ * not flexbox — see `TranscriptCard`'s own doc comment for why that choice actually matters
+ * here, not just style preference. `BeyondAtcView`'s `h-full` root is what gives this whole
+ * area a real, window-bounded height to work with in the first place.
  */
 export function BeyondAtcPanel(): React.JSX.Element {
   const { t } = useTranslation()
@@ -197,15 +210,15 @@ export function BeyondAtcPanel(): React.JSX.Element {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       {status.state !== 'connected' && (
         <p className="text-xs text-muted-foreground">
           {status.state === 'connecting' ? t('beyondAtcPanel.connecting') : t('beyondAtcPanel.disconnected')}
         </p>
       )}
       <InfoCard state={state} readout={clearanceReadout} />
-      <div className="flex flex-wrap items-stretch gap-4">
-        <div className="flex min-w-72 max-w-md flex-1 flex-col gap-4">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-[minmax(18rem,28rem)_minmax(18rem,1fr)]">
+        <div className="flex min-h-0 flex-col gap-4 self-start">
           <ActionsCard actions={state.actions} onSelectAction={(label) => window.winglog.beyondAtcSetAction(label)} />
           <RadiosCard
             facility={state.facility}
@@ -220,7 +233,7 @@ export function BeyondAtcPanel(): React.JSX.Element {
             onSetAutoRespond={(value) => window.winglog.beyondAtcSetAutoRespond(value)}
           />
         </div>
-        <div className="flex min-h-0 min-w-72 flex-1 flex-col gap-4">
+        <div className="flex min-h-0 flex-col gap-4">
           <TranscriptCard entries={transcript} />
         </div>
       </div>
