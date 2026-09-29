@@ -193,12 +193,13 @@ describe('BeyondAtcPanel', () => {
     expect(beyondAtcSetAutoTune).toHaveBeenCalledWith(false)
   })
 
-  it('picking a frequency from the real list calls beyondAtcSetFrequency', async () => {
+  it('picking a frequency from the real list calls beyondAtcSetFrequency, runway shown alongside it', async () => {
     const beyondAtcSetFrequency = vi.fn().mockResolvedValue(undefined)
     withWinglog({
       beyondAtcGetState: vi.fn().mockResolvedValue(
         makeState({
           facility: { name: 'Changi UNICOM', frequency: '122.800' },
+          progress: { from: 'WSSS', to: 'ZSPD', pct: 0 },
           frequencies: [
             {
               airport: 'WSSS',
@@ -217,8 +218,8 @@ describe('BeyondAtcPanel', () => {
     const user = userEvent.setup()
     render(<BeyondAtcPanel />)
 
-    await user.click((await screen.findAllByRole('combobox'))[0])
-    await user.click(await screen.findByRole('option', { name: 'SINGAPORE APPROACH 124.050' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Choose a frequency…' }))[0])
+    await user.click(await screen.findByRole('button', { name: 'SINGAPORE APPROACH 124.050 (RWY 02L)' }))
 
     expect(beyondAtcSetFrequency).toHaveBeenCalledWith('124.050')
   })

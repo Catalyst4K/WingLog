@@ -208,6 +208,7 @@ export function BeyondAtcPanel(): React.JSX.Element {
           <RadiosCard
             facility={state.facility}
             com2={state.com2}
+            progress={state.progress}
             onSetFrequency={(frequency) => window.winglog.beyondAtcSetFrequency(frequency)}
             onSetFrequencyCom2={(frequency) => window.winglog.beyondAtcSetFrequencyCom2(frequency)}
             frequencyOptions={state.frequencies}

@@ -735,7 +735,10 @@
     "frequencyPlaceholder": "118.850",
     "setFrequency": "Fijar",
     "selectFrequency": "Elige una frecuencia…",
-    "enroute": "En ruta",
+    "departure": "Salida",
+    "arrival": "Llegada",
+    "noFrequencies": "Aún no hay frecuencias para este aeropuerto.",
+    "stationRunway": "{{station}} {{frequency}} (pista {{runway}})",
     "settings": {
       "autoTune": "Sintonía automática",
       "autoRespond": "Respuesta automática",

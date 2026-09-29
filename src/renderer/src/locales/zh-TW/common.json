@@ -725,7 +725,10 @@
     "frequencyPlaceholder": "118.850",
     "setFrequency": "設定",
     "selectFrequency": "選擇頻率…",
-    "enroute": "航路",
+    "departure": "離場",
+    "arrival": "進場",
+    "noFrequencies": "該機場暫無頻率。",
+    "stationRunway": "{{station}} {{frequency}}（跑道 {{runway}}）",
     "settings": {
       "autoTune": "自動調頻",
       "autoRespond": "自動應答",

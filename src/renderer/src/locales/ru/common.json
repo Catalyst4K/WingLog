@@ -758,7 +758,10 @@
     "frequencyPlaceholder": "118.850",
     "setFrequency": "Задать",
     "selectFrequency": "Выбрать частоту…",
-    "enroute": "В маршруте",
+    "departure": "Вылет",
+    "arrival": "Прилёт",
+    "noFrequencies": "Для этого аэропорта пока нет частот.",
+    "stationRunway": "{{station}} {{frequency}} (ВПП {{runway}})",
     "settings": {
       "autoTune": "Автонастройка",
       "autoRespond": "Автоответ",

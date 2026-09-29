@@ -8,6 +8,7 @@ function makeRadiosProps(overrides: Partial<BeyondAtcRadiosProps> = {}): BeyondA
   return {
     facility: null,
     com2: null,
+    progress: null,
     onSetFrequency: vi.fn(),
     onSetFrequencyCom2: vi.fn(),
     frequencyOptions: [],
@@ -106,27 +107,37 @@ describe('BeyondAtcRadios', () => {
     expect(onSetFrequency).not.toHaveBeenCalled()
   })
 
-  it('does not show a frequency picker when no options are known, only manual entry', () => {
+  it('does not show a frequency picker button when no options are known, only manual entry', () => {
     render(<BeyondAtcRadios {...makeRadiosProps()} />)
 
-    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Choose a frequency…' })).not.toBeInTheDocument()
   })
 
-  it('picking a frequency from the real BeyondATC list calls onSetFrequency with its value', async () => {
+  it('splits the real frequency list into Departure/Arrival tabs by matching Progress.from/to, runway shown next to the frequency it applies to', async () => {
     const onSetFrequency = vi.fn()
     const user = userEvent.setup()
     const options: BeyondAtcFrequencyOption[] = [
-      makeFrequencyOption(),
-      makeFrequencyOption({ airport: '', airportName: '', frequency: '134.400', name: 'Singapore Radar', type: 'Center' })
+      makeFrequencyOption(), // WSSS, SINGAPORE APPROACH 124.050, runway 02L
+      makeFrequencyOption({ airport: 'ZSPD', airportName: 'Pudong', frequency: '121.100', name: 'SHANGHAI APPROACH', runways: '34R' }),
+      makeFrequencyOption({ airport: '', airportName: '', frequency: '134.400', name: 'Singapore Radar', type: 'Center', runways: '' })
     ]
-    render(<BeyondAtcRadios {...makeRadiosProps({ frequencyOptions: options, onSetFrequency })} />)
+    render(
+      <BeyondAtcRadios
+        {...makeRadiosProps({ frequencyOptions: options, progress: { from: 'WSSS', to: 'ZSPD', pct: 0 }, onSetFrequency })}
+      />
+    )
 
-    await user.click(screen.getAllByRole('combobox')[0])
-    expect(screen.getByText('Changi')).toBeInTheDocument()
-    expect(screen.getByText('Enroute')).toBeInTheDocument()
-    await user.click(await screen.findByRole('option', { name: 'SINGAPORE APPROACH 124.050' }))
+    await user.click(screen.getAllByRole('button', { name: 'Choose a frequency…' })[0])
+    // Departure tab (default): the WSSS station (with its runway) and the enroute Center
+    // entry (no runway), but not the ZSPD-only station.
+    expect(await screen.findByRole('button', { name: 'SINGAPORE APPROACH 124.050 (RWY 02L)' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Singapore Radar 134.400' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /SHANGHAI APPROACH/ })).not.toBeInTheDocument()
 
-    expect(onSetFrequency).toHaveBeenCalledWith('124.050')
+    await user.click(screen.getByRole('tab', { name: 'Arrival' }))
+    await user.click(await screen.findByRole('button', { name: 'SHANGHAI APPROACH 121.100 (RWY 34R)' }))
+
+    expect(onSetFrequency).toHaveBeenCalledWith('121.100')
   })
 
   it('shows the current AutoTune/AutoRespond state and toggles them on click', async () => {
