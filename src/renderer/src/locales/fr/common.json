@@ -730,6 +730,8 @@
     "progress": "{{from}} → {{to}} · {{pct}}%",
     "transcript": "Transcription",
     "actions": "Actions",
+    "noActions": "Aucune action disponible pour l'instant.",
+    "noStatus": "Aucun statut pour l'instant.",
     "radios": "Radios",
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
@@ -767,14 +769,6 @@
       "squawk": "Transpondeur",
       "nextFrequency": "Prochaine fréquence",
       "nextFrequencyValue": "{{station}} {{frequency}}"
-    },
-    "commsMode": {
-      "queued": "En file d'attente",
-      "ready": "Prêt",
-      "awaiting": "En attente de réponse",
-      "speaking": "En train de parler",
-      "request": "Demande enregistrée",
-      "traffic": "Trafic"
     },
     "speaker": {
       "player": "Vous",

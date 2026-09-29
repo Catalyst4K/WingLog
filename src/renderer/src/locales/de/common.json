@@ -728,6 +728,8 @@
     "progress": "{{from}} → {{to}} · {{pct}}%",
     "transcript": "Funkverkehr",
     "actions": "Aktionen",
+    "noActions": "Momentan keine Aktionen verfügbar.",
+    "noStatus": "Noch kein Status.",
     "radios": "Funkgeräte",
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
@@ -765,14 +767,6 @@
       "squawk": "Squawk",
       "nextFrequency": "Nächste Frequenz",
       "nextFrequencyValue": "{{station}} {{frequency}}"
-    },
-    "commsMode": {
-      "queued": "In Warteschlange",
-      "ready": "Bereit",
-      "awaiting": "Warte auf Antwort",
-      "speaking": "Spricht",
-      "request": "Anfrage protokolliert",
-      "traffic": "Verkehr"
     },
     "speaker": {
       "player": "Du",

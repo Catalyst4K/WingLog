@@ -720,6 +720,8 @@
     "progress": "{{from}} → {{to}} · {{pct}}%",
     "transcript": "通话记录",
     "actions": "操作",
+    "noActions": "目前没有可用操作。",
+    "noStatus": "暂无状态。",
     "radios": "无线电",
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
@@ -757,14 +759,6 @@
       "squawk": "应答机编码",
       "nextFrequency": "下一频率",
       "nextFrequencyValue": "{{station}} {{frequency}}"
-    },
-    "commsMode": {
-      "queued": "排队中",
-      "ready": "就绪",
-      "awaiting": "等待回应",
-      "speaking": "通话中",
-      "request": "请求已记录",
-      "traffic": "流量"
     },
     "speaker": {
       "player": "你",

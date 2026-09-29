@@ -753,6 +753,8 @@
     "progress": "{{from}} → {{to}} · {{pct}}%",
     "transcript": "Радиообмен",
     "actions": "Действия",
+    "noActions": "Сейчас нет доступных действий.",
+    "noStatus": "Статус пока не известен.",
     "radios": "Радиостанции",
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
@@ -790,14 +792,6 @@
       "squawk": "Сквок",
       "nextFrequency": "Следующая частота",
       "nextFrequencyValue": "{{station}} {{frequency}}"
-    },
-    "commsMode": {
-      "queued": "В очереди",
-      "ready": "Готово",
-      "awaiting": "Ожидание ответа",
-      "speaking": "Говорит",
-      "request": "Запрос зафиксирован",
-      "traffic": "Трафик"
     },
     "speaker": {
       "player": "Вы",

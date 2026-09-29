@@ -730,6 +730,8 @@
     "progress": "{{from}} → {{to}} · {{pct}}%",
     "transcript": "Transcripción",
     "actions": "Acciones",
+    "noActions": "No hay acciones disponibles ahora mismo.",
+    "noStatus": "Aún sin estado.",
     "radios": "Radios",
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
@@ -767,14 +769,6 @@
       "squawk": "Squawk",
       "nextFrequency": "Próxima frecuencia",
       "nextFrequencyValue": "{{station}} {{frequency}}"
-    },
-    "commsMode": {
-      "queued": "En cola",
-      "ready": "Listo",
-      "awaiting": "Esperando respuesta",
-      "speaking": "Hablando",
-      "request": "Solicitud registrada",
-      "traffic": "Tráfico"
     },
     "speaker": {
       "player": "Tú",

@@ -84,15 +84,6 @@ describe('BeyondAtcPanel', () => {
     expect(screen.getByText('YBBN → YSSY · 12%')).toBeInTheDocument()
   })
 
-  it('shows the live comms mode indicator', async () => {
-    withWinglog({
-      beyondAtcGetState: vi.fn().mockResolvedValue(makeState({ commsState: { mode: 'awaiting', text: 'Awaiting Response' } }))
-    })
-    render(<BeyondAtcPanel />)
-
-    expect(await screen.findByText('Awaiting response — Awaiting Response')).toBeInTheDocument()
-  })
-
   it('renders the transcript, tagged by speaker', async () => {
     const transcript: BeyondAtcTranscriptEntry[] = [
       { speaker: 'player', text: 'Cathay 116 Heavy, radio check.', ts: 1 },
@@ -146,23 +137,25 @@ describe('BeyondAtcPanel', () => {
     expect(screen.getByText('3136')).toBeInTheDocument()
   })
 
-  it('renders no info card when nothing in the transcript has been recognised and no status is known', async () => {
+  it('shows the info card placeholder when nothing in the transcript has been recognised and no status is known', async () => {
     withWinglog({
       beyondAtcGetTranscript: vi.fn().mockResolvedValue([{ speaker: 'atc', text: 'Cathay 116 Heavy, readability 5.', ts: 1 }])
     })
     render(<BeyondAtcPanel />)
 
     await screen.findByText('Cathay 116 Heavy, readability 5.')
+    expect(screen.getByText('No status yet.')).toBeInTheDocument()
     expect(screen.queryByText(/Squawk/)).not.toBeInTheDocument()
     expect(screen.queryByText(/Runway/)).not.toBeInTheDocument()
   })
 
-  it('always shows the Radios and Transcript cards, even with nothing tuned/said yet, but hides the Actions card until there are live actions', async () => {
+  it('always shows every card — Actions, Radios and Transcript — even with nothing tuned/said yet, each with its own placeholder', async () => {
     render(<BeyondAtcPanel />)
 
-    expect(await screen.findByText('Radios')).toBeInTheDocument()
+    expect(await screen.findByText('Actions')).toBeInTheDocument()
+    expect(screen.getByText('No actions available right now.')).toBeInTheDocument()
+    expect(screen.getByText('Radios')).toBeInTheDocument()
     expect(screen.getByText('Transcript')).toBeInTheDocument()
-    expect(screen.queryByText('Actions')).not.toBeInTheDocument()
   })
 
   it('clicking an action button calls beyondAtcSetAction with the exact label', async () => {
