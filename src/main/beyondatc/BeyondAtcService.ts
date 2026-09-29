@@ -180,6 +180,7 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
   private ws: InstanceType<WebSocketCtor> | undefined
   private stopped = true
   private reconnectTimer: NodeJS.Timeout | undefined
+  private lastFrequencyRequest = 0
   private backoffMs = RECONNECT_MIN_MS
   private status: BeyondAtcConnectionStatus = { state: 'disconnected', lastError: null }
 
@@ -260,6 +261,17 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
     this.ws.send(text)
   }
 
+  /** The list is empty if asked before BeyondATC has a flight loaded (real report,
+   *  2026-09-29: picker empty when WingLog connected first, fine after a manual off/on).
+   *  So it's re-asked whenever facility/progress arrives while still empty, and whenever the
+   *  origin/destination changes. Throttled so a burst of state lines sends one request. */
+  private requestFrequencies(force = false): void {
+    const now = Date.now()
+    if (!force && now - this.lastFrequencyRequest < 2000) return
+    this.lastFrequencyRequest = now
+    this.sendCommand('frequencies')
+  }
+
   private setStatus(status: BeyondAtcConnectionStatus): void {
     this.status = status
     this.emit('status', status)
@@ -283,7 +295,7 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
       this.setStatus({ state: 'connected', lastError: null })
       // Proactively requested, not part of the initial snapshot — confirmed live
       // 2026-09-29 (docs/beyondatc-notes.md), a real bare command with no value/colon.
-      this.sendCommand('frequencies')
+      this.requestFrequencies(true)
     })
 
     socket.addEventListener('message', (event: { data: unknown }) => {
@@ -319,6 +331,7 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
       case 'Facility':
         this.state = { ...this.state, facility: parseFacility(rest) }
         this.emit('state', this.state)
+        if (this.state.frequencies.length === 0) this.requestFrequencies()
         return
       case 'Com2': {
         const value = parseJson(rest)
@@ -347,8 +360,12 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
       case 'Progress': {
         const value = parseJson(rest)
         if (isProgress(value)) {
+          const prev = this.state.progress
           this.state = { ...this.state, progress: value }
           this.emit('state', this.state)
+          if (this.state.frequencies.length === 0 || prev?.from !== value.from || prev?.to !== value.to) {
+            this.requestFrequencies()
+          }
         }
         return
       }

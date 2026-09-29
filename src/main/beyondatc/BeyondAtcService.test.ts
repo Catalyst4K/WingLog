@@ -298,6 +298,40 @@ describe('BeyondAtcService', () => {
     service.stop()
   })
 
+  it('re-requests frequencies when state arrives while the list is still empty (BeyondATC not ready at open)', () => {
+    vi.useFakeTimers()
+    try {
+      const { ctor, instances } = makeCtor()
+      const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
+      service.start()
+      instances[0].simulateOpen()
+      instances[0].simulateLine('Frequencies: []')
+      instances[0].sent.length = 0
+
+      // Inside the 2s throttle window: no duplicate request.
+      instances[0].simulateLine('Facility: Singapore Delivery 121.650')
+      expect(instances[0].sent).toEqual([])
+
+      vi.advanceTimersByTime(2500)
+      instances[0].simulateLine('Progress: {"from": "WSSS", "to": "ZSPD", "pct": 0}')
+      expect(instances[0].sent).toEqual(['frequencies'])
+
+      // Once populated, an unchanged route doesn't re-ask; a changed one does.
+      instances[0].simulateLine(
+        'Frequencies: [{"airport":"WSSS","airportName":"Changi","frequency":"121.650","name":"Singapore Delivery","type":"Clearance","stationType":"Delivery","runways":""}]'
+      )
+      instances[0].sent.length = 0
+      vi.advanceTimersByTime(2500)
+      instances[0].simulateLine('Progress: {"from": "WSSS", "to": "ZSPD", "pct": 5}')
+      expect(instances[0].sent).toEqual([])
+      instances[0].simulateLine('Progress: {"from": "WSSS", "to": "VHHH", "pct": 5}')
+      expect(instances[0].sent).toEqual(['frequencies'])
+      service.stop()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('sends set_action/set_frequency/set_frequency_com2/set_autotune/set_autorespond as raw text, not JSON', () => {
     const { ctor, instances } = makeCtor()
     const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
