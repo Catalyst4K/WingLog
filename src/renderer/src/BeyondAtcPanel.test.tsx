@@ -157,10 +157,11 @@ describe('BeyondAtcPanel', () => {
     expect(screen.queryByText(/Runway/)).not.toBeInTheDocument()
   })
 
-  it('always shows the Radios card, even with nothing tuned yet, but hides the Actions card until there are live actions', async () => {
+  it('always shows the Radios and Transcript cards, even with nothing tuned/said yet, but hides the Actions card until there are live actions', async () => {
     render(<BeyondAtcPanel />)
 
     expect(await screen.findByText('Radios')).toBeInTheDocument()
+    expect(screen.getByText('Transcript')).toBeInTheDocument()
     expect(screen.queryByText('Actions')).not.toBeInTheDocument()
   })
 

@@ -120,11 +120,13 @@ function RadiosCard(props: React.ComponentProps<typeof BeyondAtcRadios>): React.
   )
 }
 
-/** Always expanded (per flightdeck-backend's docs/plans/beyondatc-panel-redesign.md — kept
+/** Always visible, same as `ActionsCard`'s Radios sibling — an empty scrollable box rather
+ *  than disappearing entirely, so the right column doesn't jump around as the panel connects
+ *  (flightdeck-backend's docs/plans/beyondatc-panel-redesign.md). Always expanded (kept
  *  as-is rather than collapsing), but scroll-anchored to the latest line: a real flight's
  *  transcript can run long, and without this the newest exchange is scrolled out of view
  *  unless the pilot scrolls manually. Its own card, right column, dispatch-style layout. */
-function TranscriptCard(props: { entries: BeyondAtcTranscriptEntry[] }): React.JSX.Element | null {
+function TranscriptCard(props: { entries: BeyondAtcTranscriptEntry[] }): React.JSX.Element {
   const { t } = useTranslation()
   const latestRef = useRef<HTMLLIElement>(null)
 
@@ -132,7 +134,6 @@ function TranscriptCard(props: { entries: BeyondAtcTranscriptEntry[] }): React.J
     latestRef.current?.scrollIntoView({ block: 'nearest' })
   }, [props.entries])
 
-  if (props.entries.length === 0) return null
   return (
     <Card size="sm">
       <CardHeader>
