@@ -2,14 +2,12 @@ import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { BeyondAtcFrequencyOption } from '@shared/ipc'
-import { BeyondAtcActionsPanel, type BeyondAtcActionsPanelProps } from './BeyondAtcActionsPanel'
+import { BeyondAtcActions, BeyondAtcRadios, type BeyondAtcRadiosProps } from './BeyondAtcControls'
 
-function makeProps(overrides: Partial<BeyondAtcActionsPanelProps> = {}): BeyondAtcActionsPanelProps {
+function makeRadiosProps(overrides: Partial<BeyondAtcRadiosProps> = {}): BeyondAtcRadiosProps {
   return {
-    actions: [],
-    onSelectAction: vi.fn(),
-    com1Frequency: null,
-    com2Frequency: null,
+    facility: null,
+    com2: null,
     onSetFrequency: vi.fn(),
     onSetFrequencyCom2: vi.fn(),
     frequencyOptions: [],
@@ -34,39 +32,49 @@ function makeFrequencyOption(overrides: Partial<BeyondAtcFrequencyOption> = {}):
   }
 }
 
-describe('BeyondAtcActionsPanel', () => {
-  it('renders nothing when there are no actions and no known frequencies', () => {
-    const { container } = render(<BeyondAtcActionsPanel {...makeProps()} />)
+describe('BeyondAtcActions', () => {
+  it('renders nothing when there are no live actions', () => {
+    const { container } = render(<BeyondAtcActions actions={[]} onSelectAction={vi.fn()} />)
     expect(container).toBeEmptyDOMElement()
   })
 
   it('renders a button per live action, calling onSelectAction with the exact label', async () => {
     const onSelectAction = vi.fn()
     const user = userEvent.setup()
-    render(
-      <BeyondAtcActionsPanel
-        {...makeProps({ actions: ['Request IFR Clearance', 'Radio Check'], onSelectAction })}
-      />
-    )
+    render(<BeyondAtcActions actions={['Request IFR Clearance', 'Radio Check']} onSelectAction={onSelectAction} />)
 
     await user.click(screen.getByRole('button', { name: 'Radio Check' }))
 
     expect(onSelectAction).toHaveBeenCalledWith('Radio Check')
     expect(onSelectAction).not.toHaveBeenCalledWith('Request IFR Clearance')
   })
+})
 
-  it('shows the current COM1/COM2 frequencies read-only', () => {
-    render(<BeyondAtcActionsPanel {...makeProps({ com1Frequency: '118.850', com2Frequency: '121.700' })} />)
+describe('BeyondAtcRadios', () => {
+  it('shows "—" for COM1/COM2 while nothing is tuned', () => {
+    render(<BeyondAtcRadios {...makeRadiosProps()} />)
+    expect(screen.getAllByText('—')).toHaveLength(2)
+  })
 
-    expect(screen.getByText('118.850')).toBeInTheDocument()
-    expect(screen.getByText('121.700')).toBeInTheDocument()
+  it('shows the current COM1/COM2 station name and frequency together, not just the raw digits', () => {
+    render(
+      <BeyondAtcRadios
+        {...makeRadiosProps({
+          facility: { name: 'Brisbane Delivery', frequency: '118.850' },
+          com2: { label: 'Brisbane Ground', frequency: '121.700', monitor: false }
+        })}
+      />
+    )
+
+    expect(screen.getByText('Brisbane Delivery (118.850)')).toBeInTheDocument()
+    expect(screen.getByText('Brisbane Ground (121.700)')).toBeInTheDocument()
   })
 
   it('typing a new COM1 frequency and clicking Set calls onSetFrequency, not onSetFrequencyCom2', async () => {
     const onSetFrequency = vi.fn()
     const onSetFrequencyCom2 = vi.fn()
     const user = userEvent.setup()
-    render(<BeyondAtcActionsPanel {...makeProps({ com1Frequency: '118.850', onSetFrequency, onSetFrequencyCom2 })} />)
+    render(<BeyondAtcRadios {...makeRadiosProps({ onSetFrequency, onSetFrequencyCom2 })} />)
 
     const [com1Input] = screen.getAllByPlaceholderText('118.850')
     await user.type(com1Input, '119.100')
@@ -79,7 +87,7 @@ describe('BeyondAtcActionsPanel', () => {
   it('pressing Enter in the COM2 frequency field commits it and clears the input', async () => {
     const onSetFrequencyCom2 = vi.fn()
     const user = userEvent.setup()
-    render(<BeyondAtcActionsPanel {...makeProps({ com2Frequency: '121.700', onSetFrequencyCom2 })} />)
+    render(<BeyondAtcRadios {...makeRadiosProps({ onSetFrequencyCom2 })} />)
 
     const [, com2Input] = screen.getAllByPlaceholderText('118.850')
     await user.type(com2Input, '121.900{Enter}')
@@ -91,7 +99,7 @@ describe('BeyondAtcActionsPanel', () => {
   it('does not send an empty/whitespace-only frequency', async () => {
     const onSetFrequency = vi.fn()
     const user = userEvent.setup()
-    render(<BeyondAtcActionsPanel {...makeProps({ com1Frequency: '118.850', onSetFrequency })} />)
+    render(<BeyondAtcRadios {...makeRadiosProps({ onSetFrequency })} />)
 
     await user.click(screen.getAllByRole('button', { name: 'Set' })[0])
 
@@ -99,7 +107,7 @@ describe('BeyondAtcActionsPanel', () => {
   })
 
   it('does not show a frequency picker when no options are known, only manual entry', () => {
-    render(<BeyondAtcActionsPanel {...makeProps({ com1Frequency: '118.850' })} />)
+    render(<BeyondAtcRadios {...makeRadiosProps()} />)
 
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
   })
@@ -111,7 +119,7 @@ describe('BeyondAtcActionsPanel', () => {
       makeFrequencyOption(),
       makeFrequencyOption({ airport: '', airportName: '', frequency: '134.400', name: 'Singapore Radar', type: 'Center' })
     ]
-    render(<BeyondAtcActionsPanel {...makeProps({ com1Frequency: '118.850', frequencyOptions: options, onSetFrequency })} />)
+    render(<BeyondAtcRadios {...makeRadiosProps({ frequencyOptions: options, onSetFrequency })} />)
 
     await user.click(screen.getAllByRole('combobox')[0])
     expect(screen.getByText('Changi')).toBeInTheDocument()
@@ -121,17 +129,11 @@ describe('BeyondAtcActionsPanel', () => {
     expect(onSetFrequency).toHaveBeenCalledWith('124.050')
   })
 
-  it('renders no settings block while AutoTune/AutoRespond are both still unknown', () => {
-    render(<BeyondAtcActionsPanel {...makeProps({ com1Frequency: '118.850' })} />)
-
-    expect(screen.queryByText('Settings')).not.toBeInTheDocument()
-  })
-
   it('shows the current AutoTune/AutoRespond state and toggles them on click', async () => {
     const onSetAutoTune = vi.fn()
     const onSetAutoRespond = vi.fn()
     const user = userEvent.setup()
-    render(<BeyondAtcActionsPanel {...makeProps({ autoTune: true, autoRespond: false, onSetAutoTune, onSetAutoRespond })} />)
+    render(<BeyondAtcRadios {...makeRadiosProps({ autoTune: true, autoRespond: false, onSetAutoTune, onSetAutoRespond })} />)
 
     expect(screen.getByRole('button', { name: 'Auto-tune: On' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Auto-respond: Off' })).toBeInTheDocument()

@@ -724,17 +724,17 @@
     "notConfigured": "BeyondATC-Integration ist deaktiviert. Aktiviere sie unter Einstellungen → Drittanbieter.",
     "connecting": "Verbindung zu BeyondATC wird hergestellt…",
     "disconnected": "Nicht mit BeyondATC verbunden.",
-    "tunedTo": "Eingestellt auf {{station}} ({{frequency}})",
+    "stationFrequency": "{{station}} ({{frequency}})",
     "progress": "{{from}} → {{to}} · {{pct}}%",
     "transcript": "Funkverkehr",
     "actions": "Aktionen",
+    "radios": "Funkgeräte",
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
     "setFrequency": "Setzen",
     "selectFrequency": "Frequenz wählen…",
     "enroute": "Streckenflug",
     "settings": {
-      "title": "Einstellungen",
       "autoTune": "Auto-Einstellung",
       "autoRespond": "Auto-Antwort",
       "on": "An",
@@ -742,7 +742,6 @@
       "unknown": "—"
     },
     "clearance": {
-      "title": "Freigabe",
       "runway": "Bahn",
       "sid": "SID",
       "star": "STAR",

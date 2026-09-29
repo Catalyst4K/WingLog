@@ -724,17 +724,17 @@
     "notConfigured": "BeyondATC integration is off. Turn it on under Settings → 3rd party.",
     "connecting": "Connecting to BeyondATC…",
     "disconnected": "Not connected to BeyondATC.",
-    "tunedTo": "Tuned to {{station}} ({{frequency}})",
+    "stationFrequency": "{{station}} ({{frequency}})",
     "progress": "{{from}} → {{to}} · {{pct}}%",
     "transcript": "Transcript",
     "actions": "Actions",
+    "radios": "Radios",
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
     "setFrequency": "Set",
     "selectFrequency": "Choose a frequency…",
     "enroute": "Enroute",
     "settings": {
-      "title": "Settings",
       "autoTune": "Auto-tune",
       "autoRespond": "Auto-respond",
       "on": "On",
@@ -742,7 +742,6 @@
       "unknown": "—"
     },
     "clearance": {
-      "title": "Clearance",
       "runway": "Runway",
       "sid": "SID",
       "star": "STAR",

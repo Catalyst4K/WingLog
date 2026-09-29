@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { BeyondAtcConnectionStatus, BeyondAtcSettings, BeyondAtcState, BeyondAtcTranscriptEntry } from '@shared/ipc'
-import { BeyondAtcActionsPanel } from './BeyondAtcActionsPanel'
+import { BeyondAtcActions, BeyondAtcRadios } from './BeyondAtcControls'
 import { buildClearanceReadout, type ClearanceReadout } from './beyondAtcClearanceReadout'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 const EMPTY_STATE: BeyondAtcState = {
   facility: null,
@@ -32,81 +33,52 @@ const SPEAKER_KEY: Record<BeyondAtcTranscriptEntry['speaker'], string> = {
   atcTraffic: 'beyondAtcPanel.speaker.atcTraffic'
 }
 
-/** The comms-status card — the panel's primary glance target, matching `GsxRemotePanel`'s
- *  `MenuHeader` in visual weight (bordered, tinted) so it reads as the clear top anchor
- *  rather than one paragraph among several. Callsign/facility/progress and the live
- *  "who's talking/awaiting" indicator (`CommsState.mode`, confirmed live via a real Radio
- *  Check trace, docs/beyondatc-notes.md) are one card, not separate stacked pieces — status
- *  is what a pilot glances at first, Actions below is secondary
- *  (flightdeck-backend's docs/plans/beyondatc-panel-redesign.md). `commsState.text` is
- *  BeyondATC's own text (e.g. "Radio Check"), shown verbatim alongside the translated mode
- *  label, same "third-party text, not translated" precedent GsxRemotePanel sets for GSX's
- *  own menu labels. */
-function StatusCard(props: { state: BeyondAtcState }): React.JSX.Element | null {
-  const { t } = useTranslation()
-  const { facility, callsign, progress, commsState } = props.state
-  if (!facility && !callsign && !progress && !commsState) return null
+function InfoField(props: { label: string; value: string }): React.JSX.Element {
   return (
-    <div className="flex flex-col gap-1 rounded-md border border-primary/40 bg-primary/5 px-3 py-2.5 shadow-sm">
-      {callsign && <span className="text-sm font-semibold text-foreground">{callsign.full}</span>}
-      {facility && (
-        <span className="text-xs text-muted-foreground">
-          {t('beyondAtcPanel.tunedTo', { station: facility.name, frequency: facility.frequency })}
-        </span>
-      )}
-      {progress && (
-        <span className="text-xs text-muted-foreground">
-          {t('beyondAtcPanel.progress', { from: progress.from, to: progress.to, pct: progress.pct })}
-        </span>
-      )}
-      {commsState && (
-        <span className="text-xs text-muted-foreground">
-          {t(COMMS_MODE_KEY[commsState.mode])}
-          {commsState.text ? ` — ${commsState.text}` : ''}
-        </span>
-      )}
-    </div>
-  )
-}
-
-function ClearanceField(props: { label: string; value: string }): React.JSX.Element {
-  return (
-    <div className="flex flex-col">
-      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{props.label}</span>
+    <span className="whitespace-nowrap text-xs">
+      <span className="text-muted-foreground">{props.label}: </span>
       <span className="font-medium text-foreground">{props.value}</span>
-    </div>
+    </span>
   )
 }
 
-/** The boxed clearance readout (flightdeck-backend's docs/plans/beyondatc-panel-redesign.md,
- *  item 4) — distinct labelled fields instead of a wall of transcript text, built from
- *  `beyondAtcClearanceReadout.ts`'s real-capture-based parser. Layout is WingLog's own take
- *  (a labelled grid, matching this panel's/`GsxRemotePanel`'s existing card style) rather
- *  than a pixel copy of BeyondATC's own toolbar UI — that toolbar's markup wasn't available
- *  to read in this environment, only its command vocabulary (docs/beyondatc-notes.md) was
- *  already on file. Hidden entirely until the first recognised clearance line arrives. */
-function ClearanceCard(props: { readout: ClearanceReadout }): React.JSX.Element | null {
+/** The top info strip (flightdeck-backend's docs/plans/beyondatc-panel-redesign.md) —
+ *  callsign/progress/comms-mode plus the boxed clearance readout, shrunk to one compact
+ *  card with every field inline (a wrapped row), not stacked one-per-line. Deliberately
+ *  doesn't show "tuned to" facility/COM2 info — that's `BeyondAtcRadios`' job now, per
+ *  Callum's own call once the panel was actually split into cards. Hidden entirely when
+ *  there's nothing at all to show. */
+function InfoCard(props: { state: BeyondAtcState; readout: ClearanceReadout }): React.JSX.Element | null {
   const { t } = useTranslation()
+  const { callsign, progress, commsState } = props.state
   const r = props.readout
-  if (Object.keys(r).length === 0) return null
+  if (!callsign && !progress && !commsState && Object.keys(r).length === 0) return null
   return (
-    <div className="flex flex-col gap-1.5 rounded-md border border-border/60 p-2">
-      <p className="text-sm font-medium text-foreground">{t('beyondAtcPanel.clearance.title')}</p>
-      <div className="grid grid-cols-3 gap-x-3 gap-y-1.5 text-xs">
-        {r.runway && <ClearanceField label={t('beyondAtcPanel.clearance.runway')} value={r.runway} />}
-        {r.sidIdent && <ClearanceField label={t('beyondAtcPanel.clearance.sid')} value={r.sidIdent} />}
-        {r.starIdent && <ClearanceField label={t('beyondAtcPanel.clearance.star')} value={r.starIdent} />}
-        {r.approachIdent && <ClearanceField label={t('beyondAtcPanel.clearance.approach')} value={r.approachIdent} />}
-        {r.approachTransition && <ClearanceField label={t('beyondAtcPanel.clearance.transition')} value={r.approachTransition} />}
-        {r.altitudeFt !== undefined && (
-          <ClearanceField
-            label={t('beyondAtcPanel.clearance.altitude')}
-            value={t('beyondAtcPanel.clearance.altitudeValue', { altitude: r.altitudeFt })}
-          />
+    <Card size="sm">
+      <CardContent className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+        {callsign && <span className="text-sm font-semibold text-foreground">{callsign.full}</span>}
+        {progress && (
+          <span className="text-xs text-muted-foreground">
+            {t('beyondAtcPanel.progress', { from: progress.from, to: progress.to, pct: progress.pct })}
+          </span>
         )}
-        {r.squawk && <ClearanceField label={t('beyondAtcPanel.clearance.squawk')} value={r.squawk} />}
+        {commsState && (
+          <span className="text-xs text-muted-foreground">
+            {t(COMMS_MODE_KEY[commsState.mode])}
+            {commsState.text ? ` — ${commsState.text}` : ''}
+          </span>
+        )}
+        {r.runway && <InfoField label={t('beyondAtcPanel.clearance.runway')} value={r.runway} />}
+        {r.sidIdent && <InfoField label={t('beyondAtcPanel.clearance.sid')} value={r.sidIdent} />}
+        {r.starIdent && <InfoField label={t('beyondAtcPanel.clearance.star')} value={r.starIdent} />}
+        {r.approachIdent && <InfoField label={t('beyondAtcPanel.clearance.approach')} value={r.approachIdent} />}
+        {r.approachTransition && <InfoField label={t('beyondAtcPanel.clearance.transition')} value={r.approachTransition} />}
+        {r.altitudeFt !== undefined && (
+          <InfoField label={t('beyondAtcPanel.clearance.altitude')} value={t('beyondAtcPanel.clearance.altitudeValue', { altitude: r.altitudeFt })} />
+        )}
+        {r.squawk && <InfoField label={t('beyondAtcPanel.clearance.squawk')} value={r.squawk} />}
         {r.nextFrequency && (
-          <ClearanceField
+          <InfoField
             label={t('beyondAtcPanel.clearance.nextFrequency')}
             value={t('beyondAtcPanel.clearance.nextFrequencyValue', {
               station: r.nextFrequencyStation ?? '',
@@ -114,16 +86,45 @@ function ClearanceCard(props: { readout: ClearanceReadout }): React.JSX.Element 
             })}
           />
         )}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function ActionsCard(props: { actions: string[]; onSelectAction: (label: string) => void }): React.JSX.Element | null {
+  const { t } = useTranslation()
+  if (props.actions.length === 0) return null
+  return (
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle>{t('beyondAtcPanel.actions')}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <BeyondAtcActions actions={props.actions} onSelectAction={props.onSelectAction} />
+      </CardContent>
+    </Card>
+  )
+}
+
+function RadiosCard(props: React.ComponentProps<typeof BeyondAtcRadios>): React.JSX.Element {
+  const { t } = useTranslation()
+  return (
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle>{t('beyondAtcPanel.radios')}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <BeyondAtcRadios {...props} />
+      </CardContent>
+    </Card>
   )
 }
 
 /** Always expanded (per flightdeck-backend's docs/plans/beyondatc-panel-redesign.md — kept
  *  as-is rather than collapsing), but scroll-anchored to the latest line: a real flight's
  *  transcript can run long, and without this the newest exchange is scrolled out of view
- *  behind the fixed `max-h-64` unless the pilot scrolls manually. */
-function Transcript(props: { entries: BeyondAtcTranscriptEntry[] }): React.JSX.Element | null {
+ *  unless the pilot scrolls manually. Its own card, right column, dispatch-style layout. */
+function TranscriptCard(props: { entries: BeyondAtcTranscriptEntry[] }): React.JSX.Element | null {
   const { t } = useTranslation()
   const latestRef = useRef<HTMLLIElement>(null)
 
@@ -133,17 +134,21 @@ function Transcript(props: { entries: BeyondAtcTranscriptEntry[] }): React.JSX.E
 
   if (props.entries.length === 0) return null
   return (
-    <div className="flex flex-col gap-1.5">
-      <p className="text-sm font-medium text-foreground">{t('beyondAtcPanel.transcript')}</p>
-      <ul className="flex max-h-64 flex-col gap-1 overflow-y-auto rounded-md border border-border/60 p-2 text-xs">
-        {props.entries.map((entry, index) => (
-          <li key={index} ref={index === props.entries.length - 1 ? latestRef : undefined} className="flex gap-1.5">
-            <span className="shrink-0 font-medium text-foreground">{t(SPEAKER_KEY[entry.speaker])}:</span>
-            <span className="text-muted-foreground">{entry.text}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle>{t('beyondAtcPanel.transcript')}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ul className="flex max-h-96 flex-col gap-1 overflow-y-auto text-xs">
+          {props.entries.map((entry, index) => (
+            <li key={index} ref={index === props.entries.length - 1 ? latestRef : undefined} className="flex gap-1.5">
+              <span className="shrink-0 font-medium text-foreground">{t(SPEAKER_KEY[entry.speaker])}:</span>
+              <span className="text-muted-foreground">{entry.text}</span>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -152,6 +157,12 @@ function Transcript(props: { entries: BeyondAtcTranscriptEntry[] }): React.JSX.E
  * beyondatc-integration.md) — its own top-level tab, same shape as GsxRemotePanel: current-
  * value fetches on mount plus live subscriptions, so a panel mounting (or remounting) after
  * BeyondATC already pushed state doesn't show nothing until the next line arrives.
+ *
+ * Card-grid layout (flightdeck-backend's docs/plans/beyondatc-panel-redesign.md, second
+ * design pass, 2026-09-29): a compact info strip on top, then a dispatch-style two-column
+ * area below — Actions + Radios on the left, a scrollable Transcript on the right — mirroring
+ * `DispatchView`'s own `flex flex-wrap items-start gap-4` / `min-w-72 max-w-md flex-1` +
+ * `min-w-72 flex-1` column convention, not a new layout invented from scratch.
  */
 export function BeyondAtcPanel(): React.JSX.Element {
   const { t } = useTranslation()
@@ -183,28 +194,32 @@ export function BeyondAtcPanel(): React.JSX.Element {
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       {status.state !== 'connected' && (
         <p className="text-xs text-muted-foreground">
           {status.state === 'connecting' ? t('beyondAtcPanel.connecting') : t('beyondAtcPanel.disconnected')}
         </p>
       )}
-      <StatusCard state={state} />
-      <ClearanceCard readout={clearanceReadout} />
-      <BeyondAtcActionsPanel
-        actions={state.actions}
-        onSelectAction={(label) => window.winglog.beyondAtcSetAction(label)}
-        com1Frequency={state.facility?.frequency ?? null}
-        com2Frequency={state.com2?.frequency ?? null}
-        onSetFrequency={(frequency) => window.winglog.beyondAtcSetFrequency(frequency)}
-        onSetFrequencyCom2={(frequency) => window.winglog.beyondAtcSetFrequencyCom2(frequency)}
-        frequencyOptions={state.frequencies}
-        autoTune={state.autoTune}
-        autoRespond={state.autoRespond}
-        onSetAutoTune={(value) => window.winglog.beyondAtcSetAutoTune(value)}
-        onSetAutoRespond={(value) => window.winglog.beyondAtcSetAutoRespond(value)}
-      />
-      <Transcript entries={transcript} />
+      <InfoCard state={state} readout={clearanceReadout} />
+      <div className="flex flex-wrap items-start gap-4">
+        <div className="flex min-w-72 max-w-md flex-1 flex-col gap-4">
+          <ActionsCard actions={state.actions} onSelectAction={(label) => window.winglog.beyondAtcSetAction(label)} />
+          <RadiosCard
+            facility={state.facility}
+            com2={state.com2}
+            onSetFrequency={(frequency) => window.winglog.beyondAtcSetFrequency(frequency)}
+            onSetFrequencyCom2={(frequency) => window.winglog.beyondAtcSetFrequencyCom2(frequency)}
+            frequencyOptions={state.frequencies}
+            autoTune={state.autoTune}
+            autoRespond={state.autoRespond}
+            onSetAutoTune={(value) => window.winglog.beyondAtcSetAutoTune(value)}
+            onSetAutoRespond={(value) => window.winglog.beyondAtcSetAutoRespond(value)}
+          />
+        </div>
+        <div className="flex min-w-72 flex-1 flex-col gap-4">
+          <TranscriptCard entries={transcript} />
+        </div>
+      </div>
     </div>
   )
 }

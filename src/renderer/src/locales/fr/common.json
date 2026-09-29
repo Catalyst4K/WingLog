@@ -726,17 +726,17 @@
     "notConfigured": "L'intégration BeyondATC est désactivée. Activez-la dans Paramètres → Tiers.",
     "connecting": "Connexion à BeyondATC…",
     "disconnected": "Non connecté à BeyondATC.",
-    "tunedTo": "Réglé sur {{station}} ({{frequency}})",
+    "stationFrequency": "{{station}} ({{frequency}})",
     "progress": "{{from}} → {{to}} · {{pct}}%",
     "transcript": "Transcription",
     "actions": "Actions",
+    "radios": "Radios",
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
     "setFrequency": "Régler",
     "selectFrequency": "Choisir une fréquence…",
     "enroute": "En route",
     "settings": {
-      "title": "Paramètres",
       "autoTune": "Réglage auto",
       "autoRespond": "Réponse auto",
       "on": "Activé",
@@ -744,7 +744,6 @@
       "unknown": "—"
     },
     "clearance": {
-      "title": "Clairance",
       "runway": "Piste",
       "sid": "SID",
       "star": "STAR",

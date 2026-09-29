@@ -80,7 +80,7 @@ describe('BeyondAtcPanel', () => {
     render(<BeyondAtcPanel />)
 
     expect(await screen.findByText('Cathay 116 Heavy')).toBeInTheDocument()
-    expect(screen.getByText('Tuned to Brisbane Delivery (118.850)')).toBeInTheDocument()
+    expect(screen.getByText('Brisbane Delivery (118.850)')).toBeInTheDocument()
     expect(screen.getByText('YBBN → YSSY · 12%')).toBeInTheDocument()
   })
 
@@ -140,21 +140,28 @@ describe('BeyondAtcPanel', () => {
     withWinglog({ beyondAtcGetTranscript: vi.fn().mockResolvedValue(transcript) })
     render(<BeyondAtcPanel />)
 
-    expect(await screen.findByText('Clearance')).toBeInTheDocument()
-    expect(screen.getByText('01')).toBeInTheDocument()
+    expect(await screen.findByText('01')).toBeInTheDocument()
     expect(screen.getByText('VMR9B')).toBeInTheDocument()
     expect(screen.getByText('11000 ft')).toBeInTheDocument()
     expect(screen.getByText('3136')).toBeInTheDocument()
   })
 
-  it('renders no clearance card when nothing in the transcript has been recognised yet', async () => {
+  it('renders no info card when nothing in the transcript has been recognised and no status is known', async () => {
     withWinglog({
       beyondAtcGetTranscript: vi.fn().mockResolvedValue([{ speaker: 'atc', text: 'Cathay 116 Heavy, readability 5.', ts: 1 }])
     })
     render(<BeyondAtcPanel />)
 
     await screen.findByText('Cathay 116 Heavy, readability 5.')
-    expect(screen.queryByText('Clearance')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Squawk/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Runway/)).not.toBeInTheDocument()
+  })
+
+  it('always shows the Radios card, even with nothing tuned yet, but hides the Actions card until there are live actions', async () => {
+    render(<BeyondAtcPanel />)
+
+    expect(await screen.findByText('Radios')).toBeInTheDocument()
+    expect(screen.queryByText('Actions')).not.toBeInTheDocument()
   })
 
   it('clicking an action button calls beyondAtcSetAction with the exact label', async () => {

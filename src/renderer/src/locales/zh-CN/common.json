@@ -716,17 +716,17 @@
     "notConfigured": "BeyondATC 集成已关闭。请在设置 → 第三方中启用。",
     "connecting": "正在连接 BeyondATC…",
     "disconnected": "未连接到 BeyondATC。",
-    "tunedTo": "已调至 {{station}}（{{frequency}}）",
+    "stationFrequency": "{{station}}（{{frequency}}）",
     "progress": "{{from}} → {{to}} · {{pct}}%",
     "transcript": "通话记录",
     "actions": "操作",
+    "radios": "无线电",
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
     "setFrequency": "设置",
     "selectFrequency": "选择频率…",
     "enroute": "航路",
     "settings": {
-      "title": "设置",
       "autoTune": "自动调频",
       "autoRespond": "自动应答",
       "on": "开",
@@ -734,7 +734,6 @@
       "unknown": "—"
     },
     "clearance": {
-      "title": "许可",
       "runway": "跑道",
       "sid": "离场程序",
       "star": "进场程序",

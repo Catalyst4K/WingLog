@@ -749,17 +749,17 @@
     "notConfigured": "Интеграция с BeyondATC отключена. Включите её в разделе Настройки → Сторонние сервисы.",
     "connecting": "Подключение к BeyondATC…",
     "disconnected": "Нет подключения к BeyondATC.",
-    "tunedTo": "Настроено на {{station}} ({{frequency}})",
+    "stationFrequency": "{{station}} ({{frequency}})",
     "progress": "{{from}} → {{to}} · {{pct}}%",
     "transcript": "Радиообмен",
     "actions": "Действия",
+    "radios": "Радиостанции",
     "frequencyUnknown": "—",
     "frequencyPlaceholder": "118.850",
     "setFrequency": "Задать",
     "selectFrequency": "Выбрать частоту…",
     "enroute": "В маршруте",
     "settings": {
-      "title": "Настройки",
       "autoTune": "Автонастройка",
       "autoRespond": "Автоответ",
       "on": "Вкл",
@@ -767,7 +767,6 @@
       "unknown": "—"
     },
     "clearance": {
-      "title": "Разрешение",
       "runway": "ВПП",
       "sid": "SID",
       "star": "STAR",
