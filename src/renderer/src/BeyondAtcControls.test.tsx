@@ -129,15 +129,32 @@ describe('BeyondAtcRadios', () => {
 
     await user.click(screen.getAllByRole('button', { name: 'Choose a frequency…' })[0])
     // Departure tab (default): the WSSS station (with its runway) and the enroute Center
-    // entry (no runway), but not the ZSPD-only station.
-    expect(await screen.findByRole('button', { name: 'SINGAPORE APPROACH 124.050 (RWY 02L)' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Singapore Radar 134.400' })).toBeInTheDocument()
+    // entry (no runway), but not the ZSPD-only station. Each button leads with the real
+    // category (Approach/Center), not just BeyondATC's own station name.
+    expect(await screen.findByRole('button', { name: 'Approach — SINGAPORE APPROACH 124.050 (RWY 02L)' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Center — Singapore Radar 134.400' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /SHANGHAI APPROACH/ })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('tab', { name: 'Arrival' }))
-    await user.click(await screen.findByRole('button', { name: 'SHANGHAI APPROACH 121.100 (RWY 34R)' }))
+    await user.click(await screen.findByRole('button', { name: 'Approach — SHANGHAI APPROACH 121.100 (RWY 34R)' }))
 
     expect(onSetFrequency).toHaveBeenCalledWith('121.100')
+  })
+
+  it('leads a Clearance-type frequency with "Delivery" and an ATIS-type one with "ATIS", regardless of what BeyondATC named the station itself', async () => {
+    const user = userEvent.setup()
+    // Real captures: WSSS's own delivery/ATIS stations are named just "SINGAPORE"/"WSSS" —
+    // no "Delivery" or "ATIS" anywhere in the name field itself.
+    const options: BeyondAtcFrequencyOption[] = [
+      makeFrequencyOption({ frequency: '121.650', name: 'SINGAPORE', type: 'Clearance', runways: '' }),
+      makeFrequencyOption({ frequency: '128.600', name: 'WSSS', type: 'ATIS', runways: '' })
+    ]
+    render(<BeyondAtcRadios {...makeRadiosProps({ frequencyOptions: options, progress: { from: 'WSSS', to: 'ZSPD', pct: 0 } })} />)
+
+    await user.click(screen.getAllByRole('button', { name: 'Choose a frequency…' })[0])
+
+    expect(await screen.findByRole('button', { name: 'Delivery — SINGAPORE 121.650' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'ATIS — WSSS 128.600' })).toBeInTheDocument()
   })
 
   it('shows the current AutoTune/AutoRespond state and toggles them on click', async () => {

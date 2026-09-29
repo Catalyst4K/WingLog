@@ -761,7 +761,17 @@
     "departure": "Вылет",
     "arrival": "Прилёт",
     "noFrequencies": "Для этого аэропорта пока нет частот.",
-    "stationRunway": "{{station}} {{frequency}} (ВПП {{runway}})",
+    "frequencyOption": "{{type}} — {{station}} {{frequency}}",
+    "frequencyOptionRunway": "{{type}} — {{station}} {{frequency}} (ВПП {{runway}})",
+    "frequencyType": {
+      "approach": "Подход",
+      "departure": "Вылет",
+      "tower": "Вышка",
+      "ground": "Земля",
+      "delivery": "Разрешения",
+      "atis": "АТИС",
+      "center": "Центр"
+    },
     "settings": {
       "autoTune": "Автонастройка",
       "autoRespond": "Автоответ",

@@ -728,7 +728,17 @@
     "departure": "離場",
     "arrival": "進場",
     "noFrequencies": "該機場暫無頻率。",
-    "stationRunway": "{{station}} {{frequency}}（跑道 {{runway}}）",
+    "frequencyOption": "{{type}} — {{station}} {{frequency}}",
+    "frequencyOptionRunway": "{{type}} — {{station}} {{frequency}}（跑道 {{runway}}）",
+    "frequencyType": {
+      "approach": "近場",
+      "departure": "離場",
+      "tower": "塔台",
+      "ground": "地面",
+      "delivery": "放行許可",
+      "atis": "自動情報",
+      "center": "區域管制"
+    },
     "settings": {
       "autoTune": "自動調頻",
       "autoRespond": "自動應答",

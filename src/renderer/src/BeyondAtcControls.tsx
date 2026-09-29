@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { BeyondAtcCom2, BeyondAtcFacility, BeyondAtcFrequencyOption, BeyondAtcProgress } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 /**
@@ -61,20 +61,47 @@ function splitFrequencyOptions(
   return { departure, arrival }
 }
 
-/** One selectable station — real captures showed BeyondATC supplying several distinct
+/** BeyondATC's own `type` field, mapped to a clear translated label — the station `name`
+ *  field alone isn't reliably clear about what a frequency is *for*: real captures showed
+ *  WSSS's own clearance/delivery frequency named just "SINGAPORE" (no "Delivery" anywhere)
+ *  and its ATIS frequencies named just "WSSS" (the bare airport code, no "ATIS"), while
+ *  ZSPD's delivery frequency happened to already say "PUDONG DELIVERY". Leading every
+ *  button with the real category, not trusting `name` to say it, is what actually makes
+ *  Delivery/ATIS/etc. unambiguous regardless of how BeyondATC happened to name that one
+ *  station (Callum's own call, 2026-09-29). BeyondATC's own `Clearance` type is shown as
+ *  "Delivery" — the term pilots actually use for that frequency. An unrecognised type falls
+ *  back to BeyondATC's own raw text rather than guessing a translation for it. */
+const FREQUENCY_TYPE_KEY: Record<string, string> = {
+  Approach: 'beyondAtcPanel.frequencyType.approach',
+  Departure: 'beyondAtcPanel.frequencyType.departure',
+  Tower: 'beyondAtcPanel.frequencyType.tower',
+  Ground: 'beyondAtcPanel.frequencyType.ground',
+  Clearance: 'beyondAtcPanel.frequencyType.delivery',
+  ATIS: 'beyondAtcPanel.frequencyType.atis',
+  Center: 'beyondAtcPanel.frequencyType.center'
+}
+
+/** One selectable station. Real captures showed BeyondATC supplying several distinct
  *  Approach frequencies for the same airport, one per runway, so the runway (when present)
- *  is shown next to the frequency it actually applies to rather than just the station name. */
+ *  is shown next to the frequency it actually applies to, not just the station name. */
 function FrequencyOptionButton(props: { station: BeyondAtcFrequencyOption; onSelect: (frequency: string) => void }): React.JSX.Element {
   const { t } = useTranslation()
+  const typeKey = FREQUENCY_TYPE_KEY[props.station.type]
+  const typeLabel = typeKey ? t(typeKey) : props.station.type
   const label = props.station.runways
-    ? t('beyondAtcPanel.stationRunway', { station: props.station.name, frequency: props.station.frequency, runway: props.station.runways })
-    : `${props.station.name} ${props.station.frequency}`
+    ? t('beyondAtcPanel.frequencyOptionRunway', {
+        type: typeLabel,
+        station: props.station.name,
+        frequency: props.station.frequency,
+        runway: props.station.runways
+      })
+    : t('beyondAtcPanel.frequencyOption', { type: typeLabel, station: props.station.name, frequency: props.station.frequency })
   return (
     <Button
       type="button"
       variant="ghost"
       size="sm"
-      className="h-auto w-full justify-start py-1 text-left text-xs"
+      className="h-auto w-full justify-start py-1.5 text-left text-xs whitespace-normal"
       onClick={() => props.onSelect(props.station.frequency)}
     >
       {label}
@@ -86,7 +113,7 @@ function FrequencyOptionList(props: { stations: BeyondAtcFrequencyOption[]; onSe
   const { t } = useTranslation()
   if (props.stations.length === 0) return <p className="px-1.5 py-1 text-xs text-muted-foreground">{t('beyondAtcPanel.noFrequencies')}</p>
   return (
-    <ul className="flex max-h-48 flex-col gap-0.5 overflow-y-auto">
+    <ul className="flex max-h-80 flex-col gap-0.5 overflow-y-auto">
       {props.stations.map((station) => (
         <li key={`${station.name}-${station.frequency}`}>
           <FrequencyOptionButton station={station} onSelect={props.onSelect} />
@@ -98,8 +125,10 @@ function FrequencyOptionList(props: { stations: BeyondAtcFrequencyOption[]; onSe
 
 /** Departure/arrival tabs (Callum's own call, 2026-09-29 — a single grouped-by-airport list
  *  read as one long list once a real flight plan filled it with every real station at both
- *  airports) rather than the previous single dropdown. A popover, not a `Select`, since tabs
- *  need button/tabpanel semantics a listbox doesn't offer. */
+ *  airports), in a centered dialog rather than a small anchored dropdown — Callum's own
+ *  follow-up call, same evening, once the popover version turned out cramped for a list this
+ *  long. Tabs need button/tabpanel semantics a listbox (`Select`) doesn't offer, which is
+ *  why this was never a native `<select>`-style control to begin with. */
 function FrequencyPicker(props: {
   departureAirport: string | null
   arrivalAirport: string | null
@@ -121,13 +150,16 @@ function FrequencyPicker(props: {
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
         <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs">
           {t('beyondAtcPanel.selectFrequency')}
         </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-64 p-2">
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t('beyondAtcPanel.selectFrequency')}</DialogTitle>
+        </DialogHeader>
         <Tabs defaultValue="departure">
           <TabsList className="w-full">
             <TabsTrigger value="departure">{t('beyondAtcPanel.departure')}</TabsTrigger>
@@ -140,8 +172,8 @@ function FrequencyPicker(props: {
             <FrequencyOptionList stations={arrival} onSelect={select} />
           </TabsContent>
         </Tabs>
-      </PopoverContent>
-    </Popover>
+      </DialogContent>
+    </Dialog>
   )
 }
 

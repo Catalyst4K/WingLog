@@ -738,7 +738,17 @@
     "departure": "Salida",
     "arrival": "Llegada",
     "noFrequencies": "Aún no hay frecuencias para este aeropuerto.",
-    "stationRunway": "{{station}} {{frequency}} (pista {{runway}})",
+    "frequencyOption": "{{type}} — {{station}} {{frequency}}",
+    "frequencyOptionRunway": "{{type}} — {{station}} {{frequency}} (pista {{runway}})",
+    "frequencyType": {
+      "approach": "Aproximación",
+      "departure": "Salida",
+      "tower": "Torre",
+      "ground": "Tierra",
+      "delivery": "Entrega",
+      "atis": "ATIS",
+      "center": "Centro"
+    },
     "settings": {
       "autoTune": "Sintonía automática",
       "autoRespond": "Respuesta automática",
