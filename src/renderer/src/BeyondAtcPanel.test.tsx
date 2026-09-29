@@ -94,6 +94,28 @@ describe('BeyondAtcPanel', () => {
     expect(screen.getByText('ATC:')).toBeInTheDocument()
   })
 
+  it('scrolls the newest transcript line into view when a new entry arrives', async () => {
+    const scrollIntoView = vi.spyOn(HTMLElement.prototype, 'scrollIntoView')
+    const first: BeyondAtcTranscriptEntry[] = [{ speaker: 'player', text: 'Cathay 116 Heavy, radio check.', ts: 1 }]
+    let pushTranscript: (entries: BeyondAtcTranscriptEntry[]) => void = () => {}
+    withWinglog({
+      beyondAtcGetTranscript: vi.fn().mockResolvedValue(first),
+      onBeyondAtcTranscript: vi.fn().mockImplementation((cb) => {
+        pushTranscript = cb
+        return () => {}
+      })
+    })
+    render(<BeyondAtcPanel />)
+    await screen.findByText('Cathay 116 Heavy, radio check.')
+    scrollIntoView.mockClear()
+
+    pushTranscript([...first, { speaker: 'atc', text: 'Cathay 116 Heavy, readability 5.', ts: 2 }])
+    await screen.findByText('Cathay 116 Heavy, readability 5.')
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
+    scrollIntoView.mockRestore()
+  })
+
   it('clicking an action button calls beyondAtcSetAction with the exact label', async () => {
     const beyondAtcSetAction = vi.fn().mockResolvedValue(undefined)
     withWinglog({

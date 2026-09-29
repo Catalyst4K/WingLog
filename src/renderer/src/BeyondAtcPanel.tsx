@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { BeyondAtcConnectionStatus, BeyondAtcSettings, BeyondAtcState, BeyondAtcTranscriptEntry } from '@shared/ipc'
 import { BeyondAtcActionsPanel } from './BeyondAtcActionsPanel'
@@ -28,29 +28,23 @@ const SPEAKER_KEY: Record<BeyondAtcTranscriptEntry['speaker'], string> = {
   atcTraffic: 'beyondAtcPanel.speaker.atcTraffic'
 }
 
-/** The live "who's talking/awaiting" indicator, same idea as GSX Remote's own status badge —
- *  drives off `CommsState.mode`, confirmed live via a real Radio Check trace
- *  (docs/beyondatc-notes.md). `text` is BeyondATC's own text (e.g. "Radio Check"), shown
- *  verbatim alongside the translated mode label, same "third-party text, not translated"
- *  precedent GsxRemotePanel already sets for GSX's own menu labels. */
-function CommsIndicator(props: { commsState: BeyondAtcState['commsState'] }): React.JSX.Element | null {
+/** The comms-status card — the panel's primary glance target, matching `GsxRemotePanel`'s
+ *  `MenuHeader` in visual weight (bordered, tinted) so it reads as the clear top anchor
+ *  rather than one paragraph among several. Callsign/facility/progress and the live
+ *  "who's talking/awaiting" indicator (`CommsState.mode`, confirmed live via a real Radio
+ *  Check trace, docs/beyondatc-notes.md) are one card, not separate stacked pieces — status
+ *  is what a pilot glances at first, Actions below is secondary
+ *  (flightdeck-backend's docs/plans/beyondatc-panel-redesign.md). `commsState.text` is
+ *  BeyondATC's own text (e.g. "Radio Check"), shown verbatim alongside the translated mode
+ *  label, same "third-party text, not translated" precedent GsxRemotePanel sets for GSX's
+ *  own menu labels. */
+function StatusCard(props: { state: BeyondAtcState }): React.JSX.Element | null {
   const { t } = useTranslation()
-  if (!props.commsState) return null
+  const { facility, callsign, progress, commsState } = props.state
+  if (!facility && !callsign && !progress && !commsState) return null
   return (
-    <p className="text-xs text-muted-foreground">
-      {t(COMMS_MODE_KEY[props.commsState.mode])}
-      {props.commsState.text ? ` — ${props.commsState.text}` : ''}
-    </p>
-  )
-}
-
-function StateHeader(props: { state: BeyondAtcState }): React.JSX.Element | null {
-  const { t } = useTranslation()
-  const { facility, callsign, progress } = props.state
-  if (!facility && !callsign && !progress) return null
-  return (
-    <div className="flex flex-col gap-1">
-      {callsign && <span className="text-sm font-medium text-foreground">{callsign.full}</span>}
+    <div className="flex flex-col gap-1 rounded-md border border-primary/40 bg-primary/5 px-3 py-2.5 shadow-sm">
+      {callsign && <span className="text-sm font-semibold text-foreground">{callsign.full}</span>}
       {facility && (
         <span className="text-xs text-muted-foreground">
           {t('beyondAtcPanel.tunedTo', { station: facility.name, frequency: facility.frequency })}
@@ -61,19 +55,35 @@ function StateHeader(props: { state: BeyondAtcState }): React.JSX.Element | null
           {t('beyondAtcPanel.progress', { from: progress.from, to: progress.to, pct: progress.pct })}
         </span>
       )}
+      {commsState && (
+        <span className="text-xs text-muted-foreground">
+          {t(COMMS_MODE_KEY[commsState.mode])}
+          {commsState.text ? ` — ${commsState.text}` : ''}
+        </span>
+      )}
     </div>
   )
 }
 
+/** Always expanded (per flightdeck-backend's docs/plans/beyondatc-panel-redesign.md — kept
+ *  as-is rather than collapsing), but scroll-anchored to the latest line: a real flight's
+ *  transcript can run long, and without this the newest exchange is scrolled out of view
+ *  behind the fixed `max-h-64` unless the pilot scrolls manually. */
 function Transcript(props: { entries: BeyondAtcTranscriptEntry[] }): React.JSX.Element | null {
   const { t } = useTranslation()
+  const latestRef = useRef<HTMLLIElement>(null)
+
+  useEffect(() => {
+    latestRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [props.entries])
+
   if (props.entries.length === 0) return null
   return (
     <div className="flex flex-col gap-1.5">
       <p className="text-sm font-medium text-foreground">{t('beyondAtcPanel.transcript')}</p>
       <ul className="flex max-h-64 flex-col gap-1 overflow-y-auto rounded-md border border-border/60 p-2 text-xs">
         {props.entries.map((entry, index) => (
-          <li key={index} className="flex gap-1.5">
+          <li key={index} ref={index === props.entries.length - 1 ? latestRef : undefined} className="flex gap-1.5">
             <span className="shrink-0 font-medium text-foreground">{t(SPEAKER_KEY[entry.speaker])}:</span>
             <span className="text-muted-foreground">{entry.text}</span>
           </li>
@@ -124,8 +134,7 @@ export function BeyondAtcPanel(): React.JSX.Element {
           {status.state === 'connecting' ? t('beyondAtcPanel.connecting') : t('beyondAtcPanel.disconnected')}
         </p>
       )}
-      <StateHeader state={state} />
-      <CommsIndicator commsState={state.commsState} />
+      <StatusCard state={state} />
       <BeyondAtcActionsPanel
         actions={state.actions}
         onSelectAction={(label) => window.winglog.beyondAtcSetAction(label)}
