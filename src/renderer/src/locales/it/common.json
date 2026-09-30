@@ -765,17 +765,39 @@
       "off": "Disattivo",
       "unknown": "—"
     },
-    "clearance": {
-      "runway": "Pista",
-      "sid": "SID",
-      "star": "STAR",
-      "approach": "Avvicinamento",
-      "transition": "Transizione",
-      "altitude": "Quota",
-      "altitudeValue": "{{altitude}} ft",
-      "squawk": "Squawk",
-      "nextFrequency": "Prossima frequenza",
-      "nextFrequencyValue": "{{station}} {{frequency}}"
+    "instruction": {
+      "title": "Ultima istruzione",
+      "none": "Nessuna istruzione dall'ATC per ora.",
+      "field": {
+        "station": "Stazione",
+        "atis": "ATIS",
+        "clearedTo": "Autorizzato per",
+        "sid": "SID",
+        "star": "STAR",
+        "approach": "Avvicinamento",
+        "transition": "Transizione",
+        "runway": "Pista",
+        "climb": "Salire",
+        "descend": "Scendere",
+        "qnh": "QNH",
+        "squawk": "Squawk",
+        "contact": "Contattare",
+        "holdingPoint": "Punto attesa",
+        "stand": "Piazzola",
+        "taxiVia": "Via",
+        "direct": "Diretto",
+        "wind": "Vento",
+        "face": "Orientamento"
+      },
+      "action": {
+        "takeoff": "Autorizzato al decollo",
+        "land": "Autorizzato all'atterraggio",
+        "lineUp": "Allinearsi e attendere",
+        "holdShort": "Attendere prima della pista",
+        "pushback": "Pushback approvato",
+        "readbackCorrect": "Collazione corretta",
+        "identified": "Identificato radar"
+      }
     },
     "speaker": {
       "player": "Tu",

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { BeyondAtcConnectionStatus, BeyondAtcSettings, BeyondAtcState, BeyondAtcTranscriptEntry, WingLogApi } from '@shared/ipc'
 import { BeyondAtcPanel } from './BeyondAtcPanel'
@@ -100,7 +100,8 @@ describe('BeyondAtcPanel', () => {
     render(<BeyondAtcPanel />)
 
     expect(await screen.findByText('Cathay 116 Heavy, radio check.')).toBeInTheDocument()
-    expect(screen.getByText('Cathay 116 Heavy, readability 5.')).toBeInTheDocument()
+    // Twice: in the transcript, and as the Latest instruction card's full text.
+    expect(screen.getAllByText('Cathay 116 Heavy, readability 5.')).toHaveLength(2)
     expect(screen.getByText('You:')).toBeInTheDocument()
     expect(screen.getByText('ATC:')).toBeInTheDocument()
   })
@@ -121,30 +122,34 @@ describe('BeyondAtcPanel', () => {
     scrollIntoView.mockClear()
 
     pushTranscript([...first, { speaker: 'atc', text: 'Cathay 116 Heavy, readability 5.', ts: 2 }])
-    await screen.findByText('Cathay 116 Heavy, readability 5.')
+    await screen.findAllByText('Cathay 116 Heavy, readability 5.')
 
     expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
     scrollIntoView.mockRestore()
   })
 
-  it('shows the boxed clearance readout once a real clearance line is parsed from the transcript', async () => {
+  it("shows the latest ATC instruction's key facts in their own card, separate from the callsign/progress strip", async () => {
     const transcript: BeyondAtcTranscriptEntry[] = [
+      { speaker: 'atc', text: 'Hongkong Shuttle 250, contact Hong Kong Tower 118.2.', ts: 1 },
       {
         speaker: 'atc',
-        text: 'Cathay 116 Heavy, Brisbane Departure, cleared to Sydney via VMR9B departure, runway 01, climb via SID to 11000 feet, squawk 3136.',
-        ts: 1
+        text: 'Hongkong Shuttle 250, Hong Kong Tower, wind 200 degrees, 7 knots, runway 25C, cleared for takeoff.',
+        ts: 2
       }
     ]
     withWinglog({ beyondAtcGetTranscript: vi.fn().mockResolvedValue(transcript) })
     render(<BeyondAtcPanel />)
 
-    expect(await screen.findByText('01')).toBeInTheDocument()
-    expect(screen.getByText('VMR9B')).toBeInTheDocument()
-    expect(screen.getByText('11000 ft')).toBeInTheDocument()
-    expect(screen.getByText('3136')).toBeInTheDocument()
+    const card = (await screen.findByText('Latest instruction')).closest('[data-slot="card"]') as HTMLElement
+    expect(within(card).getByText('Cleared for takeoff')).toBeInTheDocument()
+    expect(within(card).getByText('Hong Kong Tower')).toBeInTheDocument()
+    expect(within(card).getByText('25C')).toBeInTheDocument()
+    expect(within(card).getByText('200° 7 kt')).toBeInTheDocument()
+    // Only the most recent instruction — the earlier handoff isn't carried over.
+    expect(within(card).queryByText('Hong Kong Tower 118.2')).not.toBeInTheDocument()
   })
 
-  it('shows a flight-level clearance as FL, from a real VHHH clearance (2026-09-30)', async () => {
+  it('shows a real VHHH flight-level clearance (2026-09-30) with its ATIS letter', async () => {
     const transcript: BeyondAtcTranscriptEntry[] = [
       {
         speaker: 'atc',
@@ -155,22 +160,22 @@ describe('BeyondAtcPanel', () => {
     withWinglog({ beyondAtcGetTranscript: vi.fn().mockResolvedValue(transcript) })
     render(<BeyondAtcPanel />)
 
-    expect(await screen.findByText('PECA1D')).toBeInTheDocument()
-    expect(screen.getByText('25C')).toBeInTheDocument()
-    expect(screen.getByText('FL140')).toBeInTheDocument()
-    expect(screen.getByText('6140')).toBeInTheDocument()
+    const card = (await screen.findByText('Latest instruction')).closest('[data-slot="card"]') as HTMLElement
+    await within(card).findByText('PECA1D')
+    for (const value of ['Hong Kong Delivery', 'H', 'Phoenix airport', '25C', 'FL140', '6140']) {
+      expect(within(card).getByText(value)).toBeInTheDocument()
+    }
   })
 
-  it('shows the info card placeholder when nothing in the transcript has been recognised and no status is known', async () => {
+  it('shows placeholders when no status is known and ATC has said nothing yet', async () => {
     withWinglog({
-      beyondAtcGetTranscript: vi.fn().mockResolvedValue([{ speaker: 'atc', text: 'Cathay 116 Heavy, readability 5.', ts: 1 }])
+      beyondAtcGetTranscript: vi.fn().mockResolvedValue([{ speaker: 'player', text: 'Cathay 116 Heavy, radio check.', ts: 1 }])
     })
     render(<BeyondAtcPanel />)
 
-    await screen.findByText('Cathay 116 Heavy, readability 5.')
+    await screen.findByText('Cathay 116 Heavy, radio check.')
     expect(screen.getByText('No status yet.')).toBeInTheDocument()
-    expect(screen.queryByText(/Squawk/)).not.toBeInTheDocument()
-    expect(screen.queryByText(/Runway/)).not.toBeInTheDocument()
+    expect(screen.getByText('No instructions from ATC yet.')).toBeInTheDocument()
   })
 
   it('always shows every card — Actions, Radios and Transcript — even with nothing tuned/said yet, each with its own placeholder', async () => {

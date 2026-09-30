@@ -765,17 +765,39 @@
       "off": "Desactivado",
       "unknown": "—"
     },
-    "clearance": {
-      "runway": "Pista",
-      "sid": "SID",
-      "star": "STAR",
-      "approach": "Aproximación",
-      "transition": "Transición",
-      "altitude": "Altitud",
-      "altitudeValue": "{{altitude}} ft",
-      "squawk": "Squawk",
-      "nextFrequency": "Próxima frecuencia",
-      "nextFrequencyValue": "{{station}} {{frequency}}"
+    "instruction": {
+      "title": "Última instrucción",
+      "none": "Aún no hay instrucciones de ATC.",
+      "field": {
+        "station": "Estación",
+        "atis": "ATIS",
+        "clearedTo": "Autorizado a",
+        "sid": "SID",
+        "star": "STAR",
+        "approach": "Aproximación",
+        "transition": "Transición",
+        "runway": "Pista",
+        "climb": "Ascender",
+        "descend": "Descender",
+        "qnh": "QNH",
+        "squawk": "Squawk",
+        "contact": "Contactar",
+        "holdingPoint": "Punto de espera",
+        "stand": "Puesto",
+        "taxiVia": "Vía",
+        "direct": "Directo",
+        "wind": "Viento",
+        "face": "Orientación"
+      },
+      "action": {
+        "takeoff": "Autorizado a despegar",
+        "land": "Autorizado a aterrizar",
+        "lineUp": "Alinear y mantener",
+        "holdShort": "Mantener antes de pista",
+        "pushback": "Pushback aprobado",
+        "readbackCorrect": "Colación correcta",
+        "identified": "Identificado en radar"
+      }
     },
     "speaker": {
       "player": "Tú",
