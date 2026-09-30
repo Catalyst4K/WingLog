@@ -65,6 +65,9 @@ function InfoCard(props: { state: BeyondAtcState; readout: ClearanceReadout }): 
         {r.altitudeFt !== undefined && (
           <InfoField label={t('beyondAtcPanel.clearance.altitude')} value={t('beyondAtcPanel.clearance.altitudeValue', { altitude: r.altitudeFt })} />
         )}
+        {r.flightLevel !== undefined && (
+          <InfoField label={t('beyondAtcPanel.clearance.altitude')} value={`FL${String(r.flightLevel).padStart(3, '0')}`} />
+        )}
         {r.squawk && <InfoField label={t('beyondAtcPanel.clearance.squawk')} value={r.squawk} />}
         {r.nextFrequency && (
           <InfoField
