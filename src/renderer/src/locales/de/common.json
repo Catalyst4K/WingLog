@@ -763,17 +763,39 @@
       "off": "Aus",
       "unknown": "—"
     },
-    "clearance": {
-      "runway": "Bahn",
-      "sid": "SID",
-      "star": "STAR",
-      "approach": "Anflug",
-      "transition": "Transition",
-      "altitude": "Höhe",
-      "altitudeValue": "{{altitude}} ft",
-      "squawk": "Squawk",
-      "nextFrequency": "Nächste Frequenz",
-      "nextFrequencyValue": "{{station}} {{frequency}}"
+    "instruction": {
+      "title": "Letzte Anweisung",
+      "none": "Noch keine Anweisungen von ATC.",
+      "field": {
+        "station": "Station",
+        "atis": "ATIS",
+        "clearedTo": "Freigabe nach",
+        "sid": "SID",
+        "star": "STAR",
+        "approach": "Anflug",
+        "transition": "Transition",
+        "runway": "Piste",
+        "climb": "Steigen",
+        "descend": "Sinken",
+        "qnh": "QNH",
+        "squawk": "Squawk",
+        "contact": "Kontakt",
+        "holdingPoint": "Rollhalt",
+        "stand": "Standplatz",
+        "taxiVia": "Über",
+        "direct": "Direkt",
+        "wind": "Wind",
+        "face": "Ausrichtung"
+      },
+      "action": {
+        "takeoff": "Startfreigabe",
+        "land": "Landefreigabe",
+        "lineUp": "Aufrollen und warten",
+        "holdShort": "Vor Piste halten",
+        "pushback": "Pushback genehmigt",
+        "readbackCorrect": "Readback korrekt",
+        "identified": "Radar identifiziert"
+      }
     },
     "speaker": {
       "player": "Du",

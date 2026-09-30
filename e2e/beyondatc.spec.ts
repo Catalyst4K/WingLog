@@ -50,7 +50,10 @@ test.describe('BeyondATC integration', () => {
 
       server.sendLines(...RADIO_CHECK_RESPONSE)
       await expect(page.getByText('Cathay 116 Heavy, radio check.')).toBeVisible()
-      await expect(page.getByText('Cathay 116 Heavy, readability 5.')).toBeVisible()
+      // The latest ATC line shows twice: in the Transcript and in the Latest instruction card.
+      await expect(page.getByText('Cathay 116 Heavy, readability 5.')).toHaveCount(2)
+      const instructionCard = page.locator('[data-slot="card"]').filter({ hasText: 'Latest instruction' })
+      await expect(instructionCard.getByText('Cathay 116 Heavy, readability 5.')).toBeVisible()
 
       // BeyondAtcService requests the real frequency list itself, right after connecting —
       // confirmed live 2026-09-29 (docs/beyondatc-notes.md).

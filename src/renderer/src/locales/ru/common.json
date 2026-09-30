@@ -788,17 +788,39 @@
       "off": "Выкл",
       "unknown": "—"
     },
-    "clearance": {
-      "runway": "ВПП",
-      "sid": "SID",
-      "star": "STAR",
-      "approach": "Заход",
-      "transition": "Транзишн",
-      "altitude": "Высота",
-      "altitudeValue": "{{altitude}} фт",
-      "squawk": "Сквок",
-      "nextFrequency": "Следующая частота",
-      "nextFrequencyValue": "{{station}} {{frequency}}"
+    "instruction": {
+      "title": "Последнее указание",
+      "none": "Указаний от УВД пока нет.",
+      "field": {
+        "station": "Позывной",
+        "atis": "ATIS",
+        "clearedTo": "Разрешено до",
+        "sid": "SID",
+        "star": "STAR",
+        "approach": "Заход",
+        "transition": "Переход",
+        "runway": "ВПП",
+        "climb": "Набор",
+        "descend": "Снижение",
+        "qnh": "QNH",
+        "squawk": "Сквок",
+        "contact": "Связь",
+        "holdingPoint": "Место ожидания",
+        "stand": "Стоянка",
+        "taxiVia": "Через",
+        "direct": "Прямо на",
+        "wind": "Ветер",
+        "face": "Направление"
+      },
+      "action": {
+        "takeoff": "Взлёт разрешён",
+        "land": "Посадка разрешена",
+        "lineUp": "Занять исполнительный и ждать",
+        "holdShort": "Ждать перед ВПП",
+        "pushback": "Буксировка разрешена",
+        "readbackCorrect": "Повтор верный",
+        "identified": "Опознан радаром"
+      }
     },
     "speaker": {
       "player": "Вы",

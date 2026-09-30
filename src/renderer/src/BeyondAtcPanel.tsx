@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { BeyondAtcConnectionStatus, BeyondAtcSettings, BeyondAtcState, BeyondAtcTranscriptEntry } from '@shared/ipc'
 import { BeyondAtcActions, BeyondAtcRadios } from './BeyondAtcControls'
-import { buildClearanceReadout, type ClearanceReadout } from './beyondAtcClearanceReadout'
+import { latestAtcInstruction, type AtcInstruction } from './beyondAtcInstruction'
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 const EMPTY_STATE: BeyondAtcState = {
@@ -33,50 +34,64 @@ function InfoField(props: { label: string; value: string }): React.JSX.Element {
   )
 }
 
-/** The top info strip (flightdeck-backend's docs/plans/beyondatc-panel-redesign.md) —
- *  callsign/progress plus the boxed clearance readout, shrunk to one compact card with
- *  every field inline (a wrapped row), not stacked one-per-line. Deliberately doesn't show
- *  "tuned to" facility/COM2 info — that's `BeyondAtcRadios`' job now, per Callum's own call
- *  once the panel was actually split into cards. The live "who's talking" comms-mode
- *  indicator was dropped from here too (Callum's own call, 2026-09-29) — not shown anywhere
- *  on this panel any more. Always visible, same as every other card on this page — a
- *  placeholder while disconnected/nothing known yet, rather than disappearing and shifting
- *  the layout underneath it. */
-function InfoCard(props: { state: BeyondAtcState; readout: ClearanceReadout }): React.JSX.Element {
+/** The top info strip (flightdeck-backend's docs/plans/beyondatc-panel-redesign.md) — just
+ *  who you are and how far along the flight is, inline in one compact card. ATC's own
+ *  instructions moved out to `LatestInstructionCard` below it (Callum's call, 2026-09-30).
+ *  "Tuned to" facility/COM2 info is `BeyondAtcRadios`' job, not this card's. Always visible,
+ *  like every other card here — a placeholder rather than shifting the layout. */
+function InfoCard(props: { state: BeyondAtcState }): React.JSX.Element {
   const { t } = useTranslation()
   const { callsign, progress } = props.state
-  const r = props.readout
-  const hasAnything = callsign || progress || Object.keys(r).length > 0
   return (
     <Card size="sm">
       <CardContent className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-        {!hasAnything && <span className="text-xs text-muted-foreground">{t('beyondAtcPanel.noStatus')}</span>}
+        {!callsign && !progress && <span className="text-xs text-muted-foreground">{t('beyondAtcPanel.noStatus')}</span>}
         {callsign && <span className="text-sm font-semibold text-foreground">{callsign.full}</span>}
         {progress && (
           <span className="text-xs text-muted-foreground">
             {t('beyondAtcPanel.progress', { from: progress.from, to: progress.to, pct: progress.pct })}
           </span>
         )}
-        {r.runway && <InfoField label={t('beyondAtcPanel.clearance.runway')} value={r.runway} />}
-        {r.sidIdent && <InfoField label={t('beyondAtcPanel.clearance.sid')} value={r.sidIdent} />}
-        {r.starIdent && <InfoField label={t('beyondAtcPanel.clearance.star')} value={r.starIdent} />}
-        {r.approachIdent && <InfoField label={t('beyondAtcPanel.clearance.approach')} value={r.approachIdent} />}
-        {r.approachTransition && <InfoField label={t('beyondAtcPanel.clearance.transition')} value={r.approachTransition} />}
-        {r.altitudeFt !== undefined && (
-          <InfoField label={t('beyondAtcPanel.clearance.altitude')} value={t('beyondAtcPanel.clearance.altitudeValue', { altitude: r.altitudeFt })} />
-        )}
-        {r.flightLevel !== undefined && (
-          <InfoField label={t('beyondAtcPanel.clearance.altitude')} value={`FL${String(r.flightLevel).padStart(3, '0')}`} />
-        )}
-        {r.squawk && <InfoField label={t('beyondAtcPanel.clearance.squawk')} value={r.squawk} />}
-        {r.nextFrequency && (
-          <InfoField
-            label={t('beyondAtcPanel.clearance.nextFrequency')}
-            value={t('beyondAtcPanel.clearance.nextFrequencyValue', {
-              station: r.nextFrequencyStation ?? '',
-              frequency: r.nextFrequency
-            })}
-          />
+      </CardContent>
+    </Card>
+  )
+}
+
+/** The key facts from whatever ATC said last — clearance, taxi, handoff, climb/descent,
+ *  takeoff… (beyondAtcInstruction.ts) — as labelled fields, with the full text underneath so
+ *  nothing an unrecognised phrasing carries is ever hidden. The station ATC spoke as sits in
+ *  the header; clearances/permissions (cleared for takeoff, line up and wait…) stand out as
+ *  badges rather than as another label: value pair. */
+function LatestInstructionCard(props: { instruction: AtcInstruction | null }): React.JSX.Element {
+  const { t } = useTranslation()
+  const instruction = props.instruction
+  const station = instruction?.fields.find((f) => f.key === 'station')?.value
+  const fields = instruction?.fields.filter((f) => f.key !== 'station') ?? []
+  return (
+    <Card size="sm" className="border-primary/40">
+      <CardHeader className="flex flex-row items-baseline justify-between gap-2">
+        <CardTitle>{t('beyondAtcPanel.instruction.title')}</CardTitle>
+        {station && <span className="text-xs text-muted-foreground">{station}</span>}
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2">
+        {!instruction ? (
+          <p className="text-xs text-muted-foreground">{t('beyondAtcPanel.instruction.none')}</p>
+        ) : (
+          <>
+            {(instruction.actions.length > 0 || fields.length > 0) && (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                {instruction.actions.map((action) => (
+                  <Badge key={action} className="bg-primary/15 text-primary">
+                    {t(`beyondAtcPanel.instruction.action.${action}`)}
+                  </Badge>
+                ))}
+                {fields.map((f) => (
+                  <InfoField key={f.key} label={t(`beyondAtcPanel.instruction.field.${f.key}`)} value={f.value} />
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">{instruction.text}</p>
+          </>
         )}
       </CardContent>
     </Card>
@@ -189,7 +204,7 @@ export function BeyondAtcPanel(): React.JSX.Element {
   const [status, setStatus] = useState<BeyondAtcConnectionStatus>({ state: 'disconnected', lastError: null })
   const [state, setState] = useState<BeyondAtcState>(EMPTY_STATE)
   const [transcript, setTranscript] = useState<BeyondAtcTranscriptEntry[]>([])
-  const clearanceReadout = useMemo(() => buildClearanceReadout(transcript), [transcript])
+  const latestInstruction = useMemo(() => latestAtcInstruction(transcript), [transcript])
 
   useEffect(() => {
     window.winglog.settingsGetBeyondAtc().then(setSettings)
@@ -223,7 +238,8 @@ export function BeyondAtcPanel(): React.JSX.Element {
             ? t('beyondAtcPanel.connecting')
             : t('beyondAtcPanel.disconnected')}
       </p>
-      <InfoCard state={state} readout={clearanceReadout} />
+      <InfoCard state={state} />
+      <LatestInstructionCard instruction={latestInstruction} />
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-[minmax(18rem,28rem)_minmax(18rem,1fr)]">
         <div className="flex min-h-0 flex-col gap-4 self-start">
           <ActionsCard actions={state.actions} onSelectAction={(label) => window.winglog.beyondAtcSetAction(label)} />

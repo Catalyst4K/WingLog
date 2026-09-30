@@ -755,17 +755,39 @@
       "off": "关",
       "unknown": "—"
     },
-    "clearance": {
-      "runway": "跑道",
-      "sid": "离场程序",
-      "star": "进场程序",
-      "approach": "进近",
-      "transition": "过渡",
-      "altitude": "高度",
-      "altitudeValue": "{{altitude}} 英尺",
-      "squawk": "应答机编码",
-      "nextFrequency": "下一频率",
-      "nextFrequencyValue": "{{station}} {{frequency}}"
+    "instruction": {
+      "title": "最新指令",
+      "none": "尚无 ATC 指令。",
+      "field": {
+        "station": "管制席位",
+        "atis": "ATIS",
+        "clearedTo": "许可至",
+        "sid": "SID",
+        "star": "STAR",
+        "approach": "进近",
+        "transition": "过渡",
+        "runway": "跑道",
+        "climb": "上升",
+        "descend": "下降",
+        "qnh": "QNH",
+        "squawk": "应答机",
+        "contact": "联系",
+        "holdingPoint": "等待点",
+        "stand": "机位",
+        "taxiVia": "经由",
+        "direct": "直飞",
+        "wind": "风",
+        "face": "朝向"
+      },
+      "action": {
+        "takeoff": "可以起飞",
+        "land": "可以落地",
+        "lineUp": "进跑道等待",
+        "holdShort": "跑道外等待",
+        "pushback": "同意推出",
+        "readbackCorrect": "复诵正确",
+        "identified": "雷达已识别"
+      }
     },
     "speaker": {
       "player": "你",

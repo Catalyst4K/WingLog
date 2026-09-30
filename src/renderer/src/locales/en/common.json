@@ -763,17 +763,39 @@
       "off": "Off",
       "unknown": "—"
     },
-    "clearance": {
-      "runway": "Runway",
-      "sid": "SID",
-      "star": "STAR",
-      "approach": "Approach",
-      "transition": "Transition",
-      "altitude": "Altitude",
-      "altitudeValue": "{{altitude}} ft",
-      "squawk": "Squawk",
-      "nextFrequency": "Next freq",
-      "nextFrequencyValue": "{{station}} {{frequency}}"
+    "instruction": {
+      "title": "Latest instruction",
+      "none": "No instructions from ATC yet.",
+      "field": {
+        "station": "Station",
+        "atis": "ATIS",
+        "clearedTo": "Cleared to",
+        "sid": "SID",
+        "star": "STAR",
+        "approach": "Approach",
+        "transition": "Transition",
+        "runway": "Runway",
+        "climb": "Climb",
+        "descend": "Descend",
+        "qnh": "QNH",
+        "squawk": "Squawk",
+        "contact": "Contact",
+        "holdingPoint": "Holding point",
+        "stand": "Stand",
+        "taxiVia": "Via",
+        "direct": "Direct",
+        "wind": "Wind",
+        "face": "Face"
+      },
+      "action": {
+        "takeoff": "Cleared for takeoff",
+        "land": "Cleared to land",
+        "lineUp": "Line up and wait",
+        "holdShort": "Hold short",
+        "pushback": "Pushback approved",
+        "readbackCorrect": "Readback correct",
+        "identified": "Radar identified"
+      }
     },
     "speaker": {
       "player": "You",
