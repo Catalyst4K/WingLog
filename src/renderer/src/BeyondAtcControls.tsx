@@ -155,10 +155,12 @@ function FrequencyPicker(props: {
       <DialogTrigger asChild>
         <Button
           type="button"
+          variant="outline"
           size="sm"
-          className="h-7 gap-1 bg-blue-600 px-2 text-xs text-white hover:bg-blue-500"
+          // Same look as GsxRemotePanel's MenuHeader: primary-tinted outline and fill.
+          className="h-7 gap-1 border-primary/40 bg-primary/5 px-2 text-xs text-foreground shadow-sm hover:bg-primary/10"
         >
-          <Headset className="size-3.5" aria-hidden />
+          <Headset className="size-3.5 text-primary" aria-hidden />
           {t('beyondAtcPanel.frequenciesButton')}
         </Button>
       </DialogTrigger>
