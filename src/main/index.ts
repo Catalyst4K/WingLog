@@ -820,6 +820,7 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.gsxRemoteGetPrompt, () => gsxRemoteService?.getPrompt() ?? null)
       ipcMain.handle(IpcChannels.gsxRemoteGetCommandBar, () => gsxRemoteService?.getCommandBar() ?? EMPTY_COMMAND_BAR)
       ipcMain.handle(IpcChannels.gsxRemotePickMenu, (_event, index: number) => gsxRemoteService?.pickMenu(index))
+      ipcMain.handle(IpcChannels.gsxRemoteSearch, (_event, text: unknown) => gsxRemoteService?.search(text))
       ipcMain.handle(IpcChannels.gsxRemoteToggleMenu, () => gsxRemoteService?.toggleMenu())
       ipcMain.handle(IpcChannels.gsxRemoteSubmitPrompt, (_event, gen: number, text: string) =>
         gsxRemoteService?.submitPrompt(gen, text)

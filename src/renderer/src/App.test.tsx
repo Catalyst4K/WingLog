@@ -833,6 +833,8 @@ describe('App', () => {
 
     const FUEL_MENU: GsxRemoteMenuState = {
       menuShown: true,
+      searchActive: false,
+      searchSession: 0,
       title: 'Select refueling level',
       header: 'Select refueling level',
       subtitle: '',
@@ -876,6 +878,8 @@ describe('App', () => {
 
       push({
         menuShown: true,
+        searchActive: false,
+        searchSession: 0,
         title: '',
         header: '',
         subtitle: '',

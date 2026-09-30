@@ -161,3 +161,23 @@ export const PUSHBACK_DIRECTION_MENU = {
   ],
   disabled: [false, false, false, false, false, false]
 }
+
+/** GSX's gate-search menu, real round-11 capture at ZSPD (docs/gsx-notes.md): opened by
+ *  picking "Search parking...", an unfiltered first page padded with empty strings to a
+ *  fixed 10 slots, `Back` last. Only the first three real candidates were recorded. */
+export const GATE_SEARCH_MENU = {
+  title: 'Type a gate, terminal or number',
+  header: '',
+  subtitle: '',
+  layout: 'list',
+  icons: [],
+  entries: ['Parking 347 - Ramp Cargo', 'Parking 346 - Ramp Cargo', 'Parking 15Z - Ramp GA Medium', '', '', '', '', '', '', 'Back'],
+  disabled: [false, false, false, false, false, false, false, false, false, false]
+}
+
+/** The same menu after GSX re-filtered it for "73" — the real capture narrowed to exactly
+ *  one entry, the rest padding. */
+export const GATE_SEARCH_FILTERED_73 = {
+  ...GATE_SEARCH_MENU,
+  entries: ['Gate 73 with Safedock© - Heavy - 1x /J (too small)', '', '', '', '', '', '', '', '', 'Back']
+}

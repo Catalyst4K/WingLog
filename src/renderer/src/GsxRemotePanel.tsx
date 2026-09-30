@@ -28,6 +28,8 @@ import {
 
 const EMPTY_MENU: GsxRemoteMenuState = {
   menuShown: false,
+  searchActive: false,
+  searchSession: 0,
   title: '',
   header: '',
   subtitle: '',
@@ -42,6 +44,7 @@ const EMPTY_COMMAND_BAR: GsxRemoteCommandBar = { commands: [], simbrief: null, s
 // GSX's own client text (menu.js), kept verbatim — same convention as gsxMenu.title/entries
 // elsewhere in this feature: it's GSX's own product text, not ours to translate.
 const RELOAD_SIMBRIEF_LABEL = 'Reload SimBrief'
+const SEARCH_PARKING_PLACEHOLDER = 'Search parking...'
 const SIMBRIEF_SUB_TEXT: Record<string, string> = {
   loading: 'Downloading...',
   loaded: 'Plan loaded',
@@ -218,27 +221,62 @@ function CommandBar(props: {
  * without a special case. Only shown while `menuShown` is true, exactly like GSX's own
  * client's own gate — entries can be stale/leftover while the menu itself is closed.
  */
-function MenuEntries(props: { menu: GsxRemoteMenuState; onPick: (index: number) => void }): React.JSX.Element | null {
-  if (!props.menu.menuShown || props.menu.entries.length === 0) return null
+function MenuEntries(props: {
+  menu: GsxRemoteMenuState
+  onPick: (index: number) => void
+  onSearch: (text: string) => void
+}): React.JSX.Element | null {
+  if (!props.menu.menuShown) return null
+  // GSX pads the gate-search list to a fixed page with empty strings — skipped here, as
+  // GSX's own menu.js does, but each real entry keeps its original index for `menu.pick`.
+  const entries = props.menu.entries.map((entry, index) => ({ entry, index })).filter(({ entry }) => entry !== '')
+  if (entries.length === 0 && !props.menu.searchActive) return null
   return (
-    <div className="grid grid-cols-3 gap-1.5">
-      {props.menu.entries.map((entry, index) => (
-        <Button
-          key={`${index}-${entry}`}
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={props.menu.disabled[index] === true}
-          className="h-auto min-h-9 whitespace-normal py-1.5 text-xs"
-          onClick={() => props.onPick(index)}
-        >
-          {props.menu.icons[index] ? (
-            <img src={props.menu.icons[index]} alt="" className="size-4 shrink-0" />
-          ) : null}
-          {entry}
-        </Button>
-      ))}
+    <div className="flex flex-col gap-1.5">
+      {props.menu.searchActive && (
+        // Keyed by session so a fresh search starts with an empty box, not the last query.
+        <GateSearchBox key={props.menu.searchSession} onSearch={props.onSearch} />
+      )}
+      <div className="grid grid-cols-3 gap-1.5">
+        {entries.map(({ entry, index }) => (
+          <Button
+            key={`${index}-${entry}`}
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={props.menu.disabled[index] === true}
+            className="h-auto min-h-9 whitespace-normal py-1.5 text-xs"
+            onClick={() => props.onPick(index)}
+          >
+            {props.menu.icons[index] ? <img src={props.menu.icons[index]} alt="" className="size-4 shrink-0" /> : null}
+            {entry}
+          </Button>
+        ))}
+      </div>
     </div>
+  )
+}
+
+/**
+ * GSX's live gate-search box, shown while `state.search.active` (the menu GSX opens after
+ * "Search parking..." is picked). Mirrors `menu.js`'s own `buildSearchBox()` exactly: every
+ * keystroke sends the box's *whole* current text as `menu.search`, and GSX re-filters the
+ * menu entries itself — no local filtering or debouncing (docs/gsx-notes.md, round 11).
+ */
+function GateSearchBox(props: { onSearch: (text: string) => void }): React.JSX.Element {
+  const [text, setText] = useState('')
+  return (
+    <Input
+      type="search"
+      value={text}
+      placeholder={SEARCH_PARKING_PLACEHOLDER}
+      aria-label={SEARCH_PARKING_PLACEHOLDER}
+      autoFocus
+      onChange={(e) => {
+        setText(e.target.value)
+        props.onSearch(e.target.value)
+      }}
+    />
   )
 }
 
@@ -432,7 +470,11 @@ export function GsxRemotePanel(): React.JSX.Element {
       <GateHeader gate={gate} />
       <CommandBar commandBar={commandBar} onRun={(id) => window.winglog.gsxRemoteRunCommand(id)} />
       <MenuHeader menu={menu} onToggle={() => window.winglog.gsxRemoteToggleMenu()} />
-      <MenuEntries menu={menu} onPick={(index) => window.winglog.gsxRemotePickMenu(index)} />
+      <MenuEntries
+        menu={menu}
+        onPick={(index) => window.winglog.gsxRemotePickMenu(index)}
+        onSearch={(text) => window.winglog.gsxRemoteSearch(text)}
+      />
       <ServicesList services={services} />
     </div>
   )

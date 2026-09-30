@@ -850,9 +850,17 @@ export type GsxRemoteCommandId = GsxRemoteCommand['id'] | 'RELOAD_SIMBRIEF'
  * real GSX remote works without the in-sim menu ever opening). `entries` can be non-empty
  * while `menuShown` is false; GSX's own client gates rendering on
  * `menuShown && menu.entries.length`, and WingLog's UI must too.
+ *
+ * `searchActive`/`searchSession` come from GSX's separate top-level `state.search` key
+ * (`{active, session}`, confirmed live 2026-09-28, docs/gsx-notes.md round 11), combined in
+ * here the same way `menuShown` is. While `searchActive`, the menu is GSX's gate-search list
+ * ("Type a gate, terminal or number"): each `menu.search` re-filters `entries` server-side,
+ * padded to a fixed page size with empty strings. `searchSession` bumps once per new search.
  */
 export interface GsxRemoteMenuState {
   menuShown: boolean
+  searchActive: boolean
+  searchSession: number
   title: string
   header: string
   subtitle: string
@@ -1398,6 +1406,7 @@ export const IpcChannels = {
   gsxRemoteGetCommandBar: 'gsx-remote:get-command-bar',
   gsxRemoteCommandBar: 'gsx-remote:command-bar',
   gsxRemotePickMenu: 'gsx-remote:pick-menu',
+  gsxRemoteSearch: 'gsx-remote:search',
   gsxRemoteToggleMenu: 'gsx-remote:toggle-menu',
   gsxRemoteSubmitPrompt: 'gsx-remote:submit-prompt',
   gsxRemoteCancelPrompt: 'gsx-remote:cancel-prompt',
@@ -1792,6 +1801,9 @@ export interface WingLogApi {
   /** Picks the menu entry at this index — the *only* interaction GSX's own menu model
    *  exposes (docs/gsx-notes.md). No-op if not connected. */
   gsxRemotePickMenu: (index: number) => Promise<void>
+  /** Sends the gate-search box's whole current text (`menu.search`, not a delta) — GSX
+   *  re-filters `menu.entries` itself. Only meaningful while `searchActive`. */
+  gsxRemoteSearch: (text: string) => Promise<void>
   /** Opens the menu tree if it's currently closed, or closes it if open — same single
    *  toggle GSX's own client's permanent header sends (`menu.toggle`/`menu.close`). This
    *  is how a real GSX remote opens the menu without the in-sim panel ever opening; WingLog
