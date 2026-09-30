@@ -102,8 +102,17 @@ const TRAIL_SOURCE_ID = 'breadcrumb-trail'
 const TRAIL_TIP_SOURCE_ID = 'breadcrumb-trail-tip'
 const WAYPOINT_SOURCE_ID = 'planned-waypoints'
 // Regional view — wide enough that the aircraft doesn't outrun the viewport between
-// track points (zoom 13 was street-level, well under a minute of flight across it).
-const FOLLOW_ZOOM = 11
+// track points (zoom 13 was street-level, well under a minute of flight across it). Nudged
+// in from 11 at Callum's request (2026-09-30) — 11 read as too far out.
+const FOLLOW_ZOOM = 12
+// On the ground the aircraft moves at walking-to-taxi speed and what matters is the apron
+// and taxiways around it — close enough to read the taxi chart overlay (its own minzoom is
+// 12, useTaxiChartOverlay.ts).
+const FOLLOW_ZOOM_GROUND = 15
+
+function followZoomFor(onGround: boolean): number {
+  return onGround ? FOLLOW_ZOOM_GROUND : FOLLOW_ZOOM
+}
 
 // Camera persistence across remounts (docs/plans/map-improvements.md, "cause B") —
 // Track's live map is unmounted/remounted every time the user navigates away and back
@@ -115,6 +124,17 @@ const FOLLOW_ZOOM = 11
 // every mount via fitBoundsTo, so it has nothing worth persisting or restoring). In-
 // session only, per Callum's own framing of the complaint — not persisted to app_setting.
 let liveCameraState: { center: [number, number]; zoom: number } | null = null
+// Which planned route liveCameraState was framed for. Returning to Track used to re-fit the
+// route on every mount, which (via moveend) overwrote liveCameraState before follow mode
+// could restore it — the "map resets to the route every tab switch" report (Callum,
+// 2026-09-30). The route is only re-fitted when it genuinely changes.
+let liveCameraRouteKey: string | null = null
+// "Center on aircraft" survives a tab switch too, instead of switching itself back on.
+let rememberedFollowEnabled = true
+
+function routeKey(route: [number, number][]): string {
+  return route.length === 0 ? '' : `${route.length}:${route[0]!.join(',')}:${route[route.length - 1]!.join(',')}`
+}
 
 interface LineStringFeature {
   type: 'Feature'
@@ -286,7 +306,14 @@ export function FlightMap({
   // (live mode only) — a user panning around to look at something shouldn't keep
   // getting yanked back. Defaults on, matching the always-follow behavior before this
   // was made toggleable.
-  const [followEnabled, setFollowEnabled] = useState(true)
+  const [followEnabled, setFollowEnabled] = useState(() => (live ? rememberedFollowEnabled : true))
+  useEffect(() => {
+    if (live) rememberedFollowEnabled = followEnabled
+  }, [live, followEnabled])
+  // Read (not depended on) by the route-fit effect below, so a new track point never
+  // re-runs the fit.
+  const followingAircraftRef = useRef(false)
+  followingAircraftRef.current = followEnabled && trackPoints.length > 0
 
   // Map setup — once. Data is pushed in via separate effects below as it changes. Gated on
   // ensureWorkerReady() so the worker's blob: URL is registered (setWorkerUrl) before
@@ -524,7 +551,14 @@ export function FlightMap({
     routeSource?.setData(lineString(route))
     const waypointSource = mapRef.current.getSource<GeoJSONSource>(WAYPOINT_SOURCE_ID)
     waypointSource?.setData(waypointFeatures(waypoints))
-    if (live) fitBoundsTo(mapRef.current, route)
+    if (!live) return
+    // Same route as the remembered camera was framed for: keep the user's own view.
+    const key = routeKey(route)
+    if (liveCameraState && liveCameraRouteKey === key) return
+    liveCameraRouteKey = key
+    // Following an aircraft: the follow effect frames it instead — fitting the whole route
+    // first would just be overwritten (and flash) a moment later.
+    if (!followingAircraftRef.current) fitBoundsTo(mapRef.current, route)
   }, [mapReady, route, waypoints, live])
 
   // A language change while the map is open (only possible from a remount today, since
@@ -618,7 +652,7 @@ export function FlightMap({
         // prior state to restore), so coming back to Track doesn't re-clobber a zoom
         // level the user had deliberately set.
         if (liveCameraState) mapRef.current.jumpTo({ center: [to.longitude, to.latitude] })
-        else mapRef.current.jumpTo({ center: [to.longitude, to.latitude], zoom: FOLLOW_ZOOM })
+        else mapRef.current.jumpTo({ center: [to.longitude, to.latitude], zoom: followZoomFor(to.onGround) })
       }
       return
     }
@@ -670,6 +704,21 @@ export function FlightMap({
 
     return () => cancelAnimationFrame(frame)
   }, [mapReady, trackPoints, live, followEnabled])
+
+  // Takeoff and touchdown, while following: step the zoom out for the climb and back in for
+  // the taxi (Callum, 2026-09-30) — once per transition, so a zoom the user sets in between
+  // is left alone.
+  const lastOnGround = trackPoints.length > 0 ? trackPoints[trackPoints.length - 1]!.onGround : null
+  const prevOnGroundRef = useRef(lastOnGround)
+  useEffect(() => {
+    const previous = prevOnGroundRef.current
+    prevOnGroundRef.current = lastOnGround
+    if (!mapReady || !mapRef.current || !live || !followEnabled) return
+    if (previous === null || lastOnGround === null || previous === lastOnGround) return
+    mapRef.current.easeTo({ zoom: followZoomFor(lastOnGround), duration: 1000 })
+    // Only on the ground/air transition itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastOnGround])
 
   // Re-center immediately when follow is switched back on, rather than waiting for the
   // next track point to arrive.

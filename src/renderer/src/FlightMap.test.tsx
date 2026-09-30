@@ -208,7 +208,8 @@ const ROUTE_APPROXIMATE_LAYER_ID = 'planned-route-approximate'
 const TRAIL_SOURCE_ID = 'breadcrumb-trail'
 const TRAIL_TIP_SOURCE_ID = 'breadcrumb-trail-tip'
 const WAYPOINT_SOURCE_ID = 'planned-waypoints'
-const FOLLOW_ZOOM = 11
+const FOLLOW_ZOOM = 12
+const FOLLOW_ZOOM_GROUND = 15
 
 function point(overrides: Partial<TrackPoint> = {}): TrackPoint {
   return {
@@ -378,6 +379,88 @@ describe('FlightMap', () => {
       live.rerender({ route: [], trackPoints: [point()], live: true })
     })
     expect(live.map.jumpTo).toHaveBeenCalledWith({ center: [point().longitude, point().latitude] })
+  })
+
+  describe('Track map memory and zoom (Callum, 2026-09-30)', () => {
+    const ROUTE: [number, number][] = [
+      [113.9, 22.3],
+      [-112.0, 33.4]
+    ]
+
+    /** Renders, unmounts, and renders again with the same module instance — what switching
+     *  away from Track and back actually does (App.tsx only mounts the active tab). */
+    async function mountTwice(
+      first: FlightMapProps,
+      between: (map: FakeMapInstance) => void,
+      second: FlightMapProps
+    ): Promise<{ firstMap: FakeMapInstance; secondMap: FakeMapInstance }> {
+      const { FlightMap, instances } = await loadFlightMap()
+      const view = render(<FlightMap {...first} />)
+      await waitFor(() => expect(instances.length).toBe(1))
+      const firstMap = instances[0]!
+      await act(async () => firstMap.fireStyleLoad())
+      between(firstMap)
+      view.unmount()
+      render(<FlightMap {...second} />)
+      await waitFor(() => expect(instances.length).toBe(2))
+      const secondMap = instances[1]!
+      await act(async () => secondMap.fireStyleLoad())
+      return { firstMap, secondMap }
+    }
+
+    it('coming back to Track keeps the remembered view instead of re-fitting the same route', async () => {
+      const props = { route: ROUTE, trackPoints: [], live: true }
+      const { firstMap, secondMap } = await mountTwice(props, (map) => map.handlers['moveend']![0]!(), props)
+      expect(firstMap.fitBounds).toHaveBeenCalledTimes(1)
+      expect(secondMap.fitBounds).not.toHaveBeenCalled()
+    })
+
+    it('a genuinely new route is still fitted', async () => {
+      const { secondMap } = await mountTwice(
+        { route: ROUTE, trackPoints: [], live: true },
+        (map) => map.handlers['moveend']![0]!(),
+        { route: [ROUTE[0]!, [151.2, -33.9]], trackPoints: [], live: true }
+      )
+      expect(secondMap.fitBounds).toHaveBeenCalledTimes(1)
+    })
+
+    it('while following an aircraft, frames the aircraft rather than the whole route', async () => {
+      const { map } = await renderReady({ route: ROUTE, trackPoints: [point({ onGround: true })], live: true })
+      expect(map.fitBounds).not.toHaveBeenCalled()
+      expect(map.jumpTo).toHaveBeenCalledWith({ center: [-0.5, 51], zoom: FOLLOW_ZOOM_GROUND })
+    })
+
+    it('remembers "Center on aircraft" being switched off across a tab switch', async () => {
+      const user = userEvent.setup()
+      const { FlightMap, instances } = await loadFlightMap()
+      const view = render(<FlightMap route={[]} trackPoints={[]} live />)
+      await waitFor(() => expect(instances.length).toBe(1))
+      await act(async () => instances[0]!.fireStyleLoad())
+      await user.click(screen.getByRole('button', { name: 'Stop centering on aircraft' }))
+      view.unmount()
+      render(<FlightMap route={[]} trackPoints={[]} live />)
+      expect(await screen.findByRole('button', { name: 'Center on aircraft' })).toHaveAttribute('aria-pressed', 'false')
+    })
+
+    it('zooms out at takeoff and back in at touchdown while following', async () => {
+      const { map, rerender } = await renderReady({ route: [], trackPoints: [point({ id: 1, onGround: true })], live: true })
+      map.easeTo.mockClear()
+
+      await act(async () => {
+        rerender({ route: [], trackPoints: [point({ id: 1, onGround: true }), point({ id: 2, onGround: false })], live: true })
+      })
+      expect(map.easeTo).toHaveBeenCalledWith({ zoom: FOLLOW_ZOOM, duration: 1000 })
+
+      map.easeTo.mockClear()
+      await act(async () => {
+        rerender({
+          route: [],
+          trackPoints: [point({ id: 1, onGround: true }), point({ id: 2, onGround: false }), point({ id: 3, onGround: true })],
+          live: true
+        })
+      })
+      expect(map.easeTo).toHaveBeenCalledWith({ zoom: FOLLOW_ZOOM_GROUND, duration: 1000 })
+    })
   })
 
   it('uses the light style by default and the dark style when the document is in dark mode', async () => {
