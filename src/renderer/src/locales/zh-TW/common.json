@@ -212,6 +212,11 @@
     },
     "gsxImportantPrompt": {
       "title": "GSX 需要你的輸入"
+    },
+    "atcClearancePrompt": {
+      "title": "要依 ATC 許可更新程序嗎？",
+      "update": "更新",
+      "dismiss": "忽略"
     }
   },
   "fleetView": {

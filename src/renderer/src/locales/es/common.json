@@ -219,6 +219,11 @@
     "gsxFirstLaunch": {
       "found": "Seguimiento de servicios de tierra GSX activado — carpeta de recibos encontrada automáticamente.",
       "notFound": "El seguimiento de servicios de tierra GSX está desactivado — actívalo en Ajustes si usas GSX."
+    },
+    "atcClearancePrompt": {
+      "title": "¿Actualizar el procedimiento según la autorización ATC?",
+      "update": "Actualizar",
+      "dismiss": "Descartar"
     }
   },
   "fleetView": {

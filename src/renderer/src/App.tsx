@@ -7,6 +7,7 @@ import type {
   AltitudeUnit,
   AppLanguage,
   AppPage,
+  BeyondAtcTranscriptEntry,
   DispatchOfp,
   Flight,
   GsxRemoteMenuState,
@@ -33,7 +34,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Toaster } from '@/components/ui/sonner'
@@ -41,6 +42,7 @@ import { FleetView } from './FleetView'
 import { flightLabel } from './flight-label'
 import { gsxMenuSignature, isImportantGsxMenu } from './gsx-remote-importance'
 import { emptyProcedureSelection, seedProcedureSelectionFromOfp, selectionFromFlight } from './procedureSelection'
+import { parseAtcClearance, type AtcClearanceUpdate } from './atcClearanceParser'
 
 // Fleet is the default/first tab, so it's the one view kept eager — every other tab is
 // lazy so its JS (and, for Track/Logbook, the maplibre-gl and recharts they pull in —
@@ -62,6 +64,16 @@ const SettingsView = lazy(loadSettingsView)
 /** GSX Remote Control and BeyondATC's own tabs are gated on their settings' `enabled` flag
  *  (Callum, 2026-09-27) — hidden until turned on in Settings, rather than always shown
  *  regardless of configuration. */
+/** Maps a parsed clearance's ProcedureSelection field name to its existing ProcedureSelector
+ *  label key — reused rather than duplicated, same fields, same meaning. */
+const ATC_CLEARANCE_FIELD_LABEL_KEYS: Partial<Record<keyof ProcedureSelection, string>> = {
+  departureRunway: 'procedureSelector.departureRunway',
+  sidIdent: 'procedureSelector.sid',
+  starIdent: 'procedureSelector.star',
+  approachIdent: 'procedureSelector.approach',
+  approachTransition: 'procedureSelector.approachTransition'
+}
+
 function appTabs(t: TFunction, gsxRemoteEnabled: boolean, beyondAtcEnabled: boolean): { page: AppPage; label: string; icon: typeof Plane }[] {
   return [
     { page: 'fleet', label: t('app.tabs.fleet'), icon: Plane },
@@ -190,6 +202,16 @@ export default function App(): React.JSX.Element {
   // prompt doesn't just reopen itself on the next unrelated re-render — only a genuinely
   // different menu (a new signature) triggers it again.
   const [dismissedGsxMenuKey, setDismissedGsxMenuKey] = useState<string | null>(null)
+  // A parsed BeyondATC clearance that differs from the current procedure selection, awaiting
+  // the user's accept/dismiss — Callum's own precedence decision, 2026-09-25: overwrite, but
+  // ask first, gently. Unlike gsxMenu above, no remembered-dismissal key is needed: a
+  // transcript line is a one-shot event (lastAtcClearanceTs below already stops it being
+  // rescanned), not persistent state that keeps re-arriving unchanged.
+  const [pendingAtcClearance, setPendingAtcClearance] = useState<(AtcClearanceUpdate & { sourceTs: number }) | null>(null)
+  // Watermark of the newest transcript entry already scanned — onBeyondAtcTranscript delivers
+  // the whole buffer on every push (shared/ipc.ts), not just the new line, so this is what
+  // tells a genuinely new entry apart from one already considered (and possibly dismissed).
+  const lastAtcClearanceTs = useRef(0)
 
   // Wraps setDispatchOfp so a *new* OFP (a different ofpId, including "cleared to null")
   // always re-seeds the procedure selection from its own SimBrief choice — the previous
@@ -286,6 +308,37 @@ export default function App(): React.JSX.Element {
     // GSX will clear/replace state.menu itself once the pick is processed — no need to
     // clear gsxMenu here too, and doing so would just make the dialog flash closed then
     // (possibly) reopen for the next patch.
+  }
+
+  // Scans new BeyondATC transcript entries for a parseable clearance whose fields differ from
+  // the current selection — re-subscribes whenever procedureSelection changes so a diff is
+  // always checked against the live value, the same "just resubscribe, it's cheap" style
+  // procedureSelection.ts's own fetch effects already use.
+  useEffect(() => {
+    return window.winglog.onBeyondAtcTranscript((transcript: BeyondAtcTranscriptEntry[]) => {
+      let latest: (AtcClearanceUpdate & { sourceTs: number }) | null = null
+      for (const entry of transcript) {
+        if (entry.speaker !== 'atc' || entry.ts <= lastAtcClearanceTs.current) continue
+        lastAtcClearanceTs.current = entry.ts
+        const update = parseAtcClearance(entry.text)
+        if (update) latest = { ...update, sourceTs: entry.ts }
+      }
+      if (!latest) return
+      const differs = Object.entries(latest.fields).some(
+        ([key, value]) => procedureSelection[key as keyof ProcedureSelection] !== value
+      )
+      if (differs) setPendingAtcClearance(latest)
+    })
+  }, [procedureSelection])
+
+  function handleAcceptAtcClearance(): void {
+    if (!pendingAtcClearance) return
+    setProcedureSelection((prev) => ({ ...prev, ...pendingAtcClearance.fields }))
+    setPendingAtcClearance(null)
+  }
+
+  function handleDismissAtcClearance(): void {
+    setPendingAtcClearance(null)
   }
 
   // Set when Fleet's per-aircraft flight list navigates to a specific flight's Logbook
@@ -635,6 +688,40 @@ export default function App(): React.JSX.Element {
           </Dialog>
         )
       })()}
+
+      <Dialog open={pendingAtcClearance !== null} onOpenChange={(open) => !open && handleDismissAtcClearance()}>
+        <DialogContent className="sm:max-w-md">
+          {pendingAtcClearance && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{t('app.atcClearancePrompt.title')}</DialogTitle>
+              </DialogHeader>
+              <div className="flex flex-col gap-1.5 text-sm">
+                {Object.entries(pendingAtcClearance.fields).map(([key, value]) => (
+                  <p key={key}>
+                    <span className="font-medium text-foreground">
+                      {t(ATC_CLEARANCE_FIELD_LABEL_KEYS[key as keyof ProcedureSelection] ?? '')}:{' '}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {procedureSelection[key as keyof ProcedureSelection] ?? t('procedureSelector.none')}
+                    </span>
+                    {' → '}
+                    <span className="text-foreground">{value}</span>
+                  </p>
+                ))}
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={handleDismissAtcClearance}>
+                  {t('app.atcClearancePrompt.dismiss')}
+                </Button>
+                <Button type="button" onClick={handleAcceptAtcClearance}>
+                  {t('app.atcClearancePrompt.update')}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </main>
   )
 }
