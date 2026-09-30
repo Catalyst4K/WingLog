@@ -144,6 +144,23 @@ describe('BeyondAtcPanel', () => {
     expect(screen.getByText('3136')).toBeInTheDocument()
   })
 
+  it('shows a flight-level clearance as FL, from a real VHHH clearance (2026-09-30)', async () => {
+    const transcript: BeyondAtcTranscriptEntry[] = [
+      {
+        speaker: 'atc',
+        text: 'Hongkong Shuttle 250, Hong Kong Delivery, information H current, cleared to Phoenix airport via PECA1D departure, runway 25C, climb via SID to FL140, squawk 6140.',
+        ts: 1
+      }
+    ]
+    withWinglog({ beyondAtcGetTranscript: vi.fn().mockResolvedValue(transcript) })
+    render(<BeyondAtcPanel />)
+
+    expect(await screen.findByText('PECA1D')).toBeInTheDocument()
+    expect(screen.getByText('25C')).toBeInTheDocument()
+    expect(screen.getByText('FL140')).toBeInTheDocument()
+    expect(screen.getByText('6140')).toBeInTheDocument()
+  })
+
   it('shows the info card placeholder when nothing in the transcript has been recognised and no status is known', async () => {
     withWinglog({
       beyondAtcGetTranscript: vi.fn().mockResolvedValue([{ speaker: 'atc', text: 'Cathay 116 Heavy, readability 5.', ts: 1 }])

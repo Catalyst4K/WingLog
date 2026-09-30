@@ -15,6 +15,30 @@ describe('buildClearanceReadout', () => {
     expect(readout).toEqual({ sidIdent: 'VMR9B', runway: '01', altitudeFt: 11000, squawk: '3136' })
   })
 
+  it('handles a real flight-level departure clearance (VHHH, 2026-09-30)', () => {
+    const readout = buildClearanceReadout([
+      atc(
+        'Hongkong Shuttle 250, Hong Kong Delivery, information H current, cleared to Phoenix airport via PECA1D departure, runway 25C, climb via SID to FL140, squawk 6140.'
+      )
+    ])
+    expect(readout).toEqual({ sidIdent: 'PECA1D', runway: '25C', flightLevel: 140, squawk: '6140' })
+  })
+
+  it('keeps SID and runway when the altitude phrasing is unrecognised', () => {
+    const readout = buildClearanceReadout([
+      atc('Speedbird 1, cleared to Heathrow via ABC1D departure, runway 09L, maintain 5000 until advised, squawk 1234.')
+    ])
+    expect(readout).toEqual({ sidIdent: 'ABC1D', runway: '09L', squawk: '1234' })
+  })
+
+  it('a later clearance in feet replaces an earlier flight level, not both shown', () => {
+    const readout = buildClearanceReadout([
+      atc('cleared to Phoenix airport via PECA1D departure, runway 25C, climb via SID to FL140, squawk 6140.'),
+      atc('cleared to Sydney via VMR9B departure, runway 01, climb via SID to 11000 feet, squawk 3136.')
+    ])
+    expect(readout).toEqual({ sidIdent: 'VMR9B', runway: '01', altitudeFt: 11000, squawk: '3136' })
+  })
+
   it('extracts STAR and runway from a real arrival clearance, given without an approach yet', () => {
     const readout = buildClearanceReadout([atc('Singapore 830 Heavy, cleared AND1 arrival, runway 17R.')])
 
