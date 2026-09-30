@@ -123,6 +123,7 @@ import { SimConnectService } from './sim/SimConnectService'
 import { ReplaySimConnectService, type ReplayMode } from './sim/ReplaySimConnectService'
 import { EMPTY_COMMAND_BAR, EMPTY_MENU, GsxRemoteService } from './gsx-remote/GsxRemoteService'
 import { BeyondAtcService, EMPTY_STATE as BEYONDATC_EMPTY_STATE } from './beyondatc/BeyondAtcService'
+import { StepClimbController } from './beyondatc/step-climb'
 import type { NavdataProvider } from './navdata/navdata-provider'
 import { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
 import { SimAirfieldResolver } from './airports/sim-airfield'
@@ -868,6 +869,23 @@ if (!gotSingleInstanceLock) {
       )
       ipcMain.handle(IpcChannels.beyondAtcSetAutoTune, (_event, value: boolean) => beyondAtcService?.setAutoTune(value))
       ipcMain.handle(IpcChannels.beyondAtcSetAutoRespond, (_event, value: boolean) => beyondAtcService?.setAutoRespond(value))
+
+      // WingLog's own auto step climb (flightdeck-backend's docs/plans/beyondatc-auto-step-
+      // climb.md) — asks BeyondATC for each new cruise level. Reads the current
+      // beyondAtcService lazily, since settings changes replace it. Off every launch.
+      const stepClimb = new StepClimbController({
+        getSession: () => beyondAtcService,
+        getActive: () => trackingController.getActive(),
+        getOfpJson: (flightId) => getFlight(db, flightId)?.ofpJson ?? null
+      })
+      stepClimb.on('status', (status) => {
+        if (!window.isDestroyed()) window.webContents.send(IpcChannels.beyondAtcStepClimb, status)
+      })
+      simConnectService.on('telemetry', (telemetry) => stepClimb.onTelemetry(telemetry))
+      ipcMain.handle(IpcChannels.beyondAtcGetStepClimb, () => stepClimb.getStatus())
+      ipcMain.handle(IpcChannels.beyondAtcSetStepClimb, (_event, enabled: unknown) => {
+        if (typeof enabled === 'boolean') stepClimb.setEnabled(enabled)
+      })
 
       ipcMain.handle(IpcChannels.logbookOpenOfpPdf, async (_event, flightId: number) => {
         const flight = getFlight(db, flightId)

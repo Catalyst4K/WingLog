@@ -206,6 +206,9 @@ export interface SimTelemetry {
   gearHandlePosition: number
   flapsHandleIndex: number
   parkingBrakeOn: boolean
+  /** Autopilot selected altitude (AUTOPILOT ALTITUDE LOCK VAR). Optional: flights captured
+   *  before it existed (replay fixtures) don't carry it. */
+  apSelectedAltitudeM?: number
   atcId: string
   atcModel: string
   title: string
@@ -957,6 +960,24 @@ export interface BeyondAtcFrequencyOption {
  *  docs/beyondatc-notes.md catalogues (DATIS, CPDLC code, settings, … aren't surfaced here;
  *  nothing needed by this panel). Unrecognised/unparsed wire keys are simply never reflected
  *  here, not an error. */
+/** WingLog's own BeyondATC auto step climb (flightdeck-backend's docs/plans/
+ *  beyondatc-auto-step-climb.md) — not a BeyondATC setting; WingLog asks for each new level. */
+export interface BeyondAtcStepClimbStatus {
+  enabled: boolean
+  /** The next SimBrief step above the cleared level, while tracking an OFP flight. */
+  nextStep: { ident: string; altitudeFt: number; distanceNm: number } | null
+  /** A request in progress, by level in feet. */
+  pendingAltitudeFt: number | null
+  last: {
+    altitudeFt: number
+    outcome: 'granted' | 'unavailable' | 'noMenu' | 'notOffered' | 'noAnswer'
+    attempt: number
+    reason: 'simbrief' | 'fcu'
+    /** Two failures — this level won't be asked for again this flight. */
+    dropped: boolean
+  } | null
+}
+
 export interface BeyondAtcState {
   facility: BeyondAtcFacility | null
   com2: BeyondAtcCom2 | null
@@ -1428,7 +1449,10 @@ export const IpcChannels = {
   beyondAtcSetFrequency: 'beyondatc:set-frequency',
   beyondAtcSetFrequencyCom2: 'beyondatc:set-frequency-com2',
   beyondAtcSetAutoTune: 'beyondatc:set-autotune',
-  beyondAtcSetAutoRespond: 'beyondatc:set-autorespond'
+  beyondAtcSetAutoRespond: 'beyondatc:set-autorespond',
+  beyondAtcGetStepClimb: 'beyondatc:get-step-climb',
+  beyondAtcStepClimb: 'beyondatc:step-climb',
+  beyondAtcSetStepClimb: 'beyondatc:set-step-climb'
 } as const
 
 export interface WingLogApi {
@@ -1843,4 +1867,8 @@ export interface WingLogApi {
    *  (flightdeck-backend's docs/beyondatc-notes.md). No-op if not connected. */
   beyondAtcSetAutoTune: (value: boolean) => Promise<void>
   beyondAtcSetAutoRespond: (value: boolean) => Promise<void>
+  /** WingLog's auto step climb — see BeyondAtcStepClimbStatus. */
+  beyondAtcGetStepClimb: () => Promise<BeyondAtcStepClimbStatus>
+  onBeyondAtcStepClimb: (listener: (status: BeyondAtcStepClimbStatus) => void) => () => void
+  beyondAtcSetStepClimb: (enabled: boolean) => Promise<void>
 }

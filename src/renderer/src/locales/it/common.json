@@ -758,7 +758,22 @@
       "atis": "ATIS",
       "center": "Centro"
     },
+    "stepClimb": {
+      "pending": "Richiesta {{level}}…",
+      "last": "{{level}}: {{outcome}}",
+      "dropped": "{{level}}: {{outcome}} — abbandonato dopo due tentativi",
+      "next": "Prossimo gradino: {{level}} a {{fix}}, {{distance}} NM",
+      "watching": "In attesa di una salita a gradini (piano SimBrief o FCU).",
+      "outcome": {
+        "granted": "autorizzato",
+        "unavailable": "BeyondATC non offre richieste di quota",
+        "noMenu": "nessun elenco di livelli da BeyondATC",
+        "notOffered": "livello non offerto",
+        "noAnswer": "nessuna autorizzazione dall'ATC"
+      }
+    },
     "settings": {
+      "stepClimb": "Salita a gradini auto",
       "autoTune": "Auto-sintonia",
       "autoRespond": "Risposta automatica",
       "on": "Attivo",

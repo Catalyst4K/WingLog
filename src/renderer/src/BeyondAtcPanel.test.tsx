@@ -41,6 +41,9 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): void {
     beyondAtcSetFrequencyCom2: vi.fn().mockResolvedValue(undefined),
     beyondAtcSetAutoTune: vi.fn().mockResolvedValue(undefined),
     beyondAtcSetAutoRespond: vi.fn().mockResolvedValue(undefined),
+    beyondAtcGetStepClimb: vi.fn().mockResolvedValue({ enabled: false, nextStep: null, pendingAltitudeFt: null, last: null }),
+    onBeyondAtcStepClimb: vi.fn(() => () => {}),
+    beyondAtcSetStepClimb: vi.fn().mockResolvedValue(undefined),
     ...overrides
   } as unknown as WingLogApi
 }

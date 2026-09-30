@@ -8,6 +8,7 @@ import {
   type BeyondAtcSettings,
   type BeyondAtcState,
   type BeyondAtcTranscriptEntry,
+  type BeyondAtcStepClimbStatus,
   type DataFormat,
   type DispatchOpenSimBriefParams,
   type WingLogApi,
@@ -262,7 +263,14 @@ const api: WingLogApi = {
   beyondAtcSetFrequency: (frequency: string) => ipcRenderer.invoke(IpcChannels.beyondAtcSetFrequency, frequency),
   beyondAtcSetFrequencyCom2: (frequency: string) => ipcRenderer.invoke(IpcChannels.beyondAtcSetFrequencyCom2, frequency),
   beyondAtcSetAutoTune: (value: boolean) => ipcRenderer.invoke(IpcChannels.beyondAtcSetAutoTune, value),
-  beyondAtcSetAutoRespond: (value: boolean) => ipcRenderer.invoke(IpcChannels.beyondAtcSetAutoRespond, value)
+  beyondAtcSetAutoRespond: (value: boolean) => ipcRenderer.invoke(IpcChannels.beyondAtcSetAutoRespond, value),
+  beyondAtcGetStepClimb: () => ipcRenderer.invoke(IpcChannels.beyondAtcGetStepClimb),
+  onBeyondAtcStepClimb: (listener: (status: BeyondAtcStepClimbStatus) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, status: BeyondAtcStepClimbStatus): void => listener(status)
+    ipcRenderer.on(IpcChannels.beyondAtcStepClimb, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.beyondAtcStepClimb, handler)
+  },
+  beyondAtcSetStepClimb: (enabled: boolean) => ipcRenderer.invoke(IpcChannels.beyondAtcSetStepClimb, enabled)
 }
 
 contextBridge.exposeInMainWorld('winglog', api)

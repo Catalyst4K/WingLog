@@ -400,6 +400,9 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
       frequencies: []
     }),
     onBeyondAtcState: vi.fn(() => () => {}),
+    beyondAtcGetStepClimb: vi.fn().mockResolvedValue({ enabled: false, nextStep: null, pendingAltitudeFt: null, last: null }),
+    onBeyondAtcStepClimb: vi.fn(() => () => {}),
+    beyondAtcSetStepClimb: vi.fn().mockResolvedValue(undefined),
     beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
     onBeyondAtcTranscript: vi.fn(() => () => {}),
     beyondAtcSetAction: vi.fn().mockResolvedValue(undefined),

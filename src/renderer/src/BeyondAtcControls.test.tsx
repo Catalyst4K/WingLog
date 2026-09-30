@@ -16,6 +16,8 @@ function makeRadiosProps(overrides: Partial<BeyondAtcRadiosProps> = {}): BeyondA
     autoRespond: null,
     onSetAutoTune: vi.fn(),
     onSetAutoRespond: vi.fn(),
+    stepClimb: { enabled: false, nextStep: null, pendingAltitudeFt: null, last: null },
+    onSetStepClimb: vi.fn(),
     ...overrides
   }
 }
@@ -171,5 +173,57 @@ describe('BeyondAtcRadios', () => {
 
     expect(onSetAutoTune).toHaveBeenCalledWith(false)
     expect(onSetAutoRespond).toHaveBeenCalledWith(true)
+  })
+})
+
+describe('BeyondAtcRadios — auto step climb', () => {
+  const OFF = { enabled: false, nextStep: null, pendingAltitudeFt: null, last: null }
+
+  it('toggles WingLog auto step climb on', async () => {
+    const onSetStepClimb = vi.fn()
+    render(<BeyondAtcRadios {...makeRadiosProps({ stepClimb: OFF, onSetStepClimb })} />)
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Auto step climb: Off' }))
+    expect(onSetStepClimb).toHaveBeenCalledWith(true)
+  })
+
+  it('shows the next planned step once on', () => {
+    render(
+      <BeyondAtcRadios
+        {...makeRadiosProps({ stepClimb: { ...OFF, enabled: true, nextStep: { ident: 'DENAK', altitudeFt: 35000, distanceNm: 42 } } })}
+      />
+    )
+    expect(screen.getByRole('button', { name: 'Auto step climb: On' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('Next step: FL350 at DENAK, 42 nm')).toBeInTheDocument()
+  })
+
+  it('shows a request in progress, then the result — including giving up after two tries', () => {
+    const { rerender } = render(<BeyondAtcRadios {...makeRadiosProps({ stepClimb: { ...OFF, enabled: true, pendingAltitudeFt: 39000 } })} />)
+    expect(screen.getByText('Requesting FL390…')).toBeInTheDocument()
+
+    rerender(
+      <BeyondAtcRadios
+        {...makeRadiosProps({
+          stepClimb: { ...OFF, enabled: true, last: { altitudeFt: 39000, outcome: 'granted', attempt: 1, reason: 'fcu', dropped: false } }
+        })}
+      />
+    )
+    expect(screen.getByText('FL390: cleared')).toBeInTheDocument()
+
+    rerender(
+      <BeyondAtcRadios
+        {...makeRadiosProps({
+          stepClimb: { ...OFF, enabled: true, last: { altitudeFt: 41000, outcome: 'notOffered', attempt: 2, reason: 'simbrief', dropped: true } }
+        })}
+      />
+    )
+    expect(screen.getByText('FL410: level not offered — gave up after two tries')).toBeInTheDocument()
+  })
+
+  it('says it is watching when on with nothing planned yet, and shows nothing when off', () => {
+    const { rerender } = render(<BeyondAtcRadios {...makeRadiosProps({ stepClimb: { ...OFF, enabled: true } })} />)
+    expect(screen.getByText('Watching for a step climb (SimBrief plan or FCU).')).toBeInTheDocument()
+    rerender(<BeyondAtcRadios {...makeRadiosProps({ stepClimb: OFF })} />)
+    expect(screen.queryByText(/Watching for a step climb/)).not.toBeInTheDocument()
   })
 })

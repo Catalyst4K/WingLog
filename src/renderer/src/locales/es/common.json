@@ -758,7 +758,22 @@
       "atis": "ATIS",
       "center": "Centro"
     },
+    "stepClimb": {
+      "pending": "Solicitando {{level}}…",
+      "last": "{{level}}: {{outcome}}",
+      "dropped": "{{level}}: {{outcome}} — abandonado tras dos intentos",
+      "next": "Siguiente escalón: {{level}} en {{fix}}, {{distance}} NM",
+      "watching": "Esperando un ascenso escalonado (plan de SimBrief o FCU).",
+      "outcome": {
+        "granted": "autorizado",
+        "unavailable": "BeyondATC no ofrece solicitudes de altitud",
+        "noMenu": "sin lista de niveles de BeyondATC",
+        "notOffered": "nivel no ofrecido",
+        "noAnswer": "sin autorización de ATC"
+      }
+    },
     "settings": {
+      "stepClimb": "Ascenso escalonado auto",
       "autoTune": "Sintonía automática",
       "autoRespond": "Respuesta automática",
       "on": "Activado",

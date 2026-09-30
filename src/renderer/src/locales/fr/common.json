@@ -758,7 +758,22 @@
       "atis": "ATIS",
       "center": "Centre"
     },
+    "stepClimb": {
+      "pending": "Demande de {{level}}…",
+      "last": "{{level}} : {{outcome}}",
+      "dropped": "{{level}} : {{outcome}} — abandonné après deux essais",
+      "next": "Prochain palier : {{level}} à {{fix}}, {{distance}} NM",
+      "watching": "En attente d'une montée par paliers (plan SimBrief ou FCU).",
+      "outcome": {
+        "granted": "autorisé",
+        "unavailable": "BeyondATC ne propose pas de demande d'altitude",
+        "noMenu": "pas de liste de niveaux de BeyondATC",
+        "notOffered": "niveau non proposé",
+        "noAnswer": "pas d'autorisation de l'ATC"
+      }
+    },
     "settings": {
+      "stepClimb": "Montée par paliers auto",
       "autoTune": "Réglage auto",
       "autoRespond": "Réponse auto",
       "on": "Activé",

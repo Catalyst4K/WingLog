@@ -1,10 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { BeyondAtcConnectionStatus, BeyondAtcSettings, BeyondAtcState, BeyondAtcTranscriptEntry } from '@shared/ipc'
+import type {
+  BeyondAtcConnectionStatus,
+  BeyondAtcSettings,
+  BeyondAtcState,
+  BeyondAtcStepClimbStatus,
+  BeyondAtcTranscriptEntry
+} from '@shared/ipc'
 import { BeyondAtcActions, BeyondAtcRadios } from './BeyondAtcControls'
 import { latestAtcInstruction, type AtcInstruction } from './beyondAtcInstruction'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+
+const STEP_CLIMB_OFF: BeyondAtcStepClimbStatus = { enabled: false, nextStep: null, pendingAltitudeFt: null, last: null }
 
 const EMPTY_STATE: BeyondAtcState = {
   facility: null,
@@ -204,6 +212,7 @@ export function BeyondAtcPanel(): React.JSX.Element {
   const [status, setStatus] = useState<BeyondAtcConnectionStatus>({ state: 'disconnected', lastError: null })
   const [state, setState] = useState<BeyondAtcState>(EMPTY_STATE)
   const [transcript, setTranscript] = useState<BeyondAtcTranscriptEntry[]>([])
+  const [stepClimb, setStepClimb] = useState<BeyondAtcStepClimbStatus>(STEP_CLIMB_OFF)
   const latestInstruction = useMemo(() => latestAtcInstruction(transcript), [transcript])
 
   useEffect(() => {
@@ -213,10 +222,13 @@ export function BeyondAtcPanel(): React.JSX.Element {
     window.winglog.beyondAtcGetTranscript().then(setTranscript)
     const unsubscribeStatus = window.winglog.onBeyondAtcStatus(setStatus)
     const unsubscribeState = window.winglog.onBeyondAtcState(setState)
+    window.winglog.beyondAtcGetStepClimb().then(setStepClimb)
+    const unsubscribeStepClimb = window.winglog.onBeyondAtcStepClimb(setStepClimb)
     const unsubscribeTranscript = window.winglog.onBeyondAtcTranscript(setTranscript)
     return () => {
       unsubscribeStatus()
       unsubscribeState()
+      unsubscribeStepClimb()
       unsubscribeTranscript()
     }
   }, [])
@@ -254,6 +266,8 @@ export function BeyondAtcPanel(): React.JSX.Element {
             autoRespond={state.autoRespond}
             onSetAutoTune={(value) => window.winglog.beyondAtcSetAutoTune(value)}
             onSetAutoRespond={(value) => window.winglog.beyondAtcSetAutoRespond(value)}
+            stepClimb={stepClimb}
+            onSetStepClimb={(enabled) => window.winglog.beyondAtcSetStepClimb(enabled)}
           />
         </div>
         <div className="flex min-h-0 flex-col gap-4">
