@@ -24,3 +24,12 @@ export function parseTaxiRoute(text: string): string[] | null {
   if (!match) return null
   return match[1]!.split(',').map((name) => name.trim())
 }
+
+const HOLDING_POINT = /taxi to holding point ([A-Z0-9]+),/i
+
+/** "taxi to holding point B10, runway 25C, via B8, B" → 'B10' — the clearance's end point,
+ *  which taxiRouteTrace.ts traces the route to. Null for an arrival (taxi-to-stand)
+ *  clearance or anything else. */
+export function parseTaxiHoldingPoint(text: string): string | null {
+  return HOLDING_POINT.exec(text)?.[1] ?? null
+}

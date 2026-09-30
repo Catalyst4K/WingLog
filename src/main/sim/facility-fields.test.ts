@@ -219,14 +219,25 @@ describe('parseAirportHeaderWithLatLon', () => {
 })
 
 describe('parseTaxiPoint', () => {
-  it('reads BIAS_X/BIAS_Z', () => {
+  it('reads TYPE/BIAS_X/BIAS_Z, a NORMAL point not being hold-short', () => {
     const b = buffer((w) => {
+      w.writeInt32(1)
       w.writeFloat32(389.0379)
       w.writeFloat32(823.5693)
     })
     const point = parseTaxiPoint(b)
+    expect(point.holdShort).toBe(false)
     expect(point.biasX).toBeCloseTo(389.0379, 2)
     expect(point.biasZ).toBeCloseTo(823.5693, 2)
+  })
+
+  it.each([2, 4, 5, 6])('treats TYPE %i as a hold-short point (SDK enum; 5 seen live at VHHH)', (type) => {
+    const b = buffer((w) => {
+      w.writeInt32(type)
+      w.writeFloat32(0)
+      w.writeFloat32(0)
+    })
+    expect(parseTaxiPoint(b).holdShort).toBe(true)
   })
 })
 

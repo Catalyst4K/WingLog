@@ -13,6 +13,7 @@ import {
   replaceAirportNavdata,
   replaceAirportTaxiSegments
 } from './navdata-repo'
+import { navdataTaxiSegment } from './schema'
 
 function leg(fixIdent: string, overrides: Partial<ParsedLeg> = {}): ParsedLeg {
   return {
@@ -389,8 +390,8 @@ describe('navdata repo', () => {
       return {
         icao: 'EGKB',
         segments: [
-          { startLat: 51.33823, startLon: 0.03809, endLat: 51.3237, endLon: 0.02683, name: null },
-          { startLat: 51.334, startLon: 0.031, endLat: 51.335, endLon: 0.033, name: 'A' }
+          { startLat: 51.33823, startLon: 0.03809, endLat: 51.3237, endLon: 0.02683, name: null, startHoldShort: false, endHoldShort: false },
+          { startLat: 51.334, startLon: 0.031, endLat: 51.335, endLon: 0.033, name: 'A', startHoldShort: false, endHoldShort: true }
         ],
         ...overrides
       }
@@ -407,8 +408,17 @@ describe('navdata repo', () => {
       expect(hasCachedTaxiNetwork(db, 'EGKB')).toBe(true)
       const segments = listCachedTaxiSegments(db, 'EGKB')
       expect(segments).toHaveLength(2)
-      expect(segments.find((s) => s.name === 'A')).toMatchObject({ startLat: 51.334, startLon: 0.031 })
+      expect(segments.find((s) => s.name === 'A')).toMatchObject({ startLat: 51.334, startLon: 0.031, endHoldShort: true })
       expect(segments.find((s) => s.name === null)).toMatchObject({ startLat: 51.33823 })
+    })
+
+    it('treats a cache written before hold-short points existed as missing, so it gets re-fetched', () => {
+      replaceAirportTaxiSegments(db, 'EGKB', fetchedTaxi(), '2026-09-28T12:00:00.000Z')
+      // What migration 0030 leaves behind for a pre-existing cache: the new columns NULL.
+      db.update(navdataTaxiSegment).set({ startHoldShort: null, endHoldShort: null }).run()
+
+      expect(hasCachedTaxiNetwork(db, 'EGKB')).toBe(false)
+      expect(listCachedTaxiSegments(db, 'EGKB').every((s) => !s.startHoldShort && !s.endHoldShort)).toBe(true)
     })
 
     it('replaces wholesale on a second fetch, not appends', () => {

@@ -737,7 +737,15 @@ export function FlightMap({
   })
 
   const taxiChart = useTaxiChartOverlay({ mapRef, mapReady, depIcao, arrIcao })
-  useTaxiRouteHighlight({ mapRef, mapReady, enabled: taxiChart.enabled })
+  useTaxiRouteHighlight({
+    mapRef,
+    mapReady,
+    enabled: taxiChart.enabled,
+    segmentsByIcao: taxiChart.segmentsByIcao,
+    depIcao,
+    arrIcao,
+    position: telemetry ? { lat: telemetry.latitude, lon: telemetry.longitude } : null
+  })
 
   const mapControlButtonClassName = 'bg-popover/85 backdrop-blur-sm hover:bg-popover'
 

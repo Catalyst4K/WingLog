@@ -323,8 +323,9 @@ function airportLatLonBuffer(icao: string, latitude: number, longitude: number):
   })
 }
 
-function taxiPointBuffer(biasX: number, biasZ: number): RawBuffer {
+function taxiPointBuffer(biasX: number, biasZ: number, type = 1): RawBuffer {
   return buffer((w) => {
+    w.writeInt32(type)
     w.writeFloat32(biasX)
     w.writeFloat32(biasZ)
   })
@@ -385,7 +386,7 @@ describe('fetchTaxiNetwork', () => {
       type: FacilityDataType.TAXI_POINT,
       userRequestId: NavdataDefId.TAXI_POINTS,
       itemIndex: 7,
-      data: taxiPointBuffer(-394.4898, -794.5173)
+      data: taxiPointBuffer(-394.4898, -794.5173, 5) // HOLD_SHORT_NO_DRAW, the type seen live at VHHH
     })
 
     // A TYPE-1 path and a TYPE-4 path, from the two separate filtered requests — both must
@@ -441,9 +442,11 @@ describe('fetchTaxiNetwork', () => {
     expect(result.segments).toHaveLength(2)
     expect(result.segments.find((s) => s.name === null)).toMatchObject({
       startLat: expect.closeTo(51.33823, 3),
-      startLon: expect.closeTo(0.03809, 3)
+      startLon: expect.closeTo(0.03809, 3),
+      startHoldShort: false,
+      endHoldShort: true
     })
-    expect(result.segments.find((s) => s.name === 'A')).toBeDefined()
+    expect(result.segments.find((s) => s.name === 'A')).toMatchObject({ startHoldShort: true, endHoldShort: false })
   })
 
   it('drops a path whose START/END point was never received, rather than emitting a broken segment', async () => {

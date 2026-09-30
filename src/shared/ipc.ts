@@ -1275,6 +1275,11 @@ export interface NavdataTaxiSegment {
   endLat: number
   endLon: number
   name: string | null
+  /** Whether each endpoint is a hold-short point (TAXI_POINT TYPE 2/4/5/6 — SDK enum; 5 seen
+   *  live at VHHH, 2026-09-30). Lets a traced taxi route stop exactly at a named holding
+   *  point (flightdeck-backend's docs/beyondatc-notes.md). */
+  startHoldShort: boolean
+  endHoldShort: boolean
 }
 
 export const IpcChannels = {

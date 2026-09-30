@@ -95,7 +95,7 @@ describe('SimFacilitiesProvider', () => {
   describe('taxi network', () => {
     const FETCHED_TAXI: FetchedTaxiNetwork = {
       icao: 'EGKB',
-      segments: [{ startLat: 51.338, startLon: 0.038, endLat: 51.324, endLon: 0.027, name: null }]
+      segments: [{ startLat: 51.338, startLon: 0.038, endLat: 51.324, endLon: 0.027, name: null, startHoldShort: false, endHoldShort: false }]
     }
 
     it('opens a connection, fetches, caches the result, and closes the connection', async () => {
