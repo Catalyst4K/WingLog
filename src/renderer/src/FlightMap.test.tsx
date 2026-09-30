@@ -22,7 +22,8 @@ interface FakeMapInstance {
   zoom: number
   handlers: Record<string, (() => void)[]>
   sources: Record<string, { setData: ReturnType<typeof vi.fn> }>
-  layers: Record<string, { paint?: Record<string, unknown>; layout?: Record<string, unknown> }>
+  layers: Record<string, { paint?: Record<string, unknown>; layout?: Record<string, unknown>; filter?: unknown }>
+  setFilter: ReturnType<typeof vi.fn>
   dragPan: { enable: ReturnType<typeof vi.fn>; disable: ReturnType<typeof vi.fn> }
   keyboard: {
     enable: ReturnType<typeof vi.fn>
@@ -122,7 +123,7 @@ vi.mock('maplibre-gl', () => {
     zoom: number
     handlers: Record<string, (() => void)[]> = {}
     sources: Record<string, FakeSource> = {}
-    layers: Record<string, { paint?: Record<string, unknown>; layout?: Record<string, unknown> }> = {}
+    layers: Record<string, { paint?: Record<string, unknown>; layout?: Record<string, unknown>; filter?: unknown }> = {}
     dragPan = { enable: vi.fn(), disable: vi.fn() }
     keyboard = { enable: vi.fn(), disable: vi.fn(), disableRotation: vi.fn() }
     // .disable() before .enable() forces MapLibre's own handlers to actually re-apply
@@ -139,6 +140,9 @@ vi.mock('maplibre-gl', () => {
     zoomOut = vi.fn()
     remove = vi.fn()
     setLayoutProperty = vi.fn()
+    setFilter = vi.fn((id: string, filter: unknown) => {
+      if (this.layers[id]) this.layers[id]!.filter = filter
+    })
     controls: unknown[] = []
     addControl = vi.fn((control: unknown) => {
       this.controls.push(control)
@@ -168,7 +172,7 @@ vi.mock('maplibre-gl', () => {
     addSource(id: string): void {
       this.sources[id] = new FakeSource()
     }
-    addLayer(def: { id: string; paint?: Record<string, unknown>; layout?: Record<string, unknown> }): void {
+    addLayer(def: { id: string; paint?: Record<string, unknown>; layout?: Record<string, unknown>; filter?: unknown }): void {
       this.layers[def.id] = def
     }
     getSource(id: string): FakeSource | undefined {
@@ -718,17 +722,23 @@ describe('FlightMap', () => {
       hasTaxiNetwork: ReturnType<typeof vi.fn>
       refreshTaxiNetwork: ReturnType<typeof vi.fn>
       getTaxiNetwork: ReturnType<typeof vi.fn>
+      onBeyondAtcTranscript: ReturnType<typeof vi.fn>
     } {
       const segmentsByIcao: Record<string, unknown> = { EGKB: DEP_SEGMENTS, VHHH: ARR_SEGMENTS }
       const hasTaxiNetwork = vi.fn().mockImplementation((icao: string) => Promise.resolve(cached[icao] ?? false))
       const refreshTaxiNetwork = vi.fn().mockResolvedValue(undefined)
       const getTaxiNetwork = vi.fn().mockImplementation((icao: string) => Promise.resolve(segmentsByIcao[icao] ?? []))
+      // useTaxiRouteHighlight.ts subscribes once the chart is switched on — a no-op
+      // unsubscribe is enough for every test in this block that doesn't care about it
+      // (the "ATC-driven route highlight" block below overrides this to actually push).
+      const onBeyondAtcTranscript = vi.fn(() => () => {})
       ;(window as unknown as { winglog: unknown }).winglog = {
         navdataHasTaxiNetwork: hasTaxiNetwork,
         navdataRefreshTaxiNetwork: refreshTaxiNetwork,
-        navdataGetTaxiNetwork: getTaxiNetwork
+        navdataGetTaxiNetwork: getTaxiNetwork,
+        onBeyondAtcTranscript
       }
-      return { hasTaxiNetwork, refreshTaxiNetwork, getTaxiNetwork }
+      return { hasTaxiNetwork, refreshTaxiNetwork, getTaxiNetwork, onBeyondAtcTranscript }
     }
 
     const toggleButton = (): HTMLElement => screen.getByRole('button', { name: /taxi chart/i })
@@ -808,7 +818,12 @@ describe('FlightMap', () => {
           })
       )
       const getTaxiNetwork = vi.fn().mockResolvedValue(DEP_SEGMENTS)
-      ;(window as unknown as { winglog: unknown }).winglog = { navdataHasTaxiNetwork: hasTaxiNetwork, navdataRefreshTaxiNetwork: refreshTaxiNetwork, navdataGetTaxiNetwork: getTaxiNetwork }
+      ;(window as unknown as { winglog: unknown }).winglog = {
+        navdataHasTaxiNetwork: hasTaxiNetwork,
+        navdataRefreshTaxiNetwork: refreshTaxiNetwork,
+        navdataGetTaxiNetwork: getTaxiNetwork,
+        onBeyondAtcTranscript: vi.fn(() => () => {})
+      }
       const user = userEvent.setup()
       await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB' })
 
@@ -849,7 +864,12 @@ describe('FlightMap', () => {
       const hasTaxiNetwork = vi.fn().mockResolvedValue(false)
       const refreshTaxiNetwork = vi.fn().mockRejectedValue(new Error('sim not running'))
       const getTaxiNetwork = vi.fn().mockResolvedValue([])
-      ;(window as unknown as { winglog: unknown }).winglog = { navdataHasTaxiNetwork: hasTaxiNetwork, navdataRefreshTaxiNetwork: refreshTaxiNetwork, navdataGetTaxiNetwork: getTaxiNetwork }
+      ;(window as unknown as { winglog: unknown }).winglog = {
+        navdataHasTaxiNetwork: hasTaxiNetwork,
+        navdataRefreshTaxiNetwork: refreshTaxiNetwork,
+        navdataGetTaxiNetwork: getTaxiNetwork,
+        onBeyondAtcTranscript: vi.fn(() => () => {})
+      }
       const user = userEvent.setup()
       await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB' })
 
@@ -858,6 +878,99 @@ describe('FlightMap', () => {
       await waitFor(() => expect(refreshTaxiNetwork).toHaveBeenCalledWith('EGKB'))
       await waitFor(() => expect(screen.queryByText(/EGKB/)).not.toBeInTheDocument())
       expect(toggleButton()).toHaveAttribute('aria-pressed', 'true')
+    })
+  })
+
+  describe('ATC-driven taxi route highlight (flightdeck-backend docs/plans/beyondatc-taxi-route-highlight.md)', () => {
+    const NAMED_SEGMENTS = [
+      { startLat: 51.338, startLon: 0.038, endLat: 51.324, endLon: 0.027, name: 'D' },
+      { startLat: 51.34, startLon: 0.04, endLat: 51.335, endLon: 0.036, name: 'B' },
+      { startLat: 51.336, startLon: 0.035, endLat: 51.33, endLon: 0.03, name: 'LINK' }
+    ]
+
+    type TranscriptEntry = { speaker: 'player' | 'atc' | 'traffic' | 'atcTraffic'; text: string; ts: number }
+
+    function withTranscriptListener(): { push: (transcript: TranscriptEntry[]) => void } {
+      let listener: ((transcript: TranscriptEntry[]) => void) | undefined
+      ;(window as unknown as { winglog: unknown }).winglog = {
+        navdataHasTaxiNetwork: vi.fn().mockResolvedValue(true),
+        navdataRefreshTaxiNetwork: vi.fn().mockResolvedValue(undefined),
+        navdataGetTaxiNetwork: vi.fn().mockResolvedValue(NAMED_SEGMENTS),
+        onBeyondAtcTranscript: vi.fn((l: (transcript: TranscriptEntry[]) => void) => {
+          listener = l
+          return () => {}
+        })
+      }
+      return { push: (transcript) => listener?.(transcript) }
+    }
+
+    const HIGHLIGHT_LAYER_ID = 'taxi-chart-route-highlight'
+    const toggleButton = (): HTMLElement => screen.getByRole('button', { name: /taxi chart/i })
+
+    it('highlights the real taxiway names from a live taxi clearance once the chart is on', async () => {
+      const { push } = withTranscriptListener()
+      const user = userEvent.setup()
+      const { map } = await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB' })
+      await user.click(toggleButton())
+      await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
+
+      push([{ speaker: 'atc', text: 'Test 230, taxi to holding point A1, runway 27R, via D, B, LINK.', ts: 1000 }])
+
+      await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
+      expect(map.layers[HIGHLIGHT_LAYER_ID]?.filter).toEqual(['in', ['get', 'name'], ['literal', ['D', 'B', 'LINK']]])
+    })
+
+    it('does not subscribe to the transcript while the chart is off', async () => {
+      const { push } = withTranscriptListener()
+      await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB' })
+
+      // Nothing to assert on `push` itself (no listener registered yet) — the real assertion
+      // is that mounting with the chart off never threw calling into onBeyondAtcTranscript,
+      // matching every other test in this file that never stubs it at all.
+      expect(() => push([{ speaker: 'atc', text: 'Test 230, taxi to holding point A1, runway 27R, via D, B, LINK.', ts: 1000 }])).not.toThrow()
+    })
+
+    it('ignores a non-taxi ATC line', async () => {
+      const { push } = withTranscriptListener()
+      const user = userEvent.setup()
+      const { map } = await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB' })
+      await user.click(toggleButton())
+      await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
+      map.setLayoutProperty.mockClear()
+
+      push([{ speaker: 'atc', text: 'Test 230, contact Test Radar 134.7.', ts: 1000 }])
+
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(map.setLayoutProperty).not.toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
+    })
+
+    it('ignores a traffic (another aircraft) taxi clearance', async () => {
+      const { push } = withTranscriptListener()
+      const user = userEvent.setup()
+      const { map } = await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB' })
+      await user.click(toggleButton())
+      await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
+      map.setLayoutProperty.mockClear()
+
+      push([{ speaker: 'atcTraffic', text: 'Other 42, taxi to holding point A1, runway 27R, via D, B, LINK.', ts: 1000 }])
+
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(map.setLayoutProperty).not.toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
+    })
+
+    it('hides the highlight layer when the chart is switched back off', async () => {
+      const { push } = withTranscriptListener()
+      const user = userEvent.setup()
+      const { map } = await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB' })
+      await user.click(toggleButton())
+      await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
+      push([{ speaker: 'atc', text: 'Test 230, taxi to holding point A1, runway 27R, via D, B, LINK.', ts: 1000 }])
+      await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
+      map.setLayoutProperty.mockClear()
+
+      await user.click(toggleButton())
+
+      expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'none')
     })
   })
 
