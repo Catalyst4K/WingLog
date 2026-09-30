@@ -212,6 +212,11 @@
     },
     "gsxImportantPrompt": {
       "title": "GSX 需要你的輸入"
+    },
+    "atcClearancePrompt": {
+      "title": "要依 ATC 許可更新程序嗎？",
+      "update": "更新",
+      "dismiss": "忽略"
     }
   },
   "fleetView": {
@@ -715,6 +720,7 @@
     "loading": "載入中…",
     "notConfigured": "BeyondATC 整合已關閉。請在設定 → 第三方中啟用。",
     "connecting": "正在連線至 BeyondATC…",
+    "connected": "已連線至 BeyondATC。",
     "disconnected": "未連線至 BeyondATC。",
     "stationFrequency": "{{station}}（{{frequency}}）",
     "progress": "{{from}} → {{to}} · {{pct}}%",

@@ -233,6 +233,11 @@
     "gsxFirstLaunch": {
       "found": "Отслеживание наземного обслуживания GSX включено — папка с чеками найдена автоматически.",
       "notFound": "Отслеживание наземного обслуживания GSX выключено — включите его в настройках, если вы используете GSX."
+    },
+    "atcClearancePrompt": {
+      "title": "Обновить процедуру по разрешению диспетчера?",
+      "update": "Обновить",
+      "dismiss": "Отклонить"
     }
   },
   "fleetView": {
@@ -748,6 +753,7 @@
     "loading": "Загрузка…",
     "notConfigured": "Интеграция с BeyondATC отключена. Включите её в разделе Настройки → Сторонние сервисы.",
     "connecting": "Подключение к BeyondATC…",
+    "connected": "Подключено к BeyondATC.",
     "disconnected": "Нет подключения к BeyondATC.",
     "stationFrequency": "{{station}} ({{frequency}})",
     "progress": "{{from}} → {{to}} · {{pct}}%",

@@ -219,6 +219,11 @@
     "gsxFirstLaunch": {
       "found": "Suivi des services au sol GSX activé — dossier des reçus trouvé automatiquement.",
       "notFound": "Le suivi des services au sol GSX est désactivé — activez-le dans les Paramètres si vous utilisez GSX."
+    },
+    "atcClearancePrompt": {
+      "title": "Mettre à jour la procédure selon la clairance ATC ?",
+      "update": "Mettre à jour",
+      "dismiss": "Ignorer"
     }
   },
   "fleetView": {
@@ -725,6 +730,7 @@
     "loading": "Chargement…",
     "notConfigured": "L'intégration BeyondATC est désactivée. Activez-la dans Paramètres → Tiers.",
     "connecting": "Connexion à BeyondATC…",
+    "connected": "Connecté à BeyondATC.",
     "disconnected": "Non connecté à BeyondATC.",
     "stationFrequency": "{{station}} ({{frequency}})",
     "progress": "{{from}} → {{to}} · {{pct}}%",

@@ -211,11 +211,15 @@ export function BeyondAtcPanel(): React.JSX.Element {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
-      {status.state !== 'connected' && (
-        <p className="text-xs text-muted-foreground">
-          {status.state === 'connecting' ? t('beyondAtcPanel.connecting') : t('beyondAtcPanel.disconnected')}
-        </p>
-      )}
+      {/* Always shown, including while connected, so an idle session still confirms the
+       *  link is live (real gap found live, 2026-09-28). */}
+      <p className="text-xs text-muted-foreground">
+        {status.state === 'connected'
+          ? t('beyondAtcPanel.connected')
+          : status.state === 'connecting'
+            ? t('beyondAtcPanel.connecting')
+            : t('beyondAtcPanel.disconnected')}
+      </p>
       <InfoCard state={state} readout={clearanceReadout} />
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-[minmax(18rem,28rem)_minmax(18rem,1fr)]">
         <div className="flex min-h-0 flex-col gap-4 self-start">

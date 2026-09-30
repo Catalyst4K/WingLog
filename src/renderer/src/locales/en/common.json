@@ -217,6 +217,11 @@
     "gsxFirstLaunch": {
       "found": "GSX ground-service tracking enabled — receipts folder found automatically.",
       "notFound": "GSX ground-service tracking is off — enable it in Settings if you use GSX."
+    },
+    "atcClearancePrompt": {
+      "title": "Update procedure from ATC clearance?",
+      "update": "Update",
+      "dismiss": "Dismiss"
     }
   },
   "fleetView": {
@@ -723,6 +728,7 @@
     "loading": "Loading…",
     "notConfigured": "BeyondATC integration is off. Turn it on under Settings → 3rd party.",
     "connecting": "Connecting to BeyondATC…",
+    "connected": "Connected to BeyondATC.",
     "disconnected": "Not connected to BeyondATC.",
     "stationFrequency": "{{station}} ({{frequency}})",
     "progress": "{{from}} → {{to}} · {{pct}}%",

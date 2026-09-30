@@ -219,6 +219,11 @@
     "gsxFirstLaunch": {
       "found": "Tracciamento dei servizi di terra GSX attivato — cartella ricevute trovata automaticamente.",
       "notFound": "Il tracciamento dei servizi di terra GSX è disattivato — attivalo in Impostazioni se usi GSX."
+    },
+    "atcClearancePrompt": {
+      "title": "Aggiornare la procedura in base all'autorizzazione ATC?",
+      "update": "Aggiorna",
+      "dismiss": "Ignora"
     }
   },
   "fleetView": {
@@ -725,6 +730,7 @@
     "loading": "Caricamento…",
     "notConfigured": "L'integrazione BeyondATC è disattivata. Attivala in Impostazioni → Terze parti.",
     "connecting": "Connessione a BeyondATC…",
+    "connected": "Connesso a BeyondATC.",
     "disconnected": "Non connesso a BeyondATC.",
     "stationFrequency": "{{station}} ({{frequency}})",
     "progress": "{{from}} → {{to}} · {{pct}}%",

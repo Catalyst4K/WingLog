@@ -10,7 +10,9 @@ import type { NavdataTaxiSegment } from '@shared/ipc'
  * large airport's fetch can genuinely take minutes (not seconds) the first time.
  */
 
-const TAXI_SOURCE_ID = 'taxi-chart'
+// Exported so useTaxiRouteHighlight.ts can add its own filtered layer on the same source
+// rather than fetching/holding a second copy of the same segment data.
+export const TAXI_SOURCE_ID = 'taxi-chart'
 const TAXI_LAYER_ID = 'taxi-chart-line'
 const TAXI_CHART_MINZOOM = 12
 
