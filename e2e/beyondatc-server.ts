@@ -75,3 +75,34 @@ export const RADIO_CHECK_RESPONSE = [
   'ATC: Cathay 116 Heavy, readability 5.',
   'CommsState: {"mode": "ready", "text": ""}'
 ]
+
+/**
+ * A real, full-size initial-connect snapshot — confirmed live, 2026-09-28, against Callum's
+ * actual BeyondATC session (flightdeck-backend's docs/beyondatc-notes.md). Deliberately kept
+ * this big and this shaped (two full DATIS reports plus a large Settings blob, ~18 lines,
+ * pushed as one combined message): a real, previously-invisible bug — Node's built-in global
+ * WebSocket silently drops every line after the first when a message this size arrives as one
+ * multi-line burst, something `RADIO_CHECK_SNAPSHOT` above (three short lines) never
+ * exercises. `BeyondAtcService` now uses the `ws` npm package instead, which reassembles it
+ * correctly. This fixture exists specifically so a regression here fails a real test, not just
+ * a live session.
+ */
+export const LARGE_REAL_SNAPSHOT = [
+  'Facility: Singapore Delivery|121.650',
+  'CPDLCCode: ',
+  'AutoTune: true',
+  'AutoRespond: true',
+  'Actions: [Request IFR Clearance¬Request Departure Runway Change¬Radio Check¬]',
+  'DATIS: WSSS|B|WSSS ATIS B 2115Z 35002KT 3000 HZ FEW018 BKN270 27/26 Q1012 ARR RWY 20 RIGHT DEP RWY 20 CENTER TRANSITION-LEVEL FL130 ACKNOWLEDGE RECEIPT OF INFORMATION B AND ADVISE AIRCRAFT TYPE ON FIRST CONTACT ',
+  'DATIS: ZSPD|J|ZSPD ATIS J 2116Z 09005MPS 030V100 9999 OVC040 24/21 Q1012 ARR RWY 16 RIGHT 17 RIGHT DEP RWY 16 RIGHT 17 LEFT TRANSITION-LEVEL 3600M BIRD ACTIVITY REPORTED ACKNOWLEDGE RECEIPT OF INFORMATION J AND ADVISE AIRCRAFT TYPE ON FIRST CONTACT ',
+  'DATIS_END:',
+  'QueuedAction: ',
+  'InfoBoxes: [{"title":"ATIS Current","info":"B"}]',
+  'Com2: {"label":"Radio Off","frequency":"","monitor":false}',
+  'RadioMute: {"com1":true,"com2":true}',
+  'Progress: {"from":"WSSS","to":"ZSPD","pct":0.0}',
+  'LoadState: {"stage":"ready","text":"","pct":-1,"vfr":false,"loggedIn":true}',
+  'Callsign: {"full":"Singapore 830 Super","shortForm":""}',
+  'ToolbarVersion: 3.1',
+  'Settings: {"voiceVolume":82,"uiSounds":true,"controllerVoice":"Local","trafficVoice":"Local","trafficOn":true,"parkedDensity":8,"departuresDensity":7,"arrivalsDensity":7,"enrouteDensity":5,"navigraphLiveTraffic":true,"navigraphLinked":true,"navigraphUltimate":true,"taxiArrowsShown":false,"simIs2024":true,"dynamicVoiceOn":false,"dynamicVoiceGender":0,"autoRespondVoice":2,"autoRespondVoiceOptions":["US Male","US Female","UK Male","UK Female","AU Male","Jeff Favignano (Premium Only)","CivRyan (Premium Only)","Squirrel (Premium Only)","EasyJetSimPilot (Premium Only)","British Avgeek (Premium Only)","Overkill (Premium Only)","FlyBy Simulations (Premium Only)","V1-Simulations (Premium Only)","FSFO English1 (Premium Only)","FS2Crew US Stephanie (Premium Only)"],"voiceQualityOptions":[{"value":"Off","label":"Off (No Cost)"},{"value":"Local","label":"Local (No Cost)"},{"value":"Premium","label":"Premium (Higher Cost)"}],"voiceGenderOptions":[{"value":"0","label":"Any"},{"value":"1","label":"Female"},{"value":"2","label":"Male"}],"premiumUnits":1908,"premiumUnitsMax":50000}'
+]

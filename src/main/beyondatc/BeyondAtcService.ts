@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { WebSocket as NodeWebSocket } from 'node:http'
+import { WebSocket as NodeWebSocket } from 'ws'
 import type {
   BeyondAtcCallsign,
   BeyondAtcCom2,
@@ -19,8 +19,15 @@ import type {
  *  in BeyondATC's own IPv6 handling) — never connect to it. */
 export const BEYONDATC_PORT = 41716
 
-/** Matches the global/`node:http` WebSocket constructor — injected so tests don't need a
- *  real BeyondATC install (mirrors GsxRemoteService's own WebSocketCtor injection). */
+/** The `ws` npm package's WebSocket, not the global/`node:http` one — confirmed live,
+ *  2026-09-28: Node's built-in WebSocket silently drops every line after the first when
+ *  BeyondATC's own initial snapshot arrives as one large multi-line burst (~18 lines,
+ *  including two full DATIS reports and a large Settings blob — big enough to fragment
+ *  across multiple frames/packets, unlike this file's own small test fixtures, which never
+ *  exercised a real-sized message). `ws` reassembles it correctly; the global implementation
+ *  doesn't. Injected so tests don't need a real BeyondATC install (mirrors GsxRemoteService's
+ *  own WebSocketCtor injection, which has the identical import for the same latent reason —
+ *  not independently reproduced live, but fixed preventively). */
 export type WebSocketCtor = typeof NodeWebSocket
 
 // Reconnect behaviour is undesigned on BeyondATC's own side (flightdeck-backend's
