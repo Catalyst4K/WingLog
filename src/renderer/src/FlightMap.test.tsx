@@ -890,12 +890,12 @@ describe('FlightMap', () => {
 
     type TranscriptEntry = { speaker: 'player' | 'atc' | 'traffic' | 'atcTraffic'; text: string; ts: number }
 
-    function withTranscriptListener(): { push: (transcript: TranscriptEntry[]) => void } {
+    function withTranscriptListener(segments: unknown[] = NAMED_SEGMENTS): { push: (transcript: TranscriptEntry[]) => void } {
       let listener: ((transcript: TranscriptEntry[]) => void) | undefined
       ;(window as unknown as { winglog: unknown }).winglog = {
         navdataHasTaxiNetwork: vi.fn().mockResolvedValue(true),
         navdataRefreshTaxiNetwork: vi.fn().mockResolvedValue(undefined),
-        navdataGetTaxiNetwork: vi.fn().mockResolvedValue(NAMED_SEGMENTS),
+        navdataGetTaxiNetwork: vi.fn().mockResolvedValue(segments),
         onBeyondAtcTranscript: vi.fn((l: (transcript: TranscriptEntry[]) => void) => {
           listener = l
           return () => {}
@@ -917,7 +917,95 @@ describe('FlightMap', () => {
       push([{ speaker: 'atc', text: 'Test 230, taxi to holding point A1, runway 27R, via D, B, LINK.', ts: 1000 }])
 
       await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
-      expect(map.layers[HIGHLIGHT_LAYER_ID]?.filter).toEqual(['in', ['get', 'name'], ['literal', ['D', 'B', 'LINK']]])
+      expect(map.layers[HIGHLIGHT_LAYER_ID]?.filter).toEqual([
+        'all',
+        ['in', ['get', 'name'], ['literal', ['D', 'B', 'LINK']]],
+        ['==', ['get', 'icao'], 'EGKB']
+      ])
+    })
+
+    it("limits a clearance to its own airport — the departure's taxiway letters never light up at the arrival (real report, 2026-09-30)", async () => {
+      const { push } = withTranscriptListener()
+      const user = userEvent.setup()
+      const { map } = await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'VHHH', arrIcao: 'KPHX' })
+      await user.click(toggleButton())
+      await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
+
+      push([{ speaker: 'atc', text: 'Hongkong Shuttle 250, taxi to holding point B10, runway 25C, via B8, B.', ts: 1000 }])
+      await waitFor(() =>
+        expect(map.layers[HIGHLIGHT_LAYER_ID]?.filter).toEqual([
+          'all',
+          ['in', ['get', 'name'], ['literal', ['B8', 'B']]],
+          ['==', ['get', 'icao'], 'VHHH']
+        ])
+      )
+
+      push([{ speaker: 'atc', text: 'Hongkong Shuttle 250, taxi to Stand 12 via B, C4.', ts: 2000 }])
+      await waitFor(() =>
+        expect(map.layers[HIGHLIGHT_LAYER_ID]?.filter).toEqual([
+          'all',
+          ['in', ['get', 'name'], ['literal', ['B', 'C4']]],
+          ['==', ['get', 'icao'], 'KPHX']
+        ])
+      )
+    })
+
+    it('draws the traced route to the holding point instead of whole taxiways, when it can be traced', async () => {
+      // A small real-shaped network: stand -> D -> along B -> hold-short on A1. B carries on
+      // past the A1 turn, so a whole-name highlight would light up far more than the route.
+      const P = {
+        stand: [51.33, 0.03],
+        d: [51.331, 0.031],
+        b: [51.332, 0.032],
+        a1: [51.333, 0.033],
+        bFar: [51.34, 0.05],
+        hold: [51.3335, 0.0335]
+      } as const
+      const seg = (a: readonly [number, number], b: readonly [number, number], name: string | null, endHoldShort = false): unknown => ({
+        startLat: a[0],
+        startLon: a[1],
+        endLat: b[0],
+        endLon: b[1],
+        name,
+        startHoldShort: false,
+        endHoldShort
+      })
+      const { push } = withTranscriptListener([
+        seg(P.stand, P.d, 'D'),
+        seg(P.d, P.b, 'D'),
+        seg(P.b, P.a1, 'B'),
+        seg(P.a1, P.bFar, 'B'),
+        seg(P.a1, P.hold, 'A1', true)
+      ])
+      const user = userEvent.setup()
+      const { map } = await renderReady({
+        route: [],
+        trackPoints: [],
+        live: true,
+        depIcao: 'EGKB',
+        telemetry: { latitude: 51.33, longitude: 0.03 } as SimTelemetry
+      })
+      await user.click(toggleButton())
+      await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
+
+      push([{ speaker: 'atc', text: 'Test 230, taxi to holding point A1, runway 27R, via D, B.', ts: 1000 }])
+
+      await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible'))
+      expect(map.sources['taxi-route-trace']?.setData).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [0.03, 51.33],
+              [0.031, 51.331],
+              [0.032, 51.332],
+              [0.033, 51.333],
+              [0.0335, 51.3335]
+            ]
+          }
+        })
+      )
+      expect(map.setLayoutProperty).toHaveBeenLastCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'none')
     })
 
     it('does not subscribe to the transcript while the chart is off', async () => {

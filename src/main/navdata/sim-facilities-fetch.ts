@@ -298,6 +298,8 @@ export interface FetchedTaxiSegment {
   endLat: number
   endLon: number
   name: string | null
+  startHoldShort: boolean
+  endHoldShort: boolean
 }
 
 export interface FetchedTaxiNetwork {
@@ -358,7 +360,7 @@ export function fetchTaxiNetwork(handle: SimConnectConnection, icao: string): Pr
   return new Promise((resolve, reject) => {
     let referenceLatitude: number | null = null
     let referenceLongitude: number | null = null
-    const points = new Map<number, { biasX: number; biasZ: number }>()
+    const points = new Map<number, { holdShort: boolean; biasX: number; biasZ: number }>()
     const rawPaths: { start: number; end: number; nameIndex: number | null }[] = []
     const names = new Map<number, string>()
     const pending = new Set<NavdataDefId>([
@@ -394,7 +396,15 @@ export function fetchTaxiNetwork(handle: SimConnectConnection, icao: string): Pr
         const start = biasToLatLon(refLat, refLon, startPoint.biasX, startPoint.biasZ)
         const end = biasToLatLon(refLat, refLon, endPoint.biasX, endPoint.biasZ)
         const name = path.nameIndex === null ? null : (names.get(path.nameIndex) ?? null)
-        segments.push({ startLat: start.latitude, startLon: start.longitude, endLat: end.latitude, endLon: end.longitude, name })
+        segments.push({
+          startLat: start.latitude,
+          startLon: start.longitude,
+          endLat: end.latitude,
+          endLon: end.longitude,
+          name,
+          startHoldShort: startPoint.holdShort,
+          endHoldShort: endPoint.holdShort
+        })
       }
       resolve({ icao, segments })
     }

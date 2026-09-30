@@ -447,6 +447,10 @@ export const navdataTaxiSegment = sqliteTable('navdata_taxi_segment', {
   endLat: real('end_lat').notNull(),
   endLon: real('end_lon').notNull(),
   name: text('name'),
+  // Null = cached before hold-short points were fetched (2026-09-30); hasCachedTaxiNetwork
+  // treats such a cache as stale so it's re-fetched once, rather than silently lacking them.
+  startHoldShort: integer('start_hold_short', { mode: 'boolean' }),
+  endHoldShort: integer('end_hold_short', { mode: 'boolean' }),
   source: text('source', { enum: ['sim-facility'] }).notNull(),
   fetchedAt: text('fetched_at').notNull()
 })

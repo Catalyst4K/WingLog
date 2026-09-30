@@ -401,20 +401,28 @@ export function biasToLatLon(
   return { latitude, longitude }
 }
 
+/** TAXI_POINT `TYPE` values that mark a hold-short line, per the SDK reference's own enum
+ *  (2 HOLD_SHORT, 4 ILS_HOLD_SHORT, 5 HOLD_SHORT_NO_DRAW, 6 ILS_HOLD_SHORT_NO_DRAW). Only 5
+ *  has been seen live so far (VHHH, 63 of 4,434 points, 2026-09-30). */
+const HOLD_SHORT_TYPES = new Set([2, 4, 5, 6])
+
 export interface ParsedTaxiPoint {
+  holdShort: boolean
   biasX: number
   biasZ: number
 }
 
 export function addTaxiPointFields(addField: (name: string) => void): void {
+  addField('TYPE')
   addField('BIAS_X')
   addField('BIAS_Z')
 }
 
 export function parseTaxiPoint(d: RawBuffer): ParsedTaxiPoint {
+  const type = d.readInt32()
   const biasX = d.readFloat32()
   const biasZ = d.readFloat32()
-  return { biasX, biasZ }
+  return { holdShort: HOLD_SHORT_TYPES.has(type), biasX, biasZ }
 }
 
 export interface ParsedTaxiPath {

@@ -21,12 +21,14 @@ type GeoData = GeoJSONSourceSpecification['data']
 
 const emptyLines = { type: 'FeatureCollection' as const, features: [] }
 
-function segmentsToFeatureCollection(segments: NavdataTaxiSegment[]): GeoData {
+function segmentsToFeatureCollection(segmentsByIcao: [string, NavdataTaxiSegment[]][]): GeoData {
   return {
     type: 'FeatureCollection',
-    features: segments.map((s) => ({
-      type: 'Feature',
-      properties: { name: s.name },
+    // `icao` lets useTaxiRouteHighlight limit a clearance to its own airport — the same
+    // taxiway letters exist at both ends of a flight (real report, 2026-09-30).
+    features: segmentsByIcao.flatMap(([icao, segments]) => segments.map((s) => ({
+      type: 'Feature' as const,
+      properties: { name: s.name, icao },
       geometry: {
         type: 'LineString',
         coordinates: [
@@ -34,7 +36,7 @@ function segmentsToFeatureCollection(segments: NavdataTaxiSegment[]): GeoData {
           [s.endLon, s.endLat]
         ]
       }
-    }))
+    })))
   }
 }
 
@@ -76,6 +78,8 @@ export interface TaxiChartOverlay {
    *  EGLL..." message from (translated at the call site, not baked in here) — null once
    *  every known airport is loaded (or none are known), whether the overlay is on or off. */
   loadingIcao: string | null
+  /** Each loaded airport's segments — what useTaxiRouteHighlight traces through. */
+  segmentsByIcao: Record<string, NavdataTaxiSegment[]>
 }
 
 async function loadAirport(icao: string, onLoaded: (icao: string, segments: NavdataTaxiSegment[]) => void): Promise<void> {
@@ -147,13 +151,24 @@ export function useTaxiChartOverlay({ mapRef, mapReady, depIcao, arrIcao }: UseT
   useEffect(() => {
     const map = mapRef.current
     if (!mapReady || !map || !enabled) return
-    const segments = icaos.flatMap((icao) => segmentCache.get(icao) ?? [])
-    map.getSource<GeoJSONSource>(TAXI_SOURCE_ID)?.setData(segmentsToFeatureCollection(segments))
+    const loaded = icaos.flatMap((icao): [string, NavdataTaxiSegment[]][] => {
+      const segments = segmentCache.get(icao)
+      return segments ? [[icao, segments]] : []
+    })
+    map.getSource<GeoJSONSource>(TAXI_SOURCE_ID)?.setData(segmentsToFeatureCollection(loaded))
   }, [mapRef, mapReady, enabled, loadedVersion, icaos])
+
+  // loadedVersion is the signal that segmentCache gained an airport.
+  const segmentsByIcao = useMemo(
+    () => Object.fromEntries(icaos.flatMap((icao) => (segmentCache.has(icao) ? [[icao, segmentCache.get(icao)!]] : []))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [icaos, loadedVersion]
+  )
 
   return {
     enabled,
     toggle: () => setEnabled((v) => !v),
-    loadingIcao
+    loadingIcao,
+    segmentsByIcao
   }
 }

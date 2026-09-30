@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
 import type { NavdataLeg, NavdataProcedureOption, NavdataRunway, NavdataTaxiSegment, ProcedureKind } from '../navdata/navdata-provider'
 import { runwayEndsFromCentre } from '../navdata/runway-geometry'
 import { visualApproachRunway } from '@shared/visual-approach'
@@ -329,6 +329,8 @@ export function replaceAirportTaxiSegments(db: WingLogDb, icao: string, fetched:
           endLat: segment.endLat,
           endLon: segment.endLon,
           name: segment.name,
+          startHoldShort: segment.startHoldShort,
+          endHoldShort: segment.endHoldShort,
           source: 'sim-facility',
           fetchedAt
         })
@@ -338,7 +340,13 @@ export function replaceAirportTaxiSegments(db: WingLogDb, icao: string, fetched:
 }
 
 export function hasCachedTaxiNetwork(db: WingLogDb, icao: string): boolean {
-  const row = db.select({ id: navdataTaxiSegment.id }).from(navdataTaxiSegment).where(eq(navdataTaxiSegment.icao, icao)).get()
+  // A cache written before hold-short points existed (null flags) counts as missing, so the
+  // caller's usual "not cached → fetch" path refreshes it once.
+  const row = db
+    .select({ id: navdataTaxiSegment.id })
+    .from(navdataTaxiSegment)
+    .where(and(eq(navdataTaxiSegment.icao, icao), isNotNull(navdataTaxiSegment.startHoldShort)))
+    .get()
   return row !== undefined
 }
 
@@ -353,6 +361,8 @@ export function listCachedTaxiSegments(db: WingLogDb, icao: string): NavdataTaxi
       startLon: row.startLon,
       endLat: row.endLat,
       endLon: row.endLon,
-      name: row.name
+      name: row.name,
+      startHoldShort: row.startHoldShort ?? false,
+      endHoldShort: row.endHoldShort ?? false
     }))
 }
