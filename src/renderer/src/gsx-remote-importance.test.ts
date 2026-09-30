@@ -5,6 +5,8 @@ import { gsxMenuSignature, isImportantGsxMenu } from './gsx-remote-importance'
 function menu(overrides: Partial<GsxRemoteMenuState> = {}): GsxRemoteMenuState {
   return {
     menuShown: true,
+    searchActive: false,
+    searchSession: 0,
     title: '',
     header: '',
     subtitle: '',

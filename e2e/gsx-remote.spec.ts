@@ -1,6 +1,12 @@
 import { test, expect } from '@playwright/test'
 import { launchApp } from './launch-app'
-import { FakeGsxRemoteServer, PUSHBACK_DIRECTION_MENU, VHHH_BOOT_SNAPSHOT } from './gsx-remote-server'
+import {
+  FakeGsxRemoteServer,
+  GATE_SEARCH_FILTERED_73,
+  GATE_SEARCH_MENU,
+  PUSHBACK_DIRECTION_MENU,
+  VHHH_BOOT_SNAPSHOT
+} from './gsx-remote-server'
 
 /**
  * Drives `GsxRemoteService`'s real WebSocket client through a real launched app, per
@@ -119,6 +125,51 @@ test.describe('GSX Remote Control', () => {
       server.sendPatch('menuShown', false)
       server.sendPatch('menu', { title: '', header: '', subtitle: '', entries: [], icons: [], disabled: [], layout: '' })
       await expect(page.getByRole('dialog')).not.toBeVisible()
+    } finally {
+      await cleanup()
+      await server.stop()
+    }
+  })
+
+  test("GSX's gate search filters live as you type and picks by the real index", async () => {
+    const server = await FakeGsxRemoteServer.start()
+    const { window: page, cleanup } = await launchApp()
+    try {
+      await page.getByRole('tab', { name: 'Settings' }).click()
+      await page.getByRole('tab', { name: '3rd party' }).click()
+      const gsxRemoteCard = page.locator('[data-slot="card"]').filter({ hasText: 'GSX Remote Control' })
+      await gsxRemoteCard.getByLabel('Host').fill('127.0.0.1')
+      const portInput = gsxRemoteCard.getByLabel('Port')
+      await portInput.fill(String(server.port))
+      await portInput.blur()
+      await gsxRemoteCard.getByRole('button', { name: 'Off', exact: true }).click()
+      await server.waitForConnection()
+      server.sendSnapshot(VHHH_BOOT_SNAPSHOT)
+
+      await page.getByRole('tab', { name: 'Ground services' }).click()
+      // What GSX sends once "Search parking..." is picked (real round-11 sequence).
+      server.sendPatch('menuShown', true)
+      server.sendPatch('menu', GATE_SEARCH_MENU)
+      server.sendPatch('search', { active: true, session: 1 })
+
+      const box = page.getByRole('searchbox', { name: 'Search parking...' })
+      await expect(box).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Parking 347 - Ramp Cargo' })).toBeVisible()
+
+      await box.pressSequentially('73')
+      await expect
+        .poll(() => server.receivedCommands.filter((c) => c.verb === 'menu.search').map((c) => c.args?.text))
+        .toEqual(['7', '73'])
+
+      server.sendPatch('menu', GATE_SEARCH_FILTERED_73)
+      const gate73 = page.getByRole('button', { name: 'Gate 73 with Safedock© - Heavy - 1x /J (too small)' })
+      await expect(gate73).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Parking 347 - Ramp Cargo' })).not.toBeVisible()
+      await gate73.click()
+      await expect.poll(() => server.receivedCommands.at(-1)).toEqual({ verb: 'menu.pick', args: { index: 0 } })
+
+      server.sendPatch('search', { active: false, session: 1 })
+      await expect(box).not.toBeVisible()
     } finally {
       await cleanup()
       await server.stop()

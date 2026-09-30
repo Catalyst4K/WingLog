@@ -34,6 +34,8 @@ export type WebSocketCtor = typeof NodeWebSocket
 
 export const EMPTY_MENU: GsxRemoteMenuState = {
   menuShown: false,
+  searchActive: false,
+  searchSession: 0,
   title: '',
   header: '',
   subtitle: '',
@@ -49,6 +51,8 @@ export const EMPTY_MENU: GsxRemoteMenuState = {
 const RECONNECT_MIN_MS = 250
 const RECONNECT_MAX_MS = 600
 const RECONNECT_BACKOFF_FACTOR = 1.6
+
+const MAX_SEARCH_LENGTH = 64
 
 export const EMPTY_COMMAND_BAR: GsxRemoteCommandBar = { commands: [], simbrief: null, simbriefIconUri: null }
 
@@ -81,8 +85,8 @@ function isServiceArray(value: unknown): value is GsxRemoteServiceStatus[] {
 }
 
 /** The raw wire `/menu` object — everything but `menuShown`, which is GSX's own *separate*
- *  top-level key (`/menuShown`), not part of the menu object itself. */
-function isRawMenu(value: unknown): value is Omit<GsxRemoteMenuState, 'menuShown'> {
+ *  top-level key (`/menuShown`), not part of the menu object itself (same for `/search`). */
+function isRawMenu(value: unknown): value is Omit<GsxRemoteMenuState, 'menuShown' | 'searchActive' | 'searchSession'> {
   return typeof value === 'object' && value !== null && 'entries' in value
 }
 
@@ -153,7 +157,13 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
     // `menuShown` is a genuinely separate top-level key from `menu` itself (docs/gsx-
     // notes.md, 2026-09-21) — GSX's own client gates on both together, so this combines
     // them into one value for callers rather than making them track two.
-    return { ...base, menuShown: this.state.menuShown === true }
+    const search = this.state.search as { active?: unknown; session?: unknown } | undefined
+    return {
+      ...base,
+      menuShown: this.state.menuShown === true,
+      searchActive: typeof search === 'object' && search !== null && search.active === true,
+      searchSession: typeof search === 'object' && search !== null && typeof search.session === 'number' ? search.session : 0
+    }
   }
 
   getPrompt(): GsxRemotePromptState | null {
@@ -239,6 +249,15 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
    *  exposes (docs/gsx-notes.md). No-op if not connected. */
   pickMenu(index: number): void {
     this.sendCommand('menu.pick', { index })
+  }
+
+  /** The gate-search box's whole current text — GSX's own client sends `menu.search` with
+   *  `{text}` on every keystroke (`menu.js`'s `buildSearchBox()`, read directly 2026-09-28,
+   *  docs/gsx-notes.md round 11). Validated here since it crosses from the renderer: a
+   *  non-string is dropped, and the text is capped well above any real gate name. */
+  search(text: unknown): void {
+    if (typeof text !== 'string') return
+    this.sendCommand('menu.search', { text: text.slice(0, MAX_SEARCH_LENGTH) })
   }
 
   /** Opens the menu tree if closed, closes it if open — the exact same single toggle
@@ -336,7 +355,7 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
       if (key === 'services') this.emit('services', this.getServices())
       else if (key === 'airport' || key === 'parking' || key === 'gateProperties') {
         this.emit('gate', this.getGateInfo())
-      } else if (key === 'menu' || key === 'menuShown') this.emit('menu', this.getMenu())
+      } else if (key === 'menu' || key === 'menuShown' || key === 'search') this.emit('menu', this.getMenu())
       else if (key === 'prompt') this.emit('prompt', this.getPrompt())
       else if (key === 'commandIcons' || key === 'commandIconsSvg' || key === 'simbrief') {
         this.emit('commandBar', this.getCommandBar())

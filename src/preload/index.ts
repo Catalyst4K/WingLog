@@ -233,6 +233,7 @@ const api: WingLogApi = {
     return () => ipcRenderer.removeListener(IpcChannels.gsxRemoteCommandBar, handler)
   },
   gsxRemotePickMenu: (index: number) => ipcRenderer.invoke(IpcChannels.gsxRemotePickMenu, index),
+  gsxRemoteSearch: (text: string) => ipcRenderer.invoke(IpcChannels.gsxRemoteSearch, text),
   gsxRemoteToggleMenu: () => ipcRenderer.invoke(IpcChannels.gsxRemoteToggleMenu),
   gsxRemoteSubmitPrompt: (gen: number, text: string) => ipcRenderer.invoke(IpcChannels.gsxRemoteSubmitPrompt, gen, text),
   gsxRemoteCancelPrompt: (gen: number) => ipcRenderer.invoke(IpcChannels.gsxRemoteCancelPrompt, gen),

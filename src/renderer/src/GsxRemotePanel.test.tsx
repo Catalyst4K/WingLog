@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type {
   GsxRemoteConnectionStatus,
@@ -36,6 +36,7 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): void {
     gsxRemoteGetCommandBar: vi.fn().mockResolvedValue({ commands: [], simbrief: null, simbriefIconUri: null }),
     onGsxRemoteCommandBar: vi.fn().mockReturnValue(() => {}),
     gsxRemotePickMenu: vi.fn().mockResolvedValue(undefined),
+    gsxRemoteSearch: vi.fn().mockResolvedValue(undefined),
     gsxRemoteToggleMenu: vi.fn().mockResolvedValue(undefined),
     gsxRemoteSubmitPrompt: vi.fn().mockResolvedValue(undefined),
     gsxRemoteCancelPrompt: vi.fn().mockResolvedValue(undefined),
@@ -99,6 +100,8 @@ describe('GsxRemotePanel', () => {
 
     menuListener({
       menuShown: false,
+      searchActive: false,
+      searchSession: 0,
       title: 'Ground Services',
       header: '',
       subtitle: '',
@@ -132,6 +135,8 @@ describe('GsxRemotePanel', () => {
 
     menuListener({
       menuShown: true,
+      searchActive: false,
+      searchSession: 0,
       title: 'Ground Services',
       header: '',
       subtitle: '',
@@ -150,6 +155,53 @@ describe('GsxRemotePanel', () => {
     const user = userEvent.setup()
     await user.click(refuel)
     expect(gsxRemotePickMenu).toHaveBeenCalledWith(0)
+  })
+
+  it("shows GSX's gate-search box while searching, sending the whole text per keystroke", async () => {
+    let menuListener: (menu: GsxRemoteMenuState) => void = () => {}
+    const gsxRemotePickMenu = vi.fn().mockResolvedValue(undefined)
+    const gsxRemoteSearch = vi.fn().mockResolvedValue(undefined)
+    withWinglog({
+      gsxRemotePickMenu,
+      gsxRemoteSearch,
+      onGsxRemoteMenu: vi.fn((listener) => {
+        menuListener = listener
+        return () => {}
+      })
+    })
+    render(<GsxRemotePanel />)
+    await screen.findByText('Tap to open')
+
+    // Real round-11 capture shape (ZSPD): a fixed page padded with empty strings, Back last.
+    const searchMenu: GsxRemoteMenuState = {
+      menuShown: true,
+      searchActive: true,
+      searchSession: 1,
+      title: 'Type a gate, terminal or number',
+      header: '',
+      subtitle: '',
+      entries: ['Gate 73 with Safedock© - Heavy - 1x /J (too small)', '', '', 'Back'],
+      icons: ['', '', '', ''],
+      disabled: [false, false, false, false],
+      layout: ''
+    }
+    act(() => menuListener(searchMenu))
+
+    const box = await screen.findByRole('searchbox', { name: 'Search parking...' })
+    const user = userEvent.setup()
+    await user.type(box, '73')
+    expect(gsxRemoteSearch.mock.calls).toEqual([['7'], ['73']])
+
+    // Padding rows aren't rendered as buttons, and real rows keep their original index.
+    expect(screen.getAllByRole('button').filter((b) => b.textContent === '')).toHaveLength(0)
+    await user.click(screen.getByRole('button', { name: 'Back' }))
+    expect(gsxRemotePickMenu).toHaveBeenCalledWith(3)
+
+    // A new search session starts with an empty box; ending the search removes it.
+    act(() => menuListener({ ...searchMenu, searchSession: 2 }))
+    expect(screen.getByRole('searchbox', { name: 'Search parking...' })).toHaveValue('')
+    act(() => menuListener({ ...searchMenu, searchActive: false }))
+    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument()
   })
 
   it('shows service status once services arrive', async () => {
