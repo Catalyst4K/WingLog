@@ -6,6 +6,7 @@ import type {
   BeyondAtcCommsState,
   BeyondAtcConnectionStatus,
   BeyondAtcFacility,
+  BeyondAtcFrequencyOption,
   BeyondAtcProgress,
   BeyondAtcState,
   BeyondAtcTranscriptEntry
@@ -46,7 +47,10 @@ export const EMPTY_STATE: BeyondAtcState = {
   callsign: null,
   commsState: null,
   progress: null,
-  actions: []
+  actions: [],
+  autoTune: null,
+  autoRespond: null,
+  frequencies: []
 }
 
 interface BeyondAtcServiceEvents {
@@ -123,6 +127,42 @@ function parseActions(rest: string): string[] {
   return inner.split('¬').filter((label) => label !== '')
 }
 
+/** `AutoTune`/`AutoRespond: <bool>` — bare lowercase `true`/`false`, confirmed live
+ *  2026-09-29 (a real capture, not the notes doc's earlier unquoted `<bool>` placeholder).
+ *  Anything else (unexpected casing, a malformed push) resolves to `null` rather than a
+ *  guess, same defensive-parser discipline as parseFacility. */
+function parseBool(rest: string): boolean | null {
+  const trimmed = rest.trim()
+  if (trimmed === 'true') return true
+  if (trimmed === 'false') return false
+  return null
+}
+
+function isFrequencyOption(value: unknown): value is BeyondAtcFrequencyOption {
+  if (typeof value !== 'object' || value === null) return false
+  const v = value as Record<string, unknown>
+  return (
+    typeof v.airport === 'string' &&
+    typeof v.airportName === 'string' &&
+    typeof v.frequency === 'string' &&
+    typeof v.name === 'string' &&
+    typeof v.type === 'string' &&
+    typeof v.stationType === 'string' &&
+    typeof v.runways === 'string' &&
+    (v.cpdlcLogonCode === undefined || typeof v.cpdlcLogonCode === 'string')
+  )
+}
+
+/** `Frequencies: [...]` — confirmed live 2026-09-29, the real response to the `frequencies`
+ *  command (docs/beyondatc-notes.md), not the local-UI-only no-op it was previously
+ *  suspected to be. Unlike `Actions`, this genuinely is a JSON array. Any entry that doesn't
+ *  match the confirmed shape is dropped rather than surfacing a half-parsed option. */
+function parseFrequencies(rest: string): BeyondAtcFrequencyOption[] {
+  const value = parseJson(rest)
+  if (!Array.isArray(value)) return []
+  return value.filter(isFrequencyOption)
+}
+
 /**
  * Owns the live WebSocket connection to `BeyondATC.exe`'s own local server
  * (flightdeck-backend's docs/plans/beyondatc-integration.md; real protocol findings in
@@ -130,15 +170,17 @@ function parseActions(rest: string): string[] {
  * `Key: value`/`Key: <JSON>` line protocol — a genuinely different wire shape from GSX
  * Remote Control's JSON-envelope snapshot/patch messages, even though the rest of this
  * class (constructor, start/stop, reconnect, event emitter) mirrors GsxRemoteService
- * directly. Only Parts 1-2 of the plan's state/commands are surfaced (transcript, live
- * facility/com2/callsign/commsState/progress, Actions, set_action/set_frequency*) —
- * everything else in the wire catalogue (DATIS, CPDLC code, auto-tune/respond, settings,
- * …) is simply never reflected in getState(), not an oversight.
+ * directly. Surfaces Parts 1-2's original state/commands (transcript, live facility/com2/
+ * callsign/commsState/progress, Actions, set_action/set_frequency*) plus AutoTune/
+ * AutoRespond and the real Frequencies list (both confirmed live 2026-09-29, panel-redesign
+ * work) — everything else in the wire catalogue (DATIS, CPDLC code, settings, …) is simply
+ * never reflected in getState(), not an oversight.
  */
 export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
   private ws: InstanceType<WebSocketCtor> | undefined
   private stopped = true
   private reconnectTimer: NodeJS.Timeout | undefined
+  private lastFrequencyRequest = 0
   private backoffMs = RECONNECT_MIN_MS
   private status: BeyondAtcConnectionStatus = { state: 'disconnected', lastError: null }
 
@@ -179,6 +221,17 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
     this.sendCommand(`set_frequency_com2: ${frequency}`)
   }
 
+  /** Confirmed working two-way control, 2026-09-29 (docs/beyondatc-notes.md) — sends the
+   *  real `set_autotune`/`set_autorespond` command, value lowercased by template
+   *  interpolation same as the confirmed wire format expects. */
+  setAutoTune(value: boolean): void {
+    this.sendCommand(`set_autotune: ${value}`)
+  }
+
+  setAutoRespond(value: boolean): void {
+    this.sendCommand(`set_autorespond: ${value}`)
+  }
+
   start(): void {
     this.stopped = false
     this.connect()
@@ -208,6 +261,17 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
     this.ws.send(text)
   }
 
+  /** The list is empty if asked before BeyondATC has a flight loaded (real report,
+   *  2026-09-29: picker empty when WingLog connected first, fine after a manual off/on).
+   *  So it's re-asked whenever facility/progress arrives while still empty, and whenever the
+   *  origin/destination changes. Throttled so a burst of state lines sends one request. */
+  private requestFrequencies(force = false): void {
+    const now = Date.now()
+    if (!force && now - this.lastFrequencyRequest < 2000) return
+    this.lastFrequencyRequest = now
+    this.sendCommand('frequencies')
+  }
+
   private setStatus(status: BeyondAtcConnectionStatus): void {
     this.status = status
     this.emit('status', status)
@@ -229,6 +293,9 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
     socket.addEventListener('open', () => {
       this.backoffMs = RECONNECT_MIN_MS
       this.setStatus({ state: 'connected', lastError: null })
+      // Proactively requested, not part of the initial snapshot — confirmed live
+      // 2026-09-29 (docs/beyondatc-notes.md), a real bare command with no value/colon.
+      this.requestFrequencies(true)
     })
 
     socket.addEventListener('message', (event: { data: unknown }) => {
@@ -264,6 +331,7 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
       case 'Facility':
         this.state = { ...this.state, facility: parseFacility(rest) }
         this.emit('state', this.state)
+        if (this.state.frequencies.length === 0) this.requestFrequencies()
         return
       case 'Com2': {
         const value = parseJson(rest)
@@ -292,13 +360,29 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
       case 'Progress': {
         const value = parseJson(rest)
         if (isProgress(value)) {
+          const prev = this.state.progress
           this.state = { ...this.state, progress: value }
           this.emit('state', this.state)
+          if (this.state.frequencies.length === 0 || prev?.from !== value.from || prev?.to !== value.to) {
+            this.requestFrequencies()
+          }
         }
         return
       }
       case 'Actions':
         this.state = { ...this.state, actions: parseActions(rest) }
+        this.emit('state', this.state)
+        return
+      case 'AutoTune':
+        this.state = { ...this.state, autoTune: parseBool(rest) }
+        this.emit('state', this.state)
+        return
+      case 'AutoRespond':
+        this.state = { ...this.state, autoRespond: parseBool(rest) }
+        this.emit('state', this.state)
+        return
+      case 'Frequencies':
+        this.state = { ...this.state, frequencies: parseFrequencies(rest) }
         this.emit('state', this.state)
         return
       case 'Player':
@@ -308,9 +392,9 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
         this.pushTranscript(key === 'ATCTraffic' ? 'atcTraffic' : (key.toLowerCase() as 'player' | 'atc' | 'traffic'), rest)
         return
       default:
-        // Every other real key (DATIS, CPDLCCode, AutoTune, AutoRespond, InfoBoxes,
-        // RadioMute, LoadState, Settings, ToolbarVersion, QueuedAction, DATIS_END) is
-        // outside this plan's scope — ignored, not an error.
+        // Every other real key (DATIS, CPDLCCode, InfoBoxes, RadioMute, LoadState, Settings,
+        // ToolbarVersion, QueuedAction, DATIS_END) is outside this plan's scope — ignored,
+        // not an error.
         return
     }
   }

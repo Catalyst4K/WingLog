@@ -388,7 +388,17 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     settingsSetBeyondAtc: vi.fn().mockResolvedValue(undefined),
     beyondAtcGetStatus: vi.fn().mockResolvedValue({ state: 'disconnected', lastError: null }),
     onBeyondAtcStatus: vi.fn(() => () => {}),
-    beyondAtcGetState: vi.fn().mockResolvedValue({ facility: null, com2: null, callsign: null, commsState: null, progress: null, actions: [] }),
+    beyondAtcGetState: vi.fn().mockResolvedValue({
+      facility: null,
+      com2: null,
+      callsign: null,
+      commsState: null,
+      progress: null,
+      actions: [],
+      autoTune: null,
+      autoRespond: null,
+      frequencies: []
+    }),
     onBeyondAtcState: vi.fn(() => () => {}),
     beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
     onBeyondAtcTranscript: vi.fn(() => () => {}),

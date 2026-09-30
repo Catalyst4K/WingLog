@@ -76,6 +76,18 @@ export const RADIO_CHECK_RESPONSE = [
   'CommsState: {"mode": "ready", "text": ""}'
 ]
 
+/** `AutoTune`/`AutoRespond`'s real wire format — bare lowercase `true`/`false`, confirmed
+ *  live 2026-09-29 (flightdeck-backend's docs/beyondatc-notes.md). */
+export const AUTO_SETTINGS_SNAPSHOT = ['AutoTune: true', 'AutoRespond: false']
+
+/** A trimmed real response to the `frequencies` command (2 of ~29 real entries from one
+ *  live capture, 2026-09-29) — enough to exercise the picker without pasting the whole
+ *  real station list into a test fixture. Field shapes are verbatim, not invented. */
+export const FREQUENCIES_RESPONSE = [
+  'Frequencies: [{"airport":"WSSS","airportName":"Changi","frequency":"124.050","name":"SINGAPORE APPROACH","type":"Approach","stationType":"","runways":"02L"},' +
+    '{"airport":"","airportName":"","frequency":"134.400","name":"Singapore Radar","type":"Center","stationType":"","runways":""}]'
+]
+
 /**
  * A real, full-size initial-connect snapshot — confirmed live, 2026-09-28, against Callum's
  * actual BeyondATC session (flightdeck-backend's docs/beyondatc-notes.md). Deliberately kept

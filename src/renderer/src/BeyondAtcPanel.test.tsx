@@ -13,7 +13,18 @@ function makeStatus(overrides: Partial<BeyondAtcConnectionStatus> = {}): BeyondA
 }
 
 function makeState(overrides: Partial<BeyondAtcState> = {}): BeyondAtcState {
-  return { facility: null, com2: null, callsign: null, commsState: null, progress: null, actions: [], ...overrides }
+  return {
+    facility: null,
+    com2: null,
+    callsign: null,
+    commsState: null,
+    progress: null,
+    actions: [],
+    autoTune: null,
+    autoRespond: null,
+    frequencies: [],
+    ...overrides
+  }
 }
 
 function withWinglog(overrides: Partial<WingLogApi> = {}): void {
@@ -28,6 +39,8 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): void {
     beyondAtcSetAction: vi.fn().mockResolvedValue(undefined),
     beyondAtcSetFrequency: vi.fn().mockResolvedValue(undefined),
     beyondAtcSetFrequencyCom2: vi.fn().mockResolvedValue(undefined),
+    beyondAtcSetAutoTune: vi.fn().mockResolvedValue(undefined),
+    beyondAtcSetAutoRespond: vi.fn().mockResolvedValue(undefined),
     ...overrides
   } as unknown as WingLogApi
 }
@@ -74,17 +87,8 @@ describe('BeyondAtcPanel', () => {
     render(<BeyondAtcPanel />)
 
     expect(await screen.findByText('Cathay 116 Heavy')).toBeInTheDocument()
-    expect(screen.getByText('Tuned to Brisbane Delivery (118.850)')).toBeInTheDocument()
+    expect(screen.getByText('Brisbane Delivery (118.850)')).toBeInTheDocument()
     expect(screen.getByText('YBBN → YSSY · 12%')).toBeInTheDocument()
-  })
-
-  it('shows the live comms mode indicator', async () => {
-    withWinglog({
-      beyondAtcGetState: vi.fn().mockResolvedValue(makeState({ commsState: { mode: 'awaiting', text: 'Awaiting Response' } }))
-    })
-    render(<BeyondAtcPanel />)
-
-    expect(await screen.findByText('Awaiting response — Awaiting Response')).toBeInTheDocument()
   })
 
   it('renders the transcript, tagged by speaker', async () => {
@@ -101,6 +105,66 @@ describe('BeyondAtcPanel', () => {
     expect(screen.getByText('ATC:')).toBeInTheDocument()
   })
 
+  it('scrolls the newest transcript line into view when a new entry arrives', async () => {
+    const scrollIntoView = vi.spyOn(HTMLElement.prototype, 'scrollIntoView')
+    const first: BeyondAtcTranscriptEntry[] = [{ speaker: 'player', text: 'Cathay 116 Heavy, radio check.', ts: 1 }]
+    let pushTranscript: (entries: BeyondAtcTranscriptEntry[]) => void = () => {}
+    withWinglog({
+      beyondAtcGetTranscript: vi.fn().mockResolvedValue(first),
+      onBeyondAtcTranscript: vi.fn().mockImplementation((cb) => {
+        pushTranscript = cb
+        return () => {}
+      })
+    })
+    render(<BeyondAtcPanel />)
+    await screen.findByText('Cathay 116 Heavy, radio check.')
+    scrollIntoView.mockClear()
+
+    pushTranscript([...first, { speaker: 'atc', text: 'Cathay 116 Heavy, readability 5.', ts: 2 }])
+    await screen.findByText('Cathay 116 Heavy, readability 5.')
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
+    scrollIntoView.mockRestore()
+  })
+
+  it('shows the boxed clearance readout once a real clearance line is parsed from the transcript', async () => {
+    const transcript: BeyondAtcTranscriptEntry[] = [
+      {
+        speaker: 'atc',
+        text: 'Cathay 116 Heavy, Brisbane Departure, cleared to Sydney via VMR9B departure, runway 01, climb via SID to 11000 feet, squawk 3136.',
+        ts: 1
+      }
+    ]
+    withWinglog({ beyondAtcGetTranscript: vi.fn().mockResolvedValue(transcript) })
+    render(<BeyondAtcPanel />)
+
+    expect(await screen.findByText('01')).toBeInTheDocument()
+    expect(screen.getByText('VMR9B')).toBeInTheDocument()
+    expect(screen.getByText('11000 ft')).toBeInTheDocument()
+    expect(screen.getByText('3136')).toBeInTheDocument()
+  })
+
+  it('shows the info card placeholder when nothing in the transcript has been recognised and no status is known', async () => {
+    withWinglog({
+      beyondAtcGetTranscript: vi.fn().mockResolvedValue([{ speaker: 'atc', text: 'Cathay 116 Heavy, readability 5.', ts: 1 }])
+    })
+    render(<BeyondAtcPanel />)
+
+    await screen.findByText('Cathay 116 Heavy, readability 5.')
+    expect(screen.getByText('No status yet.')).toBeInTheDocument()
+    expect(screen.queryByText(/Squawk/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Runway/)).not.toBeInTheDocument()
+  })
+
+  it('always shows every card — Actions, Radios and Transcript — even with nothing tuned/said yet, each with its own placeholder', async () => {
+    render(<BeyondAtcPanel />)
+
+    expect(await screen.findByText('Actions')).toBeInTheDocument()
+    expect(screen.getByText('No actions available right now.')).toBeInTheDocument()
+    expect(screen.getByText('Radios')).toBeInTheDocument()
+    expect(screen.getByText('Transcript')).toBeInTheDocument()
+  })
+
   it('clicking an action button calls beyondAtcSetAction with the exact label', async () => {
     const beyondAtcSetAction = vi.fn().mockResolvedValue(undefined)
     withWinglog({
@@ -113,6 +177,51 @@ describe('BeyondAtcPanel', () => {
     await user.click(await screen.findByRole('button', { name: 'Radio Check' }))
 
     expect(beyondAtcSetAction).toHaveBeenCalledWith('Radio Check')
+  })
+
+  it('clicking an AutoTune toggle calls beyondAtcSetAutoTune with the flipped value', async () => {
+    const beyondAtcSetAutoTune = vi.fn().mockResolvedValue(undefined)
+    withWinglog({
+      beyondAtcGetState: vi.fn().mockResolvedValue(makeState({ autoTune: true, autoRespond: false })),
+      beyondAtcSetAutoTune
+    })
+    const user = userEvent.setup()
+    render(<BeyondAtcPanel />)
+
+    await user.click(await screen.findByRole('button', { name: 'Auto-tune: On' }))
+
+    expect(beyondAtcSetAutoTune).toHaveBeenCalledWith(false)
+  })
+
+  it('picking a frequency from the real list calls beyondAtcSetFrequency, runway shown alongside it', async () => {
+    const beyondAtcSetFrequency = vi.fn().mockResolvedValue(undefined)
+    withWinglog({
+      beyondAtcGetState: vi.fn().mockResolvedValue(
+        makeState({
+          facility: { name: 'Changi UNICOM', frequency: '122.800' },
+          progress: { from: 'WSSS', to: 'ZSPD', pct: 0 },
+          frequencies: [
+            {
+              airport: 'WSSS',
+              airportName: 'Changi',
+              frequency: '124.050',
+              name: 'SINGAPORE APPROACH',
+              type: 'Approach',
+              stationType: '',
+              runways: '02L'
+            }
+          ]
+        })
+      ),
+      beyondAtcSetFrequency
+    })
+    const user = userEvent.setup()
+    render(<BeyondAtcPanel />)
+
+    await user.click((await screen.findAllByRole('button', { name: 'Frequencies' }))[0])
+    await user.click(await screen.findByRole('button', { name: 'Approach — SINGAPORE APPROACH 124.050 (RWY 02L)' }))
+
+    expect(beyondAtcSetFrequency).toHaveBeenCalledWith('124.050')
   })
 
   it('subscribes to live status/state/transcript updates and unsubscribes on unmount', async () => {

@@ -113,8 +113,67 @@ describe('BeyondAtcService', () => {
       callsign: { full: 'Cathay 116 Heavy', shortForm: 'CPA116' },
       commsState: { mode: 'awaiting', text: 'Awaiting Response' },
       progress: { from: 'YBBN', to: 'YSSY', pct: 12 },
-      actions: []
+      actions: [],
+      autoTune: null,
+      autoRespond: null,
+      frequencies: []
     })
+    service.stop()
+  })
+
+  it('parses AutoTune/AutoRespond as bare lowercase true/false, confirmed live 2026-09-29', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
+    service.start()
+    instances[0].simulateOpen()
+
+    instances[0].simulateLine('AutoTune: true')
+    instances[0].simulateLine('AutoRespond: false')
+
+    expect(service.getState().autoTune).toBe(true)
+    expect(service.getState().autoRespond).toBe(false)
+    service.stop()
+  })
+
+  it('resolves an unrecognised AutoTune/AutoRespond value to null rather than guessing', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
+    service.start()
+    instances[0].simulateOpen()
+
+    instances[0].simulateLine('AutoTune: True')
+
+    expect(service.getState().autoTune).toBeNull()
+    service.stop()
+  })
+
+  it('parses the real Frequencies capture into structured options', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
+    service.start()
+    instances[0].simulateOpen()
+
+    instances[0].simulateLine(
+      'Frequencies: [{"airport":"WSSS","airportName":"Changi","frequency":"124.050","name":"SINGAPORE APPROACH","type":"Approach","stationType":"","runways":"02L"},' +
+        '{"airport":"","airportName":"","frequency":"134.400","name":"Singapore Radar","type":"Center","stationType":"","runways":"","cpdlcLogonCode":"WSJC"}]'
+    )
+
+    expect(service.getState().frequencies).toEqual([
+      { airport: 'WSSS', airportName: 'Changi', frequency: '124.050', name: 'SINGAPORE APPROACH', type: 'Approach', stationType: '', runways: '02L' },
+      { airport: '', airportName: '', frequency: '134.400', name: 'Singapore Radar', type: 'Center', stationType: '', runways: '', cpdlcLogonCode: 'WSJC' }
+    ])
+    service.stop()
+  })
+
+  it('drops a Frequencies entry that does not match the confirmed shape', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
+    service.start()
+    instances[0].simulateOpen()
+
+    instances[0].simulateLine('Frequencies: [{"frequency":"124.050"}]')
+
+    expect(service.getState().frequencies).toEqual([])
     service.stop()
   })
 
@@ -229,17 +288,70 @@ describe('BeyondAtcService', () => {
     service.stop()
   })
 
-  it('sends set_action/set_frequency/set_frequency_com2 as raw text, not JSON', () => {
+  it('requests the frequency list as soon as the connection opens', () => {
     const { ctor, instances } = makeCtor()
     const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
     service.start()
     instances[0].simulateOpen()
 
+    expect(instances[0].sent).toEqual(['frequencies'])
+    service.stop()
+  })
+
+  it('re-requests frequencies when state arrives while the list is still empty (BeyondATC not ready at open)', () => {
+    vi.useFakeTimers()
+    try {
+      const { ctor, instances } = makeCtor()
+      const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
+      service.start()
+      instances[0].simulateOpen()
+      instances[0].simulateLine('Frequencies: []')
+      instances[0].sent.length = 0
+
+      // Inside the 2s throttle window: no duplicate request.
+      instances[0].simulateLine('Facility: Singapore Delivery 121.650')
+      expect(instances[0].sent).toEqual([])
+
+      vi.advanceTimersByTime(2500)
+      instances[0].simulateLine('Progress: {"from": "WSSS", "to": "ZSPD", "pct": 0}')
+      expect(instances[0].sent).toEqual(['frequencies'])
+
+      // Once populated, an unchanged route doesn't re-ask; a changed one does.
+      instances[0].simulateLine(
+        'Frequencies: [{"airport":"WSSS","airportName":"Changi","frequency":"121.650","name":"Singapore Delivery","type":"Clearance","stationType":"Delivery","runways":""}]'
+      )
+      instances[0].sent.length = 0
+      vi.advanceTimersByTime(2500)
+      instances[0].simulateLine('Progress: {"from": "WSSS", "to": "ZSPD", "pct": 5}')
+      expect(instances[0].sent).toEqual([])
+      instances[0].simulateLine('Progress: {"from": "WSSS", "to": "VHHH", "pct": 5}')
+      expect(instances[0].sent).toEqual(['frequencies'])
+      service.stop()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('sends set_action/set_frequency/set_frequency_com2/set_autotune/set_autorespond as raw text, not JSON', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
+    service.start()
+    instances[0].simulateOpen()
+    instances[0].sent.length = 0 // clear the automatic `frequencies` request from open, above
+
     service.setAction('Radio Check')
     service.setFrequency('118.850')
     service.setFrequencyCom2('121.700')
+    service.setAutoTune(false)
+    service.setAutoRespond(true)
 
-    expect(instances[0].sent).toEqual(['set_action: Radio Check', 'set_frequency: 118.850', 'set_frequency_com2: 121.700'])
+    expect(instances[0].sent).toEqual([
+      'set_action: Radio Check',
+      'set_frequency: 118.850',
+      'set_frequency_com2: 121.700',
+      'set_autotune: false',
+      'set_autorespond: true'
+    ])
     service.stop()
   })
 

@@ -865,6 +865,8 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.beyondAtcSetFrequencyCom2, (_event, frequency: string) =>
         beyondAtcService?.setFrequencyCom2(frequency)
       )
+      ipcMain.handle(IpcChannels.beyondAtcSetAutoTune, (_event, value: boolean) => beyondAtcService?.setAutoTune(value))
+      ipcMain.handle(IpcChannels.beyondAtcSetAutoRespond, (_event, value: boolean) => beyondAtcService?.setAutoRespond(value))
 
       ipcMain.handle(IpcChannels.logbookOpenOfpPdf, async (_event, flightId: number) => {
         const flight = getFlight(db, flightId)
