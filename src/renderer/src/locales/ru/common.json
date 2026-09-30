@@ -748,6 +748,7 @@
     "loading": "Загрузка…",
     "notConfigured": "Интеграция с BeyondATC отключена. Включите её в разделе Настройки → Сторонние сервисы.",
     "connecting": "Подключение к BeyondATC…",
+    "connected": "Подключено к BeyondATC.",
     "disconnected": "Нет подключения к BeyondATC.",
     "tunedTo": "Настроено на {{station}} ({{frequency}})",
     "progress": "{{from}} → {{to}} · {{pct}}%",

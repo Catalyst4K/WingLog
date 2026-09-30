@@ -119,11 +119,18 @@ export function BeyondAtcPanel(): React.JSX.Element {
 
   return (
     <div className="flex flex-col gap-3">
-      {status.state !== 'connected' && (
-        <p className="text-xs text-muted-foreground">
-          {status.state === 'connecting' ? t('beyondAtcPanel.connecting') : t('beyondAtcPanel.disconnected')}
-        </p>
-      )}
+      {/* Always shown, including while connected — previously this line only rendered for
+       *  connecting/disconnected, so a connected-but-idle session (no facility tuned, no
+       *  transcript activity yet) showed nothing at all beyond the tab's own title, with no
+       *  confirmation the connection was even live. Real gap found live, 2026-09-28 —
+       *  GsxRemotePanel.tsx has the identical pattern, not fixed here (out of scope). */}
+      <p className="text-xs text-muted-foreground">
+        {status.state === 'connected'
+          ? t('beyondAtcPanel.connected')
+          : status.state === 'connecting'
+            ? t('beyondAtcPanel.connecting')
+            : t('beyondAtcPanel.disconnected')}
+      </p>
       <StateHeader state={state} />
       <CommsIndicator commsState={state.commsState} />
       <BeyondAtcActionsPanel

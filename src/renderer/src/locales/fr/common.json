@@ -725,6 +725,7 @@
     "loading": "Chargement…",
     "notConfigured": "L'intégration BeyondATC est désactivée. Activez-la dans Paramètres → Tiers.",
     "connecting": "Connexion à BeyondATC…",
+    "connected": "Connecté à BeyondATC.",
     "disconnected": "Non connecté à BeyondATC.",
     "tunedTo": "Réglé sur {{station}} ({{frequency}})",
     "progress": "{{from}} → {{to}} · {{pct}}%",
