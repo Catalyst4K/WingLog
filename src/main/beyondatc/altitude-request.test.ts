@@ -70,7 +70,9 @@ describe('levelLabelToFeet / pickLevelLabel / confirmsLevel', () => {
   it('picks the offered level matching the target, or nothing', () => {
     expect(pickLevelLabel(LEVEL_ACTIONS, 36000)).toBe('FL360')
     expect(pickLevelLabel(LEVEL_ACTIONS, 40000)).toBeNull()
-    // A SimBrief metric step (11,300 m) against a metric label.
+    // A SimBrief metric step (11,300 m) against BeyondATC's metric label over China —
+    // "11,300m", per Callum (2026-10-01).
+    expect(pickLevelLabel(['Cancel Altitude Change', '10,700m', '11,300m', '11,900m'], 11300 / 0.3048)).toBe('11,300m')
     expect(pickLevelLabel(['Cancel Altitude Change', '10700m', '11300m'], 11300 / 0.3048)).toBe('11300m')
   })
 
