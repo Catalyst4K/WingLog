@@ -424,7 +424,7 @@ describe('TrackingController', () => {
     expect(controller.getActive()).toBeUndefined()
   })
 
-  it('corrects fuel_out_kg to the reading at the first ground-movement/engine-start tick, not the tracking-start snapshot', () => {
+  it('corrects fuel_out_kg to the reading at the first real ground movement, not the tracking-start snapshot', () => {
     // Mirrors a real case (flight-test-findings-2026-09-06.md #3): the value captured at
     // the instant tracking starts can be stale post-reload telemetry or simply "before
     // ground fuel service finished" — this correction is what fixes both.
@@ -438,14 +438,45 @@ describe('TrackingController', () => {
     sim.emit('telemetry', telemetry({ fuelTotalKg: 6504 }))
     expect(getFlight(db, flightId)?.fuelOutKg).toBe(10187)
 
-    // Engine start — the first real "past ground service" signal.
+    // Engine start alone isn't enough — still at the stand.
     sim.emit('telemetry', telemetry({ fuelTotalKg: 6504, engineCombustion1: true }))
-    expect(getFlight(db, flightId)?.fuelOutKg).toBe(6504)
+    expect(getFlight(db, flightId)?.fuelOutKg).toBe(10187)
+
+    // First real movement (pushback) — off-blocks.
+    sim.emit('telemetry', telemetry({ fuelTotalKg: 6500, engineCombustion1: true, groundSpeedMs: 1 }))
+    expect(getFlight(db, flightId)?.fuelOutKg).toBe(6500)
 
     // A later tick's fuel figure (normal burn during pushback/taxi) must not overwrite
-    // the one already locked in — only the first post-preflight tick counts.
+    // the one already locked in.
     sim.emit('telemetry', telemetry({ fuelTotalKg: 6490, engineCombustion1: true, groundSpeedMs: 5 }))
-    expect(getFlight(db, flightId)?.fuelOutKg).toBe(6504)
+    expect(getFlight(db, flightId)?.fuelOutKg).toBe(6500)
+  })
+
+  it('ignores a stale post-reload engine reading and the refuel after it (real flight 223, VHHH, 2026-09-30)', () => {
+    // Real sequence: tracking starts on a leftover 10,185 kg reading that briefly reports
+    // an engine running, the sim then settles to the aircraft's 3,000 kg default, GSX
+    // refuels to ~6,268 kg over half an hour, then pushback. Before this fix the stale
+    // engine tick locked in 10,184 kg and the logbook showed 7,174 kg burned of 6,268.
+    sim.setLastTelemetry(telemetry({ fuelTotalKg: 10185 }))
+    const controller = new TrackingController(db, sim)
+    controller.start(flightId)
+
+    sim.emit('telemetry', telemetry({ fuelTotalKg: 10184, engineCombustion1: true }))
+    sim.emit('telemetry', telemetry({ fuelTotalKg: 3000, engineCombustion1: true }))
+    sim.emit('telemetry', telemetry({ fuelTotalKg: 6268, engineCombustion1: true }))
+    expect(getFlight(db, flightId)?.fuelOutKg).toBe(10185) // still provisional
+
+    sim.emit('telemetry', telemetry({ fuelTotalKg: 6268, engineCombustion1: true, groundSpeedMs: 1.2 }))
+    expect(getFlight(db, flightId)?.fuelOutKg).toBe(6268)
+  })
+
+  it('falls back to the first airborne tick when no ground movement was ever seen', () => {
+    sim.setLastTelemetry(telemetry({ fuelTotalKg: 9000 }))
+    const controller = new TrackingController(db, sim)
+    controller.start(flightId)
+    sim.emit('telemetry', telemetry({ fuelTotalKg: 8800, engineCombustion1: true }))
+    sim.emit('telemetry', telemetry({ fuelTotalKg: 8700, engineCombustion1: true, onGround: false, groundSpeedMs: 80, verticalSpeedMs: 10 }))
+    expect(getFlight(db, flightId)?.fuelOutKg).toBe(8700)
   })
 
   it('finish() is a no-op when nothing is being tracked', () => {
@@ -797,7 +828,7 @@ describe('TrackingController', () => {
       const offAtCrash = getFlight(db, flightId)?.actualOffUtc
       const fuelOutAtCrash = getFlight(db, flightId)?.fuelOutKg
       expect(offAtCrash).toBeTruthy()
-      expect(fuelOutAtCrash).toBe(8500) // locked in at the first past-preflight tick
+      expect(fuelOutAtCrash).toBe(8400) // locked in at the first real ground movement
 
       const sim2 = fakeSimConnectService()
       const resumed = new TrackingController(db, sim2)

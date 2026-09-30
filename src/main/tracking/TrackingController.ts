@@ -26,7 +26,7 @@ import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
 import { buildFlightMatchWindow } from '../gsx/flight-window'
 import { scanGsxFolder } from '../gsx/scan'
 import type { SimConnectSource, TouchdownSeverity } from '../sim/SimConnectSource'
-import { FlightRecorder } from './FlightRecorder'
+import { FlightRecorder, MOVING_MS } from './FlightRecorder'
 import { seedPhaseFromTelemetry } from './free-flight'
 import { buildLandingRecord } from './landing-capture'
 import { isPhysicallyImpossibleJump, RESUME_CLEANUP_CONSTANTS, type TrackCleanupResult } from './resume-cleanup'
@@ -162,9 +162,15 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
       const result = this.recorder.ingest(telemetry, new Date())
 
       // The value startFlight wrote at tracking-start is only provisional (see
-      // finalizeFuelOut's doc comment) — correct it as soon as the phase machine shows
-      // the aircraft is genuinely past ground fuel service, not just parked.
-      if (result.phase !== 'preflight' && !this.fuelOutFinalized) {
+      // finalizeFuelOut's doc comment) — corrected at the aircraft's first real ground
+      // movement (off-blocks), when ground fuel service is genuinely over. Not on leaving
+      // 'preflight': that also fires on engine combustion alone, which a stale post-reload
+      // tick can report too — real bug, flight 223 (2026-09-30): the phase flipped to
+      // 'pushback' 26s in, stationary, locking in a leftover 10,184 kg before the sim
+      // settled to 3,000 kg and GSX refuelled to ~6,268 kg, so "burn" exceeded the load.
+      // Airborne without ever seeing that (tracking started in the air) is the fallback.
+      const movedOnGround = telemetry.onGround && telemetry.groundSpeedMs > MOVING_MS && !telemetry.slewActive
+      if ((movedOnGround || !telemetry.onGround) && result.phase !== 'preflight' && !this.fuelOutFinalized) {
         this.fuelOutFinalized = true
         finalizeFuelOut(this.db, this.recorder.getFlightId(), telemetry.fuelTotalKg)
       }
