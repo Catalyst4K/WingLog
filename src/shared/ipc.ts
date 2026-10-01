@@ -499,6 +499,12 @@ export interface FreeFlightPrefill {
   rememberedAircraftId: number | null
 }
 
+/** A Logbook list row: a completed `Flight` without its raw SimBrief OFP text. That text is
+ *  ~90 KB per flight and the list only ever needed to know whether one exists — sending it
+ *  made the Logbook copy ~16 MB on every open (real measurement, 173 flights, 2026-10-01).
+ *  Anything needing the OFP itself fetches it per flight by id. */
+export type LogbookFlight = Omit<Flight, 'ofpJson'> & { hasOfp: boolean }
+
 export interface Flight {
   id: number
   /** Null for a free flight tracked without adding an aircraft to the fleet — see
@@ -1338,6 +1344,7 @@ export const IpcChannels = {
   trackPointList: 'track-point:list',
   trackPointCleanup: 'track-point:cleanup',
   logbookListCompletedFlights: 'logbook:list-completed-flights',
+  logbookGetFlight: 'logbook:get-flight',
   logbookGetStats: 'logbook:get-stats',
   logbookFleetStats: 'logbook:fleet-stats',
   logbookImportCsv: 'logbook:import-csv',
@@ -1585,7 +1592,10 @@ export interface WingLogApi {
    *  completed before Phase 2 existed, or on the rare chance the live check missed
    *  something. A no-op (both counts 0) when there's nothing to clean up. */
   trackPointCleanup: (flightId: number) => Promise<TrackCleanupSummary>
-  logbookListCompletedFlights: () => Promise<Flight[]>
+  logbookListCompletedFlights: () => Promise<LogbookFlight[]>
+  /** One flight in full, OFP included — the detail view's own fetch, so the list doesn't
+   *  have to carry every flight's OFP. Null for an unknown or deleted id. */
+  logbookGetFlight: (id: number) => Promise<Flight | null>
   logbookGetStats: () => Promise<LogbookStats>
   logbookFleetStats: () => Promise<FleetStats[]>
   /** Opens a native file-open dialog in the main process; null if the user cancels. */

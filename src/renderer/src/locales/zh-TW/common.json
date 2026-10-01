@@ -622,6 +622,7 @@
     "approximateRoute": "近似航路 — 此航班沒有存檔的飛行計畫"
   },
   "logbookView": {
+    "loading": "載入中…",
     "belowAverage": "低於平均水準",
     "landingCard": {
       "title": "落地",

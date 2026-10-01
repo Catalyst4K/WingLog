@@ -628,6 +628,7 @@
     "approximateRoute": "Approximate route — no flight plan on file for this flight"
   },
   "logbookView": {
+    "loading": "Loading…",
     "belowAverage": "Below average",
     "landingCard": {
       "title": "Landing",

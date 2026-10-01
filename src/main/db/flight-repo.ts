@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { and, desc, eq, isNull, or } from 'drizzle-orm'
-import type { Flight, FleetStats, LogbookStats, NewFlight, ProcedureSelection } from '@shared/ipc'
+import { and, desc, eq, getTableColumns, isNull, or, sql } from 'drizzle-orm'
+import type { Flight, FleetStats, LogbookFlight, LogbookStats, NewFlight, ProcedureSelection } from '@shared/ipc'
 import { greatCircleDistanceNm } from '../airports/airport-search'
 import { rememberAircraftForTitle } from './settings-repo'
 import { aircraft, flight, flightInvoice, landing, trackPoint } from './schema'
@@ -108,6 +108,12 @@ export function listFlightsByAircraft(db: WingLogDb, aircraftId: number): Flight
 
 export function getFlight(db: WingLogDb, id: number): Flight | undefined {
   const row = db.select().from(flight).where(eq(flight.id, id)).get()
+  return row ? toFlight(row) : undefined
+}
+
+/** getFlight, but never a deleted (tombstoned) flight — for anything user-facing. */
+export function getLiveFlight(db: WingLogDb, id: number): Flight | undefined {
+  const row = db.select().from(flight).where(and(eq(flight.id, id), isNull(flight.deletedAt))).get()
   return row ? toFlight(row) : undefined
 }
 
@@ -489,14 +495,22 @@ export function setSelectedProcedures(db: WingLogDb, id: number, selection: Proc
     .run()
 }
 
-export function listCompletedFlights(db: WingLogDb): Flight[] {
+/** Every completed flight, newest first, *without* the OFP text — see LogbookFlight. The
+ *  column is left out of the SELECT itself, so SQLite never reads those ~90 KB blobs either;
+ *  the stats/score/fleet summaries built on top of this got the same saving for free. */
+export function listCompletedFlights(db: WingLogDb): LogbookFlight[] {
+  const { ofpJson, ...columns } = getTableColumns(flight)
   return db
-    .select()
+    .select({ ...columns, hasOfp: sql<number>`${ofpJson} is not null` })
     .from(flight)
     .where(and(eq(flight.status, 'completed'), isNull(flight.deletedAt)))
     .orderBy(desc(flight.actualInUtc))
     .all()
-    .map(toFlight)
+    .map(({ hasOfp, ...row }) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { ofpJson: _omitted, ...rest } = toFlight({ ...row, ofpJson: null })
+      return { ...rest, hasOfp: hasOfp === 1 }
+    })
 }
 
 /** Logbook's summary row above the flight table. totalNm is great-circle dep→arr

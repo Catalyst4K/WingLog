@@ -649,6 +649,7 @@
     "approximateRoute": "Приблизительный маршрут — план полёта для этого рейса отсутствует"
   },
   "logbookView": {
+    "loading": "Загрузка…",
     "belowAverage": "Ниже среднего",
     "landingCard": {
       "title": "Посадка",

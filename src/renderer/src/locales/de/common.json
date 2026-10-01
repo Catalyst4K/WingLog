@@ -628,6 +628,7 @@
     "approximateRoute": "Ungefähre Route — kein Flugplan für diesen Flug hinterlegt"
   },
   "logbookView": {
+    "loading": "Wird geladen…",
     "belowAverage": "Unterdurchschnittlich",
     "landingCard": {
       "title": "Landung",
