@@ -5,8 +5,7 @@
     "exportLogbook": "Экспортировать логбук",
     "importLogbookCsv": "Импортировать CSV логбука",
     "importLogbookJson": "Импортировать JSON логбука",
-    "gsxReceiptsFolder": "Папка чеков GSX",
-    "maintenanceAddonFolder": "Папка данных обслуживания аддонов"
+    "gsxReceiptsFolder": "Папка чеков GSX"
   },
   "startupFailed": "Не удалось запустить WingLog",
   "errors": {
