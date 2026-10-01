@@ -29,31 +29,58 @@ const STEP_THRESHOLD_FT = 500
 const RETRY_AFTER_MS = 120_000
 const MAX_ATTEMPTS = 2
 
-export interface StepTarget {
+export interface RouteFix {
   ident: string
   lat: number
   lon: number
-  altitudeFt: number
 }
 
-/** The OFP's planned step climbs, placed on the map via their navlog fix — `parseOfp` gives
- *  the levels (metric-aware), the raw navlog gives each fix's `pos_lat`/`pos_long`. A step
- *  whose fix isn't in the navlog is skipped (the FCU trigger still covers it). */
-export function extractStepTargets(ofpJson: string | null): StepTarget[] {
-  if (!ofpJson) return []
+export interface StepTarget extends RouteFix {
+  altitudeFt: number
+  /** Index of this step's fix in the route's fix list — how "already behind us" is judged. */
+  order: number
+}
+
+export interface StepPlan {
+  /** Every navlog fix with a position, in route order. */
+  fixes: RouteFix[]
+  /** The plan's climbs only. */
+  steps: StepTarget[]
+}
+
+/** The OFP's planned step climbs, placed on the route via their navlog fix — `parseOfp` gives
+ *  the levels (metric-aware), the raw navlog gives each fix's `pos_lat`/`pos_long` and order.
+ *  A step whose fix isn't in the navlog is skipped (the FCU trigger still covers it).
+ *
+ *  **Down steps are filtered out** (Callum, 2026-10-01): over China the levels swap with
+ *  direction, so a plan steps up *and* down. The iniBuilds A350 won't fly a step down and
+ *  most pilots never program them, so only a step above every level planned before it counts
+ *  — 11,300 m → 10,700 m → 11,900 m keeps just the 11,900 m step. */
+export function extractStepPlan(ofpJson: string | null): StepPlan {
+  if (!ofpJson) return { fixes: [], steps: [] }
   try {
     const raw = JSON.parse(ofpJson) as { navlog?: { fix?: Record<string, unknown>[] } }
-    const fixes = Array.isArray(raw.navlog?.fix) ? raw.navlog.fix : []
-    return parseOfp(raw).stepClimbs.flatMap((step) => {
-      const fix = fixes.find((f) => f.ident === step.atIdent)
-      const lat = Number(fix?.pos_lat)
-      const lon = Number(fix?.pos_long)
-      return fix && Number.isFinite(lat) && Number.isFinite(lon)
-        ? [{ ident: step.atIdent, lat, lon, altitudeFt: step.toAltitudeFt }]
-        : []
+    const navlog = Array.isArray(raw.navlog?.fix) ? raw.navlog.fix : []
+    const fixes: RouteFix[] = navlog.flatMap((f) => {
+      const lat = Number(f.pos_lat)
+      const lon = Number(f.pos_long)
+      return typeof f.ident === 'string' && Number.isFinite(lat) && Number.isFinite(lon) ? [{ ident: f.ident, lat, lon }] : []
     })
+    const steps: StepTarget[] = []
+    let highestFt = -Infinity
+    let searchFrom = 0
+    for (const step of parseOfp(raw).stepClimbs) {
+      const isClimb = step.toAltitudeFt > highestFt + STEP_THRESHOLD_FT
+      highestFt = Math.max(highestFt, step.toAltitudeFt)
+      // An ident can repeat along a route — each step is looked for after the previous one.
+      const order = fixes.findIndex((f, i) => i >= searchFrom && f.ident === step.atIdent)
+      if (order < 0) continue
+      searchFrom = order
+      if (isClimb) steps.push({ ...fixes[order]!, altitudeFt: step.toAltitudeFt, order })
+    }
+    return { fixes, steps }
   } catch {
-    return []
+    return { fixes: [], steps: [] }
   }
 }
 
@@ -103,7 +130,9 @@ interface Attempt {
 export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepClimbStatus] }> {
   private enabled = false
   private flightId: number | null = null
-  private steps: StepTarget[] = []
+  private plan: StepPlan = { fixes: [], steps: [] }
+  /** The furthest route fix the aircraft has been nearest to — steps before it are behind. */
+  private progress = 0
   private readonly attempts = new Map<number, Attempt>()
   private readonly dropped = new Set<number>()
   private inFlight: number | null = null
@@ -151,7 +180,8 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
     }
     if (active.flightId !== this.flightId) {
       this.flightId = active.flightId
-      this.steps = extractStepTargets(this.deps.getOfpJson(active.flightId))
+      this.plan = extractStepPlan(this.deps.getOfpJson(active.flightId))
+      this.progress = 0
       this.attempts.clear()
       this.dropped.clear()
       this.last = null
@@ -167,7 +197,11 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
       (session ? clearedLevelFromTranscript(session.getTranscript()) : null) ??
       Math.round((t.pressureAltitudeM * FEET_PER_METRE) / 1000) * 1000
 
-    const upcoming = this.steps.find((s) => s.altitudeFt > clearedFt + STEP_THRESHOLD_FT && !this.dropped.has(roundLevel(s.altitudeFt)))
+    this.progress = Math.max(this.progress, nearestFixIndex(this.plan.fixes, t.latitude, t.longitude))
+    // A step already behind (switched on late, or a step not taken) mustn't hold up the ones after it.
+    const upcoming = this.plan.steps.find(
+      (s) => s.order >= this.progress && s.altitudeFt > clearedFt + STEP_THRESHOLD_FT && !this.dropped.has(roundLevel(s.altitudeFt))
+    )
     const upcomingDistance = upcoming ? distanceNm(t.latitude, t.longitude, upcoming.lat, upcoming.lon) : null
     this.nextStep =
       upcoming && upcomingDistance !== null
@@ -231,6 +265,19 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
     this.lastEmitted = serialised
     this.emit('status', status)
   }
+}
+
+function nearestFixIndex(fixes: RouteFix[], lat: number, lon: number): number {
+  let best = 0
+  let bestDistance = Infinity
+  for (const [i, fix] of fixes.entries()) {
+    const d = distanceNm(lat, lon, fix.lat, fix.lon)
+    if (d < bestDistance) {
+      bestDistance = d
+      best = i
+    }
+  }
+  return best
 }
 
 /** Levels compared at 100 ft resolution, so FL390 from SimBrief and 39,000 from the FCU are

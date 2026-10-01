@@ -2,30 +2,32 @@ import { describe, expect, it, vi } from 'vitest'
 import type { ActiveTracking, BeyondAtcState, BeyondAtcStepClimbStatus, BeyondAtcTranscriptEntry, SimTelemetry } from '@shared/ipc'
 import { EMPTY_STATE } from './BeyondAtcService'
 import type { AltitudeRequestOutcome, requestAltitude } from './altitude-request'
-import { StepClimbController, clearedLevelFromTranscript, distanceNm, extractStepTargets } from './step-climb'
+import { StepClimbController, clearedLevelFromTranscript, distanceNm, extractStepPlan } from './step-climb'
 
 const FT = 0.3048
 
 // Real field names/shape (simbrief-client.test.ts's fixture) with the real stepclimb_string
 // from the China-crossing OFP in docs/decisions.md; fix positions made up but plausible.
-function ofpJson(): string {
+function ofpJson(
+  stepclimb = 'EGLL/0330/DENAK/0350/KAMUD/1130',
+  fixes: Record<string, string>[] = [
+    { ident: 'DENAK', altitude_feet: '35000', distance: '900', pos_lat: '45.0', pos_long: '30.0' },
+    { ident: 'MIDPT', altitude_feet: '35000', distance: '1900', pos_lat: '42.0', pos_long: '50.0' },
+    { ident: 'KAMUD', altitude_feet: '37073', distance: '3000', pos_lat: '40.0', pos_long: '75.0' }
+  ]
+): string {
   return JSON.stringify({
     fetch: { status: 'Success' },
     params: { request_id: '1', units: 'kgs' },
     origin: { icao_code: 'EGLL' },
     destination: { icao_code: 'VHHH' },
     alternate: { icao_code: 'VMMC' },
-    general: { icao_airline: 'BAW', flight_number: '31', route: 'DCT', initial_altitude: '33000', stepclimb_string: 'EGLL/0330/DENAK/0350/KAMUD/1130' },
+    general: { icao_airline: 'BAW', flight_number: '31', route: 'DCT', initial_altitude: '33000', stepclimb_string: stepclimb },
     aircraft: { icaocode: 'A35K', reg: 'G-XWBS', internal_id: 'A35K', is_custom: '0' },
     weights: { pax_count: '1', cargo: '0', est_zfw: '1', est_tow: '1', est_ldw: '1' },
     fuel: { plan_ramp: '1' },
     times: { sched_out: '1787860800', sched_in: '1787898900' },
-    navlog: {
-      fix: [
-        { ident: 'DENAK', altitude_feet: '35000', distance: '900', pos_lat: '45.0', pos_long: '30.0' },
-        { ident: 'KAMUD', altitude_feet: '37073', distance: '3000', pos_lat: '40.0', pos_long: '75.0' }
-      ]
-    }
+    navlog: { fix: fixes }
   })
 }
 
@@ -101,9 +103,9 @@ function setup(opts: { phase?: ActiveTracking['phase']; outcomes?: AltitudeReque
 
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
 
-describe('extractStepTargets', () => {
+describe('extractStepPlan', () => {
   it("places each SimBrief step on its navlog fix, converting China's metric level", () => {
-    const steps = extractStepTargets(ofpJson())
+    const { steps } = extractStepPlan(ofpJson())
     // EGLL has no navlog fix here — skipped rather than guessed.
     expect(steps.map((s) => s.ident)).toEqual(['DENAK', 'KAMUD'])
     expect(steps[0]).toMatchObject({ lat: 45, lon: 30, altitudeFt: 35000 })
@@ -111,8 +113,18 @@ describe('extractStepTargets', () => {
   })
 
   it('degrades to no steps for a free flight or a malformed OFP', () => {
-    expect(extractStepTargets(null)).toEqual([])
-    expect(extractStepTargets('{not json')).toEqual([])
+    expect(extractStepPlan(null)).toEqual({ fixes: [], steps: [] })
+    expect(extractStepPlan('{not json')).toEqual({ fixes: [], steps: [] })
+  })
+
+  it('drops down steps — over China the levels swap with direction (Callum, 2026-10-01)', () => {
+    // 11,300 m → 10,700 m (down) → 11,300 m (back, not higher than before) → 11,900 m.
+    const fix = (ident: string, lon: string): Record<string, string> => ({ ident, altitude_feet: '37000', distance: '0', pos_lat: '30.0', pos_long: lon })
+    const { steps } = extractStepPlan(
+      ofpJson('AAAAA/1130/BBBBB/1070/CCCCC/1130/DDDDD/1190', [fix('AAAAA', '100'), fix('BBBBB', '105'), fix('CCCCC', '110'), fix('DDDDD', '115')])
+    )
+    expect(steps.map((s) => s.ident)).toEqual(['AAAAA', 'DDDDD'])
+    expect(steps[1]!.altitudeFt).toBeCloseTo(11900 / FT, 0)
   })
 })
 
@@ -209,6 +221,15 @@ describe('StepClimbController', () => {
     controller.onTelemetry(near)
     expect(request).toHaveBeenCalledTimes(2) // FL350 dropped for good
     expect(statuses.at(-1)?.nextStep?.ident).toBe('KAMUD') // moved on to the next step
+  })
+
+  it('moves past a step point already behind the aircraft instead of waiting on it forever', () => {
+    const { controller, request, statuses } = setup()
+    controller.setEnabled(true)
+    // Past DENAK (switched on late / the FL350 step not taken), now nearest MIDPT, still FL330.
+    controller.onTelemetry(telemetry({ latitude: 42.2, longitude: 49 }))
+    expect(statuses.at(-1)?.nextStep?.ident).toBe('KAMUD')
+    expect(request).not.toHaveBeenCalled()
   })
 
   it('stays quiet outside cruise, and when the level is already cleared', () => {
