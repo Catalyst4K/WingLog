@@ -82,12 +82,14 @@ function setup(opts: { phase?: ActiveTracking['phase']; outcomes?: AltitudeReque
     on: vi.fn(),
     off: vi.fn()
   }
+  const logs: string[] = []
   const controller = new StepClimbController({
     getSession: () => session,
     getActive: () => ({ flightId: 7, phase: opts.phase ?? 'cruise' }),
     getOfpJson: () => ofpJson(),
     request,
-    now: () => now
+    now: () => now,
+    log: (m) => logs.push(m)
   })
   const statuses: BeyondAtcStepClimbStatus[] = []
   controller.on('status', (s) => statuses.push(s))
@@ -95,6 +97,7 @@ function setup(opts: { phase?: ActiveTracking['phase']; outcomes?: AltitudeReque
     controller,
     request,
     statuses,
+    logs,
     advance: (ms: number) => {
       now += ms
     }
@@ -230,6 +233,25 @@ describe('StepClimbController', () => {
     controller.onTelemetry(telemetry({ latitude: 42.2, longitude: 49 }))
     expect(statuses.at(-1)?.nextStep?.ident).toBe('KAMUD')
     expect(request).not.toHaveBeenCalled()
+  })
+
+  it('writes a decision trail to the log, so an overnight flight can be read back', async () => {
+    const { controller, logs, advance } = setup()
+    controller.setEnabled(true)
+    controller.onTelemetry(telemetry({ apSelectedAltitudeM: 33000 * FT }))
+    advance(1_000)
+    controller.onTelemetry(telemetry({ longitude: 29.9, apSelectedAltitudeM: 33000 * FT }))
+    await flush()
+
+    expect(logs).toEqual([
+      '[step-climb] enabled',
+      '[step-climb] flight 7: 3 route fixes, steps DENAK@35000 KAMUD@37073',
+      '[step-climb] FCU altitude 33000 ft (phase cruise)',
+      '[step-climb] cleared level 33000 ft (no ATC level, using altitude)',
+      expect.stringMatching(/^\[step-climb\] next step DENAK@35000 \(\d+ nm\)$/),
+      '[step-climb] requesting 35000 ft (trigger simbrief, attempt 1)',
+      '[step-climb] request 35000 ft: granted'
+    ])
   })
 
   it('stays quiet outside cruise, and when the level is already cleared', () => {

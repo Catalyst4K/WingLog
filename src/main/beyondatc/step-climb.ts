@@ -120,6 +120,9 @@ export interface StepClimbDeps {
   getOfpJson: (flightId: number) => string | null
   request?: typeof requestAltitude
   now?: () => number
+  /** Decision trail for main.log (console is routed there), so an overnight flight can be
+   *  read back afterwards: why a step fired, or why it didn't. */
+  log?: (message: string) => void
 }
 
 interface Attempt {
@@ -142,11 +145,15 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
   private lastEmitted = ''
   private readonly request: typeof requestAltitude
   private readonly now: () => number
+  private readonly log: (message: string) => void
+  private loggedCleared: number | null = null
+  private loggedNext = ''
 
   constructor(private readonly deps: StepClimbDeps) {
     super()
     this.request = deps.request ?? requestAltitude
     this.now = deps.now ?? Date.now
+    this.log = (message) => (deps.log ?? console.info)(`[step-climb] ${message}`)
   }
 
   getStatus(): BeyondAtcStepClimbStatus {
@@ -159,6 +166,7 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
   }
 
   setEnabled(enabled: boolean): void {
+    if (enabled !== this.enabled) this.log(enabled ? 'enabled' : 'disabled')
     this.enabled = enabled
     if (!enabled) {
       this.nextStep = null
@@ -185,17 +193,27 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
       this.attempts.clear()
       this.dropped.clear()
       this.last = null
+      this.log(
+        `flight ${active.flightId}: ${this.plan.fixes.length} route fixes, steps ` +
+          (this.plan.steps.map((s) => `${s.ident}@${Math.round(s.altitudeFt)}`).join(' ') || 'none')
+      )
     }
 
     if (typeof t.apSelectedAltitudeM === 'number') {
       const selectedFt = t.apSelectedAltitudeM * FEET_PER_METRE
-      if (!this.fcu || Math.abs(selectedFt - this.fcu.valueFt) > 50) this.fcu = { valueFt: selectedFt, since: now }
+      if (!this.fcu || Math.abs(selectedFt - this.fcu.valueFt) > 50) {
+        this.fcu = { valueFt: selectedFt, since: now }
+        this.log(`FCU altitude ${Math.round(selectedFt)} ft (phase ${active.phase})`)
+      }
     }
 
     const session = this.deps.getSession()
-    const clearedFt =
-      (session ? clearedLevelFromTranscript(session.getTranscript()) : null) ??
-      Math.round((t.pressureAltitudeM * FEET_PER_METRE) / 1000) * 1000
+    const transcriptCleared = session ? clearedLevelFromTranscript(session.getTranscript()) : null
+    const clearedFt = transcriptCleared ?? Math.round((t.pressureAltitudeM * FEET_PER_METRE) / 1000) * 1000
+    if (clearedFt !== this.loggedCleared) {
+      this.loggedCleared = clearedFt
+      this.log(`cleared level ${clearedFt} ft (${transcriptCleared !== null ? 'from ATC' : 'no ATC level, using altitude'})`)
+    }
 
     this.progress = Math.max(this.progress, nearestFixIndex(this.plan.fixes, t.latitude, t.longitude))
     // A step already behind (switched on late, or a step not taken) mustn't hold up the ones after it.
@@ -207,6 +225,11 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
       upcoming && upcomingDistance !== null
         ? { ident: upcoming.ident, altitudeFt: upcoming.altitudeFt, distanceNm: Math.round(upcomingDistance) }
         : null
+    const nextKey = upcoming ? `${upcoming.ident}@${Math.round(upcoming.altitudeFt)}` : 'none'
+    if (nextKey !== this.loggedNext) {
+      this.loggedNext = nextKey
+      this.log(`next step ${nextKey}${upcomingDistance !== null ? ` (${Math.round(upcomingDistance)} nm)` : ''}`)
+    }
 
     if (this.inFlight === null && active.phase === 'cruise' && session?.getStatus().state === 'connected') {
       const target = this.pickTarget(t, now, clearedFt, upcoming, upcomingDistance)
@@ -245,11 +268,13 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
     const attempt = { count: (this.attempts.get(key)?.count ?? 0) + 1, lastAt: now }
     this.attempts.set(key, attempt)
     this.inFlight = key
+    this.log(`requesting ${Math.round(altitudeFt)} ft (trigger ${reason}, attempt ${attempt.count})`)
     this.emitStatus()
     void this.request(session, altitudeFt)
       .then(({ outcome }) => {
         if (outcome === 'granted') this.attempts.delete(key)
         else if (attempt.count >= MAX_ATTEMPTS) this.dropped.add(key)
+        this.log(`request ${key} ft: ${outcome}${this.dropped.has(key) ? ', dropped' : ''}`)
         this.last = { altitudeFt: key, outcome, attempt: attempt.count, reason, dropped: this.dropped.has(key) }
       })
       .finally(() => {
