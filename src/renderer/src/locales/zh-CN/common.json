@@ -163,7 +163,9 @@
       "simulationOnly": "仅供飞行模拟使用。WingLog 绝不能用于真实世界的导航、真实飞行计划或真实航空器上。",
       "disclaimer": "WingLog 是一个独立的免费项目。它与 Microsoft Corporation、Asobo Studio、Skirmish Mode Games（BeyondATC）、FSDreamTeam（GSX）、Navigraph（SimBrief）或 OpenFreeMap 没有任何关联，未获其认可，也未获其赞助。“Microsoft Flight Simulator”“BeyondATC”“GSX”“SimBrief”和“Navigraph”是其各自所有者的商标。",
       "license": "根据 GNU General Public License v3.0 免费开源发布。",
-      "runSetup": "重新运行设置向导"
+      "runSetup": "重新运行设置向导",
+      "openManual": "手册（PDF）",
+      "manualMissing": "此版本未包含手册。"
     },
     "usernameSavedToast": "SimBrief 用户名已保存。",
     "usernameAutoFilledToast": "已自动填入 SimBrief 用户名：{{username}}",

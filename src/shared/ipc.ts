@@ -1438,6 +1438,7 @@ export const IpcChannels = {
   syncStatus: 'sync:status',
   appGetVersion: 'app:get-version',
   appOpenGithub: 'app:open-github',
+  appOpenManual: 'app:open-manual',
   navdataRefreshAirport: 'navdata:refresh-airport',
   navdataHasAirport: 'navdata:has-airport',
   navdataListRunways: 'navdata:list-runways',
@@ -1787,6 +1788,8 @@ export interface WingLogApi {
    *  than a raw <a target="_blank"> (which Electron would otherwise open as a new
    *  in-app window, not the system browser). */
   appOpenGithub: () => Promise<void>
+  /** Opens the bundled PDF manual in the system's PDF viewer. False if this build has none. */
+  appOpenManual: () => Promise<boolean>
   /** Fetches fresh runway/SID/STAR data for `icao` from the sim and replaces the local
    *  cache for it — the write path (call on OFP import, or a manual "Refresh from sim"
    *  control). Throws if the sim isn't reachable or the fetch fails/times out. */

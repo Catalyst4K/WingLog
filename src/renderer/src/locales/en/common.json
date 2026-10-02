@@ -168,7 +168,9 @@
       "simulationOnly": "For flight simulation use only. WingLog must never be used for real-world navigation, flight planning, or in a real aircraft.",
       "disclaimer": "WingLog is an independent, free project. It is not affiliated with, endorsed by, or sponsored by Microsoft Corporation, Asobo Studio, Skirmish Mode Games (BeyondATC), FSDreamTeam (GSX), Navigraph (SimBrief), or OpenFreeMap. \"Microsoft Flight Simulator\", \"BeyondATC\", \"GSX\", \"SimBrief\" and \"Navigraph\" are trademarks of their respective owners.",
       "license": "Free and open source under the GNU General Public License v3.0.",
-      "runSetup": "Run setup again"
+      "runSetup": "Run setup again",
+      "openManual": "Manual (PDF)",
+      "manualMissing": "The manual isn't included in this build."
     },
     "usernameSavedToast": "SimBrief username saved.",
     "usernameAutoFilledToast": "SimBrief username filled in automatically: {{username}}",

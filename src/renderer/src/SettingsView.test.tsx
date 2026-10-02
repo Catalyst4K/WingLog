@@ -63,6 +63,7 @@ function createWinglog(overrides: Record<string, unknown> = {}): typeof window.w
     setupGetState: vi.fn().mockResolvedValue({ show: false, whatsNew: false }),
     setupGetContext: vi.fn().mockResolvedValue({ gsxFolderFound: false, gsxFolderPath: null, beyondAtcRunning: false }),
     setupComplete: vi.fn().mockResolvedValue(undefined),
+    appOpenManual: vi.fn().mockResolvedValue(true),
     settingsSetGsx: vi.fn().mockResolvedValue(undefined),
     gsxBrowseFolder: vi.fn().mockResolvedValue(null),
     settingsGetGsxRemote: vi.fn().mockResolvedValue(makeGsxRemote()),
@@ -1096,6 +1097,19 @@ describe('SettingsView', () => {
       for (const party of ['Microsoft Corporation', 'Asobo Studio', 'Skirmish Mode Games (BeyondATC)', 'FSDreamTeam (GSX)', 'Navigraph (SimBrief)', 'OpenFreeMap']) {
         expect(disclaimer).toHaveTextContent(party)
       }
+    })
+
+    it('opens the bundled manual, and says so when this build has none', async () => {
+      const appOpenManual = vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false)
+      setWinglog({ appOpenManual })
+      const user = userEvent.setup()
+      renderSettings()
+      await user.click(screen.getByRole('tab', { name: 'About' }))
+      await user.click(await screen.findByRole('button', { name: 'Manual (PDF)' }))
+      expect(appOpenManual).toHaveBeenCalledTimes(1)
+      expect(toast.error).not.toHaveBeenCalled()
+      await user.click(screen.getByRole('button', { name: 'Manual (PDF)' }))
+      await waitFor(() => expect(toast.error).toHaveBeenCalledWith("The manual isn't included in this build."))
     })
 
     it('opens the GitHub repo through the app link', async () => {

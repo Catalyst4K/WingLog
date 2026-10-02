@@ -428,6 +428,7 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     setupGetState: vi.fn().mockResolvedValue({ show: false, whatsNew: false }),
     setupGetContext: vi.fn().mockResolvedValue({ gsxFolderFound: false, gsxFolderPath: null, beyondAtcRunning: false }),
     setupComplete: vi.fn().mockResolvedValue(undefined),
+    appOpenManual: vi.fn().mockResolvedValue(true),
     appOpenGithub: vi.fn().mockResolvedValue(undefined),
     ...overrides
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

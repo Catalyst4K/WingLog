@@ -868,13 +868,23 @@ export function SettingsView(props: {
                   github.com/Catalyst4K/WingLog
                 </button>
               </p>
-              {props.onRunSetup && (
-                <div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    if (!(await window.winglog.appOpenManual())) toast.error(t('settingsView.about.manualMissing'))
+                  }}
+                >
+                  {t('settingsView.about.openManual')}
+                </Button>
+                {props.onRunSetup && (
                   <Button type="button" variant="outline" size="sm" onClick={props.onRunSetup}>
                     {t('settingsView.about.runSetup')}
                   </Button>
-                </div>
-              )}
+                )}
+              </div>
             </CardContent>
           </Card>
           <UpdatesCard />

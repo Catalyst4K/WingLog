@@ -129,6 +129,8 @@ import { EMPTY_COMMAND_BAR, EMPTY_MENU, GsxRemoteService } from './gsx-remote/Gs
 import { BeyondAtcService, EMPTY_STATE as BEYONDATC_EMPTY_STATE } from './beyondatc/BeyondAtcService'
 import { UpdateService } from './updates/update-check'
 import { LiveHub } from './live/LiveHub'
+import { manualPath } from './manual-path'
+import { existsSync } from 'node:fs'
 import { getSetupContext, getSetupState, setSetupCompleted } from './setup/first-run'
 import { StepClimbController } from './beyondatc/step-climb'
 import type { NavdataProvider } from './navdata/navdata-provider'
@@ -1029,6 +1031,12 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.appOpenGithub, () =>
         shell.openExternal('https://github.com/Catalyst4K/WingLog')
       )
+      // The PDF manual: a fixed path inside the app's own resources, never one from the renderer.
+      ipcMain.handle(IpcChannels.appOpenManual, async () => {
+        const manual = manualPath(app.isPackaged, process.resourcesPath, app.getAppPath())
+        if (!existsSync(manual)) return false
+        return (await shell.openPath(manual)) === ''
+      })
 
       // Update check (flightdeck-backend's docs/plans/update-check.md, Part A; agreed
       // 2026-10-02): asks GitHub for the latest published release, on by default, switchable

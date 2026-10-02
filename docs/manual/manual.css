@@ -1,0 +1,169 @@
+/* Print stylesheet for the WingLog manual (scripts/manual/build.ts prints it to A4 PDF). */
+@page {
+  size: A4;
+}
+
+:root {
+  --ink: #1b1f24;
+  --muted: #5b6470;
+  --rule: #d7dce2;
+  --accent: #0e7fa8;
+  --note: #eef6fa;
+  --warn: #fff5e6;
+}
+
+html {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.5;
+  color: var(--ink);
+  background: #fff;
+}
+
+body {
+  margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.25;
+  break-after: avoid;
+}
+
+h1 {
+  font-size: 22pt;
+  margin: 0 0 0.6em;
+  padding-bottom: 0.25em;
+  border-bottom: 2px solid var(--accent);
+}
+
+h2 {
+  font-size: 14pt;
+  margin: 1.6em 0 0.5em;
+  color: var(--accent);
+}
+
+h3 {
+  font-size: 11.5pt;
+  margin: 1.2em 0 0.4em;
+}
+
+p,
+li {
+  orphans: 3;
+  widows: 3;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+code {
+  font-family: Consolas, 'Cascadia Mono', monospace;
+  font-size: 9.5pt;
+  background: #f2f4f6;
+  padding: 0 0.2em;
+  border-radius: 3px;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+  margin: 0.8em auto;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  break-inside: avoid;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.8em 0;
+  font-size: 9.5pt;
+  break-inside: avoid;
+}
+
+th,
+td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.35em 0.5em;
+  border-bottom: 1px solid var(--rule);
+}
+
+th {
+  background: #f5f7f9;
+}
+
+blockquote {
+  margin: 1em 0;
+  padding: 0.6em 0.9em;
+  background: var(--note);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 4px 4px 0;
+  break-inside: avoid;
+}
+
+blockquote p {
+  margin: 0.2em 0;
+}
+
+.chapter {
+  break-before: page;
+}
+
+/* Cover */
+.cover {
+  height: 250mm;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+
+.cover-title {
+  font-size: 48pt;
+  border: none;
+  color: var(--accent);
+  margin: 0;
+}
+
+.cover-subtitle {
+  font-size: 14pt;
+  color: var(--muted);
+}
+
+.cover-note {
+  margin: 3em auto 0;
+  max-width: 120mm;
+  padding: 0.8em 1em;
+  background: var(--warn);
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+/* Table of contents */
+.toc {
+  break-before: page;
+}
+
+.toc ul {
+  list-style: none;
+  padding: 0;
+}
+
+.toc li {
+  margin: 0.15em 0;
+}
+
+.toc .toc-1 {
+  font-weight: 600;
+  margin-top: 0.6em;
+}
+
+.toc .toc-2 {
+  padding-left: 1.4em;
+  color: var(--muted);
+}
