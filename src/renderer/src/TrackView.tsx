@@ -34,7 +34,7 @@ import { MetarPanel } from './MetarPanel'
 import { useLiveWaypoints, type ProcedureAirports } from './procedureSelection'
 import { parseTransitionAltitudes } from './route'
 import { StartFreeFlightDialog } from './StartFreeFlightDialog'
-import { computeTrackTimes, formatDuration, formatUtcTime, type TrackTimes } from './trackTimes'
+import { computeTrackTimes, formatDuration, formatElapsed, formatUtcTime, type TrackTimes } from './trackTimes'
 
 // Display-only duplicate of FlightRecorder's own MOVING_MS (~1kt) — the renderer can't
 // import main-process code (this repo's own layout rule), and this threshold only decides
@@ -616,7 +616,7 @@ function TimeReadouts(props: { times: TrackTimes }): React.JSX.Element {
   return (
     <span className="flex flex-wrap items-center gap-x-3 text-sm text-muted-foreground">
       <span>
-        {t('trackView.times.et')} <span className="font-mono text-foreground">{formatDuration(times.elapsedMs)}</span>
+        {t('trackView.times.et')} <span className="font-mono text-foreground">{formatElapsed(times.elapsedMs)}</span>
       </span>
       <span>
         {t('trackView.times.remaining')} <span className="font-mono text-foreground">{formatDuration(times.remainingMs)}</span>

@@ -359,7 +359,7 @@ describe('TrackView', () => {
 
       expect(await screen.findByText('ETA (planned)')).toBeInTheDocument()
       expect(screen.getByText('07:15Z')).toBeInTheDocument()
-      expect(readout('ET')).toHaveTextContent('--:--')
+      expect(readout('ET')).toHaveTextContent('--:--:--')
       expect(readout('Remaining')).toHaveTextContent('--:--')
     })
 
@@ -382,7 +382,7 @@ describe('TrackView', () => {
 
       await waitFor(() => expect(readout('Remaining')).not.toHaveTextContent('--:--'))
       expect(logbookGreatCircleRoute).toHaveBeenCalledWith('VHHH', 'EGLL')
-      expect(readout('ET')).toHaveTextContent('2:05')
+      expect(readout('ET')?.textContent).toMatch(/^2:05:3\d$/)
       expect(readout('Remaining')?.textContent).toMatch(/^\d+:\d\d$/)
       expect(readout('ETA')?.textContent).toMatch(/^\d\d:\d\dZ$/)
       expect(screen.queryByText('ETA (planned)')).not.toBeInTheDocument()

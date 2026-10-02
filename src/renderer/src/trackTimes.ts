@@ -111,6 +111,17 @@ export function formatDuration(ms: number | null): string {
   return `${Math.floor(totalMin / 60)}:${String(totalMin % 60).padStart(2, '0')}`
 }
 
+/** ET: "2:05:30", seconds included since the readout ticks every second (Callum,
+ *  2026-10-02). Time remaining stays at formatDuration's minutes: it's an estimate from
+ *  ground speed, and ticking seconds would claim a precision it doesn't have. */
+export function formatElapsed(ms: number | null): string {
+  if (ms === null) return '--:--:--'
+  const totalSec = Math.floor(ms / 1000)
+  const h = Math.floor(totalSec / 3600)
+  const m = Math.floor((totalSec % 3600) / 60)
+  return `${h}:${String(m).padStart(2, '0')}:${String(totalSec % 60).padStart(2, '0')}`
+}
+
 /** "08:01Z". */
 export function formatUtcTime(ms: number | null): string {
   if (ms === null) return '--:--'

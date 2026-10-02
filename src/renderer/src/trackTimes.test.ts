@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeTrackTimes, formatDuration, formatUtcTime, remainingRouteNm } from './trackTimes'
+import { computeTrackTimes, formatDuration, formatElapsed, formatUtcTime, remainingRouteNm } from './trackTimes'
 
 // A cut-down YBBN-VHHH (the real flight, 2026-10-02): YBBN, BARIA (the step climb fix), MIA
 // (Manila), VHHH. [lon, lat].
@@ -93,5 +93,15 @@ describe('formatting', () => {
     expect(formatDuration(null)).toBe('--:--')
     expect(formatUtcTime(Date.parse('2026-10-02T08:01:30Z'))).toBe('08:01Z')
     expect(formatUtcTime(null)).toBe('--:--')
+  })
+
+  it('formats ET with seconds (Callum, 2026-10-02), hours unpadded', () => {
+    expect(formatElapsed(0)).toBe('0:00:00')
+    expect(formatElapsed(59_999)).toBe('0:00:59')
+    expect(formatElapsed(3_601_000)).toBe('1:00:01')
+    // The YBBN-VHHH block: 8 h 47 m 12 s.
+    expect(formatElapsed((8 * 3600 + 47 * 60 + 12) * 1000)).toBe('8:47:12')
+    expect(formatElapsed((13 * 3600 + 5 * 60 + 9) * 1000)).toBe('13:05:09')
+    expect(formatElapsed(null)).toBe('--:--:--')
   })
 })
