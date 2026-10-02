@@ -23,6 +23,8 @@ With **GSX ground services** on, WingLog attaches them to the matching flight in
 GSX Pro has a remote-control connection meant for other apps to use. With **GSX Remote Control** on,
 WingLog's **Ground services** page runs GSX's menu without the in-sim window:
 
+![The Ground services page](images/gsx.png)
+
 - **GSX Menu**: tap to open GSX's menu, then pick entries just as you would in the sim. Menus that
   need an answer straight away (pushback direction, fuel amount) also pop up over whatever page
   you're on.

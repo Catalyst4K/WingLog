@@ -4,6 +4,8 @@ The first time you start WingLog, a short setup walks you through the settings t
 step is optional: **Next** moves on without changing anything, and closing the window at any point
 finishes the setup. You can run it again any time from **Settings → About → Run setup again**.
 
+![The first-launch setup](images/setup-welcome.png)
+
 | Step | What you choose |
 |---|---|
 | Welcome | Nothing to set. A reminder that WingLog is for simulation only. |
@@ -18,6 +20,8 @@ finishes the setup. You can run it again any time from **Settings → About → 
 
 WingLog looks for GSX's receipts folder and checks whether BeyondATC is running, and tells you what
 it found. It never switches an add-on on by itself: each one stays off until you choose **On**.
+
+![The add-ons step: each add-on stays off until you turn it on](images/setup-addons.png)
 
 - **GSX ground services** attaches GSX Pro's service receipts to your flights in the Logbook.
 - **GSX Remote Control** adds a **Ground services** page for running GSX's menu from inside WingLog.
