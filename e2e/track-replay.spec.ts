@@ -23,7 +23,7 @@ test('the SimConnect replay seam reaches the renderer through a real app launch'
     env: { WINGLOG_E2E_FIXTURE: fixturePath, WINGLOG_E2E_REPLAY_MODE: 'paced', WINGLOG_E2E_REPLAY_SPEED: '200' }
   })
   try {
-    const badge = window.getByText('SimConnect:', { exact: false })
+    const badge = window.locator('[data-slot=badge]', { hasText: 'SimConnect:' })
     await expect(badge).toHaveAttribute('title', /replay/, { timeout: 15_000 })
   } finally {
     await cleanup()
