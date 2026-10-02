@@ -87,6 +87,13 @@ describe('BeyondAtcRadios', () => {
     expect(onSetFrequencyCom2).not.toHaveBeenCalled()
   })
 
+  it('shows a switched-off COM2 as "Radio Off", not with empty brackets', () => {
+    // BeyondATC's real line for a switched-off COM2: Com2: {"label":"Radio Off","frequency":"","monitor":false}
+    render(<BeyondAtcRadios {...makeRadiosProps({ com2: { label: 'Radio Off', frequency: '', monitor: false } })} />)
+    expect(screen.getByText('Radio Off')).toBeInTheDocument()
+    expect(screen.queryByText(/Radio Off \(/)).not.toBeInTheDocument()
+  })
+
   it('pressing Enter in the COM2 frequency field commits it and clears the input', async () => {
     const onSetFrequencyCom2 = vi.fn()
     const user = userEvent.setup()
