@@ -45,6 +45,7 @@ import { flightLabel } from './flight-label'
 import { gsxMenuSignature, isImportantGsxMenu } from './gsx-remote-importance'
 import { emptyProcedureSelection, seedProcedureSelectionFromOfp, selectionFromFlight } from './procedureSelection'
 import { parseAtcClearance, type AtcClearanceUpdate } from './atcClearanceParser'
+import { matchClearanceApproach } from './atcApproachMatch'
 
 // Fleet is the default/first tab, so it's the one view kept eager — every other tab is
 // lazy so its JS (and, for Track/Logbook, the maplibre-gl and recharts they pull in —
@@ -326,10 +327,27 @@ export default function App(): React.JSX.Element {
         if (update) latest = { ...update, sourceTs: entry.ts }
       }
       if (!latest) return
-      const differs = Object.entries(latest.fields).some(
-        ([key, value]) => procedureSelection[key as keyof ProcedureSelection] !== value
-      )
-      if (differs) setPendingAtcClearance(latest)
+      const candidate: AtcClearanceUpdate & { sourceTs: number } = latest
+      void (async () => {
+        let update: AtcClearanceUpdate | null = candidate
+        // ATC names approaches the way they're spoken ("R-NAV approach runway 02L"); swap in
+        // the arrival airport's own name so accepting it selects something real (WSSS,
+        // 2026-10-02). The airport is the one being flown to: the selected arrival, else
+        // BeyondATC's own route.
+        if (update.fields.approachIdent) {
+          try {
+            const icao = procedureSelection.arrivalIcao ?? (await window.winglog.beyondAtcGetState()).progress?.to ?? null
+            if (icao) update = matchClearanceApproach(update, await window.winglog.navdataListApproaches(icao, null))
+          } catch {
+            // No list to check against: offer the clearance as parsed.
+          }
+        }
+        if (!update) return
+        const differs = Object.entries(update.fields).some(
+          ([key, value]) => procedureSelection[key as keyof ProcedureSelection] !== value
+        )
+        if (differs) setPendingAtcClearance({ ...update, sourceTs: candidate.sourceTs })
+      })()
     })
   }, [procedureSelection])
 
