@@ -559,22 +559,25 @@ export default function App(): React.JSX.Element {
     <main className="flex h-screen flex-col">
       <UpdateBanner airborne={telemetry !== null && !telemetry.onGround} />
       <Tabs value={effectivePage} onValueChange={(value) => setPage(value as AppPage)} className="min-h-0 flex-1 gap-0">
-        <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-3">
-          <TabsList variant="line">
+        {/* Narrow windows (a second monitor, and later a tablet or phone): tabs drop to icons
+            below lg, keeping each label for screen readers, and scroll if they still don't fit. */}
+        <header className="flex items-center justify-between gap-2 border-b border-border px-4 py-3 sm:gap-4 sm:px-6">
+          <TabsList variant="line" className="min-w-0 justify-start overflow-x-auto overflow-y-hidden [scrollbar-width:none]">
             {appTabs(t, gsxRemoteEnabled, beyondAtcEnabled).map(({ page: tabPage, label, icon: Icon }) => (
               <TabsTrigger
                 key={tabPage}
                 value={tabPage}
-                className="gap-1.5 px-3"
+                className="gap-1.5 px-1.5 sm:px-3"
                 onClick={() => goToTab(tabPage)}
               >
                 <Icon />
-                {label}
+                <span className="sr-only lg:not-sr-only">{label}</span>
               </TabsTrigger>
             ))}
           </TabsList>
-          <Badge variant={connectionStatusVariant(simStatus)} title={connectionStatusLabel(simStatus, t)}>
-            {t('app.connection.badge', { state: connectionStateLabel(simStatus, t) })}
+          <Badge variant={connectionStatusVariant(simStatus)} title={connectionStatusLabel(simStatus, t)} className="shrink-0">
+            <span className="sm:hidden">{connectionStateLabel(simStatus, t)}</span>
+            <span className="hidden sm:inline">{t('app.connection.badge', { state: connectionStateLabel(simStatus, t) })}</span>
           </Badge>
         </header>
 
@@ -584,7 +587,7 @@ export default function App(): React.JSX.Element {
             the header above away with it) instead of just this div
             (flight-test-findings-2026-09-06.md #7 — confirmed live: the outer <main> was
             measurably taller than the viewport, not this div). */}
-        <div className="min-h-0 flex-1 overflow-auto p-8">
+        <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-8">
           {effectivePage === 'fleet' && (
             <FleetView
               onOpenFlightInLogbook={openFlightInLogbook}
