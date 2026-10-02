@@ -43,7 +43,7 @@
       "hybrid": "Hybrid",
       "hybridHint": "\"Hybrid\" shows each step climb in whichever unit it was actually planned in — feet for a standard level, meters for a route crossing into airspace (e.g. China) that assigns levels in meters — rather than converting everything to one unit.",
       "appLanguage": "App language",
-      "appLanguageHint": "\"System\" follows your OS's own language, falling back to English if this app doesn't have a translation for it yet. Translation is being rolled out one part of the app at a time — most of the UI is still English regardless of this setting. Real aviation terms (ILS, STAR, SID, FL, QNH, ICAO idents) and anything from SimBrief always stay in English.",
+      "appLanguageHint": "\"System\" follows your OS's own language, falling back to English if this app doesn't have a translation for it yet. Real aviation terms (ILS, STAR, SID, FL, QNH, ICAO idents) and anything from SimBrief always stay in English.",
       "mapLanguage": "Map language",
       "mapLanguageHint": "The language of place names on the Track and Logbook maps. \"Local\" shows each place in its own language — independent of the app language above.",
       "metarWindSpeed": "METAR wind speed",

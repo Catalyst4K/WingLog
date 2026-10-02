@@ -43,7 +43,7 @@
       "hybrid": "Hybride",
       "hybridHint": "« Hybride » affiche chaque palier de montée dans l'unité réellement planifiée — pieds pour un niveau standard, mètres pour une route entrant dans un espace aérien (ex. la Chine) qui assigne les niveaux en mètres — plutôt que de tout convertir dans une seule unité.",
       "appLanguage": "Langue de l'application",
-      "appLanguageHint": "« Système » suit la langue de votre système d'exploitation, avec repli sur l'anglais si l'application n'a pas encore de traduction pour elle. La traduction est déployée progressivement — la majeure partie de l'interface reste en anglais quel que soit ce réglage. Les vrais termes aéronautiques (ILS, STAR, SID, FL, QNH, indicatifs OACI) et tout ce qui provient de SimBrief restent toujours en anglais.",
+      "appLanguageHint": "« Système » suit la langue de votre système d'exploitation, avec repli sur l'anglais si l'application n'a pas encore de traduction pour elle. Les vrais termes aéronautiques (ILS, STAR, SID, FL, QNH, indicatifs OACI) et tout ce qui provient de SimBrief restent toujours en anglais.",
       "mapLanguage": "Langue de la carte",
       "mapLanguageHint": "La langue des noms de lieux sur les cartes Suivi et Carnet. « Local » affiche chaque lieu dans sa propre langue — indépendamment de la langue de l'application ci-dessus.",
       "metarWindSpeed": "Vitesse du vent METAR",
