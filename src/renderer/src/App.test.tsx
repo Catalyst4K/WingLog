@@ -1044,6 +1044,47 @@ describe('App', () => {
       expect(screen.queryByText('Update procedure from ATC clearance?')).not.toBeInTheDocument()
     })
 
+    it("matches a spoken R-NAV approach to the sim's own RNAV name before offering it (WSSS, 2026-10-02)", async () => {
+      // Real WSSS navdata and BeyondATC's real line: "R-NAV" used to become "R NAV 02L", which
+      // matched nothing, so Update changed nothing.
+      const { push, winglog } = withTranscriptListener({
+        beyondAtcGetState: vi.fn().mockResolvedValue({ progress: { from: 'ZSPD', to: 'WSSS', pct: 96 } }),
+        navdataListApproaches: vi.fn().mockResolvedValue([
+          { identifier: 'ILS 02L', transition: 'APIPA' },
+          { identifier: 'RNAV 02L', transition: 'SAMKO' },
+          { identifier: 'RNAV 02L', transition: 'SANAT' }
+        ])
+      })
+      const user = userEvent.setup()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+      await openTrackTab(user)
+
+      push([
+        {
+          speaker: 'atc',
+          text: 'Singapore 831 Super Singapore Approach, QNH 1014 expect the R-NAV approach runway 02L with the SANAT transition.',
+          ts: 1000
+        }
+      ])
+      expect(await screen.findByText('Update procedure from ATC clearance?')).toBeInTheDocument()
+      expect(winglog.navdataListApproaches).toHaveBeenCalledWith('WSSS', null)
+      expect(screen.getByText('RNAV 02L')).toBeInTheDocument()
+      expect(screen.getByText('SANAT')).toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'Update' }))
+      await waitFor(() =>
+        expect(winglog.trackingSetProcedureSelection).toHaveBeenLastCalledWith(
+          expect.objectContaining({ approachIdent: 'RNAV 02L', approachTransition: 'SANAT' })
+        )
+      )
+
+      // The cleared-approach line a minute later now matches what's selected: no second prompt.
+      push([{ speaker: 'atc', text: 'Singapore 831 Super, cleared direct SANAT, cleared R-NAV approach runway 02L.', ts: 2000 }])
+      await new Promise((r) => setTimeout(r, 50))
+      expect(screen.queryByText('Update procedure from ATC clearance?')).not.toBeInTheDocument()
+    })
+
     it('dismissing the prompt leaves the selection unchanged', async () => {
       const { push, winglog } = withTranscriptListener()
       const user = userEvent.setup()
