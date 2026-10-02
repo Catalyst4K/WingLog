@@ -43,7 +43,7 @@
       "hybrid": "Ibrido",
       "hybridHint": "\"Ibrido\" mostra ogni tratto di salita nell'unità in cui è stato effettivamente pianificato — piedi per un livello standard, metri per una rotta che entra in uno spazio aereo (es. Cina) che assegna i livelli in metri — invece di convertire tutto in un'unica unità.",
       "appLanguage": "Lingua dell'app",
-      "appLanguageHint": "\"Sistema\" segue la lingua del tuo sistema operativo, ricadendo sull'inglese se questa app non ha ancora una traduzione per essa. La traduzione viene introdotta gradualmente — la maggior parte dell'interfaccia è ancora in inglese indipendentemente da questa impostazione. I veri termini aeronautici (ILS, STAR, SID, FL, QNH, identificativi ICAO) e tutto ciò che proviene da SimBrief restano sempre in inglese.",
+      "appLanguageHint": "\"Sistema\" segue la lingua del tuo sistema operativo, ricadendo sull'inglese se questa app non ha ancora una traduzione per essa. I veri termini aeronautici (ILS, STAR, SID, FL, QNH, identificativi ICAO) e tutto ciò che proviene da SimBrief restano sempre in inglese.",
       "mapLanguage": "Lingua della mappa",
       "mapLanguageHint": "La lingua dei nomi dei luoghi sulle mappe di Monitoraggio e Libretto. \"Locale\" mostra ogni luogo nella propria lingua — indipendentemente dalla lingua dell'app sopra.",
       "metarWindSpeed": "Velocità del vento METAR",

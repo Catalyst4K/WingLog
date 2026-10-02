@@ -41,7 +41,7 @@
       "hybrid": "混合",
       "hybridHint": "“混合”会按实际计划所用的单位显示每一段爬升高度 — 标准高度层用英尺，进入按米分层的空域（例如中国）的航路则用米 — 而不是统一换算成同一种单位。",
       "appLanguage": "应用语言",
-      "appLanguageHint": "“跟随系统”会使用操作系统本身的语言，若本应用尚无对应翻译则回退为英文。翻译正在逐个界面推进中 — 目前大部分界面仍为英文，与此设置无关。真正的航空术语（ILS、STAR、SID、FL、QNH、ICAO 代码）以及来自 SimBrief 的内容始终保持英文。",
+      "appLanguageHint": "“跟随系统”会使用操作系统本身的语言，若本应用尚无对应翻译则回退为英文。真正的航空术语（ILS、STAR、SID、FL、QNH、ICAO 代码）以及来自 SimBrief 的内容始终保持英文。",
       "mapLanguage": "地图语言",
       "mapLanguageHint": "追踪和飞行日志地图上地名所用的语言。“本地”会以当地语言显示每个地名 — 与上面的应用语言互不影响。",
       "metarWindSpeed": "METAR 风速",

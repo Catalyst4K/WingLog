@@ -43,7 +43,7 @@
       "hybrid": "Hybrid",
       "hybridHint": "„Hybrid“ zeigt jeden Steigflug-Abschnitt in der Einheit, in der er tatsächlich geplant wurde — Fuß für ein Standard-Flugniveau, Meter für eine Strecke, die in einen Luftraum führt (z. B. China), der Flughöhen in Metern zuweist — statt alles in eine Einheit umzurechnen.",
       "appLanguage": "App-Sprache",
-      "appLanguageHint": "„System“ folgt der Sprache deines Betriebssystems und weicht auf Englisch aus, wenn für diese Sprache noch keine Übersetzung existiert. Die Übersetzung wird nach und nach eingeführt — der Großteil der Oberfläche ist unabhängig von dieser Einstellung noch auf Englisch. Echte Luftfahrtbegriffe (ILS, STAR, SID, FL, QNH, ICAO-Kennungen) und alles von SimBrief bleiben immer auf Englisch.",
+      "appLanguageHint": "„System“ folgt der Sprache deines Betriebssystems und weicht auf Englisch aus, wenn für diese Sprache noch keine Übersetzung existiert. Echte Luftfahrtbegriffe (ILS, STAR, SID, FL, QNH, ICAO-Kennungen) und alles von SimBrief bleiben immer auf Englisch.",
       "mapLanguage": "Kartensprache",
       "mapLanguageHint": "Die Sprache der Ortsnamen auf den Karten von Flugverfolgung und Logbuch. „Lokal“ zeigt jeden Ort in seiner eigenen Sprache — unabhängig von der App-Sprache oben.",
       "metarWindSpeed": "METAR-Windgeschwindigkeit",
