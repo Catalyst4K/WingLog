@@ -11,9 +11,13 @@ hours and miles flown.
   labelled by airfield and attempt (`EGLL 1`, `EGLL 2`). Sort by date, airport and runway, aircraft,
   touchdown rate, G-force or score.
 
+![The Logbook](images/logbook-list.png)
+
 ## A flight's page
 
 Click a flight to see:
+
+![A flight's page with its landing report and track](images/logbook-detail.png)
 
 - aircraft, date, **block time** (off-blocks to on-blocks), **air time**, fuel burned and planned;
 - the route you flew on a map, against the planned route (a great-circle line if there was no plan);

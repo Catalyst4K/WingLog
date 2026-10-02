@@ -4,6 +4,8 @@ The Fleet page lists your aircraft. Sort it by registration, type, airline, loca
 number of flights by clicking a column heading. **Active** and **Retired** aircraft have their own
 tabs.
 
+![The Fleet page](images/fleet.png)
+
 ## Adding an aircraft
 
 1. Choose **New aircraft**.

@@ -45,6 +45,12 @@ data stays in a database on your own PC.
 </p>
 <p align="center"><sub>Track — live position from SimConnect against the planned route, with waypoints and procedures.</sub></p>
 
+<p align="center">
+  <img src="docs/manual/images/beyondatc.png" width="49%" alt="BeyondATC — a departure clearance broken into fields, with the transcript, actions and radios">
+  <img src="docs/manual/images/gsx.png" width="49%" alt="Ground services — GSX's menu, gate details and services from inside WingLog">
+</p>
+<p align="center"><sub>BeyondATC and GSX Remote Control, both optional and off until you turn them on.</sub></p>
+
 ## Features
 
 - **Fleet.** Registration, type, airline, location, hours and flights for each aircraft. Look up a

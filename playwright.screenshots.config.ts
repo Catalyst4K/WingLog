@@ -8,5 +8,5 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   reporter: 'list',
-  timeout: 120_000
+  timeout: 300_000
 })

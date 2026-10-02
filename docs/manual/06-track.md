@@ -26,6 +26,8 @@ is worked out from where you actually land.
 The map follows your aircraft, with the route you planned in blue and the route you've flown drawn
 behind you.
 
+![Track during the climb: the map has zoomed out with altitude](images/track.png)
+
 - **Follow.** The target button (top right) switches following on and off. With it off you can pan
   around freely.
 - **Zoom.** Following zooms in close on the ground, then steps out as you climb: one level below

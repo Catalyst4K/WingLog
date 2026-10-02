@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test, expect, type Page, type ElectronApplication } from '@playwright/test'
 import { launchApp } from './launch-app'
-import { FakeBeyondAtcServer, LARGE_REAL_SNAPSHOT, RADIO_CHECK_RESPONSE } from './beyondatc-server'
+import { FakeBeyondAtcServer, LARGE_REAL_SNAPSHOT } from './beyondatc-server'
 import { FakeGsxRemoteServer, VHHH_BOOT_SNAPSHOT } from './gsx-remote-server'
 
 /**
@@ -47,6 +47,22 @@ function seededProfile(): string {
   })
   return dir
 }
+
+/**
+ * One consistent clearance exchange for the BeyondATC page, on the same flight as
+ * LARGE_REAL_SNAPSHOT (Singapore 830 Super, WSSS -> ZSPD, ATIS B: departures 20C). The wording
+ * follows real BeyondATC lines from Player.log (2026-10-02, ZSPD); ANIT8B is a real WSSS SID
+ * off 20C in the sim's navdata.
+ */
+const DEMO_CLEARANCE = [
+  'CommsState: {"mode": "awaiting", "text": "Awaiting Response"}',
+  'Player: Singapore Delivery, Singapore 830 Super, Airbus A380-800, request IFR clearance to Pudong airport, Information B.',
+  'CommsState: {"mode": "speaking", "text": "Speaking"}',
+  'ATC: Singapore 830 Super, Singapore Delivery, information B correct, cleared to Pudong via ANIT8B departure, runway 20C, climb via SID to 5,000, squawk 2341.',
+  'Player: Cleared to Pudong via ANIT8B departure, runway 20C, climb via SID to 5,000, squawk 2341, Singapore 830 Super.',
+  'ATC: Singapore 830 Super, readback correct. Contact ground 124.3 when ready for pushback or engine start.',
+  'CommsState: {"mode": "ready", "text": ""}'
+]
 
 test.beforeAll(() => mkdirSync(OUT, { recursive: true }))
 
@@ -107,16 +123,16 @@ test('fleet, logbook and settings on a seeded profile', async () => {
 test('a live free flight on Track', async () => {
   const fixturePath = join(process.cwd(), 'src/main/tracking/__fixtures__/short-hop-egll-egcc.ndjson')
   const { app, window: page, cleanup } = await launchApp({
-    env: { WINGLOG_E2E_FIXTURE: fixturePath, WINGLOG_E2E_REPLAY_MODE: 'paced', WINGLOG_E2E_REPLAY_SPEED: '20' }
+    env: { WINGLOG_E2E_FIXTURE: fixturePath, WINGLOG_E2E_REPLAY_MODE: 'paced', WINGLOG_E2E_REPLAY_SPEED: '40' }
   })
   try {
     await prepare(app, page)
     await page.getByRole('tab', { name: 'Track' }).click()
     await page.getByRole('button', { name: 'Free flight' }).click()
     await page.getByRole('button', { name: 'Start tracking' }).click()
-    await expect(page.getByText(/Phase:/)).toBeVisible()
     // Into the climb, so the map shows a trail behind the aircraft.
-    await page.waitForTimeout(15_000)
+    await expect(page.getByText(/Phase:\s*climb/i)).toBeVisible({ timeout: 240_000 })
+    await page.waitForTimeout(10_000)
     await shot(page, 'track')
   } finally {
     await cleanup()
@@ -131,7 +147,7 @@ test('the BeyondATC page', async () => {
     await page.evaluate(() => (globalThis as unknown as Window).winglog.settingsSetBeyondAtc({ enabled: true, host: '127.0.0.1' }))
     await server.waitForConnection()
     server.sendLines(...LARGE_REAL_SNAPSHOT)
-    server.sendLines(...RADIO_CHECK_RESPONSE)
+    server.sendLines(...DEMO_CLEARANCE)
     await page.reload()
     await page.getByRole('tab', { name: 'BeyondATC' }).click()
     await expect(page.getByText('Latest instruction')).toBeVisible()

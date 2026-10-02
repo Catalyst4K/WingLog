@@ -16,6 +16,8 @@ Settings has four sections down the left.
 | **Tracking: Start tracking automatically** | On: WingLog starts tracking when the aircraft settles at the departure. Off: press **Start tracking** on Track (Dispatch's **Fly** still sets the flight up). |
 | **Tracking: Finish flights automatically** | On: the flight is saved once you're parked with the engines off after landing. Off: press **Finish & save**. |
 
+![Settings, UI](images/settings-ui.png)
+
 ## 3rd party
 
 - **SimBrief**: your username, and **Log in with Navigraph** for generating plans from WingLog.
@@ -37,3 +39,5 @@ Import or export your **Fleet** and **Logbook** as CSV or JSON. Choose the file 
 - **Run setup again** reopens the first-launch setup.
 - **Updates**: whether WingLog checks for new versions automatically, **Check now**, and the result
   of the last check.
+
+![Settings, About](images/settings-about.png)

@@ -29,6 +29,8 @@ BeyondATC can be started before or after WingLog.
   WingLog's (see below).
 - **Transcript**: every radio call, yours, ATC's and other traffic's.
 
+![The BeyondATC page with a departure clearance](images/beyondatc.png)
+
 ## Procedures from your clearance
 
 When ATC clears you for a SID, a STAR or an approach, or gives you a runway, that's different from
