@@ -4,6 +4,10 @@
 // way — a comma-separated list of taxiway names up to the trailing period.
 const DEPARTURE_TAXI = /taxi to holding point \S+, runway \S+, via ([A-Z0-9]+(?:, [A-Z0-9]+)*)\.?/i
 const ARRIVAL_TAXI = /taxi to stand \S+ via ([A-Z0-9]+(?:, [A-Z0-9]+)*)\.?/i
+// A third shape, the first half of a split arrival clearance (real, VHHH 2026-10-02, after
+// landing 07L): "taxi via C7, Y, F, hold short of runway 07C." The stand comes in a second
+// clearance once across.
+const HOLD_SHORT_TAXI = /taxi via ([A-Z0-9]+(?:, [A-Z0-9]+)*), hold short of runway (\w+)/i
 
 /**
  * Parses one live BeyondATC `ATC:` transcript line into an ordered list of taxiway names,
@@ -20,7 +24,7 @@ const ARRIVAL_TAXI = /taxi to stand \S+ via ([A-Z0-9]+(?:, [A-Z0-9]+)*)\.?/i
  * flightdeck-backend's docs/plans/beyondatc-taxi-route-highlight.md.
  */
 export function parseTaxiRoute(text: string): string[] | null {
-  const match = DEPARTURE_TAXI.exec(text) ?? ARRIVAL_TAXI.exec(text)
+  const match = DEPARTURE_TAXI.exec(text) ?? ARRIVAL_TAXI.exec(text) ?? HOLD_SHORT_TAXI.exec(text)
   if (!match) return null
   return match[1]!.split(',').map((name) => name.trim())
 }
@@ -32,6 +36,11 @@ const HOLDING_POINT = /taxi to holding point ([A-Z0-9]+),/i
  *  clearance or anything else. */
 export function parseTaxiHoldingPoint(text: string): string | null {
   return HOLDING_POINT.exec(text)?.[1] ?? null
+}
+
+/** "taxi via C7, Y, F, hold short of runway 07C" → '07C'. Null for anything else. */
+export function parseTaxiHoldShortRunway(text: string): string | null {
+  return HOLD_SHORT_TAXI.exec(text)?.[2] ?? null
 }
 
 const STAND = /taxi to stand ([A-Z0-9]+)/i

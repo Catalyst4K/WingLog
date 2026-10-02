@@ -21,7 +21,8 @@ import type { NavdataTaxiSegment } from '@shared/ipc'
  * Where it ends:
  * - **A holding point** ("taxi to holding point A9 … via C9, B9"): along the holding-point
  *   taxiway to its hold-short point, or to its far end if that comes first — where it meets
- *   the runway, which isn't in the taxi network, so a dead end. YBBN's A9 (real flight,
+ *   the runway, which isn't in the taxi network, so a dead end (nothing else joins there; a
+ *   point where the name merely stops, like ZJSY's A becoming A1, isn't one). YBBN's A9 (real flight,
  *   2026-10-02) carries its only hold-short flag at the B9 end, where the aircraft *enters*
  *   A9; requiring a hold-short point made every YBBN trace fail, falling back to whole
  *   taxiways (the "star at every junction" report).
@@ -67,11 +68,15 @@ interface Edge {
 export type TracedRoute = [number, number][]
 
 export function traceTaxiRoute(request: TaxiTraceRequest): TracedRoute | null {
-  if (request.holdingPoint || !request.stand) return traceOnce(request)
-  return traceOnce(request) ?? traceOnce({ ...request, stand: null })
+  if (request.holdingPoint) return traceOnce(request, true) ?? traceOnce(request, false)
+  if (!request.stand) return traceOnce(request, true)
+  return traceOnce(request, true) ?? traceOnce({ ...request, stand: null }, true)
 }
 
-function traceOnce({ segments, taxiways, holdingPoint, from, stand }: TaxiTraceRequest): TracedRoute | null {
+/** `strictEnd`: a holding-point route must end at a hold short or a true dead end. Without one
+ *  reachable (scenery with no hold-short flags whose taxiway runs into another), the second try
+ *  accepts where the holding-point taxiway's name stops. */
+function traceOnce({ segments, taxiways, holdingPoint, from, stand }: TaxiTraceRequest, strictEnd: boolean): TracedRoute | null {
   if (taxiways.length === 0) return null
   if (holdingPoint && !segments.some((s) => s.name === holdingPoint)) return null
 
@@ -144,12 +149,21 @@ function traceOnce({ segments, taxiways, holdingPoint, from, stand }: TaxiTraceR
     const cameFrom = previous.get(state)
     return cameFrom === undefined ? -1 : Math.floor(cameFrom / (sequence.length + 1))
   }
-  /** Reached at the final stage — so the last edge driven was the final taxiway's. */
   const isRouteEnd = (state: number, node: number): boolean => {
     if (!holdingPoint) return standNode < 0 || node === standNode
-    if (nodes[node]!.holdShort) return true
     const cameFromNode = cameFromNodeOf(state)
-    return !edges[node]!.some((e) => e.name === holdingPoint && e.to !== cameFromNode)
+    // The final stage stays the same over unnamed and off-route edges, so check that the edge
+    // just driven really was the holding point's. Without this, ZJSY's "holding point A, runway
+    // 08, via D, B7, A" (real flight, 2026-10-02) ended one unnamed fillet off A, ~150 m past
+    // B7, instead of at A's hold short by the runway 08 threshold: that fillet's far point has
+    // no A edge, so it passed for "A's far end".
+    if (cameFromNode < 0 || !edges[cameFromNode]!.some((e) => e.to === node && e.name === holdingPoint)) return false
+    if (nodes[node]!.holdShort) return true
+    // A real far end: nothing else joins here (the runway isn't in the taxi network). Not merely
+    // where the name stops: ZJSY's A forks by the runway 08 threshold, and the branch that isn't
+    // the hold carries on as A1.
+    if (edges[node]!.every((e) => e.to === cameFromNode)) return true
+    return !strictEnd && !edges[node]!.some((e) => e.name === holdingPoint && e.to !== cameFromNode)
   }
 
   while (queue.size > 0) {

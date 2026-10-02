@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'rea
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl'
 import type { BeyondAtcTranscriptEntry, NavdataStand, NavdataTaxiSegment } from '@shared/ipc'
 import { findStand } from '@shared/stands'
-import { parseTaxiHoldingPoint, parseTaxiRoute, parseTaxiStand } from './taxiRouteParser'
+import { parseTaxiHoldShortRunway, parseTaxiHoldingPoint, parseTaxiRoute, parseTaxiStand } from './taxiRouteParser'
 import { remainingRoute, traceTaxiRoute, type TracedRoute } from './taxiRouteTrace'
 import { TAXI_SOURCE_ID } from './useTaxiChartOverlay'
 
@@ -63,6 +63,9 @@ interface TaxiClearance {
   holdingPoint: string | null
   /** "taxi to Stand N32 …" → 'N32'; null for a holding-point clearance. */
   stand: string | null
+  /** "taxi via C7, Y, F, hold short of runway 07C" → '07C': the route runs along its last
+   *  taxiway to the hold short, the same way as a holding point. */
+  holdShortRunway: string | null
   /** Where the aircraft was when the clearance arrived — the trace's start. */
   from: { lat: number; lon: number } | null
 }
@@ -80,6 +83,31 @@ export interface UseTaxiRouteHighlightArgs {
   arrIcao: string | null
   /** The aircraft's live position, or null when there's no live telemetry. */
   position: { lat: number; lon: number } | null
+}
+
+/**
+ * Which airport a clearance is at: a holding point is the departure's, a stand the arrival's.
+ * "Hold short of runway" can be either (crossing a runway on the way out, or on the way in as
+ * at VHHH), so it's the one whose taxi network is nearest the aircraft; the arrival if
+ * neither is loaded yet.
+ */
+function clearanceAirport(
+  clearance: TaxiClearance,
+  depIcao: string | null,
+  arrIcao: string | null,
+  segmentsByIcao: Record<string, NavdataTaxiSegment[]>
+): string | null {
+  if (clearance.holdingPoint) return depIcao
+  if (!clearance.holdShortRunway || !clearance.from) return arrIcao
+  const from = clearance.from
+  let best: { icao: string; distance: number } | null = null
+  for (const icao of [arrIcao, depIcao]) {
+    for (const s of (icao && segmentsByIcao[icao]) || []) {
+      const distance = Math.hypot(s.startLat - from.lat, (s.startLon - from.lon) * Math.cos((from.lat * Math.PI) / 180))
+      if (!best || distance < best.distance) best = { icao: icao!, distance }
+    }
+  }
+  return best?.icao ?? arrIcao
 }
 
 /** Survives a FlightMap remount the same way useTaxiChartOverlay's rememberedEnabled does —
@@ -132,6 +160,7 @@ export function useTaxiRouteHighlight({
             taxiways,
             holdingPoint: parseTaxiHoldingPoint(entry.text),
             stand: parseTaxiStand(entry.text),
+            holdShortRunway: parseTaxiHoldShortRunway(entry.text),
             from: positionRef.current
           }
         }
@@ -159,7 +188,7 @@ export function useTaxiRouteHighlight({
     rememberedClearance = clearance
   }, [clearance])
 
-  const icao = clearance ? (clearance.holdingPoint ? depIcao : arrIcao) : null
+  const icao = clearance ? clearanceAirport(clearance, depIcao, arrIcao, segmentsByIcao) : null
 
   // The arrival airport's stands, once a stand clearance needs one (fetched from the sim on
   // first ask, then cached — stand-positions.md).
@@ -188,7 +217,7 @@ export function useTaxiRouteHighlight({
     return traceTaxiRoute({
       segments,
       taxiways: clearance.taxiways,
-      holdingPoint: clearance.holdingPoint,
+      holdingPoint: clearance.holdingPoint ?? (clearance.holdShortRunway ? (clearance.taxiways.at(-1) ?? null) : null),
       from: clearance.from,
       stand: standPosition
     })
