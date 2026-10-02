@@ -954,6 +954,7 @@ describe('FlightMap', () => {
         navdataHasTaxiNetwork: hasTaxiNetwork,
         navdataRefreshTaxiNetwork: refreshTaxiNetwork,
         navdataGetTaxiNetwork: getTaxiNetwork,
+        beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
         onBeyondAtcTranscript
       }
       return { hasTaxiNetwork, refreshTaxiNetwork, getTaxiNetwork, onBeyondAtcTranscript }
@@ -1040,6 +1041,7 @@ describe('FlightMap', () => {
         navdataHasTaxiNetwork: hasTaxiNetwork,
         navdataRefreshTaxiNetwork: refreshTaxiNetwork,
         navdataGetTaxiNetwork: getTaxiNetwork,
+        beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
         onBeyondAtcTranscript: vi.fn(() => () => {})
       }
       const user = userEvent.setup()
@@ -1086,6 +1088,7 @@ describe('FlightMap', () => {
         navdataHasTaxiNetwork: hasTaxiNetwork,
         navdataRefreshTaxiNetwork: refreshTaxiNetwork,
         navdataGetTaxiNetwork: getTaxiNetwork,
+        beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
         onBeyondAtcTranscript: vi.fn(() => () => {})
       }
       const user = userEvent.setup()
@@ -1108,12 +1111,16 @@ describe('FlightMap', () => {
 
     type TranscriptEntry = { speaker: 'player' | 'atc' | 'traffic' | 'atcTraffic'; text: string; ts: number }
 
-    function withTranscriptListener(segments: unknown[] = NAMED_SEGMENTS): { push: (transcript: TranscriptEntry[]) => void } {
+    function withTranscriptListener(
+      segments: unknown[] = NAMED_SEGMENTS,
+      initial: TranscriptEntry[] = []
+    ): { push: (transcript: TranscriptEntry[]) => void } {
       let listener: ((transcript: TranscriptEntry[]) => void) | undefined
       ;(window as unknown as { winglog: unknown }).winglog = {
         navdataHasTaxiNetwork: vi.fn().mockResolvedValue(true),
         navdataRefreshTaxiNetwork: vi.fn().mockResolvedValue(undefined),
         navdataGetTaxiNetwork: vi.fn().mockResolvedValue(segments),
+        beyondAtcGetTranscript: vi.fn().mockResolvedValue(initial),
         onBeyondAtcTranscript: vi.fn((l: (transcript: TranscriptEntry[]) => void) => {
           listener = l
           return () => {}
@@ -1224,6 +1231,77 @@ describe('FlightMap', () => {
         })
       )
       expect(map.setLayoutProperty).toHaveBeenLastCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'none')
+    })
+
+    describe('a traced route on the real network shape', () => {
+      const P = {
+        stand: [51.33, 0.03],
+        d: [51.331, 0.031],
+        b: [51.332, 0.032],
+        a1: [51.333, 0.033],
+        bFar: [51.34, 0.05],
+        hold: [51.3335, 0.0335]
+      } as const
+      const seg = (a: readonly [number, number], b: readonly [number, number], name: string | null, endHoldShort = false): unknown => ({
+        startLat: a[0],
+        startLon: a[1],
+        endLat: b[0],
+        endLon: b[1],
+        name,
+        startHoldShort: false,
+        endHoldShort
+      })
+      const NETWORK = [seg(P.stand, P.d, 'D'), seg(P.d, P.b, 'D'), seg(P.b, P.a1, 'B'), seg(P.a1, P.bFar, 'B'), seg(P.a1, P.hold, 'A1', true)]
+      const CLEARANCE = { speaker: 'atc' as const, text: 'Test 230, taxi to holding point A1, runway 27R, via D, B.', ts: 1000 }
+      const at = (lat: number, lon: number): SimTelemetry => ({ latitude: lat, longitude: lon }) as SimTelemetry
+      const lastLine = (map: FakeMapInstance): unknown =>
+        (map.sources['taxi-route-trace']?.setData.mock.calls.at(-1)?.[0] as { geometry: { coordinates: unknown } }).geometry.coordinates
+
+      it("draws a clearance given before Track was opened, without waiting for ATC's next line (YBBN, 2026-10-02)", async () => {
+        withTranscriptListener(NETWORK, [CLEARANCE])
+        const user = userEvent.setup()
+        const { map } = await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB', telemetry: at(51.33, 0.03) })
+        await user.click(toggleButton())
+        await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible'))
+      })
+
+      it('traces a clearance read before the aircraft position was known, once it arrives (ZSPD, 2026-10-02)', async () => {
+        // Opening Track: the transcript comes back before Track has the active flight, so the
+        // map has no position yet — then the position arrives.
+        withTranscriptListener(NETWORK, [CLEARANCE])
+        const user = userEvent.setup()
+        const props = { route: [], trackPoints: [], live: true, depIcao: 'EGKB' }
+        const { map, rerender } = await renderReady({ ...props, telemetry: null })
+        await user.click(toggleButton())
+        await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
+        expect(map.setLayoutProperty).not.toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible')
+
+        await act(async () => rerender({ ...props, telemetry: at(51.33, 0.03) }))
+        await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible'))
+        expect((lastLine(map) as [number, number][]).at(-1)).toEqual([0.0335, 51.3335])
+      })
+
+      it('starts the line at the aircraft and drops the part already taxied (2026-10-02)', async () => {
+        const { push } = withTranscriptListener(NETWORK)
+        const user = userEvent.setup()
+        const props = { route: [], trackPoints: [], live: true, depIcao: 'EGKB' }
+        const { map, rerender } = await renderReady({ ...props, telemetry: at(51.33, 0.03) })
+        await user.click(toggleButton())
+        await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
+        push([CLEARANCE])
+        await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible'))
+
+        // Halfway along D, a little off the centreline.
+        await act(async () => rerender({ ...props, telemetry: at(51.33155, 0.03145) }))
+        const line = lastLine(map) as [number, number][]
+        expect(line[0]).toEqual([0.03145, 51.33155])
+        expect(line[1]![0]).toBeCloseTo(0.0315, 4)
+        expect(line.slice(2)).toEqual([
+          [0.032, 51.332],
+          [0.033, 51.333],
+          [0.0335, 51.3335]
+        ])
+      })
     })
 
     it('does not subscribe to the transcript while the chart is off', async () => {

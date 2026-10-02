@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'rea
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl'
 import type { BeyondAtcTranscriptEntry, NavdataTaxiSegment } from '@shared/ipc'
 import { parseTaxiHoldingPoint, parseTaxiRoute } from './taxiRouteParser'
-import { traceTaxiRoute, type TracedRoute } from './taxiRouteTrace'
+import { remainingRoute, traceTaxiRoute, type TracedRoute } from './taxiRouteTrace'
 import { TAXI_SOURCE_ID } from './useTaxiChartOverlay'
 
 /**
@@ -11,13 +11,15 @@ import { TAXI_SOURCE_ID } from './useTaxiChartOverlay'
  * half of Part 4, built on top of Part 4a's static chart).
  *
  * Preferred: the route actually traced through the taxi network (taxiRouteTrace.ts), from
- * where the aircraft was when the clearance arrived to the named holding point, drawn as its
- * own line. Real bug that prompted it, VHHH 2026-09-30: the v1 behaviour below lit up all of
- * taxiway B across the airport for a short hop via B8, B to B10.
+ * where the aircraft was when the clearance arrived to the holding point (or, for a stand,
+ * to where it joins the last cleared taxiway), drawn as its own line starting at the aircraft
+ * and shortening as it taxis (remainingRoute). Real bug that prompted it, VHHH 2026-09-30:
+ * the v1 behaviour below lit up all of taxiway B across the airport for a short hop via B8, B
+ * to B10.
  *
- * Fallback, whenever a trace isn't possible (arrival/stand clearances, no holding point in
- * the data, no live position, aircraft off the network): v1's second `line` layer on the
- * same `taxi-chart` source, filtered to every segment sharing a cleared taxiway name.
+ * Fallback, whenever a trace isn't possible (the holding point isn't in the data, no live
+ * position, aircraft off the network): v1's second `line` layer on the same `taxi-chart`
+ * source, filtered to every segment sharing a cleared taxiway name.
  *
  * Both are limited to the clearance's own airport: a "holding point" clearance is the
  * departure's, a "taxi to stand" one the arrival's. Without this, a departure's B8/B also lit
@@ -81,6 +83,9 @@ export interface UseTaxiRouteHighlightArgs {
  *  a route parsed before a tab switch shouldn't just vanish on return. Cleared only by a
  *  genuinely new clearance, never automatically. */
 let rememberedClearance: TaxiClearance | null = null
+/** The newest transcript line already looked at — module-level for the same reason, so coming
+ *  back to Track doesn't re-read old clearances as new ones. */
+let rememberedLastTs = 0
 
 export function useTaxiRouteHighlight({
   mapRef,
@@ -92,8 +97,9 @@ export function useTaxiRouteHighlight({
   position
 }: UseTaxiRouteHighlightArgs): void {
   const [clearance, setClearance] = useState<TaxiClearance | null>(rememberedClearance)
-  const lastTs = useRef(0)
   const positionRef = useRef(position)
+  /** How far along the traced line the aircraft has got (remainingRoute's `segment`). */
+  const progressRef = useRef(0)
   // Whether this hook has itself created its layers. Checked instead of calling
   // map.getLayer() unconditionally on every mount (App.tsx/LogbookView.tsx's own FlightMap
   // hosts use a simpler test fake that doesn't implement getLayer, since nothing needed it
@@ -105,16 +111,18 @@ export function useTaxiRouteHighlight({
   }, [position])
 
   // Gated on `enabled` — same "nothing happens until the chart is switched on" discipline
-  // useTaxiChartOverlay's own fetch effect follows. Each push carries the whole transcript,
-  // so a clearance from before the chart was switched on is still picked up by the next
-  // transcript line after it.
+  // useTaxiChartOverlay's own fetch effect follows. The transcript BeyondATC already has is
+  // read straight away, not just the next push: a clearance given while Track wasn't open
+  // used to wait for ATC's next line before it was drawn (YBBN, 2026-10-02).
   useEffect(() => {
     if (!enabled) return
-    return window.winglog.onBeyondAtcTranscript((transcript: BeyondAtcTranscriptEntry[]) => {
+    let live = true
+    const ingest = (transcript: BeyondAtcTranscriptEntry[]): void => {
+      if (!live) return
       let latest: TaxiClearance | null = null
       for (const entry of transcript) {
-        if (entry.speaker !== 'atc' || entry.ts <= lastTs.current) continue
-        lastTs.current = entry.ts
+        if (entry.speaker !== 'atc' || entry.ts <= rememberedLastTs) continue
+        rememberedLastTs = entry.ts
         const taxiways = parseTaxiRoute(entry.text)
         if (taxiways) latest = { taxiways, holdingPoint: parseTaxiHoldingPoint(entry.text), from: positionRef.current }
       }
@@ -122,8 +130,24 @@ export function useTaxiRouteHighlight({
         rememberedClearance = latest
         setClearance(latest)
       }
-    })
+    }
+    window.winglog.beyondAtcGetTranscript().then(ingest, () => undefined)
+    const unsubscribe = window.winglog.onBeyondAtcTranscript(ingest)
+    return () => {
+      live = false
+      unsubscribe()
+    }
   }, [enabled])
+
+  // A clearance read before the aircraft's position was known starts from the first position
+  // that arrives. Real bug, ZSPD 2026-10-02: opening Track reads BeyondATC's transcript before
+  // Track has loaded the active flight (so no position yet) — the clearance was stored with
+  // nowhere to start, never traced, and fell back to whole taxiways. Updated during render
+  // (React's "adjust state when a prop changes" pattern), not in an effect.
+  if (clearance && !clearance.from && position) setClearance({ ...clearance, from: position })
+  useEffect(() => {
+    rememberedClearance = clearance
+  }, [clearance])
 
   const icao = clearance ? (clearance.holdingPoint ? depIcao : arrIcao) : null
 
@@ -133,6 +157,10 @@ export function useTaxiRouteHighlight({
     if (!clearance?.from || !segments || segments.length === 0) return null
     return traceTaxiRoute({ segments, taxiways: clearance.taxiways, holdingPoint: clearance.holdingPoint, from: clearance.from })
   }, [clearance, icao, segmentsByIcao])
+
+  useEffect(() => {
+    progressRef.current = 0
+  }, [traced])
 
   useEffect(() => {
     const map = mapRef.current
@@ -148,10 +176,16 @@ export function useTaxiRouteHighlight({
     createdRef.current = true
 
     if (traced) {
+      let line = traced
+      if (position) {
+        const remaining = remainingRoute(traced, position, progressRef.current)
+        progressRef.current = remaining.segment
+        line = remaining.line
+      }
       map.getSource<GeoJSONSource>(TRACE_SOURCE_ID)?.setData({
         type: 'Feature',
         properties: {},
-        geometry: { type: 'LineString', coordinates: traced }
+        geometry: { type: 'LineString', coordinates: line }
       })
       map.setLayoutProperty(TRACE_LAYER_ID, 'visibility', 'visible')
       map.setLayoutProperty(HIGHLIGHT_LAYER_ID, 'visibility', 'none')
@@ -167,5 +201,5 @@ export function useTaxiRouteHighlight({
         (icao ? ['all', byName, ['==', ['get', 'icao'], icao]] : byName) as Parameters<MapLibreMap['setFilter']>[1]
       )
     }
-  }, [mapRef, mapReady, enabled, clearance, traced, icao])
+  }, [mapRef, mapReady, enabled, clearance, traced, icao, position])
 }

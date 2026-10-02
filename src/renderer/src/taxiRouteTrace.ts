@@ -18,10 +18,18 @@ import type { NavdataTaxiSegment } from '@shared/ipc'
  *   names always win but a short scenery-naming gap doesn't break the whole trace.
  * - Unnamed segments (junction fillets, stand lead-ins) cost their plain length.
  *
- * Only traced when the clearance ends somewhere concrete: the holding point must itself be a
- * taxiway name in the data with a hold-short point on it (VHHH's "B10" is). Anything else
- * returns null and the caller falls back to highlighting whole taxiways by name — never less
- * than before, and never a guessed end point.
+ * Where it ends:
+ * - **A holding point** ("taxi to holding point A9 … via C9, B9"): along the holding-point
+ *   taxiway to its hold-short point, or to its far end if that comes first — where it meets
+ *   the runway, which isn't in the taxi network, so a dead end. YBBN's A9 (real flight,
+ *   2026-10-02) carries its only hold-short flag at the B9 end, where the aircraft *enters*
+ *   A9; requiring a hold-short point made every YBBN trace fail, falling back to whole
+ *   taxiways (the "star at every junction" report).
+ * - **A stand** ("taxi to Stand N32 via J, H6, H, V, B"): the facility data has no stands, so
+ *   the trace ends where the route joins its last cleared taxiway — the part of the route
+ *   that's certain, rather than every segment of J, H6, H, V and B across the airport.
+ * The holding point must be a taxiway name in the data; otherwise null, and the caller falls
+ * back to highlighting whole taxiways by name.
  */
 
 const OFF_ROUTE_COST_FACTOR = 5
@@ -36,7 +44,7 @@ export interface TaxiTraceRequest {
   segments: NavdataTaxiSegment[]
   /** The cleared taxiways, in order, as ATC said them ("via B8, B" → ['B8', 'B']). */
   taxiways: string[]
-  /** "holding point B10" → 'B10'. */
+  /** "holding point B10" → 'B10'; null for a stand clearance. */
   holdingPoint: string | null
   from: { lat: number; lon: number }
 }
@@ -51,8 +59,8 @@ interface Edge {
 export type TracedRoute = [number, number][]
 
 export function traceTaxiRoute({ segments, taxiways, holdingPoint, from }: TaxiTraceRequest): TracedRoute | null {
-  if (!holdingPoint || taxiways.length === 0) return null
-  if (!segments.some((s) => s.name === holdingPoint && (s.startHoldShort || s.endHoldShort))) return null
+  if (taxiways.length === 0) return null
+  if (holdingPoint && !segments.some((s) => s.name === holdingPoint)) return null
 
   const cosLat = Math.cos((from.lat * Math.PI) / 180)
   const distanceM = (aLat: number, aLon: number, bLat: number, bLon: number): number =>
@@ -95,7 +103,7 @@ export function traceTaxiRoute({ segments, taxiways, holdingPoint, from }: TaxiT
 
   // The holding point is the route's last leg — "holding point B10 ... via B8, B" is driven
   // as B8 → B → B10.
-  const sequence = taxiways.at(-1) === holdingPoint ? taxiways : [...taxiways, holdingPoint]
+  const sequence = !holdingPoint || taxiways.at(-1) === holdingPoint ? taxiways : [...taxiways, holdingPoint]
   const last = sequence.length - 1
   // State = node * (stages + 1) + (stage + 1); stage -1 is the lead-in before the first
   // cleared taxiway.
@@ -106,14 +114,25 @@ export function traceTaxiRoute({ segments, taxiways, holdingPoint, from }: TaxiT
   const queue = new MinQueue()
   queue.push(stateOf(start, -1), 0)
 
+  const cameFromNodeOf = (state: number): number => {
+    const cameFrom = previous.get(state)
+    return cameFrom === undefined ? -1 : Math.floor(cameFrom / (sequence.length + 1))
+  }
+  /** Reached at the final stage — so the last edge driven was the final taxiway's. */
+  const isRouteEnd = (state: number, node: number): boolean => {
+    if (!holdingPoint) return true
+    if (nodes[node]!.holdShort) return true
+    const cameFromNode = cameFromNodeOf(state)
+    return !edges[node]!.some((e) => e.name === holdingPoint && e.to !== cameFromNode)
+  }
+
   while (queue.size > 0) {
     const [state, stateCost] = queue.pop()
     if (stateCost > (cost.get(state) ?? Infinity)) continue
     const node = Math.floor(state / (sequence.length + 1))
     const stage = (state % (sequence.length + 1)) - 1
 
-    const onFinalTaxiway = stage === last && edges[node]!.some((e) => e.name === holdingPoint)
-    if (onFinalTaxiway && nodes[node]!.holdShort) {
+    if (stage === last && isRouteEnd(state, node)) {
       if ((realLength.get(state) ?? 0) > MAX_ROUTE_LENGTH_M) return null
       const route: TracedRoute = []
       for (let s: number | undefined = state; s !== undefined; s = previous.get(s)) {
@@ -125,8 +144,7 @@ export function traceTaxiRoute({ segments, taxiways, holdingPoint, from }: TaxiT
 
     // No immediate U-turns: without this, a clearance whose next taxiway is only touched at a
     // junction gets "satisfied" by driving out along it and straight back.
-    const cameFrom = previous.get(state)
-    const cameFromNode = cameFrom === undefined ? -1 : Math.floor(cameFrom / (sequence.length + 1))
+    const cameFromNode = cameFromNodeOf(state)
     for (const edge of edges[node]!) {
       if (edge.to === cameFromNode) continue
       const moves: [number, number][] = []
@@ -147,6 +165,45 @@ export function traceTaxiRoute({ segments, taxiways, holdingPoint, from }: TaxiT
     }
   }
   return null
+}
+
+/** Beyond this from the traced line, the aircraft isn't following it — the line is left as is. */
+const MAX_FOLLOW_DISTANCE_M = 150
+
+/**
+ * What's left of a traced route from the aircraft, drawn from the aircraft itself (Callum,
+ * 2026-10-02: the line should start at the plane, not somewhere ahead of it). The part already
+ * taxied drops away. `fromSegment` is the furthest segment reached so far — the search never
+ * goes back, so a route passing close to itself can't jump backwards.
+ */
+export function remainingRoute(
+  route: TracedRoute,
+  position: { lat: number; lon: number },
+  fromSegment = 0
+): { line: TracedRoute; segment: number } {
+  if (route.length < 2) return { line: route, segment: 0 }
+  const cosLat = Math.cos((position.lat * Math.PI) / 180)
+  const toXy = ([lon, lat]: [number, number]): [number, number] => [lon * METRES_PER_DEGREE * cosLat, lat * METRES_PER_DEGREE]
+  const [px, py] = toXy([position.lon, position.lat])
+
+  let best = { segment: fromSegment, distance: Infinity, point: route[fromSegment]! }
+  for (let i = fromSegment; i < route.length - 1; i++) {
+    const [ax, ay] = toXy(route[i]!)
+    const [bx, by] = toXy(route[i + 1]!)
+    const lengthSq = (bx - ax) ** 2 + (by - ay) ** 2
+    const t = lengthSq === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * (bx - ax) + (py - ay) * (by - ay)) / lengthSq))
+    const distance = Math.hypot(px - (ax + t * (bx - ax)), py - (ay + t * (by - ay)))
+    if (distance < best.distance) {
+      const [aLon, aLat] = route[i]!
+      const [bLon, bLat] = route[i + 1]!
+      best = { segment: i, distance, point: [aLon + t * (bLon - aLon), aLat + t * (bLat - aLat)] }
+    }
+  }
+  if (best.distance > MAX_FOLLOW_DISTANCE_M) return { line: route.slice(fromSegment), segment: fromSegment }
+  const rest = route.slice(best.segment + 1)
+  // Already on the line: no zero-length join from the aircraft to itself.
+  const line: TracedRoute = best.distance < 0.5 ? [best.point, ...rest] : [[position.lon, position.lat], best.point, ...rest]
+  return { line, segment: best.segment }
 }
 
 /** A small binary min-heap of (state, cost) — VHHH's real network is ~4,400 points, well
