@@ -19,6 +19,7 @@ interface FakeMapInstance {
   setLayerZoomRange: ReturnType<typeof vi.fn>
   container: HTMLElement
   style: string
+  center: unknown
   zoom: number
   handlers: Record<string, ((e?: { originalEvent?: unknown }) => void)[]>
   sources: Record<string, { setData: ReturnType<typeof vi.fn> }>
@@ -44,6 +45,8 @@ interface FakeMapInstance {
   zoomOut: ReturnType<typeof vi.fn>
   remove: ReturnType<typeof vi.fn>
   setLayoutProperty: ReturnType<typeof vi.fn>
+  once: ReturnType<typeof vi.fn>
+  getCenter(): { toArray: () => [number, number] }
   getZoom(): number
   fireStyleLoad(): void
 }
@@ -168,6 +171,9 @@ vi.mock('maplibre-gl', () => {
     on(event: string, cb: () => void): void {
       ;(this.handlers[event] ??= []).push(cb)
     }
+    once = vi.fn((event: string, cb: () => void): void => {
+      ;(this.handlers[event] ??= []).push(cb)
+    })
     off(): void {}
     addSource(id: string): void {
       this.sources[id] = new FakeSource()
@@ -208,8 +214,11 @@ const ROUTE_APPROXIMATE_LAYER_ID = 'planned-route-approximate'
 const TRAIL_SOURCE_ID = 'breadcrumb-trail'
 const TRAIL_TIP_SOURCE_ID = 'breadcrumb-trail-tip'
 const WAYPOINT_SOURCE_ID = 'planned-waypoints'
-const FOLLOW_ZOOM = 12
+// fitBoundsTo's zoom for a lone coordinate.
+const SINGLE_POINT_ZOOM = 12
 const FOLLOW_ZOOM_GROUND = 15
+// point()'s default 1,000 m is below 10,000 ft: the lowest airborne band (followZoom.ts).
+const FOLLOW_ZOOM_LOW = 11
 
 function point(overrides: Partial<TrackPoint> = {}): TrackPoint {
   return {
@@ -473,7 +482,60 @@ describe('FlightMap', () => {
       expect(map.fitBounds).toHaveBeenCalledTimes(1)
     })
 
-    it('remembers "Center on aircraft" being switched off across a tab switch', async () => {
+    it("saves the camera where it actually is when leaving Track mid-pan, not the last finished move (2026-10-02)", async () => {
+    const { secondMap } = await mountTwice(
+      { route: ROUTE, trackPoints: [point()], live: true },
+      (map) => {
+        map.handlers['moveend']![0]!() // a finished move at [0, 0]…
+        // …then an easeTo still in flight when the user switches tab.
+        map.getCenter = () => ({ toArray: () => [113.5, 22.1] })
+      },
+      { route: ROUTE, trackPoints: [], live: true, trackLoading: true }
+    )
+    expect(secondMap.center).toEqual([113.5, 22.1])
+  })
+
+  describe('hidden until the aircraft is framed, so Track never shows a stale view then jumps (2026-10-02)', () => {
+    const container = (map: FakeMapInstance): HTMLElement => map.container
+
+    it('stays hidden while the flight loads, and appears once the tiles at the aircraft are drawn', async () => {
+      const { map, rerender } = await renderReady({ route: ROUTE, trackPoints: [], live: true, trackLoading: true })
+      expect(container(map)).toHaveAttribute('data-framed', 'false')
+      expect(container(map)).toHaveClass('opacity-0')
+
+      await act(async () => {
+        rerender({ route: ROUTE, trackPoints: [point()], live: true, trackLoading: false })
+      })
+      expect(map.jumpTo).toHaveBeenCalledWith({ center: [-0.5, 51], zoom: FOLLOW_ZOOM_LOW })
+      expect(container(map)).toHaveAttribute('data-framed', 'false') // tiles still loading
+      await act(async () => map.handlers['idle']!.forEach((cb) => cb()))
+      expect(container(map)).toHaveAttribute('data-framed', 'true')
+      expect(container(map)).not.toHaveClass('opacity-0')
+    })
+
+    it('shows straight away with no flight to follow, with follow off, and on the Logbook map', async () => {
+      const noFlight = await renderReady({ route: ROUTE, trackPoints: [], live: true })
+      expect(container(noFlight.map)).toHaveAttribute('data-framed', 'true')
+      const logbook = await renderReady({ route: ROUTE, trackPoints: [point()], live: false })
+      expect(container(logbook.map)).toHaveAttribute('data-framed', 'true')
+    })
+
+    it('never stays hidden for more than a moment if the aircraft never gets framed', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      try {
+        const { map } = await renderReady({ route: ROUTE, trackPoints: [], live: true, trackLoading: true })
+        expect(container(map)).toHaveAttribute('data-framed', 'false')
+        await act(async () => {
+          vi.advanceTimersByTime(1500)
+        })
+        expect(container(map)).toHaveAttribute('data-framed', 'true')
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+  })
+
+  it('remembers "Center on aircraft" being switched off across a tab switch', async () => {
       const user = userEvent.setup()
       const { FlightMap, instances } = await loadFlightMap()
       const view = render(<FlightMap route={[]} trackPoints={[]} live />)
@@ -485,14 +547,44 @@ describe('FlightMap', () => {
       expect(await screen.findByRole('button', { name: 'Center on aircraft' })).toHaveAttribute('aria-pressed', 'false')
     })
 
-    it('zooms out at takeoff and back in at touchdown while following', async () => {
+    it('steps the zoom out by altitude band in the climb and back in on descent, once per band (2026-10-02)', async () => {
+    // Real YBBN-VHHH levels: climb-out, through 10,000 ft, FL150, initial cruise FL380.
+    const at = (id: number, ft: number): TrackPoint => point({ id, altitudeM: ft * 0.3048, pressureAltitudeM: ft * 0.3048 })
+    const climb = [at(1, 3_000)]
+    const { map, rerender } = await renderReady({ route: [], trackPoints: climb, live: true })
+    map.easeTo.mockClear()
+    const zoomEases = (): unknown[] => map.easeTo.mock.calls.map((c) => c[0]).filter((arg) => 'zoom' in (arg as object))
+
+    async function fly(ft: number): Promise<void> {
+      climb.push(at(climb.length + 1, ft))
+      await act(async () => {
+        rerender({ route: [], trackPoints: [...climb], live: true })
+      })
+    }
+
+    await fly(8_000)
+    await fly(10_300) // within 500 ft of the band edge: no change yet
+    expect(zoomEases()).toEqual([])
+    await fly(11_000)
+    expect(zoomEases()).toEqual([{ zoom: 10, duration: 1000 }])
+    await fly(15_000) // same band: a zoom the user set here is left alone
+    await fly(38_000)
+    expect(zoomEases()).toEqual([
+      { zoom: 10, duration: 1000 },
+      { zoom: 9, duration: 1000 }
+    ])
+    await fly(24_000) // descending below FL250 by more than the margin
+    expect(zoomEases().at(-1)).toEqual({ zoom: 10, duration: 1000 })
+  })
+
+  it('zooms out at takeoff and back in at touchdown while following', async () => {
       const { map, rerender } = await renderReady({ route: [], trackPoints: [point({ id: 1, onGround: true })], live: true })
       map.easeTo.mockClear()
 
       await act(async () => {
         rerender({ route: [], trackPoints: [point({ id: 1, onGround: true }), point({ id: 2, onGround: false })], live: true })
       })
-      expect(map.easeTo).toHaveBeenCalledWith({ zoom: FOLLOW_ZOOM, duration: 1000 })
+      expect(map.easeTo).toHaveBeenCalledWith({ zoom: FOLLOW_ZOOM_LOW, duration: 1000 })
 
       map.easeTo.mockClear()
       await act(async () => {
@@ -1216,7 +1308,7 @@ describe('FlightMap', () => {
     expect(many.map.fitBounds).toHaveBeenCalled()
 
     const single = await renderReady({ route: [[-0.5, 51]], trackPoints: [], live: true })
-    expect(single.map.jumpTo).toHaveBeenCalledWith({ center: [-0.5, 51], zoom: FOLLOW_ZOOM })
+    expect(single.map.jumpTo).toHaveBeenCalledWith({ center: [-0.5, 51], zoom: SINGLE_POINT_ZOOM })
 
     const notLive = await renderReady({
       route: [
@@ -1311,7 +1403,7 @@ describe('FlightMap', () => {
 
   it('live mode: the first track point jumps the camera straight to it and adds the marker', async () => {
     const { map, instances } = await renderReady({ route: [], trackPoints: [point()], live: true })
-    expect(map.jumpTo).toHaveBeenCalledWith({ center: [-0.5, 51], zoom: FOLLOW_ZOOM })
+    expect(map.jumpTo).toHaveBeenCalledWith({ center: [-0.5, 51], zoom: FOLLOW_ZOOM_LOW })
     // Marker.addTo appends the real marker element into the map's own real container div —
     // confirms it actually attached, the same thing the component's own `.isConnected`
     // checks rely on.

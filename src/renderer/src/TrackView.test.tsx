@@ -53,6 +53,7 @@ vi.mock('maplibre-gl', () => {
     setLayoutProperty = vi.fn()
     fitBounds = vi.fn()
     jumpTo = vi.fn()
+    once = vi.fn()
     easeTo = vi.fn()
     getCenter = vi.fn(() => ({ toArray: () => [0, 0] }))
     getZoom = vi.fn(() => 1)
