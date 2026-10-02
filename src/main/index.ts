@@ -123,6 +123,7 @@ import { SimAirfieldResolver } from './airports/sim-airfield'
 import { TrackingController } from './tracking/TrackingController'
 import { AutoStartDetector } from './tracking/AutoStartDetector'
 import { CloudSyncController } from './sync/cloud-sync-controller'
+import { pointRegeditAtUnpackedScripts } from './sim/regedit-scripts'
 
 /**
  * A blank/unresolved depIcao or arrIcao from the free-flight dialog becomes 'ZZZZ' — ICAO's
@@ -160,6 +161,15 @@ function createWindow(): BrowserWindow {
 
 // Before anything else can throw — a crash logged nowhere is a crash nobody can debug.
 initLogger()
+
+// Before SimConnect's first connection attempt — see regedit-scripts.ts. Never fatal: at worst
+// the registry lookup keeps failing the way it always has, and node-simconnect falls back.
+try {
+  const result = pointRegeditAtUnpackedScripts(app.isPackaged, process.resourcesPath)
+  if (result !== null) console.info(`regedit scripts: ${result}`)
+} catch (err) {
+  console.warn('regedit scripts not redirected:', err)
+}
 
 // e2e-only (e2e/launch-app.ts always sets this): headless Linux CI's xvfb display has no
 // real GPU, and Electron's bundled Chromium doesn't reliably fall back to a working
