@@ -852,6 +852,32 @@ export interface BeyondAtcSettings {
   host: string
 }
 
+/** A newer WingLog release found on GitHub (flightdeck-backend's docs/plans/update-check.md). */
+export interface UpdateRelease {
+  /** "1.4.1", no "v". */
+  version: string
+  /** The GitHub release page — validated in main to be on WingLog's own releases. */
+  url: string
+  /** Release notes, plain text (Markdown source), capped. Never rendered as HTML. */
+  notes: string
+  publishedAt: string | null
+}
+
+export interface UpdateStatus {
+  state: 'idle' | 'checking' | 'available' | 'upToDate' | 'error'
+  currentVersion: string
+  latest: UpdateRelease | null
+  /** ISO time of the last finished check, successful or not. */
+  checkedAt: string | null
+  /** "Skip this version": no banner for this one. */
+  skippedVersion: string | null
+}
+
+/** Settings → About. On by default (Callum, 2026-10-02). */
+export interface UpdateSettings {
+  checkEnabled: boolean
+}
+
 export type BeyondAtcConnectionState = 'disconnected' | 'connecting' | 'connected'
 
 export interface BeyondAtcConnectionStatus {
@@ -1384,7 +1410,14 @@ export const IpcChannels = {
   beyondAtcSetFrequency: 'beyondatc:set-frequency',
   beyondAtcSetFrequencyCom2: 'beyondatc:set-frequency-com2',
   beyondAtcSetAutoTune: 'beyondatc:set-autotune',
-  beyondAtcSetAutoRespond: 'beyondatc:set-autorespond'
+  beyondAtcSetAutoRespond: 'beyondatc:set-autorespond',
+  settingsGetUpdates: 'settings:get-updates',
+  settingsSetUpdates: 'settings:set-updates',
+  updatesGetStatus: 'updates:get-status',
+  updatesStatus: 'updates:status',
+  updatesCheckNow: 'updates:check-now',
+  updatesSkipVersion: 'updates:skip-version',
+  updatesOpenRelease: 'updates:open-release'
 } as const
 
 export interface WingLogApi {
@@ -1786,4 +1819,13 @@ export interface WingLogApi {
    *  (flightdeck-backend's docs/beyondatc-notes.md). No-op if not connected. */
   beyondAtcSetAutoTune: (value: boolean) => Promise<void>
   beyondAtcSetAutoRespond: (value: boolean) => Promise<void>
+  settingsGetUpdates: () => Promise<UpdateSettings>
+  settingsSetUpdates: (settings: UpdateSettings) => Promise<void>
+  updatesGetStatus: () => Promise<UpdateStatus>
+  onUpdateStatus: (listener: (status: UpdateStatus) => void) => () => void
+  /** Checks GitHub now, whatever the automatic-check setting, and returns the result. */
+  updatesCheckNow: () => Promise<UpdateStatus>
+  updatesSkipVersion: (version: string) => Promise<void>
+  /** Opens the latest release's page — the URL main validated, never one from here. */
+  updatesOpenRelease: () => Promise<void>
 }

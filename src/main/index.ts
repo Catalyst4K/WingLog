@@ -14,6 +14,7 @@ import {
   type DispatchOfp,
   type DispatchOpenSimBriefParams,
   type BeyondAtcSettings,
+  type UpdateSettings,
   type GsxRemoteCommandId,
   type GsxRemoteSettings,
   type GsxSettings,
@@ -73,6 +74,8 @@ import {
   getAltitudeUnit,
   getAppLanguage,
   getBeyondAtcSettings,
+  getSkippedUpdateVersion,
+  getUpdateSettings,
   getGsxRemoteSettings,
   getGsxSettings,
   getLandingDistanceUnit,
@@ -84,6 +87,8 @@ import {
   setAltitudeUnit,
   setAppLanguage,
   setBeyondAtcSettings,
+  setSkippedUpdateVersion,
+  setUpdateSettings,
   setGsxRemoteSettings,
   setGsxSettings,
   setLandingDistanceUnit,
@@ -117,6 +122,7 @@ import { SimConnectService } from './sim/SimConnectService'
 import { ReplaySimConnectService, type ReplayMode } from './sim/ReplaySimConnectService'
 import { EMPTY_COMMAND_BAR, EMPTY_MENU, GsxRemoteService } from './gsx-remote/GsxRemoteService'
 import { BeyondAtcService, EMPTY_STATE as BEYONDATC_EMPTY_STATE } from './beyondatc/BeyondAtcService'
+import { UpdateService } from './updates/update-check'
 import type { NavdataProvider } from './navdata/navdata-provider'
 import { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
 import { SimAirfieldResolver } from './airports/sim-airfield'
@@ -960,6 +966,36 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.appOpenGithub, () =>
         shell.openExternal('https://github.com/Catalyst4K/WingLog')
       )
+
+      // Update check (flightdeck-backend's docs/plans/update-check.md, Part A; agreed
+      // 2026-10-02): asks GitHub for the latest published release, on by default, switchable
+      // off in Settings → About. The endpoint can only be overridden in an unpackaged build,
+      // for the Playwright acceptance test's fake release server.
+      const updateService = new UpdateService({
+        currentVersion: app.getVersion(),
+        isEnabled: () => getUpdateSettings(db).checkEnabled,
+        getSkippedVersion: () => getSkippedUpdateVersion(db),
+        setSkippedVersion: (version) => setSkippedUpdateVersion(db, version),
+        url: !app.isPackaged && process.env.WINGLOG_UPDATE_URL ? process.env.WINGLOG_UPDATE_URL : undefined
+      })
+      updateService.on('status', (status) => {
+        if (!window.isDestroyed()) window.webContents.send(IpcChannels.updatesStatus, status)
+      })
+      updateService.start()
+      app.on('before-quit', () => updateService.stop())
+      ipcMain.handle(IpcChannels.settingsGetUpdates, () => getUpdateSettings(db))
+      ipcMain.handle(IpcChannels.settingsSetUpdates, (_event, settings: unknown) => {
+        const checkEnabled = (settings as UpdateSettings | null)?.checkEnabled
+        if (typeof checkEnabled !== 'boolean') throw new Error('Invalid update settings')
+        setUpdateSettings(db, { checkEnabled })
+      })
+      ipcMain.handle(IpcChannels.updatesGetStatus, () => updateService.getStatus())
+      ipcMain.handle(IpcChannels.updatesCheckNow, () => updateService.checkNow())
+      ipcMain.handle(IpcChannels.updatesSkipVersion, (_event, version: unknown) => updateService.skipVersion(version))
+      ipcMain.handle(IpcChannels.updatesOpenRelease, async () => {
+        const url = updateService.releaseUrl()
+        if (url) await shell.openExternal(url)
+      })
 
       // Navdata (Phase 3, flightdeck-backend's docs/plans/navdata-without-navigraph.md) — its
       // own short-lived SimConnect connection per refresh, deliberately separate from

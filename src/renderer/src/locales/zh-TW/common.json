@@ -761,5 +761,27 @@
       "traffic": "其他機組",
       "atcTraffic": "管制員 → 其他機組"
     }
+  },
+  "updates": {
+    "banner": {
+      "label": "有可用更新",
+      "available": "WingLog {{version}} 現已推出。",
+      "whatsNew": "新功能",
+      "hideNotes": "隱藏說明",
+      "download": "下載",
+      "skip": "略過此版本",
+      "dismiss": "暫時隱藏"
+    },
+    "settings": {
+      "title": "更新",
+      "description": "WingLog 會向 GitHub 查詢最新版本號，不會傳送其他任何內容。更新需要你自行下載和安裝。",
+      "autoCheck": "自動檢查更新",
+      "on": "開",
+      "off": "關",
+      "checkNow": "立即檢查",
+      "checking": "正在檢查…",
+      "upToDate": "你使用的是最新版本（{{version}}）。",
+      "error": "無法檢查更新，請稍後再試。"
+    }
   }
 }

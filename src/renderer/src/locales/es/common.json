@@ -771,5 +771,27 @@
       "traffic": "Tráfico",
       "atcTraffic": "ATC → Tráfico"
     }
+  },
+  "updates": {
+    "banner": {
+      "label": "Actualización disponible",
+      "available": "WingLog {{version}} está disponible.",
+      "whatsNew": "Novedades",
+      "hideNotes": "Ocultar notas",
+      "download": "Descargar",
+      "skip": "Omitir esta versión",
+      "dismiss": "Ocultar por ahora"
+    },
+    "settings": {
+      "title": "Actualizaciones",
+      "description": "WingLog consulta a GitHub el número de la última versión. No se envía nada más, y tú descargas e instalas las actualizaciones.",
+      "autoCheck": "Buscar actualizaciones automáticamente",
+      "on": "Sí",
+      "off": "No",
+      "checkNow": "Comprobar ahora",
+      "checking": "Comprobando…",
+      "upToDate": "Tienes la última versión ({{version}}).",
+      "error": "No se pudo comprobar si hay actualizaciones. Inténtalo más tarde."
+    }
   }
 }

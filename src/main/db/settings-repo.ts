@@ -8,6 +8,7 @@ import type {
   LandingDistanceUnit,
   MapLanguage,
   Theme,
+  UpdateSettings,
   WeightUnit,
   WindSpeedUnit
 } from '@shared/ipc'
@@ -36,6 +37,8 @@ const GSX_REMOTE_HOST_KEY = 'gsxRemoteHost'
 const GSX_REMOTE_PORT_KEY = 'gsxRemotePort'
 const BEYONDATC_ENABLED_KEY = 'beyondAtcEnabled'
 const BEYONDATC_HOST_KEY = 'beyondAtcHost'
+const UPDATE_CHECK_ENABLED_KEY = 'updateCheckEnabled'
+const UPDATE_SKIPPED_VERSION_KEY = 'updateSkippedVersion'
 
 export function getSetting(db: WingLogDb, key: string): string | undefined {
   return db.select().from(appSetting).where(eq(appSetting.key, key)).get()?.value
@@ -239,4 +242,22 @@ export function getAircraftIdForTitle(db: WingLogDb, title: string): number | un
 
 export function rememberAircraftForTitle(db: WingLogDb, title: string, aircraftId: number): void {
   setSetting(db, titleAircraftKey(title), String(aircraftId))
+}
+
+/** The GitHub update check (flightdeck-backend's docs/plans/update-check.md): on unless
+ *  switched off — only an explicit '0' disables it. */
+export function getUpdateSettings(db: WingLogDb): UpdateSettings {
+  return { checkEnabled: getSetting(db, UPDATE_CHECK_ENABLED_KEY) !== '0' }
+}
+
+export function setUpdateSettings(db: WingLogDb, settings: UpdateSettings): void {
+  setSetting(db, UPDATE_CHECK_ENABLED_KEY, settings.checkEnabled ? '1' : '0')
+}
+
+export function getSkippedUpdateVersion(db: WingLogDb): string | null {
+  return getSetting(db, UPDATE_SKIPPED_VERSION_KEY) ?? null
+}
+
+export function setSkippedUpdateVersion(db: WingLogDb, version: string): void {
+  setSetting(db, UPDATE_SKIPPED_VERSION_KEY, version)
 }

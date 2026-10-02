@@ -59,6 +59,10 @@ export async function launchApp(options: LaunchAppOptions = {}): Promise<Launche
   // then crashing the renderer on unmount). Always on for every e2e launch, real or local —
   // never set anywhere real usage runs, so it can't affect a real user.
   env.WINGLOG_E2E_SOFTWARE_GL = '1'
+  // The update check (updates/update-check.ts) asks GitHub 30 s after launch. Point it at a
+  // closed local port so no e2e run ever reaches the real API; updates.spec.ts overrides
+  // this with its own fake release server. Only honoured by an unpackaged build.
+  env.WINGLOG_UPDATE_URL = 'http://127.0.0.1:9/releases/latest'
   Object.assign(env, options.env)
 
   const app = await electron.launch({

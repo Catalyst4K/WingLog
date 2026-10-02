@@ -8,6 +8,8 @@ import {
   type BeyondAtcSettings,
   type BeyondAtcState,
   type BeyondAtcTranscriptEntry,
+  type UpdateSettings,
+  type UpdateStatus,
   type DataFormat,
   type DispatchOpenSimBriefParams,
   type WingLogApi,
@@ -256,7 +258,18 @@ const api: WingLogApi = {
   beyondAtcSetFrequency: (frequency: string) => ipcRenderer.invoke(IpcChannels.beyondAtcSetFrequency, frequency),
   beyondAtcSetFrequencyCom2: (frequency: string) => ipcRenderer.invoke(IpcChannels.beyondAtcSetFrequencyCom2, frequency),
   beyondAtcSetAutoTune: (value: boolean) => ipcRenderer.invoke(IpcChannels.beyondAtcSetAutoTune, value),
-  beyondAtcSetAutoRespond: (value: boolean) => ipcRenderer.invoke(IpcChannels.beyondAtcSetAutoRespond, value)
+  beyondAtcSetAutoRespond: (value: boolean) => ipcRenderer.invoke(IpcChannels.beyondAtcSetAutoRespond, value),
+  settingsGetUpdates: () => ipcRenderer.invoke(IpcChannels.settingsGetUpdates),
+  settingsSetUpdates: (settings: UpdateSettings) => ipcRenderer.invoke(IpcChannels.settingsSetUpdates, settings),
+  updatesGetStatus: () => ipcRenderer.invoke(IpcChannels.updatesGetStatus),
+  onUpdateStatus: (listener: (status: UpdateStatus) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, status: UpdateStatus): void => listener(status)
+    ipcRenderer.on(IpcChannels.updatesStatus, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.updatesStatus, handler)
+  },
+  updatesCheckNow: () => ipcRenderer.invoke(IpcChannels.updatesCheckNow),
+  updatesSkipVersion: (version: string) => ipcRenderer.invoke(IpcChannels.updatesSkipVersion, version),
+  updatesOpenRelease: () => ipcRenderer.invoke(IpcChannels.updatesOpenRelease)
 }
 
 contextBridge.exposeInMainWorld('winglog', api)
