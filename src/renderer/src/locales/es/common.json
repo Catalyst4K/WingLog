@@ -53,6 +53,16 @@
       "landingDistancesHint": "Distancia desde el umbral y desplazamiento respecto al eje central en la tarjeta de aterrizaje de un vuelo de la Bitácora, y en su diagrama de toma de contacto. La tasa de toma de contacto se mantiene en fpm y las velocidades/el viento en nudos.",
       "moreInfoFor": "Más información sobre {{label}}"
     },
+    "tracking": {
+      "cardTitle": "Seguimiento",
+      "description": "Ambos activados por defecto. Desactiva uno si falla con tu simulador y usa los botones de {{track}}.",
+      "autoStart": "Iniciar el seguimiento automáticamente",
+      "autoStartOff": "Desactivado: tras {{fly}} en {{dispatch}}, pulsa tú {{startTracking}} en {{track}}.",
+      "autoFinish": "Finalizar vuelos automáticamente",
+      "autoFinishOff": "Desactivado: el vuelo sigue abierto tras aparcar y apagar, hasta que pulses {{finishAndSave}}.",
+      "on": "Activado",
+      "off": "Desactivado"
+    },
     "theme": {
       "cardTitle": "Tema",
       "appearance": "Apariencia",

@@ -58,6 +58,7 @@ export class FlightRecorder {
   // (line below), which never happens again once truly on the ground rolling out, so the
   // flight never reached 'shutdown' and auto-completion never fired.
   private hasLanded = false
+  private autoShutdown = true
   // Tags every point this recorder writes — 0 for a flight never resumed, incremented by
   // TrackingController.resume() each time the app/process restarts mid-flight (see this
   // class's own resume-parameter comment), or by bumpResumeSegment below when a
@@ -94,6 +95,13 @@ export class FlightRecorder {
   /** "Freeze the phase machine on pause" (PLAN.md §7) — no transitions, no points, while true. */
   setPaused(paused: boolean): void {
     this.paused = paused
+  }
+
+  /** Settings → Tracking → "Finish flights automatically". Off, the recorder never enters
+   *  'shutdown' on its own — that phase is itself what completes a flight (and what Track
+   *  reads as "auto-completed"), so it mustn't be recorded at all. Finish & save still works. */
+  setAutoShutdown(enabled: boolean): void {
+    this.autoShutdown = enabled
   }
 
   /** Called by TrackingController the moment a live resume-cleanup check finds a
@@ -220,7 +228,7 @@ export class FlightRecorder {
     // Reachable from the post-landing 'taxi' phase only — the same speed/brake/engine
     // state during the initial preflight phase instead drives the pushback transition
     // above, so there's no ambiguity between "not yet started" and "shut down".
-    if (this.phase === 'taxi' && t.groundSpeedMs < MOVING_MS && t.parkingBrakeOn && !t.engineCombustion1) {
+    if (this.autoShutdown && this.phase === 'taxi' && t.groundSpeedMs < MOVING_MS && t.parkingBrakeOn && !t.engineCombustion1) {
       this.phase = 'shutdown'
     }
   }

@@ -339,6 +339,19 @@ describe('FlightRecorder', () => {
     expect(recorder.getPhase()).toBe('shutdown')
   })
 
+  it('never enters shutdown on its own with automatic finish switched off, and does once it is back on', () => {
+    const recorder = new FlightRecorder(1, { phase: 'taxi', hasLanded: true, resumeSegment: 0 })
+    recorder.setAutoShutdown(false)
+    const parked = telemetry({ engineCombustion1: false, onGround: true, groundSpeedMs: 0, parkingBrakeOn: true })
+    recorder.ingest(parked, at(1))
+    recorder.ingest(parked, at(2))
+    expect(recorder.getPhase()).toBe('taxi')
+
+    recorder.setAutoShutdown(true)
+    recorder.ingest(parked, at(3))
+    expect(recorder.getPhase()).toBe('shutdown')
+  })
+
   it('goes back to taxi on a rejected takeoff (aborted before ever leaving the ground)', () => {
     const recorder = new FlightRecorder(1)
     let t = 0

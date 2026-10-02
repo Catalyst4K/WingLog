@@ -8,6 +8,7 @@ import type {
   LandingDistanceUnit,
   MapLanguage,
   Theme,
+  TrackingSettings,
   WeightUnit,
   WindSpeedUnit
 } from '@shared/ipc'
@@ -25,6 +26,8 @@ const MAP_LANGUAGES: readonly MapLanguage[] = ['local', 'en', 'de', 'es', 'fr', 
 const APP_LANGUAGES: readonly AppLanguage[] = ['system', 'en', 'de', 'es', 'fr', 'it', 'ru']
 const LANDING_DISTANCE_UNIT_KEY = 'landingDistanceUnit'
 const THEME_KEY = 'theme'
+const TRACKING_AUTO_START_KEY = 'trackingAutoStart'
+const TRACKING_AUTO_FINISH_KEY = 'trackingAutoFinish'
 const GSX_ENABLED_KEY = 'gsxEnabled'
 const GSX_FOLDER_PATH_KEY = 'gsxFolderPath'
 const GSX_DISPLAY_CURRENCY_KEY = 'gsxDisplayCurrency'
@@ -133,6 +136,19 @@ export function setTheme(db: WingLogDb, theme: Theme): void {
  *  checkGsxFirstLaunch below, and only when the expected receipts folder is actually
  *  found on disk on the app's first-ever launch (flight-test-findings-2026-09-06.md #4)
  *  — never silently, and never past that one check. */
+/** Both default on — only an explicit '0' switches either off. */
+export function getTrackingSettings(db: WingLogDb): TrackingSettings {
+  return {
+    autoStart: getSetting(db, TRACKING_AUTO_START_KEY) !== '0',
+    autoFinish: getSetting(db, TRACKING_AUTO_FINISH_KEY) !== '0'
+  }
+}
+
+export function setTrackingSettings(db: WingLogDb, settings: TrackingSettings): void {
+  setSetting(db, TRACKING_AUTO_START_KEY, settings.autoStart ? '1' : '0')
+  setSetting(db, TRACKING_AUTO_FINISH_KEY, settings.autoFinish ? '1' : '0')
+}
+
 export function getGsxSettings(db: WingLogDb): GsxSettings {
   return {
     enabled: getSetting(db, GSX_ENABLED_KEY) === '1',

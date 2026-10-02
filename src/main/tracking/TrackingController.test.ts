@@ -410,6 +410,31 @@ describe('TrackingController', () => {
     expect(controller.getActive()).toBeUndefined()
   })
 
+  it('with "Finish flights automatically" off, stays active when parked and shut down until finish()', () => {
+    sim.setLastTelemetry(telemetry({}))
+    const controller = new TrackingController(db, sim)
+    controller.setAutoFinish(false)
+    controller.start(flightId)
+    const points: string[] = []
+    controller.on('point', (p) => points.push(p.phase))
+
+    sim.emit('telemetry', telemetry({ engineCombustion1: true }))
+    sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 5 }))
+    sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 40 }))
+    sim.emit('telemetry', telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 }))
+    sim.emit('telemetry', telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 65, verticalSpeedMs: -1.5 }))
+    sim.emit('telemetry', telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 10 }))
+    sim.emit('telemetry', telemetry({ engineCombustion1: false, onGround: true, groundSpeedMs: 0, parkingBrakeOn: true }))
+
+    expect(getFlight(db, flightId)?.status).toBe('active')
+    expect(controller.getActive()).toBeDefined()
+    // Never recorded at all — a 'shutdown' point is what Track reads as "auto-completed".
+    expect(points).not.toContain('shutdown')
+
+    controller.finish()
+    expect(getFlight(db, flightId)?.status).toBe('completed')
+  })
+
   it('completes the flight on finish() using the last known fuel figure, without waiting for shutdown', () => {
     sim.setLastTelemetry(telemetry({ fuelTotalKg: 9000 }))
     const controller = new TrackingController(db, sim)

@@ -51,6 +51,16 @@
       "landingDistancesHint": "飞行日志中某次落地卡片上的“距入口距离”“中线偏移”，以及其接地示意图所用的单位。下降率始终以 fpm 显示，速度与风速始终以节显示，不受此设置影响。",
       "moreInfoFor": "关于{{label}}的更多信息"
     },
+    "tracking": {
+      "cardTitle": "跟踪",
+      "description": "两者默认开启。如果与你的模拟器配合出问题，可关闭其中一个，改用 {{track}} 页面上的按钮。",
+      "autoStart": "自动开始跟踪",
+      "autoStartOff": "关闭：在 {{dispatch}} 中点 {{fly}} 后，需自己在 {{track}} 页面点 {{startTracking}}。",
+      "autoFinish": "自动结束航班",
+      "autoFinishOff": "关闭：停机并关车后航班保持进行中，直到你点 {{finishAndSave}}。",
+      "on": "开",
+      "off": "关"
+    },
     "theme": {
       "cardTitle": "主题",
       "appearance": "外观",

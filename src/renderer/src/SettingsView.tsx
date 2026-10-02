@@ -13,6 +13,7 @@ import type {
   GsxRemoteConnectionStatus,
   GsxRemoteSettings,
   GsxSettings,
+  TrackingSettings,
   LandingDistanceUnit,
   LogbookImportSummary,
   MapLanguage,
@@ -110,6 +111,7 @@ function SegmentedRow<T extends string>(props: {
             type="button"
             size="sm"
             variant={props.value === opt.value ? 'default' : 'outline'}
+            aria-pressed={props.value === opt.value}
             className="min-w-[4.5rem]"
             onClick={() => props.onChange(opt.value)}
           >
@@ -223,6 +225,7 @@ export function SettingsView(props: {
   const [fleetFormat, setFleetFormat] = useState<DataFormat>('json')
   const [logbookFormat, setLogbookFormat] = useState<DataFormat>('csv')
   const [gsx, setGsx] = useState<GsxSettings>({ enabled: false, folderPath: null, displayCurrency: 'USD' })
+  const [tracking, setTracking] = useState<TrackingSettings>({ autoStart: true, autoFinish: true })
   const [gsxRemote, setGsxRemote] = useState<GsxRemoteSettings>({ enabled: false, host: 'localhost', port: null })
   // Free-typed while editing — kept separate from gsxRemote.port (number | null) so an
   // in-progress edit (e.g. a momentarily empty field) never round-trips through Number()
@@ -263,6 +266,7 @@ export function SettingsView(props: {
     window.winglog.settingsGetSimbriefUsername().then((u) => setSimbriefUsername(u ?? ''))
     window.winglog.dispatchSimbriefLoginStatus().then(setSimbriefLoggedIn)
     window.winglog.settingsGetGsx().then(setGsx)
+    window.winglog.settingsGetTracking().then(setTracking)
     window.winglog.settingsGetGsxRemote().then((settings) => {
       setGsxRemote(settings)
       setGsxRemotePortInput(settings.port != null ? String(settings.port) : '')
@@ -292,6 +296,20 @@ export function SettingsView(props: {
   useEffect(() => {
     return window.winglog.onBeyondAtcStatus(setBeyondAtcStatus)
   }, [])
+
+  // The real (translated) labels of the buttons and pages the Tracking card points at.
+  const trackingLabels = {
+    fly: t('dispatchView.fly'),
+    startTracking: t('trackView.startTracking'),
+    finishAndSave: t('trackView.finishAndSave'),
+    dispatch: t('app.tabs.dispatch'),
+    track: t('app.tabs.track')
+  }
+
+  async function handleTrackingChange(next: TrackingSettings): Promise<void> {
+    setTracking(next)
+    await window.winglog.settingsSetTracking(next)
+  }
 
   async function handleGsxToggle(enabled: boolean): Promise<void> {
     const next = { ...gsx, enabled }
@@ -580,6 +598,29 @@ export function SettingsView(props: {
                 ]}
                 onChange={props.onThemeChange}
               />
+            </CardContent>
+          </Card>
+
+          <Card className="max-w-2xl">
+            <CardHeader>
+              <CardTitle>{t('settingsView.tracking.cardTitle')}</CardTitle>
+              <CardDescription>{t('settingsView.tracking.description', trackingLabels)}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              {(['autoStart', 'autoFinish'] as const).map((key) => (
+                <div key={key} className="flex flex-col gap-1">
+                  <SegmentedRow
+                    label={t(`settingsView.tracking.${key}`)}
+                    value={tracking[key] ? 'on' : 'off'}
+                    options={[
+                      { value: 'on', label: t('settingsView.tracking.on') },
+                      { value: 'off', label: t('settingsView.tracking.off') }
+                    ]}
+                    onChange={(value) => void handleTrackingChange({ ...tracking, [key]: value === 'on' })}
+                  />
+                  <p className="text-xs text-muted-foreground">{t(`settingsView.tracking.${key}Off`, trackingLabels)}</p>
+                </div>
+              ))}
             </CardContent>
           </Card>
         </TabsContent>

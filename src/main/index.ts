@@ -17,6 +17,7 @@ import {
   type GsxRemoteCommandId,
   type GsxRemoteSettings,
   type GsxSettings,
+  type TrackingSettings,
   type LandingDistanceUnit,
   type MapLanguage,
   type NavdataProcedureKind,
@@ -75,6 +76,7 @@ import {
   getBeyondAtcSettings,
   getGsxRemoteSettings,
   getGsxSettings,
+  getTrackingSettings,
   getLandingDistanceUnit,
   getSimbriefUsername,
   getTheme,
@@ -86,6 +88,7 @@ import {
   setBeyondAtcSettings,
   setGsxRemoteSettings,
   setGsxSettings,
+  setTrackingSettings,
   setLandingDistanceUnit,
   setSimbriefUsername,
   setTheme,
@@ -554,6 +557,8 @@ if (!gotSingleInstanceLock) {
       // manual fallback for whenever this doesn't fire (e.g. the pilot doesn't reload MSFS).
       const autoStartDetector = new AutoStartDetector(simConnectService)
       autoStartDetector.on('ready', (flightId) => {
+        // Settings → Tracking → "Start tracking automatically" off: the pilot starts it.
+        if (!getTrackingSettings(db).autoStart) return
         try {
           trackingController.start(flightId)
         } catch {
@@ -713,6 +718,15 @@ if (!gotSingleInstanceLock) {
       // default, and a no-op everywhere below when disabled or unconfigured. Windows-only in
       // practice (GSX itself is Windows-only), but nothing here assumes that beyond
       // defaultGsxReceiptsPath returning null elsewhere.
+      trackingController.setAutoFinish(getTrackingSettings(db).autoFinish)
+      ipcMain.handle(IpcChannels.settingsGetTracking, () => getTrackingSettings(db))
+      ipcMain.handle(IpcChannels.settingsSetTracking, (_event, settings: TrackingSettings) => {
+        if (typeof settings?.autoStart !== 'boolean' || typeof settings.autoFinish !== 'boolean') {
+          throw new Error('Invalid tracking settings')
+        }
+        setTrackingSettings(db, { autoStart: settings.autoStart, autoFinish: settings.autoFinish })
+        trackingController.setAutoFinish(settings.autoFinish)
+      })
       ipcMain.handle(IpcChannels.settingsGetGsx, () => getGsxSettings(db))
       ipcMain.handle(IpcChannels.settingsSetGsx, (_event, settings: GsxSettings) =>
         setGsxSettings(db, settings)

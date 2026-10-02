@@ -652,6 +652,15 @@ export interface GsxRescanResult {
   notailCandidates: GsxNotailCandidate[]
 }
 
+/** Settings → Tracking (flightdeck-backend's docs/plans/tracking-auto-toggles.md). Both on by
+ *  default; off falls back to the manual Start tracking / Finish & save buttons. */
+export interface TrackingSettings {
+  /** Start tracking an armed flight once the sim has settled at the departure. */
+  autoStart: boolean
+  /** Finish the flight once parked with engines off after landing. */
+  autoFinish: boolean
+}
+
 export interface GsxSettings {
   enabled: boolean
   folderPath: string | null
@@ -1304,6 +1313,8 @@ export const IpcChannels = {
   logbookImportJson: 'logbook:import-json',
   logbookExport: 'logbook:export',
   logbookListInvoices: 'logbook:list-invoices',
+  settingsGetTracking: 'settings:get-tracking',
+  settingsSetTracking: 'settings:set-tracking',
   settingsGetGsx: 'settings:get-gsx',
   settingsSetGsx: 'settings:set-gsx',
   settingsCheckGsxFirstLaunch: 'settings:check-gsx-first-launch',
@@ -1556,6 +1567,8 @@ export interface WingLogApi {
    *  gsx-invoices entry) — snapshotted at completion, not read live from disk. Empty for
    *  any flight with no matched receipts, which is the normal case. */
   logbookListInvoices: (flightId: number) => Promise<FlightInvoice[]>
+  settingsGetTracking: () => Promise<TrackingSettings>
+  settingsSetTracking: (settings: TrackingSettings) => Promise<void>
   settingsGetGsx: () => Promise<GsxSettings>
   settingsSetGsx: (settings: GsxSettings) => Promise<void>
   /** Call once, on app mount — a no-op (returns null) on every launch after the app's
