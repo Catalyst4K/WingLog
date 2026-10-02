@@ -571,7 +571,8 @@ export default function App(): React.JSX.Element {
                 onClick={() => goToTab(tabPage)}
               >
                 <Icon />
-                <span className="sr-only lg:not-sr-only">{label}</span>
+                {/* not-sr-only resets white-space to normal: keep "Ground services" on one line. */}
+                <span className="sr-only whitespace-nowrap lg:not-sr-only">{label}</span>
               </TabsTrigger>
             ))}
           </TabsList>

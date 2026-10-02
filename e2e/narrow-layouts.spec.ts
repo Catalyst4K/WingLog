@@ -80,3 +80,35 @@ for (const [width, height] of [
     }
   })
 }
+
+test('at the default window width every tab label sits on one line, under its underline', async () => {
+  // Real bug, 2026-10-02: lg:not-sr-only reset white-space, so "Ground services" wrapped onto
+  // two lines and the active tab's underline ran through "services".
+  const gsx = await FakeGsxRemoteServer.start()
+  const beyondAtc = await FakeBeyondAtcServer.start()
+  const { app, window: page, cleanup } = await launchApp()
+  try {
+    await page.evaluate((port) => {
+      const api = (globalThis as unknown as Window).winglog
+      return Promise.all([
+        api.settingsSetBeyondAtc({ enabled: true, host: '127.0.0.1' }),
+        api.settingsSetGsxRemote({ enabled: true, host: '127.0.0.1', port })
+      ])
+    }, gsx.port)
+    await gsx.waitForConnection()
+    await beyondAtc.waitForConnection()
+    await page.reload()
+    await setWidth(app, 1100, 720)
+    await page.getByRole('tab', { name: 'Ground services' }).click()
+    const heights = await page.getByRole('tab').evaluateAll((tabs) => tabs.map((tab) => tab.getBoundingClientRect().height))
+    expect(heights.length).toBe(7)
+    expect(new Set(heights).size).toBe(1)
+    const label = page.getByRole('tab', { name: 'Ground services' }).getByText('Ground services')
+    const lineHeight = await label.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight))
+    expect((await label.boundingBox())!.height).toBeLessThanOrEqual(lineHeight + 1)
+  } finally {
+    await cleanup()
+    await gsx.stop()
+    await beyondAtc.stop()
+  }
+})
