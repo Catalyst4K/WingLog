@@ -171,7 +171,8 @@
     },
     "about": {
       "description": "Персональный помощник для управления флотом, dispatch, отслеживания полёта в реальном времени и логбука для Microsoft Flight Simulator.",
-      "disclaimer": "WingLog не аффилирован с Microsoft Corporation или Asobo Studio, не одобрен и не спонсируется ими. «Microsoft Flight Simulator» — товарный знак соответствующих владельцев.",
+      "simulationOnly": "Только для авиасимуляции. WingLog нельзя использовать для реальной навигации, планирования реальных полётов или на борту настоящего воздушного судна.",
+      "disclaimer": "WingLog — независимый бесплатный проект. Он не аффилирован с Microsoft Corporation, Asobo Studio, Skirmish Mode Games (BeyondATC), FSDreamTeam (GSX), Navigraph (SimBrief) или OpenFreeMap, не одобрен и не спонсируется ими. «Microsoft Flight Simulator», «BeyondATC», «GSX», «SimBrief» и «Navigraph» — товарные знаки соответствующих владельцев.",
       "license": "Свободное и открытое ПО по лицензии GNU General Public License v3.0."
     },
     "usernameSavedToast": "Имя пользователя SimBrief сохранено.",

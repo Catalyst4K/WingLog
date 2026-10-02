@@ -1059,6 +1059,18 @@ describe('SettingsView', () => {
       expect(await screen.findByText('WingLog v9.9.9')).toBeInTheDocument()
     })
 
+    it('says WingLog is for simulation only and names every third party it is not affiliated with (2026-10-02)', async () => {
+      setWinglog()
+      const user = userEvent.setup()
+      renderSettings()
+      await user.click(screen.getByRole('tab', { name: 'About' }))
+      expect(await screen.findByText(/For flight simulation use only\. WingLog must never be used for real-world navigation/)).toBeInTheDocument()
+      const disclaimer = screen.getByText(/is not affiliated with/)
+      for (const party of ['Microsoft Corporation', 'Asobo Studio', 'Skirmish Mode Games (BeyondATC)', 'FSDreamTeam (GSX)', 'Navigraph (SimBrief)', 'OpenFreeMap']) {
+        expect(disclaimer).toHaveTextContent(party)
+      }
+    })
+
     it('opens the GitHub repo through the app link', async () => {
       const winglog = setWinglog()
       const user = userEvent.setup()
