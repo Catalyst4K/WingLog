@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl'
-import type { BeyondAtcTranscriptEntry, NavdataTaxiSegment } from '@shared/ipc'
-import { parseTaxiHoldingPoint, parseTaxiRoute } from './taxiRouteParser'
+import type { BeyondAtcTranscriptEntry, NavdataStand, NavdataTaxiSegment } from '@shared/ipc'
+import { findStand } from '@shared/stands'
+import { parseTaxiHoldingPoint, parseTaxiRoute, parseTaxiStand } from './taxiRouteParser'
 import { remainingRoute, traceTaxiRoute, type TracedRoute } from './taxiRouteTrace'
 import { TAXI_SOURCE_ID } from './useTaxiChartOverlay'
 
@@ -60,6 +61,8 @@ function ensureLayers(map: MapLibreMap): void {
 interface TaxiClearance {
   taxiways: string[]
   holdingPoint: string | null
+  /** "taxi to Stand N32 …" → 'N32'; null for a holding-point clearance. */
+  stand: string | null
   /** Where the aircraft was when the clearance arrived — the trace's start. */
   from: { lat: number; lon: number } | null
 }
@@ -124,7 +127,14 @@ export function useTaxiRouteHighlight({
         if (entry.speaker !== 'atc' || entry.ts <= rememberedLastTs) continue
         rememberedLastTs = entry.ts
         const taxiways = parseTaxiRoute(entry.text)
-        if (taxiways) latest = { taxiways, holdingPoint: parseTaxiHoldingPoint(entry.text), from: positionRef.current }
+        if (taxiways) {
+          latest = {
+            taxiways,
+            holdingPoint: parseTaxiHoldingPoint(entry.text),
+            stand: parseTaxiStand(entry.text),
+            from: positionRef.current
+          }
+        }
       }
       if (latest) {
         rememberedClearance = latest
@@ -142,12 +152,38 @@ export function useTaxiRouteHighlight({
 
   const icao = clearance ? (clearance.holdingPoint ? depIcao : arrIcao) : null
 
+  // The arrival airport's stands, once a stand clearance needs one (fetched from the sim on
+  // first ask, then cached — stand-positions.md).
+  const [stands, setStands] = useState<{ icao: string; list: NavdataStand[] } | null>(null)
+  const standIcao = enabled && clearance?.stand && icao ? icao : null
+  useEffect(() => {
+    if (!standIcao) return
+    let ignore = false
+    window.winglog.navdataGetStands(standIcao).then(
+      (list) => {
+        if (!ignore) setStands({ icao: standIcao, list })
+      },
+      () => undefined
+    )
+    return () => {
+      ignore = true
+    }
+  }, [standIcao])
+  const standPosition =
+    clearance?.stand && stands && stands.icao === icao ? findStand(stands.list, clearance.stand) : null
+
   // Re-traced when segments finish loading too — a clearance can arrive before the chart has.
   const traced: TracedRoute | null = useMemo(() => {
     const segments = icao ? segmentsByIcao[icao] : undefined
     if (!clearance?.from || !segments || segments.length === 0) return null
-    return traceTaxiRoute({ segments, taxiways: clearance.taxiways, holdingPoint: clearance.holdingPoint, from: clearance.from })
-  }, [clearance, icao, segmentsByIcao])
+    return traceTaxiRoute({
+      segments,
+      taxiways: clearance.taxiways,
+      holdingPoint: clearance.holdingPoint,
+      from: clearance.from,
+      stand: standPosition
+    })
+  }, [clearance, icao, segmentsByIcao, standPosition])
 
   useEffect(() => {
     progressRef.current = 0

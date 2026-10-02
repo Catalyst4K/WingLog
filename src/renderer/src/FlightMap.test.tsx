@@ -820,6 +820,7 @@ describe('FlightMap', () => {
         navdataRefreshTaxiNetwork: refreshTaxiNetwork,
         navdataGetTaxiNetwork: getTaxiNetwork,
         beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
+        navdataGetStands: vi.fn().mockResolvedValue([]),
         onBeyondAtcTranscript
       }
       return { hasTaxiNetwork, refreshTaxiNetwork, getTaxiNetwork, onBeyondAtcTranscript }
@@ -907,6 +908,7 @@ describe('FlightMap', () => {
         navdataRefreshTaxiNetwork: refreshTaxiNetwork,
         navdataGetTaxiNetwork: getTaxiNetwork,
         beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
+        navdataGetStands: vi.fn().mockResolvedValue([]),
         onBeyondAtcTranscript: vi.fn(() => () => {})
       }
       const user = userEvent.setup()
@@ -954,6 +956,7 @@ describe('FlightMap', () => {
         navdataRefreshTaxiNetwork: refreshTaxiNetwork,
         navdataGetTaxiNetwork: getTaxiNetwork,
         beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
+        navdataGetStands: vi.fn().mockResolvedValue([]),
         onBeyondAtcTranscript: vi.fn(() => () => {})
       }
       const user = userEvent.setup()
@@ -978,7 +981,8 @@ describe('FlightMap', () => {
 
     function withTranscriptListener(
       segments: unknown[] = NAMED_SEGMENTS,
-      initial: TranscriptEntry[] = []
+      initial: TranscriptEntry[] = [],
+      stands: unknown[] = []
     ): { push: (transcript: TranscriptEntry[]) => void } {
       let listener: ((transcript: TranscriptEntry[]) => void) | undefined
       ;(window as unknown as { winglog: unknown }).winglog = {
@@ -986,6 +990,7 @@ describe('FlightMap', () => {
         navdataRefreshTaxiNetwork: vi.fn().mockResolvedValue(undefined),
         navdataGetTaxiNetwork: vi.fn().mockResolvedValue(segments),
         beyondAtcGetTranscript: vi.fn().mockResolvedValue(initial),
+        navdataGetStands: vi.fn().mockResolvedValue(stands),
         onBeyondAtcTranscript: vi.fn((l: (transcript: TranscriptEntry[]) => void) => {
           listener = l
           return () => {}
@@ -1121,6 +1126,23 @@ describe('FlightMap', () => {
       const at = (lat: number, lon: number): SimTelemetry => ({ latitude: lat, longitude: lon }) as SimTelemetry
       const lastLine = (map: FakeMapInstance): unknown =>
         (map.sources['taxi-route-trace']?.setData.mock.calls.at(-1)?.[0] as { geometry: { coordinates: unknown } }).geometry.coordinates
+
+      it('draws a stand clearance on to the stand itself once the stand is known (stand-positions.md)', async () => {
+        // Arriving at the hold end of A1 and cleared back to the stand via B, D.
+        const standPoint = { name: 'S1', number: 1, suffix: 0, headingDeg: 0, lat: 51.32995, lon: 0.02995 }
+        withTranscriptListener(NETWORK, [], [standPoint])
+        const user = userEvent.setup()
+        const { map, rerender } = await renderReady({ route: [], trackPoints: [], live: true, arrIcao: 'EGKB', telemetry: at(51.3335, 0.0335) })
+        await user.click(toggleButton())
+        await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
+        const winglog = (window as unknown as { winglog: { onBeyondAtcTranscript: ReturnType<typeof vi.fn> } }).winglog
+        const listener = winglog.onBeyondAtcTranscript.mock.calls.at(-1)![0] as (t: TranscriptEntry[]) => void
+        await act(async () => listener([{ speaker: 'atc', text: 'Test 230, taxi to Stand S1 via A1, B, D.', ts: 2000 }]))
+        await act(async () => rerender({ route: [], trackPoints: [], live: true, arrIcao: 'EGKB', telemetry: at(51.3335, 0.0335) }))
+
+        await waitFor(() => expect((lastLine(map) as [number, number][]).at(-1)).toEqual([0.02995, 51.32995]))
+        expect(winglog).toMatchObject({})
+      })
 
       it("draws a clearance given before Track was opened, without waiting for ATC's next line (YBBN, 2026-10-02)", async () => {
         withTranscriptListener(NETWORK, [CLEARANCE])
