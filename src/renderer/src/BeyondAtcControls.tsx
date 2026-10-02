@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Headset } from 'lucide-react'
+import { Headset, Loader2 } from 'lucide-react'
 import type { BeyondAtcCom2, BeyondAtcFacility, BeyondAtcFrequencyOption, BeyondAtcProgress } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -24,24 +24,32 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 export interface BeyondAtcActionsProps {
   actions: string[]
   onSelectAction: (label: string) => void
+  /** The action just pressed and not yet transmitted: shown busy so a press that BeyondATC
+   *  queues behind other traffic doesn't look like nothing happened. */
+  pendingLabel?: string | null
 }
 
 export function BeyondAtcActions(props: BeyondAtcActionsProps): React.JSX.Element | null {
   if (props.actions.length === 0) return null
   return (
     <div className="flex flex-wrap gap-1.5">
-      {props.actions.map((label) => (
-        <Button
-          key={label}
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-auto py-1.5 text-xs"
-          onClick={() => props.onSelectAction(label)}
-        >
-          {label}
-        </Button>
-      ))}
+      {props.actions.map((label) => {
+        const pending = label === props.pendingLabel
+        return (
+          <Button
+            key={label}
+            type="button"
+            variant={pending ? 'secondary' : 'outline'}
+            size="sm"
+            className="h-auto py-1.5 text-xs"
+            aria-busy={pending || undefined}
+            onClick={() => props.onSelectAction(label)}
+          >
+            {pending && <Loader2 className="size-3 animate-spin" aria-hidden="true" />}
+            {label}
+          </Button>
+        )
+      })}
     </div>
   )
 }

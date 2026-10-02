@@ -703,6 +703,12 @@
     "transcript": "Trascrizione",
     "actions": "Azioni",
     "noActions": "Nessuna azione disponibile al momento.",
+    "comms": {
+      "queuedAction": "In coda: {{action}}. In attesa di un momento libero sulla frequenza.",
+      "queued": "In attesa di un momento libero sulla frequenza.",
+      "transmitting": "Trasmissione…",
+      "awaitingReply": "In attesa della risposta dell'ATC."
+    },
     "noStatus": "Ancora nessuno stato.",
     "radios": "Radio",
     "frequencyUnknown": "—",

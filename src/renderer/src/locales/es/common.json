@@ -703,6 +703,12 @@
     "transcript": "Transcripción",
     "actions": "Acciones",
     "noActions": "No hay acciones disponibles ahora mismo.",
+    "comms": {
+      "queuedAction": "En cola: {{action}}. Esperando un hueco en la frecuencia.",
+      "queued": "Esperando un hueco en la frecuencia.",
+      "transmitting": "Transmitiendo…",
+      "awaitingReply": "Esperando la respuesta del ATC."
+    },
     "noStatus": "Aún sin estado.",
     "radios": "Radios",
     "frequencyUnknown": "—",

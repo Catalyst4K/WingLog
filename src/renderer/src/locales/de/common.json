@@ -701,6 +701,12 @@
     "transcript": "Funkverkehr",
     "actions": "Aktionen",
     "noActions": "Momentan keine Aktionen verfügbar.",
+    "comms": {
+      "queuedAction": "In der Warteschlange: {{action}}. Warte auf eine Lücke auf der Frequenz.",
+      "queued": "Warte auf eine Lücke auf der Frequenz.",
+      "transmitting": "Sende…",
+      "awaitingReply": "Warte auf die Antwort der Flugsicherung."
+    },
     "noStatus": "Noch kein Status.",
     "radios": "Funkgeräte",
     "frequencyUnknown": "—",

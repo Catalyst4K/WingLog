@@ -701,6 +701,12 @@
     "transcript": "Transcript",
     "actions": "Actions",
     "noActions": "No actions available right now.",
+    "comms": {
+      "queuedAction": "Queued: {{action}}. Waiting for a gap on the frequency.",
+      "queued": "Waiting for a gap on the frequency.",
+      "transmitting": "Transmitting…",
+      "awaitingReply": "Awaiting ATC's reply."
+    },
     "noStatus": "No status yet.",
     "radios": "Radios",
     "frequencyUnknown": "—",
