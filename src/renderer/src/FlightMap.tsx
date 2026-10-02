@@ -131,6 +131,11 @@ let liveCameraState: { center: [number, number]; zoom: number } | null = null
 let liveCameraRouteKey: string | null = null
 // "Center on aircraft" survives a tab switch too, instead of switching itself back on.
 let rememberedFollowEnabled = true
+// Whether liveCameraState's zoom is one the user chose (wheel, pinch, the zoom buttons), not
+// one the map picked itself. Only a chosen zoom is kept when follow mode frames the aircraft —
+// otherwise a route-overview zoom got remembered and the aircraft was shown from far out
+// every time, never at FOLLOW_ZOOM_GROUND (Callum, 2026-10-02).
+let liveZoomChosenByUser = false
 
 function routeKey(route: [number, number][]): string {
   return route.length === 0 ? '' : `${route.length}:${route[0]!.join(',')}:${route[route.length - 1]!.join(',')}`
@@ -266,6 +271,10 @@ export interface FlightMapProps {
    *  "now" to depend on. */
   depIcao?: string | null
   arrIcao?: string | null
+  /** Live only: the active flight's recorded track is still loading. The route isn't framed
+   *  meanwhile — with follow on, the aircraft is about to be, and framing the route first
+   *  flashed it before jumping to the aircraft on every visit to Track (Callum, 2026-10-02). */
+  trackLoading?: boolean
 }
 
 // Stable reference for the default so the route/waypoint effect below doesn't re-fire on
@@ -283,7 +292,8 @@ export function FlightMap({
   routeIsApproximate = false,
   mapLanguage = 'en',
   depIcao = null,
-  arrIcao = null
+  arrIcao = null,
+  trackLoading = false
 }: FlightMapProps): React.JSX.Element {
   const { t } = useTranslation()
   const mapContainerRef = useRef<HTMLDivElement>(null)
@@ -388,6 +398,10 @@ export function FlightMap({
       if (live) {
         map.on('moveend', () => {
           liveCameraState = { center: map.getCenter().toArray() as [number, number], zoom: map.getZoom() }
+        })
+        // originalEvent is only set for a zoom the user made (wheel, pinch, double-click).
+        map.on('zoomend', (e) => {
+          if (e.originalEvent) liveZoomChosenByUser = true
         })
       }
 
@@ -551,7 +565,7 @@ export function FlightMap({
     routeSource?.setData(lineString(route))
     const waypointSource = mapRef.current.getSource<GeoJSONSource>(WAYPOINT_SOURCE_ID)
     waypointSource?.setData(waypointFeatures(waypoints))
-    if (!live) return
+    if (!live || trackLoading) return
     // Same route as the remembered camera was framed for: keep the user's own view.
     const key = routeKey(route)
     if (liveCameraState && liveCameraRouteKey === key) return
@@ -559,7 +573,7 @@ export function FlightMap({
     // Following an aircraft: the follow effect frames it instead — fitting the whole route
     // first would just be overwritten (and flash) a moment later.
     if (!followingAircraftRef.current) fitBoundsTo(mapRef.current, route)
-  }, [mapReady, route, waypoints, live])
+  }, [mapReady, route, waypoints, live, trackLoading])
 
   // A language change while the map is open (only possible from a remount today, since
   // Settings is its own tab, but cheap to keep correct) re-applies to the loaded style.
@@ -647,11 +661,11 @@ export function FlightMap({
       markerRef.current.setLngLat([to.longitude, to.latitude])
       markerRef.current.setRotation(to.headingTrueDeg)
       if (followEnabled) {
-        // A remount already restored the user's last zoom via the constructor above
-        // (liveCameraState) — only force FOLLOW_ZOOM on a genuinely fresh session (no
-        // prior state to restore), so coming back to Track doesn't re-clobber a zoom
-        // level the user had deliberately set.
-        if (liveCameraState) mapRef.current.jumpTo({ center: [to.longitude, to.latitude] })
+        // A remount already restored the last camera via the constructor above
+        // (liveCameraState) — its zoom is kept only if the user chose it, so coming back to
+        // Track doesn't re-clobber a zoom they set, but a zoom the map picked itself (e.g. a
+        // route overview) never stands in for FOLLOW_ZOOM / FOLLOW_ZOOM_GROUND.
+        if (liveCameraState && liveZoomChosenByUser) mapRef.current.jumpTo({ center: [to.longitude, to.latitude] })
         else mapRef.current.jumpTo({ center: [to.longitude, to.latitude], zoom: followZoomFor(to.onGround) })
       }
       return
@@ -857,7 +871,10 @@ export function FlightMap({
           className={mapControlButtonClassName}
           aria-label={t('flightMap.zoomIn')}
           title={t('flightMap.zoomIn')}
-          onClick={() => mapRef.current?.zoomIn()}
+          onClick={() => {
+            liveZoomChosenByUser = true
+            mapRef.current?.zoomIn()
+          }}
         >
           <ZoomIn />
         </Button>
@@ -868,7 +885,10 @@ export function FlightMap({
           className={mapControlButtonClassName}
           aria-label={t('flightMap.zoomOut')}
           title={t('flightMap.zoomOut')}
-          onClick={() => mapRef.current?.zoomOut()}
+          onClick={() => {
+            liveZoomChosenByUser = true
+            mapRef.current?.zoomOut()
+          }}
         >
           <ZoomOut />
         </Button>
