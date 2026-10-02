@@ -169,7 +169,8 @@
       "description": "Un compagnon personnel de gestion de flotte, de régulation, de suivi en direct et de carnet de vol pour Microsoft Flight Simulator.",
       "simulationOnly": "Réservé à la simulation de vol. WingLog ne doit jamais être utilisé pour la navigation réelle, la préparation de vols réels ou à bord d'un véritable aéronef.",
       "disclaimer": "WingLog est un projet indépendant et gratuit. Il n'est ni affilié à, ni approuvé par, ni parrainé par Microsoft Corporation, Asobo Studio, Skirmish Mode Games (BeyondATC), FSDreamTeam (GSX), Navigraph (SimBrief) ou OpenFreeMap. « Microsoft Flight Simulator », « BeyondATC », « GSX », « SimBrief » et « Navigraph » sont des marques de leurs propriétaires respectifs.",
-      "license": "Logiciel libre et open source sous licence GNU General Public License v3.0."
+      "license": "Logiciel libre et open source sous licence GNU General Public License v3.0.",
+      "runSetup": "Relancer la configuration"
     },
     "usernameSavedToast": "Nom d'utilisateur SimBrief enregistré.",
     "usernameAutoFilledToast": "Nom d'utilisateur SimBrief rempli automatiquement : {{username}}",
@@ -227,7 +228,8 @@
       "title": "Mettre à jour la procédure selon la clairance ATC ?",
       "update": "Mettre à jour",
       "dismiss": "Ignorer"
-    }
+    },
+    "whatsNew": "Nouveau dans WingLog 1.4 : intégration de BeyondATC, itinéraires de roulage sur la carte, montées par paliers automatiques et recherche de mises à jour. Activez BeyondATC dans Paramètres → Tiers."
   },
   "fleetView": {
     "atStand": "poste {{stand}}",
@@ -838,6 +840,55 @@
       "checking": "Vérification…",
       "upToDate": "Vous utilisez la dernière version ({{version}}).",
       "error": "Impossible de vérifier les mises à jour. Réessayez plus tard."
+    }
+  },
+  "setup": {
+    "progress": "Étape {{step}} sur {{total}}",
+    "back": "Retour",
+    "next": "Suivant",
+    "start": "Commencer",
+    "finish": "Terminer",
+    "on": "Activé",
+    "off": "Désactivé",
+    "welcome": {
+      "title": "Bienvenue dans WingLog",
+      "body": "WingLog gère votre flotte, prépare vos vols avec SimBrief, les suit en direct depuis Microsoft Flight Simulator et tient un carnet de vol avec analyse des atterrissages. D'abord, quelques choix rapides.",
+      "skipHint": "Chaque étape est facultative. Vous pourrez tout modifier plus tard dans les Paramètres, et rouvrir cette configuration depuis Paramètres → À propos."
+    },
+    "simbrief": {
+      "title": "SimBrief",
+      "body": "Dispatch récupère vos plans de vol sur SimBrief. Saisissez votre nom d'utilisateur SimBrief (votre alias Navigraph) pour que WingLog puisse les trouver.",
+      "label": "Nom d'utilisateur SimBrief",
+      "save": "Enregistrer",
+      "saved": "Enregistré."
+    },
+    "units": {
+      "title": "Langue et unités"
+    },
+    "addons": {
+      "title": "Modules",
+      "intro": "WingLog fonctionne avec ces modules si vous les avez. Chacun reste désactivé jusqu'à ce que vous l'activiez.",
+      "gsx": "Services au sol GSX",
+      "gsxDetail": "Joint les reçus de services de GSX Pro à vos vols dans le carnet de vol.",
+      "gsxFound": "Le dossier des reçus GSX a été trouvé sur ce PC.",
+      "gsxNotFound": "Le dossier des reçus GSX n'a pas été trouvé sur ce PC.",
+      "gsxRemote": "GSX Remote Control",
+      "gsxRemoteDetail": "Pilote le menu des services au sol de GSX depuis WingLog.",
+      "beyondAtc": "BeyondATC",
+      "beyondAtcDetail": "Affiche les clairances et communications de BeyondATC, renseigne vos procédures de départ et d'arrivée, trace votre itinéraire de roulage et peut demander les montées par paliers de votre plan de vol.",
+      "beyondAtcRunning": "BeyondATC est en cours d’exécution sur ce PC.",
+      "notAffiliated": "WingLog n'est pas affilié aux éditeurs de GSX ou de BeyondATC. Ce sont des produits distincts."
+    },
+    "tracking": {
+      "title": "Suivi",
+      "intro": "WingLog peut démarrer et terminer le suivi d'un vol tout seul. Si cela pose problème avec votre configuration, désactivez-le et utilisez plutôt les boutons."
+    },
+    "updates": {
+      "title": "Mises à jour"
+    },
+    "done": {
+      "title": "Tout est prêt",
+      "body": "Tout cela se modifie dans les Paramètres. Pour revoir cette configuration, allez dans Paramètres → À propos → Relancer la configuration."
     }
   }
 }

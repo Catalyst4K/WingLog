@@ -896,6 +896,21 @@ export interface UpdateSettings {
   checkEnabled: boolean
 }
 
+/** First-launch setup (flightdeck-backend's docs/plans/first-launch-setup.md). */
+export interface SetupState {
+  /** A new install that hasn't finished or closed the setup yet. */
+  show: boolean
+  /** An existing user's first launch of a version with the setup: a one-off "what's new". */
+  whatsNew: boolean
+}
+
+export interface SetupContext {
+  gsxFolderFound: boolean
+  gsxFolderPath: string | null
+  /** BeyondATC answering on this PC right now. Shown, never acted on by itself. */
+  beyondAtcRunning: boolean
+}
+
 export type BeyondAtcConnectionState = 'disconnected' | 'connecting' | 'connected'
 
 export interface BeyondAtcConnectionStatus {
@@ -1484,7 +1499,10 @@ export const IpcChannels = {
   updatesOpenRelease: 'updates:open-release',
   beyondAtcGetStepClimb: 'beyondatc:get-step-climb',
   beyondAtcStepClimb: 'beyondatc:step-climb',
-  beyondAtcSetStepClimb: 'beyondatc:set-step-climb'
+  beyondAtcSetStepClimb: 'beyondatc:set-step-climb',
+  setupGetState: 'setup:get-state',
+  setupGetContext: 'setup:get-context',
+  setupComplete: 'setup:complete'
 } as const
 
 export interface WingLogApi {
@@ -1909,4 +1927,8 @@ export interface WingLogApi {
   beyondAtcGetStepClimb: () => Promise<BeyondAtcStepClimbStatus>
   onBeyondAtcStepClimb: (listener: (status: BeyondAtcStepClimbStatus) => void) => () => void
   beyondAtcSetStepClimb: (enabled: boolean) => Promise<void>
+  setupGetState: () => Promise<SetupState>
+  setupGetContext: () => Promise<SetupContext>
+  /** Finished or closed: never shown again unless reopened from Settings → About. */
+  setupComplete: () => Promise<void>
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ChevronRight, Info } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -13,7 +13,6 @@ import type {
   GsxRemoteConnectionStatus,
   GsxRemoteSettings,
   GsxSettings,
-  TrackingSettings,
   LandingDistanceUnit,
   LogbookImportSummary,
   MapLanguage,
@@ -22,15 +21,14 @@ import type {
   WeightUnit,
   WindSpeedUnit
 } from '@shared/ipc'
-import { APP_LANGUAGE_OPTIONS } from '@shared/app-language'
+import { SegmentedRow, TrackingFields, UnitsFields } from './SettingsFields'
+import { trackingLabels } from './trackingLabels'
 import { UpdatesCard } from './UpdatesCard'
-import { MAP_LANGUAGES } from './map-labels'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useResetSignal } from './hooks/useResetSignal'
@@ -62,66 +60,6 @@ function displayCurrencyOptions(t: TFunction): { code: string; label: string }[]
     { code: 'JPY', label: t('settingsView.currencyOptions.jpy') },
     { code: 'CHF', label: t('settingsView.currencyOptions.chf') }
   ]
-}
-
-/** Label above an equal-width button group, one row of the UI page's Units/Theme cards
- *  (docs/plans/settings-ui-page.md) — replaces the old label-beside-buttons rows, whose
- *  button groups started at three different x positions depending on label length. Every
- *  button gets the same min-width so a two-option row and a three-option row read as the
- *  same kind of control.
- *
- *  An optional `hint` moves what used to be an always-visible paragraph under the row into
- *  an info-icon popover instead (flightdeck-backend docs/plans/v1-2.md Part 4) — the Units
- *  card previously stacked five of these paragraphs at once, reading as mostly caveats
- *  rather than mostly controls. Reuses `LandingScoreBreakdownDialog`'s existing
- *  Info+Popover pattern rather than a new one. */
-function SegmentedRow<T extends string>(props: {
-  label: string
-  value: T
-  options: readonly { value: T; label: string }[]
-  onChange: (value: T) => void
-  hint?: string
-  hintAriaLabel?: string
-}): React.JSX.Element {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-1">
-        <span className="text-sm text-muted-foreground">{props.label}</span>
-        {props.hint && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                className="cursor-pointer text-muted-foreground/60 hover:text-foreground"
-                aria-label={props.hintAriaLabel}
-              >
-                <Info className="size-3.5" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent>{props.hint}</PopoverContent>
-          </Popover>
-        )}
-      </div>
-      {/* Grouped and labelled so two rows with overlapping option labels (App language and
-       *  Map language both offer "Deutsch", "Español", etc.) can still be queried
-       *  unambiguously, in tests and by assistive tech alike. */}
-      <div className="flex flex-wrap gap-1.5" role="group" aria-label={props.label}>
-        {props.options.map((opt) => (
-          <Button
-            key={opt.value}
-            type="button"
-            size="sm"
-            variant={props.value === opt.value ? 'default' : 'outline'}
-            aria-pressed={props.value === opt.value}
-            className="min-w-[4.5rem]"
-            onClick={() => props.onChange(opt.value)}
-          >
-            {opt.label}
-          </Button>
-        ))}
-      </div>
-    </div>
-  )
 }
 
 const DATA_FORMATS = [
@@ -212,6 +150,8 @@ export function SettingsView(props: {
   onGsxRemoteEnabledChange: (enabled: boolean) => void
   /** Same reasoning as onGsxRemoteEnabledChange, for the BeyondATC tab. */
   onBeyondAtcEnabledChange: (enabled: boolean) => void
+  /** Settings → About → "Run setup again" reopens the first-launch setup. */
+  onRunSetup?: () => void
   /** Bumped by App.tsx when the Settings tab is clicked while already active — returns to
    *  the first category (docs/plans/navigation-tab-behaviour.md). See useResetSignal. */
   resetSignal?: number
@@ -226,7 +166,6 @@ export function SettingsView(props: {
   const [fleetFormat, setFleetFormat] = useState<DataFormat>('json')
   const [logbookFormat, setLogbookFormat] = useState<DataFormat>('csv')
   const [gsx, setGsx] = useState<GsxSettings>({ enabled: false, folderPath: null, displayCurrency: 'USD' })
-  const [tracking, setTracking] = useState<TrackingSettings>({ autoStart: true, autoFinish: true })
   const [gsxRemote, setGsxRemote] = useState<GsxRemoteSettings>({ enabled: false, host: 'localhost', port: null })
   // Free-typed while editing — kept separate from gsxRemote.port (number | null) so an
   // in-progress edit (e.g. a momentarily empty field) never round-trips through Number()
@@ -267,7 +206,6 @@ export function SettingsView(props: {
     window.winglog.settingsGetSimbriefUsername().then((u) => setSimbriefUsername(u ?? ''))
     window.winglog.dispatchSimbriefLoginStatus().then(setSimbriefLoggedIn)
     window.winglog.settingsGetGsx().then(setGsx)
-    window.winglog.settingsGetTracking().then(setTracking)
     window.winglog.settingsGetGsxRemote().then((settings) => {
       setGsxRemote(settings)
       setGsxRemotePortInput(settings.port != null ? String(settings.port) : '')
@@ -297,20 +235,6 @@ export function SettingsView(props: {
   useEffect(() => {
     return window.winglog.onBeyondAtcStatus(setBeyondAtcStatus)
   }, [])
-
-  // The real (translated) labels of the buttons and pages the Tracking card points at.
-  const trackingLabels = {
-    fly: t('dispatchView.fly'),
-    startTracking: t('trackView.startTracking'),
-    finishAndSave: t('trackView.finishAndSave'),
-    dispatch: t('app.tabs.dispatch'),
-    track: t('app.tabs.track')
-  }
-
-  async function handleTrackingChange(next: TrackingSettings): Promise<void> {
-    setTracking(next)
-    await window.winglog.settingsSetTracking(next)
-  }
 
   async function handleGsxToggle(enabled: boolean): Promise<void> {
     const next = { ...gsx, enabled }
@@ -517,69 +441,19 @@ export function SettingsView(props: {
               <CardTitle>{t('settingsView.units.cardTitle')}</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <SegmentedRow
-                label={t('settingsView.units.weights')}
-                value={props.weightUnit}
-                options={[
-                  { value: 'kg', label: 'kg' },
-                  { value: 'lb', label: 'lb' }
-                ]}
-                onChange={props.onWeightUnitChange}
-              />
-              {/* No popover here, unlike the rows below — "Hybrid" isn't a self-explanatory
-               *  option the way Feet/Meters are, so its explanation is what the option
-               *  *means*, not a supplementary caveat. Hiding it behind a click was a
-               *  regression (Callum, 2026-09-23), not a decluttering win. */}
-              <div className="flex flex-col gap-1.5">
-                <SegmentedRow
-                  label={t('settingsView.units.ofpAltitudes')}
-                  value={props.altitudeUnit}
-                  options={[
-                    { value: 'ft', label: t('settingsView.units.feet') },
-                    { value: 'm', label: t('settingsView.units.meters') },
-                    { value: 'hybrid', label: t('settingsView.units.hybrid') }
-                  ]}
-                  onChange={props.onAltitudeUnitChange}
-                />
-                <p className="text-xs text-muted-foreground">{t('settingsView.units.hybridHint')}</p>
-              </div>
-              <SegmentedRow
-                label={t('settingsView.units.appLanguage')}
-                value={props.appLanguage}
-                options={APP_LANGUAGE_OPTIONS}
-                onChange={props.onAppLanguageChange}
-                hint={t('settingsView.units.appLanguageHint')}
-                hintAriaLabel={t('settingsView.units.moreInfoFor', { label: t('settingsView.units.appLanguage') })}
-              />
-              <SegmentedRow
-                label={t('settingsView.units.mapLanguage')}
-                value={props.mapLanguage}
-                options={MAP_LANGUAGES}
-                onChange={props.onMapLanguageChange}
-                hint={t('settingsView.units.mapLanguageHint')}
-                hintAriaLabel={t('settingsView.units.moreInfoFor', { label: t('settingsView.units.mapLanguage') })}
-              />
-              <SegmentedRow
-                label={t('settingsView.units.metarWindSpeed')}
-                value={props.windSpeedUnit}
-                options={[
-                  { value: 'kt', label: t('settingsView.units.knots') },
-                  { value: 'mps', label: 'm/s' }
-                ]}
-                onChange={props.onWindSpeedUnitChange}
-                hint={t('settingsView.units.metarWindSpeedHint')}
-                hintAriaLabel={t('settingsView.units.moreInfoFor', { label: t('settingsView.units.metarWindSpeed') })}
-              />
-              <SegmentedRow
-                label={t('settingsView.units.landingDistances')}
-                value={props.landingDistanceUnit}
-                options={[
-                  { value: 'ft', label: t('settingsView.units.feet') },
-                  { value: 'm', label: t('settingsView.units.meters') }
-                ]}
-                onChange={props.onLandingDistanceUnitChange}
-                hint={t('settingsView.units.landingDistancesHint')}
-                hintAriaLabel={t('settingsView.units.moreInfoFor', { label: t('settingsView.units.landingDistances') })}
+              <UnitsFields
+                weightUnit={props.weightUnit}
+                onWeightUnitChange={props.onWeightUnitChange}
+                altitudeUnit={props.altitudeUnit}
+                onAltitudeUnitChange={props.onAltitudeUnitChange}
+                windSpeedUnit={props.windSpeedUnit}
+                onWindSpeedUnitChange={props.onWindSpeedUnitChange}
+                landingDistanceUnit={props.landingDistanceUnit}
+                onLandingDistanceUnitChange={props.onLandingDistanceUnitChange}
+                mapLanguage={props.mapLanguage}
+                onMapLanguageChange={props.onMapLanguageChange}
+                appLanguage={props.appLanguage}
+                onAppLanguageChange={props.onAppLanguageChange}
               />
             </CardContent>
           </Card>
@@ -605,23 +479,10 @@ export function SettingsView(props: {
           <Card className="max-w-2xl">
             <CardHeader>
               <CardTitle>{t('settingsView.tracking.cardTitle')}</CardTitle>
-              <CardDescription>{t('settingsView.tracking.description', trackingLabels)}</CardDescription>
+              <CardDescription>{t('settingsView.tracking.description', trackingLabels(t))}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              {(['autoStart', 'autoFinish'] as const).map((key) => (
-                <div key={key} className="flex flex-col gap-1">
-                  <SegmentedRow
-                    label={t(`settingsView.tracking.${key}`)}
-                    value={tracking[key] ? 'on' : 'off'}
-                    options={[
-                      { value: 'on', label: t('settingsView.tracking.on') },
-                      { value: 'off', label: t('settingsView.tracking.off') }
-                    ]}
-                    onChange={(value) => void handleTrackingChange({ ...tracking, [key]: value === 'on' })}
-                  />
-                  <p className="text-xs text-muted-foreground">{t(`settingsView.tracking.${key}Off`, trackingLabels)}</p>
-                </div>
-              ))}
+              <TrackingFields />
             </CardContent>
           </Card>
         </TabsContent>
@@ -1007,6 +868,13 @@ export function SettingsView(props: {
                   github.com/Catalyst4K/WingLog
                 </button>
               </p>
+              {props.onRunSetup && (
+                <div>
+                  <Button type="button" variant="outline" size="sm" onClick={props.onRunSetup}>
+                    {t('settingsView.about.runSetup')}
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
           <UpdatesCard />
