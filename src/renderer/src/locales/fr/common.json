@@ -230,6 +230,7 @@
     }
   },
   "fleetView": {
+    "atStand": "poste {{stand}}",
     "title": "Flotte",
     "newAircraft": "Nouvel appareil",
     "editAircraft": "Modifier {{registration}}",
@@ -501,6 +502,7 @@
     "back": "Retour"
   },
   "dispatchView": {
+    "lastParkedHere": "Dernier stationnement ici au poste {{stand}} — choisissez-le comme porte de départ dans MSFS.",
     "title": "Régulation",
     "planAFlight": "Planifier un vol",
     "fetching": "Récupération…",
@@ -694,6 +696,7 @@
     "title": "Services au sol"
   },
   "gsxRemotePanel": {
+    "atcStand": "Poste {{stand}} (ATC)",
     "loading": "Chargement…",
     "notConfigured": "GSX Remote Control est désactivé. Activez-le et définissez un port dans Paramètres → Tiers.",
     "connecting": "Connexion à GSX…",

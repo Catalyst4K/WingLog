@@ -299,6 +299,7 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     onSimTelemetry: vi.fn(() => () => {}),
     // FleetView (eager)
     aircraftList: vi.fn().mockResolvedValue([]),
+    fleetListLastParked: vi.fn().mockResolvedValue([]),
     logbookFleetStats: vi.fn().mockResolvedValue([]),
     aircraftCreate: vi.fn(),
     aircraftUpdate: vi.fn(),

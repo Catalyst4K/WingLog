@@ -46,7 +46,8 @@ export const enum NavdataDefId {
    *  fetched and merged rather than guessing one. */
   TAXI_PATHS_TYPE_1 = 15,
   TAXI_PATHS_TYPE_4 = 16,
-  TAXI_NAMES = 17
+  TAXI_NAMES = 17,
+  TAXI_PARKINGS = 18
 }
 
 /** 0/1/2/3 = none/L/R/C — confirmed against two real airports with known real layouts
@@ -463,4 +464,46 @@ export function addTaxiNameFields(addField: (name: string) => void): void {
 
 export function parseTaxiName(d: RawBuffer): ParsedTaxiName {
   return { name: d.readString8() }
+}
+
+/** One TAXI_PARKING record (stands/gates) — every field confirmed live 2026-10-02
+ *  (flightdeck-backend's docs/navdata-notes.md, "TAXI_PARKING"): positions are BIAS_X/BIAS_Z
+ *  like TAXI_POINT's, within 13-15 m of where a real flight parked at VHHH N32 / YBBN gate 79. */
+export interface ParsedTaxiParking {
+  /** SDK NAME enum: 0 NONE, 1 PARKING, 2-9 N..NW_PARKING, 10 GATE, 11 DOCK, 12-37 GATE_A..Z. */
+  nameCode: number
+  /** A separate code, often on a second entry with the same NAME+NUMBER (likely a MARS stand's
+   *  halves); its letter mapping is unconfirmed, so it's kept raw. */
+  suffix: number
+  number: number
+  headingDeg: number
+  biasX: number
+  biasZ: number
+}
+
+export function addTaxiParkingFields(addField: (name: string) => void): void {
+  addField('NAME')
+  addField('SUFFIX')
+  addField('NUMBER')
+  addField('HEADING')
+  addField('BIAS_X')
+  addField('BIAS_Z')
+}
+
+export function parseTaxiParking(d: RawBuffer): ParsedTaxiParking {
+  const nameCode = d.readInt32()
+  const suffix = d.readInt32()
+  const number = d.readUint32()
+  const headingDeg = d.readFloat32()
+  const biasX = d.readFloat32()
+  const biasZ = d.readFloat32()
+  return { nameCode, suffix, number, headingDeg, biasX, biasZ }
+}
+
+/** The stand's name as ATC says it: GATE_N 32 → "N32" (BeyondATC's "Stand N32", VHHH), and
+ *  every other NAME (GATE, PARKING, a compass-point PARKING, DOCK) just the number — "Gate 79"
+ *  at YBBN is NAME GATE, NUMBER 79. */
+export function standLabel(nameCode: number, number: number): string {
+  const letter = nameCode >= 12 && nameCode <= 37 ? String.fromCharCode(65 + nameCode - 12) : ''
+  return `${letter}${number}`
 }

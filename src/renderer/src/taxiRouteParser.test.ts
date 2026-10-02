@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseTaxiHoldingPoint, parseTaxiRoute } from './taxiRouteParser'
+import { parseTaxiHoldingPoint, parseTaxiRoute, parseTaxiStand } from './taxiRouteParser'
 
 describe('parseTaxiRoute', () => {
   it('parses a real departure taxi clearance', () => {
@@ -51,5 +51,12 @@ describe('parseTaxiHoldingPoint', () => {
 
   it('returns null for an arrival (taxi-to-stand) clearance', () => {
     expect(parseTaxiHoldingPoint('Test 830, taxi to Stand 73 via D1, D, P3.')).toBeNull()
+  })
+})
+
+describe('parseTaxiStand', () => {
+  it("reads the stand from a real arrival clearance, and nothing from a departure one", () => {
+    expect(parseTaxiStand('Cathay 168 Heavy, taxi to Stand N32 via J, H6, H, V, B.')).toBe('N32')
+    expect(parseTaxiStand('Cathay 168 Heavy, taxi to holding point A9, runway 01R, via C9, B9.')).toBeNull()
   })
 })

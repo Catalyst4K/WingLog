@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events'
 import { describe, expect, it, vi } from 'vitest'
 import { FacilityDataType, RawBuffer, type SimConnectConnection } from 'node-simconnect'
 import { NavdataDefId } from '../sim/facility-fields'
-import { fetchAirportNavdata, fetchTaxiNetwork } from './sim-facilities-fetch'
+import { fetchAirportNavdata, fetchStands, fetchTaxiNetwork } from './sim-facilities-fetch'
 
 function buffer(write: (b: RawBuffer) => void): RawBuffer {
   const b = new RawBuffer(0)
@@ -484,5 +484,61 @@ describe('fetchTaxiNetwork', () => {
     const promise = fetchTaxiNetwork(handle as unknown as SimConnectConnection, 'ZZZZ')
     handle.emit('exception', { exceptionName: 'ERROR', index: 0, sendId: 1 })
     await expect(promise).rejects.toThrow(/ZZZZ/)
+  })
+})
+
+describe('fetchStands (stand-positions.md)', () => {
+  // Real VHHH values from the TAXI_PARKING spike, 2026-10-02: the airport reference point and
+  // stand N32 (GATE_N = 25) plus its suffix-29 twin.
+  const VHHH_REF = { lat: 22.30888891965151, lon: 113.91472220420837 }
+  function parkingBuffer(nameCode: number, suffix: number, number: number, heading: number, biasX: number, biasZ: number): RawBuffer {
+    return buffer((w) => {
+      w.writeInt32(nameCode)
+      w.writeInt32(suffix)
+      w.writeInt32(number)
+      w.writeFloat32(heading)
+      w.writeFloat32(biasX)
+      w.writeFloat32(biasZ)
+    })
+  }
+
+  it("positions each stand and names it the way ATC does: VHHH's GATE_N 32 is 'N32'", async () => {
+    const handle = new FakeHandle()
+    const promise = fetchStands(handle as unknown as SimConnectConnection, 'VHHH')
+    expect(handle.requestFacilityData).toHaveBeenCalledWith(NavdataDefId.TAXI_PARKINGS, NavdataDefId.TAXI_PARKINGS, 'VHHH')
+
+    handle.emit('facilityData', {
+      type: FacilityDataType.AIRPORT,
+      userRequestId: NavdataDefId.TAXI_PARKINGS,
+      itemIndex: 0xffffffff,
+      data: airportLatLonBuffer('VHHH', VHHH_REF.lat, VHHH_REF.lon)
+    })
+    handle.emit('facilityData', {
+      type: FacilityDataType.TAXI_PARKING,
+      userRequestId: NavdataDefId.TAXI_PARKINGS,
+      itemIndex: 0,
+      data: parkingBuffer(25, 0, 32, 161.01141357421875, 1431.80419921875, 585.1451416015625)
+    })
+    handle.emit('facilityData', {
+      type: FacilityDataType.TAXI_PARKING,
+      userRequestId: NavdataDefId.TAXI_PARKINGS,
+      itemIndex: 1,
+      data: parkingBuffer(25, 29, 32, 161.0146484375, 1420.47412109375, 579.7236328125)
+    })
+    handle.emit('facilityDataEnd', { userRequestId: NavdataDefId.TAXI_PARKINGS })
+
+    const stands = await promise
+    expect(stands).toHaveLength(2)
+    expect(stands[0]).toMatchObject({ name: 'N32', nameCode: 25, number: 32, suffix: 0, lat: expect.closeTo(22.31414534, 6), lon: expect.closeTo(113.92862486, 6) })
+    expect(stands[1]).toMatchObject({ name: 'N32', suffix: 29 })
+  })
+
+  it('re-asks with the region for an ambiguous ICAO, and rejects on a SimConnect exception', async () => {
+    const handle = new FakeHandle()
+    const promise = fetchStands(handle as unknown as SimConnectConnection, 'VHHH')
+    handle.emit('facilityMinimalList', { requestID: NavdataDefId.TAXI_PARKINGS, data: [{ icao: { region: 'VH' } }] })
+    expect(handle.requestFacilityData).toHaveBeenLastCalledWith(NavdataDefId.TAXI_PARKINGS, NavdataDefId.TAXI_PARKINGS, 'VHHH', 'VH')
+    handle.emit('exception', { exceptionName: 'ERROR', index: 3 })
+    await expect(promise).rejects.toThrow('SimConnect exception fetching VHHH stands')
   })
 })

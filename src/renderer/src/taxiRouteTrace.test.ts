@@ -120,6 +120,28 @@ describe('traceTaxiRoute', () => {
     expect(lengthM(route!)).toBeLessThan(3_000)
   })
 
+  it('traces the same VHHH clearance all the way to stand N32 once its position is known (stand-positions.md)', () => {
+    const vacatedOntoJ = { lat: 22.30184, lon: 113.91052 }
+    // N32 from the sim's own stand data, and where the real flight stopped.
+    const n32 = { lat: 22.31414534384843, lon: 113.92862486374908 }
+    const stoppedAtN32 = { lat: 22.31404, lon: 113.92867 }
+    const route = traceTaxiRoute({ segments: VHHH_ARRIVAL, taxiways: ['J', 'H6', 'H', 'V', 'B'], holdingPoint: null, from: vacatedOntoJ, stand: n32 })!
+
+    expect(namesDriven(VHHH_ARRIVAL, route).slice(0, 6)).toEqual(['J5', 'J', 'H6', 'H', 'V', 'B'])
+    expect(route.at(-1)).toEqual([n32.lon, n32.lat])
+    const [endLon, endLat] = route.at(-1)!
+    expect(distanceM({ lat: endLat, lon: endLon }, stoppedAtN32)).toBeLessThan(20)
+    expect(lengthM(route)).toBeLessThan(5_000)
+  })
+
+  it("falls back to joining the last taxiway when the stand can't be reached through the network", () => {
+    const vacatedOntoJ = { lat: 22.30184, lon: 113.91052 }
+    const nowhere = { lat: 22.35, lon: 113.99 }
+    const route = traceTaxiRoute({ segments: VHHH_ARRIVAL, taxiways: ['J', 'H6', 'H', 'V', 'B'], holdingPoint: null, from: vacatedOntoJ, stand: nowhere })!
+    expect(namesDriven(VHHH_ARRIVAL, route).at(-1)).toBe('B')
+    expect(route.at(-1)).not.toEqual([nowhere.lon, nowhere.lat])
+  })
+
   it('returns null when the aircraft is nowhere near the taxi network', () => {
     expect(traceTaxiRoute({ segments: VHHH, taxiways: ['B8', 'B'], holdingPoint: 'B10', from: { lat: 22.4, lon: 114.1 } })).toBeNull()
   })

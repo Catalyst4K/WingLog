@@ -25,14 +25,19 @@ import type { NavdataTaxiSegment } from '@shared/ipc'
  *   2026-10-02) carries its only hold-short flag at the B9 end, where the aircraft *enters*
  *   A9; requiring a hold-short point made every YBBN trace fail, falling back to whole
  *   taxiways (the "star at every junction" report).
- * - **A stand** ("taxi to Stand N32 via J, H6, H, V, B"): the facility data has no stands, so
- *   the trace ends where the route joins its last cleared taxiway — the part of the route
- *   that's certain, rather than every segment of J, H6, H, V and B across the airport.
+ * - **A stand** ("taxi to Stand N32 via J, H6, H, V, B"): with the stand's position (the sim's
+ *   TAXI_PARKING data, stand-positions.md), on along the network to the point nearest the
+ *   stand and then the stand itself. Without it — or if the stand can't be reached that way —
+ *   where the route joins its last cleared taxiway: the part that's certain, rather than every
+ *   segment of J, H6, H, V and B across the airport.
  * The holding point must be a taxiway name in the data; otherwise null, and the caller falls
  * back to highlighting whole taxiways by name.
  */
 
 const OFF_ROUTE_COST_FACTOR = 5
+/** How far a stand's own point may be from the taxi network's nearest point (its lead-in line
+ *  normally ends right at it). */
+const MAX_STAND_LINK_M = 150
 /** How far the aircraft may be from the nearest taxi-network point to start a trace. */
 const MAX_START_DISTANCE_M = 300
 /** A cleared taxi route longer than this is almost certainly a wrong trace, not a real one. */
@@ -47,6 +52,9 @@ export interface TaxiTraceRequest {
   /** "holding point B10" → 'B10'; null for a stand clearance. */
   holdingPoint: string | null
   from: { lat: number; lon: number }
+  /** A stand clearance's stand, positioned (taxiRouteParser's parseTaxiStand + the sim's
+   *  stands); ignored for a holding-point clearance. */
+  stand?: { lat: number; lon: number } | null
 }
 
 interface Edge {
@@ -58,7 +66,12 @@ interface Edge {
 /** [lon, lat] pairs, GeoJSON order, from the aircraft's nearest network point to the hold. */
 export type TracedRoute = [number, number][]
 
-export function traceTaxiRoute({ segments, taxiways, holdingPoint, from }: TaxiTraceRequest): TracedRoute | null {
+export function traceTaxiRoute(request: TaxiTraceRequest): TracedRoute | null {
+  if (request.holdingPoint || !request.stand) return traceOnce(request)
+  return traceOnce(request) ?? traceOnce({ ...request, stand: null })
+}
+
+function traceOnce({ segments, taxiways, holdingPoint, from, stand }: TaxiTraceRequest): TracedRoute | null {
   if (taxiways.length === 0) return null
   if (holdingPoint && !segments.some((s) => s.name === holdingPoint)) return null
 
@@ -101,6 +114,19 @@ export function traceTaxiRoute({ segments, taxiways, holdingPoint, from }: TaxiT
   }
   if (start < 0 || startDistance > MAX_START_DISTANCE_M) return null
 
+  let standNode = -1
+  if (!holdingPoint && stand) {
+    let best = MAX_STAND_LINK_M
+    for (const [i, node] of nodes.entries()) {
+      const d = distanceM(stand.lat, stand.lon, node.lat, node.lon)
+      if (d <= best) {
+        best = d
+        standNode = i
+      }
+    }
+    if (standNode < 0) return null
+  }
+
   // The holding point is the route's last leg — "holding point B10 ... via B8, B" is driven
   // as B8 → B → B10.
   const sequence = !holdingPoint || taxiways.at(-1) === holdingPoint ? taxiways : [...taxiways, holdingPoint]
@@ -120,7 +146,7 @@ export function traceTaxiRoute({ segments, taxiways, holdingPoint, from }: TaxiT
   }
   /** Reached at the final stage — so the last edge driven was the final taxiway's. */
   const isRouteEnd = (state: number, node: number): boolean => {
-    if (!holdingPoint) return true
+    if (!holdingPoint) return standNode < 0 || node === standNode
     if (nodes[node]!.holdShort) return true
     const cameFromNode = cameFromNodeOf(state)
     return !edges[node]!.some((e) => e.name === holdingPoint && e.to !== cameFromNode)
@@ -139,7 +165,9 @@ export function traceTaxiRoute({ segments, taxiways, holdingPoint, from }: TaxiT
         const n = nodes[Math.floor(s / (sequence.length + 1))]!
         route.push([n.lon, n.lat])
       }
-      return route.reverse()
+      route.reverse()
+      if (stand && standNode >= 0) route.push([stand.lon, stand.lat])
+      return route
     }
 
     // No immediate U-turns: without this, a clearance whose next taxiway is only touched at a

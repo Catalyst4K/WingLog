@@ -244,6 +244,7 @@
     }
   },
   "fleetView": {
+    "atStand": "стоянка {{stand}}",
     "title": "Флот",
     "newAircraft": "Новое воздушное судно",
     "editAircraft": "Редактировать {{registration}}",
@@ -517,6 +518,7 @@
     "back": "Назад"
   },
   "dispatchView": {
+    "lastParkedHere": "В прошлый раз стоял здесь на стоянке {{stand}} — выберите её как начальную в MSFS.",
     "title": "Диспетчеризация",
     "planAFlight": "Спланировать рейс",
     "fetching": "Загрузка…",
@@ -715,6 +717,7 @@
     "title": "Наземное обслуживание"
   },
   "gsxRemotePanel": {
+    "atcStand": "Стоянка {{stand}} (от ATC)",
     "loading": "Загрузка…",
     "notConfigured": "GSX Remote Control отключён. Включите его и укажите порт в разделе Настройки → Сторонние сервисы.",
     "connecting": "Подключение к GSX…",

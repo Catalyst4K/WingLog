@@ -218,6 +218,13 @@
       "when": 1790796859830,
       "tag": "0030_romantic_magneto",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1790931230780,
+      "tag": "0031_tearful_victor_mancha",
+      "breakpoints": true
     }
   ]
 }

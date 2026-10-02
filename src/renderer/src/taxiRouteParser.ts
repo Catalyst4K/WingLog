@@ -33,3 +33,11 @@ const HOLDING_POINT = /taxi to holding point ([A-Z0-9]+),/i
 export function parseTaxiHoldingPoint(text: string): string | null {
   return HOLDING_POINT.exec(text)?.[1] ?? null
 }
+
+const STAND = /taxi to stand ([A-Z0-9]+)/i
+
+/** "taxi to Stand N32 via J, H6, H, V, B" → 'N32' (real, VHHH 2026-10-02) — matched against
+ *  the sim's stands (stand-positions.md). Null for anything else. */
+export function parseTaxiStand(text: string): string | null {
+  return STAND.exec(text)?.[1] ?? null
+}

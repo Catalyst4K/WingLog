@@ -147,6 +147,7 @@ function makeLanding(overrides: Partial<AircraftLanding> = {}): AircraftLanding 
 function buildWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
   return {
     aircraftList: vi.fn().mockResolvedValue([]),
+    fleetListLastParked: vi.fn().mockResolvedValue([]),
     logbookFleetStats: vi.fn().mockResolvedValue([]),
     aircraftCreate: vi.fn(),
     aircraftUpdate: vi.fn(),
@@ -242,6 +243,24 @@ describe('FleetView', () => {
     expect(await screen.findByText('12.5')).toBeInTheDocument()
     expect(screen.getByText('4')).toBeInTheDocument()
     expect(screen.getByText('LFPG')).toBeInTheDocument()
+  })
+
+  it('shows the stand an aircraft last parked at beside its location, only at that airport (stand-positions.md)', async () => {
+    setWinglog({
+      aircraftList: vi.fn().mockResolvedValue([
+        makeAircraft({ id: 1, registration: 'B-LRA', currentIcao: 'VHHH' }),
+        makeAircraft({ id: 2, registration: 'B-LRB', currentIcao: 'YBBN' })
+      ]),
+      fleetListLastParked: vi.fn().mockResolvedValue([
+        { aircraftId: 1, icao: 'VHHH', stand: 'N32' },
+        // Parked at VHHH last time, but has since been moved to YBBN — no stand shown.
+        { aircraftId: 2, icao: 'VHHH', stand: 'W122' }
+      ])
+    })
+    render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
+    expect(await screen.findByText('VHHH · stand N32')).toBeInTheDocument()
+    expect(screen.getByText('YBBN')).toBeInTheDocument()
+    expect(screen.queryByText(/W122/)).not.toBeInTheDocument()
   })
 
   it('shows a dash for airline when unset', async () => {

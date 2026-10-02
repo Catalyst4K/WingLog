@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { isRetired } from '@shared/aircraft'
-import type { Aircraft, AircraftLanding, Flight, FleetStats, NewAircraft } from '@shared/ipc'
+import type { Aircraft, AircraftLanding, AircraftLastParked, Flight, FleetStats, NewAircraft } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -340,9 +340,21 @@ function ReplaceAircraftDialog(props: {
   )
 }
 
+/** "VHHH · stand N32" — the stand only when it's at the airport the aircraft is at now
+ *  (stand-positions.md). */
+function useLocationLabel(): (icao: string | null, parked: AircraftLastParked | undefined) => string {
+  const { t } = useTranslation()
+  return (icao, parked) => {
+    if (!icao) return '—'
+    const airport = displayIcao(icao)
+    return parked && parked.icao === icao ? `${airport} · ${t('fleetView.atStand', { stand: parked.stand })}` : airport
+  }
+}
+
 function AircraftDetail(props: {
   aircraft: Aircraft
   stats: FleetStats | undefined
+  lastParked: AircraftLastParked | undefined
   replacedBy: Aircraft | undefined
   onEdit: () => void
   onDelete: () => void
@@ -359,6 +371,7 @@ function AircraftDetail(props: {
   const retired = isRetired(a)
   const replaced = a.replacedByAircraftId !== null
   const currentIcao = a.currentIcao ?? s?.lastArrIcao ?? null
+  const locationLabel = useLocationLabel()
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
@@ -439,7 +452,7 @@ function AircraftDetail(props: {
                 />
                 <DetailField
                   label={t('fleetView.detail.fields.currentAirport')}
-                  value={currentIcao ? displayIcao(currentIcao) : '—'}
+                  value={locationLabel(currentIcao, props.lastParked)}
                 />
                 <DetailField label={t('fleetView.detail.fields.totalHours')} value={s ? s.totalHours.toFixed(1) : '0.0'} />
                 <DetailField label={t('fleetView.detail.fields.flights')} value={s?.totalCycles ?? 0} />
@@ -476,6 +489,8 @@ export function FleetView(props: {
   const { t } = useTranslation()
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
   const [stats, setStats] = useState<FleetStats[]>([])
+  const [lastParked, setLastParked] = useState<AircraftLastParked[]>([])
+  const locationLabel = useLocationLabel()
   const [view, setView] = useState<View>(
     props.initialAircraftId != null ? { kind: 'detail', id: props.initialAircraftId } : { kind: 'list' }
   )
@@ -517,10 +532,11 @@ export function FleetView(props: {
   } = useSortable<Aircraft, FleetSortKey>(activeAircraft, fleetComparators, 'registration')
 
   function reload(): Promise<void> {
-    return Promise.all([window.winglog.aircraftList(), window.winglog.logbookFleetStats()]).then(
-      ([aircraftList, fleetStats]) => {
+    return Promise.all([window.winglog.aircraftList(), window.winglog.logbookFleetStats(), window.winglog.fleetListLastParked()]).then(
+      ([aircraftList, fleetStats, parked]) => {
         setAircraft(aircraftList)
         setStats(fleetStats)
+        setLastParked(parked)
       }
     )
   }
@@ -651,6 +667,7 @@ export function FleetView(props: {
         <AircraftDetail
           aircraft={existing}
           stats={stats.find((s) => s.aircraftId === existing.id)}
+          lastParked={lastParked.find((p) => p.aircraftId === existing.id)}
           replacedBy={aircraft.find((a) => a.id === existing.replacedByAircraftId)}
           onEdit={() => setView({ kind: 'edit', id: view.id })}
           onDelete={() => handleDelete(existing)}
@@ -709,7 +726,7 @@ export function FleetView(props: {
                 <TableCell>
                   <AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />
                 </TableCell>
-                <TableCell>{icao ? displayIcao(icao) : '—'}</TableCell>
+                <TableCell>{locationLabel(icao, lastParked.find((p) => p.aircraftId === a.id))}</TableCell>
                 <TableCell>{s ? s.totalHours.toFixed(1) : '0.0'}</TableCell>
                 <TableCell>{s?.totalCycles ?? 0}</TableCell>
               </TableRow>

@@ -9,8 +9,10 @@ import {
   listCachedProcedureLegs,
   listCachedProcedures,
   listCachedRunways,
+  listCachedStands,
   listCachedTaxiSegments,
   replaceAirportNavdata,
+  replaceAirportStands,
   replaceAirportTaxiSegments
 } from './navdata-repo'
 import { navdataTaxiSegment } from './schema'
@@ -396,6 +398,19 @@ describe('navdata repo', () => {
         ...overrides
       }
     }
+
+    it('caches stands per airport and replaces them wholesale (stand-positions.md)', () => {
+      const n32 = { name: 'N32', nameCode: 25, number: 32, suffix: 0, headingDeg: 161, lat: 22.3141453, lon: 113.9286249 }
+      expect(listCachedStands(db, 'VHHH')).toEqual([])
+      replaceAirportStands(db, 'VHHH', [n32, { ...n32, suffix: 29, lat: 22.3140966 }], '2026-10-02T12:00:00.000Z')
+      replaceAirportStands(db, 'YBBN', [{ ...n32, name: '79', nameCode: 10, number: 79 }], '2026-10-02T12:00:00.000Z')
+      expect(listCachedStands(db, 'VHHH')).toHaveLength(2)
+      expect(listCachedStands(db, 'VHHH')[0]).toEqual({ name: 'N32', number: 32, suffix: 0, headingDeg: 161, lat: 22.3141453, lon: 113.9286249 })
+
+      replaceAirportStands(db, 'VHHH', [n32], '2026-10-03T12:00:00.000Z')
+      expect(listCachedStands(db, 'VHHH')).toHaveLength(1)
+      expect(listCachedStands(db, 'YBBN')).toHaveLength(1)
+    })
 
     it('starts with no cached taxi network for an airport', () => {
       expect(hasCachedTaxiNetwork(db, 'EGKB')).toBe(false)

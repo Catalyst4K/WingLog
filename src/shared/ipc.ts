@@ -1270,6 +1270,25 @@ export interface NavdataLeg {
 /** One taxiway-network segment (a single TAXI_PATH record, resolved to real lat/lon
  *  endpoints) — the full set for an airport is a basic taxi chart, not a specific route.
  *  `name` is the taxiway identifier (e.g. "C", "W1"), or null for an unnamed segment. */
+/** A stand/gate from the sim (TAXI_PARKING) — see main's sim-facilities-fetch.ts fetchStands. */
+export interface NavdataStand {
+  /** As ATC says it: "N32", "79". */
+  name: string
+  number: number
+  /** Non-zero on a twin entry for the same name (likely a MARS stand's halves). */
+  suffix: number
+  headingDeg: number
+  lat: number
+  lon: number
+}
+
+/** Where a fleet aircraft last parked (its latest completed flight that recorded a stand). */
+export interface AircraftLastParked {
+  aircraftId: number
+  icao: string
+  stand: string
+}
+
 export interface NavdataTaxiSegment {
   startLat: number
   startLon: number
@@ -1389,6 +1408,8 @@ export const IpcChannels = {
   navdataRefreshTaxiNetwork: 'navdata:refresh-taxi-network',
   navdataHasTaxiNetwork: 'navdata:has-taxi-network',
   navdataGetTaxiNetwork: 'navdata:get-taxi-network',
+  navdataGetStands: 'navdata:get-stands',
+  fleetListLastParked: 'fleet:list-last-parked',
   trackingSetProcedureSelection: 'tracking:set-procedure-selection',
   trackingSetDestination: 'tracking:set-destination',
   trackingSetDeparture: 'tracking:set-departure',
@@ -1750,6 +1771,11 @@ export interface WingLogApi {
   /** True once navdataRefreshTaxiNetwork has completed for this ICAO at least once. */
   navdataHasTaxiNetwork: (icao: string) => Promise<boolean>
   navdataGetTaxiNetwork: (icao: string) => Promise<NavdataTaxiSegment[]>
+  /** An airport's stands, fetched from the sim on first ask (seconds) and cached; empty when
+   *  the sim isn't running and nothing's cached. */
+  navdataGetStands: (icao: string) => Promise<NavdataStand[]>
+  /** Each fleet aircraft's last stand (stand-positions.md). */
+  fleetListLastParked: () => Promise<AircraftLastParked[]>
   /** Pushes the current live selection to the main process so it's available whenever the
    *  active flight completes — manual finish *or* automatic shutdown detection, neither of
    *  which round-trips through the renderer (TrackingController). Call on every change

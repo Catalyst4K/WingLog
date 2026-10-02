@@ -7,7 +7,8 @@ import { SimFacilitiesProvider, type OpenSimConnect } from './sim-facilities-pro
 
 vi.mock('./sim-facilities-fetch', () => ({
   fetchAirportNavdata: vi.fn(),
-  fetchTaxiNetwork: vi.fn()
+  fetchTaxiNetwork: vi.fn(),
+  fetchStands: vi.fn()
 }))
 
 const FETCHED: FetchedAirportNavdata = {
@@ -90,6 +91,37 @@ describe('SimFacilitiesProvider', () => {
 
     expect(provider.hasAirport('EGLL')).toBe(true)
     expect(provider.listRunways('EGLL')).toHaveLength(2)
+  })
+
+  describe('stands (stand-positions.md)', () => {
+    const N32 = { name: 'N32', nameCode: 25, number: 32, suffix: 0, headingDeg: 161, lat: 22.3141453, lon: 113.9286249 }
+
+    it('fetches on first ask, caches, closes the connection, and serves the cache after', async () => {
+      const { fetchStands } = await import('./sim-facilities-fetch')
+      vi.mocked(fetchStands).mockResolvedValue([N32])
+      const provider = new SimFacilitiesProvider(db, openSimConnect)
+
+      expect(await provider.getStands('VHHH')).toEqual([{ name: 'N32', number: 32, suffix: 0, headingDeg: 161, lat: 22.3141453, lon: 113.9286249 }])
+      expect(close).toHaveBeenCalledTimes(1)
+      await provider.getStands('VHHH')
+      expect(openSimConnect).toHaveBeenCalledTimes(1)
+    })
+
+    it('gives an empty list, never a rejection, when the sim is not running', async () => {
+      const failingOpen = vi.fn(async () => {
+        throw new Error('Open timeout')
+      }) as unknown as OpenSimConnect
+      expect(await new SimFacilitiesProvider(db, failingOpen).getStands('VHHH')).toEqual([])
+    })
+
+    it('does not ask again this session for an airport with no stands', async () => {
+      const { fetchStands } = await import('./sim-facilities-fetch')
+      vi.mocked(fetchStands).mockResolvedValue([])
+      const provider = new SimFacilitiesProvider(db, openSimConnect)
+      await provider.getStands('EGKB')
+      await provider.getStands('EGKB')
+      expect(openSimConnect).toHaveBeenCalledTimes(1)
+    })
   })
 
   describe('taxi network', () => {

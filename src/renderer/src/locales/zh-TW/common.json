@@ -223,6 +223,7 @@
     }
   },
   "fleetView": {
+    "atStand": "機位 {{stand}}",
     "title": "機隊",
     "newAircraft": "新增飛機",
     "editAircraft": "編輯 {{registration}}",
@@ -493,6 +494,7 @@
     "back": "返回"
   },
   "dispatchView": {
+    "lastParkedHere": "上次停在這裡的 {{stand}} 號機位，可在 MSFS 中選它作為起始機位。",
     "title": "簽派",
     "planAFlight": "規劃航班",
     "fetching": "正在取得…",
@@ -685,6 +687,7 @@
     "title": "地面服務"
   },
   "gsxRemotePanel": {
+    "atcStand": "機位 {{stand}}（ATC 指定）",
     "loading": "載入中…",
     "notConfigured": "GSX 遠端控制已關閉。請在設定 → 第三方中啟用並設定連接埠。",
     "connecting": "正在連線至 GSX…",
