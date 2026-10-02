@@ -578,6 +578,14 @@
   "trackView": {
     "flightNum": "Номер рейса:",
     "title": "Трек",
+    "times": {
+      "et": "ET",
+      "remaining": "Осталось",
+      "eta": "ETA",
+      "etaPlanned": "ETA (план)",
+      "vsSchedule": "{{value}} мин",
+      "onTime": "по расписанию"
+    },
     "phase": "Фаза:",
     "cancelFlight": "Отменить рейс",
     "finishAndSave": "Завершить и сохранить",

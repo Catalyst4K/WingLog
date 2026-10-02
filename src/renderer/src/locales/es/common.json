@@ -559,6 +559,14 @@
   "trackView": {
     "flightNum": "N.º de vuelo:",
     "title": "Seguimiento",
+    "times": {
+      "et": "ET",
+      "remaining": "Restante",
+      "eta": "ETA",
+      "etaPlanned": "ETA (prevista)",
+      "vsSchedule": "{{value}} min",
+      "onTime": "en hora"
+    },
     "phase": "Fase:",
     "cancelFlight": "Cancelar vuelo",
     "finishAndSave": "Finalizar y guardar",
