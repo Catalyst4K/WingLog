@@ -346,6 +346,7 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     trackingSetProcedureSelection: vi.fn().mockResolvedValue(undefined),
     // LogbookView (lazy)
     logbookListCompletedFlights: vi.fn().mockResolvedValue([]),
+    logbookGetFlight: vi.fn().mockResolvedValue(null),
     logbookGetStats: vi.fn().mockResolvedValue({ totalFlights: 0, totalBlockMinutes: 0, totalNm: 0 }),
     logbookListFlightScores: vi.fn().mockResolvedValue([]),
     logbookListLandings: vi.fn().mockResolvedValue([]),
@@ -806,7 +807,8 @@ describe('App', () => {
       aircraftList: vi.fn().mockResolvedValue([aircraft]),
       logbookFleetStats: vi.fn().mockResolvedValue([makeStats({ aircraftId: 1 })]),
       fleetListFlights: vi.fn().mockResolvedValue([flight]),
-      logbookListCompletedFlights: vi.fn().mockResolvedValue([flight])
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([flight]),
+      logbookGetFlight: vi.fn().mockResolvedValue(flight)
     })
     const user = userEvent.setup()
     render(<App />)

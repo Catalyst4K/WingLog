@@ -121,6 +121,7 @@ const api: WingLogApi = {
     return () => ipcRenderer.removeListener(IpcChannels.trackingPointsUpdated, handler)
   },
   logbookListCompletedFlights: () => ipcRenderer.invoke(IpcChannels.logbookListCompletedFlights),
+  logbookGetFlight: (id: number) => ipcRenderer.invoke(IpcChannels.logbookGetFlight, id),
   logbookGetStats: () => ipcRenderer.invoke(IpcChannels.logbookGetStats),
   logbookFleetStats: () => ipcRenderer.invoke(IpcChannels.logbookFleetStats),
   logbookImportCsv: () => ipcRenderer.invoke(IpcChannels.logbookImportCsv),

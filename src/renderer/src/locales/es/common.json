@@ -597,6 +597,7 @@
     "approximateRoute": "Ruta aproximada — no hay plan de vuelo registrado para este vuelo"
   },
   "logbookView": {
+    "loading": "Cargando…",
     "belowAverage": "Por debajo del promedio",
     "landingCard": {
       "title": "Aterrizaje",

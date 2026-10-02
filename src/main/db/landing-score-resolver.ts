@@ -11,7 +11,7 @@ import { FALLBACK_LATERAL_TOLERANCE_M, findRunwayEndByIdent } from '../airports/
 import { getAircraftById } from './aircraft-repo'
 import type { WingLogDb } from './client'
 import { listCompletedFlights } from './flight-repo'
-import { listLandingsByFlight } from './landing-repo'
+import { listLiveLandings } from './landing-repo'
 
 // Order matches the landing card's own field order (touchdown rate, G-force, pitch, bank,
 // crab, then the two runway-dependent inputs) — the breakdown popup and the card's warning
@@ -122,8 +122,16 @@ export function getLandingScoresForCompletedFlights(db: WingLogDb): LandingScore
   const icaoTypeByAircraftId = new Map<number, string | null>()
   const summaries: LandingScoreSummary[] = []
 
+  // One query for every landing, grouped here, rather than one query per flight.
+  const landingsByFlight = new Map<number, Landing[]>()
+  for (const l of listLiveLandings(db)) {
+    const list = landingsByFlight.get(l.flightId)
+    if (list) list.push(l)
+    else landingsByFlight.set(l.flightId, [l])
+  }
+
   for (const f of listCompletedFlights(db)) {
-    const landings = listLandingsByFlight(db, f.id)
+    const landings = landingsByFlight.get(f.id) ?? []
     if (landings.length === 0) continue
     const finalLanding = landings[landings.length - 1]
 

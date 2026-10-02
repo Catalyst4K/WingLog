@@ -310,7 +310,27 @@ function makeCategories(
   }))
 }
 
+/** Behaves like the real IPC: tests hand the list mock full `Flight`s (makeFlight), and the
+ *  page sees what main actually sends — list rows without the OFP text (LogbookFlight,
+ *  `hasOfp` instead) — while the detail view fetches the full flight via logbookGetFlight. */
 function buildWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
+  const api = buildRawWinglog(overrides)
+  const fullFlights = api.logbookListCompletedFlights as unknown as () => Promise<Flight[]>
+  // Every flight the list has ever returned, by id — a test whose list mock empties after
+  // the first call (e.g. after a delete) can still open the flight it just listed.
+  const listed = new Map<number, Flight>()
+  api.logbookListCompletedFlights = vi.fn(async () => {
+    const flights = await fullFlights()
+    for (const f of flights) listed.set(f.id, f)
+    return flights.map(({ ofpJson, ...row }) => ({ ...row, hasOfp: ofpJson != null }))
+  })
+  if (!overrides.logbookGetFlight) {
+    api.logbookGetFlight = vi.fn(async (id: number) => listed.get(id) ?? null)
+  }
+  return api
+}
+
+function buildRawWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
   return {
     logbookListCompletedFlights: vi.fn().mockResolvedValue([]),
     aircraftList: vi.fn().mockResolvedValue([]),
@@ -1044,6 +1064,31 @@ describe('FlightDetail', () => {
       await waitFor(() => expect(flightLinkAircraft).toHaveBeenCalledWith(1, 42))
       await waitFor(() => expect(aircraftList).toHaveBeenCalledTimes(2))
     })
+
+    it('re-fetches the open flight after linking, so the detail drops "Add to fleet" (regression, 2026-10-01)', async () => {
+      // The detail view fetches its own full copy (logbookGetFlight) — it must follow the
+      // list's reload, or it keeps showing the pre-link flight. Caught by free-flight.spec.ts.
+      const linked = makeAircraft({ id: 42, registration: 'G-TEST', icaoType: 'C172' })
+      setWinglog({
+        logbookListCompletedFlights: vi
+          .fn()
+          .mockResolvedValueOnce([freeFlightNoAircraft()])
+          .mockResolvedValue([freeFlightNoAircraft({ aircraftId: 42, simRegistration: null, simIcaoType: null })]),
+        aircraftList: vi.fn().mockResolvedValueOnce([]).mockResolvedValue([linked]),
+        aircraftTypeSearch: vi.fn().mockResolvedValue([]),
+        aircraftCreate: vi.fn().mockResolvedValue(linked),
+        flightLinkAircraft: vi.fn().mockResolvedValue(freeFlightNoAircraft({ aircraftId: 42 }))
+      })
+      const user = userEvent.setup()
+      render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+      await user.click(await screen.findByText('TA100'))
+      await user.click(await screen.findByRole('button', { name: 'Add to fleet' }))
+      const buttons = await screen.findAllByRole('button', { name: 'Add to fleet' })
+      await user.click(buttons[buttons.length - 1])
+
+      await waitFor(() => expect(screen.queryByRole('button', { name: 'Add to fleet' })).not.toBeInTheDocument())
+      expect(window.winglog.logbookGetFlight).toHaveBeenCalledTimes(2)
+    })
   })
 
   it('returns to the list via "Back to logbook"', async () => {
@@ -1079,6 +1124,19 @@ describe('FlightDetail', () => {
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'Back to aircraft' }))
     expect(onBackToAircraft).toHaveBeenCalledWith(7)
+  })
+
+  it('fetches the opened flight in full by id — the list rows carry no OFP text', async () => {
+    const ofpJson = JSON.stringify({ general: { route: 'DCT' } })
+    const winglog = setWinglog({ logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight({ id: 4, ofpJson })]) })
+    const user = userEvent.setup()
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+
+    await user.click(await screen.findByText('TA100'))
+    await screen.findByText('TA100 — EGLL → EGKK')
+    expect(winglog.logbookGetFlight).toHaveBeenCalledWith(4)
+    // The OFP-only "View OFP" action proves the detail got the full flight, not the list row.
+    expect(screen.getByRole('button', { name: /OFP/ })).toBeInTheDocument()
   })
 
   it('deletes a flight after confirming, and returns to the list', async () => {

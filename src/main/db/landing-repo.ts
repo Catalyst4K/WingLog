@@ -47,6 +47,12 @@ export function getLandingByFlight(db: WingLogDb, flightId: number): Landing | u
 }
 
 /** Every touchdown recorded for a flight, in the order they happened. */
+/** Every non-deleted landing, ordered by flight then seq — for building per-flight summaries
+ *  in one query instead of one query per flight. */
+export function listLiveLandings(db: WingLogDb): Landing[] {
+  return db.select().from(landing).where(isNull(landing.deletedAt)).orderBy(asc(landing.flightId), asc(landing.seq)).all().map(toLanding)
+}
+
 export function listLandingsByFlight(db: WingLogDb, flightId: number): Landing[] {
   return db
     .select()

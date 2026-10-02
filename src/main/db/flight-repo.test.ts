@@ -20,6 +20,7 @@ import {
   getActiveFlight,
   getFleetStats,
   getFlight,
+  getLiveFlight,
   getInProgressFlight,
   getLogbookStats,
   linkAircraftToFlight,
@@ -587,6 +588,27 @@ describe('flight repo', () => {
       expect(completed).toHaveLength(2)
       expect(completed.map((f) => f.arrIcao)).toEqual(['EGPH', 'EGCC'])
       expect(completed.every((f) => f.status === 'completed')).toBe(true)
+    })
+
+    it('leaves the OFP text out of the list, with hasOfp in its place (2026-10-01: ~16 MB per Logbook open)', () => {
+      const withOfp = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'EGCC', ofpJson: '{"big":"ofp"}' })
+      startFlight(db, withOfp.id, 10000)
+      completeFlight(db, withOfp.id, 9500)
+      flyAndComplete(aircraftId, 'EGPH', 45, 700) // no OFP
+
+      const completed = listCompletedFlights(db)
+      expect(completed.every((f) => !('ofpJson' in f))).toBe(true)
+      expect(completed.find((f) => f.id === withOfp.id)?.hasOfp).toBe(true)
+      expect(completed.find((f) => f.arrIcao === 'EGPH')?.hasOfp).toBe(false)
+      // The full flight, OFP included, is still there for the detail view.
+      expect(getLiveFlight(db, withOfp.id)?.ofpJson).toBe('{"big":"ofp"}')
+    })
+
+    it('getLiveFlight never returns a deleted flight', () => {
+      const created = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'EGCC' })
+      deleteFlight(db, created.id)
+      expect(getFlight(db, created.id)).toBeDefined() // internal lookup still finds the tombstone
+      expect(getLiveFlight(db, created.id)).toBeUndefined()
     })
 
     it('returns no fleet stats when nothing has completed', () => {

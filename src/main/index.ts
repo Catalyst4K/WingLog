@@ -58,6 +58,7 @@ import {
   deleteFlight,
   getFleetStats,
   getFlight,
+  getLiveFlight,
   getInProgressFlight,
   getLogbookStats,
   listCompletedFlights,
@@ -695,6 +696,10 @@ if (!gotSingleInstanceLock) {
       })
 
       ipcMain.handle(IpcChannels.logbookListCompletedFlights, () => listCompletedFlights(db))
+      ipcMain.handle(IpcChannels.logbookGetFlight, (_event, id: unknown) => {
+        if (typeof id !== 'number' || !Number.isInteger(id)) return null
+        return getLiveFlight(db, id) ?? null
+      })
       ipcMain.handle(IpcChannels.logbookGetStats, () => getLogbookStats(db))
       ipcMain.handle(IpcChannels.logbookFleetStats, () => getFleetStats(db))
       ipcMain.handle(IpcChannels.logbookImportCsv, async () => {

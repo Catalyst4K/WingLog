@@ -589,6 +589,7 @@
     "approximateRoute": "近似航路 — 该航班没有存档的飞行计划"
   },
   "logbookView": {
+    "loading": "加载中…",
     "belowAverage": "低于平均水平",
     "landingCard": {
       "title": "落地",
