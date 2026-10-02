@@ -14,6 +14,7 @@ import type {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAtcAssignedStand } from './useAtcAssignedStand'
+import { useLiveClient, useLiveTopic } from './live/LiveClient'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -422,44 +423,30 @@ function PromptModal(props: {
   )
 }
 
+// Stable initial values for useLiveTopic (a fresh literal each render would be harmless,
+// but these read better as named defaults).
+const DISCONNECTED: GsxRemoteConnectionStatus = { state: 'disconnected', lastError: null }
+const NO_SERVICES: GsxRemoteServiceStatus[] = []
+
 export function GsxRemotePanel(): React.JSX.Element {
   const { t } = useTranslation()
   const [settings, setSettings] = useState<GsxRemoteSettings | null>(null)
-  const [status, setStatus] = useState<GsxRemoteConnectionStatus>({ state: 'disconnected', lastError: null })
-  const [services, setServices] = useState<GsxRemoteServiceStatus[]>([])
-  const [gate, setGate] = useState<GsxRemoteGateInfo | null>(null)
-  const [menu, setMenu] = useState<GsxRemoteMenuState>(EMPTY_MENU)
-  const [prompt, setPrompt] = useState<GsxRemotePromptState | null>(null)
-  const [commandBar, setCommandBar] = useState<GsxRemoteCommandBar>(EMPTY_COMMAND_BAR)
+  // Live state through the LiveClient (live-data-seam.md, part C), each fetched on mount as
+  // well as followed — GSX only pushes services/menu/prompt on a *change*, so a panel
+  // mounting (or remounting, e.g. switching tabs and back) after GSX already sent its
+  // snapshot would otherwise show nothing until the next patch. Real gap found writing this
+  // feature's first Playwright test (flightdeck-backend's docs/plans/gsx-remote-control.md).
+  const live = useLiveClient()
+  const status = useLiveTopic('gsxRemoteStatus', DISCONNECTED)
+  const services = useLiveTopic('gsxRemoteServices', NO_SERVICES)
+  const gate = useLiveTopic('gsxRemoteGate', null)
+  const menu = useLiveTopic('gsxRemoteMenu', EMPTY_MENU)
+  const prompt = useLiveTopic('gsxRemotePrompt', null)
+  const commandBar = useLiveTopic('gsxRemoteCommandBar', EMPTY_COMMAND_BAR)
   const atcStand = useAtcAssignedStand()
 
   useEffect(() => {
     window.winglog.settingsGetGsxRemote().then(setSettings)
-    window.winglog.gsxRemoteGetStatus().then(setStatus)
-    // Current-value fetches on mount, not just the live subscriptions below — GSX only
-    // pushes services/menu/prompt on a *change*, so a panel mounting (or remounting, e.g.
-    // switching tabs and back) after GSX already sent its snapshot would otherwise show
-    // nothing until the next patch. Real gap found writing this feature's first Playwright
-    // test (flightdeck-backend's docs/plans/gsx-remote-control.md).
-    window.winglog.gsxRemoteGetServices().then(setServices)
-    window.winglog.gsxRemoteGetGateInfo().then(setGate)
-    window.winglog.gsxRemoteGetMenu().then(setMenu)
-    window.winglog.gsxRemoteGetPrompt().then(setPrompt)
-    window.winglog.gsxRemoteGetCommandBar().then(setCommandBar)
-    const unsubscribeStatus = window.winglog.onGsxRemoteStatus(setStatus)
-    const unsubscribeServices = window.winglog.onGsxRemoteServices(setServices)
-    const unsubscribeGate = window.winglog.onGsxRemoteGate(setGate)
-    const unsubscribeMenu = window.winglog.onGsxRemoteMenu(setMenu)
-    const unsubscribePrompt = window.winglog.onGsxRemotePrompt(setPrompt)
-    const unsubscribeCommandBar = window.winglog.onGsxRemoteCommandBar(setCommandBar)
-    return () => {
-      unsubscribeStatus()
-      unsubscribeServices()
-      unsubscribeGate()
-      unsubscribeMenu()
-      unsubscribePrompt()
-      unsubscribeCommandBar()
-    }
   }, [])
 
   if (settings === null) return <p className="text-xs text-muted-foreground">{t('gsxRemotePanel.loading')}</p>
@@ -478,17 +465,17 @@ export function GsxRemotePanel(): React.JSX.Element {
       {prompt && (
         <PromptModal
           prompt={prompt}
-          onSubmit={(text) => window.winglog.gsxRemoteSubmitPrompt(prompt.gen, text)}
-          onCancel={() => window.winglog.gsxRemoteCancelPrompt(prompt.gen)}
+          onSubmit={(text) => live.command('gsx.submitPrompt', prompt.gen, text)}
+          onCancel={() => live.command('gsx.cancelPrompt', prompt.gen)}
         />
       )}
       <GateHeader gate={gate} />
-      <CommandBar commandBar={commandBar} onRun={(id) => window.winglog.gsxRemoteRunCommand(id)} />
-      <MenuHeader menu={menu} onToggle={() => window.winglog.gsxRemoteToggleMenu()} />
+      <CommandBar commandBar={commandBar} onRun={(id) => live.command('gsx.runCommand', id)} />
+      <MenuHeader menu={menu} onToggle={() => live.command('gsx.toggleMenu')} />
       <MenuEntries
         menu={menu}
-        onPick={(index) => window.winglog.gsxRemotePickMenu(index)}
-        onSearch={(text) => window.winglog.gsxRemoteSearch(text)}
+        onPick={(index) => live.command('gsx.pickMenu', index)}
+        onSearch={(text) => live.command('gsx.search', text)}
         atcStand={atcStand}
       />
       <ServicesList services={services} />

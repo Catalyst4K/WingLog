@@ -1,6 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useMemo } from 'react'
 import type { BeyondAtcTranscriptEntry } from '@shared/ipc'
+import { useLiveTopic } from './live/LiveClient'
 import { parseTaxiStand } from './taxiRouteParser'
+
+const NO_TRANSCRIPT: BeyondAtcTranscriptEntry[] = []
 
 /** The stand in BeyondATC's most recent "taxi to Stand N32 …" (ATC's own lines only). */
 export function latestAtcStand(transcript: BeyondAtcTranscriptEntry[]): string | null {
@@ -19,18 +22,6 @@ export function latestAtcStand(transcript: BeyondAtcTranscriptEntry[]): string |
  * fallback, and this is what WingLog offers there. Null when BeyondATC hasn't assigned one.
  */
 export function useAtcAssignedStand(): string | null {
-  const [stand, setStand] = useState<string | null>(null)
-  useEffect(() => {
-    let live = true
-    const ingest = (transcript: BeyondAtcTranscriptEntry[]): void => {
-      if (live) setStand(latestAtcStand(transcript))
-    }
-    window.winglog.beyondAtcGetTranscript().then(ingest, () => undefined)
-    const unsubscribe = window.winglog.onBeyondAtcTranscript(ingest)
-    return () => {
-      live = false
-      unsubscribe()
-    }
-  }, [])
-  return stand
+  const transcript = useLiveTopic('beyondAtcTranscript', NO_TRANSCRIPT)
+  return useMemo(() => latestAtcStand(transcript), [transcript])
 }

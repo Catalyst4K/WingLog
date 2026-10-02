@@ -128,6 +128,7 @@ import { ReplaySimConnectService, type ReplayMode } from './sim/ReplaySimConnect
 import { EMPTY_COMMAND_BAR, EMPTY_MENU, GsxRemoteService } from './gsx-remote/GsxRemoteService'
 import { BeyondAtcService, EMPTY_STATE as BEYONDATC_EMPTY_STATE } from './beyondatc/BeyondAtcService'
 import { UpdateService } from './updates/update-check'
+import { LiveHub } from './live/LiveHub'
 import { StepClimbController } from './beyondatc/step-climb'
 import type { NavdataProvider } from './navdata/navdata-provider'
 import { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
@@ -263,6 +264,12 @@ if (!gotSingleInstanceLock) {
       // way to move around; a bare File/Edit/Window bar above it was clutter, not useful.
       Menu.setApplicationMenu(null)
       const window = createWindow()
+      // Live state (sim, tracking, GSX Remote, BeyondATC) goes through one hub, and the window
+      // is its first subscriber (flightdeck-backend's docs/plans/live-data-seam.md, part A).
+      const liveHub = new LiveHub()
+      liveHub.subscribe((topic, payload) => {
+        if (!window.isDestroyed()) window.webContents.send(IpcChannels[topic], payload)
+      })
 
       // Cloud sync (flightdeck-backend/docs/plans/cloud-sync.md) — off by default; nothing
       // above this point depends on it, and it's the only feature in the app that talks to
@@ -534,10 +541,10 @@ if (!gotSingleInstanceLock) {
         : new SimConnectService()
       ipcMain.handle(IpcChannels.simConnectionStatusGet, () => simConnectService.getStatus())
       simConnectService.on('telemetry', (telemetry) => {
-        if (!window.isDestroyed()) window.webContents.send(IpcChannels.simTelemetry, telemetry)
+        liveHub.publish('simTelemetry', telemetry)
       })
       simConnectService.on('status', (status) => {
-        if (!window.isDestroyed()) window.webContents.send(IpcChannels.simConnectionStatus, status)
+        liveHub.publish('simConnectionStatus', status)
       })
       simConnectService.start()
       app.on('before-quit', () => simConnectService.stop())
@@ -562,10 +569,10 @@ if (!gotSingleInstanceLock) {
       let orphanedFlight = getInProgressFlight(db)
 
       trackingController.on('point', (point) => {
-        if (!window.isDestroyed()) window.webContents.send(IpcChannels.trackingPoint, point)
+        liveHub.publish('trackingPoint', point)
       })
       trackingController.on('pointsUpdated', (points) => {
-        if (!window.isDestroyed()) window.webContents.send(IpcChannels.trackingPointsUpdated, points)
+        liveHub.publish('trackingPointsUpdated', points)
       })
       // Push-on-mutation's real-time case: a flight reaching 'completed' (auto shutdown
       // detection or a manual finish()) is the highest-value moment to sync promptly, whether
@@ -818,22 +825,22 @@ if (!gotSingleInstanceLock) {
         if (!settings.enabled || !settings.port) return
         gsxRemoteService = new GsxRemoteService(settings.host, settings.port)
         gsxRemoteService.on('status', (status) => {
-          if (!window.isDestroyed()) window.webContents.send(IpcChannels.gsxRemoteStatus, status)
+          liveHub.publish('gsxRemoteStatus', status)
         })
         gsxRemoteService.on('services', (services) => {
-          if (!window.isDestroyed()) window.webContents.send(IpcChannels.gsxRemoteServices, services)
+          liveHub.publish('gsxRemoteServices', services)
         })
         gsxRemoteService.on('gate', (gate) => {
-          if (!window.isDestroyed()) window.webContents.send(IpcChannels.gsxRemoteGate, gate)
+          liveHub.publish('gsxRemoteGate', gate)
         })
         gsxRemoteService.on('menu', (menu) => {
-          if (!window.isDestroyed()) window.webContents.send(IpcChannels.gsxRemoteMenu, menu)
+          liveHub.publish('gsxRemoteMenu', menu)
         })
         gsxRemoteService.on('prompt', (prompt) => {
-          if (!window.isDestroyed()) window.webContents.send(IpcChannels.gsxRemotePrompt, prompt)
+          liveHub.publish('gsxRemotePrompt', prompt)
         })
         gsxRemoteService.on('commandBar', (commandBar) => {
-          if (!window.isDestroyed()) window.webContents.send(IpcChannels.gsxRemoteCommandBar, commandBar)
+          liveHub.publish('gsxRemoteCommandBar', commandBar)
         })
         gsxRemoteService.start()
       }
@@ -872,13 +879,13 @@ if (!gotSingleInstanceLock) {
         if (!settings.enabled) return
         beyondAtcService = new BeyondAtcService(settings.host)
         beyondAtcService.on('status', (status) => {
-          if (!window.isDestroyed()) window.webContents.send(IpcChannels.beyondAtcStatus, status)
+          liveHub.publish('beyondAtcStatus', status)
         })
         beyondAtcService.on('state', (state) => {
-          if (!window.isDestroyed()) window.webContents.send(IpcChannels.beyondAtcState, state)
+          liveHub.publish('beyondAtcState', state)
         })
         beyondAtcService.on('transcript', (transcript) => {
-          if (!window.isDestroyed()) window.webContents.send(IpcChannels.beyondAtcTranscript, transcript)
+          liveHub.publish('beyondAtcTranscript', transcript)
         })
         beyondAtcService.start()
       }
@@ -910,7 +917,7 @@ if (!gotSingleInstanceLock) {
         getOfpJson: (flightId) => getFlight(db, flightId)?.ofpJson ?? null
       })
       stepClimb.on('status', (status) => {
-        if (!window.isDestroyed()) window.webContents.send(IpcChannels.beyondAtcStepClimb, status)
+        liveHub.publish('beyondAtcStepClimb', status)
       })
       simConnectService.on('telemetry', (telemetry) => stepClimb.onTelemetry(telemetry))
       ipcMain.handle(IpcChannels.beyondAtcGetStepClimb, () => stepClimb.getStatus())
