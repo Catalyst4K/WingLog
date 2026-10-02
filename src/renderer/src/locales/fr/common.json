@@ -703,6 +703,12 @@
     "transcript": "Transcription",
     "actions": "Actions",
     "noActions": "Aucune action disponible pour l'instant.",
+    "comms": {
+      "queuedAction": "En attente : {{action}}. Attente d'un créneau sur la fréquence.",
+      "queued": "Attente d'un créneau sur la fréquence.",
+      "transmitting": "Émission…",
+      "awaitingReply": "En attente de la réponse de l'ATC."
+    },
     "noStatus": "Aucun statut pour l'instant.",
     "radios": "Radios",
     "frequencyUnknown": "—",

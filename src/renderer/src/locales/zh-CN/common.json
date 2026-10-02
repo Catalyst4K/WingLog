@@ -693,6 +693,12 @@
     "transcript": "通话记录",
     "actions": "操作",
     "noActions": "目前没有可用操作。",
+    "comms": {
+      "queuedAction": "已排队：{{action}}。等待频率空闲。",
+      "queued": "等待频率空闲。",
+      "transmitting": "正在发送…",
+      "awaitingReply": "等待管制员回复。"
+    },
     "noStatus": "暂无状态。",
     "radios": "无线电",
     "frequencyUnknown": "—",

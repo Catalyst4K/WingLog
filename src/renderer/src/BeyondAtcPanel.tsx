@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { BeyondAtcConnectionStatus, BeyondAtcSettings, BeyondAtcState, BeyondAtcTranscriptEntry } from '@shared/ipc'
+import type {
+  BeyondAtcCommsState,
+  BeyondAtcConnectionStatus,
+  BeyondAtcSettings,
+  BeyondAtcState,
+  BeyondAtcTranscriptEntry
+} from '@shared/ipc'
 import { BeyondAtcActions, BeyondAtcRadios } from './BeyondAtcControls'
 import { latestAtcInstruction, type AtcInstruction } from './beyondAtcInstruction'
 import { Badge } from '@/components/ui/badge'
@@ -98,21 +104,48 @@ function LatestInstructionCard(props: { instruction: AtcInstruction | null }): R
   )
 }
 
+/** How long a pressed action stays marked as pending if BeyondATC never reports it going
+ *  out — a safety net so a missed state can't leave a spinner up for good. */
+export const PENDING_ACTION_TIMEOUT_MS = 60_000
+
+/** What the frequency is doing, from BeyondATC's CommsState, for the line above the
+ *  buttons. Null when there's nothing worth saying. */
+function commsLine(
+  t: (key: string, options?: Record<string, string>) => string,
+  pendingLabel: string | null,
+  comms: BeyondAtcCommsState | null
+): string | null {
+  if (comms?.mode === 'speaking') return t('beyondAtcPanel.comms.transmitting')
+  if (comms?.mode === 'awaiting') return t('beyondAtcPanel.comms.awaitingReply')
+  if (pendingLabel) return t('beyondAtcPanel.comms.queuedAction', { action: pendingLabel })
+  if (comms?.mode === 'queued' || comms?.mode === 'traffic') return t('beyondAtcPanel.comms.queued')
+  return null
+}
+
 /** Always visible, like every other card on this page — a placeholder rather than
  *  disappearing entirely while disconnected or when BeyondATC has no menu currently
  *  offered. */
-function ActionsCard(props: { actions: string[]; onSelectAction: (label: string) => void }): React.JSX.Element {
+function ActionsCard(props: {
+  actions: string[]
+  onSelectAction: (label: string) => void
+  pendingLabel: string | null
+  commsState: BeyondAtcCommsState | null
+}): React.JSX.Element {
   const { t } = useTranslation()
+  const line = commsLine(t, props.pendingLabel, props.commsState)
   return (
     <Card size="sm">
       <CardHeader>
         <CardTitle>{t('beyondAtcPanel.actions')}</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-2">
+        <p role="status" className="text-xs text-muted-foreground empty:hidden">
+          {line}
+        </p>
         {props.actions.length === 0 ? (
           <p className="text-xs text-muted-foreground">{t('beyondAtcPanel.noActions')}</p>
         ) : (
-          <BeyondAtcActions actions={props.actions} onSelectAction={props.onSelectAction} />
+          <BeyondAtcActions actions={props.actions} onSelectAction={props.onSelectAction} pendingLabel={props.pendingLabel} />
         )}
       </CardContent>
     </Card>
@@ -205,6 +238,23 @@ export function BeyondAtcPanel(): React.JSX.Element {
   const [state, setState] = useState<BeyondAtcState>(EMPTY_STATE)
   const [transcript, setTranscript] = useState<BeyondAtcTranscriptEntry[]>([])
   const latestInstruction = useMemo(() => latestAtcInstruction(transcript), [transcript])
+  // The action just pressed, until BeyondATC transmits it (Callum, 2026-10-02: a press
+  // queued behind other traffic looked like it did nothing).
+  const [pendingAction, setPendingAction] = useState<string | null>(null)
+  const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function clearPendingAction(): void {
+    if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current)
+    pendingTimerRef.current = null
+    setPendingAction(null)
+  }
+
+  function selectAction(label: string): void {
+    window.winglog.beyondAtcSetAction(label)
+    if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current)
+    pendingTimerRef.current = setTimeout(clearPendingAction, PENDING_ACTION_TIMEOUT_MS)
+    setPendingAction(label)
+  }
 
   useEffect(() => {
     window.winglog.settingsGetBeyondAtc().then(setSettings)
@@ -212,12 +262,17 @@ export function BeyondAtcPanel(): React.JSX.Element {
     window.winglog.beyondAtcGetState().then(setState)
     window.winglog.beyondAtcGetTranscript().then(setTranscript)
     const unsubscribeStatus = window.winglog.onBeyondAtcStatus(setStatus)
-    const unsubscribeState = window.winglog.onBeyondAtcState(setState)
+    const unsubscribeState = window.winglog.onBeyondAtcState((next) => {
+      setState(next)
+      // Our call is going out: it's no longer waiting.
+      if (next.commsState?.mode === 'speaking') clearPendingAction()
+    })
     const unsubscribeTranscript = window.winglog.onBeyondAtcTranscript(setTranscript)
     return () => {
       unsubscribeStatus()
       unsubscribeState()
       unsubscribeTranscript()
+      if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current)
     }
   }, [])
 
@@ -242,7 +297,12 @@ export function BeyondAtcPanel(): React.JSX.Element {
       <LatestInstructionCard instruction={latestInstruction} />
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-[minmax(18rem,28rem)_minmax(18rem,1fr)]">
         <div className="flex min-h-0 flex-col gap-4 self-start">
-          <ActionsCard actions={state.actions} onSelectAction={(label) => window.winglog.beyondAtcSetAction(label)} />
+          <ActionsCard
+            actions={state.actions}
+            onSelectAction={selectAction}
+            pendingLabel={pendingAction}
+            commsState={state.commsState}
+          />
           <RadiosCard
             facility={state.facility}
             com2={state.com2}

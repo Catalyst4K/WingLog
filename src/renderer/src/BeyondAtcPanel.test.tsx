@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { BeyondAtcConnectionStatus, BeyondAtcSettings, BeyondAtcState, BeyondAtcTranscriptEntry, WingLogApi } from '@shared/ipc'
-import { BeyondAtcPanel } from './BeyondAtcPanel'
+import { BeyondAtcPanel, PENDING_ACTION_TIMEOUT_MS } from './BeyondAtcPanel'
 
 function makeSettings(overrides: Partial<BeyondAtcSettings> = {}): BeyondAtcSettings {
   return { enabled: true, host: 'localhost', ...overrides }
@@ -199,6 +199,79 @@ describe('BeyondAtcPanel', () => {
     await user.click(await screen.findByRole('button', { name: 'Radio Check' }))
 
     expect(beyondAtcSetAction).toHaveBeenCalledWith('Radio Check')
+  })
+
+  describe('feedback after pressing an action (Callum, 2026-10-02: a press queued behind traffic looked like it did nothing)', () => {
+    // Real action labels, YBBN 2026-10-02.
+    const ACTIONS = ['Request Taxi', 'Radio Check']
+
+    function withStateListener(): { push: (state: BeyondAtcState) => void } {
+      let listener: (state: BeyondAtcState) => void = () => {}
+      withWinglog({
+        beyondAtcGetState: vi.fn().mockResolvedValue(makeState({ actions: ACTIONS })),
+        onBeyondAtcState: vi.fn((l: (state: BeyondAtcState) => void) => {
+          listener = l
+          return () => {}
+        }) as unknown as WingLogApi['onBeyondAtcState']
+      })
+      return { push: (state) => act(() => listener(state)) }
+    }
+
+    it('marks the pressed button busy straight away and says it is queued while traffic talks', async () => {
+      const { push } = withStateListener()
+      render(<BeyondAtcPanel />)
+      fireEvent.click(await screen.findByRole('button', { name: 'Request Taxi' }))
+
+      expect(screen.getByRole('button', { name: 'Request Taxi' })).toHaveAttribute('aria-busy', 'true')
+      expect(screen.getByRole('button', { name: 'Radio Check' })).not.toHaveAttribute('aria-busy')
+      expect(screen.getByRole('status')).toHaveTextContent('Queued: Request Taxi. Waiting for a gap on the frequency.')
+
+      push(makeState({ actions: ACTIONS, commsState: { mode: 'traffic', text: '' } }))
+      expect(screen.getByRole('status')).toHaveTextContent('Queued: Request Taxi.')
+    })
+
+    it('clears the busy state once the call is transmitted, then shows the wait for ATC', async () => {
+      const { push } = withStateListener()
+      render(<BeyondAtcPanel />)
+      fireEvent.click(await screen.findByRole('button', { name: 'Request Taxi' }))
+
+      push(makeState({ actions: ACTIONS, commsState: { mode: 'speaking', text: '' } }))
+      expect(screen.getByRole('button', { name: 'Request Taxi' })).not.toHaveAttribute('aria-busy')
+      expect(screen.getByRole('status')).toHaveTextContent('Transmitting…')
+
+      push(makeState({ actions: ACTIONS, commsState: { mode: 'awaiting', text: '' } }))
+      expect(screen.getByRole('status')).toHaveTextContent("Awaiting ATC's reply.")
+
+      push(makeState({ actions: ACTIONS, commsState: { mode: 'ready', text: '' } }))
+      expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    })
+
+    it('moves the busy state to a second press, and gives up after a minute with no news', async () => {
+      withStateListener()
+      render(<BeyondAtcPanel />)
+      const taxi = await screen.findByRole('button', { name: 'Request Taxi' })
+      vi.useFakeTimers()
+      try {
+        fireEvent.click(taxi)
+        fireEvent.click(screen.getByRole('button', { name: 'Radio Check' }))
+        expect(screen.getByRole('button', { name: 'Request Taxi' })).not.toHaveAttribute('aria-busy')
+        expect(screen.getByRole('button', { name: 'Radio Check' })).toHaveAttribute('aria-busy', 'true')
+
+        act(() => vi.advanceTimersByTime(PENDING_ACTION_TIMEOUT_MS))
+        expect(screen.getByRole('button', { name: 'Radio Check' })).not.toHaveAttribute('aria-busy')
+        expect(screen.getByRole('status')).toBeEmptyDOMElement()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('says the frequency is busy for a call queued from BeyondATC itself', async () => {
+      const { push } = withStateListener()
+      render(<BeyondAtcPanel />)
+      await screen.findByRole('button', { name: 'Request Taxi' })
+      push(makeState({ actions: ACTIONS, commsState: { mode: 'queued', text: '' } }))
+      expect(screen.getByRole('status')).toHaveTextContent('Waiting for a gap on the frequency.')
+    })
   })
 
   it('clicking an AutoTune toggle calls beyondAtcSetAutoTune with the flipped value', async () => {
