@@ -7,6 +7,8 @@ import {
   getAltitudeUnit,
   getAppLanguage,
   getBeyondAtcSettings,
+  getSkippedUpdateVersion,
+  getUpdateSettings,
   getGsxRemoteSettings,
   getGsxSettings,
   getLandingDistanceUnit,
@@ -23,6 +25,8 @@ import {
   setAltitudeUnit,
   setAppLanguage,
   setBeyondAtcSettings,
+  setSkippedUpdateVersion,
+  setUpdateSettings,
   setCheckedGsxFirstLaunch,
   setGsxRemoteSettings,
   setGsxSettings,
@@ -180,6 +184,18 @@ describe('settings repo', () => {
   it('round-trips BeyondATC settings', () => {
     setBeyondAtcSettings(db, { enabled: true, host: '192.168.1.50' })
     expect(getBeyondAtcSettings(db)).toEqual({ enabled: true, host: '192.168.1.50' })
+  })
+
+  it('has the update check on by default (Callum, 2026-10-02), and round-trips it and the skipped version', () => {
+    expect(getUpdateSettings(db)).toEqual({ checkEnabled: true })
+    setUpdateSettings(db, { checkEnabled: false })
+    expect(getUpdateSettings(db)).toEqual({ checkEnabled: false })
+    setUpdateSettings(db, { checkEnabled: true })
+    expect(getUpdateSettings(db)).toEqual({ checkEnabled: true })
+
+    expect(getSkippedUpdateVersion(db)).toBeNull()
+    setSkippedUpdateVersion(db, '1.4.0')
+    expect(getSkippedUpdateVersion(db)).toBe('1.4.0')
   })
 
   it('defaults the last-synced-completed timestamp to null when never set', () => {

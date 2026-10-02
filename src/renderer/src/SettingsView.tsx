@@ -22,6 +22,7 @@ import type {
   WindSpeedUnit
 } from '@shared/ipc'
 import { APP_LANGUAGE_OPTIONS } from '@shared/app-language'
+import { UpdatesCard } from './UpdatesCard'
 import { MAP_LANGUAGES } from './map-labels'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -946,7 +947,7 @@ export function SettingsView(props: {
           </div>
         </TabsContent>
 
-        <TabsContent value="about" className="min-w-0">
+        <TabsContent value="about" className="flex min-w-0 flex-col gap-4">
           <Card className="max-w-2xl">
             <CardHeader>
               <CardTitle>WingLog{appVersion ? ` v${appVersion}` : ''}</CardTitle>
@@ -967,6 +968,7 @@ export function SettingsView(props: {
               </p>
             </CardContent>
           </Card>
+          <UpdatesCard />
         </TabsContent>
       </Tabs>
     </div>

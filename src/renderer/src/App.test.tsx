@@ -410,6 +410,13 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     aircraftImport: vi.fn().mockResolvedValue(null),
     aircraftExport: vi.fn().mockResolvedValue(false),
     appGetVersion: vi.fn().mockResolvedValue('1.0.0'),
+    settingsGetUpdates: vi.fn().mockResolvedValue({ checkEnabled: true }),
+    settingsSetUpdates: vi.fn().mockResolvedValue(undefined),
+    updatesGetStatus: vi.fn().mockResolvedValue({ state: 'idle', currentVersion: '1.0.0', latest: null, checkedAt: null, skippedVersion: null }),
+    onUpdateStatus: vi.fn().mockReturnValue(() => {}),
+    updatesCheckNow: vi.fn().mockResolvedValue({ state: 'upToDate', currentVersion: '1.0.0', latest: null, checkedAt: null, skippedVersion: null }),
+    updatesSkipVersion: vi.fn().mockResolvedValue(undefined),
+    updatesOpenRelease: vi.fn().mockResolvedValue(undefined),
     appOpenGithub: vi.fn().mockResolvedValue(undefined),
     ...overrides
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

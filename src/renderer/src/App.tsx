@@ -21,6 +21,7 @@ import type {
   WindSpeedUnit
 } from '@shared/ipc'
 import { resolveAppLanguage } from '@shared/app-language'
+import { UpdateBanner } from './UpdateBanner'
 import i18n from './i18n'
 import {
   AlertDialog,
@@ -530,6 +531,7 @@ export default function App(): React.JSX.Element {
 
   return (
     <main className="flex h-screen flex-col">
+      <UpdateBanner airborne={telemetry !== null && !telemetry.onGround} />
       <Tabs value={effectivePage} onValueChange={(value) => setPage(value as AppPage)} className="min-h-0 flex-1 gap-0">
         <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-3">
           <TabsList variant="line">
