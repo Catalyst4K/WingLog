@@ -167,6 +167,25 @@ describe('BeyondAtcPanel', () => {
     }
   })
 
+  it('keeps a real YBBN clearance (2026-10-02) on the card through "readback correct", adding the next frequency', async () => {
+    const transcript: BeyondAtcTranscriptEntry[] = [
+      {
+        speaker: 'atc',
+        text: 'Cathay 168 Heavy, Brisbane Delivery, information A current, cleared to Hong Kong airport via the BIXAD2 departure, runway 01R, climb via SID to 10000 feet, squawk 6022.',
+        ts: 1
+      },
+      { speaker: 'atc', text: 'Cathay 168 Heavy, readback correct. Contact ground 122.25 when ready for pushback or engine start.', ts: 2 }
+    ]
+    withWinglog({ beyondAtcGetTranscript: vi.fn().mockResolvedValue(transcript) })
+    render(<BeyondAtcPanel />)
+
+    const card = (await screen.findByText('Latest instruction')).closest('[data-slot="card"]') as HTMLElement
+    await within(card).findByText('BIXAD2')
+    for (const value of ['Brisbane Delivery', 'Hong Kong airport', '01R', '10,000 ft', '6022', 'ground 122.25']) {
+      expect(within(card).getByText(value)).toBeInTheDocument()
+    }
+  })
+
   it('shows placeholders when no status is known and ATC has said nothing yet', async () => {
     withWinglog({
       beyondAtcGetTranscript: vi.fn().mockResolvedValue([{ speaker: 'player', text: 'Cathay 116 Heavy, radio check.', ts: 1 }])

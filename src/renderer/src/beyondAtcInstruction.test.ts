@@ -119,6 +119,45 @@ describe('latestAtcInstruction', () => {
     expect(latest).toMatchObject({ ts: 1, fields: [{ key: 'contact', value: 'Hong Kong Tower 118.2' }] })
   })
 
+  // Real YBBN lines, 2026-10-02: the readback used to replace the clearance on the card.
+  const CLEARANCE = 'Cathay 168 Heavy, Brisbane Delivery, information A current, cleared to Hong Kong airport via the BIXAD2 departure, runway 01R, climb via SID to 10000 feet, squawk 6022.'
+  const READBACK = 'Cathay 168 Heavy, readback correct. Contact ground 122.25 when ready for pushback or engine start.'
+
+  it('keeps the clearance up after "readback correct", adding only the frequency it hands over', () => {
+    const latest = latestAtcInstruction([
+      { speaker: 'atc', text: CLEARANCE, ts: 1 },
+      { speaker: 'player', text: 'Cleared to Hong Kong airport via the BIXAD2 departure…', ts: 2 },
+      { speaker: 'atc', text: READBACK, ts: 3 }
+    ])
+    expect(latest?.actions).toEqual([])
+    expect(latest?.fields).toEqual([
+      { key: 'station', value: 'Brisbane Delivery' },
+      { key: 'atis', value: 'A' },
+      { key: 'clearedTo', value: 'Hong Kong airport' },
+      { key: 'sid', value: 'BIXAD2' },
+      { key: 'runway', value: '01R' },
+      { key: 'climb', value: '10,000 ft' },
+      { key: 'squawk', value: '6022' },
+      { key: 'contact', value: 'ground 122.25' }
+    ])
+    expect(latest?.text).toBe(`${CLEARANCE} ${READBACK}`)
+    expect(latest?.ts).toBe(3)
+  })
+
+  it('replaces the clearance once ATC says something new', () => {
+    const latest = latestAtcInstruction([
+      { speaker: 'atc', text: CLEARANCE, ts: 1 },
+      { speaker: 'atc', text: READBACK, ts: 3 },
+      { speaker: 'atc', text: 'Cathay 168 Heavy, pushback and engine start approved, face south.', ts: 5 }
+    ])
+    expect(latest?.actions).toEqual(['pushback'])
+    expect(latest?.fields.find((f) => f.key === 'sid')).toBeUndefined()
+  })
+
+  it('shows a readback on its own when there is nothing before it to confirm', () => {
+    expect(latestAtcInstruction([{ speaker: 'atc', text: READBACK, ts: 3 }])?.actions).toEqual(['readbackCorrect'])
+  })
+
   it('is null before ATC has said anything', () => {
     expect(latestAtcInstruction([{ speaker: 'player', text: 'Radio check.', ts: 1 }])).toBeNull()
   })

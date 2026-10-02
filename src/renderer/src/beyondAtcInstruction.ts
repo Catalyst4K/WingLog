@@ -1,4 +1,5 @@
 import type { BeyondAtcTranscriptEntry } from '@shared/ipc'
+import { APPROACH_CLEARED, APPROACH_EXPECT, CLEARED_TO, RUNWAY, SID, STAR } from './atcPhrases'
 import { parseTaxiRoute } from './taxiRouteParser'
 
 /**
@@ -62,12 +63,6 @@ const FACILITY_WORDS = 'Delivery|Clearance|Ground|Apron|Tower|Departure|Approach
 // "Hongkong Shuttle 250, Hong Kong Delivery, …" — the second comma chunk, when it's a facility.
 const STATION = new RegExp(`^[^,]+, ([A-Z][A-Za-z ]*? (?:${FACILITY_WORDS})),`)
 const ATIS = /information ([A-Z]) current/i
-const CLEARED_TO = /cleared to (.+?) via /i
-const SID = / via ([A-Z0-9]+) departure/i
-const STAR = /cleared ([A-Z0-9]+) arrival/i
-const APPROACH_EXPECT = /expect the ([A-Z0-9-]+) approach runway (\d{1,2}[LRC]?)(?: with the ([A-Z0-9]+) transition)?/i
-const APPROACH_CLEARED = /cleared ([A-Z0-9-]+) approach runway (\d{1,2}[LRC]?)/i
-const RUNWAY = /runway (\d{1,2}[LRC]?)\b/i
 // "climb via SID to FL140", "climb FL190", "climb via SID to 11000 feet", "descend to 3,000m".
 // Pilot-style "passing … climbing to …" is the pilot's own report, never an ATC line.
 const ALTITUDE = /\b(climb|descend)(?: via SID)?(?: and maintain)?(?: to)? (FL ?\d{2,3}|[\d,]+ ?(?:feet|ft|m|meters|metres))\b/i
@@ -154,10 +149,36 @@ export function parseAtcInstruction(text: string): Pick<AtcInstruction, 'actions
 /** The most recent line ATC spoke to us (never another aircraft's traffic), parsed — or null
  *  before ATC has said anything. */
 export function latestAtcInstruction(entries: BeyondAtcTranscriptEntry[]): AtcInstruction | null {
+  const readbacks: AtcInstruction[] = []
   for (let i = entries.length - 1; i >= 0; i--) {
     const entry = entries[i]!
     if (entry.speaker !== 'atc') continue
-    return { text: entry.text, ts: entry.ts, ...parseAtcInstruction(entry.text) }
+    const instruction = { text: entry.text, ts: entry.ts, ...parseAtcInstruction(entry.text) }
+    if (!isReadbackOnly(instruction)) return readbacks.reduceRight(applyReadback, instruction)
+    readbacks.push(instruction)
   }
-  return null
+  return readbacks[0] ?? null
+}
+
+/** "readback correct. Contact ground 122.25 when ready for pushback or engine start." (real,
+ *  VHHH 2026-10-02) — confirms the line before rather than replacing it. */
+function isReadbackOnly(instruction: AtcInstruction): boolean {
+  return (
+    instruction.actions.length === 1 &&
+    instruction.actions[0] === 'readbackCorrect' &&
+    instruction.fields.every((f) => f.key === 'station' || f.key === 'contact')
+  )
+}
+
+/** Callum, 2026-10-02: a readback keeps the instruction it confirms on the card (the clearance
+ *  stays up until ATC says something new, e.g. pushback approved) — the only change is the
+ *  frequency it hands over, if any. The full text shows both lines. */
+function applyReadback(confirmed: AtcInstruction, readback: AtcInstruction): AtcInstruction {
+  const contact = readback.fields.find((f) => f.key === 'contact')
+  return {
+    ...confirmed,
+    text: `${confirmed.text} ${readback.text}`,
+    ts: readback.ts,
+    fields: contact ? [...confirmed.fields.filter((f) => f.key !== 'contact'), contact] : confirmed.fields
+  }
 }
