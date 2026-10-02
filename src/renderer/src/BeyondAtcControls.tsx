@@ -1,7 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Headset, Loader2 } from 'lucide-react'
-import type { BeyondAtcCom2, BeyondAtcFacility, BeyondAtcFrequencyOption, BeyondAtcProgress } from '@shared/ipc'
+import type {
+  BeyondAtcCom2,
+  BeyondAtcFacility,
+  BeyondAtcFrequencyOption,
+  BeyondAtcProgress,
+  BeyondAtcStepClimbStatus
+} from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -279,6 +285,55 @@ export interface BeyondAtcRadiosProps {
   autoRespond: boolean | null
   onSetAutoTune: (value: boolean) => void
   onSetAutoRespond: (value: boolean) => void
+  /** WingLog's own auto step climb — not a BeyondATC setting (flightdeck-backend's
+   *  docs/plans/beyondatc-auto-step-climb.md). */
+  stepClimb: BeyondAtcStepClimbStatus
+  onSetStepClimb: (enabled: boolean) => void
+}
+
+function flightLevel(feet: number): string {
+  return `FL${String(Math.round(feet / 100)).padStart(3, '0')}`
+}
+
+/** One line under the toggles: what auto step climb is doing — a request in progress, the
+ *  last result, an FCU level waiting on the climb, or the next planned step. */
+function StepClimbStatusLine(props: { status: BeyondAtcStepClimbStatus }): React.JSX.Element | null {
+  const { t } = useTranslation()
+  const { status } = props
+  if (!status.enabled) return null
+  const lines: string[] = []
+  if (status.pendingAltitudeFt !== null) {
+    lines.push(t('beyondAtcPanel.stepClimb.pending', { level: flightLevel(status.pendingAltitudeFt) }))
+  } else if (status.last) {
+    const outcome = t(`beyondAtcPanel.stepClimb.outcome.${status.last.outcome}`)
+    lines.push(
+      status.last.dropped
+        ? t('beyondAtcPanel.stepClimb.dropped', { level: flightLevel(status.last.altitudeFt), outcome })
+        : t('beyondAtcPanel.stepClimb.last', { level: flightLevel(status.last.altitudeFt), outcome })
+    )
+  }
+  if (status.waitingForClimbFt !== null) {
+    lines.push(t('beyondAtcPanel.stepClimb.waitingForClimb', { level: flightLevel(status.waitingForClimbFt) }))
+  }
+  if (status.pastTopOfDescent) {
+    lines.push(t('beyondAtcPanel.stepClimb.pastTopOfDescent'))
+  } else if (status.nextStep) {
+    lines.push(
+      t('beyondAtcPanel.stepClimb.next', {
+        level: flightLevel(status.nextStep.altitudeFt),
+        fix: status.nextStep.ident,
+        distance: status.nextStep.distanceNm
+      })
+    )
+  }
+  if (lines.length === 0) lines.push(t('beyondAtcPanel.stepClimb.watching'))
+  return (
+    <div className="flex flex-col text-xs text-muted-foreground">
+      {lines.map((line) => (
+        <span key={line}>{line}</span>
+      ))}
+    </div>
+  )
 }
 
 export function BeyondAtcRadios(props: BeyondAtcRadiosProps): React.JSX.Element {
@@ -313,7 +368,9 @@ export function BeyondAtcRadios(props: BeyondAtcRadiosProps): React.JSX.Element 
       <div className="flex flex-wrap gap-1.5">
         <AutoToggle label={t('beyondAtcPanel.settings.autoTune')} value={props.autoTune} onSet={props.onSetAutoTune} />
         <AutoToggle label={t('beyondAtcPanel.settings.autoRespond')} value={props.autoRespond} onSet={props.onSetAutoRespond} />
+        <AutoToggle label={t('beyondAtcPanel.settings.stepClimb')} value={props.stepClimb.enabled} onSet={props.onSetStepClimb} />
       </div>
+      <StepClimbStatusLine status={props.stepClimb} />
     </div>
   )
 }

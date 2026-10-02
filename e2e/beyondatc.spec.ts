@@ -74,6 +74,15 @@ test.describe('BeyondATC integration', () => {
 
       await page.getByRole('button', { name: 'Auto-tune: On' }).click()
       await expect.poll(() => server.receivedCommands.at(-1)).toBe('set_autotune: false')
+
+      // WingLog's own auto step climb (docs/plans/beyondatc-auto-step-climb.md) — a WingLog
+      // toggle, not a BeyondATC setting, so nothing is sent to BeyondATC by switching it on;
+      // the round trip is renderer → main StepClimbController → status event → renderer.
+      const commandsBefore = server.receivedCommands.length
+      await page.getByRole('button', { name: 'Auto step climb: Off' }).click()
+      await expect(page.getByRole('button', { name: 'Auto step climb: On' })).toBeVisible()
+      await expect(page.getByText('Watching for a step climb (SimBrief plan or FCU).')).toBeVisible()
+      expect(server.receivedCommands.length).toBe(commandsBefore)
     } finally {
       await cleanup()
       await server.stop()

@@ -206,6 +206,9 @@ export interface SimTelemetry {
   gearHandlePosition: number
   flapsHandleIndex: number
   parkingBrakeOn: boolean
+  /** Autopilot selected altitude (AUTOPILOT ALTITUDE LOCK VAR). Optional: flights captured
+   *  before it existed (replay fixtures) don't carry it. */
+  apSelectedAltitudeM?: number
   atcId: string
   atcModel: string
   title: string
@@ -958,6 +961,28 @@ export interface BeyondAtcFrequencyOption {
  *  docs/beyondatc-notes.md catalogues (DATIS, CPDLC code, settings, … aren't surfaced here;
  *  nothing needed by this panel). Unrecognised/unparsed wire keys are simply never reflected
  *  here, not an error. */
+/** WingLog's own BeyondATC auto step climb (flightdeck-backend's docs/plans/
+ *  beyondatc-auto-step-climb.md) — not a BeyondATC setting; WingLog asks for each new level. */
+export interface BeyondAtcStepClimbStatus {
+  enabled: boolean
+  /** The next SimBrief step above the cleared level, while tracking an OFP flight. */
+  nextStep: { ident: string; altitudeFt: number; distanceNm: number } | null
+  /** A request in progress, by level in feet. */
+  pendingAltitudeFt: number | null
+  /** An FCU level not in the plan, held back until the aircraft is actually climbing to it. */
+  waitingForClimbFt: number | null
+  /** Past SimBrief's top of descent — nothing more is asked for this flight. */
+  pastTopOfDescent: boolean
+  last: {
+    altitudeFt: number
+    outcome: 'granted' | 'unavailable' | 'noMenu' | 'notOffered' | 'noAnswer'
+    attempt: number
+    reason: 'simbrief' | 'fcu'
+    /** Two failures — this level won't be asked for again this flight. */
+    dropped: boolean
+  } | null
+}
+
 export interface BeyondAtcState {
   facility: BeyondAtcFacility | null
   com2: BeyondAtcCom2 | null
@@ -1456,7 +1481,10 @@ export const IpcChannels = {
   updatesStatus: 'updates:status',
   updatesCheckNow: 'updates:check-now',
   updatesSkipVersion: 'updates:skip-version',
-  updatesOpenRelease: 'updates:open-release'
+  updatesOpenRelease: 'updates:open-release',
+  beyondAtcGetStepClimb: 'beyondatc:get-step-climb',
+  beyondAtcStepClimb: 'beyondatc:step-climb',
+  beyondAtcSetStepClimb: 'beyondatc:set-step-climb'
 } as const
 
 export interface WingLogApi {
@@ -1877,4 +1905,8 @@ export interface WingLogApi {
   updatesSkipVersion: (version: string) => Promise<void>
   /** Opens the latest release's page — the URL main validated, never one from here. */
   updatesOpenRelease: () => Promise<void>
+  /** WingLog's auto step climb — see BeyondAtcStepClimbStatus. */
+  beyondAtcGetStepClimb: () => Promise<BeyondAtcStepClimbStatus>
+  onBeyondAtcStepClimb: (listener: (status: BeyondAtcStepClimbStatus) => void) => () => void
+  beyondAtcSetStepClimb: (enabled: boolean) => Promise<void>
 }

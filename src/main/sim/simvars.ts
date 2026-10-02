@@ -58,6 +58,10 @@ export const SIM_VARS = [
   { key: 'flapsHandleIndex', name: 'FLAPS HANDLE INDEX', unit: 'number', dataType: SimConnectDataType.INT32, read: (d) => d.readInt32() },
   // NOTE: word order corrected vs an earlier draft — confirmed against the MSFS 2024 SDK docs.
   { key: 'parkingBrakeOn', name: 'BRAKE PARKING POSITION', unit: 'bool', dataType: SimConnectDataType.INT32, read: asBool },
+  // The autopilot's selected altitude — confirmed live on the Fenix A320 to follow the FCU
+  // knob exactly, every 1,000 ft click (docs/beyondatc-notes.md, 2026-10-01). Drives the
+  // BeyondATC auto step climb's "the aircraft has started its step" trigger.
+  { key: 'apSelectedAltitudeM', name: 'AUTOPILOT ALTITUDE LOCK VAR', unit: 'meters', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
   { key: 'atcId', name: 'ATC ID', unit: null, dataType: SimConnectDataType.STRING32, read: (d) => d.readString32() },
   { key: 'atcModel', name: 'ATC MODEL', unit: null, dataType: SimConnectDataType.STRING32, read: (d) => d.readString32() },
   { key: 'title', name: 'TITLE', unit: null, dataType: SimConnectDataType.STRING128, read: (d) => d.readString128() },

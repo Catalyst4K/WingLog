@@ -10,6 +10,7 @@ import {
   type BeyondAtcTranscriptEntry,
   type UpdateSettings,
   type UpdateStatus,
+  type BeyondAtcStepClimbStatus,
   type DataFormat,
   type DispatchOpenSimBriefParams,
   type WingLogApi,
@@ -275,7 +276,14 @@ const api: WingLogApi = {
   },
   updatesCheckNow: () => ipcRenderer.invoke(IpcChannels.updatesCheckNow),
   updatesSkipVersion: (version: string) => ipcRenderer.invoke(IpcChannels.updatesSkipVersion, version),
-  updatesOpenRelease: () => ipcRenderer.invoke(IpcChannels.updatesOpenRelease)
+  updatesOpenRelease: () => ipcRenderer.invoke(IpcChannels.updatesOpenRelease),
+  beyondAtcGetStepClimb: () => ipcRenderer.invoke(IpcChannels.beyondAtcGetStepClimb),
+  onBeyondAtcStepClimb: (listener: (status: BeyondAtcStepClimbStatus) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, status: BeyondAtcStepClimbStatus): void => listener(status)
+    ipcRenderer.on(IpcChannels.beyondAtcStepClimb, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.beyondAtcStepClimb, handler)
+  },
+  beyondAtcSetStepClimb: (enabled: boolean) => ipcRenderer.invoke(IpcChannels.beyondAtcSetStepClimb, enabled)
 }
 
 contextBridge.exposeInMainWorld('winglog', api)

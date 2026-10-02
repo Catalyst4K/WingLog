@@ -20,6 +20,9 @@ function withWinglog(): void {
       frequencies: []
     }),
     onBeyondAtcState: vi.fn().mockReturnValue(() => {}),
+    beyondAtcGetStepClimb: vi.fn().mockResolvedValue({ enabled: false, nextStep: null, pendingAltitudeFt: null, waitingForClimbFt: null, pastTopOfDescent: false, last: null }),
+    onBeyondAtcStepClimb: vi.fn(() => () => {}),
+    beyondAtcSetStepClimb: vi.fn().mockResolvedValue(undefined),
     beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
     onBeyondAtcTranscript: vi.fn().mockReturnValue(() => {})
   } as unknown as WingLogApi

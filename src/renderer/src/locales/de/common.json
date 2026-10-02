@@ -751,7 +751,24 @@
       "atis": "ATIS",
       "center": "Center"
     },
+    "stepClimb": {
+      "pending": "{{level}} wird angefordert…",
+      "last": "{{level}}: {{outcome}}",
+      "dropped": "{{level}}: {{outcome}} – nach zwei Versuchen aufgegeben",
+      "next": "Nächste Stufe: {{level}} bei {{fix}}, {{distance}} NM",
+      "watching": "Wartet auf einen Stufensteigflug (SimBrief-Plan oder FCU).",
+      "waitingForClimb": "FCU {{level}} — warte auf Beginn des Steigflugs",
+      "pastTopOfDescent": "Top of Descent passiert — keine weiteren Anfragen auf diesem Flug.",
+      "outcome": {
+        "granted": "freigegeben",
+        "unavailable": "BeyondATC bietet keine Höhenanfrage an",
+        "noMenu": "keine Höhenliste von BeyondATC",
+        "notOffered": "Höhe nicht angeboten",
+        "noAnswer": "keine Freigabe von ATC"
+      }
+    },
     "settings": {
+      "stepClimb": "Auto-Stufensteigflug",
       "autoTune": "Auto-Einstellung",
       "autoRespond": "Auto-Antwort",
       "on": "An",

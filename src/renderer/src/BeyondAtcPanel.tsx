@@ -5,12 +5,15 @@ import type {
   BeyondAtcConnectionStatus,
   BeyondAtcSettings,
   BeyondAtcState,
+  BeyondAtcStepClimbStatus,
   BeyondAtcTranscriptEntry
 } from '@shared/ipc'
 import { BeyondAtcActions, BeyondAtcRadios } from './BeyondAtcControls'
 import { latestAtcInstruction, type AtcInstruction } from './beyondAtcInstruction'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+
+const STEP_CLIMB_OFF: BeyondAtcStepClimbStatus = { enabled: false, nextStep: null, pendingAltitudeFt: null, waitingForClimbFt: null, pastTopOfDescent: false, last: null }
 
 const EMPTY_STATE: BeyondAtcState = {
   facility: null,
@@ -237,6 +240,7 @@ export function BeyondAtcPanel(): React.JSX.Element {
   const [status, setStatus] = useState<BeyondAtcConnectionStatus>({ state: 'disconnected', lastError: null })
   const [state, setState] = useState<BeyondAtcState>(EMPTY_STATE)
   const [transcript, setTranscript] = useState<BeyondAtcTranscriptEntry[]>([])
+  const [stepClimb, setStepClimb] = useState<BeyondAtcStepClimbStatus>(STEP_CLIMB_OFF)
   const latestInstruction = useMemo(() => latestAtcInstruction(transcript), [transcript])
   // The action just pressed, until BeyondATC transmits it (Callum, 2026-10-02: a press
   // queued behind other traffic looked like it did nothing).
@@ -267,10 +271,13 @@ export function BeyondAtcPanel(): React.JSX.Element {
       // Our call is going out: it's no longer waiting.
       if (next.commsState?.mode === 'speaking') clearPendingAction()
     })
+    window.winglog.beyondAtcGetStepClimb().then(setStepClimb)
+    const unsubscribeStepClimb = window.winglog.onBeyondAtcStepClimb(setStepClimb)
     const unsubscribeTranscript = window.winglog.onBeyondAtcTranscript(setTranscript)
     return () => {
       unsubscribeStatus()
       unsubscribeState()
+      unsubscribeStepClimb()
       unsubscribeTranscript()
       if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current)
     }
@@ -314,6 +321,8 @@ export function BeyondAtcPanel(): React.JSX.Element {
             autoRespond={state.autoRespond}
             onSetAutoTune={(value) => window.winglog.beyondAtcSetAutoTune(value)}
             onSetAutoRespond={(value) => window.winglog.beyondAtcSetAutoRespond(value)}
+            stepClimb={stepClimb}
+            onSetStepClimb={(enabled) => window.winglog.beyondAtcSetStepClimb(enabled)}
           />
         </div>
         <div className="flex min-h-0 flex-col gap-4">

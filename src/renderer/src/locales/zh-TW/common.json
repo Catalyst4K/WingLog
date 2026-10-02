@@ -743,7 +743,24 @@
       "atis": "自動情報",
       "center": "區域管制"
     },
+    "stepClimb": {
+      "pending": "正在申請 {{level}}…",
+      "last": "{{level}}：{{outcome}}",
+      "dropped": "{{level}}：{{outcome}}——兩次嘗試後放棄",
+      "next": "下一階梯：{{fix}} 處 {{level}}，{{distance}} 海里",
+      "watching": "正在等待階梯爬升（SimBrief 計畫或 FCU）。",
+      "waitingForClimb": "FCU {{level}} — 等待開始爬升",
+      "pastTopOfDescent": "已過下降頂點 — 本次飛行不再發出請求。",
+      "outcome": {
+        "granted": "已許可",
+        "unavailable": "BeyondATC 未提供高度申請",
+        "noMenu": "BeyondATC 未給出高度列表",
+        "notOffered": "未提供該高度",
+        "noAnswer": "ATC 未給出許可"
+      }
+    },
     "settings": {
+      "stepClimb": "自動階梯爬升",
       "autoTune": "自動調頻",
       "autoRespond": "自動應答",
       "on": "開",
