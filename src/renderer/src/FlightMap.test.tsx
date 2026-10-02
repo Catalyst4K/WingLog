@@ -20,7 +20,7 @@ interface FakeMapInstance {
   container: HTMLElement
   style: string
   zoom: number
-  handlers: Record<string, (() => void)[]>
+  handlers: Record<string, ((e?: { originalEvent?: unknown }) => void)[]>
   sources: Record<string, { setData: ReturnType<typeof vi.fn> }>
   layers: Record<string, { paint?: Record<string, unknown>; layout?: Record<string, unknown>; filter?: unknown }>
   setFilter: ReturnType<typeof vi.fn>
@@ -121,7 +121,7 @@ vi.mock('maplibre-gl', () => {
     style: string
     center: unknown
     zoom: number
-    handlers: Record<string, (() => void)[]> = {}
+    handlers: Record<string, ((e?: { originalEvent?: unknown }) => void)[]> = {}
     sources: Record<string, FakeSource> = {}
     layers: Record<string, { paint?: Record<string, unknown>; layout?: Record<string, unknown>; filter?: unknown }> = {}
     dragPan = { enable: vi.fn(), disable: vi.fn() }
@@ -366,15 +366,14 @@ describe('FlightMap', () => {
     expect(notLive.map.handlers['moveend'] ?? []).toHaveLength(0)
   })
 
-  it('records camera state on moveend, and uses it (no forced FOLLOW_ZOOM) for the first live track point', async () => {
+  it('records camera state on moveend, and keeps a zoom the user chose (no forced FOLLOW_ZOOM) for the first live track point', async () => {
     const live = await renderReady({ route: [], trackPoints: [], live: true })
-    // Invoking the real handler exercises its body (records the map's current center/zoom
-    // into the module-level liveCameraState singleton) — must not throw.
-    expect(() => live.map.handlers['moveend']![0]()).not.toThrow()
+    // A wheel/pinch zoom (originalEvent set), then the moveend that records the camera.
+    live.map.handlers['zoomend']![0]!({ originalEvent: {} })
+    expect(() => live.map.handlers['moveend']![0]!()).not.toThrow()
 
-    // The first live track point arriving now sees a truthy liveCameraState (set just
-    // above, in this same module instance) and jumps straight to it with no explicit zoom,
-    // rather than forcing FOLLOW_ZOOM as it would on a genuinely fresh session.
+    // The first live track point arriving now sees the user's zoom (set just above, in this
+    // same module instance) and keeps it, only re-centring.
     await act(async () => {
       live.rerender({ route: [], trackPoints: [point()], live: true })
     })
@@ -428,6 +427,50 @@ describe('FlightMap', () => {
       const { map } = await renderReady({ route: ROUTE, trackPoints: [point({ onGround: true })], live: true })
       expect(map.fitBounds).not.toHaveBeenCalled()
       expect(map.jumpTo).toHaveBeenCalledWith({ center: [-0.5, 51], zoom: FOLLOW_ZOOM_GROUND })
+    })
+
+    it("doesn't remember a zoom the map picked itself — the aircraft is framed at ground zoom, not the route overview (2026-10-02)", async () => {
+      const { secondMap } = await mountTwice(
+        { route: ROUTE, trackPoints: [], live: true },
+        (map) => map.handlers['moveend']![0]!(), // the route fit's own moveend, no user zoom
+        { route: ROUTE, trackPoints: [point({ onGround: true })], live: true }
+      )
+      expect(secondMap.jumpTo).toHaveBeenCalledWith({ center: [-0.5, 51], zoom: FOLLOW_ZOOM_GROUND })
+    })
+
+    it('keeps a zoom chosen with the zoom buttons across a tab switch', async () => {
+      const user = userEvent.setup()
+      const { FlightMap, instances } = await loadFlightMap()
+      const view = render(<FlightMap route={[]} trackPoints={[]} live />)
+      await waitFor(() => expect(instances.length).toBe(1))
+      await act(async () => instances[0]!.fireStyleLoad())
+      await user.click(screen.getByRole('button', { name: 'Zoom in' }))
+      instances[0]!.handlers['moveend']![0]!()
+      view.unmount()
+
+      render(<FlightMap route={[]} trackPoints={[point({ onGround: true })]} live />)
+      await waitFor(() => expect(instances.length).toBe(2))
+      await act(async () => instances[1]!.fireStyleLoad())
+      expect(instances[1]!.jumpTo).toHaveBeenCalledWith({ center: [-0.5, 51] })
+    })
+
+    it("doesn't frame the route while the flight's track is still loading — no flash before jumping to the aircraft (2026-10-02)", async () => {
+      const { map, rerender } = await renderReady({ route: ROUTE, trackPoints: [], live: true, trackLoading: true })
+      expect(map.fitBounds).not.toHaveBeenCalled()
+
+      await act(async () => {
+        rerender({ route: ROUTE, trackPoints: [point({ onGround: true })], live: true, trackLoading: false })
+      })
+      expect(map.fitBounds).not.toHaveBeenCalled()
+      expect(map.jumpTo).toHaveBeenCalledWith({ center: [-0.5, 51], zoom: FOLLOW_ZOOM_GROUND })
+    })
+
+    it('frames the route once loading finds no flight to follow', async () => {
+      const { map, rerender } = await renderReady({ route: ROUTE, trackPoints: [], live: true, trackLoading: true })
+      await act(async () => {
+        rerender({ route: ROUTE, trackPoints: [], live: true, trackLoading: false })
+      })
+      expect(map.fitBounds).toHaveBeenCalledTimes(1)
     })
 
     it('remembers "Center on aircraft" being switched off across a tab switch', async () => {

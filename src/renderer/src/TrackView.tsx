@@ -102,6 +102,9 @@ export function TrackView(props: {
   const [flights, setFlights] = useState<Flight[]>([])
   const [active, setActive] = useState<ActiveTracking | null>(null)
   const [trackPoints, setTrackPoints] = useState<TrackPoint[]>([])
+  // Until the active flight's recorded track has loaded, the map holds off framing the route
+  // (FlightMap's trackLoading) — see there.
+  const [trackLoading, setTrackLoading] = useState(true)
   const [starting, setStarting] = useState(false)
   const [confirm, confirmDialog] = useConfirm()
   const [completedLabel, setCompletedLabel] = useState<string | null>(null)
@@ -136,10 +139,13 @@ export function TrackView(props: {
 
   useEffect(() => {
     reload()
-    window.winglog.trackingGetActive().then((a) => {
-      setActive(a)
-      if (a) window.winglog.trackPointList(a.flightId).then(setTrackPoints)
-    })
+    window.winglog
+      .trackingGetActive()
+      .then(async (a) => {
+        setActive(a)
+        if (a) setTrackPoints(await window.winglog.trackPointList(a.flightId))
+      })
+      .finally(() => setTrackLoading(false))
     const unsubscribe = window.winglog.onTrackingPoint((point) => {
       if (point.phase === 'shutdown') {
         // Auto-completed (as opposed to a manual "Finish & save") — clear the banner and
@@ -530,6 +536,7 @@ export function TrackView(props: {
           mapLanguage={props.mapLanguage}
           depIcao={realIcao(airports?.depIcao)}
           arrIcao={realIcao(airports?.arrIcao)}
+          trackLoading={trackLoading}
         />
       </div>
 
