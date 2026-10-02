@@ -1,4 +1,5 @@
 import type { ProcedureSelection } from '@shared/ipc'
+import { APPROACH_CLEARED, APPROACH_EXPECT, CLEARED_TO, RUNWAY, SID, STAR } from './atcPhrases'
 
 export interface AtcClearanceUpdate {
   fields: Partial<Pick<ProcedureSelection, 'departureRunway' | 'sidIdent' | 'starIdent' | 'approachIdent' | 'approachTransition'>>
@@ -7,11 +8,6 @@ export interface AtcClearanceUpdate {
    *  value is which fields it sets, not its exact phrasing. */
   summary: string
 }
-
-const DEPARTURE = /cleared to .*? via ([A-Z0-9]+) departure, runway (\d{1,2}[LRC]?),/i
-const STAR = /cleared ([A-Z0-9]+) arrival, runway (\d{1,2}[LRC]?)\.?/i
-const APPROACH_EXPECT = /expect the ([A-Z0-9-]+) approach runway (\d{1,2}[LRC]?)(?: with the ([A-Z0-9]+) transition)?/i
-const APPROACH_CLEARED = /cleared ([A-Z0-9-]+) approach runway (\d{1,2}[LRC]?)/i
 
 /** The confirmed real transform (docs/beyondatc-notes.md, "Identifier-matching question
  *  closed", 2026-09-28): the sim's own approach identifiers are space-separated with the
@@ -33,31 +29,37 @@ function reformatApproachIdent(type: string, runway: string): string {
  * 2026-09-28). BeyondATC's clearances are confirmed template-generated, not freeform.
  */
 export function parseAtcClearance(text: string): AtcClearanceUpdate | null {
-  const departure = DEPARTURE.exec(text)
-  if (departure) {
-    const [, sidIdent, departureRunway] = departure
-    return {
-      fields: { sidIdent, departureRunway },
-      summary: `SID ${sidIdent}, runway ${departureRunway}`
+  // A departure clearance: the SID and runway are each read on their own (atcPhrases.ts), so
+  // an unexpected word around one can't lose the other — "via the BIXAD2 departure" once
+  // lost both (YBBN, 2026-10-02).
+  if (CLEARED_TO.test(text)) {
+    const sidIdent = SID.exec(text)?.[1]
+    const departureRunway = RUNWAY.exec(text)?.[1]
+    if (sidIdent || departureRunway) {
+      return {
+        fields: { ...(sidIdent && { sidIdent }), ...(departureRunway && { departureRunway }) },
+        summary: [sidIdent && `SID ${sidIdent}`, departureRunway && `runway ${departureRunway}`].filter(Boolean).join(', ')
+      }
     }
   }
 
   const star = STAR.exec(text)
   if (star) {
-    const [, starIdent, runway] = star
+    const [, starIdent] = star
+    const runway = RUNWAY.exec(text)?.[1]
     // The runway is real (and shown in the summary) but ProcedureSelection has nowhere to
     // store an arrival runway independent of approachIdent — see approachRunway() in
     // route.ts. It's applied once the approach clearance arrives, not before.
     return {
       fields: { starIdent },
-      summary: `STAR ${starIdent}, runway ${runway}`
+      summary: runway ? `STAR ${starIdent}, runway ${runway}` : `STAR ${starIdent}`
     }
   }
 
   const expect = APPROACH_EXPECT.exec(text)
   if (expect) {
     const [, type, runway, transition] = expect
-    const approachIdent = reformatApproachIdent(type, runway)
+    const approachIdent = reformatApproachIdent(type!, runway!)
     return {
       fields: transition ? { approachIdent, approachTransition: transition } : { approachIdent },
       summary: transition ? `Approach ${approachIdent} via ${transition}` : `Approach ${approachIdent}`
@@ -67,7 +69,7 @@ export function parseAtcClearance(text: string): AtcClearanceUpdate | null {
   const cleared = APPROACH_CLEARED.exec(text)
   if (cleared) {
     const [, type, runway] = cleared
-    const approachIdent = reformatApproachIdent(type, runway)
+    const approachIdent = reformatApproachIdent(type!, runway!)
     // No transition in this sentence shape — the field is omitted, not nulled, so an
     // earlier-accepted transition (from the "expect..." message) survives.
     return {
