@@ -53,6 +53,8 @@ const RECONNECT_MAX_MS = 600
 const RECONNECT_BACKOFF_FACTOR = 1.6
 
 const MAX_SEARCH_LENGTH = 64
+// GSX's prompts ask for things like a fuel amount or a gate name; far above any real answer.
+const MAX_PROMPT_LENGTH = 256
 
 export const EMPTY_COMMAND_BAR: GsxRemoteCommandBar = { commands: [], simbrief: null, simbriefIconUri: null }
 
@@ -218,8 +220,10 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
    *  (`menu.js`: `cmd("command.run", { command: c.id })`). The confirm-before-restart
    *  behaviour is a UI concern (GsxRemotePanel), not enforced here, same as GSX's own
    *  client keeps it in menu.js rather than in its own transport layer. */
-  runCommand(id: GsxRemoteCommandId): void {
-    this.sendCommand('command.run', { command: id })
+  /** Only the ids GSX's command bar actually has — the value crosses from the renderer. */
+  runCommand(id: unknown): void {
+    if (id !== 'RELOAD_SIMBRIEF' && !STATIC_COMMANDS.some((c) => c.id === id)) return
+    this.sendCommand('command.run', { command: id as GsxRemoteCommandId })
   }
 
   start(): void {
@@ -247,7 +251,9 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
 
   /** Picks the menu entry at this index — the only interaction GSX's own menu model
    *  exposes (docs/gsx-notes.md). No-op if not connected. */
-  pickMenu(index: number): void {
+  /** An entry of the menu GSX is showing right now, by position. */
+  pickMenu(index: unknown): void {
+    if (!Number.isInteger(index) || (index as number) < 0 || (index as number) >= this.getMenu().entries.length) return
     this.sendCommand('menu.pick', { index })
   }
 
@@ -271,11 +277,13 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
     else this.sendCommand('menu.toggle')
   }
 
-  submitPrompt(gen: number, text: string): void {
-    this.sendCommand('input.submit', { gen, text })
+  submitPrompt(gen: unknown, text: unknown): void {
+    if (!Number.isInteger(gen) || typeof text !== 'string') return
+    this.sendCommand('input.submit', { gen, text: text.slice(0, MAX_PROMPT_LENGTH) })
   }
 
-  cancelPrompt(gen: number): void {
+  cancelPrompt(gen: unknown): void {
+    if (!Number.isInteger(gen)) return
     this.sendCommand('input.cancel', { gen })
   }
 

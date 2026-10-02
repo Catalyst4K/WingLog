@@ -61,6 +61,17 @@ interface BeyondAtcServiceEvents {
 
 const COMMS_MODES = new Set(['queued', 'ready', 'awaiting', 'speaking', 'request', 'traffic'])
 
+/** A VHF airband frequency as typed or picked ("118.850", "121.7"), trimmed, or null for
+ *  anything else — the value is sent on BeyondATC's protocol line as-is, so it's checked
+ *  rather than trusted. */
+export function validFrequency(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  if (!/^\d{3}(\.\d{1,3})?$/.test(trimmed)) return null
+  const mhz = Number(trimmed)
+  return mhz >= 118 && mhz < 137 ? trimmed : null
+}
+
 function parseJson(text: string): unknown {
   try {
     return JSON.parse(text)
@@ -208,28 +219,33 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
   }
 
   /** Fires the given entry from the live Actions list. No-op if not connected — same
-   *  guard `sendCommand` below already enforces. */
-  setAction(label: string): void {
+   *  guard `sendCommand` below already enforces. The label comes from the renderer (and, in
+   *  future, a LAN client), which isn't a security boundary: it must be one of the actions
+   *  BeyondATC is offering right now, so nothing else can be typed onto its protocol line. */
+  setAction(label: unknown): void {
+    if (typeof label !== 'string' || !this.state.actions.includes(label)) return
     this.sendCommand(`set_action: ${label}`)
   }
 
-  setFrequency(frequency: string): void {
-    this.sendCommand(`set_frequency: ${frequency}`)
+  setFrequency(frequency: unknown): void {
+    const valid = validFrequency(frequency)
+    if (valid) this.sendCommand(`set_frequency: ${valid}`)
   }
 
-  setFrequencyCom2(frequency: string): void {
-    this.sendCommand(`set_frequency_com2: ${frequency}`)
+  setFrequencyCom2(frequency: unknown): void {
+    const valid = validFrequency(frequency)
+    if (valid) this.sendCommand(`set_frequency_com2: ${valid}`)
   }
 
   /** Confirmed working two-way control, 2026-09-29 (docs/beyondatc-notes.md) — sends the
    *  real `set_autotune`/`set_autorespond` command, value lowercased by template
    *  interpolation same as the confirmed wire format expects. */
-  setAutoTune(value: boolean): void {
-    this.sendCommand(`set_autotune: ${value}`)
+  setAutoTune(value: unknown): void {
+    if (typeof value === 'boolean') this.sendCommand(`set_autotune: ${value}`)
   }
 
-  setAutoRespond(value: boolean): void {
-    this.sendCommand(`set_autorespond: ${value}`)
+  setAutoRespond(value: unknown): void {
+    if (typeof value === 'boolean') this.sendCommand(`set_autorespond: ${value}`)
   }
 
   start(): void {
@@ -257,6 +273,8 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
   }
 
   private sendCommand(text: string): void {
+    // Every command is one line of BeyondATC's text protocol.
+    if (/[\r\n]/.test(text)) return
     if (!this.ws || this.ws.readyState !== this.ws.OPEN) return
     this.ws.send(text)
   }
