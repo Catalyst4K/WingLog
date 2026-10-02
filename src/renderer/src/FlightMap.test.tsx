@@ -1278,6 +1278,24 @@ describe('FlightMap', () => {
         await waitFor(() => expect((lastLine(map) as [number, number][]).at(-1)).toEqual([0.02995, 51.32995]))
       })
 
+      it('draws the first half of a split arrival clearance, "taxi via …, hold short of runway …" (VHHH, 2026-10-02)', async () => {
+        // Real bug: after landing, "taxi via C7, Y, F, hold short of runway 07C." drew nothing.
+        // Here: at the stand end, cleared via D, B, A1 to hold short; traced to A1's hold short,
+        // at the arrival airport.
+        withTranscriptListener(NETWORK, [])
+        const user = userEvent.setup()
+        const { map, rerender } = await renderReady({ route: [], trackPoints: [], live: true, arrIcao: 'EGKB', telemetry: at(51.33, 0.03) })
+        await user.click(toggleButton())
+        await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
+        const winglog = (window as unknown as { winglog: { onBeyondAtcTranscript: ReturnType<typeof vi.fn> } }).winglog
+        const listener = winglog.onBeyondAtcTranscript.mock.calls.at(-1)![0] as (t: TranscriptEntry[]) => void
+        await act(async () => listener([{ speaker: 'atc', text: 'Test 230, taxi via D, B, A1, hold short of runway 27R.', ts: 3000 }]))
+        await act(async () => rerender({ route: [], trackPoints: [], live: true, arrIcao: 'EGKB', telemetry: at(51.33, 0.03) }))
+
+        await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible'))
+        expect((lastLine(map) as [number, number][]).at(-1)).toEqual([0.0335, 51.3335])
+      })
+
       it("draws a clearance given before Track was opened, without waiting for ATC's next line (YBBN, 2026-10-02)", async () => {
         withTranscriptListener(NETWORK, [CLEARANCE])
         const user = userEvent.setup()

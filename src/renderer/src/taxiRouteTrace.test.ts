@@ -5,6 +5,7 @@ import VHHH_RAW from './__fixtures__/vhhh-taxi-b8-b10.json'
 import VHHH_ARRIVAL_RAW from './__fixtures__/vhhh-taxi-arrival-j-h6-h-v-b.json'
 import YBBN_RAW from './__fixtures__/ybbn-taxi-c9-b9-a9.json'
 import ZJSY_RAW from './__fixtures__/zjsy-taxi-d-b7-a.json'
+import VHHH_HOLD_07C_RAW from './__fixtures__/vhhh-taxi-c7-y-f-hold-07c.json'
 
 // Real taxi networks (MSFS facility data), each trimmed to a box around one real clearance's
 // route. Rows: [startLat, startLon, endLat, endLon, name, startHoldShort, endHoldShort].
@@ -26,6 +27,7 @@ const YBBN = toSegments(YBBN_RAW)
 const VHHH_ARRIVAL = toSegments(VHHH_ARRIVAL_RAW)
 // The whole airport, so A's far ends are real ends rather than the edge of a trimmed box.
 const ZJSY = toSegments(ZJSY_RAW)
+const VHHH_HOLD_07C = toSegments(VHHH_HOLD_07C_RAW)
 
 function distanceM(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
   return Math.hypot((a.lat - b.lat) * 111_320, (a.lon - b.lon) * 111_320 * Math.cos((a.lat * Math.PI) / 180))
@@ -122,6 +124,21 @@ describe('traceTaxiRoute', () => {
     expect(namesDriven(ZJSY, route!)).toEqual(['D', 'B7', 'A'])
     const [endLon, endLat] = route!.at(-1)!
     expect(distanceM({ lat: endLat, lon: endLon }, runway08Hold)).toBeLessThan(5)
+  })
+
+  it('traces the real VHHH "taxi via C7, Y, F, hold short of runway 07C" to the hold short on F (2026-10-02)', () => {
+    // After landing 07L, the first half of a split clearance. F's only hold-short point is
+    // between 07L and 07C, ~195 m north of 07C's centreline. Traced the same way as a holding
+    // point, with the last taxiway (F) as the one to hold on.
+    const offC7 = { lat: 22.3267351, lon: 113.9016593 } // the top of C7, just off 07L
+    const holdShort07C = { lat: 22.32092, lon: 113.92363 }
+    const route = traceTaxiRoute({ segments: VHHH_HOLD_07C, taxiways: ['C7', 'Y', 'F'], holdingPoint: 'F', from: offC7 })
+
+    expect(route).not.toBeNull()
+    // Y reaches F through a short stretch the scenery calls D, which ATC doesn't name.
+    expect(namesDriven(VHHH_HOLD_07C, route!)).toEqual(['C7', 'Y', 'D', 'F'])
+    const [endLon, endLat] = route!.at(-1)!
+    expect(distanceM({ lat: endLat, lon: endLon }, holdShort07C)).toBeLessThan(5)
   })
 
   it('traces the real VHHH stand clearance "taxi to Stand N32 via J, H6, H, V, B" as far as joining B (2026-10-02)', () => {

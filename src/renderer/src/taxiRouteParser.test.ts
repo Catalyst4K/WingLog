@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseTaxiHoldingPoint, parseTaxiRoute, parseTaxiStand } from './taxiRouteParser'
+import { parseTaxiHoldShortRunway, parseTaxiHoldingPoint, parseTaxiRoute, parseTaxiStand } from './taxiRouteParser'
 
 describe('parseTaxiRoute', () => {
   it('parses a real departure taxi clearance', () => {
@@ -41,6 +41,25 @@ describe('parseTaxiRoute', () => {
 
   it('returns null for an empty string', () => {
     expect(parseTaxiRoute('')).toBeNull()
+  })
+})
+
+describe('a split arrival clearance, "taxi via …, hold short of runway …" (real, VHHH 2026-10-02)', () => {
+  const LINE = 'Hongkong Shuttle 251, taxi via C7, Y, F, hold short of runway 07C.'
+
+  it('reads the taxiways and the runway to hold short of', () => {
+    expect(parseTaxiRoute(LINE)).toEqual(['C7', 'Y', 'F'])
+    expect(parseTaxiHoldShortRunway(LINE)).toBe('07C')
+  })
+
+  it('has no holding point or stand of its own', () => {
+    expect(parseTaxiHoldingPoint(LINE)).toBeNull()
+    expect(parseTaxiStand(LINE)).toBeNull()
+  })
+
+  it('reads no hold-short runway from the other shapes', () => {
+    expect(parseTaxiHoldShortRunway('Hongkong Shuttle 251, taxi to holding point A, runway 08, via D, B7, A.')).toBeNull()
+    expect(parseTaxiHoldShortRunway('Hongkong Shuttle 251, holding short, runway 08.')).toBeNull()
   })
 })
 
