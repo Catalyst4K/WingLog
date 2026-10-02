@@ -164,7 +164,12 @@ export const flight = sqliteTable('flight', {
   // Soft-delete tombstone — see aircraft.deletedAt's comment for why. deleteFlight cascades
   // this to the flight's own landing/flightInvoice rows too (track_point, never synced,
   // stays hard-deleted as before).
-  deletedAt: text('deleted_at')
+  deletedAt: text('deleted_at'),
+  // The stand the aircraft finished at ("N32" at VHHH), found from the sim's own stand data
+  // when the flight completed (flightdeck-backend's docs/plans/stand-positions.md). Null for
+  // flights before this existed, or when no stand was within reach of the final position.
+  parkedStandIcao: text('parked_stand_icao'),
+  parkedStand: text('parked_stand')
 })
 
 // Local app settings — key/value so future milestones (map tile source, etc.) don't need
@@ -452,5 +457,21 @@ export const navdataTaxiSegment = sqliteTable('navdata_taxi_segment', {
   startHoldShort: integer('start_hold_short', { mode: 'boolean' }),
   endHoldShort: integer('end_hold_short', { mode: 'boolean' }),
   source: text('source', { enum: ['sim-facility'] }).notNull(),
+  fetchedAt: text('fetched_at').notNull()
+})
+
+// An airport's stands/gates from the sim (TAXI_PARKING, confirmed live 2026-10-02 — see
+// sim-facilities-fetch.ts's fetchStands). Fetched on demand, replaced wholesale per airport.
+export const navdataStand = sqliteTable('navdata_stand', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  icao: text('icao').notNull(),
+  /** As ATC says it: "N32", "79". */
+  name: text('name').notNull(),
+  nameCode: integer('name_code').notNull(),
+  number: integer('number').notNull(),
+  suffix: integer('suffix').notNull(),
+  headingDeg: real('heading_deg').notNull(),
+  lat: real('lat').notNull(),
+  lon: real('lon').notNull(),
   fetchedAt: text('fetched_at').notNull()
 })

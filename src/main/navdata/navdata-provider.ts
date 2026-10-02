@@ -1,3 +1,4 @@
+import type { NavdataStand } from '@shared/ipc'
 /**
  * Navdata provider interface (Phase 3, flightdeck-backend's docs/plans/
  * navdata-without-navigraph.md) — built behind this interface so a future Navigraph
@@ -94,4 +95,7 @@ export interface NavdataProvider {
   /** True once at least one refreshTaxiNetwork(icao) has completed for this ICAO. */
   hasTaxiNetwork(icao: string): boolean
   getTaxiNetwork(icao: string): NavdataTaxiSegment[]
+  /** An airport's stands: from the cache, or fetched from the sim (seconds) and cached on
+   *  first ask. Empty, never a rejection, when neither works (sim not running). */
+  getStands(icao: string): Promise<NavdataStand[]>
 }

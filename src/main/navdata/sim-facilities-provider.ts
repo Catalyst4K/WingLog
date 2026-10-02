@@ -6,12 +6,15 @@ import {
   listCachedProcedureLegs,
   listCachedProcedures,
   listCachedRunways,
+  listCachedStands,
   listCachedTaxiSegments,
   replaceAirportNavdata,
+  replaceAirportStands,
   replaceAirportTaxiSegments
 } from '../db/navdata-repo'
 import type { NavdataLeg, NavdataProcedureOption, NavdataProvider, NavdataRunway, NavdataTaxiSegment, ProcedureKind } from './navdata-provider'
-import { fetchAirportNavdata, fetchTaxiNetwork } from './sim-facilities-fetch'
+import type { NavdataStand } from '@shared/ipc'
+import { fetchAirportNavdata, fetchStands, fetchTaxiNetwork } from './sim-facilities-fetch'
 
 const APP_NAME = 'WingLog navdata'
 
@@ -83,5 +86,27 @@ export class SimFacilitiesProvider implements NavdataProvider {
 
   getTaxiNetwork(icao: string): NavdataTaxiSegment[] {
     return listCachedTaxiSegments(this.db, icao)
+  }
+
+  /** Airports already asked this session that turned out to have no stands — not re-asked
+   *  until restart (an empty result isn't cached in the table). */
+  private readonly noStands = new Set<string>()
+
+  async getStands(icao: string): Promise<NavdataStand[]> {
+    const cached = listCachedStands(this.db, icao)
+    if (cached.length > 0 || this.noStands.has(icao)) return cached
+    try {
+      const { handle } = await this.openSimConnect(APP_NAME, Protocol.SunRise)
+      try {
+        const stands = await fetchStands(handle, icao)
+        if (stands.length === 0) this.noStands.add(icao)
+        replaceAirportStands(this.db, icao, stands, new Date().toISOString())
+      } finally {
+        handle.close()
+      }
+    } catch {
+      return []
+    }
+    return listCachedStands(this.db, icao)
   }
 }

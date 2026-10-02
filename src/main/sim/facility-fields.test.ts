@@ -13,8 +13,7 @@ import {
   parseTaxiName,
   parseTaxiPath,
   parseTaxiPoint,
-  runwayIdent
-} from './facility-fields'
+  runwayIdent, standLabel } from './facility-fields'
 
 /** Builds a buffer via RawBuffer's own write* methods (the exact wire format SimConnect
  *  itself would produce), then rewinds it for reading — so these tests exercise the real
@@ -318,5 +317,16 @@ describe('biasToLatLon', () => {
     const closestToReal = Math.min(Math.abs(bearing - 25.64), Math.abs(reciprocal - 25.64))
     expect(closestToReal).toBeLessThan(0.5)
     expect(distance).toBeCloseTo(1800.8, -2)
+  })
+})
+
+describe('standLabel', () => {
+  it('names a stand the way ATC says it (real VHHH N32 and YBBN gate 79, 2026-10-02)', () => {
+    expect(standLabel(25, 32)).toBe('N32') // GATE_N
+    expect(standLabel(12, 4)).toBe('A4') // GATE_A
+    expect(standLabel(37, 1)).toBe('Z1') // GATE_Z
+    expect(standLabel(10, 79)).toBe('79') // GATE
+    expect(standLabel(1, 72)).toBe('72') // PARKING
+    expect(standLabel(5, 3)).toBe('3') // SE_PARKING
   })
 })

@@ -3,10 +3,11 @@ import type { NavdataLeg, NavdataProcedureOption, NavdataRunway, NavdataTaxiSegm
 import { runwayEndsFromCentre } from '../navdata/runway-geometry'
 import { visualApproachRunway } from '@shared/visual-approach'
 import { visualApproachLegs, visualApproachOptions } from '../navdata/visual-approach'
-import type { FetchedAirportNavdata, FetchedTaxiNetwork } from '../navdata/sim-facilities-fetch'
+import type { NavdataStand } from '@shared/ipc'
+import type { FetchedAirportNavdata, FetchedStand, FetchedTaxiNetwork } from '../navdata/sim-facilities-fetch'
 import type { ParsedLeg } from '../sim/facility-fields'
 import type { WingLogDb } from './client'
-import { navdataProcedure, navdataProcedureLeg, navdataRunway, navdataTaxiSegment } from './schema'
+import { navdataProcedure, navdataProcedureLeg, navdataRunway, navdataStand, navdataTaxiSegment } from './schema'
 
 /** Replaces every cached row for `icao` with what was just fetched — one transaction, so a
  *  mid-way failure can't leave a stale runway list next to a fresh procedure list. Matches
@@ -365,4 +366,25 @@ export function listCachedTaxiSegments(db: WingLogDb, icao: string): NavdataTaxi
       startHoldShort: row.startHoldShort ?? false,
       endHoldShort: row.endHoldShort ?? false
     }))
+}
+
+/** Same wholesale-per-airport replace as the taxi segments, its own table. */
+export function replaceAirportStands(db: WingLogDb, icao: string, stands: FetchedStand[], fetchedAt: string): void {
+  db.transaction((tx) => {
+    tx.delete(navdataStand).where(eq(navdataStand.icao, icao)).run()
+    for (const s of stands) {
+      tx.insert(navdataStand)
+        .values({ icao, name: s.name, nameCode: s.nameCode, number: s.number, suffix: s.suffix, headingDeg: s.headingDeg, lat: s.lat, lon: s.lon, fetchedAt })
+        .run()
+    }
+  })
+}
+
+export function listCachedStands(db: WingLogDb, icao: string): NavdataStand[] {
+  return db
+    .select()
+    .from(navdataStand)
+    .where(eq(navdataStand.icao, icao))
+    .all()
+    .map((row) => ({ name: row.name, number: row.number, suffix: row.suffix, headingDeg: row.headingDeg, lat: row.lat, lon: row.lon }))
 }

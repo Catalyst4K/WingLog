@@ -16,6 +16,7 @@ import {
   addTaxiPointFields,
   addTaxiPathFields,
   addTaxiNameFields,
+  addTaxiParkingFields,
   parseAirportHeader,
   parseAirportHeaderWithLatLon,
   parseRunway,
@@ -28,6 +29,8 @@ import {
   parseTaxiPoint,
   parseTaxiPath,
   parseTaxiName,
+  parseTaxiParking,
+  standLabel,
   biasToLatLon,
   type ParsedRunway,
   type ParsedLeg
@@ -472,5 +475,93 @@ export function fetchTaxiNetwork(handle: SimConnectConnection, icao: string): Pr
     handle.requestFacilityData(NavdataDefId.TAXI_PATHS_TYPE_1, NavdataDefId.TAXI_PATHS_TYPE_1, icao)
     handle.requestFacilityData(NavdataDefId.TAXI_PATHS_TYPE_4, NavdataDefId.TAXI_PATHS_TYPE_4, icao)
     handle.requestFacilityData(NavdataDefId.TAXI_NAMES, NavdataDefId.TAXI_NAMES, icao)
+  })
+}
+
+/** One stand/gate, positioned — see facility-fields.ts's ParsedTaxiParking. */
+export interface FetchedStand {
+  /** As ATC says it: "N32", "79". */
+  name: string
+  nameCode: number
+  number: number
+  suffix: number
+  headingDeg: number
+  lat: number
+  lon: number
+}
+
+/** Stands come back in seconds even at VHHH (359 of them, live 2026-10-02) — unlike the
+ *  taxi network, a fetch small enough to run on demand. */
+const STAND_FETCH_TIMEOUT_MS = 60_000
+
+/** Fetches an airport's stands/gates on an already-open connection. Its own definition, not
+ *  part of fetchTaxiNetwork, so it never waits on (or invalidates) a minutes-long taxi fetch. */
+export function fetchStands(handle: SimConnectConnection, icao: string): Promise<FetchedStand[]> {
+  addAirportIcaoLatLonFields((name) => handle.addToFacilityDefinition(NavdataDefId.TAXI_PARKINGS, name))
+  handle.addToFacilityDefinition(NavdataDefId.TAXI_PARKINGS, 'N_TAXI_PARKINGS')
+  handle.addToFacilityDefinition(NavdataDefId.TAXI_PARKINGS, 'OPEN TAXI_PARKING')
+  addTaxiParkingFields((name) => handle.addToFacilityDefinition(NavdataDefId.TAXI_PARKINGS, name))
+  handle.addToFacilityDefinition(NavdataDefId.TAXI_PARKINGS, 'CLOSE TAXI_PARKING')
+  handle.addToFacilityDefinition(NavdataDefId.TAXI_PARKINGS, 'CLOSE AIRPORT')
+
+  return new Promise((resolve, reject) => {
+    let reference: { lat: number; lon: number } | null = null
+    const stands: FetchedStand[] = []
+    let settled = false
+
+    const cleanup = (): void => {
+      clearTimeout(timeoutTimer)
+      handle.removeListener('facilityData', onFacilityData)
+      handle.removeListener('facilityDataEnd', onFacilityDataEnd)
+      handle.removeListener('facilityMinimalList', onFacilityMinimalList)
+      handle.removeListener('exception', onException)
+    }
+    const settle = (fn: () => void): void => {
+      if (settled) return
+      settled = true
+      cleanup()
+      fn()
+    }
+
+    function onFacilityData(recv: RecvFacilityData): void {
+      if (recv.userRequestId !== NavdataDefId.TAXI_PARKINGS) return
+      if (recv.type === FacilityDataType.AIRPORT) {
+        const header = parseAirportHeaderWithLatLon(recv.data)
+        reference ??= { lat: header.latitude, lon: header.longitude }
+        return
+      }
+      if (recv.type !== FacilityDataType.TAXI_PARKING || !reference) return
+      const p = parseTaxiParking(recv.data)
+      const position = biasToLatLon(reference.lat, reference.lon, p.biasX, p.biasZ)
+      stands.push({
+        name: standLabel(p.nameCode, p.number),
+        nameCode: p.nameCode,
+        number: p.number,
+        suffix: p.suffix,
+        headingDeg: p.headingDeg,
+        lat: position.latitude,
+        lon: position.longitude
+      })
+    }
+    function onFacilityDataEnd(recv: RecvFacilityDataEnd): void {
+      if (recv.userRequestId === NavdataDefId.TAXI_PARKINGS) settle(() => resolve(stands))
+    }
+    function onFacilityMinimalList(recv: RecvFacilityMinimalList): void {
+      // Same ambiguous-ICAO recovery as fetchAirportNavdata's own handler.
+      const region = recv.data[0]?.icao.region
+      if (recv.requestID !== NavdataDefId.TAXI_PARKINGS || !region) return
+      handle.requestFacilityData(NavdataDefId.TAXI_PARKINGS, NavdataDefId.TAXI_PARKINGS, icao, region)
+    }
+    function onException(recv: RecvException): void {
+      settle(() => reject(new Error(`SimConnect exception fetching ${icao} stands: ${recv.exceptionName} (index ${recv.index})`)))
+    }
+
+    handle.on('facilityData', onFacilityData)
+    handle.on('facilityDataEnd', onFacilityDataEnd)
+    handle.on('facilityMinimalList', onFacilityMinimalList)
+    handle.on('exception', onException)
+    const timeoutTimer = setTimeout(() => settle(() => reject(new Error(`Stand fetch for ${icao} timed out`))), STAND_FETCH_TIMEOUT_MS)
+
+    handle.requestFacilityData(NavdataDefId.TAXI_PARKINGS, NavdataDefId.TAXI_PARKINGS, icao)
   })
 }

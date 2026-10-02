@@ -26,9 +26,11 @@ import {
   listCompletedFlights,
   listFlights,
   listFlightsByAircraft,
+  listLastParkedByAircraft,
   recordOff,
   recordOn,
   setArrIcao,
+  setParkedStand,
   setSelectedProcedures,
   startFlight
 } from './flight-repo'
@@ -693,6 +695,38 @@ describe('flight repo', () => {
         (greatCircleDistanceNm('EGLL', 'EGCC') ?? 0) + (greatCircleDistanceNm('EGLL', 'EGPH') ?? 0)
       expect(stats.totalNm).toBeCloseTo(expectedNm)
       expect(stats.totalNm).toBeGreaterThan(0)
+    })
+  })
+
+  describe('parked stand (stand-positions.md)', () => {
+    function completed(dep: string, arr: string, inUtc: string): number {
+      const f = createFlight(db, { aircraftId, depIcao: dep, arrIcao: arr })
+      startFlight(db, f.id, 10000)
+      completeFlight(db, f.id, 4000)
+      db.update(flightTable).set({ actualInUtc: inUtc }).where(eq(flightTable.id, f.id)).run()
+      return f.id
+    }
+
+    it("gives each aircraft its latest flight's stand, skipping deleted flights and flights with none", () => {
+      const older = completed('YBBN', 'VHHH', '2026-10-02T08:00:00Z')
+      setParkedStand(db, older, 'VHHH', 'N32')
+      const newer = completed('VHHH', 'YBBN', '2026-10-03T08:00:00Z')
+      setParkedStand(db, newer, 'YBBN', '79')
+      completed('YBBN', 'YSSY', '2026-10-04T08:00:00Z') // no stand found for this one
+
+      expect(listLastParkedByAircraft(db)).toEqual([{ aircraftId, icao: 'YBBN', stand: '79' }])
+
+      deleteFlight(db, newer)
+      expect(listLastParkedByAircraft(db)).toEqual([{ aircraftId, icao: 'VHHH', stand: 'N32' }])
+    })
+
+    it('bumps updatedAt so the stand syncs', () => {
+      const id = completed('YBBN', 'VHHH', '2026-10-02T08:00:00Z')
+      db.update(flightTable).set({ updatedAt: '2000-01-01T00:00:00.000Z' }).where(eq(flightTable.id, id)).run()
+      setParkedStand(db, id, 'VHHH', 'N32')
+      const row = db.select().from(flightTable).where(eq(flightTable.id, id)).get()!
+      expect(row).toMatchObject({ parkedStandIcao: 'VHHH', parkedStand: 'N32' })
+      expect(row.updatedAt! > '2000-01-01').toBe(true)
     })
   })
 })

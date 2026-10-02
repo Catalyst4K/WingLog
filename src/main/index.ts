@@ -58,6 +58,8 @@ import {
   deleteFlight,
   getFleetStats,
   getFlight,
+  listLastParkedByAircraft,
+  setParkedStand,
   getInProgressFlight,
   getLogbookStats,
   listCompletedFlights,
@@ -123,6 +125,7 @@ import { SimAirfieldResolver } from './airports/sim-airfield'
 import { TrackingController } from './tracking/TrackingController'
 import { AutoStartDetector } from './tracking/AutoStartDetector'
 import { CloudSyncController } from './sync/cloud-sync-controller'
+import { recordParkedStand } from './tracking/parked-stand'
 
 /**
  * A blank/unresolved depIcao or arrIcao from the free-flight dialog becomes 'ZZZZ' — ICAO's
@@ -1005,6 +1008,23 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.navdataGetTaxiNetwork, (_event, icao: string) =>
         navdataProvider.getTaxiNetwork(icao)
       )
+      ipcMain.handle(IpcChannels.navdataGetStands, (_event, icao: unknown) =>
+        typeof icao === 'string' && /^[A-Z0-9]{3,4}$/i.test(icao) ? navdataProvider.getStands(icao.toUpperCase()) : []
+      )
+      ipcMain.handle(IpcChannels.fleetListLastParked, () => listLastParkedByAircraft(db))
+      // Where each flight finished (stand-positions.md) — after completion, best effort.
+      trackingController.on('completed', (flightId: number) => {
+        const telemetry = simConnectService.getLastTelemetry()
+        void recordParkedStand(
+          {
+            getArrivalIcao: (id) => getFlight(db, id)?.arrIcao ?? null,
+            getStands: (icao) => navdataProvider.getStands(icao),
+            setParkedStand: (id, icao, stand) => setParkedStand(db, id, icao, stand)
+          },
+          flightId,
+          telemetry ? { lat: telemetry.latitude, lon: telemetry.longitude } : null
+        ).catch((err: unknown) => console.warn('parked stand not recorded:', err))
+      })
 
       // CI packaging check (see .github/workflows/package.yml): proves the built
       // binary launches, migrates the DB and renders a first frame, then exits

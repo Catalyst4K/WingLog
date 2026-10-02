@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { and, desc, eq, isNull, or } from 'drizzle-orm'
-import type { Flight, FleetStats, LogbookStats, NewFlight, ProcedureSelection } from '@shared/ipc'
+import { and, desc, eq, isNotNull, isNull, or } from 'drizzle-orm'
+import type { AircraftLastParked, Flight, FleetStats, LogbookStats, NewFlight, ProcedureSelection } from '@shared/ipc'
 import { greatCircleDistanceNm } from '../airports/airport-search'
 import { rememberAircraftForTitle } from './settings-repo'
 import { aircraft, flight, flightInvoice, landing, trackPoint } from './schema'
@@ -588,4 +588,25 @@ export function getFlightIdByUuid(db: WingLogDb, uuid: string): number | undefin
  *  (not its local id, meaningless remotely) to serialize landing/flightInvoice's flightId. */
 export function getFlightUuidById(db: WingLogDb, id: number): string | null | undefined {
   return db.select({ uuid: flight.uuid }).from(flight).where(eq(flight.id, id)).get()?.uuid
+}
+
+/** Where the aircraft finished (stand-positions.md) — written once, after completion. */
+export function setParkedStand(db: WingLogDb, id: number, icao: string, stand: string): void {
+  db.update(flight).set({ parkedStandIcao: icao, parkedStand: stand, updatedAt: new Date().toISOString() }).where(eq(flight.id, id)).run()
+}
+
+/** Each fleet aircraft's latest completed (not deleted) flight that recorded a stand. */
+export function listLastParkedByAircraft(db: WingLogDb): AircraftLastParked[] {
+  const rows = db
+    .select({ aircraftId: flight.aircraftId, icao: flight.parkedStandIcao, stand: flight.parkedStand })
+    .from(flight)
+    .where(and(eq(flight.status, 'completed'), isNull(flight.deletedAt), isNotNull(flight.aircraftId), isNotNull(flight.parkedStand)))
+    .orderBy(desc(flight.actualInUtc), desc(flight.id))
+    .all()
+  const latest = new Map<number, AircraftLastParked>()
+  for (const row of rows) {
+    if (row.aircraftId === null || row.icao === null || row.stand === null || latest.has(row.aircraftId)) continue
+    latest.set(row.aircraftId, { aircraftId: row.aircraftId, icao: row.icao, stand: row.stand })
+  }
+  return [...latest.values()]
 }
