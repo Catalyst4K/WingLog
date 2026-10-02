@@ -540,6 +540,14 @@
   "trackView": {
     "flightNum": "航班号：",
     "title": "追踪",
+    "times": {
+      "et": "已飞",
+      "remaining": "剩余",
+      "eta": "预计到达",
+      "etaPlanned": "预计到达（计划）",
+      "vsSchedule": "{{value}} 分钟",
+      "onTime": "准点"
+    },
     "phase": "阶段：",
     "cancelFlight": "取消航班",
     "finishAndSave": "结束并保存",

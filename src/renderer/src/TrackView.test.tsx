@@ -269,6 +269,7 @@ function buildWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     navdataRefreshTaxiNetwork: vi.fn().mockResolvedValue(undefined),
     navdataHasTaxiNetwork: vi.fn().mockResolvedValue(false),
     navdataGetTaxiNetwork: vi.fn().mockResolvedValue([]),
+    logbookGreatCircleRoute: vi.fn().mockResolvedValue(null),
     ...overrides
   } as WingLogApi
 }
@@ -342,6 +343,50 @@ function pushTelemetry(
 describe('TrackView', () => {
   afterEach(async () => {
     await i18n.changeLanguage('en')
+  })
+
+  describe('ET, time remaining and ETA (track-time-readouts.md)', () => {
+    /** The value shown after a readout's label (the label's own monospaced child). */
+    const readout = (label: string): Element | null => screen.getByText(label).querySelector('.font-mono')
+
+    it('on the ground before takeoff: no ET or time remaining, and the planned arrival as the ETA', async () => {
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([]),
+        flightList: vi.fn().mockResolvedValue([makeFlight({ id: 5, status: 'active', ofpJson: '{}', schedInUtc: '2026-10-02T07:15:00Z' })]),
+        trackingGetActive: vi.fn().mockResolvedValue({ flightId: 5, phase: 'taxi' })
+      })
+      renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 8 }) })
+
+      expect(await screen.findByText('ETA (planned)')).toBeInTheDocument()
+      expect(screen.getByText('07:15Z')).toBeInTheDocument()
+      expect(readout('ET')).toHaveTextContent('--:--')
+      expect(readout('Remaining')).toHaveTextContent('--:--')
+    })
+
+    it('in flight on a free flight: ET since takeoff, and an estimate along the great-circle route', async () => {
+      // VHHH → EGLL, taken off 2 h 05 m 30 s ago; over the Caspian at ~486 kt.
+      const takenOff = new Date(Date.now() - (2 * 3600 + 5 * 60 + 30) * 1000).toISOString()
+      const logbookGreatCircleRoute = vi.fn().mockResolvedValue([
+        [113.918, 22.308],
+        [-0.461, 51.4775]
+      ])
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([]),
+        flightList: vi.fn().mockResolvedValue([
+          makeFlight({ id: 5, status: 'active', ofpJson: null, depIcao: 'VHHH', arrIcao: 'EGLL', actualOffUtc: takenOff })
+        ]),
+        trackingGetActive: vi.fn().mockResolvedValue({ flightId: 5, phase: 'cruise' }),
+        logbookGreatCircleRoute
+      })
+      renderTrack({ telemetry: makeTelemetry({ onGround: false, groundSpeedMs: 250, latitude: 42, longitude: 50 }) })
+
+      await waitFor(() => expect(readout('Remaining')).not.toHaveTextContent('--:--'))
+      expect(logbookGreatCircleRoute).toHaveBeenCalledWith('VHHH', 'EGLL')
+      expect(readout('ET')).toHaveTextContent('2:05')
+      expect(readout('Remaining')?.textContent).toMatch(/^\d+:\d\d$/)
+      expect(readout('ETA')?.textContent).toMatch(/^\d\d:\d\dZ$/)
+      expect(screen.queryByText('ETA (planned)')).not.toBeInTheDocument()
+    })
   })
 
   it('renders its title and free-flight card in the active i18next language, not a hardcoded English string', async () => {
