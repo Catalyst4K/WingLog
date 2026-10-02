@@ -1,6 +1,8 @@
 /**
  * METAR lookup via aviationweather.gov's public Data API (NOAA/NWS Aviation Weather
- * Center) — free, keyless, no documented rate limit, and a genuine public-domain US
+ * Center) — free, keyless, and a genuine public-domain US government data source. Its usage
+ * guidance (aviationweather.gov/data/api, read 2026-10-02) caps clients at 100 requests a
+ * minute and asks each to send its own User-Agent, which every request here does. A public-domain US
  * government data source (docs/decisions.md, 2026-09-02 Track METAR entry). Verified
  * against real live responses, not just its docs:
  *
@@ -28,12 +30,21 @@ function isFlightCategory(value: unknown): value is MetarReport['flightCategory'
   return value === 'VFR' || value === 'MVFR' || value === 'IFR' || value === 'LIFR'
 }
 
-export async function fetchMetars(icaoCodes: string[]): Promise<MetarReport[]> {
-  const codes = [...new Set(icaoCodes.map((c) => c.trim().toUpperCase()).filter(Boolean))]
+export async function fetchMetars(icaoCodes: unknown, userAgent = 'WingLog'): Promise<MetarReport[]> {
+  // From the renderer: only ICAO-shaped strings go into the query.
+  if (!Array.isArray(icaoCodes)) return []
+  const codes = [
+    ...new Set(
+      icaoCodes
+        .filter((c): c is string => typeof c === 'string')
+        .map((c) => c.trim().toUpperCase())
+        .filter((c) => /^[A-Z0-9]{3,4}$/.test(c))
+    )
+  ]
   if (codes.length === 0) return []
 
   const url = `https://aviationweather.gov/api/data/metar?ids=${encodeURIComponent(codes.join(','))}&format=json`
-  const response = await fetch(url)
+  const response = await fetch(url, { headers: { 'User-Agent': userAgent } })
   if (response.status === 204) return []
   if (!response.ok) {
     throw new MetarError(`METAR lookup failed (HTTP ${response.status}) for ${codes.join(', ')}`)

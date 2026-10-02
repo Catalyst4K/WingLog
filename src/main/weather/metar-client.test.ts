@@ -60,6 +60,23 @@ describe('fetchMetars', () => {
     ])
   })
 
+  it("identifies itself with a User-Agent, as aviationweather.gov's usage guidance asks", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, status: 200, json: async () => REAL_RESPONSE }))
+    vi.stubGlobal('fetch', fetchMock)
+    await fetchMetars(['EGLL'], 'WingLog/1.4.0')
+    expect(fetchMock).toHaveBeenCalledWith('https://aviationweather.gov/api/data/metar?ids=EGLL&format=json', {
+      headers: { 'User-Agent': 'WingLog/1.4.0' }
+    })
+  })
+
+  it('only queries ICAO-shaped codes from the renderer', async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, status: 200, json: async () => [] }))
+    vi.stubGlobal('fetch', fetchMock)
+    await fetchMetars(['egll', 'YBBN', 'EGLL&ids=X', 42, ''])
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('ids=EGLL%2CYBBN&'), expect.anything())
+    expect(await fetchMetars('EGLL')).toEqual([])
+  })
+
   it('returns an empty array without calling fetch when given no codes', async () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
@@ -74,9 +91,7 @@ describe('fetchMetars', () => {
 
     await fetchMetars(['egll', 'EGLL', ' kjfk '])
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining('ids=EGLL%2CKJFK')
-    )
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('ids=EGLL%2CKJFK'), expect.anything())
   })
 
   it('returns an empty array (not an error) for HTTP 204 — every code unknown/non-reporting', async () => {

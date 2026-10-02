@@ -997,7 +997,9 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.airportListAirfields, () => listAirfields())
       ipcMain.handle(IpcChannels.airlineSearch, (_event, query: string) => searchAirlines(query))
       ipcMain.handle(IpcChannels.airlineFindByIcao, (_event, icao: string) => findAirlineByIcao(icao))
-      ipcMain.handle(IpcChannels.weatherGetMetars, (_event, icaoCodes: string[]) => fetchMetars(icaoCodes))
+      ipcMain.handle(IpcChannels.weatherGetMetars, (_event, icaoCodes: unknown) =>
+        fetchMetars(icaoCodes, `WingLog/${app.getVersion()}`)
+      )
       ipcMain.handle(IpcChannels.fxGetRate, (_event, targetCurrency: string, date?: string) =>
         fetchExchangeRate(targetCurrency, date)
       )
