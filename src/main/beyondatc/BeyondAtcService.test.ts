@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { BEYONDATC_PORT, BeyondAtcService, EMPTY_STATE, type WebSocketCtor } from './BeyondAtcService'
+import { BEYONDATC_PORT, BeyondAtcService, EMPTY_STATE, validFrequency, type WebSocketCtor } from './BeyondAtcService'
 
 /** A minimal WHATWG-WebSocket-shaped double, driven manually from tests — same reasoning as
  *  GsxRemoteService.test.ts's FakeWebSocket, but `simulateLine` sends plain text instead of
@@ -337,6 +337,7 @@ describe('BeyondAtcService', () => {
     const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
     service.start()
     instances[0].simulateOpen()
+    instances[0].simulateLine('Actions: [Request IFR Clearance¬Radio Check¬]')
     instances[0].sent.length = 0 // clear the automatic `frequencies` request from open, above
 
     service.setAction('Radio Check')
@@ -353,6 +354,63 @@ describe('BeyondAtcService', () => {
       'set_autorespond: true'
     ])
     service.stop()
+  })
+
+  it('only sends an action BeyondATC is offering right now, and only as one protocol line', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
+    service.start()
+    instances[0].simulateOpen()
+    // Real capture, 2026-09-25.
+    instances[0].simulateLine('Actions: [Request IFR Clearance¬Request Departure Runway Change¬Radio Check¬]')
+    instances[0].sent.length = 0
+
+    service.setAction('Request Taxi') // not on offer right now
+    service.setAction('Radio Check\nset_frequency: 121.500') // a second line smuggled in
+    service.setAction(42)
+    service.setAction(undefined)
+    service.setAction('x'.repeat(10_000))
+    expect(instances[0].sent).toEqual([])
+
+    service.setAction('Request IFR Clearance')
+    expect(instances[0].sent).toEqual(['set_action: Request IFR Clearance'])
+    service.stop()
+  })
+
+  it('only sends a real airband frequency, and only a boolean for AutoTune/AutoRespond', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
+    service.start()
+    instances[0].simulateOpen()
+    instances[0].sent.length = 0
+
+    service.setFrequency('121.7\nset_action: Radio Check')
+    service.setFrequency(121.7)
+    service.setFrequencyCom2('hello')
+    service.setAutoTune('true')
+    service.setAutoRespond(1)
+    expect(instances[0].sent).toEqual([])
+
+    service.setFrequency(' 121.7 ')
+    service.setFrequencyCom2('122.800')
+    service.setAutoTune(true)
+    expect(instances[0].sent).toEqual(['set_frequency: 121.7', 'set_frequency_com2: 122.800', 'set_autotune: true'])
+    service.stop()
+  })
+
+  it('accepts VHF airband frequencies as typed and rejects everything else', () => {
+    // Real values: YBBN delivery/ground and VHHH tower, 2026-10-02, plus a bare MHz.
+    expect(validFrequency('118.850')).toBe('118.850')
+    expect(validFrequency('121.7')).toBe('121.7')
+    expect(validFrequency('122.825')).toBe('122.825')
+    expect(validFrequency('136.975')).toBe('136.975')
+    expect(validFrequency('121')).toBe('121')
+    expect(validFrequency('117.950')).toBeNull() // VOR band, below the comm band
+    expect(validFrequency('137.000')).toBeNull()
+    expect(validFrequency('121.7255')).toBeNull()
+    expect(validFrequency('121,7')).toBeNull()
+    expect(validFrequency('')).toBeNull()
+    expect(validFrequency(null)).toBeNull()
   })
 
   it('does not send a command while disconnected', () => {

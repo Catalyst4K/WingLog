@@ -14,7 +14,6 @@ import {
   type DispatchOfp,
   type DispatchOpenSimBriefParams,
   type BeyondAtcSettings,
-  type GsxRemoteCommandId,
   type GsxRemoteSettings,
   type GsxSettings,
   type LandingDistanceUnit,
@@ -813,14 +812,14 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.gsxRemoteGetMenu, () => gsxRemoteService?.getMenu() ?? EMPTY_MENU)
       ipcMain.handle(IpcChannels.gsxRemoteGetPrompt, () => gsxRemoteService?.getPrompt() ?? null)
       ipcMain.handle(IpcChannels.gsxRemoteGetCommandBar, () => gsxRemoteService?.getCommandBar() ?? EMPTY_COMMAND_BAR)
-      ipcMain.handle(IpcChannels.gsxRemotePickMenu, (_event, index: number) => gsxRemoteService?.pickMenu(index))
+      ipcMain.handle(IpcChannels.gsxRemotePickMenu, (_event, index: unknown) => gsxRemoteService?.pickMenu(index))
       ipcMain.handle(IpcChannels.gsxRemoteSearch, (_event, text: unknown) => gsxRemoteService?.search(text))
       ipcMain.handle(IpcChannels.gsxRemoteToggleMenu, () => gsxRemoteService?.toggleMenu())
-      ipcMain.handle(IpcChannels.gsxRemoteSubmitPrompt, (_event, gen: number, text: string) =>
+      ipcMain.handle(IpcChannels.gsxRemoteSubmitPrompt, (_event, gen: unknown, text: unknown) =>
         gsxRemoteService?.submitPrompt(gen, text)
       )
-      ipcMain.handle(IpcChannels.gsxRemoteCancelPrompt, (_event, gen: number) => gsxRemoteService?.cancelPrompt(gen))
-      ipcMain.handle(IpcChannels.gsxRemoteRunCommand, (_event, id: GsxRemoteCommandId) => gsxRemoteService?.runCommand(id))
+      ipcMain.handle(IpcChannels.gsxRemoteCancelPrompt, (_event, gen: unknown) => gsxRemoteService?.cancelPrompt(gen))
+      ipcMain.handle(IpcChannels.gsxRemoteRunCommand, (_event, id: unknown) => gsxRemoteService?.runCommand(id))
 
       // BeyondATC integration (flightdeck-backend's docs/plans/beyondatc-integration.md;
       // live protocol confirmed docs/beyondatc-notes.md, 2026-09-25). Off by default,
@@ -855,13 +854,13 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.beyondAtcGetStatus, () => beyondAtcService?.getStatus() ?? { state: 'disconnected', lastError: null })
       ipcMain.handle(IpcChannels.beyondAtcGetState, () => beyondAtcService?.getState() ?? BEYONDATC_EMPTY_STATE)
       ipcMain.handle(IpcChannels.beyondAtcGetTranscript, () => beyondAtcService?.getTranscript() ?? [])
-      ipcMain.handle(IpcChannels.beyondAtcSetAction, (_event, label: string) => beyondAtcService?.setAction(label))
-      ipcMain.handle(IpcChannels.beyondAtcSetFrequency, (_event, frequency: string) => beyondAtcService?.setFrequency(frequency))
-      ipcMain.handle(IpcChannels.beyondAtcSetFrequencyCom2, (_event, frequency: string) =>
+      ipcMain.handle(IpcChannels.beyondAtcSetAction, (_event, label: unknown) => beyondAtcService?.setAction(label))
+      ipcMain.handle(IpcChannels.beyondAtcSetFrequency, (_event, frequency: unknown) => beyondAtcService?.setFrequency(frequency))
+      ipcMain.handle(IpcChannels.beyondAtcSetFrequencyCom2, (_event, frequency: unknown) =>
         beyondAtcService?.setFrequencyCom2(frequency)
       )
-      ipcMain.handle(IpcChannels.beyondAtcSetAutoTune, (_event, value: boolean) => beyondAtcService?.setAutoTune(value))
-      ipcMain.handle(IpcChannels.beyondAtcSetAutoRespond, (_event, value: boolean) => beyondAtcService?.setAutoRespond(value))
+      ipcMain.handle(IpcChannels.beyondAtcSetAutoTune, (_event, value: unknown) => beyondAtcService?.setAutoTune(value))
+      ipcMain.handle(IpcChannels.beyondAtcSetAutoRespond, (_event, value: unknown) => beyondAtcService?.setAutoRespond(value))
 
       ipcMain.handle(IpcChannels.logbookOpenOfpPdf, async (_event, flightId: number) => {
         const flight = getFlight(db, flightId)

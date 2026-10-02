@@ -316,11 +316,37 @@ describe('GsxRemoteService', () => {
     const service = new GsxRemoteService('localhost', 8744, ctor)
     service.start()
     instances[0].simulateOpen()
+    instances[0].simulateMessage({ v: 1, type: 'snapshot', ts: 1, services: [], menu: RAW_MENU, menuShown: true, prompt: null })
+    instances[0].sent = []
+
+    service.pickMenu(1)
+
+    expect(instances[0].sent).toEqual([{ type: 'command', verb: 'menu.pick', args: { index: 1 } }])
+    service.stop()
+  })
+
+  it('only picks an entry the menu on screen actually has, and checks prompt/command input', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new GsxRemoteService('localhost', 8744, ctor)
+    service.start()
+    instances[0].simulateOpen()
+    // RAW_MENU has two entries.
+    instances[0].simulateMessage({ v: 1, type: 'snapshot', ts: 1, services: [], menu: RAW_MENU, menuShown: true, prompt: null })
     instances[0].sent = []
 
     service.pickMenu(2)
+    service.pickMenu(-1)
+    service.pickMenu(0.5)
+    service.pickMenu('0')
+    service.submitPrompt('3', 'Gate 1')
+    service.submitPrompt(3, 42)
+    service.cancelPrompt(null)
+    service.runCommand('FORMAT_C')
+    service.runCommand({ id: 'RESTART_COUATL' })
+    expect(instances[0].sent).toEqual([])
 
-    expect(instances[0].sent).toEqual([{ type: 'command', verb: 'menu.pick', args: { index: 2 } }])
+    service.submitPrompt(3, 'x'.repeat(1000))
+    expect(instances[0].sent).toEqual([{ type: 'command', verb: 'input.submit', args: { gen: 3, text: 'x'.repeat(256) } }])
     service.stop()
   })
 
