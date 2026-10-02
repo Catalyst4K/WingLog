@@ -10,6 +10,7 @@ import type {
 } from '@shared/ipc'
 import { BeyondAtcActions, BeyondAtcRadios } from './BeyondAtcControls'
 import { latestAtcInstruction, type AtcInstruction } from './beyondAtcInstruction'
+import { useLiveClient, useLiveTopic } from './live/LiveClient'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
@@ -234,13 +235,18 @@ function TranscriptCard(props: { entries: BeyondAtcTranscriptEntry[] }): React.J
  * here, not just style preference. `BeyondAtcView`'s `h-full` root is what gives this whole
  * area a real, window-bounded height to work with in the first place.
  */
+const DISCONNECTED: BeyondAtcConnectionStatus = { state: 'disconnected', lastError: null }
+const NO_TRANSCRIPT: BeyondAtcTranscriptEntry[] = []
+
 export function BeyondAtcPanel(): React.JSX.Element {
   const { t } = useTranslation()
   const [settings, setSettings] = useState<BeyondAtcSettings | null>(null)
-  const [status, setStatus] = useState<BeyondAtcConnectionStatus>({ state: 'disconnected', lastError: null })
+  // Live state and commands through the LiveClient (live-data-seam.md, part C).
+  const live = useLiveClient()
+  const status = useLiveTopic('beyondAtcStatus', DISCONNECTED)
   const [state, setState] = useState<BeyondAtcState>(EMPTY_STATE)
-  const [transcript, setTranscript] = useState<BeyondAtcTranscriptEntry[]>([])
-  const [stepClimb, setStepClimb] = useState<BeyondAtcStepClimbStatus>(STEP_CLIMB_OFF)
+  const transcript = useLiveTopic('beyondAtcTranscript', NO_TRANSCRIPT)
+  const stepClimb = useLiveTopic('beyondAtcStepClimb', STEP_CLIMB_OFF)
   const latestInstruction = useMemo(() => latestAtcInstruction(transcript), [transcript])
   // The action just pressed, until BeyondATC transmits it (Callum, 2026-10-02: a press
   // queued behind other traffic looked like it did nothing).
@@ -254,7 +260,7 @@ export function BeyondAtcPanel(): React.JSX.Element {
   }
 
   function selectAction(label: string): void {
-    window.winglog.beyondAtcSetAction(label)
+    live.command('atc.setAction', label)
     if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current)
     pendingTimerRef.current = setTimeout(clearPendingAction, PENDING_ACTION_TIMEOUT_MS)
     setPendingAction(label)
@@ -262,26 +268,19 @@ export function BeyondAtcPanel(): React.JSX.Element {
 
   useEffect(() => {
     window.winglog.settingsGetBeyondAtc().then(setSettings)
-    window.winglog.beyondAtcGetStatus().then(setStatus)
-    window.winglog.beyondAtcGetState().then(setState)
-    window.winglog.beyondAtcGetTranscript().then(setTranscript)
-    const unsubscribeStatus = window.winglog.onBeyondAtcStatus(setStatus)
-    const unsubscribeState = window.winglog.onBeyondAtcState((next) => {
+    live.get('beyondAtcState').then((current) => {
+      if (current) setState(current)
+    })
+    const unsubscribeState = live.subscribe('beyondAtcState', (next) => {
       setState(next)
       // Our call is going out: it's no longer waiting.
       if (next.commsState?.mode === 'speaking') clearPendingAction()
     })
-    window.winglog.beyondAtcGetStepClimb().then(setStepClimb)
-    const unsubscribeStepClimb = window.winglog.onBeyondAtcStepClimb(setStepClimb)
-    const unsubscribeTranscript = window.winglog.onBeyondAtcTranscript(setTranscript)
     return () => {
-      unsubscribeStatus()
       unsubscribeState()
-      unsubscribeStepClimb()
-      unsubscribeTranscript()
       if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current)
     }
-  }, [])
+  }, [live])
 
   if (settings === null) return <p className="text-xs text-muted-foreground">{t('beyondAtcPanel.loading')}</p>
 
@@ -314,15 +313,15 @@ export function BeyondAtcPanel(): React.JSX.Element {
             facility={state.facility}
             com2={state.com2}
             progress={state.progress}
-            onSetFrequency={(frequency) => window.winglog.beyondAtcSetFrequency(frequency)}
-            onSetFrequencyCom2={(frequency) => window.winglog.beyondAtcSetFrequencyCom2(frequency)}
+            onSetFrequency={(frequency) => live.command('atc.setFrequency', frequency)}
+            onSetFrequencyCom2={(frequency) => live.command('atc.setFrequencyCom2', frequency)}
             frequencyOptions={state.frequencies}
             autoTune={state.autoTune}
             autoRespond={state.autoRespond}
-            onSetAutoTune={(value) => window.winglog.beyondAtcSetAutoTune(value)}
-            onSetAutoRespond={(value) => window.winglog.beyondAtcSetAutoRespond(value)}
+            onSetAutoTune={(value) => live.command('atc.setAutoTune', value)}
+            onSetAutoRespond={(value) => live.command('atc.setAutoRespond', value)}
             stepClimb={stepClimb}
-            onSetStepClimb={(enabled) => window.winglog.beyondAtcSetStepClimb(enabled)}
+            onSetStepClimb={(enabled) => live.command('atc.setStepClimb', enabled)}
           />
         </div>
         <div className="flex min-h-0 flex-col gap-4">
