@@ -1130,6 +1130,22 @@ describe('FlightMap', () => {
         await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible'))
       })
 
+      it('traces a clearance read before the aircraft position was known, once it arrives (ZSPD, 2026-10-02)', async () => {
+        // Opening Track: the transcript comes back before Track has the active flight, so the
+        // map has no position yet — then the position arrives.
+        withTranscriptListener(NETWORK, [CLEARANCE])
+        const user = userEvent.setup()
+        const props = { route: [], trackPoints: [], live: true, depIcao: 'EGKB' }
+        const { map, rerender } = await renderReady({ ...props, telemetry: null })
+        await user.click(toggleButton())
+        await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
+        expect(map.setLayoutProperty).not.toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible')
+
+        await act(async () => rerender({ ...props, telemetry: at(51.33, 0.03) }))
+        await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible'))
+        expect((lastLine(map) as [number, number][]).at(-1)).toEqual([0.0335, 51.3335])
+      })
+
       it('starts the line at the aircraft and drops the part already taxied (2026-10-02)', async () => {
         const { push } = withTranscriptListener(NETWORK)
         const user = userEvent.setup()

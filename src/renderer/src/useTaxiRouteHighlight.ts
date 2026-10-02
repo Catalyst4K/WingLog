@@ -139,6 +139,15 @@ export function useTaxiRouteHighlight({
     }
   }, [enabled])
 
+  // A clearance read before the aircraft's position was known starts from the first position
+  // that arrives. Real bug, ZSPD 2026-10-02: opening Track reads BeyondATC's transcript before
+  // Track has loaded the active flight (so no position yet) — the clearance was stored with
+  // nowhere to start, never traced, and fell back to whole taxiways. Updated during render
+  // (React's "adjust state when a prop changes" pattern), not in an effect.
+  if (clearance && !clearance.from && position) setClearance({ ...clearance, from: position })
+  useEffect(() => {
+    rememberedClearance = clearance
+  }, [clearance])
 
   const icao = clearance ? (clearance.holdingPoint ? depIcao : arrIcao) : null
 
