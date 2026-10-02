@@ -568,11 +568,13 @@ export default function App(): React.JSX.Element {
                 key={tabPage}
                 value={tabPage}
                 className="gap-1.5 px-1.5 sm:px-3"
+                aria-label={label}
                 onClick={() => goToTab(tabPage)}
               >
                 <Icon />
-                {/* not-sr-only resets white-space to normal: keep "Ground services" on one line. */}
-                <span className="sr-only whitespace-nowrap lg:not-sr-only">{label}</span>
+                {/* Hidden below lg; the tab keeps its name through aria-label. Not sr-only/lg:not-sr-only:
+                    not-sr-only resets white-space, which wrapped "Ground services" under the underline. */}
+                <span className="hidden lg:inline">{label}</span>
               </TabsTrigger>
             ))}
           </TabsList>
