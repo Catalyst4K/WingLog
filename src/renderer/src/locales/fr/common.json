@@ -53,6 +53,16 @@
       "landingDistancesHint": "Distance depuis le seuil et écart par rapport à l'axe sur la fiche d'atterrissage d'un vol du Carnet, ainsi que sur son schéma d'atterrissage. Le taux de toucher des roues reste en fpm et les vitesses/le vent restent en nœuds.",
       "moreInfoFor": "Plus d'informations sur {{label}}"
     },
+    "tracking": {
+      "cardTitle": "Suivi",
+      "description": "Les deux sont activés par défaut. Désactivez-en un s'il pose problème avec votre simulateur et utilisez plutôt les boutons de {{track}}.",
+      "autoStart": "Démarrer le suivi automatiquement",
+      "autoStartOff": "Désactivé : après {{fly}} dans {{dispatch}}, appuyez vous-même sur {{startTracking}} dans {{track}}.",
+      "autoFinish": "Terminer les vols automatiquement",
+      "autoFinishOff": "Désactivé : le vol reste ouvert après le stationnement et l'arrêt, jusqu'à ce que vous appuyiez sur {{finishAndSave}}.",
+      "on": "Activé",
+      "off": "Désactivé"
+    },
     "theme": {
       "cardTitle": "Thème",
       "appearance": "Apparence",

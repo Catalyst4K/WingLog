@@ -106,6 +106,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   // Mirrors FlightRecorder's own `paused` flag — detectTouchdown needs the same guard the
   // phase machine applies internally, since it now runs independently of it.
   private paused = false
+  private autoFinish = true
   // Pushed live from the renderer (setProcedureSelection) while a flight is being tracked —
   // cached here, not written to the DB until completion, since neither completion trigger
   // below (auto shutdown detection or a manual finish()) round-trips through the renderer
@@ -143,6 +144,12 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   // detectTouchdown actually fires for the same touchdown.
   private lastTouchdownSeverity: { result: TouchdownSeverity; atMs: number } | undefined
 
+  /** Settings → Tracking → "Finish flights automatically" — see FlightRecorder.setAutoShutdown.
+   *  Applied every telemetry tick, so a change takes effect mid-flight. */
+  setAutoFinish(enabled: boolean): void {
+    this.autoFinish = enabled
+  }
+
   constructor(
     private readonly db: WingLogDb,
     private readonly simConnectService: SimConnectSource,
@@ -159,6 +166,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
       if (!this.recorder) return
       const previousTelemetry = this.previousTelemetry
       this.previousTelemetry = telemetry
+      this.recorder.setAutoShutdown(this.autoFinish)
       const result = this.recorder.ingest(telemetry, new Date())
 
       // The value startFlight wrote at tracking-start is only provisional (see

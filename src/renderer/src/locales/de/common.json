@@ -53,6 +53,16 @@
       "landingDistancesHint": "Abstand zur Schwelle und seitlicher Versatz zur Mittellinie auf der Landekarte eines Logbuchflugs sowie im Aufsetzdiagramm. Die Sinkrate bleibt fpm, Geschwindigkeiten/Wind bleiben Knoten.",
       "moreInfoFor": "Mehr Infos zu {{label}}"
     },
+    "tracking": {
+      "cardTitle": "Tracking",
+      "description": "Beides standardmäßig an. Schalte eines aus, wenn es mit deinem Simulator Probleme macht, und nutze stattdessen die Schaltflächen unter {{track}}.",
+      "autoStart": "Tracking automatisch starten",
+      "autoStartOff": "Aus: Nach {{fly}} in {{dispatch}} drückst du selbst {{startTracking}} unter {{track}}.",
+      "autoFinish": "Flüge automatisch beenden",
+      "autoFinishOff": "Aus: Der Flug bleibt nach dem Parken und Abschalten offen, bis du {{finishAndSave}} drückst.",
+      "on": "An",
+      "off": "Aus"
+    },
     "theme": {
       "cardTitle": "Design",
       "appearance": "Erscheinungsbild",

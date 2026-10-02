@@ -49,6 +49,8 @@ function createWinglog(overrides: Record<string, unknown> = {}): typeof window.w
     settingsGetSimbriefUsername: vi.fn().mockResolvedValue(null),
     dispatchSimbriefLoginStatus: vi.fn().mockResolvedValue(false),
     settingsGetGsx: vi.fn().mockResolvedValue(makeGsx()),
+    settingsGetTracking: vi.fn().mockResolvedValue({ autoStart: true, autoFinish: true }),
+    settingsSetTracking: vi.fn().mockResolvedValue(undefined),
     syncStatus: vi.fn().mockResolvedValue(makeSyncStatus()),
     appGetVersion: vi.fn().mockResolvedValue('1.2.3'),
     settingsGetUpdates: vi.fn().mockResolvedValue({ checkEnabled: true }),
@@ -316,6 +318,21 @@ describe('SettingsView', () => {
       const landingRow = screen.getByRole('group', { name: 'Landing distances' })
       await user.click(within(landingRow).getByRole('button', { name: 'Meters' }))
       expect(onLandingDistanceUnitChange).toHaveBeenCalledWith('m')
+    })
+
+    it('loads the tracking switches, says what off means, and saves each change (tracking-auto-toggles.md)', async () => {
+      const winglog = setWinglog({ settingsGetTracking: vi.fn().mockResolvedValue({ autoStart: true, autoFinish: false }) })
+      const user = userEvent.setup()
+      renderSettings()
+
+      const finishRow = await screen.findByRole('group', { name: 'Finish flights automatically' })
+      await waitFor(() => expect(within(finishRow).getByRole('button', { name: 'Off' })).toHaveAttribute('aria-pressed', 'true'))
+      expect(screen.getByText('Off: the flight stays open after you park and shut down, until you press Finish & save.')).toBeInTheDocument()
+      expect(screen.getByText('Off: after Fly in Dispatch, press Start tracking on Track yourself.')).toBeInTheDocument()
+
+      const startRow = screen.getByRole('group', { name: 'Start tracking automatically' })
+      await user.click(within(startRow).getByRole('button', { name: 'Off' }))
+      expect(winglog.settingsSetTracking).toHaveBeenCalledWith({ autoStart: false, autoFinish: false })
     })
 
     it('calls onThemeChange with the clicked option', async () => {

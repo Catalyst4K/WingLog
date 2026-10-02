@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { test, expect } from '@playwright/test'
 import { launchApp } from './launch-app'
 
@@ -53,5 +56,34 @@ test('changes units, theme, SimBrief username, and GSX settings, all persisted',
     expect((await page.evaluate(() => window.winglog.settingsGetGsx())).enabled).toBe(!initiallyEnabled)
   } finally {
     await cleanup()
+  }
+})
+
+test('automatic tracking start and finish can each be switched off, and stay off after a restart', async () => {
+  // Settings → Tracking (flightdeck-backend's docs/plans/tracking-auto-toggles.md).
+  const userDataDir = mkdtempSync(join(tmpdir(), 'winglog-e2e-tracking-'))
+  try {
+    const first = await launchApp({ userDataDir })
+    try {
+      await first.window.getByRole('tab', { name: 'Settings' }).click()
+      const finishRow = first.window.getByRole('group', { name: 'Finish flights automatically' })
+      await expect(finishRow.getByRole('button', { name: 'On', exact: true })).toHaveAttribute('aria-pressed', 'true')
+      await finishRow.getByRole('button', { name: 'Off', exact: true }).click()
+      await expect(finishRow.getByRole('button', { name: 'Off', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    } finally {
+      await first.cleanup()
+    }
+
+    const second = await launchApp({ userDataDir })
+    try {
+      expect(await second.window.evaluate(() => window.winglog.settingsGetTracking())).toEqual({ autoStart: true, autoFinish: false })
+      await second.window.getByRole('tab', { name: 'Settings' }).click()
+      const finishRow = second.window.getByRole('group', { name: 'Finish flights automatically' })
+      await expect(finishRow.getByRole('button', { name: 'Off', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    } finally {
+      await second.cleanup()
+    }
+  } finally {
+    rmSync(userDataDir, { recursive: true, force: true })
   }
 })

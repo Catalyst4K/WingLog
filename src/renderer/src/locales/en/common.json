@@ -53,6 +53,16 @@
       "landingDistancesHint": "Distance from threshold and centreline offset on a Logbook flight's landing card, and its touchdown diagram. Touchdown rate stays fpm and speeds/wind stay knots regardless.",
       "moreInfoFor": "More info about {{label}}"
     },
+    "tracking": {
+      "cardTitle": "Tracking",
+      "description": "Both on by default. Switch one off if it misbehaves with your sim, and use the buttons on {{track}} instead.",
+      "autoStart": "Start tracking automatically",
+      "autoStartOff": "Off: after {{fly}} in {{dispatch}}, press {{startTracking}} on {{track}} yourself.",
+      "autoFinish": "Finish flights automatically",
+      "autoFinishOff": "Off: the flight stays open after you park and shut down, until you press {{finishAndSave}}.",
+      "on": "On",
+      "off": "Off"
+    },
     "theme": {
       "cardTitle": "Theme",
       "appearance": "Appearance",

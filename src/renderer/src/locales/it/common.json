@@ -53,6 +53,16 @@
       "landingDistancesHint": "Distanza dalla soglia e scostamento dall'asse centrale nella scheda di atterraggio di un volo del Libretto, e nel suo diagramma di atterraggio. Il rateo di atterraggio resta in fpm e velocità/vento restano in nodi.",
       "moreInfoFor": "Maggiori informazioni su {{label}}"
     },
+    "tracking": {
+      "cardTitle": "Tracciamento",
+      "description": "Entrambi attivi per impostazione predefinita. Disattivane uno se dà problemi con il simulatore e usa i pulsanti in {{track}}.",
+      "autoStart": "Avvia il tracciamento automaticamente",
+      "autoStartOff": "Disattivato: dopo {{fly}} in {{dispatch}}, premi tu {{startTracking}} in {{track}}.",
+      "autoFinish": "Termina i voli automaticamente",
+      "autoFinishOff": "Disattivato: il volo resta aperto dopo il parcheggio e lo spegnimento, finché non premi {{finishAndSave}}.",
+      "on": "Attivo",
+      "off": "Disattivo"
+    },
     "theme": {
       "cardTitle": "Tema",
       "appearance": "Aspetto",

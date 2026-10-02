@@ -361,6 +361,8 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     dispatchFetchSimbriefUsername: vi.fn().mockResolvedValue(null),
     dispatchLogoutSimbrief: vi.fn().mockResolvedValue(undefined),
     settingsGetGsx: vi.fn().mockResolvedValue({ enabled: false, folderPath: null, displayCurrency: 'USD' }),
+    settingsGetTracking: vi.fn().mockResolvedValue({ autoStart: true, autoFinish: true }),
+    settingsSetTracking: vi.fn().mockResolvedValue(undefined),
     settingsSetGsx: vi.fn().mockResolvedValue(undefined),
     gsxBrowseFolder: vi.fn().mockResolvedValue(null),
     settingsGetGsxRemote: vi.fn().mockResolvedValue({ enabled: false, host: 'localhost', port: null }),

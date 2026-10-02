@@ -11,6 +11,7 @@ import {
   getUpdateSettings,
   getGsxRemoteSettings,
   getGsxSettings,
+  getTrackingSettings,
   getLandingDistanceUnit,
   getLastSyncCompletedAt,
   getLastSyncedAt,
@@ -30,6 +31,7 @@ import {
   setCheckedGsxFirstLaunch,
   setGsxRemoteSettings,
   setGsxSettings,
+  setTrackingSettings,
   setLandingDistanceUnit,
   setLastSyncCompletedAt,
   setLastSyncedAt,
@@ -147,6 +149,17 @@ describe('settings repo', () => {
     expect(getTheme(db)).toBe('light')
     setTheme(db, 'system')
     expect(getTheme(db)).toBe('system')
+  })
+
+  it('defaults automatic tracking start and finish to on (tracking-auto-toggles.md)', () => {
+    expect(getTrackingSettings(db)).toEqual({ autoStart: true, autoFinish: true })
+  })
+
+  it('round-trips each tracking switch on its own', () => {
+    setTrackingSettings(db, { autoStart: true, autoFinish: false })
+    expect(getTrackingSettings(db)).toEqual({ autoStart: true, autoFinish: false })
+    setTrackingSettings(db, { autoStart: false, autoFinish: true })
+    expect(getTrackingSettings(db)).toEqual({ autoStart: false, autoFinish: true })
   })
 
   it('defaults GSX settings to disabled, no folder, USD display', () => {
