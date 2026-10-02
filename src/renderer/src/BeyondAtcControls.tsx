@@ -341,7 +341,12 @@ export function BeyondAtcRadios(props: BeyondAtcRadiosProps): React.JSX.Element 
   const com1Current = props.facility
     ? t('beyondAtcPanel.stationFrequency', { station: props.facility.name, frequency: props.facility.frequency })
     : null
-  const com2Current = props.com2 ? t('beyondAtcPanel.stationFrequency', { station: props.com2.label, frequency: props.com2.frequency }) : null
+  // A switched-off COM2 comes through as {"label":"Radio Off","frequency":""}: show the label alone, not "Radio Off ()".
+  const com2Current = props.com2
+    ? props.com2.frequency
+      ? t('beyondAtcPanel.stationFrequency', { station: props.com2.label, frequency: props.com2.frequency })
+      : props.com2.label
+    : null
   const departureAirport = props.progress?.from ?? null
   const arrivalAirport = props.progress?.to ?? null
 
