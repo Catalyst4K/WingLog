@@ -40,6 +40,7 @@ vi.mock('maplibre-gl', () => {
     doubleClickZoom = new FakeHandler()
     fitBounds = vi.fn()
     jumpTo = vi.fn()
+    once = vi.fn()
     easeTo = vi.fn()
     zoomIn = vi.fn()
     zoomOut = vi.fn()
