@@ -7,6 +7,8 @@ function withWinglog(): void {
   window.winglog = {
     settingsGetGsxRemote: vi.fn().mockResolvedValue({ enabled: false, host: 'localhost', port: 8744 }),
     gsxRemoteGetStatus: vi.fn().mockResolvedValue({ state: 'disconnected', lastError: null }),
+    beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
+    onBeyondAtcTranscript: vi.fn(() => () => {}),
     onGsxRemoteStatus: vi.fn().mockReturnValue(() => {}),
     gsxRemoteGetServices: vi.fn().mockResolvedValue([]),
     onGsxRemoteServices: vi.fn().mockReturnValue(() => {}),

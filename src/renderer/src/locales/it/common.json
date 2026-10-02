@@ -219,6 +219,7 @@
     }
   },
   "fleetView": {
+    "atStand": "piazzola {{stand}}",
     "title": "Flotta",
     "newAircraft": "Nuovo aeromobile",
     "editAircraft": "Modifica {{registration}}",
@@ -490,6 +491,7 @@
     "back": "Indietro"
   },
   "dispatchView": {
+    "lastParkedHere": "Ultimo parcheggio qui alla piazzola {{stand}}: sceglila come gate di partenza in MSFS.",
     "title": "Pianificazione",
     "planAFlight": "Pianifica un volo",
     "fetching": "Recupero…",
@@ -674,6 +676,7 @@
     "title": "Servizi di terra"
   },
   "gsxRemotePanel": {
+    "atcStand": "Piazzola {{stand}} (da ATC)",
     "loading": "Caricamento…",
     "notConfigured": "GSX Remote Control è disattivato. Attivalo e imposta una porta in Impostazioni → Terze parti.",
     "connecting": "Connessione a GSX…",

@@ -13,6 +13,7 @@ import type {
 } from '@shared/ipc'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useAtcAssignedStand } from './useAtcAssignedStand'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -225,6 +226,8 @@ function MenuEntries(props: {
   menu: GsxRemoteMenuState
   onPick: (index: number) => void
   onSearch: (text: string) => void
+  /** The stand BeyondATC assigned, offered in the gate search (useAtcAssignedStand). */
+  atcStand: string | null
 }): React.JSX.Element | null {
   if (!props.menu.menuShown) return null
   // GSX pads the gate-search list to a fixed page with empty strings — skipped here, as
@@ -235,7 +238,7 @@ function MenuEntries(props: {
     <div className="flex flex-col gap-1.5">
       {props.menu.searchActive && (
         // Keyed by session so a fresh search starts with an empty box, not the last query.
-        <GateSearchBox key={props.menu.searchSession} onSearch={props.onSearch} />
+        <GateSearchBox key={props.menu.searchSession} onSearch={props.onSearch} atcStand={props.atcStand} />
       )}
       <div className="grid grid-cols-3 gap-1.5">
         {entries.map(({ entry, index }) => (
@@ -263,20 +266,31 @@ function MenuEntries(props: {
  * keystroke sends the box's *whole* current text as `menu.search`, and GSX re-filters the
  * menu entries itself — no local filtering or debouncing (docs/gsx-notes.md, round 11).
  */
-function GateSearchBox(props: { onSearch: (text: string) => void }): React.JSX.Element {
+function GateSearchBox(props: { onSearch: (text: string) => void; atcStand: string | null }): React.JSX.Element {
+  const { t } = useTranslation()
   const [text, setText] = useState('')
+  const search = (value: string): void => {
+    setText(value)
+    props.onSearch(value)
+  }
   return (
-    <Input
-      type="search"
-      value={text}
-      placeholder={SEARCH_PARKING_PLACEHOLDER}
-      aria-label={SEARCH_PARKING_PLACEHOLDER}
-      autoFocus
-      onChange={(e) => {
-        setText(e.target.value)
-        props.onSearch(e.target.value)
-      }}
-    />
+    <div className="flex items-center gap-2">
+      <Input
+        type="search"
+        value={text}
+        placeholder={SEARCH_PARKING_PLACEHOLDER}
+        aria-label={SEARCH_PARKING_PLACEHOLDER}
+        autoFocus
+        onChange={(e) => search(e.target.value)}
+      />
+      {/* One click, never automatic (Callum, 2026-10-02): BeyondATC's own stand, for when its
+       *  handoff to GSX didn't happen. */}
+      {props.atcStand && (
+        <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => search(props.atcStand!)}>
+          {t('gsxRemotePanel.atcStand', { stand: props.atcStand })}
+        </Button>
+      )}
+    </div>
   )
 }
 
@@ -417,6 +431,7 @@ export function GsxRemotePanel(): React.JSX.Element {
   const [menu, setMenu] = useState<GsxRemoteMenuState>(EMPTY_MENU)
   const [prompt, setPrompt] = useState<GsxRemotePromptState | null>(null)
   const [commandBar, setCommandBar] = useState<GsxRemoteCommandBar>(EMPTY_COMMAND_BAR)
+  const atcStand = useAtcAssignedStand()
 
   useEffect(() => {
     window.winglog.settingsGetGsxRemote().then(setSettings)
@@ -474,6 +489,7 @@ export function GsxRemotePanel(): React.JSX.Element {
         menu={menu}
         onPick={(index) => window.winglog.gsxRemotePickMenu(index)}
         onSearch={(text) => window.winglog.gsxRemoteSearch(text)}
+        atcStand={atcStand}
       />
       <ServicesList services={services} />
     </div>

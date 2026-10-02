@@ -1141,7 +1141,6 @@ describe('FlightMap', () => {
         await act(async () => rerender({ route: [], trackPoints: [], live: true, arrIcao: 'EGKB', telemetry: at(51.3335, 0.0335) }))
 
         await waitFor(() => expect((lastLine(map) as [number, number][]).at(-1)).toEqual([0.02995, 51.32995]))
-        expect(winglog).toMatchObject({})
       })
 
       it("draws a clearance given before Track was opened, without waiting for ATC's next line (YBBN, 2026-10-02)", async () => {

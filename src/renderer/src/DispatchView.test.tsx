@@ -123,6 +123,7 @@ function makeOfp(overrides: Partial<DispatchOfp> = {}): DispatchOfp {
 function createWinglog(overrides: Record<string, unknown> = {}): typeof window.winglog {
   return {
     aircraftList: vi.fn().mockResolvedValue([]),
+    fleetListLastParked: vi.fn().mockResolvedValue([]),
     logbookFleetStats: vi.fn().mockResolvedValue([]),
     dispatchGenerationAvailable: vi.fn().mockResolvedValue(true),
     flightList: vi.fn().mockResolvedValue([]),
@@ -607,6 +608,32 @@ describe('DispatchView', () => {
 
       await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
       expect(screen.getByText('ABCDE')).toBeInTheDocument()
+    })
+
+    it('reminds which stand the aircraft last parked at when departing from that airport (stand-positions.md)', async () => {
+      window.winglog = createWinglog({
+        aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+        fleetListLastParked: vi.fn().mockResolvedValue([{ aircraftId: 1, icao: 'EGLL', stand: '522' }]),
+        dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp())
+      })
+      const user = userEvent.setup()
+      render(<Harness />)
+      await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
+
+      expect(await screen.findByText('Last parked here at stand 522 — choose it as your starting gate in MSFS.')).toBeInTheDocument()
+    })
+
+    it('says nothing about a stand at another airport', async () => {
+      window.winglog = createWinglog({
+        aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+        fleetListLastParked: vi.fn().mockResolvedValue([{ aircraftId: 1, icao: 'VHHH', stand: 'N32' }]),
+        dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp())
+      })
+      const user = userEvent.setup()
+      render(<Harness />)
+      await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
+      await screen.findByText('TA100: EGLL → EDDF (altn EDDL)')
+      expect(screen.queryByText(/Last parked here/)).not.toBeInTheDocument()
     })
 
     it('shows a hint when no fleet aircraft matches the OFP registration', async () => {

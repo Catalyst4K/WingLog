@@ -24,6 +24,8 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): void {
   window.winglog = {
     settingsGetGsxRemote: vi.fn().mockResolvedValue(makeSettings()),
     gsxRemoteGetStatus: vi.fn().mockResolvedValue(makeStatus()),
+    beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
+    onBeyondAtcTranscript: vi.fn(() => () => {}),
     onGsxRemoteStatus: vi.fn().mockReturnValue(() => {}),
     gsxRemoteGetServices: vi.fn().mockResolvedValue([]),
     onGsxRemoteServices: vi.fn().mockReturnValue(() => {}),
@@ -155,6 +157,44 @@ describe('GsxRemotePanel', () => {
     const user = userEvent.setup()
     await user.click(refuel)
     expect(gsxRemotePickMenu).toHaveBeenCalledWith(0)
+  })
+
+  it("offers BeyondATC's assigned stand in the gate search, typed in only when clicked (stand-positions.md)", async () => {
+    let menuListener: (menu: GsxRemoteMenuState) => void = () => {}
+    const gsxRemoteSearch = vi.fn().mockResolvedValue(undefined)
+    withWinglog({
+      gsxRemoteSearch,
+      // Real VHHH line, 2026-10-02.
+      beyondAtcGetTranscript: vi.fn().mockResolvedValue([
+        { speaker: 'atc', text: 'Cathay 168 Heavy, taxi to Stand N32 via J, H6, H, V, B.', ts: 1 }
+      ]),
+      onGsxRemoteMenu: vi.fn((listener) => {
+        menuListener = listener
+        return () => {}
+      })
+    })
+    render(<GsxRemotePanel />)
+    await screen.findByText('Tap to open')
+    act(() =>
+      menuListener({
+        menuShown: true,
+        searchActive: true,
+        searchSession: 1,
+        title: 'Type a gate, terminal or number',
+        header: '',
+        subtitle: '',
+        entries: ['Back'],
+        icons: [''],
+        disabled: [false],
+        layout: ''
+      })
+    )
+
+    const suggestion = await screen.findByRole('button', { name: 'Stand N32 (from ATC)' })
+    expect(gsxRemoteSearch).not.toHaveBeenCalled()
+    await userEvent.setup().click(suggestion)
+    expect(gsxRemoteSearch).toHaveBeenCalledWith('N32')
+    expect(screen.getByRole('searchbox', { name: 'Search parking...' })).toHaveValue('N32')
   })
 
   it("shows GSX's gate-search box while searching, sending the whole text per keystroke", async () => {
