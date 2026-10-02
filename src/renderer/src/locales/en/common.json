@@ -155,7 +155,8 @@
     },
     "about": {
       "description": "A personal fleet-management, dispatch, live-tracking and logbook companion for Microsoft Flight Simulator.",
-      "disclaimer": "WingLog is not affiliated with, endorsed by, or sponsored by Microsoft Corporation or Asobo Studio. \"Microsoft Flight Simulator\" is a trademark of its respective owners.",
+      "simulationOnly": "For flight simulation use only. WingLog must never be used for real-world navigation, flight planning, or in a real aircraft.",
+      "disclaimer": "WingLog is an independent, free project. It is not affiliated with, endorsed by, or sponsored by Microsoft Corporation, Asobo Studio, Skirmish Mode Games (BeyondATC), FSDreamTeam (GSX), Navigraph (SimBrief), or OpenFreeMap. \"Microsoft Flight Simulator\", \"BeyondATC\", \"GSX\", \"SimBrief\" and \"Navigraph\" are trademarks of their respective owners.",
       "license": "Free and open source under the GNU General Public License v3.0."
     },
     "usernameSavedToast": "SimBrief username saved.",

@@ -86,9 +86,14 @@ flight show up here automatically too, once GSX tracking is enabled (see below).
 
 ## Notes
 
-- Everything lives in a local SQLite database on your own machine. WingLog makes no
-  network calls on your behalf except to SimBrief, to generate the OFP you asked for.
-- WingLog is not affiliated with, endorsed by, or sponsored by Microsoft Corporation or
-  Asobo Studio.
+- **For flight simulation use only.** WingLog must never be used for real-world navigation,
+  flight planning, or in a real aircraft.
+- Your fleet and logbook live in a local SQLite database on your own machine. WingLog only
+  goes online for the features that need it: SimBrief/Navigraph (through WingLog's own
+  login service), weather (METAR), map tiles, aircraft registration and photo lookup,
+  exchange rates for GSX invoices, and airline logos. No analytics or telemetry.
+- WingLog is an independent, free project. It is not affiliated with, endorsed by, or
+  sponsored by Microsoft Corporation, Asobo Studio, Skirmish Mode Games (BeyondATC),
+  FSDreamTeam (GSX), Navigraph (SimBrief), or OpenFreeMap.
 
 Questions or a bug to report? [Open an issue on GitHub](https://github.com/Catalyst4K/WingLog/issues).

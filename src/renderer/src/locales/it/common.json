@@ -157,7 +157,8 @@
     },
     "about": {
       "description": "Un compagno personale per la gestione della flotta, la pianificazione, il tracciamento live e il libretto di volo per Microsoft Flight Simulator.",
-      "disclaimer": "WingLog non è affiliato, sostenuto o sponsorizzato da Microsoft Corporation o Asobo Studio. \"Microsoft Flight Simulator\" è un marchio dei rispettivi proprietari.",
+      "simulationOnly": "Solo per la simulazione di volo. WingLog non deve mai essere usato per la navigazione reale, la pianificazione di voli reali o a bordo di un aeromobile reale.",
+      "disclaimer": "WingLog è un progetto indipendente e gratuito. Non è affiliato, sostenuto o sponsorizzato da Microsoft Corporation, Asobo Studio, Skirmish Mode Games (BeyondATC), FSDreamTeam (GSX), Navigraph (SimBrief) o OpenFreeMap. \"Microsoft Flight Simulator\", \"BeyondATC\", \"GSX\", \"SimBrief\" e \"Navigraph\" sono marchi dei rispettivi proprietari.",
       "license": "Libero e open source sotto licenza GNU General Public License v3.0."
     },
     "usernameSavedToast": "Nome utente SimBrief salvato.",

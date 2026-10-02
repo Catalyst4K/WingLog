@@ -150,7 +150,8 @@
     },
     "about": {
       "description": "适用于 Microsoft Flight Simulator 的个人机队管理、签派、实时航迹追踪与飞行日志伴侣应用。",
-      "disclaimer": "WingLog 与 Microsoft Corporation 或 Asobo Studio 没有任何关联，未获其认可，也未获其赞助。“Microsoft Flight Simulator”是其各自所有者的商标。",
+      "simulationOnly": "仅供飞行模拟使用。WingLog 绝不能用于真实世界的导航、真实飞行计划或真实航空器上。",
+      "disclaimer": "WingLog 是一个独立的免费项目。它与 Microsoft Corporation、Asobo Studio、Skirmish Mode Games（BeyondATC）、FSDreamTeam（GSX）、Navigraph（SimBrief）或 OpenFreeMap 没有任何关联，未获其认可，也未获其赞助。“Microsoft Flight Simulator”“BeyondATC”“GSX”“SimBrief”和“Navigraph”是其各自所有者的商标。",
       "license": "根据 GNU General Public License v3.0 免费开源发布。"
     },
     "usernameSavedToast": "SimBrief 用户名已保存。",
