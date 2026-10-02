@@ -37,7 +37,8 @@
     "vendor:runways": "tsx scripts/vendor-runways.ts",
     "licenses:generate": "tsx scripts/generate-third-party-licenses.ts",
     "package": "electron-vite build && electron-builder --publish=never",
-    "package:win": "electron-vite build && electron-builder --win --publish=never",
+    "manual:build": "esbuild scripts/manual/build.ts --bundle --platform=node --format=cjs --external:electron --outfile=out-manual/build.cjs --log-level=warning && electron out-manual/build.cjs",
+    "package:win": "npm run manual:build && electron-vite build && electron-builder --win --publish=never",
     "package:mac": "electron-vite build && electron-builder --mac --publish=never",
     "postinstall": "electron-rebuild -f -w better-sqlite3"
   },
@@ -87,6 +88,7 @@
     "eslint-plugin-react-refresh": "0.5.5",
     "globals": "17.11.0",
     "jsdom": "^30.0.1",
+    "marked": "18.0.14",
     "prettier": "3.9.6",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.19.2",

@@ -170,7 +170,9 @@
       "simulationOnly": "Solo para simulación de vuelo. WingLog nunca debe usarse para navegación real, planificación de vuelos reales ni en una aeronave real.",
       "disclaimer": "WingLog es un proyecto independiente y gratuito. No está afiliado con Microsoft Corporation, Asobo Studio, Skirmish Mode Games (BeyondATC), FSDreamTeam (GSX), Navigraph (SimBrief) ni OpenFreeMap, ni cuenta con su respaldo o patrocinio. «Microsoft Flight Simulator», «BeyondATC», «GSX», «SimBrief» y «Navigraph» son marcas de sus respectivos propietarios.",
       "license": "Software libre y de código abierto bajo la GNU General Public License v3.0.",
-      "runSetup": "Volver a ejecutar la configuración"
+      "runSetup": "Volver a ejecutar la configuración",
+      "openManual": "Manual (PDF)",
+      "manualMissing": "El manual no está incluido en esta versión."
     },
     "usernameSavedToast": "Usuario de SimBrief guardado.",
     "usernameAutoFilledToast": "Usuario de SimBrief completado automáticamente: {{username}}",
