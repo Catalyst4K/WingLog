@@ -31,6 +31,15 @@ function ofpJson(
   })
 }
 
+/** The default route plus SimBrief's TOD marker (an `ltlg` fix, as in the real YBBN-VHHH OFP). */
+const WITH_TOD = [
+  { ident: 'DENAK', altitude_feet: '35000', distance: '900', pos_lat: '45.0', pos_long: '30.0' },
+  { ident: 'MIDPT', altitude_feet: '35000', distance: '1900', pos_lat: '42.0', pos_long: '50.0' },
+  { ident: 'KAMUD', altitude_feet: '37073', distance: '3000', pos_lat: '40.0', pos_long: '75.0' },
+  { ident: 'TOD', altitude_feet: '37073', distance: '400', pos_lat: '38.0', pos_long: '82.0' },
+  { ident: 'VHHH', altitude_feet: '100', distance: '120', pos_lat: '37.0', pos_long: '84.0' }
+]
+
 /** Cruising at FL330, 60 nm short of DENAK at ~470 kt. */
 function telemetry(overrides: Partial<SimTelemetry> = {}): SimTelemetry {
   return {
@@ -67,7 +76,9 @@ function telemetry(overrides: Partial<SimTelemetry> = {}): SimTelemetry {
   }
 }
 
-function setup(opts: { phase?: ActiveTracking['phase']; outcomes?: AltitudeRequestOutcome[]; transcript?: BeyondAtcTranscriptEntry[] } = {}) {
+function setup(
+  opts: { phase?: ActiveTracking['phase']; outcomes?: AltitudeRequestOutcome[]; transcript?: BeyondAtcTranscriptEntry[]; ofp?: string } = {}
+) {
   let now = 1_000_000
   const outcomes = [...(opts.outcomes ?? ['granted'])]
   const request = vi.fn<typeof requestAltitude>(async () => ({
@@ -86,7 +97,7 @@ function setup(opts: { phase?: ActiveTracking['phase']; outcomes?: AltitudeReque
   const controller = new StepClimbController({
     getSession: () => session,
     getActive: () => ({ flightId: 7, phase: opts.phase ?? 'cruise' }),
-    getOfpJson: () => ofpJson(),
+    getOfpJson: () => opts.ofp ?? ofpJson(),
     request,
     now: () => now,
     log: (m) => logs.push(m)
@@ -116,8 +127,13 @@ describe('extractStepPlan', () => {
   })
 
   it('degrades to no steps for a free flight or a malformed OFP', () => {
-    expect(extractStepPlan(null)).toEqual({ fixes: [], steps: [] })
-    expect(extractStepPlan('{not json')).toEqual({ fixes: [], steps: [] })
+    expect(extractStepPlan(null)).toEqual({ fixes: [], steps: [], todOrder: null })
+    expect(extractStepPlan('{not json')).toEqual({ fixes: [], steps: [], todOrder: null })
+  })
+
+  it("finds SimBrief's TOD fix, and has none when the navlog doesn't", () => {
+    expect(extractStepPlan(ofpJson(undefined, WITH_TOD)).todOrder).toBe(3)
+    expect(extractStepPlan(ofpJson()).todOrder).toBeNull()
   })
 
   it('drops down steps — over China the levels swap with direction (Callum, 2026-10-01)', () => {
@@ -169,19 +185,105 @@ describe('StepClimbController', () => {
     expect(statuses.at(-1)?.last).toMatchObject({ altitudeFt: 35000, outcome: 'granted', reason: 'simbrief' })
   })
 
-  it("asks for the FCU level once the aircraft's own step climb sets it and it settles", () => {
+  it('brings the next planned step forward when the FCU is set to it, without waiting for a climb', () => {
     const { controller, request, advance } = setup()
     controller.setEnabled(true)
 
-    controller.onTelemetry(telemetry({ apSelectedAltitudeM: 37000 * FT }))
+    controller.onTelemetry(telemetry({ apSelectedAltitudeM: 35000 * FT })) // ~60 nm out, still level
     advance(5_000)
-    controller.onTelemetry(telemetry({ apSelectedAltitudeM: 37000 * FT }))
+    controller.onTelemetry(telemetry({ apSelectedAltitudeM: 35000 * FT }))
     expect(request).not.toHaveBeenCalled() // still settling
 
     advance(6_000)
-    controller.onTelemetry(telemetry({ apSelectedAltitudeM: 37000 * FT }))
+    controller.onTelemetry(telemetry({ apSelectedAltitudeM: 35000 * FT }))
     expect(request).toHaveBeenCalledTimes(1)
-    expect(request.mock.calls[0]![1]).toBe(37000)
+    expect(request.mock.calls[0]![1]).toBe(35000)
+  })
+
+  it('asks for a level the plan does not have only once the aircraft is really climbing to it', () => {
+    const { controller, request, statuses, advance } = setup()
+    controller.setEnabled(true)
+    const fcu34 = { apSelectedAltitudeM: 34000 * FT }
+
+    controller.onTelemetry(telemetry(fcu34))
+    advance(11_000)
+    controller.onTelemetry(telemetry(fcu34))
+    expect(request).not.toHaveBeenCalled()
+    expect(statuses.at(-1)?.waitingForClimbFt).toBe(34000)
+
+    const climbing = { ...fcu34, verticalSpeedMs: 1000 * FT / 60 }
+    controller.onTelemetry(telemetry(climbing))
+    advance(5_000)
+    controller.onTelemetry(telemetry(climbing))
+    expect(request).not.toHaveBeenCalled() // a blip, not yet a climb
+
+    advance(6_000)
+    controller.onTelemetry(telemetry(climbing))
+    expect(request).toHaveBeenCalledTimes(1)
+    expect(request.mock.calls[0]![1]).toBe(34000)
+  })
+
+  it('never asks for an FCU level far above the clearance — a slip of the knob, even while climbing', () => {
+    const { controller, request, advance } = setup()
+    controller.setEnabled(true)
+    const slip = { apSelectedAltitudeM: 41000 * FT, verticalSpeedMs: 1500 * FT / 60 }
+    controller.onTelemetry(telemetry(slip))
+    advance(20_000)
+    controller.onTelemetry(telemetry(slip))
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('asks for nothing when ATC clears a descent with the FCU still on the cruise level (YBBN-VHHH, 2026-10-02)', () => {
+    // Real lines from that flight. FL400 was the one planned step and already flown.
+    const transcript: BeyondAtcTranscriptEntry[] = [{ speaker: 'atc', text: 'Cathay 168 Heavy, roger, climb FL400.', ts: 1 }]
+    const { controller, request, statuses, advance } = setup({ transcript, ofp: ofpJson('YBBN/0380/DENAK/0400') })
+    controller.setEnabled(true)
+    const cruise = { latitude: 42.0, longitude: 50.0, pressureAltitudeM: 40000 * FT, apSelectedAltitudeM: 40000 * FT }
+    controller.onTelemetry(telemetry(cruise))
+    advance(6 * 3600_000)
+    controller.onTelemetry(telemetry(cruise))
+
+    transcript.push({ speaker: 'atc', text: 'Cathay 168 Heavy, descend to FL130.', ts: 2 })
+    for (let i = 0; i < 30; i++) {
+      controller.onTelemetry(telemetry(cruise))
+      advance(1_000)
+    }
+    expect(request).not.toHaveBeenCalled()
+    expect(statuses.at(-1)?.waitingForClimbFt).toBeNull()
+  })
+
+  it('still asks for a climb back up after a descent mid-flight, before top of descent', () => {
+    const transcript: BeyondAtcTranscriptEntry[] = [{ speaker: 'atc', text: 'Cathay 168 Heavy, descend to FL330.', ts: 1 }]
+    const { controller, request, advance } = setup({ transcript, ofp: ofpJson(undefined, WITH_TOD) })
+    controller.setEnabled(true)
+    // Past every planned step, well before TOD, climbing back to FL350.
+    const climbBack = { latitude: 40.5, longitude: 70.0, apSelectedAltitudeM: 35000 * FT, verticalSpeedMs: 1000 * FT / 60 }
+    controller.onTelemetry(telemetry(climbBack))
+    advance(11_000)
+    controller.onTelemetry(telemetry(climbBack))
+    expect(request).toHaveBeenCalledTimes(1)
+    expect(request.mock.calls[0]![1]).toBe(35000)
+  })
+
+  it("stops asking once past SimBrief's top of descent — or, without a TOD fix, close to the destination", () => {
+    const climb = { apSelectedAltitudeM: 36000 * FT, verticalSpeedMs: 1000 * FT / 60 }
+    const withTod = setup({ ofp: ofpJson(undefined, WITH_TOD) })
+    withTod.controller.setEnabled(true)
+    withTod.controller.onTelemetry(telemetry({ ...climb, latitude: 38.1, longitude: 82.1 }))
+    withTod.advance(11_000)
+    withTod.controller.onTelemetry(telemetry({ ...climb, latitude: 38.1, longitude: 82.1 }))
+    expect(withTod.request).not.toHaveBeenCalled()
+    expect(withTod.statuses.at(-1)).toMatchObject({ pastTopOfDescent: true, nextStep: null })
+    expect(withTod.logs).toContain('[step-climb] past top of descent: no more requests this flight')
+
+    // Default route ends at KAMUD (40N 75E); 1 degree of latitude short is ~60 nm out.
+    const noTod = setup()
+    noTod.controller.setEnabled(true)
+    noTod.controller.onTelemetry(telemetry({ ...climb, latitude: 41.0, longitude: 75.0 }))
+    noTod.advance(11_000)
+    noTod.controller.onTelemetry(telemetry({ ...climb, latitude: 41.0, longitude: 75.0 }))
+    expect(noTod.request).not.toHaveBeenCalled()
+    expect(noTod.statuses.at(-1)?.pastTopOfDescent).toBe(true)
   })
 
   it('ignores a knob sweep that never settles, and never asks for a descent', () => {

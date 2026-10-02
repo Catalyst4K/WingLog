@@ -730,6 +730,8 @@
       "dropped": "{{level}}: {{outcome}} — abandonado tras dos intentos",
       "next": "Siguiente escalón: {{level}} en {{fix}}, {{distance}} NM",
       "watching": "Esperando un ascenso escalonado (plan de SimBrief o FCU).",
+      "waitingForClimb": "FCU {{level}} — esperando a que empiece el ascenso",
+      "pastTopOfDescent": "Pasado el inicio del descenso — no más solicitudes en este vuelo.",
       "outcome": {
         "granted": "autorizado",
         "unavailable": "BeyondATC no ofrece solicitudes de altitud",

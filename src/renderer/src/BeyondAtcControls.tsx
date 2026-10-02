@@ -288,7 +288,7 @@ function flightLevel(feet: number): string {
 }
 
 /** One line under the toggles: what auto step climb is doing — a request in progress, the
- *  last result, or the next planned step. */
+ *  last result, an FCU level waiting on the climb, or the next planned step. */
 function StepClimbStatusLine(props: { status: BeyondAtcStepClimbStatus }): React.JSX.Element | null {
   const { t } = useTranslation()
   const { status } = props
@@ -304,7 +304,12 @@ function StepClimbStatusLine(props: { status: BeyondAtcStepClimbStatus }): React
         : t('beyondAtcPanel.stepClimb.last', { level: flightLevel(status.last.altitudeFt), outcome })
     )
   }
-  if (status.nextStep) {
+  if (status.waitingForClimbFt !== null) {
+    lines.push(t('beyondAtcPanel.stepClimb.waitingForClimb', { level: flightLevel(status.waitingForClimbFt) }))
+  }
+  if (status.pastTopOfDescent) {
+    lines.push(t('beyondAtcPanel.stepClimb.pastTopOfDescent'))
+  } else if (status.nextStep) {
     lines.push(
       t('beyondAtcPanel.stepClimb.next', {
         level: flightLevel(status.nextStep.altitudeFt),

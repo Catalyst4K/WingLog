@@ -730,6 +730,8 @@
       "dropped": "{{level}} : {{outcome}} — abandonné après deux essais",
       "next": "Prochain palier : {{level}} à {{fix}}, {{distance}} NM",
       "watching": "En attente d'une montée par paliers (plan SimBrief ou FCU).",
+      "waitingForClimb": "FCU {{level}} — en attente du début de la montée",
+      "pastTopOfDescent": "Top of descent passé — plus aucune demande sur ce vol.",
       "outcome": {
         "granted": "autorisé",
         "unavailable": "BeyondATC ne propose pas de demande d'altitude",

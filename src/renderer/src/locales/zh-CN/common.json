@@ -720,6 +720,8 @@
       "dropped": "{{level}}：{{outcome}}——两次尝试后放弃",
       "next": "下一阶梯：{{fix}} 处 {{level}}，{{distance}} 海里",
       "watching": "正在等待阶梯爬升（SimBrief 计划或 FCU）。",
+      "waitingForClimb": "FCU {{level}} — 等待开始爬升",
+      "pastTopOfDescent": "已过下降顶点 — 本次飞行不再发出请求。",
       "outcome": {
         "granted": "已许可",
         "unavailable": "BeyondATC 未提供高度申请",

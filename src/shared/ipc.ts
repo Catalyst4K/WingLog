@@ -928,6 +928,10 @@ export interface BeyondAtcStepClimbStatus {
   nextStep: { ident: string; altitudeFt: number; distanceNm: number } | null
   /** A request in progress, by level in feet. */
   pendingAltitudeFt: number | null
+  /** An FCU level not in the plan, held back until the aircraft is actually climbing to it. */
+  waitingForClimbFt: number | null
+  /** Past SimBrief's top of descent — nothing more is asked for this flight. */
+  pastTopOfDescent: boolean
   last: {
     altitudeFt: number
     outcome: 'granted' | 'unavailable' | 'noMenu' | 'notOffered' | 'noAnswer'

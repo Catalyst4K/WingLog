@@ -728,6 +728,8 @@
       "dropped": "{{level}}: {{outcome}} — gave up after two tries",
       "next": "Next step: {{level}} at {{fix}}, {{distance}} nm",
       "watching": "Watching for a step climb (SimBrief plan or FCU).",
+      "waitingForClimb": "FCU {{level}} — waiting for the climb to start",
+      "pastTopOfDescent": "Past top of descent — no more requests this flight.",
       "outcome": {
         "granted": "cleared",
         "unavailable": "BeyondATC not offering altitude requests",

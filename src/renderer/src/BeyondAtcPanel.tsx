@@ -12,7 +12,7 @@ import { latestAtcInstruction, type AtcInstruction } from './beyondAtcInstructio
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
-const STEP_CLIMB_OFF: BeyondAtcStepClimbStatus = { enabled: false, nextStep: null, pendingAltitudeFt: null, last: null }
+const STEP_CLIMB_OFF: BeyondAtcStepClimbStatus = { enabled: false, nextStep: null, pendingAltitudeFt: null, waitingForClimbFt: null, pastTopOfDescent: false, last: null }
 
 const EMPTY_STATE: BeyondAtcState = {
   facility: null,

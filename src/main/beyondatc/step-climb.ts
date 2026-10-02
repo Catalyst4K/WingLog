@@ -14,6 +14,15 @@ import { requestAltitude, type AltitudeRequestSession } from './altitude-request
  *   selected altitude the moment it starts the step.
  * - **Climbs only.**
  * - **Retry once**, then drop that level and move on.
+ *
+ * Tightened after the first real long-haul (YBBN-VHHH, 2026-10-02), where a descent clearance
+ * to 13,000 ft with the FCU still on FL400 read as "the FCU is above the cleared level" and
+ * asked for FL400 at top of descent:
+ * - The FCU alone only brings forward the **next planned step**. Any other FCU level is asked
+ *   for only once the aircraft is actually climbing to it — a dial-up with no climb (knob
+ *   fiddling, a level left set after a descent clearance) asks for nothing.
+ * - **No requests past top of descent** (SimBrief's TOD fix). A descent clearance on its own
+ *   doesn't stop it — a mid-flight descent can be followed by a climb back up.
  */
 
 const FEET_PER_METRE = 1 / 0.3048
@@ -28,6 +37,15 @@ const FCU_SETTLE_MS = 10_000
 const STEP_THRESHOLD_FT = 500
 const RETRY_AFTER_MS = 120_000
 const MAX_ATTEMPTS = 2
+/** An FCU level within this of the next planned step is that step. */
+const PLANNED_MATCH_FT = 300
+/** "Actually climbing": above ~500 fpm, held this long. */
+const CLIMB_VS_MS = (500 * 0.3048) / 60
+const CLIMB_SUSTAIN_MS = 10_000
+/** An unplanned FCU level further than this above the cleared level is a slip of the knob. */
+const MAX_UNPLANNED_STEP_FT = 4000
+/** A plan without a TOD fix: no requests this close to its last fix (the destination). */
+const NO_TOD_CUTOFF_NM = 150
 
 export interface RouteFix {
   ident: string
@@ -46,6 +64,8 @@ export interface StepPlan {
   fixes: RouteFix[]
   /** The plan's climbs only. */
   steps: StepTarget[]
+  /** Index of SimBrief's TOD fix in `fixes`, or null if the navlog has none. */
+  todOrder: number | null
 }
 
 /** The OFP's planned step climbs, placed on the route via their navlog fix — `parseOfp` gives
@@ -57,7 +77,7 @@ export interface StepPlan {
  *  most pilots never program them, so only a step above every level planned before it counts
  *  — 11,300 m → 10,700 m → 11,900 m keeps just the 11,900 m step. */
 export function extractStepPlan(ofpJson: string | null): StepPlan {
-  if (!ofpJson) return { fixes: [], steps: [] }
+  if (!ofpJson) return { fixes: [], steps: [], todOrder: null }
   try {
     const raw = JSON.parse(ofpJson) as { navlog?: { fix?: Record<string, unknown>[] } }
     const navlog = Array.isArray(raw.navlog?.fix) ? raw.navlog.fix : []
@@ -78,9 +98,10 @@ export function extractStepPlan(ofpJson: string | null): StepPlan {
       searchFrom = order
       if (isClimb) steps.push({ ...fixes[order]!, altitudeFt: step.toAltitudeFt, order })
     }
-    return { fixes, steps }
+    const tod = fixes.findIndex((f) => f.ident === 'TOD')
+    return { fixes, steps, todOrder: tod >= 0 ? tod : null }
   } catch {
-    return { fixes: [], steps: [] }
+    return { fixes: [], steps: [], todOrder: null }
   }
 }
 
@@ -133,13 +154,16 @@ interface Attempt {
 export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepClimbStatus] }> {
   private enabled = false
   private flightId: number | null = null
-  private plan: StepPlan = { fixes: [], steps: [] }
+  private plan: StepPlan = { fixes: [], steps: [], todOrder: null }
   /** The furthest route fix the aircraft has been nearest to — steps before it are behind. */
   private progress = 0
   private readonly attempts = new Map<number, Attempt>()
   private readonly dropped = new Set<number>()
   private inFlight: number | null = null
   private fcu: { valueFt: number; since: number } | null = null
+  private climbingSince: number | null = null
+  private waitingForClimb: number | null = null
+  private pastTopOfDescent = false
   private last: BeyondAtcStepClimbStatus['last'] = null
   private nextStep: BeyondAtcStepClimbStatus['nextStep'] = null
   private lastEmitted = ''
@@ -161,6 +185,8 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
       enabled: this.enabled,
       nextStep: this.nextStep,
       pendingAltitudeFt: this.inFlight,
+      waitingForClimbFt: this.waitingForClimb,
+      pastTopOfDescent: this.pastTopOfDescent,
       last: this.last
     }
   }
@@ -171,6 +197,7 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
     if (!enabled) {
       this.nextStep = null
       this.fcu = null
+      this.waitingForClimb = null
     }
     this.emitStatus()
   }
@@ -193,6 +220,7 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
       this.attempts.clear()
       this.dropped.clear()
       this.last = null
+      this.pastTopOfDescent = false
       this.log(
         `flight ${active.flightId}: ${this.plan.fixes.length} route fixes, steps ` +
           (this.plan.steps.map((s) => `${s.ident}@${Math.round(s.altitudeFt)}`).join(' ') || 'none')
@@ -207,6 +235,8 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
       }
     }
 
+    this.climbingSince = t.verticalSpeedMs > CLIMB_VS_MS ? (this.climbingSince ?? now) : null
+
     const session = this.deps.getSession()
     const transcriptCleared = session ? clearedLevelFromTranscript(session.getTranscript()) : null
     const clearedFt = transcriptCleared ?? Math.round((t.pressureAltitudeM * FEET_PER_METRE) / 1000) * 1000
@@ -216,8 +246,12 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
     }
 
     this.progress = Math.max(this.progress, nearestFixIndex(this.plan.fixes, t.latitude, t.longitude))
+    if (!this.pastTopOfDescent && this.isPastTopOfDescent(t)) {
+      this.pastTopOfDescent = true
+      this.log('past top of descent: no more requests this flight')
+    }
     // A step already behind (switched on late, or a step not taken) mustn't hold up the ones after it.
-    const upcoming = this.plan.steps.find(
+    const upcoming = this.pastTopOfDescent ? undefined : this.plan.steps.find(
       (s) => s.order >= this.progress && s.altitudeFt > clearedFt + STEP_THRESHOLD_FT && !this.dropped.has(roundLevel(s.altitudeFt))
     )
     const upcomingDistance = upcoming ? distanceNm(t.latitude, t.longitude, upcoming.lat, upcoming.lon) : null
@@ -231,11 +265,20 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
       this.log(`next step ${nextKey}${upcomingDistance !== null ? ` (${Math.round(upcomingDistance)} nm)` : ''}`)
     }
 
-    if (this.inFlight === null && active.phase === 'cruise' && session?.getStatus().state === 'connected') {
+    this.waitingForClimb = null
+    if (this.inFlight === null && !this.pastTopOfDescent && active.phase === 'cruise' && session?.getStatus().state === 'connected') {
       const target = this.pickTarget(t, now, clearedFt, upcoming, upcomingDistance)
       if (target) this.fire(session, target.altitudeFt, target.reason, now)
     }
     this.emitStatus()
+  }
+
+  /** Nearest-fix progress reaching TOD counts as past it — up to half a leg early, which only
+   *  matters to a step planned right at TOD, which never happens. */
+  private isPastTopOfDescent(t: SimTelemetry): boolean {
+    if (this.plan.todOrder !== null) return this.progress >= this.plan.todOrder
+    const destination = this.plan.fixes.at(-1)
+    return destination !== undefined && distanceNm(t.latitude, t.longitude, destination.lat, destination.lon) < NO_TOD_CUTOFF_NM
   }
 
   private pickTarget(
@@ -251,7 +294,17 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
       candidates.push({ altitudeFt: upcoming.altitudeFt, reason: 'simbrief' })
     }
     if (this.fcu && now - this.fcu.since >= FCU_SETTLE_MS && this.fcu.valueFt > clearedFt + STEP_THRESHOLD_FT) {
-      candidates.push({ altitudeFt: roundLevel(this.fcu.valueFt), reason: 'fcu' })
+      const fcuFt = this.fcu.valueFt
+      if (upcoming && Math.abs(fcuFt - upcoming.altitudeFt) <= PLANNED_MATCH_FT) {
+        // The aircraft starting the planned step early — ask for the plan's level now.
+        candidates.push({ altitudeFt: upcoming.altitudeFt, reason: 'fcu' })
+      } else if (fcuFt <= clearedFt + MAX_UNPLANNED_STEP_FT) {
+        if (this.climbingSince !== null && now - this.climbingSince >= CLIMB_SUSTAIN_MS) {
+          candidates.push({ altitudeFt: roundLevel(fcuFt), reason: 'fcu' })
+        } else {
+          this.waitingForClimb = roundLevel(fcuFt)
+        }
+      }
     }
     return (
       candidates.find((c) => {

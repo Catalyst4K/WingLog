@@ -753,6 +753,8 @@
       "dropped": "{{level}}: {{outcome}} — отказ после двух попыток",
       "next": "Следующая ступень: {{level}} у {{fix}}, {{distance}} NM",
       "watching": "Ожидание ступенчатого набора (план SimBrief или FCU).",
+      "waitingForClimb": "FCU {{level}} — ожидание начала набора",
+      "pastTopOfDescent": "Точка начала снижения пройдена — больше запросов в этом полёте не будет.",
       "outcome": {
         "granted": "разрешено",
         "unavailable": "BeyondATC не предлагает запрос эшелона",

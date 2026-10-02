@@ -16,7 +16,7 @@ function makeRadiosProps(overrides: Partial<BeyondAtcRadiosProps> = {}): BeyondA
     autoRespond: null,
     onSetAutoTune: vi.fn(),
     onSetAutoRespond: vi.fn(),
-    stepClimb: { enabled: false, nextStep: null, pendingAltitudeFt: null, last: null },
+    stepClimb: { enabled: false, nextStep: null, pendingAltitudeFt: null, waitingForClimbFt: null, pastTopOfDescent: false, last: null },
     onSetStepClimb: vi.fn(),
     ...overrides
   }
@@ -177,7 +177,7 @@ describe('BeyondAtcRadios', () => {
 })
 
 describe('BeyondAtcRadios — auto step climb', () => {
-  const OFF = { enabled: false, nextStep: null, pendingAltitudeFt: null, last: null }
+  const OFF = { enabled: false, nextStep: null, pendingAltitudeFt: null, waitingForClimbFt: null, pastTopOfDescent: false, last: null }
 
   it('toggles WingLog auto step climb on', async () => {
     const onSetStepClimb = vi.fn()
@@ -218,6 +218,22 @@ describe('BeyondAtcRadios — auto step climb', () => {
       />
     )
     expect(screen.getByText('FL410: level not offered — gave up after two tries')).toBeInTheDocument()
+  })
+
+  it('says when an FCU level is waiting on the climb, and when top of descent has ended requests', () => {
+    const { rerender } = render(
+      <BeyondAtcRadios
+        {...makeRadiosProps({
+          stepClimb: { ...OFF, enabled: true, waitingForClimbFt: 41000, nextStep: { ident: 'KAMUD', altitudeFt: 43000, distanceNm: 300 } }
+        })}
+      />
+    )
+    expect(screen.getByText('FCU FL410 — waiting for the climb to start')).toBeInTheDocument()
+    expect(screen.getByText('Next step: FL430 at KAMUD, 300 nm')).toBeInTheDocument()
+
+    rerender(<BeyondAtcRadios {...makeRadiosProps({ stepClimb: { ...OFF, enabled: true, pastTopOfDescent: true } })} />)
+    expect(screen.getByText('Past top of descent — no more requests this flight.')).toBeInTheDocument()
+    expect(screen.queryByText(/Watching for a step climb/)).not.toBeInTheDocument()
   })
 
   it('says it is watching when on with nothing planned yet, and shows nothing when off', () => {
