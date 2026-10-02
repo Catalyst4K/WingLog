@@ -425,6 +425,9 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     updatesCheckNow: vi.fn().mockResolvedValue({ state: 'upToDate', currentVersion: '1.0.0', latest: null, checkedAt: null, skippedVersion: null }),
     updatesSkipVersion: vi.fn().mockResolvedValue(undefined),
     updatesOpenRelease: vi.fn().mockResolvedValue(undefined),
+    setupGetState: vi.fn().mockResolvedValue({ show: false, whatsNew: false }),
+    setupGetContext: vi.fn().mockResolvedValue({ gsxFolderFound: false, gsxFolderPath: null, beyondAtcRunning: false }),
+    setupComplete: vi.fn().mockResolvedValue(undefined),
     appOpenGithub: vi.fn().mockResolvedValue(undefined),
     ...overrides
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -790,6 +793,46 @@ describe('App', () => {
     await screen.findByText('Fleet', { selector: 'h1' })
     expect(toast.success).not.toHaveBeenCalled()
     expect(toast.info).not.toHaveBeenCalled()
+  })
+
+  describe('first-launch setup (first-launch-setup.md)', () => {
+    it('opens on a new install, without the separate GSX toast, and closing it marks it done', async () => {
+      const setupComplete = vi.fn().mockResolvedValue(undefined)
+      setWinglog({
+        setupGetState: vi.fn().mockResolvedValue({ show: true, whatsNew: false }),
+        setupComplete,
+        settingsCheckGsxFirstLaunch: vi.fn().mockResolvedValue({ found: true } satisfies GsxFirstLaunchResult)
+      })
+      const user = userEvent.setup()
+      render(<App />)
+      expect(await screen.findByRole('dialog', { name: 'Welcome to WingLog' })).toBeInTheDocument()
+      await waitFor(() => expect(window.winglog.settingsCheckGsxFirstLaunch).toHaveBeenCalled())
+      expect(toast.success).not.toHaveBeenCalled()
+
+      await user.keyboard('{Escape}')
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(setupComplete).toHaveBeenCalled()
+    })
+
+    it("gives an existing user a one-off what's-new note instead", async () => {
+      setWinglog({ setupGetState: vi.fn().mockResolvedValue({ show: false, whatsNew: true }) })
+      render(<App />)
+      await waitFor(() => expect(toast.info).toHaveBeenCalledWith(expect.stringContaining('New in WingLog 1.4'), { duration: 15_000 }))
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+
+    it('reopens from Settings → About → Run setup again', async () => {
+      setWinglog()
+      const user = userEvent.setup()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+      await clickTab(user, 'Settings')
+      // Settings is lazy-loaded; the first load in a cold test worker can take a while.
+      await screen.findByText('Units', undefined, { timeout: 10_000 })
+      await user.click(screen.getByRole('tab', { name: 'About' }))
+      await user.click(await screen.findByRole('button', { name: 'Run setup again' }))
+      expect(await screen.findByRole('dialog', { name: 'Welcome to WingLog' })).toBeInTheDocument()
+    })
   })
 
   it('re-clicking the active Settings tab returns it to the UI category', async () => {

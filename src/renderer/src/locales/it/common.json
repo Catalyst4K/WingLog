@@ -169,7 +169,8 @@
       "description": "Un compagno personale per la gestione della flotta, la pianificazione, il tracciamento live e il libretto di volo per Microsoft Flight Simulator.",
       "simulationOnly": "Solo per la simulazione di volo. WingLog non deve mai essere usato per la navigazione reale, la pianificazione di voli reali o a bordo di un aeromobile reale.",
       "disclaimer": "WingLog è un progetto indipendente e gratuito. Non è affiliato, sostenuto o sponsorizzato da Microsoft Corporation, Asobo Studio, Skirmish Mode Games (BeyondATC), FSDreamTeam (GSX), Navigraph (SimBrief) o OpenFreeMap. \"Microsoft Flight Simulator\", \"BeyondATC\", \"GSX\", \"SimBrief\" e \"Navigraph\" sono marchi dei rispettivi proprietari.",
-      "license": "Libero e open source sotto licenza GNU General Public License v3.0."
+      "license": "Libero e open source sotto licenza GNU General Public License v3.0.",
+      "runSetup": "Ripeti la configurazione"
     },
     "usernameSavedToast": "Nome utente SimBrief salvato.",
     "usernameAutoFilledToast": "Nome utente SimBrief compilato automaticamente: {{username}}",
@@ -227,7 +228,8 @@
       "title": "Aggiornare la procedura in base all'autorizzazione ATC?",
       "update": "Aggiorna",
       "dismiss": "Ignora"
-    }
+    },
+    "whatsNew": "Novità di WingLog 1.4: integrazione con BeyondATC, percorsi di rullaggio sulla mappa, salite a gradini automatiche e controllo degli aggiornamenti. Attiva BeyondATC in Impostazioni → Terze parti."
   },
   "fleetView": {
     "atStand": "piazzola {{stand}}",
@@ -838,6 +840,55 @@
       "checking": "Controllo in corso…",
       "upToDate": "Stai usando l'ultima versione ({{version}}).",
       "error": "Impossibile verificare gli aggiornamenti. Riprova più tardi."
+    }
+  },
+  "setup": {
+    "progress": "Passo {{step}} di {{total}}",
+    "back": "Indietro",
+    "next": "Avanti",
+    "start": "Inizia",
+    "finish": "Fine",
+    "on": "Sì",
+    "off": "No",
+    "welcome": {
+      "title": "Benvenuto in WingLog",
+      "body": "WingLog gestisce la tua flotta, pianifica i voli con SimBrief, li traccia in diretta da Microsoft Flight Simulator e tiene un logbook con analisi degli atterraggi. Prima, qualche scelta veloce.",
+      "skipHint": "Ogni passo è facoltativo. Puoi cambiare tutto più tardi nelle Impostazioni e riaprire questa configurazione da Impostazioni → Informazioni."
+    },
+    "simbrief": {
+      "title": "SimBrief",
+      "body": "Dispatch scarica i tuoi piani di volo da SimBrief. Inserisci il tuo nome utente SimBrief (il tuo alias Navigraph) perché WingLog possa trovarli.",
+      "label": "Nome utente SimBrief",
+      "save": "Salva",
+      "saved": "Salvato."
+    },
+    "units": {
+      "title": "Lingua e unità"
+    },
+    "addons": {
+      "title": "Componenti aggiuntivi",
+      "intro": "WingLog funziona con questi componenti aggiuntivi, se li hai. Ognuno resta disattivato finché non lo attivi.",
+      "gsx": "Servizi a terra GSX",
+      "gsxDetail": "Allega le ricevute dei servizi di GSX Pro ai tuoi voli nel logbook.",
+      "gsxFound": "La cartella delle ricevute di GSX è stata trovata su questo PC.",
+      "gsxNotFound": "La cartella delle ricevute di GSX non è stata trovata su questo PC.",
+      "gsxRemote": "GSX Remote Control",
+      "gsxRemoteDetail": "Gestisce il menu dei servizi a terra di GSX direttamente da WingLog.",
+      "beyondAtc": "BeyondATC",
+      "beyondAtcDetail": "Mostra le autorizzazioni e le comunicazioni di BeyondATC, compila le procedure di partenza e arrivo, disegna il percorso di rullaggio e può richiedere le salite a gradini del tuo piano di volo.",
+      "beyondAtcRunning": "BeyondATC è in esecuzione su questo PC.",
+      "notAffiliated": "WingLog non è affiliato ai produttori di GSX o BeyondATC. Sono prodotti separati."
+    },
+    "tracking": {
+      "title": "Tracciamento",
+      "intro": "WingLog può avviare e terminare da solo il tracciamento di un volo. Se con la tua configurazione dovesse dare problemi, disattivalo e usa i pulsanti."
+    },
+    "updates": {
+      "title": "Aggiornamenti"
+    },
+    "done": {
+      "title": "Tutto pronto",
+      "body": "Puoi cambiare tutto questo nelle Impostazioni. Per rivedere questa configurazione vai in Impostazioni → Informazioni → Ripeti la configurazione."
     }
   }
 }

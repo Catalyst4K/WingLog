@@ -167,7 +167,8 @@
       "description": "A personal fleet-management, dispatch, live-tracking and logbook companion for Microsoft Flight Simulator.",
       "simulationOnly": "For flight simulation use only. WingLog must never be used for real-world navigation, flight planning, or in a real aircraft.",
       "disclaimer": "WingLog is an independent, free project. It is not affiliated with, endorsed by, or sponsored by Microsoft Corporation, Asobo Studio, Skirmish Mode Games (BeyondATC), FSDreamTeam (GSX), Navigraph (SimBrief), or OpenFreeMap. \"Microsoft Flight Simulator\", \"BeyondATC\", \"GSX\", \"SimBrief\" and \"Navigraph\" are trademarks of their respective owners.",
-      "license": "Free and open source under the GNU General Public License v3.0."
+      "license": "Free and open source under the GNU General Public License v3.0.",
+      "runSetup": "Run setup again"
     },
     "usernameSavedToast": "SimBrief username saved.",
     "usernameAutoFilledToast": "SimBrief username filled in automatically: {{username}}",
@@ -225,7 +226,8 @@
       "title": "Update procedure from ATC clearance?",
       "update": "Update",
       "dismiss": "Dismiss"
-    }
+    },
+    "whatsNew": "New in WingLog 1.4: BeyondATC integration, taxi routes on the map, automatic step climbs and an update check. Turn BeyondATC on in Settings → 3rd party."
   },
   "fleetView": {
     "atStand": "stand {{stand}}",
@@ -836,6 +838,55 @@
       "checking": "Checking…",
       "upToDate": "You're on the latest version ({{version}}).",
       "error": "Couldn't check for updates. Try again later."
+    }
+  },
+  "setup": {
+    "progress": "Step {{step}} of {{total}}",
+    "back": "Back",
+    "next": "Next",
+    "start": "Get started",
+    "finish": "Finish",
+    "on": "On",
+    "off": "Off",
+    "welcome": {
+      "title": "Welcome to WingLog",
+      "body": "WingLog keeps your fleet, plans your flights with SimBrief, tracks them live from Microsoft Flight Simulator, and keeps a logbook with landing analysis. A few quick choices first.",
+      "skipHint": "Every step is optional. You can change all of this later in Settings, and reopen this setup from Settings → About."
+    },
+    "simbrief": {
+      "title": "SimBrief",
+      "body": "Dispatch fetches your flight plans from SimBrief. Enter your SimBrief username (your Navigraph alias) so WingLog can find them.",
+      "label": "SimBrief username",
+      "save": "Save",
+      "saved": "Saved."
+    },
+    "units": {
+      "title": "Language and units"
+    },
+    "addons": {
+      "title": "Add-ons",
+      "intro": "WingLog works with these add-ons if you have them. Each one stays off until you turn it on.",
+      "gsx": "GSX ground services",
+      "gsxDetail": "Attaches GSX Pro's service receipts to your flights in the Logbook.",
+      "gsxFound": "GSX's receipts folder was found on this PC.",
+      "gsxNotFound": "GSX's receipts folder wasn't found on this PC.",
+      "gsxRemote": "GSX Remote Control",
+      "gsxRemoteDetail": "Runs GSX's ground-service menu from inside WingLog.",
+      "beyondAtc": "BeyondATC",
+      "beyondAtcDetail": "Shows BeyondATC's clearances and radio calls, fills in your departure and arrival procedures, draws your taxi route, and can request the step climbs in your flight plan.",
+      "beyondAtcRunning": "BeyondATC is running on this PC right now.",
+      "notAffiliated": "WingLog isn't affiliated with the makers of GSX or BeyondATC. Each is a separate product."
+    },
+    "tracking": {
+      "title": "Tracking",
+      "intro": "WingLog can start and finish tracking a flight by itself. If that ever misbehaves with your setup, turn it off and use the buttons instead."
+    },
+    "updates": {
+      "title": "Updates"
+    },
+    "done": {
+      "title": "You're all set",
+      "body": "Everything here can be changed in Settings. To see this setup again, go to Settings → About → Run setup again."
     }
   }
 }

@@ -129,6 +129,7 @@ import { EMPTY_COMMAND_BAR, EMPTY_MENU, GsxRemoteService } from './gsx-remote/Gs
 import { BeyondAtcService, EMPTY_STATE as BEYONDATC_EMPTY_STATE } from './beyondatc/BeyondAtcService'
 import { UpdateService } from './updates/update-check'
 import { LiveHub } from './live/LiveHub'
+import { getSetupContext, getSetupState, setSetupCompleted } from './setup/first-run'
 import { StepClimbController } from './beyondatc/step-climb'
 import type { NavdataProvider } from './navdata/navdata-provider'
 import { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
@@ -763,6 +764,10 @@ if (!gotSingleInstanceLock) {
         setGsxSettings(db, settings)
       )
       ipcMain.handle(IpcChannels.settingsCheckGsxFirstLaunch, () => checkGsxFirstLaunch(db))
+      // First-launch setup (flightdeck-backend's docs/plans/first-launch-setup.md).
+      ipcMain.handle(IpcChannels.setupGetState, () => getSetupState(db))
+      ipcMain.handle(IpcChannels.setupGetContext, () => getSetupContext())
+      ipcMain.handle(IpcChannels.setupComplete, () => setSetupCompleted(db))
 
       ipcMain.handle(IpcChannels.gsxBrowseFolder, async () => {
         const { canceled, filePaths } = await dialog.showOpenDialog(window, {

@@ -283,7 +283,10 @@ const api: WingLogApi = {
     ipcRenderer.on(IpcChannels.beyondAtcStepClimb, handler)
     return () => ipcRenderer.removeListener(IpcChannels.beyondAtcStepClimb, handler)
   },
-  beyondAtcSetStepClimb: (enabled: boolean) => ipcRenderer.invoke(IpcChannels.beyondAtcSetStepClimb, enabled)
+  beyondAtcSetStepClimb: (enabled: boolean) => ipcRenderer.invoke(IpcChannels.beyondAtcSetStepClimb, enabled),
+  setupGetState: () => ipcRenderer.invoke(IpcChannels.setupGetState),
+  setupGetContext: () => ipcRenderer.invoke(IpcChannels.setupGetContext),
+  setupComplete: () => ipcRenderer.invoke(IpcChannels.setupComplete)
 }
 
 contextBridge.exposeInMainWorld('winglog', api)

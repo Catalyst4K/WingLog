@@ -42,6 +42,10 @@ export interface LaunchAppOptions {
    *  Still isolated, still the caller's responsibility to have created it and to clean it
    *  up (cleanup() below only removes a directory it created itself). */
   userDataDir?: string
+  /** Leave the first-launch setup open (flightdeck-backend's docs/plans/first-launch-setup.md)
+   *  for a test about the setup itself. By default it's closed straight away, since every
+   *  other test starts from a fresh profile and would otherwise find it in the way. */
+  keepSetup?: boolean
 }
 
 export async function launchApp(options: LaunchAppOptions = {}): Promise<LaunchedApp> {
@@ -72,6 +76,16 @@ export async function launchApp(options: LaunchAppOptions = {}): Promise<Launche
   })
   const window = await app.firstWindow()
   await window.waitForLoadState('domcontentloaded')
+  if (!options.keepSetup) {
+    // Asking is side-effect free for a new install, and the app has already asked (and so
+    // already settled an upgraded profile) by the time this runs.
+    const setup = await window.evaluate(() => (globalThis as unknown as Window).winglog.setupGetState())
+    if (setup.show) {
+      await window.getByRole('dialog', { name: 'Welcome to WingLog' }).waitFor()
+      await window.keyboard.press('Escape')
+      await window.getByRole('dialog').waitFor({ state: 'hidden' })
+    }
+  }
 
   return {
     app,

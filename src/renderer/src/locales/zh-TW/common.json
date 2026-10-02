@@ -162,7 +162,8 @@
       "description": "適用於 Microsoft Flight Simulator 的個人機隊管理、簽派、即時航跡追蹤與飛行日誌隨行應用程式。",
       "simulationOnly": "僅供飛行模擬使用。WingLog 絕不能用於真實世界的導航、真實飛行計畫或真實航空器上。",
       "disclaimer": "WingLog 是一個獨立的免費專案。它與 Microsoft Corporation、Asobo Studio、Skirmish Mode Games（BeyondATC）、FSDreamTeam（GSX）、Navigraph（SimBrief）或 OpenFreeMap 沒有任何關聯，未獲其認可，亦未獲其贊助。「Microsoft Flight Simulator」「BeyondATC」「GSX」「SimBrief」與「Navigraph」為其各自所有者的商標。",
-      "license": "依 GNU General Public License v3.0 免費且開放原始碼發布。"
+      "license": "依 GNU General Public License v3.0 免費且開放原始碼發布。",
+      "runSetup": "重新執行設定精靈"
     },
     "usernameSavedToast": "SimBrief 使用者名稱已儲存。",
     "usernameAutoFilledToast": "已自動填入 SimBrief 使用者名稱：{{username}}",
@@ -220,7 +221,8 @@
       "title": "要依 ATC 許可更新程序嗎？",
       "update": "更新",
       "dismiss": "忽略"
-    }
+    },
+    "whatsNew": "WingLog 1.4 新功能：BeyondATC 整合、地圖上的滑行路線、自動階梯爬升和更新檢查。在「設定 → 第三方」中開啟 BeyondATC。"
   },
   "fleetView": {
     "atStand": "機位 {{stand}}",
@@ -828,6 +830,55 @@
       "checking": "正在檢查…",
       "upToDate": "你使用的是最新版本（{{version}}）。",
       "error": "無法檢查更新，請稍後再試。"
+    }
+  },
+  "setup": {
+    "progress": "第 {{step}} 步，共 {{total}} 步",
+    "back": "上一步",
+    "next": "下一步",
+    "start": "開始",
+    "finish": "完成",
+    "on": "開",
+    "off": "關",
+    "welcome": {
+      "title": "歡迎使用 WingLog",
+      "body": "WingLog 管理你的機隊，用 SimBrief 規劃航班，從 Microsoft Flight Simulator 即時記錄飛行，並保存含著陸分析的飛行日誌。先做幾個簡單的選擇。",
+      "skipHint": "每一步都可以略過。之後都能在設定中變更，也可以在「設定 → 關於」中重新開啟此設定精靈。"
+    },
+    "simbrief": {
+      "title": "SimBrief",
+      "body": "簽派會從 SimBrief 取得你的飛行計畫。請輸入你的 SimBrief 使用者名稱（即 Navigraph 別名），讓 WingLog 找到它們。",
+      "label": "SimBrief 使用者名稱",
+      "save": "儲存",
+      "saved": "已儲存。"
+    },
+    "units": {
+      "title": "語言和單位"
+    },
+    "addons": {
+      "title": "外掛",
+      "intro": "如果你安裝了這些外掛，WingLog 可以與它們搭配使用。每個外掛在你開啟之前都保持關閉。",
+      "gsx": "GSX 地勤服務",
+      "gsxDetail": "將 GSX Pro 的服務收據附加到飛行日誌中的航班。",
+      "gsxFound": "已在這台電腦上找到 GSX 收據資料夾。",
+      "gsxNotFound": "未在這台電腦上找到 GSX 收據資料夾。",
+      "gsxRemote": "GSX Remote Control",
+      "gsxRemoteDetail": "直接在 WingLog 中操作 GSX 地勤服務選單。",
+      "beyondAtc": "BeyondATC",
+      "beyondAtcDetail": "顯示 BeyondATC 的許可與無線電通話，填寫你的離場和進場程序，繪製滑行路線，並可依飛行計畫申請階梯爬升。",
+      "beyondAtcRunning": "BeyondATC 正在這台電腦上執行。",
+      "notAffiliated": "WingLog 與 GSX 和 BeyondATC 的開發商沒有關聯。它們是各自獨立的產品。"
+    },
+    "tracking": {
+      "title": "記錄",
+      "intro": "WingLog 可以自動開始和結束航班記錄。如果它與你的配置搭配不佳，可以關閉，改用按鈕。"
+    },
+    "updates": {
+      "title": "更新"
+    },
+    "done": {
+      "title": "一切就緒",
+      "body": "這裡的所有內容都可以在設定中變更。要再次查看此精靈，請前往「設定 → 關於 → 重新執行設定精靈」。"
     }
   }
 }

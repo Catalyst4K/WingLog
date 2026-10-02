@@ -21,6 +21,7 @@ import type {
   WindSpeedUnit
 } from '@shared/ipc'
 import { resolveAppLanguage } from '@shared/app-language'
+import { SetupDialog } from './SetupDialog'
 import { UpdateBanner } from './UpdateBanner'
 import i18n from './i18n'
 import {
@@ -459,11 +460,18 @@ export default function App(): React.JSX.Element {
     await window.winglog.settingsSetTheme(next)
   }
 
+  // First-launch setup (flightdeck-backend's docs/plans/first-launch-setup.md): shown to a new
+  // install; someone upgrading with a fleet or logbook gets a one-off "what's new" instead.
+  const [setupOpen, setSetupOpen] = useState(false)
   useEffect(() => {
-    // A no-op (returns null) on every launch after the app's actual first-ever one —
-    // see settingsCheckGsxFirstLaunch's doc comment.
-    window.winglog.settingsCheckGsxFirstLaunch().then((result) => {
-      if (!result) return
+    window.winglog.setupGetState().then(async (setup) => {
+      if (setup.show) setSetupOpen(true)
+      if (setup.whatsNew) toast.info(i18n.t('app.whatsNew'), { duration: 15_000 })
+      // A no-op (returns null) on every launch after the app's actual first-ever one —
+      // see settingsCheckGsxFirstLaunch's doc comment.
+      const result = await window.winglog.settingsCheckGsxFirstLaunch()
+      // The setup's add-ons step shows what this found, so no separate toast on top of it.
+      if (!result || setup.show) return
       // i18n.t directly, not the hook's t — this only runs once at mount (checking a
       // one-time flag), so it must not depend on a value that changes on every language
       // switch just to satisfy the exhaustive-deps rule.
@@ -625,6 +633,7 @@ export default function App(): React.JSX.Element {
                 onThemeChange={handleThemeChange}
                 onGsxRemoteEnabledChange={setGsxRemoteEnabled}
                 onBeyondAtcEnabledChange={setBeyondAtcEnabled}
+                onRunSetup={() => setSetupOpen(true)}
                 resetSignal={settingsResetSignal}
               />
             )}
@@ -632,6 +641,24 @@ export default function App(): React.JSX.Element {
         </div>
       </Tabs>
       <Toaster />
+      <SetupDialog
+        open={setupOpen}
+        onClose={() => setSetupOpen(false)}
+        weightUnit={weightUnit}
+        onWeightUnitChange={handleWeightUnitChange}
+        altitudeUnit={altitudeUnit}
+        onAltitudeUnitChange={handleAltitudeUnitChange}
+        windSpeedUnit={windSpeedUnit}
+        onWindSpeedUnitChange={handleWindSpeedUnitChange}
+        landingDistanceUnit={landingDistanceUnit}
+        onLandingDistanceUnitChange={handleLandingDistanceUnitChange}
+        mapLanguage={mapLanguage}
+        onMapLanguageChange={handleMapLanguageChange}
+        appLanguage={appLanguage}
+        onAppLanguageChange={handleAppLanguageChange}
+        onGsxRemoteEnabledChange={setGsxRemoteEnabled}
+        onBeyondAtcEnabledChange={setBeyondAtcEnabled}
+      />
 
       <AlertDialog open={orphanedFlight !== null} onOpenChange={(open) => !open && setOrphanedFlight(null)}>
         <AlertDialogContent>

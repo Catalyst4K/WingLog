@@ -169,7 +169,8 @@
       "description": "Un compañero personal de gestión de flota, despacho, seguimiento en vivo y bitácora para Microsoft Flight Simulator.",
       "simulationOnly": "Solo para simulación de vuelo. WingLog nunca debe usarse para navegación real, planificación de vuelos reales ni en una aeronave real.",
       "disclaimer": "WingLog es un proyecto independiente y gratuito. No está afiliado con Microsoft Corporation, Asobo Studio, Skirmish Mode Games (BeyondATC), FSDreamTeam (GSX), Navigraph (SimBrief) ni OpenFreeMap, ni cuenta con su respaldo o patrocinio. «Microsoft Flight Simulator», «BeyondATC», «GSX», «SimBrief» y «Navigraph» son marcas de sus respectivos propietarios.",
-      "license": "Software libre y de código abierto bajo la GNU General Public License v3.0."
+      "license": "Software libre y de código abierto bajo la GNU General Public License v3.0.",
+      "runSetup": "Volver a ejecutar la configuración"
     },
     "usernameSavedToast": "Usuario de SimBrief guardado.",
     "usernameAutoFilledToast": "Usuario de SimBrief completado automáticamente: {{username}}",
@@ -227,7 +228,8 @@
       "title": "¿Actualizar el procedimiento según la autorización ATC?",
       "update": "Actualizar",
       "dismiss": "Descartar"
-    }
+    },
+    "whatsNew": "Novedades de WingLog 1.4: integración con BeyondATC, rutas de rodaje en el mapa, ascensos escalonados automáticos y búsqueda de actualizaciones. Activa BeyondATC en Ajustes → Terceros."
   },
   "fleetView": {
     "atStand": "puesto {{stand}}",
@@ -838,6 +840,55 @@
       "checking": "Comprobando…",
       "upToDate": "Tienes la última versión ({{version}}).",
       "error": "No se pudo comprobar si hay actualizaciones. Inténtalo más tarde."
+    }
+  },
+  "setup": {
+    "progress": "Paso {{step}} de {{total}}",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "start": "Empezar",
+    "finish": "Terminar",
+    "on": "Sí",
+    "off": "No",
+    "welcome": {
+      "title": "Bienvenido a WingLog",
+      "body": "WingLog gestiona tu flota, planifica tus vuelos con SimBrief, los registra en directo desde Microsoft Flight Simulator y lleva un libro de vuelo con análisis de aterrizajes. Antes, unas elecciones rápidas.",
+      "skipHint": "Cada paso es opcional. Puedes cambiar todo esto más tarde en Ajustes y volver a abrir esta configuración desde Ajustes → Acerca de."
+    },
+    "simbrief": {
+      "title": "SimBrief",
+      "body": "Despacho descarga tus planes de vuelo de SimBrief. Introduce tu usuario de SimBrief (tu alias de Navigraph) para que WingLog pueda encontrarlos.",
+      "label": "Usuario de SimBrief",
+      "save": "Guardar",
+      "saved": "Guardado."
+    },
+    "units": {
+      "title": "Idioma y unidades"
+    },
+    "addons": {
+      "title": "Complementos",
+      "intro": "WingLog funciona con estos complementos si los tienes. Cada uno permanece desactivado hasta que lo actives.",
+      "gsx": "Servicios de tierra de GSX",
+      "gsxDetail": "Adjunta los recibos de servicios de GSX Pro a tus vuelos en el libro de vuelo.",
+      "gsxFound": "Se encontró la carpeta de recibos de GSX en este PC.",
+      "gsxNotFound": "No se encontró la carpeta de recibos de GSX en este PC.",
+      "gsxRemote": "GSX Remote Control",
+      "gsxRemoteDetail": "Maneja el menú de servicios de tierra de GSX desde WingLog.",
+      "beyondAtc": "BeyondATC",
+      "beyondAtcDetail": "Muestra las autorizaciones y comunicaciones de BeyondATC, rellena tus procedimientos de salida y llegada, dibuja tu ruta de rodaje y puede solicitar los ascensos escalonados de tu plan de vuelo.",
+      "beyondAtcRunning": "BeyondATC se está ejecutando ahora en este PC.",
+      "notAffiliated": "WingLog no está afiliado con los creadores de GSX ni de BeyondATC. Cada uno es un producto independiente."
+    },
+    "tracking": {
+      "title": "Registro",
+      "intro": "WingLog puede empezar y terminar el registro de un vuelo por sí solo. Si alguna vez falla con tu configuración, desactívalo y usa los botones."
+    },
+    "updates": {
+      "title": "Actualizaciones"
+    },
+    "done": {
+      "title": "Todo listo",
+      "body": "Todo esto se puede cambiar en Ajustes. Para volver a ver esta configuración, ve a Ajustes → Acerca de → Volver a ejecutar la configuración."
     }
   }
 }

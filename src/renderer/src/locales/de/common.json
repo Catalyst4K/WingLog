@@ -167,7 +167,8 @@
       "description": "Ein persönlicher Begleiter für Flottenverwaltung, Flugplanung, Live-Tracking und Logbuch für Microsoft Flight Simulator.",
       "simulationOnly": "Nur für die Flugsimulation. WingLog darf niemals für reale Navigation, reale Flugplanung oder in einem echten Flugzeug verwendet werden.",
       "disclaimer": "WingLog ist ein unabhängiges, kostenloses Projekt. Es steht in keiner Verbindung zu Microsoft Corporation, Asobo Studio, Skirmish Mode Games (BeyondATC), FSDreamTeam (GSX), Navigraph (SimBrief) oder OpenFreeMap und wird nicht von ihnen unterstützt oder gesponsert. „Microsoft Flight Simulator“, „BeyondATC“, „GSX“, „SimBrief“ und „Navigraph“ sind Marken ihrer jeweiligen Inhaber.",
-      "license": "Frei und quelloffen unter der GNU General Public License v3.0."
+      "license": "Frei und quelloffen unter der GNU General Public License v3.0.",
+      "runSetup": "Einrichtung erneut ausführen"
     },
     "usernameSavedToast": "SimBrief-Benutzername gespeichert.",
     "usernameAutoFilledToast": "SimBrief-Benutzername automatisch ausgefüllt: {{username}}",
@@ -225,7 +226,8 @@
       "title": "Verfahren anhand der ATC-Freigabe aktualisieren?",
       "update": "Aktualisieren",
       "dismiss": "Verwerfen"
-    }
+    },
+    "whatsNew": "Neu in WingLog 1.4: BeyondATC-Integration, Rollrouten auf der Karte, automatische Stufensteigflüge und eine Update-Prüfung. BeyondATC aktivierst du unter Einstellungen → Drittanbieter."
   },
   "fleetView": {
     "atStand": "Position {{stand}}",
@@ -836,6 +838,55 @@
       "checking": "Wird geprüft…",
       "upToDate": "Du verwendest die neueste Version ({{version}}).",
       "error": "Updates konnten nicht geprüft werden. Versuche es später erneut."
+    }
+  },
+  "setup": {
+    "progress": "Schritt {{step}} von {{total}}",
+    "back": "Zurück",
+    "next": "Weiter",
+    "start": "Los geht’s",
+    "finish": "Fertig",
+    "on": "An",
+    "off": "Aus",
+    "welcome": {
+      "title": "Willkommen bei WingLog",
+      "body": "WingLog verwaltet deine Flotte, plant Flüge mit SimBrief, zeichnet sie live aus dem Microsoft Flight Simulator auf und führt ein Flugbuch mit Landeanalyse. Zuerst ein paar kurze Einstellungen.",
+      "skipHint": "Jeder Schritt ist optional. Alles lässt sich später in den Einstellungen ändern, und diese Einrichtung kannst du unter Einstellungen → Über erneut öffnen."
+    },
+    "simbrief": {
+      "title": "SimBrief",
+      "body": "Dispatch lädt deine Flugpläne von SimBrief. Gib deinen SimBrief-Benutzernamen (deinen Navigraph-Alias) ein, damit WingLog sie findet.",
+      "label": "SimBrief-Benutzername",
+      "save": "Speichern",
+      "saved": "Gespeichert."
+    },
+    "units": {
+      "title": "Sprache und Einheiten"
+    },
+    "addons": {
+      "title": "Add-ons",
+      "intro": "WingLog arbeitet mit diesen Add-ons zusammen, wenn du sie hast. Jedes bleibt aus, bis du es einschaltest.",
+      "gsx": "GSX-Bodendienste",
+      "gsxDetail": "Hängt die Servicebelege von GSX Pro an deine Flüge im Flugbuch an.",
+      "gsxFound": "Der Belegordner von GSX wurde auf diesem PC gefunden.",
+      "gsxNotFound": "Der Belegordner von GSX wurde auf diesem PC nicht gefunden.",
+      "gsxRemote": "GSX Remote Control",
+      "gsxRemoteDetail": "Steuert das Bodendienstmenü von GSX direkt in WingLog.",
+      "beyondAtc": "BeyondATC",
+      "beyondAtcDetail": "Zeigt Freigaben und Funksprüche von BeyondATC, füllt deine Abflug- und Anflugverfahren aus, zeichnet deine Rollroute und kann die Stufensteigflüge aus deinem Flugplan anfordern.",
+      "beyondAtcRunning": "BeyondATC läuft gerade auf diesem PC.",
+      "notAffiliated": "WingLog steht in keiner Verbindung zu den Herstellern von GSX oder BeyondATC. Beides sind eigenständige Produkte."
+    },
+    "tracking": {
+      "title": "Aufzeichnung",
+      "intro": "WingLog kann die Aufzeichnung eines Flugs selbst starten und beenden. Falls das mit deinem Setup einmal nicht klappt, schalte es aus und nutze stattdessen die Schaltflächen."
+    },
+    "updates": {
+      "title": "Updates"
+    },
+    "done": {
+      "title": "Alles bereit",
+      "body": "Alles hier lässt sich in den Einstellungen ändern. Diese Einrichtung findest du wieder unter Einstellungen → Über → Einrichtung erneut ausführen."
     }
   }
 }
