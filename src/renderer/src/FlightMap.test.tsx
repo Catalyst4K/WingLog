@@ -1395,6 +1395,87 @@ describe('FlightMap', () => {
 
       expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'none')
     })
+
+    it('drops the departure route once the takeoff roll starts, instead of drawing it over the flown track (2026-10-05)', async () => {
+      const { push } = withTranscriptListener()
+      const user = userEvent.setup()
+      const props = { route: [], trackPoints: [], live: true, depIcao: 'EGKB' } as const
+      const { map, rerender } = await renderReady({ ...props, telemetryPhase: 'taxi' })
+      await user.click(toggleButton())
+      await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
+      push([{ speaker: 'atc', text: 'Test 230, taxi to holding point A1, runway 27R, via D, B, LINK.', ts: 1000 }])
+      await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
+      map.setLayoutProperty.mockClear()
+
+      rerender({ ...props, telemetryPhase: 'takeoff' })
+
+      await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'none'))
+      expect(map.setLayoutProperty).not.toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
+    })
+
+    it("doesn't bring the departure route back after landing, but draws the arrival's own taxi clearance", async () => {
+      const { push } = withTranscriptListener()
+      const user = userEvent.setup()
+      const props = { route: [], trackPoints: [], live: true, depIcao: 'EGKB', arrIcao: 'EGLL' } as const
+      const { map, rerender } = await renderReady({ ...props, telemetryPhase: 'taxi' })
+      await user.click(toggleButton())
+      await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
+      push([{ speaker: 'atc', text: 'Test 230, taxi to holding point A1, runway 27R, via D, B, LINK.', ts: 1000 }])
+      await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
+      rerender({ ...props, telemetryPhase: 'cruise' })
+      map.setLayoutProperty.mockClear()
+
+      rerender({ ...props, telemetryPhase: 'landing' })
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(map.setLayoutProperty).not.toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
+
+      push([{ speaker: 'atc', text: 'Test 230, taxi to Stand N32 via B, D.', ts: 2000 }])
+      await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
+      expect(map.layers[HIGHLIGHT_LAYER_ID]?.filter).toEqual([
+        'all',
+        ['in', ['get', 'name'], ['literal', ['B', 'D']]],
+        ['==', ['get', 'icao'], 'EGLL']
+      ])
+    })
+
+    it('keeps a taxi clearance heard while the phase still reads airborne, and draws it once down', async () => {
+      const { push } = withTranscriptListener()
+      const user = userEvent.setup()
+      const props = { route: [], trackPoints: [], live: true, depIcao: 'EGKB', arrIcao: 'EGLL' } as const
+      const { map, rerender } = await renderReady({ ...props, telemetryPhase: 'descent' })
+      await user.click(toggleButton())
+      await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
+
+      push([{ speaker: 'atc', text: 'Test 230, taxi to Stand N32 via B, D.', ts: 2000 }])
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(map.setLayoutProperty).not.toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
+
+      rerender({ ...props, telemetryPhase: 'landing' })
+      await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
+    })
+
+    it('drops the departure route when Track was left at the holding point and reopened in cruise', async () => {
+      const { push } = withTranscriptListener()
+      const user = userEvent.setup()
+      const props = { route: [], trackPoints: [], live: true, depIcao: 'EGKB', arrIcao: 'EGLL' } as const
+      const first = await renderReady({ ...props, telemetryPhase: 'taxi' })
+      await user.click(toggleButton())
+      await waitFor(() => expect(first.map.sources['taxi-chart']?.setData).toHaveBeenCalled())
+      push([{ speaker: 'atc', text: 'Test 230, taxi to holding point A1, runway 27R, via D, B, LINK.', ts: 1000 }])
+      await waitFor(() => expect(first.map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
+      cleanup()
+
+      // Same module instance (no resetModules), so the remembered clearance carries over.
+      const { FlightMap, instances } = first
+      render(<FlightMap {...props} telemetryPhase="cruise" />)
+      await waitFor(() => expect(instances.length).toBe(2))
+      const map = instances[1]
+      await act(async () => {
+        map.fireStyleLoad()
+      })
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(map.setLayoutProperty).not.toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
+    })
   })
 
   it('draws the planned route and waypoint pins once ready', async () => {
