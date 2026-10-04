@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl'
-import type { BeyondAtcTranscriptEntry, NavdataStand, NavdataTaxiSegment } from '@shared/ipc'
+import type { BeyondAtcTranscriptEntry, FlightPhase, NavdataStand, NavdataTaxiSegment } from '@shared/ipc'
 import { findStand } from '@shared/stands'
 import { parseTaxiHoldShortRunway, parseTaxiHoldingPoint, parseTaxiRoute, parseTaxiStand } from './taxiRouteParser'
 import { remainingRoute, traceTaxiRoute, type TracedRoute } from './taxiRouteTrace'
@@ -83,7 +83,14 @@ export interface UseTaxiRouteHighlightArgs {
   arrIcao: string | null
   /** The aircraft's live position, or null when there's no live telemetry. */
   position: { lat: number; lon: number } | null
+  /** The active flight's phase, or null with no active flight. */
+  phase: FlightPhase | null
 }
+
+/** From the takeoff roll until touchdown the departure's taxi route is finished with: it used
+ *  to stay drawn on top of the flown track at every zoom (real report, 2026-10-05). Landing
+ *  isn't in here, so an arrival's "taxi to stand" clearance still draws after touchdown. */
+const DEPARTED_PHASES: ReadonlySet<FlightPhase> = new Set(['takeoff', 'climb', 'cruise', 'descent'])
 
 /**
  * Which airport a clearance is at: a holding point is the departure's, a stand the arrival's.
@@ -117,6 +124,9 @@ let rememberedClearance: TaxiClearance | null = null
 /** The newest transcript line already looked at — module-level for the same reason, so coming
  *  back to Track doesn't re-read old clearances as new ones. */
 let rememberedLastTs = 0
+/** Whether the aircraft was last seen past the takeoff roll — module-level so leaving Track
+ *  at the holding point and coming back in cruise still drops the departure's route. */
+let rememberedDeparted = false
 
 export function useTaxiRouteHighlight({
   mapRef,
@@ -125,7 +135,8 @@ export function useTaxiRouteHighlight({
   segmentsByIcao,
   depIcao,
   arrIcao,
-  position
+  position,
+  phase
 }: UseTaxiRouteHighlightArgs): void {
   const [clearance, setClearance] = useState<TaxiClearance | null>(rememberedClearance)
   const positionRef = useRef(position)
@@ -184,6 +195,19 @@ export function useTaxiRouteHighlight({
   // nowhere to start, never traced, and fell back to whole taxiways. Updated during render
   // (React's "adjust state when a prop changes" pattern), not in an effect.
   if (clearance && !clearance.from && position) setClearance({ ...clearance, from: position })
+  // The route held when the takeoff roll starts is the departure's: dropped then, so it can't
+  // come back at the arrival. Only on that change, never just for being airborne, so an
+  // arrival's taxi clearance is never thrown away even if the phase lags behind touchdown;
+  // anything heard while airborne is only hidden until the aircraft is down.
+  const departed = phase !== null && DEPARTED_PHASES.has(phase)
+  const [wasDeparted, setWasDeparted] = useState(rememberedDeparted)
+  if (departed !== wasDeparted) {
+    setWasDeparted(departed)
+    if (departed) setClearance(null)
+  }
+  useEffect(() => {
+    rememberedDeparted = wasDeparted
+  }, [wasDeparted])
   useEffect(() => {
     rememberedClearance = clearance
   }, [clearance])
@@ -230,7 +254,7 @@ export function useTaxiRouteHighlight({
   useEffect(() => {
     const map = mapRef.current
     if (!mapReady || !map) return
-    if (!enabled) {
+    if (!enabled || departed) {
       if (createdRef.current) {
         map.setLayoutProperty(HIGHLIGHT_LAYER_ID, 'visibility', 'none')
         map.setLayoutProperty(TRACE_LAYER_ID, 'visibility', 'none')
@@ -266,5 +290,5 @@ export function useTaxiRouteHighlight({
         (icao ? ['all', byName, ['==', ['get', 'icao'], icao]] : byName) as Parameters<MapLibreMap['setFilter']>[1]
       )
     }
-  }, [mapRef, mapReady, enabled, clearance, traced, icao, position])
+  }, [mapRef, mapReady, enabled, departed, clearance, traced, icao, position])
 }

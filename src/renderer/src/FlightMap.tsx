@@ -283,7 +283,7 @@ export function FlightMap({
   trackPoints: rawTrackPoints,
   live,
   telemetry,
-  telemetryPhase = 'cruise',
+  telemetryPhase: activePhase,
   telemetryTransition = null,
   routeIsApproximate = false,
   mapLanguage = 'en',
@@ -821,7 +821,8 @@ export function FlightMap({
     segmentsByIcao: taxiChart.segmentsByIcao,
     depIcao,
     arrIcao,
-    position: telemetry ? { lat: telemetry.latitude, lon: telemetry.longitude } : null
+    position: telemetry ? { lat: telemetry.latitude, lon: telemetry.longitude } : null,
+    phase: activePhase ?? null
   })
 
   const mapControlButtonClassName = 'bg-popover/85 backdrop-blur-sm hover:bg-popover'
@@ -924,7 +925,7 @@ export function FlightMap({
                   {
                     altitudeM: telemetry.altitudeM,
                     pressureAltitudeM: telemetry.pressureAltitudeM,
-                    phase: telemetryPhase
+                    phase: activePhase ?? 'cruise'
                   },
                   telemetryTransition
                 ).valueFt
