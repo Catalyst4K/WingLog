@@ -1399,7 +1399,7 @@ describe('FlightMap', () => {
     it('drops the departure route once the takeoff roll starts, instead of drawing it over the flown track (2026-10-05)', async () => {
       const { push } = withTranscriptListener()
       const user = userEvent.setup()
-      const props = { route: [], trackPoints: [], live: true, depIcao: 'EGKB' } as const
+      const props: FlightMapProps = { route: [], trackPoints: [], live: true, depIcao: 'EGKB' }
       const { map, rerender } = await renderReady({ ...props, telemetryPhase: 'taxi' })
       await user.click(toggleButton())
       await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
@@ -1416,7 +1416,7 @@ describe('FlightMap', () => {
     it("doesn't bring the departure route back after landing, but draws the arrival's own taxi clearance", async () => {
       const { push } = withTranscriptListener()
       const user = userEvent.setup()
-      const props = { route: [], trackPoints: [], live: true, depIcao: 'EGKB', arrIcao: 'EGLL' } as const
+      const props: FlightMapProps = { route: [], trackPoints: [], live: true, depIcao: 'EGKB', arrIcao: 'EGLL' }
       const { map, rerender } = await renderReady({ ...props, telemetryPhase: 'taxi' })
       await user.click(toggleButton())
       await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
@@ -1441,7 +1441,7 @@ describe('FlightMap', () => {
     it('keeps a taxi clearance heard while the phase still reads airborne, and draws it once down', async () => {
       const { push } = withTranscriptListener()
       const user = userEvent.setup()
-      const props = { route: [], trackPoints: [], live: true, depIcao: 'EGKB', arrIcao: 'EGLL' } as const
+      const props: FlightMapProps = { route: [], trackPoints: [], live: true, depIcao: 'EGKB', arrIcao: 'EGLL' }
       const { map, rerender } = await renderReady({ ...props, telemetryPhase: 'descent' })
       await user.click(toggleButton())
       await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
@@ -1457,7 +1457,7 @@ describe('FlightMap', () => {
     it('drops the departure route when Track was left at the holding point and reopened in cruise', async () => {
       const { push } = withTranscriptListener()
       const user = userEvent.setup()
-      const props = { route: [], trackPoints: [], live: true, depIcao: 'EGKB', arrIcao: 'EGLL' } as const
+      const props: FlightMapProps = { route: [], trackPoints: [], live: true, depIcao: 'EGKB', arrIcao: 'EGLL' }
       const first = await renderReady({ ...props, telemetryPhase: 'taxi' })
       await user.click(toggleButton())
       await waitFor(() => expect(first.map.sources['taxi-chart']?.setData).toHaveBeenCalled())
