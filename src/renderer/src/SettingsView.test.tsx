@@ -2,7 +2,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from 'sonner'
-import type { GsxRemoteConnectionStatus, GsxRemoteSettings, GsxSettings, SyncStatus } from '@shared/ipc'
+import type { BeyondAtcConnectionStatus, BeyondAtcSettings, GsxRemoteConnectionStatus, GsxRemoteSettings, GsxSettings, SyncStatus } from '@shared/ipc'
 import i18n from './i18n'
 import { SettingsView } from './SettingsView'
 
@@ -36,19 +36,44 @@ function makeGsxRemoteStatus(overrides: Partial<GsxRemoteConnectionStatus> = {})
   return { state: 'disconnected', lastError: null, ...overrides }
 }
 
+function makeBeyondAtc(overrides: Partial<BeyondAtcSettings> = {}): BeyondAtcSettings {
+  return { enabled: false, host: 'localhost', ...overrides }
+}
+
+function makeBeyondAtcStatus(overrides: Partial<BeyondAtcConnectionStatus> = {}): BeyondAtcConnectionStatus {
+  return { state: 'disconnected', lastError: null, ...overrides }
+}
+
 function createWinglog(overrides: Record<string, unknown> = {}): typeof window.winglog {
   return {
     settingsGetSimbriefUsername: vi.fn().mockResolvedValue(null),
     dispatchSimbriefLoginStatus: vi.fn().mockResolvedValue(false),
     settingsGetGsx: vi.fn().mockResolvedValue(makeGsx()),
+    settingsGetTracking: vi.fn().mockResolvedValue({ autoStart: true, autoFinish: true }),
+    settingsSetTracking: vi.fn().mockResolvedValue(undefined),
     syncStatus: vi.fn().mockResolvedValue(makeSyncStatus()),
     appGetVersion: vi.fn().mockResolvedValue('1.2.3'),
+    settingsGetUpdates: vi.fn().mockResolvedValue({ checkEnabled: true }),
+    settingsSetUpdates: vi.fn().mockResolvedValue(undefined),
+    updatesGetStatus: vi.fn().mockResolvedValue({ state: 'idle', currentVersion: '1.2.3', latest: null, checkedAt: null, skippedVersion: null }),
+    onUpdateStatus: vi.fn().mockReturnValue(() => {}),
+    updatesCheckNow: vi.fn().mockResolvedValue({ state: 'upToDate', currentVersion: '1.2.3', latest: null, checkedAt: null, skippedVersion: null }),
+    updatesSkipVersion: vi.fn().mockResolvedValue(undefined),
+    updatesOpenRelease: vi.fn().mockResolvedValue(undefined),
+    setupGetState: vi.fn().mockResolvedValue({ show: false, whatsNew: false }),
+    setupGetContext: vi.fn().mockResolvedValue({ gsxFolderFound: false, gsxFolderPath: null, beyondAtcRunning: false }),
+    setupComplete: vi.fn().mockResolvedValue(undefined),
+    appOpenManual: vi.fn().mockResolvedValue(true),
     settingsSetGsx: vi.fn().mockResolvedValue(undefined),
     gsxBrowseFolder: vi.fn().mockResolvedValue(null),
     settingsGetGsxRemote: vi.fn().mockResolvedValue(makeGsxRemote()),
     settingsSetGsxRemote: vi.fn().mockResolvedValue(undefined),
     gsxRemoteGetStatus: vi.fn().mockResolvedValue(makeGsxRemoteStatus()),
     onGsxRemoteStatus: vi.fn().mockReturnValue(() => {}),
+    settingsGetBeyondAtc: vi.fn().mockResolvedValue(makeBeyondAtc()),
+    settingsSetBeyondAtc: vi.fn().mockResolvedValue(undefined),
+    beyondAtcGetStatus: vi.fn().mockResolvedValue(makeBeyondAtcStatus()),
+    onBeyondAtcStatus: vi.fn().mockReturnValue(() => {}),
     settingsSetSimbriefUsername: vi.fn().mockResolvedValue(undefined),
     dispatchLoginSimbrief: vi.fn().mockResolvedValue(undefined),
     dispatchFetchSimbriefUsername: vi.fn().mockResolvedValue(null),
@@ -101,6 +126,8 @@ function renderSettings(
       onAppLanguageChange={props.onAppLanguageChange ?? vi.fn()}
       theme={props.theme ?? 'system'}
       onThemeChange={props.onThemeChange ?? vi.fn()}
+      onGsxRemoteEnabledChange={props.onGsxRemoteEnabledChange ?? vi.fn()}
+      onBeyondAtcEnabledChange={props.onBeyondAtcEnabledChange ?? vi.fn()}
       resetSignal={props.resetSignal}
     />
   )
@@ -228,6 +255,8 @@ describe('SettingsView', () => {
           onAppLanguageChange={vi.fn()}
           theme="system"
           onThemeChange={vi.fn()}
+          onGsxRemoteEnabledChange={vi.fn()}
+          onBeyondAtcEnabledChange={vi.fn()}
           resetSignal={1}
         />
       )
@@ -250,6 +279,8 @@ describe('SettingsView', () => {
           onAppLanguageChange={vi.fn()}
           theme="system"
           onThemeChange={vi.fn()}
+          onGsxRemoteEnabledChange={vi.fn()}
+          onBeyondAtcEnabledChange={vi.fn()}
           resetSignal={2}
         />
       )
@@ -291,6 +322,21 @@ describe('SettingsView', () => {
       const landingRow = screen.getByRole('group', { name: 'Landing distances' })
       await user.click(within(landingRow).getByRole('button', { name: 'Meters' }))
       expect(onLandingDistanceUnitChange).toHaveBeenCalledWith('m')
+    })
+
+    it('loads the tracking switches, says what off means, and saves each change (tracking-auto-toggles.md)', async () => {
+      const winglog = setWinglog({ settingsGetTracking: vi.fn().mockResolvedValue({ autoStart: true, autoFinish: false }) })
+      const user = userEvent.setup()
+      renderSettings()
+
+      const finishRow = await screen.findByRole('group', { name: 'Finish flights automatically' })
+      await waitFor(() => expect(within(finishRow).getByRole('button', { name: 'Off' })).toHaveAttribute('aria-pressed', 'true'))
+      expect(screen.getByText('Off: the flight stays open after you park and shut down, until you press Finish & save.')).toBeInTheDocument()
+      expect(screen.getByText('Off: after Fly in Dispatch, press Start tracking on Track yourself.')).toBeInTheDocument()
+
+      const startRow = screen.getByRole('group', { name: 'Start tracking automatically' })
+      await user.click(within(startRow).getByRole('button', { name: 'Off' }))
+      expect(winglog.settingsSetTracking).toHaveBeenCalledWith({ autoStart: false, autoFinish: false })
     })
 
     it('calls onThemeChange with the clicked option', async () => {
@@ -1039,6 +1085,31 @@ describe('SettingsView', () => {
       renderSettings()
       await user.click(screen.getByRole('tab', { name: 'About' }))
       expect(await screen.findByText('WingLog v9.9.9')).toBeInTheDocument()
+    })
+
+    it('says WingLog is for simulation only and names every third party it is not affiliated with (2026-10-02)', async () => {
+      setWinglog()
+      const user = userEvent.setup()
+      renderSettings()
+      await user.click(screen.getByRole('tab', { name: 'About' }))
+      expect(await screen.findByText(/For flight simulation use only\. WingLog must never be used for real-world navigation/)).toBeInTheDocument()
+      const disclaimer = screen.getByText(/is not affiliated with/)
+      for (const party of ['Microsoft Corporation', 'Asobo Studio', 'Skirmish Mode Games (BeyondATC)', 'FSDreamTeam (GSX)', 'Navigraph (SimBrief)', 'OpenFreeMap']) {
+        expect(disclaimer).toHaveTextContent(party)
+      }
+    })
+
+    it('opens the bundled manual, and says so when this build has none', async () => {
+      const appOpenManual = vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false)
+      setWinglog({ appOpenManual })
+      const user = userEvent.setup()
+      renderSettings()
+      await user.click(screen.getByRole('tab', { name: 'About' }))
+      await user.click(await screen.findByRole('button', { name: 'Manual (PDF)' }))
+      expect(appOpenManual).toHaveBeenCalledTimes(1)
+      expect(toast.error).not.toHaveBeenCalled()
+      await user.click(screen.getByRole('button', { name: 'Manual (PDF)' }))
+      await waitFor(() => expect(toast.error).toHaveBeenCalledWith("The manual isn't included in this build."))
     })
 
     it('opens the GitHub repo through the app link', async () => {

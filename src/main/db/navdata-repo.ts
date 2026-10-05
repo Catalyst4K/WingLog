@@ -1,12 +1,13 @@
-import { and, eq, inArray, isNull } from 'drizzle-orm'
-import type { NavdataLeg, NavdataProcedureOption, NavdataRunway, ProcedureKind } from '../navdata/navdata-provider'
+import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
+import type { NavdataLeg, NavdataProcedureOption, NavdataRunway, NavdataTaxiSegment, ProcedureKind } from '../navdata/navdata-provider'
 import { runwayEndsFromCentre } from '../navdata/runway-geometry'
 import { visualApproachRunway } from '@shared/visual-approach'
 import { visualApproachLegs, visualApproachOptions } from '../navdata/visual-approach'
-import type { FetchedAirportNavdata } from '../navdata/sim-facilities-fetch'
+import type { NavdataStand } from '@shared/ipc'
+import type { FetchedAirportNavdata, FetchedStand, FetchedTaxiNetwork } from '../navdata/sim-facilities-fetch'
 import type { ParsedLeg } from '../sim/facility-fields'
 import type { WingLogDb } from './client'
-import { navdataProcedure, navdataProcedureLeg, navdataRunway } from './schema'
+import { navdataProcedure, navdataProcedureLeg, navdataRunway, navdataStand, navdataTaxiSegment } from './schema'
 
 /** Replaces every cached row for `icao` with what was just fetched — one transaction, so a
  *  mid-way failure can't leave a stale runway list next to a fresh procedure list. Matches
@@ -313,4 +314,77 @@ export function listCachedProcedureLegs(
   const dedupedCommon = dedupeBoundary(runwayLegs, commonLegs)
   const dedupedTransition = dedupeBoundary(dedupedCommon.length > 0 ? dedupedCommon : runwayLegs, transitionLegs)
   return [...runwayLegs, ...dedupedCommon, ...dedupedTransition].map(toNavdataLeg)
+}
+
+/** Same "replace wholesale per airport per fetch" shape as replaceAirportNavdata, its own
+ *  table — a taxi-network refresh never touches the runway/procedure cache. */
+export function replaceAirportTaxiSegments(db: WingLogDb, icao: string, fetched: FetchedTaxiNetwork, fetchedAt: string): void {
+  db.transaction((tx) => {
+    tx.delete(navdataTaxiSegment).where(eq(navdataTaxiSegment.icao, icao)).run()
+    for (const segment of fetched.segments) {
+      tx.insert(navdataTaxiSegment)
+        .values({
+          icao,
+          startLat: segment.startLat,
+          startLon: segment.startLon,
+          endLat: segment.endLat,
+          endLon: segment.endLon,
+          name: segment.name,
+          startHoldShort: segment.startHoldShort,
+          endHoldShort: segment.endHoldShort,
+          source: 'sim-facility',
+          fetchedAt
+        })
+        .run()
+    }
+  })
+}
+
+export function hasCachedTaxiNetwork(db: WingLogDb, icao: string): boolean {
+  // A cache written before hold-short points existed (null flags) counts as missing, so the
+  // caller's usual "not cached → fetch" path refreshes it once.
+  const row = db
+    .select({ id: navdataTaxiSegment.id })
+    .from(navdataTaxiSegment)
+    .where(and(eq(navdataTaxiSegment.icao, icao), isNotNull(navdataTaxiSegment.startHoldShort)))
+    .get()
+  return row !== undefined
+}
+
+export function listCachedTaxiSegments(db: WingLogDb, icao: string): NavdataTaxiSegment[] {
+  return db
+    .select()
+    .from(navdataTaxiSegment)
+    .where(eq(navdataTaxiSegment.icao, icao))
+    .all()
+    .map((row) => ({
+      startLat: row.startLat,
+      startLon: row.startLon,
+      endLat: row.endLat,
+      endLon: row.endLon,
+      name: row.name,
+      startHoldShort: row.startHoldShort ?? false,
+      endHoldShort: row.endHoldShort ?? false
+    }))
+}
+
+/** Same wholesale-per-airport replace as the taxi segments, its own table. */
+export function replaceAirportStands(db: WingLogDb, icao: string, stands: FetchedStand[], fetchedAt: string): void {
+  db.transaction((tx) => {
+    tx.delete(navdataStand).where(eq(navdataStand.icao, icao)).run()
+    for (const s of stands) {
+      tx.insert(navdataStand)
+        .values({ icao, name: s.name, nameCode: s.nameCode, number: s.number, suffix: s.suffix, headingDeg: s.headingDeg, lat: s.lat, lon: s.lon, fetchedAt })
+        .run()
+    }
+  })
+}
+
+export function listCachedStands(db: WingLogDb, icao: string): NavdataStand[] {
+  return db
+    .select()
+    .from(navdataStand)
+    .where(eq(navdataStand.icao, icao))
+    .all()
+    .map((row) => ({ name: row.name, number: row.number, suffix: row.suffix, headingDeg: row.headingDeg, lat: row.lat, lon: row.lon }))
 }

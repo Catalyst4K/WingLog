@@ -2,11 +2,14 @@ import { eq } from 'drizzle-orm'
 import type {
   AltitudeUnit,
   AppLanguage,
+  BeyondAtcSettings,
   GsxRemoteSettings,
   GsxSettings,
   LandingDistanceUnit,
   MapLanguage,
   Theme,
+  UpdateSettings,
+  TrackingSettings,
   WeightUnit,
   WindSpeedUnit
 } from '@shared/ipc'
@@ -24,6 +27,8 @@ const MAP_LANGUAGES: readonly MapLanguage[] = ['local', 'en', 'de', 'es', 'fr', 
 const APP_LANGUAGES: readonly AppLanguage[] = ['system', 'en', 'de', 'es', 'fr', 'it', 'ru']
 const LANDING_DISTANCE_UNIT_KEY = 'landingDistanceUnit'
 const THEME_KEY = 'theme'
+const TRACKING_AUTO_START_KEY = 'trackingAutoStart'
+const TRACKING_AUTO_FINISH_KEY = 'trackingAutoFinish'
 const GSX_ENABLED_KEY = 'gsxEnabled'
 const GSX_FOLDER_PATH_KEY = 'gsxFolderPath'
 const GSX_DISPLAY_CURRENCY_KEY = 'gsxDisplayCurrency'
@@ -33,6 +38,10 @@ const GSX_FIRST_LAUNCH_CHECKED_KEY = 'gsxFirstLaunchChecked'
 const GSX_REMOTE_ENABLED_KEY = 'gsxRemoteEnabled'
 const GSX_REMOTE_HOST_KEY = 'gsxRemoteHost'
 const GSX_REMOTE_PORT_KEY = 'gsxRemotePort'
+const BEYONDATC_ENABLED_KEY = 'beyondAtcEnabled'
+const BEYONDATC_HOST_KEY = 'beyondAtcHost'
+const UPDATE_CHECK_ENABLED_KEY = 'updateCheckEnabled'
+const UPDATE_SKIPPED_VERSION_KEY = 'updateSkippedVersion'
 
 export function getSetting(db: WingLogDb, key: string): string | undefined {
   return db.select().from(appSetting).where(eq(appSetting.key, key)).get()?.value
@@ -130,6 +139,19 @@ export function setTheme(db: WingLogDb, theme: Theme): void {
  *  checkGsxFirstLaunch below, and only when the expected receipts folder is actually
  *  found on disk on the app's first-ever launch (flight-test-findings-2026-09-06.md #4)
  *  — never silently, and never past that one check. */
+/** Both default on — only an explicit '0' switches either off. */
+export function getTrackingSettings(db: WingLogDb): TrackingSettings {
+  return {
+    autoStart: getSetting(db, TRACKING_AUTO_START_KEY) !== '0',
+    autoFinish: getSetting(db, TRACKING_AUTO_FINISH_KEY) !== '0'
+  }
+}
+
+export function setTrackingSettings(db: WingLogDb, settings: TrackingSettings): void {
+  setSetting(db, TRACKING_AUTO_START_KEY, settings.autoStart ? '1' : '0')
+  setSetting(db, TRACKING_AUTO_FINISH_KEY, settings.autoFinish ? '1' : '0')
+}
+
 export function getGsxSettings(db: WingLogDb): GsxSettings {
   return {
     enabled: getSetting(db, GSX_ENABLED_KEY) === '1',
@@ -172,6 +194,22 @@ export function setGsxRemoteSettings(db: WingLogDb, settings: GsxRemoteSettings)
   setSetting(db, GSX_REMOTE_ENABLED_KEY, settings.enabled ? '1' : '0')
   setSetting(db, GSX_REMOTE_HOST_KEY, settings.host || 'localhost')
   setSetting(db, GSX_REMOTE_PORT_KEY, settings.port ? String(settings.port) : '')
+}
+
+/** Default off, localhost — unlike GSX's Remote Client, BeyondATC's own local WebSocket
+ *  server port (41716, BeyondAtcService's BEYONDATC_PORT) isn't user-configurable on
+ *  BeyondATC's own side (confirmed live, flightdeck-backend's docs/beyondatc-notes.md), so
+ *  there's no port setting to store here. */
+export function getBeyondAtcSettings(db: WingLogDb): BeyondAtcSettings {
+  return {
+    enabled: getSetting(db, BEYONDATC_ENABLED_KEY) === '1',
+    host: getSetting(db, BEYONDATC_HOST_KEY) || 'localhost'
+  }
+}
+
+export function setBeyondAtcSettings(db: WingLogDb, settings: BeyondAtcSettings): void {
+  setSetting(db, BEYONDATC_ENABLED_KEY, settings.enabled ? '1' : '0')
+  setSetting(db, BEYONDATC_HOST_KEY, settings.host || 'localhost')
 }
 
 /** Per-table sync cursor (flightdeck-backend/docs/plans/cloud-sync.md's pull-then-push
@@ -220,4 +258,22 @@ export function getAircraftIdForTitle(db: WingLogDb, title: string): number | un
 
 export function rememberAircraftForTitle(db: WingLogDb, title: string, aircraftId: number): void {
   setSetting(db, titleAircraftKey(title), String(aircraftId))
+}
+
+/** The GitHub update check (flightdeck-backend's docs/plans/update-check.md): on unless
+ *  switched off — only an explicit '0' disables it. */
+export function getUpdateSettings(db: WingLogDb): UpdateSettings {
+  return { checkEnabled: getSetting(db, UPDATE_CHECK_ENABLED_KEY) !== '0' }
+}
+
+export function setUpdateSettings(db: WingLogDb, settings: UpdateSettings): void {
+  setSetting(db, UPDATE_CHECK_ENABLED_KEY, settings.checkEnabled ? '1' : '0')
+}
+
+export function getSkippedUpdateVersion(db: WingLogDb): string | null {
+  return getSetting(db, UPDATE_SKIPPED_VERSION_KEY) ?? null
+}
+
+export function setSkippedUpdateVersion(db: WingLogDb, version: string): void {
+  setSetting(db, UPDATE_SKIPPED_VERSION_KEY, version)
 }

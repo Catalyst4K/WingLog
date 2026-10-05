@@ -18,16 +18,46 @@ write a design doc or record a decision, it goes in `flightdeck-backend`'s `docs
 or `docs/decisions.md`, never here — see `flightdeck-backend`'s `CLAUDE.md` ("WingLog's
 plan-doc workflow") for the full workflow.
 
-## Working conventions
+## Cross-repo process: `flightdeck-backend` is primary
 
-The plan-doc workflow (how a new piece of work gets designed and branched), the full
-branching model (`main`/`develop`/`fixes`/`fix/<name>`), and the two-machine sync protocol
-all live in `flightdeck-backend`'s `CLAUDE.md` now, not here (moved 2026-09-13 — see
-`flightdeck-backend`'s `docs/decisions.md` for why). They're cross-repo process — how this
-project gets worked on — not something specific to this codebase, and keeping a second copy
-here would be exactly the drift risk that file's own Security cross-reference already avoids
-in the other direction. **Read it and treat its rules as binding here too**, the same way
-that file already treats this file's Security section as binding there.
+**`flightdeck-backend` is the primary home for every decision, rule and process. This file
+is secondary.** It holds only rules about this codebase itself (Commands, Layout, Rules,
+Spike-first, Security, Testing below), plus short pointers. Two full copies of a rule drift,
+and then nobody knows which one is current.
+
+Where things go:
+
+| What | Where |
+|---|---|
+| A decision of any kind (what, why, the date, who agreed) | `flightdeck-backend` `docs/decisions.md` |
+| A process rule: how the project is worked on (plan-doc workflow, branching, two-machine sync, Dependabot, releases) | `flightdeck-backend` `CLAUDE.md`, in full |
+| A design or plan for a piece of work | `flightdeck-backend` `docs/plans/<name>.md` |
+| Findings about an external system (SimConnect, SimBrief, GSX, BeyondATC…) | `flightdeck-backend` `docs/*-notes.md` |
+| Dependency assessments | `flightdeck-backend` `docs/dependency-log.md` |
+| A rule about this codebase's code (layout, units, IPC, security specifics, tests) | this file |
+| User-facing documentation | this repo's `docs/` |
+
+**When adding or changing a rule, always in this order:**
+1. Write it in full in `flightdeck-backend`. That's its `CLAUDE.md` for process, or this file
+   only if it's genuinely about this codebase's code.
+2. Record the decision in `flightdeck-backend`'s `docs/decisions.md`.
+3. In this file, add at most a short pointer: one or two sentences naming the rule, where it
+   lives, and that it's binding here. Never a second copy.
+4. Commit and push `flightdeck-backend` first, then this repo.
+
+If unsure which side something belongs on, it goes in `flightdeck-backend`.
+
+**Rules in `flightdeck-backend`'s `CLAUDE.md` are binding here.** Read it alongside this file.
+It currently holds:
+- the plan-doc workflow;
+- the branching model (`main`/`develop`/`fixes`/`fix/<name>`);
+- working across two machines;
+- dependency updates (Dependabot);
+- release notes (what goes in them, including which fixes are listed).
+
+The plan-doc workflow, branching model and two-machine sync moved there 2026-09-13
+(`docs/decisions.md` has why). In the other direction, that file treats this file's code
+rules (including Security) as binding there.
 
 ## Commands (once scaffolded)
 
@@ -158,6 +188,10 @@ rather than assuming there isn't one:
 - **New dependencies are supply chain.** Prefer few, well-known packages. Check
   `npm audit` when adding one, and keep `package-lock.json` committed. A dependency that
   wants postinstall scripts or network access at build time deserves scrutiny.
+- **Stay on top of Dependabot.** Assess each Dependabot PR and alert as it appears, and act
+  on them in one batch at the start of each minor version's work (next: v1.5). The full rule
+  lives in `flightdeck-backend`'s `CLAUDE.md` ("WingLog's dependency updates") and is
+  binding here; assessments go in its `docs/dependency-log.md`.
 
 **A second trust boundary exists: the backend-service WingLog talks to over HTTPS**
 (a credential broker for SimBrief and Navigraph, living in its own private repo,

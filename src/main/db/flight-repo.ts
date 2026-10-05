@@ -1,6 +1,14 @@
 import { randomUUID } from 'node:crypto'
-import { and, desc, eq, isNull, or } from 'drizzle-orm'
-import type { Flight, FleetStats, LogbookStats, NewFlight, ProcedureSelection } from '@shared/ipc'
+import { and, desc, eq, getTableColumns, isNotNull, isNull, or, sql } from 'drizzle-orm'
+import type {
+  AircraftLastParked,
+  Flight,
+  FleetStats,
+  LogbookFlight,
+  LogbookStats,
+  NewFlight,
+  ProcedureSelection
+} from '@shared/ipc'
 import { greatCircleDistanceNm } from '../airports/airport-search'
 import { rememberAircraftForTitle } from './settings-repo'
 import { aircraft, flight, flightInvoice, landing, trackPoint } from './schema'
@@ -108,6 +116,12 @@ export function listFlightsByAircraft(db: WingLogDb, aircraftId: number): Flight
 
 export function getFlight(db: WingLogDb, id: number): Flight | undefined {
   const row = db.select().from(flight).where(eq(flight.id, id)).get()
+  return row ? toFlight(row) : undefined
+}
+
+/** getFlight, but never a deleted (tombstoned) flight — for anything user-facing. */
+export function getLiveFlight(db: WingLogDb, id: number): Flight | undefined {
+  const row = db.select().from(flight).where(and(eq(flight.id, id), isNull(flight.deletedAt))).get()
   return row ? toFlight(row) : undefined
 }
 
@@ -489,14 +503,22 @@ export function setSelectedProcedures(db: WingLogDb, id: number, selection: Proc
     .run()
 }
 
-export function listCompletedFlights(db: WingLogDb): Flight[] {
+/** Every completed flight, newest first, *without* the OFP text — see LogbookFlight. The
+ *  column is left out of the SELECT itself, so SQLite never reads those ~90 KB blobs either;
+ *  the stats/score/fleet summaries built on top of this got the same saving for free. */
+export function listCompletedFlights(db: WingLogDb): LogbookFlight[] {
+  const { ofpJson, ...columns } = getTableColumns(flight)
   return db
-    .select()
+    .select({ ...columns, hasOfp: sql<number>`${ofpJson} is not null` })
     .from(flight)
     .where(and(eq(flight.status, 'completed'), isNull(flight.deletedAt)))
     .orderBy(desc(flight.actualInUtc))
     .all()
-    .map(toFlight)
+    .map(({ hasOfp, ...row }) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { ofpJson: _omitted, ...rest } = toFlight({ ...row, ofpJson: null })
+      return { ...rest, hasOfp: hasOfp === 1 }
+    })
 }
 
 /** Logbook's summary row above the flight table. totalNm is great-circle dep→arr
@@ -588,4 +610,25 @@ export function getFlightIdByUuid(db: WingLogDb, uuid: string): number | undefin
  *  (not its local id, meaningless remotely) to serialize landing/flightInvoice's flightId. */
 export function getFlightUuidById(db: WingLogDb, id: number): string | null | undefined {
   return db.select({ uuid: flight.uuid }).from(flight).where(eq(flight.id, id)).get()?.uuid
+}
+
+/** Where the aircraft finished (stand-positions.md) — written once, after completion. */
+export function setParkedStand(db: WingLogDb, id: number, icao: string, stand: string): void {
+  db.update(flight).set({ parkedStandIcao: icao, parkedStand: stand, updatedAt: new Date().toISOString() }).where(eq(flight.id, id)).run()
+}
+
+/** Each fleet aircraft's latest completed (not deleted) flight that recorded a stand. */
+export function listLastParkedByAircraft(db: WingLogDb): AircraftLastParked[] {
+  const rows = db
+    .select({ aircraftId: flight.aircraftId, icao: flight.parkedStandIcao, stand: flight.parkedStand })
+    .from(flight)
+    .where(and(eq(flight.status, 'completed'), isNull(flight.deletedAt), isNotNull(flight.aircraftId), isNotNull(flight.parkedStand)))
+    .orderBy(desc(flight.actualInUtc), desc(flight.id))
+    .all()
+  const latest = new Map<number, AircraftLastParked>()
+  for (const row of rows) {
+    if (row.aircraftId === null || row.icao === null || row.stand === null || latest.has(row.aircraftId)) continue
+    latest.set(row.aircraftId, { aircraftId: row.aircraftId, icao: row.icao, stand: row.stand })
+  }
+  return [...latest.values()]
 }

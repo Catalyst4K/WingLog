@@ -17,6 +17,7 @@ import { toast } from 'sonner'
 import type {
   Aircraft,
   Flight,
+  LogbookFlight,
   LandingDistanceUnit,
   MapLanguage,
   LandingListRow,
@@ -111,15 +112,16 @@ function formatDate(iso: string | null): string {
 /**
  * A flight actually tracked live through free-flight-tracking.md, not a dispatched one and
  * not a CSV import — neither of those two other origins is directly recorded on the row, so
- * this infers it from the two things that are: no OFP (`ofpJson` null, same as a CSV import)
+ * this infers it from the two things that are: no OFP (`hasOfp` false, same as a CSV import)
  * *and* a real liftoff was recorded (`actualOffUtc` set, which a CSV import never has —
  * logbook-import.ts's createHistoricalFlight only ever supplies block-time timestamps, not
  * off/on). A free flight that never left the ground before "Finish & save" won't show the
  * badge — an acceptable miss for what's purely a display label, not something anything else
  * depends on.
  */
-function isFreeFlight(flight: Flight): boolean {
-  return !flight.ofpJson && flight.actualOffUtc != null
+function isFreeFlight(flight: LogbookFlight | Flight): boolean {
+  const hasOfp = 'hasOfp' in flight ? flight.hasOfp : flight.ofpJson != null
+  return !hasOfp && flight.actualOffUtc != null
 }
 
 /** `warn` shows a small warning icon next to the label when this field's own score-
@@ -377,6 +379,35 @@ export function LandingCard(props: {
       </CardContent>
     </Card>
   )
+}
+
+/** Fetches the opened flight in full (OFP included) before showing it — the list rows are
+ *  LogbookFlight, which leave the ~90 KB OFP out (see LogbookFlight in ipc.ts). */
+function FlightDetailLoader(
+  props: Omit<React.ComponentProps<typeof FlightDetail>, 'flight'> & {
+    /** The list's own row for this flight. A new object every time the list reloads (after
+     *  linking an aircraft, say), which re-fetches the full flight so the detail never shows
+     *  a stale copy — real bug caught by free-flight.spec.ts while building this. */
+    listRow: LogbookFlight
+  }
+): React.JSX.Element {
+  const { t } = useTranslation()
+  const { listRow, ...rest } = props
+  const [loaded, setLoaded] = useState<{ row: LogbookFlight; flight: Flight | null } | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    window.winglog.logbookGetFlight(listRow.id).then((flight) => {
+      if (!cancelled) setLoaded({ row: listRow, flight })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [listRow])
+  // Keeps showing the previous copy while a re-fetch for the same flight is in flight, rather
+  // than flashing "Loading…" after every list reload.
+  if (!loaded || loaded.row.id !== listRow.id) return <p className="text-sm text-muted-foreground">{t('logbookView.loading')}</p>
+  if (!loaded.flight) return <p className="text-sm text-muted-foreground">{t('logbookView.flightNotFound')}</p>
+  return <FlightDetail {...rest} flight={loaded.flight} />
 }
 
 function FlightDetail(props: {
@@ -786,10 +817,10 @@ function sortColumns(t: TFunction): { key: SortKey; label: string; className?: s
 }
 
 function compareFlights(
-  a: Flight,
-  b: Flight,
+  a: LogbookFlight,
+  b: LogbookFlight,
   key: SortKey,
-  registrationFor: (flight: Flight) => string,
+  registrationFor: (flight: LogbookFlight) => string,
   scoreFor: (flightId: number) => number | null
 ): number {
   switch (key) {
@@ -982,7 +1013,7 @@ export function LogbookView(props: {
   resetSignal?: number
 }): React.JSX.Element {
   const { t } = useTranslation()
-  const [flights, setFlights] = useState<Flight[]>([])
+  const [flights, setFlights] = useState<LogbookFlight[]>([])
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
   const [stats, setStats] = useState<LogbookStats | null>(null)
   const [scores, setScores] = useState<LandingScoreSummary[]>([])
@@ -1028,7 +1059,7 @@ export function LogbookView(props: {
 
   /** A free flight tracked with no fleet aircraft has no aircraftId to look up — falls back
    *  to the sim-reported registration recorded directly on the flight row instead. */
-  function registrationFor(flight: Flight): string {
+  function registrationFor(flight: LogbookFlight): string {
     if (flight.aircraftId != null) {
       return aircraft.find((a) => a.id === flight.aircraftId)?.registration ?? `#${flight.aircraftId}`
     }
@@ -1047,14 +1078,14 @@ export function LogbookView(props: {
   }
 
   const comparators = Object.fromEntries(
-    SORT_KEYS.map((key) => [key, (a: Flight, b: Flight) => compareFlights(a, b, key, registrationFor, scoreFor)])
-  ) as Record<SortKey, (a: Flight, b: Flight) => number>
+    SORT_KEYS.map((key) => [key, (a: LogbookFlight, b: LogbookFlight) => compareFlights(a, b, key, registrationFor, scoreFor)])
+  ) as Record<SortKey, (a: LogbookFlight, b: LogbookFlight) => number>
   const {
     sortKey,
     sortDir,
     sortedRows: sortedFlights,
     handleSort
-  } = useSortable<Flight, SortKey>(flights, comparators, 'date', 'desc')
+  } = useSortable<LogbookFlight, SortKey>(flights, comparators, 'date', 'desc')
 
   if (view.kind === 'detail') {
     const flight = flights.find((f) => f.id === view.id)
@@ -1064,8 +1095,8 @@ export function LogbookView(props: {
     // falls back to the ordinary "back to list" behaviour.
     const cameFromFleet = flight.id === initialFlightId && initialFlightOriginAircraftId != null
     return (
-      <FlightDetail
-        flight={flight}
+      <FlightDetailLoader
+        listRow={flight}
         aircraft={aircraft.find((a) => a.id === flight.aircraftId)}
         fleetAircraft={aircraft}
         weightUnit={props.weightUnit}

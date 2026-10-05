@@ -4,6 +4,9 @@ version: 2
 updates:
   - package-ecosystem: npm
     directory: /
+    # PRs land on develop, where each minor version's dependency batch is merged
+    # (flightdeck-backend's CLAUDE.md, "WingLog's dependency updates").
+    target-branch: develop
     schedule:
       interval: weekly
     open-pull-requests-limit: 5

@@ -164,7 +164,12 @@ export const flight = sqliteTable('flight', {
   // Soft-delete tombstone — see aircraft.deletedAt's comment for why. deleteFlight cascades
   // this to the flight's own landing/flightInvoice rows too (track_point, never synced,
   // stays hard-deleted as before).
-  deletedAt: text('deleted_at')
+  deletedAt: text('deleted_at'),
+  // The stand the aircraft finished at ("N32" at VHHH), found from the sim's own stand data
+  // when the flight completed (flightdeck-backend's docs/plans/stand-positions.md). Null for
+  // flights before this existed, or when no stand was within reach of the final position.
+  parkedStandIcao: text('parked_stand_icao'),
+  parkedStand: text('parked_stand')
 })
 
 // Local app settings — key/value so future milestones (map tile source, etc.) don't need
@@ -430,4 +435,43 @@ export const navdataProcedureLeg = sqliteTable('navdata_procedure_leg', {
   // Metres; only set for FC/FD legs (see ParsedLeg.routeDistanceM). Default 0 covers legs
   // cached before this column existed — they read as "no distance known" until refreshed.
   routeDistanceM: real('route_distance_m').notNull().default(0)
+})
+
+// One row per taxi-network segment (a single TAXI_PATH record, resolved down to real lat/lon
+// endpoints — see fetchTaxiNetwork in sim-facilities-fetch.ts). Deliberately flat, no separate
+// points table: BIAS_X/BIAS_Z -> lat/lon conversion and NAME_INDEX -> name resolution both
+// happen before a row is ever written, so a read is a plain SELECT, no join. No `type` column —
+// both TYPE 1 and TYPE 4 (see facility-fields.ts's NavdataDefId comment) are fetched and
+// merged, since which is really "Taxi" vs "Path" is unconfirmed and this app doesn't
+// distinguish them for rendering purposes.
+export const navdataTaxiSegment = sqliteTable('navdata_taxi_segment', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  icao: text('icao').notNull(),
+  startLat: real('start_lat').notNull(),
+  startLon: real('start_lon').notNull(),
+  endLat: real('end_lat').notNull(),
+  endLon: real('end_lon').notNull(),
+  name: text('name'),
+  // Null = cached before hold-short points were fetched (2026-09-30); hasCachedTaxiNetwork
+  // treats such a cache as stale so it's re-fetched once, rather than silently lacking them.
+  startHoldShort: integer('start_hold_short', { mode: 'boolean' }),
+  endHoldShort: integer('end_hold_short', { mode: 'boolean' }),
+  source: text('source', { enum: ['sim-facility'] }).notNull(),
+  fetchedAt: text('fetched_at').notNull()
+})
+
+// An airport's stands/gates from the sim (TAXI_PARKING, confirmed live 2026-10-02 — see
+// sim-facilities-fetch.ts's fetchStands). Fetched on demand, replaced wholesale per airport.
+export const navdataStand = sqliteTable('navdata_stand', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  icao: text('icao').notNull(),
+  /** As ATC says it: "N32", "79". */
+  name: text('name').notNull(),
+  nameCode: integer('name_code').notNull(),
+  number: integer('number').notNull(),
+  suffix: integer('suffix').notNull(),
+  headingDeg: real('heading_deg').notNull(),
+  lat: real('lat').notNull(),
+  lon: real('lon').notNull(),
+  fetchedAt: text('fetched_at').notNull()
 })

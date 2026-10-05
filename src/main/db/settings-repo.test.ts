@@ -6,8 +6,12 @@ import {
   getAircraftIdForTitle,
   getAltitudeUnit,
   getAppLanguage,
+  getBeyondAtcSettings,
+  getSkippedUpdateVersion,
+  getUpdateSettings,
   getGsxRemoteSettings,
   getGsxSettings,
+  getTrackingSettings,
   getLandingDistanceUnit,
   getLastSyncCompletedAt,
   getLastSyncedAt,
@@ -21,9 +25,13 @@ import {
   rememberAircraftForTitle,
   setAltitudeUnit,
   setAppLanguage,
+  setBeyondAtcSettings,
+  setSkippedUpdateVersion,
+  setUpdateSettings,
   setCheckedGsxFirstLaunch,
   setGsxRemoteSettings,
   setGsxSettings,
+  setTrackingSettings,
   setLandingDistanceUnit,
   setLastSyncCompletedAt,
   setLastSyncedAt,
@@ -143,6 +151,17 @@ describe('settings repo', () => {
     expect(getTheme(db)).toBe('system')
   })
 
+  it('defaults automatic tracking start and finish to on (tracking-auto-toggles.md)', () => {
+    expect(getTrackingSettings(db)).toEqual({ autoStart: true, autoFinish: true })
+  })
+
+  it('round-trips each tracking switch on its own', () => {
+    setTrackingSettings(db, { autoStart: true, autoFinish: false })
+    expect(getTrackingSettings(db)).toEqual({ autoStart: true, autoFinish: false })
+    setTrackingSettings(db, { autoStart: false, autoFinish: true })
+    expect(getTrackingSettings(db)).toEqual({ autoStart: false, autoFinish: true })
+  })
+
   it('defaults GSX settings to disabled, no folder, USD display', () => {
     expect(getGsxSettings(db)).toEqual({ enabled: false, folderPath: null, displayCurrency: 'USD' })
   })
@@ -169,6 +188,27 @@ describe('settings repo', () => {
     setGsxRemoteSettings(db, { enabled: true, host: 'localhost', port: 8091 })
     setGsxRemoteSettings(db, { enabled: false, host: 'localhost', port: null })
     expect(getGsxRemoteSettings(db)).toEqual({ enabled: false, host: 'localhost', port: 8744 })
+  })
+
+  it('defaults BeyondATC settings to disabled, localhost — no port field, it is fixed', () => {
+    expect(getBeyondAtcSettings(db)).toEqual({ enabled: false, host: 'localhost' })
+  })
+
+  it('round-trips BeyondATC settings', () => {
+    setBeyondAtcSettings(db, { enabled: true, host: '192.168.1.50' })
+    expect(getBeyondAtcSettings(db)).toEqual({ enabled: true, host: '192.168.1.50' })
+  })
+
+  it('has the update check on by default (Callum, 2026-10-02), and round-trips it and the skipped version', () => {
+    expect(getUpdateSettings(db)).toEqual({ checkEnabled: true })
+    setUpdateSettings(db, { checkEnabled: false })
+    expect(getUpdateSettings(db)).toEqual({ checkEnabled: false })
+    setUpdateSettings(db, { checkEnabled: true })
+    expect(getUpdateSettings(db)).toEqual({ checkEnabled: true })
+
+    expect(getSkippedUpdateVersion(db)).toBeNull()
+    setSkippedUpdateVersion(db, '1.4.0')
+    expect(getSkippedUpdateVersion(db)).toBe('1.4.0')
   })
 
   it('defaults the last-synced-completed timestamp to null when never set', () => {

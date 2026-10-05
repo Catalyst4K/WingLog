@@ -10,17 +10,23 @@
  * licence violation rather than a broken build.
  *
  * Run `npm run licenses:generate` after changing production dependencies, and commit the
- * result. Only `dependencies` are walked — devDependencies are build-time tooling and
- * don't ship. Electron itself is the exception and is covered by a hand-written note,
- * since electron-builder bundles its own licence files into the app already.
+ * result (a unit test, `src/main/third-party-licenses.test.ts`, fails if it's stale).
+ * Every production package is walked, transitive ones included: electron-builder ships the
+ * whole production `node_modules` tree, and the renderer bundle inlines transitive code
+ * too. devDependencies are build-time tooling and don't ship. Electron itself is the
+ * exception and is covered by a hand-written note, since electron-builder bundles its own
+ * licence files into the app already.
  */
+import { execSync } from 'node:child_process'
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 interface PackageManifest {
+  name?: string
   version?: string
   license?: string
   repository?: string | { url?: string }
+  author?: string | { name?: string }
   dependencies?: Record<string, string>
 }
 
@@ -99,7 +105,7 @@ const DATA_INTRO = `---
 
 ## Bundled data
 
-Three reference datasets are vendored into the app. Their per-file provenance and terms
+Four reference datasets are vendored into the app. Their per-file provenance and terms
 are reproduced verbatim below, from \`resources/*.LICENSE.txt\` in the source repository.
 
 **Note on the airline database:** it is licensed under the Open Database License (ODbL)
@@ -111,6 +117,7 @@ remain under a free/open licence, in any distribution of this app.
 
 const DATA_FILES = [
   { title: 'Airports — OurAirports', path: 'resources/airports.LICENSE.txt' },
+  { title: 'Runways — OurAirports', path: 'resources/runways.LICENSE.txt' },
   { title: 'Airlines — OpenFlights (ODbL 1.0)', path: 'resources/airlines.LICENSE.txt' },
   {
     title: 'Aircraft type designators — ICAO Doc 8643 list',
@@ -133,31 +140,108 @@ respective airlines.
 
 `
 
+function authorName(author: PackageManifest['author']): string | undefined {
+  const raw = typeof author === 'string' ? author : author?.name
+  // "Anton Korzunov <thekashey@gmail.com>" → "Anton Korzunov"
+  return raw?.replace(/\s*[<(].*$/, '').trim() || undefined
+}
+
+const MIT_TEXT = (holder: string): string => `MIT License
+
+Copyright (c) ${holder}
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.`
+
+const ISC_TEXT = (holder: string): string => `ISC License
+
+Copyright (c) ${holder}
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.`
+
+/** The standard text for a declared licence, for a package that ships no licence file.
+ *  Undefined for anything not covered, which the caller reports as needing a manual check. */
+function standardLicenceText(license: string, author: string | undefined, apacheText: string | undefined): string | undefined {
+  const holder = author ?? 'the package authors'
+  const parts = license.replace(/[()]/g, '').split(/\s+AND\s+/i)
+  const texts = parts.map((part) => {
+    if (/^MIT$/i.test(part)) return MIT_TEXT(holder)
+    if (/^ISC$/i.test(part)) return ISC_TEXT(holder)
+    if (/^Apache-2\.0$/i.test(part)) return apacheText
+    return undefined
+  })
+  return texts.every((t) => t !== undefined) ? texts.join('\n\n---\n\n') : undefined
+}
+
+/** Every installed production package's directory, transitive ones included. `npm ls`
+ *  exits non-zero for things like an extraneous package while still printing the tree, so
+ *  its output is used either way. */
+function productionPackageDirs(root: string): string[] {
+  let out: string
+  try {
+    out = execSync('npm ls --omit=dev --all --parseable', { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+  } catch (error) {
+    out = (error as { stdout?: string }).stdout ?? ''
+  }
+  // The first line is the project itself.
+  return out.split(/\r?\n/).slice(1).filter((line) => line.trim() !== '')
+}
+
 function main(): void {
   const root = process.cwd()
-  const manifest = readManifest(join(root, 'package.json'))
-  const names = Object.keys(manifest.dependencies ?? {}).sort()
+  const packages = productionPackageDirs(root)
+    .map((dir) => {
+      const pkg = readManifest(join(dir, 'package.json'))
+      return {
+        name: pkg.name ?? dir,
+        version: pkg.version ?? '(unknown)',
+        license: pkg.license ?? '(unspecified)',
+        url: repoUrl(pkg.repository),
+        author: authorName(pkg.author),
+        licence: findLicenceText(dir)
+      }
+    })
+    // The same name@version can sit in more than one place in the tree.
+    .filter((p, i, all) => all.findIndex((q) => q.name === p.name && q.version === p.version) === i)
+    .sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version))
+  // Apache-2.0's text is the same for every package, so take it from one that ships it.
+  const apacheText = packages.map((p) => p.licence?.text).find((text) => text?.startsWith('Apache License'))
 
-  const packages = names.map((name) => {
-    const dir = join(root, 'node_modules', name)
-    const pkg = readManifest(join(dir, 'package.json'))
-    return {
-      name,
-      version: pkg.version ?? '(unknown)',
-      license: pkg.license ?? '(unspecified)',
-      url: repoUrl(pkg.repository),
-      licence: findLicenceText(dir)
-    }
-  })
-
-  const missing = packages.filter((p) => !p.licence && TEXT_REQUIRED.test(p.license))
+  const missing = packages.filter(
+    (p) => !p.licence && TEXT_REQUIRED.test(p.license) && !standardLicenceText(p.license, p.author, apacheText)
+  )
   const sections: string[] = [HEADER]
 
   // node-simconnect's own bundled file is the LGPL text, so it doubles as the reproduction
   // the compliance section above promises.
   const simconnect = packages.find((p) => p.name === 'node-simconnect')
   if (simconnect?.licence) {
-    sections.push(`### GNU Lesser General Public License v3.0\n\n\`\`\`\n${simconnect.licence}\n\`\`\`\n\n`)
+    sections.push(`### GNU Lesser General Public License v3.0\n\n\`\`\`\n${simconnect.licence.text}\n\`\`\`\n\n`)
   }
 
   sections.push('---\n\n## Dependencies\n\n| Package | Version | Licence |\n| --- | --- | --- |\n')
@@ -171,12 +255,17 @@ function main(): void {
     if (p.name === 'node-simconnect') continue // reproduced in full above
     sections.push(`### ${p.name} ${p.version} — ${p.license}\n\n`)
     if (p.licence) {
-      sections.push(`\`\`\`\n${p.licence}\n\`\`\`\n\n`)
+      sections.push(`\`\`\`\n${p.licence.text}\n\`\`\`\n\n`)
     } else {
-      // Real case: drizzle-orm declares Apache-2.0 but ships no licence file.
+      // Real cases: drizzle-orm declares Apache-2.0, and a handful of small packages declare
+      // MIT/ISC, but ship no licence file. The licence still has to travel with the copy, so
+      // reproduce the standard text for the declared licence, with the manifest's author as
+      // the copyright holder.
+      const standard = standardLicenceText(p.license, p.author, apacheText)
       sections.push(
         `This package declares \`${p.license}\` in its manifest but does not ship a licence ` +
-          `file.${p.url ? ` See ${p.url} for the applicable terms.` : ''}\n\n`
+          `file.${p.url ? ` Upstream: ${p.url}.` : ''}` +
+          (standard ? ` The standard text of that licence is reproduced below.\n\n\`\`\`\n${standard}\n\`\`\`\n\n` : '\n\n')
       )
     }
   }
@@ -190,7 +279,7 @@ function main(): void {
 
   writeFileSync(join(root, 'THIRD-PARTY-LICENSES.md'), sections.join(''))
 
-  console.log(`Wrote THIRD-PARTY-LICENSES.md for ${packages.length} production dependencies.`)
+  console.log(`Wrote THIRD-PARTY-LICENSES.md for ${packages.length} production packages.`)
   if (missing.length > 0) {
     console.warn(
       `\nWarning: no licence file found for ${missing.length} package(s) whose licence ` +

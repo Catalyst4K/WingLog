@@ -34,6 +34,7 @@ import { MetarPanel } from './MetarPanel'
 import { useLiveWaypoints, type ProcedureAirports } from './procedureSelection'
 import { parseTransitionAltitudes } from './route'
 import { StartFreeFlightDialog } from './StartFreeFlightDialog'
+import { computeTrackTimes, formatDuration, formatElapsed, formatUtcTime, type TrackTimes } from './trackTimes'
 
 // Display-only duplicate of FlightRecorder's own MOVING_MS (~1kt) — the renderer can't
 // import main-process code (this repo's own layout rule), and this threshold only decides
@@ -102,6 +103,9 @@ export function TrackView(props: {
   const [flights, setFlights] = useState<Flight[]>([])
   const [active, setActive] = useState<ActiveTracking | null>(null)
   const [trackPoints, setTrackPoints] = useState<TrackPoint[]>([])
+  // Until the active flight's recorded track has loaded, the map holds off framing the route
+  // (FlightMap's trackLoading) — see there.
+  const [trackLoading, setTrackLoading] = useState(true)
   const [starting, setStarting] = useState(false)
   const [confirm, confirmDialog] = useConfirm()
   const [completedLabel, setCompletedLabel] = useState<string | null>(null)
@@ -136,10 +140,13 @@ export function TrackView(props: {
 
   useEffect(() => {
     reload()
-    window.winglog.trackingGetActive().then((a) => {
-      setActive(a)
-      if (a) window.winglog.trackPointList(a.flightId).then(setTrackPoints)
-    })
+    window.winglog
+      .trackingGetActive()
+      .then(async (a) => {
+        setActive(a)
+        if (a) setTrackPoints(await window.winglog.trackPointList(a.flightId))
+      })
+      .finally(() => setTrackLoading(false))
     const unsubscribe = window.winglog.onTrackingPoint((point) => {
       if (point.phase === 'shutdown') {
         // Auto-completed (as opposed to a manual "Finish & save") — clear the banner and
@@ -343,6 +350,47 @@ export function TrackView(props: {
   // caught live: memoized everywhere else this pattern appears, LogbookView included).
   const route: [number, number][] = useMemo(() => liveWaypoints.map((w) => [w.lon, w.lat]), [liveWaypoints])
 
+  // ET / time remaining / ETA (flightdeck-backend's docs/plans/track-time-readouts.md). A free
+  // flight has no planned route, so its great-circle line stands in (the Logbook's own).
+  const freeFlightAirports =
+    activeFlight && !activeFlight.ofpJson && realIcao(activeFlight.depIcao) && realIcao(activeFlight.arrIcao)
+      ? `${activeFlight.depIcao}-${activeFlight.arrIcao}`
+      : null
+  const [greatCircle, setGreatCircle] = useState<{ key: string; route: [number, number][] } | null>(null)
+  useEffect(() => {
+    if (!freeFlightAirports) return
+    let ignore = false
+    const [dep, arr] = freeFlightAirports.split('-') as [string, string]
+    window.winglog.logbookGreatCircleRoute(dep, arr).then(
+      (gc) => {
+        if (!ignore) setGreatCircle({ key: freeFlightAirports, route: gc ?? [] })
+      },
+      () => undefined
+    )
+    return () => {
+      ignore = true
+    }
+  }, [freeFlightAirports])
+  const timesRoute = route.length >= 2 ? route : greatCircle?.key === freeFlightAirports ? greatCircle.route : []
+  // ET has to tick on its own — telemetry stops arriving while the sim is paused.
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!active) return
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [active])
+  // The live track knows takeoff before the flight list is reloaded.
+  const takeoffUtc = trackPoints.find((p) => !p.onGround)?.tsUtc ?? activeFlight?.actualOffUtc ?? null
+  const times = computeTrackTimes({
+    route: timesRoute,
+    position: props.telemetry ? { lat: props.telemetry.latitude, lon: props.telemetry.longitude } : null,
+    groundSpeedMs: props.telemetry?.groundSpeedMs ?? null,
+    onGround: props.telemetry?.onGround ?? true,
+    takeoffUtc,
+    schedInUtc: activeFlight?.schedInUtc ?? null,
+    now
+  })
+
   // For the map overlay's altitude display (docs/plans/logbook-detail-improvements.md,
   // Phase 3) — a Flight and a DispatchOfp both carry ofpJson, same as ProcedureAirports
   // above. Keyed on the string itself, not the whole `airports` object, which is recomputed
@@ -376,6 +424,7 @@ export function TrackView(props: {
               <span className="text-sm text-muted-foreground">
                 {t('trackView.phase')} <span className="font-mono capitalize">{active.phase}</span>
               </span>
+              <TimeReadouts times={times} />
             </div>
             <div className="flex gap-2">
               <Button type="button" variant="destructive" size="sm" onClick={handleCancelActive}>
@@ -528,6 +577,9 @@ export function TrackView(props: {
           telemetryPhase={active?.phase}
           telemetryTransition={telemetryTransition}
           mapLanguage={props.mapLanguage}
+          depIcao={realIcao(airports?.depIcao)}
+          arrIcao={realIcao(airports?.arrIcao)}
+          trackLoading={trackLoading}
         />
       </div>
 
@@ -560,5 +612,31 @@ export function TrackView(props: {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  )
+}
+
+/** ET · time remaining · ETA, beside the phase (trackTimes.ts). */
+function TimeReadouts(props: { times: TrackTimes }): React.JSX.Element {
+  const { t } = useTranslation()
+  const { times } = props
+  const vs = times.vsScheduleMin
+  return (
+    <span className="flex flex-wrap items-center gap-x-3 text-sm text-muted-foreground">
+      <span>
+        {t('trackView.times.et')} <span className="font-mono text-foreground">{formatElapsed(times.elapsedMs)}</span>
+      </span>
+      <span>
+        {t('trackView.times.remaining')} <span className="font-mono text-foreground">{formatDuration(times.remainingMs)}</span>
+      </span>
+      <span>
+        {t(times.etaIsPlanned ? 'trackView.times.etaPlanned' : 'trackView.times.eta')}{' '}
+        <span className="font-mono text-foreground">{formatUtcTime(times.etaMs)}</span>
+        {vs !== null && (
+          <span className="ml-1">
+            ({vs === 0 ? t('trackView.times.onTime') : t('trackView.times.vsSchedule', { value: `${vs > 0 ? '+' : '−'}${Math.abs(vs)}` })})
+          </span>
+        )}
+      </span>
+    </span>
   )
 }

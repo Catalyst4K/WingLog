@@ -13,9 +13,11 @@ import {
   type WindSpeedUnit,
   type DispatchOfp,
   type DispatchOpenSimBriefParams,
-  type GsxRemoteCommandId,
+  type BeyondAtcSettings,
+  type UpdateSettings,
   type GsxRemoteSettings,
   type GsxSettings,
+  type TrackingSettings,
   type LandingDistanceUnit,
   type MapLanguage,
   type NavdataProcedureKind,
@@ -57,6 +59,9 @@ import {
   deleteFlight,
   getFleetStats,
   getFlight,
+  getLiveFlight,
+  listLastParkedByAircraft,
+  setParkedStand,
   getInProgressFlight,
   getLogbookStats,
   listCompletedFlights,
@@ -71,8 +76,12 @@ import { exportLogbook, importLogbookCsv, importLogbookJson } from './db/logbook
 import {
   getAltitudeUnit,
   getAppLanguage,
+  getBeyondAtcSettings,
+  getSkippedUpdateVersion,
+  getUpdateSettings,
   getGsxRemoteSettings,
   getGsxSettings,
+  getTrackingSettings,
   getLandingDistanceUnit,
   getSimbriefUsername,
   getTheme,
@@ -81,8 +90,12 @@ import {
   getWindSpeedUnit,
   setAltitudeUnit,
   setAppLanguage,
+  setBeyondAtcSettings,
+  setSkippedUpdateVersion,
+  setUpdateSettings,
   setGsxRemoteSettings,
   setGsxSettings,
+  setTrackingSettings,
   setLandingDistanceUnit,
   setSimbriefUsername,
   setTheme,
@@ -113,12 +126,23 @@ import {
 import { SimConnectService } from './sim/SimConnectService'
 import { ReplaySimConnectService, type ReplayMode } from './sim/ReplaySimConnectService'
 import { EMPTY_COMMAND_BAR, EMPTY_MENU, GsxRemoteService } from './gsx-remote/GsxRemoteService'
+import { BeyondAtcService } from './beyondatc/BeyondAtcService'
+import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
+import { UpdateService } from './updates/update-check'
+import { LiveHub } from './live/LiveHub'
+import { manualPath } from './manual-path'
+import { existsSync } from 'node:fs'
+import { getSetupContext, getSetupState, setSetupCompleted } from './setup/first-run'
+import { StepClimbController } from './beyondatc/step-climb'
+import { ArrivalClearanceTracker } from './beyondatc/arrival-clearance'
 import type { NavdataProvider } from './navdata/navdata-provider'
 import { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
 import { SimAirfieldResolver } from './airports/sim-airfield'
 import { TrackingController } from './tracking/TrackingController'
 import { AutoStartDetector } from './tracking/AutoStartDetector'
 import { CloudSyncController } from './sync/cloud-sync-controller'
+import { pointRegeditAtUnpackedScripts } from './sim/regedit-scripts'
+import { recordParkedStand } from './tracking/parked-stand'
 
 /**
  * A blank/unresolved depIcao or arrIcao from the free-flight dialog becomes 'ZZZZ' — ICAO's
@@ -156,6 +180,15 @@ function createWindow(): BrowserWindow {
 
 // Before anything else can throw — a crash logged nowhere is a crash nobody can debug.
 initLogger()
+
+// Before SimConnect's first connection attempt — see regedit-scripts.ts. Never fatal: at worst
+// the registry lookup keeps failing the way it always has, and node-simconnect falls back.
+try {
+  const result = pointRegeditAtUnpackedScripts(app.isPackaged, process.resourcesPath)
+  if (result !== null) console.info(`regedit scripts: ${result}`)
+} catch (err) {
+  console.warn('regedit scripts not redirected:', err)
+}
 
 // e2e-only (e2e/launch-app.ts always sets this): headless Linux CI's xvfb display has no
 // real GPU, and Electron's bundled Chromium doesn't reliably fall back to a working
@@ -236,6 +269,12 @@ if (!gotSingleInstanceLock) {
       // way to move around; a bare File/Edit/Window bar above it was clutter, not useful.
       Menu.setApplicationMenu(null)
       const window = createWindow()
+      // Live state (sim, tracking, GSX Remote, BeyondATC) goes through one hub, and the window
+      // is its first subscriber (flightdeck-backend's docs/plans/live-data-seam.md, part A).
+      const liveHub = new LiveHub()
+      liveHub.subscribe((topic, payload) => {
+        if (!window.isDestroyed()) window.webContents.send(IpcChannels[topic], payload)
+      })
 
       // Cloud sync (flightdeck-backend/docs/plans/cloud-sync.md) — off by default; nothing
       // above this point depends on it, and it's the only feature in the app that talks to
@@ -507,10 +546,10 @@ if (!gotSingleInstanceLock) {
         : new SimConnectService()
       ipcMain.handle(IpcChannels.simConnectionStatusGet, () => simConnectService.getStatus())
       simConnectService.on('telemetry', (telemetry) => {
-        if (!window.isDestroyed()) window.webContents.send(IpcChannels.simTelemetry, telemetry)
+        liveHub.publish('simTelemetry', telemetry)
       })
       simConnectService.on('status', (status) => {
-        if (!window.isDestroyed()) window.webContents.send(IpcChannels.simConnectionStatus, status)
+        liveHub.publish('simConnectionStatus', status)
       })
       simConnectService.start()
       app.on('before-quit', () => simConnectService.stop())
@@ -535,10 +574,10 @@ if (!gotSingleInstanceLock) {
       let orphanedFlight = getInProgressFlight(db)
 
       trackingController.on('point', (point) => {
-        if (!window.isDestroyed()) window.webContents.send(IpcChannels.trackingPoint, point)
+        liveHub.publish('trackingPoint', point)
       })
       trackingController.on('pointsUpdated', (points) => {
-        if (!window.isDestroyed()) window.webContents.send(IpcChannels.trackingPointsUpdated, points)
+        liveHub.publish('trackingPointsUpdated', points)
       })
       // Push-on-mutation's real-time case: a flight reaching 'completed' (auto shutdown
       // detection or a manual finish()) is the highest-value moment to sync promptly, whether
@@ -550,6 +589,8 @@ if (!gotSingleInstanceLock) {
       // manual fallback for whenever this doesn't fire (e.g. the pilot doesn't reload MSFS).
       const autoStartDetector = new AutoStartDetector(simConnectService)
       autoStartDetector.on('ready', (flightId) => {
+        // Settings → Tracking → "Start tracking automatically" off: the pilot starts it.
+        if (!getTrackingSettings(db).autoStart) return
         try {
           trackingController.start(flightId)
         } catch {
@@ -686,6 +727,10 @@ if (!gotSingleInstanceLock) {
       })
 
       ipcMain.handle(IpcChannels.logbookListCompletedFlights, () => listCompletedFlights(db))
+      ipcMain.handle(IpcChannels.logbookGetFlight, (_event, id: unknown) => {
+        if (typeof id !== 'number' || !Number.isInteger(id)) return null
+        return getLiveFlight(db, id) ?? null
+      })
       ipcMain.handle(IpcChannels.logbookGetStats, () => getLogbookStats(db))
       ipcMain.handle(IpcChannels.logbookFleetStats, () => getFleetStats(db))
       ipcMain.handle(IpcChannels.logbookImportCsv, async () => {
@@ -709,11 +754,24 @@ if (!gotSingleInstanceLock) {
       // default, and a no-op everywhere below when disabled or unconfigured. Windows-only in
       // practice (GSX itself is Windows-only), but nothing here assumes that beyond
       // defaultGsxReceiptsPath returning null elsewhere.
+      trackingController.setAutoFinish(getTrackingSettings(db).autoFinish)
+      ipcMain.handle(IpcChannels.settingsGetTracking, () => getTrackingSettings(db))
+      ipcMain.handle(IpcChannels.settingsSetTracking, (_event, settings: TrackingSettings) => {
+        if (typeof settings?.autoStart !== 'boolean' || typeof settings.autoFinish !== 'boolean') {
+          throw new Error('Invalid tracking settings')
+        }
+        setTrackingSettings(db, { autoStart: settings.autoStart, autoFinish: settings.autoFinish })
+        trackingController.setAutoFinish(settings.autoFinish)
+      })
       ipcMain.handle(IpcChannels.settingsGetGsx, () => getGsxSettings(db))
       ipcMain.handle(IpcChannels.settingsSetGsx, (_event, settings: GsxSettings) =>
         setGsxSettings(db, settings)
       )
       ipcMain.handle(IpcChannels.settingsCheckGsxFirstLaunch, () => checkGsxFirstLaunch(db))
+      // First-launch setup (flightdeck-backend's docs/plans/first-launch-setup.md).
+      ipcMain.handle(IpcChannels.setupGetState, () => getSetupState(db))
+      ipcMain.handle(IpcChannels.setupGetContext, () => getSetupContext())
+      ipcMain.handle(IpcChannels.setupComplete, () => setSetupCompleted(db))
 
       ipcMain.handle(IpcChannels.gsxBrowseFolder, async () => {
         const { canceled, filePaths } = await dialog.showOpenDialog(window, {
@@ -776,22 +834,22 @@ if (!gotSingleInstanceLock) {
         if (!settings.enabled || !settings.port) return
         gsxRemoteService = new GsxRemoteService(settings.host, settings.port)
         gsxRemoteService.on('status', (status) => {
-          if (!window.isDestroyed()) window.webContents.send(IpcChannels.gsxRemoteStatus, status)
+          liveHub.publish('gsxRemoteStatus', status)
         })
         gsxRemoteService.on('services', (services) => {
-          if (!window.isDestroyed()) window.webContents.send(IpcChannels.gsxRemoteServices, services)
+          liveHub.publish('gsxRemoteServices', services)
         })
         gsxRemoteService.on('gate', (gate) => {
-          if (!window.isDestroyed()) window.webContents.send(IpcChannels.gsxRemoteGate, gate)
+          liveHub.publish('gsxRemoteGate', gate)
         })
         gsxRemoteService.on('menu', (menu) => {
-          if (!window.isDestroyed()) window.webContents.send(IpcChannels.gsxRemoteMenu, menu)
+          liveHub.publish('gsxRemoteMenu', menu)
         })
         gsxRemoteService.on('prompt', (prompt) => {
-          if (!window.isDestroyed()) window.webContents.send(IpcChannels.gsxRemotePrompt, prompt)
+          liveHub.publish('gsxRemotePrompt', prompt)
         })
         gsxRemoteService.on('commandBar', (commandBar) => {
-          if (!window.isDestroyed()) window.webContents.send(IpcChannels.gsxRemoteCommandBar, commandBar)
+          liveHub.publish('gsxRemoteCommandBar', commandBar)
         })
         gsxRemoteService.start()
       }
@@ -809,13 +867,86 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.gsxRemoteGetMenu, () => gsxRemoteService?.getMenu() ?? EMPTY_MENU)
       ipcMain.handle(IpcChannels.gsxRemoteGetPrompt, () => gsxRemoteService?.getPrompt() ?? null)
       ipcMain.handle(IpcChannels.gsxRemoteGetCommandBar, () => gsxRemoteService?.getCommandBar() ?? EMPTY_COMMAND_BAR)
-      ipcMain.handle(IpcChannels.gsxRemotePickMenu, (_event, index: number) => gsxRemoteService?.pickMenu(index))
+      ipcMain.handle(IpcChannels.gsxRemotePickMenu, (_event, index: unknown) => gsxRemoteService?.pickMenu(index))
+      ipcMain.handle(IpcChannels.gsxRemoteSearch, (_event, text: unknown) => gsxRemoteService?.search(text))
       ipcMain.handle(IpcChannels.gsxRemoteToggleMenu, () => gsxRemoteService?.toggleMenu())
-      ipcMain.handle(IpcChannels.gsxRemoteSubmitPrompt, (_event, gen: number, text: string) =>
+      ipcMain.handle(IpcChannels.gsxRemoteSubmitPrompt, (_event, gen: unknown, text: unknown) =>
         gsxRemoteService?.submitPrompt(gen, text)
       )
-      ipcMain.handle(IpcChannels.gsxRemoteCancelPrompt, (_event, gen: number) => gsxRemoteService?.cancelPrompt(gen))
-      ipcMain.handle(IpcChannels.gsxRemoteRunCommand, (_event, id: GsxRemoteCommandId) => gsxRemoteService?.runCommand(id))
+      ipcMain.handle(IpcChannels.gsxRemoteCancelPrompt, (_event, gen: unknown) => gsxRemoteService?.cancelPrompt(gen))
+      ipcMain.handle(IpcChannels.gsxRemoteRunCommand, (_event, id: unknown) => gsxRemoteService?.runCommand(id))
+
+      // BeyondATC integration (flightdeck-backend's docs/plans/beyondatc-integration.md;
+      // live protocol confirmed docs/beyondatc-notes.md, 2026-09-25). Off by default,
+      // opt-in per user-entered host — unlike GSX Remote, the port is fixed
+      // (BeyondAtcService's own BEYONDATC_PORT), so there's no port to validate here.
+      let beyondAtcService: BeyondAtcService | undefined
+      // ATC's arrival clearance for the BeyondATC tab's info card, until touchdown.
+      const arrivalClearance = new ArrivalClearanceTracker({
+        getArrivalIcao: () => {
+          const active = trackingController.getActive()
+          return (active && getFlight(db, active.flightId)?.arrIcao) || beyondAtcService?.getState().progress?.to || null
+        },
+        listApproaches: (icao) => navdataProvider.listApproaches(icao)
+      })
+      arrivalClearance.on('clearance', (clearance) => {
+        liveHub.publish('beyondAtcArrival', clearance)
+      })
+      trackingController.on('point', (point) => arrivalClearance.onPhase(point.phase))
+      ipcMain.handle(IpcChannels.beyondAtcGetArrival, () => arrivalClearance.getClearance())
+      const startBeyondAtcIfConfigured = (): void => {
+        beyondAtcService?.stop()
+        beyondAtcService = undefined
+        const settings = getBeyondAtcSettings(db)
+        if (!settings.enabled) return
+        beyondAtcService = new BeyondAtcService(settings.host)
+        beyondAtcService.on('status', (status) => {
+          liveHub.publish('beyondAtcStatus', status)
+        })
+        beyondAtcService.on('state', (state) => {
+          liveHub.publish('beyondAtcState', state)
+          arrivalClearance.onInfoBoxes(state.infoBoxes)
+        })
+        beyondAtcService.on('transcript', (transcript) => {
+          liveHub.publish('beyondAtcTranscript', transcript)
+        })
+        beyondAtcService.start()
+      }
+      startBeyondAtcIfConfigured()
+      app.on('before-quit', () => beyondAtcService?.stop())
+
+      ipcMain.handle(IpcChannels.settingsGetBeyondAtc, () => getBeyondAtcSettings(db))
+      ipcMain.handle(IpcChannels.settingsSetBeyondAtc, (_event, settings: BeyondAtcSettings) => {
+        setBeyondAtcSettings(db, settings)
+        startBeyondAtcIfConfigured()
+      })
+      ipcMain.handle(IpcChannels.beyondAtcGetStatus, () => beyondAtcService?.getStatus() ?? { state: 'disconnected', lastError: null })
+      ipcMain.handle(IpcChannels.beyondAtcGetState, () => beyondAtcService?.getState() ?? EMPTY_BEYONDATC_STATE)
+      ipcMain.handle(IpcChannels.beyondAtcGetTranscript, () => beyondAtcService?.getTranscript() ?? [])
+      ipcMain.handle(IpcChannels.beyondAtcSetAction, (_event, label: unknown) => beyondAtcService?.setAction(label))
+      ipcMain.handle(IpcChannels.beyondAtcSetFrequency, (_event, frequency: unknown) => beyondAtcService?.setFrequency(frequency))
+      ipcMain.handle(IpcChannels.beyondAtcSetFrequencyCom2, (_event, frequency: unknown) =>
+        beyondAtcService?.setFrequencyCom2(frequency)
+      )
+      ipcMain.handle(IpcChannels.beyondAtcSetAutoTune, (_event, value: unknown) => beyondAtcService?.setAutoTune(value))
+      ipcMain.handle(IpcChannels.beyondAtcSetAutoRespond, (_event, value: unknown) => beyondAtcService?.setAutoRespond(value))
+
+      // WingLog's own auto step climb (flightdeck-backend's docs/plans/beyondatc-auto-step-
+      // climb.md) — asks BeyondATC for each new cruise level. Reads the current
+      // beyondAtcService lazily, since settings changes replace it. Off every launch.
+      const stepClimb = new StepClimbController({
+        getSession: () => beyondAtcService,
+        getActive: () => trackingController.getActive(),
+        getOfpJson: (flightId) => getFlight(db, flightId)?.ofpJson ?? null
+      })
+      stepClimb.on('status', (status) => {
+        liveHub.publish('beyondAtcStepClimb', status)
+      })
+      simConnectService.on('telemetry', (telemetry) => stepClimb.onTelemetry(telemetry))
+      ipcMain.handle(IpcChannels.beyondAtcGetStepClimb, () => stepClimb.getStatus())
+      ipcMain.handle(IpcChannels.beyondAtcSetStepClimb, (_event, enabled: unknown) => {
+        if (typeof enabled === 'boolean') stepClimb.setEnabled(enabled)
+      })
 
       ipcMain.handle(IpcChannels.logbookOpenOfpPdf, async (_event, flightId: number) => {
         const flight = getFlight(db, flightId)
@@ -884,7 +1015,9 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.airportListAirfields, () => listAirfields())
       ipcMain.handle(IpcChannels.airlineSearch, (_event, query: string) => searchAirlines(query))
       ipcMain.handle(IpcChannels.airlineFindByIcao, (_event, icao: string) => findAirlineByIcao(icao))
-      ipcMain.handle(IpcChannels.weatherGetMetars, (_event, icaoCodes: string[]) => fetchMetars(icaoCodes))
+      ipcMain.handle(IpcChannels.weatherGetMetars, (_event, icaoCodes: unknown) =>
+        fetchMetars(icaoCodes, `WingLog/${app.getVersion()}`)
+      )
       ipcMain.handle(IpcChannels.fxGetRate, (_event, targetCurrency: string, date?: string) =>
         fetchExchangeRate(targetCurrency, date)
       )
@@ -914,6 +1047,42 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.appOpenGithub, () =>
         shell.openExternal('https://github.com/Catalyst4K/WingLog')
       )
+      // The PDF manual: a fixed path inside the app's own resources, never one from the renderer.
+      ipcMain.handle(IpcChannels.appOpenManual, async () => {
+        const manual = manualPath(app.isPackaged, process.resourcesPath, app.getAppPath())
+        if (!existsSync(manual)) return false
+        return (await shell.openPath(manual)) === ''
+      })
+
+      // Update check (flightdeck-backend's docs/plans/update-check.md, Part A; agreed
+      // 2026-10-02): asks GitHub for the latest published release, on by default, switchable
+      // off in Settings → About. The endpoint can only be overridden in an unpackaged build,
+      // for the Playwright acceptance test's fake release server.
+      const updateService = new UpdateService({
+        currentVersion: app.getVersion(),
+        isEnabled: () => getUpdateSettings(db).checkEnabled,
+        getSkippedVersion: () => getSkippedUpdateVersion(db),
+        setSkippedVersion: (version) => setSkippedUpdateVersion(db, version),
+        url: !app.isPackaged && process.env.WINGLOG_UPDATE_URL ? process.env.WINGLOG_UPDATE_URL : undefined
+      })
+      updateService.on('status', (status) => {
+        if (!window.isDestroyed()) window.webContents.send(IpcChannels.updatesStatus, status)
+      })
+      updateService.start()
+      app.on('before-quit', () => updateService.stop())
+      ipcMain.handle(IpcChannels.settingsGetUpdates, () => getUpdateSettings(db))
+      ipcMain.handle(IpcChannels.settingsSetUpdates, (_event, settings: unknown) => {
+        const checkEnabled = (settings as UpdateSettings | null)?.checkEnabled
+        if (typeof checkEnabled !== 'boolean') throw new Error('Invalid update settings')
+        setUpdateSettings(db, { checkEnabled })
+      })
+      ipcMain.handle(IpcChannels.updatesGetStatus, () => updateService.getStatus())
+      ipcMain.handle(IpcChannels.updatesCheckNow, () => updateService.checkNow())
+      ipcMain.handle(IpcChannels.updatesSkipVersion, (_event, version: unknown) => updateService.skipVersion(version))
+      ipcMain.handle(IpcChannels.updatesOpenRelease, async () => {
+        const url = updateService.releaseUrl()
+        if (url) await shell.openExternal(url)
+      })
 
       // Navdata (Phase 3, flightdeck-backend's docs/plans/navdata-without-navigraph.md) — its
       // own short-lived SimConnect connection per refresh, deliberately separate from
@@ -950,6 +1119,32 @@ if (!gotSingleInstanceLock) {
           transition?: string | null
         ) => navdataProvider.getProcedureWaypoints(icao, kind, identifier, runway, transition)
       )
+      ipcMain.handle(IpcChannels.navdataRefreshTaxiNetwork, (_event, icao: string) =>
+        navdataProvider.refreshTaxiNetwork(icao)
+      )
+      ipcMain.handle(IpcChannels.navdataHasTaxiNetwork, (_event, icao: string) =>
+        navdataProvider.hasTaxiNetwork(icao)
+      )
+      ipcMain.handle(IpcChannels.navdataGetTaxiNetwork, (_event, icao: string) =>
+        navdataProvider.getTaxiNetwork(icao)
+      )
+      ipcMain.handle(IpcChannels.navdataGetStands, (_event, icao: unknown) =>
+        typeof icao === 'string' && /^[A-Z0-9]{3,4}$/i.test(icao) ? navdataProvider.getStands(icao.toUpperCase()) : []
+      )
+      ipcMain.handle(IpcChannels.fleetListLastParked, () => listLastParkedByAircraft(db))
+      // Where each flight finished (stand-positions.md) — after completion, best effort.
+      trackingController.on('completed', (flightId: number) => {
+        const telemetry = simConnectService.getLastTelemetry()
+        void recordParkedStand(
+          {
+            getArrivalIcao: (id) => getFlight(db, id)?.arrIcao ?? null,
+            getStands: (icao) => navdataProvider.getStands(icao),
+            setParkedStand: (id, icao, stand) => setParkedStand(db, id, icao, stand)
+          },
+          flightId,
+          telemetry ? { lat: telemetry.latitude, lon: telemetry.longitude } : null
+        ).catch((err: unknown) => console.warn('parked stand not recorded:', err))
+      })
 
       // CI packaging check (see .github/workflows/package.yml): proves the built
       // binary launches, migrates the DB and renders a first frame, then exits

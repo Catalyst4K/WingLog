@@ -1,4 +1,5 @@
-import type { NavdataLeg } from '@shared/ipc'
+import type { NavdataLeg, NavdataProcedureOption } from '@shared/ipc'
+import { isVisualApproach } from '@shared/visual-approach'
 
 function navlogFixes(ofpJson: string | null): Record<string, unknown>[] {
   if (!ofpJson) return []
@@ -359,4 +360,27 @@ export function approachRunway(approachIdent: string | null): string | null {
   if (!approachIdent) return null
   const parts = approachIdent.trim().split(' ')
   return parts[parts.length - 1] || null
+}
+
+/** Among approaches for the planned runway, prefer ILS (always unsuffixed when present),
+ *  then LOC, then whatever RNAV/other option sorts first — a reasonable starting point, not
+ *  a correctness claim: no signal (SimBrief or navdata) says which of several same-runway
+ *  approaches ATC will actually assign, since a real pilot doesn't know either until told
+ *  during descent (docs/navdata-notes.md, 2026-09-08 approach-procedures entry). The point
+ *  is a sane default that's instantly correctable from the dropdown, not a guess to get
+ *  right.
+ *
+ *  `starEndFix`, when given, narrows the choice to approaches with a transition starting at
+ *  that fix, when any have one. ZJSY, 2026-10-05: UPRS2C ends at SY498, the entry to ILS Z 08
+ *  but not ILS X 08 (SY462, SY935 only), so "first ILS" picked an approach the STAR never
+ *  reaches. */
+export function pickDefaultApproachIdentifier(options: NavdataProcedureOption[], starEndFix?: string | null): string | null {
+  const connecting = starEndFix ? options.filter((o) => o.transition === starEndFix) : []
+  const all = [...new Set((connecting.length > 0 ? connecting : options).map((o) => o.identifier))].sort()
+  // The synthetic Visual approach stays opt-in (docs/plans/visual-approach.md) — it's only
+  // ever the default at a field with no instrument approach at all.
+  const instrument = all.filter((id) => !isVisualApproach(id))
+  const identifiers = instrument.length > 0 ? instrument : all
+  if (identifiers.length === 0) return null
+  return identifiers.find((id) => id.startsWith('ILS ')) ?? identifiers.find((id) => id.startsWith('LOC ')) ?? identifiers[0]!
 }

@@ -85,7 +85,7 @@ const RAW_MENU = {
   disabled: [false, false],
   layout: 't9'
 }
-const MENU: GsxRemoteMenuState = { ...RAW_MENU, menuShown: true }
+const MENU: GsxRemoteMenuState = { ...RAW_MENU, menuShown: true, searchActive: false, searchSession: 0 }
 
 // Real wire shape, confirmed live 2026-09-21 (docs/gsx-notes.md, round 6/7 captures): a
 // real VHHH session's `airport`/`parking`/`gateProperties` top-level keys, and a real
@@ -237,6 +237,8 @@ describe('GsxRemoteService', () => {
     expect(service.getServices()).toEqual([])
     expect(service.getMenu()).toEqual({
       menuShown: false,
+      searchActive: false,
+      searchSession: 0,
       title: '',
       header: '',
       subtitle: '',
@@ -248,16 +250,103 @@ describe('GsxRemoteService', () => {
     expect(service.getPrompt()).toBeNull()
   })
 
-  it('sends menu.pick with the index when picking a menu entry', () => {
+  it("combines GSX's separate /search key into the menu and emits on a search patch", () => {
+    const { ctor, instances } = makeCtor()
+    const service = new GsxRemoteService('localhost', 8744, ctor)
+    const menus: GsxRemoteMenuState[] = []
+    service.on('menu', (menu) => menus.push(menu))
+    service.start()
+    instances[0].simulateOpen()
+    // Real round-11 capture (ZSPD, docs/gsx-notes.md): picking "Search parking..." swaps the
+    // menu to the search list, padded with empty strings, and flips /search active.
+    instances[0].simulateMessage({
+      v: 1,
+      type: 'patch',
+      ts: 1,
+      path: '/menu',
+      value: {
+        ...RAW_MENU,
+        title: 'Type a gate, terminal or number',
+        entries: ['Gate 73 with Safedock© - Heavy - 1x /J (too small)', '', '', 'Back']
+      }
+    })
+    instances[0].simulateMessage({ v: 1, type: 'patch', ts: 2, path: '/search', value: { active: true, session: 2 } })
+
+    expect(menus.at(-1)).toMatchObject({ searchActive: true, searchSession: 2, title: 'Type a gate, terminal or number' })
+
+    instances[0].simulateMessage({ v: 1, type: 'patch', ts: 3, path: '/search', value: { active: false, session: 2 } })
+    expect(service.getMenu().searchActive).toBe(false)
+    service.stop()
+  })
+
+  it('treats a missing or malformed /search as not searching', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new GsxRemoteService('localhost', 8744, ctor)
+    service.start()
+    instances[0].simulateOpen()
+    expect(service.getMenu()).toMatchObject({ searchActive: false, searchSession: 0 })
+
+    instances[0].simulateMessage({ v: 1, type: 'patch', ts: 1, path: '/search', value: 'nonsense' })
+    expect(service.getMenu()).toMatchObject({ searchActive: false, searchSession: 0 })
+    service.stop()
+  })
+
+  it("sends menu.search with the box's whole text, dropping non-strings and capping length", () => {
     const { ctor, instances } = makeCtor()
     const service = new GsxRemoteService('localhost', 8744, ctor)
     service.start()
     instances[0].simulateOpen()
     instances[0].sent = []
 
-    service.pickMenu(2)
+    service.search('7')
+    service.search('73')
+    service.search(73)
+    service.search('x'.repeat(200))
 
-    expect(instances[0].sent).toEqual([{ type: 'command', verb: 'menu.pick', args: { index: 2 } }])
+    expect(instances[0].sent).toEqual([
+      { type: 'command', verb: 'menu.search', args: { text: '7' } },
+      { type: 'command', verb: 'menu.search', args: { text: '73' } },
+      { type: 'command', verb: 'menu.search', args: { text: 'x'.repeat(64) } }
+    ])
+    service.stop()
+  })
+
+  it('sends menu.pick with the index when picking a menu entry', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new GsxRemoteService('localhost', 8744, ctor)
+    service.start()
+    instances[0].simulateOpen()
+    instances[0].simulateMessage({ v: 1, type: 'snapshot', ts: 1, services: [], menu: RAW_MENU, menuShown: true, prompt: null })
+    instances[0].sent = []
+
+    service.pickMenu(1)
+
+    expect(instances[0].sent).toEqual([{ type: 'command', verb: 'menu.pick', args: { index: 1 } }])
+    service.stop()
+  })
+
+  it('only picks an entry the menu on screen actually has, and checks prompt/command input', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new GsxRemoteService('localhost', 8744, ctor)
+    service.start()
+    instances[0].simulateOpen()
+    // RAW_MENU has two entries.
+    instances[0].simulateMessage({ v: 1, type: 'snapshot', ts: 1, services: [], menu: RAW_MENU, menuShown: true, prompt: null })
+    instances[0].sent = []
+
+    service.pickMenu(2)
+    service.pickMenu(-1)
+    service.pickMenu(0.5)
+    service.pickMenu('0')
+    service.submitPrompt('3', 'Gate 1')
+    service.submitPrompt(3, 42)
+    service.cancelPrompt(null)
+    service.runCommand('FORMAT_C')
+    service.runCommand({ id: 'RESTART_COUATL' })
+    expect(instances[0].sent).toEqual([])
+
+    service.submitPrompt(3, 'x'.repeat(1000))
+    expect(instances[0].sent).toEqual([{ type: 'command', verb: 'input.submit', args: { gen: 3, text: 'x'.repeat(256) } }])
     service.stop()
   })
 

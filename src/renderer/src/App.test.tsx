@@ -1,10 +1,12 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from 'sonner'
 import i18n from './i18n'
 import type {
   Aircraft,
+  BeyondAtcState,
   DispatchOfp,
   Flight,
   FleetStats,
@@ -46,6 +48,7 @@ vi.mock('maplibre-gl', () => {
     doubleClickZoom = new FakeHandler()
     fitBounds = vi.fn()
     jumpTo = vi.fn()
+    once = vi.fn()
     easeTo = vi.fn()
     zoomIn = vi.fn()
     zoomOut = vi.fn()
@@ -298,6 +301,7 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     onSimTelemetry: vi.fn(() => () => {}),
     // FleetView (eager)
     aircraftList: vi.fn().mockResolvedValue([]),
+    fleetListLastParked: vi.fn().mockResolvedValue([]),
     logbookFleetStats: vi.fn().mockResolvedValue([]),
     aircraftCreate: vi.fn(),
     aircraftUpdate: vi.fn(),
@@ -330,6 +334,9 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     navdataListStars: vi.fn().mockResolvedValue([]),
     navdataListApproaches: vi.fn().mockResolvedValue([]),
     navdataGetProcedureWaypoints: vi.fn().mockResolvedValue([]),
+    navdataRefreshTaxiNetwork: vi.fn().mockResolvedValue(undefined),
+    navdataHasTaxiNetwork: vi.fn().mockResolvedValue(false),
+    navdataGetTaxiNetwork: vi.fn().mockResolvedValue([]),
     // TrackView (lazy)
     trackPointList: vi.fn().mockResolvedValue([]),
     onTrackingPoint: vi.fn(() => () => {}),
@@ -343,6 +350,7 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     trackingSetProcedureSelection: vi.fn().mockResolvedValue(undefined),
     // LogbookView (lazy)
     logbookListCompletedFlights: vi.fn().mockResolvedValue([]),
+    logbookGetFlight: vi.fn().mockResolvedValue(null),
     logbookGetStats: vi.fn().mockResolvedValue({ totalFlights: 0, totalBlockMinutes: 0, totalNm: 0 }),
     logbookListFlightScores: vi.fn().mockResolvedValue([]),
     logbookListLandings: vi.fn().mockResolvedValue([]),
@@ -356,6 +364,8 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     dispatchFetchSimbriefUsername: vi.fn().mockResolvedValue(null),
     dispatchLogoutSimbrief: vi.fn().mockResolvedValue(undefined),
     settingsGetGsx: vi.fn().mockResolvedValue({ enabled: false, folderPath: null, displayCurrency: 'USD' }),
+    settingsGetTracking: vi.fn().mockResolvedValue({ autoStart: true, autoFinish: true }),
+    settingsSetTracking: vi.fn().mockResolvedValue(undefined),
     settingsSetGsx: vi.fn().mockResolvedValue(undefined),
     gsxBrowseFolder: vi.fn().mockResolvedValue(null),
     settingsGetGsxRemote: vi.fn().mockResolvedValue({ enabled: false, host: 'localhost', port: null }),
@@ -377,6 +387,22 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     gsxRemoteSubmitPrompt: vi.fn().mockResolvedValue(undefined),
     gsxRemoteCancelPrompt: vi.fn().mockResolvedValue(undefined),
     gsxRemoteRunCommand: vi.fn().mockResolvedValue(undefined),
+    settingsGetBeyondAtc: vi.fn().mockResolvedValue({ enabled: false, host: 'localhost' }),
+    settingsSetBeyondAtc: vi.fn().mockResolvedValue(undefined),
+    beyondAtcGetStatus: vi.fn().mockResolvedValue({ state: 'disconnected', lastError: null }),
+    onBeyondAtcStatus: vi.fn(() => () => {}),
+    beyondAtcGetState: vi.fn().mockResolvedValue(EMPTY_BEYONDATC_STATE),
+    onBeyondAtcState: vi.fn(() => () => {}),
+    beyondAtcGetStepClimb: vi.fn().mockResolvedValue({ enabled: false, nextStep: null, pendingAltitudeFt: null, waitingForClimbFt: null, pastTopOfDescent: false, last: null }),
+    onBeyondAtcStepClimb: vi.fn(() => () => {}),
+    beyondAtcGetArrival: vi.fn().mockResolvedValue(null),
+    onBeyondAtcArrival: vi.fn(() => () => {}),
+    beyondAtcSetStepClimb: vi.fn().mockResolvedValue(undefined),
+    beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
+    onBeyondAtcTranscript: vi.fn(() => () => {}),
+    beyondAtcSetAction: vi.fn().mockResolvedValue(undefined),
+    beyondAtcSetFrequency: vi.fn().mockResolvedValue(undefined),
+    beyondAtcSetFrequencyCom2: vi.fn().mockResolvedValue(undefined),
     syncStatus: vi.fn().mockResolvedValue(makeSyncStatus()),
     authLogin: vi.fn().mockResolvedValue(makeSyncStatus()),
     authSignup: vi.fn().mockResolvedValue(makeSyncStatus()),
@@ -386,6 +412,17 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     aircraftImport: vi.fn().mockResolvedValue(null),
     aircraftExport: vi.fn().mockResolvedValue(false),
     appGetVersion: vi.fn().mockResolvedValue('1.0.0'),
+    settingsGetUpdates: vi.fn().mockResolvedValue({ checkEnabled: true }),
+    settingsSetUpdates: vi.fn().mockResolvedValue(undefined),
+    updatesGetStatus: vi.fn().mockResolvedValue({ state: 'idle', currentVersion: '1.0.0', latest: null, checkedAt: null, skippedVersion: null }),
+    onUpdateStatus: vi.fn().mockReturnValue(() => {}),
+    updatesCheckNow: vi.fn().mockResolvedValue({ state: 'upToDate', currentVersion: '1.0.0', latest: null, checkedAt: null, skippedVersion: null }),
+    updatesSkipVersion: vi.fn().mockResolvedValue(undefined),
+    updatesOpenRelease: vi.fn().mockResolvedValue(undefined),
+    setupGetState: vi.fn().mockResolvedValue({ show: false, whatsNew: false }),
+    setupGetContext: vi.fn().mockResolvedValue({ gsxFolderFound: false, gsxFolderPath: null, beyondAtcRunning: false }),
+    setupComplete: vi.fn().mockResolvedValue(undefined),
+    appOpenManual: vi.fn().mockResolvedValue(true),
     appOpenGithub: vi.fn().mockResolvedValue(undefined),
     ...overrides
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -437,27 +474,46 @@ describe('App', () => {
     // own strings, not the still-English view it renders alongside them. The persisted
     // language must be mocked as 'de' explicitly too, or App.tsx's own mount effect
     // resolves 'system' back to English (the default mock) and clobbers this.
-    setWinglog({ settingsGetAppLanguage: vi.fn().mockResolvedValue('de') })
+    setWinglog({
+      settingsGetAppLanguage: vi.fn().mockResolvedValue('de'),
+      settingsGetGsxRemote: vi.fn().mockResolvedValue({ enabled: true, host: 'localhost', port: 8744 }),
+      settingsGetBeyondAtc: vi.fn().mockResolvedValue({ enabled: true, host: 'localhost' })
+    })
     await i18n.changeLanguage('de')
     render(<App />)
-    for (const name of ['Flotte', 'Flugplanung', 'Flugverfolgung', 'Bodendienste', 'Logbuch', 'Einstellungen']) {
+    for (const name of ['Flotte', 'Flugplanung', 'Flugverfolgung', 'Bodendienste', 'BeyondATC', 'Logbuch', 'Einstellungen']) {
       expect(await screen.findByRole('tab', { name })).toBeInTheDocument()
     }
     expect(screen.getByText('SimConnect: getrennt')).toBeInTheDocument()
   })
 
-  it('shows Fleet by default, with every tab and the SimConnect badge', async () => {
+  it('shows Fleet by default, with every enabled tab and the SimConnect badge', async () => {
+    setWinglog({
+      settingsGetGsxRemote: vi.fn().mockResolvedValue({ enabled: true, host: 'localhost', port: 8744 }),
+      settingsGetBeyondAtc: vi.fn().mockResolvedValue({ enabled: true, host: 'localhost' })
+    })
     render(<App />)
     expect(await screen.findByText('Fleet', { selector: 'h1' })).toBeInTheDocument()
-    for (const name of ['Fleet', 'Dispatch', 'Track', 'Ground services', 'Logbook', 'Settings']) {
+    for (const name of ['Fleet', 'Dispatch', 'Track', 'Ground services', 'BeyondATC', 'Logbook', 'Settings']) {
       expect(screen.getByRole('tab', { name })).toBeInTheDocument()
     }
     expect(screen.getByText('SimConnect: disconnected')).toBeInTheDocument()
   })
 
+  it('hides the GSX Remote Control and BeyondATC tabs until their settings are enabled', async () => {
+    render(<App />)
+    await screen.findByText('Fleet', { selector: 'h1' })
+    expect(screen.queryByRole('tab', { name: 'Ground services' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'BeyondATC' })).not.toBeInTheDocument()
+  })
+
   it(
     'navigates to every other tab, lazily loading its real view',
     async () => {
+      setWinglog({
+        settingsGetGsxRemote: vi.fn().mockResolvedValue({ enabled: true, host: 'localhost', port: 8744 }),
+        settingsGetBeyondAtc: vi.fn().mockResolvedValue({ enabled: true, host: 'localhost' })
+      })
       const user = userEvent.setup()
       render(<App />)
       await screen.findByText('Fleet', { selector: 'h1' })
@@ -475,6 +531,9 @@ describe('App', () => {
 
       await clickTab(user, 'Ground services')
       expect(await screen.findByText('Ground services', { selector: 'h1' }, lazyTimeout)).toBeInTheDocument()
+
+      await clickTab(user, 'BeyondATC')
+      expect(await screen.findByText('BeyondATC', { selector: 'h1' }, lazyTimeout)).toBeInTheDocument()
 
       await clickTab(user, 'Logbook')
       expect(await screen.findByText('Logbook', { selector: 'h1' }, lazyTimeout)).toBeInTheDocument()
@@ -731,6 +790,46 @@ describe('App', () => {
     expect(toast.info).not.toHaveBeenCalled()
   })
 
+  describe('first-launch setup (first-launch-setup.md)', () => {
+    it('opens on a new install, without the separate GSX toast, and closing it marks it done', async () => {
+      const setupComplete = vi.fn().mockResolvedValue(undefined)
+      setWinglog({
+        setupGetState: vi.fn().mockResolvedValue({ show: true, whatsNew: false }),
+        setupComplete,
+        settingsCheckGsxFirstLaunch: vi.fn().mockResolvedValue({ found: true } satisfies GsxFirstLaunchResult)
+      })
+      const user = userEvent.setup()
+      render(<App />)
+      expect(await screen.findByRole('dialog', { name: 'Welcome to WingLog' })).toBeInTheDocument()
+      await waitFor(() => expect(window.winglog.settingsCheckGsxFirstLaunch).toHaveBeenCalled())
+      expect(toast.success).not.toHaveBeenCalled()
+
+      await user.keyboard('{Escape}')
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(setupComplete).toHaveBeenCalled()
+    })
+
+    it("gives an existing user a one-off what's-new note instead", async () => {
+      setWinglog({ setupGetState: vi.fn().mockResolvedValue({ show: false, whatsNew: true }) })
+      render(<App />)
+      await waitFor(() => expect(toast.info).toHaveBeenCalledWith(expect.stringContaining('New in WingLog 1.4'), { duration: 15_000 }))
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+
+    it('reopens from Settings → About → Run setup again', async () => {
+      setWinglog()
+      const user = userEvent.setup()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+      await clickTab(user, 'Settings')
+      // Settings is lazy-loaded; the first load in a cold test worker can take a while.
+      await screen.findByText('Units', undefined, { timeout: 10_000 })
+      await user.click(screen.getByRole('tab', { name: 'About' }))
+      await user.click(await screen.findByRole('button', { name: 'Run setup again' }))
+      expect(await screen.findByRole('dialog', { name: 'Welcome to WingLog' })).toBeInTheDocument()
+    })
+  })
+
   it('re-clicking the active Settings tab returns it to the UI category', async () => {
     setWinglog()
     const user = userEvent.setup()
@@ -753,7 +852,8 @@ describe('App', () => {
       aircraftList: vi.fn().mockResolvedValue([aircraft]),
       logbookFleetStats: vi.fn().mockResolvedValue([makeStats({ aircraftId: 1 })]),
       fleetListFlights: vi.fn().mockResolvedValue([flight]),
-      logbookListCompletedFlights: vi.fn().mockResolvedValue([flight])
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([flight]),
+      logbookGetFlight: vi.fn().mockResolvedValue(flight)
     })
     const user = userEvent.setup()
     render(<App />)
@@ -769,19 +869,22 @@ describe('App', () => {
   })
 
   describe('GSX important-menu global prompt', () => {
-    function withMenuListener(): { push: (menu: GsxRemoteMenuState) => void; winglog: WingLogApi } {
+    function withMenuListener(overrides: Partial<WingLogApi> = {}): { push: (menu: GsxRemoteMenuState) => void; winglog: WingLogApi } {
       let listener: ((menu: GsxRemoteMenuState) => void) | undefined
       const winglog = setWinglog({
         onGsxRemoteMenu: vi.fn((l) => {
           listener = l
           return () => {}
-        })
+        }),
+        ...overrides
       })
       return { push: (menu) => listener?.(menu), winglog }
     }
 
     const FUEL_MENU: GsxRemoteMenuState = {
       menuShown: true,
+      searchActive: false,
+      searchSession: 0,
       title: 'Select refueling level',
       header: 'Select refueling level',
       subtitle: '',
@@ -825,6 +928,8 @@ describe('App', () => {
 
       push({
         menuShown: true,
+        searchActive: false,
+        searchSession: 0,
         title: '',
         header: '',
         subtitle: '',
@@ -850,7 +955,9 @@ describe('App', () => {
     })
 
     it('does not show the global dialog while already on the GSX tab', async () => {
-      const { push } = withMenuListener()
+      const { push } = withMenuListener({
+        settingsGetGsxRemote: vi.fn().mockResolvedValue({ enabled: true, host: 'localhost', port: 8744 })
+      })
       const user = userEvent.setup()
       render(<App />)
       await screen.findByText('Fleet', { selector: 'h1' })
@@ -879,6 +986,278 @@ describe('App', () => {
       push(FUEL_MENU)
       await new Promise((resolve) => setTimeout(resolve, 50))
       expect(screen.queryByText('GSX needs your input')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('ATC clearance prompt, from BeyondATC InfoBoxes', () => {
+    type Box = { title: string; info: string }
+
+    /** Captures every beyondAtcState listener (the prompt's and the panels'), so a box set can be
+     *  pushed the way BeyondAtcService pushes it. */
+    function withBoxListener(overrides: Partial<WingLogApi> = {}): { pushBoxes: (boxes: Box[]) => void; winglog: WingLogApi } {
+      const listeners: ((state: BeyondAtcState) => void)[] = []
+      const winglog = setWinglog({
+        // Active tracking is what makes TrackView actually push procedureSelection back to
+        // the main process (its own effect gates on it) — this is how the tests below assert
+        // "the selection actually changed" without needing a full ProcedureSelector render.
+        trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'cruise' }),
+        onBeyondAtcState: vi.fn((l: (state: BeyondAtcState) => void) => {
+          listeners.push(l)
+          return () => listeners.splice(listeners.indexOf(l), 1)
+        }),
+        ...overrides
+      })
+      let at = 1000
+      const pushBoxes = (infoBoxes: Box[]): void => {
+        at += 1000
+        act(() => [...listeners].forEach((l) => l({ ...EMPTY_BEYONDATC_STATE, infoBoxes, infoBoxesAt: at })))
+      }
+      return { pushBoxes, winglog }
+    }
+
+    async function openTrackTab(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+      await clickTab(user, 'Track')
+      await screen.findByText('Track', { selector: 'h1' })
+    }
+
+    const PROMPT = 'Update procedure from ATC clearance?'
+    const noPrompt = async (): Promise<void> => {
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(screen.queryByText(PROMPT)).not.toBeInTheDocument()
+    }
+
+    it('shows the prompt for the real departure clearance boxes and applies it on Update (VHHH, 2026-10-05)', async () => {
+      const { pushBoxes, winglog } = withBoxListener()
+      const user = userEvent.setup()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+      await openTrackTab(user)
+
+      pushBoxes([
+        { title: 'Taxi to Runway', info: '07R' },
+        { title: 'SID', info: 'PECA3A' },
+        { title: 'Altitude Clearance', info: 'FL140' },
+        { title: 'Squawk', info: '3711' }
+      ])
+
+      expect(await screen.findByText(PROMPT)).toBeInTheDocument()
+      expect(screen.getByText(/^SID:/)).toBeInTheDocument()
+      expect(screen.getByText(/^Departure runway:/)).toBeInTheDocument()
+      expect(screen.getByText('PECA3A')).toBeInTheDocument()
+      expect(screen.getByText('07R')).toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'Update' }))
+      await waitFor(() =>
+        expect(winglog.trackingSetProcedureSelection).toHaveBeenLastCalledWith(
+          expect.objectContaining({ sidIdent: 'PECA3A', departureRunway: '07R' })
+        )
+      )
+      expect(screen.queryByText(PROMPT)).not.toBeInTheDocument()
+    })
+
+    it("matches BeyondATC's R-NAV approach to the sim's own RNAV name before offering it (WSSS, 2026-10-02)", async () => {
+      // Real WSSS navdata: "R-NAV" used to become "R NAV 02L", which matched nothing.
+      const { pushBoxes, winglog } = withBoxListener({
+        beyondAtcGetState: vi.fn().mockResolvedValue({ ...EMPTY_BEYONDATC_STATE, progress: { from: 'ZSPD', to: 'WSSS', pct: 96 } }),
+        navdataListApproaches: vi.fn().mockResolvedValue([
+          { identifier: 'ILS 02L', transition: 'APIPA' },
+          { identifier: 'RNAV 02L', transition: 'SAMKO' },
+          { identifier: 'RNAV 02L', transition: 'SANAT' }
+        ])
+      })
+      const user = userEvent.setup()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+      await openTrackTab(user)
+
+      pushBoxes([
+        { title: 'Cleared Approach', info: 'R-NAV approach runway 02L' },
+        { title: 'Transition', info: 'SANAT' }
+      ])
+      expect(await screen.findByText(PROMPT)).toBeInTheDocument()
+      expect(winglog.navdataListApproaches).toHaveBeenCalledWith('WSSS', null)
+      expect(screen.getByText('RNAV 02L')).toBeInTheDocument()
+      expect(screen.getByText('SANAT')).toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'Update' }))
+      await waitFor(() =>
+        expect(winglog.trackingSetProcedureSelection).toHaveBeenLastCalledWith(
+          expect.objectContaining({ approachIdent: 'RNAV 02L', approachTransition: 'SANAT' })
+        )
+      )
+      await waitFor(() => expect(screen.queryByText(PROMPT)).not.toBeInTheDocument())
+
+      // The same approach again without its transition matches what's selected: no prompt, and
+      // the accepted transition isn't erased.
+      pushBoxes([{ title: 'Cleared Approach', info: 'R-NAV approach runway 02L' }])
+      await noPrompt()
+      expect(winglog.trackingSetProcedureSelection).toHaveBeenLastCalledWith(
+        expect.objectContaining({ approachIdent: 'RNAV 02L', approachTransition: 'SANAT' })
+      )
+    })
+
+    it('offers the approach for the runway in a STAR clearance when it differs from the planned one (EGLL, 2026-10-05)', async () => {
+      // Runway 27R against a planned ILS 27L via LAM, no approach named.
+      const { pushBoxes, winglog } = withBoxListener({
+        beyondAtcGetState: vi.fn().mockResolvedValue({ ...EMPTY_BEYONDATC_STATE, progress: { from: 'RKSI', to: 'EGLL', pct: 97 } }),
+        navdataListApproaches: vi.fn().mockResolvedValue([
+          { identifier: 'ILS 27L', transition: 'LAM' },
+          { identifier: 'ILS 27R', transition: 'LAM' },
+          { identifier: 'LOC 27R', transition: 'LAM' },
+          { identifier: 'RNAV 27R', transition: null }
+        ]),
+        navdataGetProcedureWaypoints: vi.fn().mockResolvedValue([{ fixIdent: 'LOGAN' }, { fixIdent: 'LAM' }])
+      })
+      const user = userEvent.setup()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+      await openTrackTab(user)
+
+      pushBoxes([
+        { title: 'Cleared Approach', info: 'ILS approach runway 27L' },
+        { title: 'Transition', info: 'LAM' }
+      ])
+      await screen.findByText(PROMPT)
+      await user.click(screen.getByRole('button', { name: 'Update' }))
+      await waitFor(() => expect(screen.queryByText(PROMPT)).not.toBeInTheDocument())
+
+      pushBoxes([
+        { title: 'STAR', info: 'LOGA2H' },
+        { title: 'Arrival Runway', info: '27R' }
+      ])
+      expect(await screen.findByText('ILS 27R')).toBeInTheDocument()
+      expect(winglog.navdataListApproaches).toHaveBeenLastCalledWith('EGLL', null)
+
+      await user.click(screen.getByRole('button', { name: 'Update' }))
+      await waitFor(() =>
+        expect(winglog.trackingSetProcedureSelection).toHaveBeenLastCalledWith(
+          expect.objectContaining({ starIdent: 'LOGA2H', approachIdent: 'ILS 27R', approachTransition: 'LAM' })
+        )
+      )
+    })
+
+    it("follows flight 230's real boxes: STAR to the approach it leads into, briefing and clearance asking nothing more (ZJSY, 2026-10-05)", async () => {
+      const { pushBoxes, winglog } = withBoxListener({
+        beyondAtcGetState: vi.fn().mockResolvedValue({ ...EMPTY_BEYONDATC_STATE, progress: { from: 'VHHH', to: 'ZJSY', pct: 80 } }),
+        navdataListApproaches: vi.fn().mockResolvedValue([
+          { identifier: 'ILS X 08', transition: 'SY462' },
+          { identifier: 'ILS X 08', transition: 'SY935' },
+          { identifier: 'ILS Z 08', transition: 'SY462' },
+          { identifier: 'ILS Z 08', transition: 'SY498' }
+        ]),
+        navdataGetProcedureWaypoints: vi.fn().mockResolvedValue([{ fixIdent: 'UPRIS' }, { fixIdent: 'SY497' }, { fixIdent: 'SY498' }])
+      })
+      const user = userEvent.setup()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+      await openTrackTab(user)
+
+      // ILS X 08 selected first, as the old default picked it.
+      pushBoxes([{ title: 'Cleared Approach', info: 'ILS-X approach runway 08' }])
+      await screen.findByText(PROMPT)
+      await user.click(screen.getByRole('button', { name: 'Update' }))
+      await waitFor(() => expect(screen.queryByText(PROMPT)).not.toBeInTheDocument())
+
+      pushBoxes([
+        { title: 'STAR', info: 'UPRS2C' },
+        { title: 'Arrival Runway', info: '08' }
+      ])
+      expect(await screen.findByText('ILS Z 08')).toBeInTheDocument()
+      expect(winglog.navdataGetProcedureWaypoints).toHaveBeenLastCalledWith('ZJSY', 'star', 'UPRS2C', '08')
+      await user.click(screen.getByRole('button', { name: 'Update' }))
+      await waitFor(() =>
+        expect(winglog.trackingSetProcedureSelection).toHaveBeenLastCalledWith(
+          expect.objectContaining({ starIdent: 'UPRS2C', approachIdent: 'ILS Z 08', approachTransition: 'SY498' })
+        )
+      )
+      await waitFor(() => expect(screen.queryByText(PROMPT)).not.toBeInTheDocument())
+
+      pushBoxes([
+        { title: 'Landing Runway', info: '08' },
+        { title: 'QNH', info: 'QNH 1014' }
+      ])
+      pushBoxes([
+        { title: 'Approach Type', info: 'Procedure' },
+        { title: 'Landing Runway', info: '08' },
+        { title: 'Transition', info: 'SY498' },
+        { title: 'QNH', info: 'QNH 1014' }
+      ])
+      pushBoxes([
+        { title: 'Cross SY498', info: 'At or above 1,200m' },
+        { title: 'Cleared Approach', info: 'ILS-Z approach runway 08' }
+      ])
+      await noPrompt()
+    })
+
+    it('still prompts when the briefed transition differs from the one predicted', async () => {
+      const { pushBoxes } = withBoxListener({
+        beyondAtcGetState: vi.fn().mockResolvedValue({ ...EMPTY_BEYONDATC_STATE, progress: { from: 'RKSI', to: 'EGLL', pct: 97 } }),
+        navdataListApproaches: vi.fn().mockResolvedValue([
+          { identifier: 'ILS 27R', transition: 'LAM' },
+          { identifier: 'ILS 27R', transition: 'BIG' }
+        ]),
+        navdataGetProcedureWaypoints: vi.fn().mockResolvedValue([{ fixIdent: 'LAM' }])
+      })
+      const user = userEvent.setup()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+      await openTrackTab(user)
+
+      pushBoxes([
+        { title: 'STAR', info: 'LOGA2H' },
+        { title: 'Arrival Runway', info: '27R' }
+      ])
+      expect(await screen.findByText('ILS 27R')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Update' }))
+      await waitFor(() => expect(screen.queryByText(PROMPT)).not.toBeInTheDocument())
+
+      pushBoxes([
+        { title: 'Landing Runway', info: '27R' },
+        { title: 'Transition', info: 'BIG' }
+      ])
+      expect(await screen.findByText(PROMPT)).toBeInTheDocument()
+      expect(screen.getByText('BIG')).toBeInTheDocument()
+    })
+
+    it('dismissing the prompt leaves the selection unchanged, and the same boxes pushed again ask nothing', async () => {
+      const { pushBoxes, winglog } = withBoxListener()
+      const user = userEvent.setup()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+      await openTrackTab(user)
+      const callsBefore = vi.mocked(winglog.trackingSetProcedureSelection).mock.calls.length
+
+      const star = [
+        { title: 'STAR', info: 'AND1' },
+        { title: 'Arrival Runway', info: '17R' }
+      ]
+      pushBoxes(star)
+      await screen.findByText(PROMPT)
+      await user.click(screen.getByRole('button', { name: 'Dismiss' }))
+      await waitFor(() => expect(screen.queryByText(PROMPT)).not.toBeInTheDocument())
+      expect(vi.mocked(winglog.trackingSetProcedureSelection).mock.calls.length).toBe(callsBefore)
+
+      // BeyondATC re-sends its state on every message; the same set mustn't ask again.
+      pushBoxes([...star])
+      await noPrompt()
+    })
+
+    it('never prompts for box sets with no procedure, or for anything ATC only says', async () => {
+      const { pushBoxes } = withBoxListener({
+        onBeyondAtcTranscript: vi.fn((l: (t: { speaker: 'atc'; text: string; ts: number }[]) => void) => {
+          l([{ speaker: 'atc', text: 'Test 830, cleared AND1 arrival, runway 17R.', ts: 1000 }])
+          return () => {}
+        })
+      })
+      const user = userEvent.setup()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+      await openTrackTab(user)
+
+      pushBoxes([{ title: 'Center Frequency', info: '134.7' }])
+      pushBoxes([{ title: 'Reduce Speed', info: '220' }])
+      pushBoxes([{ title: 'Cleared for Takeoff', info: '07R' }])
+      await noPrompt()
     })
   })
 })

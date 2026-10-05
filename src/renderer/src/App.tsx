@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { BookOpen, Plane, Radar, Route, Settings as SettingsIcon, Truck } from 'lucide-react'
+import { BookOpen, Plane, Radar, Radio, Route, Settings as SettingsIcon, Truck } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -7,6 +7,7 @@ import type {
   AltitudeUnit,
   AppLanguage,
   AppPage,
+  BeyondAtcState,
   DispatchOfp,
   Flight,
   GsxRemoteMenuState,
@@ -20,6 +21,8 @@ import type {
   WindSpeedUnit
 } from '@shared/ipc'
 import { resolveAppLanguage } from '@shared/app-language'
+import { SetupDialog } from './SetupDialog'
+import { UpdateBanner } from './UpdateBanner'
 import i18n from './i18n'
 import {
   AlertDialog,
@@ -33,7 +36,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Toaster } from '@/components/ui/sonner'
@@ -41,6 +44,9 @@ import { FleetView } from './FleetView'
 import { flightLabel } from './flight-label'
 import { gsxMenuSignature, isImportantGsxMenu } from './gsx-remote-importance'
 import { emptyProcedureSelection, seedProcedureSelectionFromOfp, selectionFromFlight } from './procedureSelection'
+import { matchClearanceApproach } from '@shared/atc-approach-match'
+import { parseAtcBoxClearance, type AtcClearanceUpdate } from '@shared/atc-info-boxes'
+import { approachForArrivalRunway, starEndFix } from './atcApproachMatch'
 
 // Fleet is the default/first tab, so it's the one view kept eager — every other tab is
 // lazy so its JS (and, for Track/Logbook, the maplibre-gl and recharts they pull in —
@@ -49,20 +55,36 @@ import { emptyProcedureSelection, seedProcedureSelectionFromOfp, selectionFromFl
 const loadDispatchView = () => import('./DispatchView').then((m) => ({ default: m.DispatchView }))
 const loadTrackView = () => import('./TrackView').then((m) => ({ default: m.TrackView }))
 const loadGsxRemoteView = () => import('./GsxRemoteView').then((m) => ({ default: m.GsxRemoteView }))
+const loadBeyondAtcView = () => import('./BeyondAtcView').then((m) => ({ default: m.BeyondAtcView }))
 const loadLogbookView = () => import('./LogbookView').then((m) => ({ default: m.LogbookView }))
 const loadSettingsView = () => import('./SettingsView').then((m) => ({ default: m.SettingsView }))
 const DispatchView = lazy(loadDispatchView)
 const TrackView = lazy(loadTrackView)
 const GsxRemoteView = lazy(loadGsxRemoteView)
+const BeyondAtcView = lazy(loadBeyondAtcView)
 const LogbookView = lazy(loadLogbookView)
 const SettingsView = lazy(loadSettingsView)
 
-function appTabs(t: TFunction): { page: AppPage; label: string; icon: typeof Plane }[] {
+/** GSX Remote Control and BeyondATC's own tabs are gated on their settings' `enabled` flag
+ *  (Callum, 2026-09-27) — hidden until turned on in Settings, rather than always shown
+ *  regardless of configuration. */
+/** Maps a parsed clearance's ProcedureSelection field name to its existing ProcedureSelector
+ *  label key — reused rather than duplicated, same fields, same meaning. */
+const ATC_CLEARANCE_FIELD_LABEL_KEYS: Partial<Record<keyof ProcedureSelection, string>> = {
+  departureRunway: 'procedureSelector.departureRunway',
+  sidIdent: 'procedureSelector.sid',
+  starIdent: 'procedureSelector.star',
+  approachIdent: 'procedureSelector.approach',
+  approachTransition: 'procedureSelector.approachTransition'
+}
+
+function appTabs(t: TFunction, gsxRemoteEnabled: boolean, beyondAtcEnabled: boolean): { page: AppPage; label: string; icon: typeof Plane }[] {
   return [
     { page: 'fleet', label: t('app.tabs.fleet'), icon: Plane },
     { page: 'dispatch', label: t('app.tabs.dispatch'), icon: Route },
     { page: 'track', label: t('app.tabs.track'), icon: Radar },
-    { page: 'gsx', label: t('app.tabs.gsx'), icon: Truck },
+    ...(gsxRemoteEnabled ? [{ page: 'gsx' as const, label: t('app.tabs.gsx'), icon: Truck }] : []),
+    ...(beyondAtcEnabled ? [{ page: 'beyondatc' as const, label: t('app.tabs.beyondAtc'), icon: Radio }] : []),
     { page: 'logbook', label: t('app.tabs.logbook'), icon: BookOpen },
     { page: 'settings', label: t('app.tabs.settings'), icon: SettingsIcon }
   ]
@@ -143,6 +165,12 @@ export default function App(): React.JSX.Element {
   const [appLanguage, setAppLanguage] = useState<AppLanguage>('system')
   const [landingDistanceUnit, setLandingDistanceUnit] = useState<LandingDistanceUnit>('ft')
   const [theme, setTheme] = useState<Theme>('system')
+  // Gates the GSX Remote Control / BeyondATC tabs (appTabs below) — both start hidden until
+  // their own settings are loaded, then track live toggles from SettingsView via the
+  // onXEnabledChange callbacks passed to it, so a tab appears/disappears immediately rather
+  // than only after the next app restart.
+  const [gsxRemoteEnabled, setGsxRemoteEnabled] = useState(false)
+  const [beyondAtcEnabled, setBeyondAtcEnabled] = useState(false)
   const [simStatus, setSimStatus] = useState<SimConnectionStatus>({ state: 'disconnected' })
   const [telemetry, setTelemetry] = useState<SimTelemetry | null>(null)
   // Lifted out of DispatchView (rather than local state there) for two reasons: Track
@@ -178,6 +206,15 @@ export default function App(): React.JSX.Element {
   // prompt doesn't just reopen itself on the next unrelated re-render — only a genuinely
   // different menu (a new signature) triggers it again.
   const [dismissedGsxMenuKey, setDismissedGsxMenuKey] = useState<string | null>(null)
+  // A parsed BeyondATC clearance that differs from the current procedure selection, awaiting
+  // the user's accept/dismiss — Callum's own precedence decision, 2026-09-25: overwrite, but
+  // ask first, gently. Unlike gsxMenu above, no remembered-dismissal key is needed: each new
+  // set of InfoBoxes is read once (lastAtcBoxesKey below), not re-offered while it stays up.
+  const [pendingAtcClearance, setPendingAtcClearance] = useState<(AtcClearanceUpdate & { sourceTs: number }) | null>(null)
+  // The last set of BeyondATC InfoBoxes already read: the state is pushed on every BeyondATC
+  // message, so this tells a genuinely new set apart from one already considered (and
+  // possibly dismissed).
+  const lastAtcBoxesKey = useRef('')
 
   // Wraps setDispatchOfp so a *new* OFP (a different ofpId, including "cleared to null")
   // always re-seeds the procedure selection from its own SimBrief choice — the previous
@@ -276,6 +313,63 @@ export default function App(): React.JSX.Element {
     // (possibly) reopen for the next patch.
   }
 
+  // Reads each new set of BeyondATC InfoBoxes for a clearance whose fields differ from the
+  // current selection. Never ATC's speech (flightdeck-backend's docs/decisions.md,
+  // 2026-10-05). Re-subscribes whenever procedureSelection changes so a diff is always checked
+  // against the live value, the same "just resubscribe, it's cheap" style
+  // procedureSelection.ts's own fetch effects already use.
+  useEffect(() => {
+    const offer = (candidate: AtcClearanceUpdate & { sourceTs: number }): void => {
+      void (async () => {
+        let update: AtcClearanceUpdate | null = candidate
+        // BeyondATC names approaches its own way ("R-NAV approach runway 02L"); swap in
+        // the arrival airport's own name so accepting it selects something real (WSSS,
+        // 2026-10-02). The airport is the one being flown to: the selected arrival, else
+        // BeyondATC's own route.
+        // A STAR clearance's runway picks the approach for it when it isn't the selected
+        // approach's runway (EGLL, 2026-10-05: LOGA2H, runway 27R against a planned ILS 27L), or when the selected one doesn't start where the STAR ends (ZJSY,
+        // 2026-10-05: UPRS2C ends at SY498, the entry to ILS Z 08, not ILS X 08).
+        if (update.fields.approachIdent || update.arrivalRunway) {
+          try {
+            const icao = procedureSelection.arrivalIcao ?? (await window.winglog.beyondAtcGetState()).progress?.to ?? null
+            if (icao) {
+              const approaches = await window.winglog.navdataListApproaches(icao, null)
+              // The approach must start where the STAR ends, or at the transition ATC briefed.
+              const entryFix = update.fields.approachTransition ?? (await starEndFix(icao, update))
+              update = update.fields.approachIdent
+                ? matchClearanceApproach(update, approaches)
+                : approachForArrivalRunway(update, approaches, procedureSelection, entryFix)
+            }
+          } catch {
+            // No list to check against: offer the clearance as parsed.
+          }
+        }
+        if (!update) return
+        const differs = Object.entries(update.fields).some(
+          ([key, value]) => procedureSelection[key as keyof ProcedureSelection] !== value
+        )
+        if (differs) setPendingAtcClearance({ ...update, sourceTs: candidate.sourceTs })
+      })()
+    }
+    return window.winglog.onBeyondAtcState((state: BeyondAtcState) => {
+      const key = JSON.stringify(state.infoBoxes)
+      if (key === lastAtcBoxesKey.current) return
+      lastAtcBoxesKey.current = key
+      const update = parseAtcBoxClearance(state.infoBoxes)
+      if (update) offer({ ...update, sourceTs: state.infoBoxesAt ?? Date.now() })
+    })
+  }, [procedureSelection])
+
+  function handleAcceptAtcClearance(): void {
+    if (!pendingAtcClearance) return
+    setProcedureSelection((prev) => ({ ...prev, ...pendingAtcClearance.fields }))
+    setPendingAtcClearance(null)
+  }
+
+  function handleDismissAtcClearance(): void {
+    setPendingAtcClearance(null)
+  }
+
   // Set when Fleet's per-aircraft flight list navigates to a specific flight's Logbook
   // detail. Lifted here (rather than local to LogbookView) because it has to survive the
   // page switch from Fleet to Logbook that triggers it. Carries the originating aircraft
@@ -310,7 +404,7 @@ export default function App(): React.JSX.Element {
    *  progress, not navigation history — clearing it because the user clicked the tab
    *  they're already on would be a data-loss bug wearing a UX fix's clothing. */
   function goToTab(targetPage: AppPage): void {
-    if (targetPage !== page) {
+    if (targetPage !== effectivePage) {
       setPage(targetPage)
       return
     }
@@ -336,6 +430,7 @@ export default function App(): React.JSX.Element {
       void loadDispatchView()
       void loadTrackView()
       void loadGsxRemoteView()
+      void loadBeyondAtcView()
       void loadLogbookView()
       void loadSettingsView()
     })
@@ -354,6 +449,8 @@ export default function App(): React.JSX.Element {
     window.winglog.settingsGetMapLanguage().then(setMapLanguage)
     window.winglog.settingsGetLandingDistanceUnit().then(setLandingDistanceUnit)
     window.winglog.settingsGetTheme().then(setTheme)
+    window.winglog.settingsGetGsxRemote().then((settings) => setGsxRemoteEnabled(settings.enabled))
+    window.winglog.settingsGetBeyondAtc().then((settings) => setBeyondAtcEnabled(settings.enabled))
     Promise.all([window.winglog.settingsGetAppLanguage(), window.winglog.settingsGetSystemLocale()]).then(
       ([saved, systemLocale]) => {
         setAppLanguage(saved)
@@ -361,6 +458,13 @@ export default function App(): React.JSX.Element {
       }
     )
   }, [])
+
+  // Disabling the tab you're currently viewing (from Settings, in the same window) shouldn't
+  // strand you on a now-hidden page — derived during render rather than an effect calling
+  // setPage, per this project's own "don't setState-in-effect what you can compute" rule
+  // (flightdeck-backend's docs/decisions.md, the GSX command-bar SimBrief-loading fix).
+  const effectivePage: AppPage =
+    (page === 'gsx' && !gsxRemoteEnabled) || (page === 'beyondatc' && !beyondAtcEnabled) ? 'fleet' : page
 
   // Applies the resolved theme by toggling the `dark` class index.css's tokens key off
   // (docs/plans/settings-ui-page.md) — both palettes already existed as dead CSS before
@@ -383,11 +487,18 @@ export default function App(): React.JSX.Element {
     await window.winglog.settingsSetTheme(next)
   }
 
+  // First-launch setup (flightdeck-backend's docs/plans/first-launch-setup.md): shown to a new
+  // install; someone upgrading with a fleet or logbook gets a one-off "what's new" instead.
+  const [setupOpen, setSetupOpen] = useState(false)
   useEffect(() => {
-    // A no-op (returns null) on every launch after the app's actual first-ever one —
-    // see settingsCheckGsxFirstLaunch's doc comment.
-    window.winglog.settingsCheckGsxFirstLaunch().then((result) => {
-      if (!result) return
+    window.winglog.setupGetState().then(async (setup) => {
+      if (setup.show) setSetupOpen(true)
+      if (setup.whatsNew) toast.info(i18n.t('app.whatsNew'), { duration: 15_000 })
+      // A no-op (returns null) on every launch after the app's actual first-ever one —
+      // see settingsCheckGsxFirstLaunch's doc comment.
+      const result = await window.winglog.settingsCheckGsxFirstLaunch()
+      // The setup's add-ons step shows what this found, so no separate toast on top of it.
+      if (!result || setup.show) return
       // i18n.t directly, not the hook's t — this only runs once at mount (checking a
       // one-time flag), so it must not depend on a value that changes on every language
       // switch just to satisfy the exhaustive-deps rule.
@@ -455,23 +566,30 @@ export default function App(): React.JSX.Element {
 
   return (
     <main className="flex h-screen flex-col">
-      <Tabs value={page} onValueChange={(value) => setPage(value as AppPage)} className="min-h-0 flex-1 gap-0">
-        <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-3">
-          <TabsList variant="line">
-            {appTabs(t).map(({ page: tabPage, label, icon: Icon }) => (
+      <UpdateBanner airborne={telemetry !== null && !telemetry.onGround} />
+      <Tabs value={effectivePage} onValueChange={(value) => setPage(value as AppPage)} className="min-h-0 flex-1 gap-0">
+        {/* Narrow windows (a second monitor, and later a tablet or phone): tabs drop to icons
+            below lg, keeping each label for screen readers, and scroll if they still don't fit. */}
+        <header className="flex items-center justify-between gap-2 border-b border-border px-4 py-3 sm:gap-4 sm:px-6">
+          <TabsList variant="line" className="min-w-0 justify-start overflow-x-auto overflow-y-hidden [scrollbar-width:none]">
+            {appTabs(t, gsxRemoteEnabled, beyondAtcEnabled).map(({ page: tabPage, label, icon: Icon }) => (
               <TabsTrigger
                 key={tabPage}
                 value={tabPage}
-                className="gap-1.5 px-3"
+                className="gap-1.5 px-1.5 sm:px-3"
+                aria-label={label}
                 onClick={() => goToTab(tabPage)}
               >
                 <Icon />
-                {label}
+                {/* Hidden below lg; the tab keeps its name through aria-label. Not sr-only/lg:not-sr-only:
+                    not-sr-only resets white-space, which wrapped "Ground services" under the underline. */}
+                <span className="hidden lg:inline">{label}</span>
               </TabsTrigger>
             ))}
           </TabsList>
-          <Badge variant={connectionStatusVariant(simStatus)} title={connectionStatusLabel(simStatus, t)}>
-            {t('app.connection.badge', { state: connectionStateLabel(simStatus, t) })}
+          <Badge variant={connectionStatusVariant(simStatus)} title={connectionStatusLabel(simStatus, t)} className="shrink-0">
+            <span className="sm:hidden">{connectionStateLabel(simStatus, t)}</span>
+            <span className="hidden sm:inline">{t('app.connection.badge', { state: connectionStateLabel(simStatus, t) })}</span>
           </Badge>
         </header>
 
@@ -481,8 +599,8 @@ export default function App(): React.JSX.Element {
             the header above away with it) instead of just this div
             (flight-test-findings-2026-09-06.md #7 — confirmed live: the outer <main> was
             measurably taller than the viewport, not this div). */}
-        <div className="min-h-0 flex-1 overflow-auto p-8">
-          {page === 'fleet' && (
+        <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-8">
+          {effectivePage === 'fleet' && (
             <FleetView
               onOpenFlightInLogbook={openFlightInLogbook}
               initialAircraftId={pendingFleetAircraftId}
@@ -491,7 +609,7 @@ export default function App(): React.JSX.Element {
             />
           )}
           <Suspense fallback={<PageSkeleton />}>
-            {page === 'dispatch' && (
+            {effectivePage === 'dispatch' && (
               <DispatchView
                 weightUnit={weightUnit}
                 altitudeUnit={altitudeUnit}
@@ -505,7 +623,7 @@ export default function App(): React.JSX.Element {
                 onSelectionChange={setProcedureSelection}
               />
             )}
-            {page === 'track' && (
+            {effectivePage === 'track' && (
               <TrackView
                 windSpeedUnit={windSpeedUnit}
                 previewOfp={dispatchOfp}
@@ -516,8 +634,9 @@ export default function App(): React.JSX.Element {
                 onFlightEnded={handleFlightEnded}
               />
             )}
-            {page === 'gsx' && <GsxRemoteView />}
-            {page === 'logbook' && (
+            {effectivePage === 'gsx' && <GsxRemoteView />}
+            {effectivePage === 'beyondatc' && <BeyondAtcView />}
+            {effectivePage === 'logbook' && (
               <LogbookView
                 weightUnit={weightUnit}
                 landingDistanceUnit={landingDistanceUnit}
@@ -529,7 +648,7 @@ export default function App(): React.JSX.Element {
                 resetSignal={logbookResetSignal}
               />
             )}
-            {page === 'settings' && (
+            {effectivePage === 'settings' && (
               <SettingsView
                 weightUnit={weightUnit}
                 onWeightUnitChange={handleWeightUnitChange}
@@ -545,6 +664,9 @@ export default function App(): React.JSX.Element {
                 onAppLanguageChange={handleAppLanguageChange}
                 theme={theme}
                 onThemeChange={handleThemeChange}
+                onGsxRemoteEnabledChange={setGsxRemoteEnabled}
+                onBeyondAtcEnabledChange={setBeyondAtcEnabled}
+                onRunSetup={() => setSetupOpen(true)}
                 resetSignal={settingsResetSignal}
               />
             )}
@@ -552,6 +674,24 @@ export default function App(): React.JSX.Element {
         </div>
       </Tabs>
       <Toaster />
+      <SetupDialog
+        open={setupOpen}
+        onClose={() => setSetupOpen(false)}
+        weightUnit={weightUnit}
+        onWeightUnitChange={handleWeightUnitChange}
+        altitudeUnit={altitudeUnit}
+        onAltitudeUnitChange={handleAltitudeUnitChange}
+        windSpeedUnit={windSpeedUnit}
+        onWindSpeedUnitChange={handleWindSpeedUnitChange}
+        landingDistanceUnit={landingDistanceUnit}
+        onLandingDistanceUnitChange={handleLandingDistanceUnitChange}
+        mapLanguage={mapLanguage}
+        onMapLanguageChange={handleMapLanguageChange}
+        appLanguage={appLanguage}
+        onAppLanguageChange={handleAppLanguageChange}
+        onGsxRemoteEnabledChange={setGsxRemoteEnabled}
+        onBeyondAtcEnabledChange={setBeyondAtcEnabled}
+      />
 
       <AlertDialog open={orphanedFlight !== null} onOpenChange={(open) => !open && setOrphanedFlight(null)}>
         <AlertDialogContent>
@@ -577,7 +717,7 @@ export default function App(): React.JSX.Element {
       {(() => {
         const important = gsxMenu !== null && isImportantGsxMenu(gsxMenu)
         const menuKey = gsxMenu && important ? gsxMenuSignature(gsxMenu) : null
-        const open = page !== 'gsx' && menuKey !== null && menuKey !== dismissedGsxMenuKey
+        const open = effectivePage !== 'gsx' && menuKey !== null && menuKey !== dismissedGsxMenuKey
         return (
           <Dialog open={open} onOpenChange={(next) => !next && menuKey && setDismissedGsxMenuKey(menuKey)}>
             <DialogContent className="sm:max-w-md">
@@ -609,6 +749,40 @@ export default function App(): React.JSX.Element {
           </Dialog>
         )
       })()}
+
+      <Dialog open={pendingAtcClearance !== null} onOpenChange={(open) => !open && handleDismissAtcClearance()}>
+        <DialogContent className="sm:max-w-md">
+          {pendingAtcClearance && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{t('app.atcClearancePrompt.title')}</DialogTitle>
+              </DialogHeader>
+              <div className="flex flex-col gap-1.5 text-sm">
+                {Object.entries(pendingAtcClearance.fields).map(([key, value]) => (
+                  <p key={key}>
+                    <span className="font-medium text-foreground">
+                      {t(ATC_CLEARANCE_FIELD_LABEL_KEYS[key as keyof ProcedureSelection] ?? '')}:{' '}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {procedureSelection[key as keyof ProcedureSelection] ?? t('procedureSelector.none')}
+                    </span>
+                    {' → '}
+                    <span className="text-foreground">{value ?? t('procedureSelector.none')}</span>
+                  </p>
+                ))}
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={handleDismissAtcClearance}>
+                  {t('app.atcClearancePrompt.dismiss')}
+                </Button>
+                <Button type="button" onClick={handleAcceptAtcClearance}>
+                  {t('app.atcClearancePrompt.update')}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </main>
   )
 }

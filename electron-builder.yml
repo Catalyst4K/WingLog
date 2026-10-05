@@ -17,6 +17,9 @@ asarUnpack:
   # already dynamically required rather than bundled (externalizeDepsPlugin in
   # electron.vite.config.ts). See THIRD-PARTY-LICENSES.md.
   - node_modules/node-simconnect/**/*
+  # node-simconnect's registry reads go through regedit, which runs these scripts with
+  # Windows Script Host — which can't read inside an asar. See src/main/sim/regedit-scripts.ts.
+  - node_modules/regedit/vbs/**/*
 
 # Licence notices, and a getting-started guide, have to be readable in an installed copy,
 # not sealed inside the asar.
@@ -24,8 +27,9 @@ extraResources:
   - LICENSE
   - COPYRIGHT
   - THIRD-PARTY-LICENSES.md
-  - from: docs/HOW-TO.md
-    to: How to.md
+  # The user manual, built by `npm run manual:build` (package:win runs it first).
+  - from: release/manual/WingLog Manual.pdf
+    to: WingLog Manual.pdf
 
 # Windows is the primary target — MSFS (and therefore this app's real usage) is
 # Windows-only. macOS is built for development convenience; there is no plan to

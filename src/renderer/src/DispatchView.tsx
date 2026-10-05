@@ -10,7 +10,8 @@ import type {
   Flight,
   ProcedureSelection,
   WeightUnit,
-  WindSpeedUnit
+  WindSpeedUnit,
+  AircraftLastParked
 } from '@shared/ipc'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -36,6 +37,15 @@ function formatUtc(iso: string): string {
 
 function aircraftLabel(a: Aircraft): string {
   return `${a.registration} — ${a.icaoType}${a.operator ? ` (${a.operator})` : ''}`
+}
+
+/** "Last parked here at stand N32" — when this aircraft's last flight ended at the airport
+ *  it's departing from (stand-positions.md). WingLog can't place the aircraft in the sim, so
+ *  it's a reminder for choosing the starting gate in MSFS. */
+function LastParkedHint(props: { parked: AircraftLastParked | undefined; depIcao: string | null }): React.JSX.Element | null {
+  const { t } = useTranslation()
+  if (!props.parked || !props.depIcao || props.parked.icao !== props.depIcao.toUpperCase()) return null
+  return <p className="text-sm text-muted-foreground">{t('dispatchView.lastParkedHere', { stand: props.parked.stand })}</p>
 }
 
 function DetailField(props: { label: string; value: React.ReactNode }): React.JSX.Element {
@@ -70,6 +80,7 @@ export function DispatchView(props: {
   const { t } = useTranslation()
   const { ofp } = props
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
+  const [lastParked, setLastParked] = useState<AircraftLastParked[]>([])
   const [fleetStats, setFleetStats] = useState<FleetStats[]>([])
   const [pastFlights, setPastFlights] = useState<Flight[]>([])
   const [dispatchOptions, setDispatchOptions] = useState<DispatchOptions>(defaultDispatchOptions())
@@ -104,6 +115,7 @@ export function DispatchView(props: {
     // Retired aircraft (replacedByAircraftId set — docs/plans/aircraft-replacement.md) have
     // no flights of their own left and shouldn't be offered anywhere an aircraft is picked.
     window.winglog.aircraftList().then((list) => setAircraft(list.filter((a) => !isRetired(a))))
+    window.winglog.fleetListLastParked().then(setLastParked, () => undefined)
     window.winglog.logbookFleetStats().then(setFleetStats)
     window.winglog.dispatchGenerationAvailable().then(setGenerationAvailable)
     // Source list for the advanced dialog's "Load settings from a previous flight" —
@@ -371,6 +383,7 @@ export function DispatchView(props: {
               <div className="flex flex-col gap-1.5">
                 <Label>{t('dispatchView.departure')}</Label>
                 <AirportSearch value={depIcao} onChange={setDepIcao} />
+                <LastParkedHint parked={lastParked.find((p) => p.aircraftId === planAircraftId)} depIcao={depIcao || null} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label>{t('dispatchView.destination')}</Label>
@@ -562,6 +575,10 @@ export function DispatchView(props: {
                         </SelectContent>
                       </Select>
                     </div>
+                    <LastParkedHint
+                      parked={lastParked.find((p) => p.aircraftId === (selectedAircraftId ?? ofp.matchedAircraftId))}
+                      depIcao={ofp.depIcao}
+                    />
                     {ofp.matchedAircraftId == null && selectedAircraftId == null && (
                       <p className="text-sm text-muted-foreground">
                         {t('dispatchView.noFleetAircraftMatches', {

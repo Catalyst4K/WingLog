@@ -1,15 +1,21 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
-import type { FetchedAirportNavdata, FetchedApproach, FetchedProcedure } from '../navdata/sim-facilities-fetch'
+import type { FetchedAirportNavdata, FetchedApproach, FetchedProcedure, FetchedTaxiNetwork } from '../navdata/sim-facilities-fetch'
 import type { ParsedLeg } from '../sim/facility-fields'
 import { createDb, type WingLogDb } from './client'
 import {
   hasCachedAirport,
+  hasCachedTaxiNetwork,
   listCachedProcedureLegs,
   listCachedProcedures,
   listCachedRunways,
-  replaceAirportNavdata
+  listCachedStands,
+  listCachedTaxiSegments,
+  replaceAirportNavdata,
+  replaceAirportStands,
+  replaceAirportTaxiSegments
 } from './navdata-repo'
+import { navdataTaxiSegment } from './schema'
 
 function leg(fixIdent: string, overrides: Partial<ParsedLeg> = {}): ParsedLeg {
   return {
@@ -379,5 +385,78 @@ describe('navdata repo', () => {
 
     expect(listCachedRunways(db, 'EGLL')).toHaveLength(2)
     expect(listCachedRunways(db, 'VHHH')).toHaveLength(2)
+  })
+
+  describe('taxi network', () => {
+    function fetchedTaxi(overrides: Partial<FetchedTaxiNetwork> = {}): FetchedTaxiNetwork {
+      return {
+        icao: 'EGKB',
+        segments: [
+          { startLat: 51.33823, startLon: 0.03809, endLat: 51.3237, endLon: 0.02683, name: null, startHoldShort: false, endHoldShort: false },
+          { startLat: 51.334, startLon: 0.031, endLat: 51.335, endLon: 0.033, name: 'A', startHoldShort: false, endHoldShort: true }
+        ],
+        ...overrides
+      }
+    }
+
+    it('caches stands per airport and replaces them wholesale (stand-positions.md)', () => {
+      const n32 = { name: 'N32', nameCode: 25, number: 32, suffix: 0, headingDeg: 161, lat: 22.3141453, lon: 113.9286249 }
+      expect(listCachedStands(db, 'VHHH')).toEqual([])
+      replaceAirportStands(db, 'VHHH', [n32, { ...n32, suffix: 29, lat: 22.3140966 }], '2026-10-02T12:00:00.000Z')
+      replaceAirportStands(db, 'YBBN', [{ ...n32, name: '79', nameCode: 10, number: 79 }], '2026-10-02T12:00:00.000Z')
+      expect(listCachedStands(db, 'VHHH')).toHaveLength(2)
+      expect(listCachedStands(db, 'VHHH')[0]).toEqual({ name: 'N32', number: 32, suffix: 0, headingDeg: 161, lat: 22.3141453, lon: 113.9286249 })
+
+      replaceAirportStands(db, 'VHHH', [n32], '2026-10-03T12:00:00.000Z')
+      expect(listCachedStands(db, 'VHHH')).toHaveLength(1)
+      expect(listCachedStands(db, 'YBBN')).toHaveLength(1)
+    })
+
+    it('starts with no cached taxi network for an airport', () => {
+      expect(hasCachedTaxiNetwork(db, 'EGKB')).toBe(false)
+      expect(listCachedTaxiSegments(db, 'EGKB')).toEqual([])
+    })
+
+    it('caches every segment, real and named', () => {
+      replaceAirportTaxiSegments(db, 'EGKB', fetchedTaxi(), '2026-09-28T12:00:00.000Z')
+
+      expect(hasCachedTaxiNetwork(db, 'EGKB')).toBe(true)
+      const segments = listCachedTaxiSegments(db, 'EGKB')
+      expect(segments).toHaveLength(2)
+      expect(segments.find((s) => s.name === 'A')).toMatchObject({ startLat: 51.334, startLon: 0.031, endHoldShort: true })
+      expect(segments.find((s) => s.name === null)).toMatchObject({ startLat: 51.33823 })
+    })
+
+    it('treats a cache written before hold-short points existed as missing, so it gets re-fetched', () => {
+      replaceAirportTaxiSegments(db, 'EGKB', fetchedTaxi(), '2026-09-28T12:00:00.000Z')
+      // What migration 0030 leaves behind for a pre-existing cache: the new columns NULL.
+      db.update(navdataTaxiSegment).set({ startHoldShort: null, endHoldShort: null }).run()
+
+      expect(hasCachedTaxiNetwork(db, 'EGKB')).toBe(false)
+      expect(listCachedTaxiSegments(db, 'EGKB').every((s) => !s.startHoldShort && !s.endHoldShort)).toBe(true)
+    })
+
+    it('replaces wholesale on a second fetch, not appends', () => {
+      replaceAirportTaxiSegments(db, 'EGKB', fetchedTaxi(), '2026-09-28T12:00:00.000Z')
+      replaceAirportTaxiSegments(db, 'EGKB', fetchedTaxi({ segments: [] }), '2026-09-28T12:05:00.000Z')
+
+      expect(listCachedTaxiSegments(db, 'EGKB')).toEqual([])
+    })
+
+    it('keeps a different airport untouched by a replace', () => {
+      replaceAirportTaxiSegments(db, 'EGKB', fetchedTaxi(), '2026-09-28T12:00:00.000Z')
+      replaceAirportTaxiSegments(db, 'EGLL', fetchedTaxi({ icao: 'EGLL', segments: [] }), '2026-09-28T12:00:00.000Z')
+
+      expect(listCachedTaxiSegments(db, 'EGKB')).toHaveLength(2)
+      expect(listCachedTaxiSegments(db, 'EGLL')).toHaveLength(0)
+    })
+
+    it('never touches the runway/procedure cache', () => {
+      replaceAirportNavdata(db, 'EGKB', fetched({ icao: 'EGKB' }), '2026-09-08T12:00:00.000Z')
+      replaceAirportTaxiSegments(db, 'EGKB', fetchedTaxi(), '2026-09-28T12:00:00.000Z')
+
+      expect(listCachedRunways(db, 'EGKB')).toHaveLength(2)
+      expect(listCachedTaxiSegments(db, 'EGKB')).toHaveLength(2)
+    })
   })
 })

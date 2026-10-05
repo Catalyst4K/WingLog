@@ -339,6 +339,19 @@ describe('FlightRecorder', () => {
     expect(recorder.getPhase()).toBe('shutdown')
   })
 
+  it('never enters shutdown on its own with automatic finish switched off, and does once it is back on', () => {
+    const recorder = new FlightRecorder(1, { phase: 'taxi', hasLanded: true, resumeSegment: 0 })
+    recorder.setAutoShutdown(false)
+    const parked = telemetry({ engineCombustion1: false, onGround: true, groundSpeedMs: 0, parkingBrakeOn: true })
+    recorder.ingest(parked, at(1))
+    recorder.ingest(parked, at(2))
+    expect(recorder.getPhase()).toBe('taxi')
+
+    recorder.setAutoShutdown(true)
+    recorder.ingest(parked, at(3))
+    expect(recorder.getPhase()).toBe('shutdown')
+  })
+
   it('goes back to taxi on a rejected takeoff (aborted before ever leaving the ground)', () => {
     const recorder = new FlightRecorder(1)
     let t = 0
@@ -371,6 +384,53 @@ describe('FlightRecorder', () => {
     expect(recorder.getPhase()).toBe('climb')
   })
 
+  describe('takeoff only on a runway (flight 230, VHHH, 2026-10-05)', () => {
+    // Real samples: a 35 kt taxi on the parallel taxiway (291 m off 25L) and the real roll on 07R.
+    const TAXIWAY = { latitude: 22.30237804145619, longitude: 113.90856781667028 }
+    const RUNWAY = { latitude: 22.296865859077617, longitude: 113.90006853800166 }
+    const onRunway = (lat: number): boolean => Math.abs(lat - RUNWAY.latitude) < 0.0005
+
+    function taxiing(check?: (lat: number, lon: number) => boolean | null): { recorder: FlightRecorder; step: (o: Partial<SimTelemetry>) => void } {
+      const recorder = new FlightRecorder(1)
+      if (check) recorder.setRunwayCheck(check)
+      let t = 0
+      const step = (overrides: Partial<SimTelemetry>): void => {
+        t += 1
+        recorder.ingest(telemetry({ engineCombustion1: true, parkingBrakeOn: false, ...overrides }), at(t))
+      }
+      step({ parkingBrakeOn: true })
+      step({ groundSpeedMs: 5, ...TAXIWAY })
+      return { recorder, step }
+    }
+
+    it('stays in taxi at 35 kt off the runway', () => {
+      const { recorder, step } = taxiing((lat) => onRunway(lat))
+      step({ groundSpeedMs: 18.3, ...TAXIWAY })
+      step({ groundSpeedMs: 18.3, ...TAXIWAY })
+      expect(recorder.getPhase()).toBe('taxi')
+    })
+
+    it('goes to takeoff on the runway', () => {
+      const { recorder, step } = taxiing((lat) => onRunway(lat))
+      step({ groundSpeedMs: 19.8, ...RUNWAY })
+      expect(recorder.getPhase()).toBe('takeoff')
+    })
+
+    it('falls back to speed alone when it cannot tell', () => {
+      const { recorder, step } = taxiing(() => null)
+      step({ groundSpeedMs: 18.3, ...TAXIWAY })
+      expect(recorder.getPhase()).toBe('takeoff')
+    })
+
+    it('still goes back to taxi on a rejected takeoff on the runway', () => {
+      const { recorder, step } = taxiing((lat) => onRunway(lat))
+      step({ groundSpeedMs: 30, ...RUNWAY })
+      expect(recorder.getPhase()).toBe('takeoff')
+      step({ groundSpeedMs: 10, ...RUNWAY })
+      expect(recorder.getPhase()).toBe('taxi')
+    })
+  })
+
   it('goes back to climb on a go-around from landing (rejected landing, never slowed below roll speed)', () => {
     const recorder = new FlightRecorder(1)
     let t = 0
@@ -400,7 +460,11 @@ describe('FlightRecorder', () => {
     step({ engineCombustion1: true, onGround: true, groundSpeedMs: 70, verticalSpeedMs: -1, altitudeAglM: 0 })
     expect(recorder.getPhase()).toBe('landing')
 
+    // Airborne for GO_AROUND_AIRBORNE_SAMPLES in a row — one tick alone is a bounce (below).
     step({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 8, altitudeAglM: 20 })
+    step({ engineCombustion1: true, onGround: false, groundSpeedMs: 92, verticalSpeedMs: 8, altitudeAglM: 40 })
+    expect(recorder.getPhase()).toBe('landing')
+    step({ engineCombustion1: true, onGround: false, groundSpeedMs: 94, verticalSpeedMs: 8, altitudeAglM: 60 })
     expect(recorder.getPhase()).toBe('climb')
   })
 
@@ -436,7 +500,115 @@ describe('FlightRecorder', () => {
     // reverse-thrust-blip test above, which never leaves the ground.
     step({ engineCombustion1: true, onGround: true, groundSpeedMs: 45 })
     step({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 10, altitudeAglM: 20 })
+    step({ engineCombustion1: true, onGround: false, groundSpeedMs: 92, verticalSpeedMs: 10, altitudeAglM: 40 })
+    step({ engineCombustion1: true, onGround: false, groundSpeedMs: 94, verticalSpeedMs: 10, altitudeAglM: 60 })
     expect(recorder.getPhase()).toBe('climb')
+  })
+
+  describe('bounces and missed landings (flights 227 and 198)', () => {
+    /** Departs, levels off, starts down: the recorder is in 'descent' on return. */
+    function flyToDescent(): { recorder: FlightRecorder; step: (o: Partial<SimTelemetry>) => FlightRecorderResult } {
+      const recorder = new FlightRecorder(1)
+      let t = 0
+      const step = (overrides: Partial<SimTelemetry>): FlightRecorderResult => {
+        t += 1
+        return recorder.ingest(telemetry({ engineCombustion1: true, parkingBrakeOn: false, ...overrides }), at(t))
+      }
+      step({ parkingBrakeOn: true })
+      step({ groundSpeedMs: 5 })
+      step({ groundSpeedMs: 40, indicatedAirspeedMs: 38 })
+      step({ onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12, altitudeAglM: 50 })
+      for (let i = 0; i < 12; i++) step({ onGround: false, groundSpeedMs: 230, verticalSpeedMs: 0.1, altitudeAglM: 10000 })
+      for (let i = 0; i < 7; i++) step({ onGround: false, groundSpeedMs: 200, verticalSpeedMs: -3, altitudeAglM: 8000 })
+      expect(recorder.getPhase()).toBe('descent')
+      return { recorder, step }
+    }
+
+    it('rides out a one-tick bounce on the rollout and reaches taxi and shutdown (flight 227, VHHH 2026-10-02)', () => {
+      const { recorder, step } = flyToDescent()
+      // Flight 227's real touchdown: 67.6 m/s on the ground, one airborne tick, then a
+      // rollout through ten-plus "level" samples that used to read as climb -> cruise.
+      step({ onGround: true, groundSpeedMs: 67.6, verticalSpeedMs: -1.48, altitudeAglM: 3.5 })
+      expect(recorder.getPhase()).toBe('landing')
+      step({ onGround: false, groundSpeedMs: 66.2, verticalSpeedMs: -0.35, altitudeAglM: 3.9 })
+      expect(recorder.getPhase()).toBe('landing')
+      const phases = new Set<string>()
+      for (const groundSpeedMs of [64.8, 60.7, 54.8, 45.9, 38.2, 30.9, 25.4, 19.6, 13.1, 8.9]) {
+        phases.add(step({ onGround: true, groundSpeedMs, verticalSpeedMs: 0.01, altitudeAglM: 2.8 }).phase)
+      }
+      expect([...phases]).toEqual(['landing', 'taxi'])
+
+      step({ groundSpeedMs: 0, parkingBrakeOn: true, engineCombustion1: false })
+      expect(recorder.getPhase()).toBe('shutdown')
+    })
+
+    it('comes back down from a longer bounce that did count as a go-around', () => {
+      const { recorder, step } = flyToDescent()
+      step({ onGround: true, groundSpeedMs: 68, verticalSpeedMs: -1.5 })
+      for (let i = 0; i < 3; i++) step({ onGround: false, groundSpeedMs: 67, verticalSpeedMs: 0.3, altitudeAglM: 3 })
+      expect(recorder.getPhase()).toBe('climb')
+
+      step({ onGround: true, groundSpeedMs: 62 })
+      step({ onGround: true, groundSpeedMs: 58 })
+      expect(recorder.getPhase()).toBe('climb')
+      step({ onGround: true, groundSpeedMs: 54 })
+      expect(recorder.getPhase()).toBe('landing')
+      step({ onGround: true, groundSpeedMs: 10 })
+      expect(recorder.getPhase()).toBe('taxi')
+      // Counted as landed: a rollout speed blip can't start a second takeoff roll.
+      step({ onGround: true, groundSpeedMs: 25 })
+      expect(recorder.getPhase()).toBe('taxi')
+    })
+
+    it('lands a circuit that touches down straight from climb, without ever reaching descent (flight 198, VHHH)', () => {
+      const recorder = new FlightRecorder(1)
+      let t = 0
+      const step = (overrides: Partial<SimTelemetry>): void => {
+        t += 1
+        recorder.ingest(telemetry({ engineCombustion1: true, parkingBrakeOn: false, ...overrides }), at(t))
+      }
+      step({ parkingBrakeOn: true })
+      step({ groundSpeedMs: 5 })
+      step({ groundSpeedMs: 40, indicatedAirspeedMs: 38 })
+      step({ onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12, altitudeAglM: 50 })
+      step({ onGround: false, groundSpeedMs: 70, verticalSpeedMs: -4, altitudeAglM: 200 })
+      step({ onGround: false, groundSpeedMs: 65, verticalSpeedMs: -3, altitudeAglM: 30 })
+      expect(recorder.getPhase()).toBe('climb')
+
+      for (const groundSpeedMs of [60, 50, 40]) step({ onGround: true, groundSpeedMs })
+      expect(recorder.getPhase()).toBe('landing')
+      step({ onGround: true, groundSpeedMs: 8 })
+      expect(recorder.getPhase()).toBe('taxi')
+    })
+
+    it('stays in climb when the wheels touch once just after liftoff', () => {
+      const recorder = new FlightRecorder(1)
+      let t = 0
+      const step = (overrides: Partial<SimTelemetry>): void => {
+        t += 1
+        recorder.ingest(telemetry({ engineCombustion1: true, parkingBrakeOn: false, ...overrides }), at(t))
+      }
+      step({ parkingBrakeOn: true })
+      step({ groundSpeedMs: 5 })
+      step({ groundSpeedMs: 40, indicatedAirspeedMs: 38 })
+      step({ onGround: false, groundSpeedMs: 75, verticalSpeedMs: 2, altitudeAglM: 1 })
+      step({ onGround: true, groundSpeedMs: 77, verticalSpeedMs: 0, altitudeAglM: 0 })
+      step({ onGround: false, groundSpeedMs: 80, verticalSpeedMs: 8, altitudeAglM: 10 })
+      expect(recorder.getPhase()).toBe('climb')
+    })
+
+    it('recovers a flight resumed in cruise while already on the ground after landing', () => {
+      const recorder = new FlightRecorder(1, { phase: 'cruise', hasLanded: true, resumeSegment: 1 })
+      let t = 0
+      const step = (overrides: Partial<SimTelemetry>): void => {
+        t += 1
+        recorder.ingest(telemetry({ engineCombustion1: true, parkingBrakeOn: false, ...overrides }), at(t))
+      }
+      for (let i = 0; i < 3; i++) step({ onGround: true, groundSpeedMs: 9 })
+      expect(recorder.getPhase()).toBe('landing')
+      step({ onGround: true, groundSpeedMs: 9 })
+      expect(recorder.getPhase()).toBe('taxi')
+    })
   })
 
   it('records taxi at ~3s intervals instead of every 1s tick', () => {

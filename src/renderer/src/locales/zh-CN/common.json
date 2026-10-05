@@ -41,7 +41,7 @@
       "hybrid": "混合",
       "hybridHint": "“混合”会按实际计划所用的单位显示每一段爬升高度 — 标准高度层用英尺，进入按米分层的空域（例如中国）的航路则用米 — 而不是统一换算成同一种单位。",
       "appLanguage": "应用语言",
-      "appLanguageHint": "“跟随系统”会使用操作系统本身的语言，若本应用尚无对应翻译则回退为英文。翻译正在逐个界面推进中 — 目前大部分界面仍为英文，与此设置无关。真正的航空术语（ILS、STAR、SID、FL、QNH、ICAO 代码）以及来自 SimBrief 的内容始终保持英文。",
+      "appLanguageHint": "“跟随系统”会使用操作系统本身的语言，若本应用尚无对应翻译则回退为英文。真正的航空术语（ILS、STAR、SID、FL、QNH、ICAO 代码）以及来自 SimBrief 的内容始终保持英文。",
       "mapLanguage": "地图语言",
       "mapLanguageHint": "追踪和飞行日志地图上地名所用的语言。“本地”会以当地语言显示每个地名 — 与上面的应用语言互不影响。",
       "metarWindSpeed": "METAR 风速",
@@ -50,6 +50,16 @@
       "landingDistances": "落地距离",
       "landingDistancesHint": "飞行日志中某次落地卡片上的“距入口距离”“中线偏移”，以及其接地示意图所用的单位。下降率始终以 fpm 显示，速度与风速始终以节显示，不受此设置影响。",
       "moreInfoFor": "关于{{label}}的更多信息"
+    },
+    "tracking": {
+      "cardTitle": "跟踪",
+      "description": "两者默认开启。如果与你的模拟器配合出问题，可关闭其中一个，改用 {{track}} 页面上的按钮。",
+      "autoStart": "自动开始跟踪",
+      "autoStartOff": "关闭：在 {{dispatch}} 中点 {{fly}} 后，需自己在 {{track}} 页面点 {{startTracking}}。",
+      "autoFinish": "自动结束航班",
+      "autoFinishOff": "关闭：停机并关车后航班保持进行中，直到你点 {{finishAndSave}}。",
+      "on": "开",
+      "off": "关"
     },
     "theme": {
       "cardTitle": "主题",
@@ -150,11 +160,27 @@
     },
     "about": {
       "description": "适用于 Microsoft Flight Simulator 的个人机队管理、签派、实时航迹追踪与飞行日志伴侣应用。",
-      "disclaimer": "WingLog 与 Microsoft Corporation 或 Asobo Studio 没有任何关联，未获其认可，也未获其赞助。“Microsoft Flight Simulator”是其各自所有者的商标。",
-      "license": "根据 GNU General Public License v3.0 免费开源发布。"
+      "simulationOnly": "仅供飞行模拟使用。WingLog 绝不能用于真实世界的导航、真实飞行计划或真实航空器上。",
+      "disclaimer": "WingLog 是一个独立的免费项目。它与 Microsoft Corporation、Asobo Studio、Skirmish Mode Games（BeyondATC）、FSDreamTeam（GSX）、Navigraph（SimBrief）或 OpenFreeMap 没有任何关联，未获其认可，也未获其赞助。“Microsoft Flight Simulator”“BeyondATC”“GSX”“SimBrief”和“Navigraph”是其各自所有者的商标。",
+      "license": "根据 GNU General Public License v3.0 免费开源发布。",
+      "runSetup": "重新运行设置向导",
+      "openManual": "手册（PDF）",
+      "manualMissing": "此版本未包含手册。"
     },
     "usernameSavedToast": "SimBrief 用户名已保存。",
-    "usernameAutoFilledToast": "已自动填入 SimBrief 用户名：{{username}}"
+    "usernameAutoFilledToast": "已自动填入 SimBrief 用户名：{{username}}",
+    "beyondAtc": {
+      "cardTitle": "BeyondATC",
+      "description": "实时管制面板与远程控制，连接到 BeyondATC 自身的本地 WebSocket 连接 — 并非 BeyondATC 应用的内嵌副本。",
+      "enabled": "启用",
+      "on": "开",
+      "off": "关",
+      "host": "主机",
+      "hostHint": "BeyondATC 始终监听 41716 端口 — 仅主机可配置，为未来的局域网设置预留。",
+      "statusConnected": "已连接",
+      "statusConnecting": "正在连接…",
+      "statusDisconnected": "未连接"
+    }
   },
   "app": {
     "tabs": {
@@ -162,6 +188,7 @@
       "dispatch": "签派",
       "track": "追踪",
       "gsx": "地面服务",
+      "beyondAtc": "BeyondATC",
       "logbook": "飞行日志",
       "settings": "设置"
     },
@@ -191,9 +218,16 @@
     },
     "gsxImportantPrompt": {
       "title": "GSX 需要你的输入"
-    }
+    },
+    "atcClearancePrompt": {
+      "title": "根据 ATC 许可更新程序？",
+      "update": "更新",
+      "dismiss": "忽略"
+    },
+    "whatsNew": "WingLog 1.4 新功能：BeyondATC 集成、地图上的滑行路线、自动阶梯爬升和更新检查。在“设置 → 第三方”中开启 BeyondATC。"
   },
   "fleetView": {
+    "atStand": "机位 {{stand}}",
     "title": "机队",
     "newAircraft": "新增飞机",
     "editAircraft": "编辑 {{registration}}",
@@ -464,6 +498,7 @@
     "back": "返回"
   },
   "dispatchView": {
+    "lastParkedHere": "上次停在这里的 {{stand}} 号机位，可在 MSFS 中选它作为起始机位。",
     "title": "签派",
     "planAFlight": "规划航班",
     "fetching": "正在获取…",
@@ -522,6 +557,14 @@
   "trackView": {
     "flightNum": "航班号：",
     "title": "追踪",
+    "times": {
+      "et": "已飞",
+      "remaining": "剩余",
+      "eta": "预计到达",
+      "etaPlanned": "预计到达（计划）",
+      "vsSchedule": "{{value}} 分钟",
+      "onTime": "准点"
+    },
     "phase": "阶段：",
     "cancelFlight": "取消航班",
     "finishAndSave": "结束并保存",
@@ -563,9 +606,14 @@
     "na": "无数据",
     "nearestAirfield": "最近机场",
     "nearest": "最近：",
+    "hideTaxiChart": "隐藏滑行图",
+    "showTaxiChart": "显示滑行图",
+    "showTaxiChartTitle": "显示滑行图 — 出发/到达机场的完整滑行道网络",
+    "loadingTaxiChart": "正在加载 {{icao}} 的滑行图……大型机场可能需要几分钟",
     "approximateRoute": "近似航路 — 该航班没有存档的飞行计划"
   },
   "logbookView": {
+    "loading": "加载中…",
     "belowAverage": "低于平均水平",
     "landingCard": {
       "title": "落地",
@@ -643,6 +691,7 @@
     "title": "地面服务"
   },
   "gsxRemotePanel": {
+    "atcStand": "机位 {{stand}}（ATC 指定）",
     "loading": "加载中…",
     "notConfigured": "GSX 远程控制已关闭。请在设置 → 第三方中启用并设置端口。",
     "connecting": "正在连接 GSX…",
@@ -656,5 +705,182 @@
     "waitingFor": "等待：{{reason}}",
     "ok": "确定",
     "cancel": "取消"
+  },
+  "beyondAtcView": {
+    "title": "BeyondATC"
+  },
+  "beyondAtcPanel": {
+    "loading": "加载中…",
+    "notConfigured": "BeyondATC 集成已关闭。请在设置 → 第三方中启用。",
+    "connecting": "正在连接 BeyondATC…",
+    "connected": "已连接到 BeyondATC。",
+    "disconnected": "未连接到 BeyondATC。",
+    "stationFrequency": "{{station}}（{{frequency}}）",
+    "progress": "{{from}} → {{to}} · {{pct}}%",
+    "transcript": "通话记录",
+    "actions": "操作",
+    "noActions": "目前没有可用操作。",
+    "comms": {
+      "queuedAction": "已排队：{{action}}。等待频率空闲。",
+      "queued": "等待频率空闲。",
+      "transmitting": "正在发送…",
+      "awaitingReply": "等待管制员回复。"
+    },
+    "noStatus": "暂无状态。",
+    "radios": "无线电",
+    "frequencyUnknown": "—",
+    "frequencyPlaceholder": "118.850",
+    "setFrequency": "设置",
+    "selectFrequency": "选择频率…",
+    "frequenciesButton": "频率",
+    "departure": "离场",
+    "arrival": "进场",
+    "noFrequencies": "该机场暂无频率。",
+    "frequencyOption": "{{type}} — {{station}} {{frequency}}",
+    "frequencyOptionRunway": "{{type}} — {{station}} {{frequency}}（跑道 {{runway}}）",
+    "frequencyType": {
+      "approach": "进近",
+      "departure": "离场",
+      "tower": "塔台",
+      "ground": "地面",
+      "delivery": "放行许可",
+      "atis": "自动情报",
+      "center": "区域管制"
+    },
+    "stepClimb": {
+      "pending": "正在申请 {{level}}…",
+      "last": "{{level}}：{{outcome}}",
+      "dropped": "{{level}}：{{outcome}}——两次尝试后放弃",
+      "next": "下一阶梯：{{fix}} 处 {{level}}，{{distance}} 海里",
+      "watching": "正在等待阶梯爬升（SimBrief 计划或 FCU）。",
+      "waitingForClimb": "FCU {{level}} — 等待开始爬升",
+      "pastTopOfDescent": "已过下降顶点 — 本次飞行不再发出请求。",
+      "outcome": {
+        "granted": "已许可",
+        "unavailable": "BeyondATC 未提供高度申请",
+        "noMenu": "BeyondATC 未给出高度列表",
+        "notOffered": "未提供该高度",
+        "noAnswer": "ATC 未给出许可"
+      }
+    },
+    "settings": {
+      "stepClimb": "自动阶梯爬升",
+      "autoTune": "自动调频",
+      "autoRespond": "自动应答",
+      "on": "开",
+      "off": "关",
+      "unknown": "—"
+    },
+    "instruction": {
+      "title": "最新指令",
+      "none": "尚无 ATC 指令。",
+      "field": {
+        "station": "管制席位",
+        "atis": "ATIS",
+        "clearedTo": "许可至",
+        "sid": "SID",
+        "star": "STAR",
+        "approach": "进近",
+        "transition": "过渡",
+        "runway": "跑道",
+        "climb": "上升",
+        "descend": "下降",
+        "qnh": "QNH",
+        "squawk": "应答机",
+        "contact": "联系",
+        "holdingPoint": "等待点",
+        "stand": "机位",
+        "taxiVia": "经由",
+        "direct": "直飞",
+        "wind": "风",
+        "face": "朝向"
+      },
+      "action": {
+        "takeoff": "可以起飞",
+        "land": "可以落地",
+        "lineUp": "进跑道等待",
+        "holdShort": "跑道外等待",
+        "pushback": "同意推出",
+        "readbackCorrect": "复诵正确",
+        "identified": "雷达已识别"
+      }
+    },
+    "speaker": {
+      "player": "你",
+      "atc": "管制员",
+      "traffic": "其他机组",
+      "atcTraffic": "管制员 → 其他机组"
+    }
+  },
+  "updates": {
+    "banner": {
+      "label": "有可用更新",
+      "available": "WingLog {{version}} 现已推出。",
+      "whatsNew": "新功能",
+      "hideNotes": "隐藏说明",
+      "download": "下载",
+      "skip": "跳过此版本",
+      "dismiss": "暂时隐藏"
+    },
+    "settings": {
+      "title": "更新",
+      "description": "WingLog 会向 GitHub 查询最新版本号，不会发送其他任何内容。更新需要你自行下载和安装。",
+      "autoCheck": "自动检查更新",
+      "on": "开",
+      "off": "关",
+      "checkNow": "立即检查",
+      "checking": "正在检查…",
+      "upToDate": "你使用的是最新版本（{{version}}）。",
+      "error": "无法检查更新，请稍后再试。"
+    }
+  },
+  "setup": {
+    "progress": "第 {{step}} 步，共 {{total}} 步",
+    "back": "上一步",
+    "next": "下一步",
+    "start": "开始",
+    "finish": "完成",
+    "on": "开",
+    "off": "关",
+    "welcome": {
+      "title": "欢迎使用 WingLog",
+      "body": "WingLog 管理你的机队，用 SimBrief 规划航班，从 Microsoft Flight Simulator 实时记录飞行，并保存带着陆分析的飞行日志。先做几个简单的选择。",
+      "skipHint": "每一步都可以跳过。之后都能在设置中更改，也可以在“设置 → 关于”中重新打开此设置向导。"
+    },
+    "simbrief": {
+      "title": "SimBrief",
+      "body": "签派会从 SimBrief 获取你的飞行计划。请输入你的 SimBrief 用户名（即 Navigraph 别名），以便 WingLog 找到它们。",
+      "label": "SimBrief 用户名",
+      "save": "保存",
+      "saved": "已保存。"
+    },
+    "units": {
+      "title": "语言和单位"
+    },
+    "addons": {
+      "title": "插件",
+      "intro": "如果你安装了这些插件，WingLog 可以与它们配合使用。每个插件在你开启之前都保持关闭。",
+      "gsx": "GSX 地面服务",
+      "gsxDetail": "将 GSX Pro 的服务收据附加到飞行日志中的航班。",
+      "gsxFound": "已在此电脑上找到 GSX 收据文件夹。",
+      "gsxNotFound": "未在此电脑上找到 GSX 收据文件夹。",
+      "gsxRemote": "GSX Remote Control",
+      "gsxRemoteDetail": "直接在 WingLog 中操作 GSX 地面服务菜单。",
+      "beyondAtc": "BeyondATC",
+      "beyondAtcDetail": "显示 BeyondATC 的许可和无线电通话，填写你的离场和进场程序，绘制滑行路线，并可按飞行计划申请阶梯爬升。",
+      "beyondAtcRunning": "BeyondATC 正在此电脑上运行。",
+      "notAffiliated": "WingLog 与 GSX 和 BeyondATC 的开发商没有关联。它们是各自独立的产品。"
+    },
+    "tracking": {
+      "title": "记录",
+      "intro": "WingLog 可以自动开始和结束航班记录。如果它与你的配置配合不好，可以关闭，改用按钮。"
+    },
+    "updates": {
+      "title": "更新"
+    },
+    "done": {
+      "title": "一切就绪",
+      "body": "这里的所有内容都可以在设置中更改。要再次查看此向导，请前往“设置 → 关于 → 重新运行设置向导”。"
+    }
   }
 }

@@ -5,8 +5,8 @@
 <h1 align="center">WingLog</h1>
 
 <p align="center">
-  A free, local-first fleet, dispatch, tracking and logbook companion for<br/>
-  Microsoft Flight Simulator 2024.
+  A free companion app for Microsoft Flight Simulator 2024: your fleet, SimBrief dispatch,<br/>
+  live tracking, and a logbook that scores every landing. Works with BeyondATC and GSX Pro.
 </p>
 
 <p align="center">
@@ -17,11 +17,14 @@
 
 ---
 
-WingLog manages your virtual airline the way you'd actually want to fly it: keep a real
-fleet, dispatch a flight with a real SimBrief OFP, watch it tracked live from SimConnect
-on a map, and land in a logbook that actually analyses how you flew — touchdown rate,
-G-force, crosswind, centreline offset, a 0–100 landing score, all of it. Everything lives
-in a local SQLite database on your own machine. No account, no cloud, no subscription.
+Keep a real fleet, plan each flight with a SimBrief OFP, fly it with WingLog tracking you live on a
+map, and land in a logbook that tells you how you did: touchdown rate, G-force, crosswind,
+centreline offset and a 0-100 landing score. If you fly with BeyondATC, WingLog reads your
+clearances, fills in your procedures, draws your taxi route and can ask for your step climbs. Your
+data stays in a database on your own PC.
+
+> **For flight simulation use only.** WingLog must never be used for real-world navigation, flight
+> planning, or in a real aircraft.
 
 ## Screenshots
 
@@ -42,50 +45,73 @@ in a local SQLite database on your own machine. No account, no cloud, no subscri
 </p>
 <p align="center"><sub>Track — live position from SimConnect against the planned route, with waypoints and procedures.</sub></p>
 
+<p align="center">
+  <img src="docs/manual/images/beyondatc.png" width="49%" alt="BeyondATC — a departure clearance broken into fields, with the transcript, actions and radios">
+  <img src="docs/manual/images/gsx.png" width="49%" alt="Ground services — GSX's menu, gate details and services from inside WingLog">
+</p>
+<p align="center"><sub>BeyondATC and GSX Remote Control, both optional and off until you turn them on.</sub></p>
+
 ## Features
 
-- **Fleet** — track your aircraft: registration, type, airline, current location, hours
-  and cycles. Look up a real-world registration for its type, operator and a photo; link
-  each tail to a SimBrief airframe profile for accurate weights.
-- **Dispatch** — fetch or generate a real SimBrief OFP for your route, aircraft and
-  airline, with live METARs for departure/destination/alternate. Pick a real SID, STAR,
-  transition and approach straight from the sim's own navdata — no Navigraph subscription
-  required — and see the full procedure plotted on the map before you fly.
-- **Track** — live position, altitude, speed and phase-of-flight, read straight from
-  SimConnect and drawn on a real-time map as you fly. Automatically detects takeoff,
-  landing and taxi-in — most flights need no manual "start tracking" at all. Survives a
-  WingLog restart mid-flight. No flight plan? **Free flight** tracks anything you fly —
-  aircraft optional, departure and destination fill in as you go — with METARs one click
-  away, and an optional VFR overlay (airfields, range rings, recent track).
-- **Logbook** — every completed flight, with block/air time, fuel burn, a flown-route map,
-  altitude/speed charts, and a real landing report: touchdown rate, G-force, pitch, bank,
-  crosswind, centreline offset, distance from threshold, and a 0–100 landing score with a
-  category-by-category breakdown. Circuits and touch-and-goes get a landing each, and a
-  field missing from the built-in airport list (a scenery add-on, or a closed airport like
-  Kai Tak) is resolved from the sim itself.
-- **GSX ground-service tracking** — automatically finds GSX Pro's receipts and attaches
-  catering/fuel/handling costs to the matching flight in your Logbook.
-- **Import/export** — bring in an existing fleet or logbook and export your data back out,
-  as JSON or CSV. Your database, not a lock-in.
-- **Runs entirely on your machine.** No account, no server, no telemetry. The only network
-  call WingLog ever makes on your behalf is to SimBrief, to generate the OFP you asked
-  for.
+- **Fleet.** Registration, type, airline, location, hours and flights for each aircraft. Look up a
+  real registration for its type, operator and photo, link a SimBrief airframe for accurate
+  weights, and see the stand each aircraft last parked at so the next flight starts from the same
+  gate.
+- **Dispatch.** Generate or fetch a SimBrief OFP, check the METARs, and pick your SID, STAR,
+  transitions and approach from the sim's own navdata, with no navdata subscription needed.
+- **Track.** Live position, phase and route on a map that follows you, zooming out as you climb.
+  ET, time remaining and ETA against SimBrief's schedule. Starts and finishes by itself (or with a
+  button, if you prefer), and survives WingLog closing mid-flight. A taxi chart of the airport from
+  the sim's own data, a VFR overlay, and **free flight** for anything you fly without a plan.
+- **Logbook.** Every flight with block and air time, fuel, the route flown, altitude and speed
+  charts, and a landing report for every touchdown, including circuits: touchdown rate, G-force,
+  pitch, bank, crab, crosswind, distance from threshold, centreline offset and a 0-100 score with a
+  category-by-category breakdown.
+- **BeyondATC.** Clearances broken into fields, the transcript, BeyondATC's actions and frequencies,
+  procedures filled in from your clearance, your cleared taxi route drawn on the map, and automatic
+  step climbs from your SimBrief plan.
+- **GSX Pro.** Run GSX's menu, services and pushback from inside WingLog through GSX's own Remote
+  Control connection, with the stand ATC assigned one click away in the gate search. GSX receipts
+  are attached to the matching flight in your Logbook.
+- **In your language.** English, Deutsch, Español, Français, Italiano, Русский, 简体中文 and 繁體中文.
+- **Import and export** your fleet and logbook as JSON or CSV (SimToolkitPro logbooks too).
+
+A short setup on first launch walks through the settings that matter, and a full PDF manual ships
+with the app (**Settings → About → Manual**).
 
 ## Download
 
-Grab the latest Windows installer from
-**[Releases](https://github.com/Catalyst4K/WingLog/releases)**. Run it, pick an install
-location, and launch WingLog — no separate runtime or dependency to install first.
+Get the latest Windows installer from
+**[GitHub Releases](https://github.com/Catalyst4K/WingLog/releases)** or
+**[flightsim.to](https://flightsim.to/)**. Both always carry the same version. WingLog tells you
+when a newer one is out.
 
-A short getting-started guide ships with the installed app
-(`resources/How to.md` in the install directory) and is also
-[available here](./docs/HOW-TO.md).
+The installer isn't code-signed, so Windows SmartScreen may warn you the first time: choose **More
+info**, then **Run anyway**.
 
 ### Requirements
 
-- Windows 10/11
+- Windows 10 or 11, 64-bit
 - Microsoft Flight Simulator 2024
 - A free [SimBrief](https://www.simbrief.com/) account, for Dispatch
+- Optional: [BeyondATC](https://www.beyondatc.net/), GSX Pro
+
+## What leaves your computer
+
+Your fleet and logbook stay in a database on your own PC. WingLog only goes online for the
+features that need it:
+
+| What | When | What's sent |
+|---|---|---|
+| SimBrief / Navigraph | Planning or fetching a flight, logging in | Your SimBrief username or login, through WingLog's own login service |
+| Weather (aviationweather.gov) | Showing METARs | Airport codes |
+| Map tiles (OpenFreeMap) | Showing the map | The area you're looking at |
+| Aircraft lookup | Pressing **Look up** in Fleet | The registration |
+| Exchange rates (Frankfurter) | Showing GSX invoices in your currency | The currencies |
+| Airline logos | Showing an airline | The airline code |
+| Update check (GitHub) | Shortly after launch and every 6 hours, if on | A request for the latest version number only |
+
+No analytics, no telemetry, no adverts.
 
 ## Building from source
 
@@ -98,16 +124,17 @@ npm run dev
 [`CLAUDE.md`](./CLAUDE.md) for the full command list, the project layout, and why the
 test/migrate scripts run through Electron rather than plain Node.
 
-To build an installer yourself: `npm run package:win`.
+To build an installer yourself: `npm run package:win` (it builds the manual first with
+`npm run manual:build`).
 
 ## Docs
 
-- [`docs/HOW-TO.md`](./docs/HOW-TO.md) — using WingLog, for pilots (also ships inside the
-  installed app).
-- [`CLAUDE.md`](./CLAUDE.md) — working agreement for Claude Code sessions in this repo.
-- [`CONTRIBUTING.md`](./CONTRIBUTING.md) — how contributions are licensed, and what can
-  and can't be added as a dependency. Read this before opening a PR.
-- [`SECURITY.md`](./SECURITY.md) — reporting a vulnerability.
+- [`docs/manual/`](./docs/manual/): the user manual, in Markdown. The PDF built from it ships with
+  the app.
+- [`CLAUDE.md`](./CLAUDE.md): working agreement for Claude Code sessions in this repo.
+- [`CONTRIBUTING.md`](./CONTRIBUTING.md): how contributions are licensed, and what can and can't be
+  added as a dependency. Read this before opening a PR.
+- [`SECURITY.md`](./SECURITY.md): reporting a vulnerability.
 
 ## Licence
 
@@ -122,10 +149,15 @@ see [`CONTRIBUTING.md`](./CONTRIBUTING.md) for how contributions are licensed so
 stays possible.
 
 Third-party code and data distributed with the app — including
-[node-simconnect](https://github.com/EvenAR/node-simconnect) (LGPL-3.0-or-later) and three
+[node-simconnect](https://github.com/EvenAR/node-simconnect) (LGPL-3.0-or-later) and four
 vendored reference datasets — are covered by
 [`THIRD-PARTY-LICENSES.md`](./THIRD-PARTY-LICENSES.md), which is generated by
 `npm run licenses:generate` and shipped inside the packaged app.
 
-WingLog is not affiliated with, endorsed by, or sponsored by Microsoft Corporation or
-Asobo Studio. "Microsoft Flight Simulator" is a trademark of its respective owners.
+**For flight simulation use only.** WingLog must never be used for real-world navigation,
+flight planning, or in a real aircraft.
+
+WingLog is an independent, free project. It is not affiliated with, endorsed by, or sponsored
+by Microsoft Corporation, Asobo Studio, Skirmish Mode Games (BeyondATC), FSDreamTeam (GSX),
+Navigraph (SimBrief), or OpenFreeMap. "Microsoft Flight Simulator", "BeyondATC", "GSX",
+"SimBrief" and "Navigraph" are trademarks of their respective owners.

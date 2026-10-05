@@ -206,6 +206,9 @@ export interface SimTelemetry {
   gearHandlePosition: number
   flapsHandleIndex: number
   parkingBrakeOn: boolean
+  /** Autopilot selected altitude (AUTOPILOT ALTITUDE LOCK VAR). Optional: flights captured
+   *  before it existed (replay fixtures) don't carry it. */
+  apSelectedAltitudeM?: number
   atcId: string
   atcModel: string
   title: string
@@ -499,6 +502,12 @@ export interface FreeFlightPrefill {
   rememberedAircraftId: number | null
 }
 
+/** A Logbook list row: a completed `Flight` without its raw SimBrief OFP text. That text is
+ *  ~90 KB per flight and the list only ever needed to know whether one exists — sending it
+ *  made the Logbook copy ~16 MB on every open (real measurement, 173 flights, 2026-10-01).
+ *  Anything needing the OFP itself fetches it per flight by id. */
+export type LogbookFlight = Omit<Flight, 'ofpJson'> & { hasOfp: boolean }
+
 export interface Flight {
   id: number
   /** Null for a free flight tracked without adding an aircraft to the fleet — see
@@ -650,6 +659,15 @@ export interface GsxNotailCandidate {
 export interface GsxRescanResult {
   invoices: FlightInvoice[]
   notailCandidates: GsxNotailCandidate[]
+}
+
+/** Settings → Tracking (flightdeck-backend's docs/plans/tracking-auto-toggles.md). Both on by
+ *  default; off falls back to the manual Start tracking / Finish & save buttons. */
+export interface TrackingSettings {
+  /** Start tracking an armed flight once the sim has settled at the departure. */
+  autoStart: boolean
+  /** Finish the flight once parked with engines off after landing. */
+  autoFinish: boolean
 }
 
 export interface GsxSettings {
@@ -810,9 +828,17 @@ export type GsxRemoteCommandId = GsxRemoteCommand['id'] | 'RELOAD_SIMBRIEF'
  * real GSX remote works without the in-sim menu ever opening). `entries` can be non-empty
  * while `menuShown` is false; GSX's own client gates rendering on
  * `menuShown && menu.entries.length`, and WingLog's UI must too.
+ *
+ * `searchActive`/`searchSession` come from GSX's separate top-level `state.search` key
+ * (`{active, session}`, confirmed live 2026-09-28, docs/gsx-notes.md round 11), combined in
+ * here the same way `menuShown` is. While `searchActive`, the menu is GSX's gate-search list
+ * ("Type a gate, terminal or number"): each `menu.search` re-filters `entries` server-side,
+ * padded to a fixed page size with empty strings. `searchSession` bumps once per new search.
  */
 export interface GsxRemoteMenuState {
   menuShown: boolean
+  searchActive: boolean
+  searchSession: number
   title: string
   header: string
   subtitle: string
@@ -830,6 +856,203 @@ export interface GsxRemotePromptState {
   description: string
   default: string
   maxLength: number
+}
+
+/**
+ * BeyondATC integration — a live control link to `BeyondATC.exe`'s own local WebSocket
+ * server (flightdeck-backend's docs/plans/beyondatc-integration.md; real protocol findings
+ * in docs/beyondatc-notes.md, confirmed live 2026-09-25). Unlike GSX's Remote Client, the
+ * port is fixed (`41716`, confirmed on BeyondATC's own side, not user-configurable) — only
+ * `host` and `enabled` are real settings.
+ */
+export interface BeyondAtcSettings {
+  enabled: boolean
+  host: string
+}
+
+/** A newer WingLog release found on GitHub (flightdeck-backend's docs/plans/update-check.md). */
+export interface UpdateRelease {
+  /** "1.4.1", no "v". */
+  version: string
+  /** The GitHub release page — validated in main to be on WingLog's own releases. */
+  url: string
+  /** Release notes, plain text (Markdown source), capped. Never rendered as HTML. */
+  notes: string
+  publishedAt: string | null
+}
+
+export interface UpdateStatus {
+  state: 'idle' | 'checking' | 'available' | 'upToDate' | 'error'
+  currentVersion: string
+  latest: UpdateRelease | null
+  /** ISO time of the last finished check, successful or not. */
+  checkedAt: string | null
+  /** "Skip this version": no banner for this one. */
+  skippedVersion: string | null
+}
+
+/** Settings → About. On by default (Callum, 2026-10-02). */
+export interface UpdateSettings {
+  checkEnabled: boolean
+}
+
+/** First-launch setup (flightdeck-backend's docs/plans/first-launch-setup.md). */
+export interface SetupState {
+  /** A new install that hasn't finished or closed the setup yet. */
+  show: boolean
+  /** An existing user's first launch of a version with the setup: a one-off "what's new". */
+  whatsNew: boolean
+}
+
+export interface SetupContext {
+  gsxFolderFound: boolean
+  gsxFolderPath: string | null
+  /** BeyondATC answering on this PC right now. Shown, never acted on by itself. */
+  beyondAtcRunning: boolean
+}
+
+export type BeyondAtcConnectionState = 'disconnected' | 'connecting' | 'connected'
+
+export interface BeyondAtcConnectionStatus {
+  state: BeyondAtcConnectionState
+  /** Set only when state is 'disconnected' after a real connection attempt failed. */
+  lastError: string | null
+}
+
+/** `Facility: <name>|<frequency>` — the station BeyondATC currently has the pilot tuned
+ *  to on COM1, confirmed live (docs/beyondatc-notes.md). */
+export interface BeyondAtcFacility {
+  name: string
+  frequency: string
+}
+
+/** `Com2: {"label","frequency","monitor"}`, confirmed live. */
+export interface BeyondAtcCom2 {
+  label: string
+  frequency: string
+  monitor: boolean
+}
+
+/** `Callsign: {"full","shortForm"}`, confirmed live. */
+export interface BeyondAtcCallsign {
+  full: string
+  shortForm: string
+}
+
+/** `CommsState: {"mode","text"}` — the live interaction lifecycle (queued → ready →
+ *  awaiting response → speaking → request logged → ready), confirmed live via a real
+ *  Radio Check trace (docs/beyondatc-notes.md). Drives the panel's "who's talking/awaiting"
+ *  indicator, same idea as GSX Remote's own status badge. */
+export interface BeyondAtcCommsState {
+  mode: 'queued' | 'ready' | 'awaiting' | 'speaking' | 'request' | 'traffic'
+  text: string
+}
+
+/** `Progress: {"from","to","pct"}`, confirmed live. */
+export interface BeyondAtcProgress {
+  from: string
+  to: string
+  pct: number
+}
+
+/** One entry of the real `Frequencies: [...]` response to the `frequencies` command —
+ *  confirmed live 2026-09-29 (flightdeck-backend's docs/beyondatc-notes.md), a genuine
+ *  structured station list for every airport in the flight plan, not the local-UI-only
+ *  no-op it was previously suspected to be. `airport`/`airportName`/`stationType`/`runways`
+ *  are sometimes empty strings (the one real enroute Center entry captured had no airport
+ *  tied to it); `cpdlcLogonCode` was only ever present on that same entry, so it's optional. */
+export interface BeyondAtcFrequencyOption {
+  airport: string
+  airportName: string
+  frequency: string
+  name: string
+  type: string
+  stationType: string
+  runways: string
+  cpdlcLogonCode?: string
+}
+
+/** Combined live state BeyondAtcPanel needs — deliberately narrower than every key
+ *  docs/beyondatc-notes.md catalogues (DATIS, CPDLC code, settings, … aren't surfaced here;
+ *  nothing needed by this panel). Unrecognised/unparsed wire keys are simply never reflected
+ *  here, not an error. */
+/** ATC's arrival clearance as last given, kept until touchdown for the BeyondATC tab's info
+ *  card (src/main/beyondatc/arrival-clearance.ts). The STAR and runway come from a STAR
+ *  clearance, the approach and transition from an approach clearance or "expect" line. */
+export interface BeyondAtcArrivalClearance {
+  starIdent: string | null
+  runway: string | null
+  approachIdent: string | null
+  approachTransition: string | null
+}
+
+/** WingLog's own BeyondATC auto step climb (flightdeck-backend's docs/plans/
+ *  beyondatc-auto-step-climb.md) — not a BeyondATC setting; WingLog asks for each new level. */
+export interface BeyondAtcStepClimbStatus {
+  enabled: boolean
+  /** The next SimBrief step above the cleared level, while tracking an OFP flight. */
+  nextStep: { ident: string; altitudeFt: number; distanceNm: number } | null
+  /** A request in progress, by level in feet. */
+  pendingAltitudeFt: number | null
+  /** An FCU level not in the plan, held back until the aircraft is actually climbing to it. */
+  waitingForClimbFt: number | null
+  /** Past SimBrief's top of descent — nothing more is asked for this flight. */
+  pastTopOfDescent: boolean
+  last: {
+    altitudeFt: number
+    outcome: 'granted' | 'unavailable' | 'noMenu' | 'notOffered' | 'noAnswer'
+    attempt: number
+    reason: 'simbrief' | 'fcu'
+    /** Two failures — this level won't be asked for again this flight. */
+    dropped: boolean
+  } | null
+}
+
+export interface BeyondAtcState {
+  facility: BeyondAtcFacility | null
+  com2: BeyondAtcCom2 | null
+  callsign: BeyondAtcCallsign | null
+  commsState: BeyondAtcCommsState | null
+  progress: BeyondAtcProgress | null
+  /** The live `Actions` menu — bracket/`¬`-separated plain labels on the wire (confirmed
+   *  live, NOT JSON despite the `[...]` syntax), parsed into a plain string list. Empty
+   *  when BeyondATC currently has no menu offered. */
+  actions: string[]
+  /** `AutoTune`/`AutoRespond: <bool>` — bare lowercase `true`/`false` on the wire (confirmed
+   *  live 2026-09-29, not JSON, not `True`/`False`), null until the first snapshot arrives.
+   *  `set_autotune`/`set_autorespond` (below) are confirmed working two-way control, same
+   *  live session. */
+  autoTune: boolean | null
+  autoRespond: boolean | null
+  /** Populated from the real `Frequencies` response — see `BeyondAtcFrequencyOption`. Empty
+   *  until `BeyondAtcService` requests it right after connecting. */
+  frequencies: BeyondAtcFrequencyOption[]
+  /** `InfoBoxes: [{"title", "info"}]`, the facts BeyondATC's own menu shows. Captured live at
+   *  EGLL, 2026-10-05 (flight 229): "Taxi to Gate" / "Gate 411", "Taxi Via 1".."Taxi Via 7"
+   *  (one taxiway each, "LINK 44" included), "ATIS Current" / "C". The gate is set here as
+   *  soon as BeyondATC assigns it, before ATC ever says it. Empty until the first push. */
+  infoBoxes: BeyondAtcInfoBox[]
+  /** When `infoBoxes` last changed (ms since epoch), or null before any have arrived. */
+  infoBoxesAt: number | null
+  /** The last gate BeyondATC's InfoBoxes assigned (`Expect Gate` / `Taxi to Gate`, label
+   *  removed: '102'). Kept after the box set is replaced, until the next assignment or a new
+   *  connection, so GSX's gate search can still offer it at the gate. */
+  assignedGate: string | null
+}
+
+/** One of BeyondATC's `InfoBoxes` entries: a label and its value, both free text. */
+export interface BeyondAtcInfoBox {
+  title: string
+  info: string
+}
+
+/** One live transcript line — `Player`/`ATC` are the pilot/controller's own spoken lines;
+ *  `Traffic`/`ATCTraffic` are an AI aircraft's own radio calls and ATC's response to them.
+ *  Kept as a bounded ring buffer by BeyondAtcService (last 100), not persisted. */
+export interface BeyondAtcTranscriptEntry {
+  speaker: 'player' | 'atc' | 'traffic' | 'atcTraffic'
+  text: string
+  ts: number
 }
 
 /** Result of the one-time, first-ever-launch check for GSX's expected receipts folder
@@ -1010,7 +1233,7 @@ export type AppLanguage = 'system' | 'en' | 'de' | 'es' | 'fr' | 'it' | 'ru' | '
 export type LandingDistanceUnit = 'ft' | 'm'
 
 /** The app's tabs — also the native menu bar's top-level items, see main/menu.ts. */
-export type AppPage = 'fleet' | 'dispatch' | 'track' | 'gsx' | 'logbook' | 'settings'
+export type AppPage = 'fleet' | 'dispatch' | 'track' | 'gsx' | 'beyondatc' | 'logbook' | 'settings'
 
 /**
  * A departure time to prefill on SimBrief's form, already split into the shape its input
@@ -1111,6 +1334,41 @@ export interface NavdataLeg {
   routeDistanceM: number
 }
 
+/** One taxiway-network segment (a single TAXI_PATH record, resolved to real lat/lon
+ *  endpoints) — the full set for an airport is a basic taxi chart, not a specific route.
+ *  `name` is the taxiway identifier (e.g. "C", "W1"), or null for an unnamed segment. */
+/** A stand/gate from the sim (TAXI_PARKING) — see main's sim-facilities-fetch.ts fetchStands. */
+export interface NavdataStand {
+  /** As ATC says it: "N32", "79". */
+  name: string
+  number: number
+  /** Non-zero on a twin entry for the same name (likely a MARS stand's halves). */
+  suffix: number
+  headingDeg: number
+  lat: number
+  lon: number
+}
+
+/** Where a fleet aircraft last parked (its latest completed flight that recorded a stand). */
+export interface AircraftLastParked {
+  aircraftId: number
+  icao: string
+  stand: string
+}
+
+export interface NavdataTaxiSegment {
+  startLat: number
+  startLon: number
+  endLat: number
+  endLon: number
+  name: string | null
+  /** Whether each endpoint is a hold-short point (TAXI_POINT TYPE 2/4/5/6 — SDK enum; 5 seen
+   *  live at VHHH, 2026-09-30). Lets a traced taxi route stop exactly at a named holding
+   *  point (flightdeck-backend's docs/beyondatc-notes.md). */
+  startHoldShort: boolean
+  endHoldShort: boolean
+}
+
 export const IpcChannels = {
   aircraftList: 'aircraft:list',
   aircraftCreate: 'aircraft:create',
@@ -1167,12 +1425,15 @@ export const IpcChannels = {
   trackPointList: 'track-point:list',
   trackPointCleanup: 'track-point:cleanup',
   logbookListCompletedFlights: 'logbook:list-completed-flights',
+  logbookGetFlight: 'logbook:get-flight',
   logbookGetStats: 'logbook:get-stats',
   logbookFleetStats: 'logbook:fleet-stats',
   logbookImportCsv: 'logbook:import-csv',
   logbookImportJson: 'logbook:import-json',
   logbookExport: 'logbook:export',
   logbookListInvoices: 'logbook:list-invoices',
+  settingsGetTracking: 'settings:get-tracking',
+  settingsSetTracking: 'settings:set-tracking',
   settingsGetGsx: 'settings:get-gsx',
   settingsSetGsx: 'settings:set-gsx',
   settingsCheckGsxFirstLaunch: 'settings:check-gsx-first-launch',
@@ -1204,6 +1465,7 @@ export const IpcChannels = {
   syncStatus: 'sync:status',
   appGetVersion: 'app:get-version',
   appOpenGithub: 'app:open-github',
+  appOpenManual: 'app:open-manual',
   navdataRefreshAirport: 'navdata:refresh-airport',
   navdataHasAirport: 'navdata:has-airport',
   navdataListRunways: 'navdata:list-runways',
@@ -1211,6 +1473,11 @@ export const IpcChannels = {
   navdataListStars: 'navdata:list-stars',
   navdataListApproaches: 'navdata:list-approaches',
   navdataGetProcedureWaypoints: 'navdata:get-procedure-waypoints',
+  navdataRefreshTaxiNetwork: 'navdata:refresh-taxi-network',
+  navdataHasTaxiNetwork: 'navdata:has-taxi-network',
+  navdataGetTaxiNetwork: 'navdata:get-taxi-network',
+  navdataGetStands: 'navdata:get-stands',
+  fleetListLastParked: 'fleet:list-last-parked',
   trackingSetProcedureSelection: 'tracking:set-procedure-selection',
   trackingSetDestination: 'tracking:set-destination',
   trackingSetDeparture: 'tracking:set-departure',
@@ -1233,10 +1500,39 @@ export const IpcChannels = {
   gsxRemoteGetCommandBar: 'gsx-remote:get-command-bar',
   gsxRemoteCommandBar: 'gsx-remote:command-bar',
   gsxRemotePickMenu: 'gsx-remote:pick-menu',
+  gsxRemoteSearch: 'gsx-remote:search',
   gsxRemoteToggleMenu: 'gsx-remote:toggle-menu',
   gsxRemoteSubmitPrompt: 'gsx-remote:submit-prompt',
   gsxRemoteCancelPrompt: 'gsx-remote:cancel-prompt',
-  gsxRemoteRunCommand: 'gsx-remote:run-command'
+  gsxRemoteRunCommand: 'gsx-remote:run-command',
+  settingsGetBeyondAtc: 'settings:get-beyondatc',
+  settingsSetBeyondAtc: 'settings:set-beyondatc',
+  beyondAtcGetStatus: 'beyondatc:get-status',
+  beyondAtcStatus: 'beyondatc:status',
+  beyondAtcGetState: 'beyondatc:get-state',
+  beyondAtcState: 'beyondatc:state',
+  beyondAtcGetTranscript: 'beyondatc:get-transcript',
+  beyondAtcTranscript: 'beyondatc:transcript',
+  beyondAtcSetAction: 'beyondatc:set-action',
+  beyondAtcSetFrequency: 'beyondatc:set-frequency',
+  beyondAtcSetFrequencyCom2: 'beyondatc:set-frequency-com2',
+  beyondAtcSetAutoTune: 'beyondatc:set-autotune',
+  beyondAtcSetAutoRespond: 'beyondatc:set-autorespond',
+  settingsGetUpdates: 'settings:get-updates',
+  settingsSetUpdates: 'settings:set-updates',
+  updatesGetStatus: 'updates:get-status',
+  updatesStatus: 'updates:status',
+  updatesCheckNow: 'updates:check-now',
+  updatesSkipVersion: 'updates:skip-version',
+  updatesOpenRelease: 'updates:open-release',
+  beyondAtcGetStepClimb: 'beyondatc:get-step-climb',
+  beyondAtcStepClimb: 'beyondatc:step-climb',
+  beyondAtcSetStepClimb: 'beyondatc:set-step-climb',
+  beyondAtcGetArrival: 'beyondatc:get-arrival',
+  beyondAtcArrival: 'beyondatc:arrival',
+  setupGetState: 'setup:get-state',
+  setupGetContext: 'setup:get-context',
+  setupComplete: 'setup:complete'
 } as const
 
 export interface WingLogApi {
@@ -1393,7 +1689,10 @@ export interface WingLogApi {
    *  completed before Phase 2 existed, or on the rare chance the live check missed
    *  something. A no-op (both counts 0) when there's nothing to clean up. */
   trackPointCleanup: (flightId: number) => Promise<TrackCleanupSummary>
-  logbookListCompletedFlights: () => Promise<Flight[]>
+  logbookListCompletedFlights: () => Promise<LogbookFlight[]>
+  /** One flight in full, OFP included — the detail view's own fetch, so the list doesn't
+   *  have to carry every flight's OFP. Null for an unknown or deleted id. */
+  logbookGetFlight: (id: number) => Promise<Flight | null>
   logbookGetStats: () => Promise<LogbookStats>
   logbookFleetStats: () => Promise<FleetStats[]>
   /** Opens a native file-open dialog in the main process; null if the user cancels. */
@@ -1408,6 +1707,8 @@ export interface WingLogApi {
    *  gsx-invoices entry) — snapshotted at completion, not read live from disk. Empty for
    *  any flight with no matched receipts, which is the normal case. */
   logbookListInvoices: (flightId: number) => Promise<FlightInvoice[]>
+  settingsGetTracking: () => Promise<TrackingSettings>
+  settingsSetTracking: (settings: TrackingSettings) => Promise<void>
   settingsGetGsx: () => Promise<GsxSettings>
   settingsSetGsx: (settings: GsxSettings) => Promise<void>
   /** Call once, on app mount — a no-op (returns null) on every launch after the app's
@@ -1516,6 +1817,8 @@ export interface WingLogApi {
    *  than a raw <a target="_blank"> (which Electron would otherwise open as a new
    *  in-app window, not the system browser). */
   appOpenGithub: () => Promise<void>
+  /** Opens the bundled PDF manual in the system's PDF viewer. False if this build has none. */
+  appOpenManual: () => Promise<boolean>
   /** Fetches fresh runway/SID/STAR data for `icao` from the sim and replaces the local
    *  cache for it — the write path (call on OFP import, or a manual "Refresh from sim"
    *  control). Throws if the sim isn't reachable or the fetch fails/times out. */
@@ -1539,6 +1842,18 @@ export interface WingLogApi {
     runway?: string | null,
     transition?: string | null
   ) => Promise<NavdataLeg[]>
+  /** Fetches an airport's full taxiway network from the sim and replaces the cache for it.
+   *  Genuinely slow for a large airport (minutes, not seconds) — only ever call this from an
+   *  explicit user action (a "load taxi chart" toggle), never automatically. */
+  navdataRefreshTaxiNetwork: (icao: string) => Promise<void>
+  /** True once navdataRefreshTaxiNetwork has completed for this ICAO at least once. */
+  navdataHasTaxiNetwork: (icao: string) => Promise<boolean>
+  navdataGetTaxiNetwork: (icao: string) => Promise<NavdataTaxiSegment[]>
+  /** An airport's stands, fetched from the sim on first ask (seconds) and cached; empty when
+   *  the sim isn't running and nothing's cached. */
+  navdataGetStands: (icao: string) => Promise<NavdataStand[]>
+  /** Each fleet aircraft's last stand (stand-positions.md). */
+  fleetListLastParked: () => Promise<AircraftLastParked[]>
   /** Pushes the current live selection to the main process so it's available whenever the
    *  active flight completes — manual finish *or* automatic shutdown detection, neither of
    *  which round-trips through the renderer (TrackingController). Call on every change
@@ -1594,6 +1909,9 @@ export interface WingLogApi {
   /** Picks the menu entry at this index — the *only* interaction GSX's own menu model
    *  exposes (docs/gsx-notes.md). No-op if not connected. */
   gsxRemotePickMenu: (index: number) => Promise<void>
+  /** Sends the gate-search box's whole current text (`menu.search`, not a delta) — GSX
+   *  re-filters `menu.entries` itself. Only meaningful while `searchActive`. */
+  gsxRemoteSearch: (text: string) => Promise<void>
   /** Opens the menu tree if it's currently closed, or closes it if open — same single
    *  toggle GSX's own client's permanent header sends (`menu.toggle`/`menu.close`). This
    *  is how a real GSX remote opens the menu without the in-sim panel ever opening; WingLog
@@ -1605,4 +1923,46 @@ export interface WingLogApi {
   /** Runs one of the three command-bar commands (`command.run`) — GSX's own client requires
    *  a second confirming call for RESTART_COUATL (the UI enforces this, not this method). */
   gsxRemoteRunCommand: (id: GsxRemoteCommandId) => Promise<void>
+  settingsGetBeyondAtc: () => Promise<BeyondAtcSettings>
+  /** Changing host/enabled restarts the live connection (or stops it, if disabled). Port is
+   *  fixed (BeyondAtcService's own BEYONDATC_PORT), never sent from here. */
+  settingsSetBeyondAtc: (settings: BeyondAtcSettings) => Promise<void>
+  /** Current status, for a renderer mounting after the initial connect already happened. */
+  beyondAtcGetStatus: () => Promise<BeyondAtcConnectionStatus>
+  onBeyondAtcStatus: (listener: (status: BeyondAtcConnectionStatus) => void) => () => void
+  /** Current combined state, same "mounting late shouldn't mean missing state" reasoning as
+   *  GSX Remote's own getServices/getMenu. */
+  beyondAtcGetState: () => Promise<BeyondAtcState>
+  onBeyondAtcState: (listener: (state: BeyondAtcState) => void) => () => void
+  /** The current transcript buffer (last 100 lines), for a renderer mounting mid-flight. */
+  beyondAtcGetTranscript: () => Promise<BeyondAtcTranscriptEntry[]>
+  onBeyondAtcTranscript: (listener: (transcript: BeyondAtcTranscriptEntry[]) => void) => () => void
+  /** Fires the given entry from the live Actions list (`set_action`) — no-op if not
+   *  connected. */
+  beyondAtcSetAction: (label: string) => Promise<void>
+  beyondAtcSetFrequency: (frequency: string) => Promise<void>
+  beyondAtcSetFrequencyCom2: (frequency: string) => Promise<void>
+  /** `set_autotune`/`set_autorespond` — confirmed working two-way control, 2026-09-29
+   *  (flightdeck-backend's docs/beyondatc-notes.md). No-op if not connected. */
+  beyondAtcSetAutoTune: (value: boolean) => Promise<void>
+  beyondAtcSetAutoRespond: (value: boolean) => Promise<void>
+  settingsGetUpdates: () => Promise<UpdateSettings>
+  settingsSetUpdates: (settings: UpdateSettings) => Promise<void>
+  updatesGetStatus: () => Promise<UpdateStatus>
+  onUpdateStatus: (listener: (status: UpdateStatus) => void) => () => void
+  /** Checks GitHub now, whatever the automatic-check setting, and returns the result. */
+  updatesCheckNow: () => Promise<UpdateStatus>
+  updatesSkipVersion: (version: string) => Promise<void>
+  /** Opens the latest release's page — the URL main validated, never one from here. */
+  updatesOpenRelease: () => Promise<void>
+  /** WingLog's auto step climb — see BeyondAtcStepClimbStatus. */
+  beyondAtcGetStepClimb: () => Promise<BeyondAtcStepClimbStatus>
+  onBeyondAtcStepClimb: (listener: (status: BeyondAtcStepClimbStatus) => void) => () => void
+  beyondAtcSetStepClimb: (enabled: boolean) => Promise<void>
+  beyondAtcGetArrival: () => Promise<BeyondAtcArrivalClearance | null>
+  onBeyondAtcArrival: (listener: (clearance: BeyondAtcArrivalClearance | null) => void) => () => void
+  setupGetState: () => Promise<SetupState>
+  setupGetContext: () => Promise<SetupContext>
+  /** Finished or closed: never shown again unless reopened from Settings → About. */
+  setupComplete: () => Promise<void>
 }

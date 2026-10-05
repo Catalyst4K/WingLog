@@ -9,6 +9,7 @@ import { getLandingByFlight, listLandingsByFlight } from '../db/landing-repo'
 import { getAircraftIdForTitle } from '../db/settings-repo'
 import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
 import type { SimConnectSource } from '../sim/SimConnectSource'
+import { navdataRunway } from '../db/schema'
 import { TrackingController } from './TrackingController'
 
 function telemetry(overrides: Partial<SimTelemetry>): SimTelemetry {
@@ -78,6 +79,35 @@ describe('TrackingController', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+  })
+
+  it("only enters takeoff on one of the departure's cached runways (flight 230, VHHH, 2026-10-05)", () => {
+    const aircraftId = createAircraft(db, { registration: 'B-HSA', icaoType: 'A320' }).id
+    const vhhhFlight = createFlight(db, { aircraftId, depIcao: 'VHHH', arrIcao: 'ZJSY' }).id
+    // VHHH's real 07R/25L from the navdata cache.
+    for (const end of [
+      { ident: '07R', headingTrueDeg: 70.8805, thresholdLat: 22.296249133, thresholdLon: 113.898088015 },
+      { ident: '25L', headingTrueDeg: 250.8805, thresholdLat: 22.307392794, thresholdLon: 113.932832502 }
+    ]) {
+      db.insert(navdataRunway)
+        .values({ icao: 'VHHH', lengthM: 3787.4, widthM: 60.6, surface: 0, source: 'sim-facility', fetchedAt: '2026-10-05T00:00:00Z', ...end })
+        .run()
+    }
+    const base = { engineCombustion1: true, parkingBrakeOn: false, onGround: true }
+    sim.setLastTelemetry(telemetry({}))
+    const controller = new TrackingController(db, sim)
+    controller.start(vhhhFlight)
+    sim.emit('telemetry', telemetry({ engineCombustion1: true, parkingBrakeOn: true }))
+    sim.emit('telemetry', telemetry({ ...base, groundSpeedMs: 5, latitude: 22.30309808, longitude: 113.91080964 }))
+    expect(controller.getActive()?.phase).toBe('taxi')
+
+    // 35 kt on the parallel taxiway, 291 m off 25L.
+    sim.emit('telemetry', telemetry({ ...base, groundSpeedMs: 18.3, latitude: 22.30237804, longitude: 113.90856782 }))
+    expect(controller.getActive()?.phase).toBe('taxi')
+
+    // The real roll on 07R.
+    sim.emit('telemetry', telemetry({ ...base, groundSpeedMs: 19.8, latitude: 22.29686586, longitude: 113.90006854 }))
+    expect(controller.getActive()?.phase).toBe('takeoff')
   })
 
   it('refuses to start without a live telemetry sample', () => {
@@ -410,6 +440,31 @@ describe('TrackingController', () => {
     expect(controller.getActive()).toBeUndefined()
   })
 
+  it('with "Finish flights automatically" off, stays active when parked and shut down until finish()', () => {
+    sim.setLastTelemetry(telemetry({}))
+    const controller = new TrackingController(db, sim)
+    controller.setAutoFinish(false)
+    controller.start(flightId)
+    const points: string[] = []
+    controller.on('point', (p) => points.push(p.phase))
+
+    sim.emit('telemetry', telemetry({ engineCombustion1: true }))
+    sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 5 }))
+    sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 40 }))
+    sim.emit('telemetry', telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 }))
+    sim.emit('telemetry', telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 65, verticalSpeedMs: -1.5 }))
+    sim.emit('telemetry', telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 10 }))
+    sim.emit('telemetry', telemetry({ engineCombustion1: false, onGround: true, groundSpeedMs: 0, parkingBrakeOn: true }))
+
+    expect(getFlight(db, flightId)?.status).toBe('active')
+    expect(controller.getActive()).toBeDefined()
+    // Never recorded at all — a 'shutdown' point is what Track reads as "auto-completed".
+    expect(points).not.toContain('shutdown')
+
+    controller.finish()
+    expect(getFlight(db, flightId)?.status).toBe('completed')
+  })
+
   it('completes the flight on finish() using the last known fuel figure, without waiting for shutdown', () => {
     sim.setLastTelemetry(telemetry({ fuelTotalKg: 9000 }))
     const controller = new TrackingController(db, sim)
@@ -424,7 +479,7 @@ describe('TrackingController', () => {
     expect(controller.getActive()).toBeUndefined()
   })
 
-  it('corrects fuel_out_kg to the reading at the first ground-movement/engine-start tick, not the tracking-start snapshot', () => {
+  it('corrects fuel_out_kg to the reading at the first real ground movement, not the tracking-start snapshot', () => {
     // Mirrors a real case (flight-test-findings-2026-09-06.md #3): the value captured at
     // the instant tracking starts can be stale post-reload telemetry or simply "before
     // ground fuel service finished" — this correction is what fixes both.
@@ -438,14 +493,45 @@ describe('TrackingController', () => {
     sim.emit('telemetry', telemetry({ fuelTotalKg: 6504 }))
     expect(getFlight(db, flightId)?.fuelOutKg).toBe(10187)
 
-    // Engine start — the first real "past ground service" signal.
+    // Engine start alone isn't enough — still at the stand.
     sim.emit('telemetry', telemetry({ fuelTotalKg: 6504, engineCombustion1: true }))
-    expect(getFlight(db, flightId)?.fuelOutKg).toBe(6504)
+    expect(getFlight(db, flightId)?.fuelOutKg).toBe(10187)
+
+    // First real movement (pushback) — off-blocks.
+    sim.emit('telemetry', telemetry({ fuelTotalKg: 6500, engineCombustion1: true, groundSpeedMs: 1 }))
+    expect(getFlight(db, flightId)?.fuelOutKg).toBe(6500)
 
     // A later tick's fuel figure (normal burn during pushback/taxi) must not overwrite
-    // the one already locked in — only the first post-preflight tick counts.
+    // the one already locked in.
     sim.emit('telemetry', telemetry({ fuelTotalKg: 6490, engineCombustion1: true, groundSpeedMs: 5 }))
-    expect(getFlight(db, flightId)?.fuelOutKg).toBe(6504)
+    expect(getFlight(db, flightId)?.fuelOutKg).toBe(6500)
+  })
+
+  it('ignores a stale post-reload engine reading and the refuel after it (real flight 223, VHHH, 2026-09-30)', () => {
+    // Real sequence: tracking starts on a leftover 10,185 kg reading that briefly reports
+    // an engine running, the sim then settles to the aircraft's 3,000 kg default, GSX
+    // refuels to ~6,268 kg over half an hour, then pushback. Before this fix the stale
+    // engine tick locked in 10,184 kg and the logbook showed 7,174 kg burned of 6,268.
+    sim.setLastTelemetry(telemetry({ fuelTotalKg: 10185 }))
+    const controller = new TrackingController(db, sim)
+    controller.start(flightId)
+
+    sim.emit('telemetry', telemetry({ fuelTotalKg: 10184, engineCombustion1: true }))
+    sim.emit('telemetry', telemetry({ fuelTotalKg: 3000, engineCombustion1: true }))
+    sim.emit('telemetry', telemetry({ fuelTotalKg: 6268, engineCombustion1: true }))
+    expect(getFlight(db, flightId)?.fuelOutKg).toBe(10185) // still provisional
+
+    sim.emit('telemetry', telemetry({ fuelTotalKg: 6268, engineCombustion1: true, groundSpeedMs: 1.2 }))
+    expect(getFlight(db, flightId)?.fuelOutKg).toBe(6268)
+  })
+
+  it('falls back to the first airborne tick when no ground movement was ever seen', () => {
+    sim.setLastTelemetry(telemetry({ fuelTotalKg: 9000 }))
+    const controller = new TrackingController(db, sim)
+    controller.start(flightId)
+    sim.emit('telemetry', telemetry({ fuelTotalKg: 8800, engineCombustion1: true }))
+    sim.emit('telemetry', telemetry({ fuelTotalKg: 8700, engineCombustion1: true, onGround: false, groundSpeedMs: 80, verticalSpeedMs: 10 }))
+    expect(getFlight(db, flightId)?.fuelOutKg).toBe(8700)
   })
 
   it('finish() is a no-op when nothing is being tracked', () => {
@@ -797,7 +883,7 @@ describe('TrackingController', () => {
       const offAtCrash = getFlight(db, flightId)?.actualOffUtc
       const fuelOutAtCrash = getFlight(db, flightId)?.fuelOutKg
       expect(offAtCrash).toBeTruthy()
-      expect(fuelOutAtCrash).toBe(8500) // locked in at the first past-preflight tick
+      expect(fuelOutAtCrash).toBe(8400) // locked in at the first real ground movement
 
       const sim2 = fakeSimConnectService()
       const resumed = new TrackingController(db, sim2)

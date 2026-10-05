@@ -43,7 +43,7 @@
       "hybrid": "Híbrido",
       "hybridHint": "«Híbrido» muestra cada tramo de ascenso en la unidad en la que realmente se planificó — pies para un nivel estándar, metros para una ruta que entra en un espacio aéreo (p. ej. China) que asigna niveles en metros — en lugar de convertir todo a una sola unidad.",
       "appLanguage": "Idioma de la app",
-      "appLanguageHint": "«Sistema» sigue el idioma de tu sistema operativo y usa inglés si esta app aún no tiene traducción para él. La traducción se está implementando poco a poco — la mayor parte de la interfaz sigue en inglés independientemente de este ajuste. Los términos aeronáuticos reales (ILS, STAR, SID, FL, QNH, indicativos ICAO) y todo lo procedente de SimBrief permanecen siempre en inglés.",
+      "appLanguageHint": "«Sistema» sigue el idioma de tu sistema operativo y usa inglés si esta app aún no tiene traducción para él. Los términos aeronáuticos reales (ILS, STAR, SID, FL, QNH, indicativos ICAO) y todo lo procedente de SimBrief permanecen siempre en inglés.",
       "mapLanguage": "Idioma del mapa",
       "mapLanguageHint": "El idioma de los nombres de lugares en los mapas de Seguimiento y Bitácora. «Local» muestra cada lugar en su propio idioma — independiente del idioma de la app anterior.",
       "metarWindSpeed": "Velocidad del viento METAR",
@@ -52,6 +52,16 @@
       "landingDistances": "Distancias de aterrizaje",
       "landingDistancesHint": "Distancia desde el umbral y desplazamiento respecto al eje central en la tarjeta de aterrizaje de un vuelo de la Bitácora, y en su diagrama de toma de contacto. La tasa de toma de contacto se mantiene en fpm y las velocidades/el viento en nudos.",
       "moreInfoFor": "Más información sobre {{label}}"
+    },
+    "tracking": {
+      "cardTitle": "Seguimiento",
+      "description": "Ambos activados por defecto. Desactiva uno si falla con tu simulador y usa los botones de {{track}}.",
+      "autoStart": "Iniciar el seguimiento automáticamente",
+      "autoStartOff": "Desactivado: tras {{fly}} en {{dispatch}}, pulsa tú {{startTracking}} en {{track}}.",
+      "autoFinish": "Finalizar vuelos automáticamente",
+      "autoFinishOff": "Desactivado: el vuelo sigue abierto tras aparcar y apagar, hasta que pulses {{finishAndSave}}.",
+      "on": "Activado",
+      "off": "Desactivado"
     },
     "theme": {
       "cardTitle": "Tema",
@@ -157,11 +167,27 @@
     },
     "about": {
       "description": "Un compañero personal de gestión de flota, despacho, seguimiento en vivo y bitácora para Microsoft Flight Simulator.",
-      "disclaimer": "WingLog no está afiliado con Microsoft Corporation ni con Asobo Studio, ni cuenta con su respaldo o patrocinio. «Microsoft Flight Simulator» es una marca de sus respectivos propietarios.",
-      "license": "Software libre y de código abierto bajo la GNU General Public License v3.0."
+      "simulationOnly": "Solo para simulación de vuelo. WingLog nunca debe usarse para navegación real, planificación de vuelos reales ni en una aeronave real.",
+      "disclaimer": "WingLog es un proyecto independiente y gratuito. No está afiliado con Microsoft Corporation, Asobo Studio, Skirmish Mode Games (BeyondATC), FSDreamTeam (GSX), Navigraph (SimBrief) ni OpenFreeMap, ni cuenta con su respaldo o patrocinio. «Microsoft Flight Simulator», «BeyondATC», «GSX», «SimBrief» y «Navigraph» son marcas de sus respectivos propietarios.",
+      "license": "Software libre y de código abierto bajo la GNU General Public License v3.0.",
+      "runSetup": "Volver a ejecutar la configuración",
+      "openManual": "Manual (PDF)",
+      "manualMissing": "El manual no está incluido en esta versión."
     },
     "usernameSavedToast": "Usuario de SimBrief guardado.",
-    "usernameAutoFilledToast": "Usuario de SimBrief completado automáticamente: {{username}}"
+    "usernameAutoFilledToast": "Usuario de SimBrief completado automáticamente: {{username}}",
+    "beyondAtc": {
+      "cardTitle": "BeyondATC",
+      "description": "Panel de ATC en vivo y control remoto, conectado a la propia conexión WebSocket local de BeyondATC — no es una copia incrustada de la app de BeyondATC.",
+      "enabled": "Habilitado",
+      "on": "Activado",
+      "off": "Desactivado",
+      "host": "Host",
+      "hostHint": "BeyondATC siempre escucha en el puerto 41716 — solo el host es configurable, pensado para una futura configuración en red local.",
+      "statusConnected": "Conectado",
+      "statusConnecting": "Conectando…",
+      "statusDisconnected": "Desconectado"
+    }
   },
   "app": {
     "tabs": {
@@ -169,6 +195,7 @@
       "dispatch": "Despacho",
       "track": "Seguimiento",
       "gsx": "Servicios de tierra",
+      "beyondAtc": "BeyondATC",
       "logbook": "Bitácora",
       "settings": "Ajustes"
     },
@@ -198,9 +225,16 @@
     "gsxFirstLaunch": {
       "found": "Seguimiento de servicios de tierra GSX activado — carpeta de recibos encontrada automáticamente.",
       "notFound": "El seguimiento de servicios de tierra GSX está desactivado — actívalo en Ajustes si usas GSX."
-    }
+    },
+    "atcClearancePrompt": {
+      "title": "¿Actualizar el procedimiento según la autorización ATC?",
+      "update": "Actualizar",
+      "dismiss": "Descartar"
+    },
+    "whatsNew": "Novedades de WingLog 1.4: integración con BeyondATC, rutas de rodaje en el mapa, ascensos escalonados automáticos y búsqueda de actualizaciones. Activa BeyondATC en Ajustes → Terceros."
   },
   "fleetView": {
+    "atStand": "puesto {{stand}}",
     "title": "Flota",
     "newAircraft": "Nueva aeronave",
     "editAircraft": "Editar {{registration}}",
@@ -472,6 +506,7 @@
     "back": "Atrás"
   },
   "dispatchView": {
+    "lastParkedHere": "Último aparcamiento aquí: puesto {{stand}}. Elígelo como puerta de salida en MSFS.",
     "title": "Despacho",
     "planAFlight": "Planificar un vuelo",
     "fetching": "Obteniendo…",
@@ -530,6 +565,14 @@
   "trackView": {
     "flightNum": "N.º de vuelo:",
     "title": "Seguimiento",
+    "times": {
+      "et": "ET",
+      "remaining": "Restante",
+      "eta": "ETA",
+      "etaPlanned": "ETA (prevista)",
+      "vsSchedule": "{{value}} min",
+      "onTime": "en hora"
+    },
     "phase": "Fase:",
     "cancelFlight": "Cancelar vuelo",
     "finishAndSave": "Finalizar y guardar",
@@ -571,9 +614,14 @@
     "na": "N/D",
     "nearestAirfield": "Aeródromo más cercano",
     "nearest": "Más cercano:",
+    "hideTaxiChart": "Ocultar carta de rodaje",
+    "showTaxiChart": "Mostrar carta de rodaje",
+    "showTaxiChartTitle": "Mostrar carta de rodaje — red completa de calles de rodaje del aeropuerto de salida/llegada",
+    "loadingTaxiChart": "Cargando la carta de rodaje de {{icao}}… puede tardar varios minutos en aeropuertos grandes",
     "approximateRoute": "Ruta aproximada — no hay plan de vuelo registrado para este vuelo"
   },
   "logbookView": {
+    "loading": "Cargando…",
     "belowAverage": "Por debajo del promedio",
     "landingCard": {
       "title": "Aterrizaje",
@@ -652,6 +700,7 @@
     "title": "Servicios de tierra"
   },
   "gsxRemotePanel": {
+    "atcStand": "Puesto {{stand}} (de ATC)",
     "loading": "Cargando…",
     "notConfigured": "GSX Remote Control está desactivado. Actívalo y define un puerto en Ajustes → Terceros.",
     "connecting": "Conectando con GSX…",
@@ -666,5 +715,182 @@
     "waitingFor": "Esperando: {{reason}}",
     "ok": "Aceptar",
     "cancel": "Cancelar"
+  },
+  "beyondAtcView": {
+    "title": "BeyondATC"
+  },
+  "beyondAtcPanel": {
+    "loading": "Cargando…",
+    "notConfigured": "La integración con BeyondATC está desactivada. Actívala en Ajustes → Terceros.",
+    "connecting": "Conectando con BeyondATC…",
+    "connected": "Conectado a BeyondATC.",
+    "disconnected": "Sin conexión con BeyondATC.",
+    "stationFrequency": "{{station}} ({{frequency}})",
+    "progress": "{{from}} → {{to}} · {{pct}}%",
+    "transcript": "Transcripción",
+    "actions": "Acciones",
+    "noActions": "No hay acciones disponibles ahora mismo.",
+    "comms": {
+      "queuedAction": "En cola: {{action}}. Esperando un hueco en la frecuencia.",
+      "queued": "Esperando un hueco en la frecuencia.",
+      "transmitting": "Transmitiendo…",
+      "awaitingReply": "Esperando la respuesta del ATC."
+    },
+    "noStatus": "Aún sin estado.",
+    "radios": "Radios",
+    "frequencyUnknown": "—",
+    "frequencyPlaceholder": "118.850",
+    "setFrequency": "Fijar",
+    "selectFrequency": "Elige una frecuencia…",
+    "frequenciesButton": "Frecuencias",
+    "departure": "Salida",
+    "arrival": "Llegada",
+    "noFrequencies": "Aún no hay frecuencias para este aeropuerto.",
+    "frequencyOption": "{{type}} — {{station}} {{frequency}}",
+    "frequencyOptionRunway": "{{type}} — {{station}} {{frequency}} (pista {{runway}})",
+    "frequencyType": {
+      "approach": "Aproximación",
+      "departure": "Salida",
+      "tower": "Torre",
+      "ground": "Tierra",
+      "delivery": "Entrega",
+      "atis": "ATIS",
+      "center": "Centro"
+    },
+    "stepClimb": {
+      "pending": "Solicitando {{level}}…",
+      "last": "{{level}}: {{outcome}}",
+      "dropped": "{{level}}: {{outcome}} — abandonado tras dos intentos",
+      "next": "Siguiente escalón: {{level}} en {{fix}}, {{distance}} NM",
+      "watching": "Esperando un ascenso escalonado (plan de SimBrief o FCU).",
+      "waitingForClimb": "FCU {{level}} — esperando a que empiece el ascenso",
+      "pastTopOfDescent": "Pasado el inicio del descenso — no más solicitudes en este vuelo.",
+      "outcome": {
+        "granted": "autorizado",
+        "unavailable": "BeyondATC no ofrece solicitudes de altitud",
+        "noMenu": "sin lista de niveles de BeyondATC",
+        "notOffered": "nivel no ofrecido",
+        "noAnswer": "sin autorización de ATC"
+      }
+    },
+    "settings": {
+      "stepClimb": "Ascenso escalonado auto",
+      "autoTune": "Sintonía automática",
+      "autoRespond": "Respuesta automática",
+      "on": "Activado",
+      "off": "Desactivado",
+      "unknown": "—"
+    },
+    "instruction": {
+      "title": "Última instrucción",
+      "none": "Aún no hay instrucciones de ATC.",
+      "field": {
+        "station": "Estación",
+        "atis": "ATIS",
+        "clearedTo": "Autorizado a",
+        "sid": "SID",
+        "star": "STAR",
+        "approach": "Aproximación",
+        "transition": "Transición",
+        "runway": "Pista",
+        "climb": "Ascender",
+        "descend": "Descender",
+        "qnh": "QNH",
+        "squawk": "Squawk",
+        "contact": "Contactar",
+        "holdingPoint": "Punto de espera",
+        "stand": "Puesto",
+        "taxiVia": "Vía",
+        "direct": "Directo",
+        "wind": "Viento",
+        "face": "Orientación"
+      },
+      "action": {
+        "takeoff": "Autorizado a despegar",
+        "land": "Autorizado a aterrizar",
+        "lineUp": "Alinear y mantener",
+        "holdShort": "Mantener antes de pista",
+        "pushback": "Pushback aprobado",
+        "readbackCorrect": "Colación correcta",
+        "identified": "Identificado en radar"
+      }
+    },
+    "speaker": {
+      "player": "Tú",
+      "atc": "ATC",
+      "traffic": "Tráfico",
+      "atcTraffic": "ATC → Tráfico"
+    }
+  },
+  "updates": {
+    "banner": {
+      "label": "Actualización disponible",
+      "available": "WingLog {{version}} está disponible.",
+      "whatsNew": "Novedades",
+      "hideNotes": "Ocultar notas",
+      "download": "Descargar",
+      "skip": "Omitir esta versión",
+      "dismiss": "Ocultar por ahora"
+    },
+    "settings": {
+      "title": "Actualizaciones",
+      "description": "WingLog consulta a GitHub el número de la última versión. No se envía nada más, y tú descargas e instalas las actualizaciones.",
+      "autoCheck": "Buscar actualizaciones automáticamente",
+      "on": "Sí",
+      "off": "No",
+      "checkNow": "Comprobar ahora",
+      "checking": "Comprobando…",
+      "upToDate": "Tienes la última versión ({{version}}).",
+      "error": "No se pudo comprobar si hay actualizaciones. Inténtalo más tarde."
+    }
+  },
+  "setup": {
+    "progress": "Paso {{step}} de {{total}}",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "start": "Empezar",
+    "finish": "Terminar",
+    "on": "Sí",
+    "off": "No",
+    "welcome": {
+      "title": "Bienvenido a WingLog",
+      "body": "WingLog gestiona tu flota, planifica tus vuelos con SimBrief, los registra en directo desde Microsoft Flight Simulator y lleva un libro de vuelo con análisis de aterrizajes. Antes, unas elecciones rápidas.",
+      "skipHint": "Cada paso es opcional. Puedes cambiar todo esto más tarde en Ajustes y volver a abrir esta configuración desde Ajustes → Acerca de."
+    },
+    "simbrief": {
+      "title": "SimBrief",
+      "body": "Despacho descarga tus planes de vuelo de SimBrief. Introduce tu usuario de SimBrief (tu alias de Navigraph) para que WingLog pueda encontrarlos.",
+      "label": "Usuario de SimBrief",
+      "save": "Guardar",
+      "saved": "Guardado."
+    },
+    "units": {
+      "title": "Idioma y unidades"
+    },
+    "addons": {
+      "title": "Complementos",
+      "intro": "WingLog funciona con estos complementos si los tienes. Cada uno permanece desactivado hasta que lo actives.",
+      "gsx": "Servicios de tierra de GSX",
+      "gsxDetail": "Adjunta los recibos de servicios de GSX Pro a tus vuelos en el libro de vuelo.",
+      "gsxFound": "Se encontró la carpeta de recibos de GSX en este PC.",
+      "gsxNotFound": "No se encontró la carpeta de recibos de GSX en este PC.",
+      "gsxRemote": "GSX Remote Control",
+      "gsxRemoteDetail": "Maneja el menú de servicios de tierra de GSX desde WingLog.",
+      "beyondAtc": "BeyondATC",
+      "beyondAtcDetail": "Muestra las autorizaciones y comunicaciones de BeyondATC, rellena tus procedimientos de salida y llegada, dibuja tu ruta de rodaje y puede solicitar los ascensos escalonados de tu plan de vuelo.",
+      "beyondAtcRunning": "BeyondATC se está ejecutando ahora en este PC.",
+      "notAffiliated": "WingLog no está afiliado con los creadores de GSX ni de BeyondATC. Cada uno es un producto independiente."
+    },
+    "tracking": {
+      "title": "Registro",
+      "intro": "WingLog puede empezar y terminar el registro de un vuelo por sí solo. Si alguna vez falla con tu configuración, desactívalo y usa los botones."
+    },
+    "updates": {
+      "title": "Actualizaciones"
+    },
+    "done": {
+      "title": "Todo listo",
+      "body": "Todo esto se puede cambiar en Ajustes. Para volver a ver esta configuración, ve a Ajustes → Acerca de → Volver a ejecutar la configuración."
+    }
   }
 }

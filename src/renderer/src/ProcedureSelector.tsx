@@ -3,8 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { NavdataProcedureOption, NavdataRunwayOption, ProcedureSelection } from '@shared/ipc'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { isVisualApproach } from '@shared/visual-approach'
-import { approachRunway, parseRouteProcedures, type Waypoint } from './route'
+import { approachRunway, parseRouteProcedures, pickDefaultApproachIdentifier, type Waypoint } from './route'
 import { arrivalAirport, type ProcedureAirports } from './procedureSelection'
 import { displayIcao } from './display-icao'
 
@@ -53,23 +52,6 @@ function ProcedureSelect(props: {
       </Select>
     </div>
   )
-}
-
-/** Among approaches for the planned runway, prefer ILS (always unsuffixed when present),
- *  then LOC, then whatever RNAV/other option sorts first — a reasonable starting point, not
- *  a correctness claim: no signal (SimBrief or navdata) says which of several same-runway
- *  approaches ATC will actually assign, since a real pilot doesn't know either until told
- *  during descent (docs/navdata-notes.md, 2026-09-08 approach-procedures entry). The point
- *  is a sane default that's instantly correctable from the dropdown, not a guess to get
- *  right. */
-export function pickDefaultApproachIdentifier(options: NavdataProcedureOption[]): string | null {
-  const all = [...new Set(options.map((o) => o.identifier))].sort()
-  // The synthetic Visual approach stays opt-in (docs/plans/visual-approach.md) — it's only
-  // ever the default at a field with no instrument approach at all.
-  const instrument = all.filter((id) => !isVisualApproach(id))
-  const identifiers = instrument.length > 0 ? instrument : all
-  if (identifiers.length === 0) return null
-  return identifiers.find((id) => id.startsWith('ILS ')) ?? identifiers.find((id) => id.startsWith('LOC ')) ?? identifiers[0]!
 }
 
 function transitionsFor(options: NavdataProcedureOption[], identifier: string | null): string[] {
@@ -182,10 +164,12 @@ export function ProcedureSelector(props: {
     // The OFP's planned runway is the filed destination's — not applicable to the alternate.
     const plannedRunway = arrIcao === airports.arrIcao ? parseRouteProcedures(airports.ofpJson).arrivalRunway : null
     const candidates = plannedRunway ? approachOptions.filter((o) => approachRunway(o.identifier) === plannedRunway) : approachOptions
-    const pick = pickDefaultApproachIdentifier(candidates)
+    // Prefer an approach the STAR leads into (ZJSY: UPRS2C ends at SY498, ILS Z 08's entry).
+    const starLastIdent = [...liveWaypoints].reverse().find((w) => w.segment === 'star')?.ident ?? null
+    const pick = pickDefaultApproachIdentifier(candidates, starLastIdent)
     if (pick) set({ approachIdent: pick })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [approachOptions, approachOptionsFor, arrIcao, selection.approachIdent, airports.ofpJson, approachKey])
+  }, [approachOptions, approachOptionsFor, arrIcao, selection.approachIdent, airports.ofpJson, approachKey, liveWaypoints])
 
   // Auto-connect the approach's own entry transition to wherever the current STAR actually
   // ends, when one matches — confirmed live that a real APPROACH_TRANSITION's name is the

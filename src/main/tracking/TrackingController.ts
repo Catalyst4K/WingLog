@@ -26,11 +26,13 @@ import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
 import { buildFlightMatchWindow } from '../gsx/flight-window'
 import { scanGsxFolder } from '../gsx/scan'
 import type { SimConnectSource, TouchdownSeverity } from '../sim/SimConnectSource'
-import { FlightRecorder } from './FlightRecorder'
+import { FlightRecorder, MOVING_MS } from './FlightRecorder'
 import { seedPhaseFromTelemetry } from './free-flight'
 import { buildLandingRecord } from './landing-capture'
 import { isPhysicallyImpossibleJump, RESUME_CLEANUP_CONSTANTS, type TrackCleanupResult } from './resume-cleanup'
 import { runTrackCleanupForFlight } from './run-track-cleanup'
+import { listCachedRunways } from '../db/navdata-repo'
+import { isOnRunway } from './runway-check'
 import { deriveFlownRouteJson } from './route-simplify'
 
 // A touchdown only counts as a *new* one after this many consecutive airborne samples
@@ -106,6 +108,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   // Mirrors FlightRecorder's own `paused` flag — detectTouchdown needs the same guard the
   // phase machine applies internally, since it now runs independently of it.
   private paused = false
+  private autoFinish = true
   // Pushed live from the renderer (setProcedureSelection) while a flight is being tracked —
   // cached here, not written to the DB until completion, since neither completion trigger
   // below (auto shutdown detection or a manual finish()) round-trips through the renderer
@@ -143,6 +146,12 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   // detectTouchdown actually fires for the same touchdown.
   private lastTouchdownSeverity: { result: TouchdownSeverity; atMs: number } | undefined
 
+  /** Settings → Tracking → "Finish flights automatically" — see FlightRecorder.setAutoShutdown.
+   *  Applied every telemetry tick, so a change takes effect mid-flight. */
+  setAutoFinish(enabled: boolean): void {
+    this.autoFinish = enabled
+  }
+
   constructor(
     private readonly db: WingLogDb,
     private readonly simConnectService: SimConnectSource,
@@ -159,12 +168,19 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
       if (!this.recorder) return
       const previousTelemetry = this.previousTelemetry
       this.previousTelemetry = telemetry
+      this.recorder.setAutoShutdown(this.autoFinish)
       const result = this.recorder.ingest(telemetry, new Date())
 
       // The value startFlight wrote at tracking-start is only provisional (see
-      // finalizeFuelOut's doc comment) — correct it as soon as the phase machine shows
-      // the aircraft is genuinely past ground fuel service, not just parked.
-      if (result.phase !== 'preflight' && !this.fuelOutFinalized) {
+      // finalizeFuelOut's doc comment) — corrected at the aircraft's first real ground
+      // movement (off-blocks), when ground fuel service is genuinely over. Not on leaving
+      // 'preflight': that also fires on engine combustion alone, which a stale post-reload
+      // tick can report too — real bug, flight 223 (2026-09-30): the phase flipped to
+      // 'pushback' 26s in, stationary, locking in a leftover 10,184 kg before the sim
+      // settled to 3,000 kg and GSX refuelled to ~6,268 kg, so "burn" exceeded the load.
+      // Airborne without ever seeing that (tracking started in the air) is the fallback.
+      const movedOnGround = telemetry.onGround && telemetry.groundSpeedMs > MOVING_MS && !telemetry.slewActive
+      if ((movedOnGround || !telemetry.onGround) && result.phase !== 'preflight' && !this.fuelOutFinalized) {
         this.fuelOutFinalized = true
         finalizeFuelOut(this.db, this.recorder.getFlightId(), telemetry.fuelTotalKg)
       }
@@ -343,6 +359,15 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
       : undefined
   }
 
+  /** The recorder's "on a runway?" check, from the departure airport's cached runways, read
+   *  when asked (the cache can fill after tracking starts). Null with nothing cached. */
+  private attachRunwayCheck(flightId: number): void {
+    this.recorder?.setRunwayCheck((lat, lon) => {
+      const depIcao = getFlight(this.db, flightId)?.depIcao
+      return depIcao ? isOnRunway(listCachedRunways(this.db, depIcao), lat, lon) : null
+    })
+  }
+
   start(flightId: number): void {
     if (this.recorder) {
       const stale = this.recorder.getFlightId()
@@ -369,6 +394,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
 
     startFlight(this.db, flightId, telemetry.fuelTotalKg)
     this.recorder = new FlightRecorder(flightId)
+    this.attachRunwayCheck(flightId)
     this.offRecorded = false
     this.landingSeq = 0
     this.wasOnGround = undefined
@@ -447,6 +473,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
 
     const seededPhase = seedPhaseFromTelemetry(telemetry)
     this.recorder = new FlightRecorder(flight.id, { phase: seededPhase, hasLanded: false, resumeSegment: 0 })
+    this.attachRunwayCheck(flight.id)
     // A flight seeded straight into an airborne phase has already lifted off before
     // tracking began — the telemetry handler's own recordOff only fires on the 'climb'
     // transition edge, which a flight seeded past 'climb' (cruise/descent) will never touch
@@ -498,6 +525,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
       hasLanded: flight.actualOnUtc != null,
       resumeSegment
     })
+    this.attachRunwayCheck(flightId)
     this.offRecorded = flight.actualOffUtc != null
     // Continues the same seq sequence rather than restarting it — a resume mid-circuit
     // must not overwrite landing #1 with what should be landing #2.

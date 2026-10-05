@@ -1,0 +1,351 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import type {
+  BeyondAtcArrivalClearance,
+  BeyondAtcCommsState,
+  BeyondAtcConnectionStatus,
+  BeyondAtcSettings,
+  BeyondAtcState,
+  BeyondAtcStepClimbStatus,
+  BeyondAtcTranscriptEntry
+} from '@shared/ipc'
+import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
+import { BeyondAtcActions, BeyondAtcRadios } from './BeyondAtcControls'
+import { latestAtcInstruction, type AtcInstruction } from './beyondAtcInstruction'
+import { useLiveClient, useLiveTopic } from './live/LiveClient'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+
+const STEP_CLIMB_OFF: BeyondAtcStepClimbStatus = { enabled: false, nextStep: null, pendingAltitudeFt: null, waitingForClimbFt: null, pastTopOfDescent: false, last: null }
+
+const SPEAKER_KEY: Record<BeyondAtcTranscriptEntry['speaker'], string> = {
+  player: 'beyondAtcPanel.speaker.player',
+  atc: 'beyondAtcPanel.speaker.atc',
+  traffic: 'beyondAtcPanel.speaker.traffic',
+  atcTraffic: 'beyondAtcPanel.speaker.atcTraffic'
+}
+
+function InfoField(props: { label: string; value: string }): React.JSX.Element {
+  return (
+    <span className="whitespace-nowrap text-xs">
+      <span className="text-muted-foreground">{props.label}: </span>
+      <span className="font-medium text-foreground">{props.value}</span>
+    </span>
+  )
+}
+
+/** The top info strip (flightdeck-backend's docs/plans/beyondatc-panel-redesign.md) — just
+ *  who you are and how far along the flight is, inline in one compact card. ATC's own
+ *  instructions moved out to `LatestInstructionCard` below it (Callum's call, 2026-09-30).
+ *  "Tuned to" facility/COM2 info is `BeyondAtcRadios`' job, not this card's. Always visible,
+ *  like every other card here — a placeholder rather than shifting the layout. */
+function InfoCard(props: { state: BeyondAtcState }): React.JSX.Element {
+  const { t } = useTranslation()
+  const { callsign, progress } = props.state
+  return (
+    <Card size="sm">
+      <CardContent className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+        {!callsign && !progress && <span className="text-xs text-muted-foreground">{t('beyondAtcPanel.noStatus')}</span>}
+        {callsign && <span className="text-sm font-semibold text-foreground">{callsign.full}</span>}
+        {progress && (
+          <span className="text-xs text-muted-foreground">
+            {t('beyondAtcPanel.progress', { from: progress.from, to: progress.to, pct: progress.pct })}
+          </span>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+/** The key facts from whatever ATC said last — clearance, taxi, handoff, climb/descent,
+ *  takeoff… (beyondAtcInstruction.ts) — as labelled fields, with the full text underneath so
+ *  nothing an unrecognised phrasing carries is ever hidden. The station ATC spoke as sits in
+ *  the header; clearances/permissions (cleared for takeoff, line up and wait…) stand out as
+ *  badges rather than as another label: value pair.
+ *
+ *  The header's right side also keeps ATC's arrival clearance from the moment it's given
+ *  until touchdown (Callum, 2026-10-05; kept in main by ArrivalClearanceTracker): STAR and
+ *  runway, switching to approach and transition once those come. It sits beside the latest
+ *  instruction, never in place of it — later lines ("report ready for descent") still show
+ *  in the body as normal. */
+function LatestInstructionCard(props: {
+  instruction: AtcInstruction | null
+  arrival: BeyondAtcArrivalClearance | null
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  const instruction = props.instruction
+  const arrival = props.arrival
+  const station = instruction?.fields.find((f) => f.key === 'station')?.value
+  const fields = instruction?.fields.filter((f) => f.key !== 'station') ?? []
+  return (
+    <Card size="sm" className="border-primary/40">
+      <CardHeader className="flex flex-row flex-wrap items-baseline justify-between gap-2">
+        <CardTitle>{t('beyondAtcPanel.instruction.title')}</CardTitle>
+        <div className="flex flex-wrap items-baseline justify-end gap-x-4 gap-y-1">
+          {arrival?.approachIdent ? (
+            <span data-testid="arrival-clearance" className="flex flex-wrap gap-x-4 gap-y-1">
+              <InfoField label={t('beyondAtcPanel.instruction.field.approach')} value={arrival.approachIdent} />
+              {arrival.approachTransition && (
+                <InfoField label={t('beyondAtcPanel.instruction.field.transition')} value={arrival.approachTransition} />
+              )}
+            </span>
+          ) : (
+            arrival?.starIdent && (
+              <span data-testid="arrival-clearance" className="flex flex-wrap gap-x-4 gap-y-1">
+                <InfoField label={t('beyondAtcPanel.instruction.field.star')} value={arrival.starIdent} />
+                {arrival.runway && <InfoField label={t('beyondAtcPanel.instruction.field.runway')} value={arrival.runway} />}
+              </span>
+            )
+          )}
+          {station && <span className="text-xs text-muted-foreground">{station}</span>}
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2">
+        {!instruction ? (
+          <p className="text-xs text-muted-foreground">{t('beyondAtcPanel.instruction.none')}</p>
+        ) : (
+          <>
+            {(instruction.actions.length > 0 || fields.length > 0) && (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                {instruction.actions.map((action) => (
+                  <Badge key={action} className="bg-primary/15 text-primary">
+                    {t(`beyondAtcPanel.instruction.action.${action}`)}
+                  </Badge>
+                ))}
+                {fields.map((f) => (
+                  <InfoField key={f.key} label={t(`beyondAtcPanel.instruction.field.${f.key}`)} value={f.value} />
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">{instruction.text}</p>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+/** How long a pressed action stays marked as pending if BeyondATC never reports it going
+ *  out — a safety net so a missed state can't leave a spinner up for good. */
+export const PENDING_ACTION_TIMEOUT_MS = 60_000
+
+/** What the frequency is doing, from BeyondATC's CommsState, for the line above the
+ *  buttons. Null when there's nothing worth saying. */
+function commsLine(
+  t: (key: string, options?: Record<string, string>) => string,
+  pendingLabel: string | null,
+  comms: BeyondAtcCommsState | null
+): string | null {
+  if (comms?.mode === 'speaking') return t('beyondAtcPanel.comms.transmitting')
+  if (comms?.mode === 'awaiting') return t('beyondAtcPanel.comms.awaitingReply')
+  if (pendingLabel) return t('beyondAtcPanel.comms.queuedAction', { action: pendingLabel })
+  if (comms?.mode === 'queued' || comms?.mode === 'traffic') return t('beyondAtcPanel.comms.queued')
+  return null
+}
+
+/** Always visible, like every other card on this page — a placeholder rather than
+ *  disappearing entirely while disconnected or when BeyondATC has no menu currently
+ *  offered. */
+function ActionsCard(props: {
+  actions: string[]
+  onSelectAction: (label: string) => void
+  pendingLabel: string | null
+  commsState: BeyondAtcCommsState | null
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  const line = commsLine(t, props.pendingLabel, props.commsState)
+  return (
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle>{t('beyondAtcPanel.actions')}</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2">
+        <p role="status" className="text-xs text-muted-foreground empty:hidden">
+          {line}
+        </p>
+        {props.actions.length === 0 ? (
+          <p className="text-xs text-muted-foreground">{t('beyondAtcPanel.noActions')}</p>
+        ) : (
+          <BeyondAtcActions actions={props.actions} onSelectAction={props.onSelectAction} pendingLabel={props.pendingLabel} />
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function RadiosCard(props: React.ComponentProps<typeof BeyondAtcRadios>): React.JSX.Element {
+  const { t } = useTranslation()
+  return (
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle>{t('beyondAtcPanel.radios')}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <BeyondAtcRadios {...props} />
+      </CardContent>
+    </Card>
+  )
+}
+
+/** Always visible, same as `ActionsCard`'s Radios sibling — an empty scrollable box rather
+ *  than disappearing entirely, so the right column doesn't jump around as the panel connects
+ *  (flightdeck-backend's docs/plans/beyondatc-panel-redesign.md). Fills the real, bounded
+ *  height `BeyondAtcView`/`BeyondAtcPanel` propagate down from the window's own available
+ *  space (`h-full` on `BeyondAtcView`'s root, `flex-1` the rest of the way down, all the way
+ *  from App.tsx) — its own list never grows past that, scrolling internally instead
+ *  (`min-h-0`/`flex-1` at every level down to the `<ul>` itself).
+ *
+ *  **The parent row is CSS Grid, not a flex row — this matters, confirmed the hard way.**
+ *  A flexbox version (`flex flex-wrap items-stretch`) looked identical in the DOM (every
+ *  `min-h-0`/`flex-1` class present at every level) but didn't actually cap this card:
+ *  `align-items: stretch` on a flex-wrap row did not reliably give this column a definite
+ *  height for its `min-h-0` descendants to resolve against, so the list just rendered at its
+ *  full natural height regardless. Confirmed live via a Playwright screenshot + a DOM rect
+ *  dump against a real 80-line transcript — the list grew to 1651px and the whole *page*
+ *  scrolled to follow the newest line (via `scrollIntoView` below) instead of the card's own
+ *  list, pushing every other card off screen entirely. Grid's track-sizing algorithm
+ *  resolves a genuinely definite height for every cell in a row *before* laying out its
+ *  contents — confirmed fixed with the identical rect dump afterward (452px, matching the
+ *  left column, not 1651px). Kept as always-expanded (not collapsible), but scroll-anchored
+ *  to the latest line: without that, a long transcript's newest exchange stays scrolled out
+ *  of view within its own now-correctly-bounded box. */
+function TranscriptCard(props: { entries: BeyondAtcTranscriptEntry[] }): React.JSX.Element {
+  const { t } = useTranslation()
+  const latestRef = useRef<HTMLLIElement>(null)
+
+  useEffect(() => {
+    latestRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [props.entries])
+
+  return (
+    <Card size="sm" className="min-h-0 flex-1">
+      <CardHeader>
+        <CardTitle>{t('beyondAtcPanel.transcript')}</CardTitle>
+      </CardHeader>
+      <CardContent className="flex min-h-0 flex-1 flex-col">
+        <ul className="flex h-full min-h-0 flex-col gap-1 overflow-y-auto text-xs">
+          {props.entries.map((entry, index) => (
+            <li key={index} ref={index === props.entries.length - 1 ? latestRef : undefined} className="flex gap-1.5">
+              <span className="shrink-0 font-medium text-foreground">{t(SPEAKER_KEY[entry.speaker])}:</span>
+              <span className="text-muted-foreground">{entry.text}</span>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  )
+}
+
+/**
+ * BeyondATC integration's live panel (Parts 1-2 of flightdeck-backend's docs/plans/
+ * beyondatc-integration.md) — its own top-level tab, same shape as GsxRemotePanel: current-
+ * value fetches on mount plus live subscriptions, so a panel mounting (or remounting) after
+ * BeyondATC already pushed state doesn't show nothing until the next line arrives.
+ *
+ * Card-grid layout (flightdeck-backend's docs/plans/beyondatc-panel-redesign.md, second
+ * design pass, 2026-09-29): a compact info strip on top, then a two-column area below —
+ * Actions + Radios on the left (their own natural height, `self-start`), a Transcript on the
+ * right that matches that height exactly with its own internal scroll. The row is CSS Grid
+ * (`grid-cols-[minmax(18rem,28rem)_minmax(18rem,1fr)]`, roughly `DispatchView`'s own
+ * `min-w-72 max-w-md flex-1` / `min-w-72 flex-1` column widths translated into grid tracks),
+ * not flexbox — see `TranscriptCard`'s own doc comment for why that choice actually matters
+ * here, not just style preference. `BeyondAtcView`'s `h-full` root is what gives this whole
+ * area a real, window-bounded height to work with in the first place.
+ */
+const DISCONNECTED: BeyondAtcConnectionStatus = { state: 'disconnected', lastError: null }
+const NO_TRANSCRIPT: BeyondAtcTranscriptEntry[] = []
+
+export function BeyondAtcPanel(): React.JSX.Element {
+  const { t } = useTranslation()
+  const [settings, setSettings] = useState<BeyondAtcSettings | null>(null)
+  // Live state and commands through the LiveClient (live-data-seam.md, part C).
+  const live = useLiveClient()
+  const status = useLiveTopic('beyondAtcStatus', DISCONNECTED)
+  const [state, setState] = useState<BeyondAtcState>(EMPTY_BEYONDATC_STATE)
+  const transcript = useLiveTopic('beyondAtcTranscript', NO_TRANSCRIPT)
+  const stepClimb = useLiveTopic('beyondAtcStepClimb', STEP_CLIMB_OFF)
+  const arrival = useLiveTopic('beyondAtcArrival', null)
+  const latestInstruction = useMemo(() => latestAtcInstruction(transcript, state), [transcript, state])
+  // The action just pressed, until BeyondATC transmits it (Callum, 2026-10-02: a press
+  // queued behind other traffic looked like it did nothing).
+  const [pendingAction, setPendingAction] = useState<string | null>(null)
+  const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function clearPendingAction(): void {
+    if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current)
+    pendingTimerRef.current = null
+    setPendingAction(null)
+  }
+
+  function selectAction(label: string): void {
+    live.command('atc.setAction', label)
+    if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current)
+    pendingTimerRef.current = setTimeout(clearPendingAction, PENDING_ACTION_TIMEOUT_MS)
+    setPendingAction(label)
+  }
+
+  useEffect(() => {
+    window.winglog.settingsGetBeyondAtc().then(setSettings)
+    live.get('beyondAtcState').then((current) => {
+      if (current) setState(current)
+    })
+    const unsubscribeState = live.subscribe('beyondAtcState', (next) => {
+      setState(next)
+      // Our call is going out: it's no longer waiting.
+      if (next.commsState?.mode === 'speaking') clearPendingAction()
+    })
+    return () => {
+      unsubscribeState()
+      if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current)
+    }
+  }, [live])
+
+  if (settings === null) return <p className="text-xs text-muted-foreground">{t('beyondAtcPanel.loading')}</p>
+
+  if (!settings.enabled) {
+    return <p className="text-xs text-muted-foreground">{t('beyondAtcPanel.notConfigured')}</p>
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      {/* Always shown, including while connected, so an idle session still confirms the
+       *  link is live (real gap found live, 2026-09-28). */}
+      <p className="text-xs text-muted-foreground">
+        {status.state === 'connected'
+          ? t('beyondAtcPanel.connected')
+          : status.state === 'connecting'
+            ? t('beyondAtcPanel.connecting')
+            : t('beyondAtcPanel.disconnected')}
+      </p>
+      <InfoCard state={state} />
+      <LatestInstructionCard instruction={latestInstruction} arrival={arrival} />
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-[minmax(18rem,28rem)_minmax(18rem,1fr)]">
+        <div className="flex min-h-0 flex-col gap-4 self-start">
+          <ActionsCard
+            actions={state.actions}
+            onSelectAction={selectAction}
+            pendingLabel={pendingAction}
+            commsState={state.commsState}
+          />
+          <RadiosCard
+            facility={state.facility}
+            com2={state.com2}
+            progress={state.progress}
+            onSetFrequency={(frequency) => live.command('atc.setFrequency', frequency)}
+            onSetFrequencyCom2={(frequency) => live.command('atc.setFrequencyCom2', frequency)}
+            frequencyOptions={state.frequencies}
+            autoTune={state.autoTune}
+            autoRespond={state.autoRespond}
+            onSetAutoTune={(value) => live.command('atc.setAutoTune', value)}
+            onSetAutoRespond={(value) => live.command('atc.setAutoRespond', value)}
+            stepClimb={stepClimb}
+            onSetStepClimb={(enabled) => live.command('atc.setStepClimb', enabled)}
+          />
+        </div>
+        <div className="flex min-h-0 flex-col gap-4">
+          <TranscriptCard entries={transcript} />
+        </div>
+      </div>
+    </div>
+  )
+}

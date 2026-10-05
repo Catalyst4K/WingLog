@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ChevronRight, Info } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -7,6 +7,8 @@ import type {
   AircraftImportSummary,
   AltitudeUnit,
   AppLanguage,
+  BeyondAtcConnectionStatus,
+  BeyondAtcSettings,
   DataFormat,
   GsxRemoteConnectionStatus,
   GsxRemoteSettings,
@@ -19,14 +21,14 @@ import type {
   WeightUnit,
   WindSpeedUnit
 } from '@shared/ipc'
-import { APP_LANGUAGE_OPTIONS } from '@shared/app-language'
-import { MAP_LANGUAGES } from './map-labels'
+import { SegmentedRow, TrackingFields, UnitsFields } from './SettingsFields'
+import { trackingLabels } from './trackingLabels'
+import { UpdatesCard } from './UpdatesCard'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useResetSignal } from './hooks/useResetSignal'
@@ -58,65 +60,6 @@ function displayCurrencyOptions(t: TFunction): { code: string; label: string }[]
     { code: 'JPY', label: t('settingsView.currencyOptions.jpy') },
     { code: 'CHF', label: t('settingsView.currencyOptions.chf') }
   ]
-}
-
-/** Label above an equal-width button group, one row of the UI page's Units/Theme cards
- *  (docs/plans/settings-ui-page.md) — replaces the old label-beside-buttons rows, whose
- *  button groups started at three different x positions depending on label length. Every
- *  button gets the same min-width so a two-option row and a three-option row read as the
- *  same kind of control.
- *
- *  An optional `hint` moves what used to be an always-visible paragraph under the row into
- *  an info-icon popover instead (flightdeck-backend docs/plans/v1-2.md Part 4) — the Units
- *  card previously stacked five of these paragraphs at once, reading as mostly caveats
- *  rather than mostly controls. Reuses `LandingScoreBreakdownDialog`'s existing
- *  Info+Popover pattern rather than a new one. */
-function SegmentedRow<T extends string>(props: {
-  label: string
-  value: T
-  options: readonly { value: T; label: string }[]
-  onChange: (value: T) => void
-  hint?: string
-  hintAriaLabel?: string
-}): React.JSX.Element {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-1">
-        <span className="text-sm text-muted-foreground">{props.label}</span>
-        {props.hint && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                className="cursor-pointer text-muted-foreground/60 hover:text-foreground"
-                aria-label={props.hintAriaLabel}
-              >
-                <Info className="size-3.5" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent>{props.hint}</PopoverContent>
-          </Popover>
-        )}
-      </div>
-      {/* Grouped and labelled so two rows with overlapping option labels (App language and
-       *  Map language both offer "Deutsch", "Español", etc.) can still be queried
-       *  unambiguously, in tests and by assistive tech alike. */}
-      <div className="flex flex-wrap gap-1.5" role="group" aria-label={props.label}>
-        {props.options.map((opt) => (
-          <Button
-            key={opt.value}
-            type="button"
-            size="sm"
-            variant={props.value === opt.value ? 'default' : 'outline'}
-            className="min-w-[4.5rem]"
-            onClick={() => props.onChange(opt.value)}
-          >
-            {opt.label}
-          </Button>
-        ))}
-      </div>
-    </div>
-  )
 }
 
 const DATA_FORMATS = [
@@ -201,6 +144,14 @@ export function SettingsView(props: {
   onAppLanguageChange: (language: AppLanguage) => void
   theme: Theme
   onThemeChange: (theme: Theme) => void
+  /** Mirrors this toggle's live value up to App.tsx, which gates the GSX Remote Control tab
+   *  on it (Callum, 2026-09-27) — App.tsx doesn't otherwise see this card's own settings
+   *  state, which lives entirely in this component. */
+  onGsxRemoteEnabledChange: (enabled: boolean) => void
+  /** Same reasoning as onGsxRemoteEnabledChange, for the BeyondATC tab. */
+  onBeyondAtcEnabledChange: (enabled: boolean) => void
+  /** Settings → About → "Run setup again" reopens the first-launch setup. */
+  onRunSetup?: () => void
   /** Bumped by App.tsx when the Settings tab is clicked while already active — returns to
    *  the first category (docs/plans/navigation-tab-behaviour.md). See useResetSignal. */
   resetSignal?: number
@@ -224,6 +175,11 @@ export function SettingsView(props: {
     state: 'disconnected',
     lastError: null
   })
+  const [beyondAtc, setBeyondAtc] = useState<BeyondAtcSettings>({ enabled: false, host: 'localhost' })
+  const [beyondAtcStatus, setBeyondAtcStatus] = useState<BeyondAtcConnectionStatus>({
+    state: 'disconnected',
+    lastError: null
+  })
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
     loggedIn: false,
     email: null,
@@ -242,6 +198,10 @@ export function SettingsView(props: {
   const [category, setCategory] = useState<SettingsCategory>(DEFAULT_SETTINGS_CATEGORY)
   useResetSignal(props.resetSignal, () => setCategory(DEFAULT_SETTINGS_CATEGORY))
 
+  // Destructured so the mount effect below can list them as real dependencies (eslint's
+  // exhaustive-deps) instead of reaching into `props` directly, which it can't track.
+  const { onGsxRemoteEnabledChange, onBeyondAtcEnabledChange } = props
+
   useEffect(() => {
     window.winglog.settingsGetSimbriefUsername().then((u) => setSimbriefUsername(u ?? ''))
     window.winglog.dispatchSimbriefLoginStatus().then(setSimbriefLoggedIn)
@@ -249,8 +209,14 @@ export function SettingsView(props: {
     window.winglog.settingsGetGsxRemote().then((settings) => {
       setGsxRemote(settings)
       setGsxRemotePortInput(settings.port != null ? String(settings.port) : '')
+      onGsxRemoteEnabledChange(settings.enabled)
     })
     window.winglog.gsxRemoteGetStatus().then(setGsxRemoteStatus)
+    window.winglog.settingsGetBeyondAtc().then((settings) => {
+      setBeyondAtc(settings)
+      onBeyondAtcEnabledChange(settings.enabled)
+    })
+    window.winglog.beyondAtcGetStatus().then(setBeyondAtcStatus)
     // Cloud sync build-time flag (docs/plans/public-release-v1.md) — the syncStatus channel
     // doesn't exist at all in a public build, so calling it would just reject.
     /* v8 ignore start -- vitest.config.ts's `define` fixes this flag at `true` for the whole
@@ -260,10 +226,14 @@ export function SettingsView(props: {
     if (__WINGLOG_CLOUD_SYNC_ENABLED__) window.winglog.syncStatus().then(setSyncStatus)
     /* v8 ignore stop */
     window.winglog.appGetVersion().then(setAppVersion)
-  }, [])
+  }, [onGsxRemoteEnabledChange, onBeyondAtcEnabledChange])
 
   useEffect(() => {
     return window.winglog.onGsxRemoteStatus(setGsxRemoteStatus)
+  }, [])
+
+  useEffect(() => {
+    return window.winglog.onBeyondAtcStatus(setBeyondAtcStatus)
   }, [])
 
   async function handleGsxToggle(enabled: boolean): Promise<void> {
@@ -289,6 +259,7 @@ export function SettingsView(props: {
   async function handleGsxRemoteToggle(enabled: boolean): Promise<void> {
     const next = { ...gsxRemote, enabled }
     setGsxRemote(next)
+    props.onGsxRemoteEnabledChange(enabled)
     await window.winglog.settingsSetGsxRemote(next)
   }
 
@@ -305,6 +276,19 @@ export function SettingsView(props: {
     const next = { ...gsxRemote, port }
     setGsxRemote(next)
     await window.winglog.settingsSetGsxRemote(next)
+  }
+
+  async function handleBeyondAtcToggle(enabled: boolean): Promise<void> {
+    const next = { ...beyondAtc, enabled }
+    setBeyondAtc(next)
+    props.onBeyondAtcEnabledChange(enabled)
+    await window.winglog.settingsSetBeyondAtc(next)
+  }
+
+  async function handleBeyondAtcHostChange(host: string): Promise<void> {
+    const next = { ...beyondAtc, host }
+    setBeyondAtc(next)
+    await window.winglog.settingsSetBeyondAtc(next)
   }
 
   async function handleSaveSimbriefUsername(event: React.FormEvent): Promise<void> {
@@ -457,69 +441,19 @@ export function SettingsView(props: {
               <CardTitle>{t('settingsView.units.cardTitle')}</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <SegmentedRow
-                label={t('settingsView.units.weights')}
-                value={props.weightUnit}
-                options={[
-                  { value: 'kg', label: 'kg' },
-                  { value: 'lb', label: 'lb' }
-                ]}
-                onChange={props.onWeightUnitChange}
-              />
-              {/* No popover here, unlike the rows below — "Hybrid" isn't a self-explanatory
-               *  option the way Feet/Meters are, so its explanation is what the option
-               *  *means*, not a supplementary caveat. Hiding it behind a click was a
-               *  regression (Callum, 2026-09-23), not a decluttering win. */}
-              <div className="flex flex-col gap-1.5">
-                <SegmentedRow
-                  label={t('settingsView.units.ofpAltitudes')}
-                  value={props.altitudeUnit}
-                  options={[
-                    { value: 'ft', label: t('settingsView.units.feet') },
-                    { value: 'm', label: t('settingsView.units.meters') },
-                    { value: 'hybrid', label: t('settingsView.units.hybrid') }
-                  ]}
-                  onChange={props.onAltitudeUnitChange}
-                />
-                <p className="text-xs text-muted-foreground">{t('settingsView.units.hybridHint')}</p>
-              </div>
-              <SegmentedRow
-                label={t('settingsView.units.appLanguage')}
-                value={props.appLanguage}
-                options={APP_LANGUAGE_OPTIONS}
-                onChange={props.onAppLanguageChange}
-                hint={t('settingsView.units.appLanguageHint')}
-                hintAriaLabel={t('settingsView.units.moreInfoFor', { label: t('settingsView.units.appLanguage') })}
-              />
-              <SegmentedRow
-                label={t('settingsView.units.mapLanguage')}
-                value={props.mapLanguage}
-                options={MAP_LANGUAGES}
-                onChange={props.onMapLanguageChange}
-                hint={t('settingsView.units.mapLanguageHint')}
-                hintAriaLabel={t('settingsView.units.moreInfoFor', { label: t('settingsView.units.mapLanguage') })}
-              />
-              <SegmentedRow
-                label={t('settingsView.units.metarWindSpeed')}
-                value={props.windSpeedUnit}
-                options={[
-                  { value: 'kt', label: t('settingsView.units.knots') },
-                  { value: 'mps', label: 'm/s' }
-                ]}
-                onChange={props.onWindSpeedUnitChange}
-                hint={t('settingsView.units.metarWindSpeedHint')}
-                hintAriaLabel={t('settingsView.units.moreInfoFor', { label: t('settingsView.units.metarWindSpeed') })}
-              />
-              <SegmentedRow
-                label={t('settingsView.units.landingDistances')}
-                value={props.landingDistanceUnit}
-                options={[
-                  { value: 'ft', label: t('settingsView.units.feet') },
-                  { value: 'm', label: t('settingsView.units.meters') }
-                ]}
-                onChange={props.onLandingDistanceUnitChange}
-                hint={t('settingsView.units.landingDistancesHint')}
-                hintAriaLabel={t('settingsView.units.moreInfoFor', { label: t('settingsView.units.landingDistances') })}
+              <UnitsFields
+                weightUnit={props.weightUnit}
+                onWeightUnitChange={props.onWeightUnitChange}
+                altitudeUnit={props.altitudeUnit}
+                onAltitudeUnitChange={props.onAltitudeUnitChange}
+                windSpeedUnit={props.windSpeedUnit}
+                onWindSpeedUnitChange={props.onWindSpeedUnitChange}
+                landingDistanceUnit={props.landingDistanceUnit}
+                onLandingDistanceUnitChange={props.onLandingDistanceUnitChange}
+                mapLanguage={props.mapLanguage}
+                onMapLanguageChange={props.onMapLanguageChange}
+                appLanguage={props.appLanguage}
+                onAppLanguageChange={props.onAppLanguageChange}
               />
             </CardContent>
           </Card>
@@ -539,6 +473,16 @@ export function SettingsView(props: {
                 ]}
                 onChange={props.onThemeChange}
               />
+            </CardContent>
+          </Card>
+
+          <Card className="max-w-2xl">
+            <CardHeader>
+              <CardTitle>{t('settingsView.tracking.cardTitle')}</CardTitle>
+              <CardDescription>{t('settingsView.tracking.description', trackingLabels(t))}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <TrackingFields />
             </CardContent>
           </Card>
         </TabsContent>
@@ -710,6 +654,46 @@ export function SettingsView(props: {
                 <p className="text-xs text-muted-foreground">{t('settingsView.gsxRemote.portHint')}</p>
               </CardContent>
             </Card>
+
+            <Card className="max-w-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between gap-2">
+                  {t('settingsView.beyondAtc.cardTitle')}
+                  {beyondAtc.enabled && (
+                    <Badge variant={beyondAtcStatus.state === 'connected' ? 'default' : beyondAtcStatus.state === 'connecting' ? 'secondary' : 'outline'}>
+                      {beyondAtcStatus.state === 'connected'
+                        ? t('settingsView.beyondAtc.statusConnected')
+                        : beyondAtcStatus.state === 'connecting'
+                          ? t('settingsView.beyondAtc.statusConnecting')
+                          : t('settingsView.beyondAtc.statusDisconnected')}
+                    </Badge>
+                  )}
+                </CardTitle>
+                <CardDescription>{t('settingsView.beyondAtc.description')}</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-foreground">{t('settingsView.beyondAtc.enabled')}</span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={beyondAtc.enabled ? 'default' : 'outline'}
+                    onClick={() => handleBeyondAtcToggle(!beyondAtc.enabled)}
+                  >
+                    {beyondAtc.enabled ? t('settingsView.beyondAtc.on') : t('settingsView.beyondAtc.off')}
+                  </Button>
+                </div>
+                <Label className="flex flex-col items-start gap-1.5">
+                  {t('settingsView.beyondAtc.host')}
+                  <Input
+                    type="text"
+                    value={beyondAtc.host}
+                    onChange={(e) => handleBeyondAtcHostChange(e.target.value)}
+                  />
+                </Label>
+                <p className="text-xs text-muted-foreground">{t('settingsView.beyondAtc.hostHint')}</p>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
 
@@ -865,13 +849,14 @@ export function SettingsView(props: {
           </div>
         </TabsContent>
 
-        <TabsContent value="about" className="min-w-0">
+        <TabsContent value="about" className="flex min-w-0 flex-col gap-4">
           <Card className="max-w-2xl">
             <CardHeader>
               <CardTitle>WingLog{appVersion ? ` v${appVersion}` : ''}</CardTitle>
               <CardDescription>{t('settingsView.about.description')}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
+              <p className="text-sm font-medium text-foreground">{t('settingsView.about.simulationOnly')}</p>
               <p className="text-sm text-foreground">{t('settingsView.about.disclaimer')}</p>
               <p className="text-xs text-muted-foreground">
                 {t('settingsView.about.license')}{' '}
@@ -883,8 +868,26 @@ export function SettingsView(props: {
                   github.com/Catalyst4K/WingLog
                 </button>
               </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    if (!(await window.winglog.appOpenManual())) toast.error(t('settingsView.about.manualMissing'))
+                  }}
+                >
+                  {t('settingsView.about.openManual')}
+                </Button>
+                {props.onRunSetup && (
+                  <Button type="button" variant="outline" size="sm" onClick={props.onRunSetup}>
+                    {t('settingsView.about.runSetup')}
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
+          <UpdatesCard />
         </TabsContent>
       </Tabs>
     </div>

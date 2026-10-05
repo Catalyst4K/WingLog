@@ -5,6 +5,8 @@ node_modules/
 dist/
 dist-electron/
 out/
+out-manual/
+docs/manual/.manual.html
 release/
 
 # Local database — never commit real flight data

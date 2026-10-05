@@ -26,6 +26,7 @@
     "vitest.config.ts",
     "vitest.setup.renderer.ts",
     "playwright.config.ts",
+    "playwright.screenshots.config.ts",
     "src/main/**/*",
     "src/preload/**/*",
     "src/shared/**/*",

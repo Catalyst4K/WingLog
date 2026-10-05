@@ -20,15 +20,18 @@ import {
   getActiveFlight,
   getFleetStats,
   getFlight,
+  getLiveFlight,
   getInProgressFlight,
   getLogbookStats,
   linkAircraftToFlight,
   listCompletedFlights,
   listFlights,
   listFlightsByAircraft,
+  listLastParkedByAircraft,
   recordOff,
   recordOn,
   setArrIcao,
+  setParkedStand,
   setSelectedProcedures,
   startFlight
 } from './flight-repo'
@@ -589,6 +592,27 @@ describe('flight repo', () => {
       expect(completed.every((f) => f.status === 'completed')).toBe(true)
     })
 
+    it('leaves the OFP text out of the list, with hasOfp in its place (2026-10-01: ~16 MB per Logbook open)', () => {
+      const withOfp = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'EGCC', ofpJson: '{"big":"ofp"}' })
+      startFlight(db, withOfp.id, 10000)
+      completeFlight(db, withOfp.id, 9500)
+      flyAndComplete(aircraftId, 'EGPH', 45, 700) // no OFP
+
+      const completed = listCompletedFlights(db)
+      expect(completed.every((f) => !('ofpJson' in f))).toBe(true)
+      expect(completed.find((f) => f.id === withOfp.id)?.hasOfp).toBe(true)
+      expect(completed.find((f) => f.arrIcao === 'EGPH')?.hasOfp).toBe(false)
+      // The full flight, OFP included, is still there for the detail view.
+      expect(getLiveFlight(db, withOfp.id)?.ofpJson).toBe('{"big":"ofp"}')
+    })
+
+    it('getLiveFlight never returns a deleted flight', () => {
+      const created = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'EGCC' })
+      deleteFlight(db, created.id)
+      expect(getFlight(db, created.id)).toBeDefined() // internal lookup still finds the tombstone
+      expect(getLiveFlight(db, created.id)).toBeUndefined()
+    })
+
     it('returns no fleet stats when nothing has completed', () => {
       const created = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' })
       startFlight(db, created.id, 10000) // active, not completed
@@ -693,6 +717,38 @@ describe('flight repo', () => {
         (greatCircleDistanceNm('EGLL', 'EGCC') ?? 0) + (greatCircleDistanceNm('EGLL', 'EGPH') ?? 0)
       expect(stats.totalNm).toBeCloseTo(expectedNm)
       expect(stats.totalNm).toBeGreaterThan(0)
+    })
+  })
+
+  describe('parked stand (stand-positions.md)', () => {
+    function completed(dep: string, arr: string, inUtc: string): number {
+      const f = createFlight(db, { aircraftId, depIcao: dep, arrIcao: arr })
+      startFlight(db, f.id, 10000)
+      completeFlight(db, f.id, 4000)
+      db.update(flightTable).set({ actualInUtc: inUtc }).where(eq(flightTable.id, f.id)).run()
+      return f.id
+    }
+
+    it("gives each aircraft its latest flight's stand, skipping deleted flights and flights with none", () => {
+      const older = completed('YBBN', 'VHHH', '2026-10-02T08:00:00Z')
+      setParkedStand(db, older, 'VHHH', 'N32')
+      const newer = completed('VHHH', 'YBBN', '2026-10-03T08:00:00Z')
+      setParkedStand(db, newer, 'YBBN', '79')
+      completed('YBBN', 'YSSY', '2026-10-04T08:00:00Z') // no stand found for this one
+
+      expect(listLastParkedByAircraft(db)).toEqual([{ aircraftId, icao: 'YBBN', stand: '79' }])
+
+      deleteFlight(db, newer)
+      expect(listLastParkedByAircraft(db)).toEqual([{ aircraftId, icao: 'VHHH', stand: 'N32' }])
+    })
+
+    it('bumps updatedAt so the stand syncs', () => {
+      const id = completed('YBBN', 'VHHH', '2026-10-02T08:00:00Z')
+      db.update(flightTable).set({ updatedAt: '2000-01-01T00:00:00.000Z' }).where(eq(flightTable.id, id)).run()
+      setParkedStand(db, id, 'VHHH', 'N32')
+      const row = db.select().from(flightTable).where(eq(flightTable.id, id)).get()!
+      expect(row).toMatchObject({ parkedStandIcao: 'VHHH', parkedStand: 'N32' })
+      expect(row.updatedAt! > '2000-01-01').toBe(true)
     })
   })
 })

@@ -9,15 +9,19 @@ import {
 } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
-import { Locate, LocateFixed, Radar, ZoomIn, ZoomOut } from 'lucide-react'
+import { Locate, LocateFixed, Radar, Waypoints, ZoomIn, ZoomOut } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { FlightPhase, MapLanguage, SimTelemetry, TrackPoint } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { displayAltitude } from './display-altitude'
 import { planStyleChanges, type StyleLayerLike } from './map-labels'
 import { mapInteraction } from './mapInteraction'
 import type { TransitionAltitudes, Waypoint } from './route'
+import { followBand, zoomForBand, type FollowBand } from './followZoom'
 import { filterVisibleTrackPoints } from './trackPointVisibility'
+import { useTaxiChartOverlay } from './useTaxiChartOverlay'
+import { useTaxiRouteHighlight } from './useTaxiRouteHighlight'
 import { useVfrOverlay } from './useVfrOverlay'
 import { msToKt } from './units'
 
@@ -99,9 +103,12 @@ const TRAIL_SOURCE_ID = 'breadcrumb-trail'
 // one continuous line.
 const TRAIL_TIP_SOURCE_ID = 'breadcrumb-trail-tip'
 const WAYPOINT_SOURCE_ID = 'planned-waypoints'
-// Regional view — wide enough that the aircraft doesn't outrun the viewport between
-// track points (zoom 13 was street-level, well under a minute of flight across it).
-const FOLLOW_ZOOM = 11
+// fitBoundsTo's zoom for a single coordinate (nothing to fit a box around). Following the
+// aircraft uses followZoom.ts's ground/altitude bands instead.
+const SINGLE_POINT_ZOOM = 12
+// How long Track's map may stay hidden waiting to frame the aircraft before it's shown
+// anyway (see `framed` below).
+const FRAME_REVEAL_FALLBACK_MS = 1500
 
 // Camera persistence across remounts (docs/plans/map-improvements.md, "cause B") —
 // Track's live map is unmounted/remounted every time the user navigates away and back
@@ -113,6 +120,22 @@ const FOLLOW_ZOOM = 11
 // every mount via fitBoundsTo, so it has nothing worth persisting or restoring). In-
 // session only, per Callum's own framing of the complaint — not persisted to app_setting.
 let liveCameraState: { center: [number, number]; zoom: number } | null = null
+// Which planned route liveCameraState was framed for. Returning to Track used to re-fit the
+// route on every mount, which (via moveend) overwrote liveCameraState before follow mode
+// could restore it — the "map resets to the route every tab switch" report (Callum,
+// 2026-09-30). The route is only re-fitted when it genuinely changes.
+let liveCameraRouteKey: string | null = null
+// "Center on aircraft" survives a tab switch too, instead of switching itself back on.
+let rememberedFollowEnabled = true
+// Whether liveCameraState's zoom is one the user chose (wheel, pinch, the zoom buttons), not
+// one the map picked itself. Only a chosen zoom is kept when follow mode frames the aircraft —
+// otherwise a route-overview zoom got remembered and the aircraft was shown from far out
+// every time, never at FOLLOW_ZOOM_GROUND (Callum, 2026-10-02).
+let liveZoomChosenByUser = false
+
+function routeKey(route: [number, number][]): string {
+  return route.length === 0 ? '' : `${route.length}:${route[0]!.join(',')}:${route[route.length - 1]!.join(',')}`
+}
 
 interface LineStringFeature {
   type: 'Feature'
@@ -201,7 +224,7 @@ function fitBoundsTo(map: MapLibreMap, coords: [number, number][]): void {
     const bounds = coords.reduce((b, coord) => b.extend(coord), new LngLatBounds(coords[0], coords[0]))
     map.fitBounds(bounds, { padding: 40, duration: 0 })
   } else if (coords.length === 1) {
-    map.jumpTo({ center: coords[0], zoom: FOLLOW_ZOOM })
+    map.jumpTo({ center: coords[0], zoom: SINGLE_POINT_ZOOM })
   }
 }
 
@@ -238,6 +261,16 @@ export interface FlightMapProps {
   /** Language of the base map's place names (Settings → UI → Map language). Defaults to
    *  English. Applied to the hosted style's own labels — see map-labels.ts. */
   mapLanguage?: MapLanguage
+  /** Departure/arrival ICAOs, for the taxi chart overlay (flightdeck-backend's docs/plans/
+   *  taxi-network-overlay.md) — null/omitted when unknown (e.g. a free flight). Available in
+   *  both live and replay, unlike the VFR overlay, since it's static reference data with no
+   *  "now" to depend on. */
+  depIcao?: string | null
+  arrIcao?: string | null
+  /** Live only: the active flight's recorded track is still loading. The route isn't framed
+   *  meanwhile — with follow on, the aircraft is about to be, and framing the route first
+   *  flashed it before jumping to the aircraft on every visit to Track (Callum, 2026-10-02). */
+  trackLoading?: boolean
 }
 
 // Stable reference for the default so the route/waypoint effect below doesn't re-fire on
@@ -250,10 +283,13 @@ export function FlightMap({
   trackPoints: rawTrackPoints,
   live,
   telemetry,
-  telemetryPhase = 'cruise',
+  telemetryPhase: activePhase,
   telemetryTransition = null,
   routeIsApproximate = false,
-  mapLanguage = 'en'
+  mapLanguage = 'en',
+  depIcao = null,
+  arrIcao = null,
+  trackLoading = false
 }: FlightMapProps): React.JSX.Element {
   const { t } = useTranslation()
   const mapContainerRef = useRef<HTMLDivElement>(null)
@@ -263,6 +299,10 @@ export function FlightMap({
   // point in one batch (trackPointList), so length would jump straight past 1.
   const hasCenteredRef = useRef(false)
   const [mapReady, setMapReady] = useState(false)
+  // Track's map stays invisible until it has framed the aircraft, so coming back to Track
+  // doesn't show the remembered (by now stale) view and then jump to where the aircraft is
+  // now (Callum, 2026-10-02: "a second of stutter / tiny jump around as it loads").
+  const [framed, setFramed] = useState(false)
   // Read by the 'style.load' handler, which is registered once at map creation — a ref so
   // it always sees the current language rather than the one from the first render.
   const mapLanguageRef = useRef(mapLanguage)
@@ -276,7 +316,14 @@ export function FlightMap({
   // (live mode only) — a user panning around to look at something shouldn't keep
   // getting yanked back. Defaults on, matching the always-follow behavior before this
   // was made toggleable.
-  const [followEnabled, setFollowEnabled] = useState(true)
+  const [followEnabled, setFollowEnabled] = useState(() => (live ? rememberedFollowEnabled : true))
+  useEffect(() => {
+    if (live) rememberedFollowEnabled = followEnabled
+  }, [live, followEnabled])
+  // Read (not depended on) by the route-fit effect below, so a new track point never
+  // re-runs the fit.
+  const followingAircraftRef = useRef(false)
+  followingAircraftRef.current = followEnabled && trackPoints.length > 0
 
   // Map setup — once. Data is pushed in via separate effects below as it changes. Gated on
   // ensureWorkerReady() so the worker's blob: URL is registered (setWorkerUrl) before
@@ -351,6 +398,10 @@ export function FlightMap({
       if (live) {
         map.on('moveend', () => {
           liveCameraState = { center: map.getCenter().toArray() as [number, number], zoom: map.getZoom() }
+        })
+        // originalEvent is only set for a zoom the user made (wheel, pinch, double-click).
+        map.on('zoomend', (e) => {
+          if (e.originalEvent) liveZoomChosenByUser = true
         })
       }
 
@@ -492,8 +543,19 @@ export function FlightMap({
       })
     })
 
+    // A safety net: never leave the map hidden if the aircraft can't be framed for some
+    // reason (no idle event, a slow track load).
+    const revealTimer = setTimeout(() => setFramed(true), FRAME_REVEAL_FALLBACK_MS)
+
     return () => {
       cancelled = true
+      clearTimeout(revealTimer)
+      // Leaving Track mid-pan (follow mode is nearly always partway through an easeTo in the
+      // air) would otherwise leave liveCameraState at the last *finished* move, seconds
+      // behind. Only once the map has framed something real, never the constructor default.
+      if (live && mapRef.current && hasCenteredRef.current) {
+        liveCameraState = { center: mapRef.current.getCenter().toArray() as [number, number], zoom: mapRef.current.getZoom() }
+      }
       mapRef.current?.remove()
       mapRef.current = null
       markerRef.current = null
@@ -514,8 +576,15 @@ export function FlightMap({
     routeSource?.setData(lineString(route))
     const waypointSource = mapRef.current.getSource<GeoJSONSource>(WAYPOINT_SOURCE_ID)
     waypointSource?.setData(waypointFeatures(waypoints))
-    if (live) fitBoundsTo(mapRef.current, route)
-  }, [mapReady, route, waypoints, live])
+    if (!live || trackLoading) return
+    // Same route as the remembered camera was framed for: keep the user's own view.
+    const key = routeKey(route)
+    if (liveCameraState && liveCameraRouteKey === key) return
+    liveCameraRouteKey = key
+    // Following an aircraft: the follow effect frames it instead — fitting the whole route
+    // first would just be overwritten (and flash) a moment later.
+    if (!followingAircraftRef.current) fitBoundsTo(mapRef.current, route)
+  }, [mapReady, route, waypoints, live, trackLoading])
 
   // A language change while the map is open (only possible from a remount today, since
   // Settings is its own tab, but cheap to keep correct) re-applies to the loaded style.
@@ -603,12 +672,14 @@ export function FlightMap({
       markerRef.current.setLngLat([to.longitude, to.latitude])
       markerRef.current.setRotation(to.headingTrueDeg)
       if (followEnabled) {
-        // A remount already restored the user's last zoom via the constructor above
-        // (liveCameraState) — only force FOLLOW_ZOOM on a genuinely fresh session (no
-        // prior state to restore), so coming back to Track doesn't re-clobber a zoom
-        // level the user had deliberately set.
-        if (liveCameraState) mapRef.current.jumpTo({ center: [to.longitude, to.latitude] })
-        else mapRef.current.jumpTo({ center: [to.longitude, to.latitude], zoom: FOLLOW_ZOOM })
+        // A remount already restored the last camera via the constructor above
+        // (liveCameraState) — its zoom is kept only if the user chose it, so coming back to
+        // Track doesn't re-clobber a zoom they set, but a zoom the map picked itself (e.g. a
+        // route overview) never stands in for the ground/altitude follow zoom.
+        if (liveCameraState && liveZoomChosenByUser) mapRef.current.jumpTo({ center: [to.longitude, to.latitude] })
+        else mapRef.current.jumpTo({ center: [to.longitude, to.latitude], zoom: zoomForBand(followBand(to, null)) })
+        // Show the map once the tiles at the aircraft are drawn, not before.
+        mapRef.current.once('idle', () => setFramed(true))
       }
       return
     }
@@ -660,6 +731,22 @@ export function FlightMap({
 
     return () => cancelAnimationFrame(frame)
   }, [mapReady, trackPoints, live, followEnabled])
+
+  // Takeoff, touchdown and altitude bands, while following: step the zoom out for the climb
+  // and back in for the descent and taxi (Callum, 2026-09-30; by altitude 2026-10-02) — once
+  // per band change, so a zoom the user sets in between is left alone until the next one.
+  const lastPoint = trackPoints.length > 0 ? trackPoints[trackPoints.length - 1]! : null
+  const followBandRef = useRef<FollowBand | null>(null)
+  useEffect(() => {
+    const previous = followBandRef.current
+    const next = lastPoint ? followBand(lastPoint, previous) : null
+    followBandRef.current = next
+    if (!mapReady || !mapRef.current || !live || !followEnabled) return
+    if (previous === null || next === null || previous === next) return
+    mapRef.current.easeTo({ zoom: zoomForBand(next), duration: 1000 })
+    // Only on a band change itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastPoint])
 
   // Re-center immediately when follow is switched back on, rather than waiting for the
   // next track point to arrive.
@@ -726,13 +813,32 @@ export function FlightMap({
     routeLayerId: ROUTE_SOURCE_ID
   })
 
+  const taxiChart = useTaxiChartOverlay({ mapRef, mapReady, depIcao, arrIcao })
+  useTaxiRouteHighlight({
+    mapRef,
+    mapReady,
+    enabled: taxiChart.enabled,
+    segmentsByIcao: taxiChart.segmentsByIcao,
+    depIcao,
+    arrIcao,
+    position: telemetry ? { lat: telemetry.latitude, lon: telemetry.longitude } : null,
+    phase: activePhase ?? null
+  })
+
   const mapControlButtonClassName = 'bg-popover/85 backdrop-blur-sm hover:bg-popover'
+  // Hidden only while Track is about to frame an aircraft it's following; everything else
+  // (Logbook, follow off, no flight to follow) shows straight away.
+  const mapVisible = !live || framed || !followEnabled || (!trackLoading && trackPoints.length === 0)
 
   return (
     <div className="relative h-full">
       <div
         ref={mapContainerRef}
-        className="h-full min-h-64 w-full overflow-hidden rounded-xl border border-border"
+        data-framed={mapVisible}
+        className={cn(
+          'h-full min-h-64 w-full overflow-hidden rounded-xl border border-border transition-opacity duration-150',
+          !mapVisible && 'opacity-0'
+        )}
       />
       <div className="absolute top-3 right-3 flex flex-col gap-1.5">
         {live && (
@@ -770,12 +876,27 @@ export function FlightMap({
         )}
         <Button
           type="button"
+          variant={taxiChart.enabled ? 'default' : 'outline'}
+          size="icon-sm"
+          className={taxiChart.enabled ? undefined : mapControlButtonClassName}
+          aria-label={taxiChart.enabled ? t('flightMap.hideTaxiChart') : t('flightMap.showTaxiChart')}
+          title={taxiChart.enabled ? t('flightMap.hideTaxiChart') : t('flightMap.showTaxiChartTitle')}
+          aria-pressed={taxiChart.enabled}
+          onClick={taxiChart.toggle}
+        >
+          <Waypoints />
+        </Button>
+        <Button
+          type="button"
           variant="outline"
           size="icon-sm"
           className={mapControlButtonClassName}
           aria-label={t('flightMap.zoomIn')}
           title={t('flightMap.zoomIn')}
-          onClick={() => mapRef.current?.zoomIn()}
+          onClick={() => {
+            liveZoomChosenByUser = true
+            mapRef.current?.zoomIn()
+          }}
         >
           <ZoomIn />
         </Button>
@@ -786,7 +907,10 @@ export function FlightMap({
           className={mapControlButtonClassName}
           aria-label={t('flightMap.zoomOut')}
           title={t('flightMap.zoomOut')}
-          onClick={() => mapRef.current?.zoomOut()}
+          onClick={() => {
+            liveZoomChosenByUser = true
+            mapRef.current?.zoomOut()
+          }}
         >
           <ZoomOut />
         </Button>
@@ -801,7 +925,7 @@ export function FlightMap({
                   {
                     altitudeM: telemetry.altitudeM,
                     pressureAltitudeM: telemetry.pressureAltitudeM,
-                    phase: telemetryPhase
+                    phase: activePhase ?? 'cruise'
                   },
                   telemetryTransition
                 ).valueFt
@@ -816,6 +940,14 @@ export function FlightMap({
           aria-label={t('flightMap.nearestAirfield')}
         >
           {t('flightMap.nearest')} {vfr.nearestText}
+        </div>
+      )}
+      {taxiChart.enabled && taxiChart.loadingIcao && (
+        <div
+          className="absolute right-3 bottom-3 rounded-full border border-border bg-popover/85 px-3 py-1 font-mono text-xs text-popover-foreground backdrop-blur-sm"
+          aria-label={t('flightMap.loadingTaxiChart', { icao: taxiChart.loadingIcao })}
+        >
+          {t('flightMap.loadingTaxiChart', { icao: taxiChart.loadingIcao })}
         </div>
       )}
       {routeIsApproximate && (

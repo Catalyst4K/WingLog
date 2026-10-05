@@ -13,6 +13,8 @@ import type {
 } from '@shared/ipc'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useAtcAssignedStand } from './useAtcAssignedStand'
+import { useLiveClient, useLiveTopic } from './live/LiveClient'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -28,6 +30,8 @@ import {
 
 const EMPTY_MENU: GsxRemoteMenuState = {
   menuShown: false,
+  searchActive: false,
+  searchSession: 0,
   title: '',
   header: '',
   subtitle: '',
@@ -42,6 +46,7 @@ const EMPTY_COMMAND_BAR: GsxRemoteCommandBar = { commands: [], simbrief: null, s
 // GSX's own client text (menu.js), kept verbatim — same convention as gsxMenu.title/entries
 // elsewhere in this feature: it's GSX's own product text, not ours to translate.
 const RELOAD_SIMBRIEF_LABEL = 'Reload SimBrief'
+const SEARCH_PARKING_PLACEHOLDER = 'Search parking...'
 const SIMBRIEF_SUB_TEXT: Record<string, string> = {
   loading: 'Downloading...',
   loaded: 'Plan loaded',
@@ -218,26 +223,74 @@ function CommandBar(props: {
  * without a special case. Only shown while `menuShown` is true, exactly like GSX's own
  * client's own gate — entries can be stale/leftover while the menu itself is closed.
  */
-function MenuEntries(props: { menu: GsxRemoteMenuState; onPick: (index: number) => void }): React.JSX.Element | null {
-  if (!props.menu.menuShown || props.menu.entries.length === 0) return null
+function MenuEntries(props: {
+  menu: GsxRemoteMenuState
+  onPick: (index: number) => void
+  onSearch: (text: string) => void
+  /** The stand BeyondATC assigned, offered in the gate search (useAtcAssignedStand). */
+  atcStand: string | null
+}): React.JSX.Element | null {
+  if (!props.menu.menuShown) return null
+  // GSX pads the gate-search list to a fixed page with empty strings — skipped here, as
+  // GSX's own menu.js does, but each real entry keeps its original index for `menu.pick`.
+  const entries = props.menu.entries.map((entry, index) => ({ entry, index })).filter(({ entry }) => entry !== '')
+  if (entries.length === 0 && !props.menu.searchActive) return null
   return (
-    <div className="grid grid-cols-3 gap-1.5">
-      {props.menu.entries.map((entry, index) => (
-        <Button
-          key={`${index}-${entry}`}
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={props.menu.disabled[index] === true}
-          className="h-auto min-h-9 whitespace-normal py-1.5 text-xs"
-          onClick={() => props.onPick(index)}
-        >
-          {props.menu.icons[index] ? (
-            <img src={props.menu.icons[index]} alt="" className="size-4 shrink-0" />
-          ) : null}
-          {entry}
+    <div className="flex flex-col gap-1.5">
+      {props.menu.searchActive && (
+        // Keyed by session so a fresh search starts with an empty box, not the last query.
+        <GateSearchBox key={props.menu.searchSession} onSearch={props.onSearch} atcStand={props.atcStand} />
+      )}
+      <div className="grid grid-cols-3 gap-1.5">
+        {entries.map(({ entry, index }) => (
+          <Button
+            key={`${index}-${entry}`}
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={props.menu.disabled[index] === true}
+            className="h-auto min-h-9 whitespace-normal py-1.5 text-xs"
+            onClick={() => props.onPick(index)}
+          >
+            {props.menu.icons[index] ? <img src={props.menu.icons[index]} alt="" className="size-4 shrink-0" /> : null}
+            {entry}
+          </Button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * GSX's live gate-search box, shown while `state.search.active` (the menu GSX opens after
+ * "Search parking..." is picked). Mirrors `menu.js`'s own `buildSearchBox()` exactly: every
+ * keystroke sends the box's *whole* current text as `menu.search`, and GSX re-filters the
+ * menu entries itself — no local filtering or debouncing (docs/gsx-notes.md, round 11).
+ */
+function GateSearchBox(props: { onSearch: (text: string) => void; atcStand: string | null }): React.JSX.Element {
+  const { t } = useTranslation()
+  const [text, setText] = useState('')
+  const search = (value: string): void => {
+    setText(value)
+    props.onSearch(value)
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <Input
+        type="search"
+        value={text}
+        placeholder={SEARCH_PARKING_PLACEHOLDER}
+        aria-label={SEARCH_PARKING_PLACEHOLDER}
+        autoFocus
+        onChange={(e) => search(e.target.value)}
+      />
+      {/* One click, never automatic (Callum, 2026-10-02): BeyondATC's own stand, for when its
+       *  handoff to GSX didn't happen. */}
+      {props.atcStand && (
+        <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => search(props.atcStand!)}>
+          {t('gsxRemotePanel.atcStand', { stand: props.atcStand })}
         </Button>
-      ))}
+      )}
     </div>
   )
 }
@@ -370,43 +423,30 @@ function PromptModal(props: {
   )
 }
 
+// Stable initial values for useLiveTopic (a fresh literal each render would be harmless,
+// but these read better as named defaults).
+const DISCONNECTED: GsxRemoteConnectionStatus = { state: 'disconnected', lastError: null }
+const NO_SERVICES: GsxRemoteServiceStatus[] = []
+
 export function GsxRemotePanel(): React.JSX.Element {
   const { t } = useTranslation()
   const [settings, setSettings] = useState<GsxRemoteSettings | null>(null)
-  const [status, setStatus] = useState<GsxRemoteConnectionStatus>({ state: 'disconnected', lastError: null })
-  const [services, setServices] = useState<GsxRemoteServiceStatus[]>([])
-  const [gate, setGate] = useState<GsxRemoteGateInfo | null>(null)
-  const [menu, setMenu] = useState<GsxRemoteMenuState>(EMPTY_MENU)
-  const [prompt, setPrompt] = useState<GsxRemotePromptState | null>(null)
-  const [commandBar, setCommandBar] = useState<GsxRemoteCommandBar>(EMPTY_COMMAND_BAR)
+  // Live state through the LiveClient (live-data-seam.md, part C), each fetched on mount as
+  // well as followed — GSX only pushes services/menu/prompt on a *change*, so a panel
+  // mounting (or remounting, e.g. switching tabs and back) after GSX already sent its
+  // snapshot would otherwise show nothing until the next patch. Real gap found writing this
+  // feature's first Playwright test (flightdeck-backend's docs/plans/gsx-remote-control.md).
+  const live = useLiveClient()
+  const status = useLiveTopic('gsxRemoteStatus', DISCONNECTED)
+  const services = useLiveTopic('gsxRemoteServices', NO_SERVICES)
+  const gate = useLiveTopic('gsxRemoteGate', null)
+  const menu = useLiveTopic('gsxRemoteMenu', EMPTY_MENU)
+  const prompt = useLiveTopic('gsxRemotePrompt', null)
+  const commandBar = useLiveTopic('gsxRemoteCommandBar', EMPTY_COMMAND_BAR)
+  const atcStand = useAtcAssignedStand()
 
   useEffect(() => {
     window.winglog.settingsGetGsxRemote().then(setSettings)
-    window.winglog.gsxRemoteGetStatus().then(setStatus)
-    // Current-value fetches on mount, not just the live subscriptions below — GSX only
-    // pushes services/menu/prompt on a *change*, so a panel mounting (or remounting, e.g.
-    // switching tabs and back) after GSX already sent its snapshot would otherwise show
-    // nothing until the next patch. Real gap found writing this feature's first Playwright
-    // test (flightdeck-backend's docs/plans/gsx-remote-control.md).
-    window.winglog.gsxRemoteGetServices().then(setServices)
-    window.winglog.gsxRemoteGetGateInfo().then(setGate)
-    window.winglog.gsxRemoteGetMenu().then(setMenu)
-    window.winglog.gsxRemoteGetPrompt().then(setPrompt)
-    window.winglog.gsxRemoteGetCommandBar().then(setCommandBar)
-    const unsubscribeStatus = window.winglog.onGsxRemoteStatus(setStatus)
-    const unsubscribeServices = window.winglog.onGsxRemoteServices(setServices)
-    const unsubscribeGate = window.winglog.onGsxRemoteGate(setGate)
-    const unsubscribeMenu = window.winglog.onGsxRemoteMenu(setMenu)
-    const unsubscribePrompt = window.winglog.onGsxRemotePrompt(setPrompt)
-    const unsubscribeCommandBar = window.winglog.onGsxRemoteCommandBar(setCommandBar)
-    return () => {
-      unsubscribeStatus()
-      unsubscribeServices()
-      unsubscribeGate()
-      unsubscribeMenu()
-      unsubscribePrompt()
-      unsubscribeCommandBar()
-    }
   }, [])
 
   if (settings === null) return <p className="text-xs text-muted-foreground">{t('gsxRemotePanel.loading')}</p>
@@ -425,14 +465,19 @@ export function GsxRemotePanel(): React.JSX.Element {
       {prompt && (
         <PromptModal
           prompt={prompt}
-          onSubmit={(text) => window.winglog.gsxRemoteSubmitPrompt(prompt.gen, text)}
-          onCancel={() => window.winglog.gsxRemoteCancelPrompt(prompt.gen)}
+          onSubmit={(text) => live.command('gsx.submitPrompt', prompt.gen, text)}
+          onCancel={() => live.command('gsx.cancelPrompt', prompt.gen)}
         />
       )}
       <GateHeader gate={gate} />
-      <CommandBar commandBar={commandBar} onRun={(id) => window.winglog.gsxRemoteRunCommand(id)} />
-      <MenuHeader menu={menu} onToggle={() => window.winglog.gsxRemoteToggleMenu()} />
-      <MenuEntries menu={menu} onPick={(index) => window.winglog.gsxRemotePickMenu(index)} />
+      <CommandBar commandBar={commandBar} onRun={(id) => live.command('gsx.runCommand', id)} />
+      <MenuHeader menu={menu} onToggle={() => live.command('gsx.toggleMenu')} />
+      <MenuEntries
+        menu={menu}
+        onPick={(index) => live.command('gsx.pickMenu', index)}
+        onSearch={(text) => live.command('gsx.search', text)}
+        atcStand={atcStand}
+      />
       <ServicesList services={services} />
     </div>
   )
