@@ -11,7 +11,7 @@ import type {
 } from '@shared/ipc'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { BeyondAtcActions, BeyondAtcRadios } from './BeyondAtcControls'
-import { latestAtcInstruction, type AtcInstruction } from './beyondAtcInstruction'
+import { latestInstructionWithBoxes, type AtcInstruction } from './beyondAtcInstruction'
 import { useLiveClient, useLiveTopic } from './live/LiveClient'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -265,7 +265,7 @@ export function BeyondAtcPanel(): React.JSX.Element {
   const transcript = useLiveTopic('beyondAtcTranscript', NO_TRANSCRIPT)
   const stepClimb = useLiveTopic('beyondAtcStepClimb', STEP_CLIMB_OFF)
   const arrival = useLiveTopic('beyondAtcArrival', null)
-  const latestInstruction = useMemo(() => latestAtcInstruction(transcript), [transcript])
+  const latestInstruction = useMemo(() => latestInstructionWithBoxes(transcript, state), [transcript, state])
   // The action just pressed, until BeyondATC transmits it (Callum, 2026-10-02: a press
   // queued behind other traffic looked like it did nothing).
   const [pendingAction, setPendingAction] = useState<string | null>(null)

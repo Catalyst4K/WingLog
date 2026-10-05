@@ -1463,6 +1463,23 @@ describe('FlightMap', () => {
         await waitFor(() => expect(routeFilter(map)).toEqual(['all', ['in', ['get', 'name'], ['literal', ['B', 'D']]], ['==', ['get', 'icao'], 'EGLL']]))
       })
 
+      it('draws nothing from speech once BeyondATC sends boxes, then the route when its boxes arrive', async () => {
+        const { push, pushBoxes } = withTranscriptListener()
+        const user = userEvent.setup()
+        const { map } = await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB' })
+        await user.click(toggleButton())
+        await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
+        pushBoxes([{ title: 'ATIS Current', info: 'C' }])
+
+        push([{ speaker: 'atc', text: 'Test 230, taxi to holding point A1, runway 27R, via D, B, LINK.', ts: 1000 }])
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        expect(map.setLayoutProperty).not.toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
+
+        pushBoxes(taxiBoxes(['D', 'B', 'LINK'], { title: 'Hold Position', info: 'A1' }))
+        await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
+        expect(routeFilter(map)).toEqual(['all', ['in', ['get', 'name'], ['literal', ['D', 'B', 'LINK']]], ['==', ['get', 'icao'], 'EGKB']])
+      })
+
       it("doesn't take the same boxes again after the takeoff roll dropped the route", async () => {
         const { pushBoxes } = withTranscriptListener()
         const user = userEvent.setup()

@@ -77,7 +77,13 @@ function telemetry(overrides: Partial<SimTelemetry> = {}): SimTelemetry {
 }
 
 function setup(
-  opts: { phase?: ActiveTracking['phase']; outcomes?: AltitudeRequestOutcome[]; transcript?: BeyondAtcTranscriptEntry[]; ofp?: string } = {}
+  opts: {
+    phase?: ActiveTracking['phase']
+    outcomes?: AltitudeRequestOutcome[]
+    transcript?: BeyondAtcTranscriptEntry[]
+    ofp?: string
+    state?: () => BeyondAtcState
+  } = {}
 ) {
   let now = 1_000_000
   const outcomes = [...(opts.outcomes ?? ['granted'])]
@@ -87,7 +93,7 @@ function setup(
   }))
   const session = {
     getStatus: () => ({ state: 'connected' as const, lastError: null }),
-    getState: (): BeyondAtcState => EMPTY_BEYONDATC_STATE,
+    getState: (): BeyondAtcState => opts.state?.() ?? EMPTY_BEYONDATC_STATE,
     getTranscript: () => opts.transcript ?? [],
     setAction: vi.fn(),
     on: vi.fn(),
@@ -354,6 +360,34 @@ describe('StepClimbController', () => {
       '[step-climb] requesting 35000 ft (trigger simbrief, attempt 1)',
       '[step-climb] request 35000 ft: granted'
     ])
+  })
+
+  it("takes the cleared level from BeyondATC's InfoBoxes and keeps it once the box is replaced (2026-10-05)", () => {
+    let infoBoxes = [{ title: 'Climb', info: 'FL360' }]
+    // ATC's speech says FL330: with boxes in use, speech is ignored.
+    const transcript = [{ speaker: 'atc' as const, text: 'Test 250, climb FL330.', ts: 1 }]
+    const { controller, logs, statuses, advance } = setup({
+      transcript,
+      state: () => ({ ...EMPTY_BEYONDATC_STATE, infoBoxes, infoBoxesSeen: true })
+    })
+    controller.setEnabled(true)
+    controller.onTelemetry(telemetry())
+    expect(logs).toContain('[step-climb] cleared level 36000 ft (from InfoBoxes)')
+    // DENAK@35000 is below FL360, so the next step is KAMUD.
+    expect(statuses.at(-1)?.nextStep?.ident).toBe('KAMUD')
+
+    infoBoxes = [{ title: 'Center Frequency', info: '133.2' }]
+    advance(1_000)
+    controller.onTelemetry(telemetry())
+    expect(logs.filter((l) => l.includes('cleared level'))).toEqual(['[step-climb] cleared level 36000 ft (from InfoBoxes)'])
+  })
+
+  it("falls back to ATC's speech only when BeyondATC sends no InfoBoxes", () => {
+    const transcript = [{ speaker: 'atc' as const, text: 'Test 250, climb FL360.', ts: 1 }]
+    const { controller, logs } = setup({ transcript })
+    controller.setEnabled(true)
+    controller.onTelemetry(telemetry())
+    expect(logs).toContain('[step-climb] cleared level 36000 ft (from ATC speech)')
   })
 
   it('stays quiet outside cruise, and when the level is already cleared', () => {

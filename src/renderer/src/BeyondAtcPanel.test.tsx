@@ -24,6 +24,9 @@ function makeState(overrides: Partial<BeyondAtcState> = {}): BeyondAtcState {
     autoRespond: null,
     frequencies: [],
     infoBoxes: [],
+    infoBoxesAt: null,
+    infoBoxesSeen: false,
+    assignedGate: null,
     ...overrides
   }
 }
@@ -153,6 +156,39 @@ describe('BeyondAtcPanel', () => {
     expect(within(card).getByText('200° 7 kt')).toBeInTheDocument()
     // Only the most recent instruction — the earlier handoff isn't carried over.
     expect(within(card).queryByText('Hong Kong Tower 118.2')).not.toBeInTheDocument()
+  })
+
+  it("fills the card from BeyondATC's InfoBoxes, keeping the speech-only facts (VHHH, 2026-10-05)", async () => {
+    const transcript: BeyondAtcTranscriptEntry[] = [
+      {
+        speaker: 'atc',
+        text: 'Hongkong Shuttle 250, Hong Kong Delivery, cleared to Phoenix airport via the PECA3A departure, runway 07L, climb via SID to FL140, squawk 3711.',
+        ts: 10_000
+      }
+    ]
+    withWinglog({
+      beyondAtcGetTranscript: vi.fn().mockResolvedValue(transcript),
+      beyondAtcGetState: vi.fn().mockResolvedValue(
+        makeState({
+          infoBoxes: [
+            { title: 'Taxi to Runway', info: '07R' },
+            { title: 'SID', info: 'PECA3A' },
+            { title: 'Altitude Clearance', info: 'FL140' },
+            { title: 'Squawk', info: '3711' }
+          ],
+          infoBoxesAt: 10_200,
+          infoBoxesSeen: true
+        })
+      )
+    })
+    render(<BeyondAtcPanel />)
+
+    const card = (await screen.findByText('Latest instruction')).closest('[data-slot="card"]') as HTMLElement
+    // The box's runway, not the speech's.
+    expect(await within(card).findByText('07R')).toBeInTheDocument()
+    expect(within(card).queryByText('07L')).not.toBeInTheDocument()
+    expect(within(card).getByText('PECA3A')).toBeInTheDocument()
+    expect(within(card).getByText('Hong Kong Delivery')).toBeInTheDocument()
   })
 
   describe("ATC's arrival clearance in the latest-instruction header (flight 229, EGLL, 2026-10-05)", () => {

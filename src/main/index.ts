@@ -905,6 +905,7 @@ if (!gotSingleInstanceLock) {
         })
         beyondAtcService.on('state', (state) => {
           liveHub.publish('beyondAtcState', state)
+          arrivalClearance.onInfoBoxes(state.infoBoxes)
         })
         beyondAtcService.on('transcript', (transcript) => {
           liveHub.publish('beyondAtcTranscript', transcript)

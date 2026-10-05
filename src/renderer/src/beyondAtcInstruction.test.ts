@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { latestAtcInstruction, parseAtcInstruction } from './beyondAtcInstruction'
+import { instructionFromBoxes, latestAtcInstruction, latestInstructionWithBoxes, parseAtcInstruction } from './beyondAtcInstruction'
 
 // Every line below is real, verbatim ATC text from BeyondATC's Player.log (VHHH→KPHX and
 // WSSS→ZSPD sessions, 2026-09-28/30) or flightdeck-backend's docs/beyondatc-notes.md.
@@ -166,3 +166,97 @@ describe('latestAtcInstruction', () => {
     expect(latestAtcInstruction([{ speaker: 'player', text: 'Radio check.', ts: 1 }])).toBeNull()
   })
 })
+
+// Real box sets, VHHH-ZJSY flight 230, 2026-10-05 (main.log).
+const boxFields = (boxes: { title: string; info: string }[]): Record<string, string> =>
+  Object.fromEntries(instructionFromBoxes(boxes).fields.map((f) => [f.key, f.value]))
+
+describe('instructionFromBoxes', () => {
+  it('reads the departure clearance set with its frequency', () => {
+    expect(
+      boxFields([
+        { title: 'Taxi to Runway', info: '07R' },
+        { title: 'SID', info: 'PECA3A' },
+        { title: 'Altitude Clearance', info: 'FL140' },
+        { title: 'Squawk', info: '3711' },
+        { title: 'Ground Frequency', info: '122.6' }
+      ])
+    ).toEqual({ runway: '07R', sid: 'PECA3A', climb: 'FL140', squawk: '3711', contact: 'Ground 122.6' })
+  })
+
+  it('reads the taxi set: route, holding point, ATIS', () => {
+    expect(
+      boxFields([
+        { title: 'Taxi to Runway', info: '07R' },
+        ...['B', 'B', 'V', 'H', 'J'].map((info, i) => ({ title: `Taxi Via ${i + 1}`, info })),
+        { title: 'Hold Position', info: 'J1' },
+        { title: 'ATIS Current', info: 'R' }
+      ])
+    ).toEqual({ runway: '07R', holdingPoint: 'J1', atis: 'R', taxiVia: 'B, B, V, H, J' })
+  })
+
+  it('reads pushback, takeoff and landing as actions with their facts', () => {
+    expect(instructionFromBoxes([{ title: 'Pushback Direction', info: 'southwest' }])).toEqual({
+      actions: ['pushback'],
+      fields: [{ key: 'face', value: 'southwest' }]
+    })
+    expect(instructionFromBoxes([{ title: 'Cleared for Takeoff', info: '07R' }])).toEqual({ actions: ['takeoff'], fields: [{ key: 'runway', value: '07R' }] })
+    expect(instructionFromBoxes([{ title: 'Cleared for Landing', info: '08' }]).actions).toEqual(['land'])
+  })
+
+  it('reads levels in either unit and case, a bare frequency, QNH without its label', () => {
+    expect(boxFields([{ title: 'climb', info: 'FL180' }])).toEqual({ climb: 'FL180' })
+    expect(boxFields([{ title: 'Descend to', info: '3,000m' }, { title: 'QNH', info: 'QNH 1014' }])).toEqual({ descend: '3,000 m', qnh: '1014' })
+    expect(boxFields([{ title: ' Frequency', info: '123.8' }])).toEqual({ contact: '123.8' })
+  })
+
+  it('reads the arrival sets: STAR, approach, transition, gate', () => {
+    expect(boxFields([{ title: 'STAR', info: 'UPRS2C' }, { title: 'Arrival Runway', info: '08' }])).toEqual({ star: 'UPRS2C', runway: '08' })
+    expect(boxFields([{ title: 'Landing Runway', info: '08' }, { title: 'Transition', info: 'SY498' }])).toEqual({ runway: '08', transition: 'SY498' })
+    expect(boxFields([{ title: 'Cleared Approach', info: 'ILS-Z approach runway 08' }])).toEqual({ approach: 'ILS Z 08' })
+    expect(boxFields([{ title: 'Taxi to Gate', info: 'Gate 102' }, { title: 'Taxi Via 1', info: 'A4' }, { title: 'Taxi Via 2', info: 'D' }])).toEqual({
+      stand: '102',
+      taxiVia: 'A4, D'
+    })
+    expect(boxFields([{ title: 'Expect Gate', info: 'Gate 102' }])).toEqual({ stand: '102' })
+  })
+
+  it('ignores speeds and unknown boxes', () => {
+    expect(boxFields([{ title: 'Reduce Speed', info: '220' }, { title: 'CTAF / UNICOM', info: 'No ATC on frequency' }])).toEqual({})
+  })
+})
+
+describe('latestInstructionWithBoxes', () => {
+  const line = (text: string, ts: number) => ({ speaker: 'atc' as const, text, ts })
+  const SPOKEN = 'Hongkong Shuttle 250, Hong Kong Delivery, cleared to Phoenix airport via the PECA3A departure, runway 07L, climb via SID to FL140, squawk 3711.'
+  const BOXES = [
+    { title: 'Taxi to Runway', info: '07R' },
+    { title: 'SID', info: 'PECA3A' },
+    { title: 'Altitude Clearance', info: 'FL140' },
+    { title: 'Squawk', info: '3711' }
+  ]
+
+  it('takes boxed facts from the boxes, keeping speech-only ones (station, cleared to)', () => {
+    const result = latestInstructionWithBoxes([line(SPOKEN, 10_000)], { infoBoxes: BOXES, infoBoxesAt: 10_500, infoBoxesSeen: true })!
+    const fields = Object.fromEntries(result.fields.map((f) => [f.key, f.value]))
+    // The box's 07R wins over the 07L in the speech.
+    expect(fields).toEqual({ station: 'Hong Kong Delivery', clearedTo: 'Phoenix airport', runway: '07R', sid: 'PECA3A', climb: 'FL140', squawk: '3711' })
+    expect(result.text).toBe(SPOKEN)
+  })
+
+  it("doesn't show an older box set with a later line that has none (exit left at A7)", () => {
+    const result = latestInstructionWithBoxes([line('Hongkong Shuttle 250, exit left at A7.', 100_000)], {
+      infoBoxes: [{ title: 'Cleared for Landing', info: '08' }],
+      infoBoxesAt: 40_000,
+      infoBoxesSeen: true
+    })!
+    expect(result.actions).toEqual([])
+    expect(result.fields).toEqual([])
+  })
+
+  it('is the speech parse unchanged when BeyondATC sends no boxes', () => {
+    const entries = [line(SPOKEN, 10_000)]
+    expect(latestInstructionWithBoxes(entries, { infoBoxes: [], infoBoxesAt: null, infoBoxesSeen: false })).toEqual(latestAtcInstruction(entries))
+  })
+})
+

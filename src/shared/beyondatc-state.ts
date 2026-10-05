@@ -12,5 +12,8 @@ export const EMPTY_BEYONDATC_STATE: BeyondAtcState = {
   autoTune: null,
   autoRespond: null,
   frequencies: [],
-  infoBoxes: []
+  infoBoxes: [],
+  infoBoxesAt: null,
+  infoBoxesSeen: false,
+  assignedGate: null
 }

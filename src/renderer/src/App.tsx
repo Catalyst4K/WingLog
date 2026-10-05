@@ -7,6 +7,7 @@ import type {
   AltitudeUnit,
   AppLanguage,
   AppPage,
+  BeyondAtcState,
   BeyondAtcTranscriptEntry,
   DispatchOfp,
   Flight,
@@ -46,6 +47,7 @@ import { gsxMenuSignature, isImportantGsxMenu } from './gsx-remote-importance'
 import { emptyProcedureSelection, seedProcedureSelectionFromOfp, selectionFromFlight } from './procedureSelection'
 import { parseAtcClearance, type AtcClearanceUpdate } from '@shared/atc-clearance-parser'
 import { matchClearanceApproach } from '@shared/atc-approach-match'
+import { parseAtcBoxClearance } from '@shared/atc-info-boxes'
 import { approachForArrivalRunway, starEndFix } from './atcApproachMatch'
 
 // Fleet is the default/first tab, so it's the one view kept eager — every other tab is
@@ -216,6 +218,11 @@ export default function App(): React.JSX.Element {
   // the whole buffer on every push (shared/ipc.ts), not just the new line, so this is what
   // tells a genuinely new entry apart from one already considered (and possibly dismissed).
   const lastAtcClearanceTs = useRef(0)
+  // The same for BeyondATC's InfoBoxes: the last set already read, and whether any have
+  // arrived. Once they have, speech is no longer read for clearances (flightdeck-backend's
+  // docs/decisions.md, 2026-10-05).
+  const lastAtcBoxesKey = useRef('')
+  const atcBoxesSeen = useRef(false)
 
   // Wraps setDispatchOfp so a *new* OFP (a different ofpId, including "cleared to null")
   // always re-seeds the procedure selection from its own SimBrief choice — the previous
@@ -314,21 +321,13 @@ export default function App(): React.JSX.Element {
     // (possibly) reopen for the next patch.
   }
 
-  // Scans new BeyondATC transcript entries for a parseable clearance whose fields differ from
-  // the current selection — re-subscribes whenever procedureSelection changes so a diff is
-  // always checked against the live value, the same "just resubscribe, it's cheap" style
-  // procedureSelection.ts's own fetch effects already use.
+  // Reads each new set of BeyondATC InfoBoxes for a clearance whose fields differ from the
+  // current selection; ATC's speech only while BeyondATC sends no boxes. Re-subscribes
+  // whenever procedureSelection changes so a diff is always checked against the live value,
+  // the same "just resubscribe, it's cheap" style procedureSelection.ts's own fetch effects
+  // already use.
   useEffect(() => {
-    return window.winglog.onBeyondAtcTranscript((transcript: BeyondAtcTranscriptEntry[]) => {
-      let latest: (AtcClearanceUpdate & { sourceTs: number }) | null = null
-      for (const entry of transcript) {
-        if (entry.speaker !== 'atc' || entry.ts <= lastAtcClearanceTs.current) continue
-        lastAtcClearanceTs.current = entry.ts
-        const update = parseAtcClearance(entry.text)
-        if (update) latest = { ...update, sourceTs: entry.ts }
-      }
-      if (!latest) return
-      const candidate: AtcClearanceUpdate & { sourceTs: number } = latest
+    const offer = (candidate: AtcClearanceUpdate & { sourceTs: number }): void => {
       void (async () => {
         let update: AtcClearanceUpdate | null = candidate
         // ATC names approaches the way they're spoken ("R-NAV approach runway 02L"); swap in
@@ -344,9 +343,11 @@ export default function App(): React.JSX.Element {
             const icao = procedureSelection.arrivalIcao ?? (await window.winglog.beyondAtcGetState()).progress?.to ?? null
             if (icao) {
               const approaches = await window.winglog.navdataListApproaches(icao, null)
+              // The approach must start where the STAR ends, or at the transition ATC briefed.
+              const entryFix = update.fields.approachTransition ?? (await starEndFix(icao, update))
               update = update.fields.approachIdent
                 ? matchClearanceApproach(update, approaches)
-                : approachForArrivalRunway(update, approaches, procedureSelection, await starEndFix(icao, update))
+                : approachForArrivalRunway(update, approaches, procedureSelection, entryFix)
             }
           } catch {
             // No list to check against: offer the clearance as parsed.
@@ -358,7 +359,30 @@ export default function App(): React.JSX.Element {
         )
         if (differs) setPendingAtcClearance({ ...update, sourceTs: candidate.sourceTs })
       })()
+    }
+    const unsubscribeTranscript = window.winglog.onBeyondAtcTranscript((transcript: BeyondAtcTranscriptEntry[]) => {
+      let latest: (AtcClearanceUpdate & { sourceTs: number }) | null = null
+      for (const entry of transcript) {
+        if (entry.speaker !== 'atc' || entry.ts <= lastAtcClearanceTs.current) continue
+        lastAtcClearanceTs.current = entry.ts
+        if (atcBoxesSeen.current) continue
+        const update = parseAtcClearance(entry.text)
+        if (update) latest = { ...update, sourceTs: entry.ts }
+      }
+      if (latest) offer(latest)
     })
+    const unsubscribeState = window.winglog.onBeyondAtcState((state: BeyondAtcState) => {
+      if (state.infoBoxesSeen || state.infoBoxes.length > 0) atcBoxesSeen.current = true
+      const key = JSON.stringify(state.infoBoxes)
+      if (key === lastAtcBoxesKey.current) return
+      lastAtcBoxesKey.current = key
+      const update = parseAtcBoxClearance(state.infoBoxes)
+      if (update) offer({ ...update, sourceTs: state.infoBoxesAt ?? Date.now() })
+    })
+    return () => {
+      unsubscribeTranscript()
+      unsubscribeState()
+    }
   }, [procedureSelection])
 
   function handleAcceptAtcClearance(): void {
