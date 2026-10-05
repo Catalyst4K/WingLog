@@ -158,6 +158,10 @@ rather than assuming there isn't one:
 - **New dependencies are supply chain.** Prefer few, well-known packages. Check
   `npm audit` when adding one, and keep `package-lock.json` committed. A dependency that
   wants postinstall scripts or network access at build time deserves scrutiny.
+- **Stay on top of Dependabot.** Assess each Dependabot PR and alert as it appears, and act
+  on them in one batch at the start of each minor version's work (next: v1.5). The full rule
+  lives in `flightdeck-backend`'s `CLAUDE.md` ("WingLog's dependency updates") and is
+  binding here; assessments go in its `docs/dependency-log.md`.
 
 **A second trust boundary exists: the backend-service WingLog talks to over HTTPS**
 (a credential broker for SimBrief and Navigraph, living in its own private repo,
