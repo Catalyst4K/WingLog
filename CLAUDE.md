@@ -52,7 +52,8 @@ It currently holds:
 - the plan-doc workflow;
 - the branching model (`main`/`develop`/`fixes`/`fix/<name>`);
 - working across two machines;
-- dependency updates (Dependabot).
+- dependency updates (Dependabot);
+- release notes (what goes in them, including which fixes are listed).
 
 The plan-doc workflow, branching model and two-machine sync moved there 2026-09-13
 (`docs/decisions.md` has why). In the other direction, that file treats this file's code
