@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseTaxiHoldShortRunway, parseTaxiHoldingPoint, parseTaxiRoute, parseTaxiStand } from './taxiRouteParser'
+import { parseTaxiHoldShortRunway, parseTaxiHoldingPoint, parseTaxiRoute, parseTaxiStand } from './taxi-route-parser'
 
 describe('parseTaxiRoute', () => {
   it('parses a real departure taxi clearance', () => {

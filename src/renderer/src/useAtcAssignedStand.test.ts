@@ -42,4 +42,9 @@ describe('infoBoxStand', () => {
     expect(infoBoxStand([{ title: 'Taxi to Gate', info: 'Gate to be assigned' }])).toBeNull()
     expect(infoBoxStand([])).toBeNull()
   })
+
+  it("reads BeyondATC's earlier Expect Gate box (ZJSY, 2026-10-05), with the taxi clearance's gate winning", () => {
+    expect(infoBoxStand([{ title: 'Expect Gate', info: 'Gate 102' }, { title: 'Ground Frequency', info: '121.7' }])).toBe('102')
+    expect(infoBoxStand([{ title: 'Expect Gate', info: 'Gate 101' }, { title: 'Taxi to Gate', info: 'Gate 102' }])).toBe('102')
+  })
 })

@@ -1,8 +1,9 @@
 import { useMemo } from 'react'
 import type { BeyondAtcInfoBox, BeyondAtcTranscriptEntry } from '@shared/ipc'
+import { assignedGate, parseAtcTaxiFacts } from '@shared/atc-info-boxes'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { useLiveTopic } from './live/LiveClient'
-import { parseTaxiStand } from './taxiRouteParser'
+import { parseTaxiStand } from '@shared/taxi-route-parser'
 
 const NO_TRANSCRIPT: BeyondAtcTranscriptEntry[] = []
 
@@ -17,11 +18,11 @@ export function latestAtcStand(transcript: BeyondAtcTranscriptEntry[]): string |
   return null
 }
 
-/** "Taxi to Gate" / "Gate 411" from BeyondATC's InfoBoxes → '411' (real, EGLL 2026-10-05).
- *  "Taxi to Stand" / "Stand N32" reads the same way. Null when there's no such box. */
+/** The gate in BeyondATC's InfoBoxes: "Taxi to Gate" / "Gate 411" → '411' (real, EGLL
+ *  2026-10-05), else the earlier "Expect Gate" (ZJSY, 2026-10-05: 1.5 min before the taxi
+ *  call). Null when there's no such box. */
 export function infoBoxStand(boxes: BeyondAtcInfoBox[]): string | null {
-  const box = boxes.find((b) => /^taxi to (gate|stand)$/i.test(b.title.trim()))
-  return box ? (/^(?:(?:gate|stand) +)?(\S+)$/i.exec(box.info.trim())?.[1] ?? null) : null
+  return assignedGate(parseAtcTaxiFacts(boxes))
 }
 
 /**
@@ -29,11 +30,11 @@ export function infoBoxStand(boxes: BeyondAtcInfoBox[]): string | null {
  * BeyondATC normally hands it to GSX itself; when that handoff fails, GSX's gate search is the
  * fallback, and this is what WingLog offers there.
  *
- * BeyondATC's "Taxi to Gate" info box comes first. It's set as soon as BeyondATC assigns the
- * gate, which can be well before ATC says it: EGLL, flight 229, 2026-10-05, gate 411 was
- * assigned with the first half of a split clearance (12:17) but only spoken in the second
- * (12:24), and BeyondATC's own GSX handoff failed in between. The spoken stand is the
- * fallback. Null when BeyondATC hasn't assigned one.
+ * BeyondATC's "Taxi to Gate" or "Expect Gate" info box comes first. It's set as soon as
+ * BeyondATC assigns the gate, which can be well before ATC says it: EGLL, flight 229,
+ * 2026-10-05, gate 411 was assigned with the first half of a split clearance (12:17) but only
+ * spoken in the second (12:24), and BeyondATC's own GSX handoff failed in between. The spoken
+ * stand is the fallback. Null when BeyondATC hasn't assigned one.
  */
 export function useAtcAssignedStand(): string | null {
   const transcript = useLiveTopic('beyondAtcTranscript', NO_TRANSCRIPT)
