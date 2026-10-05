@@ -13,6 +13,13 @@ export const LEVEL_VS_MS = 0.5 // ~100 fpm — vertical speed magnitude counted 
 const DESCENT_VS_MS = -1.0 // ~-200 fpm — sustained descent rate that ends cruise
 const LEVEL_SUSTAIN_SAMPLES = 10 // consecutive 1 Hz samples of level flight to confirm cruise
 const DESCENT_SUSTAIN_SAMPLES = 5 // consecutive samples of descent to confirm leaving cruise
+// Consecutive airborne samples before a rollout or taxi counts as a go-around (and, the
+// other way round, ground samples before 'climb'/'cruise' counts as a missed landing). One wasn't
+// enough: a single airborne tick on a bouncy VHHH rollout (flight 227, 2026-10-02) went
+// 'landing' -> 'climb' -> 'cruise' and recorded the whole taxi-in as cruise. Same count as
+// TrackingController's MIN_AIRBORNE_SAMPLES_FOR_NEW_TOUCHDOWN, which already kept that
+// bounce from being logged as a second landing.
+const GO_AROUND_AIRBORNE_SAMPLES = 3
 // docs/decisions.md, 2026-09-01: deviates from PLAN.md §5's "every 15s" — 5s reads better
 // live without needing to keep the old marker/camera interpolation to hide the jump.
 const CRUISE_TRACK_INTERVAL_S = 5
@@ -48,6 +55,8 @@ export class FlightRecorder {
   private phase: FlightPhase = 'preflight'
   private levelStreak = 0
   private descentStreak = 0
+  private airborneStreak = 0
+  private groundStreak = 0
   private lastPointAt: Date | undefined
   private paused = false
   // Set once, at touchdown, and never cleared — guards the taxi -> takeoff transition
@@ -157,10 +166,7 @@ export class FlightRecorder {
         // straight back to 'climb', same as 'landing' below. Checked before the
         // hasLanded-guarded branch so a real second departure is never mistaken for the
         // rollout noise that guard exists to block.
-        if (!t.onGround) {
-          this.phase = 'climb'
-          break
-        }
+        if (this.goneAround(t)) break
         if (!this.hasLanded && t.groundSpeedMs > ROLL_SPEED_MS) this.phase = 'takeoff'
         break
 
@@ -177,6 +183,7 @@ export class FlightRecorder {
         break
 
       case 'climb':
+        if (this.backOnGround(t)) break
         this.levelStreak = Math.abs(t.verticalSpeedMs) < LEVEL_VS_MS ? this.levelStreak + 1 : 0
         if (this.levelStreak >= LEVEL_SUSTAIN_SAMPLES) {
           this.phase = 'cruise'
@@ -185,6 +192,7 @@ export class FlightRecorder {
         break
 
       case 'cruise':
+        if (this.backOnGround(t)) break
         this.descentStreak = t.verticalSpeedMs < DESCENT_VS_MS ? this.descentStreak + 1 : 0
         if (this.descentStreak >= DESCENT_SUSTAIN_SAMPLES) {
           this.phase = 'descent'
@@ -214,10 +222,7 @@ export class FlightRecorder {
       case 'landing':
         // Same go-around case as 'taxi' above — a rejected landing / touch-and-go that
         // never actually slowed through ROLL_SPEED_MS before going around again.
-        if (!t.onGround) {
-          this.phase = 'climb'
-          break
-        }
+        if (this.goneAround(t)) break
         if (t.groundSpeedMs < ROLL_SPEED_MS) this.phase = 'taxi'
         break
 
@@ -231,6 +236,43 @@ export class FlightRecorder {
     if (this.autoShutdown && this.phase === 'taxi' && t.groundSpeedMs < MOVING_MS && t.parkingBrakeOn && !t.engineCombustion1) {
       this.phase = 'shutdown'
     }
+  }
+
+  /** 'landing'/'taxi' -> 'climb' only once airborne for GO_AROUND_AIRBORNE_SAMPLES in a row;
+   *  true while airborne at all, so the caller skips its on-the-ground checks. */
+  private goneAround(t: SimTelemetry): boolean {
+    if (t.onGround) {
+      this.airborneStreak = 0
+      return false
+    }
+    this.airborneStreak += 1
+    if (this.airborneStreak >= GO_AROUND_AIRBORNE_SAMPLES) {
+      this.phase = 'climb'
+      this.airborneStreak = 0
+      this.levelStreak = 0
+    }
+    return true
+  }
+
+  /** On the ground in 'climb'/'cruise' for GO_AROUND_AIRBORNE_SAMPLES in a row: a landing
+   *  the machine missed. A bounce that outlasted the go-around check, a flight resumed in
+   *  that state (flight 227's own last point), or a circuit that touched down straight from
+   *  'climb' without ever reaching 'descent' (flight 198, VHHH). Back to 'landing', which
+   *  reaches 'taxi' on speed as usual; one tick back on the runway just after liftoff is
+   *  left alone. */
+  private backOnGround(t: SimTelemetry): boolean {
+    if (!t.onGround) {
+      this.groundStreak = 0
+      return false
+    }
+    this.groundStreak += 1
+    if (this.groundStreak < GO_AROUND_AIRBORNE_SAMPLES) return false
+    this.phase = 'landing'
+    this.hasLanded = true
+    this.groundStreak = 0
+    this.levelStreak = 0
+    this.descentStreak = 0
+    return true
   }
 
   private shouldRecord(t: SimTelemetry, nowUtc: Date): boolean {
