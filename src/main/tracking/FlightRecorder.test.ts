@@ -384,6 +384,53 @@ describe('FlightRecorder', () => {
     expect(recorder.getPhase()).toBe('climb')
   })
 
+  describe('takeoff only on a runway (flight 230, VHHH, 2026-10-05)', () => {
+    // Real samples: a 35 kt taxi on the parallel taxiway (291 m off 25L) and the real roll on 07R.
+    const TAXIWAY = { latitude: 22.30237804145619, longitude: 113.90856781667028 }
+    const RUNWAY = { latitude: 22.296865859077617, longitude: 113.90006853800166 }
+    const onRunway = (lat: number): boolean => Math.abs(lat - RUNWAY.latitude) < 0.0005
+
+    function taxiing(check?: (lat: number, lon: number) => boolean | null): { recorder: FlightRecorder; step: (o: Partial<SimTelemetry>) => void } {
+      const recorder = new FlightRecorder(1)
+      if (check) recorder.setRunwayCheck(check)
+      let t = 0
+      const step = (overrides: Partial<SimTelemetry>): void => {
+        t += 1
+        recorder.ingest(telemetry({ engineCombustion1: true, parkingBrakeOn: false, ...overrides }), at(t))
+      }
+      step({ parkingBrakeOn: true })
+      step({ groundSpeedMs: 5, ...TAXIWAY })
+      return { recorder, step }
+    }
+
+    it('stays in taxi at 35 kt off the runway', () => {
+      const { recorder, step } = taxiing((lat) => onRunway(lat))
+      step({ groundSpeedMs: 18.3, ...TAXIWAY })
+      step({ groundSpeedMs: 18.3, ...TAXIWAY })
+      expect(recorder.getPhase()).toBe('taxi')
+    })
+
+    it('goes to takeoff on the runway', () => {
+      const { recorder, step } = taxiing((lat) => onRunway(lat))
+      step({ groundSpeedMs: 19.8, ...RUNWAY })
+      expect(recorder.getPhase()).toBe('takeoff')
+    })
+
+    it('falls back to speed alone when it cannot tell', () => {
+      const { recorder, step } = taxiing(() => null)
+      step({ groundSpeedMs: 18.3, ...TAXIWAY })
+      expect(recorder.getPhase()).toBe('takeoff')
+    })
+
+    it('still goes back to taxi on a rejected takeoff on the runway', () => {
+      const { recorder, step } = taxiing((lat) => onRunway(lat))
+      step({ groundSpeedMs: 30, ...RUNWAY })
+      expect(recorder.getPhase()).toBe('takeoff')
+      step({ groundSpeedMs: 10, ...RUNWAY })
+      expect(recorder.getPhase()).toBe('taxi')
+    })
+  })
+
   it('goes back to climb on a go-around from landing (rejected landing, never slowed below roll speed)', () => {
     const recorder = new FlightRecorder(1)
     let t = 0

@@ -101,6 +101,16 @@ export class FlightRecorder {
     }
   }
 
+  /** Whether a point is on a runway, or null when that can't be known (no runway data). Only
+   *  asked when ground speed passes ROLL_SPEED_MS while taxiing. */
+  private runwayCheck: (lat: number, lon: number) => boolean | null = () => null
+
+  /** Injected by TrackingController from the cached runways (runway-check.ts), so a fast taxi
+   *  isn't taken for the takeoff roll. Without one, the speed-only rule applies. */
+  setRunwayCheck(check: (lat: number, lon: number) => boolean | null): void {
+    this.runwayCheck = check
+  }
+
   /** "Freeze the phase machine on pause" (PLAN.md §7) — no transitions, no points, while true. */
   setPaused(paused: boolean): void {
     this.paused = paused
@@ -167,7 +177,11 @@ export class FlightRecorder {
         // hasLanded-guarded branch so a real second departure is never mistaken for the
         // rollout noise that guard exists to block.
         if (this.goneAround(t)) break
-        if (!this.hasLanded && t.groundSpeedMs > ROLL_SPEED_MS) this.phase = 'takeoff'
+        // Only on a runway, when that's known: flight 230 (VHHH, 2026-10-05) taxied at 35 kt
+        // along the parallel taxiway, 291 m off 25L, and the route was dropped as if departing.
+        if (!this.hasLanded && t.groundSpeedMs > ROLL_SPEED_MS && this.runwayCheck(t.latitude, t.longitude) !== false) {
+          this.phase = 'takeoff'
+        }
         break
 
       case 'takeoff':
