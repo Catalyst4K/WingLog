@@ -1119,6 +1119,43 @@ describe('App', () => {
       )
     })
 
+    it("swaps to the approach the cleared STAR leads into on the same runway (ZJSY: UPRS2C ends at SY498, ILS Z 08's entry)", async () => {
+      const { push, winglog } = withTranscriptListener({
+        beyondAtcGetState: vi.fn().mockResolvedValue({ progress: { from: 'VHHH', to: 'ZJSY', pct: 80 } }),
+        navdataListApproaches: vi.fn().mockResolvedValue([
+          { identifier: 'ILS X 08', transition: 'SY462' },
+          { identifier: 'ILS X 08', transition: 'SY935' },
+          { identifier: 'ILS Z 08', transition: 'SY462' },
+          { identifier: 'ILS Z 08', transition: 'SY498' }
+        ]),
+        navdataGetProcedureWaypoints: vi.fn().mockResolvedValue([{ fixIdent: 'UPRIS' }, { fixIdent: 'SY497' }, { fixIdent: 'SY498' }])
+      })
+      const user = userEvent.setup()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+      await openTrackTab(user)
+
+      // ILS X 08 already selected, as the default picked it before the STAR was known.
+      push([{ speaker: 'atc', text: 'Hongkong Shuttle 250, expect the ILS-X approach runway 08.', ts: 500 }])
+      await screen.findByText('Update procedure from ATC clearance?')
+      await user.click(screen.getByRole('button', { name: 'Update' }))
+      await waitFor(() =>
+        expect(winglog.trackingSetProcedureSelection).toHaveBeenLastCalledWith(expect.objectContaining({ approachIdent: 'ILS X 08' }))
+      )
+      await waitFor(() => expect(screen.queryByText('Update procedure from ATC clearance?')).not.toBeInTheDocument())
+
+      push([{ speaker: 'atc', text: 'Hongkong Shuttle 250, cleared UPRS2C arrival, runway 08.', ts: 1000 }])
+
+      expect(await screen.findByText('ILS Z 08')).toBeInTheDocument()
+      expect(winglog.navdataGetProcedureWaypoints).toHaveBeenLastCalledWith('ZJSY', 'star', 'UPRS2C', '08')
+      await user.click(screen.getByRole('button', { name: 'Update' }))
+      await waitFor(() =>
+        expect(winglog.trackingSetProcedureSelection).toHaveBeenLastCalledWith(
+          expect.objectContaining({ starIdent: 'UPRS2C', approachIdent: 'ILS Z 08', approachTransition: 'SY498' })
+        )
+      )
+    })
+
     it('still prompts when the later approach clearance differs from the one predicted from the runway, and not when it matches', async () => {
       const { push, winglog } = withTranscriptListener({
         beyondAtcGetState: vi.fn().mockResolvedValue({ progress: { from: 'RKSI', to: 'EGLL', pct: 97 } }),
