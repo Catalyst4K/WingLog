@@ -191,8 +191,18 @@ export function levelToFeet(level: string): number | null {
 
 
 /** Titles that carry a cleared level (VHHH-ZJSY, 2026-10-05: `Altitude Clearance` FL140,
- *  `climb`/`Climb` FL180/FL360, `Descend to` 3,000m). */
-const LEVEL_TITLES = ['altitude clearance', 'climb', 'climb to', 'descend', 'descend to', 'new cruise altitude', 'cruise altitude']
+ *  `climb`/`Climb` FL180/FL360, `Descend to` 3,000m; ZJSY-VHHH, same evening: `Continue Climb To`
+ *  FL371 after a granted step, `Descend To` "11,000" in feet with no unit). */
+const LEVEL_TITLES = [
+  'altitude clearance',
+  'climb',
+  'climb to',
+  'continue climb to',
+  'descend',
+  'descend to',
+  'new cruise altitude',
+  'cruise altitude'
+]
 
 /** The cleared level in one set of InfoBoxes, in feet, or null when it has none. */
 export function boxClearedLevelFt(boxes: BeyondAtcInfoBox[]): number | null {
