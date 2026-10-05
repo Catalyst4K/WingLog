@@ -1,8 +1,13 @@
 # BeyondATC
 
-If you fly with BeyondATC, WingLog connects to it and uses what ATC tells you: it shows your
-clearances, fills in your procedures, draws your taxi route, and can ask ATC for your planned step
-climbs. BeyondATC itself is still what talks to you; WingLog works alongside it.
+If you fly with BeyondATC, WingLog connects to it and uses what ATC gives you: it shows your
+clearances, fills in your procedures, draws your taxi route, finds your arrival gate, and can ask ATC
+for your planned step climbs. BeyondATC itself is still what talks to you; WingLog works alongside
+it.
+
+WingLog reads your clearances from the information fields BeyondATC shows in its own menu (SID,
+runway, taxiways, gate and so on), not from what ATC says out loud. So how a clearance is worded
+doesn't matter. Use a current version of BeyondATC, which shows these fields.
 
 > BeyondATC is a separate product by Skirmish Mode Games. WingLog isn't affiliated with them.
 
@@ -16,9 +21,11 @@ BeyondATC can be started before or after WingLog.
 
 - **Info**: the ATC facility you're talking to, COM2, your callsign and route progress.
 - **Latest instruction**: the last clearance or instruction from ATC, broken into fields: cleared-to
-  airport, SID, STAR, approach, runway, altitudes, QNH, squawk, the frequency to contact, holding
-  point, stand and taxiways. A "readback correct" adds the next frequency without wiping the
-  clearance.
+  airport, SID, STAR, approach, transition, runway, altitudes, QNH, squawk, the frequency to
+  contact, holding point, gate and taxiways. A "readback correct" adds the next frequency without
+  wiping the clearance. Once ATC gives you your arrival (STAR and runway, then the approach and
+  transition), it stays in this card's header until you land, while the card itself carries on
+  showing each new instruction.
 - **Actions**: the same requests BeyondATC offers in its own menu (request clearance, taxi, and so
   on). Press one to send it. When BeyondATC has to wait for a gap on the frequency, the button stays
   highlighted and the line above says **Queued**, then **Transmitting…**, then **Awaiting ATC's
@@ -35,16 +42,27 @@ BeyondATC can be started before or after WingLog.
 
 When ATC clears you for a SID, a STAR or an approach, or gives you a runway, that's different from
 what you have selected, WingLog asks **Update procedure from ATC clearance?** Choose **Update** to
-switch your procedures to match, or **Dismiss** to keep yours. WingLog understands the usual ways
-BeyondATC phrases these ("via the BIXAD2 departure", "expect the ILS approach runway 07R",
-"cleared the … arrival").
+switch your procedures to match, or **Dismiss** to keep yours.
+
+- **Names match the sim's.** BeyondATC's approach names are matched to the airport's own, so "R-NAV
+  approach runway 02L" selects the sim's RNAV 02L.
+- **A runway picks its approach.** When ATC gives you a STAR and runway but no approach yet, WingLog
+  suggests the approach your STAR actually leads into (for example ILS Z rather than ILS X, when
+  only ILS Z starts where the STAR ends), with that transition.
+- **No repeat questions.** When ATC later confirms what you've already accepted, nothing is asked
+  again.
 
 ## Your taxi route on the map
 
-Switch on the **taxi chart** on the Track map. When ATC gives you a taxi clearance ("taxi to holding
-point C9 runway 01R via B9, C9"), WingLog draws the route on the chart: from your aircraft, along the
-taxiways in the order cleared, to the holding point (or to your stand after landing). The line
-shortens behind you as you taxi.
+Switch on the **taxi chart** on the Track map. When ATC gives you a taxi clearance, WingLog draws the
+route on the chart: from your aircraft, along the taxiways in the order cleared, to the holding point
+(or to your gate after landing). The line shortens behind you as you taxi.
+
+- **Hold short.** When a clearance ends "hold short of runway …", the route ends at that hold short.
+  The rest comes with the next clearance.
+- **Departure route removed.** It's taken off the map once your takeoff roll starts, and the arrival
+  route appears when you're cleared to taxi after landing. A fast taxi doesn't count as a takeoff
+  roll: WingLog checks you're on a runway.
 
 ## Automatic step climbs
 
@@ -58,11 +76,13 @@ right time, using BeyondATC's **Request Altitude Change** menu, just as you woul
 - **Never in the descent.** Once you're past top of descent, no more requests are made.
 - The status line shows the next planned step, any request in progress and how ATC answered. If a
   level isn't offered or ATC doesn't clear it, WingLog tries once more, then gives up on that step.
+- WingLog knows your cleared altitude from BeyondATC's own altitude field, in flight levels or
+  metres.
 
 Auto step climb starts **off** each time WingLog starts.
 
-## Stand from ATC for GSX
+## Your gate for GSX
 
-After landing, when ATC taxis you to a stand ("taxi to Stand N32"), the GSX gate search offers that
-stand with one click, for the times BeyondATC's handover to GSX doesn't happen by itself (see
-[GSX](08-gsx.md)).
+BeyondATC assigns your arrival gate before it tells you, often a minute or more before the taxi
+call. The GSX gate search offers that gate with one click, for the times BeyondATC's own handover to
+GSX doesn't happen by itself (see [GSX](08-gsx.md)).
