@@ -39,6 +39,7 @@ settings.
 
 ### Finding your arrival gate
 
-When you search GSX for a gate after landing, the gate search offers the stand ATC gave you (with
-BeyondATC on), for example **Stand N32 (from ATC)**. Click it to type it into GSX's search. Nothing
-is sent to GSX until you click.
+When you search GSX for a gate after landing, the gate search offers the gate BeyondATC assigned
+you (with BeyondATC on), for example **Stand 102 (from ATC)**. It's there as soon as BeyondATC
+assigns it, often before ATC says it. Click it to type it into GSX's search. Nothing is sent to GSX
+until you click.
