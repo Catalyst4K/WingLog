@@ -118,8 +118,31 @@ describe('BeyondAtcService', () => {
       autoTune: null,
       autoRespond: null,
       frequencies: [],
-      infoBoxes: []
+      infoBoxes: [],
+      infoBoxesAt: null,
+      infoBoxesSeen: false,
+      assignedGate: null
     })
+    service.stop()
+  })
+
+  it('remembers the gate BeyondATC assigned after its box is replaced, and marks boxes as in use (ZJSY, 2026-10-05)', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
+    service.start()
+    instances[0].simulateOpen()
+    instances[0].simulateLine('InfoBoxes: []')
+    expect(service.getState()).toMatchObject({ infoBoxesSeen: false, assignedGate: null })
+
+    instances[0].simulateLine('InfoBoxes: [{"title":"Expect Gate","info":"Gate 102"}]')
+    expect(service.getState()).toMatchObject({ infoBoxesSeen: true, assignedGate: '102' })
+    expect(service.getState().infoBoxesAt).toEqual(expect.any(Number))
+
+    instances[0].simulateLine('InfoBoxes: [{"title":"Tower Frequency","info":"118.15"}]')
+    expect(service.getState()).toMatchObject({ infoBoxesSeen: true, assignedGate: '102' })
+
+    instances[0].simulateLine('InfoBoxes: [{"title":"Taxi to Gate","info":"Gate 104"},{"title":"Taxi Via 1","info":"A4"}]')
+    expect(service.getState().assignedGate).toBe('104')
     service.stop()
   })
 

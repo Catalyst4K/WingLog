@@ -13,6 +13,7 @@ import type {
   BeyondAtcTranscriptEntry
 } from '@shared/ipc'
 import { TaxiBoxCheck } from './taxi-box-check'
+import { assignedGate, parseAtcTaxiFacts } from '@shared/atc-info-boxes'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 
 /** `BeyondATC.exe`'s own real local port, confirmed live 2026-09-25 (docs/beyondatc-notes.md)
@@ -416,8 +417,15 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
         // each phase (flightdeck-backend's docs/plans/beyondatc-infoboxes-first.md): only the
         // taxi-to-gate set has been captured so far.
         if (JSON.stringify(infoBoxes) !== JSON.stringify(this.state.infoBoxes)) console.info(`[beyondatc] InfoBoxes ${rest}`)
+        const changed = JSON.stringify(infoBoxes) !== JSON.stringify(this.state.infoBoxes)
         this.taxiBoxCheck.onInfoBoxes(infoBoxes, Date.now())
-        this.state = { ...this.state, infoBoxes }
+        this.state = {
+          ...this.state,
+          infoBoxes,
+          infoBoxesAt: changed ? Date.now() : this.state.infoBoxesAt,
+          infoBoxesSeen: this.state.infoBoxesSeen || infoBoxes.length > 0,
+          assignedGate: assignedGate(parseAtcTaxiFacts(infoBoxes)) ?? this.state.assignedGate
+        }
         this.emit('state', this.state)
         return
       }

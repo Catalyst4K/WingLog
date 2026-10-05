@@ -19,7 +19,7 @@ export interface AtcClearanceUpdate {
  *  runway baked in ("ILS Z 17R"), where BeyondATC speaks the type hyphenated and states the
  *  runway separately in the same sentence ("ILS-Z" ... "runway 17R"). A deterministic
  *  reassembly, not a fuzzy match — confirmed against one real airport/procedure only. */
-function reformatApproachIdent(type: string, runway: string): string {
+export function reformatApproachIdent(type: string, runway: string): string {
   return `${type.replace('-', ' ')} ${runway}`
 }
 

@@ -1,4 +1,5 @@
-import type { BeyondAtcTranscriptEntry } from '@shared/ipc'
+import type { BeyondAtcInfoBox, BeyondAtcState, BeyondAtcTranscriptEntry } from '@shared/ipc'
+import { boxClearedLevelFt, clearedApproachIdent, normaliseTitle, parseAtcTaxiFacts, withoutLabel } from '@shared/atc-info-boxes'
 import { APPROACH_CLEARED, APPROACH_EXPECT, CLEARED_TO, RUNWAY, SID, STAR } from '@shared/atc-phrases'
 import { parseTaxiRoute } from '@shared/taxi-route-parser'
 
@@ -182,3 +183,76 @@ function applyReadback(confirmed: AtcInstruction, readback: AtcInstruction): Atc
     fields: contact ? [...confirmed.fields.filter((f) => f.key !== 'contact'), contact] : confirmed.fields
   }
 }
+
+/** Facts BeyondATC gives a box for (VHHH-ZJSY, 2026-10-05). While boxes are in use these come
+ *  only from the boxes; the rest (station, cleared-to, wind, direct, line-up, hold short,
+ *  readback, identified) have no box and still come from the speech (flightdeck-backend's
+ *  docs/decisions.md, 2026-10-05). */
+const BOXED_FIELDS: ReadonlySet<InstructionFieldKey> = new Set([
+  'atis', 'sid', 'star', 'approach', 'transition', 'runway', 'climb', 'descend', 'qnh', 'squawk', 'contact', 'holdingPoint', 'stand', 'taxiVia', 'face'
+])
+const BOXED_ACTIONS: ReadonlySet<InstructionAction> = new Set(['takeoff', 'land', 'pushback'])
+
+/** How long before an ATC line its boxes may have changed and still count as its own: BeyondATC
+ *  updates the boxes and speaks within a second or two of each other. */
+const BOXES_WITH_LINE_MS = 15_000
+
+const RUNWAY_TITLES = ['taxi to runway', 'arrival runway', 'landing runway', 'cleared for takeoff', 'cleared for landing']
+const DESCEND_TITLES = ['descend', 'descend to']
+
+/** One set of InfoBoxes as the card's labelled fields and actions. */
+export function instructionFromBoxes(boxes: BeyondAtcInfoBox[]): Pick<AtcInstruction, 'actions' | 'fields'> {
+  const fields: InstructionField[] = []
+  const actions: InstructionAction[] = []
+  const add = (key: InstructionFieldKey, value: string | null | undefined): void => {
+    if (value && !fields.some((f) => f.key === key)) fields.push({ key, value })
+  }
+  const taxi = parseAtcTaxiFacts(boxes)
+  for (const box of boxes) {
+    const title = normaliseTitle(box.title)
+    const value = box.info.trim()
+    if (!value) continue
+    if (title === 'atis current') add('atis', value.toUpperCase())
+    else if (title === 'sid') add('sid', value.toUpperCase())
+    else if (title === 'star') add('star', value.toUpperCase())
+    else if (title === 'cleared approach') add('approach', clearedApproachIdent(value))
+    else if (title === 'transition') add('transition', value.toUpperCase())
+    else if (RUNWAY_TITLES.includes(title)) add('runway', value.toUpperCase())
+    else if (title === 'qnh') add('qnh', withoutLabel(value, 'QNH'))
+    else if (title === 'squawk') add('squawk', value)
+    else if (title.endsWith('frequency')) add('contact', `${box.title.trim().replace(/ ?frequency$/i, '')} ${value}`.trim())
+    else if (title === 'pushback direction') add('face', value.toLowerCase())
+    if (title === 'cleared for takeoff') actions.push('takeoff')
+    if (title === 'cleared for landing') actions.push('land')
+    if (title === 'pushback direction') actions.push('pushback')
+    if (boxClearedLevelFt([box]) !== null) {
+      add(DESCEND_TITLES.includes(title) ? 'descend' : 'climb', formatAltitude(value))
+    }
+  }
+  if (taxi.holdPosition && !/^\d{1,2}[LRC]?$/.test(taxi.holdPosition)) add('holdingPoint', taxi.holdPosition)
+  add('stand', taxi.taxiToGate ?? taxi.expectGate)
+  if (taxi.taxiVia.length > 0) add('taxiVia', taxi.taxiVia.join(', '))
+  return { actions, fields }
+}
+
+/**
+ * The latest instruction for the card, with BeyondATC's InfoBoxes in place of the speech for
+ * every fact that has a box, once BeyondATC has sent any. The boxes count only when they
+ * changed around the time of that ATC line; an older set belongs to an earlier instruction
+ * ("exit left at A7" has no box, and mustn't show the landing clearance's).
+ */
+export function latestInstructionWithBoxes(
+  entries: BeyondAtcTranscriptEntry[],
+  state: Pick<BeyondAtcState, 'infoBoxes' | 'infoBoxesAt' | 'infoBoxesSeen'>
+): AtcInstruction | null {
+  const instruction = latestAtcInstruction(entries)
+  if (!instruction || !state.infoBoxesSeen) return instruction
+  const current = state.infoBoxesAt !== null && state.infoBoxesAt >= instruction.ts - BOXES_WITH_LINE_MS
+  const boxed = current ? instructionFromBoxes(state.infoBoxes) : { actions: [], fields: [] }
+  return {
+    ...instruction,
+    actions: [...instruction.actions.filter((a) => !BOXED_ACTIONS.has(a)), ...boxed.actions],
+    fields: [...instruction.fields.filter((f) => !BOXED_FIELDS.has(f.key)), ...boxed.fields]
+  }
+}
+

@@ -33,11 +33,19 @@ export function infoBoxStand(boxes: BeyondAtcInfoBox[]): string | null {
  * BeyondATC's "Taxi to Gate" or "Expect Gate" info box comes first. It's set as soon as
  * BeyondATC assigns the gate, which can be well before ATC says it: EGLL, flight 229,
  * 2026-10-05, gate 411 was assigned with the first half of a split clearance (12:17) but only
- * spoken in the second (12:24), and BeyondATC's own GSX handoff failed in between. The spoken
- * stand is the fallback. Null when BeyondATC hasn't assigned one.
+ * spoken in the second (12:24), and BeyondATC's own GSX handoff failed in between. Main keeps
+ * the gate (`assignedGate`) once its box is replaced. The spoken stand is read only when
+ * BeyondATC sends no boxes (flightdeck-backend's docs/decisions.md, 2026-10-05). Null when
+ * BeyondATC hasn't assigned one.
  */
 export function useAtcAssignedStand(): string | null {
   const transcript = useLiveTopic('beyondAtcTranscript', NO_TRANSCRIPT)
   const state = useLiveTopic('beyondAtcState', EMPTY_BEYONDATC_STATE)
-  return useMemo(() => infoBoxStand(state.infoBoxes) ?? latestAtcStand(transcript), [state.infoBoxes, transcript])
+  return useMemo(
+    () =>
+      state.infoBoxesSeen || state.infoBoxes.length > 0
+        ? (infoBoxStand(state.infoBoxes) ?? state.assignedGate)
+        : latestAtcStand(transcript),
+    [state, transcript]
+  )
 }

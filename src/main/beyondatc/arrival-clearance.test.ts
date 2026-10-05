@@ -96,3 +96,54 @@ describe('ArrivalClearanceTracker', () => {
     expect(t.getClearance()?.approachIdent).toBe('ILS 27R')
   })
 })
+
+// ZJSY's real runway 08 approaches and box sets (VHHH-ZJSY flight 230, 2026-10-05, main.log).
+const ZJSY: NavdataProcedureOption[] = [
+  { identifier: 'ILS X 08', transition: 'SY462' },
+  { identifier: 'ILS Z 08', transition: 'SY498' }
+]
+
+describe('ArrivalClearanceTracker from InfoBoxes', () => {
+  function zjsy(): ArrivalClearanceTracker {
+    return new ArrivalClearanceTracker({ getArrivalIcao: () => 'ZJSY', listApproaches: () => ZJSY })
+  }
+
+  it("follows flight 230's real box sequence from STAR to cleared approach", () => {
+    const t = zjsy()
+    t.onInfoBoxes([{ title: 'STAR', info: 'UPRS2C' }, { title: 'Arrival Runway', info: '08' }])
+    expect(t.getClearance()).toEqual({ starIdent: 'UPRS2C', runway: '08', approachIdent: null, approachTransition: null })
+
+    t.onInfoBoxes([{ title: 'Landing Runway', info: '08' }, { title: 'QNH', info: 'QNH 1014' }])
+    t.onInfoBoxes([{ title: 'Descend to', info: '3,000m' }, { title: 'QNH', info: 'QNH 1014' }])
+    t.onInfoBoxes([
+      { title: 'Approach Type', info: 'Procedure' },
+      { title: 'Landing Runway', info: '08' },
+      { title: 'Transition', info: 'SY498' },
+      { title: 'QNH', info: 'QNH 1014' }
+    ])
+    expect(t.getClearance()).toEqual({ starIdent: 'UPRS2C', runway: '08', approachIdent: null, approachTransition: 'SY498' })
+
+    t.onInfoBoxes([{ title: 'Cross SY498', info: 'At or above 1,200m' }, { title: 'Cleared Approach', info: 'ILS-Z approach runway 08' }])
+    expect(t.getClearance()).toEqual({ starIdent: 'UPRS2C', runway: '08', approachIdent: 'ILS Z 08', approachTransition: 'SY498' })
+
+    // Later sets with no procedure leave it alone.
+    t.onInfoBoxes([{ title: 'Cleared for Landing', info: '08' }])
+    expect(t.getClearance()?.approachIdent).toBe('ILS Z 08')
+  })
+
+  it('ignores ATC speech once BeyondATC has sent boxes', () => {
+    const t = zjsy()
+    t.onInfoBoxes([{ title: 'STAR', info: 'UPRS2C' }, { title: 'Arrival Runway', info: '08' }])
+    t.onTranscript([atc('Hongkong Shuttle 250, cleared UPRS3D arrival, runway 26.', 1000)])
+    expect(t.getClearance()).toMatchObject({ starIdent: 'UPRS2C', runway: '08' })
+  })
+
+  it('reads each box set once, so a repeat does not undo a later change', () => {
+    const t = zjsy()
+    const star = [{ title: 'STAR', info: 'UPRS2C' }, { title: 'Arrival Runway', info: '08' }]
+    t.onInfoBoxes(star)
+    t.onInfoBoxes([{ title: 'Cleared Approach', info: 'ILS-Z approach runway 08' }])
+    t.onInfoBoxes([{ title: 'Cleared Approach', info: 'ILS-Z approach runway 08' }])
+    expect(t.getClearance()?.approachIdent).toBe('ILS Z 08')
+  })
+})

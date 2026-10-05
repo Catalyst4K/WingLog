@@ -1,11 +1,12 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from 'sonner'
 import i18n from './i18n'
 import type {
   Aircraft,
+  BeyondAtcState,
   DispatchOfp,
   Flight,
   FleetStats,
@@ -1154,6 +1155,55 @@ describe('App', () => {
           expect.objectContaining({ starIdent: 'UPRS2C', approachIdent: 'ILS Z 08', approachTransition: 'SY498' })
         )
       )
+    })
+
+    it("prompts from BeyondATC's InfoBoxes, and stops reading speech once boxes arrive (ZJSY, 2026-10-05)", async () => {
+      const stateListeners: ((state: BeyondAtcState) => void)[] = []
+      const pushBoxes = (infoBoxes: { title: string; info: string }[]): void =>
+        act(() => stateListeners.forEach((l) => l({ ...EMPTY_BEYONDATC_STATE, infoBoxes, infoBoxesSeen: true, infoBoxesAt: Date.now() })))
+      const { push, winglog } = withTranscriptListener({
+        beyondAtcGetState: vi.fn().mockResolvedValue({ progress: { from: 'VHHH', to: 'ZJSY', pct: 80 } }),
+        onBeyondAtcState: vi.fn((l: (state: BeyondAtcState) => void) => {
+          stateListeners.push(l)
+          return () => stateListeners.splice(stateListeners.indexOf(l), 1)
+        }),
+        navdataListApproaches: vi.fn().mockResolvedValue([
+          { identifier: 'ILS X 08', transition: 'SY462' },
+          { identifier: 'ILS Z 08', transition: 'SY462' },
+          { identifier: 'ILS Z 08', transition: 'SY498' }
+        ]),
+        navdataGetProcedureWaypoints: vi.fn().mockResolvedValue([{ fixIdent: 'UPRIS' }, { fixIdent: 'SY498' }])
+      })
+      const user = userEvent.setup()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+      await openTrackTab(user)
+
+      // No boxes yet: speech still works.
+      push([{ speaker: 'atc', text: 'Hongkong Shuttle 250, expect the ILS-X approach runway 08.', ts: 500 }])
+      await screen.findByText('Update procedure from ATC clearance?')
+      await user.click(screen.getByRole('button', { name: 'Update' }))
+      await waitFor(() =>
+        expect(winglog.trackingSetProcedureSelection).toHaveBeenLastCalledWith(expect.objectContaining({ approachIdent: 'ILS X 08' }))
+      )
+      await waitFor(() => expect(screen.queryByText('Update procedure from ATC clearance?')).not.toBeInTheDocument())
+
+      // The real STAR box set.
+      pushBoxes([{ title: 'STAR', info: 'UPRS2C' }, { title: 'Arrival Runway', info: '08' }])
+      expect(await screen.findByText('ILS Z 08')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Update' }))
+      await waitFor(() =>
+        expect(winglog.trackingSetProcedureSelection).toHaveBeenLastCalledWith(
+          expect.objectContaining({ starIdent: 'UPRS2C', approachIdent: 'ILS Z 08', approachTransition: 'SY498' })
+        )
+      )
+      await waitFor(() => expect(screen.queryByText('Update procedure from ATC clearance?')).not.toBeInTheDocument())
+
+      // Speech is no longer read, and a box set that matches the selection asks nothing.
+      push([{ speaker: 'atc', text: 'Hongkong Shuttle 250, cleared UPRS3D arrival, runway 26.', ts: 2000 }])
+      pushBoxes([{ title: 'Cross SY498', info: 'At or above 1,200m' }, { title: 'Cleared Approach', info: 'ILS-Z approach runway 08' }])
+      await new Promise((r) => setTimeout(r, 50))
+      expect(screen.queryByText('Update procedure from ATC clearance?')).not.toBeInTheDocument()
     })
 
     it('still prompts when the later approach clearance differs from the one predicted from the runway, and not when it matches', async () => {

@@ -25,8 +25,10 @@ import { useLiveClient } from './live/LiveClient'
  * source, filtered to every segment sharing a cleared taxiway name.
  *
  * The clearance comes from BeyondATC's InfoBoxes when they carry one (`Taxi Via 1..n`,
- * `Hold Position`, `Taxi to Gate`; boxTaxiClearance), else from ATC's speech. A box clearance
- * outranks speech for BOX_PRIORITY_MS: the speech then only adds a detail the boxes lack.
+ * `Hold Position`, `Taxi to Gate`; boxTaxiClearance). Once BeyondATC has sent any boxes, the
+ * speech only adds a detail the boxes lack (a hold-short runway) to the same route; it's the
+ * whole source only when BeyondATC sends no boxes (flightdeck-backend's docs/decisions.md,
+ * 2026-10-05).
  *
  * Both are limited to the clearance's own airport: a "holding point" clearance is the
  * departure's, a "taxi to stand" one the arrival's. Without this, a departure's B8/B also lit
@@ -75,11 +77,6 @@ interface TaxiClearance {
   /** Where the aircraft was when the clearance arrived — the trace's start. */
   from: { lat: number; lon: number } | null
 }
-
-/** How long a clearance read from BeyondATC's InfoBoxes outranks speech. Within it, a spoken
- *  taxi clearance only fills in what the boxes don't carry (a hold-short runway); after it, a
- *  new spoken clearance replaces the route as before, for anything the boxes don't cover. */
-const BOX_PRIORITY_MS = 120_000
 
 /** "27L" or "09": a `Hold Position` box naming a runway, not a holding point. */
 const RUNWAY_IDENT = /^\d{1,2}[LRC]?$/
@@ -177,7 +174,11 @@ let rememberedDeparted = false
 /** The last InfoBoxes taxi clearance already taken, and when, so the same boxes aren't taken
  *  again (on remount, or still showing after the takeoff roll dropped the route). */
 let rememberedBoxKey = ''
-let rememberedBoxAt = 0
+/** Whether BeyondATC has sent InfoBoxes: from then on, speech never starts a route. */
+let rememberedBoxesSeen = false
+/** The last spoken taxi clearance, when it was heard before its boxes arrived, so the boxes can
+ *  take any detail only the speech has. */
+let rememberedSpoken: Omit<TaxiClearance, 'from'> | null = null
 
 export function useTaxiRouteHighlight({
   mapRef,
@@ -226,9 +227,10 @@ export function useTaxiRouteHighlight({
           holdShortRunway: parseTaxiHoldShortRunway(entry.text)
         }
         const current = latest ?? rememberedClearance
-        if (Date.now() - rememberedBoxAt < BOX_PRIORITY_MS) {
+        if (rememberedBoxesSeen) {
           // The boxes win; the speech only adds what they lack, when it's the same route.
           if (current && sameTaxiways(current.taxiways, taxiways)) latest = withSpokenDetail(current, spoken)
+          else rememberedSpoken = spoken
           continue
         }
         latest = { ...spoken, from: positionRef.current }
@@ -242,19 +244,22 @@ export function useTaxiRouteHighlight({
     // (beyondatc-infoboxes-first.md). Taken once per new set of boxes.
     const ingestBoxes = (state: BeyondAtcState): void => {
       if (!live) return
+      if (state.infoBoxesSeen || (state.infoBoxes ?? []).length > 0) rememberedBoxesSeen = true
       const box = boxTaxiClearance(state.infoBoxes ?? [])
       if (!box) return
       const key = JSON.stringify(box)
       if (key === rememberedBoxKey) return
       rememberedBoxKey = key
-      rememberedBoxAt = Date.now()
       // Spoken just before the boxes arrived, for the same route: keep its start point and any
       // detail only it has, so the line doesn't restart.
       const current = rememberedClearance
-      const next =
+      const spoken = rememberedSpoken && sameTaxiways(rememberedSpoken.taxiways, box.taxiways) ? rememberedSpoken : null
+      let next: TaxiClearance =
         current && sameTaxiways(current.taxiways, box.taxiways)
           ? withSpokenDetail({ ...box, from: current.from }, current)
           : { ...box, from: positionRef.current }
+      if (spoken) next = withSpokenDetail(next, spoken)
+      rememberedSpoken = null
       rememberedClearance = next
       setClearance(next)
     }
