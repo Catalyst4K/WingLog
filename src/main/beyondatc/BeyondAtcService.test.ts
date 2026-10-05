@@ -144,6 +144,23 @@ describe('BeyondAtcService', () => {
     service.stop()
   })
 
+  it('logs InfoBoxes to main.log on each change only, raw, to record what BeyondATC uses per phase', () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    const { ctor, instances } = makeCtor()
+    const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
+    service.start()
+    instances[0].simulateOpen()
+    const line = 'InfoBoxes: [{"title":"Taxi to Gate","info":"Gate 411"}]'
+    instances[0].simulateLine(line)
+    instances[0].simulateLine(line)
+    instances[0].simulateLine('InfoBoxes: []')
+
+    const logged = info.mock.calls.map((c) => c[0]).filter((m) => String(m).startsWith('[beyondatc] InfoBoxes'))
+    expect(logged).toEqual(['[beyondatc] InfoBoxes [{"title":"Taxi to Gate","info":"Gate 411"}]', '[beyondatc] InfoBoxes []'])
+    info.mockRestore()
+    service.stop()
+  })
+
   it('parses AutoTune/AutoRespond as bare lowercase true/false, confirmed live 2026-09-29', () => {
     const { ctor, instances } = makeCtor()
     const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)

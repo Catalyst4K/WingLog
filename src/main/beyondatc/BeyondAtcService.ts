@@ -408,10 +408,16 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
         this.state = { ...this.state, frequencies: parseFrequencies(rest) }
         this.emit('state', this.state)
         return
-      case 'InfoBoxes':
-        this.state = { ...this.state, infoBoxes: parseInfoBoxes(rest) }
+      case 'InfoBoxes': {
+        const infoBoxes = parseInfoBoxes(rest)
+        // Logged on every change, raw, so real flights record which boxes BeyondATC uses in
+        // each phase (flightdeck-backend's docs/plans/beyondatc-infoboxes-first.md): only the
+        // taxi-to-gate set has been captured so far.
+        if (JSON.stringify(infoBoxes) !== JSON.stringify(this.state.infoBoxes)) console.info(`[beyondatc] InfoBoxes ${rest}`)
+        this.state = { ...this.state, infoBoxes }
         this.emit('state', this.state)
         return
+      }
       case 'Player':
       case 'ATC':
       case 'Traffic':
