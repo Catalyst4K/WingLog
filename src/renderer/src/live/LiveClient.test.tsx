@@ -18,7 +18,8 @@ const SUBSCRIBERS: Record<LiveTopic, keyof WingLogApi> = {
   beyondAtcStatus: 'onBeyondAtcStatus',
   beyondAtcState: 'onBeyondAtcState',
   beyondAtcTranscript: 'onBeyondAtcTranscript',
-  beyondAtcStepClimb: 'onBeyondAtcStepClimb'
+  beyondAtcStepClimb: 'onBeyondAtcStepClimb',
+  beyondAtcArrival: 'onBeyondAtcArrival'
 }
 
 const COMMANDS: { [C in LiveCommand]: [keyof WingLogApi, LiveCommands[C]] } = {

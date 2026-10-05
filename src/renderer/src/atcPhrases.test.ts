@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseAtcClearance } from './atcClearanceParser'
+import { parseAtcClearance } from '@shared/atc-clearance-parser'
 import { parseAtcInstruction } from './beyondAtcInstruction'
 
 /** Every real BeyondATC procedure wording on record (flightdeck-backend's beyondatc-notes.md

@@ -1,5 +1,5 @@
 import type { ProcedureSelection } from '@shared/ipc'
-import { APPROACH_CLEARED, APPROACH_EXPECT, CLEARED_TO, RUNWAY, SID, STAR } from './atcPhrases'
+import { APPROACH_CLEARED, APPROACH_EXPECT, CLEARED_TO, RUNWAY, SID, STAR } from './atc-phrases'
 
 export interface AtcClearanceUpdate {
   fields: Partial<Pick<ProcedureSelection, 'departureRunway' | 'sidIdent' | 'starIdent' | 'approachIdent' | 'approachTransition'>>
@@ -9,7 +9,7 @@ export interface AtcClearanceUpdate {
   summary: string
   /** A STAR clearance's runway ("cleared LOGA2H arrival, runway 27R"). Not a field:
    *  ProcedureSelection keeps the arrival runway only inside approachIdent (route.ts's
-   *  approachRunway), so approachForArrivalRunway (atcApproachMatch.ts) turns it into an
+   *  approachRunway), so approachForArrivalRunway (the renderer's atcApproachMatch.ts) turns it into an
    *  approach once the airport's approach list is known. */
   arrivalRunway?: string
 }
@@ -34,7 +34,7 @@ function reformatApproachIdent(type: string, runway: string): string {
  * 2026-09-28). BeyondATC's clearances are confirmed template-generated, not freeform.
  */
 export function parseAtcClearance(text: string): AtcClearanceUpdate | null {
-  // A departure clearance: the SID and runway are each read on their own (atcPhrases.ts), so
+  // A departure clearance: the SID and runway are each read on their own (atc-phrases.ts), so
   // an unexpected word around one can't lose the other — "via the BIXAD2 departure" once
   // lost both (YBBN, 2026-10-02).
   if (CLEARED_TO.test(text)) {

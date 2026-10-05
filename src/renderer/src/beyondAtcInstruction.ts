@@ -1,5 +1,5 @@
 import type { BeyondAtcTranscriptEntry } from '@shared/ipc'
-import { APPROACH_CLEARED, APPROACH_EXPECT, CLEARED_TO, RUNWAY, SID, STAR } from './atcPhrases'
+import { APPROACH_CLEARED, APPROACH_EXPECT, CLEARED_TO, RUNWAY, SID, STAR } from '@shared/atc-phrases'
 import { parseTaxiRoute } from './taxiRouteParser'
 
 /**
@@ -87,7 +87,7 @@ const ACTIONS: [InstructionAction, RegExp][] = [
 ]
 
 /** BeyondATC speaks approach types hyphenated ("ILS-Z"); shown as the sim's own navdata
- *  writes them ("ILS Z 17R") — same transform as atcClearanceParser.ts. */
+ *  writes them ("ILS Z 17R") — same transform as src/shared/atc-clearance-parser.ts. */
 function approachIdent(type: string, runway: string): string {
   return `${type.replace('-', ' ')} ${runway}`
 }

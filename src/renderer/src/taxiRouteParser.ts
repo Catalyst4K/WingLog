@@ -12,7 +12,7 @@ const HOLD_SHORT_TAXI = /taxi via ([A-Z0-9]+(?:, [A-Z0-9]+)*), hold short of run
 /**
  * Parses one live BeyondATC `ATC:` transcript line into an ordered list of taxiway names,
  * or `null` if it isn't a taxi clearance — same "degrade, never guess" discipline as
- * atcClearanceParser.ts. Real taxiway names need no reformatting to match the taxi chart's
+ * src/shared/atc-clearance-parser.ts. Real taxiway names need no reformatting to match the taxi chart's
  * own `TAXI_NAME` data (confirmed live, ZSPD, 2026-09-28 — unlike an approach identifier,
  * a straight string match is enough).
  *

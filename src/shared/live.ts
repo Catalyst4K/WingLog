@@ -1,4 +1,5 @@
 import type {
+  BeyondAtcArrivalClearance,
   BeyondAtcConnectionStatus,
   BeyondAtcState,
   BeyondAtcStepClimbStatus,
@@ -37,6 +38,7 @@ export interface LiveTopics {
   beyondAtcState: BeyondAtcState
   beyondAtcTranscript: BeyondAtcTranscriptEntry[]
   beyondAtcStepClimb: BeyondAtcStepClimbStatus
+  beyondAtcArrival: BeyondAtcArrivalClearance | null
 }
 
 export type LiveTopic = keyof LiveTopics

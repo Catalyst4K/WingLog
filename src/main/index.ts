@@ -133,6 +133,7 @@ import { manualPath } from './manual-path'
 import { existsSync } from 'node:fs'
 import { getSetupContext, getSetupState, setSetupCompleted } from './setup/first-run'
 import { StepClimbController } from './beyondatc/step-climb'
+import { ArrivalClearanceTracker } from './beyondatc/arrival-clearance'
 import type { NavdataProvider } from './navdata/navdata-provider'
 import { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
 import { SimAirfieldResolver } from './airports/sim-airfield'
@@ -879,6 +880,19 @@ if (!gotSingleInstanceLock) {
       // opt-in per user-entered host — unlike GSX Remote, the port is fixed
       // (BeyondAtcService's own BEYONDATC_PORT), so there's no port to validate here.
       let beyondAtcService: BeyondAtcService | undefined
+      // ATC's arrival clearance for the BeyondATC tab's info card, until touchdown.
+      const arrivalClearance = new ArrivalClearanceTracker({
+        getArrivalIcao: () => {
+          const active = trackingController.getActive()
+          return (active && getFlight(db, active.flightId)?.arrIcao) || beyondAtcService?.getState().progress?.to || null
+        },
+        listApproaches: (icao) => navdataProvider.listApproaches(icao)
+      })
+      arrivalClearance.on('clearance', (clearance) => {
+        liveHub.publish('beyondAtcArrival', clearance)
+      })
+      trackingController.on('point', (point) => arrivalClearance.onPhase(point.phase))
+      ipcMain.handle(IpcChannels.beyondAtcGetArrival, () => arrivalClearance.getClearance())
       const startBeyondAtcIfConfigured = (): void => {
         beyondAtcService?.stop()
         beyondAtcService = undefined
@@ -893,6 +907,7 @@ if (!gotSingleInstanceLock) {
         })
         beyondAtcService.on('transcript', (transcript) => {
           liveHub.publish('beyondAtcTranscript', transcript)
+          arrivalClearance.onTranscript(transcript)
         })
         beyondAtcService.start()
       }

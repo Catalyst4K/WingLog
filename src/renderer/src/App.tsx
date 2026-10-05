@@ -44,8 +44,9 @@ import { FleetView } from './FleetView'
 import { flightLabel } from './flight-label'
 import { gsxMenuSignature, isImportantGsxMenu } from './gsx-remote-importance'
 import { emptyProcedureSelection, seedProcedureSelectionFromOfp, selectionFromFlight } from './procedureSelection'
-import { parseAtcClearance, type AtcClearanceUpdate } from './atcClearanceParser'
-import { approachForArrivalRunway, matchClearanceApproach } from './atcApproachMatch'
+import { parseAtcClearance, type AtcClearanceUpdate } from '@shared/atc-clearance-parser'
+import { matchClearanceApproach } from '@shared/atc-approach-match'
+import { approachForArrivalRunway } from './atcApproachMatch'
 
 // Fleet is the default/first tab, so it's the one view kept eager — every other tab is
 // lazy so its JS (and, for Track/Logbook, the maplibre-gl and recharts they pull in —
