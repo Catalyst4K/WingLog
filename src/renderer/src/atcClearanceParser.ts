@@ -7,6 +7,11 @@ export interface AtcClearanceUpdate {
    *  GSX's menu text (verbatim third-party content worth preserving as-is), a clearance's
    *  value is which fields it sets, not its exact phrasing. */
   summary: string
+  /** A STAR clearance's runway ("cleared LOGA2H arrival, runway 27R"). Not a field:
+   *  ProcedureSelection keeps the arrival runway only inside approachIdent (route.ts's
+   *  approachRunway), so approachForArrivalRunway (atcApproachMatch.ts) turns it into an
+   *  approach once the airport's approach list is known. */
+  arrivalRunway?: string
 }
 
 /** The confirmed real transform (docs/beyondatc-notes.md, "Identifier-matching question
@@ -47,12 +52,10 @@ export function parseAtcClearance(text: string): AtcClearanceUpdate | null {
   if (star) {
     const [, starIdent] = star
     const runway = RUNWAY.exec(text)?.[1]
-    // The runway is real (and shown in the summary) but ProcedureSelection has nowhere to
-    // store an arrival runway independent of approachIdent — see approachRunway() in
-    // route.ts. It's applied once the approach clearance arrives, not before.
     return {
       fields: { starIdent },
-      summary: runway ? `STAR ${starIdent}, runway ${runway}` : `STAR ${starIdent}`
+      summary: runway ? `STAR ${starIdent}, runway ${runway}` : `STAR ${starIdent}`,
+      ...(runway && { arrivalRunway: runway })
     }
   }
 
