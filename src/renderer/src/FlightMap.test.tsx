@@ -1381,6 +1381,28 @@ describe('FlightMap', () => {
       expect(map.setLayoutProperty).not.toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
     })
 
+    it("highlights a clearance through Heathrow's link taxiways (EGLL, flight 229, 2026-10-05)", async () => {
+      // "LINK 36" made the whole clearance unparseable: the chart showed, the route never did.
+      const { push } = withTranscriptListener([
+        { startLat: 51.47, startLon: -0.45, endLat: 51.471, endLon: -0.451, name: 'E' },
+        { startLat: 51.471, startLon: -0.451, endLat: 51.472, endLon: -0.452, name: 'LINK 36' },
+        { startLat: 51.472, startLon: -0.452, endLat: 51.473, endLon: -0.453, name: 'F' }
+      ])
+      const user = userEvent.setup()
+      const { map } = await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'RKSI', arrIcao: 'EGLL' })
+      await user.click(toggleButton())
+      await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
+
+      push([{ speaker: 'atc', text: 'Koreanair 443 Heavy, taxi via E, LINK 36, F, A, R, hold short of runway 27L.', ts: 1000 }])
+
+      await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
+      expect(map.layers[HIGHLIGHT_LAYER_ID]?.filter).toEqual([
+        'all',
+        ['in', ['get', 'name'], ['literal', ['E', 'LINK 36', 'F', 'A', 'R']]],
+        ['==', ['get', 'icao'], 'EGLL']
+      ])
+    })
+
     it('hides the highlight layer when the chart is switched back off', async () => {
       const { push } = withTranscriptListener()
       const user = userEvent.setup()

@@ -51,6 +51,10 @@ describe('parseAtcInstruction', () => {
     })
   })
 
+  it('taxi clearance with a Heathrow link taxiway (EGLL, 2026-10-05)', () => {
+    expect(fieldsOf('Koreanair 443 Heavy, taxi via E, LINK 36, F, A, R, hold short of runway 27L.').taxiVia).toBe('E, LINK 36, F, A, R')
+  })
+
   it('arrival taxi to a stand', () => {
     expect(fieldsOf('Test 830, taxi to Stand 73 via D1, D, P3, L02, W1, T4, W6, L08.')).toEqual({
       stand: '73',
