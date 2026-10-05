@@ -45,7 +45,7 @@ import { flightLabel } from './flight-label'
 import { gsxMenuSignature, isImportantGsxMenu } from './gsx-remote-importance'
 import { emptyProcedureSelection, seedProcedureSelectionFromOfp, selectionFromFlight } from './procedureSelection'
 import { parseAtcClearance, type AtcClearanceUpdate } from './atcClearanceParser'
-import { matchClearanceApproach } from './atcApproachMatch'
+import { approachForArrivalRunway, matchClearanceApproach } from './atcApproachMatch'
 
 // Fleet is the default/first tab, so it's the one view kept eager — every other tab is
 // lazy so its JS (and, for Track/Logbook, the maplibre-gl and recharts they pull in —
@@ -334,10 +334,18 @@ export default function App(): React.JSX.Element {
         // the arrival airport's own name so accepting it selects something real (WSSS,
         // 2026-10-02). The airport is the one being flown to: the selected arrival, else
         // BeyondATC's own route.
-        if (update.fields.approachIdent) {
+        // A STAR clearance's runway picks the approach for it when it isn't the selected
+        // approach's runway (EGLL, 2026-10-05: "cleared LOGA2H arrival, runway 27R" against a
+        // planned ILS 27L).
+        if (update.fields.approachIdent || update.arrivalRunway) {
           try {
             const icao = procedureSelection.arrivalIcao ?? (await window.winglog.beyondAtcGetState()).progress?.to ?? null
-            if (icao) update = matchClearanceApproach(update, await window.winglog.navdataListApproaches(icao, null))
+            if (icao) {
+              const approaches = await window.winglog.navdataListApproaches(icao, null)
+              update = update.fields.approachIdent
+                ? matchClearanceApproach(update, approaches)
+                : approachForArrivalRunway(update, approaches, procedureSelection)
+            }
           } catch {
             // No list to check against: offer the clearance as parsed.
           }
@@ -758,7 +766,7 @@ export default function App(): React.JSX.Element {
                       {procedureSelection[key as keyof ProcedureSelection] ?? t('procedureSelector.none')}
                     </span>
                     {' → '}
-                    <span className="text-foreground">{value}</span>
+                    <span className="text-foreground">{value ?? t('procedureSelector.none')}</span>
                   </p>
                 ))}
               </div>

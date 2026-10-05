@@ -1085,6 +1085,82 @@ describe('App', () => {
       expect(screen.queryByText('Update procedure from ATC clearance?')).not.toBeInTheDocument()
     })
 
+    it('offers the approach for the runway in a STAR clearance when it differs from the planned one (EGLL, 2026-10-05)', async () => {
+      // The real line: no approach named, runway 27R against a planned ILS 27L. It used to
+      // update only the STAR, leaving ILS 27L selected with no prompt to change it.
+      const { push, winglog } = withTranscriptListener({
+        beyondAtcGetState: vi.fn().mockResolvedValue({ progress: { from: 'RKSI', to: 'EGLL', pct: 97 } }),
+        navdataListApproaches: vi.fn().mockResolvedValue([
+          { identifier: 'ILS 27L', transition: 'LAM' },
+          { identifier: 'ILS 27R', transition: 'LAM' },
+          { identifier: 'LOC 27R', transition: 'LAM' },
+          { identifier: 'RNAV 27R', transition: null }
+        ])
+      })
+      const user = userEvent.setup()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+      await openTrackTab(user)
+
+      // The planned approach, as SimBrief's 27L would have it: ILS 27L via LAM.
+      push([{ speaker: 'atc', text: 'Koreanair 443 Heavy, expect the ILS approach runway 27L with the LAM transition.', ts: 500 }])
+      await screen.findByText('Update procedure from ATC clearance?')
+      await user.click(screen.getByRole('button', { name: 'Update' }))
+      await waitFor(() =>
+        expect(winglog.trackingSetProcedureSelection).toHaveBeenLastCalledWith(
+          expect.objectContaining({ approachIdent: 'ILS 27L', approachTransition: 'LAM' })
+        )
+      )
+      await waitFor(() => expect(screen.queryByText('Update procedure from ATC clearance?')).not.toBeInTheDocument())
+
+      push([{ speaker: 'atc', text: 'Koreanair 443 Heavy, cleared LOGA2H arrival, runway 27R.', ts: 1000 }])
+
+      expect(await screen.findByText('ILS 27R')).toBeInTheDocument()
+      expect(winglog.navdataListApproaches).toHaveBeenLastCalledWith('EGLL', null)
+
+      await user.click(screen.getByRole('button', { name: 'Update' }))
+      await waitFor(() =>
+        expect(winglog.trackingSetProcedureSelection).toHaveBeenLastCalledWith(
+          expect.objectContaining({ starIdent: 'LOGA2H', approachIdent: 'ILS 27R', approachTransition: 'LAM' })
+        )
+      )
+    })
+
+    it('still prompts when the later approach clearance differs from the one predicted from the runway, and not when it matches', async () => {
+      const { push, winglog } = withTranscriptListener({
+        beyondAtcGetState: vi.fn().mockResolvedValue({ progress: { from: 'RKSI', to: 'EGLL', pct: 97 } }),
+        navdataListApproaches: vi.fn().mockResolvedValue([
+          { identifier: 'ILS 27L', transition: 'LAM' },
+          { identifier: 'ILS 27R', transition: 'LAM' },
+          { identifier: 'ILS 27R', transition: 'BIG' },
+          { identifier: 'RNAV 27R', transition: null }
+        ])
+      })
+      const user = userEvent.setup()
+      render(<App />)
+      await screen.findByText('Fleet', { selector: 'h1' })
+      await openTrackTab(user)
+
+      // Runway clearance first: WingLog predicts ILS 27R, accepted.
+      push([{ speaker: 'atc', text: 'Koreanair 443 Heavy, cleared LOGA2H arrival, runway 27R.', ts: 1000 }])
+      expect(await screen.findByText('ILS 27R')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Update' }))
+      await waitFor(() =>
+        expect(winglog.trackingSetProcedureSelection).toHaveBeenLastCalledWith(expect.objectContaining({ approachIdent: 'ILS 27R' }))
+      )
+      await waitFor(() => expect(screen.queryByText('Update procedure from ATC clearance?')).not.toBeInTheDocument())
+
+      // The same approach confirmed: nothing to change, no prompt.
+      push([{ speaker: 'atc', text: 'Koreanair 443 Heavy, cleared ILS approach runway 27R.', ts: 2000 }])
+      await new Promise((r) => setTimeout(r, 50))
+      expect(screen.queryByText('Update procedure from ATC clearance?')).not.toBeInTheDocument()
+
+      // A different transition than predicted: prompts again.
+      push([{ speaker: 'atc', text: 'Koreanair 443 Heavy, expect the ILS approach runway 27R with the BIG transition.', ts: 3000 }])
+      expect(await screen.findByText('Update procedure from ATC clearance?')).toBeInTheDocument()
+      expect(screen.getByText('BIG')).toBeInTheDocument()
+    })
+
     it('dismissing the prompt leaves the selection unchanged', async () => {
       const { push, winglog } = withTranscriptListener()
       const user = userEvent.setup()

@@ -10,11 +10,20 @@ describe('parseAtcClearance', () => {
     })
   })
 
-  it('parses a real STAR clearance without a runway field (nowhere to store one yet)', () => {
+  it('parses a real STAR clearance, keeping its runway for the approach to be worked out from', () => {
     const result = parseAtcClearance('Test 830, cleared AND1 arrival, runway 17R.')
     expect(result).toEqual({
       fields: { starIdent: 'AND1' },
-      summary: 'STAR AND1, runway 17R'
+      summary: 'STAR AND1, runway 17R',
+      arrivalRunway: '17R'
+    })
+  })
+
+  it("parses EGLL's real STAR clearance (2026-10-05)", () => {
+    expect(parseAtcClearance('Koreanair 443 Heavy, cleared LOGA2H arrival, runway 27R.')).toEqual({
+      fields: { starIdent: 'LOGA2H' },
+      summary: 'STAR LOGA2H, runway 27R',
+      arrivalRunway: '27R'
     })
   })
 
