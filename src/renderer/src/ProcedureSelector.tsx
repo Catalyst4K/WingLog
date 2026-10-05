@@ -164,10 +164,12 @@ export function ProcedureSelector(props: {
     // The OFP's planned runway is the filed destination's — not applicable to the alternate.
     const plannedRunway = arrIcao === airports.arrIcao ? parseRouteProcedures(airports.ofpJson).arrivalRunway : null
     const candidates = plannedRunway ? approachOptions.filter((o) => approachRunway(o.identifier) === plannedRunway) : approachOptions
-    const pick = pickDefaultApproachIdentifier(candidates)
+    // Prefer an approach the STAR leads into (ZJSY: UPRS2C ends at SY498, ILS Z 08's entry).
+    const starLastIdent = [...liveWaypoints].reverse().find((w) => w.segment === 'star')?.ident ?? null
+    const pick = pickDefaultApproachIdentifier(candidates, starLastIdent)
     if (pick) set({ approachIdent: pick })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [approachOptions, approachOptionsFor, arrIcao, selection.approachIdent, airports.ofpJson, approachKey])
+  }, [approachOptions, approachOptionsFor, arrIcao, selection.approachIdent, airports.ofpJson, approachKey, liveWaypoints])
 
   // Auto-connect the approach's own entry transition to wherever the current STAR actually
   // ends, when one matches — confirmed live that a real APPROACH_TRANSITION's name is the

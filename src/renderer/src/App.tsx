@@ -46,7 +46,7 @@ import { gsxMenuSignature, isImportantGsxMenu } from './gsx-remote-importance'
 import { emptyProcedureSelection, seedProcedureSelectionFromOfp, selectionFromFlight } from './procedureSelection'
 import { parseAtcClearance, type AtcClearanceUpdate } from '@shared/atc-clearance-parser'
 import { matchClearanceApproach } from '@shared/atc-approach-match'
-import { approachForArrivalRunway } from './atcApproachMatch'
+import { approachForArrivalRunway, starEndFix } from './atcApproachMatch'
 
 // Fleet is the default/first tab, so it's the one view kept eager — every other tab is
 // lazy so its JS (and, for Track/Logbook, the maplibre-gl and recharts they pull in —
@@ -337,7 +337,8 @@ export default function App(): React.JSX.Element {
         // BeyondATC's own route.
         // A STAR clearance's runway picks the approach for it when it isn't the selected
         // approach's runway (EGLL, 2026-10-05: "cleared LOGA2H arrival, runway 27R" against a
-        // planned ILS 27L).
+        // planned ILS 27L), or when the selected one doesn't start where the STAR ends (ZJSY,
+        // 2026-10-05: UPRS2C ends at SY498, the entry to ILS Z 08, not ILS X 08).
         if (update.fields.approachIdent || update.arrivalRunway) {
           try {
             const icao = procedureSelection.arrivalIcao ?? (await window.winglog.beyondAtcGetState()).progress?.to ?? null
@@ -345,7 +346,7 @@ export default function App(): React.JSX.Element {
               const approaches = await window.winglog.navdataListApproaches(icao, null)
               update = update.fields.approachIdent
                 ? matchClearanceApproach(update, approaches)
-                : approachForArrivalRunway(update, approaches, procedureSelection)
+                : approachForArrivalRunway(update, approaches, procedureSelection, await starEndFix(icao, update))
             }
           } catch {
             // No list to check against: offer the clearance as parsed.

@@ -368,9 +368,15 @@ export function approachRunway(approachIdent: string | null): string | null {
  *  approaches ATC will actually assign, since a real pilot doesn't know either until told
  *  during descent (docs/navdata-notes.md, 2026-09-08 approach-procedures entry). The point
  *  is a sane default that's instantly correctable from the dropdown, not a guess to get
- *  right. */
-export function pickDefaultApproachIdentifier(options: NavdataProcedureOption[]): string | null {
-  const all = [...new Set(options.map((o) => o.identifier))].sort()
+ *  right.
+ *
+ *  `starEndFix`, when given, narrows the choice to approaches with a transition starting at
+ *  that fix, when any have one. ZJSY, 2026-10-05: UPRS2C ends at SY498, the entry to ILS Z 08
+ *  but not ILS X 08 (SY462, SY935 only), so "first ILS" picked an approach the STAR never
+ *  reaches. */
+export function pickDefaultApproachIdentifier(options: NavdataProcedureOption[], starEndFix?: string | null): string | null {
+  const connecting = starEndFix ? options.filter((o) => o.transition === starEndFix) : []
+  const all = [...new Set((connecting.length > 0 ? connecting : options).map((o) => o.identifier))].sort()
   // The synthetic Visual approach stays opt-in (docs/plans/visual-approach.md) — it's only
   // ever the default at a field with no instrument approach at all.
   const instrument = all.filter((id) => !isVisualApproach(id))
