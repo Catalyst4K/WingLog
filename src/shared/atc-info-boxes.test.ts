@@ -157,6 +157,12 @@ describe('boxClearedLevelFt', () => {
     expect(boxClearedLevelFt([{ title: 'Descend to', info: '3,000m' }, { title: 'QNH', info: 'QNH 1014' }])).toBe(9843)
   })
 
+  it('reads the ZJSY-VHHH titles: Continue Climb To, and a unitless Descend To in feet (2026-10-05)', () => {
+    expect(boxClearedLevelFt([{ title: 'Continue Climb To', info: 'FL371' }])).toBe(37100)
+    expect(boxClearedLevelFt([{ title: 'Descend To', info: '11,000' }, { title: 'QNH', info: 'QNH 1015' }])).toBe(11000)
+    expect(boxClearedLevelFt([{ title: 'Cross CANTO', info: 'At or above FL130' }, { title: 'Descend To', info: '11,000' }])).toBe(11000)
+  })
+
   it('ignores speeds and other boxes', () => {
     expect(boxClearedLevelFt([{ title: 'Maintain Speed', info: '250' }])).toBeNull()
     expect(boxClearedLevelFt([{ title: 'Cross SY498', info: 'At or above 1,200m' }])).toBeNull()
