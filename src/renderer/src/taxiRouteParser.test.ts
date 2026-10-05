@@ -56,6 +56,14 @@ describe('a split arrival clearance, "taxi via …, hold short of runway …" (r
     expect(parseTaxiRoute('Test 230, taxi to stand 312 via A, LINK 21, B.')).toEqual(['A', 'LINK 21', 'B'])
   })
 
+  it("reads the second half of the same split clearance, the stand after crossing (EGLL, flight 229)", () => {
+    // Real line, 12:24 after the 12:17 first half: also through a link taxiway.
+    const text = 'Koreanair 443 Heavy, via N5E cross runway 27L, taxi to Stand 411 via A, R, N5W, S5W, W, LINK 44, T.'
+    expect(parseTaxiRoute(text)).toEqual(['A', 'R', 'N5W', 'S5W', 'W', 'LINK 44', 'T'])
+    expect(parseTaxiStand(text)).toBe('411')
+    expect(parseTaxiHoldShortRunway(text)).toBeNull()
+  })
+
   it('never takes an ordinary word after a taxiway as part of its name', () => {
     expect(parseTaxiRoute('Test 230, taxi via E, F then, hold short of runway 27L.')).toBeNull()
   })
