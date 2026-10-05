@@ -16,7 +16,9 @@ import type { NavdataTaxiSegment } from '@shared/ipc'
  *   stretch between B and B10 "B12", which the clearance never mentions. Segments with an
  *   unlisted name are allowed, at `OFF_ROUTE_COST_FACTOR` times their length, so the cleared
  *   names always win but a short scenery-naming gap doesn't break the whole trace.
- * - Unnamed segments (junction fillets, stand lead-ins) cost their plain length.
+ * - Unnamed segments (junction fillets, stand lead-ins) cost their plain length. So does any
+ *   segment before the route reaches its first cleared taxiway: getting from the stand to the
+ *   cleared route is the pilot's choice (VHHH, flight 230: B8 at 5× lost to the lead-ins).
  *
  * Where it ends:
  * - **A holding point** ("taxi to holding point A9 … via C9, B9"): along the holding-point
@@ -193,7 +195,11 @@ function traceOnce({ segments, taxiways, holdingPoint, from, stand }: TaxiTraceR
       const nextName = sequence[stage + 1]
       if (edge.name !== null && edge.name === nextName) moves.push([stage + 1, edge.lengthM])
       if (edge.name === null || (stage >= 0 && edge.name === sequence[stage])) moves.push([stage, edge.lengthM])
-      else if (edge.name !== nextName) moves.push([stage, edge.lengthM * OFF_ROUTE_COST_FACTOR])
+      // Before the first cleared taxiway, how to get there is the pilot's choice, so a named
+      // taxilane costs its plain length like an unnamed lead-in. VHHH, 2026-10-05: from B8,
+      // cleared "via B, B, V, H, J", 5× on B8 sent the line zigzagging through every gate
+      // lead-in beside it instead of straight along B8.
+      else if (edge.name !== nextName) moves.push([stage, stage < 0 ? edge.lengthM : edge.lengthM * OFF_ROUTE_COST_FACTOR])
 
       for (const [nextStage, edgeCost] of moves) {
         const next = stateOf(edge.to, nextStage)

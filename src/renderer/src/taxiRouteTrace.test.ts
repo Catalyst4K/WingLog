@@ -76,6 +76,22 @@ describe('traceTaxiRoute', () => {
     expect(lengthM(route!)).toBeLessThan(950)
   })
 
+  it('leaves the stand straight along B8, not zigzagging through the gate lead-ins beside it (VHHH, flight 230, 2026-10-05)', () => {
+    // Real: parked on B8 after pushback (22.31644, 113.92902), cleared "via B, B, V, H, J". B8
+    // isn't in the clearance; costed at 5× it lost to the unnamed lead-ins either side.
+    const route = traceTaxiRoute({ segments: VHHH, taxiways: ['B'], holdingPoint: null, from: { lat: 22.316438264, lon: 113.929019435 }, stand: null })!
+    const edgeNames = route.slice(1).map(([bLon, bLat], i) => {
+      const [aLon, aLat] = route[i]!
+      const seg = VHHH.find(
+        (s) =>
+          (s.startLat === aLat && s.startLon === aLon && s.endLat === bLat && s.endLon === bLon) ||
+          (s.startLat === bLat && s.startLon === bLon && s.endLat === aLat && s.endLon === aLon)
+      )
+      return seg?.name ?? '-'
+    })
+    expect(edgeNames).toEqual(['B8', 'B8', 'B8', 'B8', 'B8', 'B8', 'B8', 'B8', 'A11', 'B'])
+  })
+
   it('bridges the scenery-only "B12" stretch between B and B10 that ATC never names', () => {
     const route = traceTaxiRoute({ segments: VHHH, taxiways: ['B8', 'B'], holdingPoint: 'B10', from: STAND_END_OF_B8 })!
     const onRoute = new Set(route.map(([lon, lat]) => `${lon},${lat}`))
