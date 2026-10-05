@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { render, screen } from '@testing-library/react'
 import type { WingLogApi } from '@shared/ipc'
 import { GsxRemoteView } from './GsxRemoteView'
@@ -8,6 +9,8 @@ function withWinglog(): void {
     settingsGetGsxRemote: vi.fn().mockResolvedValue({ enabled: false, host: 'localhost', port: 8744 }),
     gsxRemoteGetStatus: vi.fn().mockResolvedValue({ state: 'disconnected', lastError: null }),
     beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
+    beyondAtcGetState: vi.fn().mockResolvedValue(EMPTY_BEYONDATC_STATE),
+    onBeyondAtcState: vi.fn(() => () => {}),
     onBeyondAtcTranscript: vi.fn(() => () => {}),
     onGsxRemoteStatus: vi.fn().mockReturnValue(() => {}),
     gsxRemoteGetServices: vi.fn().mockResolvedValue([]),

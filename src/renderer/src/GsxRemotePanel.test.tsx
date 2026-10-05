@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type {
@@ -25,6 +26,8 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): void {
     settingsGetGsxRemote: vi.fn().mockResolvedValue(makeSettings()),
     gsxRemoteGetStatus: vi.fn().mockResolvedValue(makeStatus()),
     beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
+    beyondAtcGetState: vi.fn().mockResolvedValue(EMPTY_BEYONDATC_STATE),
+    onBeyondAtcState: vi.fn(() => () => {}),
     onBeyondAtcTranscript: vi.fn(() => () => {}),
     onGsxRemoteStatus: vi.fn().mockReturnValue(() => {}),
     gsxRemoteGetServices: vi.fn().mockResolvedValue([]),
@@ -157,6 +160,49 @@ describe('GsxRemotePanel', () => {
     const user = userEvent.setup()
     await user.click(refuel)
     expect(gsxRemotePickMenu).toHaveBeenCalledWith(0)
+  })
+
+  it("offers the gate from BeyondATC's Taxi to Gate box before ATC has said it (EGLL, flight 229, 2026-10-05)", async () => {
+    // Real: gate 411 was in BeyondATC's InfoBoxes from 12:17; ATC only said it at 12:24.
+    let menuListener: (menu: GsxRemoteMenuState) => void = () => {}
+    const gsxRemoteSearch = vi.fn().mockResolvedValue(undefined)
+    withWinglog({
+      gsxRemoteSearch,
+      beyondAtcGetTranscript: vi.fn().mockResolvedValue([
+        { speaker: 'atc', text: 'Koreanair 443 Heavy, taxi via E, LINK 36, F, A, R, hold short of runway 27L.', ts: 1 }
+      ]),
+      beyondAtcGetState: vi.fn().mockResolvedValue({
+        ...EMPTY_BEYONDATC_STATE,
+        infoBoxes: [
+          { title: 'Taxi to Gate', info: 'Gate 411' },
+          { title: 'Taxi Via 1', info: 'E' }
+        ]
+      }),
+      onGsxRemoteMenu: vi.fn((listener) => {
+        menuListener = listener
+        return () => {}
+      })
+    })
+    render(<GsxRemotePanel />)
+    await screen.findByText('Tap to open')
+    act(() =>
+      menuListener({
+        menuShown: true,
+        searchActive: true,
+        searchSession: 1,
+        title: 'Type a gate, terminal or number',
+        header: '',
+        subtitle: '',
+        entries: ['Back'],
+        icons: [''],
+        disabled: [false],
+        layout: ''
+      })
+    )
+
+    const suggestion = await screen.findByRole('button', { name: 'Stand 411 (from ATC)' })
+    await userEvent.setup().click(suggestion)
+    expect(gsxRemoteSearch).toHaveBeenLastCalledWith('411')
   })
 
   it("offers BeyondATC's assigned stand in the gate search, typed in only when clicked (stand-positions.md)", async () => {

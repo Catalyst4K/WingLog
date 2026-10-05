@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { ActiveTracking, BeyondAtcState, BeyondAtcStepClimbStatus, BeyondAtcTranscriptEntry, SimTelemetry } from '@shared/ipc'
-import { EMPTY_STATE } from './BeyondAtcService'
+import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import type { AltitudeRequestOutcome, requestAltitude } from './altitude-request'
 import { StepClimbController, clearedLevelFromTranscript, distanceNm, extractStepPlan } from './step-climb'
 
@@ -87,7 +87,7 @@ function setup(
   }))
   const session = {
     getStatus: () => ({ state: 'connected' as const, lastError: null }),
-    getState: (): BeyondAtcState => EMPTY_STATE,
+    getState: (): BeyondAtcState => EMPTY_BEYONDATC_STATE,
     getTranscript: () => opts.transcript ?? [],
     setAction: vi.fn(),
     on: vi.fn(),

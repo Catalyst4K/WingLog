@@ -126,7 +126,8 @@ import {
 import { SimConnectService } from './sim/SimConnectService'
 import { ReplaySimConnectService, type ReplayMode } from './sim/ReplaySimConnectService'
 import { EMPTY_COMMAND_BAR, EMPTY_MENU, GsxRemoteService } from './gsx-remote/GsxRemoteService'
-import { BeyondAtcService, EMPTY_STATE as BEYONDATC_EMPTY_STATE } from './beyondatc/BeyondAtcService'
+import { BeyondAtcService } from './beyondatc/BeyondAtcService'
+import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { UpdateService } from './updates/update-check'
 import { LiveHub } from './live/LiveHub'
 import { manualPath } from './manual-path'
@@ -920,7 +921,7 @@ if (!gotSingleInstanceLock) {
         startBeyondAtcIfConfigured()
       })
       ipcMain.handle(IpcChannels.beyondAtcGetStatus, () => beyondAtcService?.getStatus() ?? { state: 'disconnected', lastError: null })
-      ipcMain.handle(IpcChannels.beyondAtcGetState, () => beyondAtcService?.getState() ?? BEYONDATC_EMPTY_STATE)
+      ipcMain.handle(IpcChannels.beyondAtcGetState, () => beyondAtcService?.getState() ?? EMPTY_BEYONDATC_STATE)
       ipcMain.handle(IpcChannels.beyondAtcGetTranscript, () => beyondAtcService?.getTranscript() ?? [])
       ipcMain.handle(IpcChannels.beyondAtcSetAction, (_event, label: unknown) => beyondAtcService?.setAction(label))
       ipcMain.handle(IpcChannels.beyondAtcSetFrequency, (_event, frequency: unknown) => beyondAtcService?.setFrequency(frequency))
