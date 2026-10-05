@@ -47,6 +47,19 @@ describe('parseTaxiRoute', () => {
 describe('a split arrival clearance, "taxi via …, hold short of runway …" (real, VHHH 2026-10-02)', () => {
   const LINE = 'Hongkong Shuttle 251, taxi via C7, Y, F, hold short of runway 07C.'
 
+  it("reads Heathrow's link taxiways, whose names contain a space (EGLL, flight 229, 2026-10-05)", () => {
+    // Real line: "LINK 36" used to fail the whole parse, so no route was drawn after landing.
+    const text = 'Koreanair 443 Heavy, taxi via E, LINK 36, F, A, R, hold short of runway 27L.'
+    expect(parseTaxiRoute(text)).toEqual(['E', 'LINK 36', 'F', 'A', 'R'])
+    expect(parseTaxiHoldShortRunway(text)).toBe('27L')
+    expect(parseTaxiRoute('Test 230, taxi to holding point A10, runway 27L, via LINK 36, A.')).toEqual(['LINK 36', 'A'])
+    expect(parseTaxiRoute('Test 230, taxi to stand 312 via A, LINK 21, B.')).toEqual(['A', 'LINK 21', 'B'])
+  })
+
+  it('never takes an ordinary word after a taxiway as part of its name', () => {
+    expect(parseTaxiRoute('Test 230, taxi via E, F then, hold short of runway 27L.')).toBeNull()
+  })
+
   it('reads the taxiways and the runway to hold short of', () => {
     expect(parseTaxiRoute(LINE)).toEqual(['C7', 'Y', 'F'])
     expect(parseTaxiHoldShortRunway(LINE)).toBe('07C')

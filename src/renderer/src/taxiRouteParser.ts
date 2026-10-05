@@ -1,13 +1,21 @@
+// One taxiway name: letters/digits, optionally followed by a space and a number. Heathrow's
+// link taxiways are named that way ("taxi via E, LINK 36, F, A, R, hold short of runway
+// 27L", flight 229, 2026-10-05), and the sim's TAXI_NAME is the same "LINK 36". Without it
+// the whole clearance failed to parse and no route was drawn. Only a number may follow the
+// space, so a list can't swallow ordinary words after it.
+const TAXIWAY = String.raw`[A-Z0-9]+(?: \d+)?`
+const TAXIWAY_LIST = `(${TAXIWAY}(?:, ${TAXIWAY})*)`
+
 // Matches both real captured taxi-clearance shapes (docs/beyondatc-notes.md, "The real taxi
 // clearance format", 2026-09-28): a departure clearance names a holding point and runway
 // before "via"; an arrival (taxi-to-gate) clearance names a stand instead. Both end the same
 // way — a comma-separated list of taxiway names up to the trailing period.
-const DEPARTURE_TAXI = /taxi to holding point \S+, runway \S+, via ([A-Z0-9]+(?:, [A-Z0-9]+)*)\.?/i
-const ARRIVAL_TAXI = /taxi to stand \S+ via ([A-Z0-9]+(?:, [A-Z0-9]+)*)\.?/i
+const DEPARTURE_TAXI = new RegExp(String.raw`taxi to holding point \S+, runway \S+, via ${TAXIWAY_LIST}\.?`, 'i')
+const ARRIVAL_TAXI = new RegExp(String.raw`taxi to stand \S+ via ${TAXIWAY_LIST}\.?`, 'i')
 // A third shape, the first half of a split arrival clearance (real, VHHH 2026-10-02, after
 // landing 07L): "taxi via C7, Y, F, hold short of runway 07C." The stand comes in a second
 // clearance once across.
-const HOLD_SHORT_TAXI = /taxi via ([A-Z0-9]+(?:, [A-Z0-9]+)*), hold short of runway (\w+)/i
+const HOLD_SHORT_TAXI = new RegExp(String.raw`taxi via ${TAXIWAY_LIST}, hold short of runway (\w+)`, 'i')
 
 /**
  * Parses one live BeyondATC `ATC:` transcript line into an ordered list of taxiway names,
