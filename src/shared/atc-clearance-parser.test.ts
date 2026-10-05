@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseAtcClearance } from './atcClearanceParser'
+import { parseAtcClearance } from './atc-clearance-parser'
 
 describe('parseAtcClearance', () => {
   it('parses a real departure clearance', () => {

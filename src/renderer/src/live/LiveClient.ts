@@ -36,7 +36,8 @@ export const electronLiveClient: LiveClient = {
       beyondAtcStatus: w.beyondAtcGetStatus,
       beyondAtcState: w.beyondAtcGetState,
       beyondAtcTranscript: w.beyondAtcGetTranscript,
-      beyondAtcStepClimb: w.beyondAtcGetStepClimb
+      beyondAtcStepClimb: w.beyondAtcGetStepClimb,
+      beyondAtcArrival: w.beyondAtcGetArrival
     }
     const getter = getters[topic]
     return getter ? getter() : Promise.resolve(undefined)
@@ -57,7 +58,8 @@ export const electronLiveClient: LiveClient = {
       beyondAtcStatus: w.onBeyondAtcStatus,
       beyondAtcState: w.onBeyondAtcState,
       beyondAtcTranscript: w.onBeyondAtcTranscript,
-      beyondAtcStepClimb: w.onBeyondAtcStepClimb
+      beyondAtcStepClimb: w.onBeyondAtcStepClimb,
+      beyondAtcArrival: w.onBeyondAtcArrival
     }
     return subscribers[topic](listener)
   },

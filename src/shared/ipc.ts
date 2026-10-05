@@ -976,6 +976,16 @@ export interface BeyondAtcFrequencyOption {
  *  docs/beyondatc-notes.md catalogues (DATIS, CPDLC code, settings, … aren't surfaced here;
  *  nothing needed by this panel). Unrecognised/unparsed wire keys are simply never reflected
  *  here, not an error. */
+/** ATC's arrival clearance as last given, kept until touchdown for the BeyondATC tab's info
+ *  card (src/main/beyondatc/arrival-clearance.ts). The STAR and runway come from a STAR
+ *  clearance, the approach and transition from an approach clearance or "expect" line. */
+export interface BeyondAtcArrivalClearance {
+  starIdent: string | null
+  runway: string | null
+  approachIdent: string | null
+  approachTransition: string | null
+}
+
 /** WingLog's own BeyondATC auto step climb (flightdeck-backend's docs/plans/
  *  beyondatc-auto-step-climb.md) — not a BeyondATC setting; WingLog asks for each new level. */
 export interface BeyondAtcStepClimbStatus {
@@ -1501,6 +1511,8 @@ export const IpcChannels = {
   beyondAtcGetStepClimb: 'beyondatc:get-step-climb',
   beyondAtcStepClimb: 'beyondatc:step-climb',
   beyondAtcSetStepClimb: 'beyondatc:set-step-climb',
+  beyondAtcGetArrival: 'beyondatc:get-arrival',
+  beyondAtcArrival: 'beyondatc:arrival',
   setupGetState: 'setup:get-state',
   setupGetContext: 'setup:get-context',
   setupComplete: 'setup:complete'
@@ -1930,6 +1942,8 @@ export interface WingLogApi {
   beyondAtcGetStepClimb: () => Promise<BeyondAtcStepClimbStatus>
   onBeyondAtcStepClimb: (listener: (status: BeyondAtcStepClimbStatus) => void) => () => void
   beyondAtcSetStepClimb: (enabled: boolean) => Promise<void>
+  beyondAtcGetArrival: () => Promise<BeyondAtcArrivalClearance | null>
+  onBeyondAtcArrival: (listener: (clearance: BeyondAtcArrivalClearance | null) => void) => () => void
   setupGetState: () => Promise<SetupState>
   setupGetContext: () => Promise<SetupContext>
   /** Finished or closed: never shown again unless reopened from Settings → About. */

@@ -43,6 +43,8 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): void {
     beyondAtcSetAutoRespond: vi.fn().mockResolvedValue(undefined),
     beyondAtcGetStepClimb: vi.fn().mockResolvedValue({ enabled: false, nextStep: null, pendingAltitudeFt: null, waitingForClimbFt: null, pastTopOfDescent: false, last: null }),
     onBeyondAtcStepClimb: vi.fn(() => () => {}),
+    beyondAtcGetArrival: vi.fn().mockResolvedValue(null),
+    onBeyondAtcArrival: vi.fn(() => () => {}),
     beyondAtcSetStepClimb: vi.fn().mockResolvedValue(undefined),
     ...overrides
   } as unknown as WingLogApi
@@ -150,6 +152,62 @@ describe('BeyondAtcPanel', () => {
     expect(within(card).getByText('200° 7 kt')).toBeInTheDocument()
     // Only the most recent instruction — the earlier handoff isn't carried over.
     expect(within(card).queryByText('Hong Kong Tower 118.2')).not.toBeInTheDocument()
+  })
+
+  describe("ATC's arrival clearance in the latest-instruction header (flight 229, EGLL, 2026-10-05)", () => {
+    const LATER_LINE: BeyondAtcTranscriptEntry[] = [
+      { speaker: 'atc', text: 'Koreanair 443 Heavy, cleared LOGA2H arrival, runway 27R.', ts: 1 },
+      { speaker: 'atc', text: 'Koreanair 443 Heavy, report ready for descent.', ts: 2 }
+    ]
+
+    async function headerOf(): Promise<HTMLElement> {
+      const card = (await screen.findByText('Latest instruction')).closest('[data-slot="card"]') as HTMLElement
+      return card.querySelector('[data-slot="card-header"]') as HTMLElement
+    }
+
+    it('keeps STAR and runway in the header while later instructions still show in the body', async () => {
+      withWinglog({
+        beyondAtcGetTranscript: vi.fn().mockResolvedValue(LATER_LINE),
+        beyondAtcGetArrival: vi.fn().mockResolvedValue({ starIdent: 'LOGA2H', runway: '27R', approachIdent: null, approachTransition: null })
+      })
+      render(<BeyondAtcPanel />)
+
+      const header = await headerOf()
+      expect(await within(header).findByText('LOGA2H')).toBeInTheDocument()
+      expect(within(header).getByText('27R')).toBeInTheDocument()
+      expect(within(header).getByText('STAR:', { exact: false })).toBeInTheDocument()
+      // The body is still the latest line, not the STAR clearance.
+      const card = header.closest('[data-slot="card"]') as HTMLElement
+      expect(within(card).getAllByText('Koreanair 443 Heavy, report ready for descent.').length).toBeGreaterThan(0)
+    })
+
+    it('switches to approach and transition once those are given', async () => {
+      let push: ((c: unknown) => void) | undefined
+      withWinglog({
+        beyondAtcGetTranscript: vi.fn().mockResolvedValue(LATER_LINE),
+        beyondAtcGetArrival: vi.fn().mockResolvedValue({ starIdent: 'LOGA2H', runway: '27R', approachIdent: null, approachTransition: null }),
+        onBeyondAtcArrival: vi.fn((l) => {
+          push = l as (c: unknown) => void
+          return () => {}
+        })
+      })
+      render(<BeyondAtcPanel />)
+      const header = await headerOf()
+      await within(header).findByText('LOGA2H')
+
+      act(() => push?.({ starIdent: 'LOGA2H', runway: '27R', approachIdent: 'ILS 27R', approachTransition: 'LAM' }))
+
+      expect(await within(header).findByText('ILS 27R')).toBeInTheDocument()
+      expect(within(header).getByText('LAM')).toBeInTheDocument()
+      expect(within(header).queryByText('LOGA2H')).not.toBeInTheDocument()
+    })
+
+    it('shows nothing extra before any arrival clearance, or after touchdown clears it', async () => {
+      withWinglog({ beyondAtcGetTranscript: vi.fn().mockResolvedValue(LATER_LINE) })
+      render(<BeyondAtcPanel />)
+      const header = await headerOf()
+      expect(within(header).queryByTestId('arrival-clearance')).not.toBeInTheDocument()
+    })
   })
 
   it('shows a real VHHH flight-level clearance (2026-09-30) with its ATIS letter', async () => {

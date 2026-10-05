@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type {
+  BeyondAtcArrivalClearance,
   BeyondAtcCommsState,
   BeyondAtcConnectionStatus,
   BeyondAtcSettings,
@@ -71,17 +72,44 @@ function InfoCard(props: { state: BeyondAtcState }): React.JSX.Element {
  *  takeoff… (beyondAtcInstruction.ts) — as labelled fields, with the full text underneath so
  *  nothing an unrecognised phrasing carries is ever hidden. The station ATC spoke as sits in
  *  the header; clearances/permissions (cleared for takeoff, line up and wait…) stand out as
- *  badges rather than as another label: value pair. */
-function LatestInstructionCard(props: { instruction: AtcInstruction | null }): React.JSX.Element {
+ *  badges rather than as another label: value pair.
+ *
+ *  The header's right side also keeps ATC's arrival clearance from the moment it's given
+ *  until touchdown (Callum, 2026-10-05; kept in main by ArrivalClearanceTracker): STAR and
+ *  runway, switching to approach and transition once those come. It sits beside the latest
+ *  instruction, never in place of it — later lines ("report ready for descent") still show
+ *  in the body as normal. */
+function LatestInstructionCard(props: {
+  instruction: AtcInstruction | null
+  arrival: BeyondAtcArrivalClearance | null
+}): React.JSX.Element {
   const { t } = useTranslation()
   const instruction = props.instruction
+  const arrival = props.arrival
   const station = instruction?.fields.find((f) => f.key === 'station')?.value
   const fields = instruction?.fields.filter((f) => f.key !== 'station') ?? []
   return (
     <Card size="sm" className="border-primary/40">
-      <CardHeader className="flex flex-row items-baseline justify-between gap-2">
+      <CardHeader className="flex flex-row flex-wrap items-baseline justify-between gap-2">
         <CardTitle>{t('beyondAtcPanel.instruction.title')}</CardTitle>
-        {station && <span className="text-xs text-muted-foreground">{station}</span>}
+        <div className="flex flex-wrap items-baseline justify-end gap-x-4 gap-y-1">
+          {arrival?.approachIdent ? (
+            <span data-testid="arrival-clearance" className="flex flex-wrap gap-x-4 gap-y-1">
+              <InfoField label={t('beyondAtcPanel.instruction.field.approach')} value={arrival.approachIdent} />
+              {arrival.approachTransition && (
+                <InfoField label={t('beyondAtcPanel.instruction.field.transition')} value={arrival.approachTransition} />
+              )}
+            </span>
+          ) : (
+            arrival?.starIdent && (
+              <span data-testid="arrival-clearance" className="flex flex-wrap gap-x-4 gap-y-1">
+                <InfoField label={t('beyondAtcPanel.instruction.field.star')} value={arrival.starIdent} />
+                {arrival.runway && <InfoField label={t('beyondAtcPanel.instruction.field.runway')} value={arrival.runway} />}
+              </span>
+            )
+          )}
+          {station && <span className="text-xs text-muted-foreground">{station}</span>}
+        </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
         {!instruction ? (
@@ -247,6 +275,7 @@ export function BeyondAtcPanel(): React.JSX.Element {
   const [state, setState] = useState<BeyondAtcState>(EMPTY_STATE)
   const transcript = useLiveTopic('beyondAtcTranscript', NO_TRANSCRIPT)
   const stepClimb = useLiveTopic('beyondAtcStepClimb', STEP_CLIMB_OFF)
+  const arrival = useLiveTopic('beyondAtcArrival', null)
   const latestInstruction = useMemo(() => latestAtcInstruction(transcript), [transcript])
   // The action just pressed, until BeyondATC transmits it (Callum, 2026-10-02: a press
   // queued behind other traffic looked like it did nothing).
@@ -300,7 +329,7 @@ export function BeyondAtcPanel(): React.JSX.Element {
             : t('beyondAtcPanel.disconnected')}
       </p>
       <InfoCard state={state} />
-      <LatestInstructionCard instruction={latestInstruction} />
+      <LatestInstructionCard instruction={latestInstruction} arrival={arrival} />
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-[minmax(18rem,28rem)_minmax(18rem,1fr)]">
         <div className="flex min-h-0 flex-col gap-4 self-start">
           <ActionsCard

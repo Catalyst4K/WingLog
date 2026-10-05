@@ -11,6 +11,7 @@ import {
   type UpdateSettings,
   type UpdateStatus,
   type BeyondAtcStepClimbStatus,
+  type BeyondAtcArrivalClearance,
   type DataFormat,
   type DispatchOpenSimBriefParams,
   type WingLogApi,
@@ -285,6 +286,12 @@ const api: WingLogApi = {
     return () => ipcRenderer.removeListener(IpcChannels.beyondAtcStepClimb, handler)
   },
   beyondAtcSetStepClimb: (enabled: boolean) => ipcRenderer.invoke(IpcChannels.beyondAtcSetStepClimb, enabled),
+  beyondAtcGetArrival: () => ipcRenderer.invoke(IpcChannels.beyondAtcGetArrival),
+  onBeyondAtcArrival: (listener: (clearance: BeyondAtcArrivalClearance | null) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, clearance: BeyondAtcArrivalClearance | null): void => listener(clearance)
+    ipcRenderer.on(IpcChannels.beyondAtcArrival, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.beyondAtcArrival, handler)
+  },
   setupGetState: () => ipcRenderer.invoke(IpcChannels.setupGetState),
   setupGetContext: () => ipcRenderer.invoke(IpcChannels.setupGetContext),
   setupComplete: () => ipcRenderer.invoke(IpcChannels.setupComplete)

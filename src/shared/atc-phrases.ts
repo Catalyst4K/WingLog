@@ -1,12 +1,12 @@
 /**
  * BeyondATC's procedure phrases, shared by the Latest instruction card
- * (beyondAtcInstruction.ts) and the procedure update prompt (atcClearanceParser.ts) so the
+ * (beyondAtcInstruction.ts) and the procedure update prompt (atc-clearance-parser.ts) so the
  * two can't drift apart — they did once, both missing "via the BIXAD2 departure" on the real
  * YBBN-VHHH flight (2026-10-02), where every earlier capture said "via PECA1D departure".
  *
  * Each pattern finds one fact on its own, tolerating the small words BeyondATC varies
  * ("the", "SID", a comma before "runway"), so one unexpected word can't lose the others.
- * Every real wording on record is in atcPhrases.test.ts; add new ones there as they turn up.
+ * Every real wording on record is in the renderer's atcPhrases.test.ts; add new ones there as they turn up.
  */
 
 // "via PECA1D departure", "via the BIXAD2 departure", "via the BIXAD2 SID".
