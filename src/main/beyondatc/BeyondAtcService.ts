@@ -12,7 +12,6 @@ import type {
   BeyondAtcState,
   BeyondAtcTranscriptEntry
 } from '@shared/ipc'
-import { TaxiBoxCheck } from './taxi-box-check'
 import { assignedGate, parseAtcTaxiFacts } from '@shared/atc-info-boxes'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 
@@ -204,7 +203,6 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
 
   private state: BeyondAtcState = { ...EMPTY_BEYONDATC_STATE }
   private transcript: BeyondAtcTranscriptEntry[] = []
-  private readonly taxiBoxCheck = new TaxiBoxCheck((message) => console.warn(message))
 
   constructor(
     private host: string,
@@ -418,12 +416,10 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
         // taxi-to-gate set has been captured so far.
         if (JSON.stringify(infoBoxes) !== JSON.stringify(this.state.infoBoxes)) console.info(`[beyondatc] InfoBoxes ${rest}`)
         const changed = JSON.stringify(infoBoxes) !== JSON.stringify(this.state.infoBoxes)
-        this.taxiBoxCheck.onInfoBoxes(infoBoxes, Date.now())
         this.state = {
           ...this.state,
           infoBoxes,
           infoBoxesAt: changed ? Date.now() : this.state.infoBoxesAt,
-          infoBoxesSeen: this.state.infoBoxesSeen || infoBoxes.length > 0,
           assignedGate: assignedGate(parseAtcTaxiFacts(infoBoxes)) ?? this.state.assignedGate
         }
         this.emit('state', this.state)
@@ -445,7 +441,6 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
 
   private pushTranscript(speaker: BeyondAtcTranscriptEntry['speaker'], text: string): void {
     this.transcript = [...this.transcript, { speaker, text, ts: Date.now() }].slice(-TRANSCRIPT_LIMIT)
-    if (speaker === 'atc') this.taxiBoxCheck.onAtcLine(text, Date.now())
     this.emit('transcript', this.transcript)
   }
 

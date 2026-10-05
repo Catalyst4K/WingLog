@@ -1,5 +1,5 @@
 import type { NavdataProcedureOption, ProcedureSelection } from '@shared/ipc'
-import type { AtcClearanceUpdate } from '@shared/atc-clearance-parser'
+import type { AtcClearanceUpdate } from '@shared/atc-info-boxes'
 import { approachRunway, pickDefaultApproachIdentifier } from './route'
 
 /**

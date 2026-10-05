@@ -1,13 +1,12 @@
 import { EventEmitter } from 'node:events'
-import type { BeyondAtcArrivalClearance, BeyondAtcInfoBox, BeyondAtcTranscriptEntry, FlightPhase, NavdataProcedureOption } from '@shared/ipc'
+import type { BeyondAtcArrivalClearance, BeyondAtcInfoBox, FlightPhase, NavdataProcedureOption } from '@shared/ipc'
 import { matchClearanceApproach } from '@shared/atc-approach-match'
-import { parseAtcClearance, type AtcClearanceUpdate } from '@shared/atc-clearance-parser'
-import { parseAtcBoxClearance } from '@shared/atc-info-boxes'
+import { parseAtcBoxClearance, type AtcClearanceUpdate } from '@shared/atc-info-boxes'
 
 export interface ArrivalClearanceDeps {
   /** The airport being flown to: the active flight's arrival, else BeyondATC's own route. */
   getArrivalIcao(): string | null
-  /** The airport's approaches from navdata, to name a spoken approach the way the sim does. */
+  /** The airport's approaches from navdata, to name a cleared approach the way the sim does. */
   listApproaches(icao: string): NavdataProcedureOption[]
 }
 
@@ -16,24 +15,20 @@ export interface ArrivalClearanceDeps {
  * until touchdown (Callum, 2026-10-05). On flight 229 the STAR/runway clearance showed only in
  * the latest-instruction card, which the next ATC line replaced before it was read.
  *
- * - A STAR clearance ("cleared LOGA2H arrival, runway 27R") sets the STAR and runway. It
- *   clears a known approach only when its runway differs from that approach's.
- * - An approach clearance or "expect" advisory sets the approach and transition, named the
- *   way the airport's navdata names it. A later line naming the same approach without a
- *   transition keeps the one already known.
+ * Read only from BeyondATC's InfoBoxes, never ATC's speech (flightdeck-backend's
+ * docs/decisions.md, 2026-10-05). Real sets, VHHH-ZJSY 2026-10-05:
+ * - `STAR` + `Arrival Runway` set the STAR and runway. A known approach is cleared only when
+ *   the runway differs from its own.
+ * - `Landing Runway` (+ `Transition`) sets the runway and the approach transition.
+ * - `Cleared Approach` sets the approach, named the way the airport's navdata names it. A
+ *   transition already known for that runway is kept.
  * - The first tracking point in 'landing' (touchdown) clears it all.
- *
- * Read from BeyondATC's InfoBoxes (`STAR` + `Arrival Runway`, `Landing Runway` + `Transition`,
- * `Cleared Approach`). ATC's speech is read only while BeyondATC has sent no boxes this
- * session (flightdeck-backend's docs/decisions.md, 2026-10-05).
  *
  * Lives in main, published as a LiveHub topic, so a LAN client (v1.5) sees the same card
  * (flightdeck-backend's docs/plans/live-data-seam.md). Emits 'clearance' on every change.
  */
 export class ArrivalClearanceTracker extends EventEmitter {
   private clearance: BeyondAtcArrivalClearance | null = null
-  private lastTs = 0
-  private boxesSeen = false
   private lastBoxesKey = ''
 
   constructor(private readonly deps: ArrivalClearanceDeps) {
@@ -44,23 +39,8 @@ export class ArrivalClearanceTracker extends EventEmitter {
     return this.clearance
   }
 
-  /** Reads ATC lines not seen before (by timestamp, since the transcript is capped), only while
-   *  BeyondATC sends no InfoBoxes. */
-  onTranscript(transcript: BeyondAtcTranscriptEntry[]): void {
-    let next = this.clearance
-    for (const entry of transcript) {
-      if (entry.speaker !== 'atc' || entry.ts <= this.lastTs) continue
-      this.lastTs = entry.ts
-      if (this.boxesSeen) continue
-      const parsed = parseAtcClearance(entry.text)
-      if (parsed) next = this.apply(next, parsed)
-    }
-    this.set(next)
-  }
-
   /** Reads each new set of InfoBoxes once. */
   onInfoBoxes(boxes: BeyondAtcInfoBox[]): void {
-    if (boxes.length > 0) this.boxesSeen = true
     const key = JSON.stringify(boxes)
     if (key === this.lastBoxesKey) return
     this.lastBoxesKey = key

@@ -3,7 +3,7 @@ import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl'
 import type { BeyondAtcInfoBox, BeyondAtcState, BeyondAtcTranscriptEntry, FlightPhase, NavdataStand, NavdataTaxiSegment } from '@shared/ipc'
 import { parseAtcTaxiFacts } from '@shared/atc-info-boxes'
 import { findStand } from '@shared/stands'
-import { parseTaxiHoldShortRunway, parseTaxiHoldingPoint, parseTaxiRoute, parseTaxiStand } from '@shared/taxi-route-parser'
+import { parseTaxiHoldShortRunway } from '@shared/taxi-route-parser'
 import { remainingRoute, traceTaxiRoute, type TracedRoute } from './taxiRouteTrace'
 import { TAXI_SOURCE_ID } from './useTaxiChartOverlay'
 import { useLiveClient } from './live/LiveClient'
@@ -24,11 +24,10 @@ import { useLiveClient } from './live/LiveClient'
  * position, aircraft off the network): v1's second `line` layer on the same `taxi-chart`
  * source, filtered to every segment sharing a cleared taxiway name.
  *
- * The clearance comes from BeyondATC's InfoBoxes when they carry one (`Taxi Via 1..n`,
- * `Hold Position`, `Taxi to Gate`; boxTaxiClearance). Once BeyondATC has sent any boxes, the
- * speech only adds a detail the boxes lack (a hold-short runway) to the same route; it's the
- * whole source only when BeyondATC sends no boxes (flightdeck-backend's docs/decisions.md,
- * 2026-10-05).
+ * The clearance comes only from BeyondATC's InfoBoxes (`Taxi Via 1..n`, `Hold Position`,
+ * `Taxi to Gate`; boxTaxiClearance), never from parsing the speech (flightdeck-backend's
+ * docs/decisions.md, 2026-10-05). The one exception is a spoken "hold short of runway 07C",
+ * which has no box: it's added to the box route heard within HOLD_SHORT_PAIR_MS of it.
  *
  * Both are limited to the clearance's own airport: a "holding point" clearance is the
  * departure's, a "taxi to stand" one the arrival's. Without this, a departure's B8/B also lit
@@ -100,19 +99,9 @@ export function boxTaxiClearance(boxes: BeyondAtcInfoBox[]): Omit<TaxiClearance,
   }
 }
 
-function sameTaxiways(a: string[], b: string[]): boolean {
-  return a.length === b.length && a.every((t, i) => t.toUpperCase() === b[i]!.toUpperCase())
-}
-
-/** The box clearance, with anything only the speech carried filled in from it. */
-function withSpokenDetail(box: TaxiClearance, spoken: Omit<TaxiClearance, 'from'>): TaxiClearance {
-  return {
-    ...box,
-    holdingPoint: box.holdingPoint ?? spoken.holdingPoint,
-    stand: box.stand ?? spoken.stand,
-    holdShortRunway: box.holdShortRunway ?? spoken.holdShortRunway
-  }
-}
+/** How close a spoken "hold short of runway" must be to a box route to belong to it: BeyondATC
+ *  updates the boxes and speaks within a second or two of each other. */
+const HOLD_SHORT_PAIR_MS = 30_000
 
 export interface UseTaxiRouteHighlightArgs {
   mapRef: MutableRefObject<MapLibreMap | null>
@@ -174,11 +163,9 @@ let rememberedDeparted = false
 /** The last InfoBoxes taxi clearance already taken, and when, so the same boxes aren't taken
  *  again (on remount, or still showing after the takeoff roll dropped the route). */
 let rememberedBoxKey = ''
-/** Whether BeyondATC has sent InfoBoxes: from then on, speech never starts a route. */
-let rememberedBoxesSeen = false
-/** The last spoken taxi clearance, when it was heard before its boxes arrived, so the boxes can
- *  take any detail only the speech has. */
-let rememberedSpoken: Omit<TaxiClearance, 'from'> | null = null
+let rememberedBoxAt = 0
+/** The last spoken hold-short runway and when, for a box route that arrives just after it. */
+let rememberedHoldShort: { runway: string; at: number } | null = null
 
 export function useTaxiRouteHighlight({
   mapRef,
@@ -206,60 +193,42 @@ export function useTaxiRouteHighlight({
   }, [position])
 
   // Gated on `enabled` — same "nothing happens until the chart is switched on" discipline
-  // useTaxiChartOverlay's own fetch effect follows. The transcript BeyondATC already has is
-  // read straight away, not just the next push: a clearance given while Track wasn't open
-  // used to wait for ATC's next line before it was drawn (YBBN, 2026-10-02).
+  // useTaxiChartOverlay's own fetch effect follows. The boxes and transcript BeyondATC already
+  // has are read straight away, not just the next push: a clearance given while Track wasn't
+  // open used to wait for ATC's next line before it was drawn (YBBN, 2026-10-02).
   useEffect(() => {
     if (!enabled) return
     let live = true
+    const withHoldShort = (clearance: TaxiClearance, runway: string): TaxiClearance =>
+      clearance.holdShortRunway ? clearance : { ...clearance, holdShortRunway: runway }
+    // ATC's speech: only "hold short of runway …", which has no box.
     const ingest = (transcript: BeyondAtcTranscriptEntry[]): void => {
       if (!live) return
-      let latest: TaxiClearance | null = null
       for (const entry of transcript) {
         if (entry.speaker !== 'atc' || entry.ts <= rememberedLastTs) continue
         rememberedLastTs = entry.ts
-        const taxiways = parseTaxiRoute(entry.text)
-        if (!taxiways) continue
-        const spoken = {
-          taxiways,
-          holdingPoint: parseTaxiHoldingPoint(entry.text),
-          stand: parseTaxiStand(entry.text),
-          holdShortRunway: parseTaxiHoldShortRunway(entry.text)
+        const runway = parseTaxiHoldShortRunway(entry.text)
+        if (!runway) continue
+        rememberedHoldShort = { runway, at: Date.now() }
+        if (rememberedClearance && Date.now() - rememberedBoxAt <= HOLD_SHORT_PAIR_MS) {
+          rememberedClearance = withHoldShort(rememberedClearance, runway)
+          setClearance(rememberedClearance)
         }
-        const current = latest ?? rememberedClearance
-        if (rememberedBoxesSeen) {
-          // The boxes win; the speech only adds what they lack, when it's the same route.
-          if (current && sameTaxiways(current.taxiways, taxiways)) latest = withSpokenDetail(current, spoken)
-          else rememberedSpoken = spoken
-          continue
-        }
-        latest = { ...spoken, from: positionRef.current }
-      }
-      if (latest) {
-        rememberedClearance = latest
-        setClearance(latest)
       }
     }
-    // BeyondATC's InfoBoxes carry the same clearance as typed fields, so they're preferred
-    // (beyondatc-infoboxes-first.md). Taken once per new set of boxes.
+    // The clearance itself, taken once per new set of taxi boxes.
     const ingestBoxes = (state: BeyondAtcState): void => {
       if (!live) return
-      if (state.infoBoxesSeen || (state.infoBoxes ?? []).length > 0) rememberedBoxesSeen = true
-      const box = boxTaxiClearance(state.infoBoxes ?? [])
+      const box = boxTaxiClearance(state.infoBoxes)
       if (!box) return
       const key = JSON.stringify(box)
       if (key === rememberedBoxKey) return
       rememberedBoxKey = key
-      // Spoken just before the boxes arrived, for the same route: keep its start point and any
-      // detail only it has, so the line doesn't restart.
-      const current = rememberedClearance
-      const spoken = rememberedSpoken && sameTaxiways(rememberedSpoken.taxiways, box.taxiways) ? rememberedSpoken : null
-      let next: TaxiClearance =
-        current && sameTaxiways(current.taxiways, box.taxiways)
-          ? withSpokenDetail({ ...box, from: current.from }, current)
-          : { ...box, from: positionRef.current }
-      if (spoken) next = withSpokenDetail(next, spoken)
-      rememberedSpoken = null
+      rememberedBoxAt = Date.now()
+      let next: TaxiClearance = { ...box, from: positionRef.current }
+      if (rememberedHoldShort && Date.now() - rememberedHoldShort.at <= HOLD_SHORT_PAIR_MS) {
+        next = withHoldShort(next, rememberedHoldShort.runway)
+      }
       rememberedClearance = next
       setClearance(next)
     }

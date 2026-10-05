@@ -1034,10 +1034,6 @@ export interface BeyondAtcState {
   infoBoxes: BeyondAtcInfoBox[]
   /** When `infoBoxes` last changed (ms since epoch), or null before any have arrived. */
   infoBoxesAt: number | null
-  /** True once BeyondATC has sent a non-empty `infoBoxes` this connection. Until then (an older
-   *  BeyondATC without them), every reader falls back to parsing ATC's speech
-   *  (flightdeck-backend's docs/decisions.md, 2026-10-05). */
-  infoBoxesSeen: boolean
   /** The last gate BeyondATC's InfoBoxes assigned (`Expect Gate` / `Taxi to Gate`, label
    *  removed: '102'). Kept after the box set is replaced, until the next assignment or a new
    *  connection, so GSX's gate search can still offer it at the gate. */
