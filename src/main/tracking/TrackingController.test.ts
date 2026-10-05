@@ -9,6 +9,7 @@ import { getLandingByFlight, listLandingsByFlight } from '../db/landing-repo'
 import { getAircraftIdForTitle } from '../db/settings-repo'
 import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
 import type { SimConnectSource } from '../sim/SimConnectSource'
+import { navdataRunway } from '../db/schema'
 import { TrackingController } from './TrackingController'
 
 function telemetry(overrides: Partial<SimTelemetry>): SimTelemetry {
@@ -78,6 +79,35 @@ describe('TrackingController', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+  })
+
+  it("only enters takeoff on one of the departure's cached runways (flight 230, VHHH, 2026-10-05)", () => {
+    const aircraftId = createAircraft(db, { registration: 'B-HSA', icaoType: 'A320' }).id
+    const vhhhFlight = createFlight(db, { aircraftId, depIcao: 'VHHH', arrIcao: 'ZJSY' }).id
+    // VHHH's real 07R/25L from the navdata cache.
+    for (const end of [
+      { ident: '07R', headingTrueDeg: 70.8805, thresholdLat: 22.296249133, thresholdLon: 113.898088015 },
+      { ident: '25L', headingTrueDeg: 250.8805, thresholdLat: 22.307392794, thresholdLon: 113.932832502 }
+    ]) {
+      db.insert(navdataRunway)
+        .values({ icao: 'VHHH', lengthM: 3787.4, widthM: 60.6, surface: 0, source: 'sim-facility', fetchedAt: '2026-10-05T00:00:00Z', ...end })
+        .run()
+    }
+    const base = { engineCombustion1: true, parkingBrakeOn: false, onGround: true }
+    sim.setLastTelemetry(telemetry({}))
+    const controller = new TrackingController(db, sim)
+    controller.start(vhhhFlight)
+    sim.emit('telemetry', telemetry({ engineCombustion1: true, parkingBrakeOn: true }))
+    sim.emit('telemetry', telemetry({ ...base, groundSpeedMs: 5, latitude: 22.30309808, longitude: 113.91080964 }))
+    expect(controller.getActive()?.phase).toBe('taxi')
+
+    // 35 kt on the parallel taxiway, 291 m off 25L.
+    sim.emit('telemetry', telemetry({ ...base, groundSpeedMs: 18.3, latitude: 22.30237804, longitude: 113.90856782 }))
+    expect(controller.getActive()?.phase).toBe('taxi')
+
+    // The real roll on 07R.
+    sim.emit('telemetry', telemetry({ ...base, groundSpeedMs: 19.8, latitude: 22.29686586, longitude: 113.90006854 }))
+    expect(controller.getActive()?.phase).toBe('takeoff')
   })
 
   it('refuses to start without a live telemetry sample', () => {

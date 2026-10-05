@@ -31,6 +31,8 @@ import { seedPhaseFromTelemetry } from './free-flight'
 import { buildLandingRecord } from './landing-capture'
 import { isPhysicallyImpossibleJump, RESUME_CLEANUP_CONSTANTS, type TrackCleanupResult } from './resume-cleanup'
 import { runTrackCleanupForFlight } from './run-track-cleanup'
+import { listCachedRunways } from '../db/navdata-repo'
+import { isOnRunway } from './runway-check'
 import { deriveFlownRouteJson } from './route-simplify'
 
 // A touchdown only counts as a *new* one after this many consecutive airborne samples
@@ -357,6 +359,15 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
       : undefined
   }
 
+  /** The recorder's "on a runway?" check, from the departure airport's cached runways, read
+   *  when asked (the cache can fill after tracking starts). Null with nothing cached. */
+  private attachRunwayCheck(flightId: number): void {
+    this.recorder?.setRunwayCheck((lat, lon) => {
+      const depIcao = getFlight(this.db, flightId)?.depIcao
+      return depIcao ? isOnRunway(listCachedRunways(this.db, depIcao), lat, lon) : null
+    })
+  }
+
   start(flightId: number): void {
     if (this.recorder) {
       const stale = this.recorder.getFlightId()
@@ -383,6 +394,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
 
     startFlight(this.db, flightId, telemetry.fuelTotalKg)
     this.recorder = new FlightRecorder(flightId)
+    this.attachRunwayCheck(flightId)
     this.offRecorded = false
     this.landingSeq = 0
     this.wasOnGround = undefined
@@ -461,6 +473,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
 
     const seededPhase = seedPhaseFromTelemetry(telemetry)
     this.recorder = new FlightRecorder(flight.id, { phase: seededPhase, hasLanded: false, resumeSegment: 0 })
+    this.attachRunwayCheck(flight.id)
     // A flight seeded straight into an airborne phase has already lifted off before
     // tracking began — the telemetry handler's own recordOff only fires on the 'climb'
     // transition edge, which a flight seeded past 'climb' (cruise/descent) will never touch
@@ -512,6 +525,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
       hasLanded: flight.actualOnUtc != null,
       resumeSegment
     })
+    this.attachRunwayCheck(flightId)
     this.offRecorded = flight.actualOffUtc != null
     // Continues the same seq sequence rather than restarting it — a resume mid-circuit
     // must not overwrite landing #1 with what should be landing #2.
