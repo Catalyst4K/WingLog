@@ -1,4 +1,5 @@
-import type { BeyondAtcState, BeyondAtcTranscriptEntry } from '@shared/ipc'
+import type { BeyondAtcState } from '@shared/ipc'
+import { boxClearedLevelFt } from '@shared/atc-info-boxes'
 
 /**
  * Asks BeyondATC for a new cruise altitude over its WebSocket — the exact two-step flow
@@ -9,6 +10,7 @@ import type { BeyondAtcState, BeyondAtcTranscriptEntry } from '@shared/ipc'
  *   (ATC: "Say again altitude.")          → Actions: [Cancel Altitude Change¬FL320¬…¬FL380¬Say Again¬]
  *   set_action: FL380                     → Player: "Request FL380"
  *                                          → ATC: "roger, new cruise altitude FL380."
+ *                                            (and the cleared-level InfoBox shows FL380)
  *
  * There is no altitude command: BeyondATC's own toolbar only ever sends `set_action` with an
  * offered label, and a level label sent while it isn't on offer is silently ignored (also
@@ -23,7 +25,7 @@ const FEET_PER_METRE = 1 / 0.3048
 const LEVEL_MATCH_TOLERANCE_FT = 150
 
 export type AltitudeRequestOutcome =
-  /** ATC confirmed the new level. */
+  /** BeyondATC's cleared-level InfoBox shows the new level. */
   | 'granted'
   /** BeyondATC isn't offering "Request Altitude Change" right now (not in cruise, busy…). */
   | 'unavailable'
@@ -31,18 +33,15 @@ export type AltitudeRequestOutcome =
   | 'noMenu'
   /** The level list appeared but didn't include the wanted level (cancelled). */
   | 'notOffered'
-  /** The level was requested but ATC never confirmed it. */
+  /** The level was requested but the cleared-level box never showed it. */
   | 'noAnswer'
 
 /** The slice of BeyondAtcService this needs — structural, so tests can drive it directly. */
 export interface AltitudeRequestSession {
   getState(): BeyondAtcState
-  getTranscript(): BeyondAtcTranscriptEntry[]
   setAction(label: string): void
   on(event: 'state', listener: (state: BeyondAtcState) => void): unknown
-  on(event: 'transcript', listener: (transcript: BeyondAtcTranscriptEntry[]) => void): unknown
   off(event: 'state', listener: (state: BeyondAtcState) => void): unknown
-  off(event: 'transcript', listener: (transcript: BeyondAtcTranscriptEntry[]) => void): unknown
 }
 
 export interface AltitudeRequestTimeouts {
@@ -75,16 +74,23 @@ export function pickLevelLabel(actions: string[], targetFt: number): string | nu
   return best?.label ?? null
 }
 
-/** Whether an ATC line confirms this level: "new cruise altitude FL380" (seen live) or a
- *  plain "climb FL380" / "climb to FL380". */
-export function confirmsLevel(text: string, label: string): boolean {
-  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, ' ?')
-  return new RegExp(`(?:new cruise altitude|climb(?: and maintain)?(?: to)?) ${escaped}\\b`, 'i').test(text)
+/** Whether BeyondATC's InfoBoxes, changed since the request, show this level as cleared
+ *  (flightdeck-backend's docs/decisions.md, 2026-10-05: boxes only, no speech). */
+export function boxConfirmsLevel(state: BeyondAtcState, label: string, sentAt: number): boolean {
+  const wanted = levelLabelToFeet(label)
+  const cleared = boxClearedLevelFt(state.infoBoxes)
+  return (
+    wanted !== null &&
+    cleared !== null &&
+    state.infoBoxesAt !== null &&
+    state.infoBoxesAt >= sentAt &&
+    Math.abs(cleared - wanted) <= LEVEL_MATCH_TOLERANCE_FT
+  )
 }
 
 function waitFor<T>(
   session: AltitudeRequestSession,
-  event: 'state' | 'transcript',
+  event: 'state',
   check: () => T | null,
   timeoutMs: number
 ): Promise<T | null> {
@@ -99,10 +105,10 @@ function waitFor<T>(
     const timer = setTimeout(() => done(null), timeoutMs)
     const done = (value: T | null): void => {
       clearTimeout(timer)
-      session.off(event as 'state', listener)
+      session.off(event, listener)
       resolve(value)
     }
-    session.on(event as 'state', listener)
+    session.on(event, listener)
   })
 }
 
@@ -131,20 +137,8 @@ export async function requestAltitude(
     return { outcome: 'notOffered', label: null }
   }
 
-  // By timestamp, not index — the transcript is capped (BeyondAtcService keeps the last 100
-  // lines), so "everything after line N" stops meaning anything once it's full.
   const sentAt = Date.now()
   session.setAction(label)
-  const confirmed = await waitFor(
-    session,
-    'transcript',
-    () =>
-      session
-        .getTranscript()
-        .some((entry) => entry.ts >= sentAt && entry.speaker === 'atc' && confirmsLevel(entry.text, label))
-        ? true
-        : null,
-    timeouts.answerMs
-  )
+  const confirmed = await waitFor(session, 'state', () => (boxConfirmsLevel(session.getState(), label, sentAt) ? true : null), timeouts.answerMs)
   return { outcome: confirmed ? 'granted' : 'noAnswer', label }
 }

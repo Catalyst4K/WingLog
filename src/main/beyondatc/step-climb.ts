@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
-import type { ActiveTracking, BeyondAtcConnectionStatus, BeyondAtcStepClimbStatus, BeyondAtcTranscriptEntry, SimTelemetry } from '@shared/ipc'
+import type { ActiveTracking, BeyondAtcConnectionStatus, BeyondAtcStepClimbStatus, SimTelemetry } from '@shared/ipc'
 import { parseOfp } from '../simbrief/simbrief-client'
-import { boxClearedLevelFt, levelToFeet } from '@shared/atc-info-boxes'
+import { boxClearedLevelFt } from '@shared/atc-info-boxes'
 import { requestAltitude, type AltitudeRequestSession } from './altitude-request'
 
 /**
@@ -104,21 +104,6 @@ export function extractStepPlan(ofpJson: string | null): StepPlan {
   } catch {
     return { fixes: [], steps: [], todOrder: null }
   }
-}
-
-// ATC's latest altitude instruction is the current clearance: "climb FL190", "climb via SID to
-// FL140", "descend to 3,000m", "roger, new cruise altitude FL360" — all real phrasings.
-const CLEARED_LEVEL =
-  /(?:new cruise altitude|climb(?: via SID)?(?: and maintain)?(?: to)?|descend(?: and maintain)?(?: to)?) (FL ?\d{2,3}|[\d,]+ ?(?:m|meters|metres|feet|ft))\b/i
-
-export function clearedLevelFromTranscript(transcript: BeyondAtcTranscriptEntry[]): number | null {
-  for (let i = transcript.length - 1; i >= 0; i--) {
-    const entry = transcript[i]!
-    if (entry.speaker !== 'atc') continue
-    const match = CLEARED_LEVEL.exec(entry.text)
-    if (match) return levelToFeet(match[1]!)
-  }
-  return null
 }
 
 export function distanceNm(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -235,17 +220,14 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
     this.climbingSince = t.verticalSpeedMs > CLIMB_VS_MS ? (this.climbingSince ?? now) : null
 
     const session = this.deps.getSession()
-    // The cleared level comes from BeyondATC's InfoBoxes; from ATC's speech only when BeyondATC
-    // sends no boxes at all (flightdeck-backend's docs/decisions.md, 2026-10-05).
-    const state = session?.getState()
-    const boxLevel = state ? boxClearedLevelFt(state.infoBoxes) : null
+    // The cleared level comes from BeyondATC's InfoBoxes (flightdeck-backend's
+    // docs/decisions.md, 2026-10-05: boxes only, no speech).
+    const boxLevel = session ? boxClearedLevelFt(session.getState().infoBoxes) : null
     if (boxLevel !== null) this.boxCleared = boxLevel
-    const atcCleared = state?.infoBoxesSeen ? this.boxCleared : session ? clearedLevelFromTranscript(session.getTranscript()) : null
-    const clearedFt = atcCleared ?? Math.round((t.pressureAltitudeM * FEET_PER_METRE) / 1000) * 1000
+    const clearedFt = this.boxCleared ?? Math.round((t.pressureAltitudeM * FEET_PER_METRE) / 1000) * 1000
     if (clearedFt !== this.loggedCleared) {
       this.loggedCleared = clearedFt
-      const source = atcCleared === null ? 'no ATC level, using altitude' : state?.infoBoxesSeen ? 'from InfoBoxes' : 'from ATC speech'
-      this.log(`cleared level ${clearedFt} ft (${source})`)
+      this.log(`cleared level ${clearedFt} ft (${this.boxCleared !== null ? 'from InfoBoxes' : 'no ATC level, using altitude'})`)
     }
 
     this.progress = Math.max(this.progress, nearestFixIndex(this.plan.fixes, t.latitude, t.longitude))

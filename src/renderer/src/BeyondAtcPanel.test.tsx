@@ -25,7 +25,6 @@ function makeState(overrides: Partial<BeyondAtcState> = {}): BeyondAtcState {
     frequencies: [],
     infoBoxes: [],
     infoBoxesAt: null,
-    infoBoxesSeen: false,
     assignedGate: null,
     ...overrides
   }
@@ -139,18 +138,21 @@ describe('BeyondAtcPanel', () => {
 
   it("shows the latest ATC instruction's key facts in their own card, separate from the callsign/progress strip", async () => {
     const transcript: BeyondAtcTranscriptEntry[] = [
-      { speaker: 'atc', text: 'Hongkong Shuttle 250, contact Hong Kong Tower 118.2.', ts: 1 },
+      { speaker: 'atc', text: 'Hongkong Shuttle 250, contact Hong Kong Tower 118.2.', ts: 1000 },
       {
         speaker: 'atc',
         text: 'Hongkong Shuttle 250, Hong Kong Tower, wind 200 degrees, 7 knots, runway 25C, cleared for takeoff.',
-        ts: 2
+        ts: 60_000
       }
     ]
-    withWinglog({ beyondAtcGetTranscript: vi.fn().mockResolvedValue(transcript) })
+    withWinglog({
+      beyondAtcGetTranscript: vi.fn().mockResolvedValue(transcript),
+      beyondAtcGetState: vi.fn().mockResolvedValue(makeState({ infoBoxes: [{ title: 'Cleared for Takeoff', info: '25C' }], infoBoxesAt: 60_200 }))
+    })
     render(<BeyondAtcPanel />)
 
     const card = (await screen.findByText('Latest instruction')).closest('[data-slot="card"]') as HTMLElement
-    expect(within(card).getByText('Cleared for takeoff')).toBeInTheDocument()
+    expect(await within(card).findByText('Cleared for takeoff')).toBeInTheDocument()
     expect(within(card).getByText('Hong Kong Tower')).toBeInTheDocument()
     expect(within(card).getByText('25C')).toBeInTheDocument()
     expect(within(card).getByText('200° 7 kt')).toBeInTheDocument()
@@ -176,8 +178,7 @@ describe('BeyondAtcPanel', () => {
             { title: 'Altitude Clearance', info: 'FL140' },
             { title: 'Squawk', info: '3711' }
           ],
-          infoBoxesAt: 10_200,
-          infoBoxesSeen: true
+          infoBoxesAt: 10_200
         })
       )
     })
@@ -247,24 +248,6 @@ describe('BeyondAtcPanel', () => {
     })
   })
 
-  it('shows a real VHHH flight-level clearance (2026-09-30) with its ATIS letter', async () => {
-    const transcript: BeyondAtcTranscriptEntry[] = [
-      {
-        speaker: 'atc',
-        text: 'Hongkong Shuttle 250, Hong Kong Delivery, information H current, cleared to Phoenix airport via PECA1D departure, runway 25C, climb via SID to FL140, squawk 6140.',
-        ts: 1
-      }
-    ]
-    withWinglog({ beyondAtcGetTranscript: vi.fn().mockResolvedValue(transcript) })
-    render(<BeyondAtcPanel />)
-
-    const card = (await screen.findByText('Latest instruction')).closest('[data-slot="card"]') as HTMLElement
-    await within(card).findByText('PECA1D')
-    for (const value of ['Hong Kong Delivery', 'H', 'Phoenix airport', '25C', 'FL140', '6140']) {
-      expect(within(card).getByText(value)).toBeInTheDocument()
-    }
-  })
-
   it('keeps a real YBBN clearance (2026-10-02) on the card through "readback correct", adding the next frequency', async () => {
     const transcript: BeyondAtcTranscriptEntry[] = [
       {
@@ -274,12 +257,28 @@ describe('BeyondAtcPanel', () => {
       },
       { speaker: 'atc', text: 'Cathay 168 Heavy, readback correct. Contact ground 122.25 when ready for pushback or engine start.', ts: 2 }
     ]
-    withWinglog({ beyondAtcGetTranscript: vi.fn().mockResolvedValue(transcript) })
+    withWinglog({
+      beyondAtcGetTranscript: vi.fn().mockResolvedValue(transcript),
+      // The clearance's boxes, with the ground frequency added at the readback.
+      beyondAtcGetState: vi.fn().mockResolvedValue(
+        makeState({
+          infoBoxes: [
+            { title: 'Taxi to Runway', info: '01R' },
+            { title: 'SID', info: 'BIXAD2' },
+            { title: 'Altitude Clearance', info: '10000ft' },
+            { title: 'Squawk', info: '6022' },
+            { title: 'ATIS Current', info: 'A' },
+            { title: 'Ground Frequency', info: '122.25' }
+          ],
+          infoBoxesAt: 2
+        })
+      )
+    })
     render(<BeyondAtcPanel />)
 
     const card = (await screen.findByText('Latest instruction')).closest('[data-slot="card"]') as HTMLElement
     await within(card).findByText('BIXAD2')
-    for (const value of ['Brisbane Delivery', 'Hong Kong airport', '01R', '10,000 ft', '6022', 'ground 122.25']) {
+    for (const value of ['Brisbane Delivery', 'Hong Kong airport', 'A', '01R', '10,000 ft', '6022', 'Ground 122.25']) {
       expect(within(card).getByText(value)).toBeInTheDocument()
     }
   })

@@ -17,54 +17,49 @@ function tracker(): { tracker: ArrivalClearanceTracker; changes: unknown[] } {
   return { tracker: t, changes }
 }
 
-const atc = (text: string, ts: number) => ({ speaker: 'atc' as const, text, ts })
+// BeyondATC's InfoBox sets, in the real titles (VHHH-ZJSY flight 230, 2026-10-05), for EGLL's
+// flight 229 clearances.
+const STAR_27R = [{ title: 'STAR', info: 'LOGA2H' }, { title: 'Arrival Runway', info: '27R' }]
+const box = (title: string, info: string) => ({ title, info })
 
 describe('ArrivalClearanceTracker', () => {
-  it("keeps flight 229's real STAR/runway clearance (EGLL, 2026-10-05)", () => {
+  it("keeps flight 229's STAR/runway clearance (EGLL, 2026-10-05)", () => {
     const { tracker: t } = tracker()
-    t.onTranscript([atc('Koreanair 443 Heavy, cleared LOGA2H arrival, runway 27R.', 1000)])
+    t.onInfoBoxes(STAR_27R)
     expect(t.getClearance()).toEqual({ starIdent: 'LOGA2H', runway: '27R', approachIdent: null, approachTransition: null })
   })
 
-  it('keeps it across later, unrelated ATC lines (the latest-instruction card does not)', () => {
+  it('keeps it across later box sets with no procedure (the latest-instruction card does not)', () => {
     const { tracker: t } = tracker()
-    t.onTranscript([atc('Koreanair 443 Heavy, cleared LOGA2H arrival, runway 27R.', 1000)])
-    t.onTranscript([
-      atc('Koreanair 443 Heavy, cleared LOGA2H arrival, runway 27R.', 1000),
-      atc('Koreanair 443 Heavy, contact Maastricht Radar 132.205.', 2000),
-      atc('Koreanair 443 Heavy, report ready for descent.', 3000)
-    ])
+    t.onInfoBoxes(STAR_27R)
+    t.onInfoBoxes([box('Center Frequency', '132.205')])
+    t.onInfoBoxes([box('Descend to', 'FL110'), box('QNH', 'QNH 1013')])
     expect(t.getClearance()?.starIdent).toBe('LOGA2H')
   })
 
-  it("adds the approach and transition once given, named the sim's way", () => {
+  it("adds the transition from the briefing and the approach once cleared, named the sim's way", () => {
     const { tracker: t } = tracker()
-    t.onTranscript([atc('Koreanair 443 Heavy, cleared LOGA2H arrival, runway 27R.', 1000)])
-    t.onTranscript([atc('Koreanair 443 Heavy, expect the ILS approach runway 27R with the LAM transition.', 2000)])
+    t.onInfoBoxes(STAR_27R)
+    t.onInfoBoxes([box('Approach Type', 'Procedure'), box('Landing Runway', '27R'), box('Transition', 'LAM')])
+    t.onInfoBoxes([box('Cleared Approach', 'ILS approach runway 27R')])
     expect(t.getClearance()).toEqual({ starIdent: 'LOGA2H', runway: '27R', approachIdent: 'ILS 27R', approachTransition: 'LAM' })
-  })
-
-  it('keeps a known transition when a later line names the same approach without one', () => {
-    const { tracker: t } = tracker()
-    t.onTranscript([atc('Koreanair 443 Heavy, expect the ILS approach runway 27R with the LAM transition.', 1000)])
-    t.onTranscript([atc('Koreanair 443 Heavy, cleared ILS approach runway 27R.', 2000)])
-    expect(t.getClearance()?.approachTransition).toBe('LAM')
   })
 
   it("drops the approach when a new STAR clearance changes the runway, and keeps it when it doesn't", () => {
     const { tracker: t } = tracker()
-    t.onTranscript([atc('Koreanair 443 Heavy, expect the ILS approach runway 27L with the LAM transition.', 1000)])
-    t.onTranscript([atc('Koreanair 443 Heavy, cleared LOGA2H arrival, runway 27R.', 2000)])
+    t.onInfoBoxes([box('Landing Runway', '27L'), box('Transition', 'LAM')])
+    t.onInfoBoxes([box('Cleared Approach', 'ILS approach runway 27L')])
+    t.onInfoBoxes(STAR_27R)
     expect(t.getClearance()).toEqual({ starIdent: 'LOGA2H', runway: '27R', approachIdent: null, approachTransition: null })
 
-    t.onTranscript([atc('Koreanair 443 Heavy, expect the ILS approach runway 27R with the LAM transition.', 3000)])
-    t.onTranscript([atc('Koreanair 443 Heavy, cleared LOGA2H arrival, runway 27R.', 4000)])
+    t.onInfoBoxes([box('Cleared Approach', 'ILS approach runway 27R')])
+    t.onInfoBoxes([box('STAR', 'LOGA2H'), box('Arrival Runway', '27R'), box('QNH', 'QNH 1013')])
     expect(t.getClearance()?.approachIdent).toBe('ILS 27R')
   })
 
   it('clears at touchdown, and only then', () => {
     const { tracker: t, changes } = tracker()
-    t.onTranscript([atc('Koreanair 443 Heavy, cleared LOGA2H arrival, runway 27R.', 1000)])
+    t.onInfoBoxes(STAR_27R)
     t.onPhase('descent')
     expect(t.getClearance()).not.toBeNull()
     t.onPhase('landing')
@@ -72,27 +67,24 @@ describe('ArrivalClearanceTracker', () => {
     expect(changes.at(-1)).toBeNull()
   })
 
-  it('ignores departure clearances, traffic, pilot lines and anything already seen', () => {
+  it('ignores the departure clearance and other phases', () => {
     const { tracker: t, changes } = tracker()
-    t.onTranscript([
-      atc('Koreanair 443 Heavy, Incheon Delivery, cleared to Heathrow airport via NOPI2Y departure, runway 34R, climb via SID to 13000 feet, squawk 4112.', 1000),
-      { speaker: 'atcTraffic', text: 'Other 42, cleared LOGA2H arrival, runway 27L.', ts: 2000 },
-      { speaker: 'player', text: 'Cleared LOGA2H arrival, runway 27R, Koreanair 443 Heavy.', ts: 3000 }
-    ])
+    t.onInfoBoxes([box('Taxi to Runway', '34R'), box('SID', 'NOPI2Y'), box('Altitude Clearance', '13000ft'), box('Squawk', '4112')])
+    t.onInfoBoxes([box('Taxi to Gate', 'Gate 411'), box('Taxi Via 1', 'A')])
     expect(t.getClearance()).toBeNull()
     expect(changes).toEqual([])
   })
 
   it('emits only on a real change', () => {
     const { tracker: t, changes } = tracker()
-    t.onTranscript([atc('Koreanair 443 Heavy, cleared LOGA2H arrival, runway 27R.', 1000)])
-    t.onTranscript([atc('Koreanair 443 Heavy, cleared LOGA2H arrival, runway 27R.', 2000)])
+    t.onInfoBoxes(STAR_27R)
+    t.onInfoBoxes([...STAR_27R, box('QNH', 'QNH 1013')])
     expect(changes).toHaveLength(1)
   })
 
-  it("shows ATC's own approach name when navdata can't match it", () => {
+  it("shows BeyondATC's own approach name when navdata can't match it", () => {
     const t = new ArrivalClearanceTracker({ getArrivalIcao: () => null, listApproaches: vi.fn(() => []) })
-    t.onTranscript([atc('Koreanair 443 Heavy, expect the ILS approach runway 27R with the LAM transition.', 1000)])
+    t.onInfoBoxes([box('Cleared Approach', 'ILS approach runway 27R')])
     expect(t.getClearance()?.approachIdent).toBe('ILS 27R')
   })
 })
@@ -129,13 +121,6 @@ describe('ArrivalClearanceTracker from InfoBoxes', () => {
     // Later sets with no procedure leave it alone.
     t.onInfoBoxes([{ title: 'Cleared for Landing', info: '08' }])
     expect(t.getClearance()?.approachIdent).toBe('ILS Z 08')
-  })
-
-  it('ignores ATC speech once BeyondATC has sent boxes', () => {
-    const t = zjsy()
-    t.onInfoBoxes([{ title: 'STAR', info: 'UPRS2C' }, { title: 'Arrival Runway', info: '08' }])
-    t.onTranscript([atc('Hongkong Shuttle 250, cleared UPRS3D arrival, runway 26.', 1000)])
-    expect(t.getClearance()).toMatchObject({ starIdent: 'UPRS2C', runway: '08' })
   })
 
   it('reads each box set once, so a repeat does not undo a later change', () => {

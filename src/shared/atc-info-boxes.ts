@@ -1,11 +1,25 @@
-import type { BeyondAtcInfoBox } from './ipc'
-import { reformatApproachIdent, type AtcClearanceUpdate } from './atc-clearance-parser'
-import { APPROACH_CLEARED } from './atc-phrases'
+import type { BeyondAtcInfoBox, ProcedureSelection } from './ipc'
+
+/** A clearance read from one set of InfoBoxes, as a partial `ProcedureSelection` update. */
+export interface AtcClearanceUpdate {
+  fields: Partial<Pick<ProcedureSelection, 'departureRunway' | 'sidIdent' | 'starIdent' | 'approachIdent' | 'approachTransition'>>
+  /** A labelled "what changed" summary for the prompt. */
+  summary: string
+  /** A STAR clearance's or landing runway ("08"). Not a field: ProcedureSelection keeps the
+   *  arrival runway only inside approachIdent (route.ts's approachRunway), so
+   *  approachForArrivalRunway (the renderer's atcApproachMatch.ts) turns it into an approach
+   *  once the airport's approach list is known. */
+  arrivalRunway?: string
+}
+
+/** "ILS-Z approach runway 08" (the `Cleared Approach` box): the type and runway. */
+const CLEARED_APPROACH = /^([A-Z0-9]+(?:-[A-Z0-9]+)*) approach,? runway (\d{1,2}[LRC]?)$/i
 
 /**
  * BeyondATC's InfoBoxes, read as typed facts (flightdeck-backend's
  * docs/plans/beyondatc-infoboxes-first.md). The boxes carry each clearance's facts as their own
- * fields, so they're preferred over parsing ATC's speech wherever a box exists.
+ * fields, and are the only source for any fact they cover: ATC's speech isn't parsed for them
+ * (docs/decisions.md, 2026-10-05).
  *
  * Titles are matched exactly as captured on real flights (EGLL flight 229 and VHHH-ZJSY flight
  * 230, 2026-10-05), trimmed and ignoring case: BeyondATC sends " Frequency" with a leading space
@@ -104,11 +118,11 @@ function runwayValue(value: string | null): string | null {
 }
 
 /** "ILS-Z approach runway 08" (the `Cleared Approach` box) → 'ILS Z 08', the sim's own naming,
- *  the same transform as a spoken approach clearance. */
+ *  confirmed against the sim's navdata (beyondatc-notes.md, "Identifier-matching question
+ *  closed": BeyondATC hyphenates the type, the sim spaces it). */
 export function clearedApproachIdent(value: string | null): string | null {
-  if (!value) return null
-  const match = APPROACH_CLEARED.exec(`cleared ${value}`)
-  return match ? reformatApproachIdent(match[1]!, match[2]!.toUpperCase()) : null
+  const match = value ? CLEARED_APPROACH.exec(value.trim()) : null
+  return match ? `${match[1]!.replace('-', ' ').toUpperCase()} ${match[2]!.toUpperCase()}` : null
 }
 
 /**

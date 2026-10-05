@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { NavdataProcedureOption } from '@shared/ipc'
-import { parseAtcClearance } from '@shared/atc-clearance-parser'
+import { parseAtcBoxClearance } from '@shared/atc-info-boxes'
 import { approachForArrivalRunway, starEndFix } from './atcApproachMatch'
 
 // EGLL's real approaches from the sim's navdata (cached on the 2026-10-05 RKSI-EGLL flight):
@@ -14,7 +14,7 @@ const EGLL: NavdataProcedureOption[] = [
 ]
 
 describe('approachForArrivalRunway (EGLL, 2026-10-05)', () => {
-  const clearance = parseAtcClearance('Koreanair 443 Heavy, cleared LOGA2H arrival, runway 27R.')!
+  const clearance = parseAtcBoxClearance([{ title: 'STAR', info: 'LOGA2H' }, { title: 'Arrival Runway', info: '27R' }])!
 
   it('moves a planned ILS 27L via LAM to ILS 27R via LAM when ATC gives the STAR with runway 27R', () => {
     expect(approachForArrivalRunway(clearance, EGLL, { approachIdent: 'ILS 27L', approachTransition: 'LAM' })).toEqual({
@@ -44,7 +44,7 @@ describe('approachForArrivalRunway (EGLL, 2026-10-05)', () => {
     const current = { approachIdent: 'ILS 27L', approachTransition: 'LAM' }
     expect(approachForArrivalRunway(clearance, [], current)).toBe(clearance)
     expect(approachForArrivalRunway(clearance, EGLL.filter((o) => !o.identifier.endsWith('27R')), current)).toBe(clearance)
-    const noRunway = parseAtcClearance('Koreanair 443 Heavy, cleared LOGA2H arrival.')!
+    const noRunway = parseAtcBoxClearance([{ title: 'STAR', info: 'LOGA2H' }])!
     expect(approachForArrivalRunway(noRunway, EGLL, current)).toBe(noRunway)
   })
 })
@@ -59,7 +59,7 @@ const ZJSY: NavdataProcedureOption[] = [
 ]
 
 describe('approachForArrivalRunway with the STAR end (ZJSY, 2026-10-05)', () => {
-  const clearance = parseAtcClearance('Hongkong Shuttle 250, cleared UPRS2C arrival, runway 08.')!
+  const clearance = parseAtcBoxClearance([{ title: 'STAR', info: 'UPRS2C' }, { title: 'Arrival Runway', info: '08' }])!
 
   it('moves ILS X 08 to ILS Z 08 via SY498, where UPRS2C ends', () => {
     expect(approachForArrivalRunway(clearance, ZJSY, { approachIdent: 'ILS X 08', approachTransition: null }, 'SY498')).toEqual({
@@ -96,13 +96,13 @@ describe('starEndFix', () => {
 
   it("returns the STAR's last named fix for the cleared runway", async () => {
     const get = stubLegs(Promise.resolve([{ fixIdent: 'UPRIS' }, { fixIdent: 'SY497' }, { fixIdent: 'SY498' }, { fixIdent: null }]))
-    const clearance = parseAtcClearance('Hongkong Shuttle 250, cleared UPRS2C arrival, runway 08.')!
+    const clearance = parseAtcBoxClearance([{ title: 'STAR', info: 'UPRS2C' }, { title: 'Arrival Runway', info: '08' }])!
     expect(await starEndFix('ZJSY', clearance)).toBe('SY498')
     expect(get).toHaveBeenCalledWith('ZJSY', 'star', 'UPRS2C', '08')
   })
 
   it('returns null with no STAR, no legs, or a navdata error', async () => {
-    const clearance = parseAtcClearance('Hongkong Shuttle 250, cleared UPRS2C arrival, runway 08.')!
+    const clearance = parseAtcBoxClearance([{ title: 'STAR', info: 'UPRS2C' }, { title: 'Arrival Runway', info: '08' }])!
     stubLegs(Promise.resolve([]))
     expect(await starEndFix('ZJSY', clearance)).toBeNull()
     stubLegs(Promise.reject(new Error('no navdata')))

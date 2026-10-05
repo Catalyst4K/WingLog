@@ -14,6 +14,5 @@ export const EMPTY_BEYONDATC_STATE: BeyondAtcState = {
   frequencies: [],
   infoBoxes: [],
   infoBoxesAt: null,
-  infoBoxesSeen: false,
   assignedGate: null
 }

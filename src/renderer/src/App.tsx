@@ -8,7 +8,6 @@ import type {
   AppLanguage,
   AppPage,
   BeyondAtcState,
-  BeyondAtcTranscriptEntry,
   DispatchOfp,
   Flight,
   GsxRemoteMenuState,
@@ -45,9 +44,8 @@ import { FleetView } from './FleetView'
 import { flightLabel } from './flight-label'
 import { gsxMenuSignature, isImportantGsxMenu } from './gsx-remote-importance'
 import { emptyProcedureSelection, seedProcedureSelectionFromOfp, selectionFromFlight } from './procedureSelection'
-import { parseAtcClearance, type AtcClearanceUpdate } from '@shared/atc-clearance-parser'
 import { matchClearanceApproach } from '@shared/atc-approach-match'
-import { parseAtcBoxClearance } from '@shared/atc-info-boxes'
+import { parseAtcBoxClearance, type AtcClearanceUpdate } from '@shared/atc-info-boxes'
 import { approachForArrivalRunway, starEndFix } from './atcApproachMatch'
 
 // Fleet is the default/first tab, so it's the one view kept eager — every other tab is
@@ -210,19 +208,13 @@ export default function App(): React.JSX.Element {
   const [dismissedGsxMenuKey, setDismissedGsxMenuKey] = useState<string | null>(null)
   // A parsed BeyondATC clearance that differs from the current procedure selection, awaiting
   // the user's accept/dismiss — Callum's own precedence decision, 2026-09-25: overwrite, but
-  // ask first, gently. Unlike gsxMenu above, no remembered-dismissal key is needed: a
-  // transcript line is a one-shot event (lastAtcClearanceTs below already stops it being
-  // rescanned), not persistent state that keeps re-arriving unchanged.
+  // ask first, gently. Unlike gsxMenu above, no remembered-dismissal key is needed: each new
+  // set of InfoBoxes is read once (lastAtcBoxesKey below), not re-offered while it stays up.
   const [pendingAtcClearance, setPendingAtcClearance] = useState<(AtcClearanceUpdate & { sourceTs: number }) | null>(null)
-  // Watermark of the newest transcript entry already scanned — onBeyondAtcTranscript delivers
-  // the whole buffer on every push (shared/ipc.ts), not just the new line, so this is what
-  // tells a genuinely new entry apart from one already considered (and possibly dismissed).
-  const lastAtcClearanceTs = useRef(0)
-  // The same for BeyondATC's InfoBoxes: the last set already read, and whether any have
-  // arrived. Once they have, speech is no longer read for clearances (flightdeck-backend's
-  // docs/decisions.md, 2026-10-05).
+  // The last set of BeyondATC InfoBoxes already read: the state is pushed on every BeyondATC
+  // message, so this tells a genuinely new set apart from one already considered (and
+  // possibly dismissed).
   const lastAtcBoxesKey = useRef('')
-  const atcBoxesSeen = useRef(false)
 
   // Wraps setDispatchOfp so a *new* OFP (a different ofpId, including "cleared to null")
   // always re-seeds the procedure selection from its own SimBrief choice — the previous
@@ -322,21 +314,20 @@ export default function App(): React.JSX.Element {
   }
 
   // Reads each new set of BeyondATC InfoBoxes for a clearance whose fields differ from the
-  // current selection; ATC's speech only while BeyondATC sends no boxes. Re-subscribes
-  // whenever procedureSelection changes so a diff is always checked against the live value,
-  // the same "just resubscribe, it's cheap" style procedureSelection.ts's own fetch effects
-  // already use.
+  // current selection. Never ATC's speech (flightdeck-backend's docs/decisions.md,
+  // 2026-10-05). Re-subscribes whenever procedureSelection changes so a diff is always checked
+  // against the live value, the same "just resubscribe, it's cheap" style
+  // procedureSelection.ts's own fetch effects already use.
   useEffect(() => {
     const offer = (candidate: AtcClearanceUpdate & { sourceTs: number }): void => {
       void (async () => {
         let update: AtcClearanceUpdate | null = candidate
-        // ATC names approaches the way they're spoken ("R-NAV approach runway 02L"); swap in
+        // BeyondATC names approaches its own way ("R-NAV approach runway 02L"); swap in
         // the arrival airport's own name so accepting it selects something real (WSSS,
         // 2026-10-02). The airport is the one being flown to: the selected arrival, else
         // BeyondATC's own route.
         // A STAR clearance's runway picks the approach for it when it isn't the selected
-        // approach's runway (EGLL, 2026-10-05: "cleared LOGA2H arrival, runway 27R" against a
-        // planned ILS 27L), or when the selected one doesn't start where the STAR ends (ZJSY,
+        // approach's runway (EGLL, 2026-10-05: LOGA2H, runway 27R against a planned ILS 27L), or when the selected one doesn't start where the STAR ends (ZJSY,
         // 2026-10-05: UPRS2C ends at SY498, the entry to ILS Z 08, not ILS X 08).
         if (update.fields.approachIdent || update.arrivalRunway) {
           try {
@@ -360,29 +351,13 @@ export default function App(): React.JSX.Element {
         if (differs) setPendingAtcClearance({ ...update, sourceTs: candidate.sourceTs })
       })()
     }
-    const unsubscribeTranscript = window.winglog.onBeyondAtcTranscript((transcript: BeyondAtcTranscriptEntry[]) => {
-      let latest: (AtcClearanceUpdate & { sourceTs: number }) | null = null
-      for (const entry of transcript) {
-        if (entry.speaker !== 'atc' || entry.ts <= lastAtcClearanceTs.current) continue
-        lastAtcClearanceTs.current = entry.ts
-        if (atcBoxesSeen.current) continue
-        const update = parseAtcClearance(entry.text)
-        if (update) latest = { ...update, sourceTs: entry.ts }
-      }
-      if (latest) offer(latest)
-    })
-    const unsubscribeState = window.winglog.onBeyondAtcState((state: BeyondAtcState) => {
-      if (state.infoBoxesSeen || state.infoBoxes.length > 0) atcBoxesSeen.current = true
+    return window.winglog.onBeyondAtcState((state: BeyondAtcState) => {
       const key = JSON.stringify(state.infoBoxes)
       if (key === lastAtcBoxesKey.current) return
       lastAtcBoxesKey.current = key
       const update = parseAtcBoxClearance(state.infoBoxes)
       if (update) offer({ ...update, sourceTs: state.infoBoxesAt ?? Date.now() })
     })
-    return () => {
-      unsubscribeTranscript()
-      unsubscribeState()
-    }
   }, [procedureSelection])
 
   function handleAcceptAtcClearance(): void {

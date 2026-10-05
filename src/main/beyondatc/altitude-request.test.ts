@@ -1,11 +1,12 @@
 import { EventEmitter } from 'node:events'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { BeyondAtcState, BeyondAtcTranscriptEntry } from '@shared/ipc'
+import type { BeyondAtcState } from '@shared/ipc'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
-import { confirmsLevel, levelLabelToFeet, pickLevelLabel, requestAltitude } from './altitude-request'
+import { boxConfirmsLevel, levelLabelToFeet, pickLevelLabel, requestAltitude } from './altitude-request'
 
-// Real Actions lists and ATC lines, captured live 2026-10-01 (Fenix A320, cleared FL380 —
-// flightdeck-backend's docs/beyondatc-notes.md, "requesting a new cruise altitude").
+// Real Actions lists, captured live 2026-10-01 (Fenix A320, cleared FL380 — flightdeck-backend's
+// docs/beyondatc-notes.md, "requesting a new cruise altitude"). The cleared-level box is the
+// `Climb` box seen on the VHHH-ZJSY flight, 2026-10-05.
 const CRUISE_ACTIONS = [
   'Call Ready for Descent',
   'Request Approach Change',
@@ -18,48 +19,37 @@ const CRUISE_ACTIONS = [
 ]
 const LEVEL_ACTIONS = ['Cancel Altitude Change', 'FL320', 'FL340', 'FL360', 'FL380', 'Say Again']
 
-/** Stands in for BeyondAtcService: replays BeyondATC's real responses to each set_action. */
+/** Stands in for BeyondAtcService: replays BeyondATC's responses to each set_action. */
 class FakeBeyondAtc extends EventEmitter {
   state: BeyondAtcState = { ...EMPTY_BEYONDATC_STATE, actions: CRUISE_ACTIONS }
-  transcript: BeyondAtcTranscriptEntry[] = []
   sent: string[] = []
   respond = true
-  answer = (label: string): string => `Hongkong Shuttle 250, roger, new cruise altitude ${label}.`
+  /** The cleared level BeyondATC's box shows after the request. */
+  answer = (label: string): string => label
 
   getState(): BeyondAtcState {
     return this.state
-  }
-  getTranscript(): BeyondAtcTranscriptEntry[] {
-    return this.transcript
   }
   setAction(label: string): void {
     this.sent.push(label)
     if (!this.respond) return
     setTimeout(() => {
       if (label === 'Request Altitude Change') {
-        this.say('player', 'Hongkong Shuttle 250, request new cruise altitude.')
-        this.say('atc', 'Hongkong Shuttle 250, you broke up. Say again altitude.')
-        this.setActions(LEVEL_ACTIONS)
+        this.setState({ actions: LEVEL_ACTIONS })
       } else if (label === 'Cancel Altitude Change') {
-        this.setActions(CRUISE_ACTIONS)
+        this.setState({ actions: CRUISE_ACTIONS })
       } else {
-        this.say('player', `Request ${label}, Hongkong Shuttle 250.`)
-        this.say('atc', this.answer(label))
-        this.setActions(CRUISE_ACTIONS)
+        this.setState({ actions: CRUISE_ACTIONS, infoBoxes: [{ title: 'Climb', info: this.answer(label) }], infoBoxesAt: Date.now() })
       }
     }, 1000)
   }
-  private say(speaker: BeyondAtcTranscriptEntry['speaker'], text: string): void {
-    this.transcript = [...this.transcript, { speaker, text, ts: Date.now() }]
-    this.emit('transcript', this.transcript)
-  }
-  private setActions(actions: string[]): void {
-    this.state = { ...this.state, actions }
+  private setState(change: Partial<BeyondAtcState>): void {
+    this.state = { ...this.state, ...change }
     this.emit('state', this.state)
   }
 }
 
-describe('levelLabelToFeet / pickLevelLabel / confirmsLevel', () => {
+describe('levelLabelToFeet / pickLevelLabel / boxConfirmsLevel', () => {
   it('reads FL labels, and metric ones in either notation', () => {
     expect(levelLabelToFeet('FL380')).toBe(38000)
     expect(levelLabelToFeet('11300m')).toBeCloseTo(37073, 0)
@@ -76,10 +66,15 @@ describe('levelLabelToFeet / pickLevelLabel / confirmsLevel', () => {
     expect(pickLevelLabel(['Cancel Altitude Change', '10700m', '11300m'], 11300 / 0.3048)).toBe('11300m')
   })
 
-  it("recognises BeyondATC's real confirmation and a plain climb", () => {
-    expect(confirmsLevel('Hongkong Shuttle 250, roger, new cruise altitude FL360.', 'FL360')).toBe(true)
-    expect(confirmsLevel('Hongkong Shuttle 250, climb FL360.', 'FL360')).toBe(true)
-    expect(confirmsLevel('Hongkong Shuttle 250, roger, new cruise altitude FL340.', 'FL360')).toBe(false)
+  it('confirms from a cleared-level box that changed after the request', () => {
+    const boxes = (info: string, at: number): BeyondAtcState => ({ ...EMPTY_BEYONDATC_STATE, infoBoxes: [{ title: 'Climb', info }], infoBoxesAt: at })
+    expect(boxConfirmsLevel(boxes('FL360', 2000), 'FL360', 1000)).toBe(true)
+    expect(boxConfirmsLevel(boxes('FL340', 2000), 'FL360', 1000)).toBe(false)
+    // Already showing before the request: not an answer to it.
+    expect(boxConfirmsLevel(boxes('FL360', 500), 'FL360', 1000)).toBe(false)
+    // A metric box against a metric label (China).
+    expect(boxConfirmsLevel(boxes('11,300m', 2000), '11,300m', 1000)).toBe(true)
+    expect(boxConfirmsLevel({ ...EMPTY_BEYONDATC_STATE, infoBoxes: [{ title: 'Center Frequency', info: '133.2' }], infoBoxesAt: 2000 }, 'FL360', 1000)).toBe(false)
   })
 })
 
@@ -120,9 +115,9 @@ describe('requestAltitude', () => {
     expect(await result).toEqual({ outcome: 'noMenu', label: null })
   })
 
-  it('reports no answer when ATC confirms a different level', async () => {
+  it('reports no answer when the box shows a different level', async () => {
     const atc = new FakeBeyondAtc()
-    atc.answer = () => 'Hongkong Shuttle 250, roger, new cruise altitude FL340.'
+    atc.answer = () => 'FL340'
     const result = requestAltitude(atc, 36000)
     await vi.advanceTimersByTimeAsync(40_000)
     expect(await result).toEqual({ outcome: 'noAnswer', label: 'FL360' })

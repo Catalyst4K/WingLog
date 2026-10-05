@@ -909,7 +909,6 @@ if (!gotSingleInstanceLock) {
         })
         beyondAtcService.on('transcript', (transcript) => {
           liveHub.publish('beyondAtcTranscript', transcript)
-          arrivalClearance.onTranscript(transcript)
         })
         beyondAtcService.start()
       }

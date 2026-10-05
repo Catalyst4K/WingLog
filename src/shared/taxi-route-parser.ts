@@ -1,60 +1,22 @@
 // One taxiway name: letters/digits, optionally followed by a space and a number. Heathrow's
 // link taxiways are named that way ("taxi via E, LINK 36, F, A, R, hold short of runway
-// 27L", flight 229, 2026-10-05), and the sim's TAXI_NAME is the same "LINK 36". Without it
-// the whole clearance failed to parse and no route was drawn. Only a number may follow the
-// space, so a list can't swallow ordinary words after it.
+// 27L", flight 229, 2026-10-05). Only a number may follow the space, so a list can't swallow
+// ordinary words after it.
 const TAXIWAY = String.raw`[A-Z0-9]+(?: \d+)?`
-const TAXIWAY_LIST = `(${TAXIWAY}(?:, ${TAXIWAY})*)`
+const TAXIWAY_LIST = `${TAXIWAY}(?:, ${TAXIWAY})*`
 
-// Matches both real captured taxi-clearance shapes (docs/beyondatc-notes.md, "The real taxi
-// clearance format", 2026-09-28): a departure clearance names a holding point and runway
-// before "via"; an arrival (taxi-to-gate) clearance names a stand instead. Both end the same
-// way — a comma-separated list of taxiway names up to the trailing period.
-const DEPARTURE_TAXI = new RegExp(String.raw`taxi to holding point \S+, runway \S+, via ${TAXIWAY_LIST}\.?`, 'i')
-const ARRIVAL_TAXI = new RegExp(String.raw`taxi to stand \S+ via ${TAXIWAY_LIST}\.?`, 'i')
-// A third shape, the first half of a split arrival clearance (real, VHHH 2026-10-02, after
-// landing 07L): "taxi via C7, Y, F, hold short of runway 07C." The stand comes in a second
-// clearance once across.
+// The first half of a split taxi clearance (real, VHHH 2026-10-02, after landing 07L): "taxi via
+// C7, Y, F, hold short of runway 07C." The stand comes in a second clearance once across.
 const HOLD_SHORT_TAXI = new RegExp(String.raw`taxi via ${TAXIWAY_LIST}, hold short of runway (\w+)`, 'i')
 
 /**
- * Parses one live BeyondATC `ATC:` transcript line into an ordered list of taxiway names,
- * or `null` if it isn't a taxi clearance — same "degrade, never guess" discipline as
- * src/shared/atc-clearance-parser.ts. Real taxiway names need no reformatting to match the taxi chart's
- * own `TAXI_NAME` data (confirmed live, ZSPD, 2026-09-28 — unlike an approach identifier,
- * a straight string match is enough).
+ * "taxi via C7, Y, F, hold short of runway 07C" → '07C'. Null for anything else.
  *
- * v1 deliberately does not resolve this into the *specific* chart segments actually
- * travelled — a taxiway name can appear on many disconnected segments across an airport
- * (no pathfinding through the taxi network graph is attempted here). The caller highlights
- * every segment whose name matches, which is the whole named taxiway, not just the portion
- * this clearance actually uses. A real, known v1 limitation, not an oversight — see
- * flightdeck-backend's docs/plans/beyondatc-taxi-route-highlight.md.
+ * The only part of a taxi clearance still read from ATC's speech: the route, holding point and
+ * gate come from BeyondATC's InfoBoxes, and no hold-short box has been seen (flightdeck-backend's
+ * docs/decisions.md, 2026-10-05). The full speech parsers are in git history (this file as of
+ * `develop` 72c267b).
  */
-export function parseTaxiRoute(text: string): string[] | null {
-  const match = DEPARTURE_TAXI.exec(text) ?? ARRIVAL_TAXI.exec(text) ?? HOLD_SHORT_TAXI.exec(text)
-  if (!match) return null
-  return match[1]!.split(',').map((name) => name.trim())
-}
-
-const HOLDING_POINT = /taxi to holding point ([A-Z0-9]+),/i
-
-/** "taxi to holding point B10, runway 25C, via B8, B" → 'B10' — the clearance's end point,
- *  which taxiRouteTrace.ts traces the route to. Null for an arrival (taxi-to-stand)
- *  clearance or anything else. */
-export function parseTaxiHoldingPoint(text: string): string | null {
-  return HOLDING_POINT.exec(text)?.[1] ?? null
-}
-
-/** "taxi via C7, Y, F, hold short of runway 07C" → '07C'. Null for anything else. */
 export function parseTaxiHoldShortRunway(text: string): string | null {
-  return HOLD_SHORT_TAXI.exec(text)?.[2] ?? null
-}
-
-const STAND = /taxi to stand ([A-Z0-9]+)/i
-
-/** "taxi to Stand N32 via J, H6, H, V, B" → 'N32' (real, VHHH 2026-10-02) — matched against
- *  the sim's stands (stand-positions.md). Null for anything else. */
-export function parseTaxiStand(text: string): string | null {
-  return STAND.exec(text)?.[1] ?? null
+  return HOLD_SHORT_TAXI.exec(text)?.[1] ?? null
 }

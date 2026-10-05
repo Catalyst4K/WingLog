@@ -162,21 +162,20 @@ describe('GsxRemotePanel', () => {
     expect(gsxRemotePickMenu).toHaveBeenCalledWith(0)
   })
 
-  it("offers the gate from BeyondATC's Taxi to Gate box before ATC has said it (EGLL, flight 229, 2026-10-05)", async () => {
-    // Real: gate 411 was in BeyondATC's InfoBoxes from 12:17; ATC only said it at 12:24.
+  it("offers the gate BeyondATC assigned before ATC has said it (EGLL, flight 229, 2026-10-05)", async () => {
+    // Real: gate 411 was in BeyondATC's InfoBoxes from 12:17; ATC only said it at 12:24. Main
+    // keeps it as assignedGate.
     let menuListener: (menu: GsxRemoteMenuState) => void = () => {}
     const gsxRemoteSearch = vi.fn().mockResolvedValue(undefined)
     withWinglog({
       gsxRemoteSearch,
-      beyondAtcGetTranscript: vi.fn().mockResolvedValue([
-        { speaker: 'atc', text: 'Koreanair 443 Heavy, taxi via E, LINK 36, F, A, R, hold short of runway 27L.', ts: 1 }
-      ]),
       beyondAtcGetState: vi.fn().mockResolvedValue({
         ...EMPTY_BEYONDATC_STATE,
         infoBoxes: [
           { title: 'Taxi to Gate', info: 'Gate 411' },
           { title: 'Taxi Via 1', info: 'E' }
-        ]
+        ],
+        assignedGate: '411'
       }),
       onGsxRemoteMenu: vi.fn((listener) => {
         menuListener = listener
@@ -210,10 +209,8 @@ describe('GsxRemotePanel', () => {
     const gsxRemoteSearch = vi.fn().mockResolvedValue(undefined)
     withWinglog({
       gsxRemoteSearch,
-      // Real VHHH line, 2026-10-02.
-      beyondAtcGetTranscript: vi.fn().mockResolvedValue([
-        { speaker: 'atc', text: 'Cathay 168 Heavy, taxi to Stand N32 via J, H6, H, V, B.', ts: 1 }
-      ]),
+      // VHHH's stand N32, 2026-10-02, as main keeps it from the boxes.
+      beyondAtcGetState: vi.fn().mockResolvedValue({ ...EMPTY_BEYONDATC_STATE, assignedGate: 'N32' }),
       onGsxRemoteMenu: vi.fn((listener) => {
         menuListener = listener
         return () => {}

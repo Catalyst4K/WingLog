@@ -55,7 +55,7 @@ export interface TaxiTraceRequest {
   /** "holding point B10" → 'B10'; null for a stand clearance. */
   holdingPoint: string | null
   from: { lat: number; lon: number }
-  /** A stand clearance's stand, positioned (taxi-route-parser's parseTaxiStand + the sim's
+  /** A stand clearance's stand, positioned (the `Taxi to Gate` box + the sim's
    *  stands); ignored for a holding-point clearance. */
   stand?: { lat: number; lon: number } | null
 }
