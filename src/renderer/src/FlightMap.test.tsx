@@ -956,6 +956,7 @@ describe('FlightMap', () => {
         navdataGetTaxiNetwork: getTaxiNetwork,
         beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
         navdataGetStands: vi.fn().mockResolvedValue([]),
+        onBeyondAtcState: vi.fn(() => () => {}),
         onBeyondAtcTranscript
       }
       return { hasTaxiNetwork, refreshTaxiNetwork, getTaxiNetwork, onBeyondAtcTranscript }
@@ -1044,6 +1045,7 @@ describe('FlightMap', () => {
         navdataGetTaxiNetwork: getTaxiNetwork,
         beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
         navdataGetStands: vi.fn().mockResolvedValue([]),
+        onBeyondAtcState: vi.fn(() => () => {}),
         onBeyondAtcTranscript: vi.fn(() => () => {})
       }
       const user = userEvent.setup()
@@ -1092,6 +1094,7 @@ describe('FlightMap', () => {
         navdataGetTaxiNetwork: getTaxiNetwork,
         beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
         navdataGetStands: vi.fn().mockResolvedValue([]),
+        onBeyondAtcState: vi.fn(() => () => {}),
         onBeyondAtcTranscript: vi.fn(() => () => {})
       }
       const user = userEvent.setup()
@@ -1118,21 +1121,35 @@ describe('FlightMap', () => {
       segments: unknown[] = NAMED_SEGMENTS,
       initial: TranscriptEntry[] = [],
       stands: unknown[] = []
-    ): { push: (transcript: TranscriptEntry[]) => void } {
+    ): { push: (transcript: TranscriptEntry[]) => void; pushBoxes: (boxes: { title: string; info: string }[]) => void } {
       let listener: ((transcript: TranscriptEntry[]) => void) | undefined
+      let stateListener: ((state: { infoBoxes: { title: string; info: string }[] }) => void) | undefined
       ;(window as unknown as { winglog: unknown }).winglog = {
         navdataHasTaxiNetwork: vi.fn().mockResolvedValue(true),
         navdataRefreshTaxiNetwork: vi.fn().mockResolvedValue(undefined),
         navdataGetTaxiNetwork: vi.fn().mockResolvedValue(segments),
         beyondAtcGetTranscript: vi.fn().mockResolvedValue(initial),
         navdataGetStands: vi.fn().mockResolvedValue(stands),
+        onBeyondAtcState: vi.fn((l: (state: { infoBoxes: { title: string; info: string }[] }) => void) => {
+          stateListener = l
+          return () => {}
+        }),
         onBeyondAtcTranscript: vi.fn((l: (transcript: TranscriptEntry[]) => void) => {
           listener = l
           return () => {}
         })
       }
-      return { push: (transcript) => listener?.(transcript) }
+      return {
+        push: (transcript) => listener?.(transcript),
+        pushBoxes: (infoBoxes) => act(() => stateListener?.({ infoBoxes }))
+      }
     }
+
+    /** BeyondATC's InfoBoxes for a taxi clearance, in the real shape (VHHH, 2026-10-05). */
+    const taxiBoxes = (via: string[], end: { title: string; info: string }): { title: string; info: string }[] => [
+      end,
+      ...via.map((info, i) => ({ title: `Taxi Via ${i + 1}`, info }))
+    ]
 
     const HIGHLIGHT_LAYER_ID = 'taxi-chart-route-highlight'
     const toggleButton = (): HTMLElement => screen.getByRole('button', { name: /taxi chart/i })
@@ -1401,6 +1418,72 @@ describe('FlightMap', () => {
         ['in', ['get', 'name'], ['literal', ['E', 'LINK 36', 'F', 'A', 'R']]],
         ['==', ['get', 'icao'], 'EGLL']
       ])
+    })
+
+    describe("from BeyondATC's InfoBoxes (beyondatc-infoboxes-first.md)", () => {
+      const routeFilter = (map: FakeMapInstance): unknown => map.layers[HIGHLIGHT_LAYER_ID]?.filter
+
+      it('draws the route from the boxes alone, with nothing spoken', async () => {
+        const { pushBoxes } = withTranscriptListener()
+        const user = userEvent.setup()
+        const { map } = await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB' })
+        await user.click(toggleButton())
+        await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
+
+        pushBoxes([{ title: 'Taxi to Runway', info: '27R' }, ...taxiBoxes(['D', 'B', 'LINK'], { title: 'Hold Position', info: 'A1' })])
+
+        await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
+        expect(routeFilter(map)).toEqual(['all', ['in', ['get', 'name'], ['literal', ['D', 'B', 'LINK']]], ['==', ['get', 'icao'], 'EGKB']])
+      })
+
+      it('keeps the boxes route when the speech says something different (the box wins)', async () => {
+        const { push, pushBoxes } = withTranscriptListener()
+        const user = userEvent.setup()
+        const { map } = await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB' })
+        await user.click(toggleButton())
+        await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
+        pushBoxes(taxiBoxes(['D', 'B'], { title: 'Hold Position', info: 'A1' }))
+        await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
+
+        push([{ speaker: 'atc', text: 'Test 230, taxi to holding point A1, runway 27R, via LINK, B.', ts: 1000 }])
+        await new Promise((resolve) => setTimeout(resolve, 50))
+
+        expect(routeFilter(map)).toEqual(['all', ['in', ['get', 'name'], ['literal', ['D', 'B']]], ['==', ['get', 'icao'], 'EGKB']])
+      })
+
+      it("treats a Taxi to Gate clearance as the arrival's, like a spoken stand", async () => {
+        const { pushBoxes } = withTranscriptListener()
+        const user = userEvent.setup()
+        const { map } = await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB', arrIcao: 'EGLL' })
+        await user.click(toggleButton())
+        await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
+
+        pushBoxes(taxiBoxes(['B', 'D'], { title: 'Taxi to Gate', info: 'Gate 102' }))
+
+        await waitFor(() => expect(routeFilter(map)).toEqual(['all', ['in', ['get', 'name'], ['literal', ['B', 'D']]], ['==', ['get', 'icao'], 'EGLL']]))
+      })
+
+      it("doesn't take the same boxes again after the takeoff roll dropped the route", async () => {
+        const { pushBoxes } = withTranscriptListener()
+        const user = userEvent.setup()
+        const props: FlightMapProps = { route: [], trackPoints: [], live: true, depIcao: 'EGKB' }
+        const { map, rerender } = await renderReady({ ...props, telemetryPhase: 'taxi' })
+        await user.click(toggleButton())
+        await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
+        const boxes = taxiBoxes(['D', 'B'], { title: 'Hold Position', info: 'A1' })
+        pushBoxes(boxes)
+        await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
+
+        // A fast taxi reads as the takeoff roll, then the phase drops back to taxi.
+        rerender({ ...props, telemetryPhase: 'takeoff' })
+        await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'none'))
+        rerender({ ...props, telemetryPhase: 'taxi' })
+        map.setLayoutProperty.mockClear()
+        pushBoxes([...boxes])
+        await new Promise((resolve) => setTimeout(resolve, 50))
+
+        expect(map.setLayoutProperty).not.toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
+      })
     })
 
     it('hides the highlight layer when the chart is switched back off', async () => {

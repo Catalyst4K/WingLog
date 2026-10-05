@@ -12,6 +12,7 @@ import type {
   BeyondAtcState,
   BeyondAtcTranscriptEntry
 } from '@shared/ipc'
+import { TaxiBoxCheck } from './taxi-box-check'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 
 /** `BeyondATC.exe`'s own real local port, confirmed live 2026-09-25 (docs/beyondatc-notes.md)
@@ -202,6 +203,7 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
 
   private state: BeyondAtcState = { ...EMPTY_BEYONDATC_STATE }
   private transcript: BeyondAtcTranscriptEntry[] = []
+  private readonly taxiBoxCheck = new TaxiBoxCheck((message) => console.warn(message))
 
   constructor(
     private host: string,
@@ -414,6 +416,7 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
         // each phase (flightdeck-backend's docs/plans/beyondatc-infoboxes-first.md): only the
         // taxi-to-gate set has been captured so far.
         if (JSON.stringify(infoBoxes) !== JSON.stringify(this.state.infoBoxes)) console.info(`[beyondatc] InfoBoxes ${rest}`)
+        this.taxiBoxCheck.onInfoBoxes(infoBoxes, Date.now())
         this.state = { ...this.state, infoBoxes }
         this.emit('state', this.state)
         return
@@ -434,6 +437,7 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
 
   private pushTranscript(speaker: BeyondAtcTranscriptEntry['speaker'], text: string): void {
     this.transcript = [...this.transcript, { speaker, text, ts: Date.now() }].slice(-TRANSCRIPT_LIMIT)
+    if (speaker === 'atc') this.taxiBoxCheck.onAtcLine(text, Date.now())
     this.emit('transcript', this.transcript)
   }
 

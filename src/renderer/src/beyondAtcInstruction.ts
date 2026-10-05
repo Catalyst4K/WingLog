@@ -1,6 +1,6 @@
 import type { BeyondAtcTranscriptEntry } from '@shared/ipc'
 import { APPROACH_CLEARED, APPROACH_EXPECT, CLEARED_TO, RUNWAY, SID, STAR } from '@shared/atc-phrases'
-import { parseTaxiRoute } from './taxiRouteParser'
+import { parseTaxiRoute } from '@shared/taxi-route-parser'
 
 /**
  * The key facts from BeyondATC's most recent ATC instruction, for the panel's "Latest
