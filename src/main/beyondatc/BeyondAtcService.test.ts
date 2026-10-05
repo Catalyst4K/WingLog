@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { BEYONDATC_PORT, BeyondAtcService, EMPTY_STATE, validFrequency, type WebSocketCtor } from './BeyondAtcService'
+import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
+import { BEYONDATC_PORT, BeyondAtcService, validFrequency, type WebSocketCtor } from './BeyondAtcService'
 
 /** A minimal WHATWG-WebSocket-shaped double, driven manually from tests — same reasoning as
  *  GsxRemoteService.test.ts's FakeWebSocket, but `simulateLine` sends plain text instead of
@@ -80,7 +81,7 @@ describe('BeyondAtcService', () => {
     const { ctor } = makeCtor()
     const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
 
-    expect(service.getState()).toEqual(EMPTY_STATE)
+    expect(service.getState()).toEqual(EMPTY_BEYONDATC_STATE)
     expect(service.getTranscript()).toEqual([])
   })
 
@@ -116,8 +117,30 @@ describe('BeyondAtcService', () => {
       actions: [],
       autoTune: null,
       autoRespond: null,
-      frequencies: []
+      frequencies: [],
+      infoBoxes: []
     })
+    service.stop()
+  })
+
+  it("parses BeyondATC's real InfoBoxes, the facts its own menu shows (EGLL, 2026-10-05)", () => {
+    const { ctor, instances } = makeCtor()
+    const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
+    service.start()
+    instances[0].simulateOpen()
+    instances[0].simulateLine('InfoBoxes: [{"title":"Taxi to Gate","info":"Gate 411"},{"title":"Taxi Via 1","info":"A"},{"title":"Taxi Via 2","info":"R"},{"title":"Taxi Via 3","info":"N5W"},{"title":"Taxi Via 4","info":"S5W"},{"title":"Taxi Via 5","info":"W"},{"title":"Taxi Via 6","info":"LINK 44"},{"title":"Taxi Via 7","info":"T"},{"title":"ATIS Current","info":"C"}]')
+
+    expect(service.getState().infoBoxes.slice(0, 2)).toEqual([
+      { title: 'Taxi to Gate', info: 'Gate 411' },
+      { title: 'Taxi Via 1', info: 'A' }
+    ])
+    expect(service.getState().infoBoxes).toHaveLength(9)
+
+    // Malformed entries are skipped, malformed JSON clears the list rather than throwing.
+    instances[0].simulateLine('InfoBoxes: [{"title":"Taxi to Gate","info":"Gate 411"},{"title":3},"x"]')
+    expect(service.getState().infoBoxes).toEqual([{ title: 'Taxi to Gate', info: 'Gate 411' }])
+    instances[0].simulateLine('InfoBoxes: [{not json')
+    expect(service.getState().infoBoxes).toEqual([])
     service.stop()
   })
 
@@ -236,7 +259,7 @@ describe('BeyondAtcService', () => {
 
     expect(() => instances[0].simulateLine('DATIS: YBBN|D|Brisbane information Delta.')).not.toThrow()
     expect(() => instances[0].simulateLine('DATIS_END:')).not.toThrow()
-    expect(service.getState()).toEqual(EMPTY_STATE)
+    expect(service.getState()).toEqual(EMPTY_BEYONDATC_STATE)
     service.stop()
   })
 

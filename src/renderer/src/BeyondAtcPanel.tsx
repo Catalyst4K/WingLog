@@ -8,6 +8,7 @@ import type {
   BeyondAtcStepClimbStatus,
   BeyondAtcTranscriptEntry
 } from '@shared/ipc'
+import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { BeyondAtcActions, BeyondAtcRadios } from './BeyondAtcControls'
 import { latestAtcInstruction, type AtcInstruction } from './beyondAtcInstruction'
 import { useLiveClient, useLiveTopic } from './live/LiveClient'
@@ -15,18 +16,6 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 const STEP_CLIMB_OFF: BeyondAtcStepClimbStatus = { enabled: false, nextStep: null, pendingAltitudeFt: null, waitingForClimbFt: null, pastTopOfDescent: false, last: null }
-
-const EMPTY_STATE: BeyondAtcState = {
-  facility: null,
-  com2: null,
-  callsign: null,
-  commsState: null,
-  progress: null,
-  actions: [],
-  autoTune: null,
-  autoRespond: null,
-  frequencies: []
-}
 
 const SPEAKER_KEY: Record<BeyondAtcTranscriptEntry['speaker'], string> = {
   player: 'beyondAtcPanel.speaker.player',
@@ -244,7 +233,7 @@ export function BeyondAtcPanel(): React.JSX.Element {
   // Live state and commands through the LiveClient (live-data-seam.md, part C).
   const live = useLiveClient()
   const status = useLiveTopic('beyondAtcStatus', DISCONNECTED)
-  const [state, setState] = useState<BeyondAtcState>(EMPTY_STATE)
+  const [state, setState] = useState<BeyondAtcState>(EMPTY_BEYONDATC_STATE)
   const transcript = useLiveTopic('beyondAtcTranscript', NO_TRANSCRIPT)
   const stepClimb = useLiveTopic('beyondAtcStepClimb', STEP_CLIMB_OFF)
   const latestInstruction = useMemo(() => latestAtcInstruction(transcript), [transcript])

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { LiveTopics } from '@shared/live'
-import { EMPTY_STATE as BEYONDATC_EMPTY_STATE } from '../beyondatc/BeyondAtcService'
+import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { LiveHub } from './LiveHub'
 
 // A real-shaped sample: the A350 at VHHH stand N32, 2026-10-02.
@@ -44,7 +44,7 @@ describe('LiveHub', () => {
     expect(lan).toHaveBeenCalledWith('trackingPoint', POINT)
 
     stopLan()
-    hub.publish('beyondAtcState', BEYONDATC_EMPTY_STATE)
+    hub.publish('beyondAtcState', EMPTY_BEYONDATC_STATE)
     expect(window).toHaveBeenCalledTimes(2)
     expect(lan).toHaveBeenCalledTimes(1)
   })
@@ -80,7 +80,7 @@ describe('LiveHub', () => {
     const hub = new LiveHub()
     hub.publish('trackingPoint', POINT)
     hub.publish('trackingPointsUpdated', [POINT, { ...POINT, id: 86619, excludedReason: 'resume-spurious' }])
-    hub.publish('beyondAtcState', BEYONDATC_EMPTY_STATE)
+    hub.publish('beyondAtcState', EMPTY_BEYONDATC_STATE)
     hub.publish('beyondAtcTranscript', [{ speaker: 'atc', text: 'Cathay 168 Heavy, taxi to Stand N32 via J, H6, H, V, B.', ts: 1759401600000 }])
     hub.publish('gsxRemoteGate', null)
     const snapshot = hub.snapshot()

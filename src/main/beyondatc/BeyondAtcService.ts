@@ -3,6 +3,7 @@ import { WebSocket as NodeWebSocket } from 'ws'
 import type {
   BeyondAtcCallsign,
   BeyondAtcCom2,
+  BeyondAtcInfoBox,
   BeyondAtcCommsState,
   BeyondAtcConnectionStatus,
   BeyondAtcFacility,
@@ -11,6 +12,7 @@ import type {
   BeyondAtcState,
   BeyondAtcTranscriptEntry
 } from '@shared/ipc'
+import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 
 /** `BeyondATC.exe`'s own real local port, confirmed live 2026-09-25 (docs/beyondatc-notes.md)
  *  — `0.0.0.0:41716`, LAN-reachable, real `websocket-sharp` server. Fixed and not user-
@@ -41,17 +43,6 @@ const RECONNECT_BACKOFF_FACTOR = 1.6
 
 const TRANSCRIPT_LIMIT = 100
 
-export const EMPTY_STATE: BeyondAtcState = {
-  facility: null,
-  com2: null,
-  callsign: null,
-  commsState: null,
-  progress: null,
-  actions: [],
-  autoTune: null,
-  autoRespond: null,
-  frequencies: []
-}
 
 interface BeyondAtcServiceEvents {
   status: [BeyondAtcConnectionStatus]
@@ -105,6 +96,20 @@ function isCommsState(value: unknown): value is BeyondAtcCommsState {
     value !== null &&
     typeof (value as { text?: unknown }).text === 'string' &&
     COMMS_MODES.has((value as { mode?: unknown }).mode as string)
+  )
+}
+
+/** `InfoBoxes: [{"title", "info"}]` (real, EGLL 2026-10-05). Keeps only well-formed entries;
+ *  anything else in the array is skipped rather than failing the whole list. */
+function parseInfoBoxes(rest: string): BeyondAtcInfoBox[] {
+  const value = parseJson(rest)
+  if (!Array.isArray(value)) return []
+  return value.filter(
+    (box): box is BeyondAtcInfoBox =>
+      typeof box === 'object' &&
+      box !== null &&
+      typeof (box as { title?: unknown }).title === 'string' &&
+      typeof (box as { info?: unknown }).info === 'string'
   )
 }
 
@@ -195,7 +200,7 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
   private backoffMs = RECONNECT_MIN_MS
   private status: BeyondAtcConnectionStatus = { state: 'disconnected', lastError: null }
 
-  private state: BeyondAtcState = { ...EMPTY_STATE }
+  private state: BeyondAtcState = { ...EMPTY_BEYONDATC_STATE }
   private transcript: BeyondAtcTranscriptEntry[] = []
 
   constructor(
@@ -264,7 +269,7 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
    *  never changes (BEYONDATC_PORT is fixed), unlike GsxRemoteService's reconfigure. */
   reconfigure(host: string): void {
     this.host = host
-    this.state = { ...EMPTY_STATE }
+    this.state = { ...EMPTY_BEYONDATC_STATE }
     this.transcript = []
     if (!this.stopped) {
       this.ws?.close()
@@ -401,6 +406,10 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
         return
       case 'Frequencies':
         this.state = { ...this.state, frequencies: parseFrequencies(rest) }
+        this.emit('state', this.state)
+        return
+      case 'InfoBoxes':
+        this.state = { ...this.state, infoBoxes: parseInfoBoxes(rest) }
         this.emit('state', this.state)
         return
       case 'Player':

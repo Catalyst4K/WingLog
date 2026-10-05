@@ -23,6 +23,7 @@ function makeState(overrides: Partial<BeyondAtcState> = {}): BeyondAtcState {
     autoTune: null,
     autoRespond: null,
     frequencies: [],
+    infoBoxes: [],
     ...overrides
   }
 }

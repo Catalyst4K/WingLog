@@ -1,4 +1,5 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from 'sonner'
@@ -389,17 +390,7 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     settingsSetBeyondAtc: vi.fn().mockResolvedValue(undefined),
     beyondAtcGetStatus: vi.fn().mockResolvedValue({ state: 'disconnected', lastError: null }),
     onBeyondAtcStatus: vi.fn(() => () => {}),
-    beyondAtcGetState: vi.fn().mockResolvedValue({
-      facility: null,
-      com2: null,
-      callsign: null,
-      commsState: null,
-      progress: null,
-      actions: [],
-      autoTune: null,
-      autoRespond: null,
-      frequencies: []
-    }),
+    beyondAtcGetState: vi.fn().mockResolvedValue(EMPTY_BEYONDATC_STATE),
     onBeyondAtcState: vi.fn(() => () => {}),
     beyondAtcGetStepClimb: vi.fn().mockResolvedValue({ enabled: false, nextStep: null, pendingAltitudeFt: null, waitingForClimbFt: null, pastTopOfDescent: false, last: null }),
     onBeyondAtcStepClimb: vi.fn(() => () => {}),
@@ -1048,7 +1039,7 @@ describe('App', () => {
       // Real WSSS navdata and BeyondATC's real line: "R-NAV" used to become "R NAV 02L", which
       // matched nothing, so Update changed nothing.
       const { push, winglog } = withTranscriptListener({
-        beyondAtcGetState: vi.fn().mockResolvedValue({ progress: { from: 'ZSPD', to: 'WSSS', pct: 96 } }),
+        beyondAtcGetState: vi.fn().mockResolvedValue({ ...EMPTY_BEYONDATC_STATE, progress: { from: 'ZSPD', to: 'WSSS', pct: 96 } }),
         navdataListApproaches: vi.fn().mockResolvedValue([
           { identifier: 'ILS 02L', transition: 'APIPA' },
           { identifier: 'RNAV 02L', transition: 'SAMKO' },

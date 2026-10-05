@@ -1017,6 +1017,17 @@ export interface BeyondAtcState {
   /** Populated from the real `Frequencies` response — see `BeyondAtcFrequencyOption`. Empty
    *  until `BeyondAtcService` requests it right after connecting. */
   frequencies: BeyondAtcFrequencyOption[]
+  /** `InfoBoxes: [{"title", "info"}]`, the facts BeyondATC's own menu shows. Captured live at
+   *  EGLL, 2026-10-05 (flight 229): "Taxi to Gate" / "Gate 411", "Taxi Via 1".."Taxi Via 7"
+   *  (one taxiway each, "LINK 44" included), "ATIS Current" / "C". The gate is set here as
+   *  soon as BeyondATC assigns it, before ATC ever says it. Empty until the first push. */
+  infoBoxes: BeyondAtcInfoBox[]
+}
+
+/** One of BeyondATC's `InfoBoxes` entries: a label and its value, both free text. */
+export interface BeyondAtcInfoBox {
+  title: string
+  info: string
 }
 
 /** One live transcript line — `Player`/`ATC` are the pilot/controller's own spoken lines;

@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BeyondAtcState, BeyondAtcTranscriptEntry } from '@shared/ipc'
-import { EMPTY_STATE } from './BeyondAtcService'
+import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { confirmsLevel, levelLabelToFeet, pickLevelLabel, requestAltitude } from './altitude-request'
 
 // Real Actions lists and ATC lines, captured live 2026-10-01 (Fenix A320, cleared FL380 —
@@ -20,7 +20,7 @@ const LEVEL_ACTIONS = ['Cancel Altitude Change', 'FL320', 'FL340', 'FL360', 'FL3
 
 /** Stands in for BeyondAtcService: replays BeyondATC's real responses to each set_action. */
 class FakeBeyondAtc extends EventEmitter {
-  state: BeyondAtcState = { ...EMPTY_STATE, actions: CRUISE_ACTIONS }
+  state: BeyondAtcState = { ...EMPTY_BEYONDATC_STATE, actions: CRUISE_ACTIONS }
   transcript: BeyondAtcTranscriptEntry[] = []
   sent: string[] = []
   respond = true
