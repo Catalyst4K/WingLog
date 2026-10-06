@@ -4,8 +4,8 @@ import type { BeyondAtcInfoBox, BeyondAtcState, BeyondAtcTranscriptEntry, Flight
 import { parseAtcTaxiFacts } from '@shared/atc-info-boxes'
 import { findStand } from '@shared/stands'
 import { parseTaxiHoldShortRunway } from '@shared/taxi-route-parser'
-import { remainingRoute, traceTaxiRouteDetail, type TaxiTraceRequest, type TracedRouteDetail } from './taxiRouteTrace'
-import { checkDeviation, INITIAL_DEVIATION, reachedEnd, stageReached } from './taxiReroute'
+import { rejoinTaxiRoute, remainingRoute, traceTaxiRoute, type TracedRoute } from './taxiRouteTrace'
+import { checkDeviation, INITIAL_DEVIATION, reachedEnd, segmentDriven } from './taxiReroute'
 import { TAXI_SOURCE_ID } from './useTaxiChartOverlay'
 import { useLiveClient } from './live/LiveClient'
 
@@ -31,8 +31,9 @@ import { useLiveClient } from './live/LiveClient'
  * which has no box: it's added to the box route heard within HOLD_SHORT_PAIR_MS of it.
  *
  * Re-routing (flightdeck-backend's docs/plans/taxi-reroute.md): when the aircraft leaves the
- * line, or drives the wrong way along it, while taxiing, the line is re-traced from where it is
- * to the same end (taxiReroute.ts decides when). A re-route that can't be traced (off the
+ * line, or drives the wrong way along it, while taxiing, the line is redrawn as the shortest
+ * way from where it is to the same end, rejoining the cleared route wherever that's shortest
+ * (taxiReroute.ts decides when, rejoinTaxiRoute where). A re-route that can't be traced (off the
  * network) keeps the line it had. Once the aircraft reaches the end, nothing re-routes.
  *
  * Both are limited to the clearance's own airport: a "holding point" clearance is the
@@ -194,10 +195,11 @@ export function useTaxiRouteHighlight({
   /** How far along the traced line the aircraft has got (remainingRoute's `segment`). */
   const progressRef = useRef(0)
   /** The current clearance's re-traced line, once it has been re-routed; null until then. */
-  const rerouteRef = useRef<TracedRouteDetail | null>(null)
+  const rerouteRef = useRef<TracedRoute | null>(null)
   const deviationRef = useRef(INITIAL_DEVIATION)
-  /** The furthest stage of the cleared sequence the aircraft has driven, for `fromStage`. */
-  const stageRef = useRef(-1)
+  /** The furthest segment of the cleared (first traced) route driven: a re-route only rejoins
+   *  from there on. */
+  const drivenRef = useRef(0)
   /** Set once the aircraft reaches the end of the line: the clearance is done. */
   const doneRef = useRef(false)
   // Whether this hook has itself created its layers. Checked instead of calling
@@ -307,29 +309,25 @@ export function useTaxiRouteHighlight({
   const standPosition =
     clearance?.stand && stands && stands.icao === icao ? findStand(stands.list, clearance.stand) : null
 
-  // What every trace of this clearance shares; only the start (and a re-route's extras) differ.
-  const request: Omit<TaxiTraceRequest, 'from'> | null = useMemo(() => {
-    const segments = icao ? segmentsByIcao[icao] : undefined
-    if (!clearance || !segments || segments.length === 0) return null
-    return {
+  const segments = icao ? segmentsByIcao[icao] : undefined
+  // Re-traced when segments finish loading too — a clearance can arrive before the chart has.
+  const traced: TracedRoute | null = useMemo(() => {
+    if (!clearance?.from || !segments || segments.length === 0) return null
+    return traceTaxiRoute({
       segments,
       taxiways: clearance.taxiways,
       holdingPoint: clearance.holdingPoint ?? (clearance.holdShortRunway ? (clearance.taxiways.at(-1) ?? null) : null),
-      stand: standPosition
-    }
-  }, [clearance, icao, segmentsByIcao, standPosition])
-
-  // Re-traced when segments finish loading too — a clearance can arrive before the chart has.
-  const traced: TracedRouteDetail | null = useMemo(() => {
-    if (!request || !clearance?.from) return null
-    return traceTaxiRouteDetail({ ...request, from: clearance.from, headingDeg: clearance.headingDeg ?? null })
-  }, [request, clearance])
+      from: clearance.from,
+      stand: standPosition,
+      headingDeg: clearance.headingDeg ?? null
+    })
+  }, [clearance, segments, standPosition])
 
   useEffect(() => {
     progressRef.current = 0
     rerouteRef.current = null
     deviationRef.current = INITIAL_DEVIATION
-    stageRef.current = -1
+    drivenRef.current = 0
     doneRef.current = false
   }, [traced])
 
@@ -348,14 +346,14 @@ export function useTaxiRouteHighlight({
 
     if (traced) {
       const active = rerouteRef.current ?? traced
-      let line = active.route
+      let line = active
       if (position) {
-        let remaining = remainingRoute(active.route, position, progressRef.current)
-        stageRef.current = stageReached(active.stages, remaining, stageRef.current)
-        if (reachedEnd(active.route, position)) doneRef.current = true
+        let remaining = remainingRoute(active, position, progressRef.current)
+        drivenRef.current = segmentDriven(remainingRoute(traced, position, drivenRef.current), drivenRef.current)
+        if (reachedEnd(active, position)) doneRef.current = true
         const { headingDeg, groundSpeedMs } = position
         // Only while taxiing: a pushback drives tail first, so its heading is backwards.
-        if (phase === 'taxi' && !doneRef.current && request && headingDeg !== undefined && groundSpeedMs !== undefined) {
+        if (phase === 'taxi' && !doneRef.current && segments && headingDeg !== undefined && groundSpeedMs !== undefined) {
           const check = checkDeviation(deviationRef.current, {
             nowMs: Date.now(),
             distanceM: remaining.distanceM,
@@ -365,17 +363,16 @@ export function useTaxiRouteHighlight({
           })
           deviationRef.current = check.state
           if (check.reroute) {
-            const rerouted = traceTaxiRouteDetail({
-              ...request,
+            const rerouted = rejoinTaxiRoute({
+              segments,
+              route: traced,
+              fromSegment: drivenRef.current,
               from: { lat: position.lat, lon: position.lon },
-              headingDeg,
-              fromStage: stageRef.current,
-              endAt: traced.end,
-              direct: check.direct
+              headingDeg
             })
             if (rerouted) {
               rerouteRef.current = rerouted
-              remaining = remainingRoute(rerouted.route, position, 0)
+              remaining = remainingRoute(rerouted, position, 0)
             }
           }
         }
@@ -401,7 +398,7 @@ export function useTaxiRouteHighlight({
         (icao ? ['all', byName, ['==', ['get', 'icao'], icao]] : byName) as Parameters<MapLibreMap['setFilter']>[1]
       )
     }
-  }, [mapRef, mapReady, enabled, departed, clearance, traced, request, icao, position, phase])
+  }, [mapRef, mapReady, enabled, departed, clearance, traced, segments, icao, position, phase])
 }
 
 /** A clearance's start: the aircraft's position, and its heading if it's taxiing. */

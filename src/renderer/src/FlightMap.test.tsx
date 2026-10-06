@@ -1390,17 +1390,16 @@ describe('FlightMap', () => {
           return map
         }
 
-        it('re-traces the line from the aircraft, along E, to the same hold', async () => {
+        it('redraws the line from the aircraft, up E to rejoin at A1, to the same hold', async () => {
           const map = await driveUpE('taxi')
 
-          const line = lastLine(map) as [number, number][]
-          expect(line[0]).toEqual([0.033, 51.3307])
-          expect(line.at(-1)).toEqual([0.0335, 51.3335])
-          // Re-traced from E's corner (the network point nearest the aircraft), which the
-          // original stand-D-B line never went near. The first re-route rejoins the cleared
-          // taxiways, so it heads back to D from there.
-          expect(line[1]).toEqual([E_CORNER[1], E_CORNER[0]])
-          expect(line).toContainEqual([0.031, 51.331])
+          // On up E to where it meets the cleared route at A1, then the cleared route to the
+          // hold: the shortest way there, not back to D.
+          expect(lastLine(map)).toEqual([
+            [0.033, 51.3307],
+            [0.033, 51.333],
+            [0.0335, 51.3335]
+          ])
         })
 
         it("doesn't re-route during pushback, when the aircraft moves tail first", async () => {

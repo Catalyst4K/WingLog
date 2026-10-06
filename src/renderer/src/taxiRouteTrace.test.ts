@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { NavdataTaxiSegment } from '@shared/ipc'
-import { angleBetweenDeg, remainingRoute, traceTaxiRoute, traceTaxiRouteDetail } from './taxiRouteTrace'
+import { angleBetweenDeg, rejoinTaxiRoute, remainingRoute, traceTaxiRoute } from './taxiRouteTrace'
 import VHHH_RAW from './__fixtures__/vhhh-taxi-b8-b10.json'
 import VHHH_ARRIVAL_RAW from './__fixtures__/vhhh-taxi-arrival-j-h6-h-v-b.json'
 import YBBN_RAW from './__fixtures__/ybbn-taxi-c9-b9-a9.json'
@@ -223,10 +223,13 @@ describe('traceTaxiRoute on a hand-built junction', () => {
   })
 })
 
-describe('traceTaxiRouteDetail: re-route inputs (taxi-reroute.md)', () => {
+describe('re-routing (taxi-reroute.md)', () => {
   const onD = { lat: 18.3074072, lon: 109.4093493 }
   const runway08Hold = { lat: 18.30168, lon: 109.39634 }
   const ZJSY_REQUEST = { segments: ZJSY, taxiways: ['D', 'B7', 'A'], holdingPoint: 'A' }
+  // Flight 227's stand, and a point 18 s into its wrong-way taxi, heading west.
+  const STAND_227 = { lat: 18.3075447, lon: 109.4041842 }
+  const TAXIING_WEST_227 = { lat: 18.3067402, lon: 109.4036881 }
   const bearing = ([aLon, aLat]: [number, number], [bLon, bLat]: [number, number]): number =>
     ((Math.atan2((bLon - aLon) * Math.cos((aLat * Math.PI) / 180), bLat - aLat) * 180) / Math.PI + 360) % 360
   /** The direction of the first edge that actually moves. */
@@ -235,58 +238,82 @@ describe('traceTaxiRouteDetail: re-route inputs (taxi-reroute.md)', () => {
     return bearing(route[0]!, route[i]!)
   }
 
-  it('reports how far each vertex is through the cleared sequence, and the last network point', () => {
-    const detail = traceTaxiRouteDetail({ ...ZJSY_REQUEST, from: onD })!
-    expect(detail.stages).toHaveLength(detail.route.length)
-    expect(detail.stages.at(-1)).toBe(2)
-    // Never goes back a stage along the route.
-    expect(detail.stages.every((stage, i) => i === 0 || stage >= detail.stages[i - 1]!)).toBe(true)
-    expect(detail.end).toEqual(detail.route.at(-1))
+  describe('traceTaxiRoute with a heading', () => {
+    it("starts forwards, not with a U-turn against the aircraft's heading, when a forward way exists (ZJSY flight 227)", () => {
+      // Real: three seconds into taxiing after the wrong-way pushback, heading 262. Without the
+      // heading the line starts back east, behind the aircraft, towards D.
+      const taxiing = { lat: 18.3067963, lon: 109.4041206 }
+      const plain = traceTaxiRoute({ ...ZJSY_REQUEST, from: taxiing })!
+      const route = traceTaxiRoute({ ...ZJSY_REQUEST, from: taxiing, headingDeg: 262 })!
+
+      expect(angleBetweenDeg(firstBearing(plain), 262)).toBeGreaterThan(120)
+      expect(angleBetweenDeg(firstBearing(route), 262)).toBeLessThanOrEqual(120)
+      const [endLon, endLat] = route.at(-1)!
+      expect(distanceM({ lat: endLat, lon: endLon }, runway08Hold)).toBeLessThan(5)
+    })
+
+    it('still U-turns when going forwards would be a long way round', () => {
+      // On D facing away from B7: forwards means a loop at off-route cost, so the U-turn wins.
+      const plain = traceTaxiRoute({ ...ZJSY_REQUEST, from: onD })!
+      const facingAway = (firstBearing(plain) + 180) % 360
+      expect(traceTaxiRoute({ ...ZJSY_REQUEST, from: onD, headingDeg: facingAway })).toEqual(plain)
+    })
   })
 
-  it("starts forwards, not with a U-turn against the aircraft's heading, when a forward way exists (ZJSY flight 227)", () => {
-    // Real: three seconds into taxiing after the wrong-way pushback, heading 262. Without the
-    // heading the line starts back east, behind the aircraft, towards D.
-    const taxiing = { lat: 18.3067963, lon: 109.4041206 }
-    const plain = traceTaxiRouteDetail({ ...ZJSY_REQUEST, from: taxiing })!
-    const route = traceTaxiRouteDetail({ ...ZJSY_REQUEST, from: taxiing, headingDeg: 262 })!
+  describe('rejoinTaxiRoute', () => {
+    const CLEARED = traceTaxiRoute({ ...ZJSY_REQUEST, from: STAND_227 })!
+    /** Where `route` joins CLEARED: the first index from which its tail is CLEARED's tail. */
+    const joinIndexOf = (route: [number, number][]): number =>
+      CLEARED.findIndex((_, k) => {
+        const tail = CLEARED.slice(k)
+        return route.length >= tail.length && JSON.stringify(route.slice(-tail.length)) === JSON.stringify(tail)
+      })
 
-    expect(angleBetweenDeg(firstBearing(plain.route), 262)).toBeGreaterThan(120)
-    expect(angleBetweenDeg(firstBearing(route.route), 262)).toBeLessThanOrEqual(120)
-    // Still the same clearance, to the same hold.
-    const [endLon, endLat] = route.route.at(-1)!
-    expect(distanceM({ lat: endLat, lon: endLon }, runway08Hold)).toBeLessThan(5)
-  })
+    it("joins flight 227's cleared route on A near the hold, the way the aircraft is going", () => {
+      const route = rejoinTaxiRoute({ segments: ZJSY, route: CLEARED, fromSegment: 0, from: TAXIING_WEST_227, headingDeg: 262 })!
 
-  it('still U-turns when going forwards would be a long way round', () => {
-    // On D facing away from B7: forwards means a loop at off-route cost, so the U-turn wins.
-    const plain = traceTaxiRouteDetail({ ...ZJSY_REQUEST, from: onD })!
-    const facingAway = (firstBearing(plain.route) + 180) % 360
-    const route = traceTaxiRouteDetail({ ...ZJSY_REQUEST, from: onD, headingDeg: facingAway })!
-    expect(route.route).toEqual(plain.route)
-  })
+      expect(route.at(-1)).toEqual(CLEARED.at(-1))
+      // Joins on the last stretch: under a third of the cleared route is left from there.
+      expect(lengthM(CLEARED.slice(joinIndexOf(route)))).toBeLessThan(lengthM(CLEARED) / 3)
+      expect(namesDriven(ZJSY, route).at(-1)).toBe('A')
+      expect(angleBetweenDeg(firstBearing(route), 262)).toBeLessThanOrEqual(120)
+      // Much shorter than turning round and driving the cleared route.
+      const back = traceTaxiRoute({ ...ZJSY_REQUEST, from: TAXIING_WEST_227 })!
+      expect(lengthM(route)).toBeLessThan(lengthM(back) * 0.8)
+    })
 
-  it('re-traced from partway along B7, with fromStage, carries on to A without driving D again', () => {
-    const b7 = ZJSY.find((s) => s.name === 'B7')!
-    const onB7 = { lat: (b7.startLat + b7.endLat) / 2, lon: (b7.startLon + b7.endLon) / 2 }
-    const route = traceTaxiRouteDetail({ ...ZJSY_REQUEST, from: onB7, fromStage: 1 })!
+    it('keeps the rest of the cleared route when the aircraft is already on it, heading along it', () => {
+      const k = CLEARED.length - 6
+      const [lon, lat] = CLEARED[k]!
+      const route = rejoinTaxiRoute({
+        segments: ZJSY,
+        route: CLEARED,
+        fromSegment: k,
+        from: { lat, lon },
+        headingDeg: bearing(CLEARED[k]!, CLEARED[k + 1]!)
+      })!
+      expect(route).toEqual(CLEARED.slice(k))
+    })
 
-    expect(namesDriven(ZJSY, route.route)).not.toContain('D')
-    expect(namesDriven(ZJSY, route.route).at(-1)).toBe('A')
-  })
+    it('with only the end left to join (everything else driven), takes the shortest way to it', () => {
+      const all = rejoinTaxiRoute({ segments: ZJSY, route: CLEARED, fromSegment: 0, from: TAXIING_WEST_227, headingDeg: 262 })!
+      const endOnly = rejoinTaxiRoute({ segments: ZJSY, route: CLEARED, fromSegment: CLEARED.length - 1, from: TAXIING_WEST_227, headingDeg: 262 })!
+      expect(endOnly.at(-1)).toEqual(CLEARED.at(-1))
+      expect(lengthM(endOnly)).toBeCloseTo(lengthM(all), 0)
+    })
 
-  it('keeps a re-route to the same end point with endAt, and gives up rather than end elsewhere', () => {
-    const original = traceTaxiRouteDetail({ ...ZJSY_REQUEST, from: onD })!
-    const rerouted = traceTaxiRouteDetail({ ...ZJSY_REQUEST, from: onD, direct: true, endAt: original.end })!
-    expect(rerouted.end).toEqual(original.end)
+    it('gives up off the network, so the caller keeps the line it has', () => {
+      expect(rejoinTaxiRoute({ segments: ZJSY, route: CLEARED, fromSegment: 0, from: { lat: 18.4, lon: 109.5 } })).toBeNull()
+      expect(rejoinTaxiRoute({ segments: ZJSY, route: [], fromSegment: 0, from: STAND_227 })).toBeNull()
+    })
 
-    expect(traceTaxiRouteDetail({ ...ZJSY_REQUEST, from: onD, endAt: [0, 0] })).toBeNull()
-  })
-
-  it('takes the shortest way with direct, never longer than the cleared route', () => {
-    const original = traceTaxiRouteDetail({ ...ZJSY_REQUEST, from: onD })!
-    const direct = traceTaxiRouteDetail({ ...ZJSY_REQUEST, from: onD, direct: true, endAt: original.end })!
-    expect(lengthM(direct.route)).toBeLessThanOrEqual(lengthM(original.route) + 1)
+    it("keeps a stand clearance's own stand point (not on the network) at the end", () => {
+      const [endLon, endLat] = CLEARED.at(-1)!
+      const standPoint: [number, number] = [endLon + 0.0002, endLat] // ~20 m on
+      const route = rejoinTaxiRoute({ segments: ZJSY, route: [...CLEARED, standPoint], fromSegment: 0, from: TAXIING_WEST_227, headingDeg: 262 })!
+      expect(route.at(-1)).toEqual(standPoint)
+      expect(route.at(-2)).toEqual(CLEARED.at(-1))
+    })
   })
 })
 

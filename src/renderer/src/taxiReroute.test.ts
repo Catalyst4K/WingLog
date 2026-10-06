@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { NavdataTaxiSegment } from '@shared/ipc'
-import { remainingRoute, traceTaxiRouteDetail, type TracedRouteDetail } from './taxiRouteTrace'
+import { rejoinTaxiRoute, remainingRoute, traceTaxiRoute, type TracedRoute } from './taxiRouteTrace'
 import {
   checkDeviation,
   INITIAL_DEVIATION,
@@ -8,7 +8,7 @@ import {
   REROUTE_AFTER_MS,
   REROUTE_DISTANCE_M,
   REROUTE_MIN_INTERVAL_MS,
-  stageReached,
+  segmentDriven,
   type DeviationState
 } from './taxiReroute'
 import ZJSY_RAW from './__fixtures__/zjsy-taxi-d-b7-a.json'
@@ -87,41 +87,21 @@ describe('checkDeviation', () => {
     expect(run(60, { distanceM: 2, lineBearingDeg: 0, headingDeg: 110 }).reroutes).toEqual([])
   })
 
-  it('re-routes at most once per 10 s, and escalates to direct when the last one was recent', () => {
-    let state = INITIAL_DEVIATION
-    const results: { t: number; direct: boolean }[] = []
-    for (let t = 0; t <= 120; t++) {
-      const result = checkDeviation(state, sample(t * 1000, { distanceM: 100 }))
-      state = result.state
-      if (result.reroute) results.push({ t, direct: result.direct })
+  it('re-routes at most once per 10 s while the deviation goes on', () => {
+    const { reroutes } = run(60, { distanceM: 100 })
+    expect(reroutes[0]).toBe(5)
+    for (let k = 1; k < reroutes.length; k++) {
+      expect(reroutes[k]! - reroutes[k - 1]!).toBeGreaterThanOrEqual(REROUTE_MIN_INTERVAL_MS / 1000)
     }
-    for (let i = 1; i < results.length; i++) {
-      expect(results[i]!.t - results[i - 1]!.t).toBeGreaterThanOrEqual(REROUTE_MIN_INTERVAL_MS / 1000)
-    }
-    expect(results[0]).toEqual({ t: 5, direct: false })
-    expect(results.slice(1).every((r) => r.direct)).toBe(true)
-  })
-
-  it('goes back to rejoining the cleared taxiways when the last re-route was over a minute ago', () => {
-    const start: DeviationState = { deviatingSince: null, lastRerouteAt: 0 }
-    let state = start
-    let found: { reroute: boolean; direct: boolean } | null = null
-    for (let t = 61; t <= 70 && !found; t++) {
-      const result = checkDeviation(state, sample(t * 1000, { distanceM: 100 }))
-      state = result.state
-      if (result.reroute) found = result
-    }
-    expect(found).toMatchObject({ reroute: true, direct: false })
   })
 })
 
-describe('stageReached and reachedEnd', () => {
+describe('segmentDriven and reachedEnd', () => {
   it('only counts a segment as driven within 30 m of it, and never goes back', () => {
-    const stages = [-1, 0, 0, 1, 2]
     const at = (segment: number, distanceM: number) => ({ line: [], segment, distanceM, bearingDeg: 0 })
-    expect(stageReached(stages, at(3, 10), -1)).toBe(1)
-    expect(stageReached(stages, at(3, 31), -1)).toBe(-1)
-    expect(stageReached(stages, at(1, 5), 1)).toBe(1)
+    expect(segmentDriven(at(3, 10), 0)).toBe(3)
+    expect(segmentDriven(at(3, 31), 0)).toBe(0)
+    expect(segmentDriven(at(1, 5), 3)).toBe(3)
   })
 
   it('is at the end within 30 m of the last point', () => {
@@ -144,20 +124,22 @@ describe('re-routing replay: ZJSY flight 227, the wrong-way pushback (2026-10-02
   /** What useTaxiRouteHighlight does on each position update, with the replay's own clock. */
   function replay() {
     const [, lat0, lon0] = SAMPLES[0]!
-    let detail: TracedRouteDetail = traceTaxiRouteDetail({ ...REQUEST, from: { lat: lat0, lon: lon0 } })!
-    const endAt = detail.end
+    const cleared: TracedRoute = traceTaxiRoute({ ...REQUEST, from: { lat: lat0, lon: lon0 } })!
+    let line = cleared
     let progress = 0
-    let stage = -1
+    let driven = 0
     let deviation = INITIAL_DEVIATION
     let done = false
-    const reroutes: { t: number; direct: boolean; end: [number, number] }[] = []
+    const reroutes: { t: number; line: TracedRoute }[] = []
+    /** How far off the line the aircraft was at each taxi sample after the last re-route. */
+    let offAfterLast: number[] = []
     let taxiStart: number | null = null
     for (const [t, lat, lon, headingDeg, groundSpeedMs, phase] of SAMPLES) {
       const position = { lat, lon }
       if (phase === 'taxi' && taxiStart === null) taxiStart = t
-      let remaining = remainingRoute(detail.route, position, progress)
-      stage = stageReached(detail.stages, remaining, stage)
-      if (reachedEnd(detail.route, position)) done = true
+      let remaining = remainingRoute(line, position, progress)
+      driven = segmentDriven(remainingRoute(cleared, position, driven), driven)
+      if (reachedEnd(line, position)) done = true
       if (phase === 'taxi' && !done) {
         const check = checkDeviation(deviation, {
           nowMs: t * 1000,
@@ -168,17 +150,19 @@ describe('re-routing replay: ZJSY flight 227, the wrong-way pushback (2026-10-02
         })
         deviation = check.state
         if (check.reroute) {
-          const next = traceTaxiRouteDetail({ ...REQUEST, from: position, headingDeg, fromStage: stage, endAt, direct: check.direct })
+          const next = rejoinTaxiRoute({ segments: ZJSY, route: cleared, fromSegment: driven, from: position, headingDeg })
           if (next) {
-            detail = next
-            remaining = remainingRoute(detail.route, position, 0)
-            reroutes.push({ t, direct: check.direct, end: next.route.at(-1)! })
+            line = next
+            remaining = remainingRoute(line, position, 0)
+            reroutes.push({ t, line: next })
+            offAfterLast = []
           }
         }
+        offAfterLast.push(remaining.distanceM)
       }
       progress = remaining.segment
     }
-    return { reroutes, detail, taxiStart: taxiStart! }
+    return { reroutes, cleared, line, offAfterLast, taxiStart: taxiStart! }
   }
 
   it('re-routes within 10 s of starting to taxi the wrong way', () => {
@@ -190,23 +174,34 @@ describe('re-routing replay: ZJSY flight 227, the wrong-way pushback (2026-10-02
 
   it("ends every re-route at A's runway 08 hold short, the clearance's own end", () => {
     const { reroutes } = replay()
-    for (const { end } of reroutes) {
-      expect(distanceM({ lat: end[1], lon: end[0] }, RUNWAY_08_HOLD)).toBeLessThan(5)
+    for (const { line } of reroutes) {
+      const [lon, lat] = line.at(-1)!
+      expect(distanceM({ lat, lon }, RUNWAY_08_HOLD)).toBeLessThan(5)
     }
   })
 
   it('ends the final line where Callum actually held', () => {
-    const { detail } = replay()
-    const [lon, lat] = detail.route.at(-1)!
+    const { line } = replay()
+    const [lon, lat] = line.at(-1)!
     expect(distanceM({ lat, lon }, HELD_AT)).toBeLessThan(30)
   })
 
-  it("doesn't keep fighting the pilot: a handful of re-routes over the whole taxi, not one every 10 s", () => {
-    const { reroutes } = replay()
-    // Rejoining the cleared taxiways every time re-routed 13 times here, each one pointing
-    // back east to D; escalating to direct settles it.
-    expect(reroutes.length).toBeLessThanOrEqual(5)
-    expect(reroutes.some((r) => r.direct)).toBe(true)
+  it('rejoins the cleared route near the hold, the way the pilot went, not back at D', () => {
+    const { reroutes, cleared } = replay()
+    // Every re-route joins the cleared route on its last stretch along A, not its start on D:
+    // what's left of the cleared route after the join is under a third of it.
+    const lengthOf = (route: TracedRoute): number =>
+      route.slice(1).reduce((sum, [lon, lat], k) => sum + distanceM({ lat, lon }, { lat: route[k]![1], lon: route[k]![0] }), 0)
+    for (const { line } of reroutes) {
+      const joinIndex = cleared.findIndex((p) => line.some((q) => q[0] === p[0] && q[1] === p[1]))
+      expect(lengthOf(cleared.slice(joinIndex))).toBeLessThan(lengthOf(cleared) / 3)
+    }
+  })
+
+  it("doesn't keep fighting the pilot: a handful of re-routes, then the pilot follows the line to the hold", () => {
+    const { reroutes, offAfterLast } = replay()
+    expect(reroutes.length).toBeLessThanOrEqual(4)
+    expect(Math.max(...offAfterLast)).toBeLessThan(REROUTE_DISTANCE_M)
   })
 
   it('stops re-routing once at the hold: lining up on the runway is not a deviation', () => {
