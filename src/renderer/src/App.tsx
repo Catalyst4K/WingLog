@@ -569,14 +569,16 @@ export default function App(): React.JSX.Element {
       <UpdateBanner airborne={telemetry !== null && !telemetry.onGround} />
       <Tabs value={effectivePage} onValueChange={(value) => setPage(value as AppPage)} className="min-h-0 flex-1 gap-0">
         {/* Narrow windows (a second monitor, and later a tablet or phone): tabs drop to icons
-            below lg, keeping each label for screen readers, and scroll if they still don't fit. */}
+            below lg, keeping each label for screen readers, and scroll if they still don't fit.
+            px-1 below sm is what fits all seven next to the phone badge at 360 px: px-1.5 left
+            the row 16 px short and Settings half off screen (v1.4.0's red e2e). */}
         <header className="flex items-center justify-between gap-2 border-b border-border px-4 py-3 sm:gap-4 sm:px-6">
           <TabsList variant="line" className="min-w-0 justify-start overflow-x-auto overflow-y-hidden [scrollbar-width:none]">
             {appTabs(t, gsxRemoteEnabled, beyondAtcEnabled).map(({ page: tabPage, label, icon: Icon }) => (
               <TabsTrigger
                 key={tabPage}
                 value={tabPage}
-                className="gap-1.5 px-1.5 sm:px-3"
+                className="gap-1.5 px-1 sm:px-3"
                 aria-label={label}
                 onClick={() => goToTab(tabPage)}
               >
