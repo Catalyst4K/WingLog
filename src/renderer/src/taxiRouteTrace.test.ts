@@ -50,6 +50,31 @@ function namesDriven(segments: NavdataTaxiSegment[], route: [number, number][]):
   return names
 }
 
+/** How many times a route leaves a named taxiway through unnamed segments (gate lead-ins,
+ *  fillets) and comes straight back to the same one: the zigzag through gate lead-ins. */
+function detours(segments: NavdataTaxiSegment[], route: [number, number][]): number {
+  const names: (string | null | undefined)[] = []
+  for (let i = 1; i < route.length; i++) {
+    const [aLon, aLat] = route[i - 1]!
+    const [bLon, bLat] = route[i]!
+    const seg = segments.find(
+      (s) =>
+        (s.startLat === aLat && s.startLon === aLon && s.endLat === bLat && s.endLon === bLon) ||
+        (s.startLat === bLat && s.startLon === bLon && s.endLat === aLat && s.endLon === aLon)
+    )
+    names.push(seg ? seg.name : undefined)
+  }
+  let count = 0
+  for (let i = 1; i < names.length; i++) {
+    if (names[i] !== null || !names[i - 1]) continue
+    let j = i
+    while (j < names.length && names[j] === null) j++
+    if (j < names.length && names[j] === names[i - 1]) count++
+    i = j
+  }
+  return count
+}
+
 // The far (stand) end of B8, and B10's real hold-short point on runway 25C.
 const STAND_END_OF_B8 = { lat: 22.3151936, lon: 113.9290456 }
 const B10_HOLD_SHORT: [number, number] = [113.9325748, 22.3209537]
@@ -178,6 +203,10 @@ describe('traceTaxiRoute', () => {
 
     expect(namesDriven(VHHH_ARRIVAL, route).slice(0, 6)).toEqual(['J5', 'J', 'H6', 'H', 'V', 'B'])
     expect(route.at(-1)).toEqual([n32.lon, n32.lat])
+    // From B to the stand is the pilot's choice: straight along the gate taxilane B7, which ATC
+    // doesn't name, not in and out of every gate lead-in to avoid it (simulated, 2026-10-06).
+    expect(namesDriven(VHHH_ARRIVAL, route).at(-1)).toBe('B7')
+    expect(detours(VHHH_ARRIVAL, route)).toBe(0)
     const [endLon, endLat] = route.at(-1)!
     expect(distanceM({ lat: endLat, lon: endLon }, stoppedAtN32)).toBeLessThan(20)
     expect(lengthM(route)).toBeLessThan(5_000)
