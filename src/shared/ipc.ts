@@ -1356,6 +1356,18 @@ export interface AircraftLastParked {
   stand: string
 }
 
+/** One runway end from the sim's navdata cache (`navdata_runway`). */
+export interface NavdataRunway {
+  ident: string
+  headingTrueDeg: number
+  lengthM: number
+  widthM: number
+  /** Raw SimConnect surface-type integer — not yet mapped to a name (facility-fields.ts). */
+  surface: number
+  thresholdLat: number
+  thresholdLon: number
+}
+
 export interface NavdataTaxiSegment {
   startLat: number
   startLon: number

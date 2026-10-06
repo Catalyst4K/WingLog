@@ -1,4 +1,8 @@
-import type { NavdataRunway } from '../navdata/navdata-provider'
+/**
+ * Whether a position is on one of the departure airport's runways, from the cached navdata: what
+ * keeps a fast taxi on a parallel taxiway from counting as the takeoff roll (FlightRecorder).
+ */
+import type { NavdataRunway } from '@shared/ipc'
 import { flatDistanceM } from '@shared/geo'
 import { positionRelativeToRunway } from '../airports/landing-maths'
 
@@ -20,6 +24,11 @@ const MAX_AIRPORT_DISTANCE_M = 8_000
  * Why (flightdeck-backend's docs/plans/v1-4.md): on flight 230, 2026-10-05, a 35 kt taxi
  * along VHHH's parallel taxiway, 291 m off runway 25L's centreline, was taken for the takeoff
  * roll. The real roll was 0–8 m off.
+ *
+ * @param runways The airport's cached runways.
+ * @param lat Degrees.
+ * @param lon Degrees.
+ * @returns True on a runway, false off them, null when it can't tell.
  */
 export function isOnRunway(runways: NavdataRunway[], lat: number, lon: number): boolean | null {
   if (runways.length === 0) return null
