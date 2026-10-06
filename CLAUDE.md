@@ -214,7 +214,7 @@ and `fixes` blocking force-push and branch deletion. `main` also requires a pull
 to merge into it (0 required approvals — still solo, just a forced PR+diff step instead
 of a plain push) and CI's `build` and `e2e` checks to pass, admins included, so a release
 can't be cut red ("CI gates every release" in `flightdeck-backend`'s `CLAUDE.md`, binding
-here; CI also runs on `develop` and `fixes`), matching the branching model there;
+here; CI runs only on PRs into `main` and by hand, so the local battery, e2e included, is the check before merging into `develop`), matching the branching model there;
 `develop`/`fixes` deliberately don't require a PR, since that's where day-to-day
 `plan/<name>`/`fix/<name>` branches merge and this is developed solo, pushing directly from
 more than one machine — see `scripts/github-repo-security.sh` for the full rationale on
@@ -291,7 +291,8 @@ every change still needs its own real, relevant tests, every time. This rule is 
 often the *whole* suite gets *re-run*: during day-to-day iteration on a change, run only the
 test file(s) actually relevant to what changed, not a full `npm test` / `npm run
 test:coverage` across all 80+ files each time. Run the complete battery —
-`typecheck` + `lint` + `test` + `test:coverage` + `build` — at a real checkpoint instead:
+`typecheck` + `lint` + `test` + `test:coverage` + `build`, plus `test:e2e` before merging
+into `develop` (CI runs only on release PRs) — at a real checkpoint instead:
 opening or updating a PR, merging a branch, running `npm run package:win`, or cutting a
 release. If genuinely unsure whether a change is small enough to skip the full battery,
 run it rather than guess wrong on something that gates a release.

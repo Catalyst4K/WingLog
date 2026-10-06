@@ -1,14 +1,12 @@
 name: CI
 
-# develop and fixes too, not just main: every plan/ and fix/ merge gets a Linux run the day
-# it lands, rather than first at the release PR (v1.4.0's red e2e had been on develop for
-# three days). build and e2e are required checks on main (scripts/github-repo-security.sh),
-# so a release PR can't merge until they pass.
+# Only before a release: PRs into main (a release from develop, or a hotfix from fixes), plus
+# manual runs. build and e2e are required checks on main (scripts/github-repo-security.sh), so a
+# release PR can't merge until they pass. Between releases the local battery, e2e included, is
+# the check (flightdeck-backend CLAUDE.md, "CI gates every release").
 on:
-  push:
-    branches: [main, develop, fixes]
   pull_request:
-    branches: [main, develop, fixes]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
