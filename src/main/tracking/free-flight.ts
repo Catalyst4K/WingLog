@@ -1,3 +1,7 @@
+/**
+ * Starting a flight with no SimBrief plan: the phase to start in, from what the aircraft is already
+ * doing, and what the Start free flight dialog prefills.
+ */
 import type { FlightPhase, SimTelemetry } from '@shared/ipc'
 import { parseAircraftIdentity } from '../aircraft-lookup/aircraft-identity'
 import { nearestAirport } from '../airports/airport-search'
@@ -15,6 +19,9 @@ import { LEVEL_VS_MS, MOVING_MS } from './FlightRecorder'
  * Reuses FlightRecorder's own MOVING_MS/LEVEL_VS_MS thresholds rather than inventing
  * seeding-only numbers, so a flight seeded here behaves identically from this point on to
  * one that reached the same state by flying through it.
+ *
+ * @param telemetry The sim's current state.
+ * @returns The phase to start the recorder in.
  */
 export function seedPhaseFromTelemetry(telemetry: SimTelemetry): FlightPhase {
   if (telemetry.onGround) {
@@ -51,6 +58,10 @@ export interface FreeFlightPrefill {
  * round trip rather than three — free-flight-tracking.md's aircraft-resolution table plus
  * the Departure field. Read-only: never writes the title memory itself (startFree does that,
  * once the pilot actually confirms an aircraft — see TrackingController.startFree).
+ *
+ * @param db The database, read only.
+ * @param input The sim's ATC id, model, title and position.
+ * @returns The aircraft's identity, a suggested departure and a remembered fleet aircraft.
  */
 export function getFreeFlightPrefill(
   db: WingLogDb,

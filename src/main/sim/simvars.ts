@@ -1,3 +1,6 @@
+/**
+ * Every SimVar WingLog reads: name, unit, data type and read order, in one place (CLAUDE.md).
+ */
 import { SimConnectDataType, type RawBuffer } from 'node-simconnect'
 import type { SimTelemetry } from '@shared/ipc'
 

@@ -1,3 +1,8 @@
+/**
+ * The live connection to MSFS through SimConnect: the 1 Hz telemetry stream TrackingController
+ * records, a high-rate stream around touchdown for the landing rate, pause state, and reconnecting
+ * whenever the sim goes away. SimVar names and read order are in simvars.ts.
+ */
 import { EventEmitter } from 'node:events'
 import {
   open,
@@ -102,12 +107,18 @@ export class SimConnectService extends EventEmitter<SimConnectServiceEvents> {
    * Current status, for a renderer that mounts after the initial connect already
    * happened — `status` events are fire-and-forget over IPC and aren't replayed to late
    * subscribers, so a freshly-mounted renderer needs to pull this once on mount.
+   *
+   * @returns Connected, connecting or disconnected, with the last error.
    */
   getStatus(): SimConnectionStatus {
     return this.status
   }
 
-  /** Most recent telemetry sample, for snapshotting state (e.g. fuel) outside the 1 Hz stream. */
+  /**
+   * Most recent telemetry sample, for snapshotting state (e.g. fuel) outside the 1 Hz stream.
+   *
+   * @returns The latest tick, or undefined before the first.
+   */
   getLastTelemetry(): SimTelemetry | undefined {
     return this.lastTelemetry
   }
@@ -226,6 +237,8 @@ export class SimConnectService extends EventEmitter<SimConnectServiceEvents> {
    * still true, tripping a false touchdown with an empty ring buffer (real bug found live,
    * docs/simconnect-notes.md, 2026-09-20's third run — scripts/spike-landing-rate.ts hit
    * this first and is fixed the same way).
+   *
+   * @param telemetry The latest 1 Hz tick.
    */
   private evaluateHighRateArming(telemetry: SimTelemetry): void {
     if (
@@ -280,7 +293,7 @@ export class SimConnectService extends EventEmitter<SimConnectServiceEvents> {
     const now = Date.now()
 
     this.ringBuffer.push({ t: now, verticalSpeedMs })
-    while (this.ringBuffer.length > 0 && this.ringBuffer[0]!.t < now - NEAR_CONTACT_WINDOW_MS) {
+    while ((this.ringBuffer[0]?.t ?? Infinity) < now - NEAR_CONTACT_WINDOW_MS) {
       this.ringBuffer.shift()
     }
 

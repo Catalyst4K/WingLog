@@ -1,3 +1,7 @@
+/**
+ * One landing record from a touchdown tick: rate, g, attitude, wind components, and position on
+ * the runway.
+ */
 import type { SimTelemetry } from '@shared/ipc'
 import {
   crabAngleDeg,
@@ -54,6 +58,16 @@ function clampGForce(value: number): number {
  * compression has usually already happened by the time on-ground reads true at 1 Hz. Falls
  * back further still to the touchdown tick's own value if neither is available (e.g.
  * touchdown detected on the very first tick after a resume).
+ *
+ * @param flightId The flight.
+ * @param seq Which of its landings, from 1.
+ * @param icao The airport touched down at, or null to skip the runway.
+ * @param telemetry The touchdown tick.
+ * @param touchdownTsUtc When, ISO UTC.
+ * @param resolveRunway Finds the runway end; the vendored lookup by default.
+ * @param previousTelemetry The tick before touchdown.
+ * @param touchdownSeverity The high-rate stream's reading, if any.
+ * @returns The landing, ready to insert.
  */
 export function buildLandingRecord(
   flightId: number,
@@ -71,15 +85,6 @@ export function buildLandingRecord(
   touchdownSeverity?: TouchdownSeverity
 ): NewLanding {
   const runway = icao ? resolveRunway(icao, telemetry.headingTrueDeg, telemetry.latitude, telemetry.longitude) : null
-  const position = runway
-    ? positionRelativeToRunway(
-        telemetry.latitude,
-        telemetry.longitude,
-        runway.lat,
-        runway.lon,
-        runway.headingTrueDeg
-      )
-    : null
 
   return {
     flightId,
@@ -95,21 +100,38 @@ export function buildLandingRecord(
     groundSpeedMs: telemetry.groundSpeedMs,
     windSpeedMs: telemetry.windSpeedMs,
     windDirectionDeg: telemetry.windDirectionDeg,
-    headwindMs: runway
-      ? headwindComponent(telemetry.windSpeedMs, telemetry.windDirectionDeg, runway.headingTrueDeg)
-      : null,
-    crosswindMs: runway
-      ? crosswindComponent(telemetry.windSpeedMs, telemetry.windDirectionDeg, runway.headingTrueDeg)
-      : null,
-    crabDeg: runway ? crabAngleDeg(telemetry.headingTrueDeg, runway.headingTrueDeg) : null,
-    runwayIdent: runway?.ident ?? null,
-    // Distance from the real, usable (displacement-adjusted) threshold — Phase 1,
-    // resources/runways.csv's `displaced_threshold_ft` — not the raw physical-end distance
-    // `position` itself holds, which resolveRunway's gating uses instead (see
-    // runway-lookup.ts's RunwayEnd.lat doc comment for why those are different points).
-    distanceFromThresholdM: runway && position ? distanceFromUsableThresholdM(position, runway) : null,
-    centrelineOffsetM: position?.centrelineOffsetM ?? null,
+    ...runwayFields(telemetry, runway),
     flapSetting: Number.isFinite(telemetry.flapsHandleIndex) ? telemetry.flapsHandleIndex : null,
     touchdownSource: 'derived'
+  }
+}
+
+/** The landing's fields that need the runway: all null when it couldn't be resolved. */
+type RunwayFields = Pick<
+  NewLanding,
+  'headwindMs' | 'crosswindMs' | 'crabDeg' | 'runwayIdent' | 'distanceFromThresholdM' | 'centrelineOffsetM'
+>
+
+/**
+ * Wind components, crab and position relative to the runway touched down on.
+ *
+ * @param telemetry The touchdown tick.
+ * @param runway The runway end, or null when it couldn't be resolved.
+ * @returns The fields, or all null without a runway.
+ */
+function runwayFields(telemetry: SimTelemetry, runway: RunwayEnd | null): RunwayFields {
+  if (!runway) {
+    return { headwindMs: null, crosswindMs: null, crabDeg: null, runwayIdent: null, distanceFromThresholdM: null, centrelineOffsetM: null }
+  }
+  const position = positionRelativeToRunway(telemetry.latitude, telemetry.longitude, runway.lat, runway.lon, runway.headingTrueDeg)
+  return {
+    headwindMs: headwindComponent(telemetry.windSpeedMs, telemetry.windDirectionDeg, runway.headingTrueDeg),
+    crosswindMs: crosswindComponent(telemetry.windSpeedMs, telemetry.windDirectionDeg, runway.headingTrueDeg),
+    crabDeg: crabAngleDeg(telemetry.headingTrueDeg, runway.headingTrueDeg),
+    runwayIdent: runway.ident,
+    // From the usable (displacement-adjusted) threshold, not the physical end `position` is
+    // measured from (runway-lookup.ts's RunwayEnd.lat explains the difference).
+    distanceFromThresholdM: distanceFromUsableThresholdM(position, runway),
+    centrelineOffsetM: position.centrelineOffsetM
   }
 }

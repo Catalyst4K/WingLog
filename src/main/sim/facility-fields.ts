@@ -1,6 +1,3 @@
-import { type RawBuffer } from 'node-simconnect'
-import { offsetBy } from '@shared/geo'
-
 /**
  * Facility Data Definition field names and record parsing for the navdata provider
  * (src/main/navdata/) — kept in src/main/sim/ next to simvars.ts, per CLAUDE.md's "SimVar/
@@ -33,6 +30,8 @@ import { offsetBy } from '@shared/geo'
  * therefore concatenates all three groups (runway-transition legs, common legs,
  * enroute-transition legs) rather than assuming legs live in only one place.
  */
+import { type RawBuffer } from 'node-simconnect'
+import { offsetBy } from '@shared/geo'
 
 export const enum NavdataDefId {
   RUNWAYS = 10,
@@ -56,6 +55,13 @@ export const enum NavdataDefId {
  *  docs/navdata-notes.md. */
 const RUNWAY_DESIGNATORS = ['', 'L', 'R', 'C'] as const
 
+/**
+ * A runway end's ident from SimConnect's number and designator.
+ *
+ * @param number Runway number, 1 to 36.
+ * @param designator 0 to 3: none, L, R, C.
+ * @returns The ident, e.g. '07L'.
+ */
 export function runwayIdent(number: number, designator: number): string {
   const suffix = RUNWAY_DESIGNATORS[designator] ?? ''
   return `${String(number).padStart(2, '0')}${suffix}`
@@ -65,11 +71,22 @@ export interface ParsedAirportHeader {
   icao: string
 }
 
+/**
+ * Registers the AIRPORT header with its ICAO only.
+ *
+ * @param addField Adds one field to the facility definition being built, in read order.
+ */
 export function addAirportIcaoField(addField: (name: string) => void): void {
   addField('OPEN AIRPORT')
   addField('ICAO')
 }
 
+/**
+ * Reads the header addAirportIcaoField registered.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The airport's ICAO.
+ */
 export function parseAirportHeader(d: RawBuffer): ParsedAirportHeader {
   return { icao: d.readString8() }
 }
@@ -85,7 +102,10 @@ export interface ParsedAirportHeaderWithLatLon {
  *  the reference point — so every request's AIRPORT record has an identical buffer layout,
  *  sidestepping the per-definition buffer-shape gotcha `fetchAirportNavdata`'s own comment
  *  describes. Only the TAXI_POINTS fetch actually uses the lat/lon (as the reference point for
- *  `biasToLatLon`). */
+ *  `biasToLatLon`).
+ *
+ * @param addField Adds one field to the facility definition being built, in read order.
+ */
 export function addAirportIcaoLatLonFields(addField: (name: string) => void): void {
   addField('OPEN AIRPORT')
   addField('ICAO')
@@ -93,6 +113,12 @@ export function addAirportIcaoLatLonFields(addField: (name: string) => void): vo
   addField('LONGITUDE')
 }
 
+/**
+ * Reads the header addAirportIcaoLatLonFields registered.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The ICAO and the airport's reference point, in degrees.
+ */
 export function parseAirportHeaderWithLatLon(d: RawBuffer): ParsedAirportHeaderWithLatLon {
   const icao = d.readString8()
   const latitude = d.readFloat64()
@@ -113,6 +139,11 @@ export interface ParsedRunway {
   secondaryIdent: string
 }
 
+/**
+ * Registers the RUNWAY records: position, heading, size, surface and both ends' idents.
+ *
+ * @param addField Adds one field to the facility definition being built, in read order.
+ */
 export function addRunwayFields(addField: (name: string) => void): void {
   addField('N_RUNWAYS')
   addField('OPEN RUNWAY')
@@ -129,6 +160,12 @@ export function addRunwayFields(addField: (name: string) => void): void {
   addField('CLOSE RUNWAY')
 }
 
+/**
+ * Reads one RUNWAY record addRunwayFields registered.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The runway, metres and degrees true.
+ */
 export function parseRunway(d: RawBuffer): ParsedRunway {
   const latitude = d.readFloat64()
   const longitude = d.readFloat64()
@@ -194,7 +231,10 @@ const FIX_TYPE_CODES: Record<number, ParsedLeg['fixType']> = { 87: 'W', 86: 'V',
 
 /** Shared field list — identical layout for every leg-bearing struct (APPROACH_LEG,
  *  FINAL_APPROACH_LEG, MISSED_APPROACH_LEG all share it per the MSFS 2024 SDK reference;
- *  only APPROACH_LEG is actually registered here, see the module doc comment). */
+ *  only APPROACH_LEG is actually registered here, see the module doc comment).
+ *
+ * @param addField Adds one field to the facility definition being built, in read order.
+ */
 export function addLegFields(addField: (name: string) => void): void {
   addField('TYPE')
   addField('FIX_ICAO')
@@ -209,6 +249,12 @@ export function addLegFields(addField: (name: string) => void): void {
   addField('ROUTE_DISTANCE')
 }
 
+/**
+ * Reads one leg addLegFields registered.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The leg.
+ */
 export function parseLeg(d: RawBuffer): ParsedLeg {
   const type = d.readInt32()
   const fixIcaoRaw = d.readString8()
@@ -238,7 +284,12 @@ export function parseLeg(d: RawBuffer): ParsedLeg {
 
 /** Builds the full DEPARTURE/ARRIVAL facility definition on `defId` — the airport header,
  *  the procedure header, runway/enroute transition summaries, and the procedure's own
- *  common leg list. Reused for both kinds, since DEPARTURE/ARRIVAL share the same shape. */
+ *  common leg list. Reused for both kinds, since DEPARTURE/ARRIVAL share the same shape.
+ *
+ * @param addField Adds one field to a definition, in read order.
+ * @param defId The definition to build.
+ * @param kind Departures (SIDs) or arrivals (STARs).
+ */
 export function addProcedureTreeDefinition(
   addField: (defId: NavdataDefId, name: string) => void,
   defId: NavdataDefId,
@@ -275,6 +326,12 @@ export function addProcedureTreeDefinition(
   add('CLOSE AIRPORT')
 }
 
+/**
+ * Reads a SID or STAR header addProcedureTreeDefinition registered.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The procedure's name and how many transitions and legs follow.
+ */
 export function parseProcedureHeader(d: RawBuffer): ParsedProcedureHeader {
   return {
     name: d.readString8(),
@@ -284,6 +341,12 @@ export function parseProcedureHeader(d: RawBuffer): ParsedProcedureHeader {
   }
 }
 
+/**
+ * Reads one RUNWAY_TRANSITION header.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The runway and how many legs follow.
+ */
 export function parseRunwayTransition(d: RawBuffer): ParsedRunwayTransition {
   const runwayNumber = d.readInt32()
   const runwayDesignator = d.readInt32()
@@ -291,6 +354,12 @@ export function parseRunwayTransition(d: RawBuffer): ParsedRunwayTransition {
   return { runwayIdent: runwayIdent(runwayNumber, runwayDesignator), nApproachLegs }
 }
 
+/**
+ * Reads one ENROUTE_TRANSITION header.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The transition's name and how many legs follow.
+ */
 export function parseEnrouteTransition(d: RawBuffer): ParsedEnrouteTransition {
   return { name: d.readString8(), nApproachLegs: d.readInt32() }
 }
@@ -305,6 +374,12 @@ export function parseEnrouteTransition(d: RawBuffer): ParsedEnrouteTransition {
  *  label — better to show "TYPE 7" than silently mislabel something as ILS. */
 const APPROACH_TYPE_LABELS: Record<number, string> = { 4: 'ILS', 5: 'LOC', 10: 'RNAV' }
 
+/**
+ * The approach type's name, from APPROACH_TYPE_LABELS.
+ *
+ * @param type APPROACH.TYPE's raw value.
+ * @returns 'ILS', 'LOC', 'RNAV', or 'TYPE n' for anything else.
+ */
 function approachTypeLabel(type: number): string {
   return APPROACH_TYPE_LABELS[type] ?? `TYPE ${type}`
 }
@@ -313,7 +388,11 @@ function approachTypeLabel(type: number): string {
  *  '0' for none) — confirmed clean 2026-09-08: 32/40 approaches seen had no suffix, the rest
  *  were 'Y'/'Z'. Falls back to the raw character for anything outside that observed set
  *  rather than assuming — the encoding itself (ASCII code of a single char) is confirmed,
- *  just not every value it can take. */
+ *  just not every value it can take.
+ *
+ * @param suffixCode APPROACH.SUFFIX's raw value.
+ * @returns The letter, or '' for none.
+ */
 function suffixLetter(suffixCode: number): string {
   if (suffixCode === 0 || suffixCode === 48) return ''
   return String.fromCharCode(suffixCode)
@@ -330,6 +409,11 @@ export interface ParsedApproachHeader {
   nMissedApproachLegs: number
 }
 
+/**
+ * Registers the APPROACHES definition: each approach's header, its transitions and its final legs.
+ *
+ * @param addField Adds one field to the APPROACHES definition, in read order.
+ */
 export function addApproachTreeDefinition(addField: (defId: NavdataDefId, name: string) => void): void {
   const defId = NavdataDefId.APPROACHES
   const add = (name: string): void => addField(defId, name)
@@ -358,6 +442,12 @@ export function addApproachTreeDefinition(addField: (defId: NavdataDefId, name: 
   add('CLOSE AIRPORT')
 }
 
+/**
+ * Reads one APPROACH header addApproachTreeDefinition registered.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The approach, named as a chart would ("ILS Z 07R"), and how many transitions and legs follow.
+ */
 export function parseApproachHeader(d: RawBuffer): ParsedApproachHeader {
   const type = d.readInt32()
   const suffixCode = d.readInt32()
@@ -384,7 +474,14 @@ export const parseApproachTransition = parseEnrouteTransition
 /** `TAXI_POINT`'s `BIAS_X`/`BIAS_Z` are metre offsets from the airport's own reference point —
  *  no LATITUDE/LONGITUDE of their own. Axis convention confirmed live 2026-09-28: `BIAS_X` =
  *  metres east, `BIAS_Z` = metres north, true-north aligned, plain flat local tangent plane —
- *  no rotation or magnetic-variance correction needed (docs/navdata-notes.md). */
+ *  no rotation or magnetic-variance correction needed (docs/navdata-notes.md).
+ *
+ * @param refLatitude The airport's reference point, degrees.
+ * @param refLongitude The airport's reference point, degrees.
+ * @param biasX Metres east of it.
+ * @param biasZ Metres north of it.
+ * @returns The point, in degrees.
+ */
 export function biasToLatLon(
   refLatitude: number,
   refLongitude: number,
@@ -406,12 +503,23 @@ export interface ParsedTaxiPoint {
   biasZ: number
 }
 
+/**
+ * Registers the TAXI_POINT records: type and offset from the airport's reference point.
+ *
+ * @param addField Adds one field to the facility definition being built, in read order.
+ */
 export function addTaxiPointFields(addField: (name: string) => void): void {
   addField('TYPE')
   addField('BIAS_X')
   addField('BIAS_Z')
 }
 
+/**
+ * Reads one TAXI_POINT record.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The point's type and offset, in metres.
+ */
 export function parseTaxiPoint(d: RawBuffer): ParsedTaxiPoint {
   const type = d.readInt32()
   const biasX = d.readFloat32()
@@ -432,6 +540,11 @@ export interface ParsedTaxiPath {
   nameIndex: number | null
 }
 
+/**
+ * Registers the TAXI_PATH records: the two points each joins, its type and its name index.
+ *
+ * @param addField Adds one field to the facility definition being built, in read order.
+ */
 export function addTaxiPathFields(addField: (name: string) => void): void {
   addField('TYPE')
   addField('START')
@@ -439,6 +552,12 @@ export function addTaxiPathFields(addField: (name: string) => void): void {
   addField('NAME_INDEX')
 }
 
+/**
+ * Reads one TAXI_PATH record.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The path.
+ */
 export function parseTaxiPath(d: RawBuffer): ParsedTaxiPath {
   const type = d.readInt32()
   const start = d.readInt32()
@@ -451,10 +570,21 @@ export interface ParsedTaxiName {
   name: string
 }
 
+/**
+ * Registers the TAXI_NAME records: the taxiway names TAXI_PATH's name index points into.
+ *
+ * @param addField Adds one field to the facility definition being built, in read order.
+ */
 export function addTaxiNameFields(addField: (name: string) => void): void {
   addField('NAME')
 }
 
+/**
+ * Reads one TAXI_NAME record.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The name.
+ */
 export function parseTaxiName(d: RawBuffer): ParsedTaxiName {
   return { name: d.readString8() }
 }
@@ -474,6 +604,11 @@ export interface ParsedTaxiParking {
   biasZ: number
 }
 
+/**
+ * Registers the TAXI_PARKING records (stands and gates).
+ *
+ * @param addField Adds one field to the facility definition being built, in read order.
+ */
 export function addTaxiParkingFields(addField: (name: string) => void): void {
   addField('NAME')
   addField('SUFFIX')
@@ -483,6 +618,12 @@ export function addTaxiParkingFields(addField: (name: string) => void): void {
   addField('BIAS_Z')
 }
 
+/**
+ * Reads one TAXI_PARKING record.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The stand.
+ */
 export function parseTaxiParking(d: RawBuffer): ParsedTaxiParking {
   const nameCode = d.readInt32()
   const suffix = d.readInt32()
@@ -495,7 +636,12 @@ export function parseTaxiParking(d: RawBuffer): ParsedTaxiParking {
 
 /** The stand's name as ATC says it: GATE_N 32 → "N32" (BeyondATC's "Stand N32", VHHH), and
  *  every other NAME (GATE, PARKING, a compass-point PARKING, DOCK) just the number — "Gate 79"
- *  at YBBN is NAME GATE, NUMBER 79. */
+ *  at YBBN is NAME GATE, NUMBER 79.
+ *
+ * @param nameCode TAXI_PARKING's NAME value.
+ * @param number TAXI_PARKING's NUMBER.
+ * @returns The stand as ATC says it, e.g. 'N32' or '79'.
+ */
 export function standLabel(nameCode: number, number: number): string {
   const letter = nameCode >= 12 && nameCode <= 37 ? String.fromCharCode(65 + nameCode - 12) : ''
   return `${letter}${number}`

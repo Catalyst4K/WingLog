@@ -30,13 +30,21 @@ export class ReplaySocketLink {
     this.socketCtor = replaySocketCtor(this)
   }
 
-  /** Delivers one captured message to the service, if it's connected. */
+  /**
+   * Delivers one captured message to the service, if it's connected.
+   *
+   * @param text The message, as captured.
+   */
   deliver(text: string): void {
     if (this.socket?.readyState === OPEN) this.socket.receive(text)
     else this.dropped.push(text)
   }
 
-  /** Called by a new socket. */
+  /**
+   * Called by a new socket.
+   *
+   * @param socket The service's new socket.
+   */
   attach(socket: ReplaySocket): void {
     this.socket = socket
   }
@@ -89,7 +97,12 @@ class ReplaySocket implements ServiceSocket {
   }
 }
 
-/** The service constructs its socket with `new`; each one registers with `link` as the current one. */
+/**
+ * The service constructs its socket with `new`; each one registers with `link` as the current one.
+ *
+ * @param link The stream's link.
+ * @returns A socket class bound to it.
+ */
 function replaySocketCtor(link: ReplaySocketLink): ServiceSocketCtor {
   return class extends ReplaySocket {
     constructor(url: string) {
@@ -121,6 +134,9 @@ export interface ReplayedCapture {
  * their sockets are open for the first captured message.
  *
  * @param fixture A capture file's path, or a parsed (possibly transformed) capture.
+ *
+ * @param options Replay options, plus an optional clock to keep in step.
+ * @returns The sim to start, and one link per stream.
  */
 export function replayCapture(fixture: string | ParsedFlightFixture, options: ReplayCaptureOptions = {}): ReplayedCapture {
   const sim = new ReplaySimConnectService(fixture, options)

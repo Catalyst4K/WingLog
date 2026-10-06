@@ -1,8 +1,20 @@
+/**
+ * Ramer-Douglas-Peucker line simplification, generic over the point type: the one implementation
+ * the track and flown-route simplifiers use.
+ */
 export interface Point2D {
   x: number
   y: number
 }
 
+/**
+ * Distance from a point to the line through two others, on a plane.
+ *
+ * @param p The point measured.
+ * @param a One point on the line.
+ * @param b Another point on the line.
+ * @returns The distance, in the points' own units.
+ */
 export function perpendicularDistance2D(p: Point2D, a: Point2D, b: Point2D): number {
   const dx = b.x - a.x
   const dy = b.y - a.y
@@ -22,6 +34,11 @@ export function perpendicularDistance2D(p: Point2D, a: Point2D, b: Point2D): num
  * a line". Returns the *indices* to keep (always including the first and last), not a new
  * points array, so a caller combining several passes over the same source array can just
  * union the index sets.
+ *
+ * @param points The line, in order.
+ * @param tolerance How far a point may be off the simplified line, in distanceFn's units.
+ * @param distanceFn A point's distance from the line through two others.
+ * @returns The indices kept, always the first and last.
  */
 export function simplifyIndices<T>(
   points: T[],
@@ -40,8 +57,8 @@ export function simplifyIndices<T>(
   // the shape most likely to run this deep, and this is main-process code with no engine
   // stack-depth safety net the way a browser tab would have.
   const stack: [number, number][] = [[0, points.length - 1]]
-  while (stack.length > 0) {
-    const [startIdx, endIdx] = stack.pop()!
+  for (let range = stack.pop(); range !== undefined; range = stack.pop()) {
+    const [startIdx, endIdx] = range
     if (endIdx <= startIdx + 1) continue
 
     const start = points[startIdx]

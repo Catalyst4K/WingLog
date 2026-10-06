@@ -1,3 +1,7 @@
+/**
+ * Starts tracking a dispatched flight on its own once the aircraft really moves at the departure,
+ * so the pilot doesn't have to press Start.
+ */
 import { EventEmitter } from 'node:events'
 import type { SimTelemetry } from '@shared/ipc'
 import { airportPosition } from '../airports/runway-lookup'
@@ -88,6 +92,10 @@ export class AutoStartDetector extends EventEmitter<{ ready: [number] }> {
    * sanity check below; when it's not in the vendored runway data (see runway-lookup.ts),
    * `resolveAirportPosition` returns null and that check is skipped entirely, same as
    * before this existed.
+   *
+   * @param flightId The flight just dispatched.
+   * @param currentTelemetry The sim's state when Fly was pressed, or undefined with no sim yet.
+   * @param depIcao The departure, for the position check.
    */
   arm(flightId: number, currentTelemetry: SimTelemetry | undefined, depIcao: string): void {
     this.armedFlightId = flightId

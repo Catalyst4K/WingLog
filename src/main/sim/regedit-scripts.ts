@@ -1,3 +1,6 @@
+/**
+ * Points node-simconnect's registry helper at scripts it can actually run in the packaged app.
+ */
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 
@@ -17,6 +20,11 @@ interface Regedit {
  * (regedit isn't a direct dependency, so a plain import would be bundled as a second copy).
  * Returns regedit's own result ('Folder found and set' / 'Folder not found'), or null when
  * not packaged.
+ *
+ * @param isPackaged Whether this is the installed app (Electron's app.isPackaged).
+ * @param resourcesPath Electron's process.resourcesPath.
+ * @param load Loads the regedit module; injected for tests.
+ * @returns The script folder set, or null when nothing needed changing.
  */
 export function pointRegeditAtUnpackedScripts(
   isPackaged: boolean,
