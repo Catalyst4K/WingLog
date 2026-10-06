@@ -23,6 +23,14 @@ import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
  *  in BeyondATC's own IPv6 handling) — never connect to it. */
 export const BEYONDATC_PORT = 41716
 
+/** The port an e2e test's fake BeyondATC listens on (WINGLOG_E2E_BEYONDATC_PORT): the OS picks
+ *  a free one, since the real port can be taken on a CI runner. Undefined, so the real port is
+ *  used, for anything that isn't a valid port. */
+export function e2eBeyondAtcPort(value: string | undefined): number | undefined {
+  const port = Number(value)
+  return value !== undefined && Number.isInteger(port) && port > 0 && port < 65536 ? port : undefined
+}
+
 /** The `ws` npm package's WebSocket, not the global/`node:http` one — confirmed live,
  *  2026-09-28: Node's built-in WebSocket silently drops every line after the first when
  *  BeyondATC's own initial snapshot arrives as one large multi-line burst (~18 lines,

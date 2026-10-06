@@ -40,3 +40,11 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: xvfb-run --auto-servernum npm run test:e2e
+      # What Playwright saw when a test failed (the page's accessibility snapshot, the error), so
+      # a CI-only failure can be diagnosed without re-running it. Test data only, never a user's.
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: e2e-results
+          path: test-results/
+          retention-days: 7

@@ -19,7 +19,7 @@ import {
 test.describe('BeyondATC integration', () => {
   test('enabling in Settings drives the real BeyondATC tab end to end', async () => {
     const server = await FakeBeyondAtcServer.start()
-    const { window: page, cleanup } = await launchApp()
+    const { window: page, cleanup } = await launchApp({ env: server.env })
     try {
       await page.getByRole('tab', { name: 'Settings' }).click()
       await page.getByRole('tab', { name: '3rd party' }).click()
@@ -95,7 +95,7 @@ test.describe('BeyondATC integration', () => {
     // SNAPSHOT above (three short lines) never exercised a message large enough to hit this;
     // LARGE_REAL_SNAPSHOT is a real ~18-line capture, deliberately kept full-size.
     const server = await FakeBeyondAtcServer.start()
-    const { window: page, cleanup } = await launchApp()
+    const { window: page, cleanup } = await launchApp({ env: server.env })
     try {
       await page.getByRole('tab', { name: 'Settings' }).click()
       await page.getByRole('tab', { name: '3rd party' }).click()
