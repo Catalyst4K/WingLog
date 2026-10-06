@@ -59,7 +59,7 @@ export interface TaxiTraceRequest {
    *  stands); ignored for a holding-point clearance. */
   stand?: { lat: number; lon: number } | null
   /** The aircraft's true heading, when it's taxiing under its own power. A first edge pointing
-   *  more than WRONG_WAY_DEG away from it costs HEADING_PENALTY_FACTOR times its length, so the
+   *  more than WRONG_WAY_DEG away from it costs an extra WRONG_WAY_PENALTY_M, so the
    *  route starts forwards; a U-turn is still taken when it's the only way (dead-end stand
    *  rows). Null or absent: no preference. */
   headingDeg?: number | null
@@ -76,7 +76,11 @@ export type TracedRoute = [number, number][]
 
 /** Above this from the aircraft's heading, a first edge counts as going the wrong way. */
 export const WRONG_WAY_DEG = 120
-const HEADING_PENALTY_FACTOR = 10
+/** An airliner can't turn round in the middle of a taxiway, so starting the wrong way costs more
+ *  than any sensible way round; it only wins when there's no way forwards at all (a dead-end
+ *  stand row). A ×10 factor on the first edge wasn't enough: with a short first edge, YBBN
+ *  (flight 225, simulated) re-routed back behind the aircraft twice before following it. */
+const WRONG_WAY_PENALTY_M = 3_000
 
 /** Smallest angle between two bearings, 0-180. */
 export function angleBetweenDeg(a: number, b: number): number {
@@ -249,7 +253,7 @@ function traceOnce(
       const wrongWay = state === startState && headingDeg !== null && angleBetweenDeg(bearingDeg(node, edge.to), headingDeg) > WRONG_WAY_DEG
       for (const [nextStage, edgeCost] of moves) {
         const next = stateOf(edge.to, nextStage)
-        const nextCost = stateCost + (wrongWay ? edgeCost * HEADING_PENALTY_FACTOR : edgeCost)
+        const nextCost = stateCost + edgeCost + (wrongWay ? WRONG_WAY_PENALTY_M : 0)
         if (nextCost >= (cost.get(next) ?? Infinity)) continue
         cost.set(next, nextCost)
         realLength.set(next, (realLength.get(state) ?? 0) + edge.lengthM)
@@ -310,7 +314,7 @@ export function rejoinTaxiRoute({ segments, route, fromSegment, from, headingDeg
     if (nodeCost > cost[node]!) continue
     for (const edge of edges[node]!) {
       const wrongWay = node === start && headingDeg !== null && angleBetweenDeg(bearingDeg(node, edge.to), headingDeg) > WRONG_WAY_DEG
-      const nextCost = nodeCost + (wrongWay ? edge.lengthM * HEADING_PENALTY_FACTOR : edge.lengthM)
+      const nextCost = nodeCost + edge.lengthM + (wrongWay ? WRONG_WAY_PENALTY_M : 0)
       if (nextCost >= cost[edge.to]!) continue
       cost[edge.to] = nextCost
       previous[edge.to] = node
@@ -326,7 +330,7 @@ export function rejoinTaxiRoute({ segments, route, fromSegment, from, headingDeg
     const total = cost[node]! + remainingFrom[i]!
     if (total < best.total) best = { index: i, total }
   }
-  if (best.index < 0 || best.total > MAX_ROUTE_LENGTH_M) return null
+  if (best.index < 0 || best.total > MAX_ROUTE_LENGTH_M + WRONG_WAY_PENALTY_M) return null
 
   const [joinLon, joinLat] = route[best.index]!
   const path: TracedRoute = []

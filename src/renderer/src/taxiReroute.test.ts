@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { NavdataTaxiSegment } from '@shared/ipc'
-import { rejoinTaxiRoute, remainingRoute, traceTaxiRoute, type TracedRoute } from './taxiRouteTrace'
+import type { FlightPhase, NavdataTaxiSegment } from '@shared/ipc'
+import { angleBetweenDeg, remainingRoute, traceTaxiRoute, type TracedRoute } from './taxiRouteTrace'
 import {
   checkDeviation,
   INITIAL_DEVIATION,
@@ -9,6 +9,8 @@ import {
   REROUTE_DISTANCE_M,
   REROUTE_MIN_INTERVAL_MS,
   segmentDriven,
+  startTracker,
+  trackPosition,
   type DeviationState
 } from './taxiReroute'
 import ZJSY_RAW from './__fixtures__/zjsy-taxi-d-b7-a.json'
@@ -17,9 +19,14 @@ import ZJSY_RAW from './__fixtures__/zjsy-taxi-d-b7-a.json'
 // [seconds from the first row, lat, lon, true heading, ground speed m/s, phase]. Pushback is
 // recorded at 1 s, taxi at 3 s (the taxi interval then).
 import REPLAY_227 from './__fixtures__/zjsy-227-taxi-out.json'
+// Flight 225's real taxi out at YBBN, 2026-10-01, from the end of pushback (same row shape),
+// and the airport's taxi network around it. Simulated 2026-10-06: the re-routes pointed back
+// behind the aircraft twice before following it, until a wrong-way start cost a flat 3 km.
+import REPLAY_225 from './__fixtures__/ybbn-225-taxi-out.json'
+import YBBN_225_RAW from './__fixtures__/ybbn-225-taxi-network.json'
 
 type Row = [number, number, number, number, string | null, number, number]
-const ZJSY: NavdataTaxiSegment[] = (ZJSY_RAW as Row[]).map(([startLat, startLon, endLat, endLon, name, startHoldShort, endHoldShort]) => ({
+const toSegments = (raw: unknown): NavdataTaxiSegment[] => (raw as Row[]).map(([startLat, startLon, endLat, endLon, name, startHoldShort, endHoldShort]) => ({
   startLat,
   startLon,
   endLat,
@@ -28,12 +35,44 @@ const ZJSY: NavdataTaxiSegment[] = (ZJSY_RAW as Row[]).map(([startLat, startLon,
   startHoldShort: startHoldShort === 1,
   endHoldShort: endHoldShort === 1
 }))
+const ZJSY = toSegments(ZJSY_RAW)
+const YBBN_225 = toSegments(YBBN_225_RAW)
 type Sample = [number, number, number, number, number, string]
 const SAMPLES = REPLAY_227 as Sample[]
 
 function distanceM(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
   return Math.hypot((a.lat - b.lat) * 111_320, (a.lon - b.lon) * 111_320 * Math.cos((a.lat * Math.PI) / 180))
 }
+
+/** What useTaxiRouteHighlight does on each position update (trackPosition), with the replay's
+ *  own clock. `headingAtStart`: the clearance arrived while taxiing, so the first trace uses
+ *  the heading too. */
+function replayTaxi(
+  samples: Sample[],
+  segments: NavdataTaxiSegment[],
+  request: { taxiways: string[]; holdingPoint: string | null },
+  headingAtStart: boolean
+) {
+  const [, lat0, lon0, hdg0] = samples[0]!
+  const cleared: TracedRoute = traceTaxiRoute({ ...request, segments, from: { lat: lat0, lon: lon0 }, headingDeg: headingAtStart ? hdg0 : null })!
+    let tracker = startTracker(cleared)
+  const reroutes: { t: number; line: TracedRoute }[] = []
+  /** How far off the line the aircraft was at each taxi sample after the last re-route. */
+  let offAfterLast: number[] = []
+  let taxiStart: number | null = null
+  for (const [t, lat, lon, headingDeg, groundSpeedMs, phase] of samples) {
+    if (phase === 'taxi' && taxiStart === null) taxiStart = t
+    const position = { lat, lon, headingDeg, groundSpeedMs }
+    const update = trackPosition(tracker, { position, phase: phase as FlightPhase, nowMs: t * 1000, segments })
+    tracker = update.tracker
+    if (update.rerouted) {
+      reroutes.push({ t, line: tracker.active })
+      offAfterLast = []
+    }
+    if (phase === 'taxi' && !tracker.done) offAfterLast.push(remainingRoute(tracker.active, position, 0).distanceM)
+  }
+  return { reroutes, cleared, line: tracker.active, offAfterLast, taxiStart: taxiStart! }
+  }
 
 describe('checkDeviation', () => {
   const sample = (nowMs: number, overrides: { distanceM?: number; lineBearingDeg?: number | null; headingDeg?: number; groundSpeedMs?: number } = {}) => ({
@@ -119,52 +158,11 @@ describe('re-routing replay: ZJSY flight 227, the wrong-way pushback (2026-10-02
   // A's only hold-short point, by the runway 08 threshold, and where Callum actually held.
   const RUNWAY_08_HOLD = { lat: 18.30168, lon: 109.39634 }
   const HELD_AT = { lat: 18.301915, lon: 109.396319 }
-  const REQUEST = { segments: ZJSY, taxiways: ['D', 'B7', 'A'], holdingPoint: 'A' }
+  const REQUEST = { taxiways: ['D', 'B7', 'A'], holdingPoint: 'A' }
 
-  /** What useTaxiRouteHighlight does on each position update, with the replay's own clock. */
   function replay() {
-    const [, lat0, lon0] = SAMPLES[0]!
-    const cleared: TracedRoute = traceTaxiRoute({ ...REQUEST, from: { lat: lat0, lon: lon0 } })!
-    let line = cleared
-    let progress = 0
-    let driven = 0
-    let deviation = INITIAL_DEVIATION
-    let done = false
-    const reroutes: { t: number; line: TracedRoute }[] = []
-    /** How far off the line the aircraft was at each taxi sample after the last re-route. */
-    let offAfterLast: number[] = []
-    let taxiStart: number | null = null
-    for (const [t, lat, lon, headingDeg, groundSpeedMs, phase] of SAMPLES) {
-      const position = { lat, lon }
-      if (phase === 'taxi' && taxiStart === null) taxiStart = t
-      let remaining = remainingRoute(line, position, progress)
-      driven = segmentDriven(remainingRoute(cleared, position, driven), driven)
-      if (reachedEnd(line, position)) done = true
-      if (phase === 'taxi' && !done) {
-        const check = checkDeviation(deviation, {
-          nowMs: t * 1000,
-          distanceM: remaining.distanceM,
-          lineBearingDeg: remaining.bearingDeg,
-          headingDeg,
-          groundSpeedMs
-        })
-        deviation = check.state
-        if (check.reroute) {
-          const next = rejoinTaxiRoute({ segments: ZJSY, route: cleared, fromSegment: driven, from: position, headingDeg })
-          if (next) {
-            line = next
-            remaining = remainingRoute(line, position, 0)
-            reroutes.push({ t, line: next })
-            offAfterLast = []
-          }
-        }
-        offAfterLast.push(remaining.distanceM)
-      }
-      progress = remaining.segment
-    }
-    return { reroutes, cleared, line, offAfterLast, taxiStart: taxiStart! }
+    return replayTaxi(SAMPLES, ZJSY, REQUEST, false)
   }
-
   it('re-routes within 10 s of starting to taxi the wrong way', () => {
     const { reroutes, taxiStart } = replay()
     expect(reroutes.length).toBeGreaterThan(0)
@@ -208,5 +206,29 @@ describe('re-routing replay: ZJSY flight 227, the wrong-way pushback (2026-10-02
     const { reroutes } = replay()
     const heldFrom = SAMPLES.find(([, lat, lon]) => distanceM({ lat, lon }, HELD_AT) < 5)![0]
     expect(reroutes.every((r) => r.t < heldFrom)).toBe(true)
+  })
+})
+
+describe('re-routing replay: YBBN flight 225, taxiing away from the first trace (2026-10-01)', () => {
+  const SAMPLES_225 = REPLAY_225 as Sample[]
+  const REQUEST = { taxiways: ['C9', 'B9'], holdingPoint: 'A9' }
+  const bearing = ([aLon, aLat]: [number, number], [bLon, bLat]: [number, number]): number =>
+    ((Math.atan2((bLon - aLon) * Math.cos((aLat * Math.PI) / 180), bLat - aLat) * 180) / Math.PI + 360) % 360
+
+  it('re-routes once, starting the way the aircraft is going, not back behind it', () => {
+    const { reroutes } = replayTaxi(SAMPLES_225, YBBN_225, REQUEST, true)
+    expect(reroutes).toHaveLength(1)
+    const { t, line } = reroutes[0]!
+    const heading = SAMPLES_225.find((s) => s[0] === t)![3]
+    const next = line.findIndex((p, k) => k > 0 && distanceM({ lat: p[1], lon: p[0] }, { lat: line[0]![1], lon: line[0]![0] }) > 20)
+    expect(angleBetweenDeg(bearing(line[0]!, line[next]!), heading)).toBeLessThanOrEqual(120)
+  })
+
+  it('then stays on the line to the A9 hold', () => {
+    const { line, offAfterLast } = replayTaxi(SAMPLES_225, YBBN_225, REQUEST, true)
+    expect(Math.max(...offAfterLast)).toBeLessThan(REROUTE_DISTANCE_M)
+    const end = line.at(-1)!
+    const closest = Math.min(...SAMPLES_225.map(([, lat, lon]) => distanceM({ lat, lon }, { lat: end[1], lon: end[0] })))
+    expect(closest).toBeLessThan(20)
   })
 })

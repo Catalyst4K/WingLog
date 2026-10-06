@@ -1,4 +1,5 @@
-import { angleBetweenDeg, WRONG_WAY_DEG, type RemainingRoute } from './taxiRouteTrace'
+import type { FlightPhase, NavdataTaxiSegment } from '@shared/ipc'
+import { angleBetweenDeg, rejoinTaxiRoute, remainingRoute, WRONG_WAY_DEG, type RemainingRoute, type TracedRoute } from './taxiRouteTrace'
 
 /**
  * When the traced taxi line should be re-traced from where the aircraft is
@@ -69,4 +70,78 @@ export function reachedEnd(route: [number, number][], position: { lat: number; l
   const cosLat = Math.cos((position.lat * Math.PI) / 180)
   const distanceM = Math.hypot((end[1] - position.lat) * 111_320, (end[0] - position.lon) * 111_320 * cosLat)
   return distanceM <= DRIVEN_DISTANCE_M
+}
+
+/** Everything the taxi line needs to remember between position updates, for one clearance. */
+export interface RerouteTracker {
+  /** The cleared route as first traced: what a re-route rejoins. */
+  cleared: TracedRoute
+  /** The line being drawn: `cleared`, or its latest re-route. */
+  active: TracedRoute
+  /** How far along `active` the aircraft has got (remainingRoute's `segment`). */
+  progress: number
+  /** The furthest segment of `cleared` driven: a re-route only rejoins from there on. */
+  driven: number
+  deviation: DeviationState
+  /** Set once the aircraft reaches the end of the line: the clearance is done. */
+  done: boolean
+}
+
+export function startTracker(cleared: TracedRoute): RerouteTracker {
+  return { cleared, active: cleared, progress: 0, driven: 0, deviation: INITIAL_DEVIATION, done: false }
+}
+
+export interface TrackerUpdate {
+  position: { lat: number; lon: number; headingDeg?: number; groundSpeedMs?: number }
+  phase: FlightPhase | null
+  nowMs: number
+  segments: NavdataTaxiSegment[] | undefined
+}
+
+/**
+ * One position update: what's left of the line to draw, re-routing first if the aircraft
+ * has left it (useTaxiRouteHighlight calls this on every update; the offline simulation of
+ * real flights calls exactly the same thing). Only re-routes while taxiing: a pushback
+ * drives tail first, so its heading is backwards.
+ */
+export function trackPosition(
+  tracker: RerouteTracker,
+  { position, phase, nowMs, segments }: TrackerUpdate
+): { tracker: RerouteTracker; line: TracedRoute; rerouted: boolean } {
+  let { active } = tracker
+  let remaining = remainingRoute(active, position, tracker.progress)
+  const driven = segmentDriven(remainingRoute(tracker.cleared, position, tracker.driven), tracker.driven)
+  const done = tracker.done || reachedEnd(active, position)
+  let deviation = tracker.deviation
+  let rerouted = false
+  const { headingDeg, groundSpeedMs } = position
+  if (phase === 'taxi' && !done && segments && headingDeg !== undefined && groundSpeedMs !== undefined) {
+    const check = checkDeviation(deviation, {
+      nowMs,
+      distanceM: remaining.distanceM,
+      lineBearingDeg: remaining.bearingDeg,
+      headingDeg,
+      groundSpeedMs
+    })
+    deviation = check.state
+    if (check.reroute) {
+      const next = rejoinTaxiRoute({
+        segments,
+        route: tracker.cleared,
+        fromSegment: driven,
+        from: { lat: position.lat, lon: position.lon },
+        headingDeg
+      })
+      if (next) {
+        active = next
+        remaining = remainingRoute(next, position, 0)
+        rerouted = true
+      }
+    }
+  }
+  return {
+    tracker: { cleared: tracker.cleared, active, progress: remaining.segment, driven, deviation, done },
+    line: remaining.line,
+    rerouted
+  }
 }

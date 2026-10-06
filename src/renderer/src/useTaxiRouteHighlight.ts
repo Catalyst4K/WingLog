@@ -4,8 +4,8 @@ import type { BeyondAtcInfoBox, BeyondAtcState, BeyondAtcTranscriptEntry, Flight
 import { parseAtcTaxiFacts } from '@shared/atc-info-boxes'
 import { findStand } from '@shared/stands'
 import { parseTaxiHoldShortRunway } from '@shared/taxi-route-parser'
-import { rejoinTaxiRoute, remainingRoute, traceTaxiRoute, type TracedRoute } from './taxiRouteTrace'
-import { checkDeviation, INITIAL_DEVIATION, reachedEnd, segmentDriven } from './taxiReroute'
+import { traceTaxiRoute, type TracedRoute } from './taxiRouteTrace'
+import { startTracker, trackPosition, type RerouteTracker } from './taxiReroute'
 import { TAXI_SOURCE_ID } from './useTaxiChartOverlay'
 import { useLiveClient } from './live/LiveClient'
 
@@ -192,16 +192,8 @@ export function useTaxiRouteHighlight({
   const client = useLiveClient()
   const positionRef = useRef(position)
   const phaseRef = useRef(phase)
-  /** How far along the traced line the aircraft has got (remainingRoute's `segment`). */
-  const progressRef = useRef(0)
-  /** The current clearance's re-traced line, once it has been re-routed; null until then. */
-  const rerouteRef = useRef<TracedRoute | null>(null)
-  const deviationRef = useRef(INITIAL_DEVIATION)
-  /** The furthest segment of the cleared (first traced) route driven: a re-route only rejoins
-   *  from there on. */
-  const drivenRef = useRef(0)
-  /** Set once the aircraft reaches the end of the line: the clearance is done. */
-  const doneRef = useRef(false)
+  /** The current clearance's line between position updates (taxiReroute.ts). */
+  const trackerRef = useRef<RerouteTracker | null>(null)
   // Whether this hook has itself created its layers. Checked instead of calling
   // map.getLayer() unconditionally on every mount (App.tsx/LogbookView.tsx's own FlightMap
   // hosts use a simpler test fake that doesn't implement getLayer, since nothing needed it
@@ -324,11 +316,7 @@ export function useTaxiRouteHighlight({
   }, [clearance, segments, standPosition])
 
   useEffect(() => {
-    progressRef.current = 0
-    rerouteRef.current = null
-    deviationRef.current = INITIAL_DEVIATION
-    drivenRef.current = 0
-    doneRef.current = false
+    trackerRef.current = traced ? startTracker(traced) : null
   }, [traced])
 
   useEffect(() => {
@@ -344,40 +332,13 @@ export function useTaxiRouteHighlight({
     ensureLayers(map)
     createdRef.current = true
 
-    if (traced) {
-      const active = rerouteRef.current ?? traced
-      let line = active
+    const tracker = trackerRef.current
+    if (traced && tracker) {
+      let line = tracker.active
       if (position) {
-        let remaining = remainingRoute(active, position, progressRef.current)
-        drivenRef.current = segmentDriven(remainingRoute(traced, position, drivenRef.current), drivenRef.current)
-        if (reachedEnd(active, position)) doneRef.current = true
-        const { headingDeg, groundSpeedMs } = position
-        // Only while taxiing: a pushback drives tail first, so its heading is backwards.
-        if (phase === 'taxi' && !doneRef.current && segments && headingDeg !== undefined && groundSpeedMs !== undefined) {
-          const check = checkDeviation(deviationRef.current, {
-            nowMs: Date.now(),
-            distanceM: remaining.distanceM,
-            lineBearingDeg: remaining.bearingDeg,
-            headingDeg,
-            groundSpeedMs
-          })
-          deviationRef.current = check.state
-          if (check.reroute) {
-            const rerouted = rejoinTaxiRoute({
-              segments,
-              route: traced,
-              fromSegment: drivenRef.current,
-              from: { lat: position.lat, lon: position.lon },
-              headingDeg
-            })
-            if (rerouted) {
-              rerouteRef.current = rerouted
-              remaining = remainingRoute(rerouted, position, 0)
-            }
-          }
-        }
-        progressRef.current = remaining.segment
-        line = remaining.line
+        const update = trackPosition(tracker, { position, phase, nowMs: Date.now(), segments })
+        trackerRef.current = update.tracker
+        line = update.line
       }
       map.getSource<GeoJSONSource>(TRACE_SOURCE_ID)?.setData({
         type: 'Feature',

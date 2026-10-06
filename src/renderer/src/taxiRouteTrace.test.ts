@@ -252,11 +252,34 @@ describe('re-routing (taxi-reroute.md)', () => {
       expect(distanceM({ lat: endLat, lon: endLon }, runway08Hold)).toBeLessThan(5)
     })
 
-    it('still U-turns when going forwards would be a long way round', () => {
-      // On D facing away from B7: forwards means a loop at off-route cost, so the U-turn wins.
+    it("goes forwards even the long way round: an airliner can't turn round mid-taxiway", () => {
+      // On D facing away from B7, forwards is a loop. Before 2026-10-06 (a ×10 factor on the
+      // first edge) the U-turn won; YBBN's simulated re-routes then pointed back behind the
+      // aircraft twice before following it.
       const plain = traceTaxiRoute({ ...ZJSY_REQUEST, from: onD })!
       const facingAway = (firstBearing(plain) + 180) % 360
-      expect(traceTaxiRoute({ ...ZJSY_REQUEST, from: onD, headingDeg: facingAway })).toEqual(plain)
+      const route = traceTaxiRoute({ ...ZJSY_REQUEST, from: onD, headingDeg: facingAway })!
+      expect(angleBetweenDeg(firstBearing(route), facingAway)).toBeLessThanOrEqual(120)
+      const [endLon, endLat] = route.at(-1)!
+      expect(distanceM({ lat: endLat, lon: endLon }, runway08Hold)).toBeLessThan(5)
+    })
+
+    it('still turns round at a dead end, where there is no way forwards', () => {
+      // A stand lead-in's dead end, nose in: the only way out is back the way it came.
+      const ends = ZJSY.flatMap((s) => [
+        { lat: s.startLat, lon: s.startLon, toward: [s.endLon, s.endLat] as [number, number] },
+        { lat: s.endLat, lon: s.endLon, toward: [s.startLon, s.startLat] as [number, number] }
+      ])
+      const degree = new Map<string, number>()
+      for (const e of ends) degree.set(`${e.lat},${e.lon}`, (degree.get(`${e.lat},${e.lon}`) ?? 0) + 1)
+      const deadEnd = ends
+        .filter((e) => degree.get(`${e.lat},${e.lon}`) === 1)
+        .sort((x, y) => distanceM(x, STAND_227) - distanceM(y, STAND_227))[0]!
+      // Facing into the dead end: directly away from its only edge.
+      const nose = (bearing([deadEnd.lon, deadEnd.lat], deadEnd.toward) + 180) % 360
+      const route = traceTaxiRoute({ ...ZJSY_REQUEST, from: deadEnd, headingDeg: nose })
+      expect(route).not.toBeNull()
+      expect(route).toEqual(traceTaxiRoute({ ...ZJSY_REQUEST, from: deadEnd }))
     })
   })
 
