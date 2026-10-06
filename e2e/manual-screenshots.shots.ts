@@ -141,7 +141,7 @@ test('a live free flight on Track', async () => {
 
 test('the BeyondATC page', async () => {
   const server = await FakeBeyondAtcServer.start()
-  const { app, window: page, cleanup } = await launchApp()
+  const { app, window: page, cleanup } = await launchApp({ env: server.env })
   try {
     await prepare(app, page)
     await page.evaluate(() => (globalThis as unknown as Window).winglog.settingsSetBeyondAtc({ enabled: true, host: '127.0.0.1' }))

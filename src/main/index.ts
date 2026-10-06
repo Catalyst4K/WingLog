@@ -127,7 +127,7 @@ import { SimConnectService } from './sim/SimConnectService'
 import { ReplaySimConnectService, type ReplayMode } from './sim/ReplaySimConnectService'
 import { replayCapture } from './sim/replay-capture'
 import { EMPTY_COMMAND_BAR, EMPTY_MENU, GsxRemoteService } from './gsx-remote/GsxRemoteService'
-import { BeyondAtcService } from './beyondatc/BeyondAtcService'
+import { BeyondAtcService, e2eBeyondAtcPort } from './beyondatc/BeyondAtcService'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { UpdateService } from './updates/update-check'
 import { LiveHub } from './live/LiveHub'
@@ -930,7 +930,11 @@ if (!gotSingleInstanceLock) {
         beyondAtcService = undefined
         const settings = getBeyondAtcSettings(db)
         if (!settings.enabled) return
-        beyondAtcService = new BeyondAtcService(settings.host, undefined, replayStreams?.beyondAtc.socketCtor)
+        beyondAtcService = new BeyondAtcService(
+          settings.host,
+          e2eBeyondAtcPort(process.env.WINGLOG_E2E_BEYONDATC_PORT),
+          replayStreams?.beyondAtc.socketCtor
+        )
         devDiagnostics?.attachBeyondAtc(beyondAtcService)
         beyondAtcService.on('status', (status) => {
           liveHub.publish('beyondAtcStatus', status)
