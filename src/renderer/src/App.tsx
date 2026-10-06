@@ -35,6 +35,7 @@ import {
   AlertDialogTitle
 } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
+import { DevBuildBadge } from './DevBuildBadge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -589,10 +590,13 @@ export default function App(): React.JSX.Element {
               </TabsTrigger>
             ))}
           </TabsList>
-          <Badge variant={connectionStatusVariant(simStatus)} title={connectionStatusLabel(simStatus, t)} className="shrink-0">
-            <span className="sm:hidden">{connectionStateLabel(simStatus, t)}</span>
-            <span className="hidden sm:inline">{t('app.connection.badge', { state: connectionStateLabel(simStatus, t) })}</span>
-          </Badge>
+          <div className="flex shrink-0 items-center gap-2">
+            <DevBuildBadge />
+            <Badge variant={connectionStatusVariant(simStatus)} title={connectionStatusLabel(simStatus, t)} className="shrink-0">
+              <span className="sm:hidden">{connectionStateLabel(simStatus, t)}</span>
+              <span className="hidden sm:inline">{t('app.connection.badge', { state: connectionStateLabel(simStatus, t) })}</span>
+            </Badge>
+          </div>
         </header>
 
         {/* min-h-0 overrides the flex-item default of min-height:auto — without it, a

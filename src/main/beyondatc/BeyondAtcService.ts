@@ -49,6 +49,9 @@ interface BeyondAtcServiceEvents {
   status: [BeyondAtcConnectionStatus]
   state: [BeyondAtcState]
   transcript: [BeyondAtcTranscriptEntry[]]
+  /** Every message received and every command sent, unparsed: the dev build's capture and
+   *  diagnostic log (flightdeck-backend robustness/dev-build.md). */
+  raw: [{ direction: 'in' | 'out'; text: string }]
 }
 
 const COMMS_MODES = new Set(['queued', 'ready', 'awaiting', 'speaking', 'request', 'traffic'])
@@ -283,6 +286,7 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
     if (/[\r\n]/.test(text)) return
     if (!this.ws || this.ws.readyState !== this.ws.OPEN) return
     this.ws.send(text)
+    this.emit('raw', { direction: 'out', text })
   }
 
   /** The list is empty if asked before BeyondATC has a flight loaded (real report,
@@ -324,6 +328,7 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
 
     socket.addEventListener('message', (event: { data: unknown }) => {
       const raw = typeof event.data === 'string' ? event.data : String(event.data)
+      this.emit('raw', { direction: 'in', text: raw })
       for (const line of raw.split('\n')) {
         this.handleLine(line.replace(/\r$/, ''))
       }

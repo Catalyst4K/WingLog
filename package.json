@@ -40,6 +40,7 @@
     "manual:screenshots": "electron-vite build && playwright test -c playwright.screenshots.config.ts",
     "manual:build": "esbuild scripts/manual/build.ts --bundle --platform=node --format=cjs --external:electron --outfile=out-manual/build.cjs --log-level=warning && electron out-manual/build.cjs",
     "package:win": "npm run manual:build && electron-vite build && electron-builder --win --publish=never",
+    "package:win:dev": "npm run manual:build && cross-env WINGLOG_DEV_BUILD=1 electron-vite build && electron-builder --win --publish=never \"-c.win.artifactName=${productName}-Dev-${version}-win-${arch}.${ext}\"",
     "package:mac": "electron-vite build && electron-builder --mac --publish=never",
     "postinstall": "electron-rebuild -f -w better-sqlite3"
   },

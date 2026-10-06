@@ -152,9 +152,10 @@ export class ReplaySimConnectService extends EventEmitter<ReplaySimConnectServic
       if (event.type === 'telemetry') {
         this.lastTelemetry = event.data
         this.emit('telemetry', event.data)
-      } else {
+      } else if (event.type === 'paused') {
         this.emit('paused', event.value)
       }
+      // BeyondATC and GSX lines from a full capture aren't the sim's: skipped here.
       this.playFrom(index + 1)
     }
 

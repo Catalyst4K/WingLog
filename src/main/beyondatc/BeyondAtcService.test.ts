@@ -531,3 +531,23 @@ describe('BeyondAtcService', () => {
     service.stop()
   })
 })
+
+describe('BeyondAtcService raw messages (dev build capture)', () => {
+  it('emits every frame received, unsplit, and every command sent', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
+    const raw: { direction: 'in' | 'out'; text: string }[] = []
+    service.on('raw', (message) => raw.push(message))
+    service.start()
+    instances[0].simulateOpen()
+    instances[0].simulateLine('Actions: [Radio Check¬]\nCommsState: ready')
+    service.setAction('Radio Check')
+
+    expect(raw).toEqual([
+      { direction: 'out', text: 'frequencies' },
+      { direction: 'in', text: 'Actions: [Radio Check¬]\nCommsState: ready' },
+      { direction: 'out', text: 'set_action: Radio Check' }
+    ])
+    service.stop()
+  })
+})

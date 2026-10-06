@@ -1464,6 +1464,7 @@ export const IpcChannels = {
   syncNow: 'sync:now',
   syncStatus: 'sync:status',
   appGetVersion: 'app:get-version',
+  diagLog: 'diag:log',
   appOpenGithub: 'app:open-github',
   appOpenManual: 'app:open-manual',
   navdataRefreshAirport: 'navdata:refresh-airport',
@@ -1812,6 +1813,9 @@ export interface WingLogApi {
   /** The packaged app's version (package.json's, via Electron's app.getVersion()) —
    *  Settings' About card, so a bug report can include which build it's from. */
   appGetVersion: () => Promise<string>
+  /** Dev build only: one line to `diag.log` (category 'map', etc.). Does nothing in a normal
+   *  build; validated in main like every other channel. */
+  diagLog: (category: string, message: string) => Promise<void>
   /** Opens the GitHub repo in the default browser — a fixed URL, not user/third-party
    *  data, but routed through shell.openExternal like every other external link rather
    *  than a raw <a target="_blank"> (which Electron would otherwise open as a new

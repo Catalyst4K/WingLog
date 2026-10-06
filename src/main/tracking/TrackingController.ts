@@ -68,6 +68,13 @@ interface TrackingControllerEvents {
    *  (flightdeck-backend/docs/plans/cloud-sync-v2.md #3) without this class needing to
    *  know anything about sync itself. */
   completed: [number]
+  /** A flight's tracking has started (start, startFree or resume), so a recording can begin. */
+  started: [number]
+  /** Tracking was cancelled mid-flight (stop()), as opposed to completed. */
+  stopped: [number]
+  /** The phase machine moved from one phase to another, with the tick that moved it. Includes
+   *  ticks not stored as track points (the dev build's diagnostic log). */
+  phaseChanged: [{ from: FlightPhase; to: FlightPhase; telemetry: SimTelemetry }]
 }
 
 /**
@@ -169,7 +176,9 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
       const previousTelemetry = this.previousTelemetry
       this.previousTelemetry = telemetry
       this.recorder.setAutoShutdown(this.autoFinish)
+      const phaseBefore = this.recorder.getPhase()
       const result = this.recorder.ingest(telemetry, new Date())
+      if (result.phase !== phaseBefore) this.emit('phaseChanged', { from: phaseBefore, to: result.phase, telemetry })
 
       // The value startFlight wrote at tracking-start is only provisional (see
       // finalizeFuelOut's doc comment) — corrected at the aircraft's first real ground
@@ -411,6 +420,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     this.resumeWindowDeadlineMs = undefined
     this.previousTelemetry = undefined
     this.lastTouchdownSeverity = undefined
+    this.emit('started', flightId)
   }
 
   /**
@@ -493,6 +503,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     this.resumeWindowDeadlineMs = undefined
     this.previousTelemetry = undefined
     this.lastTouchdownSeverity = undefined
+    this.emit('started', flight.id)
     return flight.id
   }
 
@@ -551,6 +562,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     this.resumeWindowDeadlineMs = Date.now() + RESUME_CLEANUP_CONSTANTS.RESUME_WINDOW_MS
     this.previousTelemetry = undefined
     this.lastTouchdownSeverity = undefined
+    this.emit('started', flightId)
   }
 
   /** Called from the renderer (tracking:set-procedure-selection) on every live selection
@@ -588,8 +600,10 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   /** User cancelled tracking mid-flight, rather than reaching shutdown naturally. */
   stop(): void {
     if (!this.recorder) return
-    abandonFlight(this.db, this.recorder.getFlightId())
+    const flightId = this.recorder.getFlightId()
+    abandonFlight(this.db, flightId)
     this.recorder = undefined
+    this.emit('stopped', flightId)
   }
 
   /**

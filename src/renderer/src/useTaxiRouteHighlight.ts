@@ -6,6 +6,7 @@ import { findStand } from '@shared/stands'
 import { parseTaxiHoldShortRunway } from '@shared/taxi-route-parser'
 import { traceTaxiRoute, type TracedRoute } from './taxiRouteTrace'
 import { startTracker, trackPosition, type RerouteTracker } from './taxiReroute'
+import { diagMap } from './diag'
 import { TAXI_SOURCE_ID } from './useTaxiChartOverlay'
 import { useLiveClient } from './live/LiveClient'
 
@@ -317,6 +318,20 @@ export function useTaxiRouteHighlight({
 
   useEffect(() => {
     trackerRef.current = traced ? startTracker(traced) : null
+    if (clearance) {
+      diagMap(traced ? 'taxi route traced' : 'taxi route not traced: whole taxiways instead', {
+        icao,
+        taxiways: clearance.taxiways,
+        holdingPoint: clearance.holdingPoint,
+        stand: clearance.stand,
+        holdShortRunway: clearance.holdShortRunway,
+        from: clearance.from,
+        points: traced?.length ?? 0,
+        end: traced?.at(-1) ?? null
+      })
+    }
+    // Logged once per new trace, not when the clearance object alone changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- clearance/icao are read only to describe this trace
   }, [traced])
 
   useEffect(() => {
@@ -338,6 +353,9 @@ export function useTaxiRouteHighlight({
       if (position) {
         const update = trackPosition(tracker, { position, phase, nowMs: Date.now(), segments })
         trackerRef.current = update.tracker
+        if (update.rerouted) {
+          diagMap('taxi route re-routed', { at: position, points: update.tracker.active.length, end: update.tracker.active.at(-1) })
+        }
         line = update.line
       }
       map.getSource<GeoJSONSource>(TRACE_SOURCE_ID)?.setData({

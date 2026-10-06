@@ -23,7 +23,9 @@ export default defineConfig({
   // card's real UI is exercised in tests rather than permanently dark; the off-build's
   // branch is narrowly `v8 ignore`d at its two call sites in SettingsView.tsx instead, since
   // a single test run can't hold both literal values of a define at once.
-  define: { __WINGLOG_CLOUD_SYNC_ENABLED__: JSON.stringify(true) },
+  // The dev-build flag is false here, as in every normal build: tests see the app as users
+  // get it. The dev build's own code is tested directly (src/main/diagnostics/).
+  define: { __WINGLOG_CLOUD_SYNC_ENABLED__: JSON.stringify(true), __WINGLOG_DEV_BUILD__: JSON.stringify(false) },
   test: {
     projects: [
       {
