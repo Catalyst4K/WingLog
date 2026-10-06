@@ -22,6 +22,7 @@ import { createDb } from '../db/client'
 import { createFlight } from '../db/flight-repo'
 import { ReplaySimConnectService } from '../sim/ReplaySimConnectService'
 import { TrackingController } from './TrackingController'
+import { dbFlightStore } from '../db/flight-store'
 
 function fixturePath(name: string): string {
   return new URL(`./__fixtures__/${name}`, import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')
@@ -40,7 +41,7 @@ describe('e2e setup: seed completed flights (not a real test)', () => {
     const shortHop = new ReplaySimConnectService(SHORT_HOP_FIXTURE_PATH, { mode: 'instant' })
     const shortHopAircraft = createAircraft(db, { registration: 'G-TEST', icaoType: shortHop.header.aircraftType })
     const shortHopFlight = createFlight(db, { aircraftId: shortHopAircraft.id, depIcao: 'EGLL', arrIcao: 'EGCC' })
-    const shortHopController = new TrackingController(db, shortHop)
+    const shortHopController = new TrackingController(dbFlightStore(db), shortHop)
     await new Promise<number>((resolve, reject) => {
       shortHopController.on('completed', resolve)
       shortHop.on('replayComplete', () =>
@@ -60,7 +61,7 @@ describe('e2e setup: seed completed flights (not a real test)', () => {
     const circuits = new ReplaySimConnectService(CIRCUITS_FIXTURE_PATH, { mode: 'instant' })
     const circuitsAircraft = createAircraft(db, { registration: 'G-CIRC', icaoType: circuits.header.aircraftType })
     const circuitsFlight = createFlight(db, { aircraftId: circuitsAircraft.id, depIcao: 'VHHH', arrIcao: 'VHHH' })
-    const circuitsController = new TrackingController(db, circuits)
+    const circuitsController = new TrackingController(dbFlightStore(db), circuits)
     await new Promise<void>((resolve) => {
       circuits.on('replayComplete', resolve)
       circuitsController.start(circuitsFlight.id)

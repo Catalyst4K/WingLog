@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { and, desc, eq, getTableColumns, isNotNull, isNull, or, sql } from 'drizzle-orm'
+import type { NewFreeFlightInput, PausedInterval } from '@shared/ipc'
 import type {
   AircraftLastParked,
   Flight,
@@ -12,6 +13,9 @@ import type {
 import { greatCircleDistanceNm } from '../airports/airport-search'
 import { rememberAircraftForTitle } from './settings-repo'
 import { aircraft, flight, flightInvoice, landing, trackPoint } from './schema'
+
+// Live in src/shared so the host-side tracking code can use them without importing the database.
+export type { NewFreeFlightInput, PausedInterval } from '@shared/ipc'
 import type { WingLogDb } from './client'
 
 function toFlight(row: typeof flight.$inferSelect): Flight {
@@ -65,12 +69,6 @@ function minutesBetween(startIso: string | null, endIso: string | null): number 
   return (new Date(endIso).getTime() - new Date(startIso).getTime()) / 60_000
 }
 
-/** One interval the sim was paused, wall-clock ISO timestamps — see completeFlight's own
- *  comment for why this needs to exist at all. */
-export interface PausedInterval {
-  startIso: string
-  endIso: string
-}
 
 /** Same as minutesBetween, but with any paused wall-clock time inside [startIso, endIso]
  *  subtracted first — a pause interval outside that window (e.g. a taxi-in pause after
@@ -163,22 +161,6 @@ export function createFlight(db: WingLogDb, input: NewFlight): Flight {
   return toFlight(row)
 }
 
-export interface NewFreeFlightInput {
-  /** Null when the pilot chose not to add this aircraft to the fleet — simRegistration/
-   *  simIcaoType are then required instead, carrying its identity on the flight row itself. */
-  aircraftId: number | null
-  simRegistration?: string | null
-  simIcaoType?: string | null
-  /** The raw sim `title` at free-flight start — only meaningful alongside a null aircraftId,
-   *  same convention as simRegistration/simIcaoType. Lets a later Logbook "Add to fleet"
-   *  (linkAircraftToFlight) seed the title -> aircraft memory retroactively. */
-  simTitle?: string | null
-  depIcao: string
-  arrIcao: string
-  flightNumber: string | null
-  fuelOutKg: number
-  simVersion?: string
-}
 
 /**
  * Creates a flight that skips the 'planned' stage entirely — free-flight-tracking.md:

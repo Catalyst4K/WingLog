@@ -74,39 +74,40 @@ import { listAllLandings, listLandingsByAircraft, listLandingsByFlight } from '.
 import { getLandingScoresForCompletedFlights, resolveLandingScore } from './db/landing-score-resolver'
 import { exportLogbook, importLogbookCsv, importLogbookJson } from './db/logbook-import'
 import {
+  getAircraftIdForTitle,
   getAltitudeUnit,
   getAppLanguage,
   getBeyondAtcSettings,
-  getSkippedUpdateVersion,
-  getUpdateSettings,
   getGsxRemoteSettings,
   getGsxSettings,
-  getTrackingSettings,
   getLandingDistanceUnit,
-  getSimbriefUsername,
-  getTheme,
-  getWeightUnit,
   getMapLanguage,
+  getSimbriefUsername,
+  getSkippedUpdateVersion,
+  getTheme,
+  getTrackingSettings,
+  getUpdateSettings,
+  getWeightUnit,
   getWindSpeedUnit,
   setAltitudeUnit,
   setAppLanguage,
   setBeyondAtcSettings,
-  setSkippedUpdateVersion,
-  setUpdateSettings,
   setGsxRemoteSettings,
   setGsxSettings,
-  setTrackingSettings,
   setLandingDistanceUnit,
-  setSimbriefUsername,
-  setTheme,
-  setWeightUnit,
   setMapLanguage,
+  setSimbriefUsername,
+  setSkippedUpdateVersion,
+  setTheme,
+  setTrackingSettings,
+  setUpdateSettings,
+  setWeightUnit,
   setWindSpeedUnit
 } from './db/settings-repo'
 import { listTrackPoints } from './db/track-point-repo'
 import { getFreeFlightPrefill } from './tracking/free-flight'
 import { deriveFlownRouteJson } from './tracking/route-simplify'
-import { runTrackCleanupForFlight } from './tracking/run-track-cleanup'
+import { runTrackCleanupForFlight } from './db/run-track-cleanup'
 import { simplifyTrackPoints } from './tracking/track-simplify'
 import { defaultGsxReceiptsPath } from './gsx/default-path'
 import { checkGsxFirstLaunch } from './gsx/first-launch-check'
@@ -147,6 +148,7 @@ import { AutoStartDetector } from './tracking/AutoStartDetector'
 import { CloudSyncController } from './sync/cloud-sync-controller'
 import { pointRegeditAtUnpackedScripts } from './sim/regedit-scripts'
 import { recordParkedStand } from './tracking/parked-stand'
+import { dbFlightStore } from './db/flight-store'
 
 /**
  * A blank/unresolved depIcao or arrIcao from the free-flight dialog becomes 'ZZZZ' — ICAO's
@@ -566,7 +568,7 @@ if (!gotSingleInstanceLock) {
       // Replay mode has no live sim to ask for a touchdown's airfield.
       const simAirfieldResolver = replayFixture ? undefined : new SimAirfieldResolver()
       const trackingController = new TrackingController(
-        db,
+        dbFlightStore(db),
         simConnectService,
         simAirfieldResolver && ((lat, lon, heading) => simAirfieldResolver.resolve(lat, lon, heading))
       )
@@ -665,7 +667,7 @@ if (!gotSingleInstanceLock) {
         (
           _event,
           input: { atcId: string; atcModel: string; title: string; latitude: number; longitude: number }
-        ) => getFreeFlightPrefill(db, input)
+        ) => getFreeFlightPrefill((title) => getAircraftIdForTitle(db, title), input)
       )
       ipcMain.handle(IpcChannels.trackingStop, () => trackingController.stop())
       ipcMain.handle(IpcChannels.trackingFinish, () => trackingController.finish())

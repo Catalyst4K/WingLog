@@ -17,6 +17,7 @@ import { GsxRemoteService } from '../../src/main/gsx-remote/GsxRemoteService'
 import type { ParsedFlightFixture } from '../../src/main/sim/flight-fixture'
 import { replayCapture } from '../../src/main/sim/replay-capture'
 import { TrackingController } from '../../src/main/tracking/TrackingController'
+import { dbFlightStore } from '../../src/main/db/flight-store'
 
 /** What the app knew just after one event of the capture. */
 export interface Sample {
@@ -67,7 +68,7 @@ export async function runScenario(capture: ParsedFlightFixture, setup: ScenarioS
     listApproaches: (icao) => listCachedProcedures(db, icao, 'approach', null)
   })
   beyondAtc.on('state', (state) => arrival.onInfoBoxes(state.infoBoxes))
-  const controller = new TrackingController(db, replay.sim)
+  const controller = new TrackingController(dbFlightStore(db), replay.sim)
   controller.on('point', (point) => arrival.onPhase(point.phase))
 
   const samples: Sample[] = []

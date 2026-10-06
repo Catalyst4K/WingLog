@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { and, asc, desc, eq, isNull } from 'drizzle-orm'
-import type { AircraftLandingRow, Landing } from '@shared/ipc'
+import type { AircraftLandingRow, Landing, NewLanding } from '@shared/ipc'
 import { aircraft, flight, landing } from './schema'
 import type { WingLogDb } from './client'
 
@@ -31,7 +31,8 @@ function toLanding(row: typeof landing.$inferSelect): Landing {
   }
 }
 
-export type NewLanding = Omit<Landing, 'id'>
+// Lives in src/shared so the host-side landing capture can use it without importing the database.
+export type { NewLanding } from '@shared/ipc'
 
 /** The flight's most recent touchdown — the one Logbook's landing card defaults to
  *  (flightdeck-backend's docs/plans/multiple-landings.md). Kept alongside
