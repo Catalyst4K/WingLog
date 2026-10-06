@@ -695,3 +695,22 @@ describe('GsxRemoteService', () => {
     service.stop()
   })
 })
+
+describe('GsxRemoteService raw messages (dev build capture)', () => {
+  it('emits every message received and every command sent, as their JSON text', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new GsxRemoteService('localhost', 8744, ctor)
+    const raw: { direction: 'in' | 'out'; text: string }[] = []
+    service.on('raw', (message) => raw.push(message))
+    service.start()
+    instances[0].simulateOpen()
+    const snapshot = { v: 1, type: 'snapshot', ts: 1, services: SERVICES, menu: RAW_MENU, menuShown: true, prompt: null }
+    instances[0].simulateMessage(snapshot)
+    service.search('73')
+
+    expect(raw.map((r) => r.direction)).toEqual(['in', 'out'])
+    expect(JSON.parse(raw[0]!.text)).toEqual(snapshot)
+    expect(JSON.parse(raw[1]!.text)).toMatchObject({ type: 'command' })
+    service.stop()
+  })
+})

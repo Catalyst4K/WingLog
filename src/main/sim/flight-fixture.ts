@@ -16,6 +16,11 @@ export interface FlightFixtureHeader {
 export type FlightFixtureEvent =
   | { type: 'telemetry'; tOffsetMs: number; data: SimTelemetry }
   | { type: 'paused'; tOffsetMs: number; value: boolean }
+  // Written by the dev build's full capture (src/main/diagnostics/flight-capture.ts), each
+  // message unparsed, in or out. ReplaySimConnectService skips them; the multi-stream replay
+  // (flightdeck-backend robustness/scenario-testing.md Part 1) feeds them to the services.
+  | { type: 'beyondatc'; tOffsetMs: number; direction: 'in' | 'out'; text: string }
+  | { type: 'gsx'; tOffsetMs: number; direction: 'in' | 'out'; text: string }
 
 export interface ParsedFlightFixture {
   header: FlightFixtureHeader

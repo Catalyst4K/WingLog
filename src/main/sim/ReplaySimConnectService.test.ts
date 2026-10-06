@@ -244,3 +244,27 @@ describe('ReplaySimConnectService', () => {
     expect(service.getStatus()).toEqual({ state: 'disconnected' })
   })
 })
+
+describe('ReplaySimConnectService with a dev build capture', () => {
+  it('replays the sim stream and skips BeyondATC and GSX lines, never treating them as a pause', async () => {
+    const path = writeFixture([
+      { type: 'telemetry', tOffsetMs: 0, data: telemetry({ latitude: 1 }) },
+      { type: 'beyondatc', tOffsetMs: 10, direction: 'in', text: 'CommsState: ready' },
+      { type: 'gsx', tOffsetMs: 20, direction: 'out', text: '{"type":"command","verb":"search"}' },
+      { type: 'telemetry', tOffsetMs: 1000, data: telemetry({ latitude: 2 }) }
+    ])
+    const service = new ReplaySimConnectService(path, { mode: 'instant' })
+    const lats: number[] = []
+    const paused: boolean[] = []
+    service.on('telemetry', (t) => lats.push(t.latitude))
+    service.on('paused', (p) => paused.push(p))
+    const done = new Promise<void>((resolve) => service.on('replayComplete', () => resolve()))
+
+    service.start()
+    await done
+
+    expect(lats).toEqual([1, 2])
+    expect(paused).toEqual([])
+    expect(service.telemetryTickCount).toBe(2)
+  })
+})

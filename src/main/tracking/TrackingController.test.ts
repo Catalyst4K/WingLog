@@ -1468,3 +1468,56 @@ describe('TrackingController', () => {
     })
   })
 })
+
+describe('TrackingController lifecycle events (dev build diagnostics)', () => {
+  let db: WingLogDb
+  let sim: ReturnType<typeof fakeSimConnectService>
+  let flightId: number
+
+  beforeEach(() => {
+    const created = createDb(':memory:')
+    migrate(created.db, { migrationsFolder: 'drizzle' })
+    db = created.db
+    sim = fakeSimConnectService()
+    const aircraftId = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' }).id
+    flightId = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' }).id
+  })
+
+  it('emits started when tracking starts and stopped when it is cancelled', () => {
+    sim.setLastTelemetry(telemetry({}))
+    const controller = new TrackingController(db, sim)
+    const events: string[] = []
+    controller.on('started', (id) => events.push(`started ${id}`))
+    controller.on('stopped', (id) => events.push(`stopped ${id}`))
+
+    controller.start(flightId)
+    controller.stop()
+
+    expect(events).toEqual([`started ${flightId}`, `stopped ${flightId}`])
+  })
+
+  it('emits started for a free flight too', () => {
+    const freeAircraftId = createAircraft(db, { registration: 'G-FREE', icaoType: 'C172' }).id
+    sim.setLastTelemetry(telemetry({ title: 'Cessna 172 Classic' }))
+    const controller = new TrackingController(db, sim)
+    const started: number[] = []
+    controller.on('started', (id) => started.push(id))
+
+    const id = controller.startFree({ aircraftId: freeAircraftId, depIcao: 'EGLL', arrIcao: 'ZZZZ', flightNumber: null })
+
+    expect(started).toEqual([id])
+  })
+
+  it('emits phaseChanged with the tick that moved the phase, and nothing for a tick that did not', () => {
+    sim.setLastTelemetry(telemetry({}))
+    const controller = new TrackingController(db, sim)
+    const changes: { from: string; to: string; engine: boolean }[] = []
+    controller.on('phaseChanged', ({ from, to, telemetry: t }) => changes.push({ from, to, engine: t.engineCombustion1 }))
+    controller.start(flightId)
+
+    sim.emit('telemetry', telemetry({ parkingBrakeOn: true }))
+    sim.emit('telemetry', telemetry({ engineCombustion1: true, parkingBrakeOn: true }))
+
+    expect(changes).toEqual([{ from: 'preflight', to: 'pushback', engine: true }])
+  })
+})

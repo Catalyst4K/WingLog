@@ -139,6 +139,9 @@ import type { NavdataProvider } from './navdata/navdata-provider'
 import { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
 import { SimAirfieldResolver } from './airports/sim-airfield'
 import { TrackingController } from './tracking/TrackingController'
+import { createDiag, isDiagCategory, MAX_LINE_CHARS, openDiagLog } from './diagnostics/diag'
+import { DevDiagnostics } from './diagnostics/dev-diagnostics'
+import { FlightCapture } from './diagnostics/flight-capture'
 import { AutoStartDetector } from './tracking/AutoStartDetector'
 import { CloudSyncController } from './sync/cloud-sync-controller'
 import { pointRegeditAtUnpackedScripts } from './sim/regedit-scripts'
@@ -562,6 +565,16 @@ if (!gotSingleInstanceLock) {
         simConnectService,
         simAirfieldResolver && ((lat, lon, heading) => simAirfieldResolver.resolve(lat, lon, heading))
       )
+      // Dev build only: diag.log and the full flight capture (src/main/diagnostics/).
+      const diag = createDiag(__WINGLOG_DEV_BUILD__ ? openDiagLog() : null)
+      const devDiagnostics = __WINGLOG_DEV_BUILD__
+        ? new DevDiagnostics(diag, new FlightCapture(join(app.getPath('userData'), 'captures')))
+        : undefined
+      devDiagnostics?.attachTracking(trackingController, simConnectService)
+      ipcMain.handle(IpcChannels.diagLog, (_event, category: unknown, message: unknown) => {
+        if (!isDiagCategory(category) || typeof message !== 'string') return
+        diag(category, message.slice(0, MAX_LINE_CHARS))
+      })
       // The one flight left "in progress" (planned or already active) when the previous
       // process quit or crashed — its DB row (OFP, route, everything Dispatch/Track need)
       // was never at risk, only TrackingController's in-memory phase-detection state, which
@@ -840,6 +853,7 @@ if (!gotSingleInstanceLock) {
         const settings = getGsxRemoteSettings(db)
         if (!settings.enabled || !settings.port) return
         gsxRemoteService = new GsxRemoteService(settings.host, settings.port)
+        devDiagnostics?.attachGsx(gsxRemoteService)
         gsxRemoteService.on('status', (status) => {
           liveHub.publish('gsxRemoteStatus', status)
         })
@@ -907,6 +921,7 @@ if (!gotSingleInstanceLock) {
         const settings = getBeyondAtcSettings(db)
         if (!settings.enabled) return
         beyondAtcService = new BeyondAtcService(settings.host)
+        devDiagnostics?.attachBeyondAtc(beyondAtcService)
         beyondAtcService.on('status', (status) => {
           liveHub.publish('beyondAtcStatus', status)
         })
@@ -1050,7 +1065,9 @@ if (!gotSingleInstanceLock) {
         ipcMain.handle(IpcChannels.syncStatus, () => cloudSync.getStatus())
       }
 
-      ipcMain.handle(IpcChannels.appGetVersion, () => app.getVersion())
+      // "-dev" marks the dev build in About and in bug reports; the update check compares the
+      // plain version.
+      ipcMain.handle(IpcChannels.appGetVersion, () => (__WINGLOG_DEV_BUILD__ ? `${app.getVersion()}-dev` : app.getVersion()))
       ipcMain.handle(IpcChannels.appOpenGithub, () =>
         shell.openExternal('https://github.com/Catalyst4K/WingLog')
       )

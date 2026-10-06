@@ -65,6 +65,9 @@ interface GsxRemoteServiceEvents {
   menu: [GsxRemoteMenuState]
   prompt: [GsxRemotePromptState | null]
   commandBar: [GsxRemoteCommandBar]
+  /** Every message received and every command sent, unparsed: the dev build's capture and
+   *  diagnostic log (flightdeck-backend robustness/dev-build.md). */
+  raw: [{ direction: 'in' | 'out'; text: string }]
 }
 
 /** GSX's own wire message — see docs/gsx-notes.md for the real shape, confirmed live
@@ -289,7 +292,9 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
 
   private sendCommand(verb: string, args?: Record<string, unknown>): void {
     if (!this.ws || this.ws.readyState !== this.ws.OPEN) return
-    this.ws.send(JSON.stringify(args ? { type: 'command', verb, args } : { type: 'command', verb }))
+    const text = JSON.stringify(args ? { type: 'command', verb, args } : { type: 'command', verb })
+    this.ws.send(text)
+    this.emit('raw', { direction: 'out', text })
   }
 
   private setStatus(status: GsxRemoteConnectionStatus): void {
@@ -318,6 +323,7 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
 
     socket.addEventListener('message', (event: { data: unknown }) => {
       const raw = typeof event.data === 'string' ? event.data : String(event.data)
+      this.emit('raw', { direction: 'in', text: raw })
       let message: GsxMessage
       try {
         message = JSON.parse(raw)

@@ -169,6 +169,7 @@ const api: WingLogApi = {
   syncNow: () => ipcRenderer.invoke(IpcChannels.syncNow),
   syncStatus: () => ipcRenderer.invoke(IpcChannels.syncStatus),
   appGetVersion: () => ipcRenderer.invoke(IpcChannels.appGetVersion),
+  diagLog: (category, message) => ipcRenderer.invoke(IpcChannels.diagLog, category, message),
   appOpenGithub: () => ipcRenderer.invoke(IpcChannels.appOpenGithub),
   appOpenManual: () => ipcRenderer.invoke(IpcChannels.appOpenManual),
   navdataRefreshAirport: (icao: string) => ipcRenderer.invoke(IpcChannels.navdataRefreshAirport, icao),
