@@ -17,19 +17,26 @@ async function setWidth(app: ElectronApplication, width: number, height: number)
   })
 }
 
-/** Nothing scrolls sideways: not the window, not the header, not the page area under it. */
+/**
+ * Nothing scrolls sideways: not the window, not the header, not the tab row inside it, not the
+ * page area under it. The tab row is checked on its own because it scrolls inside itself
+ * (min-w-0, overflow-x-auto), so the header never overflows even when the row does — real
+ * bug, v1.4.0: at 360 px the row was 16 px short on Linux and Settings was half off screen.
+ */
 async function expectNoHorizontalScroll(page: Page): Promise<void> {
   const overflow = await page.evaluate(() => {
     const doc = document.documentElement
     const header = document.querySelector('header')!
+    const tabs = header.querySelector('[role="tablist"]')!
     const content = header.nextElementSibling as HTMLElement
     return {
       document: doc.scrollWidth - doc.clientWidth,
       header: header.scrollWidth - header.clientWidth,
+      tabs: tabs.scrollWidth - tabs.clientWidth,
       content: content.scrollWidth - content.clientWidth
     }
   })
-  expect(overflow).toEqual({ document: 0, header: 0, content: 0 })
+  expect(overflow).toEqual({ document: 0, header: 0, tabs: 0, content: 0 })
 }
 
 for (const [width, height] of [
@@ -57,6 +64,7 @@ for (const [width, height] of [
 
       // Every tab is reachable without scrolling the tab row, even with both add-on tabs on.
       await expect(page.getByRole('tab', { name: 'Settings' })).toBeInViewport({ ratio: 1 })
+      await expectNoHorizontalScroll(page)
 
       await page.getByRole('tab', { name: 'Track' }).click()
       await expect(page.getByRole('button', { name: 'Free flight' })).toBeInViewport()
