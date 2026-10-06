@@ -4,75 +4,13 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
 import { initLogger } from './logging/logger'
 import { setMainLanguage, t } from './i18n'
 import { backupDatabaseOnLaunch } from './db/backup'
-import {
-  IpcChannels,
-  type AircraftUpdate,
-  type AltitudeUnit,
-  type AppLanguage,
-  type DataFormat,
-  type WindSpeedUnit,
-  type DispatchOfp,
-  type DispatchOpenSimBriefParams,
-  type BeyondAtcSettings,
-  type UpdateSettings,
-  type GsxRemoteSettings,
-  type GsxSettings,
-  type TrackingSettings,
-  type LandingDistanceUnit,
-  type MapLanguage,
-  type NavdataProcedureKind,
-  type NewFlight,
-  type ProcedureSelection,
-  type StartFreeFlightInput,
-  type Theme,
-  type WeightUnit
-} from '@shared/ipc'
-import { fetchAircraftByRegistration } from './aircraft-lookup/adsbdb-client'
-import { searchAircraftTypes } from './aircraft-lookup/icao-types'
-import { findAirlineByIcao, searchAirlines } from './airlines/airline-search'
-import { fetchMetars } from './weather/metar-client'
-import { fetchExchangeRate } from './fx/fx-client'
-import { listAirfields } from './airports/airfields'
-import { greatCircleWaypoints, searchAirports } from './airports/airport-search'
-import { findLandingRunway } from './airports/runway-lookup'
+import { IpcChannels, type AltitudeUnit, type AppLanguage, type WindSpeedUnit, type DispatchOfp, type DispatchOpenSimBriefParams, type BeyondAtcSettings, type UpdateSettings, type GsxRemoteSettings, type GsxSettings, type TrackingSettings, type LandingDistanceUnit, type MapLanguage, type NavdataProcedureKind, type NewFlight, type ProcedureSelection, type StartFreeFlightInput, type Theme, type WeightUnit } from '@shared/ipc'
 import { createDb } from './db/client'
 import { migrateDb } from './db/migrate'
 import { migrateLegacyUserData } from './db/legacy-userdata'
-import {
-  createAircraft,
-  deleteAircraft,
-  getAircraftById,
-  getAircraftByRegistration,
-  listAircraft,
-  replaceAircraft,
-  retireAircraft,
-  unretireAircraft,
-  updateAircraft
-} from './db/aircraft-repo'
-import { parseAircraftInput } from './db/aircraft-validation'
-import { exportAircraft, importAircraft } from './db/aircraft-import-export'
+import { getAircraftById, getAircraftByRegistration } from './db/aircraft-repo'
 import { addInvoicesForFlight, listInvoicesForFlight } from './db/flight-invoice-repo'
-import {
-  abandonAllPlanned,
-  abandonFlight,
-  createFlight,
-  deleteFlight,
-  getFleetStats,
-  getFlight,
-  getLiveFlight,
-  listLastParkedByAircraft,
-  setParkedStand,
-  getInProgressFlight,
-  getLogbookStats,
-  listCompletedFlights,
-  linkAircraftToFlight,
-  listFlights,
-  listFlightsByAircraft,
-  setFlownRoute
-} from './db/flight-repo'
-import { listAllLandings, listLandingsByAircraft, listLandingsByFlight } from './db/landing-repo'
-import { getLandingScoresForCompletedFlights, resolveLandingScore } from './db/landing-score-resolver'
-import { exportLogbook, importLogbookCsv, importLogbookJson } from './db/logbook-import'
+import { abandonAllPlanned, abandonFlight, createFlight, deleteFlight, getFlight, setParkedStand, getInProgressFlight, linkAircraftToFlight } from './db/flight-repo'
 import {
   getAircraftIdForTitle,
   getAltitudeUnit,
@@ -104,29 +42,20 @@ import {
   setWeightUnit,
   setWindSpeedUnit
 } from './db/settings-repo'
-import { listTrackPoints } from './db/track-point-repo'
 import { getFreeFlightPrefill } from './tracking/free-flight'
-import { deriveFlownRouteJson } from './tracking/route-simplify'
-import { runTrackCleanupForFlight } from './db/run-track-cleanup'
-import { simplifyTrackPoints } from './tracking/track-simplify'
 import { defaultGsxReceiptsPath } from './gsx/default-path'
 import { checkGsxFirstLaunch } from './db/gsx-first-launch'
 import { buildFlightMatchWindow } from './db/gsx-flight-window'
 import { readReceipt, receiptFileFromPath, scanGsxFolder } from './gsx/scan'
-import { fetchAirframesForType } from './simbrief/simbrief-airframes'
 import { extractOfpPdfUrl } from './simbrief/ofp-pdf'
 import { fetchLatestOfp, parseOfp, type SimBriefOfp } from './simbrief/simbrief-client'
-import {
-  createCustomAirframeFromShare,
-  fetchSimbriefUsername,
-  generateOfp,
-  isSimbriefLoggedIn,
-  loginToSimbrief,
-  logoutOfSimbrief
-} from './simbrief/simbrief-generate'
+import { fetchSimbriefUsername, generateOfp, isSimbriefLoggedIn, loginToSimbrief, logoutOfSimbrief } from './simbrief/simbrief-generate'
 import { SimConnectService } from './sim/SimConnectService'
 import { ReplaySimConnectService, type ReplayMode } from './sim/ReplaySimConnectService'
 import { replayCapture } from './sim/replay-capture'
+import { registerFleetHandlers } from './ipc/fleet-handlers'
+import { registerLogbookHandlers } from './ipc/logbook-handlers'
+import { registerLookupHandlers } from './ipc/lookup-handlers'
 import { EMPTY_COMMAND_BAR, EMPTY_MENU, GsxRemoteService } from './gsx-remote/GsxRemoteService'
 import { BeyondAtcService, e2eBeyondAtcPort } from './beyondatc/BeyondAtcService'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
@@ -312,63 +241,9 @@ if (!gotSingleInstanceLock) {
         backgroundSyncTimer = setTimeout(() => void cloudSync.syncNow(), 2000)
       }
 
-      ipcMain.handle(IpcChannels.aircraftList, () => listAircraft(db))
-
-      ipcMain.handle(IpcChannels.aircraftCreate, (_event, input: unknown) => {
-        const result = parseAircraftInput(input)
-        if ('error' in result) throw new Error(result.error)
-        const created = createAircraft(db, result.data)
-        scheduleBackgroundSync()
-        return created
-      })
-
-      ipcMain.handle(IpcChannels.aircraftUpdate, (_event, input: AircraftUpdate) => {
-        const { id, ...rest } = input
-        const result = parseAircraftInput(rest)
-        if ('error' in result) throw new Error(result.error)
-        const updated = updateAircraft(db, { id, ...result.data })
-        if (!updated) throw new Error(`Aircraft ${id} not found`)
-        scheduleBackgroundSync()
-        return updated
-      })
-
-      ipcMain.handle(IpcChannels.aircraftDelete, (_event, id: number) => {
-        deleteAircraft(db, id)
-        scheduleBackgroundSync()
-      })
-
-      ipcMain.handle(IpcChannels.aircraftReplace, (_event, retiredId: number, replacementId: number) => {
-        replaceAircraft(db, { retiredId, replacementId })
-        scheduleBackgroundSync()
-      })
-
-      // Validated here, not just in the renderer — the renderer isn't a security boundary.
-      const requireAircraftId = (id: unknown): number => {
-        if (typeof id !== 'number' || !Number.isInteger(id)) throw new Error(t('errors.invalidAircraftId'))
-        return id
-      }
-      ipcMain.handle(IpcChannels.aircraftRetire, (_event, id: unknown) => {
-        retireAircraft(db, requireAircraftId(id))
-        scheduleBackgroundSync()
-      })
-      ipcMain.handle(IpcChannels.aircraftUnretire, (_event, id: unknown) => {
-        unretireAircraft(db, requireAircraftId(id))
-        scheduleBackgroundSync()
-      })
-
-      // The format comes from the renderer, so it's checked here — anything but 'csv' is
-      // treated as the default, 'json', rather than trusted as an arbitrary string.
-      const asDataFormat = (format: unknown): DataFormat => (format === 'csv' ? 'csv' : 'json')
-      ipcMain.handle(IpcChannels.aircraftImport, async (_event, format?: unknown) => {
-        const summary = await importAircraft(db, window, asDataFormat(format))
-        if (summary) scheduleBackgroundSync()
-        return summary
-      })
-      ipcMain.handle(IpcChannels.aircraftExport, (_event, format?: unknown) =>
-        exportAircraft(db, window, asDataFormat(format))
-      )
-
-      ipcMain.handle(IpcChannels.flightList, () => listFlights(db))
+      registerFleetHandlers(ipcMain, { db, window, scheduleBackgroundSync })
+      registerLogbookHandlers(ipcMain, { db, window, scheduleBackgroundSync })
+      registerLookupHandlers(ipcMain)
 
       function mapOfpForIpc(ofp: SimBriefOfp): DispatchOfp {
         const matched = getAircraftByRegistration(db, ofp.aircraftRegistration)
@@ -695,30 +570,6 @@ if (!gotSingleInstanceLock) {
         orphanedFlight = undefined
         scheduleBackgroundSync()
       })
-      // Simplified for both callers (Logbook review and TrackView's resume-an-in-progress-
-      // flight catch-up load) — storage itself stays full resolution regardless, this only
-      // shapes what crosses IPC and gets rendered. Live tracking's own point-by-point stream
-      // (the 'point' event below) is completely separate and unaffected.
-      ipcMain.handle(IpcChannels.trackPointList, (_event, flightId: number) =>
-        simplifyTrackPoints(listTrackPoints(db, flightId).filter((p) => p.excludedReason == null))
-      )
-      // Logbook's manual "Clean up track" button (flightdeck-backend's docs/plans/done/
-      // resume-track-cleanup.md) — the same cleanup pass TrackingController already runs
-      // live/at completion, run on demand for a flight with no active recorder at all
-      // (one completed before Phase 2 existed, or the rare case the live check missed
-      // something). Re-derives flownRouteJson from the now-corrected points afterward,
-      // same as TrackingController.deriveFlownRoute does at completion, so a synced copy
-      // doesn't keep the stale route — and syncs it, since track_point itself never syncs
-      // but flownRouteJson does.
-      ipcMain.handle(IpcChannels.trackPointCleanup, (_event, flightId: number) => {
-        const result = runTrackCleanupForFlight(db, flightId)
-        if (!result) return { excludedCount: 0, resegmentedCount: 0 }
-        const points = listTrackPoints(db, flightId).filter((p) => p.excludedReason == null)
-        const flownRouteJson = deriveFlownRouteJson(points)
-        if (flownRouteJson) setFlownRoute(db, flightId, flownRouteJson)
-        scheduleBackgroundSync()
-        return { excludedCount: result.exclusions.length, resegmentedCount: result.segmentReassignments.length }
-      })
 
       // Only one flight is ever meant to be "in progress" (planned or active) at once —
       // pressing "Fly" on a new plan replaces whatever was already planned or being tracked,
@@ -757,30 +608,6 @@ if (!gotSingleInstanceLock) {
         scheduleBackgroundSync()
         return updated
       })
-
-      ipcMain.handle(IpcChannels.logbookListCompletedFlights, () => listCompletedFlights(db))
-      ipcMain.handle(IpcChannels.logbookGetFlight, (_event, id: unknown) => {
-        if (typeof id !== 'number' || !Number.isInteger(id)) return null
-        return getLiveFlight(db, id) ?? null
-      })
-      ipcMain.handle(IpcChannels.logbookGetStats, () => getLogbookStats(db))
-      ipcMain.handle(IpcChannels.logbookFleetStats, () => getFleetStats(db))
-      ipcMain.handle(IpcChannels.logbookImportCsv, async () => {
-        const summary = await importLogbookCsv(db, window)
-        if (summary) scheduleBackgroundSync()
-        return summary
-      })
-      ipcMain.handle(IpcChannels.logbookImportJson, async () => {
-        const summary = await importLogbookJson(db, window)
-        if (summary) scheduleBackgroundSync()
-        return summary
-      })
-      ipcMain.handle(IpcChannels.logbookExport, (_event, format?: unknown) =>
-        exportLogbook(db, window, asDataFormat(format))
-      )
-      ipcMain.handle(IpcChannels.logbookListInvoices, (_event, flightId: number) =>
-        listInvoicesForFlight(db, flightId)
-      )
 
       // GSX ground-service invoices (docs/decisions.md, gsx-invoices entry) — opt-in, off by
       // default, and a no-op everywhere below when disabled or unconfigured. Windows-only in
@@ -986,80 +813,6 @@ if (!gotSingleInstanceLock) {
         if (typeof enabled === 'boolean') stepClimb.setEnabled(enabled)
       })
 
-      ipcMain.handle(IpcChannels.logbookOpenOfpPdf, async (_event, flightId: number) => {
-        const flight = getFlight(db, flightId)
-        const url = flight ? extractOfpPdfUrl(flight.ofpJson) : null
-        if (!url) return false
-        await shell.openExternal(url)
-        return true
-      })
-
-      ipcMain.handle(IpcChannels.logbookListLandings, (_event, flightId: number) => {
-        const landingFlight = getFlight(db, flightId)
-        if (!landingFlight) return []
-        const icaoType =
-          landingFlight.aircraftId != null
-            ? (getAircraftById(db, landingFlight.aircraftId)?.icaoType ?? null)
-            : landingFlight.simIcaoType
-        return listLandingsByFlight(db, flightId).map((landingRecord) => {
-          // This touchdown's own resolved airport, falling back to the flight's filed
-          // arrival — same icao the capture itself narrowed the runway search by
-          // (TrackingController), so the read side can never disagree with what was
-          // actually measured.
-          const icao = landingRecord.icao ?? landingFlight.arrIcao
-          return {
-            ...landingRecord,
-            runway: landingRecord.runwayIdent ? findLandingRunway(icao, landingRecord.runwayIdent) : null,
-            score: resolveLandingScore(landingRecord, icao, icaoType)
-          }
-        })
-      })
-      ipcMain.handle(IpcChannels.logbookListAllLandings, () =>
-        listAllLandings(db).map(({ icaoType, ...row }) => {
-          const icao = row.icao ?? row.arrIcao
-          const { score, severity } = resolveLandingScore(row, icao, icaoType)
-          return { ...row, score, severity }
-        })
-      )
-      ipcMain.handle(IpcChannels.logbookListFlightScores, () => getLandingScoresForCompletedFlights(db))
-      ipcMain.handle(IpcChannels.logbookGreatCircleRoute, (_event, depIcao: string, arrIcao: string) =>
-        greatCircleWaypoints(depIcao, arrIcao)
-      )
-      ipcMain.handle(IpcChannels.fleetListLandings, (_event, aircraftId: number) => {
-        const icaoType = getAircraftById(db, aircraftId)?.icaoType ?? null
-        return listLandingsByAircraft(db, aircraftId).map((row) => {
-          const icao = row.icao ?? row.arrIcao
-          return {
-            ...row,
-            ...resolveLandingScore(row, icao, icaoType)
-          }
-        })
-      })
-      ipcMain.handle(IpcChannels.fleetListFlights, (_event, aircraftId: number) =>
-        listFlightsByAircraft(db, aircraftId)
-      )
-
-      ipcMain.handle(IpcChannels.aircraftLookupByRegistration, (_event, registration: string) =>
-        fetchAircraftByRegistration(registration)
-      )
-      ipcMain.handle(IpcChannels.aircraftTypeSearch, (_event, query: string) => searchAircraftTypes(query))
-      ipcMain.handle(IpcChannels.simbriefAirframesForType, (_event, icaoType: string) =>
-        fetchAirframesForType(icaoType)
-      )
-      ipcMain.handle(IpcChannels.simbriefCreateCustomAirframe, (_event, shareUrl: string) =>
-        createCustomAirframeFromShare(shareUrl)
-      )
-      ipcMain.handle(IpcChannels.airportSearch, (_event, query: string) => searchAirports(query))
-      ipcMain.handle(IpcChannels.airportListAirfields, () => listAirfields())
-      ipcMain.handle(IpcChannels.airlineSearch, (_event, query: string) => searchAirlines(query))
-      ipcMain.handle(IpcChannels.airlineFindByIcao, (_event, icao: string) => findAirlineByIcao(icao))
-      ipcMain.handle(IpcChannels.weatherGetMetars, (_event, icaoCodes: unknown) =>
-        fetchMetars(icaoCodes, `WingLog/${app.getVersion()}`)
-      )
-      ipcMain.handle(IpcChannels.fxGetRate, (_event, targetCurrency: string, date?: string) =>
-        fetchExchangeRate(targetCurrency, date)
-      )
-
       // Cloud sync build-time flag (docs/plans/public-release-v1.md, Decision 1) — off in what
       // ships publicly. cloudSync itself is still constructed above regardless (its
       // pull-on-launch/background-sync scheduling stays harmless when logged out, which a
@@ -1171,7 +924,6 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.navdataGetStands, (_event, icao: unknown) =>
         typeof icao === 'string' && /^[A-Z0-9]{3,4}$/i.test(icao) ? navdataProvider.getStands(icao.toUpperCase()) : []
       )
-      ipcMain.handle(IpcChannels.fleetListLastParked, () => listLastParkedByAircraft(db))
       // Where each flight finished (stand-positions.md) — after completion, best effort.
       trackingController.on('completed', (flightId: number) => {
         const telemetry = simConnectService.getLastTelemetry()
