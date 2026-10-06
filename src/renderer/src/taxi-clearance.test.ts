@@ -38,11 +38,9 @@ describe('boxTaxiClearance', () => {
 })
 
 describe('startOf', () => {
-  it('starts from the aircraft, with its heading only while taxiing under its own power', () => {
-    const at = { lat: 22.3089, lon: 113.9146, headingDeg: 71 }
-    expect(startOf(at, 'taxi')).toEqual({ from: { lat: 22.3089, lon: 113.9146 }, headingDeg: 71 })
-    expect(startOf(at, 'pushback')).toEqual({ from: { lat: 22.3089, lon: 113.9146 }, headingDeg: null })
-    expect(startOf(null, 'taxi')).toEqual({ from: null, headingDeg: null })
+  it('starts from the aircraft, whichever way it faces', () => {
+    expect(startOf({ lat: 22.3089, lon: 113.9146 })).toEqual({ from: { lat: 22.3089, lon: 113.9146 } })
+    expect(startOf(null)).toEqual({ from: null })
   })
 })
 

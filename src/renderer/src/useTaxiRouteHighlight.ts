@@ -130,7 +130,6 @@ export function useTaxiRouteHighlight({
   const [clearance, setClearance] = useState<TaxiClearance | null>(rememberedClearance)
   const client = useLiveClient()
   const positionRef = useRef(position)
-  const phaseRef = useRef(phase)
   /** The current clearance's line between position updates (taxiReroute.ts). */
   const trackerRef = useRef<RerouteTracker | null>(null)
   // Whether this hook has itself created its layers. Checked instead of calling
@@ -141,7 +140,6 @@ export function useTaxiRouteHighlight({
 
   useEffect(() => {
     positionRef.current = position
-    phaseRef.current = phase
   }, [position, phase])
 
   // Gated on `enabled` — same "nothing happens until the chart is switched on" discipline
@@ -177,7 +175,7 @@ export function useTaxiRouteHighlight({
       if (key === rememberedBoxKey) return
       rememberedBoxKey = key
       rememberedBoxAt = Date.now()
-      let next: TaxiClearance = { ...box, ...startOf(positionRef.current, phaseRef.current) }
+      let next: TaxiClearance = { ...box, ...startOf(positionRef.current) }
       if (rememberedHoldShort && Date.now() - rememberedHoldShort.at <= HOLD_SHORT_PAIR_MS) {
         next = withHoldShort(next, rememberedHoldShort.runway)
       }
@@ -200,7 +198,7 @@ export function useTaxiRouteHighlight({
   // Track has loaded the active flight (so no position yet) — the clearance was stored with
   // nowhere to start, never traced, and fell back to whole taxiways. Updated during render
   // (React's "adjust state when a prop changes" pattern), not in an effect.
-  if (clearance && !clearance.from && position) setClearance({ ...clearance, ...startOf(position, phase) })
+  if (clearance && !clearance.from && position) setClearance({ ...clearance, ...startOf(position) })
   // The route held when the takeoff roll starts is the departure's: dropped then, so it can't
   // come back at the arrival. Only on that change, never just for being airborne, so an
   // arrival's taxi clearance is never thrown away even if the phase lags behind touchdown;

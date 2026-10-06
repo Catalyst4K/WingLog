@@ -215,8 +215,16 @@ describe('re-routing replay: YBBN flight 225, taxiing away from the first trace 
   const bearing = ([aLon, aLat]: [number, number], [bLon, bLat]: [number, number]): number =>
     ((Math.atan2((bLon - aLon) * Math.cos((aLat * Math.PI) / 180), bLat - aLat) * 180) / Math.PI + 360) % 360
 
+  it('first draws the cleared route from the aircraft, with no hairpin through a gate lead-in', () => {
+    // The aircraft was taxiing away from C9 when the clearance came. Starting the way it faced
+    // went 17 m on, then hairpinned back through a lead-in (Callum, from the simulation report).
+    const { cleared } = replayTaxi(SAMPLES_225, YBBN_225, REQUEST, false)
+    const turns = cleared.slice(1, -1).map((p, i) => angleBetweenDeg(bearing(cleared[i]!, p), bearing(p, cleared[i + 2]!)))
+    expect(Math.max(...turns)).toBeLessThan(120)
+  })
+
   it('re-routes once, starting the way the aircraft is going, not back behind it', () => {
-    const { reroutes } = replayTaxi(SAMPLES_225, YBBN_225, REQUEST, true)
+    const { reroutes } = replayTaxi(SAMPLES_225, YBBN_225, REQUEST, false)
     expect(reroutes).toHaveLength(1)
     const { t, line } = reroutes[0]!
     const heading = SAMPLES_225.find((s) => s[0] === t)![3]
@@ -225,7 +233,7 @@ describe('re-routing replay: YBBN flight 225, taxiing away from the first trace 
   })
 
   it('then stays on the line to the A9 hold', () => {
-    const { line, offAfterLast } = replayTaxi(SAMPLES_225, YBBN_225, REQUEST, true)
+    const { line, offAfterLast } = replayTaxi(SAMPLES_225, YBBN_225, REQUEST, false)
     expect(Math.max(...offAfterLast)).toBeLessThan(REROUTE_DISTANCE_M)
     const end = line.at(-1)!
     const closest = Math.min(...SAMPLES_225.map(([, lat, lon]) => distanceM({ lat, lon }, { lat: end[1], lon: end[0] })))

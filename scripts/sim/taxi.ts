@@ -160,7 +160,7 @@ function clearanceFor(sc: TaxiScenario): TaxiClearance | null {
   const box = boxTaxiClearance(sc.boxes)
   const first = sc.samples[0]
   if (!box || !first) return null
-  return { ...box, holdShortRunway: box.holdShortRunway ?? sc.holdShortRunway ?? null, ...startOf(first, first.phase) }
+  return { ...box, holdShortRunway: box.holdShortRunway ?? sc.holdShortRunway ?? null, ...startOf(first) }
 }
 
 /**
