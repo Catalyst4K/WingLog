@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl'
-import type { BeyondAtcInfoBox, BeyondAtcState, BeyondAtcTranscriptEntry, FlightPhase, NavdataStand, NavdataTaxiSegment } from '@shared/ipc'
-import { parseAtcTaxiFacts } from '@shared/atc-info-boxes'
+import type { BeyondAtcState, BeyondAtcTranscriptEntry, FlightPhase, NavdataStand, NavdataTaxiSegment } from '@shared/ipc'
 import { findStand } from '@shared/stands'
 import { parseTaxiHoldShortRunway } from '@shared/taxi-route-parser'
-import { traceTaxiRoute, type TracedRoute } from './taxiRouteTrace'
+import type { TracedRoute } from './taxiRouteTrace'
+import { boxTaxiClearance, clearanceAirport, startOf, traceClearance, type TaxiClearance } from './taxi-clearance'
 import { startTracker, trackPosition, type RerouteTracker } from './taxiReroute'
 import { diagMap } from './diag'
 import { TAXI_SOURCE_ID } from './useTaxiChartOverlay'
@@ -73,43 +73,6 @@ function ensureLayers(map: MapLibreMap): void {
   }
 }
 
-interface TaxiClearance {
-  taxiways: string[]
-  holdingPoint: string | null
-  /** "taxi to Stand N32 …" → 'N32'; null for a holding-point clearance. */
-  stand: string | null
-  /** "taxi via C7, Y, F, hold short of runway 07C" → '07C': the route runs along its last
-   *  taxiway to the hold short, the same way as a holding point. */
-  holdShortRunway: string | null
-  /** Where the aircraft was when the clearance arrived — the trace's start. */
-  from: { lat: number; lon: number } | null
-  /** Its heading then, only if it was already taxiing under its own power (at the stand the
-   *  nose points the way it'll be pushed back from, so it says nothing about the way out). */
-  headingDeg?: number | null
-}
-
-/** "27L" or "09": a `Hold Position` box naming a runway, not a holding point. */
-const RUNWAY_IDENT = /^\d{1,2}[LRC]?$/
-
-/**
- * The taxi clearance in BeyondATC's InfoBoxes (flightdeck-backend's
- * docs/plans/beyondatc-infoboxes-first.md): `Taxi Via 1..n`, `Hold Position`, `Taxi to Gate`.
- * Real, 2026-10-05: VHHH "B, B, V, H, J" to J1 and ZJSY "A4, D" to gate 102. Null when the
- * boxes hold no taxi route.
- */
-export function boxTaxiClearance(boxes: BeyondAtcInfoBox[]): Omit<TaxiClearance, 'from' | 'headingDeg'> | null {
-  const facts = parseAtcTaxiFacts(boxes)
-  if (facts.taxiVia.length === 0) return null
-  const hold = facts.holdPosition
-  const holdIsRunway = hold !== null && RUNWAY_IDENT.test(hold)
-  return {
-    taxiways: facts.taxiVia,
-    holdingPoint: holdIsRunway ? null : hold,
-    stand: facts.taxiToGate,
-    holdShortRunway: holdIsRunway ? hold : null
-  }
-}
-
 /** How close a spoken "hold short of runway" must be to a box route to belong to it: BeyondATC
  *  updates the boxes and speaks within a second or two of each other. */
 const HOLD_SHORT_PAIR_MS = 30_000
@@ -136,31 +99,6 @@ export interface UseTaxiRouteHighlightArgs {
  *  to stay drawn on top of the flown track at every zoom (real report, 2026-10-05). Landing
  *  isn't in here, so an arrival's "taxi to stand" clearance still draws after touchdown. */
 const DEPARTED_PHASES: ReadonlySet<FlightPhase> = new Set(['takeoff', 'climb', 'cruise', 'descent'])
-
-/**
- * Which airport a clearance is at: a holding point is the departure's, a stand the arrival's.
- * "Hold short of runway" can be either (crossing a runway on the way out, or on the way in as
- * at VHHH), so it's the one whose taxi network is nearest the aircraft; the arrival if
- * neither is loaded yet.
- */
-function clearanceAirport(
-  clearance: TaxiClearance,
-  depIcao: string | null,
-  arrIcao: string | null,
-  segmentsByIcao: Record<string, NavdataTaxiSegment[]>
-): string | null {
-  if (clearance.holdingPoint) return depIcao
-  if (!clearance.holdShortRunway || !clearance.from) return arrIcao
-  const from = clearance.from
-  let best: { icao: string; distance: number } | null = null
-  for (const icao of [arrIcao, depIcao]) {
-    for (const s of (icao && segmentsByIcao[icao]) || []) {
-      const distance = Math.hypot(s.startLat - from.lat, (s.startLon - from.lon) * Math.cos((from.lat * Math.PI) / 180))
-      if (!best || distance < best.distance) best = { icao: icao!, distance }
-    }
-  }
-  return best?.icao ?? arrIcao
-}
 
 /** Survives a FlightMap remount the same way useTaxiChartOverlay's rememberedEnabled does —
  *  a route parsed before a tab switch shouldn't just vanish on return. Cleared only by a
@@ -306,14 +244,7 @@ export function useTaxiRouteHighlight({
   // Re-traced when segments finish loading too — a clearance can arrive before the chart has.
   const traced: TracedRoute | null = useMemo(() => {
     if (!clearance?.from || !segments || segments.length === 0) return null
-    return traceTaxiRoute({
-      segments,
-      taxiways: clearance.taxiways,
-      holdingPoint: clearance.holdingPoint ?? (clearance.holdShortRunway ? (clearance.taxiways.at(-1) ?? null) : null),
-      from: clearance.from,
-      stand: standPosition,
-      headingDeg: clearance.headingDeg ?? null
-    })
+    return traceClearance(clearance, segments, standPosition)
   }, [clearance, segments, standPosition])
 
   useEffect(() => {
@@ -378,16 +309,4 @@ export function useTaxiRouteHighlight({
       )
     }
   }, [mapRef, mapReady, enabled, departed, clearance, traced, segments, icao, position, phase])
-}
-
-/** A clearance's start: the aircraft's position, and its heading if it's taxiing. */
-function startOf(
-  position: UseTaxiRouteHighlightArgs['position'],
-  phase: FlightPhase | null
-): Pick<TaxiClearance, 'from' | 'headingDeg'> {
-  if (!position) return { from: null, headingDeg: null }
-  return {
-    from: { lat: position.lat, lon: position.lon },
-    headingDeg: phase === 'taxi' ? (position.headingDeg ?? null) : null
-  }
 }
