@@ -8,6 +8,7 @@ import type { LandingRunway } from '@shared/ipc'
 import { columnIndex, parseCsvRows } from '../db/csv'
 import { angularDifference, positionRelativeToRunway, type RunwayRelativePosition } from './landing-maths'
 import runwaysRaw from '../../../resources/runways.csv?raw'
+import { lazy } from '@shared/lazy'
 
 export interface RunwayEnd {
   icao: string
@@ -214,10 +215,7 @@ export function resolveRunwayEnd(
 // reasoning as airport-search.ts. This one's real use (a touchdown) can be hours into a
 // session, so deferring the parse to then still matters even though every flight
 // eventually needs it.
-let allRunwayEnds: RunwayEnd[] | null = null
-function getAllRunwayEnds(): RunwayEnd[] {
-  return (allRunwayEnds ??= loadRunwayEnds(runwaysRaw))
-}
+const getAllRunwayEnds = lazy(() => loadRunwayEnds(runwaysRaw))
 
 export function findRunwayEnd(
   icao: string,

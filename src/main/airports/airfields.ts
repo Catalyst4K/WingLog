@@ -7,6 +7,7 @@
 import type { Airfield, AirfieldType } from '@shared/ipc'
 import { columnIndex, parseCsvRows } from '../db/csv'
 import airportsRaw from '../../../resources/airports.csv?raw'
+import { lazy } from '@shared/lazy'
 
 const AIRFIELD_TYPES: ReadonlySet<string> = new Set<AirfieldType>([
   'large_airport',
@@ -45,9 +46,8 @@ export function loadAirfields(raw: string): Airfield[] {
   return airfields
 }
 
-let cache: Airfield[] | null = null
+const airfields = lazy(() => loadAirfields(airportsRaw))
 
 export function listAirfields(): Airfield[] {
-  cache ??= loadAirfields(airportsRaw)
-  return cache
+  return airfields()
 }

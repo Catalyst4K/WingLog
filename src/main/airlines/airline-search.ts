@@ -19,6 +19,7 @@ import type { AirlineOption } from '@shared/ipc'
 import { columnIndex, parseCsvRows } from '../db/csv'
 import airlinesRaw from '../../../resources/airlines.csv?raw'
 import airlineAliasesRaw from '../../../resources/airline-aliases.csv?raw'
+import { lazy } from '@shared/lazy'
 
 export function loadAirlines(raw: string): AirlineOption[] {
   const [header, ...rows] = parseCsvRows(raw)
@@ -55,10 +56,7 @@ export function searchAirlineList(airlines: AirlineOption[], query: string): Air
 // Parsed on first use, not at module load (docs/decisions.md, memory-usage entry) — same
 // reasoning as airport-search.ts. Shared by both exports below, since either can be the
 // first to touch it (a Fleet airline search vs. the IATA backfill script).
-let allAirlines: AirlineOption[] | null = null
-function getAllAirlines(): AirlineOption[] {
-  return (allAirlines ??= [...loadAirlines(airlinesRaw), ...loadAirlines(airlineAliasesRaw)])
-}
+const getAllAirlines = lazy((): AirlineOption[] => [...loadAirlines(airlinesRaw), ...loadAirlines(airlineAliasesRaw)])
 
 export function searchAirlines(query: string): AirlineOption[] {
   return searchAirlineList(getAllAirlines(), query)
