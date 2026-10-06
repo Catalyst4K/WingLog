@@ -3,7 +3,7 @@
  * route (useTaxiRouteHighlight.ts), shared with the simulation (scripts/sim/taxi.sim.ts) so it
  * runs the app's own code (flightdeck-backend docs/plans/robustness/scenario-testing.md Part 6).
  */
-import type { BeyondAtcInfoBox, FlightPhase, NavdataStand, NavdataTaxiSegment } from '@shared/ipc'
+import type { BeyondAtcInfoBox, NavdataStand, NavdataTaxiSegment } from '@shared/ipc'
 import { parseAtcTaxiFacts } from '@shared/atc-info-boxes'
 import { traceTaxiRoute, type TracedRoute } from './taxiRouteTrace'
 
@@ -15,11 +15,10 @@ export interface TaxiClearance {
   /** "taxi via C7, Y, F, hold short of runway 07C" → '07C': the route runs along its last
    *  taxiway to the hold short, the same way as a holding point. */
   holdShortRunway: string | null
-  /** Where the aircraft was when the clearance arrived — the trace's start. */
+  /** Where the aircraft was when the clearance arrived — the trace's start. The line follows
+   *  the clearance from there whichever way the aircraft faces: if it's driven the other way,
+   *  the re-route takes over (YBBN flight 225, Callum 2026-10-06). */
   from: { lat: number; lon: number } | null
-  /** Its heading then, only if it was already taxiing under its own power (at the stand the
-   *  nose points the way it'll be pushed back from, so it says nothing about the way out). */
-  headingDeg?: number | null
 }
 
 /** "27L" or "09": a `Hold Position` box naming a runway, not a holding point. */
@@ -31,7 +30,7 @@ const RUNWAY_IDENT = /^\d{1,2}[LRC]?$/
  * Real, 2026-10-05: VHHH "B, B, V, H, J" to J1 and ZJSY "A4, D" to gate 102. Null when the
  * boxes hold no taxi route.
  */
-export function boxTaxiClearance(boxes: BeyondAtcInfoBox[]): Omit<TaxiClearance, 'from' | 'headingDeg'> | null {
+export function boxTaxiClearance(boxes: BeyondAtcInfoBox[]): Omit<TaxiClearance, 'from'> | null {
   const facts = parseAtcTaxiFacts(boxes)
   if (facts.taxiVia.length === 0) return null
   const hold = facts.holdPosition
@@ -69,16 +68,9 @@ export function clearanceAirport(
   return best?.icao ?? arrIcao
 }
 
-/** A clearance's start: the aircraft's position, and its heading if it's taxiing. */
-export function startOf(
-  position: { lat: number; lon: number; headingDeg?: number } | null,
-  phase: FlightPhase | null
-): Pick<TaxiClearance, 'from' | 'headingDeg'> {
-  if (!position) return { from: null, headingDeg: null }
-  return {
-    from: { lat: position.lat, lon: position.lon },
-    headingDeg: phase === 'taxi' ? (position.headingDeg ?? null) : null
-  }
+/** A clearance's start: the aircraft's position. */
+export function startOf(position: { lat: number; lon: number } | null): Pick<TaxiClearance, 'from'> {
+  return { from: position ? { lat: position.lat, lon: position.lon } : null }
 }
 
 /**
@@ -96,7 +88,6 @@ export function traceClearance(
     taxiways: clearance.taxiways,
     holdingPoint: clearance.holdingPoint ?? (clearance.holdShortRunway ? (clearance.taxiways.at(-1) ?? null) : null),
     from: clearance.from,
-    stand,
-    headingDeg: clearance.headingDeg ?? null
+    stand
   })
 }
