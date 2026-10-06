@@ -13,14 +13,20 @@ export interface FlightFixtureHeader {
   notes: string
 }
 
+/** One BeyondATC or GSX message, unparsed, in or out, written by the dev build's full capture
+ *  (src/main/diagnostics/flight-capture.ts). replay-capture.ts feeds the incoming ones to the
+ *  services (flightdeck-backend robustness/scenario-testing.md Part 1). */
+export interface CapturedLineEvent {
+  type: 'beyondatc' | 'gsx'
+  tOffsetMs: number
+  direction: 'in' | 'out'
+  text: string
+}
+
 export type FlightFixtureEvent =
   | { type: 'telemetry'; tOffsetMs: number; data: SimTelemetry }
   | { type: 'paused'; tOffsetMs: number; value: boolean }
-  // Written by the dev build's full capture (src/main/diagnostics/flight-capture.ts), each
-  // message unparsed, in or out. ReplaySimConnectService skips them; the multi-stream replay
-  // (flightdeck-backend robustness/scenario-testing.md Part 1) feeds them to the services.
-  | { type: 'beyondatc'; tOffsetMs: number; direction: 'in' | 'out'; text: string }
-  | { type: 'gsx'; tOffsetMs: number; direction: 'in' | 'out'; text: string }
+  | CapturedLineEvent
 
 export interface ParsedFlightFixture {
   header: FlightFixtureHeader
@@ -39,4 +45,9 @@ export function parseFlightFixture(ndjson: string): ParsedFlightFixture {
     throw new Error('Fixture has no telemetry events')
   }
   return { header, events }
+}
+
+/** The NDJSON text of a fixture, as parseFlightFixture reads it back. */
+export function formatFlightFixture(fixture: ParsedFlightFixture): string {
+  return [fixture.header, ...fixture.events].map((line) => JSON.stringify(line)).join('\n') + '\n'
 }

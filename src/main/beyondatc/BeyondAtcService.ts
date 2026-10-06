@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { WebSocket as NodeWebSocket } from 'ws'
+import { NodeServiceSocket, type ServiceSocket, type ServiceSocketCtor } from '../net/service-socket'
 import type {
   BeyondAtcCallsign,
   BeyondAtcCom2,
@@ -40,7 +40,7 @@ export function e2eBeyondAtcPort(value: string | undefined): number | undefined 
  *  doesn't. Injected so tests don't need a real BeyondATC install (mirrors GsxRemoteService's
  *  own WebSocketCtor injection, which has the identical import for the same latent reason —
  *  not independently reproduced live, but fixed preventively). */
-export type WebSocketCtor = typeof NodeWebSocket
+export type WebSocketCtor = ServiceSocketCtor
 
 // Reconnect behaviour is undesigned on BeyondATC's own side (flightdeck-backend's
 // beyondatc-integration.md, open question 3) — reused verbatim from GsxRemoteService rather
@@ -205,7 +205,7 @@ function parseFrequencies(rest: string): BeyondAtcFrequencyOption[] {
  * never reflected in getState(), not an oversight.
  */
 export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
-  private ws: InstanceType<WebSocketCtor> | undefined
+  private ws: ServiceSocket | undefined
   private stopped = true
   private reconnectTimer: NodeJS.Timeout | undefined
   private lastFrequencyRequest = 0
@@ -218,7 +218,7 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
   constructor(
     private host: string,
     private readonly port: number = BEYONDATC_PORT,
-    private readonly WebSocketImpl: WebSocketCtor = NodeWebSocket
+    private readonly WebSocketImpl: WebSocketCtor = NodeServiceSocket
   ) {
     super()
   }
@@ -317,7 +317,7 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
     if (this.stopped) return
     this.setStatus({ state: 'connecting', lastError: null })
 
-    let socket: InstanceType<WebSocketCtor>
+    let socket: ServiceSocket
     try {
       socket = new this.WebSocketImpl(`ws://${this.host}:${this.port}/`)
     } catch (err) {

@@ -2,7 +2,13 @@ import { EventEmitter } from 'node:events'
 import { readFileSync } from 'node:fs'
 import type { SimConnectionStatus, SimTelemetry } from '@shared/ipc'
 import type { TouchdownSeverity } from './SimConnectSource'
-import { parseFlightFixture, type FlightFixtureEvent, type FlightFixtureHeader } from './flight-fixture'
+import {
+  parseFlightFixture,
+  type CapturedLineEvent,
+  type FlightFixtureEvent,
+  type FlightFixtureHeader,
+  type ParsedFlightFixture
+} from './flight-fixture'
 
 interface ReplaySimConnectServiceEvents {
   telemetry: [SimTelemetry]
@@ -18,6 +24,12 @@ interface ReplaySimConnectServiceEvents {
    *  been replayed, so a driving script/test knows when it's safe to inspect the result
    *  instead of guessing at a timeout. */
   replayComplete: []
+  /** A BeyondATC or GSX line from a full capture, at its moment in the replay; replay-capture.ts
+   *  hands it to the matching service. */
+  captured: [CapturedLineEvent]
+  /** Before each event is replayed: its offset from the start of the capture, in ms, so a
+   *  driver can keep a clock in step with the recording. */
+  offset: [number]
 }
 
 export type ReplayMode = 'instant' | 'paced'
@@ -70,13 +82,14 @@ export class ReplaySimConnectService extends EventEmitter<ReplaySimConnectServic
   private readonly holdUntilReleased: boolean
   private holdTimer: NodeJS.Timeout | undefined
 
-  constructor(fixturePath: string, options: ReplaySimConnectServiceOptions = {}) {
+  /** @param fixture A fixture file's path, or one already parsed (a transformed capture). */
+  constructor(fixture: string | ParsedFlightFixture, options: ReplaySimConnectServiceOptions = {}) {
     super()
     this.mode = options.mode ?? 'instant'
     this.speedMultiplier = options.speedMultiplier ?? 1
     this.holdUntilReleased = options.holdUntilReleased ?? false
 
-    const { header, events } = parseFlightFixture(readFileSync(fixturePath, 'utf8'))
+    const { header, events } = typeof fixture === 'string' ? parseFlightFixture(readFileSync(fixture, 'utf8')) : fixture
     this.header = header
     this.events = events
 
@@ -85,7 +98,7 @@ export class ReplaySimConnectService extends EventEmitter<ReplaySimConnectServic
     // doc's Design §2 a replay double must satisfy that before start() is even called.
     const firstTelemetry = events.find((e) => e.type === 'telemetry')
     if (!firstTelemetry || firstTelemetry.type !== 'telemetry') {
-      throw new Error(`Fixture ${fixturePath} has no telemetry events`)
+      throw new Error(`Fixture ${typeof fixture === 'string' ? fixture : header.scenario} has no telemetry events`)
     }
     this.lastTelemetry = firstTelemetry.data
   }
@@ -149,13 +162,15 @@ export class ReplaySimConnectService extends EventEmitter<ReplaySimConnectServic
     const emitAndAdvance = (): void => {
       if (this.stopped) return
       const event = this.events[index]
+      this.emit('offset', event.tOffsetMs)
       if (event.type === 'telemetry') {
         this.lastTelemetry = event.data
         this.emit('telemetry', event.data)
       } else if (event.type === 'paused') {
         this.emit('paused', event.value)
+      } else {
+        this.emit('captured', event)
       }
-      // BeyondATC and GSX lines from a full capture aren't the sim's: skipped here.
       this.playFrom(index + 1)
     }
 

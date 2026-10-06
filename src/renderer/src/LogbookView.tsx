@@ -54,6 +54,7 @@ import { selectionFromFlight, useLiveWaypoints } from './procedureSelection'
 import { parseTransitionAltitudes, type Waypoint } from './route'
 import { SortableHead } from './SortableHead'
 import { TouchdownDiagram } from './TouchdownDiagram'
+import { KeepCaptureButton } from './KeepCaptureButton'
 import { TrackCleanupButton } from './TrackCleanupButton'
 import {
   formatCentrelineOffset,
@@ -572,6 +573,7 @@ function FlightDetail(props: {
           {props.backToAircraft ? t('logbookView.backToAircraft') : t('logbookView.backToLogbook')}
         </Button>
         <div className="flex items-center gap-2">
+          <KeepCaptureButton flightId={flight.id} />
           <TrackCleanupButton flightId={flight.id} onCleaned={setTrackPoints} />
           <Button type="button" variant="ghost" size="sm" onClick={handleDelete}>
             <Trash2 />

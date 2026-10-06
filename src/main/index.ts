@@ -125,6 +125,7 @@ import {
 } from './simbrief/simbrief-generate'
 import { SimConnectService } from './sim/SimConnectService'
 import { ReplaySimConnectService, type ReplayMode } from './sim/ReplaySimConnectService'
+import { replayCapture } from './sim/replay-capture'
 import { EMPTY_COMMAND_BAR, EMPTY_MENU, GsxRemoteService } from './gsx-remote/GsxRemoteService'
 import { BeyondAtcService, e2eBeyondAtcPort } from './beyondatc/BeyondAtcService'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
@@ -141,7 +142,7 @@ import { SimAirfieldResolver } from './airports/sim-airfield'
 import { TrackingController } from './tracking/TrackingController'
 import { createDiag, isDiagCategory, MAX_LINE_CHARS, openDiagLog } from './diagnostics/diag'
 import { DevDiagnostics } from './diagnostics/dev-diagnostics'
-import { FlightCapture } from './diagnostics/flight-capture'
+import { FlightCapture, isFlightId } from './diagnostics/flight-capture'
 import { AutoStartDetector } from './tracking/AutoStartDetector'
 import { CloudSyncController } from './sync/cloud-sync-controller'
 import { pointRegeditAtUnpackedScripts } from './sim/regedit-scripts'
@@ -539,15 +540,19 @@ if (!gotSingleInstanceLock) {
       // as before. Both classes satisfy SimConnectSource, the interface TrackingController
       // actually depends on, so no cast is needed either way.
       const replayFixture = process.env.WINGLOG_E2E_FIXTURE
-      const simConnectService: SimConnectService | ReplaySimConnectService = replayFixture
-        ? new ReplaySimConnectService(replayFixture, {
+      const replay = replayFixture
+        ? replayCapture(replayFixture, {
             mode: (process.env.WINGLOG_E2E_REPLAY_MODE as ReplayMode | undefined) ?? 'paced',
             speedMultiplier: process.env.WINGLOG_E2E_REPLAY_SPEED
               ? Number(process.env.WINGLOG_E2E_REPLAY_SPEED)
               : undefined,
             holdUntilReleased: process.env.WINGLOG_E2E_REPLAY_HOLD === '1'
           })
-        : new SimConnectService()
+        : undefined
+      const simConnectService: SimConnectService | ReplaySimConnectService = replay?.sim ?? new SimConnectService()
+      // WINGLOG_E2E_REPLAY_STREAMS=1: BeyondATC and GSX get the capture's own messages, on the
+      // replay's clock, instead of connecting to a server (scenario-testing.md Part 1).
+      const replayStreams = replay && process.env.WINGLOG_E2E_REPLAY_STREAMS === '1' ? replay : undefined
       ipcMain.handle(IpcChannels.simConnectionStatusGet, () => simConnectService.getStatus())
       simConnectService.on('telemetry', (telemetry) => {
         liveHub.publish('simTelemetry', telemetry)
@@ -567,14 +572,19 @@ if (!gotSingleInstanceLock) {
       )
       // Dev build only: diag.log and the full flight capture (src/main/diagnostics/).
       const diag = createDiag(__WINGLOG_DEV_BUILD__ ? openDiagLog() : null)
-      const devDiagnostics = __WINGLOG_DEV_BUILD__
-        ? new DevDiagnostics(diag, new FlightCapture(join(app.getPath('userData'), 'captures')))
-        : undefined
+      const flightCapture = __WINGLOG_DEV_BUILD__ ? new FlightCapture(join(app.getPath('userData'), 'captures')) : undefined
+      const devDiagnostics = flightCapture ? new DevDiagnostics(diag, flightCapture) : undefined
       devDiagnostics?.attachTracking(trackingController, simConnectService)
       ipcMain.handle(IpcChannels.diagLog, (_event, category: unknown, message: unknown) => {
         if (!isDiagCategory(category) || typeof message !== 'string') return
         diag(category, message.slice(0, MAX_LINE_CHARS))
       })
+      ipcMain.handle(IpcChannels.captureKeepState, (_event, flightId: unknown) =>
+        flightCapture && isFlightId(flightId) ? flightCapture.keepState(flightId) : 'none'
+      )
+      ipcMain.handle(IpcChannels.captureKeep, (_event, flightId: unknown) =>
+        flightCapture && isFlightId(flightId) ? flightCapture.keep(flightId) : 'none'
+      )
       // The one flight left "in progress" (planned or already active) when the previous
       // process quit or crashed — its DB row (OFP, route, everything Dispatch/Track need)
       // was never at risk, only TrackingController's in-memory phase-detection state, which
@@ -852,7 +862,7 @@ if (!gotSingleInstanceLock) {
         gsxRemoteService = undefined
         const settings = getGsxRemoteSettings(db)
         if (!settings.enabled || !settings.port) return
-        gsxRemoteService = new GsxRemoteService(settings.host, settings.port)
+        gsxRemoteService = new GsxRemoteService(settings.host, settings.port, replayStreams?.gsx.socketCtor)
         devDiagnostics?.attachGsx(gsxRemoteService)
         gsxRemoteService.on('status', (status) => {
           liveHub.publish('gsxRemoteStatus', status)
@@ -920,7 +930,11 @@ if (!gotSingleInstanceLock) {
         beyondAtcService = undefined
         const settings = getBeyondAtcSettings(db)
         if (!settings.enabled) return
-        beyondAtcService = new BeyondAtcService(settings.host, e2eBeyondAtcPort(process.env.WINGLOG_E2E_BEYONDATC_PORT))
+        beyondAtcService = new BeyondAtcService(
+          settings.host,
+          e2eBeyondAtcPort(process.env.WINGLOG_E2E_BEYONDATC_PORT),
+          replayStreams?.beyondAtc.socketCtor
+        )
         devDiagnostics?.attachBeyondAtc(beyondAtcService)
         beyondAtcService.on('status', (status) => {
           liveHub.publish('beyondAtcStatus', status)
