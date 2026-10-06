@@ -46,7 +46,7 @@ for (const [width, height] of [
   test(`Track, BeyondATC and Ground services fit a ${width} px window`, async () => {
     const beyondAtc = await FakeBeyondAtcServer.start()
     const gsx = await FakeGsxRemoteServer.start()
-    const { app, window: page, cleanup } = await launchApp()
+    const { app, window: page, cleanup } = await launchApp({ env: beyondAtc.env })
     try {
       await page.evaluate((port) => {
         const api = (globalThis as unknown as Window).winglog
@@ -94,7 +94,7 @@ test('at the default window width every tab label sits on one line, under its un
   // two lines and the active tab's underline ran through "services".
   const gsx = await FakeGsxRemoteServer.start()
   const beyondAtc = await FakeBeyondAtcServer.start()
-  const { app, window: page, cleanup } = await launchApp()
+  const { app, window: page, cleanup } = await launchApp({ env: beyondAtc.env })
   try {
     await page.evaluate((port) => {
       const api = (globalThis as unknown as Window).winglog

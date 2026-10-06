@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
-import { BEYONDATC_PORT, BeyondAtcService, validFrequency, type WebSocketCtor } from './BeyondAtcService'
+import { BEYONDATC_PORT, BeyondAtcService, e2eBeyondAtcPort, validFrequency, type WebSocketCtor } from './BeyondAtcService'
 
 /** A minimal WHATWG-WebSocket-shaped double, driven manually from tests — same reasoning as
  *  GsxRemoteService.test.ts's FakeWebSocket, but `simulateLine` sends plain text instead of
@@ -549,5 +549,12 @@ describe('BeyondAtcService raw messages (dev build capture)', () => {
       { direction: 'out', text: 'set_action: Radio Check' }
     ])
     service.stop()
+  })
+})
+
+describe('e2eBeyondAtcPort', () => {
+  it('uses a valid port from the e2e variable, and the real port for anything else', () => {
+    expect(e2eBeyondAtcPort('43123')).toBe(43123)
+    expect([undefined, '', 'abc', '0', '70000', '41716.5'].map(e2eBeyondAtcPort)).toEqual([undefined, undefined, undefined, undefined, undefined, undefined])
   })
 })

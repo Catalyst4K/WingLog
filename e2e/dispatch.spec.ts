@@ -37,13 +37,15 @@ test('selecting a fleet aircraft prefills the plan, and the Advanced dialog open
     await expect(page.getByRole('heading', { name: 'Dispatch' })).toBeVisible()
 
     // Selecting the aircraft prefills departure from its currentIcao (DispatchView.tsx's
-    // handlePlanAircraftChange). The option is awaited explicitly (not just clicked) since
-    // Radix's Select portal can still be mid-open on a loaded CI runner even though the
-    // click itself already auto-waits for actionability.
-    await page.getByRole('combobox').first().click()
-    const option = page.getByRole('option', { name: /G-DISP/ })
-    await expect(option).toBeVisible({ timeout: 10_000 })
-    await option.click()
+    // handlePlanAircraftChange). Radix's Select ignores a click that lands while its list is
+    // still opening, which a loaded CI runner can hit, so the pick is retried until the
+    // trigger shows it.
+    const trigger = page.getByRole('combobox').first()
+    await expect(async () => {
+      if ((await page.getByRole('listbox').count()) === 0) await trigger.click()
+      await page.getByRole('option', { name: /G-DISP/ }).click({ timeout: 2_000 })
+      await expect(trigger).toContainText('G-DISP', { timeout: 1_000 })
+    }).toPass({ timeout: 15_000 })
     await expect(page.getByText('EGLL', { exact: true }).first()).toBeVisible({ timeout: 10_000 })
 
     // Advanced dialog opens and closes without touching anything network-dependent.

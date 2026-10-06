@@ -1,10 +1,9 @@
 import { WebSocketServer, type WebSocket } from 'ws'
 
-/** Must match `BeyondAtcService`'s own `BEYONDATC_PORT` (`src/main/beyondatc/
- *  BeyondAtcService.ts`) — BeyondATC's real port is fixed, not user-configurable, so unlike
- *  `FakeGsxRemoteServer` (which binds an ephemeral port because GSX's Remote Client port
- *  genuinely varies) this fake binds the literal real port. */
-export const BEYONDATC_PORT = 41716
+/** The app's BeyondATC port for this launch: the fake binds whatever port the OS hands out and
+ *  passes it in through this variable. BeyondATC's real port (41716) is inside Linux's ephemeral
+ *  range, so binding it on a CI runner could fail when any outgoing connection had it. */
+export const BEYONDATC_PORT_ENV = 'WINGLOG_E2E_BEYONDATC_PORT'
 
 /**
  * A minimal stand-in for `BeyondATC.exe`'s own real local WebSocket server, for driving the
@@ -19,8 +18,13 @@ export class FakeBeyondAtcServer {
   readonly receivedCommands: string[] = []
   private connectionWaiters: (() => void)[] = []
 
+  /** Pass to launchApp's `env`, so the app connects to this fake. */
+  readonly env: Record<string, string>
+
   private constructor(wss: WebSocketServer) {
     this.wss = wss
+    const address = wss.address()
+    this.env = { [BEYONDATC_PORT_ENV]: String(typeof address === 'object' && address !== null ? address.port : 0) }
     wss.on('connection', (socket) => {
       this.sockets.add(socket)
       for (const resolve of this.connectionWaiters.splice(0)) resolve()
@@ -32,7 +36,7 @@ export class FakeBeyondAtcServer {
   }
 
   static async start(): Promise<FakeBeyondAtcServer> {
-    const wss = new WebSocketServer({ port: BEYONDATC_PORT })
+    const wss = new WebSocketServer({ host: '127.0.0.1', port: 0 })
     await new Promise<void>((resolve) => wss.once('listening', resolve))
     return new FakeBeyondAtcServer(wss)
   }
