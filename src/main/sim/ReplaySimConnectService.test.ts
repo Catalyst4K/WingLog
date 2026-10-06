@@ -143,6 +143,81 @@ describe('ReplaySimConnectService', () => {
     expect(lats).toEqual([1, 2, 3])
   })
 
+  describe('holdUntilReleased', () => {
+    const FIXTURE = (): string =>
+      writeFixture([
+        { type: 'telemetry', tOffsetMs: 0, data: telemetry({ latitude: 1 }) },
+        { type: 'telemetry', tOffsetMs: 1000, data: telemetry({ latitude: 2, onGround: false }) }
+      ])
+
+    it('keeps re-sending the first tick, parked, and plays nothing else until released', async () => {
+      vi.useFakeTimers()
+      const service = new ReplaySimConnectService(FIXTURE(), { mode: 'paced', speedMultiplier: 10, holdUntilReleased: true })
+      const lats: number[] = []
+      service.on('telemetry', (t) => lats.push(t.latitude))
+
+      service.start()
+      await vi.advanceTimersByTimeAsync(10_000)
+
+      expect(lats.length).toBeGreaterThan(10)
+      expect(new Set(lats)).toEqual(new Set([1]))
+      expect(service.getStatus().state).toBe('connected')
+    })
+
+    it('plays the whole fixture from its start once released', async () => {
+      vi.useFakeTimers()
+      const service = new ReplaySimConnectService(FIXTURE(), { mode: 'paced', speedMultiplier: 10, holdUntilReleased: true })
+      const lats: number[] = []
+      let completed = false
+      service.on('telemetry', (t) => lats.push(t.latitude))
+      service.on('replayComplete', () => {
+        completed = true
+      })
+
+      service.start()
+      await vi.advanceTimersByTimeAsync(600)
+      const held = lats.length
+      service.release()
+      await vi.advanceTimersByTimeAsync(1000)
+
+      expect(lats.slice(held)).toEqual([1, 2])
+      expect(completed).toBe(true)
+      // A second release is a no-op, not a second replay.
+      service.release()
+      await vi.advanceTimersByTimeAsync(1000)
+      expect(lats.slice(held)).toEqual([1, 2])
+    })
+
+    it('stop() ends the hold too', async () => {
+      vi.useFakeTimers()
+      const service = new ReplaySimConnectService(FIXTURE(), { mode: 'paced', holdUntilReleased: true })
+      const lats: number[] = []
+      service.on('telemetry', (t) => lats.push(t.latitude))
+
+      service.start()
+      await vi.advanceTimersByTimeAsync(300)
+      service.stop()
+      const sent = lats.length
+      service.release()
+      await vi.advanceTimersByTimeAsync(5000)
+
+      expect(lats.length).toBe(sent)
+    })
+
+    it('release() does nothing without a hold', async () => {
+      vi.useFakeTimers()
+      const service = new ReplaySimConnectService(FIXTURE(), { mode: 'paced', speedMultiplier: 10 })
+      const lats: number[] = []
+      service.on('telemetry', (t) => lats.push(t.latitude))
+
+      service.start()
+      service.release()
+      await vi.advanceTimersByTimeAsync(1000)
+
+      expect(lats).toEqual([1, 2])
+    })
+  })
+
   it('stop() halts replay before it finishes and no further ticks are emitted', async () => {
     vi.useFakeTimers()
     const path = writeFixture([

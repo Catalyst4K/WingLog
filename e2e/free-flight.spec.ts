@@ -32,7 +32,11 @@ test('starts a free flight from Track and finds it, completed, in the Logbook', 
     env: {
       WINGLOG_E2E_FIXTURE: fixturePath,
       WINGLOG_E2E_REPLAY_MODE: 'paced',
-      WINGLOG_E2E_REPLAY_SPEED: '200'
+      WINGLOG_E2E_REPLAY_SPEED: '200',
+      // Parked at the first tick until "Start tracking": at 200x the fixture takes off 0.8 s
+      // after launch, so without this the flight was sometimes already airborne (no off time,
+      // no Free flight badge) by the time the test started tracking (CI runs #166, #171).
+      WINGLOG_E2E_REPLAY_HOLD: '1'
     }
   })
   try {
@@ -82,6 +86,26 @@ test('starts a free flight from Track and finds it, completed, in the Logbook', 
     // brake never set (flight-replay.test.ts's own describe block has the same real-data
     // quirk) — shutdown detection never fires on its own, so a pilot presses "Finish & save"
     // here, same as this does.
+    // Wait for the replayed flight to land (airborne, then on the ground again) before
+    // finishing: the off time, which the Free flight badge needs, is recorded on climb.
+    await window.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          const api = (
+            globalThis as unknown as {
+              winglog: { onSimTelemetry: (l: (t: { onGround: boolean }) => void) => () => void }
+            }
+          ).winglog
+          let airborne = false
+          const off = api.onSimTelemetry((t) => {
+            if (!t.onGround) airborne = true
+            else if (airborne) {
+              off()
+              resolve()
+            }
+          })
+        })
+    )
     await window.getByRole('button', { name: 'Finish & save' }).click()
     const confirmDialog = window.getByRole('alertdialog')
     await confirmDialog.getByRole('button', { name: 'Finish & save' }).click()

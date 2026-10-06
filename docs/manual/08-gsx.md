@@ -13,7 +13,8 @@ With **GSX ground services** on, WingLog attaches them to the matching flight in
 
 - WingLog looks in GSX's usual receipts folder (`%APPDATA%\Virtuali\GSX\Receipts`). Use **Browse…**
   if yours is somewhere else.
-- **Display currency** converts totals with a live exchange rate when you view them.
+- **Display currency** converts each receipt and the total, at the exchange rate for the day each
+  receipt was issued. The local amount GSX charged is shown alongside.
 - A receipt that doesn't say which aircraft it was for isn't attached automatically. The flight
   shows it as a possible match with an **Attach** button.
 - **Rescan** looks again, for example after turning this on for flights you've already flown.

@@ -24,11 +24,10 @@ const GO_AROUND_AIRBORNE_SAMPLES = 3
 // live without needing to keep the old marker/camera interpolation to hide the jump.
 const CRUISE_TRACK_INTERVAL_S = 5
 const CLIMB_TRACK_INTERVAL_S = 2 // slightly coarser than the 1s default elsewhere
-// Ground movement between the runway and the gate — slow, and nothing about it needs
-// landing-analysis-grade precision, so it's worth the same treatment as cruise (a big
-// hub taxi-in can run 10-15+ minutes at 1 Hz otherwise). Applies to both pre-departure and
-// post-landing taxiing; the phase doesn't distinguish them.
-const TAXI_TRACK_INTERVAL_S = 3
+// Taxi records at the same 1s as every other ground phase (no entry in shouldRecord). It was
+// 3s until 2026-10: points then sat 20-60m apart, so every turn drew as a chord straight
+// across the taxiway fillet. The map's own ground simplification (track-simplify.ts) keeps
+// only the turns for display anyway, so the extra rows only cost storage.
 // Descent from cruise altitude down to pattern altitude can be 20-40+ minutes at 1 Hz —
 // the single biggest remaining point-count/CPU cost outside cruise itself, and (unlike
 // climb/cruise) none of it needs to be dense: buildLandingRecord (landing-capture.ts)
@@ -295,7 +294,6 @@ export class FlightRecorder {
     let interval = 1
     if (this.phase === 'cruise') interval = CRUISE_TRACK_INTERVAL_S
     else if (this.phase === 'climb') interval = CLIMB_TRACK_INTERVAL_S
-    else if (this.phase === 'taxi') interval = TAXI_TRACK_INTERVAL_S
     else if (this.phase === 'descent' && t.altitudeAglM > DESCENT_APPROACH_AGL_M) {
       interval = DESCENT_HIGH_ALTITUDE_INTERVAL_S
     }

@@ -40,7 +40,27 @@ function rateKey(currency: string, date: string): string {
   return `${currency}:${date}`
 }
 
-function InvoiceRow(props: { invoice: FlightInvoice }): React.JSX.Element {
+function formatMoney(amount: number, currency: string): string {
+  return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount)
+}
+
+/** A receipt's amount as shown on its row. GSX's own text is `"<local> ~$ <USD>"`
+ *  (src/main/gsx/money.ts); when the card's total is in another display currency, the
+ *  `~$` half is swapped for that currency so every row matches the total underneath. The
+ *  local half stays verbatim. With no conversion (USD display, rate not resolved, no USD
+ *  amount), GSX's text is shown as-is. */
+function rowAmountText(inv: FlightInvoice, converted: { currency: string; rate: number } | null): string {
+  if (inv.totalText == null) return '—'
+  if (converted == null || inv.totalUsd == null) return inv.totalText
+  const tildeIndex = inv.totalText.indexOf('~')
+  const local = (tildeIndex === -1 ? inv.totalText : inv.totalText.slice(0, tildeIndex)).trim()
+  return `${local} ~${formatMoney(inv.totalUsd * converted.rate, converted.currency)}`
+}
+
+function InvoiceRow(props: {
+  invoice: FlightInvoice
+  converted: { currency: string; rate: number } | null
+}): React.JSX.Element {
   const { t } = useTranslation()
   const inv = props.invoice
   const detail = parseDetail(inv.receiptJson)
@@ -57,7 +77,7 @@ function InvoiceRow(props: { invoice: FlightInvoice }): React.JSX.Element {
           {inv.operator ? ` — ${inv.operator}` : ''}
         </span>
         <span className="flex items-center gap-3">
-          <span className="font-mono tabular-nums text-foreground">{inv.totalText ?? '—'}</span>
+          <span className="font-mono tabular-nums text-foreground">{rowAmountText(inv, props.converted)}</span>
           <Button
             type="button"
             variant="outline"
@@ -187,10 +207,11 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
     ? invoicesWithUsd.reduce((sum, inv) => sum + inv.totalUsd! * rateFor(inv)!, 0)
     : totalUsd
   const displayCode = showConverted ? displayCurrency : 'USD'
-  const formattedTotal = new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: displayCode
-  }).format(displayTotal)
+  const formattedTotal = formatMoney(displayTotal, displayCode)
+  // Rows convert on exactly the same condition as the total, so the card never mixes a
+  // converted total with unconverted rows (or the reverse).
+  const convertedFor = (inv: FlightInvoice): { currency: string; rate: number } | null =>
+    showConverted && inv.totalUsd != null ? { currency: displayCurrency, rate: rateFor(inv)! } : null
 
   return (
     <Card className="min-w-72 max-w-2xl flex-1">
@@ -208,7 +229,7 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
         ) : (
           <>
             {invoices.map((inv) => (
-              <InvoiceRow key={inv.id} invoice={inv} />
+              <InvoiceRow key={inv.id} invoice={inv} converted={convertedFor(inv)} />
             ))}
             {hasAnyUsdTotal && (
               <div className="flex justify-between border-t border-border pt-2 text-sm">

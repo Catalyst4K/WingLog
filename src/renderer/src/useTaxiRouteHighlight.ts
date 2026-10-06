@@ -4,7 +4,8 @@ import type { BeyondAtcInfoBox, BeyondAtcState, BeyondAtcTranscriptEntry, Flight
 import { parseAtcTaxiFacts } from '@shared/atc-info-boxes'
 import { findStand } from '@shared/stands'
 import { parseTaxiHoldShortRunway } from '@shared/taxi-route-parser'
-import { remainingRoute, traceTaxiRoute, type TracedRoute } from './taxiRouteTrace'
+import { traceTaxiRoute, type TracedRoute } from './taxiRouteTrace'
+import { startTracker, trackPosition, type RerouteTracker } from './taxiReroute'
 import { TAXI_SOURCE_ID } from './useTaxiChartOverlay'
 import { useLiveClient } from './live/LiveClient'
 
@@ -28,6 +29,12 @@ import { useLiveClient } from './live/LiveClient'
  * `Taxi to Gate`; boxTaxiClearance), never from parsing the speech (flightdeck-backend's
  * docs/decisions.md, 2026-10-05). The one exception is a spoken "hold short of runway 07C",
  * which has no box: it's added to the box route heard within HOLD_SHORT_PAIR_MS of it.
+ *
+ * Re-routing (flightdeck-backend's docs/plans/taxi-reroute.md): when the aircraft leaves the
+ * line, or drives the wrong way along it, while taxiing, the line is redrawn as the shortest
+ * way from where it is to the same end, rejoining the cleared route wherever that's shortest
+ * (taxiReroute.ts decides when, rejoinTaxiRoute where). A re-route that can't be traced (off the
+ * network) keeps the line it had. Once the aircraft reaches the end, nothing re-routes.
  *
  * Both are limited to the clearance's own airport: a "holding point" clearance is the
  * departure's, a "taxi to stand" one the arrival's. Without this, a departure's B8/B also lit
@@ -75,6 +82,9 @@ interface TaxiClearance {
   holdShortRunway: string | null
   /** Where the aircraft was when the clearance arrived — the trace's start. */
   from: { lat: number; lon: number } | null
+  /** Its heading then, only if it was already taxiing under its own power (at the stand the
+   *  nose points the way it'll be pushed back from, so it says nothing about the way out). */
+  headingDeg?: number | null
 }
 
 /** "27L" or "09": a `Hold Position` box naming a runway, not a holding point. */
@@ -86,7 +96,7 @@ const RUNWAY_IDENT = /^\d{1,2}[LRC]?$/
  * Real, 2026-10-05: VHHH "B, B, V, H, J" to J1 and ZJSY "A4, D" to gate 102. Null when the
  * boxes hold no taxi route.
  */
-export function boxTaxiClearance(boxes: BeyondAtcInfoBox[]): Omit<TaxiClearance, 'from'> | null {
+export function boxTaxiClearance(boxes: BeyondAtcInfoBox[]): Omit<TaxiClearance, 'from' | 'headingDeg'> | null {
   const facts = parseAtcTaxiFacts(boxes)
   if (facts.taxiVia.length === 0) return null
   const hold = facts.holdPosition
@@ -114,8 +124,9 @@ export interface UseTaxiRouteHighlightArgs {
   segmentsByIcao: Record<string, NavdataTaxiSegment[]>
   depIcao: string | null
   arrIcao: string | null
-  /** The aircraft's live position, or null when there's no live telemetry. */
-  position: { lat: number; lon: number } | null
+  /** The aircraft's live position, heading (degrees true) and ground speed, or null when
+   *  there's no live telemetry. Heading and speed are what re-routing needs. */
+  position: { lat: number; lon: number; headingDeg?: number; groundSpeedMs?: number } | null
   /** The active flight's phase, or null with no active flight. */
   phase: FlightPhase | null
 }
@@ -180,8 +191,9 @@ export function useTaxiRouteHighlight({
   const [clearance, setClearance] = useState<TaxiClearance | null>(rememberedClearance)
   const client = useLiveClient()
   const positionRef = useRef(position)
-  /** How far along the traced line the aircraft has got (remainingRoute's `segment`). */
-  const progressRef = useRef(0)
+  const phaseRef = useRef(phase)
+  /** The current clearance's line between position updates (taxiReroute.ts). */
+  const trackerRef = useRef<RerouteTracker | null>(null)
   // Whether this hook has itself created its layers. Checked instead of calling
   // map.getLayer() unconditionally on every mount (App.tsx/LogbookView.tsx's own FlightMap
   // hosts use a simpler test fake that doesn't implement getLayer, since nothing needed it
@@ -190,7 +202,8 @@ export function useTaxiRouteHighlight({
 
   useEffect(() => {
     positionRef.current = position
-  }, [position])
+    phaseRef.current = phase
+  }, [position, phase])
 
   // Gated on `enabled` — same "nothing happens until the chart is switched on" discipline
   // useTaxiChartOverlay's own fetch effect follows. The boxes and transcript BeyondATC already
@@ -225,7 +238,7 @@ export function useTaxiRouteHighlight({
       if (key === rememberedBoxKey) return
       rememberedBoxKey = key
       rememberedBoxAt = Date.now()
-      let next: TaxiClearance = { ...box, from: positionRef.current }
+      let next: TaxiClearance = { ...box, ...startOf(positionRef.current, phaseRef.current) }
       if (rememberedHoldShort && Date.now() - rememberedHoldShort.at <= HOLD_SHORT_PAIR_MS) {
         next = withHoldShort(next, rememberedHoldShort.runway)
       }
@@ -248,7 +261,7 @@ export function useTaxiRouteHighlight({
   // Track has loaded the active flight (so no position yet) — the clearance was stored with
   // nowhere to start, never traced, and fell back to whole taxiways. Updated during render
   // (React's "adjust state when a prop changes" pattern), not in an effect.
-  if (clearance && !clearance.from && position) setClearance({ ...clearance, from: position })
+  if (clearance && !clearance.from && position) setClearance({ ...clearance, ...startOf(position, phase) })
   // The route held when the takeoff roll starts is the departure's: dropped then, so it can't
   // come back at the arrival. Only on that change, never just for being airborne, so an
   // arrival's taxi clearance is never thrown away even if the phase lags behind touchdown;
@@ -288,21 +301,22 @@ export function useTaxiRouteHighlight({
   const standPosition =
     clearance?.stand && stands && stands.icao === icao ? findStand(stands.list, clearance.stand) : null
 
+  const segments = icao ? segmentsByIcao[icao] : undefined
   // Re-traced when segments finish loading too — a clearance can arrive before the chart has.
   const traced: TracedRoute | null = useMemo(() => {
-    const segments = icao ? segmentsByIcao[icao] : undefined
     if (!clearance?.from || !segments || segments.length === 0) return null
     return traceTaxiRoute({
       segments,
       taxiways: clearance.taxiways,
       holdingPoint: clearance.holdingPoint ?? (clearance.holdShortRunway ? (clearance.taxiways.at(-1) ?? null) : null),
       from: clearance.from,
-      stand: standPosition
+      stand: standPosition,
+      headingDeg: clearance.headingDeg ?? null
     })
-  }, [clearance, icao, segmentsByIcao, standPosition])
+  }, [clearance, segments, standPosition])
 
   useEffect(() => {
-    progressRef.current = 0
+    trackerRef.current = traced ? startTracker(traced) : null
   }, [traced])
 
   useEffect(() => {
@@ -318,12 +332,13 @@ export function useTaxiRouteHighlight({
     ensureLayers(map)
     createdRef.current = true
 
-    if (traced) {
-      let line = traced
+    const tracker = trackerRef.current
+    if (traced && tracker) {
+      let line = tracker.active
       if (position) {
-        const remaining = remainingRoute(traced, position, progressRef.current)
-        progressRef.current = remaining.segment
-        line = remaining.line
+        const update = trackPosition(tracker, { position, phase, nowMs: Date.now(), segments })
+        trackerRef.current = update.tracker
+        line = update.line
       }
       map.getSource<GeoJSONSource>(TRACE_SOURCE_ID)?.setData({
         type: 'Feature',
@@ -344,5 +359,17 @@ export function useTaxiRouteHighlight({
         (icao ? ['all', byName, ['==', ['get', 'icao'], icao]] : byName) as Parameters<MapLibreMap['setFilter']>[1]
       )
     }
-  }, [mapRef, mapReady, enabled, departed, clearance, traced, icao, position])
+  }, [mapRef, mapReady, enabled, departed, clearance, traced, segments, icao, position, phase])
+}
+
+/** A clearance's start: the aircraft's position, and its heading if it's taxiing. */
+function startOf(
+  position: UseTaxiRouteHighlightArgs['position'],
+  phase: FlightPhase | null
+): Pick<TaxiClearance, 'from' | 'headingDeg'> {
+  if (!position) return { from: null, headingDeg: null }
+  return {
+    from: { lat: position.lat, lon: position.lon },
+    headingDeg: phase === 'taxi' ? (position.headingDeg ?? null) : null
+  }
 }

@@ -39,7 +39,15 @@ export interface ReplaySimConnectServiceOptions {
   mode?: ReplayMode
   /** paced mode only: 1 = real time, 60 = a 69-minute flight replays in ~69 seconds. */
   speedMultiplier?: number
+  /** Hold at the first tick (re-sent every HOLD_INTERVAL_MS, like a parked aircraft) until
+   *  release() is called, instead of playing from start(). For an e2e test that starts
+   *  tracking itself: the replay otherwise runs from app launch, and free-flight.spec.ts's
+   *  fixture takes off 0.8 s in at 200x, so whether tracking started before takeoff (and
+   *  the flight got an off time) depended on how fast the CI runner was (runs #166, #171). */
+  holdUntilReleased?: boolean
 }
+
+const HOLD_INTERVAL_MS = 250
 
 /**
  * Replays a captured flight fixture (scripts/spike-capture-flight.ts's NDJSON output)
@@ -59,11 +67,14 @@ export class ReplaySimConnectService extends EventEmitter<ReplaySimConnectServic
   private lastTelemetry: SimTelemetry
   private stopped = true
   private timer: NodeJS.Timeout | undefined
+  private readonly holdUntilReleased: boolean
+  private holdTimer: NodeJS.Timeout | undefined
 
   constructor(fixturePath: string, options: ReplaySimConnectServiceOptions = {}) {
     super()
     this.mode = options.mode ?? 'instant'
     this.speedMultiplier = options.speedMultiplier ?? 1
+    this.holdUntilReleased = options.holdUntilReleased ?? false
 
     const { header, events } = parseFlightFixture(readFileSync(fixturePath, 'utf8'))
     this.header = header
@@ -97,11 +108,31 @@ export class ReplaySimConnectService extends EventEmitter<ReplaySimConnectServic
     this.stopped = false
     this.status = { state: 'connected', simConnectVersion: 'replay' }
     this.emit('status', this.status)
+    if (!this.holdUntilReleased) {
+      this.playFrom(0)
+      return
+    }
+    const first = this.lastTelemetry
+    const sendFirst = (): void => {
+      this.emit('telemetry', first)
+      this.holdTimer = setTimeout(sendFirst, HOLD_INTERVAL_MS)
+    }
+    this.holdTimer = setTimeout(sendFirst, 0)
+  }
+
+  /** Ends a holdUntilReleased hold and plays the fixture from its start. A no-op otherwise,
+   *  or when already released. */
+  release(): void {
+    if (this.holdTimer === undefined || this.stopped) return
+    clearTimeout(this.holdTimer)
+    this.holdTimer = undefined
     this.playFrom(0)
   }
 
   stop(): void {
     this.stopped = true
+    if (this.holdTimer) clearTimeout(this.holdTimer)
+    this.holdTimer = undefined
     if (this.timer) clearTimeout(this.timer)
     this.timer = undefined
     this.status = { state: 'disconnected' }
