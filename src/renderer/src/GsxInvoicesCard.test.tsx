@@ -185,8 +185,73 @@ describe('GsxInvoicesCard', () => {
     render(<GsxInvoicesCard flightId={42} />)
 
     await waitFor(() => expect(fxGetRate).toHaveBeenCalledWith('GBP', '2026-09-01'))
-    expect(await screen.findByText('Total (GBP)')).toBeInTheDocument()
-    expect(screen.getByText(/80\.00/)).toBeInTheDocument()
+    const totalLabel = await screen.findByText('Total (GBP)')
+    expect(totalLabel.parentElement).toHaveTextContent('£80.00')
+  })
+
+  // Regression: flight 229 (RKSI-EGLL, 2026-10-04) with display currency GBP showed each row
+  // as GSX's "₩… ~$ …" text above a "Total (GBP)" line, so the rows and the total were in
+  // different currencies. Real receipt values from that flight.
+  it('shows each row in the display currency, matching a converted total', async () => {
+    withWinglog({
+      logbookListInvoices: vi.fn().mockResolvedValue([
+        invoice({ id: 1, serviceGroup: 'catering', totalText: '₩10,421,451 ~$ 7,692.30', totalUsd: 7692.3, issuedUtc: '2026-10-04T08:00:00Z' }),
+        invoice({ id: 2, serviceGroup: 'fuel', totalText: '₩262,062,912 ~$ 193,434.34', totalUsd: 193434.34, issuedUtc: '2026-10-04T08:10:00Z' }),
+        invoice({ id: 3, serviceGroup: 'handling', totalText: '₩9,778,622 ~$ 7,217.81', totalUsd: 7217.81, issuedUtc: '2026-10-04T08:20:00Z' })
+      ]),
+      settingsGetGsx: vi.fn().mockResolvedValue({ enabled: true, folderPath: null, displayCurrency: 'GBP' }),
+      fxGetRate: vi.fn().mockResolvedValue(0.75)
+    })
+    render(<GsxInvoicesCard flightId={229} />)
+
+    const totalLabel = await screen.findByText('Total (GBP)')
+    expect(totalLabel.parentElement).toHaveTextContent('£156,258.34')
+    expect(screen.getByText('₩10,421,451 ~£5,769.23')).toBeInTheDocument()
+    expect(screen.getByText('₩262,062,912 ~£145,075.76')).toBeInTheDocument()
+    expect(screen.getByText('₩9,778,622 ~£5,413.36')).toBeInTheDocument()
+    expect(screen.queryByText(/~\$/)).not.toBeInTheDocument()
+  })
+
+  it('shows a USD-only receipt (no local half) with the converted amount after it', async () => {
+    withWinglog({
+      logbookListInvoices: vi.fn().mockResolvedValue([invoice({ totalText: '$ 3,939.86', totalUsd: 3939.86 })]),
+      settingsGetGsx: vi.fn().mockResolvedValue({ enabled: true, folderPath: null, displayCurrency: 'GBP' }),
+      fxGetRate: vi.fn().mockResolvedValue(0.75)
+    })
+    render(<GsxInvoicesCard flightId={42} />)
+
+    expect(await screen.findByText('$ 3,939.86 ~£2,954.90')).toBeInTheDocument()
+  })
+
+  it("keeps GSX's own text on every row while the total is still in USD", async () => {
+    withWinglog({
+      logbookListInvoices: vi.fn().mockResolvedValue([
+        invoice({ id: 1, totalText: 'HK$716.54 ~$ 91.26', totalUsd: 91.26 }),
+        invoice({ id: 2, totalText: 'HK$1.00', totalUsd: null })
+      ]),
+      settingsGetGsx: vi.fn().mockResolvedValue({ enabled: true, folderPath: null, displayCurrency: 'GBP' }),
+      fxGetRate: vi.fn().mockResolvedValue(null)
+    })
+    render(<GsxInvoicesCard flightId={42} />)
+
+    await screen.findByText('Total (USD)')
+    expect(screen.getByText('HK$716.54 ~$ 91.26')).toBeInTheDocument()
+    expect(screen.getByText('HK$1.00')).toBeInTheDocument()
+  })
+
+  it('keeps the text of a receipt with no USD amount unchanged while the others convert', async () => {
+    withWinglog({
+      logbookListInvoices: vi.fn().mockResolvedValue([
+        invoice({ id: 1, totalText: 'HK$716.54 ~$ 91.26', totalUsd: 91.26 }),
+        invoice({ id: 2, totalText: 'HK$1.00', totalUsd: null })
+      ]),
+      settingsGetGsx: vi.fn().mockResolvedValue({ enabled: true, folderPath: null, displayCurrency: 'GBP' }),
+      fxGetRate: vi.fn().mockResolvedValue(0.75)
+    })
+    render(<GsxInvoicesCard flightId={42} />)
+
+    expect(await screen.findByText('HK$716.54 ~£68.45')).toBeInTheDocument()
+    expect(screen.getByText('HK$1.00')).toBeInTheDocument()
   })
 
   it('falls back to the plain USD total when the fx rate for a receipt is still missing', async () => {
