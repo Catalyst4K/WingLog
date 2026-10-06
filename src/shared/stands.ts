@@ -1,10 +1,5 @@
 import type { NavdataStand } from './ipc'
-
-const METRES_PER_DEGREE = 111_320
-
-function distanceM(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
-  return Math.hypot((a.lat - b.lat) * METRES_PER_DEGREE, (a.lon - b.lon) * METRES_PER_DEGREE * Math.cos((a.lat * Math.PI) / 180))
-}
+import { flatDistanceM as distanceM } from './geo'
 
 /** How far from a stand's own point an aircraft can stop and still be "at" it — the real
  *  YBBN-VHHH flight stopped 13 m from N32 and started 15 m from gate 79 (2026-10-02). */

@@ -3,6 +3,7 @@ import type { ActiveTracking, BeyondAtcConnectionStatus, BeyondAtcStepClimbStatu
 import { parseOfp } from '../simbrief/simbrief-client'
 import { boxClearedLevelFt } from '@shared/atc-info-boxes'
 import { requestAltitude, type AltitudeRequestSession } from './altitude-request'
+import { greatCircleNm } from '@shared/geo'
 
 /**
  * BeyondATC auto step climb (flightdeck-backend's docs/plans/beyondatc-auto-step-climb.md).
@@ -104,13 +105,6 @@ export function extractStepPlan(ofpJson: string | null): StepPlan {
   } catch {
     return { fixes: [], steps: [], todOrder: null }
   }
-}
-
-export function distanceNm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const toRad = (d: number): number => (d * Math.PI) / 180
-  const a =
-    Math.sin(toRad(lat2 - lat1) / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(toRad(lon2 - lon1) / 2) ** 2
-  return 2 * 3440.065 * Math.asin(Math.sqrt(a))
 }
 
 export interface StepClimbDeps {
@@ -239,7 +233,7 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
     const upcoming = this.pastTopOfDescent ? undefined : this.plan.steps.find(
       (s) => s.order >= this.progress && s.altitudeFt > clearedFt + STEP_THRESHOLD_FT && !this.dropped.has(roundLevel(s.altitudeFt))
     )
-    const upcomingDistance = upcoming ? distanceNm(t.latitude, t.longitude, upcoming.lat, upcoming.lon) : null
+    const upcomingDistance = upcoming ? greatCircleNm({ lat: t.latitude, lon: t.longitude }, upcoming) : null
     this.nextStep =
       upcoming && upcomingDistance !== null
         ? { ident: upcoming.ident, altitudeFt: upcoming.altitudeFt, distanceNm: Math.round(upcomingDistance) }
@@ -263,7 +257,7 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
   private isPastTopOfDescent(t: SimTelemetry): boolean {
     if (this.plan.todOrder !== null) return this.progress >= this.plan.todOrder
     const destination = this.plan.fixes.at(-1)
-    return destination !== undefined && distanceNm(t.latitude, t.longitude, destination.lat, destination.lon) < NO_TOD_CUTOFF_NM
+    return destination !== undefined && greatCircleNm({ lat: t.latitude, lon: t.longitude }, destination) < NO_TOD_CUTOFF_NM
   }
 
   private pickTarget(
@@ -334,7 +328,7 @@ function nearestFixIndex(fixes: RouteFix[], lat: number, lon: number): number {
   let best = 0
   let bestDistance = Infinity
   for (const [i, fix] of fixes.entries()) {
-    const d = distanceNm(lat, lon, fix.lat, fix.lon)
+    const d = greatCircleNm({ lat, lon }, fix)
     if (d < bestDistance) {
       bestDistance = d
       best = i

@@ -2,16 +2,18 @@ import { describe, expect, it } from 'vitest'
 import type { Airfield, TrackPoint } from '@shared/ipc'
 import {
   airfieldFeatureCollection,
-  bearingDeg,
   circleCoordinates,
   destinationLonLat,
   formatNearest,
-  haversineNm,
   nearestAirfield,
   RANGE_RING_RADII_NM,
   rangeRingFeatures,
   recentTrailSegments
 } from './vfr'
+import { greatCircleNm, initialBearingDeg } from '@shared/geo'
+
+const haversineNm = (lat1: number, lon1: number, lat2: number, lon2: number): number => greatCircleNm({ lat: lat1, lon: lon1 }, { lat: lat2, lon: lon2 })
+const bearingDeg = (lat1: number, lon1: number, lat2: number, lon2: number): number => initialBearingDeg({ lat: lat1, lon: lon1 }, { lat: lat2, lon: lon2 })
 
 function airfield(
   icao: string,

@@ -1,4 +1,5 @@
 import type { NavdataTaxiSegment } from '@shared/ipc'
+import { flatDistanceM, toLocalXy } from '@shared/geo'
 
 /**
  * Traces a BeyondATC taxi clearance through the airport's real taxi network, instead of
@@ -46,7 +47,6 @@ const MAX_START_DISTANCE_M = 300
 /** A cleared taxi route longer than this is almost certainly a wrong trace, not a real one. */
 const MAX_ROUTE_LENGTH_M = 15_000
 
-const METRES_PER_DEGREE = 111_320
 
 export interface TaxiTraceRequest {
   segments: NavdataTaxiSegment[]
@@ -102,7 +102,7 @@ const nodeKey = (lat: number, lon: number): string => `${lat.toFixed(7)},${lon.t
 function buildGraph(segments: NavdataTaxiSegment[], refLat: number): Graph {
   const cosLat = Math.cos((refLat * Math.PI) / 180)
   const distanceM = (aLat: number, aLon: number, bLat: number, bLon: number): number =>
-    Math.hypot((aLat - bLat) * METRES_PER_DEGREE, (aLon - bLon) * METRES_PER_DEGREE * cosLat)
+    flatDistanceM({ lat: aLat, lon: aLon }, { lat: bLat, lon: bLon }, refLat)
   const nodeIndex = new Map<string, number>()
   const nodes: Graph['nodes'] = []
   const edges: Edge[][] = []
@@ -371,8 +371,10 @@ export function remainingRoute(
   fromSegment = 0
 ): RemainingRoute {
   if (route.length < 2) return { line: route, segment: 0, distanceM: 0, bearingDeg: null }
-  const cosLat = Math.cos((position.lat * Math.PI) / 180)
-  const toXy = ([lon, lat]: [number, number]): [number, number] => [lon * METRES_PER_DEGREE * cosLat, lat * METRES_PER_DEGREE]
+  const toXy = ([lon, lat]: [number, number]): [number, number] => {
+    const { x, y } = toLocalXy({ lat, lon }, position.lat)
+    return [x, y]
+  }
   const [px, py] = toXy([position.lon, position.lat])
 
   let best = { segment: fromSegment, distance: Infinity, point: route[fromSegment]! }

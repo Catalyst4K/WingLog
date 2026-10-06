@@ -1,4 +1,5 @@
 import type { Airfield, TrackPoint } from '@shared/ipc'
+import { destinationPoint, greatCircleNm, initialBearingDeg, METRES_PER_NM } from '@shared/geo'
 
 /**
  * Pure geometry for the Track map's VFR overlay (flightdeck-backend docs/plans/
@@ -7,8 +8,6 @@ import type { Airfield, TrackPoint } from '@shared/ipc'
  * these into GeoJSON sources.
  */
 
-const EARTH_RADIUS_M = 6371008.8
-const METRES_PER_NM = 1852
 const RAD = Math.PI / 180
 
 /** Ring radii drawn around the aircraft. */
@@ -17,39 +16,11 @@ export const RANGE_RING_RADII_NM = [5, 10, 20] as const
 /** How much of the flown track is emphasised — circuits and pattern work read at a glance. */
 export const RECENT_TRAIL_MINUTES = 10
 
-export function haversineNm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const dLat = (lat2 - lat1) * RAD
-  const dLon = (lon2 - lon1) * RAD
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * RAD) * Math.cos(lat2 * RAD) * Math.sin(dLon / 2) ** 2
-  return (2 * EARTH_RADIUS_M * Math.asin(Math.min(1, Math.sqrt(a)))) / METRES_PER_NM
-}
-
-/** Initial true bearing from point 1 to point 2, 0..360. */
-export function bearingDeg(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const dLon = (lon2 - lon1) * RAD
-  const y = Math.sin(dLon) * Math.cos(lat2 * RAD)
-  const x =
-    Math.cos(lat1 * RAD) * Math.sin(lat2 * RAD) - Math.sin(lat1 * RAD) * Math.cos(lat2 * RAD) * Math.cos(dLon)
-  return (((Math.atan2(y, x) / RAD) % 360) + 360) % 360
-}
-
 /** Great-circle destination point [lon, lat]. Longitude is left unwrapped, so a ring that
  *  crosses the antimeridian stays continuous for the renderer instead of jumping across. */
-export function destinationLonLat(
-  lat: number,
-  lon: number,
-  bearing: number,
-  distanceNm: number
-): [number, number] {
-  const d = (distanceNm * METRES_PER_NM) / EARTH_RADIUS_M
-  const brg = bearing * RAD
-  const lat1 = lat * RAD
-  const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(brg))
-  const dLon = Math.atan2(
-    Math.sin(brg) * Math.sin(d) * Math.cos(lat1),
-    Math.cos(d) - Math.sin(lat1) * Math.sin(lat2)
-  )
-  return [lon + dLon / RAD, lat2 / RAD]
+export function destinationLonLat(lat: number, lon: number, bearing: number, distanceNm: number): [number, number] {
+  const to = destinationPoint({ lat, lon }, bearing, distanceNm * METRES_PER_NM)
+  return [to.lon, to.lat]
 }
 
 export interface RingFeatureCollection {
@@ -174,8 +145,8 @@ export function nearestAirfield(lat: number, lon: number, airfields: Airfield[])
   if (!best) return null
   return {
     airfield: best,
-    distanceNm: haversineNm(lat, lon, best.latitude, best.longitude),
-    bearingDeg: bearingDeg(lat, lon, best.latitude, best.longitude)
+    distanceNm: greatCircleNm({ lat, lon }, { lat: best.latitude, lon: best.longitude }),
+    bearingDeg: initialBearingDeg({ lat, lon }, { lat: best.latitude, lon: best.longitude })
   }
 }
 

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { ActiveTracking, BeyondAtcInfoBox, BeyondAtcState, BeyondAtcStepClimbStatus, SimTelemetry } from '@shared/ipc'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import type { AltitudeRequestOutcome, requestAltitude } from './altitude-request'
-import { StepClimbController, distanceNm, extractStepPlan } from './step-climb'
+import { StepClimbController, extractStepPlan } from './step-climb'
 
 const FT = 0.3048
 
@@ -369,12 +369,5 @@ describe('StepClimbController', () => {
     cleared.controller.setEnabled(true)
     cleared.controller.onTelemetry(telemetry({ longitude: 29.9 }))
     expect(cleared.request).not.toHaveBeenCalled()
-  })
-})
-
-describe('distanceNm', () => {
-  it('is a real great-circle distance', () => {
-    // One degree of latitude ≈ 60 nm.
-    expect(distanceNm(45, 30, 46, 30)).toBeCloseTo(60, 0)
   })
 })

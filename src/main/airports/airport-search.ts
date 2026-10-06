@@ -10,6 +10,7 @@
 import type { AirportOption } from '@shared/ipc'
 import { columnIndex, parseCsvRows } from '../db/csv'
 import airportsRaw from '../../../resources/airports.csv?raw'
+import { greatCircleNm } from '@shared/geo'
 
 export function loadAirports(raw: string): AirportOption[] {
   const [header, ...rows] = parseCsvRows(raw)
@@ -89,17 +90,6 @@ export function getAirportCoords(icao: string): { lat: number; lon: number } | n
   return airportCoords.get(icao) ?? null
 }
 
-const EARTH_RADIUS_NM = 3440.065
-
-export function haversineNm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const lat1Rad = (lat1 * Math.PI) / 180
-  const lat2Rad = (lat2 * Math.PI) / 180
-  const dLat = ((lat2 - lat1) * Math.PI) / 180
-  const dLon = ((lon2 - lon1) * Math.PI) / 180
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.sin(dLon / 2) ** 2
-  return 2 * EARTH_RADIUS_NM * Math.asin(Math.sqrt(a))
-}
-
 /**
  * Great-circle (as-the-crow-flies) distance between two airports, in nautical miles —
  * used for Logbook's total-distance stat, not a routed distance. Null if either ICAO
@@ -110,7 +100,7 @@ export function greatCircleDistanceNm(depIcao: string, arrIcao: string): number 
   const dep = getAirportCoords(depIcao)
   const arr = getAirportCoords(arrIcao)
   if (!dep || !arr) return null
-  return haversineNm(dep.lat, dep.lon, arr.lat, arr.lon)
+  return greatCircleNm(dep, arr)
 }
 
 /**
@@ -223,7 +213,7 @@ export function nearestAirport(lat: number, lon: number, maxDistanceNm: number):
   let bestFallbackDistance = Infinity
 
   for (const [icao, location] of airportLocations) {
-    const distance = haversineNm(lat, lon, location.lat, location.lon)
+    const distance = greatCircleNm({ lat, lon }, location)
     if (distance > maxDistanceNm) continue
     if (NON_PRIMARY_AIRPORT_TYPES.has(location.type)) {
       if (distance < bestFallbackDistance) {

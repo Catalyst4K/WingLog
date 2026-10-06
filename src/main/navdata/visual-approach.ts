@@ -1,6 +1,6 @@
 import type { NavdataLeg, NavdataProcedureOption } from '@shared/ipc'
 import { visualApproachIdentifier } from '@shared/visual-approach'
-import { destinationPoint } from '../airports/landing-maths'
+import { offsetAlongBearing } from '../airports/landing-maths'
 
 /**
  * A synthetic "Visual <runway>" approach (flightdeck-backend docs/plans/visual-approach.md):
@@ -37,7 +37,7 @@ export function visualApproachOptions(runways: VisualRunwayEnd[], runway: string
     .map((r) => ({ identifier: visualApproachIdentifier(r.ident), transition: VISUAL_VECTORS_TRANSITION }))
 }
 
-/** destinationPoint doesn't wrap: a runway just west of the antimeridian heading out east
+/** offsetAlongBearing doesn't wrap: a runway just west of the antimeridian heading out east
  *  lands past 180 degrees. */
 function wrapLongitude(lon: number): number {
   return ((((lon + 180) % 360) + 360) % 360) - 180
@@ -63,7 +63,7 @@ function syntheticLeg(type: number, fixIdent: string, fixType: 'W' | 'R', lat: n
  *  runway's reciprocal true heading, then the threshold. The join point is labelled
  *  "<rwy>/<nm>" like the FMC's own distance fixes (e.g. LAM/11). */
 export function visualApproachLegs(runway: VisualRunwayEnd): NavdataLeg[] {
-  const join = destinationPoint(
+  const join = offsetAlongBearing(
     runway.thresholdLat,
     runway.thresholdLon,
     (runway.headingTrueDeg + 180) % 360,

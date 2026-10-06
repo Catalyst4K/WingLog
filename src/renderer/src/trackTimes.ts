@@ -10,10 +10,10 @@
  *   crawling, there's no live estimate: the ETA falls back to the scheduled arrival.
  */
 
-const NM_PER_RADIAN = 3440.065
+import { greatCircleNm, METRES_PER_NM } from '@shared/geo'
+
 /** Below this (~60 kt) a ground-speed estimate is meaningless — taxiing, or a stopped sim. */
 const MIN_ESTIMATE_SPEED_MS = 30.9
-const METRES_PER_NM = 1852
 
 export interface TrackTimesInput {
   /** [lon, lat] pairs, GeoJSON order, departure to destination. */
@@ -36,11 +36,8 @@ export interface TrackTimes {
   vsScheduleMin: number | null
 }
 
-function haversineNm(aLat: number, aLon: number, bLat: number, bLon: number): number {
-  const toRad = (d: number): number => (d * Math.PI) / 180
-  const h =
-    Math.sin(toRad(bLat - aLat) / 2) ** 2 + Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(toRad(bLon - aLon) / 2) ** 2
-  return 2 * NM_PER_RADIAN * Math.asin(Math.sqrt(h))
+function nmBetween(aLat: number, aLon: number, bLat: number, bLon: number): number {
+  return greatCircleNm({ lat: aLat, lon: aLon }, { lat: bLat, lon: bLon })
 }
 
 /** Distance left along `route` from the aircraft: to the end of the leg it's nearest to (from
@@ -62,16 +59,16 @@ export function remainingRouteNm(route: [number, number][], position: { lat: num
     const lengthSq = (bx - ax) ** 2 + (bLat - aLat) ** 2
     const t = lengthSq === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * (bx - ax) + (position.lat - aLat) * (bLat - aLat)) / lengthSq))
     const point: [number, number] = [aLon + t * (bLon - aLon), aLat + t * (bLat - aLat)]
-    const distance = haversineNm(position.lat, position.lon, point[1], point[0])
+    const distance = nmBetween(position.lat, position.lon, point[1], point[0])
     if (distance < bestDistance) {
       bestDistance = distance
       bestLeg = i
       bestPoint = point
     }
   }
-  let total = haversineNm(bestPoint[1], bestPoint[0], route[bestLeg + 1]![1], route[bestLeg + 1]![0])
+  let total = nmBetween(bestPoint[1], bestPoint[0], route[bestLeg + 1]![1], route[bestLeg + 1]![0])
   for (let i = bestLeg + 1; i < route.length - 1; i++) {
-    total += haversineNm(route[i]![1], route[i]![0], route[i + 1]![1], route[i + 1]![0])
+    total += nmBetween(route[i]![1], route[i]![0], route[i + 1]![1], route[i + 1]![0])
   }
   return total
 }

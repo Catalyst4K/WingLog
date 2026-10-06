@@ -9,6 +9,7 @@
  */
 import type { BeyondAtcInfoBox, Flight, FlightPhase, NavdataStand, NavdataTaxiSegment, TrackPoint } from '../../src/shared/ipc'
 import { findStand } from '../../src/shared/stands'
+import { flatDistanceM } from '../../src/shared/geo'
 import { boxTaxiClearance, startOf, traceClearance, type TaxiClearance } from '../../src/renderer/src/taxi-clearance'
 import { remainingRoute, type TracedRoute } from '../../src/renderer/src/taxiRouteTrace'
 import { REROUTE_DISTANCE_M, REROUTE_MIN_SPEED_MS, startTracker, trackPosition } from '../../src/renderer/src/taxiReroute'
@@ -149,12 +150,6 @@ export interface TaxiRun {
   endToAircraftM: number | null
 }
 
-const M_PER_DEG = 111_320
-
-function metres(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
-  return Math.hypot((a.lat - b.lat) * M_PER_DEG, (a.lon - b.lon) * M_PER_DEG * Math.cos((a.lat * Math.PI) / 180))
-}
-
 /** The clearance as the app takes it, at the first recorded position. */
 function clearanceFor(sc: TaxiScenario): TaxiClearance | null {
   const box = boxTaxiClearance(sc.boxes)
@@ -190,6 +185,6 @@ export function runTaxi(sc: TaxiScenario, segments: NavdataTaxiSegment[], stands
     }
   }
   const end = tracker.active.at(-1)
-  const endToAircraftM = end ? Math.min(...sc.samples.map((s) => metres({ lat: end[1], lon: end[0] }, s))) : null
+  const endToAircraftM = end ? Math.min(...sc.samples.map((s) => flatDistanceM({ lat: end[1], lon: end[0] }, s))) : null
   return { cleared, clearance, stand, reroutes, onLinePct: moving > 0 ? Math.round((100 * onLine) / moving) : null, endToAircraftM }
 }

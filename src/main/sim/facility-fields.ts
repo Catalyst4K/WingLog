@@ -1,4 +1,5 @@
 import { type RawBuffer } from 'node-simconnect'
+import { offsetBy } from '@shared/geo'
 
 /**
  * Facility Data Definition field names and record parsing for the navdata provider
@@ -380,13 +381,6 @@ export function parseApproachHeader(d: RawBuffer): ParsedApproachHeader {
  *  rather than a duplicate parser. `parseEnrouteTransition`'s name is generic on purpose. */
 export const parseApproachTransition = parseEnrouteTransition
 
-/** Metres per degree of latitude, WGS84 mean — confirmed accurate enough for this app's
- *  purpose (a reference overlay, not navigation-grade positioning) live 2026-09-28: converting
- *  EGKB's real runway 03/21 threshold points this way and comparing against the runway's own
- *  real HEADING/LENGTH gave a bearing within 0.2° and a distance within 5m over a ~1.8km
- *  baseline (flightdeck-backend's docs/navdata-notes.md). */
-const METRES_PER_DEGREE_LATITUDE = 111_320
-
 /** `TAXI_POINT`'s `BIAS_X`/`BIAS_Z` are metre offsets from the airport's own reference point —
  *  no LATITUDE/LONGITUDE of their own. Axis convention confirmed live 2026-09-28: `BIAS_X` =
  *  metres east, `BIAS_Z` = metres north, true-north aligned, plain flat local tangent plane —
@@ -397,9 +391,8 @@ export function biasToLatLon(
   biasX: number,
   biasZ: number
 ): { latitude: number; longitude: number } {
-  const latitude = refLatitude + biasZ / METRES_PER_DEGREE_LATITUDE
-  const longitude = refLongitude + biasX / (METRES_PER_DEGREE_LATITUDE * Math.cos((refLatitude * Math.PI) / 180))
-  return { latitude, longitude }
+  const { lat, lon } = offsetBy({ lat: refLatitude, lon: refLongitude }, biasX, biasZ)
+  return { latitude: lat, longitude: lon }
 }
 
 /** TAXI_POINT `TYPE` values that mark a hold-short line, per the SDK reference's own enum
