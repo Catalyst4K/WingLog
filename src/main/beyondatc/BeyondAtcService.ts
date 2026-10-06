@@ -52,7 +52,7 @@ export function e2eBeyondAtcPort(value: string | undefined): number | undefined 
  *  not independently reproduced live, but fixed preventively). */
 export type WebSocketCtor = ServiceSocketCtor
 
-// Reconnect behaviour is undesigned on BeyondATC's own side (flightdeck-backend's
+// Reconnect behaviour is undesigned on BeyondATC's own side (winglog-backend's
 // beyondatc-integration.md, open question 3) — reused verbatim from GsxRemoteService rather
 // than invented, since it's already a reasonable "fast retry, back off if it stays down"
 // shape for exactly this kind of local add-on connection.
@@ -68,7 +68,7 @@ interface BeyondAtcServiceEvents {
   state: [BeyondAtcState]
   transcript: [BeyondAtcTranscriptEntry[]]
   /** Every message received and every command sent, unparsed: the dev build's capture and
-   *  diagnostic log (flightdeck-backend robustness/dev-build.md). */
+   *  diagnostic log (winglog-backend robustness/dev-build.md). */
   raw: [{ direction: 'in' | 'out'; text: string }]
 }
 
@@ -227,7 +227,7 @@ function parseFrequencies(rest: string): BeyondAtcFrequencyOption[] {
 
 /**
  * Owns the live WebSocket connection to `BeyondATC.exe`'s own local server
- * (flightdeck-backend's docs/plans/beyondatc-integration.md; real protocol findings in
+ * (winglog-backend's docs/plans/beyondatc-integration.md; real protocol findings in
  * docs/beyondatc-notes.md, confirmed live 2026-09-25). Parses BeyondATC's plain-text
  * `Key: value`/`Key: <JSON>` line protocol — a genuinely different wire shape from GSX
  * Remote Control's JSON-envelope snapshot/patch messages, even though the rest of this

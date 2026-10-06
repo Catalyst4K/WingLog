@@ -7,7 +7,7 @@ import type { SimTelemetry } from '@shared/ipc'
 /**
  * NDJSON fixture format shared by the flight capture script
  * (scripts/spike-capture-flight.ts) and ReplaySimConnectService — one source of truth for
- * the shape flightdeck-backend's docs/plans/flight-replay-harness.md Design §1 specifies,
+ * the shape winglog-backend's docs/plans/flight-replay-harness.md Design §1 specifies,
  * so a change to one side can't silently drift from the other.
  */
 export interface FlightFixtureHeader {
@@ -19,7 +19,7 @@ export interface FlightFixtureHeader {
 
 /** One BeyondATC or GSX message, unparsed, in or out, written by the dev build's full capture
  *  (src/main/diagnostics/flight-capture.ts). replay-capture.ts feeds the incoming ones to the
- *  services (flightdeck-backend robustness/scenario-testing.md Part 1). */
+ *  services (winglog-backend robustness/scenario-testing.md Part 1). */
 export interface CapturedLineEvent {
   type: 'beyondatc' | 'gsx'
   tOffsetMs: number

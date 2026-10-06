@@ -76,7 +76,7 @@ export class FlightRecorder {
   // TrackingController.resume() each time the app/process restarts mid-flight (see this
   // class's own resume-parameter comment), or by bumpResumeSegment below when a
   // resume-cleanup pass finds a physically-impossible jump with no resume() involved at
-  // all (flightdeck-backend's docs/plans/done/resume-track-cleanup.md — a payware aircraft's
+  // all (winglog-backend's docs/plans/done/resume-track-cleanup.md — a payware aircraft's
   // own save-state/reload feature, confirmed live 2026-09-13). Never touched by the phase
   // machine itself; the map uses it to never draw a line across a spawn-point/teleport-back
   // artefact, even before any cleanup logic decides which points within a segment are

@@ -1,5 +1,5 @@
 /**
- * WingLog's local ESLint rule for the coding standards' file header (flightdeck-backend
+ * WingLog's local ESLint rule for the coding standards' file header (winglog-backend
  * docs/coding-standards.md §2): every source file opens with a `/** … *\/` comment saying what it
  * is for, before any import or code.
  */

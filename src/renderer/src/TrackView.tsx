@@ -166,7 +166,7 @@ export function TrackView(props: {
       )
       setActive({ flightId: point.flightId, phase: point.phase })
     })
-    // A resume-cleanup pass (flightdeck-backend's docs/plans/done/resume-track-cleanup.md) can
+    // A resume-cleanup pass (winglog-backend's docs/plans/done/resume-track-cleanup.md) can
     // flag a point as junk or retag its resumeSegment after it's already been pushed above
     // and drawn — patch each affected point in place by id rather than waiting for a
     // reload, so the trail corrects itself live instead of only once the flight completes.
@@ -350,7 +350,7 @@ export function TrackView(props: {
   // caught live: memoized everywhere else this pattern appears, LogbookView included).
   const route: [number, number][] = useMemo(() => liveWaypoints.map((w) => [w.lon, w.lat]), [liveWaypoints])
 
-  // ET / time remaining / ETA (flightdeck-backend's docs/plans/track-time-readouts.md). A free
+  // ET / time remaining / ETA (winglog-backend's docs/plans/track-time-readouts.md). A free
   // flight has no planned route, so its great-circle line stands in (the Logbook's own).
   const freeFlightAirports =
     activeFlight && !activeFlight.ofpJson && realIcao(activeFlight.depIcao) && realIcao(activeFlight.arrIcao)

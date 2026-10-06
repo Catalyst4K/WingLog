@@ -10,7 +10,7 @@ import { useLiveTopic } from './live/LiveClient'
  * BeyondAtcService) after the box set is replaced. The box is set as soon as BeyondATC assigns
  * the gate, which can be well before ATC says it: EGLL, flight 229, 2026-10-05, gate 411 was
  * assigned with the first half of a split clearance (12:17) but only spoken in the second
- * (12:24). Never read from speech (flightdeck-backend's docs/decisions.md, 2026-10-05). Null
+ * (12:24). Never read from speech (winglog-backend's docs/decisions.md, 2026-10-05). Null
  * when BeyondATC hasn't assigned one.
  */
 export function useAtcAssignedStand(): string | null {

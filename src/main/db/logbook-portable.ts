@@ -3,7 +3,7 @@ import { t } from '../i18n'
 import { columnIndex, parseCsvRows, toCsv } from './csv'
 
 /**
- * WingLog's own portable logbook format (flightdeck-backend docs/plans/data-export-import.md):
+ * WingLog's own portable logbook format (winglog-backend docs/plans/data-export-import.md):
  * one record per completed flight, keyed by aircraft *registration* rather than an internal
  * id so a file moves between installs. It's a **summary**, not a backup — no OFP, no track
  * points (backup.ts is the whole-database path). Import restores the flights themselves;

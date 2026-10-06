@@ -351,7 +351,7 @@ describe('SettingsView', () => {
       const user = userEvent.setup()
       renderSettings()
 
-      // Not shown up front (flightdeck-backend docs/plans/v1-2.md Part 4 — four of these
+      // Not shown up front (winglog-backend docs/plans/v1-2.md Part 4 — four of these
       // hints used to be permanent paragraphs; now they're behind an info popover, one per
       // row).
       expect(screen.queryByText(/falling back to English if this app doesn't have a translation/)).not.toBeInTheDocument()

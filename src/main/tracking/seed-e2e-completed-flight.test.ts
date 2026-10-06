@@ -9,7 +9,7 @@
  * what flight-replay.test.ts already proves works, just written to a real file instead of
  * `:memory:` so e2e/logbook.spec.ts has something real to browse: a single-landing short
  * hop (EGLL -> EGCC), and the VHHH circuits flight with several real touchdowns
- * (flightdeck-backend's docs/plans/multiple-landings.md).
+ * (winglog-backend's docs/plans/multiple-landings.md).
  *
  * A no-op under a normal `npm test`/`npm run test:coverage` run (WINGLOG_E2E_SEED_DB_PATH
  * unset) — only does anything when e2e/logbook.spec.ts's beforeAll invokes vitest directly

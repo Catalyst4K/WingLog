@@ -8,7 +8,7 @@ import jsdoc from 'eslint-plugin-jsdoc'
 import eslintComments from '@eslint-community/eslint-plugin-eslint-comments'
 import fileHeader from './eslint-rules/file-header.mjs'
 
-// The coding standards' rules (flightdeck-backend docs/coding-standards.md), as warnings while
+// The coding standards' rules (winglog-backend docs/coding-standards.md), as warnings while
 // the audit works through the code area by area (robustness/code-standards-audit.md, phase 1).
 // They become errors in phase 4. App code only: tests, the vendored shadcn components and the
 // scripts are out of scope for now. `npm run lint:report` counts them per rule and area.

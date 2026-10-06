@@ -3,7 +3,7 @@ import { flatDistanceM, toLocalXy } from '@shared/geo'
 
 /**
  * Traces a BeyondATC taxi clearance through the airport's real taxi network, instead of
- * highlighting every segment that shares a taxiway name (flightdeck-backend's
+ * highlighting every segment that shares a taxiway name (winglog-backend's
  * docs/plans/beyondatc-taxi-route-highlight.md). Real bug that prompted this, VHHH
  * 2026-09-30: "taxi to holding point B10, runway 25C, via B8, B" lit up all ~3.9 km of B
  * across the airport; the real route is ~0.9 km.
@@ -284,7 +284,7 @@ export interface RejoinRequest {
 }
 
 /**
- * A re-route (flightdeck-backend's docs/plans/taxi-reroute.md): the shortest total way from
+ * A re-route (winglog-backend's docs/plans/taxi-reroute.md): the shortest total way from
  * the aircraft to the end of the cleared route, joining it at whichever of its points makes
  * that shortest and then following it. Callum, 2026-10-06: "rejoin the route at the most
  * sensible point to get to the final destination". Getting to the route costs plain distance

@@ -6,7 +6,7 @@ import type { TrackPoint } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 
 /**
- * Logbook's manual "Clean up track" action (flightdeck-backend's docs/plans/done/
+ * Logbook's manual "Clean up track" action (winglog-backend's docs/plans/done/
  * resume-track-cleanup.md) — re-runs the same cleanup pass TrackingController already
  * runs automatically (live, and once more at flight completion), on demand for a flight
  * with no active recorder at all: one completed before Phase 2 existed, or the rare case

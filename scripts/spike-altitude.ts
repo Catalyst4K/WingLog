@@ -1,6 +1,6 @@
 /**
  * M1/M6 throwaway spike (CLAUDE.md's spike-first discipline) for
- * flightdeck-backend/docs/plans/logbook-detail-improvements.md Phase 3, Step 1(b).
+ * winglog-backend/docs/plans/logbook-detail-improvements.md Phase 3, Step 1(b).
  *
  * The chart plots PLANE ALTITUDE (true altitude), which reads high vs. the PFD in cruise
  * because the PFD shows pressure altitude above the transition altitude. This spike proves,
@@ -29,7 +29,7 @@
  * altitude (~18,000 ft, TRANSITION_ALT_FT below), cruise stabilizing, and landing. Every
  * sample (not just milestones) still prints as a plain JSON line, so the full trace can be
  * recovered from wherever stdout was captured. Findings go in docs/simconnect-notes.md and
- * simbrief-notes.md (transition-altitude field names from a real OFP) in flightdeck-backend.
+ * simbrief-notes.md (transition-altitude field names from a real OFP) in winglog-backend.
  */
 import { appendFileSync } from 'node:fs'
 import { open, Protocol, SimConnectConstants, SimConnectDataType, SimConnectPeriod, type RawBuffer } from 'node-simconnect'

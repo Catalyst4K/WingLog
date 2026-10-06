@@ -901,7 +901,7 @@ function compareLandingRows(a: LandingListRow, b: LandingListRow, key: LandingSo
   }
 }
 
-/** The Logbook Landings sub-tab (flightdeck-backend's docs/plans/multiple-landings.md
+/** The Logbook Landings sub-tab (winglog-backend's docs/plans/multiple-landings.md
  *  Phase 3) — every touchdown across the whole fleet, one row per landing rather than one
  *  row per flight. Exported for direct testing, same reasoning as LandingCard above. */
 export function LandingsTable(props: {
@@ -1072,7 +1072,7 @@ export function LogbookView(props: {
     return scores.find((s) => s.flightId === flightId)?.score ?? null
   }
 
-  /** Landing count for the flights list's "×3" badge (flightdeck-backend's docs/plans/
+  /** Landing count for the flights list's "×3" badge (winglog-backend's docs/plans/
    *  multiple-landings.md) — 0 for a flight with no landing row, same cases scoreFor
    *  returns null for. */
   function landingCountFor(flightId: number): number {

@@ -1,5 +1,5 @@
 /**
- * Throwaway spike for Part 4 of flightdeck-backend's docs/plans/beyondatc-integration.md
+ * Throwaway spike for Part 4 of winglog-backend's docs/plans/beyondatc-integration.md
  * (taxi route overlay on the map) — M1/M6 spike-first discipline: nothing gets designed from
  * the SimConnect SDK reference table alone, only from what this actually observes against a
  * live MSFS session. Real, specific unknowns this needs to answer (plan doc's own list):
@@ -30,7 +30,7 @@
  * Every parsed record is also appended as one JSON line to a log file (path printed on
  * startup) for after-the-fact analysis.
  *
- * Log every answer in flightdeck-backend's docs/beyondatc-notes.md before any Part 4 design
+ * Log every answer in winglog-backend's docs/beyondatc-notes.md before any Part 4 design
  * or code exists.
  *
  * Usage:

@@ -15,8 +15,8 @@ import { aircraft, flight, flightInvoice } from '../db/schema'
 import type { SyncRow, SyncTable } from '../backend/sync-client'
 import { runSync, type SyncClient } from './sync-engine'
 
-/** A high-fidelity fake of flightdeck-backend's real UserStore.push/pull semantics
- *  (last-write-wins on updatedAt, filter-by-since on pull) — see flightdeck-backend's
+/** A high-fidelity fake of winglog-backend's real UserStore.push/pull semantics
+ *  (last-write-wins on updatedAt, filter-by-since on pull) — see winglog-backend's
  *  src/user-store.ts, which this deliberately mirrors rather than reinventing. */
 class FakeSyncServer implements SyncClient {
   private rows = new Map<SyncTable, Map<string, SyncRow>>()
@@ -244,7 +244,7 @@ describe('sync-engine', () => {
     expect(rowA?.registration).toBe('G-FROM-B')
   })
 
-  // The real bug this closes (flightdeck-backend/docs/plans/cloud-sync-v2.md #3a): a hard
+  // The real bug this closes (winglog-backend/docs/plans/cloud-sync-v2.md #3a): a hard
   // DELETE is indistinguishable from "never created" once it crosses the sync protocol, so
   // a pull resurrects it on every other device. Confirms the tombstone fix end to end
   // across two profiles, including the specific "further sync on the deleting profile

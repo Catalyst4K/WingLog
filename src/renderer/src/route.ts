@@ -218,7 +218,7 @@ export interface ProcedureLegs {
 
 /** FC (fix to distance) and FD (fix to DME) — ARINC 424 leg types 9 and 10 in the sim's
  *  Facilities data. Their fix is the navaid the leg is anchored to; the leg *ends* a
- *  ROUTE_DISTANCE along COURSE from it (flightdeck-backend docs/navdata-notes.md, 2026-09-18). */
+ *  ROUTE_DISTANCE along COURSE from it (winglog-backend docs/navdata-notes.md, 2026-09-18). */
 const DISTANCE_TERMINATED_LEG_TYPES = new Set([9, 10])
 
 /** Great-circle destination point. COURSE is treated as a true bearing although the sim

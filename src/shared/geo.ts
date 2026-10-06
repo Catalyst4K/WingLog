@@ -1,6 +1,6 @@
 /**
  * Geodesy for the whole app: one Earth radius, one metres-per-degree constant, and every
- * distance, bearing and projection built on them (flightdeck-backend docs/coding-standards.md §1;
+ * distance, bearing and projection built on them (winglog-backend docs/coding-standards.md §1;
  * robustness/code-standards-audit.md phase 2).
  *
  * Two families:
@@ -16,7 +16,7 @@ export const EARTH_RADIUS_M = 6_371_008.8
 /** One nautical mile, in metres. */
 export const METRES_PER_NM = 1852
 /** Metres per degree of latitude, for the local flat projection. Checked against EGKB's real
- *  runway 03/21: within 0.2° and 5 m over 1.8 km (flightdeck-backend docs/navdata-notes.md). */
+ *  runway 03/21: within 0.2° and 5 m over 1.8 km (winglog-backend docs/navdata-notes.md). */
 export const METRES_PER_DEGREE_LAT = 111_320
 
 const RAD = Math.PI / 180

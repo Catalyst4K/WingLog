@@ -161,7 +161,7 @@ export function fetchSimbriefPilotId(): Promise<string | null> {
   return readAccountField('user.pilot_id')
 }
 
-/** Triggers a real SimBrief generation: gets the signing value from flightdeck-backend,
+/** Triggers a real SimBrief generation: gets the signing value from winglog-backend,
  *  then opens SimBrief's own worker popup, which handles login (if needed), generation
  *  progress, and closes itself once done — resolving this promise. The caller (main/
  *  index.ts) re-fetches via fetchLatestOfp and compares against a pre-generation baseline

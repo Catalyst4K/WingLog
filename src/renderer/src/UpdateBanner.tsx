@@ -5,7 +5,7 @@ import type { UpdateStatus } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 
 /**
- * "WingLog 1.4.1 is available" across the top of the app (flightdeck-backend's
+ * "WingLog 1.4.1 is available" across the top of the app (winglog-backend's
  * docs/plans/update-check.md, Part A). The check itself runs in main; this only shows its
  * result. Hidden while the aircraft is airborne, so it never interrupts a flight, and for a
  * version the user skipped. Dismissing it hides it for this session only.

@@ -26,7 +26,7 @@ const INITIAL_RECONNECT_DELAY_MS = 2_000
 const MAX_RECONNECT_DELAY_MS = 30_000
 
 // Second, high-rate SimConnect stream for touchdown-severity capture (v1.2 Part 1,
-// flightdeck-backend's docs/plans/landing-scoring-v2.md Part 3; real spike findings in
+// winglog-backend's docs/plans/landing-scoring-v2.md Part 3; real spike findings in
 // docs/simconnect-notes.md, 2026-09-20). Own definition/request id, entirely independent of
 // the primary 1 Hz stream above, which keeps driving FlightRecorder's phase detection
 // exactly as today — its sample-count sustain counters would silently break if that stream's

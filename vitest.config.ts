@@ -3,7 +3,7 @@ import { defineConfig } from 'vitest/config'
 
 // Two projects: 'unit' is the original main-process/shared/pure-logic suite (node
 // environment, .test.ts only); 'renderer' is real React component/integration tests (jsdom,
-// .test.tsx) added for docs/plans/test-coverage.md (flightdeck-backend) — kept separate
+// .test.tsx) added for docs/plans/test-coverage.md (winglog-backend) — kept separate
 // rather than one shared config because jsdom has real per-test overhead a hundred pure
 // main-process tests shouldn't pay, and because a renderer test needs setupFiles
 // (@testing-library/jest-dom matchers) the unit suite has no use for.
@@ -50,7 +50,7 @@ export default defineConfig({
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],
       // Wiring/vendored, not business logic — see docs/plans/test-coverage.md
-      // (flightdeck-backend) for why each of these is excluded rather than tested:
+      // (winglog-backend) for why each of these is excluded rather than tested:
       // Electron bootstrap and preload have no logic of their own to unit-test (every real
       // effect they trigger is covered by the Playwright acceptance suite instead); the
       // renderer's own entrypoint is React bootstrap; components/ui/** is vendored shadcn,
@@ -62,7 +62,7 @@ export default defineConfig({
         'src/renderer/src/main.tsx',
         'src/renderer/src/components/ui/**'
       ],
-      // A ratchet, not the end goal — flightdeck-backend's docs/plans/test-coverage.md
+      // A ratchet, not the end goal — winglog-backend's docs/plans/test-coverage.md
       // targets 100% (of business logic; see the `exclude` list above), but setting that
       // as the enforced threshold before the work to get there is done would break `npm
       // test` for every unrelated change in the meantime. Raise these numbers at the end

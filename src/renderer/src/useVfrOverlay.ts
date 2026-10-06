@@ -16,7 +16,7 @@ import {
 import { uiMemory } from './ui-memory'
 
 /**
- * The Track map's VFR overlay (flightdeck-backend docs/plans/map-language-and-declutter.md,
+ * The Track map's VFR overlay (winglog-backend docs/plans/map-language-and-declutter.md,
  * Part C items 1-3): every airfield the vendored OurAirports list knows (small strips and
  * heliports included), range rings and a scale bar around the aircraft, the last few
  * minutes of track emphasised, and a nearest-airfield readout. No external service — all of

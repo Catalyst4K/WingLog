@@ -19,7 +19,7 @@ export interface ArrivalClearanceDeps {
  * until touchdown (Callum, 2026-10-05). On flight 229 the STAR/runway clearance showed only in
  * the latest-instruction card, which the next ATC line replaced before it was read.
  *
- * Read only from BeyondATC's InfoBoxes, never ATC's speech (flightdeck-backend's
+ * Read only from BeyondATC's InfoBoxes, never ATC's speech (winglog-backend's
  * docs/decisions.md, 2026-10-05). Real sets, VHHH-ZJSY 2026-10-05:
  * - `STAR` + `Arrival Runway` set the STAR and runway. A known approach is cleared only when
  *   the runway differs from its own.
@@ -29,7 +29,7 @@ export interface ArrivalClearanceDeps {
  * - The first tracking point in 'landing' (touchdown) clears it all.
  *
  * Lives in main, published as a LiveHub topic, so a LAN client (v1.5) sees the same card
- * (flightdeck-backend's docs/plans/live-data-seam.md). Emits 'clearance' on every change.
+ * (winglog-backend's docs/plans/live-data-seam.md). Emits 'clearance' on every change.
  */
 export class ArrivalClearanceTracker extends EventEmitter {
   private clearance: BeyondAtcArrivalClearance | null = null

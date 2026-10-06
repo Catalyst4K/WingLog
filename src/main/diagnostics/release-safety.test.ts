@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 /**
  * The dev build (diagnostic logging, flight capture) must never be what ships. The flag is
  * only set by `package:win:dev`, which names its installer "WingLog-Dev-…", so the two can't
- * be mixed up (flightdeck-backend robustness/dev-build.md).
+ * be mixed up (winglog-backend robustness/dev-build.md).
  */
 const scripts = (JSON.parse(readFileSync('package.json', 'utf8')) as { scripts: Record<string, string> }).scripts
 

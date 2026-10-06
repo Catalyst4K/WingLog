@@ -14,7 +14,7 @@ import {
  * (mocking `WebSocketCtor`/`window.winglog`) until now. `FakeGsxRemoteServer` stands in for
  * GSX Pro's real Remote Client server — same "real protocol, fake transport" shape
  * `track-replay.spec.ts` already uses for SimConnect via `ReplaySimConnectService`, applied
- * to GSX's own WebSocket instead. All payloads are real captures from flightdeck-backend's
+ * to GSX's own WebSocket instead. All payloads are real captures from winglog-backend's
  * docs/gsx-notes.md, not invented shapes.
  */
 test.describe('GSX Remote Control', () => {

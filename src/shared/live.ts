@@ -18,7 +18,7 @@ import type {
 
 /**
  * Every live stream the app pushes while flying, keyed by its IPC channel name
- * (flightdeck-backend's docs/plans/live-data-seam.md, part A). One map so the main
+ * (winglog-backend's docs/plans/live-data-seam.md, part A). One map so the main
  * process's LiveHub, the renderer, and later a LAN client (v1.5) and a sim-PC host (v2.x)
  * all agree on what each topic carries. Payloads are plain JSON (SI units), never class
  * instances, so they survive any transport, not just Electron's structured clone.

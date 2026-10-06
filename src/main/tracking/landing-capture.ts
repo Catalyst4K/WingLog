@@ -28,7 +28,7 @@ function clampGForce(value: number): number {
 
 /**
  * Builds one landing record from the telemetry tick where TrackingController detects a
- * touchdown — the raw on-ground false->true transition (flightdeck-backend's docs/plans/
+ * touchdown — the raw on-ground false->true transition (winglog-backend's docs/plans/
  * multiple-landings.md), not the phase machine's descent -> landing edge, which has real
  * holes for circuit flying. Always uses the ingested tick's own values for
  * pitch/bank/g-force/position ("derived") rather than a dedicated touchdown SimVar — MSFS
@@ -53,7 +53,7 @@ function clampGForce(value: number): number {
  * Falls back to `previousTelemetry` (the last sample *before* on-ground flipped true) when
  * no high-rate reading is available (a replayed flight, or a live one where the high-rate
  * stream didn't arm in time). Real comparison against an independent landing-rate tool
- * (flightdeck-backend's docs/plans/flight-replay-harness.md, 2026-09-14) found the touchdown
+ * (winglog-backend's docs/plans/flight-replay-harness.md, 2026-09-14) found the touchdown
  * tick's own value under-reads true impact severity by 55-87% — a full second of gear
  * compression has usually already happened by the time on-ground reads true at 1 Hz. Falls
  * back further still to the touchdown tick's own value if neither is available (e.g.

@@ -34,7 +34,7 @@ function InfoField(props: { label: string; value: string }): React.JSX.Element {
   )
 }
 
-/** The top info strip (flightdeck-backend's docs/plans/beyondatc-panel-redesign.md) — just
+/** The top info strip (winglog-backend's docs/plans/beyondatc-panel-redesign.md) — just
  *  who you are and how far along the flight is, inline in one compact card. ATC's own
  *  instructions moved out to `LatestInstructionCard` below it (Callum's call, 2026-09-30).
  *  "Tuned to" facility/COM2 info is `BeyondAtcRadios`' job, not this card's. Always visible,
@@ -189,7 +189,7 @@ function RadiosCard(props: React.ComponentProps<typeof BeyondAtcRadios>): React.
 
 /** Always visible, same as `ActionsCard`'s Radios sibling — an empty scrollable box rather
  *  than disappearing entirely, so the right column doesn't jump around as the panel connects
- *  (flightdeck-backend's docs/plans/beyondatc-panel-redesign.md). Fills the real, bounded
+ *  (winglog-backend's docs/plans/beyondatc-panel-redesign.md). Fills the real, bounded
  *  height `BeyondAtcView`/`BeyondAtcPanel` propagate down from the window's own available
  *  space (`h-full` on `BeyondAtcView`'s root, `flex-1` the rest of the way down, all the way
  *  from App.tsx) — its own list never grows past that, scrolling internally instead
@@ -237,12 +237,12 @@ function TranscriptCard(props: { entries: BeyondAtcTranscriptEntry[] }): React.J
 }
 
 /**
- * BeyondATC integration's live panel (Parts 1-2 of flightdeck-backend's docs/plans/
+ * BeyondATC integration's live panel (Parts 1-2 of winglog-backend's docs/plans/
  * beyondatc-integration.md) — its own top-level tab, same shape as GsxRemotePanel: current-
  * value fetches on mount plus live subscriptions, so a panel mounting (or remounting) after
  * BeyondATC already pushed state doesn't show nothing until the next line arrives.
  *
- * Card-grid layout (flightdeck-backend's docs/plans/beyondatc-panel-redesign.md, second
+ * Card-grid layout (winglog-backend's docs/plans/beyondatc-panel-redesign.md, second
  * design pass, 2026-09-29): a compact info strip on top, then a two-column area below —
  * Actions + Radios on the left (their own natural height, `self-start`), a Transcript on the
  * right that matches that height exactly with its own internal scroll. The row is CSS Grid

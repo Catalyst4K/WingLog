@@ -1,7 +1,7 @@
 /**
  * The part of a WebSocket that BeyondAtcService and GsxRemoteService use: the seam a live
  * connection, a test double, or a replayed capture plugs into
- * (flightdeck-backend docs/plans/robustness/scenario-testing.md Part 1).
+ * (winglog-backend docs/plans/robustness/scenario-testing.md Part 1).
  */
 
 import { WebSocket } from 'ws'
@@ -29,7 +29,7 @@ export type ServiceSocketCtor = new (url: string) => ServiceSocket
 
 /** `ws`'s WebSocket behind the ServiceSocket shape: the services' live connection. `ws`, not
  *  Node's built-in WebSocket: the built-in one drops lines from a large multi-line message
- *  (flightdeck-backend docs/beyondatc-notes.md, 2026-09-28). */
+ *  (winglog-backend docs/beyondatc-notes.md, 2026-09-28). */
 export class NodeServiceSocket implements ServiceSocket {
   readonly OPEN = WebSocket.OPEN
   private readonly ws: WebSocket

@@ -35,7 +35,7 @@ function toLanding(row: typeof landing.$inferSelect): Landing {
 export type { NewLanding } from '@shared/ipc'
 
 /** The flight's most recent touchdown — the one Logbook's landing card defaults to
- *  (flightdeck-backend's docs/plans/multiple-landings.md). Kept alongside
+ *  (winglog-backend's docs/plans/multiple-landings.md). Kept alongside
  *  listLandingsByFlight below for callers that only ever cared about "the" landing. */
 export function getLandingByFlight(db: WingLogDb, flightId: number): Landing | undefined {
   const row = db
@@ -66,11 +66,11 @@ export function listLandingsByFlight(db: WingLogDb, flightId: number): Landing[]
 
 /**
  * (flight_id, seq) is the unique target now, not flight_id alone — a flight can have many
- * touchdowns (flightdeck-backend's docs/plans/multiple-landings.md), but a re-capture of
+ * touchdowns (winglog-backend's docs/plans/multiple-landings.md), but a re-capture of
  * the *same* touchdown (e.g. a replay) still replaces rather than duplicates. `set`
  * deliberately omits `uuid`: a re-capture of an existing landing keeps its original sync
  * identity rather than minting a new one, while a genuinely new row gets one from `values`
- * (flightdeck-backend/docs/plans/cloud-sync.md) — updatedAt bumps either way, so a
+ * (winglog-backend/docs/plans/cloud-sync.md) — updatedAt bumps either way, so a
  * re-capture still re-syncs.
  */
 export function createLanding(db: WingLogDb, input: NewLanding): Landing {
@@ -108,7 +108,7 @@ export function listLandingsByAircraft(db: WingLogDb, aircraftId: number): Aircr
 }
 
 /** Every touchdown across every non-deleted flight, newest first — the Logbook Landings
- *  sub-tab (flightdeck-backend's docs/plans/multiple-landings.md Phase 2/3), spanning the
+ *  sub-tab (winglog-backend's docs/plans/multiple-landings.md Phase 2/3), spanning the
  *  whole fleet rather than one aircraft (listLandingsByAircraft above). Score is resolved
  *  by the caller (main/index.ts), same composition as listLandingsByAircraft's own
  *  fleetListLandings handler. */

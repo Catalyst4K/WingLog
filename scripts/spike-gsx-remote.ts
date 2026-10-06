@@ -1,5 +1,5 @@
 /**
- * Throwaway spike for flightdeck-backend docs/plans/gsx-remote-control.md's Phase 0.
+ * Throwaway spike for winglog-backend docs/plans/gsx-remote-control.md's Phase 0.
  *
  * Questions this answers, against a real running GSX Pro install:
  *   1. What's the Remote Control page's real port? 8090 is the port commonly cited in
@@ -16,7 +16,7 @@
  *   npm run spike:gsx-remote
  *   npm run spike:gsx-remote -- --port 8091   (to try a different port)
  *
- * Log findings in flightdeck-backend's docs/gsx-notes.md (recreate it — see the plan
+ * Log findings in winglog-backend's docs/gsx-notes.md (recreate it — see the plan
  * doc's "Confirmed" section, it's cited elsewhere but doesn't currently exist) before any
  * production code depends on the answers.
  */

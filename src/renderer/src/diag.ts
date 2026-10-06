@@ -1,6 +1,6 @@
 /**
  * Renderer side of the dev build's diagnostic log: a decision made in the UI (the taxi route
- * trace, a re-route) sent to main's `diag.log` (flightdeck-backend robustness/dev-build.md).
+ * trace, a re-route) sent to main's `diag.log` (winglog-backend robustness/dev-build.md).
  * Does nothing in a normal build.
  */
 

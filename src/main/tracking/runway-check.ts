@@ -21,7 +21,7 @@ const MAX_AIRPORT_DISTANCE_M = 8_000
  * its thresholds plus ALONG_MARGIN_M. Null when it can't tell: no runways cached, or the
  * point is nowhere near them.
  *
- * Why (flightdeck-backend's docs/plans/v1-4.md): on flight 230, 2026-10-05, a 35 kt taxi
+ * Why (winglog-backend's docs/plans/v1-4.md): on flight 230, 2026-10-05, a 35 kt taxi
  * along VHHH's parallel taxiway, 291 m off runway 25L's centreline, was taken for the takeoff
  * roll. The real roll was 0–8 m off.
  *

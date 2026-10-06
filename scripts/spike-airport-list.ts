@@ -1,5 +1,5 @@
 /**
- * Throwaway spike for flightdeck-backend docs/plans/landing-airfield-from-sim.md, Step 1.
+ * Throwaway spike for winglog-backend docs/plans/landing-airfield-from-sim.md, Step 1.
  * Confirms against a live MSFS 2024 whether the sim's own airport list (SimConnect
  * RequestFacilitiesList / SubscribeToFacilities on AIRPORT) includes add-on/closed fields
  * that the vendored OurAirports slice lacks (Kai Tak = VHHX), and how long it takes.
@@ -12,7 +12,7 @@
  * Usage (MSFS running, aircraft loaded near Kai Tak or anywhere):
  *   npm run spike:airport-list
  *   SPIKE_ICAO=VHHX npm run spike:airport-list
- * Log answers in flightdeck-backend docs/simconnect-notes.md.
+ * Log answers in winglog-backend docs/simconnect-notes.md.
  */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'

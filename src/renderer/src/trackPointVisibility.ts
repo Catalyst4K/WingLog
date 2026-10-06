@@ -1,7 +1,7 @@
 import type { TrackPoint } from '@shared/ipc'
 
 /**
- * Drops points a resume-cleanup pass has flagged as junk (flightdeck-backend's docs/plans/
+ * Drops points a resume-cleanup pass has flagged as junk (winglog-backend's docs/plans/
  * resume-track-cleanup.md) — a crash-resume's spawn-then-fly-back triangle, or the far
  * side of a mid-flight teleport rewound onto the already-flown track. Kept as its own pure
  * function (rather than inline in FlightMap.tsx) so the filtering rule itself — and not

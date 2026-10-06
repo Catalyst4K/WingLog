@@ -1,6 +1,6 @@
 /**
  * Throwaway spike for the cloud-sync plan's "flown route" idea
- * (flightdeck-backend/docs/plans/cloud-sync.md) — not wired into the app, nothing here
+ * (winglog-backend/docs/plans/cloud-sync.md) — not wired into the app, nothing here
  * ships. Runs Douglas-Peucker line simplification against a real recorded flight's
  * track_point rows to see actual compression ratios before that plan's
  * `flight.flownRouteJson` column gets built for real.

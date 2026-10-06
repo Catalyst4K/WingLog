@@ -5,7 +5,7 @@ import { _electron as electron, type ElectronApplication, type Page } from '@pla
 
 /**
  * Launches the real built app (`npm run build`'s `out/`) against a fresh, isolated
- * `--user-data-dir` — never the real developer profile. Confirmed live (flightdeck-backend's
+ * `--user-data-dir` — never the real developer profile. Confirmed live (winglog-backend's
  * docs/plans/test-coverage.md) before this existed:
  *
  * - The first arg must be the project ROOT directory (containing package.json, whose
@@ -33,7 +33,7 @@ export interface LaunchedApp {
 export interface LaunchAppOptions {
   /** Extra env vars for this launch only — merged over the inherited environment, never
    *  mutating process.env, so concurrent tests can request different fixtures safely. Used
-   *  to drive main/index.ts's replay seam (WINGLOG_E2E_FIXTURE and friends — flightdeck-
+   *  to drive main/index.ts's replay seam (WINGLOG_E2E_FIXTURE and friends — winglog-
    *  backend's docs/plans/flight-replay-harness.md Phase 3) without a live sim. */
   env?: Record<string, string>
   /** Use this directory as `--user-data-dir` instead of a freshly created empty one — for
@@ -42,7 +42,7 @@ export interface LaunchAppOptions {
    *  Still isolated, still the caller's responsibility to have created it and to clean it
    *  up (cleanup() below only removes a directory it created itself). */
   userDataDir?: string
-  /** Leave the first-launch setup open (flightdeck-backend's docs/plans/first-launch-setup.md)
+  /** Leave the first-launch setup open (winglog-backend's docs/plans/first-launch-setup.md)
    *  for a test about the setup itself. By default it's closed straight away, since every
    *  other test starts from a fresh profile and would otherwise find it in the way. */
   keepSetup?: boolean

@@ -2,15 +2,15 @@
  * Facility Data Definition field names and record parsing for the navdata provider
  * (src/main/navdata/) — kept in src/main/sim/ next to simvars.ts, per CLAUDE.md's "SimVar/
  * facility names live in one place" rule. Field lists and read order are sim-confirmed
- * live, 2026-09-08 (flightdeck-backend's docs/navdata-notes.md, scripts/spike-facilities.ts
+ * live, 2026-09-08 (winglog-backend's docs/navdata-notes.md, scripts/spike-facilities.ts
  * — same spike, reused here) against a real MSFS 2024: RUNWAY, DEPARTURE/ARRIVAL,
  * RUNWAY_TRANSITION, ENROUTE_TRANSITION and APPROACH_LEG record shapes all match what that
  * spike observed. Registration order = buffer read order, exactly like simvars.ts.
  *
  * APPROACH/APPROACH_TRANSITION/FINAL_APPROACH_LEG parsing added 2026-09-08 for
- * flightdeck-backend's navdata-without-navigraph.md Phase 5 (real approach selection) —
+ * winglog-backend's navdata-without-navigraph.md Phase 5 (real approach selection) —
  * spike-confirmed live the same day against a real MSFS 2024 session
- * (flightdeck-backend's docs/navdata-notes.md, "approach procedures, previously out of
+ * (winglog-backend's docs/navdata-notes.md, "approach procedures, previously out of
  * scope" entry). `MISSED_APPROACH_LEG` deliberately still unregistered — nothing built so
  * far needs a go-around path.
  *
@@ -42,7 +42,7 @@ export const enum NavdataDefId {
   /** Two separate definitions for the same TAXI_PATH shape, filtered to different `TYPE`
    *  values — a facility data definition's filter (`addFacilityDataDefinitionFilter`) matches
    *  exactly one value, and which numeric `TYPE` is really "Taxi" vs "Path" is unconfirmed
-   *  (flightdeck-backend's docs/navdata-notes.md, 2026-09-28) — TYPE 1 and TYPE 4 are both
+   *  (winglog-backend's docs/navdata-notes.md, 2026-09-28) — TYPE 1 and TYPE 4 are both
    *  fetched and merged rather than guessing one. */
   TAXI_PATHS_TYPE_1 = 15,
   TAXI_PATHS_TYPE_4 = 16,
@@ -366,7 +366,7 @@ export function parseEnrouteTransition(d: RawBuffer): ParsedEnrouteTransition {
 
 /** `APPROACH.TYPE`'s raw integer, mapped with confidence — cross-validated against real
  *  EGLL/VHHH approach counts rather than an authoritative SDK table (none found), 2026-09-08
- *  (flightdeck-backend's docs/navdata-notes.md): every runway end at both airports had
+ *  (winglog-backend's docs/navdata-notes.md): every runway end at both airports had
  *  exactly one `type=4` and, where present, exactly one `type=5`, matching real published
  *  ILS + LOC-only-backup pairs; `type=10` was the only one ever duplicated per runway,
  *  matching real "RNP Y"/"RNP Z" pairs (confirmed via SUFFIX on VHHH 07R's two `type=10`
@@ -590,7 +590,7 @@ export function parseTaxiName(d: RawBuffer): ParsedTaxiName {
 }
 
 /** One TAXI_PARKING record (stands/gates) — every field confirmed live 2026-10-02
- *  (flightdeck-backend's docs/navdata-notes.md, "TAXI_PARKING"): positions are BIAS_X/BIAS_Z
+ *  (winglog-backend's docs/navdata-notes.md, "TAXI_PARKING"): positions are BIAS_X/BIAS_Z
  *  like TAXI_POINT's, within 13-15 m of where a real flight parked at VHHH N32 / YBBN gate 79. */
 export interface ParsedTaxiParking {
   /** SDK NAME enum: 0 NONE, 1 PARKING, 2-9 N..NW_PARKING, 10 GATE, 11 DOCK, 12-37 GATE_A..Z. */

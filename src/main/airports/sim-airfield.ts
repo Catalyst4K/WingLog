@@ -15,7 +15,7 @@ import { aimingPointDistanceForLengthM, resolveRunwayEnd, type RunwayEnd } from 
 /**
  * Resolves a touchdown to an airfield and runway using the *sim's own* facility data, for the
  * places the vendored OurAirports slice doesn't cover — scenery add-ons, closed historical
- * fields (Kai Tak = the sim's `VHHX`), generated strips (flightdeck-backend's
+ * fields (Kai Tak = the sim's `VHHX`), generated strips (winglog-backend's
  * docs/plans/landing-airfield-from-sim.md; live spike 2026-09-19, docs/simconnect-notes.md:
  * the full ~85k-airport list arrives in ~0.3 s and a RUNWAYS request for one airport takes
  * ~30 ms).

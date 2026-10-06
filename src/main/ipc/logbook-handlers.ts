@@ -125,7 +125,7 @@ export function registerLogbookHandlers(ipcMain: IpcMain, { db, window, schedule
     simplifyTrackPoints(listTrackPoints(db, flightId).filter((p) => p.excludedReason == null))
   )
 
-  // Logbook's manual "Clean up track" button (flightdeck-backend's docs/plans/done/
+  // Logbook's manual "Clean up track" button (winglog-backend's docs/plans/done/
   // resume-track-cleanup.md) — the same cleanup pass TrackingController already runs
   // live/at completion, run on demand for a flight with no active recorder at all
   // (one completed before Phase 2 existed, or the rare case the live check missed

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { parseAircraftIdentity } from './aircraft-identity'
 
-// The exact three real captured values from flightdeck-backend's free-flight-tracking.md
+// The exact three real captured values from winglog-backend's free-flight-tracking.md
 // "What the sim actually reports" table (flight-captures/, 2026-09-14) — not synthesized
 // shapes, so this also stands as a live check that the vendored CSV still resolves them.
 describe('parseAircraftIdentity (real captured values)', () => {

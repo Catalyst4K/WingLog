@@ -17,7 +17,7 @@ const ROUTE_TOLERANCE_M = 100
 // On the ground 100m is the wrong scale: a taxiway is ~23m wide and parallel taxiways are
 // often 100-200m apart, so a whole flight's taxiing collapsed to 21-33 points and cut
 // corners by up to 54m, straight across the taxi chart (flights 220-227, measured
-// 2026-10-05, flightdeck-backend's ground-track-resolution.md). Each on-ground run gets its
+// 2026-10-05, winglog-backend's ground-track-resolution.md). Each on-ground run gets its
 // own pass at 5m instead, which cost only +5 to +25 points per flight on that same data.
 const GROUND_ROUTE_TOLERANCE_M = 5
 // Altitude/speed tolerances are generous enough to erase 1Hz sensor noise and cruise-level

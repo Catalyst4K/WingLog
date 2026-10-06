@@ -1,7 +1,7 @@
 /**
  * The taxi simulation's report: per taxi, an overview map (network, the cleared line, each
  * re-route, the real track) and a before-and-after pair at every re-route, zoomed in on the
- * aircraft (flightdeck-backend docs/plans/robustness/scenario-testing.md Part 6, "Visual output").
+ * aircraft (winglog-backend docs/plans/robustness/scenario-testing.md Part 6, "Visual output").
  */
 import type { NavdataTaxiSegment } from '../../src/shared/ipc'
 import type { Report, ReportSection } from './report'

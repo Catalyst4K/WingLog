@@ -8,7 +8,7 @@ import { FakeBeyondAtcServer, LARGE_REAL_SNAPSHOT } from './beyondatc-server'
 import { FakeGsxRemoteServer, VHHH_BOOT_SNAPSHOT } from './gsx-remote-server'
 
 /**
- * Generates the manual's screenshots into docs/manual/images (flightdeck-backend's
+ * Generates the manual's screenshots into docs/manual/images (winglog-backend's
  * docs/plans/user-docs-v1-4.md, "Images"): the real built app, on a demo profile seeded from
  * the committed replay fixtures and fake add-on servers, never anyone's real data. Light theme,
  * English, a fixed window size, so a re-run after a UI change gives matching images.

@@ -1,7 +1,7 @@
 /**
  * Replays a real captured flight fixture (scrubbed per CLAUDE.md's Security section — see
  * __fixtures__/short-hop-egll-egcc.ndjson's own header) through the real
- * TrackingController/FlightRecorder against a scratch DB. Closes flightdeck-backend's
+ * TrackingController/FlightRecorder against a scratch DB. Closes winglog-backend's
  * docs/plans/flight-replay-harness.md Phase 3: the permanent regression test a committed
  * fixture makes possible, following on from Phase 1's one-off spike cross-check against the
  * same underlying flight (EGLL -> EGCC, Fenix A320, pushback to shutdown).
@@ -85,7 +85,7 @@ describe('flight replay harness (real fixture)', () => {
 describe('flight replay harness (real fixture) — multiple landings', () => {
   it(
     'captures every real touchdown of a circuits flight, including the firm landing that ' +
-      'the old one-per-flight capture used to lose (flightdeck-backend docs/plans/multiple-landings.md)',
+      'the old one-per-flight capture used to lose (winglog-backend docs/plans/multiple-landings.md)',
     async () => {
       const { db } = createDb(':memory:')
       migrate(db, { migrationsFolder: 'drizzle' })

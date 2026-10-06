@@ -182,7 +182,7 @@ export interface SimTelemetry {
   /** Barometric altitude with the Kohlsman set to standard (1013.25 mb/29.92 in) —
    *  logbook-detail-improvements.md Phase 3: what a correctly-flown PFD reads above the
    *  transition altitude, independent of each aircraft's own altimeter implementation
-   *  (confirmed real and trustworthy for this live, flightdeck-backend's
+   *  (confirmed real and trustworthy for this live, winglog-backend's
    *  docs/simconnect-notes.md, 2026-09-13 entry — unlike INDICATED ALTITUDE, which depends
    *  on the aircraft's own Kohlsman setting and produced the -13,500 ft chart bug this
    *  field exists to avoid repeating). */
@@ -257,7 +257,7 @@ export interface TrackPoint {
   windSpeedMs: number
   windDirectionDeg: number
   /** Incremented each time TrackingController.resume() picks a flight back up after the
-   *  app/process restarted mid-flight — see flightdeck-backend's docs/plans/done/
+   *  app/process restarted mid-flight — see winglog-backend's docs/plans/done/
    *  resume-track-cleanup.md. 0 for a flight never resumed. The map draws one line per
    *  segment and never joins across a boundary, so a restart's spawn-point/teleport-back
    *  artefacts can't be drawn as a straight line across the gap even before any cleanup
@@ -265,7 +265,7 @@ export interface TrackPoint {
   resumeSegment: number
   /** Sim time compression at the moment this point was recorded — needed to tell a
    *  legitimate high-speed-over-ground-at-4x sample apart from a physically impossible
-   *  teleport (flightdeck-backend's docs/plans/done/resume-track-cleanup.md). */
+   *  teleport (winglog-backend's docs/plans/done/resume-track-cleanup.md). */
   simRate: number
   /** Set by the post-resume cleanup pass, never at record time — see the plan doc above.
    *  Null means this point is genuine and should be shown; every consumer (the map, route
@@ -278,7 +278,7 @@ export interface TrackPoint {
 export type NewTrackPoint = Omit<TrackPoint, 'id'>
 
 /** Result of an on-demand resume-cleanup pass (the Logbook "Clean up track" button,
- *  flightdeck-backend's docs/plans/done/resume-track-cleanup.md) — a manual trigger for a
+ *  winglog-backend's docs/plans/done/resume-track-cleanup.md) — a manual trigger for a
  *  flight that already completed, alongside the automatic live/completion-time pass
  *  TrackingController already runs. Both `excludedCount`/`resegmentedCount` are 0 when
  *  nothing needed fixing. */
@@ -294,7 +294,7 @@ export interface TrackCleanupSummary {
 export interface Landing {
   id: number
   flightId: number
-  /** 1-based, per flight, in touchdown order (flightdeck-backend's docs/plans/
+  /** 1-based, per flight, in touchdown order (winglog-backend's docs/plans/
    *  multiple-landings.md) — a flight can have several, one per real touchdown. */
   seq: number
   /** The airport this specific touchdown happened at, resolved from position at capture
@@ -431,7 +431,7 @@ export interface LandingScoreResult {
 /** One flight's score, for Logbook's list-view column (docs/plans/landing-scoring.md's
  *  "Logbook UI" section) — omits any completed flight with no landing row (CSV-imported,
  *  or tracked before landing capture shipped), which the list shows as "—" for. `score` is
- *  against the *final* touchdown (flightdeck-backend's docs/plans/multiple-landings.md);
+ *  against the *final* touchdown (winglog-backend's docs/plans/multiple-landings.md);
  *  `landingCount` backs the list's "×3" badge for a flight with more than one. */
 export interface LandingScoreSummary {
   flightId: number
@@ -440,7 +440,7 @@ export interface LandingScoreSummary {
 }
 
 /** One touchdown with its runway geometry and score already resolved server-side
- *  (flightdeck-backend's docs/plans/multiple-landings.md) — `logbookListLandings`'s own
+ *  (winglog-backend's docs/plans/multiple-landings.md) — `logbookListLandings`'s own
  *  return shape, replacing the three separate logbookGetLanding/-Runway/-Score calls the
  *  Logbook detail page used to make per flight. `runway`/`score` are null under the same
  *  conditions the old per-call versions returned null for (no runwayIdent match, or
@@ -450,7 +450,7 @@ export interface LandingWithDetails extends Landing {
   score: LandingScoreResult | null
 }
 
-/** One row for the Logbook Landings sub-tab (flightdeck-backend's docs/plans/
+/** One row for the Logbook Landings sub-tab (winglog-backend's docs/plans/
  *  multiple-landings.md Phase 2/3) — every touchdown across every non-deleted flight,
  *  joined with enough flight/aircraft context to sort and link back. Mirrors
  *  AircraftLandingRow's shape (which is scoped to one aircraft already); this one spans
@@ -661,7 +661,7 @@ export interface GsxRescanResult {
   notailCandidates: GsxNotailCandidate[]
 }
 
-/** Settings → Tracking (flightdeck-backend's docs/plans/tracking-auto-toggles.md). Both on by
+/** Settings → Tracking (winglog-backend's docs/plans/tracking-auto-toggles.md). Both on by
  *  default; off falls back to the manual Start tracking / Finish & save buttons. */
 export interface TrackingSettings {
   /** Start tracking an armed flight once the sim has settled at the departure. */
@@ -680,7 +680,7 @@ export interface GsxSettings {
 
 /**
  * GSX Remote Control — a live control link to GSX Pro's own "Remote Client" WebSocket
- * (flightdeck-backend's docs/plans/gsx-remote-control.md; real findings in docs/gsx-notes.md).
+ * (winglog-backend's docs/plans/gsx-remote-control.md; real findings in docs/gsx-notes.md).
  * Unrelated to GsxSettings above, which is the file-based receipts feature. Port is
  * genuinely user-configurable in GSX's own settings — never assume a default is correct.
  */
@@ -822,7 +822,7 @@ export type GsxRemoteCommandId = GsxRemoteCommand['id'] | 'RELOAD_SIMBRIEF'
  * UI must render it the same way: whatever's in `entries` right now, picked by index.
  *
  * `menuShown` is a *separate* flag from having entries — confirmed live, 2026-09-21
- * (flightdeck-backend's docs/gsx-notes.md): the menu tree only actually opens once
+ * (winglog-backend's docs/gsx-notes.md): the menu tree only actually opens once
  * something sends `menu.toggle` (GSX's own client does this from a permanent, always-
  * visible header the user taps — entirely independent of the in-sim panel; that's how a
  * real GSX remote works without the in-sim menu ever opening). `entries` can be non-empty
@@ -860,7 +860,7 @@ export interface GsxRemotePromptState {
 
 /**
  * BeyondATC integration — a live control link to `BeyondATC.exe`'s own local WebSocket
- * server (flightdeck-backend's docs/plans/beyondatc-integration.md; real protocol findings
+ * server (winglog-backend's docs/plans/beyondatc-integration.md; real protocol findings
  * in docs/beyondatc-notes.md, confirmed live 2026-09-25). Unlike GSX's Remote Client, the
  * port is fixed (`41716`, confirmed on BeyondATC's own side, not user-configurable) — only
  * `host` and `enabled` are real settings.
@@ -870,7 +870,7 @@ export interface BeyondAtcSettings {
   host: string
 }
 
-/** A newer WingLog release found on GitHub (flightdeck-backend's docs/plans/update-check.md). */
+/** A newer WingLog release found on GitHub (winglog-backend's docs/plans/update-check.md). */
 export interface UpdateRelease {
   /** "1.4.1", no "v". */
   version: string
@@ -896,7 +896,7 @@ export interface UpdateSettings {
   checkEnabled: boolean
 }
 
-/** First-launch setup (flightdeck-backend's docs/plans/first-launch-setup.md). */
+/** First-launch setup (winglog-backend's docs/plans/first-launch-setup.md). */
 export interface SetupState {
   /** A new install that hasn't finished or closed the setup yet. */
   show: boolean
@@ -956,7 +956,7 @@ export interface BeyondAtcProgress {
 }
 
 /** One entry of the real `Frequencies: [...]` response to the `frequencies` command —
- *  confirmed live 2026-09-29 (flightdeck-backend's docs/beyondatc-notes.md), a genuine
+ *  confirmed live 2026-09-29 (winglog-backend's docs/beyondatc-notes.md), a genuine
  *  structured station list for every airport in the flight plan, not the local-UI-only
  *  no-op it was previously suspected to be. `airport`/`airportName`/`stationType`/`runways`
  *  are sometimes empty strings (the one real enroute Center entry captured had no airport
@@ -986,7 +986,7 @@ export interface BeyondAtcArrivalClearance {
   approachTransition: string | null
 }
 
-/** WingLog's own BeyondATC auto step climb (flightdeck-backend's docs/plans/
+/** WingLog's own BeyondATC auto step climb (winglog-backend's docs/plans/
  *  beyondatc-auto-step-climb.md) — not a BeyondATC setting; WingLog asks for each new level. */
 export interface BeyondAtcStepClimbStatus {
   enabled: boolean
@@ -1197,12 +1197,12 @@ export type AltitudeUnit = 'ft' | 'm' | 'hybrid'
  *  formatted wind line alongside it. */
 export type WindSpeedUnit = 'kt' | 'mps'
 
-/** Language of the base map's place names (flightdeck-backend docs/plans/
+/** Language of the base map's place names (winglog-backend docs/plans/
  *  map-language-and-declutter.md). 'local' is each place's own native name. */
 export type MapLanguage = 'local' | 'en' | 'de' | 'es' | 'fr' | 'it' | 'ru'
 
 /**
- * The app's own UI display language (flightdeck-backend docs/plans/v1-2.md Part 3,
+ * The app's own UI display language (winglog-backend docs/plans/v1-2.md Part 3,
  * decisions.md 2026-09-20) — distinct from MapLanguage above, which only ever affects map
  * place names. 'system' (the default) resolves to the OS's own locale client-side
  * (app-language.ts's resolveAppLanguage), falling back to English when no catalogue exists
@@ -1277,7 +1277,7 @@ export interface DispatchOpenSimBriefParams {
   extra?: [string, string][]
 }
 
-/** Cloud sync's runtime status (flightdeck-backend/docs/plans/cloud-sync.md) — polled by
+/** Cloud sync's runtime status (winglog-backend/docs/plans/cloud-sync.md) — polled by
  *  Settings' "Cloud sync" section rather than pushed, since a sync is infrequent and
  *  short (launch + manual "Sync now"), not worth a dedicated push channel for. */
 export interface SyncStatus {
@@ -1292,7 +1292,7 @@ export interface SyncStatus {
 }
 
 /**
- * Navdata (Phase 3, flightdeck-backend's docs/plans/navdata-without-navigraph.md) — real
+ * Navdata (Phase 3, winglog-backend's docs/plans/navdata-without-navigraph.md) — real
  * runway/SID/STAR data from MSFS's own SimConnect Facilities API, cached locally per
  * airport. `refresh` is the only channel that touches the sim; the rest read the cache, so
  * a Dispatch dropdown doesn't wait on a live SimConnect round-trip on every keystroke.
@@ -1404,7 +1404,7 @@ export interface NavdataTaxiSegment {
   name: string | null
   /** Whether each endpoint is a hold-short point (TAXI_POINT TYPE 2/4/5/6 — SDK enum; 5 seen
    *  live at VHHH, 2026-09-30). Lets a traced taxi route stop exactly at a named holding
-   *  point (flightdeck-backend's docs/beyondatc-notes.md). */
+   *  point (winglog-backend's docs/beyondatc-notes.md). */
   startHoldShort: boolean
   endHoldShort: boolean
 }
@@ -1655,7 +1655,7 @@ export interface WingLogApi {
   settingsGetSimbriefUsername: () => Promise<string | null>
   settingsSetSimbriefUsername: (username: string) => Promise<void>
   /**
-   * Triggers a real plan generation via SimBrief's keyed API, signed by flightdeck-backend
+   * Triggers a real plan generation via SimBrief's keyed API, signed by winglog-backend
    * rather than a locally-held key (docs/decisions.md, 2026-09-04) — opens a visible window
    * for SimBrief's own login/generation UI, and resolves with the resulting OFP once it
    * closes. Throws if no username is set, the backend signing request fails, or the window
@@ -1663,7 +1663,7 @@ export interface WingLogApi {
    */
   dispatchGenerateOfp: (params: DispatchOpenSimBriefParams) => Promise<DispatchOfp>
   /** Whether generation is possible at all right now — always true, since generation goes
-   *  through flightdeck-backend rather than a per-build key. Kept as a channel for a
+   *  through winglog-backend rather than a per-build key. Kept as a channel for a
    *  possible future bring-your-own-key or backend-downtime fallback. */
   dispatchGenerationAvailable: () => Promise<boolean>
   /** Pre-authenticates the generation window's session — persisted across restarts
@@ -1723,7 +1723,7 @@ export interface WingLogApi {
   trackingGetActive: () => Promise<ActiveTracking | null>
   trackPointList: (flightId: number) => Promise<TrackPoint[]>
   onTrackingPoint: (listener: (point: TrackPoint) => void) => () => void
-  /** Pushed whenever a resume-cleanup pass (flightdeck-backend's docs/plans/done/
+  /** Pushed whenever a resume-cleanup pass (winglog-backend's docs/plans/done/
    *  resume-track-cleanup.md) changes an already-recorded point — newly excluded, or
    *  retagged with a new resumeSegment — carrying each affected point at its now-current
    *  value so a live map already showing the earlier copy (from onTrackingPoint) can patch
@@ -1779,13 +1779,13 @@ export interface WingLogApi {
    *  response shaped differently than expected. */
   logbookOpenOfpPdf: (flightId: number) => Promise<boolean>
   /** Every touchdown recorded for a flight, in touchdown order, each with its runway
-   *  geometry and score already resolved (flightdeck-backend's docs/plans/
+   *  geometry and score already resolved (winglog-backend's docs/plans/
    *  multiple-landings.md) — replaces the old logbookGetLanding/-Runway/-Score trio with
    *  one call. Empty for any flight tracked before landing capture existed, or with no
    *  landing phase reached (e.g. cancelled mid-air). */
   logbookListLandings: (flightId: number) => Promise<LandingWithDetails[]>
   /** Every touchdown across every non-deleted flight, newest first — the Logbook Landings
-   *  sub-tab (flightdeck-backend's docs/plans/multiple-landings.md Phase 3). */
+   *  sub-tab (winglog-backend's docs/plans/multiple-landings.md Phase 3). */
   logbookListAllLandings: () => Promise<LandingListRow[]>
   /** Great-circle fallback route for Logbook's flight-detail map, [lon, lat] pairs (docs/
    *  plans/great-circle-fallback-route.md) — used only when the flight has no OFP-derived
@@ -1836,7 +1836,7 @@ export interface WingLogApi {
    *  null on any lookup failure (unsupported code, network error, future date) — the
    *  caller falls back to USD. */
   fxGetRate: (targetCurrency: string, date?: string) => Promise<number | null>
-  /** Cloud sync (flightdeck-backend/docs/plans/cloud-sync.md) — off by default until a
+  /** Cloud sync (winglog-backend/docs/plans/cloud-sync.md) — off by default until a
    *  successful login. Throws on invalid credentials or an unreachable backend; a
    *  successful login persists the session (Electron's safeStorage) so it survives a
    *  restart without asking again. */
@@ -1997,7 +1997,7 @@ export interface WingLogApi {
   beyondAtcSetFrequency: (frequency: string) => Promise<void>
   beyondAtcSetFrequencyCom2: (frequency: string) => Promise<void>
   /** `set_autotune`/`set_autorespond` — confirmed working two-way control, 2026-09-29
-   *  (flightdeck-backend's docs/beyondatc-notes.md). No-op if not connected. */
+   *  (winglog-backend's docs/beyondatc-notes.md). No-op if not connected. */
   beyondAtcSetAutoTune: (value: boolean) => Promise<void>
   beyondAtcSetAutoRespond: (value: boolean) => Promise<void>
   settingsGetUpdates: () => Promise<UpdateSettings>
