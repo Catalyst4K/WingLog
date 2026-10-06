@@ -36,6 +36,8 @@ export interface LocalXy {
 /**
  * Great-circle distance (haversine).
  *
+ * @param a One end.
+ * @param b The other end.
  * @returns Metres.
  */
 export function greatCircleM(a: LatLon, b: LatLon): number {
@@ -48,6 +50,8 @@ export function greatCircleM(a: LatLon, b: LatLon): number {
 /**
  * Great-circle distance.
  *
+ * @param a One end.
+ * @param b The other end.
  * @returns Nautical miles.
  */
 export function greatCircleNm(a: LatLon, b: LatLon): number {
@@ -57,6 +61,8 @@ export function greatCircleNm(a: LatLon, b: LatLon): number {
 /**
  * Initial true bearing from `a` to `b` on the great circle.
  *
+ * @param a Where the bearing is taken from.
+ * @param b Where it points to.
  * @returns Degrees true, 0 to 360.
  */
 export function initialBearingDeg(a: LatLon, b: LatLon): number {
@@ -71,8 +77,10 @@ export function initialBearingDeg(a: LatLon, b: LatLon): number {
  * Longitude is left unwrapped, so a ring drawn across the antimeridian stays continuous; use
  * wrapLongitude for a canonical value.
  *
+ * @param from The start.
  * @param bearingDeg Degrees true.
  * @param distanceM Metres.
+ * @returns The point reached, longitude unwrapped.
  */
 export function destinationPoint(from: LatLon, bearingDeg: number, distanceM: number): LatLon {
   const d = distanceM / EARTH_RADIUS_M
@@ -86,7 +94,8 @@ export function destinationPoint(from: LatLon, bearingDeg: number, distanceM: nu
 /**
  * A longitude brought into -180 to 180.
  *
- * @returns Degrees.
+ * @param lon Degrees, any value.
+ * @returns Degrees, -180 to 180.
  */
 export function wrapLongitude(lon: number): number {
   return ((((lon + 540) % 360) + 360) % 360) - 180
@@ -96,6 +105,7 @@ export function wrapLongitude(lon: number): number {
  * Metres per degree of longitude at a latitude, for the local flat projection.
  *
  * @param latDeg Degrees.
+ * @returns Metres.
  */
 export function metresPerDegreeLon(latDeg: number): number {
   return METRES_PER_DEGREE_LAT * Math.cos(latDeg * RAD)
@@ -106,7 +116,9 @@ export function metresPerDegreeLon(latDeg: number): number {
  * the equator, at that latitude's scale. Only differences between projected points mean
  * anything, and only near the reference latitude.
  *
+ * @param p The position.
  * @param refLatDeg The latitude the plane is scaled at, in degrees.
+ * @returns Metres east and north.
  */
 export function toLocalXy(p: LatLon, refLatDeg: number): LocalXy {
   return { x: p.lon * metresPerDegreeLon(refLatDeg), y: p.lat * METRES_PER_DEGREE_LAT }
@@ -114,6 +126,10 @@ export function toLocalXy(p: LatLon, refLatDeg: number): LocalXy {
 
 /**
  * Metres east and north of `origin`, on the plane tangent at the origin's latitude.
+ *
+ * @param origin The reference point.
+ * @param p The point measured.
+ * @returns Metres east and north (negative: west, south).
  */
 export function offsetFrom(origin: LatLon, p: LatLon): { eastM: number; northM: number } {
   return { eastM: (p.lon - origin.lon) * metresPerDegreeLon(origin.lat), northM: (p.lat - origin.lat) * METRES_PER_DEGREE_LAT }
@@ -123,8 +139,10 @@ export function offsetFrom(origin: LatLon, p: LatLon): { eastM: number; northM: 
  * The point `eastM` east and `northM` north of `origin`, on the plane tangent at the origin's
  * latitude: the inverse of offsetFrom.
  *
+ * @param origin The reference point.
  * @param eastM Metres east (negative: west).
  * @param northM Metres north (negative: south).
+ * @returns The offset point.
  */
 export function offsetBy(origin: LatLon, eastM: number, northM: number): LatLon {
   return { lat: origin.lat + northM / METRES_PER_DEGREE_LAT, lon: origin.lon + eastM / metresPerDegreeLon(origin.lat) }
@@ -133,6 +151,8 @@ export function offsetBy(origin: LatLon, eastM: number, northM: number): LatLon 
 /**
  * Straight-line distance on the local flat plane.
  *
+ * @param a One end.
+ * @param b The other end.
  * @param refLatDeg The latitude the plane is scaled at; `a`'s by default.
  * @returns Metres.
  */
@@ -144,6 +164,9 @@ export function flatDistanceM(a: LatLon, b: LatLon, refLatDeg: number = a.lat): 
  * Distance from `p` to the infinite line through `a` and `b`, on the plane tangent at their
  * midpoint latitude (re-scaled per line, so it holds over routes spanning many degrees).
  *
+ * @param p The point measured.
+ * @param a One point on the line.
+ * @param b Another point on the line.
  * @returns Metres.
  */
 export function pointToLineM(p: LatLon, a: LatLon, b: LatLon): number {
@@ -157,6 +180,9 @@ export function pointToLineM(p: LatLon, a: LatLon, b: LatLon): number {
  * Distance from `p` to the segment from `a` to `b` (not the line beyond its ends), on the plane
  * tangent at their midpoint latitude.
  *
+ * @param p The point measured.
+ * @param a The segment's start.
+ * @param b The segment's end.
  * @returns Metres.
  */
 export function pointToSegmentM(p: LatLon, a: LatLon, b: LatLon): number {

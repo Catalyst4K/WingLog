@@ -9,7 +9,13 @@ function toRadians(deg: number): number {
   return (deg * Math.PI) / 180
 }
 
-/** Shortest angular difference between two headings, 0-180. */
+/**
+ * Shortest angular difference between two headings, 0-180.
+ *
+ * @param a A heading, degrees.
+ * @param b Another heading, degrees.
+ * @returns Degrees, 0 to 180.
+ */
 export function angularDifference(a: number, b: number): number {
   const diff = Math.abs(a - b) % 360
   return diff > 180 ? 360 - diff : diff
@@ -20,6 +26,11 @@ export function angularDifference(a: number, b: number): number {
  * SimTelemetry.windDirectionDeg). A headwind is positive; a tailwind is negative. Wind
  * blowing from exactly the runway heading (straight down the runway, into the aircraft)
  * is a pure headwind with zero crosswind.
+ *
+ * @param windSpeedMs Wind speed, m/s.
+ * @param windDirectionDeg Where the wind blows from, degrees true.
+ * @param runwayHeadingDeg Runway heading, degrees true.
+ * @returns m/s; positive is a headwind.
  */
 export function headwindComponent(
   windSpeedMs: number,
@@ -29,7 +40,14 @@ export function headwindComponent(
   return windSpeedMs * Math.cos(toRadians(windDirectionDeg - runwayHeadingDeg))
 }
 
-/** Positive = crosswind from the right (looking down the runway heading), negative = from the left. */
+/**
+ * Positive = crosswind from the right (looking down the runway heading), negative = from the left.
+ *
+ * @param windSpeedMs Wind speed, m/s.
+ * @param windDirectionDeg Where the wind blows from, degrees true.
+ * @param runwayHeadingDeg Runway heading, degrees true.
+ * @returns m/s; positive from the right.
+ */
 export function crosswindComponent(
   windSpeedMs: number,
   windDirectionDeg: number,
@@ -43,6 +61,10 @@ export function crosswindComponent(
  * how much crab was still held rather than fully kicked out before the wheels touched.
  * Positive = nose right of the runway heading, negative = left (same left/right
  * convention as crosswindComponent), wrapped to (-180, 180].
+ *
+ * @param headingTrueDeg The aircraft's heading at touchdown, degrees true.
+ * @param runwayHeadingDeg Runway heading, degrees true.
+ * @returns Degrees, -180 to 180; positive is nose right.
  */
 export function crabAngleDeg(headingTrueDeg: number, runwayHeadingDeg: number): number {
   let diff = (headingTrueDeg - runwayHeadingDeg) % 360
@@ -59,6 +81,12 @@ export function crabAngleDeg(headingTrueDeg: number, runwayHeadingDeg: number): 
  * src/main/navdata/runway-geometry.ts to derive a runway end's threshold from the
  * SimConnect RUNWAY record's centre point (docs/navdata-notes.md: confirmed live that
  * RUNWAY.LATITUDE/LONGITUDE is the strip's centre, not a threshold).
+ *
+ * @param lat Start latitude, degrees.
+ * @param lon Start longitude, degrees.
+ * @param bearingDeg Degrees true.
+ * @param distanceM Metres (negative: the other way).
+ * @returns The point reached.
  */
 export function offsetAlongBearing(
   lat: number,
@@ -82,6 +110,13 @@ export interface RunwayRelativePosition {
  * runway threshold and heading, using a flat-earth approximation (metres per degree
  * lat/lon at the threshold's latitude) — accurate enough at runway scale (a few km at
  * most), not intended for anything longer-range.
+ *
+ * @param aircraftLat Degrees.
+ * @param aircraftLon Degrees.
+ * @param thresholdLat Degrees.
+ * @param thresholdLon Degrees.
+ * @param runwayHeadingDeg Degrees true.
+ * @returns Metres along the centreline from the threshold, and off it.
  */
 export function positionRelativeToRunway(
   aircraftLat: number,

@@ -1,4 +1,4 @@
-import type { NavdataStand } from '@shared/ipc'
+import type { NavdataRunway, NavdataStand } from '@shared/ipc'
 /**
  * Navdata provider interface (Phase 3, flightdeck-backend's docs/plans/
  * navdata-without-navigraph.md) — built behind this interface so a future Navigraph
@@ -6,16 +6,8 @@ import type { NavdataStand } from '@shared/ipc'
  * (sim-facilities-provider.ts) is the only implementation today.
  */
 
-export interface NavdataRunway {
-  ident: string
-  headingTrueDeg: number
-  lengthM: number
-  widthM: number
-  /** Raw SimConnect surface-type integer — not yet mapped to a name (facility-fields.ts). */
-  surface: number
-  thresholdLat: number
-  thresholdLon: number
-}
+// Lives in src/shared so host-side code (the runway check) can use it without importing navdata.
+export type { NavdataRunway } from '@shared/ipc'
 
 export interface NavdataProcedureOption {
   identifier: string

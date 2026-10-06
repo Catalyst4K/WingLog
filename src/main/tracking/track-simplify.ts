@@ -1,3 +1,8 @@
+/**
+ * Thins a flight's recorded track for display (the Track map, the Logbook map and charts): three
+ * Douglas-Peucker passes over position, altitude and speed, plus a finer pass for each stretch on
+ * the ground. Storage keeps every point; this only shapes what's drawn.
+ */
 import type { TrackPoint } from '@shared/ipc'
 import { pointToLineM, pointToSegmentM } from '@shared/geo'
 import { perpendicularDistance2D, simplifyIndices, type Point2D } from './douglas-peucker'
@@ -31,7 +36,13 @@ function toLatLon(p: LatLon): { lat: number; lon: number } {
 }
 
 /** Distance from a point to the line through two others, re-projected per line so it holds over
- *  routes spanning many degrees of latitude (VHHH ~22°N to WSSS ~1°N). */
+ *  routes spanning many degrees of latitude (VHHH ~22°N to WSSS ~1°N).
+ *
+ * @param point The point measured.
+ * @param lineStart One point on the line.
+ * @param lineEnd Another point on the line.
+ * @returns Metres.
+ */
 function latLonDistanceMeters(point: LatLon, lineStart: LatLon, lineEnd: LatLon): number {
   return pointToLineM(toLatLon(point), toLatLon(lineStart), toLatLon(lineEnd))
 }
@@ -41,14 +52,24 @@ function latLonDistanceMeters(point: LatLon, lineStart: LatLon, lineEnd: LatLon)
  *  the same line), and a line distance scores that turn-around point as 0m off, so the
  *  simplified track cut it off (flight 225: worst ground cut 15m with line distance, 6m with
  *  this). In the air the track doesn't double back like that, so the air pass keeps the
- *  line distance it has always used. */
+ *  line distance it has always used.
+ *
+ * @param point The point measured.
+ * @param segStart The segment's start.
+ * @param segEnd The segment's end.
+ * @returns Metres.
+ */
 function latLonSegmentDistanceMeters(point: LatLon, segStart: LatLon, segEnd: LatLon): number {
   return pointToSegmentM(toLatLon(point), toLatLon(segStart), toLatLon(segEnd))
 }
 
 /** Indices to keep from each contiguous on-ground run, simplified at the ground tolerance.
  *  Each run's first and last point are always kept, so the air/ground join stays exactly
- *  where it was recorded. */
+ *  where it was recorded.
+ *
+ * @param points A flight's track, in order.
+ * @returns Indices into `points`, run by run.
+ */
 function groundRouteIndices(points: TrackPoint[]): number[] {
   const indices: number[] = []
   let runStart = -1
@@ -81,6 +102,9 @@ function groundRouteIndices(points: TrackPoint[]): number[] {
  * profile), unioned rather than run once — a flight-level step climb over an otherwise
  * arrow-straight cruise leg has essentially zero lat/lon deviation, so a route-only pass
  * would erase it from the altitude chart even though the map wouldn't miss it.
+ *
+ * @param points A flight's track, in order.
+ * @returns The points kept, in order.
  */
 export function simplifyTrackPoints(points: TrackPoint[]): TrackPoint[] {
   if (points.length <= 2) return points
