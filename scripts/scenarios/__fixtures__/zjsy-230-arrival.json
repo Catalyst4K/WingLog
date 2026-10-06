@@ -1,0 +1,157 @@
+{
+ "source": "BeyondATC InfoBoxes from WingLog main.log, flight 230 (VHHH-ZJSY, A320), 2026-10-05: every set from the first ZJSY centre frequency to the taxi-to-gate clearance, timed from the real touchdown. Boxes only: no callsign or other personal data.",
+ "arrivalIcao": "ZJSY",
+ "approaches": [
+  {
+   "identifier": "ILS X 08",
+   "runways": [
+    "08"
+   ],
+   "transitions": [
+    "SY462",
+    "SY935"
+   ]
+  },
+  {
+   "identifier": "ILS Y 08",
+   "runways": [
+    "08"
+   ],
+   "transitions": [
+    "A",
+    "D046H",
+    "HUT1",
+    "HUT2",
+    "SYX"
+   ]
+  },
+  {
+   "identifier": "ILS Z 08",
+   "runways": [
+    "08"
+   ],
+   "transitions": [
+    "SY462",
+    "SY463",
+    "SY498"
+   ]
+  },
+  {
+   "identifier": "TYPE 8 08",
+   "runways": [
+    "08"
+   ],
+   "transitions": [
+    "A",
+    "D046H",
+    "HUT1",
+    "HUT2",
+    "SYX"
+   ]
+  },
+  {
+   "identifier": "ILS Y 26",
+   "runways": [
+    "26"
+   ],
+   "transitions": [
+    "HUT1",
+    "HUT2"
+   ]
+  },
+  {
+   "identifier": "ILS Z 26",
+   "runways": [
+    "26"
+   ],
+   "transitions": [
+    "SY501",
+    "SY507"
+   ]
+  },
+  {
+   "identifier": "TYPE 8 26",
+   "runways": [
+    "26"
+   ],
+   "transitions": [
+    "HUT1",
+    "HUT2"
+   ]
+  }
+ ],
+ "beyondatc": [
+  {
+   "secondsFromTouchdown": -2181.779,
+   "text": "InfoBoxes: [{\"title\":\"Center Frequency\",\"info\":\"133.2\"}]"
+  },
+  {
+   "secondsFromTouchdown": -1718.04,
+   "text": "InfoBoxes: [{\"title\":\"STAR\",\"info\":\"UPRS2C\"},{\"title\":\"Arrival Runway\",\"info\":\"08\"}]"
+  },
+  {
+   "secondsFromTouchdown": -1560.754,
+   "text": "InfoBoxes: [{\"title\":\"Landing Runway\",\"info\":\"08\"},{\"title\":\"QNH\",\"info\":\"QNH 1014\"}]"
+  },
+  {
+   "secondsFromTouchdown": -1327.967,
+   "text": "InfoBoxes: [{\"title\":\"Descend to\",\"info\":\"3,000m\"},{\"title\":\"QNH\",\"info\":\"QNH 1014\"}]"
+  },
+  {
+   "secondsFromTouchdown": -1316.424,
+   "text": "InfoBoxes: [{\"title\":\"Maintain Speed\",\"info\":\"250\"}]"
+  },
+  {
+   "secondsFromTouchdown": -1243.26,
+   "text": "InfoBoxes: [{\"title\":\"Resume\",\"info\":\"Normal Speed\"}]"
+  },
+  {
+   "secondsFromTouchdown": -964.582,
+   "text": "InfoBoxes: [{\"title\":\"Descend to\",\"info\":\"1,200m\"},{\"title\":\"QNH\",\"info\":\"QNH 1014\"}]"
+  },
+  {
+   "secondsFromTouchdown": -915.048,
+   "text": "InfoBoxes: [{\"title\":\"Reduce Speed\",\"info\":\"280\"}]"
+  },
+  {
+   "secondsFromTouchdown": -717.083,
+   "text": "InfoBoxes: [{\"title\":\"Reduce Speed\",\"info\":\"270\"}]"
+  },
+  {
+   "secondsFromTouchdown": -611.706,
+   "text": "InfoBoxes: [{\"title\":\" Frequency\",\"info\":\"125.55\"}]"
+  },
+  {
+   "secondsFromTouchdown": -581.819,
+   "text": "InfoBoxes: [{\"title\":\"Approach Type\",\"info\":\"Procedure\"},{\"title\":\"Landing Runway\",\"info\":\"08\"},{\"title\":\"Transition\",\"info\":\"SY498\"},{\"title\":\"QNH\",\"info\":\"QNH 1014\"}]"
+  },
+  {
+   "secondsFromTouchdown": -555.534,
+   "text": "InfoBoxes: [{\"title\":\"Reduce Speed\",\"info\":\"220\"}]"
+  },
+  {
+   "secondsFromTouchdown": -450.962,
+   "text": "InfoBoxes: [{\"title\":\"Cross SY498\",\"info\":\"At or above 1,200m\"},{\"title\":\"Cleared Approach\",\"info\":\"ILS-Z approach runway 08\"}]"
+  },
+  {
+   "secondsFromTouchdown": -229.665,
+   "text": "InfoBoxes: [{\"title\":\"Tower Frequency\",\"info\":\"118.15\"}]"
+  },
+  {
+   "secondsFromTouchdown": -120.322,
+   "text": "InfoBoxes: [{\"title\":\"Cleared for Landing\",\"info\":\"08\"}]"
+  },
+  {
+   "secondsFromTouchdown": 19.908,
+   "text": "InfoBoxes: [{\"title\":\"Expect Gate\",\"info\":\"Gate 102\"}]"
+  },
+  {
+   "secondsFromTouchdown": 83.058,
+   "text": "InfoBoxes: [{\"title\":\"Expect Gate\",\"info\":\"Gate 102\"},{\"title\":\"Ground Frequency\",\"info\":\"121.7\"}]"
+  },
+  {
+   "secondsFromTouchdown": 104.442,
+   "text": "InfoBoxes: [{\"title\":\"Taxi to Gate\",\"info\":\"Gate 102\"},{\"title\":\"Taxi Via 1\",\"info\":\"A4\"},{\"title\":\"Taxi Via 2\",\"info\":\"D\"}]"
+  }
+ ]
+}
