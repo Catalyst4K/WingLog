@@ -88,6 +88,9 @@ docs/           User-facing content only, or empty — see the note at the top o
 
 ## Rules
 
+- **Coding standards:** `flightdeck-backend`'s `docs/coding-standards.md` (agreed 2026-10-05,
+  written 2026-10-06) is binding on all new and changed code here. Read it before writing code.
+  The rules below are the architecture ones it builds on.
 - The renderer never touches the filesystem, network, or SimConnect directly. Every
   side effect crosses a typed IPC channel defined in `src/shared/ipc.ts`.
 - SimVar names, units, and per-aircraft-type overrides live only in
