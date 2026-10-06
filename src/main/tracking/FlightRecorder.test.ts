@@ -611,7 +611,9 @@ describe('FlightRecorder', () => {
     })
   })
 
-  it('records taxi at ~3s intervals instead of every 1s tick', () => {
+  // Was every ~3s until 2026-10, which drew taxi turns as 20-60m chords across the fillet
+  // (flightdeck-backend's ground-track-resolution.md).
+  it('records taxi on every 1s tick, like the other ground phases', () => {
     const recorder = new FlightRecorder(1)
     let t = 0
     const step = (overrides: Partial<SimTelemetry>): FlightRecorderResult => {
@@ -626,7 +628,7 @@ describe('FlightRecorder', () => {
     for (let i = 0; i < 8; i++) {
       results.push(step({ engineCombustion1: true, groundSpeedMs: 5 }).point !== undefined)
     }
-    expect(results.filter(Boolean).length).toBeLessThanOrEqual(3)
+    expect(results.every(Boolean)).toBe(true)
   })
 
   it('records descent at ~5s intervals while well above the approach, then every tick once close to the ground', () => {

@@ -8,6 +8,12 @@ import { perpendicularDistance2D, simplifyIndices, type Point2D } from './dougla
 // tolerance apply equally well here, for the same reason: a straight cruise leg doesn't need
 // every 1Hz sample to look like a straight line on a map.
 const ROUTE_TOLERANCE_M = 100
+// On the ground 100m is the wrong scale: a taxiway is ~23m wide and parallel taxiways are
+// often 100-200m apart, so a whole flight's taxiing collapsed to 21-33 points and cut
+// corners by up to 54m, straight across the taxi chart (flights 220-227, measured
+// 2026-10-05, flightdeck-backend's ground-track-resolution.md). Each on-ground run gets its
+// own pass at 5m instead, which cost only +5 to +25 points per flight on that same data.
+const GROUND_ROUTE_TOLERANCE_M = 5
 // Altitude/speed tolerances are generous enough to erase 1Hz sensor noise and cruise-level
 // steadiness, tight enough that a real step climb or a speed change during descent survives
 // — these feed the Logbook's altitude/IAS charts, not a safety-critical measurement.
@@ -35,6 +41,44 @@ function latLonDistanceMeters(point: LatLon, lineStart: LatLon, lineEnd: LatLon)
   return perpendicularDistance2D(project(point, refLat), project(lineStart, refLat), project(lineEnd, refLat))
 }
 
+/** Like latLonDistanceMeters, but to the segment rather than the infinite line through it.
+ *  On the ground the aircraft reverses along its own path (pushback, then taxi forward over
+ *  the same line), and a line distance scores that turn-around point as 0m off, so the
+ *  simplified track cut it off (flight 225: worst ground cut 15m with line distance, 6m with
+ *  this). In the air the track doesn't double back like that, so the air pass keeps the
+ *  line distance it has always used. */
+function latLonSegmentDistanceMeters(point: LatLon, segStart: LatLon, segEnd: LatLon): number {
+  const refLat = (segStart.latitude + segEnd.latitude) / 2
+  const p = project(point, refLat)
+  const a = project(segStart, refLat)
+  const b = project(segEnd, refLat)
+  const dx = b.x - a.x
+  const dy = b.y - a.y
+  const len2 = dx * dx + dy * dy
+  const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2))
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy))
+}
+
+/** Indices to keep from each contiguous on-ground run, simplified at the ground tolerance.
+ *  Each run's first and last point are always kept, so the air/ground join stays exactly
+ *  where it was recorded. */
+function groundRouteIndices(points: TrackPoint[]): number[] {
+  const indices: number[] = []
+  let runStart = -1
+  for (let i = 0; i <= points.length; i++) {
+    const onGround = i < points.length && points[i].onGround
+    if (onGround && runStart === -1) runStart = i
+    if (!onGround && runStart !== -1) {
+      const run = points.slice(runStart, i)
+      for (const index of simplifyIndices(run, GROUND_ROUTE_TOLERANCE_M, latLonSegmentDistanceMeters)) {
+        indices.push(runStart + index)
+      }
+      runStart = -1
+    }
+  }
+  return indices
+}
+
 /**
  * Reduces a flight's full-resolution track_point rows down to the points that actually
  * matter for display — the ones a straight line (in position, altitude, or speed) between
@@ -60,6 +104,7 @@ export function simplifyTrackPoints(points: TrackPoint[]): TrackPoint[] {
   const speedPoints: Point2D[] = points.map((p, i) => ({ x: secondsSinceStart[i], y: p.indicatedAirspeedMs }))
 
   const keepRoute = simplifyIndices(points, ROUTE_TOLERANCE_M, latLonDistanceMeters)
+  for (const index of groundRouteIndices(points)) keepRoute.add(index)
   const keepAltitude = simplifyIndices(altitudePoints, ALTITUDE_TOLERANCE_M, perpendicularDistance2D)
   const keepSpeed = simplifyIndices(speedPoints, SPEED_TOLERANCE_MS, perpendicularDistance2D)
 
