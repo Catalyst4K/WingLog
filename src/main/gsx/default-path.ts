@@ -16,7 +16,7 @@ import { win32 } from 'node:path'
  * function always builds once it's past the platform guard above. In production the app
  * only ever runs this on a real Windows machine, where the two happen to coincide, but a
  * real CI run on Linux found the mismatch: `test-coverage.md`'s Phase 5 e2e check
- * (flightdeck-backend's docs/plans/public-release-v1.md, 2026-09-14) was the first time
+ * (winglog-backend's docs/plans/public-release-v1.md, 2026-09-14) was the first time
  * this ever actually ran on a non-Windows machine, and the ambient `join` silently built a
  * forward-slash path while `process.platform` was faked to `'win32'` for the test.
  *

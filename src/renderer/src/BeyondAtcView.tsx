@@ -7,7 +7,7 @@ import { BeyondAtcPanel } from './BeyondAtcPanel'
  * mounts once BeyondATC integration is actually turned on.
  *
  * `h-full min-h-0` propagates App.tsx's real, viewport-bounded content height down into
- * `BeyondAtcPanel` (flightdeck-backend's docs/plans/beyondatc-panel-redesign.md) — without
+ * `BeyondAtcPanel` (winglog-backend's docs/plans/beyondatc-panel-redesign.md) — without
  * it, the Transcript card's internal scroll area has no real height to bound against and
  * just grows with every line, and the whole page scrolls instead of the card's own list
  * (confirmed live via a Playwright screenshot + DOM rect dump, real bug found and fixed the

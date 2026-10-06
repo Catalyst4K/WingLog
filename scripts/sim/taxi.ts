@@ -1,5 +1,5 @@
 /**
- * The taxi line and its re-routing, simulated on real taxis (flightdeck-backend
+ * The taxi line and its re-routing, simulated on real taxis (winglog-backend
  * docs/plans/robustness/scenario-testing.md Part 6; done/taxi-reroute.md "Simulated").
  *
  * Each scenario is one real taxi: the clearance BeyondATC gave (its InfoBoxes, from main.log), the

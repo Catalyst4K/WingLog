@@ -70,7 +70,7 @@ interface GsxRemoteServiceEvents {
   prompt: [GsxRemotePromptState | null]
   commandBar: [GsxRemoteCommandBar]
   /** Every message received and every command sent, unparsed: the dev build's capture and
-   *  diagnostic log (flightdeck-backend robustness/dev-build.md). */
+   *  diagnostic log (winglog-backend robustness/dev-build.md). */
   raw: [{ direction: 'in' | 'out'; text: string }]
 }
 
@@ -138,7 +138,7 @@ function isRawSimBrief(value: unknown): value is { status: string; error: string
 
 /**
  * Owns the live WebSocket connection to GSX Pro's own "Remote Client" server
- * (flightdeck-backend's docs/plans/gsx-remote-control.md; real protocol findings in
+ * (winglog-backend's docs/plans/gsx-remote-control.md; real protocol findings in
  * docs/gsx-notes.md — spiked live 2026-09-21, not guessed). Tracks GSX's own state as a
  * flat object, same as GSX's own store.js, and exposes only the three slices WingLog's UI
  * needs: services (read-only status), menu (the real control surface, generic and

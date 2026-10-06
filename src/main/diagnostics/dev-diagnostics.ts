@@ -1,6 +1,6 @@
 /**
  * Connects the dev build's diagnostics to the app: what each source logs to `diag.log`, and
- * what goes into the flight capture (flightdeck-backend docs/plans/robustness/dev-build.md and
+ * what goes into the flight capture (winglog-backend docs/plans/robustness/dev-build.md and
  * scenario-testing.md Part 1). Only constructed in the dev build (`src/main/index.ts`); the
  * sources themselves know nothing about it, they just emit events.
  */

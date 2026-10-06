@@ -6,7 +6,7 @@ import { test, expect } from '@playwright/test'
 import { launchApp } from './launch-app'
 
 /**
- * Logbook's browse/detail/delete flow against the real built app, per flightdeck-backend's
+ * Logbook's browse/detail/delete flow against the real built app, per winglog-backend's
  * docs/plans/test-coverage.md Phase 4. Logbook only ever shows *completed* flights, and
  * there's no way to reach that state through the UI alone without either a live sim or a
  * network-dependent SimBrief OFP (Dispatch's "Fetch"/"Generate" both hit a real external
@@ -75,7 +75,7 @@ test('browses to a completed flight, sees its landing/track detail, and deletes 
   }
 })
 
-test('browses the Landings sub-tab and switches between a flight\'s several landings (flightdeck-backend docs/plans/multiple-landings.md)', async () => {
+test('browses the Landings sub-tab and switches between a flight\'s several landings (winglog-backend docs/plans/multiple-landings.md)', async () => {
   const { window, cleanup } = await launchApp({ userDataDir })
   try {
     await window.getByRole('tab', { name: 'Logbook' }).click()

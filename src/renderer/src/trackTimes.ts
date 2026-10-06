@@ -1,5 +1,5 @@
 /**
- * ET, time remaining and ETA for the Track page (flightdeck-backend's
+ * ET, time remaining and ETA for the Track page (winglog-backend's
  * docs/plans/track-time-readouts.md, Callum 2026-10-02).
  *
  * - **ET**: since takeoff, matching the Logbook's flight time.

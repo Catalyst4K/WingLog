@@ -22,7 +22,7 @@ import { deriveFlownRouteJson } from './route-simplify'
 // since the last one — at the 1 Hz telemetry rate every SimConnect period request uses
 // (SimConnectService), a handful of seconds genuinely airborne rules out a rollout bounce
 // (gear compression briefly reporting on-ground->off->on again) without missing a real
-// short circuit hop (flightdeck-backend's docs/plans/multiple-landings.md).
+// short circuit hop (winglog-backend's docs/plans/multiple-landings.md).
 const MIN_AIRBORNE_SAMPLES_FOR_NEW_TOUCHDOWN = 3
 // How long a cached touchdownSeverity reading (SimConnectService's high-rate stream, v1.2
 // Part 1) stays usable after it arrives, before detectTouchdown falls back to
@@ -48,7 +48,7 @@ interface TrackingControllerEvents {
   pointsUpdated: [TrackPoint[]]
   /** Emitted whenever a flight reaches 'completed' — auto shutdown detection or a manual
    *  finish() alike — so main/index.ts can trigger a background cloud sync
-   *  (flightdeck-backend/docs/plans/cloud-sync-v2.md #3) without this class needing to
+   *  (winglog-backend/docs/plans/cloud-sync-v2.md #3) without this class needing to
    *  know anything about sync itself. */
   completed: [number]
   /** A flight's tracking has started (start, startFree or resume), so a recording can begin. */
@@ -69,14 +69,14 @@ interface TrackingControllerEvents {
  *
  * Constructor takes a SimConnectSource, not the concrete SimConnectService class — the
  * structural interface both SimConnectService and ReplaySimConnectService satisfy, per
- * flightdeck-backend's docs/plans/flight-replay-harness.md Phase 3. main/index.ts is the
+ * winglog-backend's docs/plans/flight-replay-harness.md Phase 3. main/index.ts is the
  * only place that decides which concrete implementation gets constructed.
  */
 export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   private recorder: FlightRecorder | undefined
   private offRecorded = false
   private fuelOutFinalized = false
-  // Landing capture (flightdeck-backend's docs/plans/multiple-landings.md) — keyed off the
+  // Landing capture (winglog-backend's docs/plans/multiple-landings.md) — keyed off the
   // raw telemetry.onGround false->true edge directly, independent of the phase machine's
   // own descent -> landing transition, which has real holes for circuit flying (a tight
   // circuit that never holds level for ten seconds never reaches 'descent' at all).
@@ -109,11 +109,11 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   // going anywhere (see flight-repo.ts's own completeFlight comment). In-memory only, same
   // as offRecorded/onRecorded/fuelOutFinalized above: a pause that happened before an
   // app/process restart can't be recovered here, which is fine — that's a full resume, a
-  // different scenario (flightdeck-backend's docs/plans/done/resume-track-cleanup.md), not an
+  // different scenario (winglog-backend's docs/plans/done/resume-track-cleanup.md), not an
   // in-session pause.
   private pausedIntervals: PausedInterval[] = []
   private openPauseStartIso: string | undefined
-  // Live-jump detection for resume-cleanup.ts's Phase 2 (flightdeck-backend's docs/plans/
+  // Live-jump detection for resume-cleanup.ts's Phase 2 (winglog-backend's docs/plans/
   // resume-track-cleanup.md) — cheap, incremental, and separate from the full pass run at
   // completion: lastPersistedPoint lets each new sample be checked against just its one
   // predecessor (Rule 2 is a per-pair test) without re-scanning the whole flight on every
@@ -125,7 +125,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   // The raw tick immediately before the current one — every tick, not just persisted ones
   // (unlike lastPersistedPoint above, which skips whatever a phase's downsampling drops).
   // landing-capture.ts's buildLandingRecord needs this exact predecessor for a more honest
-  // touchdown vertical speed than the touchdown tick's own value (flightdeck-backend's
+  // touchdown vertical speed than the touchdown tick's own value (winglog-backend's
   // docs/plans/flight-replay-harness.md, 2026-09-14 finding).
   private previousTelemetry: SimTelemetry | undefined
   // Latest touchdown-severity reading from SimConnectService's high-rate stream (v1.2 Part
@@ -187,7 +187,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
 
       // Independent of the phase machine's own descent -> landing edge — keyed off the raw
       // telemetry directly so a circuit that never reaches 'descent' still gets its
-      // touchdown captured (flightdeck-backend's docs/plans/multiple-landings.md). Guarded
+      // touchdown captured (winglog-backend's docs/plans/multiple-landings.md). Guarded
       // the same way FlightRecorder.ingest guards phase advancement, since a slew teleport
       // or a paused sim can otherwise report a nonsensical onGround flip.
       if (!this.paused && !telemetry.slewActive) {
@@ -228,7 +228,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
 
   /**
    * Captures a touchdown on the raw telemetry.onGround false->true edge, independent of
-   * the phase machine (flightdeck-backend's docs/plans/multiple-landings.md) — called for
+   * the phase machine (winglog-backend's docs/plans/multiple-landings.md) — called for
    * every tick while a flight is tracked (guarded by the caller against pause/slew).
    * `wasOnGround`/`airborneStreak` are read before being updated for this tick, so the
    * hysteresis check sees how many consecutive airborne samples preceded *this* ground
@@ -393,7 +393,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
       // automatically instead of blocking the flight actually being started now. Without
       // this, that stale flight was left stuck at status='active' forever — invisible for
       // the rest of the session, surfacing only as a confusing "resume?" prompt on the
-      // *next* app restart (a real orphaned flight found 2026-09-14, flightdeck-backend's
+      // *next* app restart (a real orphaned flight found 2026-09-14, winglog-backend's
       // docs/plans/flight-replay-harness.md). Same flightId, or any flight with real
       // progress, still throws — never silently restart a duplicate call or abandon actual
       // data.
@@ -539,7 +539,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     const lastPhase: FlightPhase = points.length ? points[points.length - 1].phase : 'preflight'
     // One more than whatever segment the flight was last recording in — 0 for a flight
     // resumed for the first time, incrementing further on a second/third resume in the
-    // same flight (flightdeck-backend's docs/plans/done/resume-track-cleanup.md).
+    // same flight (winglog-backend's docs/plans/done/resume-track-cleanup.md).
     const resumeSegment = points.length ? points[points.length - 1].resumeSegment + 1 : 0
 
     this.recorder = new FlightRecorder(flightId, {
@@ -738,7 +738,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
    */
   private deriveFlownRoute(flightId: number): void {
     // Called after runTrackCleanup above, so any junk this flight picked up is already
-    // flagged — excluded here the same way the map filters it (flightdeck-backend's
+    // flagged — excluded here the same way the map filters it (winglog-backend's
     // docs/plans/done/resume-track-cleanup.md), so a crash-resume triangle or a mid-flight
     // teleport never gets baked into the synced flown-route polyline.
     const points = this.store.listTrackPoints(flightId).filter((p) => p.excludedReason == null)

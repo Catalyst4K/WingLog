@@ -7,7 +7,7 @@ import { boxClearedLevelFt } from '@shared/atc-info-boxes'
 
 /**
  * Asks BeyondATC for a new cruise altitude over its WebSocket — the exact two-step flow
- * confirmed live 2026-10-01 (flightdeck-backend's docs/beyondatc-notes.md, "requesting a new
+ * confirmed live 2026-10-01 (winglog-backend's docs/beyondatc-notes.md, "requesting a new
  * cruise altitude"):
  *
  *   set_action: Request Altitude Change   → Player: "request new cruise altitude."
@@ -89,7 +89,7 @@ export function pickLevelLabel(actions: string[], targetFt: number): string | nu
 }
 
 /** Whether BeyondATC's InfoBoxes, changed since the request, show this level as cleared
- *  (flightdeck-backend's docs/decisions.md, 2026-10-05: boxes only, no speech).
+ *  (winglog-backend's docs/decisions.md, 2026-10-05: boxes only, no speech).
  *
  * @param state BeyondATC's state.
  * @param label The level requested.

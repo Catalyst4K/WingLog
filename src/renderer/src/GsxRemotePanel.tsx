@@ -217,7 +217,7 @@ function CommandBar(props: {
 /**
  * GSX's own live menu entries, mirrored generically — not a semantic "click this service"
  * UI. GSX's own client (menu.js) "reads NO services array, recognizes NO ids/names"; this
- * does the same, on purpose (docs/gsx-notes.md, flightdeck-backend's docs/decisions.md,
+ * does the same, on purpose (docs/gsx-notes.md, winglog-backend's docs/decisions.md,
  * 2026-09-21). Provider choice, when GSX asks, is just another snapshot of this same
  * `entries`/`icons`/`disabled` shape — rendering it generically is what makes that work
  * without a special case. Only shown while `menuShown` is true, exactly like GSX's own
@@ -435,7 +435,7 @@ export function GsxRemotePanel(): React.JSX.Element {
   // well as followed — GSX only pushes services/menu/prompt on a *change*, so a panel
   // mounting (or remounting, e.g. switching tabs and back) after GSX already sent its
   // snapshot would otherwise show nothing until the next patch. Real gap found writing this
-  // feature's first Playwright test (flightdeck-backend's docs/plans/gsx-remote-control.md).
+  // feature's first Playwright test (winglog-backend's docs/plans/gsx-remote-control.md).
   const live = useLiveClient()
   const status = useLiveTopic('gsxRemoteStatus', DISCONNECTED)
   const services = useLiveTopic('gsxRemoteServices', NO_SERVICES)

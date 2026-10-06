@@ -198,7 +198,7 @@ export function setGsxRemoteSettings(db: WingLogDb, settings: GsxRemoteSettings)
 
 /** Default off, localhost — unlike GSX's Remote Client, BeyondATC's own local WebSocket
  *  server port (41716, BeyondAtcService's BEYONDATC_PORT) isn't user-configurable on
- *  BeyondATC's own side (confirmed live, flightdeck-backend's docs/beyondatc-notes.md), so
+ *  BeyondATC's own side (confirmed live, winglog-backend's docs/beyondatc-notes.md), so
  *  there's no port setting to store here. */
 export function getBeyondAtcSettings(db: WingLogDb): BeyondAtcSettings {
   return {
@@ -212,7 +212,7 @@ export function setBeyondAtcSettings(db: WingLogDb, settings: BeyondAtcSettings)
   setSetting(db, BEYONDATC_HOST_KEY, settings.host || 'localhost')
 }
 
-/** Per-table sync cursor (flightdeck-backend/docs/plans/cloud-sync.md's pull-then-push
+/** Per-table sync cursor (winglog-backend/docs/plans/cloud-sync.md's pull-then-push
  *  protocol) — null means "never synced", so a pull fetches everything and a push sends
  *  every local row. Updated only after both directions succeed for a sync run, so a
  *  failed sync retries cleanly rather than marking partial progress as done. */
@@ -260,7 +260,7 @@ export function rememberAircraftForTitle(db: WingLogDb, title: string, aircraftI
   setSetting(db, titleAircraftKey(title), String(aircraftId))
 }
 
-/** The GitHub update check (flightdeck-backend's docs/plans/update-check.md): on unless
+/** The GitHub update check (winglog-backend's docs/plans/update-check.md): on unless
  *  switched off — only an explicit '0' disables it. */
 export function getUpdateSettings(db: WingLogDb): UpdateSettings {
   return { checkEnabled: getSetting(db, UPDATE_CHECK_ENABLED_KEY) !== '0' }

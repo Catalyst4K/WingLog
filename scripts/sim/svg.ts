@@ -1,6 +1,6 @@
 /**
  * Small SVG map pieces for simulation reports: a frame fitted to an area, the taxi network, lines
- * and an aircraft marker (flightdeck-backend docs/plans/robustness/scenario-testing.md Part 6,
+ * and an aircraft marker (winglog-backend docs/plans/robustness/scenario-testing.md Part 6,
  * "Visual output"). Colours come from the report page's CSS tokens, so maps follow its light or
  * dark theme.
  */

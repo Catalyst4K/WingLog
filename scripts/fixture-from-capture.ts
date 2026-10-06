@@ -1,6 +1,6 @@
 /**
  * Cuts an anonymised, committable fixture out of a dev-build capture
- * (flightdeck-backend docs/plans/robustness/scenario-testing.md Part 1). The logic, and what it
+ * (winglog-backend docs/plans/robustness/scenario-testing.md Part 1). The logic, and what it
  * replaces, is in src/main/sim/capture-slice.ts.
  *
  *   npm run fixture:from-capture -- <capture.ndjson> <out.ndjson> --scenario <name>

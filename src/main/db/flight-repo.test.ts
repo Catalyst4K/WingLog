@@ -404,7 +404,7 @@ describe('flight repo', () => {
       // itself, so a stale 'active' flight retired this way must be excluded on deletedAt,
       // not status alone. A real flight was found stuck reappearing in the resume-or-
       // discard prompt on every future launch because this filter was missing
-      // (flightdeck-backend's docs/plans/flight-replay-harness.md, 2026-09-14).
+      // (winglog-backend's docs/plans/flight-replay-harness.md, 2026-09-14).
       const created = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' })
       startFlight(db, created.id, 10000)
       expect(getInProgressFlight(db)?.id).toBe(created.id)

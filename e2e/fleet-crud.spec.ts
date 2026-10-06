@@ -3,7 +3,7 @@ import { launchApp } from './launch-app'
 
 /**
  * Fleet's full CRUD path against the real built app — create, view detail, edit, delete —
- * per flightdeck-backend's docs/plans/test-coverage.md Phase 4. Only `registration` and
+ * per winglog-backend's docs/plans/test-coverage.md Phase 4. Only `registration` and
  * `icaoType` are required (aircraft-validation.ts); every other field is left blank/typed
  * free-text rather than picked from a dropdown, so this never depends on a real network
  * call (adsbdb registration lookup, SimBrief airframe search) succeeding in CI —
@@ -53,7 +53,7 @@ test('create, view, edit, and delete an aircraft', async () => {
 })
 
 /**
- * Plain Retire (flightdeck-backend docs/plans/fleet-retire.md) through the real app — the
+ * Plain Retire (winglog-backend docs/plans/fleet-retire.md) through the real app — the
  * aircraft leaves the active list for the Retired tab (history kept, unlike Replace), and
  * Un-retire brings it back. Exercises the real IPC handlers and the 0027 migration.
  */

@@ -937,7 +937,7 @@ describe('FlightMap', () => {
     })
   })
 
-  describe('Taxi chart overlay (flightdeck-backend docs/plans/taxi-network-overlay.md)', () => {
+  describe('Taxi chart overlay (winglog-backend docs/plans/taxi-network-overlay.md)', () => {
     const DEP_SEGMENTS = [{ startLat: 51.338, startLon: 0.038, endLat: 51.324, endLon: 0.027, name: null }]
     const ARR_SEGMENTS = [{ startLat: 22.31, startLon: 113.91, endLat: 22.32, endLon: 113.92, name: 'C' }]
 
@@ -1113,7 +1113,7 @@ describe('FlightMap', () => {
     })
   })
 
-  describe('ATC-driven taxi route highlight (flightdeck-backend docs/plans/beyondatc-taxi-route-highlight.md)', () => {
+  describe('ATC-driven taxi route highlight (winglog-backend docs/plans/beyondatc-taxi-route-highlight.md)', () => {
     const NAMED_SEGMENTS = [
       { startLat: 51.338, startLon: 0.038, endLat: 51.324, endLon: 0.027, name: 'D' },
       { startLat: 51.34, startLon: 0.04, endLat: 51.335, endLon: 0.036, name: 'B' },

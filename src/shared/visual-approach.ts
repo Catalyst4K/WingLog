@@ -1,5 +1,5 @@
 /**
- * Identifier convention for the synthetic "Visual <runway>" approach (flightdeck-backend
+ * Identifier convention for the synthetic "Visual <runway>" approach (winglog-backend
  * docs/plans/visual-approach.md). Shared because the main process builds it and the
  * renderer's selector has to recognise it (e.g. to never auto-pick it over a real approach).
  */

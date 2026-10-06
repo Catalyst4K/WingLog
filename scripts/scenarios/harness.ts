@@ -1,7 +1,7 @@
 /**
  * Runs a capture (base or transformed) through the real main-process pieces, wired as
  * `src/main/index.ts` wires them, and records what the app knew after every event, for the rules
- * to check (flightdeck-backend docs/plans/robustness/scenario-testing.md Parts 1 and 2).
+ * to check (winglog-backend docs/plans/robustness/scenario-testing.md Parts 1 and 2).
  *
  * Runs under vitest only: TrackingController's landing capture imports CSVs through Vite.
  */

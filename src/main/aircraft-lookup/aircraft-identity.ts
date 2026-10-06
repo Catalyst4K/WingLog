@@ -1,6 +1,6 @@
 // Turns raw sim-reported aircraft identity (SimTelemetry's atcId/atcModel/title) into what
 // free-flight-tracking.md's start dialog prefills — see that plan's "What the sim actually
-// reports" section. Grounded in the real captures in flightdeck-backend's flight-captures/
+// reports" section. Grounded in the real captures in winglog-backend's flight-captures/
 // (2026-09-14): atcModel comes back either as a raw marketing name ("A350-900") or, for an
 // add-on that localises it, a token that still needs unwrapping ("ATCCOM.AC_MODEL
 // A320.0.text") — both forms are real, not hypothetical.

@@ -1,6 +1,6 @@
 /**
  * Cuts a committable fixture out of a full capture: a time window, the streams a test needs, and
- * the personal identifiers replaced (flightdeck-backend docs/plans/robustness/scenario-testing.md
+ * the personal identifiers replaced (winglog-backend docs/plans/robustness/scenario-testing.md
  * Part 1; CLAUDE.md's Security section). Used by `scripts/fixture-from-capture.ts`.
  *
  * Replaced automatically: the sim's ATC id (tail number or callsign) and BeyondATC's callsign,

@@ -47,7 +47,7 @@ export function addInvoicesForFlight(
   const alreadyStored = new Set(listInvoicesForFlight(db, flightId).map((i) => i.receiptId))
   const toInsert = invoices.filter((i) => !alreadyStored.has(i.receiptId))
   if (toInsert.length > 0) {
-    // uuid/updatedAt (flightdeck-backend/docs/plans/cloud-sync.md) — this table is
+    // uuid/updatedAt (winglog-backend/docs/plans/cloud-sync.md) — this table is
     // additive-only (no update path exists), so every row's uuid/updatedAt is set once,
     // here, at insert.
     const now = new Date().toISOString()

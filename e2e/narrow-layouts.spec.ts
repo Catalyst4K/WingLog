@@ -4,7 +4,7 @@ import { FakeBeyondAtcServer, LARGE_REAL_SNAPSHOT } from './beyondatc-server'
 import { FakeGsxRemoteServer, VHHH_BOOT_SNAPSHOT } from './gsx-remote-server'
 
 /**
- * Track, BeyondATC and Ground services at phone and tablet widths (flightdeck-backend's
+ * Track, BeyondATC and Ground services at phone and tablet widths (winglog-backend's
  * docs/plans/live-data-seam.md, D): a narrow WingLog window on a second monitor now, and the
  * LAN remote's screens later. Layout can't be checked in jsdom, so this runs the real app.
  * Before this, the header's seven labelled tabs were ~1,010 px wide and pushed every page

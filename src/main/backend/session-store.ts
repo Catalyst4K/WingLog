@@ -1,5 +1,5 @@
 /**
- * Persists the cloud-sync session token (flightdeck-backend/docs/plans/cloud-sync.md,
+ * Persists the cloud-sync session token (winglog-backend/docs/plans/cloud-sync.md,
  * "Client-side storage") — a credential, so it's encrypted at rest via Electron's
  * built-in safeStorage (OS keychain-backed, no new dependency) and kept in its own file,
  * deliberately outside the SQLite database: that DB is what Fleet/Logbook import-export

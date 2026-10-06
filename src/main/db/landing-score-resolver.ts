@@ -113,7 +113,7 @@ export function resolveLandingScore(
  * every join inlined — completed-flights-with-a-landing is a small, bounded set, and
  * reusing the existing repo functions here keeps this in step with them automatically.
  *
- * Scores against the *final* touchdown (flightdeck-backend's docs/plans/
+ * Scores against the *final* touchdown (winglog-backend's docs/plans/
  * multiple-landings.md) — the one that ended the flight, matching LandingCard's own
  * default — with `landingCount` alongside it so the list can show a "×3" badge for a flight
  * with several without a second round trip.

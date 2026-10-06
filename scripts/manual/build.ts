@@ -1,5 +1,5 @@
 /**
- * Builds release/manual/WingLog Manual.pdf from docs/manual (flightdeck-backend's
+ * Builds release/manual/WingLog Manual.pdf from docs/manual (winglog-backend's
  * docs/plans/user-docs-v1-4.md). Runs inside Electron, printing with Chromium's own
  * printToPDF, so there's no PDF library to ship or trust. `npm run manual:build` bundles this
  * with esbuild and runs it with electron; `npm run package:win` does that first, and

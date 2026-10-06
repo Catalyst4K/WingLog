@@ -1,7 +1,7 @@
 /**
  * Plays a recorded flight (a capture or fixture) to TrackingController in place of the live sim:
  * the replay harness behind the scenario tests, the e2e tests and the simulations
- * (flightdeck-backend docs/plans/done/flight-replay-harness.md).
+ * (winglog-backend docs/plans/done/flight-replay-harness.md).
  */
 import { EventEmitter } from 'node:events'
 import { readFileSync } from 'node:fs'
@@ -46,7 +46,7 @@ export interface ReplaySimConnectServiceOptions {
    *  time elapses between ticks — needed for a Playwright test that wants to watch Track's
    *  map update live, or for anything that depends on FlightRecorder's own
    *  wall-clock-based downsampling (shouldRecord) behaving like a real live session. See
-   *  flightdeck-backend's docs/plans/flight-replay-harness.md Phase 1 notes: only
+   *  winglog-backend's docs/plans/flight-replay-harness.md Phase 1 notes: only
    *  speedMultiplier 1 (real time) reproduces the original recording's exact downsampled
    *  point density — any other speed changes how much wall-clock time elapses between
    *  ticks and therefore how often shouldRecord's per-phase interval check trips, same as
@@ -71,7 +71,7 @@ const HOLD_INTERVAL_MS = 250
  * through the same public surface as SimConnectService (extends EventEmitter,
  * start()/stop()/getStatus()/getLastTelemetry(), the same telemetry/status/paused events)
  * so TrackingController can be driven by a recorded flight instead of a live sim — per
- * flightdeck-backend's docs/plans/flight-replay-harness.md Phase 1. TrackingController's
+ * winglog-backend's docs/plans/flight-replay-harness.md Phase 1. TrackingController's
  * constructor takes SimConnectSource (Phase 3), the structural interface this class
  * satisfies directly — no cast needed to hand an instance to it.
  */

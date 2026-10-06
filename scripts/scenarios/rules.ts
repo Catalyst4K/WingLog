@@ -1,6 +1,6 @@
 /**
  * Rules a scenario's timeline must keep, whatever the capture or transform
- * (flightdeck-backend docs/plans/robustness/scenario-testing.md Part 2). Rules, not snapshots:
+ * (winglog-backend docs/plans/robustness/scenario-testing.md Part 2). Rules, not snapshots:
  * each returns the moments it was broken, described for a person, so a failure says what went
  * wrong and when. An empty list is a pass.
  */

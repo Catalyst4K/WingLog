@@ -37,7 +37,7 @@ export const aircraft = sqliteTable('aircraft', {
   createdAt: text('created_at')
     .notNull()
     .default(sql`(current_timestamp)`),
-  // Cloud-sync identity (flightdeck-backend/docs/plans/cloud-sync.md). Nullable rather
+  // Cloud-sync identity (winglog-backend/docs/plans/cloud-sync.md). Nullable rather
   // than NOT NULL: SQLite's ALTER TABLE ADD COLUMN bakes a non-constant default (e.g. a
   // random-blob expression) into every existing row identically, which would give every
   // pre-migration aircraft the *same* uuid — the opposite of what sync identity needs.
@@ -46,7 +46,7 @@ export const aircraft = sqliteTable('aircraft', {
   // so in practice this is never actually null once written by this app version.
   uuid: text('uuid'),
   updatedAt: text('updated_at'),
-  // Aircraft replacement (flightdeck-backend/docs/plans/aircraft-replacement.md) — null
+  // Aircraft replacement (winglog-backend/docs/plans/aircraft-replacement.md) — null
   // (the default) means active/selectable. Set means this row is retired, superseded by
   // the aircraft at that id: its flights have already been reassigned there, and every
   // identity field on this row (registration, type, operator...) stays untouched purely
@@ -55,7 +55,7 @@ export const aircraft = sqliteTable('aircraft', {
   // `aircraft`'s own type isn't inferred yet while this object literal is still being
   // evaluated, so TS can't resolve `aircraft.id`'s type without the hint).
   replacedByAircraftId: integer('replaced_by_aircraft_id').references((): AnySQLiteColumn => aircraft.id),
-  // ISO 8601 UTC. Set by a plain Retire (flightdeck-backend docs/plans/fleet-retire.md): the
+  // ISO 8601 UTC. Set by a plain Retire (winglog-backend docs/plans/fleet-retire.md): the
   // aircraft keeps its own flights, unlike replacedByAircraftId above. Retired means either
   // column is set — see src/shared/aircraft.ts's isRetired.
   retiredAt: text('retired_at'),
@@ -68,7 +68,7 @@ export const aircraft = sqliteTable('aircraft', {
   // metadata (photographer name) is available from adsbdb, so the UI credits
   // airport-data.com as the source, not an individual photographer.
   photoThumbnailUrl: text('photo_thumbnail_url'),
-  // Soft-delete tombstone (flightdeck-backend/docs/plans/cloud-sync-v2.md #3a) — a hard
+  // Soft-delete tombstone (winglog-backend/docs/plans/cloud-sync-v2.md #3a) — a hard
   // DELETE is indistinguishable from "never created" once it reaches the sync protocol, so
   // a pull would resurrect it on every other device. Null (the default) means live; set
   // means deleted, filtered out of every read path (listAircraft) but still synced like any
@@ -138,7 +138,7 @@ export const flight = sqliteTable('flight', {
   // See aircraft.uuid's comment for why these are nullable rather than NOT NULL.
   uuid: text('uuid'),
   updatedAt: text('updated_at'),
-  // Derived, simplified flown path (flightdeck-backend/docs/plans/cloud-sync.md, "The
+  // Derived, simplified flown path (winglog-backend/docs/plans/cloud-sync.md, "The
   // flown route, not the full track") — a lightweight polyline computed from this
   // flight's own track_point rows at completion, for cloud sync and a second device's
   // map. Null for any flight that hasn't completed, or completed before this existed;
@@ -146,7 +146,7 @@ export const flight = sqliteTable('flight', {
   flownRouteJson: text('flown_route_json'),
   // The procedures actually chosen, live — written at flight save and again (overwriting)
   // at flight completion, whichever is later, from Dispatch/Track's shared live-selection
-  // state (flightdeck-backend's docs/plans/navdata-without-navigraph.md, Phase 5). Null
+  // state (winglog-backend's docs/plans/navdata-without-navigraph.md, Phase 5). Null
   // means nothing was ever chosen for that slot — a pre-Phase-5 flight, or a field the
   // pilot never touched — not "SimBrief's own choice was deliberately kept": there's no
   // separate "use SimBrief's choice" state any more, see shared/ipc.ts's
@@ -166,7 +166,7 @@ export const flight = sqliteTable('flight', {
   // stays hard-deleted as before).
   deletedAt: text('deleted_at'),
   // The stand the aircraft finished at ("N32" at VHHH), found from the sim's own stand data
-  // when the flight completed (flightdeck-backend's docs/plans/stand-positions.md). Null for
+  // when the flight completed (winglog-backend's docs/plans/stand-positions.md). Null for
   // flights before this existed, or when no stand was within reach of the final position.
   parkedStandIcao: text('parked_stand_icao'),
   parkedStand: text('parked_stand')
@@ -225,7 +225,7 @@ export const trackPoint = sqliteTable('track_point', {
   latitude: real('latitude').notNull(),
   longitude: real('longitude').notNull(),
   altitudeM: real('altitude_m').notNull(),
-  // Barometric altitude with the Kohlsman on standard (flightdeck-backend's docs/plans/
+  // Barometric altitude with the Kohlsman on standard (winglog-backend's docs/plans/
   // logbook-detail-improvements.md, Phase 3) — nullable, unlike every other telemetry
   // column here: existing rows predate this and stay null forever, nothing backfills them.
   // altitudeM (true/geometric) stays the source for everything geometric; this is read-only
@@ -258,7 +258,7 @@ export const trackPoint = sqliteTable('track_point', {
   gForce: real('g_force').notNull().default(1),
   windSpeedMs: real('wind_speed_ms').notNull().default(0),
   windDirectionDeg: real('wind_direction_deg').notNull().default(0),
-  // Resume-track cleanup (flightdeck-backend's docs/plans/done/resume-track-cleanup.md) — marks
+  // Resume-track cleanup (winglog-backend's docs/plans/done/resume-track-cleanup.md) — marks
   // rather than deletes, so the raw samples stay available for re-running the cleanup after
   // a threshold change. Defaults exist only so ALTER TABLE ADD COLUMN can backfill
   // pre-existing rows (all as segment 0, sim rate 1x, nothing excluded — the only sane
@@ -269,7 +269,7 @@ export const trackPoint = sqliteTable('track_point', {
   excludedReason: text('excluded_reason', { enum: ['resume-spurious', 'resume-superseded'] })
 })
 
-// One row per touchdown — many per flight (flightdeck-backend's docs/plans/
+// One row per touchdown — many per flight (winglog-backend's docs/plans/
 // multiple-landings.md). Captured off the raw on-ground false->true transition directly
 // (TrackingController), not the phase machine's descent -> landing edge, which has real
 // holes for circuit flying (see that plan's "finding that changes the design"). SI
@@ -333,7 +333,7 @@ export const landing = sqliteTable(
 )
 
 // Cached navdata for one airport, from src/main/navdata/'s NavdataProvider (Phase 3,
-// flightdeck-backend's docs/plans/navdata-without-navigraph.md) — SimConnect Facilities is
+// winglog-backend's docs/plans/navdata-without-navigraph.md) — SimConnect Facilities is
 // the only provider today, so there's no AIRAC package/subscription state to track; each
 // table is simply replaced wholesale for an ICAO whenever navdata-repo.ts's
 // replaceAirportNavdata re-fetches it. `source` stays a column (not hardcoded) so a future
@@ -401,7 +401,7 @@ export const navdataProcedure = sqliteTable('navdata_procedure', {
 // legs + the common legs + that runway's legs (transition entry, then the shared body, then
 // the runway-specific final legs) — confirmed live 2026-09-11 against a real STAR (YBBN
 // SMOK2A) with a non-empty common route, after the departure order was found to draw two
-// spurious lines across a real arrival (docs/plans/star-leg-ordering.md, flightdeck-backend).
+// spurious lines across a real arrival (docs/plans/star-leg-ordering.md, winglog-backend).
 //
 // For `kind: 'approach'` (added 2026-09-08, Phase 5): `runwayIdent` is never set (an
 // approach's one runway is on the procedure row instead, not per-leg); `transitionName`

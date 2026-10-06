@@ -1,6 +1,6 @@
 /**
  * Read-only access to the data a simulation replays: WingLog's own database and logs on this
- * machine (flightdeck-backend docs/plans/robustness/scenario-testing.md Part 6, "The method").
+ * machine (winglog-backend docs/plans/robustness/scenario-testing.md Part 6, "The method").
  * Nothing here writes to them, and what's read stays in `release/sim/` (gitignored): it's
  * personal data.
  */

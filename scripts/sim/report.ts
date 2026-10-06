@@ -1,6 +1,6 @@
 /**
  * The page every simulation writes: a short "what to look for" list, a key, then one section per
- * scenario with its numbers and maps (flightdeck-backend docs/plans/robustness/scenario-testing.md
+ * scenario with its numbers and maps (winglog-backend docs/plans/robustness/scenario-testing.md
  * Part 6). One format for every feature, so there's one way to look at any of it.
  */
 import { mkdirSync, writeFileSync } from 'node:fs'

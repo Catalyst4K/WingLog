@@ -612,7 +612,7 @@ describe('FlightRecorder', () => {
   })
 
   // Was every ~3s until 2026-10, which drew taxi turns as 20-60m chords across the fillet
-  // (flightdeck-backend's ground-track-resolution.md).
+  // (winglog-backend's ground-track-resolution.md).
   it('records taxi on every 1s tick, like the other ground phases', () => {
     const recorder = new FlightRecorder(1)
     let t = 0

@@ -2,7 +2,7 @@ import type { MapLanguage } from '@shared/ipc'
 
 /**
  * Tidies and localises the hosted OpenFreeMap base style's own place-name labels
- * (flightdeck-backend docs/plans/map-language-and-declutter.md, Parts A and B1).
+ * (winglog-backend docs/plans/map-language-and-declutter.md, Parts A and B1).
  *
  * Spike 2026-09-18 (both `positron` and `dark` styles fetched and read): every name label in
  * both styles — places, water, airports, road names — uses one `text-field` expression that

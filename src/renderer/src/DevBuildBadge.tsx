@@ -1,5 +1,5 @@
 /**
- * The "DEV" badge in the header of the dev build (flightdeck-backend robustness/dev-build.md),
+ * The "DEV" badge in the header of the dev build (winglog-backend robustness/dev-build.md),
  * so a screenshot or a bug report always shows which build it came from. Nothing in a normal
  * build.
  */

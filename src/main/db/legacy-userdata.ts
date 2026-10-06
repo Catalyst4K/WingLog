@@ -4,7 +4,7 @@ import Database from 'better-sqlite3'
 
 /**
  * The app was called Flightdeck until the 2026-09-06 rename to WingLog
- * (flightdeck-backend/docs/decisions.md). Electron derives userData from the app name, so
+ * (winglog-backend/docs/decisions.md). Electron derives userData from the app name, so
  * the rename moved `~/Library/Application Support/Flightdeck` to `.../WingLog` (and
  * `%APPDATA%\Flightdeck` likewise) — leaving every existing install's logbook sitting in a
  * directory the app no longer looks at. This carries it across, once, on first launch

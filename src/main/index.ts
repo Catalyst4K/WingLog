@@ -95,7 +95,7 @@ try {
 
 // e2e-only (e2e/launch-app.ts always sets this): headless Linux CI's xvfb display has no
 // real GPU, and Electron's bundled Chromium doesn't reliably fall back to a working
-// software WebGL2 context on its own there — confirmed live via flightdeck-backend's
+// software WebGL2 context on its own there — confirmed live via winglog-backend's
 // docs/plans/test-coverage.md Phase 4 (Logbook's e2e test), where FlightMap's maplibre-gl
 // map failed GPUInitializationError and then crashed the renderer on unmount
 // (`Cannot read properties of undefined (reading 'destroy')`) with no switch set. Real
@@ -173,18 +173,18 @@ if (!gotSingleInstanceLock) {
       Menu.setApplicationMenu(null)
       const window = createWindow()
       // Live state (sim, tracking, GSX Remote, BeyondATC) goes through one hub, and the window
-      // is its first subscriber (flightdeck-backend's docs/plans/live-data-seam.md, part A).
+      // is its first subscriber (winglog-backend's docs/plans/live-data-seam.md, part A).
       const liveHub = new LiveHub()
       liveHub.subscribe((topic, payload) => {
         if (!window.isDestroyed()) window.webContents.send(IpcChannels[topic], payload)
       })
 
-      // Cloud sync (flightdeck-backend/docs/plans/cloud-sync.md) — off by default; nothing
+      // Cloud sync (winglog-backend/docs/plans/cloud-sync.md) — off by default; nothing
       // above this point depends on it, and it's the only feature in the app that talks to
-      // flightdeck-backend for anything beyond the stateless SimBrief signing route.
+      // winglog-backend for anything beyond the stateless SimBrief signing route.
       // Constructed here, before any mutating handler below, so each of those can trigger a
       // background sync after a successful write — event-driven push
-      // (flightdeck-backend/docs/plans/cloud-sync-v2.md #3).
+      // (winglog-backend/docs/plans/cloud-sync-v2.md #3).
       const cloudSync = new CloudSyncController(db, dbPath, app.getPath('userData'))
       // Pull-on-launch half of the same item: one sync at startup when a session already
       // exists, so this device picks up whatever changed elsewhere since it last opened
@@ -337,13 +337,13 @@ if (!gotSingleInstanceLock) {
         await shell.openExternal(url)
         return true
       })
-      // Always true now — generation goes through flightdeck-backend rather than a per-build
+      // Always true now — generation goes through winglog-backend rather than a per-build
       // key, so there's no "build with no key baked in" case to fall back from anymore. Kept
       // as a channel (rather than removing it and the renderer's "Plan on SimBrief…" fallback
       // entirely) in case a future bring-your-own-key or backend-downtime path wants it back.
       ipcMain.handle(IpcChannels.dispatchGenerationAvailable, () => true)
 
-      // Phase 3's injection seam (flightdeck-backend's docs/plans/flight-replay-harness.md,
+      // Phase 3's injection seam (winglog-backend's docs/plans/flight-replay-harness.md,
       // closing test-coverage.md Phase 4's open question): WINGLOG_E2E_FIXTURE, when set,
       // swaps in a ReplaySimConnectService driven by a captured NDJSON fixture instead of a
       // live sim connection — for an e2e/Playwright context that wants Track to actually
@@ -596,7 +596,7 @@ if (!gotSingleInstanceLock) {
         shell.openPath(sourceHtmlPath)
       )
 
-      // GSX Remote Control (flightdeck-backend's docs/plans/gsx-remote-control.md; live
+      // GSX Remote Control (winglog-backend's docs/plans/gsx-remote-control.md; live
       // protocol confirmed docs/gsx-notes.md, 2026-09-21) — unrelated to the file-based GSX
       // invoices above. Native reimplementation (docs/decisions.md, 2026-09-21 Option C):
       // GsxRemoteService owns the WebSocket, renderer only ever gets typed IPC. Off by
@@ -653,7 +653,7 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.gsxRemoteCancelPrompt, (_event, gen: unknown) => gsxRemoteService?.cancelPrompt(gen))
       ipcMain.handle(IpcChannels.gsxRemoteRunCommand, (_event, id: unknown) => gsxRemoteService?.runCommand(id))
 
-      // BeyondATC integration (flightdeck-backend's docs/plans/beyondatc-integration.md;
+      // BeyondATC integration (winglog-backend's docs/plans/beyondatc-integration.md;
       // live protocol confirmed docs/beyondatc-notes.md, 2026-09-25). Off by default,
       // opt-in per user-entered host — unlike GSX Remote, the port is fixed
       // (BeyondAtcService's own BEYONDATC_PORT), so there's no port to validate here.
@@ -713,7 +713,7 @@ if (!gotSingleInstanceLock) {
       ipcMain.handle(IpcChannels.beyondAtcSetAutoTune, (_event, value: unknown) => beyondAtcService?.setAutoTune(value))
       ipcMain.handle(IpcChannels.beyondAtcSetAutoRespond, (_event, value: unknown) => beyondAtcService?.setAutoRespond(value))
 
-      // WingLog's own auto step climb (flightdeck-backend's docs/plans/beyondatc-auto-step-
+      // WingLog's own auto step climb (winglog-backend's docs/plans/beyondatc-auto-step-
       // climb.md) — asks BeyondATC for each new cruise level. Reads the current
       // beyondAtcService lazily, since settings changes replace it. Off every launch.
       const stepClimb = new StepClimbController({
@@ -751,7 +751,7 @@ if (!gotSingleInstanceLock) {
         ipcMain.handle(IpcChannels.syncStatus, () => cloudSync.getStatus())
       }
 
-      // Update check (flightdeck-backend's docs/plans/update-check.md, Part A; agreed
+      // Update check (winglog-backend's docs/plans/update-check.md, Part A; agreed
       // 2026-10-02): asks GitHub for the latest published release, on by default, switchable
       // off in Settings → About. The endpoint can only be overridden in an unpackaged build,
       // for the Playwright acceptance test's fake release server.
@@ -770,7 +770,7 @@ if (!gotSingleInstanceLock) {
       registerSettingsHandlers(ipcMain, { db, trackingController })
       registerAppHandlers(ipcMain, { updateService })
 
-      // Navdata (Phase 3, flightdeck-backend's docs/plans/navdata-without-navigraph.md) — its
+      // Navdata (Phase 3, winglog-backend's docs/plans/navdata-without-navigraph.md) — its
       // own short-lived SimConnect connection per refresh, deliberately separate from
       // simConnectService's live tracking connection (docs/navdata-notes.md's isolation
       // finding). refreshAirport is the only channel that touches the sim; the rest are cache

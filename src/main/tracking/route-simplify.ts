@@ -1,6 +1,6 @@
 /**
  * Derives the lightweight "flown route" polyline stored in flight.flownRouteJson
- * (flightdeck-backend/docs/plans/cloud-sync.md, "The flown route, not the full track") —
+ * (winglog-backend/docs/plans/cloud-sync.md, "The flown route, not the full track") —
  * promoted from scripts/spike-route-simplify.ts, which confirmed against a real flight
  * (VHHH -> WSSS, 1057 track_point rows, 2026-09-04) that 100m tolerance gives the same
  * visual fidelity as 50m at ~1.5x fewer points, and that Callum found no visible

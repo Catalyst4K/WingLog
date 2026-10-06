@@ -2,7 +2,7 @@
  * Replays a full capture (sim telemetry plus BeyondATC and GSX messages) through the real app on
  * one clock: the sim ticks go through ReplaySimConnectService as before, and each captured
  * incoming message reaches BeyondAtcService or GsxRemoteService through their socket seam at its
- * recorded moment (flightdeck-backend docs/plans/robustness/scenario-testing.md Part 1).
+ * recorded moment (winglog-backend docs/plans/robustness/scenario-testing.md Part 1).
  *
  * Messages WingLog sent during the recording are not replayed: the services send their own,
  * collected on each link's `sent` for a test to check.

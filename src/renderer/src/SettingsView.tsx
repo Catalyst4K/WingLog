@@ -68,7 +68,7 @@ const DATA_FORMATS = [
 ] as const
 
 /** One Import/Export pair with its own format picker — Fleet and Logbook each get one
- *  (flightdeck-backend docs/plans/data-export-import.md). */
+ *  (winglog-backend docs/plans/data-export-import.md). */
 function DataSection(props: {
   title: string
   hint: string

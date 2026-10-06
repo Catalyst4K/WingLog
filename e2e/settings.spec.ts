@@ -5,7 +5,7 @@ import { test, expect } from '@playwright/test'
 import { launchApp } from './launch-app'
 
 /**
- * Settings' real-persistence flows against the real built app, per flightdeck-backend's
+ * Settings' real-persistence flows against the real built app, per winglog-backend's
  * docs/plans/test-coverage.md Phase 4. Deliberately avoids anything that opens a real OS
  * dialog or external browser window (Import/Export, "Log in with Navigraph", GSX's
  * "Browse…") or hits the network (SimBrief login) — those aren't drivable headlessly and
@@ -60,7 +60,7 @@ test('changes units, theme, SimBrief username, and GSX settings, all persisted',
 })
 
 test('automatic tracking start and finish can each be switched off, and stay off after a restart', async () => {
-  // Settings → Tracking (flightdeck-backend's docs/plans/tracking-auto-toggles.md).
+  // Settings → Tracking (winglog-backend's docs/plans/tracking-auto-toggles.md).
   const userDataDir = mkdtempSync(join(tmpdir(), 'winglog-e2e-tracking-'))
   try {
     const first = await launchApp({ userDataDir })

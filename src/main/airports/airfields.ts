@@ -1,4 +1,4 @@
-// Every airfield with a position, for the Track map's VFR overlay (flightdeck-backend
+// Every airfield with a position, for the Track map's VFR overlay (winglog-backend
 // docs/plans/map-language-and-declutter.md, Part C). Same vendored OurAirports slice as
 // airport-search.ts (resources/airports.csv) — no new data source, nothing leaves the
 // machine. Parsed on first use, not at module load: ~43,400 rows is a real chunk of heap

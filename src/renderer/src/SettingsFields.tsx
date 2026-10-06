@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
 /**
- * Settings controls shared by Settings and the first-launch setup (flightdeck-backend's
+ * Settings controls shared by Settings and the first-launch setup (winglog-backend's
  * docs/plans/first-launch-setup.md), so the two can never drift apart.
  */
 
@@ -20,7 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
  *  same kind of control.
  *
  *  An optional `hint` moves what used to be an always-visible paragraph under the row into
- *  an info-icon popover instead (flightdeck-backend docs/plans/v1-2.md Part 4) — the Units
+ *  an info-icon popover instead (winglog-backend docs/plans/v1-2.md Part 4) — the Units
  *  card previously stacked five of these paragraphs at once, reading as mostly caveats
  *  rather than mostly controls. Reuses `LandingScoreBreakdownDialog`'s existing
  *  Info+Popover pattern rather than a new one. */

@@ -13,7 +13,7 @@ const HOLD_SHORT_TAXI = new RegExp(String.raw`taxi via ${TAXIWAY_LIST}, hold sho
  * "taxi via C7, Y, F, hold short of runway 07C" → '07C'. Null for anything else.
  *
  * The only part of a taxi clearance still read from ATC's speech: the route, holding point and
- * gate come from BeyondATC's InfoBoxes, and no hold-short box has been seen (flightdeck-backend's
+ * gate come from BeyondATC's InfoBoxes, and no hold-short box has been seen (winglog-backend's
  * docs/decisions.md, 2026-10-05). The full speech parsers are in git history (this file as of
  * `develop` 72c267b).
  */

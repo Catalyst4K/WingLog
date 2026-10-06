@@ -13,7 +13,7 @@ export default defineConfig(({ command }) => {
   // constant rather than a runtime Settings toggle, so a public binary can't have it
   // flipped back on by a user — see src/shared/build-flags.d.ts.
   const cloudSyncEnabled = command === 'serve' || process.env.WINGLOG_CLOUD_SYNC === '1'
-  // The dev build (flightdeck-backend robustness/dev-build.md): diagnostic logging and the full
+  // The dev build (winglog-backend robustness/dev-build.md): diagnostic logging and the full
   // flight capture, for Callum's test flights. Only `npm run package:win:dev` sets it; a
   // release never does (src/main/diagnostics/release-safety.test.ts).
   const devBuild = process.env.WINGLOG_DEV_BUILD === '1'

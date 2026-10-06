@@ -3,7 +3,7 @@ import type { LiveCommand, LiveCommands, LiveTopic, LiveTopics } from '@shared/l
 
 /**
  * How the remote-capable panels (BeyondATC, GSX Remote) read live state and send commands,
- * instead of calling `window.winglog` directly (flightdeck-backend's
+ * instead of calling `window.winglog` directly (winglog-backend's
  * docs/plans/live-data-seam.md, part C). Today the only implementation goes through
  * Electron's preload; v1.5's LAN viewer and a v2.x app talking to a sim-PC host will each
  * provide their own, and the panels won't change.

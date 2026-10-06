@@ -48,7 +48,7 @@ export function listTrackPoints(db: WingLogDb, flightId: number): TrackPoint[] {
     .map(toTrackPoint)
 }
 
-/** Persists a resume-cleanup pass's output (flightdeck-backend's docs/plans/
+/** Persists a resume-cleanup pass's output (winglog-backend's docs/plans/
  *  resume-track-cleanup.md, Phase 2) — marks junk points, and retags points on the far
  *  side of a mid-flight teleport with a new resumeSegment so the map stops joining them
  *  to what came before with a straight line. One transaction so a caller never observes

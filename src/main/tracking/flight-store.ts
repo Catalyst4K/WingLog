@@ -1,6 +1,6 @@
 /**
  * Everything flight tracking reads from and writes to the logbook, as one narrow interface
- * (flightdeck-backend docs/coding-standards.md §9): tracking is host side, the database app side.
+ * (winglog-backend docs/coding-standards.md §9): tracking is host side, the database app side.
  * The app's implementation is src/main/db/flight-store.ts; a future host on the sim PC can send
  * the same operations to wherever the logbook lives.
  */

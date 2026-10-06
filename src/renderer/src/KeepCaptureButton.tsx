@@ -1,6 +1,6 @@
 /**
  * Dev build only: keeps a flight's full capture for good, so it's never pruned with the newest 50
- * (flightdeck-backend docs/plans/robustness/scenario-testing.md, Answers 1). Shown in the
+ * (winglog-backend docs/plans/robustness/scenario-testing.md, Answers 1). Shown in the
  * Logbook's flight detail. English only, like the DEV badge: the dev build is never shipped.
  */
 import { useEffect, useState } from 'react'

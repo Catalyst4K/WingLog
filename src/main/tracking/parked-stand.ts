@@ -11,7 +11,7 @@ export interface ParkedStandDeps {
 }
 
 /**
- * Records which stand a just-completed flight finished at (flightdeck-backend's
+ * Records which stand a just-completed flight finished at (winglog-backend's
  * docs/plans/stand-positions.md): the arrival airport's stand nearest the aircraft's final
  * position, if one is within reach. Best effort — no stand data (sim gone, a free flight with
  * no arrival airport) just records nothing. Returns the stand recorded, or null.

@@ -6,7 +6,7 @@ import { WebSocketServer, type WebSocket } from 'ws'
  * MSFS + GSX install — same "real protocol, fake transport" shape as `ReplaySimConnectService`
  * (flight-replay-harness.md), but for `GsxRemoteService`'s WebSocket instead of SimConnect.
  *
- * All payloads below are real captures, not invented shapes — see flightdeck-backend's
+ * All payloads below are real captures, not invented shapes — see winglog-backend's
  * docs/gsx-notes.md (round 6/7 for the gate/service `detail` fields, the pushback-direction
  * menu capture for the important-menu dialog). `GsxRemoteService` only ever sends one
  * `{type:"subscribe",...}` message on open and ignores anything else it doesn't recognise

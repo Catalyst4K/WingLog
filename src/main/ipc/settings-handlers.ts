@@ -96,7 +96,7 @@ export function registerSettingsHandlers(ipcMain: IpcMain, { db, trackingControl
 
   ipcMain.handle(IpcChannels.settingsCheckGsxFirstLaunch, () => checkGsxFirstLaunch(db))
 
-  // First-launch setup (flightdeck-backend's docs/plans/first-launch-setup.md).
+  // First-launch setup (winglog-backend's docs/plans/first-launch-setup.md).
   ipcMain.handle(IpcChannels.setupGetState, () => getSetupState(db))
 
   ipcMain.handle(IpcChannels.setupGetContext, () => getSetupContext())

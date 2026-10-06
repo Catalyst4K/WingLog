@@ -899,7 +899,7 @@ describe('TrackingController', () => {
     })
   })
 
-  // Phase 2 of flightdeck-backend's docs/plans/done/resume-track-cleanup.md — the actual
+  // Phase 2 of winglog-backend's docs/plans/done/resume-track-cleanup.md — the actual
   // junk-exclusion pass, live-wired through checkForLiveJump/runTrackCleanup rather than
   // just the pure computeTrackCleanup function (resume-cleanup.test.ts covers that in
   // isolation).
@@ -1127,7 +1127,7 @@ describe('TrackingController', () => {
     })
   })
 
-  // flightdeck-backend's docs/plans/multiple-landings.md — touchdown detection moved off
+  // winglog-backend's docs/plans/multiple-landings.md — touchdown detection moved off
   // the phase machine's descent -> landing edge (which has real holes for circuit flying)
   // onto the raw telemetry.onGround transition directly.
   describe('multiple landings', () => {

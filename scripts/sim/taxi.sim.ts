@@ -1,7 +1,7 @@
 /**
  * `npm run sim -- taxi`: the taxi line simulation on this machine's real taxis. Reads WingLog's
  * database and logs read-only and writes release/sim/taxi/index.html (gitignored). Not part of
- * `npm test`: it needs local data (flightdeck-backend docs/plans/robustness/scenario-testing.md
+ * `npm test`: it needs local data (winglog-backend docs/plans/robustness/scenario-testing.md
  * Part 6).
  *
  * Taxis from before the InfoBoxes were logged (2026-10-05) can be added by hand in

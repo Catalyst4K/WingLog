@@ -1,6 +1,6 @@
 /**
  * `npm run lint:report`: the coding standards' warnings counted per rule and per area, the audit's
- * baseline and progress measure (flightdeck-backend docs/plans/robustness/code-standards-audit.md,
+ * baseline and progress measure (winglog-backend docs/plans/robustness/code-standards-audit.md,
  * phase 1). Reads ESLint's JSON output and writes release/lint/summary.md.
  *
  *   npm run lint:report            (runs ESLint, then this)

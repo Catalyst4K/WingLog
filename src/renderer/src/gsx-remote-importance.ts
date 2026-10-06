@@ -7,7 +7,7 @@ import type { GsxRemoteMenuState } from '@shared/ipc'
  * confined to the GSX tab, resolved by GSX's own default/timeout if nobody answers there).
  *
  * Matched on `menu.title`/`header` text — the real signal confirmed live, 2026-09-21
- * (flightdeck-backend's docs/gsx-notes.md): both cases are ordinary `state.menu` snapshots,
+ * (winglog-backend's docs/gsx-notes.md): both cases are ordinary `state.menu` snapshots,
  * not a distinct "important" flag GSX exposes. Case-sensitive substring match against GSX's
  * own confirmed wording is deliberately narrow — a near-miss should fail open (treated as
  * not-important, stays on the GSX tab) rather than accidentally firing for an unrelated menu

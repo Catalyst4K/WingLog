@@ -1,5 +1,5 @@
 /**
- * Phase 2 of flightdeck-backend's docs/plans/done/resume-track-cleanup.md — the actual
+ * Phase 2 of winglog-backend's docs/plans/done/resume-track-cleanup.md — the actual
  * junk-exclusion pass. Pure by design (track points in, exclusions/segment fixes out) so
  * it's unit-testable without a sim, per CLAUDE.md's testing rule. `TrackingController`
  * (not this file) is responsible for reading points, calling this, and persisting the

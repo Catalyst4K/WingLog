@@ -282,7 +282,7 @@ describe('biasToLatLon', () => {
     expect(result.longitude).toBeGreaterThan(0.03246232867240906) // east = higher longitude
   })
 
-  it('matches EGKB runway 03/21\'s real heading and length within noise — confirmed live 2026-09-28 (flightdeck-backend docs/navdata-notes.md)', () => {
+  it('matches EGKB runway 03/21\'s real heading and length within noise — confirmed live 2026-09-28 (winglog-backend docs/navdata-notes.md)', () => {
     // Real TAXI_POINT values for the runway centerline's two extreme threshold points,
     // captured live against Callum's MSFS session. Real RUNWAY facility data for the same
     // airport: HEADING 25.64043617248535 deg, LENGTH 1800.79833984375 m.

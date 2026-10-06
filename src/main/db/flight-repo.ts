@@ -149,7 +149,7 @@ export function getInProgressFlight(db: WingLogDb): Flight | undefined {
   return row ? toFlight(row) : undefined
 }
 
-// uuid/updatedAt (flightdeck-backend/docs/plans/cloud-sync.md) are set explicitly on every
+// uuid/updatedAt (winglog-backend/docs/plans/cloud-sync.md) are set explicitly on every
 // write path here rather than left to a DB default — see schema.ts's aircraft.uuid
 // comment for why. An update that forgets to bump updatedAt would silently never sync.
 export function createFlight(db: WingLogDb, input: NewFlight): Flight {
@@ -425,7 +425,7 @@ export function abandonFlight(db: WingLogDb, id: number): void {
 /**
  * Removes a flight — a bad test entry, or any flight that logged wrong data (e.g. a
  * phase-machine hiccup that produced a nonsense fuel-burn figure). Soft-deletes the flight
- * and cascades the same tombstone to its `landing`/`flightInvoice` rows (flightdeck-backend/
+ * and cascades the same tombstone to its `landing`/`flightInvoice` rows (winglog-backend/
  * docs/plans/cloud-sync-v2.md #3a) — all three are synced, so a hard DELETE would just get
  * resurrected by the next pull on another device. `trackPoint` is never synced and stays
  * hard-deleted, same as before. One transaction so a mid-way failure can't leave the flight

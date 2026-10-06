@@ -4,7 +4,7 @@ import type { NavdataTaxiSegment } from '@shared/ipc'
 import { uiMemory } from './ui-memory'
 
 /**
- * The Track/Logbook map's taxi chart overlay (flightdeck-backend's docs/plans/
+ * The Track/Logbook map's taxi chart overlay (winglog-backend's docs/plans/
  * taxi-network-overlay.md) — an airport's full taxiway network, drawn as a static reference
  * layer, fetched from MSFS's own SimConnect facility data. Off by default; nothing is loaded
  * or fetched until the toggle is switched on, same discipline as useVfrOverlay.ts, since a

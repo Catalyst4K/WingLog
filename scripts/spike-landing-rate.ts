@@ -1,5 +1,5 @@
 /**
- * Throwaway spike for flightdeck-backend docs/plans/landing-scoring-v2.md's "sampling
+ * Throwaway spike for winglog-backend docs/plans/landing-scoring-v2.md's "sampling
  * resolution near touchdown" idea, now scoped into v1.2 (docs/plans/v1-2.md, Part 3).
  *
  * Question this answers: can a SECOND, high-rate SimConnect request run alongside the
@@ -21,7 +21,7 @@
  *
  * Usage (MSFS running, fly a normal approach and landing):
  *   npm run spike:landing-rate
- * Log the answers in flightdeck-backend's docs/simconnect-notes.md before any production
+ * Log the answers in winglog-backend's docs/simconnect-notes.md before any production
  * code is written against this.
  *
  * v2, 2026-09-20, after the first live run found two bugs in this script (not in

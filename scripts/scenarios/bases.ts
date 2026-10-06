@@ -1,6 +1,6 @@
 /**
  * The real recordings scenarios start from, and the cached navdata they need
- * (flightdeck-backend docs/plans/robustness/scenario-testing.md Part 2). All committed data here
+ * (winglog-backend docs/plans/robustness/scenario-testing.md Part 2). All committed data here
  * is real and anonymised.
  */
 import { readFileSync } from 'node:fs'
