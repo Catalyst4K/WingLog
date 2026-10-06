@@ -12,6 +12,7 @@ import type { AircraftTypeOption } from '@shared/ipc'
 import type { WakeCategory } from '@shared/landing-score'
 import { columnIndex, parseCsvRows } from '../db/csv'
 import icaoTypesRaw from '../../../resources/icao-aircraft-types.csv?raw'
+import { lazy } from '@shared/lazy'
 
 interface IcaoTypeRow {
   manufacturer: string
@@ -70,11 +71,10 @@ export function searchTypes(types: IcaoTypeRow[], query: string): AircraftTypeOp
 
 // Parsed on first search, not at module load (docs/decisions.md, memory-usage entry) —
 // same reasoning as airport-search.ts.
-let allTypes: IcaoTypeRow[] | null = null
+const allTypes = lazy(() => loadTypes(icaoTypesRaw))
 
 export function searchAircraftTypes(query: string): AircraftTypeOption[] {
-  allTypes ??= loadTypes(icaoTypesRaw)
-  return searchTypes(allTypes, query)
+  return searchTypes(allTypes(), query)
 }
 
 function isWakeCategory(value: string): value is WakeCategory {
@@ -88,7 +88,7 @@ function isWakeCategory(value: string): value is WakeCategory {
  *  rows) — not guessed at. When a type code appears with more than one wtc value across
  *  real rows, the first one loaded wins, same "don't overthink it" spirit as the rest of
  *  this vendored-CSV lookup. */
-let wakeCategoryByType: Map<string, WakeCategory> | null = null
+const wakeCategoryByType = lazy(() => buildWakeCategoryIndex(allTypes()))
 
 function buildWakeCategoryIndex(types: IcaoTypeRow[]): Map<string, WakeCategory> {
   const index = new Map<string, WakeCategory>()
@@ -102,7 +102,5 @@ function buildWakeCategoryIndex(types: IcaoTypeRow[]): Map<string, WakeCategory>
 }
 
 export function getWakeCategory(icaoType: string): WakeCategory | null {
-  allTypes ??= loadTypes(icaoTypesRaw)
-  wakeCategoryByType ??= buildWakeCategoryIndex(allTypes)
-  return wakeCategoryByType.get(icaoType.toUpperCase()) ?? null
+  return wakeCategoryByType().get(icaoType.toUpperCase()) ?? null
 }

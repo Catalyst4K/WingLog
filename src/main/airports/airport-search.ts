@@ -11,6 +11,7 @@ import type { AirportOption } from '@shared/ipc'
 import { columnIndex, parseCsvRows } from '../db/csv'
 import airportsRaw from '../../../resources/airports.csv?raw'
 import { greatCircleNm } from '@shared/geo'
+import { lazy } from '@shared/lazy'
 
 export function loadAirports(raw: string): AirportOption[] {
   const [header, ...rows] = parseCsvRows(raw)
@@ -53,11 +54,10 @@ export function searchAirportList(airports: AirportOption[], query: string): Air
 // Parsed on first search, not at module load — ~43,400 rows is a real chunk of main-
 // process heap (docs/decisions.md, memory-usage entry) that a session never touching
 // Dispatch's airport search has no reason to pay for.
-let allAirports: AirportOption[] | null = null
+const allAirports = lazy(() => loadAirports(airportsRaw))
 
 export function searchAirports(query: string): AirportOption[] {
-  allAirports ??= loadAirports(airportsRaw)
-  return searchAirportList(allAirports, query)
+  return searchAirportList(allAirports(), query)
 }
 
 export function loadAirportCoords(raw: string): Map<string, { lat: number; lon: number }> {
@@ -83,11 +83,10 @@ export function loadAirportCoords(raw: string): Map<string, { lat: number; lon: 
 
 // Separate lazy cache from allAirports above — a session that only needs distance (or
 // only search) shouldn't pay to parse the columns the other one uses.
-let airportCoords: Map<string, { lat: number; lon: number }> | null = null
+const airportCoords = lazy(() => loadAirportCoords(airportsRaw))
 
 export function getAirportCoords(icao: string): { lat: number; lon: number } | null {
-  airportCoords ??= loadAirportCoords(airportsRaw)
-  return airportCoords.get(icao) ?? null
+  return airportCoords().get(icao) ?? null
 }
 
 /**
@@ -191,7 +190,7 @@ export function loadAirportLocations(raw: string): Map<string, AirportLocation> 
   return locations
 }
 
-let airportLocations: Map<string, AirportLocation> | null = null
+const airportLocations = lazy(() => loadAirportLocations(airportsRaw))
 
 /**
  * The nearest vendored airport to a position — the reverse of getAirportCoords, needed by
@@ -205,14 +204,13 @@ let airportLocations: Map<string, AirportLocation> | null = null
  * maxDistanceNm.
  */
 export function nearestAirport(lat: number, lon: number, maxDistanceNm: number): string | null {
-  airportLocations ??= loadAirportLocations(airportsRaw)
 
   let bestIcao: string | null = null
   let bestDistance = Infinity
   let bestFallbackIcao: string | null = null
   let bestFallbackDistance = Infinity
 
-  for (const [icao, location] of airportLocations) {
+  for (const [icao, location] of airportLocations()) {
     const distance = greatCircleNm({ lat, lon }, location)
     if (distance > maxDistanceNm) continue
     if (NON_PRIMARY_AIRPORT_TYPES.has(location.type)) {

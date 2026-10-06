@@ -1,4 +1,5 @@
 import type { SimbriefAirframeOption } from '../../shared/ipc'
+import { lazy } from '@shared/lazy'
 
 // Forum-documented, not in SimBrief's own official docs (docs/plans/
 // simbrief-airframe-picker.md) — same undocumented-external-system status as SimBrief's
@@ -128,14 +129,13 @@ export function parseAirframesForType(data: RawAirframesResponse, icaoType: stri
 // as airport-search.ts's allAirports/airportCoords). No on-disk cache: this is a browse
 // list, not something that needs surviving a restart, and the source is only ever "updated
 // every 5 minutes" (unconfirmed, forum post) — a longer cache would just risk staleness.
-let cachedResponse: Promise<RawAirframesResponse | null> | null = null
-
-async function fetchAirframesData(): Promise<RawAirframesResponse | null> {
-  cachedResponse ??= fetch(AIRFRAMES_URL)
-    .then((res) => (res.ok ? (res.json() as Promise<RawAirframesResponse>) : null))
-    .catch(() => null)
-  return cachedResponse
-}
+const fetchAirframesData = lazy(
+  (): Promise<RawAirframesResponse | null> =>
+    fetch(AIRFRAMES_URL)
+      .then((res) => (res.ok ? (res.json() as Promise<RawAirframesResponse>) : null))
+      // A failed fetch is an empty list for the session, the same as an unknown type.
+      .catch(() => null)
+)
 
 /** Empty (not an error) for a type SimBrief doesn't recognise, or if the fetch itself
  *  fails — same defensive-parsing posture as every other external-data path in this app. */
