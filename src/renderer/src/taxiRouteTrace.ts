@@ -248,7 +248,14 @@ function traceOnce(
       // taxilane costs its plain length like an unnamed lead-in. VHHH, 2026-10-05: from B8,
       // cleared "via B, B, V, H, J", 5× on B8 sent the line zigzagging through every gate
       // lead-in beside it instead of straight along B8.
-      else if (edge.name !== nextName) moves.push([stage, stage < 0 ? edge.lengthM : edge.lengthM * OFF_ROUTE_COST_FACTOR])
+      // The same at the other end of a stand clearance: from the last cleared taxiway to the
+      // stand. VHHH flight 225, "taxi to N32 via J, H6, H, V, B": the gate taxilane to N32 is
+      // B7, which ATC doesn't name, so at 5× the line hopped in and out of every gate lead-in
+      // along it (found simulating real taxis, 2026-10-06).
+      else if (edge.name !== nextName) {
+        const pilotsChoice = stage < 0 || (standNode >= 0 && stage === last)
+        moves.push([stage, pilotsChoice ? edge.lengthM : edge.lengthM * OFF_ROUTE_COST_FACTOR])
+      }
 
       const wrongWay = state === startState && headingDeg !== null && angleBetweenDeg(bearingDeg(node, edge.to), headingDeg) > WRONG_WAY_DEG
       for (const [nextStage, edgeCost] of moves) {
