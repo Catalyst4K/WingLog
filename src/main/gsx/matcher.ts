@@ -1,3 +1,7 @@
+/**
+ * Which GSX receipts belong to a flight: by time window, airport and tail, from the file names
+ * alone.
+ */
 import type { ParsedReceiptFilename } from './filename'
 
 /** Services are ordered before block-out and land after block-in (de-icing, arrival
@@ -36,6 +40,10 @@ function icaoMatches(receipt: ParsedReceiptFilename, window: FlightMatchWindow):
  * whatever was loaded in the sim at receipt time and is demonstrably unreliable, per
  * docs/gsx-notes.md), departure-or-arrival ICAO, and a timestamp within the flight's
  * window plus tolerance. NOTAIL receipts never match here — see isNotailCandidate.
+ *
+ * @param receipt The receipt's file name, parsed.
+ * @param window The flight's tail, airports and time window.
+ * @returns Whether it's the flight's.
  */
 export function matchesFlight(receipt: ParsedReceiptFilename, window: FlightMatchWindow): boolean {
   if (receipt.tail.toUpperCase() === 'NOTAIL' || !receipt.tail) return false
@@ -48,6 +56,10 @@ export function matchesFlight(receipt: ParsedReceiptFilename, window: FlightMatc
  * A NOTAIL receipt can only be matched on time and airport — not enough to be sure, so
  * these are offered as "possibly this flight" rather than auto-attached (docs/gsx-notes.md
  * — matching to flights, "offered, not auto-attached").
+ *
+ * @param receipt The receipt's file name, parsed.
+ * @param window The flight's tail, airports and time window.
+ * @returns Whether it could be the flight's.
  */
 export function isNotailCandidate(receipt: ParsedReceiptFilename, window: FlightMatchWindow): boolean {
   if (receipt.tail.toUpperCase() !== 'NOTAIL') return false

@@ -16,6 +16,12 @@ export interface ParsedReceiptFilename {
 
 const FILENAME_PATTERN = /^(\d{8}T\d{6}Z)_([A-Za-z0-9]{4})_(.+)$/
 
+/**
+ * Reads a receipt's file name.
+ *
+ * @param filename A receipt's file name.
+ * @returns Its time, airport and tail, or null for any other file.
+ */
 export function parseReceiptFilename(filename: string): ParsedReceiptFilename | null {
   const basename = filename.replace(/\.(json|html)$/i, '')
   const match = FILENAME_PATTERN.exec(basename)

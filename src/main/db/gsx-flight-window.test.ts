@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { eq } from 'drizzle-orm'
-import { createDb, type WingLogDb } from './../db/client'
-import { createAircraft } from '../db/aircraft-repo'
-import { createFlight, createFreeFlight } from '../db/flight-repo'
-import { flight as flightTable } from '../db/schema'
-import { buildFlightMatchWindow } from './flight-window'
+import { createDb, type WingLogDb } from './client'
+import { createAircraft } from './aircraft-repo'
+import { createFlight, createFreeFlight } from './flight-repo'
+import { flight as flightTable } from './schema'
+import { buildFlightMatchWindow } from './gsx-flight-window'
 
 describe('buildFlightMatchWindow', () => {
   let db: WingLogDb

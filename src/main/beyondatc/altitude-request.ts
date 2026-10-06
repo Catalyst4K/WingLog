@@ -1,3 +1,7 @@
+/**
+ * Asks BeyondATC for a new cruise level through its own menu: pick Request Altitude, choose the
+ * level offered nearest the target, and wait for the InfoBoxes to confirm it.
+ */
 import type { BeyondAtcState } from '@shared/ipc'
 import { boxClearedLevelFt } from '@shared/atc-info-boxes'
 
@@ -53,16 +57,26 @@ const DEFAULT_TIMEOUTS: AltitudeRequestTimeouts = { menuMs: 20_000, answerMs: 30
 
 /** "FL380" → 38000; "11300m" / "11,300 m" → feet (for China's metric levels, whose exact
  *  label BeyondATC uses hasn't been captured yet — both notations accepted). Null for any
- *  non-level label ("Say Again", "Cancel Altitude Change"). */
+ *  non-level label ("Say Again", "Cancel Altitude Change").
+ *
+ * @param label A level as BeyondATC labels it.
+ * @returns Feet, or null when it isn't a level.
+ */
 export function levelLabelToFeet(label: string): number | null {
   const fl = /^FL ?(\d{2,3})$/i.exec(label.trim())
   if (fl) return Number(fl[1]) * 100
   const metric = /^([\d,]+) ?m$/i.exec(label.trim())
-  if (metric) return Number(metric[1]!.replace(/,/g, '')) * FEET_PER_METRE
+  if (metric?.[1]) return Number(metric[1].replace(/,/g, '')) * FEET_PER_METRE
   return null
 }
 
-/** The offered label nearest to the wanted level, if it's within tolerance. */
+/**
+ * The offered label nearest to the wanted level, if it's within tolerance.
+ *
+ * @param actions The menu's labels.
+ * @param targetFt The level wanted, feet.
+ * @returns The label, or null.
+ */
 export function pickLevelLabel(actions: string[], targetFt: number): string | null {
   let best: { label: string; diff: number } | null = null
   for (const label of actions) {
@@ -75,7 +89,13 @@ export function pickLevelLabel(actions: string[], targetFt: number): string | nu
 }
 
 /** Whether BeyondATC's InfoBoxes, changed since the request, show this level as cleared
- *  (flightdeck-backend's docs/decisions.md, 2026-10-05: boxes only, no speech). */
+ *  (flightdeck-backend's docs/decisions.md, 2026-10-05: boxes only, no speech).
+ *
+ * @param state BeyondATC's state.
+ * @param label The level requested.
+ * @param sentAt When it was requested, epoch ms.
+ * @returns Whether it's confirmed.
+ */
 export function boxConfirmsLevel(state: BeyondAtcState, label: string, sentAt: number): boolean {
   const wanted = levelLabelToFeet(label)
   const cleared = boxClearedLevelFt(state.infoBoxes)
@@ -112,6 +132,14 @@ function waitFor<T>(
   })
 }
 
+/**
+ * Requests a level from BeyondATC and waits for the clearance.
+ *
+ * @param session BeyondATC's connection.
+ * @param targetFt The level wanted, feet.
+ * @param timeouts How long to wait for the menu and the clearance.
+ * @returns What happened, and the level label used.
+ */
 export async function requestAltitude(
   session: AltitudeRequestSession,
   targetFt: number,

@@ -1,7 +1,7 @@
-import { getAircraftById } from '../db/aircraft-repo'
-import type { WingLogDb } from '../db/client'
-import { getFlight } from '../db/flight-repo'
-import type { FlightMatchWindow } from './matcher'
+import { getAircraftById } from './aircraft-repo'
+import type { WingLogDb } from './client'
+import { getFlight } from './flight-repo'
+import type { FlightMatchWindow } from '../gsx/matcher'
 
 /** Builds the tail/ICAO/time-window a GSX scan needs to match receipts to a flight —
  *  shared by the completion-time snapshot and the manual rescan/attach IPC handlers, so

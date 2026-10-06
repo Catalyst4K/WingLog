@@ -16,6 +16,9 @@
  *
  * Still returns null — never throws, never guesses — for anything with no recognisable
  * `$<number>` USD amount at all, rather than risk a confidently-wrong figure.
+ *
+ * @param text The amount as GSX shows it.
+ * @returns US dollars, or null.
  */
 export function parseUsdAmount(text: string): number | null {
   const tildeIndex = text.indexOf('~')

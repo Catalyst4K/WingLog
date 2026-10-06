@@ -1,3 +1,8 @@
+/**
+ * The live connection to BeyondATC's own WebSocket server: parses its `Key: value` line protocol into
+ * WingLog's BeyondATC state and transcript, and sends its commands (actions, frequencies,
+ * auto-tune). Reconnects whenever BeyondATC goes away.
+ */
 import { EventEmitter } from 'node:events'
 import { NodeServiceSocket, type ServiceSocket, type ServiceSocketCtor } from '../net/service-socket'
 import type {
@@ -14,6 +19,7 @@ import type {
 } from '@shared/ipc'
 import { assignedGate, parseAtcTaxiFacts } from '@shared/atc-info-boxes'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
+import { logger } from '../logging/logger'
 
 /** `BeyondATC.exe`'s own real local port, confirmed live 2026-09-25 (docs/beyondatc-notes.md)
  *  — `0.0.0.0:41716`, LAN-reachable, real `websocket-sharp` server. Fixed and not user-
@@ -25,7 +31,11 @@ export const BEYONDATC_PORT = 41716
 
 /** The port an e2e test's fake BeyondATC listens on (WINGLOG_E2E_BEYONDATC_PORT): the OS picks
  *  a free one, since the real port can be taken on a CI runner. Undefined, so the real port is
- *  used, for anything that isn't a valid port. */
+ *  used, for anything that isn't a valid port.
+ *
+ * @param value The environment variable's value.
+ * @returns The port, or undefined.
+ */
 export function e2eBeyondAtcPort(value: string | undefined): number | undefined {
   const port = Number(value)
   return value !== undefined && Number.isInteger(port) && port > 0 && port < 65536 ? port : undefined
@@ -66,7 +76,11 @@ const COMMS_MODES = new Set(['queued', 'ready', 'awaiting', 'speaking', 'request
 
 /** A VHF airband frequency as typed or picked ("118.850", "121.7"), trimmed, or null for
  *  anything else — the value is sent on BeyondATC's protocol line as-is, so it's checked
- *  rather than trusted. */
+ *  rather than trusted.
+ *
+ * @param value Anything from the renderer.
+ * @returns The frequency as text, or null.
+ */
 export function validFrequency(value: unknown): string | null {
   if (typeof value !== 'string') return null
   const trimmed = value.trim()
@@ -112,7 +126,11 @@ function isCommsState(value: unknown): value is BeyondAtcCommsState {
 }
 
 /** `InfoBoxes: [{"title", "info"}]` (real, EGLL 2026-10-05). Keeps only well-formed entries;
- *  anything else in the array is skipped rather than failing the whole list. */
+ *  anything else in the array is skipped rather than failing the whole list.
+ *
+ * @param rest The line's value, after "Key:".
+ * @returns The boxes.
+ */
 function parseInfoBoxes(rest: string): BeyondAtcInfoBox[] {
   const value = parseJson(rest)
   if (!Array.isArray(value)) return []
@@ -136,7 +154,11 @@ function isProgress(value: unknown): value is BeyondAtcProgress {
 }
 
 /** `Facility: <name>|<frequency>` — confirmed live, docs/beyondatc-notes.md. Malformed
- *  (missing separator) parses to null rather than a half-populated guess. */
+ *  (missing separator) parses to null rather than a half-populated guess.
+ *
+ * @param rest The line's value, after "Key:".
+ * @returns The facility, or null.
+ */
 function parseFacility(rest: string): BeyondAtcFacility | null {
   const sep = rest.indexOf('|')
   if (sep < 0) return null
@@ -146,7 +168,11 @@ function parseFacility(rest: string): BeyondAtcFacility | null {
 /** `Actions: [Label¬Label¬...¬]` — bracket-wrapped, `¬`-separated plain labels, confirmed
  *  live NOT to be JSON despite the `[...]` syntax (docs/beyondatc-notes.md). A trailing `¬`
  *  before the close bracket is normal (BeyondATC's own "Fire Action 1/2/3" numbering) and
- *  produces a trailing empty entry, filtered out here. `[]` (no menu offered) parses to []. */
+ *  produces a trailing empty entry, filtered out here. `[]` (no menu offered) parses to [].
+ *
+ * @param rest The line's value, after "Key:".
+ * @returns The action labels.
+ */
 function parseActions(rest: string): string[] {
   const trimmed = rest.trim()
   if (!trimmed.startsWith('[') || !trimmed.endsWith(']')) return []
@@ -158,7 +184,11 @@ function parseActions(rest: string): string[] {
 /** `AutoTune`/`AutoRespond: <bool>` — bare lowercase `true`/`false`, confirmed live
  *  2026-09-29 (a real capture, not the notes doc's earlier unquoted `<bool>` placeholder).
  *  Anything else (unexpected casing, a malformed push) resolves to `null` rather than a
- *  guess, same defensive-parser discipline as parseFacility. */
+ *  guess, same defensive-parser discipline as parseFacility.
+ *
+ * @param rest The line's value, after "Key:".
+ * @returns The value, or null.
+ */
 function parseBool(rest: string): boolean | null {
   const trimmed = rest.trim()
   if (trimmed === 'true') return true
@@ -184,7 +214,11 @@ function isFrequencyOption(value: unknown): value is BeyondAtcFrequencyOption {
 /** `Frequencies: [...]` — confirmed live 2026-09-29, the real response to the `frequencies`
  *  command (docs/beyondatc-notes.md), not the local-UI-only no-op it was previously
  *  suspected to be. Unlike `Actions`, this genuinely is a JSON array. Any entry that doesn't
- *  match the confirmed shape is dropped rather than surfacing a half-parsed option. */
+ *  match the confirmed shape is dropped rather than surfacing a half-parsed option.
+ *
+ * @param rest The line's value, after "Key:".
+ * @returns The frequencies.
+ */
 function parseFrequencies(rest: string): BeyondAtcFrequencyOption[] {
   const value = parseJson(rest)
   if (!Array.isArray(value)) return []
@@ -238,7 +272,10 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
   /** Fires the given entry from the live Actions list. No-op if not connected — same
    *  guard `sendCommand` below already enforces. The label comes from the renderer (and, in
    *  future, a LAN client), which isn't a security boundary: it must be one of the actions
-   *  BeyondATC is offering right now, so nothing else can be typed onto its protocol line. */
+   *  BeyondATC is offering right now, so nothing else can be typed onto its protocol line.
+   *
+   * @param label The action's label, from the renderer.
+   */
   setAction(label: unknown): void {
     if (typeof label !== 'string' || !this.state.actions.includes(label)) return
     this.sendCommand(`set_action: ${label}`)
@@ -256,7 +293,10 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
 
   /** Confirmed working two-way control, 2026-09-29 (docs/beyondatc-notes.md) — sends the
    *  real `set_autotune`/`set_autorespond` command, value lowercased by template
-   *  interpolation same as the confirmed wire format expects. */
+   *  interpolation same as the confirmed wire format expects.
+   *
+   * @param value Whether BeyondATC tunes the radios itself.
+   */
   setAutoTune(value: unknown): void {
     if (typeof value === 'boolean') this.sendCommand(`set_autotune: ${value}`)
   }
@@ -278,7 +318,10 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
   }
 
   /** Restarts against a possibly-changed host — settings changed while connected. Port
-   *  never changes (BEYONDATC_PORT is fixed), unlike GsxRemoteService's reconfigure. */
+   *  never changes (BEYONDATC_PORT is fixed), unlike GsxRemoteService's reconfigure.
+   *
+   * @param host BeyondATC's host.
+   */
   reconfigure(host: string): void {
     this.host = host
     this.state = { ...EMPTY_BEYONDATC_STATE }
@@ -300,7 +343,10 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
   /** The list is empty if asked before BeyondATC has a flight loaded (real report,
    *  2026-09-29: picker empty when WingLog connected first, fine after a manual off/on).
    *  So it's re-asked whenever facility/progress arrives while still empty, and whenever the
-   *  origin/destination changes. Throttled so a burst of state lines sends one request. */
+   *  origin/destination changes. Throttled so a burst of state lines sends one request.
+   *
+   * @param force Ask even within the throttle.
+   */
   private requestFrequencies(force = false): void {
     const now = Date.now()
     if (!force && now - this.lastFrequencyRequest < 2000) return
@@ -357,99 +403,96 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
     })
   }
 
+  // What each line's key does with its value. Any other key BeyondATC sends (DATIS, CPDLCCode,
+  // RadioMute, LoadState, Settings, ToolbarVersion, QueuedAction, DATIS_END) is ignored.
+  private readonly lineHandlers = new Map<string, (rest: string) => void>([
+    [
+      'Facility',
+      (rest) => {
+        this.setState({ facility: parseFacility(rest) })
+        if (this.state.frequencies.length === 0) this.requestFrequencies()
+      }
+    ],
+    ['Com2', (rest) => this.setParsed(rest, isCom2, (com2) => ({ com2 }))],
+    ['Callsign', (rest) => this.setParsed(rest, isCallsign, (callsign) => ({ callsign }))],
+    ['CommsState', (rest) => this.setParsed(rest, isCommsState, (commsState) => ({ commsState }))],
+    ['Progress', (rest) => this.onProgress(rest)],
+    ['Actions', (rest) => this.setState({ actions: parseActions(rest) })],
+    ['AutoTune', (rest) => this.setState({ autoTune: parseBool(rest) })],
+    ['AutoRespond', (rest) => this.setState({ autoRespond: parseBool(rest) })],
+    ['Frequencies', (rest) => this.setState({ frequencies: parseFrequencies(rest) })],
+    ['InfoBoxes', (rest) => this.onInfoBoxes(rest)],
+    ['Player', (rest) => this.pushTranscript('player', rest)],
+    ['ATC', (rest) => this.pushTranscript('atc', rest)],
+    ['Traffic', (rest) => this.pushTranscript('traffic', rest)],
+    ['ATCTraffic', (rest) => this.pushTranscript('atcTraffic', rest)]
+  ])
+
+  /**
+   * One `Key: value` line of BeyondATC's protocol.
+   *
+   * @param line The line, without its line break.
+   */
   private handleLine(line: string): void {
     if (line.trim() === '') return
     const sep = line.indexOf(':')
     if (sep < 0) return
-    const key = line.slice(0, sep).trim()
-    const rest = line.slice(sep + 1).trim()
+    this.lineHandlers.get(line.slice(0, sep).trim())?.(line.slice(sep + 1).trim())
+  }
 
-    switch (key) {
-      case 'Facility':
-        this.state = { ...this.state, facility: parseFacility(rest) }
-        this.emit('state', this.state)
-        if (this.state.frequencies.length === 0) this.requestFrequencies()
-        return
-      case 'Com2': {
-        const value = parseJson(rest)
-        if (isCom2(value)) {
-          this.state = { ...this.state, com2: value }
-          this.emit('state', this.state)
-        }
-        return
-      }
-      case 'Callsign': {
-        const value = parseJson(rest)
-        if (isCallsign(value)) {
-          this.state = { ...this.state, callsign: value }
-          this.emit('state', this.state)
-        }
-        return
-      }
-      case 'CommsState': {
-        const value = parseJson(rest)
-        if (isCommsState(value)) {
-          this.state = { ...this.state, commsState: value }
-          this.emit('state', this.state)
-        }
-        return
-      }
-      case 'Progress': {
-        const value = parseJson(rest)
-        if (isProgress(value)) {
-          const prev = this.state.progress
-          this.state = { ...this.state, progress: value }
-          this.emit('state', this.state)
-          if (this.state.frequencies.length === 0 || prev?.from !== value.from || prev?.to !== value.to) {
-            this.requestFrequencies()
-          }
-        }
-        return
-      }
-      case 'Actions':
-        this.state = { ...this.state, actions: parseActions(rest) }
-        this.emit('state', this.state)
-        return
-      case 'AutoTune':
-        this.state = { ...this.state, autoTune: parseBool(rest) }
-        this.emit('state', this.state)
-        return
-      case 'AutoRespond':
-        this.state = { ...this.state, autoRespond: parseBool(rest) }
-        this.emit('state', this.state)
-        return
-      case 'Frequencies':
-        this.state = { ...this.state, frequencies: parseFrequencies(rest) }
-        this.emit('state', this.state)
-        return
-      case 'InfoBoxes': {
-        const infoBoxes = parseInfoBoxes(rest)
-        // Logged on every change, raw, so real flights record which boxes BeyondATC uses in
-        // each phase (flightdeck-backend's docs/plans/beyondatc-infoboxes-first.md): only the
-        // taxi-to-gate set has been captured so far.
-        if (JSON.stringify(infoBoxes) !== JSON.stringify(this.state.infoBoxes)) console.info(`[beyondatc] InfoBoxes ${rest}`)
-        const changed = JSON.stringify(infoBoxes) !== JSON.stringify(this.state.infoBoxes)
-        this.state = {
-          ...this.state,
-          infoBoxes,
-          infoBoxesAt: changed ? Date.now() : this.state.infoBoxesAt,
-          assignedGate: assignedGate(parseAtcTaxiFacts(infoBoxes)) ?? this.state.assignedGate
-        }
-        this.emit('state', this.state)
-        return
-      }
-      case 'Player':
-      case 'ATC':
-      case 'Traffic':
-      case 'ATCTraffic':
-        this.pushTranscript(key === 'ATCTraffic' ? 'atcTraffic' : (key.toLowerCase() as 'player' | 'atc' | 'traffic'), rest)
-        return
-      default:
-        // Every other real key (DATIS, CPDLCCode, InfoBoxes, RadioMute, LoadState, Settings,
-        // ToolbarVersion, QueuedAction, DATIS_END) is outside this plan's scope — ignored,
-        // not an error.
-        return
+  /**
+   * Updates the state and tells listeners.
+   *
+   * @param patch The fields that changed.
+   */
+  private setState(patch: Partial<BeyondAtcState>): void {
+    this.state = { ...this.state, ...patch }
+    this.emit('state', this.state)
+  }
+
+  /**
+   * A JSON value: applied when it has the expected shape, ignored otherwise.
+   *
+   * @param rest The line's value.
+   * @param isValid Checks the parsed value's shape.
+   * @param patch The state fields it sets.
+   */
+  private setParsed<T>(rest: string, isValid: (value: unknown) => value is T, patch: (value: T) => Partial<BeyondAtcState>): void {
+    const value = parseJson(rest)
+    if (isValid(value)) this.setState(patch(value))
+  }
+
+  /**
+   * `Progress`: the route and how far along it. A new route, or one arriving before the
+   * frequencies, asks for the frequency list again.
+   *
+   * @param rest The line's value.
+   */
+  private onProgress(rest: string): void {
+    const value = parseJson(rest)
+    if (!isProgress(value)) return
+    const prev = this.state.progress
+    this.setState({ progress: value })
+    if (this.state.frequencies.length === 0 || prev?.from !== value.from || prev?.to !== value.to) {
+      this.requestFrequencies()
     }
+  }
+
+  /**
+   * `InfoBoxes`: the facts BeyondATC shows, and the gate they assign. Each change is logged raw to
+   * main.log, which the simulations read back (scripts/sim/local-data.ts).
+   *
+   * @param rest The line's value.
+   */
+  private onInfoBoxes(rest: string): void {
+    const infoBoxes = parseInfoBoxes(rest)
+    const changed = JSON.stringify(infoBoxes) !== JSON.stringify(this.state.infoBoxes)
+    if (changed) logger.info(`[beyondatc] InfoBoxes ${rest}`)
+    this.setState({
+      infoBoxes,
+      infoBoxesAt: changed ? Date.now() : this.state.infoBoxesAt,
+      assignedGate: assignedGate(parseAtcTaxiFacts(infoBoxes)) ?? this.state.assignedGate
+    })
   }
 
   private pushTranscript(speaker: BeyondAtcTranscriptEntry['speaker'], text: string): void {

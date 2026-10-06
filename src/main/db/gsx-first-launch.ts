@@ -1,8 +1,8 @@
 import { existsSync } from 'node:fs'
 import type { GsxFirstLaunchResult } from '@shared/ipc'
-import type { WingLogDb } from '../db/client'
-import { getGsxSettings, hasCheckedGsxFirstLaunch, setCheckedGsxFirstLaunch, setGsxSettings } from '../db/settings-repo'
-import { defaultGsxReceiptsPath } from './default-path'
+import type { WingLogDb } from './client'
+import { getGsxSettings, hasCheckedGsxFirstLaunch, setCheckedGsxFirstLaunch, setGsxSettings } from './settings-repo'
+import { defaultGsxReceiptsPath } from '../gsx/default-path'
 
 /**
  * Runs once, ever — gated by a stored flag rather than "every launch" or "first Settings

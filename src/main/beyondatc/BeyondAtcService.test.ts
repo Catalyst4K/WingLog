@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
+import { logger } from '../logging/logger'
 import { BEYONDATC_PORT, BeyondAtcService, e2eBeyondAtcPort, validFrequency, type WebSocketCtor } from './BeyondAtcService'
 
 /** A minimal WHATWG-WebSocket-shaped double, driven manually from tests — same reasoning as
@@ -167,7 +168,7 @@ describe('BeyondAtcService', () => {
   })
 
   it('logs InfoBoxes to main.log on each change only, raw, to record what BeyondATC uses per phase', () => {
-    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    const info = vi.spyOn(logger, 'info').mockImplementation(() => {})
     const { ctor, instances } = makeCtor()
     const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
     service.start()

@@ -1,3 +1,6 @@
+/**
+ * Where GSX writes its receipts on this PC, to pre-fill Settings.
+ */
 import { win32 } from 'node:path'
 
 /**
@@ -16,6 +19,8 @@ import { win32 } from 'node:path'
  * (flightdeck-backend's docs/plans/public-release-v1.md, 2026-09-14) was the first time
  * this ever actually ran on a non-Windows machine, and the ambient `join` silently built a
  * forward-slash path while `process.platform` was faked to `'win32'` for the test.
+ *
+ * @returns The folder, or null off Windows.
  */
 export function defaultGsxReceiptsPath(): string | null {
   if (process.platform !== 'win32') return null

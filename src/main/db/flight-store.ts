@@ -3,7 +3,7 @@
  * local database, through the repos.
  */
 import type { FlightStore } from '../tracking/flight-store'
-import { buildFlightMatchWindow } from '../gsx/flight-window'
+import { buildFlightMatchWindow } from './gsx-flight-window'
 import { scanGsxFolder } from '../gsx/scan'
 import type { WingLogDb } from './client'
 import { addInvoicesForFlight } from './flight-invoice-repo'

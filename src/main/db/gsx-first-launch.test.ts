@@ -3,9 +3,9 @@ import { tmpdir } from 'node:os'
 import { join, win32 } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
-import { createDb, type WingLogDb } from '../db/client'
-import { getGsxSettings, hasCheckedGsxFirstLaunch, setGsxSettings } from '../db/settings-repo'
-import { checkGsxFirstLaunch } from './first-launch-check'
+import { createDb, type WingLogDb } from './client'
+import { getGsxSettings, hasCheckedGsxFirstLaunch, setGsxSettings } from './settings-repo'
+import { checkGsxFirstLaunch } from './gsx-first-launch'
 
 // defaultGsxReceiptsPath (gsx/default-path.ts) reads process.env.APPDATA directly and
 // only resolves on win32 — overriding APPDATA to a real temp dir, then creating or not
