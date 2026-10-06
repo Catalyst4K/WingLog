@@ -821,7 +821,14 @@ export function FlightMap({
     segmentsByIcao: taxiChart.segmentsByIcao,
     depIcao,
     arrIcao,
-    position: telemetry ? { lat: telemetry.latitude, lon: telemetry.longitude } : null,
+    position: telemetry
+      ? {
+          lat: telemetry.latitude,
+          lon: telemetry.longitude,
+          headingDeg: telemetry.headingTrueDeg,
+          groundSpeedMs: telemetry.groundSpeedMs
+        }
+      : null,
     phase: activePhase ?? null
   })
 

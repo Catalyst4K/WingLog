@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { SimTelemetry, TrackPoint } from '@shared/ipc'
+import type { FlightPhase, SimTelemetry, TrackPoint } from '@shared/ipc'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import type { Waypoint } from './route'
 import i18n from './i18n'
@@ -1357,6 +1357,59 @@ describe('FlightMap', () => {
           [0.033, 51.333],
           [0.0335, 51.3335]
         ])
+      })
+
+      describe('re-routing when the aircraft leaves the line (taxi-reroute.md)', () => {
+        // A second way from the stand to A1: E runs east, then north to A1, ~150 m off D.
+        const E_CORNER = [51.33, 0.033] as const
+        const WITH_E = [...NETWORK, seg(P.stand, E_CORNER, 'E'), seg(E_CORNER, P.a1, 'E')]
+        const moving = (lat: number, lon: number, headingTrueDeg: number): SimTelemetry =>
+          ({ latitude: lat, longitude: lon, headingTrueDeg, groundSpeedMs: 5 }) as SimTelemetry
+
+        afterEach(() => {
+          vi.restoreAllMocks()
+        })
+
+        /** Cleared via D, B to A1 at the stand, then driven up E one sample a second. */
+        async function driveUpE(phase: FlightPhase): Promise<FakeMapInstance> {
+          let now = 1_000_000
+          vi.spyOn(Date, 'now').mockImplementation(() => now)
+          const { pushBoxes } = withTranscriptListener(WITH_E)
+          const user = userEvent.setup()
+          const props = { route: [], trackPoints: [], live: true, depIcao: 'EGKB', telemetryPhase: phase }
+          const { map, rerender } = await renderReady({ ...props, telemetry: moving(51.33, 0.03, 30) })
+          await user.click(toggleButton())
+          await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
+          pushBoxes(CLEARANCE)
+          await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible'))
+
+          for (let k = 1; k <= 7; k++) {
+            now += 1000
+            await act(async () => rerender({ ...props, telemetry: moving(51.33 + 0.0001 * k, 0.033, 0) }))
+          }
+          return map
+        }
+
+        it('re-traces the line from the aircraft, along E, to the same hold', async () => {
+          const map = await driveUpE('taxi')
+
+          const line = lastLine(map) as [number, number][]
+          expect(line[0]).toEqual([0.033, 51.3307])
+          expect(line.at(-1)).toEqual([0.0335, 51.3335])
+          // Re-traced from E's corner (the network point nearest the aircraft), which the
+          // original stand-D-B line never went near. The first re-route rejoins the cleared
+          // taxiways, so it heads back to D from there.
+          expect(line[1]).toEqual([E_CORNER[1], E_CORNER[0]])
+          expect(line).toContainEqual([0.031, 51.331])
+        })
+
+        it("doesn't re-route during pushback, when the aircraft moves tail first", async () => {
+          const map = await driveUpE('pushback')
+
+          const line = lastLine(map) as [number, number][]
+          expect(line).not.toContainEqual([E_CORNER[1], E_CORNER[0]])
+          expect(line.at(-1)).toEqual([0.0335, 51.3335])
+        })
       })
     })
 

@@ -58,6 +58,21 @@ export interface TaxiTraceRequest {
   /** A stand clearance's stand, positioned (the `Taxi to Gate` box + the sim's
    *  stands); ignored for a holding-point clearance. */
   stand?: { lat: number; lon: number } | null
+  /** How far through the cleared sequence the aircraft already is (a previous trace's
+   *  `stages`), so a re-route doesn't send it back along taxiways it has already driven.
+   *  -1, the default, is before the first cleared taxiway. */
+  fromStage?: number
+  /** The aircraft's true heading, when it's taxiing under its own power. A first edge pointing
+   *  more than WRONG_WAY_DEG away from it costs HEADING_PENALTY_FACTOR times its length, so the
+   *  route starts forwards; a U-turn is still taken when it's the only way (dead-end stand
+   *  rows). Null or absent: no preference, as before. */
+  headingDeg?: number | null
+  /** A re-route's end: the previous trace's `end`, so only a new clearance ever moves it. */
+  endAt?: [number, number] | null
+  /** A re-route after the pilot has already left a re-traced line once: every taxiway costs
+   *  its plain length, so the line shows the shortest way from here to the same end instead
+   *  of pulling back to the cleared taxiways again. Starts at the last stage. */
+  direct?: boolean
 }
 
 interface Edge {
@@ -69,16 +84,43 @@ interface Edge {
 /** [lon, lat] pairs, GeoJSON order, from the aircraft's nearest network point to the hold. */
 export type TracedRoute = [number, number][]
 
+export interface TracedRouteDetail {
+  route: TracedRoute
+  /** `stages[i]`: how far through the cleared sequence the route has got at `route[i]` (-1
+   *  before the first cleared taxiway). What a re-route passes back as `fromStage`. */
+  stages: number[]
+  /** The last taxi-network point of the route (before a stand's own point): what a re-route
+   *  passes back as `endAt`. */
+  end: [number, number]
+}
+
+/** Above this from the aircraft's heading, a first edge counts as going the wrong way. */
+export const WRONG_WAY_DEG = 120
+const HEADING_PENALTY_FACTOR = 10
+
 export function traceTaxiRoute(request: TaxiTraceRequest): TracedRoute | null {
+  return traceTaxiRouteDetail(request)?.route ?? null
+}
+
+export function traceTaxiRouteDetail(request: TaxiTraceRequest): TracedRouteDetail | null {
   if (request.holdingPoint) return traceOnce(request, true) ?? traceOnce(request, false)
   if (!request.stand) return traceOnce(request, true)
   return traceOnce(request, true) ?? traceOnce({ ...request, stand: null }, true)
 }
 
+/** Smallest angle between two bearings, 0-180. */
+export function angleBetweenDeg(a: number, b: number): number {
+  const d = Math.abs((((a - b) % 360) + 360) % 360)
+  return d > 180 ? 360 - d : d
+}
+
 /** `strictEnd`: a holding-point route must end at a hold short or a true dead end. Without one
  *  reachable (scenery with no hold-short flags whose taxiway runs into another), the second try
  *  accepts where the holding-point taxiway's name stops. */
-function traceOnce({ segments, taxiways, holdingPoint, from, stand }: TaxiTraceRequest, strictEnd: boolean): TracedRoute | null {
+function traceOnce(
+  { segments, taxiways, holdingPoint, from, stand, fromStage = -1, headingDeg = null, endAt = null, direct = false }: TaxiTraceRequest,
+  strictEnd: boolean
+): TracedRouteDetail | null {
   if (taxiways.length === 0) return null
   if (holdingPoint && !segments.some((s) => s.name === holdingPoint)) return null
 
@@ -141,17 +183,31 @@ function traceOnce({ segments, taxiways, holdingPoint, from, stand }: TaxiTraceR
   // State = node * (stages + 1) + (stage + 1); stage -1 is the lead-in before the first
   // cleared taxiway.
   const stateOf = (node: number, stage: number): number => node * (sequence.length + 1) + stage + 1
-  const cost = new Map<number, number>([[stateOf(start, -1), 0]])
-  const realLength = new Map<number, number>([[stateOf(start, -1), 0]])
+  const startState = stateOf(start, direct ? last : Math.max(-1, Math.min(fromStage, last)))
+  const offRouteFactor = direct ? 1 : OFF_ROUTE_COST_FACTOR
+  const endNode = endAt ? (nodeIndex.get(`${endAt[1].toFixed(7)},${endAt[0].toFixed(7)}`) ?? -1) : -1
+  if (endAt && endNode < 0) return null
+  const cost = new Map<number, number>([[startState, 0]])
+  const realLength = new Map<number, number>([[startState, 0]])
   const previous = new Map<number, number>()
   const queue = new MinQueue()
-  queue.push(stateOf(start, -1), 0)
+  queue.push(startState, 0)
+  const bearingDeg = (a: number, b: number): number => {
+    const dx = (nodes[b]!.lon - nodes[a]!.lon) * cosLat
+    const dy = nodes[b]!.lat - nodes[a]!.lat
+    return ((Math.atan2(dx, dy) * 180) / Math.PI + 360) % 360
+  }
 
   const cameFromNodeOf = (state: number): number => {
     const cameFrom = previous.get(state)
     return cameFrom === undefined ? -1 : Math.floor(cameFrom / (sequence.length + 1))
   }
   const isRouteEnd = (state: number, node: number): boolean => {
+    // A re-route's end is already known, so only the node matters. The edge check below would
+    // also be wrong here: each (node, stage) keeps one cheapest predecessor, and with `direct`'s
+    // plain costs the hold is often reached first along a fillet rather than the holding
+    // point's own taxiway, which then hid the route entirely (flight 227's replay).
+    if (endNode >= 0) return node === endNode
     if (!holdingPoint) return standNode < 0 || node === standNode
     const cameFromNode = cameFromNodeOf(state)
     // The final stage stays the same over unnamed and off-route edges, so check that the edge
@@ -177,13 +233,20 @@ function traceOnce({ segments, taxiways, holdingPoint, from, stand }: TaxiTraceR
     if (stage === last && isRouteEnd(state, node)) {
       if ((realLength.get(state) ?? 0) > MAX_ROUTE_LENGTH_M) return null
       const route: TracedRoute = []
+      const stages: number[] = []
       for (let s: number | undefined = state; s !== undefined; s = previous.get(s)) {
         const n = nodes[Math.floor(s / (sequence.length + 1))]!
         route.push([n.lon, n.lat])
+        stages.push((s % (sequence.length + 1)) - 1)
       }
       route.reverse()
-      if (stand && standNode >= 0) route.push([stand.lon, stand.lat])
-      return route
+      stages.reverse()
+      const end = route.at(-1)!
+      if (stand && standNode >= 0) {
+        route.push([stand.lon, stand.lat])
+        stages.push(last)
+      }
+      return { route, stages, end }
     }
 
     // No immediate U-turns: without this, a clearance whose next taxiway is only touched at a
@@ -199,11 +262,12 @@ function traceOnce({ segments, taxiways, holdingPoint, from, stand }: TaxiTraceR
       // taxilane costs its plain length like an unnamed lead-in. VHHH, 2026-10-05: from B8,
       // cleared "via B, B, V, H, J", 5× on B8 sent the line zigzagging through every gate
       // lead-in beside it instead of straight along B8.
-      else if (edge.name !== nextName) moves.push([stage, stage < 0 ? edge.lengthM : edge.lengthM * OFF_ROUTE_COST_FACTOR])
+      else if (edge.name !== nextName) moves.push([stage, stage < 0 ? edge.lengthM : edge.lengthM * offRouteFactor])
 
+      const wrongWay = state === startState && headingDeg !== null && angleBetweenDeg(bearingDeg(node, edge.to), headingDeg) > WRONG_WAY_DEG
       for (const [nextStage, edgeCost] of moves) {
         const next = stateOf(edge.to, nextStage)
-        const nextCost = stateCost + edgeCost
+        const nextCost = stateCost + (wrongWay ? edgeCost * HEADING_PENALTY_FACTOR : edgeCost)
         if (nextCost >= (cost.get(next) ?? Infinity)) continue
         cost.set(next, nextCost)
         realLength.set(next, (realLength.get(state) ?? 0) + edge.lengthM)
@@ -213,6 +277,16 @@ function traceOnce({ segments, taxiways, holdingPoint, from, stand }: TaxiTraceR
     }
   }
   return null
+}
+
+export interface RemainingRoute {
+  line: TracedRoute
+  /** The segment of `route` nearest the aircraft (`route[segment]` → `route[segment + 1]`). */
+  segment: number
+  /** How far the aircraft is from that segment, in metres. */
+  distanceM: number
+  /** That segment's direction of travel, degrees true; null for a zero-length one. */
+  bearingDeg: number | null
 }
 
 /** Beyond this from the traced line, the aircraft isn't following it — the line is left as is. */
@@ -228,8 +302,8 @@ export function remainingRoute(
   route: TracedRoute,
   position: { lat: number; lon: number },
   fromSegment = 0
-): { line: TracedRoute; segment: number } {
-  if (route.length < 2) return { line: route, segment: 0 }
+): RemainingRoute {
+  if (route.length < 2) return { line: route, segment: 0, distanceM: 0, bearingDeg: null }
   const cosLat = Math.cos((position.lat * Math.PI) / 180)
   const toXy = ([lon, lat]: [number, number]): [number, number] => [lon * METRES_PER_DEGREE * cosLat, lat * METRES_PER_DEGREE]
   const [px, py] = toXy([position.lon, position.lat])
@@ -247,11 +321,19 @@ export function remainingRoute(
       best = { segment: i, distance, point: [aLon + t * (bLon - aLon), aLat + t * (bLat - aLat)] }
     }
   }
-  if (best.distance > MAX_FOLLOW_DISTANCE_M) return { line: route.slice(fromSegment), segment: fromSegment }
+  let bearingDeg: number | null = null
+  if (best.segment + 1 < route.length) {
+    const [aX, aY] = toXy(route[best.segment]!)
+    const [bX, bY] = toXy(route[best.segment + 1]!)
+    if (aX !== bX || aY !== bY) bearingDeg = ((Math.atan2(bX - aX, bY - aY) * 180) / Math.PI + 360) % 360
+  }
+  if (best.distance > MAX_FOLLOW_DISTANCE_M) {
+    return { line: route.slice(fromSegment), segment: fromSegment, distanceM: best.distance, bearingDeg }
+  }
   const rest = route.slice(best.segment + 1)
   // Already on the line: no zero-length join from the aircraft to itself.
   const line: TracedRoute = best.distance < 0.5 ? [best.point, ...rest] : [[position.lon, position.lat], best.point, ...rest]
-  return { line, segment: best.segment }
+  return { line, segment: best.segment, distanceM: best.distance, bearingDeg }
 }
 
 /** A small binary min-heap of (state, cost) — VHHH's real network is ~4,400 points, well
