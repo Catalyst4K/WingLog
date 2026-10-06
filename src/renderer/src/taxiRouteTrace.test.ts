@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { NavdataTaxiSegment } from '@shared/ipc'
-import { remainingRoute, traceTaxiRoute } from './taxiRouteTrace'
+import { angleBetweenDeg, rejoinTaxiRoute, remainingRoute, traceTaxiRoute } from './taxiRouteTrace'
 import VHHH_RAW from './__fixtures__/vhhh-taxi-b8-b10.json'
 import VHHH_ARRIVAL_RAW from './__fixtures__/vhhh-taxi-arrival-j-h6-h-v-b.json'
 import YBBN_RAW from './__fixtures__/ybbn-taxi-c9-b9-a9.json'
@@ -223,6 +223,132 @@ describe('traceTaxiRoute on a hand-built junction', () => {
   })
 })
 
+describe('re-routing (taxi-reroute.md)', () => {
+  const onD = { lat: 18.3074072, lon: 109.4093493 }
+  const runway08Hold = { lat: 18.30168, lon: 109.39634 }
+  const ZJSY_REQUEST = { segments: ZJSY, taxiways: ['D', 'B7', 'A'], holdingPoint: 'A' }
+  // Flight 227's stand, and a point 18 s into its wrong-way taxi, heading west.
+  const STAND_227 = { lat: 18.3075447, lon: 109.4041842 }
+  const TAXIING_WEST_227 = { lat: 18.3067402, lon: 109.4036881 }
+  const bearing = ([aLon, aLat]: [number, number], [bLon, bLat]: [number, number]): number =>
+    ((Math.atan2((bLon - aLon) * Math.cos((aLat * Math.PI) / 180), bLat - aLat) * 180) / Math.PI + 360) % 360
+  /** The direction of the first edge that actually moves. */
+  const firstBearing = (route: [number, number][]): number => {
+    const i = route.findIndex((p, k) => k > 0 && (p[0] !== route[0]![0] || p[1] !== route[0]![1]))
+    return bearing(route[0]!, route[i]!)
+  }
+
+  describe('traceTaxiRoute with a heading', () => {
+    it("starts forwards, not with a U-turn against the aircraft's heading, when a forward way exists (ZJSY flight 227)", () => {
+      // Real: three seconds into taxiing after the wrong-way pushback, heading 262. Without the
+      // heading the line starts back east, behind the aircraft, towards D.
+      const taxiing = { lat: 18.3067963, lon: 109.4041206 }
+      const plain = traceTaxiRoute({ ...ZJSY_REQUEST, from: taxiing })!
+      const route = traceTaxiRoute({ ...ZJSY_REQUEST, from: taxiing, headingDeg: 262 })!
+
+      expect(angleBetweenDeg(firstBearing(plain), 262)).toBeGreaterThan(120)
+      expect(angleBetweenDeg(firstBearing(route), 262)).toBeLessThanOrEqual(120)
+      const [endLon, endLat] = route.at(-1)!
+      expect(distanceM({ lat: endLat, lon: endLon }, runway08Hold)).toBeLessThan(5)
+    })
+
+    it("goes forwards even the long way round: an airliner can't turn round mid-taxiway", () => {
+      // On D facing away from B7, forwards is a loop. Before 2026-10-06 (a ×10 factor on the
+      // first edge) the U-turn won; YBBN's simulated re-routes then pointed back behind the
+      // aircraft twice before following it.
+      const plain = traceTaxiRoute({ ...ZJSY_REQUEST, from: onD })!
+      const facingAway = (firstBearing(plain) + 180) % 360
+      const route = traceTaxiRoute({ ...ZJSY_REQUEST, from: onD, headingDeg: facingAway })!
+      expect(angleBetweenDeg(firstBearing(route), facingAway)).toBeLessThanOrEqual(120)
+      const [endLon, endLat] = route.at(-1)!
+      expect(distanceM({ lat: endLat, lon: endLon }, runway08Hold)).toBeLessThan(5)
+    })
+
+    it('still turns round at a dead end, where there is no way forwards', () => {
+      // A stand lead-in's dead end, nose in: the only way out is back the way it came.
+      const ends = ZJSY.flatMap((s) => [
+        { lat: s.startLat, lon: s.startLon, toward: [s.endLon, s.endLat] as [number, number] },
+        { lat: s.endLat, lon: s.endLon, toward: [s.startLon, s.startLat] as [number, number] }
+      ])
+      const degree = new Map<string, number>()
+      for (const e of ends) degree.set(`${e.lat},${e.lon}`, (degree.get(`${e.lat},${e.lon}`) ?? 0) + 1)
+      const deadEnd = ends
+        .filter((e) => degree.get(`${e.lat},${e.lon}`) === 1)
+        .sort((x, y) => distanceM(x, STAND_227) - distanceM(y, STAND_227))[0]!
+      // Facing into the dead end: directly away from its only edge.
+      const nose = (bearing([deadEnd.lon, deadEnd.lat], deadEnd.toward) + 180) % 360
+      const route = traceTaxiRoute({ ...ZJSY_REQUEST, from: deadEnd, headingDeg: nose })
+      expect(route).not.toBeNull()
+      expect(route).toEqual(traceTaxiRoute({ ...ZJSY_REQUEST, from: deadEnd }))
+    })
+  })
+
+  describe('rejoinTaxiRoute', () => {
+    const CLEARED = traceTaxiRoute({ ...ZJSY_REQUEST, from: STAND_227 })!
+    /** Where `route` joins CLEARED: the first index from which its tail is CLEARED's tail. */
+    const joinIndexOf = (route: [number, number][]): number =>
+      CLEARED.findIndex((_, k) => {
+        const tail = CLEARED.slice(k)
+        return route.length >= tail.length && JSON.stringify(route.slice(-tail.length)) === JSON.stringify(tail)
+      })
+
+    it("joins flight 227's cleared route on A near the hold, the way the aircraft is going", () => {
+      const route = rejoinTaxiRoute({ segments: ZJSY, route: CLEARED, fromSegment: 0, from: TAXIING_WEST_227, headingDeg: 262 })!
+
+      expect(route.at(-1)).toEqual(CLEARED.at(-1))
+      // Joins on the last stretch: under a third of the cleared route is left from there.
+      expect(lengthM(CLEARED.slice(joinIndexOf(route)))).toBeLessThan(lengthM(CLEARED) / 3)
+      expect(namesDriven(ZJSY, route).at(-1)).toBe('A')
+      expect(angleBetweenDeg(firstBearing(route), 262)).toBeLessThanOrEqual(120)
+      // Much shorter than turning round and driving the cleared route.
+      const back = traceTaxiRoute({ ...ZJSY_REQUEST, from: TAXIING_WEST_227 })!
+      expect(lengthM(route)).toBeLessThan(lengthM(back) * 0.8)
+    })
+
+    it('keeps the rest of the cleared route when the aircraft is already on it, heading along it', () => {
+      const k = CLEARED.length - 6
+      const [lon, lat] = CLEARED[k]!
+      const route = rejoinTaxiRoute({
+        segments: ZJSY,
+        route: CLEARED,
+        fromSegment: k,
+        from: { lat, lon },
+        headingDeg: bearing(CLEARED[k]!, CLEARED[k + 1]!)
+      })!
+      expect(route).toEqual(CLEARED.slice(k))
+    })
+
+    it('with only the end left to join (everything else driven), takes the shortest way to it', () => {
+      const all = rejoinTaxiRoute({ segments: ZJSY, route: CLEARED, fromSegment: 0, from: TAXIING_WEST_227, headingDeg: 262 })!
+      const endOnly = rejoinTaxiRoute({ segments: ZJSY, route: CLEARED, fromSegment: CLEARED.length - 1, from: TAXIING_WEST_227, headingDeg: 262 })!
+      expect(endOnly.at(-1)).toEqual(CLEARED.at(-1))
+      expect(lengthM(endOnly)).toBeCloseTo(lengthM(all), 0)
+    })
+
+    it('gives up off the network, so the caller keeps the line it has', () => {
+      expect(rejoinTaxiRoute({ segments: ZJSY, route: CLEARED, fromSegment: 0, from: { lat: 18.4, lon: 109.5 } })).toBeNull()
+      expect(rejoinTaxiRoute({ segments: ZJSY, route: [], fromSegment: 0, from: STAND_227 })).toBeNull()
+    })
+
+    it("keeps a stand clearance's own stand point (not on the network) at the end", () => {
+      const [endLon, endLat] = CLEARED.at(-1)!
+      const standPoint: [number, number] = [endLon + 0.0002, endLat] // ~20 m on
+      const route = rejoinTaxiRoute({ segments: ZJSY, route: [...CLEARED, standPoint], fromSegment: 0, from: TAXIING_WEST_227, headingDeg: 262 })!
+      expect(route.at(-1)).toEqual(standPoint)
+      expect(route.at(-2)).toEqual(CLEARED.at(-1))
+    })
+  })
+})
+
+describe('angleBetweenDeg', () => {
+  it('is the smaller angle either way round, across north', () => {
+    expect(angleBetweenDeg(350, 10)).toBe(20)
+    expect(angleBetweenDeg(10, 350)).toBe(20)
+    expect(angleBetweenDeg(82, 262)).toBe(180)
+    expect(angleBetweenDeg(-90, 270)).toBe(0)
+  })
+})
+
 describe('remainingRoute', () => {
   // An out-and-back dogleg: east along 51.33N, then north, then back west close to the start.
   const ROUTE: [number, number][] = [
@@ -249,5 +375,18 @@ describe('remainingRoute', () => {
 
   it('leaves the line alone when the aircraft is nowhere near it', () => {
     expect(remainingRoute(ROUTE, { lat: 51.34, lon: 0.03 }).line).toEqual(ROUTE)
+  })
+
+  it("reports the aircraft's distance from the line and the line's direction there", () => {
+    const near = remainingRoute(ROUTE, { lat: 51.3301, lon: 0.031 })
+    expect(near.distanceM).toBeCloseTo(11.1, 0)
+    expect(near.bearingDeg).toBeCloseTo(90, 0) // the first leg runs east
+    // Still reported when too far to follow, so a re-route can tell how far off it is.
+    const far = remainingRoute(ROUTE, { lat: 51.34, lon: 0.03 })
+    expect(far.distanceM).toBeGreaterThan(1000)
+  })
+
+  it('has no direction for a one-point route', () => {
+    expect(remainingRoute([[0.03, 51.33]], { lat: 51.33, lon: 0.03 }).bearingDeg).toBeNull()
   })
 })
