@@ -1,6 +1,11 @@
+/**
+ * Requests the SimBrief plan's step climbs from BeyondATC when they come up in cruise (and a
+ * level set on the FCU), so the pilot doesn't have to ask each time.
+ */
 import { EventEmitter } from 'node:events'
 import type { ActiveTracking, BeyondAtcConnectionStatus, BeyondAtcStepClimbStatus, SimTelemetry } from '@shared/ipc'
-import { parseOfp } from '../simbrief/simbrief-client'
+import { parseOfp } from '@shared/simbrief-ofp'
+import { logger } from '../logging/logger'
 import { boxClearedLevelFt } from '@shared/atc-info-boxes'
 import { requestAltitude, type AltitudeRequestSession } from './altitude-request'
 import { greatCircleNm } from '@shared/geo'
@@ -77,7 +82,11 @@ export interface StepPlan {
  *  **Down steps are filtered out** (Callum, 2026-10-01): over China the levels swap with
  *  direction, so a plan steps up *and* down. The iniBuilds A350 won't fly a step down and
  *  most pilots never program them, so only a step above every level planned before it counts
- *  — 11,300 m → 10,700 m → 11,900 m keeps just the 11,900 m step. */
+ *  — 11,300 m → 10,700 m → 11,900 m keeps just the 11,900 m step.
+ *
+ * @param ofpJson The flight's stored OFP, or null.
+ * @returns The route fixes, the planned climbs and the TOD fix.
+ */
 export function extractStepPlan(ofpJson: string | null): StepPlan {
   if (!ofpJson) return { fixes: [], steps: [], todOrder: null }
   try {
@@ -98,7 +107,8 @@ export function extractStepPlan(ofpJson: string | null): StepPlan {
       const order = fixes.findIndex((f, i) => i >= searchFrom && f.ident === step.atIdent)
       if (order < 0) continue
       searchFrom = order
-      if (isClimb) steps.push({ ...fixes[order]!, altitudeFt: step.toAltitudeFt, order })
+      const fix = fixes[order]
+      if (isClimb && fix) steps.push({ ...fix, altitudeFt: step.toAltitudeFt, order })
     }
     const tod = fixes.findIndex((f) => f.ident === 'TOD')
     return { fixes, steps, todOrder: tod >= 0 ? tod : null }
@@ -123,6 +133,10 @@ interface Attempt {
   lastAt: number
 }
 
+/**
+ * Turns the step plan, the aircraft's position and BeyondATC's state into level requests, one tick
+ * at a time, and reports what it's doing.
+ */
 export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepClimbStatus] }> {
   private enabled = false
   private flightId: number | null = null
@@ -152,7 +166,7 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
     super()
     this.request = deps.request ?? requestAltitude
     this.now = deps.now ?? Date.now
-    this.log = (message) => (deps.log ?? console.info)(`[step-climb] ${message}`)
+    this.log = (message) => (deps.log ?? ((line: string) => logger.info(line)))(`[step-climb] ${message}`)
   }
 
   getStatus(): BeyondAtcStepClimbStatus {
@@ -188,34 +202,68 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
       this.emitStatus()
       return
     }
-    if (active.flightId !== this.flightId) {
-      this.flightId = active.flightId
-      this.plan = extractStepPlan(this.deps.getOfpJson(active.flightId))
-      this.progress = 0
-      this.attempts.clear()
-      this.dropped.clear()
-      this.last = null
-      this.pastTopOfDescent = false
-      this.boxCleared = null
-      this.log(
-        `flight ${active.flightId}: ${this.plan.fixes.length} route fixes, steps ` +
-          (this.plan.steps.map((s) => `${s.ident}@${Math.round(s.altitudeFt)}`).join(' ') || 'none')
-      )
-    }
-
-    if (typeof t.apSelectedAltitudeM === 'number') {
-      const selectedFt = t.apSelectedAltitudeM * FEET_PER_METRE
-      if (!this.fcu || Math.abs(selectedFt - this.fcu.valueFt) > 50) {
-        this.fcu = { valueFt: selectedFt, since: now }
-        this.log(`FCU altitude ${Math.round(selectedFt)} ft (phase ${active.phase})`)
-      }
-    }
-
+    if (active.flightId !== this.flightId) this.followFlight(active.flightId)
+    this.trackFcu(t, now, active.phase)
     this.climbingSince = t.verticalSpeedMs > CLIMB_VS_MS ? (this.climbingSince ?? now) : null
 
     const session = this.deps.getSession()
-    // The cleared level comes from BeyondATC's InfoBoxes (flightdeck-backend's
-    // docs/decisions.md, 2026-10-05: boxes only, no speech).
+    const clearedFt = this.clearedLevelFt(t, session)
+    this.updateProgress(t)
+    const { upcoming, upcomingDistance } = this.findUpcomingStep(t, clearedFt)
+
+    this.waitingForClimb = null
+    if (this.inFlight === null && !this.pastTopOfDescent && active.phase === 'cruise' && session?.getStatus().state === 'connected') {
+      const target = this.pickTarget(t, now, clearedFt, upcoming, upcomingDistance)
+      if (target) this.fire(session, target.altitudeFt, target.reason, now)
+    }
+    this.emitStatus()
+  }
+
+  /**
+   * A new flight is being tracked: load its step plan and start over.
+   *
+   * @param flightId The flight now tracked.
+   */
+  private followFlight(flightId: number): void {
+    this.flightId = flightId
+    this.plan = extractStepPlan(this.deps.getOfpJson(flightId))
+    this.progress = 0
+    this.attempts.clear()
+    this.dropped.clear()
+    this.last = null
+    this.pastTopOfDescent = false
+    this.boxCleared = null
+    this.log(
+      `flight ${flightId}: ${this.plan.fixes.length} route fixes, steps ` +
+        (this.plan.steps.map((s) => `${s.ident}@${Math.round(s.altitudeFt)}`).join(' ') || 'none')
+    )
+  }
+
+  /**
+   * Notes when the autopilot's selected altitude changes (by more than 50 ft).
+   *
+   * @param t This tick.
+   * @param now Epoch ms.
+   * @param phase The flight phase, for the log.
+   */
+  private trackFcu(t: SimTelemetry, now: number, phase: ActiveTracking['phase']): void {
+    if (typeof t.apSelectedAltitudeM !== 'number') return
+    const selectedFt = t.apSelectedAltitudeM * FEET_PER_METRE
+    if (!this.fcu || Math.abs(selectedFt - this.fcu.valueFt) > 50) {
+      this.fcu = { valueFt: selectedFt, since: now }
+      this.log(`FCU altitude ${Math.round(selectedFt)} ft (phase ${phase})`)
+    }
+  }
+
+  /**
+   * The level ATC has cleared, from BeyondATC's InfoBoxes (decisions.md, 2026-10-05: boxes only,
+   * no speech), or the current altitude rounded to 1,000 ft when no level has been given.
+   *
+   * @param t This tick.
+   * @param session BeyondATC's connection, if any.
+   * @returns Feet.
+   */
+  private clearedLevelFt(t: SimTelemetry, session: ReturnType<StepClimbDeps['getSession']>): number {
     const boxLevel = session ? boxClearedLevelFt(session.getState().infoBoxes) : null
     if (boxLevel !== null) this.boxCleared = boxLevel
     const clearedFt = this.boxCleared ?? Math.round((t.pressureAltitudeM * FEET_PER_METRE) / 1000) * 1000
@@ -223,16 +271,36 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
       this.loggedCleared = clearedFt
       this.log(`cleared level ${clearedFt} ft (${this.boxCleared !== null ? 'from InfoBoxes' : 'no ATC level, using altitude'})`)
     }
+    return clearedFt
+  }
 
+  /**
+   * Moves progress along the route, and notes passing the top of descent.
+   *
+   * @param t This tick.
+   */
+  private updateProgress(t: SimTelemetry): void {
     this.progress = Math.max(this.progress, nearestFixIndex(this.plan.fixes, t.latitude, t.longitude))
     if (!this.pastTopOfDescent && this.isPastTopOfDescent(t)) {
       this.pastTopOfDescent = true
       this.log('past top of descent: no more requests this flight')
     }
-    // A step already behind (switched on late, or a step not taken) mustn't hold up the ones after it.
-    const upcoming = this.pastTopOfDescent ? undefined : this.plan.steps.find(
-      (s) => s.order >= this.progress && s.altitudeFt > clearedFt + STEP_THRESHOLD_FT && !this.dropped.has(roundLevel(s.altitudeFt))
-    )
+  }
+
+  /**
+   * The next planned climb still ahead and above the cleared level, shown as the next step.
+   * A step already behind (switched on late, or a step not taken) doesn't hold up the ones after it.
+   *
+   * @param t This tick.
+   * @param clearedFt The cleared level, feet.
+   * @returns The step, and its distance in nm; both undefined or null when there isn't one.
+   */
+  private findUpcomingStep(t: SimTelemetry, clearedFt: number): { upcoming: StepTarget | undefined; upcomingDistance: number | null } {
+    const upcoming = this.pastTopOfDescent
+      ? undefined
+      : this.plan.steps.find(
+          (s) => s.order >= this.progress && s.altitudeFt > clearedFt + STEP_THRESHOLD_FT && !this.dropped.has(roundLevel(s.altitudeFt))
+        )
     const upcomingDistance = upcoming ? greatCircleNm({ lat: t.latitude, lon: t.longitude }, upcoming) : null
     this.nextStep =
       upcoming && upcomingDistance !== null
@@ -243,17 +311,15 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
       this.loggedNext = nextKey
       this.log(`next step ${nextKey}${upcomingDistance !== null ? ` (${Math.round(upcomingDistance)} nm)` : ''}`)
     }
-
-    this.waitingForClimb = null
-    if (this.inFlight === null && !this.pastTopOfDescent && active.phase === 'cruise' && session?.getStatus().state === 'connected') {
-      const target = this.pickTarget(t, now, clearedFt, upcoming, upcomingDistance)
-      if (target) this.fire(session, target.altitudeFt, target.reason, now)
-    }
-    this.emitStatus()
+    return { upcoming, upcomingDistance }
   }
 
   /** Nearest-fix progress reaching TOD counts as past it — up to half a leg early, which only
-   *  matters to a step planned right at TOD, which never happens. */
+   *  matters to a step planned right at TOD, which never happens.
+   *
+   * @param t This tick.
+   * @returns Whether the top of descent is behind.
+   */
   private isPastTopOfDescent(t: SimTelemetry): boolean {
     if (this.plan.todOrder !== null) return this.progress >= this.plan.todOrder
     const destination = this.plan.fixes.at(-1)
@@ -338,7 +404,11 @@ function nearestFixIndex(fixes: RouteFix[], lat: number, lon: number): number {
 }
 
 /** Levels compared at 100 ft resolution, so FL390 from SimBrief and 39,000 from the FCU are
- *  the same step (and a metric level's odd feet value still has one key). */
+ *  the same step (and a metric level's odd feet value still has one key).
+ *
+ * @param feet A level, feet.
+ * @returns It, to the nearest 100 ft.
+ */
 function roundLevel(feet: number): number {
   return Math.round(feet / 100) * 100
 }

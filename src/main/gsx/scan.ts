@@ -1,3 +1,6 @@
+/**
+ * Reads GSX's receipts folder: finds the receipts matching a flight and reads each one's JSON.
+ */
 import { readdir, readFile } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 import type { GsxServiceGroup } from '@shared/ipc'
@@ -24,7 +27,11 @@ export interface ReceiptFile {
 
 /** Resolves a bare `.json` path (e.g. one offered as a NOTAIL candidate and later
  *  manually attached) back into a ReceiptFile — the service group is inferred from the
- *  immediate parent directory name, same convention the folder scan itself relies on. */
+ *  immediate parent directory name, same convention the folder scan itself relies on.
+ *
+ * @param jsonPath A receipt's .json path.
+ * @returns The receipt's files, or null for any other path.
+ */
 export function receiptFileFromPath(jsonPath: string): ReceiptFile | null {
   const parsed = parseReceiptFilename(basename(jsonPath))
   if (!parsed) return null
@@ -91,7 +98,11 @@ export interface StoredInvoiceInput {
 
 /** Reads one receipt's JSON companion and shapes it for storage. Returns null on a read/
  *  parse failure (e.g. the file was deleted between listing and reading) rather than
- *  throwing and aborting an entire scan over one bad file. */
+ *  throwing and aborting an entire scan over one bad file.
+ *
+ * @param file The receipt's files.
+ * @returns The receipt for storage, or null.
+ */
 export async function readReceipt(file: ReceiptFile): Promise<StoredInvoiceInput | null> {
   let raw: RawGsxReceipt
   try {
@@ -129,7 +140,12 @@ export interface GsxScanResult {
 /** Scans every receipt subfolder under `folderPath` for ones matching `window`. Never
  *  throws on a missing/inaccessible folder — the caller (GSX-disabled or no folder set)
  *  is expected to skip calling this entirely, but a folder that's since been moved/deleted
- *  should degrade to "no receipts found", not crash the flight-completion path. */
+ *  should degrade to "no receipts found", not crash the flight-completion path.
+ *
+ * @param folderPath GSX's receipts folder.
+ * @param window The flight's tail, airports and time window.
+ * @returns The matches, and the NOTAIL receipts that could be the flight's.
+ */
 export async function scanGsxFolder(folderPath: string, window: FlightMatchWindow): Promise<GsxScanResult> {
   const files = await listReceiptFiles(folderPath)
   const matchedFiles = files.filter((f) => matchesFlight(f.parsed, window))

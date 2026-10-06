@@ -1,3 +1,7 @@
+/**
+ * Keeps ATC's arrival clearance (STAR, runway, approach) for the BeyondATC tab's card, from
+ * BeyondATC's InfoBoxes until touchdown.
+ */
 import { EventEmitter } from 'node:events'
 import type { BeyondAtcArrivalClearance, BeyondAtcInfoBox, FlightPhase, NavdataProcedureOption } from '@shared/ipc'
 import { matchClearanceApproach } from '@shared/atc-approach-match'
@@ -39,7 +43,11 @@ export class ArrivalClearanceTracker extends EventEmitter {
     return this.clearance
   }
 
-  /** Reads each new set of InfoBoxes once. */
+  /**
+   * Reads each new set of InfoBoxes once.
+   *
+   * @param boxes BeyondATC's InfoBoxes now.
+   */
   onInfoBoxes(boxes: BeyondAtcInfoBox[]): void {
     const key = JSON.stringify(boxes)
     if (key === this.lastBoxesKey) return
@@ -48,53 +56,99 @@ export class ArrivalClearanceTracker extends EventEmitter {
     if (parsed) this.set(this.apply(this.clearance, parsed))
   }
 
-  /** Touchdown clears the card. */
+  /**
+   * Touchdown clears the card.
+   *
+   * @param phase The tracked flight's phase.
+   */
   onPhase(phase: FlightPhase): void {
     if (phase === 'landing') this.set(null)
   }
 
+  /**
+   * The card after one parsed set of boxes.
+   *
+   * @param current The card now, or null.
+   * @param parsed What the boxes clear.
+   * @returns The card after.
+   */
   private apply(current: BeyondAtcArrivalClearance | null, parsed: AtcClearanceUpdate): BeyondAtcArrivalClearance | null {
-    const { starIdent, approachIdent, approachTransition } = parsed.fields
-    if (starIdent) {
-      const runway = parsed.arrivalRunway ?? null
-      const keepsApproach = current?.approachIdent != null && runway !== null && current.approachIdent.endsWith(` ${runway}`)
-      return {
-        starIdent,
-        runway,
-        approachIdent: keepsApproach ? current!.approachIdent : null,
-        approachTransition: keepsApproach ? current!.approachTransition : null
-      }
-    }
-    if (approachIdent) {
-      // Navdata's name when it has the approach, otherwise exactly what ATC said.
-      const icao = this.deps.getArrivalIcao()
-      const matched = icao ? matchClearanceApproach(parsed, this.deps.listApproaches(icao)) : null
-      const named = matched?.fields.approachIdent ? matched : parsed
-      const ident = named.fields.approachIdent ?? approachIdent
-      // A transition already known is kept for the same approach, or for the first approach named
-      // on the briefed runway (ZJSY: `Transition` SY498 came two minutes before `Cleared Approach`).
-      const briefed = current?.approachIdent == null && current?.runway != null && ident.endsWith(` ${current.runway}`)
-      const transition = named.fields.approachTransition ?? (current && (current.approachIdent === ident || briefed) ? current.approachTransition : null)
-      return {
-        starIdent: current?.starIdent ?? null,
-        runway: current?.runway ?? null,
-        approachIdent: ident,
-        approachTransition: transition
-      }
-    }
-    if (parsed.arrivalRunway) {
-      // A runway on its own (`Landing Runway`), maybe with the approach transition: an approach
-      // for another runway no longer applies.
-      const runway = parsed.arrivalRunway
-      const keepsApproach = current?.approachIdent != null && current.approachIdent.endsWith(` ${runway}`)
-      return {
-        starIdent: current?.starIdent ?? null,
-        runway,
-        approachIdent: keepsApproach ? current!.approachIdent : null,
-        approachTransition: approachTransition ?? (keepsApproach ? current!.approachTransition : null)
-      }
-    }
+    const { starIdent, approachIdent } = parsed.fields
+    if (starIdent) return this.withStar(current, starIdent, parsed.arrivalRunway ?? null)
+    if (approachIdent) return this.withApproach(current, parsed, approachIdent)
+    if (parsed.arrivalRunway) return this.withRunway(current, parsed.arrivalRunway, parsed.fields.approachTransition)
     return current
+  }
+
+  /**
+   * `STAR` + `Arrival Runway`: a known approach is kept only if it's for that runway.
+   *
+   * @param current The card now, or null.
+   * @param starIdent The STAR cleared.
+   * @param runway The runway cleared with it, or null.
+   * @returns The card after.
+   */
+  private withStar(current: BeyondAtcArrivalClearance | null, starIdent: string, runway: string | null): BeyondAtcArrivalClearance {
+    const kept = runway !== null && current?.approachIdent != null && current.approachIdent.endsWith(` ${runway}`) ? current : null
+    return { starIdent, runway, approachIdent: kept?.approachIdent ?? null, approachTransition: kept?.approachTransition ?? null }
+  }
+
+  /**
+   * `Cleared Approach`: named the way the airport's navdata names it, and a transition already
+   * known for that approach (or the first one named on the briefed runway) kept.
+   *
+   * @param current The card now, or null.
+   * @param parsed What the boxes clear.
+   * @param approachIdent The approach as ATC named it.
+   * @returns The card after.
+   */
+  private withApproach(current: BeyondAtcArrivalClearance | null, parsed: AtcClearanceUpdate, approachIdent: string): BeyondAtcArrivalClearance {
+    const named = this.navdataNamed(parsed)
+    const ident = named.fields.approachIdent ?? approachIdent
+    // ZJSY: `Transition` SY498 came two minutes before `Cleared Approach`.
+    const briefed = current?.approachIdent == null && current?.runway != null && ident.endsWith(` ${current.runway}`)
+    const keepsTransition = current !== null && (current.approachIdent === ident || briefed)
+    return {
+      starIdent: current?.starIdent ?? null,
+      runway: current?.runway ?? null,
+      approachIdent: ident,
+      approachTransition: named.fields.approachTransition ?? (keepsTransition ? current.approachTransition : null)
+    }
+  }
+
+  /**
+   * The cleared approach as the airport's navdata names it, when navdata has it.
+   *
+   * @param parsed What the boxes clear.
+   * @returns The navdata match, or the boxes' own wording.
+   */
+  private navdataNamed(parsed: AtcClearanceUpdate): AtcClearanceUpdate {
+    const icao = this.deps.getArrivalIcao()
+    const matched = icao ? matchClearanceApproach(parsed, this.deps.listApproaches(icao)) : null
+    return matched?.fields.approachIdent ? matched : parsed
+  }
+
+  /**
+   * `Landing Runway` on its own, maybe with the approach transition: an approach for another
+   * runway no longer applies.
+   *
+   * @param current The card now, or null.
+   * @param runway The runway cleared.
+   * @param approachTransition The transition cleared with it, if any.
+   * @returns The card after.
+   */
+  private withRunway(
+    current: BeyondAtcArrivalClearance | null,
+    runway: string,
+    approachTransition: string | null | undefined
+  ): BeyondAtcArrivalClearance {
+    const kept = current?.approachIdent != null && current.approachIdent.endsWith(` ${runway}`) ? current : null
+    return {
+      starIdent: current?.starIdent ?? null,
+      runway,
+      approachIdent: kept?.approachIdent ?? null,
+      approachTransition: approachTransition ?? kept?.approachTransition ?? null
+    }
   }
 
   private set(next: BeyondAtcArrivalClearance | null): void {

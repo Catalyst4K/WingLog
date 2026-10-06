@@ -1,3 +1,7 @@
+/**
+ * The live connection to GSX Pro's Remote Client server: GSX's services, menu, prompt, gate and
+ * command bar, from its snapshot and patch messages, and the commands the Ground services tab sends.
+ */
 import { EventEmitter } from 'node:events'
 import { NodeServiceSocket, type ServiceSocket, type ServiceSocketCtor } from '../net/service-socket'
 import type {
@@ -90,7 +94,11 @@ function isServiceArray(value: unknown): value is GsxRemoteServiceStatus[] {
 }
 
 /** The raw wire `/menu` object — everything but `menuShown`, which is GSX's own *separate*
- *  top-level key (`/menuShown`), not part of the menu object itself (same for `/search`). */
+ *  top-level key (`/menuShown`), not part of the menu object itself (same for `/search`).
+ *
+ * @param value A wire value.
+ * @returns Whether it's a menu.
+ */
 function isRawMenu(value: unknown): value is Omit<GsxRemoteMenuState, 'menuShown' | 'searchActive' | 'searchSession'> {
   return typeof value === 'object' && value !== null && 'entries' in value
 }
@@ -100,13 +108,21 @@ function isPromptState(value: unknown): value is GsxRemotePromptState {
 }
 
 /** The raw wire `/airport` object — confirmed live 2026-09-21 (docs/gsx-notes.md, round 6):
- *  `{icao, name, country}`. Only `icao`/`name` are used; `country` isn't shown anywhere. */
+ *  `{icao, name, country}`. Only `icao`/`name` are used; `country` isn't shown anywhere.
+ *
+ * @param value A wire value.
+ * @returns Whether it's an airport.
+ */
 function isRawAirport(value: unknown): value is { icao: string; name: string } {
   return typeof value === 'object' && value !== null && typeof (value as { icao?: unknown }).icao === 'string'
 }
 
 /** The raw wire `/commandIcons` or `/commandIconsSvg` object — `{COMMAND_ID: dataUri}`,
- *  confirmed live 2026-09-23. */
+ *  confirmed live 2026-09-23.
+ *
+ * @param value A wire value.
+ * @returns Whether it's an icon map.
+ */
 function isIconMap(value: unknown): value is Record<string, string> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -180,7 +196,10 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
    *  keys combined into one value for callers, same reasoning as getMenu's menuShown combine
    *  above. Confirmed live 2026-09-21, real VHHH session (docs/gsx-notes.md, round 6). Null
    *  until GSX has resolved a gate (`airport`/`parking` genuinely absent until then, not just
-   *  empty — confirmed from the same capture's boot-time snapshot). */
+   *  empty — confirmed from the same capture's boot-time snapshot).
+   *
+   * @returns The gate, or null before GSX has one.
+   */
   getGateInfo(): GsxRemoteGateInfo | null {
     const airport = this.state.airport
     const parking = this.state.parking
@@ -199,7 +218,10 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
    *  2026-09-23 (docs/gsx-notes.md). SVG icons preferred over PNG, mirroring `menu.js`'s own
    *  `s.commandIconsSvg || s.commandIcons` fallback order. A command with no icon in either
    *  map yet (GSX hasn't sent one) still appears, with `iconUri: null` — `STATIC_COMMANDS`'
-   *  ids/labels are static, not conditional on the icon having arrived. */
+   *  ids/labels are static, not conditional on the icon having arrived.
+   *
+   * @returns The bar's commands and the SimBrief button.
+   */
   getCommandBar(): GsxRemoteCommandBar {
     const svgIcons = this.state.commandIconsSvg
     const pngIcons = this.state.commandIcons
@@ -223,7 +245,11 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
    *  (`menu.js`: `cmd("command.run", { command: c.id })`). The confirm-before-restart
    *  behaviour is a UI concern (GsxRemotePanel), not enforced here, same as GSX's own
    *  client keeps it in menu.js rather than in its own transport layer. */
-  /** Only the ids GSX's command bar actually has — the value crosses from the renderer. */
+  /**
+   * Only the ids GSX's command bar actually has — the value crosses from the renderer.
+   *
+   * @param id The command, from the renderer.
+   */
   runCommand(id: unknown): void {
     if (id !== 'RELOAD_SIMBRIEF' && !STATIC_COMMANDS.some((c) => c.id === id)) return
     this.sendCommand('command.run', { command: id as GsxRemoteCommandId })
@@ -241,7 +267,12 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
     this.ws = undefined
   }
 
-  /** Restarts against a possibly-changed host/port — settings changed while connected. */
+  /**
+   * Restarts against a possibly-changed host/port — settings changed while connected.
+   *
+   * @param host GSX's host.
+   * @param port Its Remote Client port.
+   */
   reconfigure(host: string, port: number): void {
     this.host = host
     this.port = port
@@ -254,7 +285,11 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
 
   /** Picks the menu entry at this index — the only interaction GSX's own menu model
    *  exposes (docs/gsx-notes.md). No-op if not connected. */
-  /** An entry of the menu GSX is showing right now, by position. */
+  /**
+   * An entry of the menu GSX is showing right now, by position.
+   *
+   * @param index The entry's position, from the renderer.
+   */
   pickMenu(index: unknown): void {
     if (!Number.isInteger(index) || (index as number) < 0 || (index as number) >= this.getMenu().entries.length) return
     this.sendCommand('menu.pick', { index })
@@ -263,7 +298,10 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
   /** The gate-search box's whole current text — GSX's own client sends `menu.search` with
    *  `{text}` on every keystroke (`menu.js`'s `buildSearchBox()`, read directly 2026-09-28,
    *  docs/gsx-notes.md round 11). Validated here since it crosses from the renderer: a
-   *  non-string is dropped, and the text is capped well above any real gate name. */
+   *  non-string is dropped, and the text is capped well above any real gate name.
+   *
+   * @param text The search text, from the renderer.
+   */
   search(text: unknown): void {
     if (typeof text !== 'string') return
     this.sendCommand('menu.search', { text: text.slice(0, MAX_SEARCH_LENGTH) })

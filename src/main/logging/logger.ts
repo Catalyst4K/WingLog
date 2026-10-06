@@ -10,6 +10,10 @@ import log from 'electron-log/main'
  * Must run before anything else in the main process that could throw, so call this first
  * from index.ts, ahead of app.whenReady().
  */
+/** The main-process logger: main.log (and the console). Use it instead of console.* in app code
+ *  (coding-standards.md §6). */
+export const logger = log
+
 export function initLogger(): void {
   log.transports.file.level = 'info'
   log.transports.console.level = 'info'
