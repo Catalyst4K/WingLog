@@ -1,10 +1,14 @@
 name: CI
 
+# develop and fixes too, not just main: every plan/ and fix/ merge gets a Linux run the day
+# it lands, rather than first at the release PR (v1.4.0's red e2e had been on develop for
+# three days). build and e2e are required checks on main (scripts/github-repo-security.sh),
+# so a release PR can't merge until they pass.
 on:
   push:
-    branches: [main]
+    branches: [main, develop, fixes]
   pull_request:
-    branches: [main]
+    branches: [main, develop, fixes]
   workflow_dispatch:
 
 jobs:

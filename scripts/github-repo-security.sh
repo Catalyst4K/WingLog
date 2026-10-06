@@ -72,16 +72,18 @@ echo "· Private vulnerability reporting"
 gh api -X PUT "repos/$REPO/private-vulnerability-reporting" --silent
 
 # --- Branch protection on main ----------------------------------------------------------
-# No force pushes, no branch deletion, and now a required PR to merge into it at all (see
-# the note above) — but required_approving_review_count 0, so merging your own PR is
-# still enough. enforce_admins stays false so the owner keeps an escape hatch; the point
-# is to prevent an accident and enforce "only develop/fixes lands on main", not to lock
-# anyone out.
-echo "· Branch protection on main (require a PR, block force-push and deletion)"
+# No force pushes, no branch deletion, and a required PR to merge into it at all (see the
+# note above) — but required_approving_review_count 0, so merging your own PR is still
+# enough. CI's build and e2e jobs must pass before a PR can merge: a release can't be cut
+# red (v1.4.0 was merged before its CI had started, and e2e was red). enforce_admins is
+# true so that applies to the owner too; GitHub otherwise offers admins a "merge without
+# waiting for requirements" bypass. If an override is ever genuinely needed, re-run this
+# with enforce_admins false, deliberately, and put it back afterwards.
+echo "· Branch protection on main (require a PR and green CI, block force-push and deletion)"
 gh api -X PUT "repos/$REPO/branches/main/protection" --silent --input - <<'JSON'
 {
-  "required_status_checks": null,
-  "enforce_admins": false,
+  "required_status_checks": { "strict": false, "contexts": ["build", "e2e"] },
+  "enforce_admins": true,
   "required_pull_request_reviews": { "required_approving_review_count": 0 },
   "restrictions": null,
   "allow_force_pushes": false,
@@ -124,7 +126,9 @@ gh api "repos/$REPO" \
 gh api "repos/$REPO/branches/main/protection" \
   --jq '"  main force pushes: \(.allow_force_pushes.enabled)
   main deletions:    \(.allow_deletions.enabled)
-  main required PR:  \(.required_pull_request_reviews != null)"'
+  main required PR:  \(.required_pull_request_reviews != null)
+  main required CI:  \(.required_status_checks.contexts // [] | join(", "))
+  main admins too:   \(.enforce_admins.enabled)"'
 for branch in develop fixes; do
   echo "  $branch:"
   gh api "repos/$REPO/branches/$branch/protection" \

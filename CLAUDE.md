@@ -209,7 +209,9 @@ For the repo itself, these are worth having on and are free for public repos: De
 alerts, secret scanning with push protection, and branch protection on `main`, `develop`
 and `fixes` blocking force-push and branch deletion. `main` also requires a pull request
 to merge into it (0 required approvals — still solo, just a forced PR+diff step instead
-of a plain push), matching the branching model in `flightdeck-backend`'s `CLAUDE.md`;
+of a plain push) and CI's `build` and `e2e` checks to pass, admins included, so a release
+can't be cut red ("CI gates every release" in `flightdeck-backend`'s `CLAUDE.md`, binding
+here; CI also runs on `develop` and `fixes`), matching the branching model there;
 `develop`/`fixes` deliberately don't require a PR, since that's where day-to-day
 `plan/<name>`/`fix/<name>` branches merge and this is developed solo, pushing directly from
 more than one machine — see `scripts/github-repo-security.sh` for the full rationale on
