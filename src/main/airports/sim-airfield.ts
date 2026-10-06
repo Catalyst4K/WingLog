@@ -9,7 +9,7 @@ import {
 } from 'node-simconnect'
 import { NavdataDefId, addRunwayFields, parseAirportHeader, parseRunway, type ParsedRunway } from '../sim/facility-fields'
 import { runwayEndsFromCentre } from '../navdata/runway-geometry'
-import { haversineNm } from './airport-search'
+import { greatCircleNm } from '@shared/geo'
 import { aimingPointDistanceForLengthM, resolveRunwayEnd, type RunwayEnd } from './runway-lookup'
 
 /**
@@ -128,7 +128,7 @@ export class SimAirfieldResolver {
         handle.addToFacilityDefinition(NavdataDefId.RUNWAYS, 'CLOSE AIRPORT')
 
         const candidates = (await requestAirportList(handle))
-          .map((a) => ({ ...a, nm: haversineNm(lat, lon, a.lat, a.lon) }))
+          .map((a) => ({ ...a, nm: greatCircleNm({ lat, lon }, a) }))
           .filter((a) => a.nm <= SEARCH_RADIUS_NM)
           .sort((a, b) => a.nm - b.nm)
           .slice(0, MAX_CANDIDATES)

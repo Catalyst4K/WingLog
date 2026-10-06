@@ -1,4 +1,6 @@
 import type { NavdataRunway } from '../navdata/navdata-provider'
+import { flatDistanceM } from '@shared/geo'
+import { positionRelativeToRunway } from '../airports/landing-maths'
 
 /** Beyond the painted width, how far off the centreline still counts as on the runway: a
  *  takeoff roll can start off-centre, and the threshold position is derived, not surveyed. */
@@ -8,8 +10,6 @@ const ALONG_MARGIN_M = 100
 /** Further than this from every runway end, the cached runways aren't this airport's (a
  *  departure from somewhere other than planned): unknown, not "off the runway". */
 const MAX_AIRPORT_DISTANCE_M = 8_000
-
-const METRES_PER_DEGREE = 111_320
 
 /**
  * Whether a point is on one of an airport's runways, from the cached navdata
@@ -23,16 +23,17 @@ const METRES_PER_DEGREE = 111_320
  */
 export function isOnRunway(runways: NavdataRunway[], lat: number, lon: number): boolean | null {
   if (runways.length === 0) return null
-  const cosLat = Math.cos((lat * Math.PI) / 180)
   let nearAirport = false
   for (const runway of runways) {
-    // Metres east/north of this end's threshold.
-    const east = (lon - runway.thresholdLon) * METRES_PER_DEGREE * cosLat
-    const north = (lat - runway.thresholdLat) * METRES_PER_DEGREE
-    if (Math.hypot(east, north) <= MAX_AIRPORT_DISTANCE_M) nearAirport = true
-    const heading = (runway.headingTrueDeg * Math.PI) / 180
-    const along = east * Math.sin(heading) + north * Math.cos(heading)
-    const cross = east * Math.cos(heading) - north * Math.sin(heading)
+    const threshold = { lat: runway.thresholdLat, lon: runway.thresholdLon }
+    if (flatDistanceM(threshold, { lat, lon }) <= MAX_AIRPORT_DISTANCE_M) nearAirport = true
+    const { distanceFromThresholdM: along, centrelineOffsetM: cross } = positionRelativeToRunway(
+      lat,
+      lon,
+      runway.thresholdLat,
+      runway.thresholdLon,
+      runway.headingTrueDeg
+    )
     if (along >= -ALONG_MARGIN_M && along <= runway.lengthM + ALONG_MARGIN_M && Math.abs(cross) <= runway.widthM / 2 + CROSS_MARGIN_M) {
       return true
     }

@@ -5,6 +5,7 @@
  * dark theme.
  */
 import type { NavdataTaxiSegment } from '../../src/shared/ipc'
+import { offsetBy } from '../../src/shared/geo'
 
 /** [lon, lat], as the app's traced routes are. */
 export type LonLat = [number, number]
@@ -47,9 +48,9 @@ export function boundsOf(points: LonLat[], padDeg: number): Bounds {
 
 /** A square area `halfM` metres each way around a point. */
 export function boundsAround(at: { lat: number; lon: number }, halfM: number): Bounds {
-  const halfLat = halfM / 111_320
-  const halfLon = halfLat / Math.cos((at.lat * Math.PI) / 180)
-  return { west: at.lon - halfLon, east: at.lon + halfLon, south: at.lat - halfLat, north: at.lat + halfLat }
+  const sw = offsetBy(at, -halfM, -halfM)
+  const ne = offsetBy(at, halfM, halfM)
+  return { west: sw.lon, east: ne.lon, south: sw.lat, north: ne.lat }
 }
 
 /** Fits bounds to `width`, keeping the map's real proportions within [minHeight, maxHeight]. */

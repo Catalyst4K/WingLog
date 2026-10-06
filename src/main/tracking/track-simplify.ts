@@ -1,4 +1,5 @@
 import type { TrackPoint } from '@shared/ipc'
+import { pointToLineM, pointToSegmentM } from '@shared/geo'
 import { perpendicularDistance2D, simplifyIndices, type Point2D } from './douglas-peucker'
 
 // Route tolerance matches scripts/spike-route-simplify.ts's confirmed value (run against a
@@ -20,25 +21,19 @@ const GROUND_ROUTE_TOLERANCE_M = 5
 const ALTITUDE_TOLERANCE_M = 15 // ~50 ft
 const SPEED_TOLERANCE_MS = 3 // ~6 kt
 
-const METERS_PER_DEG_LAT = 111_320
-
 interface LatLon {
   latitude: number
   longitude: number
 }
 
-/** Local equirectangular projection, re-referenced per segment (using the segment's own
- *  midpoint latitude) so longitude compression — which varies with latitude — doesn't
- *  distort the distance check over a route spanning many degrees of latitude (VHHH ~22°N
- *  to WSSS ~1°N is the real case that motivated this in the original spike). */
-function project(point: LatLon, refLatDeg: number): Point2D {
-  const metersPerDegLon = METERS_PER_DEG_LAT * Math.cos((refLatDeg * Math.PI) / 180)
-  return { x: point.longitude * metersPerDegLon, y: point.latitude * METERS_PER_DEG_LAT }
+function toLatLon(p: LatLon): { lat: number; lon: number } {
+  return { lat: p.latitude, lon: p.longitude }
 }
 
+/** Distance from a point to the line through two others, re-projected per line so it holds over
+ *  routes spanning many degrees of latitude (VHHH ~22°N to WSSS ~1°N). */
 function latLonDistanceMeters(point: LatLon, lineStart: LatLon, lineEnd: LatLon): number {
-  const refLat = (lineStart.latitude + lineEnd.latitude) / 2
-  return perpendicularDistance2D(project(point, refLat), project(lineStart, refLat), project(lineEnd, refLat))
+  return pointToLineM(toLatLon(point), toLatLon(lineStart), toLatLon(lineEnd))
 }
 
 /** Like latLonDistanceMeters, but to the segment rather than the infinite line through it.
@@ -48,15 +43,7 @@ function latLonDistanceMeters(point: LatLon, lineStart: LatLon, lineEnd: LatLon)
  *  this). In the air the track doesn't double back like that, so the air pass keeps the
  *  line distance it has always used. */
 function latLonSegmentDistanceMeters(point: LatLon, segStart: LatLon, segEnd: LatLon): number {
-  const refLat = (segStart.latitude + segEnd.latitude) / 2
-  const p = project(point, refLat)
-  const a = project(segStart, refLat)
-  const b = project(segEnd, refLat)
-  const dx = b.x - a.x
-  const dy = b.y - a.y
-  const len2 = dx * dx + dy * dy
-  const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2))
-  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy))
+  return pointToSegmentM(toLatLon(point), toLatLon(segStart), toLatLon(segEnd))
 }
 
 /** Indices to keep from each contiguous on-ground run, simplified at the ground tolerance.

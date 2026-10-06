@@ -1,5 +1,6 @@
 import type { FlightPhase, NavdataTaxiSegment } from '@shared/ipc'
 import { angleBetweenDeg, rejoinTaxiRoute, remainingRoute, WRONG_WAY_DEG, type RemainingRoute, type TracedRoute } from './taxiRouteTrace'
+import { flatDistanceM } from '@shared/geo'
 
 /**
  * When the traced taxi line should be re-traced from where the aircraft is
@@ -67,9 +68,7 @@ export function segmentDriven(remaining: RemainingRoute, current: number): numbe
 export function reachedEnd(route: [number, number][], position: { lat: number; lon: number }): boolean {
   const end = route.at(-1)
   if (!end) return false
-  const cosLat = Math.cos((position.lat * Math.PI) / 180)
-  const distanceM = Math.hypot((end[1] - position.lat) * 111_320, (end[0] - position.lon) * 111_320 * cosLat)
-  return distanceM <= DRIVEN_DISTANCE_M
+  return flatDistanceM(position, { lat: end[1], lon: end[0] }) <= DRIVEN_DISTANCE_M
 }
 
 /** Everything the taxi line needs to remember between position updates, for one clearance. */

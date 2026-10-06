@@ -3,6 +3,7 @@
  * (PLAN.md M6, docs/decisions.md). No IO, no SimConnect — takes plain numbers so it's
  * exactly checkable by hand (e.g. wind directly down the runway = zero crosswind).
  */
+import { offsetBy, offsetFrom } from '@shared/geo'
 
 function toRadians(deg: number): number {
   return (deg * Math.PI) / 180
@@ -50,12 +51,6 @@ export function crabAngleDeg(headingTrueDeg: number, runwayHeadingDeg: number): 
   return diff
 }
 
-const METERS_PER_DEG_LAT = 111_320
-
-function metersPerDegLon(atLatDeg: number): number {
-  return METERS_PER_DEG_LAT * Math.cos(toRadians(atLatDeg))
-}
-
 /**
  * Moves a point `distanceM` along `bearingDeg`, using the same flat-earth approximation as
  * positionRelativeToRunway (accurate at runway/airport scale, not intended for anything
@@ -65,19 +60,14 @@ function metersPerDegLon(atLatDeg: number): number {
  * SimConnect RUNWAY record's centre point (docs/navdata-notes.md: confirmed live that
  * RUNWAY.LATITUDE/LONGITUDE is the strip's centre, not a threshold).
  */
-export function destinationPoint(
+export function offsetAlongBearing(
   lat: number,
   lon: number,
   bearingDeg: number,
   distanceM: number
 ): { lat: number; lon: number } {
   const bearingRad = toRadians(bearingDeg)
-  const northM = distanceM * Math.cos(bearingRad)
-  const eastM = distanceM * Math.sin(bearingRad)
-  return {
-    lat: lat + northM / METERS_PER_DEG_LAT,
-    lon: lon + eastM / metersPerDegLon(lat)
-  }
+  return offsetBy({ lat, lon }, distanceM * Math.sin(bearingRad), distanceM * Math.cos(bearingRad))
 }
 
 export interface RunwayRelativePosition {
@@ -100,8 +90,7 @@ export function positionRelativeToRunway(
   thresholdLon: number,
   runwayHeadingDeg: number
 ): RunwayRelativePosition {
-  const northM = (aircraftLat - thresholdLat) * METERS_PER_DEG_LAT
-  const eastM = (aircraftLon - thresholdLon) * metersPerDegLon(thresholdLat)
+  const { eastM, northM } = offsetFrom({ lat: thresholdLat, lon: thresholdLon }, { lat: aircraftLat, lon: aircraftLon })
   const headingRad = toRadians(runwayHeadingDeg)
 
   return {

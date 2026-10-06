@@ -34,6 +34,7 @@
  *   sides with a straight line, via a new synthetic resumeSegment.
  */
 import type { TrackPoint } from '@shared/ipc'
+import { greatCircleM } from '@shared/geo'
 
 export type CleanupInputPoint = Pick<
   TrackPoint,
@@ -45,7 +46,6 @@ export interface TrackCleanupResult {
   segmentReassignments: { id: number; resumeSegment: number }[]
 }
 
-const EARTH_RADIUS_KM = 6371
 /** ~0.5 nm — a sampling-jitter floor under the speed*time*simRate threshold below, same
  *  value the Phase 2 spike used against real flight 191 (docs/simconnect-notes.md,
  *  2026-09-11). */
@@ -76,12 +76,7 @@ interface LatLon {
 }
 
 function haversineKm(a: LatLon, b: LatLon): number {
-  const dLat = ((b.latitude - a.latitude) * Math.PI) / 180
-  const dLon = ((b.longitude - a.longitude) * Math.PI) / 180
-  const lat1 = (a.latitude * Math.PI) / 180
-  const lat2 = (b.latitude * Math.PI) / 180
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2
-  return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(h))
+  return greatCircleM({ lat: a.latitude, lon: a.longitude }, { lat: b.latitude, lon: b.longitude }) / 1000
 }
 
 function headingDeltaDeg(a: number, b: number): number {
