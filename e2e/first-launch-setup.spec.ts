@@ -5,7 +5,7 @@ import { test, expect } from '@playwright/test'
 import { launchApp } from './launch-app'
 
 /**
- * The first-launch setup end to end (flightdeck-backend's docs/plans/first-launch-setup.md):
+ * The first-launch setup end to end (winglog-backend's docs/plans/first-launch-setup.md):
  * shown to a fresh profile, choices saved through the real IPC, gone after a restart, and
  * back from Settings → About.
  */

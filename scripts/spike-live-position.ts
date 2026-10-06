@@ -1,6 +1,6 @@
 /**
  * Ephemeral observability aid for this session's combined live-sim test of
- * flightdeck-backend's `navdata-without-navigraph.md` Phase 5 (crash-recovery resume prompt
+ * winglog-backend's `navdata-without-navigraph.md` Phase 5 (crash-recovery resume prompt
  * on a genuinely 'active' flight) and `resume-track-cleanup.md` (the hold-detection false-
  * positive case). Not a spike answering an unknown-SimConnect-behaviour question the way
  * spike-altitude.ts/spike-landing.ts are — this is a second, independent SimConnect

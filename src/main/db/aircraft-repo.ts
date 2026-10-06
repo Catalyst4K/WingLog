@@ -61,7 +61,7 @@ export function getAircraftUuidById(db: WingLogDb, id: number): string | null | 
   return db.select({ uuid: aircraft.uuid }).from(aircraft).where(eq(aircraft.id, id)).get()?.uuid
 }
 
-// uuid/updatedAt (flightdeck-backend/docs/plans/cloud-sync.md) are set here rather than
+// uuid/updatedAt (winglog-backend/docs/plans/cloud-sync.md) are set here rather than
 // left to a DB default — see schema.ts's aircraft.uuid comment for why a DB-level default
 // can't safely generate a distinct value per row for ALTER-TABLE-added columns; the same
 // reasoning is why every write path sets both explicitly rather than relying on SQLite.
@@ -86,7 +86,7 @@ export function updateAircraft(db: WingLogDb, input: AircraftUpdate): Aircraft |
 }
 
 /**
- * Soft-delete (flightdeck-backend/docs/plans/cloud-sync-v2.md #3a) — a tombstone, not a
+ * Soft-delete (winglog-backend/docs/plans/cloud-sync-v2.md #3a) — a tombstone, not a
  * hard DELETE, so the deletion itself propagates through cloud sync instead of the row
  * just vanishing locally and getting resurrected by the next pull. Refuses to delete while
  * any non-deleted flight still references this aircraft — previously an incidental
@@ -116,7 +116,7 @@ export interface ReplaceAircraftInput {
 }
 
 /**
- * A livery/registration change on an airframe still being flown (flightdeck-backend's
+ * A livery/registration change on an airframe still being flown (winglog-backend's
  * docs/plans/aircraft-replacement.md) — reassigns every flight from `retiredId` onto
  * `replacementId` and marks `retiredId` retired, rather than deleting it, so Fleet can
  * still show "G-XXXX, retired, replaced by G-YYYY". A genuine retirement (an airframe
@@ -207,7 +207,7 @@ export function listAircraftForSync(db: WingLogDb, since: string | null): (typeo
  *  Last-write-wins against a *local* edit, not just the server's own copy: if this device
  *  has its own not-yet-pushed edit to the same uuid and that edit's updatedAt is already
  *  >= the incoming (pulled) row's, the incoming row is discarded and the existing local
- *  row is left untouched — mirroring flightdeck-backend's UserStore.push exactly. Without
+ *  row is left untouched — mirroring winglog-backend's UserStore.push exactly. Without
  *  this check, a pull unconditionally overwrote any local row sharing its uuid regardless
  *  of timestamp, so whichever device happened to run "Sync now" *second* always lost its
  *  own edit even when that edit was the chronologically newer one — the opposite of

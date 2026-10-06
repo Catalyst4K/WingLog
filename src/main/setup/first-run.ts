@@ -9,7 +9,7 @@ import { defaultGsxReceiptsPath } from '../gsx/default-path'
 import { BEYONDATC_PORT } from '../beyondatc/BeyondAtcService'
 
 /**
- * The first-launch setup (flightdeck-backend's docs/plans/first-launch-setup.md): shown once
+ * The first-launch setup (winglog-backend's docs/plans/first-launch-setup.md): shown once
  * to a new install, never to someone upgrading with a fleet or logbook already, who gets a
  * one-off "what's new" note instead.
  */

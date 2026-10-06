@@ -1,5 +1,5 @@
 /**
- * Phase 2 throwaway spike for docs/plans/navdata-without-navigraph.md (flightdeck-backend)
+ * Phase 2 throwaway spike for docs/plans/navdata-without-navigraph.md (winglog-backend)
  * — M1/M6 spike-first discipline: nothing in that plan's Phase 3 (a real NavdataProvider)
  * gets built from the plan doc's field-mapping table alone, only from what this actually
  * observes against a live MSFS 2024. Two independent halves, both need a real flight:
@@ -24,7 +24,7 @@
  * startup) for after-the-fact analysis — the console output for a busy airport's full
  * departure/arrival tree runs to hundreds of lines.
  *
- * Log every answer in flightdeck-backend's docs/navdata-notes.md, mirroring
+ * Log every answer in winglog-backend's docs/navdata-notes.md, mirroring
  * docs/simconnect-notes.md, before any Phase 3 code exists.
  *
  * Usage:

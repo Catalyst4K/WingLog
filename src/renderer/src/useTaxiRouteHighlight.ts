@@ -13,7 +13,7 @@ import { uiMemory } from './ui-memory'
 
 /**
  * Highlights BeyondATC's most recent live taxi clearance on top of the taxi chart overlay
- * (flightdeck-backend's docs/plans/beyondatc-taxi-route-highlight.md — the ATC-driven route
+ * (winglog-backend's docs/plans/beyondatc-taxi-route-highlight.md — the ATC-driven route
  * half of Part 4, built on top of Part 4a's static chart).
  *
  * Preferred: the route actually traced through the taxi network (taxiRouteTrace.ts), from
@@ -28,11 +28,11 @@ import { uiMemory } from './ui-memory'
  * source, filtered to every segment sharing a cleared taxiway name.
  *
  * The clearance comes only from BeyondATC's InfoBoxes (`Taxi Via 1..n`, `Hold Position`,
- * `Taxi to Gate`; boxTaxiClearance), never from parsing the speech (flightdeck-backend's
+ * `Taxi to Gate`; boxTaxiClearance), never from parsing the speech (winglog-backend's
  * docs/decisions.md, 2026-10-05). The one exception is a spoken "hold short of runway 07C",
  * which has no box: it's added to the box route heard within HOLD_SHORT_PAIR_MS of it.
  *
- * Re-routing (flightdeck-backend's docs/plans/taxi-reroute.md): when the aircraft leaves the
+ * Re-routing (winglog-backend's docs/plans/taxi-reroute.md): when the aircraft leaves the
  * line, or drives the wrong way along it, while taxiing, the line is redrawn as the shortest
  * way from where it is to the same end, rejoining the cleared route wherever that's shortest
  * (taxiReroute.ts decides when, rejoinTaxiRoute where). A re-route that can't be traced (off the

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { instructionFromBoxes, latestAtcInstruction, parseAtcInstruction } from './beyondAtcInstruction'
 
 // Every line below is real, verbatim ATC text from BeyondATC's Player.log (VHHH→KPHX and
-// WSSS→ZSPD sessions, 2026-09-28/30) or flightdeck-backend's docs/beyondatc-notes.md.
+// WSSS→ZSPD sessions, 2026-09-28/30) or winglog-backend's docs/beyondatc-notes.md.
 function fieldsOf(text: string): Record<string, string> {
   return Object.fromEntries(parseAtcInstruction(text).fields.map((f) => [f.key, f.value]))
 }

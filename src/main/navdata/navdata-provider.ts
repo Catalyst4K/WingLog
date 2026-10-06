@@ -1,6 +1,6 @@
 import type { NavdataRunway, NavdataStand } from '@shared/ipc'
 /**
- * Navdata provider interface (Phase 3, flightdeck-backend's docs/plans/
+ * Navdata provider interface (Phase 3, winglog-backend's docs/plans/
  * navdata-without-navigraph.md) — built behind this interface so a future Navigraph
  * provider is a swap, not a rewrite, per that plan's Decision. `SimFacilitiesProvider`
  * (sim-facilities-provider.ts) is the only implementation today.
@@ -38,7 +38,7 @@ export interface NavdataTaxiSegment {
   name: string | null
   /** Whether each endpoint is a hold-short point (TAXI_POINT TYPE 2/4/5/6 — SDK enum; 5 seen
    *  live at VHHH, 2026-09-30). Lets a traced taxi route stop exactly at a named holding
-   *  point (flightdeck-backend's docs/beyondatc-notes.md). */
+   *  point (winglog-backend's docs/beyondatc-notes.md). */
   startHoldShort: boolean
   endHoldShort: boolean
 }
@@ -81,7 +81,7 @@ export interface NavdataProvider {
   getProcedureWaypoints(icao: string, kind: ProcedureKind, identifier: string, runway?: string | null, transition?: string | null): NavdataLeg[]
   /** Fetches an airport's full taxiway network and replaces the cache for it. Unlike
    *  `refreshAirport`, this is genuinely slow for a large airport (minutes, not seconds —
-   *  flightdeck-backend's docs/navdata-notes.md, 2026-09-28) — only ever call this from an
+   *  winglog-backend's docs/navdata-notes.md, 2026-09-28) — only ever call this from an
    *  explicit user action, never automatically. */
   refreshTaxiNetwork(icao: string): Promise<void>
   /** True once at least one refreshTaxiNetwork(icao) has completed for this ICAO. */

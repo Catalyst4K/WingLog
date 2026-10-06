@@ -2,7 +2,7 @@ import type { Airfield, TrackPoint } from '@shared/ipc'
 import { destinationPoint, greatCircleNm, initialBearingDeg, METRES_PER_NM } from '@shared/geo'
 
 /**
- * Pure geometry for the Track map's VFR overlay (flightdeck-backend docs/plans/
+ * Pure geometry for the Track map's VFR overlay (winglog-backend docs/plans/
  * map-language-and-declutter.md, Part C items 1-3): range rings, a "recent track" emphasis
  * and the nearest-airfield readout. No map, no DOM — FlightMap's `useVfrOverlay` feeds
  * these into GeoJSON sources.

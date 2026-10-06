@@ -1,5 +1,5 @@
 /**
- * Implements the pull-then-push protocol from flightdeck-backend/docs/plans/cloud-sync.md
+ * Implements the pull-then-push protocol from winglog-backend/docs/plans/cloud-sync.md
  * against the local DB, table by table, in FK dependency order (aircraft, then flight,
  * then landing/flightInvoice — both reference flight). Talks to the backend only through
  * the SyncClient interface, not sync-client.ts directly, so this is unit-testable against

@@ -1,5 +1,5 @@
 /**
- * Phase 0 spike (flightdeck-backend/docs/plans/flight-replay-harness.md): capture a real
+ * Phase 0 spike (winglog-backend/docs/plans/flight-replay-harness.md): capture a real
  * MSFS flight's telemetry to an NDJSON fixture, for the replay harness (Phase 1) to consume.
  *
  * Plain tsx, no Electron — `SimConnectService` itself has no better-sqlite3/Electron

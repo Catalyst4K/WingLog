@@ -9,5 +9,5 @@
 declare const __WINGLOG_CLOUD_SYNC_ENABLED__: boolean
 
 /** True only in the dev build (`npm run package:win:dev`): diagnostic logging to `diag.log`,
- *  the full flight capture, and a DEV badge (flightdeck-backend robustness/dev-build.md). */
+ *  the full flight capture, and a DEV badge (winglog-backend robustness/dev-build.md). */
 declare const __WINGLOG_DEV_BUILD__: boolean

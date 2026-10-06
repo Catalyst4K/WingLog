@@ -10,7 +10,7 @@ import { computeTrackCleanup, type TrackCleanupResult } from '../tracking/resume
  * history and persists whatever it finds. Depends on nothing but the DB, so it works
  * equally for a flight actively being tracked (TrackingController.runTrackCleanup wraps
  * this and also emits 'pointsUpdated' for the live map) and a flight completed long ago
- * (the Logbook "Clean up track" button, main/index.ts — flightdeck-backend's docs/plans/
+ * (the Logbook "Clean up track" button, main/index.ts — winglog-backend's docs/plans/
  * done/resume-track-cleanup.md). Returns undefined when nothing changed; `applyTrackCleanup`
  * itself already no-ops a write for an empty result, so a no-op call here is cheap.
  *

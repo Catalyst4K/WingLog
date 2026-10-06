@@ -4,7 +4,7 @@ import type { BeyondAtcState } from '@shared/ipc'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { boxConfirmsLevel, levelLabelToFeet, pickLevelLabel, requestAltitude } from './altitude-request'
 
-// Real Actions lists, captured live 2026-10-01 (Fenix A320, cleared FL380 — flightdeck-backend's
+// Real Actions lists, captured live 2026-10-01 (Fenix A320, cleared FL380 — winglog-backend's
 // docs/beyondatc-notes.md, "requesting a new cruise altitude"). The cleared-level box is the
 // `Climb` box seen on the VHHH-ZJSY flight, 2026-10-05.
 const CRUISE_ACTIONS = [

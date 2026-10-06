@@ -14,7 +14,7 @@ import {
  * renderer-tested only (mocking `WebSocketCtor`/`window.winglog`) until now. `FakeBeyondAtcServer`
  * stands in for `BeyondATC.exe`'s own real local WebSocket server, same "real protocol, fake
  * transport" shape `gsx-remote.spec.ts` already uses for GSX. Real captures throughout, from
- * flightdeck-backend's docs/beyondatc-notes.md.
+ * winglog-backend's docs/beyondatc-notes.md.
  */
 test.describe('BeyondATC integration', () => {
   test('enabling in Settings drives the real BeyondATC tab end to end', async () => {
@@ -40,7 +40,7 @@ test.describe('BeyondATC integration', () => {
       await expect(page.getByRole('heading', { name: 'BeyondATC' })).toBeVisible()
       await expect(page.getByText('Cathay 116 Heavy')).toBeVisible()
       // "Tuned to X" moved into the Radios card as plain "station (frequency)" once the
-      // panel was split into cards (flightdeck-backend's docs/plans/beyondatc-panel-
+      // panel was split into cards (winglog-backend's docs/plans/beyondatc-panel-
       // redesign.md) — no "Tuned to" prefix any more.
       await expect(page.getByText('Brisbane Delivery (118.850)')).toBeVisible()
 
@@ -111,7 +111,7 @@ test.describe('BeyondATC integration', () => {
       // Facility is the first line — always parsed even with the bug. Everything below is
       // only reachable if the lines after it survived too. No "Tuned to" prefix — that text
       // moved into the Radios card as plain "station (frequency)" once the panel was split
-      // into cards (flightdeck-backend's docs/plans/beyondatc-panel-redesign.md).
+      // into cards (winglog-backend's docs/plans/beyondatc-panel-redesign.md).
       await expect(page.getByText('Singapore Delivery (121.650)')).toBeVisible()
       await expect(page.getByText('Singapore 830 Super')).toBeVisible()
       await expect(page.getByRole('button', { name: 'Request IFR Clearance' })).toBeVisible()

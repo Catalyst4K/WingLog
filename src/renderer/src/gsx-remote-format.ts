@@ -5,7 +5,7 @@ import type { GsxRemoteGateInfo, GsxRemoteServiceStatus } from '@shared/ipc'
  * (2026-09-21): the core turnaround services (boarding/deboarding, catering, refuel,
  * pushback, jetway) stay visible always, the rest (stairs, GPU, de-ice, lavatory, water,
  * cleaning) only matter when actually in use. Ids are GSX's own wire ids, confirmed live
- * (flightdeck-backend's docs/gsx-notes.md, round 6/7 captures — the full real
+ * (winglog-backend's docs/gsx-notes.md, round 6/7 captures — the full real
  * `state.services` id list for a VHHH session).
  */
 const SECONDARY_SERVICE_IDS = new Set(['OperateStairs', 'GPU', 'DeIce', 'Lavatory', 'Water', 'Cleaning'])

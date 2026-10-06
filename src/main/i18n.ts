@@ -1,4 +1,4 @@
-// Main-process i18n (flightdeck-backend's docs/plans/v1-2.md Part 3) — a second,
+// Main-process i18n (winglog-backend's docs/plans/v1-2.md Part 3) — a second,
 // independent i18next instance from the renderer's own (src/renderer/src/i18n.ts), covering
 // the handful of user-facing strings authored in this process: native dialog titles, the
 // startup error box's title, and validation/business-rule messages that reach the renderer

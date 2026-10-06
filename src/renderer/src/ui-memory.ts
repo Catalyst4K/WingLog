@@ -1,7 +1,7 @@
 /**
  * The renderer's one store for screen state that must survive a component unmounting: leaving the
  * Track tab and coming back keeps the map's camera, its toggles and the taxi clearance as the
- * pilot left them (flightdeck-backend docs/coding-standards.md §4). In-session only, never saved.
+ * pilot left them (winglog-backend docs/coding-standards.md §4). In-session only, never saved.
  * Values are read when a component mounts and written as they change; nothing subscribes.
  */
 import type { Airfield, NavdataTaxiSegment } from '@shared/ipc'

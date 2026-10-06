@@ -7,7 +7,7 @@ import { test, expect } from '@playwright/test'
 import { launchApp } from './launch-app'
 
 /**
- * The update check end to end (flightdeck-backend's docs/plans/update-check.md, Part A),
+ * The update check end to end (winglog-backend's docs/plans/update-check.md, Part A),
  * against a fake GitHub "latest release" endpoint serving the real response shape. Never
  * clicks Download: that opens the real browser.
  */

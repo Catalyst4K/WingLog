@@ -14,7 +14,7 @@
  * traffic shows up, not just the idle snapshot. Ctrl+C to stop.
  *
  * Log real payload shapes (or at least key structure, redacting nothing sensitive since
- * this is all local sim state) into flightdeck-backend's docs/gsx-notes.md.
+ * this is all local sim state) into winglog-backend's docs/gsx-notes.md.
  */
 
 import * as fs from 'node:fs'

@@ -201,7 +201,7 @@ export default function App(): React.JSX.Element {
   // pushback direction, fuel amount, Callum's explicit call, 2026-09-21 — can interrupt
   // wherever the user currently is, not just when they happen to be on the GSX tab.
   // Everything else GSX might ask stays confined to that tab, unflagged, resolved by GSX's
-  // own default/timeout if nobody answers there (flightdeck-backend's docs/gsx-notes.md).
+  // own default/timeout if nobody answers there (winglog-backend's docs/gsx-notes.md).
   const [gsxMenu, setGsxMenu] = useState<GsxRemoteMenuState | null>(null)
   // Remembers which exact menu the user dismissed without answering, so closing the global
   // prompt doesn't just reopen itself on the next unrelated re-render — only a genuinely
@@ -315,7 +315,7 @@ export default function App(): React.JSX.Element {
   }
 
   // Reads each new set of BeyondATC InfoBoxes for a clearance whose fields differ from the
-  // current selection. Never ATC's speech (flightdeck-backend's docs/decisions.md,
+  // current selection. Never ATC's speech (winglog-backend's docs/decisions.md,
   // 2026-10-05). Re-subscribes whenever procedureSelection changes so a diff is always checked
   // against the live value, the same "just resubscribe, it's cheap" style
   // procedureSelection.ts's own fetch effects already use.
@@ -463,7 +463,7 @@ export default function App(): React.JSX.Element {
   // Disabling the tab you're currently viewing (from Settings, in the same window) shouldn't
   // strand you on a now-hidden page — derived during render rather than an effect calling
   // setPage, per this project's own "don't setState-in-effect what you can compute" rule
-  // (flightdeck-backend's docs/decisions.md, the GSX command-bar SimBrief-loading fix).
+  // (winglog-backend's docs/decisions.md, the GSX command-bar SimBrief-loading fix).
   const effectivePage: AppPage =
     (page === 'gsx' && !gsxRemoteEnabled) || (page === 'beyondatc' && !beyondAtcEnabled) ? 'fleet' : page
 
@@ -488,7 +488,7 @@ export default function App(): React.JSX.Element {
     await window.winglog.settingsSetTheme(next)
   }
 
-  // First-launch setup (flightdeck-backend's docs/plans/first-launch-setup.md): shown to a new
+  // First-launch setup (winglog-backend's docs/plans/first-launch-setup.md): shown to a new
   // install; someone upgrading with a fleet or logbook gets a one-off "what's new" instead.
   const [setupOpen, setSetupOpen] = useState(false)
   useEffect(() => {

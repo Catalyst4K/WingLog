@@ -16,7 +16,7 @@ export interface AtcClearanceUpdate {
 const CLEARED_APPROACH = /^([A-Z0-9]+(?:-[A-Z0-9]+)*) approach,? runway (\d{1,2}[LRC]?)$/i
 
 /**
- * BeyondATC's InfoBoxes, read as typed facts (flightdeck-backend's
+ * BeyondATC's InfoBoxes, read as typed facts (winglog-backend's
  * docs/plans/beyondatc-infoboxes-first.md). The boxes carry each clearance's facts as their own
  * fields, and are the only source for any fact they cover: ATC's speech isn't parsed for them
  * (docs/decisions.md, 2026-10-05).

@@ -4,7 +4,7 @@ import { marked } from 'marked'
 
 /**
  * Turns the manual's Markdown chapters (docs/manual/NN-*.md) into one HTML page for
- * printing to PDF (flightdeck-backend's docs/plans/user-docs-v1-4.md). Pure apart from
+ * printing to PDF (winglog-backend's docs/plans/user-docs-v1-4.md). Pure apart from
  * reading the chapter and image files, so it's unit-tested; scripts/manual/build.ts does the
  * Electron printing.
  */

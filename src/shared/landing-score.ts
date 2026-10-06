@@ -1,4 +1,4 @@
-// Landing score (0-100, floored for display) — flightdeck-backend's docs/plans/
+// Landing score (0-100, floored for display) — winglog-backend's docs/plans/
 // landing-scoring.md ("Final design", settled 2026-09-12), reworked by
 // landing-scoring-v2.md (2026-09-20): tapered falloff (fraction^1.5 — see taperedScore's
 // own history for why not a full square) replacing the original straight-line taper, plus a
@@ -210,7 +210,7 @@ export interface LandingScoreBreakdown {
 const GFORCE_IDEAL = 1.0
 const GFORCE_TOLERANCE = 1.0
 // MSFS's PLANE PITCH DEGREES (simvars.ts) is negative for nose-up, positive for nose-down
-// — confirmed two ways: flightdeck-backend's docs/simconnect-notes.md (2026-09-03) logged
+// — confirmed two ways: winglog-backend's docs/simconnect-notes.md (2026-09-03) logged
 // -6.709° at a real touchdown, and a real WingLog user reported (2026-09-12) a consistent
 // flare across multiple of his own logged landings scoring as a pitch warning, which only
 // makes sense if the sign here was backwards. A "4° nose-up" ideal flare is therefore -4 in
@@ -278,7 +278,7 @@ const WEIGHTS = {
   crab: 10
 } as const
 
-// Landing scoring v2 (flightdeck-backend's docs/plans/landing-scoring-v2.md, Callum's
+// Landing scoring v2 (winglog-backend's docs/plans/landing-scoring-v2.md, Callum's
 // answered decisions, 2026-09-20): the falloff was a judgement call, no concrete real
 // landing to calibrate the shape against — a tapered curve, gentle near ideal and steep
 // near/past tolerance, replacing the old straight-line taper. Was called linearScore;
@@ -389,7 +389,7 @@ export function computeLandingScore(inputs: LandingScoreInputs): LandingScoreBre
   const band = landingRateBand(inputs.category)
   const actualFpm = Math.abs(msToFpm(inputs.verticalSpeedMs))
   // Two-sided: peaks at the category's real sweet spot and decays symmetrically either side
-  // of it (flightdeck-backend's docs/plans/landing-scoring.md, "fpm sweet spots", 2026-09-13)
+  // of it (winglog-backend's docs/plans/landing-scoring.md, "fpm sweet spots", 2026-09-13)
   // rather than only penalizing an excessive descent rate. The tolerance is the same distance
   // out as the derived hard-landing threshold — a first cut instead reached 0 right at the
   // band's own minFpm on the soft side, which Callum found too harsh: a touchdown a little

@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test'
 import { launchApp } from './launch-app'
 
 /**
- * Proves Phase 3's main/index.ts injection seam (flightdeck-backend's docs/plans/
+ * Proves Phase 3's main/index.ts injection seam (winglog-backend's docs/plans/
  * flight-replay-harness.md) works through a real launched app, not just at the module
  * level (src/main/tracking/flight-replay.test.ts covers that) — closing test-coverage.md
  * Phase 4's open question about whether SimConnectService is swappable for a fixture

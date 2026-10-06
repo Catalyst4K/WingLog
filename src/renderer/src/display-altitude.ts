@@ -4,7 +4,7 @@ import { mToFt } from './units'
 
 /**
  * Picks pressure altitude above the transition, true altitude below it — what a correctly
- * set altimeter actually reads in each regime (flightdeck-backend's docs/plans/
+ * set altimeter actually reads in each regime (winglog-backend's docs/plans/
  * logbook-detail-improvements.md, Phase 3): flight levels in cruise, matching the PFD
  * exactly, and roughly field elevation near the airports, where true altitude ≈ QNH
  * altitude. Both inputs are computed by the sim, so neither depends on how a given

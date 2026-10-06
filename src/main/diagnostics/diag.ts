@@ -1,7 +1,7 @@
 /**
  * The dev build's diagnostic log: categorised lines in a separate rotating `diag.log`, so a
  * bug found on a test flight can be diagnosed from the log afterwards instead of reconstructed
- * (flightdeck-backend docs/plans/robustness/dev-build.md).
+ * (winglog-backend docs/plans/robustness/dev-build.md).
  *
  * Only the dev build writes it (`__WINGLOG_DEV_BUILD__`); in the normal build `createDiag(null)`
  * gives a function that does nothing. Local files only, nothing is sent anywhere.

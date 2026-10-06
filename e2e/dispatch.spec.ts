@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import { launchApp } from './launch-app'
 
 /**
- * Dispatch's "Plan a flight" form mechanics against the real built app, per flightdeck-
+ * Dispatch's "Plan a flight" form mechanics against the real built app, per winglog-
  * backend's docs/plans/test-coverage.md Phase 4. Deliberately scoped short of an actual
  * "Fly": both "Fetch latest OFP" and "Generate…" hit the real SimBrief API/broker service,
  * and there's no local/offline path to a real DispatchOfp at all (confirmed while building

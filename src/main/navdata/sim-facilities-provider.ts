@@ -24,7 +24,7 @@ export type OpenSimConnect = typeof defaultOpen
 
 /**
  * NavdataProvider backed by MSFS's own SimConnect Facilities API (Phase 3,
- * flightdeck-backend's docs/plans/navdata-without-navigraph.md). Every refreshAirport call
+ * winglog-backend's docs/plans/navdata-without-navigraph.md). Every refreshAirport call
  * opens its own short-lived connection, fetches, and closes it — deliberately never shares
  * SimConnectService's live tracking connection, per the Phase 2 spike's isolation finding
  * (docs/navdata-notes.md: a heavy facility fetch stalled live telemetry for the full ~12.5s

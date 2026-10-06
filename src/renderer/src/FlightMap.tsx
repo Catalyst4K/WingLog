@@ -141,7 +141,7 @@ function multiLineString(segments: [number, number][][]): MultiLineStringFeature
 }
 
 /** Splits a flight's trail at every resumeSegment boundary — never draws a line across a
- *  restart's spawn-point/teleport-back artefacts (flightdeck-backend's docs/plans/
+ *  restart's spawn-point/teleport-back artefacts (winglog-backend's docs/plans/
  *  resume-track-cleanup.md), even before any cleanup logic decides which points within a
  *  segment are themselves spurious. */
 function trailSegments(points: TrackPoint[]): [number, number][][] {
@@ -217,7 +217,7 @@ export interface FlightMapProps {
   /** Per-fix waypoint pins along the planned route (ident labels), same source as `route`. */
   waypoints?: Waypoint[]
   /** Every recorded point, unfiltered — points with a non-null `excludedReason` (junk from
-   *  a crash-resume or a mid-flight teleport, flightdeck-backend's docs/plans/
+   *  a crash-resume or a mid-flight teleport, winglog-backend's docs/plans/
    *  resume-track-cleanup.md) are dropped inside this component, not by the caller. */
   trackPoints: TrackPoint[]
   /**
@@ -244,7 +244,7 @@ export interface FlightMapProps {
   /** Language of the base map's place names (Settings → UI → Map language). Defaults to
    *  English. Applied to the hosted style's own labels — see map-labels.ts. */
   mapLanguage?: MapLanguage
-  /** Departure/arrival ICAOs, for the taxi chart overlay (flightdeck-backend's docs/plans/
+  /** Departure/arrival ICAOs, for the taxi chart overlay (winglog-backend's docs/plans/
    *  taxi-network-overlay.md) — null/omitted when unknown (e.g. a free flight). Available in
    *  both live and replay, unlike the VFR overlay, since it's static reference data with no
    *  "now" to depend on. */
@@ -290,7 +290,7 @@ export function FlightMap({
   // it always sees the current language rather than the one from the first render.
   const mapLanguageRef = useRef(mapLanguage)
   mapLanguageRef.current = mapLanguage
-  // Points a resume-track-cleanup pass has flagged as junk (flightdeck-backend's docs/
+  // Points a resume-track-cleanup pass has flagged as junk (winglog-backend's docs/
   // plans/resume-track-cleanup.md) never get drawn — filtered once here rather than in
   // each effect below, so every index-based lookup (last point, [-2] for the animation's
   // "from", trailSegments' own iteration) already only ever sees the real trail.

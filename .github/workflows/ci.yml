@@ -3,7 +3,7 @@ name: CI
 # Only before a release: PRs into main (a release from develop, or a hotfix from fixes), plus
 # manual runs. build and e2e are required checks on main (scripts/github-repo-security.sh), so a
 # release PR can't merge until they pass. Between releases the local battery, e2e included, is
-# the check (flightdeck-backend CLAUDE.md, "CI gates every release").
+# the check (winglog-backend CLAUDE.md, "CI gates every release").
 on:
   pull_request:
     branches: [main]
@@ -24,7 +24,7 @@ jobs:
       - run: npm run test:coverage
 
   e2e:
-    # Confirmed working on real ubuntu-latest CI 2026-09-14 (flightdeck-backend's
+    # Confirmed working on real ubuntu-latest CI 2026-09-14 (winglog-backend's
     # docs/plans/test-coverage.md Phase 5) — a manual workflow_dispatch run against
     # develop's real codebase passed cleanly, closing the open question this
     # continue-on-error guard existed for.

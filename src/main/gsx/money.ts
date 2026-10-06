@@ -9,7 +9,7 @@
  *
  * A US-airport receipt (or anywhere GSX's own currency setting is already USD) has no
  * conversion to show at all — just `"$ 3,939.86"`, no `~` — confirmed live 2026-09-14 at
- * KJFK (flightdeck-backend's flight-replay-harness.md), and previously silently returned
+ * KJFK (winglog-backend's flight-replay-harness.md), and previously silently returned
  * null for this, hiding the invoice card's whole total whenever every receipt on a flight
  * was already-USD. Fall back to parsing the whole string as the USD amount when there's no
  * tilde, rather than treating "no conversion needed" the same as "unparseable."

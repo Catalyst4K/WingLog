@@ -11,7 +11,7 @@ import { requestAltitude, type AltitudeRequestSession } from './altitude-request
 import { greatCircleNm } from '@shared/geo'
 
 /**
- * BeyondATC auto step climb (flightdeck-backend's docs/plans/beyondatc-auto-step-climb.md).
+ * BeyondATC auto step climb (winglog-backend's docs/plans/beyondatc-auto-step-climb.md).
  * BeyondATC only changes the cleared level when the pilot asks; an aircraft left to fly its
  * own step climbs overnight drifts out of step with it. While switched on, this asks for each
  * new level itself. Callum's decisions, 2026-10-01:

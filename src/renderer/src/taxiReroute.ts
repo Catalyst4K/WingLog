@@ -4,7 +4,7 @@ import { flatDistanceM } from '@shared/geo'
 
 /**
  * When the traced taxi line should be re-traced from where the aircraft is
- * (flightdeck-backend's docs/plans/taxi-reroute.md). Real case, ZJSY flight 227, 2026-10-02:
+ * (winglog-backend's docs/plans/taxi-reroute.md). Real case, ZJSY flight 227, 2026-10-02:
  * cleared "via D, B7, A" to A's runway 08 hold, pushed back facing the other way and taxied a
  * different route to the same hold, with the line pointing back along D the whole time.
  * Where a re-route goes is taxiRouteTrace.ts's rejoinTaxiRoute: the shortest total way to the

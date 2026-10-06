@@ -1,11 +1,11 @@
 /**
- * Client for flightdeck-backend's account + sync routes (docs/plans/cloud-sync.md) —
+ * Client for winglog-backend's account + sync routes (docs/plans/cloud-sync.md) —
  * mirrors backend-client.ts's shape, reusing its BACKEND_BASE_URL constant rather than
  * duplicating it (CLAUDE.md's one-constant-per-base-URL discipline).
  */
 import { BACKEND_BASE_URL } from './backend-client'
 
-/** The four tables cloud-sync.md scopes as synced — must match flightdeck-backend's own
+/** The four tables cloud-sync.md scopes as synced — must match winglog-backend's own
  *  SYNC_TABLES exactly, since the server validates against its own copy of this list. */
 export const SYNC_TABLES = ['aircraft', 'flight', 'landing', 'flightInvoice'] as const
 export type SyncTable = (typeof SYNC_TABLES)[number]
@@ -35,7 +35,7 @@ export async function login(email: string, password: string): Promise<{ token: s
 
 /**
  * `POST /auth/provision`, gated behind `X-Provision-Secret` on the backend
- * (flightdeck-backend's src/index.ts) — there is deliberately no self-serve public signup
+ * (winglog-backend's src/index.ts) — there is deliberately no self-serve public signup
  * route yet (docs/plans/cloud-sync-v2.md's public-launch checklist isn't done). This is
  * that same gated route, wired up in the app rather than left CLI-only, so Callum's own
  * "Sign up" click works while the invite code stays something only he has — never baked

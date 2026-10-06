@@ -2,7 +2,7 @@
  * The dev build's full capture of each tracked flight: every sim telemetry tick, every
  * BeyondATC and GSX message in and out, one NDJSON file per flight, in the replay fixture
  * format (`src/main/sim/flight-fixture.ts`). Every test flight becomes data a scenario test can
- * replay (flightdeck-backend docs/plans/robustness/scenario-testing.md Part 1).
+ * replay (winglog-backend docs/plans/robustness/scenario-testing.md Part 1).
  *
  * Local only. Captures hold personal data (callsign, SimBrief pilot ID in OFP lines), so a
  * committed fixture is always a trimmed, anonymised slice, never a capture file.

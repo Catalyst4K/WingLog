@@ -1,6 +1,6 @@
 /**
  * Scenario tests: real recordings, varied on purpose, run through the real app, checked by rules
- * (flightdeck-backend docs/plans/robustness/scenario-testing.md Part 2). One per bug found by
+ * (winglog-backend docs/plans/robustness/scenario-testing.md Part 2). One per bug found by
  * flying since 2026-10-05; each also runs the unvaried base, so a rule that fails on the base is
  * a bug in the rule, not the app.
  */

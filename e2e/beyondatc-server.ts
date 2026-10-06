@@ -10,7 +10,7 @@ export const BEYONDATC_PORT_ENV = 'WINGLOG_E2E_BEYONDATC_PORT'
  * BeyondATC tab through a real launched app without a real MSFS + BeyondATC install — same
  * "real protocol, fake transport" shape as `FakeGsxRemoteServer`, but BeyondATC's own
  * plain-text `Key: value` line protocol instead of GSX's JSON envelopes. All lines sent below
- * are real captures, not invented shapes — see flightdeck-backend's docs/beyondatc-notes.md.
+ * are real captures, not invented shapes — see winglog-backend's docs/beyondatc-notes.md.
  */
 export class FakeBeyondAtcServer {
   private wss: WebSocketServer
@@ -65,7 +65,7 @@ export class FakeBeyondAtcServer {
 }
 
 /** A real Radio Check trace, confirmed live against BeyondATC's own WebSocket
- *  (flightdeck-backend's docs/beyondatc-notes.md, "A real, observed success trace"). */
+ *  (winglog-backend's docs/beyondatc-notes.md, "A real, observed success trace"). */
 export const RADIO_CHECK_SNAPSHOT = [
   'Facility: Brisbane Delivery|118.850',
   'Callsign: {"full": "Cathay 116 Heavy", "shortForm": "CPA116"}',
@@ -81,7 +81,7 @@ export const RADIO_CHECK_RESPONSE = [
 ]
 
 /** `AutoTune`/`AutoRespond`'s real wire format — bare lowercase `true`/`false`, confirmed
- *  live 2026-09-29 (flightdeck-backend's docs/beyondatc-notes.md). */
+ *  live 2026-09-29 (winglog-backend's docs/beyondatc-notes.md). */
 export const AUTO_SETTINGS_SNAPSHOT = ['AutoTune: true', 'AutoRespond: false']
 
 /** A trimmed real response to the `frequencies` command (2 of ~29 real entries from one
@@ -94,7 +94,7 @@ export const FREQUENCIES_RESPONSE = [
 
 /**
  * A real, full-size initial-connect snapshot — confirmed live, 2026-09-28, against Callum's
- * actual BeyondATC session (flightdeck-backend's docs/beyondatc-notes.md). Deliberately kept
+ * actual BeyondATC session (winglog-backend's docs/beyondatc-notes.md). Deliberately kept
  * this big and this shaped (two full DATIS reports plus a large Settings blob, ~18 lines,
  * pushed as one combined message): a real, previously-invisible bug — Node's built-in global
  * WebSocket silently drops every line after the first when a message this size arrives as one

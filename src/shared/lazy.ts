@@ -1,5 +1,5 @@
 /**
- * The one sanctioned module-level cache (flightdeck-backend docs/coding-standards.md §4): a value
+ * The one sanctioned module-level cache (winglog-backend docs/coding-standards.md §4): a value
  * computed on first use and kept for the process, such as a vendored CSV parsed only when a search
  * first needs it. Tests clear every one at once with resetLazyValues, instead of reloading modules.
  */

@@ -1,6 +1,6 @@
 /**
  * Named variations of a real capture, so one recording tests many cases nobody has flown
- * (flightdeck-backend docs/plans/robustness/scenario-testing.md Part 2). Each is pure: a capture
+ * (winglog-backend docs/plans/robustness/scenario-testing.md Part 2). Each is pure: a capture
  * in, a new capture out, the base data left real. Each one comes from a real bug, and keeps
  * testing it.
  */

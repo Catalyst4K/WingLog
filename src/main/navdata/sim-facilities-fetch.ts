@@ -41,7 +41,7 @@ import {
  * an already-open SimConnect connection, and resolves once all three complete. Deliberately
  * takes a connection rather than opening its own — see sim-facilities-provider.ts, which
  * owns a short-lived, dedicated connection per fetch so this never shares a wire with
- * SimConnectService's live tracking stream (flightdeck-backend's docs/navdata-notes.md:
+ * SimConnectService's live tracking stream (winglog-backend's docs/navdata-notes.md:
  * a heavy facility fetch stalled live telemetry for ~12.5s when the two shared one
  * connection during the Phase 2 spike).
  */
@@ -311,7 +311,7 @@ export interface FetchedTaxiNetwork {
 }
 
 /** A large airport's `TAXI_POINT` list alone can take minutes to stream (EGLL: 5,389 points,
- *  ~170s, confirmed live 2026-09-28, flightdeck-backend's docs/navdata-notes.md) — this fetch
+ *  ~170s, confirmed live 2026-09-28, winglog-backend's docs/navdata-notes.md) — this fetch
  *  needs a much longer timeout than `fetchAirportNavdata`'s 20s. 10 minutes covers the longest
  *  real session observed that night with headroom; a caller must treat this as a genuinely
  *  slow, explicit operation, never something fired silently in the background. */

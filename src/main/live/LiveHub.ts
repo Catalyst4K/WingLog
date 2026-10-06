@@ -3,7 +3,7 @@ import type { LiveSnapshot, LiveTopic, LiveTopics } from '@shared/live'
 export type LiveListener = <T extends LiveTopic>(topic: T, payload: LiveTopics[T]) => void
 
 /**
- * The one place live state goes through in the main process (flightdeck-backend's
+ * The one place live state goes through in the main process (winglog-backend's
  * docs/plans/live-data-seam.md, part A). Services publish here instead of writing to the
  * window; the window is one subscriber. The v1.5 LAN server will be a second subscriber,
  * and `snapshot()` is how a device that connects mid-flight gets the current state in one

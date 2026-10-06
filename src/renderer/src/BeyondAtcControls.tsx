@@ -15,9 +15,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 /**
  * BeyondATC's own live "Actions" menu and the COM1/COM2 radios control (Part 2 of
- * flightdeck-backend's docs/plans/beyondatc-integration.md) — two separate exports, each its
+ * winglog-backend's docs/plans/beyondatc-integration.md) — two separate exports, each its
  * own card in `BeyondAtcPanel`'s dispatch-style card grid
- * (flightdeck-backend's docs/plans/beyondatc-panel-redesign.md). Deliberately clean data/
+ * (winglog-backend's docs/plans/beyondatc-panel-redesign.md). Deliberately clean data/
  * action interfaces, per that plan's explicit instruction: this is what gets forwarded into
  * the LAN server (lan-web-viewer.md) once that's built, so neither depends on
  * `BeyondAtcPanel`'s own transcript/status state.
@@ -285,7 +285,7 @@ export interface BeyondAtcRadiosProps {
   autoRespond: boolean | null
   onSetAutoTune: (value: boolean) => void
   onSetAutoRespond: (value: boolean) => void
-  /** WingLog's own auto step climb — not a BeyondATC setting (flightdeck-backend's
+  /** WingLog's own auto step climb — not a BeyondATC setting (winglog-backend's
    *  docs/plans/beyondatc-auto-step-climb.md). */
   stepClimb: BeyondAtcStepClimbStatus
   onSetStepClimb: (enabled: boolean) => void

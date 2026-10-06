@@ -8,7 +8,7 @@ import { boxClearedLevelFt, clearedApproachIdent, normaliseTitle, parseAtcTaxiFa
  * readout accumulated across the whole flight.
  *
  * Every fact BeyondATC gives an InfoBox for comes from the boxes (instructionFromBoxes), never
- * from parsing the speech (flightdeck-backend's docs/decisions.md, 2026-10-05). The speech is
+ * from parsing the speech (winglog-backend's docs/decisions.md, 2026-10-05). The speech is
  * parsed only for what has no box (real VHHH-ZJSY flight, 2026-10-05): the station, the
  * cleared-to airport, "direct", wind, and the line-up / hold-short / readback-correct /
  * radar-identified labels. The card always shows the full spoken text too.

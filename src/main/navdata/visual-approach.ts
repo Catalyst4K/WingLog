@@ -3,7 +3,7 @@ import { visualApproachIdentifier } from '@shared/visual-approach'
 import { offsetAlongBearing } from '../airports/landing-maths'
 
 /**
- * A synthetic "Visual <runway>" approach (flightdeck-backend docs/plans/visual-approach.md):
+ * A synthetic "Visual <runway>" approach (winglog-backend docs/plans/visual-approach.md):
  * real ATC — and BeyondATC — routinely clear a visual approach after a STAR, and every
  * approach the sim's navdata offers is an instrument procedure. There's no navdata behind
  * this one, so it's built here from the runway's own cached threshold and heading, and

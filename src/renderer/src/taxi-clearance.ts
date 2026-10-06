@@ -1,7 +1,7 @@
 /**
  * A BeyondATC taxi clearance and the line drawn for it: the pure steps of the Track map's taxi
  * route (useTaxiRouteHighlight.ts), shared with the simulation (scripts/sim/taxi.sim.ts) so it
- * runs the app's own code (flightdeck-backend docs/plans/robustness/scenario-testing.md Part 6).
+ * runs the app's own code (winglog-backend docs/plans/robustness/scenario-testing.md Part 6).
  */
 import type { BeyondAtcInfoBox, NavdataStand, NavdataTaxiSegment } from '@shared/ipc'
 import { parseAtcTaxiFacts } from '@shared/atc-info-boxes'
@@ -25,7 +25,7 @@ export interface TaxiClearance {
 const RUNWAY_IDENT = /^\d{1,2}[LRC]?$/
 
 /**
- * The taxi clearance in BeyondATC's InfoBoxes (flightdeck-backend's
+ * The taxi clearance in BeyondATC's InfoBoxes (winglog-backend's
  * docs/plans/beyondatc-infoboxes-first.md): `Taxi Via 1..n`, `Hold Position`, `Taxi to Gate`.
  * Real, 2026-10-05: VHHH "B, B, V, H, J" to J1 and ZJSY "A4, D" to gate 102. Null when the
  * boxes hold no taxi route.
