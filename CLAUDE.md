@@ -89,7 +89,8 @@ docs/           User-facing content only, or empty — see the note at the top o
 ## Rules
 
 - **Coding standards:** `flightdeck-backend`'s `docs/coding-standards.md` (agreed 2026-10-05,
-  written 2026-10-06) is binding on all new and changed code here. Read it before writing code.
+  written 2026-10-06) is binding on all new and changed code here. Read it before writing code;
+  it opens with the principle behind it, simple and working over clever.
   The rules below are the architecture ones it builds on.
 - The renderer never touches the filesystem, network, or SimConnect directly. Every
   side effect crosses a typed IPC channel defined in `src/shared/ipc.ts`.
@@ -115,8 +116,6 @@ docs/           User-facing content only, or empty — see the note at the top o
   backend-service credential broker is the first case of this actually happening — SimBrief
   and Navigraph access built in rather than every user requesting their own key — not a
   hypothetical the rule is guarding against anymore.
-- Prefer a boring, working implementation over a clever one. This is a personal tool
-  flown solo, not a platform.
 - Convert units at the IPC boundary (SI internally, aviation units only at the UI layer)
   — don't let sim-native and SI units mix inside the same layer.
 - **Don't hand work off to a session on the other machine unless you've been asked to, for
