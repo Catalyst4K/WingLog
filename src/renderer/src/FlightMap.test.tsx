@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { resetLazyValues } from '@shared/lazy'
+import { resetUiMemory } from './ui-memory'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { FlightPhase, SimTelemetry, TrackPoint } from '@shared/ipc'
@@ -264,7 +266,8 @@ async function loadFlightMap(): Promise<{
   // Fresh module graph every call (not just every test) — some tests call renderReady more
   // than once to compare two independent mounts (e.g. light vs dark theme), and each of
   // those needs its own liveCameraState/workerReady singletons.
-  vi.resetModules()
+  resetUiMemory()
+  resetLazyValues()
   const mod = await import('./FlightMap')
   const maplibre = (await import('maplibre-gl')) as unknown as {
     __instances: FakeMapInstance[]
@@ -309,7 +312,8 @@ async function renderReady(
 }
 
 beforeEach(() => {
-  vi.resetModules()
+  resetUiMemory()
+  resetLazyValues()
   vi.stubGlobal(
     'fetch',
     vi.fn().mockResolvedValue({ blob: () => Promise.resolve(new Blob()) } as unknown as Response)

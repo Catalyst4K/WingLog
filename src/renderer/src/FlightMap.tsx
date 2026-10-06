@@ -24,6 +24,8 @@ import { useTaxiChartOverlay } from './useTaxiChartOverlay'
 import { useTaxiRouteHighlight } from './useTaxiRouteHighlight'
 import { useVfrOverlay } from './useVfrOverlay'
 import { msToKt } from './units'
+import { lazy } from '@shared/lazy'
+import { uiMemory } from './ui-memory'
 
 // maplibre-gl ships its tile-parsing worker as a separate chunk and locates it via its
 // own import.meta.url at runtime — a resolution that doesn't survive Vite's dependency
@@ -50,13 +52,12 @@ import { msToKt } from './units'
 //    sidesteps the limitation — safe now that the file has no external relative import
 //    left to resolve against that blob: URL. The CSP's `worker-src 'self' blob:` already
 //    anticipates exactly this mechanism.
-let workerReady: Promise<void> | null = null
-function ensureWorkerReady(): Promise<void> {
-  workerReady ??= fetch(maplibreWorkerUrl)
-    .then((res) => res.blob())
-    .then((blob) => setWorkerUrl(URL.createObjectURL(blob)))
-  return workerReady
-}
+const ensureWorkerReady = lazy(
+  (): Promise<void> =>
+    fetch(maplibreWorkerUrl)
+      .then((res) => res.blob())
+      .then((blob) => setWorkerUrl(URL.createObjectURL(blob)))
+)
 
 // docs/decisions.md, 2026-09-01 M4 tile source entry: OpenFreeMap, no key/quota/backend.
 // positron over liberty: a low-color basemap reads better under a flight track overlay.
@@ -111,27 +112,9 @@ const SINGLE_POINT_ZOOM = 12
 const FRAME_REVEAL_FALLBACK_MS = 1500
 
 // Camera persistence across remounts (docs/plans/map-improvements.md, "cause B") —
-// Track's live map is unmounted/remounted every time the user navigates away and back
-// (App.tsx only renders the active page's component), which previously meant a fresh
-// MapLibre instance at the [0,0]/zoom-1 default every time, before the follow effect
-// snapped it back to FOLLOW_ZOOM — losing whatever zoom the user had set. Module-level,
-// not React state, since it must survive the whole component unmounting; scoped to the
-// live map only (Logbook's static per-flight map already fits its own bounds fresh on
-// every mount via fitBoundsTo, so it has nothing worth persisting or restoring). In-
-// session only, per Callum's own framing of the complaint — not persisted to app_setting.
-let liveCameraState: { center: [number, number]; zoom: number } | null = null
-// Which planned route liveCameraState was framed for. Returning to Track used to re-fit the
-// route on every mount, which (via moveend) overwrote liveCameraState before follow mode
-// could restore it — the "map resets to the route every tab switch" report (Callum,
-// 2026-09-30). The route is only re-fitted when it genuinely changes.
-let liveCameraRouteKey: string | null = null
-// "Center on aircraft" survives a tab switch too, instead of switching itself back on.
-let rememberedFollowEnabled = true
-// Whether liveCameraState's zoom is one the user chose (wheel, pinch, the zoom buttons), not
-// one the map picked itself. Only a chosen zoom is kept when follow mode frames the aircraft —
-// otherwise a route-overview zoom got remembered and the aircraft was shown from far out
-// every time, never at FOLLOW_ZOOM_GROUND (Callum, 2026-10-02).
-let liveZoomChosenByUser = false
+// The live map's camera, its "Center on aircraft" toggle and the route it was framed for survive
+// a remount (leaving Track and coming back) in ui-memory.ts; Logbook's static map fits its
+// bounds fresh every mount.
 
 function routeKey(route: [number, number][]): string {
   return route.length === 0 ? '' : `${route.length}:${route[0]!.join(',')}:${route[route.length - 1]!.join(',')}`
@@ -316,9 +299,9 @@ export function FlightMap({
   // (live mode only) — a user panning around to look at something shouldn't keep
   // getting yanked back. Defaults on, matching the always-follow behavior before this
   // was made toggleable.
-  const [followEnabled, setFollowEnabled] = useState(() => (live ? rememberedFollowEnabled : true))
+  const [followEnabled, setFollowEnabled] = useState(() => (live ? uiMemory().followEnabled : true))
   useEffect(() => {
-    if (live) rememberedFollowEnabled = followEnabled
+    if (live) uiMemory().followEnabled = followEnabled
   }, [live, followEnabled])
   // Read (not depended on) by the route-fit effect below, so a new track point never
   // re-runs the fit.
@@ -351,8 +334,8 @@ export function FlightMap({
         // map-improvements.md, "cause B") instead of always starting at the whole-world
         // default — only for the live map (Logbook's static map fits its own bounds fresh
         // below regardless of what's passed here).
-        center: (live && liveCameraState?.center) || [0, 0],
-        zoom: (live && liveCameraState?.zoom) || 1,
+        center: (live && uiMemory().liveCamera?.center) || [0, 0],
+        zoom: (live && uiMemory().liveCamera?.zoom) || 1,
         // No 3D tilt, and no rotation either (docs/plans/map-controls.md) — MapLibre's
         // defaults leave both on, both reachable via the same right-drag/Ctrl+drag
         // gesture, and there's no compass or reset-north control in this app to undo an
@@ -391,17 +374,17 @@ export function FlightMap({
       map.touchZoomRotate.disableRotation()
       map.keyboard.disableRotation()
 
-      // Keeps liveCameraState current as the user pans/zooms or follow mode recentres —
+      // Keeps uiMemory().liveCamera current as the user pans/zooms or follow mode recentres —
       // not just captured once on unmount, so an unexpected early teardown (e.g. a fast
       // double-navigation) can't lose it. Cheap: just reading two numbers into a plain
       // variable, no re-render.
       if (live) {
         map.on('moveend', () => {
-          liveCameraState = { center: map.getCenter().toArray() as [number, number], zoom: map.getZoom() }
+          uiMemory().liveCamera = { center: map.getCenter().toArray() as [number, number], zoom: map.getZoom() }
         })
         // originalEvent is only set for a zoom the user made (wheel, pinch, double-click).
         map.on('zoomend', (e) => {
-          if (e.originalEvent) liveZoomChosenByUser = true
+          if (e.originalEvent) uiMemory().liveZoomChosenByUser = true
         })
       }
 
@@ -551,10 +534,10 @@ export function FlightMap({
       cancelled = true
       clearTimeout(revealTimer)
       // Leaving Track mid-pan (follow mode is nearly always partway through an easeTo in the
-      // air) would otherwise leave liveCameraState at the last *finished* move, seconds
+      // air) would otherwise leave uiMemory().liveCamera at the last *finished* move, seconds
       // behind. Only once the map has framed something real, never the constructor default.
       if (live && mapRef.current && hasCenteredRef.current) {
-        liveCameraState = { center: mapRef.current.getCenter().toArray() as [number, number], zoom: mapRef.current.getZoom() }
+        uiMemory().liveCamera = { center: mapRef.current.getCenter().toArray() as [number, number], zoom: mapRef.current.getZoom() }
       }
       mapRef.current?.remove()
       mapRef.current = null
@@ -579,8 +562,8 @@ export function FlightMap({
     if (!live || trackLoading) return
     // Same route as the remembered camera was framed for: keep the user's own view.
     const key = routeKey(route)
-    if (liveCameraState && liveCameraRouteKey === key) return
-    liveCameraRouteKey = key
+    if (uiMemory().liveCamera && uiMemory().liveCameraRouteKey === key) return
+    uiMemory().liveCameraRouteKey = key
     // Following an aircraft: the follow effect frames it instead — fitting the whole route
     // first would just be overwritten (and flash) a moment later.
     if (!followingAircraftRef.current) fitBoundsTo(mapRef.current, route)
@@ -673,10 +656,10 @@ export function FlightMap({
       markerRef.current.setRotation(to.headingTrueDeg)
       if (followEnabled) {
         // A remount already restored the last camera via the constructor above
-        // (liveCameraState) — its zoom is kept only if the user chose it, so coming back to
+        // (uiMemory().liveCamera) — its zoom is kept only if the user chose it, so coming back to
         // Track doesn't re-clobber a zoom they set, but a zoom the map picked itself (e.g. a
         // route overview) never stands in for the ground/altitude follow zoom.
-        if (liveCameraState && liveZoomChosenByUser) mapRef.current.jumpTo({ center: [to.longitude, to.latitude] })
+        if (uiMemory().liveCamera && uiMemory().liveZoomChosenByUser) mapRef.current.jumpTo({ center: [to.longitude, to.latitude] })
         else mapRef.current.jumpTo({ center: [to.longitude, to.latitude], zoom: zoomForBand(followBand(to, null)) })
         // Show the map once the tiles at the aircraft are drawn, not before.
         mapRef.current.once('idle', () => setFramed(true))
@@ -901,7 +884,7 @@ export function FlightMap({
           aria-label={t('flightMap.zoomIn')}
           title={t('flightMap.zoomIn')}
           onClick={() => {
-            liveZoomChosenByUser = true
+            uiMemory().liveZoomChosenByUser = true
             mapRef.current?.zoomIn()
           }}
         >
@@ -915,7 +898,7 @@ export function FlightMap({
           aria-label={t('flightMap.zoomOut')}
           title={t('flightMap.zoomOut')}
           onClick={() => {
-            liveZoomChosenByUser = true
+            uiMemory().liveZoomChosenByUser = true
             mapRef.current?.zoomOut()
           }}
         >

@@ -13,6 +13,7 @@ import {
   rangeRingFeatures,
   recentTrailSegments
 } from './vfr'
+import { uiMemory } from './ui-memory'
 
 /**
  * The Track map's VFR overlay (flightdeck-backend docs/plans/map-language-and-declutter.md,
@@ -68,10 +69,6 @@ const ALL_LAYER_IDS = [
   RECENT_TRAIL_LAYER
 ]
 
-// Both survive a FlightMap remount (switching tabs away from Track and back) — the toggle so
-// it stays as the pilot left it, the list so it isn't re-sent over IPC (~43k rows).
-let rememberedEnabled = false
-let airfieldCache: Airfield[] | null = null
 
 /** What a GeoJSON source accepts as data. */
 type GeoData = GeoJSONSourceSpecification['data']
@@ -199,14 +196,14 @@ export function useVfrOverlay({
   trackPoints,
   routeLayerId
 }: UseVfrOverlayArgs): VfrOverlay {
-  const [enabled, setEnabled] = useState(rememberedEnabled)
-  const [airfields, setAirfields] = useState<Airfield[] | null>(airfieldCache)
+  const [enabled, setEnabled] = useState(uiMemory().vfrEnabled)
+  const [airfields, setAirfields] = useState<Airfield[] | null>(uiMemory().vfrAirfields)
   const scaleControlRef = useRef<ScaleControl | null>(null)
   const shownRef = useRef(false)
   const active = enabled && live
 
   useEffect(() => {
-    rememberedEnabled = enabled
+    uiMemory().vfrEnabled = enabled
   }, [enabled])
 
   // Where the aircraft is: live telemetry when there is any, else the last recorded point.
@@ -221,7 +218,7 @@ export function useVfrOverlay({
     window.winglog
       .airportListAirfields()
       .then((list) => {
-        airfieldCache = list
+        uiMemory().vfrAirfields = list
         if (!cancelled) setAirfields(list)
       })
       .catch(() => {

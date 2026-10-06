@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
 import type { GeoJSONSource, GeoJSONSourceSpecification, Map as MapLibreMap } from 'maplibre-gl'
 import type { NavdataTaxiSegment } from '@shared/ipc'
+import { uiMemory } from './ui-memory'
 
 /**
  * The Track/Logbook map's taxi chart overlay (flightdeck-backend's docs/plans/
@@ -57,12 +58,6 @@ function setVisibility(map: MapLibreMap, visible: boolean): void {
   if (map.getLayer(TAXI_LAYER_ID)) map.setLayoutProperty(TAXI_LAYER_ID, 'visibility', visible ? 'visible' : 'none')
 }
 
-// Survives a FlightMap remount (switching tabs away and back) — stays as the pilot left it.
-let rememberedEnabled = false
-// Per-ICAO cache so switching between two already-loaded airports (or Track <-> Logbook)
-// doesn't re-fetch — cleared only by a real app restart, same lifetime as useVfrOverlay's
-// airfieldCache.
-const segmentCache = new Map<string, NavdataTaxiSegment[]>()
 
 export interface UseTaxiChartOverlayArgs {
   mapRef: MutableRefObject<MapLibreMap | null>
@@ -83,22 +78,22 @@ export interface TaxiChartOverlay {
 }
 
 async function loadAirport(icao: string, onLoaded: (icao: string, segments: NavdataTaxiSegment[]) => void): Promise<void> {
-  if (segmentCache.has(icao)) return
+  if (uiMemory().taxiSegments.has(icao)) return
   const hasCached = await window.winglog.navdataHasTaxiNetwork(icao)
   if (!hasCached) await window.winglog.navdataRefreshTaxiNetwork(icao)
   const segments = await window.winglog.navdataGetTaxiNetwork(icao)
-  segmentCache.set(icao, segments)
+  uiMemory().taxiSegments.set(icao, segments)
   onLoaded(icao, segments)
 }
 
 export function useTaxiChartOverlay({ mapRef, mapReady, depIcao, arrIcao }: UseTaxiChartOverlayArgs): TaxiChartOverlay {
-  const [enabled, setEnabled] = useState(rememberedEnabled)
+  const [enabled, setEnabled] = useState(uiMemory().taxiChartEnabled)
   const [loadedVersion, setLoadedVersion] = useState(0)
   const [loadingIcao, setLoadingIcao] = useState<string | null>(null)
   const shownRef = useRef(false)
 
   useEffect(() => {
-    rememberedEnabled = enabled
+    uiMemory().taxiChartEnabled = enabled
   }, [enabled])
 
   // Stable reference across renders where dep/arr haven't actually changed, so it can sit in
@@ -115,7 +110,7 @@ export function useTaxiChartOverlay({ mapRef, mapReady, depIcao, arrIcao }: UseT
     if (!enabled || icaos.length === 0) return
     let cancelled = false
     for (const icao of icaos) {
-      if (segmentCache.has(icao)) continue
+      if (uiMemory().taxiSegments.has(icao)) continue
       queueMicrotask(() => {
         if (!cancelled) setLoadingIcao(icao)
       })
@@ -152,15 +147,15 @@ export function useTaxiChartOverlay({ mapRef, mapReady, depIcao, arrIcao }: UseT
     const map = mapRef.current
     if (!mapReady || !map || !enabled) return
     const loaded = icaos.flatMap((icao): [string, NavdataTaxiSegment[]][] => {
-      const segments = segmentCache.get(icao)
+      const segments = uiMemory().taxiSegments.get(icao)
       return segments ? [[icao, segments]] : []
     })
     map.getSource<GeoJSONSource>(TAXI_SOURCE_ID)?.setData(segmentsToFeatureCollection(loaded))
   }, [mapRef, mapReady, enabled, loadedVersion, icaos])
 
-  // loadedVersion is the signal that segmentCache gained an airport.
+  // loadedVersion is the signal that uiMemory().taxiSegments gained an airport.
   const segmentsByIcao = useMemo(
-    () => Object.fromEntries(icaos.flatMap((icao) => (segmentCache.has(icao) ? [[icao, segmentCache.get(icao)!]] : []))),
+    () => Object.fromEntries(icaos.flatMap((icao) => (uiMemory().taxiSegments.has(icao) ? [[icao, uiMemory().taxiSegments.get(icao)!]] : []))),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [icaos, loadedVersion]
   )

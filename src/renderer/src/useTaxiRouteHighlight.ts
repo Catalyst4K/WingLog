@@ -9,6 +9,7 @@ import { startTracker, trackPosition, type RerouteTracker } from './taxiReroute'
 import { diagMap } from './diag'
 import { TAXI_SOURCE_ID } from './useTaxiChartOverlay'
 import { useLiveClient } from './live/LiveClient'
+import { uiMemory } from './ui-memory'
 
 /**
  * Highlights BeyondATC's most recent live taxi clearance on top of the taxi chart overlay
@@ -100,22 +101,9 @@ export interface UseTaxiRouteHighlightArgs {
  *  isn't in here, so an arrival's "taxi to stand" clearance still draws after touchdown. */
 const DEPARTED_PHASES: ReadonlySet<FlightPhase> = new Set(['takeoff', 'climb', 'cruise', 'descent'])
 
-/** Survives a FlightMap remount the same way useTaxiChartOverlay's rememberedEnabled does —
- *  a route parsed before a tab switch shouldn't just vanish on return. Cleared only by a
- *  genuinely new clearance, never automatically. */
-let rememberedClearance: TaxiClearance | null = null
-/** The newest transcript line already looked at — module-level for the same reason, so coming
- *  back to Track doesn't re-read old clearances as new ones. */
-let rememberedLastTs = 0
-/** Whether the aircraft was last seen past the takeoff roll — module-level so leaving Track
- *  at the holding point and coming back in cruise still drops the departure's route. */
-let rememberedDeparted = false
-/** The last InfoBoxes taxi clearance already taken, and when, so the same boxes aren't taken
- *  again (on remount, or still showing after the takeoff roll dropped the route). */
-let rememberedBoxKey = ''
-let rememberedBoxAt = 0
-/** The last spoken hold-short runway and when, for a box route that arrives just after it. */
-let rememberedHoldShort: { runway: string; at: number } | null = null
+// The clearance and what's been read survive a FlightMap remount (ui-memory.ts): a route parsed
+// before a tab switch doesn't vanish, old clearances aren't re-read as new, and leaving Track at
+// the holding point then coming back in cruise still drops the departure's route.
 
 export function useTaxiRouteHighlight({
   mapRef,
@@ -127,7 +115,7 @@ export function useTaxiRouteHighlight({
   position,
   phase
 }: UseTaxiRouteHighlightArgs): void {
-  const [clearance, setClearance] = useState<TaxiClearance | null>(rememberedClearance)
+  const [clearance, setClearance] = useState<TaxiClearance | null>(uiMemory().taxiRoute.clearance)
   const client = useLiveClient()
   const positionRef = useRef(position)
   /** The current clearance's line between position updates (taxiReroute.ts). */
@@ -154,32 +142,34 @@ export function useTaxiRouteHighlight({
     // ATC's speech: only "hold short of runway …", which has no box.
     const ingest = (transcript: BeyondAtcTranscriptEntry[]): void => {
       if (!live) return
+      const remembered = uiMemory().taxiRoute
       for (const entry of transcript) {
-        if (entry.speaker !== 'atc' || entry.ts <= rememberedLastTs) continue
-        rememberedLastTs = entry.ts
+        if (entry.speaker !== 'atc' || entry.ts <= remembered.lastTranscriptTs) continue
+        remembered.lastTranscriptTs = entry.ts
         const runway = parseTaxiHoldShortRunway(entry.text)
         if (!runway) continue
-        rememberedHoldShort = { runway, at: Date.now() }
-        if (rememberedClearance && Date.now() - rememberedBoxAt <= HOLD_SHORT_PAIR_MS) {
-          rememberedClearance = withHoldShort(rememberedClearance, runway)
-          setClearance(rememberedClearance)
+        remembered.holdShort = { runway, at: Date.now() }
+        if (remembered.clearance && Date.now() - remembered.boxAt <= HOLD_SHORT_PAIR_MS) {
+          remembered.clearance = withHoldShort(remembered.clearance, runway)
+          setClearance(remembered.clearance)
         }
       }
     }
     // The clearance itself, taken once per new set of taxi boxes.
     const ingestBoxes = (state: BeyondAtcState): void => {
       if (!live) return
+      const remembered = uiMemory().taxiRoute
       const box = boxTaxiClearance(state.infoBoxes)
       if (!box) return
       const key = JSON.stringify(box)
-      if (key === rememberedBoxKey) return
-      rememberedBoxKey = key
-      rememberedBoxAt = Date.now()
+      if (key === remembered.boxKey) return
+      remembered.boxKey = key
+      remembered.boxAt = Date.now()
       let next: TaxiClearance = { ...box, ...startOf(positionRef.current) }
-      if (rememberedHoldShort && Date.now() - rememberedHoldShort.at <= HOLD_SHORT_PAIR_MS) {
-        next = withHoldShort(next, rememberedHoldShort.runway)
+      if (remembered.holdShort && Date.now() - remembered.holdShort.at <= HOLD_SHORT_PAIR_MS) {
+        next = withHoldShort(next, remembered.holdShort.runway)
       }
-      rememberedClearance = next
+      remembered.clearance = next
       setClearance(next)
     }
     window.winglog.beyondAtcGetTranscript().then(ingest, () => undefined)
@@ -204,16 +194,16 @@ export function useTaxiRouteHighlight({
   // arrival's taxi clearance is never thrown away even if the phase lags behind touchdown;
   // anything heard while airborne is only hidden until the aircraft is down.
   const departed = phase !== null && DEPARTED_PHASES.has(phase)
-  const [wasDeparted, setWasDeparted] = useState(rememberedDeparted)
+  const [wasDeparted, setWasDeparted] = useState(uiMemory().taxiRoute.departed)
   if (departed !== wasDeparted) {
     setWasDeparted(departed)
     if (departed) setClearance(null)
   }
   useEffect(() => {
-    rememberedDeparted = wasDeparted
+    uiMemory().taxiRoute.departed = wasDeparted
   }, [wasDeparted])
   useEffect(() => {
-    rememberedClearance = clearance
+    uiMemory().taxiRoute.clearance = clearance
   }, [clearance])
 
   const icao = clearance ? clearanceAirport(clearance, depIcao, arrIcao, segmentsByIcao) : null
