@@ -541,7 +541,8 @@ if (!gotSingleInstanceLock) {
             mode: (process.env.WINGLOG_E2E_REPLAY_MODE as ReplayMode | undefined) ?? 'paced',
             speedMultiplier: process.env.WINGLOG_E2E_REPLAY_SPEED
               ? Number(process.env.WINGLOG_E2E_REPLAY_SPEED)
-              : undefined
+              : undefined,
+            holdUntilReleased: process.env.WINGLOG_E2E_REPLAY_HOLD === '1'
           })
         : new SimConnectService()
       ipcMain.handle(IpcChannels.simConnectionStatusGet, () => simConnectService.getStatus())
@@ -599,9 +600,14 @@ if (!gotSingleInstanceLock) {
         }
       })
 
+      // An e2e replay held until tracking starts (WINGLOG_E2E_REPLAY_HOLD) plays from here.
+      const releaseReplay = (): void => {
+        if (simConnectService instanceof ReplaySimConnectService) simConnectService.release()
+      }
       ipcMain.handle(IpcChannels.trackingStart, (_event, flightId: number) => {
         autoStartDetector.disarm()
         trackingController.start(flightId)
+        releaseReplay()
       })
       ipcMain.handle(IpcChannels.trackingStartFree, (_event, input: StartFreeFlightInput) => {
         let simRegistration: string | null = null
@@ -627,6 +633,7 @@ if (!gotSingleInstanceLock) {
           arrIcao: normalizeFreeFlightIcao(input.arrIcao),
           flightNumber: input.flightNumber?.trim() || null
         })
+        releaseReplay()
         scheduleBackgroundSync()
         return flightId
       })
