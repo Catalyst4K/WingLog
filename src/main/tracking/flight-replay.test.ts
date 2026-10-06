@@ -21,6 +21,7 @@ import { getLandingByFlight, listLandingsByFlight } from '../db/landing-repo'
 import { listTrackPoints } from '../db/track-point-repo'
 import { ReplaySimConnectService } from '../sim/ReplaySimConnectService'
 import { TrackingController } from './TrackingController'
+import { dbFlightStore } from '../db/flight-store'
 
 function fixturePath(name: string): string {
   return new URL(`./__fixtures__/${name}`, import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')
@@ -39,7 +40,7 @@ describe('flight replay harness (real fixture)', () => {
       const aircraft = createAircraft(db, { registration: 'REPLAY', icaoType: replay.header.aircraftType })
       const flight = createFlight(db, { aircraftId: aircraft.id, depIcao: 'EGLL', arrIcao: 'EGCC' })
 
-      const controller = new TrackingController(db, replay)
+      const controller = new TrackingController(dbFlightStore(db), replay)
 
       const completedFlightId = await new Promise<number>((resolve, reject) => {
         controller.on('completed', resolve)
@@ -95,7 +96,7 @@ describe('flight replay harness (real fixture) — multiple landings', () => {
       const aircraft = createAircraft(db, { registration: 'REPLAY', icaoType: replay.header.aircraftType })
       const flight = createFlight(db, { aircraftId: aircraft.id, depIcao: 'VHHH', arrIcao: 'VHHH' })
 
-      const controller = new TrackingController(db, replay)
+      const controller = new TrackingController(dbFlightStore(db), replay)
 
       // This fixture ends with a real crash, not a normal shutdown (parking brake never
       // sets, engines never stop) — 'completed' never fires, only replayComplete. That
@@ -150,7 +151,7 @@ describe('flight replay harness (real fixture) — free flight tracking', () => 
       if (!firstTelemetry) throw new Error('fixture has no telemetry')
       const aircraft = createAircraft(db, { registration: 'G-TEST', icaoType: 'C172' })
 
-      const controller = new TrackingController(db, replay)
+      const controller = new TrackingController(dbFlightStore(db), replay)
 
       // Resolved from position, the same way the real "Start a free flight" dialog's
       // Departure field would — nothing was ever filed for this flight, the whole point of

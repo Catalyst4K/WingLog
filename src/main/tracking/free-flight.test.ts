@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import type { SimTelemetry } from '@shared/ipc'
 import { createDb, type WingLogDb } from '../db/client'
-import { rememberAircraftForTitle } from '../db/settings-repo'
+import { getAircraftIdForTitle, rememberAircraftForTitle } from '../db/settings-repo'
 import { getFreeFlightPrefill, seedPhaseFromTelemetry } from './free-flight'
 
 function telemetry(overrides: Partial<SimTelemetry>): SimTelemetry {
@@ -80,7 +80,7 @@ describe('getFreeFlightPrefill', () => {
   })
 
   it('composes identity, a suggested departure from position, and no remembered aircraft for an unseen title', () => {
-    const result = getFreeFlightPrefill(db, {
+    const result = getFreeFlightPrefill((title) => getAircraftIdForTitle(db, title), {
       atcId: 'F-WWTS',
       atcModel: 'A350-900',
       title: 'A350-900 (Default Cabin)',
@@ -96,7 +96,7 @@ describe('getFreeFlightPrefill', () => {
 
   it('returns the remembered aircraft id for a title seen before', () => {
     rememberAircraftForTitle(db, 'FenixA320 IAE SL', 42)
-    const result = getFreeFlightPrefill(db, {
+    const result = getFreeFlightPrefill((title) => getAircraftIdForTitle(db, title), {
       atcId: 'G-EUYY',
       atcModel: 'ATCCOM.AC_MODEL A320.0.text',
       title: 'FenixA320 IAE SL',
@@ -107,7 +107,7 @@ describe('getFreeFlightPrefill', () => {
   })
 
   it('leaves suggestedDepIcao null when nothing vendored is within range', () => {
-    const result = getFreeFlightPrefill(db, {
+    const result = getFreeFlightPrefill((title) => getAircraftIdForTitle(db, title), {
       atcId: 'N12345',
       atcModel: 'C172',
       title: 'Cessna 172',

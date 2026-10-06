@@ -1,9 +1,9 @@
 /**
  * Runs the track cleanup (resume-cleanup.ts) over one flight's stored track and saves what it finds.
  */
-import type { WingLogDb } from '../db/client'
-import { applyTrackCleanup, listTrackPoints } from '../db/track-point-repo'
-import { computeTrackCleanup, type TrackCleanupResult } from './resume-cleanup'
+import type { WingLogDb } from './client'
+import { applyTrackCleanup, listTrackPoints } from './track-point-repo'
+import { computeTrackCleanup, type TrackCleanupResult } from '../tracking/resume-cleanup'
 
 /**
  * Runs resume-cleanup.ts's pure function over one flight's full current `track_point`

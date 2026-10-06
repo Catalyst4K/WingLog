@@ -10,7 +10,7 @@ import {
   positionRelativeToRunway
 } from '../airports/landing-maths'
 import { distanceFromUsableThresholdM, findRunwayEnd, type RunwayEnd } from '../airports/runway-lookup'
-import type { NewLanding } from '../db/landing-repo'
+import type { NewLanding } from '@shared/ipc'
 import type { TouchdownSeverity } from '../sim/SimConnectSource'
 
 // Sanity clamp on G-force alone (PLAN.md §7's open risk register: a payware aircraft with

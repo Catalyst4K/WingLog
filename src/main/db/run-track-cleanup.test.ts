@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import type { NewTrackPoint } from '@shared/ipc'
-import { createDb, type WingLogDb } from '../db/client'
-import { createAircraft } from '../db/aircraft-repo'
-import { createFlight } from '../db/flight-repo'
-import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
+import { createDb, type WingLogDb } from './client'
+import { createAircraft } from './aircraft-repo'
+import { createFlight } from './flight-repo'
+import { createTrackPoint, listTrackPoints } from './track-point-repo'
 import { runTrackCleanupForFlight } from './run-track-cleanup'
 
 function samplePoint(flightId: number, overrides: Partial<NewTrackPoint> = {}): NewTrackPoint {

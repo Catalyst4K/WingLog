@@ -5,8 +5,6 @@
 import type { FlightPhase, SimTelemetry } from '@shared/ipc'
 import { parseAircraftIdentity } from '../aircraft-lookup/aircraft-identity'
 import { nearestAirport } from '../airports/airport-search'
-import type { WingLogDb } from '../db/client'
-import { getAircraftIdForTitle } from '../db/settings-repo'
 import { LEVEL_VS_MS, MOVING_MS } from './FlightRecorder'
 
 /**
@@ -59,18 +57,18 @@ export interface FreeFlightPrefill {
  * the Departure field. Read-only: never writes the title memory itself (startFree does that,
  * once the pilot actually confirms an aircraft — see TrackingController.startFree).
  *
- * @param db The database, read only.
+ * @param rememberedAircraftFor The fleet aircraft remembered for a sim title, if any.
  * @param input The sim's ATC id, model, title and position.
  * @returns The aircraft's identity, a suggested departure and a remembered fleet aircraft.
  */
 export function getFreeFlightPrefill(
-  db: WingLogDb,
+  rememberedAircraftFor: (title: string) => number | null | undefined,
   input: { atcId: string; atcModel: string; title: string; latitude: number; longitude: number }
 ): FreeFlightPrefill {
   const identity = parseAircraftIdentity(input)
   return {
     ...identity,
     suggestedDepIcao: nearestAirport(input.latitude, input.longitude, FREE_FLIGHT_POSITION_SEARCH_RADIUS_NM),
-    rememberedAircraftId: getAircraftIdForTitle(db, input.title) ?? null
+    rememberedAircraftId: rememberedAircraftFor(input.title) ?? null
   }
 }

@@ -1356,6 +1356,34 @@ export interface AircraftLastParked {
   stand: string
 }
 
+/** One interval the sim was paused, wall-clock ISO timestamps — see completeFlight's own
+ *  comment for why this needs to exist at all. */
+export interface PausedInterval {
+  startIso: string
+  endIso: string
+}
+
+/** A flight started with no SimBrief plan (free-flight tracking), as stored. */
+export interface NewFreeFlightInput {
+  /** Null when the pilot chose not to add this aircraft to the fleet — simRegistration/
+   *  simIcaoType are then required instead, carrying its identity on the flight row itself. */
+  aircraftId: number | null
+  simRegistration?: string | null
+  simIcaoType?: string | null
+  /** The raw sim `title` at free-flight start — only meaningful alongside a null aircraftId,
+   *  same convention as simRegistration/simIcaoType. Lets a later Logbook "Add to fleet"
+   *  (linkAircraftToFlight) seed the title -> aircraft memory retroactively. */
+  simTitle?: string | null
+  depIcao: string
+  arrIcao: string
+  flightNumber: string | null
+  fuelOutKg: number
+  simVersion?: string
+}
+
+/** A landing as captured, before the database gives it an id. */
+export type NewLanding = Omit<Landing, 'id'>
+
 /** One runway end from the sim's navdata cache (`navdata_runway`). */
 export interface NavdataRunway {
   ident: string
