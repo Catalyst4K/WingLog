@@ -1,3 +1,6 @@
+/**
+ * Runs the track cleanup (resume-cleanup.ts) over one flight's stored track and saves what it finds.
+ */
 import type { WingLogDb } from '../db/client'
 import { applyTrackCleanup, listTrackPoints } from '../db/track-point-repo'
 import { computeTrackCleanup, type TrackCleanupResult } from './resume-cleanup'
@@ -10,6 +13,10 @@ import { computeTrackCleanup, type TrackCleanupResult } from './resume-cleanup'
  * (the Logbook "Clean up track" button, main/index.ts — flightdeck-backend's docs/plans/
  * done/resume-track-cleanup.md). Returns undefined when nothing changed; `applyTrackCleanup`
  * itself already no-ops a write for an empty result, so a no-op call here is cheap.
+ *
+ * @param db The database.
+ * @param flightId The flight.
+ * @returns What changed, or undefined when nothing did.
  */
 export function runTrackCleanupForFlight(db: WingLogDb, flightId: number): TrackCleanupResult | undefined {
   const points = listTrackPoints(db, flightId)

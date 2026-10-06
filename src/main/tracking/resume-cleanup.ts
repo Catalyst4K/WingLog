@@ -101,7 +101,12 @@ function headingDeltaDeg(a: number, b: number): number {
  *  genuine sim-pause gaps (up to 2.7 hours, under half a km of drift each). `simRate`
  *  matters because at e.g. 4x time compression the aircraft legitimately covers four times
  *  the distance per wall-clock second; without it, cruise under time compression would
- *  look like teleporting. */
+ *  look like teleporting.
+ *
+ * @param a The earlier point.
+ * @param b The next point.
+ * @returns Whether b is further from a than the aircraft could have flown.
+ */
 export function isPhysicallyImpossibleJump(a: CleanupInputPoint, b: CleanupInputPoint): boolean {
   const dtSec = (Date.parse(b.tsUtc) - Date.parse(a.tsUtc)) / 1000
   if (dtSec <= 0) return false
@@ -115,7 +120,13 @@ export function isPhysicallyImpossibleJump(a: CleanupInputPoint, b: CleanupInput
 /** Case B: scans backwards from the resume boundary (the whole pre-resume track, not just
  *  the immediately preceding segment — a save could plausibly predate more than one
  *  resume) for the closest earlier point the re-entry point effectively rewound onto.
- *  Returns -1 when nothing matches (most restores don't rewind at all — case A alone). */
+ *  Returns -1 when nothing matches (most restores don't rewind at all — case A alone).
+ *
+ * @param points The flight's track.
+ * @param boundaryIndex Where the window opened.
+ * @param reentry The re-entry point.
+ * @returns The index of the point rewound onto, or -1.
+ */
 function findRewindJoinIndex(
   points: CleanupInputPoint[],
   boundaryIndex: number,
@@ -155,7 +166,11 @@ function findRewindJoinIndex(
  * window that doesn't resolve as Case A (no second jump before timeout, or one that lands
  * nowhere near the anchor) gets the same treatment Phase 1 already gives an explicit
  * `resume()`: nothing excluded, just a new segment so the map stops drawing a straight
- * line across it. */
+ * line across it.
+ *
+ * @param points The flight's track, in order.
+ * @returns The points to exclude, and new segments for the rest.
+ */
 export function computeTrackCleanup(points: CleanupInputPoint[]): TrackCleanupResult {
   const exclusions: TrackCleanupResult['exclusions'] = []
   const excludedIds = new Set<number>()
@@ -175,6 +190,39 @@ export function computeTrackCleanup(points: CleanupInputPoint[]): TrackCleanupRe
     for (let k = activeWindow.boundaryIndex; k < uptoIndexExclusive; k++) {
       segmentReassignments.set(points[k].id, newSegment)
     }
+  }
+
+  /**
+   * Excludes points[from..to) for `reason`, each at most once.
+   *
+   * @param from The first index excluded.
+   * @param to The index after the last.
+   * @param reason Why.
+   */
+  function exclude(from: number, to: number, reason: TrackCleanupResult['exclusions'][number]['reason']): void {
+    for (let k = from; k < to; k++) {
+      if (excludedIds.has(points[k].id)) continue
+      exclusions.push({ id: points[k].id, reason })
+      excludedIds.add(points[k].id)
+    }
+  }
+
+  /**
+   * A window resolved as a restore by the jump into points[reentryIndex].
+   *
+   * @param boundaryIndex Where the window opened.
+   * @param reentryIndex The real re-entry point.
+   */
+  function resolveAsRestore(boundaryIndex: number, reentryIndex: number): void {
+    // Case A: everything from the boundary up to the re-entry point is the
+    // spawn-then-fly-back junk.
+    exclude(boundaryIndex, reentryIndex, 'resume-spurious')
+    // Case B: did the sim effectively rewind onto the already-flown track from here? The
+    // join point itself is where the trail should now run through, so it survives; only
+    // what came strictly after it, up to the anchor, is superseded. A join on the anchor
+    // itself (the ordinary Case A outcome, not a rewind) excludes nothing more.
+    const joinIndex = findRewindJoinIndex(points, boundaryIndex, points[reentryIndex])
+    if (joinIndex !== -1) exclude(joinIndex + 1, boundaryIndex, 'resume-superseded')
   }
 
   for (let i = 1; i < points.length; i++) {
@@ -204,26 +252,7 @@ export function computeTrackCleanup(points: CleanupInputPoint[]): TrackCleanupRe
       (window.openedByResume || haversineKm(points[window.boundaryIndex - 1], b) <= CASE_A_LANDING_RADIUS_KM)
 
     if (window != null && resolvesAsRestore) {
-      // Case A: everything from the boundary through `a` is the spawn-then-fly-back junk;
-      // `b` is the real re-entry point.
-      for (let k = window.boundaryIndex; k <= i - 1; k++) {
-        if (excludedIds.has(points[k].id)) continue
-        exclusions.push({ id: points[k].id, reason: 'resume-spurious' })
-        excludedIds.add(points[k].id)
-      }
-      // Case B: did the sim effectively rewind onto the already-flown track from here? Q
-      // itself (joinIndex) is the point the trail should now run through, so it survives —
-      // only what came strictly after it, up to the anchor, is superseded. A join that
-      // lands on the anchor itself (the ordinary, expected Case A outcome, not a rewind)
-      // naturally excludes nothing more here, since there's nothing strictly between them.
-      const joinIndex = findRewindJoinIndex(points, window.boundaryIndex, b)
-      if (joinIndex !== -1) {
-        for (let k = joinIndex + 1; k < window.boundaryIndex; k++) {
-          if (excludedIds.has(points[k].id)) continue
-          exclusions.push({ id: points[k].id, reason: 'resume-superseded' })
-          excludedIds.add(points[k].id)
-        }
-      }
+      resolveAsRestore(window.boundaryIndex, i)
       activeWindow = null
     } else if (activeWindow) {
       // A second jump inside a jump-opened window, but it didn't land back near where the

@@ -1,3 +1,8 @@
+/**
+ * Plays a recorded flight (a capture or fixture) to TrackingController in place of the live sim:
+ * the replay harness behind the scenario tests, the e2e tests and the simulations
+ * (flightdeck-backend docs/plans/done/flight-replay-harness.md).
+ */
 import { EventEmitter } from 'node:events'
 import { readFileSync } from 'node:fs'
 import type { SimConnectionStatus, SimTelemetry } from '@shared/ipc'
@@ -82,7 +87,11 @@ export class ReplaySimConnectService extends EventEmitter<ReplaySimConnectServic
   private readonly holdUntilReleased: boolean
   private holdTimer: NodeJS.Timeout | undefined
 
-  /** @param fixture A fixture file's path, or one already parsed (a transformed capture). */
+  /**
+   * @param fixture A fixture file's path, or one already parsed (a transformed capture).
+   *
+   * @param options Instant or paced, the speed, and whether to hold at the first tick.
+   */
   constructor(fixture: string | ParsedFlightFixture, options: ReplaySimConnectServiceOptions = {}) {
     super()
     this.mode = options.mode ?? 'instant'

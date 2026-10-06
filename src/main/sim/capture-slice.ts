@@ -30,7 +30,12 @@ export interface SliceOptions {
   notes: string
 }
 
-/** `Callsign: {"full": ..., "shortForm": ...}` from BeyondATC, if the capture has one. */
+/**
+ * `Callsign: {"full": ..., "shortForm": ...}` from BeyondATC, if the capture has one.
+ *
+ * @param events The capture's events.
+ * @returns The callsign, full and short, or null.
+ */
 function capturedCallsign(events: FlightFixtureEvent[]): { full: string; shortForm: string } | null {
   for (const event of events) {
     if (event.type !== 'beyondatc' || event.direction !== 'in') continue
@@ -47,7 +52,13 @@ function capturedCallsign(events: FlightFixtureEvent[]): { full: string; shortFo
   return null
 }
 
-/** Every identifier to replace, longest first so a full callsign goes before its short form. */
+/**
+ * Every identifier to replace, longest first so a full callsign goes before its short form.
+ *
+ * @param events The capture's events.
+ * @param extra Replacements asked for by hand.
+ * @returns [found, replacement] pairs.
+ */
 function replacementsFor(events: FlightFixtureEvent[], extra: [string, string][]): [string, string][] {
   const pairs: [string, string][] = [...extra]
   const callsign = capturedCallsign(events)
@@ -65,7 +76,12 @@ function replaceAll(text: string, pairs: [string, string][]): string {
   return pairs.reduce((out, [found, replacement]) => out.replace(new RegExp(escapeRegExp(found), 'gi'), replacement), text)
 }
 
-/** Drops BeyondATC's `Settings` lines from a (possibly multi-line) message; null if nothing's left. */
+/**
+ * Drops BeyondATC's `Settings` lines from a (possibly multi-line) message; null if nothing's left.
+ *
+ * @param text One BeyondATC message.
+ * @returns The message without them.
+ */
 function withoutSettings(text: string): string | null {
   const lines = text.split('\n').filter((line) => !/^Settings:/.test(line))
   return lines.some((line) => line.trim() !== '') ? lines.join('\n') : null
@@ -83,6 +99,10 @@ function anonymised(event: FlightFixtureEvent, pairs: [string, string][]): Fligh
 
 /**
  * Returns the anonymised slice. Throws if the window holds no telemetry, which replay can't use.
+ *
+ * @param capture The full capture.
+ * @param options The window, streams, replacements and the slice's own header text.
+ * @returns The slice, offsets restarting at the window's start.
  */
 export function sliceCapture(capture: ParsedFlightFixture, options: SliceOptions): ParsedFlightFixture {
   const fromMs = options.fromMs ?? 0

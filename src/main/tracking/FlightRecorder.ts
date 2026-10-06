@@ -1,3 +1,8 @@
+/**
+ * The flight phase machine: turns each sim tick into a phase (preflight to shutdown) and decides
+ * which ticks become track points. Pure apart from the clock it's given: TrackingController owns
+ * the connection and the database.
+ */
 import type { FlightPhase, NewTrackPoint, SimTelemetry } from '@shared/ipc'
 
 // Thresholds are first-pass estimates (PLAN.md doesn't prescribe exact values) — expect
@@ -88,6 +93,9 @@ export class FlightRecorder {
    * persisted track_point (each point records the phase it was captured in); `hasLanded`
    * from whether the flight row already has an actual_on_utc; `resumeSegment` is one more
    * than the last persisted point's own segment (0 if there were no prior points at all).
+   *
+   * @param flightId The flight being recorded.
+   * @param resume Where to pick up after a restart: the phase, whether it has landed, the next track segment.
    */
   constructor(
     private readonly flightId: number,
@@ -101,23 +109,36 @@ export class FlightRecorder {
   }
 
   /** Whether a point is on a runway, or null when that can't be known (no runway data). Only
-   *  asked when ground speed passes ROLL_SPEED_MS while taxiing. */
+   *  asked when ground speed passes ROLL_SPEED_MS while taxiing.
+   *
+   * @returns True on a runway, false off them, null when unknown.
+   */
   private runwayCheck: (lat: number, lon: number) => boolean | null = () => null
 
   /** Injected by TrackingController from the cached runways (runway-check.ts), so a fast taxi
-   *  isn't taken for the takeoff roll. Without one, the speed-only rule applies. */
+   *  isn't taken for the takeoff roll. Without one, the speed-only rule applies.
+   *
+   * @param check Whether a point (degrees) is on a runway, or null when unknown.
+   */
   setRunwayCheck(check: (lat: number, lon: number) => boolean | null): void {
     this.runwayCheck = check
   }
 
-  /** "Freeze the phase machine on pause" (PLAN.md §7) — no transitions, no points, while true. */
+  /**
+   * "Freeze the phase machine on pause" (PLAN.md §7) — no transitions, no points, while true.
+   *
+   * @param paused Whether the sim is paused.
+   */
   setPaused(paused: boolean): void {
     this.paused = paused
   }
 
   /** Settings → Tracking → "Finish flights automatically". Off, the recorder never enters
    *  'shutdown' on its own — that phase is itself what completes a flight (and what Track
-   *  reads as "auto-completed"), so it mustn't be recorded at all. Finish & save still works. */
+   *  reads as "auto-completed"), so it mustn't be recorded at all. Finish & save still works.
+   *
+   * @param enabled Whether shutdown at the stand finishes the flight.
+   */
   setAutoShutdown(enabled: boolean): void {
     this.autoShutdown = enabled
   }
@@ -127,7 +148,10 @@ export class FlightRecorder {
    *  point from here on needs the new segment too, not just the one(s) the cleanup pass
    *  could already see when it ran. Without this, points recorded after the jump but
    *  before the next one would keep stamping the stale segment, splitting what should be
-   *  one continuous new segment in two. */
+   *  one continuous new segment in two.
+   *
+   * @param newSegment The segment for every point from now on.
+   */
   bumpResumeSegment(newSegment: number): void {
     this.resumeSegment = newSegment
   }
@@ -157,102 +181,158 @@ export class FlightRecorder {
     return { phase: this.phase, point: this.toTrackPoint(telemetry, nowUtc) }
   }
 
+  /**
+   * One tick of the phase machine: the current phase's own transition, then auto-shutdown.
+   *
+   * @param t This tick.
+   */
   private advancePhase(t: SimTelemetry): void {
     switch (this.phase) {
       case 'preflight':
-        if (t.onGround && (t.groundSpeedMs > MOVING_MS || t.engineCombustion1)) {
-          this.phase = 'pushback'
-        }
+        if (t.onGround && (t.groundSpeedMs > MOVING_MS || t.engineCombustion1)) this.phase = 'pushback'
         break
-
       case 'pushback':
         if (t.groundSpeedMs > TAXI_SPEED_MS) this.phase = 'taxi'
         break
-
       case 'taxi':
-        // A genuine go-around/touch-and-go — the aircraft is actually airborne again, not
-        // just a rollout groundspeed blip (that case never leaves the ground) — goes
-        // straight back to 'climb', same as 'landing' below. Checked before the
-        // hasLanded-guarded branch so a real second departure is never mistaken for the
-        // rollout noise that guard exists to block.
-        if (this.goneAround(t)) break
-        // Only on a runway, when that's known: flight 230 (VHHH, 2026-10-05) taxied at 35 kt
-        // along the parallel taxiway, 291 m off 25L, and the route was dropped as if departing.
-        if (!this.hasLanded && t.groundSpeedMs > ROLL_SPEED_MS && this.runwayCheck(t.latitude, t.longitude) !== false) {
-          this.phase = 'takeoff'
-        }
+        this.fromTaxi(t)
         break
-
       case 'takeoff':
-        // A rejected takeoff — aborted before ever leaving the ground — has no way back to
-        // 'taxi' without this: the only other exit is !t.onGround, which never happens if
-        // the aircraft decelerates and taxis back instead of departing. Mirrors 'landing'
-        // below (the symmetric case: an aborted roll decelerating back below roll speed).
-        if (!t.onGround) {
-          this.phase = 'climb'
-          break
-        }
-        if (t.groundSpeedMs < ROLL_SPEED_MS) this.phase = 'taxi'
+        this.fromTakeoff(t)
         break
-
       case 'climb':
-        if (this.backOnGround(t)) break
-        this.levelStreak = Math.abs(t.verticalSpeedMs) < LEVEL_VS_MS ? this.levelStreak + 1 : 0
-        if (this.levelStreak >= LEVEL_SUSTAIN_SAMPLES) {
-          this.phase = 'cruise'
-          this.levelStreak = 0
-        }
+        this.fromClimb(t)
         break
-
       case 'cruise':
-        if (this.backOnGround(t)) break
-        this.descentStreak = t.verticalSpeedMs < DESCENT_VS_MS ? this.descentStreak + 1 : 0
-        if (this.descentStreak >= DESCENT_SUSTAIN_SAMPLES) {
-          this.phase = 'descent'
-          this.descentStreak = 0
-          this.levelStreak = 0
-        }
+        this.fromCruise(t)
         break
-
       case 'descent':
-        // Matches M6's own touchdown detection: the on-ground false→true transition.
-        if (t.onGround) {
-          this.phase = 'landing'
-          this.hasLanded = true
-          break
-        }
-        // A routine flight-level step-down sustains a descent rate for well over
-        // DESCENT_SUSTAIN_SAMPLES too, so without this a level-off afterwards would leave
-        // the flight stuck recording as "descent" all the way to touchdown. Levelling off
-        // again before the ground goes back to cruise instead.
-        this.levelStreak = Math.abs(t.verticalSpeedMs) < LEVEL_VS_MS ? this.levelStreak + 1 : 0
-        if (this.levelStreak >= LEVEL_SUSTAIN_SAMPLES) {
-          this.phase = 'cruise'
-          this.levelStreak = 0
-        }
+        this.fromDescent(t)
         break
-
       case 'landing':
-        // Same go-around case as 'taxi' above — a rejected landing / touch-and-go that
-        // never actually slowed through ROLL_SPEED_MS before going around again.
-        if (this.goneAround(t)) break
-        if (t.groundSpeedMs < ROLL_SPEED_MS) this.phase = 'taxi'
+        this.fromLanding(t)
         break
-
       case 'shutdown':
         break
     }
+    this.shutDownIfParked(t)
+  }
 
-    // Reachable from the post-landing 'taxi' phase only — the same speed/brake/engine
-    // state during the initial preflight phase instead drives the pushback transition
-    // above, so there's no ambiguity between "not yet started" and "shut down".
+  /**
+   * From 'taxi': a go-around, or the takeoff roll.
+   *
+   * @param t This tick.
+   */
+  private fromTaxi(t: SimTelemetry): void {
+    // A genuine go-around/touch-and-go — the aircraft is actually airborne again, not
+    // just a rollout groundspeed blip (that case never leaves the ground) — goes
+    // straight back to 'climb', same as 'landing'. Checked before the hasLanded-guarded
+    // branch so a real second departure is never mistaken for the rollout noise that
+    // guard exists to block.
+    if (this.goneAround(t)) return
+    // Only on a runway, when that's known: a fast taxi along a parallel taxiway isn't the
+    // takeoff roll (flight 230, VHHH).
+    if (!this.hasLanded && t.groundSpeedMs > ROLL_SPEED_MS && this.runwayCheck(t.latitude, t.longitude) !== false) {
+      this.phase = 'takeoff'
+    }
+  }
+
+  /**
+   * From 'landing': slowed to taxi speed, or a go-around (a rejected landing or touch-and-go
+   * that never slowed through ROLL_SPEED_MS), as from 'taxi'.
+   *
+   * @param t This tick.
+   */
+  private fromLanding(t: SimTelemetry): void {
+    if (!this.goneAround(t) && t.groundSpeedMs < ROLL_SPEED_MS) this.phase = 'taxi'
+  }
+
+  /**
+   * From 'takeoff': airborne, or a rejected takeoff back to 'taxi'.
+   *
+   * @param t This tick.
+   */
+  private fromTakeoff(t: SimTelemetry): void {
+    // A rejected takeoff — aborted before ever leaving the ground — has no way back to
+    // 'taxi' without the speed check: the only other exit is !t.onGround, which never happens
+    // if the aircraft decelerates and taxis back instead of departing. Mirrors 'landing'.
+    if (!t.onGround) {
+      this.phase = 'climb'
+      return
+    }
+    if (t.groundSpeedMs < ROLL_SPEED_MS) this.phase = 'taxi'
+  }
+
+  /**
+   * From 'climb': level for long enough is cruise.
+   *
+   * @param t This tick.
+   */
+  private fromClimb(t: SimTelemetry): void {
+    if (this.backOnGround(t)) return
+    this.levelStreak = Math.abs(t.verticalSpeedMs) < LEVEL_VS_MS ? this.levelStreak + 1 : 0
+    if (this.levelStreak >= LEVEL_SUSTAIN_SAMPLES) {
+      this.phase = 'cruise'
+      this.levelStreak = 0
+    }
+  }
+
+  /**
+   * From 'cruise': descending for long enough is descent.
+   *
+   * @param t This tick.
+   */
+  private fromCruise(t: SimTelemetry): void {
+    if (this.backOnGround(t)) return
+    this.descentStreak = t.verticalSpeedMs < DESCENT_VS_MS ? this.descentStreak + 1 : 0
+    if (this.descentStreak >= DESCENT_SUSTAIN_SAMPLES) {
+      this.phase = 'descent'
+      this.descentStreak = 0
+      this.levelStreak = 0
+    }
+  }
+
+  /**
+   * From 'descent': touchdown is landing; levelling off again is back to cruise.
+   *
+   * @param t This tick.
+   */
+  private fromDescent(t: SimTelemetry): void {
+    // Matches the touchdown detection: the on-ground false→true transition.
+    if (t.onGround) {
+      this.phase = 'landing'
+      this.hasLanded = true
+      return
+    }
+    // A routine flight-level step-down sustains a descent rate for well over
+    // DESCENT_SUSTAIN_SAMPLES too, so without this a level-off afterwards would leave
+    // the flight stuck recording as "descent" all the way to touchdown.
+    this.levelStreak = Math.abs(t.verticalSpeedMs) < LEVEL_VS_MS ? this.levelStreak + 1 : 0
+    if (this.levelStreak >= LEVEL_SUSTAIN_SAMPLES) {
+      this.phase = 'cruise'
+      this.levelStreak = 0
+    }
+  }
+
+  /**
+   * Taxiing after landing, stopped with the parking brake set and the engines off: shutdown.
+   * Only from the post-landing 'taxi' phase: the same state in 'preflight' drives pushback
+   * instead, so "not yet started" and "shut down" can't be confused.
+   *
+   * @param t This tick.
+   */
+  private shutDownIfParked(t: SimTelemetry): void {
     if (this.autoShutdown && this.phase === 'taxi' && t.groundSpeedMs < MOVING_MS && t.parkingBrakeOn && !t.engineCombustion1) {
       this.phase = 'shutdown'
     }
   }
 
   /** 'landing'/'taxi' -> 'climb' only once airborne for GO_AROUND_AIRBORNE_SAMPLES in a row;
-   *  true while airborne at all, so the caller skips its on-the-ground checks. */
+   *  true while airborne at all, so the caller skips its on-the-ground checks.
+   *
+   * @param t This tick.
+   * @returns Whether the aircraft is airborne.
+   */
   private goneAround(t: SimTelemetry): boolean {
     if (t.onGround) {
       this.airborneStreak = 0
@@ -272,7 +352,11 @@ export class FlightRecorder {
    *  that state (flight 227's own last point), or a circuit that touched down straight from
    *  'climb' without ever reaching 'descent' (flight 198, VHHH). Back to 'landing', which
    *  reaches 'taxi' on speed as usual; one tick back on the runway just after liftoff is
-   *  left alone. */
+   *  left alone.
+   *
+   * @param t This tick.
+   * @returns Whether the phase went back to 'landing'.
+   */
   private backOnGround(t: SimTelemetry): boolean {
     if (!t.onGround) {
       this.groundStreak = 0

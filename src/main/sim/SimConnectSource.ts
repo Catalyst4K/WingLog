@@ -1,3 +1,7 @@
+/**
+ * What TrackingController needs from a sim connection, so the live SimConnectService and the
+ * replay (ReplaySimConnectService) are interchangeable.
+ */
 import type { SimTelemetry } from '@shared/ipc'
 
 /**

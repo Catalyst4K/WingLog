@@ -1,3 +1,7 @@
+/**
+ * The recorded-flight format: a header line, then one timestamped event per line (sim telemetry,
+ * pause, BeyondATC and GSX messages). Shared by the capture, the replay and the fixture tools.
+ */
 import type { SimTelemetry } from '@shared/ipc'
 
 /**
@@ -34,7 +38,12 @@ export interface ParsedFlightFixture {
 }
 
 /** Parses an already-read NDJSON fixture (header line, then one event per line). Throws on
- *  an empty file or a fixture with no telemetry events at all — both unusable for replay. */
+ *  an empty file or a fixture with no telemetry events at all — both unusable for replay.
+ *
+ * @param ndjson The file's text.
+ * @returns The header and events.
+ * @throws On an empty file, or one with no telemetry.
+ */
 export function parseFlightFixture(ndjson: string): ParsedFlightFixture {
   const lines = ndjson.trim().split('\n').filter((line) => line.length > 0)
   if (lines.length === 0) throw new Error('Empty fixture file')
@@ -47,7 +56,12 @@ export function parseFlightFixture(ndjson: string): ParsedFlightFixture {
   return { header, events }
 }
 
-/** The NDJSON text of a fixture, as parseFlightFixture reads it back. */
+/**
+ * The NDJSON text of a fixture, as parseFlightFixture reads it back.
+ *
+ * @param fixture The fixture.
+ * @returns The NDJSON text, ending with a newline.
+ */
 export function formatFlightFixture(fixture: ParsedFlightFixture): string {
   return [fixture.header, ...fixture.events].map((line) => JSON.stringify(line)).join('\n') + '\n'
 }
