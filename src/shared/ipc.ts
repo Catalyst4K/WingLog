@@ -1465,6 +1465,8 @@ export const IpcChannels = {
   syncStatus: 'sync:status',
   appGetVersion: 'app:get-version',
   diagLog: 'diag:log',
+  captureKeepState: 'capture:keep-state',
+  captureKeep: 'capture:keep',
   appOpenGithub: 'app:open-github',
   appOpenManual: 'app:open-manual',
   navdataRefreshAirport: 'navdata:refresh-airport',
@@ -1535,6 +1537,9 @@ export const IpcChannels = {
   setupGetContext: 'setup:get-context',
   setupComplete: 'setup:complete'
 } as const
+
+/** A flight's dev-build capture: none, kept automatically (newest 50), or kept for good. */
+export type CaptureKeepState = 'none' | 'auto' | 'kept'
 
 export interface WingLogApi {
   aircraftList: () => Promise<Aircraft[]>
@@ -1816,6 +1821,11 @@ export interface WingLogApi {
   /** Dev build only: one line to `diag.log` (category 'map', etc.). Does nothing in a normal
    *  build; validated in main like every other channel. */
   diagLog: (category: string, message: string) => Promise<void>
+  /** Dev build only: whether a flight has a full capture, and whether it's kept for good
+   *  ('none' in a normal build). */
+  captureKeepState: (flightId: number) => Promise<CaptureKeepState>
+  /** Dev build only: keeps a flight's capture for good (moves it into `captures/kept/`). */
+  captureKeep: (flightId: number) => Promise<CaptureKeepState>
   /** Opens the GitHub repo in the default browser — a fixed URL, not user/third-party
    *  data, but routed through shell.openExternal like every other external link rather
    *  than a raw <a target="_blank"> (which Electron would otherwise open as a new

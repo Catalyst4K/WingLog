@@ -1,11 +1,11 @@
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SimTelemetry } from '@shared/ipc'
 import { parseFlightFixture } from '../sim/flight-fixture'
 import { ReplaySimConnectService } from '../sim/ReplaySimConnectService'
-import { CAPTURE_FORMAT, FlightCapture, KEPT_DIR, pruneCaptures } from './flight-capture'
+import { CAPTURE_FORMAT, FlightCapture, isFlightId, KEPT_DIR, pruneCaptures } from './flight-capture'
 
 const TICK = { latitude: 22.3089, longitude: 113.9146, groundSpeedMs: 0, onGround: true, title: 'A350' } as SimTelemetry
 
@@ -121,5 +121,47 @@ describe('pruneCaptures', () => {
 
     // The write stream creates its file asynchronously.
     await vi.waitFor(() => expect(readdirSync(dir).sort()).toEqual(['flight-2.ndjson', path.split(/[\\/]/).at(-1)].sort()))
+  })
+})
+
+describe('keeping a capture', () => {
+  it('moves a finished flight’s captures into kept/, where pruning never reaches', () => {
+    const captures = join(dir, 'captures')
+    mkdirSync(captures)
+    writeFileSync(join(captures, 'flight-7-2026-10-01T10-00-00-000Z.ndjson'), '{}\n')
+    writeFileSync(join(captures, 'flight-70-2026-10-01T11-00-00-000Z.ndjson'), '{}\n')
+    const capture = new FlightCapture(captures)
+
+    expect(capture.keepState(7)).toBe('auto')
+    expect(capture.keep(7)).toBe('kept')
+    expect(readdirSync(join(captures, KEPT_DIR))).toEqual(['flight-7-2026-10-01T10-00-00-000Z.ndjson'])
+    // Flight 70 shares the digits, not the flight.
+    expect(capture.keepState(70)).toBe('auto')
+    expect(capture.keepState(8)).toBe('none')
+  })
+
+  it('keeps the flight being recorded once its file is closed', async () => {
+    const captures = join(dir, 'captures')
+    const capture = new FlightCapture(captures)
+    const path = capture.start(9, 'A350')
+    capture.telemetry(TICK)
+
+    expect(capture.keep(9)).toBe('kept')
+    capture.stop()
+
+    await vi.waitFor(() => expect(readdirSync(join(captures, KEPT_DIR))).toEqual([basename(path)]))
+    expect(capture.keepState(9)).toBe('kept')
+  })
+
+  it('has nothing to keep before any capture exists', () => {
+    const capture = new FlightCapture(join(dir, 'never-created'))
+    expect(capture.keep(1)).toBe('none')
+  })
+})
+
+describe('isFlightId', () => {
+  it('accepts only a positive integer, so a renderer value can only name a capture file', () => {
+    expect(isFlightId(232)).toBe(true)
+    expect([0, -1, 1.5, '232', '../x', null].map(isFlightId)).toEqual([false, false, false, false, false, false])
   })
 })

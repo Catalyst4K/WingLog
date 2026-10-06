@@ -10,9 +10,9 @@
  * Retention (Callum, 2026-10-05): the newest KEEP_COUNT captures are kept; anything moved into
  * the `kept/` subfolder is never deleted.
  */
-import { createWriteStream, mkdirSync, readdirSync, statSync, unlinkSync, type WriteStream } from 'node:fs'
+import { createWriteStream, existsSync, mkdirSync, readdirSync, renameSync, statSync, unlinkSync, type WriteStream } from 'node:fs'
 import { join } from 'node:path'
-import type { SimTelemetry } from '@shared/ipc'
+import type { CaptureKeepState, SimTelemetry } from '@shared/ipc'
 import type { FlightFixtureEvent, FlightFixtureHeader } from '../sim/flight-fixture'
 
 /** Captures kept automatically, newest first; older ones are deleted when a new one starts. */
@@ -24,6 +24,22 @@ const EXTENSION = '.ndjson'
 
 /** Identifies a capture file as this format, for the replay to check. */
 export const CAPTURE_FORMAT = 'winglog-capture-2'
+
+export type { CaptureKeepState }
+
+/** The prefix of every capture file for a flight. */
+function capturePrefix(flightId: number): string {
+  return `flight-${flightId}-`
+}
+
+function captureNames(dir: string, flightId: number): string[] {
+  try {
+    return readdirSync(dir).filter((name) => name.startsWith(capturePrefix(flightId)) && name.endsWith(EXTENSION))
+  } catch {
+    // No folder yet: no captures.
+    return []
+  }
+}
 
 export interface CaptureHeader extends FlightFixtureHeader {
   format: typeof CAPTURE_FORMAT
@@ -63,6 +79,9 @@ export class FlightCapture {
   private stream: WriteStream | undefined
   private startMs = 0
   private path: string | undefined
+  private flightId: number | undefined
+  /** Move the open file into kept/ once it's closed (Windows can't rename an open file). */
+  private keepOnStop = false
 
   /**
    * @param dir The captures folder (created if missing).
@@ -71,7 +90,7 @@ export class FlightCapture {
   constructor(
     private readonly dir: string,
     private readonly nowMs: () => number = Date.now,
-    private readonly keep: number = KEEP_COUNT
+    private readonly keepCount: number = KEEP_COUNT
   ) {}
 
   get isRecording(): boolean {
@@ -92,10 +111,11 @@ export class FlightCapture {
   start(flightId: number, aircraftType: string): string {
     this.stop()
     mkdirSync(this.dir, { recursive: true })
-    pruneCaptures(this.dir, this.keep - 1)
+    pruneCaptures(this.dir, this.keepCount - 1)
     this.startMs = this.nowMs()
     const startedAt = new Date(this.startMs).toISOString()
-    this.path = join(this.dir, `flight-${flightId}-${startedAt.replace(/[:.]/g, '-')}${EXTENSION}`)
+    this.path = join(this.dir, `${capturePrefix(flightId)}${startedAt.replace(/[:.]/g, '-')}${EXTENSION}`)
+    this.flightId = flightId
     this.stream = createWriteStream(this.path, { flags: 'a' })
     // A disk error stops the capture, never the app.
     this.stream.on('error', () => this.stop())
@@ -129,9 +149,42 @@ export class FlightCapture {
 
   /** Closes the current file, if any. Safe to call when not recording. */
   stop(): void {
-    this.stream?.end()
+    const { stream, path } = this
+    if (stream && path && this.keepOnStop) stream.on('close', () => this.moveToKept(path))
+    stream?.end()
     this.stream = undefined
     this.path = undefined
+    this.flightId = undefined
+    this.keepOnStop = false
+  }
+
+  /** Whether a flight has a capture, and whether it's kept for good. */
+  keepState(flightId: number): CaptureKeepState {
+    if (captureNames(join(this.dir, KEPT_DIR), flightId).length > 0) return 'kept'
+    if (this.flightId === flightId && this.keepOnStop) return 'kept'
+    return captureNames(this.dir, flightId).length > 0 ? 'auto' : 'none'
+  }
+
+  /**
+   * Keeps a flight's captures for good by moving them into kept/. The file still being written
+   * is moved when the flight ends.
+   *
+   * @returns The flight's state afterwards.
+   */
+  keep(flightId: number): CaptureKeepState {
+    if (this.flightId === flightId) this.keepOnStop = true
+    for (const name of captureNames(this.dir, flightId)) {
+      const path = join(this.dir, name)
+      if (path !== this.path) this.moveToKept(path)
+    }
+    return this.keepState(flightId)
+  }
+
+  private moveToKept(path: string): void {
+    const keptDir = join(this.dir, KEPT_DIR)
+    mkdirSync(keptDir, { recursive: true })
+    const target = join(keptDir, path.slice(this.dir.length + 1))
+    if (existsSync(path)) renameSync(path, target)
   }
 
   private offset(): number {
@@ -141,4 +194,9 @@ export class FlightCapture {
   private write(event: FlightFixtureEvent): void {
     this.stream?.write(`${JSON.stringify(event)}\n`)
   }
+}
+
+/** A flight id from the renderer: a positive integer, so it can only name a capture file. */
+export function isFlightId(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0
 }

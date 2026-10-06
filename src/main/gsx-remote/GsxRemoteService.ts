@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { WebSocket as NodeWebSocket } from 'ws'
+import { NodeServiceSocket, type ServiceSocket, type ServiceSocketCtor } from '../net/service-socket'
 import type {
   GsxRemoteCommand,
   GsxRemoteCommandBar,
@@ -30,7 +30,7 @@ const STATIC_COMMANDS: { id: GsxRemoteCommand['id']; label: string; confirm: boo
  *  plausible real trigger for the same bug, not yet independently reproduced live. Injected
  *  so tests don't need a real GSX install (mirrors SimConnectService's OpenSimConnect
  *  injection). */
-export type WebSocketCtor = typeof NodeWebSocket
+export type WebSocketCtor = ServiceSocketCtor
 
 export const EMPTY_MENU: GsxRemoteMenuState = {
   menuShown: false,
@@ -131,7 +131,7 @@ function isRawSimBrief(value: unknown): value is { status: string; error: string
  * (docs/decisions.md, 2026-09-21).
  */
 export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
-  private ws: InstanceType<WebSocketCtor> | undefined
+  private ws: ServiceSocket | undefined
   private stopped = true
   private reconnectTimer: NodeJS.Timeout | undefined
   private backoffMs = RECONNECT_MIN_MS
@@ -142,7 +142,7 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
   constructor(
     private host: string,
     private port: number,
-    private readonly WebSocketImpl: WebSocketCtor = NodeWebSocket
+    private readonly WebSocketImpl: WebSocketCtor = NodeServiceSocket
   ) {
     super()
   }
@@ -306,7 +306,7 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
     if (this.stopped) return
     this.setStatus({ state: 'connecting', lastError: null })
 
-    let socket: InstanceType<WebSocketCtor>
+    let socket: ServiceSocket
     try {
       socket = new this.WebSocketImpl(`ws://${this.host}:${this.port}/`)
     } catch (err) {
