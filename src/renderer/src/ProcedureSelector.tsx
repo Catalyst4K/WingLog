@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { approachRunway, parseRouteProcedures, pickDefaultApproachIdentifier, type Waypoint } from './route'
 import { arrivalAirport, type ProcedureAirports } from './procedureSelection'
 import { displayIcao } from './display-icao'
+import { uiMemory } from './ui-memory'
 
 /** One procedure dropdown, backed by real navdata (docs/plans/navdata-without-navigraph.md
  *  Phase 3/5) — `options` is whatever's currently cached for this ICAO/kind. No "SimBrief
@@ -15,10 +16,6 @@ import { displayIcao } from './display-icao'
  *  this app (e.g. DispatchView's own aircraft picker). */
 const NONE_OPTION = '__none__'
 
-/** Airports whose approach the pilot has deliberately cleared with "None", so the auto-default
- *  below doesn't put one straight back (including after the Procedures dialog is closed and
- *  reopened, which remounts this component). Keyed by the plan as well as the airports. */
-const approachCleared = new Set<string>()
 
 function ProcedureSelect(props: {
   label: string
@@ -160,7 +157,7 @@ export function ProcedureSelector(props: {
   // guess to get right.
   const approachKey = `${airports.depIcao}>${arrIcao}|${airports.ofpJson?.slice(0, 300) ?? ''}`
   useEffect(() => {
-    if (selection.approachIdent || approachOptions.length === 0 || approachOptionsFor !== arrIcao || approachCleared.has(approachKey)) return
+    if (selection.approachIdent || approachOptions.length === 0 || approachOptionsFor !== arrIcao || uiMemory().approachCleared.has(approachKey)) return
     // The OFP's planned runway is the filed destination's — not applicable to the alternate.
     const plannedRunway = arrIcao === airports.arrIcao ? parseRouteProcedures(airports.ofpJson).arrivalRunway : null
     const candidates = plannedRunway ? approachOptions.filter((o) => approachRunway(o.identifier) === plannedRunway) : approachOptions
@@ -258,8 +255,8 @@ export function ProcedureSelector(props: {
             value={selection.approachIdent}
             options={approachIdentifiers}
             onChange={(v) => {
-              if (v === null) approachCleared.add(approachKey)
-              else approachCleared.delete(approachKey)
+              if (v === null) uiMemory().approachCleared.add(approachKey)
+              else uiMemory().approachCleared.delete(approachKey)
               set({ approachIdent: v, approachTransition: null })
             }}
             disabled={approachIdentifiers.length === 0}

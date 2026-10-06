@@ -68,6 +68,10 @@ export default tseslint.config(
         {
           selector: 'Program > VariableDeclaration[kind=/^(let|var)$/], Program > ExportNamedDeclaration > VariableDeclaration[kind=/^(let|var)$/]',
           message: 'No mutable module-level state: use lazy() or the renderer store (coding-standards.md §4).'
+        },
+        {
+          selector: 'Program > VariableDeclaration > VariableDeclarator > NewExpression[callee.name=/^(Map|Set|WeakMap|WeakSet)$/][arguments.length=0]',
+          message: 'No mutable module-level collections: use lazy() or the renderer store (coding-standards.md §4).'
         }
       ],
       // §5 size and shape
@@ -93,7 +97,7 @@ export default tseslint.config(
     rules: { 'max-lines-per-function': ['warn', { max: 300, skipBlankLines: true, skipComments: true }] }
   },
   {
-    files: ['src/shared/lazy.ts'],
+    files: ['src/shared/lazy.ts', 'src/renderer/src/ui-memory.ts'],
     rules: { 'no-restricted-syntax': 'off' }
   },
   {
