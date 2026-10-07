@@ -12,6 +12,7 @@ import {
   text,
   uniqueIndex
 } from 'drizzle-orm/sqlite-core'
+import { compressedText } from './compressed-text'
 
 // Identity + linkage only, per docs/decisions.md's 2026-09-01 Fleet-simplification entry:
 // all performance data (weights, equip, PBN, wake cat...) lives in the linked SimBrief
@@ -140,7 +141,8 @@ export const flight = sqliteTable(
     towKg: real('tow_kg'),
     ldwKg: real('ldw_kg'),
     ofpId: text('ofp_id'),
-    ofpJson: text('ofp_json'),
+    // The SimBrief OFP, stored compressed (compressed-text.ts): about 70% of the database before that.
+    ofpJson: compressedText('ofp_json'),
     simVersion: text('sim_version'),
     createdAt: text('created_at')
       .notNull()

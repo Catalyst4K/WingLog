@@ -6,6 +6,8 @@
  *
  * With WINGLOG_BENCH_MIGRATE=1 the copy first gets the migrations this build has (the live database has not been opened by this
  * build yet), and the report checks nothing was lost: row counts per table, the integrity check and the foreign key check.
+ * With WINGLOG_BENCH_COMPRESS=1 as well it then compresses the OFPs and compacts the copy, and checks every OFP reads back
+ * byte for byte as it was.
  */
 import { copyFileSync, existsSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -23,6 +25,7 @@ import {
   listCachedTaxiSegments
 } from '../../src/main/db/navdata-repo'
 import { listTrackPoints } from '../../src/main/db/track-point-repo'
+import { compressStoredOfps, reclaimFreeSpace } from '../../src/main/db/ofp-storage'
 import { userDataDir } from './local-data'
 import { simOutputDir } from './report'
 
@@ -48,7 +51,7 @@ function time<T>(fn: () => T): { ms: number; result: T } {
 
 const mb = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)} MB`
 
-it('measures the database', () => {
+it('measures the database', async () => {
   const source = join(userDataDir(), 'winglog.db')
   if (!existsSync(source)) throw new Error(`no database at ${source}`)
   const outDir = simOutputDir('db-benchmark')
@@ -72,6 +75,17 @@ it('measures the database', () => {
         ])
     )
   const rowsBefore = countRows()
+  const compressing = migrating && process.env.WINGLOG_BENCH_COMPRESS === '1'
+  const originals = compressing
+    ? new Map(
+        (
+          sqlite.prepare('SELECT id, ofp_json AS text FROM flight WHERE ofp_json IS NOT NULL').all() as {
+            id: number
+            text: string
+          }[]
+        ).map((r) => [r.id, r.text])
+      )
+    : null
   const out: string[] = [
     '# Database baseline',
     '',
@@ -79,10 +93,6 @@ it('measures the database', () => {
     ''
   ]
 
-  // Storage: bytes per table and index from dbstat, rows per table.
-  const pageSize = (sqlite.pragma('page_size', { simple: true }) as number) ?? 4096
-  const pages = sqlite.pragma('page_count', { simple: true }) as number
-  const free = sqlite.pragma('freelist_count', { simple: true }) as number
   if (migrating) {
     sqlite.pragma('foreign_keys = ON')
     const start = performance.now()
@@ -94,6 +104,22 @@ it('measures the database', () => {
       ''
     )
   }
+  if (originals) {
+    const start = performance.now()
+    const done = await compressStoredOfps(sqlite)
+    const reclaimed = reclaimFreeSpace(sqlite, true)
+    const different = [...originals]
+      .filter(([id, text]) => getFlight(db, id)?.ofpJson !== text)
+      .map(([id]) => id)
+    out.push(
+      `Compressed ${done.converted} OFPs (${mb(done.bytesBefore)} -> ${mb(done.bytesAfter)}, ${done.skipped} skipped) and compacted the file${reclaimed ? ` (${mb(reclaimed.bytesBefore)} -> ${mb(reclaimed.bytesAfter)})` : ' (nothing to reclaim)'} in ${(performance.now() - start).toFixed(0)} ms. Every OFP read back identical: ${different.length === 0 ? `yes, all ${originals.size}` : 'NO, differing flights: ' + different.join(', ')}. Row counts unchanged: ${Object.entries(countRows()).every(([t, n]) => rowsBefore[t] === n)}; integrity_check: ${String(sqlite.pragma('integrity_check', { simple: true }))}.`,
+      ''
+    )
+  }
+  // Storage: bytes per table and index from dbstat, rows per table.
+  const pageSize = (sqlite.pragma('page_size', { simple: true }) as number) ?? 4096
+  const pages = sqlite.pragma('page_count', { simple: true }) as number
+  const free = sqlite.pragma('freelist_count', { simple: true }) as number
   out.push(
     `Pages: ${pages} x ${pageSize} bytes, ${free} free. auto_vacuum: ${String(sqlite.pragma('auto_vacuum', { simple: true }))}.`,
     ''
