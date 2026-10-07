@@ -56,6 +56,10 @@ export function AddFlightToFleetDialog(props: {
 
   const creatingNew = selected === 'new'
 
+  /**
+   * Adds the flight to an existing aircraft, or creates the aircraft first, then closes the dialog. A
+   * failure is shown in the dialog.
+   */
   async function handleSubmit(): Promise<void> {
     setSubmitting(true)
     setError(null)

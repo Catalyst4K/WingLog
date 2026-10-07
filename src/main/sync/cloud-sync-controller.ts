@@ -83,6 +83,11 @@ export class CloudSyncController {
     return this.getStatus()
   }
 
+  /**
+   * Runs a sync cycle, pull then push. Does nothing extra when a sync is already running.
+   *
+   * @returns The sync status afterwards.
+   */
   async syncNow(): Promise<SyncStatus> {
     if (!this.session) throw new Error(t('errors.notLoggedIn'))
     if (this.syncing) return this.getStatus() // already running — don't overlap two syncs

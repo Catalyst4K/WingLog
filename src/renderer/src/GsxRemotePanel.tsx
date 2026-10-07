@@ -410,6 +410,12 @@ function ServiceRow(props: { service: GsxRemoteServiceStatus }): React.JSX.Eleme
   )
 }
 
+/**
+ * The GSX services, with the ones that matter now shown and the rest collapsed.
+ *
+ * @param props The services.
+ * @returns The list, or nothing when there are no services.
+ */
 function ServicesList(props: { services: GsxRemoteServiceStatus[] }): React.JSX.Element | null {
   const { t } = useTranslation()
   if (props.services.length === 0) return null
@@ -443,6 +449,12 @@ function ServicesList(props: { services: GsxRemoteServiceStatus[] }): React.JSX.
   )
 }
 
+/**
+ * The dialog for a GSX prompt that asks for text.
+ *
+ * @param props The prompt, and what to do with the answer or a cancel.
+ * @returns The dialog.
+ */
 function PromptModal(props: {
   prompt: GsxRemotePromptState
   onSubmit: (text: string) => void

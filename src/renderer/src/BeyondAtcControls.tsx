@@ -224,6 +224,13 @@ function FrequencyPicker(props: {
   )
 }
 
+/**
+ * One frequency control: the current value, a choice of known options, and a field to type any other
+ * frequency.
+ *
+ * @param props The label, current frequency and options, the airports they belong to, and the setter.
+ * @returns The row.
+ */
 function FrequencyRow(props: {
   label: string
   current: string | null

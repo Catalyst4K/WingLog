@@ -81,6 +81,15 @@ function requestAirportList(handle: SimConnectConnection): Promise<{ icao: strin
   })
 }
 
+/**
+ * Asks the sim for an airfield's runways and collects the facility records as they arrive. Settles with
+ * whatever arrived when the list ends, the sim raises an exception, or the request times out; it never
+ * rejects.
+ *
+ * @param handle The SimConnect connection.
+ * @param icao The airport.
+ * @returns The runways found, empty when the sim doesn't know the airport.
+ */
 function requestRunways(handle: SimConnectConnection, icao: string): Promise<ParsedRunway[]> {
   return new Promise((resolve) => {
     const runways: ParsedRunway[] = []

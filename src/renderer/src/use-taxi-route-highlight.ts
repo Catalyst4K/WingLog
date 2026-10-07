@@ -64,6 +64,11 @@ const TRACE_LAYER_ID = 'taxi-route-trace-line'
 // meant to read as "your route," not just another taxiway.
 const ROUTE_PAINT = { 'line-color': '#facc15', 'line-width': 3.5, 'line-opacity': 0.95 }
 
+/**
+ * Adds the taxi route highlight layers if the map doesn't have them yet.
+ *
+ * @param map The map.
+ */
 function ensureLayers(map: MapLibreMap): void {
   if (!map.getLayer(HIGHLIGHT_LAYER_ID)) {
     map.addLayer({

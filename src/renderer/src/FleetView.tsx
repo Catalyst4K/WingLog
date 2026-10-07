@@ -153,6 +153,11 @@ export function FleetView(props: {
     }
   }
 
+  /**
+   * Replaces the aircraft being replaced with the chosen one, then refreshes the fleet.
+   *
+   * @param replacementId The aircraft that takes over.
+   */
   async function handleConfirmReplace(replacementId: number): Promise<void> {
     /* v8 ignore start -- defensive only: only ever called (as ReplaceAircraftDialog's
      * onConfirm) while that dialog is mounted, which only happens while replaceTarget is

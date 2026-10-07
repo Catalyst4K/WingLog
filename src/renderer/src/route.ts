@@ -273,6 +273,13 @@ function legEnd(
   return { lat: to.lat, lon: wrapLongitude(to.lon) }
 }
 
+/**
+ * Turns a procedure's legs into route waypoints, skipping legs that name no fix.
+ *
+ * @param legs The procedure legs.
+ * @param segment The route segment the waypoints belong to.
+ * @returns The waypoints, in leg order.
+ */
 function legsToWaypoints(legs: NavdataLeg[], segment: RouteSegment): Waypoint[] {
   const waypoints: Waypoint[] = []
   for (const leg of legs) {

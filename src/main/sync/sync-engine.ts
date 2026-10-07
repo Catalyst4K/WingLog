@@ -159,6 +159,14 @@ function serializeFlight(db: WingLogDb, row: ReturnType<typeof listFlightsForSyn
   }
 }
 
+/**
+ * Applies one pulled flight row to the local database, by uuid. The aircraft it refers to must already
+ * exist.
+ *
+ * @param db The database.
+ * @param row The pulled row.
+ * @returns Whether it applied, or the reason it didn't.
+ */
 function applyFlight(db: WingLogDb, row: SyncRow): ApplyResult {
   const data = parseRowData(row.data)
   if (!data || typeof data.aircraftUuid !== 'string' || typeof data.depIcao !== 'string' || typeof data.arrIcao !== 'string') {
@@ -231,6 +239,14 @@ function serializeFlightInvoice(
   }
 }
 
+/**
+ * Applies one pulled receipt row to the local database, by uuid. The flight it refers to must already
+ * exist.
+ *
+ * @param db The database.
+ * @param row The pulled row.
+ * @returns Whether it applied, or the reason it didn't.
+ */
 function applyFlightInvoice(db: WingLogDb, row: SyncRow): ApplyResult {
   const data = parseRowData(row.data)
   if (!data || typeof data.flightUuid !== 'string' || typeof data.receiptId !== 'string') {

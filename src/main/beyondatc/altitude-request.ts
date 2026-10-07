@@ -109,6 +109,16 @@ export function boxConfirmsLevel(state: BeyondAtcState, label: string, sentAt: n
   )
 }
 
+/**
+ * Resolves with the first non-null result of `check`, tried now and again on every session `event`, or
+ * with null after `timeoutMs`.
+ *
+ * @param session BeyondATC's connection.
+ * @param event The session event that can change the answer.
+ * @param check Returns the wanted value, or null while it is not there yet.
+ * @param timeoutMs How long to wait, milliseconds.
+ * @returns The value `check` returned, or null on timeout.
+ */
 function waitFor<T>(
   session: AltitudeRequestSession,
   event: 'state',

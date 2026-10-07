@@ -271,6 +271,12 @@ function airportNavdataCollector(icao: string): FacilityCollector<FetchedAirport
   const transitionByUniqueRequestId = new Map<number, { legs: ParsedLeg[] }>()
   const approachByUniqueRequestId = new Map<number, FetchedApproach>()
 
+  /**
+   * Adds one facility record from the departures and arrivals request to the navdata being built: a
+   * procedure, then its runway transitions, common legs and enroute transitions under it.
+   *
+   * @param recv The facility record from the sim.
+   */
   const onProcedureRecord = (recv: RecvFacilityData): void => {
     const d = recv.data
     switch (recv.type) {
@@ -311,6 +317,12 @@ function airportNavdataCollector(icao: string): FacilityCollector<FetchedAirport
     }
   }
 
+  /**
+   * Adds one facility record from the approaches request to the navdata being built: an approach, then
+   * its transitions and legs under it.
+   *
+   * @param recv The facility record from the sim.
+   */
   const onApproachRecord = (recv: RecvFacilityData): void => {
     const d = recv.data
     switch (recv.type) {
@@ -388,6 +400,12 @@ const TAXI_PATH_DEFINITIONS = [
   { defId: NavdataDefId.TAXI_PATHS_TYPE_4, type: 4 }
 ] as const
 
+/**
+ * Registers the facility definition that asks the sim for an airport's taxi points, paths, parking
+ * spots and names.
+ *
+ * @param handle The SimConnect connection.
+ */
 function buildTaxiDefinitions(handle: SimConnectConnection): void {
   addAirportIcaoLatLonFields((name) => handle.addToFacilityDefinition(NavdataDefId.TAXI_POINTS, name))
   handle.addToFacilityDefinition(NavdataDefId.TAXI_POINTS, 'N_TAXI_POINTS')

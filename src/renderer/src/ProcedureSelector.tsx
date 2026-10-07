@@ -19,6 +19,12 @@ import { runAsync } from './report-error'
  *  this app (e.g. DispatchView's own aircraft picker). */
 const NONE_OPTION = '__none__'
 
+/**
+ * One procedure picker with a leading 'none' choice.
+ *
+ * @param props The label, value, options, change handler and whether it is disabled.
+ * @returns The picker.
+ */
 function ProcedureSelect(props: {
   label: string
   value: string | null

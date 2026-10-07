@@ -383,6 +383,13 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     })
   }
 
+  /**
+   * Starts tracking a flight. A different flight left active with no progress (no off-block, no track
+   * points) is retired first; the same flight, or one with progress, is refused. Needs the sim
+   * connected for the fuel at start.
+   *
+   * @param flightId The flight to track.
+   */
   start(flightId: number): void {
     if (this.recorder) {
       const stale = this.recorder.getFlightId()

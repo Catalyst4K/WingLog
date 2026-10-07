@@ -29,6 +29,12 @@ function formatObservedAgo(observedUtc: string, t: TFunction): string {
   return t('metarPanel.hAgo', { count: Math.round(minutes / 60) })
 }
 
+/**
+ * The METAR panel's content: a prompt when no airport is set, a loading or error state, or the report.
+ *
+ * @param props The airport, loading state, report and wind speed unit.
+ * @returns The content.
+ */
 function MetarBody(props: {
   icao: string | null
   loading: boolean

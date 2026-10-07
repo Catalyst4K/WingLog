@@ -359,6 +359,10 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
     this.emit('status', status)
   }
 
+  /**
+   * Opens the WebSocket to BeyondATC and wires its open, message, close and error events. A failed or
+   * dropped connection schedules a reconnect.
+   */
   private connect(): void {
     if (this.stopped) return
     this.setStatus({ state: 'connecting', lastError: null })

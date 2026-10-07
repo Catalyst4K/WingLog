@@ -140,6 +140,12 @@ export class SimConnectService extends EventEmitter<SimConnectServiceEvents> {
     this.handle = undefined
   }
 
+  /**
+   * Opens a SimConnect connection and, once open, registers the data definitions and requests. A failed
+   * or lost connection retries after a growing delay.
+   *
+   * @param reconnectDelayMs Wait before the next attempt if this one fails, milliseconds.
+   */
   private connect(reconnectDelayMs = INITIAL_RECONNECT_DELAY_MS): void {
     if (this.stopped) return
     this.setStatus({ state: 'connecting' })
@@ -281,6 +287,13 @@ export class SimConnectService extends EventEmitter<SimConnectServiceEvents> {
     )
   }
 
+  /**
+   * Handles one tick of the fast vertical-speed stream while a landing is expected: keeps a short
+   * window of readings, takes the largest vertical speed in it at ground contact as the touchdown
+   * severity, and stops the stream shortly after.
+   *
+   * @param data The SimConnect response: vertical speed, then on-ground.
+   */
   private handleHighRateTick(data: RawBuffer): void {
     const verticalSpeedMs = data.readFloat64()
     const onGround = data.readInt32() === 1
