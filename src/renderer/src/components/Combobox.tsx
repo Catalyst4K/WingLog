@@ -55,7 +55,7 @@ export function Combobox<T>(props: {
       )
     }, 300)
     return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only a new query searches; the callbacks are new every render
   }, [query])
 
   function handleInput(value: string): void {

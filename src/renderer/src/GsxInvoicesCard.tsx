@@ -201,7 +201,7 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
     // isn't a dependency (only read via `missing`/`has`, never used to decide whether to
     // re-fetch a date already in flight) — including it would refetch on every response,
     // since each response is itself a `rates` update.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rates would refetch on every response
   }, [displayCurrency, invoices])
 
   async function handleRescan(): Promise<void> {
@@ -235,19 +235,25 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
   // Falls back to showing the plain USD total whenever ANY receipt's rate hasn't resolved
   // yet (still loading, or that date's lookup failed) — never a total that's silently
   // converted for some receipts and not others.
+  const convertedTotals = invoicesWithUsd.map((inv) => {
+    const rate = rateFor(inv)
+    return inv.totalUsd != null && rate != null ? inv.totalUsd * rate : null
+  })
   const showConverted =
     displayCurrency !== 'USD' &&
-    invoicesWithUsd.length > 0 &&
-    invoicesWithUsd.every((inv) => rateFor(inv) != null)
+    convertedTotals.length > 0 &&
+    convertedTotals.every((total) => total !== null)
   const displayTotal = showConverted
-    ? invoicesWithUsd.reduce((sum, inv) => sum + inv.totalUsd! * rateFor(inv)!, 0)
+    ? convertedTotals.reduce<number>((sum, total) => sum + (total ?? 0), 0)
     : totalUsd
   const displayCode = showConverted ? displayCurrency : 'USD'
   const formattedTotal = formatMoney(displayTotal, displayCode)
   // Rows convert on exactly the same condition as the total, so the card never mixes a
   // converted total with unconverted rows (or the reverse).
-  const convertedFor = (inv: FlightInvoice): { currency: string; rate: number } | null =>
-    showConverted && inv.totalUsd != null ? { currency: displayCurrency, rate: rateFor(inv)! } : null
+  const convertedFor = (inv: FlightInvoice): { currency: string; rate: number } | null => {
+    const rate = rateFor(inv)
+    return showConverted && inv.totalUsd != null && rate != null ? { currency: displayCurrency, rate } : null
+  }
 
   return (
     <Card className="min-w-72 max-w-2xl flex-1">

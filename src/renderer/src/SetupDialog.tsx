@@ -21,6 +21,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { SegmentedRow, TrackingFields, UnitsFields, type UnitsFieldsProps } from './SettingsFields'
 import { asyncHandler, runAsync } from './report-error'
+import { itemAt } from '@shared/item-at'
 
 /**
  * The first-launch setup (winglog-backend's docs/plans/first-launch-setup.md; Callum,
@@ -47,7 +48,7 @@ export interface SetupDialogProps extends UnitsFieldsProps {
 export function SetupDialog(props: SetupDialogProps): React.JSX.Element {
   const { t } = useTranslation()
   const [index, setIndex] = useState(0)
-  const step: Step = STEPS[index]!
+  const step: Step = itemAt(STEPS, index, 'setup step')
 
   function close(): void {
     runAsync('SetupDialog setupComplete', window.winglog.setupComplete())

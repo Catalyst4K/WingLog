@@ -140,7 +140,7 @@ export function StartFreeFlightDialog(props: {
       })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoading(false))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- prefilled once as the dialog opens, not on every telemetry tick
   }, [props.open])
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]): void {

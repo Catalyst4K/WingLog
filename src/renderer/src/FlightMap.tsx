@@ -120,9 +120,7 @@ const FRAME_REVEAL_FALLBACK_MS = 1500
 // bounds fresh every mount.
 
 function routeKey(route: [number, number][]): string {
-  return route.length === 0
-    ? ''
-    : `${route.length}:${route[0]!.join(',')}:${route[route.length - 1]!.join(',')}`
+  return route.length === 0 ? '' : `${route.length}:${route[0]?.join(',')}:${route.at(-1)?.join(',')}`
 }
 
 interface LineStringFeature {
@@ -576,7 +574,7 @@ export function FlightMap({
     // own lifetime (TrackView and LogbookView each always pass one fixed value), so
     // there's no real remount behavior being traded away here, just an intentionally
     // narrow effect.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the map is created once per instance
   }, [])
 
   // Draw the planned route and its waypoint pins — falls back to nothing if the flight
@@ -751,7 +749,7 @@ export function FlightMap({
   // Takeoff, touchdown and altitude bands, while following: step the zoom out for the climb
   // and back in for the descent and taxi (Callum, 2026-09-30; by altitude 2026-10-02) — once
   // per band change, so a zoom the user sets in between is left alone until the next one.
-  const lastPoint = trackPoints.length > 0 ? trackPoints[trackPoints.length - 1]! : null
+  const lastPoint = trackPoints.at(-1) ?? null
   const followBandRef = useRef<FollowBand | null>(null)
   useEffect(() => {
     const previous = followBandRef.current
@@ -761,7 +759,7 @@ export function FlightMap({
     if (previous === null || next === null || previous === next) return
     mapRef.current.easeTo({ zoom: zoomForBand(next), duration: 1000 })
     // Only on a band change itself.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on a band change
   }, [lastPoint])
 
   // Re-center immediately when follow is switched back on, rather than waiting for the
@@ -772,7 +770,7 @@ export function FlightMap({
     if (last) mapRef.current.easeTo({ center: [last.longitude, last.latitude], duration: 500 })
     // Only on the follow-enabled transition itself — trackPoints already has its own
     // effect above driving the camera while following.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when follow is switched on
   }, [followEnabled])
 
   // Track's map is also `live` before any track points exist (previewing a planned

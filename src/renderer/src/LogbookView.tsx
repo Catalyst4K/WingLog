@@ -43,6 +43,7 @@ import { AddFlightToFleetDialog } from './AddFlightToFleetDialog'
 import { computeChartAxisTicks, formatTickLabel } from './chart-ticks'
 import { displayAltitude } from './display-altitude'
 import { displayIcao } from './display-icao'
+import { landingLabels } from './landing-labels'
 import { FlightMap } from './FlightMap'
 import { GsxInvoicesCard } from './GsxInvoicesCard'
 import { useConfirm } from './hooks/useConfirm'
@@ -184,25 +185,6 @@ const LANDING_TAB_THRESHOLD = 4
  *  data rather than as "which landing is this" (Callum, 2026-09-19). A touchdown with no
  *  resolved airfield falls back to its position in the whole sequence ("Landing 2"). The
  *  runway is still shown inside the card itself. */
-/**
- * Not yet translated — a pure exported function with its own unit tests asserting exact
- * English output, same deliberate gap as flight-label.ts's "this flight"/"flight from X"
- * (docs/plans/v1-2.md Part 3). displayIcao's own "Unknown" fallback (for ZZZZ) is the same
- * kind of gap, already shipped untranslated across Fleet/Dispatch/Track.
- *
- * @param landings The flight's landings, in order.
- * @returns A label for each, e.g. "VHHH 1", "VHHH 2".
- */
-export function landingLabels(landings: { icao: string | null }[]): string[] {
-  const attempts = new Map<string, number>()
-  return landings.map((l, index) => {
-    if (!l.icao) return `Landing ${index + 1}`
-    const attempt = (attempts.get(l.icao) ?? 0) + 1
-    attempts.set(l.icao, attempt)
-    return `${displayIcao(l.icao)} ${attempt}`
-  })
-}
-
 /**
  * Exported so it's directly testable without mounting FlightDetail's FlightMap, which
  * LandingCard has no dependency on itself — LogbookView.test.tsx uses this.
@@ -1117,7 +1099,7 @@ export function LogbookView(props: {
     if (props.initialFlightId != null) props.onInitialFlightConsumed?.()
     // Only ever meant to run once, against the initial prop value — see the state
     // initializer above, which already captured it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once, for the initial prop
   }, [])
 
   function reload(): Promise<void> {
@@ -1204,7 +1186,10 @@ export function LogbookView(props: {
         backToAircraft={cameFromFleet}
         onBack={
           cameFromFleet
-            ? () => props.onBackToAircraft?.(initialFlightOriginAircraftId!)
+            ? () => {
+                if (initialFlightOriginAircraftId != null)
+                  props.onBackToAircraft?.(initialFlightOriginAircraftId)
+              }
             : () => setView({ kind: 'list' })
         }
         onDeleted={() => {

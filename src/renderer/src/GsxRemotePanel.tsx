@@ -304,6 +304,7 @@ function GateSearchBox(props: {
   atcStand: string | null
 }): React.JSX.Element {
   const { t } = useTranslation()
+  const atcStand = props.atcStand
   const [text, setText] = useState('')
   const search = (value: string): void => {
     setText(value)
@@ -321,15 +322,15 @@ function GateSearchBox(props: {
       />
       {/* One click, never automatic (Callum, 2026-10-02): BeyondATC's own stand, for when its
        *  handoff to GSX didn't happen. */}
-      {props.atcStand && (
+      {atcStand && (
         <Button
           type="button"
           variant="outline"
           size="sm"
           className="shrink-0"
-          onClick={() => search(props.atcStand!)}
+          onClick={() => search(atcStand)}
         >
-          {t('gsxRemotePanel.atcStand', { stand: props.atcStand })}
+          {t('gsxRemotePanel.atcStand', { stand: atcStand })}
         </Button>
       )}
     </div>

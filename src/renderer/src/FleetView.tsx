@@ -412,6 +412,7 @@ function AircraftDetail(props: {
 }): React.JSX.Element {
   const { t } = useTranslation()
   const a = props.aircraft
+  const replacedBy = props.replacedBy
   const s = props.stats
   const retired = isRetired(a)
   const replaced = a.replacedByAircraftId !== null
@@ -465,13 +466,13 @@ function AircraftDetail(props: {
       {replaced && (
         <p className="rounded-md bg-muted p-2 text-sm text-muted-foreground">
           {t('fleetView.detail.replacedPrefix')}{' '}
-          {props.replacedBy ? (
+          {replacedBy ? (
             <button
               type="button"
               className="cursor-pointer font-medium text-foreground underline underline-offset-2"
-              onClick={() => props.onViewAircraft(props.replacedBy!.id)}
+              onClick={() => props.onViewAircraft(replacedBy.id)}
             >
-              {props.replacedBy.registration}
+              {replacedBy.registration}
             </button>
           ) : (
             `#${a.replacedByAircraftId}`
@@ -557,7 +558,7 @@ export function FleetView(props: {
     if (props.initialAircraftId != null) props.onInitialAircraftConsumed?.()
     // Only ever meant to run once, against the initial prop value — see the state
     // initializer above, which already captured it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once, for the initial prop
   }, [])
 
   const activeAircraft = aircraft.filter((a) => !isRetired(a))

@@ -16,7 +16,8 @@ import type {
   WingLogApi
 } from '@shared/ipc'
 import i18n from './i18n'
-import { LandingCard, LandingsTable, landingLabels, LogbookView } from './LogbookView'
+import { LandingCard, LandingsTable, LogbookView } from './LogbookView'
+import { landingLabels } from './landing-labels'
 
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() }
@@ -446,17 +447,15 @@ describe('LogbookView list', () => {
 
   it('shows a Free flight badge for a flight tracked with no OFP and a real liftoff, not for a dispatched one', async () => {
     setWinglog({
-      logbookListCompletedFlights: vi
-        .fn()
-        .mockResolvedValue([
-          makeFlight({
-            id: 1,
-            flightNumber: 'FREE1',
-            ofpJson: null,
-            actualOffUtc: '2026-02-01T10:05:00.000Z'
-          }),
-          makeFlight({ id: 2, flightNumber: 'DISPATCHED', ofpJson: '{}' })
-        ]),
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([
+        makeFlight({
+          id: 1,
+          flightNumber: 'FREE1',
+          ofpJson: null,
+          actualOffUtc: '2026-02-01T10:05:00.000Z'
+        }),
+        makeFlight({ id: 2, flightNumber: 'DISPATCHED', ofpJson: '{}' })
+      ]),
       aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
       logbookListFlightScores: vi.fn().mockResolvedValue([])
     })
@@ -1074,7 +1073,9 @@ describe('FlightDetail', () => {
         logbookListCompletedFlights: vi
           .fn()
           .mockResolvedValueOnce([freeFlightNoAircraft()])
-          .mockResolvedValue([freeFlightNoAircraft({ aircraftId: 42, simRegistration: null, simIcaoType: null })]),
+          .mockResolvedValue([
+            freeFlightNoAircraft({ aircraftId: 42, simRegistration: null, simIcaoType: null })
+          ]),
         aircraftList: vi.fn().mockResolvedValueOnce([]).mockResolvedValue([linked]),
         aircraftTypeSearch: vi.fn().mockResolvedValue([]),
         aircraftCreate: vi.fn().mockResolvedValue(linked),
@@ -1087,7 +1088,9 @@ describe('FlightDetail', () => {
       const buttons = await screen.findAllByRole('button', { name: 'Add to fleet' })
       await user.click(buttons[buttons.length - 1])
 
-      await waitFor(() => expect(screen.queryByRole('button', { name: 'Add to fleet' })).not.toBeInTheDocument())
+      await waitFor(() =>
+        expect(screen.queryByRole('button', { name: 'Add to fleet' })).not.toBeInTheDocument()
+      )
       expect(window.winglog.logbookGetFlight).toHaveBeenCalledTimes(2)
     })
   })
@@ -1129,7 +1132,9 @@ describe('FlightDetail', () => {
 
   it('fetches the opened flight in full by id — the list rows carry no OFP text', async () => {
     const ofpJson = JSON.stringify({ general: { route: 'DCT' } })
-    const winglog = setWinglog({ logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight({ id: 4, ofpJson })]) })
+    const winglog = setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight({ id: 4, ofpJson })])
+    })
     const user = userEvent.setup()
     render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
 

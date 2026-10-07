@@ -123,7 +123,6 @@ export function ProcedureSelector(props: {
     // Deliberately narrower than `airports` itself — `ofp`/`previewFlight` are recreated on
     // every parent render (a fresh object each time, even when depIcao/arrIcao haven't
     // changed), and this fetch must only re-fire when the airport pair actually changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [airports.depIcao, airports.arrIcao, arrIcao])
 
   useEffect(() => {
@@ -188,7 +187,7 @@ export function ProcedureSelector(props: {
     const starLastIdent = [...liveWaypoints].reverse().find((w) => w.segment === 'star')?.ident ?? null
     const pick = pickDefaultApproachIdentifier(candidates, starLastIdent)
     if (pick) set({ approachIdent: pick })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- set is new every render; arrIcao and approachKey cover the airports
   }, [
     approachOptions,
     approachOptionsFor,
@@ -209,7 +208,7 @@ export function ProcedureSelector(props: {
     if (!starLastIdent) return
     const transitions = transitionsFor(approachOptions, selection.approachIdent)
     if (transitions.includes(starLastIdent)) set({ approachTransition: starLastIdent })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- set is new every render
   }, [selection.approachIdent, selection.approachTransition, approachOptions, liveWaypoints])
 
   const depRunwayIdents = depRunways.map((r) => r.ident)
