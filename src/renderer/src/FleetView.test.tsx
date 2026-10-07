@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { Aircraft, AircraftLanding, Flight, FleetStats, WingLogApi } from '@shared/ipc'
+import type { Aircraft, AircraftLanding, Flight, FleetStats, LogbookFlight, WingLogApi } from '@shared/ipc'
 import i18n from './i18n'
 import { FleetView } from './FleetView'
 
@@ -757,10 +757,10 @@ describe('FleetView', () => {
   it('shows "Checking flight history…" until the flight count resolves', async () => {
     const source = makeAircraft({ id: 1, registration: 'G-OLDTAIL' })
     const target = makeAircraft({ id: 2, registration: 'G-NEWTAIL' })
-    let resolveFlights: (flights: Flight[]) => void = () => {}
+    let resolveFlights: (flights: LogbookFlight[]) => void = () => {}
     setWinglog({
       aircraftList: vi.fn().mockResolvedValue([source, target]),
-      flightList: vi.fn(() => new Promise<Flight[]>((resolve) => (resolveFlights = resolve)))
+      flightList: vi.fn(() => new Promise<LogbookFlight[]>((resolve) => (resolveFlights = resolve)))
     })
     const user = userEvent.setup()
     render(<FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
@@ -769,7 +769,7 @@ describe('FleetView', () => {
     await pickSelectOption(user, 'G-NEWTAIL — A320')
     expect(await screen.findByText(/Checking flight history…/)).toBeInTheDocument()
 
-    resolveFlights([makeFlight({ aircraftId: 1 })])
+    resolveFlights([{ ...makeFlight({ aircraftId: 1 }), hasOfp: false }])
     expect(await screen.findByText(/1 flight will move/)).toBeInTheDocument()
   })
 

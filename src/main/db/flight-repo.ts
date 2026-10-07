@@ -129,6 +129,29 @@ export function listFlights(db: WingLogDb): Flight[] {
   return db.select().from(flight).where(isNull(flight.deletedAt)).orderBy(desc(flight.id)).all().map(toFlight)
 }
 
+/**
+ * Every flight that isn't deleted, newest first, without the OFP text. The OFP is about 1 MB of JSON per flight, so the
+ * whole list with it was 47 MB over IPC on every Dispatch and Track open (measured 2026-10-08, 200 flights); a page that
+ * needs one OFP fetches that flight by id.
+ *
+ * @param db The database.
+ * @returns The flights, newest first, with `hasOfp` in place of the OFP.
+ */
+export function listFlightSummaries(db: WingLogDb): LogbookFlight[] {
+  const { ofpJson, ...columns } = getTableColumns(flight)
+  return db
+    .select({ ...columns, hasOfp: sql<number>`${ofpJson} is not null` })
+    .from(flight)
+    .where(isNull(flight.deletedAt))
+    .orderBy(desc(flight.id))
+    .all()
+    .map(({ hasOfp, ...row }) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- the OFP is dropped on purpose
+      const { ofpJson: _omitted, ...rest } = toFlight({ ...row, ofpJson: null })
+      return { ...rest, hasOfp: hasOfp === 1 }
+    })
+}
+
 /** An aircraft's completed flights, newest first — Fleet's per-tail flight list
  *  (docs/plans/fleet-redesign.md #2). Filtered in the query rather than in the renderer,
  *  since flightList() is already hundreds of rows on a well-used fleet and only grows.

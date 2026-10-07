@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import type {
   DispatchOfp,
-  Flight,
+  LogbookFlight,
   MapLanguage,
   ProcedureSelection,
   SimTelemetry,
@@ -21,22 +21,28 @@ import { parseTransitionAltitudes } from './route'
 import { StartFreeFlightDialog } from './StartFreeFlightDialog'
 import { runAsync } from './report-error'
 import { ActiveFlightCard, FlightEndedDialog, FlightToolbar, NotTrackingCards } from './track/TrackCards'
-import { useFreeFlightBanner, useTrackedFlights, useTrackTimes } from './track/use-track-state'
+import { useFlightOfp, useFreeFlightBanner, useTrackedFlights, useTrackTimes } from './track/use-track-state'
 
 /**
  * The tracked flight, else the newest planned one, else the OFP Dispatch fetched last.
  *
- * @param activeFlight The tracked flight, if any.
- * @param plannedFlights The planned flights, newest first.
+ * @param flight The tracked flight, else the newest planned one.
+ * @param flightOfp That flight's OFP text, once fetched.
  * @param previewOfp Dispatch's latest OFP, if any.
  * @returns The airports (and OFP) to show, or null.
  */
 function previewAirports(
-  activeFlight: Flight | undefined,
-  plannedFlights: Flight[],
+  flight: LogbookFlight | undefined,
+  flightOfp: { flightId: number; ofpJson: string } | null,
   previewOfp: DispatchOfp | null | undefined
 ): ProcedureAirports | null {
-  return activeFlight ?? plannedFlights[0] ?? previewOfp ?? null
+  if (!flight) return previewOfp ?? null
+  return {
+    depIcao: flight.depIcao,
+    arrIcao: flight.arrIcao,
+    altnIcao: flight.altnIcao,
+    ofpJson: flightOfp && flightOfp.flightId === flight.id ? flightOfp.ofpJson : null
+  }
 }
 
 /**
@@ -178,7 +184,12 @@ export function TrackView(props: {
   // dropdowns below) show up here even before "Save as planned flight". Both a Flight and a
   // DispatchOfp structurally satisfy ProcedureAirports (depIcao/arrIcao/ofpJson), so no
   // conversion needed either way.
-  const airports = previewAirports(activeFlight, plannedFlights, props.previewOfp)
+  const previewFlight = activeFlight ?? plannedFlights[0]
+  const flightOfp = useFlightOfp(previewFlight)
+  const airports = useMemo(
+    () => previewAirports(previewFlight, flightOfp, props.previewOfp),
+    [previewFlight, flightOfp, props.previewOfp]
+  )
   // The live route with the current selection spliced in — the same function Dispatch's
   // preview uses, so the two can never disagree (docs/plans/navdata-without-navigraph.md,
   // Phase 5).

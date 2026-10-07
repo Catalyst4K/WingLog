@@ -5,6 +5,7 @@ import type {
   Aircraft,
   DispatchOfp,
   Flight,
+  LogbookFlight,
   ProcedureSelection,
   SimTelemetry,
   TrackPoint,
@@ -127,7 +128,7 @@ const AIRCRAFT: Aircraft = {
   photoThumbnailUrl: null
 }
 
-function makeFlight(overrides: Partial<Flight> = {}): Flight {
+function fullFlight(overrides: Partial<Flight> = {}): Flight {
   return {
     id: 1,
     aircraftId: 1,
@@ -172,6 +173,12 @@ function makeFlight(overrides: Partial<Flight> = {}): Flight {
     selectedArrivalIcao: null,
     ...overrides
   }
+}
+
+/** A flight as the flight list sends it: no OFP text, a `hasOfp` flag instead. */
+function makeFlight(overrides: Partial<Flight> = {}): LogbookFlight {
+  const { ofpJson, ...rest } = fullFlight(overrides)
+  return { ...rest, hasOfp: ofpJson != null }
 }
 
 function makeDispatchOfp(overrides: Partial<DispatchOfp> = {}): DispatchOfp {
@@ -238,6 +245,7 @@ function buildWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
   return {
     aircraftList: vi.fn().mockResolvedValue([]),
     flightList: vi.fn().mockResolvedValue([]),
+    logbookGetFlight: vi.fn().mockResolvedValue(null),
     trackingGetActive: vi.fn().mockResolvedValue(null),
     trackPointList: vi.fn().mockResolvedValue([]),
     onTrackingPoint: vi.fn(() => () => {}),
@@ -425,7 +433,7 @@ describe('TrackView', () => {
       return screen.getByText(label).closest('div')!.querySelector('input')!
     }
 
-    function activeFree(overrides: Partial<Flight> = {}): Flight {
+    function activeFree(overrides: Partial<Flight> = {}): LogbookFlight {
       return makeFlight({
         id: 5,
         status: 'active',
@@ -1204,10 +1212,13 @@ describe('TrackView', () => {
     })
     setWinglog({
       aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
-      flightList: vi.fn().mockResolvedValue([makeFlight({ ofpJson })])
+      flightList: vi.fn().mockResolvedValue([makeFlight({ id: 12, ofpJson })]),
+      logbookGetFlight: vi.fn().mockResolvedValue(fullFlight({ id: 12, ofpJson }))
     })
     renderTrack()
     await screen.findByText('Start tracking')
+    // Only the previewed flight's OFP is fetched, by id; the list itself carries none.
+    await waitFor(() => expect(window.winglog.logbookGetFlight).toHaveBeenCalledWith(12))
     // No crash / real FlightMap mounted — route derivation from ofpJson is exercised here
     // even though the mocked maplibre-gl gives us nothing visual to assert against.
   })
