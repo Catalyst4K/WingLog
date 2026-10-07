@@ -1,34 +1,19 @@
 /**
- * Facility Data Definition field names and record parsing for the navdata provider
- * (src/main/navdata/) — kept in src/main/sim/ next to simvars.ts, per CLAUDE.md's "SimVar/
- * facility names live in one place" rule. Field lists and read order are sim-confirmed
- * live, 2026-09-08 (winglog-backend's docs/navdata-notes.md, scripts/spike-facilities.ts
- * — same spike, reused here) against a real MSFS 2024: RUNWAY, DEPARTURE/ARRIVAL,
- * RUNWAY_TRANSITION, ENROUTE_TRANSITION and APPROACH_LEG record shapes all match what that
- * spike observed. Registration order = buffer read order, exactly like simvars.ts.
+ * Facility Data Definition field names and record parsing for the navdata provider (src/main/navdata/), kept next to
+ * simvars.ts per CLAUDE.md's "SimVar/facility names live in one place" rule. The field lists and read order are
+ * sim-confirmed (winglog-backend's docs/navdata-notes.md): registration order = buffer read order, exactly like
+ * simvars.ts. APPROACH, APPROACH_TRANSITION and FINAL_APPROACH_LEG are parsed for real approach selection
+ * (navdata-without-navigraph.md Phase 5); `MISSED_APPROACH_LEG` is deliberately unregistered, since nothing needs a
+ * go-around path.
  *
- * APPROACH/APPROACH_TRANSITION/FINAL_APPROACH_LEG parsing added 2026-09-08 for
- * winglog-backend's navdata-without-navigraph.md Phase 5 (real approach selection) —
- * spike-confirmed live the same day against a real MSFS 2024 session
- * (winglog-backend's docs/navdata-notes.md, "approach procedures, previously out of
- * scope" entry). `MISSED_APPROACH_LEG` deliberately still unregistered — nothing built so
- * far needs a go-around path.
- *
- * **Where a procedure's legs actually live is airport/procedure-dependent — confirmed live,
- * 2026-09-08, against real EGLL and VHHH departures/arrivals** (a nested
- * `OPEN APPROACH_LEG`/`CLOSE APPROACH_LEG` block *inside* `RUNWAY_TRANSITION` and
- * `ENROUTE_TRANSITION` works — not something either the original spike or the SDK reference
- * table made obvious, since only a leg *count* was ever requested there before). Every real
- * SID seen at both airports had `N_APPROACH_LEGS = 0` at the procedure's own top level and
- * all its real legs nested inside its one `RUNWAY_TRANSITION` (e.g. EGLL's BPK5K: 6 legs,
- * all under its 09L runway transition); EGLL's STARs were the reverse — `N_RUNWAY_TRANSITIONS
- * = 0` and every real leg at the procedure's own top level (e.g. ALES1H: 6 common legs, no
- * transitions at all). No enroute-transition-nested legs were observed in either airport's
- * data (VHHH's SIDs/STARs register zero enroute transitions outright; EGLL's do too) — the
- * nesting is registered defensively below since it's the same confirmed mechanism, but it's
- * untested against real data with a non-zero `N_ENROUTE_TRANSITIONS`. `getProcedureWaypoints`
- * therefore concatenates all three groups (runway-transition legs, common legs,
- * enroute-transition legs) rather than assuming legs live in only one place.
+ * **Where a procedure's legs live depends on the airport and procedure** (confirmed on EGLL and VHHH,
+ * navdata-notes.md): a nested `OPEN APPROACH_LEG`/`CLOSE APPROACH_LEG` block inside `RUNWAY_TRANSITION` and
+ * `ENROUTE_TRANSITION` works. Every SID seen had `N_APPROACH_LEGS = 0` at its top level and all its legs inside its one
+ * `RUNWAY_TRANSITION` (EGLL's BPK5K: 6 legs under its 09L transition); EGLL's STARs were the reverse:
+ * `N_RUNWAY_TRANSITIONS = 0` and every leg at the top level (ALES1H). No leg nested in an enroute transition was ever
+ * observed (none of those procedures has one), so that nesting is registered defensively and untested against data with
+ * a non-zero `N_ENROUTE_TRANSITIONS`. `getProcedureWaypoints` therefore concatenates all three groups (runway-transition,
+ * common and enroute-transition legs).
  */
 import { type RawBuffer } from 'node-simconnect'
 import { offsetBy } from '@shared/geo'
@@ -39,19 +24,16 @@ export const enum NavdataDefId {
   ARRIVALS = 12,
   APPROACHES = 13,
   TAXI_POINTS = 14,
-  /** Two separate definitions for the same TAXI_PATH shape, filtered to different `TYPE`
-   *  values — a facility data definition's filter (`addFacilityDataDefinitionFilter`) matches
-   *  exactly one value, and which numeric `TYPE` is really "Taxi" vs "Path" is unconfirmed
-   *  (winglog-backend's docs/navdata-notes.md, 2026-09-28) — TYPE 1 and TYPE 4 are both
-   *  fetched and merged rather than guessing one. */
+  /** Two definitions for the same TAXI_PATH shape, filtered to different `TYPE` values: a filter matches exactly one
+   *  value, and which numeric `TYPE` is "Taxi" and which "Path" is unconfirmed (docs/navdata-notes.md), so TYPE 1 and
+   *  TYPE 4 are both fetched and merged. */
   TAXI_PATHS_TYPE_1 = 15,
   TAXI_PATHS_TYPE_4 = 16,
   TAXI_NAMES = 17,
   TAXI_PARKINGS = 18
 }
 
-/** 0/1/2/3 = none/L/R/C — confirmed against two real airports with known real layouts
- *  (EGLL: designators 1/2 only, no C; VHHH: 1/2/3, its real three-runway system) —
+/** 0/1/2/3 = none/L/R/C, confirmed against two airports with known layouts (EGLL: 1/2 only; VHHH: 1/2/3);
  *  docs/navdata-notes.md. */
 const RUNWAY_DESIGNATORS = ['', 'L', 'R', 'C'] as const
 
@@ -220,10 +202,9 @@ export interface ParsedLeg {
   altitude1: number
   altitude2: number
   speedLimit: number
-  /** ROUTE_DISTANCE, metres. Only meaningful for distance-terminated legs — FC (type 9) and
-   *  FD (type 10) — where `fixIdent` is the navaid the leg is anchored to and this is how far
-   *  along `courseDeg` it runs (confirmed live 2026-09-18: EGLL's LAM transition FC leg reads
-   *  20372 m = 11.0 nm, the FMC's "LAM/11"). 0 for every other leg type. */
+  /** ROUTE_DISTANCE, metres. Only meaningful for distance-terminated legs, FC (type 9) and FD (type 10), where
+   *  `fixIdent` is the navaid the leg is anchored to and this is how far along `courseDeg` it runs (EGLL's LAM
+   *  transition FC leg: 20372 m = 11.0 nm, the FMC's "LAM/11"). 0 for every other leg type. */
   routeDistanceM: number
 }
 
@@ -364,14 +345,10 @@ export function parseEnrouteTransition(d: RawBuffer): ParsedEnrouteTransition {
   return { name: d.readString8(), nApproachLegs: d.readInt32() }
 }
 
-/** `APPROACH.TYPE`'s raw integer, mapped with confidence — cross-validated against real
- *  EGLL/VHHH approach counts rather than an authoritative SDK table (none found), 2026-09-08
- *  (winglog-backend's docs/navdata-notes.md): every runway end at both airports had
- *  exactly one `type=4` and, where present, exactly one `type=5`, matching real published
- *  ILS + LOC-only-backup pairs; `type=10` was the only one ever duplicated per runway,
- *  matching real "RNP Y"/"RNP Z" pairs (confirmed via SUFFIX on VHHH 07R's two `type=10`
- *  approaches). An unrecognized code falls back to its own raw number rather than a made-up
- *  label — better to show "TYPE 7" than silently mislabel something as ILS. */
+/** `APPROACH.TYPE`'s raw integer, mapped by cross-validating real EGLL/VHHH approach counts (no authoritative SDK
+ *  table exists; navdata-notes.md): every runway end had exactly one `type=4` and, where present, one `type=5` (ILS +
+ *  LOC-only backup pairs); `type=10` was the only type duplicated per runway ("RNP Y"/"RNP Z", told apart by SUFFIX).
+ *  An unrecognized code falls back to its raw number: better "TYPE 7" than silently mislabelling it ILS. */
 const APPROACH_TYPE_LABELS: Record<number, string> = { 4: 'ILS', 5: 'LOC', 10: 'RNAV' }
 
 /**
@@ -384,11 +361,9 @@ function approachTypeLabel(type: number): string {
   return APPROACH_TYPE_LABELS[type] ?? `TYPE ${type}`
 }
 
-/** `APPROACH.SUFFIX`'s raw integer is the ASCII code of the approach's letter suffix (or
- *  '0' for none) — confirmed clean 2026-09-08: 32/40 approaches seen had no suffix, the rest
- *  were 'Y'/'Z'. Falls back to the raw character for anything outside that observed set
- *  rather than assuming — the encoding itself (ASCII code of a single char) is confirmed,
- *  just not every value it can take.
+/** `APPROACH.SUFFIX`'s raw integer is the ASCII code of the approach's letter suffix ('0' for none); 32 of the 40
+ *  approaches seen had none, the rest 'Y' or 'Z'. Falls back to the raw character for anything outside that observed
+ *  set.
  *
  * @param suffixCode APPROACH.SUFFIX's raw value.
  * @returns The letter, or '' for none.
@@ -471,10 +446,9 @@ export function parseApproachHeader(d: RawBuffer): ParsedApproachHeader {
  *  rather than a duplicate parser. `parseEnrouteTransition`'s name is generic on purpose. */
 export const parseApproachTransition = parseEnrouteTransition
 
-/** `TAXI_POINT`'s `BIAS_X`/`BIAS_Z` are metre offsets from the airport's own reference point —
- *  no LATITUDE/LONGITUDE of their own. Axis convention confirmed live 2026-09-28: `BIAS_X` =
- *  metres east, `BIAS_Z` = metres north, true-north aligned, plain flat local tangent plane —
- *  no rotation or magnetic-variance correction needed (docs/navdata-notes.md).
+/** `TAXI_POINT`'s `BIAS_X`/`BIAS_Z` are metre offsets from the airport's reference point, with no LATITUDE/LONGITUDE of
+ *  their own: `BIAS_X` = metres east, `BIAS_Z` = metres north, true-north aligned on a flat local tangent plane, so no
+ *  rotation or magnetic-variance correction is needed (docs/navdata-notes.md).
  *
  * @param refLatitude The airport's reference point, degrees.
  * @param refLongitude The airport's reference point, degrees.

@@ -63,14 +63,10 @@ export const aircraft = sqliteTable('aircraft', {
   // aircraft keeps its own flights, unlike replacedByAircraftId above. Retired means either
   // column is set — see src/shared/aircraft.ts's isRetired.
   retiredAt: text('retired_at'),
-  // Real-world livery photo thumbnail, from adsbdb's registration lookup (docs/plans/
-  // fleet-redesign.md #3) — stored at lookup time rather than fetched per detail-page
-  // view, matching this app's local-first bias; goes stale if the photo is replaced, an
-  // accepted tradeoff. Deliberately NOT adsbdb's `url_photo` (full-size): spot-checked
-  // live against two real registrations and it 404s consistently on both, while the
-  // thumbnail host serves reliably — see docs/decisions.md, 2026-09-07. No attribution
-  // metadata (photographer name) is available from adsbdb, so the UI credits
-  // airport-data.com as the source, not an individual photographer.
+  // Real-world livery photo thumbnail from adsbdb's registration lookup (docs/plans/fleet-redesign.md #3), stored at lookup
+  // time rather than fetched per detail-page view (local-first); it goes stale if the photo is replaced, an accepted
+  // tradeoff. Deliberately NOT adsbdb's full-size `url_photo`, which 404s consistently while the thumbnail host serves
+  // reliably (docs/decisions.md, 2026-09-07). adsbdb gives no photographer name, so the UI credits airport-data.com.
   photoThumbnailUrl: text('photo_thumbnail_url'),
   // Soft-delete tombstone (winglog-backend/docs/plans/cloud-sync-v2.md #3a) — a hard
   // DELETE is indistinguishable from "never created" once it reaches the sync protocol, so
@@ -362,62 +358,47 @@ export const navdataRunway = sqliteTable('navdata_runway', {
   fetchedAt: text('fetched_at').notNull()
 })
 
-// One row per (icao, kind, identifier) — not per transition. Confirmed live, 2026-09-08
-// (docs/navdata-notes.md), that runway and enroute-transition variation are independent
-// axes on the same procedure, not row-multiplying dimensions: EGLL/VHHH's real SIDs have
-// exactly one runway transition each and zero enroute transitions; VHHH's STARs can have
-// several runway transitions (parallel-runway airports) and still zero enroute transitions.
-// Both lists are kept as metadata here for filtering/listing; navdataProcedureLeg (below)
-// is where the actual per-runway/per-transition leg data lives.
+// One row per (icao, kind, identifier), not per transition: runway and enroute-transition variation are independent axes on
+// the same procedure, not row-multiplying dimensions (docs/navdata-notes.md): EGLL/VHHH's SIDs have exactly one runway
+// transition each and no enroute transitions; VHHH's STARs can have several runway transitions and still none enroute.
+// Both lists are kept as metadata here for filtering and listing; navdataProcedureLeg (below) holds the per-runway and
+// per-transition leg data.
 export const navdataProcedure = sqliteTable('navdata_procedure', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   icao: text('icao').notNull(),
   kind: text('kind', { enum: ['sid', 'star', 'approach'] }).notNull(),
-  // For 'sid'/'star', a raw SimConnect NAME. For 'approach' (added 2026-09-08, Phase 5), a
-  // constructed display label ("ILS 07C", "RNP Z 07R") — approaches have no NAME field of
-  // their own, see facility-fields.ts's ParsedApproachHeader.
+  // For 'sid'/'star', a raw SimConnect NAME. For 'approach', a constructed display label ("ILS 07C", "RNP Z 07R"):
+  // approaches have no NAME field of their own, see facility-fields.ts's ParsedApproachHeader.
   identifier: text('identifier').notNull(),
   // JSON array of runway idents this procedure's RUNWAY_TRANSITION list names, e.g.
   // '["07L","07R"]' — null means no runway transitions were registered for it (applies to
   // any runway), not "applies to none". For 'approach', always a single-element array — an
   // approach belongs to exactly one runway.
   runwayIdentsJson: text('runway_idents_json'),
-  // JSON array of this procedure's ENROUTE_TRANSITION names — null means none registered.
-  // Real airports checked so far (EGLL, VHHH) never had any; kept for when one does. For
-  // 'approach', this is its APPROACH_TRANSITION names instead (e.g. '["LIMES","TD"]') —
-  // confirmed live that a transition's name is the real fix a STAR hands off at, the link
-  // used to auto-connect a chosen STAR onto a chosen approach.
+  // JSON array of this procedure's ENROUTE_TRANSITION names; null means none registered (EGLL and VHHH have none). For
+  // 'approach', its APPROACH_TRANSITION names instead (e.g. '["LIMES","TD"]'): a transition's name is the fix a STAR hands
+  // off at, the link used to auto-connect a chosen STAR onto a chosen approach.
   transitionNamesJson: text('transition_names_json'),
   source: text('source', { enum: ['sim-facility'] }).notNull(),
   fetchedAt: text('fetched_at').notNull()
 })
 
-// One row per leg. `runwayIdent`/`transitionName` are mutually exclusive: both null means
-// a common leg (registered on the procedure itself, outside any transition — where EGLL's
-// STARs put all of theirs); `runwayIdent` set means a leg nested inside that specific
-// RUNWAY_TRANSITION (where EGLL/VHHH's SIDs put all of theirs instead, and VHHH's STARs);
-// `transitionName` set means a leg nested inside that specific ENROUTE_TRANSITION —
-// confirmed as a real, supported nesting live, 2026-09-08, though no real procedure seen
-// so far actually has one (docs/navdata-notes.md). A full flyable path for a chosen
-// (runway, transition) pair is, for a SID: that runway's legs + the common legs + that
-// transition's legs, in that order (initial climb-out, then the shared body, then the exit
-// transition) — confirmed live 2026-09-08. For a STAR it's the reverse: that transition's
-// legs + the common legs + that runway's legs (transition entry, then the shared body, then
-// the runway-specific final legs) — confirmed live 2026-09-11 against a real STAR (YBBN
-// SMOK2A) with a non-empty common route, after the departure order was found to draw two
-// spurious lines across a real arrival (docs/plans/star-leg-ordering.md, winglog-backend).
+// One row per leg. `runwayIdent`/`transitionName` are mutually exclusive: both null means a common leg (registered on the
+// procedure itself, outside any transition; EGLL's STARs put all of theirs there); `runwayIdent` set means a leg nested
+// inside that RUNWAY_TRANSITION (where EGLL/VHHH's SIDs and VHHH's STARs put theirs); `transitionName` set means a leg nested
+// inside that ENROUTE_TRANSITION (a supported nesting, though no real procedure seen has one; docs/navdata-notes.md).
+// A flyable path for a chosen (runway, transition) pair is, for a SID: that runway's legs + the common legs + that
+// transition's legs (initial climb-out, shared body, exit transition). For a STAR it is the reverse: that transition's legs
+// + the common legs + that runway's legs (entry, shared body, runway-specific final legs). A STAR assembled in departure
+// order drew two spurious lines across a real arrival (docs/plans/star-leg-ordering.md, winglog-backend).
 //
-// For `kind: 'approach'` (added 2026-09-08, Phase 5): `runwayIdent` is never set (an
-// approach's one runway is on the procedure row instead, not per-leg); `transitionName`
-// set means a leg inside that APPROACH_TRANSITION (the STAR-handoff/IAF entry legs); both
-// null means the approach's own FINAL_APPROACH_LEG list. Order confirmed live to be the
-// same as a STAR's: transition legs first, then the shared final segment — fly the
-// transition inbound, then the shared final segment down to the runway.
+// For `kind: 'approach'`: `runwayIdent` is never set (an approach's one runway is on the procedure row); `transitionName`
+// set means a leg inside that APPROACH_TRANSITION (the STAR-handoff/IAF entry legs); both null means the approach's own
+// FINAL_APPROACH_LEG list. Order is the same as a STAR's: transition legs first, then the shared final segment.
 //
-// ARINC 424 repeats the boundary fix between adjacent groups (a transition's last leg is
-// the same fix as the common route's first leg, or the common route's last leg the same as
-// a runway transition's first, depending on direction) — a reader assembling the flyable
-// path drops the duplicate at each boundary it crosses (listCachedProcedureLegs does this).
+// ARINC 424 repeats the boundary fix between adjacent groups (a transition's last leg is the same fix as the common
+// route's first leg, or the common route's last leg the same as a runway transition's first, depending on direction), so a
+// reader assembling the flyable path drops the duplicate at each boundary it crosses (listCachedProcedureLegs does this).
 export const navdataProcedureLeg = sqliteTable('navdata_procedure_leg', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   procedureId: integer('procedure_id')

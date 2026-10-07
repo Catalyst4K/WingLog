@@ -15,25 +15,20 @@ import type {
   GsxRemoteServiceStatus
 } from '@shared/ipc'
 
-/** GSX's own four static command-bar buttons — confirmed live 2026-09-23 by reading
- *  `menu.js`'s own `STATIC_COMMANDS` array directly (id/label, verbatim), not reconstructed
- *  from the wire alone (the wire only ever carries icon images keyed by these ids, never
- *  labels). `SETTINGS` is deliberately excluded here — see `GsxRemoteCommand`'s own doc
- *  comment in `src/shared/ipc.ts` for why. */
+/** GSX's own four static command-bar buttons, read verbatim from `menu.js`'s `STATIC_COMMANDS` array (id/label; the wire
+ *  only carries icon images keyed by these ids, never labels). `SETTINGS` is deliberately excluded: see
+ *  `GsxRemoteCommand`'s doc comment in `src/shared/ipc.ts`. */
 const STATIC_COMMANDS: { id: GsxRemoteCommand['id']; label: string; confirm: boolean }[] = [
   { id: 'CUSTOMIZE_AIRPORT_POSITION', label: 'Customize Airport', confirm: false },
   { id: 'CUSTOMIZE_AIRPLANE', label: 'Customize Aircraft', confirm: false },
   { id: 'RESTART_COUATL', label: 'Restart Couatl', confirm: true }
 ]
 
-/** The `ws` npm package's WebSocket, not the global/`node:http` one — switched preventively,
- *  2026-09-28, after confirming live that BeyondAtcService's identical import silently drops
- *  every line after the first in a large multi-line message burst (Node's built-in WebSocket
- *  mishandling fragmentation that `ws` reassembles correctly). GSX's own `commandIcons`/
- *  `commandIconsSvg` snapshots (base64 image data URIs, potentially several KB) are a
- *  plausible real trigger for the same bug, not yet independently reproduced live. Injected
- *  so tests don't need a real GSX install (mirrors SimConnectService's OpenSimConnect
- *  injection). */
+/** The `ws` npm package's WebSocket, not the global/`node:http` one: BeyondAtcService found Node's built-in WebSocket
+ *  silently dropping every line after the first in a large multi-line burst (it mishandles fragmentation that `ws`
+ *  reassembles), and GSX's `commandIcons`/`commandIconsSvg` snapshots (base64 data URIs, potentially several KB) are a
+ *  plausible trigger for the same bug. Injected so tests don't need a real GSX install (like SimConnectService's
+ *  OpenSimConnect). */
 export type WebSocketCtor = ServiceSocketCtor
 
 export const EMPTY_MENU: GsxRemoteMenuState = {
@@ -74,10 +69,8 @@ interface GsxRemoteServiceEvents {
   raw: [{ direction: 'in' | 'out'; text: string }]
 }
 
-/** GSX's own wire message — see docs/gsx-notes.md for the real shape, confirmed live
- *  2026-09-21. A snapshot flattens the whole state onto the message itself; a patch
- *  replaces one top-level key (null drops it) — never deep-merged, matching GSX's own
- *  store.js exactly. */
+/** GSX's own wire message (docs/gsx-notes.md). A snapshot flattens the whole state onto the message itself; a patch
+ *  replaces one top-level key (null drops it), never deep-merged, matching GSX's own store.js. */
 interface SnapshotMessage {
   type: 'snapshot'
   [key: string]: unknown
@@ -107,8 +100,8 @@ function isPromptState(value: unknown): value is GsxRemotePromptState {
   return typeof value === 'object' && value !== null && (value as { kind?: unknown }).kind === 'text'
 }
 
-/** The raw wire `/airport` object — confirmed live 2026-09-21 (docs/gsx-notes.md, round 6):
- *  `{icao, name, country}`. Only `icao`/`name` are used; `country` isn't shown anywhere.
+/** The raw wire `/airport` object, `{icao, name, country}` (docs/gsx-notes.md, round 6). Only `icao`/`name` are used;
+ *  `country` isn't shown anywhere.
  *
  * @param value A wire value.
  * @returns Whether it's an airport.
@@ -117,8 +110,7 @@ function isRawAirport(value: unknown): value is { icao: string; name: string } {
   return typeof value === 'object' && value !== null && typeof (value as { icao?: unknown }).icao === 'string'
 }
 
-/** The raw wire `/commandIcons` or `/commandIconsSvg` object — `{COMMAND_ID: dataUri}`,
- *  confirmed live 2026-09-23.
+/** The raw wire `/commandIcons` or `/commandIconsSvg` object, `{COMMAND_ID: dataUri}`.
  *
  * @param value A wire value.
  * @returns Whether it's an icon map.
@@ -137,14 +129,11 @@ function isRawSimBrief(value: unknown): value is { status: string; error: string
 }
 
 /**
- * Owns the live WebSocket connection to GSX Pro's own "Remote Client" server
- * (winglog-backend's docs/plans/gsx-remote-control.md; real protocol findings in
- * docs/gsx-notes.md — spiked live 2026-09-21, not guessed). Tracks GSX's own state as a
- * flat object, same as GSX's own store.js, and exposes only the three slices WingLog's UI
- * needs: services (read-only status), menu (the real control surface, generic and
- * index-based), and prompt (a separate free-text modal). No embed, no exception to the
- * renderer-never-touches-network rule — this is the whole point of Option C
- * (docs/decisions.md, 2026-09-21).
+ * Owns the live WebSocket connection to GSX Pro's own "Remote Client" server (winglog-backend's
+ * docs/plans/gsx-remote-control.md; protocol findings in docs/gsx-notes.md). Tracks GSX's state as a flat object, like
+ * GSX's own store.js, and exposes the three slices WingLog's UI needs: services (read-only status), menu (the control
+ * surface, generic and index-based) and prompt (a free-text modal). No embed and no exception to the
+ * renderer-never-touches-network rule (docs/decisions.md, 2026-09-21).
  */
 export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
   private ws: ServiceSocket | undefined
@@ -175,9 +164,8 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
   getMenu(): GsxRemoteMenuState {
     const raw = this.state.menu
     const base = isRawMenu(raw) ? raw : EMPTY_MENU
-    // `menuShown` is a genuinely separate top-level key from `menu` itself (docs/gsx-
-    // notes.md, 2026-09-21) — GSX's own client gates on both together, so this combines
-    // them into one value for callers rather than making them track two.
+    // `menuShown` is a separate top-level key from `menu` (docs/gsx-notes.md); GSX's own client gates on both, so this
+    // combines them into one value for callers.
     const search = this.state.search as { active?: unknown; session?: unknown } | undefined
     return {
       ...base,
@@ -192,11 +180,9 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
     return isPromptState(value) ? value : null
   }
 
-  /** `state.airport`/`state.parking`/`state.gateProperties` — three separate top-level wire
-   *  keys combined into one value for callers, same reasoning as getMenu's menuShown combine
-   *  above. Confirmed live 2026-09-21, real VHHH session (docs/gsx-notes.md, round 6). Null
-   *  until GSX has resolved a gate (`airport`/`parking` genuinely absent until then, not just
-   *  empty — confirmed from the same capture's boot-time snapshot).
+  /** `state.airport`/`state.parking`/`state.gateProperties`: three wire keys combined into one value for callers, like
+   *  getMenu's menuShown. `airport` and `parking` are absent (not empty) until GSX has resolved a gate
+   *  (docs/gsx-notes.md, round 6).
    *
    * @returns The gate, or null before GSX has one.
    */
@@ -213,12 +199,10 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
     }
   }
 
-  /** `state.commandIcons`/`commandIconsSvg`/`simbrief` combined into the three
-   *  remotely-triggerable command-bar buttons plus SimBrief's reload state — confirmed live
-   *  2026-09-23 (docs/gsx-notes.md). SVG icons preferred over PNG, mirroring `menu.js`'s own
-   *  `s.commandIconsSvg || s.commandIcons` fallback order. A command with no icon in either
-   *  map yet (GSX hasn't sent one) still appears, with `iconUri: null` — `STATIC_COMMANDS`'
-   *  ids/labels are static, not conditional on the icon having arrived.
+  /** `state.commandIcons`/`commandIconsSvg`/`simbrief` combined into the three remotely-triggerable command-bar buttons
+   *  plus SimBrief's reload state (docs/gsx-notes.md). SVG icons are preferred over PNG, like `menu.js`'s own fallback
+   *  order. A command with no icon in either map yet still appears, with `iconUri: null`: `STATIC_COMMANDS`' ids and labels
+   *  are static.
    *
    * @returns The bar's commands and the SimBrief button.
    */
@@ -295,10 +279,9 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
     this.sendCommand('menu.pick', { index })
   }
 
-  /** The gate-search box's whole current text — GSX's own client sends `menu.search` with
-   *  `{text}` on every keystroke (`menu.js`'s `buildSearchBox()`, read directly 2026-09-28,
-   *  docs/gsx-notes.md round 11). Validated here since it crosses from the renderer: a
-   *  non-string is dropped, and the text is capped well above any real gate name.
+  /** The gate-search box's whole current text: GSX's own client sends `menu.search` with `{text}` on every keystroke
+   *  (docs/gsx-notes.md). Validated here since it crosses from the renderer: a non-string is dropped, and the text is
+   *  capped well above any real gate name.
    *
    * @param text The search text, from the renderer.
    */
@@ -307,12 +290,9 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
     this.sendCommand('menu.search', { text: text.slice(0, MAX_SEARCH_LENGTH) })
   }
 
-  /** Opens the menu tree if closed, closes it if open — the exact same single toggle
-   *  GSX's own client's permanent header sends (`menu.js`'s own `cmd(closed ?
-   *  "menu.toggle" : "menu.close")`). This is the real, only way a genuine GSX remote
-   *  opens the menu without the in-sim panel ever opening — confirmed by reading GSX's
-   *  own shipped client source, 2026-09-21 (docs/gsx-notes.md). Passively mirroring
-   *  `state.menu` was never enough; something has to actually send this. */
+  /** Opens the menu tree if closed, closes it if open: the same single toggle GSX's own client's header sends
+   *  (`menu.toggle`/`menu.close`). It is the only way a remote opens the menu without the in-sim panel opening, and
+   *  passively mirroring `state.menu` is not enough (docs/gsx-notes.md). */
   toggleMenu(): void {
     if (this.getMenu().menuShown) this.sendCommand('menu.close')
     else this.sendCommand('menu.toggle')

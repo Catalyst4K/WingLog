@@ -1,13 +1,9 @@
 /**
- * Landing score (0-100, floored for display) — winglog-backend's docs/plans/
- * landing-scoring.md ("Final design", settled 2026-09-12), reworked by
- * landing-scoring-v2.md (2026-09-20): tapered falloff (fraction^1.5 — see taperedScore's
- * own history for why not a full square) replacing the original straight-line taper, plus a
- * separate dangerous-exceedance deduction. Pure, no I/O:
- * usable from both the main process (which
- * resolves the runway/wake-category lookups this needs real vendored data for — see
- * src/main/db/landing-score-resolver.ts) and the renderer (for tests/rendering only, never
- * for its own I/O — the renderer still never touches the filesystem, per CLAUDE.md).
+ * Landing score (0-100, floored for display): winglog-backend's docs/plans/landing-scoring.md and
+ * landing-scoring-v2.md. A tapered falloff (fraction^1.5, see taperedScore) plus a separate
+ * dangerous-exceedance deduction. Pure, no I/O: used by the main process (which resolves the
+ * runway and wake-category lookups from vendored data, src/main/db/landing-score-resolver.ts) and
+ * by the renderer for rendering and tests only.
  */
 
 import type { LandingScoreCategoryKey, LandingSeverity } from './ipc'
@@ -16,18 +12,12 @@ import { msToFpm } from './units'
 export type WakeCategory = 'L' | 'M' | 'H' | 'J'
 
 /**
- * Real touchdown vertical-speed sweet spots per ICAO wake-turbulence category
- * (resources/icao-aircraft-types.csv's real `wtc` column) — informed judgement calls, not
- * sourced from a per-type manufacturer figure (same honest caveat this replaces carried —
- * see docs/decisions.md, 2026-09-12). `minFpm`/`maxFpm` are the category's real labelled
- * "ideal range" — kept here as the source table's own reference data, not fed directly into
- * computeLandingScore's own zero point: an early version made the score reach 0 right at
- * `minFpm`, which Callum flagged as too harsh (2026-09-13) — a touchdown just under the
- * labelled range is still a perfectly fine, gentle landing in the real world, not a failing
- * one. The score's actual tolerance (see computeLandingScore) is wider and symmetric around
- * `sweetSpotFpm` on both sides. J (only 2 rows of real vendored data — A380) shares H's
- * range (similar gear stroke/inertia) but its sweet spot is nudged 10fpm higher — the
- * A380's longer-travel gear takes a bit more sink rate to feel "right" on touchdown.
+ * Touchdown vertical-speed sweet spots per ICAO wake-turbulence category (resources/icao-aircraft-types.csv's
+ * `wtc` column): judgement calls, not per-type manufacturer figures (decisions.md, 2026-09-12).
+ * `minFpm`/`maxFpm` are the category's labelled ideal range, kept as reference data. The score's
+ * tolerance (see computeLandingScore) is wider and symmetric around `sweetSpotFpm`, because a
+ * touchdown just under the labelled range is still a gentle landing. J (only the A380) shares H's
+ * range, with a sweet spot 10 fpm higher for its longer-travel gear.
  */
 export interface LandingRateBand {
   minFpm: number
@@ -63,10 +53,8 @@ export interface LandingThresholds {
   hardFpm: number
 }
 
-// Derives firm/hard from the category's own ideal rather than a user-editable Settings
-// value (docs/decisions.md, 2026-09-12 — Callum's explicit instruction to remove the old
-// Settings control entirely). Multipliers are a first-pass judgement call, same honesty
-// register as LANDING_RATE_BANDS above.
+// Firm and hard derive from the category's own ideal, not a user setting (decisions.md, 2026-09-12).
+// The multipliers are judgement calls, like LANDING_RATE_BANDS above.
 const FIRM_MULTIPLIER = 2.5
 const HARD_MULTIPLIER = 4.0
 
@@ -124,21 +112,15 @@ export interface LandingScoreInputs {
    *  (no runway match, or a match with no real length data — resolveLandingScore folds both
    *  cases into the same null). */
   runwayLengthM: number | null
-  /** This runway end's real ICAO Annex 14 aiming-point-marking distance from the threshold
-   *  (runway-lookup.ts's aimingPointDistanceForLengthM). distanceFromAimingPoint is the only
-   *  category with two distinct real physical hard limits, not one symmetric tolerance
-   *  either side of ideal (Callum, 2026-09-26, after a WSSS-EGLL landing that touched down
-   *  right at the last real touchdown-zone marker scored ~57/100 instead of 0 under an
-   *  earlier, symmetric-only fix attempt the same day): touching down at the *threshold*
-   *  should score 0 (too short), and touching down at the last real touchdown-zone *marker*
-   *  should score 0 (too long) — the aiming point sits somewhere in between, real and
-   *  usually off-centre (150-400m from the threshold, per aimingPointDistanceForLengthM's own
-   *  bands), not symmetric between those two landmarks. computeLandingScore therefore scores
-   *  this category against two different tolerances depending on which side of the aiming
-   *  point the touchdown fell: `aimingPointDistanceM` itself toward the threshold, and
-   *  touchdownZonePairCountForLengthM(runwayLengthM) pairs of TOUCHDOWN_ZONE_PAIR_SPACING_M
-   *  minus `aimingPointDistanceM` away from it. Null in exactly the same cases as
-   *  runwayLengthM (no runway match, or no real aiming-point data). */
+  /** This runway end's ICAO Annex 14 aiming-point marking distance from the threshold
+   *  (runway-lookup.ts's aimingPointDistanceForLengthM). distanceFromAimingPoint is the only category
+   *  with two hard limits rather than one symmetric tolerance: touching down at the threshold scores 0
+   *  (too short), and at the last touchdown-zone marker scores 0 (too long). The aiming point sits
+   *  between them, usually off-centre (150-400 m from the threshold). computeLandingScore scores it
+   *  against `aimingPointDistanceM` toward the threshold, and against
+   *  touchdownZonePairCountForLengthM(runwayLengthM) pairs of TOUCHDOWN_ZONE_PAIR_SPACING_M minus
+   *  `aimingPointDistanceM` away from it. Null in the same cases as runwayLengthM (no runway match, or
+   *  no aiming-point data). */
   aimingPointDistanceM: number | null
   /** Signed lateral offset from the runway centreline (0 = dead centre). */
   centrelineOffsetM: number | null
@@ -148,16 +130,11 @@ export interface LandingScoreInputs {
   centrelineToleranceM: number | null
 }
 
-/** What "perfect" and "score reaches 0" actually are for one category, in that category's
- *  own natural unit (fpm for verticalSpeed, degrees, g, or metres) — real per-flight numbers
- *  for the two runway-dependent categories (centrelineOffset's tolerance is this runway's
- *  own real half-width). Symmetric for every category, including verticalSpeed (2026-09-13
- *  — see LandingRateBand's own doc comment for why it isn't tighter on the soft side) —
- *  except distanceFromAimingPoint (2026-09-26, see aimingPointDistanceM's own doc comment),
- *  the only one with two distinct real physical hard limits rather than one tolerance
- *  either side of ideal: `tolerance` still holds a single representative value (the long
- *  side, toward the far end of the runway) for any generic consumer, but `toleranceShort`/
- *  `toleranceLong` carry the real asymmetric pair. */
+/** What "perfect" and "score reaches 0" are for one category, in its natural unit (fpm, degrees, g or
+ *  metres): per-flight numbers for the two runway-dependent categories (centrelineOffset's tolerance
+ *  is this runway's half-width). Symmetric for every category except distanceFromAimingPoint (see
+ *  aimingPointDistanceM), where `tolerance` holds one representative value (the long side) for any
+ *  generic consumer, and `toleranceShort`/`toleranceLong` carry the real asymmetric pair. */
 export interface LandingScoreCategoryDetail {
   ideal: number
   /** Deviation from `ideal` (same unit) at which this category's score reaches 0. For
@@ -174,26 +151,16 @@ export interface LandingScoreCategoryDetail {
 }
 
 export interface LandingScoreBreakdown {
-  /** The real computed score — can go negative once the dangerous-exceedance deduction(s)
-   *  apply (docs/decisions.md, 2026-09-20: "the overall score floors at 0 for display
-   *  even though the math can go negative internally"). Flooring for display is the
-   *  caller's job (src/main/db/landing-score-resolver.ts), not this function's — a
-   *  negative value is real information (how far past dangerous this landing was), not
-   *  a bug to hide here. */
+  /** The computed score. It can go negative once the dangerous-exceedance deduction(s) apply
+   *  (decisions.md, 2026-09-20). Flooring for display is the caller's job
+   *  (src/main/db/landing-score-resolver.ts): a negative value says how far past dangerous the
+   *  landing was. */
   overall: number
-  /** Every category whose deviation reached or exceeded its own tolerance this landing,
-   *  mapped to its own scaled danger penalty (see dangerPenaltyForFraction's own doc
-   *  comment) — i.e. where taperedScore would have gone negative before clamping to 0, not
-   *  just "scored badly". Each entry's penalty is subtracted from `overall`, stacking when
-   *  more than one category is this bad at once. Originally vertical-speed-only, a flat 20
-   *  points (Callum's real example was an H category touchdown past 600fpm,
-   *  landing-scoring-v2.md, 2026-09-20); generalised to every category 2026-09-21 after a
-   *  real free-flight landing (VHHH, SF50) bottomed out both crab (-7.19°, tolerance 6.5°)
-   *  and distance-from-aiming-point (~965m past the last real touchdown-zone pair)
-   *  simultaneously with no visible penalty for either; then rescaled the same day from that
-   *  flat 20 to a 1-10 range by how far past tolerance the deviation actually is (Callum:
-   *  "not a fan of the flat -20 penalty... a landing that just grazes the danger line
-   *  shouldn't cost the same as one that blew way past it"). Empty when nothing exceeded. */
+  /** Every category whose deviation reached its tolerance, with its scaled danger penalty (see
+   *  dangerPenaltyForFraction): where taperedScore would have gone negative before clamping, not just
+   *  "scored badly". Each penalty is subtracted from `overall`, stacking when several categories are
+   *  this bad at once (landing-scoring-v2.md; decisions.md, 2026-09-20 and 2026-09-21). Empty when
+   *  nothing exceeded. */
   dangerPenalties: Partial<Record<LandingScoreCategoryKey, number>>
   inputs: {
     verticalSpeed: number
@@ -221,51 +188,28 @@ export interface LandingScoreBreakdown {
 
 const GFORCE_IDEAL = 1.0
 const GFORCE_TOLERANCE = 1.0
-// MSFS's PLANE PITCH DEGREES (simvars.ts) is negative for nose-up, positive for nose-down
-// — confirmed two ways: winglog-backend's docs/simconnect-notes.md (2026-09-03) logged
-// -6.709° at a real touchdown, and a real WingLog user reported (2026-09-12) a consistent
-// flare across multiple of his own logged landings scoring as a pitch warning, which only
-// makes sense if the sign here was backwards. A "4° nose-up" ideal flare is therefore -4 in
-// this SimVar's own convention, not +4.
+// MSFS's PLANE PITCH DEGREES (simvars.ts) is negative for nose-up and positive for nose-down
+// (simconnect-notes.md, 2026-09-03: -6.709° at a real touchdown), so a "4° nose-up" ideal flare is
+// -4 here, not +4.
 const PITCH_IDEAL_DEG = -4
-// Was 8 (range -4° to 12° nose-up). Tightened to 6, 2026-09-21 (Callum): the acceptable
-// range should be -2° to 10° nose-up, with 4° staying the sweet spot — symmetric around the
-// same ideal, just a narrower band either side of it.
+// A tolerance of 6 gives -2° to 10° nose-up around the 4° sweet spot.
 const PITCH_TOLERANCE_DEG = 6
 const BANK_IDEAL_DEG = 0
 const BANK_TOLERANCE_DEG = 8
 const CRAB_IDEAL_DEG = 0
-// Was 15 at first ship. Tightened 2026-09-12 (docs/decisions.md) after a real-use report:
-// Callum flagged that a 5.7° crab on a real landing wasn't showing as a bad category, and
-// argued anything past ~5° residual crab at touchdown is worth a warning — most technique
-// guidance has a pilot removing crab by touchdown (wing-low/de-crab), so a few degrees left
-// over is a genuine, if minor, miss rather than nothing. 9 put 5° clearly under the bad
-// threshold (score 44) under the original straight-line taper.
-// Retightened to 6.5, 2026-09-20 (landing-scoring-v2.md): switching taperedScore's shape
-// from linear to quadratic (fraction^2) is deliberately gentler near ideal, which pushed 5°
-// back up to 69 — silently undoing the exact real-incident fix above. 6.5 restored the same
-// intent under that curve (5° -> 41, clearly under 50). Left unchanged when the curve was
-// retuned again the same day from fraction^2 to fraction^1.5 (see taperedScore's own
-// history) — 6.5 still keeps 5° comfortably under the bad threshold at the new exponent.
-// Set to a flat 5, 2026-09-21: Callum's original intent (2026-09-12, above) was always that
-// 5° should be *the* limit, not just comfortably under some other bad-threshold number — the
-// 6.5 figure crept in only as a side effect of retuning the curve shape, not a deliberate
-// choice to loosen the actual degree limit. 5 now means exactly what it says: 5° of residual
-// crab at touchdown is the line, scoring exactly 0 and triggering the dangerous-exceedance
-// penalty at that point, not somewhere past it.
+// Past ~5° of residual crab at touchdown is worth a warning, since technique guidance has the pilot
+// removing crab by touchdown (decisions.md, 2026-09-12). 5 is the limit itself: 5° scores exactly 0
+// and triggers the dangerous-exceedance penalty at that point. (Earlier values were 15, 9 and 6.5;
+// the curve shape had moved the effective limit, see landing-scoring-v2.md.)
 const CRAB_TOLERANCE_DEG = 5
 
-// ICAO Annex 14 §5.2.6 touchdown-zone marking — pair count by landing distance available
-// (Manual of Aerodrome Standards table, same secondary source runway-lookup.ts's own
-// aimingPointDistanceForLengthM already cites): <900m→1, <1200m→2, <1500m→3, <2400m→4,
-// ≥2400m→6 pairs (no "5 pairs" band). Spaced every 150m, the first pair centred 150m from
-// the (usable, displacement-adjusted) threshold — src/renderer/src/touchdown-diagram.ts's
-// TouchdownDiagram draws these same real positions; this is the one shared home for both so
-// the diagram's own real marking geometry and the score's distanceFromAimingPoint tolerance
-// (pairCount * this spacing, computeLandingScore below) can never quietly drift apart (moved
-// here from that file, 2026-09-13, when the score started needing the same real geometry).
-// The score itself stopped using these as discrete steps 2026-09-21 (see taperedScore's own
-// history) — they now only set how wide the tolerance is, same as every other category.
+// ICAO Annex 14 §5.2.6 touchdown-zone marking: pair count by landing distance available (Manual of
+// Aerodrome Standards table, the same source as runway-lookup.ts's aimingPointDistanceForLengthM):
+// <900m→1, <1200m→2, <1500m→3, <2400m→4, ≥2400m→6 pairs (no "5 pairs" band). Spaced every 150m, the
+// first pair centred 150m from the (usable, displacement-adjusted) threshold. touchdown-diagram.ts's
+// TouchdownDiagram draws these same positions, and the score's distanceFromAimingPoint tolerance uses
+// them too, so this is their one shared home. They set how wide the tolerance is; the score itself is
+// not stepped.
 export const TOUCHDOWN_ZONE_PAIR_SPACING_M = 150
 
 /**
@@ -294,63 +238,38 @@ const WEIGHTS = {
   crab: 10
 } as const
 
-// Landing scoring v2 (winglog-backend's docs/plans/landing-scoring-v2.md, Callum's
-// answered decisions, 2026-09-20): the falloff was a judgement call, no concrete real
-// landing to calibrate the shape against — a tapered curve, gentle near ideal and steep
-// near/past tolerance, replacing the old straight-line taper. Was called linearScore;
-// renamed since it's no longer linear. The exponent was first tried as a full square
-// (quadratic — fraction^2), but a real BAW32 flight the same day showed it was too
-// generous through the *middle* of the range: a touchdown vertical speed and a crab both
-// only halfway through their tolerance still scored ~76-78/100, not the ~50 "halfway
-// should feel like half" a real pilot expected (Callum, 2026-09-20). Retuned that same day
-// to fraction^1.5 — still gentler than a straight line near ideal (a small deviation barely
-// moves the score) but far less generous through the middle than squaring was (halfway
-// through tolerance now scores ~65, not ~76).
-/** Tapered falloff to 0 at `tolerance` past `ideal` (deviation already `actual - ideal`),
- *  clamped to [0,100] so a single input can never go negative on its own. Raising the
- *  fraction of tolerance used to a power > 1 means a small deviation barely moves the score
- *  (flat near ideal) while the same absolute step matters more as it approaches tolerance
- *  (steeper near/past it) — the opposite shape from a straight-line taper, which penalizes
- *  every increment equally regardless of how close to ideal it started. The exponent
- *  controls how much of that "flat near ideal" character survives into the middle of the
- *  range — see this function's own history above for why 1.5 replaced a full square. */
+// Landing scoring v2 (landing-scoring-v2.md): a tapered falloff, gentle near ideal and steep near and
+// past tolerance, replacing the straight-line taper. The exponent is 1.5: a full square was too
+// generous through the middle (halfway through tolerance still scored ~76, where ~50 was expected);
+// 1.5 gives ~65.
+/** Tapered falloff to 0 at `tolerance` past `ideal` (deviation already `actual - ideal`), clamped to
+ *  [0,100] so a single input can never go negative on its own. Raising the fraction of tolerance used
+ *  to a power > 1 keeps the score flat near ideal and steeper as it approaches tolerance, the opposite
+ *  of a straight-line taper. */
 const TAPER_EXPONENT = 1.5
 
 interface CategoryScore {
   score: number
-  /** True when `deviation` reached or passed `tolerance` — i.e. the raw curve would have
-   *  gone negative before clamping to 0, not just landed on a low-but-still-nonzero score.
-   *  Feeds `dangerPenalties` below (2026-09-21). */
+  /** True when `deviation` reached or passed `tolerance`: the raw curve would have gone negative before
+   *  clamping to 0. Feeds `dangerPenalties` below. */
   exceeded: boolean
   /** 0 when not `exceeded`; otherwise this category's own scaled penalty — see
    *  dangerPenaltyForFraction's own doc comment. */
   dangerPenalty: number
 }
 
-// A deviation that's only just crossed into "dangerous" (fraction just past 1 — barely at
-// the category's own hard limit) shouldn't cost the same as one that blew well past it.
-// Scaled linearly from DANGER_PENALTY_MIN at fraction 1.0 to DANGER_PENALTY_MAX at fraction
-// maxFraction and beyond — Callum's own calibration, 2026-09-21, replacing a flat 20-point
-// hit regardless of how far over the line a landing actually was. First tried as one number
-// (1.5, then tightened to 1.25 the same day — "the penalty should get higher quicker") for
-// every category, but real testing showed the two didn't suit each other: distance-from-
-// aiming-point felt right maxing out fast (1.25 — a long landing is dangerous quickly, so it
-// should bite hard soon after crossing the line), while crab felt too harsh at that same
-// pace and wanted the gentler 1.5 ramp back. `maxFraction` is now per category rather than
-// one shared constant for exactly that reason.
+// A deviation just past the category's hard limit shouldn't cost the same as one that blew well past
+// it: the penalty scales linearly from DANGER_PENALTY_MIN at fraction 1.0 to DANGER_PENALTY_MAX at
+// `maxFraction` and beyond. `maxFraction` is per category because they ramp differently:
+// distance-from-aiming-point maxes out fast, crab wants the gentler ramp.
 const DANGER_PENALTY_MIN = 1
 const DANGER_PENALTY_MAX = 10
 const DEFAULT_DANGER_PENALTY_MAX_FRACTION = 1.25
 // Crab's own ramp is gentler than the default — see the history above.
 const CRAB_DANGER_PENALTY_MAX_FRACTION = 1.5
-// distanceFromAimingPoint's own ramp, loosened from the 1.25 default to match crab's gentler
-// 1.5 (Callum, 2026-09-26): the 1.25 figure above was tuned against this category's old,
-// too-wide tolerance (900m, before the same-day fix split it into a real, narrower
-// asymmetric short/long pair — see aimingPointDistanceM's own doc comment). Against the
-// correct ~500m long-side tolerance, 1.25 meant a touchdown only ~55m past the real last
-// touchdown-zone marker already scored a 5-point penalty and ~125m past maxed out at 10 —
-// "harsh for just past the last aiming point" once the tolerance itself stopped absorbing
-// the difference. 1.5 gives the same real distances roughly half that penalty.
+// distanceFromAimingPoint's ramp is loosened to crab's 1.5 (the default is 1.25): against the correct
+// ~500m long-side tolerance, 1.25 scored a 5-point penalty ~55m past the last touchdown-zone marker,
+// which was harsh. 1.5 gives roughly half that.
 const DISTANCE_FROM_AIMING_POINT_DANGER_PENALTY_MAX_FRACTION = 1.5
 
 function dangerPenaltyForFraction(fraction: number, maxFraction: number): number {
@@ -376,14 +295,11 @@ function taperedScore(
 }
 
 /**
- * distanceFromAimingPoint's own scoring, the only category taperedScore alone can't cover:
- * two real physical hard limits (the threshold, and the last real touchdown-zone marker)
- * rather than one tolerance either side of `ideal` (0 = the aiming point) — see
- * aimingPointDistanceM's own doc comment for why (2026-09-26). `deviation` is already
- * signed the same way as elsewhere (`actual - ideal`): negative means short of the aiming
- * point (toward the threshold), positive means long of it (toward the far marker) — so the
- * sign alone picks which real tolerance applies, everything past that is the same tapered
- * curve as every other category.
+ * distanceFromAimingPoint's own scoring, the one category taperedScore alone can't cover: it has two
+ * hard limits (the threshold, and the last touchdown-zone marker), not one tolerance either side of
+ * `ideal` (0 = the aiming point); see aimingPointDistanceM. `deviation` is signed `actual - ideal`:
+ * negative is short of the aiming point, so the sign picks which tolerance applies, and past that it
+ * is the same tapered curve as every other category.
  *
  * @param deviation Distance from the aiming point, in metres; negative is short.
  * @param toleranceShort The tolerance short of the aiming point.
@@ -401,12 +317,10 @@ function asymmetricTaperedScore(
 }
 
 /**
- * The 0-100 landing score (0-100 for display; see LandingScoreBreakdown's own doc comment
- * on `overall` for why the raw value here can be negative). Each of the 7 inputs is scored
- * and clamped to [0,100] independently before combining, so no single input can drag
- * `overall` negative on its own — only the separate dangerous-exceedance deduction(s) can
- * (landing-scoring-v2.md, 2026-09-20, reopening docs/decisions.md's 2026-09-12 "no separate
- * dangerous floor step" — v1 deliberately had none; v2 added one, per category, on purpose).
+ * The 0-100 landing score (see LandingScoreBreakdown's `overall` for why the raw value can be
+ * negative). Each of the 7 inputs is scored and clamped to [0,100] independently before combining, so
+ * only the separate dangerous-exceedance deduction(s) can take `overall` negative
+ * (landing-scoring-v2.md; decisions.md, 2026-09-20).
  *
  * @param inputs The touchdown's measurements, with null for any the landing doesn't have.
  * @returns The overall score and each category's part in it.
@@ -415,13 +329,10 @@ export function computeLandingScore(inputs: LandingScoreInputs): LandingScoreBre
   const thresholds = deriveLandingThresholds(inputs.category)
   const band = landingRateBand(inputs.category)
   const actualFpm = Math.abs(msToFpm(inputs.verticalSpeedMs))
-  // Two-sided: peaks at the category's real sweet spot and decays symmetrically either side
-  // of it (winglog-backend's docs/plans/landing-scoring.md, "fpm sweet spots", 2026-09-13)
-  // rather than only penalizing an excessive descent rate. The tolerance is the same distance
-  // out as the derived hard-landing threshold — a first cut instead reached 0 right at the
-  // band's own minFpm on the soft side, which Callum found too harsh: a touchdown a little
-  // under the labelled range is still a fine, gentle landing, not a failing one, and there's
-  // no real safety case for punishing "too soft" anywhere near as hard as "too firm".
+  // Two-sided: peaks at the category's sweet spot and decays symmetrically either side (landing-scoring.md,
+  // "fpm sweet spots"). The tolerance is the same distance out as the derived hard-landing threshold, so a
+  // touchdown a little under the labelled range still scores well: there is no safety case for punishing
+  // "too soft" as hard as "too firm".
   const verticalSpeedTolerance = thresholds.hardFpm - band.sweetSpotFpm
   const verticalSpeed = taperedScore(actualFpm - band.sweetSpotFpm, verticalSpeedTolerance)
 
@@ -482,16 +393,12 @@ export function computeLandingScore(inputs: LandingScoreInputs): LandingScoreBre
 }
 
 /**
- * distanceFromAimingPoint's two tolerances: two real physical hard limits, not one symmetric
- * tolerance (Callum, 2026-09-26 — see aimingPointDistanceM's own doc comment). Toward the
- * threshold, the real tolerance is just the aiming point's own distance from it — score
- * reaches 0 exactly at the threshold. Away from the threshold, it's the gap from the aiming
- * point to the last real touchdown-zone marker (that marker's own threshold-relative
- * distance, touchdownZonePairCount * 150m, minus the aiming point's), clamped at 0 for the
- * rare short/medium runway band where the aiming point marking sits beyond the single
- * touchdown-zone pair (e.g. 800-900m runways: 1 pair at 150m, but the aiming point at
- * 250m) — taperedScore treats a zero-or-negative tolerance as "any deviation at all scores
- * 0", the correct read for a runway that short.
+ * distanceFromAimingPoint's two tolerances (see aimingPointDistanceM). Toward the threshold it is the
+ * aiming point's own distance from it, so the score reaches 0 at the threshold. Away from it, it is the
+ * gap from the aiming point to the last touchdown-zone marker (touchdownZonePairCount * 150m minus the
+ * aiming point's), clamped at 0 for the short-runway band where the aiming point sits beyond the single
+ * touchdown-zone pair (800-900m runways: 1 pair at 150m, aiming point at 250m); taperedScore scores any
+ * deviation against a zero tolerance as 0.
  *
  * @param inputs The touchdown's measurements.
  * @returns The short and long tolerances in metres, or null without the runway's length or

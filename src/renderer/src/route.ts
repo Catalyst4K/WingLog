@@ -58,11 +58,9 @@ function apiParamsSection(ofpJson: string | null): Record<string, unknown> {
 }
 
 /**
- * Extracts the planned route as [lon, lat] pairs (GeoJSON order) from a flight's raw
- * SimBrief OFP JSON — specifically `navlog.fix[].pos_lat`/`pos_long`, sim-confirmed real
- * field names/shapes during M3 (docs/decisions.md, 2026-09-01 dispatch entry). Returns an
- * empty route rather than throwing on anything unexpected — a missing planned route just
- * means the map has no line to draw, not a reason to break the page.
+ * Extracts the planned route as [lon, lat] pairs (GeoJSON order) from a flight's raw SimBrief OFP JSON, specifically
+ * `navlog.fix[].pos_lat`/`pos_long` (docs/decisions.md, 2026-09-01 dispatch entry). Returns an empty route rather than
+ * throwing on anything unexpected: a missing planned route just means the map has no line to draw.
  *
  * @param ofpJson The OFP JSON, or null.
  * @returns The route's [lon, lat] pairs.
@@ -124,21 +122,17 @@ export function parseRouteProcedures(ofpJson: string | null): RouteProcedures {
 }
 
 /**
- * Splits a navlog into SID / enroute / STAR segments — verified against real SimBrief
- * responses with and without transitions (docs/simbrief-notes.md, 2026-09-02/03
- * sid-star-selection entries). This only labels SimBrief's own chosen procedure; swapping
- * in an alternate one needs real navdata (Navigraph) and is blocked on API credentials —
- * see docs/decisions.md's sid-star-selection entry for why this half ships alone.
+ * Splits a navlog into SID / enroute / STAR segments, verified against real SimBrief responses with and without
+ * transitions (docs/simbrief-notes.md, sid-star-selection entries). This only labels SimBrief's own chosen procedure;
+ * swapping in an alternate one needs real navdata (see docs/decisions.md's sid-star-selection entry).
  *
- * The rule, confirmed against three real shapes (full SID+transition/STAR+transition, SID
- * /STAR without transitions, and SID-only with no STAR):
- * - SID = the leading run of fixes, from the start, while `via_airway === sid_ident`.
- *   Correctly includes a SID's transition handoff fix (its via_airway is still the SID
- *   name, never the transition's own name — transitions have no via_airway of their own).
- * - STAR = from the fix whose `ident === star_trans` when a transition is set (the STAR's
- *   handoff fix carries via_airway = the *inbound enroute airway*, not the STAR itself, so
- *   via_airway alone can't find it), else from the first fix with `via_airway ===
- *   star_ident`; runs to the very last fix, which is the destination airport itself.
+ * The rule, confirmed against three shapes (SID+transition/STAR+transition, SID/STAR without transitions, SID only with
+ * no STAR):
+ * - SID = the leading run of fixes, from the start, while `via_airway === sid_ident`. This includes a SID's transition
+ *   handoff fix (its via_airway is still the SID name; transitions have none of their own).
+ * - STAR = from the fix whose `ident === star_trans` when a transition is set (the handoff fix carries via_airway =
+ *   the *inbound enroute airway*, so via_airway alone can't find it), else from the first fix with
+ *   `via_airway === star_ident`; runs to the last fix, which is the destination airport itself.
  * - Enroute = everything between.
  *
  * @param ofpJson The OFP JSON, or null.
@@ -173,8 +167,8 @@ export function segmentWaypoints(ofpJson: string | null): Waypoint[] {
     const idx = raw.findIndex((fix) => fix.viaAirway === starIdent)
     if (idx !== -1) starStart = idx
   }
-  // A STAR can never start before the SID ends — guards a pathological OFP where a
-  // coincidental ident/via_airway match would otherwise overlap or invert the segments.
+  // A STAR can never start before the SID ends: guards a pathological OFP where a coincidental ident/via_airway match
+  // would overlap or invert the segments.
   starStart = Math.max(starStart, sidEnd)
 
   return raw.map((fix, i) => ({
@@ -247,9 +241,8 @@ export interface ProcedureLegs {
   legs: NavdataLeg[]
 }
 
-/** FC (fix to distance) and FD (fix to DME) — ARINC 424 leg types 9 and 10 in the sim's
- *  Facilities data. Their fix is the navaid the leg is anchored to; the leg *ends* a
- *  ROUTE_DISTANCE along COURSE from it (winglog-backend docs/navdata-notes.md, 2026-09-18). */
+/** FC (fix to distance) and FD (fix to DME): ARINC 424 leg types 9 and 10 in the sim's Facilities data. Their fix is the
+ *  navaid the leg is anchored to; the leg *ends* a ROUTE_DISTANCE along COURSE from it (docs/navdata-notes.md). */
 const DISTANCE_TERMINATED_LEG_TYPES = new Set([9, 10])
 
 /**
@@ -343,19 +336,14 @@ export function applyProcedureSelection(
     const hadTaggedStar = result.some((w) => w.segment === 'star')
     let base = result.filter((w) => w.segment !== 'star')
     const starWaypoints = legsToWaypoints(star.legs, 'star')
-    // Whenever the OFP never named a STAR itself (general.star_ident empty), segmentWaypoints
-    // has nothing to tag the terminal-area fixes with, so they stay 'enroute' all the way to
-    // the destination. Filtering only 'star'-tagged fixes above leaves that stale tail in
-    // place, and a real navdata STAR just gets appended after it — confirmed live to fly SID
-    // -> SimBrief's full stale loop -> the chosen STAR -> runway (docs/navdata-notes.md,
-    // 2026-09-13). Cut that tail at the STAR's own entry fix if the base route happens to
-    // pass through it already; otherwise there's nothing else for it to join, so the whole
-    // contiguous enroute run back to the last SID/real-star fix is what the STAR replaces.
-    // Only when there was never a real 'star' tag to begin with — a route that already named
-    // its own STAR stops its 'enroute' block short of the destination, and that boundary is
-    // exactly right already.
-    // (Not for an alternate arrival: its STAR has no reason to join the filed route's tail,
-    // and cutting "the whole contiguous enroute run" would delete the entire cruise.)
+    // When the OFP never named a STAR (general.star_ident empty), segmentWaypoints has nothing to tag the terminal-area
+    // fixes with, so they stay 'enroute' to the destination. Filtering only 'star'-tagged fixes above would leave that stale
+    // tail in place and append the chosen STAR after it (SID -> SimBrief's full loop -> STAR -> runway; navdata-notes.md).
+    // Cut the tail at the STAR's own entry fix if the base route passes through it; otherwise there is nothing for it to
+    // join, so the whole contiguous enroute run back to the last SID/real-star fix is what the STAR replaces. Only when there
+    // was never a real 'star' tag: a route that named its own STAR already stops its 'enroute' block short of the destination.
+    // (Not for an alternate arrival: its STAR has no reason to join the filed route's tail, and cutting the whole enroute
+    // run would delete the entire cruise.)
     if (
       !hadTaggedStar &&
       !options.alternateArrival &&
@@ -381,12 +369,10 @@ export function applyProcedureSelection(
   return result
 }
 
-/** The origin's transition altitude and the destination's transition level, for Phase 3's
- *  altitude display (logbook-detail-improvements.md, display-altitude.ts) — confirmed real
- *  OFP fields, zero-padded strings (docs/simbrief-notes.md, 2026-09-13, e.g. `"09000"` for
- *  VHHH), guarded the same `optStr`-then-`Number()` way every other optional SimBrief field
- *  is. Null when either is missing (an older/malformed OFP, or a flight with no OFP at
- *  all) — display-altitude.ts falls back to a fixed 18,000 ft both ways in that case. */
+/** The origin's transition altitude and the destination's transition level, for the altitude display
+ *  (logbook-detail-improvements.md, display-altitude.ts): zero-padded OFP strings (e.g. `"09000"` for VHHH), guarded the
+ *  same `optStr`-then-`Number()` way as every other optional SimBrief field. Null when either is missing (an older or
+ *  malformed OFP, or a flight with no OFP): display-altitude.ts then falls back to a fixed 18,000 ft both ways. */
 export interface TransitionAltitudes {
   transAltFt: number
   transLevelFt: number
@@ -424,17 +410,13 @@ export function approachRunway(approachIdent: string | null): string | null {
 }
 
 /**
- * Among approaches for the planned runway, prefer ILS (always unsuffixed when present),
- * then LOC, then whatever RNAV/other option sorts first — a reasonable starting point, not
- * a correctness claim: no signal (SimBrief or navdata) says which of several same-runway
- * approaches ATC will actually assign, since a real pilot doesn't know either until told
- * during descent (docs/navdata-notes.md, 2026-09-08 approach-procedures entry). The point
- * is a sane default that's instantly correctable from the dropdown, not a guess to get
- * right.
+ * Among approaches for the planned runway, prefer ILS (always unsuffixed when present), then LOC, then whatever RNAV/other
+ * option sorts first: a reasonable starting point, not a correctness claim, since no signal (SimBrief or navdata) says
+ * which of several same-runway approaches ATC will assign (docs/navdata-notes.md). It is a sane default that is
+ * instantly correctable from the dropdown.
  *
- * `starEndFix`, when given, narrows the choice to approaches with a transition starting at
- * that fix, when any have one. ZJSY, 2026-10-05: UPRS2C ends at SY498, the entry to ILS Z 08
- * but not ILS X 08 (SY462, SY935 only), so "first ILS" picked an approach the STAR never
+ * `starEndFix`, when given, narrows the choice to approaches with a transition starting at that fix, when any have one:
+ * at ZJSY, UPRS2C ends at SY498, the entry to ILS Z 08 but not ILS X 08, so "first ILS" picked an approach the STAR never
  * reaches.
  *
  * @param options The runway's approaches.

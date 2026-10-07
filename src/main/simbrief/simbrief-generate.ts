@@ -11,14 +11,10 @@ import { signSimbriefRequest } from '../backend/backend-client'
 const SIMBRIEF_WORKER_URL = 'https://www.simbrief.com/ofp/ofp.loader.api.php'
 const SIMBRIEF_HOME_URL = 'https://www.simbrief.com/'
 
-// "persist:" backs this partition with an on-disk store under userData, surviving app
-// restarts — Electron's own mechanism, not anything SimBrief-specific (docs/decisions.md,
-// flight-test-findings-2026-09-06.md #10). Whether SimBrief's own login cookie is
-// actually long-lived enough to still be valid after a restart is a separate question
-// this doesn't answer by itself — needs one real login/restart to confirm, tracked in
-// decisions.md rather than assumed here. Exported only so a test can assert the prefix
-// is actually there, since an accidental revert here would be silent otherwise (nothing
-// else would fail — SimBrief would just quietly stop persisting logins again).
+// "persist:" backs this partition with an on-disk store under userData, surviving app restarts (Electron's mechanism, not
+// SimBrief-specific; docs/decisions.md, flight-test-findings-2026-09-06.md #10). Whether SimBrief's own login cookie lives
+// long enough to still be valid after a restart is a separate question, tracked in decisions.md. Exported only so a test
+// can assert the prefix is there: an accidental revert would be silent (SimBrief would just stop persisting logins).
 export const GENERATE_PARTITION = 'persist:simbrief-generate'
 
 // Only used as a stable, consistent input to the signing request and the submitted
@@ -91,12 +87,10 @@ function openPopup(url: string): Promise<void> {
   })
 }
 
-/** Pre-authenticates the generation window's session — persisted across restarts since
- *  GENERATE_PARTITION carries the `persist:` prefix (confirmed with a real login/restart,
- *  docs/decisions.md's SimBrief-login-persistence entry). generateOfp handles its own
- *  login inline regardless (SimBrief's worker page itself prompts for login when the
- *  session isn't already authenticated) — this is only for showing status without
- *  requiring the user to open Dispatch first.
+/** Pre-authenticates the generation window's session, persisted across restarts since GENERATE_PARTITION carries the
+ *  `persist:` prefix (docs/decisions.md's SimBrief-login-persistence entry). generateOfp handles its own login inline
+ *  regardless (SimBrief's worker page prompts for login when the session isn't authenticated); this is only for showing
+ *  status without requiring the user to open Dispatch first.
  *
  * @returns Settles when the window closes.
  */
@@ -108,12 +102,10 @@ const SIMBRIEF_SSO_COOKIE_NAME = 'simbrief_sso'
 const SIMBRIEF_COOKIE_DOMAIN = 'simbrief.com'
 
 /**
- * Whether the persisted generation-popup session is actually still logged into SimBrief
- * right now, not just whether the partition has ever been used. Checked via
- * simbrief_sso's presence — the real cookie SimBrief sets on login, confirmed against a
- * real session (docs/simbrief-notes.md's login-status entry). Google Analytics/Ads
- * cookies (`_ga`, `_gid`, `_gcl_au`, ...) are also present in this partition regardless
- * of login state, so checking for *any* cookie wouldn't distinguish the two.
+ * Whether the persisted generation-popup session is still logged into SimBrief right now, not just whether the partition
+ * has ever been used. Checked via simbrief_sso's presence, the cookie SimBrief sets on login (docs/simbrief-notes.md's
+ * login-status entry). Google Analytics/Ads cookies (`_ga`, `_gid`, `_gcl_au`, ...) are present in this partition
+ * regardless of login state, so checking for *any* cookie wouldn't distinguish the two.
  *
  * @returns True when SimBrief's sign-in cookie is present.
  */
@@ -135,14 +127,11 @@ export async function logoutOfSimbrief(): Promise<void> {
 const ACCOUNT_PAGE_URL = 'https://www.simbrief.com/system/profile.php'
 const ACCOUNT_PAGE_TIMEOUT_MS = 5000
 
-/** Reads one field off SimBrief's own account-settings page — its "Your SimBrief Data"
- *  section renders every field's value via a JS-populated `<input data-key="...">` after
- *  load (the shipped HTML has `value=""`), confirmed live against a real account
- *  (docs/simbrief-notes.md). Shared by fetchSimbriefUsername and fetchSimbriefPilotId, the
- *  two fields actually needed so far. Returns `null` on anything unexpected (not logged
- *  in, page layout changed, timed out) rather than throwing — this is third-party page
- *  content, parsed defensively like any other external data, not something to let take
- *  down a caller if SimBrief changes their markup.
+/** Reads one field off SimBrief's account-settings page: its "Your SimBrief Data" section renders every field's value via a
+ *  JS-populated `<input data-key="...">` after load (the shipped HTML has `value=""`; docs/simbrief-notes.md). Shared by
+ *  fetchSimbriefUsername and fetchSimbriefPilotId. Returns `null` on anything unexpected (not logged in, page layout
+ *  changed, timed out) rather than throwing: this is third-party page content, parsed defensively like any other external
+ *  data, and a markup change must not take down a caller.
  *
  * @param dataKey The field's `data-key`, e.g. user.pilot_id.
  * @returns The value, or null.
@@ -186,11 +175,9 @@ export function fetchSimbriefUsername(): Promise<string | null> {
   return readAccountField('user.navigraph.username')
 }
 
-/** `data-key="user.pilot_id"` — the numeric half of a saved airframe's internal id
- *  (`<pilot_id>_<airframe_id>`, docs/decisions.md §4) that a share link's URL doesn't
- *  reveal on its own (docs/plans/simbrief-airframe-picker.md). Same page, same field-read
- *  pattern already confirmed live for the username above — this is a new field on the
- *  same "Your SimBrief Data" section, not a new mechanism.
+/** `data-key="user.pilot_id"`: the numeric half of a saved airframe's internal id (`<pilot_id>_<airframe_id>`,
+ *  docs/decisions.md §4) that a share link's URL doesn't reveal (docs/plans/simbrief-airframe-picker.md). The same page and
+ *  field-read pattern as the username above, just another field in the "Your SimBrief Data" section.
  *
  * @returns The pilot id, or null.
  */
@@ -220,10 +207,8 @@ export async function generateOfp(params: DispatchOpenSimBriefParams): Promise<v
   await openPopup(buildGenerateUrl(params, apicode, timestamp))
 }
 
-// Matches the URL SimBrief's own client-side router redirects to right after a save
-// (confirmed live, docs/plans/simbrief-airframe-picker.md — a real share link, a real
-// save, watched through a real BrowserWindow) — only the airframe_id half, never the
-// pilot_id, hence fetchSimbriefPilotId above.
+// Matches the URL SimBrief's client-side router redirects to right after a save (docs/plans/simbrief-airframe-picker.md):
+// only the airframe_id half, never the pilot_id, hence fetchSimbriefPilotId above.
 const SAVED_AIRFRAME_PATTERN = /\/airframes\/saved\/(\d+)/
 
 /** Pure URL-matching, exported for testing — the part of createCustomAirframeFromShare
@@ -238,13 +223,11 @@ export function extractSavedAirframeId(url: string): string | null {
 }
 
 /**
- * Opens a real, visible SimBrief airframe share link and waits for the pilot to review it
- * and click **Save Airframe** in their own real session — confirmed live to be a genuine,
- * sanctioned cross-user mechanism (SimBrief's own "Share Airframe" help text), not
- * something that only resolves for the link's original owner. Resolves with the resulting
- * `<pilot_id>_<airframe_id>` once the save's own navigation is observed, or `null` if the
- * window was closed before that happened (the pilot backed out, or never finished
- * logging in) — a cancellation, not an error.
+ * Opens a visible SimBrief airframe share link and waits for the pilot to review it and click **Save Airframe** in their own
+ * session. This is a sanctioned cross-user mechanism (SimBrief's "Share Airframe" help text), not something that only
+ * resolves for the link's original owner. Resolves with the resulting `<pilot_id>_<airframe_id>` once the save's navigation
+ * is observed, or `null` if the window was closed first (the pilot backed out, or never finished logging in): a
+ * cancellation, not an error.
  *
  * @param shareUrl A SimBrief airframe share link.
  * @returns `<pilot_id>_<airframe_id>`, or null if the pilot closed the window first.

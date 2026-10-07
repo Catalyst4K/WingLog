@@ -1,37 +1,22 @@
 /**
- * Phase 2 of winglog-backend's docs/plans/done/resume-track-cleanup.md — the actual
- * junk-exclusion pass. Pure by design (track points in, exclusions/segment fixes out) so
- * it's unit-testable without a sim, per CLAUDE.md's testing rule. `TrackingController`
- * (not this file) is responsible for reading points, calling this, and persisting the
- * result.
+ * Phase 2 of winglog-backend's docs/plans/done/resume-track-cleanup.md: the junk-exclusion pass. Pure (track points in,
+ * exclusions and segment fixes out) so it is unit-testable without a sim. `TrackingController` reads the points, calls
+ * this, and persists the result.
  *
- * Rule 2 — the physically-impossible-jump test — runs unconditionally over every
- * consecutive pair in the flight, not just inside a resume window. That's a deliberate
- * change from the plan's original sketch, settled 2026-09-13 after two real findings on
- * the same live flight (193): a genuine 22-loop hold at PECAN produced zero jumps end to
- * end (max distance/threshold ratio 0.51), confirming a hold can never trip this test on
- * its own regardless of whether a resume window is open — so gating Rule 2 by window was
- * only ever needed to keep shape-based checks away from a hold, not this one. Separately,
- * the same flight surfaced a jump with no resume() anywhere near it at all (the iniBuilds
- * A350's own save-state/reload feature teleporting the aircraft), which the
- * window-gated-only design would never have looked at.
+ * The physically-impossible-jump test (Rule 2) runs over every consecutive pair in the flight, not only inside a
+ * resume window: a hold never trips it (a 22-loop hold peaked at 0.51 of the threshold), and a jump can happen with no
+ * resume() near it (a payware aircraft's own save-state/reload teleporting the aircraft).
  *
- * A window opens either at a real resume() boundary (a resumeSegment change) or — settled
- * live 2026-09-13, against flight 191/CPA319's real double-jump pattern (a spawn-relocation
- * followed minutes later by a restore-teleport, neither ever touching resumeSegment since
- * no WingLog resume() was involved) — at a lone jump found with no window already open.
- * Either way, nothing about the window's contents is decided until it resolves:
- * - A second jump lands back near the window's own anchor (within CASE_A_LANDING_RADIUS_KM)
- *   → Case A: the whole in-between stretch is junk, plus Case B's rewind check from the
- *   re-entry point. Unconditional for a resume()-opened window (the resume() call is
- *   already strong evidence on its own); gated on the landing-radius match for a
- *   jump-opened one, since a lone teleport alone is weaker evidence that a later jump is
- *   really a restore of *it* rather than a second, unrelated event.
- * - The window times out, or a real resume() boundary arrives before anything resolves it,
- *   or the data just ends — neither side of the original jump is junk, both are real
- *   telemetry; the aircraft (or the window's own pending stretch) is just somewhere else
- *   now. Same fix Phase 1 already gives an explicit resume(): stop the map joining the two
- *   sides with a straight line, via a new synthetic resumeSegment.
+ * A window opens at a real resume() boundary (a resumeSegment change) or at a lone jump found with no window open (a
+ * spawn relocation followed by a restore teleport never touches resumeSegment). Nothing about the window's contents is
+ * decided until it resolves:
+ * - A second jump lands back near the window's own anchor (within CASE_A_LANDING_RADIUS_KM) → Case A: the whole
+ *   in-between stretch is junk, plus Case B's rewind check from the re-entry point. Unconditional for a
+ *   resume()-opened window (the call is strong evidence on its own); gated on the landing-radius match for a
+ *   jump-opened one, since a lone teleport is weaker evidence that a later jump restores it.
+ * - The window times out, a real resume() boundary arrives first, or the data ends → neither side is junk; the
+ *   aircraft is just somewhere else now. Same fix as Phase 1's explicit resume(): a new synthetic resumeSegment, so the
+ *   map stops joining the two sides with a straight line.
  */
 import type { TrackPoint } from '@shared/ipc'
 import { greatCircleM } from '@shared/geo'
@@ -46,26 +31,16 @@ export interface TrackCleanupResult {
   segmentReassignments: { id: number; resumeSegment: number }[]
 }
 
-/** ~0.5 nm — a sampling-jitter floor under the speed*time*simRate threshold below, same
- *  value the Phase 2 spike used against real flight 191 (docs/simconnect-notes.md,
- *  2026-09-11). */
+/** ~0.5 nm: a sampling-jitter floor under the speed*time*simRate threshold below
+ *  (docs/simconnect-notes.md, 2026-09-11). */
 const JUMP_DISTANCE_FLOOR_KM = 0.93
 const JUMP_SPEED_MULTIPLIER = 2
 
-/** Long enough for a save/restore tool to load. The plan's original 5-minute guess
- *  measured the wrong gap on its own reference flight (191): 266s and 4m25s (flight 193)
- *  are both the *anchor-to-spawn* gap, not the window this constant actually needs to
- *  cover — the window opens at the spawn point and needs to stay open until the restore
- *  resolves it. Confirmed live 2026-09-13, running the real "Clean up track" pass against
- *  flight 191's actual data: its real spawn-to-restore gap is ~426s (the iniBuilds A350
- *  taking that long to reach the OFP screen and reload the save) — comfortably past the
- *  old 5-minute window, so the window timed out and closed the case as an ordinary segment
- *  break (Case C) before the restore-teleport ever arrived to resolve it as Case A. Moved
- *  to 10 minutes — real headroom above the one real measurement in hand, not a tight fit
- *  to it. */
+/** Long enough for a save/restore tool to load. The window opens at the spawn point and must stay open until the
+ *  restore resolves it, so it has to cover the spawn-to-restore gap (~426 s for the iniBuilds A350 on the reference
+ *  flight), not the anchor-to-spawn gap. 10 minutes leaves headroom above that measurement. */
 const RESUME_WINDOW_MS = 10 * 60 * 1000
-/** ~3 nm — moved up from the plan's original ~2 nm guess after the real flight 191 restore
- *  landed ~2.9 nm behind its anchor (docs/simconnect-notes.md, 2026-09-11). */
+/** ~3 nm: a real restore landed ~2.9 nm behind its anchor (docs/simconnect-notes.md, 2026-09-11). */
 const CASE_A_LANDING_RADIUS_KM = 3 * 1.852
 const CASE_B_LATERAL_TOLERANCE_KM = 1 * 1.852
 const CASE_B_HEADING_TOLERANCE_DEG = 30
@@ -83,25 +58,12 @@ function headingDeltaDeg(a: number, b: number): number {
   return Math.abs(((a - b + 540) % 360) - 180)
 }
 
-/** `distKm > 2 * min(gsA, gsB) * simRate * dt`, with a floor for sampling jitter — the
- *  plan doc's own formula (resume-track-cleanup.md, "Teleport") originally used `max`, but
- *  that badly overestimates how far a crash/restart could plausibly have covered: real
- *  flight 191 (CPA319) has a genuine 81km/266s spawn-relocation where the anchor's own
- *  cruise ground speed (260.7 m/s) was still on record from *before* the crash, even
- *  though nothing was actually flying for most of the gap — `max` extrapolated from that
- *  stale high speed and let 81km through (threshold ~139km), while the spawn point's own
- *  near-zero speed (8.8 m/s, freshly respawned) is the real signal something happened.
- *  `min` catches this while still passing every already-confirmed real case: a genuine
- *  SimConnect reconnect during continued cruise shows *consistent* real speed at both
- *  ends (min is then still large, same as max would be), and a real sim-pause shows near-
- *  zero position drift regardless of which speed is used. Confirmed live 2026-09-13
- *  against flight 191's complete real track: `min` catches both of its genuine
- *  discontinuities (the 81km spawn-relocation and the already-confirmed 132km restore-
- *  teleport) with zero new false positives across all 7,889 points, including its own two
- *  genuine sim-pause gaps (up to 2.7 hours, under half a km of drift each). `simRate`
- *  matters because at e.g. 4x time compression the aircraft legitimately covers four times
- *  the distance per wall-clock second; without it, cruise under time compression would
- *  look like teleporting.
+/** `distKm > 2 * min(gsA, gsB) * simRate * dt`, with a floor for sampling jitter. `min`, not `max`: after a crash the
+ *  anchor's cruise speed is still on record while nothing was flying, so `max` extrapolates from a stale high speed and
+ *  lets a spawn relocation through, while the respawned point's near-zero speed is the real signal. `min` still passes
+ *  the genuine cases: a SimConnect reconnect during cruise has consistent speed at both ends, and a sim-pause shows
+ *  near-zero drift whichever speed is used (resume-track-cleanup.md, "Teleport"). `simRate` matters because at 4x time
+ *  compression the aircraft legitimately covers four times the distance per wall-clock second.
  *
  * @param a The earlier point.
  * @param b The next point.
@@ -146,27 +108,14 @@ function findRewindJoinIndex(
 
 /** `points` must already be ordered by id/ts for one flight.
  *
- * A window opens either at a real `resume()` boundary (a `resumeSegment` change) or at a
- * lone physically-impossible jump with no window already open — the latter is what turned
- * out to matter live, 2026-09-13: a payware aircraft's save-state/reload feature (or a
- * spawn-then-restore pair, flight 191/CPA319) never touches `resumeSegment` at all, since
- * no WingLog `resume()` is involved. Either way, nothing is decided about the window's
- * contents until it *resolves* — a second jump within it, a timeout, or the end of the
- * data — so a stretch of real (if geographically meaningless) flying between two jumps
- * never gets prematurely labelled.
+ * A window opens at a real `resume()` boundary or at a lone impossible jump with no window open, and nothing is
+ * decided about its contents until it resolves (a second jump, a timeout, or the end of the data), so a stretch of
+ * real flying between two jumps is never labelled early.
  *
- * A window resolves as Case A (the in-between stretch excluded as junk, plus Case B's
- * rewind check from the re-entry point) when a second jump's landing point comes back
- * within `CASE_A_LANDING_RADIUS_KM` of the window's own anchor (the point right before it
- * opened) — unconditionally for a `resume()`-opened window (the explicit `resume()` call is
- * already strong enough evidence on its own that this is a genuine restore, confirmed
- * against every real case seen so far), but only when that radius check actually passes
- * for a jump-opened one, since a lone teleport is much weaker evidence that *this specific*
- * later jump is a restore of *it* rather than a second, unrelated event. A jump-opened
- * window that doesn't resolve as Case A (no second jump before timeout, or one that lands
- * nowhere near the anchor) gets the same treatment Phase 1 already gives an explicit
- * `resume()`: nothing excluded, just a new segment so the map stops drawing a straight
- * line across it.
+ * It resolves as Case A (the in-between stretch excluded, plus Case B's rewind check from the re-entry point) when a
+ * second jump lands within `CASE_A_LANDING_RADIUS_KM` of the window's anchor (the point before it opened): always for
+ * a `resume()`-opened window, only when the radius check passes for a jump-opened one. Otherwise nothing is excluded
+ * and a new segment stops the map drawing a straight line across it, as Phase 1 does for `resume()`.
  *
  * @param points The flight's track, in order.
  * @returns The points to exclude, and new segments for the rest.
@@ -262,12 +211,9 @@ export function computeTrackCleanup(points: CleanupInputPoint[]): TrackCleanupRe
       closeUnresolvedWindow(i)
       activeWindow = { boundaryIndex: i, boundaryTsMs: Date.parse(b.tsUtc), openedByResume: false }
     } else {
-      // A physically-impossible jump with no window open at all — e.g. a payware
-      // aircraft's own save-state/reload feature, confirmed live with no WingLog resume
-      // anywhere near it (resume-track-cleanup.md, "New real case found live, 2026-09-13"),
-      // or the first half of a spawn-then-restore pair that likewise never touches
-      // resumeSegment (also confirmed live, flight 191/CPA319). Open a window rather than
-      // deciding anything yet — resolved above if a later jump lands back near here.
+      // A physically-impossible jump with no window open (e.g. a payware aircraft's save-state/reload, or the first half
+      // of a spawn-then-restore pair): open a window and decide nothing yet; a later jump above resolves it
+      // (resume-track-cleanup.md, "New real case found live").
       activeWindow = { boundaryIndex: i, boundaryTsMs: Date.parse(b.tsUtc), openedByResume: false }
     }
   }
