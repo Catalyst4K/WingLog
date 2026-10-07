@@ -225,6 +225,13 @@
       "when": 1790931230780,
       "tag": "0031_tearful_victor_mancha",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1791414530786,
+      "tag": "0032_mysterious_puppet_master",
+      "breakpoints": true
     }
   ]
 }
