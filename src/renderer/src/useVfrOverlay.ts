@@ -1,20 +1,3 @@
-import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
-import {
-  ScaleControl,
-  type GeoJSONSource,
-  type GeoJSONSourceSpecification,
-  type Map as MapLibreMap
-} from 'maplibre-gl'
-import type { Airfield, AirfieldType, SimTelemetry, TrackPoint } from '@shared/ipc'
-import {
-  airfieldFeatureCollection,
-  formatNearest,
-  nearestAirfield,
-  rangeRingFeatures,
-  recentTrailSegments
-} from './vfr'
-import { uiMemory } from './ui-memory'
-
 /**
  * The Track map's VFR overlay (winglog-backend docs/plans/map-language-and-declutter.md,
  * Part C items 1-3): every airfield the vendored OurAirports list knows (small strips and
@@ -24,6 +7,19 @@ import { uiMemory } from './ui-memory'
  * the toggle is switched on, and switching it off hides the layers rather than tearing them
  * down.
  */
+
+import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
+import { ScaleControl, type GeoJSONSourceSpecification, type Map as MapLibreMap } from 'maplibre-gl'
+import type { Airfield, AirfieldType, SimTelemetry, TrackPoint } from '@shared/ipc'
+import {
+  airfieldFeatureCollection,
+  formatNearest,
+  nearestAirfield,
+  rangeRingFeatures,
+  recentTrailSegments
+} from './vfr'
+import { uiMemory } from './ui-memory'
+import { setSourceData } from './map-source'
 
 const AIRFIELDS_SOURCE = 'vfr-airfields'
 const RINGS_SOURCE = 'vfr-range-rings'
@@ -69,7 +65,6 @@ const ALL_LAYER_IDS = [
   RECENT_TRAIL_LAYER
 ]
 
-
 /** What a GeoJSON source accepts as data. */
 type GeoData = GeoJSONSourceSpecification['data']
 
@@ -83,8 +78,14 @@ function multiLine(segments: [number, number][][]): GeoData {
   return { type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: segments } }
 }
 
-/** Adds every source and layer once. Airfield layers go *under* the route so the flight
- *  plan stays the most prominent thing on the map; rings and the recent trail go on top. */
+/**
+ * Adds every source and layer once. Airfield layers go *under* the route so the flight
+ * plan stays the most prominent thing on the map; rings and the recent trail go on top.
+ *
+ * @param map The map.
+ * @param airfields Every airfield.
+ * @param routeLayerId The route's layer, to put the airfields under.
+ */
 function ensureLayers(map: MapLibreMap, airfields: Airfield[], routeLayerId: string): void {
   if (map.getSource(AIRFIELDS_SOURCE)) return
   const dark = isDark()
@@ -188,6 +189,12 @@ export interface VfrOverlay {
   nearestText: string | null
 }
 
+/**
+ * Draws the VFR overlay while it is on, and keeps the nearest airfield up to date.
+ *
+ * @param args The map, whether it is live, the telemetry, the track and the route's layer.
+ * @returns The overlay's state, toggle and nearest-airfield text.
+ */
 export function useVfrOverlay({
   mapRef,
   mapReady,
@@ -256,7 +263,7 @@ export function useVfrOverlay({
   useEffect(() => {
     const map = mapRef.current
     if (!mapReady || !map || !active || !airfields) return
-    map.getSource<GeoJSONSource>(AIRFIELDS_SOURCE)?.setData(airfieldFeatureCollection(airfields) as GeoData)
+    setSourceData(map, AIRFIELDS_SOURCE, airfieldFeatureCollection(airfields) as GeoData)
   }, [mapRef, mapReady, active, airfields])
 
   // Rings follow the aircraft; the recent-track emphasis follows the recorded points.
@@ -264,8 +271,8 @@ export function useVfrOverlay({
     const map = mapRef.current
     if (!mapReady || !map || !active) return
     const position = latitude !== null && longitude !== null ? { latitude, longitude } : null
-    map.getSource<GeoJSONSource>(RINGS_SOURCE)?.setData(rangeRingFeatures(position) as GeoData)
-    map.getSource<GeoJSONSource>(RECENT_TRAIL_SOURCE)?.setData(multiLine(recentTrailSegments(trackPoints)))
+    setSourceData(map, RINGS_SOURCE, rangeRingFeatures(position) as GeoData)
+    setSourceData(map, RECENT_TRAIL_SOURCE, multiLine(recentTrailSegments(trackPoints)))
   }, [mapRef, mapReady, active, latitude, longitude, trackPoints])
 
   // Torn down with the map: the control belongs to it, so just forget our handle.

@@ -11,6 +11,7 @@
  */
 
 import { greatCircleNm, METRES_PER_NM } from '@shared/geo'
+import { itemAt } from '@shared/item-at'
 
 /** Below this (~60 kt) a ground-speed estimate is meaningless — taxiing, or a stopped sim. */
 const MIN_ESTIMATE_SPEED_MS = 30.9
@@ -40,16 +41,26 @@ function nmBetween(aLat: number, aLon: number, bLat: number, bLon: number): numb
   return greatCircleNm({ lat: aLat, lon: aLon }, { lat: bLat, lon: bLon })
 }
 
-/** Distance left along `route` from the aircraft: to the end of the leg it's nearest to (from
- *  its projection onto that leg), then every leg after it. Null without a usable route. */
-export function remainingRouteNm(route: [number, number][], position: { lat: number; lon: number }): number | null {
+/**
+ * Distance left along `route` from the aircraft: to the end of the leg it's nearest to (from
+ * its projection onto that leg), then every leg after it. Null without a usable route.
+ *
+ * @param route The route's [lon, lat] points.
+ * @param position The aircraft's position.
+ * @returns The distance left in nautical miles, or null.
+ */
+export function remainingRouteNm(
+  route: [number, number][],
+  position: { lat: number; lon: number }
+): number | null {
   if (route.length < 2) return null
   let bestLeg = 0
   let bestDistance = Infinity
-  let bestPoint: [number, number] = route[0]!
+  const point = (i: number): [number, number] => itemAt(route, i, 'route point')
+  let bestPoint = point(0)
   for (let i = 0; i < route.length - 1; i++) {
-    const [aLon, aLat] = route[i]!
-    const [bLon, bLat] = route[i + 1]!
+    const [aLon, aLat] = point(i)
+    const [bLon, bLat] = point(i + 1)
     // Projection in a local flat frame around the leg — exact enough to pick the leg and the
     // point along it; the distances themselves are great-circle.
     const cosLat = Math.cos((((aLat + bLat) / 2) * Math.PI) / 180)
@@ -57,30 +68,44 @@ export function remainingRouteNm(route: [number, number][], position: { lat: num
     const bx = bLon * cosLat
     const px = position.lon * cosLat
     const lengthSq = (bx - ax) ** 2 + (bLat - aLat) ** 2
-    const t = lengthSq === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * (bx - ax) + (position.lat - aLat) * (bLat - aLat)) / lengthSq))
-    const point: [number, number] = [aLon + t * (bLon - aLon), aLat + t * (bLat - aLat)]
-    const distance = nmBetween(position.lat, position.lon, point[1], point[0])
+    const t =
+      lengthSq === 0
+        ? 0
+        : Math.max(0, Math.min(1, ((px - ax) * (bx - ax) + (position.lat - aLat) * (bLat - aLat)) / lengthSq))
+    const onLeg: [number, number] = [aLon + t * (bLon - aLon), aLat + t * (bLat - aLat)]
+    const distance = nmBetween(position.lat, position.lon, onLeg[1], onLeg[0])
     if (distance < bestDistance) {
       bestDistance = distance
       bestLeg = i
-      bestPoint = point
+      bestPoint = onLeg
     }
   }
-  let total = nmBetween(bestPoint[1], bestPoint[0], route[bestLeg + 1]![1], route[bestLeg + 1]![0])
+  const [endLon, endLat] = point(bestLeg + 1)
+  let total = nmBetween(bestPoint[1], bestPoint[0], endLat, endLon)
   for (let i = bestLeg + 1; i < route.length - 1; i++) {
-    total += nmBetween(route[i]![1], route[i]![0], route[i + 1]![1], route[i + 1]![0])
+    const [aLon, aLat] = point(i)
+    const [bLon, bLat] = point(i + 1)
+    total += nmBetween(aLat, aLon, bLat, bLon)
   }
   return total
 }
 
+/**
+ * ET, time remaining and ETA for Track (see this file's header).
+ *
+ * @param input The flight's times, route, position and ground speed.
+ * @returns ET, time remaining and ETA, each null when unknown.
+ */
 export function computeTrackTimes(input: TrackTimesInput): TrackTimes {
   const takeoff = input.takeoffUtc ? Date.parse(input.takeoffUtc) : NaN
   const scheduled = input.schedInUtc ? Date.parse(input.schedInUtc) : NaN
   const elapsedMs = Number.isFinite(takeoff) ? Math.max(0, input.now - takeoff) : null
 
-  const estimating = !input.onGround && input.position !== null && (input.groundSpeedMs ?? 0) >= MIN_ESTIMATE_SPEED_MS
-  const remainingNm = estimating ? remainingRouteNm(input.route, input.position!) : null
-  const remainingMs = remainingNm !== null ? ((remainingNm * METRES_PER_NM) / input.groundSpeedMs!) * 1000 : null
+  const position = input.position
+  const groundSpeedMs = input.groundSpeedMs ?? 0
+  const estimating = !input.onGround && position !== null && groundSpeedMs >= MIN_ESTIMATE_SPEED_MS
+  const remainingNm = estimating ? remainingRouteNm(input.route, position) : null
+  const remainingMs = remainingNm !== null ? ((remainingNm * METRES_PER_NM) / groundSpeedMs) * 1000 : null
 
   if (remainingMs !== null) {
     const etaMs = input.now + remainingMs
@@ -101,16 +126,26 @@ export function computeTrackTimes(input: TrackTimesInput): TrackTimes {
   }
 }
 
-/** "5:07" — hours unpadded, minutes padded; "--:--" for nothing. */
+/**
+ * "5:07" — hours unpadded, minutes padded; "--:--" for nothing.
+ *
+ * @param ms The duration, or null.
+ * @returns The text.
+ */
 export function formatDuration(ms: number | null): string {
   if (ms === null) return '--:--'
   const totalMin = Math.floor(ms / 60_000)
   return `${Math.floor(totalMin / 60)}:${String(totalMin % 60).padStart(2, '0')}`
 }
 
-/** ET: "2:05:30", seconds included since the readout ticks every second (Callum,
- *  2026-10-02). Time remaining stays at formatDuration's minutes: it's an estimate from
- *  ground speed, and ticking seconds would claim a precision it doesn't have. */
+/**
+ * ET: "2:05:30", seconds included since the readout ticks every second (Callum,
+ * 2026-10-02). Time remaining stays at formatDuration's minutes: it's an estimate from
+ * ground speed, and ticking seconds would claim a precision it doesn't have.
+ *
+ * @param ms The elapsed time, or null.
+ * @returns The text.
+ */
 export function formatElapsed(ms: number | null): string {
   if (ms === null) return '--:--:--'
   const totalSec = Math.floor(ms / 1000)
@@ -119,7 +154,12 @@ export function formatElapsed(ms: number | null): string {
   return `${h}:${String(m).padStart(2, '0')}:${String(totalSec % 60).padStart(2, '0')}`
 }
 
-/** "08:01Z". */
+/**
+ * "08:01Z".
+ *
+ * @param ms The time in epoch milliseconds, or null.
+ * @returns The text.
+ */
 export function formatUtcTime(ms: number | null): string {
   if (ms === null) return '--:--'
   const d = new Date(ms)

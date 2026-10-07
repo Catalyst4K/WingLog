@@ -1,3 +1,5 @@
+/** Dispatch's departure time: its default, the datetime input's value, and SimBrief's format. */
+
 import type { DispatchDeparture } from '@shared/ipc'
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000
@@ -10,6 +12,9 @@ const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000
  * schedule rather than an arbitrary "18:23". All arithmetic is on the Date's own epoch
  * milliseconds, so it's timezone-agnostic by construction — no UTC/local getter is
  * involved until toSimBriefDeparture below reads one back out.
+ *
+ * @param now The current time.
+ * @returns The default departure time.
  */
 export function defaultDepartureTime(now: Date): Date {
   const target = now.getTime() + FORTY_FIVE_MINUTES_MS
@@ -28,6 +33,9 @@ export function defaultDepartureTime(now: Date): Date {
  * wrong-format date as a 1970 departure rather than rejecting it, so this is checked
  * here rather than trusted) — the caller should omit the date/deph/depm parameters
  * entirely rather than send a nonsense value.
+ *
+ * @param date The departure time.
+ * @returns SimBrief's date, hour and minute, or null if out of range.
  */
 export function toSimBriefDeparture(date: Date): DispatchDeparture | null {
   if (Number.isNaN(date.getTime())) return null
@@ -41,9 +49,14 @@ export function toSimBriefDeparture(date: Date): DispatchDeparture | null {
   }
 }
 
-/** For a `<input type="datetime-local">` bound to a UTC Date — the input has no timezone
- *  of its own, so its value is treated as the UTC wall-clock time directly, never the
- *  system's local timezone (the field is labelled "UTC/Z" in the UI to match). */
+/**
+ * For a `<input type="datetime-local">` bound to a UTC Date — the input has no timezone
+ * of its own, so its value is treated as the UTC wall-clock time directly, never the
+ * system's local timezone (the field is labelled "UTC/Z" in the UI to match).
+ *
+ * @param date The time.
+ * @returns The input's value, "YYYY-MM-DDTHH:MM" in UTC.
+ */
 export function toDatetimeLocalValue(date: Date): string {
   const pad = (n: number): string => String(n).padStart(2, '0')
   return (
@@ -52,7 +65,12 @@ export function toDatetimeLocalValue(date: Date): string {
   )
 }
 
-/** Inverse of toDatetimeLocalValue — null for an empty/invalid input rather than an Invalid Date. */
+/**
+ * Inverse of toDatetimeLocalValue — null for an empty/invalid input rather than an Invalid Date.
+ *
+ * @param value The input's value.
+ * @returns The time, or null.
+ */
 export function fromDatetimeLocalValue(value: string): Date | null {
   if (!value) return null
   const date = new Date(`${value}:00Z`)

@@ -1,8 +1,3 @@
-import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
-import type { GeoJSONSource, GeoJSONSourceSpecification, Map as MapLibreMap } from 'maplibre-gl'
-import type { NavdataTaxiSegment } from '@shared/ipc'
-import { uiMemory } from './ui-memory'
-
 /**
  * The Track/Logbook map's taxi chart overlay (winglog-backend's docs/plans/
  * taxi-network-overlay.md) — an airport's full taxiway network, drawn as a static reference
@@ -10,6 +5,12 @@ import { uiMemory } from './ui-memory'
  * or fetched until the toggle is switched on, same discipline as useVfrOverlay.ts, since a
  * large airport's fetch can genuinely take minutes (not seconds) the first time.
  */
+
+import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
+import type { GeoJSONSourceSpecification, Map as MapLibreMap } from 'maplibre-gl'
+import type { NavdataTaxiSegment } from '@shared/ipc'
+import { uiMemory } from './ui-memory'
+import { setSourceData } from './map-source'
 
 // Exported so useTaxiRouteHighlight.ts can add its own filtered layer on the same source
 // rather than fetching/holding a second copy of the same segment data.
@@ -27,17 +28,19 @@ function segmentsToFeatureCollection(segmentsByIcao: [string, NavdataTaxiSegment
     type: 'FeatureCollection',
     // `icao` lets useTaxiRouteHighlight limit a clearance to its own airport — the same
     // taxiway letters exist at both ends of a flight (real report, 2026-09-30).
-    features: segmentsByIcao.flatMap(([icao, segments]) => segments.map((s) => ({
-      type: 'Feature' as const,
-      properties: { name: s.name, icao },
-      geometry: {
-        type: 'LineString',
-        coordinates: [
-          [s.startLon, s.startLat],
-          [s.endLon, s.endLat]
-        ]
-      }
-    })))
+    features: segmentsByIcao.flatMap(([icao, segments]) =>
+      segments.map((s) => ({
+        type: 'Feature' as const,
+        properties: { name: s.name, icao },
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [s.startLon, s.startLat],
+            [s.endLon, s.endLat]
+          ]
+        }
+      }))
+    )
   }
 }
 
@@ -55,9 +58,9 @@ function ensureLayer(map: MapLibreMap): void {
 }
 
 function setVisibility(map: MapLibreMap, visible: boolean): void {
-  if (map.getLayer(TAXI_LAYER_ID)) map.setLayoutProperty(TAXI_LAYER_ID, 'visibility', visible ? 'visible' : 'none')
+  if (map.getLayer(TAXI_LAYER_ID))
+    map.setLayoutProperty(TAXI_LAYER_ID, 'visibility', visible ? 'visible' : 'none')
 }
-
 
 export interface UseTaxiChartOverlayArgs {
   mapRef: MutableRefObject<MapLibreMap | null>
@@ -77,7 +80,10 @@ export interface TaxiChartOverlay {
   segmentsByIcao: Record<string, NavdataTaxiSegment[]>
 }
 
-async function loadAirport(icao: string, onLoaded: (icao: string, segments: NavdataTaxiSegment[]) => void): Promise<void> {
+async function loadAirport(
+  icao: string,
+  onLoaded: (icao: string, segments: NavdataTaxiSegment[]) => void
+): Promise<void> {
   if (uiMemory().taxiSegments.has(icao)) return
   const hasCached = await window.winglog.navdataHasTaxiNetwork(icao)
   if (!hasCached) await window.winglog.navdataRefreshTaxiNetwork(icao)
@@ -86,7 +92,18 @@ async function loadAirport(icao: string, onLoaded: (icao: string, segments: Navd
   onLoaded(icao, segments)
 }
 
-export function useTaxiChartOverlay({ mapRef, mapReady, depIcao, arrIcao }: UseTaxiChartOverlayArgs): TaxiChartOverlay {
+/**
+ * Draws the departure and arrival airports' taxi networks while the overlay is on.
+ *
+ * @param args The map, whether it is ready, and the flight's airports.
+ * @returns The overlay's state and toggle.
+ */
+export function useTaxiChartOverlay({
+  mapRef,
+  mapReady,
+  depIcao,
+  arrIcao
+}: UseTaxiChartOverlayArgs): TaxiChartOverlay {
   const [enabled, setEnabled] = useState(uiMemory().taxiChartEnabled)
   const [loadedVersion, setLoadedVersion] = useState(0)
   const [loadingIcao, setLoadingIcao] = useState<string | null>(null)
@@ -98,7 +115,10 @@ export function useTaxiChartOverlay({ mapRef, mapReady, depIcao, arrIcao }: UseT
 
   // Stable reference across renders where dep/arr haven't actually changed, so it can sit in
   // a dependency array without re-running the effects below on every unrelated render.
-  const icaos = useMemo(() => [depIcao, arrIcao].filter((icao): icao is string => Boolean(icao)), [depIcao, arrIcao])
+  const icaos = useMemo(
+    () => [depIcao, arrIcao].filter((icao): icao is string => Boolean(icao)),
+    [depIcao, arrIcao]
+  )
 
   // Load whichever known airports aren't cached yet, the first time the overlay is switched
   // on (or a new airport becomes known while it's already on) — never automatically, and
@@ -150,13 +170,19 @@ export function useTaxiChartOverlay({ mapRef, mapReady, depIcao, arrIcao }: UseT
       const segments = uiMemory().taxiSegments.get(icao)
       return segments ? [[icao, segments]] : []
     })
-    map.getSource<GeoJSONSource>(TAXI_SOURCE_ID)?.setData(segmentsToFeatureCollection(loaded))
+    setSourceData(map, TAXI_SOURCE_ID, segmentsToFeatureCollection(loaded))
   }, [mapRef, mapReady, enabled, loadedVersion, icaos])
 
   // loadedVersion is the signal that uiMemory().taxiSegments gained an airport.
   const segmentsByIcao = useMemo(
-    () => Object.fromEntries(icaos.flatMap((icao) => (uiMemory().taxiSegments.has(icao) ? [[icao, uiMemory().taxiSegments.get(icao)!]] : []))),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    () =>
+      Object.fromEntries(
+        icaos.flatMap((icao): [string, NavdataTaxiSegment[]][] => {
+          const segments = uiMemory().taxiSegments.get(icao)
+          return segments ? [[icao, segments]] : []
+        })
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadedVersion isn't read inside: it's the signal to re-read uiMemory
     [icaos, loadedVersion]
   )
 

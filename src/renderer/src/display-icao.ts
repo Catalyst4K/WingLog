@@ -4,6 +4,9 @@
  * there's genuinely no airport": main's normalizeFreeFlightIcao for a blank departure, or
  * TrackingController's arrival resolution finding nothing vendored within range at
  * touchdown). Never shown raw to the pilot — this is the one place that decides how.
+ *
+ * @param icao The stored ICAO code.
+ * @returns The code, or "Unknown" for ZZZZ.
  */
 export function displayIcao(icao: string): string {
   return icao === 'ZZZZ' ? 'Unknown' : icao

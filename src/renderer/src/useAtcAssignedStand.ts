@@ -1,3 +1,5 @@
+/** The arrival stand BeyondATC assigned, as a hook. */
+
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { useLiveTopic } from './live/LiveClient'
 
@@ -12,6 +14,8 @@ import { useLiveTopic } from './live/LiveClient'
  * assigned with the first half of a split clearance (12:17) but only spoken in the second
  * (12:24). Never read from speech (winglog-backend's docs/decisions.md, 2026-10-05). Null
  * when BeyondATC hasn't assigned one.
+ *
+ * @returns The stand, or null.
  */
 export function useAtcAssignedStand(): string | null {
   return useLiveTopic('beyondAtcState', EMPTY_BEYONDATC_STATE).assignedGate

@@ -1,3 +1,5 @@
+/** Click-to-sort table state. */
+
 import { useState } from 'react'
 
 export type SortDir = 'asc' | 'desc'
@@ -6,6 +8,12 @@ export type SortDir = 'asc' | 'desc'
  * Click-to-sort table state, shared by Logbook and Fleet. Same header click twice reverses
  * direction; clicking a different header switches to it ascending — mirrors how every
  * spreadsheet/file-manager header sort works, so no explicit UI hint is needed.
+ *
+ * @param rows The rows.
+ * @param comparators A comparator for each sortable column.
+ * @param defaultKey The column sorted at first.
+ * @param defaultDir Its direction at first.
+ * @returns The sorted rows, the sort state and a header click handler.
  */
 export function useSortable<TRow, TKey extends string>(
   rows: TRow[],

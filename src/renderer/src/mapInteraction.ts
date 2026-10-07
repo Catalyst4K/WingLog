@@ -31,6 +31,11 @@ export interface MapInteractionConfig {
  * case — the plan deliberately keeps zoom under the user's control while following — but
  * re-anchored to the map's center while locked, so zooming can't drag the view off the
  * aircraft the way anchoring to the cursor/pinch point would.
+ *
+ * @param live Whether this is the live-tracking map.
+ * @param followEnabled Whether camera follow is on.
+ * @param hasAircraft Whether there is a track point to follow.
+ * @returns Which handlers to enable, and the zoom anchor.
  */
 export function mapInteraction(
   live: boolean,

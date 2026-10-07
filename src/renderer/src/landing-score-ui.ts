@@ -1,7 +1,10 @@
-// Renderer-only display helpers for the landing score (docs/decisions.md, 2026-09-12) —
-// split out of LandingScoreBreakdownDialog.tsx so that file stays components-only
-// (react-refresh/only-export-components; the same reason LandingBadge.tsx doesn't export
-// its own threshold constants either).
+/**
+ * Renderer-only display helpers for the landing score (docs/decisions.md, 2026-09-12) —
+ * split out of LandingScoreBreakdownDialog.tsx so that file stays components-only
+ * (react-refresh/only-export-components; the same reason LandingBadge.tsx doesn't export
+ * its own threshold constants either).
+ */
+
 import type { LandingDistanceUnit, LandingScoreCategoryKey } from '@shared/ipc'
 import { formatRunwayDistance } from './units'
 
@@ -10,6 +13,12 @@ import { formatRunwayDistance } from './units'
  *  icon and the badge's colour band agree about what counts as bad. */
 export const BAD_CATEGORY_THRESHOLD = 50
 
+/**
+ * Whether a category drags the score down (below BAD_CATEGORY_THRESHOLD).
+ *
+ * @param score The category's 0-100 score, or null.
+ * @returns True if it is low enough to flag.
+ */
 export function isCategoryBad(score: number | null): boolean {
   return score !== null && score < BAD_CATEGORY_THRESHOLD
 }
@@ -23,11 +32,20 @@ export function isCategoryBad(score: number | null): boolean {
  * this favours the simpler, more intuitive reading over formula-accuracy for this one
  * display (docs/decisions.md, 2026-09-12). The overall 0-100 score is still the real,
  * correctly-weighted number; this is just how each input reads on its own.
+ *
+ * @param score The category's 0-100 score.
+ * @returns The 0-10 rating.
  */
 export function categoryScoreOutOf10(score: number): number {
   return Math.round(score / 10)
 }
 
+/**
+ * A category's rating as shown in the breakdown.
+ *
+ * @param score The category's 0-100 score, or null.
+ * @returns The rating out of 10, or "N/A".
+ */
 export function formatCategoryScore(score: number | null): string {
   return score === null ? 'N/A' : String(categoryScoreOutOf10(score))
 }
@@ -41,6 +59,14 @@ export function formatCategoryScore(score: number | null): string {
  * Both are gated on having a real runway match (same null-handling as the rest); `ideal`/
  * `tolerance` are null exactly when the category itself has no runway match to compute them
  * from.
+ *
+ * @param key The category.
+ * @param ideal Its ideal value, or null.
+ * @param tolerance Its tolerance, or null.
+ * @param unit The distance unit to show.
+ * @param toleranceShort The short-side tolerance, for the aiming point.
+ * @param toleranceLong The long-side tolerance, for the aiming point.
+ * @returns The description.
  */
 export function describeCategoryTolerance(
   key: LandingScoreCategoryKey,

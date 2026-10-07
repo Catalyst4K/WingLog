@@ -1,3 +1,5 @@
+/** A shared, awaitable confirmation dialog. */
+
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -28,6 +30,8 @@ interface ConfirmOptions {
  * AlertDialog-plus-useState scaffolding a call site would otherwise repeat (docs/plans/
  * destructive-action-confirmations.md, step 2). `confirm(...)` resolves `true`/`false`
  * once the user picks an option — await it inline rather than juggling open state by hand.
+ *
+ * @returns The confirm function, and the dialog element to render.
  */
 export function useConfirm(): [(options: ConfirmOptions) => Promise<boolean>, React.JSX.Element] {
   const { t } = useTranslation()

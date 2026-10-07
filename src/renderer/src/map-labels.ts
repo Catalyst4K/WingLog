@@ -1,5 +1,3 @@
-import type { MapLanguage } from '@shared/ipc'
-
 /**
  * Tidies and localises the hosted OpenFreeMap base style's own place-name labels
  * (winglog-backend docs/plans/map-language-and-declutter.md, Parts A and B1).
@@ -17,6 +15,8 @@ import type { MapLanguage } from '@shared/ipc'
  * look as expected is left alone — it's a third-party hosted style with no version pin.
  */
 
+import type { MapLanguage } from '@shared/ipc'
+
 export const MAP_LANGUAGES: readonly { value: MapLanguage; label: string }[] = [
   { value: 'en', label: 'English' },
   { value: 'local', label: 'Local' },
@@ -27,8 +27,13 @@ export const MAP_LANGUAGES: readonly { value: MapLanguage; label: string }[] = [
   { value: 'ru', label: 'Русский' }
 ]
 
-/** A single-line `text-field` for the language: the wanted `name:xx`, then progressively
- *  less specific names, so a feature with no translation still gets *a* label. */
+/**
+ * A single-line `text-field` for the language: the wanted `name:xx`, then progressively
+ * less specific names, so a feature with no translation still gets *a* label.
+ *
+ * @param language The map language.
+ * @returns The text-field expression.
+ */
 export function labelExpression(language: MapLanguage): unknown[] {
   switch (language) {
     case 'local':
@@ -76,9 +81,14 @@ const LOW_VALUE_MIN_ZOOM: Record<string, number> = {
 
 const isGetClass = (expr: unknown): boolean => Array.isArray(expr) && expr[0] === 'get' && expr[1] === 'class'
 
-/** The place classes a layer's filter selects: `include` for "class is one of", `exclude`
- *  for the "everything except" form (`match … false, true`). Only the shapes seen in the two
- *  real styles are understood; anything else yields nothing and the layer is left alone. */
+/**
+ * The place classes a layer's filter selects: `include` for "class is one of", `exclude`
+ * for the "everything except" form (`match … false, true`). Only the shapes seen in the two
+ * real styles are understood; anything else yields nothing and the layer is left alone.
+ *
+ * @param filter A layer's filter.
+ * @returns The classes it includes or excludes.
+ */
 function classesSelected(filter: unknown): { include: string[] | null; exclude: string[] | null } {
   const result: { include: string[] | null; exclude: string[] | null } = { include: null, exclude: null }
   const walk = (expr: unknown): void => {
@@ -97,8 +107,13 @@ function classesSelected(filter: unknown): { include: string[] | null; exclude: 
   return result
 }
 
-/** The zoom a place layer should not appear before, or null if it isn't a low-value layer
- *  (cities, towns, countries and continents are never touched). */
+/**
+ * The zoom a place layer should not appear before, or null if it isn't a low-value layer
+ * (cities, towns, countries and continents are never touched).
+ *
+ * @param layer A style layer.
+ * @returns Its minimum zoom, or null.
+ */
 function lowValueFloor(layer: StyleLayerLike): number | null {
   const { include, exclude } = classesSelected(layer.filter)
   if (include && include.length > 0) {
@@ -112,6 +127,13 @@ function lowValueFloor(layer: StyleLayerLike): number | null {
 const hasTwoLineName = (layer: StyleLayerLike): boolean =>
   layer.type === 'symbol' && JSON.stringify(layer.layout?.['text-field'] ?? null).includes('"name:nonlatin"')
 
+/**
+ * The changes a style's place-name layers need for this language and for decluttering.
+ *
+ * @param layers The style's layers.
+ * @param language The map language.
+ * @returns Each symbol layer's new label, and minimum zoom where needed.
+ */
 export function planStyleChanges(layers: StyleLayerLike[], language: MapLanguage): LayerChange[] {
   const changes: LayerChange[] = []
   for (const layer of layers) {

@@ -1,3 +1,5 @@
+/** How a flight is named in prose. */
+
 import { displayIcao } from './display-icao'
 
 interface LabelledFlight {
@@ -11,6 +13,9 @@ interface LabelledFlight {
  * pilot has no use for "Flight #204" and it reads like something they should recognise
  * (Callum, 2026-09-19). The flight number/callsign when there is one, otherwise the route
  * when both airports are real, otherwise whichever end is known, otherwise "this flight".
+ *
+ * @param flight The flight, if any.
+ * @returns The label.
  */
 export function flightLabel(flight: LabelledFlight | undefined | null): string {
   if (!flight) return 'this flight'

@@ -84,7 +84,7 @@ interface FakeMarkerInstance {
 // every fresh import), so no test's map interactions can affect another's.
 vi.mock('maplibre-gl', () => {
   class FakeSource {
-    setData = vi.fn()
+    setData = vi.fn().mockResolvedValue(undefined)
   }
 
   class FakeLngLatBounds {

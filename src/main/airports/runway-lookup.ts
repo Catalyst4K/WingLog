@@ -12,6 +12,7 @@ import { columnIndex, parseCsvRows } from '../db/csv'
 import { angularDifference, positionRelativeToRunway, type RunwayRelativePosition } from './landing-maths'
 import runwaysRaw from '../../../resources/runways.csv?raw'
 import { lazy } from '@shared/lazy'
+import { METRES_PER_FOOT } from '@shared/units'
 
 export interface RunwayEnd {
   icao: string
@@ -47,12 +48,11 @@ export interface RunwayEnd {
   aimingPointDistanceM: number | null
 }
 
-const FEET_TO_METERS = 0.3048
 
 function feetToMetersOrNull(raw: string | undefined): number | null {
   if (!raw) return null
   const feet = Number(raw)
-  return Number.isFinite(feet) ? feet * FEET_TO_METERS : null
+  return Number.isFinite(feet) ? feet * METRES_PER_FOOT : null
 }
 
 /**

@@ -1,3 +1,5 @@
+/** When and how a traced taxi line is re-traced from where the aircraft is. */
+
 import type { FlightPhase, NavdataTaxiSegment } from '@shared/ipc'
 import { angleBetweenDeg, rejoinTaxiRoute, remainingRoute, WRONG_WAY_DEG, type RemainingRoute, type TracedRoute } from './taxiRouteTrace'
 import { flatDistanceM } from '@shared/geo'
@@ -43,6 +45,13 @@ export interface DeviationSample {
   groundSpeedMs: number
 }
 
+/**
+ * Whether the aircraft has left the line for long enough to re-route.
+ *
+ * @param state The deviation state so far.
+ * @param sample This update's distance, heading and speed.
+ * @returns Whether to re-route now, and the new state.
+ */
 export function checkDeviation(state: DeviationState, sample: DeviationSample): { reroute: boolean; state: DeviationState } {
   const moving = sample.groundSpeedMs > REROUTE_MIN_SPEED_MS
   const offLine = sample.distanceM > REROUTE_DISTANCE_M
@@ -57,14 +66,26 @@ export function checkDeviation(state: DeviationState, sample: DeviationSample): 
   return { reroute: false, state: { ...state, deviatingSince: since } }
 }
 
-/** The furthest segment of the cleared route the aircraft has driven: the one it's on, once
- *  within DRIVEN_DISTANCE_M of it. Never goes back. */
+/**
+ * The furthest segment of the cleared route the aircraft has driven: the one it's on, once
+ * within DRIVEN_DISTANCE_M of it. Never goes back.
+ *
+ * @param remaining The route remaining from the aircraft.
+ * @param current The furthest segment so far.
+ * @returns The furthest segment.
+ */
 export function segmentDriven(remaining: RemainingRoute, current: number): number {
   return remaining.distanceM > DRIVEN_DISTANCE_M ? current : Math.max(current, remaining.segment)
 }
 
-/** Whether the aircraft has got to the end of the line (the hold, or the stand). From then on
- *  the clearance is done and nothing re-routes: lining up past the hold isn't a deviation. */
+/**
+ * Whether the aircraft has got to the end of the line (the hold, or the stand). From then on
+ * the clearance is done and nothing re-routes: lining up past the hold isn't a deviation.
+ *
+ * @param route The line.
+ * @param position The aircraft's position.
+ * @returns True at the end.
+ */
 export function reachedEnd(route: [number, number][], position: { lat: number; lon: number }): boolean {
   const end = route.at(-1)
   if (!end) return false
@@ -86,6 +107,12 @@ export interface RerouteTracker {
   done: boolean
 }
 
+/**
+ * Starts tracking a newly traced clearance.
+ *
+ * @param cleared The traced clearance.
+ * @returns The tracker.
+ */
 export function startTracker(cleared: TracedRoute): RerouteTracker {
   return { cleared, active: cleared, progress: 0, driven: 0, deviation: INITIAL_DEVIATION, done: false }
 }
@@ -102,6 +129,10 @@ export interface TrackerUpdate {
  * has left it (useTaxiRouteHighlight calls this on every update; the offline simulation of
  * real flights calls exactly the same thing). Only re-routes while taxiing: a pushback
  * drives tail first, so its heading is backwards.
+ *
+ * @param tracker The tracker.
+ * @param update The position, phase, time and taxi network.
+ * @returns The new tracker, the line to draw, and whether it re-routed.
  */
 export function trackPosition(
   tracker: RerouteTracker,

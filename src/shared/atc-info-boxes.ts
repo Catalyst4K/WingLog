@@ -1,6 +1,7 @@
 /** Reads BeyondATC's InfoBoxes as typed facts: taxi routes, gates, clearances and levels. */
 
 import type { BeyondAtcInfoBox, ProcedureSelection } from './ipc'
+import { METRES_PER_FOOT } from './units'
 
 /** A clearance read from one set of InfoBoxes, as a partial `ProcedureSelection` update. */
 export interface AtcClearanceUpdate {
@@ -274,7 +275,7 @@ function runwayClearance(boxes: BeyondAtcInfoBox[]): AtcClearanceUpdate | null {
   }
 }
 
-const FEET_PER_METRE = 1 / 0.3048
+const FEET_PER_METRE = 1 / METRES_PER_FOOT
 
 /**
  * "FL360" → 36000, "3,000m" → 9843, "11000 feet" → 11000. Null for anything else. A bare

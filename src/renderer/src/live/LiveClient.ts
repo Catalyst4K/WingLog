@@ -1,3 +1,5 @@
+/** The renderer's live data client: how views read the live topics main publishes. */
+
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { LiveCommand, LiveCommands, LiveTopic, LiveTopics } from '@shared/live'
 
@@ -85,11 +87,22 @@ export const electronLiveClient: LiveClient = {
 
 export const LiveClientContext = createContext<LiveClient>(electronLiveClient)
 
+/**
+ * The live client: Electron's, unless a test provides another.
+ *
+ * @returns The client from context.
+ */
 export function useLiveClient(): LiveClient {
   return useContext(LiveClientContext)
 }
 
-/** A topic's current value, kept up to date: fetched on mount, then followed live. */
+/**
+ * A topic's current value, kept up to date: fetched on mount, then followed live.
+ *
+ * @param topic The topic.
+ * @param initial Its value until the first fetch returns.
+ * @returns The topic's current value.
+ */
 export function useLiveTopic<T extends LiveTopic>(topic: T, initial: LiveTopics[T]): LiveTopics[T] {
   const client = useLiveClient()
   const [value, setValue] = useState<LiveTopics[T]>(initial)

@@ -1,3 +1,5 @@
+/** The altitude Track and the Logbook show: pressure altitude above the transition, true altitude below it. */
+
 import type { FlightPhase } from '@shared/ipc'
 import type { TransitionAltitudes } from './route'
 import { mToFt } from './units'
@@ -43,6 +45,13 @@ export interface DisplayAltitudeResult {
   label: 'Altitude' | 'True altitude'
 }
 
+/**
+ * The altitude to show for one track point or telemetry tick (CLIMB_SIDE_PHASES's comment has how it picks).
+ *
+ * @param input The point's altitudes and flight phase.
+ * @param transition The flight's transition altitude and level, or null.
+ * @returns The altitude to show, and which kind it is.
+ */
 export function displayAltitude(input: DisplayAltitudeInput, transition: TransitionAltitudes | null): DisplayAltitudeResult {
   const trueAltFt = mToFt(input.altitudeM)
   if (input.pressureAltitudeM == null) {

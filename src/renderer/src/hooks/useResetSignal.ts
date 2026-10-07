@@ -1,3 +1,5 @@
+/** A hook that resets a view when its tab is clicked again. */
+
 import { useEffect, useRef } from 'react'
 
 /**
@@ -9,6 +11,9 @@ import { useEffect, useRef } from 'react'
  * no-op. Skipping the mount-time call matters because a view can be seeded with an initial
  * drill-down (e.g. LogbookView's `initialFlightId`, arriving from Fleet) — firing on mount
  * would immediately reset straight back out of it.
+ *
+ * @param signal The page's reset counter from App.
+ * @param onReset What to do on a reset.
  */
 export function useResetSignal(signal: number | undefined, onReset: () => void): void {
   const mounted = useRef(false)
@@ -21,6 +26,6 @@ export function useResetSignal(signal: number | undefined, onReset: () => void):
     // Deliberately re-runs only when `signal` changes — `onReset` is expected to be a
     // fresh closure each render (it usually just calls a setState), not a stable identity
     // worth tracking.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only a new signal resets; onReset is a fresh closure each render
   }, [signal])
 }
