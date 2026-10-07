@@ -222,32 +222,13 @@ export function parseStepClimbs(
  * @throws SimBriefError if SimBrief reported an error or a needed section is missing.
  */
 export function parseOfp(raw: unknown): SimBriefOfp {
-  if (typeof raw !== 'object' || raw === null) {
-    throw new SimBriefError('SimBrief OFP is not a valid JSON object')
-  }
-
-  const ofp = raw as Record<string, Record<string, unknown> | undefined>
-  if (ofp.fetch?.status !== 'Success') {
-    throw new SimBriefError(`SimBrief reported an error: ${JSON.stringify(ofp.fetch)}`)
-  }
-
-  const { origin, destination, alternate, general, aircraft, weights, fuel, times, params, navlog } = ofp
-  if (!origin || !destination || !general || !aircraft || !weights || !fuel || !times || !params) {
-    throw new SimBriefError('SimBrief response is missing an expected top-level section')
-  }
+  const { origin, destination, alternate, general, aircraft, weights, fuel, times, params, navlog } =
+    ofpSections(raw)
 
   const kgFactor = params.units === 'lbs' ? 1 / LB_PER_KG : 1
   const toKg = (value: unknown): number => num(value) * kgFactor
 
-  const fixes = Array.isArray((navlog as Record<string, unknown> | undefined)?.fix)
-    ? ((navlog as { fix: Record<string, unknown>[] }).fix as Record<string, unknown>[])
-    : []
-
-  const waypoints = fixes.map((fix) => ({
-    ident: str(fix.ident),
-    altitudeFt: num(fix.altitude_feet ?? 0),
-    distanceNm: num(fix.distance ?? 0)
-  }))
+  const waypoints = navlogWaypoints(navlog)
   const waypointAltitudesFt = new Map(waypoints.map((w) => [w.ident, w.altitudeFt] as const))
 
   return {
@@ -272,7 +253,60 @@ export function parseOfp(raw: unknown): SimBriefOfp {
     simbriefIsCustom: str(aircraft.is_custom) === '1',
     simbriefInternalId: optStr(aircraft.internal_id),
     waypoints,
-    stepClimbs: parseStepClimbs(findStringField(ofp, 'stepclimb_string'), waypointAltitudesFt),
+    stepClimbs: parseStepClimbs(findStringField(raw, 'stepclimb_string'), waypointAltitudesFt),
     rawJson: JSON.stringify(raw)
   }
+}
+
+/** One top-level section of the OFP JSON. */
+type OfpSection = Record<string, unknown>
+
+/** The OFP sections parseOfp reads; `alternate` and `navlog` may be missing. */
+interface OfpSections {
+  origin: OfpSection
+  destination: OfpSection
+  alternate: OfpSection | undefined
+  general: OfpSection
+  aircraft: OfpSection
+  weights: OfpSection
+  fuel: OfpSection
+  times: OfpSection
+  params: OfpSection
+  navlog: OfpSection | undefined
+}
+
+/**
+ * @param raw The parsed OFP JSON.
+ * @returns Its sections.
+ * @throws SimBriefError if it isn't an object, SimBrief reported an error, or a needed
+ *   section is missing.
+ */
+function ofpSections(raw: unknown): OfpSections {
+  if (typeof raw !== 'object' || raw === null) {
+    throw new SimBriefError('SimBrief OFP is not a valid JSON object')
+  }
+
+  const ofp = raw as Record<string, OfpSection | undefined>
+  if (ofp.fetch?.status !== 'Success') {
+    throw new SimBriefError(`SimBrief reported an error: ${JSON.stringify(ofp.fetch)}`)
+  }
+
+  const { origin, destination, alternate, general, aircraft, weights, fuel, times, params, navlog } = ofp
+  if (!origin || !destination || !general || !aircraft || !weights || !fuel || !times || !params) {
+    throw new SimBriefError('SimBrief response is missing an expected top-level section')
+  }
+  return { origin, destination, alternate, general, aircraft, weights, fuel, times, params, navlog }
+}
+
+/**
+ * @param navlog The OFP's `navlog` section, if it has one.
+ * @returns Each fix's ident, altitude and distance; empty without a fix list.
+ */
+function navlogWaypoints(navlog: OfpSection | undefined): SimBriefOfp['waypoints'] {
+  const fixes = Array.isArray(navlog?.fix) ? (navlog.fix as OfpSection[]) : []
+  return fixes.map((fix) => ({
+    ident: str(fix.ident),
+    altitudeFt: num(fix.altitude_feet ?? 0),
+    distanceNm: num(fix.distance ?? 0)
+  }))
 }

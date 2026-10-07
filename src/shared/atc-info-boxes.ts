@@ -4,7 +4,12 @@ import type { BeyondAtcInfoBox, ProcedureSelection } from './ipc'
 
 /** A clearance read from one set of InfoBoxes, as a partial `ProcedureSelection` update. */
 export interface AtcClearanceUpdate {
-  fields: Partial<Pick<ProcedureSelection, 'departureRunway' | 'sidIdent' | 'starIdent' | 'approachIdent' | 'approachTransition'>>
+  fields: Partial<
+    Pick<
+      ProcedureSelection,
+      'departureRunway' | 'sidIdent' | 'starIdent' | 'approachIdent' | 'approachTransition'
+    >
+  >
   /** A labelled "what changed" summary for the prompt. */
   summary: string
   /** A STAR clearance's or landing runway ("08"). Not a field: ProcedureSelection keeps the
@@ -74,7 +79,13 @@ function nonEmpty(info: string): string | null {
  * @returns The taxi facts they carry; empty fields for anything missing.
  */
 export function parseAtcTaxiFacts(boxes: BeyondAtcInfoBox[]): AtcTaxiFacts {
-  const facts: AtcTaxiFacts = { taxiVia: [], holdPosition: null, taxiToRunway: null, taxiToGate: null, expectGate: null }
+  const facts: AtcTaxiFacts = {
+    taxiVia: [],
+    holdPosition: null,
+    taxiToRunway: null,
+    taxiToGate: null,
+    expectGate: null
+  }
   const via: { n: number; taxiway: string }[] = []
   for (const box of boxes) {
     const title = normaliseTitle(box.title)
@@ -167,7 +178,9 @@ function runwayValue(value: string | null): string | null {
  */
 export function clearedApproachIdent(value: string | null): string | null {
   const match = value ? CLEARED_APPROACH.exec(value.trim()) : null
-  return match ? `${match[1]!.replace('-', ' ').toUpperCase()} ${match[2]!.toUpperCase()}` : null
+  if (!match) return null
+  const [, type = '', runway = ''] = match
+  return `${type.replace('-', ' ').toUpperCase()} ${runway.toUpperCase()}`
 }
 
 /**
@@ -184,42 +197,81 @@ export function clearedApproachIdent(value: string | null): string | null {
  * @returns The clearance, or null.
  */
 export function parseAtcBoxClearance(boxes: BeyondAtcInfoBox[]): AtcClearanceUpdate | null {
+  return sidClearance(boxes) ?? starClearance(boxes) ?? approachClearance(boxes) ?? runwayClearance(boxes)
+}
+
+/**
+ * @param boxes One set of InfoBoxes.
+ * @returns The arrival or landing runway, or null.
+ */
+function arrivalRunwayValue(boxes: BeyondAtcInfoBox[]): string | null {
+  return runwayValue(boxValue(boxes, 'arrival runway', 'landing runway'))
+}
+
+/**
+ * @param boxes One set of InfoBoxes.
+ * @returns The approach transition, upper case, or null.
+ */
+function transitionValue(boxes: BeyondAtcInfoBox[]): string | null {
+  return boxValue(boxes, 'transition')?.toUpperCase() ?? null
+}
+
+/**
+ * @param boxes One set of InfoBoxes.
+ * @returns A departure clearance (`SID`, with its runway if given), or null.
+ */
+function sidClearance(boxes: BeyondAtcInfoBox[]): AtcClearanceUpdate | null {
   const sid = boxValue(boxes, 'sid')?.toUpperCase() ?? null
-  if (sid) {
-    const departureRunway = runwayValue(boxValue(boxes, 'taxi to runway', 'departure runway'))
-    return {
-      fields: { sidIdent: sid, ...(departureRunway && { departureRunway }) },
-      summary: departureRunway ? `SID ${sid}, runway ${departureRunway}` : `SID ${sid}`
-    }
+  if (!sid) return null
+  const departureRunway = runwayValue(boxValue(boxes, 'taxi to runway', 'departure runway'))
+  return {
+    fields: { sidIdent: sid, ...(departureRunway && { departureRunway }) },
+    summary: departureRunway ? `SID ${sid}, runway ${departureRunway}` : `SID ${sid}`
   }
+}
 
+/**
+ * @param boxes One set of InfoBoxes.
+ * @returns A STAR clearance (with its runway if given), or null.
+ */
+function starClearance(boxes: BeyondAtcInfoBox[]): AtcClearanceUpdate | null {
   const star = boxValue(boxes, 'star')?.toUpperCase() ?? null
-  const arrivalRunway = runwayValue(boxValue(boxes, 'arrival runway', 'landing runway'))
-  if (star) {
-    return {
-      fields: { starIdent: star },
-      summary: arrivalRunway ? `STAR ${star}, runway ${arrivalRunway}` : `STAR ${star}`,
-      ...(arrivalRunway && { arrivalRunway })
-    }
+  if (!star) return null
+  const arrivalRunway = arrivalRunwayValue(boxes)
+  return {
+    fields: { starIdent: star },
+    summary: arrivalRunway ? `STAR ${star}, runway ${arrivalRunway}` : `STAR ${star}`,
+    ...(arrivalRunway && { arrivalRunway })
   }
+}
 
+/**
+ * @param boxes One set of InfoBoxes.
+ * @returns An approach clearance (with its transition if given), or null.
+ */
+function approachClearance(boxes: BeyondAtcInfoBox[]): AtcClearanceUpdate | null {
   const approachIdent = clearedApproachIdent(boxValue(boxes, 'cleared approach'))
-  const transition = boxValue(boxes, 'transition')?.toUpperCase() ?? null
-  if (approachIdent) {
-    return {
-      fields: transition ? { approachIdent, approachTransition: transition } : { approachIdent },
-      summary: transition ? `Approach ${approachIdent} via ${transition}` : `Approach ${approachIdent}`
-    }
+  if (!approachIdent) return null
+  const transition = transitionValue(boxes)
+  return {
+    fields: transition ? { approachIdent, approachTransition: transition } : { approachIdent },
+    summary: transition ? `Approach ${approachIdent} via ${transition}` : `Approach ${approachIdent}`
   }
+}
 
-  if (arrivalRunway) {
-    return {
-      fields: transition ? { approachTransition: transition } : {},
-      summary: transition ? `Runway ${arrivalRunway} via ${transition}` : `Runway ${arrivalRunway}`,
-      arrivalRunway
-    }
+/**
+ * @param boxes One set of InfoBoxes.
+ * @returns The landing runway on its own (with a transition if given), or null.
+ */
+function runwayClearance(boxes: BeyondAtcInfoBox[]): AtcClearanceUpdate | null {
+  const arrivalRunway = arrivalRunwayValue(boxes)
+  if (!arrivalRunway) return null
+  const transition = transitionValue(boxes)
+  return {
+    fields: transition ? { approachTransition: transition } : {},
+    summary: transition ? `Runway ${arrivalRunway} via ${transition}` : `Runway ${arrivalRunway}`,
+    arrivalRunway
   }
-  return null
 }
 
 const FEET_PER_METRE = 1 / 0.3048
@@ -237,11 +289,11 @@ export function levelToFeet(level: string): number | null {
   if (fl) return Number(fl[1]) * 100
   const match = /^([\d,]+) ?(m|meters|metres|feet|ft)?$/i.exec(value)
   if (!match) return null
-  const number = Number(match[1]!.replace(/,/g, ''))
+  const [, digits = '', unit] = match
+  const number = Number(digits.replace(/,/g, ''))
   if (!Number.isFinite(number) || number <= 0) return null
-  return match[2] && /^m/i.test(match[2]) ? Math.round(number * FEET_PER_METRE) : number
+  return unit && /^m/i.test(unit) ? Math.round(number * FEET_PER_METRE) : number
 }
-
 
 /** Titles that carry a cleared level (VHHH-ZJSY, 2026-10-05: `Altitude Clearance` FL140,
  *  `climb`/`Climb` FL180/FL360, `Descend to` 3,000m; ZJSY-VHHH, same evening: `Continue Climb To`
