@@ -1,3 +1,5 @@
+/** Logbook's "Add to fleet" dialog for a free flight's aircraft. */
+
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
@@ -24,6 +26,9 @@ const EXISTING = '__existing__'
  * Two modes: create a new fleet aircraft from the sim-reported identity (editable), or link
  * this flight to one already in the fleet — covers both "this was genuinely a new aircraft"
  * and "I forgot to pick it at flight-start, but it's actually my G-EUYY".
+ *
+ * @param props The flight, the fleet, and what to do when it's linked or created.
+ * @returns The element.
  */
 export function AddFlightToFleetDialog(props: {
   open: boolean

@@ -1,3 +1,5 @@
+/** The SID, STAR and approach dropdowns, from the sim's navdata. */
+
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { NavdataProcedureOption, NavdataRunwayOption, ProcedureSelection } from '@shared/ipc'
@@ -69,6 +71,9 @@ function transitionsFor(options: NavdataProcedureOption[], identifier: string | 
  * currently chosen (docs/plans/navdata-without-navigraph.md, Phase 5). No save step: every
  * change here is immediately reflected wherever `selection` is used to build the live route
  * (useLiveWaypoints) — that's the caller's job, this component only edits the selection.
+ *
+ * @param props The flight's airports, the selection and its change handler.
+ * @returns The element.
  */
 export function ProcedureSelector(props: {
   airports: ProcedureAirports

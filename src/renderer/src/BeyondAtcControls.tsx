@@ -1,3 +1,5 @@
+/** BeyondATC's controls: the action buttons and the radios with their frequency picker. */
+
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Headset, Loader2 } from 'lucide-react'
@@ -35,6 +37,12 @@ export interface BeyondAtcActionsProps {
   pendingLabel?: string | null
 }
 
+/**
+ * The actions BeyondATC offers now, as buttons.
+ *
+ * @param props The actions BeyondATC offers, the select handler and the one in progress.
+ * @returns The buttons, or null with no actions.
+ */
 export function BeyondAtcActions(props: BeyondAtcActionsProps): React.JSX.Element | null {
   if (props.actions.length === 0) return null
   return (
@@ -60,11 +68,18 @@ export function BeyondAtcActions(props: BeyondAtcActionsProps): React.JSX.Elemen
   )
 }
 
-/** Splits the flat real frequency list into departure/arrival, by matching each option's
- *  `airport` (an ICAO code) against `Progress.from`/`to` — real captures only ever had the
- *  two flight-plan airports plus one enroute Center entry with no `airport` at all. That
- *  enroute entry doesn't belong to either phase specifically, so it's included in both
- *  tabs rather than dropped or given a third tab nobody asked for. */
+/**
+ * Splits the flat real frequency list into departure/arrival, by matching each option's
+ * `airport` (an ICAO code) against `Progress.from`/`to` — real captures only ever had the
+ * two flight-plan airports plus one enroute Center entry with no `airport` at all. That
+ * enroute entry doesn't belong to either phase specifically, so it's included in both
+ * tabs rather than dropped or given a third tab nobody asked for.
+ *
+ * @param options Every frequency BeyondATC offers.
+ * @param departureAirport The departure, or null.
+ * @param arrivalAirport The arrival, or null.
+ * @returns The options for each tab.
+ */
 function splitFrequencyOptions(
   options: BeyondAtcFrequencyOption[],
   departureAirport: string | null,
@@ -96,9 +111,14 @@ const FREQUENCY_TYPE_KEY: Record<string, string> = {
   Center: 'beyondAtcPanel.frequencyType.center'
 }
 
-/** One selectable station. Real captures showed BeyondATC supplying several distinct
- *  Approach frequencies for the same airport, one per runway, so the runway (when present)
- *  is shown next to the frequency it actually applies to, not just the station name. */
+/**
+ * One selectable station. Real captures showed BeyondATC supplying several distinct
+ * Approach frequencies for the same airport, one per runway, so the runway (when present)
+ * is shown next to the frequency it actually applies to, not just the station name.
+ *
+ * @param props The station and the select handler.
+ * @returns The element.
+ */
 function FrequencyOptionButton(props: { station: BeyondAtcFrequencyOption; onSelect: (frequency: string) => void }): React.JSX.Element {
   const { t } = useTranslation()
   const typeKey = FREQUENCY_TYPE_KEY[props.station.type]
@@ -138,12 +158,17 @@ function FrequencyOptionList(props: { stations: BeyondAtcFrequencyOption[]; onSe
   )
 }
 
-/** Departure/arrival tabs (Callum's own call, 2026-09-29 — a single grouped-by-airport list
- *  read as one long list once a real flight plan filled it with every real station at both
- *  airports), in a centered dialog rather than a small anchored dropdown — Callum's own
- *  follow-up call, same evening, once the popover version turned out cramped for a list this
- *  long. Tabs need button/tabpanel semantics a listbox (`Select`) doesn't offer, which is
- *  why this was never a native `<select>`-style control to begin with. */
+/**
+ * Departure/arrival tabs (Callum's own call, 2026-09-29 — a single grouped-by-airport list
+ * read as one long list once a real flight plan filled it with every real station at both
+ * airports), in a centered dialog rather than a small anchored dropdown — Callum's own
+ * follow-up call, same evening, once the popover version turned out cramped for a list this
+ * long. Tabs need button/tabpanel semantics a listbox (`Select`) doesn't offer, which is
+ * why this was never a native `<select>`-style control to begin with.
+ *
+ * @param props The frequencies, the flight's airports and the select handler.
+ * @returns The element.
+ */
 function FrequencyPicker(props: {
   departureAirport: string | null
   arrivalAirport: string | null
@@ -295,8 +320,13 @@ function flightLevel(feet: number): string {
   return `FL${String(Math.round(feet / 100)).padStart(3, '0')}`
 }
 
-/** One line under the toggles: what auto step climb is doing — a request in progress, the
- *  last result, an FCU level waiting on the climb, or the next planned step. */
+/**
+ * One line under the toggles: what auto step climb is doing — a request in progress, the
+ * last result, an FCU level waiting on the climb, or the next planned step.
+ *
+ * @param props The step climb status.
+ * @returns The line, or null with nothing to say.
+ */
 function StepClimbStatusLine(props: { status: BeyondAtcStepClimbStatus }): React.JSX.Element | null {
   const { t } = useTranslation()
   const { status } = props
@@ -336,6 +366,12 @@ function StepClimbStatusLine(props: { status: BeyondAtcStepClimbStatus }): React
   )
 }
 
+/**
+ * COM1 and COM2, the frequency picker, and the auto tune, respond and step climb toggles.
+ *
+ * @param props What is tuned, the frequencies on offer, the toggles and their handlers.
+ * @returns The element.
+ */
 export function BeyondAtcRadios(props: BeyondAtcRadiosProps): React.JSX.Element {
   const { t } = useTranslation()
   const com1Current = props.facility

@@ -1,3 +1,5 @@
+/** The first-launch setup dialog. */
+
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { BeyondAtcSettings, GsxRemoteSettings, GsxSettings, SetupContext, UpdateSettings } from '@shared/ipc'
@@ -22,6 +24,12 @@ export interface SetupDialogProps extends UnitsFieldsProps {
   onBeyondAtcEnabledChange: (enabled: boolean) => void
 }
 
+/**
+ * The setup's steps, one at a time (see STEPS).
+ *
+ * @param props Whether it's open, the close handler, and the settings it edits.
+ * @returns The element.
+ */
 export function SetupDialog(props: SetupDialogProps): React.JSX.Element {
   const { t } = useTranslation()
   const [index, setIndex] = useState(0)

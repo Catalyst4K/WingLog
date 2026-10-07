@@ -1,3 +1,5 @@
+/** A flight's GSX receipts card, with the total in the display currency. */
+
 import { useEffect, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
@@ -19,9 +21,14 @@ interface ReceiptDetail {
   fxDisclosure?: string
 }
 
-/** receiptJson is stored verbatim (minus logoDataUri) — parsed client-side only when the
- *  row's detail is actually expanded. Empty object on anything unparseable rather than
- *  throwing; a flight's other receipts shouldn't disappear because one JSON is malformed. */
+/**
+ * receiptJson is stored verbatim (minus logoDataUri) — parsed client-side only when the
+ * row's detail is actually expanded. Empty object on anything unparseable rather than
+ * throwing; a flight's other receipts shouldn't disappear because one JSON is malformed.
+ *
+ * @param receiptJson The stored receipt JSON.
+ * @returns Its detail, or an empty object.
+ */
 function parseDetail(receiptJson: string): ReceiptDetail {
   try {
     return JSON.parse(receiptJson) as ReceiptDetail
@@ -30,8 +37,13 @@ function parseDetail(receiptJson: string): ReceiptDetail {
   }
 }
 
-/** The UTC calendar date (YYYY-MM-DD) a receipt was issued on — the day whose exchange
- *  rate its total should convert at, not today's. */
+/**
+ * The UTC calendar date (YYYY-MM-DD) a receipt was issued on — the day whose exchange
+ * rate its total should convert at, not today's.
+ *
+ * @param invoice The receipt.
+ * @returns Its UTC issue date, YYYY-MM-DD.
+ */
 function receiptDate(invoice: FlightInvoice): string {
   return invoice.issuedUtc.slice(0, 10)
 }
@@ -44,11 +56,17 @@ function formatMoney(amount: number, currency: string): string {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount)
 }
 
-/** A receipt's amount as shown on its row. GSX's own text is `"<local> ~$ <USD>"`
- *  (src/main/gsx/money.ts); when the card's total is in another display currency, the
- *  `~$` half is swapped for that currency so every row matches the total underneath. The
- *  local half stays verbatim. With no conversion (USD display, rate not resolved, no USD
- *  amount), GSX's text is shown as-is. */
+/**
+ * A receipt's amount as shown on its row. GSX's own text is `"<local> ~$ <USD>"`
+ * (src/main/gsx/money.ts); when the card's total is in another display currency, the
+ * `~$` half is swapped for that currency so every row matches the total underneath. The
+ * local half stays verbatim. With no conversion (USD display, rate not resolved, no USD
+ * amount), GSX's text is shown as-is.
+ *
+ * @param inv The receipt.
+ * @param converted The display currency and its rate, or null.
+ * @returns The amount text.
+ */
 function rowAmountText(inv: FlightInvoice, converted: { currency: string; rate: number } | null): string {
   if (inv.totalText == null) return '—'
   if (converted == null || inv.totalUsd == null) return inv.totalText
@@ -126,6 +144,12 @@ function InvoiceRow(props: {
   )
 }
 
+/**
+ * The flight's matched GSX receipts, and the ones not matched by tail.
+ *
+ * @param props The flight.
+ * @returns The element.
+ */
 export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element {
   const { t } = useTranslation()
   const [invoices, setInvoices] = useState<FlightInvoice[]>([])

@@ -1,3 +1,5 @@
+/** The app shell: the tabs, the settings they share, and the app-wide banners and dialogs. */
+
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { BookOpen, Plane, Radar, Radio, Route, Settings as SettingsIcon, Truck } from 'lucide-react'
 import { toast } from 'sonner'
@@ -91,10 +93,14 @@ function appTabs(t: TFunction, gsxRemoteEnabled: boolean, beyondAtcEnabled: bool
   ]
 }
 
-/** Suspense's fallback for a lazy view's first render (docs/plans/navigation-tab-
- *  behaviour.md) — belt-and-braces alongside the idle prefetch below, not the primary fix:
- *  prefetching makes the cold-click delay go away, this just means a slow one (prefetch
- *  hadn't finished yet) shows the page frame rather than nothing at all. */
+/**
+ * Suspense's fallback for a lazy view's first render (docs/plans/navigation-tab-
+ * behaviour.md) — belt-and-braces alongside the idle prefetch below, not the primary fix:
+ * prefetching makes the cold-click delay go away, this just means a slow one (prefetch
+ * hadn't finished yet) shows the page frame rather than nothing at all.
+ *
+ * @returns The element.
+ */
 function PageSkeleton(): React.JSX.Element {
   return (
     <div className="flex flex-col gap-4">
@@ -131,13 +137,19 @@ function connectionStatusVariant(status: SimConnectionStatus): 'default' | 'seco
   }
 }
 
-/** The resume/discard prompt covers two different situations under one flight row — a
- *  genuinely 'active' one (WingLog quit or crashed mid-track, TrackingController's
- *  in-memory phase-detection state was lost with it) and a merely 'planned' one (Fly was
- *  pressed, but tracking never actually started before WingLog closed — nothing crashed,
- *  there's just an unfinished plan). Same two choices either way (keep it or discard/delete
- *  it), but the wording needs to say which one it actually is, not always claim tracking
- *  was interrupted when it may never have started. */
+/**
+ * The resume/discard prompt covers two different situations under one flight row — a
+ * genuinely 'active' one (WingLog quit or crashed mid-track, TrackingController's
+ * in-memory phase-detection state was lost with it) and a merely 'planned' one (Fly was
+ * pressed, but tracking never actually started before WingLog closed — nothing crashed,
+ * there's just an unfinished plan). Same two choices either way (keep it or discard/delete
+ * it), but the wording needs to say which one it actually is, not always claim tracking
+ * was interrupted when it may never have started.
+ *
+ * @param flight The unfinished flight.
+ * @param t The translation function.
+ * @returns The dialog's title, description and confirm label.
+ */
 function orphanedFlightCopy(
   flight: Flight,
   t: TFunction
@@ -156,6 +168,11 @@ function orphanedFlightCopy(
       }
 }
 
+/**
+ * The app.
+ *
+ * @returns The element.
+ */
 export default function App(): React.JSX.Element {
   const { t } = useTranslation()
   const [page, setPage] = useState<AppPage>('fleet')
@@ -397,13 +414,17 @@ export default function App(): React.JSX.Element {
     setPage('logbook')
   }
 
-  /** Always navigates to `targetPage` — including "return to its default view" when
-   *  already there, which a bare `setPage` can't do (Radix's Tabs only fires
-   *  `onValueChange` on an actual value change, so clicking the active tab is normally a
-   *  no-op). Dispatch and Track are deliberate exceptions: their lifted state
-   *  (`dispatchOfp`/`dispatchedOfpId`, Track's own in-progress tracking) is work in
-   *  progress, not navigation history — clearing it because the user clicked the tab
-   *  they're already on would be a data-loss bug wearing a UX fix's clothing. */
+/**
+ * Always navigates to `targetPage` — including "return to its default view" when
+ * already there, which a bare `setPage` can't do (Radix's Tabs only fires
+ * `onValueChange` on an actual value change, so clicking the active tab is normally a
+ * no-op). Dispatch and Track are deliberate exceptions: their lifted state
+ * (`dispatchOfp`/`dispatchedOfpId`, Track's own in-progress tracking) is work in
+ * progress, not navigation history — clearing it because the user clicked the tab
+ * they're already on would be a data-loss bug wearing a UX fix's clothing.
+ *
+ * @param targetPage The tab clicked.
+ */
   function goToTab(targetPage: AppPage): void {
     if (targetPage !== effectivePage) {
       setPage(targetPage)

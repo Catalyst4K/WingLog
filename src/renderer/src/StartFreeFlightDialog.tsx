@@ -1,3 +1,5 @@
+/** The "Start a free flight" dialog. */
+
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
@@ -44,6 +46,9 @@ const EMPTY_FORM: FormState = { registration: '', icaoType: '', depIcao: '', arr
  * opens) and everything stays editable, per the plan's own field table. Controlled rather
  * than owning its own trigger, since two different UI entry points (TrackView's Free flight
  * card and its passive detection banner) both open the same dialog instance.
+ *
+ * @param props Whether it's open, the sim's aircraft identity, the fleet, and the start handler.
+ * @returns The element.
  */
 export function StartFreeFlightDialog(props: {
   open: boolean

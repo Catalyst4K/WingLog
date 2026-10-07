@@ -1,8 +1,16 @@
+/** A sortable table header cell. */
+
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { TableHead } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import type { SortDir } from './hooks/useSortable'
 
+/**
+ * A table header that sorts by its column when clicked, showing the current direction.
+ *
+ * @param props The column's key and label, the active sort, and the sort handler.
+ * @returns The element.
+ */
 export function SortableHead<TKey extends string>(props: {
   sortKey: TKey
   label: string

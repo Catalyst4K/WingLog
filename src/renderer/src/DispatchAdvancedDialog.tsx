@@ -1,3 +1,5 @@
+/** Dispatch's Advanced dialog: SimBrief's optional planning parameters. */
+
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Flight } from '@shared/ipc'
@@ -22,10 +24,15 @@ import {
   type OptionValue
 } from '@shared/dispatch-options'
 
-/** Bound to a plain text Input: blank means unset (don't send this parameter at all —
- *  SimBrief's own default applies), and typing the literal word "auto" sends SimBrief's
- *  own "auto" value, which is a distinct, real option for several fields (pax, manual
- *  ZFW/payload, contingency %, reserve rule, cruise sub-mode) — see dispatch-options.ts. */
+/**
+ * Bound to a plain text Input: blank means unset (don't send this parameter at all —
+ * SimBrief's own default applies), and typing the literal word "auto" sends SimBrief's
+ * own "auto" value, which is a distinct, real option for several fields (pax, manual
+ * ZFW/payload, contingency %, reserve rule, cruise sub-mode) — see dispatch-options.ts.
+ *
+ * @param props The field's label, value and change handler.
+ * @returns The element.
+ */
 function OptionField(props: {
   label: string
   value: OptionValue
@@ -57,6 +64,12 @@ function OptionField(props: {
   )
 }
 
+/**
+ * The Advanced dialog: SimBrief's optional parameters, grouped, each blank for SimBrief's default.
+ *
+ * @param props The current options and the handler that applies new ones.
+ * @returns The element.
+ */
 export function DispatchAdvancedDialog(props: {
   open: boolean
   onOpenChange: (open: boolean) => void

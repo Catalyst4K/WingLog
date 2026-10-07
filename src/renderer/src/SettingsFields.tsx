@@ -1,3 +1,8 @@
+/**
+ * Settings controls shared by Settings and the first-launch setup (winglog-backend's
+ * docs/plans/first-launch-setup.md), so the two can never drift apart.
+ */
+
 import { useEffect, useState } from 'react'
 import { Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -9,21 +14,21 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
 /**
- * Settings controls shared by Settings and the first-launch setup (winglog-backend's
- * docs/plans/first-launch-setup.md), so the two can never drift apart.
- */
-
-/** Label above an equal-width button group, one row of the UI page's Units/Theme cards
- *  (docs/plans/settings-ui-page.md) — replaces the old label-beside-buttons rows, whose
- *  button groups started at three different x positions depending on label length. Every
- *  button gets the same min-width so a two-option row and a three-option row read as the
- *  same kind of control.
+ * Label above an equal-width button group, one row of the UI page's Units/Theme cards
+ * (docs/plans/settings-ui-page.md) — replaces the old label-beside-buttons rows, whose
+ * button groups started at three different x positions depending on label length. Every
+ * button gets the same min-width so a two-option row and a three-option row read as the
+ * same kind of control.
  *
- *  An optional `hint` moves what used to be an always-visible paragraph under the row into
- *  an info-icon popover instead (winglog-backend docs/plans/v1-2.md Part 4) — the Units
- *  card previously stacked five of these paragraphs at once, reading as mostly caveats
- *  rather than mostly controls. Reuses `LandingScoreBreakdownDialog`'s existing
- *  Info+Popover pattern rather than a new one. */
+ * An optional `hint` moves what used to be an always-visible paragraph under the row into
+ * an info-icon popover instead (winglog-backend docs/plans/v1-2.md Part 4) — the Units
+ * card previously stacked five of these paragraphs at once, reading as mostly caveats
+ * rather than mostly controls. Reuses `LandingScoreBreakdownDialog`'s existing
+ * Info+Popover pattern rather than a new one.
+ *
+ * @param props The label, options, value, change handler and optional hint.
+ * @returns The element.
+ */
 export function SegmentedRow<T extends string>(props: {
   label: string
   value: T
@@ -88,7 +93,12 @@ export interface UnitsFieldsProps {
   onAppLanguageChange: (language: AppLanguage) => void
 }
 
-/** The Units card's rows: weights, OFP altitudes, app and map language, wind, landing distances. */
+/**
+ * The Units card's rows: weights, OFP altitudes, app and map language, wind, landing distances.
+ *
+ * @param props Each unit setting and its change handler.
+ * @returns The element.
+ */
 export function UnitsFields(props: UnitsFieldsProps): React.JSX.Element {
   const { t } = useTranslation()
   return (
@@ -161,8 +171,12 @@ export function UnitsFields(props: UnitsFieldsProps): React.JSX.Element {
   )
 }
 
-/** Automatic tracking start and finish (tracking-auto-toggles.md), each with what turning it
- *  off means. Reads and saves its own setting. */
+/**
+ * Automatic tracking start and finish (tracking-auto-toggles.md), each with what turning it
+ * off means. Reads and saves its own setting.
+ *
+ * @returns The element.
+ */
 export function TrackingFields(): React.JSX.Element {
   const { t } = useTranslation()
   const [tracking, setTracking] = useState<TrackingSettings>({ autoStart: true, autoFinish: true })

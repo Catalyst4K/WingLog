@@ -1,3 +1,5 @@
+/** The Logbook tab: the flight list, each flight's detail, and the landings list. */
+
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -86,11 +88,16 @@ const CHART_TOOLTIP_STYLE = {
 // in hours would round to one or two ticks total, which is worse than minutes, not better.
 const HOURS_AXIS_THRESHOLD_MIN = 90
 
-/** Recharts' default tooltip puts the hovered time on its own header line and the value
- *  below it — but the time is already readable straight off the axis (the vertical cursor
- *  line still shows exactly where the hover is), so the header line just adds noise. This
- *  shows only the formatted value, in the numeric-readout mono style used everywhere else
- *  in the app (docs/plans/logbook-detail-improvements.md, item 2). */
+/**
+ * Recharts' default tooltip puts the hovered time on its own header line and the value
+ * below it — but the time is already readable straight off the axis (the vertical cursor
+ * line still shows exactly where the hover is), so the header line just adds noise. This
+ * shows only the formatted value, in the numeric-readout mono style used everywhere else
+ * in the app (docs/plans/logbook-detail-improvements.md, item 2).
+ *
+ * @param props The chart's tooltip state, and how to format the value.
+ * @returns The tooltip, or null when inactive.
+ */
 function ValueTooltip(props: {
   active?: boolean
   payload?: readonly { value?: number | string }[]
@@ -119,6 +126,9 @@ function formatDate(iso: string | null): string {
  * off/on). A free flight that never left the ground before "Finish & save" won't show the
  * badge — an acceptable miss for what's purely a display label, not something anything else
  * depends on.
+ *
+ * @param flight The flight.
+ * @returns True if it was tracked without a SimBrief plan.
  */
 function isFreeFlight(flight: LogbookFlight | Flight): boolean {
   const hasOfp = 'hasOfp' in flight ? flight.hasOfp : flight.ofpJson != null
@@ -173,10 +183,15 @@ const LANDING_TAB_THRESHOLD = 4
  *  data rather than as "which landing is this" (Callum, 2026-09-19). A touchdown with no
  *  resolved airfield falls back to its position in the whole sequence ("Landing 2"). The
  *  runway is still shown inside the card itself. */
-// Not yet translated — a pure exported function with its own unit tests asserting exact
-// English output, same deliberate gap as flight-label.ts's "this flight"/"flight from X"
-// (docs/plans/v1-2.md Part 3). displayIcao's own "Unknown" fallback (for ZZZZ) is the same
-// kind of gap, already shipped untranslated across Fleet/Dispatch/Track.
+/**
+ * Not yet translated — a pure exported function with its own unit tests asserting exact
+ * English output, same deliberate gap as flight-label.ts's "this flight"/"flight from X"
+ * (docs/plans/v1-2.md Part 3). displayIcao's own "Unknown" fallback (for ZZZZ) is the same
+ * kind of gap, already shipped untranslated across Fleet/Dispatch/Track.
+ *
+ * @param landings The flight's landings, in order.
+ * @returns A label for each, e.g. "VHHH 1", "VHHH 2".
+ */
 export function landingLabels(landings: { icao: string | null }[]): string[] {
   const attempts = new Map<string, number>()
   return landings.map((l, index) => {
@@ -187,8 +202,13 @@ export function landingLabels(landings: { icao: string | null }[]): string[] {
   })
 }
 
-/** Exported so it's directly testable without mounting FlightDetail's FlightMap, which
- *  LandingCard has no dependency on itself — LogbookView.test.tsx uses this. */
+/**
+ * Exported so it's directly testable without mounting FlightDetail's FlightMap, which
+ * LandingCard has no dependency on itself — LogbookView.test.tsx uses this.
+ *
+ * @param props The flight and the distance unit.
+ * @returns The element.
+ */
 export function LandingCard(props: {
   flightId: number
   landingDistanceUnit: LandingDistanceUnit
@@ -382,8 +402,13 @@ export function LandingCard(props: {
   )
 }
 
-/** Fetches the opened flight in full (OFP included) before showing it — the list rows are
- *  LogbookFlight, which leave the ~90 KB OFP out (see LogbookFlight in ipc.ts). */
+/**
+ * Fetches the opened flight in full (OFP included) before showing it — the list rows are
+ * LogbookFlight, which leave the ~90 KB OFP out (see LogbookFlight in ipc.ts).
+ *
+ * @param props FlightDetail's props, with the list row instead of the full flight.
+ * @returns The element.
+ */
 function FlightDetailLoader(
   props: Omit<React.ComponentProps<typeof FlightDetail>, 'flight'> & {
     /** The list's own row for this flight. A new object every time the list reloads (after
@@ -901,9 +926,14 @@ function compareLandingRows(a: LandingListRow, b: LandingListRow, key: LandingSo
   }
 }
 
-/** The Logbook Landings sub-tab (winglog-backend's docs/plans/multiple-landings.md
- *  Phase 3) — every touchdown across the whole fleet, one row per landing rather than one
- *  row per flight. Exported for direct testing, same reasoning as LandingCard above. */
+/**
+ * The Logbook Landings sub-tab (winglog-backend's docs/plans/multiple-landings.md
+ * Phase 3) — every touchdown across the whole fleet, one row per landing rather than one
+ * row per flight. Exported for direct testing, same reasoning as LandingCard above.
+ *
+ * @param props The handler that opens a flight, and the landings (fetched when not given).
+ * @returns The element.
+ */
 export function LandingsTable(props: {
   onOpenFlight: (flightId: number) => void
   /** Already-fetched rows (LogbookView loads them with the flights, so switching to this tab
@@ -991,6 +1021,12 @@ export function LandingsTable(props: {
   )
 }
 
+/**
+ * The Logbook tab.
+ *
+ * @param props The unit settings, the map language, a flight to open first, and the tab's reset signal.
+ * @returns The element.
+ */
 export function LogbookView(props: {
   weightUnit: WeightUnit
   landingDistanceUnit: LandingDistanceUnit
@@ -1059,8 +1095,13 @@ export function LogbookView(props: {
     reload().finally(() => setLoading(false))
   }, [])
 
-  /** A free flight tracked with no fleet aircraft has no aircraftId to look up — falls back
-   *  to the sim-reported registration recorded directly on the flight row instead. */
+/**
+ * A free flight tracked with no fleet aircraft has no aircraftId to look up — falls back
+ * to the sim-reported registration recorded directly on the flight row instead.
+ *
+ * @param flight The flight.
+ * @returns Its fleet aircraft's registration, else the one the sim reported, else a dash.
+ */
   function registrationFor(flight: LogbookFlight): string {
     if (flight.aircraftId != null) {
       return aircraft.find((a) => a.id === flight.aircraftId)?.registration ?? `#${flight.aircraftId}`
@@ -1072,9 +1113,14 @@ export function LogbookView(props: {
     return scores.find((s) => s.flightId === flightId)?.score ?? null
   }
 
-  /** Landing count for the flights list's "×3" badge (winglog-backend's docs/plans/
-   *  multiple-landings.md) — 0 for a flight with no landing row, same cases scoreFor
-   *  returns null for. */
+/**
+ * Landing count for the flights list's "×3" badge (winglog-backend's docs/plans/
+ * multiple-landings.md) — 0 for a flight with no landing row, same cases scoreFor
+ * returns null for.
+ *
+ * @param flightId The flight.
+ * @returns How many landings it has.
+ */
   function landingCountFor(flightId: number): number {
     return scores.find((s) => s.flightId === flightId)?.landingCount ?? 0
   }

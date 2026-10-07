@@ -1,3 +1,5 @@
+/** The Settings tab. */
+
 import { useEffect, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
@@ -67,8 +69,13 @@ const DATA_FORMATS = [
   { value: 'json', label: 'JSON' }
 ] as const
 
-/** One Import/Export pair with its own format picker — Fleet and Logbook each get one
- *  (winglog-backend docs/plans/data-export-import.md). */
+/**
+ * One Import/Export pair with its own format picker — Fleet and Logbook each get one
+ * (winglog-backend docs/plans/data-export-import.md).
+ *
+ * @param props The section's title and hint, the file format, and the import and export handlers.
+ * @returns The element.
+ */
 function DataSection(props: {
   title: string
   hint: string
@@ -129,6 +136,12 @@ function summarizeLogbookImport(summary: LogbookImportSummary, t: TFunction): st
   return result
 }
 
+/**
+ * The Settings tab.
+ *
+ * @param props Each app-wide setting and its change handler.
+ * @returns The element.
+ */
 export function SettingsView(props: {
   weightUnit: WeightUnit
   onWeightUnitChange: (unit: WeightUnit) => void

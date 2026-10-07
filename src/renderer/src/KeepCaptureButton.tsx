@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 
 /**
  * @param isDevBuild Defaults to the build flag; a prop so both builds can be tested.
+ * @returns The button, or null in a normal build.
  */
 export function KeepCaptureButton({
   flightId,

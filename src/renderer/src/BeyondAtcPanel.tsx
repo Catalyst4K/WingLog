@@ -1,3 +1,5 @@
+/** The BeyondATC tab's panel: station info, the latest instruction, actions, radios and transcript. */
+
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type {
@@ -34,11 +36,16 @@ function InfoField(props: { label: string; value: string }): React.JSX.Element {
   )
 }
 
-/** The top info strip (winglog-backend's docs/plans/beyondatc-panel-redesign.md) — just
- *  who you are and how far along the flight is, inline in one compact card. ATC's own
- *  instructions moved out to `LatestInstructionCard` below it (Callum's call, 2026-09-30).
- *  "Tuned to" facility/COM2 info is `BeyondAtcRadios`' job, not this card's. Always visible,
- *  like every other card here — a placeholder rather than shifting the layout. */
+/**
+ * The top info strip (winglog-backend's docs/plans/beyondatc-panel-redesign.md) — just
+ * who you are and how far along the flight is, inline in one compact card. ATC's own
+ * instructions moved out to `LatestInstructionCard` below it (Callum's call, 2026-09-30).
+ * "Tuned to" facility/COM2 info is `BeyondAtcRadios`' job, not this card's. Always visible,
+ * like every other card here — a placeholder rather than shifting the layout.
+ *
+ * @param props BeyondATC's state.
+ * @returns The element.
+ */
 function InfoCard(props: { state: BeyondAtcState }): React.JSX.Element {
   const { t } = useTranslation()
   const { callsign, progress } = props.state
@@ -57,17 +64,22 @@ function InfoCard(props: { state: BeyondAtcState }): React.JSX.Element {
   )
 }
 
-/** The key facts from whatever ATC said last — clearance, taxi, handoff, climb/descent,
- *  takeoff… (beyondAtcInstruction.ts) — as labelled fields, with the full text underneath so
- *  nothing an unrecognised phrasing carries is ever hidden. The station ATC spoke as sits in
- *  the header; clearances/permissions (cleared for takeoff, line up and wait…) stand out as
- *  badges rather than as another label: value pair.
+/**
+ * The key facts from whatever ATC said last — clearance, taxi, handoff, climb/descent,
+ * takeoff… (beyondAtcInstruction.ts) — as labelled fields, with the full text underneath so
+ * nothing an unrecognised phrasing carries is ever hidden. The station ATC spoke as sits in
+ * the header; clearances/permissions (cleared for takeoff, line up and wait…) stand out as
+ * badges rather than as another label: value pair.
  *
- *  The header's right side also keeps ATC's arrival clearance from the moment it's given
- *  until touchdown (Callum, 2026-10-05; kept in main by ArrivalClearanceTracker): STAR and
- *  runway, switching to approach and transition once those come. It sits beside the latest
- *  instruction, never in place of it — later lines ("report ready for descent") still show
- *  in the body as normal. */
+ * The header's right side also keeps ATC's arrival clearance from the moment it's given
+ * until touchdown (Callum, 2026-10-05; kept in main by ArrivalClearanceTracker): STAR and
+ * runway, switching to approach and transition once those come. It sits beside the latest
+ * instruction, never in place of it — later lines ("report ready for descent") still show
+ * in the body as normal.
+ *
+ * @param props The latest instruction and the arrival clearance, if any.
+ * @returns The element.
+ */
 function LatestInstructionCard(props: {
   instruction: AtcInstruction | null
   arrival: BeyondAtcArrivalClearance | null
@@ -129,8 +141,15 @@ function LatestInstructionCard(props: {
  *  out — a safety net so a missed state can't leave a spinner up for good. */
 export const PENDING_ACTION_TIMEOUT_MS = 60_000
 
-/** What the frequency is doing, from BeyondATC's CommsState, for the line above the
- *  buttons. Null when there's nothing worth saying. */
+/**
+ * What the frequency is doing, from BeyondATC's CommsState, for the line above the
+ * buttons. Null when there's nothing worth saying.
+ *
+ * @param t The translation function.
+ * @param pendingLabel The action just pressed, or null.
+ * @param comms BeyondATC's comms state, or null.
+ * @returns The status line for the actions card.
+ */
 function commsLine(
   t: (key: string, options?: Record<string, string>) => string,
   pendingLabel: string | null,
@@ -143,9 +162,14 @@ function commsLine(
   return null
 }
 
-/** Always visible, like every other card on this page — a placeholder rather than
- *  disappearing entirely while disconnected or when BeyondATC has no menu currently
- *  offered. */
+/**
+ * Always visible, like every other card on this page — a placeholder rather than
+ * disappearing entirely while disconnected or when BeyondATC has no menu currently
+ * offered.
+ *
+ * @param props The actions, the select handler, the one in progress and the comms state.
+ * @returns The element.
+ */
 function ActionsCard(props: {
   actions: string[]
   onSelectAction: (label: string) => void
@@ -187,28 +211,33 @@ function RadiosCard(props: React.ComponentProps<typeof BeyondAtcRadios>): React.
   )
 }
 
-/** Always visible, same as `ActionsCard`'s Radios sibling — an empty scrollable box rather
- *  than disappearing entirely, so the right column doesn't jump around as the panel connects
- *  (winglog-backend's docs/plans/beyondatc-panel-redesign.md). Fills the real, bounded
- *  height `BeyondAtcView`/`BeyondAtcPanel` propagate down from the window's own available
- *  space (`h-full` on `BeyondAtcView`'s root, `flex-1` the rest of the way down, all the way
- *  from App.tsx) — its own list never grows past that, scrolling internally instead
- *  (`min-h-0`/`flex-1` at every level down to the `<ul>` itself).
+/**
+ * Always visible, same as `ActionsCard`'s Radios sibling — an empty scrollable box rather
+ * than disappearing entirely, so the right column doesn't jump around as the panel connects
+ * (winglog-backend's docs/plans/beyondatc-panel-redesign.md). Fills the real, bounded
+ * height `BeyondAtcView`/`BeyondAtcPanel` propagate down from the window's own available
+ * space (`h-full` on `BeyondAtcView`'s root, `flex-1` the rest of the way down, all the way
+ * from App.tsx) — its own list never grows past that, scrolling internally instead
+ * (`min-h-0`/`flex-1` at every level down to the `<ul>` itself).
  *
- *  **The parent row is CSS Grid, not a flex row — this matters, confirmed the hard way.**
- *  A flexbox version (`flex flex-wrap items-stretch`) looked identical in the DOM (every
- *  `min-h-0`/`flex-1` class present at every level) but didn't actually cap this card:
- *  `align-items: stretch` on a flex-wrap row did not reliably give this column a definite
- *  height for its `min-h-0` descendants to resolve against, so the list just rendered at its
- *  full natural height regardless. Confirmed live via a Playwright screenshot + a DOM rect
- *  dump against a real 80-line transcript — the list grew to 1651px and the whole *page*
- *  scrolled to follow the newest line (via `scrollIntoView` below) instead of the card's own
- *  list, pushing every other card off screen entirely. Grid's track-sizing algorithm
- *  resolves a genuinely definite height for every cell in a row *before* laying out its
- *  contents — confirmed fixed with the identical rect dump afterward (452px, matching the
- *  left column, not 1651px). Kept as always-expanded (not collapsible), but scroll-anchored
- *  to the latest line: without that, a long transcript's newest exchange stays scrolled out
- *  of view within its own now-correctly-bounded box. */
+ * **The parent row is CSS Grid, not a flex row — this matters, confirmed the hard way.**
+ * A flexbox version (`flex flex-wrap items-stretch`) looked identical in the DOM (every
+ * `min-h-0`/`flex-1` class present at every level) but didn't actually cap this card:
+ * `align-items: stretch` on a flex-wrap row did not reliably give this column a definite
+ * height for its `min-h-0` descendants to resolve against, so the list just rendered at its
+ * full natural height regardless. Confirmed live via a Playwright screenshot + a DOM rect
+ * dump against a real 80-line transcript — the list grew to 1651px and the whole *page*
+ * scrolled to follow the newest line (via `scrollIntoView` below) instead of the card's own
+ * list, pushing every other card off screen entirely. Grid's track-sizing algorithm
+ * resolves a genuinely definite height for every cell in a row *before* laying out its
+ * contents — confirmed fixed with the identical rect dump afterward (452px, matching the
+ * left column, not 1651px). Kept as always-expanded (not collapsible), but scroll-anchored
+ * to the latest line: without that, a long transcript's newest exchange stays scrolled out
+ * of view within its own now-correctly-bounded box.
+ *
+ * @param props The transcript.
+ * @returns The element.
+ */
 function TranscriptCard(props: { entries: BeyondAtcTranscriptEntry[] }): React.JSX.Element {
   const { t } = useTranslation()
   const latestRef = useRef<HTMLLIElement>(null)
@@ -255,6 +284,11 @@ function TranscriptCard(props: { entries: BeyondAtcTranscriptEntry[] }): React.J
 const DISCONNECTED: BeyondAtcConnectionStatus = { state: 'disconnected', lastError: null }
 const NO_TRANSCRIPT: BeyondAtcTranscriptEntry[] = []
 
+/**
+ * The BeyondATC panel, live from BeyondATC's state and transcript.
+ *
+ * @returns The element.
+ */
 export function BeyondAtcPanel(): React.JSX.Element {
   const { t } = useTranslation()
   const [settings, setSettings] = useState<BeyondAtcSettings | null>(null)

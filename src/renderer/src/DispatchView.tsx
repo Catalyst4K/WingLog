@@ -1,3 +1,5 @@
+/** The Dispatch tab: plan or fetch a SimBrief flight, pick its aircraft, and fly it. */
+
 import { isRetired } from '@shared/aircraft'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -39,9 +41,14 @@ function aircraftLabel(a: Aircraft): string {
   return `${a.registration} — ${a.icaoType}${a.operator ? ` (${a.operator})` : ''}`
 }
 
-/** "Last parked here at stand N32" — when this aircraft's last flight ended at the airport
- *  it's departing from (stand-positions.md). WingLog can't place the aircraft in the sim, so
- *  it's a reminder for choosing the starting gate in MSFS. */
+/**
+ * "Last parked here at stand N32" — when this aircraft's last flight ended at the airport
+ * it's departing from (stand-positions.md). WingLog can't place the aircraft in the sim, so
+ * it's a reminder for choosing the starting gate in MSFS.
+ *
+ * @param props Where the aircraft last parked, and the planned departure.
+ * @returns The element, or null when there is nothing to show.
+ */
 function LastParkedHint(props: { parked: AircraftLastParked | undefined; depIcao: string | null }): React.JSX.Element | null {
   const { t } = useTranslation()
   if (!props.parked || !props.depIcao || props.parked.icao !== props.depIcao.toUpperCase()) return null
@@ -57,6 +64,12 @@ function DetailField(props: { label: string; value: React.ReactNode }): React.JS
   )
 }
 
+/**
+ * The Dispatch tab.
+ *
+ * @param props The unit settings, the OFP in progress and its change handler, and what to do once planned.
+ * @returns The element.
+ */
 export function DispatchView(props: {
   weightUnit: WeightUnit
   altitudeUnit: AltitudeUnit

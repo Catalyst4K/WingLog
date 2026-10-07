@@ -1,3 +1,5 @@
+/** Logbook's "Clean up track" button. */
+
 import { useState } from 'react'
 import { Wrench } from 'lucide-react'
 import { toast } from 'sonner'
@@ -21,6 +23,9 @@ import { Button } from '@/components/ui/button'
  * CPA319/#191: `resumeSegment` was 0 throughout, yet the cleanup pass still found and
  * fixed its real restore-teleport). `applyTrackCleanup` already no-ops cheaply when
  * there's nothing to find, so showing this unconditionally costs nothing on a clean flight.
+ *
+ * @param props The flight, and what to do once it's cleaned.
+ * @returns The element.
  */
 export function TrackCleanupButton(props: {
   flightId: number

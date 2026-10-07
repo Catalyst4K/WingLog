@@ -1,3 +1,5 @@
+/** A tracked free flight's departure or destination, editable while it flies. */
+
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
@@ -11,6 +13,9 @@ const VALID_ICAO = /^[A-Z0-9]{2,5}$/
  * dialog leaves either optional, and this is how one is added or changed afterwards
  * (v1.1.1 destination, v1.1.2 departure). Both feed the Weather (METAR) dialog. The
  * destination is only a plan: the real touchdown still resolves the actual arrival.
+ *
+ * @param props Which end, the flight, and the save handler.
+ * @returns The element.
  */
 export function FreeFlightAirport(props: {
   kind: 'departure' | 'destination'

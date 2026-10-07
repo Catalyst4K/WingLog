@@ -1,11 +1,17 @@
+/** Settings → About's update check card. */
+
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { UpdateSettings, UpdateStatus } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
-/** Settings → About: the automatic update check's switch, "Check now", and the last result
- *  (winglog-backend's docs/plans/update-check.md). */
+/**
+ * Settings → About: the automatic update check's switch, "Check now", and the last result
+ * (winglog-backend's docs/plans/update-check.md).
+ *
+ * @returns The element.
+ */
 export function UpdatesCard(): React.JSX.Element {
   const { t } = useTranslation()
   const [settings, setSettings] = useState<UpdateSettings | null>(null)

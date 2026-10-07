@@ -1,3 +1,5 @@
+/** Folder-style tabs: shadcn's Tabs, restyled. */
+
 import * as React from 'react'
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -14,6 +16,12 @@ import { cn } from '@/lib/utils'
 export const FolderTabs = Tabs
 export const FolderTabsContent = TabsContent
 
+/**
+ * The row of folder tabs.
+ *
+ * @param props TabsList's props.
+ * @returns The element.
+ */
 export function FolderTabsList({ className, ...props }: React.ComponentProps<typeof TabsList>): React.JSX.Element {
   return (
     <TabsList
@@ -24,6 +32,12 @@ export function FolderTabsList({ className, ...props }: React.ComponentProps<typ
   )
 }
 
+/**
+ * One folder tab.
+ *
+ * @param props TabsTrigger's props.
+ * @returns The element.
+ */
 export function FolderTabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsTrigger>): React.JSX.Element {
   return (
     <TabsTrigger

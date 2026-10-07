@@ -1,3 +1,5 @@
+/** The Track tab: the live flight, its map, times and tracking controls. */
+
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
@@ -42,11 +44,16 @@ import { computeTrackTimes, formatDuration, formatElapsed, formatUtcTime, type T
 // cheaper than a round trip for it.
 const GROUND_MOVEMENT_THRESHOLD_MS = 0.5
 
-/** "Flight Num: [airline logo] BAW31   A35K · G-XWBS" — the identity strip shown for a
- *  flight on this page, whether it's actively being tracked or just queued up to start.
- *  Falls back to simIcaoType/simRegistration (a free flight tracked with no fleet
- *  aircraft — free-flight-tracking.md's "don't add to fleet" option) when there's no
- *  linked Aircraft to read type/registration from. */
+/**
+ * "Flight Num: [airline logo] BAW31   A35K · G-XWBS" — the identity strip shown for a
+ * flight on this page, whether it's actively being tracked or just queued up to start.
+ * Falls back to simIcaoType/simRegistration (a free flight tracked with no fleet
+ * aircraft — free-flight-tracking.md's "don't add to fleet" option) when there's no
+ * linked Aircraft to read type/registration from.
+ *
+ * @param props The flight number, the fleet aircraft, and what the sim reports.
+ * @returns The element.
+ */
 function FlightIdentity(props: {
   flightNumber: string
   aircraft: Aircraft | undefined
@@ -69,11 +76,22 @@ function FlightIdentity(props: {
 }
 
 
-/** A real airport code for the Weather dialog — a free flight's unset airports are `ZZZZ`. */
+/**
+ * A real airport code for the Weather dialog — a free flight's unset airports are `ZZZZ`.
+ *
+ * @param icao A stored ICAO code.
+ * @returns It, or null for a missing one or ZZZZ.
+ */
 function realIcao(icao: string | null | undefined): string | null {
   return icao && icao !== 'ZZZZ' ? icao : null
 }
 
+/**
+ * The Track tab.
+ *
+ * @param props A planned OFP to preview, live telemetry, and the map language.
+ * @returns The element.
+ */
 export function TrackView(props: {
   /** The OFP most recently fetched in Dispatch, not yet saved as a flight — last-resort
    *  preview so a route shows up here even before "Save as planned flight" is clicked. */
@@ -615,7 +633,12 @@ export function TrackView(props: {
   )
 }
 
-/** ET · time remaining · ETA, beside the phase (trackTimes.ts). */
+/**
+ * ET · time remaining · ETA, beside the phase (trackTimes.ts).
+ *
+ * @param props ET, time remaining and ETA.
+ * @returns The element.
+ */
 function TimeReadouts(props: { times: TrackTimes }): React.JSX.Element {
   const { t } = useTranslation()
   const { times } = props

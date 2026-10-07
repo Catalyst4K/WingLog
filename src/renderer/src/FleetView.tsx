@@ -1,3 +1,5 @@
+/** The Fleet tab: the aircraft list, each aircraft's detail, and adding, replacing and retiring. */
+
 import { useEffect, useState } from 'react'
 import { Archive, ArchiveRestore, ArrowLeft, ArrowRightLeft, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -79,6 +81,9 @@ function DetailField(props: { label: string; value: React.ReactNode }): React.JS
  * - no custom profile, but a SimBrief default type is chosen: show its type, plus
  *   engine/developer from the cached label when the picker set it.
  * - nothing set at all: explain the (usually fine) fallback.
+ *
+ * @param props The aircraft.
+ * @returns The element.
  */
 function SimBriefProfileCard(props: { aircraft: Aircraft }): React.JSX.Element {
   const { t } = useTranslation()
@@ -134,10 +139,15 @@ function SimBriefProfileCard(props: { aircraft: Aircraft }): React.JSX.Element {
   )
 }
 
-/** Fleet's per-aircraft landing history, per docs/decisions.md's landing-analysis entry —
- *  not per-flight (Logbook's job), but how this specific tail has actually been landed
- *  over its life in the fleet. Empty state is the common case for a while: only flights
- *  tracked since this feature shipped have a landing record at all. */
+/**
+ * Fleet's per-aircraft landing history, per docs/decisions.md's landing-analysis entry —
+ * not per-flight (Logbook's job), but how this specific tail has actually been landed
+ * over its life in the fleet. Empty state is the common case for a while: only flights
+ * tracked since this feature shipped have a landing record at all.
+ *
+ * @param props The aircraft.
+ * @returns The element.
+ */
 function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
   const { t } = useTranslation()
   const [landings, setLandings] = useState<AircraftLanding[]>([])
@@ -184,12 +194,17 @@ function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
   )
 }
 
-/** An aircraft's own completed flights (docs/plans/fleet-redesign.md #2) — scrollable
- *  rather than paginated per Callum's ask, same fixed-height/overflow-y-auto pattern as
- *  LandingHistoryCard above so the detail page's own layout doesn't grow unbounded with
- *  flight count (his real fleet has one aircraft with well over a hundred). Rows are
- *  clickable, jumping to that flight's Logbook detail — the app's first cross-view
- *  navigation, confirmed wanted rather than assumed. */
+/**
+ * An aircraft's own completed flights (docs/plans/fleet-redesign.md #2) — scrollable
+ * rather than paginated per Callum's ask, same fixed-height/overflow-y-auto pattern as
+ * LandingHistoryCard above so the detail page's own layout doesn't grow unbounded with
+ * flight count (his real fleet has one aircraft with well over a hundred). Rows are
+ * clickable, jumping to that flight's Logbook detail — the app's first cross-view
+ * navigation, confirmed wanted rather than assumed.
+ *
+ * @param props The aircraft, and what to do when a flight is opened.
+ * @returns The element.
+ */
 function AircraftFlightsCard(props: {
   aircraftId: number
   onOpenFlight: (flightId: number) => void
@@ -235,13 +250,18 @@ function AircraftFlightsCard(props: {
   )
 }
 
-/** A livery/registration change on an airframe still being flown (docs/plans/
- *  aircraft-replacement.md) — picks an existing, active fleet aircraft to take over this
- *  one's flight history. The target list deliberately excludes already-retired aircraft:
- *  chaining a replacement onto one that's already been superseded would need its own
- *  "walk the chain" handling this plan doesn't build, and in practice a target is always
- *  still active at the moment a replace happens (it might get retired itself later, via a
- *  separate replace). */
+/**
+ * A livery/registration change on an airframe still being flown (docs/plans/
+ * aircraft-replacement.md) — picks an existing, active fleet aircraft to take over this
+ * one's flight history. The target list deliberately excludes already-retired aircraft:
+ * chaining a replacement onto one that's already been superseded would need its own
+ * "walk the chain" handling this plan doesn't build, and in practice a target is always
+ * still active at the moment a replace happens (it might get retired itself later, via a
+ * separate replace).
+ *
+ * @param props The aircraft, the candidates to replace it with, whether it's open, and the handlers.
+ * @returns The element.
+ */
 function ReplaceAircraftDialog(props: {
   aircraft: Aircraft
   candidates: Aircraft[]
@@ -340,8 +360,12 @@ function ReplaceAircraftDialog(props: {
   )
 }
 
-/** "VHHH · stand N32" — the stand only when it's at the airport the aircraft is at now
- *  (stand-positions.md). */
+/**
+ * "VHHH · stand N32" — the stand only when it's at the airport the aircraft is at now
+ * (stand-positions.md).
+ *
+ * @returns A function giving an aircraft's location text from its airport and where it last parked.
+ */
 function useLocationLabel(): (icao: string | null, parked: AircraftLastParked | undefined) => string {
   const { t } = useTranslation()
   return (icao, parked) => {
@@ -474,6 +498,12 @@ function AircraftDetail(props: {
   )
 }
 
+/**
+ * The Fleet tab.
+ *
+ * @param props The handler that opens a flight in the Logbook, an aircraft to open first, and the tab's reset signal.
+ * @returns The element.
+ */
 export function FleetView(props: {
   onOpenFlightInLogbook: (flightId: number, fromAircraftId: number) => void
   /** Set when Logbook's "Back" returns here for a specific aircraft, rather than the

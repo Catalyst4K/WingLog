@@ -1,3 +1,5 @@
+/** The GSX Remote tab's panel: GSX's menu, command bar, gate and service progress. */
+
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight } from 'lucide-react'
@@ -59,6 +61,9 @@ const SIMBRIEF_SUB_TEXT: Record<string, string> = {
  * GSX's own client does this from exactly this always-visible header, entirely independent
  * of the in-sim panel. Passively displaying `state.menu` was never enough on its own
  * (confirmed live, 2026-09-21, docs/gsx-notes.md) — this is what actually opens it.
+ *
+ * @param props The menu, and the collapse toggle.
+ * @returns The element.
  */
 function MenuHeader(props: { menu: GsxRemoteMenuState; onToggle: () => void }): React.JSX.Element {
   const { t } = useTranslation()
@@ -83,9 +88,14 @@ function MenuHeader(props: { menu: GsxRemoteMenuState; onToggle: () => void }): 
   )
 }
 
-/** `gateProperties` is GSX's own free-text amenity-tag list ("jetway", "no stairs", "max
- *  wingspan 70m") — rendered as plain badges, never matched against a fixed set, per
- *  `gsx-remote-format.ts`'s own doc comment on the type. */
+/**
+ * `gateProperties` is GSX's own free-text amenity-tag list ("jetway", "no stairs", "max
+ * wingspan 70m") — rendered as plain badges, never matched against a fixed set, per
+ * `gsx-remote-format.ts`'s own doc comment on the type.
+ *
+ * @param props The gate GSX resolved, or null.
+ * @returns The element, or null when there is nothing to show.
+ */
 function GateHeader(props: { gate: GsxRemoteGateInfo | null }): React.JSX.Element | null {
   if (!props.gate) return null
   const { gateLabel, area } = parseGsxParking(props.gate.parking)
@@ -117,6 +127,9 @@ const SIMBRIEF_TIMEOUT_MS = 30000
  * own `commandBtn()`/`simbriefBtn()` behaviour, including RESTART_COUATL's tap-to-arm/tap-
  * to-confirm pattern and the SimBrief button's optimistic "Downloading..." state, both
  * confirmed live 2026-09-23 by reading GSX's own shipped source, not guessed.
+ *
+ * @param props The command bar, and the run handler.
+ * @returns The element, or null when there is nothing to show.
  */
 function CommandBar(props: {
   commandBar: GsxRemoteCommandBar
@@ -222,6 +235,9 @@ function CommandBar(props: {
  * `entries`/`icons`/`disabled` shape — rendering it generically is what makes that work
  * without a special case. Only shown while `menuShown` is true, exactly like GSX's own
  * client's own gate — entries can be stale/leftover while the menu itself is closed.
+ *
+ * @param props The menu, the pick and search handlers, and the stand BeyondATC assigned.
+ * @returns The element.
  */
 function MenuEntries(props: {
   menu: GsxRemoteMenuState
@@ -266,6 +282,9 @@ function MenuEntries(props: {
  * "Search parking..." is picked). Mirrors `menu.js`'s own `buildSearchBox()` exactly: every
  * keystroke sends the box's *whole* current text as `menu.search`, and GSX re-filters the
  * menu entries itself — no local filtering or debouncing (docs/gsx-notes.md, round 11).
+ *
+ * @param props The search handler, and the stand BeyondATC assigned.
+ * @returns The element.
  */
 function GateSearchBox(props: { onSearch: (text: string) => void; atcStand: string | null }): React.JSX.Element {
   const { t } = useTranslation()
@@ -295,13 +314,18 @@ function GateSearchBox(props: { onSearch: (text: string) => void; atcStand: stri
   )
 }
 
-/** Structured `detail` fields (fuel current/target, pax/cargo counts) render as nicely
- *  formatted numbers instead of `statusText`'s free text — real shapes confirmed live
- *  2026-09-21 (docs/gsx-notes.md, round 6/7 captures). Falls back to `statusText`/`stateText`
- *  for every other service, unchanged from before. `detail.waitingFor` (real vehicle-pathing
- *  stalls, confirmed live 2026-09-23, round 11) renders alongside whichever branch is active
- *  rather than replacing it — GSX keeps reporting real pax/cargo counts even while stuck, and
- *  the counts alone don't explain why they've stopped moving. */
+/**
+ * Structured `detail` fields (fuel current/target, pax/cargo counts) render as nicely
+ * formatted numbers instead of `statusText`'s free text — real shapes confirmed live
+ * 2026-09-21 (docs/gsx-notes.md, round 6/7 captures). Falls back to `statusText`/`stateText`
+ * for every other service, unchanged from before. `detail.waitingFor` (real vehicle-pathing
+ * stalls, confirmed live 2026-09-23, round 11) renders alongside whichever branch is active
+ * rather than replacing it — GSX keeps reporting real pax/cargo counts even while stuck, and
+ * the counts alone don't explain why they've stopped moving.
+ *
+ * @param props The service.
+ * @returns The element, or null when there is nothing to show.
+ */
 function ServiceProgress(props: { service: GsxRemoteServiceStatus }): React.JSX.Element | null {
   const { t } = useTranslation()
   const detail = props.service.detail
@@ -428,6 +452,11 @@ function PromptModal(props: {
 const DISCONNECTED: GsxRemoteConnectionStatus = { state: 'disconnected', lastError: null }
 const NO_SERVICES: GsxRemoteServiceStatus[] = []
 
+/**
+ * The GSX Remote panel, live from GSX's state.
+ *
+ * @returns The element.
+ */
 export function GsxRemotePanel(): React.JSX.Element {
   const { t } = useTranslation()
   const [settings, setSettings] = useState<GsxRemoteSettings | null>(null)

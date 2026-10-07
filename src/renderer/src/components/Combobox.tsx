@@ -1,3 +1,5 @@
+/** A text input with a debounced search dropdown. */
+
 import { useEffect, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -7,6 +9,9 @@ import { cn } from '@/lib/utils'
  * live field content (typed or picked) — picking a result just replaces it, it doesn't
  * switch the field into some other "selected" mode. Used for both airport and aircraft
  * type lookups (previously two near-identical implementations).
+ *
+ * @param props The value, its change handler, the search, and how to show and pick a result.
+ * @returns The element.
  */
 export function Combobox<T>(props: {
   value: string

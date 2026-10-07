@@ -1,3 +1,5 @@
+/** The airport field: free ICAO entry with a name and ICAO search. */
+
 import { useTranslation } from 'react-i18next'
 import type { AirportOption } from '@shared/ipc'
 import { Combobox } from './components/Combobox'
@@ -7,6 +9,9 @@ import { Combobox } from './components/Combobox'
  * plus a debounced name/ICAO search dropdown (docs/decisions.md — vendored OurAirports
  * slice). Shared by the Fleet form's "Current airport" field and Dispatch's
  * departure/destination fields.
+ *
+ * @param props The ICAO value, its change handler and a placeholder.
+ * @returns The element.
  */
 export function AirportSearch(props: {
   value: string

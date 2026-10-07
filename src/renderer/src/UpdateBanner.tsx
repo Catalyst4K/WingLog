@@ -1,3 +1,5 @@
+/** The "new version available" banner. */
+
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Download, X } from 'lucide-react'
@@ -9,6 +11,9 @@ import { Button } from '@/components/ui/button'
  * docs/plans/update-check.md, Part A). The check itself runs in main; this only shows its
  * result. Hidden while the aircraft is airborne, so it never interrupts a flight, and for a
  * version the user skipped. Dismissing it hides it for this session only.
+ *
+ * @param props Whether the aircraft is airborne (the banner waits until it isn't).
+ * @returns The banner, or null with nothing to offer.
  */
 export function UpdateBanner(props: { airborne: boolean }): React.JSX.Element | null {
   const { t } = useTranslation()

@@ -1,3 +1,5 @@
+/** An aircraft's real-world photo thumbnail, from its registration lookup. */
+
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -9,6 +11,9 @@ import { useTranslation } from 'react-i18next'
  * airport-data.com rather than an individual photographer — adsbdb doesn't return one.
  * A failed load (photo removed/replaced since lookup, or a fictional/GA registration with
  * none to begin with) just hides the whole figure rather than a broken-image icon.
+ *
+ * @param props The photo's thumbnail URL, or null.
+ * @returns The element, or null when there is nothing to show.
  */
 export function AircraftPhoto(props: { thumbnailUrl: string | null }): React.JSX.Element | null {
   // Tracks the URL that failed, not a plain boolean, so switching to a different

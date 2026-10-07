@@ -1,3 +1,5 @@
+/** The map shared by Dispatch, Track and the Logbook: route, waypoints, track, aircraft and overlays. */
+
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   GeoJSONSource,
@@ -140,10 +142,15 @@ function multiLineString(segments: [number, number][][]): MultiLineStringFeature
   return { type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: segments } }
 }
 
-/** Splits a flight's trail at every resumeSegment boundary — never draws a line across a
- *  restart's spawn-point/teleport-back artefacts (winglog-backend's docs/plans/
- *  resume-track-cleanup.md), even before any cleanup logic decides which points within a
- *  segment are themselves spurious. */
+/**
+ * Splits a flight's trail at every resumeSegment boundary — never draws a line across a
+ * restart's spawn-point/teleport-back artefacts (winglog-backend's docs/plans/
+ * resume-track-cleanup.md), even before any cleanup logic decides which points within a
+ * segment are themselves spurious.
+ *
+ * @param points The flight's track points.
+ * @returns The track as line segments, split at each resume gap.
+ */
 function trailSegments(points: TrackPoint[]): [number, number][][] {
   const segments: [number, number][][] = []
   let current: [number, number][] = []
@@ -185,6 +192,9 @@ function waypointFeatures(waypoints: Waypoint[]): WaypointFeatureCollection {
  * labels to a later zoom (map-labels.ts). Best-effort by design: it's a third-party style
  * with no version pin, so any surprise — a missing layer, a changed shape — leaves the map
  * as the style drew it rather than breaking it.
+ *
+ * @param map The map.
+ * @param language The map language.
  */
 function applyLabelStyle(map: MapLibreMap, language: MapLanguage): void {
   try {
@@ -260,6 +270,12 @@ export interface FlightMapProps {
 // every render just because callers that don't pass `waypoints` get a fresh `[]` each time.
 const EMPTY_WAYPOINTS: Waypoint[] = []
 
+/**
+ * The flight map.
+ *
+ * @param props The route, waypoints and track; whether it's live, with its telemetry; the map language; and the flight's airports.
+ * @returns The element.
+ */
 export function FlightMap({
   route,
   waypoints = EMPTY_WAYPOINTS,

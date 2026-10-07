@@ -1,3 +1,5 @@
+/** Dispatch's METAR panel. */
+
 import { useEffect, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -65,6 +67,9 @@ function MetarBody(props: {
  * for anything else — a fuel stop, a diversion candidate, wherever. Fetches all four in
  * one batched call (docs/decisions.md, 2026-09-02) rather than one request per tab, and
  * only for slots that actually have a real 4-letter code.
+ *
+ * @param props The airports to show weather for.
+ * @returns The element.
  */
 export function MetarPanel(props: {
   depIcao: string | null

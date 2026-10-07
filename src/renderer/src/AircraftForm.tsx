@@ -1,3 +1,5 @@
+/** The Fleet aircraft form: identity, registration lookup, airline and SimBrief airframe. */
+
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -78,26 +80,38 @@ function Field(props: {
   )
 }
 
-/** A short label for one dropdown row — the stock entry gets a fixed label (nothing to
- *  attribute it to), a community entry prefers its parsed developer, falling back to the
- *  raw comment for the ~3% that don't match SimBrief's usual naming shape (docs/plans/
- *  simbrief-airframe-picker.md). The type never appears here — options are fetched per
- *  type, so it's identical on every row and can't help distinguish them (docs/plans/
- *  simbrief-airframe-picker-v2.md, decision 1). `variant` is whatever the raw comment adds
- *  beyond developer/engines (e.g. "(SL)" on an A320, a whole phrase like "Dual Class" on a
- *  PMDG 737 — docs/simbrief-notes.md) — shown only when the parse actually found one. */
+/**
+ * A short label for one dropdown row — the stock entry gets a fixed label (nothing to
+ * attribute it to), a community entry prefers its parsed developer, falling back to the
+ * raw comment for the ~3% that don't match SimBrief's usual naming shape (docs/plans/
+ * simbrief-airframe-picker.md). The type never appears here — options are fetched per
+ * type, so it's identical on every row and can't help distinguish them (docs/plans/
+ * simbrief-airframe-picker-v2.md, decision 1). `variant` is whatever the raw comment adds
+ * beyond developer/engines (e.g. "(SL)" on an A320, a whole phrase like "Dual Class" on a
+ * PMDG 737 — docs/simbrief-notes.md) — shown only when the parse actually found one.
+ *
+ * @param o The airframe option.
+ * @param t The translation function.
+ * @returns The label.
+ */
 function optionLabel(o: SimbriefAirframeOption, t: TFunction): string {
   if (o.isDefault) return t('aircraftForm.simbriefDefaultOption', { engines: o.engines })
   const variant = o.variant ? ` — ${o.variant}` : ''
   return `${o.developer ?? o.comments}${variant} — ${o.engines}`
 }
 
-/** Same idea as optionLabel, but for the collapsed Select value and Fleet's read-only
- *  display — contexts with no dropdown of sibling rows around them to establish the type
- *  from, unlike optionLabel's own rows (decision 2, docs/plans/simbrief-airframe-
- *  picker-v2.md). Skips appending the type onto the raw-comment fallback case (no
- *  `developer`) — that text is already a full, self-contained description, not built to
- *  have a type code glued onto the end of it. */
+/**
+ * Same idea as optionLabel, but for the collapsed Select value and Fleet's read-only
+ * display — contexts with no dropdown of sibling rows around them to establish the type
+ * from, unlike optionLabel's own rows (decision 2, docs/plans/simbrief-airframe-
+ * picker-v2.md). Skips appending the type onto the raw-comment fallback case (no
+ * `developer`) — that text is already a full, self-contained description, not built to
+ * have a type code glued onto the end of it.
+ *
+ * @param o The airframe option.
+ * @param t The translation function.
+ * @returns The label.
+ */
 function selectedOptionLabel(o: SimbriefAirframeOption, t: TFunction): string {
   if (o.isDefault) return t('aircraftForm.simbriefDefaultSelected', { simbriefType: o.simbriefType, engines: o.engines })
   if (!o.developer) return o.comments
@@ -105,6 +119,12 @@ function selectedOptionLabel(o: SimbriefAirframeOption, t: TFunction): string {
   return `${o.developer} ${o.simbriefType}${variant} — ${o.engines}`
 }
 
+/**
+ * Adds or edits a Fleet aircraft.
+ *
+ * @param props The aircraft being edited (or none for a new one), and the save and cancel handlers.
+ * @returns The element.
+ */
 export function AircraftForm(props: {
   initial?: Aircraft
   onSubmit: (data: NewAircraft) => Promise<void>
@@ -179,9 +199,13 @@ export function AircraftForm(props: {
     setForm((current) => ({ ...current, [key]: value }))
   }
 
-  /** The raw text fields stay directly editable (never blocked), but typing over a value
-   *  the picker set invalidates its cached label — showing a stale developer/engine
-   *  label next to a hand-edited id/type would be actively misleading. */
+/**
+ * The raw text fields stay directly editable (never blocked), but typing over a value
+ * the picker set invalidates its cached label — showing a stale developer/engine
+ * label next to a hand-edited id/type would be actively misleading.
+ *
+ * @param value The typed airframe id.
+ */
   function handleManualSimbriefAirframeIdChange(value: string): void {
     set('simbriefAirframeId', value)
     setAirframeDeveloper(null)
