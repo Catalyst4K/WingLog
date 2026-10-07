@@ -22,7 +22,10 @@ export const FolderTabsContent = TabsContent
  * @param props TabsList's props.
  * @returns The element.
  */
-export function FolderTabsList({ className, ...props }: React.ComponentProps<typeof TabsList>): React.JSX.Element {
+export function FolderTabsList({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsList>): React.JSX.Element {
   return (
     <TabsList
       variant="line"
@@ -38,7 +41,10 @@ export function FolderTabsList({ className, ...props }: React.ComponentProps<typ
  * @param props TabsTrigger's props.
  * @returns The element.
  */
-export function FolderTabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsTrigger>): React.JSX.Element {
+export function FolderTabsTrigger({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsTrigger>): React.JSX.Element {
   return (
     <TabsTrigger
       className={cn(

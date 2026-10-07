@@ -281,9 +281,7 @@ function setWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
   return api
 }
 
-function renderTrack(
-  props: Partial<Parameters<typeof TrackView>[0]> = {}
-): ReturnType<typeof render> {
+function renderTrack(props: Partial<Parameters<typeof TrackView>[0]> = {}): ReturnType<typeof render> {
   const selection = props.selection ?? emptyProcedureSelection()
   const onSelectionChange = props.onSelectionChange ?? vi.fn()
   return render(<TrackView {...props} selection={selection} onSelectionChange={onSelectionChange} />)
@@ -353,7 +351,11 @@ describe('TrackView', () => {
     it('on the ground before takeoff: no ET or time remaining, and the planned arrival as the ETA', async () => {
       setWinglog({
         aircraftList: vi.fn().mockResolvedValue([]),
-        flightList: vi.fn().mockResolvedValue([makeFlight({ id: 5, status: 'active', ofpJson: '{}', schedInUtc: '2026-10-02T07:15:00Z' })]),
+        flightList: vi
+          .fn()
+          .mockResolvedValue([
+            makeFlight({ id: 5, status: 'active', ofpJson: '{}', schedInUtc: '2026-10-02T07:15:00Z' })
+          ]),
         trackingGetActive: vi.fn().mockResolvedValue({ flightId: 5, phase: 'taxi' })
       })
       renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 8 }) })
@@ -374,12 +376,21 @@ describe('TrackView', () => {
       setWinglog({
         aircraftList: vi.fn().mockResolvedValue([]),
         flightList: vi.fn().mockResolvedValue([
-          makeFlight({ id: 5, status: 'active', ofpJson: null, depIcao: 'VHHH', arrIcao: 'EGLL', actualOffUtc: takenOff })
+          makeFlight({
+            id: 5,
+            status: 'active',
+            ofpJson: null,
+            depIcao: 'VHHH',
+            arrIcao: 'EGLL',
+            actualOffUtc: takenOff
+          })
         ]),
         trackingGetActive: vi.fn().mockResolvedValue({ flightId: 5, phase: 'cruise' }),
         logbookGreatCircleRoute
       })
-      renderTrack({ telemetry: makeTelemetry({ onGround: false, groundSpeedMs: 250, latitude: 42, longitude: 50 }) })
+      renderTrack({
+        telemetry: makeTelemetry({ onGround: false, groundSpeedMs: 250, latitude: 42, longitude: 50 })
+      })
 
       await waitFor(() => expect(readout('Remaining')).not.toHaveTextContent('--:--'))
       expect(logbookGreatCircleRoute).toHaveBeenCalledWith('VHHH', 'EGLL')
@@ -520,7 +531,9 @@ describe('TrackView', () => {
       await waitFor(() => expect(boxFor('Departure')).toHaveValue('VHHH'))
 
       await user.click(screen.getByRole('button', { name: 'Weather…' }))
-      await waitFor(() => expect(weatherGetMetars).toHaveBeenCalledWith(expect.arrayContaining(['VHHH', 'VHHX'])))
+      await waitFor(() =>
+        expect(weatherGetMetars).toHaveBeenCalledWith(expect.arrayContaining(['VHHH', 'VHHX']))
+      )
       expect(screen.getByRole('tab', { name: 'Dep' })).toBeInTheDocument()
       expect(screen.getByRole('tab', { name: 'Dest' })).toBeInTheDocument()
       expect(screen.getByRole('tab', { name: 'Custom' })).toBeInTheDocument()
@@ -576,7 +589,7 @@ describe('TrackView', () => {
       expect(await screen.findByText(/G-EUYY is airborne — start tracking\?/)).toBeInTheDocument()
     })
 
-    it('does not show the banner until the sustain threshold is reached — 8 consecutive samples, matching AutoStartDetector\'s own proven bar', async () => {
+    it("does not show the banner until the sustain threshold is reached — 8 consecutive samples, matching AutoStartDetector's own proven bar", async () => {
       setWinglog()
       const { rerender } = renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 0 }) })
       for (let i = 0; i < 7; i++) pushTelemetry(rerender, { onGround: false })
@@ -672,12 +685,13 @@ describe('TrackView', () => {
       expect(await screen.findByText(/start tracking\?/)).toBeInTheDocument()
     })
 
-    it('clears a dismissal on a title change even when the raw trigger never goes false in between — the real bug Callum hit (dismissed a false pre-load trigger, which blended straight into the real flight\'s own trigger, and the banner never came back)', async () => {
+    it("clears a dismissal on a title change even when the raw trigger never goes false in between — the real bug Callum hit (dismissed a false pre-load trigger, which blended straight into the real flight's own trigger, and the banner never came back)", async () => {
       setWinglog()
       const user = userEvent.setup()
       const { rerender } = renderTrack({ telemetry: makeTelemetry({ onGround: true, groundSpeedMs: 0 }) })
       // The false pre-load episode — sustained long enough to prompt, then dismissed.
-      for (let i = 0; i < 8; i++) pushTelemetry(rerender, { onGround: false, title: 'Stale previous session' })
+      for (let i = 0; i < 8; i++)
+        pushTelemetry(rerender, { onGround: false, title: 'Stale previous session' })
       await screen.findByText(/start tracking\?/)
       await user.click(screen.getByText('Not now'))
       expect(screen.queryByText(/start tracking\?/)).not.toBeInTheDocument()
@@ -716,7 +730,9 @@ describe('TrackView', () => {
       await user.click(await screen.findByText('Free flight'))
       await screen.findByText('Start a free flight')
       // The remembered title -> aircraft match resolves automatically — no manual pick needed.
-      await waitFor(() => expect(screen.getByText(`${AIRCRAFT.registration} — ${AIRCRAFT.icaoType}`)).toBeInTheDocument())
+      await waitFor(() =>
+        expect(screen.getByText(`${AIRCRAFT.registration} — ${AIRCRAFT.icaoType}`)).toBeInTheDocument()
+      )
 
       await user.click(screen.getByText('Start tracking'))
 
@@ -731,7 +747,7 @@ describe('TrackView', () => {
       expect(await screen.findByText('Phase:')).toBeInTheDocument()
     })
 
-    it('shows the flight\'s own sim-reported identity in the active card when tracking with no fleet aircraft — not mandatory to add one', async () => {
+    it("shows the flight's own sim-reported identity in the active card when tracking with no fleet aircraft — not mandatory to add one", async () => {
       const trackingStartFree = vi.fn().mockResolvedValue(5)
       const freeFlight = makeFlight({
         id: 5,
@@ -790,7 +806,11 @@ describe('TrackView', () => {
       aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
       flightList: vi.fn().mockResolvedValue([makeFlight()])
     })
-    const selection: ProcedureSelection = { ...emptyProcedureSelection(), sidIdent: 'DET2G', starIdent: 'ABC1' }
+    const selection: ProcedureSelection = {
+      ...emptyProcedureSelection(),
+      sidIdent: 'DET2G',
+      starIdent: 'ABC1'
+    }
     renderTrack({ selection })
     await screen.findByText('Start tracking')
     expect(screen.getByText('DET2G · ABC1')).toBeInTheDocument()
@@ -999,7 +1019,9 @@ describe('TrackView', () => {
     await screen.findByText('Start tracking')
     await user.click(screen.getByText('Cancel flight'))
     expect(await screen.findByText('Cancel BAW31?')).toBeInTheDocument()
-    await user.click(screen.getByText('Cancel flight', { selector: 'button[data-slot="alert-dialog-action"]' }))
+    await user.click(
+      screen.getByText('Cancel flight', { selector: 'button[data-slot="alert-dialog-action"]' })
+    )
     await waitFor(() => expect(winglog.flightCancel).toHaveBeenCalledWith(1))
     expect(onFlightEnded).toHaveBeenCalled()
   })
@@ -1015,7 +1037,9 @@ describe('TrackView', () => {
     renderTrack()
     await screen.findByText('Start tracking')
     await user.click(screen.getByText('Cancel flight'))
-    await user.click(screen.getByText('Cancel flight', { selector: 'button[data-slot="alert-dialog-action"]' }))
+    await user.click(
+      screen.getByText('Cancel flight', { selector: 'button[data-slot="alert-dialog-action"]' })
+    )
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('cannot cancel'))
   })
 
@@ -1030,7 +1054,9 @@ describe('TrackView', () => {
     renderTrack()
     await screen.findByText('Start tracking')
     await user.click(screen.getByText('Cancel flight'))
-    await user.click(screen.getByText('Cancel flight', { selector: 'button[data-slot="alert-dialog-action"]' }))
+    await user.click(
+      screen.getByText('Cancel flight', { selector: 'button[data-slot="alert-dialog-action"]' })
+    )
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('nope'))
   })
 

@@ -24,7 +24,9 @@ export class FakeBeyondAtcServer {
   private constructor(wss: WebSocketServer) {
     this.wss = wss
     const address = wss.address()
-    this.env = { [BEYONDATC_PORT_ENV]: String(typeof address === 'object' && address !== null ? address.port : 0) }
+    this.env = {
+      [BEYONDATC_PORT_ENV]: String(typeof address === 'object' && address !== null ? address.port : 0)
+    }
     wss.on('connection', (socket) => {
       this.sockets.add(socket)
       for (const resolve of this.connectionWaiters.splice(0)) resolve()

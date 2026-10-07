@@ -17,7 +17,14 @@ import {
   replaceAirportStands,
   replaceAirportTaxiSegments
 } from '../db/navdata-repo'
-import type { NavdataLeg, NavdataProcedureOption, NavdataProvider, NavdataRunway, NavdataTaxiSegment, ProcedureKind } from './navdata-provider'
+import type {
+  NavdataLeg,
+  NavdataProcedureOption,
+  NavdataProvider,
+  NavdataRunway,
+  NavdataTaxiSegment,
+  ProcedureKind
+} from './navdata-provider'
 import type { NavdataStand } from '@shared/ipc'
 import { fetchAirportNavdata, fetchStands, fetchTaxiNetwork } from './sim-facilities-fetch'
 
@@ -71,7 +78,13 @@ export class SimFacilitiesProvider implements NavdataProvider {
     return listCachedProcedures(this.db, icao, 'approach', runway)
   }
 
-  getProcedureWaypoints(icao: string, kind: ProcedureKind, identifier: string, runway?: string | null, transition?: string | null): NavdataLeg[] {
+  getProcedureWaypoints(
+    icao: string,
+    kind: ProcedureKind,
+    identifier: string,
+    runway?: string | null,
+    transition?: string | null
+  ): NavdataLeg[] {
     return listCachedProcedureLegs(this.db, icao, kind, identifier, runway, transition)
   }
 

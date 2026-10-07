@@ -20,9 +20,12 @@ describe('lazy', () => {
   })
 
   it('tries again after a load that threw', () => {
-    const load = vi.fn().mockImplementationOnce(() => {
-      throw new Error('not yet')
-    }).mockReturnValue(7)
+    const load = vi
+      .fn()
+      .mockImplementationOnce(() => {
+        throw new Error('not yet')
+      })
+      .mockReturnValue(7)
     const value = lazy(load)
     expect(() => value()).toThrow('not yet')
     expect(value()).toBe(7)

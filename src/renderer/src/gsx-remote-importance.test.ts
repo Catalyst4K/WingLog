@@ -60,15 +60,13 @@ describe('isImportantGsxMenu', () => {
   })
 
   it('does not flag an unrelated confirmation dialog (e.g. "Interrupt pushback?")', () => {
-    expect(isImportantGsxMenu(menu({ title: 'Interrupt pushback?', entries: ['Yes', 'No', 'Cameras ▶'] }))).toBe(
-      false
-    )
+    expect(
+      isImportantGsxMenu(menu({ title: 'Interrupt pushback?', entries: ['Yes', 'No', 'Cameras ▶'] }))
+    ).toBe(false)
   })
 
   it('does not flag the boarding-related tug-attach follow-up by a near-miss title', () => {
-    expect(
-      isImportantGsxMenu(menu({ title: 'Attach pushback tug?', entries: ['Yes', 'No'] }))
-    ).toBe(false)
+    expect(isImportantGsxMenu(menu({ title: 'Attach pushback tug?', entries: ['Yes', 'No'] }))).toBe(false)
   })
 
   it('does not flag a matching title while the menu is closed (stale entries)', () => {
@@ -113,7 +111,10 @@ describe('gsxPromptState', () => {
   })
 
   it('has no menu key for an unimportant menu or before GSX has sent one', () => {
-    expect(gsxPromptState(menu({ title: 'Select handler', entries: ['A'] }), false, null)).toEqual({ open: false, menuKey: null })
+    expect(gsxPromptState(menu({ title: 'Select handler', entries: ['A'] }), false, null)).toEqual({
+      open: false,
+      menuKey: null
+    })
     expect(gsxPromptState(null, false, null)).toEqual({ open: false, menuKey: null })
   })
 })

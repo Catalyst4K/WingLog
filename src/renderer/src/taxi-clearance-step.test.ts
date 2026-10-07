@@ -1,12 +1,23 @@
 import { describe, expect, it } from 'vitest'
 import type { BeyondAtcInfoBox, BeyondAtcTranscriptEntry } from '@shared/ipc'
-import { HOLD_SHORT_PAIR_MS, INITIAL_TAXI_MEMORY, isDeparted, stepTaxiBoxes, stepTaxiTranscript } from './taxi-clearance-step'
+import {
+  HOLD_SHORT_PAIR_MS,
+  INITIAL_TAXI_MEMORY,
+  isDeparted,
+  stepTaxiBoxes,
+  stepTaxiTranscript
+} from './taxi-clearance-step'
 
-const via = (names: string[]): BeyondAtcInfoBox[] => names.map((info, i) => ({ title: `Taxi Via ${i + 1}`, info }))
+const via = (names: string[]): BeyondAtcInfoBox[] =>
+  names.map((info, i) => ({ title: `Taxi Via ${i + 1}`, info }))
 // ZJSY: cleared "taxi via D, B7, A", then ATC adds the spoken hold short.
 const ROUTE = [...via(['D', 'B7', 'A']), { title: 'Hold Position', info: 'A' }]
 const HOLD_SHORT_LINE = (ts: number): BeyondAtcTranscriptEntry =>
-  ({ ts, speaker: 'atc', text: 'Test 230, taxi via D, B7, A, hold short of runway 08.' }) as BeyondAtcTranscriptEntry
+  ({
+    ts,
+    speaker: 'atc',
+    text: 'Test 230, taxi via D, B7, A, hold short of runway 08.'
+  }) as BeyondAtcTranscriptEntry
 const HERE = { lat: 30.9, lon: 121.8 }
 
 describe('stepTaxiBoxes', () => {
@@ -27,8 +38,12 @@ describe('stepTaxiBoxes', () => {
 
   it('adds a hold short heard just before the boxes, but not one heard long before', () => {
     const heard = stepTaxiTranscript(INITIAL_TAXI_MEMORY, [HOLD_SHORT_LINE(100)], 10_000).memory
-    expect(stepTaxiBoxes(heard, ROUTE, HERE, 10_000 + HOLD_SHORT_PAIR_MS).clearance?.holdShortRunway).toBe('08')
-    expect(stepTaxiBoxes(heard, ROUTE, HERE, 10_001 + HOLD_SHORT_PAIR_MS).clearance?.holdShortRunway).toBeNull()
+    expect(stepTaxiBoxes(heard, ROUTE, HERE, 10_000 + HOLD_SHORT_PAIR_MS).clearance?.holdShortRunway).toBe(
+      '08'
+    )
+    expect(
+      stepTaxiBoxes(heard, ROUTE, HERE, 10_001 + HOLD_SHORT_PAIR_MS).clearance?.holdShortRunway
+    ).toBeNull()
   })
 })
 
@@ -59,7 +74,9 @@ describe('stepTaxiTranscript', () => {
 describe('isDeparted', () => {
   it('is true from the takeoff roll until descent ends, false on the ground and with no flight', () => {
     expect(['takeoff', 'climb', 'cruise', 'descent'].every((p) => isDeparted(p as never))).toBe(true)
-    expect(['preflight', 'pushback', 'taxi', 'landing', 'shutdown'].some((p) => isDeparted(p as never))).toBe(false)
+    expect(['preflight', 'pushback', 'taxi', 'landing', 'shutdown'].some((p) => isDeparted(p as never))).toBe(
+      false
+    )
     expect(isDeparted(null)).toBe(false)
   })
 })

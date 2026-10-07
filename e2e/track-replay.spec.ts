@@ -20,7 +20,11 @@ test('the SimConnect replay seam reaches the renderer through a real app launch'
   const fixturePath = join(process.cwd(), 'src/main/tracking/__fixtures__/short-hop-egll-egcc.ndjson')
 
   const { window, cleanup } = await launchApp({
-    env: { WINGLOG_E2E_FIXTURE: fixturePath, WINGLOG_E2E_REPLAY_MODE: 'paced', WINGLOG_E2E_REPLAY_SPEED: '200' }
+    env: {
+      WINGLOG_E2E_FIXTURE: fixturePath,
+      WINGLOG_E2E_REPLAY_MODE: 'paced',
+      WINGLOG_E2E_REPLAY_SPEED: '200'
+    }
   })
   try {
     const badge = window.locator('[data-slot=badge]', { hasText: 'SimConnect:' })

@@ -13,7 +13,14 @@
  * (SIMCONNECT_HOST/SIMCONNECT_PORT env vars for a remote sim — see spike-simconnect.ts.)
  */
 import { appendFileSync } from 'node:fs'
-import { open, Protocol, SimConnectConstants, SimConnectDataType, SimConnectPeriod, type RawBuffer } from 'node-simconnect'
+import {
+  open,
+  Protocol,
+  SimConnectConstants,
+  SimConnectDataType,
+  SimConnectPeriod,
+  type RawBuffer
+} from 'node-simconnect'
 
 const APP_NAME = 'WingLog live-position watcher'
 const TRACE_FILE = process.env['SPIKE_POSITION_TRACE'] ?? 'spike-live-position-trace.jsonl'
@@ -30,12 +37,48 @@ interface SimVarSpec {
 }
 
 const SIM_VARS: SimVarSpec[] = [
-  { key: 'onGround', name: 'SIM ON GROUND', unit: 'bool', dataType: SimConnectDataType.INT32, read: (d) => d.readInt32() },
-  { key: 'lat', name: 'PLANE LATITUDE', unit: 'degrees', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
-  { key: 'lon', name: 'PLANE LONGITUDE', unit: 'degrees', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
-  { key: 'headingTrueDeg', name: 'PLANE HEADING DEGREES TRUE', unit: 'degrees', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
-  { key: 'altFt', name: 'PLANE ALTITUDE', unit: 'feet', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
-  { key: 'groundSpeedKt', name: 'GROUND VELOCITY', unit: 'knots', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() }
+  {
+    key: 'onGround',
+    name: 'SIM ON GROUND',
+    unit: 'bool',
+    dataType: SimConnectDataType.INT32,
+    read: (d) => d.readInt32()
+  },
+  {
+    key: 'lat',
+    name: 'PLANE LATITUDE',
+    unit: 'degrees',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
+  {
+    key: 'lon',
+    name: 'PLANE LONGITUDE',
+    unit: 'degrees',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
+  {
+    key: 'headingTrueDeg',
+    name: 'PLANE HEADING DEGREES TRUE',
+    unit: 'degrees',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
+  {
+    key: 'altFt',
+    name: 'PLANE ALTITUDE',
+    unit: 'feet',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
+  {
+    key: 'groundSpeedKt',
+    name: 'GROUND VELOCITY',
+    unit: 'knots',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  }
 ]
 
 function connectionOptions(): { remote: { host: string; port: number } } | undefined {
@@ -54,7 +97,9 @@ function headingDeltaDeg(from: number, to: number): number {
 
 open(APP_NAME, Protocol.SunRise, connectionOptions())
   .then(({ recvOpen, handle }) => {
-    console.log(`Connected: ${recvOpen.applicationName} (SimConnect ${recvOpen.simConnectVersionMajor}.${recvOpen.simConnectVersionMinor})`)
+    console.log(
+      `Connected: ${recvOpen.applicationName} (SimConnect ${recvOpen.simConnectVersionMajor}.${recvOpen.simConnectVersionMinor})`
+    )
 
     const latest: Record<string, number | undefined> = {}
     SIM_VARS.forEach((spec, index) => {

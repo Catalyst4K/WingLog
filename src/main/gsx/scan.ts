@@ -125,7 +125,8 @@ export async function readReceipt(file: ReceiptFile): Promise<StoredInvoiceInput
 
   return {
     serviceGroup: file.serviceGroup,
-    receiptId: typeof raw.receiptId === 'string' ? raw.receiptId : `${file.parsed.timestampUtc}-${file.parsed.icao}`,
+    receiptId:
+      typeof raw.receiptId === 'string' ? raw.receiptId : `${file.parsed.timestampUtc}-${file.parsed.icao}`,
     issuedUtc: file.parsed.timestampUtc,
     icao: file.parsed.icao,
     tail: file.parsed.tail,

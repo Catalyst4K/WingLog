@@ -141,8 +141,12 @@ describe('parseTransitionAltitudes', () => {
   })
 
   it('returns null when either field is missing, guarding the {}-when-absent trap', () => {
-    expect(parseTransitionAltitudes(JSON.stringify({ origin: {}, destination: { trans_level: '11000' } }))).toBeNull()
-    expect(parseTransitionAltitudes(JSON.stringify({ origin: { trans_alt: '09000' }, destination: {} }))).toBeNull()
+    expect(
+      parseTransitionAltitudes(JSON.stringify({ origin: {}, destination: { trans_level: '11000' } }))
+    ).toBeNull()
+    expect(
+      parseTransitionAltitudes(JSON.stringify({ origin: { trans_alt: '09000' }, destination: {} }))
+    ).toBeNull()
   })
 
   it('returns null for missing sections/null input', () => {
@@ -352,8 +356,18 @@ describe('applyProcedureSelection', () => {
 
   it('plots an FC leg as its navaid plus the computed distance endpoint, labelled like the FMC (LAM → LAM/11)', () => {
     // EGLL ILS 27R, LAM transition — real values confirmed live 2026-09-18.
-    const lam = leg('LAM', 0, { type: 9, fixType: 'V', fixLatitude: 51.646, fixLongitude: 0.1517, courseDeg: 272, routeDistanceM: 20372 })
-    const result = applyProcedureSelection(baseWaypoints, null, null, { identifier: 'ILS 27R', legs: [lam, leg('D125O')] })
+    const lam = leg('LAM', 0, {
+      type: 9,
+      fixType: 'V',
+      fixLatitude: 51.646,
+      fixLongitude: 0.1517,
+      courseDeg: 272,
+      routeDistanceM: 20372
+    })
+    const result = applyProcedureSelection(baseWaypoints, null, null, {
+      identifier: 'ILS 27R',
+      legs: [lam, leg('D125O')]
+    })
     const idents = result.map((w) => w.ident)
     expect(idents.slice(-3)).toEqual(['LAM', 'LAM/11', 'D125O'])
     const end = result.find((w) => w.ident === 'LAM/11')!
@@ -481,7 +495,9 @@ describe('applyProcedureSelection', () => {
     const altApproach = { identifier: 'ILS 09', legs: [leg('ALTFAF', 2000)] }
 
     it("drops the filed destination's STAR and follows the enroute with the alternate's STAR and approach", () => {
-      const result = applyProcedureSelection(baseWaypoints, null, altStar, altApproach, { alternateArrival: true })
+      const result = applyProcedureSelection(baseWaypoints, null, altStar, altApproach, {
+        alternateArrival: true
+      })
       expect(result.map((w) => w.ident)).toEqual([
         'SIMBRIEF_SID',
         'ENR1',
@@ -503,12 +519,16 @@ describe('applyProcedureSelection', () => {
     })
 
     it('still drops the destination STAR when no alternate STAR is chosen yet', () => {
-      const result = applyProcedureSelection(baseWaypoints, null, null, altApproach, { alternateArrival: true })
+      const result = applyProcedureSelection(baseWaypoints, null, null, altApproach, {
+        alternateArrival: true
+      })
       expect(result.map((w) => w.ident)).toEqual(['SIMBRIEF_SID', 'ENR1', 'ENR2', 'ALTFAF'])
     })
 
     it('leaves the filed route alone when the flag is off', () => {
-      expect(applyProcedureSelection(baseWaypoints, null, null, null, { alternateArrival: false })).toEqual(baseWaypoints)
+      expect(applyProcedureSelection(baseWaypoints, null, null, null, { alternateArrival: false })).toEqual(
+        baseWaypoints
+      )
     })
   })
 })

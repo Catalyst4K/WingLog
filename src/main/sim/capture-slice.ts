@@ -43,7 +43,8 @@ function capturedCallsign(events: FlightFixtureEvent[]): { full: string; shortFo
     if (!match) continue
     try {
       const value = JSON.parse(match[1]) as { full?: unknown; shortForm?: unknown }
-      if (typeof value.full === 'string' && typeof value.shortForm === 'string') return { full: value.full, shortForm: value.shortForm }
+      if (typeof value.full === 'string' && typeof value.shortForm === 'string')
+        return { full: value.full, shortForm: value.shortForm }
     } catch {
       // A malformed Callsign line names nothing to replace; the next one might.
       continue
@@ -62,8 +63,11 @@ function capturedCallsign(events: FlightFixtureEvent[]): { full: string; shortFo
 function replacementsFor(events: FlightFixtureEvent[], extra: [string, string][]): [string, string][] {
   const pairs: [string, string][] = [...extra]
   const callsign = capturedCallsign(events)
-  if (callsign) pairs.push([callsign.full, ANONYMOUS_CALLSIGN.full], [callsign.shortForm, ANONYMOUS_CALLSIGN.shortForm])
-  const atcIds = new Set(events.flatMap((e) => (e.type === 'telemetry' && e.data.atcId ? [e.data.atcId] : [])))
+  if (callsign)
+    pairs.push([callsign.full, ANONYMOUS_CALLSIGN.full], [callsign.shortForm, ANONYMOUS_CALLSIGN.shortForm])
+  const atcIds = new Set(
+    events.flatMap((e) => (e.type === 'telemetry' && e.data.atcId ? [e.data.atcId] : []))
+  )
   for (const atcId of atcIds) pairs.push([atcId, ANONYMOUS_ATC_ID])
   return pairs.filter(([found]) => found.trim() !== '').sort((a, b) => b[0].length - a[0].length)
 }
@@ -73,7 +77,10 @@ function escapeRegExp(text: string): string {
 }
 
 function replaceAll(text: string, pairs: [string, string][]): string {
-  return pairs.reduce((out, [found, replacement]) => out.replace(new RegExp(escapeRegExp(found), 'gi'), replacement), text)
+  return pairs.reduce(
+    (out, [found, replacement]) => out.replace(new RegExp(escapeRegExp(found), 'gi'), replacement),
+    text
+  )
 }
 
 /**
@@ -116,7 +123,8 @@ export function sliceCapture(capture: ParsedFlightFixture, options: SliceOptions
     .map((e) => anonymised(e, pairs))
     .filter((e): e is FlightFixtureEvent => e !== null)
     .map((e) => ({ ...e, tOffsetMs: e.tOffsetMs - fromMs }))
-  if (!events.some((e) => e.type === 'telemetry')) throw new Error(`No telemetry between ${fromMs} and ${toMs} ms`)
+  if (!events.some((e) => e.type === 'telemetry'))
+    throw new Error(`No telemetry between ${fromMs} and ${toMs} ms`)
 
   return {
     header: {

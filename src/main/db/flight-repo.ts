@@ -88,7 +88,6 @@ function minutesBetween(startIso: string | null, endIso: string | null): number 
   return (new Date(endIso).getTime() - new Date(startIso).getTime()) / 60_000
 }
 
-
 /** Same as minutesBetween, but with any paused wall-clock time inside [startIso, endIso]
  *  subtracted first — a pause interval outside that window (e.g. a taxi-in pause after
  *  touchdown, which doesn't touch airMinutes) contributes nothing. Floored at 0 so clock
@@ -168,7 +167,11 @@ export function getFlight(db: WingLogDb, id: number): Flight | undefined {
  * @returns The flight, or undefined when missing or deleted.
  */
 export function getLiveFlight(db: WingLogDb, id: number): Flight | undefined {
-  const row = db.select().from(flight).where(and(eq(flight.id, id), isNull(flight.deletedAt))).get()
+  const row = db
+    .select()
+    .from(flight)
+    .where(and(eq(flight.id, id), isNull(flight.deletedAt)))
+    .get()
   return row ? toFlight(row) : undefined
 }
 
@@ -209,7 +212,6 @@ export function createFlight(db: WingLogDb, input: NewFlight): Flight {
     .all()
   return toFlight(row)
 }
-
 
 /**
  * Creates a flight that skips the 'planned' stage entirely — free-flight-tracking.md:
@@ -531,7 +533,10 @@ export function deleteFlight(db: WingLogDb, id: number): void {
   db.transaction((tx) => {
     tx.delete(trackPoint).where(eq(trackPoint.flightId, id)).run()
     tx.update(landing).set({ deletedAt: now, updatedAt: now }).where(eq(landing.flightId, id)).run()
-    tx.update(flightInvoice).set({ deletedAt: now, updatedAt: now }).where(eq(flightInvoice.flightId, id)).run()
+    tx.update(flightInvoice)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(eq(flightInvoice.flightId, id))
+      .run()
     tx.update(flight).set({ deletedAt: now, updatedAt: now }).where(eq(flight.id, id)).run()
   })
 }
@@ -734,7 +739,10 @@ export function getFlightUuidById(db: WingLogDb, id: number): string | null | un
  * @param stand The stand's name.
  */
 export function setParkedStand(db: WingLogDb, id: number, icao: string, stand: string): void {
-  db.update(flight).set({ parkedStandIcao: icao, parkedStand: stand, updatedAt: new Date().toISOString() }).where(eq(flight.id, id)).run()
+  db.update(flight)
+    .set({ parkedStandIcao: icao, parkedStand: stand, updatedAt: new Date().toISOString() })
+    .where(eq(flight.id, id))
+    .run()
 }
 
 /**
@@ -747,12 +755,20 @@ export function listLastParkedByAircraft(db: WingLogDb): AircraftLastParked[] {
   const rows = db
     .select({ aircraftId: flight.aircraftId, icao: flight.parkedStandIcao, stand: flight.parkedStand })
     .from(flight)
-    .where(and(eq(flight.status, 'completed'), isNull(flight.deletedAt), isNotNull(flight.aircraftId), isNotNull(flight.parkedStand)))
+    .where(
+      and(
+        eq(flight.status, 'completed'),
+        isNull(flight.deletedAt),
+        isNotNull(flight.aircraftId),
+        isNotNull(flight.parkedStand)
+      )
+    )
     .orderBy(desc(flight.actualInUtc), desc(flight.id))
     .all()
   const latest = new Map<number, AircraftLastParked>()
   for (const row of rows) {
-    if (row.aircraftId === null || row.icao === null || row.stand === null || latest.has(row.aircraftId)) continue
+    if (row.aircraftId === null || row.icao === null || row.stand === null || latest.has(row.aircraftId))
+      continue
     latest.set(row.aircraftId, { aircraftId: row.aircraftId, icao: row.icao, stand: row.stand })
   }
   return [...latest.values()]

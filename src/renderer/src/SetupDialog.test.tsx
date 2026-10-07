@@ -74,7 +74,9 @@ describe('SetupDialog (first-launch-setup.md)', () => {
 
     // 3. Language and units: App's own handlers, so the whole app follows.
     expect(screen.getByRole('dialog', { name: 'Language and units' })).toBeInTheDocument()
-    await user.click(within(screen.getByRole('group', { name: 'Weights' })).getByRole('button', { name: 'lb' }))
+    await user.click(
+      within(screen.getByRole('group', { name: 'Weights' })).getByRole('button', { name: 'lb' })
+    )
     expect(p.onWeightUnitChange).toHaveBeenCalledWith('lb')
     await user.click(screen.getByRole('button', { name: 'Next' }))
 
@@ -82,10 +84,14 @@ describe('SetupDialog (first-launch-setup.md)', () => {
     expect(await screen.findByText(/BeyondATC is running on this PC right now\./)).toBeInTheDocument()
     expect(screen.getByText(/GSX's receipts folder was found on this PC\./)).toBeInTheDocument()
     expect(api.settingsSetBeyondAtc).not.toHaveBeenCalled()
-    await user.click(within(screen.getByRole('group', { name: 'BeyondATC' })).getByRole('button', { name: 'On' }))
+    await user.click(
+      within(screen.getByRole('group', { name: 'BeyondATC' })).getByRole('button', { name: 'On' })
+    )
     expect(api.settingsSetBeyondAtc).toHaveBeenCalledWith({ enabled: true, host: 'localhost' })
     expect(p.onBeyondAtcEnabledChange).toHaveBeenCalledWith(true)
-    await user.click(within(screen.getByRole('group', { name: 'GSX ground services' })).getByRole('button', { name: 'On' }))
+    await user.click(
+      within(screen.getByRole('group', { name: 'GSX ground services' })).getByRole('button', { name: 'On' })
+    )
     expect(api.settingsSetGsx).toHaveBeenCalledWith({
       enabled: true,
       folderPath: 'C:\\Users\\pilot\\AppData\\Roaming\\Virtuali\\GSX\\Receipts',
@@ -94,12 +100,19 @@ describe('SetupDialog (first-launch-setup.md)', () => {
     await user.click(screen.getByRole('button', { name: 'Next' }))
 
     // 5. Tracking.
-    await user.click(within(await screen.findByRole('group', { name: /finish/i })).getByRole('button', { name: 'Off' }))
+    await user.click(
+      within(await screen.findByRole('group', { name: /finish/i })).getByRole('button', { name: 'Off' })
+    )
     expect(api.settingsSetTracking).toHaveBeenCalledWith({ autoStart: true, autoFinish: false })
     await user.click(screen.getByRole('button', { name: 'Next' }))
 
     // 6. Updates.
-    await user.click(within(await screen.findByRole('group', { name: 'Check for updates automatically' })).getByRole('button', { name: 'Off' }))
+    await user.click(
+      within(await screen.findByRole('group', { name: 'Check for updates automatically' })).getByRole(
+        'button',
+        { name: 'Off' }
+      )
+    )
     expect(api.settingsSetUpdates).toHaveBeenCalledWith({ checkEnabled: false })
     await user.click(screen.getByRole('button', { name: 'Next' }))
 

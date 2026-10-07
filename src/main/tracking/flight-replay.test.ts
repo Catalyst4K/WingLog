@@ -30,56 +30,52 @@ function fixturePath(name: string): string {
 const FIXTURE_PATH = fixturePath('short-hop-egll-egcc.ndjson')
 
 describe('flight replay harness (real fixture)', () => {
-  it(
-    'replays a real captured EGLL -> EGCC flight through TrackingController end to end',
-    async () => {
-      const { db } = createDb(':memory:')
-      migrate(db, { migrationsFolder: 'drizzle' })
+  it('replays a real captured EGLL -> EGCC flight through TrackingController end to end', async () => {
+    const { db } = createDb(':memory:')
+    migrate(db, { migrationsFolder: 'drizzle' })
 
-      const replay = new ReplaySimConnectService(FIXTURE_PATH, { mode: 'instant' })
-      const aircraft = createAircraft(db, { registration: 'REPLAY', icaoType: replay.header.aircraftType })
-      const flight = createFlight(db, { aircraftId: aircraft.id, depIcao: 'EGLL', arrIcao: 'EGCC' })
+    const replay = new ReplaySimConnectService(FIXTURE_PATH, { mode: 'instant' })
+    const aircraft = createAircraft(db, { registration: 'REPLAY', icaoType: replay.header.aircraftType })
+    const flight = createFlight(db, { aircraftId: aircraft.id, depIcao: 'EGLL', arrIcao: 'EGCC' })
 
-      const controller = new TrackingController(dbFlightStore(db), replay)
+    const controller = new TrackingController(dbFlightStore(db), replay)
 
-      const completedFlightId = await new Promise<number>((resolve, reject) => {
-        controller.on('completed', resolve)
-        replay.on('replayComplete', () =>
-          reject(new Error('Fixture ended without TrackingController ever completing the flight'))
-        )
-        controller.start(flight.id)
-        replay.start()
-      })
+    const completedFlightId = await new Promise<number>((resolve, reject) => {
+      controller.on('completed', resolve)
+      replay.on('replayComplete', () =>
+        reject(new Error('Fixture ended without TrackingController ever completing the flight'))
+      )
+      controller.start(flight.id)
+      replay.start()
+    })
 
-      const finalFlight = getFlight(db, completedFlightId)
-      const points = listTrackPoints(db, completedFlightId)
-      const landing = getLandingByFlight(db, completedFlightId)
+    const finalFlight = getFlight(db, completedFlightId)
+    const points = listTrackPoints(db, completedFlightId)
+    const landing = getLandingByFlight(db, completedFlightId)
 
-      // Assertions deliberately don't depend on point density — under instant mode
-      // FlightRecorder.shouldRecord's wall-clock-based downsampling persists only the
-      // mandatory first track_point (Phase 1 finding, flight-replay-harness.md). What IS
-      // speed-independent (tick-count-driven, not wall-clock-driven): phase completion,
-      // OFF/ON detection, and the landing capture itself.
-      expect(finalFlight?.status).toBe('completed')
-      expect(finalFlight?.actualOutUtc).toBeTruthy()
-      expect(finalFlight?.actualOffUtc).toBeTruthy()
-      expect(finalFlight?.actualOnUtc).toBeTruthy()
-      expect(finalFlight?.actualInUtc).toBeTruthy()
-      const times = [
-        finalFlight?.actualOutUtc,
-        finalFlight?.actualOffUtc,
-        finalFlight?.actualOnUtc,
-        finalFlight?.actualInUtc
-      ].map((t) => new Date(t as string).getTime())
-      expect(times, 'OUT/OFF/ON/IN should be non-decreasing').toEqual([...times].sort((a, b) => a - b))
-      expect(points.length).toBeGreaterThan(0)
-      expect(landing).toBeDefined()
-      expect(landing?.runwayIdent).toBe('23R')
+    // Assertions deliberately don't depend on point density — under instant mode
+    // FlightRecorder.shouldRecord's wall-clock-based downsampling persists only the
+    // mandatory first track_point (Phase 1 finding, flight-replay-harness.md). What IS
+    // speed-independent (tick-count-driven, not wall-clock-driven): phase completion,
+    // OFF/ON detection, and the landing capture itself.
+    expect(finalFlight?.status).toBe('completed')
+    expect(finalFlight?.actualOutUtc).toBeTruthy()
+    expect(finalFlight?.actualOffUtc).toBeTruthy()
+    expect(finalFlight?.actualOnUtc).toBeTruthy()
+    expect(finalFlight?.actualInUtc).toBeTruthy()
+    const times = [
+      finalFlight?.actualOutUtc,
+      finalFlight?.actualOffUtc,
+      finalFlight?.actualOnUtc,
+      finalFlight?.actualInUtc
+    ].map((t) => new Date(t as string).getTime())
+    expect(times, 'OUT/OFF/ON/IN should be non-decreasing').toEqual([...times].sort((a, b) => a - b))
+    expect(points.length).toBeGreaterThan(0)
+    expect(landing).toBeDefined()
+    expect(landing?.runwayIdent).toBe('23R')
 
-      replay.stop()
-    },
-    60_000
-  )
+    replay.stop()
+  }, 60_000)
 })
 
 describe('flight replay harness (real fixture) — multiple landings', () => {
@@ -90,9 +86,12 @@ describe('flight replay harness (real fixture) — multiple landings', () => {
       const { db } = createDb(':memory:')
       migrate(db, { migrationsFolder: 'drizzle' })
 
-      const replay = new ReplaySimConnectService(fixturePath('tier2-circuits-firm-landing-goaround-crash.ndjson'), {
-        mode: 'instant'
-      })
+      const replay = new ReplaySimConnectService(
+        fixturePath('tier2-circuits-firm-landing-goaround-crash.ndjson'),
+        {
+          mode: 'instant'
+        }
+      )
       const aircraft = createAircraft(db, { registration: 'REPLAY', icaoType: replay.header.aircraftType })
       const flight = createFlight(db, { aircraftId: aircraft.id, depIcao: 'VHHH', arrIcao: 'VHHH' })
 
@@ -160,7 +159,12 @@ describe('flight replay harness (real fixture) — free flight tracking', () => 
       const depIcao = nearestAirport(firstTelemetry.latitude, firstTelemetry.longitude, 15) ?? 'ZZZZ'
       expect(depIcao).toBe('VHHH')
 
-      const flightId = controller.startFree({ aircraftId: aircraft.id, depIcao, arrIcao: 'ZZZZ', flightNumber: null })
+      const flightId = controller.startFree({
+        aircraftId: aircraft.id,
+        depIcao,
+        arrIcao: 'ZZZZ',
+        flightNumber: null
+      })
 
       await new Promise<void>((resolve) => {
         replay.on('replayComplete', resolve)

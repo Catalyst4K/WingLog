@@ -56,7 +56,10 @@ describe('LiveHub', () => {
     hub.publish('beyondAtcStatus', { state: 'connected', lastError: null })
     hub.publish('trackingPoint', POINT)
 
-    expect(hub.snapshot()).toEqual({ beyondAtcStatus: { state: 'connected', lastError: null }, trackingPoint: POINT })
+    expect(hub.snapshot()).toEqual({
+      beyondAtcStatus: { state: 'connected', lastError: null },
+      trackingPoint: POINT
+    })
     // A copy: changing it doesn't change the hub.
     const snap = hub.snapshot()
     delete snap.trackingPoint
@@ -82,7 +85,9 @@ describe('LiveHub', () => {
     hub.publish('trackingPoint', POINT)
     hub.publish('trackingPointsUpdated', [POINT, { ...POINT, id: 86619, excludedReason: 'resume-spurious' }])
     hub.publish('beyondAtcState', EMPTY_BEYONDATC_STATE)
-    hub.publish('beyondAtcTranscript', [{ speaker: 'atc', text: 'Cathay 168 Heavy, taxi to Stand N32 via J, H6, H, V, B.', ts: 1759401600000 }])
+    hub.publish('beyondAtcTranscript', [
+      { speaker: 'atc', text: 'Cathay 168 Heavy, taxi to Stand N32 via J, H6, H, V, B.', ts: 1759401600000 }
+    ])
     hub.publish('gsxRemoteGate', null)
     const snapshot = hub.snapshot()
     expect(JSON.parse(JSON.stringify(snapshot))).toEqual(snapshot)

@@ -193,12 +193,14 @@ export function LandingCard(props: {
   useEffect(() => {
     runAsync(
       'LogbookView logbookListLandings',
-      winglogApi().logbookListLandings(props.flightId).then((result) => {
-        setLandings(result)
-        // Defaults to the final touchdown — the one that ended the flight — matching
-        // Logbook's own flights-list score column.
-        setSelectedIndex(Math.max(0, result.length - 1))
-      })
+      winglogApi()
+        .logbookListLandings(props.flightId)
+        .then((result) => {
+          setLandings(result)
+          // Defaults to the final touchdown — the one that ended the flight — matching
+          // Logbook's own flights-list score column.
+          setSelectedIndex(Math.max(0, result.length - 1))
+        })
     )
   }, [props.flightId])
 

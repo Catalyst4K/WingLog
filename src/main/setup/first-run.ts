@@ -17,7 +17,12 @@ import { BEYONDATC_PORT } from '../beyondatc/BeyondAtcService'
 const SETUP_COMPLETED_KEY = 'setupCompleted'
 
 function hasExistingData(db: WingLogDb): boolean {
-  const anyAircraft = db.select({ id: aircraft.id }).from(aircraft).where(isNull(aircraft.deletedAt)).limit(1).all()
+  const anyAircraft = db
+    .select({ id: aircraft.id })
+    .from(aircraft)
+    .where(isNull(aircraft.deletedAt))
+    .limit(1)
+    .all()
   if (anyAircraft.length > 0) return true
   return db.select({ id: flight.id }).from(flight).where(isNull(flight.deletedAt)).limit(1).all().length > 0
 }

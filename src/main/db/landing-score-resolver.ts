@@ -2,7 +2,13 @@
  * Scores stored landings: each landing with its aircraft's wake category and its runway end, run
  * through the shared scoring maths (src/shared/landing-score.ts).
  */
-import type { Landing, LandingScoreCategory, LandingScoreCategoryKey, LandingScoreResult, LandingScoreSummary } from '@shared/ipc'
+import type {
+  Landing,
+  LandingScoreCategory,
+  LandingScoreCategoryKey,
+  LandingScoreResult,
+  LandingScoreSummary
+} from '@shared/ipc'
 import {
   classifyLanding,
   computeLandingScore,
@@ -81,7 +87,9 @@ export function resolveLandingScore(
   icaoType: string | null
 ): LandingScoreResult {
   const category = icaoType ? getWakeCategory(icaoType) : null
-  const runwayEnd = landingRecord.runwayIdent ? findRunwayEndByIdent(arrIcao, landingRecord.runwayIdent) : null
+  const runwayEnd = landingRecord.runwayIdent
+    ? findRunwayEndByIdent(arrIcao, landingRecord.runwayIdent)
+    : null
 
   const aimingPointToleranceM = runwayEnd?.aimingPointDistanceM ?? null
   const centrelineToleranceM = runwayEnd

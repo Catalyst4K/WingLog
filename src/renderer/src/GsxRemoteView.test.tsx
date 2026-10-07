@@ -17,11 +17,22 @@ function withWinglog(): void {
     onGsxRemoteServices: vi.fn().mockReturnValue(() => {}),
     gsxRemoteGetGateInfo: vi.fn().mockResolvedValue(null),
     onGsxRemoteGate: vi.fn().mockReturnValue(() => {}),
-    gsxRemoteGetMenu: vi.fn().mockResolvedValue({ menuShown: false, title: '', header: '', subtitle: '', entries: [], icons: [], disabled: [], layout: '' }),
+    gsxRemoteGetMenu: vi.fn().mockResolvedValue({
+      menuShown: false,
+      title: '',
+      header: '',
+      subtitle: '',
+      entries: [],
+      icons: [],
+      disabled: [],
+      layout: ''
+    }),
     onGsxRemoteMenu: vi.fn().mockReturnValue(() => {}),
     gsxRemoteGetPrompt: vi.fn().mockResolvedValue(null),
     onGsxRemotePrompt: vi.fn().mockReturnValue(() => {}),
-    gsxRemoteGetCommandBar: vi.fn().mockResolvedValue({ commands: [], simbrief: null, simbriefIconUri: null }),
+    gsxRemoteGetCommandBar: vi
+      .fn()
+      .mockResolvedValue({ commands: [], simbrief: null, simbriefIconUri: null }),
     onGsxRemoteCommandBar: vi.fn().mockReturnValue(() => {})
   } as unknown as WingLogApi
 }

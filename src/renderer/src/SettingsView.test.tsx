@@ -2,7 +2,14 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from 'sonner'
-import type { BeyondAtcConnectionStatus, BeyondAtcSettings, GsxRemoteConnectionStatus, GsxRemoteSettings, GsxSettings, SyncStatus } from '@shared/ipc'
+import type {
+  BeyondAtcConnectionStatus,
+  BeyondAtcSettings,
+  GsxRemoteConnectionStatus,
+  GsxRemoteSettings,
+  GsxSettings,
+  SyncStatus
+} from '@shared/ipc'
 import i18n from './i18n'
 import { SettingsView } from './SettingsView'
 
@@ -55,13 +62,27 @@ function createWinglog(overrides: Record<string, unknown> = {}): typeof window.w
     appGetVersion: vi.fn().mockResolvedValue('1.2.3'),
     settingsGetUpdates: vi.fn().mockResolvedValue({ checkEnabled: true }),
     settingsSetUpdates: vi.fn().mockResolvedValue(undefined),
-    updatesGetStatus: vi.fn().mockResolvedValue({ state: 'idle', currentVersion: '1.2.3', latest: null, checkedAt: null, skippedVersion: null }),
+    updatesGetStatus: vi.fn().mockResolvedValue({
+      state: 'idle',
+      currentVersion: '1.2.3',
+      latest: null,
+      checkedAt: null,
+      skippedVersion: null
+    }),
     onUpdateStatus: vi.fn().mockReturnValue(() => {}),
-    updatesCheckNow: vi.fn().mockResolvedValue({ state: 'upToDate', currentVersion: '1.2.3', latest: null, checkedAt: null, skippedVersion: null }),
+    updatesCheckNow: vi.fn().mockResolvedValue({
+      state: 'upToDate',
+      currentVersion: '1.2.3',
+      latest: null,
+      checkedAt: null,
+      skippedVersion: null
+    }),
     updatesSkipVersion: vi.fn().mockResolvedValue(undefined),
     updatesOpenRelease: vi.fn().mockResolvedValue(undefined),
     setupGetState: vi.fn().mockResolvedValue({ show: false, whatsNew: false }),
-    setupGetContext: vi.fn().mockResolvedValue({ gsxFolderFound: false, gsxFolderPath: null, beyondAtcRunning: false }),
+    setupGetContext: vi
+      .fn()
+      .mockResolvedValue({ gsxFolderFound: false, gsxFolderPath: null, beyondAtcRunning: false }),
     setupComplete: vi.fn().mockResolvedValue(undefined),
     appOpenManual: vi.fn().mockResolvedValue(true),
     settingsSetGsx: vi.fn().mockResolvedValue(undefined),
@@ -189,7 +210,9 @@ describe('SettingsView', () => {
     await user.click((await screen.findAllByRole('button', { name: 'Importieren' }))[0])
 
     await waitFor(() =>
-      expect(toast.success).toHaveBeenCalledWith('2 Flugzeuge importiert. 1 übersprungen: G-DUP (already exists)')
+      expect(toast.success).toHaveBeenCalledWith(
+        '2 Flugzeuge importiert. 1 übersprungen: G-DUP (already exists)'
+      )
     )
   })
 
@@ -325,14 +348,24 @@ describe('SettingsView', () => {
     })
 
     it('loads the tracking switches, says what off means, and saves each change (tracking-auto-toggles.md)', async () => {
-      const winglog = setWinglog({ settingsGetTracking: vi.fn().mockResolvedValue({ autoStart: true, autoFinish: false }) })
+      const winglog = setWinglog({
+        settingsGetTracking: vi.fn().mockResolvedValue({ autoStart: true, autoFinish: false })
+      })
       const user = userEvent.setup()
       renderSettings()
 
       const finishRow = await screen.findByRole('group', { name: 'Finish flights automatically' })
-      await waitFor(() => expect(within(finishRow).getByRole('button', { name: 'Off' })).toHaveAttribute('aria-pressed', 'true'))
-      expect(screen.getByText('Off: the flight stays open after you park and shut down, until you press Finish & save.')).toBeInTheDocument()
-      expect(screen.getByText('Off: after Fly in Dispatch, press Start tracking on Track yourself.')).toBeInTheDocument()
+      await waitFor(() =>
+        expect(within(finishRow).getByRole('button', { name: 'Off' })).toHaveAttribute('aria-pressed', 'true')
+      )
+      expect(
+        screen.getByText(
+          'Off: the flight stays open after you park and shut down, until you press Finish & save.'
+        )
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText('Off: after Fly in Dispatch, press Start tracking on Track yourself.')
+      ).toBeInTheDocument()
 
       const startRow = screen.getByRole('group', { name: 'Start tracking automatically' })
       await user.click(within(startRow).getByRole('button', { name: 'Off' }))
@@ -347,14 +380,16 @@ describe('SettingsView', () => {
       expect(onThemeChange).toHaveBeenCalledWith('dark')
     })
 
-    it('keeps most unit rows\' explanations out of sight until their info button is clicked', async () => {
+    it("keeps most unit rows' explanations out of sight until their info button is clicked", async () => {
       const user = userEvent.setup()
       renderSettings()
 
       // Not shown up front (winglog-backend docs/plans/v1-2.md Part 4 — four of these
       // hints used to be permanent paragraphs; now they're behind an info popover, one per
       // row).
-      expect(screen.queryByText(/falling back to English if this app doesn't have a translation/)).not.toBeInTheDocument()
+      expect(
+        screen.queryByText(/falling back to English if this app doesn't have a translation/)
+      ).not.toBeInTheDocument()
 
       await user.click(screen.getByRole('button', { name: 'More info about App language' }))
       expect(
@@ -366,9 +401,7 @@ describe('SettingsView', () => {
       // "Hybrid" isn't self-explanatory the way Feet/Meters are — hiding what it means
       // behind a click was a real regression, not a decluttering win (Callum, 2026-09-23).
       renderSettings()
-      expect(
-        await screen.findByText(/rather than converting everything to one unit/)
-      ).toBeInTheDocument()
+      expect(await screen.findByText(/rather than converting everything to one unit/)).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'More info about OFP altitudes' })).not.toBeInTheDocument()
     })
   })
@@ -483,7 +516,9 @@ describe('SettingsView', () => {
       const user = userEvent.setup()
       renderSettings()
       await user.click(screen.getByRole('tab', { name: '3rd party' }))
-      const card = within((await screen.findByText('GSX ground services')).closest('[data-slot="card"]') as HTMLElement)
+      const card = within(
+        (await screen.findByText('GSX ground services')).closest('[data-slot="card"]') as HTMLElement
+      )
       const toggle = await card.findByRole('button', { name: 'Off' })
 
       await user.click(toggle)
@@ -503,7 +538,9 @@ describe('SettingsView', () => {
       await user.click(await screen.findByRole('button', { name: 'Browse…' }))
 
       expect(await screen.findByDisplayValue('C:\\GSX\\Receipts')).toBeInTheDocument()
-      expect(winglog.settingsSetGsx).toHaveBeenCalledWith(expect.objectContaining({ folderPath: 'C:\\GSX\\Receipts' }))
+      expect(winglog.settingsSetGsx).toHaveBeenCalledWith(
+        expect.objectContaining({ folderPath: 'C:\\GSX\\Receipts' })
+      )
     })
 
     it('leaves the folder path untouched when the browse dialog is cancelled', async () => {
@@ -531,11 +568,15 @@ describe('SettingsView', () => {
 
   describe('GSX Remote Control', () => {
     function findCard(): Promise<HTMLElement> {
-      return screen.findByText('GSX Remote Control').then((el) => el.closest('[data-slot="card"]') as HTMLElement)
+      return screen
+        .findByText('GSX Remote Control')
+        .then((el) => el.closest('[data-slot="card"]') as HTMLElement)
     }
 
     it('toggles enabled on and off, persisting each change', async () => {
-      const winglog = setWinglog({ settingsGetGsxRemote: vi.fn().mockResolvedValue(makeGsxRemote({ enabled: false })) })
+      const winglog = setWinglog({
+        settingsGetGsxRemote: vi.fn().mockResolvedValue(makeGsxRemote({ enabled: false }))
+      })
       const user = userEvent.setup()
       renderSettings()
       await user.click(screen.getByRole('tab', { name: '3rd party' }))
@@ -548,11 +589,15 @@ describe('SettingsView', () => {
 
       await user.click(card.getByRole('button', { name: 'On' }))
       expect(await card.findByRole('button', { name: 'Off' })).toBeInTheDocument()
-      expect(winglog.settingsSetGsxRemote).toHaveBeenLastCalledWith(expect.objectContaining({ enabled: false }))
+      expect(winglog.settingsSetGsxRemote).toHaveBeenLastCalledWith(
+        expect.objectContaining({ enabled: false })
+      )
     })
 
     it('saves a host change', async () => {
-      const winglog = setWinglog({ settingsGetGsxRemote: vi.fn().mockResolvedValue(makeGsxRemote({ host: 'localhost' })) })
+      const winglog = setWinglog({
+        settingsGetGsxRemote: vi.fn().mockResolvedValue(makeGsxRemote({ host: 'localhost' }))
+      })
       const user = userEvent.setup()
       renderSettings()
       await user.click(screen.getByRole('tab', { name: '3rd party' }))
@@ -564,12 +609,16 @@ describe('SettingsView', () => {
       hostInput.blur()
 
       await waitFor(() =>
-        expect(winglog.settingsSetGsxRemote).toHaveBeenLastCalledWith(expect.objectContaining({ host: '192.168.1.50' }))
+        expect(winglog.settingsSetGsxRemote).toHaveBeenLastCalledWith(
+          expect.objectContaining({ host: '192.168.1.50' })
+        )
       )
     })
 
     it('saves a valid port on blur', async () => {
-      const winglog = setWinglog({ settingsGetGsxRemote: vi.fn().mockResolvedValue(makeGsxRemote({ port: null })) })
+      const winglog = setWinglog({
+        settingsGetGsxRemote: vi.fn().mockResolvedValue(makeGsxRemote({ port: null }))
+      })
       const user = userEvent.setup()
       renderSettings()
       await user.click(screen.getByRole('tab', { name: '3rd party' }))
@@ -579,11 +628,15 @@ describe('SettingsView', () => {
       await user.type(portInput, '8091')
       portInput.blur()
 
-      await waitFor(() => expect(winglog.settingsSetGsxRemote).toHaveBeenCalledWith(expect.objectContaining({ port: 8091 })))
+      await waitFor(() =>
+        expect(winglog.settingsSetGsxRemote).toHaveBeenCalledWith(expect.objectContaining({ port: 8091 }))
+      )
     })
 
     it('does not save an out-of-range port', async () => {
-      const winglog = setWinglog({ settingsGetGsxRemote: vi.fn().mockResolvedValue(makeGsxRemote({ port: null })) })
+      const winglog = setWinglog({
+        settingsGetGsxRemote: vi.fn().mockResolvedValue(makeGsxRemote({ port: null }))
+      })
       const user = userEvent.setup()
       renderSettings()
       await user.click(screen.getByRole('tab', { name: '3rd party' }))
@@ -814,7 +867,9 @@ describe('SettingsView', () => {
     })
 
     it('exports the logbook in the chosen format, toasting only when a file was saved', async () => {
-      const winglog = setWinglog({ logbookExport: vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false) })
+      const winglog = setWinglog({
+        logbookExport: vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false)
+      })
       const user = userEvent.setup()
       renderSettings()
       await user.click(screen.getByRole('tab', { name: 'Data' }))
@@ -862,7 +917,9 @@ describe('SettingsView', () => {
     })
 
     it('imports a logbook CSV with a single flight and no skips or new aircraft', async () => {
-      setWinglog({ logbookImportCsv: vi.fn().mockResolvedValue({ imported: 1, aircraftCreated: 0, skipped: [] }) })
+      setWinglog({
+        logbookImportCsv: vi.fn().mockResolvedValue({ imported: 1, aircraftCreated: 0, skipped: [] })
+      })
       const user = userEvent.setup()
       renderSettings()
       await user.click(screen.getByRole('tab', { name: 'Data' }))
@@ -899,7 +956,7 @@ describe('SettingsView', () => {
   })
 
   describe('Cloud sync', () => {
-    it("doesn't restate that it's off by default alongside \"until you log in\"", async () => {
+    it('doesn\'t restate that it\'s off by default alongside "until you log in"', async () => {
       const user = userEvent.setup()
       renderSettings()
       await user.click(screen.getByRole('tab', { name: 'Data' }))
@@ -1092,9 +1149,20 @@ describe('SettingsView', () => {
       const user = userEvent.setup()
       renderSettings()
       await user.click(screen.getByRole('tab', { name: 'About' }))
-      expect(await screen.findByText(/For flight simulation use only\. WingLog must never be used for real-world navigation/)).toBeInTheDocument()
+      expect(
+        await screen.findByText(
+          /For flight simulation use only\. WingLog must never be used for real-world navigation/
+        )
+      ).toBeInTheDocument()
       const disclaimer = screen.getByText(/is not affiliated with/)
-      for (const party of ['Microsoft Corporation', 'Asobo Studio', 'Skirmish Mode Games (BeyondATC)', 'FSDreamTeam (GSX)', 'Navigraph (SimBrief)', 'OpenFreeMap']) {
+      for (const party of [
+        'Microsoft Corporation',
+        'Asobo Studio',
+        'Skirmish Mode Games (BeyondATC)',
+        'FSDreamTeam (GSX)',
+        'Navigraph (SimBrief)',
+        'OpenFreeMap'
+      ]) {
         expect(disclaimer).toHaveTextContent(party)
       }
     })
@@ -1109,7 +1177,9 @@ describe('SettingsView', () => {
       expect(appOpenManual).toHaveBeenCalledTimes(1)
       expect(toast.error).not.toHaveBeenCalled()
       await user.click(screen.getByRole('button', { name: 'Manual (PDF)' }))
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith("The manual isn't included in this build."))
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith("The manual isn't included in this build.")
+      )
     })
 
     it('opens the GitHub repo through the app link', async () => {

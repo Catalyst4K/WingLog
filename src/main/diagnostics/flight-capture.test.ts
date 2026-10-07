@@ -7,7 +7,13 @@ import { parseFlightFixture } from '../sim/flight-fixture'
 import { ReplaySimConnectService } from '../sim/ReplaySimConnectService'
 import { CAPTURE_FORMAT, FlightCapture, isFlightId, KEPT_DIR, pruneCaptures } from './flight-capture'
 
-const TICK = { latitude: 22.3089, longitude: 113.9146, groundSpeedMs: 0, onGround: true, title: 'A350' } as SimTelemetry
+const TICK = {
+  latitude: 22.3089,
+  longitude: 113.9146,
+  groundSpeedMs: 0,
+  onGround: true,
+  title: 'A350'
+} as SimTelemetry
 
 let dir: string
 beforeEach(() => {
@@ -44,7 +50,12 @@ describe('FlightCapture', () => {
     await vi.waitFor(() => expect(lines(path)).toHaveLength(5))
     expect(path).toMatch(/flight-232-2026-10-06T19-00-00-000Z\.ndjson$/)
     expect(lines(path)).toEqual([
-      expect.objectContaining({ format: CAPTURE_FORMAT, flightId: 232, aircraftType: 'Airbus A350-900', capturedAt: '2026-10-06T19:00:00.000Z' }),
+      expect.objectContaining({
+        format: CAPTURE_FORMAT,
+        flightId: 232,
+        aircraftType: 'Airbus A350-900',
+        capturedAt: '2026-10-06T19:00:00.000Z'
+      }),
       { type: 'telemetry', tOffsetMs: 0, data: TICK },
       { type: 'beyondatc', tOffsetMs: 250, direction: 'in', text: 'InfoBoxes: [...]' },
       { type: 'gsx', tOffsetMs: 500, direction: 'out', text: '{"type":"command","verb":"search"}' },
@@ -120,7 +131,9 @@ describe('pruneCaptures', () => {
     recorder.stop()
 
     // The write stream creates its file asynchronously.
-    await vi.waitFor(() => expect(readdirSync(dir).sort()).toEqual(['flight-2.ndjson', path.split(/[\\/]/).at(-1)].sort()))
+    await vi.waitFor(() =>
+      expect(readdirSync(dir).sort()).toEqual(['flight-2.ndjson', path.split(/[\\/]/).at(-1)].sort())
+    )
   })
 })
 
@@ -162,6 +175,13 @@ describe('keeping a capture', () => {
 describe('isFlightId', () => {
   it('accepts only a positive integer, so a renderer value can only name a capture file', () => {
     expect(isFlightId(232)).toBe(true)
-    expect([0, -1, 1.5, '232', '../x', null].map(isFlightId)).toEqual([false, false, false, false, false, false])
+    expect([0, -1, 1.5, '232', '../x', null].map(isFlightId)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ])
   })
 })

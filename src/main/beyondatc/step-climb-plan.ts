@@ -73,7 +73,9 @@ export function extractStepPlan(ofpJson: string | null): StepPlan {
     const fixes: RouteFix[] = navlog.flatMap((f) => {
       const lat = Number(f.pos_lat)
       const lon = Number(f.pos_long)
-      return typeof f.ident === 'string' && Number.isFinite(lat) && Number.isFinite(lon) ? [{ ident: f.ident, lat, lon }] : []
+      return typeof f.ident === 'string' && Number.isFinite(lat) && Number.isFinite(lon)
+        ? [{ ident: f.ident, lat, lon }]
+        : []
     })
     const steps: StepTarget[] = []
     let highestFt = -Infinity

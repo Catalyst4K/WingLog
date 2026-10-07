@@ -52,7 +52,9 @@ test('changes units, theme, SimBrief username, and GSX settings, all persisted',
     const gsxCard = page.locator('[data-slot="card"]').filter({ hasText: 'GSX ground services' })
     const initiallyEnabled = (await page.evaluate(() => window.winglog.settingsGetGsx())).enabled
     await gsxCard.getByRole('button', { name: initiallyEnabled ? 'On' : 'Off', exact: true }).click()
-    await expect(gsxCard.getByRole('button', { name: initiallyEnabled ? 'Off' : 'On', exact: true })).toBeVisible()
+    await expect(
+      gsxCard.getByRole('button', { name: initiallyEnabled ? 'Off' : 'On', exact: true })
+    ).toBeVisible()
     expect((await page.evaluate(() => window.winglog.settingsGetGsx())).enabled).toBe(!initiallyEnabled)
   } finally {
     await cleanup()
@@ -67,19 +69,31 @@ test('automatic tracking start and finish can each be switched off, and stay off
     try {
       await first.window.getByRole('tab', { name: 'Settings' }).click()
       const finishRow = first.window.getByRole('group', { name: 'Finish flights automatically' })
-      await expect(finishRow.getByRole('button', { name: 'On', exact: true })).toHaveAttribute('aria-pressed', 'true')
+      await expect(finishRow.getByRole('button', { name: 'On', exact: true })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      )
       await finishRow.getByRole('button', { name: 'Off', exact: true }).click()
-      await expect(finishRow.getByRole('button', { name: 'Off', exact: true })).toHaveAttribute('aria-pressed', 'true')
+      await expect(finishRow.getByRole('button', { name: 'Off', exact: true })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      )
     } finally {
       await first.cleanup()
     }
 
     const second = await launchApp({ userDataDir })
     try {
-      expect(await second.window.evaluate(() => window.winglog.settingsGetTracking())).toEqual({ autoStart: true, autoFinish: false })
+      expect(await second.window.evaluate(() => window.winglog.settingsGetTracking())).toEqual({
+        autoStart: true,
+        autoFinish: false
+      })
       await second.window.getByRole('tab', { name: 'Settings' }).click()
       const finishRow = second.window.getByRole('group', { name: 'Finish flights automatically' })
-      await expect(finishRow.getByRole('button', { name: 'Off', exact: true })).toHaveAttribute('aria-pressed', 'true')
+      await expect(finishRow.getByRole('button', { name: 'Off', exact: true })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      )
     } finally {
       await second.cleanup()
     }

@@ -17,7 +17,10 @@ export function userDataDir(): string {
   const override = process.env.WINGLOG_SIM_DATA_DIR
   if (override) return resolve(override)
   const appData = process.env.APPDATA
-  if (!appData) throw new Error('APPDATA is not set: run the simulation on the machine WingLog flies on, or set WINGLOG_SIM_DATA_DIR')
+  if (!appData)
+    throw new Error(
+      'APPDATA is not set: run the simulation on the machine WingLog flies on, or set WINGLOG_SIM_DATA_DIR'
+    )
   return join(appData, 'WingLog')
 }
 
@@ -35,7 +38,8 @@ export interface LoggedInfoBoxes {
 }
 
 /** `[2026-10-05 14:41:26.550] [info]  [beyondatc] InfoBoxes [...]`: electron-log's local time. */
-const INFO_BOXES_LINE = /^\[(\d{4})-(\d\d)-(\d\d) (\d\d):(\d\d):(\d\d)\.(\d{1,3})\] \[info\]\s+\[beyondatc\] InfoBoxes (.*)$/
+const INFO_BOXES_LINE =
+  /^\[(\d{4})-(\d\d)-(\d\d) (\d\d):(\d\d):(\d\d)\.(\d{1,3})\] \[info\]\s+\[beyondatc\] InfoBoxes (.*)$/
 
 /**
  * Every InfoBoxes set in a main.log's text, oldest first. Times are local, as electron-log writes
@@ -55,9 +59,18 @@ export function parseInfoBoxesLog(text: string): LoggedInfoBoxes[] {
       continue
     }
     if (!Array.isArray(boxes)) continue
-    const atMs = new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s), Number(ms.padEnd(3, '0'))).getTime()
+    const atMs = new Date(
+      Number(y),
+      Number(mo) - 1,
+      Number(d),
+      Number(h),
+      Number(mi),
+      Number(s),
+      Number(ms.padEnd(3, '0'))
+    ).getTime()
     const valid = boxes.filter(
-      (b): b is BeyondAtcInfoBox => typeof b === 'object' && b !== null && typeof b.title === 'string' && typeof b.info === 'string'
+      (b): b is BeyondAtcInfoBox =>
+        typeof b === 'object' && b !== null && typeof b.title === 'string' && typeof b.info === 'string'
     )
     out.push({ atMs, boxes: valid })
   }
@@ -66,6 +79,9 @@ export function parseInfoBoxesLog(text: string): LoggedInfoBoxes[] {
 
 /** main.log and its rotated copy, parsed together. */
 export function readInfoBoxesLogs(dir: string = userDataDir()): LoggedInfoBoxes[] {
-  const texts = ['main.old.log', 'main.log'].map((name) => join(dir, 'logs', name)).filter(existsSync).map((path) => readFileSync(path, 'utf8'))
+  const texts = ['main.old.log', 'main.log']
+    .map((name) => join(dir, 'logs', name))
+    .filter(existsSync)
+    .map((path) => readFileSync(path, 'utf8'))
   return parseInfoBoxesLog(texts.join('\n'))
 }

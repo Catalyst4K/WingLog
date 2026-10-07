@@ -43,7 +43,11 @@ export function isOnRunway(runways: NavdataRunway[], lat: number, lon: number): 
       runway.thresholdLon,
       runway.headingTrueDeg
     )
-    if (along >= -ALONG_MARGIN_M && along <= runway.lengthM + ALONG_MARGIN_M && Math.abs(cross) <= runway.widthM / 2 + CROSS_MARGIN_M) {
+    if (
+      along >= -ALONG_MARGIN_M &&
+      along <= runway.lengthM + ALONG_MARGIN_M &&
+      Math.abs(cross) <= runway.widthM / 2 + CROSS_MARGIN_M
+    ) {
       return true
     }
   }

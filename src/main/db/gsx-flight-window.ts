@@ -21,7 +21,8 @@ import type { FlightMatchWindow } from '../gsx/matcher'
 export function buildFlightMatchWindow(db: WingLogDb, flightId: number): FlightMatchWindow | null {
   const flight = getFlight(db, flightId)
   if (!flight) return null
-  const registration = flight.aircraftId != null ? getAircraftById(db, flight.aircraftId)?.registration : flight.simRegistration
+  const registration =
+    flight.aircraftId != null ? getAircraftById(db, flight.aircraftId)?.registration : flight.simRegistration
   if (!registration) return null
 
   return {

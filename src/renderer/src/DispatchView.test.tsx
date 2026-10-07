@@ -220,7 +220,11 @@ describe('DispatchView', () => {
   it('loads aircraft (filtering retired ones), fleet stats and past flights on mount', async () => {
     const retired = makeAircraft({ id: 9, registration: 'G-OLD', replacedByAircraftId: 1 })
     // Plainly retired (flights kept, docs/plans/fleet-retire.md) is filtered the same way.
-    const plainlyRetired = makeAircraft({ id: 10, registration: 'G-PUT', retiredAt: '2026-09-18T12:00:00.000Z' })
+    const plainlyRetired = makeAircraft({
+      id: 10,
+      registration: 'G-PUT',
+      retiredAt: '2026-09-18T12:00:00.000Z'
+    })
     const other = makeAircraft({ id: 2, registration: 'G-EFGH', operator: null })
     window.winglog = createWinglog({
       aircraftList: vi.fn().mockResolvedValue([makeAircraft(), retired, plainlyRetired, other])
@@ -246,7 +250,7 @@ describe('DispatchView', () => {
   })
 
   describe('selecting an aircraft to plan with', () => {
-    it('prefills departure from the aircraft\'s own currentIcao, and airline from operatorIcao', async () => {
+    it("prefills departure from the aircraft's own currentIcao, and airline from operatorIcao", async () => {
       window.winglog = createWinglog({ aircraftList: vi.fn().mockResolvedValue([makeAircraft()]) })
       const user = userEvent.setup()
       render(<Harness />)
@@ -257,16 +261,23 @@ describe('DispatchView', () => {
       expect(screen.getByPlaceholderText('e.g. BAW')).toHaveValue('TAX')
       // Departure ICAO field is a Combobox input with no distinguishing placeholder besides
       // the default one; assert via the underlying text input's value instead.
-      const depInput = within(screen.getByText('Departure', { selector: 'label' }).parentElement as HTMLElement).getByRole(
-        'textbox'
-      )
+      const depInput = within(
+        screen.getByText('Departure', { selector: 'label' }).parentElement as HTMLElement
+      ).getByRole('textbox')
       expect(depInput).toHaveValue('EGLL')
     })
 
-    it('falls back to the last completed flight\'s arrival airport when currentIcao is unset', async () => {
+    it("falls back to the last completed flight's arrival airport when currentIcao is unset", async () => {
       const noHome = makeAircraft({ id: 2, registration: 'G-EFGH', currentIcao: null, operatorIcao: null })
       const stats: FleetStats[] = [
-        { aircraftId: 2, registration: 'G-EFGH', totalHours: 10, totalCycles: 5, lastArrIcao: 'EGKK', lastFlightInUtc: null }
+        {
+          aircraftId: 2,
+          registration: 'G-EFGH',
+          totalHours: 10,
+          totalCycles: 5,
+          lastArrIcao: 'EGKK',
+          lastFlightInUtc: null
+        }
       ]
       window.winglog = createWinglog({
         aircraftList: vi.fn().mockResolvedValue([noHome]),
@@ -278,9 +289,9 @@ describe('DispatchView', () => {
       await user.click(selectTriggerNear('Aircraft'))
       await user.click(await screen.findByRole('option', { name: /G-EFGH/ }))
 
-      const depInput = within(screen.getByText('Departure', { selector: 'label' }).parentElement as HTMLElement).getByRole(
-        'textbox'
-      )
+      const depInput = within(
+        screen.getByText('Departure', { selector: 'label' }).parentElement as HTMLElement
+      ).getByRole('textbox')
       expect(depInput).toHaveValue('EGKK')
       // No operatorIcao on this aircraft -> airline field stays blank.
       expect(screen.getByPlaceholderText('e.g. BAW')).toHaveValue('')
@@ -295,9 +306,9 @@ describe('DispatchView', () => {
       await user.click(selectTriggerNear('Aircraft'))
       await user.click(await screen.findByRole('option', { name: /G-BARE/ }))
 
-      const depInput = within(screen.getByText('Departure', { selector: 'label' }).parentElement as HTMLElement).getByRole(
-        'textbox'
-      )
+      const depInput = within(
+        screen.getByText('Departure', { selector: 'label' }).parentElement as HTMLElement
+      ).getByRole('textbox')
       expect(depInput).toHaveValue('')
     })
 
@@ -328,7 +339,9 @@ describe('DispatchView', () => {
     })
 
     it('lets airline ICAO and flight number be typed and uppercases the airline field', async () => {
-      window.winglog = createWinglog({ aircraftList: vi.fn().mockResolvedValue([makeAircraft({ operatorIcao: null })]) })
+      window.winglog = createWinglog({
+        aircraftList: vi.fn().mockResolvedValue([makeAircraft({ operatorIcao: null })])
+      })
       const user = userEvent.setup()
       render(<Harness />)
 
@@ -358,9 +371,9 @@ describe('DispatchView', () => {
       // currentIcao/destIcao: dep is prefilled, dest still empty -> still disabled.
       expect(screen.getByRole('button', { name: 'Generate…' })).toBeDisabled()
 
-      const destInput = within(screen.getByText('Destination', { selector: 'label' }).parentElement as HTMLElement).getByRole(
-        'textbox'
-      )
+      const destInput = within(
+        screen.getByText('Destination', { selector: 'label' }).parentElement as HTMLElement
+      ).getByRole('textbox')
       await user.type(destInput, 'EDDF')
       expect(screen.getByRole('button', { name: 'Generate…' })).toBeEnabled()
     })
@@ -384,9 +397,9 @@ describe('DispatchView', () => {
 
       await user.click(selectTriggerNear('Aircraft'))
       await user.click(await screen.findByRole('option', { name: /G-ABCD/ }))
-      const destInput = within(screen.getByText('Destination', { selector: 'label' }).parentElement as HTMLElement).getByRole(
-        'textbox'
-      )
+      const destInput = within(
+        screen.getByText('Destination', { selector: 'label' }).parentElement as HTMLElement
+      ).getByRole('textbox')
       await user.type(destInput, 'EDDF')
 
       await user.click(screen.getByRole('button', { name: 'Plan on SimBrief…' }))
@@ -415,7 +428,9 @@ describe('DispatchView', () => {
     })
 
     it('shows an error toast when fetching fails with an Error', async () => {
-      window.winglog = createWinglog({ dispatchFetchOfp: vi.fn().mockRejectedValue(new Error('no username set')) })
+      window.winglog = createWinglog({
+        dispatchFetchOfp: vi.fn().mockRejectedValue(new Error('no username set'))
+      })
       const user = userEvent.setup()
       render(<Harness />)
 
@@ -439,21 +454,27 @@ describe('DispatchView', () => {
         aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
         dispatchFetchOfp: vi
           .fn()
-          .mockResolvedValue(makeOfp({ matchedAircraftId: 1, simbriefIsCustom: true, simbriefInternalId: 'CUSTOM99' }))
+          .mockResolvedValue(
+            makeOfp({ matchedAircraftId: 1, simbriefIsCustom: true, simbriefInternalId: 'CUSTOM99' })
+          )
       })
       const user = userEvent.setup()
       render(<Harness />)
 
       await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
 
-      expect(await screen.findByText(/This plan used a custom SimBrief airframe not saved to G-ABCD\./)).toBeInTheDocument()
+      expect(
+        await screen.findByText(/This plan used a custom SimBrief airframe not saved to G-ABCD\./)
+      ).toBeInTheDocument()
 
       const aircraftUpdate = vi.fn().mockResolvedValue(makeAircraft({ simbriefAirframeId: 'CUSTOM99' }))
       window.winglog.aircraftUpdate = aircraftUpdate
       await user.click(screen.getByRole('button', { name: 'Save this airframe' }))
 
       await waitFor(() =>
-        expect(aircraftUpdate).toHaveBeenCalledWith(expect.objectContaining({ id: 1, simbriefAirframeId: 'CUSTOM99' }))
+        expect(aircraftUpdate).toHaveBeenCalledWith(
+          expect.objectContaining({ id: 1, simbriefAirframeId: 'CUSTOM99' })
+        )
       )
       expect(toast.success).toHaveBeenCalledWith('Saved this airframe to G-ABCD.')
       expect(screen.queryByText(/This plan used a custom SimBrief airframe/)).not.toBeInTheDocument()
@@ -464,7 +485,9 @@ describe('DispatchView', () => {
         aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
         dispatchFetchOfp: vi
           .fn()
-          .mockResolvedValue(makeOfp({ matchedAircraftId: 1, simbriefIsCustom: true, simbriefInternalId: 'CUSTOM99' })),
+          .mockResolvedValue(
+            makeOfp({ matchedAircraftId: 1, simbriefIsCustom: true, simbriefInternalId: 'CUSTOM99' })
+          ),
         aircraftUpdate: vi.fn().mockRejectedValue(new Error('db locked'))
       })
       const user = userEvent.setup()
@@ -477,10 +500,14 @@ describe('DispatchView', () => {
       await waitFor(() => expect(toast.error).toHaveBeenCalledWith('db locked'))
     })
 
-    it('warns when the OFP used SimBrief\'s default airframe instead of the matched aircraft\'s saved profile', async () => {
+    it("warns when the OFP used SimBrief's default airframe instead of the matched aircraft's saved profile", async () => {
       window.winglog = createWinglog({
         aircraftList: vi.fn().mockResolvedValue([makeAircraft({ simbriefAirframeId: 'SAVED1' })]),
-        dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp({ matchedAircraftId: 1, simbriefIsCustom: false, simbriefInternalId: null }))
+        dispatchFetchOfp: vi
+          .fn()
+          .mockResolvedValue(
+            makeOfp({ matchedAircraftId: 1, simbriefIsCustom: false, simbriefInternalId: null })
+          )
       })
       const user = userEvent.setup()
       render(<Harness />)
@@ -499,7 +526,9 @@ describe('DispatchView', () => {
       const a2 = makeAircraft({ id: 2, registration: 'G-EFGH', simbriefAirframeId: null })
       window.winglog = createWinglog({
         aircraftList: vi.fn().mockResolvedValue([a1, a2]),
-        dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp({ matchedAircraftId: 2, aircraftRegistration: 'G-EFGH' }))
+        dispatchFetchOfp: vi
+          .fn()
+          .mockResolvedValue(makeOfp({ matchedAircraftId: 2, aircraftRegistration: 'G-EFGH' }))
       })
       const user = userEvent.setup()
       render(<Harness />)
@@ -524,16 +553,21 @@ describe('DispatchView', () => {
   describe('generating a plan', () => {
     it('generates a plan, shows a success toast, and toggles the loading label', async () => {
       let resolveGenerate: (v: DispatchOfp) => void = () => {}
-      const dispatchGenerateOfp = vi.fn(() => new Promise<DispatchOfp>((resolve) => (resolveGenerate = resolve)))
-      window.winglog = createWinglog({ aircraftList: vi.fn().mockResolvedValue([makeAircraft()]), dispatchGenerateOfp })
+      const dispatchGenerateOfp = vi.fn(
+        () => new Promise<DispatchOfp>((resolve) => (resolveGenerate = resolve))
+      )
+      window.winglog = createWinglog({
+        aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+        dispatchGenerateOfp
+      })
       const user = userEvent.setup()
       render(<Harness />)
 
       await user.click(selectTriggerNear('Aircraft'))
       await user.click(await screen.findByRole('option', { name: /G-ABCD/ }))
-      const destInput = within(screen.getByText('Destination', { selector: 'label' }).parentElement as HTMLElement).getByRole(
-        'textbox'
-      )
+      const destInput = within(
+        screen.getByText('Destination', { selector: 'label' }).parentElement as HTMLElement
+      ).getByRole('textbox')
       await user.type(destInput, 'EDDF')
 
       await user.click(screen.getByRole('button', { name: 'Generate…' }))
@@ -542,7 +576,12 @@ describe('DispatchView', () => {
       resolveGenerate(makeOfp())
       await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Plan generated.'))
       expect(dispatchGenerateOfp).toHaveBeenCalledWith(
-        expect.objectContaining({ origIcao: 'EGLL', destIcao: 'EDDF', flightNumber: null, airlineIcao: 'TAX' })
+        expect.objectContaining({
+          origIcao: 'EGLL',
+          destIcao: 'EDDF',
+          flightNumber: null,
+          airlineIcao: 'TAX'
+        })
       )
     })
 
@@ -556,9 +595,9 @@ describe('DispatchView', () => {
 
       await user.click(selectTriggerNear('Aircraft'))
       await user.click(await screen.findByRole('option', { name: /G-ABCD/ }))
-      const destInput = within(screen.getByText('Destination', { selector: 'label' }).parentElement as HTMLElement).getByRole(
-        'textbox'
-      )
+      const destInput = within(
+        screen.getByText('Destination', { selector: 'label' }).parentElement as HTMLElement
+      ).getByRole('textbox')
       await user.type(destInput, 'EDDF')
       await user.click(screen.getByRole('button', { name: 'Generate…' }))
 
@@ -575,9 +614,9 @@ describe('DispatchView', () => {
 
       await user.click(selectTriggerNear('Aircraft'))
       await user.click(await screen.findByRole('option', { name: /G-ABCD/ }))
-      const destInput = within(screen.getByText('Destination', { selector: 'label' }).parentElement as HTMLElement).getByRole(
-        'textbox'
-      )
+      const destInput = within(
+        screen.getByText('Destination', { selector: 'label' }).parentElement as HTMLElement
+      ).getByRole('textbox')
       await user.type(destInput, 'EDDF')
       await user.click(screen.getByRole('button', { name: 'Generate…' }))
 
@@ -587,7 +626,9 @@ describe('DispatchView', () => {
 
   describe('OFP details panel', () => {
     it('renders full plan details, and "None" when there are no step climbs', async () => {
-      window.winglog = createWinglog({ dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp({ stepClimbs: [], costIndex: null })) })
+      window.winglog = createWinglog({
+        dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp({ stepClimbs: [], costIndex: null }))
+      })
       const user = userEvent.setup()
       render(<Harness />)
       await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
@@ -620,7 +661,9 @@ describe('DispatchView', () => {
       render(<Harness />)
       await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
 
-      expect(await screen.findByText('Last parked here at stand 522 — choose it as your starting gate in MSFS.')).toBeInTheDocument()
+      expect(
+        await screen.findByText('Last parked here at stand 522 — choose it as your starting gate in MSFS.')
+      ).toBeInTheDocument()
     })
 
     it('says nothing about a stand at another airport', async () => {
@@ -637,7 +680,9 @@ describe('DispatchView', () => {
     })
 
     it('shows a hint when no fleet aircraft matches the OFP registration', async () => {
-      window.winglog = createWinglog({ dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp({ matchedAircraftId: null })) })
+      window.winglog = createWinglog({
+        dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp({ matchedAircraftId: null }))
+      })
       const user = userEvent.setup()
       render(<Harness />)
       await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
@@ -676,7 +721,10 @@ describe('DispatchView', () => {
 
     it('opens the OFP PDF and shows nothing extra when one is available', async () => {
       const dispatchOpenOfpPdf = vi.fn().mockResolvedValue(true)
-      window.winglog = createWinglog({ dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp()), dispatchOpenOfpPdf })
+      window.winglog = createWinglog({
+        dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp()),
+        dispatchOpenOfpPdf
+      })
       const user = userEvent.setup()
       render(<Harness />)
       await user.click(screen.getByRole('button', { name: 'Fetch latest OFP' }))
@@ -774,7 +822,9 @@ describe('DispatchView', () => {
       await user.click(screen.getByRole('button', { name: 'Fly' }))
 
       const dialog = await screen.findByRole('alertdialog')
-      expect(within(dialog).getByText('This will delete the flight currently being tracked, EGLL → EDDF.')).toBeInTheDocument()
+      expect(
+        within(dialog).getByText('This will delete the flight currently being tracked, EGLL → EDDF.')
+      ).toBeInTheDocument()
       await user.click(within(dialog).getByText('Back'))
 
       expect(window.winglog.flightCreate).not.toHaveBeenCalled()
@@ -794,7 +844,9 @@ describe('DispatchView', () => {
 
       await user.click(screen.getByRole('button', { name: 'Fly' }))
       const dialog = await screen.findByRole('alertdialog')
-      expect(within(dialog).getByText('This will delete the flight currently being tracked, BA9.')).toBeInTheDocument()
+      expect(
+        within(dialog).getByText('This will delete the flight currently being tracked, BA9.')
+      ).toBeInTheDocument()
       await user.click(within(dialog).getByText('Fly'))
 
       await waitFor(() => expect(window.winglog.flightCreate).toHaveBeenCalled())
@@ -813,7 +865,9 @@ describe('DispatchView', () => {
 
       await user.click(screen.getByRole('button', { name: 'Fly' }))
       const dialog = await screen.findByRole('alertdialog')
-      expect(within(dialog).getByText('This will abandon the other planned flight, EGLL → EDDF.')).toBeInTheDocument()
+      expect(
+        within(dialog).getByText('This will abandon the other planned flight, EGLL → EDDF.')
+      ).toBeInTheDocument()
     })
 
     it('warns about a single other planned flight by flight number when it has one', async () => {
@@ -821,7 +875,9 @@ describe('DispatchView', () => {
         aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
         dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp({ matchedAircraftId: 1 })),
         trackingGetActive: vi.fn().mockResolvedValue(null),
-        flightList: vi.fn().mockResolvedValue([makeFlight({ id: 7, status: 'planned', flightNumber: 'BA10' })])
+        flightList: vi
+          .fn()
+          .mockResolvedValue([makeFlight({ id: 7, status: 'planned', flightNumber: 'BA10' })])
       })
       const user = userEvent.setup()
       render(<Harness />)
@@ -829,7 +885,9 @@ describe('DispatchView', () => {
 
       await user.click(screen.getByRole('button', { name: 'Fly' }))
       const dialog = await screen.findByRole('alertdialog')
-      expect(within(dialog).getByText('This will abandon the other planned flight, BA10.')).toBeInTheDocument()
+      expect(
+        within(dialog).getByText('This will abandon the other planned flight, BA10.')
+      ).toBeInTheDocument()
     })
 
     it('warns about multiple other planned flights with a count', async () => {
@@ -837,10 +895,12 @@ describe('DispatchView', () => {
         aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
         dispatchFetchOfp: vi.fn().mockResolvedValue(makeOfp({ matchedAircraftId: 1 })),
         trackingGetActive: vi.fn().mockResolvedValue(null),
-        flightList: vi.fn().mockResolvedValue([
-          makeFlight({ id: 7, status: 'planned' }),
-          makeFlight({ id: 8, status: 'planned' })
-        ])
+        flightList: vi
+          .fn()
+          .mockResolvedValue([
+            makeFlight({ id: 7, status: 'planned' }),
+            makeFlight({ id: 8, status: 'planned' })
+          ])
       })
       const user = userEvent.setup()
       render(<Harness />)

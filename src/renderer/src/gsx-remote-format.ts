@@ -108,7 +108,12 @@ function capitalize(value: string): string {
  * @param cargo One hold's cargo loaded and its total.
  * @returns The progress line.
  */
-export function formatCargoProgress(cargo: { hold: string; done: number; total: number; unit: string }): string {
+export function formatCargoProgress(cargo: {
+  hold: string
+  done: number
+  total: number
+  unit: string
+}): string {
   return `${capitalize(cargo.hold)}: ${formatNumber(cargo.done)} / ${formatNumber(cargo.total)} ${cargo.unit}`
 }
 

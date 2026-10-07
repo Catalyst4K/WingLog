@@ -42,7 +42,10 @@ export class NodeServiceSocket implements ServiceSocket {
     return this.ws.readyState
   }
 
-  addEventListener<K extends keyof ServiceSocketListeners>(type: K, listener: ServiceSocketListeners[K]): void {
+  addEventListener<K extends keyof ServiceSocketListeners>(
+    type: K,
+    listener: ServiceSocketListeners[K]
+  ): void {
     if (type === 'message') {
       const onMessage = listener as ServiceSocketListeners['message']
       this.ws.addEventListener('message', (event) => onMessage({ data: event.data }))

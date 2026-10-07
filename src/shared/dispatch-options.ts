@@ -151,7 +151,8 @@ export function dispatchOptionsFromApiParams(ofpJson: string): DispatchOptions |
   const apiParams = root.api_params
   if (typeof apiParams !== 'object' || apiParams === null) return null
   const params = apiParams as Record<string, unknown>
-  const general = typeof root.general === 'object' && root.general !== null ? (root.general as Record<string, unknown>) : {}
+  const general =
+    typeof root.general === 'object' && root.general !== null ? (root.general as Record<string, unknown>) : {}
 
   const options = defaultDispatchOptions()
   for (const field of FIELDS) {

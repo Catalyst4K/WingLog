@@ -4,7 +4,13 @@
  * lookup reads from here, never from the sim.
  */
 import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
-import type { NavdataLeg, NavdataProcedureOption, NavdataRunway, NavdataTaxiSegment, ProcedureKind } from '../navdata/navdata-provider'
+import type {
+  NavdataLeg,
+  NavdataProcedureOption,
+  NavdataRunway,
+  NavdataTaxiSegment,
+  ProcedureKind
+} from '../navdata/navdata-provider'
 import { runwayEndsFromCentre } from '../navdata/runway-geometry'
 import { visualApproachRunway } from '@shared/visual-approach'
 import { visualApproachLegs, visualApproachOptions } from '../navdata/visual-approach'
@@ -18,7 +24,13 @@ import type {
 } from '../navdata/sim-facilities-fetch'
 import type { ParsedLeg } from '../sim/facility-fields'
 import type { WingLogDb } from './client'
-import { navdataProcedure, navdataProcedureLeg, navdataRunway, navdataStand, navdataTaxiSegment } from './schema'
+import {
+  navdataProcedure,
+  navdataProcedureLeg,
+  navdataRunway,
+  navdataStand,
+  navdataTaxiSegment
+} from './schema'
 
 /** Replaces every cached row for `icao` with what was just fetched — one transaction, so a
  *  mid-way failure can't leave a stale runway list next to a fresh procedure list. Matches
@@ -30,7 +42,12 @@ import { navdataProcedure, navdataProcedureLeg, navdataRunway, navdataStand, nav
  * @param fetched Its runways and procedures, as fetched.
  * @param fetchedAt When, as an ISO time.
  */
-export function replaceAirportNavdata(db: WingLogDb, icao: string, fetched: FetchedAirportNavdata, fetchedAt: string): void {
+export function replaceAirportNavdata(
+  db: WingLogDb,
+  icao: string,
+  fetched: FetchedAirportNavdata,
+  fetchedAt: string
+): void {
   db.transaction((tx) => {
     deleteAirportNavdata(tx, icao)
     insertRunways(tx, icao, fetched.runways, fetchedAt)
@@ -71,7 +88,12 @@ function deleteAirportNavdata(tx: Tx, icao: string): void {
  * @param runways The sim's runway records.
  * @param fetchedAt When they were fetched, as an ISO time.
  */
-function insertRunways(tx: Tx, icao: string, runways: FetchedAirportNavdata['runways'], fetchedAt: string): void {
+function insertRunways(
+  tx: Tx,
+  icao: string,
+  runways: FetchedAirportNavdata['runways'],
+  fetchedAt: string
+): void {
   for (const runway of runways) {
     for (const end of runwayEndsFromCentre(runway)) {
       tx.insert(navdataRunway)
@@ -140,7 +162,13 @@ function legInserter(
  * @param proc The procedure, as fetched.
  * @param fetchedAt When it was fetched, as an ISO time.
  */
-function insertProcedure(tx: Tx, icao: string, kind: 'sid' | 'star', proc: FetchedProcedure, fetchedAt: string): void {
+function insertProcedure(
+  tx: Tx,
+  icao: string,
+  kind: 'sid' | 'star',
+  proc: FetchedProcedure,
+  fetchedAt: string
+): void {
   const runwayIdents = proc.runwayTransitions.map((t) => t.runwayIdent)
   const transitionNames = proc.enrouteTransitions.map((t) => t.name)
   const [inserted] = tx
@@ -183,7 +211,8 @@ function insertApproach(tx: Tx, icao: string, approach: FetchedApproach, fetched
       kind: 'approach',
       identifier: approach.identifier,
       runwayIdentsJson: JSON.stringify([approach.runwayIdent]),
-      transitionNamesJson: approach.transitions.length > 0 ? JSON.stringify(approach.transitions.map((t) => t.name)) : null,
+      transitionNamesJson:
+        approach.transitions.length > 0 ? JSON.stringify(approach.transitions.map((t) => t.name)) : null,
       source: 'sim-facility',
       fetchedAt
     })
@@ -203,7 +232,11 @@ function insertApproach(tx: Tx, icao: string, approach: FetchedApproach, fetched
  * @returns True when it has cached runways.
  */
 export function hasCachedAirport(db: WingLogDb, icao: string): boolean {
-  const row = db.select({ id: navdataRunway.id }).from(navdataRunway).where(eq(navdataRunway.icao, icao)).get()
+  const row = db
+    .select({ id: navdataRunway.id })
+    .from(navdataRunway)
+    .where(eq(navdataRunway.icao, icao))
+    .get()
   return row !== undefined
 }
 
@@ -261,7 +294,9 @@ export function listCachedProcedures(
       return idents.includes(runway)
     })
     .flatMap((row) => {
-      const transitions: (string | null)[] = row.transitionNamesJson ? (JSON.parse(row.transitionNamesJson) as string[]) : [null]
+      const transitions: (string | null)[] = row.transitionNamesJson
+        ? (JSON.parse(row.transitionNamesJson) as string[])
+        : [null]
       return transitions.map((transition) => ({ identifier: row.identifier, transition }))
     })
   // A visual approach is offered for every cached runway alongside the real instrument
@@ -329,7 +364,13 @@ export function listCachedProcedureLegs(
   const procedure = db
     .select({ id: navdataProcedure.id })
     .from(navdataProcedure)
-    .where(and(eq(navdataProcedure.icao, icao), eq(navdataProcedure.kind, kind), eq(navdataProcedure.identifier, identifier)))
+    .where(
+      and(
+        eq(navdataProcedure.icao, icao),
+        eq(navdataProcedure.kind, kind),
+        eq(navdataProcedure.identifier, identifier)
+      )
+    )
     .get()
   if (!procedure) return []
 
@@ -337,7 +378,9 @@ export function listCachedProcedureLegs(
     ? db
         .select()
         .from(navdataProcedureLeg)
-        .where(and(eq(navdataProcedureLeg.procedureId, procedure.id), eq(navdataProcedureLeg.runwayIdent, runway)))
+        .where(
+          and(eq(navdataProcedureLeg.procedureId, procedure.id), eq(navdataProcedureLeg.runwayIdent, runway))
+        )
         .orderBy(navdataProcedureLeg.seq)
         .all()
     : []
@@ -357,7 +400,12 @@ export function listCachedProcedureLegs(
     ? db
         .select()
         .from(navdataProcedureLeg)
-        .where(and(eq(navdataProcedureLeg.procedureId, procedure.id), eq(navdataProcedureLeg.transitionName, transition)))
+        .where(
+          and(
+            eq(navdataProcedureLeg.procedureId, procedure.id),
+            eq(navdataProcedureLeg.transitionName, transition)
+          )
+        )
         .orderBy(navdataProcedureLeg.seq)
         .all()
     : []
@@ -385,14 +433,20 @@ export function listCachedProcedureLegs(
     // non-empty common route: the departure order drew two spurious lines across the
     // arrival, this order doesn't.
     const dedupedCommon = dedupeBoundary(transitionLegs, commonLegs)
-    const dedupedRunway = dedupeBoundary(dedupedCommon.length > 0 ? dedupedCommon : transitionLegs, runwayLegs)
+    const dedupedRunway = dedupeBoundary(
+      dedupedCommon.length > 0 ? dedupedCommon : transitionLegs,
+      runwayLegs
+    )
     return [...transitionLegs, ...dedupedCommon, ...dedupedRunway].map(toNavdataLeg)
   }
 
   // SID: leave the runway (runway transition), fly the common route, then exit via the
   // enroute transition. Confirmed live 2026-09-08 (docs/navdata-notes.md).
   const dedupedCommon = dedupeBoundary(runwayLegs, commonLegs)
-  const dedupedTransition = dedupeBoundary(dedupedCommon.length > 0 ? dedupedCommon : runwayLegs, transitionLegs)
+  const dedupedTransition = dedupeBoundary(
+    dedupedCommon.length > 0 ? dedupedCommon : runwayLegs,
+    transitionLegs
+  )
   return [...runwayLegs, ...dedupedCommon, ...dedupedTransition].map(toNavdataLeg)
 }
 
@@ -404,7 +458,12 @@ export function listCachedProcedureLegs(
  * @param fetched Its taxi network, as fetched.
  * @param fetchedAt When, as an ISO time.
  */
-export function replaceAirportTaxiSegments(db: WingLogDb, icao: string, fetched: FetchedTaxiNetwork, fetchedAt: string): void {
+export function replaceAirportTaxiSegments(
+  db: WingLogDb,
+  icao: string,
+  fetched: FetchedTaxiNetwork,
+  fetchedAt: string
+): void {
   db.transaction((tx) => {
     tx.delete(navdataTaxiSegment).where(eq(navdataTaxiSegment.icao, icao)).run()
     for (const segment of fetched.segments) {
@@ -476,12 +535,27 @@ export function listCachedTaxiSegments(db: WingLogDb, icao: string): NavdataTaxi
  * @param stands Its stands, as fetched.
  * @param fetchedAt When, as an ISO time.
  */
-export function replaceAirportStands(db: WingLogDb, icao: string, stands: FetchedStand[], fetchedAt: string): void {
+export function replaceAirportStands(
+  db: WingLogDb,
+  icao: string,
+  stands: FetchedStand[],
+  fetchedAt: string
+): void {
   db.transaction((tx) => {
     tx.delete(navdataStand).where(eq(navdataStand.icao, icao)).run()
     for (const s of stands) {
       tx.insert(navdataStand)
-        .values({ icao, name: s.name, nameCode: s.nameCode, number: s.number, suffix: s.suffix, headingDeg: s.headingDeg, lat: s.lat, lon: s.lon, fetchedAt })
+        .values({
+          icao,
+          name: s.name,
+          nameCode: s.nameCode,
+          number: s.number,
+          suffix: s.suffix,
+          headingDeg: s.headingDeg,
+          lat: s.lat,
+          lon: s.lon,
+          fetchedAt
+        })
         .run()
     }
   })
@@ -500,5 +574,12 @@ export function listCachedStands(db: WingLogDb, icao: string): NavdataStand[] {
     .from(navdataStand)
     .where(eq(navdataStand.icao, icao))
     .all()
-    .map((row) => ({ name: row.name, number: row.number, suffix: row.suffix, headingDeg: row.headingDeg, lat: row.lat, lon: row.lon }))
+    .map((row) => ({
+      name: row.name,
+      number: row.number,
+      suffix: row.suffix,
+      headingDeg: row.headingDeg,
+      lat: row.lat,
+      lon: row.lon
+    }))
 }

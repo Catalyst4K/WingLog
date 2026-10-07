@@ -36,14 +36,18 @@ describe('toAircraftExportRecord', () => {
 describe('serializeAircraft / parseAircraftRecords', () => {
   it('writes a CSV with one column per exported field, quoting where needed', () => {
     const lines = serializeAircraft(FLEET, 'csv').trimEnd().split('\r\n')
-    expect(lines[0]).toBe('registration,icaoType,operator,operatorIata,operatorIcao,simbriefAirframeId,simbriefType,currentIcao')
+    expect(lines[0]).toBe(
+      'registration,icaoType,operator,operatorIata,operatorIcao,simbriefAirframeId,simbriefType,currentIcao'
+    )
     expect(lines[1]).toBe('G-XWBA,A35K,British Airways,BA,BAW,,,EGLL')
     expect(lines[2]).toBe('N172SP,C172,"Smith, ""Bob"" & Sons",,,,,')
   })
 
   it('round-trips through the shared validator in both formats, blank cells becoming cleared fields', () => {
     for (const format of ['csv', 'json'] as const) {
-      const parsed = parseAircraftRecords(serializeAircraft(FLEET, format), format).map((r) => parseAircraftInput(r))
+      const parsed = parseAircraftRecords(serializeAircraft(FLEET, format), format).map((r) =>
+        parseAircraftInput(r)
+      )
       expect(parsed.map((p) => ('data' in p ? p.data : p))).toEqual(FLEET)
     }
   })

@@ -45,9 +45,23 @@ describe('startOf', () => {
 })
 
 describe('clearanceAirport', () => {
-  const clearance = { taxiways: ['C7'], holdingPoint: null, stand: null, holdShortRunway: null, from: { lat: 22.31, lon: 113.91 } }
+  const clearance = {
+    taxiways: ['C7'],
+    holdingPoint: null,
+    stand: null,
+    holdShortRunway: null,
+    from: { lat: 22.31, lon: 113.91 }
+  }
   const segment = (lat: number, lon: number) =>
-    ({ startLat: lat, startLon: lon, endLat: lat, endLon: lon, name: 'C7', startHoldShort: false, endHoldShort: false }) as never
+    ({
+      startLat: lat,
+      startLon: lon,
+      endLat: lat,
+      endLon: lon,
+      name: 'C7',
+      startHoldShort: false,
+      endHoldShort: false
+    }) as never
   const networks = { VHHH: [segment(22.31, 113.91)], ZJSY: [segment(18.3, 109.4)] }
 
   it('puts a holding point at the departure and a stand at the arrival', () => {
@@ -64,6 +78,12 @@ describe('clearanceAirport', () => {
 
 describe('traceClearance', () => {
   it('traces nothing before the aircraft position is known', () => {
-    expect(traceClearance({ taxiways: ['A'], holdingPoint: 'A1', stand: null, holdShortRunway: null, from: null }, [], null)).toBeNull()
+    expect(
+      traceClearance(
+        { taxiways: ['A'], holdingPoint: 'A1', stand: null, holdShortRunway: null, from: null },
+        [],
+        null
+      )
+    ).toBeNull()
   })
 })

@@ -20,7 +20,14 @@ function withWinglog(): void {
       frequencies: []
     }),
     onBeyondAtcState: vi.fn().mockReturnValue(() => {}),
-    beyondAtcGetStepClimb: vi.fn().mockResolvedValue({ enabled: false, nextStep: null, pendingAltitudeFt: null, waitingForClimbFt: null, pastTopOfDescent: false, last: null }),
+    beyondAtcGetStepClimb: vi.fn().mockResolvedValue({
+      enabled: false,
+      nextStep: null,
+      pendingAltitudeFt: null,
+      waitingForClimbFt: null,
+      pastTopOfDescent: false,
+      last: null
+    }),
     onBeyondAtcStepClimb: vi.fn(() => () => {}),
     beyondAtcGetArrival: vi.fn().mockResolvedValue(null),
     onBeyondAtcArrival: vi.fn(() => () => {}),

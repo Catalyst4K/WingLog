@@ -21,7 +21,13 @@ import { mToFt } from './units'
  * practice, since a real cruise altitude sits far above either transition figure regardless
  * of which one gets picked.
  */
-const CLIMB_SIDE_PHASES: ReadonlySet<FlightPhase> = new Set(['preflight', 'pushback', 'taxi', 'takeoff', 'climb'])
+const CLIMB_SIDE_PHASES: ReadonlySet<FlightPhase> = new Set([
+  'preflight',
+  'pushback',
+  'taxi',
+  'takeoff',
+  'climb'
+])
 
 /** Falls back to this when there's no OFP to read a real transition altitude/level from
  *  (an ad hoc Track-started flight, or one predating this feature) — see the plan's own
@@ -52,7 +58,10 @@ export interface DisplayAltitudeResult {
  * @param transition The flight's transition altitude and level, or null.
  * @returns The altitude to show, and which kind it is.
  */
-export function displayAltitude(input: DisplayAltitudeInput, transition: TransitionAltitudes | null): DisplayAltitudeResult {
+export function displayAltitude(
+  input: DisplayAltitudeInput,
+  transition: TransitionAltitudes | null
+): DisplayAltitudeResult {
   const trueAltFt = mToFt(input.altitudeM)
   if (input.pressureAltitudeM == null) {
     return { valueFt: trueAltFt, label: 'True altitude' }

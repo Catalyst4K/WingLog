@@ -56,7 +56,6 @@ const RECONNECT_BACKOFF_FACTOR = 1.6
 
 const TRANSCRIPT_LIMIT = 100
 
-
 interface BeyondAtcServiceEvents {
   status: [BeyondAtcConnectionStatus]
   state: [BeyondAtcState]
@@ -451,7 +450,11 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
    * @param isValid Checks the parsed value's shape.
    * @param patch The state fields it sets.
    */
-  private setParsed<T>(rest: string, isValid: (value: unknown) => value is T, patch: (value: T) => Partial<BeyondAtcState>): void {
+  private setParsed<T>(
+    rest: string,
+    isValid: (value: unknown) => value is T,
+    patch: (value: T) => Partial<BeyondAtcState>
+  ): void {
     const value = parseJson(rest)
     if (isValid(value)) this.setState(patch(value))
   }

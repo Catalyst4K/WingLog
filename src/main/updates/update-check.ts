@@ -101,11 +101,11 @@ export class UpdateService extends EventEmitter<{ status: [UpdateStatus] }> {
     }
   }
 
-/**
- * The status Settings → About shows.
- *
- * @returns The current status.
- */
+  /**
+   * The status Settings → About shows.
+   *
+   * @returns The current status.
+   */
   getStatus(): UpdateStatus {
     return this.status
   }
@@ -125,11 +125,11 @@ export class UpdateService extends EventEmitter<{ status: [UpdateStatus] }> {
     this.interval = null
   }
 
-/**
- * "Check now" in Settings → About, or a scheduled tick. Never throws.
- *
- * @returns The status afterwards.
- */
+  /**
+   * "Check now" in Settings → About, or a scheduled tick. Never throws.
+   *
+   * @returns The status afterwards.
+   */
   async checkNow(): Promise<UpdateStatus> {
     this.setStatus({ ...this.status, state: 'checking' })
     try {
@@ -160,22 +160,22 @@ export class UpdateService extends EventEmitter<{ status: [UpdateStatus] }> {
     return this.status
   }
 
-/**
- * "Skip this version": no banner for it, only for something newer.
- *
- * @param version The version from the renderer; ignored unless it is the latest found.
- */
+  /**
+   * "Skip this version": no banner for it, only for something newer.
+   *
+   * @param version The version from the renderer; ignored unless it is the latest found.
+   */
   skipVersion(version: unknown): void {
     if (typeof version !== 'string' || version !== this.status.latest?.version) return
     this.options.setSkippedVersion(version)
     this.setStatus({ ...this.status, skippedVersion: version })
   }
 
-/**
- * The validated release page, for shell.openExternal — never a URL from the renderer.
- *
- * @returns The URL, or null with no release found.
- */
+  /**
+   * The validated release page, for shell.openExternal — never a URL from the renderer.
+   *
+   * @returns The URL, or null with no release found.
+   */
   releaseUrl(): string | null {
     return this.status.latest?.url ?? null
   }

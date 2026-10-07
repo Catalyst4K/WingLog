@@ -74,14 +74,17 @@ export function buildLandingRecord(
   previousTelemetry?: SimTelemetry,
   touchdownSeverity?: TouchdownSeverity
 ): NewLanding {
-  const runway = icao ? resolveRunway(icao, telemetry.headingTrueDeg, telemetry.latitude, telemetry.longitude) : null
+  const runway = icao
+    ? resolveRunway(icao, telemetry.headingTrueDeg, telemetry.latitude, telemetry.longitude)
+    : null
 
   return {
     flightId,
     seq,
     icao,
     touchdownTsUtc,
-    verticalSpeedMs: touchdownSeverity?.verticalSpeedMs ?? previousTelemetry?.verticalSpeedMs ?? telemetry.verticalSpeedMs,
+    verticalSpeedMs:
+      touchdownSeverity?.verticalSpeedMs ?? previousTelemetry?.verticalSpeedMs ?? telemetry.verticalSpeedMs,
     gForce: clampGForce(telemetry.gForce),
     pitchDeg: telemetry.pitchDeg,
     bankDeg: telemetry.bankDeg,
@@ -111,9 +114,22 @@ type RunwayFields = Pick<
  */
 function runwayFields(telemetry: SimTelemetry, runway: RunwayEnd | null): RunwayFields {
   if (!runway) {
-    return { headwindMs: null, crosswindMs: null, crabDeg: null, runwayIdent: null, distanceFromThresholdM: null, centrelineOffsetM: null }
+    return {
+      headwindMs: null,
+      crosswindMs: null,
+      crabDeg: null,
+      runwayIdent: null,
+      distanceFromThresholdM: null,
+      centrelineOffsetM: null
+    }
   }
-  const position = positionRelativeToRunway(telemetry.latitude, telemetry.longitude, runway.lat, runway.lon, runway.headingTrueDeg)
+  const position = positionRelativeToRunway(
+    telemetry.latitude,
+    telemetry.longitude,
+    runway.lat,
+    runway.lon,
+    runway.headingTrueDeg
+  )
   return {
     headwindMs: headwindComponent(telemetry.windSpeedMs, telemetry.windDirectionDeg, runway.headingTrueDeg),
     crosswindMs: crosswindComponent(telemetry.windSpeedMs, telemetry.windDirectionDeg, runway.headingTrueDeg),

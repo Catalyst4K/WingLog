@@ -3,7 +3,12 @@
  * with the navdata lookups passed in. `ArrivalClearanceTracker` is the thin wrapper that holds the
  * state and emits; the offline simulation replays recorded InfoBoxes through this same code.
  */
-import type { BeyondAtcArrivalClearance, BeyondAtcInfoBox, FlightPhase, NavdataProcedureOption } from '@shared/ipc'
+import type {
+  BeyondAtcArrivalClearance,
+  BeyondAtcInfoBox,
+  FlightPhase,
+  NavdataProcedureOption
+} from '@shared/ipc'
 import { matchClearanceApproach } from '@shared/atc-approach-match'
 import { parseAtcBoxClearance, type AtcClearanceUpdate } from '@shared/atc-info-boxes'
 
@@ -22,7 +27,8 @@ export interface ArrivalState {
 }
 
 /** What can happen to the card. */
-export type ArrivalInput = { kind: 'boxes'; boxes: BeyondAtcInfoBox[] } | { kind: 'phase'; phase: FlightPhase }
+export type ArrivalInput =
+  { kind: 'boxes'; boxes: BeyondAtcInfoBox[] } | { kind: 'phase'; phase: FlightPhase }
 
 /** A flight with nothing cleared yet. */
 export const INITIAL_ARRIVAL_STATE: ArrivalState = { clearance: null, lastBoxesKey: '' }
@@ -85,9 +91,21 @@ function applyBoxes(
  * @param runway The runway cleared with it, or null.
  * @returns The card after.
  */
-function withStar(current: BeyondAtcArrivalClearance | null, starIdent: string, runway: string | null): BeyondAtcArrivalClearance {
-  const kept = runway !== null && current?.approachIdent != null && current.approachIdent.endsWith(` ${runway}`) ? current : null
-  return { starIdent, runway, approachIdent: kept?.approachIdent ?? null, approachTransition: kept?.approachTransition ?? null }
+function withStar(
+  current: BeyondAtcArrivalClearance | null,
+  starIdent: string,
+  runway: string | null
+): BeyondAtcArrivalClearance {
+  const kept =
+    runway !== null && current?.approachIdent != null && current.approachIdent.endsWith(` ${runway}`)
+      ? current
+      : null
+  return {
+    starIdent,
+    runway,
+    approachIdent: kept?.approachIdent ?? null,
+    approachTransition: kept?.approachTransition ?? null
+  }
 }
 
 /**
@@ -109,13 +127,15 @@ function withApproach(
   const named = navdataNamed(parsed, lookup)
   const ident = named.fields.approachIdent ?? approachIdent
   // The briefing's `Transition` can come minutes before `Cleared Approach`.
-  const briefed = current?.approachIdent == null && current?.runway != null && ident.endsWith(` ${current.runway}`)
+  const briefed =
+    current?.approachIdent == null && current?.runway != null && ident.endsWith(` ${current.runway}`)
   const keepsTransition = current !== null && (current.approachIdent === ident || briefed)
   return {
     starIdent: current?.starIdent ?? null,
     runway: current?.runway ?? null,
     approachIdent: ident,
-    approachTransition: named.fields.approachTransition ?? (keepsTransition ? current.approachTransition : null)
+    approachTransition:
+      named.fields.approachTransition ?? (keepsTransition ? current.approachTransition : null)
   }
 }
 

@@ -54,7 +54,12 @@ function enrouteTransitionBuffer(name: string): RawBuffer {
   })
 }
 
-function approachBuffer(type: number, suffixCode: number, runwayNumber: number, runwayDesignator: number): RawBuffer {
+function approachBuffer(
+  type: number,
+  suffixCode: number,
+  runwayNumber: number,
+  runwayDesignator: number
+): RawBuffer {
   return buffer((w) => {
     w.writeInt32(type)
     w.writeInt32(suffixCode)
@@ -193,11 +198,15 @@ describe('fetchAirportNavdata', () => {
     expect(departure.name).toBe('BPK7F')
     expect(departure.commonLegs).toHaveLength(1)
     expect(departure.commonLegs[0]).toMatchObject({ fixIdent: 'BPK', fixType: 'W' })
-    expect(departure.runwayTransitions).toEqual([{ runwayIdent: '09', legs: [expect.objectContaining({ fixIdent: 'RWYFIX' })] }])
-    expect(departure.enrouteTransitions).toEqual([{ name: 'CLEEE', legs: [expect.objectContaining({ fixIdent: 'ENRFIX' })] }])
+    expect(departure.runwayTransitions).toEqual([
+      { runwayIdent: '09', legs: [expect.objectContaining({ fixIdent: 'RWYFIX' })] }
+    ])
+    expect(departure.enrouteTransitions).toEqual([
+      { name: 'CLEEE', legs: [expect.objectContaining({ fixIdent: 'ENRFIX' })] }
+    ])
   })
 
-  it('reassembles an approach\'s transition legs and final segment, real VHHH RNP-Z-07R shape', async () => {
+  it("reassembles an approach's transition legs and final segment, real VHHH RNP-Z-07R shape", async () => {
     const handle = new FakeHandle()
     const promise = fetchAirportNavdata(handle as unknown as SimConnectConnection, 'VHHH')
 
@@ -263,7 +272,10 @@ describe('fetchAirportNavdata', () => {
     expect(approach.identifier).toBe('RNAV Z 07R')
     expect(approach.runwayIdent).toBe('07R')
     expect(approach.transitions).toEqual([
-      { name: 'LIMES', legs: [expect.objectContaining({ fixIdent: 'LIMES' }), expect.objectContaining({ fixIdent: 'VH720' })] }
+      {
+        name: 'LIMES',
+        legs: [expect.objectContaining({ fixIdent: 'LIMES' }), expect.objectContaining({ fixIdent: 'VH720' })]
+      }
     ])
     expect(approach.finalLegs.map((l) => l.fixIdent)).toEqual(['VH720', 'RW07R'])
   })
@@ -272,10 +284,26 @@ describe('fetchAirportNavdata', () => {
     const handle = new FakeHandle()
     const promise = fetchAirportNavdata(handle as unknown as SimConnectConnection, 'VHHH')
 
-    expect(handle.requestFacilityData).toHaveBeenCalledWith(NavdataDefId.RUNWAYS, NavdataDefId.RUNWAYS, 'VHHH')
-    expect(handle.requestFacilityData).toHaveBeenCalledWith(NavdataDefId.DEPARTURES, NavdataDefId.DEPARTURES, 'VHHH')
-    expect(handle.requestFacilityData).toHaveBeenCalledWith(NavdataDefId.ARRIVALS, NavdataDefId.ARRIVALS, 'VHHH')
-    expect(handle.requestFacilityData).toHaveBeenCalledWith(NavdataDefId.APPROACHES, NavdataDefId.APPROACHES, 'VHHH')
+    expect(handle.requestFacilityData).toHaveBeenCalledWith(
+      NavdataDefId.RUNWAYS,
+      NavdataDefId.RUNWAYS,
+      'VHHH'
+    )
+    expect(handle.requestFacilityData).toHaveBeenCalledWith(
+      NavdataDefId.DEPARTURES,
+      NavdataDefId.DEPARTURES,
+      'VHHH'
+    )
+    expect(handle.requestFacilityData).toHaveBeenCalledWith(
+      NavdataDefId.ARRIVALS,
+      NavdataDefId.ARRIVALS,
+      'VHHH'
+    )
+    expect(handle.requestFacilityData).toHaveBeenCalledWith(
+      NavdataDefId.APPROACHES,
+      NavdataDefId.APPROACHES,
+      'VHHH'
+    )
     expect(handle.addToFacilityDefinition).toHaveBeenCalled()
 
     // Settle the promise (clearing its pending 20s timeout) rather than leaving it dangling
@@ -299,7 +327,12 @@ describe('fetchAirportNavdata', () => {
       requestID: NavdataDefId.RUNWAYS,
       data: [{ icao: { region: 'K1' } }]
     })
-    expect(handle.requestFacilityData).toHaveBeenCalledWith(NavdataDefId.RUNWAYS, NavdataDefId.RUNWAYS, 'ABCD', 'K1')
+    expect(handle.requestFacilityData).toHaveBeenCalledWith(
+      NavdataDefId.RUNWAYS,
+      NavdataDefId.RUNWAYS,
+      'ABCD',
+      'K1'
+    )
 
     handle.emit('facilityData', {
       type: FacilityDataType.AIRPORT,
@@ -356,12 +389,36 @@ describe('fetchTaxiNetwork', () => {
     const handle = new FakeHandle()
     void fetchTaxiNetwork(handle as unknown as SimConnectConnection, 'EGKB')
 
-    expect(handle.requestFacilityData).toHaveBeenCalledWith(NavdataDefId.TAXI_POINTS, NavdataDefId.TAXI_POINTS, 'EGKB')
-    expect(handle.requestFacilityData).toHaveBeenCalledWith(NavdataDefId.TAXI_PATHS_TYPE_1, NavdataDefId.TAXI_PATHS_TYPE_1, 'EGKB')
-    expect(handle.requestFacilityData).toHaveBeenCalledWith(NavdataDefId.TAXI_PATHS_TYPE_4, NavdataDefId.TAXI_PATHS_TYPE_4, 'EGKB')
-    expect(handle.requestFacilityData).toHaveBeenCalledWith(NavdataDefId.TAXI_NAMES, NavdataDefId.TAXI_NAMES, 'EGKB')
-    expect(handle.addFacilityDataDefinitionFilter).toHaveBeenCalledWith(NavdataDefId.TAXI_PATHS_TYPE_1, 'AIRPORT:TAXI_PATH:TYPE', expect.anything())
-    expect(handle.addFacilityDataDefinitionFilter).toHaveBeenCalledWith(NavdataDefId.TAXI_PATHS_TYPE_4, 'AIRPORT:TAXI_PATH:TYPE', expect.anything())
+    expect(handle.requestFacilityData).toHaveBeenCalledWith(
+      NavdataDefId.TAXI_POINTS,
+      NavdataDefId.TAXI_POINTS,
+      'EGKB'
+    )
+    expect(handle.requestFacilityData).toHaveBeenCalledWith(
+      NavdataDefId.TAXI_PATHS_TYPE_1,
+      NavdataDefId.TAXI_PATHS_TYPE_1,
+      'EGKB'
+    )
+    expect(handle.requestFacilityData).toHaveBeenCalledWith(
+      NavdataDefId.TAXI_PATHS_TYPE_4,
+      NavdataDefId.TAXI_PATHS_TYPE_4,
+      'EGKB'
+    )
+    expect(handle.requestFacilityData).toHaveBeenCalledWith(
+      NavdataDefId.TAXI_NAMES,
+      NavdataDefId.TAXI_NAMES,
+      'EGKB'
+    )
+    expect(handle.addFacilityDataDefinitionFilter).toHaveBeenCalledWith(
+      NavdataDefId.TAXI_PATHS_TYPE_1,
+      'AIRPORT:TAXI_PATH:TYPE',
+      expect.anything()
+    )
+    expect(handle.addFacilityDataDefinitionFilter).toHaveBeenCalledWith(
+      NavdataDefId.TAXI_PATHS_TYPE_4,
+      'AIRPORT:TAXI_PATH:TYPE',
+      expect.anything()
+    )
   })
 
   it('resolves points/paths from both filtered TYPE requests into real lat/lon segments, and NAME_INDEX into names', async () => {
@@ -446,7 +503,10 @@ describe('fetchTaxiNetwork', () => {
       startHoldShort: false,
       endHoldShort: true
     })
-    expect(result.segments.find((s) => s.name === 'A')).toMatchObject({ startHoldShort: true, endHoldShort: false })
+    expect(result.segments.find((s) => s.name === 'A')).toMatchObject({
+      startHoldShort: true,
+      endHoldShort: false
+    })
   })
 
   it('drops a path whose START/END point was never received, rather than emitting a broken segment', async () => {
@@ -491,7 +551,14 @@ describe('fetchStands (stand-positions.md)', () => {
   // Real VHHH values from the TAXI_PARKING spike, 2026-10-02: the airport reference point and
   // stand N32 (GATE_N = 25) plus its suffix-29 twin.
   const VHHH_REF = { lat: 22.30888891965151, lon: 113.91472220420837 }
-  function parkingBuffer(nameCode: number, suffix: number, number: number, heading: number, biasX: number, biasZ: number): RawBuffer {
+  function parkingBuffer(
+    nameCode: number,
+    suffix: number,
+    number: number,
+    heading: number,
+    biasX: number,
+    biasZ: number
+  ): RawBuffer {
     return buffer((w) => {
       w.writeInt32(nameCode)
       w.writeInt32(suffix)
@@ -505,7 +572,11 @@ describe('fetchStands (stand-positions.md)', () => {
   it("positions each stand and names it the way ATC does: VHHH's GATE_N 32 is 'N32'", async () => {
     const handle = new FakeHandle()
     const promise = fetchStands(handle as unknown as SimConnectConnection, 'VHHH')
-    expect(handle.requestFacilityData).toHaveBeenCalledWith(NavdataDefId.TAXI_PARKINGS, NavdataDefId.TAXI_PARKINGS, 'VHHH')
+    expect(handle.requestFacilityData).toHaveBeenCalledWith(
+      NavdataDefId.TAXI_PARKINGS,
+      NavdataDefId.TAXI_PARKINGS,
+      'VHHH'
+    )
 
     handle.emit('facilityData', {
       type: FacilityDataType.AIRPORT,
@@ -529,15 +600,30 @@ describe('fetchStands (stand-positions.md)', () => {
 
     const stands = await promise
     expect(stands).toHaveLength(2)
-    expect(stands[0]).toMatchObject({ name: 'N32', nameCode: 25, number: 32, suffix: 0, lat: expect.closeTo(22.31414534, 6), lon: expect.closeTo(113.92862486, 6) })
+    expect(stands[0]).toMatchObject({
+      name: 'N32',
+      nameCode: 25,
+      number: 32,
+      suffix: 0,
+      lat: expect.closeTo(22.31414534, 6),
+      lon: expect.closeTo(113.92862486, 6)
+    })
     expect(stands[1]).toMatchObject({ name: 'N32', suffix: 29 })
   })
 
   it('re-asks with the region for an ambiguous ICAO, and rejects on a SimConnect exception', async () => {
     const handle = new FakeHandle()
     const promise = fetchStands(handle as unknown as SimConnectConnection, 'VHHH')
-    handle.emit('facilityMinimalList', { requestID: NavdataDefId.TAXI_PARKINGS, data: [{ icao: { region: 'VH' } }] })
-    expect(handle.requestFacilityData).toHaveBeenLastCalledWith(NavdataDefId.TAXI_PARKINGS, NavdataDefId.TAXI_PARKINGS, 'VHHH', 'VH')
+    handle.emit('facilityMinimalList', {
+      requestID: NavdataDefId.TAXI_PARKINGS,
+      data: [{ icao: { region: 'VH' } }]
+    })
+    expect(handle.requestFacilityData).toHaveBeenLastCalledWith(
+      NavdataDefId.TAXI_PARKINGS,
+      NavdataDefId.TAXI_PARKINGS,
+      'VHHH',
+      'VH'
+    )
     handle.emit('exception', { exceptionName: 'ERROR', index: 3 })
     await expect(promise).rejects.toThrow('SimConnect exception fetching VHHH stands')
   })
@@ -545,7 +631,8 @@ describe('fetchStands (stand-positions.md)', () => {
 
 describe('every facility fetch', () => {
   const LISTENED = ['facilityData', 'facilityDataEnd', 'facilityMinimalList', 'exception'] as const
-  const listening = (handle: FakeHandle): number => LISTENED.reduce((n, event) => n + handle.listenerCount(event), 0)
+  const listening = (handle: FakeHandle): number =>
+    LISTENED.reduce((n, event) => n + handle.listenerCount(event), 0)
 
   it('times out with its own message, and stops listening', async () => {
     vi.useFakeTimers()
@@ -588,11 +675,22 @@ describe('every facility fetch', () => {
     void fetchAirportNavdata(handle as unknown as SimConnectConnection, 'EGLL').catch(() => undefined)
     handle.emit('facilityDataEnd', { userRequestId: NavdataDefId.RUNWAYS })
     const asked = handle.requestFacilityData.mock.calls.length
-    handle.emit('facilityMinimalList', { requestID: NavdataDefId.RUNWAYS, data: [{ icao: { region: 'EG' } }] })
+    handle.emit('facilityMinimalList', {
+      requestID: NavdataDefId.RUNWAYS,
+      data: [{ icao: { region: 'EG' } }]
+    })
     handle.emit('facilityMinimalList', { requestID: NavdataDefId.DEPARTURES, data: [] })
     expect(handle.requestFacilityData.mock.calls.length).toBe(asked)
-    handle.emit('facilityMinimalList', { requestID: NavdataDefId.DEPARTURES, data: [{ icao: { region: 'EG' } }] })
-    expect(handle.requestFacilityData).toHaveBeenLastCalledWith(NavdataDefId.DEPARTURES, NavdataDefId.DEPARTURES, 'EGLL', 'EG')
+    handle.emit('facilityMinimalList', {
+      requestID: NavdataDefId.DEPARTURES,
+      data: [{ icao: { region: 'EG' } }]
+    })
+    expect(handle.requestFacilityData).toHaveBeenLastCalledWith(
+      NavdataDefId.DEPARTURES,
+      NavdataDefId.DEPARTURES,
+      'EGLL',
+      'EG'
+    )
     handle.emit('exception', { exceptionName: 'ERROR', index: 0 })
   })
 
@@ -600,14 +698,21 @@ describe('every facility fetch', () => {
     const handle = new FakeHandle()
     const promise = fetchAirportNavdata(handle as unknown as SimConnectConnection, 'VHHH')
     handle.emit('exception', { exceptionName: 'UNRECOGNIZED_ID', index: 4 })
-    await expect(promise).rejects.toThrow('SimConnect exception fetching VHHH navdata: UNRECOGNIZED_ID (index 4)')
+    await expect(promise).rejects.toThrow(
+      'SimConnect exception fetching VHHH navdata: UNRECOGNIZED_ID (index 4)'
+    )
   })
 
   it('only counts stands for its own request, and only once the airport reference has arrived', async () => {
     const handle = new FakeHandle()
     const promise = fetchStands(handle as unknown as SimConnectConnection, 'VHHH')
     handle.emit('facilityDataEnd', { userRequestId: NavdataDefId.TAXI_POINTS })
-    handle.emit('facilityData', { type: FacilityDataType.TAXI_PARKING, userRequestId: NavdataDefId.TAXI_PARKINGS, itemIndex: 0, data: buffer(() => undefined) })
+    handle.emit('facilityData', {
+      type: FacilityDataType.TAXI_PARKING,
+      userRequestId: NavdataDefId.TAXI_PARKINGS,
+      itemIndex: 0,
+      data: buffer(() => undefined)
+    })
     handle.emit('facilityDataEnd', { userRequestId: NavdataDefId.TAXI_PARKINGS })
     await expect(promise).resolves.toEqual([])
   })

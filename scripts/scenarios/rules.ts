@@ -20,7 +20,10 @@ export function takeoffOnlyOnRunway(samples: Sample[], runways: NavdataRunway[])
   return samples
     .filter((s, i) => s.phase === 'takeoff' && samples[i - 1]?.phase !== 'takeoff')
     .filter((s) => isOnRunway(runways, s.telemetry.latitude, s.telemetry.longitude) === false)
-    .map((s) => `takeoff started off every runway at ${at(s)} (${s.telemetry.latitude.toFixed(5)}, ${s.telemetry.longitude.toFixed(5)})`)
+    .map(
+      (s) =>
+        `takeoff started off every runway at ${at(s)} (${s.telemetry.latitude.toFixed(5)}, ${s.telemetry.longitude.toFixed(5)})`
+    )
 }
 
 /** Never more than a bounce's worth of ground ticks in climb or cruise (flight 227, #108). */
@@ -30,7 +33,10 @@ export function neverAirbornePhaseOnGround(samples: Sample[]): string[] {
   for (const s of samples) {
     if (s.event !== 'telemetry') continue
     streak = s.telemetry.onGround && (s.phase === 'climb' || s.phase === 'cruise') ? streak + 1 : 0
-    if (streak === MAX_GROUND_SAMPLES_AIRBORNE_PHASE + 1) broken.push(`${s.phase} on the ground for more than ${MAX_GROUND_SAMPLES_AIRBORNE_PHASE} ticks at ${at(s)}`)
+    if (streak === MAX_GROUND_SAMPLES_AIRBORNE_PHASE + 1)
+      broken.push(
+        `${s.phase} on the ground for more than ${MAX_GROUND_SAMPLES_AIRBORNE_PHASE} ticks at ${at(s)}`
+      )
   }
   return broken
 }
@@ -40,7 +46,9 @@ export function taxiAfterLanding(samples: Sample[]): string[] {
   const landed = samples.findIndex((s) => s.phase === 'landing')
   if (landed < 0) return ['never reached landing']
   const after = samples.slice(landed)
-  return after.some((s) => s.phase === 'taxi' || s.phase === 'shutdown' || s.phase === null) ? [] : [`stuck after landing at ${at(samples[landed])}`]
+  return after.some((s) => s.phase === 'taxi' || s.phase === 'shutdown' || s.phase === null)
+    ? []
+    : [`stuck after landing at ${at(samples[landed])}`]
 }
 
 /** The runway a set of boxes clears for arrival (`Arrival Runway`, `Landing Runway`), if any. */
@@ -70,15 +78,22 @@ export function arrivalCardUntilTouchdown(samples: Sample[], runway: string): st
     }
   }
   const last = samples[end - 1]?.arrival
-  if (last && last.runway !== runway) broken.push(`arrival card runway ${last.runway} before touchdown, ATC cleared ${runway}`)
-  if (last?.approachIdent && !last.approachIdent.endsWith(` ${runway}`)) broken.push(`arrival card approach ${last.approachIdent} is not for runway ${runway}`)
-  if (touchdown >= 0 && samples.slice(touchdown).some((s) => s.arrival !== null)) broken.push('arrival card still shown after touchdown')
+  if (last && last.runway !== runway)
+    broken.push(`arrival card runway ${last.runway} before touchdown, ATC cleared ${runway}`)
+  if (last?.approachIdent && !last.approachIdent.endsWith(` ${runway}`))
+    broken.push(`arrival card approach ${last.approachIdent} is not for runway ${runway}`)
+  if (touchdown >= 0 && samples.slice(touchdown).some((s) => s.arrival !== null))
+    broken.push('arrival card still shown after touchdown')
   return broken
 }
 
 /** The gate is known from the moment a box names it, without waiting for speech (#112). */
 export function gateWithItsBox(samples: Sample[], gate: string): string[] {
-  const named = samples.findIndex((s) => s.infoBoxes.some((b) => /gate/i.test(b.title) && b.info.includes(gate)))
+  const named = samples.findIndex((s) =>
+    s.infoBoxes.some((b) => /gate/i.test(b.title) && b.info.includes(gate))
+  )
   if (named < 0) return [`no box named gate ${gate}`]
-  return samples[named].assignedGate === gate ? [] : [`gate ${gate} named at ${at(samples[named])} but assigned ${samples[named].assignedGate ?? 'nothing'}`]
+  return samples[named].assignedGate === gate
+    ? []
+    : [`gate ${gate} named at ${at(samples[named])} but assigned ${samples[named].assignedGate ?? 'nothing'}`]
 }

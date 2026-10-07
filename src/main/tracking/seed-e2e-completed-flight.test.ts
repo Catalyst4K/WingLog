@@ -34,42 +34,60 @@ const CIRCUITS_FIXTURE_PATH = fixturePath('tier2-circuits-firm-landing-goaround-
 describe('e2e setup: seed completed flights (not a real test)', () => {
   const outputPath = process.env.WINGLOG_E2E_SEED_DB_PATH
 
-  it.skipIf(!outputPath)('replays the fixtures into a real db file for Logbook e2e coverage', async () => {
-    const { db, sqlite } = createDb(outputPath as string)
-    migrate(db, { migrationsFolder: 'drizzle' })
+  it.skipIf(!outputPath)(
+    'replays the fixtures into a real db file for Logbook e2e coverage',
+    async () => {
+      const { db, sqlite } = createDb(outputPath as string)
+      migrate(db, { migrationsFolder: 'drizzle' })
 
-    const shortHop = new ReplaySimConnectService(SHORT_HOP_FIXTURE_PATH, { mode: 'instant' })
-    const shortHopAircraft = createAircraft(db, { registration: 'G-TEST', icaoType: shortHop.header.aircraftType })
-    const shortHopFlight = createFlight(db, { aircraftId: shortHopAircraft.id, depIcao: 'EGLL', arrIcao: 'EGCC' })
-    const shortHopController = new TrackingController(dbFlightStore(db), shortHop)
-    await new Promise<number>((resolve, reject) => {
-      shortHopController.on('completed', resolve)
-      shortHop.on('replayComplete', () =>
-        reject(new Error('short-hop fixture ended without TrackingController ever completing the flight'))
-      )
-      shortHopController.start(shortHopFlight.id)
-      shortHop.start()
-    })
-    shortHop.stop()
+      const shortHop = new ReplaySimConnectService(SHORT_HOP_FIXTURE_PATH, { mode: 'instant' })
+      const shortHopAircraft = createAircraft(db, {
+        registration: 'G-TEST',
+        icaoType: shortHop.header.aircraftType
+      })
+      const shortHopFlight = createFlight(db, {
+        aircraftId: shortHopAircraft.id,
+        depIcao: 'EGLL',
+        arrIcao: 'EGCC'
+      })
+      const shortHopController = new TrackingController(dbFlightStore(db), shortHop)
+      await new Promise<number>((resolve, reject) => {
+        shortHopController.on('completed', resolve)
+        shortHop.on('replayComplete', () =>
+          reject(new Error('short-hop fixture ended without TrackingController ever completing the flight'))
+        )
+        shortHopController.start(shortHopFlight.id)
+        shortHop.start()
+      })
+      shortHop.stop()
 
-    // The circuits fixture ends in a real crash — parking brake never sets, engines never
-    // stop, so the phase machine's own shutdown detection never fires (confirmed against
-    // the real fixture: flight-replay.test.ts's own "multiple landings" describe block
-    // asserts on exactly this). Finished manually afterwards, the same as a real pilot
-    // hitting "Finish & save" after one, rather than waiting for a shutdown that never
-    // comes.
-    const circuits = new ReplaySimConnectService(CIRCUITS_FIXTURE_PATH, { mode: 'instant' })
-    const circuitsAircraft = createAircraft(db, { registration: 'G-CIRC', icaoType: circuits.header.aircraftType })
-    const circuitsFlight = createFlight(db, { aircraftId: circuitsAircraft.id, depIcao: 'VHHH', arrIcao: 'VHHH' })
-    const circuitsController = new TrackingController(dbFlightStore(db), circuits)
-    await new Promise<void>((resolve) => {
-      circuits.on('replayComplete', resolve)
-      circuitsController.start(circuitsFlight.id)
-      circuits.start()
-    })
-    circuitsController.finish()
-    circuits.stop()
+      // The circuits fixture ends in a real crash — parking brake never sets, engines never
+      // stop, so the phase machine's own shutdown detection never fires (confirmed against
+      // the real fixture: flight-replay.test.ts's own "multiple landings" describe block
+      // asserts on exactly this). Finished manually afterwards, the same as a real pilot
+      // hitting "Finish & save" after one, rather than waiting for a shutdown that never
+      // comes.
+      const circuits = new ReplaySimConnectService(CIRCUITS_FIXTURE_PATH, { mode: 'instant' })
+      const circuitsAircraft = createAircraft(db, {
+        registration: 'G-CIRC',
+        icaoType: circuits.header.aircraftType
+      })
+      const circuitsFlight = createFlight(db, {
+        aircraftId: circuitsAircraft.id,
+        depIcao: 'VHHH',
+        arrIcao: 'VHHH'
+      })
+      const circuitsController = new TrackingController(dbFlightStore(db), circuits)
+      await new Promise<void>((resolve) => {
+        circuits.on('replayComplete', resolve)
+        circuitsController.start(circuitsFlight.id)
+        circuits.start()
+      })
+      circuitsController.finish()
+      circuits.stop()
 
-    sqlite.close()
-  }, 60_000)
+      sqlite.close()
+    },
+    60_000
+  )
 })

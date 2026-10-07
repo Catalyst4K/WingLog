@@ -43,7 +43,8 @@ export function dbFlightStore(db: WingLogDb): FlightStore {
     finalizeFuelOut: (flightId, fuelOutKg) => void finalizeFuelOut(db, flightId, fuelOutKg),
     recordOff: (flightId) => void recordOff(db, flightId),
     recordOn: (flightId) => void recordOn(db, flightId),
-    completeFlight: (flightId, fuelInKg, pausedIntervals) => void completeFlight(db, flightId, fuelInKg, pausedIntervals),
+    completeFlight: (flightId, fuelInKg, pausedIntervals) =>
+      void completeFlight(db, flightId, fuelInKg, pausedIntervals),
     setArrIcao: (flightId, icao) => setArrIcao(db, flightId, icao),
     setDepIcao: (flightId, icao) => setDepIcao(db, flightId, icao),
     setFlownRoute: (flightId, json) => setFlownRoute(db, flightId, json),
@@ -64,7 +65,9 @@ export function dbFlightStore(db: WingLogDb): FlightStore {
         .then((result) => addInvoicesForFlight(db, flightId, result.matched))
         // Best effort after completion: a missing or renamed folder, or a malformed receipt, must
         // never affect the flight; the Logbook's rescan covers anything missed.
-        .catch((error: unknown) => logger.warn(`[gsx] receipt scan after flight ${flightId} failed: ${String(error)}`))
+        .catch((error: unknown) =>
+          logger.warn(`[gsx] receipt scan after flight ${flightId} failed: ${String(error)}`)
+        )
     }
   }
 }

@@ -26,15 +26,16 @@ import REPLAY_225 from './__fixtures__/ybbn-225-taxi-out.json'
 import YBBN_225_RAW from './__fixtures__/ybbn-225-taxi-network.json'
 
 type Row = [number, number, number, number, string | null, number, number]
-const toSegments = (raw: unknown): NavdataTaxiSegment[] => (raw as Row[]).map(([startLat, startLon, endLat, endLon, name, startHoldShort, endHoldShort]) => ({
-  startLat,
-  startLon,
-  endLat,
-  endLon,
-  name,
-  startHoldShort: startHoldShort === 1,
-  endHoldShort: endHoldShort === 1
-}))
+const toSegments = (raw: unknown): NavdataTaxiSegment[] =>
+  (raw as Row[]).map(([startLat, startLon, endLat, endLon, name, startHoldShort, endHoldShort]) => ({
+    startLat,
+    startLon,
+    endLat,
+    endLon,
+    name,
+    startHoldShort: startHoldShort === 1,
+    endHoldShort: endHoldShort === 1
+  }))
 const ZJSY = toSegments(ZJSY_RAW)
 const YBBN_225 = toSegments(YBBN_225_RAW)
 type Sample = [number, number, number, number, number, string]
@@ -54,8 +55,13 @@ function replayTaxi(
   headingAtStart: boolean
 ) {
   const [, lat0, lon0, hdg0] = samples[0]!
-  const cleared: TracedRoute = traceTaxiRoute({ ...request, segments, from: { lat: lat0, lon: lon0 }, headingDeg: headingAtStart ? hdg0 : null })!
-    let tracker = startTracker(cleared)
+  const cleared: TracedRoute = traceTaxiRoute({
+    ...request,
+    segments,
+    from: { lat: lat0, lon: lon0 },
+    headingDeg: headingAtStart ? hdg0 : null
+  })!
+  let tracker = startTracker(cleared)
   const reroutes: { t: number; line: TracedRoute }[] = []
   /** How far off the line the aircraft was at each taxi sample after the last re-route. */
   let offAfterLast: number[] = []
@@ -63,19 +69,33 @@ function replayTaxi(
   for (const [t, lat, lon, headingDeg, groundSpeedMs, phase] of samples) {
     if (phase === 'taxi' && taxiStart === null) taxiStart = t
     const position = { lat, lon, headingDeg, groundSpeedMs }
-    const update = trackPosition(tracker, { position, phase: phase as FlightPhase, nowMs: t * 1000, segments })
+    const update = trackPosition(tracker, {
+      position,
+      phase: phase as FlightPhase,
+      nowMs: t * 1000,
+      segments
+    })
     tracker = update.tracker
     if (update.rerouted) {
       reroutes.push({ t, line: tracker.active })
       offAfterLast = []
     }
-    if (phase === 'taxi' && !tracker.done) offAfterLast.push(remainingRoute(tracker.active, position, 0).distanceM)
+    if (phase === 'taxi' && !tracker.done)
+      offAfterLast.push(remainingRoute(tracker.active, position, 0).distanceM)
   }
   return { reroutes, cleared, line: tracker.active, offAfterLast, taxiStart: taxiStart! }
-  }
+}
 
 describe('checkDeviation', () => {
-  const sample = (nowMs: number, overrides: { distanceM?: number; lineBearingDeg?: number | null; headingDeg?: number; groundSpeedMs?: number } = {}) => ({
+  const sample = (
+    nowMs: number,
+    overrides: {
+      distanceM?: number
+      lineBearingDeg?: number | null
+      headingDeg?: number
+      groundSpeedMs?: number
+    } = {}
+  ) => ({
     nowMs,
     distanceM: 0,
     lineBearingDeg: 90,
@@ -84,7 +104,11 @@ describe('checkDeviation', () => {
     ...overrides
   })
   /** Feeds one sample a second from t = 0 to `seconds`, all the same apart from the time. */
-  function run(seconds: number, overrides: Parameters<typeof sample>[1], start: DeviationState = INITIAL_DEVIATION) {
+  function run(
+    seconds: number,
+    overrides: Parameters<typeof sample>[1],
+    start: DeviationState = INITIAL_DEVIATION
+  ) {
     let state = start
     const reroutes: number[] = []
     for (let t = 0; t <= seconds; t++) {
@@ -189,7 +213,12 @@ describe('re-routing replay: ZJSY flight 227, the wrong-way pushback (2026-10-02
     // Every re-route joins the cleared route on its last stretch along A, not its start on D:
     // what's left of the cleared route after the join is under a third of it.
     const lengthOf = (route: TracedRoute): number =>
-      route.slice(1).reduce((sum, [lon, lat], k) => sum + distanceM({ lat, lon }, { lat: route[k]![1], lon: route[k]![0] }), 0)
+      route
+        .slice(1)
+        .reduce(
+          (sum, [lon, lat], k) => sum + distanceM({ lat, lon }, { lat: route[k]![1], lon: route[k]![0] }),
+          0
+        )
     for (const { line } of reroutes) {
       const joinIndex = cleared.findIndex((p) => line.some((q) => q[0] === p[0] && q[1] === p[1]))
       expect(lengthOf(cleared.slice(joinIndex))).toBeLessThan(lengthOf(cleared) / 3)
@@ -219,7 +248,9 @@ describe('re-routing replay: YBBN flight 225, taxiing away from the first trace 
     // The aircraft was taxiing away from C9 when the clearance came. Starting the way it faced
     // went 17 m on, then hairpinned back through a lead-in (Callum, from the simulation report).
     const { cleared } = replayTaxi(SAMPLES_225, YBBN_225, REQUEST, false)
-    const turns = cleared.slice(1, -1).map((p, i) => angleBetweenDeg(bearing(cleared[i]!, p), bearing(p, cleared[i + 2]!)))
+    const turns = cleared
+      .slice(1, -1)
+      .map((p, i) => angleBetweenDeg(bearing(cleared[i]!, p), bearing(p, cleared[i + 2]!)))
     expect(Math.max(...turns)).toBeLessThan(120)
   })
 
@@ -228,7 +259,9 @@ describe('re-routing replay: YBBN flight 225, taxiing away from the first trace 
     expect(reroutes).toHaveLength(1)
     const { t, line } = reroutes[0]!
     const heading = SAMPLES_225.find((s) => s[0] === t)![3]
-    const next = line.findIndex((p, k) => k > 0 && distanceM({ lat: p[1], lon: p[0] }, { lat: line[0]![1], lon: line[0]![0] }) > 20)
+    const next = line.findIndex(
+      (p, k) => k > 0 && distanceM({ lat: p[1], lon: p[0] }, { lat: line[0]![1], lon: line[0]![0] }) > 20
+    )
     expect(angleBetweenDeg(bearing(line[0]!, line[next]!), heading)).toBeLessThanOrEqual(120)
   })
 
@@ -236,7 +269,9 @@ describe('re-routing replay: YBBN flight 225, taxiing away from the first trace 
     const { line, offAfterLast } = replayTaxi(SAMPLES_225, YBBN_225, REQUEST, false)
     expect(Math.max(...offAfterLast)).toBeLessThan(REROUTE_DISTANCE_M)
     const end = line.at(-1)!
-    const closest = Math.min(...SAMPLES_225.map(([, lat, lon]) => distanceM({ lat, lon }, { lat: end[1], lon: end[0] })))
+    const closest = Math.min(
+      ...SAMPLES_225.map(([, lat, lon]) => distanceM({ lat, lon }, { lat: end[1], lon: end[0] }))
+    )
     expect(closest).toBeLessThan(20)
   })
 })

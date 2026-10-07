@@ -70,9 +70,11 @@ export function useFlightRoute(flight: Flight): FlightRoute {
     let cancelled = false
     runAsync(
       'LogbookView logbookGreatCircleRoute',
-      winglogApi().logbookGreatCircleRoute(flight.depIcao, flight.arrIcao).then((points) => {
-        if (!cancelled) setFallbackRoute(points ?? [])
-      })
+      winglogApi()
+        .logbookGreatCircleRoute(flight.depIcao, flight.arrIcao)
+        .then((points) => {
+          if (!cancelled) setFallbackRoute(points ?? [])
+        })
     )
     return () => {
       cancelled = true

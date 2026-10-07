@@ -66,7 +66,9 @@ test.describe('GSX Remote Control', () => {
 
       await page.getByText('Restart Couatl').click()
       await expect(page.getByText('Confirm restart?')).toBeVisible()
-      expect(server.receivedCommands.some((c) => c.verb === 'command.run' && c.args?.command === 'RESTART_COUATL')).toBe(false)
+      expect(
+        server.receivedCommands.some((c) => c.verb === 'command.run' && c.args?.command === 'RESTART_COUATL')
+      ).toBe(false)
       await page.getByText('Confirm restart?').click()
       await expect
         .poll(() => server.receivedCommands.at(-1))
@@ -117,13 +119,23 @@ test.describe('GSX Remote Control', () => {
       await expect(page.getByText('Select pushback direction')).toBeVisible()
       await page.getByRole('button', { name: 'RED - Facing South onto B9' }).click()
 
-      await expect.poll(() => server.receivedCommands.at(-1)).toEqual({ verb: 'menu.pick', args: { index: 0 } })
+      await expect
+        .poll(() => server.receivedCommands.at(-1))
+        .toEqual({ verb: 'menu.pick', args: { index: 0 } })
       // Picking an entry doesn't dismiss the dialog itself (GsxRemotePanel's own comment:
       // "doing so would just make the dialog flash closed then reopen") — GSX answering
       // with a new, different menu (or none) is what actually closes it. Confirm both, not
       // just the command that was sent.
       server.sendPatch('menuShown', false)
-      server.sendPatch('menu', { title: '', header: '', subtitle: '', entries: [], icons: [], disabled: [], layout: '' })
+      server.sendPatch('menu', {
+        title: '',
+        header: '',
+        subtitle: '',
+        entries: [],
+        icons: [],
+        disabled: [],
+        layout: ''
+      })
       await expect(page.getByRole('dialog')).not.toBeVisible()
     } finally {
       await cleanup()
@@ -166,7 +178,9 @@ test.describe('GSX Remote Control', () => {
       await expect(gate73).toBeVisible()
       await expect(page.getByRole('button', { name: 'Parking 347 - Ramp Cargo' })).not.toBeVisible()
       await gate73.click()
-      await expect.poll(() => server.receivedCommands.at(-1)).toEqual({ verb: 'menu.pick', args: { index: 0 } })
+      await expect
+        .poll(() => server.receivedCommands.at(-1))
+        .toEqual({ verb: 'menu.pick', args: { index: 0 } })
 
       server.sendPatch('search', { active: false, session: 1 })
       await expect(box).not.toBeVisible()

@@ -5,7 +5,11 @@
  * testing it.
  */
 import type { SimTelemetry } from '../../src/shared/ipc'
-import type { CapturedLineEvent, FlightFixtureEvent, ParsedFlightFixture } from '../../src/main/sim/flight-fixture'
+import type {
+  CapturedLineEvent,
+  FlightFixtureEvent,
+  ParsedFlightFixture
+} from '../../src/main/sim/flight-fixture'
 
 /** One variation. */
 export type Transform = (capture: ParsedFlightFixture) => ParsedFlightFixture
@@ -36,7 +40,11 @@ function isIncomingAtc(event: FlightFixtureEvent): event is CapturedLineEvent {
 
 /** Rewrites the `info` of BeyondATC InfoBoxes whose title passes `titleTest`; other lines and
  *  malformed boxes are left as they are. */
-function mapInfoBoxes(text: string, titleTest: (title: string) => boolean, map: (info: string) => string): string {
+function mapInfoBoxes(
+  text: string,
+  titleTest: (title: string) => boolean,
+  map: (info: string) => string
+): string {
   return text
     .split('\n')
     .map((line) => {
@@ -46,7 +54,9 @@ function mapInfoBoxes(text: string, titleTest: (title: string) => boolean, map: 
         const boxes = JSON.parse(match[1]) as { title?: unknown; info?: unknown }[]
         if (!Array.isArray(boxes)) return line
         const mapped = boxes.map((box) =>
-          typeof box.title === 'string' && typeof box.info === 'string' && titleTest(box.title.trim()) ? { ...box, info: map(box.info) } : box
+          typeof box.title === 'string' && typeof box.info === 'string' && titleTest(box.title.trim())
+            ? { ...box, info: map(box.info) }
+            : box
         )
         return `InfoBoxes: ${JSON.stringify(mapped)}`
       } catch {
@@ -64,9 +74,11 @@ function mapInfoBoxes(text: string, titleTest: (title: string) => boolean, map: 
  * flight 230).
  */
 export function speedUpTaxi(window: Window, factor: number): Transform {
-  if (!Number.isInteger(factor) || factor < 1) throw new Error(`speedUpTaxi factor must be a whole number ≥ 1, not ${factor}`)
+  if (!Number.isInteger(factor) || factor < 1)
+    throw new Error(`speedUpTaxi factor must be a whole number ≥ 1, not ${factor}`)
   return (capture) => {
-    const inWindow = (e: FlightFixtureEvent): boolean => e.tOffsetMs >= window.fromMs && e.tOffsetMs <= window.toMs
+    const inWindow = (e: FlightFixtureEvent): boolean =>
+      e.tOffsetMs >= window.fromMs && e.tOffsetMs <= window.toMs
     const ticks = capture.events.filter((e) => e.type === 'telemetry' && inWindow(e))
     const kept = new Set(ticks.filter((_, i) => i % factor === 0))
     const savedMs = (window.toMs - window.fromMs) * (1 - 1 / factor)
@@ -122,7 +134,9 @@ export function bounceOnRollout(count: number, afterTicks = 1): Transform {
     })
     return {
       ...capture,
-      events: capture.events.map((e) => (e.type === 'telemetry' && bounce.has(e) ? { ...e, data: airborne(e.data) } : e))
+      events: capture.events.map((e) =>
+        e.type === 'telemetry' && bounce.has(e) ? { ...e, data: airborne(e.data) } : e
+      )
     }
   }
 }
@@ -146,7 +160,8 @@ export function changeClearedRunway(from: string, to: string): Transform {
  * renamed with renameTaxiwaySegments.
  */
 export function renameTaxiway(from: string, to: string): Transform {
-  const isTaxiBox = (title: string): boolean => /^taxi via \d+$/i.test(title) || /^hold position$/i.test(title)
+  const isTaxiBox = (title: string): boolean =>
+    /^taxi via \d+$/i.test(title) || /^hold position$/i.test(title)
   const spoken = new RegExp(`(?<=\\b(?:via|on|onto|and|,)\\s+)${from}\\b`, 'g')
   return (capture) => ({
     ...capture,
@@ -159,7 +174,11 @@ export function renameTaxiway(from: string, to: string): Transform {
 }
 
 /** The same rename in a cached taxi network (navdata segments with a `name`). */
-export function renameTaxiwaySegments<T extends { name: string | null }>(segments: T[], from: string, to: string): T[] {
+export function renameTaxiwaySegments<T extends { name: string | null }>(
+  segments: T[],
+  from: string,
+  to: string
+): T[] {
   return segments.map((segment) => (segment.name === from ? { ...segment, name: to } : segment))
 }
 
@@ -172,7 +191,9 @@ export function delaySpokenStand(seconds: number): Transform {
     ...capture,
     events: sorted(
       capture.events.map((e) =>
-        isIncomingAtc(e) && /^ATC:.*\b(?:gate|stand)\b/im.test(e.text) ? { ...e, tOffsetMs: e.tOffsetMs + seconds * 1000 } : e
+        isIncomingAtc(e) && /^ATC:.*\b(?:gate|stand)\b/im.test(e.text)
+          ? { ...e, tOffsetMs: e.tOffsetMs + seconds * 1000 }
+          : e
       )
     )
   })
@@ -180,14 +201,21 @@ export function delaySpokenStand(seconds: number): Transform {
 
 /** Removes every incoming BeyondATC message matching `match`: a missed transmission. */
 export function dropAtcLine(match: RegExp): Transform {
-  return (capture) => ({ ...capture, events: capture.events.filter((e) => !(isIncomingAtc(e) && match.test(e.text))) })
+  return (capture) => ({
+    ...capture,
+    events: capture.events.filter((e) => !(isIncomingAtc(e) && match.test(e.text)))
+  })
 }
 
 /** Sends every incoming BeyondATC message matching `match` twice, `gapMs` apart: a repeat. */
 export function duplicateAtcLine(match: RegExp, gapMs = 1000): Transform {
   return (capture) => ({
     ...capture,
-    events: sorted(capture.events.flatMap((e) => (isIncomingAtc(e) && match.test(e.text) ? [e, { ...e, tOffsetMs: e.tOffsetMs + gapMs }] : [e])))
+    events: sorted(
+      capture.events.flatMap((e) =>
+        isIncomingAtc(e) && match.test(e.text) ? [e, { ...e, tOffsetMs: e.tOffsetMs + gapMs }] : [e]
+      )
+    )
   })
 }
 
@@ -198,6 +226,8 @@ export function duplicateAtcLine(match: RegExp, gapMs = 1000): Transform {
 export function stallFieldUpdates(stream: CapturedLineEvent['type'], seconds: number): Transform {
   return (capture) => ({
     ...capture,
-    events: sorted(capture.events.map((e) => (e.type === stream ? { ...e, tOffsetMs: e.tOffsetMs + seconds * 1000 } : e)))
+    events: sorted(
+      capture.events.map((e) => (e.type === stream ? { ...e, tOffsetMs: e.tOffsetMs + seconds * 1000 } : e))
+    )
   })
 }

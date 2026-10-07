@@ -2,7 +2,13 @@ import { EventEmitter } from 'node:events'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { logger } from '../logging/logger'
-import { BEYONDATC_PORT, BeyondAtcService, e2eBeyondAtcPort, validFrequency, type WebSocketCtor } from './BeyondAtcService'
+import {
+  BEYONDATC_PORT,
+  BeyondAtcService,
+  e2eBeyondAtcPort,
+  validFrequency,
+  type WebSocketCtor
+} from './BeyondAtcService'
 
 /** A minimal WHATWG-WebSocket-shaped double, driven manually from tests — same reasoning as
  *  GsxRemoteService.test.ts's FakeWebSocket, but `simulateLine` sends plain text instead of
@@ -141,7 +147,9 @@ describe('BeyondAtcService', () => {
     instances[0].simulateLine('InfoBoxes: [{"title":"Tower Frequency","info":"118.15"}]')
     expect(service.getState().assignedGate).toBe('102')
 
-    instances[0].simulateLine('InfoBoxes: [{"title":"Taxi to Gate","info":"Gate 104"},{"title":"Taxi Via 1","info":"A4"}]')
+    instances[0].simulateLine(
+      'InfoBoxes: [{"title":"Taxi to Gate","info":"Gate 104"},{"title":"Taxi Via 1","info":"A4"}]'
+    )
     expect(service.getState().assignedGate).toBe('104')
     service.stop()
   })
@@ -151,7 +159,9 @@ describe('BeyondAtcService', () => {
     const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
     service.start()
     instances[0].simulateOpen()
-    instances[0].simulateLine('InfoBoxes: [{"title":"Taxi to Gate","info":"Gate 411"},{"title":"Taxi Via 1","info":"A"},{"title":"Taxi Via 2","info":"R"},{"title":"Taxi Via 3","info":"N5W"},{"title":"Taxi Via 4","info":"S5W"},{"title":"Taxi Via 5","info":"W"},{"title":"Taxi Via 6","info":"LINK 44"},{"title":"Taxi Via 7","info":"T"},{"title":"ATIS Current","info":"C"}]')
+    instances[0].simulateLine(
+      'InfoBoxes: [{"title":"Taxi to Gate","info":"Gate 411"},{"title":"Taxi Via 1","info":"A"},{"title":"Taxi Via 2","info":"R"},{"title":"Taxi Via 3","info":"N5W"},{"title":"Taxi Via 4","info":"S5W"},{"title":"Taxi Via 5","info":"W"},{"title":"Taxi Via 6","info":"LINK 44"},{"title":"Taxi Via 7","info":"T"},{"title":"ATIS Current","info":"C"}]'
+    )
 
     expect(service.getState().infoBoxes.slice(0, 2)).toEqual([
       { title: 'Taxi to Gate', info: 'Gate 411' },
@@ -178,8 +188,13 @@ describe('BeyondAtcService', () => {
     instances[0].simulateLine(line)
     instances[0].simulateLine('InfoBoxes: []')
 
-    const logged = info.mock.calls.map((c) => c[0]).filter((m) => String(m).startsWith('[beyondatc] InfoBoxes'))
-    expect(logged).toEqual(['[beyondatc] InfoBoxes [{"title":"Taxi to Gate","info":"Gate 411"}]', '[beyondatc] InfoBoxes []'])
+    const logged = info.mock.calls
+      .map((c) => c[0])
+      .filter((m) => String(m).startsWith('[beyondatc] InfoBoxes'))
+    expect(logged).toEqual([
+      '[beyondatc] InfoBoxes [{"title":"Taxi to Gate","info":"Gate 411"}]',
+      '[beyondatc] InfoBoxes []'
+    ])
     info.mockRestore()
     service.stop()
   })
@@ -222,8 +237,25 @@ describe('BeyondAtcService', () => {
     )
 
     expect(service.getState().frequencies).toEqual([
-      { airport: 'WSSS', airportName: 'Changi', frequency: '124.050', name: 'SINGAPORE APPROACH', type: 'Approach', stationType: '', runways: '02L' },
-      { airport: '', airportName: '', frequency: '134.400', name: 'Singapore Radar', type: 'Center', stationType: '', runways: '', cpdlcLogonCode: 'WSJC' }
+      {
+        airport: 'WSSS',
+        airportName: 'Changi',
+        frequency: '124.050',
+        name: 'SINGAPORE APPROACH',
+        type: 'Approach',
+        stationType: '',
+        runways: '02L'
+      },
+      {
+        airport: '',
+        airportName: '',
+        frequency: '134.400',
+        name: 'Singapore Radar',
+        type: 'Center',
+        stationType: '',
+        runways: '',
+        cpdlcLogonCode: 'WSJC'
+      }
     ])
     service.stop()
   })
@@ -291,7 +323,7 @@ describe('BeyondAtcService', () => {
     service.stop()
   })
 
-  it('ignores unrecognised keys, out of this plan\'s scope', () => {
+  it("ignores unrecognised keys, out of this plan's scope", () => {
     const { ctor, instances } = makeCtor()
     const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
     service.start()
@@ -329,7 +361,9 @@ describe('BeyondAtcService', () => {
     service.start()
     instances[0].simulateOpen()
 
-    instances[0].simulateLine('Facility: Brisbane Delivery|118.850\r\nCallsign: {"full": "Cathay 116 Heavy", "shortForm": "CPA116"}\r\n')
+    instances[0].simulateLine(
+      'Facility: Brisbane Delivery|118.850\r\nCallsign: {"full": "Cathay 116 Heavy", "shortForm": "CPA116"}\r\n'
+    )
 
     expect(service.getState().facility).toEqual({ name: 'Brisbane Delivery', frequency: '118.850' })
     expect(service.getState().callsign).toEqual({ full: 'Cathay 116 Heavy', shortForm: 'CPA116' })
@@ -457,7 +491,11 @@ describe('BeyondAtcService', () => {
     service.setFrequency(' 121.7 ')
     service.setFrequencyCom2('122.800')
     service.setAutoTune(true)
-    expect(instances[0].sent).toEqual(['set_frequency: 121.7', 'set_frequency_com2: 122.800', 'set_autotune: true'])
+    expect(instances[0].sent).toEqual([
+      'set_frequency: 121.7',
+      'set_frequency_com2: 122.800',
+      'set_autotune: true'
+    ])
     service.stop()
   })
 
@@ -556,6 +594,13 @@ describe('BeyondAtcService raw messages (dev build capture)', () => {
 describe('e2eBeyondAtcPort', () => {
   it('uses a valid port from the e2e variable, and the real port for anything else', () => {
     expect(e2eBeyondAtcPort('43123')).toBe(43123)
-    expect([undefined, '', 'abc', '0', '70000', '41716.5'].map(e2eBeyondAtcPort)).toEqual([undefined, undefined, undefined, undefined, undefined, undefined])
+    expect([undefined, '', 'abc', '0', '70000', '41716.5'].map(e2eBeyondAtcPort)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined
+    ])
   })
 })

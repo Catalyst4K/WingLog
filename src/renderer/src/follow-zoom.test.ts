@@ -30,7 +30,9 @@ describe('followBand / zoomForBand (Callum, 2026-10-02: 11, 10, 9 by altitude)',
   })
 
   it('falls back to true altitude on older rows with no pressure altitude', () => {
-    expect(zoomForBand(followBand({ onGround: false, altitudeM: 35_000 * FT, pressureAltitudeM: null }, null))).toBe(9)
+    expect(
+      zoomForBand(followBand({ onGround: false, altitudeM: 35_000 * FT, pressureAltitudeM: null }, null))
+    ).toBe(9)
   })
 
   it('goes straight to ground on touchdown, whatever the previous band', () => {

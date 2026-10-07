@@ -156,9 +156,9 @@ describe('AircraftForm', () => {
 
   it('searches the ICAO type via the Combobox and picks a result', async () => {
     setWinglog({
-      aircraftTypeSearch: vi.fn().mockResolvedValue([
-        { manufacturer: 'Airbus', model: 'A350-1000', icaoType: 'A35K', wakeCat: 'H' }
-      ])
+      aircraftTypeSearch: vi
+        .fn()
+        .mockResolvedValue([{ manufacturer: 'Airbus', model: 'A350-1000', icaoType: 'A35K', wakeCat: 'H' }])
     })
     const user = userEvent.setup()
     const { container } = render(<AircraftForm onSubmit={vi.fn()} onCancel={vi.fn()} />)
@@ -168,7 +168,9 @@ describe('AircraftForm', () => {
   }, 10000)
 
   it('prefills every field from the given aircraft in edit mode', () => {
-    const { container } = render(<AircraftForm initial={FULL_AIRCRAFT} onSubmit={vi.fn()} onCancel={vi.fn()} />)
+    const { container } = render(
+      <AircraftForm initial={FULL_AIRCRAFT} onSubmit={vi.fn()} onCancel={vi.fn()} />
+    )
     const inputs = textInputs(container)
     expect(inputs[0]).toHaveValue('G-XWBS')
     expect(inputs[1]).toHaveValue('A35K')
@@ -179,7 +181,9 @@ describe('AircraftForm', () => {
   })
 
   it('prefills blank optional fields as empty strings when the aircraft has none set', () => {
-    const { container } = render(<AircraftForm initial={MINIMAL_AIRCRAFT} onSubmit={vi.fn()} onCancel={vi.fn()} />)
+    const { container } = render(
+      <AircraftForm initial={MINIMAL_AIRCRAFT} onSubmit={vi.fn()} onCancel={vi.fn()} />
+    )
     const inputs = textInputs(container)
     expect(inputs[0]).toHaveValue('N12345')
     expect(inputs[2]).toHaveValue('')
@@ -280,7 +284,9 @@ describe('AircraftForm', () => {
       })
     })
     const user = userEvent.setup()
-    const { container } = render(<AircraftForm initial={FULL_AIRCRAFT} onSubmit={vi.fn()} onCancel={vi.fn()} />)
+    const { container } = render(
+      <AircraftForm initial={FULL_AIRCRAFT} onSubmit={vi.fn()} onCancel={vi.fn()} />
+    )
     await user.click(screen.getByText('Look up'))
     await screen.findByText(/Found:/)
     // operator/photo already set on FULL_AIRCRAFT — untouched by the lookup above.
@@ -457,7 +463,9 @@ describe('AircraftForm', () => {
   it('picking the SimBrief default option clears type/id and shows no create-custom button', async () => {
     setWinglog({ simbriefAirframesForType: vi.fn().mockResolvedValue([DEFAULT_OPTION, COMMUNITY_OPTION]) })
     const user = userEvent.setup()
-    const { container } = render(<AircraftForm initial={FULL_AIRCRAFT} onSubmit={vi.fn()} onCancel={vi.fn()} />)
+    const { container } = render(
+      <AircraftForm initial={FULL_AIRCRAFT} onSubmit={vi.fn()} onCancel={vi.fn()} />
+    )
     await screen.findByText('— choose —')
     await pickSelectOption(user, `SimBrief default (${DEFAULT_OPTION.engines})`)
 
@@ -477,7 +485,9 @@ describe('AircraftForm', () => {
 
     await user.clear(textInputs(container)[1])
     await user.type(textInputs(container)[1], 'B77W')
-    await waitFor(() => expect(screen.queryByText('Create a custom airframe in SimBrief')).not.toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.queryByText('Create a custom airframe in SimBrief')).not.toBeInTheDocument()
+    )
   }, 10000)
 
   it('creating a custom airframe saves the returned id and shows a success message', async () => {
@@ -508,7 +518,9 @@ describe('AircraftForm', () => {
     await screen.findByText('— choose —')
     await pickSelectOption(user, 'FlyByWire — Trent XWB')
     await user.click(screen.getByText('Create a custom airframe in SimBrief'))
-    expect(await screen.findByText('No airframe was saved — the window was closed before finishing.')).toBeInTheDocument()
+    expect(
+      await screen.findByText('No airframe was saved — the window was closed before finishing.')
+    ).toBeInTheDocument()
   }, 10000)
 
   it('does nothing when creating a custom airframe for an option with no share URL', async () => {
@@ -526,14 +538,18 @@ describe('AircraftForm', () => {
   }, 10000)
 
   it('typing directly into the SimBrief type field clears the cached developer/engine label', async () => {
-    const { container } = render(<AircraftForm initial={FULL_AIRCRAFT} onSubmit={vi.fn()} onCancel={vi.fn()} />)
+    const { container } = render(
+      <AircraftForm initial={FULL_AIRCRAFT} onSubmit={vi.fn()} onCancel={vi.fn()} />
+    )
     await userEvent.setup().type(textInputs(container)[3], 'x')
     expect(textInputs(container)[3]).toHaveValue('A35Kx'.toUpperCase())
   })
 
   it('typing directly into the custom airframe id field clears the cached label and shows a format warning for an odd value', async () => {
     const user = userEvent.setup()
-    const { container } = render(<AircraftForm initial={FULL_AIRCRAFT} onSubmit={vi.fn()} onCancel={vi.fn()} />)
+    const { container } = render(
+      <AircraftForm initial={FULL_AIRCRAFT} onSubmit={vi.fn()} onCancel={vi.fn()} />
+    )
     expect(screen.queryByText(/double-check this against/)).not.toBeInTheDocument()
 
     await user.clear(textInputs(container)[4])
@@ -543,7 +559,9 @@ describe('AircraftForm', () => {
 
   it('shows no format warning once cleared back to blank', async () => {
     const user = userEvent.setup()
-    const { container } = render(<AircraftForm initial={FULL_AIRCRAFT} onSubmit={vi.fn()} onCancel={vi.fn()} />)
+    const { container } = render(
+      <AircraftForm initial={FULL_AIRCRAFT} onSubmit={vi.fn()} onCancel={vi.fn()} />
+    )
     await user.clear(textInputs(container)[4])
     expect(screen.queryByText(/double-check this against/)).not.toBeInTheDocument()
   })
@@ -561,7 +579,9 @@ describe('AircraftForm', () => {
   })
 
   it('picking an airline from the combobox fills IATA/ICAO, and typing over it clears them', async () => {
-    setWinglog({ airlineSearch: vi.fn().mockResolvedValue([{ name: 'British Airways', icao: 'BAW', iata: 'BA' }]) })
+    setWinglog({
+      airlineSearch: vi.fn().mockResolvedValue([{ name: 'British Airways', icao: 'BAW', iata: 'BA' }])
+    })
     const user = userEvent.setup()
     const { container } = render(<AircraftForm onSubmit={vi.fn()} onCancel={vi.fn()} />)
     await user.type(textInputs(container)[2], 'Brit')
@@ -574,7 +594,9 @@ describe('AircraftForm', () => {
   }, 10000)
 
   it('shows an airline search result with no IATA code without a trailing slash', async () => {
-    setWinglog({ airlineSearch: vi.fn().mockResolvedValue([{ name: 'Cargo Carrier', icao: 'CGO', iata: '' }]) })
+    setWinglog({
+      airlineSearch: vi.fn().mockResolvedValue([{ name: 'Cargo Carrier', icao: 'CGO', iata: '' }])
+    })
     const user = userEvent.setup()
     const { container } = render(<AircraftForm onSubmit={vi.fn()} onCancel={vi.fn()} />)
     await user.type(textInputs(container)[2], 'Cargo')
@@ -582,7 +604,9 @@ describe('AircraftForm', () => {
   }, 10000)
 
   it('submits operatorIata/operatorIcao cleared after manually editing the airline field', async () => {
-    setWinglog({ airlineSearch: vi.fn().mockResolvedValue([{ name: 'British Airways', icao: 'BAW', iata: 'BA' }]) })
+    setWinglog({
+      airlineSearch: vi.fn().mockResolvedValue([{ name: 'British Airways', icao: 'BAW', iata: 'BA' }])
+    })
     const user = userEvent.setup()
     const onSubmit = vi.fn().mockResolvedValue(undefined)
     const { container } = render(<AircraftForm onSubmit={onSubmit} onCancel={vi.fn()} />)
@@ -593,13 +617,17 @@ describe('AircraftForm', () => {
     await user.type(textInputs(container)[1], 'A320')
     await user.click(screen.getByText('Save'))
     await waitFor(() =>
-      expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ operatorIata: null, operatorIcao: null }))
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ operatorIata: null, operatorIcao: null })
+      )
     )
   }, 10000)
 
   it('searches the current airport via AirportSearch and picks a result', async () => {
     setWinglog({
-      airportSearch: vi.fn().mockResolvedValue([{ icao: 'EGLL', name: 'Heathrow', municipality: 'London', isoCountry: 'GB' }])
+      airportSearch: vi
+        .fn()
+        .mockResolvedValue([{ icao: 'EGLL', name: 'Heathrow', municipality: 'London', isoCountry: 'GB' }])
     })
     const user = userEvent.setup()
     const { container } = render(<AircraftForm onSubmit={vi.fn()} onCancel={vi.fn()} />)

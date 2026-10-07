@@ -131,7 +131,9 @@ function SimbriefStep(): React.JSX.Element {
   useEffect(() => {
     runAsync(
       'SetupDialog settingsGetSimbriefUsername',
-      winglogApi().settingsGetSimbriefUsername().then((value) => setUsername(value ?? ''))
+      winglogApi()
+        .settingsGetSimbriefUsername()
+        .then((value) => setUsername(value ?? ''))
     )
   }, [])
 

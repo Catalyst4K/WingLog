@@ -25,24 +25,24 @@ import zhTW from './locales/zh-TW/main.json'
 const instance: I18nInstance = i18next.createInstance()
 instance
   .init({
-  resources: {
-    en: { main: en },
-    de: { main: de },
-    es: { main: es },
-    fr: { main: fr },
-    it: { main: it },
-    ru: { main: ru },
-    'zh-CN': { main: zhCN },
-    'zh-TW': { main: zhTW }
-  },
-  lng: 'en',
-  fallbackLng: 'en',
-  defaultNS: 'main',
-  interpolation: { escapeValue: false },
-  returnNull: false
-  // No initAsync/initImmediate needed — same reasoning as the renderer's own i18n.ts: every
-  // catalogue is bundled upfront, so init() always resolves synchronously, before this
-  // module's first caller ever gets a chance to call t().
+    resources: {
+      en: { main: en },
+      de: { main: de },
+      es: { main: es },
+      fr: { main: fr },
+      it: { main: it },
+      ru: { main: ru },
+      'zh-CN': { main: zhCN },
+      'zh-TW': { main: zhTW }
+    },
+    lng: 'en',
+    fallbackLng: 'en',
+    defaultNS: 'main',
+    interpolation: { escapeValue: false },
+    returnNull: false
+    // No initAsync/initImmediate needed — same reasoning as the renderer's own i18n.ts: every
+    // catalogue is bundled upfront, so init() always resolves synchronously, before this
+    // module's first caller ever gets a chance to call t().
   })
   .catch((error: unknown) => logger.warn(`[i18n] init failed: ${String(error)}`))
 

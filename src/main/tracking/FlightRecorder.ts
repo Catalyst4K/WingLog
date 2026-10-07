@@ -49,7 +49,12 @@ export class FlightRecorder {
     resume?: { phase: FlightPhase; hasLanded: boolean; resumeSegment: number }
   ) {
     if (resume) {
-      this.state = { ...INITIAL_PHASE_STATE, phase: resume.phase, hasLanded: resume.hasLanded, resumeSegment: resume.resumeSegment }
+      this.state = {
+        ...INITIAL_PHASE_STATE,
+        phase: resume.phase,
+        hasLanded: resume.hasLanded,
+        resumeSegment: resume.resumeSegment
+      }
     }
   }
 

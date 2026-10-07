@@ -32,7 +32,14 @@
  * simbrief-notes.md (transition-altitude field names from a real OFP) in winglog-backend.
  */
 import { appendFileSync } from 'node:fs'
-import { open, Protocol, SimConnectConstants, SimConnectDataType, SimConnectPeriod, type RawBuffer } from 'node-simconnect'
+import {
+  open,
+  Protocol,
+  SimConnectConstants,
+  SimConnectDataType,
+  SimConnectPeriod,
+  type RawBuffer
+} from 'node-simconnect'
 
 const APP_NAME = 'WingLog altitude spike'
 // Every 2s tick is appended here regardless of milestones, so the exact numbers around a
@@ -54,14 +61,62 @@ interface SimVarSpec {
 
 // One data definition + request per var, numbered 0..7 — see the SIM RATE lesson above.
 const SIM_VARS: SimVarSpec[] = [
-  { key: 'onGround', name: 'SIM ON GROUND', unit: 'bool', dataType: SimConnectDataType.INT32, read: (d) => d.readInt32() },
-  { key: 'trueAltFt', name: 'PLANE ALTITUDE', unit: 'feet', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
-  { key: 'indicatedAltFt', name: 'INDICATED ALTITUDE', unit: 'feet', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
-  { key: 'pressureAltFt', name: 'PRESSURE ALTITUDE', unit: 'feet', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
-  { key: 'kohlsmanMb', name: 'KOHLSMAN SETTING MB:1', unit: 'millibars', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
-  { key: 'seaLevelPressureMb', name: 'SEA LEVEL PRESSURE', unit: 'millibars', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
-  { key: 'ambientTempC', name: 'AMBIENT TEMPERATURE', unit: 'celsius', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
-  { key: 'standardTempC', name: 'STANDARD ATM TEMPERATURE', unit: 'celsius', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() }
+  {
+    key: 'onGround',
+    name: 'SIM ON GROUND',
+    unit: 'bool',
+    dataType: SimConnectDataType.INT32,
+    read: (d) => d.readInt32()
+  },
+  {
+    key: 'trueAltFt',
+    name: 'PLANE ALTITUDE',
+    unit: 'feet',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
+  {
+    key: 'indicatedAltFt',
+    name: 'INDICATED ALTITUDE',
+    unit: 'feet',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
+  {
+    key: 'pressureAltFt',
+    name: 'PRESSURE ALTITUDE',
+    unit: 'feet',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
+  {
+    key: 'kohlsmanMb',
+    name: 'KOHLSMAN SETTING MB:1',
+    unit: 'millibars',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
+  {
+    key: 'seaLevelPressureMb',
+    name: 'SEA LEVEL PRESSURE',
+    unit: 'millibars',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
+  {
+    key: 'ambientTempC',
+    name: 'AMBIENT TEMPERATURE',
+    unit: 'celsius',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
+  {
+    key: 'standardTempC',
+    name: 'STANDARD ATM TEMPERATURE',
+    unit: 'celsius',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  }
 ]
 
 function connectionOptions(): { remote: { host: string; port: number } } | undefined {
@@ -111,7 +166,13 @@ open(APP_NAME, Protocol.SunRise, connectionOptions())
         latest['ambientTempC'] != null && latest['standardTempC'] != null
           ? Math.round(latest['ambientTempC'] - latest['standardTempC'])
           : null
-      return { ts: new Date().toISOString(), ...latest, onGround: latest['onGround'] === 1, gapTrueMinusPressureFt: gap, tempDevC }
+      return {
+        ts: new Date().toISOString(),
+        ...latest,
+        onGround: latest['onGround'] === 1,
+        gapTrueMinusPressureFt: gap,
+        tempDevC
+      }
     }
 
     // Phase-detection state, driven off the 1s sample tick below rather than each

@@ -62,7 +62,11 @@ function connectionOptions(): { remote: { host: string; port: number } } | undef
 
 // Large/complex on purpose (real record-count and timing question above), plus EGLL as a
 // smaller comparison point and an optional wherever-you're-parked airport.
-const TEST_ICAOS = ['VHHH', 'EGLL', ...(process.env['SPIKE_LOCAL_ICAO'] ? [process.env['SPIKE_LOCAL_ICAO']] : [])]
+const TEST_ICAOS = [
+  'VHHH',
+  'EGLL',
+  ...(process.env['SPIKE_LOCAL_ICAO'] ? [process.env['SPIKE_LOCAL_ICAO']] : [])
+]
 
 const enum DefId {
   TAXI_POINTS = 20,
@@ -117,7 +121,13 @@ function buildDefinitions(handle: Awaited<ReturnType<typeof open>>['handle']): v
   handle.addToFacilityDefinition(DefId.TAXI_NAMES, 'CLOSE AIRPORT')
 }
 
-function requestAirport(handle: Awaited<ReturnType<typeof open>>['handle'], defId: DefId, kind: string, icao: string, region?: string): void {
+function requestAirport(
+  handle: Awaited<ReturnType<typeof open>>['handle'],
+  defId: DefId,
+  kind: string,
+  icao: string,
+  region?: string
+): void {
   const reqId = nextRequestId++
   requestIcao.set(reqId, `${icao} ${kind}`)
   requestDefId.set(reqId, defId)
@@ -127,12 +137,17 @@ function requestAirport(handle: Awaited<ReturnType<typeof open>>['handle'], defI
 }
 
 function parentLabel(recvFacilityData: { parentUniqueRequestId: number }): string {
-  return uniqueRequestLabel.get(recvFacilityData.parentUniqueRequestId) ?? `unknown-parent-${recvFacilityData.parentUniqueRequestId}`
+  return (
+    uniqueRequestLabel.get(recvFacilityData.parentUniqueRequestId) ??
+    `unknown-parent-${recvFacilityData.parentUniqueRequestId}`
+  )
 }
 
 open(APP_NAME, Protocol.SunRise, connectionOptions())
   .then(({ recvOpen, handle }) => {
-    console.log(`Connected: ${recvOpen.applicationName} (SimConnect ${recvOpen.simConnectVersionMajor}.${recvOpen.simConnectVersionMinor})`)
+    console.log(
+      `Connected: ${recvOpen.applicationName} (SimConnect ${recvOpen.simConnectVersionMajor}.${recvOpen.simConnectVersionMinor})`
+    )
 
     buildDefinitions(handle)
     console.log(`Requesting taxi data for: ${TEST_ICAOS.join(', ')}`)
@@ -143,7 +158,8 @@ open(APP_NAME, Protocol.SunRise, connectionOptions())
     }
 
     handle.on('facilityData', (recvFacilityData) => {
-      const label = requestIcao.get(recvFacilityData.userRequestId) ?? `request-${recvFacilityData.userRequestId}`
+      const label =
+        requestIcao.get(recvFacilityData.userRequestId) ?? `request-${recvFacilityData.userRequestId}`
       const d: RawBuffer = recvFacilityData.data
       let parsed: Record<string, unknown>
       let ownLabel = label
@@ -202,7 +218,8 @@ open(APP_NAME, Protocol.SunRise, connectionOptions())
     })
 
     handle.on('facilityDataEnd', (recvFacilityDataEnd) => {
-      const label = requestIcao.get(recvFacilityDataEnd.userRequestId) ?? `request-${recvFacilityDataEnd.userRequestId}`
+      const label =
+        requestIcao.get(recvFacilityDataEnd.userRequestId) ?? `request-${recvFacilityDataEnd.userRequestId}`
       const startedAt = requestStartedAt.get(recvFacilityDataEnd.userRequestId)
       const elapsedMs = startedAt ? Date.now() - startedAt : null
       console.log(`--- ${label} complete (${elapsedMs}ms) ---`)
@@ -211,21 +228,34 @@ open(APP_NAME, Protocol.SunRise, connectionOptions())
 
     handle.on('facilityMinimalList', (recvFacilityMinimalList) => {
       const label = requestIcao.get(recvFacilityMinimalList.requestID)
-      console.log(`facilityMinimalList for ${label ?? recvFacilityMinimalList.requestID}:`, recvFacilityMinimalList.data)
+      console.log(
+        `facilityMinimalList for ${label ?? recvFacilityMinimalList.requestID}:`,
+        recvFacilityMinimalList.data
+      )
       logRecord('facility-minimal-list', {
         label,
         candidates: recvFacilityMinimalList.data.map((f) => ({ ident: f.icao.ident, region: f.icao.region }))
       })
       if (!label || recvFacilityMinimalList.data.length === 0) return
       const [icao, kind] = label.split(' ')
-      const defId = { 'taxi-points': DefId.TAXI_POINTS, 'taxi-paths': DefId.TAXI_PATHS, 'taxi-names': DefId.TAXI_NAMES }[kind ?? '']
+      const defId = {
+        'taxi-points': DefId.TAXI_POINTS,
+        'taxi-paths': DefId.TAXI_PATHS,
+        'taxi-names': DefId.TAXI_NAMES
+      }[kind ?? '']
       if (!defId || !icao) return
       requestAirport(handle, defId, kind!, icao, recvFacilityMinimalList.data[0]!.icao.region)
     })
 
     handle.on('exception', (recvException) => {
-      console.error(`SimConnect exception: ${recvException.exceptionName} (index ${recvException.index}, sendId ${recvException.sendId})`)
-      logRecord('exception', { exceptionName: recvException.exceptionName, index: recvException.index, sendId: recvException.sendId })
+      console.error(
+        `SimConnect exception: ${recvException.exceptionName} (index ${recvException.index}, sendId ${recvException.sendId})`
+      )
+      logRecord('exception', {
+        exceptionName: recvException.exceptionName,
+        index: recvException.index,
+        sendId: recvException.sendId
+      })
     })
 
     handle.on('quit', () => {

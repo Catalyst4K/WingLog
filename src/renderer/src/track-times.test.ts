@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { computeTrackTimes, formatDuration, formatElapsed, formatUtcTime, remainingRouteNm } from './track-times'
+import {
+  computeTrackTimes,
+  formatDuration,
+  formatElapsed,
+  formatUtcTime,
+  remainingRouteNm
+} from './track-times'
 
 // A cut-down YBBN-VHHH (the real flight, 2026-10-02): YBBN, BARIA (the step climb fix), MIA
 // (Manila), VHHH. [lon, lat].
@@ -62,7 +68,13 @@ describe('computeTrackTimes', () => {
   })
 
   it('falls back to the scheduled arrival on the ground, with no time remaining and no ET before takeoff', () => {
-    const times = computeTrackTimes({ ...base, position: at(YBBN), onGround: true, groundSpeedMs: 8, takeoffUtc: null })
+    const times = computeTrackTimes({
+      ...base,
+      position: at(YBBN),
+      onGround: true,
+      groundSpeedMs: 8,
+      takeoffUtc: null
+    })
     expect(times).toEqual({
       elapsedMs: null,
       remainingMs: null,

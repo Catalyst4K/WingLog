@@ -186,7 +186,11 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.`
 
 /** The standard text for a declared licence, for a package that ships no licence file.
  *  Undefined for anything not covered, which the caller reports as needing a manual check. */
-function standardLicenceText(license: string, author: string | undefined, apacheText: string | undefined): string | undefined {
+function standardLicenceText(
+  license: string,
+  author: string | undefined,
+  apacheText: string | undefined
+): string | undefined {
   const holder = author ?? 'the package authors'
   const parts = license.replace(/[()]/g, '').split(/\s+AND\s+/i)
   const texts = parts.map((part) => {
@@ -204,12 +208,19 @@ function standardLicenceText(license: string, author: string | undefined, apache
 function productionPackageDirs(root: string): string[] {
   let out: string
   try {
-    out = execSync('npm ls --omit=dev --all --parseable', { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+    out = execSync('npm ls --omit=dev --all --parseable', {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    })
   } catch (error) {
     out = (error as { stdout?: string }).stdout ?? ''
   }
   // The first line is the project itself.
-  return out.split(/\r?\n/).slice(1).filter((line) => line.trim() !== '')
+  return out
+    .split(/\r?\n/)
+    .slice(1)
+    .filter((line) => line.trim() !== '')
 }
 
 function main(): void {
@@ -233,7 +244,8 @@ function main(): void {
   const apacheText = packages.map((p) => p.licence?.text).find((text) => text?.startsWith('Apache License'))
 
   const missing = packages.filter(
-    (p) => !p.licence && TEXT_REQUIRED.test(p.license) && !standardLicenceText(p.license, p.author, apacheText)
+    (p) =>
+      !p.licence && TEXT_REQUIRED.test(p.license) && !standardLicenceText(p.license, p.author, apacheText)
   )
   const sections: string[] = [HEADER]
 
@@ -241,7 +253,9 @@ function main(): void {
   // the compliance section above promises.
   const simconnect = packages.find((p) => p.name === 'node-simconnect')
   if (simconnect?.licence) {
-    sections.push(`### GNU Lesser General Public License v3.0\n\n\`\`\`\n${simconnect.licence.text}\n\`\`\`\n\n`)
+    sections.push(
+      `### GNU Lesser General Public License v3.0\n\n\`\`\`\n${simconnect.licence.text}\n\`\`\`\n\n`
+    )
   }
 
   sections.push('---\n\n## Dependencies\n\n| Package | Version | Licence |\n| --- | --- | --- |\n')
@@ -265,14 +279,18 @@ function main(): void {
       sections.push(
         `This package declares \`${p.license}\` in its manifest but does not ship a licence ` +
           `file.${p.url ? ` Upstream: ${p.url}.` : ''}` +
-          (standard ? ` The standard text of that licence is reproduced below.\n\n\`\`\`\n${standard}\n\`\`\`\n\n` : '\n\n')
+          (standard
+            ? ` The standard text of that licence is reproduced below.\n\n\`\`\`\n${standard}\n\`\`\`\n\n`
+            : '\n\n')
       )
     }
   }
 
   sections.push(DATA_INTRO)
   for (const file of DATA_FILES) {
-    sections.push(`### ${file.title}\n\n\`\`\`\n${readFileSync(join(root, file.path), 'utf8').trim()}\n\`\`\`\n\n`)
+    sections.push(
+      `### ${file.title}\n\n\`\`\`\n${readFileSync(join(root, file.path), 'utf8').trim()}\n\`\`\`\n\n`
+    )
   }
 
   sections.push(RUNTIME_NOTE)

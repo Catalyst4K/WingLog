@@ -33,12 +33,19 @@ it('simulates the taxi line on real taxis', () => {
       const scenario = flight ? scenarioFromHand(hand, flight, pointsFor(hand.flightId)) : null
       return scenario ? [scenario] : []
     })
-    const scenarios: TaxiScenario[] = [...fromLog, ...fromHand].filter((sc) => sc.samples.length > 0).sort((a, b) => a.atMs - b.atMs)
+    const scenarios: TaxiScenario[] = [...fromLog, ...fromHand]
+      .filter((sc) => sc.samples.length > 0)
+      .sort((a, b) => a.atMs - b.atMs)
 
     const outcomes: TaxiOutcome[] = scenarios.map((sc) => {
       const segments = listCachedTaxiSegments(db, sc.icao)
       const stands = listCachedStands(db, sc.icao)
-      return { sc, segments, run: runTaxi(sc, segments, stands, true), baseline: runTaxi(sc, segments, stands, false) }
+      return {
+        sc,
+        segments,
+        run: runTaxi(sc, segments, stands, true),
+        baseline: runTaxi(sc, segments, stands, false)
+      }
     })
     const results = outcomes.map(({ sc, run, baseline }) => ({
       id: sc.id,

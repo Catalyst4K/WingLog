@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb, type WingLogDb } from '../db/client'
-import { hasCachedAirport, hasCachedTaxiNetwork, listCachedRunways, listCachedTaxiSegments } from '../db/navdata-repo'
+import {
+  hasCachedAirport,
+  hasCachedTaxiNetwork,
+  listCachedRunways,
+  listCachedTaxiSegments
+} from '../db/navdata-repo'
 import type { FetchedAirportNavdata, FetchedTaxiNetwork } from './sim-facilities-fetch'
 import { SimFacilitiesProvider, type OpenSimConnect } from './sim-facilities-provider'
 
@@ -94,14 +99,24 @@ describe('SimFacilitiesProvider', () => {
   })
 
   describe('stands (stand-positions.md)', () => {
-    const N32 = { name: 'N32', nameCode: 25, number: 32, suffix: 0, headingDeg: 161, lat: 22.3141453, lon: 113.9286249 }
+    const N32 = {
+      name: 'N32',
+      nameCode: 25,
+      number: 32,
+      suffix: 0,
+      headingDeg: 161,
+      lat: 22.3141453,
+      lon: 113.9286249
+    }
 
     it('fetches on first ask, caches, closes the connection, and serves the cache after', async () => {
       const { fetchStands } = await import('./sim-facilities-fetch')
       vi.mocked(fetchStands).mockResolvedValue([N32])
       const provider = new SimFacilitiesProvider(db, openSimConnect)
 
-      expect(await provider.getStands('VHHH')).toEqual([{ name: 'N32', number: 32, suffix: 0, headingDeg: 161, lat: 22.3141453, lon: 113.9286249 }])
+      expect(await provider.getStands('VHHH')).toEqual([
+        { name: 'N32', number: 32, suffix: 0, headingDeg: 161, lat: 22.3141453, lon: 113.9286249 }
+      ])
       expect(close).toHaveBeenCalledTimes(1)
       await provider.getStands('VHHH')
       expect(openSimConnect).toHaveBeenCalledTimes(1)
@@ -127,7 +142,17 @@ describe('SimFacilitiesProvider', () => {
   describe('taxi network', () => {
     const FETCHED_TAXI: FetchedTaxiNetwork = {
       icao: 'EGKB',
-      segments: [{ startLat: 51.338, startLon: 0.038, endLat: 51.324, endLon: 0.027, name: null, startHoldShort: false, endHoldShort: false }]
+      segments: [
+        {
+          startLat: 51.338,
+          startLon: 0.038,
+          endLat: 51.324,
+          endLon: 0.027,
+          name: null,
+          startHoldShort: false,
+          endHoldShort: false
+        }
+      ]
     }
 
     it('opens a connection, fetches, caches the result, and closes the connection', async () => {

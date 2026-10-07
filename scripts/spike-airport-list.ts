@@ -25,7 +25,12 @@ import {
   FacilityListType,
   FacilityDataType
 } from 'node-simconnect'
-import { NavdataDefId, addRunwayFields, parseAirportHeader, parseRunway } from '../src/main/sim/facility-fields'
+import {
+  NavdataDefId,
+  addRunwayFields,
+  parseAirportHeader,
+  parseRunway
+} from '../src/main/sim/facility-fields'
 
 const RADIUS_NM = Number(process.env['SPIKE_RADIUS_NM'] ?? 15)
 const RUNWAY_ICAO = process.env['SPIKE_ICAO']
@@ -65,7 +70,9 @@ open('WingLog airport-list spike', Protocol.SunRise)
 
     handle.on('airportList', (list) => {
       listCount++
-      airports.push(...list.airports.map((a) => ({ icao: a.icao, region: a.region, lat: a.latitude, lon: a.longitude })))
+      airports.push(
+        ...list.airports.map((a) => ({ icao: a.icao, region: a.region, lat: a.latitude, lon: a.longitude }))
+      )
       if (list.entryNumber + 1 >= list.outOf) report()
     })
 
@@ -73,7 +80,9 @@ open('WingLog airport-list spike', Protocol.SunRise)
     function report(): void {
       if (reported) return
       reported = true
-      console.log(`Total airports received: ${airports.length} in ${Date.now() - started}ms (${listCount} packets)`)
+      console.log(
+        `Total airports received: ${airports.length} in ${Date.now() - started}ms (${listCount} packets)`
+      )
       if (lat === null || lon === null) {
         console.log('No aircraft position yet — waiting for the flight to load...')
         reported = false
@@ -128,7 +137,9 @@ open('WingLog airport-list spike', Protocol.SunRise)
       }, 20_000)
     }
 
-    handle.on('exception', (e) => console.error(`SimConnect exception: ${e.exceptionName} (index ${e.index})`))
+    handle.on('exception', (e) =>
+      console.error(`SimConnect exception: ${e.exceptionName} (index ${e.index})`)
+    )
     handle.on('quit', () => process.exit(0))
   })
   .catch((error: unknown) => {

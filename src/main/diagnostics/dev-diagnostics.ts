@@ -15,7 +15,10 @@ type Listener<A extends unknown[]> = (...args: A) => void
 /** The tracking events used, as TrackingController emits them. */
 export interface TrackingEvents {
   on(event: 'started' | 'stopped' | 'completed', listener: Listener<[number]>): unknown
-  on(event: 'phaseChanged', listener: Listener<[{ from: FlightPhase; to: FlightPhase; telemetry: SimTelemetry }]>): unknown
+  on(
+    event: 'phaseChanged',
+    listener: Listener<[{ from: FlightPhase; to: FlightPhase; telemetry: SimTelemetry }]>
+  ): unknown
 }
 
 /** The sim events used, as SimConnectService and ReplaySimConnectService emit them. */
@@ -53,12 +56,12 @@ export class DevDiagnostics {
     private readonly capture: FlightCapture
   ) {}
 
-/**
- * Records each tracked flight, and logs every phase change with the tick that caused it.
- *
- * @param tracking The tracking controller.
- * @param sim The sim connection.
- */
+  /**
+   * Records each tracked flight, and logs every phase change with the tick that caused it.
+   *
+   * @param tracking The tracking controller.
+   * @param sim The sim connection.
+   */
   attachTracking(tracking: TrackingEvents, sim: SimEvents): void {
     tracking.on('started', (flightId) => {
       const path = this.capture.start(flightId, sim.getLastTelemetry()?.title ?? 'unknown')
@@ -89,11 +92,11 @@ export class DevDiagnostics {
     })
   }
 
-/**
- * Records and logs every BeyondATC message, and logs what WingLog read from each clearance.
- *
- * @param service The BeyondATC service.
- */
+  /**
+   * Records and logs every BeyondATC message, and logs what WingLog read from each clearance.
+   *
+   * @param service The BeyondATC service.
+   */
   attachBeyondAtc(service: BeyondAtcEvents): void {
     service.on('raw', ({ direction, text }) => {
       if (this.capture.isRecording) this.capture.beyondAtc(direction, text)
@@ -115,11 +118,11 @@ export class DevDiagnostics {
     })
   }
 
-/**
- * Records and logs every GSX message and command.
- *
- * @param service The GSX Remote service.
- */
+  /**
+   * Records and logs every GSX message and command.
+   *
+   * @param service The GSX Remote service.
+   */
   attachGsx(service: GsxEvents): void {
     service.on('raw', ({ direction, text }) => {
       if (this.capture.isRecording) this.capture.gsx(direction, text)

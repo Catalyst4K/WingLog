@@ -29,11 +29,15 @@ describe('matchClearanceApproach (WSSS, 2026-10-02)', () => {
   })
 
   it('keeps an ILS match exactly as named', () => {
-    expect(matchClearanceApproach(cleared('ILS approach runway 02L'), WSSS)?.fields).toEqual({ approachIdent: 'ILS 02L' })
+    expect(matchClearanceApproach(cleared('ILS approach runway 02L'), WSSS)?.fields).toEqual({
+      approachIdent: 'ILS 02L'
+    })
   })
 
   it("drops a transition the approach doesn't have, keeping the approach", () => {
-    expect(matchClearanceApproach(cleared('R-NAV approach runway 02L', 'NYLON'), WSSS)?.fields).toEqual({ approachIdent: 'RNAV 02L' })
+    expect(matchClearanceApproach(cleared('R-NAV approach runway 02L', 'NYLON'), WSSS)?.fields).toEqual({
+      approachIdent: 'RNAV 02L'
+    })
   })
 
   it('offers nothing for an approach the airport does not have, rather than a name nothing shows', () => {

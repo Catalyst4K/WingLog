@@ -79,7 +79,10 @@ describe('useLiveTopic', () => {
   }
 
   it('starts from the initial value, takes the current one, then follows pushes, from any client (a LAN client later)', async () => {
-    let push: (s: { state: 'connected' | 'connecting' | 'disconnected'; lastError: string | null }) => void = () => {}
+    let push: (s: {
+      state: 'connected' | 'connecting' | 'disconnected'
+      lastError: string | null
+    }) => void = () => {}
     const client: LiveClient = {
       get: vi.fn().mockResolvedValue({ state: 'connecting', lastError: null }),
       subscribe: vi.fn((_topic, listener) => {

@@ -74,7 +74,13 @@ export interface NavdataProvider {
    * runway-then-common-then-transition order (fly the transition inbound, then the final segment to the runway), with the
    * duplicate fix ARINC 424 repeats at that boundary dropped.
    */
-  getProcedureWaypoints(icao: string, kind: ProcedureKind, identifier: string, runway?: string | null, transition?: string | null): NavdataLeg[]
+  getProcedureWaypoints(
+    icao: string,
+    kind: ProcedureKind,
+    identifier: string,
+    runway?: string | null,
+    transition?: string | null
+  ): NavdataLeg[]
   /** Fetches an airport's full taxiway network and replaces the cache for it. Unlike
    *  `refreshAirport`, this is genuinely slow for a large airport (minutes, not seconds —
    *  winglog-backend's docs/navdata-notes.md, 2026-09-28) — only ever call this from an

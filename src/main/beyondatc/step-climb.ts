@@ -3,7 +3,12 @@
  * level set on the FCU), so the pilot doesn't have to ask each time.
  */
 import { EventEmitter } from 'node:events'
-import type { ActiveTracking, BeyondAtcConnectionStatus, BeyondAtcStepClimbStatus, SimTelemetry } from '@shared/ipc'
+import type {
+  ActiveTracking,
+  BeyondAtcConnectionStatus,
+  BeyondAtcStepClimbStatus,
+  SimTelemetry
+} from '@shared/ipc'
 import { logger } from '../logging/logger'
 import { boxClearedLevelFt } from '@shared/atc-info-boxes'
 import { requestAltitude, type AltitudeRequestSession } from './altitude-request'
@@ -66,7 +71,8 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
     super()
     this.request = deps.request ?? requestAltitude
     this.now = deps.now ?? Date.now
-    this.writeLog = (message) => (deps.log ?? ((line: string) => logger.info(line)))(`[step-climb] ${message}`)
+    this.writeLog = (message) =>
+      (deps.log ?? ((line: string) => logger.info(line)))(`[step-climb] ${message}`)
   }
 
   /**
@@ -123,7 +129,12 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
     const attempt = this.state.attempts[key]?.count ?? 0
     this.request(session, target.altitudeFt)
       .then(({ outcome }) => {
-        const result = settleRequest(this.state, { altitudeFt: target.altitudeFt, reason: target.reason, outcome, attempt })
+        const result = settleRequest(this.state, {
+          altitudeFt: target.altitudeFt,
+          reason: target.reason,
+          outcome,
+          attempt
+        })
         this.state = result.state
         result.logs.forEach((line) => this.writeLog(line))
       })

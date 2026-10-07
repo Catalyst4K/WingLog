@@ -41,7 +41,10 @@ const COMMENT_PATTERN = /^(.+?)\s+\(([^)]+)\)\s*-\s*(.+)$/
 // its siblings." Stripped, not parsed further.
 const CREDIT_SUFFIX_PATTERN = /\s*\[credit:[^\]]*\]\s*$/i
 
-function parseComment(comments: string, icaoType: string): { developer: string | null; platform: string | null; variant: string | null } {
+function parseComment(
+  comments: string,
+  icaoType: string
+): { developer: string | null; platform: string | null; variant: string | null } {
   const match = comments.match(COMMENT_PATTERN)
   if (!match) return { developer: null, platform: null, variant: null }
   let variant = match[3].trim().replace(CREDIT_SUFFIX_PATTERN, '')
@@ -78,7 +81,8 @@ function withWingFenceMadeExplicit(variant: string | null, icaoType: string): st
 function toOption(raw: RawAirframe, simbriefType: string): SimbriefAirframeOption {
   const isDefault = raw.airframe_id === false
   const { developer, variant: parsedVariant } = parseComment(raw.airframe_comments, simbriefType)
-  const variant = developer === 'Fenix Simulations' ? withWingFenceMadeExplicit(parsedVariant, simbriefType) : parsedVariant
+  const variant =
+    developer === 'Fenix Simulations' ? withWingFenceMadeExplicit(parsedVariant, simbriefType) : parsedVariant
   return {
     isDefault,
     developer,
@@ -101,7 +105,10 @@ function toOption(raw: RawAirframe, simbriefType: string): SimbriefAirframeOptio
  * @param icaoType The ICAO type, e.g. A20N.
  * @returns The options, stock default first, or none for an unknown type.
  */
-export function parseAirframesForType(data: RawAirframesResponse, icaoType: string): SimbriefAirframeOption[] {
+export function parseAirframesForType(
+  data: RawAirframesResponse,
+  icaoType: string
+): SimbriefAirframeOption[] {
   const entry = data[icaoType]
   if (!entry) return []
 
@@ -137,12 +144,11 @@ export function parseAirframesForType(data: RawAirframesResponse, icaoType: stri
 // as airport-search.ts's allAirports/airportCoords). No on-disk cache: this is a browse
 // list, not something that needs surviving a restart, and the source is only ever "updated
 // every 5 minutes" (unconfirmed, forum post) — a longer cache would just risk staleness.
-const fetchAirframesData = lazy(
-  (): Promise<RawAirframesResponse | null> =>
-    fetch(AIRFRAMES_URL)
-      .then((res) => (res.ok ? (res.json() as Promise<RawAirframesResponse>) : null))
-      // A failed fetch is an empty list for the session, the same as an unknown type.
-      .catch(() => null)
+const fetchAirframesData = lazy((): Promise<RawAirframesResponse | null> =>
+  fetch(AIRFRAMES_URL)
+    .then((res) => (res.ok ? (res.json() as Promise<RawAirframesResponse>) : null))
+    // A failed fetch is an empty list for the session, the same as an unknown type.
+    .catch(() => null)
 )
 
 /** Empty (not an error) for a type SimBrief doesn't recognise, or if the fetch itself

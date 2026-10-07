@@ -35,7 +35,10 @@ function runwayBuffer(): RawBuffer {
 
 /** A SimConnect connection double: answers an airport-list request with `airports`, and a
  *  RUNWAYS request with Kai Tak's runway only for `runwayFor`, nothing for anything else. */
-function fakeConnection(airports: { icao: string; latitude: number; longitude: number }[], runwayFor: string) {
+function fakeConnection(
+  airports: { icao: string; latitude: number; longitude: number }[],
+  runwayFor: string
+) {
   const emitter = new EventEmitter() as EventEmitter & Record<string, unknown>
   emitter.addToFacilityDefinition = vi.fn()
   emitter.close = vi.fn()
@@ -71,7 +74,12 @@ const openWith = (emitter: unknown) => vi.fn().mockResolvedValue({ handle: emitt
 describe('simRunwayEnds', () => {
   it('splits the sim runway record into two thresholds half a length either side of the centre', () => {
     const [primary, secondary] = simRunwayEnds('vhhx', KAI_TAK_RUNWAY)
-    expect(primary).toMatchObject({ icao: 'VHHX', ident: '13', headingTrueDeg: 133.88, displacedThresholdM: 0 })
+    expect(primary).toMatchObject({
+      icao: 'VHHX',
+      ident: '13',
+      headingTrueDeg: 133.88,
+      displacedThresholdM: 0
+    })
     expect(secondary).toMatchObject({ ident: '31' })
     expect(secondary!.headingTrueDeg).toBeCloseTo(313.88, 2)
     expect(primary!.aimingPointDistanceM).toBe(400)
@@ -85,7 +93,7 @@ describe('simRunwayEnds', () => {
 describe('SimAirfieldResolver', () => {
   const centre = { lat: KAI_TAK_RUNWAY.latitude, lon: KAI_TAK_RUNWAY.longitude }
 
-  it("finds the runway of the sim airfield underneath the touchdown, skipping nearer ones that have none", async () => {
+  it('finds the runway of the sim airfield underneath the touchdown, skipping nearer ones that have none', async () => {
     // A generated helipad is listed closer than Kai Tak and has no runways.
     const { emitter, requested } = fakeConnection(
       [
@@ -103,17 +111,27 @@ describe('SimAirfieldResolver', () => {
   })
 
   it('picks the runway end that matches the heading (the reciprocal is 31)', async () => {
-    const { emitter } = fakeConnection([{ icao: 'VHHX', latitude: centre.lat, longitude: centre.lon }], 'VHHX')
+    const { emitter } = fakeConnection(
+      [{ icao: 'VHHX', latitude: centre.lat, longitude: centre.lon }],
+      'VHHX'
+    )
     const match = await new SimAirfieldResolver(openWith(emitter)).resolve(centre.lat, centre.lon, 314)
     expect(match?.runway.ident).toBe('31')
   })
 
   it('returns null for an off-airport touchdown (no runway underneath), and for no airports in range', async () => {
-    const { emitter } = fakeConnection([{ icao: 'VHHX', latitude: centre.lat, longitude: centre.lon }], 'VHHX')
+    const { emitter } = fakeConnection(
+      [{ icao: 'VHHX', latitude: centre.lat, longitude: centre.lon }],
+      'VHHX'
+    )
     // 2 km off the strip laterally.
-    expect(await new SimAirfieldResolver(openWith(emitter)).resolve(centre.lat + 0.02, centre.lon + 0.02, 134)).toBeNull()
+    expect(
+      await new SimAirfieldResolver(openWith(emitter)).resolve(centre.lat + 0.02, centre.lon + 0.02, 134)
+    ).toBeNull()
     const empty = fakeConnection([], '')
-    expect(await new SimAirfieldResolver(openWith(empty.emitter)).resolve(centre.lat, centre.lon, 134)).toBeNull()
+    expect(
+      await new SimAirfieldResolver(openWith(empty.emitter)).resolve(centre.lat, centre.lon, 134)
+    ).toBeNull()
   })
 
   it('returns null, without throwing, when the sim cannot be reached', async () => {
@@ -138,7 +156,10 @@ describe('SimAirfieldResolver', () => {
   })
 
   it('treats an ambiguous-ICAO candidate list as "no runways" for that airport and moves on', async () => {
-    const { emitter } = fakeConnection([{ icao: 'VHHX', latitude: centre.lat, longitude: centre.lon }], 'NONE')
+    const { emitter } = fakeConnection(
+      [{ icao: 'VHHX', latitude: centre.lat, longitude: centre.lon }],
+      'NONE'
+    )
     ;(emitter.requestFacilityData as ReturnType<typeof vi.fn>).mockImplementation(() => {
       queueMicrotask(() => emitter.emit('facilityMinimalList', { requestID: NavdataDefId.RUNWAYS, data: [] }))
     })

@@ -29,7 +29,9 @@ export const FLOWN_ROUTE_TOLERANCE_METERS = 100
  * @returns The points kept, in order (always the first and last).
  */
 export function simplifyRoute<T extends LatLon>(points: T[], toleranceMeters: number): T[] {
-  const keep = simplifyIndices(points, toleranceMeters, (p, a, b) => pointToLineM(toLatLon(p), toLatLon(a), toLatLon(b)))
+  const keep = simplifyIndices(points, toleranceMeters, (p, a, b) =>
+    pointToLineM(toLatLon(p), toLatLon(a), toLatLon(b))
+  )
   return [...keep].sort((x, y) => x - y).map((i) => points[i])
 }
 

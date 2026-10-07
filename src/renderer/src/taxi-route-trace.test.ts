@@ -91,7 +91,12 @@ function lengthM(route: [number, number][]): number {
 
 describe('traceTaxiRoute', () => {
   it('traces the real VHHH clearance "holding point B10, runway 25C, via B8, B" to the B10 hold (real bug, 2026-09-30)', () => {
-    const route = traceTaxiRoute({ segments: VHHH, taxiways: ['B8', 'B'], holdingPoint: 'B10', from: STAND_END_OF_B8 })
+    const route = traceTaxiRoute({
+      segments: VHHH,
+      taxiways: ['B8', 'B'],
+      holdingPoint: 'B10',
+      from: STAND_END_OF_B8
+    })
 
     expect(route).not.toBeNull()
     expect(route!.at(-1)).toEqual(B10_HOLD_SHORT)
@@ -104,7 +109,13 @@ describe('traceTaxiRoute', () => {
   it('leaves the stand straight along B8, not zigzagging through the gate lead-ins beside it (VHHH, flight 230, 2026-10-05)', () => {
     // Real: parked on B8 after pushback (22.31644, 113.92902), cleared "via B, B, V, H, J". B8
     // isn't in the clearance; costed at 5× it lost to the unnamed lead-ins either side.
-    const route = traceTaxiRoute({ segments: VHHH, taxiways: ['B'], holdingPoint: null, from: { lat: 22.316438264, lon: 113.929019435 }, stand: null })!
+    const route = traceTaxiRoute({
+      segments: VHHH,
+      taxiways: ['B'],
+      holdingPoint: null,
+      from: { lat: 22.316438264, lon: 113.929019435 },
+      stand: null
+    })!
     const edgeNames = route.slice(1).map(([bLon, bLat], i) => {
       const [aLon, aLat] = route[i]!
       const seg = VHHH.find(
@@ -118,7 +129,12 @@ describe('traceTaxiRoute', () => {
   })
 
   it('bridges the scenery-only "B12" stretch between B and B10 that ATC never names', () => {
-    const route = traceTaxiRoute({ segments: VHHH, taxiways: ['B8', 'B'], holdingPoint: 'B10', from: STAND_END_OF_B8 })!
+    const route = traceTaxiRoute({
+      segments: VHHH,
+      taxiways: ['B8', 'B'],
+      holdingPoint: 'B10',
+      from: STAND_END_OF_B8
+    })!
     const onRoute = new Set(route.map(([lon, lat]) => `${lon},${lat}`))
     const b12Used = VHHH.filter((s) => s.name === 'B12').some(
       (s) => onRoute.has(`${s.startLon},${s.startLat}`) && onRoute.has(`${s.endLon},${s.endLat}`)
@@ -127,17 +143,29 @@ describe('traceTaxiRoute', () => {
   })
 
   it('accepts a clearance that already lists the holding point as its last taxiway', () => {
-    const route = traceTaxiRoute({ segments: VHHH, taxiways: ['B8', 'B', 'B10'], holdingPoint: 'B10', from: STAND_END_OF_B8 })
+    const route = traceTaxiRoute({
+      segments: VHHH,
+      taxiways: ['B8', 'B', 'B10'],
+      holdingPoint: 'B10',
+      from: STAND_END_OF_B8
+    })
     expect(route!.at(-1)).toEqual(B10_HOLD_SHORT)
   })
 
   it('returns null (caller falls back to whole-name highlight) when the holding point is not a taxiway in the data', () => {
-    expect(traceTaxiRoute({ segments: VHHH, taxiways: ['B8', 'B'], holdingPoint: 'Z9', from: STAND_END_OF_B8 })).toBeNull()
+    expect(
+      traceTaxiRoute({ segments: VHHH, taxiways: ['B8', 'B'], holdingPoint: 'Z9', from: STAND_END_OF_B8 })
+    ).toBeNull()
   })
 
   it("without any hold-short flags, runs to the holding-point taxiway's far end", () => {
     const noHoldFlags = VHHH.map((s) => ({ ...s, startHoldShort: false, endHoldShort: false }))
-    const route = traceTaxiRoute({ segments: noHoldFlags, taxiways: ['B8', 'B'], holdingPoint: 'B10', from: STAND_END_OF_B8 })
+    const route = traceTaxiRoute({
+      segments: noHoldFlags,
+      taxiways: ['B8', 'B'],
+      holdingPoint: 'B10',
+      from: STAND_END_OF_B8
+    })
     expect(namesDriven(noHoldFlags, route!).at(-1)).toBe('B10')
   })
 
@@ -146,7 +174,12 @@ describe('traceTaxiRoute', () => {
     // fail every YBBN trace and fall back to whole taxiways (the "star at every junction").
     const atTaxiStart = { lat: -27.40268, lon: 153.11282 } // the real track, start of taxi
     const stoppedAtA9 = { lat: -27.40262, lon: 153.11832 } // the real track, holding at A9
-    const route = traceTaxiRoute({ segments: YBBN, taxiways: ['C9', 'B9'], holdingPoint: 'A9', from: atTaxiStart })
+    const route = traceTaxiRoute({
+      segments: YBBN,
+      taxiways: ['C9', 'B9'],
+      holdingPoint: 'A9',
+      from: atTaxiStart
+    })
 
     expect(route).not.toBeNull()
     expect(namesDriven(YBBN, route!)).toEqual(['C9', 'B9', 'A9'])
@@ -173,7 +206,12 @@ describe('traceTaxiRoute', () => {
     // point, with the last taxiway (F) as the one to hold on.
     const offC7 = { lat: 22.3267351, lon: 113.9016593 } // the top of C7, just off 07L
     const holdShort07C = { lat: 22.32092, lon: 113.92363 }
-    const route = traceTaxiRoute({ segments: VHHH_HOLD_07C, taxiways: ['C7', 'Y', 'F'], holdingPoint: 'F', from: offC7 })
+    const route = traceTaxiRoute({
+      segments: VHHH_HOLD_07C,
+      taxiways: ['C7', 'Y', 'F'],
+      holdingPoint: 'F',
+      from: offC7
+    })
 
     expect(route).not.toBeNull()
     // Y reaches F through a short stretch the scenery calls D, which ATC doesn't name.
@@ -186,7 +224,12 @@ describe('traceTaxiRoute', () => {
     // The facility data has no stands — so the certain part of the route, not every segment
     // of J, H6, H, V and B across the airport (the "very wrong route" report).
     const vacatedOntoJ = { lat: 22.30184, lon: 113.91052 } // the real track, slowed after vacating
-    const route = traceTaxiRoute({ segments: VHHH_ARRIVAL, taxiways: ['J', 'H6', 'H', 'V', 'B'], holdingPoint: null, from: vacatedOntoJ })
+    const route = traceTaxiRoute({
+      segments: VHHH_ARRIVAL,
+      taxiways: ['J', 'H6', 'H', 'V', 'B'],
+      holdingPoint: null,
+      from: vacatedOntoJ
+    })
 
     expect(route).not.toBeNull()
     // Starts on J5 — the high-speed exit the aircraft was still on.
@@ -199,7 +242,13 @@ describe('traceTaxiRoute', () => {
     // N32 from the sim's own stand data, and where the real flight stopped.
     const n32 = { lat: 22.31414534384843, lon: 113.92862486374908 }
     const stoppedAtN32 = { lat: 22.31404, lon: 113.92867 }
-    const route = traceTaxiRoute({ segments: VHHH_ARRIVAL, taxiways: ['J', 'H6', 'H', 'V', 'B'], holdingPoint: null, from: vacatedOntoJ, stand: n32 })!
+    const route = traceTaxiRoute({
+      segments: VHHH_ARRIVAL,
+      taxiways: ['J', 'H6', 'H', 'V', 'B'],
+      holdingPoint: null,
+      from: vacatedOntoJ,
+      stand: n32
+    })!
 
     expect(namesDriven(VHHH_ARRIVAL, route).slice(0, 6)).toEqual(['J5', 'J', 'H6', 'H', 'V', 'B'])
     expect(route.at(-1)).toEqual([n32.lon, n32.lat])
@@ -215,18 +264,36 @@ describe('traceTaxiRoute', () => {
   it("falls back to joining the last taxiway when the stand can't be reached through the network", () => {
     const vacatedOntoJ = { lat: 22.30184, lon: 113.91052 }
     const nowhere = { lat: 22.35, lon: 113.99 }
-    const route = traceTaxiRoute({ segments: VHHH_ARRIVAL, taxiways: ['J', 'H6', 'H', 'V', 'B'], holdingPoint: null, from: vacatedOntoJ, stand: nowhere })!
+    const route = traceTaxiRoute({
+      segments: VHHH_ARRIVAL,
+      taxiways: ['J', 'H6', 'H', 'V', 'B'],
+      holdingPoint: null,
+      from: vacatedOntoJ,
+      stand: nowhere
+    })!
     expect(namesDriven(VHHH_ARRIVAL, route).at(-1)).toBe('B')
     expect(route.at(-1)).not.toEqual([nowhere.lon, nowhere.lat])
   })
 
   it('returns null when the aircraft is nowhere near the taxi network', () => {
-    expect(traceTaxiRoute({ segments: VHHH, taxiways: ['B8', 'B'], holdingPoint: 'B10', from: { lat: 22.4, lon: 114.1 } })).toBeNull()
+    expect(
+      traceTaxiRoute({
+        segments: VHHH,
+        taxiways: ['B8', 'B'],
+        holdingPoint: 'B10',
+        from: { lat: 22.4, lon: 114.1 }
+      })
+    ).toBeNull()
   })
 })
 
 describe('traceTaxiRoute on a hand-built junction', () => {
-  const seg = (a: [number, number], b: [number, number], name: string | null, endHoldShort = false): NavdataTaxiSegment => ({
+  const seg = (
+    a: [number, number],
+    b: [number, number],
+    name: string | null,
+    endHoldShort = false
+  ): NavdataTaxiSegment => ({
     startLat: a[0],
     startLon: a[1],
     endLat: b[0],
@@ -318,11 +385,19 @@ describe('re-routing (taxi-reroute.md)', () => {
     const joinIndexOf = (route: [number, number][]): number =>
       CLEARED.findIndex((_, k) => {
         const tail = CLEARED.slice(k)
-        return route.length >= tail.length && JSON.stringify(route.slice(-tail.length)) === JSON.stringify(tail)
+        return (
+          route.length >= tail.length && JSON.stringify(route.slice(-tail.length)) === JSON.stringify(tail)
+        )
       })
 
     it("joins flight 227's cleared route on A near the hold, the way the aircraft is going", () => {
-      const route = rejoinTaxiRoute({ segments: ZJSY, route: CLEARED, fromSegment: 0, from: TAXIING_WEST_227, headingDeg: 262 })!
+      const route = rejoinTaxiRoute({
+        segments: ZJSY,
+        route: CLEARED,
+        fromSegment: 0,
+        from: TAXIING_WEST_227,
+        headingDeg: 262
+      })!
 
       expect(route.at(-1)).toEqual(CLEARED.at(-1))
       // Joins on the last stretch: under a third of the cleared route is left from there.
@@ -348,21 +423,41 @@ describe('re-routing (taxi-reroute.md)', () => {
     })
 
     it('with only the end left to join (everything else driven), takes the shortest way to it', () => {
-      const all = rejoinTaxiRoute({ segments: ZJSY, route: CLEARED, fromSegment: 0, from: TAXIING_WEST_227, headingDeg: 262 })!
-      const endOnly = rejoinTaxiRoute({ segments: ZJSY, route: CLEARED, fromSegment: CLEARED.length - 1, from: TAXIING_WEST_227, headingDeg: 262 })!
+      const all = rejoinTaxiRoute({
+        segments: ZJSY,
+        route: CLEARED,
+        fromSegment: 0,
+        from: TAXIING_WEST_227,
+        headingDeg: 262
+      })!
+      const endOnly = rejoinTaxiRoute({
+        segments: ZJSY,
+        route: CLEARED,
+        fromSegment: CLEARED.length - 1,
+        from: TAXIING_WEST_227,
+        headingDeg: 262
+      })!
       expect(endOnly.at(-1)).toEqual(CLEARED.at(-1))
       expect(lengthM(endOnly)).toBeCloseTo(lengthM(all), 0)
     })
 
     it('gives up off the network, so the caller keeps the line it has', () => {
-      expect(rejoinTaxiRoute({ segments: ZJSY, route: CLEARED, fromSegment: 0, from: { lat: 18.4, lon: 109.5 } })).toBeNull()
+      expect(
+        rejoinTaxiRoute({ segments: ZJSY, route: CLEARED, fromSegment: 0, from: { lat: 18.4, lon: 109.5 } })
+      ).toBeNull()
       expect(rejoinTaxiRoute({ segments: ZJSY, route: [], fromSegment: 0, from: STAND_227 })).toBeNull()
     })
 
     it("keeps a stand clearance's own stand point (not on the network) at the end", () => {
       const [endLon, endLat] = CLEARED.at(-1)!
       const standPoint: [number, number] = [endLon + 0.0002, endLat] // ~20 m on
-      const route = rejoinTaxiRoute({ segments: ZJSY, route: [...CLEARED, standPoint], fromSegment: 0, from: TAXIING_WEST_227, headingDeg: 262 })!
+      const route = rejoinTaxiRoute({
+        segments: ZJSY,
+        route: [...CLEARED, standPoint],
+        fromSegment: 0,
+        from: TAXIING_WEST_227,
+        headingDeg: 262
+      })!
       expect(route.at(-1)).toEqual(standPoint)
       expect(route.at(-2)).toEqual(CLEARED.at(-1))
     })
@@ -396,7 +491,7 @@ describe('remainingRoute', () => {
     expect(line.slice(2)).toEqual(ROUTE.slice(1))
   })
 
-  it("never jumps back to an earlier part of the line that happens to pass close by", () => {
+  it('never jumps back to an earlier part of the line that happens to pass close by', () => {
     // Near the start point, but already on the last leg (segment 2), which passes 55 m north of it.
     const { segment } = remainingRoute(ROUTE, { lat: 51.3304, lon: 0.0302 }, 2)
     expect(segment).toBe(2)

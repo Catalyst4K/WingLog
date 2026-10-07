@@ -15,7 +15,12 @@ const STAR_27R = [box('STAR', 'LOGA2H'), box('Arrival Runway', '27R')]
 describe('stepArrival', () => {
   it('reads a STAR clearance and returns a new state, leaving the old one alone', () => {
     const next = stepArrival(INITIAL_ARRIVAL_STATE, { kind: 'boxes', boxes: STAR_27R }, lookup)
-    expect(next.clearance).toEqual({ starIdent: 'LOGA2H', runway: '27R', approachIdent: null, approachTransition: null })
+    expect(next.clearance).toEqual({
+      starIdent: 'LOGA2H',
+      runway: '27R',
+      approachIdent: null,
+      approachTransition: null
+    })
     expect(INITIAL_ARRIVAL_STATE.clearance).toBeNull()
     expect(INITIAL_ARRIVAL_STATE.lastBoxesKey).toBe('')
   })
@@ -34,24 +39,54 @@ describe('stepArrival', () => {
 
   it('names a cleared approach the way the airport navdata does, with the briefed transition', () => {
     let state = stepArrival(INITIAL_ARRIVAL_STATE, { kind: 'boxes', boxes: STAR_27R }, lookup)
-    state = stepArrival(state, { kind: 'boxes', boxes: [box('Landing Runway', '27R'), box('Transition', 'LAM')] }, lookup)
-    state = stepArrival(state, { kind: 'boxes', boxes: [box('Cleared Approach', 'ILS approach runway 27R')] }, lookup)
-    expect(state.clearance).toEqual({ starIdent: 'LOGA2H', runway: '27R', approachIdent: 'ILS 27R', approachTransition: 'LAM' })
+    state = stepArrival(
+      state,
+      { kind: 'boxes', boxes: [box('Landing Runway', '27R'), box('Transition', 'LAM')] },
+      lookup
+    )
+    state = stepArrival(
+      state,
+      { kind: 'boxes', boxes: [box('Cleared Approach', 'ILS approach runway 27R')] },
+      lookup
+    )
+    expect(state.clearance).toEqual({
+      starIdent: 'LOGA2H',
+      runway: '27R',
+      approachIdent: 'ILS 27R',
+      approachTransition: 'LAM'
+    })
   })
 
   it('uses the boxes own wording when no arrival airport is known', () => {
     const noAirport: ArrivalLookup = { getArrivalIcao: () => null, listApproaches: () => EGLL }
-    const state = stepArrival(INITIAL_ARRIVAL_STATE, { kind: 'boxes', boxes: [box('Cleared Approach', 'ILS approach runway 27R')] }, noAirport)
+    const state = stepArrival(
+      INITIAL_ARRIVAL_STATE,
+      { kind: 'boxes', boxes: [box('Cleared Approach', 'ILS approach runway 27R')] },
+      noAirport
+    )
     expect(state.clearance?.runway).toBeNull()
     expect(state.clearance?.approachIdent).toBeTruthy()
   })
 
   it('drops the approach when a new STAR clearance is for another runway', () => {
-    let state = stepArrival(INITIAL_ARRIVAL_STATE, { kind: 'boxes', boxes: [box('Landing Runway', '27L')] }, lookup)
-    state = stepArrival(state, { kind: 'boxes', boxes: [box('Cleared Approach', 'ILS approach runway 27L')] }, lookup)
+    let state = stepArrival(
+      INITIAL_ARRIVAL_STATE,
+      { kind: 'boxes', boxes: [box('Landing Runway', '27L')] },
+      lookup
+    )
+    state = stepArrival(
+      state,
+      { kind: 'boxes', boxes: [box('Cleared Approach', 'ILS approach runway 27L')] },
+      lookup
+    )
     expect(state.clearance?.approachIdent).toBe('ILS 27L')
     state = stepArrival(state, { kind: 'boxes', boxes: STAR_27R }, lookup)
-    expect(state.clearance).toEqual({ starIdent: 'LOGA2H', runway: '27R', approachIdent: null, approachTransition: null })
+    expect(state.clearance).toEqual({
+      starIdent: 'LOGA2H',
+      runway: '27R',
+      approachIdent: null,
+      approachTransition: null
+    })
   })
 
   it('clears at touchdown only, and keeps the boxes already read', () => {

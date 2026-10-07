@@ -31,13 +31,11 @@ describe('extractOfpPdfUrl', () => {
   })
 
   it('rejects a non-https scheme even if otherwise well-formed', () => {
-    const url = extractOfpPdfUrl(
-      ofpJson({ directory: 'file:///etc/', pdf: { link: 'passwd' } })
-    )
+    const url = extractOfpPdfUrl(ofpJson({ directory: 'file:///etc/', pdf: { link: 'passwd' } }))
     expect(url).toBeNull()
   })
 
-  it('rejects a host other than SimBrief\'s own, even over https', () => {
+  it("rejects a host other than SimBrief's own, even over https", () => {
     const url = extractOfpPdfUrl(
       ofpJson({ directory: 'https://evil.example.com/ofp/', pdf: { link: 'x.pdf' } })
     )

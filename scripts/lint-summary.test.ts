@@ -15,11 +15,26 @@ describe('areaOf', () => {
 describe('summarise', () => {
   it('counts per rule and per area, errors apart', () => {
     const report = summarise([
-      { filePath: 'src/main/tracking/a.ts', messages: [{ ruleId: 'complexity', severity: 1 }, { ruleId: 'no-console', severity: 1 }] },
+      {
+        filePath: 'src/main/tracking/a.ts',
+        messages: [
+          { ruleId: 'complexity', severity: 1 },
+          { ruleId: 'no-console', severity: 1 }
+        ]
+      },
       { filePath: 'src/main/tracking/b.ts', messages: [{ ruleId: 'complexity', severity: 1 }] },
       { filePath: 'src/shared/c.ts', messages: [{ ruleId: 'no-console', severity: 2 }] },
       { filePath: 'src/shared/d.ts', messages: [] },
-      { filePath: 'src/shared/e.ts', messages: [{ ruleId: null, severity: 1, message: 'Unused eslint-disable directive (no problems were reported).' }] }
+      {
+        filePath: 'src/shared/e.ts',
+        messages: [
+          {
+            ruleId: null,
+            severity: 1,
+            message: 'Unused eslint-disable directive (no problems were reported).'
+          }
+        ]
+      }
     ])
     expect(report).toContain('5 findings in 4 files (1 errors).')
     expect(report).toContain('| complexity | 2 |')

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { emptyProcedureSelection, seedProcedureSelectionFromOfp, selectionFromFlight } from './procedure-selection'
+import {
+  emptyProcedureSelection,
+  seedProcedureSelectionFromOfp,
+  selectionFromFlight
+} from './procedure-selection'
 
 describe('emptyProcedureSelection', () => {
   it('is all-null', () => {

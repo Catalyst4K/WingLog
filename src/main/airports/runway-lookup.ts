@@ -45,7 +45,6 @@ export interface RunwayEnd {
   aimingPointDistanceM: number | null
 }
 
-
 function feetToMetersOrNull(raw: string | undefined): number | null {
   if (!raw) return null
   const feet = Number(raw)
@@ -93,7 +92,13 @@ export function loadRunwayEnds(raw: string): RunwayEnd[] {
     const lat = Number(row[latIdx])
     const lon = Number(row[lonIdx])
     const headingTrueDeg = Number(row[hdgIdx])
-    if (!row[icaoIdx] || !row[identIdx] || !Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(headingTrueDeg)) {
+    if (
+      !row[icaoIdx] ||
+      !row[identIdx] ||
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lon) ||
+      !Number.isFinite(headingTrueDeg)
+    ) {
       continue
     }
     const lengthM = feetToMetersOrNull(row[lengthIdx])
@@ -207,7 +212,8 @@ export function resolveRunwayEnd(
       end.lon,
       end.headingTrueDeg
     )
-    if (distanceFromThresholdM < MIN_ALONG_TRACK_M || distanceFromThresholdM > runwayMaxAlongTrackM(end)) continue
+    if (distanceFromThresholdM < MIN_ALONG_TRACK_M || distanceFromThresholdM > runwayMaxAlongTrackM(end))
+      continue
     if (Math.abs(centrelineOffsetM) > runwayLateralToleranceM(end)) continue
 
     // Position dominates the score — a candidate only reaches here already confirmed to

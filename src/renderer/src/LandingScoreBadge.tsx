@@ -21,6 +21,7 @@ const FAIR_THRESHOLD = 50
  */
 export function LandingScoreBadge(props: { score: number | null }): React.JSX.Element {
   if (props.score === null) return <span className="text-muted-foreground">—</span>
-  const variant = props.score >= GOOD_THRESHOLD ? 'default' : props.score >= FAIR_THRESHOLD ? 'secondary' : 'destructive'
+  const variant =
+    props.score >= GOOD_THRESHOLD ? 'default' : props.score >= FAIR_THRESHOLD ? 'secondary' : 'destructive'
   return <Badge variant={variant}>{props.score}</Badge>
 }

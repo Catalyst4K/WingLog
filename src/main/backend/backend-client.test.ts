@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { signSimbriefRequest } from './backend-client'
 
-const PARAMS = { origIcao: 'EGLL', destIcao: 'WSSS', type: 'A388', timestamp: 1788307200, outputPage: 'winglog.local/generate' }
+const PARAMS = {
+  origIcao: 'EGLL',
+  destIcao: 'WSSS',
+  type: 'A388',
+  timestamp: 1788307200,
+  outputPage: 'winglog.local/generate'
+}
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -9,9 +15,12 @@ afterEach(() => {
 
 describe('signSimbriefRequest', () => {
   it('posts the params and returns the apicode from the response', async () => {
-    const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>>(
-      async () => ({ ok: true, status: 200, json: async () => ({ apicode: 'abc123' }) })
-    )
+    const fetchMock = vi.fn<
+      (
+        url: string,
+        init?: RequestInit
+      ) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>
+    >(async () => ({ ok: true, status: 200, json: async () => ({ apicode: 'abc123' }) }))
     vi.stubGlobal('fetch', fetchMock)
 
     const apicode = await signSimbriefRequest(PARAMS)
@@ -33,7 +42,16 @@ describe('signSimbriefRequest', () => {
   })
 
   it('falls back to a generic message if the error response has no body', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 500, json: async () => { throw new Error('no body') } })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: false,
+        status: 500,
+        json: async () => {
+          throw new Error('no body')
+        }
+      }))
+    )
 
     await expect(signSimbriefRequest(PARAMS)).rejects.toThrow('SimBrief signing request failed (500)')
   })

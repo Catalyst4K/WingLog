@@ -62,7 +62,12 @@ let pauseEventCount = 0
 function writeHeaderOnce(telemetry: SimTelemetry): void {
   if (headerWritten) return
   headerWritten = true
-  const header: FlightFixtureHeader = { scenario, aircraftType: aircraftOverride ?? telemetry.title, capturedAt, notes }
+  const header: FlightFixtureHeader = {
+    scenario,
+    aircraftType: aircraftOverride ?? telemetry.title,
+    capturedAt,
+    notes
+  }
   writeFileSync(outputPath, JSON.stringify(header) + '\n')
   console.log(`Capturing to ${outputPath}`)
   console.log(`Header: ${JSON.stringify(header)}`)
@@ -104,7 +109,9 @@ process.on('SIGINT', () => {
     `\nStopping capture. ${tickCount} ticks, ${pauseEventCount} pause event(s) written to ${outputPath}`
   )
   if (!headerWritten) {
-    console.warn('No telemetry was ever received — the sim likely never connected. Output file was not created.')
+    console.warn(
+      'No telemetry was ever received — the sim likely never connected. Output file was not created.'
+    )
   }
   sim.stop()
   process.exit(0)

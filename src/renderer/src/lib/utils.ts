@@ -1,7 +1,7 @@
 /** shadcn/ui's class-name helper. */
 
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { clsx, type ClassValue } from 'clsx'
+import { twMerge } from 'tailwind-merge'
 
 /**
  * Joins class names, the later one winning a Tailwind conflict.

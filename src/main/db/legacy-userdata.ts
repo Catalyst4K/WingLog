@@ -48,10 +48,7 @@ export interface LegacyMigrationResult {
  * @param dbPath Where the current database belongs.
  * @returns Whether anything was copied, from where, and which other files came with it.
  */
-export function migrateLegacyUserData(
-  userDataPath: string,
-  dbPath: string
-): LegacyMigrationResult {
+export function migrateLegacyUserData(userDataPath: string, dbPath: string): LegacyMigrationResult {
   // Already running under the new name with real data — nothing to do, and in particular
   // never overwrite a database that exists.
   if (existsSync(dbPath)) return { migrated: false, sidecars: [] }

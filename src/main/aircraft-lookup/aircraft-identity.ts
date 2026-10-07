@@ -59,7 +59,8 @@ export function parseAircraftIdentity(input: {
 
   const distinctTypes = [...new Set(matches.map((m) => m.icaoType))]
   if (distinctTypes.length === 0) return { registration, icaoType: null, icaoTypeAmbiguous: false }
-  if (distinctTypes.length === 1) return { registration, icaoType: distinctTypes[0], icaoTypeAmbiguous: false }
+  if (distinctTypes.length === 1)
+    return { registration, icaoType: distinctTypes[0], icaoTypeAmbiguous: false }
 
   // More than one distinct type matched — prefer whichever result's own model normalizes
   // to exactly the query text over a looser substring match (e.g. "A-320" over

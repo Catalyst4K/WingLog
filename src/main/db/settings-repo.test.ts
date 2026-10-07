@@ -96,7 +96,10 @@ describe('settings repo', () => {
     setMapLanguage(db, 'de')
     setMapLanguage(db, 'xx' as never)
     expect(getMapLanguage(db)).toBe('de')
-    db.insert(appSetting).values({ key: 'mapLanguage', value: 'klingon' }).onConflictDoUpdate({ target: appSetting.key, set: { value: 'klingon' } }).run()
+    db.insert(appSetting)
+      .values({ key: 'mapLanguage', value: 'klingon' })
+      .onConflictDoUpdate({ target: appSetting.key, set: { value: 'klingon' } })
+      .run()
     expect(getMapLanguage(db)).toBe('en')
   })
 
@@ -112,7 +115,10 @@ describe('settings repo', () => {
     setAppLanguage(db, 'de')
     setAppLanguage(db, 'xx' as never)
     expect(getAppLanguage(db)).toBe('de')
-    db.insert(appSetting).values({ key: 'appLanguage', value: 'klingon' }).onConflictDoUpdate({ target: appSetting.key, set: { value: 'klingon' } }).run()
+    db.insert(appSetting)
+      .values({ key: 'appLanguage', value: 'klingon' })
+      .onConflictDoUpdate({ target: appSetting.key, set: { value: 'klingon' } })
+      .run()
     expect(getAppLanguage(db)).toBe('system')
   })
 
@@ -175,7 +181,7 @@ describe('settings repo', () => {
     })
   })
 
-  it('defaults GSX Remote settings to disabled, localhost, GSX\'s real default port 8744', () => {
+  it("defaults GSX Remote settings to disabled, localhost, GSX's real default port 8744", () => {
     expect(getGsxRemoteSettings(db)).toEqual({ enabled: false, host: 'localhost', port: 8744 })
   })
 

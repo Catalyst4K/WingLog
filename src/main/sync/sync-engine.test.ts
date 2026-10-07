@@ -23,7 +23,9 @@ class FakeSyncServer implements SyncClient {
 
   async syncPull(_email: string, _token: string, table: SyncTable, since: string | null): Promise<SyncRow[]> {
     const rows = [...(this.rows.get(table)?.values() ?? [])]
-    return rows.filter((r) => since === null || r.updatedAt > since).sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))
+    return rows
+      .filter((r) => since === null || r.updatedAt > since)
+      .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))
   }
 
   async syncPush(
@@ -137,9 +139,13 @@ describe('sync-engine', () => {
     expect(log).toContain('last-write-wins')
   })
 
-  it('translates a flight-invoice\'s flightId to the parent flight\'s uuid on push, and back to a local id on pull', async () => {
+  it("translates a flight-invoice's flightId to the parent flight's uuid on push, and back to a local id on pull", async () => {
     const createdAircraft = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' })
-    const createdFlight = createFlight(db, { aircraftId: createdAircraft.id, depIcao: 'EGLL', arrIcao: 'EGKK' })
+    const createdFlight = createFlight(db, {
+      aircraftId: createdAircraft.id,
+      depIcao: 'EGLL',
+      arrIcao: 'EGKK'
+    })
     addInvoicesForFlight(db, createdFlight.id, [
       {
         serviceGroup: 'fuel',
@@ -199,7 +205,11 @@ describe('sync-engine', () => {
     const created = createAircraft(db, { registration: 'G-ORIG', icaoType: 'A320' })
     const firstSync = await runSync(db, server, SESSION, dbPath)
     expect(firstSync.tables.aircraft.pushed).toBe(1)
-    const syncedUuid = db.select({ uuid: aircraft.uuid }).from(aircraft).where(eq(aircraft.id, created.id)).get()!.uuid as string
+    const syncedUuid = db
+      .select({ uuid: aircraft.uuid })
+      .from(aircraft)
+      .where(eq(aircraft.id, created.id))
+      .get()!.uuid as string
 
     const dbB = createDb(':memory:')
     migrate(dbB.db, { migrationsFolder: 'drizzle' })
@@ -213,8 +223,15 @@ describe('sync-engine', () => {
     const olderEdit = new Date(new Date(baseline).getTime() + 1000).toISOString() // profile A
     const newerEdit = new Date(new Date(baseline).getTime() + 5000).toISOString() // profile B
 
-    db.update(aircraft).set({ registration: 'G-FROM-A', updatedAt: olderEdit }).where(eq(aircraft.uuid, syncedUuid)).run()
-    dbB.db.update(aircraft).set({ registration: 'G-FROM-B', updatedAt: newerEdit }).where(eq(aircraft.uuid, syncedUuid)).run()
+    db.update(aircraft)
+      .set({ registration: 'G-FROM-A', updatedAt: olderEdit })
+      .where(eq(aircraft.uuid, syncedUuid))
+      .run()
+    dbB.db
+      .update(aircraft)
+      .set({ registration: 'G-FROM-B', updatedAt: newerEdit })
+      .where(eq(aircraft.uuid, syncedUuid))
+      .run()
 
     // Sync profile A first (pushes its older edit), then profile B (pulls A's edit, but
     // must not let it clobber B's own, genuinely newer, unsynced edit).
@@ -324,7 +341,11 @@ describe('sync-engine', () => {
   })
 
   it('skips an invalid (unparseable JSON) pulled row rather than throwing', async () => {
-    server.seed('aircraft', { uuid: 'bad-json', updatedAt: '2026-09-04T10:00:00.000Z', data: 'not json at all' })
+    server.seed('aircraft', {
+      uuid: 'bad-json',
+      updatedAt: '2026-09-04T10:00:00.000Z',
+      data: 'not json at all'
+    })
 
     const result = await runSync(db, server, SESSION, dbPath)
 
@@ -381,10 +402,17 @@ describe('sync-engine', () => {
 
   it('reports a real DB failure applying a pulled landing (missing NOT NULL fields) as skipped', async () => {
     const createdAircraft = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' })
-    const createdFlight = createFlight(db, { aircraftId: createdAircraft.id, depIcao: 'EGLL', arrIcao: 'EGCC' })
+    const createdFlight = createFlight(db, {
+      aircraftId: createdAircraft.id,
+      depIcao: 'EGLL',
+      arrIcao: 'EGCC'
+    })
     await runSync(db, server, SESSION, dbPath) // so the flight has a synced uuid to reference
-    const flightUuid = db.select({ uuid: flight.uuid }).from(flight).where(eq(flight.id, createdFlight.id)).get()!
-      .uuid as string
+    const flightUuid = db
+      .select({ uuid: flight.uuid })
+      .from(flight)
+      .where(eq(flight.id, createdFlight.id))
+      .get()!.uuid as string
 
     server.seed('landing', {
       uuid: 'incomplete-landing',
@@ -402,7 +430,11 @@ describe('sync-engine', () => {
 
   it('pushes a locally created landing, translating its flightId to the parent flight uuid', async () => {
     const createdAircraft = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' })
-    const createdFlight = createFlight(db, { aircraftId: createdAircraft.id, depIcao: 'EGLL', arrIcao: 'EGCC' })
+    const createdFlight = createFlight(db, {
+      aircraftId: createdAircraft.id,
+      depIcao: 'EGLL',
+      arrIcao: 'EGCC'
+    })
     createLanding(db, {
       flightId: createdFlight.id,
       seq: 1,
@@ -439,7 +471,11 @@ describe('sync-engine', () => {
 
   it('does not push a landing or flightInvoice whose parent flight has no uuid yet, and retries it next sync', async () => {
     const createdAircraft = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' })
-    const createdFlight = createFlight(db, { aircraftId: createdAircraft.id, depIcao: 'EGLL', arrIcao: 'EGCC' })
+    const createdFlight = createFlight(db, {
+      aircraftId: createdAircraft.id,
+      depIcao: 'EGLL',
+      arrIcao: 'EGCC'
+    })
     // Simulate a flight row with no uuid yet (schema.ts's uuid/updatedAt are nullable for
     // exactly this kind of pre-existing-row edge case) — serializeLanding/
     // serializeFlightInvoice must skip it rather than push a broken reference.
@@ -492,10 +528,17 @@ describe('sync-engine', () => {
 
   it('reports a real DB failure applying a pulled flightInvoice (missing NOT NULL fields) as skipped', async () => {
     const createdAircraft = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' })
-    const createdFlight = createFlight(db, { aircraftId: createdAircraft.id, depIcao: 'EGLL', arrIcao: 'EGCC' })
+    const createdFlight = createFlight(db, {
+      aircraftId: createdAircraft.id,
+      depIcao: 'EGLL',
+      arrIcao: 'EGCC'
+    })
     await runSync(db, server, SESSION, dbPath)
-    const flightUuid = db.select({ uuid: flight.uuid }).from(flight).where(eq(flight.id, createdFlight.id)).get()!
-      .uuid as string
+    const flightUuid = db
+      .select({ uuid: flight.uuid })
+      .from(flight)
+      .where(eq(flight.id, createdFlight.id))
+      .get()!.uuid as string
 
     server.seed('flightInvoice', {
       uuid: 'incomplete-invoice',

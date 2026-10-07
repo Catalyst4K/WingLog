@@ -6,7 +6,13 @@ import { parseFlightFixture, type FlightFixtureEvent, type ParsedFlightFixture }
 import { replayCapture, ReplaySocketLink } from './replay-capture'
 
 const EGLL = parseFlightFixture(
-  readFileSync(new URL('../tracking/__fixtures__/short-hop-egll-egcc.ndjson', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'), 'utf8')
+  readFileSync(
+    new URL('../tracking/__fixtures__/short-hop-egll-egcc.ndjson', import.meta.url).pathname.replace(
+      /^\/([A-Za-z]:)/,
+      '$1'
+    ),
+    'utf8'
+  )
 )
 const CAPTURED_AT = '2026-10-05T15:53:00.000Z'
 
@@ -57,7 +63,14 @@ describe('replayCapture', () => {
     const beyondAtc = new BeyondAtcService('replay', 0, replay.beyondAtc.socketCtor)
     const gsx = new GsxRemoteService('replay', 0, replay.gsx.socketCtor)
     const boxesWhenTicked: string[] = []
-    replay.sim.on('telemetry', () => boxesWhenTicked.push(beyondAtc.getState().infoBoxes.map((b) => b.info).join(',')))
+    replay.sim.on('telemetry', () =>
+      boxesWhenTicked.push(
+        beyondAtc
+          .getState()
+          .infoBoxes.map((b) => b.info)
+          .join(',')
+      )
+    )
     beyondAtc.start()
     gsx.start()
     await opened()
@@ -78,9 +91,12 @@ describe('replayCapture', () => {
 
   it('keeps the clock at the recorded moment of each event', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
-    const replay = replayCapture(capture([{ type: 'beyondatc', tOffsetMs: 2500, direction: 'in', text: STAR_BOXES }]), {
-      setClock: (epochMs) => vi.setSystemTime(epochMs)
-    })
+    const replay = replayCapture(
+      capture([{ type: 'beyondatc', tOffsetMs: 2500, direction: 'in', text: STAR_BOXES }]),
+      {
+        setClock: (epochMs) => vi.setSystemTime(epochMs)
+      }
+    )
     const beyondAtc = new BeyondAtcService('replay', 0, replay.beyondAtc.socketCtor)
     beyondAtc.start()
     await opened()
@@ -93,7 +109,9 @@ describe('replayCapture', () => {
   })
 
   it('drops lines that arrive while the service is not connected, as a real server would', async () => {
-    const replay = replayCapture(capture([{ type: 'beyondatc', tOffsetMs: 1500, direction: 'in', text: STAR_BOXES }]))
+    const replay = replayCapture(
+      capture([{ type: 'beyondatc', tOffsetMs: 1500, direction: 'in', text: STAR_BOXES }])
+    )
     const done = finished(replay)
     replay.sim.start()
     await done
@@ -103,9 +121,12 @@ describe('replayCapture', () => {
 
   it('refuses a clock for a capture without a valid capturedAt', () => {
     const bad = capture([])
-    expect(() => replayCapture({ ...bad, header: { ...bad.header, capturedAt: 'unknown' } }, { setClock: () => undefined })).toThrow(
-      /no valid capturedAt/
-    )
+    expect(() =>
+      replayCapture(
+        { ...bad, header: { ...bad.header, capturedAt: 'unknown' } },
+        { setClock: () => undefined }
+      )
+    ).toThrow(/no valid capturedAt/)
   })
 })
 

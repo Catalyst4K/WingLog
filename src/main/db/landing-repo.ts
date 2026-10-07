@@ -70,7 +70,13 @@ export function getLandingByFlight(db: WingLogDb, flightId: number): Landing | u
  * @returns The landings.
  */
 export function listLiveLandings(db: WingLogDb): Landing[] {
-  return db.select().from(landing).where(isNull(landing.deletedAt)).orderBy(asc(landing.flightId), asc(landing.seq)).all().map(toLanding)
+  return db
+    .select()
+    .from(landing)
+    .where(isNull(landing.deletedAt))
+    .orderBy(asc(landing.flightId), asc(landing.seq))
+    .all()
+    .map(toLanding)
 }
 
 /**
@@ -160,34 +166,36 @@ export function listAllLandings(db: WingLogDb): (Landing & {
   depIcao: string
   arrIcao: string
 })[] {
-  return db
-    .select({
-      landing: landing,
-      flightNumber: flight.flightNumber,
-      depIcao: flight.depIcao,
-      arrIcao: flight.arrIcao,
-      aircraftRegistration: aircraft.registration,
-      icaoType: aircraft.icaoType,
-      simRegistration: flight.simRegistration,
-      simIcaoType: flight.simIcaoType
-    })
-    .from(landing)
-    .innerJoin(flight, eq(landing.flightId, flight.id))
-    // Left, not inner — a free flight tracked with no fleet aircraft has a null
-    // flight.aircraftId, which would otherwise silently drop its landings from this list
-    // entirely. simRegistration/simIcaoType (below) stand in for the missing join instead.
-    .leftJoin(aircraft, eq(flight.aircraftId, aircraft.id))
-    .where(and(isNull(landing.deletedAt), isNull(flight.deletedAt)))
-    .orderBy(desc(landing.touchdownTsUtc))
-    .all()
-    .map((row) => ({
-      ...toLanding(row.landing),
-      flightNumber: row.flightNumber,
-      depIcao: row.depIcao,
-      arrIcao: row.arrIcao,
-      aircraftRegistration: row.aircraftRegistration ?? row.simRegistration ?? '—',
-      icaoType: row.icaoType ?? row.simIcaoType
-    }))
+  return (
+    db
+      .select({
+        landing: landing,
+        flightNumber: flight.flightNumber,
+        depIcao: flight.depIcao,
+        arrIcao: flight.arrIcao,
+        aircraftRegistration: aircraft.registration,
+        icaoType: aircraft.icaoType,
+        simRegistration: flight.simRegistration,
+        simIcaoType: flight.simIcaoType
+      })
+      .from(landing)
+      .innerJoin(flight, eq(landing.flightId, flight.id))
+      // Left, not inner — a free flight tracked with no fleet aircraft has a null
+      // flight.aircraftId, which would otherwise silently drop its landings from this list
+      // entirely. simRegistration/simIcaoType (below) stand in for the missing join instead.
+      .leftJoin(aircraft, eq(flight.aircraftId, aircraft.id))
+      .where(and(isNull(landing.deletedAt), isNull(flight.deletedAt)))
+      .orderBy(desc(landing.touchdownTsUtc))
+      .all()
+      .map((row) => ({
+        ...toLanding(row.landing),
+        flightNumber: row.flightNumber,
+        depIcao: row.depIcao,
+        arrIcao: row.arrIcao,
+        aircraftRegistration: row.aircraftRegistration ?? row.simRegistration ?? '—',
+        icaoType: row.icaoType ?? row.simIcaoType
+      }))
+  )
 }
 
 /**

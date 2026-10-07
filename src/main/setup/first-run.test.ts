@@ -39,7 +39,11 @@ describe('first-launch setup state (first-launch-setup.md)', () => {
 describe('getSetupContext', () => {
   it("reports BeyondATC running from a local probe, and GSX's folder as missing when there isn't one", async () => {
     const probe = vi.fn().mockResolvedValue(true)
-    expect(await getSetupContext(probe)).toEqual({ gsxFolderFound: false, gsxFolderPath: null, beyondAtcRunning: true })
+    expect(await getSetupContext(probe)).toEqual({
+      gsxFolderFound: false,
+      gsxFolderPath: null,
+      beyondAtcRunning: true
+    })
     expect(probe).toHaveBeenCalledWith('127.0.0.1', 41716)
   })
 })

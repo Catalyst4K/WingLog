@@ -73,7 +73,11 @@ const round = (value: number, places: number): number => {
  * @param landing Its last landing, if any.
  * @returns The record, or null.
  */
-export function toLogbookRecord(f: Flight, aircraft: Aircraft | undefined, landing: Landing | undefined): LogbookRecord | null {
+export function toLogbookRecord(
+  f: Flight,
+  aircraft: Aircraft | undefined,
+  landing: Landing | undefined
+): LogbookRecord | null {
   if (f.status !== 'completed' || !f.actualOutUtc || !f.actualInUtc) return null
   const registration = aircraft?.registration ?? f.simRegistration
   const icaoType = aircraft?.icaoType ?? f.simIcaoType
@@ -136,7 +140,8 @@ export function serializeLogbook(records: LogbookRecord[], format: DataFormat): 
 
 export type ParsedLogbookRow = { record: LogbookRecord; label: string } | { error: string; label: string }
 
-const text = (value: unknown): string | null => (typeof value === 'string' && value.trim() !== '' ? value.trim() : null)
+const text = (value: unknown): string | null =>
+  typeof value === 'string' && value.trim() !== '' ? value.trim() : null
 
 /**
  * Finite number, or null — accepts a JSON number or a CSV string, never NaN/Infinity.

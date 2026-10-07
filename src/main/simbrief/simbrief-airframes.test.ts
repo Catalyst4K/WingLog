@@ -284,10 +284,7 @@ describe('fetchAirframesForType', () => {
   })
 
   it('returns an empty list for a type the response does not contain', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(FIXTURE) })
-    )
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(FIXTURE) }))
 
     expect(await fetchAirframesForType('B788')).toEqual([])
   })

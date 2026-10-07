@@ -7,12 +7,29 @@
  * through the app's own steps: taxi-clearance.ts for the clearance and its line, and
  * taxi-reroute.ts's trackPosition on every recorded position, as the Track map does.
  */
-import type { BeyondAtcInfoBox, Flight, FlightPhase, NavdataStand, NavdataTaxiSegment, TrackPoint } from '../../src/shared/ipc'
+import type {
+  BeyondAtcInfoBox,
+  Flight,
+  FlightPhase,
+  NavdataStand,
+  NavdataTaxiSegment,
+  TrackPoint
+} from '../../src/shared/ipc'
 import { findStand } from '../../src/shared/stands'
 import { flatDistanceM } from '../../src/shared/geo'
-import { boxTaxiClearance, startOf, traceClearance, type TaxiClearance } from '../../src/renderer/src/taxi-clearance'
+import {
+  boxTaxiClearance,
+  startOf,
+  traceClearance,
+  type TaxiClearance
+} from '../../src/renderer/src/taxi-clearance'
 import { remainingRoute, type TracedRoute } from '../../src/renderer/src/taxi-route-trace'
-import { REROUTE_DISTANCE_M, REROUTE_MIN_SPEED_MS, startTracker, trackPosition } from '../../src/renderer/src/taxi-reroute'
+import {
+  REROUTE_DISTANCE_M,
+  REROUTE_MIN_SPEED_MS,
+  startTracker,
+  trackPosition
+} from '../../src/renderer/src/taxi-reroute'
 import type { LoggedInfoBoxes } from './local-data'
 
 /** How long before off-blocks or after on-blocks a clearance still belongs to a flight, in ms. */
@@ -74,7 +91,14 @@ export function groundSamples(flight: Flight, points: TrackPoint[], side: 'out' 
     .filter((p) => p.onGround && p.excludedReason === null)
     .map((p) => ({ p, tMs: Date.parse(p.tsUtc) }))
     .filter(({ tMs }) => (side === 'out' ? tMs < offMs : tMs > onMs))
-    .map(({ p, tMs }) => ({ tMs, lat: p.latitude, lon: p.longitude, headingDeg: p.headingTrueDeg, groundSpeedMs: p.groundSpeedMs, phase: repairedPhase(p) }))
+    .map(({ p, tMs }) => ({
+      tMs,
+      lat: p.latitude,
+      lon: p.longitude,
+      headingDeg: p.headingTrueDeg,
+      groundSpeedMs: p.groundSpeedMs,
+      phase: repairedPhase(p)
+    }))
 }
 
 function flightAt(flights: Flight[], atMs: number): Flight | undefined {
@@ -90,7 +114,11 @@ function flightAt(flights: Flight[], atMs: number): Flight | undefined {
  * runs until the next clearance on the same side of the same flight (a split clearance's first
  * half is scored only up to the second).
  */
-export function scenariosFromLog(log: LoggedInfoBoxes[], flights: Flight[], pointsFor: (flightId: number) => TrackPoint[]): TaxiScenario[] {
+export function scenariosFromLog(
+  log: LoggedInfoBoxes[],
+  flights: Flight[],
+  pointsFor: (flightId: number) => TrackPoint[]
+): TaxiScenario[] {
   const found: Omit<TaxiScenario, 'samples' | 'id'>[] = []
   let lastKey = ''
   for (const entry of log) {
@@ -104,19 +132,32 @@ export function scenariosFromLog(log: LoggedInfoBoxes[], flights: Flight[], poin
     lastKey = key
     const icao = side === 'out' ? flight.depIcao : flight.arrIcao
     if (!icao) continue
-    found.push({ flightId: flight.id, icao, side, atMs: entry.atMs, source: 'logged InfoBoxes', boxes: entry.boxes })
+    found.push({
+      flightId: flight.id,
+      icao,
+      side,
+      atMs: entry.atMs,
+      source: 'logged InfoBoxes',
+      boxes: entry.boxes
+    })
   }
   return found.map((sc, i) => {
     const next = found.slice(i + 1).find((o) => o.flightId === sc.flightId && o.side === sc.side)
     const flight = flights.find((f) => f.id === sc.flightId) as Flight
-    const samples = groundSamples(flight, pointsFor(sc.flightId), sc.side).filter((s) => s.tMs >= sc.atMs && (!next || s.tMs < next.atMs))
+    const samples = groundSamples(flight, pointsFor(sc.flightId), sc.side).filter(
+      (s) => s.tMs >= sc.atMs && (!next || s.tMs < next.atMs)
+    )
     const part = found.filter((o) => o.flightId === sc.flightId && o.side === sc.side).indexOf(sc)
     return { ...sc, id: `${sc.flightId}-${sc.side}${part > 0 ? `-${part + 1}` : ''}`, samples }
   })
 }
 
 /** A hand-written scenario, with its time resolved against the recorded taxi. */
-export function scenarioFromHand(hand: HandScenario, flight: Flight, points: TrackPoint[]): TaxiScenario | null {
+export function scenarioFromHand(
+  hand: HandScenario,
+  flight: Flight,
+  points: TrackPoint[]
+): TaxiScenario | null {
   const all = groundSamples(flight, points, hand.side)
   const resolve: Record<string, () => number | undefined> = {
     pushbackStart: () => all.find((s) => s.phase === 'pushback')?.tMs,
@@ -162,11 +203,17 @@ function clearanceFor(sc: TaxiScenario): TaxiClearance | null {
  * Plays one taxi through the app's steps. With `reroute` false, the line never re-routes: the
  * behaviour before taxi-reroute.md, for comparison.
  */
-export function runTaxi(sc: TaxiScenario, segments: NavdataTaxiSegment[], stands: NavdataStand[], reroute: boolean): TaxiRun {
+export function runTaxi(
+  sc: TaxiScenario,
+  segments: NavdataTaxiSegment[],
+  stands: NavdataStand[],
+  reroute: boolean
+): TaxiRun {
   const clearance = clearanceFor(sc)
   const stand = clearance?.stand ? findStand(stands, clearance.stand) : null
   const cleared = clearance ? traceClearance(clearance, segments, stand) : null
-  if (!clearance || !cleared) return { cleared, clearance, stand, reroutes: [], onLinePct: null, endToAircraftM: null }
+  if (!clearance || !cleared)
+    return { cleared, clearance, stand, reroutes: [], onLinePct: null, endToAircraftM: null }
 
   let tracker = startTracker(cleared)
   let drawn: TracedRoute = cleared
@@ -175,9 +222,21 @@ export function runTaxi(sc: TaxiScenario, segments: NavdataTaxiSegment[], stands
   let onLine = 0
   for (const s of sc.samples) {
     if (s.phase === 'takeoff') break
-    const update = trackPosition(tracker, { position: s, phase: s.phase, nowMs: s.tMs, segments: reroute ? segments : undefined })
+    const update = trackPosition(tracker, {
+      position: s,
+      phase: s.phase,
+      nowMs: s.tMs,
+      segments: reroute ? segments : undefined
+    })
     tracker = update.tracker
-    if (update.rerouted) reroutes.push({ tMs: s.tMs, at: { lat: s.lat, lon: s.lon }, headingDeg: s.headingDeg, before: drawn, after: update.line })
+    if (update.rerouted)
+      reroutes.push({
+        tMs: s.tMs,
+        at: { lat: s.lat, lon: s.lon },
+        headingDeg: s.headingDeg,
+        before: drawn,
+        after: update.line
+      })
     drawn = update.line
     if (s.phase === 'taxi' && !tracker.done && s.groundSpeedMs > REROUTE_MIN_SPEED_MS) {
       moving++
@@ -185,6 +244,15 @@ export function runTaxi(sc: TaxiScenario, segments: NavdataTaxiSegment[], stands
     }
   }
   const end = tracker.active.at(-1)
-  const endToAircraftM = end ? Math.min(...sc.samples.map((s) => flatDistanceM({ lat: end[1], lon: end[0] }, s))) : null
-  return { cleared, clearance, stand, reroutes, onLinePct: moving > 0 ? Math.round((100 * onLine) / moving) : null, endToAircraftM }
+  const endToAircraftM = end
+    ? Math.min(...sc.samples.map((s) => flatDistanceM({ lat: end[1], lon: end[0] }, s)))
+    : null
+  return {
+    cleared,
+    clearance,
+    stand,
+    reroutes,
+    onLinePct: moving > 0 ? Math.round((100 * onLine) / moving) : null,
+    endToAircraftM
+  }
 }

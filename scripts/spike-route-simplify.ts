@@ -79,7 +79,10 @@ function simplify<T extends LatLon>(points: T[], toleranceMeters: number): T[] {
 /** Binary-searches the tolerance needed to hit a point-count budget, for the
  *  "guarantee a payload size" variant discussed in the plan doc, as opposed to a fixed
  *  tolerance whose output size varies with route complexity. */
-function simplifyToTargetCount<T extends LatLon>(points: T[], targetCount: number): { result: T[]; toleranceMeters: number } {
+function simplifyToTargetCount<T extends LatLon>(
+  points: T[],
+  targetCount: number
+): { result: T[]; toleranceMeters: number } {
   let lo = 0
   let hi = 20_000
   let best = simplify(points, hi)
@@ -103,12 +106,14 @@ const db = new Database(dbPath, { readonly: true })
 
 const flightId = process.env['FLIGHT_ID']
   ? Number(process.env['FLIGHT_ID'])
-  : (db.prepare('SELECT flight_id FROM track_point GROUP BY flight_id ORDER BY COUNT(*) DESC LIMIT 1').get() as { flight_id: number })
-      .flight_id
+  : (
+      db
+        .prepare('SELECT flight_id FROM track_point GROUP BY flight_id ORDER BY COUNT(*) DESC LIMIT 1')
+        .get() as { flight_id: number }
+    ).flight_id
 
 const flight = db.prepare('SELECT dep_icao, arr_icao, status FROM flight WHERE id = ?').get(flightId) as
-  | { dep_icao: string; arr_icao: string; status: string }
-  | undefined
+  { dep_icao: string; arr_icao: string; status: string } | undefined
 
 const rawPoints = db
   .prepare('SELECT latitude, longitude FROM track_point WHERE flight_id = ? ORDER BY id ASC')
@@ -133,7 +138,9 @@ const targetResults: { target: number; actual: number; toleranceMeters: number }
 for (const target of [50, 100, 150]) {
   const { result, toleranceMeters } = simplifyToTargetCount(rawPoints, target)
   targetResults.push({ target, actual: result.length, toleranceMeters })
-  console.log(`${String(target).padStart(6)} | ${String(result.length).padStart(14)} | ${toleranceMeters.toFixed(1)}`)
+  console.log(
+    `${String(target).padStart(6)} | ${String(result.length).padStart(14)} | ${toleranceMeters.toFixed(1)}`
+  )
 }
 
 writeFileSync(

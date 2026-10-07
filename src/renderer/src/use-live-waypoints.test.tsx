@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import type { NavdataLeg, ProcedureSelection, WingLogApi } from '@shared/ipc'
-import { arrivalAirport, emptyProcedureSelection, useLiveWaypoints, type ProcedureAirports } from './procedure-selection'
+import {
+  arrivalAirport,
+  emptyProcedureSelection,
+  useLiveWaypoints,
+  type ProcedureAirports
+} from './procedure-selection'
 
 function leg(fixIdent: string): NavdataLeg {
   return {
@@ -22,8 +27,24 @@ function leg(fixIdent: string): NavdataLeg {
 const ofpJson = JSON.stringify({
   navlog: {
     fix: [
-      { ident: 'SIDFIX', type: 'wpt', pos_lat: '1', pos_long: '1', altitude_feet: '3000', stage: 'CLB', is_sid_star: '1' },
-      { ident: 'CRUISE', type: 'wpt', pos_lat: '2', pos_long: '2', altitude_feet: '35000', stage: 'CRZ', is_sid_star: '0' }
+      {
+        ident: 'SIDFIX',
+        type: 'wpt',
+        pos_lat: '1',
+        pos_long: '1',
+        altitude_feet: '3000',
+        stage: 'CLB',
+        is_sid_star: '1'
+      },
+      {
+        ident: 'CRUISE',
+        type: 'wpt',
+        pos_lat: '2',
+        pos_long: '2',
+        altitude_feet: '35000',
+        stage: 'CRZ',
+        is_sid_star: '0'
+      }
     ]
   }
 })
@@ -40,7 +61,7 @@ describe('arrivalAirport', () => {
 })
 
 describe('useLiveWaypoints with the alternate as the arrival airport (v1.1.1)', () => {
-  it("fetches the STAR and approach legs for the alternate, not the destination, and builds the route from them", async () => {
+  it('fetches the STAR and approach legs for the alternate, not the destination, and builds the route from them', async () => {
     const navdataGetProcedureWaypoints = vi.fn((icao: string, kind: string) =>
       Promise.resolve(kind === 'star' ? [leg(`${icao}-STAR`)] : [leg(`${icao}-APP`)])
     )
@@ -54,10 +75,18 @@ describe('useLiveWaypoints with the alternate as the arrival airport (v1.1.1)', 
 
     const { result } = renderHook(() => useLiveWaypoints(airports({ ofpJson }), selection))
 
-    await waitFor(() => expect(result.current.map((w) => w.ident)).toEqual(expect.arrayContaining(['KEWR-STAR', 'KEWR-APP'])))
+    await waitFor(() =>
+      expect(result.current.map((w) => w.ident)).toEqual(expect.arrayContaining(['KEWR-STAR', 'KEWR-APP']))
+    )
     expect(navdataGetProcedureWaypoints).toHaveBeenCalledWith('KEWR', 'star', 'ALT1A', '04R', null)
     expect(navdataGetProcedureWaypoints).toHaveBeenCalledWith('KEWR', 'approach', 'ILS 04R', null, null)
-    expect(navdataGetProcedureWaypoints).not.toHaveBeenCalledWith('KJFK', expect.anything(), expect.anything(), expect.anything(), expect.anything())
+    expect(navdataGetProcedureWaypoints).not.toHaveBeenCalledWith(
+      'KJFK',
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.anything()
+    )
     // The filed cruise stays in the route.
     expect(result.current.map((w) => w.ident)).toContain('CRUISE')
   })
@@ -66,7 +95,11 @@ describe('useLiveWaypoints with the alternate as the arrival airport (v1.1.1)', 
     const navdataGetProcedureWaypoints = vi.fn().mockResolvedValue([leg('NAVSID')])
     window.winglog = { navdataGetProcedureWaypoints } as unknown as WingLogApi
     const { result } = renderHook(() =>
-      useLiveWaypoints(airports({ ofpJson }), { ...emptyProcedureSelection(), sidIdent: 'BPK7F', departureRunway: '27L' })
+      useLiveWaypoints(airports({ ofpJson }), {
+        ...emptyProcedureSelection(),
+        sidIdent: 'BPK7F',
+        departureRunway: '27L'
+      })
     )
     await waitFor(() => expect(result.current.map((w) => w.ident)).toContain('NAVSID'))
     expect(navdataGetProcedureWaypoints).toHaveBeenCalledWith('EGLL', 'sid', 'BPK7F', '27L', null)
@@ -75,7 +108,9 @@ describe('useLiveWaypoints with the alternate as the arrival airport (v1.1.1)', 
   it("keeps SimBrief's segment when the legs come back empty or the fetch fails", async () => {
     for (const fetch of [vi.fn().mockResolvedValue([]), vi.fn().mockRejectedValue(new Error('no navdata'))]) {
       window.winglog = { navdataGetProcedureWaypoints: fetch } as unknown as WingLogApi
-      const { result } = renderHook(() => useLiveWaypoints(airports({ ofpJson }), { ...emptyProcedureSelection(), sidIdent: 'BPK7F' }))
+      const { result } = renderHook(() =>
+        useLiveWaypoints(airports({ ofpJson }), { ...emptyProcedureSelection(), sidIdent: 'BPK7F' })
+      )
       await waitFor(() => expect(fetch).toHaveBeenCalled())
       await new Promise((resolve) => setTimeout(resolve, 0))
       expect(result.current.map((w) => w.ident)).toEqual(['SIDFIX', 'CRUISE'])
@@ -85,11 +120,15 @@ describe('useLiveWaypoints with the alternate as the arrival airport (v1.1.1)', 
   it('never draws a fetch that resolves after the selection has moved on', async () => {
     const pending = new Map<string, (legs: NavdataLeg[]) => void>()
     const navdataGetProcedureWaypoints = vi.fn(
-      (_icao: string, _kind: string, ident: string) => new Promise<NavdataLeg[]>((resolve) => pending.set(ident, resolve))
+      (_icao: string, _kind: string, ident: string) =>
+        new Promise<NavdataLeg[]>((resolve) => pending.set(ident, resolve))
     )
     window.winglog = { navdataGetProcedureWaypoints } as unknown as WingLogApi
     const props = { selection: { ...emptyProcedureSelection(), sidIdent: 'OLD1A' } }
-    const { result, rerender } = renderHook(({ selection }) => useLiveWaypoints(airports({ ofpJson }), selection), { initialProps: props })
+    const { result, rerender } = renderHook(
+      ({ selection }) => useLiveWaypoints(airports({ ofpJson }), selection),
+      { initialProps: props }
+    )
     rerender({ selection: { ...emptyProcedureSelection(), sidIdent: 'NEW1A' } })
     pending.get('OLD1A')?.([leg('STALE')])
     await new Promise((resolve) => setTimeout(resolve, 0))
@@ -102,6 +141,8 @@ describe('useLiveWaypoints with the alternate as the arrival airport (v1.1.1)', 
     const navdataGetProcedureWaypoints = vi.fn().mockResolvedValue([leg('X')])
     window.winglog = { navdataGetProcedureWaypoints } as unknown as WingLogApi
     renderHook(() => useLiveWaypoints(airports(), { ...emptyProcedureSelection(), approachIdent: 'ILS 22R' }))
-    await waitFor(() => expect(navdataGetProcedureWaypoints).toHaveBeenCalledWith('KJFK', 'approach', 'ILS 22R', null, null))
+    await waitFor(() =>
+      expect(navdataGetProcedureWaypoints).toHaveBeenCalledWith('KJFK', 'approach', 'ILS 22R', null, null)
+    )
   })
 })

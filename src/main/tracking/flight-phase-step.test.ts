@@ -40,7 +40,11 @@ const SETTINGS: PhaseSettings = { paused: false, autoShutdown: true, runwayCheck
 const T0 = Date.UTC(2026, 9, 1, 12, 0, 0)
 
 /** Runs ticks one second apart, returning the state after each. */
-function run(from: PhaseState, ticks: Partial<SimTelemetry>[], settings: PhaseSettings = SETTINGS): PhaseState[] {
+function run(
+  from: PhaseState,
+  ticks: Partial<SimTelemetry>[],
+  settings: PhaseSettings = SETTINGS
+): PhaseState[] {
   const states: PhaseState[] = []
   let state = from
   for (const [i, tick] of ticks.entries()) {
@@ -85,7 +89,9 @@ describe('stepPhase', () => {
   })
 
   it('lands on the first tick on the ground in descent, and notes the flight has landed', () => {
-    const [landed] = run({ ...INITIAL_PHASE_STATE, phase: 'descent' }, [{ onGround: true, groundSpeedMs: 70 }])
+    const [landed] = run({ ...INITIAL_PHASE_STATE, phase: 'descent' }, [
+      { onGround: true, groundSpeedMs: 70 }
+    ])
     expect(landed).toMatchObject({ phase: 'landing', hasLanded: true })
   })
 
@@ -119,7 +125,16 @@ describe('stepPhase', () => {
       let state: PhaseState = { ...INITIAL_PHASE_STATE, phase }
       const out: boolean[] = []
       for (const at of [0, gapS, gapS * 2]) {
-        const step = stepPhase(state, telemetry({ onGround: phase === 'taxi', groundSpeedMs: 5, verticalSpeedMs: phase === 'climb' ? 5 : 0 }), T0 + at * 1000, SETTINGS)
+        const step = stepPhase(
+          state,
+          telemetry({
+            onGround: phase === 'taxi',
+            groundSpeedMs: 5,
+            verticalSpeedMs: phase === 'climb' ? 5 : 0
+          }),
+          T0 + at * 1000,
+          SETTINGS
+        )
         state = step.state
         out.push(step.record)
       }

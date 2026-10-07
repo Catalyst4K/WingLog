@@ -32,8 +32,14 @@ describe('setSourceData', () => {
     vi.stubGlobal('window', { winglog: { appLogRendererError: log } })
     try {
       const setData = vi.fn().mockRejectedValue(new Error('worker failed'))
-      setSourceData({ getSource: () => ({ id: 'vfr-airfields', setData }) } as unknown as MapLibreMap, 'vfr-airfields', EMPTY)
-      await vi.waitFor(() => expect(log).toHaveBeenCalledWith('map: update source vfr-airfields', 'worker failed'))
+      setSourceData(
+        { getSource: () => ({ id: 'vfr-airfields', setData }) } as unknown as MapLibreMap,
+        'vfr-airfields',
+        EMPTY
+      )
+      await vi.waitFor(() =>
+        expect(log).toHaveBeenCalledWith('map: update source vfr-airfields', 'worker failed')
+      )
     } finally {
       vi.unstubAllGlobals()
     }

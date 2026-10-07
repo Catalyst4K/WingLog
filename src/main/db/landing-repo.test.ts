@@ -134,7 +134,12 @@ describe('landing repo', () => {
     })
 
     it('lists landings newest-first, joined with flight route info', () => {
-      const olderFlight = createFlight(db, { aircraftId, depIcao: 'EGCC', arrIcao: 'EGLL', flightNumber: 'BA100' })
+      const olderFlight = createFlight(db, {
+        aircraftId,
+        depIcao: 'EGCC',
+        arrIcao: 'EGLL',
+        flightNumber: 'BA100'
+      })
       createLanding(db, makeLanding(olderFlight.id, { touchdownTsUtc: '2026-09-01T00:00:00.000Z' }))
       createLanding(db, makeLanding(flightId, { touchdownTsUtc: '2026-09-06T12:00:00.000Z' }))
 
@@ -177,7 +182,7 @@ describe('landing repo', () => {
       expect(rows[1].aircraftRegistration).toBe('G-ABCD')
     })
 
-    it('falls back to the flight\'s own sim-reported registration/type for a free flight tracked with no fleet aircraft', () => {
+    it("falls back to the flight's own sim-reported registration/type for a free flight tracked with no fleet aircraft", () => {
       const freeFlight = createFreeFlight(db, {
         aircraftId: null,
         simRegistration: 'G-TEST',

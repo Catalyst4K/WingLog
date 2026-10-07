@@ -32,8 +32,18 @@ export function runwayEndsFromCentre(runway: ParsedRunway): DerivedRunwayEnd[] {
   // The primary end is reached by moving from centre *against* the primary heading — an
   // aircraft crosses this threshold, then rolls out in the primary-heading direction
   // toward the far (secondary) end.
-  const primaryThreshold = offsetAlongBearing(runway.latitude, runway.longitude, runway.headingDeg, -halfLengthM)
-  const secondaryThreshold = offsetAlongBearing(runway.latitude, runway.longitude, runway.headingDeg, halfLengthM)
+  const primaryThreshold = offsetAlongBearing(
+    runway.latitude,
+    runway.longitude,
+    runway.headingDeg,
+    -halfLengthM
+  )
+  const secondaryThreshold = offsetAlongBearing(
+    runway.latitude,
+    runway.longitude,
+    runway.headingDeg,
+    halfLengthM
+  )
   return [
     {
       ident: runway.primaryIdent,

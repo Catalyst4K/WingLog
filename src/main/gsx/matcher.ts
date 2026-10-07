@@ -22,7 +22,9 @@ export interface FlightMatchWindow {
 function withinWindow(timestampUtc: string, window: FlightMatchWindow): boolean {
   if (!window.windowStartUtc && !window.windowEndUtc) return false
   const t = new Date(timestampUtc).getTime()
-  const start = window.windowStartUtc ? new Date(window.windowStartUtc).getTime() - WINDOW_TOLERANCE_MS : -Infinity
+  const start = window.windowStartUtc
+    ? new Date(window.windowStartUtc).getTime() - WINDOW_TOLERANCE_MS
+    : -Infinity
   const end = window.windowEndUtc ? new Date(window.windowEndUtc).getTime() + WINDOW_TOLERANCE_MS : Infinity
   return t >= start && t <= end
 }

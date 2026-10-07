@@ -79,7 +79,13 @@ describe('gsxCommands', () => {
   })
 
   it('does nothing while GSX Remote is off', () => {
-    expect(() => dispatchCommand(gsxCommands(() => undefined), 'gsx.toggleMenu', [])).not.toThrow()
+    expect(() =>
+      dispatchCommand(
+        gsxCommands(() => undefined),
+        'gsx.toggleMenu',
+        []
+      )
+    ).not.toThrow()
   })
 })
 
@@ -87,7 +93,17 @@ describe('dispatchCommand', () => {
   const table = gsxCommands(() => fakeGsx())
 
   it('refuses a name that is not in the table, whatever its type', () => {
-    for (const name of ['atc.setAction', 'toString', '__proto__', 'constructor', '', 42, null, undefined, {}]) {
+    for (const name of [
+      'atc.setAction',
+      'toString',
+      '__proto__',
+      'constructor',
+      '',
+      42,
+      null,
+      undefined,
+      {}
+    ]) {
       expect(() => dispatchCommand(table, name, [])).toThrow('Unknown command')
     }
   })

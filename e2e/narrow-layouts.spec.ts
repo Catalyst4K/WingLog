@@ -11,10 +11,13 @@ import { FakeGsxRemoteServer, VHHH_BOOT_SNAPSHOT } from './gsx-remote-server'
  * sideways at any width below that.
  */
 async function setWidth(app: ElectronApplication, width: number, height: number): Promise<void> {
-  await app.evaluate(({ BrowserWindow }, size) => BrowserWindow.getAllWindows()[0]!.setContentSize(size.width, size.height), {
-    width,
-    height
-  })
+  await app.evaluate(
+    ({ BrowserWindow }, size) => BrowserWindow.getAllWindows()[0]!.setContentSize(size.width, size.height),
+    {
+      width,
+      height
+    }
+  )
 }
 
 /**
@@ -108,7 +111,9 @@ test('at the default window width every tab label sits on one line, under its un
     await page.reload()
     await setWidth(app, 1100, 720)
     await page.getByRole('tab', { name: 'Ground services' }).click()
-    const heights = await page.getByRole('tab').evaluateAll((tabs) => tabs.map((tab) => tab.getBoundingClientRect().height))
+    const heights = await page
+      .getByRole('tab')
+      .evaluateAll((tabs) => tabs.map((tab) => tab.getBoundingClientRect().height))
     expect(heights.length).toBe(7)
     expect(new Set(heights).size).toBe(1)
     const label = page.getByRole('tab', { name: 'Ground services' }).getByText('Ground services')

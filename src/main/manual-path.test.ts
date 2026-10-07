@@ -10,6 +10,8 @@ describe('manualPath', () => {
   })
 
   it('is the manual:build output when running from source', () => {
-    expect(manualPath(false, 'ignored', 'C:/src/winglog')).toBe(join('C:/src/winglog', 'release', 'manual', 'WingLog Manual.pdf'))
+    expect(manualPath(false, 'ignored', 'C:/src/winglog')).toBe(
+      join('C:/src/winglog', 'release', 'manual', 'WingLog Manual.pdf')
+    )
   })
 })

@@ -78,7 +78,10 @@ class ReplaySocket implements ServiceSocket {
     return this.state
   }
 
-  addEventListener<K extends keyof ServiceSocketListeners>(type: K, listener: ServiceSocketListeners[K]): void {
+  addEventListener<K extends keyof ServiceSocketListeners>(
+    type: K,
+    listener: ServiceSocketListeners[K]
+  ): void {
     this.listeners[type].push(listener)
   }
 
@@ -138,14 +141,18 @@ export interface ReplayedCapture {
  * @param options Replay options, plus an optional clock to keep in step.
  * @returns The sim to start, and one link per stream.
  */
-export function replayCapture(fixture: string | ParsedFlightFixture, options: ReplayCaptureOptions = {}): ReplayedCapture {
+export function replayCapture(
+  fixture: string | ParsedFlightFixture,
+  options: ReplayCaptureOptions = {}
+): ReplayedCapture {
   const sim = new ReplaySimConnectService(fixture, options)
   const beyondAtc = new ReplaySocketLink()
   const gsx = new ReplaySocketLink()
   const startMs = Date.parse(sim.header.capturedAt)
   const { setClock } = options
   if (setClock) {
-    if (Number.isNaN(startMs)) throw new Error(`Capture ${sim.header.scenario} has no valid capturedAt for the clock`)
+    if (Number.isNaN(startMs))
+      throw new Error(`Capture ${sim.header.scenario} has no valid capturedAt for the clock`)
     sim.on('offset', (offsetMs) => setClock(startMs + offsetMs))
   }
   sim.on('captured', (event) => {

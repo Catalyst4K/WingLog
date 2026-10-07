@@ -69,7 +69,10 @@ export function searchAirlineList(airlines: AirlineOption[], query: string): Air
 // Parsed on first use, not at module load (docs/decisions.md, memory-usage entry) — same
 // reasoning as airport-search.ts. Shared by both exports below, since either can be the
 // first to touch it (a Fleet airline search vs. the IATA backfill script).
-const getAllAirlines = lazy((): AirlineOption[] => [...loadAirlines(airlinesRaw), ...loadAirlines(airlineAliasesRaw)])
+const getAllAirlines = lazy((): AirlineOption[] => [
+  ...loadAirlines(airlinesRaw),
+  ...loadAirlines(airlineAliasesRaw)
+])
 
 /**
  * Searches the vendored airlines and the hand-kept aliases.

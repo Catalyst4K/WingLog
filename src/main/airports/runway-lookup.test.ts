@@ -13,7 +13,9 @@ import {
 /** Fills in Phase 1's real-geometry fields with "unknown" defaults so existing fixtures
  *  exercise the same fixed-fallback tolerances they always have — tests that care about
  *  the real per-runway width/length gating override them explicitly. */
-function runwayEnd(fields: Pick<RunwayEnd, 'icao' | 'ident' | 'lat' | 'lon' | 'headingTrueDeg'> & Partial<RunwayEnd>): RunwayEnd {
+function runwayEnd(
+  fields: Pick<RunwayEnd, 'icao' | 'ident' | 'lat' | 'lon' | 'headingTrueDeg'> & Partial<RunwayEnd>
+): RunwayEnd {
   return {
     lengthM: null,
     widthM: null,
@@ -83,7 +85,7 @@ describe('resolveRunwayEnd', () => {
   ]
 
   it.each([70, 71, 72, 73, 74])(
-    'resolves a real touchdown on 07L\'s centreline to 07L, not the closer-heading 07C (touchdown heading %d)',
+    "resolves a real touchdown on 07L's centreline to 07L, not the closer-heading 07C (touchdown heading %d)",
     (touchdownHeadingDeg) => {
       // 400m past 07L's threshold, exactly on its centreline.
       const headingRad = (74 * Math.PI) / 180
@@ -99,11 +101,13 @@ describe('resolveRunwayEnd', () => {
     }
   )
 
-  it('uses a candidate\'s own real width for lateral tolerance instead of the fixed fallback', () => {
+  it("uses a candidate's own real width for lateral tolerance instead of the fixed fallback", () => {
     // A narrow 30m-wide runway (half-width 15m + the 20m noise margin = 35m tolerance) —
     // 40m off centreline is outside that, even though it's well within the fixed 100m
     // fallback the old, width-unaware version of this check would have used.
-    const narrow = [runwayEnd({ icao: 'EGLL', ident: '09', lat: 51.4775, lon: -0.4614, headingTrueDeg: 90, widthM: 30 })]
+    const narrow = [
+      runwayEnd({ icao: 'EGLL', ident: '09', lat: 51.4775, lon: -0.4614, headingTrueDeg: 90, widthM: 30 })
+    ]
     const headingRad = (90 * Math.PI) / 180
     const metersPerDegLat = 111_320
     const metersPerDegLon = metersPerDegLat * Math.cos((51.4775 * Math.PI) / 180)
@@ -118,12 +122,14 @@ describe('resolveRunwayEnd', () => {
     expect(resolveRunwayEnd(narrow, 'EGLL', 90, touchdownLat, touchdownLon)).toBeNull()
   })
 
-  it('uses a candidate\'s own real length for the along-track upper bound instead of the fixed fallback', () => {
+  it("uses a candidate's own real length for the along-track upper bound instead of the fixed fallback", () => {
     // A short 500m runway — a touchdown 1000m past the threshold is well within the fixed
     // 6000m fallback but past the end of this specific, short runway. Heading 90 (due
     // east): distanceFromThresholdM tracks purely eastward movement (positionRelativeTo-
     // Runway's own decomposition), so shift longitude, not latitude.
-    const short = [runwayEnd({ icao: 'EGLC', ident: '09', lat: 51.5, lon: 0.05, headingTrueDeg: 90, lengthM: 500 })]
+    const short = [
+      runwayEnd({ icao: 'EGLC', ident: '09', lat: 51.5, lon: 0.05, headingTrueDeg: 90, lengthM: 500 })
+    ]
     const metersPerDegLon = 111_320 * Math.cos((51.5 * Math.PI) / 180)
     const touchdownLon = 0.05 + 1000 / metersPerDegLon
     expect(resolveRunwayEnd(short, 'EGLC', 90, 51.5, touchdownLon)).toBeNull()
@@ -151,15 +157,21 @@ describe('resolveAirportPosition', () => {
 
 describe('loadRunwayEnds', () => {
   it('parses a real-shaped CSV and skips rows with missing/non-numeric fields', () => {
-    const csv = ['icao,ident,lat,lon,heading_true_deg', 'EGLL,27L,51.4775,-0.4614,270', 'EGLL,,,,', 'BAD,X,notanumber,0,0'].join(
-      '\n'
-    )
+    const csv = [
+      'icao,ident,lat,lon,heading_true_deg',
+      'EGLL,27L,51.4775,-0.4614,270',
+      'EGLL,,,,',
+      'BAD,X,notanumber,0,0'
+    ].join('\n')
     const ends = loadRunwayEnds(csv)
-    expect(ends).toEqual([runwayEnd({ icao: 'EGLL', ident: '27L', lat: 51.4775, lon: -0.4614, headingTrueDeg: 270 })])
+    expect(ends).toEqual([
+      runwayEnd({ icao: 'EGLL', ident: '27L', lat: 51.4775, lon: -0.4614, headingTrueDeg: 270 })
+    ])
   })
 
-  it('parses Phase 1\'s length/width/displaced-threshold/elevation/surface columns, converting feet to metres', () => {
-    const header = 'icao,ident,lat,lon,heading_true_deg,length_ft,width_ft,displaced_threshold_ft,elevation_ft,surface'
+  it("parses Phase 1's length/width/displaced-threshold/elevation/surface columns, converting feet to metres", () => {
+    const header =
+      'icao,ident,lat,lon,heading_true_deg,length_ft,width_ft,displaced_threshold_ft,elevation_ft,surface'
     const row = 'VHHH,07L,22.321074,113.880692,74,13858,200,0,28,ASP'
     const [end] = loadRunwayEnds([header, row].join('\n'))
     expect(end).toMatchObject({
@@ -174,7 +186,8 @@ describe('loadRunwayEnds', () => {
   })
 
   it('treats a blank Phase 1 column as unknown, not zero — except displaced-threshold, which defaults to zero', () => {
-    const header = 'icao,ident,lat,lon,heading_true_deg,length_ft,width_ft,displaced_threshold_ft,elevation_ft,surface'
+    const header =
+      'icao,ident,lat,lon,heading_true_deg,length_ft,width_ft,displaced_threshold_ft,elevation_ft,surface'
     const row = 'EGLL,27L,51.4775,-0.4614,270,,,,,'
     const [end] = loadRunwayEnds([header, row].join('\n'))
     expect(end).toMatchObject({
@@ -266,7 +279,14 @@ describe('toLandingRunway', () => {
 
 describe('distanceFromUsableThresholdM', () => {
   it('subtracts the displacement from the raw physical-end distance', () => {
-    const end = runwayEnd({ icao: 'X', ident: '09', lat: 0, lon: 0, headingTrueDeg: 90, displacedThresholdM: 100 })
+    const end = runwayEnd({
+      icao: 'X',
+      ident: '09',
+      lat: 0,
+      lon: 0,
+      headingTrueDeg: 90,
+      displacedThresholdM: 100
+    })
     expect(distanceFromUsableThresholdM({ distanceFromThresholdM: 350, centrelineOffsetM: 0 }, end)).toBe(250)
   })
 

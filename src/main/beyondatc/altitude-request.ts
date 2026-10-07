@@ -154,7 +154,8 @@ export async function requestAltitude(
   targetFt: number,
   timeouts: AltitudeRequestTimeouts = DEFAULT_TIMEOUTS
 ): Promise<{ outcome: AltitudeRequestOutcome; label: string | null }> {
-  if (!session.getState().actions.includes(REQUEST_ALTITUDE_ACTION)) return { outcome: 'unavailable', label: null }
+  if (!session.getState().actions.includes(REQUEST_ALTITUDE_ACTION))
+    return { outcome: 'unavailable', label: null }
 
   session.setAction(REQUEST_ALTITUDE_ACTION)
   const levels = await waitFor(
@@ -176,6 +177,11 @@ export async function requestAltitude(
 
   const sentAt = Date.now()
   session.setAction(label)
-  const confirmed = await waitFor(session, 'state', () => (boxConfirmsLevel(session.getState(), label, sentAt) ? true : null), timeouts.answerMs)
+  const confirmed = await waitFor(
+    session,
+    'state',
+    () => (boxConfirmsLevel(session.getState(), label, sentAt) ? true : null),
+    timeouts.answerMs
+  )
   return { outcome: confirmed ? 'granted' : 'noAnswer', label }
 }

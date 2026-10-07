@@ -21,11 +21,14 @@ const WIDTH = 1440
 const HEIGHT = 900
 
 async function prepare(app: ElectronApplication, page: Page): Promise<void> {
-  await app.evaluate(({ BrowserWindow }, size) => {
-    const win = BrowserWindow.getAllWindows()[0]!
-    win.setSize(size.width, size.height)
-    win.center()
-  }, { width: WIDTH, height: HEIGHT })
+  await app.evaluate(
+    ({ BrowserWindow }, size) => {
+      const win = BrowserWindow.getAllWindows()[0]!
+      win.setSize(size.width, size.height)
+      win.center()
+    },
+    { width: WIDTH, height: HEIGHT }
+  )
   // Light theme for print. App reads the theme at start, so reload to apply it.
   await page.evaluate(() => (globalThis as unknown as Window).winglog.settingsSetTheme('light'))
   await page.reload()
@@ -40,11 +43,20 @@ async function shot(page: Page, name: string): Promise<void> {
 
 function seededProfile(): string {
   const dir = mkdtempSync(join(tmpdir(), 'winglog-manual-shots-'))
-  const electronBin = join('node_modules', 'electron', 'dist', process.platform === 'win32' ? 'electron.exe' : 'electron')
-  execFileSync(electronBin, ['./node_modules/vitest/vitest.mjs', 'run', 'src/main/tracking/seed-e2e-completed-flight.test.ts'], {
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', WINGLOG_E2E_SEED_DB_PATH: join(dir, 'winglog.db') },
-    stdio: 'inherit'
-  })
+  const electronBin = join(
+    'node_modules',
+    'electron',
+    'dist',
+    process.platform === 'win32' ? 'electron.exe' : 'electron'
+  )
+  execFileSync(
+    electronBin,
+    ['./node_modules/vitest/vitest.mjs', 'run', 'src/main/tracking/seed-e2e-completed-flight.test.ts'],
+    {
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', WINGLOG_E2E_SEED_DB_PATH: join(dir, 'winglog.db') },
+      stdio: 'inherit'
+    }
+  )
   return dir
 }
 
@@ -90,9 +102,24 @@ test('fleet, logbook and settings on a seeded profile', async () => {
     // A small demo fleet alongside the seeded G-TEST.
     await page.evaluate(async () => {
       const api = (globalThis as unknown as Window).winglog
-      await api.aircraftCreate({ registration: 'G-WLAA', icaoType: 'A20N', operator: 'Demo Air', currentIcao: 'EGLL' })
-      await api.aircraftCreate({ registration: 'G-WLAB', icaoType: 'B38M', operator: 'Demo Air', currentIcao: 'EGCC' })
-      await api.aircraftCreate({ registration: 'G-WLHV', icaoType: 'A359', operator: 'Demo Air', currentIcao: 'VHHH' })
+      await api.aircraftCreate({
+        registration: 'G-WLAA',
+        icaoType: 'A20N',
+        operator: 'Demo Air',
+        currentIcao: 'EGLL'
+      })
+      await api.aircraftCreate({
+        registration: 'G-WLAB',
+        icaoType: 'B38M',
+        operator: 'Demo Air',
+        currentIcao: 'EGCC'
+      })
+      await api.aircraftCreate({
+        registration: 'G-WLHV',
+        icaoType: 'A359',
+        operator: 'Demo Air',
+        currentIcao: 'VHHH'
+      })
     })
     // Fleet reads its list when it opens: leave and come back to pick up the new aircraft.
     await page.getByRole('tab', { name: 'Logbook' }).click()
@@ -122,8 +149,16 @@ test('fleet, logbook and settings on a seeded profile', async () => {
 
 test('a live free flight on Track', async () => {
   const fixturePath = join(process.cwd(), 'src/main/tracking/__fixtures__/short-hop-egll-egcc.ndjson')
-  const { app, window: page, cleanup } = await launchApp({
-    env: { WINGLOG_E2E_FIXTURE: fixturePath, WINGLOG_E2E_REPLAY_MODE: 'paced', WINGLOG_E2E_REPLAY_SPEED: '40' }
+  const {
+    app,
+    window: page,
+    cleanup
+  } = await launchApp({
+    env: {
+      WINGLOG_E2E_FIXTURE: fixturePath,
+      WINGLOG_E2E_REPLAY_MODE: 'paced',
+      WINGLOG_E2E_REPLAY_SPEED: '40'
+    }
   })
   try {
     await prepare(app, page)
@@ -144,7 +179,9 @@ test('the BeyondATC page', async () => {
   const { app, window: page, cleanup } = await launchApp({ env: server.env })
   try {
     await prepare(app, page)
-    await page.evaluate(() => (globalThis as unknown as Window).winglog.settingsSetBeyondAtc({ enabled: true, host: '127.0.0.1' }))
+    await page.evaluate(() =>
+      (globalThis as unknown as Window).winglog.settingsSetBeyondAtc({ enabled: true, host: '127.0.0.1' })
+    )
     await server.waitForConnection()
     server.sendLines(...LARGE_REAL_SNAPSHOT)
     server.sendLines(...DEMO_CLEARANCE)
@@ -164,7 +201,12 @@ test('the Ground services page', async () => {
   try {
     await prepare(app, page)
     await page.evaluate(
-      (port) => (globalThis as unknown as Window).winglog.settingsSetGsxRemote({ enabled: true, host: '127.0.0.1', port }),
+      (port) =>
+        (globalThis as unknown as Window).winglog.settingsSetGsxRemote({
+          enabled: true,
+          host: '127.0.0.1',
+          port
+        }),
       server.port
     )
     await server.waitForConnection()

@@ -78,7 +78,10 @@ export function registerGsxRemoteHandlers(
     () => gsxRemoteService?.getCommandBar() ?? EMPTY_COMMAND_BAR
   )
   const commands = gsxCommands(() => gsxRemoteService)
-  const command = (name: GsxCommand) => (_event: unknown, ...args: unknown[]) => dispatchCommand(commands, name, args)
+  const command =
+    (name: GsxCommand) =>
+    (_event: unknown, ...args: unknown[]) =>
+      dispatchCommand(commands, name, args)
   ipcMain.handle(IpcChannels.gsxRemotePickMenu, command('gsx.pickMenu'))
   ipcMain.handle(IpcChannels.gsxRemoteSearch, command('gsx.search'))
   ipcMain.handle(IpcChannels.gsxRemoteToggleMenu, command('gsx.toggleMenu'))

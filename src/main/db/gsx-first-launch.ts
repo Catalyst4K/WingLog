@@ -4,7 +4,12 @@
 import { existsSync } from 'node:fs'
 import type { GsxFirstLaunchResult } from '@shared/ipc'
 import type { WingLogDb } from './client'
-import { getGsxSettings, hasCheckedGsxFirstLaunch, setCheckedGsxFirstLaunch, setGsxSettings } from './settings-repo'
+import {
+  getGsxSettings,
+  hasCheckedGsxFirstLaunch,
+  setCheckedGsxFirstLaunch,
+  setGsxSettings
+} from './settings-repo'
 import { defaultGsxReceiptsPath } from '../gsx/default-path'
 
 /**

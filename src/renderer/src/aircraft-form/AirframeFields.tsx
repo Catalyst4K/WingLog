@@ -170,7 +170,12 @@ export function CustomAirframeField(props: {
         variant="outline"
         size="sm"
         className="w-fit"
-        onClick={() => runAsync('aircraft form: open airframes page', winglogApi().dispatchOpenSimBriefAirframes(trimmed || null))}
+        onClick={() =>
+          runAsync(
+            'aircraft form: open airframes page',
+            winglogApi().dispatchOpenSimBriefAirframes(trimmed || null)
+          )
+        }
       >
         {t('aircraftForm.openAirframesPage')}
       </Button>

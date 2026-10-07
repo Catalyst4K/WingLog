@@ -125,9 +125,11 @@ export function FlightDetailLoader(
     let cancelled = false
     runAsync(
       'LogbookView logbookGetFlight',
-      winglogApi().logbookGetFlight(listRow.id).then((flight) => {
-        if (!cancelled) setLoaded({ row: listRow, flight })
-      })
+      winglogApi()
+        .logbookGetFlight(listRow.id)
+        .then((flight) => {
+          if (!cancelled) setLoaded({ row: listRow, flight })
+        })
     )
     return () => {
       cancelled = true

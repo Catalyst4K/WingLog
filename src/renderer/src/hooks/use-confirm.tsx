@@ -35,9 +35,10 @@ interface ConfirmOptions {
  */
 export function useConfirm(): [(options: ConfirmOptions) => Promise<boolean>, React.JSX.Element] {
   const { t } = useTranslation()
-  const [pending, setPending] = useState<{ options: ConfirmOptions; resolve: (value: boolean) => void } | null>(
-    null
-  )
+  const [pending, setPending] = useState<{
+    options: ConfirmOptions
+    resolve: (value: boolean) => void
+  } | null>(null)
 
   function confirm(options: ConfirmOptions): Promise<boolean> {
     return new Promise((resolve) => setPending({ options, resolve }))

@@ -90,7 +90,13 @@ describe('CloudSyncController', () => {
     const status = await controller.logout()
 
     expect(clearSession).toHaveBeenCalledWith('/fake/userdata')
-    expect(status).toEqual({ loggedIn: false, email: null, syncing: false, lastSyncedAt: null, lastError: null })
+    expect(status).toEqual({
+      loggedIn: false,
+      email: null,
+      syncing: false,
+      lastSyncedAt: null,
+      lastError: null
+    })
     expect(getLastSyncCompletedAt(db)).toBeNull()
   })
 

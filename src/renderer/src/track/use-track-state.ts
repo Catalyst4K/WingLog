@@ -236,12 +236,14 @@ export function useTrackTimes(args: {
     let ignore = false
     const [dep, arr] = freeFlightAirports.split('-') as [string, string]
     // No great circle (an airport not in the list): the readouts just show no estimate.
-    winglogApi().logbookGreatCircleRoute(dep, arr).then(
-      (gc) => {
-        if (!ignore) setGreatCircle({ key: freeFlightAirports, route: gc ?? [] })
-      },
-      () => undefined
-    )
+    winglogApi()
+      .logbookGreatCircleRoute(dep, arr)
+      .then(
+        (gc) => {
+          if (!ignore) setGreatCircle({ key: freeFlightAirports, route: gc ?? [] })
+        },
+        () => undefined
+      )
     return () => {
       ignore = true
     }

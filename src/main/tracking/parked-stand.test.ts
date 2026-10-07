@@ -2,11 +2,22 @@ import { describe, expect, it, vi } from 'vitest'
 import type { NavdataStand } from '@shared/ipc'
 import { recordParkedStand } from './parked-stand'
 
-const N32: NavdataStand = { name: 'N32', number: 32, suffix: 0, headingDeg: 161, lat: 22.31414534384843, lon: 113.92862486374908 }
+const N32: NavdataStand = {
+  name: 'N32',
+  number: 32,
+  suffix: 0,
+  headingDeg: 161,
+  lat: 22.31414534384843,
+  lon: 113.92862486374908
+}
 const STOPPED_AT_N32 = { lat: 22.31404, lon: 113.92867 }
 
 function deps(arrIcao: string | null, stands: NavdataStand[] = [N32]) {
-  return { getArrivalIcao: vi.fn(() => arrIcao), getStands: vi.fn(async () => stands), setParkedStand: vi.fn() }
+  return {
+    getArrivalIcao: vi.fn(() => arrIcao),
+    getStands: vi.fn(async () => stands),
+    setParkedStand: vi.fn()
+  }
 }
 
 describe('recordParkedStand', () => {

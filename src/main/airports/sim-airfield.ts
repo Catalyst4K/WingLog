@@ -19,7 +19,13 @@ import {
   type RecvFacilityData,
   type SimConnectConnection
 } from 'node-simconnect'
-import { NavdataDefId, addRunwayFields, parseAirportHeader, parseRunway, type ParsedRunway } from '../sim/facility-fields'
+import {
+  NavdataDefId,
+  addRunwayFields,
+  parseAirportHeader,
+  parseRunway,
+  type ParsedRunway
+} from '../sim/facility-fields'
 import { runwayEndsFromCentre } from '../navdata/runway-geometry'
 import { greatCircleNm } from '@shared/geo'
 import { aimingPointDistanceForLengthM, resolveRunwayEnd, type RunwayEnd } from './runway-lookup'
@@ -65,7 +71,9 @@ export function simRunwayEnds(icao: string, runway: ParsedRunway): RunwayEnd[] {
   }))
 }
 
-function requestAirportList(handle: SimConnectConnection): Promise<{ icao: string; lat: number; lon: number }[]> {
+function requestAirportList(
+  handle: SimConnectConnection
+): Promise<{ icao: string; lat: number; lon: number }[]> {
   return new Promise((resolve) => {
     const airports: { icao: string; lat: number; lon: number }[] = []
     const onList = (list: RecvAirportList): void => {
@@ -124,17 +132,17 @@ function requestRunways(handle: SimConnectConnection, icao: string): Promise<Par
 export class SimAirfieldResolver {
   constructor(private readonly openSimConnect: OpenSimConnect = defaultOpen) {}
 
-/**
- * The airfield and runway end a touchdown at this position/heading was on, or null when the
- * sim isn't reachable, knows no airfield with a runway underneath the touchdown (an
- * off-airport landing), or takes too long. Never throws — the caller already holds a
- * perfectly good vendored-data landing record and this only ever improves it.
- *
- * @param lat Touchdown latitude.
- * @param lon Touchdown longitude.
- * @param headingTrueDeg Heading at touchdown, degrees true.
- * @returns The airfield and runway end, or null.
- */
+  /**
+   * The airfield and runway end a touchdown at this position/heading was on, or null when the
+   * sim isn't reachable, knows no airfield with a runway underneath the touchdown (an
+   * off-airport landing), or takes too long. Never throws — the caller already holds a
+   * perfectly good vendored-data landing record and this only ever improves it.
+   *
+   * @param lat Touchdown latitude.
+   * @param lon Touchdown longitude.
+   * @param headingTrueDeg Heading at touchdown, degrees true.
+   * @returns The airfield and runway end, or null.
+   */
   async resolve(lat: number, lon: number, headingTrueDeg: number): Promise<SimAirfieldMatch | null> {
     let handle: SimConnectConnection | undefined
     let timer: NodeJS.Timeout | undefined
@@ -157,7 +165,9 @@ export class SimAirfieldResolver {
           .sort((a, b) => a.nm - b.nm)
           .slice(0, MAX_CANDIDATES)
         for (const candidate of candidates) {
-          const ends = (await requestRunways(handle, candidate.icao)).flatMap((r) => simRunwayEnds(candidate.icao, r))
+          const ends = (await requestRunways(handle, candidate.icao)).flatMap((r) =>
+            simRunwayEnds(candidate.icao, r)
+          )
           const runway = resolveRunwayEnd(ends, candidate.icao, headingTrueDeg, lat, lon)
           if (runway) return { icao: candidate.icao.toUpperCase(), runway }
         }

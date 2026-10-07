@@ -6,7 +6,15 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { parseAtcTaxiFacts } from '../../src/shared/atc-info-boxes'
-import { EGLL_RUNWAYS, EGLL_TAXI_OUT, egllEgcc, seedApproaches, seedRunways, withArrival, zjsyArrival } from './bases'
+import {
+  EGLL_RUNWAYS,
+  EGLL_TAXI_OUT,
+  egllEgcc,
+  seedApproaches,
+  seedRunways,
+  withArrival,
+  zjsyArrival
+} from './bases'
 import { runScenario, type ScenarioResult } from './harness'
 import {
   arrivalCardUntilTouchdown,
@@ -112,7 +120,12 @@ describe('scenario: the arrival clearance (#109, #110)', () => {
       const base = await zjsyArrivalFlight([])
       expect(arrivalCardUntilTouchdown(base.samples, '08')).toEqual([])
       const beforeTouchdown = base.samples.filter((s) => s.arrival !== null).at(-1)?.arrival
-      expect(beforeTouchdown).toEqual({ starIdent: 'UPRS2C', runway: '08', approachIdent: 'ILS Z 08', approachTransition: 'SY498' })
+      expect(beforeTouchdown).toEqual({
+        starIdent: 'UPRS2C',
+        runway: '08',
+        approachIdent: 'ILS Z 08',
+        approachTransition: 'SY498'
+      })
 
       const other = await zjsyArrivalFlight([changeClearedRunway('08', '26')])
       expect(arrivalCardUntilTouchdown(other.samples, '26')).toEqual([])
