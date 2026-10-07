@@ -3,6 +3,7 @@
  * follows each local change, and the account and sync IPC. Every channel is a query
  * (coding-standards.md §9) between this device's database and the backend.
  */
+import { runLogged } from '../logging/run-logged'
 import type { IpcMain } from 'electron'
 import { IpcChannels } from '@shared/ipc'
 import type { CloudSyncController } from '../sync/cloud-sync-controller'
@@ -32,7 +33,7 @@ export function createBackgroundSync(
   return () => {
     if (!cloudSync.getStatus().loggedIn) return
     if (timer) clearTimeout(timer)
-    timer = setTimeout(() => void cloudSync.syncNow(), BACKGROUND_SYNC_DELAY_MS)
+    timer = setTimeout(() => runLogged('background sync', cloudSync.syncNow()), BACKGROUND_SYNC_DELAY_MS)
   }
 }
 

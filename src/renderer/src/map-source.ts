@@ -1,7 +1,7 @@
 /** Updating a map's GeoJSON sources without leaving MapLibre's promise floating. */
 
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl'
-import { diagMap } from './diag'
+import { reportError } from './report-error'
 
 /** What a GeoJSON source takes: GeoJSON, or a URL to it. */
 type SourceData = Parameters<GeoJSONSource['setData']>[0]
@@ -9,8 +9,8 @@ type SourceData = Parameters<GeoJSONSource['setData']>[0]
 /**
  * Replaces a GeoJSON source's data, when the map has that source. MapLibre's `setData`
  * resolves once its worker has the data, and only rejects when the map is being torn down or
- * the worker failed. The next update replaces the data anyway, so a failure is noted in
- * diag.log (dev builds) and otherwise dropped.
+ * the worker failed. The next update replaces the data anyway, so a failure is only logged to
+ * main.log (report-error.ts).
  *
  * @param map The map.
  * @param sourceId The GeoJSON source.
@@ -29,7 +29,5 @@ export function setSourceData(map: MapLibreMap, sourceId: string, data: SourceDa
 export function updateSourceData(source: GeoJSONSource | undefined, data: SourceData): void {
   source
     ?.setData(data)
-    .catch((error: unknown) =>
-      diagMap('map source update failed', { sourceId: source.id, error: String(error) })
-    )
+    .catch((error: unknown) => reportError(`map: update source ${source.id}`, error))
 }

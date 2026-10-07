@@ -79,7 +79,7 @@ export function useDisplaySettings(): DisplaySettings {
       Promise.all([window.winglog.settingsGetAppLanguage(), window.winglog.settingsGetSystemLocale()]).then(
         ([saved, systemLocale]) => {
           setAppLanguage(saved)
-          void i18n.changeLanguage(resolveAppLanguage(saved, systemLocale))
+          runAsync('i18n: change language', i18n.changeLanguage(resolveAppLanguage(saved, systemLocale)))
         }
       )
     )
@@ -137,7 +137,7 @@ export function useDisplaySettings(): DisplaySettings {
       setAppLanguage(language)
       await window.winglog.settingsSetAppLanguage(language)
       const systemLocale = await window.winglog.settingsGetSystemLocale()
-      void i18n.changeLanguage(resolveAppLanguage(language, systemLocale))
+      runAsync('i18n: change language', i18n.changeLanguage(resolveAppLanguage(language, systemLocale)))
     },
     onThemeChange: async (next) => {
       setTheme(next)

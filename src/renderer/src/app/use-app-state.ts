@@ -230,10 +230,11 @@ export function useAtcClearancePrompt(
       lastAtcBoxesKey.current = key
       const update = parseAtcBoxClearance(state.infoBoxes)
       if (!update) return
-      void resolveAtcClearance({ ...update, sourceTs: state.infoBoxesAt ?? Date.now() }, selection).then(
-        (offer) => {
+      runAsync(
+        'atc clearance offer',
+        resolveAtcClearance({ ...update, sourceTs: state.infoBoxesAt ?? Date.now() }, selection).then((offer) => {
           if (offer) setPending(offer)
-        }
+        })
       )
     })
   }, [selection])

@@ -3,6 +3,7 @@
  * own persistent session, the authorization value from winglog-backend, and reading the account's
  * username and pilot id from SimBrief's own pages.
  */
+import { runLogged } from '../logging/run-logged'
 import { BrowserWindow, session } from 'electron'
 import type { DispatchOpenSimBriefParams } from '../../shared/ipc'
 import { signSimbriefRequest } from '../backend/backend-client'
@@ -86,7 +87,7 @@ function openPopup(url: string): Promise<void> {
       webPreferences: { partition: GENERATE_PARTITION }
     })
     popup.on('closed', () => resolve())
-    void popup.loadURL(url)
+    runLogged('simbrief: open window', popup.loadURL(url))
   })
 }
 
@@ -269,8 +270,8 @@ export function createCustomAirframeFromShare(shareUrl: string): Promise<string 
       resolve(pilotId ? `${pilotId}_${airframeId}` : null)
     }
 
-    win.webContents.on('did-navigate', (_event, url) => void onNavigate(url))
-    win.webContents.on('did-navigate-in-page', (_event, url) => void onNavigate(url))
+    win.webContents.on('did-navigate', (_event, url) => runLogged('simbrief: pilot id', onNavigate(url)))
+    win.webContents.on('did-navigate-in-page', (_event, url) => runLogged('simbrief: pilot id', onNavigate(url)))
     win.on('closed', () => {
       if (!settled) {
         settled = true
@@ -278,6 +279,6 @@ export function createCustomAirframeFromShare(shareUrl: string): Promise<string 
       }
     })
 
-    void win.loadURL(shareUrl)
+    runLogged('simbrief: open share page', win.loadURL(shareUrl))
   })
 }

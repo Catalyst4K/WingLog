@@ -18,6 +18,9 @@ import ru from './locales/ru/common.json'
 import zhCN from './locales/zh-CN/common.json'
 import zhTW from './locales/zh-TW/common.json'
 
+// init() with bundled resources finishes synchronously and has nothing to reject; this file is also
+// compiled for node tests, where report-error.ts (window) isn't available.
+// eslint-disable-next-line @typescript-eslint/no-floating-promises -- cannot reject: all resources are bundled
 void i18n.use(initReactI18next).init({
   resources: {
     en: { common: en },

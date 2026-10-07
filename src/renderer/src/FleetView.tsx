@@ -224,8 +224,8 @@ export function FleetView(props: {
           onEdit={() => setView({ kind: 'edit', id: view.id })}
           onDelete={asyncHandler('FleetView handleDelete', () => handleDelete(existing))}
           onReplace={() => setReplaceTarget(existing)}
-          onRetire={() => void handleRetire(existing)}
-          onUnretire={() => void handleUnretire(existing)}
+          onRetire={asyncHandler('FleetView handleRetire', () => handleRetire(existing))}
+          onUnretire={asyncHandler('FleetView handleUnretire', () => handleUnretire(existing))}
           onViewAircraft={(id) => setView({ kind: 'detail', id })}
           onOpenFlight={(flightId) => props.onOpenFlightInLogbook(flightId, existing.id)}
           onBack={() => setView({ kind: 'list' })}

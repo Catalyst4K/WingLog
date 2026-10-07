@@ -105,7 +105,7 @@ function InvoiceRow(props: {
             size="sm"
             onClick={(e) => {
               e.preventDefault()
-              void window.winglog.gsxOpenReceipt(inv.sourceHtmlPath)
+              runAsync('gsx: open receipt', window.winglog.gsxOpenReceipt(inv.sourceHtmlPath))
             }}
           >
             {t('gsxInvoicesCard.openReceipt')}

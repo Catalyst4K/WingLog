@@ -3,6 +3,7 @@
  * the track and the touchdowns, and completes the flight in the database. Emits what the live
  * map and the BeyondATC features listen to (point, phaseChanged, completed).
  */
+import { runLogged } from '../logging/run-logged'
 import { EventEmitter } from 'node:events'
 import type { ActiveTracking, FlightPhase, ProcedureSelection, SimTelemetry, TrackPoint } from '@shared/ipc'
 import { t } from '../i18n'
@@ -284,7 +285,10 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     // from OurAirports (the Kai Tak touch-and-go landed on a nearby heliport's code with no
     // runway). The sim knows those; ask it and upgrade the row once it answers.
     if (record.runwayIdent === null) {
-      void this.upgradeLandingFromSim(flightId, seq, telemetry, touchdownTsUtc, previousTelemetry, touchdownSeverity)
+      runLogged(
+        'landing runway upgrade',
+        this.upgradeLandingFromSim(flightId, seq, telemetry, touchdownTsUtc, previousTelemetry, touchdownSeverity)
+      )
     }
     // A free flight's arr_icao is a placeholder ('ZZZZ' or an unconfirmed guess) until
     // something real is known — the touchdown position is that first real signal

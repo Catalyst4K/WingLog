@@ -6,6 +6,7 @@
  * same as today; this only tells them it exists.
  */
 
+import { runLogged } from '../logging/run-logged'
 import { EventEmitter } from 'node:events'
 import type { UpdateRelease, UpdateStatus } from '@shared/ipc'
 import { logger } from '../logging/logger'
@@ -113,8 +114,8 @@ export class UpdateService extends EventEmitter<{ status: [UpdateStatus] }> {
    *  tick re-reads the setting, so switching it off in Settings stops the next check. */
   start(): void {
     this.stop()
-    this.firstTimer = setTimeout(() => void this.scheduledCheck(), FIRST_CHECK_DELAY_MS)
-    this.interval = setInterval(() => void this.scheduledCheck(), CHECK_INTERVAL_MS)
+    this.firstTimer = setTimeout(() => runLogged('update check', this.scheduledCheck()), FIRST_CHECK_DELAY_MS)
+    this.interval = setInterval(() => runLogged('update check', this.scheduledCheck()), CHECK_INTERVAL_MS)
   }
 
   stop(): void {

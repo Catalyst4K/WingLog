@@ -5,6 +5,7 @@
 import type { FlightStore } from '../tracking/flight-store'
 import { buildFlightMatchWindow } from './gsx-flight-window'
 import { scanGsxFolder } from '../gsx/scan'
+import { logger } from '../logging/logger'
 import type { WingLogDb } from './client'
 import { addInvoicesForFlight } from './flight-invoice-repo'
 import {
@@ -63,7 +64,7 @@ export function dbFlightStore(db: WingLogDb): FlightStore {
         .then((result) => addInvoicesForFlight(db, flightId, result.matched))
         // Best effort after completion: a missing or renamed folder, or a malformed receipt, must
         // never affect the flight; the Logbook's rescan covers anything missed.
-        .catch(() => undefined)
+        .catch((error: unknown) => logger.warn(`[gsx] receipt scan after flight ${flightId} failed: ${String(error)}`))
     }
   }
 }

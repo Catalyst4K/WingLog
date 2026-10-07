@@ -4,6 +4,7 @@
  * area's IPC to its `register<Area>Handlers` module in src/main/ipc/. Behaviour lives in those
  * modules and the services, not here.
  */
+import { runLogged } from './logging/run-logged'
 import { join } from 'node:path'
 import { app, BrowserWindow, dialog, ipcMain, Menu } from 'electron'
 import { IpcChannels } from '@shared/ipc'
@@ -235,7 +236,7 @@ function startApp(): void {
   // Fire-and-forget: syncNow() catches its own errors into getStatus().lastError and never
   // throws, and this must never block the window opening (offline at launch is normal).
   const cloudSync = new CloudSyncController(db, dbPath, app.getPath('userData'))
-  if (cloudSync.getStatus().loggedIn) void cloudSync.syncNow()
+  if (cloudSync.getStatus().loggedIn) runLogged('cloud sync at launch', cloudSync.syncNow())
   const scheduleBackgroundSync = createBackgroundSync(cloudSync)
 
   registerFleetHandlers(ipcMain, { db, window, scheduleBackgroundSync })
@@ -346,9 +347,9 @@ function createWindow(): BrowserWindow {
   window.on('ready-to-show', () => window.show())
 
   if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
-    void window.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    runLogged('load renderer', window.loadURL(process.env['ELECTRON_RENDERER_URL']))
   } else {
-    void window.loadFile(join(__dirname, '../renderer/index.html'))
+    runLogged('load renderer', window.loadFile(join(__dirname, '../renderer/index.html')))
   }
 
   return window

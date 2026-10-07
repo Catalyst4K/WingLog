@@ -43,6 +43,13 @@ describe('app IPC handlers', () => {
     warn.mockRestore()
   })
 
+  it('keeps a renderer failure on one log line, whatever line breaks its text carries', () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+    invoke(IpcChannels.appLogRendererError, 'dispatch:\nfake', 'SimBrief said:\r\n[beyondatc] InfoBoxes {} end')
+    expect(warn).toHaveBeenCalledWith('[renderer] dispatch: fake: SimBrief said: [beyondatc] InfoBoxes {} end')
+    warn.mockRestore()
+  })
+
   it('reports the plain version outside the dev build, and opens the GitHub page', () => {
     expect(invoke(IpcChannels.appGetVersion)).toBe('1.4.1')
     invoke(IpcChannels.appOpenGithub)
