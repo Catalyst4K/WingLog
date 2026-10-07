@@ -22,6 +22,7 @@ import { aircraft, flight, flightInvoice, landing, trackPoint } from './schema'
 // Live in src/shared so the host-side tracking code can use them without importing the database.
 export type { NewFreeFlightInput, PausedInterval } from '@shared/ipc'
 import type { WingLogDb } from './client'
+import { rowsChangedSince, shouldApplyPulledRow } from './sync-rows'
 
 /**
  * A database row as a Flight.
@@ -171,23 +172,8 @@ export function getLiveFlight(db: WingLogDb, id: number): Flight | undefined {
   return row ? toFlight(row) : undefined
 }
 
-/** The one flight left mid-tracking if the app quit or crashed before it reached
- *  'completed' or 'abandoned' — TrackingController.resume() uses this at startup to pick
- *  phase-detection back up rather than leaving the flight orphaned (its own DB row,
- *  OFP/route included, was never at risk — only the in-memory phase-detection state was
- *  lost with the old process). Only one flight is ever meant to be 'active' at once (same
- *  invariant flightCreate's own comment relies on), so the first match is authoritative.
- *
- * @param db The database.
- * @returns The active flight, or undefined.
- */
-export function getActiveFlight(db: WingLogDb): Flight | undefined {
-  const row = db.select().from(flight).where(eq(flight.status, 'active')).get()
-  return row ? toFlight(row) : undefined
-}
-
 /** The one flight currently "in progress" — planned (Dispatch's "Fly" pressed, tracking
- *  not yet started) or active (already tracking) — if any. Broader than getActiveFlight:
+ *  not yet started) or active (already tracking) — if any:
  *  used to restore Dispatch's own view of that flight after a restart (it otherwise only
  *  has its own in-memory `dispatchOfp`, which doesn't survive one, unlike Track's list,
  *  which already reads this same DB state directly). Same one-at-a-time invariant as
@@ -708,10 +694,7 @@ export function getFleetStats(db: WingLogDb): FleetStats[] {
  * @returns The rows, oldest change first.
  */
 export function listFlightsForSync(db: WingLogDb, since: string | null): (typeof flight.$inferSelect)[] {
-  const rows = db.select().from(flight).all()
-  return rows
-    .filter((row) => row.uuid !== null && row.updatedAt !== null && (since === null || row.updatedAt > since))
-    .sort((a, b) => (a.updatedAt as string).localeCompare(b.updatedAt as string))
+  return rowsChangedSince(db.select().from(flight).all(), since)
 }
 
 /** See aircraft-repo.ts's upsertAircraftByUuid for the shape/reasoning this mirrors,
@@ -726,14 +709,9 @@ export function upsertFlightByUuid(
   input: Omit<typeof flight.$inferInsert, 'id'> & { uuid: string }
 ): boolean {
   const existing = db.select().from(flight).where(eq(flight.uuid, input.uuid)).get()
-  if (existing) {
-    if (existing.updatedAt !== null && typeof input.updatedAt === 'string' && existing.updatedAt >= input.updatedAt) {
-      return false
-    }
-    db.update(flight).set(input).where(eq(flight.uuid, input.uuid)).run()
-  } else {
-    db.insert(flight).values(input).run()
-  }
+  if (!shouldApplyPulledRow(existing, input.updatedAt)) return false
+  if (existing) db.update(flight).set(input).where(eq(flight.uuid, input.uuid)).run()
+  else db.insert(flight).values(input).run()
   return true
 }
 

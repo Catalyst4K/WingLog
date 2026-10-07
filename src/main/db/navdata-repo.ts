@@ -9,7 +9,13 @@ import { runwayEndsFromCentre } from '../navdata/runway-geometry'
 import { visualApproachRunway } from '@shared/visual-approach'
 import { visualApproachLegs, visualApproachOptions } from '../navdata/visual-approach'
 import type { NavdataStand } from '@shared/ipc'
-import type { FetchedAirportNavdata, FetchedStand, FetchedTaxiNetwork } from '../navdata/sim-facilities-fetch'
+import type {
+  FetchedAirportNavdata,
+  FetchedApproach,
+  FetchedProcedure,
+  FetchedStand,
+  FetchedTaxiNetwork
+} from '../navdata/sim-facilities-fetch'
 import type { ParsedLeg } from '../sim/facility-fields'
 import type { WingLogDb } from './client'
 import { navdataProcedure, navdataProcedureLeg, navdataRunway, navdataStand, navdataTaxiSegment } from './schema'
@@ -26,139 +32,167 @@ import { navdataProcedure, navdataProcedureLeg, navdataRunway, navdataStand, nav
  */
 export function replaceAirportNavdata(db: WingLogDb, icao: string, fetched: FetchedAirportNavdata, fetchedAt: string): void {
   db.transaction((tx) => {
-    const staleProcedureIds = tx
-      .select({ id: navdataProcedure.id })
-      .from(navdataProcedure)
-      .where(eq(navdataProcedure.icao, icao))
-      .all()
-      .map((row) => row.id)
-    if (staleProcedureIds.length > 0) {
-      tx.delete(navdataProcedureLeg).where(inArray(navdataProcedureLeg.procedureId, staleProcedureIds)).run()
-    }
-    tx.delete(navdataProcedure).where(eq(navdataProcedure.icao, icao)).run()
-    tx.delete(navdataRunway).where(eq(navdataRunway.icao, icao)).run()
+    deleteAirportNavdata(tx, icao)
+    insertRunways(tx, icao, fetched.runways, fetchedAt)
+    for (const proc of fetched.departures) insertProcedure(tx, icao, 'sid', proc, fetchedAt)
+    for (const proc of fetched.arrivals) insertProcedure(tx, icao, 'star', proc, fetchedAt)
+    for (const approach of fetched.approaches) insertApproach(tx, icao, approach, fetchedAt)
+  })
+}
 
-    for (const runway of fetched.runways) {
-      for (const end of runwayEndsFromCentre(runway)) {
-        tx.insert(navdataRunway)
-          .values({
-            icao,
-            ident: end.ident,
-            headingTrueDeg: end.headingTrueDeg,
-            lengthM: end.lengthM,
-            widthM: end.widthM,
-            surface: end.surface,
-            thresholdLat: end.thresholdLat,
-            thresholdLon: end.thresholdLon,
-            source: 'sim-facility',
-            fetchedAt
-          })
-          .run()
-      }
-    }
+/** A transaction on the WingLog database. */
+type Tx = Parameters<Parameters<WingLogDb['transaction']>[0]>[0]
 
-    for (const [kind, procedures] of [
-      ['sid', fetched.departures],
-      ['star', fetched.arrivals]
-    ] as const) {
-      for (const proc of procedures) {
-        const runwayIdents = proc.runwayTransitions.map((t) => t.runwayIdent)
-        const transitionNames = proc.enrouteTransitions.map((t) => t.name)
-        const [inserted] = tx
-          .insert(navdataProcedure)
-          .values({
-            icao,
-            kind,
-            identifier: proc.name,
-            runwayIdentsJson: runwayIdents.length > 0 ? JSON.stringify(runwayIdents) : null,
-            transitionNamesJson: transitionNames.length > 0 ? JSON.stringify(transitionNames) : null,
-            source: 'sim-facility',
-            fetchedAt
-          })
-          .returning()
-          .all()
-        if (!inserted) continue
+/**
+ * Deletes an airport's cached runways, procedures and procedure legs.
+ *
+ * @param tx The transaction.
+ * @param icao The airport.
+ */
+function deleteAirportNavdata(tx: Tx, icao: string): void {
+  const staleProcedureIds = tx
+    .select({ id: navdataProcedure.id })
+    .from(navdataProcedure)
+    .where(eq(navdataProcedure.icao, icao))
+    .all()
+    .map((row) => row.id)
+  if (staleProcedureIds.length > 0) {
+    tx.delete(navdataProcedureLeg).where(inArray(navdataProcedureLeg.procedureId, staleProcedureIds)).run()
+  }
+  tx.delete(navdataProcedure).where(eq(navdataProcedure.icao, icao)).run()
+  tx.delete(navdataRunway).where(eq(navdataRunway.icao, icao)).run()
+}
 
-        // A single incrementing seq across every group is fine — legs are read back
-        // filtered by (procedureId, runwayIdent, transitionName), and insertion order
-        // within each filtered group is preserved regardless of the counter being shared.
-        let seq = 0
-        const insertLeg = (leg: ParsedLeg, runwayIdent: string | null, transitionName: string | null): void => {
-          tx.insert(navdataProcedureLeg)
-            .values({
-              procedureId: inserted.id,
-              runwayIdent,
-              transitionName,
-              seq: seq++,
-              type: leg.type,
-              fixIdent: leg.fixIdent,
-              fixType: leg.fixType,
-              fixLatitude: leg.fixLatitude,
-              fixLongitude: leg.fixLongitude,
-              turnDirection: leg.turnDirection,
-              courseDeg: leg.courseDeg,
-              altitude1: leg.altitude1,
-              altitude2: leg.altitude2,
-              speedLimit: leg.speedLimit,
-              routeDistanceM: leg.routeDistanceM
-            })
-            .run()
-        }
-
-        for (const leg of proc.commonLegs) insertLeg(leg, null, null)
-        for (const rt of proc.runwayTransitions) for (const leg of rt.legs) insertLeg(leg, rt.runwayIdent, null)
-        for (const et of proc.enrouteTransitions) for (const leg of et.legs) insertLeg(leg, null, et.name)
-      }
-    }
-
-    // Approaches — same tables, reused per Finding 3/schema.ts's own comment: an approach's
-    // final segment stores as common legs (both tag columns null, same as a STAR with no
-    // runway transitions), its APPROACH_TRANSITION legs tag transitionName the same way an
-    // ENROUTE_TRANSITION's do. runwayIdentsJson is always a single-element array — an
-    // approach belongs to exactly one runway, never several.
-    for (const approach of fetched.approaches) {
-      const [inserted] = tx
-        .insert(navdataProcedure)
+/**
+ * Stores both ends of each runway, each with its own threshold.
+ *
+ * @param tx The transaction.
+ * @param icao The airport.
+ * @param runways The sim's runway records.
+ * @param fetchedAt When they were fetched, as an ISO time.
+ */
+function insertRunways(tx: Tx, icao: string, runways: FetchedAirportNavdata['runways'], fetchedAt: string): void {
+  for (const runway of runways) {
+    for (const end of runwayEndsFromCentre(runway)) {
+      tx.insert(navdataRunway)
         .values({
           icao,
-          kind: 'approach',
-          identifier: approach.identifier,
-          runwayIdentsJson: JSON.stringify([approach.runwayIdent]),
-          transitionNamesJson: approach.transitions.length > 0 ? JSON.stringify(approach.transitions.map((t) => t.name)) : null,
+          ident: end.ident,
+          headingTrueDeg: end.headingTrueDeg,
+          lengthM: end.lengthM,
+          widthM: end.widthM,
+          surface: end.surface,
+          thresholdLat: end.thresholdLat,
+          thresholdLon: end.thresholdLon,
           source: 'sim-facility',
           fetchedAt
         })
-        .returning()
-        .all()
-      if (!inserted) continue
-
-      let seq = 0
-      const insertLeg = (leg: ParsedLeg, transitionName: string | null): void => {
-        tx.insert(navdataProcedureLeg)
-          .values({
-            procedureId: inserted.id,
-            runwayIdent: null,
-            transitionName,
-            seq: seq++,
-            type: leg.type,
-            fixIdent: leg.fixIdent,
-            fixType: leg.fixType,
-            fixLatitude: leg.fixLatitude,
-            fixLongitude: leg.fixLongitude,
-            turnDirection: leg.turnDirection,
-            courseDeg: leg.courseDeg,
-            altitude1: leg.altitude1,
-            altitude2: leg.altitude2,
-            speedLimit: leg.speedLimit,
-            routeDistanceM: leg.routeDistanceM
-          })
-          .run()
-      }
-
-      for (const leg of approach.finalLegs) insertLeg(leg, null)
-      for (const t of approach.transitions) for (const leg of t.legs) insertLeg(leg, t.name)
+        .run()
     }
-  })
+  }
+}
+
+/**
+ * Stores legs for one procedure, numbering them in the order they're stored. A single
+ * incrementing seq across every group is fine: legs are read back filtered by (procedureId,
+ * runwayIdent, transitionName), and insertion order within each filtered group is preserved
+ * regardless of the counter being shared.
+ *
+ * @param tx The transaction.
+ * @param procedureId The stored procedure.
+ * @returns Stores one leg, tagged with its runway transition and enroute or approach transition.
+ */
+function legInserter(
+  tx: Tx,
+  procedureId: number
+): (leg: ParsedLeg, runwayIdent: string | null, transitionName: string | null) => void {
+  let seq = 0
+  return (leg, runwayIdent, transitionName) => {
+    tx.insert(navdataProcedureLeg)
+      .values({
+        procedureId,
+        runwayIdent,
+        transitionName,
+        seq: seq++,
+        type: leg.type,
+        fixIdent: leg.fixIdent,
+        fixType: leg.fixType,
+        fixLatitude: leg.fixLatitude,
+        fixLongitude: leg.fixLongitude,
+        turnDirection: leg.turnDirection,
+        courseDeg: leg.courseDeg,
+        altitude1: leg.altitude1,
+        altitude2: leg.altitude2,
+        speedLimit: leg.speedLimit,
+        routeDistanceM: leg.routeDistanceM
+      })
+      .run()
+  }
+}
+
+/**
+ * Stores one SID or STAR and its legs: the common legs, then each runway transition's, then each
+ * enroute transition's.
+ *
+ * @param tx The transaction.
+ * @param icao The airport.
+ * @param kind SID or STAR.
+ * @param proc The procedure, as fetched.
+ * @param fetchedAt When it was fetched, as an ISO time.
+ */
+function insertProcedure(tx: Tx, icao: string, kind: 'sid' | 'star', proc: FetchedProcedure, fetchedAt: string): void {
+  const runwayIdents = proc.runwayTransitions.map((t) => t.runwayIdent)
+  const transitionNames = proc.enrouteTransitions.map((t) => t.name)
+  const [inserted] = tx
+    .insert(navdataProcedure)
+    .values({
+      icao,
+      kind,
+      identifier: proc.name,
+      runwayIdentsJson: runwayIdents.length > 0 ? JSON.stringify(runwayIdents) : null,
+      transitionNamesJson: transitionNames.length > 0 ? JSON.stringify(transitionNames) : null,
+      source: 'sim-facility',
+      fetchedAt
+    })
+    .returning()
+    .all()
+  if (!inserted) return
+  const insertLeg = legInserter(tx, inserted.id)
+  for (const leg of proc.commonLegs) insertLeg(leg, null, null)
+  for (const rt of proc.runwayTransitions) for (const leg of rt.legs) insertLeg(leg, rt.runwayIdent, null)
+  for (const et of proc.enrouteTransitions) for (const leg of et.legs) insertLeg(leg, null, et.name)
+}
+
+/**
+ * Stores one approach and its legs, in the same tables as SIDs and STARs (Finding 3, schema.ts):
+ * its final segment as common legs (both tag columns null, like a STAR with no runway
+ * transitions), and its APPROACH_TRANSITION legs tagged with transitionName like an
+ * ENROUTE_TRANSITION's. runwayIdentsJson is always a single-element array: an approach belongs to
+ * exactly one runway.
+ *
+ * @param tx The transaction.
+ * @param icao The airport.
+ * @param approach The approach, as fetched.
+ * @param fetchedAt When it was fetched, as an ISO time.
+ */
+function insertApproach(tx: Tx, icao: string, approach: FetchedApproach, fetchedAt: string): void {
+  const [inserted] = tx
+    .insert(navdataProcedure)
+    .values({
+      icao,
+      kind: 'approach',
+      identifier: approach.identifier,
+      runwayIdentsJson: JSON.stringify([approach.runwayIdent]),
+      transitionNamesJson: approach.transitions.length > 0 ? JSON.stringify(approach.transitions.map((t) => t.name)) : null,
+      source: 'sim-facility',
+      fetchedAt
+    })
+    .returning()
+    .all()
+  if (!inserted) return
+  const insertLeg = legInserter(tx, inserted.id)
+  for (const leg of approach.finalLegs) insertLeg(leg, null, null)
+  for (const t of approach.transitions) for (const leg of t.legs) insertLeg(leg, null, t.name)
 }
 
 /**

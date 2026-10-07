@@ -7,6 +7,7 @@ import { and, asc, desc, eq, isNull } from 'drizzle-orm'
 import type { AircraftLandingRow, Landing, NewLanding } from '@shared/ipc'
 import { aircraft, flight, landing } from './schema'
 import type { WingLogDb } from './client'
+import { rowsChangedSince, shouldApplyPulledRow } from './sync-rows'
 
 /**
  * A database row as a Landing.
@@ -197,10 +198,7 @@ export function listAllLandings(db: WingLogDb): (Landing & {
  * @returns The rows, oldest change first.
  */
 export function listLandingsForSync(db: WingLogDb, since: string | null): (typeof landing.$inferSelect)[] {
-  const rows = db.select().from(landing).all()
-  return rows
-    .filter((row) => row.uuid !== null && row.updatedAt !== null && (since === null || row.updatedAt > since))
-    .sort((a, b) => (a.updatedAt as string).localeCompare(b.updatedAt as string))
+  return rowsChangedSince(db.select().from(landing).all(), since)
 }
 
 /** See aircraft-repo.ts's upsertAircraftByUuid for the shape/reasoning this mirrors,
@@ -215,13 +213,8 @@ export function upsertLandingByUuid(
   input: Omit<typeof landing.$inferInsert, 'id'> & { uuid: string }
 ): boolean {
   const existing = db.select().from(landing).where(eq(landing.uuid, input.uuid)).get()
-  if (existing) {
-    if (existing.updatedAt !== null && typeof input.updatedAt === 'string' && existing.updatedAt >= input.updatedAt) {
-      return false
-    }
-    db.update(landing).set(input).where(eq(landing.uuid, input.uuid)).run()
-  } else {
-    db.insert(landing).values(input).run()
-  }
+  if (!shouldApplyPulledRow(existing, input.updatedAt)) return false
+  if (existing) db.update(landing).set(input).where(eq(landing.uuid, input.uuid)).run()
+  else db.insert(landing).values(input).run()
   return true
 }

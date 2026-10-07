@@ -8,6 +8,7 @@ import type { FlightInvoice } from '@shared/ipc'
 import type { StoredInvoiceInput } from '../gsx/scan'
 import { flightInvoice } from './schema'
 import type { WingLogDb } from './client'
+import { rowsChangedSince, shouldApplyPulledRow } from './sync-rows'
 
 /**
  * A database row as a FlightInvoice.
@@ -105,10 +106,7 @@ export function addInvoicesForFlight(
  * @returns The rows, oldest change first.
  */
 export function listFlightInvoicesForSync(db: WingLogDb, since: string | null): (typeof flightInvoice.$inferSelect)[] {
-  const rows = db.select().from(flightInvoice).all()
-  return rows
-    .filter((row) => row.uuid !== null && row.updatedAt !== null && (since === null || row.updatedAt > since))
-    .sort((a, b) => (a.updatedAt as string).localeCompare(b.updatedAt as string))
+  return rowsChangedSince(db.select().from(flightInvoice).all(), since)
 }
 
 /** See aircraft-repo.ts's upsertAircraftByUuid for the shape/reasoning this mirrors. This
@@ -125,13 +123,8 @@ export function upsertFlightInvoiceByUuid(
   input: Omit<typeof flightInvoice.$inferInsert, 'id'> & { uuid: string }
 ): boolean {
   const existing = db.select().from(flightInvoice).where(eq(flightInvoice.uuid, input.uuid)).get()
-  if (existing) {
-    if (existing.updatedAt !== null && typeof input.updatedAt === 'string' && existing.updatedAt >= input.updatedAt) {
-      return false
-    }
-    db.update(flightInvoice).set(input).where(eq(flightInvoice.uuid, input.uuid)).run()
-  } else {
-    db.insert(flightInvoice).values(input).run()
-  }
+  if (!shouldApplyPulledRow(existing, input.updatedAt)) return false
+  if (existing) db.update(flightInvoice).set(input).where(eq(flightInvoice.uuid, input.uuid)).run()
+  else db.insert(flightInvoice).values(input).run()
   return true
 }

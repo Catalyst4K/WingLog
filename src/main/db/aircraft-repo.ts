@@ -8,6 +8,7 @@ import type { Aircraft, AircraftUpdate, NewAircraft } from '@shared/ipc'
 import { t } from '../i18n'
 import { aircraft, flight } from './schema'
 import type { WingLogDb } from './client'
+import { rowsChangedSince, shouldApplyPulledRow } from './sync-rows'
 
 /**
  * A database row as an Aircraft.
@@ -270,10 +271,7 @@ export function unretireAircraft(db: WingLogDb, id: number): Aircraft {
  * @returns The rows, oldest change first.
  */
 export function listAircraftForSync(db: WingLogDb, since: string | null): (typeof aircraft.$inferSelect)[] {
-  const rows = db.select().from(aircraft).all()
-  return rows
-    .filter((row) => row.uuid !== null && row.updatedAt !== null && (since === null || row.updatedAt > since))
-    .sort((a, b) => (a.updatedAt as string).localeCompare(b.updatedAt as string))
+  return rowsChangedSince(db.select().from(aircraft).all(), since)
 }
 
 /** Insert-or-update keyed by uuid, not local id — sync-engine.ts's pull side. There's no
@@ -304,13 +302,8 @@ export function upsertAircraftByUuid(
   input: Omit<typeof aircraft.$inferInsert, 'id'> & { uuid: string }
 ): boolean {
   const existing = db.select().from(aircraft).where(eq(aircraft.uuid, input.uuid)).get()
-  if (existing) {
-    if (existing.updatedAt !== null && typeof input.updatedAt === 'string' && existing.updatedAt >= input.updatedAt) {
-      return false
-    }
-    db.update(aircraft).set(input).where(eq(aircraft.uuid, input.uuid)).run()
-  } else {
-    db.insert(aircraft).values(input).run()
-  }
+  if (!shouldApplyPulledRow(existing, input.updatedAt)) return false
+  if (existing) db.update(aircraft).set(input).where(eq(aircraft.uuid, input.uuid)).run()
+  else db.insert(aircraft).values(input).run()
   return true
 }

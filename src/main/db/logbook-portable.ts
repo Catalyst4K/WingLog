@@ -168,6 +168,32 @@ const icao = (value: unknown): string | null => {
   return s !== null && /^[A-Z0-9]{3,4}$/.test(s) ? s : null
 }
 
+/** Reads a record's fields by their JSON key, or by their CSV column name for a CSV row. */
+type FieldReader = (jsonKey: string, csvKey: string) => unknown
+
+/**
+ * The landing summary of a record, when it has a touchdown rate and G-force. A JSON record keeps it
+ * in a nested `landing` object; a CSV row has it as plain columns.
+ *
+ * @param o The record.
+ * @param csv Whether it's a CSV row.
+ * @returns The summary, or null.
+ */
+function toLandingSummary(o: Record<string, unknown>, csv: boolean): LogbookLandingSummary | null {
+  const source = csv ? o : (o['landing'] as Record<string, unknown> | null | undefined)
+  if (!source) return null
+  const get: FieldReader = (jsonKey, csvKey) => source[csv ? csvKey : jsonKey]
+  const touchdownFpm = num(get('touchdownFpm', 'touchdown_fpm'))
+  const gForce = num(get('gForce', 'touchdown_g'))
+  if (touchdownFpm === null || gForce === null) return null
+  return {
+    touchdownFpm,
+    gForce,
+    crosswindKt: num(get('crosswindKt', 'crosswind_kt')),
+    runway: text(get('runway', 'landing_runway'))
+  }
+}
+
 /** Validates one untrusted object (a JSON element, or a CSV row keyed by header) — a bad
  *  field degrades to a skipped row with a reason, never a throw.
  *
@@ -180,48 +206,37 @@ function toRecord(raw: unknown, csv: boolean): ParsedLogbookRow {
     return { error: t('errors.expectedAnObject'), label: t('labels.unreadableRow') }
   }
   const o = raw as Record<string, unknown>
+  const get: FieldReader = (jsonKey, csvKey) => o[csv ? csvKey : jsonKey]
   const registration = text(o['registration'])
-  const dep = icao(o[csv ? 'dep_icao' : 'depIcao'])
-  const arr = icao(o[csv ? 'arr_icao' : 'arrIcao'])
+  const dep = icao(get('depIcao', 'dep_icao'))
+  const arr = icao(get('arrIcao', 'arr_icao'))
   const label =
     [registration, dep && arr ? `${dep}-${arr}` : null].filter(Boolean).join(' ') || t('labels.unreadableRow')
 
-  const icaoType = text(o[csv ? 'aircraft_type' : 'icaoType'])
-  const outUtc = isoInstant(o[csv ? 'out_utc' : 'outUtc'])
-  const inUtc = isoInstant(o[csv ? 'in_utc' : 'inUtc'])
+  const icaoType = text(get('icaoType', 'aircraft_type'))
+  const outUtc = isoInstant(get('outUtc', 'out_utc'))
+  const inUtc = isoInstant(get('inUtc', 'in_utc'))
   if (!registration || !icaoType || !dep || !arr || !outUtc || !inUtc) {
     return { error: t('errors.missingOrMalformedField'), label }
   }
   if (Date.parse(inUtc) < Date.parse(outUtc)) return { error: t('errors.inBlockBeforeOutBlock'), label }
 
-  const landingRaw = csv ? null : (o['landing'] as Record<string, unknown> | null | undefined)
-  const landingSource = csv ? o : landingRaw
-  const touchdownFpm = landingSource ? num(landingSource[csv ? 'touchdown_fpm' : 'touchdownFpm']) : null
-  const gForce = landingSource ? num(landingSource[csv ? 'touchdown_g' : 'gForce']) : null
   return {
     label,
     record: {
       registration,
       icaoType,
-      flightNumber: text(o[csv ? 'flight_number' : 'flightNumber']),
+      flightNumber: text(get('flightNumber', 'flight_number')),
       depIcao: dep,
       arrIcao: arr,
       outUtc,
       inUtc,
-      blockMinutes: num(o[csv ? 'block_minutes' : 'blockMinutes']),
-      airMinutes: num(o[csv ? 'air_minutes' : 'airMinutes']),
-      fuelOutKg: num(o[csv ? 'fuel_out_kg' : 'fuelOutKg']),
-      fuelInKg: num(o[csv ? 'fuel_in_kg' : 'fuelInKg']),
-      fuelBurnKg: num(o[csv ? 'fuel_burn_kg' : 'fuelBurnKg']),
-      landing:
-        touchdownFpm !== null && gForce !== null && landingSource
-          ? {
-              touchdownFpm,
-              gForce,
-              crosswindKt: num(landingSource[csv ? 'crosswind_kt' : 'crosswindKt']),
-              runway: text(landingSource[csv ? 'landing_runway' : 'runway'])
-            }
-          : null
+      blockMinutes: num(get('blockMinutes', 'block_minutes')),
+      airMinutes: num(get('airMinutes', 'air_minutes')),
+      fuelOutKg: num(get('fuelOutKg', 'fuel_out_kg')),
+      fuelInKg: num(get('fuelInKg', 'fuel_in_kg')),
+      fuelBurnKg: num(get('fuelBurnKg', 'fuel_burn_kg')),
+      landing: toLandingSummary(o, csv)
     }
   }
 }
