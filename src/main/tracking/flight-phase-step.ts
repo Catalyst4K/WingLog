@@ -97,7 +97,12 @@ export interface PhaseStep {
  * @param settings Paused, auto-shutdown and the runway check.
  * @returns The state after, and whether to record a point.
  */
-export function stepPhase(state: PhaseState, t: SimTelemetry, nowMs: number, settings: PhaseSettings): PhaseStep {
+export function stepPhase(
+  state: PhaseState,
+  t: SimTelemetry,
+  nowMs: number,
+  settings: PhaseSettings
+): PhaseStep {
   // "Ignore samples while IS SLEW ACTIVE" (PLAN.md §7): slewing teleports the aircraft, which would otherwise read as a
   // physically impossible speed/phase jump.
   if (settings.paused || t.slewActive) return { state, record: false }
@@ -117,7 +122,12 @@ export function stepPhase(state: PhaseState, t: SimTelemetry, nowMs: number, set
  * @param nowUtc When it was received.
  * @returns The track point for this flight.
  */
-export function buildTrackPoint(flightId: number, state: PhaseState, t: SimTelemetry, nowUtc: Date): NewTrackPoint {
+export function buildTrackPoint(
+  flightId: number,
+  state: PhaseState,
+  t: SimTelemetry,
+  nowUtc: Date
+): NewTrackPoint {
   return {
     flightId,
     tsUtc: nowUtc.toISOString(),
@@ -197,7 +207,11 @@ function fromTaxi(s: PhaseState, t: SimTelemetry, settings: PhaseSettings): void
   // second departure is never mistaken for the rollout noise that guard exists to block.
   if (goneAround(s, t)) return
   // Only on a runway, when that's known: a fast taxi along a parallel taxiway isn't the takeoff roll.
-  if (!s.hasLanded && t.groundSpeedMs > ROLL_SPEED_MS && settings.runwayCheck(t.latitude, t.longitude) !== false) {
+  if (
+    !s.hasLanded &&
+    t.groundSpeedMs > ROLL_SPEED_MS &&
+    settings.runwayCheck(t.latitude, t.longitude) !== false
+  ) {
     s.phase = 'takeoff'
   }
 }
@@ -291,7 +305,13 @@ function fromDescent(s: PhaseState, t: SimTelemetry): void {
  * @param settings The auto-shutdown switch.
  */
 function shutDownIfParked(s: PhaseState, t: SimTelemetry, settings: PhaseSettings): void {
-  if (settings.autoShutdown && s.phase === 'taxi' && t.groundSpeedMs < MOVING_MS && t.parkingBrakeOn && !t.engineCombustion1) {
+  if (
+    settings.autoShutdown &&
+    s.phase === 'taxi' &&
+    t.groundSpeedMs < MOVING_MS &&
+    t.parkingBrakeOn &&
+    !t.engineCombustion1
+  ) {
     s.phase = 'shutdown'
   }
 }

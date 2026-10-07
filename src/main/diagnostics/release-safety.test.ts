@@ -7,7 +7,8 @@ import { describe, expect, it } from 'vitest'
  * only set by `package:win:dev`, which names its installer "WingLog-Dev-…", so the two can't
  * be mixed up (winglog-backend robustness/dev-build.md).
  */
-const scripts = (JSON.parse(readFileSync('package.json', 'utf8')) as { scripts: Record<string, string> }).scripts
+const scripts = (JSON.parse(readFileSync('package.json', 'utf8')) as { scripts: Record<string, string> })
+  .scripts
 
 describe('dev build release safety', () => {
   it('no CI workflow sets the dev-build flag', () => {

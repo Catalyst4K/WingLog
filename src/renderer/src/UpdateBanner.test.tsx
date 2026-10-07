@@ -17,9 +17,18 @@ const AVAILABLE: UpdateStatus = {
   checkedAt: '2026-10-04T18:30:00Z',
   skippedVersion: null
 }
-const IDLE: UpdateStatus = { state: 'idle', currentVersion: '1.3.2', latest: null, checkedAt: null, skippedVersion: null }
+const IDLE: UpdateStatus = {
+  state: 'idle',
+  currentVersion: '1.3.2',
+  latest: null,
+  checkedAt: null,
+  skippedVersion: null
+}
 
-function withWinglog(status: UpdateStatus, overrides: Partial<WingLogApi> = {}): { push: (status: UpdateStatus) => void; api: WingLogApi } {
+function withWinglog(
+  status: UpdateStatus,
+  overrides: Partial<WingLogApi> = {}
+): { push: (status: UpdateStatus) => void; api: WingLogApi } {
   let listener: (status: UpdateStatus) => void = () => {}
   const api = {
     updatesGetStatus: vi.fn().mockResolvedValue(status),
@@ -106,7 +115,9 @@ describe('UpdatesCard (Settings → About)', () => {
     const user = userEvent.setup()
     render(<UpdatesCard />)
     const group = await screen.findByRole('group', { name: 'Check for updates automatically' })
-    await waitFor(() => expect(screen.getByRole('button', { name: 'On' })).toHaveAttribute('aria-pressed', 'true'))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'On' })).toHaveAttribute('aria-pressed', 'true')
+    )
     expect(group).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Off' }))

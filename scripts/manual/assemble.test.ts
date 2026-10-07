@@ -19,13 +19,19 @@ afterEach(() => {
 
 describe('the manual build (user-docs-v1-4.md)', () => {
   it('reads only NN-name.md chapters, in order', () => {
-    const dir = manualDir({ '02-fleet.md': '# Fleet', '01-introduction.md': '# Introduction', 'notes.md': 'x', 'manual.css': '' })
+    const dir = manualDir({
+      '02-fleet.md': '# Fleet',
+      '01-introduction.md': '# Introduction',
+      'notes.md': 'x',
+      'manual.css': ''
+    })
     expect(readChapters(dir).map((c) => c.file)).toEqual(['01-introduction.md', '02-fleet.md'])
   })
 
   it('fails on a missing image, an image outside images/, and a link to a chapter that does not exist', () => {
     const dir = manualDir({
-      '01-a.md': '# A\n\n![Track](images/track.png)\n\n![x](../secret.png)\n\nSee [Fleet](02-fleet.md) and [Track](05-track.md#the-map).'
+      '01-a.md':
+        '# A\n\n![Track](images/track.png)\n\n![x](../secret.png)\n\nSee [Fleet](02-fleet.md) and [Track](05-track.md#the-map).'
     })
     writeFileSync(join(dir, 'images', 'unused.png'), '')
     const problems = checkReferences(readChapters(dir), dir)
@@ -38,14 +44,19 @@ describe('the manual build (user-docs-v1-4.md)', () => {
   })
 
   it('accepts real images, https links and links to real chapters', () => {
-    const dir = manualDir({ '01-a.md': '# A\n\n![Map](images/map.png)\n\n[B](02-b.md) [site](https://github.com/Catalyst4K/WingLog)', '02-b.md': '# B' })
+    const dir = manualDir({
+      '01-a.md':
+        '# A\n\n![Map](images/map.png)\n\n[B](02-b.md) [site](https://github.com/Catalyst4K/WingLog)',
+      '02-b.md': '# B'
+    })
     writeFileSync(join(dir, 'images', 'map.png'), '')
     expect(checkReferences(readChapters(dir), dir)).toEqual([])
   })
 
   it('builds a cover with the version and the simulation-only notice, a contents list, and in-document chapter links', () => {
     const dir = manualDir({
-      '01-introduction.md': '# Introduction\n\n## What WingLog does\n\nSee [Track](02-track.md) and [its map](02-track.md#the-map).',
+      '01-introduction.md':
+        '# Introduction\n\n## What WingLog does\n\nSee [Track](02-track.md) and [its map](02-track.md#the-map).',
       '02-track.md': '# Track\n\n## The map\n\n### Deep heading'
     })
     const { html, problems } = assembleManual(readChapters(dir), dir, { version: '1.4.0', css: 'body{}' })
@@ -61,7 +72,7 @@ describe('the manual build (user-docs-v1-4.md)', () => {
   })
 
   it('slugs headings for anchors', () => {
-    expect(slug("If WingLog closes mid-flight")).toBe('if-winglog-closes-mid-flight')
+    expect(slug('If WingLog closes mid-flight')).toBe('if-winglog-closes-mid-flight')
     expect(slug('GSX <em>Remote</em> Control')).toBe('gsx-remote-control')
   })
 

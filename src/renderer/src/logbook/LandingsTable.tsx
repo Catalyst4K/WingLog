@@ -55,10 +55,7 @@ export function LandingsTable(props: {
 
   useEffect(() => {
     if (props.landings !== undefined) return
-    runAsync(
-      'LogbookView logbookListAllLandings',
-      winglogApi().logbookListAllLandings().then(setOwnLandings)
-    )
+    runAsync('LogbookView logbookListAllLandings', winglogApi().logbookListAllLandings().then(setOwnLandings))
   }, [props.landings])
   const landings = props.landings ?? ownLandings
 

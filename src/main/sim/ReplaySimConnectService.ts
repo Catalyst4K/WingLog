@@ -98,7 +98,8 @@ export class ReplaySimConnectService extends EventEmitter<ReplaySimConnectServic
     this.speedMultiplier = options.speedMultiplier ?? 1
     this.holdUntilReleased = options.holdUntilReleased ?? false
 
-    const { header, events } = typeof fixture === 'string' ? parseFlightFixture(readFileSync(fixture, 'utf8')) : fixture
+    const { header, events } =
+      typeof fixture === 'string' ? parseFlightFixture(readFileSync(fixture, 'utf8')) : fixture
     this.header = header
     this.events = events
 
@@ -107,7 +108,9 @@ export class ReplaySimConnectService extends EventEmitter<ReplaySimConnectServic
     // doc's Design §2 a replay double must satisfy that before start() is even called.
     const firstTelemetry = events.find((e) => e.type === 'telemetry')
     if (!firstTelemetry || firstTelemetry.type !== 'telemetry') {
-      throw new Error(`Fixture ${typeof fixture === 'string' ? fixture : header.scenario} has no telemetry events`)
+      throw new Error(
+        `Fixture ${typeof fixture === 'string' ? fixture : header.scenario} has no telemetry events`
+      )
     }
     this.lastTelemetry = firstTelemetry.data
   }

@@ -11,7 +11,10 @@ import { summarise, type LintFileResult } from './lint-summary'
 
 const dir = join(process.cwd(), 'release', 'lint')
 const results = JSON.parse(readFileSync(join(dir, 'eslint.json'), 'utf8')) as LintFileResult[]
-const files = results.map((r) => ({ ...r, filePath: relative(process.cwd(), r.filePath).split(sep).join('/') }))
+const files = results.map((r) => ({
+  ...r,
+  filePath: relative(process.cwd(), r.filePath).split(sep).join('/')
+}))
 const summary = summarise(files)
 mkdirSync(dir, { recursive: true })
 writeFileSync(join(dir, 'summary.md'), summary)

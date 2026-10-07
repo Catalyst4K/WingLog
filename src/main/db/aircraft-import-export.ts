@@ -78,7 +78,10 @@ export async function importAircraft(
       continue
     }
     if (getAircraftByRegistration(db, result.data.registration)) {
-      summary.skipped.push({ registration: result.data.registration, reason: t('errors.registrationAlreadyExists') })
+      summary.skipped.push({
+        registration: result.data.registration,
+        reason: t('errors.registrationAlreadyExists')
+      })
       continue
     }
     createAircraft(db, result.data)

@@ -188,7 +188,9 @@ describe('FleetView', () => {
     render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
     expect(await screen.findByText('Flotte')).toBeInTheDocument()
     expect(
-      screen.getByText('Keine aktiven Flugzeuge — füge eines hinzu oder importiere eine Flotte über Einstellungen → Daten.')
+      screen.getByText(
+        'Keine aktiven Flugzeuge — füge eines hinzu oder importiere eine Flotte über Einstellungen → Daten.'
+      )
     ).toBeInTheDocument()
   })
 
@@ -247,10 +249,12 @@ describe('FleetView', () => {
 
   it('shows the stand an aircraft last parked at beside its location, only at that airport (stand-positions.md)', async () => {
     setWinglog({
-      aircraftList: vi.fn().mockResolvedValue([
-        makeAircraft({ id: 1, registration: 'B-LRA', currentIcao: 'VHHH' }),
-        makeAircraft({ id: 2, registration: 'B-LRB', currentIcao: 'YBBN' })
-      ]),
+      aircraftList: vi
+        .fn()
+        .mockResolvedValue([
+          makeAircraft({ id: 1, registration: 'B-LRA', currentIcao: 'VHHH' }),
+          makeAircraft({ id: 2, registration: 'B-LRB', currentIcao: 'YBBN' })
+        ]),
       fleetListLastParked: vi.fn().mockResolvedValue([
         { aircraftId: 1, icao: 'VHHH', stand: 'N32' },
         // Parked at VHHH last time, but has since been moved to YBBN — no stand shown.
@@ -264,34 +268,65 @@ describe('FleetView', () => {
   })
 
   it('shows a dash for airline when unset', async () => {
-    setWinglog({ aircraftList: vi.fn().mockResolvedValue([makeAircraft({ operator: null, operatorIata: null })]) })
+    setWinglog({
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft({ operator: null, operatorIata: null })])
+    })
     render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
     await screen.findByText('G-ONE')
     expect(screen.getByText('—')).toBeInTheDocument()
   })
 
   it('sorts the active fleet table by every column when its header is clicked', async () => {
-    const acA = makeAircraft({ id: 1, registration: 'B-MID', icaoType: 'B738', operator: 'Zed Air', currentIcao: 'EGKK' })
-    const acB = makeAircraft({ id: 2, registration: 'A-LOW', icaoType: 'A320', operator: 'Alpha Air', currentIcao: null })
+    const acA = makeAircraft({
+      id: 1,
+      registration: 'B-MID',
+      icaoType: 'B738',
+      operator: 'Zed Air',
+      currentIcao: 'EGKK'
+    })
+    const acB = makeAircraft({
+      id: 2,
+      registration: 'A-LOW',
+      icaoType: 'A320',
+      operator: 'Alpha Air',
+      currentIcao: null
+    })
     // Two aircraft with no operator, no currentIcao, and no fleet-stats row at all — a
     // direct C-vs-D comparison exercises every `?? ''`/`?? 0` fallback on *both* sides of
     // each comparator (and the identical fallback in the plain location-cell render) that
     // acA/acB's real values don't reach.
-    const acC = makeAircraft({ id: 3, registration: 'C-NULL', icaoType: 'C172', operator: null, currentIcao: null })
-    const acD = makeAircraft({ id: 4, registration: 'D-ZERO', icaoType: 'D172', operator: null, currentIcao: null })
+    const acC = makeAircraft({
+      id: 3,
+      registration: 'C-NULL',
+      icaoType: 'C172',
+      operator: null,
+      currentIcao: null
+    })
+    const acD = makeAircraft({
+      id: 4,
+      registration: 'D-ZERO',
+      icaoType: 'D172',
+      operator: null,
+      currentIcao: null
+    })
     setWinglog({
       aircraftList: vi.fn().mockResolvedValue([acA, acB, acC, acD]),
-      logbookFleetStats: vi.fn().mockResolvedValue([
-        makeStats({ aircraftId: 1, totalHours: 5, totalCycles: 10, lastArrIcao: 'EGKK' }),
-        makeStats({ aircraftId: 2, totalHours: 20, totalCycles: 2, lastArrIcao: 'EGLL' })
-      ])
+      logbookFleetStats: vi
+        .fn()
+        .mockResolvedValue([
+          makeStats({ aircraftId: 1, totalHours: 5, totalCycles: 10, lastArrIcao: 'EGKK' }),
+          makeStats({ aircraftId: 2, totalHours: 20, totalCycles: 2, lastArrIcao: 'EGLL' })
+        ])
     })
     const user = userEvent.setup()
     render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
     await screen.findByText('B-MID')
 
     function registrationOrder(): string[] {
-      return screen.getAllByRole('row').slice(1).map((row) => within(row).getAllByRole('cell')[0].textContent ?? '')
+      return screen
+        .getAllByRole('row')
+        .slice(1)
+        .map((row) => within(row).getAllByRole('cell')[0].textContent ?? '')
     }
     // Default sort: registration ascending.
     expect(registrationOrder()).toEqual(['A-LOW', 'B-MID', 'C-NULL', 'D-ZERO'])
@@ -369,7 +404,9 @@ describe('FleetView', () => {
         aircraftList: vi
           .fn()
           .mockResolvedValueOnce([makeAircraft({ id: 4, registration: 'G-RET' })])
-          .mockResolvedValue([makeAircraft({ id: 4, registration: 'G-RET', retiredAt: '2026-09-18T12:00:00.000Z' })]),
+          .mockResolvedValue([
+            makeAircraft({ id: 4, registration: 'G-RET', retiredAt: '2026-09-18T12:00:00.000Z' })
+          ]),
         aircraftRetire: vi.fn().mockResolvedValue(undefined)
       })
       const user = userEvent.setup()
@@ -447,11 +484,13 @@ describe('FleetView', () => {
     it('offers no Un-retire on a replaced aircraft, and shows a toast if un-retiring fails', async () => {
       const { toast } = await import('sonner')
       setWinglog({
-        aircraftList: vi.fn().mockResolvedValue([
-          makeAircraft({ id: 1, registration: 'G-NEW' }),
-          makeAircraft({ id: 2, registration: 'G-REPL', replacedByAircraftId: 1 }),
-          makeAircraft({ id: 3, registration: 'G-PLAIN', retiredAt: '2026-09-18T12:00:00.000Z' })
-        ]),
+        aircraftList: vi
+          .fn()
+          .mockResolvedValue([
+            makeAircraft({ id: 1, registration: 'G-NEW' }),
+            makeAircraft({ id: 2, registration: 'G-REPL', replacedByAircraftId: 1 }),
+            makeAircraft({ id: 3, registration: 'G-PLAIN', retiredAt: '2026-09-18T12:00:00.000Z' })
+          ]),
         aircraftUnretire: vi.fn().mockRejectedValue(new Error('nope'))
       })
       const user = userEvent.setup()
@@ -523,21 +562,31 @@ describe('FleetView', () => {
     setWinglog({ aircraftList: vi.fn().mockResolvedValue([]) })
     const onConsumed = vi.fn()
     render(
-      <FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={555} onInitialAircraftConsumed={onConsumed} />
+      <FleetView
+        onOpenFlightInLogbook={vi.fn()}
+        initialAircraftId={555}
+        onInitialAircraftConsumed={onConsumed}
+      />
     )
     expect(await screen.findByText('Aircraft not found.')).toBeInTheDocument()
     expect(onConsumed).toHaveBeenCalledTimes(1)
   })
 
   it('opens straight to detail for a given initialAircraftId', async () => {
-    setWinglog({ aircraftList: vi.fn().mockResolvedValue([makeAircraft({ id: 7, registration: 'G-DIRECT' })]) })
+    setWinglog({
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft({ id: 7, registration: 'G-DIRECT' })])
+    })
     render(<FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={7} />)
     expect(await screen.findByText('G-DIRECT — A320')).toBeInTheDocument()
   })
 
   it('does not reset on the initial mount, but returns to the list when resetSignal is later bumped', async () => {
-    setWinglog({ aircraftList: vi.fn().mockResolvedValue([makeAircraft({ id: 7, registration: 'G-DIRECT' })]) })
-    const { rerender } = render(<FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={7} resetSignal={1} />)
+    setWinglog({
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft({ id: 7, registration: 'G-DIRECT' })])
+    })
+    const { rerender } = render(
+      <FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={7} resetSignal={1} />
+    )
     // Mount-time value of resetSignal must not immediately undo the initialAircraftId drill-down.
     expect(await screen.findByText('G-DIRECT — A320')).toBeInTheDocument()
 
@@ -574,7 +623,9 @@ describe('FleetView', () => {
     await user.click(screen.getByText('New aircraft'))
     await screen.findByText('New aircraft', { selector: 'h1' })
     await user.click(screen.getByText('Cancel'))
-    expect(await screen.findByText('No active aircraft — add one, or import a fleet from Settings → Data.')).toBeInTheDocument()
+    expect(
+      await screen.findByText('No active aircraft — add one, or import a fleet from Settings → Data.')
+    ).toBeInTheDocument()
   })
 
   it('edits an existing aircraft and returns to its detail page', async () => {
@@ -593,7 +644,9 @@ describe('FleetView', () => {
 
     await user.click(screen.getByText('Save'))
     await waitFor(() =>
-      expect(winglog.aircraftUpdate).toHaveBeenCalledWith(expect.objectContaining({ id: 3, registration: 'G-EDIT' }))
+      expect(winglog.aircraftUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 3, registration: 'G-EDIT' })
+      )
     )
     expect(await screen.findByText('G-EDITED — A320')).toBeInTheDocument()
   })
@@ -617,7 +670,10 @@ describe('FleetView', () => {
 
   it('deletes an aircraft after confirming, then returns to the list', async () => {
     const winglog = setWinglog({
-      aircraftList: vi.fn().mockResolvedValueOnce([makeAircraft({ id: 4, registration: 'G-DEL' })]).mockResolvedValue([])
+      aircraftList: vi
+        .fn()
+        .mockResolvedValueOnce([makeAircraft({ id: 4, registration: 'G-DEL' })])
+        .mockResolvedValue([])
     })
     const user = userEvent.setup()
     render(<FleetView onOpenFlightInLogbook={vi.fn()} />)
@@ -632,7 +688,9 @@ describe('FleetView', () => {
     await user.click(screen.getByText('Delete'))
     await user.click(screen.getByText('Delete aircraft'))
     await waitFor(() => expect(winglog.aircraftDelete).toHaveBeenCalledWith(4))
-    expect(await screen.findByText('No active aircraft — add one, or import a fleet from Settings → Data.')).toBeInTheDocument()
+    expect(
+      await screen.findByText('No active aircraft — add one, or import a fleet from Settings → Data.')
+    ).toBeInTheDocument()
   })
 
   it('shows a toast and stays put when deleting fails', async () => {
@@ -665,7 +723,9 @@ describe('FleetView', () => {
 
   it('does not show a Replace button on a retired aircraft’s detail page', async () => {
     setWinglog({
-      aircraftList: vi.fn().mockResolvedValue([makeAircraft({ id: 5, registration: 'G-RET', replacedByAircraftId: 1 })])
+      aircraftList: vi
+        .fn()
+        .mockResolvedValue([makeAircraft({ id: 5, registration: 'G-RET', replacedByAircraftId: 1 })])
     })
     render(<FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={5} />)
     await screen.findByText('G-RET — A320')
@@ -677,7 +737,9 @@ describe('FleetView', () => {
     const target = makeAircraft({ id: 2, registration: 'G-NEWTAIL' })
     const winglog = setWinglog({
       aircraftList: vi.fn().mockResolvedValue([source, target]),
-      flightList: vi.fn().mockResolvedValue([makeFlight({ aircraftId: 1 }), makeFlight({ id: 2, aircraftId: 1 })])
+      flightList: vi
+        .fn()
+        .mockResolvedValue([makeFlight({ aircraftId: 1 }), makeFlight({ id: 2, aircraftId: 1 })])
     })
     const user = userEvent.setup()
     render(<FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
@@ -795,7 +857,9 @@ describe('FleetView', () => {
     })
 
     it('falls back to the raw airframe id when no cached registration is set', async () => {
-      setWinglog({ aircraftList: vi.fn().mockResolvedValue([makeAircraft({ simbriefAirframeId: '123_456' })]) })
+      setWinglog({
+        aircraftList: vi.fn().mockResolvedValue([makeAircraft({ simbriefAirframeId: '123_456' })])
+      })
       render(<FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
       expect(await screen.findByText('123_456')).toBeInTheDocument()
     })
@@ -827,7 +891,11 @@ describe('FleetView', () => {
     it('shows a cached developer/engine label for a chosen SimBrief default type', async () => {
       setWinglog({
         aircraftList: vi.fn().mockResolvedValue([
-          makeAircraft({ simbriefType: 'A20N', simbriefAirframeDeveloper: 'FlyByWire', simbriefAirframeEngines: 'CFM' })
+          makeAircraft({
+            simbriefType: 'A20N',
+            simbriefAirframeDeveloper: 'FlyByWire',
+            simbriefAirframeEngines: 'CFM'
+          })
         ])
       })
       render(<FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)
@@ -837,7 +905,11 @@ describe('FleetView', () => {
     it('shows just the developer when no engines label is cached for a chosen default type', async () => {
       setWinglog({
         aircraftList: vi.fn().mockResolvedValue([
-          makeAircraft({ simbriefType: 'A20N', simbriefAirframeDeveloper: 'FlyByWire', simbriefAirframeEngines: null })
+          makeAircraft({
+            simbriefType: 'A20N',
+            simbriefAirframeDeveloper: 'FlyByWire',
+            simbriefAirframeEngines: null
+          })
         ])
       })
       render(<FleetView onOpenFlightInLogbook={vi.fn()} initialAircraftId={1} />)

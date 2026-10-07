@@ -97,7 +97,15 @@ export class FakeGsxRemoteServer {
 export const VHHH_BOOT_SNAPSHOT = {
   airport: { icao: 'VHHH', name: 'Hong Kong Intl', country: 'Hong Kong' },
   parking: '(N) T1 North|Gate N6',
-  gateProperties: ['Gate Heavy', 'SafeDockT42', 'jetway', 'underground fuel', 'no stairs', 'no bus', 'max wingspan 70m'],
+  gateProperties: [
+    'Gate Heavy',
+    'SafeDockT42',
+    'jetway',
+    'underground fuel',
+    'no stairs',
+    'no bus',
+    'max wingspan 70m'
+  ],
   services: [
     {
       id: 'Refueling',
@@ -171,7 +179,18 @@ export const GATE_SEARCH_MENU = {
   subtitle: '',
   layout: 'list',
   icons: [],
-  entries: ['Parking 347 - Ramp Cargo', 'Parking 346 - Ramp Cargo', 'Parking 15Z - Ramp GA Medium', '', '', '', '', '', '', 'Back'],
+  entries: [
+    'Parking 347 - Ramp Cargo',
+    'Parking 346 - Ramp Cargo',
+    'Parking 15Z - Ramp GA Medium',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    'Back'
+  ],
   disabled: [false, false, false, false, false, false, false, false, false, false]
 }
 

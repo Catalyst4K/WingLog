@@ -1,7 +1,14 @@
 /** When and how a traced taxi line is re-traced from where the aircraft is. */
 
 import type { FlightPhase, NavdataTaxiSegment } from '@shared/ipc'
-import { angleBetweenDeg, rejoinTaxiRoute, remainingRoute, WRONG_WAY_DEG, type RemainingRoute, type TracedRoute } from './taxi-route-trace'
+import {
+  angleBetweenDeg,
+  rejoinTaxiRoute,
+  remainingRoute,
+  WRONG_WAY_DEG,
+  type RemainingRoute,
+  type TracedRoute
+} from './taxi-route-trace'
 import { flatDistanceM } from '@shared/geo'
 
 /**
@@ -52,17 +59,24 @@ export interface DeviationSample {
  * @param sample This update's distance, heading and speed.
  * @returns Whether to re-route now, and the new state.
  */
-export function checkDeviation(state: DeviationState, sample: DeviationSample): { reroute: boolean; state: DeviationState } {
+export function checkDeviation(
+  state: DeviationState,
+  sample: DeviationSample
+): { reroute: boolean; state: DeviationState } {
   const moving = sample.groundSpeedMs > REROUTE_MIN_SPEED_MS
   const offLine = sample.distanceM > REROUTE_DISTANCE_M
   const wrongWay =
-    !offLine && sample.lineBearingDeg !== null && angleBetweenDeg(sample.headingDeg, sample.lineBearingDeg) > WRONG_WAY_DEG
+    !offLine &&
+    sample.lineBearingDeg !== null &&
+    angleBetweenDeg(sample.headingDeg, sample.lineBearingDeg) > WRONG_WAY_DEG
   if (!moving || !(offLine || wrongWay)) return { reroute: false, state: { ...state, deviatingSince: null } }
 
   const since = state.deviatingSince ?? sample.nowMs
   const longEnough = sample.nowMs - since >= REROUTE_AFTER_MS
-  const intervalOk = state.lastRerouteAt === null || sample.nowMs - state.lastRerouteAt >= REROUTE_MIN_INTERVAL_MS
-  if (longEnough && intervalOk) return { reroute: true, state: { deviatingSince: null, lastRerouteAt: sample.nowMs } }
+  const intervalOk =
+    state.lastRerouteAt === null || sample.nowMs - state.lastRerouteAt >= REROUTE_MIN_INTERVAL_MS
+  if (longEnough && intervalOk)
+    return { reroute: true, state: { deviatingSince: null, lastRerouteAt: sample.nowMs } }
   return { reroute: false, state: { ...state, deviatingSince: since } }
 }
 

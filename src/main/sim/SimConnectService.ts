@@ -181,8 +181,22 @@ export class SimConnectService extends EventEmitter<SimConnectServiceEvents> {
         // block's own doc comment). Not requested yet; armed/disarmed by
         // evaluateHighRateArming below as the primary stream's own telemetry crosses the
         // trigger altitude.
-        handle.addToDataDefinition(HIGH_RATE_DEFINITION_ID, 'VERTICAL SPEED', 'meters per second', SimConnectDataType.FLOAT64, 0, 0)
-        handle.addToDataDefinition(HIGH_RATE_DEFINITION_ID, 'SIM ON GROUND', 'bool', SimConnectDataType.INT32, 0, 1)
+        handle.addToDataDefinition(
+          HIGH_RATE_DEFINITION_ID,
+          'VERTICAL SPEED',
+          'meters per second',
+          SimConnectDataType.FLOAT64,
+          0,
+          0
+        )
+        handle.addToDataDefinition(
+          HIGH_RATE_DEFINITION_ID,
+          'SIM ON GROUND',
+          'bool',
+          SimConnectDataType.INT32,
+          0,
+          1
+        )
 
         handle.on('simObjectData', (recv) => {
           if (recv.requestID === HIGH_RATE_REQUEST_ID) {
@@ -303,7 +317,8 @@ export class SimConnectService extends EventEmitter<SimConnectServiceEvents> {
     if (!this.wasOnGroundHighRate && onGround && this.touchdownAt === null) {
       this.touchdownAt = now
       const peak = this.ringBuffer.reduce<{ t: number; verticalSpeedMs: number } | null>(
-        (best, p) => (best === null || Math.abs(p.verticalSpeedMs) > Math.abs(best.verticalSpeedMs) ? p : best),
+        (best, p) =>
+          best === null || Math.abs(p.verticalSpeedMs) > Math.abs(best.verticalSpeedMs) ? p : best,
         null
       )
       if (peak) this.emit('touchdownSeverity', { verticalSpeedMs: peak.verticalSpeedMs })
@@ -312,7 +327,11 @@ export class SimConnectService extends EventEmitter<SimConnectServiceEvents> {
 
     // highRateActive guard: a couple of ticks can still arrive after requestDataOnSimObject never takes effect
     // (docs/simconnect-notes.md, 2026-09-20); without it this would call stopHighRate/emit for every leftover tick.
-    if (this.highRateActive && this.touchdownAt !== null && now - this.touchdownAt >= HIGH_RATE_STOP_AFTER_TOUCHDOWN_MS) {
+    if (
+      this.highRateActive &&
+      this.touchdownAt !== null &&
+      now - this.touchdownAt >= HIGH_RATE_STOP_AFTER_TOUCHDOWN_MS
+    ) {
       this.stopHighRate()
       this.awaitingLanding = false // captured; don't re-arm until a real liftoff happens
     }

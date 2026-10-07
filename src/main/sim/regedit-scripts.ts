@@ -33,5 +33,7 @@ export function pointRegeditAtUnpackedScripts(
 ): string | null {
   if (!isPackaged) return null
   const regedit = load('regedit') as Regedit
-  return regedit.setExternalVBSLocation(join(resourcesPath, 'app.asar.unpacked', 'node_modules', 'regedit', 'vbs'))
+  return regedit.setExternalVBSLocation(
+    join(resourcesPath, 'app.asar.unpacked', 'node_modules', 'regedit', 'vbs')
+  )
 }

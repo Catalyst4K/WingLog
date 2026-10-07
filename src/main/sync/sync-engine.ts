@@ -21,7 +21,12 @@ import {
 } from '../db/aircraft-repo'
 import type { WingLogDb } from '../db/client'
 import { listFlightInvoicesForSync, upsertFlightInvoiceByUuid } from '../db/flight-invoice-repo'
-import { getFlightIdByUuid, getFlightUuidById, listFlightsForSync, upsertFlightByUuid } from '../db/flight-repo'
+import {
+  getFlightIdByUuid,
+  getFlightUuidById,
+  listFlightsForSync,
+  upsertFlightByUuid
+} from '../db/flight-repo'
 import { listLandingsForSync, upsertLandingByUuid } from '../db/landing-repo'
 import { getLastSyncedAt, setLastSyncedAt } from '../db/settings-repo'
 import { SYNC_TABLES, type SyncRow, type SyncTable } from '../backend/sync-client'
@@ -65,7 +70,10 @@ function conflictLogPath(dbPath: string): string {
 }
 
 function logSyncEvent(dbPath: string, event: Record<string, unknown>): void {
-  appendFileSync(conflictLogPath(dbPath), JSON.stringify({ loggedAt: new Date().toISOString(), ...event }) + '\n')
+  appendFileSync(
+    conflictLogPath(dbPath),
+    JSON.stringify({ loggedAt: new Date().toISOString(), ...event }) + '\n'
+  )
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -169,7 +177,12 @@ function serializeFlight(db: WingLogDb, row: ReturnType<typeof listFlightsForSyn
  */
 function applyFlight(db: WingLogDb, row: SyncRow): ApplyResult {
   const data = parseRowData(row.data)
-  if (!data || typeof data.aircraftUuid !== 'string' || typeof data.depIcao !== 'string' || typeof data.arrIcao !== 'string') {
+  if (
+    !data ||
+    typeof data.aircraftUuid !== 'string' ||
+    typeof data.depIcao !== 'string' ||
+    typeof data.arrIcao !== 'string'
+  ) {
     return { ok: false, error: 'malformed flight data' }
   }
   const aircraftId = getAircraftIdByUuid(db, data.aircraftUuid)
@@ -193,7 +206,10 @@ function applyFlight(db: WingLogDb, row: SyncRow): ApplyResult {
 
 // --- landing ----------------------------------------------------------------------------
 
-function serializeLanding(db: WingLogDb, row: ReturnType<typeof listLandingsForSync>[number]): SyncRow | null {
+function serializeLanding(
+  db: WingLogDb,
+  row: ReturnType<typeof listLandingsForSync>[number]
+): SyncRow | null {
   const flightUuid = getFlightUuidById(db, row.flightId)
   if (!flightUuid) return null // parent flight not yet pulled/created here — retried next sync
   return {
@@ -315,7 +331,12 @@ function applyPulledRow(db: WingLogDb, table: SyncTable, row: SyncRow): ApplyRes
  * @param dbPath The database file's path.
  * @returns What was pulled, pushed and skipped.
  */
-export async function runSync(db: WingLogDb, client: SyncClient, session: SyncSession, dbPath: string): Promise<SyncResult> {
+export async function runSync(
+  db: WingLogDb,
+  client: SyncClient,
+  session: SyncSession,
+  dbPath: string
+): Promise<SyncResult> {
   // Captured once, before any table is touched — a local write that lands in the exact
   // window between this and a table's own read is simply picked up on the *next* sync
   // rather than this one; not lost, just delayed one cycle. Not worth engineering around
@@ -357,7 +378,12 @@ export async function runSync(db: WingLogDb, client: SyncClient, session: SyncSe
       // empty push-side rejected list.
       result.rejected.push(...rejected)
       for (const uuid of rejected) {
-        logSyncEvent(dbPath, { direction: 'push', table, uuid, reason: 'server already had a newer updatedAt (last-write-wins)' })
+        logSyncEvent(dbPath, {
+          direction: 'push',
+          table,
+          uuid,
+          reason: 'server already had a newer updatedAt (last-write-wins)'
+        })
       }
     }
 

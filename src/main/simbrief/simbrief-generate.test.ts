@@ -2,54 +2,60 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DispatchOpenSimBriefParams } from '../../shared/ipc'
 import { dispatchOptionsToUrlParams, type DispatchOptions } from '@shared/dispatch-options'
 
-const { fromPartition, cookiesGet, clearStorageData, signSimbriefRequest, executeJavaScript, FakeBrowserWindow } =
-  vi.hoisted(() => {
-    // A minimal hand-rolled emitter rather than importing node:events — vi.hoisted's
-    // factory runs before this file's own imports are initialized, so it can only use
-    // what it defines itself.
-    class MiniEmitter {
-      private listeners = new Map<string, Array<(...args: unknown[]) => void>>()
-      on(event: string, handler: (...args: unknown[]) => void): this {
-        const existing = this.listeners.get(event) ?? []
-        existing.push(handler)
-        this.listeners.set(event, existing)
-        return this
-      }
-      emit(event: string, ...args: unknown[]): void {
-        for (const handler of this.listeners.get(event) ?? []) handler(...args)
-      }
+const {
+  fromPartition,
+  cookiesGet,
+  clearStorageData,
+  signSimbriefRequest,
+  executeJavaScript,
+  FakeBrowserWindow
+} = vi.hoisted(() => {
+  // A minimal hand-rolled emitter rather than importing node:events — vi.hoisted's
+  // factory runs before this file's own imports are initialized, so it can only use
+  // what it defines itself.
+  class MiniEmitter {
+    private listeners = new Map<string, Array<(...args: unknown[]) => void>>()
+    on(event: string, handler: (...args: unknown[]) => void): this {
+      const existing = this.listeners.get(event) ?? []
+      existing.push(handler)
+      this.listeners.set(event, existing)
+      return this
     }
+    emit(event: string, ...args: unknown[]): void {
+      for (const handler of this.listeners.get(event) ?? []) handler(...args)
+    }
+  }
 
-    // Shared across every instance's webContents, so a test can preset the next
-    // executeJavaScript resolution before the code under test creates the window that
-    // will call it (e.g. fetchSimbriefPilotId's window, created deep inside
-    // createCustomAirframeFromShare's navigation handler).
-    const executeJavaScriptMock = vi.fn()
-    class FakeWebContents extends MiniEmitter {
-      executeJavaScript = executeJavaScriptMock
+  // Shared across every instance's webContents, so a test can preset the next
+  // executeJavaScript resolution before the code under test creates the window that
+  // will call it (e.g. fetchSimbriefPilotId's window, created deep inside
+  // createCustomAirframeFromShare's navigation handler).
+  const executeJavaScriptMock = vi.fn()
+  class FakeWebContents extends MiniEmitter {
+    executeJavaScript = executeJavaScriptMock
+  }
+  class FakeBrowserWindowImpl extends MiniEmitter {
+    static instances: FakeBrowserWindowImpl[] = []
+    webContents = new FakeWebContents()
+    loadURL = vi.fn().mockResolvedValue(undefined)
+    close = vi.fn(() => this.emit('closed'))
+    destroy = vi.fn()
+    options: unknown
+    constructor(options: unknown) {
+      super()
+      this.options = options
+      FakeBrowserWindowImpl.instances.push(this)
     }
-    class FakeBrowserWindowImpl extends MiniEmitter {
-      static instances: FakeBrowserWindowImpl[] = []
-      webContents = new FakeWebContents()
-      loadURL = vi.fn().mockResolvedValue(undefined)
-      close = vi.fn(() => this.emit('closed'))
-      destroy = vi.fn()
-      options: unknown
-      constructor(options: unknown) {
-        super()
-        this.options = options
-        FakeBrowserWindowImpl.instances.push(this)
-      }
-    }
-    return {
-      fromPartition: vi.fn(),
-      cookiesGet: vi.fn(),
-      clearStorageData: vi.fn(),
-      signSimbriefRequest: vi.fn(),
-      executeJavaScript: executeJavaScriptMock,
-      FakeBrowserWindow: FakeBrowserWindowImpl
-    }
-  })
+  }
+  return {
+    fromPartition: vi.fn(),
+    cookiesGet: vi.fn(),
+    clearStorageData: vi.fn(),
+    signSimbriefRequest: vi.fn(),
+    executeJavaScript: executeJavaScriptMock,
+    FakeBrowserWindow: FakeBrowserWindowImpl
+  }
+})
 
 vi.mock('electron', () => ({
   BrowserWindow: FakeBrowserWindow,
@@ -105,7 +111,11 @@ describe('buildGenerateUrl', () => {
 
   it('prefers a saved airframe ID over simbriefType and icaoType for `type`', () => {
     const url = new URL(
-      buildGenerateUrl({ ...BASE, simbriefAirframeId: '123456_1582090020', simbriefType: 'A20N' }, 'abc123', 1788307200)
+      buildGenerateUrl(
+        { ...BASE, simbriefAirframeId: '123456_1582090020', simbriefType: 'A20N' },
+        'abc123',
+        1788307200
+      )
     )
     expect(url.searchParams.get('type')).toBe('123456_1582090020')
   })
@@ -136,7 +146,19 @@ describe('buildGenerateUrl', () => {
   })
 
   it('passes through advanced dispatch-options extras', () => {
-    const url = new URL(buildGenerateUrl({ ...BASE, extra: [['units', 'KGS'], ['contpct', '0.03']] }, 'abc123', 1788307200))
+    const url = new URL(
+      buildGenerateUrl(
+        {
+          ...BASE,
+          extra: [
+            ['units', 'KGS'],
+            ['contpct', '0.03']
+          ]
+        },
+        'abc123',
+        1788307200
+      )
+    )
     expect(url.searchParams.get('units')).toBe('KGS')
     expect(url.searchParams.get('contpct')).toBe('0.03')
   })
@@ -192,10 +214,14 @@ describe('extractSavedAirframeId', () => {
   // Every other navigation the share → login → save flow actually passes through, per
   // the same live spike — none of these should be mistaken for the save itself.
   it('returns null for every other navigation the share/login flow passes through', () => {
-    expect(extractSavedAirframeId('https://dispatch.simbrief.com/airframes/share/80_1709125568637')).toBeNull()
+    expect(
+      extractSavedAirframeId('https://dispatch.simbrief.com/airframes/share/80_1709125568637')
+    ).toBeNull()
     expect(extractSavedAirframeId('https://identity.api.navigraph.com/login?signin=abc123')).toBeNull()
     expect(
-      extractSavedAirframeId('https://appleid.apple.com/auth/authorize?client_id=com.navigraph.identity-service')
+      extractSavedAirframeId(
+        'https://appleid.apple.com/auth/authorize?client_id=com.navigraph.identity-service'
+      )
     ).toBeNull()
     expect(extractSavedAirframeId('https://dispatch.simbrief.com/airframes')).toBeNull()
   })
@@ -342,7 +368,11 @@ describe('functions backed by a real BrowserWindow/session', () => {
       const promise = createCustomAirframeFromShare(SHARE_URL)
       const shareWin = lastWindow()
 
-      shareWin.webContents.emit('did-navigate-in-page', {}, 'https://dispatch.simbrief.com/airframes/saved/999')
+      shareWin.webContents.emit(
+        'did-navigate-in-page',
+        {},
+        'https://dispatch.simbrief.com/airframes/saved/999'
+      )
 
       await expect(promise).resolves.toBeNull()
     })

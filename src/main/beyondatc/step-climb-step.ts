@@ -133,7 +133,9 @@ export function stepClimbStatus(state: StepClimbState): BeyondAtcStepClimbStatus
  */
 export function setStepClimbEnabled(state: StepClimbState, enabled: boolean): StepClimbResult {
   const logs = enabled !== state.enabled ? [enabled ? 'enabled' : 'disabled'] : []
-  const next: StepClimbState = enabled ? { ...state, enabled } : { ...state, enabled, nextStep: null, fcu: null, waitingForClimb: null }
+  const next: StepClimbState = enabled
+    ? { ...state, enabled }
+    : { ...state, enabled, nextStep: null, fcu: null, waitingForClimb: null }
   return { state: next, logs, fire: null }
 }
 
@@ -197,7 +199,13 @@ export function settleRequest(
   else if (done.attempt >= MAX_ATTEMPTS && !dropped.includes(key)) dropped.push(key)
   const isDropped = dropped.includes(key)
   const logs = [`request ${key} ft: ${done.outcome}${isDropped ? ', dropped' : ''}`]
-  const last = { altitudeFt: key, outcome: done.outcome, attempt: done.attempt, reason: done.reason, dropped: isDropped }
+  const last = {
+    altitudeFt: key,
+    outcome: done.outcome,
+    attempt: done.attempt,
+    reason: done.reason,
+    dropped: isDropped
+  }
   return { state: { ...state, attempts, dropped, last }, logs, fire: null }
 }
 
@@ -219,7 +227,12 @@ export function finishRequest(state: StepClimbState): StepClimbState {
  * @param getOfpJson Reads the flight's stored OFP.
  * @param logs The log lines so far.
  */
-function followFlight(s: StepClimbState, flightId: number, getOfpJson: StepClimbTick['getOfpJson'], logs: string[]): void {
+function followFlight(
+  s: StepClimbState,
+  flightId: number,
+  getOfpJson: StepClimbTick['getOfpJson'],
+  logs: string[]
+): void {
   s.flightId = flightId
   s.plan = extractStepPlan(getOfpJson(flightId))
   s.progress = 0
@@ -243,7 +256,13 @@ function followFlight(s: StepClimbState, flightId: number, getOfpJson: StepClimb
  * @param phase The flight phase, for the log.
  * @param logs The log lines so far.
  */
-function trackFcu(s: StepClimbState, t: SimTelemetry, now: number, phase: ActiveTracking['phase'], logs: string[]): void {
+function trackFcu(
+  s: StepClimbState,
+  t: SimTelemetry,
+  now: number,
+  phase: ActiveTracking['phase'],
+  logs: string[]
+): void {
   if (typeof t.apSelectedAltitudeM !== 'number') return
   const selectedFt = t.apSelectedAltitudeM * FEET_PER_METRE
   if (!s.fcu || Math.abs(selectedFt - s.fcu.valueFt) > FCU_CHANGE_FT) {
@@ -262,12 +281,19 @@ function trackFcu(s: StepClimbState, t: SimTelemetry, now: number, phase: Active
  * @param logs The log lines so far.
  * @returns Feet.
  */
-function clearedLevelFt(s: StepClimbState, t: SimTelemetry, boxLevelFt: number | null, logs: string[]): number {
+function clearedLevelFt(
+  s: StepClimbState,
+  t: SimTelemetry,
+  boxLevelFt: number | null,
+  logs: string[]
+): number {
   if (boxLevelFt !== null) s.boxCleared = boxLevelFt
   const clearedFt = s.boxCleared ?? Math.round((t.pressureAltitudeM * FEET_PER_METRE) / 1000) * 1000
   if (clearedFt !== s.loggedCleared) {
     s.loggedCleared = clearedFt
-    logs.push(`cleared level ${clearedFt} ft (${s.boxCleared !== null ? 'from InfoBoxes' : 'no ATC level, using altitude'})`)
+    logs.push(
+      `cleared level ${clearedFt} ft (${s.boxCleared !== null ? 'from InfoBoxes' : 'no ATC level, using altitude'})`
+    )
   }
   return clearedFt
 }
@@ -298,7 +324,10 @@ function updateProgress(s: StepClimbState, t: SimTelemetry, logs: string[]): voi
 function isPastTopOfDescent(s: StepClimbState, t: SimTelemetry): boolean {
   if (s.plan.todOrder !== null) return s.progress >= s.plan.todOrder
   const destination = s.plan.fixes.at(-1)
-  return destination !== undefined && greatCircleNm({ lat: t.latitude, lon: t.longitude }, destination) < NO_TOD_CUTOFF_NM
+  return (
+    destination !== undefined &&
+    greatCircleNm({ lat: t.latitude, lon: t.longitude }, destination) < NO_TOD_CUTOFF_NM
+  )
 }
 
 /**
@@ -320,7 +349,10 @@ function findUpcomingStep(
   const upcoming = s.pastTopOfDescent
     ? undefined
     : s.plan.steps.find(
-        (step) => step.order >= s.progress && step.altitudeFt > clearedFt + STEP_THRESHOLD_FT && !s.dropped.includes(roundLevel(step.altitudeFt))
+        (step) =>
+          step.order >= s.progress &&
+          step.altitudeFt > clearedFt + STEP_THRESHOLD_FT &&
+          !s.dropped.includes(roundLevel(step.altitudeFt))
       )
   const upcomingDistance = upcoming ? greatCircleNm({ lat: t.latitude, lon: t.longitude }, upcoming) : null
   s.nextStep =
@@ -330,7 +362,9 @@ function findUpcomingStep(
   const nextKey = upcoming ? `${upcoming.ident}@${Math.round(upcoming.altitudeFt)}` : 'none'
   if (nextKey !== s.loggedNext) {
     s.loggedNext = nextKey
-    logs.push(`next step ${nextKey}${upcomingDistance !== null ? ` (${Math.round(upcomingDistance)} nm)` : ''}`)
+    logs.push(
+      `next step ${nextKey}${upcomingDistance !== null ? ` (${Math.round(upcomingDistance)} nm)` : ''}`
+    )
   }
   return { upcoming, upcomingDistance }
 }
@@ -395,5 +429,7 @@ function recordAttempt(s: StepClimbState, target: StepClimbTarget, now: number, 
   const attempt = { count: (s.attempts[key]?.count ?? 0) + 1, lastAt: now }
   s.attempts[key] = attempt
   s.inFlight = key
-  logs.push(`requesting ${Math.round(target.altitudeFt)} ft (trigger ${target.reason}, attempt ${attempt.count})`)
+  logs.push(
+    `requesting ${Math.round(target.altitudeFt)} ft (trigger ${target.reason}, attempt ${attempt.count})`
+  )
 }

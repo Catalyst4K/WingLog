@@ -580,7 +580,12 @@ describe('flight repo', () => {
     })
 
     it('leaves the OFP text out of the list, with hasOfp in its place (2026-10-01: ~16 MB per Logbook open)', () => {
-      const withOfp = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'EGCC', ofpJson: '{"big":"ofp"}' })
+      const withOfp = createFlight(db, {
+        aircraftId,
+        depIcao: 'EGLL',
+        arrIcao: 'EGCC',
+        ofpJson: '{"big":"ofp"}'
+      })
       startFlight(db, withOfp.id, 10000)
       completeFlight(db, withOfp.id, 9500)
       flyAndComplete(aircraftId, 'EGPH', 45, 700) // no OFP
@@ -662,7 +667,7 @@ describe('flight repo', () => {
       expect(stats.map((s) => s.registration)).toEqual(['G-ABCD'])
     })
 
-    it('lists one aircraft\'s own completed flights, newest first, excluding other tails and planned flights', () => {
+    it("lists one aircraft's own completed flights, newest first, excluding other tails and planned flights", () => {
       const secondAircraftId = createAircraft(db, { registration: 'G-WXYZ', icaoType: 'B738' }).id
       createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' }) // stays planned, must be excluded
 
@@ -731,7 +736,10 @@ describe('flight repo', () => {
 
     it('bumps updatedAt so the stand syncs', () => {
       const id = completed('YBBN', 'VHHH', '2026-10-02T08:00:00Z')
-      db.update(flightTable).set({ updatedAt: '2000-01-01T00:00:00.000Z' }).where(eq(flightTable.id, id)).run()
+      db.update(flightTable)
+        .set({ updatedAt: '2000-01-01T00:00:00.000Z' })
+        .where(eq(flightTable.id, id))
+        .run()
       setParkedStand(db, id, 'VHHH', 'N32')
       const row = db.select().from(flightTable).where(eq(flightTable.id, id)).get()!
       expect(row).toMatchObject({ parkedStandIcao: 'VHHH', parkedStand: 'N32' })

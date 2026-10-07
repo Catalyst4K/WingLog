@@ -70,4 +70,3 @@ export interface LiveCommands {
 }
 
 export type LiveCommand = keyof LiveCommands
-

@@ -62,9 +62,7 @@ export function UpdateBanner(props: { airborne: boolean }): React.JSX.Element | 
           <Button
             type="button"
             size="sm"
-            onClick={asyncHandler('UpdateBanner updatesOpenRelease', () =>
-              winglogApi().updatesOpenRelease()
-            )}
+            onClick={asyncHandler('UpdateBanner updatesOpenRelease', () => winglogApi().updatesOpenRelease())}
           >
             <Download aria-hidden="true" />
             {t('updates.banner.download')}

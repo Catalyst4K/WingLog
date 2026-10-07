@@ -49,16 +49,28 @@ describe('runTrackCleanupForFlight', () => {
   })
 
   it('returns undefined and writes nothing for a flight with no junk', () => {
-    createTrackPoint(db, samplePoint(flightId, { tsUtc: '2026-09-01T12:00:00.000Z', latitude: 0, longitude: 0 }))
-    createTrackPoint(db, samplePoint(flightId, { tsUtc: '2026-09-01T12:00:05.000Z', latitude: 0.01, longitude: 0 }))
+    createTrackPoint(
+      db,
+      samplePoint(flightId, { tsUtc: '2026-09-01T12:00:00.000Z', latitude: 0, longitude: 0 })
+    )
+    createTrackPoint(
+      db,
+      samplePoint(flightId, { tsUtc: '2026-09-01T12:00:05.000Z', latitude: 0.01, longitude: 0 })
+    )
     expect(runTrackCleanupForFlight(db, flightId)).toBeUndefined()
   })
 
   it('finds and persists a standalone mid-flight teleport on a flight with no active recorder', () => {
     // Stands in for a flight completed before Phase 2 existed, or one where the live
     // per-tick check missed a jump for some reason — the manual Logbook button's use case.
-    createTrackPoint(db, samplePoint(flightId, { tsUtc: '2026-09-01T12:00:00.000Z', latitude: 0, longitude: 0 }))
-    createTrackPoint(db, samplePoint(flightId, { tsUtc: '2026-09-01T12:00:05.000Z', latitude: 20, longitude: 20 }))
+    createTrackPoint(
+      db,
+      samplePoint(flightId, { tsUtc: '2026-09-01T12:00:00.000Z', latitude: 0, longitude: 0 })
+    )
+    createTrackPoint(
+      db,
+      samplePoint(flightId, { tsUtc: '2026-09-01T12:00:05.000Z', latitude: 20, longitude: 20 })
+    )
     createTrackPoint(
       db,
       samplePoint(flightId, { tsUtc: '2026-09-01T12:00:10.000Z', latitude: 20.001, longitude: 20.001 })

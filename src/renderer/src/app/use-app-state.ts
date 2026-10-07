@@ -120,12 +120,14 @@ export function useFlightPlan(): FlightPlan {
   useEffect(() => {
     runAsync(
       'App dispatchGetInProgressFlight',
-      winglogApi().dispatchGetInProgressFlight().then((result) => {
-        if (!result) return
-        setDispatchOfp(result.ofp)
-        setDispatchedOfpId(result.ofp.ofpId)
-        setProcedureSelection(selectionFromFlight(result.flight))
-      })
+      winglogApi()
+        .dispatchGetInProgressFlight()
+        .then((result) => {
+          if (!result) return
+          setDispatchOfp(result.ofp)
+          setDispatchedOfpId(result.ofp.ofpId)
+          setProcedureSelection(selectionFromFlight(result.flight))
+        })
     )
   }, [])
 
@@ -421,23 +423,25 @@ export function useFirstLaunchSetup(): { setupOpen: boolean; setSetupOpen: (open
   useEffect(() => {
     runAsync(
       'App setupGetState',
-      winglogApi().setupGetState().then(async (setup) => {
-        if (setup.show) setSetupOpen(true)
-        if (setup.whatsNew) toast.info(i18n.t('app.whatsNew'), { duration: 15_000 })
-        // A no-op (returns null) on every launch after the app's actual first-ever one —
-        // see settingsCheckGsxFirstLaunch's doc comment.
-        const result = await winglogApi().settingsCheckGsxFirstLaunch()
-        // The setup's add-ons step shows what this found, so no separate toast on top of it.
-        if (!result || setup.show) return
-        // i18n.t directly, not the hook's t — this only runs once at mount (checking a
-        // one-time flag), so it must not depend on a value that changes on every language
-        // switch just to satisfy the exhaustive-deps rule.
-        if (result.found) {
-          toast.success(i18n.t('app.gsxFirstLaunch.found'))
-        } else {
-          toast.info(i18n.t('app.gsxFirstLaunch.notFound'))
-        }
-      })
+      winglogApi()
+        .setupGetState()
+        .then(async (setup) => {
+          if (setup.show) setSetupOpen(true)
+          if (setup.whatsNew) toast.info(i18n.t('app.whatsNew'), { duration: 15_000 })
+          // A no-op (returns null) on every launch after the app's actual first-ever one —
+          // see settingsCheckGsxFirstLaunch's doc comment.
+          const result = await winglogApi().settingsCheckGsxFirstLaunch()
+          // The setup's add-ons step shows what this found, so no separate toast on top of it.
+          if (!result || setup.show) return
+          // i18n.t directly, not the hook's t — this only runs once at mount (checking a
+          // one-time flag), so it must not depend on a value that changes on every language
+          // switch just to satisfy the exhaustive-deps rule.
+          if (result.found) {
+            toast.success(i18n.t('app.gsxFirstLaunch.found'))
+          } else {
+            toast.info(i18n.t('app.gsxFirstLaunch.notFound'))
+          }
+        })
     )
   }, [])
   return { setupOpen, setSetupOpen }

@@ -52,9 +52,7 @@ describe('GsxInvoicesCard', () => {
     withWinglog()
     render(<GsxInvoicesCard flightId={42} />)
     expect(screen.getByText('Bodendienste')).toBeInTheDocument()
-    expect(
-      await screen.findByText(/Diesem Flug wurden noch keine GSX-Belege zugeordnet/)
-    ).toBeInTheDocument()
+    expect(await screen.findByText(/Diesem Flug wurden noch keine GSX-Belege zugeordnet/)).toBeInTheDocument()
   })
 
   it('shows the empty-state message when there are no invoices', async () => {
@@ -66,10 +64,12 @@ describe('GsxInvoicesCard', () => {
 
   it('loads invoices for the given flight and renders each one', async () => {
     withWinglog({
-      logbookListInvoices: vi.fn().mockResolvedValue([
-        invoice({ id: 1, serviceGroup: 'catering', operator: 'Acme Catering' }),
-        invoice({ id: 2, serviceGroup: 'handling', totalText: null })
-      ])
+      logbookListInvoices: vi
+        .fn()
+        .mockResolvedValue([
+          invoice({ id: 1, serviceGroup: 'catering', operator: 'Acme Catering' }),
+          invoice({ id: 2, serviceGroup: 'handling', totalText: null })
+        ])
     })
     render(<GsxInvoicesCard flightId={42} />)
 
@@ -122,7 +122,7 @@ describe('GsxInvoicesCard', () => {
         { label: 'VAT', rate: '20%', amount: '$100', reason: 'EU fuel duty' },
         { label: 'Handling fee', rate: '5%', amount: '$25', reason: '' }
       ],
-      fxDisclosure: 'Converted at today\'s rate.'
+      fxDisclosure: "Converted at today's rate."
     })
     withWinglog({ logbookListInvoices: vi.fn().mockResolvedValue([invoice({ receiptJson })]) })
     const user = userEvent.setup()
@@ -159,7 +159,9 @@ describe('GsxInvoicesCard', () => {
 
   it('shows a plain USD total when every invoice has one', async () => {
     withWinglog({
-      logbookListInvoices: vi.fn().mockResolvedValue([invoice({ id: 1, totalUsd: 100 }), invoice({ id: 2, totalUsd: 50 })])
+      logbookListInvoices: vi
+        .fn()
+        .mockResolvedValue([invoice({ id: 1, totalUsd: 100 }), invoice({ id: 2, totalUsd: 50 })])
     })
     render(<GsxInvoicesCard flightId={42} />)
 
@@ -178,7 +180,9 @@ describe('GsxInvoicesCard', () => {
   it('converts the total using a resolved fx rate once display currency is non-USD', async () => {
     const fxGetRate = vi.fn().mockResolvedValue(0.8)
     withWinglog({
-      logbookListInvoices: vi.fn().mockResolvedValue([invoice({ totalUsd: 100, issuedUtc: '2026-09-01T00:00:00Z' })]),
+      logbookListInvoices: vi
+        .fn()
+        .mockResolvedValue([invoice({ totalUsd: 100, issuedUtc: '2026-09-01T00:00:00Z' })]),
       settingsGetGsx: vi.fn().mockResolvedValue({ enabled: true, folderPath: null, displayCurrency: 'GBP' }),
       fxGetRate
     })
@@ -195,9 +199,27 @@ describe('GsxInvoicesCard', () => {
   it('shows each row in the display currency, matching a converted total', async () => {
     withWinglog({
       logbookListInvoices: vi.fn().mockResolvedValue([
-        invoice({ id: 1, serviceGroup: 'catering', totalText: '₩10,421,451 ~$ 7,692.30', totalUsd: 7692.3, issuedUtc: '2026-10-04T08:00:00Z' }),
-        invoice({ id: 2, serviceGroup: 'fuel', totalText: '₩262,062,912 ~$ 193,434.34', totalUsd: 193434.34, issuedUtc: '2026-10-04T08:10:00Z' }),
-        invoice({ id: 3, serviceGroup: 'handling', totalText: '₩9,778,622 ~$ 7,217.81', totalUsd: 7217.81, issuedUtc: '2026-10-04T08:20:00Z' })
+        invoice({
+          id: 1,
+          serviceGroup: 'catering',
+          totalText: '₩10,421,451 ~$ 7,692.30',
+          totalUsd: 7692.3,
+          issuedUtc: '2026-10-04T08:00:00Z'
+        }),
+        invoice({
+          id: 2,
+          serviceGroup: 'fuel',
+          totalText: '₩262,062,912 ~$ 193,434.34',
+          totalUsd: 193434.34,
+          issuedUtc: '2026-10-04T08:10:00Z'
+        }),
+        invoice({
+          id: 3,
+          serviceGroup: 'handling',
+          totalText: '₩9,778,622 ~$ 7,217.81',
+          totalUsd: 7217.81,
+          issuedUtc: '2026-10-04T08:20:00Z'
+        })
       ]),
       settingsGetGsx: vi.fn().mockResolvedValue({ enabled: true, folderPath: null, displayCurrency: 'GBP' }),
       fxGetRate: vi.fn().mockResolvedValue(0.75)
@@ -214,7 +236,9 @@ describe('GsxInvoicesCard', () => {
 
   it('shows a USD-only receipt (no local half) with the converted amount after it', async () => {
     withWinglog({
-      logbookListInvoices: vi.fn().mockResolvedValue([invoice({ totalText: '$ 3,939.86', totalUsd: 3939.86 })]),
+      logbookListInvoices: vi
+        .fn()
+        .mockResolvedValue([invoice({ totalText: '$ 3,939.86', totalUsd: 3939.86 })]),
       settingsGetGsx: vi.fn().mockResolvedValue({ enabled: true, folderPath: null, displayCurrency: 'GBP' }),
       fxGetRate: vi.fn().mockResolvedValue(0.75)
     })
@@ -225,10 +249,12 @@ describe('GsxInvoicesCard', () => {
 
   it("keeps GSX's own text on every row while the total is still in USD", async () => {
     withWinglog({
-      logbookListInvoices: vi.fn().mockResolvedValue([
-        invoice({ id: 1, totalText: 'HK$716.54 ~$ 91.26', totalUsd: 91.26 }),
-        invoice({ id: 2, totalText: 'HK$1.00', totalUsd: null })
-      ]),
+      logbookListInvoices: vi
+        .fn()
+        .mockResolvedValue([
+          invoice({ id: 1, totalText: 'HK$716.54 ~$ 91.26', totalUsd: 91.26 }),
+          invoice({ id: 2, totalText: 'HK$1.00', totalUsd: null })
+        ]),
       settingsGetGsx: vi.fn().mockResolvedValue({ enabled: true, folderPath: null, displayCurrency: 'GBP' }),
       fxGetRate: vi.fn().mockResolvedValue(null)
     })
@@ -241,10 +267,12 @@ describe('GsxInvoicesCard', () => {
 
   it('keeps the text of a receipt with no USD amount unchanged while the others convert', async () => {
     withWinglog({
-      logbookListInvoices: vi.fn().mockResolvedValue([
-        invoice({ id: 1, totalText: 'HK$716.54 ~$ 91.26', totalUsd: 91.26 }),
-        invoice({ id: 2, totalText: 'HK$1.00', totalUsd: null })
-      ]),
+      logbookListInvoices: vi
+        .fn()
+        .mockResolvedValue([
+          invoice({ id: 1, totalText: 'HK$716.54 ~$ 91.26', totalUsd: 91.26 }),
+          invoice({ id: 2, totalText: 'HK$1.00', totalUsd: null })
+        ]),
       settingsGetGsx: vi.fn().mockResolvedValue({ enabled: true, folderPath: null, displayCurrency: 'GBP' }),
       fxGetRate: vi.fn().mockResolvedValue(0.75)
     })
@@ -276,7 +304,9 @@ describe('GsxInvoicesCard', () => {
       notailCandidates: []
     })
     withWinglog({
-      logbookListInvoices: vi.fn().mockResolvedValue([invoice({ id: 1, totalUsd: 100, issuedUtc: '2026-09-01T00:00:00Z' })]),
+      logbookListInvoices: vi
+        .fn()
+        .mockResolvedValue([invoice({ id: 1, totalUsd: 100, issuedUtc: '2026-09-01T00:00:00Z' })]),
       settingsGetGsx: vi.fn().mockResolvedValue({ enabled: true, folderPath: null, displayCurrency: 'GBP' }),
       fxGetRate,
       gsxRescanFlight
@@ -297,7 +327,10 @@ describe('GsxInvoicesCard', () => {
 
   it('rescans and replaces the invoice list on success', async () => {
     const rescanned = [invoice({ id: 9, serviceGroup: 'passengerBus' })]
-    let resolveRescan: (result: { invoices: FlightInvoice[]; notailCandidates: GsxNotailCandidate[] }) => void = () => {}
+    let resolveRescan: (result: {
+      invoices: FlightInvoice[]
+      notailCandidates: GsxNotailCandidate[]
+    }) => void = () => {}
     const gsxRescanFlight = vi.fn(
       () =>
         new Promise<{ invoices: FlightInvoice[]; notailCandidates: GsxNotailCandidate[] }>((resolve) => {

@@ -119,7 +119,10 @@ function buildDefinitions(handle: SimConnectConnection): void {
  * @returns The runways, SIDs, STARs and approaches.
  * @throws When the sim reports an exception or the fetch times out.
  */
-export function fetchAirportNavdata(handle: SimConnectConnection, icao: string): Promise<FetchedAirportNavdata> {
+export function fetchAirportNavdata(
+  handle: SimConnectConnection,
+  icao: string
+): Promise<FetchedAirportNavdata> {
   buildDefinitions(handle)
   return runFacilityFetch(handle, icao, {
     defIds: [NavdataDefId.RUNWAYS, NavdataDefId.DEPARTURES, NavdataDefId.ARRIVALS, NavdataDefId.APPROACHES],
@@ -163,7 +166,11 @@ type FacilityCollector<T> = Pick<FacilityFetch<T>, 'onData' | 'result'>
  * @returns What the collector built.
  * @throws When the sim reports an exception or the fetch times out.
  */
-function runFacilityFetch<T>(handle: SimConnectConnection, icao: string, fetch: FacilityFetch<T>): Promise<T> {
+function runFacilityFetch<T>(
+  handle: SimConnectConnection,
+  icao: string,
+  fetch: FacilityFetch<T>
+): Promise<T> {
   return new Promise((resolve, reject) => {
     const pending = new Set<NavdataDefId>(fetch.defIds)
     let settled = false
@@ -205,7 +212,10 @@ function runFacilityFetch<T>(handle: SimConnectConnection, icao: string, fetch: 
     handle.on('facilityMinimalList', onFacilityMinimalList)
     handle.on('exception', onException)
 
-    const timeoutTimer = setTimeout(() => settle(() => reject(new Error(fetch.timeoutMessage))), fetch.timeoutMs)
+    const timeoutTimer = setTimeout(
+      () => settle(() => reject(new Error(fetch.timeoutMessage))),
+      fetch.timeoutMs
+    )
 
     for (const defId of fetch.defIds) handle.requestFacilityData(defId, defId, icao)
   })
@@ -283,7 +293,9 @@ function airportNavdataCollector(icao: string): FacilityCollector<FetchedAirport
       case FacilityDataType.DEPARTURE:
       case FacilityDataType.ARRIVAL: {
         const procedure = emptyProcedure(parseProcedureHeader(d))
-        ;(recv.userRequestId === NavdataDefId.DEPARTURES ? navdata.departures : navdata.arrivals).push(procedure)
+        ;(recv.userRequestId === NavdataDefId.DEPARTURES ? navdata.departures : navdata.arrivals).push(
+          procedure
+        )
         procedureByUniqueRequestId.set(recv.uniqueRequestId, procedure)
         break
       }
@@ -448,7 +460,12 @@ function buildTaxiDefinitions(handle: SimConnectConnection): void {
 export function fetchTaxiNetwork(handle: SimConnectConnection, icao: string): Promise<FetchedTaxiNetwork> {
   buildTaxiDefinitions(handle)
   return runFacilityFetch(handle, icao, {
-    defIds: [NavdataDefId.TAXI_POINTS, NavdataDefId.TAXI_PATHS_TYPE_1, NavdataDefId.TAXI_PATHS_TYPE_4, NavdataDefId.TAXI_NAMES],
+    defIds: [
+      NavdataDefId.TAXI_POINTS,
+      NavdataDefId.TAXI_PATHS_TYPE_1,
+      NavdataDefId.TAXI_PATHS_TYPE_4,
+      NavdataDefId.TAXI_NAMES
+    ],
     timeoutMs: TAXI_FETCH_TIMEOUT_MS,
     what: 'taxi network',
     timeoutMessage: `Taxi network fetch for ${icao} timed out`,

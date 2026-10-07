@@ -98,8 +98,16 @@ describe('fetchLatestOfp', () => {
     const ofp = await fetchLatestOfp('LandingHangar711')
 
     expect(ofp.stepClimbs).toHaveLength(5)
-    expect(ofp.stepClimbs[0]).toEqual({ atIdent: 'EGLL', toAltitudeFt: 33000, native: { unit: 'ft', value: 33000 } })
-    expect(ofp.stepClimbs[2]).toEqual({ atIdent: 'SUDAR', toAltitudeFt: 37000, native: { unit: 'ft', value: 37000 } })
+    expect(ofp.stepClimbs[0]).toEqual({
+      atIdent: 'EGLL',
+      toAltitudeFt: 33000,
+      native: { unit: 'ft', value: 33000 }
+    })
+    expect(ofp.stepClimbs[2]).toEqual({
+      atIdent: 'SUDAR',
+      toAltitudeFt: 37000,
+      native: { unit: 'ft', value: 37000 }
+    })
     expect(ofp.stepClimbs[3].atIdent).toBe('KAMUD')
     expect(ofp.stepClimbs[3].native).toEqual({ unit: 'm', value: 11300 })
     expect(ofp.stepClimbs[3].toAltitudeFt).toBeCloseTo(11300 / 0.3048, 1)

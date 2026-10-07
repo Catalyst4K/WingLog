@@ -87,14 +87,49 @@ const asBool = (data: RawBuffer): boolean => data.readInt32() === 1
 // prints (see shouldPrint below), not something the landing feature itself needs.
 const SIM_VARS: SimVarSpec[] = [
   { name: 'SIM ON GROUND', unit: 'bool', dataType: SimConnectDataType.INT32, read: asBool },
-  { name: 'PLANE ALT ABOVE GROUND', unit: 'feet', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
-  { name: 'GROUND VELOCITY', unit: 'knots', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
+  {
+    name: 'PLANE ALT ABOVE GROUND',
+    unit: 'feet',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
+  {
+    name: 'GROUND VELOCITY',
+    unit: 'knots',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
   { name: 'ATC RUNWAY SELECTED', unit: 'bool', dataType: SimConnectDataType.INT32, read: asBool },
-  { name: 'ATC RUNWAY HEADING DEGREES TRUE', unit: 'degrees', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
-  { name: 'ATC RUNWAY LENGTH', unit: 'meters', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
-  { name: 'ATC RUNWAY WIDTH', unit: 'meters', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
-  { name: 'ATC RUNWAY RELATIVE POSITION X', unit: 'meters', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
-  { name: 'ATC RUNWAY RELATIVE POSITION Z', unit: 'meters', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
+  {
+    name: 'ATC RUNWAY HEADING DEGREES TRUE',
+    unit: 'degrees',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
+  {
+    name: 'ATC RUNWAY LENGTH',
+    unit: 'meters',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
+  {
+    name: 'ATC RUNWAY WIDTH',
+    unit: 'meters',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
+  {
+    name: 'ATC RUNWAY RELATIVE POSITION X',
+    unit: 'meters',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
+  {
+    name: 'ATC RUNWAY RELATIVE POSITION Z',
+    unit: 'meters',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
   {
     name: 'ATC RUNWAY TDPOINT RELATIVE POSITION X',
     unit: 'meters',
@@ -107,13 +142,28 @@ const SIM_VARS: SimVarSpec[] = [
     dataType: SimConnectDataType.FLOAT64,
     read: (d) => d.readFloat64()
   },
-  { name: 'ATC RUNWAY START DISTANCE', unit: 'meters', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
+  {
+    name: 'ATC RUNWAY START DISTANCE',
+    unit: 'meters',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
   // Unconfirmed type — treated as a plain number (matches FLAPS HANDLE INDEX's pattern in
   // spike-simconnect.ts). Watch the exception handler below: if these two names are wrong,
   // that answers the "is it populated at all" question on its own, the same way the
   // original M1 spike found SIM RATE -> SIMULATION RATE.
-  { name: 'NAV LOC RUNWAY NUMBER:1', unit: 'number', dataType: SimConnectDataType.INT32, read: (d) => d.readInt32() },
-  { name: 'NAV LOC RUNWAY DESIGNATOR:1', unit: 'number', dataType: SimConnectDataType.INT32, read: (d) => d.readInt32() }
+  {
+    name: 'NAV LOC RUNWAY NUMBER:1',
+    unit: 'number',
+    dataType: SimConnectDataType.INT32,
+    read: (d) => d.readInt32()
+  },
+  {
+    name: 'NAV LOC RUNWAY DESIGNATOR:1',
+    unit: 'number',
+    dataType: SimConnectDataType.INT32,
+    read: (d) => d.readInt32()
+  }
 ]
 
 function maybePrintRunwaySimVars(values: Record<string, number | boolean | string>): void {
@@ -145,7 +195,12 @@ const enum DefId {
   APPROACHES = 13
 }
 
-const TEST_ICAOS = ['EGLL', 'VHHH', 'EGKK', ...(process.env['SPIKE_LOCAL_ICAO'] ? [process.env['SPIKE_LOCAL_ICAO']] : [])]
+const TEST_ICAOS = [
+  'EGLL',
+  'VHHH',
+  'EGKK',
+  ...(process.env['SPIKE_LOCAL_ICAO'] ? [process.env['SPIKE_LOCAL_ICAO']] : [])
+]
 
 // Shared leg field list — identical layout for APPROACH_LEG, FINAL_APPROACH_LEG and
 // MISSED_APPROACH_LEG (confirmed via the MSFS 2024 SDK's Facility Data Definition
@@ -199,9 +254,7 @@ const uniqueRequestLabel = new Map<number, string>()
 const requestStartedAt = new Map<DataRequestId, number>()
 let nextRequestId = 100
 
-function buildDefinitions(
-  handle: Awaited<ReturnType<typeof open>>['handle']
-): void {
+function buildDefinitions(handle: Awaited<ReturnType<typeof open>>['handle']): void {
   // RUNWAYS — AIRPORT core fields + full runway list. Answers: does RUNWAY.LATITUDE/
   // LONGITUDE read as the runway centre (vs. vendored resources/runways.csv's threshold
   // lat/lon) — compare live output against known real values by hand.
@@ -307,7 +360,10 @@ function requestAirport(
 }
 
 function parentLabel(recvFacilityData: { parentUniqueRequestId: number }): string {
-  return uniqueRequestLabel.get(recvFacilityData.parentUniqueRequestId) ?? `unknown-parent-${recvFacilityData.parentUniqueRequestId}`
+  return (
+    uniqueRequestLabel.get(recvFacilityData.parentUniqueRequestId) ??
+    `unknown-parent-${recvFacilityData.parentUniqueRequestId}`
+  )
 }
 
 // -----------------------------------------------------------------------------------------
@@ -315,13 +371,20 @@ function parentLabel(recvFacilityData: { parentUniqueRequestId: number }): strin
 // -----------------------------------------------------------------------------------------
 open(APP_NAME, Protocol.SunRise, connectionOptions())
   .then(({ recvOpen, handle }) => {
-    console.log(`Connected: ${recvOpen.applicationName} (SimConnect ${recvOpen.simConnectVersionMajor}.${recvOpen.simConnectVersionMinor})`)
+    console.log(
+      `Connected: ${recvOpen.applicationName} (SimConnect ${recvOpen.simConnectVersionMajor}.${recvOpen.simConnectVersionMinor})`
+    )
 
     // Part 1: SimVar telemetry, always running in the background.
     for (const [index, spec] of SIM_VARS.entries()) {
       handle.addToDataDefinition(SIMVAR_DEFINITION_ID, spec.name, spec.unit, spec.dataType, 0, index)
     }
-    handle.requestDataOnSimObject(SIMVAR_REQUEST_ID, SIMVAR_DEFINITION_ID, SimConnectConstants.OBJECT_ID_USER, SimConnectPeriod.SECOND)
+    handle.requestDataOnSimObject(
+      SIMVAR_REQUEST_ID,
+      SIMVAR_DEFINITION_ID,
+      SimConnectConstants.OBJECT_ID_USER,
+      SimConnectPeriod.SECOND
+    )
     handle.on('simObjectData', (recvSimObjectData) => {
       if (recvSimObjectData.requestID !== SIMVAR_REQUEST_ID) return
       const values: Record<string, number | boolean | string> = {}
@@ -340,7 +403,8 @@ open(APP_NAME, Protocol.SunRise, connectionOptions())
     }
 
     handle.on('facilityData', (recvFacilityData) => {
-      const label = requestIcao.get(recvFacilityData.userRequestId) ?? `request-${recvFacilityData.userRequestId}`
+      const label =
+        requestIcao.get(recvFacilityData.userRequestId) ?? `request-${recvFacilityData.userRequestId}`
       const d = recvFacilityData.data
       let parsed: Record<string, unknown>
       let ownLabel = label
@@ -400,7 +464,11 @@ open(APP_NAME, Protocol.SunRise, connectionOptions())
           break
         }
         case FacilityDataType.RUNWAY_TRANSITION: {
-          parsed = { runwayNumber: d.readInt32(), runwayDesignator: d.readInt32(), nApproachLegs: d.readInt32() }
+          parsed = {
+            runwayNumber: d.readInt32(),
+            runwayDesignator: d.readInt32(),
+            nApproachLegs: d.readInt32()
+          }
           const label2 = `${parentLabel(recvFacilityData)} RWYTRANS ${parsed.runwayNumber}${parsed.runwayDesignator}`
           uniqueRequestLabel.set(recvFacilityData.uniqueRequestId, label2)
           ownLabel = label2
@@ -460,7 +528,8 @@ open(APP_NAME, Protocol.SunRise, connectionOptions())
     })
 
     handle.on('facilityDataEnd', (recvFacilityDataEnd) => {
-      const label = requestIcao.get(recvFacilityDataEnd.userRequestId) ?? `request-${recvFacilityDataEnd.userRequestId}`
+      const label =
+        requestIcao.get(recvFacilityDataEnd.userRequestId) ?? `request-${recvFacilityDataEnd.userRequestId}`
       const startedAt = requestStartedAt.get(recvFacilityDataEnd.userRequestId)
       const elapsedMs = startedAt ? Date.now() - startedAt : null
       console.log(`--- ${label} complete (${elapsedMs}ms) ---`)
@@ -471,23 +540,35 @@ open(APP_NAME, Protocol.SunRise, connectionOptions())
     // facilityData when the ICAO is ambiguous. Retry with the first candidate's region.
     handle.on('facilityMinimalList', (recvFacilityMinimalList) => {
       const label = requestIcao.get(recvFacilityMinimalList.requestID)
-      console.log(`facilityMinimalList for ${label ?? recvFacilityMinimalList.requestID}:`, recvFacilityMinimalList.data)
+      console.log(
+        `facilityMinimalList for ${label ?? recvFacilityMinimalList.requestID}:`,
+        recvFacilityMinimalList.data
+      )
       logRecord('facility-minimal-list', {
         label,
         candidates: recvFacilityMinimalList.data.map((f) => ({ ident: f.icao.ident, region: f.icao.region }))
       })
       if (!label || recvFacilityMinimalList.data.length === 0) return
       const [icao, kind] = label.split(' ')
-      const defId = { runways: DefId.RUNWAYS, departures: DefId.DEPARTURES, arrivals: DefId.ARRIVALS, approaches: DefId.APPROACHES }[
-        kind ?? ''
-      ]
+      const defId = {
+        runways: DefId.RUNWAYS,
+        departures: DefId.DEPARTURES,
+        arrivals: DefId.ARRIVALS,
+        approaches: DefId.APPROACHES
+      }[kind ?? '']
       if (!defId || !icao) return
       requestAirport(handle, defId, kind!, icao, recvFacilityMinimalList.data[0]!.icao.region)
     })
 
     handle.on('exception', (recvException) => {
-      console.error(`SimConnect exception: ${recvException.exceptionName} (index ${recvException.index}, sendId ${recvException.sendId})`)
-      logRecord('exception', { exceptionName: recvException.exceptionName, index: recvException.index, sendId: recvException.sendId })
+      console.error(
+        `SimConnect exception: ${recvException.exceptionName} (index ${recvException.index}, sendId ${recvException.sendId})`
+      )
+      logRecord('exception', {
+        exceptionName: recvException.exceptionName,
+        index: recvException.index,
+        sendId: recvException.sendId
+      })
     })
 
     handle.on('quit', () => {

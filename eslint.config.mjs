@@ -16,7 +16,13 @@ const APP_CODE = ['src/**/*.{ts,tsx}']
 const NOT_APP_CODE = ['src/**/*.test.{ts,tsx}', 'src/renderer/src/components/ui/**', 'src/**/*.d.ts']
 
 // Host side (sim, tracking, add-ons) never reaches into app-side modules (coding-standards.md §9).
-const HOST_SIDE = ['src/main/sim/**', 'src/main/tracking/**', 'src/main/beyondatc/**', 'src/main/gsx/**', 'src/main/gsx-remote/**']
+const HOST_SIDE = [
+  'src/main/sim/**',
+  'src/main/tracking/**',
+  'src/main/beyondatc/**',
+  'src/main/gsx/**',
+  'src/main/gsx-remote/**'
+]
 const APP_SIDE_IMPORTS = ['**/simbrief/**', '**/navdata/**', '**/sync/**', '**/backend/**', '**/db/**']
 
 export default tseslint.config(
@@ -52,7 +58,10 @@ export default tseslint.config(
     files: APP_CODE,
     ignores: NOT_APP_CODE,
     languageOptions: {
-      parserOptions: { project: ['./tsconfig.node.json', './tsconfig.web.json'], tsconfigRootDir: import.meta.dirname }
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.web.json'],
+        tsconfigRootDir: import.meta.dirname
+      }
     },
     plugins: { jsdoc, 'eslint-comments': eslintComments, winglog: { rules: { 'file-header': fileHeader } } },
     rules: {
@@ -62,7 +71,12 @@ export default tseslint.config(
         'error',
         {
           publicOnly: true,
-          require: { FunctionDeclaration: true, ClassDeclaration: true, ArrowFunctionExpression: true, FunctionExpression: true }
+          require: {
+            FunctionDeclaration: true,
+            ClassDeclaration: true,
+            ArrowFunctionExpression: true,
+            FunctionExpression: true
+          }
         }
       ],
       'jsdoc/require-param': ['error', { checkDestructured: false }],
@@ -71,12 +85,15 @@ export default tseslint.config(
       'no-restricted-syntax': [
         'error',
         {
-          selector: 'Program > VariableDeclaration[kind=/^(let|var)$/], Program > ExportNamedDeclaration > VariableDeclaration[kind=/^(let|var)$/]',
+          selector:
+            'Program > VariableDeclaration[kind=/^(let|var)$/], Program > ExportNamedDeclaration > VariableDeclaration[kind=/^(let|var)$/]',
           message: 'No mutable module-level state: use lazy() or the renderer store (coding-standards.md §4).'
         },
         {
-          selector: 'Program > VariableDeclaration > VariableDeclarator > NewExpression[callee.name=/^(Map|Set|WeakMap|WeakSet)$/][arguments.length=0]',
-          message: 'No mutable module-level collections: use lazy() or the renderer store (coding-standards.md §4).'
+          selector:
+            'Program > VariableDeclaration > VariableDeclarator > NewExpression[callee.name=/^(Map|Set|WeakMap|WeakSet)$/][arguments.length=0]',
+          message:
+            'No mutable module-level collections: use lazy() or the renderer store (coding-standards.md §4).'
         },
         {
           selector: "TSAsExpression > TSAsExpression.expression[typeAnnotation.type='TSUnknownKeyword']",
@@ -103,11 +120,21 @@ export default tseslint.config(
   {
     // The renderer reaches the main process through winglogApi() and LiveClient only (coding-standards.md §9).
     files: ['src/renderer/src/**/*.{ts,tsx}'],
-    ignores: [...NOT_APP_CODE, 'src/renderer/src/data/**', 'src/renderer/src/live/**', 'src/renderer/src/report-error.ts'],
+    ignores: [
+      ...NOT_APP_CODE,
+      'src/renderer/src/data/**',
+      'src/renderer/src/live/**',
+      'src/renderer/src/report-error.ts'
+    ],
     rules: {
       'no-restricted-properties': [
         'error',
-        { object: 'window', property: 'winglog', message: 'Use winglogApi() (data/winglog-api.ts), or LiveClient for live state (coding-standards.md §9).' }
+        {
+          object: 'window',
+          property: 'winglog',
+          message:
+            'Use winglogApi() (data/winglog-api.ts), or LiveClient for live state (coding-standards.md §9).'
+        }
       ]
     }
   },
@@ -127,7 +154,14 @@ export default tseslint.config(
     rules: {
       'no-restricted-imports': [
         'error',
-        { patterns: [{ group: APP_SIDE_IMPORTS, message: 'Host-side code never imports app-side modules (coding-standards.md §9).' }] }
+        {
+          patterns: [
+            {
+              group: APP_SIDE_IMPORTS,
+              message: 'Host-side code never imports app-side modules (coding-standards.md §9).'
+            }
+          ]
+        }
       ]
     }
   },
@@ -135,7 +169,14 @@ export default tseslint.config(
     files: ['src/renderer/**/*.{ts,tsx}'],
     ignores: NOT_APP_CODE,
     rules: {
-      'no-restricted-imports': ['error', { patterns: [{ group: ['**/main/**'], message: 'The renderer never imports src/main (CLAUDE.md, Rules).' }] }]
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: ['**/main/**'], message: 'The renderer never imports src/main (CLAUDE.md, Rules).' }
+          ]
+        }
+      ]
     }
   },
   eslintConfigPrettier

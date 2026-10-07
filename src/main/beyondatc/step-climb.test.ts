@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { ActiveTracking, BeyondAtcInfoBox, BeyondAtcState, BeyondAtcStepClimbStatus, SimTelemetry } from '@shared/ipc'
+import type {
+  ActiveTracking,
+  BeyondAtcInfoBox,
+  BeyondAtcState,
+  BeyondAtcStepClimbStatus,
+  SimTelemetry
+} from '@shared/ipc'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import type { AltitudeRequestOutcome, requestAltitude } from './altitude-request'
 import { StepClimbController, extractStepPlan } from './step-climb'
@@ -22,7 +28,13 @@ function ofpJson(
     origin: { icao_code: 'EGLL' },
     destination: { icao_code: 'VHHH' },
     alternate: { icao_code: 'VMMC' },
-    general: { icao_airline: 'BAW', flight_number: '31', route: 'DCT', initial_altitude: '33000', stepclimb_string: stepclimb },
+    general: {
+      icao_airline: 'BAW',
+      flight_number: '31',
+      route: 'DCT',
+      initial_altitude: '33000',
+      stepclimb_string: stepclimb
+    },
     aircraft: { icaocode: 'A35K', reg: 'G-XWBS', internal_id: 'A35K', is_custom: '0' },
     weights: { pax_count: '1', cargo: '0', est_zfw: '1', est_tow: '1', est_ldw: '1' },
     fuel: { plan_ramp: '1' },
@@ -143,9 +155,20 @@ describe('extractStepPlan', () => {
 
   it('drops down steps — over China the levels swap with direction (Callum, 2026-10-01)', () => {
     // 11,300 m → 10,700 m (down) → 11,300 m (back, not higher than before) → 11,900 m.
-    const fix = (ident: string, lon: string): Record<string, string> => ({ ident, altitude_feet: '37000', distance: '0', pos_lat: '30.0', pos_long: lon })
+    const fix = (ident: string, lon: string): Record<string, string> => ({
+      ident,
+      altitude_feet: '37000',
+      distance: '0',
+      pos_lat: '30.0',
+      pos_long: lon
+    })
     const { steps } = extractStepPlan(
-      ofpJson('AAAAA/1130/BBBBB/1070/CCCCC/1130/DDDDD/1190', [fix('AAAAA', '100'), fix('BBBBB', '105'), fix('CCCCC', '110'), fix('DDDDD', '115')])
+      ofpJson('AAAAA/1130/BBBBB/1070/CCCCC/1130/DDDDD/1190', [
+        fix('AAAAA', '100'),
+        fix('BBBBB', '105'),
+        fix('CCCCC', '110'),
+        fix('DDDDD', '115')
+      ])
     )
     expect(steps.map((s) => s.ident)).toEqual(['AAAAA', 'DDDDD'])
     expect(steps[1]!.altitudeFt).toBeCloseTo(11900 / FT, 0)
@@ -200,7 +223,7 @@ describe('StepClimbController', () => {
     expect(request).not.toHaveBeenCalled()
     expect(statuses.at(-1)?.waitingForClimbFt).toBe(34000)
 
-    const climbing = { ...fcu34, verticalSpeedMs: 1000 * FT / 60 }
+    const climbing = { ...fcu34, verticalSpeedMs: (1000 * FT) / 60 }
     controller.onTelemetry(telemetry(climbing))
     advance(5_000)
     controller.onTelemetry(telemetry(climbing))
@@ -215,7 +238,7 @@ describe('StepClimbController', () => {
   it('never asks for an FCU level far above the clearance — a slip of the knob, even while climbing', () => {
     const { controller, request, advance } = setup()
     controller.setEnabled(true)
-    const slip = { apSelectedAltitudeM: 41000 * FT, verticalSpeedMs: 1500 * FT / 60 }
+    const slip = { apSelectedAltitudeM: 41000 * FT, verticalSpeedMs: (1500 * FT) / 60 }
     controller.onTelemetry(telemetry(slip))
     advance(20_000)
     controller.onTelemetry(telemetry(slip))
@@ -225,9 +248,17 @@ describe('StepClimbController', () => {
   it('asks for nothing when ATC clears a descent with the FCU still on the cruise level (YBBN-VHHH, 2026-10-02)', () => {
     // FL400 was the one planned step and already flown.
     let boxes = [{ title: 'Climb', info: 'FL400' }]
-    const { controller, request, statuses, advance } = setup({ boxes: () => boxes, ofp: ofpJson('YBBN/0380/DENAK/0400') })
+    const { controller, request, statuses, advance } = setup({
+      boxes: () => boxes,
+      ofp: ofpJson('YBBN/0380/DENAK/0400')
+    })
     controller.setEnabled(true)
-    const cruise = { latitude: 42.0, longitude: 50.0, pressureAltitudeM: 40000 * FT, apSelectedAltitudeM: 40000 * FT }
+    const cruise = {
+      latitude: 42.0,
+      longitude: 50.0,
+      pressureAltitudeM: 40000 * FT,
+      apSelectedAltitudeM: 40000 * FT
+    }
     controller.onTelemetry(telemetry(cruise))
     advance(6 * 3600_000)
     controller.onTelemetry(telemetry(cruise))
@@ -242,10 +273,18 @@ describe('StepClimbController', () => {
   })
 
   it('still asks for a climb back up after a descent mid-flight, before top of descent', () => {
-    const { controller, request, advance } = setup({ boxes: () => [{ title: 'Descend to', info: 'FL330' }], ofp: ofpJson(undefined, WITH_TOD) })
+    const { controller, request, advance } = setup({
+      boxes: () => [{ title: 'Descend to', info: 'FL330' }],
+      ofp: ofpJson(undefined, WITH_TOD)
+    })
     controller.setEnabled(true)
     // Past every planned step, well before TOD, climbing back to FL350.
-    const climbBack = { latitude: 40.5, longitude: 70.0, apSelectedAltitudeM: 35000 * FT, verticalSpeedMs: 1000 * FT / 60 }
+    const climbBack = {
+      latitude: 40.5,
+      longitude: 70.0,
+      apSelectedAltitudeM: 35000 * FT,
+      verticalSpeedMs: (1000 * FT) / 60
+    }
     controller.onTelemetry(telemetry(climbBack))
     advance(11_000)
     controller.onTelemetry(telemetry(climbBack))
@@ -254,7 +293,7 @@ describe('StepClimbController', () => {
   })
 
   it("stops asking once past SimBrief's top of descent — or, without a TOD fix, close to the destination", () => {
-    const climb = { apSelectedAltitudeM: 36000 * FT, verticalSpeedMs: 1000 * FT / 60 }
+    const climb = { apSelectedAltitudeM: 36000 * FT, verticalSpeedMs: (1000 * FT) / 60 }
     const withTod = setup({ ofp: ofpJson(undefined, WITH_TOD) })
     withTod.controller.setEnabled(true)
     withTod.controller.onTelemetry(telemetry({ ...climb, latitude: 38.1, longitude: 82.1 }))
@@ -292,7 +331,9 @@ describe('StepClimbController', () => {
   })
 
   it('retries once after two minutes, then drops the level and moves on', async () => {
-    const { controller, request, statuses, advance } = setup({ outcomes: ['notOffered', 'noAnswer', 'granted'] })
+    const { controller, request, statuses, advance } = setup({
+      outcomes: ['notOffered', 'noAnswer', 'granted']
+    })
     controller.setEnabled(true)
     const near = telemetry({ longitude: 29.9 })
 
@@ -356,7 +397,9 @@ describe('StepClimbController', () => {
     infoBoxes = [{ title: 'Center Frequency', info: '133.2' }]
     advance(1_000)
     controller.onTelemetry(telemetry())
-    expect(logs.filter((l) => l.includes('cleared level'))).toEqual(['[step-climb] cleared level 36000 ft (from InfoBoxes)'])
+    expect(logs.filter((l) => l.includes('cleared level'))).toEqual([
+      '[step-climb] cleared level 36000 ft (from InfoBoxes)'
+    ])
   })
 
   it('stays quiet outside cruise, and when the level is already cleared', () => {

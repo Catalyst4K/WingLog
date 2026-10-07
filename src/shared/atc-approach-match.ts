@@ -46,10 +46,13 @@ export function matchClearanceApproach(
   const clearedTransition = update.fields.approachTransition
   if (clearedTransition) {
     const transition = options.find(
-      (o) => o.identifier === identifier && o.transition && compact(o.transition) === compact(clearedTransition)
+      (o) =>
+        o.identifier === identifier && o.transition && compact(o.transition) === compact(clearedTransition)
     )?.transition
     if (transition) fields.approachTransition = transition
   }
-  const summary = fields.approachTransition ? `Approach ${identifier} via ${fields.approachTransition}` : `Approach ${identifier}`
+  const summary = fields.approachTransition
+    ? `Approach ${identifier} via ${fields.approachTransition}`
+    : `Approach ${identifier}`
   return { fields, summary }
 }

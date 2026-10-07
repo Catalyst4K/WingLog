@@ -76,7 +76,9 @@ describe('resolveLandingScore', () => {
   })
 
   it("carries each category's real ideal/tolerance for the info popover, using this runway's own real data", () => {
-    const landingRecord = toLanding(makeLanding(1, { distanceFromThresholdM: 420, centrelineOffsetM: 5, crabDeg: 2 }))
+    const landingRecord = toLanding(
+      makeLanding(1, { distanceFromThresholdM: 420, centrelineOffsetM: 5, crabDeg: 2 })
+    )
     const result = resolveLandingScore(landingRecord, 'EGLL', 'A320')
 
     const verticalSpeed = result.categories.find((c) => c.key === 'verticalSpeed')!
@@ -97,9 +99,14 @@ describe('resolveLandingScore', () => {
     expect(centreline).toMatchObject({ ideal: 0, tolerance: EGLL_27L_HALF_WIDTH_M })
   })
 
-  it('nulls out a category\'s ideal/tolerance exactly when its score is unavailable', () => {
+  it("nulls out a category's ideal/tolerance exactly when its score is unavailable", () => {
     const landingRecord = toLanding(
-      makeLanding(1, { runwayIdent: null, distanceFromThresholdM: null, centrelineOffsetM: null, crabDeg: null })
+      makeLanding(1, {
+        runwayIdent: null,
+        distanceFromThresholdM: null,
+        centrelineOffsetM: null,
+        crabDeg: null
+      })
     )
     const result = resolveLandingScore(landingRecord, 'EGLL', 'A320')
 
@@ -113,7 +120,12 @@ describe('resolveLandingScore', () => {
 
   it('drops the runway-dependent inputs (still returns a score) when runwayIdent is null', () => {
     const landingRecord = toLanding(
-      makeLanding(1, { runwayIdent: null, distanceFromThresholdM: null, centrelineOffsetM: null, crabDeg: null })
+      makeLanding(1, {
+        runwayIdent: null,
+        distanceFromThresholdM: null,
+        centrelineOffsetM: null,
+        crabDeg: null
+      })
     )
     const result = resolveLandingScore(landingRecord, 'EGLL', 'A320')
     expect(result.score).toBeGreaterThan(0)
@@ -123,7 +135,11 @@ describe('resolveLandingScore', () => {
   it('drops the runway-dependent inputs when the runway ident does not match any vendored data', () => {
     const landingRecord = toLanding(makeLanding(1, { runwayIdent: '99Z' }))
     const result = resolveLandingScore(landingRecord, 'EGLL', 'A320')
-    const withoutRunway = resolveLandingScore(toLanding(makeLanding(1, { runwayIdent: null })), 'EGLL', 'A320')
+    const withoutRunway = resolveLandingScore(
+      toLanding(makeLanding(1, { runwayIdent: null })),
+      'EGLL',
+      'A320'
+    )
     expect(result.score).toBe(withoutRunway.score)
   })
 

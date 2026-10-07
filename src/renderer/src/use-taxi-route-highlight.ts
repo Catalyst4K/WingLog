@@ -35,12 +35,7 @@ import type {
 } from '@shared/ipc'
 import { findStand } from '@shared/stands'
 import type { TracedRoute } from './taxi-route-trace'
-import {
-  clearanceAirport,
-  startOf,
-  traceClearance,
-  type TaxiClearance
-} from './taxi-clearance'
+import { clearanceAirport, startOf, traceClearance, type TaxiClearance } from './taxi-clearance'
 import { startTracker, trackPosition, type RerouteTracker } from './taxi-reroute'
 import { isDeparted, stepTaxiBoxes, stepTaxiTranscript } from './taxi-clearance-step'
 import { diagMap } from './diag'
@@ -109,7 +104,10 @@ export interface UseTaxiRouteHighlightArgs {
  * @param transcript BeyondATC's transcript.
  * @param setClearance Sets the hook's clearance.
  */
-function ingestTranscript(transcript: BeyondAtcTranscriptEntry[], setClearance: (clearance: TaxiClearance) => void): void {
+function ingestTranscript(
+  transcript: BeyondAtcTranscriptEntry[],
+  setClearance: (clearance: TaxiClearance) => void
+): void {
   const result = stepTaxiTranscript(uiMemory().taxiRoute, transcript, Date.now())
   uiMemory().taxiRoute = result.memory
   if (result.clearance) setClearance(result.clearance)
@@ -152,12 +150,14 @@ function useClearanceStand(
     if (!standIcao) return
     let ignore = false
     // No stands (the sim isn't connected): the route ends where it joins the last taxiway.
-    winglogApi().navdataGetStands(standIcao).then(
-      (list) => {
-        if (!ignore) setStands({ icao: standIcao, list })
-      },
-      () => undefined
-    )
+    winglogApi()
+      .navdataGetStands(standIcao)
+      .then(
+        (list) => {
+          if (!ignore) setStands({ icao: standIcao, list })
+        },
+        () => undefined
+      )
     return () => {
       ignore = true
     }
@@ -276,7 +276,9 @@ export function useTaxiRouteHighlight({
     }
     // A failed first read (BeyondATC not connected) has nothing to show; the subscriptions bring
     // the next update.
-    winglogApi().beyondAtcGetTranscript().then(ingest, () => undefined)
+    winglogApi()
+      .beyondAtcGetTranscript()
+      .then(ingest, () => undefined)
     const unsubscribe = winglogApi().onBeyondAtcTranscript(ingest)
     client.get('beyondAtcState').then(
       (state) => state && ingestState(state),

@@ -119,7 +119,10 @@ const FREQUENCY_TYPE_KEY: Record<string, string> = {
  * @param props The station and the select handler.
  * @returns The element.
  */
-function FrequencyOptionButton(props: { station: BeyondAtcFrequencyOption; onSelect: (frequency: string) => void }): React.JSX.Element {
+function FrequencyOptionButton(props: {
+  station: BeyondAtcFrequencyOption
+  onSelect: (frequency: string) => void
+}): React.JSX.Element {
   const { t } = useTranslation()
   const typeKey = FREQUENCY_TYPE_KEY[props.station.type]
   const typeLabel = typeKey ? t(typeKey) : props.station.type
@@ -130,7 +133,11 @@ function FrequencyOptionButton(props: { station: BeyondAtcFrequencyOption; onSel
         frequency: props.station.frequency,
         runway: props.station.runways
       })
-    : t('beyondAtcPanel.frequencyOption', { type: typeLabel, station: props.station.name, frequency: props.station.frequency })
+    : t('beyondAtcPanel.frequencyOption', {
+        type: typeLabel,
+        station: props.station.name,
+        frequency: props.station.frequency
+      })
   return (
     <Button
       type="button"
@@ -144,9 +151,13 @@ function FrequencyOptionButton(props: { station: BeyondAtcFrequencyOption; onSel
   )
 }
 
-function FrequencyOptionList(props: { stations: BeyondAtcFrequencyOption[]; onSelect: (frequency: string) => void }): React.JSX.Element {
+function FrequencyOptionList(props: {
+  stations: BeyondAtcFrequencyOption[]
+  onSelect: (frequency: string) => void
+}): React.JSX.Element {
   const { t } = useTranslation()
-  if (props.stations.length === 0) return <p className="px-1.5 py-1 text-xs text-muted-foreground">{t('beyondAtcPanel.noFrequencies')}</p>
+  if (props.stations.length === 0)
+    return <p className="px-1.5 py-1 text-xs text-muted-foreground">{t('beyondAtcPanel.noFrequencies')}</p>
   return (
     <ul className="flex max-h-80 flex-col gap-0.5 overflow-y-auto">
       {props.stations.map((station) => (
@@ -253,7 +264,9 @@ function FrequencyRow(props: {
     <div className="flex flex-col gap-1">
       <div className="flex items-baseline justify-between gap-2 text-xs">
         <span className="font-medium text-foreground">{props.label}</span>
-        <span className="truncate text-muted-foreground">{props.current ?? t('beyondAtcPanel.frequencyUnknown')}</span>
+        <span className="truncate text-muted-foreground">
+          {props.current ?? t('beyondAtcPanel.frequencyUnknown')}
+        </span>
       </div>
       <div className="flex items-center gap-1.5">
         <FrequencyPicker
@@ -281,7 +294,11 @@ function FrequencyRow(props: {
   )
 }
 
-function AutoToggle(props: { label: string; value: boolean | null; onSet: (value: boolean) => void }): React.JSX.Element {
+function AutoToggle(props: {
+  label: string
+  value: boolean | null
+  onSet: (value: boolean) => void
+}): React.JSX.Element {
   const { t } = useTranslation()
   return (
     <Button
@@ -293,7 +310,12 @@ function AutoToggle(props: { label: string; value: boolean | null; onSet: (value
       aria-pressed={props.value === true}
       onClick={() => props.onSet(!props.value)}
     >
-      {props.label}: {props.value === null ? t('beyondAtcPanel.settings.unknown') : props.value ? t('beyondAtcPanel.settings.on') : t('beyondAtcPanel.settings.off')}
+      {props.label}:{' '}
+      {props.value === null
+        ? t('beyondAtcPanel.settings.unknown')
+        : props.value
+          ? t('beyondAtcPanel.settings.on')
+          : t('beyondAtcPanel.settings.off')}
     </Button>
   )
 }
@@ -350,7 +372,9 @@ function StepClimbStatusLine(props: { status: BeyondAtcStepClimbStatus }): React
     )
   }
   if (status.waitingForClimbFt !== null) {
-    lines.push(t('beyondAtcPanel.stepClimb.waitingForClimb', { level: flightLevel(status.waitingForClimbFt) }))
+    lines.push(
+      t('beyondAtcPanel.stepClimb.waitingForClimb', { level: flightLevel(status.waitingForClimbFt) })
+    )
   }
   if (status.pastTopOfDescent) {
     lines.push(t('beyondAtcPanel.stepClimb.pastTopOfDescent'))
@@ -382,7 +406,10 @@ function StepClimbStatusLine(props: { status: BeyondAtcStepClimbStatus }): React
 export function BeyondAtcRadios(props: BeyondAtcRadiosProps): React.JSX.Element {
   const { t } = useTranslation()
   const com1Current = props.facility
-    ? t('beyondAtcPanel.stationFrequency', { station: props.facility.name, frequency: props.facility.frequency })
+    ? t('beyondAtcPanel.stationFrequency', {
+        station: props.facility.name,
+        frequency: props.facility.frequency
+      })
     : null
   // A switched-off COM2 comes through as {"label":"Radio Off","frequency":""}: show the label alone, not "Radio Off ()".
   const com2Current = props.com2
@@ -414,9 +441,21 @@ export function BeyondAtcRadios(props: BeyondAtcRadiosProps): React.JSX.Element 
         />
       </div>
       <div className="flex flex-wrap gap-1.5">
-        <AutoToggle label={t('beyondAtcPanel.settings.autoTune')} value={props.autoTune} onSet={props.onSetAutoTune} />
-        <AutoToggle label={t('beyondAtcPanel.settings.autoRespond')} value={props.autoRespond} onSet={props.onSetAutoRespond} />
-        <AutoToggle label={t('beyondAtcPanel.settings.stepClimb')} value={props.stepClimb.enabled} onSet={props.onSetStepClimb} />
+        <AutoToggle
+          label={t('beyondAtcPanel.settings.autoTune')}
+          value={props.autoTune}
+          onSet={props.onSetAutoTune}
+        />
+        <AutoToggle
+          label={t('beyondAtcPanel.settings.autoRespond')}
+          value={props.autoRespond}
+          onSet={props.onSetAutoRespond}
+        />
+        <AutoToggle
+          label={t('beyondAtcPanel.settings.stepClimb')}
+          value={props.stepClimb.enabled}
+          onSet={props.onSetStepClimb}
+        />
       </div>
       <StepClimbStatusLine status={props.stepClimb} />
     </div>

@@ -74,7 +74,8 @@ export function isPhysicallyImpossibleJump(a: CleanupInputPoint, b: CleanupInput
   if (dtSec <= 0) return false
   const distKm = haversineKm(a, b)
   const minSpeedKmPerSec =
-    (JUMP_SPEED_MULTIPLIER * Math.min(a.groundSpeedMs, b.groundSpeedMs) * Math.max(a.simRate, b.simRate, 1)) / 1000
+    (JUMP_SPEED_MULTIPLIER * Math.min(a.groundSpeedMs, b.groundSpeedMs) * Math.max(a.simRate, b.simRate, 1)) /
+    1000
   const thresholdKm = Math.max(minSpeedKmPerSec * dtSec, JUMP_DISTANCE_FLOOR_KM)
   return distKm > thresholdKm
 }
@@ -148,7 +149,11 @@ export function computeTrackCleanup(points: CleanupInputPoint[]): TrackCleanupRe
    * @param to The index after the last.
    * @param reason Why.
    */
-  function exclude(from: number, to: number, reason: TrackCleanupResult['exclusions'][number]['reason']): void {
+  function exclude(
+    from: number,
+    to: number,
+    reason: TrackCleanupResult['exclusions'][number]['reason']
+  ): void {
     for (let k = from; k < to; k++) {
       if (excludedIds.has(points[k].id)) continue
       exclusions.push({ id: points[k].id, reason })

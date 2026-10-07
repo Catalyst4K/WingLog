@@ -35,7 +35,12 @@ export const STEP_COLOURS = ['#e8590c', '#9c36b5', '#2f9e44', '#c2255c', '#1098a
 
 /** Escapes text for HTML or SVG: report text includes BeyondATC's, which is external data. */
 export function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
 /** Bounds around some points, with `padDeg` added on every side. */
@@ -43,7 +48,12 @@ export function boundsOf(points: LonLat[], padDeg: number): Bounds {
   if (points.length === 0) throw new Error('boundsOf: no points')
   const lons = points.map((p) => p[0])
   const lats = points.map((p) => p[1])
-  return { west: Math.min(...lons) - padDeg, east: Math.max(...lons) + padDeg, south: Math.min(...lats) - padDeg, north: Math.max(...lats) + padDeg }
+  return {
+    west: Math.min(...lons) - padDeg,
+    east: Math.max(...lons) + padDeg,
+    south: Math.min(...lats) - padDeg,
+    north: Math.max(...lats) + padDeg
+  }
 }
 
 /** A square area `halfM` metres each way around a point. */
@@ -72,10 +82,14 @@ const n = (value: number): string => value.toFixed(1)
 /** The taxi network segments with an end inside the frame, as thin lines. */
 export function networkLines(frame: Frame, segments: NavdataTaxiSegment[]): string {
   const { west, east, south, north } = frame.bounds
-  const inside = (lat: number, lon: number): boolean => lon >= west && lon <= east && lat >= south && lat <= north
+  const inside = (lat: number, lon: number): boolean =>
+    lon >= west && lon <= east && lat >= south && lat <= north
   return segments
     .filter((s) => inside(s.startLat, s.startLon) || inside(s.endLat, s.endLon))
-    .map((s) => `<line x1="${n(frame.x(s.startLon))}" y1="${n(frame.y(s.startLat))}" x2="${n(frame.x(s.endLon))}" y2="${n(frame.y(s.endLat))}" stroke="var(--net)" stroke-width="1"/>`)
+    .map(
+      (s) =>
+        `<line x1="${n(frame.x(s.startLon))}" y1="${n(frame.y(s.startLat))}" x2="${n(frame.x(s.endLon))}" y2="${n(frame.y(s.endLat))}" stroke="var(--net)" stroke-width="1"/>`
+    )
     .join('')
 }
 
@@ -87,16 +101,27 @@ export function polyline(frame: Frame, points: LonLat[], attrs: string): string 
 }
 
 /** An arrowhead at a point, pointing along a heading (degrees true). */
-export function aircraftMarker(frame: Frame, at: { lat: number; lon: number }, headingDeg: number, size = 11): string {
+export function aircraftMarker(
+  frame: Frame,
+  at: { lat: number; lon: number },
+  headingDeg: number,
+  size = 11
+): string {
   const x = frame.x(at.lon)
   const y = frame.y(at.lat)
   const a = (headingDeg * Math.PI) / 180
-  const point = (angle: number, r: number): string => `${n(x + r * Math.sin(angle))},${n(y - r * Math.cos(angle))}`
+  const point = (angle: number, r: number): string =>
+    `${n(x + r * Math.sin(angle))},${n(y - r * Math.cos(angle))}`
   return `<polygon points="${point(a, size)} ${point(a + 2.5, size * 0.7)} ${n(x)},${n(y)} ${point(a - 2.5, size * 0.7)}" fill="var(--fg)" stroke="var(--map)" stroke-width="1.5"/>`
 }
 
 /** A numbered dot marking a decision point. */
-export function stepMarker(frame: Frame, at: { lat: number; lon: number }, label: string, colour: string): string {
+export function stepMarker(
+  frame: Frame,
+  at: { lat: number; lon: number },
+  label: string,
+  colour: string
+): string {
   const x = frame.x(at.lon)
   const y = frame.y(at.lat)
   return `<circle cx="${n(x)}" cy="${n(y)}" r="7" fill="${colour}" stroke="var(--map)" stroke-width="2"/><text x="${n(x + 10)}" y="${n(y - 9)}" fill="${colour}" font-size="15" font-weight="700">${escapeHtml(label)}</text>`

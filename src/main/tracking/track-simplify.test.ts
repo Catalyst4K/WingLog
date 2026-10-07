@@ -194,7 +194,15 @@ describe('simplifyTrackPoints', () => {
 
     it('keeps a jog between parallel taxiways 60m apart, which 100m alone would draw straight across', () => {
       // East on one taxiway, a short connector north, then east on the parallel one.
-      const path = along([[0, 0], [400, 0], [430, 60], [830, 60]], 10)
+      const path = along(
+        [
+          [0, 0],
+          [400, 0],
+          [430, 60],
+          [830, 60]
+        ],
+        10
+      )
       const ground = path.map(([x, y], i) => taxiPoint(i, x, y))
 
       const result = simplifyTrackPoints(ground)
@@ -206,7 +214,22 @@ describe('simplifyTrackPoints', () => {
     it('keeps the turn-around point of a pushback that then taxis forward over the same line', () => {
       // Pushed back 60m south, then taxied 300m north along the same centreline. Every point
       // is collinear, so a line distance scores the turn-around as 0m off and drops it.
-      const path = [...along([[0, 0], [0, -60]], 5), ...along([[0, -60], [0, 240]], 10).slice(1)]
+      const path = [
+        ...along(
+          [
+            [0, 0],
+            [0, -60]
+          ],
+          5
+        ),
+        ...along(
+          [
+            [0, -60],
+            [0, 240]
+          ],
+          10
+        ).slice(1)
+      ]
       const ground = path.map(([x, y], i) => taxiPoint(i, x, y))
 
       const result = simplifyTrackPoints(ground)
@@ -215,18 +238,40 @@ describe('simplifyTrackPoints', () => {
     })
 
     it('treats each on-ground run separately (taxi out, flight, taxi in)', () => {
-      const taxiOut = along([[0, 0], [200, 0], [200, 200]], 10).map(([x, y], i) => taxiPoint(i, x, y))
+      const taxiOut = along(
+        [
+          [0, 0],
+          [200, 0],
+          [200, 200]
+        ],
+        10
+      ).map(([x, y], i) => taxiPoint(i, x, y))
       const flight = Array.from({ length: 50 }, (_, k) =>
         point({ id: 1000 + k, ...toLatLon(200, 400 + k * 500) })
       )
-      const taxiIn = along([[200, 26_000], [400, 26_000], [400, 26_200]], 10).map(([x, y], i) =>
-        taxiPoint(2000 + i, x, y)
-      )
+      const taxiIn = along(
+        [
+          [200, 26_000],
+          [400, 26_000],
+          [400, 26_200]
+        ],
+        10
+      ).map(([x, y], i) => taxiPoint(2000 + i, x, y))
 
       const result = simplifyTrackPoints([...taxiOut, ...flight, ...taxiIn])
 
-      expect(worstCut(taxiOut, result.filter((p) => taxiOut.includes(p)))).toBeLessThanOrEqual(5)
-      expect(worstCut(taxiIn, result.filter((p) => taxiIn.includes(p)))).toBeLessThanOrEqual(5)
+      expect(
+        worstCut(
+          taxiOut,
+          result.filter((p) => taxiOut.includes(p))
+        )
+      ).toBeLessThanOrEqual(5)
+      expect(
+        worstCut(
+          taxiIn,
+          result.filter((p) => taxiIn.includes(p))
+        )
+      ).toBeLessThanOrEqual(5)
     })
   })
 

@@ -105,7 +105,10 @@ export function addInvoicesForFlight(
  * @param since The sync cursor, or null for every row.
  * @returns The rows, oldest change first.
  */
-export function listFlightInvoicesForSync(db: WingLogDb, since: string | null): (typeof flightInvoice.$inferSelect)[] {
+export function listFlightInvoicesForSync(
+  db: WingLogDb,
+  since: string | null
+): (typeof flightInvoice.$inferSelect)[] {
   return rowsChangedSince(db.select().from(flightInvoice).all(), since)
 }
 

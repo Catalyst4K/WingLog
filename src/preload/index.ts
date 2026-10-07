@@ -108,8 +108,10 @@ const api: WingLogApi = {
   settingsGetTheme: () => ipcRenderer.invoke(IpcChannels.settingsGetTheme),
   settingsSetTheme: (theme: Theme) => ipcRenderer.invoke(IpcChannels.settingsSetTheme, theme),
   trackingStart: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingStart, flightId),
-  trackingStartFree: (input: StartFreeFlightInput) => ipcRenderer.invoke(IpcChannels.trackingStartFree, input),
-  trackingGetFreeFlightPrefill: (input) => ipcRenderer.invoke(IpcChannels.trackingGetFreeFlightPrefill, input),
+  trackingStartFree: (input: StartFreeFlightInput) =>
+    ipcRenderer.invoke(IpcChannels.trackingStartFree, input),
+  trackingGetFreeFlightPrefill: (input) =>
+    ipcRenderer.invoke(IpcChannels.trackingGetFreeFlightPrefill, input),
   trackingStop: () => ipcRenderer.invoke(IpcChannels.trackingStop),
   trackingFinish: () => ipcRenderer.invoke(IpcChannels.trackingFinish),
   trackingGetActive: () => ipcRenderer.invoke(IpcChannels.trackingGetActive),
@@ -134,7 +136,8 @@ const api: WingLogApi = {
   logbookExport: (format: DataFormat) => ipcRenderer.invoke(IpcChannels.logbookExport, format),
   logbookListInvoices: (flightId: number) => ipcRenderer.invoke(IpcChannels.logbookListInvoices, flightId),
   settingsGetTracking: () => ipcRenderer.invoke(IpcChannels.settingsGetTracking),
-  settingsSetTracking: (settings: TrackingSettings) => ipcRenderer.invoke(IpcChannels.settingsSetTracking, settings),
+  settingsSetTracking: (settings: TrackingSettings) =>
+    ipcRenderer.invoke(IpcChannels.settingsSetTracking, settings),
   settingsGetGsx: () => ipcRenderer.invoke(IpcChannels.settingsGetGsx),
   settingsSetGsx: (settings: GsxSettings) => ipcRenderer.invoke(IpcChannels.settingsSetGsx, settings),
   settingsCheckGsxFirstLaunch: () => ipcRenderer.invoke(IpcChannels.settingsCheckGsxFirstLaunch),
@@ -154,7 +157,8 @@ const api: WingLogApi = {
   aircraftLookupByRegistration: (registration: string) =>
     ipcRenderer.invoke(IpcChannels.aircraftLookupByRegistration, registration),
   aircraftTypeSearch: (query: string) => ipcRenderer.invoke(IpcChannels.aircraftTypeSearch, query),
-  simbriefAirframesForType: (icaoType: string) => ipcRenderer.invoke(IpcChannels.simbriefAirframesForType, icaoType),
+  simbriefAirframesForType: (icaoType: string) =>
+    ipcRenderer.invoke(IpcChannels.simbriefAirframesForType, icaoType),
   simbriefCreateCustomAirframe: (shareUrl: string) =>
     ipcRenderer.invoke(IpcChannels.simbriefCreateCustomAirframe, shareUrl),
   airportSearch: (query: string) => ipcRenderer.invoke(IpcChannels.airportSearch, query),
@@ -172,7 +176,8 @@ const api: WingLogApi = {
   syncStatus: () => ipcRenderer.invoke(IpcChannels.syncStatus),
   appGetVersion: () => ipcRenderer.invoke(IpcChannels.appGetVersion),
   diagLog: (category, message) => ipcRenderer.invoke(IpcChannels.diagLog, category, message),
-  appLogRendererError: (context, message) => ipcRenderer.invoke(IpcChannels.appLogRendererError, context, message),
+  appLogRendererError: (context, message) =>
+    ipcRenderer.invoke(IpcChannels.appLogRendererError, context, message),
   captureKeepState: (flightId) => ipcRenderer.invoke(IpcChannels.captureKeepState, flightId),
   captureKeep: (flightId) => ipcRenderer.invoke(IpcChannels.captureKeep, flightId),
   appOpenGithub: () => ipcRenderer.invoke(IpcChannels.appOpenGithub),
@@ -192,36 +197,45 @@ const api: WingLogApi = {
     identifier: string,
     runway?: string | null,
     transition?: string | null
-  ) => ipcRenderer.invoke(IpcChannels.navdataGetProcedureWaypoints, icao, kind, identifier, runway, transition),
-  navdataRefreshTaxiNetwork: (icao: string) => ipcRenderer.invoke(IpcChannels.navdataRefreshTaxiNetwork, icao),
+  ) =>
+    ipcRenderer.invoke(IpcChannels.navdataGetProcedureWaypoints, icao, kind, identifier, runway, transition),
+  navdataRefreshTaxiNetwork: (icao: string) =>
+    ipcRenderer.invoke(IpcChannels.navdataRefreshTaxiNetwork, icao),
   navdataHasTaxiNetwork: (icao: string) => ipcRenderer.invoke(IpcChannels.navdataHasTaxiNetwork, icao),
   navdataGetTaxiNetwork: (icao: string) => ipcRenderer.invoke(IpcChannels.navdataGetTaxiNetwork, icao),
   navdataGetStands: (icao: string) => ipcRenderer.invoke(IpcChannels.navdataGetStands, icao),
   fleetListLastParked: () => ipcRenderer.invoke(IpcChannels.fleetListLastParked),
   trackingSetProcedureSelection: (selection: ProcedureSelection) =>
     ipcRenderer.invoke(IpcChannels.trackingSetProcedureSelection, selection),
-  trackingSetDestination: (icao: string | null) => ipcRenderer.invoke(IpcChannels.trackingSetDestination, icao),
+  trackingSetDestination: (icao: string | null) =>
+    ipcRenderer.invoke(IpcChannels.trackingSetDestination, icao),
   trackingSetDeparture: (icao: string | null) => ipcRenderer.invoke(IpcChannels.trackingSetDeparture, icao),
   trackingGetOrphanedFlight: () => ipcRenderer.invoke(IpcChannels.trackingGetOrphanedFlight),
-  trackingResumeOrphaned: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingResumeOrphaned, flightId),
-  trackingDiscardOrphaned: (flightId: number) => ipcRenderer.invoke(IpcChannels.trackingDiscardOrphaned, flightId),
+  trackingResumeOrphaned: (flightId: number) =>
+    ipcRenderer.invoke(IpcChannels.trackingResumeOrphaned, flightId),
+  trackingDiscardOrphaned: (flightId: number) =>
+    ipcRenderer.invoke(IpcChannels.trackingDiscardOrphaned, flightId),
   settingsGetGsxRemote: () => ipcRenderer.invoke(IpcChannels.settingsGetGsxRemote),
-  settingsSetGsxRemote: (settings: GsxRemoteSettings) => ipcRenderer.invoke(IpcChannels.settingsSetGsxRemote, settings),
+  settingsSetGsxRemote: (settings: GsxRemoteSettings) =>
+    ipcRenderer.invoke(IpcChannels.settingsSetGsxRemote, settings),
   gsxRemoteGetStatus: () => ipcRenderer.invoke(IpcChannels.gsxRemoteGetStatus),
   onGsxRemoteStatus: (listener: (status: GsxRemoteConnectionStatus) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, status: GsxRemoteConnectionStatus): void => listener(status)
+    const handler = (_event: Electron.IpcRendererEvent, status: GsxRemoteConnectionStatus): void =>
+      listener(status)
     ipcRenderer.on(IpcChannels.gsxRemoteStatus, handler)
     return () => ipcRenderer.removeListener(IpcChannels.gsxRemoteStatus, handler)
   },
   gsxRemoteGetServices: () => ipcRenderer.invoke(IpcChannels.gsxRemoteGetServices),
   onGsxRemoteServices: (listener: (services: GsxRemoteServiceStatus[]) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, services: GsxRemoteServiceStatus[]): void => listener(services)
+    const handler = (_event: Electron.IpcRendererEvent, services: GsxRemoteServiceStatus[]): void =>
+      listener(services)
     ipcRenderer.on(IpcChannels.gsxRemoteServices, handler)
     return () => ipcRenderer.removeListener(IpcChannels.gsxRemoteServices, handler)
   },
   gsxRemoteGetGateInfo: () => ipcRenderer.invoke(IpcChannels.gsxRemoteGetGateInfo),
   onGsxRemoteGate: (listener: (gate: GsxRemoteGateInfo | null) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, gate: GsxRemoteGateInfo | null): void => listener(gate)
+    const handler = (_event: Electron.IpcRendererEvent, gate: GsxRemoteGateInfo | null): void =>
+      listener(gate)
     ipcRenderer.on(IpcChannels.gsxRemoteGate, handler)
     return () => ipcRenderer.removeListener(IpcChannels.gsxRemoteGate, handler)
   },
@@ -233,27 +247,32 @@ const api: WingLogApi = {
   },
   gsxRemoteGetPrompt: () => ipcRenderer.invoke(IpcChannels.gsxRemoteGetPrompt),
   onGsxRemotePrompt: (listener: (prompt: GsxRemotePromptState | null) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, prompt: GsxRemotePromptState | null): void => listener(prompt)
+    const handler = (_event: Electron.IpcRendererEvent, prompt: GsxRemotePromptState | null): void =>
+      listener(prompt)
     ipcRenderer.on(IpcChannels.gsxRemotePrompt, handler)
     return () => ipcRenderer.removeListener(IpcChannels.gsxRemotePrompt, handler)
   },
   gsxRemoteGetCommandBar: () => ipcRenderer.invoke(IpcChannels.gsxRemoteGetCommandBar),
   onGsxRemoteCommandBar: (listener: (commandBar: GsxRemoteCommandBar) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, commandBar: GsxRemoteCommandBar): void => listener(commandBar)
+    const handler = (_event: Electron.IpcRendererEvent, commandBar: GsxRemoteCommandBar): void =>
+      listener(commandBar)
     ipcRenderer.on(IpcChannels.gsxRemoteCommandBar, handler)
     return () => ipcRenderer.removeListener(IpcChannels.gsxRemoteCommandBar, handler)
   },
   gsxRemotePickMenu: (index: number) => ipcRenderer.invoke(IpcChannels.gsxRemotePickMenu, index),
   gsxRemoteSearch: (text: string) => ipcRenderer.invoke(IpcChannels.gsxRemoteSearch, text),
   gsxRemoteToggleMenu: () => ipcRenderer.invoke(IpcChannels.gsxRemoteToggleMenu),
-  gsxRemoteSubmitPrompt: (gen: number, text: string) => ipcRenderer.invoke(IpcChannels.gsxRemoteSubmitPrompt, gen, text),
+  gsxRemoteSubmitPrompt: (gen: number, text: string) =>
+    ipcRenderer.invoke(IpcChannels.gsxRemoteSubmitPrompt, gen, text),
   gsxRemoteCancelPrompt: (gen: number) => ipcRenderer.invoke(IpcChannels.gsxRemoteCancelPrompt, gen),
   gsxRemoteRunCommand: (id: GsxRemoteCommandId) => ipcRenderer.invoke(IpcChannels.gsxRemoteRunCommand, id),
   settingsGetBeyondAtc: () => ipcRenderer.invoke(IpcChannels.settingsGetBeyondAtc),
-  settingsSetBeyondAtc: (settings: BeyondAtcSettings) => ipcRenderer.invoke(IpcChannels.settingsSetBeyondAtc, settings),
+  settingsSetBeyondAtc: (settings: BeyondAtcSettings) =>
+    ipcRenderer.invoke(IpcChannels.settingsSetBeyondAtc, settings),
   beyondAtcGetStatus: () => ipcRenderer.invoke(IpcChannels.beyondAtcGetStatus),
   onBeyondAtcStatus: (listener: (status: BeyondAtcConnectionStatus) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, status: BeyondAtcConnectionStatus): void => listener(status)
+    const handler = (_event: Electron.IpcRendererEvent, status: BeyondAtcConnectionStatus): void =>
+      listener(status)
     ipcRenderer.on(IpcChannels.beyondAtcStatus, handler)
     return () => ipcRenderer.removeListener(IpcChannels.beyondAtcStatus, handler)
   },
@@ -265,17 +284,21 @@ const api: WingLogApi = {
   },
   beyondAtcGetTranscript: () => ipcRenderer.invoke(IpcChannels.beyondAtcGetTranscript),
   onBeyondAtcTranscript: (listener: (transcript: BeyondAtcTranscriptEntry[]) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, transcript: BeyondAtcTranscriptEntry[]): void => listener(transcript)
+    const handler = (_event: Electron.IpcRendererEvent, transcript: BeyondAtcTranscriptEntry[]): void =>
+      listener(transcript)
     ipcRenderer.on(IpcChannels.beyondAtcTranscript, handler)
     return () => ipcRenderer.removeListener(IpcChannels.beyondAtcTranscript, handler)
   },
   beyondAtcSetAction: (label: string) => ipcRenderer.invoke(IpcChannels.beyondAtcSetAction, label),
-  beyondAtcSetFrequency: (frequency: string) => ipcRenderer.invoke(IpcChannels.beyondAtcSetFrequency, frequency),
-  beyondAtcSetFrequencyCom2: (frequency: string) => ipcRenderer.invoke(IpcChannels.beyondAtcSetFrequencyCom2, frequency),
+  beyondAtcSetFrequency: (frequency: string) =>
+    ipcRenderer.invoke(IpcChannels.beyondAtcSetFrequency, frequency),
+  beyondAtcSetFrequencyCom2: (frequency: string) =>
+    ipcRenderer.invoke(IpcChannels.beyondAtcSetFrequencyCom2, frequency),
   beyondAtcSetAutoTune: (value: boolean) => ipcRenderer.invoke(IpcChannels.beyondAtcSetAutoTune, value),
   beyondAtcSetAutoRespond: (value: boolean) => ipcRenderer.invoke(IpcChannels.beyondAtcSetAutoRespond, value),
   settingsGetUpdates: () => ipcRenderer.invoke(IpcChannels.settingsGetUpdates),
-  settingsSetUpdates: (settings: UpdateSettings) => ipcRenderer.invoke(IpcChannels.settingsSetUpdates, settings),
+  settingsSetUpdates: (settings: UpdateSettings) =>
+    ipcRenderer.invoke(IpcChannels.settingsSetUpdates, settings),
   updatesGetStatus: () => ipcRenderer.invoke(IpcChannels.updatesGetStatus),
   onUpdateStatus: (listener: (status: UpdateStatus) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, status: UpdateStatus): void => listener(status)
@@ -287,14 +310,16 @@ const api: WingLogApi = {
   updatesOpenRelease: () => ipcRenderer.invoke(IpcChannels.updatesOpenRelease),
   beyondAtcGetStepClimb: () => ipcRenderer.invoke(IpcChannels.beyondAtcGetStepClimb),
   onBeyondAtcStepClimb: (listener: (status: BeyondAtcStepClimbStatus) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, status: BeyondAtcStepClimbStatus): void => listener(status)
+    const handler = (_event: Electron.IpcRendererEvent, status: BeyondAtcStepClimbStatus): void =>
+      listener(status)
     ipcRenderer.on(IpcChannels.beyondAtcStepClimb, handler)
     return () => ipcRenderer.removeListener(IpcChannels.beyondAtcStepClimb, handler)
   },
   beyondAtcSetStepClimb: (enabled: boolean) => ipcRenderer.invoke(IpcChannels.beyondAtcSetStepClimb, enabled),
   beyondAtcGetArrival: () => ipcRenderer.invoke(IpcChannels.beyondAtcGetArrival),
   onBeyondAtcArrival: (listener: (clearance: BeyondAtcArrivalClearance | null) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, clearance: BeyondAtcArrivalClearance | null): void => listener(clearance)
+    const handler = (_event: Electron.IpcRendererEvent, clearance: BeyondAtcArrivalClearance | null): void =>
+      listener(clearance)
     ipcRenderer.on(IpcChannels.beyondAtcArrival, handler)
     return () => ipcRenderer.removeListener(IpcChannels.beyondAtcArrival, handler)
   },

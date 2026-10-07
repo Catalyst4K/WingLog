@@ -82,7 +82,11 @@ describe('useConfirm', () => {
       const [confirm, dialog] = useConfirm()
       return (
         <div>
-          <button onClick={() => void confirm({ title: 'T', description: 'D', confirmLabel: 'Go', cancelLabel: 'Nope' })}>
+          <button
+            onClick={() =>
+              void confirm({ title: 'T', description: 'D', confirmLabel: 'Go', cancelLabel: 'Nope' })
+            }
+          >
             Ask
           </button>
           {dialog}

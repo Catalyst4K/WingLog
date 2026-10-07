@@ -4,7 +4,11 @@ const fakeLog = vi.hoisted(() => {
   const instance = {
     transports: {
       console: { level: 'info' as string | false },
-      file: { level: 'info' as string, maxSize: 0, resolvePathFn: undefined as unknown as (v: { libraryDefaultDir: string }) => string }
+      file: {
+        level: 'info' as string,
+        maxSize: 0,
+        resolvePathFn: undefined as unknown as (v: { libraryDefaultDir: string }) => string
+      }
     },
     info: vi.fn()
   }
@@ -19,7 +23,9 @@ describe('formatDiagLine', () => {
     expect(formatDiagLine('phase', 'taxi -> takeoff', { groundSpeedMs: 41.2, onGround: true })).toBe(
       '[diag:phase] taxi -> takeoff {"groundSpeedMs":41.2,"onGround":true}'
     )
-    expect(formatDiagLine('beyondatc', 'in', 'CommsState: ready')).toBe('[diag:beyondatc] in "CommsState: ready"')
+    expect(formatDiagLine('beyondatc', 'in', 'CommsState: ready')).toBe(
+      '[diag:beyondatc] in "CommsState: ready"'
+    )
     expect(formatDiagLine('capture', 'stopped')).toBe('[diag:capture] stopped')
   })
 
@@ -72,7 +78,9 @@ describe('openDiagLog', () => {
     const { transports } = fakeLog.instance
     expect(transports.console.level).toBe(false)
     expect(transports.file.maxSize).toBe(10 * 1024 * 1024)
-    expect(transports.file.resolvePathFn({ libraryDefaultDir: 'C:/logs' }).replace(/\\/g, '/')).toBe('C:/logs/diag.log')
+    expect(transports.file.resolvePathFn({ libraryDefaultDir: 'C:/logs' }).replace(/\\/g, '/')).toBe(
+      'C:/logs/diag.log'
+    )
 
     write('[diag:phase] x')
     expect(fakeLog.instance.info).toHaveBeenCalledWith('[diag:phase] x')

@@ -68,8 +68,10 @@ export function greatCircleNm(a: LatLon, b: LatLon): number {
 export function initialBearingDeg(a: LatLon, b: LatLon): number {
   const dLon = (b.lon - a.lon) * RAD
   const y = Math.sin(dLon) * Math.cos(b.lat * RAD)
-  const x = Math.cos(a.lat * RAD) * Math.sin(b.lat * RAD) - Math.sin(a.lat * RAD) * Math.cos(b.lat * RAD) * Math.cos(dLon)
-  return ((Math.atan2(y, x) / RAD) % 360 + 360) % 360
+  const x =
+    Math.cos(a.lat * RAD) * Math.sin(b.lat * RAD) -
+    Math.sin(a.lat * RAD) * Math.cos(b.lat * RAD) * Math.cos(dLon)
+  return (((Math.atan2(y, x) / RAD) % 360) + 360) % 360
 }
 
 /**
@@ -87,7 +89,10 @@ export function destinationPoint(from: LatLon, bearingDeg: number, distanceM: nu
   const brg = bearingDeg * RAD
   const lat1 = from.lat * RAD
   const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(brg))
-  const dLon = Math.atan2(Math.sin(brg) * Math.sin(d) * Math.cos(lat1), Math.cos(d) - Math.sin(lat1) * Math.sin(lat2))
+  const dLon = Math.atan2(
+    Math.sin(brg) * Math.sin(d) * Math.cos(lat1),
+    Math.cos(d) - Math.sin(lat1) * Math.sin(lat2)
+  )
   return { lat: lat2 / RAD, lon: from.lon + dLon / RAD }
 }
 
@@ -132,7 +137,10 @@ export function toLocalXy(p: LatLon, refLatDeg: number): LocalXy {
  * @returns Metres east and north (negative: west, south).
  */
 export function offsetFrom(origin: LatLon, p: LatLon): { eastM: number; northM: number } {
-  return { eastM: (p.lon - origin.lon) * metresPerDegreeLon(origin.lat), northM: (p.lat - origin.lat) * METRES_PER_DEGREE_LAT }
+  return {
+    eastM: (p.lon - origin.lon) * metresPerDegreeLon(origin.lat),
+    northM: (p.lat - origin.lat) * METRES_PER_DEGREE_LAT
+  }
 }
 
 /**
@@ -145,7 +153,10 @@ export function offsetFrom(origin: LatLon, p: LatLon): { eastM: number; northM: 
  * @returns The offset point.
  */
 export function offsetBy(origin: LatLon, eastM: number, northM: number): LatLon {
-  return { lat: origin.lat + northM / METRES_PER_DEGREE_LAT, lon: origin.lon + eastM / metresPerDegreeLon(origin.lat) }
+  return {
+    lat: origin.lat + northM / METRES_PER_DEGREE_LAT,
+    lon: origin.lon + eastM / metresPerDegreeLon(origin.lat)
+  }
 }
 
 /**
@@ -192,7 +203,11 @@ export function pointToSegmentM(p: LatLon, a: LatLon, b: LatLon): number {
   return Math.hypot(px - (ax + t * dx), py - (ay + t * dy))
 }
 
-function lineFrame(p: LatLon, a: LatLon, b: LatLon): { px: number; py: number; ax: number; ay: number; dx: number; dy: number } {
+function lineFrame(
+  p: LatLon,
+  a: LatLon,
+  b: LatLon
+): { px: number; py: number; ax: number; ay: number; dx: number; dy: number } {
   const refLat = (a.lat + b.lat) / 2
   const pp = toLocalXy(p, refLat)
   const pa = toLocalXy(a, refLat)

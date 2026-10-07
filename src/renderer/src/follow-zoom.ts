@@ -9,7 +9,6 @@ import type { TrackPoint } from '@shared/ipc'
 import { itemAt } from '@shared/item-at'
 import { METRES_PER_FOOT } from '@shared/units'
 
-
 export const FOLLOW_ZOOM_GROUND = 15
 
 /** Airborne bands, lowest first: below 10,000 ft, 10,000 ft to FL250, above FL250.

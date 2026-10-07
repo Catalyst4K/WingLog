@@ -53,7 +53,7 @@ describe('gsx-remote-format', () => {
     expect(hiddenServices(services).map((s) => s.id)).toEqual(['GPU'])
   })
 
-  it('formats a GSX bill as whole-dollar USD, matching GSX\'s own statusText formatting', () => {
+  it("formats a GSX bill as whole-dollar USD, matching GSX's own statusText formatting", () => {
     // The currency symbol itself ("$" vs "US$") depends on the runtime's locale (Intl.
     // NumberFormat(undefined, ...), same convention as GsxInvoicesCard) — asserting the
     // digits/grouping/no-decimals is the real behaviour under test, not the symbol.
@@ -84,7 +84,12 @@ describe('gsx-remote-format', () => {
   })
 
   it('builds a gate subtitle from icao, name and area, skipping a missing area', () => {
-    const gate: GsxRemoteGateInfo = { airportIcao: 'VHHH', airportName: 'Hong Kong Intl', parking: '', gateProperties: [] }
+    const gate: GsxRemoteGateInfo = {
+      airportIcao: 'VHHH',
+      airportName: 'Hong Kong Intl',
+      parking: '',
+      gateProperties: []
+    }
     expect(gateSubtitle(gate, '(N) T1 North')).toBe('VHHH · Hong Kong Intl · (N) T1 North')
     expect(gateSubtitle(gate, null)).toBe('VHHH · Hong Kong Intl')
   })

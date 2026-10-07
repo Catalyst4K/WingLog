@@ -148,11 +148,23 @@ async function main(): Promise<void> {
       if (!ident || !lat || !lon || !hdg) continue
       const override = HEADING_OVERRIDES[`${icao},${ident}`]
       const outHdg = override !== undefined ? String(override) : hdg
-      outRows.push([icao, ident, lat, lon, outHdg, row[iLength] ?? '', row[iWidth] ?? '', displaced ?? '', elevation ?? '', row[iSurface] ?? ''])
+      outRows.push([
+        icao,
+        ident,
+        lat,
+        lon,
+        outHdg,
+        row[iLength] ?? '',
+        row[iWidth] ?? '',
+        displaced ?? '',
+        elevation ?? '',
+        row[iSurface] ?? ''
+      ])
     }
   }
 
-  const csvText = outRows.map((r) => r.map((f) => (f.includes(',') ? `"${f}"` : f)).join(',')).join('\n') + '\n'
+  const csvText =
+    outRows.map((r) => r.map((f) => (f.includes(',') ? `"${f}"` : f)).join(',')).join('\n') + '\n'
   writeFileSync(OUT_CSV, csvText, 'utf-8')
 
   const license = `runways.csv

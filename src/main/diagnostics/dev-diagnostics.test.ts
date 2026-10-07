@@ -1,7 +1,13 @@
 import { EventEmitter } from 'node:events'
 import { describe, expect, it, vi } from 'vitest'
 import type { BeyondAtcState, SimTelemetry } from '@shared/ipc'
-import { DevDiagnostics, type BeyondAtcEvents, type GsxEvents, type SimEvents, type TrackingEvents } from './dev-diagnostics'
+import {
+  DevDiagnostics,
+  type BeyondAtcEvents,
+  type GsxEvents,
+  type SimEvents,
+  type TrackingEvents
+} from './dev-diagnostics'
 import type { FlightCapture } from './flight-capture'
 
 function fakeCapture() {
@@ -39,13 +45,24 @@ function setup() {
 }
 
 const tick = (overrides: Partial<SimTelemetry>) =>
-  ({ latitude: 22.3, longitude: 113.9, onGround: true, groundSpeedMs: 0, altitudeAglM: 0, verticalSpeedMs: 0, title: 'A350', ...overrides }) as SimTelemetry
+  ({
+    latitude: 22.3,
+    longitude: 113.9,
+    onGround: true,
+    groundSpeedMs: 0,
+    altitudeAglM: 0,
+    verticalSpeedMs: 0,
+    title: 'A350',
+    ...overrides
+  }) as SimTelemetry
 
 describe('DevDiagnostics', () => {
   it('captures a tracked flight from start to completion, and only while it is tracked', () => {
     const { dev, lines, calls } = setup()
     const tracking = new EventEmitter()
-    const sim = Object.assign(new EventEmitter(), { getLastTelemetry: () => tick({ title: 'iniBuilds A350-900' }) })
+    const sim = Object.assign(new EventEmitter(), {
+      getLastTelemetry: () => tick({ title: 'iniBuilds A350-900' })
+    })
     dev.attachTracking(tracking as unknown as TrackingEvents, sim as unknown as SimEvents)
 
     sim.emit('telemetry', tick({ latitude: 1 }))
@@ -55,7 +72,12 @@ describe('DevDiagnostics', () => {
     tracking.emit('completed', 231)
     sim.emit('telemetry', tick({ latitude: 3 }))
 
-    expect(calls).toEqual([['start', 231, 'iniBuilds A350-900'], ['telemetry', 2], ['paused', true], ['stop']])
+    expect(calls).toEqual([
+      ['start', 231, 'iniBuilds A350-900'],
+      ['telemetry', 2],
+      ['paused', true],
+      ['stop']
+    ])
     expect(lines).toEqual([
       'capture: started for flight 231 {"path":"C:/captures/flight-231.ndjson"}',
       'phase: sim paused',
@@ -70,12 +92,18 @@ describe('DevDiagnostics', () => {
     dev.attachTracking(tracking as unknown as TrackingEvents, sim as unknown as SimEvents)
 
     tracking.emit('started', 7)
-    tracking.emit('phaseChanged', { from: 'taxi', to: 'takeoff', telemetry: tick({ groundSpeedMs: 41.2, latitude: 22.31 }) })
+    tracking.emit('phaseChanged', {
+      from: 'taxi',
+      to: 'takeoff',
+      telemetry: tick({ groundSpeedMs: 41.2, latitude: 22.31 })
+    })
     tracking.emit('stopped', 7)
 
     expect(calls[0]).toEqual(['start', 7, 'unknown'])
     expect(calls.at(-1)).toEqual(['stop'])
-    expect(lines[1]).toBe('phase: taxi -> takeoff {"onGround":true,"groundSpeedMs":41.2,"altitudeAglM":0,"verticalSpeedMs":0,"lat":22.31,"lon":113.9}')
+    expect(lines[1]).toBe(
+      'phase: taxi -> takeoff {"onGround":true,"groundSpeedMs":41.2,"altitudeAglM":0,"verticalSpeedMs":0,"lat":22.31,"lon":113.9}'
+    )
     expect(lines.at(-1)).toBe('capture: stopped: flight 7')
   })
 
@@ -102,9 +130,14 @@ describe('DevDiagnostics', () => {
       { speaker: 'player', text: 'Request taxi', ts: 1 },
       { speaker: 'atc', text: 'Cathay 251, taxi via B, V, hold short of runway 07R.', ts: 2 }
     ])
-    beyondAtc.emit('transcript', [{ speaker: 'atc', text: 'Cathay 251, taxi via B, V, hold short of runway 07R.', ts: 2 }])
+    beyondAtc.emit('transcript', [
+      { speaker: 'atc', text: 'Cathay 251, taxi via B, V, hold short of runway 07R.', ts: 2 }
+    ])
 
-    expect(calls).toEqual([['start', 1, 'unknown'], ['beyondatc', 'out', 'set_action: Radio Check']])
+    expect(calls).toEqual([
+      ['start', 1, 'unknown'],
+      ['beyondatc', 'out', 'set_action: Radio Check']
+    ])
     expect(lines.filter((l) => l.startsWith('beyondatc:'))).toEqual([
       'beyondatc: in "CommsState: ready"',
       'beyondatc: out "set_action: Radio Check"'

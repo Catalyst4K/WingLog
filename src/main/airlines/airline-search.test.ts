@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { findAirlineByIata, findAirlineByIcao, loadAirlines, searchAirlineList, searchAirlines } from './airline-search'
+import {
+  findAirlineByIata,
+  findAirlineByIcao,
+  loadAirlines,
+  searchAirlineList,
+  searchAirlines
+} from './airline-search'
 
 // Shaped like the real trimmed resources/airlines.csv, including a name containing a
 // comma (quoted) and a row with no IATA code (some carriers genuinely have none).

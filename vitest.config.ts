@@ -25,7 +25,10 @@ export default defineConfig({
   // a single test run can't hold both literal values of a define at once.
   // The dev-build flag is false here, as in every normal build: tests see the app as users
   // get it. The dev build's own code is tested directly (src/main/diagnostics/).
-  define: { __WINGLOG_CLOUD_SYNC_ENABLED__: JSON.stringify(true), __WINGLOG_DEV_BUILD__: JSON.stringify(false) },
+  define: {
+    __WINGLOG_CLOUD_SYNC_ENABLED__: JSON.stringify(true),
+    __WINGLOG_DEV_BUILD__: JSON.stringify(false)
+  },
   test: {
     projects: [
       {
@@ -85,10 +88,10 @@ export default defineConfig({
       // Track-finish flow driven through real child views. Phase 4 (Playwright acceptance)
       // and Phase 5 (CI enforcement at 100%) are what's left of this plan.
       thresholds: {
-        statements: 95,
-        branches: 89,
-        functions: 94,
-        lines: 96
+        statements: 97,
+        branches: 92,
+        functions: 96,
+        lines: 98
       }
     }
   }

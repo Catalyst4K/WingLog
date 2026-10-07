@@ -32,7 +32,7 @@ describe('app IPC handlers', () => {
     openPath.mockReset()
   })
 
-  it("writes a renderer failure to main.log as a warning, strings only and cut to length", () => {
+  it('writes a renderer failure to main.log as a warning, strings only and cut to length', () => {
     const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
     invoke(IpcChannels.appLogRendererError, 'fleet: save aircraft', 'Registration already in the fleet')
     expect(warn).toHaveBeenCalledWith('[renderer] fleet: save aircraft: Registration already in the fleet')
@@ -45,8 +45,14 @@ describe('app IPC handlers', () => {
 
   it('keeps a renderer failure on one log line, whatever line breaks its text carries', () => {
     const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
-    invoke(IpcChannels.appLogRendererError, 'dispatch:\nfake', 'SimBrief said:\r\n[beyondatc] InfoBoxes {} end')
-    expect(warn).toHaveBeenCalledWith('[renderer] dispatch: fake: SimBrief said: [beyondatc] InfoBoxes {} end')
+    invoke(
+      IpcChannels.appLogRendererError,
+      'dispatch:\nfake',
+      'SimBrief said:\r\n[beyondatc] InfoBoxes {} end'
+    )
+    expect(warn).toHaveBeenCalledWith(
+      '[renderer] dispatch: fake: SimBrief said: [beyondatc] InfoBoxes {} end'
+    )
     warn.mockRestore()
   })
 

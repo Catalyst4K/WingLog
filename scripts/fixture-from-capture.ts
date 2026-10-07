@@ -13,7 +13,11 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { parseArgs } from 'node:util'
 import { sliceCapture } from '../src/main/sim/capture-slice'
-import { formatFlightFixture, parseFlightFixture, type CapturedLineEvent } from '../src/main/sim/flight-fixture'
+import {
+  formatFlightFixture,
+  parseFlightFixture,
+  type CapturedLineEvent
+} from '../src/main/sim/flight-fixture'
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -29,12 +33,17 @@ const { values, positionals } = parseArgs({
 
 const [input, output] = positionals
 if (!input || !output || !values.scenario) {
-  process.stderr.write('Usage: fixture-from-capture <capture.ndjson> <out.ndjson> --scenario <name> [--from s] [--to s] [--streams beyondatc,gsx] [--replace FOUND=NEW]... [--notes text]\n')
+  process.stderr.write(
+    'Usage: fixture-from-capture <capture.ndjson> <out.ndjson> --scenario <name> [--from s] [--to s] [--streams beyondatc,gsx] [--replace FOUND=NEW]... [--notes text]\n'
+  )
   process.exit(1)
 }
 
-const seconds = (value: string | undefined): number | undefined => (value === undefined ? undefined : Number(value) * 1000)
-const streams = values.streams?.split(',').filter((s): s is CapturedLineEvent['type'] => s === 'beyondatc' || s === 'gsx')
+const seconds = (value: string | undefined): number | undefined =>
+  value === undefined ? undefined : Number(value) * 1000
+const streams = values.streams
+  ?.split(',')
+  .filter((s): s is CapturedLineEvent['type'] => s === 'beyondatc' || s === 'gsx')
 const replacements = (values.replace ?? []).map((pair): [string, string] => {
   const sep = pair.indexOf('=')
   return [pair.slice(0, sep), pair.slice(sep + 1)]
@@ -49,4 +58,6 @@ const slice = sliceCapture(parseFlightFixture(readFileSync(input, 'utf8')), {
   notes: values.notes ?? `Anonymised slice of a dev-build capture (scripts/fixture-from-capture.ts).`
 })
 writeFileSync(output, formatFlightFixture(slice))
-process.stdout.write(`${slice.events.length} events written to ${output}. Check the transcript lines by eye before committing.\n`)
+process.stdout.write(
+  `${slice.events.length} events written to ${output}. Check the transcript lines by eye before committing.\n`
+)

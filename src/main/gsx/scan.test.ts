@@ -112,7 +112,11 @@ describe('gsx scan', () => {
     })
 
     it('returns null when the file cannot be read', async () => {
-      const invoice = await readReceipt({ ...file, jsonPath: join(root, 'missing.json'), htmlPath: join(root, 'missing.html') })
+      const invoice = await readReceipt({
+        ...file,
+        jsonPath: join(root, 'missing.json'),
+        htmlPath: join(root, 'missing.html')
+      })
       expect(invoice).toBeNull()
     })
 

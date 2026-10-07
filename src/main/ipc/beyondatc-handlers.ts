@@ -141,7 +141,10 @@ function registerStepClimb(
   ipcMain.handle(IpcChannels.beyondAtcGetStepClimb, () => stepClimb.getStatus())
 
   const commands = atcCommands(session, stepClimb)
-  const command = (name: AtcCommand) => (_event: unknown, ...args: unknown[]) => dispatchCommand(commands, name, args)
+  const command =
+    (name: AtcCommand) =>
+    (_event: unknown, ...args: unknown[]) =>
+      dispatchCommand(commands, name, args)
   ipcMain.handle(IpcChannels.beyondAtcSetAction, command('atc.setAction'))
   ipcMain.handle(IpcChannels.beyondAtcSetFrequency, command('atc.setFrequency'))
   ipcMain.handle(IpcChannels.beyondAtcSetFrequencyCom2, command('atc.setFrequencyCom2'))

@@ -13,13 +13,24 @@ describe('channelKind', () => {
   })
 
   it('classes the main-to-renderer pushes as live', () => {
-    for (const key of ['simTelemetry', 'trackingPoint', 'gsxRemoteStatus', 'beyondAtcState', 'updatesStatus'] as const) {
+    for (const key of [
+      'simTelemetry',
+      'trackingPoint',
+      'gsxRemoteStatus',
+      'beyondAtcState',
+      'updatesStatus'
+    ] as const) {
       expect(channelKind(key)).toBe('live')
     }
   })
 
   it('classes the remote-safe BeyondATC and GSX Remote actions as commands', () => {
-    for (const key of ['beyondAtcSetAction', 'beyondAtcSetStepClimb', 'gsxRemotePickMenu', 'gsxRemoteRunCommand'] as const) {
+    for (const key of [
+      'beyondAtcSetAction',
+      'beyondAtcSetStepClimb',
+      'gsxRemotePickMenu',
+      'gsxRemoteRunCommand'
+    ] as const) {
       expect(channelKind(key)).toBe('command')
     }
   })

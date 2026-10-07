@@ -287,13 +287,15 @@ export function AircraftForm(props: {
       if (!hadSimbriefType) {
         runAsync(
           'AircraftForm simbriefAirframesForType',
-          winglogApi().simbriefAirframesForType(result.icaoType).then((options) => {
-            if (options.some((o) => o.isDefault)) {
-              setForm((current) =>
-                current.simbriefType.trim() !== '' ? current : { ...current, simbriefType: result.icaoType }
-              )
-            }
-          })
+          winglogApi()
+            .simbriefAirframesForType(result.icaoType)
+            .then((options) => {
+              if (options.some((o) => o.isDefault)) {
+                setForm((current) =>
+                  current.simbriefType.trim() !== '' ? current : { ...current, simbriefType: result.icaoType }
+                )
+              }
+            })
         )
       }
       setLookupStatus(

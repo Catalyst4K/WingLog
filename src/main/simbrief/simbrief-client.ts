@@ -4,7 +4,14 @@
  */
 import { parseOfp, SimBriefError, type SimBriefOfp } from '@shared/simbrief-ofp'
 
-export { optNum, optStr, parseOfp, parseStepClimbs, type SimBriefOfp, type SimBriefStepClimb } from '@shared/simbrief-ofp'
+export {
+  optNum,
+  optStr,
+  parseOfp,
+  parseStepClimbs,
+  type SimBriefOfp,
+  type SimBriefStepClimb
+} from '@shared/simbrief-ofp'
 
 /**
  * Fetches the pilot's latest OFP from SimBrief.

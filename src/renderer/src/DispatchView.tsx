@@ -169,10 +169,7 @@ export function DispatchView(props: {
    */
   async function handleFlyClick(): Promise<void> {
     if (!ofp || selectedAircraftId == null) return
-    const [active, flights] = await Promise.all([
-      winglogApi().trackingGetActive(),
-      winglogApi().flightList()
-    ])
+    const [active, flights] = await Promise.all([winglogApi().trackingGetActive(), winglogApi().flightList()])
     const activeFlight = active ? flights.find((f) => f.id === active.flightId) : undefined
     const otherPlanned = flights.filter((f) => f.status === 'planned')
     const warning = activeFlight

@@ -69,11 +69,15 @@ export function useDisplaySettings(): DisplaySettings {
     runAsync('App settingsGetTheme', winglogApi().settingsGetTheme().then(setTheme))
     runAsync(
       'App settingsGetGsxRemote',
-      winglogApi().settingsGetGsxRemote().then((settings) => setGsxRemoteEnabled(settings.enabled))
+      winglogApi()
+        .settingsGetGsxRemote()
+        .then((settings) => setGsxRemoteEnabled(settings.enabled))
     )
     runAsync(
       'App settingsGetBeyondAtc',
-      winglogApi().settingsGetBeyondAtc().then((settings) => setBeyondAtcEnabled(settings.enabled))
+      winglogApi()
+        .settingsGetBeyondAtc()
+        .then((settings) => setBeyondAtcEnabled(settings.enabled))
     )
     runAsync(
       'App settingsGetAppLanguage',

@@ -36,7 +36,8 @@ export function parseAircraftInput(raw: unknown): AircraftInputResult {
 
   for (const field of REQUIRED_STRING_FIELDS) {
     const value = input[field]
-    if (typeof value !== 'string' || value.trim() === '') return { error: t('errors.fieldRequired', { field }) }
+    if (typeof value !== 'string' || value.trim() === '')
+      return { error: t('errors.fieldRequired', { field }) }
     required[field] = value.trim()
   }
 

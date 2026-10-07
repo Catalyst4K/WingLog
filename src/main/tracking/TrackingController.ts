@@ -15,7 +15,11 @@ import type { SimConnectSource, TouchdownSeverity } from '../sim/SimConnectSourc
 import { FlightRecorder, MOVING_MS } from './FlightRecorder'
 import { seedPhaseFromTelemetry } from './free-flight'
 import { buildLandingRecord } from './landing-capture'
-import { isPhysicallyImpossibleJump, RESUME_CLEANUP_CONSTANTS, type TrackCleanupResult } from './resume-cleanup'
+import {
+  isPhysicallyImpossibleJump,
+  RESUME_CLEANUP_CONSTANTS,
+  type TrackCleanupResult
+} from './resume-cleanup'
 import { isOnRunway } from './runway-check'
 import { deriveFlownRouteJson } from './route-simplify'
 
@@ -148,7 +152,11 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     /** Asks the sim which airfield/runway a touchdown was on, for fields the vendored
      *  airport list doesn't know (landing-airfield-from-sim.md). Omitted in tests and in
      *  replay mode, where there's no live sim to ask. */
-    private readonly resolveSimAirfield?: (lat: number, lon: number, headingTrueDeg: number) => Promise<SimAirfieldMatch | null>
+    private readonly resolveSimAirfield?: (
+      lat: number,
+      lon: number,
+      headingTrueDeg: number
+    ) => Promise<SimAirfieldMatch | null>
   ) {
     super()
     this.simConnectService.on('touchdownSeverity', (result) => {
@@ -161,7 +169,8 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
       this.recorder.setAutoShutdown(this.autoFinish)
       const phaseBefore = this.recorder.getPhase()
       const result = this.recorder.ingest(telemetry, new Date())
-      if (result.phase !== phaseBefore) this.emit('phaseChanged', { from: phaseBefore, to: result.phase, telemetry })
+      if (result.phase !== phaseBefore)
+        this.emit('phaseChanged', { from: phaseBefore, to: result.phase, telemetry })
 
       // The value startFlight wrote at tracking-start is provisional (see finalizeFuelOut): corrected at the aircraft's first
       // ground movement (off-blocks), when ground fuel service is over. Not on leaving 'preflight', which also fires on engine
@@ -251,7 +260,11 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     // This touchdown's own airport, not assumed to be the flight's filed arrival — a
     // circuit, a diversion, or a free flight can land somewhere else. Falls back to
     // arr_icao when nothing vendored is close enough to resolve.
-    const resolvedIcao = nearestAirport(telemetry.latitude, telemetry.longitude, LANDING_ICAO_SEARCH_RADIUS_NM)
+    const resolvedIcao = nearestAirport(
+      telemetry.latitude,
+      telemetry.longitude,
+      LANDING_ICAO_SEARCH_RADIUS_NM
+    )
     const seq = this.landingSeq
     const touchdownTsUtc = new Date().toISOString()
     // Consumed once per touchdown — a reading recent enough for *this* one must not linger
@@ -259,7 +272,8 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     // already keeps real touchdowns further apart than TOUCHDOWN_SEVERITY_FRESHNESS_MS, but
     // clearing it is cheap insurance against relying on that timing alone).
     const touchdownSeverity =
-      this.lastTouchdownSeverity && Date.now() - this.lastTouchdownSeverity.atMs <= TOUCHDOWN_SEVERITY_FRESHNESS_MS
+      this.lastTouchdownSeverity &&
+      Date.now() - this.lastTouchdownSeverity.atMs <= TOUCHDOWN_SEVERITY_FRESHNESS_MS
         ? this.lastTouchdownSeverity.result
         : undefined
     this.lastTouchdownSeverity = undefined
@@ -280,7 +294,14 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     if (record.runwayIdent === null) {
       runLogged(
         'landing runway upgrade',
-        this.upgradeLandingFromSim(flightId, seq, telemetry, touchdownTsUtc, previousTelemetry, touchdownSeverity)
+        this.upgradeLandingFromSim(
+          flightId,
+          seq,
+          telemetry,
+          touchdownTsUtc,
+          previousTelemetry,
+          touchdownSeverity
+        )
       )
     }
     // A free flight's arr_icao is a placeholder ('ZZZZ' or an unconfirmed guess) until
@@ -312,7 +333,11 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   ): Promise<void> {
     if (!this.resolveSimAirfield) return
     try {
-      const match = await this.resolveSimAirfield(telemetry.latitude, telemetry.longitude, telemetry.headingTrueDeg)
+      const match = await this.resolveSimAirfield(
+        telemetry.latitude,
+        telemetry.longitude,
+        telemetry.headingTrueDeg
+      )
       if (!match) return
       this.store.addLanding(
         buildLandingRecord(
@@ -720,7 +745,6 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   private snapshotGsxInvoices(flightId: number): void {
     this.store.saveGsxInvoices(flightId)
   }
-
 
   /** Derives and stores the flight's flown-route polyline (route-simplify.ts) at completion, best-effort like the GSX snapshot
    *  above: it reads back this flight's already-persisted track_point rows, so a failure can't affect the flight record,

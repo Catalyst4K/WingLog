@@ -16,10 +16,15 @@ interface LockEntry {
 }
 
 function productionPackages(): { name: string; version: string }[] {
-  const lock = JSON.parse(readFileSync(join(root, 'package-lock.json'), 'utf8')) as { packages: Record<string, LockEntry> }
+  const lock = JSON.parse(readFileSync(join(root, 'package-lock.json'), 'utf8')) as {
+    packages: Record<string, LockEntry>
+  }
   return Object.entries(lock.packages)
     .filter(([path, entry]) => path !== '' && !entry.dev && !entry.devOptional && !entry.link)
-    .map(([path, entry]) => ({ name: entry.name ?? path.split('node_modules/').pop()!, version: entry.version }))
+    .map(([path, entry]) => ({
+      name: entry.name ?? path.split('node_modules/').pop()!,
+      version: entry.version
+    }))
 }
 
 describe('THIRD-PARTY-LICENSES.md', () => {
@@ -29,7 +34,9 @@ describe('THIRD-PARTY-LICENSES.md', () => {
     expect(notices).toContain('GNU LESSER GENERAL PUBLIC LICENSE')
     expect(notices).toContain('This version of the GNU Lesser General Public License incorporates')
     // A real MIT notice from a shipped package.
-    expect(notices).toMatch(/### react 19\.\d+\.\d+ — MIT\s+```\s+MIT License\s+Copyright \(c\) Meta Platforms/)
+    expect(notices).toMatch(
+      /### react 19\.\d+\.\d+ — MIT\s+```\s+MIT License\s+Copyright \(c\) Meta Platforms/
+    )
   })
 
   it('lists every production package in package-lock.json, transitive ones included, at its locked version', () => {
@@ -42,12 +49,21 @@ describe('THIRD-PARTY-LICENSES.md', () => {
   })
 
   it('carries the standard licence text for packages that ship no licence file', () => {
-    expect(notices).toMatch(/### drizzle-orm [\d.]+ — Apache-2\.0\s+This package declares[^\n]*reproduced below\.\s+```\s+Apache License/)
-    expect(notices).toMatch(/### murmurhash-js [\d.]+ — MIT\s+This package declares[^\n]*reproduced below\.\s+```\s+MIT License\s+Copyright \(c\) Gary Court/)
+    expect(notices).toMatch(
+      /### drizzle-orm [\d.]+ — Apache-2\.0\s+This package declares[^\n]*reproduced below\.\s+```\s+Apache License/
+    )
+    expect(notices).toMatch(
+      /### murmurhash-js [\d.]+ — MIT\s+This package declares[^\n]*reproduced below\.\s+```\s+MIT License\s+Copyright \(c\) Gary Court/
+    )
   })
 
   it('covers all four vendored datasets', () => {
-    for (const title of ['Airports — OurAirports', 'Runways — OurAirports', 'Airlines — OpenFlights (ODbL 1.0)', 'Aircraft type designators']) {
+    for (const title of [
+      'Airports — OurAirports',
+      'Runways — OurAirports',
+      'Airlines — OpenFlights (ODbL 1.0)',
+      'Aircraft type designators'
+    ]) {
       expect(notices).toContain(`### ${title}`)
     }
   })

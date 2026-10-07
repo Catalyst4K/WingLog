@@ -27,7 +27,5 @@ export function setSourceData(map: MapLibreMap, sourceId: string, data: SourceDa
  * @param data Its new data.
  */
 export function updateSourceData(source: GeoJSONSource | undefined, data: SourceData): void {
-  source
-    ?.setData(data)
-    .catch((error: unknown) => reportError(`map: update source ${source.id}`, error))
+  source?.setData(data).catch((error: unknown) => reportError(`map: update source ${source.id}`, error))
 }

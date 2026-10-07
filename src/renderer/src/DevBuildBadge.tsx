@@ -9,10 +9,18 @@ import { Badge } from '@/components/ui/badge'
  * @param isDevBuild Defaults to the build flag; a prop so both builds can be tested.
  * @returns The badge, or null in a normal build.
  */
-export function DevBuildBadge({ isDevBuild = __WINGLOG_DEV_BUILD__ }: { isDevBuild?: boolean }): React.JSX.Element | null {
+export function DevBuildBadge({
+  isDevBuild = __WINGLOG_DEV_BUILD__
+}: {
+  isDevBuild?: boolean
+}): React.JSX.Element | null {
   if (!isDevBuild) return null
   return (
-    <Badge variant="destructive" title="Dev build: diagnostic logging and flight capture are on" className="shrink-0">
+    <Badge
+      variant="destructive"
+      title="Dev build: diagnostic logging and flight capture are on"
+      className="shrink-0"
+    >
       DEV
     </Badge>
   )

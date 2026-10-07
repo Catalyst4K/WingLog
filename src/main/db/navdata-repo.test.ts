@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
-import type { FetchedAirportNavdata, FetchedApproach, FetchedProcedure, FetchedTaxiNetwork } from '../navdata/sim-facilities-fetch'
+import type {
+  FetchedAirportNavdata,
+  FetchedApproach,
+  FetchedProcedure,
+  FetchedTaxiNetwork
+} from '../navdata/sim-facilities-fetch'
 import type { ParsedLeg } from '../sim/facility-fields'
 import { createDb, type WingLogDb } from './client'
 import {
@@ -44,7 +49,9 @@ function procedure(fields: Pick<FetchedProcedure, 'name'> & Partial<FetchedProce
   }
 }
 
-function approach(fields: Pick<FetchedApproach, 'identifier' | 'runwayIdent'> & Partial<FetchedApproach>): FetchedApproach {
+function approach(
+  fields: Pick<FetchedApproach, 'identifier' | 'runwayIdent'> & Partial<FetchedApproach>
+): FetchedApproach {
   return {
     transitions: [],
     finalLegs: [],
@@ -136,24 +143,25 @@ describe('navdata repo', () => {
       'RWYFIX',
       'COMMON'
     ])
-    expect(listCachedProcedureLegs(db, 'EGLL', 'sid', 'MIXED1A', '27R', 'CLEEE').map((l) => l.fixIdent)).toEqual([
-      'RWYFIX',
-      'COMMON',
-      'ENRFIX'
-    ])
+    expect(
+      listCachedProcedureLegs(db, 'EGLL', 'sid', 'MIXED1A', '27R', 'CLEEE').map((l) => l.fixIdent)
+    ).toEqual(['RWYFIX', 'COMMON', 'ENRFIX'])
     // A runway that doesn't match this procedure's own transition contributes nothing.
-    expect(listCachedProcedureLegs(db, 'EGLL', 'sid', 'MIXED1A', '09L').map((l) => l.fixIdent)).toEqual(['COMMON'])
+    expect(listCachedProcedureLegs(db, 'EGLL', 'sid', 'MIXED1A', '09L').map((l) => l.fixIdent)).toEqual([
+      'COMMON'
+    ])
   })
 
-  it('returns a real SID\'s runway-transition legs only when the matching runway is given — the confirmed-live shape', () => {
+  it("returns a real SID's runway-transition legs only when the matching runway is given — the confirmed-live shape", () => {
     replaceAirportNavdata(db, 'EGLL', fetched(), '2026-09-08T12:00:00.000Z')
 
     expect(listCachedProcedureLegs(db, 'EGLL', 'sid', 'BPK7F')).toEqual([])
-    expect(listCachedProcedureLegs(db, 'EGLL', 'sid', 'BPK7F', '27R').map((l) => l.fixIdent)).toEqual(['RWYFIX'])
-    expect(listCachedProcedureLegs(db, 'EGLL', 'sid', 'BPK7F', '27R', 'CLEEE').map((l) => l.fixIdent)).toEqual([
-      'RWYFIX',
-      'ENRFIX'
+    expect(listCachedProcedureLegs(db, 'EGLL', 'sid', 'BPK7F', '27R').map((l) => l.fixIdent)).toEqual([
+      'RWYFIX'
     ])
+    expect(
+      listCachedProcedureLegs(db, 'EGLL', 'sid', 'BPK7F', '27R', 'CLEEE').map((l) => l.fixIdent)
+    ).toEqual(['RWYFIX', 'ENRFIX'])
   })
 
   it('filters SIDs by runway, treating a procedure with no runway transitions as applying to any runway', () => {
@@ -180,7 +188,12 @@ describe('navdata repo', () => {
 
   it('replaces the cache wholesale on a second fetch rather than accumulating rows', () => {
     replaceAirportNavdata(db, 'EGLL', fetched(), '2026-09-08T12:00:00.000Z')
-    replaceAirportNavdata(db, 'EGLL', fetched({ departures: [procedure({ name: 'NEW_SID' })] }), '2026-09-08T13:00:00.000Z')
+    replaceAirportNavdata(
+      db,
+      'EGLL',
+      fetched({ departures: [procedure({ name: 'NEW_SID' })] }),
+      '2026-09-08T13:00:00.000Z'
+    )
 
     const sids = listCachedProcedures(db, 'EGLL', 'sid', null)
     expect(sids).toEqual([{ identifier: 'NEW_SID', transition: null }])
@@ -196,25 +209,34 @@ describe('navdata repo', () => {
       { identifier: 'Visual 27R', transition: 'Vectors' },
       { identifier: 'Visual 09L', transition: 'Vectors' }
     ])
-    expect(listCachedProcedures(db, 'EGLL', 'approach', '09L')).toEqual([{ identifier: 'Visual 09L', transition: 'Vectors' }])
+    expect(listCachedProcedures(db, 'EGLL', 'approach', '09L')).toEqual([
+      { identifier: 'Visual 09L', transition: 'Vectors' }
+    ])
     // Never offered for SIDs/STARs, or for an airport with nothing cached.
     expect(listCachedProcedures(db, 'EGLL', 'star', null)).toEqual([])
     expect(listCachedProcedures(db, 'ZZZZ', 'approach', null)).toEqual([])
   })
 
-  it('builds a Visual approach\'s legs from the runway threshold: join point 10 nm out on the extended centreline, then the threshold', () => {
+  it("builds a Visual approach's legs from the runway threshold: join point 10 nm out on the extended centreline, then the threshold", () => {
     replaceAirportNavdata(db, 'EGLL', fetched(), '2026-09-18T12:00:00.000Z')
     const runway = listCachedRunways(db, 'EGLL').find((r) => r.ident === '27R')!
 
     const legs = listCachedProcedureLegs(db, 'EGLL', 'approach', 'Visual 27R', null, 'Vectors')
 
     expect(legs.map((l) => l.fixIdent)).toEqual(['27R/10', 'RW27R'])
-    expect(legs[1]).toEqual(expect.objectContaining({ fixLatitude: runway.thresholdLat, fixLongitude: runway.thresholdLon, fixType: 'R' }))
+    expect(legs[1]).toEqual(
+      expect.objectContaining({
+        fixLatitude: runway.thresholdLat,
+        fixLongitude: runway.thresholdLon,
+        fixType: 'R'
+      })
+    )
     // 27R lands on heading 270, so the join point is due east of the threshold (the
     // aircraft approaches flying west) — ~10 nm = 18,520 m of longitude at this latitude.
     const join = legs[0]!
     expect(join.fixLatitude).toBeCloseTo(runway.thresholdLat, 3)
-    const eastM = (join.fixLongitude - runway.thresholdLon) * 111320 * Math.cos((runway.thresholdLat * Math.PI) / 180)
+    const eastM =
+      (join.fixLongitude - runway.thresholdLon) * 111320 * Math.cos((runway.thresholdLat * Math.PI) / 180)
     expect(eastM).toBeCloseTo(18520, -2)
   })
 
@@ -234,7 +256,13 @@ describe('navdata repo', () => {
             identifier: 'ILS 27R',
             runwayIdent: '27R',
             transitions: [
-              { name: 'LAM', legs: [leg('LAM', { type: 9, fixType: 'V', courseDeg: 272, routeDistanceM: 20372 }), leg('D125O', { type: 7 })] }
+              {
+                name: 'LAM',
+                legs: [
+                  leg('LAM', { type: 9, fixType: 'V', courseDeg: 272, routeDistanceM: 20372 }),
+                  leg('D125O', { type: 7 })
+                ]
+              }
             ],
             finalLegs: [leg('CF27R')]
           })
@@ -270,10 +298,12 @@ describe('navdata repo', () => {
     )
 
     // Visual approaches (docs/plans/visual-approach.md) are synthesised on top of the real ones.
-    expect(listCachedProcedures(db, 'VHHH', 'approach', null).filter((p) => !p.identifier.startsWith('Visual '))).toEqual([
-      { identifier: 'RNAV Z 07R', transition: 'LIMES' }
-    ])
-    expect(listCachedProcedures(db, 'VHHH', 'approach', '07R').map((p) => p.identifier)).toContain('RNAV Z 07R')
+    expect(
+      listCachedProcedures(db, 'VHHH', 'approach', null).filter((p) => !p.identifier.startsWith('Visual '))
+    ).toEqual([{ identifier: 'RNAV Z 07R', transition: 'LIMES' }])
+    expect(listCachedProcedures(db, 'VHHH', 'approach', '07R').map((p) => p.identifier)).toContain(
+      'RNAV Z 07R'
+    )
     expect(listCachedProcedures(db, 'VHHH', 'approach', '25L')).toEqual([])
   })
 
@@ -301,15 +331,18 @@ describe('navdata repo', () => {
       )
 
       // No transition given — only the (deduped, but nothing to dedupe against) final segment.
-      expect(listCachedProcedureLegs(db, 'VHHH', 'approach', 'RNAV Z 07R').map((l) => l.fixIdent)).toEqual(['VH720', 'RW07R'])
-
-      // Transition given — transition legs first, then the final segment with the repeated
-      // boundary fix (VH720) dropped, not duplicated.
-      expect(listCachedProcedureLegs(db, 'VHHH', 'approach', 'RNAV Z 07R', undefined, 'LIMES').map((l) => l.fixIdent)).toEqual([
-        'LIMES',
+      expect(listCachedProcedureLegs(db, 'VHHH', 'approach', 'RNAV Z 07R').map((l) => l.fixIdent)).toEqual([
         'VH720',
         'RW07R'
       ])
+
+      // Transition given — transition legs first, then the final segment with the repeated
+      // boundary fix (VH720) dropped, not duplicated.
+      expect(
+        listCachedProcedureLegs(db, 'VHHH', 'approach', 'RNAV Z 07R', undefined, 'LIMES').map(
+          (l) => l.fixIdent
+        )
+      ).toEqual(['LIMES', 'VH720', 'RW07R'])
     }
   )
 
@@ -339,17 +372,15 @@ describe('navdata repo', () => {
       'COMMON',
       'RWYFIX'
     ])
-    expect(listCachedProcedureLegs(db, 'YBBN', 'star', 'MIXED2A', '19L', 'ENTRANS').map((l) => l.fixIdent)).toEqual([
-      'ENRFIX',
-      'COMMON',
-      'RWYFIX'
-    ])
+    expect(
+      listCachedProcedureLegs(db, 'YBBN', 'star', 'MIXED2A', '19L', 'ENTRANS').map((l) => l.fixIdent)
+    ).toEqual(['ENRFIX', 'COMMON', 'RWYFIX'])
   })
 
   it(
     'reproduces the real YBBN SMOK2A shape: a STAR with a non-empty common route sharing its ' +
       'boundary fix with the runway transition — assembled correctly and deduped, not the ' +
-      "departure order that drew spurious lines back across the arrival",
+      'departure order that drew spurious lines back across the arrival',
     () => {
       replaceAirportNavdata(
         db,
@@ -364,7 +395,10 @@ describe('navdata repo', () => {
               // leg — the real ARINC 424 shape found live 2026-09-11 (docs/navdata-notes.md).
               commonLegs: [leg('SMOKA'), leg('OTGAT'), leg('GARTH')],
               runwayTransitions: [
-                { runwayIdent: '19L', legs: [leg('GARTH'), leg('BURPA'), leg('IGBON'), leg('EMSIT'), leg('IRVUL'), leg('BETSO')] }
+                {
+                  runwayIdent: '19L',
+                  legs: [leg('GARTH'), leg('BURPA'), leg('IGBON'), leg('EMSIT'), leg('IRVUL'), leg('BETSO')]
+                }
               ]
             })
           ]
@@ -392,20 +426,61 @@ describe('navdata repo', () => {
       return {
         icao: 'EGKB',
         segments: [
-          { startLat: 51.33823, startLon: 0.03809, endLat: 51.3237, endLon: 0.02683, name: null, startHoldShort: false, endHoldShort: false },
-          { startLat: 51.334, startLon: 0.031, endLat: 51.335, endLon: 0.033, name: 'A', startHoldShort: false, endHoldShort: true }
+          {
+            startLat: 51.33823,
+            startLon: 0.03809,
+            endLat: 51.3237,
+            endLon: 0.02683,
+            name: null,
+            startHoldShort: false,
+            endHoldShort: false
+          },
+          {
+            startLat: 51.334,
+            startLon: 0.031,
+            endLat: 51.335,
+            endLon: 0.033,
+            name: 'A',
+            startHoldShort: false,
+            endHoldShort: true
+          }
         ],
         ...overrides
       }
     }
 
     it('caches stands per airport and replaces them wholesale (stand-positions.md)', () => {
-      const n32 = { name: 'N32', nameCode: 25, number: 32, suffix: 0, headingDeg: 161, lat: 22.3141453, lon: 113.9286249 }
+      const n32 = {
+        name: 'N32',
+        nameCode: 25,
+        number: 32,
+        suffix: 0,
+        headingDeg: 161,
+        lat: 22.3141453,
+        lon: 113.9286249
+      }
       expect(listCachedStands(db, 'VHHH')).toEqual([])
-      replaceAirportStands(db, 'VHHH', [n32, { ...n32, suffix: 29, lat: 22.3140966 }], '2026-10-02T12:00:00.000Z')
-      replaceAirportStands(db, 'YBBN', [{ ...n32, name: '79', nameCode: 10, number: 79 }], '2026-10-02T12:00:00.000Z')
+      replaceAirportStands(
+        db,
+        'VHHH',
+        [n32, { ...n32, suffix: 29, lat: 22.3140966 }],
+        '2026-10-02T12:00:00.000Z'
+      )
+      replaceAirportStands(
+        db,
+        'YBBN',
+        [{ ...n32, name: '79', nameCode: 10, number: 79 }],
+        '2026-10-02T12:00:00.000Z'
+      )
       expect(listCachedStands(db, 'VHHH')).toHaveLength(2)
-      expect(listCachedStands(db, 'VHHH')[0]).toEqual({ name: 'N32', number: 32, suffix: 0, headingDeg: 161, lat: 22.3141453, lon: 113.9286249 })
+      expect(listCachedStands(db, 'VHHH')[0]).toEqual({
+        name: 'N32',
+        number: 32,
+        suffix: 0,
+        headingDeg: 161,
+        lat: 22.3141453,
+        lon: 113.9286249
+      })
 
       replaceAirportStands(db, 'VHHH', [n32], '2026-10-03T12:00:00.000Z')
       expect(listCachedStands(db, 'VHHH')).toHaveLength(1)
@@ -423,7 +498,11 @@ describe('navdata repo', () => {
       expect(hasCachedTaxiNetwork(db, 'EGKB')).toBe(true)
       const segments = listCachedTaxiSegments(db, 'EGKB')
       expect(segments).toHaveLength(2)
-      expect(segments.find((s) => s.name === 'A')).toMatchObject({ startLat: 51.334, startLon: 0.031, endHoldShort: true })
+      expect(segments.find((s) => s.name === 'A')).toMatchObject({
+        startLat: 51.334,
+        startLon: 0.031,
+        endHoldShort: true
+      })
       expect(segments.find((s) => s.name === null)).toMatchObject({ startLat: 51.33823 })
     })
 
@@ -445,7 +524,12 @@ describe('navdata repo', () => {
 
     it('keeps a different airport untouched by a replace', () => {
       replaceAirportTaxiSegments(db, 'EGKB', fetchedTaxi(), '2026-09-28T12:00:00.000Z')
-      replaceAirportTaxiSegments(db, 'EGLL', fetchedTaxi({ icao: 'EGLL', segments: [] }), '2026-09-28T12:00:00.000Z')
+      replaceAirportTaxiSegments(
+        db,
+        'EGLL',
+        fetchedTaxi({ icao: 'EGLL', segments: [] }),
+        '2026-09-28T12:00:00.000Z'
+      )
 
       expect(listCachedTaxiSegments(db, 'EGKB')).toHaveLength(2)
       expect(listCachedTaxiSegments(db, 'EGLL')).toHaveLength(0)

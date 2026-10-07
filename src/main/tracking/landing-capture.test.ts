@@ -152,7 +152,14 @@ describe('buildLandingRecord', () => {
   })
 
   it('passes through the flap handle index as flapSetting', () => {
-    const record = buildLandingRecord(1, 1, 'EGLL', telemetry({ flapsHandleIndex: 3 }), 't', resolveToRunway27L)
+    const record = buildLandingRecord(
+      1,
+      1,
+      'EGLL',
+      telemetry({ flapsHandleIndex: 3 }),
+      't',
+      resolveToRunway27L
+    )
     expect(record.flapSetting).toBe(3)
   })
 
@@ -216,8 +223,15 @@ describe('buildLandingRecord', () => {
     expect(record.verticalSpeedMs).toBe(-3.72)
   })
 
-  it('falls back to the touchdown tick\'s own verticalSpeedMs when no previous tick is available', () => {
-    const record = buildLandingRecord(1, 1, 'EGLL', telemetry({ verticalSpeedMs: -1.5 }), 't', resolveToRunway27L)
+  it("falls back to the touchdown tick's own verticalSpeedMs when no previous tick is available", () => {
+    const record = buildLandingRecord(
+      1,
+      1,
+      'EGLL',
+      telemetry({ verticalSpeedMs: -1.5 }),
+      't',
+      resolveToRunway27L
+    )
     expect(record.verticalSpeedMs).toBe(-1.5)
   })
 

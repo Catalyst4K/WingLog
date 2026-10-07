@@ -39,7 +39,11 @@ class FakeBeyondAtc extends EventEmitter {
       } else if (label === 'Cancel Altitude Change') {
         this.setState({ actions: CRUISE_ACTIONS })
       } else {
-        this.setState({ actions: CRUISE_ACTIONS, infoBoxes: [{ title: 'Climb', info: this.answer(label) }], infoBoxesAt: Date.now() })
+        this.setState({
+          actions: CRUISE_ACTIONS,
+          infoBoxes: [{ title: 'Climb', info: this.answer(label) }],
+          infoBoxesAt: Date.now()
+        })
       }
     }, 1000)
   }
@@ -62,19 +66,35 @@ describe('levelLabelToFeet / pickLevelLabel / boxConfirmsLevel', () => {
     expect(pickLevelLabel(LEVEL_ACTIONS, 40000)).toBeNull()
     // A SimBrief metric step (11,300 m) against BeyondATC's metric label over China —
     // "11,300m", per Callum (2026-10-01).
-    expect(pickLevelLabel(['Cancel Altitude Change', '10,700m', '11,300m', '11,900m'], 11300 / 0.3048)).toBe('11,300m')
+    expect(pickLevelLabel(['Cancel Altitude Change', '10,700m', '11,300m', '11,900m'], 11300 / 0.3048)).toBe(
+      '11,300m'
+    )
     expect(pickLevelLabel(['Cancel Altitude Change', '10700m', '11300m'], 11300 / 0.3048)).toBe('11300m')
   })
 
   it('confirms from a cleared-level box that changed after the request', () => {
-    const boxes = (info: string, at: number): BeyondAtcState => ({ ...EMPTY_BEYONDATC_STATE, infoBoxes: [{ title: 'Climb', info }], infoBoxesAt: at })
+    const boxes = (info: string, at: number): BeyondAtcState => ({
+      ...EMPTY_BEYONDATC_STATE,
+      infoBoxes: [{ title: 'Climb', info }],
+      infoBoxesAt: at
+    })
     expect(boxConfirmsLevel(boxes('FL360', 2000), 'FL360', 1000)).toBe(true)
     expect(boxConfirmsLevel(boxes('FL340', 2000), 'FL360', 1000)).toBe(false)
     // Already showing before the request: not an answer to it.
     expect(boxConfirmsLevel(boxes('FL360', 500), 'FL360', 1000)).toBe(false)
     // A metric box against a metric label (China).
     expect(boxConfirmsLevel(boxes('11,300m', 2000), '11,300m', 1000)).toBe(true)
-    expect(boxConfirmsLevel({ ...EMPTY_BEYONDATC_STATE, infoBoxes: [{ title: 'Center Frequency', info: '133.2' }], infoBoxesAt: 2000 }, 'FL360', 1000)).toBe(false)
+    expect(
+      boxConfirmsLevel(
+        {
+          ...EMPTY_BEYONDATC_STATE,
+          infoBoxes: [{ title: 'Center Frequency', info: '133.2' }],
+          infoBoxesAt: 2000
+        },
+        'FL360',
+        1000
+      )
+    ).toBe(false)
   })
 })
 

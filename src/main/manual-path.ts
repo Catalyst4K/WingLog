@@ -14,5 +14,7 @@ export const MANUAL_FILENAME = 'WingLog Manual.pdf'
  * @returns The manual's path.
  */
 export function manualPath(isPackaged: boolean, resourcesPath: string, appPath: string): string {
-  return isPackaged ? join(resourcesPath, MANUAL_FILENAME) : join(appPath, 'release', 'manual', MANUAL_FILENAME)
+  return isPackaged
+    ? join(resourcesPath, MANUAL_FILENAME)
+    : join(appPath, 'release', 'manual', MANUAL_FILENAME)
 }

@@ -32,7 +32,13 @@ describe('parseCsvRows', () => {
 
 describe('toCsv', () => {
   it('writes CRLF-terminated rows, leaving plain fields unquoted and nulls empty', () => {
-    expect(toCsv([['a', 'b'], ['x', null], [1, 2.5]])).toBe('a,b\r\nx,\r\n1,2.5\r\n')
+    expect(
+      toCsv([
+        ['a', 'b'],
+        ['x', null],
+        [1, 2.5]
+      ])
+    ).toBe('a,b\r\nx,\r\n1,2.5\r\n')
   })
 
   it('quotes commas, quotes and newlines, and doubles embedded quotes', () => {

@@ -75,18 +75,46 @@ const msToFpm = (ms: number): number => (ms / M_PER_FT) * 60
 
 open('WingLog landing-rate spike', Protocol.SunRise)
   .then(({ recvOpen, handle }) => {
-    console.log(`Connected: ${recvOpen.applicationName} (SimConnect ${recvOpen.simConnectVersionMajor}.${recvOpen.simConnectVersionMinor})`)
+    console.log(
+      `Connected: ${recvOpen.applicationName} (SimConnect ${recvOpen.simConnectVersionMajor}.${recvOpen.simConnectVersionMinor})`
+    )
 
     // Baseline: exactly what SimConnectService.ts requests today.
-    handle.addToDataDefinition(BASELINE_DEF, 'PLANE ALT ABOVE GROUND', 'meters', SimConnectDataType.FLOAT64, 0, 0)
-    handle.addToDataDefinition(BASELINE_DEF, 'VERTICAL SPEED', 'meters per second', SimConnectDataType.FLOAT64, 0, 1)
+    handle.addToDataDefinition(
+      BASELINE_DEF,
+      'PLANE ALT ABOVE GROUND',
+      'meters',
+      SimConnectDataType.FLOAT64,
+      0,
+      0
+    )
+    handle.addToDataDefinition(
+      BASELINE_DEF,
+      'VERTICAL SPEED',
+      'meters per second',
+      SimConnectDataType.FLOAT64,
+      0,
+      1
+    )
     handle.addToDataDefinition(BASELINE_DEF, 'SIM ON GROUND', 'bool', SimConnectDataType.INT32, 0, 2)
     handle.addToDataDefinition(BASELINE_DEF, 'G FORCE', 'GForce', SimConnectDataType.FLOAT64, 0, 3)
-    handle.requestDataOnSimObject(BASELINE_REQ, BASELINE_DEF, SimConnectConstants.OBJECT_ID_USER, SimConnectPeriod.SECOND)
+    handle.requestDataOnSimObject(
+      BASELINE_REQ,
+      BASELINE_DEF,
+      SimConnectConstants.OBJECT_ID_USER,
+      SimConnectPeriod.SECOND
+    )
 
     // High-rate: a separate, minimal definition — only what buildLandingRecord actually
     // needs for the two touchdown-severity inputs this spike is investigating.
-    handle.addToDataDefinition(HIGH_RATE_DEF, 'VERTICAL SPEED', 'meters per second', SimConnectDataType.FLOAT64, 0, 0)
+    handle.addToDataDefinition(
+      HIGH_RATE_DEF,
+      'VERTICAL SPEED',
+      'meters per second',
+      SimConnectDataType.FLOAT64,
+      0,
+      0
+    )
     handle.addToDataDefinition(HIGH_RATE_DEF, 'SIM ON GROUND', 'bool', SimConnectDataType.INT32, 0, 1)
     handle.addToDataDefinition(HIGH_RATE_DEF, 'G FORCE', 'GForce', SimConnectDataType.FLOAT64, 0, 2)
 
@@ -154,7 +182,12 @@ open('WingLog landing-rate spike', Protocol.SunRise)
       wasOnGroundHighRate = false
       preciseTouchdownAt = null
       console.log('Starting high-rate stream (SIM_FRAME)...')
-      handle.requestDataOnSimObject(HIGH_RATE_REQ, HIGH_RATE_DEF, SimConnectConstants.OBJECT_ID_USER, SimConnectPeriod.SIM_FRAME)
+      handle.requestDataOnSimObject(
+        HIGH_RATE_REQ,
+        HIGH_RATE_DEF,
+        SimConnectConstants.OBJECT_ID_USER,
+        SimConnectPeriod.SIM_FRAME
+      )
     }
 
     function stopHighRate(): void {
@@ -166,7 +199,12 @@ open('WingLog landing-rate spike', Protocol.SunRise)
         `Stopping high-rate stream. ${highRateTickCount} ticks in ${elapsedS.toFixed(1)}s = ${achievedHz.toFixed(1)} Hz achieved.`
       )
       log('high-rate-summary', { ticks: highRateTickCount, elapsedS, achievedHz })
-      handle.requestDataOnSimObject(HIGH_RATE_REQ, HIGH_RATE_DEF, SimConnectConstants.OBJECT_ID_USER, SimConnectPeriod.NEVER)
+      handle.requestDataOnSimObject(
+        HIGH_RATE_REQ,
+        HIGH_RATE_DEF,
+        SimConnectConstants.OBJECT_ID_USER,
+        SimConnectPeriod.NEVER
+      )
     }
 
     handle.on('simObjectData', (recv) => {
@@ -191,7 +229,13 @@ open('WingLog landing-rate spike', Protocol.SunRise)
         // false against a same-tick onGround still true, tripping an immediate bogus
         // "precise touchdown" with an empty ring buffer, same failure shape as the cold-start
         // bug above. Require actually airborne, not just the altitude band, before arming.
-        if (!highRateActive && awaitingLanding && !onGround && altAglM < HIGH_RATE_TRIGGER_AGL_M && altAglM > 0)
+        if (
+          !highRateActive &&
+          awaitingLanding &&
+          !onGround &&
+          altAglM < HIGH_RATE_TRIGGER_AGL_M &&
+          altAglM > 0
+        )
           startHighRate()
 
         if (!wasOnGroundBaseline && onGround) {
@@ -239,7 +283,9 @@ open('WingLog landing-rate spike', Protocol.SunRise)
               return [`last${windowMs}ms`, peak]
             })
           )
-          console.log(`Precise touchdown. Peak fpm in the last N ms before contact: ${JSON.stringify(nearContact)}`)
+          console.log(
+            `Precise touchdown. Peak fpm in the last N ms before contact: ${JSON.stringify(nearContact)}`
+          )
           log('near-contact-peaks', nearContact)
         }
         wasOnGroundHighRate = onGround
@@ -253,7 +299,11 @@ open('WingLog landing-rate spike', Protocol.SunRise)
         // highRateActive guard: a couple of high-rate ticks can still arrive after
         // requestDataOnSimObject(..., NEVER) takes effect (found on the third live run,
         // 2026-09-20) — without it, this block re-fired its summary for every leftover tick.
-        if (highRateActive && touchdownAt !== null && now - touchdownAt >= HIGH_RATE_STOP_AFTER_TOUCHDOWN_MS) {
+        if (
+          highRateActive &&
+          touchdownAt !== null &&
+          now - touchdownAt >= HIGH_RATE_STOP_AFTER_TOUCHDOWN_MS
+        ) {
           stopHighRate()
           awaitingLanding = false // captured; don't re-arm until a real liftoff happens
           console.log(
@@ -262,7 +312,12 @@ open('WingLog landing-rate spike', Protocol.SunRise)
               `After contact (rollout/bounce): ${peakFpmPostTouchdown.toFixed(0)} — ` +
               `vs. baseline's previous-tick: ${baselineFpmAtDetection?.toFixed(0)} — peak G: ${peakGHighRate.toFixed(2)}`
           )
-          log('comparison', { peakFpmPreTouchdown, peakFpmPostTouchdown, baselineFpmAtDetection, peakGHighRate })
+          log('comparison', {
+            peakFpmPreTouchdown,
+            peakFpmPostTouchdown,
+            baselineFpmAtDetection,
+            peakGHighRate
+          })
         }
       }
     })

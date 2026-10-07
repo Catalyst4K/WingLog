@@ -53,15 +53,25 @@ function sectionHtml(section: ReportSection): string {
   const stats = section.notScored
     ? `<p class="note">${escapeHtml(section.notScored)}</p>`
     : `<ul class="stats">${section.metrics
-        .map((m) => `<li>${escapeHtml(m.label)}: <b>${escapeHtml(m.value)}</b>${m.was ? ` <span class="was">(today ${escapeHtml(m.was)})</span>` : ''}</li>`)
+        .map(
+          (m) =>
+            `<li>${escapeHtml(m.label)}: <b>${escapeHtml(m.value)}</b>${m.was ? ` <span class="was">(today ${escapeHtml(m.was)})</span>` : ''}</li>`
+        )
         .join('')}</ul>`
   return `<section><h2>${escapeHtml(section.title)}</h2><p class="meta">${escapeHtml(section.meta)}</p>${stats}${section.figures}</section>`
 }
 
 /** The report as one self-contained HTML page. */
 export function renderReport(report: Report): string {
-  const key = report.key.map((k) => `<span><i class="sw" style="background:${escapeHtml(k.colour)}"></i>${escapeHtml(k.label)}</span>`).join('')
-  const summary = report.summary.map((s) => `<li>${escapeHtml(s.label)}: <b>${escapeHtml(s.value)}</b></li>`).join('')
+  const key = report.key
+    .map(
+      (k) =>
+        `<span><i class="sw" style="background:${escapeHtml(k.colour)}"></i>${escapeHtml(k.label)}</span>`
+    )
+    .join('')
+  const summary = report.summary
+    .map((s) => `<li>${escapeHtml(s.label)}: <b>${escapeHtml(s.value)}</b></li>`)
+    .join('')
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(report.title)}</title><style>${STYLE}</style></head><body>
 <h1>${escapeHtml(report.title)}</h1>
 <p class="meta">${escapeHtml(report.intro)}</p>

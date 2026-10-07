@@ -93,7 +93,14 @@ describe('tickStepClimb', () => {
     const first = tickStepClimb(enabled, tick())
     expect(first.logs[0]).toBe('flight 7: 5 route fixes, steps DENAK@35000')
     expect(first.state.plan.todOrder).toBe(3)
-    const second = tickStepClimb(first.state, tick({ getOfpJson: () => { throw new Error('read again') } }))
+    const second = tickStepClimb(
+      first.state,
+      tick({
+        getOfpJson: () => {
+          throw new Error('read again')
+        }
+      })
+    )
     expect(second.logs.some((line) => line.startsWith('flight '))).toBe(false)
   })
 
@@ -148,17 +155,38 @@ describe('settleRequest and finishRequest', () => {
   }
 
   it('forgets the attempts for a granted level and notes the result', () => {
-    const result = settleRequest(firedState(), { altitudeFt: 35000, reason: 'simbrief', outcome: 'granted', attempt: 1 })
+    const result = settleRequest(firedState(), {
+      altitudeFt: 35000,
+      reason: 'simbrief',
+      outcome: 'granted',
+      attempt: 1
+    })
     expect(result.state.attempts[35000]).toBeUndefined()
-    expect(result.state.last).toEqual({ altitudeFt: 35000, outcome: 'granted', attempt: 1, reason: 'simbrief', dropped: false })
+    expect(result.state.last).toEqual({
+      altitudeFt: 35000,
+      outcome: 'granted',
+      attempt: 1,
+      reason: 'simbrief',
+      dropped: false
+    })
     expect(result.logs).toEqual(['request 35000 ft: granted'])
   })
 
   it('keeps a refused level for a retry, then drops it after the second attempt', () => {
-    const first = settleRequest(firedState(), { altitudeFt: 35000, reason: 'simbrief', outcome: 'notOffered', attempt: 1 })
+    const first = settleRequest(firedState(), {
+      altitudeFt: 35000,
+      reason: 'simbrief',
+      outcome: 'notOffered',
+      attempt: 1
+    })
     expect(first.state.dropped).toEqual([])
     expect(first.state.attempts[35000]?.count).toBe(1)
-    const second = settleRequest(first.state, { altitudeFt: 35000, reason: 'simbrief', outcome: 'notOffered', attempt: 2 })
+    const second = settleRequest(first.state, {
+      altitudeFt: 35000,
+      reason: 'simbrief',
+      outcome: 'notOffered',
+      attempt: 2
+    })
     expect(second.state.dropped).toEqual([35000])
     expect(second.logs).toEqual(['request 35000 ft: notOffered, dropped'])
     expect(second.state.last?.dropped).toBe(true)

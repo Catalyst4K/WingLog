@@ -45,7 +45,9 @@ export function resolveAppLanguage(setting: AppLanguage, systemLocale: string): 
   if (primarySubtag === 'zh') {
     return /-(tw|hk|mo|hant)\b/.test(lowered) ? 'zh-TW' : 'zh-CN'
   }
-  return (SUPPORTED_LANGUAGES as readonly string[]).includes(primarySubtag) ? (primarySubtag as SupportedLanguage) : 'en'
+  return (SUPPORTED_LANGUAGES as readonly string[]).includes(primarySubtag)
+    ? (primarySubtag as SupportedLanguage)
+    : 'en'
 }
 
 /** SettingsView's own language picker options — each language's own native name, not its

@@ -51,7 +51,9 @@ export class AutoStartDetector extends EventEmitter<{ ready: [number] }> {
 
   constructor(
     simConnectService: SimConnectSource,
-    private readonly resolveAirportPosition: (icao: string) => { lat: number; lon: number } | null = airportPosition
+    private readonly resolveAirportPosition: (
+      icao: string
+    ) => { lat: number; lon: number } | null = airportPosition
   ) {
     super()
     simConnectService.on('telemetry', (telemetry) => this.ingest(telemetry))

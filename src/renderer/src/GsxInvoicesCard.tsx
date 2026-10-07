@@ -184,9 +184,11 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
   useEffect(() => {
     runAsync(
       'GsxInvoicesCard settingsGetGsx',
-      winglogApi().settingsGetGsx().then((settings) => {
-        setDisplayCurrency(settings.displayCurrency)
-      })
+      winglogApi()
+        .settingsGetGsx()
+        .then((settings) => {
+          setDisplayCurrency(settings.displayCurrency)
+        })
     )
   }, [])
 

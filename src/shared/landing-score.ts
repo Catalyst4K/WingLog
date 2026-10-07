@@ -67,7 +67,6 @@ export function deriveLandingThresholds(category: WakeCategory | null): LandingT
   return { firmFpm: ideal * FIRM_MULTIPLIER, hardFpm: ideal * HARD_MULTIPLIER }
 }
 
-
 /**
  * Classifies a touchdown against derived thresholds. Vertical speed is negative
  * (descending) — classified on magnitude, since a "harder" landing is a larger descent

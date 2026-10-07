@@ -40,7 +40,10 @@ test('"Check now" finds a newer release, the banner offers it, and "Skip this ve
       const page = first.window
       await page.getByRole('tab', { name: 'Settings' }).click()
       await page.getByRole('tab', { name: 'About' }).click()
-      await expect(page.getByRole('button', { name: 'On', exact: true })).toHaveAttribute('aria-pressed', 'true')
+      await expect(page.getByRole('button', { name: 'On', exact: true })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      )
       await page.getByRole('button', { name: 'Check now' }).click()
 
       const banner = page.getByRole('region', { name: 'Update available' })

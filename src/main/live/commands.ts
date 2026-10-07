@@ -34,7 +34,12 @@ export type GsxCommand = Extract<LiveCommand, `gsx.${string}`>
  * @returns The table.
  */
 export function atcCommands(
-  session: () => Pick<BeyondAtcService, 'setAction' | 'setFrequency' | 'setFrequencyCom2' | 'setAutoTune' | 'setAutoRespond'> | undefined,
+  session: () =>
+    | Pick<
+        BeyondAtcService,
+        'setAction' | 'setFrequency' | 'setFrequencyCom2' | 'setAutoTune' | 'setAutoRespond'
+      >
+    | undefined,
   stepClimb: Pick<StepClimbController, 'setEnabled'>
 ): CommandTable<AtcCommand> {
   return {
@@ -58,7 +63,10 @@ export function atcCommands(
  */
 export function gsxCommands(
   service: () =>
-    | Pick<GsxRemoteService, 'pickMenu' | 'search' | 'toggleMenu' | 'submitPrompt' | 'cancelPrompt' | 'runCommand'>
+    | Pick<
+        GsxRemoteService,
+        'pickMenu' | 'search' | 'toggleMenu' | 'submitPrompt' | 'cancelPrompt' | 'runCommand'
+      >
     | undefined
 ): CommandTable<GsxCommand> {
   return {
@@ -82,7 +90,11 @@ const MAX_ARGS = 2
  * @param args Its arguments, as the client sent them.
  * @throws When the name isn't in the table or the arguments aren't a short list.
  */
-export function dispatchCommand(table: Partial<Record<LiveCommand, CommandFn>>, name: unknown, args: unknown): void {
+export function dispatchCommand(
+  table: Partial<Record<LiveCommand, CommandFn>>,
+  name: unknown,
+  args: unknown
+): void {
   if (typeof name !== 'string' || !Object.hasOwn(table, name)) throw new Error('Unknown command')
   if (!Array.isArray(args) || args.length > MAX_ARGS) throw new Error('Invalid command arguments')
   const command = table[name as LiveCommand]

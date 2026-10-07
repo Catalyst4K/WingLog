@@ -34,13 +34,22 @@ export interface VisualRunwayEnd {
  * @param runway Only this runway's, or null for all.
  * @returns One option per runway end.
  */
-export function visualApproachOptions(runways: VisualRunwayEnd[], runway: string | null): NavdataProcedureOption[] {
+export function visualApproachOptions(
+  runways: VisualRunwayEnd[],
+  runway: string | null
+): NavdataProcedureOption[] {
   return runways
     .filter((r) => !runway || r.ident === runway)
     .map((r) => ({ identifier: visualApproachIdentifier(r.ident), transition: VISUAL_VECTORS_TRANSITION }))
 }
 
-function syntheticLeg(type: number, fixIdent: string, fixType: 'W' | 'R', lat: number, lon: number): NavdataLeg {
+function syntheticLeg(
+  type: number,
+  fixIdent: string,
+  fixType: 'W' | 'R',
+  lat: number,
+  lon: number
+): NavdataLeg {
   return {
     type,
     fixIdent,

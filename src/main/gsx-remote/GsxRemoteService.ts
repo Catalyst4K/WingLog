@@ -92,7 +92,9 @@ function isServiceArray(value: unknown): value is GsxRemoteServiceStatus[] {
  * @param value A wire value.
  * @returns Whether it's a menu.
  */
-function isRawMenu(value: unknown): value is Omit<GsxRemoteMenuState, 'menuShown' | 'searchActive' | 'searchSession'> {
+function isRawMenu(
+  value: unknown
+): value is Omit<GsxRemoteMenuState, 'menuShown' | 'searchActive' | 'searchSession'> {
   return typeof value === 'object' && value !== null && 'entries' in value
 }
 
@@ -171,7 +173,10 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
       ...base,
       menuShown: this.state.menuShown === true,
       searchActive: typeof search === 'object' && search !== null && search.active === true,
-      searchSession: typeof search === 'object' && search !== null && typeof search.session === 'number' ? search.session : 0
+      searchSession:
+        typeof search === 'object' && search !== null && typeof search.session === 'number'
+          ? search.session
+          : 0
     }
   }
 
@@ -275,7 +280,12 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
    * @param index The entry's position, from the renderer.
    */
   pickMenu(index: unknown): void {
-    if (!Number.isInteger(index) || (index as number) < 0 || (index as number) >= this.getMenu().entries.length) return
+    if (
+      !Number.isInteger(index) ||
+      (index as number) < 0 ||
+      (index as number) >= this.getMenu().entries.length
+    )
+      return
     this.sendCommand('menu.pick', { index })
   }
 

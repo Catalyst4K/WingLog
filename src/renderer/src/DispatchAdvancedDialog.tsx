@@ -49,7 +49,9 @@ function OptionField(props: {
         value={props.value ?? ''}
         placeholder={
           props.placeholder ??
-          (props.autoEligible ? t('dispatchAdvancedDialog.blankOrAuto') : t('dispatchAdvancedDialog.blankDefault'))
+          (props.autoEligible
+            ? t('dispatchAdvancedDialog.blankOrAuto')
+            : t('dispatchAdvancedDialog.blankDefault'))
         }
         onChange={(e) => {
           const raw = e.target.value

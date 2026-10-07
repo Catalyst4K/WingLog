@@ -1,4 +1,12 @@
-import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -32,10 +40,15 @@ function migrationNumber(tagOrFilename: string): number {
  *  means to exercise. A real incident, 2026-09-28: adding migration 0029 silently broke the
  *  0027 and 0028 tests below this exact way, `migrateDb` never threw, and the resulting
  *  database was just silently missing both migrations' columns. */
-function buildBaselineMigrationsFolder(realDrizzleDir: string, baselineDir: string, fromNumberInclusive: number): void {
+function buildBaselineMigrationsFolder(
+  realDrizzleDir: string,
+  baselineDir: string,
+  fromNumberInclusive: number
+): void {
   mkdirSync(join(baselineDir, 'meta'), { recursive: true })
   for (const f of readdirSync(realDrizzleDir)) {
-    if (f.endsWith('.sql') && migrationNumber(f) < fromNumberInclusive) copyFileSync(join(realDrizzleDir, f), join(baselineDir, f))
+    if (f.endsWith('.sql') && migrationNumber(f) < fromNumberInclusive)
+      copyFileSync(join(realDrizzleDir, f), join(baselineDir, f))
   }
   const journal = JSON.parse(readFileSync(join(realDrizzleDir, 'meta', '_journal.json'), 'utf-8')) as {
     entries: { tag: string }[]
@@ -101,7 +114,9 @@ describe('migrateDb', () => {
     const baseline = createDb(dbPath)
     migrate(baseline.db, { migrationsFolder: baselineDir })
     baseline.sqlite
-      .prepare(`INSERT INTO aircraft (id, registration, icao_type, created_at) VALUES (1, 'G-REAL', 'A320', '2026-01-01')`)
+      .prepare(
+        `INSERT INTO aircraft (id, registration, icao_type, created_at) VALUES (1, 'G-REAL', 'A320', '2026-01-01')`
+      )
       .run()
     baseline.sqlite
       .prepare(
@@ -129,7 +144,9 @@ describe('migrateDb', () => {
     expect(() => migrateDb(dbPath, realDrizzleDir)).not.toThrow()
 
     const { sqlite } = createDb(dbPath)
-    const flightRow = sqlite.prepare('select aircraft_id from flight where id = 1').get() as { aircraft_id: number }
+    const flightRow = sqlite.prepare('select aircraft_id from flight where id = 1').get() as {
+      aircraft_id: number
+    }
     expect(flightRow.aircraft_id).toBe(1)
     expect(sqlite.prepare('select 1 from landing where flight_id = 1').get()).toBeDefined()
     expect(sqlite.prepare('select 1 from track_point where flight_id = 1').get()).toBeDefined()
@@ -151,7 +168,9 @@ describe('migrateDb', () => {
     const baseline = createDb(dbPath)
     migrate(baseline.db, { migrationsFolder: baselineDir })
     baseline.sqlite
-      .prepare(`INSERT INTO aircraft (id, registration, icao_type, created_at) VALUES (1, 'G-REAL', 'A320', '2026-01-01')`)
+      .prepare(
+        `INSERT INTO aircraft (id, registration, icao_type, created_at) VALUES (1, 'G-REAL', 'A320', '2026-01-01')`
+      )
       .run()
     baseline.sqlite
       .prepare(
@@ -181,7 +200,9 @@ describe('migrateDb', () => {
     const baseline = createDb(dbPath)
     migrate(baseline.db, { migrationsFolder: baselineDir })
     baseline.sqlite
-      .prepare(`INSERT INTO aircraft (id, registration, icao_type, created_at) VALUES (1, 'G-REAL', 'A320', '2026-01-01')`)
+      .prepare(
+        `INSERT INTO aircraft (id, registration, icao_type, created_at) VALUES (1, 'G-REAL', 'A320', '2026-01-01')`
+      )
       .run()
     baseline.sqlite
       .prepare(
@@ -199,8 +220,16 @@ describe('migrateDb', () => {
 
     const { sqlite } = createDb(dbPath)
     expect(
-      sqlite.prepare('select selected_star_ident, selected_approach_ident, selected_arrival_icao from flight where id = 1').get()
-    ).toEqual({ selected_star_ident: 'SIER7B', selected_approach_ident: 'ILS 07C', selected_arrival_icao: null })
+      sqlite
+        .prepare(
+          'select selected_star_ident, selected_approach_ident, selected_arrival_icao from flight where id = 1'
+        )
+        .get()
+    ).toEqual({
+      selected_star_ident: 'SIER7B',
+      selected_approach_ident: 'ILS 07C',
+      selected_arrival_icao: null
+    })
     expect(sqlite.prepare('select count(*) c from landing where flight_id = 1').get()).toEqual({ c: 1 })
     sqlite.close()
   })

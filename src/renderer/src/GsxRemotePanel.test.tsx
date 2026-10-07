@@ -34,11 +34,22 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): void {
     onGsxRemoteServices: vi.fn().mockReturnValue(() => {}),
     gsxRemoteGetGateInfo: vi.fn().mockResolvedValue(null),
     onGsxRemoteGate: vi.fn().mockReturnValue(() => {}),
-    gsxRemoteGetMenu: vi.fn().mockResolvedValue({ menuShown: false, title: '', header: '', subtitle: '', entries: [], icons: [], disabled: [], layout: '' }),
+    gsxRemoteGetMenu: vi.fn().mockResolvedValue({
+      menuShown: false,
+      title: '',
+      header: '',
+      subtitle: '',
+      entries: [],
+      icons: [],
+      disabled: [],
+      layout: ''
+    }),
     onGsxRemoteMenu: vi.fn().mockReturnValue(() => {}),
     gsxRemoteGetPrompt: vi.fn().mockResolvedValue(null),
     onGsxRemotePrompt: vi.fn().mockReturnValue(() => {}),
-    gsxRemoteGetCommandBar: vi.fn().mockResolvedValue({ commands: [], simbrief: null, simbriefIconUri: null }),
+    gsxRemoteGetCommandBar: vi
+      .fn()
+      .mockResolvedValue({ commands: [], simbrief: null, simbriefIconUri: null }),
     onGsxRemoteCommandBar: vi.fn().mockReturnValue(() => {}),
     gsxRemotePickMenu: vi.fn().mockResolvedValue(undefined),
     gsxRemoteSearch: vi.fn().mockResolvedValue(undefined),
@@ -59,7 +70,9 @@ describe('GsxRemotePanel', () => {
   })
 
   it('shows a not-configured message when enabled but no port is set', async () => {
-    withWinglog({ settingsGetGsxRemote: vi.fn().mockResolvedValue(makeSettings({ enabled: true, port: null })) })
+    withWinglog({
+      settingsGetGsxRemote: vi.fn().mockResolvedValue(makeSettings({ enabled: true, port: null }))
+    })
     render(<GsxRemotePanel />)
 
     expect(await screen.findByText(/GSX Remote Control is off/)).toBeInTheDocument()
@@ -116,7 +129,9 @@ describe('GsxRemotePanel', () => {
       layout: 't9'
     })
 
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Request Refueling' })).not.toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Request Refueling' })).not.toBeInTheDocument()
+    )
     expect(screen.getByText('Tap to open')).toBeInTheDocument()
   })
 
@@ -162,7 +177,7 @@ describe('GsxRemotePanel', () => {
     expect(gsxRemotePickMenu).toHaveBeenCalledWith(0)
   })
 
-  it("offers the gate BeyondATC assigned before ATC has said it (EGLL, flight 229, 2026-10-05)", async () => {
+  it('offers the gate BeyondATC assigned before ATC has said it (EGLL, flight 229, 2026-10-05)', async () => {
     // Real: gate 411 was in BeyondATC's InfoBoxes from 12:17; ATC only said it at 12:24. Main
     // keeps it as assignedGate.
     let menuListener: (menu: GsxRemoteMenuState) => void = () => {}
@@ -333,7 +348,14 @@ describe('GsxRemotePanel', () => {
     render(<GsxRemotePanel />)
     await screen.findByText('Tap to open')
 
-    promptListener({ kind: 'text', gen: 7, title: 'Save Location', description: '', default: '', maxLength: 64 })
+    promptListener({
+      kind: 'text',
+      gen: 7,
+      title: 'Save Location',
+      description: '',
+      default: '',
+      maxLength: 64
+    })
     const input = await screen.findByRole('textbox')
     const user = userEvent.setup()
     await user.type(input, 'Gate 12')
@@ -355,7 +377,14 @@ describe('GsxRemotePanel', () => {
     render(<GsxRemotePanel />)
     await screen.findByText('Tap to open')
 
-    promptListener({ kind: 'text', gen: 9, title: 'Rename', description: '', default: 'Flight 1', maxLength: 64 })
+    promptListener({
+      kind: 'text',
+      gen: 9,
+      title: 'Rename',
+      description: '',
+      default: 'Flight 1',
+      maxLength: 64
+    })
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'Cancel' }))
 
@@ -440,7 +469,17 @@ describe('GsxRemotePanel', () => {
     // already had — otherwise it shows nothing until the next patch happens to arrive.
     withWinglog({
       gsxRemoteGetServices: vi.fn().mockResolvedValue([
-        { id: 'Boarding', displayName: 'Board', state: 'requested', stateText: '', icon: '', canTrigger: false, canBypass: false, statusText: 'Already in progress', progressText: '' }
+        {
+          id: 'Boarding',
+          displayName: 'Board',
+          state: 'requested',
+          stateText: '',
+          icon: '',
+          canTrigger: false,
+          canBypass: false,
+          statusText: 'Already in progress',
+          progressText: ''
+        }
       ]),
       gsxRemoteGetMenu: vi.fn().mockResolvedValue({
         menuShown: true,
@@ -482,9 +521,39 @@ describe('GsxRemotePanel', () => {
     await screen.findByText('Tap to open')
 
     servicesListener([
-      { id: 'Boarding', displayName: 'Board', state: 'requested', stateText: '', icon: '', canTrigger: false, canBypass: false, statusText: '', progressText: '' },
-      { id: 'GPU', displayName: 'GPU', state: 'available', stateText: '', icon: '', canTrigger: true, canBypass: false, statusText: '', progressText: '' },
-      { id: 'DeIce', displayName: 'De-Ice', state: 'performing', stateText: '', icon: '', canTrigger: false, canBypass: false, statusText: '', progressText: '' }
+      {
+        id: 'Boarding',
+        displayName: 'Board',
+        state: 'requested',
+        stateText: '',
+        icon: '',
+        canTrigger: false,
+        canBypass: false,
+        statusText: '',
+        progressText: ''
+      },
+      {
+        id: 'GPU',
+        displayName: 'GPU',
+        state: 'available',
+        stateText: '',
+        icon: '',
+        canTrigger: true,
+        canBypass: false,
+        statusText: '',
+        progressText: ''
+      },
+      {
+        id: 'DeIce',
+        displayName: 'De-Ice',
+        state: 'performing',
+        stateText: '',
+        icon: '',
+        canTrigger: false,
+        canBypass: false,
+        statusText: '',
+        progressText: ''
+      }
     ])
 
     expect(await screen.findByText('Board')).toBeInTheDocument()
@@ -499,7 +568,7 @@ describe('GsxRemotePanel', () => {
     expect(screen.getByText('GPU').closest('details')).toHaveAttribute('open')
   })
 
-  it('shows a service\'s live bill and formatted fuel progress instead of raw statusText', async () => {
+  it("shows a service's live bill and formatted fuel progress instead of raw statusText", async () => {
     let servicesListener: (services: GsxRemoteServiceStatus[]) => void = () => {}
     withWinglog({
       onGsxRemoteServices: vi.fn((listener) => {
@@ -643,7 +712,12 @@ describe('GsxRemotePanel', () => {
 
   const COMMAND_BAR = {
     commands: [
-      { id: 'CUSTOMIZE_AIRPORT_POSITION' as const, label: 'Customize Airport', iconUri: null, confirm: false },
+      {
+        id: 'CUSTOMIZE_AIRPORT_POSITION' as const,
+        label: 'Customize Airport',
+        iconUri: null,
+        confirm: false
+      },
       { id: 'CUSTOMIZE_AIRPLANE' as const, label: 'Customize Aircraft', iconUri: null, confirm: false },
       { id: 'RESTART_COUATL' as const, label: 'Restart Couatl', iconUri: null, confirm: true }
     ],
@@ -711,7 +785,11 @@ describe('GsxRemotePanel', () => {
   })
 
   it('renders nothing for the command bar when GSX has no commands or simbrief state at all', async () => {
-    withWinglog({ gsxRemoteGetCommandBar: vi.fn().mockResolvedValue({ commands: [], simbrief: null, simbriefIconUri: null }) })
+    withWinglog({
+      gsxRemoteGetCommandBar: vi
+        .fn()
+        .mockResolvedValue({ commands: [], simbrief: null, simbriefIconUri: null })
+    })
     render(<GsxRemotePanel />)
     await screen.findByText('Tap to open')
 

@@ -27,5 +27,7 @@ export function diagMap(message: string, data?: unknown, isDevBuild: boolean = _
     }
   }
   // A diagnostic line that can't be delivered is not worth surfacing to the user.
-  winglogApi().diagLog('map', line.slice(0, MAX_MESSAGE_CHARS)).catch(() => undefined)
+  winglogApi()
+    .diagLog('map', line.slice(0, MAX_MESSAGE_CHARS))
+    .catch(() => undefined)
 }

@@ -7,7 +7,9 @@ export default {
   meta: {
     type: 'suggestion',
     docs: { description: 'Require a /** … */ header comment at the top of every source file' },
-    messages: { missing: 'Open the file with a /** … */ header saying what it is for (coding-standards.md §2).' },
+    messages: {
+      missing: 'Open the file with a /** … */ header saying what it is for (coding-standards.md §2).'
+    },
     schema: []
   },
   create(context) {

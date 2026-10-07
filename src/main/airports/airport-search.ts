@@ -225,7 +225,8 @@ export function loadAirportLocations(raw: string): Map<string, AirportLocation> 
     if (!icao || !latRaw || !lonRaw) continue
     const lat = Number(latRaw)
     const lon = Number(lonRaw)
-    if (Number.isFinite(lat) && Number.isFinite(lon)) locations.set(icao, { lat, lon, type: row[typeIdx] ?? '' })
+    if (Number.isFinite(lat) && Number.isFinite(lon))
+      locations.set(icao, { lat, lon, type: row[typeIdx] ?? '' })
   }
   return locations
 }
@@ -249,7 +250,6 @@ const airportLocations = lazy(() => loadAirportLocations(airportsRaw))
  * @returns The nearest airport's ICAO code, or null.
  */
 export function nearestAirport(lat: number, lon: number, maxDistanceNm: number): string | null {
-
   let bestIcao: string | null = null
   let bestDistance = Infinity
   let bestFallbackIcao: string | null = null

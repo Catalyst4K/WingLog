@@ -17,7 +17,8 @@ const outDir = join(root, 'release', 'manual')
 const outFile = join(outDir, 'WingLog Manual.pdf')
 
 async function main(): Promise<void> {
-  const version = (JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { version: string }).version
+  const version = (JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { version: string })
+    .version
   const css = readFileSync(join(manualDir, 'manual.css'), 'utf8')
   const { html, problems } = assembleManual(readChapters(manualDir), manualDir, { version, css })
   if (problems.length > 0) {

@@ -254,7 +254,9 @@ export function createCustomAirframeFromShare(shareUrl: string): Promise<string 
     }
 
     win.webContents.on('did-navigate', (_event, url) => runLogged('simbrief: pilot id', onNavigate(url)))
-    win.webContents.on('did-navigate-in-page', (_event, url) => runLogged('simbrief: pilot id', onNavigate(url)))
+    win.webContents.on('did-navigate-in-page', (_event, url) =>
+      runLogged('simbrief: pilot id', onNavigate(url))
+    )
     win.on('closed', () => {
       if (!settled) {
         settled = true

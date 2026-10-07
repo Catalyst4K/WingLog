@@ -116,7 +116,10 @@ function readImportFile(path: string): Promise<string> {
  * @param window The window the open dialog opens over.
  * @returns The import summary, or null when the pilot cancelled.
  */
-export async function importLogbookCsv(db: WingLogDb, window: BrowserWindow): Promise<LogbookImportSummary | null> {
+export async function importLogbookCsv(
+  db: WingLogDb,
+  window: BrowserWindow
+): Promise<LogbookImportSummary | null> {
   const { canceled, filePaths } = await dialog.showOpenDialog(window, {
     title: t('dialogs.importLogbookCsv'),
     filters: [{ name: 'CSV', extensions: ['csv'] }],
@@ -137,7 +140,10 @@ export async function importLogbookCsv(db: WingLogDb, window: BrowserWindow): Pr
       if ('error' in parsed) {
         return { label: row.slice(0, 3).join(' ') || t('labels.unreadableRow'), error: parsed.error }
       }
-      return { label: `${parsed.data.registration} ${parsed.data.depIcao}-${parsed.data.arrIcao}`, data: parsed.data }
+      return {
+        label: `${parsed.data.registration} ${parsed.data.depIcao}-${parsed.data.arrIcao}`,
+        data: parsed.data
+      }
     })
   )
 }
@@ -150,7 +156,10 @@ export async function importLogbookCsv(db: WingLogDb, window: BrowserWindow): Pr
  * @returns The import summary, or null when the pilot cancelled.
  * @throws When the file isn't a JSON array.
  */
-export async function importLogbookJson(db: WingLogDb, window: BrowserWindow): Promise<LogbookImportSummary | null> {
+export async function importLogbookJson(
+  db: WingLogDb,
+  window: BrowserWindow
+): Promise<LogbookImportSummary | null> {
   const { canceled, filePaths } = await dialog.showOpenDialog(window, {
     title: t('dialogs.importLogbookJson'),
     filters: [{ name: 'JSON', extensions: ['json'] }],
@@ -199,7 +208,11 @@ function toImportRows(parsed: ReturnType<typeof parseLogbook>): ImportRow[] {
 export function buildLogbookExport(db: WingLogDb, format: DataFormat): string {
   const aircraftById = new Map(listAircraft(db).map((a) => [a.id, a]))
   const records = listFlights(db).flatMap((f) => {
-    const record = toLogbookRecord(f, f.aircraftId === null ? undefined : aircraftById.get(f.aircraftId), getLandingByFlight(db, f.id))
+    const record = toLogbookRecord(
+      f,
+      f.aircraftId === null ? undefined : aircraftById.get(f.aircraftId),
+      getLandingByFlight(db, f.id)
+    )
     return record ? [record] : []
   })
   return serializeLogbook(records, format)
@@ -213,7 +226,11 @@ export function buildLogbookExport(db: WingLogDb, format: DataFormat): string {
  * @param format JSON or CSV.
  * @returns True once written, false when the pilot cancelled.
  */
-export async function exportLogbook(db: WingLogDb, window: BrowserWindow, format: DataFormat): Promise<boolean> {
+export async function exportLogbook(
+  db: WingLogDb,
+  window: BrowserWindow,
+  format: DataFormat
+): Promise<boolean> {
   const { canceled, filePath } = await dialog.showSaveDialog(window, {
     title: t('dialogs.exportLogbook'),
     defaultPath: `winglog-logbook.${format}`,

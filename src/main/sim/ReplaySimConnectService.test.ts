@@ -152,7 +152,11 @@ describe('ReplaySimConnectService', () => {
 
     it('keeps re-sending the first tick, parked, and plays nothing else until released', async () => {
       vi.useFakeTimers()
-      const service = new ReplaySimConnectService(FIXTURE(), { mode: 'paced', speedMultiplier: 10, holdUntilReleased: true })
+      const service = new ReplaySimConnectService(FIXTURE(), {
+        mode: 'paced',
+        speedMultiplier: 10,
+        holdUntilReleased: true
+      })
       const lats: number[] = []
       service.on('telemetry', (t) => lats.push(t.latitude))
 
@@ -166,7 +170,11 @@ describe('ReplaySimConnectService', () => {
 
     it('plays the whole fixture from its start once released', async () => {
       vi.useFakeTimers()
-      const service = new ReplaySimConnectService(FIXTURE(), { mode: 'paced', speedMultiplier: 10, holdUntilReleased: true })
+      const service = new ReplaySimConnectService(FIXTURE(), {
+        mode: 'paced',
+        speedMultiplier: 10,
+        holdUntilReleased: true
+      })
       const lats: number[] = []
       let completed = false
       service.on('telemetry', (t) => lats.push(t.latitude))

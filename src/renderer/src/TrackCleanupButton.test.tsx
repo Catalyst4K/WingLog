@@ -40,7 +40,9 @@ function trackPoint(overrides: Partial<TrackPoint> = {}): TrackPoint {
 
 function withWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
   const api = {
-    trackPointCleanup: vi.fn().mockResolvedValue({ excludedCount: 0, resegmentedCount: 0 } satisfies TrackCleanupSummary),
+    trackPointCleanup: vi
+      .fn()
+      .mockResolvedValue({ excludedCount: 0, resegmentedCount: 0 } satisfies TrackCleanupSummary),
     trackPointList: vi.fn().mockResolvedValue([]),
     ...overrides
   } as unknown as WingLogApi
@@ -112,7 +114,9 @@ describe('TrackCleanupButton', () => {
 
     await user.click(screen.getByRole('button', { name: /clean up track/i }))
 
-    await waitFor(() => expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('Nothing to clean up')))
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('Nothing to clean up'))
+    )
     expect(onCleaned).not.toHaveBeenCalled()
     expect(trackPointList).not.toHaveBeenCalled()
   })

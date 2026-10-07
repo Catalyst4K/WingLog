@@ -6,7 +6,12 @@
  * Runs under vitest only: TrackingController's landing capture imports CSVs through Vite.
  */
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
-import type { BeyondAtcArrivalClearance, BeyondAtcInfoBox, FlightPhase, SimTelemetry } from '../../src/shared/ipc'
+import type {
+  BeyondAtcArrivalClearance,
+  BeyondAtcInfoBox,
+  FlightPhase,
+  SimTelemetry
+} from '../../src/shared/ipc'
 import { ArrivalClearanceTracker } from '../../src/main/beyondatc/arrival-clearance'
 import { BeyondAtcService } from '../../src/main/beyondatc/BeyondAtcService'
 import { createAircraft } from '../../src/main/db/aircraft-repo'
@@ -53,13 +58,20 @@ function nextTurn(): Promise<void> {
 }
 
 /** Plays the capture to its end and returns the timeline. */
-export async function runScenario(capture: ParsedFlightFixture, setup: ScenarioSetup): Promise<ScenarioResult> {
+export async function runScenario(
+  capture: ParsedFlightFixture,
+  setup: ScenarioSetup
+): Promise<ScenarioResult> {
   const { db } = createDb(':memory:')
   migrate(db, { migrationsFolder: 'drizzle' })
   setup.seed?.(db)
   const replay = replayCapture(capture, { mode: 'instant', setClock: setup.setClock })
   const aircraft = createAircraft(db, { registration: 'SCENARIO', icaoType: replay.sim.header.aircraftType })
-  const flightId = createFlight(db, { aircraftId: aircraft.id, depIcao: setup.depIcao, arrIcao: setup.arrIcao }).id
+  const flightId = createFlight(db, {
+    aircraftId: aircraft.id,
+    depIcao: setup.depIcao,
+    arrIcao: setup.arrIcao
+  }).id
 
   const beyondAtc = new BeyondAtcService('replay', undefined, replay.beyondAtc.socketCtor)
   const gsx = new GsxRemoteService('replay', 0, replay.gsx.socketCtor)

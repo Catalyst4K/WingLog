@@ -52,7 +52,9 @@ export function useDispatchLists(): DispatchLists {
     // no flights of their own left and shouldn't be offered anywhere an aircraft is picked.
     runAsync(
       'DispatchView aircraftList',
-      winglogApi().aircraftList().then((list) => setAircraft(list.filter((a) => !isRetired(a))))
+      winglogApi()
+        .aircraftList()
+        .then((list) => setAircraft(list.filter((a) => !isRetired(a))))
     )
     // Without it, Dispatch just shows no last-parked hint.
     runAsync('DispatchView fleetListLastParked', winglogApi().fleetListLastParked().then(setLastParked))

@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { rowsChangedSince, shouldApplyPulledRow } from './sync-rows'
 
-const row = (uuid: string | null, updatedAt: string | null): { uuid: string | null; updatedAt: string | null } => ({
+const row = (
+  uuid: string | null,
+  updatedAt: string | null
+): { uuid: string | null; updatedAt: string | null } => ({
   uuid,
   updatedAt
 })

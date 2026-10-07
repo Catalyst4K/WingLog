@@ -25,11 +25,20 @@ test.beforeAll(() => {
   // Same electron-as-node recipe as package.json's db:migrate/test scripts (better-sqlite3
   // is built for Electron's Node ABI) — the real binary directly (not the node_modules/.bin
   // shim), since that's a .cmd on Windows and execFileSync can't run one without a shell.
-  const electronBin = join('node_modules', 'electron', 'dist', process.platform === 'win32' ? 'electron.exe' : 'electron')
-  execFileSync(electronBin, ['./node_modules/vitest/vitest.mjs', 'run', 'src/main/tracking/seed-e2e-completed-flight.test.ts'], {
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', WINGLOG_E2E_SEED_DB_PATH: dbPath },
-    stdio: 'inherit'
-  })
+  const electronBin = join(
+    'node_modules',
+    'electron',
+    'dist',
+    process.platform === 'win32' ? 'electron.exe' : 'electron'
+  )
+  execFileSync(
+    electronBin,
+    ['./node_modules/vitest/vitest.mjs', 'run', 'src/main/tracking/seed-e2e-completed-flight.test.ts'],
+    {
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', WINGLOG_E2E_SEED_DB_PATH: dbPath },
+      stdio: 'inherit'
+    }
+  )
 })
 
 test.afterAll(() => {
@@ -75,7 +84,7 @@ test('browses to a completed flight, sees its landing/track detail, and deletes 
   }
 })
 
-test('browses the Landings sub-tab and switches between a flight\'s several landings (winglog-backend docs/plans/multiple-landings.md)', async () => {
+test("browses the Landings sub-tab and switches between a flight's several landings (winglog-backend docs/plans/multiple-landings.md)", async () => {
   const { window, cleanup } = await launchApp({ userDataDir })
   try {
     await window.getByRole('tab', { name: 'Logbook' }).click()

@@ -13,7 +13,10 @@ export default defineConfig({
       '@': resolve(__dirname, '../../src/renderer/src')
     }
   },
-  define: { __WINGLOG_CLOUD_SYNC_ENABLED__: JSON.stringify(false), __WINGLOG_DEV_BUILD__: JSON.stringify(false) },
+  define: {
+    __WINGLOG_CLOUD_SYNC_ENABLED__: JSON.stringify(false),
+    __WINGLOG_DEV_BUILD__: JSON.stringify(false)
+  },
   test: {
     environment: 'node',
     include: ['scripts/sim/*.sim.ts'],

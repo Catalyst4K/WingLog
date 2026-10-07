@@ -14,7 +14,7 @@
     "test:watch": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/vitest/vitest.mjs",
     "test:coverage": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/vitest/vitest.mjs run --coverage",
     "test:e2e": "npm run build && playwright test",
-    "lint": "eslint .",
+    "lint": "eslint . && prettier --check .",
     "lint:report": "eslint . -f json -o release/lint/eslint.json && tsx scripts/lint-report.ts",
     "dup": "jscpd src --threshold 0.3 --min-lines 8 --min-tokens 70 --ignore \"**/*.test.ts,**/*.test.tsx,**/components/ui/**,**/locales/**,**/__fixtures__/**\" --reporters console,json --output release/jscpd --silent",
     "format": "prettier --write .",

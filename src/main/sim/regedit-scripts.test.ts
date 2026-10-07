@@ -9,7 +9,9 @@ describe('pointRegeditAtUnpackedScripts', () => {
 
     expect(pointRegeditAtUnpackedScripts(true, 'C:/WingLog/resources', load)).toBe('Folder found and set')
     expect(load).toHaveBeenCalledWith('regedit')
-    expect(setExternalVBSLocation).toHaveBeenCalledWith(join('C:/WingLog/resources', 'app.asar.unpacked', 'node_modules', 'regedit', 'vbs'))
+    expect(setExternalVBSLocation).toHaveBeenCalledWith(
+      join('C:/WingLog/resources', 'app.asar.unpacked', 'node_modules', 'regedit', 'vbs')
+    )
   })
 
   it('leaves regedit alone in development, where its scripts are ordinary files', () => {

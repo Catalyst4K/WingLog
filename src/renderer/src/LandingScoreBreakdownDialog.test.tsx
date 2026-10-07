@@ -169,7 +169,10 @@ describe('LandingScoreBreakdownDialog', () => {
     render(
       <LandingScoreBreakdownDialog
         overall={0}
-        categories={makeCategories({ crab: 0, distanceFromAimingPoint: 0 }, { crab: 3, distanceFromAimingPoint: 2 })}
+        categories={makeCategories(
+          { crab: 0, distanceFromAimingPoint: 0 },
+          { crab: 3, distanceFromAimingPoint: 2 }
+        )}
         unit="ft"
         trigger={<button type="button">Open</button>}
       />

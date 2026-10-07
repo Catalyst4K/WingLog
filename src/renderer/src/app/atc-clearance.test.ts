@@ -65,7 +65,10 @@ describe('resolveAtcClearance', () => {
 })
 
 describe('readNewInfoBoxes', () => {
-  const star = [{ title: 'STAR', info: 'UPRS2C' }, { title: 'Arrival Runway', info: '08' }]
+  const star = [
+    { title: 'STAR', info: 'UPRS2C' },
+    { title: 'Arrival Runway', info: '08' }
+  ]
 
   it('reads a new set of boxes once, with the time BeyondATC set them', () => {
     const read = readNewInfoBoxes('', { infoBoxes: star, infoBoxesAt: 123 }, 999)

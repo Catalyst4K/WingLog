@@ -67,7 +67,7 @@ describe('computeTouchdownDiagramLayout', () => {
     expect(layout.thresholdXPx).toBeCloseTo((0 - layout.windowStartM) * layout.pxPerM, 6)
   })
 
-  it('chooses a window starting at -50m by default (resolveRunwayEnd\'s own tolerance)', () => {
+  it("chooses a window starting at -50m by default (resolveRunwayEnd's own tolerance)", () => {
     const layout = computeTouchdownDiagramLayout(
       RUNWAY,
       { distanceFromThresholdM: 350, centrelineOffsetM: 0, groundSpeedMs: 60 },
@@ -89,7 +89,12 @@ describe('computeTouchdownDiagramLayout', () => {
   })
 
   it('caps the window end at the runway length', () => {
-    const shortRunway: DiagramRunway = { lengthM: 600, widthM: 30, displacedThresholdM: 0, aimingPointDistanceM: 150 }
+    const shortRunway: DiagramRunway = {
+      lengthM: 600,
+      widthM: 30,
+      displacedThresholdM: 0,
+      aimingPointDistanceM: 150
+    }
     const layout = computeTouchdownDiagramLayout(
       shortRunway,
       { distanceFromThresholdM: 550, centrelineOffsetM: 0, groundSpeedMs: 60 },

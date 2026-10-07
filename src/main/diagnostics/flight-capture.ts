@@ -10,7 +10,16 @@
  * Retention (Callum, 2026-10-05): the newest KEEP_COUNT captures are kept; anything moved into
  * the `kept/` subfolder is never deleted.
  */
-import { createWriteStream, existsSync, mkdirSync, readdirSync, renameSync, statSync, unlinkSync, type WriteStream } from 'node:fs'
+import {
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  type WriteStream
+} from 'node:fs'
 import { join } from 'node:path'
 import type { CaptureKeepState, SimTelemetry } from '@shared/ipc'
 import type { FlightFixtureEvent, FlightFixtureHeader } from '../sim/flight-fixture'
@@ -44,7 +53,9 @@ function capturePrefix(flightId: number): string {
  */
 function captureNames(dir: string, flightId: number): string[] {
   try {
-    return readdirSync(dir).filter((name) => name.startsWith(capturePrefix(flightId)) && name.endsWith(EXTENSION))
+    return readdirSync(dir).filter(
+      (name) => name.startsWith(capturePrefix(flightId)) && name.endsWith(EXTENSION)
+    )
   } catch {
     // No folder yet: no captures.
     return []
@@ -95,11 +106,11 @@ export class FlightCapture {
   /** Move the open file into kept/ once it's closed (Windows can't rename an open file). */
   private keepOnStop = false
 
-/**
- * @param dir The captures folder (created if missing).
- * @param nowMs The clock, in epoch milliseconds; injected so tests control it.
- * @param keepCount How many captures to keep automatically.
- */
+  /**
+   * @param dir The captures folder (created if missing).
+   * @param nowMs The clock, in epoch milliseconds; injected so tests control it.
+   * @param keepCount How many captures to keep automatically.
+   */
   constructor(
     private readonly dir: string,
     private readonly nowMs: () => number = Date.now,
@@ -115,14 +126,14 @@ export class FlightCapture {
     return this.path
   }
 
-/**
- * Opens a new capture file for a flight and writes its header line. Prunes old captures
- * first, so the new one always survives.
- *
- * @param flightId The flight.
- * @param aircraftType The sim's aircraft title, for the header.
- * @returns The new file's path.
- */
+  /**
+   * Opens a new capture file for a flight and writes its header line. Prunes old captures
+   * first, so the new one always survives.
+   *
+   * @param flightId The flight.
+   * @param aircraftType The sim's aircraft title, for the header.
+   * @returns The new file's path.
+   */
   start(flightId: number, aircraftType: string): string {
     this.stop()
     mkdirSync(this.dir, { recursive: true })
@@ -173,25 +184,25 @@ export class FlightCapture {
     this.keepOnStop = false
   }
 
-/**
- * Whether a flight has a capture, and whether it's kept for good.
- *
- * @param flightId The flight.
- * @returns Its capture state.
- */
+  /**
+   * Whether a flight has a capture, and whether it's kept for good.
+   *
+   * @param flightId The flight.
+   * @returns Its capture state.
+   */
   keepState(flightId: number): CaptureKeepState {
     if (captureNames(join(this.dir, KEPT_DIR), flightId).length > 0) return 'kept'
     if (this.flightId === flightId && this.keepOnStop) return 'kept'
     return captureNames(this.dir, flightId).length > 0 ? 'auto' : 'none'
   }
 
-/**
- * Keeps a flight's captures for good by moving them into kept/. The file still being written
- * is moved when the flight ends.
- *
- * @param flightId The flight.
- * @returns The flight's state afterwards.
- */
+  /**
+   * Keeps a flight's captures for good by moving them into kept/. The file still being written
+   * is moved when the flight ends.
+   *
+   * @param flightId The flight.
+   * @returns The flight's state afterwards.
+   */
   keep(flightId: number): CaptureKeepState {
     if (this.flightId === flightId) this.keepOnStop = true
     for (const name of captureNames(this.dir, flightId)) {

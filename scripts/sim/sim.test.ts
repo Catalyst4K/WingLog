@@ -43,11 +43,14 @@ describe('parseInfoBoxesLog', () => {
   it('reads every InfoBoxes line with its local time, skipping cut lines and other logs', () => {
     const parsed = parseInfoBoxesLog(LOG)
     expect(parsed).toHaveLength(4)
-    expect(parsed[1]).toEqual({ atMs: local('2026-10-05T14:58:42.980'), boxes: [
-      { title: 'Taxi to Runway', info: '07R' },
-      { title: 'Taxi Via 1', info: 'B' },
-      { title: 'Hold Position', info: 'J1' }
-    ] })
+    expect(parsed[1]).toEqual({
+      atMs: local('2026-10-05T14:58:42.980'),
+      boxes: [
+        { title: 'Taxi to Runway', info: '07R' },
+        { title: 'Taxi Via 1', info: 'B' },
+        { title: 'Hold Position', info: 'J1' }
+      ]
+    })
   })
 })
 
@@ -87,14 +90,34 @@ describe('taxi scenarios', () => {
 
 describe('report pieces', () => {
   it('escapes external text', () => {
-    expect(escapeHtml(`<b onclick="x">'&'</b>`)).toBe('&lt;b onclick=&quot;x&quot;&gt;&#39;&amp;&#39;&lt;/b&gt;')
-    const page = renderReport({ title: 'T', intro: '<script>', lookFor: ['a & b'], key: [], summary: [], sections: [] })
+    expect(escapeHtml(`<b onclick="x">'&'</b>`)).toBe(
+      '&lt;b onclick=&quot;x&quot;&gt;&#39;&amp;&#39;&lt;/b&gt;'
+    )
+    const page = renderReport({
+      title: 'T',
+      intro: '<script>',
+      lookFor: ['a & b'],
+      key: [],
+      summary: [],
+      sections: []
+    })
     expect(page).not.toContain('<script>')
     expect(page).toContain('a &amp; b')
   })
 
   it('fits a map to its area, north up', () => {
-    const frame = makeFrame(boundsOf([[113.9, 22.3], [113.91, 22.31]], 0), 400, 100, 1000)
+    const frame = makeFrame(
+      boundsOf(
+        [
+          [113.9, 22.3],
+          [113.91, 22.31]
+        ],
+        0
+      ),
+      400,
+      100,
+      1000
+    )
     expect(frame.x(113.9)).toBeCloseTo(0)
     expect(frame.x(113.91)).toBeCloseTo(400)
     expect(frame.y(22.31)).toBeCloseTo(0)

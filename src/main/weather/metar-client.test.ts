@@ -25,8 +25,7 @@ const REAL_RESPONSE = [
   {
     icaoId: 'KJFK',
     reportTime: '2026-09-01T23:00:00.000Z',
-    rawOb:
-      'KJFK 012300Z 14006KT 5SM HZ FEW250 24/22 A2996 RMK AO2 SLP145 T02440222',
+    rawOb: 'KJFK 012300Z 14006KT 5SM HZ FEW250 24/22 A2996 RMK AO2 SLP145 T02440222',
     fltCat: 'IFR'
   }
 ]
@@ -64,9 +63,12 @@ describe('fetchMetars', () => {
     const fetchMock = vi.fn(async () => ({ ok: true, status: 200, json: async () => REAL_RESPONSE }))
     vi.stubGlobal('fetch', fetchMock)
     await fetchMetars(['EGLL'], 'WingLog/1.4.0')
-    expect(fetchMock).toHaveBeenCalledWith('https://aviationweather.gov/api/data/metar?ids=EGLL&format=json', {
-      headers: { 'User-Agent': 'WingLog/1.4.0' }
-    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://aviationweather.gov/api/data/metar?ids=EGLL&format=json',
+      {
+        headers: { 'User-Agent': 'WingLog/1.4.0' }
+      }
+    )
   })
 
   it('only queries ICAO-shaped codes from the renderer', async () => {

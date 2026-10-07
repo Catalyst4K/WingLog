@@ -25,7 +25,10 @@ describe('diagMap', () => {
     const diagLog = vi.fn().mockResolvedValue(undefined)
     withDiagLog(diagLog)
     diagMap('taxi route traced', { points: 51, end: [109.3963393, 18.3016817] }, true)
-    expect(diagLog).toHaveBeenCalledWith('map', 'taxi route traced {"points":51,"end":[109.3963393,18.3016817]}')
+    expect(diagLog).toHaveBeenCalledWith(
+      'map',
+      'taxi route traced {"points":51,"end":[109.3963393,18.3016817]}'
+    )
   })
 
   it('sends nothing in a normal build', () => {

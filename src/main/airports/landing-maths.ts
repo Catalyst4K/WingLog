@@ -125,7 +125,10 @@ export function positionRelativeToRunway(
   thresholdLon: number,
   runwayHeadingDeg: number
 ): RunwayRelativePosition {
-  const { eastM, northM } = offsetFrom({ lat: thresholdLat, lon: thresholdLon }, { lat: aircraftLat, lon: aircraftLon })
+  const { eastM, northM } = offsetFrom(
+    { lat: thresholdLat, lon: thresholdLon },
+    { lat: aircraftLat, lon: aircraftLon }
+  )
   const headingRad = toRadians(runwayHeadingDeg)
 
   return {

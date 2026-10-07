@@ -8,7 +8,10 @@ const VHHH_TRANSITION: TransitionAltitudes = { transAltFt: 9000, transLevelFt: 1
 
 describe('displayAltitude', () => {
   it('shows true altitude, labelled as such, when there is no pressure-altitude reading (an older flight)', () => {
-    const result = displayAltitude({ altitudeM: 12000 / 3.28084, pressureAltitudeM: null, phase: 'cruise' }, VHHH_TRANSITION)
+    const result = displayAltitude(
+      { altitudeM: 12000 / 3.28084, pressureAltitudeM: null, phase: 'cruise' },
+      VHHH_TRANSITION
+    )
     expect(result.label).toBe('True altitude')
     expect(result.valueFt).toBeCloseTo(12000, 0)
   })

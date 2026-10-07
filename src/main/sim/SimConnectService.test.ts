@@ -249,7 +249,11 @@ describe('SimConnectService high-rate touchdown severity (v1.2 Part 1)', () => {
     handle.emit('simObjectData', { requestID: 0, data: fakeTelemetryBuffer(overrides) })
   }
 
-  function emitHighRate(handle: ReturnType<typeof fakeHandle>, verticalSpeedMs: number, onGround: boolean): void {
+  function emitHighRate(
+    handle: ReturnType<typeof fakeHandle>,
+    verticalSpeedMs: number,
+    onGround: boolean
+  ): void {
     handle.emit('simObjectData', { requestID: 1, data: fakeHighRateBuffer(verticalSpeedMs, onGround) })
   }
 

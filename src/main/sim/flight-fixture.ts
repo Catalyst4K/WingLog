@@ -45,7 +45,10 @@ export interface ParsedFlightFixture {
  * @throws On an empty file, or one with no telemetry.
  */
 export function parseFlightFixture(ndjson: string): ParsedFlightFixture {
-  const lines = ndjson.trim().split('\n').filter((line) => line.length > 0)
+  const lines = ndjson
+    .trim()
+    .split('\n')
+    .filter((line) => line.length > 0)
   if (lines.length === 0) throw new Error('Empty fixture file')
 
   const header = JSON.parse(lines[0]) as FlightFixtureHeader

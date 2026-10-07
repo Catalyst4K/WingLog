@@ -47,7 +47,9 @@ export function useSimbriefCredentials(): SimbriefCredentials {
   useEffect(() => {
     runAsync(
       'SettingsView settingsGetSimbriefUsername',
-      winglogApi().settingsGetSimbriefUsername().then((u) => setUsername(u ?? ''))
+      winglogApi()
+        .settingsGetSimbriefUsername()
+        .then((u) => setUsername(u ?? ''))
     )
     runAsync(
       'SettingsView dispatchSimbriefLoginStatus',
@@ -159,11 +161,13 @@ export function useGsxRemoteSettings(onEnabledChange: (enabled: boolean) => void
   useEffect(() => {
     runAsync(
       'SettingsView settingsGetGsxRemote',
-      winglogApi().settingsGetGsxRemote().then((loaded) => {
-        setSettings(loaded)
-        setPortInput(loaded.port != null ? String(loaded.port) : '')
-        onEnabledChange(loaded.enabled)
-      })
+      winglogApi()
+        .settingsGetGsxRemote()
+        .then((loaded) => {
+          setSettings(loaded)
+          setPortInput(loaded.port != null ? String(loaded.port) : '')
+          onEnabledChange(loaded.enabled)
+        })
     )
     runAsync('SettingsView gsxRemoteGetStatus', winglogApi().gsxRemoteGetStatus().then(setStatus))
   }, [onEnabledChange])
@@ -219,10 +223,12 @@ export function useBeyondAtcSettings(onEnabledChange: (enabled: boolean) => void
   useEffect(() => {
     runAsync(
       'SettingsView settingsGetBeyondAtc',
-      winglogApi().settingsGetBeyondAtc().then((loaded) => {
-        setSettings(loaded)
-        onEnabledChange(loaded.enabled)
-      })
+      winglogApi()
+        .settingsGetBeyondAtc()
+        .then((loaded) => {
+          setSettings(loaded)
+          onEnabledChange(loaded.enabled)
+        })
     )
     runAsync('SettingsView beyondAtcGetStatus', winglogApi().beyondAtcGetStatus().then(setStatus))
   }, [onEnabledChange])
