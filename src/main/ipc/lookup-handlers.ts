@@ -4,7 +4,8 @@
  * (coding-standards.md §9).
  */
 import { app, type IpcMain } from 'electron'
-import { IpcChannels } from '@shared/ipc'import { fetchAircraftByRegistration } from '../aircraft-lookup/adsbdb-client'
+import { IpcChannels } from '@shared/ipc'
+import { fetchAircraftByRegistration } from '../aircraft-lookup/adsbdb-client'
 import { searchAircraftTypes } from '../aircraft-lookup/icao-types'
 import { fetchAirframesForType } from '../simbrief/simbrief-airframes'
 import { createCustomAirframeFromShare } from '../simbrief/simbrief-generate'
@@ -14,14 +15,12 @@ import { searchAirlines, findAirlineByIcao } from '../airlines/airline-search'
 import { fetchMetars } from '../weather/metar-client'
 import { fetchExchangeRate } from '../fx/fx-client'
 
-
 /**
  * Registers the lookup channels.
  *
  * @param ipcMain Electron's IPC.
  */
 export function registerLookupHandlers(ipcMain: IpcMain): void {
-
   ipcMain.handle(IpcChannels.aircraftLookupByRegistration, (_event, registration: string) =>
     fetchAircraftByRegistration(registration)
   )

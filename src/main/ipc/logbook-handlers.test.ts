@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
-import type { BrowserWindow, IpcMain } from 'electron'
+import type { BrowserWindow } from 'electron'
 import { IpcChannels, type NewTrackPoint, type SimTelemetry } from '@shared/ipc'
 import { createAircraft } from '../db/aircraft-repo'
 import { createDb, type WingLogDb } from '../db/client'
@@ -9,6 +9,7 @@ import { createLanding } from '../db/landing-repo'
 import { createTrackPoint } from '../db/track-point-repo'
 import { buildLandingRecord } from '../tracking/landing-capture'
 import { registerLogbookHandlers } from './logbook-handlers'
+import { fakeIpc } from './fake-ipc'
 
 const openExternal = vi.fn()
 vi.mock('electron', () => ({ shell: { openExternal: (url: string) => openExternal(url) } }))
@@ -20,20 +21,6 @@ vi.mock('../db/logbook-import', () => ({
   importLogbookJson: (...args: unknown[]) => importLogbookJson(...args),
   exportLogbook: (...args: unknown[]) => exportLogbook(...args)
 }))
-
-/** An ipcMain that records handlers, and calls them as the renderer would. */
-function fakeIpc(): { ipcMain: IpcMain; invoke: (channel: string, ...args: unknown[]) => unknown } {
-  const handlers = new Map<string, (event: unknown, ...args: unknown[]) => unknown>()
-  const ipcMain = { handle: (channel: string, handler: (event: unknown, ...args: unknown[]) => unknown) => handlers.set(channel, handler) }
-  return {
-    ipcMain: ipcMain as unknown as IpcMain,
-    invoke: (channel, ...args) => {
-      const handler = handlers.get(channel)
-      if (!handler) throw new Error(`No handler for ${channel}`)
-      return handler({}, ...args)
-    }
-  }
-}
 
 // A touchdown on EGLL 27L, about 400 m past the threshold.
 const TOUCHDOWN = {
@@ -104,7 +91,9 @@ describe('logbook IPC handlers', () => {
 
   it('lists flights, a flight, and the statistics', () => {
     expect((invoke(IpcChannels.flightList) as { id: number }[]).map((f) => f.id)).toEqual([flightId])
-    expect((invoke(IpcChannels.logbookListCompletedFlights) as { id: number }[]).map((f) => f.id)).toEqual([flightId])
+    expect((invoke(IpcChannels.logbookListCompletedFlights) as { id: number }[]).map((f) => f.id)).toEqual([
+      flightId
+    ])
     expect(invoke(IpcChannels.logbookGetFlight, flightId)).toMatchObject({ id: flightId })
     expect(invoke(IpcChannels.logbookGetFlight, 'x')).toBeNull()
     expect(invoke(IpcChannels.logbookGetFlight, 999)).toBeNull()
@@ -116,7 +105,11 @@ describe('logbook IPC handlers', () => {
 
   it("lists a flight's landings with the runway and score, and all landings", () => {
     createLanding(db, buildLandingRecord(flightId, 1, 'EGLL', TOUCHDOWN, '2026-10-05T12:30:00Z'))
-    const [landing] = invoke(IpcChannels.logbookListLandings, flightId) as { runwayIdent: string; runway: unknown; score: unknown }[]
+    const [landing] = invoke(IpcChannels.logbookListLandings, flightId) as {
+      runwayIdent: string
+      runway: unknown
+      score: unknown
+    }[]
     expect(landing.runwayIdent).toBe('27L')
     expect(landing.runway).not.toBeNull()
     expect(landing.score).not.toBeNull()
@@ -150,6 +143,8 @@ describe('logbook IPC handlers', () => {
   })
 
   it('draws the great-circle route between two airports', () => {
-    expect((invoke(IpcChannels.logbookGreatCircleRoute, 'EGLL', 'KJFK') as unknown[]).length).toBeGreaterThan(2)
+    expect((invoke(IpcChannels.logbookGreatCircleRoute, 'EGLL', 'KJFK') as unknown[]).length).toBeGreaterThan(
+      2
+    )
   })
 })

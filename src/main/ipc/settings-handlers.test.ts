@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
-import type { IpcMain } from 'electron'
 import { IpcChannels } from '@shared/ipc'
 import { createDb, type WingLogDb } from '../db/client'
 import { createAircraft } from '../db/aircraft-repo'
 import { registerSettingsHandlers } from './settings-handlers'
+import { fakeIpc } from './fake-ipc'
 
 vi.mock('electron', () => ({ app: { getLocale: () => 'de-DE' } }))
 const setMainLanguage = vi.fn()
@@ -16,23 +16,6 @@ vi.mock('../setup/first-run', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../setup/first-run')>()),
   getSetupContext: () => getSetupContext()
 }))
-
-/** An ipcMain that records handlers, and calls them as the renderer would. */
-function fakeIpc(): { ipcMain: IpcMain; invoke: (channel: string, ...args: unknown[]) => unknown } {
-  const handlers = new Map<string, (event: unknown, ...args: unknown[]) => unknown>()
-  const ipcMain = {
-    handle: (channel: string, handler: (event: unknown, ...args: unknown[]) => unknown) =>
-      handlers.set(channel, handler)
-  }
-  return {
-    ipcMain: ipcMain as unknown as IpcMain,
-    invoke: (channel, ...args) => {
-      const handler = handlers.get(channel)
-      if (!handler) throw new Error(`No handler for ${channel}`)
-      return handler({}, ...args)
-    }
-  }
-}
 
 describe('settings IPC handlers', () => {
   let db: WingLogDb

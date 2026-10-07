@@ -6,7 +6,16 @@
 import { shell, type BrowserWindow, type IpcMain } from 'electron'
 import { IpcChannels } from '@shared/ipc'
 import type { WingLogDb } from '../db/client'
-import { asDataFormat } from './data-format'import { listFlights, listCompletedFlights, getLiveFlight, getLogbookStats, getFleetStats, getFlight, setFlownRoute } from '../db/flight-repo'
+import { asDataFormat } from './data-format'
+import {
+  listFlights,
+  listCompletedFlights,
+  getLiveFlight,
+  getLogbookStats,
+  getFleetStats,
+  getFlight,
+  setFlownRoute
+} from '../db/flight-repo'
 import { importLogbookCsv, importLogbookJson, exportLogbook } from '../db/logbook-import'
 import { listInvoicesForFlight } from '../db/flight-invoice-repo'
 import { extractOfpPdfUrl } from '../simbrief/ofp-pdf'
@@ -19,7 +28,6 @@ import { simplifyTrackPoints } from '../tracking/track-simplify'
 import { listTrackPoints } from '../db/track-point-repo'
 import { runTrackCleanupForFlight } from '../db/run-track-cleanup'
 import { deriveFlownRouteJson } from '../tracking/route-simplify'
-
 
 /** What the logbook channels need. */
 export interface LogbookHandlerDeps {
@@ -36,10 +44,11 @@ export interface LogbookHandlerDeps {
  * @param ipcMain Electron's IPC.
  * @param deps The database, the window and the background sync.
  */
-export function registerLogbookHandlers(ipcMain: IpcMain, { db, window, scheduleBackgroundSync }: LogbookHandlerDeps): void {
-
+export function registerLogbookHandlers(
+  ipcMain: IpcMain,
+  { db, window, scheduleBackgroundSync }: LogbookHandlerDeps
+): void {
   ipcMain.handle(IpcChannels.flightList, () => listFlights(db))
-
 
   ipcMain.handle(IpcChannels.logbookListCompletedFlights, () => listCompletedFlights(db))
 
@@ -72,7 +81,6 @@ export function registerLogbookHandlers(ipcMain: IpcMain, { db, window, schedule
     listInvoicesForFlight(db, flightId)
   )
 
-
   ipcMain.handle(IpcChannels.logbookOpenOfpPdf, async (_event, flightId: number) => {
     const flight = getFlight(db, flightId)
     const url = flight ? extractOfpPdfUrl(flight.ofpJson) : null
@@ -80,7 +88,6 @@ export function registerLogbookHandlers(ipcMain: IpcMain, { db, window, schedule
     await shell.openExternal(url)
     return true
   })
-
 
   ipcMain.handle(IpcChannels.logbookListLandings, (_event, flightId: number) => {
     const landingFlight = getFlight(db, flightId)

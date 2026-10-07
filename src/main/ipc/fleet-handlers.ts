@@ -38,7 +38,10 @@ export interface FleetHandlerDeps {
  * @param ipcMain Electron's IPC.
  * @param deps The database, the window and the background sync.
  */
-export function registerFleetHandlers(ipcMain: IpcMain, { db, window, scheduleBackgroundSync }: FleetHandlerDeps): void {
+export function registerFleetHandlers(
+  ipcMain: IpcMain,
+  { db, window, scheduleBackgroundSync }: FleetHandlerDeps
+): void {
   // Validated here, not just in the renderer — the renderer isn't a security boundary.
   const requireAircraftId = (id: unknown): number => {
     if (typeof id !== 'number' || !Number.isInteger(id)) throw new Error(t('errors.invalidAircraftId'))
