@@ -58,11 +58,9 @@ const SIMBRIEF_SUB_TEXT: Record<string, string> = {
 }
 
 /**
- * GSX's own permanent title-bar toggle, mirrored directly (menu.js's own `menuHead`) — not
- * an optional extra. The menu tree only actually opens once something sends `menu.toggle`;
- * GSX's own client does this from exactly this always-visible header, entirely independent
- * of the in-sim panel. Passively displaying `state.menu` was never enough on its own
- * (confirmed live, 2026-09-21, docs/gsx-notes.md) — this is what actually opens it.
+ * GSX's permanent title-bar toggle, mirrored from menu.js's `menuHead`; not an optional extra. The menu tree only opens once
+ * something sends `menu.toggle`, and GSX's own client does that from this always-visible header, independent of the in-sim
+ * panel. Passively displaying `state.menu` was never enough (docs/gsx-notes.md).
  *
  * @param props The menu, and the collapse toggle.
  * @returns The element.
@@ -124,11 +122,10 @@ const RESTART_CONFIRM_MS = 4000
 const SIMBRIEF_TIMEOUT_MS = 30000
 
 /**
- * The three remotely-triggerable command-bar buttons (Customize Airport/Aircraft, Restart
- * Couatl) plus the separate, differently-styled SimBrief reload button — mirrors `menu.js`'s
- * own `commandBtn()`/`simbriefBtn()` behaviour, including RESTART_COUATL's tap-to-arm/tap-
- * to-confirm pattern and the SimBrief button's optimistic "Downloading..." state, both
- * confirmed live 2026-09-23 by reading GSX's own shipped source, not guessed.
+ * The three remotely-triggerable command-bar buttons (Customize Airport/Aircraft, Restart Couatl) plus the separate,
+ * differently-styled SimBrief reload button. Mirrors `menu.js`'s `commandBtn()`/`simbriefBtn()` behaviour, including
+ * RESTART_COUATL's tap-to-arm/tap-to-confirm pattern and the SimBrief button's optimistic "Downloading..." state, as read from
+ * GSX's shipped source.
  *
  * @param props The command bar, and the run handler.
  * @returns The element, or null when there is nothing to show.
@@ -238,13 +235,11 @@ function CommandBar(props: {
 }
 
 /**
- * GSX's own live menu entries, mirrored generically — not a semantic "click this service"
- * UI. GSX's own client (menu.js) "reads NO services array, recognizes NO ids/names"; this
- * does the same, on purpose (docs/gsx-notes.md, winglog-backend's docs/decisions.md,
- * 2026-09-21). Provider choice, when GSX asks, is just another snapshot of this same
- * `entries`/`icons`/`disabled` shape — rendering it generically is what makes that work
- * without a special case. Only shown while `menuShown` is true, exactly like GSX's own
- * client's own gate — entries can be stale/leftover while the menu itself is closed.
+ * GSX's live menu entries, mirrored generically, not a semantic "click this service" UI. GSX's client (menu.js) "reads NO
+ * services array, recognizes NO ids/names"; this does the same on purpose (docs/gsx-notes.md; decisions.md, 2026-09-21).
+ * Provider choice, when GSX asks, is another snapshot of the same `entries`/`icons`/`disabled` shape, so rendering generically
+ * needs no special case. Only shown while `menuShown` is true, like GSX's own client: entries can be stale while the menu is
+ * closed.
  *
  * @param props The menu, the pick and search handlers, and the stand BeyondATC assigned.
  * @returns The element.
@@ -339,13 +334,10 @@ function GateSearchBox(props: {
 }
 
 /**
- * Structured `detail` fields (fuel current/target, pax/cargo counts) render as nicely
- * formatted numbers instead of `statusText`'s free text — real shapes confirmed live
- * 2026-09-21 (docs/gsx-notes.md, round 6/7 captures). Falls back to `statusText`/`stateText`
- * for every other service, unchanged from before. `detail.waitingFor` (real vehicle-pathing
- * stalls, confirmed live 2026-09-23, round 11) renders alongside whichever branch is active
- * rather than replacing it — GSX keeps reporting real pax/cargo counts even while stuck, and
- * the counts alone don't explain why they've stopped moving.
+ * Structured `detail` fields (fuel current/target, pax/cargo counts) render as formatted numbers instead of `statusText`'s free
+ * text (docs/gsx-notes.md, rounds 6/7), falling back to `statusText`/`stateText` for every other service. `detail.waitingFor`
+ * (a vehicle-pathing stall, round 11) renders alongside whichever branch is active rather than replacing it: GSX keeps
+ * reporting real pax/cargo counts while stuck, and the counts alone don't explain why they stopped moving.
  *
  * @param props The service.
  * @returns The element, or null when there is nothing to show.

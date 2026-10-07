@@ -1,33 +1,26 @@
 /**
- * Highlights BeyondATC's most recent live taxi clearance on top of the taxi chart overlay
- * (winglog-backend's docs/plans/beyondatc-taxi-route-highlight.md — the ATC-driven route
- * half of Part 4, built on top of Part 4a's static chart).
+ * Highlights BeyondATC's most recent live taxi clearance on top of the taxi chart overlay (winglog-backend's
+ * docs/plans/beyondatc-taxi-route-highlight.md: the ATC-driven route half of Part 4, built on Part 4a's static chart).
  *
- * Preferred: the route actually traced through the taxi network (taxi-route-trace.ts), from
- * where the aircraft was when the clearance arrived to the holding point (or, for a stand,
- * to where it joins the last cleared taxiway), drawn as its own line starting at the aircraft
- * and shortening as it taxis (remainingRoute). Real bug that prompted it, VHHH 2026-09-30:
- * the v1 behaviour below lit up all of taxiway B across the airport for a short hop via B8, B
- * to B10.
+ * Preferred: the route traced through the taxi network (taxi-route-trace.ts), from where the aircraft was when the clearance
+ * arrived to the holding point (or, for a stand, to where it joins the last cleared taxiway), drawn as its own line starting at
+ * the aircraft and shortening as it taxis (remainingRoute). Without a trace, a short hop via B8, B to B10 lit up all of
+ * taxiway B across the airport.
  *
- * Fallback, whenever a trace isn't possible (the holding point isn't in the data, no live
- * position, aircraft off the network): v1's second `line` layer on the same `taxi-chart`
- * source, filtered to every segment sharing a cleared taxiway name.
+ * Fallback, whenever a trace isn't possible (the holding point isn't in the data, no live position, aircraft off the
+ * network): a second `line` layer on the same `taxi-chart` source, filtered to every segment sharing a cleared taxiway name.
  *
- * The clearance comes only from BeyondATC's InfoBoxes (`Taxi Via 1..n`, `Hold Position`,
- * `Taxi to Gate`; boxTaxiClearance), never from parsing the speech (winglog-backend's
- * docs/decisions.md, 2026-10-05). The one exception is a spoken "hold short of runway 07C",
- * which has no box: it's added to the box route heard within HOLD_SHORT_PAIR_MS of it.
+ * The clearance comes only from BeyondATC's InfoBoxes (`Taxi Via 1..n`, `Hold Position`, `Taxi to Gate`; boxTaxiClearance),
+ * never from parsing the speech (winglog-backend's docs/decisions.md, 2026-10-05). The one exception is a spoken "hold short
+ * of runway 07C", which has no box: it's added to the box route heard within HOLD_SHORT_PAIR_MS of it.
  *
- * Re-routing (winglog-backend's docs/plans/taxi-reroute.md): when the aircraft leaves the
- * line, or drives the wrong way along it, while taxiing, the line is redrawn as the shortest
- * way from where it is to the same end, rejoining the cleared route wherever that's shortest
- * (taxi-reroute.ts decides when, rejoinTaxiRoute where). A re-route that can't be traced (off the
+ * Re-routing (winglog-backend's docs/plans/taxi-reroute.md): when the aircraft leaves the line, or drives the wrong way along
+ * it, while taxiing, the line is redrawn as the shortest way from where it is to the same end, rejoining the cleared route
+ * wherever that's shortest (taxi-reroute.ts decides when, rejoinTaxiRoute where). A re-route that can't be traced (off the
  * network) keeps the line it had. Once the aircraft reaches the end, nothing re-routes.
  *
- * Both are limited to the clearance's own airport: a "holding point" clearance is the
- * departure's, a "taxi to stand" one the arrival's. Without this, a departure's B8/B also lit
- * up the arrival airport's own B8/B (real report, 2026-09-30).
+ * Both are limited to the clearance's own airport: a "holding point" clearance is the departure's, a "taxi to stand" one the
+ * arrival's. Otherwise a departure's B8/B also lit up the arrival airport's own B8/B.
  */
 
 import { winglogApi } from './data/winglog-api'
@@ -115,9 +108,8 @@ export interface UseTaxiRouteHighlightArgs {
   phase: FlightPhase | null
 }
 
-/** From the takeoff roll until touchdown the departure's taxi route is finished with: it used
- *  to stay drawn on top of the flown track at every zoom (real report, 2026-10-05). Landing
- *  isn't in here, so an arrival's "taxi to stand" clearance still draws after touchdown. */
+/** From the takeoff roll until touchdown the departure's taxi route is finished with: otherwise it stays drawn on top of the
+ *  flown track at every zoom. Landing isn't in here, so an arrival's "taxi to stand" clearance still draws after touchdown. */
 const DEPARTED_PHASES: ReadonlySet<FlightPhase> = new Set(['takeoff', 'climb', 'cruise', 'descent'])
 
 /**
@@ -312,10 +304,9 @@ export function useTaxiRouteHighlight({
     positionRef.current = position
   }, [position, phase])
 
-  // Gated on `enabled` — same "nothing happens until the chart is switched on" discipline
-  // useTaxiChartOverlay's own fetch effect follows. The boxes and transcript BeyondATC already
-  // has are read straight away, not just the next push: a clearance given while Track wasn't
-  // open used to wait for ATC's next line before it was drawn (YBBN, 2026-10-02).
+  // Gated on `enabled`: nothing happens until the chart is switched on, as in useTaxiChartOverlay's fetch effect. The boxes and
+  // transcript BeyondATC already has are read straight away, not just on the next push, so a clearance given while Track wasn't
+  // open isn't left waiting for ATC's next line.
   useEffect(() => {
     if (!enabled) return
     let live = true
@@ -341,11 +332,10 @@ export function useTaxiRouteHighlight({
     }
   }, [enabled, client])
 
-  // A clearance read before the aircraft's position was known starts from the first position
-  // that arrives. Real bug, ZSPD 2026-10-02: opening Track reads BeyondATC's transcript before
-  // Track has loaded the active flight (so no position yet) — the clearance was stored with
-  // nowhere to start, never traced, and fell back to whole taxiways. Updated during render
-  // (React's "adjust state when a prop changes" pattern), not in an effect.
+  // A clearance read before the aircraft's position was known starts from the first position that arrives. Opening Track reads
+  // BeyondATC's transcript before Track has loaded the active flight (so no position yet); without this the clearance was stored
+  // with nowhere to start, never traced, and fell back to whole taxiways. Updated during render (React's "adjust state when a
+  // prop changes" pattern), not in an effect.
   if (clearance && !clearance.from && position) setClearance({ ...clearance, ...startOf(position) })
   // The route held when the takeoff roll starts is the departure's: dropped then, so it can't
   // come back at the arrival. Only on that change, never just for being airborne, so an

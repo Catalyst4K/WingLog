@@ -5,12 +5,10 @@
  */
 import type { FlightPhase, NewTrackPoint, SimTelemetry } from '@shared/ipc'
 
-// Thresholds are first-pass estimates (PLAN.md doesn't prescribe exact values) — expect
-// to refine these after watching a few real flights track through every phase; see
-// docs/simconnect-notes.md for anything that turns out surprising.
-// Exported: free-flight.ts's seedPhaseFromTelemetry reuses these same two thresholds to
-// seed a mid-session-started flight into the phase it would already be in had the machine
-// been running the whole time, rather than inventing separate seeding-only numbers.
+// Thresholds are first-pass estimates (PLAN.md doesn't prescribe exact values), to refine by watching real flights track through
+// every phase; see docs/simconnect-notes.md for anything surprising. Exported: free-flight.ts's seedPhaseFromTelemetry reuses these
+// two thresholds to seed a mid-session-started flight into the phase it would already be in, rather than inventing separate
+// seeding-only numbers.
 export const MOVING_MS = 0.5 // ~1 kt — any ground movement at all, used for pushback detection
 const TAXI_SPEED_MS = 2.6 // ~5 kt — established taxi under own power vs. still being pushed
 const ROLL_SPEED_MS = 18 // ~35 kt — takeoff-roll / landing-rollout boundary vs. taxi speed
@@ -18,12 +16,10 @@ export const LEVEL_VS_MS = 0.5 // ~100 fpm — vertical speed magnitude counted 
 const DESCENT_VS_MS = -1.0 // ~-200 fpm — sustained descent rate that ends cruise
 const LEVEL_SUSTAIN_SAMPLES = 10 // consecutive 1 Hz samples of level flight to confirm cruise
 const DESCENT_SUSTAIN_SAMPLES = 5 // consecutive samples of descent to confirm leaving cruise
-// Consecutive airborne samples before a rollout or taxi counts as a go-around (and, the
-// other way round, ground samples before 'climb'/'cruise' counts as a missed landing). One wasn't
-// enough: a single airborne tick on a bouncy VHHH rollout (flight 227, 2026-10-02) went
-// 'landing' -> 'climb' -> 'cruise' and recorded the whole taxi-in as cruise. Same count as
-// TrackingController's MIN_AIRBORNE_SAMPLES_FOR_NEW_TOUCHDOWN, which already kept that
-// bounce from being logged as a second landing.
+// Consecutive airborne samples before a rollout or taxi counts as a go-around (and, the other way round, ground samples before
+// 'climb'/'cruise' counts as a missed landing). One wasn't enough: a single airborne tick on a bouncy rollout sent the phase
+// 'landing' -> 'climb' -> 'cruise' and recorded the whole taxi-in as cruise. Same count as TrackingController's
+// MIN_AIRBORNE_SAMPLES_FOR_NEW_TOUCHDOWN, which already kept that bounce from being logged as a second landing.
 const GO_AROUND_AIRBORNE_SAMPLES = 3
 // docs/decisions.md, 2026-09-01: deviates from PLAN.md §5's "every 15s" — 5s reads better
 // live without needing to keep the old marker/camera interpolation to hide the jump.
@@ -63,24 +59,17 @@ export class FlightRecorder {
   private groundStreak = 0
   private lastPointAt: Date | undefined
   private paused = false
-  // Set once, at touchdown, and never cleared — guards the taxi -> takeoff transition
-  // below so a rollout/taxi-in speed blip (e.g. reverse thrust briefly pushing ground
-  // speed back over ROLL_SPEED_MS) can't be mistaken for a second takeoff roll. Without
-  // this the machine got permanently stuck back in 'takeoff' after landing (a real
-  // overnight flight hit this, 2026-09-05) — 'takeoff' only ever exits via !onGround
-  // (line below), which never happens again once truly on the ground rolling out, so the
-  // flight never reached 'shutdown' and auto-completion never fired.
+  // Set once, at touchdown, and never cleared: guards the taxi -> takeoff transition below so a rollout or taxi-in speed blip (e.g.
+  // reverse thrust pushing ground speed back over ROLL_SPEED_MS) isn't mistaken for a second takeoff roll. Without it the machine
+  // got stuck in 'takeoff' after landing, which only exits via !onGround, so the flight never reached 'shutdown' and
+  // auto-completion never fired.
   private hasLanded = false
   private autoShutdown = true
-  // Tags every point this recorder writes — 0 for a flight never resumed, incremented by
-  // TrackingController.resume() each time the app/process restarts mid-flight (see this
-  // class's own resume-parameter comment), or by bumpResumeSegment below when a
-  // resume-cleanup pass finds a physically-impossible jump with no resume() involved at
-  // all (winglog-backend's docs/plans/done/resume-track-cleanup.md — a payware aircraft's
-  // own save-state/reload feature, confirmed live 2026-09-13). Never touched by the phase
-  // machine itself; the map uses it to never draw a line across a spawn-point/teleport-back
-  // artefact, even before any cleanup logic decides which points within a segment are
-  // spurious.
+  // Tags every point this recorder writes: 0 for a flight never resumed, incremented by TrackingController.resume() each time the
+  // app restarts mid-flight, or by bumpResumeSegment below when a resume-cleanup pass finds a physically-impossible jump with no
+  // resume() involved (winglog-backend's docs/plans/done/resume-track-cleanup.md: a payware aircraft's own save-state/reload).
+  // The phase machine never touches it; the map uses it to avoid drawing a line across a spawn-point/teleport-back artefact, even
+  // before any cleanup decides which points in a segment are spurious.
   private resumeSegment = 0
 
   /**
@@ -230,8 +219,7 @@ export class FlightRecorder {
     // branch so a real second departure is never mistaken for the rollout noise that
     // guard exists to block.
     if (this.goneAround(t)) return
-    // Only on a runway, when that's known: a fast taxi along a parallel taxiway isn't the
-    // takeoff roll (flight 230, VHHH).
+    // Only on a runway, when that's known: a fast taxi along a parallel taxiway isn't the takeoff roll.
     if (!this.hasLanded && t.groundSpeedMs > ROLL_SPEED_MS && this.runwayCheck(t.latitude, t.longitude) !== false) {
       this.phase = 'takeoff'
     }
@@ -347,12 +335,10 @@ export class FlightRecorder {
     return true
   }
 
-  /** On the ground in 'climb'/'cruise' for GO_AROUND_AIRBORNE_SAMPLES in a row: a landing
-   *  the machine missed. A bounce that outlasted the go-around check, a flight resumed in
-   *  that state (flight 227's own last point), or a circuit that touched down straight from
-   *  'climb' without ever reaching 'descent' (flight 198, VHHH). Back to 'landing', which
-   *  reaches 'taxi' on speed as usual; one tick back on the runway just after liftoff is
-   *  left alone.
+  /** On the ground in 'climb'/'cruise' for GO_AROUND_AIRBORNE_SAMPLES in a row: a landing the machine missed. A bounce that
+   *  outlasted the go-around check, a flight resumed in that state, or a circuit that touched down straight from 'climb' without
+   *  reaching 'descent'. Back to 'landing', which reaches 'taxi' on speed as usual; one tick back on the runway just after liftoff
+   *  is left alone.
    *
    * @param t This tick.
    * @returns Whether the phase went back to 'landing'.

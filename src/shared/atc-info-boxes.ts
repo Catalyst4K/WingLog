@@ -24,14 +24,13 @@ export interface AtcClearanceUpdate {
 const CLEARED_APPROACH = /^([A-Z0-9]+(?:-[A-Z0-9]+)*) approach,? runway (\d{1,2}[LRC]?)$/i
 
 /**
- * BeyondATC's InfoBoxes, read as typed facts (winglog-backend's
- * docs/plans/beyondatc-infoboxes-first.md). The boxes carry each clearance's facts as their own
- * fields, and are the only source for any fact they cover: ATC's speech isn't parsed for them
+ * BeyondATC's InfoBoxes, read as typed facts (winglog-backend's docs/plans/beyondatc-infoboxes-first.md). The boxes carry each
+ * clearance's facts as their own fields, and are the only source for any fact they cover: ATC's speech isn't parsed for them
  * (docs/decisions.md, 2026-10-05).
  *
- * Titles are matched exactly as captured on real flights (EGLL flight 229 and VHHH-ZJSY flight
- * 230, 2026-10-05), trimmed and ignoring case: BeyondATC sends " Frequency" with a leading space
- * and both "climb" and "Climb". A title not listed here is ignored, never guessed at.
+ * Titles are matched exactly as captured on real flights (EGLL and VHHH-ZJSY, 2026-10-05), trimmed and ignoring case:
+ * BeyondATC sends " Frequency" with a leading space and both "climb" and "Climb". A title not listed here is ignored,
+ * never guessed at.
  */
 export interface AtcTaxiFacts {
   /** `Taxi Via 1`..`n`, in number order: ['B', 'B', 'V', 'H', 'J']. Empty with no taxi route. */
@@ -185,12 +184,12 @@ export function clearedApproachIdent(value: string | null): string | null {
 }
 
 /**
- * The procedure clearance in one set of InfoBoxes, in the same shape as a spoken one
- * (parseAtcClearance), or null when the boxes hold none. Real sets, VHHH-ZJSY 2026-10-05:
+ * The procedure clearance in one set of InfoBoxes, in the same shape as a spoken one (parseAtcClearance), or null when the
+ * boxes hold none. Real sets (VHHH-ZJSY):
  * - departure clearance: `SID` PECA3A + `Taxi to Runway` 07R;
  * - STAR clearance: `STAR` UPRS2C + `Arrival Runway` 08;
- * - approach briefing: `Landing Runway` 08 + `Transition` SY498 (sets the runway and the
- *   approach transition; the approach itself comes from the runway's navdata);
+ * - approach briefing: `Landing Runway` 08 + `Transition` SY498 (sets the runway and the approach transition; the approach itself
+ *   comes from the runway's navdata);
  * - approach clearance: `Cleared Approach` "ILS-Z approach runway 08";
  * - `Landing Runway` on its own (with QNH, after the STAR): the runway only.
  *

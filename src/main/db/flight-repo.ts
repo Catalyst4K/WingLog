@@ -394,17 +394,11 @@ export function startFlight(
 }
 
 /**
- * Corrects the provisional fuel_out_kg written by startFlight, once the phase machine
- * first leaves 'preflight' (TrackingController, on the preflight -> pushback transition).
- * The value captured at the instant tracking starts can't be trusted as "fuel loaded" —
- * SimConnect can report stale/leftover telemetry for a while after a flight reload (the
- * same garbage-data window spike-flight-reload.ts found for altitude, evidently not
- * limited to it — a real case, flight #182, showed a plausible-looking ~10,187kg reading
- * that was actually a reload artifact, not the aircraft's genuine ~3,000kg default), and
- * ground fuel service (GSX, an EFB) happens after that too, while the aircraft is still
- * stationary and tracking has therefore already started. Waiting for the first real
- * ground-movement/engine-start signal sidesteps both: by then the reload window has long
- * since cleared and any deliberate defuel/refuel has already settled.
+ * Corrects the provisional fuel_out_kg written by startFlight, once the phase machine first leaves 'preflight'
+ * (TrackingController, on the preflight -> pushback transition). The value captured when tracking starts can't be trusted as
+ * "fuel loaded": SimConnect can report stale telemetry for a while after a flight reload (a ~10,187 kg reading that was a
+ * reload artifact, not the aircraft's ~3,000 kg default), and ground fuel service (GSX, an EFB) happens after tracking has
+ * started, while the aircraft is still stationary. Waiting for the first ground-movement/engine-start signal sidesteps both.
  *
  * @param db The database.
  * @param id The flight.
@@ -456,14 +450,10 @@ export function recordOn(db: WingLogDb, id: number): Flight | undefined {
 }
 
 /**
- * Block-in: shutdown reached. Derives block/air time and fuel burn from the timestamps
- * already recorded. `pausedIntervals` — real wall-clock spans the sim reported itself
- * paused (TrackingController tracks these from SimConnectService's own 'paused' event,
- * separate from the resume-track-cleanup work, which is about a full app/sim restart, not
- * an in-session pause) — are excluded from both stats: without this, pausing the sim for
- * an hour to test something mid-cruise added a real hour to the logged flight, since both
- * stats were a plain wall-clock diff between the recorded timestamps (real case, Callum's
- * flight 191, 2026-09-11).
+ * Block-in: shutdown reached. Derives block/air time and fuel burn from the timestamps already recorded. `pausedIntervals`,
+ * the wall-clock spans the sim reported itself paused (TrackingController tracks them from SimConnectService's 'paused'
+ * event; separate from resume-track-cleanup, which is about a full app/sim restart), are excluded from both stats: both are a
+ * plain wall-clock difference, so pausing the sim for an hour mid-cruise would otherwise add that hour to the flight.
  *
  * @param db The database.
  * @param id The flight.
@@ -512,15 +502,10 @@ export function completeFlight(
   return row ? toFlight(row) : undefined
 }
 
-/** User cancelled tracking mid-flight, discarded an orphaned crash-recovery flight
- *  (trackingDiscardOrphaned), or cancelled one that never got past 'planned' (flightCancel)
- *  — deletes it outright via the same cascade as deleteFlight below, rather than leaving an
- *  inert 'abandoned' row (and, for one that was actively tracked, its full track_point
- *  history) sitting in the database with no purpose. Callum's call, 2026-09-13, after
- *  finding a genuinely abandoned flight from an earlier crash-recovery test still holding
- *  hundreds of real track points. `FlightStatus` keeps the `'abandoned'` value for any
- *  historical row already in that state before this change — nothing new gets left there
- *  going forward.
+/** User cancelled tracking mid-flight, discarded an orphaned crash-recovery flight (trackingDiscardOrphaned), or cancelled one
+ *  that never got past 'planned' (flightCancel): deletes it outright via the same cascade as deleteFlight below, rather than
+ *  leaving an inert 'abandoned' row (and, if it was tracked, its full track_point history) in the database. `FlightStatus`
+ *  keeps the `'abandoned'` value for historical rows already in that state; nothing new is left there.
  *
  * @param db The database.
  * @param id The flight.
