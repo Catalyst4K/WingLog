@@ -20,6 +20,7 @@ import type { WingLogDb } from '../db/client'
 import { getFlight } from '../db/flight-repo'
 import { getBeyondAtcSettings, setBeyondAtcSettings } from '../db/settings-repo'
 import type { DevDiagnostics } from '../diagnostics/dev-diagnostics'
+import { atcCommands, dispatchCommand, type AtcCommand } from '../live/commands'
 import type { LiveHub } from '../live/LiveHub'
 import type { ServiceSocketCtor } from '../net/service-socket'
 import type { SimConnectSource } from '../sim/SimConnectSource'
@@ -114,17 +115,6 @@ function registerSessionHandlers(ipcMain: IpcMain, session: () => BeyondAtcServi
   )
   ipcMain.handle(IpcChannels.beyondAtcGetState, () => session()?.getState() ?? EMPTY_BEYONDATC_STATE)
   ipcMain.handle(IpcChannels.beyondAtcGetTranscript, () => session()?.getTranscript() ?? [])
-  ipcMain.handle(IpcChannels.beyondAtcSetAction, (_event, label: unknown) => session()?.setAction(label))
-  ipcMain.handle(IpcChannels.beyondAtcSetFrequency, (_event, frequency: unknown) =>
-    session()?.setFrequency(frequency)
-  )
-  ipcMain.handle(IpcChannels.beyondAtcSetFrequencyCom2, (_event, frequency: unknown) =>
-    session()?.setFrequencyCom2(frequency)
-  )
-  ipcMain.handle(IpcChannels.beyondAtcSetAutoTune, (_event, value: unknown) => session()?.setAutoTune(value))
-  ipcMain.handle(IpcChannels.beyondAtcSetAutoRespond, (_event, value: unknown) =>
-    session()?.setAutoRespond(value)
-  )
 }
 
 /**
@@ -149,7 +139,13 @@ function registerStepClimb(
   stepClimb.on('status', (status) => liveHub.publish('beyondAtcStepClimb', status))
   sim.on('telemetry', (telemetry) => stepClimb.onTelemetry(telemetry))
   ipcMain.handle(IpcChannels.beyondAtcGetStepClimb, () => stepClimb.getStatus())
-  ipcMain.handle(IpcChannels.beyondAtcSetStepClimb, (_event, enabled: unknown) => {
-    if (typeof enabled === 'boolean') stepClimb.setEnabled(enabled)
-  })
+
+  const commands = atcCommands(session, stepClimb)
+  const command = (name: AtcCommand) => (_event: unknown, ...args: unknown[]) => dispatchCommand(commands, name, args)
+  ipcMain.handle(IpcChannels.beyondAtcSetAction, command('atc.setAction'))
+  ipcMain.handle(IpcChannels.beyondAtcSetFrequency, command('atc.setFrequency'))
+  ipcMain.handle(IpcChannels.beyondAtcSetFrequencyCom2, command('atc.setFrequencyCom2'))
+  ipcMain.handle(IpcChannels.beyondAtcSetAutoTune, command('atc.setAutoTune'))
+  ipcMain.handle(IpcChannels.beyondAtcSetAutoRespond, command('atc.setAutoRespond'))
+  ipcMain.handle(IpcChannels.beyondAtcSetStepClimb, command('atc.setStepClimb'))
 }
