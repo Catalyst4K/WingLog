@@ -46,11 +46,10 @@ function InfoField(props: { label: string; value: string }): React.JSX.Element {
 }
 
 /**
- * The top info strip (winglog-backend's docs/plans/beyondatc-panel-redesign.md) — just
- * who you are and how far along the flight is, inline in one compact card. ATC's own
- * instructions moved out to `LatestInstructionCard` below it (Callum's call, 2026-09-30).
- * "Tuned to" facility/COM2 info is `BeyondAtcRadios`' job, not this card's. Always visible,
- * like every other card here — a placeholder rather than shifting the layout.
+ * The top info strip (winglog-backend's docs/plans/beyondatc-panel-redesign.md): who you are and how far along the
+ * flight is, inline in one compact card. ATC's own instructions are in `LatestInstructionCard` below it, and the "tuned
+ * to" facility/COM2 info is `BeyondAtcRadios`' job. Always visible, like every other card here: a placeholder rather
+ * than shifting the layout.
  *
  * @param props BeyondATC's state.
  * @returns The element.
@@ -76,17 +75,14 @@ function InfoCard(props: { state: BeyondAtcState }): React.JSX.Element {
 }
 
 /**
- * The key facts from whatever ATC said last — clearance, taxi, handoff, climb/descent,
- * takeoff… (beyond-atc-instruction.ts) — as labelled fields, with the full text underneath so
- * nothing an unrecognised phrasing carries is ever hidden. The station ATC spoke as sits in
- * the header; clearances/permissions (cleared for takeoff, line up and wait…) stand out as
- * badges rather than as another label: value pair.
+ * The key facts from whatever ATC said last (clearance, taxi, handoff, climb/descent, takeoff…; beyond-atc-instruction.ts)
+ * as labelled fields, with the full text underneath so nothing an unrecognised phrasing carries is hidden. The station
+ * ATC spoke as sits in the header; clearances and permissions (cleared for takeoff, line up and wait…) stand out as
+ * badges.
  *
- * The header's right side also keeps ATC's arrival clearance from the moment it's given
- * until touchdown (Callum, 2026-10-05; kept in main by ArrivalClearanceTracker): STAR and
- * runway, switching to approach and transition once those come. It sits beside the latest
- * instruction, never in place of it — later lines ("report ready for descent") still show
- * in the body as normal.
+ * The header's right side also keeps ATC's arrival clearance from the moment it's given until touchdown (kept in main by
+ * ArrivalClearanceTracker): STAR and runway, switching to approach and transition once those come. It sits beside the
+ * latest instruction, never in place of it.
  *
  * @param props The latest instruction and the arrival clearance, if any.
  * @returns The element.
@@ -239,28 +235,16 @@ function RadiosCard(props: React.ComponentProps<typeof BeyondAtcRadios>): React.
 }
 
 /**
- * Always visible, same as `ActionsCard`'s Radios sibling — an empty scrollable box rather
- * than disappearing entirely, so the right column doesn't jump around as the panel connects
- * (winglog-backend's docs/plans/beyondatc-panel-redesign.md). Fills the real, bounded
- * height `BeyondAtcView`/`BeyondAtcPanel` propagate down from the window's own available
- * space (`h-full` on `BeyondAtcView`'s root, `flex-1` the rest of the way down, all the way
- * from App.tsx) — its own list never grows past that, scrolling internally instead
- * (`min-h-0`/`flex-1` at every level down to the `<ul>` itself).
+ * Always visible, like `ActionsCard`'s Radios sibling: an empty scrollable box rather than disappearing, so the right
+ * column doesn't jump around as the panel connects (beyondatc-panel-redesign.md). It fills the bounded height
+ * `BeyondAtcView`/`BeyondAtcPanel` propagate down from the window (`h-full` on `BeyondAtcView`'s root, `flex-1` below it,
+ * `min-h-0`/`flex-1` at every level down to the `<ul>`), and its list scrolls internally.
  *
- * **The parent row is CSS Grid, not a flex row — this matters, confirmed the hard way.**
- * A flexbox version (`flex flex-wrap items-stretch`) looked identical in the DOM (every
- * `min-h-0`/`flex-1` class present at every level) but didn't actually cap this card:
- * `align-items: stretch` on a flex-wrap row did not reliably give this column a definite
- * height for its `min-h-0` descendants to resolve against, so the list just rendered at its
- * full natural height regardless. Confirmed live via a Playwright screenshot + a DOM rect
- * dump against a real 80-line transcript — the list grew to 1651px and the whole *page*
- * scrolled to follow the newest line (via `scrollIntoView` below) instead of the card's own
- * list, pushing every other card off screen entirely. Grid's track-sizing algorithm
- * resolves a genuinely definite height for every cell in a row *before* laying out its
- * contents — confirmed fixed with the identical rect dump afterward (452px, matching the
- * left column, not 1651px). Kept as always-expanded (not collapsible), but scroll-anchored
- * to the latest line: without that, a long transcript's newest exchange stays scrolled out
- * of view within its own now-correctly-bounded box.
+ * **The parent row must be CSS Grid, not a flex row.** With `flex flex-wrap items-stretch`, `align-items: stretch` did
+ * not reliably give this column a definite height for its `min-h-0` descendants, so the list rendered at its full height
+ * and the whole *page* scrolled to follow the newest line (via `scrollIntoView` below), pushing the other cards off
+ * screen. Grid resolves a definite height for every cell in a row before laying out its contents. The list stays
+ * always-expanded but scroll-anchored to the latest line, so a long transcript's newest exchange isn't left out of view.
  *
  * @param props The transcript.
  * @returns The element.
@@ -297,20 +281,14 @@ function TranscriptCard(props: { entries: BeyondAtcTranscriptEntry[] }): React.J
 }
 
 /**
- * BeyondATC integration's live panel (Parts 1-2 of winglog-backend's docs/plans/
- * beyondatc-integration.md) — its own top-level tab, same shape as GsxRemotePanel: current-
- * value fetches on mount plus live subscriptions, so a panel mounting (or remounting) after
- * BeyondATC already pushed state doesn't show nothing until the next line arrives.
+ * BeyondATC integration's live panel (Parts 1-2 of winglog-backend's docs/plans/beyondatc-integration.md), its own
+ * top-level tab, same shape as GsxRemotePanel: current-value fetches on mount plus live subscriptions, so a panel
+ * mounting after BeyondATC already pushed state doesn't show nothing until the next line arrives.
  *
- * Card-grid layout (winglog-backend's docs/plans/beyondatc-panel-redesign.md, second
- * design pass, 2026-09-29): a compact info strip on top, then a two-column area below —
- * Actions + Radios on the left (their own natural height, `self-start`), a Transcript on the
- * right that matches that height exactly with its own internal scroll. The row is CSS Grid
- * (`grid-cols-[minmax(18rem,28rem)_minmax(18rem,1fr)]`, roughly `DispatchView`'s own
- * `min-w-72 max-w-md flex-1` / `min-w-72 flex-1` column widths translated into grid tracks),
- * not flexbox — see `TranscriptCard`'s own doc comment for why that choice actually matters
- * here, not just style preference. `BeyondAtcView`'s `h-full` root is what gives this whole
- * area a real, window-bounded height to work with in the first place.
+ * Card-grid layout (beyondatc-panel-redesign.md): a compact info strip on top, then two columns: Actions + Radios on the
+ * left (their own natural height, `self-start`), a Transcript on the right that matches that height with its own
+ * internal scroll. The row is CSS Grid, not flexbox (see `TranscriptCard`), and `BeyondAtcView`'s `h-full` root gives the
+ * area a window-bounded height to work with.
  */
 const DISCONNECTED: BeyondAtcConnectionStatus = { state: 'disconnected', lastError: null }
 const NO_TRANSCRIPT: BeyondAtcTranscriptEntry[] = []
@@ -331,8 +309,7 @@ export function BeyondAtcPanel(): React.JSX.Element {
   const stepClimb = useLiveTopic('beyondAtcStepClimb', STEP_CLIMB_OFF)
   const arrival = useLiveTopic('beyondAtcArrival', null)
   const latestInstruction = useMemo(() => latestAtcInstruction(transcript, state), [transcript, state])
-  // The action just pressed, until BeyondATC transmits it (Callum, 2026-10-02: a press
-  // queued behind other traffic looked like it did nothing).
+  // The action just pressed, until BeyondATC transmits it: a press queued behind other traffic looked like it did nothing.
   const [pendingAction, setPendingAction] = useState<string | null>(null)
   const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 

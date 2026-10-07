@@ -114,20 +114,16 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   // in-session pause.
   private pausedIntervals: PausedInterval[] = []
   private openPauseStartIso: string | undefined
-  // Live-jump detection for resume-cleanup.ts's Phase 2 (winglog-backend's docs/plans/
-  // resume-track-cleanup.md) — cheap, incremental, and separate from the full pass run at
-  // completion: lastPersistedPoint lets each new sample be checked against just its one
-  // predecessor (Rule 2 is a per-pair test) without re-scanning the whole flight on every
-  // tick. resumeWindowDeadlineMs is only used to know when a window has timed out with
-  // nothing resolving it (Case C) — the jump check itself runs unconditionally either way,
-  // per the design decided 2026-09-13 (see resume-cleanup.ts's own doc comment).
+  // Live-jump detection for resume-cleanup.ts's Phase 2 (winglog-backend's docs/plans/resume-track-cleanup.md): cheap,
+  // incremental, and separate from the full pass at completion. lastPersistedPoint lets each new sample be checked against
+  // just its one predecessor (Rule 2 is a per-pair test) without re-scanning the flight on every tick.
+  // resumeWindowDeadlineMs only tells when a window has timed out with nothing resolving it (Case C); the jump check itself
+  // runs unconditionally (see resume-cleanup.ts).
   private lastPersistedPoint: TrackPoint | undefined
   private resumeWindowDeadlineMs: number | undefined
-  // The raw tick immediately before the current one — every tick, not just persisted ones
-  // (unlike lastPersistedPoint above, which skips whatever a phase's downsampling drops).
-  // landing-capture.ts's buildLandingRecord needs this exact predecessor for a more honest
-  // touchdown vertical speed than the touchdown tick's own value (winglog-backend's
-  // docs/plans/flight-replay-harness.md, 2026-09-14 finding).
+  // The raw tick immediately before the current one: every tick, not just persisted ones (unlike lastPersistedPoint above,
+  // which skips what a phase's downsampling drops). landing-capture.ts's buildLandingRecord needs this exact predecessor for
+  // a more honest touchdown vertical speed than the touchdown tick's own value (flight-replay-harness.md).
   private previousTelemetry: SimTelemetry | undefined
   // Latest touchdown-severity reading from SimConnectService's high-rate stream (v1.2 Part
   // 1), with the wall-clock time it arrived — undefined for a replayed flight (never
@@ -167,13 +163,10 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
       const result = this.recorder.ingest(telemetry, new Date())
       if (result.phase !== phaseBefore) this.emit('phaseChanged', { from: phaseBefore, to: result.phase, telemetry })
 
-      // The value startFlight wrote at tracking-start is only provisional (see
-      // finalizeFuelOut's doc comment) — corrected at the aircraft's first real ground
-      // movement (off-blocks), when ground fuel service is genuinely over. Not on leaving
-      // 'preflight': that also fires on engine combustion alone, which a stale post-reload
-      // tick can report too — real bug, flight 223 (2026-09-30): the phase flipped to
-      // 'pushback' 26s in, stationary, locking in a leftover 10,184 kg before the sim
-      // settled to 3,000 kg and GSX refuelled to ~6,268 kg, so "burn" exceeded the load.
+      // The value startFlight wrote at tracking-start is provisional (see finalizeFuelOut): corrected at the aircraft's first
+      // ground movement (off-blocks), when ground fuel service is over. Not on leaving 'preflight', which also fires on engine
+      // combustion alone, and a stale post-reload tick can report that too: the phase flipped to 'pushback' 26s in, stationary,
+      // locking in a leftover 10,184 kg before the sim settled to 3,000 kg and GSX refuelled, so "burn" exceeded the load.
       // Airborne without ever seeing that (tracking started in the air) is the fallback.
       const movedOnGround = telemetry.onGround && telemetry.groundSpeedMs > MOVING_MS && !telemetry.slewActive
       if ((movedOnGround || !telemetry.onGround) && result.phase !== 'preflight' && !this.fuelOutFinalized) {
@@ -397,17 +390,11 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   start(flightId: number): void {
     if (this.recorder) {
       const stale = this.recorder.getFlightId()
-      // A *different* flight is still 'active' in memory. If it's made zero real progress —
-      // no track points recorded, never even got off the ground — it's almost certainly a
-      // stale artifact (a dispatch attempt abandoned mid-setup, or auto-start firing for a
-      // since-superseded plan) rather than something worth protecting, so retire it
-      // automatically instead of blocking the flight actually being started now. Without
-      // this, that stale flight was left stuck at status='active' forever — invisible for
-      // the rest of the session, surfacing only as a confusing "resume?" prompt on the
-      // *next* app restart (a real orphaned flight found 2026-09-14, winglog-backend's
-      // docs/plans/flight-replay-harness.md). Same flightId, or any flight with real
-      // progress, still throws — never silently restart a duplicate call or abandon actual
-      // data.
+      // A *different* flight is still 'active' in memory. With zero real progress (no track points, never off the ground) it is
+      // almost certainly a stale artifact (a dispatch attempt abandoned mid-setup, or auto-start firing for a superseded plan),
+      // so retire it instead of blocking the flight being started now. Left alone it stays status='active' forever and surfaces
+      // as a confusing "resume?" prompt on the next restart (flight-replay-harness.md). Same flightId, or any flight with real
+      // progress, still throws: never silently restart a duplicate call or abandon actual data.
       const staleFlight = this.store.getFlight(stale)
       const hasProgress = staleFlight?.actualOffUtc != null || this.store.listTrackPoints(stale).length > 0
       if (stale === flightId || hasProgress) throw new Error(`Already tracking flight ${stale}`)
@@ -660,14 +647,11 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   }
 
   /**
-   * Incremental half of resume-cleanup.ts's Phase 2 — checked once per newly-persisted
-   * sample against just its immediate predecessor (Rule 2 is a per-pair test, so this
-   * never needs the whole flight's history to decide whether *this* pair looks like a
-   * jump). A real jump either resolves an open resume window (Case A/B) or, per the
-   * 2026-09-13 design decision, stands alone with none open at all (a payware aircraft's
-   * own save-state/reload feature, confirmed live with no WingLog resume anywhere near
-   * it) — either way `runTrackCleanup` below is the authoritative pass, cheap to run right
-   * now since it's bounded to one flight's own points, not per-tick cost.
+   * Incremental half of resume-cleanup.ts's Phase 2: checked once per newly-persisted sample against just its immediate
+   * predecessor (Rule 2 is a per-pair test, so this never needs the whole flight's history). A jump either resolves an open
+   * resume window (Case A/B) or stands alone with none open (a payware aircraft's own save-state/reload, with no WingLog
+   * resume near it). Either way `runTrackCleanup` below is the authoritative pass, cheap to run now since it is bounded to
+   * one flight's points.
    *
    * @param saved The point just stored.
    */
@@ -738,12 +722,10 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   }
 
 
-  /** Derives and stores the flight's flown-route polyline (route-simplify.ts) at
-   *  completion — same best-effort shape as the GSX snapshot above: reads back this
-   *  flight's own already-persisted track_point rows, so a failure here can't affect the
-   *  flight record, which is already marked completed by the time this runs. Synchronous
-   *  (unlike the GSX scan, no I/O involved), so no .catch needed — a thrown error here
-   *  would already be a real bug, not an expected "folder missing" case.
+  /** Derives and stores the flight's flown-route polyline (route-simplify.ts) at completion, best-effort like the GSX snapshot
+   *  above: it reads back this flight's already-persisted track_point rows, so a failure can't affect the flight record,
+   *  which is already marked completed. Synchronous (no I/O, unlike the GSX scan), so no .catch: a thrown error here would be
+   *  a real bug, not an expected "folder missing" case.
    *
    * @param flightId The flight just completed.
    */

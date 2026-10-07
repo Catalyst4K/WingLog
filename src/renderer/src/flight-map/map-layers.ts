@@ -18,47 +18,31 @@ import { planStyleChanges, type StyleLayerLike } from '../map-labels'
 import type { Waypoint } from '../route'
 import { uiMemory } from '../ui-memory'
 
-// maplibre-gl ships its tile-parsing worker as a separate chunk and locates it via its
-// own import.meta.url at runtime — a resolution that doesn't survive Vite's dependency
-// pre-bundling in dev, so pointing setWorkerUrl at Vite's resolved asset URL directly
-// (maplibreWorkerUrl) was the original fix for that. Two more layers of the same class of
-// bug surfaced once actually packaged, both confirmed live against a real build:
+// maplibre-gl ships its tile-parsing worker as a separate chunk and locates it via its own import.meta.url, which doesn't
+// survive Vite's dependency pre-bundling in dev, so setWorkerUrl points at Vite's resolved asset URL (maplibreWorkerUrl).
+// Two more problems appeared only in a packaged build:
 //
-// 1. `?url` copies the referenced file byte-for-byte as an opaque static asset — it never
-//    parses it as JS, so maplibre-gl-worker.mjs's own top-level `import ... from
-//    "./maplibre-gl-shared.mjs"` was never noticed, and that sibling chunk was never
-//    emitted into the build at all. Worked in dev only because Vite's dev server will
-//    happily serve any file a browser asks for straight out of node_modules, sibling
-//    chunk included — nothing about that generalizes to a real production build.
-//    `?worker&url` is the fix: it tells Vite this file *is* a worker entry point, so it
-//    traces and bundles that import's whole dependency graph into one genuinely
-//    self-contained chunk, instead of copying the file as inert bytes.
-// 2. Even a fully self-contained worker script still can't be loaded via `new
-//    Worker(url)` from a file:// URL that points *inside* an asar archive — Chromium
-//    doesn't extend the same asar transparency it gives a <script src> or a fetch() to a
-//    dedicated Worker's script load. Confirmed live: style/sprite/TileJSON all fetch
-//    fine, but not one .pbf tile request is ever even issued, because the worker never
-//    finishes initializing. Fetching the worker's source as text (which *does* work
-//    through asar, same as any other fetch) and handing maplibre a blob: URL instead
-//    sidesteps the limitation — safe now that the file has no external relative import
-//    left to resolve against that blob: URL. The CSP's `worker-src 'self' blob:` already
-//    anticipates exactly this mechanism.
+// 1. `?url` copies the file as an opaque static asset and never parses it as JS, so the worker's top-level
+//    `import ... from "./maplibre-gl-shared.mjs"` went unnoticed and that sibling chunk was never emitted. (Dev worked only
+//    because Vite's dev server serves any file out of node_modules.) `?worker&url` marks the file as a worker entry, so
+//    Vite bundles its whole dependency graph into one self-contained chunk.
+// 2. Even a self-contained worker can't be loaded via `new Worker(url)` from a file:// URL inside an asar archive:
+//    Chromium doesn't give a dedicated Worker's script load the asar transparency it gives <script src> or fetch(). Style,
+//    sprite and TileJSON fetch fine, but no .pbf tile request is ever issued. Fetching the worker's source as text (which
+//    works through asar) and handing maplibre a blob: URL sidesteps it, safe now that the file has no relative import left
+//    to resolve. The CSP's `worker-src 'self' blob:` anticipates this.
 export const ensureWorkerReady = lazy((): Promise<void> =>
   fetch(maplibreWorkerUrl)
     .then((res) => res.blob())
     .then((blob) => setWorkerUrl(URL.createObjectURL(blob)))
 )
 
-// docs/decisions.md, 2026-09-01 M4 tile source entry: OpenFreeMap, no key/quota/backend.
-// positron over liberty: a low-color basemap reads better under a flight track overlay.
-// 'dark' confirmed live 2026-09-08 (docs/plans/settings-ui-page.md) — a real OpenFreeMap-
-// hosted style, not assumed: `curl https://tiles.openfreemap.org/styles/dark` returns a
-// genuine style.json with a near-black background and matching muted layer colors, same
-// URL shape as positron's. Picked once at map creation from whatever theme is active then
-// (see documentElement's `dark` class, toggled by App.tsx) — deliberately not re-styled
-// live if the theme changes while a map is already mounted (rare: only 'system' resolving
-// differently mid-session, since every other theme change happens from Settings, which
-// isn't rendering a map at all) — timeboxed, not perfected, per the plan's own framing.
+// docs/decisions.md, 2026-09-01 M4 tile source entry: OpenFreeMap, no key/quota/backend. positron over liberty: a
+// low-color basemap reads better under a flight track overlay. 'dark' is a real OpenFreeMap style with a near-black
+// background and muted layer colors (docs/plans/settings-ui-page.md), the same URL shape as positron's. The style is picked
+// once at map creation from the active theme (documentElement's `dark` class, toggled by App.tsx) and not re-styled live
+// if the theme changes while a map is mounted: that is rare (only 'system' resolving differently mid-session), since every
+// other theme change happens from Settings, which renders no map.
 const MAP_STYLE_LIGHT = 'https://tiles.openfreemap.org/styles/positron'
 const MAP_STYLE_DARK = 'https://tiles.openfreemap.org/styles/dark'
 
@@ -71,13 +55,10 @@ export function isDarkTheme(): boolean {
   return document.documentElement.classList.contains('dark')
 }
 
-// `text-halo-color` draws a thin outline around each glyph, not a solid background behind
-// it — with a *dark* fill colour that outline is the only part of the letter that isn't
-// dark-on-dark, so on the dark basemap this app's own waypoint/taxiway labels (paint
-// properties fixed at layer-creation time, unrelated to the vector style's own colours)
-// went from readable to genuinely illegible once dark mode existed (real complaint,
-// 2026-09-08). Picked once alongside the basemap style below, same rationale for not
-// re-styling live if the theme changes mid-session.
+// `text-halo-color` draws a thin outline around each glyph, not a solid background. With a *dark* fill colour the outline is
+// the only part of the letter that isn't dark-on-dark, so on the dark basemap this app's own waypoint and taxiway labels
+// (paint properties fixed at layer creation, independent of the vector style's colours) were illegible. Picked once
+// alongside the basemap style below, and not re-styled live for the same reason.
 function waypointLabelColors(dark: boolean): { color: string; halo: string } {
   return dark ? { color: '#c7d3e0', halo: '#05070a' } : { color: '#555', halo: '#fff' }
 }
@@ -275,24 +256,13 @@ export function createFlightMap(container: HTMLDivElement, live: boolean, dark: 
     touchPitch: false,
     pitchWithRotate: false,
     dragRotate: false,
-    // `compact: true` is MapLibre's own mechanism for exactly this attribution, and
-    // OpenFreeMap's docs point to trusting MapLibre's default handling as sufficient
-    // ("If you are using MapLibre, they are automatically added, you have nothing to
-    // do") — confirmed 2026-09-07. Deliberately not left at its actual default
-    // (`compact: undefined`, auto-decided by container width) or the `compact: false`
-    // this was forced to for a time: read MapLibre's own AttributionControl source to
-    // confirm what each does, rather than assume from the option name. `undefined`
-    // re-evaluates on every 'resize' — the exact bug this was chasing
-    // (flight-test-findings-2026-09-06.md #2): before this component's own container
-    // settled to its final size, that could flip the control from collapsed to
-    // expanded a moment after mount, a real layout shift confirmed live via the
-    // Layout Instability API. `true` never re-evaluates by width, closing that gap —
-    // but it isn't a small icon from the first frame either: MapLibre starts a
-    // `compact: true` control in its *expanded* state and only collapses it to an
-    // icon after the user's first drag/pan (maplibre-gl-dev.mjs's
-    // `_updateCompactMinimize`, wired to the map's 'drag' event, not 'zoom'). So the
-    // real, verified behavior is: no more shift, and less space taken once the user
-    // actually pans the map — not "always the small icon."
+    // `compact: true` is MapLibre's mechanism for this attribution, and OpenFreeMap's docs say MapLibre's default handling is
+    // sufficient. Not left at its default (`compact: undefined`, auto-decided by container width) or `compact: false`
+    // (MapLibre's AttributionControl source shows what each does): `undefined` re-evaluates on every 'resize', so before this
+    // component's container settled it could flip the control from collapsed to expanded after mount, a layout shift
+    // (flight-test-findings-2026-09-06.md #2). `true` never re-evaluates by width, closing that gap, but MapLibre starts a
+    // `compact: true` control *expanded* and only collapses it to an icon after the first drag (`_updateCompactMinimize`, on
+    // 'drag', not 'zoom'): no more shift, and less space taken once the user pans, not "always the small icon".
     attributionControl: { compact: true }
   })
   // dragRotate/pitchWithRotate above already stop the mouse-drag gesture; these two
@@ -434,14 +404,10 @@ function addWaypointLayers(map: MapLibreMap, dark: boolean): void {
  * @param dark Whether the dark theme is on.
  */
 function addTaxiwayLabels(map: MapLibreMap, dark: boolean): void {
-  // Taxiway designators when zoomed into an airport (docs/plans/map-improvements.md
-  // #3) — needs no new data source: the base style's own vector tiles (source id and
-  // aeroway layers confirmed directly against the real style JSON, 2026-09-07) already
-  // carry taxiway geometry and `ref` values (e.g. "Taxiway R", "A5"), drawing the
-  // lines themselves from zoom 12 already. This is purely the missing label layer.
-  // Runway idents (`class == 'runway'`, e.g. "09L/27R") come from the same source
-  // layer for free. Coverage is OSM-derived and varies by airport — a taxiway with no
-  // `ref` in the data simply renders unlabelled, which degrades fine.
+  // Taxiway designators when zoomed into an airport (docs/plans/map-improvements.md #3). Needs no new data source: the base
+  // style's own vector tiles already carry taxiway geometry and `ref` values (e.g. "Taxiway R", "A5") and draw the lines
+  // from zoom 12, so this is only the missing label layer. Runway idents (`class == 'runway'`, e.g. "09L/27R") come from
+  // the same source layer. Coverage is OSM-derived and varies by airport; a taxiway with no `ref` renders unlabelled.
   const taxiwayLabel = taxiwayLabelColors(dark)
   map.addLayer({
     id: 'aeroway-taxiway-label',

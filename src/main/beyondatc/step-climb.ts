@@ -12,25 +12,19 @@ import { greatCircleNm, METRES_PER_NM } from '@shared/geo'
 import { METRES_PER_FOOT } from '@shared/units'
 
 /**
- * BeyondATC auto step climb (winglog-backend's docs/plans/beyondatc-auto-step-climb.md).
- * BeyondATC only changes the cleared level when the pilot asks; an aircraft left to fly its
- * own step climbs overnight drifts out of step with it. While switched on, this asks for each
- * new level itself. Callum's decisions, 2026-10-01:
+ * BeyondATC auto step climb (winglog-backend's docs/plans/beyondatc-auto-step-climb.md). BeyondATC only changes the cleared level
+ * when the pilot asks; an aircraft left to fly its own step climbs overnight drifts out of step with it. While switched on, this
+ * asks for each new level itself.
  *
- * - **Two triggers.** SimBrief's planned steps say *where* (asked for under a minute before
- *   the step point); the FCU says *when* — an aircraft's own auto step climb changes the
- *   selected altitude the moment it starts the step.
+ * - **Two triggers.** SimBrief's planned steps say *where* (asked for under a minute before the step point); the FCU says *when*:
+ *   an aircraft's own auto step climb changes the selected altitude the moment it starts the step.
  * - **Climbs only.**
  * - **Retry once**, then drop that level and move on.
- *
- * Tightened after the first real long-haul (YBBN-VHHH, 2026-10-02), where a descent clearance
- * to 13,000 ft with the FCU still on FL400 read as "the FCU is above the cleared level" and
- * asked for FL400 at top of descent:
- * - The FCU alone only brings forward the **next planned step**. Any other FCU level is asked
- *   for only once the aircraft is actually climbing to it — a dial-up with no climb (knob
- *   fiddling, a level left set after a descent clearance) asks for nothing.
- * - **No requests past top of descent** (SimBrief's TOD fix). A descent clearance on its own
- *   doesn't stop it — a mid-flight descent can be followed by a climb back up.
+ * - The FCU alone only brings forward the **next planned step**. Any other FCU level is asked for only once the aircraft is
+ *   climbing to it, so a dial-up with no climb (knob fiddling, or a level left set after a descent clearance such as 13,000 ft
+ *   with the FCU still on FL400) asks for nothing.
+ * - **No requests past top of descent** (SimBrief's TOD fix). A descent clearance on its own doesn't stop it: a mid-flight
+ *   descent can be followed by a climb back up.
  */
 
 const FEET_PER_METRE = 1 / METRES_PER_FOOT
@@ -76,14 +70,13 @@ export interface StepPlan {
   todOrder: number | null
 }
 
-/** The OFP's planned step climbs, placed on the route via their navlog fix — `parseOfp` gives
- *  the levels (metric-aware), the raw navlog gives each fix's `pos_lat`/`pos_long` and order.
- *  A step whose fix isn't in the navlog is skipped (the FCU trigger still covers it).
+/** The OFP's planned step climbs, placed on the route via their navlog fix: `parseOfp` gives the levels (metric-aware), the raw
+ *  navlog gives each fix's `pos_lat`/`pos_long` and order. A step whose fix isn't in the navlog is skipped (the FCU trigger still
+ *  covers it).
  *
- *  **Down steps are filtered out** (Callum, 2026-10-01): over China the levels swap with
- *  direction, so a plan steps up *and* down. The iniBuilds A350 won't fly a step down and
- *  most pilots never program them, so only a step above every level planned before it counts
- *  — 11,300 m → 10,700 m → 11,900 m keeps just the 11,900 m step.
+ *  **Down steps are filtered out**: over China the levels swap with direction, so a plan steps up *and* down, but the iniBuilds A350
+ *  won't fly a step down and most pilots never program them. Only a step above every level planned before it counts: 11,300 m ->
+ *  10,700 m -> 11,900 m keeps just the 11,900 m step.
  *
  * @param ofpJson The flight's stored OFP, or null.
  * @returns The route fixes, the planned climbs and the TOD fix.

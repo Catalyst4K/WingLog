@@ -124,11 +124,9 @@ function epochSecondsToIso(value: unknown): string {
 }
 
 /**
- * Recursively searches a parsed JSON value for the first string-valued property named
- * `key`, at any depth. Used instead of a fixed path (e.g. `general.stepclimb_string`)
- * because only the field's name and value have been confirmed against a real SimBrief
- * response — not which section it lives under — see the docs/decisions.md entry for
- * 2026-09-02 on why a third guess at the JSON path was avoided.
+ * Recursively searches a parsed JSON value for the first string-valued property named `key`, at any depth. Used instead of a
+ * fixed path (e.g. `general.stepclimb_string`) because only the field's name and value are confirmed against a real SimBrief
+ * response, not which section it lives under (docs/decisions.md, 2026-09-02).
  *
  * @param value The parsed JSON.
  * @param key The property name.
@@ -157,25 +155,19 @@ function findStringField(value: unknown, key: string): string | undefined {
 const MAX_PLAUSIBLE_FLIGHT_LEVEL_FT = 52_000
 
 /**
- * Parses SimBrief's `stepclimb_string` field — a flat "IDENT/CODE/IDENT/CODE/..." string
- * that mirrors the "FL STEPS" line on the OFP text itself. Confirmed against a real
- * China-crossing OFP (2026-09-02, see docs/decisions.md):
- * `"EGLL/0330/DENAK/0350/SUDAR/0370/KAMUD/1130/OMBON/1190"`.
+ * Parses SimBrief's `stepclimb_string` field: a flat "IDENT/CODE/IDENT/CODE/..." string mirroring the "FL STEPS" line on the OFP
+ * text, e.g. `"EGLL/0330/DENAK/0350/SUDAR/0370/KAMUD/1130/OMBON/1190"` from a China-crossing OFP (docs/decisions.md, 2026-09-02).
  *
  * Each 4-digit code is one of two notations, with nothing in the string marking which:
- * - A standard flight level, in hundreds of feet (e.g. "0330" = FL330 = 33,000 ft).
- * - A metric flight level, used once a flight crosses into airspace (e.g. China) that
- *   assigns levels in metres — in tens of metres (e.g. "1130" = 11,300 m ≈ 37,073 ft).
+ * - A standard flight level, in hundreds of feet ("0330" = FL330 = 33,000 ft).
+ * - A metric flight level, used once a flight crosses into airspace (e.g. China) that assigns levels in metres, in tens of
+ *   metres ("1130" = 11,300 m ≈ 37,073 ft).
  *
- * The two ranges genuinely overlap: China's metric RVSM levels run from roughly 600 m to
- * 14,900 m, i.e. codes 0060-0990, so a code alone can't disambiguate (e.g. "0890" is a
- * plausible FL890 *and* a plausible 8,900 m — a real case that broke an earlier
- * code>=1000 threshold, see docs/decisions.md 2026-09-06/07). Resolved instead by
- * cross-referencing `waypointAltitudesFt`, keyed by the same ident the step climb uses
- * (built from the same OFP's `navlog.fix[]`, which gives the real altitude in feet with
- * no guessing) — whichever notation's converted value lands closer to the known altitude
- * wins. Only an ident with no navlog match falls back to a plausibility threshold: a
- * "flight level" above ~FL520 must actually be metric.
+ * The ranges overlap: China's metric RVSM levels run from roughly 600 m to 14,900 m, i.e. codes 0060-0990, so a code alone can't
+ * disambiguate ("0890" is a plausible FL890 *and* 8,900 m; a code>=1000 threshold broke on exactly that, docs/decisions.md
+ * 2026-09-06/07). Resolved instead by cross-referencing `waypointAltitudesFt`, keyed by the same ident (built from the OFP's
+ * `navlog.fix[]`, which gives the real altitude in feet): whichever notation's converted value lands closer to the known altitude
+ * wins. Only an ident with no navlog match falls back to a plausibility threshold: a "flight level" above ~FL520 must be metric.
  *
  * @param stepclimbString The `stepclimb_string` field, if the OFP has one.
  * @param waypointAltitudesFt The navlog's altitude at each fix, in feet.

@@ -21,12 +21,10 @@ import { assignedGate, parseAtcTaxiFacts } from '@shared/atc-info-boxes'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { logger } from '../logging/logger'
 
-/** `BeyondATC.exe`'s own real local port, confirmed live 2026-09-25 (docs/beyondatc-notes.md)
- *  — `0.0.0.0:41716`, LAN-reachable, real `websocket-sharp` server. Fixed and not user-
- *  configurable on BeyondATC's own side (unlike GSX's genuinely variable Remote Client
- *  port), so this is the one production callers ever pass. The second port BeyondATC opens,
- *  `[::1]:57700`, is a different, unrelated, effectively unreachable server (a confirmed bug
- *  in BeyondATC's own IPv6 handling) — never connect to it. */
+/** `BeyondATC.exe`'s own local port (docs/beyondatc-notes.md): `0.0.0.0:41716`, LAN-reachable, a `websocket-sharp`
+ *  server. Fixed and not user-configurable on BeyondATC's side (unlike GSX's variable Remote Client port), so this is the
+ *  one production callers pass. The second port BeyondATC opens, `[::1]:57700`, is an unrelated, effectively unreachable
+ *  server (a bug in BeyondATC's IPv6 handling): never connect to it. */
 export const BEYONDATC_PORT = 41716
 
 /** The port an e2e test's fake BeyondATC listens on (WINGLOG_E2E_BEYONDATC_PORT): the OS picks
@@ -41,15 +39,11 @@ export function e2eBeyondAtcPort(value: string | undefined): number | undefined 
   return value !== undefined && Number.isInteger(port) && port > 0 && port < 65536 ? port : undefined
 }
 
-/** The `ws` npm package's WebSocket, not the global/`node:http` one — confirmed live,
- *  2026-09-28: Node's built-in WebSocket silently drops every line after the first when
- *  BeyondATC's own initial snapshot arrives as one large multi-line burst (~18 lines,
- *  including two full DATIS reports and a large Settings blob — big enough to fragment
- *  across multiple frames/packets, unlike this file's own small test fixtures, which never
- *  exercised a real-sized message). `ws` reassembles it correctly; the global implementation
- *  doesn't. Injected so tests don't need a real BeyondATC install (mirrors GsxRemoteService's
- *  own WebSocketCtor injection, which has the identical import for the same latent reason —
- *  not independently reproduced live, but fixed preventively). */
+/** The `ws` npm package's WebSocket, not the global/`node:http` one: Node's built-in WebSocket silently drops every line
+ *  after the first when BeyondATC's initial snapshot arrives as one large multi-line burst (~18 lines, including two full
+ *  DATIS reports and a large Settings blob, enough to fragment across frames), which small test fixtures never exercise.
+ *  `ws` reassembles it correctly. Injected so tests don't need a real BeyondATC install (like GsxRemoteService's
+ *  WebSocketCtor, which has the same import preventively). */
 export type WebSocketCtor = ServiceSocketCtor
 
 // Reconnect behaviour is undesigned on BeyondATC's own side (winglog-backend's
@@ -226,17 +220,13 @@ function parseFrequencies(rest: string): BeyondAtcFrequencyOption[] {
 }
 
 /**
- * Owns the live WebSocket connection to `BeyondATC.exe`'s own local server
- * (winglog-backend's docs/plans/beyondatc-integration.md; real protocol findings in
- * docs/beyondatc-notes.md, confirmed live 2026-09-25). Parses BeyondATC's plain-text
- * `Key: value`/`Key: <JSON>` line protocol — a genuinely different wire shape from GSX
- * Remote Control's JSON-envelope snapshot/patch messages, even though the rest of this
- * class (constructor, start/stop, reconnect, event emitter) mirrors GsxRemoteService
- * directly. Surfaces Parts 1-2's original state/commands (transcript, live facility/com2/
- * callsign/commsState/progress, Actions, set_action/set_frequency*) plus AutoTune/
- * AutoRespond and the real Frequencies list (both confirmed live 2026-09-29, panel-redesign
- * work) — everything else in the wire catalogue (DATIS, CPDLC code, settings, …) is simply
- * never reflected in getState(), not an oversight.
+ * Owns the live WebSocket connection to `BeyondATC.exe`'s own local server (winglog-backend's
+ * docs/plans/beyondatc-integration.md; protocol findings in docs/beyondatc-notes.md). Parses BeyondATC's plain-text
+ * `Key: value`/`Key: <JSON>` line protocol, a different wire shape from GSX Remote Control's JSON-envelope
+ * snapshot/patch messages, even though the rest of this class (constructor, start/stop, reconnect, event emitter) mirrors
+ * GsxRemoteService. Surfaces the transcript, live facility/com2/callsign/commsState/progress, Actions, AutoTune/AutoRespond
+ * and the Frequencies list, with the set_action, set_frequency, set_autotune and set_autorespond commands. Everything else in the
+ * wire catalogue (DATIS, CPDLC code, settings, …) is deliberately never reflected in getState().
  */
 export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
   private ws: ServiceSocket | undefined

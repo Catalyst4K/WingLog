@@ -109,14 +109,10 @@ export function formatCentrelineOffset(meters: number, unit: LandingDistanceUnit
 }
 
 /**
- * Pitch at touchdown, for display only. `pitchDeg` is stored exactly as MSFS's own
- * `PLANE PITCH DEGREES` SimVar reports it — negative for nose-up, positive for nose-down
- * (confirmed against real captured data, winglog-backend's docs/simconnect-notes.md,
- * 2026-09-03; landing-score.ts's PITCH_IDEAL_DEG relies on this same convention and must
- * stay in that SimVar-native sign). That convention reads backwards to a pilot: normal
- * aviation usage states a flare as a positive "4-7° nose-up," not a negative number
- * (Callum, 2026-09-13 — "I think you forgot to flip the value for the user to read").
- * This negates purely for display, so a -4.2° SimVar reading shows as "4.2°" here.
+ * Pitch at touchdown, for display only. `pitchDeg` is stored exactly as MSFS's `PLANE PITCH DEGREES` SimVar reports it: negative
+ * for nose-up, positive for nose-down (winglog-backend's docs/simconnect-notes.md, 2026-09-03; landing-score.ts's PITCH_IDEAL_DEG
+ * relies on the same convention and must stay in that SimVar-native sign). That reads backwards to a pilot, who states a flare as
+ * a positive "4-7° nose-up". This negates purely for display, so a -4.2° SimVar reading shows as "4.2°".
  *
  * @param pitchDeg Pitch as the SimVar reports it (negative nose-up).
  * @returns The pitch text.

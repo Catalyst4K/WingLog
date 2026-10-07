@@ -201,12 +201,10 @@ export function useOrphanedFlight(
 }
 
 /**
- * Reads each new set of BeyondATC InfoBoxes for a clearance whose fields differ from the
- * current selection, and holds it for the user's accept or dismiss — Callum's own precedence
- * decision, 2026-09-25: overwrite, but ask first, gently. Never ATC's speech
- * (winglog-backend's docs/decisions.md, 2026-10-05). Re-subscribes whenever the selection
- * changes so a diff is always checked against the live value, the same "just resubscribe,
- * it's cheap" style procedure-selection.ts's own fetch effects already use.
+ * Reads each new set of BeyondATC InfoBoxes for a clearance whose fields differ from the current selection, and holds it for the
+ * user's accept or dismiss: overwrite, but ask first, gently (decided 2026-09-25). Never ATC's speech (winglog-backend's
+ * docs/decisions.md, 2026-10-05). Re-subscribes whenever the selection changes so a diff is always checked against the live value,
+ * the same "just resubscribe, it's cheap" style as procedure-selection.ts's fetch effects.
  *
  * @param selection The current procedure selection.
  * @param setSelection Applies an accepted clearance.

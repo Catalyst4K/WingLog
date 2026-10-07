@@ -1,38 +1,27 @@
 /**
- * Traces a BeyondATC taxi clearance through the airport's real taxi network, instead of
- * highlighting every segment that shares a taxiway name (winglog-backend's
- * docs/plans/beyondatc-taxi-route-highlight.md). Real bug that prompted this, VHHH
- * 2026-09-30: "taxi to holding point B10, runway 25C, via B8, B" lit up all ~3.9 km of B
- * across the airport; the real route is ~0.9 km.
+ * Traces a BeyondATC taxi clearance through the airport's real taxi network, instead of highlighting every segment that
+ * shares a taxiway name (winglog-backend's docs/plans/beyondatc-taxi-route-highlight.md). Without it, "taxi to holding
+ * point B10, runway 25C, via B8, B" lit up all ~3.9 km of B at VHHH; the real route is ~0.9 km.
  *
- * A shortest path (Dijkstra) over (node, stage) states, where the stage is how far through
- * the cleared taxiway sequence the route has got. Real-data findings it's built around
- * (spiked live against VHHH's facility data, same date):
- * - Segments join at shared TAXI_POINTs, so identical endpoint coordinates are the graph's
- *   nodes.
- * - The sim's own taxiway names don't always match ATC's: VHHH's scenery calls the 137 m
- *   stretch between B and B10 "B12", which the clearance never mentions. Segments with an
- *   unlisted name are allowed, at `OFF_ROUTE_COST_FACTOR` times their length, so the cleared
- *   names always win but a short scenery-naming gap doesn't break the whole trace.
- * - Unnamed segments (junction fillets, stand lead-ins) cost their plain length. So does any
- *   segment before the route reaches its first cleared taxiway: getting from the stand to the
- *   cleared route is the pilot's choice (VHHH, flight 230: B8 at 5× lost to the lead-ins).
+ * A shortest path (Dijkstra) over (node, stage) states, where the stage is how far through the cleared taxiway sequence
+ * the route has got. Built around these findings in real facility data (VHHH):
+ * - Segments join at shared TAXI_POINTs, so identical endpoint coordinates are the graph's nodes.
+ * - The sim's taxiway names don't always match ATC's: VHHH's scenery calls the 137 m stretch between B and B10 "B12",
+ *   which the clearance never mentions. Segments with an unlisted name are allowed, at `OFF_ROUTE_COST_FACTOR` times
+ *   their length, so the cleared names win but a short scenery-naming gap doesn't break the trace.
+ * - Unnamed segments (junction fillets, stand lead-ins) cost their plain length. So does any segment before the route
+ *   reaches its first cleared taxiway: getting from the stand to the cleared route is the pilot's choice.
  *
  * Where it ends:
- * - **A holding point** ("taxi to holding point A9 … via C9, B9"): along the holding-point
- *   taxiway to its hold-short point, or to its far end if that comes first — where it meets
- *   the runway, which isn't in the taxi network, so a dead end (nothing else joins there; a
- *   point where the name merely stops, like ZJSY's A becoming A1, isn't one). YBBN's A9 (real flight,
- *   2026-10-02) carries its only hold-short flag at the B9 end, where the aircraft *enters*
- *   A9; requiring a hold-short point made every YBBN trace fail, falling back to whole
- *   taxiways (the "star at every junction" report).
- * - **A stand** ("taxi to Stand N32 via J, H6, H, V, B"): with the stand's position (the sim's
- *   TAXI_PARKING data, stand-positions.md), on along the network to the point nearest the
- *   stand and then the stand itself. Without it — or if the stand can't be reached that way —
- *   where the route joins its last cleared taxiway: the part that's certain, rather than every
- *   segment of J, H6, H, V and B across the airport.
- * The holding point must be a taxiway name in the data; otherwise null, and the caller falls
- * back to highlighting whole taxiways by name.
+ * - **A holding point** ("taxi to holding point A9 … via C9, B9"): along the holding-point taxiway to its hold-short
+ *   point, or to its far end if that comes first, where it meets the runway (not in the taxi network, so a dead end;
+ *   a point where the name merely stops, like ZJSY's A becoming A1, isn't one). It cannot require a hold-short point:
+ *   YBBN's A9 carries its only hold-short flag at the B9 end, where the aircraft *enters* A9.
+ * - **A stand** ("taxi to Stand N32 via J, H6, H, V, B"): with the stand's position (the sim's TAXI_PARKING data,
+ *   stand-positions.md), on along the network to the point nearest the stand and then the stand itself. Without it, or
+ *   if the stand can't be reached that way, where the route joins its last cleared taxiway: the part that's certain.
+ * The holding point must be a taxiway name in the data; otherwise null, and the caller falls back to highlighting whole
+ * taxiways by name.
  */
 
 import type { NavdataTaxiSegment } from '@shared/ipc'
@@ -76,10 +65,9 @@ export type TracedRoute = [number, number][]
 
 /** Above this from the aircraft's heading, a first edge counts as going the wrong way. */
 export const WRONG_WAY_DEG = 120
-/** An airliner can't turn round in the middle of a taxiway, so starting the wrong way costs more
- *  than any sensible way round; it only wins when there's no way forwards at all (a dead-end
- *  stand row). A ×10 factor on the first edge wasn't enough: with a short first edge, YBBN
- *  (flight 225, simulated) re-routed back behind the aircraft twice before following it. */
+/** An airliner can't turn round in the middle of a taxiway, so starting the wrong way costs more than any sensible way
+ *  round; it only wins when there's no way forwards at all (a dead-end stand row). A ×10 factor on the first edge wasn't
+ *  enough: with a short first edge the trace re-routed back behind the aircraft (taxi-reroute.md). */
 const WRONG_WAY_PENALTY_M = 3_000
 
 /**
@@ -395,14 +383,10 @@ function edgeMoves(search: TraceSearch, stage: number, edge: Edge): [number, num
   const nextName = sequence[stage + 1]
   if (edge.name !== null && edge.name === nextName) moves.push([stage + 1, edge.lengthM])
   if (edge.name === null || (stage >= 0 && edge.name === sequence[stage])) moves.push([stage, edge.lengthM])
-  // Before the first cleared taxiway, how to get there is the pilot's choice, so a named
-  // taxilane costs its plain length like an unnamed lead-in. VHHH, 2026-10-05: from B8,
-  // cleared "via B, B, V, H, J", 5× on B8 sent the line zigzagging through every gate
-  // lead-in beside it instead of straight along B8.
-  // The same at the other end of a stand clearance: from the last cleared taxiway to the
-  // stand. VHHH flight 225, "taxi to N32 via J, H6, H, V, B": the gate taxilane to N32 is
-  // B7, which ATC doesn't name, so at 5× the line hopped in and out of every gate lead-in
-  // along it (found simulating real taxis, 2026-10-06).
+  // Before the first cleared taxiway, how to get there is the pilot's choice, so a named taxilane costs its plain length
+  // like an unnamed lead-in: at 5×, the line zigzagged through every gate lead-in beside B8 instead of straight along it.
+  // The same at the other end of a stand clearance, from the last cleared taxiway to the stand: the gate taxilane (B7
+  // for N32) isn't named by ATC, so at 5× the line hopped in and out of every gate lead-in along it.
   else if (edge.name !== nextName) {
     const pilotsChoice = stage < 0 || (standNode >= 0 && stage === sequence.length - 1)
     moves.push([stage, pilotsChoice ? edge.lengthM : edge.lengthM * OFF_ROUTE_COST_FACTOR])
@@ -422,11 +406,9 @@ function isRouteEnd(search: TraceSearch, state: number, node: number): boolean {
   const { graph, holdingPoint, standNode, strictEnd } = search
   if (!holdingPoint) return standNode < 0 || node === standNode
   const cameFromNode = cameFromNodeOf(search, state)
-  // The final stage stays the same over unnamed and off-route edges, so check that the edge
-  // just driven really was the holding point's. Without this, ZJSY's "holding point A, runway
-  // 08, via D, B7, A" (real flight, 2026-10-02) ended one unnamed fillet off A, ~150 m past
-  // B7, instead of at A's hold short by the runway 08 threshold: that fillet's far point has
-  // no A edge, so it passed for "A's far end".
+  // The final stage stays the same over unnamed and off-route edges, so check that the edge just driven really was the
+  // holding point's. Without this, ZJSY's "holding point A, runway 08, via D, B7, A" ended one unnamed fillet off A, ~150 m
+  // past B7: that fillet's far point has no A edge, so it passed for "A's far end".
   if (cameFromNode < 0 || !edgesOf(graph, cameFromNode).some((e) => e.to === node && e.name === holdingPoint))
     return false
   if (itemAt(graph.nodes, node, 'taxi node').holdShort) return true
@@ -471,16 +453,13 @@ export interface RejoinRequest {
 }
 
 /**
- * A re-route (winglog-backend's docs/plans/taxi-reroute.md): the shortest total way from
- * the aircraft to the end of the cleared route, joining it at whichever of its points makes
- * that shortest and then following it. Callum, 2026-10-06: "rejoin the route at the most
- * sensible point to get to the final destination". Getting to the route costs plain distance
- * on any taxiway. Pulling the pilot back to the next cleared taxiway instead pointed flight
- * 227 back along D for the whole taxi while it went the other way to the same hold.
+ * A re-route (winglog-backend's docs/plans/taxi-reroute.md): the shortest total way from the aircraft to the end of the
+ * cleared route, joining it at whichever of its points makes that shortest and then following it. Getting to the route
+ * costs plain distance on any taxiway; pulling the pilot back to the next cleared taxiway instead pointed back along
+ * the route for a whole taxi while the aircraft went the other way to the same hold.
  *
- * Joins only from `fromSegment` on, so never back onto a part already driven. The end (the
- * hold or the stand) is always the original route's. Null when the aircraft is off the
- * network or nothing joins.
+ * Joins only from `fromSegment` on, so never back onto a part already driven. The end (the hold or the stand) is always
+ * the original route's. Null when the aircraft is off the network or nothing joins.
  *
  * @param request The network, the cleared route, how far along it the aircraft is, and where it is.
  * @returns The new route, or null.
@@ -594,10 +573,9 @@ export interface RemainingRoute {
 const MAX_FOLLOW_DISTANCE_M = 150
 
 /**
- * What's left of a traced route from the aircraft, drawn from the aircraft itself (Callum,
- * 2026-10-02: the line should start at the plane, not somewhere ahead of it). The part already
- * taxied drops away. `fromSegment` is the furthest segment reached so far — the search never
- * goes back, so a route passing close to itself can't jump backwards.
+ * What's left of a traced route from the aircraft, drawn from the aircraft itself: the line starts at the plane, and the
+ * part already taxied drops away. `fromSegment` is the furthest segment reached so far: the search never goes back, so a
+ * route passing close to itself can't jump backwards.
  *
  * @param route The traced route.
  * @param position The aircraft's position.

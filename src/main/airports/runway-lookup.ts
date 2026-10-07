@@ -17,13 +17,10 @@ import { METRES_PER_FOOT } from '@shared/units'
 export interface RunwayEnd {
   icao: string
   ident: string
-  /** This end's own physical threshold position — OurAirports' `le_latitude_deg`/
-   *  `he_latitude_deg` etc., the centre of the physical runway end (length_ft's own
-   *  definition explicitly includes displaced thresholds, confirmed against OurAirports'
-   *  data dictionary), not the displacement-adjusted usable threshold. Matching/gating
-   *  below is deliberately done against this physical point — a touchdown short of a
-   *  displaced threshold but still on the paved surface is still "on this runway", not a
-   *  different one. Use distanceFromUsableThresholdM for the distance actually reported. */
+  /** This end's physical threshold position (OurAirports' `le_latitude_deg`/`he_latitude_deg` etc.): the centre of the physical
+   *  runway end, since OurAirports' length_ft includes displaced thresholds, not the displacement-adjusted usable threshold.
+   *  Matching and gating below use this physical point deliberately: a touchdown short of a displaced threshold but still on the
+   *  paved surface is still "on this runway". Use distanceFromUsableThresholdM for the distance actually reported. */
   lat: number
   lon: number
   headingTrueDeg: number
@@ -56,12 +53,10 @@ function feetToMetersOrNull(raw: string | undefined): number | null {
 }
 
 /**
- * ICAO Annex 14, Vol I, §5.2.5 (aiming point marking) — the marking's distance from the
- * threshold depends on the runway's landing distance available. Sourced from the Manual
- * of Aerodrome Standards' Table 9-1 (a secondary source; the ≥2400m band was independently
- * confirmed against the primary Annex 14 text before this table was written) — worth a
- * cross-check against a primary ICAO source if this ever needs to be authoritative rather
- * than an informational display value. Null when lengthM itself is unknown.
+ * ICAO Annex 14, Vol I, §5.2.5 (aiming point marking): the marking's distance from the threshold depends on the runway's
+ * landing distance available. Sourced from the Manual of Aerodrome Standards' Table 9-1 (a secondary source; the ≥2400m band
+ * was confirmed against the primary Annex 14 text), so cross-check against a primary ICAO source if this ever needs to be
+ * authoritative rather than an informational display value. Null when lengthM itself is unknown.
  *
  * @param lengthM The runway's length in metres, or null.
  * @returns The aiming point's distance from the threshold, in metres, or null.
@@ -126,13 +121,11 @@ export function loadRunwayEnds(raw: string): RunwayEnd[] {
 // telling parallel runways apart, so heading doesn't need to be tight too.
 const MAX_HEADING_DIFFERENCE_DEG = 90
 
-// How far off the centreline a touchdown can be and still count as "on this runway", when
-// a candidate's own real widthM (Phase 1) isn't known — real runways are 30-90m wide, so
-// 100m already rejects a different, parallel strip while tolerating GPS/heading noise on
-// the real one. Used as a fallback only; see runwayLateralToleranceM below.
-// Exported for landing-score-resolver.ts's centreline-offset scoring tolerance, which
-// reuses this exact fallback when a runway's real width is unknown (docs/decisions.md,
-// 2026-09-12) — same value, not a second constant to keep in sync.
+// How far off the centreline a touchdown can be and still count as "on this runway" when a candidate's own widthM isn't
+// known: real runways are 30-90m wide, so 100m rejects a different, parallel strip while tolerating GPS and heading noise on
+// the real one. A fallback only; see runwayLateralToleranceM below. Exported for landing-score-resolver.ts's
+// centreline-offset scoring tolerance, which reuses this fallback when a runway's width is unknown (docs/decisions.md,
+// 2026-09-12): one value, not a second constant to keep in sync.
 export const FALLBACK_LATERAL_TOLERANCE_M = 100
 
 // Along-track bounds a touchdown must fall within, relative to the threshold. Small
@@ -174,22 +167,15 @@ export function distanceFromUsableThresholdM(position: RunwayRelativePosition, e
 }
 
 /**
- * Resolves a touchdown ICAO + heading + position to the matching runway end, using real
- * geometry rather than heading alone. Two candidate ends can share the same published
- * heading (parallel runways, e.g. 25L/25R) or publish slightly *different* integer-rounded
- * headings for what are physically parallel strips — either way, only position relative to
- * each candidate's own threshold can tell them apart, so heading only breaks a tie between
- * geometrically-plausible survivors rather than deciding on its own. (VHHH's 07L used to be
- * exactly this case, published as 74° against 07C/07R's 71° — turned out to be a genuine
- * OurAirports data error rather than a real integer-rounding quirk: 07L's own two threshold
- * coordinates geometrically bear ~71°, matching its siblings, and headingTrueDeg was
- * corrected to match, 2026-09-13. Kept as the design rationale here since the *general*
- * risk — a future re-vendor reintroducing this, or a different airport with a real one —
- * is exactly what this position-first design is defending against.) A touchdown must fall
- * within a candidate's own real lateral tolerance (half its published width, plus a fixed
- * noise margin — resources/runways.csv's `width_ft`, Phase 1) of its centreline and within
- * its along-track bounds (its own real length, same source) to be considered at all. Falls
- * back to fixed, generous defaults for the rare candidate missing that data.
+ * Resolves a touchdown ICAO + heading + position to the matching runway end, using real geometry rather than heading alone.
+ * Two candidate ends can share the same published heading (parallel runways, e.g. 25L/25R) or publish slightly different
+ * integer-rounded headings for parallel strips, so only position relative to each candidate's own threshold can tell them
+ * apart; heading only breaks a tie between geometrically-plausible survivors. (VHHH's 07L was published as 74° against
+ * 07C/07R's 71°, a data error in OurAirports since corrected in headingTrueDeg. A re-vendor could reintroduce one, or
+ * another airport could have one, which is what this position-first design defends against.) A touchdown must fall within a
+ * candidate's lateral tolerance (half its published width, plus a fixed noise margin; resources/runways.csv's `width_ft`) of
+ * its centreline and within its along-track bounds (its length) to be considered at all. Falls back to fixed, generous
+ * defaults for the rare candidate missing that data.
  *
  * @param ends The runway ends to search.
  * @param icao The airport.
