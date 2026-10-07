@@ -26,6 +26,6 @@ export function useResetSignal(signal: number | undefined, onReset: () => void):
     // Deliberately re-runs only when `signal` changes — `onReset` is expected to be a
     // fresh closure each render (it usually just calls a setState), not a stable identity
     // worth tracking.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only a new signal resets; onReset is a fresh closure each render
   }, [signal])
 }

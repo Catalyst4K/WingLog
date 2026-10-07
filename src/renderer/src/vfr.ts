@@ -26,7 +26,12 @@ export const RECENT_TRAIL_MINUTES = 10
  * @param distanceNm Distance, nautical miles.
  * @returns The point, [lon, lat].
  */
-export function destinationLonLat(lat: number, lon: number, bearing: number, distanceNm: number): [number, number] {
+export function destinationLonLat(
+  lat: number,
+  lon: number,
+  bearing: number,
+  distanceNm: number
+): [number, number] {
   const to = destinationPoint({ lat, lon }, bearing, distanceNm * METRES_PER_NM)
   return [to.lon, to.lat]
 }
@@ -64,7 +69,8 @@ export function circleCoordinates(
 ): [number, number][] {
   const ring: [number, number][] = []
   for (let i = 0; i < steps; i++) ring.push(destinationLonLat(lat, lon, (i * 360) / steps, radiusNm))
-  ring.push(ring[0]!)
+  const first = ring[0]
+  if (first) ring.push(first)
   return ring
 }
 

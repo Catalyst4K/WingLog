@@ -11,6 +11,7 @@
  */
 
 import type { LandingScoreCategoryKey, LandingSeverity } from './ipc'
+import { msToFpm } from './units'
 
 export type WakeCategory = 'L' | 'M' | 'H' | 'J'
 
@@ -78,13 +79,6 @@ export function deriveLandingThresholds(category: WakeCategory | null): LandingT
   return { firmFpm: ideal * FIRM_MULTIPLIER, hardFpm: ideal * HARD_MULTIPLIER }
 }
 
-// Same conversion as src/renderer/src/units.ts's msToFpm, duplicated rather than imported
-// — that file is renderer-only (depends on @shared/ipc's unit-preference types for its
-// other exports) and this module needs to stay importable from the main process too.
-const M_PER_FT = 0.3048
-function msToFpm(ms: number): number {
-  return (ms / M_PER_FT) * 60
-}
 
 /**
  * Classifies a touchdown against derived thresholds. Vertical speed is negative

@@ -263,7 +263,12 @@ const DISTANCE_TERMINATED_LEG_TYPES = new Set([9, 10])
  * @param distanceM The leg's length, in metres.
  * @returns The leg's end point.
  */
-function legEnd(lat: number, lon: number, bearingDeg: number, distanceM: number): { lat: number; lon: number } {
+function legEnd(
+  lat: number,
+  lon: number,
+  bearingDeg: number,
+  distanceM: number
+): { lat: number; lon: number } {
   const to = destinationPoint({ lat, lon }, bearingDeg, distanceM)
   return { lat: to.lat, lon: wrapLongitude(to.lon) }
 }
@@ -429,7 +434,10 @@ export function approachRunway(approachIdent: string | null): string | null {
  * @param starEndFix The STAR's last fix, if known.
  * @returns The approach identifier, or null with none.
  */
-export function pickDefaultApproachIdentifier(options: NavdataProcedureOption[], starEndFix?: string | null): string | null {
+export function pickDefaultApproachIdentifier(
+  options: NavdataProcedureOption[],
+  starEndFix?: string | null
+): string | null {
   const connecting = starEndFix ? options.filter((o) => o.transition === starEndFix) : []
   const all = [...new Set((connecting.length > 0 ? connecting : options).map((o) => o.identifier))].sort()
   // The synthetic Visual approach stays opt-in (docs/plans/visual-approach.md) — it's only
@@ -437,5 +445,10 @@ export function pickDefaultApproachIdentifier(options: NavdataProcedureOption[],
   const instrument = all.filter((id) => !isVisualApproach(id))
   const identifiers = instrument.length > 0 ? instrument : all
   if (identifiers.length === 0) return null
-  return identifiers.find((id) => id.startsWith('ILS ')) ?? identifiers.find((id) => id.startsWith('LOC ')) ?? identifiers[0]!
+  return (
+    identifiers.find((id) => id.startsWith('ILS ')) ??
+    identifiers.find((id) => id.startsWith('LOC ')) ??
+    identifiers[0] ??
+    null
+  )
 }

@@ -69,9 +69,13 @@ export function clearanceAirport(
   const from = clearance.from
   let best: { icao: string; distance: number } | null = null
   for (const icao of [arrIcao, depIcao]) {
-    for (const s of (icao && segmentsByIcao[icao]) || []) {
-      const distance = Math.hypot(s.startLat - from.lat, (s.startLon - from.lon) * Math.cos((from.lat * Math.PI) / 180))
-      if (!best || distance < best.distance) best = { icao: icao!, distance }
+    if (!icao) continue
+    for (const s of segmentsByIcao[icao] ?? []) {
+      const distance = Math.hypot(
+        s.startLat - from.lat,
+        (s.startLon - from.lon) * Math.cos((from.lat * Math.PI) / 180)
+      )
+      if (!best || distance < best.distance) best = { icao, distance }
     }
   }
   return best?.icao ?? arrIcao
@@ -105,7 +109,8 @@ export function traceClearance(
   return traceTaxiRoute({
     segments,
     taxiways: clearance.taxiways,
-    holdingPoint: clearance.holdingPoint ?? (clearance.holdShortRunway ? (clearance.taxiways.at(-1) ?? null) : null),
+    holdingPoint:
+      clearance.holdingPoint ?? (clearance.holdShortRunway ? (clearance.taxiways.at(-1) ?? null) : null),
     from: clearance.from,
     stand
   })

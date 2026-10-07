@@ -4,8 +4,9 @@
  */
 
 import type { AltitudeUnit, LandingDistanceUnit, WeightUnit } from '@shared/ipc'
+import { KG_PER_LB, METRES_PER_FOOT, MS_PER_KT, mToFt } from '@shared/units'
 
-const KG_PER_LB = 0.45359237
+export { mToFt, msToFpm } from '@shared/units'
 
 /**
  * @param kg Kilograms.
@@ -23,35 +24,12 @@ export function lbToKg(lb: number): number {
   return lb * KG_PER_LB
 }
 
-const M_PER_FT = 0.3048
-
-/**
- * @param m Metres.
- * @returns Feet.
- */
-export function mToFt(m: number): number {
-  return m / M_PER_FT
-}
-
-const MS_PER_KT = 0.514444
-
 /**
  * @param ms Metres per second.
  * @returns Knots.
  */
 export function msToKt(ms: number): number {
   return ms / MS_PER_KT
-}
-
-/**
- * Vertical speed in feet per minute — the unit pilots actually think and set landing
- * thresholds in, unlike the SI m/s stored everywhere else.
- *
- * @param ms Metres per second.
- * @returns Feet per minute.
- */
-export function msToFpm(ms: number): number {
-  return (ms / M_PER_FT) * 60
 }
 
 /**
@@ -176,7 +154,7 @@ export function formatAltitude(
     case 'ft':
       return `${(Math.round(altitudeFt / 100) * 100).toLocaleString()} ft`
     case 'm':
-      return `${Math.round(altitudeFt * M_PER_FT).toLocaleString()} m`
+      return `${Math.round(altitudeFt * METRES_PER_FOOT).toLocaleString()} m`
     case 'hybrid':
       return native
         ? `${Math.round(native.value).toLocaleString()} ${native.unit}`

@@ -8,7 +8,8 @@ import { parseOfp } from '@shared/simbrief-ofp'
 import { logger } from '../logging/logger'
 import { boxClearedLevelFt } from '@shared/atc-info-boxes'
 import { requestAltitude, type AltitudeRequestSession } from './altitude-request'
-import { greatCircleNm } from '@shared/geo'
+import { greatCircleNm, METRES_PER_NM } from '@shared/geo'
+import { METRES_PER_FOOT } from '@shared/units'
 
 /**
  * BeyondATC auto step climb (winglog-backend's docs/plans/beyondatc-auto-step-climb.md).
@@ -32,7 +33,7 @@ import { greatCircleNm } from '@shared/geo'
  *   doesn't stop it — a mid-flight descent can be followed by a climb back up.
  */
 
-const FEET_PER_METRE = 1 / 0.3048
+const FEET_PER_METRE = 1 / METRES_PER_FOOT
 /** "Under a minute from the step" — measured as distance at the current ground speed. */
 const SIMBRIEF_LEAD_S = 60
 /** Floor for the lead distance, so a slow-moving test (or a ground-speed glitch) still fires. */
@@ -47,7 +48,7 @@ const MAX_ATTEMPTS = 2
 /** An FCU level within this of the next planned step is that step. */
 const PLANNED_MATCH_FT = 300
 /** "Actually climbing": above ~500 fpm, held this long. */
-const CLIMB_VS_MS = (500 * 0.3048) / 60
+const CLIMB_VS_MS = (500 * METRES_PER_FOOT) / 60
 const CLIMB_SUSTAIN_MS = 10_000
 /** An unplanned FCU level further than this above the cleared level is a slip of the knob. */
 const MAX_UNPLANNED_STEP_FT = 4000
@@ -333,7 +334,7 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
     upcoming: StepTarget | undefined,
     upcomingDistance: number | null
   ): { altitudeFt: number; reason: 'simbrief' | 'fcu' } | null {
-    const leadNm = Math.max(MIN_LEAD_NM, ((t.groundSpeedMs * 3600) / 1852) * (SIMBRIEF_LEAD_S / 3600))
+    const leadNm = Math.max(MIN_LEAD_NM, ((t.groundSpeedMs * 3600) / METRES_PER_NM) * (SIMBRIEF_LEAD_S / 3600))
     const candidates: { altitudeFt: number; reason: 'simbrief' | 'fcu' }[] = []
     if (upcoming && upcomingDistance !== null && upcomingDistance <= leadNm) {
       candidates.push({ altitudeFt: upcoming.altitudeFt, reason: 'simbrief' })

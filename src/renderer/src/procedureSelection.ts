@@ -1,8 +1,15 @@
 /** The SID, STAR and approach selection: seeding it, reading it back, and the live route it draws. */
 
 import { useEffect, useMemo, useState } from 'react'
-import type { NavdataLeg, ProcedureSelection } from '@shared/ipc'
-import { applyProcedureSelection, approachRunway, parseRouteProcedures, segmentWaypoints, type Waypoint } from './route'
+import type { NavdataLeg, NavdataProcedureKind, ProcedureSelection } from '@shared/ipc'
+import {
+  applyProcedureSelection,
+  approachRunway,
+  parseRouteProcedures,
+  segmentWaypoints,
+  type ProcedureLegs,
+  type Waypoint
+} from './route'
 
 /** Structural subset both DispatchOfp and Flight satisfy — useLiveWaypoints and
  *  ProcedureSelector only ever need these three fields, whichever kind of object Dispatch
@@ -108,7 +115,13 @@ interface FetchedLegs {
   legs: NavdataLeg[]
 }
 
-function legsKey(icao: string, kind: string, ident: string, runway: string | null, transition: string | null): string {
+function legsKey(
+  icao: string,
+  kind: string,
+  ident: string,
+  runway: string | null,
+  transition: string | null
+): string {
   return JSON.stringify([icao, kind, ident, runway, transition])
 }
 
@@ -117,11 +130,111 @@ function legsKey(icao: string, kind: string, ident: string, runway: string | nul
  * pilot switched to it.
  *
  * @param airports The flight's airports.
- * @param selection The selection.
+ * @param selection The selection (only its `arrivalIcao` is read).
  * @returns The arrival airport's ICAO code.
  */
-export function arrivalAirport(airports: ProcedureAirports, selection: ProcedureSelection): string {
+export function arrivalAirport(
+  airports: ProcedureAirports,
+  selection: Pick<ProcedureSelection, 'arrivalIcao'>
+): string {
   return selection.arrivalIcao ?? airports.arrIcao
+}
+
+/**
+ * The fetched legs to splice in for a procedure, or null to keep SimBrief's own segment.
+ *
+ * `legs.length > 0`, not just the identifier being set, gates each splice — an
+ * identifier whose fetch hasn't resolved yet, or whose legs come back genuinely empty
+ * (navdata not yet refreshed for this airport, or a naming mismatch between SimBrief's
+ * own SID/STAR name and the sim's), must fall back to SimBrief's own base segment
+ * rather than rendering a gap where that segment used to be. Only the SID/STAR base
+ * has anything to fall back to — an approach with no legs yet just contributes nothing,
+ * same as no approach chosen at all. The key check on top of that refuses a resolved
+ * fetch that no longer matches the current selection, rather than rendering it stale.
+ *
+ * @param identifier The selected procedure.
+ * @param key The key of the legs it needs.
+ * @param fetched The latest fetched legs, or null.
+ * @returns The legs, or null.
+ */
+function matchingLegs(identifier: string, key: string, fetched: FetchedLegs | null): ProcedureLegs | null {
+  return fetched?.key === key && fetched.legs.length > 0 ? { identifier, legs: fetched.legs } : null
+}
+
+/**
+ * Fetches one procedure's legs, tagged with the arguments they were fetched for (legsKey).
+ * An empty list stands in for a failed fetch.
+ *
+ * @param args The airport, kind, procedure, runway and transition.
+ * @param set Receives the legs, unless the returned cleanup ran first.
+ * @returns The effect cleanup: a fetch still in flight is then ignored.
+ */
+function fetchProcedureLegs(
+  args: [string, NavdataProcedureKind, string, string | null, string | null],
+  set: (fetched: FetchedLegs) => void
+): () => void {
+  let ignore = false
+  const key = legsKey(...args)
+  window.winglog
+    .navdataGetProcedureWaypoints(...args)
+    .then((legs) => {
+      if (!ignore) set({ key, legs })
+    })
+    .catch(() => {
+      if (!ignore) set({ key, legs: [] })
+    })
+  return () => {
+    ignore = true
+  }
+}
+
+/**
+ * SimBrief's route with each selected procedure's fetched legs spliced in, where they match
+ * the current selection (see matchingLegs).
+ *
+ * @param airports The flight's airports and OFP.
+ * @param selection The selection.
+ * @param fetched The latest fetched legs of each kind.
+ * @returns The route's waypoints.
+ */
+function splicedRoute(
+  airports: ProcedureAirports,
+  selection: ProcedureSelection,
+  fetched: { sid: FetchedLegs | null; star: FetchedLegs | null; approach: FetchedLegs | null }
+): Waypoint[] {
+  const {
+    sidIdent,
+    departureRunway,
+    sidTransition,
+    starIdent,
+    starTransition,
+    approachIdent,
+    approachTransition
+  } = selection
+  const base = segmentWaypoints(airports.ofpJson)
+  const arrIcao = arrivalAirport(airports, selection)
+  const sid = sidIdent
+    ? matchingLegs(
+        sidIdent,
+        legsKey(airports.depIcao, 'sid', sidIdent, departureRunway, sidTransition),
+        fetched.sid
+      )
+    : null
+  const starRunway = approachRunway(approachIdent)
+  const star = starIdent
+    ? matchingLegs(starIdent, legsKey(arrIcao, 'star', starIdent, starRunway, starTransition), fetched.star)
+    : null
+  const approach = approachIdent
+    ? matchingLegs(
+        approachIdent,
+        legsKey(arrIcao, 'approach', approachIdent, null, approachTransition),
+        fetched.approach
+      )
+    : null
+  // Diverting: the filed destination's own STAR no longer applies.
+  return applyProcedureSelection(base, sid, star, approach, {
+    alternateArrival: arrIcao !== airports.arrIcao
+  })
 }
 
 /**
@@ -131,7 +244,20 @@ export function arrivalAirport(airports: ProcedureAirports, selection: Procedure
  * @param selection The selection.
  * @returns The route's waypoints with the selected procedures spliced in.
  */
-export function useLiveWaypoints(airports: ProcedureAirports | null, selection: ProcedureSelection): Waypoint[] {
+export function useLiveWaypoints(
+  airports: ProcedureAirports | null,
+  selection: ProcedureSelection
+): Waypoint[] {
+  const {
+    sidIdent,
+    departureRunway,
+    sidTransition,
+    starIdent,
+    starTransition,
+    approachIdent,
+    approachTransition,
+    arrivalIcao
+  } = selection
   const [sidLegs, setSidLegs] = useState<FetchedLegs | null>(null)
   const [starLegs, setStarLegs] = useState<FetchedLegs | null>(null)
   const [approachLegs, setApproachLegs] = useState<FetchedLegs | null>(null)
@@ -151,109 +277,60 @@ export function useLiveWaypoints(airports: ProcedureAirports | null, selection: 
   // second one with the approach's real runway — without this, whichever resolves last wins
   // even if it's the stale one.
   useEffect(() => {
-    if (!airports || !selection.sidIdent) return
-    let ignore = false
-    const key = legsKey(airports.depIcao, 'sid', selection.sidIdent, selection.departureRunway, selection.sidTransition)
-    window.winglog
-      .navdataGetProcedureWaypoints(airports.depIcao, 'sid', selection.sidIdent, selection.departureRunway, selection.sidTransition)
-      .then((legs) => {
-        if (!ignore) setSidLegs({ key, legs })
-      })
-      .catch(() => {
-        if (!ignore) setSidLegs({ key, legs: [] })
-      })
-    return () => {
-      ignore = true
-    }
-  }, [airports, selection.sidIdent, selection.departureRunway, selection.sidTransition])
+    if (!airports || !sidIdent) return
+    return fetchProcedureLegs([airports.depIcao, 'sid', sidIdent, departureRunway, sidTransition], setSidLegs)
+  }, [airports, sidIdent, departureRunway, sidTransition])
 
   useEffect(() => {
-    if (!airports || !selection.starIdent) return
+    if (!airports || !starIdent) return
     // A STAR's real legs can live inside a runway-specific transition (VHHH's STARs do) —
     // there's no separate arrival-runway selection any more, so the currently-chosen
     // approach's own runway (encoded in its identifier) is what filters this.
-    const runway = approachRunway(selection.approachIdent)
-    const arrIcao = arrivalAirport(airports, selection)
-    let ignore = false
-    const key = legsKey(arrIcao, 'star', selection.starIdent, runway, selection.starTransition)
-    window.winglog
-      .navdataGetProcedureWaypoints(arrIcao, 'star', selection.starIdent, runway, selection.starTransition)
-      .then((legs) => {
-        if (!ignore) setStarLegs({ key, legs })
-      })
-      .catch(() => {
-        if (!ignore) setStarLegs({ key, legs: [] })
-      })
-    return () => {
-      ignore = true
-    }
-  }, [airports, selection.starIdent, selection.starTransition, selection.approachIdent, selection.arrivalIcao])
+    const runway = approachRunway(approachIdent)
+    const arrIcao = arrivalAirport(airports, { arrivalIcao })
+    return fetchProcedureLegs([arrIcao, 'star', starIdent, runway, starTransition], setStarLegs)
+  }, [airports, starIdent, starTransition, approachIdent, arrivalIcao])
 
   useEffect(() => {
-    if (!airports || !selection.approachIdent) return
-    const arrIcao = arrivalAirport(airports, selection)
-    let ignore = false
-    const key = legsKey(arrIcao, 'approach', selection.approachIdent, null, selection.approachTransition)
-    window.winglog
-      .navdataGetProcedureWaypoints(arrIcao, 'approach', selection.approachIdent, null, selection.approachTransition)
-      .then((legs) => {
-        if (!ignore) setApproachLegs({ key, legs })
-      })
-      .catch(() => {
-        if (!ignore) setApproachLegs({ key, legs: [] })
-      })
-    return () => {
-      ignore = true
-    }
-  }, [airports, selection.approachIdent, selection.approachTransition, selection.arrivalIcao])
+    if (!airports || !approachIdent) return
+    const arrIcao = arrivalAirport(airports, { arrivalIcao })
+    return fetchProcedureLegs([arrIcao, 'approach', approachIdent, null, approachTransition], setApproachLegs)
+  }, [airports, approachIdent, approachTransition, arrivalIcao])
 
   // Memoized so callers that key their own effects off this result (e.g. LogbookView's
   // great-circle-fallback check) see a stable reference across renders that don't actually
   // change anything here, not a fresh array every time.
-  return useMemo(() => {
-    if (!airports) return []
-    const base = segmentWaypoints(airports.ofpJson)
-
-    const sidKey = selection.sidIdent
-      ? legsKey(airports.depIcao, 'sid', selection.sidIdent, selection.departureRunway, selection.sidTransition)
-      : null
-    const starRunway = approachRunway(selection.approachIdent)
-    const arrIcao = arrivalAirport(airports, selection)
-    const starKey = selection.starIdent ? legsKey(arrIcao, 'star', selection.starIdent, starRunway, selection.starTransition) : null
-    const approachKey = selection.approachIdent
-      ? legsKey(arrIcao, 'approach', selection.approachIdent, null, selection.approachTransition)
-      : null
-
-    // `legs.length > 0`, not just the identifier being set, gates each splice — an
-    // identifier whose fetch hasn't resolved yet, or whose legs come back genuinely empty
-    // (navdata not yet refreshed for this airport, or a naming mismatch between SimBrief's
-    // own SID/STAR name and the sim's), must fall back to SimBrief's own base segment
-    // rather than rendering a gap where that segment used to be. Only the SID/STAR base
-    // has anything to fall back to — an approach with no legs yet just contributes nothing,
-    // same as no approach chosen at all. The key check on top of that refuses a resolved
-    // fetch that no longer matches the current selection, rather than rendering it stale.
-    return applyProcedureSelection(
-      base,
-      sidKey && sidLegs?.key === sidKey && sidLegs.legs.length > 0 ? { identifier: selection.sidIdent!, legs: sidLegs.legs } : null,
-      starKey && starLegs?.key === starKey && starLegs.legs.length > 0 ? { identifier: selection.starIdent!, legs: starLegs.legs } : null,
-      approachKey && approachLegs?.key === approachKey && approachLegs.legs.length > 0
-        ? { identifier: selection.approachIdent!, legs: approachLegs.legs }
-        : null,
-      // Diverting: the filed destination's own STAR no longer applies.
-      { alternateArrival: arrIcao !== airports.arrIcao }
-    )
-  }, [
-    airports,
-    selection.sidIdent,
-    selection.departureRunway,
-    selection.sidTransition,
-    selection.starIdent,
-    selection.starTransition,
-    selection.approachIdent,
-    selection.approachTransition,
-    selection.arrivalIcao,
-    sidLegs,
-    starLegs,
-    approachLegs
-  ])
+  return useMemo(
+    () =>
+      airports
+        ? splicedRoute(
+            airports,
+            {
+              sidIdent,
+              departureRunway,
+              sidTransition,
+              starIdent,
+              starTransition,
+              approachIdent,
+              approachTransition,
+              arrivalIcao
+            },
+            { sid: sidLegs, star: starLegs, approach: approachLegs }
+          )
+        : [],
+    [
+      airports,
+      sidIdent,
+      departureRunway,
+      sidTransition,
+      starIdent,
+      starTransition,
+      approachIdent,
+      approachTransition,
+      arrivalIcao,
+      sidLegs,
+      starLegs,
+      approachLegs
+    ]
+  )
 }

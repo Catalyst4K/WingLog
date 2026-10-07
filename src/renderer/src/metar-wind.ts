@@ -1,6 +1,7 @@
 /** METAR wind: parsing the wind group and showing it in the chosen unit. */
 
 import type { WindSpeedUnit } from '@shared/ipc'
+import { MS_PER_KT } from '@shared/units'
 
 /** A parsed METAR wind group (e.g. "25008KT", "VRB03KT", "31015G25MPS"). Values are kept
  *  in the unit the report itself used (`sourceUnit`) — formatWind converts on display
@@ -40,7 +41,7 @@ export function parseWindGroup(rawText: string): ParsedWind | null {
   }
 }
 
-const KT_PER_MPS = 1 / 0.514444
+const KT_PER_MPS = 1 / MS_PER_KT
 
 function convertSpeed(value: number, from: WindSpeedUnit, to: WindSpeedUnit): number {
   if (from === to) return value

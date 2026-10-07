@@ -4,6 +4,7 @@
  */
 import type { BeyondAtcState } from '@shared/ipc'
 import { boxClearedLevelFt } from '@shared/atc-info-boxes'
+import { METRES_PER_FOOT } from '@shared/units'
 
 /**
  * Asks BeyondATC for a new cruise altitude over its WebSocket — the exact two-step flow
@@ -23,7 +24,7 @@ import { boxClearedLevelFt } from '@shared/atc-info-boxes'
 
 export const REQUEST_ALTITUDE_ACTION = 'Request Altitude Change'
 export const CANCEL_ALTITUDE_ACTION = 'Cancel Altitude Change'
-const FEET_PER_METRE = 1 / 0.3048
+const FEET_PER_METRE = 1 / METRES_PER_FOOT
 /** How close an offered level must be to count as the one wanted — FL labels are exact to
  *  100 ft; a metric level converts to a non-round number of feet. */
 const LEVEL_MATCH_TOLERANCE_FT = 150

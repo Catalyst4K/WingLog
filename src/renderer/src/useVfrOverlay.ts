@@ -9,12 +9,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
-import {
-  ScaleControl,
-  type GeoJSONSource,
-  type GeoJSONSourceSpecification,
-  type Map as MapLibreMap
-} from 'maplibre-gl'
+import { ScaleControl, type GeoJSONSourceSpecification, type Map as MapLibreMap } from 'maplibre-gl'
 import type { Airfield, AirfieldType, SimTelemetry, TrackPoint } from '@shared/ipc'
 import {
   airfieldFeatureCollection,
@@ -24,6 +19,7 @@ import {
   recentTrailSegments
 } from './vfr'
 import { uiMemory } from './ui-memory'
+import { setSourceData } from './map-source'
 
 const AIRFIELDS_SOURCE = 'vfr-airfields'
 const RINGS_SOURCE = 'vfr-range-rings'
@@ -68,7 +64,6 @@ const ALL_LAYER_IDS = [
   RINGS_LABEL_LAYER,
   RECENT_TRAIL_LAYER
 ]
-
 
 /** What a GeoJSON source accepts as data. */
 type GeoData = GeoJSONSourceSpecification['data']
@@ -268,7 +263,7 @@ export function useVfrOverlay({
   useEffect(() => {
     const map = mapRef.current
     if (!mapReady || !map || !active || !airfields) return
-    map.getSource<GeoJSONSource>(AIRFIELDS_SOURCE)?.setData(airfieldFeatureCollection(airfields) as GeoData)
+    setSourceData(map, AIRFIELDS_SOURCE, airfieldFeatureCollection(airfields) as GeoData)
   }, [mapRef, mapReady, active, airfields])
 
   // Rings follow the aircraft; the recent-track emphasis follows the recorded points.
@@ -276,8 +271,8 @@ export function useVfrOverlay({
     const map = mapRef.current
     if (!mapReady || !map || !active) return
     const position = latitude !== null && longitude !== null ? { latitude, longitude } : null
-    map.getSource<GeoJSONSource>(RINGS_SOURCE)?.setData(rangeRingFeatures(position) as GeoData)
-    map.getSource<GeoJSONSource>(RECENT_TRAIL_SOURCE)?.setData(multiLine(recentTrailSegments(trackPoints)))
+    setSourceData(map, RINGS_SOURCE, rangeRingFeatures(position) as GeoData)
+    setSourceData(map, RECENT_TRAIL_SOURCE, multiLine(recentTrailSegments(trackPoints)))
   }, [mapRef, mapReady, active, latitude, longitude, trackPoints])
 
   // Torn down with the map: the control belongs to it, so just forget our handle.

@@ -6,22 +6,23 @@
  */
 
 import type { TrackPoint } from '@shared/ipc'
+import { itemAt } from '@shared/item-at'
+import { METRES_PER_FOOT } from '@shared/units'
 
-const FT = 0.3048
 
 export const FOLLOW_ZOOM_GROUND = 15
 
 /** Airborne bands, lowest first: below 10,000 ft, 10,000 ft to FL250, above FL250.
  *  Pressure altitude, so a QNH change at transition can't move a band. */
 const AIRBORNE_BANDS: { topM: number; zoom: number }[] = [
-  { topM: 10_000 * FT, zoom: 11 },
-  { topM: 25_000 * FT, zoom: 10 },
+  { topM: 10_000 * METRES_PER_FOOT, zoom: 11 },
+  { topM: 25_000 * METRES_PER_FOOT, zoom: 10 },
   { topM: Infinity, zoom: 9 }
 ]
 
 /** How far past a band edge the aircraft must be before the band changes, so levelling off
  *  near 10,000 ft or FL250 doesn't flick the zoom back and forth. */
-const BAND_HYSTERESIS_M = 500 * FT
+const BAND_HYSTERESIS_M = 500 * METRES_PER_FOOT
 
 /** 'ground', or the index of an airborne band. */
 export type FollowBand = 'ground' | number
@@ -45,8 +46,8 @@ export function followBand(point: BandInput, previous: FollowBand | null): Follo
   // Older rows have no pressure altitude; true altitude is close enough for picking a zoom.
   const altitudeM = point.pressureAltitudeM ?? point.altitudeM
   if (typeof previous === 'number') {
-    const bottomM = previous === 0 ? -Infinity : AIRBORNE_BANDS[previous - 1]!.topM
-    const topM = AIRBORNE_BANDS[previous]!.topM
+    const bottomM = previous === 0 ? -Infinity : itemAt(AIRBORNE_BANDS, previous - 1, 'follow band').topM
+    const topM = itemAt(AIRBORNE_BANDS, previous, 'follow band').topM
     if (altitudeM >= bottomM - BAND_HYSTERESIS_M && altitudeM < topM + BAND_HYSTERESIS_M) return previous
   }
   return rawAirborneBand(altitudeM)
@@ -57,5 +58,5 @@ export function followBand(point: BandInput, previous: FollowBand | null): Follo
  * @returns The map zoom for it.
  */
 export function zoomForBand(band: FollowBand): number {
-  return band === 'ground' ? FOLLOW_ZOOM_GROUND : AIRBORNE_BANDS[band]!.zoom
+  return band === 'ground' ? FOLLOW_ZOOM_GROUND : itemAt(AIRBORNE_BANDS, band, 'follow band').zoom
 }

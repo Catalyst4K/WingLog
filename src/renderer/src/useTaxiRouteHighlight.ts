@@ -31,14 +31,27 @@
  */
 
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
-import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl'
-import type { BeyondAtcState, BeyondAtcTranscriptEntry, FlightPhase, NavdataStand, NavdataTaxiSegment } from '@shared/ipc'
+import type { Map as MapLibreMap } from 'maplibre-gl'
+import type {
+  BeyondAtcState,
+  BeyondAtcTranscriptEntry,
+  FlightPhase,
+  NavdataStand,
+  NavdataTaxiSegment
+} from '@shared/ipc'
 import { findStand } from '@shared/stands'
 import { parseTaxiHoldShortRunway } from '@shared/taxi-route-parser'
 import type { TracedRoute } from './taxiRouteTrace'
-import { boxTaxiClearance, clearanceAirport, startOf, traceClearance, type TaxiClearance } from './taxi-clearance'
+import {
+  boxTaxiClearance,
+  clearanceAirport,
+  startOf,
+  traceClearance,
+  type TaxiClearance
+} from './taxi-clearance'
 import { startTracker, trackPosition, type RerouteTracker } from './taxiReroute'
 import { diagMap } from './diag'
+import { setSourceData } from './map-source'
 import { TAXI_SOURCE_ID } from './useTaxiChartOverlay'
 import { useLiveClient } from './live/LiveClient'
 import { uiMemory } from './ui-memory'
@@ -101,6 +114,164 @@ export interface UseTaxiRouteHighlightArgs {
  *  isn't in here, so an arrival's "taxi to stand" clearance still draws after touchdown. */
 const DEPARTED_PHASES: ReadonlySet<FlightPhase> = new Set(['takeoff', 'climb', 'cruise', 'descent'])
 
+/**
+ * @param clearance A clearance.
+ * @param runway The runway ATC said to hold short of.
+ * @returns The clearance with that hold short, unless it already has one.
+ */
+function withHoldShort(clearance: TaxiClearance, runway: string): TaxiClearance {
+  return clearance.holdShortRunway ? clearance : { ...clearance, holdShortRunway: runway }
+}
+
+/**
+ * ATC's speech: only "hold short of runway …", which has no box. Each line is read once
+ * (uiMemory remembers the last), and a hold short joins the box route set within
+ * HOLD_SHORT_PAIR_MS of it.
+ *
+ * @param transcript BeyondATC's transcript.
+ * @param setClearance Sets the hook's clearance.
+ */
+function ingestTranscript(
+  transcript: BeyondAtcTranscriptEntry[],
+  setClearance: (clearance: TaxiClearance) => void
+): void {
+  const remembered = uiMemory().taxiRoute
+  for (const entry of transcript) {
+    if (entry.speaker !== 'atc' || entry.ts <= remembered.lastTranscriptTs) continue
+    remembered.lastTranscriptTs = entry.ts
+    const runway = parseTaxiHoldShortRunway(entry.text)
+    if (!runway) continue
+    remembered.holdShort = { runway, at: Date.now() }
+    if (remembered.clearance && Date.now() - remembered.boxAt <= HOLD_SHORT_PAIR_MS) {
+      remembered.clearance = withHoldShort(remembered.clearance, runway)
+      setClearance(remembered.clearance)
+    }
+  }
+}
+
+/**
+ * The clearance itself, taken once per new set of taxi boxes.
+ *
+ * @param state BeyondATC's state.
+ * @param position The aircraft's position now, where the clearance starts.
+ * @param setClearance Sets the hook's clearance.
+ */
+function ingestBoxes(
+  state: BeyondAtcState,
+  position: { lat: number; lon: number } | null,
+  setClearance: (clearance: TaxiClearance) => void
+): void {
+  const remembered = uiMemory().taxiRoute
+  const box = boxTaxiClearance(state.infoBoxes)
+  if (!box) return
+  const key = JSON.stringify(box)
+  if (key === remembered.boxKey) return
+  remembered.boxKey = key
+  remembered.boxAt = Date.now()
+  let next: TaxiClearance = { ...box, ...startOf(position) }
+  if (remembered.holdShort && Date.now() - remembered.holdShort.at <= HOLD_SHORT_PAIR_MS) {
+    next = withHoldShort(next, remembered.holdShort.runway)
+  }
+  remembered.clearance = next
+  setClearance(next)
+}
+
+/**
+ * The arrival airport's stands, once a stand clearance needs one (fetched from the sim on
+ * first ask, then cached — stand-positions.md).
+ *
+ * @param enabled Whether the taxi chart is on.
+ * @param clearance The clearance, or null.
+ * @param icao The clearance's airport, or null.
+ * @returns The cleared stand, positioned, or null.
+ */
+function useClearanceStand(
+  enabled: boolean,
+  clearance: TaxiClearance | null,
+  icao: string | null
+): NavdataStand | null {
+  const [stands, setStands] = useState<{ icao: string; list: NavdataStand[] } | null>(null)
+  const standIcao = enabled && clearance?.stand && icao ? icao : null
+  useEffect(() => {
+    if (!standIcao) return
+    let ignore = false
+    // No stands (the sim isn't connected): the route ends where it joins the last taxiway.
+    window.winglog.navdataGetStands(standIcao).then(
+      (list) => {
+        if (!ignore) setStands({ icao: standIcao, list })
+      },
+      () => undefined
+    )
+    return () => {
+      ignore = true
+    }
+  }, [standIcao])
+  return clearance?.stand && stands && stands.icao === icao ? findStand(stands.list, clearance.stand) : null
+}
+
+/**
+ * Draws the traced line from the aircraft, re-routing first if it has left the line.
+ *
+ * @param map The map.
+ * @param tracker The clearance's tracker.
+ * @param position The aircraft's position, or null.
+ * @param phase The flight phase, or null.
+ * @param segments The airport's taxi network.
+ * @returns The tracker after this update.
+ */
+function drawTracedLine(
+  map: MapLibreMap,
+  tracker: RerouteTracker,
+  position: UseTaxiRouteHighlightArgs['position'],
+  phase: FlightPhase | null,
+  segments: NavdataTaxiSegment[] | undefined
+): RerouteTracker {
+  let next = tracker
+  let line = tracker.active
+  if (position) {
+    const update = trackPosition(tracker, { position, phase, nowMs: Date.now(), segments })
+    next = update.tracker
+    if (update.rerouted) {
+      diagMap('taxi route re-routed', {
+        at: position,
+        points: update.tracker.active.length,
+        end: update.tracker.active.at(-1)
+      })
+    }
+    line = update.line
+  }
+  setSourceData(map, TRACE_SOURCE_ID, {
+    type: 'Feature',
+    properties: {},
+    geometry: { type: 'LineString', coordinates: line }
+  })
+  map.setLayoutProperty(TRACE_LAYER_ID, 'visibility', 'visible')
+  map.setLayoutProperty(HIGHLIGHT_LAYER_ID, 'visibility', 'none')
+  return next
+}
+
+/**
+ * Without a traced line: every segment of the cleared taxiways, at the clearance's airport
+ * when it's known.
+ *
+ * @param map The map.
+ * @param names The cleared taxiways.
+ * @param icao The clearance's airport, or null.
+ */
+function drawWholeTaxiways(map: MapLibreMap, names: string[], icao: string | null): void {
+  map.setLayoutProperty(TRACE_LAYER_ID, 'visibility', 'none')
+  map.setLayoutProperty(HIGHLIGHT_LAYER_ID, 'visibility', names.length > 0 ? 'visible' : 'none')
+  if (names.length > 0) {
+    const byName = ['in', ['get', 'name'], ['literal', names]]
+    map.setFilter(
+      HIGHLIGHT_LAYER_ID,
+      (icao ? ['all', byName, ['==', ['get', 'icao'], icao]] : byName) as Parameters<
+        MapLibreMap['setFilter']
+      >[1]
+    )
+  }
+}
+
 // The clearance and what's been read survive a FlightMap remount (ui-memory.ts): a route parsed
 // before a tab switch doesn't vanish, old clearances aren't re-read as new, and leaving Track at
 // the holding point then coming back in cruise still drops the departure's route.
@@ -142,45 +313,21 @@ export function useTaxiRouteHighlight({
   useEffect(() => {
     if (!enabled) return
     let live = true
-    const withHoldShort = (clearance: TaxiClearance, runway: string): TaxiClearance =>
-      clearance.holdShortRunway ? clearance : { ...clearance, holdShortRunway: runway }
-    // ATC's speech: only "hold short of runway …", which has no box.
     const ingest = (transcript: BeyondAtcTranscriptEntry[]): void => {
-      if (!live) return
-      const remembered = uiMemory().taxiRoute
-      for (const entry of transcript) {
-        if (entry.speaker !== 'atc' || entry.ts <= remembered.lastTranscriptTs) continue
-        remembered.lastTranscriptTs = entry.ts
-        const runway = parseTaxiHoldShortRunway(entry.text)
-        if (!runway) continue
-        remembered.holdShort = { runway, at: Date.now() }
-        if (remembered.clearance && Date.now() - remembered.boxAt <= HOLD_SHORT_PAIR_MS) {
-          remembered.clearance = withHoldShort(remembered.clearance, runway)
-          setClearance(remembered.clearance)
-        }
-      }
+      if (live) ingestTranscript(transcript, setClearance)
     }
-    // The clearance itself, taken once per new set of taxi boxes.
-    const ingestBoxes = (state: BeyondAtcState): void => {
-      if (!live) return
-      const remembered = uiMemory().taxiRoute
-      const box = boxTaxiClearance(state.infoBoxes)
-      if (!box) return
-      const key = JSON.stringify(box)
-      if (key === remembered.boxKey) return
-      remembered.boxKey = key
-      remembered.boxAt = Date.now()
-      let next: TaxiClearance = { ...box, ...startOf(positionRef.current) }
-      if (remembered.holdShort && Date.now() - remembered.holdShort.at <= HOLD_SHORT_PAIR_MS) {
-        next = withHoldShort(next, remembered.holdShort.runway)
-      }
-      remembered.clearance = next
-      setClearance(next)
+    const ingestState = (state: BeyondAtcState): void => {
+      if (live) ingestBoxes(state, positionRef.current, setClearance)
     }
+    // A failed first read (BeyondATC not connected) has nothing to show; the subscriptions bring
+    // the next update.
     window.winglog.beyondAtcGetTranscript().then(ingest, () => undefined)
     const unsubscribe = window.winglog.onBeyondAtcTranscript(ingest)
-    client.get('beyondAtcState').then((state) => state && ingestBoxes(state), () => undefined)
-    const unsubscribeBoxes = client.subscribe('beyondAtcState', ingestBoxes)
+    client.get('beyondAtcState').then(
+      (state) => state && ingestState(state),
+      () => undefined
+    )
+    const unsubscribeBoxes = client.subscribe('beyondAtcState', ingestState)
     return () => {
       live = false
       unsubscribe()
@@ -213,25 +360,7 @@ export function useTaxiRouteHighlight({
 
   const icao = clearance ? clearanceAirport(clearance, depIcao, arrIcao, segmentsByIcao) : null
 
-  // The arrival airport's stands, once a stand clearance needs one (fetched from the sim on
-  // first ask, then cached — stand-positions.md).
-  const [stands, setStands] = useState<{ icao: string; list: NavdataStand[] } | null>(null)
-  const standIcao = enabled && clearance?.stand && icao ? icao : null
-  useEffect(() => {
-    if (!standIcao) return
-    let ignore = false
-    window.winglog.navdataGetStands(standIcao).then(
-      (list) => {
-        if (!ignore) setStands({ icao: standIcao, list })
-      },
-      () => undefined
-    )
-    return () => {
-      ignore = true
-    }
-  }, [standIcao])
-  const standPosition =
-    clearance?.stand && stands && stands.icao === icao ? findStand(stands.list, clearance.stand) : null
+  const standPosition = useClearanceStand(enabled, clearance, icao)
 
   const segments = icao ? segmentsByIcao[icao] : undefined
   // Re-traced when segments finish loading too — a clearance can arrive before the chart has.
@@ -273,33 +402,9 @@ export function useTaxiRouteHighlight({
 
     const tracker = trackerRef.current
     if (traced && tracker) {
-      let line = tracker.active
-      if (position) {
-        const update = trackPosition(tracker, { position, phase, nowMs: Date.now(), segments })
-        trackerRef.current = update.tracker
-        if (update.rerouted) {
-          diagMap('taxi route re-routed', { at: position, points: update.tracker.active.length, end: update.tracker.active.at(-1) })
-        }
-        line = update.line
-      }
-      map.getSource<GeoJSONSource>(TRACE_SOURCE_ID)?.setData({
-        type: 'Feature',
-        properties: {},
-        geometry: { type: 'LineString', coordinates: line }
-      })
-      map.setLayoutProperty(TRACE_LAYER_ID, 'visibility', 'visible')
-      map.setLayoutProperty(HIGHLIGHT_LAYER_ID, 'visibility', 'none')
+      trackerRef.current = drawTracedLine(map, tracker, position, phase, segments)
       return
     }
-    map.setLayoutProperty(TRACE_LAYER_ID, 'visibility', 'none')
-    const names = clearance?.taxiways ?? []
-    map.setLayoutProperty(HIGHLIGHT_LAYER_ID, 'visibility', names.length > 0 ? 'visible' : 'none')
-    if (names.length > 0) {
-      const byName = ['in', ['get', 'name'], ['literal', names]]
-      map.setFilter(
-        HIGHLIGHT_LAYER_ID,
-        (icao ? ['all', byName, ['==', ['get', 'icao'], icao]] : byName) as Parameters<MapLibreMap['setFilter']>[1]
-      )
-    }
+    drawWholeTaxiways(map, clearance?.taxiways ?? [], icao)
   }, [mapRef, mapReady, enabled, departed, clearance, traced, segments, icao, position, phase])
 }

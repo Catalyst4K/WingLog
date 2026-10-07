@@ -12,7 +12,14 @@
  */
 
 import type { BeyondAtcInfoBox, BeyondAtcState, BeyondAtcTranscriptEntry } from '@shared/ipc'
-import { boxClearedLevelFt, clearedApproachIdent, normaliseTitle, parseAtcTaxiFacts, withoutLabel } from '@shared/atc-info-boxes'
+import {
+  boxClearedLevelFt,
+  clearedApproachIdent,
+  normaliseTitle,
+  parseAtcTaxiFacts,
+  withoutLabel
+} from '@shared/atc-info-boxes'
+import { itemAt } from '@shared/item-at'
 
 export type InstructionFieldKey =
   | 'station'
@@ -37,13 +44,7 @@ export type InstructionFieldKey =
 
 /** Clearances/permissions worth calling out on their own, not as a label: value pair. */
 export type InstructionAction =
-  | 'takeoff'
-  | 'land'
-  | 'lineUp'
-  | 'holdShort'
-  | 'pushback'
-  | 'readbackCorrect'
-  | 'identified'
+  'takeoff' | 'land' | 'lineUp' | 'holdShort' | 'pushback' | 'readbackCorrect' | 'identified'
 
 export interface InstructionField {
   key: InstructionFieldKey
@@ -57,7 +58,8 @@ export interface AtcInstruction {
   fields: InstructionField[]
 }
 
-const FACILITY_WORDS = 'Delivery|Clearance|Ground|Apron|Tower|Departure|Approach|Arrival|Director|Radar|Control|Center|Centre'
+const FACILITY_WORDS =
+  'Delivery|Clearance|Ground|Apron|Tower|Departure|Approach|Arrival|Director|Radar|Control|Center|Centre'
 // "Hongkong Shuttle 250, Hong Kong Delivery, …" — the second comma chunk, when it's a facility.
 const STATION = new RegExp(`^[^,]+, ([A-Z][A-Za-z ]*? (?:${FACILITY_WORDS})),`)
 // A departure clearance: "cleared to Hong Kong airport via …".
@@ -75,12 +77,12 @@ const ACTIONS: [InstructionAction, RegExp][] = [
 ]
 
 function formatAltitude(raw: string): string {
-  const fl = /^FL ?(\d{2,3})$/i.exec(raw)
-  if (fl) return `FL${fl[1]!.padStart(3, '0')}`
-  const metric = /^([\d,]+) ?(?:m|meters|metres)$/i.exec(raw)
-  if (metric) return `${Number(metric[1]!.replace(/,/g, '')).toLocaleString('en')} m`
-  const feet = /^([\d,]+) ?(?:feet|ft)$/i.exec(raw)
-  if (feet) return `${Number(feet[1]!.replace(/,/g, '')).toLocaleString('en')} ft`
+  const fl = /^FL ?(\d{2,3})$/i.exec(raw)?.[1]
+  if (fl) return `FL${fl.padStart(3, '0')}`
+  const metric = /^([\d,]+) ?(?:m|meters|metres)$/i.exec(raw)?.[1]
+  if (metric) return `${Number(metric.replace(/,/g, '')).toLocaleString('en')} m`
+  const feet = /^([\d,]+) ?(?:feet|ft)$/i.exec(raw)?.[1]
+  if (feet) return `${Number(feet.replace(/,/g, '')).toLocaleString('en')} ft`
   return raw
 }
 
@@ -108,9 +110,56 @@ export function parseAtcInstruction(text: string): Pick<AtcInstruction, 'actions
  *  updates the boxes and speaks within a second or two of each other. */
 const BOXES_WITH_LINE_MS = 15_000
 
-const RUNWAY_TITLES = ['taxi to runway', 'arrival runway', 'landing runway', 'cleared for takeoff', 'cleared for landing']
+const RUNWAY_TITLES = [
+  'taxi to runway',
+  'arrival runway',
+  'landing runway',
+  'cleared for takeoff',
+  'cleared for landing'
+]
 const DESCEND_TITLES = ['descend', 'descend to']
 const RUNWAY_IDENT = /^\d{1,2}[LRC]?$/
+
+type BoxField = (value: string) => [InstructionFieldKey, string | null]
+
+// The field each InfoBox title fills, by normalised title. A Map, not an object: the titles
+// are BeyondATC's, so one could be "constructor".
+const BOX_FIELDS = new Map<string, BoxField>([
+  ['atis current', (value) => ['atis', value.toUpperCase()]],
+  ['sid', (value) => ['sid', value.toUpperCase()]],
+  ['star', (value) => ['star', value.toUpperCase()]],
+  ['cleared approach', (value) => ['approach', clearedApproachIdent(value)]],
+  ['transition', (value) => ['transition', value.toUpperCase()]],
+  ...RUNWAY_TITLES.map((title): [string, BoxField] => [title, (value) => ['runway', value.toUpperCase()]]),
+  ['qnh', (value) => ['qnh', withoutLabel(value, 'QNH')]],
+  ['squawk', (value) => ['squawk', value]],
+  ['pushback direction', (value) => ['face', value.toLowerCase()]]
+])
+
+/** The action each InfoBox title is, by normalised title. */
+const BOX_ACTIONS = new Map<string, InstructionAction>([
+  ['cleared for takeoff', 'takeoff'],
+  ['cleared for landing', 'land'],
+  ['pushback direction', 'pushback']
+])
+
+/**
+ * @param box The InfoBox.
+ * @param title Its normalised title.
+ * @param value Its value, trimmed.
+ * @returns The field it fills, or null. Any "… Frequency" box is a contact.
+ */
+function boxField(
+  box: BeyondAtcInfoBox,
+  title: string,
+  value: string
+): [InstructionFieldKey, string | null] | null {
+  const field = BOX_FIELDS.get(title)
+  if (field) return field(value)
+  if (title.endsWith('frequency'))
+    return ['contact', `${box.title.trim().replace(/ ?frequency$/i, '')} ${value}`.trim()]
+  return null
+}
 
 /**
  * One set of InfoBoxes as the card's labelled fields and actions.
@@ -128,20 +177,12 @@ export function instructionFromBoxes(boxes: BeyondAtcInfoBox[]): Pick<AtcInstruc
     const title = normaliseTitle(box.title)
     const value = box.info.trim()
     if (!value) continue
-    if (title === 'atis current') add('atis', value.toUpperCase())
-    else if (title === 'sid') add('sid', value.toUpperCase())
-    else if (title === 'star') add('star', value.toUpperCase())
-    else if (title === 'cleared approach') add('approach', clearedApproachIdent(value))
-    else if (title === 'transition') add('transition', value.toUpperCase())
-    else if (RUNWAY_TITLES.includes(title)) add('runway', value.toUpperCase())
-    else if (title === 'qnh') add('qnh', withoutLabel(value, 'QNH'))
-    else if (title === 'squawk') add('squawk', value)
-    else if (title.endsWith('frequency')) add('contact', `${box.title.trim().replace(/ ?frequency$/i, '')} ${value}`.trim())
-    else if (title === 'pushback direction') add('face', value.toLowerCase())
-    if (title === 'cleared for takeoff') actions.push('takeoff')
-    if (title === 'cleared for landing') actions.push('land')
-    if (title === 'pushback direction') actions.push('pushback')
-    if (boxClearedLevelFt([box]) !== null) add(DESCEND_TITLES.includes(title) ? 'descend' : 'climb', formatAltitude(value))
+    const field = boxField(box, title, value)
+    if (field) add(...field)
+    const action = BOX_ACTIONS.get(title)
+    if (action) actions.push(action)
+    if (boxClearedLevelFt([box]) !== null)
+      add(DESCEND_TITLES.includes(title) ? 'descend' : 'climb', formatAltitude(value))
   }
   const taxi = parseAtcTaxiFacts(boxes)
   if (taxi.holdPosition && !RUNWAY_IDENT.test(taxi.holdPosition)) add('holdingPoint', taxi.holdPosition)
@@ -169,13 +210,17 @@ export function latestAtcInstruction(
   const current = boxes.infoBoxesAt !== null && boxes.infoBoxesAt >= instruction.ts - BOXES_WITH_LINE_MS
   if (!current) return instruction
   const boxed = instructionFromBoxes(boxes.infoBoxes)
-  return { ...instruction, actions: [...instruction.actions, ...boxed.actions], fields: [...instruction.fields, ...boxed.fields] }
+  return {
+    ...instruction,
+    actions: [...instruction.actions, ...boxed.actions],
+    fields: [...instruction.fields, ...boxed.fields]
+  }
 }
 
 function latestSpokenInstruction(entries: BeyondAtcTranscriptEntry[]): AtcInstruction | null {
   const readbacks: AtcInstruction[] = []
   for (let i = entries.length - 1; i >= 0; i--) {
-    const entry = entries[i]!
+    const entry = itemAt(entries, i, 'transcript entry')
     if (entry.speaker !== 'atc') continue
     const instruction = { text: entry.text, ts: entry.ts, ...parseAtcInstruction(entry.text) }
     if (!isReadbackOnly(instruction)) return readbacks.reduceRight(applyReadback, instruction)

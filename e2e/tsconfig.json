@@ -26,6 +26,7 @@
     "../src/shared/ipc.ts",
     "../src/shared/ipc-channels.ts",
     "../src/shared/types/*.ts",
-    "../src/shared/simbrief-ofp.ts"
+    "../src/shared/simbrief-ofp.ts",
+    "../src/shared/units.ts"
   ]
 }

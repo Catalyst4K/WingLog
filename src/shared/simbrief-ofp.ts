@@ -13,8 +13,10 @@
  * so the rest of the app never has to know about SimBrief's time format.
  */
 
+import { METRES_PER_FOOT } from './units'
+
 const LB_PER_KG = 2.2046226218
-const FT_PER_M = 1 / 0.3048
+const FT_PER_M = 1 / METRES_PER_FOOT
 
 export interface SimBriefStepClimb {
   /** Waypoint where the new cruise altitude begins. */
@@ -240,7 +242,7 @@ export function parseOfp(raw: unknown): SimBriefOfp {
     arrIcao: str(destination.icao_code),
     altnIcao: str(alternate?.icao_code),
     routeString: str(general.route),
-    cruiseAltM: num(general.initial_altitude) * 0.3048,
+    cruiseAltM: num(general.initial_altitude) * METRES_PER_FOOT,
     schedOutUtc: epochSecondsToIso(times.sched_out),
     schedInUtc: epochSecondsToIso(times.sched_in),
     fuelPlannedKg: toKg(fuel.plan_ramp),

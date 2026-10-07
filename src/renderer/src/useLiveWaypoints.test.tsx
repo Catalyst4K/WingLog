@@ -62,6 +62,42 @@ describe('useLiveWaypoints with the alternate as the arrival airport (v1.1.1)', 
     expect(result.current.map((w) => w.ident)).toContain('CRUISE')
   })
 
+  it('splices a fetched SID into the route', async () => {
+    const navdataGetProcedureWaypoints = vi.fn().mockResolvedValue([leg('NAVSID')])
+    window.winglog = { navdataGetProcedureWaypoints } as unknown as WingLogApi
+    const { result } = renderHook(() =>
+      useLiveWaypoints(airports({ ofpJson }), { ...emptyProcedureSelection(), sidIdent: 'BPK7F', departureRunway: '27L' })
+    )
+    await waitFor(() => expect(result.current.map((w) => w.ident)).toContain('NAVSID'))
+    expect(navdataGetProcedureWaypoints).toHaveBeenCalledWith('EGLL', 'sid', 'BPK7F', '27L', null)
+  })
+
+  it("keeps SimBrief's segment when the legs come back empty or the fetch fails", async () => {
+    for (const fetch of [vi.fn().mockResolvedValue([]), vi.fn().mockRejectedValue(new Error('no navdata'))]) {
+      window.winglog = { navdataGetProcedureWaypoints: fetch } as unknown as WingLogApi
+      const { result } = renderHook(() => useLiveWaypoints(airports({ ofpJson }), { ...emptyProcedureSelection(), sidIdent: 'BPK7F' }))
+      await waitFor(() => expect(fetch).toHaveBeenCalled())
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      expect(result.current.map((w) => w.ident)).toEqual(['SIDFIX', 'CRUISE'])
+    }
+  })
+
+  it('never draws a fetch that resolves after the selection has moved on', async () => {
+    const pending = new Map<string, (legs: NavdataLeg[]) => void>()
+    const navdataGetProcedureWaypoints = vi.fn(
+      (_icao: string, _kind: string, ident: string) => new Promise<NavdataLeg[]>((resolve) => pending.set(ident, resolve))
+    )
+    window.winglog = { navdataGetProcedureWaypoints } as unknown as WingLogApi
+    const props = { selection: { ...emptyProcedureSelection(), sidIdent: 'OLD1A' } }
+    const { result, rerender } = renderHook(({ selection }) => useLiveWaypoints(airports({ ofpJson }), selection), { initialProps: props })
+    rerender({ selection: { ...emptyProcedureSelection(), sidIdent: 'NEW1A' } })
+    pending.get('OLD1A')?.([leg('STALE')])
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(result.current.map((w) => w.ident)).not.toContain('STALE')
+    pending.get('NEW1A')?.([leg('FRESH')])
+    await waitFor(() => expect(result.current.map((w) => w.ident)).toContain('FRESH'))
+  })
+
   it('uses the destination when no alternate is selected', async () => {
     const navdataGetProcedureWaypoints = vi.fn().mockResolvedValue([leg('X')])
     window.winglog = { navdataGetProcedureWaypoints } as unknown as WingLogApi
