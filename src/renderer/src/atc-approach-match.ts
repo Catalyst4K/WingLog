@@ -6,22 +6,19 @@ import type { AtcClearanceUpdate } from '@shared/atc-info-boxes'
 import { approachRunway, pickDefaultApproachIdentifier } from './route'
 
 /**
- * Turns a STAR clearance's runway into the approach to fly when it isn't the runway the
- * selected approach is for. EGLL, 2026-10-05: ATC cleared "LOGA2H arrival, runway 27R"
- * against SimBrief's 27L, with no approach named, so ILS 27L stayed selected and nothing
- * prompted. The approach is the same default ProcedureSelector picks for a planned runway
- * (ILS, then LOC, then the first other). The current transition is kept when the new
- * approach has it (LAM, where LOGA2H ends), otherwise left empty for ProcedureSelector to
- * connect to wherever the STAR ends.
+ * Turns a STAR clearance's runway into the approach to fly when it isn't the runway the selected approach is for. At EGLL ATC
+ * cleared "LOGA2H arrival, runway 27R" against SimBrief's 27L with no approach named, so ILS 27L stayed selected and nothing
+ * prompted. The approach is the same default ProcedureSelector picks for a planned runway (ILS, then LOC, then the first
+ * other). The current transition is kept when the new approach has it (LAM, where LOGA2H ends), otherwise left empty for
+ * ProcedureSelector to connect to wherever the STAR ends.
  *
- * `starEndFix` is the cleared STAR's last fix. When given, the approach must connect to it:
- * an approach that has a transition starting there is preferred, and that transition is
- * selected. ZJSY, 2026-10-05: "cleared UPRS2C arrival, runway 08" with ILS X 08 already
- * selected, but UPRS2C ends at SY498, which only ILS Z 08 starts from.
+ * `starEndFix` is the cleared STAR's last fix. When given, the approach must connect to it: an approach with a transition
+ * starting there is preferred, and that transition is selected (at ZJSY, UPRS2C ends at SY498, which only ILS Z 08 starts
+ * from, while ILS X 08 was selected).
  *
- * Returns the update unchanged when it names no runway, or there's no approach list or no
- * approach for that runway to choose. It's also unchanged when the selected approach is
- * already for that runway, unless it doesn't connect to the STAR and another one there does.
+ * Returns the update unchanged when it names no runway, or there's no approach list or no approach for that runway to choose.
+ * It's also unchanged when the selected approach is already for that runway, unless it doesn't connect to the STAR and another
+ * one there does.
  *
  * @param update The clearance update.
  * @param options The arrival airport's approaches and transitions.

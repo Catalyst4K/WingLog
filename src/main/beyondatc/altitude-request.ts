@@ -7,9 +7,8 @@ import { boxClearedLevelFt } from '@shared/atc-info-boxes'
 import { METRES_PER_FOOT } from '@shared/units'
 
 /**
- * Asks BeyondATC for a new cruise altitude over its WebSocket — the exact two-step flow
- * confirmed live 2026-10-01 (winglog-backend's docs/beyondatc-notes.md, "requesting a new
- * cruise altitude"):
+ * Asks BeyondATC for a new cruise altitude over its WebSocket, in the two-step flow documented in winglog-backend's
+ * docs/beyondatc-notes.md ("requesting a new cruise altitude"):
  *
  *   set_action: Request Altitude Change   → Player: "request new cruise altitude."
  *   (ATC: "Say again altitude.")          → Actions: [Cancel Altitude Change¬FL320¬…¬FL380¬Say Again¬]
@@ -17,9 +16,8 @@ import { METRES_PER_FOOT } from '@shared/units'
  *                                          → ATC: "roger, new cruise altitude FL380."
  *                                            (and the cleared-level InfoBox shows FL380)
  *
- * There is no altitude command: BeyondATC's own toolbar only ever sends `set_action` with an
- * offered label, and a level label sent while it isn't on offer is silently ignored (also
- * confirmed live). So the level list must be waited for, and the wanted level picked from it.
+ * There is no altitude command: BeyondATC's toolbar only sends `set_action` with an offered label, and a level label sent while
+ * it isn't on offer is silently ignored. So the level list must be waited for, and the wanted level picked from it.
  */
 
 export const REQUEST_ALTITUDE_ACTION = 'Request Altitude Change'

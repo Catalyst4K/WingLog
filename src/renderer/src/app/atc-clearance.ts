@@ -26,13 +26,11 @@ export function clearanceDiffers(update: AtcClearanceUpdate, selection: Procedur
 }
 
 /**
- * BeyondATC names approaches its own way ("R-NAV approach runway 02L"); swap in the arrival
- * airport's own name so accepting it selects something real (WSSS, 2026-10-02). The airport is
- * the one being flown to: the selected arrival, else BeyondATC's own route.
- * A STAR clearance's runway picks the approach for it when it isn't the selected approach's
- * runway (EGLL, 2026-10-05: LOGA2H, runway 27R against a planned ILS 27L), or when the selected
- * one doesn't start where the STAR ends (ZJSY, 2026-10-05: UPRS2C ends at SY498, the entry to
- * ILS Z 08, not ILS X 08).
+ * BeyondATC names approaches its own way ("R-NAV approach runway 02L"); swap in the arrival airport's own name so accepting it
+ * selects something real. The airport is the one being flown to: the selected arrival, else BeyondATC's own route. A STAR
+ * clearance's runway picks the approach for it when it isn't the selected approach's runway (LOGA2H, runway 27R against a
+ * planned ILS 27L), or when the selected one doesn't start where the STAR ends (UPRS2C ends at SY498, the entry to ILS Z 08, not
+ * ILS X 08).
  *
  * @param update The clearance as parsed.
  * @param selection The current procedure selection.

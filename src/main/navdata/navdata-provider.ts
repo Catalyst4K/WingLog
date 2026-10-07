@@ -66,17 +66,13 @@ export interface NavdataProvider {
    *  auto-connect a chosen STAR onto a chosen approach. */
   listApproaches(icao: string, runway?: string | null): NavdataProcedureOption[]
   /**
-   * The full ordered waypoint list for this procedure at a chosen runway/transition —
-   * confirmed live (2026-09-08, docs/navdata-notes.md) that a real procedure's legs can
-   * live inside a specific runway transition, the procedure's own common list, a specific
-   * enroute transition, or some combination, so both selectors matter: omitting `runway`
-   * on a procedure whose real legs live entirely inside one runway transition (the common
-   * case for a SID) returns nothing, rather than guessing which runway's legs to use.
-   * For `kind: 'approach'`, `runway` is ignored (already implied by `identifier`) and the
-   * order is transition legs then the shared final segment — the reverse of SID/STAR's
-   * runway-then-common-then-transition order, confirmed live the same day to be correct for
-   * a real approach (fly the transition inbound, then the shared final segment to the
-   * runway) — with the duplicate fix ARINC 424 repeats at that boundary dropped.
+   * The full ordered waypoint list for this procedure at a chosen runway/transition. A procedure's legs can live inside a specific
+   * runway transition, the procedure's own common list, a specific enroute transition, or a combination (docs/navdata-notes.md),
+   * so both selectors matter: omitting `runway` on a procedure whose legs live entirely inside one runway transition (the common
+   * case for a SID) returns nothing, rather than guessing which runway's legs to use. For `kind: 'approach'`, `runway` is ignored
+   * (already implied by `identifier`) and the order is transition legs then the shared final segment, the reverse of SID/STAR's
+   * runway-then-common-then-transition order (fly the transition inbound, then the final segment to the runway), with the
+   * duplicate fix ARINC 424 repeats at that boundary dropped.
    */
   getProcedureWaypoints(icao: string, kind: ProcedureKind, identifier: string, runway?: string | null, transition?: string | null): NavdataLeg[]
   /** Fetches an airport's full taxiway network and replaces the cache for it. Unlike

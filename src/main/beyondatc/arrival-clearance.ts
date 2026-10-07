@@ -15,21 +15,19 @@ export interface ArrivalClearanceDeps {
 }
 
 /**
- * Keeps ATC's arrival clearance for the BeyondATC tab's info card, from the moment it's given
- * until touchdown (Callum, 2026-10-05). On flight 229 the STAR/runway clearance showed only in
- * the latest-instruction card, which the next ATC line replaced before it was read.
+ * Keeps ATC's arrival clearance for the BeyondATC tab's info card, from the moment it's given until touchdown. Otherwise the
+ * STAR/runway clearance showed only in the latest-instruction card, which the next ATC line replaced before it was read.
  *
- * Read only from BeyondATC's InfoBoxes, never ATC's speech (winglog-backend's
- * docs/decisions.md, 2026-10-05). Real sets, VHHH-ZJSY 2026-10-05:
- * - `STAR` + `Arrival Runway` set the STAR and runway. A known approach is cleared only when
- *   the runway differs from its own.
+ * Read only from BeyondATC's InfoBoxes, never ATC's speech (winglog-backend's docs/decisions.md, 2026-10-05). Real sets
+ * (VHHH-ZJSY):
+ * - `STAR` + `Arrival Runway` set the STAR and runway. A known approach is cleared only when the runway differs from its own.
  * - `Landing Runway` (+ `Transition`) sets the runway and the approach transition.
- * - `Cleared Approach` sets the approach, named the way the airport's navdata names it. A
- *   transition already known for that runway is kept.
+ * - `Cleared Approach` sets the approach, named the way the airport's navdata names it. A transition already known for that
+ *   runway is kept.
  * - The first tracking point in 'landing' (touchdown) clears it all.
  *
- * Lives in main, published as a LiveHub topic, so a LAN client (v1.5) sees the same card
- * (winglog-backend's docs/plans/live-data-seam.md). Emits 'clearance' on every change.
+ * Lives in main, published as a LiveHub topic, so a LAN client (v1.5) sees the same card (winglog-backend's
+ * docs/plans/live-data-seam.md). Emits 'clearance' on every change.
  */
 export class ArrivalClearanceTracker extends EventEmitter {
   private clearance: BeyondAtcArrivalClearance | null = null
