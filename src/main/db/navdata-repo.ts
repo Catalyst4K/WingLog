@@ -3,7 +3,7 @@
  * last fetched from the sim. Each kind is replaced wholesale per airport on every fetch, and every
  * lookup reads from here, never from the sim.
  */
-import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, isNull, min } from 'drizzle-orm'
 import type {
   NavdataLeg,
   NavdataProcedureOption,
@@ -238,6 +238,54 @@ export function hasCachedAirport(db: WingLogDb, icao: string): boolean {
     .where(eq(navdataRunway.icao, icao))
     .get()
   return row !== undefined
+}
+
+/** When each part of an airport's cached navdata was fetched; null for a part that isn't cached. */
+export interface NavdataFetchTimes {
+  /** Runways and procedures, fetched together. */
+  airport: string | null
+  taxi: string | null
+  stands: string | null
+}
+
+/**
+ * When an airport's cached navdata was last fetched, per part: the oldest row of each, so a part is
+ * only as fresh as its stalest row.
+ *
+ * @param db The database.
+ * @param icao The airport.
+ * @returns The fetch time of its runways and procedures, taxi network and stands (ISO times).
+ */
+export function navdataFetchTimes(db: WingLogDb, icao: string): NavdataFetchTimes {
+  const runways =
+    db
+      .select({ at: min(navdataRunway.fetchedAt) })
+      .from(navdataRunway)
+      .where(eq(navdataRunway.icao, icao))
+      .get()?.at ?? null
+  const procedures =
+    db
+      .select({ at: min(navdataProcedure.fetchedAt) })
+      .from(navdataProcedure)
+      .where(eq(navdataProcedure.icao, icao))
+      .get()?.at ?? null
+  const taxi =
+    db
+      .select({ at: min(navdataTaxiSegment.fetchedAt) })
+      .from(navdataTaxiSegment)
+      .where(eq(navdataTaxiSegment.icao, icao))
+      .get()?.at ?? null
+  const stands =
+    db
+      .select({ at: min(navdataStand.fetchedAt) })
+      .from(navdataStand)
+      .where(eq(navdataStand.icao, icao))
+      .get()?.at ?? null
+  return {
+    airport: [runways, procedures].filter((t): t is string => t !== null).sort()[0] ?? null,
+    taxi,
+    stands
+  }
 }
 
 /**
