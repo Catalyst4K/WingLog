@@ -40,8 +40,14 @@ function nmBetween(aLat: number, aLon: number, bLat: number, bLon: number): numb
   return greatCircleNm({ lat: aLat, lon: aLon }, { lat: bLat, lon: bLon })
 }
 
-/** Distance left along `route` from the aircraft: to the end of the leg it's nearest to (from
- *  its projection onto that leg), then every leg after it. Null without a usable route. */
+/**
+ * Distance left along `route` from the aircraft: to the end of the leg it's nearest to (from
+ * its projection onto that leg), then every leg after it. Null without a usable route.
+ *
+ * @param route The route's [lon, lat] points.
+ * @param position The aircraft's position.
+ * @returns The distance left in nautical miles, or null.
+ */
 export function remainingRouteNm(route: [number, number][], position: { lat: number; lon: number }): number | null {
   if (route.length < 2) return null
   let bestLeg = 0
@@ -73,6 +79,12 @@ export function remainingRouteNm(route: [number, number][], position: { lat: num
   return total
 }
 
+/**
+ * ET, time remaining and ETA for Track (see this file's header).
+ *
+ * @param input The flight's times, route, position and ground speed.
+ * @returns ET, time remaining and ETA, each null when unknown.
+ */
 export function computeTrackTimes(input: TrackTimesInput): TrackTimes {
   const takeoff = input.takeoffUtc ? Date.parse(input.takeoffUtc) : NaN
   const scheduled = input.schedInUtc ? Date.parse(input.schedInUtc) : NaN
@@ -101,16 +113,26 @@ export function computeTrackTimes(input: TrackTimesInput): TrackTimes {
   }
 }
 
-/** "5:07" — hours unpadded, minutes padded; "--:--" for nothing. */
+/**
+ * "5:07" — hours unpadded, minutes padded; "--:--" for nothing.
+ *
+ * @param ms The duration, or null.
+ * @returns The text.
+ */
 export function formatDuration(ms: number | null): string {
   if (ms === null) return '--:--'
   const totalMin = Math.floor(ms / 60_000)
   return `${Math.floor(totalMin / 60)}:${String(totalMin % 60).padStart(2, '0')}`
 }
 
-/** ET: "2:05:30", seconds included since the readout ticks every second (Callum,
- *  2026-10-02). Time remaining stays at formatDuration's minutes: it's an estimate from
- *  ground speed, and ticking seconds would claim a precision it doesn't have. */
+/**
+ * ET: "2:05:30", seconds included since the readout ticks every second (Callum,
+ * 2026-10-02). Time remaining stays at formatDuration's minutes: it's an estimate from
+ * ground speed, and ticking seconds would claim a precision it doesn't have.
+ *
+ * @param ms The elapsed time, or null.
+ * @returns The text.
+ */
 export function formatElapsed(ms: number | null): string {
   if (ms === null) return '--:--:--'
   const totalSec = Math.floor(ms / 1000)
@@ -119,7 +141,12 @@ export function formatElapsed(ms: number | null): string {
   return `${h}:${String(m).padStart(2, '0')}:${String(totalSec % 60).padStart(2, '0')}`
 }
 
-/** "08:01Z". */
+/**
+ * "08:01Z".
+ *
+ * @param ms The time in epoch milliseconds, or null.
+ * @returns The text.
+ */
 export function formatUtcTime(ms: number | null): string {
   if (ms === null) return '--:--'
   const d = new Date(ms)

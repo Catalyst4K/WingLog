@@ -1,3 +1,5 @@
+/** Matches an ATC arrival clearance to the arrival airport's approaches. */
+
 import type { NavdataProcedureOption, ProcedureSelection } from '@shared/ipc'
 import type { AtcClearanceUpdate } from '@shared/atc-info-boxes'
 import { approachRunway, pickDefaultApproachIdentifier } from './route'
@@ -19,6 +21,12 @@ import { approachRunway, pickDefaultApproachIdentifier } from './route'
  * Returns the update unchanged when it names no runway, or there's no approach list or no
  * approach for that runway to choose. It's also unchanged when the selected approach is
  * already for that runway, unless it doesn't connect to the STAR and another one there does.
+ *
+ * @param update The clearance update.
+ * @param options The arrival airport's approaches and transitions.
+ * @param current The approach and transition selected now.
+ * @param starEndFix The cleared STAR's last fix, or null.
+ * @returns The update, with the approach to fly added when it changes.
  */
 export function approachForArrivalRunway(
   update: AtcClearanceUpdate,
@@ -52,6 +60,10 @@ export function approachForArrivalRunway(
 /**
  * The last named fix of a STAR clearance's procedure, for `approachForArrivalRunway`. Null
  * when the clearance names no STAR, or the airport's navdata doesn't have it or can't be read.
+ *
+ * @param icao The arrival airport.
+ * @param update The clearance update.
+ * @returns The STAR's last named fix, or null.
  */
 export async function starEndFix(icao: string, update: AtcClearanceUpdate): Promise<string | null> {
   const star = update.fields.starIdent

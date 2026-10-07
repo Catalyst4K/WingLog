@@ -1,3 +1,5 @@
+/** METAR wind: parsing the wind group and showing it in the chosen unit. */
+
 import type { WindSpeedUnit } from '@shared/ipc'
 
 /** A parsed METAR wind group (e.g. "25008KT", "VRB03KT", "31015G25MPS"). Values are kept
@@ -18,8 +20,13 @@ export interface ParsedWind {
 // partial-match inside a longer alphanumeric group elsewhere in the report.
 const WIND_GROUP_RE = /\b(\d{3}|VRB)(\d{2,3})(?:G(\d{2,3}))?(KT|MPS)\b/
 
-/** Returns null if the raw text has no recognisable wind group — callers should just omit
- *  the formatted line in that case rather than showing something misleading. */
+/**
+ * Returns null if the raw text has no recognisable wind group — callers should just omit
+ * the formatted line in that case rather than showing something misleading.
+ *
+ * @param rawText The raw METAR.
+ * @returns The wind, or null.
+ */
 export function parseWindGroup(rawText: string): ParsedWind | null {
   const match = WIND_GROUP_RE.exec(rawText)
   if (!match) return null
@@ -42,8 +49,14 @@ function convertSpeed(value: number, from: WindSpeedUnit, to: WindSpeedUnit): nu
 
 const UNIT_LABEL: Record<WindSpeedUnit, string> = { kt: 'kt', mps: 'm/s' }
 
-/** A short, human-readable line — never a replacement for the raw METAR text, which
- *  should always stay visible alongside this. */
+/**
+ * A short, human-readable line — never a replacement for the raw METAR text, which
+ * should always stay visible alongside this.
+ *
+ * @param wind The parsed wind.
+ * @param displayUnit The speed unit to show.
+ * @returns The wind line.
+ */
 export function formatWind(wind: ParsedWind, displayUnit: WindSpeedUnit): string {
   const label = UNIT_LABEL[displayUnit]
   const dirText = wind.isVariable ? 'Variable' : `${String(wind.directionDeg).padStart(3, '0')}°`

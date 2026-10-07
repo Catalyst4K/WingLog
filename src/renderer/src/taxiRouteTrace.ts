@@ -1,6 +1,3 @@
-import type { NavdataTaxiSegment } from '@shared/ipc'
-import { flatDistanceM, toLocalXy } from '@shared/geo'
-
 /**
  * Traces a BeyondATC taxi clearance through the airport's real taxi network, instead of
  * highlighting every segment that shares a taxiway name (winglog-backend's
@@ -37,6 +34,9 @@ import { flatDistanceM, toLocalXy } from '@shared/geo'
  * The holding point must be a taxiway name in the data; otherwise null, and the caller falls
  * back to highlighting whole taxiways by name.
  */
+
+import type { NavdataTaxiSegment } from '@shared/ipc'
+import { flatDistanceM, toLocalXy } from '@shared/geo'
 
 const OFF_ROUTE_COST_FACTOR = 5
 /** How far a stand's own point may be from the taxi network's nearest point (its lead-in line
@@ -82,7 +82,13 @@ export const WRONG_WAY_DEG = 120
  *  (flight 225, simulated) re-routed back behind the aircraft twice before following it. */
 const WRONG_WAY_PENALTY_M = 3_000
 
-/** Smallest angle between two bearings, 0-180. */
+/**
+ * Smallest angle between two bearings, 0-180.
+ *
+ * @param a One bearing, degrees.
+ * @param b The other.
+ * @returns The angle, 0-180.
+ */
 export function angleBetweenDeg(a: number, b: number): number {
   const d = Math.abs((((a - b) % 360) + 360) % 360)
   return d > 180 ? 360 - d : d
@@ -98,7 +104,13 @@ interface Graph {
 
 const nodeKey = (lat: number, lon: number): string => `${lat.toFixed(7)},${lon.toFixed(7)}`
 
-/** Segments join at shared TAXI_POINTs, so identical endpoint coordinates are the nodes. */
+/**
+ * Segments join at shared TAXI_POINTs, so identical endpoint coordinates are the nodes.
+ *
+ * @param segments The taxi network.
+ * @param refLat The airport's latitude, for the local projection.
+ * @returns The graph.
+ */
 function buildGraph(segments: NavdataTaxiSegment[], refLat: number): Graph {
   const cosLat = Math.cos((refLat * Math.PI) / 180)
   const distanceM = (aLat: number, aLon: number, bLat: number, bLon: number): number =>
@@ -134,7 +146,13 @@ function buildGraph(segments: NavdataTaxiSegment[], refLat: number): Graph {
   return { nodeIndex, nodes, edges, distanceM, bearingDeg }
 }
 
-/** The network point nearest `from`, or -1 beyond MAX_START_DISTANCE_M. */
+/**
+ * The network point nearest `from`, or -1 beyond MAX_START_DISTANCE_M.
+ *
+ * @param graph The graph.
+ * @param from The position.
+ * @returns The node's index, or -1.
+ */
 function nearestNode({ nodes, distanceM }: Graph, from: { lat: number; lon: number }): number {
   let start = -1
   let startDistance = Infinity
@@ -148,15 +166,27 @@ function nearestNode({ nodes, distanceM }: Graph, from: { lat: number; lon: numb
   return startDistance > MAX_START_DISTANCE_M ? -1 : start
 }
 
+/**
+ * Traces a clearance, strictly first, then accepting where the holding-point taxiway's name stops (see traceOnce).
+ *
+ * @param request The clearance, the network and where the aircraft is.
+ * @returns The route, or null if it can't be traced.
+ */
 export function traceTaxiRoute(request: TaxiTraceRequest): TracedRoute | null {
   if (request.holdingPoint) return traceOnce(request, true) ?? traceOnce(request, false)
   if (!request.stand) return traceOnce(request, true)
   return traceOnce(request, true) ?? traceOnce({ ...request, stand: null }, true)
 }
 
-/** `strictEnd`: a holding-point route must end at a hold short or a true dead end. Without one
- *  reachable (scenery with no hold-short flags whose taxiway runs into another), the second try
- *  accepts where the holding-point taxiway's name stops. */
+/**
+ * `strictEnd`: a holding-point route must end at a hold short or a true dead end. Without one
+ * reachable (scenery with no hold-short flags whose taxiway runs into another), the second try
+ * accepts where the holding-point taxiway's name stops.
+ *
+ * @param request The clearance, the network and where the aircraft is.
+ * @param strictEnd Whether the route must end at a hold short or dead end.
+ * @returns The route, or null.
+ */
 function traceOnce(
   { segments, taxiways, holdingPoint, from, stand, headingDeg = null }: TaxiTraceRequest,
   strictEnd: boolean
@@ -294,6 +324,9 @@ export interface RejoinRequest {
  * Joins only from `fromSegment` on, so never back onto a part already driven. The end (the
  * hold or the stand) is always the original route's. Null when the aircraft is off the
  * network or nothing joins.
+ *
+ * @param request The network, the cleared route, how far along it the aircraft is, and where it is.
+ * @returns The new route, or null.
  */
 export function rejoinTaxiRoute({ segments, route, fromSegment, from, headingDeg = null }: RejoinRequest): TracedRoute | null {
   if (route.length < 2) return null
@@ -364,6 +397,11 @@ const MAX_FOLLOW_DISTANCE_M = 150
  * 2026-10-02: the line should start at the plane, not somewhere ahead of it). The part already
  * taxied drops away. `fromSegment` is the furthest segment reached so far — the search never
  * goes back, so a route passing close to itself can't jump backwards.
+ *
+ * @param route The traced route.
+ * @param position The aircraft's position.
+ * @param fromSegment The furthest segment reached so far.
+ * @returns The route left, from the aircraft.
  */
 export function remainingRoute(
   route: TracedRoute,

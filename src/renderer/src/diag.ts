@@ -10,6 +10,7 @@ const MAX_MESSAGE_CHARS = 4_000
 /**
  * Sends one `[diag:map]` line to `diag.log`.
  *
+ * @param message What happened.
  * @param data Anything JSON-serialisable, appended to the message.
  * @param isDevBuild Defaults to the build flag; a parameter so both builds can be tested.
  */

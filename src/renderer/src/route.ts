@@ -1,3 +1,5 @@
+/** Reading the planned route and procedures out of a flight's OFP JSON, and splicing in selected procedures. */
+
 import type { NavdataLeg, NavdataProcedureOption } from '@shared/ipc'
 import { isVisualApproach } from '@shared/visual-approach'
 import { destinationPoint, METRES_PER_NM, wrapLongitude } from '@shared/geo'
@@ -13,18 +15,29 @@ function navlogFixes(ofpJson: string | null): Record<string, unknown>[] {
   }
 }
 
-/** Empty SimBrief fields deserialize to `{}`, not `""` or missing (docs/simbrief-notes.md)
- *  — guard every optional string read from a navlog/general field the same way
- *  simbrief-client.ts's own optStr does, so an absent value never becomes the literal
- *  string "[object Object]". */
+/**
+ * Empty SimBrief fields deserialize to `{}`, not `""` or missing (docs/simbrief-notes.md)
+ * — guard every optional string read from a navlog/general field the same way
+ * simbrief-client.ts's own optStr does, so an absent value never becomes the literal
+ * string "[object Object]".
+ *
+ * @param value A field from the OFP JSON.
+ * @returns The string, or null for an empty or non-string one.
+ */
 function optStr(value: unknown): string | null {
   return typeof value === 'string' && value !== '' ? value : null
 }
 
-/** Reads one top-level OFP section by name — SimBrief's JSON is a flat object of named
- *  sections (general, api_params, origin, destination, ...), each itself an object. Empty
- *  object for a missing/malformed section or unparseable JSON, matching every other
- *  "empty rather than throw" function in this module. */
+/**
+ * Reads one top-level OFP section by name — SimBrief's JSON is a flat object of named
+ * sections (general, api_params, origin, destination, ...), each itself an object. Empty
+ * object for a missing/malformed section or unparseable JSON, matching every other
+ * "empty rather than throw" function in this module.
+ *
+ * @param ofpJson The OFP JSON, or null.
+ * @param key The section name.
+ * @returns The section, or an empty object.
+ */
 function objectSection(ofpJson: string | null, key: string): Record<string, unknown> {
   if (!ofpJson) return {}
   try {
@@ -50,6 +63,9 @@ function apiParamsSection(ofpJson: string | null): Record<string, unknown> {
  * field names/shapes during M3 (docs/decisions.md, 2026-09-01 dispatch entry). Returns an
  * empty route rather than throwing on anything unexpected — a missing planned route just
  * means the map has no line to draw, not a reason to break the page.
+ *
+ * @param ofpJson The OFP JSON, or null.
+ * @returns The route's [lon, lat] pairs.
  */
 export function parseRouteFromOfpJson(ofpJson: string | null): [number, number][] {
   const points: [number, number][] = []
@@ -88,6 +104,12 @@ export interface RouteProcedures {
   arrivalRunway: string | null
 }
 
+/**
+ * The procedures SimBrief planned, from `general` and `api_params`.
+ *
+ * @param ofpJson The OFP JSON, or null.
+ * @returns The planned runways, SID, STAR and their transitions.
+ */
 export function parseRouteProcedures(ofpJson: string | null): RouteProcedures {
   const general = generalSection(ofpJson)
   const apiParams = apiParamsSection(ofpJson)
@@ -118,6 +140,9 @@ export function parseRouteProcedures(ofpJson: string | null): RouteProcedures {
  *   via_airway alone can't find it), else from the first fix with `via_airway ===
  *   star_ident`; runs to the very last fix, which is the destination airport itself.
  * - Enroute = everything between.
+ *
+ * @param ofpJson The OFP JSON, or null.
+ * @returns The waypoints, each labelled sid, enroute or star.
  */
 export function segmentWaypoints(ofpJson: string | null): Waypoint[] {
   const general = generalSection(ofpJson)
@@ -165,6 +190,9 @@ export function segmentWaypoints(ofpJson: string | null): Waypoint[] {
  * Extracts per-fix waypoint markers (ident + altitude + segment), same source as
  * parseRouteFromOfpJson. Same "empty rather than throw" behavior as that function —
  * segmentWaypoints already guards every field it reads.
+ *
+ * @param ofpJson The OFP JSON, or null.
+ * @returns The waypoints.
  */
 export function parseWaypointsFromOfpJson(ofpJson: string | null): Waypoint[] {
   return segmentWaypoints(ofpJson)
@@ -180,6 +208,9 @@ export function parseWaypointsFromOfpJson(ofpJson: string | null): Waypoint[] {
  * are. Airway names (`L6`, `UL9`) are never fix idents, so they're left alone; a lone
  * airway token that only ever led into a now-removed procedure can be left dangling at the
  * end of the string — a rare cosmetic leftover, not worth a heuristic for a display string.
+ *
+ * @param ofpJson The OFP JSON, or null.
+ * @returns The route string without its procedures.
  */
 export function formatEnrouteOnly(ofpJson: string | null): string {
   const general = generalSection(ofpJson)
@@ -221,9 +252,17 @@ export interface ProcedureLegs {
  *  ROUTE_DISTANCE along COURSE from it (winglog-backend docs/navdata-notes.md, 2026-09-18). */
 const DISTANCE_TERMINATED_LEG_TYPES = new Set([9, 10])
 
-/** Great-circle destination point. COURSE is treated as a true bearing although the sim
- *  reports it magnetic (TRUE_DEGREE reads 0) and no variation is available per leg — a few
- *  degrees of error over a leg of ~10 nm is well under the map's own precision. */
+/**
+ * Great-circle destination point. COURSE is treated as a true bearing although the sim
+ * reports it magnetic (TRUE_DEGREE reads 0) and no variation is available per leg — a few
+ * degrees of error over a leg of ~10 nm is well under the map's own precision.
+ *
+ * @param lat Start latitude.
+ * @param lon Start longitude.
+ * @param bearingDeg The leg's course, degrees.
+ * @param distanceM The leg's length, in metres.
+ * @returns The leg's end point.
+ */
 function legEnd(lat: number, lon: number, bearingDeg: number, distanceM: number): { lat: number; lon: number } {
   const to = destinationPoint({ lat, lon }, bearingDeg, distanceM)
   return { lat: to.lat, lon: wrapLongitude(to.lon) }
@@ -266,6 +305,13 @@ function legsToWaypoints(legs: NavdataLeg[], segment: RouteSegment): Waypoint[] 
  * including a real APPROACH_TRANSITION when one was matched (ProcedureSelector's
  * auto-connect, or a manual choice) — the caller decides which transition's legs `approach`
  * carries, this function only splices what it's given.
+ *
+ * @param baseWaypoints SimBrief's segmented route.
+ * @param sid The selected SID's legs, or null.
+ * @param star The selected STAR's legs, or null.
+ * @param approach The selected approach's legs, or null.
+ * @param options `alternateArrival` when diverting to the alternate.
+ * @returns The route with the procedures spliced in.
  */
 export function applyProcedureSelection(
   baseWaypoints: Waypoint[],
@@ -334,6 +380,12 @@ export interface TransitionAltitudes {
   transLevelFt: number
 }
 
+/**
+ * The departure's transition altitude and the arrival's transition level, in feet.
+ *
+ * @param ofpJson The OFP JSON, or null.
+ * @returns The transition altitude and level, or null.
+ */
 export function parseTransitionAltitudes(ofpJson: string | null): TransitionAltitudes | null {
   const transAltStr = optStr(objectSection(ofpJson, 'origin').trans_alt)
   const transLevelStr = optStr(objectSection(ofpJson, 'destination').trans_level)
@@ -344,28 +396,39 @@ export function parseTransitionAltitudes(ofpJson: string | null): TransitionAlti
   return { transAltFt, transLevelFt }
 }
 
-/** An approach's constructed identifier always ends with its runway ident ("ILS 07C",
- *  "RNP Z 07R" — facility-fields.ts's ParsedApproachHeader) — the only place that runway
- *  lives now that there's no separate arrival-runway selection. Used to filter STAR options/
- *  legs to the runway the currently-chosen approach actually serves. */
+/**
+ * An approach's constructed identifier always ends with its runway ident ("ILS 07C",
+ * "RNP Z 07R" — facility-fields.ts's ParsedApproachHeader) — the only place that runway
+ * lives now that there's no separate arrival-runway selection. Used to filter STAR options/
+ * legs to the runway the currently-chosen approach actually serves.
+ *
+ * @param approachIdent The approach identifier, or null.
+ * @returns The runway, or null.
+ */
 export function approachRunway(approachIdent: string | null): string | null {
   if (!approachIdent) return null
   const parts = approachIdent.trim().split(' ')
   return parts[parts.length - 1] || null
 }
 
-/** Among approaches for the planned runway, prefer ILS (always unsuffixed when present),
- *  then LOC, then whatever RNAV/other option sorts first — a reasonable starting point, not
- *  a correctness claim: no signal (SimBrief or navdata) says which of several same-runway
- *  approaches ATC will actually assign, since a real pilot doesn't know either until told
- *  during descent (docs/navdata-notes.md, 2026-09-08 approach-procedures entry). The point
- *  is a sane default that's instantly correctable from the dropdown, not a guess to get
- *  right.
+/**
+ * Among approaches for the planned runway, prefer ILS (always unsuffixed when present),
+ * then LOC, then whatever RNAV/other option sorts first — a reasonable starting point, not
+ * a correctness claim: no signal (SimBrief or navdata) says which of several same-runway
+ * approaches ATC will actually assign, since a real pilot doesn't know either until told
+ * during descent (docs/navdata-notes.md, 2026-09-08 approach-procedures entry). The point
+ * is a sane default that's instantly correctable from the dropdown, not a guess to get
+ * right.
  *
- *  `starEndFix`, when given, narrows the choice to approaches with a transition starting at
- *  that fix, when any have one. ZJSY, 2026-10-05: UPRS2C ends at SY498, the entry to ILS Z 08
- *  but not ILS X 08 (SY462, SY935 only), so "first ILS" picked an approach the STAR never
- *  reaches. */
+ * `starEndFix`, when given, narrows the choice to approaches with a transition starting at
+ * that fix, when any have one. ZJSY, 2026-10-05: UPRS2C ends at SY498, the entry to ILS Z 08
+ * but not ILS X 08 (SY462, SY935 only), so "first ILS" picked an approach the STAR never
+ * reaches.
+ *
+ * @param options The runway's approaches.
+ * @param starEndFix The STAR's last fix, if known.
+ * @returns The approach identifier, or null with none.
+ */
 export function pickDefaultApproachIdentifier(options: NavdataProcedureOption[], starEndFix?: string | null): string | null {
   const connecting = starEndFix ? options.filter((o) => o.transition === starEndFix) : []
   const all = [...new Set((connecting.length > 0 ? connecting : options).map((o) => o.identifier))].sort()

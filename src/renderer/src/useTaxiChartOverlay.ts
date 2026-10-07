@@ -1,8 +1,3 @@
-import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
-import type { GeoJSONSource, GeoJSONSourceSpecification, Map as MapLibreMap } from 'maplibre-gl'
-import type { NavdataTaxiSegment } from '@shared/ipc'
-import { uiMemory } from './ui-memory'
-
 /**
  * The Track/Logbook map's taxi chart overlay (winglog-backend's docs/plans/
  * taxi-network-overlay.md) — an airport's full taxiway network, drawn as a static reference
@@ -10,6 +5,11 @@ import { uiMemory } from './ui-memory'
  * or fetched until the toggle is switched on, same discipline as useVfrOverlay.ts, since a
  * large airport's fetch can genuinely take minutes (not seconds) the first time.
  */
+
+import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
+import type { GeoJSONSource, GeoJSONSourceSpecification, Map as MapLibreMap } from 'maplibre-gl'
+import type { NavdataTaxiSegment } from '@shared/ipc'
+import { uiMemory } from './ui-memory'
 
 // Exported so useTaxiRouteHighlight.ts can add its own filtered layer on the same source
 // rather than fetching/holding a second copy of the same segment data.
@@ -86,6 +86,12 @@ async function loadAirport(icao: string, onLoaded: (icao: string, segments: Navd
   onLoaded(icao, segments)
 }
 
+/**
+ * Draws the departure and arrival airports' taxi networks while the overlay is on.
+ *
+ * @param args The map, whether it is ready, and the flight's airports.
+ * @returns The overlay's state and toggle.
+ */
 export function useTaxiChartOverlay({ mapRef, mapReady, depIcao, arrIcao }: UseTaxiChartOverlayArgs): TaxiChartOverlay {
   const [enabled, setEnabled] = useState(uiMemory().taxiChartEnabled)
   const [loadedVersion, setLoadedVersion] = useState(0)

@@ -29,6 +29,9 @@ const RUNWAY_IDENT = /^\d{1,2}[LRC]?$/
  * docs/plans/beyondatc-infoboxes-first.md): `Taxi Via 1..n`, `Hold Position`, `Taxi to Gate`.
  * Real, 2026-10-05: VHHH "B, B, V, H, J" to J1 and ZJSY "A4, D" to gate 102. Null when the
  * boxes hold no taxi route.
+ *
+ * @param boxes One set of InfoBoxes.
+ * @returns The clearance, or null.
  */
 export function boxTaxiClearance(boxes: BeyondAtcInfoBox[]): Omit<TaxiClearance, 'from'> | null {
   const facts = parseAtcTaxiFacts(boxes)
@@ -48,6 +51,12 @@ export function boxTaxiClearance(boxes: BeyondAtcInfoBox[]): Omit<TaxiClearance,
  * "Hold short of runway" can be either (crossing a runway on the way out, or on the way in as
  * at VHHH), so it's the one whose taxi network is nearest the aircraft; the arrival if
  * neither is loaded yet.
+ *
+ * @param clearance The clearance.
+ * @param depIcao The departure airport.
+ * @param arrIcao The arrival airport.
+ * @param segmentsByIcao The taxi networks loaded so far.
+ * @returns The airport, or null.
  */
 export function clearanceAirport(
   clearance: TaxiClearance,
@@ -68,7 +77,12 @@ export function clearanceAirport(
   return best?.icao ?? arrIcao
 }
 
-/** A clearance's start: the aircraft's position. */
+/**
+ * A clearance's start: the aircraft's position.
+ *
+ * @param position The aircraft's position, or null.
+ * @returns The clearance's start.
+ */
 export function startOf(position: { lat: number; lon: number } | null): Pick<TaxiClearance, 'from'> {
   return { from: position ? { lat: position.lat, lon: position.lon } : null }
 }
@@ -76,6 +90,11 @@ export function startOf(position: { lat: number; lon: number } | null): Pick<Tax
 /**
  * The line for a clearance, from where the aircraft was when it arrived: to the holding point,
  * along the last taxiway to a runway's hold short, or to the stand. Null when it can't be traced.
+ *
+ * @param clearance The clearance.
+ * @param segments The airport's taxi network.
+ * @param stand The cleared stand, or null.
+ * @returns The traced line, or null.
  */
 export function traceClearance(
   clearance: TaxiClearance,

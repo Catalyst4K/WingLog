@@ -1,3 +1,5 @@
+/** Which track points the map draws. */
+
 import type { TrackPoint } from '@shared/ipc'
 
 /**
@@ -6,6 +8,9 @@ import type { TrackPoint } from '@shared/ipc'
  * side of a mid-flight teleport rewound onto the already-flown track. Kept as its own pure
  * function (rather than inline in FlightMap.tsx) so the filtering rule itself — and not
  * just "FlightMap doesn't crash with an excluded point present" — has a direct test.
+ *
+ * @param points The flight's track points.
+ * @returns The points without the excluded ones.
  */
 export function filterVisibleTrackPoints(points: TrackPoint[]): TrackPoint[] {
   return points.filter((p) => p.excludedReason == null)

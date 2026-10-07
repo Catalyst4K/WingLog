@@ -1,11 +1,11 @@
-import type { TrackPoint } from '@shared/ipc'
-
 /**
  * The zoom Track's map follows the aircraft at, by phase of flight (winglog-backend's
  * docs/plans/map-follow-zoom-and-load.md). On the ground it's close enough to read the taxi
  * chart; in the air it steps out with altitude (Callum, 2026-10-02: one fixed airborne zoom
  * was too close once airborne, and no SID fixes were on screen after takeoff).
  */
+
+import type { TrackPoint } from '@shared/ipc'
 
 const FT = 0.3048
 
@@ -32,8 +32,14 @@ function rawAirborneBand(altitudeM: number): number {
   return AIRBORNE_BANDS.findIndex((band) => altitudeM < band.topM)
 }
 
-/** The band for this sample, staying in `previous` while the aircraft is still within the
- *  hysteresis margin of it. */
+/**
+ * The band for this sample, staying in `previous` while the aircraft is still within the
+ * hysteresis margin of it.
+ *
+ * @param point The aircraft's altitude and whether it is on the ground.
+ * @param previous The band it was in, or null.
+ * @returns The band.
+ */
 export function followBand(point: BandInput, previous: FollowBand | null): FollowBand {
   if (point.onGround) return 'ground'
   // Older rows have no pressure altitude; true altitude is close enough for picking a zoom.
@@ -46,6 +52,10 @@ export function followBand(point: BandInput, previous: FollowBand | null): Follo
   return rawAirborneBand(altitudeM)
 }
 
+/**
+ * @param band The band.
+ * @returns The map zoom for it.
+ */
 export function zoomForBand(band: FollowBand): number {
   return band === 'ground' ? FOLLOW_ZOOM_GROUND : AIRBORNE_BANDS[band]!.zoom
 }

@@ -1,6 +1,3 @@
-import type { BeyondAtcInfoBox, BeyondAtcState, BeyondAtcTranscriptEntry } from '@shared/ipc'
-import { boxClearedLevelFt, clearedApproachIdent, normaliseTitle, parseAtcTaxiFacts, withoutLabel } from '@shared/atc-info-boxes'
-
 /**
  * The key facts from BeyondATC's most recent ATC instruction, for the panel's "Latest
  * instruction" card — Callum's call, 2026-09-30: whatever ATC said last (clearance, taxi,
@@ -13,6 +10,9 @@ import { boxClearedLevelFt, clearedApproachIdent, normaliseTitle, parseAtcTaxiFa
  * cleared-to airport, "direct", wind, and the line-up / hold-short / readback-correct /
  * radar-identified labels. The card always shows the full spoken text too.
  */
+
+import type { BeyondAtcInfoBox, BeyondAtcState, BeyondAtcTranscriptEntry } from '@shared/ipc'
+import { boxClearedLevelFt, clearedApproachIdent, normaliseTitle, parseAtcTaxiFacts, withoutLabel } from '@shared/atc-info-boxes'
 
 export type InstructionFieldKey =
   | 'station'
@@ -84,7 +84,12 @@ function formatAltitude(raw: string): string {
   return raw
 }
 
-/** The facts in one spoken ATC line that BeyondATC has no InfoBox for. */
+/**
+ * The facts in one spoken ATC line that BeyondATC has no InfoBox for.
+ *
+ * @param text ATC's spoken line.
+ * @returns Its actions and labelled fields.
+ */
 export function parseAtcInstruction(text: string): Pick<AtcInstruction, 'actions' | 'fields'> {
   const fields: InstructionField[] = []
   const add = (key: InstructionFieldKey, value: string | undefined): void => {
@@ -107,7 +112,12 @@ const RUNWAY_TITLES = ['taxi to runway', 'arrival runway', 'landing runway', 'cl
 const DESCEND_TITLES = ['descend', 'descend to']
 const RUNWAY_IDENT = /^\d{1,2}[LRC]?$/
 
-/** One set of InfoBoxes as the card's labelled fields and actions. */
+/**
+ * One set of InfoBoxes as the card's labelled fields and actions.
+ *
+ * @param boxes One set of InfoBoxes.
+ * @returns Their actions and labelled fields.
+ */
 export function instructionFromBoxes(boxes: BeyondAtcInfoBox[]): Pick<AtcInstruction, 'actions' | 'fields'> {
   const fields: InstructionField[] = []
   const actions: InstructionAction[] = []
@@ -145,6 +155,10 @@ export function instructionFromBoxes(boxes: BeyondAtcInfoBox[]): Pick<AtcInstruc
  * has said anything: its speech-only facts, plus the InfoBoxes when they changed around the
  * time of that line. An older box set belongs to an earlier instruction ("exit left at A7" has
  * no box, and mustn't show the landing clearance's).
+ *
+ * @param entries The transcript.
+ * @param boxes The current InfoBoxes and when they last changed.
+ * @returns The latest instruction, or null.
  */
 export function latestAtcInstruction(
   entries: BeyondAtcTranscriptEntry[],
@@ -170,8 +184,13 @@ function latestSpokenInstruction(entries: BeyondAtcTranscriptEntry[]): AtcInstru
   return readbacks[0] ?? null
 }
 
-/** "readback correct. Contact ground 122.25 when ready for pushback or engine start." (real,
- *  VHHH 2026-10-02) — confirms the line before rather than replacing it. */
+/**
+ * "readback correct. Contact ground 122.25 when ready for pushback or engine start." (real,
+ * VHHH 2026-10-02) — confirms the line before rather than replacing it.
+ *
+ * @param instruction An instruction.
+ * @returns True if it only confirms the one before.
+ */
 function isReadbackOnly(instruction: AtcInstruction): boolean {
   return (
     instruction.actions.length === 1 &&
@@ -180,9 +199,15 @@ function isReadbackOnly(instruction: AtcInstruction): boolean {
   )
 }
 
-/** Callum, 2026-10-02: a readback keeps the instruction it confirms on the card (the clearance
- *  stays up until ATC says something new, e.g. pushback approved). The full text shows both
- *  lines; the frequency it hands over comes from the boxes (`Ground Frequency`). */
+/**
+ * Callum, 2026-10-02: a readback keeps the instruction it confirms on the card (the clearance
+ * stays up until ATC says something new, e.g. pushback approved). The full text shows both
+ * lines; the frequency it hands over comes from the boxes (`Ground Frequency`).
+ *
+ * @param confirmed The instruction being confirmed.
+ * @param readback The readback line.
+ * @returns The confirmed instruction, with both lines' text.
+ */
 function applyReadback(confirmed: AtcInstruction, readback: AtcInstruction): AtcInstruction {
   return { ...confirmed, text: `${confirmed.text} ${readback.text}`, ts: readback.ts }
 }

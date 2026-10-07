@@ -26,6 +26,11 @@ const MAX_TICKS = 8
  * Smallest step from `ladder` that keeps the axis to `maxTicks` intervals or fewer over
  * `duration`. Falls back to the ladder's largest step when even that isn't enough (a very
  * long duration) — there's nothing bigger to pick.
+ *
+ * @param duration The axis length, in the ladder's unit.
+ * @param ladder The allowed steps, smallest first.
+ * @param maxTicks The most intervals allowed.
+ * @returns The step.
  */
 export function pickTickStep(duration: number, ladder: readonly number[], maxTicks = MAX_TICKS): number {
   for (const step of ladder) {
@@ -40,6 +45,10 @@ export function pickTickStep(duration: number, ladder: readonly number[], maxTic
  * it doesn't divide evenly. Computed as `i * step` (not by repeated addition) so every
  * value is an exact multiple of `step`, with no floating-point drift for a formatter to
  * trip over.
+ *
+ * @param step The step.
+ * @param maxValue The axis length.
+ * @returns The tick values.
  */
 export function buildTicks(step: number, maxValue: number): number[] {
   if (step <= 0) return [0]
@@ -56,11 +65,17 @@ export interface ChartAxisTicks {
   stepDisplay: number
 }
 
-/** Picks a step and builds ticks for one of Logbook's time axes. `durationMin` is always
- *  in minutes (elapsed time since the first track point); `useHoursAxis` selects which
- *  ladder governs the step and switches the returned ticks' *label* unit — the tick
- *  *positions* are always converted back to minutes so they land correctly on the shared
- *  `tMin` data field either way. */
+/**
+ * Picks a step and builds ticks for one of Logbook's time axes. `durationMin` is always
+ * in minutes (elapsed time since the first track point); `useHoursAxis` selects which
+ * ladder governs the step and switches the returned ticks' *label* unit — the tick
+ * *positions* are always converted back to minutes so they land correctly on the shared
+ * `tMin` data field either way.
+ *
+ * @param durationMin The flight's length, in minutes.
+ * @param useHoursAxis Whether to label the axis in hours.
+ * @returns The ticks, in minutes, and their labels' unit.
+ */
 export function computeChartAxisTicks(durationMin: number, useHoursAxis: boolean): ChartAxisTicks {
   if (useHoursAxis) {
     const durationHr = durationMin / 60
@@ -72,10 +87,15 @@ export function computeChartAxisTicks(durationMin: number, useHoursAxis: boolean
   return { ticksMin: buildTicks(stepMin, durationMin), stepDisplay: stepMin }
 }
 
-/** Formats a tick already converted to its display unit, dropping trailing zeros (e.g.
- *  "0.25", "0.5", "1", "1.5" for hours; whole numbers for minutes) — plain
- *  `Number.prototype.toString()` already does this, this just rounds away any float
- *  noise first (e.g. 0.1 + 0.2 style drift) before that conversion. */
+/**
+ * Formats a tick already converted to its display unit, dropping trailing zeros (e.g.
+ * "0.25", "0.5", "1", "1.5" for hours; whole numbers for minutes) — plain
+ * `Number.prototype.toString()` already does this, this just rounds away any float
+ * noise first (e.g. 0.1 + 0.2 style drift) before that conversion.
+ *
+ * @param value The tick, in its display unit.
+ * @returns The label.
+ */
 export function formatTickLabel(value: number): string {
   return String(Math.round(value * 1000) / 1000)
 }

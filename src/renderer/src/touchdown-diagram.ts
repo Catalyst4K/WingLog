@@ -65,10 +65,15 @@ const WINDOW_END_MARGIN_AFTER_TOUCHDOWN_M = 100
 // capture.ts's own doc comment). The tail visualizes that whole window, not a precise point.
 const TOUCHDOWN_CAPTURE_SECONDS = 1
 
-/** ICAO Annex 14 §5.2.3 threshold marking — stripe count by runway width (Manual of
- *  Aerodrome Standards table: 18m→4, 23m→6, 30m→8, 45m→12, 60m→16 — matching
- *  aimingPointDistanceForLengthM's own citation). A width between two standard values
- *  rounds up to the next band, same `<=`/`<` style as that function. */
+/**
+ * ICAO Annex 14 §5.2.3 threshold marking — stripe count by runway width (Manual of
+ * Aerodrome Standards table: 18m→4, 23m→6, 30m→8, 45m→12, 60m→16 — matching
+ * aimingPointDistanceForLengthM's own citation). A width between two standard values
+ * rounds up to the next band, same `<=`/`<` style as that function.
+ *
+ * @param widthM The runway's width, in metres.
+ * @returns The number of stripes.
+ */
 export function thresholdStripeCountForWidthM(widthM: number): number {
   if (widthM <= 18) return 4
   if (widthM <= 23) return 6
@@ -77,8 +82,13 @@ export function thresholdStripeCountForWidthM(widthM: number): number {
   return 16
 }
 
-/** Touchdown-zone pair centres, usable-threshold-relative (add `displacedThresholdM` for
- *  the physical-start frame this module otherwise uses). */
+/**
+ * Touchdown-zone pair centres, usable-threshold-relative (add `displacedThresholdM` for
+ * the physical-start frame this module otherwise uses).
+ *
+ * @param lengthM The runway's length, in metres.
+ * @returns Each pair's distance from the usable threshold, in metres.
+ */
 export function touchdownZonePairPositionsM(lengthM: number): number[] {
   const count = touchdownZonePairCountForLengthM(lengthM)
   return Array.from({ length: count }, (_, i) => (i + 1) * TOUCHDOWN_ZONE_PAIR_SPACING_M)
@@ -95,6 +105,9 @@ export function touchdownZonePairPositionsM(lengthM: number): number[] {
  * a genuinely new count), and a 6-group runway mirrors the taper back up for the far pairs
  * (3,2,1,1,2,3). touchdownZonePairCountForLengthM's own comment already notes there's no
  * 5-group band, so this table has no gap to fill for it.
+ *
+ * @param totalGroups The number of touchdown-zone groups.
+ * @returns Each group's bar count, nearest the threshold first.
  */
 export function touchdownZoneBarCounts(totalGroups: number): number[] {
   switch (totalGroups) {
@@ -158,8 +171,15 @@ export interface DiagramLayout {
   lateralExaggeration: number
 }
 
-/** Lays out one touchdown against one runway end, in px, for a viewport `viewportWidthPx`
- *  wide — the height is derived (see `heightPx` above), not an input. */
+/**
+ * Lays out one touchdown against one runway end, in px, for a viewport `viewportWidthPx`
+ * wide — the height is derived (see `heightPx` above), not an input.
+ *
+ * @param runway The runway end.
+ * @param touchdown The touchdown.
+ * @param viewportWidthPx The diagram's width.
+ * @returns The layout, in px.
+ */
 export function computeTouchdownDiagramLayout(
   runway: DiagramRunway,
   touchdown: DiagramTouchdown,
@@ -222,8 +242,14 @@ export function computeTouchdownDiagramLayout(
   }
 }
 
-/** Evenly spaces `count` positions across `heightPx` (each centred in its own equal
- *  slice) — used to lay the threshold's piano-key stripes out across the runway's width. */
+/**
+ * Evenly spaces `count` positions across `heightPx` (each centred in its own equal
+ * slice) — used to lay the threshold's piano-key stripes out across the runway's width.
+ *
+ * @param count How many positions.
+ * @param heightPx The height to spread them over.
+ * @returns The positions.
+ */
 export function evenlySpacedYsPx(count: number, heightPx: number): number[] {
   if (count <= 0) return []
   return Array.from({ length: count }, (_, i) => ((i + 0.5) / count) * heightPx)

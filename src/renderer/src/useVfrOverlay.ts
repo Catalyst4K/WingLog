@@ -1,3 +1,13 @@
+/**
+ * The Track map's VFR overlay (winglog-backend docs/plans/map-language-and-declutter.md,
+ * Part C items 1-3): every airfield the vendored OurAirports list knows (small strips and
+ * heliports included), range rings and a scale bar around the aircraft, the last few
+ * minutes of track emphasised, and a nearest-airfield readout. No external service — all of
+ * it comes from data WingLog already holds. Off by default; nothing is loaded or drawn until
+ * the toggle is switched on, and switching it off hides the layers rather than tearing them
+ * down.
+ */
+
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
 import {
   ScaleControl,
@@ -14,16 +24,6 @@ import {
   recentTrailSegments
 } from './vfr'
 import { uiMemory } from './ui-memory'
-
-/**
- * The Track map's VFR overlay (winglog-backend docs/plans/map-language-and-declutter.md,
- * Part C items 1-3): every airfield the vendored OurAirports list knows (small strips and
- * heliports included), range rings and a scale bar around the aircraft, the last few
- * minutes of track emphasised, and a nearest-airfield readout. No external service — all of
- * it comes from data WingLog already holds. Off by default; nothing is loaded or drawn until
- * the toggle is switched on, and switching it off hides the layers rather than tearing them
- * down.
- */
 
 const AIRFIELDS_SOURCE = 'vfr-airfields'
 const RINGS_SOURCE = 'vfr-range-rings'
@@ -83,8 +83,14 @@ function multiLine(segments: [number, number][][]): GeoData {
   return { type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: segments } }
 }
 
-/** Adds every source and layer once. Airfield layers go *under* the route so the flight
- *  plan stays the most prominent thing on the map; rings and the recent trail go on top. */
+/**
+ * Adds every source and layer once. Airfield layers go *under* the route so the flight
+ * plan stays the most prominent thing on the map; rings and the recent trail go on top.
+ *
+ * @param map The map.
+ * @param airfields Every airfield.
+ * @param routeLayerId The route's layer, to put the airfields under.
+ */
 function ensureLayers(map: MapLibreMap, airfields: Airfield[], routeLayerId: string): void {
   if (map.getSource(AIRFIELDS_SOURCE)) return
   const dark = isDark()
@@ -188,6 +194,12 @@ export interface VfrOverlay {
   nearestText: string | null
 }
 
+/**
+ * Draws the VFR overlay while it is on, and keeps the nearest airfield up to date.
+ *
+ * @param args The map, whether it is live, the telemetry, the track and the route's layer.
+ * @returns The overlay's state, toggle and nearest-airfield text.
+ */
 export function useVfrOverlay({
   mapRef,
   mapReady,

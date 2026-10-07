@@ -1,3 +1,5 @@
+/** Which GSX menus interrupt the whole app, and how a dismissed one is remembered. */
+
 import type { GsxRemoteMenuState } from '@shared/ipc'
 
 /**
@@ -15,6 +17,12 @@ import type { GsxRemoteMenuState } from '@shared/ipc'
  */
 const IMPORTANT_MENU_TITLES = ['Select pushback direction', 'Select refueling level']
 
+/**
+ * Whether this menu is open and is one of IMPORTANT_MENU_TITLES.
+ *
+ * @param menu GSX's current menu.
+ * @returns True if it should prompt wherever the user is.
+ */
 export function isImportantGsxMenu(menu: GsxRemoteMenuState): boolean {
   // `menuShown` is a real, separate flag from having entries (docs/gsx-notes.md,
   // 2026-09-21) — entries can be stale/leftover while the menu itself is closed, so this
@@ -24,9 +32,14 @@ export function isImportantGsxMenu(menu: GsxRemoteMenuState): boolean {
   return IMPORTANT_MENU_TITLES.some((known) => title === known)
 }
 
-/** Identifies a particular menu snapshot, so a user's dismissal of the global prompt can be
- *  remembered until GSX actually shows something different (not re-shown for the exact same
- *  still-unanswered menu, but shown again for a genuinely new one). */
+/**
+ * Identifies a particular menu snapshot, so a user's dismissal of the global prompt can be
+ * remembered until GSX actually shows something different (not re-shown for the exact same
+ * still-unanswered menu, but shown again for a genuinely new one).
+ *
+ * @param menu GSX's current menu.
+ * @returns Its signature.
+ */
 export function gsxMenuSignature(menu: GsxRemoteMenuState): string {
   return `${menu.title}|${menu.entries.join('\u0000')}`
 }

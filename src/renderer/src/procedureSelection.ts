@@ -1,3 +1,5 @@
+/** The SID, STAR and approach selection: seeding it, reading it back, and the live route it draws. */
+
 import { useEffect, useMemo, useState } from 'react'
 import type { NavdataLeg, ProcedureSelection } from '@shared/ipc'
 import { applyProcedureSelection, approachRunway, parseRouteProcedures, segmentWaypoints, type Waypoint } from './route'
@@ -14,6 +16,11 @@ export interface ProcedureAirports {
   ofpJson: string | null
 }
 
+/**
+ * A selection with nothing chosen.
+ *
+ * @returns A selection with every field null.
+ */
 export function emptyProcedureSelection(): ProcedureSelection {
   return {
     departureRunway: null,
@@ -27,9 +34,14 @@ export function emptyProcedureSelection(): ProcedureSelection {
   }
 }
 
-/** Seeds a fresh selection from SimBrief's own stated choice — approachIdent/
- *  approachTransition start null regardless, since SimBrief never plans an approach at all
- *  (ProcedureSelector auto-picks one once real navdata loads, see its own doc comment). */
+/**
+ * Seeds a fresh selection from SimBrief's own stated choice — approachIdent/
+ * approachTransition start null regardless, since SimBrief never plans an approach at all
+ * (ProcedureSelector auto-picks one once real navdata loads, see its own doc comment).
+ *
+ * @param ofpJson The flight's OFP JSON, or null.
+ * @returns The selection SimBrief planned.
+ */
 export function seedProcedureSelectionFromOfp(ofpJson: string | null): ProcedureSelection {
   const p = parseRouteProcedures(ofpJson)
   return {
@@ -44,12 +56,17 @@ export function seedProcedureSelectionFromOfp(ofpJson: string | null): Procedure
   }
 }
 
-/** Reads a completed flight's persisted selection back out — Logbook's map shows what was
- *  actually flown, not just SimBrief's original plan, when Track ever pushed one (Phase 5).
- *  All-null is a legitimate value (a pre-Phase-5 flight, or nothing was ever touched) and
- *  behaves identically to the old OFP-only rendering: useLiveWaypoints with an empty
- *  selection reduces to plain segmentWaypoints, the same function the old
- *  parseWaypointsFromOfpJson called. */
+/**
+ * Reads a completed flight's persisted selection back out — Logbook's map shows what was
+ * actually flown, not just SimBrief's original plan, when Track ever pushed one (Phase 5).
+ * All-null is a legitimate value (a pre-Phase-5 flight, or nothing was ever touched) and
+ * behaves identically to the old OFP-only rendering: useLiveWaypoints with an empty
+ * selection reduces to plain segmentWaypoints, the same function the old
+ * parseWaypointsFromOfpJson called.
+ *
+ * @param flight The flight's stored selection columns.
+ * @returns The selection.
+ */
 export function selectionFromFlight(flight: {
   selectedDepartureRunway: string | null
   selectedSidIdent: string | null
@@ -95,12 +112,25 @@ function legsKey(icao: string, kind: string, ident: string, runway: string | nul
   return JSON.stringify([icao, kind, ident, runway, transition])
 }
 
-/** The airport the STAR/approach are for: the filed destination, or the alternate when the
- *  pilot switched to it. */
+/**
+ * The airport the STAR/approach are for: the filed destination, or the alternate when the
+ * pilot switched to it.
+ *
+ * @param airports The flight's airports.
+ * @param selection The selection.
+ * @returns The arrival airport's ICAO code.
+ */
 export function arrivalAirport(airports: ProcedureAirports, selection: ProcedureSelection): string {
   return selection.arrivalIcao ?? airports.arrIcao
 }
 
+/**
+ * The route to draw: SimBrief's, with the selected procedures' legs fetched from navdata and spliced in.
+ *
+ * @param airports The flight's airports and OFP, or null.
+ * @param selection The selection.
+ * @returns The route's waypoints with the selected procedures spliced in.
+ */
 export function useLiveWaypoints(airports: ProcedureAirports | null, selection: ProcedureSelection): Waypoint[] {
   const [sidLegs, setSidLegs] = useState<FetchedLegs | null>(null)
   const [starLegs, setStarLegs] = useState<FetchedLegs | null>(null)

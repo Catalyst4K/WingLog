@@ -1,16 +1,3 @@
-import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
-import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl'
-import type { BeyondAtcState, BeyondAtcTranscriptEntry, FlightPhase, NavdataStand, NavdataTaxiSegment } from '@shared/ipc'
-import { findStand } from '@shared/stands'
-import { parseTaxiHoldShortRunway } from '@shared/taxi-route-parser'
-import type { TracedRoute } from './taxiRouteTrace'
-import { boxTaxiClearance, clearanceAirport, startOf, traceClearance, type TaxiClearance } from './taxi-clearance'
-import { startTracker, trackPosition, type RerouteTracker } from './taxiReroute'
-import { diagMap } from './diag'
-import { TAXI_SOURCE_ID } from './useTaxiChartOverlay'
-import { useLiveClient } from './live/LiveClient'
-import { uiMemory } from './ui-memory'
-
 /**
  * Highlights BeyondATC's most recent live taxi clearance on top of the taxi chart overlay
  * (winglog-backend's docs/plans/beyondatc-taxi-route-highlight.md — the ATC-driven route
@@ -42,6 +29,19 @@ import { uiMemory } from './ui-memory'
  * departure's, a "taxi to stand" one the arrival's. Without this, a departure's B8/B also lit
  * up the arrival airport's own B8/B (real report, 2026-09-30).
  */
+
+import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
+import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl'
+import type { BeyondAtcState, BeyondAtcTranscriptEntry, FlightPhase, NavdataStand, NavdataTaxiSegment } from '@shared/ipc'
+import { findStand } from '@shared/stands'
+import { parseTaxiHoldShortRunway } from '@shared/taxi-route-parser'
+import type { TracedRoute } from './taxiRouteTrace'
+import { boxTaxiClearance, clearanceAirport, startOf, traceClearance, type TaxiClearance } from './taxi-clearance'
+import { startTracker, trackPosition, type RerouteTracker } from './taxiReroute'
+import { diagMap } from './diag'
+import { TAXI_SOURCE_ID } from './useTaxiChartOverlay'
+import { useLiveClient } from './live/LiveClient'
+import { uiMemory } from './ui-memory'
 
 const HIGHLIGHT_LAYER_ID = 'taxi-chart-route-highlight'
 const TRACE_SOURCE_ID = 'taxi-route-trace'
@@ -105,6 +105,11 @@ const DEPARTED_PHASES: ReadonlySet<FlightPhase> = new Set(['takeoff', 'climb', '
 // before a tab switch doesn't vanish, old clearances aren't re-read as new, and leaving Track at
 // the holding point then coming back in cruise still drops the departure's route.
 
+/**
+ * Draws the latest taxi clearance's route and keeps it up to date as the aircraft taxis.
+ *
+ * @param args The map, the taxi networks, the flight's airports, and the aircraft's position and phase.
+ */
 export function useTaxiRouteHighlight({
   mapRef,
   mapReady,
