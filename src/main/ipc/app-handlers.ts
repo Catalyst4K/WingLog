@@ -13,6 +13,16 @@ import { logger } from '../logging/logger'
 const MAX_RENDERER_LOG_CHARS = 2_000
 
 /**
+ * Cuts a renderer string to length and puts it on one line, so it can't add log lines of its own.
+ *
+ * @param text The renderer's text.
+ * @returns At most MAX_RENDERER_LOG_CHARS characters, with every line break replaced by a space.
+ */
+function oneLine(text: string): string {
+  return text.slice(0, MAX_RENDERER_LOG_CHARS).replace(/[\r\n\u2028\u2029]+/g, ' ')
+}
+
+/**
  * Registers the app channels.
  *
  * @param ipcMain Electron's IPC.
@@ -37,10 +47,11 @@ export function registerAppHandlers(
     return (await shell.openPath(manual)) === ''
   })
 
-  // A renderer failure, to main.log. Strings only, cut to length: the renderer isn't trusted.
+  // A renderer failure, to main.log. Strings only, cut to length and on one line: the renderer
+  // isn't trusted, and its text can carry third-party text that would otherwise forge log lines.
   ipcMain.handle(IpcChannels.appLogRendererError, (_event, context: unknown, message: unknown) => {
     if (typeof context !== 'string' || typeof message !== 'string') return
-    logger.warn(`[renderer] ${context.slice(0, MAX_RENDERER_LOG_CHARS)}: ${message.slice(0, MAX_RENDERER_LOG_CHARS)}`)
+    logger.warn(`[renderer] ${oneLine(context)}: ${oneLine(message)}`)
   })
 
   ipcMain.handle(IpcChannels.updatesGetStatus, () => updateService.getStatus())

@@ -369,13 +369,14 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
     this.inFlight = key
     this.log(`requesting ${Math.round(altitudeFt)} ft (trigger ${reason}, attempt ${attempt.count})`)
     this.emitStatus()
-    void this.request(session, altitudeFt)
+    this.request(session, altitudeFt)
       .then(({ outcome }) => {
         if (outcome === 'granted') this.attempts.delete(key)
         else if (attempt.count >= MAX_ATTEMPTS) this.dropped.add(key)
         this.log(`request ${key} ft: ${outcome}${this.dropped.has(key) ? ', dropped' : ''}`)
         this.last = { altitudeFt: key, outcome, attempt: attempt.count, reason, dropped: this.dropped.has(key) }
       })
+      .catch((error: unknown) => logger.warn(`[step-climb] request ${key} ft failed: ${String(error)}`))
       .finally(() => {
         this.inFlight = null
         this.emitStatus()

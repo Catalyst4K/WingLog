@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { asyncHandler } from '../report-error'
+import { asyncHandler, runAsync } from '../report-error'
 
 /**
  * A short label for one dropdown row — the stock entry gets a fixed label (nothing to
@@ -169,7 +169,7 @@ export function CustomAirframeField(props: {
         variant="outline"
         size="sm"
         className="w-fit"
-        onClick={() => void window.winglog.dispatchOpenSimBriefAirframes(trimmed || null)}
+        onClick={() => runAsync('aircraft form: open airframes page', window.winglog.dispatchOpenSimBriefAirframes(trimmed || null))}
       >
         {t('aircraftForm.openAirframesPage')}
       </Button>

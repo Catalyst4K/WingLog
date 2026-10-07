@@ -27,4 +27,15 @@ describe('setSourceData', () => {
     // The handler itself settles without throwing.
     await expect(handled.mock.results[0]?.value).resolves.toBeUndefined()
   })
+  it('logs a failed update to main.log, with the source it was for', async () => {
+    const log = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('window', { winglog: { appLogRendererError: log } })
+    try {
+      const setData = vi.fn().mockRejectedValue(new Error('worker failed'))
+      setSourceData({ getSource: () => ({ id: 'vfr-airfields', setData }) } as unknown as MapLibreMap, 'vfr-airfields', EMPTY)
+      await vi.waitFor(() => expect(log).toHaveBeenCalledWith('map: update source vfr-airfields', 'worker failed'))
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
 })

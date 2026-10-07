@@ -31,7 +31,7 @@ const { fromPartition, cookiesGet, clearStorageData, signSimbriefRequest, execut
     class FakeBrowserWindowImpl extends MiniEmitter {
       static instances: FakeBrowserWindowImpl[] = []
       webContents = new FakeWebContents()
-      loadURL = vi.fn()
+      loadURL = vi.fn().mockResolvedValue(undefined)
       close = vi.fn(() => this.emit('closed'))
       destroy = vi.fn()
       options: unknown

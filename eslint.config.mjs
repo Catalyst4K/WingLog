@@ -87,7 +87,8 @@ export default tseslint.config(
       // §6 error handling
       'no-empty': 'error',
       'no-console': 'error',
-      '@typescript-eslint/no-floating-promises': 'error',
+      // `void promise` is not a way out: handle the rejection (coding-standards.md §6).
+      '@typescript-eslint/no-floating-promises': ['error', { ignoreVoid: false }],
       '@typescript-eslint/no-misused-promises': 'error',
       // §7 types
       '@typescript-eslint/no-explicit-any': 'error',

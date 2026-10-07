@@ -212,7 +212,9 @@ export function TrackingFields(): React.JSX.Element {
               { value: 'on', label: t('settingsView.tracking.on') },
               { value: 'off', label: t('settingsView.tracking.off') }
             ]}
-            onChange={(value) => void handleTrackingChange({ ...tracking, [key]: value === 'on' })}
+            onChange={(value) =>
+              runAsync('settings: change tracking', handleTrackingChange({ ...tracking, [key]: value === 'on' }))
+            }
           />
           <p className="text-xs text-muted-foreground">{t(`settingsView.tracking.${key}Off`, labels)}</p>
         </div>

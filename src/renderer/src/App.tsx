@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs } from '@/components/ui/tabs'
 import { Toaster } from '@/components/ui/sonner'
 import { FleetView } from './FleetView'
-import { asyncHandler } from './report-error'
+import { asyncHandler, runAsync } from './report-error'
 import { AppHeader } from './app/AppHeader'
 import { AtcClearanceDialog, ImportantGsxMenuDialog, OrphanedFlightDialog } from './app/AppDialogs'
 import {
@@ -76,12 +76,12 @@ function usePrefetchViews(): void {
     const cancelIdle: (handle: number) => void =
       typeof window.cancelIdleCallback === 'function' ? window.cancelIdleCallback : window.clearTimeout
     const handle = idle(() => {
-      void loadDispatchView()
-      void loadTrackView()
-      void loadGsxRemoteView()
-      void loadBeyondAtcView()
-      void loadLogbookView()
-      void loadSettingsView()
+      runAsync('preload Dispatch view', loadDispatchView())
+      runAsync('preload Track view', loadTrackView())
+      runAsync('preload GsxRemote view', loadGsxRemoteView())
+      runAsync('preload BeyondAtc view', loadBeyondAtcView())
+      runAsync('preload Logbook view', loadLogbookView())
+      runAsync('preload Settings view', loadSettingsView())
     })
     return () => cancelIdle(handle)
   }, [])

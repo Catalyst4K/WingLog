@@ -65,7 +65,7 @@ export function SimBriefProfileCard(props: { aircraft: Aircraft }): React.JSX.El
   const a = props.aircraft
 
   function openAirframes(): void {
-    void window.winglog.dispatchOpenSimBriefAirframes(a.simbriefAirframeId)
+    runAsync('fleet: open airframes page', window.winglog.dispatchOpenSimBriefAirframes(a.simbriefAirframeId))
   }
 
   return (

@@ -8,6 +8,8 @@
  * third-party or OS failure, never ours to translate — see index.ts's startup error box).
  */
 
+import { logger } from './logging/logger'
+import { runLogged } from './logging/run-logged'
 import i18next, { type i18n as I18nInstance } from 'i18next'
 import type { AppLanguage } from '@shared/ipc'
 import { resolveAppLanguage } from '@shared/app-language'
@@ -21,7 +23,8 @@ import zhCN from './locales/zh-CN/main.json'
 import zhTW from './locales/zh-TW/main.json'
 
 const instance: I18nInstance = i18next.createInstance()
-void instance.init({
+instance
+  .init({
   resources: {
     en: { main: en },
     de: { main: de },
@@ -40,7 +43,8 @@ void instance.init({
   // No initAsync/initImmediate needed — same reasoning as the renderer's own i18n.ts: every
   // catalogue is bundled upfront, so init() always resolves synchronously, before this
   // module's first caller ever gets a chance to call t().
-})
+  })
+  .catch((error: unknown) => logger.warn(`[i18n] init failed: ${String(error)}`))
 
 /**
  * Called once at startup with the persisted AppLanguage setting and the OS's own locale
@@ -53,7 +57,7 @@ void instance.init({
  * @param systemLocale The OS locale.
  */
 export function setMainLanguage(setting: AppLanguage, systemLocale: string): void {
-  void instance.changeLanguage(resolveAppLanguage(setting, systemLocale))
+  runLogged('i18n: change language', instance.changeLanguage(resolveAppLanguage(setting, systemLocale)))
 }
 
 /**
