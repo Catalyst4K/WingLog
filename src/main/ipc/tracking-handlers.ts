@@ -16,7 +16,7 @@ import {
 } from '@shared/ipc'
 import { t } from '../i18n'
 import type { WingLogDb } from '../db/client'
-import { getAircraftById } from '../db/aircraft-repo'
+import { getLiveAircraftById } from '../db/aircraft-repo'
 import {
   abandonAllPlanned,
   abandonFlight,
@@ -66,14 +66,14 @@ export function normalizeFreeFlightIcao(icao: string | null): string {
  * @param db The database.
  * @param input The free-flight dialog's answers.
  * @returns The sim registration and type to store, both null for a fleet aircraft.
- * @throws When the fleet aircraft is missing or retired, or the sim's registration or type is blank.
+ * @throws When the fleet aircraft is missing, deleted or retired, or the sim's registration or type is blank.
  */
 function freeFlightAircraft(
   db: WingLogDb,
   input: StartFreeFlightInput
 ): { simRegistration: string | null; simIcaoType: string | null } {
   if (input.aircraftId != null) {
-    const aircraft = getAircraftById(db, input.aircraftId)
+    const aircraft = getLiveAircraftById(db, input.aircraftId)
     if (!aircraft || isRetired(aircraft)) {
       throw new Error(t('errors.aircraftNotFoundOrRetired', { id: input.aircraftId }))
     }
@@ -174,6 +174,9 @@ export function registerFlightHandlers(ipcMain: IpcMain, deps: TrackingHandlerDe
   // pressing "Fly" on a new plan replaces whatever was already planned or being tracked,
   // rather than letting flights pile up alongside each other.
   ipcMain.handle(IpcChannels.flightCreate, (_event, input: NewFlight) => {
+    if (!getLiveAircraftById(db, input.aircraftId)) {
+      throw new Error(t('errors.aircraftNotFoundOrRetired', { id: input.aircraftId }))
+    }
     trackingController.stop()
     abandonAllPlanned(db)
     const flight = createFlight(db, input)
@@ -199,7 +202,7 @@ export function registerFlightHandlers(ipcMain: IpcMain, deps: TrackingHandlerDe
     if (existingFlight.aircraftId != null) {
       throw new Error(t('errors.flightAlreadyHasLinkedAircraft', { flightId }))
     }
-    const aircraftRow = getAircraftById(db, aircraftId)
+    const aircraftRow = getLiveAircraftById(db, aircraftId)
     if (!aircraftRow || isRetired(aircraftRow)) {
       throw new Error(t('errors.aircraftNotFoundOrRetired', { id: aircraftId }))
     }
