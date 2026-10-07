@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { TrackPoint } from '@shared/ipc'
-import { filterVisibleTrackPoints } from './trackPointVisibility'
+import { filterVisibleTrackPoints } from './track-point-visibility'
 
 function point(overrides: Partial<TrackPoint> = {}): TrackPoint {
   return {

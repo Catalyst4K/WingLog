@@ -6,7 +6,7 @@ import type { NavdataProcedureOption, NavdataRunwayOption, ProcedureSelection } 
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { approachRunway, parseRouteProcedures, pickDefaultApproachIdentifier, type Waypoint } from './route'
-import { arrivalAirport, type ProcedureAirports } from './procedureSelection'
+import { arrivalAirport, type ProcedureAirports } from './procedure-selection'
 import { displayIcao } from './display-icao'
 import { uiMemory } from './ui-memory'
 import { runAsync } from './report-error'

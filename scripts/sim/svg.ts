@@ -26,7 +26,7 @@ export interface Frame {
   y: (lat: number) => number
 }
 
-/** The yellow of the app's taxi line (useTaxiRouteHighlight.ts's ROUTE_PAINT). */
+/** The yellow of the app's taxi line (use-taxi-route-highlight.ts's ROUTE_PAINT). */
 export const TAXI_LINE_COLOUR = '#facc15'
 /** The real track. */
 export const TRACK_COLOUR = '#1c7ed6'

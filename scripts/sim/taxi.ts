@@ -5,14 +5,14 @@
  * Each scenario is one real taxi: the clearance BeyondATC gave (its InfoBoxes, from main.log), the
  * recorded ground track from that moment, and the airport's cached network and stands. It runs
  * through the app's own steps: taxi-clearance.ts for the clearance and its line, and
- * taxiReroute.ts's trackPosition on every recorded position, as the Track map does.
+ * taxi-reroute.ts's trackPosition on every recorded position, as the Track map does.
  */
 import type { BeyondAtcInfoBox, Flight, FlightPhase, NavdataStand, NavdataTaxiSegment, TrackPoint } from '../../src/shared/ipc'
 import { findStand } from '../../src/shared/stands'
 import { flatDistanceM } from '../../src/shared/geo'
 import { boxTaxiClearance, startOf, traceClearance, type TaxiClearance } from '../../src/renderer/src/taxi-clearance'
-import { remainingRoute, type TracedRoute } from '../../src/renderer/src/taxiRouteTrace'
-import { REROUTE_DISTANCE_M, REROUTE_MIN_SPEED_MS, startTracker, trackPosition } from '../../src/renderer/src/taxiReroute'
+import { remainingRoute, type TracedRoute } from '../../src/renderer/src/taxi-route-trace'
+import { REROUTE_DISTANCE_M, REROUTE_MIN_SPEED_MS, startTracker, trackPosition } from '../../src/renderer/src/taxi-reroute'
 import type { LoggedInfoBoxes } from './local-data'
 
 /** How long before off-blocks or after on-blocks a clearance still belongs to a flight, in ms. */

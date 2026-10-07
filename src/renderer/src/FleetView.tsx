@@ -12,9 +12,9 @@ import { FolderTabs, FolderTabsContent, FolderTabsList, FolderTabsTrigger } from
 import { AircraftDetail } from './fleet/AircraftDetail'
 import { ActiveFleetTable, RetiredFleetTable, type FleetSortKey } from './fleet/FleetTables'
 import { ReplaceAircraftDialog } from './fleet/ReplaceAircraftDialog'
-import { useConfirm } from './hooks/useConfirm'
-import { useResetSignal } from './hooks/useResetSignal'
-import { useSortable } from './hooks/useSortable'
+import { useConfirm } from './hooks/use-confirm'
+import { useResetSignal } from './hooks/use-reset-signal'
+import { useSortable } from './hooks/use-sortable'
 import { asyncHandler, runAsync } from './report-error'
 
 type View = { kind: 'list' } | { kind: 'detail'; id: number } | { kind: 'new' } | { kind: 'edit'; id: number }

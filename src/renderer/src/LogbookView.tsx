@@ -13,8 +13,8 @@ import type {
   WeightUnit
 } from '@shared/ipc'
 import { FolderTabs, FolderTabsContent, FolderTabsList, FolderTabsTrigger } from './components/FolderTabs'
-import { useResetSignal } from './hooks/useResetSignal'
-import { useSortable } from './hooks/useSortable'
+import { useResetSignal } from './hooks/use-reset-signal'
+import { useSortable } from './hooks/use-sortable'
 import { asyncHandler, runAsync } from './report-error'
 import { FlightDetailLoader } from './logbook/FlightDetail'
 import { SORT_KEYS, compareFlights, type SortKey } from './logbook/sorting'

@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ActiveTracking, Aircraft, Flight, SimTelemetry, TrackPoint } from '@shared/ipc'
 import { flightLabel } from '../flight-label'
 import { runAsync } from '../report-error'
-import { computeTrackTimes, type TrackTimes } from '../trackTimes'
+import { computeTrackTimes, type TrackTimes } from '../track-times'
 import { realIcao } from '../display-icao'
 
 // Display-only duplicate of FlightRecorder's own MOVING_MS (~1kt) — the renderer can't

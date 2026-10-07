@@ -15,7 +15,7 @@ import type {
 } from '@shared/ipc'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { useAtcAssignedStand } from './useAtcAssignedStand'
+import { useAtcAssignedStand } from './use-atc-assigned-stand'
 import { useLiveClient, useLiveTopic } from './live/LiveClient'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'

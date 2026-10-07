@@ -12,10 +12,10 @@ import type {
   WindSpeedUnit
 } from '@shared/ipc'
 import { FlightMap } from './FlightMap'
-import { useConfirm } from './hooks/useConfirm'
+import { useConfirm } from './hooks/use-confirm'
 import { realIcao } from './display-icao'
 import { flightLabel } from './flight-label'
-import { useLiveWaypoints, type ProcedureAirports } from './procedureSelection'
+import { useLiveWaypoints, type ProcedureAirports } from './procedure-selection'
 import { parseTransitionAltitudes } from './route'
 import { StartFreeFlightDialog } from './StartFreeFlightDialog'
 import { runAsync } from './report-error'

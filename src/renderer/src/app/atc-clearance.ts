@@ -6,7 +6,7 @@
 import type { ProcedureSelection } from '@shared/ipc'
 import { matchClearanceApproach } from '@shared/atc-approach-match'
 import type { AtcClearanceUpdate } from '@shared/atc-info-boxes'
-import { approachForArrivalRunway, starEndFix } from '../atcApproachMatch'
+import { approachForArrivalRunway, starEndFix } from '../atc-approach-match'
 
 /** A clearance waiting for the user's accept or dismiss, with when BeyondATC gave it. */
 export type PendingAtcClearance = AtcClearanceUpdate & { sourceTs: number }

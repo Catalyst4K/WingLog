@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import type { NavdataLeg, ProcedureSelection, WingLogApi } from '@shared/ipc'
-import { arrivalAirport, emptyProcedureSelection, useLiveWaypoints, type ProcedureAirports } from './procedureSelection'
+import { arrivalAirport, emptyProcedureSelection, useLiveWaypoints, type ProcedureAirports } from './procedure-selection'
 
 function leg(fixIdent: string): NavdataLeg {
   return {

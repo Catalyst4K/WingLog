@@ -13,7 +13,7 @@ import type {
 } from '@shared/ipc'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { BeyondAtcActions, BeyondAtcRadios } from './BeyondAtcControls'
-import { latestAtcInstruction, type AtcInstruction } from './beyondAtcInstruction'
+import { latestAtcInstruction, type AtcInstruction } from './beyond-atc-instruction'
 import { useLiveClient, useLiveTopic } from './live/LiveClient'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -76,7 +76,7 @@ function InfoCard(props: { state: BeyondAtcState }): React.JSX.Element {
 
 /**
  * The key facts from whatever ATC said last — clearance, taxi, handoff, climb/descent,
- * takeoff… (beyondAtcInstruction.ts) — as labelled fields, with the full text underneath so
+ * takeoff… (beyond-atc-instruction.ts) — as labelled fields, with the full text underneath so
  * nothing an unrecognised phrasing carries is ever hidden. The station ATC spoke as sits in
  * the header; clearances/permissions (cleared for takeoff, line up and wait…) stand out as
  * badges rather than as another label: value pair.

@@ -26,11 +26,11 @@ import { realIcao } from '../display-icao'
 import { flightLabel } from '../flight-label'
 import { FreeFlightAirport } from '../FreeFlightAirport'
 import { MetarPanel } from '../MetarPanel'
-import type { ProcedureAirports } from '../procedureSelection'
+import type { ProcedureAirports } from '../procedure-selection'
 import { ProcedureSelector } from '../ProcedureSelector'
 import { asyncHandler } from '../report-error'
 import type { Waypoint } from '../route'
-import { formatDuration, formatElapsed, formatUtcTime, type TrackTimes } from '../trackTimes'
+import { formatDuration, formatElapsed, formatUtcTime, type TrackTimes } from '../track-times'
 import type { FreeFlightBanner } from './use-track-state'
 
 /**
@@ -65,7 +65,7 @@ function FlightIdentity(props: {
 }
 
 /**
- * ET · time remaining · ETA, beside the phase (trackTimes.ts).
+ * ET · time remaining · ETA, beside the phase (track-times.ts).
  *
  * @param props ET, time remaining and ETA.
  * @returns The element.

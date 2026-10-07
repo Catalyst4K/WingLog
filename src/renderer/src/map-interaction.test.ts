@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mapInteraction } from './mapInteraction'
+import { mapInteraction } from './map-interaction'
 
 describe('mapInteraction', () => {
   it('locks panning while following, with an aircraft on the map', () => {

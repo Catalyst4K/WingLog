@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import type { Aircraft, DispatchOfp, FleetStats, Flight, ProcedureSelection } from '@shared/ipc'
 import i18n from './i18n'
 import { DispatchView } from './DispatchView'
-import { emptyProcedureSelection } from './procedureSelection'
+import { emptyProcedureSelection } from './procedure-selection'
 
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() }

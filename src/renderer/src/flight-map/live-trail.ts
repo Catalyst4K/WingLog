@@ -5,7 +5,7 @@
 
 import type { GeoJSONSource, Map as MapLibreMap, Marker } from 'maplibre-gl'
 import type { TrackPoint } from '@shared/ipc'
-import { followBand, zoomForBand } from '../followZoom'
+import { followBand, zoomForBand } from '../follow-zoom'
 import { updateSourceData } from '../map-source'
 import { uiMemory } from '../ui-memory'
 import {

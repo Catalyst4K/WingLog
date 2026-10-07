@@ -102,7 +102,7 @@ export const TRAIL_SOURCE_ID = 'breadcrumb-trail'
 export const TRAIL_TIP_SOURCE_ID = 'breadcrumb-trail-tip'
 export const WAYPOINT_SOURCE_ID = 'planned-waypoints'
 // fitBoundsTo's zoom for a single coordinate (nothing to fit a box around). Following the
-// aircraft uses followZoom.ts's ground/altitude bands instead.
+// aircraft uses follow-zoom.ts's ground/altitude bands instead.
 const SINGLE_POINT_ZOOM = 12
 
 // Camera persistence across remounts (docs/plans/map-improvements.md, "cause B") —

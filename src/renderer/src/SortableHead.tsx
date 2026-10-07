@@ -3,7 +3,7 @@
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { TableHead } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
-import type { SortDir } from './hooks/useSortable'
+import type { SortDir } from './hooks/use-sortable'
 
 /**
  * A table header that sorts by its column when clicked, showing the current direction.

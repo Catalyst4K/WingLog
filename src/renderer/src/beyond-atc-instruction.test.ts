@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { instructionFromBoxes, latestAtcInstruction, parseAtcInstruction } from './beyondAtcInstruction'
+import { instructionFromBoxes, latestAtcInstruction, parseAtcInstruction } from './beyond-atc-instruction'
 
 // Every line below is real, verbatim ATC text from BeyondATC's Player.log (VHHH→KPHX and
 // WSSS→ZSPD sessions, 2026-09-28/30) or winglog-backend's docs/beyondatc-notes.md.
