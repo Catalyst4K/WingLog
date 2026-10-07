@@ -1,6 +1,7 @@
 /** The live hub: every live stream in the main process goes through it to its subscribers. */
 
 import type { LiveSnapshot, LiveTopic, LiveTopics } from '@shared/live'
+import { logger } from '../logging/logger'
 
 export type LiveListener = <T extends LiveTopic>(topic: T, payload: LiveTopics[T]) => void
 
@@ -29,7 +30,7 @@ export class LiveHub {
       } catch (error) {
         // One broken subscriber (a closed window, later a dropped LAN client) mustn't stop
         // the others hearing about it.
-        console.warn(`[live] subscriber failed on ${topic}:`, error)
+        logger.warn(`[live] subscriber failed on ${topic}:`, error)
       }
     }
   }

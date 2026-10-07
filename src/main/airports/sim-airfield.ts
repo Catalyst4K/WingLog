@@ -135,11 +135,12 @@ export class SimAirfieldResolver {
       })
       const work = (async (): Promise<SimAirfieldMatch | null> => {
         const opened = await this.openSimConnect(APP_NAME, Protocol.SunRise)
-        handle = opened.handle
-        handle.addToFacilityDefinition(NavdataDefId.RUNWAYS, 'OPEN AIRPORT')
-        handle.addToFacilityDefinition(NavdataDefId.RUNWAYS, 'ICAO')
-        addRunwayFields((name) => handle!.addToFacilityDefinition(NavdataDefId.RUNWAYS, name))
-        handle.addToFacilityDefinition(NavdataDefId.RUNWAYS, 'CLOSE AIRPORT')
+        const connection = opened.handle
+        handle = connection
+        connection.addToFacilityDefinition(NavdataDefId.RUNWAYS, 'OPEN AIRPORT')
+        connection.addToFacilityDefinition(NavdataDefId.RUNWAYS, 'ICAO')
+        addRunwayFields((name) => connection.addToFacilityDefinition(NavdataDefId.RUNWAYS, name))
+        connection.addToFacilityDefinition(NavdataDefId.RUNWAYS, 'CLOSE AIRPORT')
 
         const candidates = (await requestAirportList(handle))
           .map((a) => ({ ...a, nm: greatCircleNm({ lat, lon }, a) }))

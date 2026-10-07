@@ -8,6 +8,7 @@
 
 import { EventEmitter } from 'node:events'
 import type { UpdateRelease, UpdateStatus } from '@shared/ipc'
+import { logger } from '../logging/logger'
 
 /** GitHub's "latest release" endpoint for the public repo. One constant, https only. */
 export const LATEST_RELEASE_URL = 'https://api.github.com/repos/Catalyst4K/WingLog/releases/latest'
@@ -89,7 +90,7 @@ export class UpdateService extends EventEmitter<{ status: [UpdateStatus] }> {
     super()
     this.fetchImpl = options.fetchImpl ?? fetch
     this.url = options.url ?? LATEST_RELEASE_URL
-    this.log = options.log ?? ((message) => console.info(`[updates] ${message}`))
+    this.log = options.log ?? ((message) => logger.info(`[updates] ${message}`))
     this.status = {
       state: 'idle',
       currentVersion: options.currentVersion,
@@ -141,7 +142,9 @@ export class UpdateService extends EventEmitter<{ status: [UpdateStatus] }> {
       const latest = parseLatestRelease(await response.json())
       if (!latest) throw new Error('Unrecognised release data')
       const current = parseVersion(this.options.currentVersion)
-      const newer = current !== null && compareVersions(parseVersion(latest.version)!, current) > 0
+      // parseLatestRelease only returns a release whose version parses.
+      const latestVersion = parseVersion(latest.version)
+      const newer = current !== null && latestVersion !== null && compareVersions(latestVersion, current) > 0
       this.setStatus({
         ...this.status,
         state: newer ? 'available' : 'upToDate',
