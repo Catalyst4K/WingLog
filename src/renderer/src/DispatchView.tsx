@@ -6,11 +6,11 @@ import { useTranslation } from 'react-i18next'
 import type { AltitudeUnit, DispatchOfp, ProcedureSelection, WeightUnit, WindSpeedUnit } from '@shared/ipc'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { DispatchAdvancedDialog } from './DispatchAdvancedDialog'
-import { useConfirm } from './hooks/useConfirm'
+import { useConfirm } from './hooks/use-confirm'
 import { MetarPanel } from './MetarPanel'
 import { ProcedureSelector } from './ProcedureSelector'
 import { flightLabel } from './flight-label'
-import { useLiveWaypoints } from './procedureSelection'
+import { useLiveWaypoints } from './procedure-selection'
 import { OfpCard, PlanFlightCard } from './dispatch/DispatchCards'
 import { flightFromOfp, planRequest, useDispatchLists, usePlanForm } from './dispatch/use-dispatch-state'
 
@@ -75,6 +75,12 @@ export function DispatchView(props: {
 
   // Shared by handleFetch and handleGenerate — both end up with a DispatchOfp and need
   // to run the same matched-aircraft / airframe-capture logic on it.
+  /**
+   * Takes a freshly fetched OFP: passes it up, picks the aircraft (the one already chosen, otherwise
+   * the registration match) and fills the plan fields from it.
+   *
+   * @param fetched The OFP.
+   */
   function applyFetchedOfp(fetched: DispatchOfp): void {
     props.onOfpChange(fetched)
     // A flight already chosen in the "Plan a flight" panel above takes priority over the
@@ -156,6 +162,10 @@ export function DispatchView(props: {
   // time (main/index.ts's flightCreate handler abandons whatever was already active or
   // planned) — so pressing Fly while Track already has something going on would silently
   // abandon it with no warning. Check first and confirm before doing anything destructive.
+  /**
+   * Starts the flight from the OFP, asking first about a flight already in progress or other planned
+   * flights.
+   */
   async function handleFlyClick(): Promise<void> {
     if (!ofp || selectedAircraftId == null) return
     const [active, flights] = await Promise.all([

@@ -15,7 +15,7 @@ export interface AtcClearanceUpdate {
   summary: string
   /** A STAR clearance's or landing runway ("08"). Not a field: ProcedureSelection keeps the
    *  arrival runway only inside approachIdent (route.ts's approachRunway), so
-   *  approachForArrivalRunway (the renderer's atcApproachMatch.ts) turns it into an approach
+   *  approachForArrivalRunway (the renderer's atc-approach-match.ts) turns it into an approach
    *  once the airport's approach list is known. */
   arrivalRunway?: string
 }

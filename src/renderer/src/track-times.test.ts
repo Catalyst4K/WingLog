@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeTrackTimes, formatDuration, formatElapsed, formatUtcTime, remainingRouteNm } from './trackTimes'
+import { computeTrackTimes, formatDuration, formatElapsed, formatUtcTime, remainingRouteNm } from './track-times'
 
 // A cut-down YBBN-VHHH (the real flight, 2026-10-02): YBBN, BARIA (the step climb fix), MIA
 // (Manila), VHHH. [lon, lat].

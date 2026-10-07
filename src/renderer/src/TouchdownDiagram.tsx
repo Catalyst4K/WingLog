@@ -62,6 +62,12 @@ function rotatedPoint(alongPx: number, lateralPx: number, widthPx: number): { x:
   return { x: lateralPx, y: widthPx - alongPx }
 }
 
+/**
+ * The runway threshold's piano-key stripes.
+ *
+ * @param props Where the stripes start, how many, and their extent and size in pixels.
+ * @returns The stripes.
+ */
 function ThresholdStripes(props: {
   alongStartPx: number
   count: number

@@ -17,7 +17,7 @@ import type {
 } from '@shared/ipc'
 import { APP_LANGUAGE_OPTIONS } from '@shared/app-language'
 import { MAP_LANGUAGES } from './map-labels'
-import { trackingLabels } from './trackingLabels'
+import { trackingLabels } from './tracking-labels'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { runAsync } from './report-error'

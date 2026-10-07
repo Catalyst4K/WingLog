@@ -1,11 +1,11 @@
 /**
  * A BeyondATC taxi clearance and the line drawn for it: the pure steps of the Track map's taxi
- * route (useTaxiRouteHighlight.ts), shared with the simulation (scripts/sim/taxi.sim.ts) so it
+ * route (use-taxi-route-highlight.ts), shared with the simulation (scripts/sim/taxi.sim.ts) so it
  * runs the app's own code (winglog-backend docs/plans/robustness/scenario-testing.md Part 6).
  */
 import type { BeyondAtcInfoBox, NavdataStand, NavdataTaxiSegment } from '@shared/ipc'
 import { parseAtcTaxiFacts } from '@shared/atc-info-boxes'
-import { traceTaxiRoute, type TracedRoute } from './taxiRouteTrace'
+import { traceTaxiRoute, type TracedRoute } from './taxi-route-trace'
 
 export interface TaxiClearance {
   taxiways: string[]

@@ -6,7 +6,7 @@ import type { NavdataProcedureOption, NavdataRunwayOption, ProcedureSelection } 
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { approachRunway, parseRouteProcedures, pickDefaultApproachIdentifier, type Waypoint } from './route'
-import { arrivalAirport, type ProcedureAirports } from './procedureSelection'
+import { arrivalAirport, type ProcedureAirports } from './procedure-selection'
 import { displayIcao } from './display-icao'
 import { uiMemory } from './ui-memory'
 import { runAsync } from './report-error'
@@ -19,6 +19,12 @@ import { runAsync } from './report-error'
  *  this app (e.g. DispatchView's own aircraft picker). */
 const NONE_OPTION = '__none__'
 
+/**
+ * One procedure picker with a leading 'none' choice.
+ *
+ * @param props The label, value, options, change handler and whether it is disabled.
+ * @returns The picker.
+ */
 function ProcedureSelect(props: {
   label: string
   value: string | null

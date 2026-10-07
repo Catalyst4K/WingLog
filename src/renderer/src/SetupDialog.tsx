@@ -118,6 +118,11 @@ function WelcomeStep(): React.JSX.Element {
   )
 }
 
+/**
+ * The setup step that asks for the pilot's SimBrief username.
+ *
+ * @returns The step.
+ */
 function SimbriefStep(): React.JSX.Element {
   const { t } = useTranslation()
   const [username, setUsername] = useState('')
@@ -159,6 +164,12 @@ function SimbriefStep(): React.JSX.Element {
   )
 }
 
+/**
+ * A labelled On/Off choice with an explanation underneath.
+ *
+ * @param props The label, the value (null while loading), the change handler and the detail text.
+ * @returns The row.
+ */
 function OnOffRow(props: {
   label: string
   value: boolean | null
@@ -186,6 +197,13 @@ function OnOffRow(props: {
   )
 }
 
+/**
+ * The setup step for the optional add-ons (GSX receipts, GSX remote, BeyondATC), loading each one's
+ * settings and showing its On/Off switch.
+ *
+ * @param props Called when the GSX remote or BeyondATC switch changes, so the app can react.
+ * @returns The step.
+ */
 function AddonsStep(props: {
   onGsxRemoteEnabledChange: (enabled: boolean) => void
   onBeyondAtcEnabledChange: (enabled: boolean) => void

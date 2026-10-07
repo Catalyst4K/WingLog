@@ -3,7 +3,7 @@
  * (winglog-backend's docs/plans/beyondatc-taxi-route-highlight.md — the ATC-driven route
  * half of Part 4, built on top of Part 4a's static chart).
  *
- * Preferred: the route actually traced through the taxi network (taxiRouteTrace.ts), from
+ * Preferred: the route actually traced through the taxi network (taxi-route-trace.ts), from
  * where the aircraft was when the clearance arrived to the holding point (or, for a stand,
  * to where it joins the last cleared taxiway), drawn as its own line starting at the aircraft
  * and shortening as it taxis (remainingRoute). Real bug that prompted it, VHHH 2026-09-30:
@@ -22,7 +22,7 @@
  * Re-routing (winglog-backend's docs/plans/taxi-reroute.md): when the aircraft leaves the
  * line, or drives the wrong way along it, while taxiing, the line is redrawn as the shortest
  * way from where it is to the same end, rejoining the cleared route wherever that's shortest
- * (taxiReroute.ts decides when, rejoinTaxiRoute where). A re-route that can't be traced (off the
+ * (taxi-reroute.ts decides when, rejoinTaxiRoute where). A re-route that can't be traced (off the
  * network) keeps the line it had. Once the aircraft reaches the end, nothing re-routes.
  *
  * Both are limited to the clearance's own airport: a "holding point" clearance is the
@@ -41,7 +41,7 @@ import type {
 } from '@shared/ipc'
 import { findStand } from '@shared/stands'
 import { parseTaxiHoldShortRunway } from '@shared/taxi-route-parser'
-import type { TracedRoute } from './taxiRouteTrace'
+import type { TracedRoute } from './taxi-route-trace'
 import {
   boxTaxiClearance,
   clearanceAirport,
@@ -49,10 +49,10 @@ import {
   traceClearance,
   type TaxiClearance
 } from './taxi-clearance'
-import { startTracker, trackPosition, type RerouteTracker } from './taxiReroute'
+import { startTracker, trackPosition, type RerouteTracker } from './taxi-reroute'
 import { diagMap } from './diag'
 import { setSourceData } from './map-source'
-import { TAXI_SOURCE_ID } from './useTaxiChartOverlay'
+import { TAXI_SOURCE_ID } from './use-taxi-chart-overlay'
 import { useLiveClient } from './live/LiveClient'
 import { uiMemory } from './ui-memory'
 
@@ -60,10 +60,15 @@ const HIGHLIGHT_LAYER_ID = 'taxi-chart-route-highlight'
 const TRACE_SOURCE_ID = 'taxi-route-trace'
 const TRACE_LAYER_ID = 'taxi-route-trace-line'
 
-// Bright and thick against the base chart's muted, thin line (useTaxiChartOverlay.ts) —
+// Bright and thick against the base chart's muted, thin line (use-taxi-chart-overlay.ts) —
 // meant to read as "your route," not just another taxiway.
 const ROUTE_PAINT = { 'line-color': '#facc15', 'line-width': 3.5, 'line-opacity': 0.95 }
 
+/**
+ * Adds the taxi route highlight layers if the map doesn't have them yet.
+ *
+ * @param map The map.
+ */
 function ensureLayers(map: MapLibreMap): void {
   if (!map.getLayer(HIGHLIGHT_LAYER_ID)) {
     map.addLayer({
@@ -294,7 +299,7 @@ export function useTaxiRouteHighlight({
   const [clearance, setClearance] = useState<TaxiClearance | null>(uiMemory().taxiRoute.clearance)
   const client = useLiveClient()
   const positionRef = useRef(position)
-  /** The current clearance's line between position updates (taxiReroute.ts). */
+  /** The current clearance's line between position updates (taxi-reroute.ts). */
   const trackerRef = useRef<RerouteTracker | null>(null)
   // Whether this hook has itself created its layers. Checked instead of calling
   // map.getLayer() unconditionally on every mount (App.tsx/LogbookView.tsx's own FlightMap

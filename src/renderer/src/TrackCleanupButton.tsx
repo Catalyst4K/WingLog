@@ -35,6 +35,9 @@ export function TrackCleanupButton(props: {
   const [cleaningUp, setCleaningUp] = useState(false)
   const { t } = useTranslation()
 
+  /**
+   * Cleans up the flight's track points and says what changed, or that there was nothing to do.
+   */
   async function handleCleanupTrack(): Promise<void> {
     setCleaningUp(true)
     try {

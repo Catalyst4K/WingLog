@@ -220,7 +220,7 @@ const WAYPOINT_SOURCE_ID = 'planned-waypoints'
 // fitBoundsTo's zoom for a lone coordinate.
 const SINGLE_POINT_ZOOM = 12
 const FOLLOW_ZOOM_GROUND = 15
-// point()'s default 1,000 m is below 10,000 ft: the lowest airborne band (followZoom.ts).
+// point()'s default 1,000 m is below 10,000 ft: the lowest airborne band (follow-zoom.ts).
 const FOLLOW_ZOOM_LOW = 11
 
 function point(overrides: Partial<TrackPoint> = {}): TrackPoint {
@@ -951,7 +951,7 @@ describe('FlightMap', () => {
       const hasTaxiNetwork = vi.fn().mockImplementation((icao: string) => Promise.resolve(cached[icao] ?? false))
       const refreshTaxiNetwork = vi.fn().mockResolvedValue(undefined)
       const getTaxiNetwork = vi.fn().mockImplementation((icao: string) => Promise.resolve(segmentsByIcao[icao] ?? []))
-      // useTaxiRouteHighlight.ts subscribes once the chart is switched on — a no-op
+      // use-taxi-route-highlight.ts subscribes once the chart is switched on — a no-op
       // unsubscribe is enough for every test in this block that doesn't care about it
       // (the "ATC-driven route highlight" block below overrides this to actually push).
       const onBeyondAtcTranscript = vi.fn(() => () => {})
@@ -1917,7 +1917,7 @@ describe('FlightMap', () => {
 
     const { map } = await renderReady({ route: [], trackPoints: [point()], live: true })
     // live + followEnabled (default true) + an aircraft present -> locked, per
-    // mapInteraction.ts.
+    // map-interaction.ts.
     await waitFor(() => expect(map.dragPan.disable).toHaveBeenCalled())
     expect(map.scrollZoom.enable).toHaveBeenCalledWith({ around: 'center' })
     expect(map.container.classList.contains('map-pan-locked')).toBe(true)

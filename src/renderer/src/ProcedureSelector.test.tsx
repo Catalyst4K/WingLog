@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import type { NavdataProcedureOption, NavdataRunwayOption, ProcedureSelection, WingLogApi } from '@shared/ipc'
 import i18n from './i18n'
 import { ProcedureSelector } from './ProcedureSelector'
-import { emptyProcedureSelection, type ProcedureAirports } from './procedureSelection'
+import { emptyProcedureSelection, type ProcedureAirports } from './procedure-selection'
 import type { Waypoint } from './route'
 
 function runway(ident: string): NavdataRunwayOption {

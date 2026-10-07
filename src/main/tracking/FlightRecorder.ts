@@ -384,6 +384,13 @@ export class FlightRecorder {
     return elapsedS >= interval
   }
 
+  /**
+   * Builds the track point to store from one telemetry sample.
+   *
+   * @param t The telemetry.
+   * @param nowUtc When it was received.
+   * @returns The track point for this flight.
+   */
   private toTrackPoint(t: SimTelemetry, nowUtc: Date): NewTrackPoint {
     return {
       flightId: this.flightId,

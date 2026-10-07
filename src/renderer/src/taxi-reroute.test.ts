@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { FlightPhase, NavdataTaxiSegment } from '@shared/ipc'
-import { angleBetweenDeg, remainingRoute, traceTaxiRoute, type TracedRoute } from './taxiRouteTrace'
+import { angleBetweenDeg, remainingRoute, traceTaxiRoute, type TracedRoute } from './taxi-route-trace'
 import {
   checkDeviation,
   INITIAL_DEVIATION,
@@ -12,7 +12,7 @@ import {
   startTracker,
   trackPosition,
   type DeviationState
-} from './taxiReroute'
+} from './taxi-reroute'
 import ZJSY_RAW from './__fixtures__/zjsy-taxi-d-b7-a.json'
 // Flight 227's real taxi out at ZJSY, 2026-10-02: from the stand through the wrong-way
 // pushback to the runway 08 hold and lining up. Anonymised to what the replay needs. Rows:

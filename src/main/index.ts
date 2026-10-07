@@ -333,6 +333,12 @@ function startApp(): void {
   })
 }
 
+/**
+ * Creates the main window, hidden until it is ready to show, with the preload script, and loads
+ * the renderer: the dev server while developing, the built page otherwise.
+ *
+ * @returns The window.
+ */
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
     width: 1100,

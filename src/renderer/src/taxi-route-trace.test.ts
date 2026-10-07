@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { NavdataTaxiSegment } from '@shared/ipc'
-import { angleBetweenDeg, rejoinTaxiRoute, remainingRoute, traceTaxiRoute } from './taxiRouteTrace'
+import { angleBetweenDeg, rejoinTaxiRoute, remainingRoute, traceTaxiRoute } from './taxi-route-trace'
 import VHHH_RAW from './__fixtures__/vhhh-taxi-b8-b10.json'
 import VHHH_ARRIVAL_RAW from './__fixtures__/vhhh-taxi-arrival-j-h6-h-v-b.json'
 import YBBN_RAW from './__fixtures__/ybbn-taxi-c9-b9-a9.json'

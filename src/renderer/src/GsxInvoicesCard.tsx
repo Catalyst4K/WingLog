@@ -76,6 +76,13 @@ function rowAmountText(inv: FlightInvoice, converted: { currency: string; rate: 
   return `${local} ~${formatMoney(inv.totalUsd * converted.rate, converted.currency)}`
 }
 
+/**
+ * One receipt: a summary line, and its line items when opened. Shows the amount converted to the
+ * display currency when there is a rate.
+ *
+ * @param props The invoice and the currency conversion to show, if any.
+ * @returns The row.
+ */
 function InvoiceRow(props: {
   invoice: FlightInvoice
   converted: { currency: string; rate: number } | null

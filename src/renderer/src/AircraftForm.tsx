@@ -194,6 +194,11 @@ export function AircraftForm(props: {
     setAirframeRegistration(null)
   }
 
+  /**
+   * Applies the SimBrief airframe the pilot picked from the list to the form's fields.
+   *
+   * @param key The index of the chosen option, as the select's value.
+   */
   function handleSelectAirframeOption(key: string): void {
     setSelectedOptionKey(key)
     const option = displayedOptions[Number(key)]
@@ -236,6 +241,10 @@ export function AircraftForm(props: {
     }
   }
 
+  /**
+   * Looks the registration up online and fills the form with the match. Says so when there is no
+   * registration or no match.
+   */
   async function handleLookup(): Promise<void> {
     const registration = form.registration.trim()
     if (!registration) {

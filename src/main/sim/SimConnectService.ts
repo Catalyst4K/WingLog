@@ -15,7 +15,7 @@ import {
 } from 'node-simconnect'
 import type { SimConnectionStatus, SimTelemetry } from '@shared/ipc'
 import type { TouchdownSeverity } from './SimConnectSource'
-import { SIM_VARS } from './simvars'
+import { SIM_VARS, readTelemetry } from './simvars'
 
 const APP_NAME = 'WingLog'
 const DEFINITION_ID = 0
@@ -140,6 +140,12 @@ export class SimConnectService extends EventEmitter<SimConnectServiceEvents> {
     this.handle = undefined
   }
 
+  /**
+   * Opens a SimConnect connection and, once open, registers the data definitions and requests. A failed
+   * or lost connection retries after a growing delay.
+   *
+   * @param reconnectDelayMs Wait before the next attempt if this one fails, milliseconds.
+   */
   private connect(reconnectDelayMs = INITIAL_RECONNECT_DELAY_MS): void {
     if (this.stopped) return
     this.setStatus({ state: 'connecting' })
@@ -188,13 +194,7 @@ export class SimConnectService extends EventEmitter<SimConnectServiceEvents> {
             return
           }
           if (recv.requestID !== REQUEST_ID) return
-          const fields: Record<string, unknown> = {}
-          for (const spec of SIM_VARS) {
-            fields[spec.key] = spec.read(recv.data)
-          }
-          // SIM_VARS is a heterogeneous const array; per-field typing is enforced at its
-          // declaration site, so a single cast here (rather than one per field) is fine.
-          const telemetry = fields as unknown as SimTelemetry
+          const telemetry = readTelemetry(recv.data)
           this.lastTelemetry = telemetry
           this.emit('telemetry', telemetry)
           this.evaluateHighRateArming(telemetry)
@@ -287,6 +287,13 @@ export class SimConnectService extends EventEmitter<SimConnectServiceEvents> {
     )
   }
 
+  /**
+   * Handles one tick of the fast vertical-speed stream while a landing is expected: keeps a short
+   * window of readings, takes the largest vertical speed in it at ground contact as the touchdown
+   * severity, and stops the stream shortly after.
+   *
+   * @param data The SimConnect response: vertical speed, then on-ground.
+   */
   private handleHighRateTick(data: RawBuffer): void {
     const verticalSpeedMs = data.readFloat64()
     const onGround = data.readInt32() === 1

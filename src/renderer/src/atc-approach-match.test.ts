@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { NavdataProcedureOption } from '@shared/ipc'
 import { parseAtcBoxClearance } from '@shared/atc-info-boxes'
-import { approachForArrivalRunway, starEndFix } from './atcApproachMatch'
+import { approachForArrivalRunway, starEndFix } from './atc-approach-match'
 
 // EGLL's real approaches from the sim's navdata (cached on the 2026-10-05 RKSI-EGLL flight):
 // every ILS and LOC has the same six transitions, RNAVs have none. LOGA2H ends at LAM.

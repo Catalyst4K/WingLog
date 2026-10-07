@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
-import { useSortable } from './useSortable'
+import { useSortable } from './use-sortable'
 
 interface Row {
   name: string

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
-import { useConfirm } from './useConfirm'
+import { useConfirm } from './use-confirm'
 
 function Harness(props: { destructive?: boolean }): React.JSX.Element {
   const [confirm, dialog] = useConfirm()

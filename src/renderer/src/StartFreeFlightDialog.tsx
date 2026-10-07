@@ -323,6 +323,10 @@ export function StartFreeFlightDialog(props: {
     ? undefined
     : props.aircraft.find((a) => String(a.id) === selectedAircraftId)
 
+  /**
+   * Creates the free flight from the form, using an existing aircraft or a new one, and starts tracking
+   * it. A failure is shown in the dialog.
+   */
   async function handleSubmit(): Promise<void> {
     if (!props.telemetry) return
     setSubmitting(true)

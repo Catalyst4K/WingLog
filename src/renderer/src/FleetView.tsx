@@ -12,9 +12,9 @@ import { FolderTabs, FolderTabsContent, FolderTabsList, FolderTabsTrigger } from
 import { AircraftDetail } from './fleet/AircraftDetail'
 import { ActiveFleetTable, RetiredFleetTable, type FleetSortKey } from './fleet/FleetTables'
 import { ReplaceAircraftDialog } from './fleet/ReplaceAircraftDialog'
-import { useConfirm } from './hooks/useConfirm'
-import { useResetSignal } from './hooks/useResetSignal'
-import { useSortable } from './hooks/useSortable'
+import { useConfirm } from './hooks/use-confirm'
+import { useResetSignal } from './hooks/use-reset-signal'
+import { useSortable } from './hooks/use-sortable'
 import { asyncHandler, runAsync } from './report-error'
 
 type View = { kind: 'list' } | { kind: 'detail'; id: number } | { kind: 'new' } | { kind: 'edit'; id: number }
@@ -153,6 +153,12 @@ export function FleetView(props: {
     }
   }
 
+  /**
+   * Replaces the aircraft being replaced with the chosen one, reloads the fleet, says so and opens
+ * the replacement's page. A failure is shown as a toast and rethrown.
+   *
+   * @param replacementId The aircraft that takes over.
+   */
   async function handleConfirmReplace(replacementId: number): Promise<void> {
     /* v8 ignore start -- defensive only: only ever called (as ReplaceAircraftDialog's
      * onConfirm) while that dialog is mounted, which only happens while replaceTarget is

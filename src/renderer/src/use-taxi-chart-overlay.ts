@@ -2,7 +2,7 @@
  * The Track/Logbook map's taxi chart overlay (winglog-backend's docs/plans/
  * taxi-network-overlay.md) — an airport's full taxiway network, drawn as a static reference
  * layer, fetched from MSFS's own SimConnect facility data. Off by default; nothing is loaded
- * or fetched until the toggle is switched on, same discipline as useVfrOverlay.ts, since a
+ * or fetched until the toggle is switched on, same discipline as use-vfr-overlay.ts, since a
  * large airport's fetch can genuinely take minutes (not seconds) the first time.
  */
 
@@ -12,7 +12,7 @@ import type { NavdataTaxiSegment } from '@shared/ipc'
 import { uiMemory } from './ui-memory'
 import { setSourceData } from './map-source'
 
-// Exported so useTaxiRouteHighlight.ts can add its own filtered layer on the same source
+// Exported so use-taxi-route-highlight.ts can add its own filtered layer on the same source
 // rather than fetching/holding a second copy of the same segment data.
 export const TAXI_SOURCE_ID = 'taxi-chart'
 const TAXI_LAYER_ID = 'taxi-chart-line'

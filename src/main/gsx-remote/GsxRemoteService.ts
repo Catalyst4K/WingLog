@@ -340,6 +340,10 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
     this.emit('status', status)
   }
 
+  /**
+   * Opens the WebSocket to the GSX remote service and wires its events. A failed or dropped connection
+   * schedules a reconnect.
+   */
   private connect(): void {
     if (this.stopped) return
     this.setStatus({ state: 'connecting', lastError: null })
@@ -386,6 +390,12 @@ export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
     })
   }
 
+  /**
+   * Applies one message from GSX: a snapshot replaces the whole state, anything else updates part of
+   * it. Emits the services, gate and menu events for what changed.
+   *
+   * @param message The parsed message.
+   */
   private handleMessage(message: GsxMessage): void {
     if (message.type === 'snapshot') {
       const snapshot: Record<string, unknown> = { ...(message as SnapshotMessage) }

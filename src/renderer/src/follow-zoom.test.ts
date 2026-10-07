@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { followBand, zoomForBand } from './followZoom'
+import { followBand, zoomForBand } from './follow-zoom'
 
 const FT = 0.3048
 const air = (ft: number): { onGround: false; altitudeM: number; pressureAltitudeM: number } => ({

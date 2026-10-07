@@ -102,7 +102,7 @@ export const TRAIL_SOURCE_ID = 'breadcrumb-trail'
 export const TRAIL_TIP_SOURCE_ID = 'breadcrumb-trail-tip'
 export const WAYPOINT_SOURCE_ID = 'planned-waypoints'
 // fitBoundsTo's zoom for a single coordinate (nothing to fit a box around). Following the
-// aircraft uses followZoom.ts's ground/altitude bands instead.
+// aircraft uses follow-zoom.ts's ground/altitude bands instead.
 const SINGLE_POINT_ZOOM = 12
 
 // Camera persistence across remounts (docs/plans/map-improvements.md, "cause B") —
@@ -215,7 +215,7 @@ export function waypointFeatures(waypoints: Waypoint[]): WaypointFeatureCollecti
  */
 export function applyLabelStyle(map: MapLibreMap, language: MapLanguage): void {
   try {
-    const layers = map.getStyle().layers as unknown as StyleLayerLike[]
+    const layers = map.getStyle().layers as StyleLayerLike[]
     for (const change of planStyleChanges(layers, language)) {
       if (change.textField)
         map.setLayoutProperty(change.id, 'text-field', change.textField as ExpressionSpecification)
@@ -368,6 +368,12 @@ export function addFlightLayers(map: MapLibreMap, dark: boolean): Marker {
   return aircraftMarker()
 }
 
+/**
+ * Adds the route waypoint source and its circle and label layers, coloured by route segment.
+ *
+ * @param map The map.
+ * @param dark Whether the dark theme is on.
+ */
 function addWaypointLayers(map: MapLibreMap, dark: boolean): void {
   map.addSource(WAYPOINT_SOURCE_ID, { type: 'geojson', data: waypointFeatures([]) })
   map.addLayer({
@@ -420,6 +426,13 @@ function addWaypointLayers(map: MapLibreMap, dark: boolean): void {
   })
 }
 
+/**
+ * Adds the taxiway and runway labels the base style's own tiles carry, shown only when zoomed in to an
+ * airport.
+ *
+ * @param map The map.
+ * @param dark Whether the dark theme is on.
+ */
 function addTaxiwayLabels(map: MapLibreMap, dark: boolean): void {
   // Taxiway designators when zoomed into an airport (docs/plans/map-improvements.md
   // #3) — needs no new data source: the base style's own vector tiles (source id and

@@ -192,6 +192,13 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
     this.emitStatus()
   }
 
+  /**
+   * One tick of the step-climb controller, on every telemetry update: follows the active flight, tracks
+   * the FCU altitude and the climb, and, in cruise with BeyondATC connected, asks for the next level
+   * when one is due.
+   *
+   * @param t The latest telemetry.
+   */
   onTelemetry(t: SimTelemetry): void {
     if (!this.enabled) return
     const now = this.now()
@@ -327,6 +334,18 @@ export class StepClimbController extends EventEmitter<{ status: [BeyondAtcStepCl
     return destination !== undefined && greatCircleNm({ lat: t.latitude, lon: t.longitude }, destination) < NO_TOD_CUTOFF_NM
   }
 
+  /**
+   * Chooses the level to request now: the planned step once the aircraft is within the lead distance,
+   * or an FCU altitude the pilot has held long enough. Levels already requested recently, or dropped
+   * after too many attempts, are skipped.
+   *
+   * @param t The latest telemetry.
+   * @param now The current time, epoch milliseconds.
+   * @param clearedFt The level ATC has cleared, feet.
+   * @param upcoming The next planned step, if any.
+   * @param upcomingDistance Distance along the route to that step, nautical miles, or null when unknown.
+   * @returns The level to ask for and why, or null when nothing is due.
+   */
   private pickTarget(
     t: SimTelemetry,
     now: number,

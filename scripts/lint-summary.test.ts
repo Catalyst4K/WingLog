@@ -7,7 +7,7 @@ describe('areaOf', () => {
     expect(areaOf('src/main/index.ts')).toBe('main (root)')
     expect(areaOf('src/renderer/src/hooks/useX.ts')).toBe('renderer/hooks')
     expect(areaOf('src/renderer/src/LogbookView.tsx')).toBe('renderer views')
-    expect(areaOf('src/renderer/src/taxiRouteTrace.ts')).toBe('renderer modules')
+    expect(areaOf('src/renderer/src/taxi-route-trace.ts')).toBe('renderer modules')
     expect(areaOf('src/shared/stands.ts')).toBe('shared')
   })
 })

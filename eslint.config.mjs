@@ -77,6 +77,10 @@ export default tseslint.config(
         {
           selector: 'Program > VariableDeclaration > VariableDeclarator > NewExpression[callee.name=/^(Map|Set|WeakMap|WeakSet)$/][arguments.length=0]',
           message: 'No mutable module-level collections: use lazy() or the renderer store (coding-standards.md §4).'
+        },
+        {
+          selector: "TSAsExpression > TSAsExpression.expression[typeAnnotation.type='TSUnknownKeyword']",
+          message: 'No `as unknown as` outside tests: narrow with a type guard (coding-standards.md §7).'
         }
       ],
       // §5 size and shape

@@ -46,6 +46,13 @@ export function receiptFileFromPath(jsonPath: string): ReceiptFile | null {
   }
 }
 
+/**
+ * Lists the receipt JSON files in each GSX service folder. A missing or unreadable folder contributes
+ * nothing.
+ *
+ * @param folderPath The GSX receipts folder.
+ * @returns The receipt files with the service group each came from.
+ */
 async function listReceiptFiles(folderPath: string): Promise<ReceiptFile[]> {
   const files: ReceiptFile[] = []
   for (const { dir, group } of SERVICE_GROUP_DIRS) {

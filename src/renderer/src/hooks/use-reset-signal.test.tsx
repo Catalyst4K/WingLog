@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { renderHook } from '@testing-library/react'
-import { useResetSignal } from './useResetSignal'
+import { useResetSignal } from './use-reset-signal'
 
 describe('useResetSignal', () => {
   it('does not call onReset on initial mount', () => {

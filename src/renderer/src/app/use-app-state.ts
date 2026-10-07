@@ -24,7 +24,7 @@ import {
   emptyProcedureSelection,
   seedProcedureSelectionFromOfp,
   selectionFromFlight
-} from '../procedureSelection'
+} from '../procedure-selection'
 import { runAsync } from '../report-error'
 import { resolveAtcClearance, type PendingAtcClearance } from './atc-clearance'
 
@@ -205,7 +205,7 @@ export function useOrphanedFlight(
  * decision, 2026-09-25: overwrite, but ask first, gently. Never ATC's speech
  * (winglog-backend's docs/decisions.md, 2026-10-05). Re-subscribes whenever the selection
  * changes so a diff is always checked against the live value, the same "just resubscribe,
- * it's cheap" style procedureSelection.ts's own fetch effects already use.
+ * it's cheap" style procedure-selection.ts's own fetch effects already use.
  *
  * @param selection The current procedure selection.
  * @param setSelection Applies an accepted clearance.

@@ -1,7 +1,7 @@
 /** When and how a traced taxi line is re-traced from where the aircraft is. */
 
 import type { FlightPhase, NavdataTaxiSegment } from '@shared/ipc'
-import { angleBetweenDeg, rejoinTaxiRoute, remainingRoute, WRONG_WAY_DEG, type RemainingRoute, type TracedRoute } from './taxiRouteTrace'
+import { angleBetweenDeg, rejoinTaxiRoute, remainingRoute, WRONG_WAY_DEG, type RemainingRoute, type TracedRoute } from './taxi-route-trace'
 import { flatDistanceM } from '@shared/geo'
 
 /**
@@ -9,7 +9,7 @@ import { flatDistanceM } from '@shared/geo'
  * (winglog-backend's docs/plans/taxi-reroute.md). Real case, ZJSY flight 227, 2026-10-02:
  * cleared "via D, B7, A" to A's runway 08 hold, pushed back facing the other way and taxied a
  * different route to the same hold, with the line pointing back along D the whole time.
- * Where a re-route goes is taxiRouteTrace.ts's rejoinTaxiRoute: the shortest total way to the
+ * Where a re-route goes is taxi-route-trace.ts's rejoinTaxiRoute: the shortest total way to the
  * same end, joining the cleared route wherever that's shortest.
  *
  * Starting values, checked against that flight's replay (taxiReroute.test.ts):

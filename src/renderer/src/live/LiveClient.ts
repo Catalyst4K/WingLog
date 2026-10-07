@@ -44,6 +44,13 @@ export const electronLiveClient: LiveClient = {
     const getter = getters[topic]
     return getter ? getter() : Promise.resolve(undefined)
   },
+  /**
+   * Subscribes to one live topic through the matching preload listener.
+   *
+   * @param topic The topic.
+   * @param listener Called with each update.
+   * @returns A function that stops the subscription.
+   */
   subscribe(topic, listener) {
     const w = window.winglog
     const subscribers: Subscribers = {

@@ -160,6 +160,12 @@ export class ReplaySimConnectService extends EventEmitter<ReplaySimConnectServic
     this.status = { state: 'disconnected' }
   }
 
+  /**
+   * Plays the recorded event at `index`, then schedules the next one: straight away in instant mode,
+   * otherwise after the recorded gap divided by the speed. Emits replayComplete after the last event.
+   *
+   * @param index The position in the recording to play.
+   */
   private playFrom(index: number): void {
     if (this.stopped) return
     if (index >= this.events.length) {
