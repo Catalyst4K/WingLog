@@ -12,6 +12,8 @@ import { initLogger, logger } from './logging/logger'
 import { setMainLanguage, t } from './i18n'
 import { backupDatabaseOnLaunch } from './db/backup'
 import { createDb, type WingLogDb } from './db/client'
+import { startStorageMaintenance } from './db/storage-maintenance'
+import type { Database as SqliteDatabase } from 'better-sqlite3'
 import { migrateDb } from './db/migrate'
 import { migrateLegacyUserData } from './db/legacy-userdata'
 import { getFlight, setParkedStand } from './db/flight-repo'
@@ -60,7 +62,12 @@ import { CloudSyncController } from './sync/cloud-sync-controller'
  * @param userDataPath Electron's userData directory.
  * @returns The database, and its file's path.
  */
-function openDatabase(userDataPath: string): { db: WingLogDb; dbPath: string } {
+function openDatabase(userDataPath: string): {
+  db: WingLogDb
+  sqlite: SqliteDatabase
+  dbPath: string
+  backedUp: boolean
+} {
   const dbPath = join(userDataPath, 'winglog.db')
 
   // Before anything opens the database: the Flightdeck -> WingLog rename moved userData,
@@ -77,8 +84,10 @@ function openDatabase(userDataPath: string): { db: WingLogDb; dbPath: string } {
   // Safety net against a bad migration or a corrupted database (PLAN.md §M7) — snapshot
   // whatever's there now, before migrateDb below applies this version's migrations to it.
   // A no-op on a fresh install (backupDatabaseOnLaunch checks dbPath exists first).
+  let backedUp = false
   try {
     backupDatabaseOnLaunch(dbPath, join(userDataPath, 'backups'))
+    backedUp = true
   } catch (error) {
     // Never block startup over a failed backup — logged for visibility, not fatal.
     logger.error('DB backup-on-launch failed:', error)
@@ -88,7 +97,8 @@ function openDatabase(userDataPath: string): { db: WingLogDb; dbPath: string } {
   // have drizzle/ as a direct sibling of package.json, unlike a cwd-relative path, which
   // isn't reliable once the app is launched from a shortcut rather than a terminal.
   migrateDb(dbPath, join(app.getAppPath(), 'drizzle'))
-  return { db: createDb(dbPath).db, dbPath }
+  const handle = createDb(dbPath)
+  return { db: handle.db, sqlite: handle.sqlite, dbPath, backedUp }
 }
 
 /**
@@ -207,7 +217,7 @@ function startUpdates(db: WingLogDb, window: BrowserWindow): UpdateService {
 
 /** Opens the database and the window, starts the services, and registers every IPC area. */
 function startApp(): void {
-  const { db, dbPath } = openDatabase(app.getPath('userData'))
+  const { db, sqlite, dbPath, backedUp } = openDatabase(app.getPath('userData'))
 
   // Main-process strings (native dialog titles, thrown validation messages that reach
   // the renderer verbatim as a toast) follow the same persisted setting the renderer
@@ -221,6 +231,7 @@ function startApp(): void {
   // way to move around; a bare File/Edit/Window bar above it was clutter, not useful.
   Menu.setApplicationMenu(null)
   const window = createWindow()
+  startStorageMaintenance(sqlite, backedUp)
   // Live state (sim, tracking, GSX Remote, BeyondATC) goes through one hub, and the window
   // is its first subscriber (winglog-backend's docs/plans/live-data-seam.md, part A).
   const liveHub = new LiveHub()
