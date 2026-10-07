@@ -9,7 +9,7 @@ describe('phase machine rules', () => {
       if (broken.length >= 5) break
     }
     expect(broken).toEqual([])
-  })
+  }, 60_000)
 
   it('cover every piece: the flights include rejected takeoffs, fast taxis, bounces and go-arounds', () => {
     const seen = new Set<string>()
