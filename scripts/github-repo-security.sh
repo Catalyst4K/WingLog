@@ -6,7 +6,7 @@
 # Requires the GitHub CLI, authenticated as a user with admin rights on the repo:
 #
 #   gh auth login          # once, interactive
-#   ./scripts/github-repo-security.sh
+#   ./scripts/github-repo-security.sh     # Catalyst4K/WingLog unless another repo is named
 #
 # Safe to re-run — every call is idempotent.
 #
@@ -25,7 +25,7 @@
 
 set -euo pipefail
 
-REPO="${1:-Catalyst4K/flightdeck}"
+REPO="${1:-Catalyst4K/WingLog}"
 
 echo "Applying security settings to $REPO"
 echo
