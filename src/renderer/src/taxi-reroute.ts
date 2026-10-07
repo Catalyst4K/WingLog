@@ -12,7 +12,7 @@ import { flatDistanceM } from '@shared/geo'
  * Where a re-route goes is taxi-route-trace.ts's rejoinTaxiRoute: the shortest total way to the
  * same end, joining the cleared route wherever that's shortest.
  *
- * Starting values, checked against that flight's replay (taxiReroute.test.ts):
+ * Starting values, checked against that flight's replay (taxi-reroute.test.ts):
  * - off the line: more than REROUTE_DISTANCE_M from it (a taxiway is ~23 m wide);
  * - or going the wrong way along it: heading more than WRONG_WAY_DEG off the line's direction;
  * - either one continuously for REROUTE_AFTER_MS while moving faster than

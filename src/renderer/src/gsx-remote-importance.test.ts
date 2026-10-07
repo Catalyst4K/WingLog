@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { GsxRemoteMenuState } from '@shared/ipc'
-import { gsxMenuSignature, isImportantGsxMenu } from './gsx-remote-importance'
+import { gsxMenuSignature, gsxPromptState, isImportantGsxMenu } from './gsx-remote-importance'
 
 function menu(overrides: Partial<GsxRemoteMenuState> = {}): GsxRemoteMenuState {
   return {
@@ -91,5 +91,29 @@ describe('gsxMenuSignature', () => {
     const c = menu({ title: 'Select pushback direction', entries: ['RED', 'GREEN'] })
     expect(gsxMenuSignature(a)).toBe(gsxMenuSignature(b))
     expect(gsxMenuSignature(a)).not.toBe(gsxMenuSignature(c))
+  })
+})
+
+describe('gsxPromptState', () => {
+  const pushback = menu({ title: 'Select pushback direction', entries: ['Left', 'Right'] })
+
+  it('opens the global prompt for an important menu when the GSX tab is not showing', () => {
+    expect(gsxPromptState(pushback, false, null)).toEqual({ open: true, menuKey: gsxMenuSignature(pushback) })
+  })
+
+  it('stays closed on the GSX tab, where the menu is answered in place, but still names the menu', () => {
+    expect(gsxPromptState(pushback, true, null)).toEqual({ open: false, menuKey: gsxMenuSignature(pushback) })
+  })
+
+  it('stays closed for the menu the user dismissed, and opens again for a different one', () => {
+    const dismissed = gsxMenuSignature(pushback)
+    expect(gsxPromptState(pushback, false, dismissed).open).toBe(false)
+    const fuel = menu({ title: 'Select refueling level', entries: ['50%', '100%'] })
+    expect(gsxPromptState(fuel, false, dismissed).open).toBe(true)
+  })
+
+  it('has no menu key for an unimportant menu or before GSX has sent one', () => {
+    expect(gsxPromptState(menu({ title: 'Select handler', entries: ['A'] }), false, null)).toEqual({ open: false, menuKey: null })
+    expect(gsxPromptState(null, false, null)).toEqual({ open: false, menuKey: null })
   })
 })
