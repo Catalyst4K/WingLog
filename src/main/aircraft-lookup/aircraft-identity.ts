@@ -1,13 +1,20 @@
-// Turns raw sim-reported aircraft identity (SimTelemetry's atcId/atcModel/title) into what
-// free-flight-tracking.md's start dialog prefills — see that plan's "What the sim actually
-// reports" section. Grounded in the real captures in winglog-backend's flight-captures/
-// (2026-09-14): atcModel comes back either as a raw marketing name ("A350-900") or, for an
-// add-on that localises it, a token that still needs unwrapping ("ATCCOM.AC_MODEL
-// A320.0.text") — both forms are real, not hypothetical.
+/**
+ * Turns raw sim-reported aircraft identity (SimTelemetry's atcId/atcModel/title) into what
+ * free-flight-tracking.md's start dialog prefills — see that plan's "What the sim actually
+ * reports" section. Grounded in the real captures in winglog-backend's flight-captures/
+ * (2026-09-14): atcModel comes back either as a raw marketing name ("A350-900") or, for an
+ * add-on that localises it, a token that still needs unwrapping ("ATCCOM.AC_MODEL
+ * A320.0.text") — both forms are real, not hypothetical.
+ */
+
 import { normalize, searchAircraftTypes } from './icao-types'
 
 const ATCCOM_TOKEN = /^ATCCOM\.AC_MODEL\s+(.+?)\.\d+\.text$/i
 
+/**
+ * @param atcModel The sim's ATC MODEL value.
+ * @returns The model name, unwrapped from an ATCCOM token if it is one.
+ */
 function unwrapAtcModel(atcModel: string): string {
   const match = ATCCOM_TOKEN.exec(atcModel.trim())
   return match ? match[1] : atcModel.trim()
@@ -37,6 +44,9 @@ export interface ParsedAircraftIdentity {
  * human reading it, but nothing about its format is regular enough to resolve it
  * mechanically across every add-on. It remains the right key for the separate title →
  * fleet-aircraft memory (free-flight-tracking.md Phase 2), just not for this function.
+ *
+ * @param input The sim's ATC ID, ATC MODEL and title.
+ * @returns The registration and best-matching ICAO type.
  */
 export function parseAircraftIdentity(input: {
   atcId: string

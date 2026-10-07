@@ -19,6 +19,10 @@
  * (its own `date` field reflects that, same ECB "as-of" convention `/latest` already
  * uses), and a future date 404s exactly like an unsupported currency code — same
  * null-fallback path, nothing GSX-specific to handle there.
+ *
+ * @param targetCurrency The ISO currency code to convert USD into.
+ * @param date The receipt's day (YYYY-MM-DD), or undefined for today's rate.
+ * @returns The rate, 1 for USD, or null if it couldn't be fetched.
  */
 export async function fetchExchangeRate(targetCurrency: string, date?: string): Promise<number | null> {
   const code = targetCurrency.trim().toUpperCase()

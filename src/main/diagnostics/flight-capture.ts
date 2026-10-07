@@ -27,11 +27,21 @@ export const CAPTURE_FORMAT = 'winglog-capture-2'
 
 export type { CaptureKeepState }
 
-/** The prefix of every capture file for a flight. */
+/**
+ * The prefix of every capture file for a flight.
+ *
+ * @param flightId The flight.
+ * @returns The prefix, `flight-<id>-`.
+ */
 function capturePrefix(flightId: number): string {
   return `flight-${flightId}-`
 }
 
+/**
+ * @param dir The folder to look in.
+ * @param flightId The flight.
+ * @returns The flight's capture file names; none if the folder is missing.
+ */
 function captureNames(dir: string, flightId: number): string[] {
   try {
     return readdirSync(dir).filter((name) => name.startsWith(capturePrefix(flightId)) && name.endsWith(EXTENSION))
@@ -50,6 +60,8 @@ export interface CaptureHeader extends FlightFixtureHeader {
  * Deletes all but the newest `keep` capture files in `dir` (by modification time). Never looks
  * inside `kept/`.
  *
+ * @param dir The captures folder.
+ * @param keep How many to keep.
  * @returns The file names deleted.
  */
 export function pruneCaptures(dir: string, keep: number): string[] {
@@ -83,10 +95,11 @@ export class FlightCapture {
   /** Move the open file into kept/ once it's closed (Windows can't rename an open file). */
   private keepOnStop = false
 
-  /**
-   * @param dir The captures folder (created if missing).
-   * @param nowMs The clock, in epoch milliseconds; injected so tests control it.
-   */
+/**
+ * @param dir The captures folder (created if missing).
+ * @param nowMs The clock, in epoch milliseconds; injected so tests control it.
+ * @param keepCount How many captures to keep automatically.
+ */
   constructor(
     private readonly dir: string,
     private readonly nowMs: () => number = Date.now,
@@ -102,12 +115,14 @@ export class FlightCapture {
     return this.path
   }
 
-  /**
-   * Opens a new capture file for a flight and writes its header line. Prunes old captures
-   * first, so the new one always survives.
-   *
-   * @returns The new file's path.
-   */
+/**
+ * Opens a new capture file for a flight and writes its header line. Prunes old captures
+ * first, so the new one always survives.
+ *
+ * @param flightId The flight.
+ * @param aircraftType The sim's aircraft title, for the header.
+ * @returns The new file's path.
+ */
   start(flightId: number, aircraftType: string): string {
     this.stop()
     mkdirSync(this.dir, { recursive: true })
@@ -158,19 +173,25 @@ export class FlightCapture {
     this.keepOnStop = false
   }
 
-  /** Whether a flight has a capture, and whether it's kept for good. */
+/**
+ * Whether a flight has a capture, and whether it's kept for good.
+ *
+ * @param flightId The flight.
+ * @returns Its capture state.
+ */
   keepState(flightId: number): CaptureKeepState {
     if (captureNames(join(this.dir, KEPT_DIR), flightId).length > 0) return 'kept'
     if (this.flightId === flightId && this.keepOnStop) return 'kept'
     return captureNames(this.dir, flightId).length > 0 ? 'auto' : 'none'
   }
 
-  /**
-   * Keeps a flight's captures for good by moving them into kept/. The file still being written
-   * is moved when the flight ends.
-   *
-   * @returns The flight's state afterwards.
-   */
+/**
+ * Keeps a flight's captures for good by moving them into kept/. The file still being written
+ * is moved when the flight ends.
+ *
+ * @param flightId The flight.
+ * @returns The flight's state afterwards.
+ */
   keep(flightId: number): CaptureKeepState {
     if (this.flightId === flightId) this.keepOnStop = true
     for (const name of captureNames(this.dir, flightId)) {
@@ -196,7 +217,12 @@ export class FlightCapture {
   }
 }
 
-/** A flight id from the renderer: a positive integer, so it can only name a capture file. */
+/**
+ * A flight id from the renderer: a positive integer, so it can only name a capture file.
+ *
+ * @param value The value from the renderer.
+ * @returns True if it is a positive integer.
+ */
 export function isFlightId(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value > 0
 }

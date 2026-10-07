@@ -72,10 +72,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-/** Cheap defensive parse (CLAUDE.md: "external data is data, never code, parse
- *  defensively") — this is server-relayed data this same app wrote, not a hostile third
- *  party, but it did cross a network boundary, so a malformed row degrades to "skipped"
- *  rather than throwing and aborting the whole table's sync. */
+/**
+ * Cheap defensive parse (CLAUDE.md: "external data is data, never code, parse
+ * defensively") — this is server-relayed data this same app wrote, not a hostile third
+ * party, but it did cross a network boundary, so a malformed row degrades to "skipped"
+ * rather than throwing and aborting the whole table's sync.
+ *
+ * @param json A pulled row's data.
+ * @returns The row, or null if it isn't a JSON object.
+ */
 function parseRowData(json: string): Record<string, unknown> | null {
   try {
     const parsed: unknown = JSON.parse(json)
@@ -85,9 +90,15 @@ function parseRowData(json: string): Record<string, unknown> | null {
   }
 }
 
-/** Shallow copy with the given keys removed — used instead of destructure-and-discard
- *  (`const { x: _x, ...rest } = obj`) so the deliberately-unused binding doesn't need a
- *  lint exemption. */
+/**
+ * Shallow copy with the given keys removed — used instead of destructure-and-discard
+ * (`const { x: _x, ...rest } = obj`) so the deliberately-unused binding doesn't need a
+ * lint exemption.
+ *
+ * @param obj The object.
+ * @param keys The keys to leave out.
+ * @returns The copy.
+ */
 function omit<T extends Record<string, unknown>>(obj: T, keys: string[]): Record<string, unknown> {
   const copy: Record<string, unknown> = { ...obj }
   for (const key of keys) delete copy[key]
@@ -281,6 +292,12 @@ function applyPulledRow(db: WingLogDb, table: SyncTable, row: SyncRow): ApplyRes
  * Runs one full pull-then-push cycle across all four synced tables, in dependency order.
  * `dbPath` is only used to place sync-conflicts.log next to the database file, per the
  * plan's "next to the DB, not a new table" — never opened directly here.
+ *
+ * @param db The database.
+ * @param client The backend sync client.
+ * @param session The signed-in session.
+ * @param dbPath The database file's path.
+ * @returns What was pulled, pushed and skipped.
  */
 export async function runSync(db: WingLogDb, client: SyncClient, session: SyncSession, dbPath: string): Promise<SyncResult> {
   // Captured once, before any table is touched — a local write that lands in the exact

@@ -30,6 +30,13 @@ function isFlightCategory(value: unknown): value is MetarReport['flightCategory'
   return value === 'VFR' || value === 'MVFR' || value === 'IFR' || value === 'LIFR'
 }
 
+/**
+ * Fetches the current METARs from aviationweather.gov.
+ *
+ * @param icaoCodes The airports, from the renderer.
+ * @param userAgent The User-Agent to send.
+ * @returns A METAR for each airport that has one.
+ */
 export async function fetchMetars(icaoCodes: unknown, userAgent = 'WingLog'): Promise<MetarReport[]> {
   // From the renderer: only ICAO-shaped strings go into the query.
   if (!Array.isArray(icaoCodes)) return []

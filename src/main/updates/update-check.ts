@@ -1,6 +1,3 @@
-import { EventEmitter } from 'node:events'
-import type { UpdateRelease, UpdateStatus } from '@shared/ipc'
-
 /**
  * Asks GitHub whether a newer WingLog release is out (winglog-backend's
  * docs/plans/update-check.md, Part A; decided 2026-10-02 in its decisions.md). One GET of the
@@ -8,6 +5,9 @@ import type { UpdateRelease, UpdateStatus } from '@shared/ipc'
  * WingLog's own version in the User-Agent. The user downloads and installs it themselves,
  * same as today; this only tells them it exists.
  */
+
+import { EventEmitter } from 'node:events'
+import type { UpdateRelease, UpdateStatus } from '@shared/ipc'
 
 /** GitHub's "latest release" endpoint for the public repo. One constant, https only. */
 export const LATEST_RELEASE_URL = 'https://api.github.com/repos/Catalyst4K/WingLog/releases/latest'
@@ -20,19 +20,35 @@ const MAX_NOTES_LENGTH = 20_000
 export const FIRST_CHECK_DELAY_MS = 30_000
 export const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
 
-/** "v1.4.0" or "1.4.0" → [1, 4, 0]; null for anything else (we never publish prereleases). */
+/**
+ * "v1.4.0" or "1.4.0" → [1, 4, 0]; null for anything else (we never publish prereleases).
+ *
+ * @param tag A release tag.
+ * @returns The version's parts, or null.
+ */
 export function parseVersion(tag: unknown): [number, number, number] | null {
   if (typeof tag !== 'string') return null
   const m = /^v?(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/.exec(tag.trim())
   return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null
 }
 
-/** Positive when `a` is newer than `b`. */
+/**
+ * Positive when `a` is newer than `b`.
+ *
+ * @param a One version.
+ * @param b The other.
+ * @returns The difference.
+ */
 export function compareVersions(a: [number, number, number], b: [number, number, number]): number {
   return a[0] - b[0] || a[1] - b[1] || a[2] - b[2]
 }
 
-/** GitHub's release JSON is third-party data: only the fields we use, each checked. */
+/**
+ * GitHub's release JSON is third-party data: only the fields we use, each checked.
+ *
+ * @param json GitHub's release JSON.
+ * @returns The release, or null for a draft, prerelease or malformed one.
+ */
 export function parseLatestRelease(json: unknown): UpdateRelease | null {
   if (typeof json !== 'object' || json === null) return null
   const r = json as Record<string, unknown>
@@ -58,6 +74,9 @@ export interface UpdateServiceOptions {
   log?: (message: string) => void
 }
 
+/**
+ * Checks for a newer release on a schedule or on request, and keeps the status for Settings.
+ */
 export class UpdateService extends EventEmitter<{ status: [UpdateStatus] }> {
   private status: UpdateStatus
   private firstTimer: ReturnType<typeof setTimeout> | null = null
@@ -80,6 +99,11 @@ export class UpdateService extends EventEmitter<{ status: [UpdateStatus] }> {
     }
   }
 
+/**
+ * The status Settings → About shows.
+ *
+ * @returns The current status.
+ */
   getStatus(): UpdateStatus {
     return this.status
   }
@@ -99,7 +123,11 @@ export class UpdateService extends EventEmitter<{ status: [UpdateStatus] }> {
     this.interval = null
   }
 
-  /** "Check now" in Settings → About, or a scheduled tick. Never throws. */
+/**
+ * "Check now" in Settings → About, or a scheduled tick. Never throws.
+ *
+ * @returns The status afterwards.
+ */
   async checkNow(): Promise<UpdateStatus> {
     this.setStatus({ ...this.status, state: 'checking' })
     try {
@@ -128,14 +156,22 @@ export class UpdateService extends EventEmitter<{ status: [UpdateStatus] }> {
     return this.status
   }
 
-  /** "Skip this version": no banner for it, only for something newer. */
+/**
+ * "Skip this version": no banner for it, only for something newer.
+ *
+ * @param version The version from the renderer; ignored unless it is the latest found.
+ */
   skipVersion(version: unknown): void {
     if (typeof version !== 'string' || version !== this.status.latest?.version) return
     this.options.setSkippedVersion(version)
     this.setStatus({ ...this.status, skippedVersion: version })
   }
 
-  /** The validated release page, for shell.openExternal — never a URL from the renderer. */
+/**
+ * The validated release page, for shell.openExternal — never a URL from the renderer.
+ *
+ * @returns The URL, or null with no release found.
+ */
   releaseUrl(): string | null {
     return this.status.latest?.url ?? null
   }

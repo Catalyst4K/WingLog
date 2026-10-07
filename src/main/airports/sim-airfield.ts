@@ -1,3 +1,15 @@
+/**
+ * Resolves a touchdown to an airfield and runway using the *sim's own* facility data, for the
+ * places the vendored OurAirports slice doesn't cover — scenery add-ons, closed historical
+ * fields (Kai Tak = the sim's `VHHX`), generated strips (winglog-backend's
+ * docs/plans/landing-airfield-from-sim.md; live spike 2026-09-19, docs/simconnect-notes.md:
+ * the full ~85k-airport list arrives in ~0.3 s and a RUNWAYS request for one airport takes
+ * ~30 ms).
+ *
+ * Like SimFacilitiesProvider it opens its own short-lived connection per call, never the
+ * live tracking one.
+ */
+
 import {
   FacilityDataType,
   FacilityListType,
@@ -11,18 +23,6 @@ import { NavdataDefId, addRunwayFields, parseAirportHeader, parseRunway, type Pa
 import { runwayEndsFromCentre } from '../navdata/runway-geometry'
 import { greatCircleNm } from '@shared/geo'
 import { aimingPointDistanceForLengthM, resolveRunwayEnd, type RunwayEnd } from './runway-lookup'
-
-/**
- * Resolves a touchdown to an airfield and runway using the *sim's own* facility data, for the
- * places the vendored OurAirports slice doesn't cover — scenery add-ons, closed historical
- * fields (Kai Tak = the sim's `VHHX`), generated strips (winglog-backend's
- * docs/plans/landing-airfield-from-sim.md; live spike 2026-09-19, docs/simconnect-notes.md:
- * the full ~85k-airport list arrives in ~0.3 s and a RUNWAYS request for one airport takes
- * ~30 ms).
- *
- * Like SimFacilitiesProvider it opens its own short-lived connection per call, never the
- * live tracking one.
- */
 
 const APP_NAME = 'WingLog landing airfield'
 const AIRPORT_LIST_REQUEST_ID = 1
@@ -40,9 +40,15 @@ export interface SimAirfieldMatch {
 
 export type OpenSimConnect = typeof defaultOpen
 
-/** Adapts the sim's runway record (split into ends by runwayEndsFromCentre) to the vendored
- *  lookup's RunwayEnd shape. The sim gives no displaced-threshold figure here, so it's 0 —
- *  distances are from the physical end. */
+/**
+ * Adapts the sim's runway record (split into ends by runwayEndsFromCentre) to the vendored
+ * lookup's RunwayEnd shape. The sim gives no displaced-threshold figure here, so it's 0 —
+ * distances are from the physical end.
+ *
+ * @param icao The airport.
+ * @param runway The sim's runway record.
+ * @returns Its two ends.
+ */
 export function simRunwayEnds(icao: string, runway: ParsedRunway): RunwayEnd[] {
   return runwayEndsFromCentre(runway).map((end) => ({
     icao: icao.toUpperCase(),
@@ -103,15 +109,23 @@ function requestRunways(handle: SimConnectConnection, icao: string): Promise<Par
   })
 }
 
+/**
+ * Asks the sim which airfield and runway a touchdown was on.
+ */
 export class SimAirfieldResolver {
   constructor(private readonly openSimConnect: OpenSimConnect = defaultOpen) {}
 
-  /**
-   * The airfield and runway end a touchdown at this position/heading was on, or null when the
-   * sim isn't reachable, knows no airfield with a runway underneath the touchdown (an
-   * off-airport landing), or takes too long. Never throws — the caller already holds a
-   * perfectly good vendored-data landing record and this only ever improves it.
-   */
+/**
+ * The airfield and runway end a touchdown at this position/heading was on, or null when the
+ * sim isn't reachable, knows no airfield with a runway underneath the touchdown (an
+ * off-airport landing), or takes too long. Never throws — the caller already holds a
+ * perfectly good vendored-data landing record and this only ever improves it.
+ *
+ * @param lat Touchdown latitude.
+ * @param lon Touchdown longitude.
+ * @param headingTrueDeg Heading at touchdown, degrees true.
+ * @returns The airfield and runway end, or null.
+ */
   async resolve(lat: number, lon: number, headingTrueDeg: number): Promise<SimAirfieldMatch | null> {
     let handle: SimConnectConnection | undefined
     let timer: NodeJS.Timeout | undefined

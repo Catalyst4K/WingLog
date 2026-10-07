@@ -1,3 +1,5 @@
+/** The preload: exposes the typed IPC API to the renderer as `window.winglog`. No logic here. */
+
 import { contextBridge, ipcRenderer } from 'electron'
 import {
   IpcChannels,

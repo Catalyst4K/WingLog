@@ -1,18 +1,25 @@
-// Local reference list for Dispatch's departure/destination airport search. Vendored
-// data, not a live API: resources/airports.csv — a trimmed slice of OurAirports'
-// airports.csv (public domain, see resources/airports.LICENSE.txt and
-// docs/decisions.md), kept to rows with a 4-letter icao_code or gps_code and projected
-// down to icao,name,municipality,iso_country,type,latitude_deg,longitude_deg. Unlike the
-// two other vendored CSVs in this app, the real OurAirports source has quoted fields —
-// parseCsvRows (db/csv.ts) is quote-aware for exactly this reason.
-//
-// Bundled via Vite's `?raw` import, same pattern as icao-types.ts.
+/**
+ * Local reference list for Dispatch's departure/destination airport search. Vendored
+ * data, not a live API: resources/airports.csv — a trimmed slice of OurAirports'
+ * airports.csv (public domain, see resources/airports.LICENSE.txt and
+ * docs/decisions.md), kept to rows with a 4-letter icao_code or gps_code and projected
+ * down to icao,name,municipality,iso_country,type,latitude_deg,longitude_deg. Unlike the
+ * two other vendored CSVs in this app, the real OurAirports source has quoted fields —
+ * parseCsvRows (db/csv.ts) is quote-aware for exactly this reason.
+ *
+ * Bundled via Vite's `?raw` import, same pattern as icao-types.ts.
+ */
+
 import type { AirportOption } from '@shared/ipc'
 import { columnIndex, parseCsvRows } from '../db/csv'
 import airportsRaw from '../../../resources/airports.csv?raw'
 import { greatCircleNm } from '@shared/geo'
 import { lazy } from '@shared/lazy'
 
+/**
+ * @param raw The OurAirports CSV.
+ * @returns Every airport with an ICAO code, for search.
+ */
 export function loadAirports(raw: string): AirportOption[] {
   const [header, ...rows] = parseCsvRows(raw)
   const icaoIdx = columnIndex(header, 'icao')
@@ -32,7 +39,13 @@ export function loadAirports(raw: string): AirportOption[] {
 
 const MAX_RESULTS = 20
 
-/** Case-insensitive substring match over ICAO code, name, and municipality. */
+/**
+ * Case-insensitive substring match over ICAO code, name, and municipality.
+ *
+ * @param airports The airport list.
+ * @param query What the user typed.
+ * @returns Up to 20 matches; none for a query under two characters.
+ */
 export function searchAirportList(airports: AirportOption[], query: string): AirportOption[] {
   const q = query.trim().toLowerCase()
   if (q.length < 2) return []
@@ -56,10 +69,20 @@ export function searchAirportList(airports: AirportOption[], query: string): Air
 // Dispatch's airport search has no reason to pay for.
 const allAirports = lazy(() => loadAirports(airportsRaw))
 
+/**
+ * Searches the vendored airports for Dispatch.
+ *
+ * @param query What the user typed.
+ * @returns Up to 20 matches from the vendored list.
+ */
 export function searchAirports(query: string): AirportOption[] {
   return searchAirportList(allAirports(), query)
 }
 
+/**
+ * @param raw The OurAirports CSV.
+ * @returns Each ICAO code's position.
+ */
 export function loadAirportCoords(raw: string): Map<string, { lat: number; lon: number }> {
   const [header, ...rows] = parseCsvRows(raw)
   const icaoIdx = columnIndex(header, 'icao')
@@ -85,6 +108,10 @@ export function loadAirportCoords(raw: string): Map<string, { lat: number; lon: 
 // only search) shouldn't pay to parse the columns the other one uses.
 const airportCoords = lazy(() => loadAirportCoords(airportsRaw))
 
+/**
+ * @param icao The airport.
+ * @returns Its position, or null if it isn't in the vendored list.
+ */
 export function getAirportCoords(icao: string): { lat: number; lon: number } | null {
   return airportCoords().get(icao) ?? null
 }
@@ -94,6 +121,10 @@ export function getAirportCoords(icao: string): { lat: number; lon: number } | n
  * used for Logbook's total-distance stat, not a routed distance. Null if either ICAO
  * isn't in the vendored list (an unlisted airstrip, or a typo'd/placeholder code from a
  * CSV import) — the caller treats that flight as contributing 0 rather than guessing.
+ *
+ * @param depIcao The departure airport.
+ * @param arrIcao The arrival airport.
+ * @returns The distance in nautical miles, or null.
  */
 export function greatCircleDistanceNm(depIcao: string, arrIcao: string): number | null {
   const dep = getAirportCoords(depIcao)
@@ -114,6 +145,11 @@ export function greatCircleDistanceNm(depIcao: string, arrIcao: string): number 
  * Mercator between whatever points it's given, so a 2-point line wouldn't curve the way a
  * real great circle does on a long-haul route, and a plain lat/lon lerp also breaks across
  * the antimeridian. Working in Cartesian space sidesteps both.
+ *
+ * @param depIcao The departure airport.
+ * @param arrIcao The arrival airport.
+ * @param points How many points to return, both ends included.
+ * @returns The points along the great circle, or null if either airport is unknown.
  */
 export function greatCircleWaypoints(
   depIcao: string,
@@ -170,6 +206,10 @@ interface AirportLocation {
 // own schema uses it and a future re-vendor could reintroduce one.
 const NON_PRIMARY_AIRPORT_TYPES = new Set(['heliport', 'closed'])
 
+/**
+ * @param raw The OurAirports CSV.
+ * @returns Each ICAO code's position and airport type.
+ */
 export function loadAirportLocations(raw: string): Map<string, AirportLocation> {
   const [header, ...rows] = parseCsvRows(raw)
   const icaoIdx = columnIndex(header, 'icao')
@@ -202,6 +242,11 @@ const airportLocations = lazy(() => loadAirportLocations(airportsRaw))
  * closer than the nearest real airfield there) — but falls back to one if that's genuinely
  * all that's in range, rather than reporting nothing. Null when nothing at all is within
  * maxDistanceNm.
+ *
+ * @param lat Latitude in degrees.
+ * @param lon Longitude in degrees.
+ * @param maxDistanceNm How far to look.
+ * @returns The nearest airport's ICAO code, or null.
  */
 export function nearestAirport(lat: number, lon: number, maxDistanceNm: number): string | null {
 
