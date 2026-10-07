@@ -2,11 +2,11 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { IpcMain } from 'electron'
 import { IpcChannels } from '@shared/ipc'
 import type { UpdateService } from '../updates/update-check'
 import { MANUAL_FILENAME } from '../manual-path'
 import { registerAppHandlers } from './app-handlers'
+import { fakeIpc } from './fake-ipc'
 
 const appPath = mkdtempSync(join(tmpdir(), 'winglog-app-handlers-'))
 const openExternal = vi.fn()
@@ -15,23 +15,6 @@ vi.mock('electron', () => ({
   app: { getVersion: () => '1.4.1', isPackaged: false, getAppPath: () => appPath },
   shell: { openExternal: (url: string) => openExternal(url), openPath: (path: string) => openPath(path) }
 }))
-
-/** An ipcMain that records handlers, and calls them as the renderer would. */
-function fakeIpc(): { ipcMain: IpcMain; invoke: (channel: string, ...args: unknown[]) => unknown } {
-  const handlers = new Map<string, (event: unknown, ...args: unknown[]) => unknown>()
-  const ipcMain = {
-    handle: (channel: string, handler: (event: unknown, ...args: unknown[]) => unknown) =>
-      handlers.set(channel, handler)
-  }
-  return {
-    ipcMain: ipcMain as unknown as IpcMain,
-    invoke: (channel, ...args) => {
-      const handler = handlers.get(channel)
-      if (!handler) throw new Error(`No handler for ${channel}`)
-      return handler({}, ...args)
-    }
-  }
-}
 
 describe('app IPC handlers', () => {
   const updateService = {

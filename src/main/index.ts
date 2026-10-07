@@ -1,24 +1,31 @@
-import { isRetired } from '@shared/aircraft'
+/**
+ * WingLog's main process: the composition root (coding-standards.md §5). It opens the database,
+ * creates the window, LiveHub, the sim connection and the long-lived services, and hands each
+ * area's IPC to its `register<Area>Handlers` module in src/main/ipc/. Behaviour lives in those
+ * modules and the services, not here.
+ */
 import { join } from 'node:path'
-import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
-import { initLogger } from './logging/logger'
+import { app, BrowserWindow, dialog, ipcMain, Menu } from 'electron'
+import { IpcChannels } from '@shared/ipc'
+import { initLogger, logger } from './logging/logger'
 import { setMainLanguage, t } from './i18n'
 import { backupDatabaseOnLaunch } from './db/backup'
-import { IpcChannels, type BeyondAtcSettings, type GsxRemoteSettings, type NewFlight, type ProcedureSelection, type StartFreeFlightInput } from '@shared/ipc'
-import { createDb } from './db/client'
+import { createDb, type WingLogDb } from './db/client'
 import { migrateDb } from './db/migrate'
 import { migrateLegacyUserData } from './db/legacy-userdata'
-import { getAircraftById } from './db/aircraft-repo'
-import { addInvoicesForFlight, listInvoicesForFlight } from './db/flight-invoice-repo'
-import { abandonAllPlanned, abandonFlight, createFlight, deleteFlight, getFlight, setParkedStand, getInProgressFlight, linkAircraftToFlight } from './db/flight-repo'
-import { getAircraftIdForTitle, getAppLanguage, getBeyondAtcSettings, getGsxRemoteSettings, getGsxSettings, getSkippedUpdateVersion, getTrackingSettings, getUpdateSettings, setBeyondAtcSettings, setGsxRemoteSettings, setSkippedUpdateVersion } from './db/settings-repo'
-import { getFreeFlightPrefill } from './tracking/free-flight'
-import { defaultGsxReceiptsPath } from './gsx/default-path'
-import { buildFlightMatchWindow } from './db/gsx-flight-window'
-import { readReceipt, receiptFileFromPath, scanGsxFolder } from './gsx/scan'
+import { getFlight, setParkedStand } from './db/flight-repo'
+import {
+  getAppLanguage,
+  getSkippedUpdateVersion,
+  getTrackingSettings,
+  getUpdateSettings,
+  setSkippedUpdateVersion
+} from './db/settings-repo'
+import { dbFlightStore } from './db/flight-store'
 import { SimConnectService } from './sim/SimConnectService'
 import { ReplaySimConnectService, type ReplayMode } from './sim/ReplaySimConnectService'
-import { replayCapture } from './sim/replay-capture'
+import { replayCapture, type ReplayedCapture } from './sim/replay-capture'
+import { pointRegeditAtUnpackedScripts } from './sim/regedit-scripts'
 import { registerFleetHandlers } from './ipc/fleet-handlers'
 import { registerLogbookHandlers } from './ipc/logbook-handlers'
 import { registerLookupHandlers } from './ipc/lookup-handlers'
@@ -26,36 +33,303 @@ import { registerAppHandlers } from './ipc/app-handlers'
 import { registerSettingsHandlers } from './ipc/settings-handlers'
 import { registerDispatchHandlers } from './ipc/dispatch-handlers'
 import { registerNavdataHandlers } from './ipc/navdata-handlers'
-import { EMPTY_COMMAND_BAR, EMPTY_MENU, GsxRemoteService } from './gsx-remote/GsxRemoteService'
-import { BeyondAtcService, e2eBeyondAtcPort } from './beyondatc/BeyondAtcService'
-import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
+import { registerFlightHandlers, registerTrackingHandlers } from './ipc/tracking-handlers'
+import { registerGsxHandlers } from './ipc/gsx-handlers'
+import { registerGsxRemoteHandlers } from './ipc/gsx-remote-handlers'
+import { registerBeyondAtcHandlers } from './ipc/beyondatc-handlers'
+import { registerDiagnosticsHandlers, registerSimHandlers } from './ipc/sim-handlers'
+import { createBackgroundSync, registerSyncHandlers } from './ipc/sync-handlers'
+import { e2eBeyondAtcPort } from './beyondatc/BeyondAtcService'
 import { UpdateService } from './updates/update-check'
 import { LiveHub } from './live/LiveHub'
-import { StepClimbController } from './beyondatc/step-climb'
-import { ArrivalClearanceTracker } from './beyondatc/arrival-clearance'
-import type { NavdataProvider } from './navdata/navdata-provider'
 import { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
 import { SimAirfieldResolver } from './airports/sim-airfield'
 import { TrackingController } from './tracking/TrackingController'
-import { createDiag, isDiagCategory, MAX_LINE_CHARS, openDiagLog } from './diagnostics/diag'
-import { DevDiagnostics } from './diagnostics/dev-diagnostics'
-import { FlightCapture, isFlightId } from './diagnostics/flight-capture'
 import { AutoStartDetector } from './tracking/AutoStartDetector'
-import { CloudSyncController } from './sync/cloud-sync-controller'
-import { pointRegeditAtUnpackedScripts } from './sim/regedit-scripts'
 import { recordParkedStand } from './tracking/parked-stand'
-import { dbFlightStore } from './db/flight-store'
+import { createDiag, openDiagLog } from './diagnostics/diag'
+import { DevDiagnostics } from './diagnostics/dev-diagnostics'
+import { FlightCapture } from './diagnostics/flight-capture'
+import { CloudSyncController } from './sync/cloud-sync-controller'
 
 /**
- * A blank/unresolved depIcao or arrIcao from the free-flight dialog becomes 'ZZZZ' — ICAO's
- * own "no location indicator assigned" code, not an invented sentinel — rather than leaving
- * either NOT NULL column null (free-flight-tracking.md's "When there's genuinely no
- * airport"). Whatever is given is trimmed/uppercased the same way AirportSearch's own
- * choices already are.
+ * Opens the database, first carrying a pre-rename install's data across, backing up what's
+ * there, and migrating it to this version's schema.
+ *
+ * @param userDataPath Electron's userData directory.
+ * @returns The database, and its file's path.
  */
-function normalizeFreeFlightIcao(icao: string | null): string {
-  const trimmed = icao?.trim().toUpperCase()
-  return trimmed || 'ZZZZ'
+function openDatabase(userDataPath: string): { db: WingLogDb; dbPath: string } {
+  const dbPath = join(userDataPath, 'winglog.db')
+
+  // Before anything opens the database: the Flightdeck -> WingLog rename moved userData,
+  // so an existing install's logbook is sitting in the old directory. Runs before
+  // migrateDb so the copied database then gets brought up to the current schema.
+  const legacy = migrateLegacyUserData(userDataPath, dbPath)
+  if (legacy.migrated) {
+    logger.log(
+      `Carried pre-rename data across from ${legacy.from}` +
+        (legacy.sidecars.length > 0 ? ` (plus ${legacy.sidecars.join(', ')})` : '')
+    )
+  }
+
+  // Safety net against a bad migration or a corrupted database (PLAN.md §M7) — snapshot
+  // whatever's there now, before migrateDb below applies this version's migrations to it.
+  // A no-op on a fresh install (backupDatabaseOnLaunch checks dbPath exists first).
+  try {
+    backupDatabaseOnLaunch(dbPath, join(userDataPath, 'backups'))
+  } catch (error) {
+    // Never block startup over a failed backup — logged for visibility, not fatal.
+    logger.error('DB backup-on-launch failed:', error)
+  }
+
+  // app.getAppPath() is the project root in dev and the asar root when packaged — both
+  // have drizzle/ as a direct sibling of package.json, unlike a cwd-relative path, which
+  // isn't reliable once the app is launched from a shortcut rather than a terminal.
+  migrateDb(dbPath, join(app.getAppPath(), 'drizzle'))
+  return { db: createDb(dbPath).db, dbPath }
+}
+
+/**
+ * The sim connection: live, or a captured flight replayed for e2e.
+ *
+ * Phase 3's injection seam (winglog-backend's docs/plans/flight-replay-harness.md, closing
+ * test-coverage.md Phase 4's open question): WINGLOG_E2E_FIXTURE, when set, swaps in a
+ * ReplaySimConnectService driven by a captured NDJSON fixture instead of a live sim connection
+ * — for an e2e/Playwright context that wants Track to actually receive telemetry without a
+ * running MSFS. Unset (every normal launch) behaves exactly as before. Both classes satisfy
+ * SimConnectSource, the interface TrackingController actually depends on, so no cast is needed
+ * either way.
+ *
+ * @returns The connection (not started), and the replayed capture's BeyondATC and GSX streams
+ *   when WINGLOG_E2E_REPLAY_STREAMS=1 asks for them (scenario-testing.md Part 1).
+ */
+function connectSim(): { sim: SimConnectService | ReplaySimConnectService; replayStreams?: ReplayedCapture } {
+  const replayFixture = process.env.WINGLOG_E2E_FIXTURE
+  const replay = replayFixture
+    ? replayCapture(replayFixture, {
+        mode: (process.env.WINGLOG_E2E_REPLAY_MODE as ReplayMode | undefined) ?? 'paced',
+        speedMultiplier: process.env.WINGLOG_E2E_REPLAY_SPEED
+          ? Number(process.env.WINGLOG_E2E_REPLAY_SPEED)
+          : undefined,
+        holdUntilReleased: process.env.WINGLOG_E2E_REPLAY_HOLD === '1'
+      })
+    : undefined
+  return {
+    sim: replay?.sim ?? new SimConnectService(),
+    replayStreams: replay && process.env.WINGLOG_E2E_REPLAY_STREAMS === '1' ? replay : undefined
+  }
+}
+
+/**
+ * The tracking controller, recording through the database.
+ *
+ * @param db The database.
+ * @param sim The sim connection.
+ * @returns The controller, before anything listens to it.
+ */
+function createTracking(db: WingLogDb, sim: SimConnectService | ReplaySimConnectService): TrackingController {
+  // Replay mode has no live sim to ask for a touchdown's airfield.
+  const simAirfieldResolver = sim instanceof ReplaySimConnectService ? undefined : new SimAirfieldResolver()
+  return new TrackingController(
+    dbFlightStore(db),
+    sim,
+    simAirfieldResolver && ((lat, lon, heading) => simAirfieldResolver.resolve(lat, lon, heading))
+  )
+}
+
+/**
+ * Tracking's live output and background sync, and auto-start.
+ *
+ * @param db The database.
+ * @param sim The sim connection.
+ * @param trackingController The tracking controller.
+ * @param liveHub Where points go live.
+ * @param scheduleBackgroundSync Run when a flight completes.
+ * @returns The auto-start detector.
+ */
+function wireTracking(
+  db: WingLogDb,
+  sim: SimConnectService | ReplaySimConnectService,
+  trackingController: TrackingController,
+  liveHub: LiveHub,
+  scheduleBackgroundSync: () => void
+): AutoStartDetector {
+  trackingController.on('point', (point) => liveHub.publish('trackingPoint', point))
+  trackingController.on('pointsUpdated', (points) => liveHub.publish('trackingPointsUpdated', points))
+  // Push-on-mutation's real-time case: a flight reaching 'completed' (auto shutdown
+  // detection or a manual finish()) is the highest-value moment to sync promptly, whether
+  // or not the user touches any other IPC channel afterward.
+  trackingController.on('completed', () => scheduleBackgroundSync())
+
+  // Auto-starts tracking once the sim has genuinely settled into a freshly-planned flight
+  // (docs/decisions.md, scripts/spike-flight-reload.ts) — "Start tracking" stays as the
+  // manual fallback for whenever this doesn't fire (e.g. the pilot doesn't reload MSFS).
+  const autoStartDetector = new AutoStartDetector(sim)
+  autoStartDetector.on('ready', (flightId) => {
+    // Settings → Tracking → "Start tracking automatically" off: the pilot starts it.
+    if (!getTrackingSettings(db).autoStart) return
+    try {
+      trackingController.start(flightId)
+    } catch {
+      // The flight may have been cancelled, or already started via the manual button,
+      // between arming and this firing — safe to ignore either way.
+    }
+  })
+  return autoStartDetector
+}
+
+/**
+ * The update check (winglog-backend's docs/plans/update-check.md, Part A; agreed 2026-10-02):
+ * asks GitHub for the latest published release, on by default, switchable off in Settings →
+ * About. The endpoint can only be overridden in an unpackaged build, for the Playwright
+ * acceptance test's fake release server.
+ *
+ * @param db The database, for the settings and the skipped version.
+ * @param window The window its status goes to.
+ * @returns The started service.
+ */
+function startUpdates(db: WingLogDb, window: BrowserWindow): UpdateService {
+  const updateService = new UpdateService({
+    currentVersion: app.getVersion(),
+    isEnabled: () => getUpdateSettings(db).checkEnabled,
+    getSkippedVersion: () => getSkippedUpdateVersion(db),
+    setSkippedVersion: (version) => setSkippedUpdateVersion(db, version),
+    url: !app.isPackaged && process.env.WINGLOG_UPDATE_URL ? process.env.WINGLOG_UPDATE_URL : undefined
+  })
+  updateService.on('status', (status) => {
+    if (!window.isDestroyed()) window.webContents.send(IpcChannels.updatesStatus, status)
+  })
+  updateService.start()
+  return updateService
+}
+
+/** Opens the database and the window, starts the services, and registers every IPC area. */
+function startApp(): void {
+  const { db, dbPath } = openDatabase(app.getPath('userData'))
+
+  // Main-process strings (native dialog titles, thrown validation messages that reach
+  // the renderer verbatim as a toast) follow the same persisted setting the renderer
+  // does — no IPC round-trip needed, since main already owns this DB row directly
+  // (settings-repo.ts's getAppLanguage) and app.getLocale() is a synchronous Electron
+  // API. Re-called from the settingsSetAppLanguage handler on every change, so a
+  // freshly thrown error picks up a new language with no restart needed.
+  setMainLanguage(getAppLanguage(db), app.getLocale())
+
+  // No native menu bar — in-app navigation (the top tab bar in App.tsx) is the only
+  // way to move around; a bare File/Edit/Window bar above it was clutter, not useful.
+  Menu.setApplicationMenu(null)
+  const window = createWindow()
+  // Live state (sim, tracking, GSX Remote, BeyondATC) goes through one hub, and the window
+  // is its first subscriber (winglog-backend's docs/plans/live-data-seam.md, part A).
+  const liveHub = new LiveHub()
+  liveHub.subscribe((topic, payload) => {
+    if (!window.isDestroyed()) window.webContents.send(IpcChannels[topic], payload)
+  })
+
+  // Cloud sync (winglog-backend/docs/plans/cloud-sync.md) — off by default, and the only
+  // feature that talks to winglog-backend for anything beyond the stateless SimBrief signing
+  // route. Constructed before any mutating handler, so each can trigger a background sync
+  // after a successful write. Pull-on-launch: one sync at startup when a session already
+  // exists, so this device picks up whatever changed elsewhere since it last opened.
+  // Fire-and-forget: syncNow() catches its own errors into getStatus().lastError and never
+  // throws, and this must never block the window opening (offline at launch is normal).
+  const cloudSync = new CloudSyncController(db, dbPath, app.getPath('userData'))
+  if (cloudSync.getStatus().loggedIn) void cloudSync.syncNow()
+  const scheduleBackgroundSync = createBackgroundSync(cloudSync)
+
+  registerFleetHandlers(ipcMain, { db, window, scheduleBackgroundSync })
+  registerLogbookHandlers(ipcMain, { db, window, scheduleBackgroundSync })
+  registerLookupHandlers(ipcMain)
+  registerDispatchHandlers(ipcMain, { db })
+
+  const { sim, replayStreams } = connectSim()
+  registerSimHandlers(ipcMain, { sim, liveHub })
+  sim.start()
+  app.on('before-quit', () => sim.stop())
+
+  const trackingController = createTracking(db, sim)
+  // Dev build only: diag.log and the full flight capture (src/main/diagnostics/).
+  const diag = createDiag(__WINGLOG_DEV_BUILD__ ? openDiagLog() : null)
+  const flightCapture = __WINGLOG_DEV_BUILD__
+    ? new FlightCapture(join(app.getPath('userData'), 'captures'))
+    : undefined
+  const devDiagnostics = flightCapture ? new DevDiagnostics(diag, flightCapture) : undefined
+  devDiagnostics?.attachTracking(trackingController, sim)
+  registerDiagnosticsHandlers(ipcMain, { diag, flightCapture })
+  const autoStartDetector = wireTracking(db, sim, trackingController, liveHub, scheduleBackgroundSync)
+
+  const trackingDeps = {
+    db,
+    trackingController,
+    autoStartDetector,
+    getLastTelemetry: () => sim.getLastTelemetry(),
+    // An e2e replay held until tracking starts (WINGLOG_E2E_REPLAY_HOLD) plays from here.
+    releaseReplay: () => {
+      if (sim instanceof ReplaySimConnectService) sim.release()
+    },
+    scheduleBackgroundSync
+  }
+  registerTrackingHandlers(ipcMain, trackingDeps)
+  registerFlightHandlers(ipcMain, trackingDeps)
+  trackingController.setAutoFinish(getTrackingSettings(db).autoFinish)
+
+  registerGsxHandlers(ipcMain, { db, window, scheduleBackgroundSync })
+  const gsxRemote = registerGsxRemoteHandlers(ipcMain, {
+    db,
+    liveHub,
+    devDiagnostics,
+    socketCtor: replayStreams?.gsx.socketCtor
+  })
+  app.on('before-quit', () => gsxRemote.stop())
+
+  // Navdata: its own short-lived SimConnect connection per refresh, deliberately separate
+  // from the live tracking connection (docs/navdata-notes.md's isolation finding).
+  const navdataProvider = new SimFacilitiesProvider(db)
+  const beyondAtc = registerBeyondAtcHandlers(ipcMain, {
+    db,
+    liveHub,
+    trackingController,
+    sim,
+    listApproaches: (icao) => navdataProvider.listApproaches(icao),
+    devDiagnostics,
+    socketCtor: replayStreams?.beyondAtc.socketCtor,
+    port: e2eBeyondAtcPort(process.env.WINGLOG_E2E_BEYONDATC_PORT)
+  })
+  app.on('before-quit', () => beyondAtc.stop())
+
+  registerSyncHandlers(ipcMain, { cloudSync, enabled: __WINGLOG_CLOUD_SYNC_ENABLED__ })
+
+  const updateService = startUpdates(db, window)
+  app.on('before-quit', () => updateService.stop())
+  registerSettingsHandlers(ipcMain, { db, trackingController })
+  registerAppHandlers(ipcMain, { updateService })
+
+  registerNavdataHandlers(ipcMain, { navdataProvider })
+  // Where each flight finished (stand-positions.md) — after completion, best effort.
+  trackingController.on('completed', (flightId: number) => {
+    const telemetry = sim.getLastTelemetry()
+    void recordParkedStand(
+      {
+        getArrivalIcao: (id) => getFlight(db, id)?.arrIcao ?? null,
+        getStands: (icao) => navdataProvider.getStands(icao),
+        setParkedStand: (id, icao, stand) => setParkedStand(db, id, icao, stand)
+      },
+      flightId,
+      telemetry ? { lat: telemetry.latitude, lon: telemetry.longitude } : null
+    ).catch((err: unknown) => logger.warn('parked stand not recorded:', err))
+  })
+
+  // CI packaging check (see .github/workflows/package.yml): proves the built
+  // binary launches, migrates the DB and renders a first frame, then exits
+  // clean — without needing a person at the keyboard on every platform.
+  if (process.env['WINGLOG_SMOKE_TEST']) {
+    window.on('ready-to-show', () => setTimeout(() => app.exit(0), 1000))
+  }
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+  })
 }
 
 function createWindow(): BrowserWindow {
@@ -72,9 +346,9 @@ function createWindow(): BrowserWindow {
   window.on('ready-to-show', () => window.show())
 
   if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
-    window.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    void window.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    window.loadFile(join(__dirname, '../renderer/index.html'))
+    void window.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
   return window
@@ -87,9 +361,9 @@ initLogger()
 // the registry lookup keeps failing the way it always has, and node-simconnect falls back.
 try {
   const result = pointRegeditAtUnpackedScripts(app.isPackaged, process.resourcesPath)
-  if (result !== null) console.info(`regedit scripts: ${result}`)
+  if (result !== null) logger.info(`regedit scripts: ${result}`)
 } catch (err) {
-  console.warn('regedit scripts not redirected:', err)
+  logger.warn('regedit scripts not redirected:', err)
 }
 
 // e2e-only (e2e/launch-app.ts always sets this): headless Linux CI's xvfb display has no
@@ -128,548 +402,7 @@ if (!gotSingleInstanceLock) {
 
   app
     .whenReady()
-    .then(() => {
-      const userDataPath = app.getPath('userData')
-      const dbPath = join(userDataPath, 'winglog.db')
-
-      // Before anything opens the database: the Flightdeck -> WingLog rename moved userData,
-      // so an existing install's logbook is sitting in the old directory. Runs before
-      // migrateDb so the copied database then gets brought up to the current schema.
-      const legacy = migrateLegacyUserData(userDataPath, dbPath)
-      if (legacy.migrated) {
-        console.log(
-          `Carried pre-rename data across from ${legacy.from}` +
-            (legacy.sidecars.length > 0 ? ` (plus ${legacy.sidecars.join(', ')})` : '')
-        )
-      }
-
-      // Safety net against a bad migration or a corrupted database (PLAN.md §M7) — snapshot
-      // whatever's there now, before migrateDb below applies this version's migrations to it.
-      // A no-op on a fresh install (backupDatabaseOnLaunch checks dbPath exists first).
-      try {
-        backupDatabaseOnLaunch(dbPath, join(userDataPath, 'backups'))
-      } catch (error) {
-        // Never block startup over a failed backup — logged for visibility, not fatal.
-        console.error('DB backup-on-launch failed:', error)
-      }
-
-      // app.getAppPath() is the project root in dev and the asar root when packaged — both
-      // have drizzle/ as a direct sibling of package.json, unlike a cwd-relative path, which
-      // isn't reliable once the app is launched from a shortcut rather than a terminal.
-      migrateDb(dbPath, join(app.getAppPath(), 'drizzle'))
-      const { db } = createDb(dbPath)
-
-      // Main-process strings (native dialog titles, thrown validation messages that reach
-      // the renderer verbatim as a toast) follow the same persisted setting the renderer
-      // does — no IPC round-trip needed, since main already owns this DB row directly
-      // (settings-repo.ts's getAppLanguage) and app.getLocale() is a synchronous Electron
-      // API. Re-called from the settingsSetAppLanguage handler below on every change, so a
-      // freshly thrown error picks up a new language with no restart needed.
-      setMainLanguage(getAppLanguage(db), app.getLocale())
-
-      // No native menu bar — in-app navigation (the top tab bar in App.tsx) is the only
-      // way to move around; a bare File/Edit/Window bar above it was clutter, not useful.
-      Menu.setApplicationMenu(null)
-      const window = createWindow()
-      // Live state (sim, tracking, GSX Remote, BeyondATC) goes through one hub, and the window
-      // is its first subscriber (winglog-backend's docs/plans/live-data-seam.md, part A).
-      const liveHub = new LiveHub()
-      liveHub.subscribe((topic, payload) => {
-        if (!window.isDestroyed()) window.webContents.send(IpcChannels[topic], payload)
-      })
-
-      // Cloud sync (winglog-backend/docs/plans/cloud-sync.md) — off by default; nothing
-      // above this point depends on it, and it's the only feature in the app that talks to
-      // winglog-backend for anything beyond the stateless SimBrief signing route.
-      // Constructed here, before any mutating handler below, so each of those can trigger a
-      // background sync after a successful write — event-driven push
-      // (winglog-backend/docs/plans/cloud-sync-v2.md #3).
-      const cloudSync = new CloudSyncController(db, dbPath, app.getPath('userData'))
-      // Pull-on-launch half of the same item: one sync at startup when a session already
-      // exists, so this device picks up whatever changed elsewhere since it last opened
-      // rather than waiting for the first local edit or a manual "Sync now". Fire-and-forget:
-      // syncNow() already catches its own errors into getStatus().lastError and never throws,
-      // and this must never block the window opening (e.g. offline at launch, the normal case
-      // for an app that runs alongside a flight sim for hours).
-      if (cloudSync.getStatus().loggedIn) void cloudSync.syncNow()
-
-      // Push-on-mutation half: debounced rather than one sync per write, so a burst (a fleet
-      // import, a fast sequence of tracking writes) doesn't fire a sync per row — syncNow()
-      // is already a full pull-then-push cycle across all four tables, reusing the same
-      // cursor-based mechanism "Sync now" and pull-on-launch use rather than a bespoke
-      // single-row push path, per the coding standards' simple-over-clever principle. Offline is the
-      // normal case, not the exception: a failed attempt just leaves lastSyncedAt where it
-      // was, so the very next successful sync (the next write, app relaunch, or manual "Sync
-      // now") naturally re-covers whatever this one missed — no separate retry/outbox needed.
-      let backgroundSyncTimer: NodeJS.Timeout | null = null
-      function scheduleBackgroundSync(): void {
-        if (!cloudSync.getStatus().loggedIn) return
-        if (backgroundSyncTimer) clearTimeout(backgroundSyncTimer)
-        backgroundSyncTimer = setTimeout(() => void cloudSync.syncNow(), 2000)
-      }
-
-      registerFleetHandlers(ipcMain, { db, window, scheduleBackgroundSync })
-      registerLogbookHandlers(ipcMain, { db, window, scheduleBackgroundSync })
-      registerLookupHandlers(ipcMain)
-
-      registerDispatchHandlers(ipcMain, { db })
-
-      // Phase 3's injection seam (winglog-backend's docs/plans/flight-replay-harness.md,
-      // closing test-coverage.md Phase 4's open question): WINGLOG_E2E_FIXTURE, when set,
-      // swaps in a ReplaySimConnectService driven by a captured NDJSON fixture instead of a
-      // live sim connection — for an e2e/Playwright context that wants Track to actually
-      // receive telemetry without a running MSFS. Unset (every normal launch) behaves exactly
-      // as before. Both classes satisfy SimConnectSource, the interface TrackingController
-      // actually depends on, so no cast is needed either way.
-      const replayFixture = process.env.WINGLOG_E2E_FIXTURE
-      const replay = replayFixture
-        ? replayCapture(replayFixture, {
-            mode: (process.env.WINGLOG_E2E_REPLAY_MODE as ReplayMode | undefined) ?? 'paced',
-            speedMultiplier: process.env.WINGLOG_E2E_REPLAY_SPEED
-              ? Number(process.env.WINGLOG_E2E_REPLAY_SPEED)
-              : undefined,
-            holdUntilReleased: process.env.WINGLOG_E2E_REPLAY_HOLD === '1'
-          })
-        : undefined
-      const simConnectService: SimConnectService | ReplaySimConnectService = replay?.sim ?? new SimConnectService()
-      // WINGLOG_E2E_REPLAY_STREAMS=1: BeyondATC and GSX get the capture's own messages, on the
-      // replay's clock, instead of connecting to a server (scenario-testing.md Part 1).
-      const replayStreams = replay && process.env.WINGLOG_E2E_REPLAY_STREAMS === '1' ? replay : undefined
-      ipcMain.handle(IpcChannels.simConnectionStatusGet, () => simConnectService.getStatus())
-      simConnectService.on('telemetry', (telemetry) => {
-        liveHub.publish('simTelemetry', telemetry)
-      })
-      simConnectService.on('status', (status) => {
-        liveHub.publish('simConnectionStatus', status)
-      })
-      simConnectService.start()
-      app.on('before-quit', () => simConnectService.stop())
-
-      // Replay mode has no live sim to ask for a touchdown's airfield.
-      const simAirfieldResolver = replayFixture ? undefined : new SimAirfieldResolver()
-      const trackingController = new TrackingController(
-        dbFlightStore(db),
-        simConnectService,
-        simAirfieldResolver && ((lat, lon, heading) => simAirfieldResolver.resolve(lat, lon, heading))
-      )
-      // Dev build only: diag.log and the full flight capture (src/main/diagnostics/).
-      const diag = createDiag(__WINGLOG_DEV_BUILD__ ? openDiagLog() : null)
-      const flightCapture = __WINGLOG_DEV_BUILD__ ? new FlightCapture(join(app.getPath('userData'), 'captures')) : undefined
-      const devDiagnostics = flightCapture ? new DevDiagnostics(diag, flightCapture) : undefined
-      devDiagnostics?.attachTracking(trackingController, simConnectService)
-      ipcMain.handle(IpcChannels.diagLog, (_event, category: unknown, message: unknown) => {
-        if (!isDiagCategory(category) || typeof message !== 'string') return
-        diag(category, message.slice(0, MAX_LINE_CHARS))
-      })
-      ipcMain.handle(IpcChannels.captureKeepState, (_event, flightId: unknown) =>
-        flightCapture && isFlightId(flightId) ? flightCapture.keepState(flightId) : 'none'
-      )
-      ipcMain.handle(IpcChannels.captureKeep, (_event, flightId: unknown) =>
-        flightCapture && isFlightId(flightId) ? flightCapture.keep(flightId) : 'none'
-      )
-      // The one flight left "in progress" (planned or already active) when the previous
-      // process quit or crashed — its DB row (OFP, route, everything Dispatch/Track need)
-      // was never at risk, only TrackingController's in-memory phase-detection state, which
-      // only exists at all once a flight reaches 'active'. Left as a choice for the user
-      // (not auto-resumed/auto-continued) rather than assumed, since only the user can
-      // judge whether it's still relevant — captured once here, at startup, and cleared the
-      // moment the renderer answers the prompt this drives (trackingGetOrphanedFlight/
-      // trackingResumeOrphaned/trackingDiscardOrphaned below). trackingController.resume()
-      // itself already no-ops for a merely-'planned' flight (nothing was ever tracking it),
-      // so "resume" is safe to call unconditionally regardless of which status this is.
-      let orphanedFlight = getInProgressFlight(db)
-
-      trackingController.on('point', (point) => {
-        liveHub.publish('trackingPoint', point)
-      })
-      trackingController.on('pointsUpdated', (points) => {
-        liveHub.publish('trackingPointsUpdated', points)
-      })
-      // Push-on-mutation's real-time case: a flight reaching 'completed' (auto shutdown
-      // detection or a manual finish()) is the highest-value moment to sync promptly, whether
-      // or not the user touches any other IPC channel afterward.
-      trackingController.on('completed', () => scheduleBackgroundSync())
-
-      // Auto-starts tracking once the sim has genuinely settled into a freshly-planned flight
-      // (docs/decisions.md, scripts/spike-flight-reload.ts) — "Start tracking" stays as the
-      // manual fallback for whenever this doesn't fire (e.g. the pilot doesn't reload MSFS).
-      const autoStartDetector = new AutoStartDetector(simConnectService)
-      autoStartDetector.on('ready', (flightId) => {
-        // Settings → Tracking → "Start tracking automatically" off: the pilot starts it.
-        if (!getTrackingSettings(db).autoStart) return
-        try {
-          trackingController.start(flightId)
-        } catch {
-          // The flight may have been cancelled, or already started via the manual button,
-          // between arming and this firing — safe to ignore either way.
-        }
-      })
-
-      // An e2e replay held until tracking starts (WINGLOG_E2E_REPLAY_HOLD) plays from here.
-      const releaseReplay = (): void => {
-        if (simConnectService instanceof ReplaySimConnectService) simConnectService.release()
-      }
-      ipcMain.handle(IpcChannels.trackingStart, (_event, flightId: number) => {
-        autoStartDetector.disarm()
-        trackingController.start(flightId)
-        releaseReplay()
-      })
-      ipcMain.handle(IpcChannels.trackingStartFree, (_event, input: StartFreeFlightInput) => {
-        let simRegistration: string | null = null
-        let simIcaoType: string | null = null
-        if (input.aircraftId != null) {
-          const aircraft = getAircraftById(db, input.aircraftId)
-          if (!aircraft || isRetired(aircraft)) {
-            throw new Error(t('errors.aircraftNotFoundOrRetired', { id: input.aircraftId }))
-          }
-        } else {
-          simRegistration = input.simRegistration?.trim() || ''
-          simIcaoType = input.simIcaoType?.trim().toUpperCase() || ''
-          if (!simRegistration || !simIcaoType) {
-            throw new Error(t('errors.registrationAndTypeRequired'))
-          }
-        }
-        autoStartDetector.disarm()
-        const flightId = trackingController.startFree({
-          aircraftId: input.aircraftId,
-          simRegistration,
-          simIcaoType,
-          depIcao: normalizeFreeFlightIcao(input.depIcao),
-          arrIcao: normalizeFreeFlightIcao(input.arrIcao),
-          flightNumber: input.flightNumber?.trim() || null
-        })
-        releaseReplay()
-        scheduleBackgroundSync()
-        return flightId
-      })
-      ipcMain.handle(
-        IpcChannels.trackingGetFreeFlightPrefill,
-        (
-          _event,
-          input: { atcId: string; atcModel: string; title: string; latitude: number; longitude: number }
-        ) => getFreeFlightPrefill((title) => getAircraftIdForTitle(db, title), input)
-      )
-      ipcMain.handle(IpcChannels.trackingStop, () => trackingController.stop())
-      ipcMain.handle(IpcChannels.trackingFinish, () => trackingController.finish())
-      ipcMain.handle(IpcChannels.trackingGetActive, () => trackingController.getActive() ?? null)
-      ipcMain.handle(IpcChannels.trackingSetDestination, (_event, icao: unknown) => {
-        if (icao !== null && typeof icao !== 'string') throw new Error(t('errors.invalidDestination'))
-        trackingController.setDestination(icao)
-      })
-      ipcMain.handle(IpcChannels.trackingSetDeparture, (_event, icao: unknown) => {
-        if (icao !== null && typeof icao !== 'string') throw new Error(t('errors.invalidDeparture'))
-        trackingController.setDeparture(icao)
-      })
-      ipcMain.handle(IpcChannels.trackingSetProcedureSelection, (_event, selection: ProcedureSelection) =>
-        trackingController.setProcedureSelection(selection)
-      )
-      ipcMain.handle(IpcChannels.trackingGetOrphanedFlight, () => orphanedFlight ?? null)
-      ipcMain.handle(IpcChannels.trackingResumeOrphaned, (_event, flightId: number) => {
-        if (orphanedFlight?.id !== flightId) return
-        trackingController.resume(flightId)
-        orphanedFlight = undefined
-      })
-      ipcMain.handle(IpcChannels.trackingDiscardOrphaned, (_event, flightId: number) => {
-        if (orphanedFlight?.id !== flightId) return
-        abandonFlight(db, flightId)
-        orphanedFlight = undefined
-        scheduleBackgroundSync()
-      })
-
-      // Only one flight is ever meant to be "in progress" (planned or active) at once —
-      // pressing "Fly" on a new plan replaces whatever was already planned or being tracked,
-      // rather than letting flights pile up alongside each other.
-      ipcMain.handle(IpcChannels.flightCreate, (_event, input: NewFlight) => {
-        trackingController.stop()
-        abandonAllPlanned(db)
-        const flight = createFlight(db, input)
-        autoStartDetector.arm(flight.id, simConnectService.getLastTelemetry(), flight.depIcao)
-        scheduleBackgroundSync()
-        return flight
-      })
-      ipcMain.handle(IpcChannels.flightCancel, (_event, id: number) => {
-        abandonFlight(db, id)
-        autoStartDetector.disarm()
-        scheduleBackgroundSync()
-      })
-      ipcMain.handle(IpcChannels.flightDelete, (_event, id: number) => {
-        // Refuse to delete the flight currently being tracked out from under
-        // TrackingController — stop() (same path flightCancel uses) first if it's the one.
-        if (trackingController.getActive()?.flightId === id) trackingController.stop()
-        deleteFlight(db, id)
-        scheduleBackgroundSync()
-      })
-      ipcMain.handle(IpcChannels.flightLinkAircraft, (_event, flightId: number, aircraftId: number) => {
-        const existingFlight = getFlight(db, flightId)
-        if (!existingFlight) throw new Error(`Flight ${flightId} not found`)
-        if (existingFlight.aircraftId != null) {
-          throw new Error(t('errors.flightAlreadyHasLinkedAircraft', { flightId }))
-        }
-        const aircraftRow = getAircraftById(db, aircraftId)
-        if (!aircraftRow || isRetired(aircraftRow)) {
-          throw new Error(t('errors.aircraftNotFoundOrRetired', { id: aircraftId }))
-        }
-        const updated = linkAircraftToFlight(db, flightId, aircraftId)
-        scheduleBackgroundSync()
-        return updated
-      })
-
-      // GSX ground-service invoices (docs/decisions.md, gsx-invoices entry) — opt-in, off by
-      // default, and a no-op everywhere below when disabled or unconfigured. Windows-only in
-      // practice (GSX itself is Windows-only), but nothing here assumes that beyond
-      // defaultGsxReceiptsPath returning null elsewhere.
-      trackingController.setAutoFinish(getTrackingSettings(db).autoFinish)
-
-      ipcMain.handle(IpcChannels.gsxBrowseFolder, async () => {
-        const { canceled, filePaths } = await dialog.showOpenDialog(window, {
-          title: t('dialogs.gsxReceiptsFolder'),
-          defaultPath: defaultGsxReceiptsPath() ?? undefined,
-          properties: ['openDirectory']
-        })
-        return canceled || filePaths.length === 0 ? null : filePaths[0]
-      })
-
-      ipcMain.handle(IpcChannels.gsxRescanFlight, async (_event, flightId: number) => {
-        const settings = getGsxSettings(db)
-        if (!settings.enabled || !settings.folderPath)
-          return { invoices: listInvoicesForFlight(db, flightId), notailCandidates: [] }
-        const matchWindow = buildFlightMatchWindow(db, flightId)
-        if (!matchWindow) return { invoices: listInvoicesForFlight(db, flightId), notailCandidates: [] }
-
-        const result = await scanGsxFolder(settings.folderPath, matchWindow)
-        const invoices = addInvoicesForFlight(db, flightId, result.matched)
-        if (result.matched.length > 0) scheduleBackgroundSync()
-        return {
-          invoices,
-          notailCandidates: result.notailCandidates.map((f) => ({
-            serviceGroup: f.serviceGroup,
-            jsonPath: f.jsonPath,
-            issuedUtc: f.parsed.timestampUtc,
-            icao: f.parsed.icao
-          }))
-        }
-      })
-
-      ipcMain.handle(
-        IpcChannels.gsxAttachNotailReceipt,
-        async (_event, flightId: number, jsonPath: string) => {
-          const file = receiptFileFromPath(jsonPath)
-          if (!file) return listInvoicesForFlight(db, flightId)
-          const invoice = await readReceipt(file)
-          if (!invoice) return listInvoicesForFlight(db, flightId)
-          const invoices = addInvoicesForFlight(db, flightId, [invoice])
-          scheduleBackgroundSync()
-          return invoices
-        }
-      )
-
-      ipcMain.handle(IpcChannels.gsxOpenReceipt, (_event, sourceHtmlPath: string) =>
-        shell.openPath(sourceHtmlPath)
-      )
-
-      // GSX Remote Control (winglog-backend's docs/plans/gsx-remote-control.md; live
-      // protocol confirmed docs/gsx-notes.md, 2026-09-21) — unrelated to the file-based GSX
-      // invoices above. Native reimplementation (docs/decisions.md, 2026-09-21 Option C):
-      // GsxRemoteService owns the WebSocket, renderer only ever gets typed IPC. Off by
-      // default; opt-in per user-entered host/port, same reasoning as GSX invoices' folder
-      // path — GSX's Remote Client port is genuinely user-configurable, never assumed.
-      let gsxRemoteService: GsxRemoteService | undefined
-      const startGsxRemoteIfConfigured = (): void => {
-        gsxRemoteService?.stop()
-        gsxRemoteService = undefined
-        const settings = getGsxRemoteSettings(db)
-        if (!settings.enabled || !settings.port) return
-        gsxRemoteService = new GsxRemoteService(settings.host, settings.port, replayStreams?.gsx.socketCtor)
-        devDiagnostics?.attachGsx(gsxRemoteService)
-        gsxRemoteService.on('status', (status) => {
-          liveHub.publish('gsxRemoteStatus', status)
-        })
-        gsxRemoteService.on('services', (services) => {
-          liveHub.publish('gsxRemoteServices', services)
-        })
-        gsxRemoteService.on('gate', (gate) => {
-          liveHub.publish('gsxRemoteGate', gate)
-        })
-        gsxRemoteService.on('menu', (menu) => {
-          liveHub.publish('gsxRemoteMenu', menu)
-        })
-        gsxRemoteService.on('prompt', (prompt) => {
-          liveHub.publish('gsxRemotePrompt', prompt)
-        })
-        gsxRemoteService.on('commandBar', (commandBar) => {
-          liveHub.publish('gsxRemoteCommandBar', commandBar)
-        })
-        gsxRemoteService.start()
-      }
-      startGsxRemoteIfConfigured()
-      app.on('before-quit', () => gsxRemoteService?.stop())
-
-      ipcMain.handle(IpcChannels.settingsGetGsxRemote, () => getGsxRemoteSettings(db))
-      ipcMain.handle(IpcChannels.settingsSetGsxRemote, (_event, settings: GsxRemoteSettings) => {
-        setGsxRemoteSettings(db, settings)
-        startGsxRemoteIfConfigured()
-      })
-      ipcMain.handle(IpcChannels.gsxRemoteGetStatus, () => gsxRemoteService?.getStatus() ?? { state: 'disconnected', lastError: null })
-      ipcMain.handle(IpcChannels.gsxRemoteGetServices, () => gsxRemoteService?.getServices() ?? [])
-      ipcMain.handle(IpcChannels.gsxRemoteGetGateInfo, () => gsxRemoteService?.getGateInfo() ?? null)
-      ipcMain.handle(IpcChannels.gsxRemoteGetMenu, () => gsxRemoteService?.getMenu() ?? EMPTY_MENU)
-      ipcMain.handle(IpcChannels.gsxRemoteGetPrompt, () => gsxRemoteService?.getPrompt() ?? null)
-      ipcMain.handle(IpcChannels.gsxRemoteGetCommandBar, () => gsxRemoteService?.getCommandBar() ?? EMPTY_COMMAND_BAR)
-      ipcMain.handle(IpcChannels.gsxRemotePickMenu, (_event, index: unknown) => gsxRemoteService?.pickMenu(index))
-      ipcMain.handle(IpcChannels.gsxRemoteSearch, (_event, text: unknown) => gsxRemoteService?.search(text))
-      ipcMain.handle(IpcChannels.gsxRemoteToggleMenu, () => gsxRemoteService?.toggleMenu())
-      ipcMain.handle(IpcChannels.gsxRemoteSubmitPrompt, (_event, gen: unknown, text: unknown) =>
-        gsxRemoteService?.submitPrompt(gen, text)
-      )
-      ipcMain.handle(IpcChannels.gsxRemoteCancelPrompt, (_event, gen: unknown) => gsxRemoteService?.cancelPrompt(gen))
-      ipcMain.handle(IpcChannels.gsxRemoteRunCommand, (_event, id: unknown) => gsxRemoteService?.runCommand(id))
-
-      // BeyondATC integration (winglog-backend's docs/plans/beyondatc-integration.md;
-      // live protocol confirmed docs/beyondatc-notes.md, 2026-09-25). Off by default,
-      // opt-in per user-entered host — unlike GSX Remote, the port is fixed
-      // (BeyondAtcService's own BEYONDATC_PORT), so there's no port to validate here.
-      let beyondAtcService: BeyondAtcService | undefined
-      // ATC's arrival clearance for the BeyondATC tab's info card, until touchdown.
-      const arrivalClearance = new ArrivalClearanceTracker({
-        getArrivalIcao: () => {
-          const active = trackingController.getActive()
-          return (active && getFlight(db, active.flightId)?.arrIcao) || beyondAtcService?.getState().progress?.to || null
-        },
-        listApproaches: (icao) => navdataProvider.listApproaches(icao)
-      })
-      arrivalClearance.on('clearance', (clearance) => {
-        liveHub.publish('beyondAtcArrival', clearance)
-      })
-      trackingController.on('point', (point) => arrivalClearance.onPhase(point.phase))
-      ipcMain.handle(IpcChannels.beyondAtcGetArrival, () => arrivalClearance.getClearance())
-      const startBeyondAtcIfConfigured = (): void => {
-        beyondAtcService?.stop()
-        beyondAtcService = undefined
-        const settings = getBeyondAtcSettings(db)
-        if (!settings.enabled) return
-        beyondAtcService = new BeyondAtcService(
-          settings.host,
-          e2eBeyondAtcPort(process.env.WINGLOG_E2E_BEYONDATC_PORT),
-          replayStreams?.beyondAtc.socketCtor
-        )
-        devDiagnostics?.attachBeyondAtc(beyondAtcService)
-        beyondAtcService.on('status', (status) => {
-          liveHub.publish('beyondAtcStatus', status)
-        })
-        beyondAtcService.on('state', (state) => {
-          liveHub.publish('beyondAtcState', state)
-          arrivalClearance.onInfoBoxes(state.infoBoxes)
-        })
-        beyondAtcService.on('transcript', (transcript) => {
-          liveHub.publish('beyondAtcTranscript', transcript)
-        })
-        beyondAtcService.start()
-      }
-      startBeyondAtcIfConfigured()
-      app.on('before-quit', () => beyondAtcService?.stop())
-
-      ipcMain.handle(IpcChannels.settingsGetBeyondAtc, () => getBeyondAtcSettings(db))
-      ipcMain.handle(IpcChannels.settingsSetBeyondAtc, (_event, settings: BeyondAtcSettings) => {
-        setBeyondAtcSettings(db, settings)
-        startBeyondAtcIfConfigured()
-      })
-      ipcMain.handle(IpcChannels.beyondAtcGetStatus, () => beyondAtcService?.getStatus() ?? { state: 'disconnected', lastError: null })
-      ipcMain.handle(IpcChannels.beyondAtcGetState, () => beyondAtcService?.getState() ?? EMPTY_BEYONDATC_STATE)
-      ipcMain.handle(IpcChannels.beyondAtcGetTranscript, () => beyondAtcService?.getTranscript() ?? [])
-      ipcMain.handle(IpcChannels.beyondAtcSetAction, (_event, label: unknown) => beyondAtcService?.setAction(label))
-      ipcMain.handle(IpcChannels.beyondAtcSetFrequency, (_event, frequency: unknown) => beyondAtcService?.setFrequency(frequency))
-      ipcMain.handle(IpcChannels.beyondAtcSetFrequencyCom2, (_event, frequency: unknown) =>
-        beyondAtcService?.setFrequencyCom2(frequency)
-      )
-      ipcMain.handle(IpcChannels.beyondAtcSetAutoTune, (_event, value: unknown) => beyondAtcService?.setAutoTune(value))
-      ipcMain.handle(IpcChannels.beyondAtcSetAutoRespond, (_event, value: unknown) => beyondAtcService?.setAutoRespond(value))
-
-      // WingLog's own auto step climb (winglog-backend's docs/plans/beyondatc-auto-step-
-      // climb.md) — asks BeyondATC for each new cruise level. Reads the current
-      // beyondAtcService lazily, since settings changes replace it. Off every launch.
-      const stepClimb = new StepClimbController({
-        getSession: () => beyondAtcService,
-        getActive: () => trackingController.getActive(),
-        getOfpJson: (flightId) => getFlight(db, flightId)?.ofpJson ?? null
-      })
-      stepClimb.on('status', (status) => {
-        liveHub.publish('beyondAtcStepClimb', status)
-      })
-      simConnectService.on('telemetry', (telemetry) => stepClimb.onTelemetry(telemetry))
-      ipcMain.handle(IpcChannels.beyondAtcGetStepClimb, () => stepClimb.getStatus())
-      ipcMain.handle(IpcChannels.beyondAtcSetStepClimb, (_event, enabled: unknown) => {
-        if (typeof enabled === 'boolean') stepClimb.setEnabled(enabled)
-      })
-
-      // Cloud sync build-time flag (docs/plans/public-release-v1.md, Decision 1) — off in what
-      // ships publicly. cloudSync itself is still constructed above regardless (its
-      // pull-on-launch/background-sync scheduling stays harmless when logged out, which a
-      // public build always is: there's no public signup route to have gotten an account
-      // through in the first place), but these five channels — the only way to ever log in or
-      // trigger a sync — simply don't exist when the flag is off, rather than
-      // existing-but-refusing. See src/shared/build-flags.d.ts.
-      if (__WINGLOG_CLOUD_SYNC_ENABLED__) {
-        ipcMain.handle(IpcChannels.authLogin, (_event, email: string, password: string) =>
-          cloudSync.login(email, password)
-        )
-        ipcMain.handle(
-          IpcChannels.authSignup,
-          (_event, email: string, password: string, inviteCode: string) =>
-            cloudSync.signup(email, password, inviteCode)
-        )
-        ipcMain.handle(IpcChannels.authLogout, () => cloudSync.logout())
-        ipcMain.handle(IpcChannels.syncNow, () => cloudSync.syncNow())
-        ipcMain.handle(IpcChannels.syncStatus, () => cloudSync.getStatus())
-      }
-
-      // Update check (winglog-backend's docs/plans/update-check.md, Part A; agreed
-      // 2026-10-02): asks GitHub for the latest published release, on by default, switchable
-      // off in Settings → About. The endpoint can only be overridden in an unpackaged build,
-      // for the Playwright acceptance test's fake release server.
-      const updateService = new UpdateService({
-        currentVersion: app.getVersion(),
-        isEnabled: () => getUpdateSettings(db).checkEnabled,
-        getSkippedVersion: () => getSkippedUpdateVersion(db),
-        setSkippedVersion: (version) => setSkippedUpdateVersion(db, version),
-        url: !app.isPackaged && process.env.WINGLOG_UPDATE_URL ? process.env.WINGLOG_UPDATE_URL : undefined
-      })
-      updateService.on('status', (status) => {
-        if (!window.isDestroyed()) window.webContents.send(IpcChannels.updatesStatus, status)
-      })
-      updateService.start()
-      app.on('before-quit', () => updateService.stop())
-      registerSettingsHandlers(ipcMain, { db, trackingController })
-      registerAppHandlers(ipcMain, { updateService })
-
-      // Navdata: its own short-lived SimConnect connection per refresh, deliberately separate
-      // from simConnectService's live tracking connection (docs/navdata-notes.md's isolation finding).
-      const navdataProvider: NavdataProvider = new SimFacilitiesProvider(db)
-      registerNavdataHandlers(ipcMain, { navdataProvider })
-      // Where each flight finished (stand-positions.md) — after completion, best effort.
-      trackingController.on('completed', (flightId: number) => {
-        const telemetry = simConnectService.getLastTelemetry()
-        void recordParkedStand(
-          {
-            getArrivalIcao: (id) => getFlight(db, id)?.arrIcao ?? null,
-            getStands: (icao) => navdataProvider.getStands(icao),
-            setParkedStand: (id, icao, stand) => setParkedStand(db, id, icao, stand)
-          },
-          flightId,
-          telemetry ? { lat: telemetry.latitude, lon: telemetry.longitude } : null
-        ).catch((err: unknown) => console.warn('parked stand not recorded:', err))
-      })
-
-      // CI packaging check (see .github/workflows/package.yml): proves the built
-      // binary launches, migrates the DB and renders a first frame, then exits
-      // clean — without needing a person at the keyboard on every platform.
-      if (process.env['WINGLOG_SMOKE_TEST']) {
-        window.on('ready-to-show', () => setTimeout(() => app.exit(0), 1000))
-      }
-
-      app.on('activate', () => {
-        if (BrowserWindow.getAllWindows().length === 0) createWindow()
-      })
-    })
+    .then(() => startApp())
     .catch((error: unknown) => {
       // Without this, a startup failure (e.g. a missing/broken migration) leaves the process
       // running with no window and no visible error — indistinguishable from "still loading"
@@ -677,7 +410,7 @@ if (!gotSingleInstanceLock) {
       // even if nothing else in the app initialized. console.error is routed to the log file by
       // initLogger() above, so this failure is captured for a bug report too, not just shown once.
       const message = error instanceof Error ? (error.stack ?? error.message) : String(error)
-      console.error('WingLog failed to start:', message)
+      logger.error('WingLog failed to start:', message)
       dialog.showErrorBox(t('startupFailed'), message)
       app.exit(1)
     })

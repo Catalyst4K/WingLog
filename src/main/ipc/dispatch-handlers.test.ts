@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
-import type { IpcMain } from 'electron'
 import { IpcChannels, type DispatchOfp, type DispatchOpenSimBriefParams } from '@shared/ipc'
 import { createAircraft } from '../db/aircraft-repo'
 import { createDb, type WingLogDb } from '../db/client'
@@ -8,6 +7,7 @@ import { createFlight } from '../db/flight-repo'
 import { setSimbriefUsername } from '../db/settings-repo'
 import { parseOfp, type SimBriefOfp } from '../simbrief/simbrief-client'
 import { registerDispatchHandlers, simbriefAirframeUrl, simbriefPrefillUrl } from './dispatch-handlers'
+import { fakeIpc } from './fake-ipc'
 
 const openExternal = vi.fn()
 vi.mock('electron', () => ({ shell: { openExternal: (url: string) => openExternal(url) } }))
@@ -25,23 +25,6 @@ vi.mock('../simbrief/simbrief-generate', () => ({
   logoutOfSimbrief: () => undefined,
   fetchSimbriefUsername: () => 'pilot123'
 }))
-
-/** An ipcMain that records handlers, and calls them as the renderer would. */
-function fakeIpc(): { ipcMain: IpcMain; invoke: (channel: string, ...args: unknown[]) => unknown } {
-  const handlers = new Map<string, (event: unknown, ...args: unknown[]) => unknown>()
-  const ipcMain = {
-    handle: (channel: string, handler: (event: unknown, ...args: unknown[]) => unknown) =>
-      handlers.set(channel, handler)
-  }
-  return {
-    ipcMain: ipcMain as unknown as IpcMain,
-    invoke: (channel, ...args) => {
-      const handler = handlers.get(channel)
-      if (!handler) throw new Error(`No handler for ${channel}`)
-      return handler({}, ...args)
-    }
-  }
-}
 
 /** A SimBrief OFP in its real field names (see simbrief-client.test.ts), not real flight data. */
 function rawOfp(requestId: string): unknown {
