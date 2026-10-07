@@ -4,21 +4,18 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
 import { initLogger } from './logging/logger'
 import { setMainLanguage, t } from './i18n'
 import { backupDatabaseOnLaunch } from './db/backup'
-import { IpcChannels, type DispatchOfp, type DispatchOpenSimBriefParams, type BeyondAtcSettings, type GsxRemoteSettings, type NavdataProcedureKind, type NewFlight, type ProcedureSelection, type StartFreeFlightInput } from '@shared/ipc'
+import { IpcChannels, type BeyondAtcSettings, type GsxRemoteSettings, type NewFlight, type ProcedureSelection, type StartFreeFlightInput } from '@shared/ipc'
 import { createDb } from './db/client'
 import { migrateDb } from './db/migrate'
 import { migrateLegacyUserData } from './db/legacy-userdata'
-import { getAircraftById, getAircraftByRegistration } from './db/aircraft-repo'
+import { getAircraftById } from './db/aircraft-repo'
 import { addInvoicesForFlight, listInvoicesForFlight } from './db/flight-invoice-repo'
 import { abandonAllPlanned, abandonFlight, createFlight, deleteFlight, getFlight, setParkedStand, getInProgressFlight, linkAircraftToFlight } from './db/flight-repo'
-import { getAircraftIdForTitle, getAppLanguage, getBeyondAtcSettings, getGsxRemoteSettings, getGsxSettings, getSimbriefUsername, getSkippedUpdateVersion, getTrackingSettings, getUpdateSettings, setBeyondAtcSettings, setGsxRemoteSettings, setSkippedUpdateVersion } from './db/settings-repo'
+import { getAircraftIdForTitle, getAppLanguage, getBeyondAtcSettings, getGsxRemoteSettings, getGsxSettings, getSkippedUpdateVersion, getTrackingSettings, getUpdateSettings, setBeyondAtcSettings, setGsxRemoteSettings, setSkippedUpdateVersion } from './db/settings-repo'
 import { getFreeFlightPrefill } from './tracking/free-flight'
 import { defaultGsxReceiptsPath } from './gsx/default-path'
 import { buildFlightMatchWindow } from './db/gsx-flight-window'
 import { readReceipt, receiptFileFromPath, scanGsxFolder } from './gsx/scan'
-import { extractOfpPdfUrl } from './simbrief/ofp-pdf'
-import { fetchLatestOfp, parseOfp, type SimBriefOfp } from './simbrief/simbrief-client'
-import { fetchSimbriefUsername, generateOfp, isSimbriefLoggedIn, loginToSimbrief, logoutOfSimbrief } from './simbrief/simbrief-generate'
 import { SimConnectService } from './sim/SimConnectService'
 import { ReplaySimConnectService, type ReplayMode } from './sim/ReplaySimConnectService'
 import { replayCapture } from './sim/replay-capture'
@@ -27,6 +24,8 @@ import { registerLogbookHandlers } from './ipc/logbook-handlers'
 import { registerLookupHandlers } from './ipc/lookup-handlers'
 import { registerAppHandlers } from './ipc/app-handlers'
 import { registerSettingsHandlers } from './ipc/settings-handlers'
+import { registerDispatchHandlers } from './ipc/dispatch-handlers'
+import { registerNavdataHandlers } from './ipc/navdata-handlers'
 import { EMPTY_COMMAND_BAR, EMPTY_MENU, GsxRemoteService } from './gsx-remote/GsxRemoteService'
 import { BeyondAtcService, e2eBeyondAtcPort } from './beyondatc/BeyondAtcService'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
@@ -198,7 +197,7 @@ if (!gotSingleInstanceLock) {
       // import, a fast sequence of tracking writes) doesn't fire a sync per row — syncNow()
       // is already a full pull-then-push cycle across all four tables, reusing the same
       // cursor-based mechanism "Sync now" and pull-on-launch use rather than a bespoke
-      // single-row push path, per CLAUDE.md's boring-implementation preference. Offline is the
+      // single-row push path, per the coding standards' simple-over-clever principle. Offline is the
       // normal case, not the exception: a failed attempt just leaves lastSyncedAt where it
       // was, so the very next successful sync (the next write, app relaunch, or manual "Sync
       // now") naturally re-covers whatever this one missed — no separate retry/outbox needed.
@@ -213,135 +212,7 @@ if (!gotSingleInstanceLock) {
       registerLogbookHandlers(ipcMain, { db, window, scheduleBackgroundSync })
       registerLookupHandlers(ipcMain)
 
-      function mapOfpForIpc(ofp: SimBriefOfp): DispatchOfp {
-        const matched = getAircraftByRegistration(db, ofp.aircraftRegistration)
-        const { rawJson, ...rest } = ofp
-        return { ...rest, ofpJson: rawJson, matchedAircraftId: matched?.id ?? null }
-      }
-
-      ipcMain.handle(IpcChannels.dispatchFetchOfp, async (): Promise<DispatchOfp> => {
-        const username = getSimbriefUsername(db)
-        if (!username) throw new Error(t('errors.setSimbriefUsernameFirst'))
-        return mapOfpForIpc(await fetchLatestOfp(username))
-      })
-
-      ipcMain.handle(IpcChannels.dispatchGetInProgressFlight, () => {
-        const inProgress = getInProgressFlight(db)
-        if (!inProgress?.ofpJson) return null
-        try {
-          return { flight: inProgress, ofp: mapOfpForIpc(parseOfp(JSON.parse(inProgress.ofpJson))) }
-        } catch {
-          // A malformed/unexpected stored ofpJson must degrade to "nothing to restore",
-          // not break Dispatch on every future launch — external data, parsed defensively.
-          return null
-        }
-      })
-
-      ipcMain.handle(
-        IpcChannels.dispatchGenerateOfp,
-        async (_event, params: DispatchOpenSimBriefParams): Promise<DispatchOfp> => {
-          const username = getSimbriefUsername(db)
-          if (!username) throw new Error(t('errors.setSimbriefUsernameFirst'))
-
-          // Baseline for the "did a new plan actually appear" check below — best-effort, a
-          // pilot with no prior OFP at all is a valid starting state, not an error.
-          const baselineOfpId = await fetchLatestOfp(username)
-            .then((ofp) => ofp.ofpId)
-            .catch(() => null)
-
-          await generateOfp(params)
-
-          const ofp = await fetchLatestOfp(username)
-          if (ofp.ofpId === baselineOfpId) {
-            throw new Error(t('errors.noNewPlanGenerated'))
-          }
-          return mapOfpForIpc(ofp)
-        }
-      )
-
-      ipcMain.handle(IpcChannels.dispatchLoginSimbrief, () => loginToSimbrief())
-      ipcMain.handle(IpcChannels.dispatchSimbriefLoginStatus, () => isSimbriefLoggedIn())
-      ipcMain.handle(IpcChannels.dispatchLogoutSimbrief, () => logoutOfSimbrief())
-      ipcMain.handle(IpcChannels.dispatchFetchSimbriefUsername, () => fetchSimbriefUsername())
-
-      ipcMain.handle(IpcChannels.dispatchOpenSimBrief, (_event, params: DispatchOpenSimBriefParams) => {
-        const {
-          origIcao,
-          destIcao,
-          icaoType,
-          simbriefAirframeId,
-          simbriefType,
-          airlineIcao,
-          flightNumber,
-          departure,
-          extra
-        } = params
-        if (!origIcao || !destIcao || (!icaoType && !simbriefAirframeId)) {
-          return shell.openExternal('https://dispatch.simbrief.com/')
-        }
-        // `airframe=` takes priority when a saved SimBrief profile exists; otherwise `type=`
-        // lets SimBrief fall back to its own default airframe for that type ICAO — SimBrief's
-        // own behavior, nothing WingLog implements itself (docs/decisions.md). A chosen
-        // simbriefType (a specific SimBrief default, e.g. "A20N" rather than the bare
-        // icaoType "A320") takes priority over icaoType within that fallback.
-        const airframeParam = simbriefAirframeId
-          ? `airframe=${encodeURIComponent(simbriefAirframeId)}`
-          : `type=${encodeURIComponent(simbriefType || icaoType)}`
-        let url =
-          `https://dispatch.simbrief.com/options/custom?orig=${encodeURIComponent(origIcao)}` +
-          `&dest=${encodeURIComponent(destIcao)}&${airframeParam}`
-        // Optional generation prefills (docs/decisions.md, SimBrief-generation entry) — each
-        // only appended when present, so leaving them unset reproduces the URL above exactly.
-        // Verified live 2026-09-02 (docs/simbrief-notes.md) that the keyless prefill form
-        // honours all of these, including `date` taking epoch seconds rather than a date
-        // string — `departure` arrives pre-converted from src/renderer/src/dispatch-time.ts,
-        // never computed here from free text.
-        if (airlineIcao) url += `&airline=${encodeURIComponent(airlineIcao)}`
-        if (flightNumber) url += `&fltnum=${encodeURIComponent(flightNumber)}`
-        if (departure) {
-          url += `&date=${departure.dateEpochSeconds}&deph=${departure.hour}&depm=${departure.minute}`
-        }
-        // Advanced options (pax/fuel/cruise/route) from src/shared/dispatch-options.ts — already reduced
-        // to only the fields the user actually set, so an untouched advanced dialog appends
-        // nothing here (docs/decisions.md, dispatch-advanced-tab entry).
-        for (const [key, value] of extra ?? []) {
-          url += `&${encodeURIComponent(key)}=${encodeURIComponent(value)}`
-        }
-        return shell.openExternal(url)
-      })
-
-      ipcMain.handle(IpcChannels.dispatchOpenSimBriefAirframes, (_event, airframeId: string | null) => {
-        // The internal ID is `<simbrief user id>_<airframe id>`, and the per-airframe editor
-        // takes just the suffix (docs/simbrief-notes.md, "Saved airframes" — confirmed live
-        // against a real airframe). Treated as an opaque string, never parsed as a date, even
-        // though it happens to look like a millisecond epoch — an older ID format uses a
-        // 10-digit seconds value instead, and the rule is "take the suffix verbatim" either
-        // way. Falls back to the plain list page for a malformed/absent ID, or one from
-        // before this format existed.
-        const suffix = airframeId?.split('_')[1]
-        const url = suffix
-          ? `https://dispatch.simbrief.com/airframes/saved/${encodeURIComponent(suffix)}`
-          : 'https://dispatch.simbrief.com/airframes'
-        return shell.openExternal(url)
-      })
-
-      // Sibling of logbookOpenOfpPdf (docs/plans/dispatch-action-buttons.md) — a
-      // fetched-but-not-yet-flown Dispatch plan has no flight row to look the OFP JSON up by
-      // id, but the renderer already holds it (DispatchOfp.ofpJson), so it's passed straight
-      // through instead. extractOfpPdfUrl already treats its input as untrusted third-party
-      // JSON and validates the resulting URL (https: and www.simbrief.com only) before it ever
-      // reaches shell.openExternal — unchanged, must stay that way.
-      ipcMain.handle(IpcChannels.dispatchOpenOfpPdf, async (_event, ofpJson: string) => {
-        const url = extractOfpPdfUrl(ofpJson)
-        if (!url) return false
-        await shell.openExternal(url)
-        return true
-      })
-      // Always true now — generation goes through winglog-backend rather than a per-build
-      // key, so there's no "build with no key baked in" case to fall back from anymore. Kept
-      // as a channel (rather than removing it and the renderer's "Plan on SimBrief…" fallback
-      // entirely) in case a future bring-your-own-key or backend-downtime path wants it back.
-      ipcMain.handle(IpcChannels.dispatchGenerationAvailable, () => true)
+      registerDispatchHandlers(ipcMain, { db })
 
       // Phase 3's injection seam (winglog-backend's docs/plans/flight-replay-harness.md,
       // closing test-coverage.md Phase 4's open question): WINGLOG_E2E_FIXTURE, when set,
@@ -770,53 +641,10 @@ if (!gotSingleInstanceLock) {
       registerSettingsHandlers(ipcMain, { db, trackingController })
       registerAppHandlers(ipcMain, { updateService })
 
-      // Navdata (Phase 3, winglog-backend's docs/plans/navdata-without-navigraph.md) — its
-      // own short-lived SimConnect connection per refresh, deliberately separate from
-      // simConnectService's live tracking connection (docs/navdata-notes.md's isolation
-      // finding). refreshAirport is the only channel that touches the sim; the rest are cache
-      // reads, so a Dispatch dropdown never blocks on a live SimConnect round-trip.
+      // Navdata: its own short-lived SimConnect connection per refresh, deliberately separate
+      // from simConnectService's live tracking connection (docs/navdata-notes.md's isolation finding).
       const navdataProvider: NavdataProvider = new SimFacilitiesProvider(db)
-      ipcMain.handle(IpcChannels.navdataRefreshAirport, (_event, icao: string) =>
-        navdataProvider.refreshAirport(icao)
-      )
-      ipcMain.handle(IpcChannels.navdataHasAirport, (_event, icao: string) =>
-        navdataProvider.hasAirport(icao)
-      )
-      ipcMain.handle(IpcChannels.navdataListRunways, (_event, icao: string) =>
-        navdataProvider.listRunways(icao)
-      )
-      ipcMain.handle(IpcChannels.navdataListSids, (_event, icao: string, runway?: string | null) =>
-        navdataProvider.listSids(icao, runway)
-      )
-      ipcMain.handle(IpcChannels.navdataListStars, (_event, icao: string, runway?: string | null) =>
-        navdataProvider.listStars(icao, runway)
-      )
-      ipcMain.handle(IpcChannels.navdataListApproaches, (_event, icao: string, runway?: string | null) =>
-        navdataProvider.listApproaches(icao, runway)
-      )
-      ipcMain.handle(
-        IpcChannels.navdataGetProcedureWaypoints,
-        (
-          _event,
-          icao: string,
-          kind: NavdataProcedureKind,
-          identifier: string,
-          runway?: string | null,
-          transition?: string | null
-        ) => navdataProvider.getProcedureWaypoints(icao, kind, identifier, runway, transition)
-      )
-      ipcMain.handle(IpcChannels.navdataRefreshTaxiNetwork, (_event, icao: string) =>
-        navdataProvider.refreshTaxiNetwork(icao)
-      )
-      ipcMain.handle(IpcChannels.navdataHasTaxiNetwork, (_event, icao: string) =>
-        navdataProvider.hasTaxiNetwork(icao)
-      )
-      ipcMain.handle(IpcChannels.navdataGetTaxiNetwork, (_event, icao: string) =>
-        navdataProvider.getTaxiNetwork(icao)
-      )
-      ipcMain.handle(IpcChannels.navdataGetStands, (_event, icao: unknown) =>
-        typeof icao === 'string' && /^[A-Z0-9]{3,4}$/i.test(icao) ? navdataProvider.getStands(icao.toUpperCase()) : []
-      )
+      registerNavdataHandlers(ipcMain, { navdataProvider })
       // Where each flight finished (stand-positions.md) — after completion, best effort.
       trackingController.on('completed', (flightId: number) => {
         const telemetry = simConnectService.getLastTelemetry()
