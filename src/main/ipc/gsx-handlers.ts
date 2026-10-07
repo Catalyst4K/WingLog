@@ -81,10 +81,20 @@ export function registerGsxHandlers(
     return invoices
   })
 
-  // Only a receipt WingLog stored: shell.openPath runs whatever it's given, so a path from the
-  // renderer is never trusted on its own.
+  // Only a stored receipt's .html inside the GSX folder: shell.openPath runs whatever it's given,
+  // and stored rows can arrive through cloud sync, so neither the renderer's path nor the row is
+  // trusted on its own.
   ipcMain.handle(IpcChannels.gsxOpenReceipt, async (_event, sourceHtmlPath: unknown) => {
-    if (typeof sourceHtmlPath !== 'string' || !isStoredReceiptPath(db, sourceHtmlPath)) return
+    const { folderPath } = getGsxSettings(db)
+    if (
+      typeof sourceHtmlPath !== 'string' ||
+      !folderPath ||
+      !sourceHtmlPath.toLowerCase().endsWith('.html') ||
+      !isInsideFolder(folderPath, sourceHtmlPath) ||
+      !isStoredReceiptPath(db, sourceHtmlPath)
+    ) {
+      return
+    }
     await shell.openPath(sourceHtmlPath)
   })
 }
