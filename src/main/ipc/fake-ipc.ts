@@ -25,6 +25,7 @@ export function fakeIpc(): FakeIpc {
   const handlers = new Map<string, Handler>()
   const ipcMain = { handle: (channel: string, handler: Handler) => handlers.set(channel, handler) }
   return {
+    // eslint-disable-next-line no-restricted-syntax -- a test double that only has handle()
     ipcMain: ipcMain as unknown as IpcMain,
     invoke: (channel, ...args) => {
       const handler = handlers.get(channel)

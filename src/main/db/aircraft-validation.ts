@@ -31,12 +31,13 @@ export type AircraftInputResult = { data: NewAircraft } | { error: string }
 export function parseAircraftInput(raw: unknown): AircraftInputResult {
   if (typeof raw !== 'object' || raw === null) return { error: t('errors.expectedAnObject') }
   const input = raw as Record<string, unknown>
-  const fields: Record<string, unknown> = {}
+  const required = { registration: '', icaoType: '' }
+  const fields: Partial<Record<(typeof OPTIONAL_STRING_FIELDS)[number], string | null>> = {}
 
   for (const field of REQUIRED_STRING_FIELDS) {
     const value = input[field]
     if (typeof value !== 'string' || value.trim() === '') return { error: t('errors.fieldRequired', { field }) }
-    fields[field] = value.trim()
+    required[field] = value.trim()
   }
 
   for (const field of OPTIONAL_STRING_FIELDS) {
@@ -57,7 +58,5 @@ export function parseAircraftInput(raw: unknown): AircraftInputResult {
     fields[field] = value.trim()
   }
 
-  // Every field above was validated against NewAircraft's exact shape; a single cast
-  // here (rather than one per field) keeps the validation loops readable.
-  return { data: fields as unknown as NewAircraft }
+  return { data: { ...required, ...fields } }
 }

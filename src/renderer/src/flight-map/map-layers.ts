@@ -215,7 +215,7 @@ export function waypointFeatures(waypoints: Waypoint[]): WaypointFeatureCollecti
  */
 export function applyLabelStyle(map: MapLibreMap, language: MapLanguage): void {
   try {
-    const layers = map.getStyle().layers as unknown as StyleLayerLike[]
+    const layers = map.getStyle().layers as StyleLayerLike[]
     for (const change of planStyleChanges(layers, language)) {
       if (change.textField)
         map.setLayoutProperty(change.id, 'text-field', change.textField as ExpressionSpecification)

@@ -73,3 +73,31 @@ export const SIM_VARS = [
   { key: 'simRate', name: 'SIMULATION RATE', unit: 'number', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
   { key: 'slewActive', name: 'IS SLEW ACTIVE', unit: 'bool', dataType: SimConnectDataType.INT32, read: asBool }
 ] as const satisfies readonly SimVarSpec<keyof SimTelemetry>[]
+
+/**
+ * Stores one variable's value in the telemetry being built. Generic in the key so each value is
+ * checked against its own field's type.
+ *
+ * @param telemetry The telemetry being filled in.
+ * @param spec The variable to read.
+ * @param data The SimConnect response, positioned at this variable.
+ */
+function readInto<K extends keyof SimTelemetry>(
+  telemetry: Partial<SimTelemetry>,
+  spec: SimVarSpec<K>,
+  data: RawBuffer
+): void {
+  telemetry[spec.key] = spec.read(data)
+}
+
+/**
+ * Reads one full baseline (1 Hz) response into telemetry, in SIM_VARS' order.
+ *
+ * @param data The SimConnect response.
+ * @returns The telemetry. Every field is set, because SIM_VARS has one entry per field.
+ */
+export function readTelemetry(data: RawBuffer): SimTelemetry {
+  const telemetry: Partial<SimTelemetry> = {}
+  for (const spec of SIM_VARS) readInto(telemetry, spec, data)
+  return telemetry as SimTelemetry
+}

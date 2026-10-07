@@ -15,7 +15,7 @@ import {
 } from 'node-simconnect'
 import type { SimConnectionStatus, SimTelemetry } from '@shared/ipc'
 import type { TouchdownSeverity } from './SimConnectSource'
-import { SIM_VARS } from './simvars'
+import { SIM_VARS, readTelemetry } from './simvars'
 
 const APP_NAME = 'WingLog'
 const DEFINITION_ID = 0
@@ -188,13 +188,7 @@ export class SimConnectService extends EventEmitter<SimConnectServiceEvents> {
             return
           }
           if (recv.requestID !== REQUEST_ID) return
-          const fields: Record<string, unknown> = {}
-          for (const spec of SIM_VARS) {
-            fields[spec.key] = spec.read(recv.data)
-          }
-          // SIM_VARS is a heterogeneous const array; per-field typing is enforced at its
-          // declaration site, so a single cast here (rather than one per field) is fine.
-          const telemetry = fields as unknown as SimTelemetry
+          const telemetry = readTelemetry(recv.data)
           this.lastTelemetry = telemetry
           this.emit('telemetry', telemetry)
           this.evaluateHighRateArming(telemetry)
