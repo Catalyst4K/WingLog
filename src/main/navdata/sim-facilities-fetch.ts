@@ -41,16 +41,6 @@ import {
   type ParsedLeg
 } from '../sim/facility-fields'
 
-/**
- * Issues one runway + one departure + one arrival facility request for a single airport on
- * an already-open SimConnect connection, and resolves once all three complete. Deliberately
- * takes a connection rather than opening its own — see sim-facilities-provider.ts, which
- * owns a short-lived, dedicated connection per fetch so this never shares a wire with
- * SimConnectService's live tracking stream (winglog-backend's docs/navdata-notes.md:
- * a heavy facility fetch stalled live telemetry for ~12.5s when the two shared one
- * connection during the Phase 2 spike).
- */
-
 export interface FetchedRunwayTransition {
   runwayIdent: string
   legs: ParsedLeg[]
@@ -131,161 +121,74 @@ function buildDefinitions(handle: SimConnectConnection): void {
  */
 export function fetchAirportNavdata(handle: SimConnectConnection, icao: string): Promise<FetchedAirportNavdata> {
   buildDefinitions(handle)
+  return runFacilityFetch(handle, icao, {
+    defIds: [NavdataDefId.RUNWAYS, NavdataDefId.DEPARTURES, NavdataDefId.ARRIVALS, NavdataDefId.APPROACHES],
+    timeoutMs: FETCH_TIMEOUT_MS,
+    what: 'navdata',
+    timeoutMessage: `Facility fetch for ${icao} timed out`,
+    ...airportNavdataCollector(icao)
+  })
+}
 
+/** What one facility fetch requests, and how it collects the answer. */
+interface FacilityFetch<T> {
+  /** The definitions requested, each finished by its own facilityDataEnd. */
+  defIds: readonly NavdataDefId[]
+  /** How long to wait for all of them, in milliseconds. */
+  timeoutMs: number
+  /** Names what's fetched in an exception's message, e.g. "navdata". */
+  what: string
+  /** The timeout's message. */
+  timeoutMessage: string
+  /** Takes each record as it arrives. */
+  onData: (recv: RecvFacilityData) => void
+  /** What the fetch resolves with, once every definition has ended. */
+  result: () => T
+}
+
+/** The part of a FacilityFetch that collects records. */
+type FacilityCollector<T> = Pick<FacilityFetch<T>, 'onData' | 'result'>
+
+/**
+ * Runs one facility fetch on an open connection: listens, requests each definition, and settles
+ * once all of them have ended, on a SimConnect exception, or at the timeout, whichever comes first,
+ * then stops listening. An ambiguous ICAO (duplicate across regions) gets a minimal candidate list
+ * instead of data; that definition is asked again once with the first candidate's region, the
+ * recovery the Phase 2 spike used (unverified live: EGLL, VHHH and EGKK all resolved directly, but
+ * it's the documented SDK contract).
+ *
+ * @param handle An open SimConnect connection the caller owns.
+ * @param icao The airport.
+ * @param fetch What to request and how to collect it.
+ * @returns What the collector built.
+ * @throws When the sim reports an exception or the fetch times out.
+ */
+function runFacilityFetch<T>(handle: SimConnectConnection, icao: string, fetch: FacilityFetch<T>): Promise<T> {
   return new Promise((resolve, reject) => {
-    const runways: ParsedRunway[] = []
-    const departures: FetchedProcedure[] = []
-    const arrivals: FetchedProcedure[] = []
-    const approaches: FetchedApproach[] = []
-    // A RUNWAY_TRANSITION/ENROUTE_TRANSITION/APPROACH_TRANSITION/APPROACH_LEG record only
-    // carries its parent's uniqueRequestId (RecvFacilityData.parentUniqueRequestId), not
-    // which array it belongs in — these maps track that link. An APPROACH_LEG's parent is
-    // always one of its approach's transitions (an approach registers no top-level
-    // APPROACH_LEG of its own, only FINAL_APPROACH_LEG); a DEPARTURE/ARRIVAL's own
-    // APPROACH_LEG can be either a procedure directly (a common leg) or one of its
-    // transitions — checked in that order below since transitionByUniqueRequestId is the
-    // more specific match when both could apply.
-    const procedureByUniqueRequestId = new Map<number, FetchedProcedure>()
-    const transitionByUniqueRequestId = new Map<number, { legs: ParsedLeg[] }>()
-    const approachByUniqueRequestId = new Map<number, FetchedApproach>()
-    const pending = new Set<NavdataDefId>([
-      NavdataDefId.RUNWAYS,
-      NavdataDefId.DEPARTURES,
-      NavdataDefId.ARRIVALS,
-      NavdataDefId.APPROACHES
-    ])
+    const pending = new Set<NavdataDefId>(fetch.defIds)
     let settled = false
 
-    const cleanup = (): void => {
+    const settle = (done: () => void): void => {
+      if (settled) return
+      settled = true
       clearTimeout(timeoutTimer)
       handle.removeListener('facilityData', onFacilityData)
       handle.removeListener('facilityDataEnd', onFacilityDataEnd)
       handle.removeListener('facilityMinimalList', onFacilityMinimalList)
       handle.removeListener('exception', onException)
-    }
-    const finish = (): void => {
-      if (settled) return
-      settled = true
-      cleanup()
-      resolve({ icao, runways, departures, arrivals, approaches })
-    }
-    const fail = (error: Error): void => {
-      if (settled) return
-      settled = true
-      cleanup()
-      reject(error)
+      done()
     }
 
     function onFacilityData(recv: RecvFacilityData): void {
-      const d = recv.data
-      switch (recv.type) {
-        case FacilityDataType.AIRPORT: {
-          // Every definition here registers only ICAO at the airport level — no
-          // LATITUDE/LONGITUDE/NAME anywhere — so this record's shape is uniform across
-          // all three requests, sidestepping the per-definition buffer-shape gotcha the
-          // Phase 2 spike found (docs/navdata-notes.md).
-          parseAirportHeader(d)
-          break
-        }
-        case FacilityDataType.RUNWAY: {
-          runways.push(parseRunway(d))
-          break
-        }
-        case FacilityDataType.DEPARTURE:
-        case FacilityDataType.ARRIVAL: {
-          const header = parseProcedureHeader(d)
-          const procedure: FetchedProcedure = {
-            name: header.name,
-            runwayTransitions: [],
-            enrouteTransitions: [],
-            commonLegs: [],
-            expected: {
-              runwayTransitions: header.nRunwayTransitions,
-              enrouteTransitions: header.nEnrouteTransitions,
-              approachLegs: header.nApproachLegs
-            }
-          }
-          ;(recv.userRequestId === NavdataDefId.DEPARTURES ? departures : arrivals).push(procedure)
-          procedureByUniqueRequestId.set(recv.uniqueRequestId, procedure)
-          break
-        }
-        case FacilityDataType.RUNWAY_TRANSITION: {
-          const parsed = parseRunwayTransition(d)
-          const parent = procedureByUniqueRequestId.get(recv.parentUniqueRequestId)
-          if (!parent) break
-          const transition: FetchedRunwayTransition = { runwayIdent: parsed.runwayIdent, legs: [] }
-          parent.runwayTransitions.push(transition)
-          transitionByUniqueRequestId.set(recv.uniqueRequestId, transition)
-          break
-        }
-        case FacilityDataType.ENROUTE_TRANSITION: {
-          const parsed = parseEnrouteTransition(d)
-          const parent = procedureByUniqueRequestId.get(recv.parentUniqueRequestId)
-          if (!parent) break
-          const transition: FetchedEnrouteTransition = { name: parsed.name, legs: [] }
-          parent.enrouteTransitions.push(transition)
-          transitionByUniqueRequestId.set(recv.uniqueRequestId, transition)
-          break
-        }
-        case FacilityDataType.APPROACH_LEG: {
-          const leg = parseLeg(d)
-          const transitionParent = transitionByUniqueRequestId.get(recv.parentUniqueRequestId)
-          if (transitionParent) {
-            transitionParent.legs.push(leg)
-            break
-          }
-          const procedureParent = procedureByUniqueRequestId.get(recv.parentUniqueRequestId)
-          procedureParent?.commonLegs.push(leg)
-          break
-        }
-        case FacilityDataType.APPROACH: {
-          const header = parseApproachHeader(d)
-          const approach: FetchedApproach = {
-            identifier: header.identifier,
-            runwayIdent: header.runwayIdent,
-            transitions: [],
-            finalLegs: [],
-            expected: {
-              transitions: header.nTransitions,
-              finalApproachLegs: header.nFinalApproachLegs,
-              missedApproachLegs: header.nMissedApproachLegs
-            }
-          }
-          approaches.push(approach)
-          approachByUniqueRequestId.set(recv.uniqueRequestId, approach)
-          break
-        }
-        case FacilityDataType.APPROACH_TRANSITION: {
-          const parsed = parseApproachTransition(d)
-          const parent = approachByUniqueRequestId.get(recv.parentUniqueRequestId)
-          if (!parent) break
-          const transition: FetchedApproachTransition = { name: parsed.name, legs: [] }
-          parent.transitions.push(transition)
-          transitionByUniqueRequestId.set(recv.uniqueRequestId, transition)
-          break
-        }
-        case FacilityDataType.FINAL_APPROACH_LEG: {
-          const leg = parseLeg(d)
-          const approachParent = approachByUniqueRequestId.get(recv.parentUniqueRequestId)
-          approachParent?.finalLegs.push(leg)
-          break
-        }
-        default:
-          break
-      }
+      fetch.onData(recv)
     }
 
     function onFacilityDataEnd(recv: RecvFacilityDataEnd): void {
       pending.delete(recv.userRequestId as NavdataDefId)
-      if (pending.size === 0) finish()
+      if (pending.size === 0) settle(() => resolve(fetch.result()))
     }
 
     function onFacilityMinimalList(recv: RecvFacilityMinimalList): void {
-      // Ambiguous ICAO (duplicate across regions) — SimConnect answers with a minimal
-      // candidate list instead of facilityData. Retry once with the first candidate's
-      // region, same recovery the Phase 2 spike used (unverified live — never fired
-      // against EGLL/VHHH/EGKK, all three resolved unambiguously — but per the documented
-      // SDK contract).
       const defId = recv.requestID as NavdataDefId
       const region = recv.data[0]?.icao.region
       if (!pending.has(defId) || !region) return
@@ -293,7 +196,8 @@ export function fetchAirportNavdata(handle: SimConnectConnection, icao: string):
     }
 
     function onException(recv: RecvException): void {
-      fail(new Error(`SimConnect exception fetching ${icao} navdata: ${recv.exceptionName} (index ${recv.index})`))
+      const message = `SimConnect exception fetching ${icao} ${fetch.what}: ${recv.exceptionName} (index ${recv.index})`
+      settle(() => reject(new Error(message)))
     }
 
     handle.on('facilityData', onFacilityData)
@@ -301,13 +205,156 @@ export function fetchAirportNavdata(handle: SimConnectConnection, icao: string):
     handle.on('facilityMinimalList', onFacilityMinimalList)
     handle.on('exception', onException)
 
-    const timeoutTimer = setTimeout(() => fail(new Error(`Facility fetch for ${icao} timed out`)), FETCH_TIMEOUT_MS)
+    const timeoutTimer = setTimeout(() => settle(() => reject(new Error(fetch.timeoutMessage))), fetch.timeoutMs)
 
-    handle.requestFacilityData(NavdataDefId.RUNWAYS, NavdataDefId.RUNWAYS, icao)
-    handle.requestFacilityData(NavdataDefId.DEPARTURES, NavdataDefId.DEPARTURES, icao)
-    handle.requestFacilityData(NavdataDefId.ARRIVALS, NavdataDefId.ARRIVALS, icao)
-    handle.requestFacilityData(NavdataDefId.APPROACHES, NavdataDefId.APPROACHES, icao)
+    for (const defId of fetch.defIds) handle.requestFacilityData(defId, defId, icao)
   })
+}
+
+/**
+ * A SID or STAR from its header record, before any of its transitions or legs arrive.
+ *
+ * @param header The DEPARTURE or ARRIVAL record.
+ * @returns The procedure, with the counts its header promised.
+ */
+function emptyProcedure(header: ReturnType<typeof parseProcedureHeader>): FetchedProcedure {
+  return {
+    name: header.name,
+    runwayTransitions: [],
+    enrouteTransitions: [],
+    commonLegs: [],
+    expected: {
+      runwayTransitions: header.nRunwayTransitions,
+      enrouteTransitions: header.nEnrouteTransitions,
+      approachLegs: header.nApproachLegs
+    }
+  }
+}
+
+/**
+ * An approach from its header record, before any of its transitions or legs arrive.
+ *
+ * @param header The APPROACH record.
+ * @returns The approach, with the counts its header promised.
+ */
+function emptyApproach(header: ReturnType<typeof parseApproachHeader>): FetchedApproach {
+  return {
+    identifier: header.identifier,
+    runwayIdent: header.runwayIdent,
+    transitions: [],
+    finalLegs: [],
+    expected: {
+      transitions: header.nTransitions,
+      finalApproachLegs: header.nFinalApproachLegs,
+      missedApproachLegs: header.nMissedApproachLegs
+    }
+  }
+}
+
+/**
+ * Collects an airport's runways, SIDs, STARs and approaches, rebuilding each procedure's tree.
+ *
+ * A RUNWAY_TRANSITION/ENROUTE_TRANSITION/APPROACH_TRANSITION/APPROACH_LEG record only carries its
+ * parent's uniqueRequestId (RecvFacilityData.parentUniqueRequestId), not which array it belongs in,
+ * so these maps track that link. An APPROACH_LEG's parent is always one of its approach's
+ * transitions (an approach registers no top-level APPROACH_LEG of its own, only
+ * FINAL_APPROACH_LEG); a DEPARTURE/ARRIVAL's own APPROACH_LEG can be either a procedure directly
+ * (a common leg) or one of its transitions, checked in that order since a transition is the more
+ * specific match when both could apply.
+ *
+ * @param icao The airport.
+ * @returns The collector.
+ */
+function airportNavdataCollector(icao: string): FacilityCollector<FetchedAirportNavdata> {
+  const navdata: FetchedAirportNavdata = { icao, runways: [], departures: [], arrivals: [], approaches: [] }
+  const procedureByUniqueRequestId = new Map<number, FetchedProcedure>()
+  const transitionByUniqueRequestId = new Map<number, { legs: ParsedLeg[] }>()
+  const approachByUniqueRequestId = new Map<number, FetchedApproach>()
+
+  const onProcedureRecord = (recv: RecvFacilityData): void => {
+    const d = recv.data
+    switch (recv.type) {
+      case FacilityDataType.DEPARTURE:
+      case FacilityDataType.ARRIVAL: {
+        const procedure = emptyProcedure(parseProcedureHeader(d))
+        ;(recv.userRequestId === NavdataDefId.DEPARTURES ? navdata.departures : navdata.arrivals).push(procedure)
+        procedureByUniqueRequestId.set(recv.uniqueRequestId, procedure)
+        break
+      }
+      case FacilityDataType.RUNWAY_TRANSITION: {
+        const parsed = parseRunwayTransition(d)
+        const parent = procedureByUniqueRequestId.get(recv.parentUniqueRequestId)
+        if (!parent) break
+        const transition: FetchedRunwayTransition = { runwayIdent: parsed.runwayIdent, legs: [] }
+        parent.runwayTransitions.push(transition)
+        transitionByUniqueRequestId.set(recv.uniqueRequestId, transition)
+        break
+      }
+      case FacilityDataType.ENROUTE_TRANSITION: {
+        const parsed = parseEnrouteTransition(d)
+        const parent = procedureByUniqueRequestId.get(recv.parentUniqueRequestId)
+        if (!parent) break
+        const transition: FetchedEnrouteTransition = { name: parsed.name, legs: [] }
+        parent.enrouteTransitions.push(transition)
+        transitionByUniqueRequestId.set(recv.uniqueRequestId, transition)
+        break
+      }
+      case FacilityDataType.APPROACH_LEG: {
+        const leg = parseLeg(d)
+        const transitionParent = transitionByUniqueRequestId.get(recv.parentUniqueRequestId)
+        if (transitionParent) transitionParent.legs.push(leg)
+        else procedureByUniqueRequestId.get(recv.parentUniqueRequestId)?.commonLegs.push(leg)
+        break
+      }
+      default:
+        break
+    }
+  }
+
+  const onApproachRecord = (recv: RecvFacilityData): void => {
+    const d = recv.data
+    switch (recv.type) {
+      case FacilityDataType.APPROACH: {
+        const approach = emptyApproach(parseApproachHeader(d))
+        navdata.approaches.push(approach)
+        approachByUniqueRequestId.set(recv.uniqueRequestId, approach)
+        break
+      }
+      case FacilityDataType.APPROACH_TRANSITION: {
+        const parsed = parseApproachTransition(d)
+        const parent = approachByUniqueRequestId.get(recv.parentUniqueRequestId)
+        if (!parent) break
+        const transition: FetchedApproachTransition = { name: parsed.name, legs: [] }
+        parent.transitions.push(transition)
+        transitionByUniqueRequestId.set(recv.uniqueRequestId, transition)
+        break
+      }
+      case FacilityDataType.FINAL_APPROACH_LEG: {
+        const leg = parseLeg(d)
+        approachByUniqueRequestId.get(recv.parentUniqueRequestId)?.finalLegs.push(leg)
+        break
+      }
+      default:
+        break
+    }
+  }
+
+  return {
+    onData: (recv) => {
+      if (recv.type === FacilityDataType.AIRPORT) {
+        // Every definition here registers only ICAO at the airport level (no LATITUDE/LONGITUDE/
+        // NAME anywhere), so this record's shape is uniform across all requests, sidestepping the
+        // per-definition buffer-shape gotcha the Phase 2 spike found (docs/navdata-notes.md).
+        parseAirportHeader(recv.data)
+      } else if (recv.type === FacilityDataType.RUNWAY) {
+        navdata.runways.push(parseRunway(recv.data))
+      } else {
+        onProcedureRecord(recv)
+        onApproachRecord(recv)
+      }
+    },
+    result: () => navdata
+  }
 }
 
 export interface FetchedTaxiSegment {
@@ -336,7 +383,10 @@ const TAXI_FETCH_TIMEOUT_MS = 600_000
  *  2026-09-28: `2` = Runway, confirmed; `1`/`4` are both plausible "Taxi"/"Path" drivable-
  *  network values, unconfirmed which is which) — both are fetched via separate filtered
  *  definitions and merged, rather than guessing one. */
-const TAXI_PATH_TYPES = [1, 4] as const
+const TAXI_PATH_DEFINITIONS = [
+  { defId: NavdataDefId.TAXI_PATHS_TYPE_1, type: 1 },
+  { defId: NavdataDefId.TAXI_PATHS_TYPE_4, type: 4 }
+] as const
 
 function buildTaxiDefinitions(handle: SimConnectConnection): void {
   addAirportIcaoLatLonFields((name) => handle.addToFacilityDefinition(NavdataDefId.TAXI_POINTS, name))
@@ -346,8 +396,7 @@ function buildTaxiDefinitions(handle: SimConnectConnection): void {
   handle.addToFacilityDefinition(NavdataDefId.TAXI_POINTS, 'CLOSE TAXI_POINT')
   handle.addToFacilityDefinition(NavdataDefId.TAXI_POINTS, 'CLOSE AIRPORT')
 
-  const pathDefIds = [NavdataDefId.TAXI_PATHS_TYPE_1, NavdataDefId.TAXI_PATHS_TYPE_4] as const
-  for (const [i, defId] of pathDefIds.entries()) {
+  for (const { defId, type } of TAXI_PATH_DEFINITIONS) {
     addAirportIcaoLatLonFields((name) => handle.addToFacilityDefinition(defId, name))
     handle.addToFacilityDefinition(defId, 'N_TAXI_PATHS')
     handle.addToFacilityDefinition(defId, 'OPEN TAXI_PATH')
@@ -355,7 +404,7 @@ function buildTaxiDefinitions(handle: SimConnectConnection): void {
     handle.addToFacilityDefinition(defId, 'CLOSE TAXI_PATH')
     handle.addToFacilityDefinition(defId, 'CLOSE AIRPORT')
     const filterValue = new RawBuffer(4)
-    filterValue.writeInt32(TAXI_PATH_TYPES[i]!)
+    filterValue.writeInt32(type)
     handle.addFacilityDataDefinitionFilter(defId, 'AIRPORT:TAXI_PATH:TYPE', filterValue)
   }
 
@@ -380,123 +429,102 @@ function buildTaxiDefinitions(handle: SimConnectConnection): void {
  */
 export function fetchTaxiNetwork(handle: SimConnectConnection, icao: string): Promise<FetchedTaxiNetwork> {
   buildTaxiDefinitions(handle)
+  return runFacilityFetch(handle, icao, {
+    defIds: [NavdataDefId.TAXI_POINTS, NavdataDefId.TAXI_PATHS_TYPE_1, NavdataDefId.TAXI_PATHS_TYPE_4, NavdataDefId.TAXI_NAMES],
+    timeoutMs: TAXI_FETCH_TIMEOUT_MS,
+    what: 'taxi network',
+    timeoutMessage: `Taxi network fetch for ${icao} timed out`,
+    ...taxiNetworkCollector(icao)
+  })
+}
 
-  return new Promise((resolve, reject) => {
-    let referenceLatitude: number | null = null
-    let referenceLongitude: number | null = null
-    const points = new Map<number, { holdShort: boolean; biasX: number; biasZ: number }>()
-    const rawPaths: { start: number; end: number; nameIndex: number | null }[] = []
-    const names = new Map<number, string>()
-    const pending = new Set<NavdataDefId>([
-      NavdataDefId.TAXI_POINTS,
-      NavdataDefId.TAXI_PATHS_TYPE_1,
-      NavdataDefId.TAXI_PATHS_TYPE_4,
-      NavdataDefId.TAXI_NAMES
-    ])
-    let settled = false
+/** A taxi point as received: its offset from the airport reference point, in metres. */
+interface RawTaxiPoint {
+  holdShort: boolean
+  biasX: number
+  biasZ: number
+}
 
-    const cleanup = (): void => {
-      clearTimeout(timeoutTimer)
-      handle.removeListener('facilityData', onFacilityData)
-      handle.removeListener('facilityDataEnd', onFacilityDataEnd)
-      handle.removeListener('facilityMinimalList', onFacilityMinimalList)
-      handle.removeListener('exception', onException)
-    }
-    const finish = (): void => {
-      if (settled) return
-      settled = true
-      cleanup()
-      if (referenceLatitude === null || referenceLongitude === null) {
-        resolve({ icao, segments: [] })
-        return
-      }
-      const refLat = referenceLatitude
-      const refLon = referenceLongitude
-      const segments: FetchedTaxiSegment[] = []
-      for (const path of rawPaths) {
-        const startPoint = points.get(path.start)
-        const endPoint = points.get(path.end)
-        if (!startPoint || !endPoint) continue
-        const start = biasToLatLon(refLat, refLon, startPoint.biasX, startPoint.biasZ)
-        const end = biasToLatLon(refLat, refLon, endPoint.biasX, endPoint.biasZ)
-        const name = path.nameIndex === null ? null : (names.get(path.nameIndex) ?? null)
-        segments.push({
-          startLat: start.latitude,
-          startLon: start.longitude,
-          endLat: end.latitude,
-          endLon: end.longitude,
-          name,
-          startHoldShort: startPoint.holdShort,
-          endHoldShort: endPoint.holdShort
-        })
-      }
-      resolve({ icao, segments })
-    }
-    const fail = (error: Error): void => {
-      if (settled) return
-      settled = true
-      cleanup()
-      reject(error)
-    }
+/** A taxi path as received: its two points' indices and its name's index. */
+interface RawTaxiPath {
+  start: number
+  end: number
+  nameIndex: number | null
+}
 
-    function onFacilityData(recv: RecvFacilityData): void {
+/**
+ * Collects an airport's taxi points, paths and names, keyed by the index SimConnect gives each.
+ *
+ * @param icao The airport.
+ * @returns The collector.
+ */
+function taxiNetworkCollector(icao: string): FacilityCollector<FetchedTaxiNetwork> {
+  let reference: { lat: number; lon: number } | null = null
+  const points = new Map<number, RawTaxiPoint>()
+  const paths: RawTaxiPath[] = []
+  const names = new Map<number, string>()
+  return {
+    onData: (recv) => {
       const d = recv.data
       switch (recv.type) {
         case FacilityDataType.AIRPORT: {
           const header = parseAirportHeaderWithLatLon(d)
-          if (referenceLatitude === null) {
-            referenceLatitude = header.latitude
-            referenceLongitude = header.longitude
-          }
+          reference ??= { lat: header.latitude, lon: header.longitude }
           break
         }
-        case FacilityDataType.TAXI_POINT: {
+        case FacilityDataType.TAXI_POINT:
           points.set(recv.itemIndex, parseTaxiPoint(d))
           break
-        }
         case FacilityDataType.TAXI_PATH: {
           const parsed = parseTaxiPath(d)
-          rawPaths.push({ start: parsed.start, end: parsed.end, nameIndex: parsed.nameIndex })
+          paths.push({ start: parsed.start, end: parsed.end, nameIndex: parsed.nameIndex })
           break
         }
-        case FacilityDataType.TAXI_NAME: {
+        case FacilityDataType.TAXI_NAME:
           names.set(recv.itemIndex, parseTaxiName(d).name)
           break
-        }
         default:
           break
       }
-    }
+    },
+    result: () => ({ icao, segments: reference ? taxiSegments(reference, points, paths, names) : [] })
+  }
+}
 
-    function onFacilityDataEnd(recv: RecvFacilityDataEnd): void {
-      pending.delete(recv.userRequestId as NavdataDefId)
-      if (pending.size === 0) finish()
-    }
-
-    function onFacilityMinimalList(recv: RecvFacilityMinimalList): void {
-      // Same ambiguous-ICAO recovery as fetchAirportNavdata's own handler — see its comment.
-      const defId = recv.requestID as NavdataDefId
-      const region = recv.data[0]?.icao.region
-      if (!pending.has(defId) || !region) return
-      handle.requestFacilityData(defId, defId, icao, region)
-    }
-
-    function onException(recv: RecvException): void {
-      fail(new Error(`SimConnect exception fetching ${icao} taxi network: ${recv.exceptionName} (index ${recv.index})`))
-    }
-
-    handle.on('facilityData', onFacilityData)
-    handle.on('facilityDataEnd', onFacilityDataEnd)
-    handle.on('facilityMinimalList', onFacilityMinimalList)
-    handle.on('exception', onException)
-
-    const timeoutTimer = setTimeout(() => fail(new Error(`Taxi network fetch for ${icao} timed out`)), TAXI_FETCH_TIMEOUT_MS)
-
-    handle.requestFacilityData(NavdataDefId.TAXI_POINTS, NavdataDefId.TAXI_POINTS, icao)
-    handle.requestFacilityData(NavdataDefId.TAXI_PATHS_TYPE_1, NavdataDefId.TAXI_PATHS_TYPE_1, icao)
-    handle.requestFacilityData(NavdataDefId.TAXI_PATHS_TYPE_4, NavdataDefId.TAXI_PATHS_TYPE_4, icao)
-    handle.requestFacilityData(NavdataDefId.TAXI_NAMES, NavdataDefId.TAXI_NAMES, icao)
-  })
+/**
+ * Turns the received paths into positioned, named segments, dropping any path whose start or end
+ * point never arrived rather than emitting a broken segment.
+ *
+ * @param reference The airport reference point the biases are measured from.
+ * @param points The taxi points, by index.
+ * @param paths The taxi paths.
+ * @param names The taxiway names, by index.
+ * @returns The segments.
+ */
+function taxiSegments(
+  reference: { lat: number; lon: number },
+  points: Map<number, RawTaxiPoint>,
+  paths: RawTaxiPath[],
+  names: Map<number, string>
+): FetchedTaxiSegment[] {
+  const segments: FetchedTaxiSegment[] = []
+  for (const path of paths) {
+    const startPoint = points.get(path.start)
+    const endPoint = points.get(path.end)
+    if (!startPoint || !endPoint) continue
+    const start = biasToLatLon(reference.lat, reference.lon, startPoint.biasX, startPoint.biasZ)
+    const end = biasToLatLon(reference.lat, reference.lon, endPoint.biasX, endPoint.biasZ)
+    segments.push({
+      startLat: start.latitude,
+      startLon: start.longitude,
+      endLat: end.latitude,
+      endLon: end.longitude,
+      name: path.nameIndex === null ? null : (names.get(path.nameIndex) ?? null),
+      startHoldShort: startPoint.holdShort,
+      endHoldShort: endPoint.holdShort
+    })
+  }
+  return segments
 }
 
 /** One stand/gate, positioned — see facility-fields.ts's ParsedTaxiParking. */
@@ -530,27 +558,26 @@ export function fetchStands(handle: SimConnectConnection, icao: string): Promise
   addTaxiParkingFields((name) => handle.addToFacilityDefinition(NavdataDefId.TAXI_PARKINGS, name))
   handle.addToFacilityDefinition(NavdataDefId.TAXI_PARKINGS, 'CLOSE TAXI_PARKING')
   handle.addToFacilityDefinition(NavdataDefId.TAXI_PARKINGS, 'CLOSE AIRPORT')
+  return runFacilityFetch(handle, icao, {
+    defIds: [NavdataDefId.TAXI_PARKINGS],
+    timeoutMs: STAND_FETCH_TIMEOUT_MS,
+    what: 'stands',
+    timeoutMessage: `Stand fetch for ${icao} timed out`,
+    ...standsCollector()
+  })
+}
 
-  return new Promise((resolve, reject) => {
-    let reference: { lat: number; lon: number } | null = null
-    const stands: FetchedStand[] = []
-    let settled = false
-
-    const cleanup = (): void => {
-      clearTimeout(timeoutTimer)
-      handle.removeListener('facilityData', onFacilityData)
-      handle.removeListener('facilityDataEnd', onFacilityDataEnd)
-      handle.removeListener('facilityMinimalList', onFacilityMinimalList)
-      handle.removeListener('exception', onException)
-    }
-    const settle = (fn: () => void): void => {
-      if (settled) return
-      settled = true
-      cleanup()
-      fn()
-    }
-
-    function onFacilityData(recv: RecvFacilityData): void {
+/**
+ * Collects stands, each positioned from the airport reference point and named the way ATC says
+ * it. A stand that arrives before the reference point can't be positioned, so it's skipped.
+ *
+ * @returns The collector.
+ */
+function standsCollector(): FacilityCollector<FetchedStand[]> {
+  let reference: { lat: number; lon: number } | null = null
+  const stands: FetchedStand[] = []
+  return {
+    onData: (recv) => {
       if (recv.userRequestId !== NavdataDefId.TAXI_PARKINGS) return
       if (recv.type === FacilityDataType.AIRPORT) {
         const header = parseAirportHeaderWithLatLon(recv.data)
@@ -569,26 +596,7 @@ export function fetchStands(handle: SimConnectConnection, icao: string): Promise
         lat: position.latitude,
         lon: position.longitude
       })
-    }
-    function onFacilityDataEnd(recv: RecvFacilityDataEnd): void {
-      if (recv.userRequestId === NavdataDefId.TAXI_PARKINGS) settle(() => resolve(stands))
-    }
-    function onFacilityMinimalList(recv: RecvFacilityMinimalList): void {
-      // Same ambiguous-ICAO recovery as fetchAirportNavdata's own handler.
-      const region = recv.data[0]?.icao.region
-      if (recv.requestID !== NavdataDefId.TAXI_PARKINGS || !region) return
-      handle.requestFacilityData(NavdataDefId.TAXI_PARKINGS, NavdataDefId.TAXI_PARKINGS, icao, region)
-    }
-    function onException(recv: RecvException): void {
-      settle(() => reject(new Error(`SimConnect exception fetching ${icao} stands: ${recv.exceptionName} (index ${recv.index})`)))
-    }
-
-    handle.on('facilityData', onFacilityData)
-    handle.on('facilityDataEnd', onFacilityDataEnd)
-    handle.on('facilityMinimalList', onFacilityMinimalList)
-    handle.on('exception', onException)
-    const timeoutTimer = setTimeout(() => settle(() => reject(new Error(`Stand fetch for ${icao} timed out`))), STAND_FETCH_TIMEOUT_MS)
-
-    handle.requestFacilityData(NavdataDefId.TAXI_PARKINGS, NavdataDefId.TAXI_PARKINGS, icao)
-  })
+    },
+    result: () => stands
+  }
 }

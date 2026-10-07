@@ -8,14 +8,13 @@
  */
 import type { NavdataLeg, NavdataProcedureOption } from '@shared/ipc'
 import { visualApproachIdentifier } from '@shared/visual-approach'
+import { METRES_PER_NM, wrapLongitude } from '@shared/geo'
 import { offsetAlongBearing } from '../airports/landing-maths'
 
 /** How far out along the extended centreline the visual approach's join point is drawn.
  *  A drawing convention, not a rule — there is no single regulatory figure (the plan doc
  *  discusses 5-15 nm); a setting is deferred, so this is the one place to change it. */
 export const VISUAL_JOIN_DISTANCE_NM = 10
-
-const METRES_PER_NM = 1852
 
 /** The only transition offered: a straight line from the STAR's last fix to the join point
  *  (the approach's first waypoint, so `applyProcedureSelection` draws it for free). */
@@ -39,16 +38,6 @@ export function visualApproachOptions(runways: VisualRunwayEnd[], runway: string
   return runways
     .filter((r) => !runway || r.ident === runway)
     .map((r) => ({ identifier: visualApproachIdentifier(r.ident), transition: VISUAL_VECTORS_TRANSITION }))
-}
-
-/** offsetAlongBearing doesn't wrap: a runway just west of the antimeridian heading out east
- *  lands past 180 degrees.
- *
- * @param lon Degrees, any value.
- * @returns Degrees, -180 to 180.
- */
-function wrapLongitude(lon: number): number {
-  return ((((lon + 180) % 360) + 360) % 360) - 180
 }
 
 function syntheticLeg(type: number, fixIdent: string, fixType: 'W' | 'R', lat: number, lon: number): NavdataLeg {
@@ -82,6 +71,8 @@ export function visualApproachLegs(runway: VisualRunwayEnd): NavdataLeg[] {
     VISUAL_JOIN_DISTANCE_NM * METRES_PER_NM
   )
   return [
+    // offsetAlongBearing doesn't wrap: a runway just west of the antimeridian heading out east
+    // lands past 180 degrees.
     syntheticLeg(15, `${runway.ident}/${VISUAL_JOIN_DISTANCE_NM}`, 'W', join.lat, wrapLongitude(join.lon)),
     syntheticLeg(18, `RW${runway.ident}`, 'R', runway.thresholdLat, runway.thresholdLon)
   ]

@@ -86,7 +86,7 @@ export class FlightRecorder {
   /**
    * `resume` restarts phase detection mid-flight rather than at 'preflight' — used when
    * TrackingController picks a flight's tracking back up after the app quit or crashed
-   * before it reached 'shutdown' (see getActiveFlight's doc comment). Without this, a
+   * before it reached 'shutdown' (the prompt main shows at startup). Without this, a
    * resumed recorder would sit stuck at 'preflight' forever for an aircraft that's
    * actually airborne — advancePhase's 'preflight' case only transitions on `t.onGround`,
    * which never becomes true again mid-flight. `phase` comes from the flight's last

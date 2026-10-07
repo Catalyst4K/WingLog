@@ -17,7 +17,6 @@ import {
   createHistoricalFlight,
   deleteFlight,
   finalizeFuelOut,
-  getActiveFlight,
   getFleetStats,
   getFlight,
   getLiveFlight,
@@ -371,18 +370,6 @@ describe('flight repo', () => {
         expect(completed?.airMinutes).toBe(70) // 90 raw - 20 (cruise pause; taxi pause is outside off->on)
       }
     )
-
-    it('getActiveFlight finds the one flight left mid-tracking, for TrackingController.resume() at startup', () => {
-      expect(getActiveFlight(db)).toBeUndefined()
-
-      const created = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' })
-      startFlight(db, created.id, 10000)
-
-      expect(getActiveFlight(db)?.id).toBe(created.id)
-
-      completeFlight(db, created.id, 4000)
-      expect(getActiveFlight(db)).toBeUndefined()
-    })
 
     it('getInProgressFlight finds a planned flight too, not just an active one — for restoring Dispatch after a restart', () => {
       expect(getInProgressFlight(db)).toBeUndefined()

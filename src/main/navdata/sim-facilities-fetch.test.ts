@@ -542,3 +542,73 @@ describe('fetchStands (stand-positions.md)', () => {
     await expect(promise).rejects.toThrow('SimConnect exception fetching VHHH stands')
   })
 })
+
+describe('every facility fetch', () => {
+  const LISTENED = ['facilityData', 'facilityDataEnd', 'facilityMinimalList', 'exception'] as const
+  const listening = (handle: FakeHandle): number => LISTENED.reduce((n, event) => n + handle.listenerCount(event), 0)
+
+  it('times out with its own message, and stops listening', async () => {
+    vi.useFakeTimers()
+    try {
+      for (const [fetch, timeoutMs, message] of [
+        [fetchAirportNavdata, 20_000, 'Facility fetch for ZJSY timed out'],
+        [fetchTaxiNetwork, 600_000, 'Taxi network fetch for ZJSY timed out'],
+        [fetchStands, 60_000, 'Stand fetch for ZJSY timed out']
+      ] as const) {
+        const handle = new FakeHandle()
+        const promise = fetch(handle as unknown as SimConnectConnection, 'ZJSY')
+        promise.catch(() => undefined)
+        vi.advanceTimersByTime(timeoutMs - 1)
+        expect(listening(handle)).toBe(4)
+        vi.advanceTimersByTime(1)
+        await expect(promise).rejects.toThrow(message)
+        expect(listening(handle)).toBe(0)
+      }
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('stops listening once it resolves or rejects, and ignores anything after', async () => {
+    const navdata = new FakeHandle()
+    const resolved = fetchAirportNavdata(navdata as unknown as SimConnectConnection, 'EGLL')
+    endAll(navdata)
+    await expect(resolved).resolves.toMatchObject({ icao: 'EGLL', runways: [] })
+    expect(listening(navdata)).toBe(0)
+
+    const taxi = new FakeHandle()
+    const rejected = fetchTaxiNetwork(taxi as unknown as SimConnectConnection, 'EGLL')
+    taxi.emit('exception', { exceptionName: 'ERROR', index: 1 })
+    await expect(rejected).rejects.toThrow('SimConnect exception fetching EGLL taxi network: ERROR (index 1)')
+    expect(listening(taxi)).toBe(0)
+  })
+
+  it("doesn't re-ask for a definition that has already ended, or without a region", () => {
+    const handle = new FakeHandle()
+    void fetchAirportNavdata(handle as unknown as SimConnectConnection, 'EGLL').catch(() => undefined)
+    handle.emit('facilityDataEnd', { userRequestId: NavdataDefId.RUNWAYS })
+    const asked = handle.requestFacilityData.mock.calls.length
+    handle.emit('facilityMinimalList', { requestID: NavdataDefId.RUNWAYS, data: [{ icao: { region: 'EG' } }] })
+    handle.emit('facilityMinimalList', { requestID: NavdataDefId.DEPARTURES, data: [] })
+    expect(handle.requestFacilityData.mock.calls.length).toBe(asked)
+    handle.emit('facilityMinimalList', { requestID: NavdataDefId.DEPARTURES, data: [{ icao: { region: 'EG' } }] })
+    expect(handle.requestFacilityData).toHaveBeenLastCalledWith(NavdataDefId.DEPARTURES, NavdataDefId.DEPARTURES, 'EGLL', 'EG')
+    handle.emit('exception', { exceptionName: 'ERROR', index: 0 })
+  })
+
+  it('names the airport and the SimConnect exception when the navdata fetch fails', async () => {
+    const handle = new FakeHandle()
+    const promise = fetchAirportNavdata(handle as unknown as SimConnectConnection, 'VHHH')
+    handle.emit('exception', { exceptionName: 'UNRECOGNIZED_ID', index: 4 })
+    await expect(promise).rejects.toThrow('SimConnect exception fetching VHHH navdata: UNRECOGNIZED_ID (index 4)')
+  })
+
+  it('only counts stands for its own request, and only once the airport reference has arrived', async () => {
+    const handle = new FakeHandle()
+    const promise = fetchStands(handle as unknown as SimConnectConnection, 'VHHH')
+    handle.emit('facilityDataEnd', { userRequestId: NavdataDefId.TAXI_POINTS })
+    handle.emit('facilityData', { type: FacilityDataType.TAXI_PARKING, userRequestId: NavdataDefId.TAXI_PARKINGS, itemIndex: 0, data: buffer(() => undefined) })
+    handle.emit('facilityDataEnd', { userRequestId: NavdataDefId.TAXI_PARKINGS })
+    await expect(promise).resolves.toEqual([])
+  })
+})
