@@ -16,7 +16,9 @@ import type {
   WingLogApi
 } from '@shared/ipc'
 import i18n from './i18n'
-import { LandingCard, LandingsTable, LogbookView } from './LogbookView'
+import { LandingCard } from './logbook/LandingCard'
+import { LandingsTable } from './logbook/LandingsTable'
+import { LogbookView } from './LogbookView'
 import { landingLabels } from './landing-labels'
 
 vi.mock('sonner', () => ({
