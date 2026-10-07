@@ -57,7 +57,8 @@ It currently holds:
 
 The plan-doc workflow, branching model and two-machine sync moved there 2026-09-13
 (`docs/decisions.md` has why). In the other direction, that file treats this file's code
-rules (including Security) as binding there.
+rules (including Security and Testing) and the coding standards as binding on the backend's
+code too (2026-10-07).
 
 ## Commands (once scaffolded)
 
