@@ -1,5 +1,6 @@
 /** The Fleet tab: the aircraft list, one aircraft's detail page, and the add / edit / replace flows. */
 
+import { winglogApi } from './data/winglog-api'
 import { useEffect, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
@@ -83,9 +84,9 @@ export function FleetView(props: {
 
   function reload(): Promise<void> {
     return Promise.all([
-      window.winglog.aircraftList(),
-      window.winglog.logbookFleetStats(),
-      window.winglog.fleetListLastParked()
+      winglogApi().aircraftList(),
+      winglogApi().logbookFleetStats(),
+      winglogApi().fleetListLastParked()
     ]).then(([aircraftList, fleetStats, parked]) => {
       setAircraft(aircraftList)
       setStats(fleetStats)
@@ -98,13 +99,13 @@ export function FleetView(props: {
   }, [])
 
   async function handleCreate(data: NewAircraft): Promise<void> {
-    await window.winglog.aircraftCreate(data)
+    await winglogApi().aircraftCreate(data)
     await reload()
     setView({ kind: 'list' })
   }
 
   async function handleUpdate(id: number, data: NewAircraft): Promise<void> {
-    await window.winglog.aircraftUpdate({ id, ...data })
+    await winglogApi().aircraftUpdate({ id, ...data })
     await reload()
     setView({ kind: 'detail', id })
   }
@@ -118,7 +119,7 @@ export function FleetView(props: {
     })
     if (!ok) return
     try {
-      await window.winglog.aircraftDelete(target.id)
+      await winglogApi().aircraftDelete(target.id)
       await reload()
       setView({ kind: 'list' })
       toast.success(t('fleetView.toasts.deleted', { registration: target.registration }))
@@ -135,7 +136,7 @@ export function FleetView(props: {
     })
     if (!ok) return
     try {
-      await window.winglog.aircraftRetire(target.id)
+      await winglogApi().aircraftRetire(target.id)
       await reload()
       toast.success(t('fleetView.toasts.retired', { registration: target.registration }))
     } catch (err) {
@@ -145,7 +146,7 @@ export function FleetView(props: {
 
   async function handleUnretire(target: Aircraft): Promise<void> {
     try {
-      await window.winglog.aircraftUnretire(target.id)
+      await winglogApi().aircraftUnretire(target.id)
       await reload()
       toast.success(t('fleetView.toasts.unretired', { registration: target.registration }))
     } catch (err) {
@@ -170,7 +171,7 @@ export function FleetView(props: {
     // over), so it's always found — the `?? replacementId` fallback below is defensive only.
     const replacement = aircraft.find((a) => a.id === replacementId)
     try {
-      await window.winglog.aircraftReplace(target.id, replacementId)
+      await winglogApi().aircraftReplace(target.id, replacementId)
       await reload()
       /* v8 ignore start -- see the defensive-only note above `replacement` */
       toast.success(

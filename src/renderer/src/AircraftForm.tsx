@@ -1,5 +1,6 @@
 /** The Fleet aircraft form: identity, registration lookup, airline and SimBrief airframe. */
 
+import { winglogApi } from './data/winglog-api'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type {
@@ -152,8 +153,8 @@ export function AircraftForm(props: {
     const timer = setTimeout(() => {
       setLoadingAirframeOptions(true)
       runAsync(
-        'AircraftForm window.winglog',
-        window.winglog
+        'AircraftForm simbriefAirframesForType',
+        winglogApi()
           .simbriefAirframesForType(trimmedIcaoType)
           .then((options) => {
             if (!cancelled) setAirframeOptions(options)
@@ -229,7 +230,7 @@ export function AircraftForm(props: {
     setCreatingAirframe(true)
     setLookupStatus(null)
     try {
-      const result = await window.winglog.simbriefCreateCustomAirframe(selectedOption.shareUrl)
+      const result = await winglogApi().simbriefCreateCustomAirframe(selectedOption.shareUrl)
       if (result) {
         set('simbriefAirframeId', result)
         setLookupStatus(t('aircraftForm.customAirframeSaved'))
@@ -254,7 +255,7 @@ export function AircraftForm(props: {
     setLookingUp(true)
     setLookupStatus(null)
     try {
-      const result = await window.winglog.aircraftLookupByRegistration(registration)
+      const result = await winglogApi().aircraftLookupByRegistration(registration)
       if (!result) {
         setLookupStatus(t('aircraftForm.noMatch', { registration }))
         return
@@ -268,7 +269,7 @@ export function AircraftForm(props: {
       // have dozens of unrelated substring matches and never reach its own exact row
       // within airlineSearch's result cap (flight-test-findings-2026-09-06.md #1).
       const matchedAirline: AirlineOption | undefined = result.operatorIcao
-        ? await window.winglog.airlineFindByIcao(result.operatorIcao)
+        ? await winglogApi().airlineFindByIcao(result.operatorIcao)
         : undefined
       // Fills blanks only — never overwrites something already typed/edited.
       const hadSimbriefType = form.simbriefType.trim() !== ''
@@ -286,7 +287,7 @@ export function AircraftForm(props: {
       if (!hadSimbriefType) {
         runAsync(
           'AircraftForm simbriefAirframesForType',
-          window.winglog.simbriefAirframesForType(result.icaoType).then((options) => {
+          winglogApi().simbriefAirframesForType(result.icaoType).then((options) => {
             if (options.some((o) => o.isDefault)) {
               setForm((current) =>
                 current.simbriefType.trim() !== '' ? current : { ...current, simbriefType: result.icaoType }
@@ -363,7 +364,7 @@ export function AircraftForm(props: {
         <Combobox
           value={form.icaoType}
           onChange={(value) => set('icaoType', value.toUpperCase())}
-          search={(query) => window.winglog.aircraftTypeSearch(query)}
+          search={(query) => winglogApi().aircraftTypeSearch(query)}
           getOptionKey={(r: AircraftTypeOption) => `${r.icaoType}-${r.manufacturer}-${r.model}`}
           getOptionValue={(r) => r.icaoType}
           getOptionLabel={(r) => `${r.manufacturer} — ${r.model} (${r.icaoType})`}
@@ -385,7 +386,7 @@ export function AircraftForm(props: {
             set('operatorIata', item.iata)
             set('operatorIcao', item.icao)
           }}
-          search={(query) => window.winglog.airlineSearch(query)}
+          search={(query) => winglogApi().airlineSearch(query)}
           getOptionKey={(r: AirlineOption) => `${r.icao}-${r.name}`}
           getOptionValue={(r) => r.name}
           getOptionLabel={(r) => `${r.name} (${r.icao}${r.iata ? `/${r.iata}` : ''})`}

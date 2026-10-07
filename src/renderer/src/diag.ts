@@ -4,6 +4,8 @@
  * Does nothing in a normal build.
  */
 
+import { winglogApi } from './data/winglog-api'
+
 /** Longest message sent, in characters; main cuts again on its side. */
 const MAX_MESSAGE_CHARS = 4_000
 
@@ -25,5 +27,5 @@ export function diagMap(message: string, data?: unknown, isDevBuild: boolean = _
     }
   }
   // A diagnostic line that can't be delivered is not worth surfacing to the user.
-  window.winglog.diagLog('map', line.slice(0, MAX_MESSAGE_CHARS)).catch(() => undefined)
+  winglogApi().diagLog('map', line.slice(0, MAX_MESSAGE_CHARS)).catch(() => undefined)
 }

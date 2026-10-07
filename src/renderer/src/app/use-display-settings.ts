@@ -1,5 +1,6 @@
 /** The persisted display settings the app shell loads once and threads to every view. */
 
+import { winglogApi } from '../data/winglog-api'
 import { useEffect, useState } from 'react'
 import type {
   AltitudeUnit,
@@ -57,26 +58,26 @@ export function useDisplaySettings(): DisplaySettings {
   const [beyondAtcEnabled, setBeyondAtcEnabled] = useState(false)
 
   useEffect(() => {
-    runAsync('App settingsGetWeightUnit', window.winglog.settingsGetWeightUnit().then(setWeightUnit))
-    runAsync('App settingsGetAltitudeUnit', window.winglog.settingsGetAltitudeUnit().then(setAltitudeUnit))
-    runAsync('App settingsGetWindSpeedUnit', window.winglog.settingsGetWindSpeedUnit().then(setWindSpeedUnit))
-    runAsync('App settingsGetMapLanguage', window.winglog.settingsGetMapLanguage().then(setMapLanguage))
+    runAsync('App settingsGetWeightUnit', winglogApi().settingsGetWeightUnit().then(setWeightUnit))
+    runAsync('App settingsGetAltitudeUnit', winglogApi().settingsGetAltitudeUnit().then(setAltitudeUnit))
+    runAsync('App settingsGetWindSpeedUnit', winglogApi().settingsGetWindSpeedUnit().then(setWindSpeedUnit))
+    runAsync('App settingsGetMapLanguage', winglogApi().settingsGetMapLanguage().then(setMapLanguage))
     runAsync(
       'App settingsGetLandingDistanceUnit',
-      window.winglog.settingsGetLandingDistanceUnit().then(setLandingDistanceUnit)
+      winglogApi().settingsGetLandingDistanceUnit().then(setLandingDistanceUnit)
     )
-    runAsync('App settingsGetTheme', window.winglog.settingsGetTheme().then(setTheme))
+    runAsync('App settingsGetTheme', winglogApi().settingsGetTheme().then(setTheme))
     runAsync(
       'App settingsGetGsxRemote',
-      window.winglog.settingsGetGsxRemote().then((settings) => setGsxRemoteEnabled(settings.enabled))
+      winglogApi().settingsGetGsxRemote().then((settings) => setGsxRemoteEnabled(settings.enabled))
     )
     runAsync(
       'App settingsGetBeyondAtc',
-      window.winglog.settingsGetBeyondAtc().then((settings) => setBeyondAtcEnabled(settings.enabled))
+      winglogApi().settingsGetBeyondAtc().then((settings) => setBeyondAtcEnabled(settings.enabled))
     )
     runAsync(
       'App settingsGetAppLanguage',
-      Promise.all([window.winglog.settingsGetAppLanguage(), window.winglog.settingsGetSystemLocale()]).then(
+      Promise.all([winglogApi().settingsGetAppLanguage(), winglogApi().settingsGetSystemLocale()]).then(
         ([saved, systemLocale]) => {
           setAppLanguage(saved)
           runAsync('i18n: change language', i18n.changeLanguage(resolveAppLanguage(saved, systemLocale)))
@@ -115,33 +116,33 @@ export function useDisplaySettings(): DisplaySettings {
     setBeyondAtcEnabled,
     onWeightUnitChange: async (unit) => {
       setWeightUnit(unit)
-      await window.winglog.settingsSetWeightUnit(unit)
+      await winglogApi().settingsSetWeightUnit(unit)
     },
     onAltitudeUnitChange: async (unit) => {
       setAltitudeUnit(unit)
-      await window.winglog.settingsSetAltitudeUnit(unit)
+      await winglogApi().settingsSetAltitudeUnit(unit)
     },
     onWindSpeedUnitChange: async (unit) => {
       setWindSpeedUnit(unit)
-      await window.winglog.settingsSetWindSpeedUnit(unit)
+      await winglogApi().settingsSetWindSpeedUnit(unit)
     },
     onLandingDistanceUnitChange: async (unit) => {
       setLandingDistanceUnit(unit)
-      await window.winglog.settingsSetLandingDistanceUnit(unit)
+      await winglogApi().settingsSetLandingDistanceUnit(unit)
     },
     onMapLanguageChange: async (language) => {
       setMapLanguage(language)
-      await window.winglog.settingsSetMapLanguage(language)
+      await winglogApi().settingsSetMapLanguage(language)
     },
     onAppLanguageChange: async (language) => {
       setAppLanguage(language)
-      await window.winglog.settingsSetAppLanguage(language)
-      const systemLocale = await window.winglog.settingsGetSystemLocale()
+      await winglogApi().settingsSetAppLanguage(language)
+      const systemLocale = await winglogApi().settingsGetSystemLocale()
       runAsync('i18n: change language', i18n.changeLanguage(resolveAppLanguage(language, systemLocale)))
     },
     onThemeChange: async (next) => {
       setTheme(next)
-      await window.winglog.settingsSetTheme(next)
+      await winglogApi().settingsSetTheme(next)
     }
   }
 }

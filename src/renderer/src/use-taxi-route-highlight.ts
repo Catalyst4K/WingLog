@@ -30,6 +30,7 @@
  * up the arrival airport's own B8/B (real report, 2026-09-30).
  */
 
+import { winglogApi } from './data/winglog-api'
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import type {
@@ -201,7 +202,7 @@ function useClearanceStand(
     if (!standIcao) return
     let ignore = false
     // No stands (the sim isn't connected): the route ends where it joins the last taxiway.
-    window.winglog.navdataGetStands(standIcao).then(
+    winglogApi().navdataGetStands(standIcao).then(
       (list) => {
         if (!ignore) setStands({ icao: standIcao, list })
       },
@@ -326,8 +327,8 @@ export function useTaxiRouteHighlight({
     }
     // A failed first read (BeyondATC not connected) has nothing to show; the subscriptions bring
     // the next update.
-    window.winglog.beyondAtcGetTranscript().then(ingest, () => undefined)
-    const unsubscribe = window.winglog.onBeyondAtcTranscript(ingest)
+    winglogApi().beyondAtcGetTranscript().then(ingest, () => undefined)
+    const unsubscribe = winglogApi().onBeyondAtcTranscript(ingest)
     client.get('beyondAtcState').then(
       (state) => state && ingestState(state),
       () => undefined

@@ -1,5 +1,6 @@
 /** The BeyondATC tab's panel: station info, the latest instruction, actions, radios and transcript. */
 
+import { winglogApi } from './data/winglog-api'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type {
@@ -349,7 +350,7 @@ export function BeyondAtcPanel(): React.JSX.Element {
   }
 
   useEffect(() => {
-    runAsync('BeyondAtcPanel settingsGetBeyondAtc', window.winglog.settingsGetBeyondAtc().then(setSettings))
+    runAsync('BeyondAtcPanel settingsGetBeyondAtc', winglogApi().settingsGetBeyondAtc().then(setSettings))
     runAsync(
       'BeyondAtcPanel live.get',
       live.get('beyondAtcState').then((current) => {

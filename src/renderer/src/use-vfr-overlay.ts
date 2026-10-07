@@ -8,6 +8,7 @@
  * down.
  */
 
+import { winglogApi } from './data/winglog-api'
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
 import { ScaleControl, type GeoJSONSourceSpecification, type Map as MapLibreMap } from 'maplibre-gl'
 import type { Airfield, AirfieldType, SimTelemetry, TrackPoint } from '@shared/ipc'
@@ -222,7 +223,7 @@ export function useVfrOverlay({
   useEffect(() => {
     if (!active || airfields) return
     let cancelled = false
-    window.winglog
+    winglogApi()
       .airportListAirfields()
       .then((list) => {
         uiMemory().vfrAirfields = list

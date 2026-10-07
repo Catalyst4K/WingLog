@@ -1,5 +1,6 @@
 /** The "Start a free flight" dialog. */
 
+import { winglogApi } from './data/winglog-api'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
@@ -196,7 +197,7 @@ function FreeFlightFields(props: {
                 set('icaoType', value.toUpperCase())
                 props.onTypeEdited()
               }}
-              search={(query) => window.winglog.aircraftTypeSearch(query)}
+              search={(query) => winglogApi().aircraftTypeSearch(query)}
               getOptionKey={(r: AircraftTypeOption) => `${r.icaoType}-${r.manufacturer}-${r.model}`}
               getOptionValue={(r) => r.icaoType}
               getOptionLabel={(r) => `${r.manufacturer} — ${r.model} (${r.icaoType})`}
@@ -294,7 +295,7 @@ export function StartFreeFlightDialog(props: {
   useEffect(() => {
     if (!props.open || !props.telemetry) return
     const telemetry = props.telemetry
-    window.winglog
+    winglogApi()
       .trackingGetFreeFlightPrefill({
         atcId: telemetry.atcId,
         atcModel: telemetry.atcModel,
@@ -335,7 +336,7 @@ export function StartFreeFlightDialog(props: {
       const identity = flightIdentity(addingNone, form, selectedExisting)
       if ('errorKey' in identity) throw new Error(t(identity.errorKey))
 
-      const flightId = await window.winglog.trackingStartFree({
+      const flightId = await winglogApi().trackingStartFree({
         ...identity,
         depIcao: form.depIcao.trim() || null,
         arrIcao: form.arrIcao.trim() || null,

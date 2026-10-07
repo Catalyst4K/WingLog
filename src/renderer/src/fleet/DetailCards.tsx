@@ -1,5 +1,6 @@
 /** The cards on an aircraft's detail page: SimBrief profile, flights and landing history. */
 
+import { winglogApi } from '../data/winglog-api'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Aircraft, AircraftLanding, Flight } from '@shared/ipc'
@@ -65,7 +66,7 @@ export function SimBriefProfileCard(props: { aircraft: Aircraft }): React.JSX.El
   const a = props.aircraft
 
   function openAirframes(): void {
-    runAsync('fleet: open airframes page', window.winglog.dispatchOpenSimBriefAirframes(a.simbriefAirframeId))
+    runAsync('fleet: open airframes page', winglogApi().dispatchOpenSimBriefAirframes(a.simbriefAirframeId))
   }
 
   return (
@@ -131,7 +132,7 @@ export function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Ele
   useEffect(() => {
     runAsync(
       'FleetView fleetListLandings',
-      window.winglog.fleetListLandings(props.aircraftId).then(setLandings)
+      winglogApi().fleetListLandings(props.aircraftId).then(setLandings)
     )
   }, [props.aircraftId])
 
@@ -194,7 +195,7 @@ export function AircraftFlightsCard(props: {
   const [flights, setFlights] = useState<Flight[]>([])
 
   useEffect(() => {
-    runAsync('FleetView fleetListFlights', window.winglog.fleetListFlights(props.aircraftId).then(setFlights))
+    runAsync('FleetView fleetListFlights', winglogApi().fleetListFlights(props.aircraftId).then(setFlights))
   }, [props.aircraftId])
 
   return (

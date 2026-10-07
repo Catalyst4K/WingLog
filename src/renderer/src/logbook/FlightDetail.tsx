@@ -1,5 +1,6 @@
 /** A flight's detail page: summary, map, charts and landing. */
 
+import { winglogApi } from '../data/winglog-api'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Trash2 } from 'lucide-react'
@@ -124,7 +125,7 @@ export function FlightDetailLoader(
     let cancelled = false
     runAsync(
       'LogbookView logbookGetFlight',
-      window.winglog.logbookGetFlight(listRow.id).then((flight) => {
+      winglogApi().logbookGetFlight(listRow.id).then((flight) => {
         if (!cancelled) setLoaded({ row: listRow, flight })
       })
     )
@@ -185,7 +186,7 @@ function FlightDetail(props: {
     })
     if (!ok) return
     try {
-      await window.winglog.flightDelete(flight.id)
+      await winglogApi().flightDelete(flight.id)
       props.onDeleted()
       toast.success(t('logbookView.flightDeleted'))
     } catch (err) {
@@ -194,7 +195,7 @@ function FlightDetail(props: {
   }
 
   async function handleViewOfpPdf(): Promise<void> {
-    const opened = await window.winglog.logbookOpenOfpPdf(flight.id)
+    const opened = await winglogApi().logbookOpenOfpPdf(flight.id)
     if (!opened) toast.error(t('logbookView.noOfpPdfForFlight'))
   }
 

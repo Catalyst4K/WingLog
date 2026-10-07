@@ -3,6 +3,7 @@
  * flights) and the "Plan a flight" form. DispatchView calls these in this order.
  */
 
+import { winglogApi } from '../data/winglog-api'
 import { isRetired } from '@shared/aircraft'
 import { useEffect, useState } from 'react'
 import {
@@ -51,18 +52,18 @@ export function useDispatchLists(): DispatchLists {
     // no flights of their own left and shouldn't be offered anywhere an aircraft is picked.
     runAsync(
       'DispatchView aircraftList',
-      window.winglog.aircraftList().then((list) => setAircraft(list.filter((a) => !isRetired(a))))
+      winglogApi().aircraftList().then((list) => setAircraft(list.filter((a) => !isRetired(a))))
     )
     // Without it, Dispatch just shows no last-parked hint.
-    runAsync('DispatchView fleetListLastParked', window.winglog.fleetListLastParked().then(setLastParked))
-    runAsync('DispatchView logbookFleetStats', window.winglog.logbookFleetStats().then(setFleetStats))
+    runAsync('DispatchView fleetListLastParked', winglogApi().fleetListLastParked().then(setLastParked))
+    runAsync('DispatchView logbookFleetStats', winglogApi().logbookFleetStats().then(setFleetStats))
     runAsync(
       'DispatchView dispatchGenerationAvailable',
-      window.winglog.dispatchGenerationAvailable().then(setGenerationAvailable)
+      winglogApi().dispatchGenerationAvailable().then(setGenerationAvailable)
     )
     // Source list for the advanced dialog's "Load settings from a previous flight" —
     // flightList already returns newest-first (docs/decisions.md).
-    runAsync('DispatchView flightList', window.winglog.flightList().then(setPastFlights))
+    runAsync('DispatchView flightList', winglogApi().flightList().then(setPastFlights))
   }, [])
 
   return { aircraft, setAircraft, lastParked, fleetStats, pastFlights, generationAvailable }

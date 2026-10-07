@@ -1,5 +1,6 @@
 /** The aircraft form's SimBrief fields: the airframe profile picker and the custom airframe id. */
 
+import { winglogApi } from '../data/winglog-api'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import type { SimbriefAirframeOption } from '@shared/ipc'
@@ -169,7 +170,7 @@ export function CustomAirframeField(props: {
         variant="outline"
         size="sm"
         className="w-fit"
-        onClick={() => runAsync('aircraft form: open airframes page', window.winglog.dispatchOpenSimBriefAirframes(trimmed || null))}
+        onClick={() => runAsync('aircraft form: open airframes page', winglogApi().dispatchOpenSimBriefAirframes(trimmed || null))}
       >
         {t('aircraftForm.openAirframesPage')}
       </Button>

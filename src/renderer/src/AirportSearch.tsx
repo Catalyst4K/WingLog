@@ -1,5 +1,6 @@
 /** The airport field: free ICAO entry with a name and ICAO search. */
 
+import { winglogApi } from './data/winglog-api'
 import { useTranslation } from 'react-i18next'
 import type { AirportOption } from '@shared/ipc'
 import { Combobox } from './components/Combobox'
@@ -23,7 +24,7 @@ export function AirportSearch(props: {
     <Combobox
       value={props.value}
       onChange={(value) => props.onChange(value.toUpperCase())}
-      search={(query) => window.winglog.airportSearch(query)}
+      search={(query) => winglogApi().airportSearch(query)}
       getOptionKey={(r: AirportOption) => r.icao}
       getOptionValue={(r) => r.icao}
       getOptionLabel={(r) =>

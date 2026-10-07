@@ -1,5 +1,6 @@
 /** Matches an ATC arrival clearance to the arrival airport's approaches. */
 
+import { winglogApi } from './data/winglog-api'
 import type { NavdataProcedureOption, ProcedureSelection } from '@shared/ipc'
 import type { AtcClearanceUpdate } from '@shared/atc-info-boxes'
 import { approachRunway, pickDefaultApproachIdentifier } from './route'
@@ -68,7 +69,7 @@ export function approachForArrivalRunway(
 export async function starEndFix(icao: string, update: AtcClearanceUpdate): Promise<string | null> {
   const star = update.fields.starIdent
   if (!star) return null
-  const legs = await window.winglog
+  const legs = await winglogApi()
     .navdataGetProcedureWaypoints(icao, 'star', star, update.arrivalRunway ?? null)
     .catch(() => [])
   return [...legs].reverse().find((leg) => leg.fixIdent)?.fixIdent ?? null

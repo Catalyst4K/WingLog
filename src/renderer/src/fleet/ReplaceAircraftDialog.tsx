@@ -1,5 +1,6 @@
 /** The dialog that replaces a fleet aircraft with another and carries its history over. */
 
+import { winglogApi } from '../data/winglog-api'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Aircraft } from '@shared/ipc'
@@ -46,8 +47,8 @@ export function ReplaceAircraftDialog(props: {
   // fetch once for whichever aircraft this instance was mounted for.
   useEffect(() => {
     runAsync(
-      'FleetView window.winglog',
-      window.winglog
+      'ReplaceAircraftDialog flightList',
+      winglogApi()
         .flightList()
         .then((flights) => setFlightCount(flights.filter((f) => f.aircraftId === props.aircraft.id).length))
     )

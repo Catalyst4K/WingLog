@@ -1,5 +1,6 @@
 /** The Logbook's landings tab: every touchdown across the fleet. */
 
+import { winglogApi } from '../data/winglog-api'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { LandingListRow } from '@shared/ipc'
@@ -56,7 +57,7 @@ export function LandingsTable(props: {
     if (props.landings !== undefined) return
     runAsync(
       'LogbookView logbookListAllLandings',
-      window.winglog.logbookListAllLandings().then(setOwnLandings)
+      winglogApi().logbookListAllLandings().then(setOwnLandings)
     )
   }, [props.landings])
   const landings = props.landings ?? ownLandings

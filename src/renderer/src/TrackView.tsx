@@ -1,5 +1,6 @@
 /** The Track tab: the live flight, its map, times and tracking controls. State is in track/use-track-state.ts, cards in track/TrackCards.tsx. */
 
+import { winglogApi } from './data/winglog-api'
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
@@ -103,8 +104,8 @@ export function TrackView(props: {
   async function handleStart(flightId: number): Promise<void> {
     setStarting(true)
     try {
-      await window.winglog.trackingStart(flightId)
-      setActive(await window.winglog.trackingGetActive())
+      await winglogApi().trackingStart(flightId)
+      setActive(await winglogApi().trackingGetActive())
       setTrackPoints([])
       await reload()
     } catch (err) {
@@ -117,7 +118,7 @@ export function TrackView(props: {
   /** Mirrors handleStart's post-start bookkeeping — the dialog itself already handled the
    *  IPC call and its own error reporting, this only runs on success. */
   async function handleFreeFlightStarted(): Promise<void> {
-    setActive(await window.winglog.trackingGetActive())
+    setActive(await winglogApi().trackingGetActive())
     setTrackPoints([])
     await reload()
   }
@@ -139,7 +140,7 @@ export function TrackView(props: {
         destructive: true
       },
       async () => {
-        await window.winglog.trackingStop()
+        await winglogApi().trackingStop()
         setActive(null)
         setTrackPoints([])
       }
@@ -153,7 +154,7 @@ export function TrackView(props: {
         confirmLabel: t('trackView.finishAndSave')
       },
       async () => {
-        await window.winglog.trackingFinish()
+        await winglogApi().trackingFinish()
         setActive(null)
         setTrackPoints([])
       }
@@ -167,7 +168,7 @@ export function TrackView(props: {
         confirmLabel: t('trackView.cancelFlight'),
         destructive: true
       },
-      () => window.winglog.flightCancel(id)
+      () => winglogApi().flightCancel(id)
     )
 
   // Before tracking starts, preview the most recently planned flight (flightList already
@@ -205,7 +206,7 @@ export function TrackView(props: {
     if (!active) return
     runAsync(
       'TrackView trackingSetProcedureSelection',
-      window.winglog.trackingSetProcedureSelection(props.selection)
+      winglogApi().trackingSetProcedureSelection(props.selection)
     )
   }, [active, props.selection])
 

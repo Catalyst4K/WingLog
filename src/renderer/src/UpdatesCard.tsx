@@ -1,5 +1,6 @@
 /** Settings → About's update check card. */
 
+import { winglogApi } from './data/winglog-api'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { UpdateSettings, UpdateStatus } from '@shared/ipc'
@@ -19,14 +20,14 @@ export function UpdatesCard(): React.JSX.Element {
   const [status, setStatus] = useState<UpdateStatus | null>(null)
 
   useEffect(() => {
-    runAsync('UpdatesCard settingsGetUpdates', window.winglog.settingsGetUpdates().then(setSettings))
-    runAsync('UpdatesCard updatesGetStatus', window.winglog.updatesGetStatus().then(setStatus))
-    return window.winglog.onUpdateStatus(setStatus)
+    runAsync('UpdatesCard settingsGetUpdates', winglogApi().settingsGetUpdates().then(setSettings))
+    runAsync('UpdatesCard updatesGetStatus', winglogApi().updatesGetStatus().then(setStatus))
+    return winglogApi().onUpdateStatus(setStatus)
   }, [])
 
   function setCheckEnabled(checkEnabled: boolean): void {
     setSettings({ checkEnabled })
-    runAsync('UpdatesCard settingsSetUpdates', window.winglog.settingsSetUpdates({ checkEnabled }))
+    runAsync('UpdatesCard settingsSetUpdates', winglogApi().settingsSetUpdates({ checkEnabled }))
   }
 
   return (
@@ -60,7 +61,7 @@ export function UpdatesCard(): React.JSX.Element {
             variant="outline"
             size="sm"
             disabled={status?.state === 'checking'}
-            onClick={asyncHandler('UpdatesCard updatesCheckNow', () => window.winglog.updatesCheckNow())}
+            onClick={asyncHandler('UpdatesCard updatesCheckNow', () => winglogApi().updatesCheckNow())}
           >
             {t('updates.settings.checkNow')}
           </Button>
@@ -74,7 +75,7 @@ export function UpdatesCard(): React.JSX.Element {
               type="button"
               size="sm"
               onClick={asyncHandler('UpdatesCard updatesOpenRelease', () =>
-                window.winglog.updatesOpenRelease()
+                winglogApi().updatesOpenRelease()
               )}
             >
               {t('updates.banner.download')}

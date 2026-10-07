@@ -1,5 +1,6 @@
 /** The SID, STAR and approach dropdowns, from the sim's navdata. */
 
+import { winglogApi } from './data/winglog-api'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { NavdataProcedureOption, NavdataRunwayOption, ProcedureSelection } from '@shared/ipc'
@@ -122,7 +123,7 @@ export function ProcedureSelector(props: {
     const toRefresh = new Set([airports.depIcao, airports.arrIcao, arrIcao])
     runAsync(
       'ProcedureSelector navdataRefreshAirport',
-      Promise.allSettled([...toRefresh].map((icao) => window.winglog.navdataRefreshAirport(icao))).then(() =>
+      Promise.allSettled([...toRefresh].map((icao) => winglogApi().navdataRefreshAirport(icao))).then(() =>
         setRefreshedAt((n) => n + 1)
       )
     )
@@ -134,12 +135,12 @@ export function ProcedureSelector(props: {
   useEffect(() => {
     runAsync(
       'ProcedureSelector navdataListRunways',
-      window.winglog.navdataListRunways(airports.depIcao).then(setDepRunways)
+      winglogApi().navdataListRunways(airports.depIcao).then(setDepRunways)
     )
   }, [airports.depIcao, refreshedAt])
 
   useEffect(() => {
-    window.winglog
+    winglogApi()
       .navdataListSids(airports.depIcao, selection.departureRunway)
       .then(setSidOptions)
       .catch(() => setSidOptions([]))
@@ -150,7 +151,7 @@ export function ProcedureSelector(props: {
   // serving certain parallel runways (confirmed live at VHHH, docs/navdata-notes.md).
   useEffect(() => {
     const runway = approachRunway(selection.approachIdent)
-    window.winglog
+    winglogApi()
       .navdataListStars(arrIcao, runway)
       .then(setStarOptions)
       .catch(() => setStarOptions([]))
@@ -159,7 +160,7 @@ export function ProcedureSelector(props: {
   // Every approach at the field, unfiltered — there's no runway picker to filter by any
   // more, the approach dropdown itself is how a runway gets chosen.
   useEffect(() => {
-    window.winglog
+    winglogApi()
       .navdataListApproaches(arrIcao, null)
       .then((options) => {
         setApproachOptions(options)
