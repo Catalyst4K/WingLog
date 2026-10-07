@@ -7,6 +7,7 @@ import type { BrowserWindow } from 'electron'
 import { IpcChannels, type FlightInvoice } from '@shared/ipc'
 import { createAircraft } from '../db/aircraft-repo'
 import { createDb, type WingLogDb } from '../db/client'
+import { flightInvoice } from '../db/schema'
 import { completeFlight, createFlight, startFlight } from '../db/flight-repo'
 import { setGsxSettings } from '../db/settings-repo'
 import { fakeIpc } from './fake-ipc'
@@ -144,5 +145,20 @@ describe('GSX invoice IPC handlers', () => {
     expect(openPath).not.toHaveBeenCalled()
     await invoke(IpcChannels.gsxOpenReceipt, stored.sourceHtmlPath)
     expect(openPath).toHaveBeenCalledWith(stored.sourceHtmlPath)
+  })
+  it('refuses a stored receipt path outside the GSX folder or not an .html file (a synced row)', async () => {
+    setGsxSettings(db, { enabled: true, folderPath: root, displayCurrency: 'USD' })
+    writeReceipt(join(root, 'Fuel'), '20260906T121500Z_EGLL_G-ABCD.json', '£40.00 ~$ 50.00')
+    const [stored] = ((await invoke(IpcChannels.gsxRescanFlight, flightId)) as { invoices: FlightInvoice[] })
+      .invoices
+    for (const planted of ['C:\\Windows\\System32\\calc.exe', join(root, 'Fuel', 'run.exe')]) {
+      db.update(flightInvoice).set({ sourceHtmlPath: planted }).run()
+      await invoke(IpcChannels.gsxOpenReceipt, planted)
+    }
+    expect(openPath).not.toHaveBeenCalled()
+    db.update(flightInvoice).set({ sourceHtmlPath: stored.sourceHtmlPath }).run()
+    setGsxSettings(db, { enabled: true, folderPath: join(root, 'Elsewhere'), displayCurrency: 'USD' })
+    await invoke(IpcChannels.gsxOpenReceipt, stored.sourceHtmlPath)
+    expect(openPath).not.toHaveBeenCalled()
   })
 })
