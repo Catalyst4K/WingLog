@@ -1,10 +1,10 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, relative } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import type { BrowserWindow } from 'electron'
-import { IpcChannels } from '@shared/ipc'
+import { IpcChannels, type FlightInvoice } from '@shared/ipc'
 import { createAircraft } from '../db/aircraft-repo'
 import { createDb, type WingLogDb } from '../db/client'
 import { completeFlight, createFlight, startFlight } from '../db/flight-repo'
@@ -99,6 +99,7 @@ describe('GSX invoice IPC handlers', () => {
   })
 
   it('attaches an untagged receipt the pilot picks, ignoring anything that is not one', async () => {
+    setGsxSettings(db, { enabled: true, folderPath: root, displayCurrency: 'USD' })
     const notail = writeReceipt(join(root, 'Catering'), '20260906T122000Z_EGLL_NOTAIL.json', '£8.00 ~$ 10.00')
     expect(await invoke(IpcChannels.gsxAttachNotailReceipt, flightId, join(root, 'notes.json'))).toEqual([])
     expect(
@@ -112,8 +113,36 @@ describe('GSX invoice IPC handlers', () => {
     expect(sync).toHaveBeenCalledTimes(1)
   })
 
-  it('opens a receipt', () => {
-    invoke(IpcChannels.gsxOpenReceipt, join(root, 'Fuel', 'receipt.html'))
-    expect(openPath).toHaveBeenCalledWith(join(root, 'Fuel', 'receipt.html'))
+  it('refuses to attach a receipt from outside the GSX folder', async () => {
+    const elsewhere = mkdtempSync(join(tmpdir(), 'winglog-gsx-elsewhere-'))
+    const outside = writeReceipt(
+      join(elsewhere, 'Catering'),
+      '20260906T122000Z_EGLL_NOTAIL.json',
+      '£8.00 ~$ 10.00'
+    )
+    try {
+      expect(await invoke(IpcChannels.gsxAttachNotailReceipt, flightId, outside)).toEqual([])
+      setGsxSettings(db, { enabled: true, folderPath: root, displayCurrency: 'USD' })
+      expect(await invoke(IpcChannels.gsxAttachNotailReceipt, flightId, outside)).toEqual([])
+      const escape = join(root, 'Catering', '..', '..', relative(tmpdir(), outside))
+      expect(await invoke(IpcChannels.gsxAttachNotailReceipt, flightId, escape)).toEqual([])
+      expect(await invoke(IpcChannels.gsxAttachNotailReceipt, flightId, { path: outside })).toEqual([])
+      expect(sync).not.toHaveBeenCalled()
+    } finally {
+      rmSync(elsewhere, { recursive: true, force: true })
+    }
+  })
+
+  it('opens only a receipt WingLog stored, never another path from the renderer', async () => {
+    setGsxSettings(db, { enabled: true, folderPath: root, displayCurrency: 'USD' })
+    writeReceipt(join(root, 'Fuel'), '20260906T121500Z_EGLL_G-ABCD.json', '£40.00 ~$ 50.00')
+    const [stored] = ((await invoke(IpcChannels.gsxRescanFlight, flightId)) as { invoices: FlightInvoice[] })
+      .invoices
+    await invoke(IpcChannels.gsxOpenReceipt, 'C:\\Windows\\System32\\calc.exe')
+    await invoke(IpcChannels.gsxOpenReceipt, join(root, 'Fuel', 'other.html'))
+    await invoke(IpcChannels.gsxOpenReceipt, 42)
+    expect(openPath).not.toHaveBeenCalled()
+    await invoke(IpcChannels.gsxOpenReceipt, stored.sourceHtmlPath)
+    expect(openPath).toHaveBeenCalledWith(stored.sourceHtmlPath)
   })
 })
