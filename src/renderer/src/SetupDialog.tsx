@@ -1,5 +1,6 @@
 /** The first-launch setup dialog. */
 
+import { winglogApi } from './data/winglog-api'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type {
@@ -51,7 +52,7 @@ export function SetupDialog(props: SetupDialogProps): React.JSX.Element {
   const step: Step = itemAt(STEPS, index, 'setup step')
 
   function close(): void {
-    runAsync('SetupDialog setupComplete', window.winglog.setupComplete())
+    runAsync('SetupDialog setupComplete', winglogApi().setupComplete())
     setIndex(0)
     props.onClose()
   }
@@ -130,13 +131,13 @@ function SimbriefStep(): React.JSX.Element {
   useEffect(() => {
     runAsync(
       'SetupDialog settingsGetSimbriefUsername',
-      window.winglog.settingsGetSimbriefUsername().then((value) => setUsername(value ?? ''))
+      winglogApi().settingsGetSimbriefUsername().then((value) => setUsername(value ?? ''))
     )
   }, [])
 
   async function save(event: React.FormEvent): Promise<void> {
     event.preventDefault()
-    await window.winglog.settingsSetSimbriefUsername(username.trim())
+    await winglogApi().settingsSetSimbriefUsername(username.trim())
     setSaved(true)
   }
 
@@ -214,10 +215,10 @@ function AddonsStep(props: {
   const [gsxRemote, setGsxRemote] = useState<GsxRemoteSettings | null>(null)
   const [beyondAtc, setBeyondAtc] = useState<BeyondAtcSettings | null>(null)
   useEffect(() => {
-    runAsync('SetupDialog setupGetContext', window.winglog.setupGetContext().then(setContext))
-    runAsync('SetupDialog settingsGetGsx', window.winglog.settingsGetGsx().then(setGsx))
-    runAsync('SetupDialog settingsGetGsxRemote', window.winglog.settingsGetGsxRemote().then(setGsxRemote))
-    runAsync('SetupDialog settingsGetBeyondAtc', window.winglog.settingsGetBeyondAtc().then(setBeyondAtc))
+    runAsync('SetupDialog setupGetContext', winglogApi().setupGetContext().then(setContext))
+    runAsync('SetupDialog settingsGetGsx', winglogApi().settingsGetGsx().then(setGsx))
+    runAsync('SetupDialog settingsGetGsxRemote', winglogApi().settingsGetGsxRemote().then(setGsxRemote))
+    runAsync('SetupDialog settingsGetBeyondAtc', winglogApi().settingsGetBeyondAtc().then(setBeyondAtc))
   }, [])
 
   function setGsxEnabled(enabled: boolean): void {
@@ -229,7 +230,7 @@ function AddonsStep(props: {
       folderPath: gsx.folderPath ?? (context?.gsxFolderFound ? context.gsxFolderPath : null)
     }
     setGsx(next)
-    runAsync('SetupDialog settingsSetGsx', window.winglog.settingsSetGsx(next))
+    runAsync('SetupDialog settingsSetGsx', winglogApi().settingsSetGsx(next))
   }
 
   function setGsxRemoteEnabled(enabled: boolean): void {
@@ -237,7 +238,7 @@ function AddonsStep(props: {
     const next = { ...gsxRemote, enabled }
     setGsxRemote(next)
     props.onGsxRemoteEnabledChange(enabled)
-    runAsync('SetupDialog settingsSetGsxRemote', window.winglog.settingsSetGsxRemote(next))
+    runAsync('SetupDialog settingsSetGsxRemote', winglogApi().settingsSetGsxRemote(next))
   }
 
   function setBeyondAtcEnabled(enabled: boolean): void {
@@ -245,7 +246,7 @@ function AddonsStep(props: {
     const next = { ...beyondAtc, enabled }
     setBeyondAtc(next)
     props.onBeyondAtcEnabledChange(enabled)
-    runAsync('SetupDialog settingsSetBeyondAtc', window.winglog.settingsSetBeyondAtc(next))
+    runAsync('SetupDialog settingsSetBeyondAtc', winglogApi().settingsSetBeyondAtc(next))
   }
 
   const gsxFolder =
@@ -285,7 +286,7 @@ function UpdatesStep(): React.JSX.Element {
   const { t } = useTranslation()
   const [settings, setSettings] = useState<UpdateSettings | null>(null)
   useEffect(() => {
-    runAsync('SetupDialog settingsGetUpdates', window.winglog.settingsGetUpdates().then(setSettings))
+    runAsync('SetupDialog settingsGetUpdates', winglogApi().settingsGetUpdates().then(setSettings))
   }, [])
   return (
     <OnOffRow
@@ -293,7 +294,7 @@ function UpdatesStep(): React.JSX.Element {
       value={settings?.checkEnabled ?? null}
       onChange={(checkEnabled) => {
         setSettings({ checkEnabled })
-        runAsync('SetupDialog settingsSetUpdates', window.winglog.settingsSetUpdates({ checkEnabled }))
+        runAsync('SetupDialog settingsSetUpdates', winglogApi().settingsSetUpdates({ checkEnabled }))
       }}
       detail={t('updates.settings.description')}
     />

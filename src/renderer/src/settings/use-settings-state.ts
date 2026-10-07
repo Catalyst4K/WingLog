@@ -4,6 +4,7 @@
  * (the category panels unmount; this state doesn't).
  */
 
+import { winglogApi } from '../data/winglog-api'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
@@ -46,31 +47,31 @@ export function useSimbriefCredentials(): SimbriefCredentials {
   useEffect(() => {
     runAsync(
       'SettingsView settingsGetSimbriefUsername',
-      window.winglog.settingsGetSimbriefUsername().then((u) => setUsername(u ?? ''))
+      winglogApi().settingsGetSimbriefUsername().then((u) => setUsername(u ?? ''))
     )
     runAsync(
       'SettingsView dispatchSimbriefLoginStatus',
-      window.winglog.dispatchSimbriefLoginStatus().then(setLoggedIn)
+      winglogApi().dispatchSimbriefLoginStatus().then(setLoggedIn)
     )
   }, [])
 
   async function save(event: React.FormEvent): Promise<void> {
     event.preventDefault()
-    await window.winglog.settingsSetSimbriefUsername(username.trim())
+    await winglogApi().settingsSetSimbriefUsername(username.trim())
     toast.success(t('settingsView.usernameSavedToast'))
   }
 
   async function logIn(): Promise<void> {
     setLoggingIn(true)
     try {
-      await window.winglog.dispatchLoginSimbrief()
-      const nowLoggedIn = await window.winglog.dispatchSimbriefLoginStatus()
+      await winglogApi().dispatchLoginSimbrief()
+      const nowLoggedIn = await winglogApi().dispatchSimbriefLoginStatus()
       setLoggedIn(nowLoggedIn)
       if (nowLoggedIn && !username.trim()) {
-        const fetched = await window.winglog.dispatchFetchSimbriefUsername()
+        const fetched = await winglogApi().dispatchFetchSimbriefUsername()
         if (fetched) {
           setUsername(fetched)
-          await window.winglog.settingsSetSimbriefUsername(fetched)
+          await winglogApi().settingsSetSimbriefUsername(fetched)
           toast.success(t('settingsView.usernameAutoFilledToast', { username: fetched }))
         }
       }
@@ -82,7 +83,7 @@ export function useSimbriefCredentials(): SimbriefCredentials {
   async function logOut(): Promise<void> {
     setLoggingOut(true)
     try {
-      await window.winglog.dispatchLogoutSimbrief()
+      await winglogApi().dispatchLogoutSimbrief()
       setLoggedIn(false)
     } finally {
       setLoggingOut(false)
@@ -107,16 +108,16 @@ export function useGsxSettings(): GsxSettingsState {
   const [gsx, setGsx] = useState<GsxSettings>({ enabled: false, folderPath: null, displayCurrency: 'USD' })
 
   useEffect(() => {
-    runAsync('SettingsView settingsGetGsx', window.winglog.settingsGetGsx().then(setGsx))
+    runAsync('SettingsView settingsGetGsx', winglogApi().settingsGetGsx().then(setGsx))
   }, [])
 
   async function save(next: GsxSettings): Promise<void> {
     setGsx(next)
-    await window.winglog.settingsSetGsx(next)
+    await winglogApi().settingsSetGsx(next)
   }
 
   async function browse(): Promise<void> {
-    const folderPath = await window.winglog.gsxBrowseFolder()
+    const folderPath = await winglogApi().gsxBrowseFolder()
     if (!folderPath) return
     await save({ ...gsx, folderPath })
   }
@@ -158,27 +159,27 @@ export function useGsxRemoteSettings(onEnabledChange: (enabled: boolean) => void
   useEffect(() => {
     runAsync(
       'SettingsView settingsGetGsxRemote',
-      window.winglog.settingsGetGsxRemote().then((loaded) => {
+      winglogApi().settingsGetGsxRemote().then((loaded) => {
         setSettings(loaded)
         setPortInput(loaded.port != null ? String(loaded.port) : '')
         onEnabledChange(loaded.enabled)
       })
     )
-    runAsync('SettingsView gsxRemoteGetStatus', window.winglog.gsxRemoteGetStatus().then(setStatus))
+    runAsync('SettingsView gsxRemoteGetStatus', winglogApi().gsxRemoteGetStatus().then(setStatus))
   }, [onEnabledChange])
 
-  useEffect(() => window.winglog.onGsxRemoteStatus(setStatus), [])
+  useEffect(() => winglogApi().onGsxRemoteStatus(setStatus), [])
 
   async function save(next: GsxRemoteSettings): Promise<void> {
     setSettings(next)
-    await window.winglog.settingsSetGsxRemote(next)
+    await winglogApi().settingsSetGsxRemote(next)
   }
 
   async function toggle(enabled: boolean): Promise<void> {
     const next = { ...settings, enabled }
     setSettings(next)
     onEnabledChange(enabled)
-    await window.winglog.settingsSetGsxRemote(next)
+    await winglogApi().settingsSetGsxRemote(next)
   }
 
   async function commitPort(): Promise<void> {
@@ -218,27 +219,27 @@ export function useBeyondAtcSettings(onEnabledChange: (enabled: boolean) => void
   useEffect(() => {
     runAsync(
       'SettingsView settingsGetBeyondAtc',
-      window.winglog.settingsGetBeyondAtc().then((loaded) => {
+      winglogApi().settingsGetBeyondAtc().then((loaded) => {
         setSettings(loaded)
         onEnabledChange(loaded.enabled)
       })
     )
-    runAsync('SettingsView beyondAtcGetStatus', window.winglog.beyondAtcGetStatus().then(setStatus))
+    runAsync('SettingsView beyondAtcGetStatus', winglogApi().beyondAtcGetStatus().then(setStatus))
   }, [onEnabledChange])
 
-  useEffect(() => window.winglog.onBeyondAtcStatus(setStatus), [])
+  useEffect(() => winglogApi().onBeyondAtcStatus(setStatus), [])
 
   async function toggle(enabled: boolean): Promise<void> {
     const next = { ...settings, enabled }
     setSettings(next)
     onEnabledChange(enabled)
-    await window.winglog.settingsSetBeyondAtc(next)
+    await winglogApi().settingsSetBeyondAtc(next)
   }
 
   async function setHost(host: string): Promise<void> {
     const next = { ...settings, host }
     setSettings(next)
-    await window.winglog.settingsSetBeyondAtc(next)
+    await winglogApi().settingsSetBeyondAtc(next)
   }
 
   return { settings, status, toggle, setHost }
@@ -312,7 +313,7 @@ export function useDataTransfer(): DataTransferState {
   async function importAircraft(): Promise<void> {
     setImportingAircraft(true)
     try {
-      const summary = await window.winglog.aircraftImport(fleetFormat)
+      const summary = await winglogApi().aircraftImport(fleetFormat)
       if (summary) toast.success(summarizeAircraftImport(summary, t))
     } catch (err) {
       toastError(err)
@@ -323,7 +324,7 @@ export function useDataTransfer(): DataTransferState {
 
   async function exportAircraft(): Promise<void> {
     try {
-      const saved = await window.winglog.aircraftExport(fleetFormat)
+      const saved = await winglogApi().aircraftExport(fleetFormat)
       if (saved) toast.success(t('settingsView.data.fleetExported'))
     } catch (err) {
       toastError(err)
@@ -335,8 +336,8 @@ export function useDataTransfer(): DataTransferState {
     try {
       const summary =
         logbookFormat === 'csv'
-          ? await window.winglog.logbookImportCsv()
-          : await window.winglog.logbookImportJson()
+          ? await winglogApi().logbookImportCsv()
+          : await winglogApi().logbookImportJson()
       if (summary) toast.success(summarizeLogbookImport(summary, t))
     } catch (err) {
       toastError(err)
@@ -347,7 +348,7 @@ export function useDataTransfer(): DataTransferState {
 
   async function exportLogbook(): Promise<void> {
     try {
-      const saved = await window.winglog.logbookExport(logbookFormat)
+      const saved = await winglogApi().logbookExport(logbookFormat)
       if (saved) toast.success(t('settingsView.data.logbookExported'))
     } catch (err) {
       toastError(err)
@@ -412,7 +413,7 @@ export function useCloudSync(): CloudSyncState {
      * build, skip this call" arm can't be exercised here; the real cloud-sync-disabled
      * behavior is what public-release-v1.md's own build verifies, not a unit test's job. */
     if (__WINGLOG_CLOUD_SYNC_ENABLED__)
-      runAsync('SettingsView syncStatus', window.winglog.syncStatus().then(setStatus))
+      runAsync('SettingsView syncStatus', winglogApi().syncStatus().then(setStatus))
     /* v8 ignore stop */
   }, [])
 
@@ -420,7 +421,7 @@ export function useCloudSync(): CloudSyncState {
     event.preventDefault()
     setSubmitting(true)
     try {
-      setStatus(await window.winglog.authLogin(email.trim(), password))
+      setStatus(await winglogApi().authLogin(email.trim(), password))
       setPassword('')
       toast.success(t('settingsView.cloudSync.loggedInToast'))
     } catch (err) {
@@ -434,7 +435,7 @@ export function useCloudSync(): CloudSyncState {
     event.preventDefault()
     setSubmitting(true)
     try {
-      setStatus(await window.winglog.authSignup(email.trim(), password, inviteCode))
+      setStatus(await winglogApi().authSignup(email.trim(), password, inviteCode))
       setPassword('')
       setInviteCode('')
       toast.success(t('settingsView.cloudSync.accountCreatedToast'))
@@ -446,12 +447,12 @@ export function useCloudSync(): CloudSyncState {
   }
 
   async function logOut(): Promise<void> {
-    setStatus(await window.winglog.authLogout())
+    setStatus(await winglogApi().authLogout())
   }
 
   async function syncNow(): Promise<void> {
     setStatus((current) => ({ ...current, syncing: true }))
-    const next = await window.winglog.syncNow()
+    const next = await winglogApi().syncNow()
     setStatus(next)
     if (next.lastError) toast.error(next.lastError)
     else toast.success(t('settingsView.cloudSync.syncedToast'))

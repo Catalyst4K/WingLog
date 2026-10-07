@@ -1,5 +1,6 @@
 /** A flight's GSX receipts card, with the total in the display currency. */
 
+import { winglogApi } from './data/winglog-api'
 import { useEffect, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
@@ -112,7 +113,7 @@ function InvoiceRow(props: {
             size="sm"
             onClick={(e) => {
               e.preventDefault()
-              runAsync('gsx: open receipt', window.winglog.gsxOpenReceipt(inv.sourceHtmlPath))
+              runAsync('gsx: open receipt', winglogApi().gsxOpenReceipt(inv.sourceHtmlPath))
             }}
           >
             {t('gsxInvoicesCard.openReceipt')}
@@ -176,14 +177,14 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
   useEffect(() => {
     runAsync(
       'GsxInvoicesCard logbookListInvoices',
-      window.winglog.logbookListInvoices(props.flightId).then(setInvoices)
+      winglogApi().logbookListInvoices(props.flightId).then(setInvoices)
     )
   }, [props.flightId])
 
   useEffect(() => {
     runAsync(
       'GsxInvoicesCard settingsGetGsx',
-      window.winglog.settingsGetGsx().then((settings) => {
+      winglogApi().settingsGetGsx().then((settings) => {
         setDisplayCurrency(settings.displayCurrency)
       })
     )
@@ -196,7 +197,7 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
     if (missing.length === 0) return
     runAsync(
       'GsxInvoicesCard fxGetRate',
-      Promise.all(missing.map((date) => window.winglog.fxGetRate(displayCurrency, date))).then((results) => {
+      Promise.all(missing.map((date) => winglogApi().fxGetRate(displayCurrency, date))).then((results) => {
         setRates((current) => {
           const next = new Map(current)
           missing.forEach((date, i) => next.set(rateKey(displayCurrency, date), results[i]))
@@ -214,7 +215,7 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
   async function handleRescan(): Promise<void> {
     setRescanning(true)
     try {
-      const result = await window.winglog.gsxRescanFlight(props.flightId)
+      const result = await winglogApi().gsxRescanFlight(props.flightId)
       setInvoices(result.invoices)
       setNotailCandidates(result.notailCandidates)
     } catch (err) {
@@ -226,7 +227,7 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
 
   async function handleAttach(candidate: GsxNotailCandidate): Promise<void> {
     try {
-      const updated = await window.winglog.gsxAttachNotailReceipt(props.flightId, candidate.jsonPath)
+      const updated = await winglogApi().gsxAttachNotailReceipt(props.flightId, candidate.jsonPath)
       setInvoices(updated)
       setNotailCandidates((current) => current.filter((c) => c.jsonPath !== candidate.jsonPath))
     } catch (err) {

@@ -1,5 +1,6 @@
 /** Logbook's "Add to fleet" dialog for a free flight's aircraft. */
 
+import { winglogApi } from './data/winglog-api'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
@@ -69,7 +70,7 @@ export function AddFlightToFleetDialog(props: {
         if (!registration.trim() || !icaoType.trim()) {
           throw new Error(t('addFlightToFleetDialog.enterRegistrationAndType'))
         }
-        const created = await window.winglog.aircraftCreate({
+        const created = await winglogApi().aircraftCreate({
           registration: registration.trim(),
           icaoType: icaoType.trim().toUpperCase()
         })
@@ -78,7 +79,7 @@ export function AddFlightToFleetDialog(props: {
         if (!existingId) throw new Error(t('addFlightToFleetDialog.chooseAnAircraft'))
         aircraftId = Number(existingId)
       }
-      const updated = await window.winglog.flightLinkAircraft(props.flight.id, aircraftId)
+      const updated = await winglogApi().flightLinkAircraft(props.flight.id, aircraftId)
       props.onLinked(updated)
       props.onOpenChange(false)
     } catch (err) {
@@ -127,7 +128,7 @@ export function AddFlightToFleetDialog(props: {
                 <Combobox
                   value={icaoType}
                   onChange={(value) => setIcaoType(value.toUpperCase())}
-                  search={(query) => window.winglog.aircraftTypeSearch(query)}
+                  search={(query) => winglogApi().aircraftTypeSearch(query)}
                   getOptionKey={(r: AircraftTypeOption) => `${r.icaoType}-${r.manufacturer}-${r.model}`}
                   getOptionValue={(r) => r.icaoType}
                   getOptionLabel={(r) => `${r.manufacturer} — ${r.model} (${r.icaoType})`}

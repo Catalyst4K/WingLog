@@ -1,5 +1,6 @@
 /** Dispatch's METAR panel. */
 
+import { winglogApi } from './data/winglog-api'
 import { useEffect, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -117,8 +118,8 @@ export function MetarPanel(props: {
     const timer = setTimeout(() => {
       setLoading(true)
       runAsync(
-        'MetarPanel window.winglog',
-        window.winglog
+        'MetarPanel weatherGetMetars',
+        winglogApi()
           .weatherGetMetars(codes)
           .then((reports) => {
             if (cancelled) return

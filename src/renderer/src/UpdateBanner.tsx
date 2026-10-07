@@ -1,5 +1,6 @@
 /** The "new version available" banner. */
 
+import { winglogApi } from './data/winglog-api'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Download, X } from 'lucide-react'
@@ -23,8 +24,8 @@ export function UpdateBanner(props: { airborne: boolean }): React.JSX.Element | 
   const [showNotes, setShowNotes] = useState(false)
 
   useEffect(() => {
-    runAsync('UpdateBanner updatesGetStatus', window.winglog.updatesGetStatus().then(setStatus))
-    return window.winglog.onUpdateStatus(setStatus)
+    runAsync('UpdateBanner updatesGetStatus', winglogApi().updatesGetStatus().then(setStatus))
+    return winglogApi().onUpdateStatus(setStatus)
   }, [])
 
   const latest = status?.state === 'available' ? status.latest : null
@@ -62,7 +63,7 @@ export function UpdateBanner(props: { airborne: boolean }): React.JSX.Element | 
             type="button"
             size="sm"
             onClick={asyncHandler('UpdateBanner updatesOpenRelease', () =>
-              window.winglog.updatesOpenRelease()
+              winglogApi().updatesOpenRelease()
             )}
           >
             <Download aria-hidden="true" />
@@ -73,7 +74,7 @@ export function UpdateBanner(props: { airborne: boolean }): React.JSX.Element | 
             variant="outline"
             size="sm"
             onClick={asyncHandler('UpdateBanner updatesSkipVersion', () =>
-              window.winglog.updatesSkipVersion(latest.version)
+              winglogApi().updatesSkipVersion(latest.version)
             )}
           >
             {t('updates.banner.skip')}

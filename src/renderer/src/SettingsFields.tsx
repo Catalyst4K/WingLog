@@ -3,6 +3,7 @@
  * docs/plans/first-launch-setup.md), so the two can never drift apart.
  */
 
+import { winglogApi } from './data/winglog-api'
 import { useEffect, useState } from 'react'
 import { Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -192,12 +193,12 @@ export function TrackingFields(): React.JSX.Element {
   const { t } = useTranslation()
   const [tracking, setTracking] = useState<TrackingSettings>({ autoStart: true, autoFinish: true })
   useEffect(() => {
-    runAsync('SettingsFields settingsGetTracking', window.winglog.settingsGetTracking().then(setTracking))
+    runAsync('SettingsFields settingsGetTracking', winglogApi().settingsGetTracking().then(setTracking))
   }, [])
 
   async function handleTrackingChange(next: TrackingSettings): Promise<void> {
     setTracking(next)
-    await window.winglog.settingsSetTracking(next)
+    await winglogApi().settingsSetTracking(next)
   }
 
   const labels = trackingLabels(t)

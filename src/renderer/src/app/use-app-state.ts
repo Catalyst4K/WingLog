@@ -5,6 +5,7 @@
  * are in use-display-settings.ts.
  */
 
+import { winglogApi } from '../data/winglog-api'
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import type {
@@ -104,7 +105,7 @@ export function useFlightPlan(): FlightPlan {
   // Subscribed here instead, at the top level, so it fires no matter what's currently on
   // screen.
   useEffect(() => {
-    return window.winglog.onTrackingPoint((point) => {
+    return winglogApi().onTrackingPoint((point) => {
       if (point.phase === 'shutdown') onFlightEndedRef.current()
     })
   }, [])
@@ -120,7 +121,7 @@ export function useFlightPlan(): FlightPlan {
   useEffect(() => {
     runAsync(
       'App dispatchGetInProgressFlight',
-      window.winglog.dispatchGetInProgressFlight().then((result) => {
+      winglogApi().dispatchGetInProgressFlight().then((result) => {
         if (!result) return
         setDispatchOfp(result.ofp)
         setDispatchedOfpId(result.ofp.ofpId)
@@ -166,7 +167,7 @@ export function useOrphanedFlight(
   useEffect(() => {
     runAsync(
       'App trackingGetOrphanedFlight',
-      window.winglog.trackingGetOrphanedFlight().then(setOrphanedFlight)
+      winglogApi().trackingGetOrphanedFlight().then(setOrphanedFlight)
     )
   }, [])
 
@@ -175,7 +176,7 @@ export function useOrphanedFlight(
     onClose: () => setOrphanedFlight(null),
     onResume: async () => {
       if (!orphanedFlight) return
-      await window.winglog.trackingResumeOrphaned(orphanedFlight.id)
+      await winglogApi().trackingResumeOrphaned(orphanedFlight.id)
       // The flight's own persisted selection (whatever was last chosen before the crash),
       // not a blank one — matches how a completed flight's Logbook map reads its selection
       // back (selectionFromFlight), just resuming instead of reviewing.
@@ -185,7 +186,7 @@ export function useOrphanedFlight(
     },
     onDiscard: async () => {
       if (!orphanedFlight) return
-      await window.winglog.trackingDiscardOrphaned(orphanedFlight.id)
+      await winglogApi().trackingDiscardOrphaned(orphanedFlight.id)
       // The dispatch-hydration effect may have already restored Dispatch's view of this
       // exact flight (it runs independently, before the user gets a chance to answer this
       // prompt) — clear it back out rather than leaving Dispatch showing a "Flying" badge
@@ -224,7 +225,7 @@ export function useAtcClearancePrompt(
   const lastAtcBoxesKey = useRef('')
 
   useEffect(() => {
-    return window.winglog.onBeyondAtcState((state: BeyondAtcState) => {
+    return winglogApi().onBeyondAtcState((state: BeyondAtcState) => {
       const key = JSON.stringify(state.infoBoxes)
       if (key === lastAtcBoxesKey.current) return
       lastAtcBoxesKey.current = key
@@ -271,7 +272,7 @@ export function useImportantGsxMenu(onGsxTab: boolean): {
   // different menu (a new signature) triggers it again.
   const [dismissedKey, setDismissedKey] = useState<string | null>(null)
   useEffect(() => {
-    return window.winglog.onGsxRemoteMenu(setMenu)
+    return winglogApi().onGsxRemoteMenu(setMenu)
   }, [])
 
   const important = menu !== null && isImportantGsxMenu(menu)
@@ -397,14 +398,14 @@ export function useSimConnection(): { simStatus: SimConnectionStatus; telemetry:
     // Pull current status in case the initial connect (main process starts it immediately
     // on app launch) already resolved before this component mounted — the push channel
     // below only delivers *future* changes, Electron doesn't replay missed IPC sends.
-    runAsync('App getSimConnectionStatus', window.winglog.getSimConnectionStatus().then(setSimStatus))
-    const unsubscribeStatus = window.winglog.onSimConnectionStatus((status) => {
+    runAsync('App getSimConnectionStatus', winglogApi().getSimConnectionStatus().then(setSimStatus))
+    const unsubscribeStatus = winglogApi().onSimConnectionStatus((status) => {
       setSimStatus(status)
       // The sim stopped sending updates — clear the last-known values rather than
       // leaving them frozen on screen (e.g. Track's map overlay) looking current.
       if (status.state !== 'connected') setTelemetry(null)
     })
-    const unsubscribeTelemetry = window.winglog.onSimTelemetry(setTelemetry)
+    const unsubscribeTelemetry = winglogApi().onSimTelemetry(setTelemetry)
     return () => {
       unsubscribeStatus()
       unsubscribeTelemetry()
@@ -425,12 +426,12 @@ export function useFirstLaunchSetup(): { setupOpen: boolean; setSetupOpen: (open
   useEffect(() => {
     runAsync(
       'App setupGetState',
-      window.winglog.setupGetState().then(async (setup) => {
+      winglogApi().setupGetState().then(async (setup) => {
         if (setup.show) setSetupOpen(true)
         if (setup.whatsNew) toast.info(i18n.t('app.whatsNew'), { duration: 15_000 })
         // A no-op (returns null) on every launch after the app's actual first-ever one —
         // see settingsCheckGsxFirstLaunch's doc comment.
-        const result = await window.winglog.settingsCheckGsxFirstLaunch()
+        const result = await winglogApi().settingsCheckGsxFirstLaunch()
         // The setup's add-ons step shows what this found, so no separate toast on top of it.
         if (!result || setup.show) return
         // i18n.t directly, not the hook's t — this only runs once at mount (checking a

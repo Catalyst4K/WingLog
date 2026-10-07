@@ -1,5 +1,6 @@
 /** The landing card on a flight's detail page. */
 
+import { winglogApi } from '../data/winglog-api'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { LandingDistanceUnit, LandingScoreCategoryKey, LandingWithDetails } from '@shared/ipc'
@@ -192,7 +193,7 @@ export function LandingCard(props: {
   useEffect(() => {
     runAsync(
       'LogbookView logbookListLandings',
-      window.winglog.logbookListLandings(props.flightId).then((result) => {
+      winglogApi().logbookListLandings(props.flightId).then((result) => {
         setLandings(result)
         // Defaults to the final touchdown — the one that ended the flight — matching
         // Logbook's own flights-list score column.

@@ -1,5 +1,6 @@
 /** Logbook's "Clean up track" button. */
 
+import { winglogApi } from './data/winglog-api'
 import { useState } from 'react'
 import { Wrench } from 'lucide-react'
 import { toast } from 'sonner'
@@ -41,12 +42,12 @@ export function TrackCleanupButton(props: {
   async function handleCleanupTrack(): Promise<void> {
     setCleaningUp(true)
     try {
-      const result = await window.winglog.trackPointCleanup(props.flightId)
+      const result = await winglogApi().trackPointCleanup(props.flightId)
       if (result.excludedCount === 0 && result.resegmentedCount === 0) {
         toast.success(t('trackCleanupButton.nothingToCleanUp'))
         return
       }
-      props.onCleaned(await window.winglog.trackPointList(props.flightId))
+      props.onCleaned(await winglogApi().trackPointList(props.flightId))
       const parts: string[] = []
       if (result.excludedCount > 0) {
         parts.push(t('trackCleanupButton.excludedCount', { count: result.excludedCount }))

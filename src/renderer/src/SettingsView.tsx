@@ -1,5 +1,6 @@
 /** The Settings tab. Each card's state is a hook in settings/use-settings-state.ts; the cards are in settings/. */
 
+import { winglogApi } from './data/winglog-api'
 import { useEffect, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
@@ -151,7 +152,7 @@ function AboutCard(props: { appVersion: string; onRunSetup?: () => void }): Reac
           {t('settingsView.about.license')}{' '}
           <button
             type="button"
-            onClick={asyncHandler('SettingsView appOpenGithub', () => window.winglog.appOpenGithub())}
+            onClick={asyncHandler('SettingsView appOpenGithub', () => winglogApi().appOpenGithub())}
             className="cursor-pointer underline underline-offset-2 hover:text-foreground"
           >
             github.com/Catalyst4K/WingLog
@@ -163,7 +164,7 @@ function AboutCard(props: { appVersion: string; onRunSetup?: () => void }): Reac
             variant="outline"
             size="sm"
             onClick={asyncHandler('SettingsView appOpenManual', async () => {
-              if (!(await window.winglog.appOpenManual())) toast.error(t('settingsView.about.manualMissing'))
+              if (!(await winglogApi().appOpenManual())) toast.error(t('settingsView.about.manualMissing'))
             })}
           >
             {t('settingsView.about.openManual')}
@@ -215,7 +216,7 @@ export function SettingsView(
   useResetSignal(props.resetSignal, () => setCategory(DEFAULT_SETTINGS_CATEGORY))
 
   useEffect(() => {
-    runAsync('SettingsView appGetVersion', window.winglog.appGetVersion().then(setAppVersion))
+    runAsync('SettingsView appGetVersion', winglogApi().appGetVersion().then(setAppVersion))
   }, [])
 
   return (

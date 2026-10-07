@@ -1,5 +1,6 @@
 /** The Logbook tab: the flight list, each flight's detail, and the landings list. */
 
+import { winglogApi } from './data/winglog-api'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type {
@@ -79,11 +80,11 @@ export function LogbookView(props: {
 
   function reload(): Promise<void> {
     return Promise.all([
-      window.winglog.logbookListCompletedFlights(),
-      window.winglog.aircraftList(),
-      window.winglog.logbookGetStats(),
-      window.winglog.logbookListFlightScores(),
-      window.winglog.logbookListAllLandings()
+      winglogApi().logbookListCompletedFlights(),
+      winglogApi().aircraftList(),
+      winglogApi().logbookGetStats(),
+      winglogApi().logbookListFlightScores(),
+      winglogApi().logbookListAllLandings()
     ]).then(([flightList, aircraftList, logbookStats, flightScores, landingRows]) => {
       setFlights(flightList)
       setAircraft(aircraftList)

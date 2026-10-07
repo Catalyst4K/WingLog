@@ -1,5 +1,6 @@
 /** A tracked free flight's departure or destination, editable while it flies. */
 
+import { winglogApi } from './data/winglog-api'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
@@ -36,8 +37,8 @@ export function FreeFlightAirport(props: {
   async function save(icao: string | null): Promise<void> {
     setSaving(true)
     try {
-      if (props.kind === 'departure') await window.winglog.trackingSetDeparture(icao)
-      else await window.winglog.trackingSetDestination(icao)
+      if (props.kind === 'departure') await winglogApi().trackingSetDeparture(icao)
+      else await winglogApi().trackingSetDestination(icao)
       if (icao === null) setValue('')
       props.onChanged()
     } catch (err) {

@@ -3,6 +3,7 @@
  * the way the sim does, and drops it when it matches what's already selected.
  */
 
+import { winglogApi } from '../data/winglog-api'
 import type { ProcedureSelection } from '@shared/ipc'
 import { matchClearanceApproach } from '@shared/atc-approach-match'
 import type { AtcClearanceUpdate } from '@shared/atc-info-boxes'
@@ -43,9 +44,9 @@ async function withSimApproach(
   selection: ProcedureSelection
 ): Promise<AtcClearanceUpdate | null> {
   try {
-    const icao = selection.arrivalIcao ?? (await window.winglog.beyondAtcGetState()).progress?.to ?? null
+    const icao = selection.arrivalIcao ?? (await winglogApi().beyondAtcGetState()).progress?.to ?? null
     if (!icao) return update
-    const approaches = await window.winglog.navdataListApproaches(icao, null)
+    const approaches = await winglogApi().navdataListApproaches(icao, null)
     // The approach must start where the STAR ends, or at the transition ATC briefed.
     const entryFix = update.fields.approachTransition ?? (await starEndFix(icao, update))
     return update.fields.approachIdent

@@ -1,5 +1,6 @@
 /** The Dispatch tab: plan or fetch a SimBrief flight, pick its aircraft, and fly it. */
 
+import { winglogApi } from './data/winglog-api'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
@@ -70,7 +71,7 @@ export function DispatchView(props: {
   async function handleOpenSimBrief(): Promise<void> {
     const selected = aircraft.find((a) => a.id === form.planAircraftId)
     if (!selected || !form.depIcao || !form.destIcao) return
-    await window.winglog.dispatchOpenSimBrief(planRequest(form, selected))
+    await winglogApi().dispatchOpenSimBrief(planRequest(form, selected))
   }
 
   // Shared by handleFetch and handleGenerate — both end up with a DispatchOfp and need
@@ -117,7 +118,7 @@ export function DispatchView(props: {
     props.onOfpChange(null)
     setAirframeCapture(null)
     try {
-      applyFetchedOfp(await window.winglog.dispatchFetchOfp())
+      applyFetchedOfp(await winglogApi().dispatchFetchOfp())
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
     } finally {
@@ -132,7 +133,7 @@ export function DispatchView(props: {
     props.onOfpChange(null)
     setAirframeCapture(null)
     try {
-      applyFetchedOfp(await window.winglog.dispatchGenerateOfp(planRequest(form, selected)))
+      applyFetchedOfp(await winglogApi().dispatchGenerateOfp(planRequest(form, selected)))
       toast.success(t('dispatchView.planGenerated'))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err))
@@ -146,7 +147,7 @@ export function DispatchView(props: {
     const target = aircraft.find((a) => a.id === airframeCapture.aircraftId)
     if (!target) return
     try {
-      const updated = await window.winglog.aircraftUpdate({
+      const updated = await winglogApi().aircraftUpdate({
         ...target,
         simbriefAirframeId: airframeCapture.airframeId
       })
@@ -169,8 +170,8 @@ export function DispatchView(props: {
   async function handleFlyClick(): Promise<void> {
     if (!ofp || selectedAircraftId == null) return
     const [active, flights] = await Promise.all([
-      window.winglog.trackingGetActive(),
-      window.winglog.flightList()
+      winglogApi().trackingGetActive(),
+      winglogApi().flightList()
     ])
     const activeFlight = active ? flights.find((f) => f.id === active.flightId) : undefined
     const otherPlanned = flights.filter((f) => f.status === 'planned')
@@ -208,7 +209,7 @@ export function DispatchView(props: {
   // renderer already holds rather than looking a flight row up by id.
   async function handleViewOfpPdf(): Promise<void> {
     if (!ofp) return
-    const opened = await window.winglog.dispatchOpenOfpPdf(ofp.ofpJson)
+    const opened = await winglogApi().dispatchOpenOfpPdf(ofp.ofpJson)
     if (!opened) toast.error(t('dispatchView.noOfpPdfAvailable'))
   }
 
@@ -216,7 +217,7 @@ export function DispatchView(props: {
     if (!ofp || selectedAircraftId == null) return
     setSaving(true)
     try {
-      await window.winglog.flightCreate(flightFromOfp(ofp, selectedAircraftId, props.selection))
+      await winglogApi().flightCreate(flightFromOfp(ofp, selectedAircraftId, props.selection))
       // The OFP itself stays put — Dispatch doubles as a weights/info reference for
       // whatever's currently dispatched until it's overwritten by the next fetch (see
       // alreadyFlown below) or the app closes. Only the "start a new plan" side resets.

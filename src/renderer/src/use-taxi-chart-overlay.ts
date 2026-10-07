@@ -6,6 +6,7 @@
  * large airport's fetch can genuinely take minutes (not seconds) the first time.
  */
 
+import { winglogApi } from './data/winglog-api'
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
 import type { GeoJSONSourceSpecification, Map as MapLibreMap } from 'maplibre-gl'
 import type { NavdataTaxiSegment } from '@shared/ipc'
@@ -85,9 +86,9 @@ async function loadAirport(
   onLoaded: (icao: string, segments: NavdataTaxiSegment[]) => void
 ): Promise<void> {
   if (uiMemory().taxiSegments.has(icao)) return
-  const hasCached = await window.winglog.navdataHasTaxiNetwork(icao)
-  if (!hasCached) await window.winglog.navdataRefreshTaxiNetwork(icao)
-  const segments = await window.winglog.navdataGetTaxiNetwork(icao)
+  const hasCached = await winglogApi().navdataHasTaxiNetwork(icao)
+  if (!hasCached) await winglogApi().navdataRefreshTaxiNetwork(icao)
+  const segments = await winglogApi().navdataGetTaxiNetwork(icao)
   uiMemory().taxiSegments.set(icao, segments)
   onLoaded(icao, segments)
 }

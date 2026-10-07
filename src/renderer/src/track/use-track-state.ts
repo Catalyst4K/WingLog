@@ -3,6 +3,7 @@
  * ET / time remaining / ETA readouts. TrackView calls these in this order.
  */
 
+import { winglogApi } from '../data/winglog-api'
 import { useEffect, useRef, useState } from 'react'
 import type { ActiveTracking, Aircraft, Flight, SimTelemetry, TrackPoint } from '@shared/ipc'
 import { flightLabel } from '../flight-label'
@@ -63,7 +64,7 @@ export function useTrackedFlights(onFlightEnded: (() => void) | undefined): Trac
   const onFlightEndedRef = useRef(onFlightEnded)
 
   function reload(): Promise<void> {
-    return Promise.all([window.winglog.aircraftList(), window.winglog.flightList()]).then(
+    return Promise.all([winglogApi().aircraftList(), winglogApi().flightList()]).then(
       ([aircraftList, flightList]) => {
         setAircraft(aircraftList)
         setFlights(flightList)
@@ -83,15 +84,15 @@ export function useTrackedFlights(onFlightEnded: (() => void) | undefined): Trac
     runAsync('TrackView reload', reload())
     runAsync(
       'TrackView trackPointList',
-      window.winglog
+      winglogApi()
         .trackingGetActive()
         .then(async (a) => {
           setActive(a)
-          if (a) setTrackPoints(await window.winglog.trackPointList(a.flightId))
+          if (a) setTrackPoints(await winglogApi().trackPointList(a.flightId))
         })
         .finally(() => setTrackLoading(false))
     )
-    const unsubscribe = window.winglog.onTrackingPoint((point) => {
+    const unsubscribe = winglogApi().onTrackingPoint((point) => {
       if (point.phase === 'shutdown') {
         // Auto-completed (as opposed to a manual "Finish & save") — clear the banner and
         // the map's trail immediately rather than leaving them showing a flight the
@@ -114,7 +115,7 @@ export function useTrackedFlights(onFlightEnded: (() => void) | undefined): Trac
     // flag a point as junk or retag its resumeSegment after it's already been pushed above
     // and drawn — patch each affected point in place by id rather than waiting for a
     // reload, so the trail corrects itself live instead of only once the flight completes.
-    const unsubscribeUpdated = window.winglog.onTrackingPointsUpdated((updated) => {
+    const unsubscribeUpdated = winglogApi().onTrackingPointsUpdated((updated) => {
       if (updated.length === 0) return
       setTrackPoints((current) => {
         const byId = new Map(updated.map((p) => [p.id, p]))
@@ -235,7 +236,7 @@ export function useTrackTimes(args: {
     let ignore = false
     const [dep, arr] = freeFlightAirports.split('-') as [string, string]
     // No great circle (an airport not in the list): the readouts just show no estimate.
-    window.winglog.logbookGreatCircleRoute(dep, arr).then(
+    winglogApi().logbookGreatCircleRoute(dep, arr).then(
       (gc) => {
         if (!ignore) setGreatCircle({ key: freeFlightAirports, route: gc ?? [] })
       },

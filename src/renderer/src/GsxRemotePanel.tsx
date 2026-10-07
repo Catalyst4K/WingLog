@@ -1,5 +1,6 @@
 /** The GSX Remote tab's panel: GSX's menu, command bar, gate and service progress. */
 
+import { winglogApi } from './data/winglog-api'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight } from 'lucide-react'
@@ -518,7 +519,7 @@ export function GsxRemotePanel(): React.JSX.Element {
   const atcStand = useAtcAssignedStand()
 
   useEffect(() => {
-    runAsync('GsxRemotePanel settingsGetGsxRemote', window.winglog.settingsGetGsxRemote().then(setSettings))
+    runAsync('GsxRemotePanel settingsGetGsxRemote', winglogApi().settingsGetGsxRemote().then(setSettings))
   }, [])
 
   if (settings === null) return <p className="text-xs text-muted-foreground">{t('gsxRemotePanel.loading')}</p>

@@ -101,6 +101,17 @@ export default tseslint.config(
     }
   },
   {
+    // The renderer reaches the main process through winglogApi() and LiveClient only (coding-standards.md §9).
+    files: ['src/renderer/src/**/*.{ts,tsx}'],
+    ignores: [...NOT_APP_CODE, 'src/renderer/src/data/**', 'src/renderer/src/live/**', 'src/renderer/src/report-error.ts'],
+    rules: {
+      'no-restricted-properties': [
+        'error',
+        { object: 'window', property: 'winglog', message: 'Use winglogApi() (data/winglog-api.ts), or LiveClient for live state (coding-standards.md §9).' }
+      ]
+    }
+  },
+  {
     // Components are split above ~300 lines (coding-standards.md §5), not 100.
     files: ['src/renderer/**/*.tsx'],
     ignores: NOT_APP_CODE,

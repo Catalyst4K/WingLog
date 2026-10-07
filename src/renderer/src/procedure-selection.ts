@@ -1,5 +1,6 @@
 /** The SID, STAR and approach selection: seeding it, reading it back, and the live route it draws. */
 
+import { winglogApi } from './data/winglog-api'
 import { useEffect, useMemo, useState } from 'react'
 import type { NavdataLeg, NavdataProcedureKind, ProcedureSelection } from '@shared/ipc'
 import {
@@ -175,7 +176,7 @@ function fetchProcedureLegs(
 ): () => void {
   let ignore = false
   const key = legsKey(...args)
-  window.winglog
+  winglogApi()
     .navdataGetProcedureWaypoints(...args)
     .then((legs) => {
       if (!ignore) set({ key, legs })

@@ -4,6 +4,7 @@
  * these in this order.
  */
 
+import { winglogApi } from '../data/winglog-api'
 import { useEffect, useMemo, useState } from 'react'
 import type { Flight, TrackPoint } from '@shared/ipc'
 import { computeChartAxisTicks, formatTickLabel } from '../chart-ticks'
@@ -30,7 +31,7 @@ export function useFlightTrack(flightId: number): {
 } {
   const [trackPoints, setTrackPoints] = useState<TrackPoint[]>([])
   useEffect(() => {
-    runAsync('LogbookView trackPointList', window.winglog.trackPointList(flightId).then(setTrackPoints))
+    runAsync('LogbookView trackPointList', winglogApi().trackPointList(flightId).then(setTrackPoints))
   }, [flightId])
   return { trackPoints, setTrackPoints }
 }
@@ -69,7 +70,7 @@ export function useFlightRoute(flight: Flight): FlightRoute {
     let cancelled = false
     runAsync(
       'LogbookView logbookGreatCircleRoute',
-      window.winglog.logbookGreatCircleRoute(flight.depIcao, flight.arrIcao).then((points) => {
+      winglogApi().logbookGreatCircleRoute(flight.depIcao, flight.arrIcao).then((points) => {
         if (!cancelled) setFallbackRoute(points ?? [])
       })
     )
