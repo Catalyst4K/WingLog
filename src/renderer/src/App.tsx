@@ -1,6 +1,6 @@
 /** The app shell: the tabs, the settings they share, and the app-wide banners and dialogs. */
 
-import { lazy, Suspense, useEffect } from 'react'
+import { Suspense, useEffect } from 'react'
 import type { AppPage as AppPageId, SimTelemetry } from '@shared/ipc'
 import { SetupDialog } from './SetupDialog'
 import { UpdateBanner } from './UpdateBanner'
@@ -22,6 +22,7 @@ import {
   type FlightPlan,
   type Navigation
 } from './app/use-app-state'
+import { lazyView } from './app/lazy-view'
 import { useDisplaySettings, type DisplaySettings } from './app/use-display-settings'
 
 // Fleet is the default/first tab, so it's the one view kept eager — every other tab is
@@ -34,12 +35,18 @@ const loadGsxRemoteView = () => import('./GsxRemoteView').then((m) => ({ default
 const loadBeyondAtcView = () => import('./BeyondAtcView').then((m) => ({ default: m.BeyondAtcView }))
 const loadLogbookView = () => import('./LogbookView').then((m) => ({ default: m.LogbookView }))
 const loadSettingsView = () => import('./SettingsView').then((m) => ({ default: m.SettingsView }))
-const DispatchView = lazy(loadDispatchView)
-const TrackView = lazy(loadTrackView)
-const GsxRemoteView = lazy(loadGsxRemoteView)
-const BeyondAtcView = lazy(loadBeyondAtcView)
-const LogbookView = lazy(loadLogbookView)
-const SettingsView = lazy(loadSettingsView)
+const dispatchView = lazyView(loadDispatchView)
+const trackView = lazyView(loadTrackView)
+const gsxRemoteView = lazyView(loadGsxRemoteView)
+const beyondAtcView = lazyView(loadBeyondAtcView)
+const logbookView = lazyView(loadLogbookView)
+const settingsView = lazyView(loadSettingsView)
+const DispatchView = dispatchView.View
+const TrackView = trackView.View
+const GsxRemoteView = gsxRemoteView.View
+const BeyondAtcView = beyondAtcView.View
+const LogbookView = logbookView.View
+const SettingsView = settingsView.View
 
 /**
  * Suspense's fallback for a lazy view's first render (docs/plans/navigation-tab-
@@ -76,12 +83,12 @@ function usePrefetchViews(): void {
     const cancelIdle: (handle: number) => void =
       typeof window.cancelIdleCallback === 'function' ? window.cancelIdleCallback : window.clearTimeout
     const handle = idle(() => {
-      runAsync('preload Dispatch view', loadDispatchView())
-      runAsync('preload Track view', loadTrackView())
-      runAsync('preload GsxRemote view', loadGsxRemoteView())
-      runAsync('preload BeyondAtc view', loadBeyondAtcView())
-      runAsync('preload Logbook view', loadLogbookView())
-      runAsync('preload Settings view', loadSettingsView())
+      runAsync('preload Dispatch view', dispatchView.preload())
+      runAsync('preload Track view', trackView.preload())
+      runAsync('preload GsxRemote view', gsxRemoteView.preload())
+      runAsync('preload BeyondAtc view', beyondAtcView.preload())
+      runAsync('preload Logbook view', logbookView.preload())
+      runAsync('preload Settings view', settingsView.preload())
     })
     return () => cancelIdle(handle)
   }, [])
