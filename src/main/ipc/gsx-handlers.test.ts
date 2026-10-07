@@ -151,7 +151,7 @@ describe('GSX invoice IPC handlers', () => {
     writeReceipt(join(root, 'Fuel'), '20260906T121500Z_EGLL_G-ABCD.json', '£40.00 ~$ 50.00')
     const [stored] = ((await invoke(IpcChannels.gsxRescanFlight, flightId)) as { invoices: FlightInvoice[] })
       .invoices
-    for (const planted of ['C:\Windows\System32\calc.exe', join(root, 'Fuel', 'run.exe')]) {
+    for (const planted of ['C:\\Windows\\System32\\calc.exe', join(root, 'Fuel', 'run.exe')]) {
       db.update(flightInvoice).set({ sourceHtmlPath: planted }).run()
       await invoke(IpcChannels.gsxOpenReceipt, planted)
     }
