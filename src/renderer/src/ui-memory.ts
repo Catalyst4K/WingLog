@@ -5,7 +5,7 @@
  * Values are read when a component mounts and written as they change; nothing subscribes.
  */
 import type { Airfield, NavdataTaxiSegment } from '@shared/ipc'
-import type { TaxiClearance } from './taxi-clearance'
+import { INITIAL_TAXI_MEMORY, type TaxiMemory } from './taxi-clearance-step'
 
 /** Everything remembered between mounts. */
 export interface UiMemory {
@@ -29,18 +29,7 @@ export interface UiMemory {
   /** The airfield list, fetched once (~43k rows), so it isn't sent over IPC again. */
   vfrAirfields: Airfield[] | null
   /** The taxi line's clearance and what's been read, so a remount doesn't re-take old ones. */
-  taxiRoute: {
-    clearance: TaxiClearance | null
-    /** The newest transcript line already looked at, epoch ms. */
-    lastTranscriptTs: number
-    /** Whether the aircraft was last seen past the takeoff roll. */
-    departed: boolean
-    /** The last InfoBoxes taxi clearance taken, and when (epoch ms). */
-    boxKey: string
-    boxAt: number
-    /** The last spoken hold-short runway, and when (epoch ms). */
-    holdShort: { runway: string; at: number } | null
-  }
+  taxiRoute: TaxiMemory
 }
 
 function initial(): UiMemory {
@@ -54,7 +43,7 @@ function initial(): UiMemory {
     approachCleared: new Set(),
     vfrEnabled: false,
     vfrAirfields: null,
-    taxiRoute: { clearance: null, lastTranscriptTs: 0, departed: false, boxKey: '', boxAt: 0, holdShort: null }
+    taxiRoute: { ...INITIAL_TAXI_MEMORY }
   }
 }
 
