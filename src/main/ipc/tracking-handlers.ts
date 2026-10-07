@@ -174,7 +174,8 @@ export function registerFlightHandlers(ipcMain: IpcMain, deps: TrackingHandlerDe
   // pressing "Fly" on a new plan replaces whatever was already planned or being tracked,
   // rather than letting flights pile up alongside each other.
   ipcMain.handle(IpcChannels.flightCreate, (_event, input: NewFlight) => {
-    if (!getLiveAircraftById(db, input.aircraftId)) {
+    const plannedAircraft = getLiveAircraftById(db, input.aircraftId)
+    if (!plannedAircraft || isRetired(plannedAircraft)) {
       throw new Error(t('errors.aircraftNotFoundOrRetired', { id: input.aircraftId }))
     }
     trackingController.stop()

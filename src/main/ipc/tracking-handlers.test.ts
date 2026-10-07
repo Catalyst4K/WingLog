@@ -235,6 +235,18 @@ describe('tracking and flight IPC handlers', () => {
     expect(sync).toHaveBeenCalledTimes(1)
   })
 
+  it('refuses a retired aircraft for a new flight, the same as a deleted one', () => {
+    const invoke = register()
+    const retired = createAircraft(db, { registration: 'G-OLD', icaoType: 'A320' })
+    retireAircraft(db, retired.id)
+    expect(() =>
+      invoke(IpcChannels.flightCreate, { aircraftId: retired.id, depIcao: 'EGLL', arrIcao: 'EGCC' })
+    ).toThrow('not found or retired')
+    expect(tracking.stop).not.toHaveBeenCalled()
+    expect(getInProgressFlight(db)).toBeUndefined()
+    expect(sync).not.toHaveBeenCalled()
+  })
+
   it('refuses a deleted fleet aircraft for a free flight, a new flight, or a link', () => {
     const invoke = register()
     const gone = createAircraft(db, { registration: 'G-GONE', icaoType: 'A320' })
