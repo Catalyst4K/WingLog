@@ -37,6 +37,140 @@ const LANDING_TAB_THRESHOLD = 4
  *  resolved airfield falls back to its position in the whole sequence ("Landing 2"). The
  *  runway is still shown inside the card itself. */
 /**
+ * The control that picks which landing the card shows: tabs for a few landings, a dropdown for
+ * more than LANDING_TAB_THRESHOLD.
+ *
+ * @param props The labels and ids of the landings, the selected index, and the handler.
+ * @returns The element.
+ */
+function LandingSwitcher(props: {
+  labels: string[]
+  ids: number[]
+  selectedIndex: number
+  onSelect: (index: number) => void
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  const { selectedIndex } = props
+  return (
+    <CardAction>
+      {props.ids.length <= LANDING_TAB_THRESHOLD ? (
+        <Tabs value={String(selectedIndex)} onValueChange={(v) => props.onSelect(Number(v))}>
+          <TabsList aria-label={t('logbookView.landingCard.selectLanding')}>
+            {props.ids.map((id, i) => (
+              <TabsTrigger key={id} value={String(i)}>
+                {props.labels[i]}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      ) : (
+        <Select value={String(selectedIndex)} onValueChange={(v) => props.onSelect(Number(v))}>
+          <SelectTrigger className="w-40" size="sm" aria-label={t('logbookView.landingCard.selectLanding')}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {props.ids.map((id, i) => (
+              <SelectItem key={id} value={String(i)}>
+                {props.labels[i]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+    </CardAction>
+  )
+}
+
+/**
+ * The landing's measurements as a label / value list, with a warning mark on each one that
+ * scored badly.
+ *
+ * @param props The landing, its score result, and the distance unit.
+ * @returns The element.
+ */
+function LandingFields(props: {
+  landing: LandingWithDetails
+  scoreResult: LandingWithDetails['score']
+  unit: LandingDistanceUnit
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  const { landing, scoreResult, unit } = props
+
+  function categoryScore(key: LandingScoreCategoryKey): number | null {
+    return scoreResult?.categories.find((c) => c.key === key)?.score ?? null
+  }
+
+  return (
+    <dl className={cn(DETAIL_GRID_CLASS, 'min-w-0 flex-1')}>
+      <DetailField
+        label={t('logbookView.landingCard.landingScore')}
+        value={<LandingScoreBadge score={scoreResult?.score ?? null} />}
+        valueClassName="text-base font-semibold"
+      />
+      <DetailField
+        label={t('logbookView.landingCard.touchdownRate')}
+        warn={isCategoryBad(categoryScore('verticalSpeed'))}
+        value={
+          <span className="flex items-center gap-2">
+            {Math.round(msToFpm(landing.verticalSpeedMs))} fpm
+            {scoreResult && <LandingBadge severity={scoreResult.severity} />}
+          </span>
+        }
+      />
+      <DetailField
+        label={t('logbookView.landingCard.gForce')}
+        value={landing.gForce.toFixed(2)}
+        warn={isCategoryBad(categoryScore('gForce'))}
+      />
+      <DetailField
+        label={t('logbookView.landingCard.pitch')}
+        value={formatPitchDeg(landing.pitchDeg)}
+        warn={isCategoryBad(categoryScore('pitch'))}
+      />
+      <DetailField
+        label={t('logbookView.landingCard.bank')}
+        value={`${landing.bankDeg.toFixed(1)}°`}
+        warn={isCategoryBad(categoryScore('bank'))}
+      />
+      <DetailField
+        label={t('logbookView.landingCard.crab')}
+        value={landing.crabDeg != null ? `${landing.crabDeg.toFixed(1)}°` : '—'}
+        warn={isCategoryBad(categoryScore('crab'))}
+      />
+      <DetailField
+        label={t('logbookView.landingCard.airspeedGroundSpeed')}
+        value={`${Math.round(msToKt(landing.indicatedAirspeedMs))} / ${Math.round(msToKt(landing.groundSpeedMs))} kt`}
+      />
+      <DetailField
+        label={t('logbookView.landingCard.headwindCrosswind')}
+        value={
+          landing.headwindMs != null && landing.crosswindMs != null
+            ? `${Math.round(msToKt(landing.headwindMs))} / ${Math.round(msToKt(landing.crosswindMs))} kt`
+            : '—'
+        }
+      />
+      <DetailField label={t('logbookView.landingCard.runway')} value={landing.runwayIdent ?? '—'} />
+      <DetailField
+        label={t('logbookView.landingCard.distanceFromThreshold')}
+        warn={isCategoryBad(categoryScore('distanceFromAimingPoint'))}
+        value={
+          landing.distanceFromThresholdM != null
+            ? formatRunwayDistance(landing.distanceFromThresholdM, unit)
+            : '—'
+        }
+      />
+      <DetailField
+        label={t('logbookView.landingCard.centrelineOffset')}
+        warn={isCategoryBad(categoryScore('centrelineOffset'))}
+        value={
+          landing.centrelineOffsetM != null ? formatCentrelineOffset(landing.centrelineOffsetM, unit) : '—'
+        }
+      />
+    </dl>
+  )
+}
+
+/**
  * Exported so it's directly testable without mounting FlightDetail's FlightMap, which
  * LandingCard has no dependency on itself — LogbookView.test.tsx uses this.
  *
@@ -90,10 +224,6 @@ export function LandingCard(props: {
   const scoreResult = landing.score
   const unit = props.landingDistanceUnit
 
-  function categoryScore(key: LandingScoreCategoryKey): number | null {
-    return scoreResult?.categories.find((c) => c.key === key)?.score ?? null
-  }
-
   return (
     // `@container` + `@lg:` rather than the viewport's `sm:` - the card's width depends on
     // the layout around it (it wraps beside other cards), not just the window.
@@ -101,107 +231,16 @@ export function LandingCard(props: {
       <CardHeader>
         <CardTitle className="text-sm">{t('logbookView.landingCard.title')}</CardTitle>
         {landings.length > 1 && (
-          <CardAction>
-            {landings.length <= LANDING_TAB_THRESHOLD ? (
-              <Tabs value={String(selectedIndex)} onValueChange={(v) => setSelectedIndex(Number(v))}>
-                <TabsList aria-label={t('logbookView.landingCard.selectLanding')}>
-                  {landings.map((l, i) => (
-                    <TabsTrigger key={l.id} value={String(i)}>
-                      {labels[i]}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-              </Tabs>
-            ) : (
-              <Select value={String(selectedIndex)} onValueChange={(v) => setSelectedIndex(Number(v))}>
-                <SelectTrigger
-                  className="w-40"
-                  size="sm"
-                  aria-label={t('logbookView.landingCard.selectLanding')}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {landings.map((l, i) => (
-                    <SelectItem key={l.id} value={String(i)}>
-                      {labels[i]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </CardAction>
+          <LandingSwitcher
+            labels={labels}
+            ids={landings.map((l) => l.id)}
+            selectedIndex={selectedIndex}
+            onSelect={setSelectedIndex}
+          />
         )}
       </CardHeader>
       <CardContent className="flex flex-col gap-4 @lg:flex-row @lg:items-start">
-        <dl className={cn(DETAIL_GRID_CLASS, 'min-w-0 flex-1')}>
-          <DetailField
-            label={t('logbookView.landingCard.landingScore')}
-            value={<LandingScoreBadge score={scoreResult?.score ?? null} />}
-            valueClassName="text-base font-semibold"
-          />
-          <DetailField
-            label={t('logbookView.landingCard.touchdownRate')}
-            warn={isCategoryBad(categoryScore('verticalSpeed'))}
-            value={
-              <span className="flex items-center gap-2">
-                {Math.round(msToFpm(landing.verticalSpeedMs))} fpm
-                {scoreResult && <LandingBadge severity={scoreResult.severity} />}
-              </span>
-            }
-          />
-          <DetailField
-            label={t('logbookView.landingCard.gForce')}
-            value={landing.gForce.toFixed(2)}
-            warn={isCategoryBad(categoryScore('gForce'))}
-          />
-          <DetailField
-            label={t('logbookView.landingCard.pitch')}
-            value={formatPitchDeg(landing.pitchDeg)}
-            warn={isCategoryBad(categoryScore('pitch'))}
-          />
-          <DetailField
-            label={t('logbookView.landingCard.bank')}
-            value={`${landing.bankDeg.toFixed(1)}°`}
-            warn={isCategoryBad(categoryScore('bank'))}
-          />
-          <DetailField
-            label={t('logbookView.landingCard.crab')}
-            value={landing.crabDeg != null ? `${landing.crabDeg.toFixed(1)}°` : '—'}
-            warn={isCategoryBad(categoryScore('crab'))}
-          />
-          <DetailField
-            label={t('logbookView.landingCard.airspeedGroundSpeed')}
-            value={`${Math.round(msToKt(landing.indicatedAirspeedMs))} / ${Math.round(msToKt(landing.groundSpeedMs))} kt`}
-          />
-          <DetailField
-            label={t('logbookView.landingCard.headwindCrosswind')}
-            value={
-              landing.headwindMs != null && landing.crosswindMs != null
-                ? `${Math.round(msToKt(landing.headwindMs))} / ${Math.round(msToKt(landing.crosswindMs))} kt`
-                : '—'
-            }
-          />
-          <DetailField label={t('logbookView.landingCard.runway')} value={landing.runwayIdent ?? '—'} />
-          <DetailField
-            label={t('logbookView.landingCard.distanceFromThreshold')}
-            warn={isCategoryBad(categoryScore('distanceFromAimingPoint'))}
-            value={
-              landing.distanceFromThresholdM != null
-                ? formatRunwayDistance(landing.distanceFromThresholdM, unit)
-                : '—'
-            }
-          />
-          <DetailField
-            label={t('logbookView.landingCard.centrelineOffset')}
-            warn={isCategoryBad(categoryScore('centrelineOffset'))}
-            value={
-              landing.centrelineOffsetM != null
-                ? formatCentrelineOffset(landing.centrelineOffsetM, unit)
-                : '—'
-            }
-          />
-        </dl>
+        <LandingFields landing={landing} scoreResult={scoreResult} unit={unit} />
         {scoreResult && (
           // The breakdown trigger lives in this same right-hand column, centred above the
           // diagram (Callum, 2026-09-13), rather than in the card header — a header

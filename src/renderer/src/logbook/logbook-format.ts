@@ -2,6 +2,12 @@
 
 import type { Flight, LogbookFlight } from '@shared/ipc'
 
+/**
+ * A date and time in the user's locale.
+ *
+ * @param iso An ISO timestamp, or null.
+ * @returns The formatted text, or a dash when there is none.
+ */
 export function formatDate(iso: string | null): string {
   return iso ? new Date(iso).toLocaleString() : '—'
 }

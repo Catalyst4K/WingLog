@@ -14,6 +14,11 @@ import { runAsync } from '../report-error'
 import { formatDate } from './logbook-format'
 import { LANDING_SORT_KEYS, landingSortColumns, compareLandingRows, type LandingSortKey } from './sorting'
 
+/**
+ * Five placeholder rows of seven cells, shown in a table body while its rows load.
+ *
+ * @returns The rows.
+ */
 export function LogbookRowsSkeleton(): React.JSX.Element {
   return (
     <>

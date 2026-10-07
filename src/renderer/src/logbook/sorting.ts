@@ -9,6 +9,12 @@ export type SortKey = 'date' | 'flight' | 'route' | 'aircraft' | 'block' | 'scor
 // column, so it reads best at the row's end rather than interrupting block/fuel.
 export const SORT_KEYS: SortKey[] = ['date', 'flight', 'route', 'aircraft', 'block', 'fuel', 'score']
 
+/**
+ * The flights table's columns, in display order.
+ *
+ * @param t The translation function.
+ * @returns Each column's sort key, label and any extra class.
+ */
 export function sortColumns(t: TFunction): { key: SortKey; label: string; className?: string }[] {
   return [
     { key: 'date', label: t('logbookView.sortColumns.date') },
@@ -21,6 +27,37 @@ export function sortColumns(t: TFunction): { key: SortKey; label: string; classN
   ]
 }
 
+/** What the flight comparators need beyond the two rows: the aircraft's registration and the
+ *  flight's landing score live outside LogbookFlight. */
+interface FlightLookups {
+  registrationFor: (flight: LogbookFlight) => string
+  scoreFor: (flightId: number) => number | null
+}
+
+const FLIGHT_COMPARATORS: Record<SortKey, (a: LogbookFlight, b: LogbookFlight, l: FlightLookups) => number> =
+  {
+    date: (a, b) => (a.actualOutUtc ?? '').localeCompare(b.actualOutUtc ?? ''),
+    flight: (a, b) => (a.flightNumber ?? '').localeCompare(b.flightNumber ?? ''),
+    route: (a, b) => `${a.depIcao}${a.arrIcao}`.localeCompare(`${b.depIcao}${b.arrIcao}`),
+    aircraft: (a, b, l) => l.registrationFor(a).localeCompare(l.registrationFor(b)),
+    block: (a, b) => (a.blockMinutes ?? 0) - (b.blockMinutes ?? 0),
+    // A missing score (no landing row — a CSV import, or a flight tracked before landing
+    // capture shipped) sorts alongside a genuine 0, same convention 'block'/'fuel' here
+    // already use for their own nullable fields.
+    score: (a, b, l) => (l.scoreFor(a.id) ?? 0) - (l.scoreFor(b.id) ?? 0),
+    fuel: (a, b) => (a.fuelBurnKg ?? 0) - (b.fuelBurnKg ?? 0)
+  }
+
+/**
+ * Orders two logbook flights by one column.
+ *
+ * @param a The first flight.
+ * @param b The second flight.
+ * @param key The column.
+ * @param registrationFor Gives a flight's aircraft registration.
+ * @param scoreFor Gives a flight's landing score, or null when it has none.
+ * @returns Negative, zero or positive, as for Array.sort.
+ */
 export function compareFlights(
   a: LogbookFlight,
   b: LogbookFlight,
@@ -28,25 +65,7 @@ export function compareFlights(
   registrationFor: (flight: LogbookFlight) => string,
   scoreFor: (flightId: number) => number | null
 ): number {
-  switch (key) {
-    case 'date':
-      return (a.actualOutUtc ?? '').localeCompare(b.actualOutUtc ?? '')
-    case 'flight':
-      return (a.flightNumber ?? '').localeCompare(b.flightNumber ?? '')
-    case 'route':
-      return `${a.depIcao}${a.arrIcao}`.localeCompare(`${b.depIcao}${b.arrIcao}`)
-    case 'aircraft':
-      return registrationFor(a).localeCompare(registrationFor(b))
-    case 'block':
-      return (a.blockMinutes ?? 0) - (b.blockMinutes ?? 0)
-    // A missing score (no landing row — a CSV import, or a flight tracked before landing
-    // capture shipped) sorts alongside a genuine 0, same convention 'block'/'fuel' above
-    // already use for their own nullable fields.
-    case 'score':
-      return (scoreFor(a.id) ?? 0) - (scoreFor(b.id) ?? 0)
-    case 'fuel':
-      return (a.fuelBurnKg ?? 0) - (b.fuelBurnKg ?? 0)
-  }
+  return FLIGHT_COMPARATORS[key](a, b, { registrationFor, scoreFor })
 }
 
 export type LandingSortKey = 'date' | 'aircraft' | 'airport' | 'flight' | 'rate' | 'gforce' | 'score'
@@ -63,6 +82,12 @@ export const LANDING_SORT_KEYS: LandingSortKey[] = [
   'score'
 ]
 
+/**
+ * The landings table's columns, in display order.
+ *
+ * @param t The translation function.
+ * @returns Each column's sort key, label and any extra class.
+ */
 export function landingSortColumns(
   t: TFunction
 ): { key: LandingSortKey; label: string; className?: string }[] {
@@ -77,23 +102,27 @@ export function landingSortColumns(
   ]
 }
 
+const LANDING_COMPARATORS: Record<LandingSortKey, (a: LandingListRow, b: LandingListRow) => number> = {
+  date: (a, b) => a.touchdownTsUtc.localeCompare(b.touchdownTsUtc),
+  aircraft: (a, b) => a.aircraftRegistration.localeCompare(b.aircraftRegistration),
+  airport: (a, b) =>
+    `${a.icao ?? ''}${a.runwayIdent ?? ''}`.localeCompare(`${b.icao ?? ''}${b.runwayIdent ?? ''}`),
+  flight: (a, b) => (a.flightNumber ?? '').localeCompare(b.flightNumber ?? ''),
+  rate: (a, b) => a.verticalSpeedMs - b.verticalSpeedMs,
+  gforce: (a, b) => a.gForce - b.gForce,
+  // A missing score sorts alongside a genuine 0, same convention the flights table's own
+  // score column already uses.
+  score: (a, b) => (a.score ?? 0) - (b.score ?? 0)
+}
+
+/**
+ * Orders two landings by one column.
+ *
+ * @param a The first landing.
+ * @param b The second landing.
+ * @param key The column.
+ * @returns Negative, zero or positive, as for Array.sort.
+ */
 export function compareLandingRows(a: LandingListRow, b: LandingListRow, key: LandingSortKey): number {
-  switch (key) {
-    case 'date':
-      return a.touchdownTsUtc.localeCompare(b.touchdownTsUtc)
-    case 'aircraft':
-      return a.aircraftRegistration.localeCompare(b.aircraftRegistration)
-    case 'airport':
-      return `${a.icao ?? ''}${a.runwayIdent ?? ''}`.localeCompare(`${b.icao ?? ''}${b.runwayIdent ?? ''}`)
-    case 'flight':
-      return (a.flightNumber ?? '').localeCompare(b.flightNumber ?? '')
-    case 'rate':
-      return a.verticalSpeedMs - b.verticalSpeedMs
-    case 'gforce':
-      return a.gForce - b.gForce
-    // A missing score sorts alongside a genuine 0, same convention the flights table's own
-    // score column already uses.
-    case 'score':
-      return (a.score ?? 0) - (b.score ?? 0)
-  }
+  return LANDING_COMPARATORS[key](a, b)
 }

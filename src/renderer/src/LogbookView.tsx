@@ -12,20 +12,14 @@ import type {
   LogbookStats,
   WeightUnit
 } from '@shared/ipc'
-import { Badge } from '@/components/ui/badge'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { FolderTabs, FolderTabsContent, FolderTabsList, FolderTabsTrigger } from './components/FolderTabs'
-import { displayIcao } from './display-icao'
 import { useResetSignal } from './hooks/useResetSignal'
 import { useSortable } from './hooks/useSortable'
-import { LandingScoreBadge } from './LandingScoreBadge'
-import { SortableHead } from './SortableHead'
-import { formatMinutes, formatWeight } from './units'
 import { asyncHandler, runAsync } from './report-error'
-import { formatDate, isFreeFlight } from './logbook/logbook-format'
 import { FlightDetailLoader } from './logbook/FlightDetail'
-import { SORT_KEYS, sortColumns, compareFlights, type SortKey } from './logbook/sorting'
-import { LogbookRowsSkeleton, LandingsTable } from './logbook/LandingsTable'
+import { SORT_KEYS, compareFlights, type SortKey } from './logbook/sorting'
+import { FlightsTable, LogbookStatsStrip } from './logbook/FlightsTable'
+import { LandingsTable } from './logbook/LandingsTable'
 
 type View = { kind: 'list' } | { kind: 'detail'; id: number }
 
@@ -186,32 +180,7 @@ export function LogbookView(props: {
     <div className="flex flex-col gap-6">
       <h1 className="font-heading text-2xl font-semibold text-foreground">{t('logbookView.title')}</h1>
 
-      {!loading && flights.length > 0 && (
-        <div className="flex flex-wrap gap-8">
-          <div>
-            <p className="text-xs tracking-wide text-muted-foreground uppercase">
-              {t('logbookView.stats.totalFlights')}
-            </p>
-            <p className="text-xl font-semibold text-foreground">{stats?.totalFlights ?? flights.length}</p>
-          </div>
-          <div>
-            <p className="text-xs tracking-wide text-muted-foreground uppercase">
-              {t('logbookView.stats.totalFlightHours')}
-            </p>
-            <p className="text-xl font-semibold text-foreground">
-              {formatMinutes(stats?.totalBlockMinutes ?? null)}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs tracking-wide text-muted-foreground uppercase">
-              {t('logbookView.stats.totalMilesFlown')}
-            </p>
-            <p className="text-xl font-semibold text-foreground">
-              {stats ? `${Math.round(stats.totalNm).toLocaleString()} nm` : '—'}
-            </p>
-          </div>
-        </div>
-      )}
+      {!loading && flights.length > 0 && <LogbookStatsStrip stats={stats} flightCount={flights.length} />}
 
       <FolderTabs defaultValue="flights" className="gap-0">
         <FolderTabsList>
@@ -220,84 +189,18 @@ export function LogbookView(props: {
         </FolderTabsList>
 
         <FolderTabsContent value="flights" className="pt-4">
-          {loading ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {sortColumns(t).map((col) => (
-                    <TableHead key={col.key} className={col.className}>
-                      {col.label}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <LogbookRowsSkeleton />
-              </TableBody>
-            </Table>
-          ) : flights.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t('logbookView.noCompletedFlights')}</p>
-          ) : (
-            <div className="flex flex-col gap-6">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    {sortColumns(t).map((col) => (
-                      <SortableHead
-                        key={col.key}
-                        sortKey={col.key}
-                        label={col.label}
-                        activeKey={sortKey}
-                        dir={sortDir}
-                        onSort={handleSort}
-                        className={col.className}
-                      />
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedFlights.map((f) => {
-                    const landingCount = landingCountFor(f.id)
-                    return (
-                      <TableRow
-                        key={f.id}
-                        onClick={() => setView({ kind: 'detail', id: f.id })}
-                        className="cursor-pointer"
-                      >
-                        <TableCell>{formatDate(f.actualOutUtc)}</TableCell>
-                        <TableCell>
-                          <span className="inline-flex items-center gap-1.5">
-                            {f.flightNumber ?? '—'}
-                            {isFreeFlight(f) && (
-                              <Badge variant="outline" className="text-xs font-normal">
-                                {t('logbookView.freeFlight')}
-                              </Badge>
-                            )}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          {displayIcao(f.depIcao)} → {displayIcao(f.arrIcao)}
-                        </TableCell>
-                        <TableCell>{registrationFor(f)}</TableCell>
-                        <TableCell>{formatMinutes(f.blockMinutes)}</TableCell>
-                        <TableCell>{formatWeight(f.fuelBurnKg, props.weightUnit)}</TableCell>
-                        <TableCell className="text-center">
-                          <span className="inline-flex items-center gap-1.5">
-                            <LandingScoreBadge score={scoreFor(f.id)} />
-                            {landingCount > 1 && (
-                              <Badge variant="outline" className="text-xs">
-                                ×{landingCount}
-                              </Badge>
-                            )}
-                          </span>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          <FlightsTable
+            loading={loading}
+            flights={sortedFlights}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSort={handleSort}
+            registrationFor={registrationFor}
+            scoreFor={scoreFor}
+            landingCountFor={landingCountFor}
+            weightUnit={props.weightUnit}
+            onOpen={(id) => setView({ kind: 'detail', id })}
+          />
         </FolderTabsContent>
 
         <FolderTabsContent value="landings" className="pt-4">
