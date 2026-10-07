@@ -31,6 +31,13 @@ interface AdsbdbAircraft {
   url_photo_thumbnail?: unknown
 }
 
+/**
+ * Looks a registration up on adsbdb.com.
+ *
+ * @param registration The registration to look up.
+ * @returns The aircraft, or null if adsbdb doesn't know the registration.
+ * @throws AdsbdbError on any other failed or malformed reply.
+ */
 export async function fetchAircraftByRegistration(
   registration: string
 ): Promise<AircraftLookupResult | null> {

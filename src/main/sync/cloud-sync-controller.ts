@@ -19,6 +19,9 @@ import { getLastSyncCompletedAt, setLastSyncCompletedAt } from '../db/settings-r
 import type { WingLogDb } from '../db/client'
 import { runSync } from './sync-engine'
 
+/**
+ * Cloud sync for the app: the signed-in session, its status, and running a sync.
+ */
 export class CloudSyncController {
   private session: StoredSession | null
   private syncing = false
@@ -52,7 +55,14 @@ export class CloudSyncController {
     return this.getStatus()
   }
 
-  /** Provision then log in — see sync-client.ts's provision() for the invite-code gate. */
+/**
+ * Provision then log in — see sync-client.ts's provision() for the invite-code gate.
+ *
+ * @param email The account email.
+ * @param password The password.
+ * @param inviteCode The invite code.
+ * @returns The status after logging in.
+ */
   async signup(email: string, password: string, inviteCode: string): Promise<SyncStatus> {
     await backendProvision(email, password, inviteCode)
     return this.login(email, password)

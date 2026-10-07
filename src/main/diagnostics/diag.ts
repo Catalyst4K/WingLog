@@ -21,6 +21,10 @@ export const MAX_LINE_CHARS = 8_000
 /** `diag.log` rotates to `diag.old.log` past this size, in bytes. */
 const MAX_LOG_BYTES = 10 * 1024 * 1024
 
+/**
+ * @param value A category from the renderer.
+ * @returns True if it is one of DIAG_CATEGORIES.
+ */
 export function isDiagCategory(value: unknown): value is DiagCategory {
   return typeof value === 'string' && (DIAG_CATEGORIES as readonly string[]).includes(value)
 }
@@ -28,6 +32,8 @@ export function isDiagCategory(value: unknown): value is DiagCategory {
 /**
  * Formats one diagnostic line: the category, the message, and `data` as JSON if given.
  *
+ * @param category The line's category.
+ * @param message What happened.
  * @param data Anything JSON-serialisable. If it can't be serialised, the line says so rather
  *   than throwing: logging must never break the code it's watching.
  * @returns The line, cut to MAX_LINE_CHARS.
@@ -50,6 +56,7 @@ export function formatDiagLine(category: DiagCategory, message: string, data?: u
  * Makes the diag function.
  *
  * @param write Where lines go, or null for a function that does nothing (the normal build).
+ * @returns The diag function.
  */
 export function createDiag(write: ((line: string) => void) | null): Diag {
   if (!write) return () => undefined
@@ -65,6 +72,8 @@ export function createDiag(write: ((line: string) => void) | null): Diag {
 /**
  * The real writer: an electron-log instance of its own, writing `diag.log` beside `main.log`
  * (Windows: `%APPDATA%\WingLog\logs\diag.log`), never to the console.
+ *
+ * @returns A function that writes one line to diag.log.
  */
 export function openDiagLog(): (line: string) => void {
   const diagLog = log.create({ logId: 'diag' })

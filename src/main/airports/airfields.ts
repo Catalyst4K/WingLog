@@ -1,9 +1,12 @@
-// Every airfield with a position, for the Track map's VFR overlay (winglog-backend
-// docs/plans/map-language-and-declutter.md, Part C). Same vendored OurAirports slice as
-// airport-search.ts (resources/airports.csv) — no new data source, nothing leaves the
-// machine. Parsed on first use, not at module load: ~43,400 rows is a real chunk of heap
-// (docs/decisions.md, memory-usage entry) that a session that never opens the overlay
-// shouldn't pay for.
+/**
+ * Every airfield with a position, for the Track map's VFR overlay (winglog-backend
+ * docs/plans/map-language-and-declutter.md, Part C). Same vendored OurAirports slice as
+ * airport-search.ts (resources/airports.csv) — no new data source, nothing leaves the
+ * machine. Parsed on first use, not at module load: ~43,400 rows is a real chunk of heap
+ * (docs/decisions.md, memory-usage entry) that a session that never opens the overlay
+ * shouldn't pay for.
+ */
+
 import type { Airfield, AirfieldType } from '@shared/ipc'
 import { columnIndex, parseCsvRows } from '../db/csv'
 import airportsRaw from '../../../resources/airports.csv?raw'
@@ -17,8 +20,13 @@ const AIRFIELD_TYPES: ReadonlySet<string> = new Set<AirfieldType>([
   'seaplane_base'
 ])
 
-/** Pure — takes the CSV text so it's testable without the bundler's `?raw` import. Rows
- *  with no usable position, or of a type a pilot can't land on (balloonports), are dropped. */
+/**
+ * Pure — takes the CSV text so it's testable without the bundler's `?raw` import. Rows
+ * with no usable position, or of a type a pilot can't land on (balloonports), are dropped.
+ *
+ * @param raw The OurAirports CSV.
+ * @returns Every landable airfield with a position.
+ */
 export function loadAirfields(raw: string): Airfield[] {
   const [header, ...rows] = parseCsvRows(raw)
   const icaoIdx = columnIndex(header, 'icao')
@@ -48,6 +56,11 @@ export function loadAirfields(raw: string): Airfield[] {
 
 const airfields = lazy(() => loadAirfields(airportsRaw))
 
+/**
+ * The VFR overlay's airfields.
+ *
+ * @returns Every airfield, parsed on first call.
+ */
 export function listAirfields(): Airfield[] {
   return airfields()
 }

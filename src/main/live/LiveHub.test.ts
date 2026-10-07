@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { LiveTopics } from '@shared/live'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
+import { logger } from '../logging/logger'
 import { LiveHub } from './LiveHub'
 
 // A real-shaped sample: the A350 at VHHH stand N32, 2026-10-02.
@@ -64,7 +65,7 @@ describe('LiveHub', () => {
 
   it("keeps going when one subscriber throws (a closed window mustn't cut off the rest)", () => {
     const hub = new LiveHub()
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
     const after = vi.fn()
     hub.subscribe(() => {
       throw new Error('Object has been destroyed')
