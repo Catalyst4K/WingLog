@@ -8,10 +8,10 @@ import jsdoc from 'eslint-plugin-jsdoc'
 import eslintComments from '@eslint-community/eslint-plugin-eslint-comments'
 import fileHeader from './eslint-rules/file-header.mjs'
 
-// The coding standards' rules (winglog-backend docs/coding-standards.md), as warnings while
-// the audit works through the code area by area (robustness/code-standards-audit.md, phase 1).
-// They become errors in phase 4. App code only: tests, the vendored shadcn components and the
-// scripts are out of scope for now. `npm run lint:report` counts them per rule and area.
+// The coding standards' rules (winglog-backend docs/coding-standards.md). Errors since the audit
+// cleared every area (robustness/code-standards-audit.md, phase 4), so none can come back.
+// App code only: tests, the vendored shadcn components and the scripts are out of scope.
+// `npm run lint:report` counts them per rule and area.
 const APP_CODE = ['src/**/*.{ts,tsx}']
 const NOT_APP_CODE = ['src/**/*.test.{ts,tsx}', 'src/renderer/src/components/ui/**', 'src/**/*.d.ts']
 
@@ -57,19 +57,19 @@ export default tseslint.config(
     plugins: { jsdoc, 'eslint-comments': eslintComments, winglog: { rules: { 'file-header': fileHeader } } },
     rules: {
       // §2 headers
-      'winglog/file-header': 'warn',
+      'winglog/file-header': 'error',
       'jsdoc/require-jsdoc': [
-        'warn',
+        'error',
         {
           publicOnly: true,
           require: { FunctionDeclaration: true, ClassDeclaration: true, ArrowFunctionExpression: true, FunctionExpression: true }
         }
       ],
-      'jsdoc/require-param': ['warn', { checkDestructured: false }],
-      'jsdoc/require-returns': ['warn', { checkGetters: false }],
+      'jsdoc/require-param': ['error', { checkDestructured: false }],
+      'jsdoc/require-returns': ['error', { checkGetters: false }],
       // §4 no mutable module-level state (src/shared/lazy.ts and the renderer store are exempt below)
       'no-restricted-syntax': [
-        'warn',
+        'error',
         {
           selector: 'Program > VariableDeclaration[kind=/^(let|var)$/], Program > ExportNamedDeclaration > VariableDeclaration[kind=/^(let|var)$/]',
           message: 'No mutable module-level state: use lazy() or the renderer store (coding-standards.md §4).'
@@ -80,26 +80,26 @@ export default tseslint.config(
         }
       ],
       // §5 size and shape
-      'max-lines-per-function': ['warn', { max: 100, skipBlankLines: true, skipComments: true }],
-      complexity: ['warn', 15],
-      'max-depth': ['warn', 4],
-      'max-lines': ['warn', { max: 500, skipBlankLines: true, skipComments: true }],
+      'max-lines-per-function': ['error', { max: 100, skipBlankLines: true, skipComments: true }],
+      complexity: ['error', 15],
+      'max-depth': ['error', 4],
+      'max-lines': ['error', { max: 500, skipBlankLines: true, skipComments: true }],
       // §6 error handling
-      'no-empty': 'warn',
-      'no-console': 'warn',
-      '@typescript-eslint/no-floating-promises': 'warn',
-      '@typescript-eslint/no-misused-promises': 'warn',
+      'no-empty': 'error',
+      'no-console': 'error',
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-misused-promises': 'error',
       // §7 types
-      '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-non-null-assertion': 'warn',
-      'eslint-comments/require-description': 'warn'
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-non-null-assertion': 'error',
+      'eslint-comments/require-description': 'error'
     }
   },
   {
     // Components are split above ~300 lines (coding-standards.md §5), not 100.
     files: ['src/renderer/**/*.tsx'],
     ignores: NOT_APP_CODE,
-    rules: { 'max-lines-per-function': ['warn', { max: 300, skipBlankLines: true, skipComments: true }] }
+    rules: { 'max-lines-per-function': ['error', { max: 300, skipBlankLines: true, skipComments: true }] }
   },
   {
     files: ['src/shared/lazy.ts', 'src/renderer/src/ui-memory.ts'],
@@ -110,7 +110,7 @@ export default tseslint.config(
     ignores: NOT_APP_CODE,
     rules: {
       'no-restricted-imports': [
-        'warn',
+        'error',
         { patterns: [{ group: APP_SIDE_IMPORTS, message: 'Host-side code never imports app-side modules (coding-standards.md §9).' }] }
       ]
     }
@@ -119,7 +119,7 @@ export default tseslint.config(
     files: ['src/renderer/**/*.{ts,tsx}'],
     ignores: NOT_APP_CODE,
     rules: {
-      'no-restricted-imports': ['warn', { patterns: [{ group: ['**/main/**'], message: 'The renderer never imports src/main (CLAUDE.md, Rules).' }] }]
+      'no-restricted-imports': ['error', { patterns: [{ group: ['**/main/**'], message: 'The renderer never imports src/main (CLAUDE.md, Rules).' }] }]
     }
   },
   eslintConfigPrettier

@@ -16,7 +16,7 @@
     "test:e2e": "npm run build && playwright test",
     "lint": "eslint .",
     "lint:report": "eslint . -f json -o release/lint/eslint.json && tsx scripts/lint-report.ts",
-    "dup": "jscpd src --min-lines 8 --min-tokens 70 --ignore \"**/*.test.ts,**/*.test.tsx,**/components/ui/**,**/locales/**,**/__fixtures__/**\" --reporters console,json --output release/jscpd --silent",
+    "dup": "jscpd src --threshold 0.3 --min-lines 8 --min-tokens 70 --ignore \"**/*.test.ts,**/*.test.tsx,**/components/ui/**,**/locales/**,**/__fixtures__/**\" --reporters console,json --output release/jscpd --silent",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p e2e/tsconfig.json",
     "db:generate": "drizzle-kit generate",
