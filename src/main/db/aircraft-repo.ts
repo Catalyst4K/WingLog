@@ -80,6 +80,22 @@ export function getAircraftById(db: WingLogDb, id: number): Aircraft | undefined
 }
 
 /**
+ * An aircraft by id, never a deleted one: for checking an aircraft the renderer chose.
+ *
+ * @param db The database.
+ * @param id The aircraft.
+ * @returns The aircraft, or undefined when missing or deleted.
+ */
+export function getLiveAircraftById(db: WingLogDb, id: number): Aircraft | undefined {
+  const row = db
+    .select()
+    .from(aircraft)
+    .where(and(eq(aircraft.id, id), isNull(aircraft.deletedAt)))
+    .get()
+  return row ? toAircraft(row) : undefined
+}
+
+/**
  * See flight-repo.ts's getFlightIdByUuid for the shape/reasoning this mirrors.
  *
  * @param db The database.
@@ -187,19 +203,27 @@ export interface ReplaceAircraftInput {
  * @param db The database.
  * @param input The aircraft to retire, and the one taking over its flights.
  * @returns The retired aircraft.
- * @throws When the two are the same, either is missing, or the first was already replaced.
+ * @throws When the two are the same, either is missing or deleted, or the first was already replaced.
  */
 export function replaceAircraft(db: WingLogDb, input: ReplaceAircraftInput): Aircraft {
   const { retiredId, replacementId } = input
   if (retiredId === replacementId) throw new Error(t('errors.aircraftCannotReplaceSelf'))
 
-  const retired = db.select().from(aircraft).where(eq(aircraft.id, retiredId)).get()
+  const retired = db
+    .select()
+    .from(aircraft)
+    .where(and(eq(aircraft.id, retiredId), isNull(aircraft.deletedAt)))
+    .get()
   if (!retired) throw new Error(`Aircraft ${retiredId} not found`)
   if (retired.replacedByAircraftId !== null) {
     throw new Error(t('errors.aircraftAlreadyReplaced', { registration: retired.registration }))
   }
 
-  const replacement = db.select().from(aircraft).where(eq(aircraft.id, replacementId)).get()
+  const replacement = db
+    .select()
+    .from(aircraft)
+    .where(and(eq(aircraft.id, replacementId), isNull(aircraft.deletedAt)))
+    .get()
   if (!replacement) throw new Error(`Aircraft ${replacementId} not found`)
 
   // Same uuid/updatedAt discipline as every other write path here (see the uuid comment
@@ -232,7 +256,11 @@ export function replaceAircraft(db: WingLogDb, input: ReplaceAircraftInput): Air
  * @throws When it's missing, deleted, or already retired or replaced.
  */
 export function retireAircraft(db: WingLogDb, id: number): Aircraft {
-  const row = db.select().from(aircraft).where(and(eq(aircraft.id, id), isNull(aircraft.deletedAt))).get()
+  const row = db
+    .select()
+    .from(aircraft)
+    .where(and(eq(aircraft.id, id), isNull(aircraft.deletedAt)))
+    .get()
   if (!row) throw new Error(`Aircraft ${id} not found`)
   if (row.replacedByAircraftId !== null || row.retiredAt !== null) {
     throw new Error(t('errors.aircraftAlreadyRetired', { registration: row.registration }))
@@ -251,12 +279,17 @@ export function retireAircraft(db: WingLogDb, id: number): Aircraft {
  * @throws When it's missing, deleted, replaced, or not retired.
  */
 export function unretireAircraft(db: WingLogDb, id: number): Aircraft {
-  const row = db.select().from(aircraft).where(and(eq(aircraft.id, id), isNull(aircraft.deletedAt))).get()
+  const row = db
+    .select()
+    .from(aircraft)
+    .where(and(eq(aircraft.id, id), isNull(aircraft.deletedAt)))
+    .get()
   if (!row) throw new Error(`Aircraft ${id} not found`)
   if (row.replacedByAircraftId !== null) {
     throw new Error(t('errors.aircraftReplacedCannotUnretire', { registration: row.registration }))
   }
-  if (row.retiredAt === null) throw new Error(t('errors.aircraftNotRetired', { registration: row.registration }))
+  if (row.retiredAt === null)
+    throw new Error(t('errors.aircraftNotRetired', { registration: row.registration }))
   const now = new Date().toISOString()
   db.update(aircraft).set({ retiredAt: null, updatedAt: now }).where(eq(aircraft.id, id)).run()
   return toAircraft({ ...row, retiredAt: null, updatedAt: now })

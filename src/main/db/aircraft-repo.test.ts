@@ -7,7 +7,9 @@ import { aircraft as aircraftTable, flight } from './schema'
 import {
   createAircraft,
   deleteAircraft,
+  getAircraftById,
   getAircraftByRegistration,
+  getLiveAircraftById,
   listAircraft,
   replaceAircraft,
   retireAircraft,
@@ -98,7 +100,10 @@ describe('aircraft repo', () => {
   })
 
   describe('replaceAircraft', () => {
-    function makeAircraftPair(): { retired: ReturnType<typeof createAircraft>; replacement: ReturnType<typeof createAircraft> } {
+    function makeAircraftPair(): {
+      retired: ReturnType<typeof createAircraft>
+      replacement: ReturnType<typeof createAircraft>
+    } {
       const retired = createAircraft(db, { registration: 'G-OLD', icaoType: 'A320' })
       const replacement = createAircraft(db, { registration: 'G-NEW', icaoType: 'A320' })
       return { retired, replacement }
@@ -156,14 +161,30 @@ describe('aircraft repo', () => {
       )
     })
 
+    it('rejects a deleted aircraft on either side, so flights never move onto one', () => {
+      const { retired, replacement } = makeAircraftPair()
+      const gone = createAircraft(db, { registration: 'G-GONE', icaoType: 'A320' })
+      deleteAircraft(db, gone.id)
+      expect(() => replaceAircraft(db, { retiredId: retired.id, replacementId: gone.id })).toThrow(
+        /not found/
+      )
+      expect(() => replaceAircraft(db, { retiredId: gone.id, replacementId: replacement.id })).toThrow(
+        /not found/
+      )
+    })
+
     it('rejects a retiredId that does not exist', () => {
       const { replacement } = makeAircraftPair()
-      expect(() => replaceAircraft(db, { retiredId: 999_999, replacementId: replacement.id })).toThrow(/not found/)
+      expect(() => replaceAircraft(db, { retiredId: 999_999, replacementId: replacement.id })).toThrow(
+        /not found/
+      )
     })
 
     it('rejects a replacementId that does not exist', () => {
       const { retired } = makeAircraftPair()
-      expect(() => replaceAircraft(db, { retiredId: retired.id, replacementId: 999_999 })).toThrow(/not found/)
+      expect(() => replaceAircraft(db, { retiredId: retired.id, replacementId: 999_999 })).toThrow(
+        /not found/
+      )
     })
 
     it('does not partially apply on a validation failure — no flights move, no flag set', () => {
@@ -242,5 +263,19 @@ describe('aircraft repo', () => {
       retireAircraft(db, a.id)
       expect(() => retireAircraft(db, a.id)).toThrow('G-ONE ist bereits ausgemustert')
     })
+  })
+})
+
+describe('getLiveAircraftById', () => {
+  it('finds a live aircraft but not a deleted one, which getAircraftById still returns for history', () => {
+    const db = createDb(':memory:').db
+    migrate(db, { migrationsFolder: 'drizzle' })
+    const live = createAircraft(db, { registration: 'G-LIVE', icaoType: 'A320' })
+    const gone = createAircraft(db, { registration: 'G-GONE', icaoType: 'A320' })
+    deleteAircraft(db, gone.id)
+    expect(getLiveAircraftById(db, live.id)?.registration).toBe('G-LIVE')
+    expect(getLiveAircraftById(db, gone.id)).toBeUndefined()
+    expect(getLiveAircraftById(db, 999)).toBeUndefined()
+    expect(getAircraftById(db, gone.id)?.registration).toBe('G-GONE')
   })
 })

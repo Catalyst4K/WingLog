@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { IpcChannels, type Flight, type SimTelemetry, type StartFreeFlightInput } from '@shared/ipc'
-import { createAircraft, retireAircraft } from '../db/aircraft-repo'
+import { createAircraft, deleteAircraft, retireAircraft } from '../db/aircraft-repo'
 import { createDb, type WingLogDb } from '../db/client'
 import { createFlight, createFreeFlight, getFlight, getInProgressFlight } from '../db/flight-repo'
 import type { TrackingController } from '../tracking/TrackingController'
@@ -233,5 +233,32 @@ describe('tracking and flight IPC handlers', () => {
     )
     expect(() => invoke(IpcChannels.flightLinkAircraft, free.id, aircraft.id)).toThrow()
     expect(sync).toHaveBeenCalledTimes(1)
+  })
+
+  it('refuses a deleted fleet aircraft for a free flight, a new flight, or a link', () => {
+    const invoke = register()
+    const gone = createAircraft(db, { registration: 'G-GONE', icaoType: 'A320' })
+    deleteAircraft(db, gone.id)
+    const free = createFreeFlight(db, {
+      aircraftId: null,
+      simRegistration: 'G-EUPT',
+      simIcaoType: 'A319',
+      depIcao: 'EGLL',
+      arrIcao: 'EGCC',
+      flightNumber: null,
+      fuelOutKg: 5000
+    })
+    expect(() => invoke(IpcChannels.trackingStartFree, { ...FREE_FLIGHT, aircraftId: gone.id })).toThrow()
+    expect(() =>
+      invoke(IpcChannels.flightCreate, { aircraftId: gone.id, depIcao: 'EGLL', arrIcao: 'EGCC' })
+    ).toThrow()
+    expect(() => invoke(IpcChannels.flightLinkAircraft, free.id, gone.id)).toThrow()
+    expect(() =>
+      invoke(IpcChannels.flightCreate, { aircraftId: 999, depIcao: 'EGLL', arrIcao: 'EGCC' })
+    ).toThrow()
+    expect(tracking.startFree).not.toHaveBeenCalled()
+    expect(tracking.stop).not.toHaveBeenCalled()
+    expect(getFlight(db, free.id)?.aircraftId).toBeNull()
+    expect(sync).not.toHaveBeenCalled()
   })
 })
