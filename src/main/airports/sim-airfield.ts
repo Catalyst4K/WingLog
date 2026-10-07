@@ -82,9 +82,9 @@ function requestAirportList(handle: SimConnectConnection): Promise<{ icao: strin
 }
 
 /**
- * Asks the sim for an airfield's runways and collects the facility records as they arrive. Settles with
- * whatever arrived when the list ends, the sim raises an exception, or the request times out; it never
- * rejects.
+ * Asks the sim for an airfield's runways and collects the facility records as they arrive.
+ * Settles with whatever arrived when the list ends, an ambiguous-ICAO candidate list comes back,
+ * or the sim raises an exception; it never rejects.
  *
  * @param handle The SimConnect connection.
  * @param icao The airport.

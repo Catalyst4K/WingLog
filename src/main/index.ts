@@ -333,8 +333,8 @@ function startApp(): void {
 }
 
 /**
- * Creates the main window, hidden until it is ready to show, with the preload script, the
- * renderer-security settings and the handlers that keep navigation inside the app.
+ * Creates the main window, hidden until it is ready to show, with the preload script, and loads
+ * the renderer: the dev server while developing, the built page otherwise.
  *
  * @returns The window.
  */

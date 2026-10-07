@@ -154,7 +154,8 @@ export function FleetView(props: {
   }
 
   /**
-   * Replaces the aircraft being replaced with the chosen one, then refreshes the fleet.
+   * Replaces the aircraft being replaced with the chosen one, reloads the fleet, says so and opens
+ * the replacement's page. A failure is shown as a toast and rethrown.
    *
    * @param replacementId The aircraft that takes over.
    */
