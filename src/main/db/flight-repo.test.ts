@@ -25,6 +25,7 @@ import {
   linkAircraftToFlight,
   listCompletedFlights,
   listFlights,
+  listFlightSummaries,
   listFlightsByAircraft,
   listLastParkedByAircraft,
   recordOff,
@@ -74,6 +75,7 @@ describe('flight repo', () => {
 
   it('starts empty', () => {
     expect(listFlights(db)).toEqual([])
+    expect(listFlightSummaries(db)).toEqual([])
   })
 
   it('creates a planned flight with defaults applied', () => {
@@ -566,6 +568,23 @@ describe('flight repo', () => {
       vi.setSystemTime(new Date(Date.now() + blockMinutes * 60_000))
       completeFlight(db, created.id, 10000 - fuelBurnKg)
     }
+
+    it('lists every live flight newest first without the OFP text, hasOfp in its place', () => {
+      const first = createFlight(db, {
+        aircraftId,
+        depIcao: 'EGLL',
+        arrIcao: 'EGCC',
+        ofpJson: '{"big":"ofp"}'
+      })
+      const second = createFlight(db, { aircraftId, depIcao: 'EGCC', arrIcao: 'EGPH' })
+      const gone = createFlight(db, { aircraftId, depIcao: 'EGPH', arrIcao: 'EGLL' })
+      deleteFlight(db, gone.id)
+
+      const summaries = listFlightSummaries(db)
+      expect(summaries.map((f) => f.id)).toEqual([second.id, first.id])
+      expect(summaries.every((f) => !('ofpJson' in f))).toBe(true)
+      expect(summaries.map((f) => f.hasOfp)).toEqual([false, true])
+    })
 
     it('lists only completed flights, newest actualInUtc first', () => {
       createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' }) // stays planned

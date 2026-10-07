@@ -17,7 +17,7 @@ import type {
   DispatchOfp,
   DispatchOpenSimBriefParams,
   FleetStats,
-  Flight,
+  LogbookFlight,
   NewFlight,
   ProcedureSelection
 } from '@shared/ipc'
@@ -30,7 +30,7 @@ export interface DispatchLists {
   setAircraft: React.Dispatch<React.SetStateAction<Aircraft[]>>
   lastParked: AircraftLastParked[]
   fleetStats: FleetStats[]
-  pastFlights: Flight[]
+  pastFlights: LogbookFlight[]
   generationAvailable: boolean
 }
 
@@ -44,7 +44,7 @@ export function useDispatchLists(): DispatchLists {
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
   const [lastParked, setLastParked] = useState<AircraftLastParked[]>([])
   const [fleetStats, setFleetStats] = useState<FleetStats[]>([])
-  const [pastFlights, setPastFlights] = useState<Flight[]>([])
+  const [pastFlights, setPastFlights] = useState<LogbookFlight[]>([])
   const [generationAvailable, setGenerationAvailable] = useState(false)
 
   useEffect(() => {

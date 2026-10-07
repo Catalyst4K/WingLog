@@ -132,7 +132,7 @@ export interface WingLogApi {
   getSimConnectionStatus: () => Promise<SimConnectionStatus>
   onSimTelemetry: (listener: (telemetry: SimTelemetry) => void) => () => void
   onSimConnectionStatus: (listener: (status: SimConnectionStatus) => void) => () => void
-  flightList: () => Promise<Flight[]>
+  flightList: () => Promise<LogbookFlight[]>
   /**
    * Creates a new planned flight. Enforces the app's single-flight-in-progress model:
    * abandons any existing planned flight and stops (abandoning) any actively tracked one

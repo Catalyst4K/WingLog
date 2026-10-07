@@ -5,7 +5,7 @@
 
 import { winglogApi } from '../data/winglog-api'
 import { useEffect, useRef, useState } from 'react'
-import type { ActiveTracking, Aircraft, Flight, SimTelemetry, TrackPoint } from '@shared/ipc'
+import type { ActiveTracking, Aircraft, LogbookFlight, SimTelemetry, TrackPoint } from '@shared/ipc'
 import { flightLabel } from '../flight-label'
 import { runAsync } from '../report-error'
 import { computeTrackTimes, type TrackTimes } from '../track-times'
@@ -27,10 +27,41 @@ const GROUND_MOVEMENT_THRESHOLD_MS = 0.5
 // precedent), not a third guess at the sample count.
 const BANNER_SUSTAIN_SAMPLES = 8
 
+/**
+ * The OFP text of the one flight the map previews. The flight list leaves OFPs out (a 47 MB transfer for 200 flights), so
+ * this fetches just that one's.
+ *
+ * @param flight The tracked flight, else the newest planned one.
+ * @returns The flight's id with its OFP text, or null while loading or when it has none.
+ */
+export function useFlightOfp(
+  flight: LogbookFlight | undefined
+): { flightId: number; ofpJson: string } | null {
+  const flightId = flight?.id
+  const hasOfp = flight?.hasOfp ?? false
+  const [loaded, setLoaded] = useState<{ flightId: number; ofpJson: string } | null>(null)
+  useEffect(() => {
+    if (flightId === undefined || !hasOfp) return
+    let ignore = false
+    runAsync(
+      'TrackView logbookGetFlight',
+      winglogApi()
+        .logbookGetFlight(flightId)
+        .then((full) => {
+          if (!ignore && full?.ofpJson) setLoaded({ flightId, ofpJson: full.ofpJson })
+        })
+    )
+    return () => {
+      ignore = true
+    }
+  }, [flightId, hasOfp])
+  return loaded !== null && loaded.flightId === flightId ? loaded : null
+}
+
 /** The fleet, the flights, and the one being tracked with its recorded track. */
 export interface TrackedFlights {
   aircraft: Aircraft[]
-  flights: Flight[]
+  flights: LogbookFlight[]
   active: ActiveTracking | null
   setActive: (active: ActiveTracking | null) => void
   trackPoints: TrackPoint[]
@@ -52,7 +83,7 @@ export interface TrackedFlights {
  */
 export function useTrackedFlights(onFlightEnded: (() => void) | undefined): TrackedFlights {
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
-  const [flights, setFlights] = useState<Flight[]>([])
+  const [flights, setFlights] = useState<LogbookFlight[]>([])
   const [active, setActive] = useState<ActiveTracking | null>(null)
   const [trackPoints, setTrackPoints] = useState<TrackPoint[]>([])
   const [trackLoading, setTrackLoading] = useState(true)
@@ -60,7 +91,7 @@ export function useTrackedFlights(onFlightEnded: (() => void) | undefined): Trac
   // The onTrackingPoint listener below is registered once on mount, so it closes over
   // whatever `flights`/`onFlightEnded` were at that time — refs kept in step with the real
   // values let it use both without going stale.
-  const flightsRef = useRef<Flight[]>([])
+  const flightsRef = useRef<LogbookFlight[]>([])
   const onFlightEndedRef = useRef(onFlightEnded)
 
   function reload(): Promise<void> {
@@ -223,7 +254,7 @@ export function useFreeFlightBanner(
  */
 export function useTrackTimes(args: {
   active: ActiveTracking | null
-  activeFlight: Flight | undefined
+  activeFlight: LogbookFlight | undefined
   route: [number, number][]
   trackPoints: TrackPoint[]
   telemetry: SimTelemetry | null | undefined
@@ -265,8 +296,8 @@ export function useTrackTimes(args: {
  * @returns "DEP-ARR" for a free flight between two real airports (its route is then the great
  *   circle), else null.
  */
-function freeFlightRouteKey(flight: Flight | undefined): string | null {
-  return flight && !flight.ofpJson && realIcao(flight.depIcao) && realIcao(flight.arrIcao)
+function freeFlightRouteKey(flight: LogbookFlight | undefined): string | null {
+  return flight && !flight.hasOfp && realIcao(flight.depIcao) && realIcao(flight.arrIcao)
     ? `${flight.depIcao}-${flight.arrIcao}`
     : null
 }
@@ -280,7 +311,7 @@ function freeFlightRouteKey(flight: Flight | undefined): string | null {
 function liveTrackTimes(args: {
   route: [number, number][]
   trackPoints: TrackPoint[]
-  activeFlight: Flight | undefined
+  activeFlight: LogbookFlight | undefined
   telemetry: SimTelemetry | null | undefined
   now: number
 }): TrackTimes {

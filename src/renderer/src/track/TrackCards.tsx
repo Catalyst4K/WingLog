@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type {
   ActiveTracking,
   Aircraft,
-  Flight,
+  LogbookFlight,
   ProcedureSelection,
   SimTelemetry,
   WindSpeedUnit
@@ -110,7 +110,7 @@ function TimeReadouts(props: { times: TrackTimes }): React.JSX.Element {
  */
 export function ActiveFlightCard(props: {
   active: ActiveTracking
-  flight: Flight | undefined
+  flight: LogbookFlight | undefined
   label: string
   aircraft: Aircraft | undefined
   times: TrackTimes
@@ -149,7 +149,7 @@ export function ActiveFlightCard(props: {
           </Button>
         </div>
       </CardContent>
-      {flight && !flight.ofpJson && (
+      {flight && !flight.hasOfp && (
         <CardContent className="flex flex-wrap gap-x-6 gap-y-2">
           <FreeFlightAirport
             key={`dep-${flight.depIcao}`}
@@ -179,7 +179,7 @@ export function ActiveFlightCard(props: {
 export function NotTrackingCards(props: {
   banner: FreeFlightBanner
   telemetry: SimTelemetry | null | undefined
-  plannedFlights: Flight[]
+  plannedFlights: LogbookFlight[]
   aircraft: Aircraft[]
   starting: boolean
   onOpenFreeFlight: () => void

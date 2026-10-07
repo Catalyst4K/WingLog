@@ -8,7 +8,7 @@ import { IpcChannels } from '@shared/ipc'
 import type { WingLogDb } from '../db/client'
 import { asDataFormat } from './data-format'
 import {
-  listFlights,
+  listFlightSummaries,
   listCompletedFlights,
   getLiveFlight,
   getLogbookStats,
@@ -48,7 +48,7 @@ export function registerLogbookHandlers(
   ipcMain: IpcMain,
   { db, window, scheduleBackgroundSync }: LogbookHandlerDeps
 ): void {
-  ipcMain.handle(IpcChannels.flightList, () => listFlights(db))
+  ipcMain.handle(IpcChannels.flightList, () => listFlightSummaries(db))
 
   ipcMain.handle(IpcChannels.logbookListCompletedFlights, () => listCompletedFlights(db))
 

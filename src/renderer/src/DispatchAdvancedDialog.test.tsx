@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { afterEach, describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { render as renderUi, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { Flight } from '@shared/ipc'
+import type { Flight, LogbookFlight, WingLogApi } from '@shared/ipc'
 import { defaultDispatchOptions, type DispatchOptions } from '@shared/dispatch-options'
 import i18n from './i18n'
 import { DispatchAdvancedDialog } from './DispatchAdvancedDialog'
@@ -54,7 +54,12 @@ function flight(overrides: Partial<Flight> = {}): Flight {
   }
 }
 
+/** The dialog, handed the flights as the list sends them (no OFP text). */
 function Harness(props: { flights: Flight[]; open?: boolean }): React.JSX.Element {
+  const listed: LogbookFlight[] = props.flights.map(({ ofpJson, ...rest }) => ({
+    ...rest,
+    hasOfp: ofpJson != null
+  }))
   const [options, setOptions] = useState<DispatchOptions>(defaultDispatchOptions())
   const [open, setOpen] = useState(props.open ?? true)
   return (
@@ -63,9 +68,18 @@ function Harness(props: { flights: Flight[]; open?: boolean }): React.JSX.Elemen
       onOpenChange={setOpen}
       options={options}
       onOptionsChange={setOptions}
-      flights={props.flights}
+      flights={listed}
     />
   )
+}
+
+/** Renders the Harness, with the one-flight lookup behind it answering from the same full rows. */
+function render(ui: React.ReactElement<{ flights: Flight[] }>): void {
+  const full = ui.props.flights
+  window.winglog = {
+    logbookGetFlight: vi.fn((id: number) => Promise.resolve(full.find((f) => f.id === id) ?? null))
+  } as Partial<WingLogApi> as WingLogApi
+  renderUi(ui)
 }
 
 describe('DispatchAdvancedDialog', () => {
