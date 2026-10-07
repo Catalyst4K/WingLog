@@ -4,47 +4,16 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
 import { initLogger } from './logging/logger'
 import { setMainLanguage, t } from './i18n'
 import { backupDatabaseOnLaunch } from './db/backup'
-import { IpcChannels, type AltitudeUnit, type AppLanguage, type WindSpeedUnit, type DispatchOfp, type DispatchOpenSimBriefParams, type BeyondAtcSettings, type UpdateSettings, type GsxRemoteSettings, type GsxSettings, type TrackingSettings, type LandingDistanceUnit, type MapLanguage, type NavdataProcedureKind, type NewFlight, type ProcedureSelection, type StartFreeFlightInput, type Theme, type WeightUnit } from '@shared/ipc'
+import { IpcChannels, type DispatchOfp, type DispatchOpenSimBriefParams, type BeyondAtcSettings, type GsxRemoteSettings, type NavdataProcedureKind, type NewFlight, type ProcedureSelection, type StartFreeFlightInput } from '@shared/ipc'
 import { createDb } from './db/client'
 import { migrateDb } from './db/migrate'
 import { migrateLegacyUserData } from './db/legacy-userdata'
 import { getAircraftById, getAircraftByRegistration } from './db/aircraft-repo'
 import { addInvoicesForFlight, listInvoicesForFlight } from './db/flight-invoice-repo'
 import { abandonAllPlanned, abandonFlight, createFlight, deleteFlight, getFlight, setParkedStand, getInProgressFlight, linkAircraftToFlight } from './db/flight-repo'
-import {
-  getAircraftIdForTitle,
-  getAltitudeUnit,
-  getAppLanguage,
-  getBeyondAtcSettings,
-  getGsxRemoteSettings,
-  getGsxSettings,
-  getLandingDistanceUnit,
-  getMapLanguage,
-  getSimbriefUsername,
-  getSkippedUpdateVersion,
-  getTheme,
-  getTrackingSettings,
-  getUpdateSettings,
-  getWeightUnit,
-  getWindSpeedUnit,
-  setAltitudeUnit,
-  setAppLanguage,
-  setBeyondAtcSettings,
-  setGsxRemoteSettings,
-  setGsxSettings,
-  setLandingDistanceUnit,
-  setMapLanguage,
-  setSimbriefUsername,
-  setSkippedUpdateVersion,
-  setTheme,
-  setTrackingSettings,
-  setUpdateSettings,
-  setWeightUnit,
-  setWindSpeedUnit
-} from './db/settings-repo'
+import { getAircraftIdForTitle, getAppLanguage, getBeyondAtcSettings, getGsxRemoteSettings, getGsxSettings, getSimbriefUsername, getSkippedUpdateVersion, getTrackingSettings, getUpdateSettings, setBeyondAtcSettings, setGsxRemoteSettings, setSkippedUpdateVersion } from './db/settings-repo'
 import { getFreeFlightPrefill } from './tracking/free-flight'
 import { defaultGsxReceiptsPath } from './gsx/default-path'
-import { checkGsxFirstLaunch } from './db/gsx-first-launch'
 import { buildFlightMatchWindow } from './db/gsx-flight-window'
 import { readReceipt, receiptFileFromPath, scanGsxFolder } from './gsx/scan'
 import { extractOfpPdfUrl } from './simbrief/ofp-pdf'
@@ -56,14 +25,13 @@ import { replayCapture } from './sim/replay-capture'
 import { registerFleetHandlers } from './ipc/fleet-handlers'
 import { registerLogbookHandlers } from './ipc/logbook-handlers'
 import { registerLookupHandlers } from './ipc/lookup-handlers'
+import { registerAppHandlers } from './ipc/app-handlers'
+import { registerSettingsHandlers } from './ipc/settings-handlers'
 import { EMPTY_COMMAND_BAR, EMPTY_MENU, GsxRemoteService } from './gsx-remote/GsxRemoteService'
 import { BeyondAtcService, e2eBeyondAtcPort } from './beyondatc/BeyondAtcService'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { UpdateService } from './updates/update-check'
 import { LiveHub } from './live/LiveHub'
-import { manualPath } from './manual-path'
-import { existsSync } from 'node:fs'
-import { getSetupContext, getSetupState, setSetupCompleted } from './setup/first-run'
 import { StepClimbController } from './beyondatc/step-climb'
 import { ArrivalClearanceTracker } from './beyondatc/arrival-clearance'
 import type { NavdataProvider } from './navdata/navdata-provider'
@@ -369,45 +337,11 @@ if (!gotSingleInstanceLock) {
         await shell.openExternal(url)
         return true
       })
-
-      ipcMain.handle(IpcChannels.settingsGetSimbriefUsername, () => getSimbriefUsername(db) ?? null)
-      ipcMain.handle(IpcChannels.settingsSetSimbriefUsername, (_event, username: string) =>
-        setSimbriefUsername(db, username)
-      )
       // Always true now — generation goes through winglog-backend rather than a per-build
       // key, so there's no "build with no key baked in" case to fall back from anymore. Kept
       // as a channel (rather than removing it and the renderer's "Plan on SimBrief…" fallback
       // entirely) in case a future bring-your-own-key or backend-downtime path wants it back.
       ipcMain.handle(IpcChannels.dispatchGenerationAvailable, () => true)
-
-      ipcMain.handle(IpcChannels.settingsGetWeightUnit, () => getWeightUnit(db))
-      ipcMain.handle(IpcChannels.settingsSetWeightUnit, (_event, unit: WeightUnit) => setWeightUnit(db, unit))
-      ipcMain.handle(IpcChannels.settingsGetAltitudeUnit, () => getAltitudeUnit(db))
-      ipcMain.handle(IpcChannels.settingsSetAltitudeUnit, (_event, unit: AltitudeUnit) =>
-        setAltitudeUnit(db, unit)
-      )
-      ipcMain.handle(IpcChannels.settingsGetMapLanguage, () => getMapLanguage(db))
-      ipcMain.handle(IpcChannels.settingsSetMapLanguage, (_event, language: MapLanguage) =>
-        setMapLanguage(db, language)
-      )
-      ipcMain.handle(IpcChannels.settingsGetAppLanguage, () => getAppLanguage(db))
-      ipcMain.handle(IpcChannels.settingsSetAppLanguage, (_event, language: AppLanguage) => {
-        setAppLanguage(db, language)
-        setMainLanguage(language, app.getLocale())
-      })
-      // Not a stored setting — just what the OS itself reports, for resolving AppLanguage's
-      // 'system' value client-side (app-language.ts's resolveAppLanguage).
-      ipcMain.handle(IpcChannels.settingsGetSystemLocale, () => app.getLocale())
-      ipcMain.handle(IpcChannels.settingsGetWindSpeedUnit, () => getWindSpeedUnit(db))
-      ipcMain.handle(IpcChannels.settingsSetWindSpeedUnit, (_event, unit: WindSpeedUnit) =>
-        setWindSpeedUnit(db, unit)
-      )
-      ipcMain.handle(IpcChannels.settingsGetLandingDistanceUnit, () => getLandingDistanceUnit(db))
-      ipcMain.handle(IpcChannels.settingsSetLandingDistanceUnit, (_event, unit: LandingDistanceUnit) =>
-        setLandingDistanceUnit(db, unit)
-      )
-      ipcMain.handle(IpcChannels.settingsGetTheme, () => getTheme(db))
-      ipcMain.handle(IpcChannels.settingsSetTheme, (_event, theme: Theme) => setTheme(db, theme))
 
       // Phase 3's injection seam (winglog-backend's docs/plans/flight-replay-harness.md,
       // closing test-coverage.md Phase 4's open question): WINGLOG_E2E_FIXTURE, when set,
@@ -614,23 +548,6 @@ if (!gotSingleInstanceLock) {
       // practice (GSX itself is Windows-only), but nothing here assumes that beyond
       // defaultGsxReceiptsPath returning null elsewhere.
       trackingController.setAutoFinish(getTrackingSettings(db).autoFinish)
-      ipcMain.handle(IpcChannels.settingsGetTracking, () => getTrackingSettings(db))
-      ipcMain.handle(IpcChannels.settingsSetTracking, (_event, settings: TrackingSettings) => {
-        if (typeof settings?.autoStart !== 'boolean' || typeof settings.autoFinish !== 'boolean') {
-          throw new Error('Invalid tracking settings')
-        }
-        setTrackingSettings(db, { autoStart: settings.autoStart, autoFinish: settings.autoFinish })
-        trackingController.setAutoFinish(settings.autoFinish)
-      })
-      ipcMain.handle(IpcChannels.settingsGetGsx, () => getGsxSettings(db))
-      ipcMain.handle(IpcChannels.settingsSetGsx, (_event, settings: GsxSettings) =>
-        setGsxSettings(db, settings)
-      )
-      ipcMain.handle(IpcChannels.settingsCheckGsxFirstLaunch, () => checkGsxFirstLaunch(db))
-      // First-launch setup (winglog-backend's docs/plans/first-launch-setup.md).
-      ipcMain.handle(IpcChannels.setupGetState, () => getSetupState(db))
-      ipcMain.handle(IpcChannels.setupGetContext, () => getSetupContext())
-      ipcMain.handle(IpcChannels.setupComplete, () => setSetupCompleted(db))
 
       ipcMain.handle(IpcChannels.gsxBrowseFolder, async () => {
         const { canceled, filePaths } = await dialog.showOpenDialog(window, {
@@ -834,19 +751,6 @@ if (!gotSingleInstanceLock) {
         ipcMain.handle(IpcChannels.syncStatus, () => cloudSync.getStatus())
       }
 
-      // "-dev" marks the dev build in About and in bug reports; the update check compares the
-      // plain version.
-      ipcMain.handle(IpcChannels.appGetVersion, () => (__WINGLOG_DEV_BUILD__ ? `${app.getVersion()}-dev` : app.getVersion()))
-      ipcMain.handle(IpcChannels.appOpenGithub, () =>
-        shell.openExternal('https://github.com/Catalyst4K/WingLog')
-      )
-      // The PDF manual: a fixed path inside the app's own resources, never one from the renderer.
-      ipcMain.handle(IpcChannels.appOpenManual, async () => {
-        const manual = manualPath(app.isPackaged, process.resourcesPath, app.getAppPath())
-        if (!existsSync(manual)) return false
-        return (await shell.openPath(manual)) === ''
-      })
-
       // Update check (winglog-backend's docs/plans/update-check.md, Part A; agreed
       // 2026-10-02): asks GitHub for the latest published release, on by default, switchable
       // off in Settings → About. The endpoint can only be overridden in an unpackaged build,
@@ -863,19 +767,8 @@ if (!gotSingleInstanceLock) {
       })
       updateService.start()
       app.on('before-quit', () => updateService.stop())
-      ipcMain.handle(IpcChannels.settingsGetUpdates, () => getUpdateSettings(db))
-      ipcMain.handle(IpcChannels.settingsSetUpdates, (_event, settings: unknown) => {
-        const checkEnabled = (settings as UpdateSettings | null)?.checkEnabled
-        if (typeof checkEnabled !== 'boolean') throw new Error('Invalid update settings')
-        setUpdateSettings(db, { checkEnabled })
-      })
-      ipcMain.handle(IpcChannels.updatesGetStatus, () => updateService.getStatus())
-      ipcMain.handle(IpcChannels.updatesCheckNow, () => updateService.checkNow())
-      ipcMain.handle(IpcChannels.updatesSkipVersion, (_event, version: unknown) => updateService.skipVersion(version))
-      ipcMain.handle(IpcChannels.updatesOpenRelease, async () => {
-        const url = updateService.releaseUrl()
-        if (url) await shell.openExternal(url)
-      })
+      registerSettingsHandlers(ipcMain, { db, trackingController })
+      registerAppHandlers(ipcMain, { updateService })
 
       // Navdata (Phase 3, winglog-backend's docs/plans/navdata-without-navigraph.md) — its
       // own short-lived SimConnect connection per refresh, deliberately separate from
