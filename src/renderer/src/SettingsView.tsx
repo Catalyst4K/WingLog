@@ -35,6 +35,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useResetSignal } from './hooks/useResetSignal'
 import { NavigraphLogo } from './NavigraphLogo'
+import { asyncHandler, runAsync } from './report-error'
 
 type SettingsCategory = 'ui' | 'thirdParty' | 'data' | 'about'
 const DEFAULT_SETTINGS_CATEGORY: SettingsCategory = 'ui'
@@ -87,7 +88,10 @@ function DataSection(props: {
 }): React.JSX.Element {
   const { t } = useTranslation()
   return (
-    <section aria-label={t('settingsView.data.regionLabel', { title: props.title })} className="flex flex-col gap-2">
+    <section
+      aria-label={t('settingsView.data.regionLabel', { title: props.title })}
+      className="flex flex-col gap-2"
+    >
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm font-medium text-foreground">{props.title}</span>
         <div className="flex gap-2">
@@ -120,7 +124,11 @@ function summarizeAircraftImport(summary: AircraftImportSummary, t: TFunction): 
   const imported = t('settingsView.data.aircraftImported', { count: summary.imported })
   if (summary.skipped.length === 0) return imported
   const skipped = summary.skipped.map((s) => `${s.registration} (${s.reason})`).join(', ')
-  return t('settingsView.data.aircraftImportedWithSkipped', { imported, count: summary.skipped.length, skipped })
+  return t('settingsView.data.aircraftImportedWithSkipped', {
+    imported,
+    count: summary.skipped.length,
+    skipped
+  })
 }
 
 function summarizeLogbookImport(summary: LogbookImportSummary, t: TFunction): string {
@@ -179,7 +187,11 @@ export function SettingsView(props: {
   const [fleetFormat, setFleetFormat] = useState<DataFormat>('json')
   const [logbookFormat, setLogbookFormat] = useState<DataFormat>('csv')
   const [gsx, setGsx] = useState<GsxSettings>({ enabled: false, folderPath: null, displayCurrency: 'USD' })
-  const [gsxRemote, setGsxRemote] = useState<GsxRemoteSettings>({ enabled: false, host: 'localhost', port: null })
+  const [gsxRemote, setGsxRemote] = useState<GsxRemoteSettings>({
+    enabled: false,
+    host: 'localhost',
+    port: null
+  })
   // Free-typed while editing — kept separate from gsxRemote.port (number | null) so an
   // in-progress edit (e.g. a momentarily empty field) never round-trips through Number()
   // and silently becomes 0.
@@ -216,29 +228,42 @@ export function SettingsView(props: {
   const { onGsxRemoteEnabledChange, onBeyondAtcEnabledChange } = props
 
   useEffect(() => {
-    window.winglog.settingsGetSimbriefUsername().then((u) => setSimbriefUsername(u ?? ''))
-    window.winglog.dispatchSimbriefLoginStatus().then(setSimbriefLoggedIn)
-    window.winglog.settingsGetGsx().then(setGsx)
-    window.winglog.settingsGetGsxRemote().then((settings) => {
-      setGsxRemote(settings)
-      setGsxRemotePortInput(settings.port != null ? String(settings.port) : '')
-      onGsxRemoteEnabledChange(settings.enabled)
-    })
-    window.winglog.gsxRemoteGetStatus().then(setGsxRemoteStatus)
-    window.winglog.settingsGetBeyondAtc().then((settings) => {
-      setBeyondAtc(settings)
-      onBeyondAtcEnabledChange(settings.enabled)
-    })
-    window.winglog.beyondAtcGetStatus().then(setBeyondAtcStatus)
+    runAsync(
+      'SettingsView settingsGetSimbriefUsername',
+      window.winglog.settingsGetSimbriefUsername().then((u) => setSimbriefUsername(u ?? ''))
+    )
+    runAsync(
+      'SettingsView dispatchSimbriefLoginStatus',
+      window.winglog.dispatchSimbriefLoginStatus().then(setSimbriefLoggedIn)
+    )
+    runAsync('SettingsView settingsGetGsx', window.winglog.settingsGetGsx().then(setGsx))
+    runAsync(
+      'SettingsView settingsGetGsxRemote',
+      window.winglog.settingsGetGsxRemote().then((settings) => {
+        setGsxRemote(settings)
+        setGsxRemotePortInput(settings.port != null ? String(settings.port) : '')
+        onGsxRemoteEnabledChange(settings.enabled)
+      })
+    )
+    runAsync('SettingsView gsxRemoteGetStatus', window.winglog.gsxRemoteGetStatus().then(setGsxRemoteStatus))
+    runAsync(
+      'SettingsView settingsGetBeyondAtc',
+      window.winglog.settingsGetBeyondAtc().then((settings) => {
+        setBeyondAtc(settings)
+        onBeyondAtcEnabledChange(settings.enabled)
+      })
+    )
+    runAsync('SettingsView beyondAtcGetStatus', window.winglog.beyondAtcGetStatus().then(setBeyondAtcStatus))
     // Cloud sync build-time flag (docs/plans/public-release-v1.md) — the syncStatus channel
     // doesn't exist at all in a public build, so calling it would just reject.
     /* v8 ignore start -- vitest.config.ts's `define` fixes this flag at `true` for the whole
      * test run (a single run can't hold both literal build values at once), so the "public
      * build, skip this call" arm can't be exercised here; the real cloud-sync-disabled
      * behavior is what public-release-v1.md's own build verifies, not a unit test's job. */
-    if (__WINGLOG_CLOUD_SYNC_ENABLED__) window.winglog.syncStatus().then(setSyncStatus)
+    if (__WINGLOG_CLOUD_SYNC_ENABLED__)
+      runAsync('SettingsView syncStatus', window.winglog.syncStatus().then(setSyncStatus))
     /* v8 ignore stop */
-    window.winglog.appGetVersion().then(setAppVersion)
+    runAsync('SettingsView appGetVersion', window.winglog.appGetVersion().then(setAppVersion))
   }, [onGsxRemoteEnabledChange, onBeyondAtcEnabledChange])
 
   useEffect(() => {
@@ -508,7 +533,13 @@ export function SettingsView(props: {
                 <CardDescription>{t('settingsView.credentials.description')}</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
-                <form onSubmit={handleSaveSimbriefUsername} className="flex items-end gap-2">
+                <form
+                  onSubmit={asyncHandler(
+                    'SettingsView handleSaveSimbriefUsername',
+                    handleSaveSimbriefUsername
+                  )}
+                  className="flex items-end gap-2"
+                >
                   <Label className="flex flex-1 flex-col items-start gap-1.5">
                     {t('settingsView.credentials.simbriefUsername')}
                     <Input
@@ -531,10 +562,12 @@ export function SettingsView(props: {
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={handleLogoutOfNavigraph}
+                      onClick={asyncHandler('SettingsView handleLogoutOfNavigraph', handleLogoutOfNavigraph)}
                       disabled={loggingOut}
                     >
-                      {loggingOut ? t('settingsView.credentials.loggingOut') : t('settingsView.credentials.logOut')}
+                      {loggingOut
+                        ? t('settingsView.credentials.loggingOut')
+                        : t('settingsView.credentials.logOut')}
                     </Button>
                   </div>
                 ) : (
@@ -543,7 +576,7 @@ export function SettingsView(props: {
                     variant="outline"
                     size="lg"
                     className="h-auto w-full justify-start gap-3 py-3"
-                    onClick={handleLoginToNavigraph}
+                    onClick={asyncHandler('SettingsView handleLoginToNavigraph', handleLoginToNavigraph)}
                     disabled={loggingIn}
                   >
                     <NavigraphLogo className="size-8" />
@@ -569,7 +602,9 @@ export function SettingsView(props: {
                     type="button"
                     size="sm"
                     variant={gsx.enabled ? 'default' : 'outline'}
-                    onClick={() => handleGsxToggle(!gsx.enabled)}
+                    onClick={asyncHandler('SettingsView handleGsxToggle', () =>
+                      handleGsxToggle(!gsx.enabled)
+                    )}
                   >
                     {gsx.enabled ? t('settingsView.gsx.on') : t('settingsView.gsx.off')}
                   </Button>
@@ -584,7 +619,12 @@ export function SettingsView(props: {
                       placeholder={t('settingsView.gsx.notSet')}
                       className="flex-1"
                     />
-                    <Button type="button" variant="outline" size="sm" onClick={handleGsxBrowse}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={asyncHandler('SettingsView handleGsxBrowse', handleGsxBrowse)}
+                    >
                       {t('settingsView.gsx.browse')}
                     </Button>
                   </div>
@@ -592,7 +632,13 @@ export function SettingsView(props: {
                 <p className="text-xs text-muted-foreground">{t('settingsView.gsx.pathHint')}</p>
                 <Label className="flex flex-col items-start gap-1.5">
                   {t('settingsView.gsx.displayCurrency')}
-                  <Select value={gsx.displayCurrency} onValueChange={handleGsxCurrencyChange}>
+                  <Select
+                    value={gsx.displayCurrency}
+                    onValueChange={asyncHandler(
+                      'SettingsView handleGsxCurrencyChange',
+                      handleGsxCurrencyChange
+                    )}
+                  >
                     <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
@@ -614,7 +660,15 @@ export function SettingsView(props: {
                 <CardTitle className="flex items-center justify-between gap-2">
                   {t('settingsView.gsxRemote.cardTitle')}
                   {gsxRemote.enabled && (
-                    <Badge variant={gsxRemoteStatus.state === 'connected' ? 'default' : gsxRemoteStatus.state === 'connecting' ? 'secondary' : 'outline'}>
+                    <Badge
+                      variant={
+                        gsxRemoteStatus.state === 'connected'
+                          ? 'default'
+                          : gsxRemoteStatus.state === 'connecting'
+                            ? 'secondary'
+                            : 'outline'
+                      }
+                    >
                       {gsxRemoteStatus.state === 'connected'
                         ? t('settingsView.gsxRemote.statusConnected')
                         : gsxRemoteStatus.state === 'connecting'
@@ -632,7 +686,9 @@ export function SettingsView(props: {
                     type="button"
                     size="sm"
                     variant={gsxRemote.enabled ? 'default' : 'outline'}
-                    onClick={() => handleGsxRemoteToggle(!gsxRemote.enabled)}
+                    onClick={asyncHandler('SettingsView handleGsxRemoteToggle', () =>
+                      handleGsxRemoteToggle(!gsxRemote.enabled)
+                    )}
                   >
                     {gsxRemote.enabled ? t('settingsView.gsxRemote.on') : t('settingsView.gsxRemote.off')}
                   </Button>
@@ -642,13 +698,15 @@ export function SettingsView(props: {
                   <Input
                     type="text"
                     value={gsxRemote.host}
-                    onChange={(e) => handleGsxRemoteHostChange(e.target.value)}
+                    onChange={asyncHandler('SettingsView handleGsxRemoteHostChange', (e) =>
+                      handleGsxRemoteHostChange(e.target.value)
+                    )}
                   />
                 </Label>
                 <form
                   onSubmit={(e) => {
                     e.preventDefault()
-                    commitGsxRemotePort()
+                    runAsync('SettingsView commitGsxRemotePort', commitGsxRemotePort())
                   }}
                 >
                   <Label className="flex flex-col items-start gap-1.5">
@@ -660,7 +718,7 @@ export function SettingsView(props: {
                       value={gsxRemotePortInput}
                       placeholder={t('settingsView.gsxRemote.portPlaceholder')}
                       onChange={(e) => setGsxRemotePortInput(e.target.value)}
-                      onBlur={() => commitGsxRemotePort()}
+                      onBlur={asyncHandler('SettingsView commitGsxRemotePort', () => commitGsxRemotePort())}
                     />
                   </Label>
                 </form>
@@ -673,7 +731,15 @@ export function SettingsView(props: {
                 <CardTitle className="flex items-center justify-between gap-2">
                   {t('settingsView.beyondAtc.cardTitle')}
                   {beyondAtc.enabled && (
-                    <Badge variant={beyondAtcStatus.state === 'connected' ? 'default' : beyondAtcStatus.state === 'connecting' ? 'secondary' : 'outline'}>
+                    <Badge
+                      variant={
+                        beyondAtcStatus.state === 'connected'
+                          ? 'default'
+                          : beyondAtcStatus.state === 'connecting'
+                            ? 'secondary'
+                            : 'outline'
+                      }
+                    >
                       {beyondAtcStatus.state === 'connected'
                         ? t('settingsView.beyondAtc.statusConnected')
                         : beyondAtcStatus.state === 'connecting'
@@ -691,7 +757,9 @@ export function SettingsView(props: {
                     type="button"
                     size="sm"
                     variant={beyondAtc.enabled ? 'default' : 'outline'}
-                    onClick={() => handleBeyondAtcToggle(!beyondAtc.enabled)}
+                    onClick={asyncHandler('SettingsView handleBeyondAtcToggle', () =>
+                      handleBeyondAtcToggle(!beyondAtc.enabled)
+                    )}
                   >
                     {beyondAtc.enabled ? t('settingsView.beyondAtc.on') : t('settingsView.beyondAtc.off')}
                   </Button>
@@ -701,7 +769,9 @@ export function SettingsView(props: {
                   <Input
                     type="text"
                     value={beyondAtc.host}
-                    onChange={(e) => handleBeyondAtcHostChange(e.target.value)}
+                    onChange={asyncHandler('SettingsView handleBeyondAtcHostChange', (e) =>
+                      handleBeyondAtcHostChange(e.target.value)
+                    )}
                   />
                 </Label>
                 <p className="text-xs text-muted-foreground">{t('settingsView.beyondAtc.hostHint')}</p>
@@ -724,8 +794,8 @@ export function SettingsView(props: {
                   format={fleetFormat}
                   onFormatChange={setFleetFormat}
                   importing={importingAircraft}
-                  onImport={handleImportAircraft}
-                  onExport={handleExportAircraft}
+                  onImport={asyncHandler('SettingsView handleImportAircraft', handleImportAircraft)}
+                  onExport={asyncHandler('SettingsView handleExportAircraft', handleExportAircraft)}
                 />
                 <DataSection
                   title={t('settingsView.data.logbookTitle')}
@@ -733,8 +803,8 @@ export function SettingsView(props: {
                   format={logbookFormat}
                   onFormatChange={setLogbookFormat}
                   importing={importingLogbook}
-                  onImport={handleImportLogbook}
-                  onExport={handleExportLogbook}
+                  onImport={asyncHandler('SettingsView handleImportLogbook', handleImportLogbook)}
+                  onExport={asyncHandler('SettingsView handleExportLogbook', handleExportLogbook)}
                 />
               </CardContent>
             </Card>
@@ -756,7 +826,12 @@ export function SettingsView(props: {
                     <>
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-sm text-foreground">{syncStatus.email}</span>
-                        <Button type="button" variant="outline" size="sm" onClick={handleCloudLogout}>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={asyncHandler('SettingsView handleCloudLogout', handleCloudLogout)}
+                        >
                           {t('settingsView.cloudSync.logOut')}
                         </Button>
                       </div>
@@ -772,10 +847,12 @@ export function SettingsView(props: {
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={handleSyncNow}
+                          onClick={asyncHandler('SettingsView handleSyncNow', handleSyncNow)}
                           disabled={syncStatus.syncing}
                         >
-                          {syncStatus.syncing ? t('settingsView.cloudSync.syncing') : t('settingsView.cloudSync.syncNow')}
+                          {syncStatus.syncing
+                            ? t('settingsView.cloudSync.syncing')
+                            : t('settingsView.cloudSync.syncNow')}
                         </Button>
                       </div>
                       {syncStatus.lastError && (
@@ -801,7 +878,10 @@ export function SettingsView(props: {
                         </button>
                       </div>
                       <form
-                        onSubmit={cloudAuthMode === 'login' ? handleCloudLogin : handleCloudSignup}
+                        onSubmit={asyncHandler(
+                          'SettingsView handleCloudLogin',
+                          cloudAuthMode === 'login' ? handleCloudLogin : handleCloudSignup
+                        )}
                         className="flex flex-col gap-3"
                       >
                         <Label className="flex flex-col items-start gap-1.5">
@@ -825,7 +905,9 @@ export function SettingsView(props: {
                         </Label>
                         {cloudAuthMode === 'signup' && (
                           <>
-                            <p className="text-xs text-muted-foreground">{t('settingsView.cloudSync.atLeast12Chars')}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {t('settingsView.cloudSync.atLeast12Chars')}
+                            </p>
                             <Label className="flex flex-col items-start gap-1.5">
                               {t('settingsView.cloudSync.inviteCode')}
                               <Input
@@ -835,7 +917,9 @@ export function SettingsView(props: {
                                 required
                               />
                             </Label>
-                            <p className="text-xs text-muted-foreground">{t('settingsView.cloudSync.signupHint')}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {t('settingsView.cloudSync.signupHint')}
+                            </p>
                           </>
                         )}
                         <Button
@@ -875,7 +959,7 @@ export function SettingsView(props: {
                 {t('settingsView.about.license')}{' '}
                 <button
                   type="button"
-                  onClick={() => window.winglog.appOpenGithub()}
+                  onClick={asyncHandler('SettingsView appOpenGithub', () => window.winglog.appOpenGithub())}
                   className="cursor-pointer underline underline-offset-2 hover:text-foreground"
                 >
                   github.com/Catalyst4K/WingLog
@@ -886,9 +970,10 @@ export function SettingsView(props: {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={async () => {
-                    if (!(await window.winglog.appOpenManual())) toast.error(t('settingsView.about.manualMissing'))
-                  }}
+                  onClick={asyncHandler('SettingsView appOpenManual', async () => {
+                    if (!(await window.winglog.appOpenManual()))
+                      toast.error(t('settingsView.about.manualMissing'))
+                  })}
                 >
                   {t('settingsView.about.openManual')}
                 </Button>

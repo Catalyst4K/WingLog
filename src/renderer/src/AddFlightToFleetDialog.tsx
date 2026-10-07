@@ -6,11 +6,19 @@ import { useTranslation } from 'react-i18next'
 import type { Aircraft, AircraftTypeOption, Flight } from '@shared/ipc'
 import { isRetired } from '@shared/aircraft'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Combobox } from './components/Combobox'
+import { asyncHandler } from './report-error'
 
 const EXISTING = '__existing__'
 
@@ -146,7 +154,11 @@ export function AddFlightToFleetDialog(props: {
           <Button type="button" variant="outline" onClick={() => props.onOpenChange(false)}>
             {t('addFlightToFleetDialog.cancel')}
           </Button>
-          <Button type="button" onClick={handleSubmit} disabled={submitting}>
+          <Button
+            type="button"
+            onClick={asyncHandler('AddFlightToFleetDialog handleSubmit', handleSubmit)}
+            disabled={submitting}
+          >
             {submitting ? t('addFlightToFleetDialog.adding') : t('addFlightToFleetDialog.addToFleet')}
           </Button>
         </DialogFooter>

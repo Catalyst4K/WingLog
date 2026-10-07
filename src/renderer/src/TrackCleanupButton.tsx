@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import type { TrackPoint } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
+import { asyncHandler } from './report-error'
 
 /**
  * Logbook's manual "Clean up track" action (winglog-backend's docs/plans/done/
@@ -59,7 +60,13 @@ export function TrackCleanupButton(props: {
   }
 
   return (
-    <Button type="button" variant="ghost" size="sm" onClick={handleCleanupTrack} disabled={cleaningUp}>
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      onClick={asyncHandler('TrackCleanupButton handleCleanupTrack', handleCleanupTrack)}
+      disabled={cleaningUp}
+    >
       <Wrench />
       {cleaningUp ? t('trackCleanupButton.cleaningUp') : t('trackCleanupButton.button')}
     </Button>

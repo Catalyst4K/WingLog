@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AirportSearch } from './AirportSearch'
 import { formatWind, parseWindGroup } from './metar-wind'
+import { runAsync } from './report-error'
 
 type Slot = 'departure' | 'destination' | 'alternate' | 'custom'
 
@@ -36,9 +37,12 @@ function MetarBody(props: {
 }): React.JSX.Element {
   const { t } = useTranslation()
   if (!props.icao) return <p className="text-xs text-muted-foreground">{t('metarPanel.noAirportSet')}</p>
-  if (props.loading && !props.report) return <p className="text-xs text-muted-foreground">{t('metarPanel.fetching')}</p>
+  if (props.loading && !props.report)
+    return <p className="text-xs text-muted-foreground">{t('metarPanel.fetching')}</p>
   if (!props.report) {
-    return <p className="text-xs text-muted-foreground">{t('metarPanel.noCurrentMetar', { icao: props.icao })}</p>
+    return (
+      <p className="text-xs text-muted-foreground">{t('metarPanel.noCurrentMetar', { icao: props.icao })}</p>
+    )
   }
   // Parsed client-side, display-only — the raw text below is always the source of truth,
   // never rewritten in place (docs/plans/flight-test-findings-2026-09-06.md #5).
@@ -52,7 +56,9 @@ function MetarBody(props: {
             {props.report.flightCategory}
           </span>
         )}
-        <span className="text-xs text-muted-foreground">{formatObservedAgo(props.report.observedUtc, t)}</span>
+        <span className="text-xs text-muted-foreground">
+          {formatObservedAgo(props.report.observedUtc, t)}
+        </span>
       </div>
       {wind && <p className="text-xs text-foreground">{formatWind(wind, props.windSpeedUnit)}</p>}
       <p className="font-mono text-xs break-words text-foreground">{props.report.rawText}</p>
@@ -104,15 +110,18 @@ export function MetarPanel(props: {
     // below run inside a timer callback rather than synchronously in the effect body.
     const timer = setTimeout(() => {
       setLoading(true)
-      window.winglog
-        .weatherGetMetars(codes)
-        .then((reports) => {
-          if (cancelled) return
-          setMetars(Object.fromEntries(reports.map((r) => [r.icao, r])))
-        })
-        .finally(() => {
-          if (!cancelled) setLoading(false)
-        })
+      runAsync(
+        'MetarPanel window.winglog',
+        window.winglog
+          .weatherGetMetars(codes)
+          .then((reports) => {
+            if (cancelled) return
+            setMetars(Object.fromEntries(reports.map((r) => [r.icao, r])))
+          })
+          .finally(() => {
+            if (!cancelled) setLoading(false)
+          })
+      )
     }, 0)
     return () => {
       cancelled = true
@@ -178,7 +187,11 @@ export function MetarPanel(props: {
             />
           </TabsContent>
           <TabsContent value="custom" className="flex flex-col gap-2">
-            <AirportSearch value={customIcao} onChange={setCustomIcao} placeholder={t('metarPanel.enterIcaoCode')} />
+            <AirportSearch
+              value={customIcao}
+              onChange={setCustomIcao}
+              placeholder={t('metarPanel.enterIcaoCode')}
+            />
             <MetarBody
               icao={customIcao || null}
               loading={loading}

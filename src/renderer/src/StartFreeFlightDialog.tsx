@@ -19,6 +19,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { AirportSearch } from './AirportSearch'
 import { Combobox } from './components/Combobox'
+import { asyncHandler } from './report-error'
 
 /** Select's own value type is always a string — this sentinel picks "don't add to fleet"
  *  out of the list of real aircraft ids. Fleet creation no longer happens inline here at
@@ -307,7 +308,11 @@ export function StartFreeFlightDialog(props: {
           <Button type="button" variant="outline" onClick={() => props.onOpenChange(false)}>
             {t('startFreeFlightDialog.cancel')}
           </Button>
-          <Button type="button" onClick={handleSubmit} disabled={loading || submitting || !props.telemetry}>
+          <Button
+            type="button"
+            onClick={asyncHandler('StartFreeFlightDialog handleSubmit', handleSubmit)}
+            disabled={loading || submitting || !props.telemetry}
+          >
             {submitting ? t('startFreeFlightDialog.starting') : t('startFreeFlightDialog.startTracking')}
           </Button>
         </DialogFooter>

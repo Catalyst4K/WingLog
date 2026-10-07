@@ -55,8 +55,8 @@ vi.mock('maplibre-gl', () => {
     off(): void {}
     addSource(): void {}
     addLayer(): void {}
-    getSource(): { setData: () => void } {
-      return { setData: vi.fn() }
+    getSource(): { setData: () => Promise<void> } {
+      return { setData: vi.fn().mockResolvedValue(undefined) }
     }
     getCenter(): { toArray: () => [number, number] } {
       return { toArray: () => [0, 0] }

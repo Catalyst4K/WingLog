@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { IpcChannels } from '@shared/ipc'
 import type { UpdateService } from '../updates/update-check'
 import { MANUAL_FILENAME } from '../manual-path'
+import { logger } from '../logging/logger'
 import { registerAppHandlers } from './app-handlers'
 import { fakeIpc } from './fake-ipc'
 
@@ -29,6 +30,17 @@ describe('app IPC handlers', () => {
   beforeEach(() => {
     openExternal.mockReset()
     openPath.mockReset()
+  })
+
+  it("writes a renderer failure to main.log as a warning, strings only and cut to length", () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+    invoke(IpcChannels.appLogRendererError, 'fleet: save aircraft', 'Registration already in the fleet')
+    expect(warn).toHaveBeenCalledWith('[renderer] fleet: save aircraft: Registration already in the fleet')
+    invoke(IpcChannels.appLogRendererError, 'x'.repeat(5_000), { not: 'a string' })
+    invoke(IpcChannels.appLogRendererError, 'long message', 'y'.repeat(5_000))
+    expect(warn).toHaveBeenCalledTimes(2)
+    expect(warn).toHaveBeenLastCalledWith(`[renderer] long message: ${'y'.repeat(2_000)}`)
+    warn.mockRestore()
   })
 
   it('reports the plain version outside the dev build, and opens the GitHub page', () => {

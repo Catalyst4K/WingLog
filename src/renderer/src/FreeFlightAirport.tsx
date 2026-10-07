@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { AirportSearch } from './AirportSearch'
+import { asyncHandler } from './report-error'
 
 const VALID_ICAO = /^[A-Z0-9]{2,5}$/
 
@@ -24,7 +25,8 @@ export function FreeFlightAirport(props: {
   onChanged: () => void
 }): React.JSX.Element {
   const { t } = useTranslation()
-  const noun = props.kind === 'departure' ? t('freeFlightAirport.departure') : t('freeFlightAirport.destination')
+  const noun =
+    props.kind === 'departure' ? t('freeFlightAirport.departure') : t('freeFlightAirport.destination')
   const isSet = props.icao !== 'ZZZZ'
   const [value, setValue] = useState(isSet ? props.icao : '')
   const [saving, setSaving] = useState(false)
@@ -57,10 +59,12 @@ export function FreeFlightAirport(props: {
           size="sm"
           variant="outline"
           aria-label={
-            props.kind === 'departure' ? t('freeFlightAirport.setDeparture') : t('freeFlightAirport.setDestination')
+            props.kind === 'departure'
+              ? t('freeFlightAirport.setDeparture')
+              : t('freeFlightAirport.setDestination')
           }
           disabled={saving}
-          onClick={() => save(candidate)}
+          onClick={asyncHandler('FreeFlightAirport set airport', () => save(candidate))}
         >
           {t('freeFlightAirport.set')}
         </Button>
@@ -76,7 +80,7 @@ export function FreeFlightAirport(props: {
               : t('freeFlightAirport.clearDestination')
           }
           disabled={saving}
-          onClick={() => save(null)}
+          onClick={asyncHandler('FreeFlightAirport clear airport', () => save(null))}
         >
           {t('freeFlightAirport.clear')}
         </Button>

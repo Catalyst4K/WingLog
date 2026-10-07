@@ -17,8 +17,16 @@ import { latestAtcInstruction, type AtcInstruction } from './beyondAtcInstructio
 import { useLiveClient, useLiveTopic } from './live/LiveClient'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { asyncHandler, runAsync } from './report-error'
 
-const STEP_CLIMB_OFF: BeyondAtcStepClimbStatus = { enabled: false, nextStep: null, pendingAltitudeFt: null, waitingForClimbFt: null, pastTopOfDescent: false, last: null }
+const STEP_CLIMB_OFF: BeyondAtcStepClimbStatus = {
+  enabled: false,
+  nextStep: null,
+  pendingAltitudeFt: null,
+  waitingForClimbFt: null,
+  pastTopOfDescent: false,
+  last: null
+}
 
 const SPEAKER_KEY: Record<BeyondAtcTranscriptEntry['speaker'], string> = {
   player: 'beyondAtcPanel.speaker.player',
@@ -52,7 +60,9 @@ function InfoCard(props: { state: BeyondAtcState }): React.JSX.Element {
   return (
     <Card size="sm">
       <CardContent className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-        {!callsign && !progress && <span className="text-xs text-muted-foreground">{t('beyondAtcPanel.noStatus')}</span>}
+        {!callsign && !progress && (
+          <span className="text-xs text-muted-foreground">{t('beyondAtcPanel.noStatus')}</span>
+        )}
         {callsign && <span className="text-sm font-semibold text-foreground">{callsign.full}</span>}
         {progress && (
           <span className="text-xs text-muted-foreground">
@@ -96,16 +106,24 @@ function LatestInstructionCard(props: {
         <div className="flex flex-wrap items-baseline justify-end gap-x-4 gap-y-1">
           {arrival?.approachIdent ? (
             <span data-testid="arrival-clearance" className="flex flex-wrap gap-x-4 gap-y-1">
-              <InfoField label={t('beyondAtcPanel.instruction.field.approach')} value={arrival.approachIdent} />
+              <InfoField
+                label={t('beyondAtcPanel.instruction.field.approach')}
+                value={arrival.approachIdent}
+              />
               {arrival.approachTransition && (
-                <InfoField label={t('beyondAtcPanel.instruction.field.transition')} value={arrival.approachTransition} />
+                <InfoField
+                  label={t('beyondAtcPanel.instruction.field.transition')}
+                  value={arrival.approachTransition}
+                />
               )}
             </span>
           ) : (
             arrival?.starIdent && (
               <span data-testid="arrival-clearance" className="flex flex-wrap gap-x-4 gap-y-1">
                 <InfoField label={t('beyondAtcPanel.instruction.field.star')} value={arrival.starIdent} />
-                {arrival.runway && <InfoField label={t('beyondAtcPanel.instruction.field.runway')} value={arrival.runway} />}
+                {arrival.runway && (
+                  <InfoField label={t('beyondAtcPanel.instruction.field.runway')} value={arrival.runway} />
+                )}
               </span>
             )
           )}
@@ -125,7 +143,11 @@ function LatestInstructionCard(props: {
                   </Badge>
                 ))}
                 {fields.map((f) => (
-                  <InfoField key={f.key} label={t(`beyondAtcPanel.instruction.field.${f.key}`)} value={f.value} />
+                  <InfoField
+                    key={f.key}
+                    label={t(`beyondAtcPanel.instruction.field.${f.key}`)}
+                    value={f.value}
+                  />
                 ))}
               </div>
             )}
@@ -190,7 +212,11 @@ function ActionsCard(props: {
         {props.actions.length === 0 ? (
           <p className="text-xs text-muted-foreground">{t('beyondAtcPanel.noActions')}</p>
         ) : (
-          <BeyondAtcActions actions={props.actions} onSelectAction={props.onSelectAction} pendingLabel={props.pendingLabel} />
+          <BeyondAtcActions
+            actions={props.actions}
+            onSelectAction={props.onSelectAction}
+            pendingLabel={props.pendingLabel}
+          />
         )}
       </CardContent>
     </Card>
@@ -254,7 +280,11 @@ function TranscriptCard(props: { entries: BeyondAtcTranscriptEntry[] }): React.J
       <CardContent className="flex min-h-0 flex-1 flex-col">
         <ul className="flex h-full min-h-0 flex-col gap-1 overflow-y-auto text-xs">
           {props.entries.map((entry, index) => (
-            <li key={index} ref={index === props.entries.length - 1 ? latestRef : undefined} className="flex gap-1.5">
+            <li
+              key={index}
+              ref={index === props.entries.length - 1 ? latestRef : undefined}
+              className="flex gap-1.5"
+            >
               <span className="shrink-0 font-medium text-foreground">{t(SPEAKER_KEY[entry.speaker])}:</span>
               <span className="text-muted-foreground">{entry.text}</span>
             </li>
@@ -312,17 +342,20 @@ export function BeyondAtcPanel(): React.JSX.Element {
   }
 
   function selectAction(label: string): void {
-    live.command('atc.setAction', label)
+    runAsync('BeyondAtcPanel live.command', live.command('atc.setAction', label))
     if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current)
     pendingTimerRef.current = setTimeout(clearPendingAction, PENDING_ACTION_TIMEOUT_MS)
     setPendingAction(label)
   }
 
   useEffect(() => {
-    window.winglog.settingsGetBeyondAtc().then(setSettings)
-    live.get('beyondAtcState').then((current) => {
-      if (current) setState(current)
-    })
+    runAsync('BeyondAtcPanel settingsGetBeyondAtc', window.winglog.settingsGetBeyondAtc().then(setSettings))
+    runAsync(
+      'BeyondAtcPanel live.get',
+      live.get('beyondAtcState').then((current) => {
+        if (current) setState(current)
+      })
+    )
     const unsubscribeState = live.subscribe('beyondAtcState', (next) => {
       setState(next)
       // Our call is going out: it's no longer waiting.
@@ -365,15 +398,25 @@ export function BeyondAtcPanel(): React.JSX.Element {
             facility={state.facility}
             com2={state.com2}
             progress={state.progress}
-            onSetFrequency={(frequency) => live.command('atc.setFrequency', frequency)}
-            onSetFrequencyCom2={(frequency) => live.command('atc.setFrequencyCom2', frequency)}
+            onSetFrequency={asyncHandler('BeyondAtcPanel atc.setFrequency', (frequency) =>
+              live.command('atc.setFrequency', frequency)
+            )}
+            onSetFrequencyCom2={asyncHandler('BeyondAtcPanel atc.setFrequencyCom2', (frequency) =>
+              live.command('atc.setFrequencyCom2', frequency)
+            )}
             frequencyOptions={state.frequencies}
             autoTune={state.autoTune}
             autoRespond={state.autoRespond}
-            onSetAutoTune={(value) => live.command('atc.setAutoTune', value)}
-            onSetAutoRespond={(value) => live.command('atc.setAutoRespond', value)}
+            onSetAutoTune={asyncHandler('BeyondAtcPanel atc.setAutoTune', (value) =>
+              live.command('atc.setAutoTune', value)
+            )}
+            onSetAutoRespond={asyncHandler('BeyondAtcPanel atc.setAutoRespond', (value) =>
+              live.command('atc.setAutoRespond', value)
+            )}
             stepClimb={stepClimb}
-            onSetStepClimb={(enabled) => live.command('atc.setStepClimb', enabled)}
+            onSetStepClimb={asyncHandler('BeyondAtcPanel atc.setStepClimb', (enabled) =>
+              live.command('atc.setStepClimb', enabled)
+            )}
           />
         </div>
         <div className="flex min-h-0 flex-col gap-4">

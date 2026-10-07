@@ -378,6 +378,9 @@ export interface WingLogApi {
   /** The packaged app's version (package.json's, via Electron's app.getVersion()) —
    *  Settings' About card, so a bug report can include which build it's from. */
   appGetVersion: () => Promise<string>
+  /** Writes a renderer failure to main.log as a warning: what was being done, and the error's
+   *  message. The renderer has no log of its own (coding-standards.md §6). */
+  appLogRendererError: (context: string, message: string) => Promise<void>
   /** Dev build only: one line to `diag.log` (category 'map', etc.). Does nothing in a normal
    *  build; validated in main like every other channel. */
   diagLog: (category: string, message: string) => Promise<void>

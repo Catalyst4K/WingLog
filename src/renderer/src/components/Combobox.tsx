@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { runAsync } from '../report-error'
 
 /**
  * A free-text input backed by a debounced async search dropdown. `value` is always the
@@ -45,10 +46,13 @@ export function Combobox<T>(props: {
         return
       }
       setSearching(true)
-      props
-        .search(q)
-        .then(setResults)
-        .finally(() => setSearching(false))
+      runAsync(
+        'Combobox props',
+        props
+          .search(q)
+          .then(setResults)
+          .finally(() => setSearching(false))
+      )
     }, 300)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps

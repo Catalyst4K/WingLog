@@ -8,6 +8,7 @@ import { Archive } from 'lucide-react'
 import { toast } from 'sonner'
 import type { CaptureKeepState } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
+import { asyncHandler } from './report-error'
 
 /**
  * @param isDevBuild Defaults to the build flag; a prop so both builds can be tested.
@@ -52,7 +53,7 @@ export function KeepCaptureButton({
       type="button"
       variant="ghost"
       size="sm"
-      onClick={handleKeep}
+      onClick={asyncHandler('KeepCaptureButton handleKeep', handleKeep)}
       disabled={state === 'kept'}
       title="Dev build: move this flight's capture into captures\kept"
     >

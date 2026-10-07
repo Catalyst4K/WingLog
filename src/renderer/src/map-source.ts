@@ -17,8 +17,19 @@ type SourceData = Parameters<GeoJSONSource['setData']>[0]
  * @param data Its new data.
  */
 export function setSourceData(map: MapLibreMap, sourceId: string, data: SourceData): void {
-  map
-    .getSource<GeoJSONSource>(sourceId)
+  updateSourceData(map.getSource<GeoJSONSource>(sourceId), data)
+}
+
+/**
+ * As setSourceData, for a source already in hand.
+ *
+ * @param source The GeoJSON source, or undefined when the map doesn't have it (yet).
+ * @param data Its new data.
+ */
+export function updateSourceData(source: GeoJSONSource | undefined, data: SourceData): void {
+  source
     ?.setData(data)
-    .catch((error: unknown) => diagMap('map source update failed', { sourceId, error: String(error) }))
+    .catch((error: unknown) =>
+      diagMap('map source update failed', { sourceId: source.id, error: String(error) })
+    )
 }

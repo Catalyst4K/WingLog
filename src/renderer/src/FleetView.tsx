@@ -6,7 +6,14 @@ import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { isRetired } from '@shared/aircraft'
-import type { Aircraft, AircraftLanding, AircraftLastParked, Flight, FleetStats, NewAircraft } from '@shared/ipc'
+import type {
+  Aircraft,
+  AircraftLanding,
+  AircraftLastParked,
+  Flight,
+  FleetStats,
+  NewAircraft
+} from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -32,6 +39,7 @@ import { LandingBadge } from './LandingBadge'
 import { LandingScoreBadge } from './LandingScoreBadge'
 import { SortableHead } from './SortableHead'
 import { formatMinutes, msToFpm, msToKt } from './units'
+import { asyncHandler, runAsync } from './report-error'
 
 type View = { kind: 'list' } | { kind: 'detail'; id: number } | { kind: 'new' } | { kind: 'edit'; id: number }
 
@@ -125,7 +133,8 @@ function SimBriefProfileCard(props: { aircraft: Aircraft }): React.JSX.Element {
               </>
             ) : (
               <>
-                {t('fleetView.simbriefProfile.usingDefault')} <span className="font-mono">{a.simbriefType}</span>
+                {t('fleetView.simbriefProfile.usingDefault')}{' '}
+                <span className="font-mono">{a.simbriefType}</span>
               </>
             )}
           </p>
@@ -153,7 +162,10 @@ function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
   const [landings, setLandings] = useState<AircraftLanding[]>([])
 
   useEffect(() => {
-    window.winglog.fleetListLandings(props.aircraftId).then(setLandings)
+    runAsync(
+      'FleetView fleetListLandings',
+      window.winglog.fleetListLandings(props.aircraftId).then(setLandings)
+    )
   }, [props.aircraftId])
 
   return (
@@ -179,7 +191,9 @@ function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
                   </span>
                   <span className="text-muted-foreground">
                     {l.crosswindMs != null
-                      ? t('fleetView.landingHistory.crosswind', { kt: Math.round(msToKt(Math.abs(l.crosswindMs))) })
+                      ? t('fleetView.landingHistory.crosswind', {
+                          kt: Math.round(msToKt(Math.abs(l.crosswindMs)))
+                        })
                       : '—'}
                   </span>
                   <LandingScoreBadge score={l.score} />
@@ -213,7 +227,7 @@ function AircraftFlightsCard(props: {
   const [flights, setFlights] = useState<Flight[]>([])
 
   useEffect(() => {
-    window.winglog.fleetListFlights(props.aircraftId).then(setFlights)
+    runAsync('FleetView fleetListFlights', window.winglog.fleetListFlights(props.aircraftId).then(setFlights))
   }, [props.aircraftId])
 
   return (
@@ -279,9 +293,12 @@ function ReplaceAircraftDialog(props: {
   // already means a fresh target/flightCount — no need to reset them on `open` here, just
   // fetch once for whichever aircraft this instance was mounted for.
   useEffect(() => {
-    window.winglog
-      .flightList()
-      .then((flights) => setFlightCount(flights.filter((f) => f.aircraftId === props.aircraft.id).length))
+    runAsync(
+      'FleetView window.winglog',
+      window.winglog
+        .flightList()
+        .then((flights) => setFlightCount(flights.filter((f) => f.aircraftId === props.aircraft.id).length))
+    )
   }, [props.aircraft.id])
 
   const target = props.candidates.find((c) => c.id === targetId) ?? null
@@ -307,7 +324,9 @@ function ReplaceAircraftDialog(props: {
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t('fleetView.replaceDialog.title', { registration: props.aircraft.registration })}</DialogTitle>
+          <DialogTitle>
+            {t('fleetView.replaceDialog.title', { registration: props.aircraft.registration })}
+          </DialogTitle>
           <DialogDescription>{t('fleetView.replaceDialog.description')}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3">
@@ -349,7 +368,7 @@ function ReplaceAircraftDialog(props: {
           <Button
             type="button"
             variant="destructive"
-            onClick={handleConfirm}
+            onClick={asyncHandler('FleetView handleConfirm', handleConfirm)}
             disabled={!target || submitting}
           >
             {submitting ? t('fleetView.replaceDialog.replacing') : t('fleetView.replaceDialog.confirm')}
@@ -371,7 +390,9 @@ function useLocationLabel(): (icao: string | null, parked: AircraftLastParked | 
   return (icao, parked) => {
     if (!icao) return '—'
     const airport = displayIcao(icao)
-    return parked && parked.icao === icao ? `${airport} · ${t('fleetView.atStand', { stand: parked.stand })}` : airport
+    return parked && parked.icao === icao
+      ? `${airport} · ${t('fleetView.atStand', { stand: parked.stand })}`
+      : airport
   }
 }
 
@@ -478,7 +499,10 @@ function AircraftDetail(props: {
                   label={t('fleetView.detail.fields.currentAirport')}
                   value={locationLabel(currentIcao, props.lastParked)}
                 />
-                <DetailField label={t('fleetView.detail.fields.totalHours')} value={s ? s.totalHours.toFixed(1) : '0.0'} />
+                <DetailField
+                  label={t('fleetView.detail.fields.totalHours')}
+                  value={s ? s.totalHours.toFixed(1) : '0.0'}
+                />
                 <DetailField label={t('fleetView.detail.fields.flights')} value={s?.totalCycles ?? 0} />
                 <DetailField
                   label={t('fleetView.detail.fields.lastFlight')}
@@ -562,17 +586,19 @@ export function FleetView(props: {
   } = useSortable<Aircraft, FleetSortKey>(activeAircraft, fleetComparators, 'registration')
 
   function reload(): Promise<void> {
-    return Promise.all([window.winglog.aircraftList(), window.winglog.logbookFleetStats(), window.winglog.fleetListLastParked()]).then(
-      ([aircraftList, fleetStats, parked]) => {
-        setAircraft(aircraftList)
-        setStats(fleetStats)
-        setLastParked(parked)
-      }
-    )
+    return Promise.all([
+      window.winglog.aircraftList(),
+      window.winglog.logbookFleetStats(),
+      window.winglog.fleetListLastParked()
+    ]).then(([aircraftList, fleetStats, parked]) => {
+      setAircraft(aircraftList)
+      setStats(fleetStats)
+      setLastParked(parked)
+    })
   }
 
   useEffect(() => {
-    reload()
+    runAsync('FleetView reload', reload())
   }, [])
 
   async function handleCreate(data: NewAircraft): Promise<void> {
@@ -700,7 +726,7 @@ export function FleetView(props: {
           lastParked={lastParked.find((p) => p.aircraftId === existing.id)}
           replacedBy={aircraft.find((a) => a.id === existing.replacedByAircraftId)}
           onEdit={() => setView({ kind: 'edit', id: view.id })}
-          onDelete={() => handleDelete(existing)}
+          onDelete={asyncHandler('FleetView handleDelete', () => handleDelete(existing))}
           onReplace={() => setReplaceTarget(existing)}
           onRetire={() => void handleRetire(existing)}
           onUnretire={() => void handleUnretire(existing)}
@@ -756,7 +782,12 @@ export function FleetView(props: {
                 <TableCell>
                   <AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />
                 </TableCell>
-                <TableCell>{locationLabel(icao, lastParked.find((p) => p.aircraftId === a.id))}</TableCell>
+                <TableCell>
+                  {locationLabel(
+                    icao,
+                    lastParked.find((p) => p.aircraftId === a.id)
+                  )}
+                </TableCell>
                 <TableCell>{s ? s.totalHours.toFixed(1) : '0.0'}</TableCell>
                 <TableCell>{s?.totalCycles ?? 0}</TableCell>
               </TableRow>
@@ -790,7 +821,9 @@ export function FleetView(props: {
                 <TableCell>
                   {a.replacedByAircraftId === null ? (
                     t('fleetView.retiredStatus', {
-                      date: a.retiredAt ? t('fleetView.detail.retiredOn', { date: formatDate(a.retiredAt) }) : ''
+                      date: a.retiredAt
+                        ? t('fleetView.detail.retiredOn', { date: formatDate(a.retiredAt) })
+                        : ''
                     })
                   ) : replacement ? (
                     <button

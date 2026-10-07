@@ -46,10 +46,15 @@ import { Toaster } from '@/components/ui/sonner'
 import { FleetView } from './FleetView'
 import { flightLabel } from './flight-label'
 import { gsxMenuSignature, isImportantGsxMenu } from './gsx-remote-importance'
-import { emptyProcedureSelection, seedProcedureSelectionFromOfp, selectionFromFlight } from './procedureSelection'
+import {
+  emptyProcedureSelection,
+  seedProcedureSelectionFromOfp,
+  selectionFromFlight
+} from './procedureSelection'
 import { matchClearanceApproach } from '@shared/atc-approach-match'
 import { parseAtcBoxClearance, type AtcClearanceUpdate } from '@shared/atc-info-boxes'
 import { approachForArrivalRunway, starEndFix } from './atcApproachMatch'
+import { asyncHandler, runAsync } from './report-error'
 
 // Fleet is the default/first tab, so it's the one view kept eager — every other tab is
 // lazy so its JS (and, for Track/Logbook, the maplibre-gl and recharts they pull in —
@@ -81,13 +86,19 @@ const ATC_CLEARANCE_FIELD_LABEL_KEYS: Partial<Record<keyof ProcedureSelection, s
   approachTransition: 'procedureSelector.approachTransition'
 }
 
-function appTabs(t: TFunction, gsxRemoteEnabled: boolean, beyondAtcEnabled: boolean): { page: AppPage; label: string; icon: typeof Plane }[] {
+function appTabs(
+  t: TFunction,
+  gsxRemoteEnabled: boolean,
+  beyondAtcEnabled: boolean
+): { page: AppPage; label: string; icon: typeof Plane }[] {
   return [
     { page: 'fleet', label: t('app.tabs.fleet'), icon: Plane },
     { page: 'dispatch', label: t('app.tabs.dispatch'), icon: Route },
     { page: 'track', label: t('app.tabs.track'), icon: Radar },
     ...(gsxRemoteEnabled ? [{ page: 'gsx' as const, label: t('app.tabs.gsx'), icon: Truck }] : []),
-    ...(beyondAtcEnabled ? [{ page: 'beyondatc' as const, label: t('app.tabs.beyondAtc'), icon: Radio }] : []),
+    ...(beyondAtcEnabled
+      ? [{ page: 'beyondatc' as const, label: t('app.tabs.beyondAtc'), icon: Radio }]
+      : []),
     { page: 'logbook', label: t('app.tabs.logbook'), icon: BookOpen },
     { page: 'settings', label: t('app.tabs.settings'), icon: SettingsIcon }
   ]
@@ -228,7 +239,9 @@ export default function App(): React.JSX.Element {
   // the user's accept/dismiss — Callum's own precedence decision, 2026-09-25: overwrite, but
   // ask first, gently. Unlike gsxMenu above, no remembered-dismissal key is needed: each new
   // set of InfoBoxes is read once (lastAtcBoxesKey below), not re-offered while it stays up.
-  const [pendingAtcClearance, setPendingAtcClearance] = useState<(AtcClearanceUpdate & { sourceTs: number }) | null>(null)
+  const [pendingAtcClearance, setPendingAtcClearance] = useState<
+    (AtcClearanceUpdate & { sourceTs: number }) | null
+  >(null)
   // The last set of BeyondATC InfoBoxes already read: the state is pushed on every BeyondATC
   // message, so this tells a genuinely new set apart from one already considered (and
   // possibly dismissed).
@@ -279,7 +292,10 @@ export default function App(): React.JSX.Element {
   }, [])
 
   useEffect(() => {
-    window.winglog.trackingGetOrphanedFlight().then(setOrphanedFlight)
+    runAsync(
+      'App trackingGetOrphanedFlight',
+      window.winglog.trackingGetOrphanedFlight().then(setOrphanedFlight)
+    )
   }, [])
 
   // Restores Dispatch's own view of whatever flight is currently "in progress" (planned
@@ -291,12 +307,15 @@ export default function App(): React.JSX.Element {
   // actually chosen (SimBrief's plan if nothing was ever touched, a live edit otherwise —
   // see handleSaveFlight, which persists props.selection at the moment Fly is pressed).
   useEffect(() => {
-    window.winglog.dispatchGetInProgressFlight().then((result) => {
-      if (!result) return
-      setDispatchOfp(result.ofp)
-      setDispatchedOfpId(result.ofp.ofpId)
-      setProcedureSelection(selectionFromFlight(result.flight))
-    })
+    runAsync(
+      'App dispatchGetInProgressFlight',
+      window.winglog.dispatchGetInProgressFlight().then((result) => {
+        if (!result) return
+        setDispatchOfp(result.ofp)
+        setDispatchedOfpId(result.ofp.ofpId)
+        setProcedureSelection(selectionFromFlight(result.flight))
+      })
+    )
   }, [])
 
   async function handleResumeOrphaned(): Promise<void> {
@@ -325,7 +344,7 @@ export default function App(): React.JSX.Element {
   }
 
   function handlePickGsxMenu(index: number): void {
-    window.winglog.gsxRemotePickMenu(index)
+    runAsync('App gsxRemotePickMenu', window.winglog.gsxRemotePickMenu(index))
     // GSX will clear/replace state.menu itself once the pick is processed — no need to
     // clear gsxMenu here too, and doing so would just make the dialog flash closed then
     // (possibly) reopen for the next patch.
@@ -349,7 +368,10 @@ export default function App(): React.JSX.Element {
         // 2026-10-05: UPRS2C ends at SY498, the entry to ILS Z 08, not ILS X 08).
         if (update.fields.approachIdent || update.arrivalRunway) {
           try {
-            const icao = procedureSelection.arrivalIcao ?? (await window.winglog.beyondAtcGetState()).progress?.to ?? null
+            const icao =
+              procedureSelection.arrivalIcao ??
+              (await window.winglog.beyondAtcGetState()).progress?.to ??
+              null
             if (icao) {
               const approaches = await window.winglog.navdataListApproaches(icao, null)
               // The approach must start where the STAR ends, or at the transition ATC briefed.
@@ -414,17 +436,17 @@ export default function App(): React.JSX.Element {
     setPage('logbook')
   }
 
-/**
- * Always navigates to `targetPage` — including "return to its default view" when
- * already there, which a bare `setPage` can't do (Radix's Tabs only fires
- * `onValueChange` on an actual value change, so clicking the active tab is normally a
- * no-op). Dispatch and Track are deliberate exceptions: their lifted state
- * (`dispatchOfp`/`dispatchedOfpId`, Track's own in-progress tracking) is work in
- * progress, not navigation history — clearing it because the user clicked the tab
- * they're already on would be a data-loss bug wearing a UX fix's clothing.
- *
- * @param targetPage The tab clicked.
- */
+  /**
+   * Always navigates to `targetPage` — including "return to its default view" when
+   * already there, which a bare `setPage` can't do (Radix's Tabs only fires
+   * `onValueChange` on an actual value change, so clicking the active tab is normally a
+   * no-op). Dispatch and Track are deliberate exceptions: their lifted state
+   * (`dispatchOfp`/`dispatchedOfpId`, Track's own in-progress tracking) is work in
+   * progress, not navigation history — clearing it because the user clicked the tab
+   * they're already on would be a data-loss bug wearing a UX fix's clothing.
+   *
+   * @param targetPage The tab clicked.
+   */
   function goToTab(targetPage: AppPage): void {
     if (targetPage !== effectivePage) {
       setPage(targetPage)
@@ -465,19 +487,31 @@ export default function App(): React.JSX.Element {
   }
 
   useEffect(() => {
-    window.winglog.settingsGetWeightUnit().then(setWeightUnit)
-    window.winglog.settingsGetAltitudeUnit().then(setAltitudeUnit)
-    window.winglog.settingsGetWindSpeedUnit().then(setWindSpeedUnit)
-    window.winglog.settingsGetMapLanguage().then(setMapLanguage)
-    window.winglog.settingsGetLandingDistanceUnit().then(setLandingDistanceUnit)
-    window.winglog.settingsGetTheme().then(setTheme)
-    window.winglog.settingsGetGsxRemote().then((settings) => setGsxRemoteEnabled(settings.enabled))
-    window.winglog.settingsGetBeyondAtc().then((settings) => setBeyondAtcEnabled(settings.enabled))
-    Promise.all([window.winglog.settingsGetAppLanguage(), window.winglog.settingsGetSystemLocale()]).then(
-      ([saved, systemLocale]) => {
-        setAppLanguage(saved)
-        void i18n.changeLanguage(resolveAppLanguage(saved, systemLocale))
-      }
+    runAsync('App settingsGetWeightUnit', window.winglog.settingsGetWeightUnit().then(setWeightUnit))
+    runAsync('App settingsGetAltitudeUnit', window.winglog.settingsGetAltitudeUnit().then(setAltitudeUnit))
+    runAsync('App settingsGetWindSpeedUnit', window.winglog.settingsGetWindSpeedUnit().then(setWindSpeedUnit))
+    runAsync('App settingsGetMapLanguage', window.winglog.settingsGetMapLanguage().then(setMapLanguage))
+    runAsync(
+      'App settingsGetLandingDistanceUnit',
+      window.winglog.settingsGetLandingDistanceUnit().then(setLandingDistanceUnit)
+    )
+    runAsync('App settingsGetTheme', window.winglog.settingsGetTheme().then(setTheme))
+    runAsync(
+      'App settingsGetGsxRemote',
+      window.winglog.settingsGetGsxRemote().then((settings) => setGsxRemoteEnabled(settings.enabled))
+    )
+    runAsync(
+      'App settingsGetBeyondAtc',
+      window.winglog.settingsGetBeyondAtc().then((settings) => setBeyondAtcEnabled(settings.enabled))
+    )
+    runAsync(
+      'App settingsGetAppLanguage',
+      Promise.all([window.winglog.settingsGetAppLanguage(), window.winglog.settingsGetSystemLocale()]).then(
+        ([saved, systemLocale]) => {
+          setAppLanguage(saved)
+          void i18n.changeLanguage(resolveAppLanguage(saved, systemLocale))
+        }
+      )
     )
   }, [])
 
@@ -513,23 +547,26 @@ export default function App(): React.JSX.Element {
   // install; someone upgrading with a fleet or logbook gets a one-off "what's new" instead.
   const [setupOpen, setSetupOpen] = useState(false)
   useEffect(() => {
-    window.winglog.setupGetState().then(async (setup) => {
-      if (setup.show) setSetupOpen(true)
-      if (setup.whatsNew) toast.info(i18n.t('app.whatsNew'), { duration: 15_000 })
-      // A no-op (returns null) on every launch after the app's actual first-ever one —
-      // see settingsCheckGsxFirstLaunch's doc comment.
-      const result = await window.winglog.settingsCheckGsxFirstLaunch()
-      // The setup's add-ons step shows what this found, so no separate toast on top of it.
-      if (!result || setup.show) return
-      // i18n.t directly, not the hook's t — this only runs once at mount (checking a
-      // one-time flag), so it must not depend on a value that changes on every language
-      // switch just to satisfy the exhaustive-deps rule.
-      if (result.found) {
-        toast.success(i18n.t('app.gsxFirstLaunch.found'))
-      } else {
-        toast.info(i18n.t('app.gsxFirstLaunch.notFound'))
-      }
-    })
+    runAsync(
+      'App setupGetState',
+      window.winglog.setupGetState().then(async (setup) => {
+        if (setup.show) setSetupOpen(true)
+        if (setup.whatsNew) toast.info(i18n.t('app.whatsNew'), { duration: 15_000 })
+        // A no-op (returns null) on every launch after the app's actual first-ever one —
+        // see settingsCheckGsxFirstLaunch's doc comment.
+        const result = await window.winglog.settingsCheckGsxFirstLaunch()
+        // The setup's add-ons step shows what this found, so no separate toast on top of it.
+        if (!result || setup.show) return
+        // i18n.t directly, not the hook's t — this only runs once at mount (checking a
+        // one-time flag), so it must not depend on a value that changes on every language
+        // switch just to satisfy the exhaustive-deps rule.
+        if (result.found) {
+          toast.success(i18n.t('app.gsxFirstLaunch.found'))
+        } else {
+          toast.info(i18n.t('app.gsxFirstLaunch.notFound'))
+        }
+      })
+    )
   }, [])
 
   useEffect(() => {
@@ -540,7 +577,7 @@ export default function App(): React.JSX.Element {
     // Pull current status in case the initial connect (main process starts it immediately
     // on app launch) already resolved before this component mounted — the push channel
     // below only delivers *future* changes, Electron doesn't replay missed IPC sends.
-    window.winglog.getSimConnectionStatus().then(setSimStatus)
+    runAsync('App getSimConnectionStatus', window.winglog.getSimConnectionStatus().then(setSimStatus))
     const unsubscribeStatus = window.winglog.onSimConnectionStatus((status) => {
       setSimStatus(status)
       // The sim stopped sending updates — clear the last-known values rather than
@@ -589,13 +626,20 @@ export default function App(): React.JSX.Element {
   return (
     <main className="flex h-screen flex-col">
       <UpdateBanner airborne={telemetry !== null && !telemetry.onGround} />
-      <Tabs value={effectivePage} onValueChange={(value) => setPage(value as AppPage)} className="min-h-0 flex-1 gap-0">
+      <Tabs
+        value={effectivePage}
+        onValueChange={(value) => setPage(value as AppPage)}
+        className="min-h-0 flex-1 gap-0"
+      >
         {/* Narrow windows (a second monitor, and later a tablet or phone): tabs drop to icons
             below lg, keeping each label for screen readers, and scroll if they still don't fit.
             px-1 below sm is what fits all seven next to the phone badge at 360 px: px-1.5 left
             the row 16 px short and Settings half off screen (v1.4.0's red e2e). */}
         <header className="flex items-center justify-between gap-2 border-b border-border px-4 py-3 sm:gap-4 sm:px-6">
-          <TabsList variant="line" className="min-w-0 justify-start overflow-x-auto overflow-y-hidden [scrollbar-width:none]">
+          <TabsList
+            variant="line"
+            className="min-w-0 justify-start overflow-x-auto overflow-y-hidden [scrollbar-width:none]"
+          >
             {appTabs(t, gsxRemoteEnabled, beyondAtcEnabled).map(({ page: tabPage, label, icon: Icon }) => (
               <TabsTrigger
                 key={tabPage}
@@ -613,9 +657,15 @@ export default function App(): React.JSX.Element {
           </TabsList>
           <div className="flex shrink-0 items-center gap-2">
             <DevBuildBadge />
-            <Badge variant={connectionStatusVariant(simStatus)} title={connectionStatusLabel(simStatus, t)} className="shrink-0">
+            <Badge
+              variant={connectionStatusVariant(simStatus)}
+              title={connectionStatusLabel(simStatus, t)}
+              className="shrink-0"
+            >
               <span className="sm:hidden">{connectionStateLabel(simStatus, t)}</span>
-              <span className="hidden sm:inline">{t('app.connection.badge', { state: connectionStateLabel(simStatus, t) })}</span>
+              <span className="hidden sm:inline">
+                {t('app.connection.badge', { state: connectionStateLabel(simStatus, t) })}
+              </span>
             </Badge>
           </div>
         </header>
@@ -678,19 +728,25 @@ export default function App(): React.JSX.Element {
             {effectivePage === 'settings' && (
               <SettingsView
                 weightUnit={weightUnit}
-                onWeightUnitChange={handleWeightUnitChange}
+                onWeightUnitChange={asyncHandler('App handleWeightUnitChange', handleWeightUnitChange)}
                 altitudeUnit={altitudeUnit}
-                onAltitudeUnitChange={handleAltitudeUnitChange}
+                onAltitudeUnitChange={asyncHandler('App handleAltitudeUnitChange', handleAltitudeUnitChange)}
                 windSpeedUnit={windSpeedUnit}
-                onWindSpeedUnitChange={handleWindSpeedUnitChange}
+                onWindSpeedUnitChange={asyncHandler(
+                  'App handleWindSpeedUnitChange',
+                  handleWindSpeedUnitChange
+                )}
                 landingDistanceUnit={landingDistanceUnit}
-                onLandingDistanceUnitChange={handleLandingDistanceUnitChange}
+                onLandingDistanceUnitChange={asyncHandler(
+                  'App handleLandingDistanceUnitChange',
+                  handleLandingDistanceUnitChange
+                )}
                 mapLanguage={mapLanguage}
-                onMapLanguageChange={handleMapLanguageChange}
+                onMapLanguageChange={asyncHandler('App handleMapLanguageChange', handleMapLanguageChange)}
                 appLanguage={appLanguage}
-                onAppLanguageChange={handleAppLanguageChange}
+                onAppLanguageChange={asyncHandler('App handleAppLanguageChange', handleAppLanguageChange)}
                 theme={theme}
-                onThemeChange={handleThemeChange}
+                onThemeChange={asyncHandler('App handleThemeChange', handleThemeChange)}
                 onGsxRemoteEnabledChange={setGsxRemoteEnabled}
                 onBeyondAtcEnabledChange={setBeyondAtcEnabled}
                 onRunSetup={() => setSetupOpen(true)}
@@ -705,17 +761,20 @@ export default function App(): React.JSX.Element {
         open={setupOpen}
         onClose={() => setSetupOpen(false)}
         weightUnit={weightUnit}
-        onWeightUnitChange={handleWeightUnitChange}
+        onWeightUnitChange={asyncHandler('App handleWeightUnitChange', handleWeightUnitChange)}
         altitudeUnit={altitudeUnit}
-        onAltitudeUnitChange={handleAltitudeUnitChange}
+        onAltitudeUnitChange={asyncHandler('App handleAltitudeUnitChange', handleAltitudeUnitChange)}
         windSpeedUnit={windSpeedUnit}
-        onWindSpeedUnitChange={handleWindSpeedUnitChange}
+        onWindSpeedUnitChange={asyncHandler('App handleWindSpeedUnitChange', handleWindSpeedUnitChange)}
         landingDistanceUnit={landingDistanceUnit}
-        onLandingDistanceUnitChange={handleLandingDistanceUnitChange}
+        onLandingDistanceUnitChange={asyncHandler(
+          'App handleLandingDistanceUnitChange',
+          handleLandingDistanceUnitChange
+        )}
         mapLanguage={mapLanguage}
-        onMapLanguageChange={handleMapLanguageChange}
+        onMapLanguageChange={asyncHandler('App handleMapLanguageChange', handleMapLanguageChange)}
         appLanguage={appLanguage}
-        onAppLanguageChange={handleAppLanguageChange}
+        onAppLanguageChange={asyncHandler('App handleAppLanguageChange', handleAppLanguageChange)}
         onGsxRemoteEnabledChange={setGsxRemoteEnabled}
         onBeyondAtcEnabledChange={setBeyondAtcEnabled}
       />
@@ -726,13 +785,15 @@ export default function App(): React.JSX.Element {
             <>
               <AlertDialogHeader>
                 <AlertDialogTitle>{orphanedFlightCopy(orphanedFlight, t).title}</AlertDialogTitle>
-                <AlertDialogDescription>{orphanedFlightCopy(orphanedFlight, t).description}</AlertDialogDescription>
+                <AlertDialogDescription>
+                  {orphanedFlightCopy(orphanedFlight, t).description}
+                </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel onClick={handleDiscardOrphaned}>
+                <AlertDialogCancel onClick={asyncHandler('App handleDiscardOrphaned', handleDiscardOrphaned)}>
                   {t('app.orphanedFlight.discard')}
                 </AlertDialogCancel>
-                <AlertDialogAction onClick={handleResumeOrphaned}>
+                <AlertDialogAction onClick={asyncHandler('App handleResumeOrphaned', handleResumeOrphaned)}>
                   {orphanedFlightCopy(orphanedFlight, t).confirmLabel}
                 </AlertDialogAction>
               </AlertDialogFooter>
@@ -777,7 +838,10 @@ export default function App(): React.JSX.Element {
         )
       })()}
 
-      <Dialog open={pendingAtcClearance !== null} onOpenChange={(open) => !open && handleDismissAtcClearance()}>
+      <Dialog
+        open={pendingAtcClearance !== null}
+        onOpenChange={(open) => !open && handleDismissAtcClearance()}
+      >
         <DialogContent className="sm:max-w-md">
           {pendingAtcClearance && (
             <>

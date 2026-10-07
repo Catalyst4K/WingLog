@@ -1,5 +1,5 @@
 /**
- * App IPC: the version, the GitHub and manual links, and the update check. The update channels are
+ * App IPC: the version, the GitHub and manual links, renderer error logging, and the update check. The update channels are
  * queries of the UpdateService (coding-standards.md §9); the links open outside the app.
  */
 import { app, shell, type IpcMain } from 'electron'
@@ -7,6 +7,10 @@ import { IpcChannels } from '@shared/ipc'
 import type { UpdateService } from '../updates/update-check'
 import { manualPath } from '../manual-path'
 import { existsSync } from 'node:fs'
+import { logger } from '../logging/logger'
+
+/** The longest renderer context or message written to main.log, in characters. */
+const MAX_RENDERER_LOG_CHARS = 2_000
 
 /**
  * Registers the app channels.
@@ -31,6 +35,12 @@ export function registerAppHandlers(
     const manual = manualPath(app.isPackaged, process.resourcesPath, app.getAppPath())
     if (!existsSync(manual)) return false
     return (await shell.openPath(manual)) === ''
+  })
+
+  // A renderer failure, to main.log. Strings only, cut to length: the renderer isn't trusted.
+  ipcMain.handle(IpcChannels.appLogRendererError, (_event, context: unknown, message: unknown) => {
+    if (typeof context !== 'string' || typeof message !== 'string') return
+    logger.warn(`[renderer] ${context.slice(0, MAX_RENDERER_LOG_CHARS)}: ${message.slice(0, MAX_RENDERER_LOG_CHARS)}`)
   })
 
   ipcMain.handle(IpcChannels.updatesGetStatus, () => updateService.getStatus())

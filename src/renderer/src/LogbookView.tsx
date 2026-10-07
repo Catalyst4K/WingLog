@@ -67,6 +67,7 @@ import {
   msToFpm,
   msToKt
 } from './units'
+import { asyncHandler, runAsync } from './report-error'
 
 type View = { kind: 'list' } | { kind: 'detail'; id: number }
 
@@ -222,12 +223,15 @@ export function LandingCard(props: {
   const [selectedIndex, setSelectedIndex] = useState(0)
 
   useEffect(() => {
-    window.winglog.logbookListLandings(props.flightId).then((result) => {
-      setLandings(result)
-      // Defaults to the final touchdown — the one that ended the flight — matching
-      // Logbook's own flights-list score column.
-      setSelectedIndex(Math.max(0, result.length - 1))
-    })
+    runAsync(
+      'LogbookView logbookListLandings',
+      window.winglog.logbookListLandings(props.flightId).then((result) => {
+        setLandings(result)
+        // Defaults to the final touchdown — the one that ended the flight — matching
+        // Logbook's own flights-list score column.
+        setSelectedIndex(Math.max(0, result.length - 1))
+      })
+    )
   }, [props.flightId])
 
   // Still loading — render a skeleton at roughly the card's final height rather than
@@ -277,7 +281,11 @@ export function LandingCard(props: {
               </Tabs>
             ) : (
               <Select value={String(selectedIndex)} onValueChange={(v) => setSelectedIndex(Number(v))}>
-                <SelectTrigger className="w-40" size="sm" aria-label={t('logbookView.landingCard.selectLanding')}>
+                <SelectTrigger
+                  className="w-40"
+                  size="sm"
+                  aria-label={t('logbookView.landingCard.selectLanding')}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -422,17 +430,22 @@ function FlightDetailLoader(
   const [loaded, setLoaded] = useState<{ row: LogbookFlight; flight: Flight | null } | null>(null)
   useEffect(() => {
     let cancelled = false
-    window.winglog.logbookGetFlight(listRow.id).then((flight) => {
-      if (!cancelled) setLoaded({ row: listRow, flight })
-    })
+    runAsync(
+      'LogbookView logbookGetFlight',
+      window.winglog.logbookGetFlight(listRow.id).then((flight) => {
+        if (!cancelled) setLoaded({ row: listRow, flight })
+      })
+    )
     return () => {
       cancelled = true
     }
   }, [listRow])
   // Keeps showing the previous copy while a re-fetch for the same flight is in flight, rather
   // than flashing "Loading…" after every list reload.
-  if (!loaded || loaded.row.id !== listRow.id) return <p className="text-sm text-muted-foreground">{t('logbookView.loading')}</p>
-  if (!loaded.flight) return <p className="text-sm text-muted-foreground">{t('logbookView.flightNotFound')}</p>
+  if (!loaded || loaded.row.id !== listRow.id)
+    return <p className="text-sm text-muted-foreground">{t('logbookView.loading')}</p>
+  if (!loaded.flight)
+    return <p className="text-sm text-muted-foreground">{t('logbookView.flightNotFound')}</p>
   return <FlightDetail {...rest} flight={loaded.flight} />
 }
 
@@ -484,7 +497,7 @@ function FlightDetail(props: {
   }
 
   useEffect(() => {
-    window.winglog.trackPointList(flight.id).then(setTrackPoints)
+    runAsync('LogbookView trackPointList', window.winglog.trackPointList(flight.id).then(setTrackPoints))
   }, [flight.id])
 
   // The persisted selection (Track's live edits at flight completion) if this flight ever
@@ -502,9 +515,12 @@ function FlightDetail(props: {
   useEffect(() => {
     if (route.length > 0) return
     let cancelled = false
-    window.winglog.logbookGreatCircleRoute(flight.depIcao, flight.arrIcao).then((points) => {
-      if (!cancelled) setFallbackRoute(points ?? [])
-    })
+    runAsync(
+      'LogbookView logbookGreatCircleRoute',
+      window.winglog.logbookGreatCircleRoute(flight.depIcao, flight.arrIcao).then((points) => {
+        if (!cancelled) setFallbackRoute(points ?? [])
+      })
+    )
     return () => {
       cancelled = true
     }
@@ -600,7 +616,12 @@ function FlightDetail(props: {
         <div className="flex items-center gap-2">
           <KeepCaptureButton flightId={flight.id} />
           <TrackCleanupButton flightId={flight.id} onCleaned={setTrackPoints} />
-          <Button type="button" variant="ghost" size="sm" onClick={handleDelete}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={asyncHandler('LogbookView handleDelete', handleDelete)}
+          >
             <Trash2 />
             {t('logbookView.deleteFlight')}
           </Button>
@@ -621,7 +642,12 @@ function FlightDetail(props: {
             </CardTitle>
             {flight.ofpJson && (
               <CardAction>
-                <Button type="button" variant="outline" size="sm" onClick={handleViewOfpPdf}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={asyncHandler('LogbookView handleViewOfpPdf', handleViewOfpPdf)}
+                >
                   {t('logbookView.viewOfpPdf')}
                 </Button>
               </CardAction>
@@ -641,7 +667,10 @@ function FlightDetail(props: {
                 value={aircraft?.registration ?? flight.simRegistration ?? '—'}
               />
               <DetailField label={t('logbookView.fields.date')} value={formatDate(flight.actualOutUtc)} />
-              <DetailField label={t('logbookView.fields.blockTime')} value={formatMinutes(flight.blockMinutes)} />
+              <DetailField
+                label={t('logbookView.fields.blockTime')}
+                value={formatMinutes(flight.blockMinutes)}
+              />
               <DetailField label={t('logbookView.fields.airTime')} value={formatMinutes(flight.airMinutes)} />
               <DetailField
                 label={t('logbookView.fields.fuelBurn')}
@@ -673,7 +702,9 @@ function FlightDetail(props: {
           <Card className="min-w-72 flex-1">
             <CardHeader>
               <CardTitle className="text-sm">
-                {altitudeChartLabel === 'True altitude' ? t('logbookView.trueAltitude') : t('logbookView.altitude')}
+                {altitudeChartLabel === 'True altitude'
+                  ? t('logbookView.trueAltitude')
+                  : t('logbookView.altitude')}
               </CardTitle>
             </CardHeader>
             <CardContent className="h-[220px]">
@@ -891,7 +922,15 @@ type LandingSortKey = 'date' | 'aircraft' | 'airport' | 'flight' | 'rate' | 'gfo
 
 // Same column positions as the Flights table (Date, Flight, Route~Airport, Aircraft, ..., Score)
 // so switching between the two tabs doesn't shuffle the headers around under the cursor.
-const LANDING_SORT_KEYS: LandingSortKey[] = ['date', 'flight', 'airport', 'aircraft', 'rate', 'gforce', 'score']
+const LANDING_SORT_KEYS: LandingSortKey[] = [
+  'date',
+  'flight',
+  'airport',
+  'aircraft',
+  'rate',
+  'gforce',
+  'score'
+]
 
 function landingSortColumns(t: TFunction): { key: LandingSortKey; label: string; className?: string }[] {
   return [
@@ -945,12 +984,18 @@ export function LandingsTable(props: {
 
   useEffect(() => {
     if (props.landings !== undefined) return
-    window.winglog.logbookListAllLandings().then(setOwnLandings)
+    runAsync(
+      'LogbookView logbookListAllLandings',
+      window.winglog.logbookListAllLandings().then(setOwnLandings)
+    )
   }, [props.landings])
   const landings = props.landings ?? ownLandings
 
   const comparators = Object.fromEntries(
-    LANDING_SORT_KEYS.map((key) => [key, (a: LandingListRow, b: LandingListRow) => compareLandingRows(a, b, key)])
+    LANDING_SORT_KEYS.map((key) => [
+      key,
+      (a: LandingListRow, b: LandingListRow) => compareLandingRows(a, b, key)
+    ])
   ) as Record<LandingSortKey, (a: LandingListRow, b: LandingListRow) => number>
   const {
     sortKey,
@@ -1092,16 +1137,19 @@ export function LogbookView(props: {
   }
 
   useEffect(() => {
-    reload().finally(() => setLoading(false))
+    runAsync(
+      'LogbookView reload',
+      reload().finally(() => setLoading(false))
+    )
   }, [])
 
-/**
- * A free flight tracked with no fleet aircraft has no aircraftId to look up — falls back
- * to the sim-reported registration recorded directly on the flight row instead.
- *
- * @param flight The flight.
- * @returns Its fleet aircraft's registration, else the one the sim reported, else a dash.
- */
+  /**
+   * A free flight tracked with no fleet aircraft has no aircraftId to look up — falls back
+   * to the sim-reported registration recorded directly on the flight row instead.
+   *
+   * @param flight The flight.
+   * @returns Its fleet aircraft's registration, else the one the sim reported, else a dash.
+   */
   function registrationFor(flight: LogbookFlight): string {
     if (flight.aircraftId != null) {
       return aircraft.find((a) => a.id === flight.aircraftId)?.registration ?? `#${flight.aircraftId}`
@@ -1113,20 +1161,23 @@ export function LogbookView(props: {
     return scores.find((s) => s.flightId === flightId)?.score ?? null
   }
 
-/**
- * Landing count for the flights list's "×3" badge (winglog-backend's docs/plans/
- * multiple-landings.md) — 0 for a flight with no landing row, same cases scoreFor
- * returns null for.
- *
- * @param flightId The flight.
- * @returns How many landings it has.
- */
+  /**
+   * Landing count for the flights list's "×3" badge (winglog-backend's docs/plans/
+   * multiple-landings.md) — 0 for a flight with no landing row, same cases scoreFor
+   * returns null for.
+   *
+   * @param flightId The flight.
+   * @returns How many landings it has.
+   */
   function landingCountFor(flightId: number): number {
     return scores.find((s) => s.flightId === flightId)?.landingCount ?? 0
   }
 
   const comparators = Object.fromEntries(
-    SORT_KEYS.map((key) => [key, (a: LogbookFlight, b: LogbookFlight) => compareFlights(a, b, key, registrationFor, scoreFor)])
+    SORT_KEYS.map((key) => [
+      key,
+      (a: LogbookFlight, b: LogbookFlight) => compareFlights(a, b, key, registrationFor, scoreFor)
+    ])
   ) as Record<SortKey, (a: LogbookFlight, b: LogbookFlight) => number>
   const {
     sortKey,
@@ -1158,9 +1209,9 @@ export function LogbookView(props: {
         }
         onDeleted={() => {
           setView({ kind: 'list' })
-          reload()
+          runAsync('LogbookView reload', reload())
         }}
-        onAircraftLinked={() => reload()}
+        onAircraftLinked={asyncHandler('LogbookView reload', () => reload())}
       />
     )
   }

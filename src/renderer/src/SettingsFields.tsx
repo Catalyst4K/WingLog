@@ -6,12 +6,21 @@
 import { useEffect, useState } from 'react'
 import { Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import type { AltitudeUnit, AppLanguage, LandingDistanceUnit, MapLanguage, TrackingSettings, WeightUnit, WindSpeedUnit } from '@shared/ipc'
+import type {
+  AltitudeUnit,
+  AppLanguage,
+  LandingDistanceUnit,
+  MapLanguage,
+  TrackingSettings,
+  WeightUnit,
+  WindSpeedUnit
+} from '@shared/ipc'
 import { APP_LANGUAGE_OPTIONS } from '@shared/app-language'
 import { MAP_LANGUAGES } from './map-labels'
 import { trackingLabels } from './trackingLabels'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { runAsync } from './report-error'
 
 /**
  * Label above an equal-width button group, one row of the UI page's Units/Theme cards
@@ -165,7 +174,9 @@ export function UnitsFields(props: UnitsFieldsProps): React.JSX.Element {
         ]}
         onChange={props.onLandingDistanceUnitChange}
         hint={t('settingsView.units.landingDistancesHint')}
-        hintAriaLabel={t('settingsView.units.moreInfoFor', { label: t('settingsView.units.landingDistances') })}
+        hintAriaLabel={t('settingsView.units.moreInfoFor', {
+          label: t('settingsView.units.landingDistances')
+        })}
       />
     </>
   )
@@ -181,7 +192,7 @@ export function TrackingFields(): React.JSX.Element {
   const { t } = useTranslation()
   const [tracking, setTracking] = useState<TrackingSettings>({ autoStart: true, autoFinish: true })
   useEffect(() => {
-    window.winglog.settingsGetTracking().then(setTracking)
+    runAsync('SettingsFields settingsGetTracking', window.winglog.settingsGetTracking().then(setTracking))
   }, [])
 
   async function handleTrackingChange(next: TrackingSettings): Promise<void> {

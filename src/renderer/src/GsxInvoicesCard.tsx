@@ -8,6 +8,7 @@ import type { TFunction } from 'i18next'
 import type { FlightInvoice, GsxNotailCandidate } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { asyncHandler, runAsync } from './report-error'
 
 function serviceGroupLabel(group: FlightInvoice['serviceGroup'], t: TFunction): string {
   return t(`gsxInvoicesCard.serviceGroup.${group}`)
@@ -95,7 +96,9 @@ function InvoiceRow(props: {
           {inv.operator ? ` — ${inv.operator}` : ''}
         </span>
         <span className="flex items-center gap-3">
-          <span className="font-mono tabular-nums text-foreground">{rowAmountText(inv, props.converted)}</span>
+          <span className="font-mono tabular-nums text-foreground">
+            {rowAmountText(inv, props.converted)}
+          </span>
           <Button
             type="button"
             variant="outline"
@@ -164,13 +167,19 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
   const [rates, setRates] = useState<Map<string, number | null>>(new Map())
 
   useEffect(() => {
-    window.winglog.logbookListInvoices(props.flightId).then(setInvoices)
+    runAsync(
+      'GsxInvoicesCard logbookListInvoices',
+      window.winglog.logbookListInvoices(props.flightId).then(setInvoices)
+    )
   }, [props.flightId])
 
   useEffect(() => {
-    window.winglog.settingsGetGsx().then((settings) => {
-      setDisplayCurrency(settings.displayCurrency)
-    })
+    runAsync(
+      'GsxInvoicesCard settingsGetGsx',
+      window.winglog.settingsGetGsx().then((settings) => {
+        setDisplayCurrency(settings.displayCurrency)
+      })
+    )
   }, [])
 
   useEffect(() => {
@@ -178,13 +187,16 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
     const dates = [...new Set(invoices.filter((inv) => inv.totalUsd != null).map(receiptDate))]
     const missing = dates.filter((date) => !rates.has(rateKey(displayCurrency, date)))
     if (missing.length === 0) return
-    Promise.all(missing.map((date) => window.winglog.fxGetRate(displayCurrency, date))).then((results) => {
-      setRates((current) => {
-        const next = new Map(current)
-        missing.forEach((date, i) => next.set(rateKey(displayCurrency, date), results[i]))
-        return next
+    runAsync(
+      'GsxInvoicesCard fxGetRate',
+      Promise.all(missing.map((date) => window.winglog.fxGetRate(displayCurrency, date))).then((results) => {
+        setRates((current) => {
+          const next = new Map(current)
+          missing.forEach((date, i) => next.set(rateKey(displayCurrency, date), results[i]))
+          return next
+        })
       })
-    })
+    )
     // Re-runs whenever displayCurrency or the set of receipt dates changes; `rates` itself
     // isn't a dependency (only read via `missing`/`has`, never used to decide whether to
     // re-fetch a date already in flight) — including it would refetch on every response,
@@ -242,7 +254,13 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
       <CardHeader>
         <CardTitle className="text-sm">{t('gsxInvoicesCard.title')}</CardTitle>
         <CardAction>
-          <Button type="button" variant="outline" size="sm" onClick={handleRescan} disabled={rescanning}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={asyncHandler('GsxInvoicesCard handleRescan', handleRescan)}
+            disabled={rescanning}
+          >
             {rescanning ? t('gsxInvoicesCard.scanning') : t('gsxInvoicesCard.rescan')}
           </Button>
         </CardAction>
@@ -257,7 +275,9 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
             ))}
             {hasAnyUsdTotal && (
               <div className="flex justify-between border-t border-border pt-2 text-sm">
-                <span className="text-muted-foreground">{t('gsxInvoicesCard.total', { code: displayCode })}</span>
+                <span className="text-muted-foreground">
+                  {t('gsxInvoicesCard.total', { code: displayCode })}
+                </span>
                 <span className="font-mono tabular-nums text-foreground">{formattedTotal}</span>
               </div>
             )}
@@ -272,7 +292,12 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
                 <span className="text-foreground">
                   {serviceGroupLabel(c.serviceGroup, t)} · {c.icao} · {new Date(c.issuedUtc).toLocaleString()}
                 </span>
-                <Button type="button" variant="outline" size="sm" onClick={() => handleAttach(c)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={asyncHandler('GsxInvoicesCard handleAttach', () => handleAttach(c))}
+                >
                   {t('gsxInvoicesCard.attach')}
                 </Button>
               </div>
