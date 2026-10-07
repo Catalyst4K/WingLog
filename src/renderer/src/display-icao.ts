@@ -11,3 +11,14 @@
 export function displayIcao(icao: string): string {
   return icao === 'ZZZZ' ? 'Unknown' : icao
 }
+
+/**
+ * A real airport code, for anything that looks an airport up — a free flight's unset airports
+ * are `ZZZZ`.
+ *
+ * @param icao A stored ICAO code.
+ * @returns It, or null for a missing one or ZZZZ.
+ */
+export function realIcao(icao: string | null | undefined): string | null {
+  return icao && icao !== 'ZZZZ' ? icao : null
+}
