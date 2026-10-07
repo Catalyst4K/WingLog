@@ -1,3 +1,5 @@
+/** Finding a stand by position or by the name ATC uses. */
+
 import type { NavdataStand } from './ipc'
 import { flatDistanceM as distanceM } from './geo'
 
@@ -5,7 +7,14 @@ import { flatDistanceM as distanceM } from './geo'
  *  YBBN-VHHH flight stopped 13 m from N32 and started 15 m from gate 79 (2026-10-02). */
 export const AT_STAND_MAX_M = 40
 
-/** The stand an aircraft is parked at, or null if none is close enough. */
+/**
+ * The stand an aircraft is parked at, or null if none is close enough.
+ *
+ * @param stands The airport's stands.
+ * @param position The aircraft's position.
+ * @param maxM How far from a stand still counts as at it, in metres.
+ * @returns The nearest stand within `maxM`, or null.
+ */
 export function nearestStand(
   stands: NavdataStand[],
   position: { lat: number; lon: number },
@@ -23,8 +32,14 @@ export function nearestStand(
   return best
 }
 
-/** The stand ATC named ("N32"). A name can have twin entries (a MARS stand's halves, carrying
- *  a non-zero suffix); ATC's plain name means the one without. */
+/**
+ * The stand ATC named ("N32"). A name can have twin entries (a MARS stand's halves, carrying
+ * a non-zero suffix); ATC's plain name means the one without.
+ *
+ * @param stands The airport's stands.
+ * @param name The name ATC gave.
+ * @returns The stand, or null if the airport has none by that name.
+ */
 export function findStand(stands: NavdataStand[], name: string): NavdataStand | null {
   const matches = stands.filter((s) => s.name.toUpperCase() === name.toUpperCase())
   return matches.find((s) => s.suffix === 0) ?? matches[0] ?? null

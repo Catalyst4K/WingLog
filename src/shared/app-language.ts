@@ -1,9 +1,12 @@
-// Resolves AppLanguage's 'system' value to an actual language i18next can load — pure
-// logic, testable without a live Electron/OS locale (docs/plans/v1-2.md Part 3). Lives in
-// src/shared rather than src/renderer since both the renderer's own i18next instance
-// (i18n.ts) and the main process's (src/main/i18n.ts, main-process strings) need it — main
-// already reads the persisted AppLanguage setting directly (settings-repo.ts's
-// getAppLanguage) and calls app.getLocale() itself, with no IPC round-trip either way.
+/**
+ * Resolves AppLanguage's 'system' value to an actual language i18next can load — pure
+ * logic, testable without a live Electron/OS locale (docs/plans/v1-2.md Part 3). Lives in
+ * src/shared rather than src/renderer since both the renderer's own i18next instance
+ * (i18n.ts) and the main process's (src/main/i18n.ts, main-process strings) need it — main
+ * already reads the persisted AppLanguage setting directly (settings-repo.ts's
+ * getAppLanguage) and calls app.getLocale() itself, with no IPC round-trip either way.
+ */
+
 import type { AppLanguage } from '@shared/ipc'
 
 /** Every language this app actually has a catalogue for, English included — the set
@@ -29,6 +32,10 @@ export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number]
  * smaller follow-up). A bare 'zh' with no region, or any other unrecognised zh-* region,
  * defaults to Simplified — the larger of the two audiences — rather than falling back to
  * English, since either script is a much better guess for a Chinese-locale user than none.
+ *
+ * @param setting The persisted language setting.
+ * @param systemLocale The OS locale Electron reports.
+ * @returns The language to load.
  */
 export function resolveAppLanguage(setting: AppLanguage, systemLocale: string): SupportedLanguage {
   if (setting !== 'system') return setting

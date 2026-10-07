@@ -1,3 +1,5 @@
+/** BeyondATC's empty state, shared by main and the renderer. */
+
 import type { BeyondAtcState } from './ipc'
 
 /** BeyondATC's state before anything has arrived: the service's starting point in main, and

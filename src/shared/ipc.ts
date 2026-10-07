@@ -972,10 +972,6 @@ export interface BeyondAtcFrequencyOption {
   cpdlcLogonCode?: string
 }
 
-/** Combined live state BeyondAtcPanel needs — deliberately narrower than every key
- *  docs/beyondatc-notes.md catalogues (DATIS, CPDLC code, settings, … aren't surfaced here;
- *  nothing needed by this panel). Unrecognised/unparsed wire keys are simply never reflected
- *  here, not an error. */
 /** ATC's arrival clearance as last given, kept until touchdown for the BeyondATC tab's info
  *  card (src/main/beyondatc/arrival-clearance.ts). The STAR and runway come from a STAR
  *  clearance, the approach and transition from an approach clearance or "expect" line. */
@@ -1008,6 +1004,10 @@ export interface BeyondAtcStepClimbStatus {
   } | null
 }
 
+/** Combined live state BeyondAtcPanel needs — deliberately narrower than every key
+ *  docs/beyondatc-notes.md catalogues (DATIS, CPDLC code, settings, … aren't surfaced here;
+ *  nothing needed by this panel). Unrecognised/unparsed wire keys are simply never reflected
+ *  here, not an error. */
 export interface BeyondAtcState {
   facility: BeyondAtcFacility | null
   com2: BeyondAtcCom2 | null
@@ -1334,9 +1334,6 @@ export interface NavdataLeg {
   routeDistanceM: number
 }
 
-/** One taxiway-network segment (a single TAXI_PATH record, resolved to real lat/lon
- *  endpoints) — the full set for an airport is a basic taxi chart, not a specific route.
- *  `name` is the taxiway identifier (e.g. "C", "W1"), or null for an unnamed segment. */
 /** A stand/gate from the sim (TAXI_PARKING) — see main's sim-facilities-fetch.ts fetchStands. */
 export interface NavdataStand {
   /** As ATC says it: "N32", "79". */
@@ -1396,6 +1393,9 @@ export interface NavdataRunway {
   thresholdLon: number
 }
 
+/** One taxiway-network segment (a single TAXI_PATH record, resolved to real lat/lon
+ *  endpoints) — the full set for an airport is a basic taxi chart, not a specific route.
+ *  `name` is the taxiway identifier (e.g. "C", "W1"), or null for an unnamed segment. */
 export interface NavdataTaxiSegment {
   startLat: number
   startLon: number

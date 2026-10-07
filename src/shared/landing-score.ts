@@ -1,12 +1,15 @@
-// Landing score (0-100, floored for display) — winglog-backend's docs/plans/
-// landing-scoring.md ("Final design", settled 2026-09-12), reworked by
-// landing-scoring-v2.md (2026-09-20): tapered falloff (fraction^1.5 — see taperedScore's
-// own history for why not a full square) replacing the original straight-line taper, plus a
-// separate dangerous-exceedance deduction. Pure, no I/O:
-// usable from both the main process (which
-// resolves the runway/wake-category lookups this needs real vendored data for — see
-// src/main/db/landing-score-resolver.ts) and the renderer (for tests/rendering only, never
-// for its own I/O — the renderer still never touches the filesystem, per CLAUDE.md).
+/**
+ * Landing score (0-100, floored for display) — winglog-backend's docs/plans/
+ * landing-scoring.md ("Final design", settled 2026-09-12), reworked by
+ * landing-scoring-v2.md (2026-09-20): tapered falloff (fraction^1.5 — see taperedScore's
+ * own history for why not a full square) replacing the original straight-line taper, plus a
+ * separate dangerous-exceedance deduction. Pure, no I/O:
+ * usable from both the main process (which
+ * resolves the runway/wake-category lookups this needs real vendored data for — see
+ * src/main/db/landing-score-resolver.ts) and the renderer (for tests/rendering only, never
+ * for its own I/O — the renderer still never touches the filesystem, per CLAUDE.md).
+ */
+
 import type { LandingScoreCategoryKey, LandingSeverity } from './ipc'
 
 export type WakeCategory = 'L' | 'M' | 'H' | 'J'
@@ -46,6 +49,10 @@ export const LANDING_RATE_BANDS: Record<WakeCategory, LandingRateBand> = {
 // type this app doesn't actually know the category of.
 const UNKNOWN_CATEGORY_FALLBACK: WakeCategory = 'M'
 
+/**
+ * @param category The aircraft's wake category, or null if unknown.
+ * @returns Its touchdown rate band; an unknown category gets M's.
+ */
 export function landingRateBand(category: WakeCategory | null): LandingRateBand {
   return LANDING_RATE_BANDS[category ?? UNKNOWN_CATEGORY_FALLBACK]
 }
@@ -62,6 +69,10 @@ export interface LandingThresholds {
 const FIRM_MULTIPLIER = 2.5
 const HARD_MULTIPLIER = 4.0
 
+/**
+ * @param category The aircraft's wake category, or null if unknown.
+ * @returns The firm and hard touchdown rates for it.
+ */
 export function deriveLandingThresholds(category: WakeCategory | null): LandingThresholds {
   const ideal = landingRateBand(category).sweetSpotFpm
   return { firmFpm: ideal * FIRM_MULTIPLIER, hardFpm: ideal * HARD_MULTIPLIER }
@@ -81,6 +92,10 @@ function msToFpm(ms: number): number {
  * rate regardless of sign convention. Moved verbatim from the old
  * src/renderer/src/landing-severity.ts (same signature/behaviour) — only where its
  * `thresholds` argument comes from has changed.
+ *
+ * @param touchdownVerticalSpeedMs Vertical speed at touchdown, in m/s.
+ * @param thresholds The firm and hard rates.
+ * @returns How firm the landing was.
  */
 export function classifyLanding(touchdownVerticalSpeedMs: number, thresholds: LandingThresholds): LandingSeverity {
   const fpm = Math.abs(msToFpm(touchdownVerticalSpeedMs))
@@ -256,6 +271,10 @@ const CRAB_TOLERANCE_DEG = 5
 // history) — they now only set how wide the tolerance is, same as every other category.
 export const TOUCHDOWN_ZONE_PAIR_SPACING_M = 150
 
+/**
+ * @param lengthM The runway's length, in metres.
+ * @returns How many touchdown-zone marking pairs a runway that long has.
+ */
 export function touchdownZonePairCountForLengthM(lengthM: number): number {
   if (lengthM < 900) return 1
   if (lengthM < 1200) return 2
@@ -359,14 +378,22 @@ function taperedScore(
   return { score, exceeded, dangerPenalty: exceeded ? dangerPenaltyForFraction(fraction, maxFraction) : 0 }
 }
 
-/** distanceFromAimingPoint's own scoring, the only category taperedScore alone can't cover:
- *  two real physical hard limits (the threshold, and the last real touchdown-zone marker)
- *  rather than one tolerance either side of `ideal` (0 = the aiming point) — see
- *  aimingPointDistanceM's own doc comment for why (2026-09-26). `deviation` is already
- *  signed the same way as elsewhere (`actual - ideal`): negative means short of the aiming
- *  point (toward the threshold), positive means long of it (toward the far marker) — so the
- *  sign alone picks which real tolerance applies, everything past that is the same tapered
- *  curve as every other category. */
+/**
+ * distanceFromAimingPoint's own scoring, the only category taperedScore alone can't cover:
+ * two real physical hard limits (the threshold, and the last real touchdown-zone marker)
+ * rather than one tolerance either side of `ideal` (0 = the aiming point) — see
+ * aimingPointDistanceM's own doc comment for why (2026-09-26). `deviation` is already
+ * signed the same way as elsewhere (`actual - ideal`): negative means short of the aiming
+ * point (toward the threshold), positive means long of it (toward the far marker) — so the
+ * sign alone picks which real tolerance applies, everything past that is the same tapered
+ * curve as every other category.
+ *
+ * @param deviation Distance from the aiming point, in metres; negative is short.
+ * @param toleranceShort The tolerance short of the aiming point.
+ * @param toleranceLong The tolerance long of it.
+ * @param maxFraction How far past the tolerance the danger penalty reaches its maximum.
+ * @returns The category's score.
+ */
 function asymmetricTaperedScore(
   deviation: number,
   toleranceShort: number,
@@ -383,6 +410,9 @@ function asymmetricTaperedScore(
  * `overall` negative on its own — only the separate dangerous-exceedance deduction(s) can
  * (landing-scoring-v2.md, 2026-09-20, reopening docs/decisions.md's 2026-09-12 "no separate
  * dangerous floor step" — v1 deliberately had none; v2 added one, per category, on purpose).
+ *
+ * @param inputs The touchdown's measurements, with null for any the landing doesn't have.
+ * @returns The overall score and each category's part in it.
  */
 export function computeLandingScore(inputs: LandingScoreInputs): LandingScoreBreakdown {
   const thresholds = deriveLandingThresholds(inputs.category)

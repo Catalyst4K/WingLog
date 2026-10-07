@@ -1,3 +1,5 @@
+/** Reads BeyondATC's InfoBoxes as typed facts: taxi routes, gates, clearances and levels. */
+
 import type { BeyondAtcInfoBox, ProcedureSelection } from './ipc'
 
 /** A clearance read from one set of InfoBoxes, as a partial `ProcedureSelection` update. */
@@ -40,20 +42,37 @@ export interface AtcTaxiFacts {
 
 const TAXI_VIA = /^taxi via (\d+)$/i
 
+/**
+ * @param title An InfoBox title as BeyondATC sent it.
+ * @returns The title trimmed, single-spaced and lower case, for matching.
+ */
 export function normaliseTitle(title: string): string {
   return title.trim().replace(/\s+/g, ' ').toLowerCase()
 }
 
-/** "Gate 102" → '102', "Stand N32" → 'N32', "411" → '411'. Null for anything else. */
+/**
+ * "Gate 102" → '102', "Stand N32" → 'N32', "411" → '411'. Null for anything else.
+ *
+ * @param info The box's value.
+ * @returns The gate or stand, or null.
+ */
 function gateValue(info: string): string | null {
   return /^(?:(?:gate|stand) +)?(\S+)$/i.exec(info.trim())?.[1] ?? null
 }
 
+/**
+ * @param info A box's value.
+ * @returns The value trimmed, or null if that leaves nothing.
+ */
 function nonEmpty(info: string): string | null {
   const value = info.trim()
   return value === '' ? null : value
 }
 
+/**
+ * @param boxes One set of InfoBoxes.
+ * @returns The taxi facts they carry; empty fields for anything missing.
+ */
 export function parseAtcTaxiFacts(boxes: BeyondAtcInfoBox[]): AtcTaxiFacts {
   const facts: AtcTaxiFacts = { taxiVia: [], holdPosition: null, taxiToRunway: null, taxiToGate: null, expectGate: null }
   const via: { n: number; taxiway: string }[] = []
@@ -86,14 +105,25 @@ export function parseAtcTaxiFacts(boxes: BeyondAtcInfoBox[]): AtcTaxiFacts {
   return facts
 }
 
-/** The gate BeyondATC has assigned, from either box: the taxi clearance's, else the earlier
- *  `Expect Gate`. Null with neither. */
+/**
+ * The gate BeyondATC has assigned, from either box: the taxi clearance's, else the earlier
+ * `Expect Gate`. Null with neither.
+ *
+ * @param facts The taxi facts.
+ * @returns The gate, or null.
+ */
 export function assignedGate(facts: AtcTaxiFacts): string | null {
   return facts.taxiToGate ?? facts.expectGate
 }
 
-/** The value of the first box with one of these titles (normalised), trimmed; null when none
- *  has one. */
+/**
+ * The value of the first box with one of these titles (normalised), trimmed; null when none
+ * has one.
+ *
+ * @param boxes One set of InfoBoxes.
+ * @param titles The titles to look for, normalised.
+ * @returns The value, or null.
+ */
 export function boxValue(boxes: BeyondAtcInfoBox[], ...titles: string[]): string | null {
   for (const box of boxes) {
     if (titles.includes(normaliseTitle(box.title))) {
@@ -104,8 +134,14 @@ export function boxValue(boxes: BeyondAtcInfoBox[], ...titles: string[]): string
   return null
 }
 
-/** "QNH 1014" → '1014': BeyondATC sometimes repeats the box's own label in its value (ZJSY,
- *  2026-10-05). */
+/**
+ * "QNH 1014" → '1014': BeyondATC sometimes repeats the box's own label in its value (ZJSY,
+ * 2026-10-05).
+ *
+ * @param value The box's value.
+ * @param label The label it may start with.
+ * @returns The value without the label.
+ */
 export function withoutLabel(value: string, label: string): string {
   const prefix = `${label.toLowerCase()} `
   return value.toLowerCase().startsWith(prefix) ? value.slice(prefix.length).trim() : value
@@ -113,13 +149,22 @@ export function withoutLabel(value: string, label: string): string {
 
 const RUNWAY_VALUE = /^(?:runway +)?(\d{1,2}[LRC]?)$/i
 
+/**
+ * @param value A box's value: "07R" or "Runway 07R".
+ * @returns The runway, upper case, or null.
+ */
 function runwayValue(value: string | null): string | null {
   return value ? (RUNWAY_VALUE.exec(value)?.[1]?.toUpperCase() ?? null) : null
 }
 
-/** "ILS-Z approach runway 08" (the `Cleared Approach` box) → 'ILS Z 08', the sim's own naming,
- *  confirmed against the sim's navdata (beyondatc-notes.md, "Identifier-matching question
- *  closed": BeyondATC hyphenates the type, the sim spaces it). */
+/**
+ * "ILS-Z approach runway 08" (the `Cleared Approach` box) → 'ILS Z 08', the sim's own naming,
+ * confirmed against the sim's navdata (beyondatc-notes.md, "Identifier-matching question
+ * closed": BeyondATC hyphenates the type, the sim spaces it).
+ *
+ * @param value The box's value, or null.
+ * @returns The approach as the sim names it, or null.
+ */
 export function clearedApproachIdent(value: string | null): string | null {
   const match = value ? CLEARED_APPROACH.exec(value.trim()) : null
   return match ? `${match[1]!.replace('-', ' ').toUpperCase()} ${match[2]!.toUpperCase()}` : null
@@ -134,6 +179,9 @@ export function clearedApproachIdent(value: string | null): string | null {
  *   approach transition; the approach itself comes from the runway's navdata);
  * - approach clearance: `Cleared Approach` "ILS-Z approach runway 08";
  * - `Landing Runway` on its own (with QNH, after the STAR): the runway only.
+ *
+ * @param boxes One set of InfoBoxes.
+ * @returns The clearance, or null.
  */
 export function parseAtcBoxClearance(boxes: BeyondAtcInfoBox[]): AtcClearanceUpdate | null {
   const sid = boxValue(boxes, 'sid')?.toUpperCase() ?? null
@@ -176,8 +224,13 @@ export function parseAtcBoxClearance(boxes: BeyondAtcInfoBox[]): AtcClearanceUpd
 
 const FEET_PER_METRE = 1 / 0.3048
 
-/** "FL360" → 36000, "3,000m" → 9843, "11000 feet" → 11000. Null for anything else. A bare
- *  number is metres only with a metric unit; feet otherwise. */
+/**
+ * "FL360" → 36000, "3,000m" → 9843, "11000 feet" → 11000. Null for anything else. A bare
+ * number is metres only with a metric unit; feet otherwise.
+ *
+ * @param level A level as BeyondATC wrote it.
+ * @returns The level in feet, or null.
+ */
 export function levelToFeet(level: string): number | null {
   const value = level.trim()
   const fl = /^FL ?(\d{2,3})$/i.exec(value)
@@ -204,7 +257,12 @@ const LEVEL_TITLES = [
   'cruise altitude'
 ]
 
-/** The cleared level in one set of InfoBoxes, in feet, or null when it has none. */
+/**
+ * The cleared level in one set of InfoBoxes, in feet, or null when it has none.
+ *
+ * @param boxes One set of InfoBoxes.
+ * @returns The level in feet, or null.
+ */
 export function boxClearedLevelFt(boxes: BeyondAtcInfoBox[]): number | null {
   const value = boxValue(boxes, ...LEVEL_TITLES)
   return value ? levelToFeet(value) : null

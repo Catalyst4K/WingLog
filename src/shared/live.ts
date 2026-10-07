@@ -1,3 +1,5 @@
+/** The live topics main pushes while flying, and what each one carries. */
+
 import type {
   BeyondAtcArrivalClearance,
   BeyondAtcConnectionStatus,
