@@ -4,14 +4,48 @@
  * settings that restart a live connection (GSX Remote, BeyondATC) are with those connections.
  */
 import { app, type IpcMain } from 'electron'
-import { IpcChannels } from '@shared/ipc'
+import {
+  IpcChannels,
+  type WeightUnit,
+  type AltitudeUnit,
+  type MapLanguage,
+  type AppLanguage,
+  type WindSpeedUnit,
+  type LandingDistanceUnit,
+  type Theme,
+  type TrackingSettings,
+  type GsxSettings,
+  type UpdateSettings
+} from '@shared/ipc'
 import type { WingLogDb } from '../db/client'
-import type { TrackingController } from '../tracking/TrackingController'import { getSimbriefUsername, setSimbriefUsername, getWeightUnit, setWeightUnit, getAltitudeUnit, setAltitudeUnit, getMapLanguage, setMapLanguage, getAppLanguage, setAppLanguage, getWindSpeedUnit, setWindSpeedUnit, getLandingDistanceUnit, setLandingDistanceUnit, getTheme, setTheme, getTrackingSettings, setTrackingSettings, getGsxSettings, setGsxSettings, getUpdateSettings, setUpdateSettings } from '../db/settings-repo'
-import { type WeightUnit, type AltitudeUnit, type MapLanguage, type AppLanguage, type WindSpeedUnit, type LandingDistanceUnit, type Theme, type TrackingSettings, type GsxSettings, type UpdateSettings } from '@shared/ipc'
+import type { TrackingController } from '../tracking/TrackingController'
+import {
+  getSimbriefUsername,
+  setSimbriefUsername,
+  getWeightUnit,
+  setWeightUnit,
+  getAltitudeUnit,
+  setAltitudeUnit,
+  getMapLanguage,
+  setMapLanguage,
+  getAppLanguage,
+  setAppLanguage,
+  getWindSpeedUnit,
+  setWindSpeedUnit,
+  getLandingDistanceUnit,
+  setLandingDistanceUnit,
+  getTheme,
+  setTheme,
+  getTrackingSettings,
+  setTrackingSettings,
+  getGsxSettings,
+  setGsxSettings,
+  getUpdateSettings,
+  setUpdateSettings
+} from '../db/settings-repo'
 import { setMainLanguage } from '../i18n'
 import { checkGsxFirstLaunch } from '../db/gsx-first-launch'
 import { getSetupState, getSetupContext, setSetupCompleted } from '../setup/first-run'
-
 
 /** What the settings channels need. */
 export interface SettingsHandlerDeps {
@@ -26,14 +60,15 @@ export interface SettingsHandlerDeps {
  * @param ipcMain Electron's IPC.
  * @param deps The database, and the tracking controller for auto-finish.
  */
-export function registerSettingsHandlers(ipcMain: IpcMain, { db, trackingController }: SettingsHandlerDeps): void {
-
+export function registerSettingsHandlers(
+  ipcMain: IpcMain,
+  { db, trackingController }: SettingsHandlerDeps
+): void {
   ipcMain.handle(IpcChannels.settingsGetSimbriefUsername, () => getSimbriefUsername(db) ?? null)
 
   ipcMain.handle(IpcChannels.settingsSetSimbriefUsername, (_event, username: string) =>
     setSimbriefUsername(db, username)
   )
-
 
   ipcMain.handle(IpcChannels.settingsGetWeightUnit, () => getWeightUnit(db))
 
@@ -90,9 +125,7 @@ export function registerSettingsHandlers(ipcMain: IpcMain, { db, trackingControl
 
   ipcMain.handle(IpcChannels.settingsGetGsx, () => getGsxSettings(db))
 
-  ipcMain.handle(IpcChannels.settingsSetGsx, (_event, settings: GsxSettings) =>
-    setGsxSettings(db, settings)
-  )
+  ipcMain.handle(IpcChannels.settingsSetGsx, (_event, settings: GsxSettings) => setGsxSettings(db, settings))
 
   ipcMain.handle(IpcChannels.settingsCheckGsxFirstLaunch, () => checkGsxFirstLaunch(db))
 
