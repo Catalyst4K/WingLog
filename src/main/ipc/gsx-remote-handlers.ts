@@ -15,6 +15,7 @@ import type { WingLogDb } from '../db/client'
 import { getGsxRemoteSettings, setGsxRemoteSettings } from '../db/settings-repo'
 import type { DevDiagnostics } from '../diagnostics/dev-diagnostics'
 import { EMPTY_COMMAND_BAR, EMPTY_MENU, GsxRemoteService } from '../gsx-remote/GsxRemoteService'
+import { dispatchCommand, gsxCommands, type GsxCommand } from '../live/commands'
 import type { LiveHub } from '../live/LiveHub'
 import type { ServiceSocketCtor } from '../net/service-socket'
 
@@ -76,16 +77,14 @@ export function registerGsxRemoteHandlers(
     IpcChannels.gsxRemoteGetCommandBar,
     () => gsxRemoteService?.getCommandBar() ?? EMPTY_COMMAND_BAR
   )
-  ipcMain.handle(IpcChannels.gsxRemotePickMenu, (_event, index: unknown) => gsxRemoteService?.pickMenu(index))
-  ipcMain.handle(IpcChannels.gsxRemoteSearch, (_event, text: unknown) => gsxRemoteService?.search(text))
-  ipcMain.handle(IpcChannels.gsxRemoteToggleMenu, () => gsxRemoteService?.toggleMenu())
-  ipcMain.handle(IpcChannels.gsxRemoteSubmitPrompt, (_event, gen: unknown, text: unknown) =>
-    gsxRemoteService?.submitPrompt(gen, text)
-  )
-  ipcMain.handle(IpcChannels.gsxRemoteCancelPrompt, (_event, gen: unknown) =>
-    gsxRemoteService?.cancelPrompt(gen)
-  )
-  ipcMain.handle(IpcChannels.gsxRemoteRunCommand, (_event, id: unknown) => gsxRemoteService?.runCommand(id))
+  const commands = gsxCommands(() => gsxRemoteService)
+  const command = (name: GsxCommand) => (_event: unknown, ...args: unknown[]) => dispatchCommand(commands, name, args)
+  ipcMain.handle(IpcChannels.gsxRemotePickMenu, command('gsx.pickMenu'))
+  ipcMain.handle(IpcChannels.gsxRemoteSearch, command('gsx.search'))
+  ipcMain.handle(IpcChannels.gsxRemoteToggleMenu, command('gsx.toggleMenu'))
+  ipcMain.handle(IpcChannels.gsxRemoteSubmitPrompt, command('gsx.submitPrompt'))
+  ipcMain.handle(IpcChannels.gsxRemoteCancelPrompt, command('gsx.cancelPrompt'))
+  ipcMain.handle(IpcChannels.gsxRemoteRunCommand, command('gsx.runCommand'))
 
   return { stop: () => gsxRemoteService?.stop() }
 }
