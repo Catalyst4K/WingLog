@@ -32,6 +32,23 @@ export function listInvoicesForFlight(db: WingLogDb, flightId: number): FlightIn
 }
 
 /**
+ * Whether WingLog stored a receipt at this HTML path: the only receipts it will open for the
+ * renderer.
+ *
+ * @param db The database.
+ * @param htmlPath The receipt's HTML file, as the renderer passed it.
+ * @returns True when a receipt that isn't deleted has exactly this path.
+ */
+export function isStoredReceiptPath(db: WingLogDb, htmlPath: string): boolean {
+  const row = db
+    .select({ id: flightInvoice.id })
+    .from(flightInvoice)
+    .where(and(eq(flightInvoice.sourceHtmlPath, htmlPath), isNull(flightInvoice.deletedAt)))
+    .get()
+  return row !== undefined
+}
+
+/**
  * Adds any of `invoices` not already stored for this flight (deduped on receiptId) and
  * returns the full, current list. Used by both the completion-time snapshot/manual
  * rescan (a batch of confidently-matched receipts) and manually attaching one NOTAIL
