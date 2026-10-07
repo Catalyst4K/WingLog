@@ -1,13 +1,22 @@
+/** The Fleet aircraft form: identity, registration lookup, airline and SimBrief airframe. */
+
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import type { Aircraft, AircraftTypeOption, AirlineOption, NewAircraft, SimbriefAirframeOption } from '@shared/ipc'
+import type {
+  Aircraft,
+  AircraftTypeOption,
+  AirlineOption,
+  NewAircraft,
+  SimbriefAirframeOption
+} from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { AirportSearch } from './AirportSearch'
 import { Combobox } from './components/Combobox'
+import { asyncHandler, runAsync } from './report-error'
 
 interface FormState {
   registration: string
@@ -73,38 +82,62 @@ function Field(props: {
   return (
     <Label className="flex flex-col items-start gap-1.5">
       {props.label}
-      <Input type="text" value={props.value} required={props.required} onChange={(e) => props.onChange(e.target.value)} />
+      <Input
+        type="text"
+        value={props.value}
+        required={props.required}
+        onChange={(e) => props.onChange(e.target.value)}
+      />
     </Label>
   )
 }
 
-/** A short label for one dropdown row — the stock entry gets a fixed label (nothing to
- *  attribute it to), a community entry prefers its parsed developer, falling back to the
- *  raw comment for the ~3% that don't match SimBrief's usual naming shape (docs/plans/
- *  simbrief-airframe-picker.md). The type never appears here — options are fetched per
- *  type, so it's identical on every row and can't help distinguish them (docs/plans/
- *  simbrief-airframe-picker-v2.md, decision 1). `variant` is whatever the raw comment adds
- *  beyond developer/engines (e.g. "(SL)" on an A320, a whole phrase like "Dual Class" on a
- *  PMDG 737 — docs/simbrief-notes.md) — shown only when the parse actually found one. */
+/**
+ * A short label for one dropdown row — the stock entry gets a fixed label (nothing to
+ * attribute it to), a community entry prefers its parsed developer, falling back to the
+ * raw comment for the ~3% that don't match SimBrief's usual naming shape (docs/plans/
+ * simbrief-airframe-picker.md). The type never appears here — options are fetched per
+ * type, so it's identical on every row and can't help distinguish them (docs/plans/
+ * simbrief-airframe-picker-v2.md, decision 1). `variant` is whatever the raw comment adds
+ * beyond developer/engines (e.g. "(SL)" on an A320, a whole phrase like "Dual Class" on a
+ * PMDG 737 — docs/simbrief-notes.md) — shown only when the parse actually found one.
+ *
+ * @param o The airframe option.
+ * @param t The translation function.
+ * @returns The label.
+ */
 function optionLabel(o: SimbriefAirframeOption, t: TFunction): string {
   if (o.isDefault) return t('aircraftForm.simbriefDefaultOption', { engines: o.engines })
   const variant = o.variant ? ` — ${o.variant}` : ''
   return `${o.developer ?? o.comments}${variant} — ${o.engines}`
 }
 
-/** Same idea as optionLabel, but for the collapsed Select value and Fleet's read-only
- *  display — contexts with no dropdown of sibling rows around them to establish the type
- *  from, unlike optionLabel's own rows (decision 2, docs/plans/simbrief-airframe-
- *  picker-v2.md). Skips appending the type onto the raw-comment fallback case (no
- *  `developer`) — that text is already a full, self-contained description, not built to
- *  have a type code glued onto the end of it. */
+/**
+ * Same idea as optionLabel, but for the collapsed Select value and Fleet's read-only
+ * display — contexts with no dropdown of sibling rows around them to establish the type
+ * from, unlike optionLabel's own rows (decision 2, docs/plans/simbrief-airframe-
+ * picker-v2.md). Skips appending the type onto the raw-comment fallback case (no
+ * `developer`) — that text is already a full, self-contained description, not built to
+ * have a type code glued onto the end of it.
+ *
+ * @param o The airframe option.
+ * @param t The translation function.
+ * @returns The label.
+ */
 function selectedOptionLabel(o: SimbriefAirframeOption, t: TFunction): string {
-  if (o.isDefault) return t('aircraftForm.simbriefDefaultSelected', { simbriefType: o.simbriefType, engines: o.engines })
+  if (o.isDefault)
+    return t('aircraftForm.simbriefDefaultSelected', { simbriefType: o.simbriefType, engines: o.engines })
   if (!o.developer) return o.comments
   const variant = o.variant ? ` — ${o.variant}` : ''
   return `${o.developer} ${o.simbriefType}${variant} — ${o.engines}`
 }
 
+/**
+ * Adds or edits a Fleet aircraft.
+ *
+ * @param props The aircraft being edited (or none for a new one), and the save and cancel handlers.
+ * @returns The element.
+ */
 export function AircraftForm(props: {
   initial?: Aircraft
   onSubmit: (data: NewAircraft) => Promise<void>
@@ -120,11 +153,15 @@ export function AircraftForm(props: {
   // from a registration lookup or the SimBrief airframe picker below (docs/plans/
   // fleet-redesign.md #3, docs/plans/simbrief-airframe-picker.md). Kept out of FormState
   // so toFormState/toNewAircraft don't need to round-trip values nothing renders as input.
-  const [photoThumbnailUrl, setPhotoThumbnailUrl] = useState<string | null>(props.initial?.photoThumbnailUrl ?? null)
+  const [photoThumbnailUrl, setPhotoThumbnailUrl] = useState<string | null>(
+    props.initial?.photoThumbnailUrl ?? null
+  )
   const [airframeDeveloper, setAirframeDeveloper] = useState<string | null>(
     props.initial?.simbriefAirframeDeveloper ?? null
   )
-  const [airframeEngines, setAirframeEngines] = useState<string | null>(props.initial?.simbriefAirframeEngines ?? null)
+  const [airframeEngines, setAirframeEngines] = useState<string | null>(
+    props.initial?.simbriefAirframeEngines ?? null
+  )
   const [airframeRegistration, setAirframeRegistration] = useState<string | null>(
     props.initial?.simbriefAirframeRegistration ?? null
   )
@@ -160,14 +197,17 @@ export function AircraftForm(props: {
     let cancelled = false
     const timer = setTimeout(() => {
       setLoadingAirframeOptions(true)
-      window.winglog
-        .simbriefAirframesForType(trimmedIcaoType)
-        .then((options) => {
-          if (!cancelled) setAirframeOptions(options)
-        })
-        .finally(() => {
-          if (!cancelled) setLoadingAirframeOptions(false)
-        })
+      runAsync(
+        'AircraftForm window.winglog',
+        window.winglog
+          .simbriefAirframesForType(trimmedIcaoType)
+          .then((options) => {
+            if (!cancelled) setAirframeOptions(options)
+          })
+          .finally(() => {
+            if (!cancelled) setLoadingAirframeOptions(false)
+          })
+      )
     }, 300)
     return () => {
       cancelled = true
@@ -179,9 +219,13 @@ export function AircraftForm(props: {
     setForm((current) => ({ ...current, [key]: value }))
   }
 
-  /** The raw text fields stay directly editable (never blocked), but typing over a value
-   *  the picker set invalidates its cached label — showing a stale developer/engine
-   *  label next to a hand-edited id/type would be actively misleading. */
+  /**
+   * The raw text fields stay directly editable (never blocked), but typing over a value
+   * the picker set invalidates its cached label — showing a stale developer/engine
+   * label next to a hand-edited id/type would be actively misleading.
+   *
+   * @param value The typed airframe id.
+   */
   function handleManualSimbriefAirframeIdChange(value: string): void {
     set('simbriefAirframeId', value)
     setAirframeDeveloper(null)
@@ -270,9 +314,13 @@ export function AircraftForm(props: {
         return {
           ...current,
           icaoType: current.icaoType || result.icaoType,
-          operator: fillOperator ? (matchedAirline?.name ?? result.operator ?? current.operator) : current.operator,
+          operator: fillOperator
+            ? (matchedAirline?.name ?? result.operator ?? current.operator)
+            : current.operator,
           operatorIata: fillOperator ? (matchedAirline?.iata ?? '') : current.operatorIata,
-          operatorIcao: fillOperator ? (matchedAirline?.icao ?? result.operatorIcao ?? '') : current.operatorIcao
+          operatorIcao: fillOperator
+            ? (matchedAirline?.icao ?? result.operatorIcao ?? '')
+            : current.operatorIcao
         }
       })
       // Same "fill blanks only" restraint as the operator fields above — a re-run
@@ -286,14 +334,22 @@ export function AircraftForm(props: {
       // free-text model name to fuzzy-match against if it doesn't. Only when nothing was
       // already set — same restraint as every other field Lookup touches.
       if (!hadSimbriefType) {
-        window.winglog.simbriefAirframesForType(result.icaoType).then((options) => {
-          if (options.some((o) => o.isDefault)) {
-            setForm((current) => (current.simbriefType.trim() !== '' ? current : { ...current, simbriefType: result.icaoType }))
-          }
-        })
+        runAsync(
+          'AircraftForm simbriefAirframesForType',
+          window.winglog.simbriefAirframesForType(result.icaoType).then((options) => {
+            if (options.some((o) => o.isDefault)) {
+              setForm((current) =>
+                current.simbriefType.trim() !== '' ? current : { ...current, simbriefType: result.icaoType }
+              )
+            }
+          })
+        )
       }
       setLookupStatus(
-        t('aircraftForm.found', { operator: result.operator ?? t('aircraftForm.unknownOperator'), icaoType: result.icaoType })
+        t('aircraftForm.found', {
+          operator: result.operator ?? t('aircraftForm.unknownOperator'),
+          icaoType: result.icaoType
+        })
       )
     } catch (err) {
       setLookupStatus(err instanceof Error ? err.message : String(err))
@@ -322,7 +378,10 @@ export function AircraftForm(props: {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex max-w-md flex-col gap-5">
+    <form
+      onSubmit={asyncHandler('AircraftForm handleSubmit', handleSubmit)}
+      className="flex max-w-md flex-col gap-5"
+    >
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <Label className="flex flex-col items-start gap-1.5">
@@ -335,7 +394,13 @@ export function AircraftForm(props: {
             onChange={(e) => set('registration', e.target.value)}
             className="flex-1"
           />
-          <Button type="button" variant="outline" size="sm" onClick={handleLookup} disabled={lookingUp}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={asyncHandler('AircraftForm handleLookup', handleLookup)}
+            disabled={lookingUp}
+          >
             {lookingUp ? '…' : t('aircraftForm.lookUp')}
           </Button>
         </div>
@@ -419,7 +484,7 @@ export function AircraftForm(props: {
             variant="outline"
             size="sm"
             className="w-fit"
-            onClick={handleCreateCustomAirframe}
+            onClick={asyncHandler('AircraftForm handleCreateCustomAirframe', handleCreateCustomAirframe)}
             disabled={creatingAirframe}
           >
             {creatingAirframe ? t('aircraftForm.waitingForSimBrief') : t('aircraftForm.createCustomAirframe')}
@@ -442,7 +507,9 @@ export function AircraftForm(props: {
           variant="outline"
           size="sm"
           className="w-fit"
-          onClick={() => void window.winglog.dispatchOpenSimBriefAirframes(form.simbriefAirframeId.trim() || null)}
+          onClick={() =>
+            void window.winglog.dispatchOpenSimBriefAirframes(form.simbriefAirframeId.trim() || null)
+          }
         >
           {t('aircraftForm.openAirframesPage')}
         </Button>

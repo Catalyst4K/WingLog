@@ -1,3 +1,5 @@
+/** The "Start a free flight" dialog. */
+
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
@@ -17,6 +19,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { AirportSearch } from './AirportSearch'
 import { Combobox } from './components/Combobox'
+import { asyncHandler } from './report-error'
 
 /** Select's own value type is always a string — this sentinel picks "don't add to fleet"
  *  out of the list of real aircraft ids. Fleet creation no longer happens inline here at
@@ -44,6 +47,9 @@ const EMPTY_FORM: FormState = { registration: '', icaoType: '', depIcao: '', arr
  * opens) and everything stays editable, per the plan's own field table. Controlled rather
  * than owning its own trigger, since two different UI entry points (TrackView's Free flight
  * card and its passive detection banner) both open the same dialog instance.
+ *
+ * @param props Whether it's open, the sim's aircraft identity, the fleet, and the start handler.
+ * @returns The element.
  */
 export function StartFreeFlightDialog(props: {
   open: boolean
@@ -134,7 +140,7 @@ export function StartFreeFlightDialog(props: {
       })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoading(false))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- prefilled once as the dialog opens, not on every telemetry tick
   }, [props.open])
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]): void {
@@ -302,7 +308,11 @@ export function StartFreeFlightDialog(props: {
           <Button type="button" variant="outline" onClick={() => props.onOpenChange(false)}>
             {t('startFreeFlightDialog.cancel')}
           </Button>
-          <Button type="button" onClick={handleSubmit} disabled={loading || submitting || !props.telemetry}>
+          <Button
+            type="button"
+            onClick={asyncHandler('StartFreeFlightDialog handleSubmit', handleSubmit)}
+            disabled={loading || submitting || !props.telemetry}
+          >
             {submitting ? t('startFreeFlightDialog.starting') : t('startFreeFlightDialog.startTracking')}
           </Button>
         </DialogFooter>

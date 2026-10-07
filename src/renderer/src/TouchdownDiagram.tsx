@@ -1,3 +1,5 @@
+/** Logbook's touchdown diagram: where the aircraft touched down on the runway. */
+
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { LandingRunway } from '@shared/ipc'
@@ -33,6 +35,13 @@ const MIN_MARK_LENGTH_PX = 6
  * Lateral offset maps directly onto the SVG's X axis (a pilot's right stays screen-right);
  * along-track distance maps onto the SVG's Y axis, flipped (bigger along-track distance ⇒
  * smaller Y ⇒ higher on screen).
+ *
+ * @param alongStartPx Start along the runway.
+ * @param alongLengthPx Length along the runway.
+ * @param lateralCenterPx Centre across the runway.
+ * @param lateralThicknessPx Thickness across the runway.
+ * @param widthPx The diagram's width.
+ * @returns The rectangle in SVG coordinates.
  */
 function rotatedRect(
   alongStartPx: number,
@@ -84,6 +93,9 @@ function ThresholdStripes(props: {
  * centreline on each side, not just one pair regardless of position. The aiming point
  * marking reuses this with barCount=1 and bigger dimensions, since it's the one always-
  * prominent marking rather than part of the countdown.
+ *
+ * @param props The group's position, bar count and spacing.
+ * @returns The element.
  */
 function TouchdownZoneGroup(props: {
   alongStartPx: number
@@ -126,6 +138,9 @@ function TouchdownZoneGroup(props: {
  * reference point, not its main gear (landing-capture.ts's own doc comment) — the tail
  * behind the dot represents that one-second window rather than implying more precision
  * than the data has.
+ *
+ * @param props The runway end and the touchdown.
+ * @returns The element.
  */
 export function TouchdownDiagram(props: {
   runway: LandingRunway

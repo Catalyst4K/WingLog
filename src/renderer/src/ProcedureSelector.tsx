@@ -1,3 +1,5 @@
+/** The SID, STAR and approach dropdowns, from the sim's navdata. */
+
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { NavdataProcedureOption, NavdataRunwayOption, ProcedureSelection } from '@shared/ipc'
@@ -7,6 +9,7 @@ import { approachRunway, parseRouteProcedures, pickDefaultApproachIdentifier, ty
 import { arrivalAirport, type ProcedureAirports } from './procedureSelection'
 import { displayIcao } from './display-icao'
 import { uiMemory } from './ui-memory'
+import { runAsync } from './report-error'
 
 /** One procedure dropdown, backed by real navdata (docs/plans/navdata-without-navigraph.md
  *  Phase 3/5) — `options` is whatever's currently cached for this ICAO/kind. No "SimBrief
@@ -15,7 +18,6 @@ import { uiMemory } from './ui-memory'
  *  other pick — same `undefined`-for-"nothing chosen" convention already used elsewhere in
  *  this app (e.g. DispatchView's own aircraft picker). */
 const NONE_OPTION = '__none__'
-
 
 function ProcedureSelect(props: {
   label: string
@@ -69,6 +71,9 @@ function transitionsFor(options: NavdataProcedureOption[], identifier: string | 
  * currently chosen (docs/plans/navdata-without-navigraph.md, Phase 5). No save step: every
  * change here is immediately reflected wherever `selection` is used to build the live route
  * (useLiveWaypoints) — that's the caller's job, this component only edits the selection.
+ *
+ * @param props The flight's airports, the selection and its change handler.
+ * @returns The element.
  */
 export function ProcedureSelector(props: {
   airports: ProcedureAirports
@@ -89,7 +94,10 @@ export function ProcedureSelector(props: {
   // not pick from that stale list.
   const [approachOptionsFor, setApproachOptionsFor] = useState('')
   const arrIcao = arrivalAirport(airports, selection)
-  const altnIcao = airports.altnIcao && airports.altnIcao !== airports.arrIcao && airports.altnIcao !== 'ZZZZ' ? airports.altnIcao : null
+  const altnIcao =
+    airports.altnIcao && airports.altnIcao !== airports.arrIcao && airports.altnIcao !== 'ZZZZ'
+      ? airports.altnIcao
+      : null
   // Bumped once the background sim refresh below resolves, so the four cache-read effects
   // that follow (keyed on this alongside their own real deps) pick up whatever it just
   // fetched — no manual "Refresh from sim" button needed, this makes staying current
@@ -106,17 +114,22 @@ export function ProcedureSelector(props: {
   useEffect(() => {
     // The destination and — when there is one and it's being used — the alternate.
     const toRefresh = new Set([airports.depIcao, airports.arrIcao, arrIcao])
-    Promise.allSettled([...toRefresh].map((icao) => window.winglog.navdataRefreshAirport(icao))).then(() =>
-      setRefreshedAt((n) => n + 1)
+    runAsync(
+      'ProcedureSelector navdataRefreshAirport',
+      Promise.allSettled([...toRefresh].map((icao) => window.winglog.navdataRefreshAirport(icao))).then(() =>
+        setRefreshedAt((n) => n + 1)
+      )
     )
     // Deliberately narrower than `airports` itself — `ofp`/`previewFlight` are recreated on
     // every parent render (a fresh object each time, even when depIcao/arrIcao haven't
     // changed), and this fetch must only re-fire when the airport pair actually changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [airports.depIcao, airports.arrIcao, arrIcao])
 
   useEffect(() => {
-    window.winglog.navdataListRunways(airports.depIcao).then(setDepRunways)
+    runAsync(
+      'ProcedureSelector navdataListRunways',
+      window.winglog.navdataListRunways(airports.depIcao).then(setDepRunways)
+    )
   }, [airports.depIcao, refreshedAt])
 
   useEffect(() => {
@@ -157,16 +170,33 @@ export function ProcedureSelector(props: {
   // guess to get right.
   const approachKey = `${airports.depIcao}>${arrIcao}|${airports.ofpJson?.slice(0, 300) ?? ''}`
   useEffect(() => {
-    if (selection.approachIdent || approachOptions.length === 0 || approachOptionsFor !== arrIcao || uiMemory().approachCleared.has(approachKey)) return
+    if (
+      selection.approachIdent ||
+      approachOptions.length === 0 ||
+      approachOptionsFor !== arrIcao ||
+      uiMemory().approachCleared.has(approachKey)
+    )
+      return
     // The OFP's planned runway is the filed destination's — not applicable to the alternate.
-    const plannedRunway = arrIcao === airports.arrIcao ? parseRouteProcedures(airports.ofpJson).arrivalRunway : null
-    const candidates = plannedRunway ? approachOptions.filter((o) => approachRunway(o.identifier) === plannedRunway) : approachOptions
+    const plannedRunway =
+      arrIcao === airports.arrIcao ? parseRouteProcedures(airports.ofpJson).arrivalRunway : null
+    const candidates = plannedRunway
+      ? approachOptions.filter((o) => approachRunway(o.identifier) === plannedRunway)
+      : approachOptions
     // Prefer an approach the STAR leads into (ZJSY: UPRS2C ends at SY498, ILS Z 08's entry).
     const starLastIdent = [...liveWaypoints].reverse().find((w) => w.segment === 'star')?.ident ?? null
     const pick = pickDefaultApproachIdentifier(candidates, starLastIdent)
     if (pick) set({ approachIdent: pick })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [approachOptions, approachOptionsFor, arrIcao, selection.approachIdent, airports.ofpJson, approachKey, liveWaypoints])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- set is new every render; arrIcao and approachKey cover the airports
+  }, [
+    approachOptions,
+    approachOptionsFor,
+    arrIcao,
+    selection.approachIdent,
+    airports.ofpJson,
+    approachKey,
+    liveWaypoints
+  ])
 
   // Auto-connect the approach's own entry transition to wherever the current STAR actually
   // ends, when one matches — confirmed live that a real APPROACH_TRANSITION's name is the
@@ -178,7 +208,7 @@ export function ProcedureSelector(props: {
     if (!starLastIdent) return
     const transitions = transitionsFor(approachOptions, selection.approachIdent)
     if (transitions.includes(starLastIdent)) set({ approachTransition: starLastIdent })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- set is new every render
   }, [selection.approachIdent, selection.approachTransition, approachOptions, liveWaypoints])
 
   const depRunwayIdents = depRunways.map((r) => r.ident)
@@ -245,7 +275,9 @@ export function ProcedureSelector(props: {
                   <SelectItem value="destination">
                     {t('procedureSelector.destination', { icao: displayIcao(airports.arrIcao) })}
                   </SelectItem>
-                  <SelectItem value="alternate">{t('procedureSelector.alternate', { icao: altnIcao })}</SelectItem>
+                  <SelectItem value="alternate">
+                    {t('procedureSelector.alternate', { icao: altnIcao })}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>

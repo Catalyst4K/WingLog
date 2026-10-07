@@ -1,3 +1,5 @@
+/** The BeyondATC tab. */
+
 import { useTranslation } from 'react-i18next'
 import { BeyondAtcPanel } from './BeyondAtcPanel'
 
@@ -13,6 +15,8 @@ import { BeyondAtcPanel } from './BeyondAtcPanel'
  * (confirmed live via a Playwright screenshot + DOM rect dump, real bug found and fixed the
  * same evening, not a hypothetical). Every other tab keeps relying on App.tsx's own
  * `overflow-auto` unaffected — this only changes BeyondATC's own subtree.
+ *
+ * @returns The element.
  */
 export function BeyondAtcView(): React.JSX.Element {
   const { t } = useTranslation()

@@ -1,3 +1,5 @@
+/** The renderer's entry point: mounts App with its theme provider. */
+
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ThemeProvider } from 'next-themes'

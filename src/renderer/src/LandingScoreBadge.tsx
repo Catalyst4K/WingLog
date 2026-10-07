@@ -1,3 +1,5 @@
+/** The landing score badge, coloured by band. */
+
 import { Badge } from '@/components/ui/badge'
 
 // Bands purely for the badge's colour, independent of the firm/hard classification
@@ -8,10 +10,15 @@ import { Badge } from '@/components/ui/badge'
 const GOOD_THRESHOLD = 80
 const FAIR_THRESHOLD = 50
 
-/** Shared by Fleet's per-aircraft history and Logbook's per-flight card and list column
- *  (docs/plans/landing-scoring.md) — a single place that decides how the 0-100 score looks,
- *  so all three can't drift apart. `score` is null for a flight with no landing row (e.g.
- *  a CSV import), rendered as "—" rather than a fabricated number. */
+/**
+ * Shared by Fleet's per-aircraft history and Logbook's per-flight card and list column
+ * (docs/plans/landing-scoring.md) — a single place that decides how the 0-100 score looks,
+ * so all three can't drift apart. `score` is null for a flight with no landing row (e.g.
+ * a CSV import), rendered as "—" rather than a fabricated number.
+ *
+ * @param props The 0-100 score, or null.
+ * @returns The element.
+ */
 export function LandingScoreBadge(props: { score: number | null }): React.JSX.Element {
   if (props.score === null) return <span className="text-muted-foreground">—</span>
   const variant = props.score >= GOOD_THRESHOLD ? 'default' : props.score >= FAIR_THRESHOLD ? 'secondary' : 'destructive'

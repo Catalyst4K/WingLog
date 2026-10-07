@@ -1,25 +1,32 @@
+/** Settings → About's update check card. */
+
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { UpdateSettings, UpdateStatus } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { asyncHandler, runAsync } from './report-error'
 
-/** Settings → About: the automatic update check's switch, "Check now", and the last result
- *  (winglog-backend's docs/plans/update-check.md). */
+/**
+ * Settings → About: the automatic update check's switch, "Check now", and the last result
+ * (winglog-backend's docs/plans/update-check.md).
+ *
+ * @returns The element.
+ */
 export function UpdatesCard(): React.JSX.Element {
   const { t } = useTranslation()
   const [settings, setSettings] = useState<UpdateSettings | null>(null)
   const [status, setStatus] = useState<UpdateStatus | null>(null)
 
   useEffect(() => {
-    window.winglog.settingsGetUpdates().then(setSettings)
-    window.winglog.updatesGetStatus().then(setStatus)
+    runAsync('UpdatesCard settingsGetUpdates', window.winglog.settingsGetUpdates().then(setSettings))
+    runAsync('UpdatesCard updatesGetStatus', window.winglog.updatesGetStatus().then(setStatus))
     return window.winglog.onUpdateStatus(setStatus)
   }, [])
 
   function setCheckEnabled(checkEnabled: boolean): void {
     setSettings({ checkEnabled })
-    window.winglog.settingsSetUpdates({ checkEnabled })
+    runAsync('UpdatesCard settingsSetUpdates', window.winglog.settingsSetUpdates({ checkEnabled }))
   }
 
   return (
@@ -53,7 +60,7 @@ export function UpdatesCard(): React.JSX.Element {
             variant="outline"
             size="sm"
             disabled={status?.state === 'checking'}
-            onClick={() => window.winglog.updatesCheckNow()}
+            onClick={asyncHandler('UpdatesCard updatesCheckNow', () => window.winglog.updatesCheckNow())}
           >
             {t('updates.settings.checkNow')}
           </Button>
@@ -63,7 +70,13 @@ export function UpdatesCard(): React.JSX.Element {
         </div>
         {status?.state === 'available' && status.latest && (
           <div>
-            <Button type="button" size="sm" onClick={() => window.winglog.updatesOpenRelease()}>
+            <Button
+              type="button"
+              size="sm"
+              onClick={asyncHandler('UpdatesCard updatesOpenRelease', () =>
+                window.winglog.updatesOpenRelease()
+              )}
+            >
               {t('updates.banner.download')}
             </Button>
           </div>
@@ -73,7 +86,10 @@ export function UpdatesCard(): React.JSX.Element {
   )
 }
 
-function statusText(t: (key: string, options?: Record<string, string>) => string, status: UpdateStatus): string {
+function statusText(
+  t: (key: string, options?: Record<string, string>) => string,
+  status: UpdateStatus
+): string {
   switch (status.state) {
     case 'checking':
       return t('updates.settings.checking')

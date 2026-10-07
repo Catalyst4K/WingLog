@@ -44,6 +44,11 @@ export default tseslint.config(
     }
   },
   {
+    // Vendored shadcn/ui, kept as generated: it exports its variant helpers beside the components.
+    files: ['src/renderer/src/components/ui/**'],
+    rules: { 'react-refresh/only-export-components': 'off' }
+  },
+  {
     files: APP_CODE,
     ignores: NOT_APP_CODE,
     languageOptions: {

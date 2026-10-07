@@ -1,3 +1,5 @@
+/** The Dispatch tab: plan or fetch a SimBrief flight, pick its aircraft, and fly it. */
+
 import { isRetired } from '@shared/aircraft'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -21,8 +23,18 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { AirportSearch } from './AirportSearch'
 import { DispatchAdvancedDialog } from './DispatchAdvancedDialog'
-import { countSetOptions, defaultDispatchOptions, dispatchOptionsToUrlParams, type DispatchOptions } from '@shared/dispatch-options'
-import { defaultDepartureTime, fromDatetimeLocalValue, toDatetimeLocalValue, toSimBriefDeparture } from './dispatch-time'
+import {
+  countSetOptions,
+  defaultDispatchOptions,
+  dispatchOptionsToUrlParams,
+  type DispatchOptions
+} from '@shared/dispatch-options'
+import {
+  defaultDepartureTime,
+  fromDatetimeLocalValue,
+  toDatetimeLocalValue,
+  toSimBriefDeparture
+} from './dispatch-time'
 import { useConfirm } from './hooks/useConfirm'
 import { MetarPanel } from './MetarPanel'
 import { ProcedureSelector } from './ProcedureSelector'
@@ -30,6 +42,7 @@ import { flightLabel } from './flight-label'
 import { useLiveWaypoints } from './procedureSelection'
 import { formatEnrouteOnly } from './route'
 import { formatAltitude, formatWeight, mToFt } from './units'
+import { asyncHandler, runAsync } from './report-error'
 
 function formatUtc(iso: string): string {
   return `${iso.slice(0, 16).replace('T', ' ')}Z`
@@ -39,13 +52,25 @@ function aircraftLabel(a: Aircraft): string {
   return `${a.registration} — ${a.icaoType}${a.operator ? ` (${a.operator})` : ''}`
 }
 
-/** "Last parked here at stand N32" — when this aircraft's last flight ended at the airport
- *  it's departing from (stand-positions.md). WingLog can't place the aircraft in the sim, so
- *  it's a reminder for choosing the starting gate in MSFS. */
-function LastParkedHint(props: { parked: AircraftLastParked | undefined; depIcao: string | null }): React.JSX.Element | null {
+/**
+ * "Last parked here at stand N32" — when this aircraft's last flight ended at the airport
+ * it's departing from (stand-positions.md). WingLog can't place the aircraft in the sim, so
+ * it's a reminder for choosing the starting gate in MSFS.
+ *
+ * @param props Where the aircraft last parked, and the planned departure.
+ * @returns The element, or null when there is nothing to show.
+ */
+function LastParkedHint(props: {
+  parked: AircraftLastParked | undefined
+  depIcao: string | null
+}): React.JSX.Element | null {
   const { t } = useTranslation()
   if (!props.parked || !props.depIcao || props.parked.icao !== props.depIcao.toUpperCase()) return null
-  return <p className="text-sm text-muted-foreground">{t('dispatchView.lastParkedHere', { stand: props.parked.stand })}</p>
+  return (
+    <p className="text-sm text-muted-foreground">
+      {t('dispatchView.lastParkedHere', { stand: props.parked.stand })}
+    </p>
+  )
 }
 
 function DetailField(props: { label: string; value: React.ReactNode }): React.JSX.Element {
@@ -57,6 +82,12 @@ function DetailField(props: { label: string; value: React.ReactNode }): React.JS
   )
 }
 
+/**
+ * The Dispatch tab.
+ *
+ * @param props The unit settings, the OFP in progress and its change handler, and what to do once planned.
+ * @returns The element.
+ */
 export function DispatchView(props: {
   weightUnit: WeightUnit
   altitudeUnit: AltitudeUnit
@@ -106,7 +137,9 @@ export function DispatchView(props: {
   // Set after a fetch whose OFP was generated against a custom airframe that differs from
   // (or is missing on) the matched fleet aircraft — offered, not applied silently, same
   // as the registration-match heuristic (docs/decisions.md, fleet-simbrief-airframe entry).
-  const [airframeCapture, setAirframeCapture] = useState<{ aircraftId: number; airframeId: string } | null>(null)
+  const [airframeCapture, setAirframeCapture] = useState<{ aircraftId: number; airframeId: string } | null>(
+    null
+  )
   // The live route with the current selection spliced in — single source of truth this and
   // Track's map both render from (docs/plans/navdata-without-navigraph.md, Phase 5).
   const liveWaypoints = useLiveWaypoints(ofp, props.selection)
@@ -114,13 +147,20 @@ export function DispatchView(props: {
   useEffect(() => {
     // Retired aircraft (replacedByAircraftId set — docs/plans/aircraft-replacement.md) have
     // no flights of their own left and shouldn't be offered anywhere an aircraft is picked.
-    window.winglog.aircraftList().then((list) => setAircraft(list.filter((a) => !isRetired(a))))
-    window.winglog.fleetListLastParked().then(setLastParked, () => undefined)
-    window.winglog.logbookFleetStats().then(setFleetStats)
-    window.winglog.dispatchGenerationAvailable().then(setGenerationAvailable)
+    runAsync(
+      'DispatchView aircraftList',
+      window.winglog.aircraftList().then((list) => setAircraft(list.filter((a) => !isRetired(a))))
+    )
+    // Without it, Dispatch just shows no last-parked hint.
+    runAsync('DispatchView fleetListLastParked', window.winglog.fleetListLastParked().then(setLastParked))
+    runAsync('DispatchView logbookFleetStats', window.winglog.logbookFleetStats().then(setFleetStats))
+    runAsync(
+      'DispatchView dispatchGenerationAvailable',
+      window.winglog.dispatchGenerationAvailable().then(setGenerationAvailable)
+    )
     // Source list for the advanced dialog's "Load settings from a previous flight" —
     // flightList already returns newest-first (docs/decisions.md).
-    window.winglog.flightList().then(setPastFlights)
+    runAsync('DispatchView flightList', window.winglog.flightList().then(setPastFlights))
   }, [])
 
   function handlePlanAircraftChange(id: number): void {
@@ -231,7 +271,10 @@ export function DispatchView(props: {
     const target = aircraft.find((a) => a.id === airframeCapture.aircraftId)
     if (!target) return
     try {
-      const updated = await window.winglog.aircraftUpdate({ ...target, simbriefAirframeId: airframeCapture.airframeId })
+      const updated = await window.winglog.aircraftUpdate({
+        ...target,
+        simbriefAirframeId: airframeCapture.airframeId
+      })
       setAircraft((current) => current.map((a) => (a.id === updated.id ? updated : a)))
       setAirframeCapture(null)
       toast.success(t('dispatchView.savedAirframeTo', { registration: updated.registration }))
@@ -356,7 +399,13 @@ export function DispatchView(props: {
             <CardHeader>
               <CardTitle>{t('dispatchView.planAFlight')}</CardTitle>
               <CardAction>
-                <Button type="button" variant="outline" size="sm" onClick={handleFetch} disabled={fetching || generating}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={asyncHandler('DispatchView handleFetch', handleFetch)}
+                  disabled={fetching || generating}
+                >
                   {fetching ? t('dispatchView.fetching') : t('dispatchView.fetchLatestOfp')}
                 </Button>
               </CardAction>
@@ -383,7 +432,10 @@ export function DispatchView(props: {
               <div className="flex flex-col gap-1.5">
                 <Label>{t('dispatchView.departure')}</Label>
                 <AirportSearch value={depIcao} onChange={setDepIcao} />
-                <LastParkedHint parked={lastParked.find((p) => p.aircraftId === planAircraftId)} depIcao={depIcao || null} />
+                <LastParkedHint
+                  parked={lastParked.find((p) => p.aircraftId === planAircraftId)}
+                  depIcao={depIcao || null}
+                />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label>{t('dispatchView.destination')}</Label>
@@ -422,7 +474,7 @@ export function DispatchView(props: {
                   <Button
                     type="button"
                     className="flex-1"
-                    onClick={handleGenerate}
+                    onClick={asyncHandler('DispatchView handleGenerate', handleGenerate)}
                     disabled={planAircraftId == null || !depIcao || !destIcao || generating}
                   >
                     {generating ? t('dispatchView.generating') : t('dispatchView.generate')}
@@ -434,7 +486,7 @@ export function DispatchView(props: {
                   <Button
                     type="button"
                     className="flex-1"
-                    onClick={handleOpenSimBrief}
+                    onClick={asyncHandler('DispatchView handleOpenSimBrief', handleOpenSimBrief)}
                     disabled={planAircraftId == null || !depIcao || !destIcao}
                   >
                     {t('dispatchView.planOnSimBrief')}
@@ -487,7 +539,12 @@ export function DispatchView(props: {
                 </CardTitle>
                 <CardAction className="flex items-center gap-2">
                   {alreadyFlown && <Badge variant="secondary">{t('dispatchView.flying')}</Badge>}
-                  <Button type="button" variant="outline" size="sm" onClick={handleViewOfpPdf}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={asyncHandler('DispatchView handleViewOfpPdf', handleViewOfpPdf)}
+                  >
                     {t('dispatchView.viewOfpPdf')}
                   </Button>
                 </CardAction>
@@ -500,7 +557,12 @@ export function DispatchView(props: {
                         registration: aircraft.find((a) => a.id === airframeCapture.aircraftId)?.registration
                       })}
                     </span>
-                    <Button type="button" size="sm" variant="outline" onClick={handleSaveAirframe}>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={asyncHandler('DispatchView handleSaveAirframe', handleSaveAirframe)}
+                    >
                       {t('dispatchView.saveThisAirframe')}
                     </Button>
                   </div>
@@ -569,14 +631,18 @@ export function DispatchView(props: {
                           {aircraft.map((a) => (
                             <SelectItem key={a.id} value={String(a.id)}>
                               {a.registration} — {a.icaoType}
-                              {a.registration === ofp.aircraftRegistration ? ` ${t('dispatchView.matched')}` : ''}
+                              {a.registration === ofp.aircraftRegistration
+                                ? ` ${t('dispatchView.matched')}`
+                                : ''}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
                     <LastParkedHint
-                      parked={lastParked.find((p) => p.aircraftId === (selectedAircraftId ?? ofp.matchedAircraftId))}
+                      parked={lastParked.find(
+                        (p) => p.aircraftId === (selectedAircraftId ?? ofp.matchedAircraftId)
+                      )}
                       depIcao={ofp.depIcao}
                     />
                     {ofp.matchedAircraftId == null && selectedAircraftId == null && (
@@ -594,12 +660,17 @@ export function DispatchView(props: {
                     type="button"
                     size="lg"
                     className="flex-[2]"
-                    onClick={handleFlyClick}
+                    onClick={asyncHandler('DispatchView handleFlyClick', handleFlyClick)}
                     disabled={saving || alreadyFlown || selectedAircraftId == null}
                   >
                     {saving ? t('dispatchView.starting') : t('dispatchView.fly')}
                   </Button>
-                  <Button type="button" variant="outline" className="flex-1" onClick={handleDiscardPlan}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={asyncHandler('DispatchView handleDiscardPlan', handleDiscardPlan)}
+                  >
                     {t('dispatchView.discardPlan')}
                   </Button>
                 </div>

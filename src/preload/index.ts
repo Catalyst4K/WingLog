@@ -172,6 +172,7 @@ const api: WingLogApi = {
   syncStatus: () => ipcRenderer.invoke(IpcChannels.syncStatus),
   appGetVersion: () => ipcRenderer.invoke(IpcChannels.appGetVersion),
   diagLog: (category, message) => ipcRenderer.invoke(IpcChannels.diagLog, category, message),
+  appLogRendererError: (context, message) => ipcRenderer.invoke(IpcChannels.appLogRendererError, context, message),
   captureKeepState: (flightId) => ipcRenderer.invoke(IpcChannels.captureKeepState, flightId),
   captureKeep: (flightId) => ipcRenderer.invoke(IpcChannels.captureKeep, flightId),
   appOpenGithub: () => ipcRenderer.invoke(IpcChannels.appOpenGithub),

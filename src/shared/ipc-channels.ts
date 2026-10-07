@@ -100,6 +100,7 @@ export const IpcChannels = {
   captureKeep: 'capture:keep',
   appOpenGithub: 'app:open-github',
   appOpenManual: 'app:open-manual',
+  appLogRendererError: 'app:log-renderer-error',
   navdataRefreshAirport: 'navdata:refresh-airport',
   navdataHasAirport: 'navdata:has-airport',
   navdataListRunways: 'navdata:list-runways',

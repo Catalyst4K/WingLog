@@ -1,3 +1,5 @@
+/** A flight's GSX receipts card, with the total in the display currency. */
+
 import { useEffect, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
@@ -6,6 +8,7 @@ import type { TFunction } from 'i18next'
 import type { FlightInvoice, GsxNotailCandidate } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { asyncHandler, runAsync } from './report-error'
 
 function serviceGroupLabel(group: FlightInvoice['serviceGroup'], t: TFunction): string {
   return t(`gsxInvoicesCard.serviceGroup.${group}`)
@@ -19,9 +22,14 @@ interface ReceiptDetail {
   fxDisclosure?: string
 }
 
-/** receiptJson is stored verbatim (minus logoDataUri) — parsed client-side only when the
- *  row's detail is actually expanded. Empty object on anything unparseable rather than
- *  throwing; a flight's other receipts shouldn't disappear because one JSON is malformed. */
+/**
+ * receiptJson is stored verbatim (minus logoDataUri) — parsed client-side only when the
+ * row's detail is actually expanded. Empty object on anything unparseable rather than
+ * throwing; a flight's other receipts shouldn't disappear because one JSON is malformed.
+ *
+ * @param receiptJson The stored receipt JSON.
+ * @returns Its detail, or an empty object.
+ */
 function parseDetail(receiptJson: string): ReceiptDetail {
   try {
     return JSON.parse(receiptJson) as ReceiptDetail
@@ -30,8 +38,13 @@ function parseDetail(receiptJson: string): ReceiptDetail {
   }
 }
 
-/** The UTC calendar date (YYYY-MM-DD) a receipt was issued on — the day whose exchange
- *  rate its total should convert at, not today's. */
+/**
+ * The UTC calendar date (YYYY-MM-DD) a receipt was issued on — the day whose exchange
+ * rate its total should convert at, not today's.
+ *
+ * @param invoice The receipt.
+ * @returns Its UTC issue date, YYYY-MM-DD.
+ */
 function receiptDate(invoice: FlightInvoice): string {
   return invoice.issuedUtc.slice(0, 10)
 }
@@ -44,11 +57,17 @@ function formatMoney(amount: number, currency: string): string {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount)
 }
 
-/** A receipt's amount as shown on its row. GSX's own text is `"<local> ~$ <USD>"`
- *  (src/main/gsx/money.ts); when the card's total is in another display currency, the
- *  `~$` half is swapped for that currency so every row matches the total underneath. The
- *  local half stays verbatim. With no conversion (USD display, rate not resolved, no USD
- *  amount), GSX's text is shown as-is. */
+/**
+ * A receipt's amount as shown on its row. GSX's own text is `"<local> ~$ <USD>"`
+ * (src/main/gsx/money.ts); when the card's total is in another display currency, the
+ * `~$` half is swapped for that currency so every row matches the total underneath. The
+ * local half stays verbatim. With no conversion (USD display, rate not resolved, no USD
+ * amount), GSX's text is shown as-is.
+ *
+ * @param inv The receipt.
+ * @param converted The display currency and its rate, or null.
+ * @returns The amount text.
+ */
 function rowAmountText(inv: FlightInvoice, converted: { currency: string; rate: number } | null): string {
   if (inv.totalText == null) return '—'
   if (converted == null || inv.totalUsd == null) return inv.totalText
@@ -77,7 +96,9 @@ function InvoiceRow(props: {
           {inv.operator ? ` — ${inv.operator}` : ''}
         </span>
         <span className="flex items-center gap-3">
-          <span className="font-mono tabular-nums text-foreground">{rowAmountText(inv, props.converted)}</span>
+          <span className="font-mono tabular-nums text-foreground">
+            {rowAmountText(inv, props.converted)}
+          </span>
           <Button
             type="button"
             variant="outline"
@@ -126,6 +147,12 @@ function InvoiceRow(props: {
   )
 }
 
+/**
+ * The flight's matched GSX receipts, and the ones not matched by tail.
+ *
+ * @param props The flight.
+ * @returns The element.
+ */
 export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element {
   const { t } = useTranslation()
   const [invoices, setInvoices] = useState<FlightInvoice[]>([])
@@ -140,13 +167,19 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
   const [rates, setRates] = useState<Map<string, number | null>>(new Map())
 
   useEffect(() => {
-    window.winglog.logbookListInvoices(props.flightId).then(setInvoices)
+    runAsync(
+      'GsxInvoicesCard logbookListInvoices',
+      window.winglog.logbookListInvoices(props.flightId).then(setInvoices)
+    )
   }, [props.flightId])
 
   useEffect(() => {
-    window.winglog.settingsGetGsx().then((settings) => {
-      setDisplayCurrency(settings.displayCurrency)
-    })
+    runAsync(
+      'GsxInvoicesCard settingsGetGsx',
+      window.winglog.settingsGetGsx().then((settings) => {
+        setDisplayCurrency(settings.displayCurrency)
+      })
+    )
   }, [])
 
   useEffect(() => {
@@ -154,18 +187,21 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
     const dates = [...new Set(invoices.filter((inv) => inv.totalUsd != null).map(receiptDate))]
     const missing = dates.filter((date) => !rates.has(rateKey(displayCurrency, date)))
     if (missing.length === 0) return
-    Promise.all(missing.map((date) => window.winglog.fxGetRate(displayCurrency, date))).then((results) => {
-      setRates((current) => {
-        const next = new Map(current)
-        missing.forEach((date, i) => next.set(rateKey(displayCurrency, date), results[i]))
-        return next
+    runAsync(
+      'GsxInvoicesCard fxGetRate',
+      Promise.all(missing.map((date) => window.winglog.fxGetRate(displayCurrency, date))).then((results) => {
+        setRates((current) => {
+          const next = new Map(current)
+          missing.forEach((date, i) => next.set(rateKey(displayCurrency, date), results[i]))
+          return next
+        })
       })
-    })
+    )
     // Re-runs whenever displayCurrency or the set of receipt dates changes; `rates` itself
     // isn't a dependency (only read via `missing`/`has`, never used to decide whether to
     // re-fetch a date already in flight) — including it would refetch on every response,
     // since each response is itself a `rates` update.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rates would refetch on every response
   }, [displayCurrency, invoices])
 
   async function handleRescan(): Promise<void> {
@@ -199,26 +235,38 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
   // Falls back to showing the plain USD total whenever ANY receipt's rate hasn't resolved
   // yet (still loading, or that date's lookup failed) — never a total that's silently
   // converted for some receipts and not others.
+  const convertedTotals = invoicesWithUsd.map((inv) => {
+    const rate = rateFor(inv)
+    return inv.totalUsd != null && rate != null ? inv.totalUsd * rate : null
+  })
   const showConverted =
     displayCurrency !== 'USD' &&
-    invoicesWithUsd.length > 0 &&
-    invoicesWithUsd.every((inv) => rateFor(inv) != null)
+    convertedTotals.length > 0 &&
+    convertedTotals.every((total) => total !== null)
   const displayTotal = showConverted
-    ? invoicesWithUsd.reduce((sum, inv) => sum + inv.totalUsd! * rateFor(inv)!, 0)
+    ? convertedTotals.reduce<number>((sum, total) => sum + (total ?? 0), 0)
     : totalUsd
   const displayCode = showConverted ? displayCurrency : 'USD'
   const formattedTotal = formatMoney(displayTotal, displayCode)
   // Rows convert on exactly the same condition as the total, so the card never mixes a
   // converted total with unconverted rows (or the reverse).
-  const convertedFor = (inv: FlightInvoice): { currency: string; rate: number } | null =>
-    showConverted && inv.totalUsd != null ? { currency: displayCurrency, rate: rateFor(inv)! } : null
+  const convertedFor = (inv: FlightInvoice): { currency: string; rate: number } | null => {
+    const rate = rateFor(inv)
+    return showConverted && inv.totalUsd != null && rate != null ? { currency: displayCurrency, rate } : null
+  }
 
   return (
     <Card className="min-w-72 max-w-2xl flex-1">
       <CardHeader>
         <CardTitle className="text-sm">{t('gsxInvoicesCard.title')}</CardTitle>
         <CardAction>
-          <Button type="button" variant="outline" size="sm" onClick={handleRescan} disabled={rescanning}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={asyncHandler('GsxInvoicesCard handleRescan', handleRescan)}
+            disabled={rescanning}
+          >
             {rescanning ? t('gsxInvoicesCard.scanning') : t('gsxInvoicesCard.rescan')}
           </Button>
         </CardAction>
@@ -233,7 +281,9 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
             ))}
             {hasAnyUsdTotal && (
               <div className="flex justify-between border-t border-border pt-2 text-sm">
-                <span className="text-muted-foreground">{t('gsxInvoicesCard.total', { code: displayCode })}</span>
+                <span className="text-muted-foreground">
+                  {t('gsxInvoicesCard.total', { code: displayCode })}
+                </span>
                 <span className="font-mono tabular-nums text-foreground">{formattedTotal}</span>
               </div>
             )}
@@ -248,7 +298,12 @@ export function GsxInvoicesCard(props: { flightId: number }): React.JSX.Element 
                 <span className="text-foreground">
                   {serviceGroupLabel(c.serviceGroup, t)} · {c.icao} · {new Date(c.issuedUtc).toLocaleString()}
                 </span>
-                <Button type="button" variant="outline" size="sm" onClick={() => handleAttach(c)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={asyncHandler('GsxInvoicesCard handleAttach', () => handleAttach(c))}
+                >
                   {t('gsxInvoicesCard.attach')}
                 </Button>
               </div>

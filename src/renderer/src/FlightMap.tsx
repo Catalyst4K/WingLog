@@ -1,3 +1,5 @@
+/** The map shared by Dispatch, Track and the Logbook: route, waypoints, track, aircraft and overlays. */
+
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   GeoJSONSource,
@@ -26,6 +28,8 @@ import { useVfrOverlay } from './useVfrOverlay'
 import { msToKt } from './units'
 import { lazy } from '@shared/lazy'
 import { uiMemory } from './ui-memory'
+import { runAsync } from './report-error'
+import { updateSourceData } from './map-source'
 
 // maplibre-gl ships its tile-parsing worker as a separate chunk and locates it via its
 // own import.meta.url at runtime — a resolution that doesn't survive Vite's dependency
@@ -52,11 +56,10 @@ import { uiMemory } from './ui-memory'
 //    sidesteps the limitation — safe now that the file has no external relative import
 //    left to resolve against that blob: URL. The CSP's `worker-src 'self' blob:` already
 //    anticipates exactly this mechanism.
-const ensureWorkerReady = lazy(
-  (): Promise<void> =>
-    fetch(maplibreWorkerUrl)
-      .then((res) => res.blob())
-      .then((blob) => setWorkerUrl(URL.createObjectURL(blob)))
+const ensureWorkerReady = lazy((): Promise<void> =>
+  fetch(maplibreWorkerUrl)
+    .then((res) => res.blob())
+    .then((blob) => setWorkerUrl(URL.createObjectURL(blob)))
 )
 
 // docs/decisions.md, 2026-09-01 M4 tile source entry: OpenFreeMap, no key/quota/backend.
@@ -117,7 +120,7 @@ const FRAME_REVEAL_FALLBACK_MS = 1500
 // bounds fresh every mount.
 
 function routeKey(route: [number, number][]): string {
-  return route.length === 0 ? '' : `${route.length}:${route[0]!.join(',')}:${route[route.length - 1]!.join(',')}`
+  return route.length === 0 ? '' : `${route.length}:${route[0]?.join(',')}:${route.at(-1)?.join(',')}`
 }
 
 interface LineStringFeature {
@@ -140,10 +143,15 @@ function multiLineString(segments: [number, number][][]): MultiLineStringFeature
   return { type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: segments } }
 }
 
-/** Splits a flight's trail at every resumeSegment boundary — never draws a line across a
- *  restart's spawn-point/teleport-back artefacts (winglog-backend's docs/plans/
- *  resume-track-cleanup.md), even before any cleanup logic decides which points within a
- *  segment are themselves spurious. */
+/**
+ * Splits a flight's trail at every resumeSegment boundary — never draws a line across a
+ * restart's spawn-point/teleport-back artefacts (winglog-backend's docs/plans/
+ * resume-track-cleanup.md), even before any cleanup logic decides which points within a
+ * segment are themselves spurious.
+ *
+ * @param points The flight's track points.
+ * @returns The track as line segments, split at each resume gap.
+ */
 function trailSegments(points: TrackPoint[]): [number, number][][] {
   const segments: [number, number][][] = []
   let current: [number, number][] = []
@@ -185,6 +193,9 @@ function waypointFeatures(waypoints: Waypoint[]): WaypointFeatureCollection {
  * labels to a later zoom (map-labels.ts). Best-effort by design: it's a third-party style
  * with no version pin, so any surprise — a missing layer, a changed shape — leaves the map
  * as the style drew it rather than breaking it.
+ *
+ * @param map The map.
+ * @param language The map language.
  */
 function applyLabelStyle(map: MapLibreMap, language: MapLanguage): void {
   try {
@@ -260,6 +271,12 @@ export interface FlightMapProps {
 // every render just because callers that don't pass `waypoints` get a fresh `[]` each time.
 const EMPTY_WAYPOINTS: Waypoint[] = []
 
+/**
+ * The flight map.
+ *
+ * @param props The route, waypoints and track; whether it's live, with its telemetry; the map language; and the flight's airports.
+ * @returns The element.
+ */
 export function FlightMap({
   route,
   waypoints = EMPTY_WAYPOINTS,
@@ -319,212 +336,218 @@ export function FlightMap({
     /* v8 ignore stop */
     let cancelled = false
 
-    ensureWorkerReady().then(() => {
-      // `cancelled` is reachable in principle (a fast unmount before the worker's blob:
-      // fetch resolves) but not exercised here — not worth the timing-fiddly test setup
-      // that'd need. `!mapContainerRef.current` alongside it is defensive, same as above.
-      /* v8 ignore start */
-      if (cancelled || !mapContainerRef.current) return
-      /* v8 ignore stop */
-      const dark = isDarkTheme()
-      const map = new MapLibreMap({
-        container: mapContainerRef.current,
-        style: dark ? MAP_STYLE_DARK : MAP_STYLE_LIGHT,
-        // Restores the live map's last camera position across a remount (docs/plans/
-        // map-improvements.md, "cause B") instead of always starting at the whole-world
-        // default — only for the live map (Logbook's static map fits its own bounds fresh
-        // below regardless of what's passed here).
-        center: (live && uiMemory().liveCamera?.center) || [0, 0],
-        zoom: (live && uiMemory().liveCamera?.zoom) || 1,
-        // No 3D tilt, and no rotation either (docs/plans/map-controls.md) — MapLibre's
-        // defaults leave both on, both reachable via the same right-drag/Ctrl+drag
-        // gesture, and there's no compass or reset-north control in this app to undo an
-        // accidental rotation. `dragRotate: false` and the two `disableRotation()` calls
-        // below cover the rotation half (right-drag, and the two-finger touch/keyboard
-        // equivalents); `maxPitch: 0`/`touchPitch: false`/`pitchWithRotate: false` cover
-        // tilt. The aircraft marker already rotates to show heading, so a fixed north-up
-        // map loses nothing live tracking needs.
-        maxPitch: 0,
-        touchPitch: false,
-        pitchWithRotate: false,
-        dragRotate: false,
-        // `compact: true` is MapLibre's own mechanism for exactly this attribution, and
-        // OpenFreeMap's docs point to trusting MapLibre's default handling as sufficient
-        // ("If you are using MapLibre, they are automatically added, you have nothing to
-        // do") — confirmed 2026-09-07. Deliberately not left at its actual default
-        // (`compact: undefined`, auto-decided by container width) or the `compact: false`
-        // this was forced to for a time: read MapLibre's own AttributionControl source to
-        // confirm what each does, rather than assume from the option name. `undefined`
-        // re-evaluates on every 'resize' — the exact bug this was chasing
-        // (flight-test-findings-2026-09-06.md #2): before this component's own container
-        // settled to its final size, that could flip the control from collapsed to
-        // expanded a moment after mount, a real layout shift confirmed live via the
-        // Layout Instability API. `true` never re-evaluates by width, closing that gap —
-        // but it isn't a small icon from the first frame either: MapLibre starts a
-        // `compact: true` control in its *expanded* state and only collapses it to an
-        // icon after the user's first drag/pan (maplibre-gl-dev.mjs's
-        // `_updateCompactMinimize`, wired to the map's 'drag' event, not 'zoom'). So the
-        // real, verified behavior is: no more shift, and less space taken once the user
-        // actually pans the map — not "always the small icon."
-        attributionControl: { compact: true }
+    runAsync(
+      'FlightMap only',
+      ensureWorkerReady().then(() => {
+        // `cancelled` is reachable in principle (a fast unmount before the worker's blob:
+        // fetch resolves) but not exercised here — not worth the timing-fiddly test setup
+        // that'd need. `!mapContainerRef.current` alongside it is defensive, same as above.
+        /* v8 ignore start */
+        if (cancelled || !mapContainerRef.current) return
+        /* v8 ignore stop */
+        const dark = isDarkTheme()
+        const map = new MapLibreMap({
+          container: mapContainerRef.current,
+          style: dark ? MAP_STYLE_DARK : MAP_STYLE_LIGHT,
+          // Restores the live map's last camera position across a remount (docs/plans/
+          // map-improvements.md, "cause B") instead of always starting at the whole-world
+          // default — only for the live map (Logbook's static map fits its own bounds fresh
+          // below regardless of what's passed here).
+          center: (live && uiMemory().liveCamera?.center) || [0, 0],
+          zoom: (live && uiMemory().liveCamera?.zoom) || 1,
+          // No 3D tilt, and no rotation either (docs/plans/map-controls.md) — MapLibre's
+          // defaults leave both on, both reachable via the same right-drag/Ctrl+drag
+          // gesture, and there's no compass or reset-north control in this app to undo an
+          // accidental rotation. `dragRotate: false` and the two `disableRotation()` calls
+          // below cover the rotation half (right-drag, and the two-finger touch/keyboard
+          // equivalents); `maxPitch: 0`/`touchPitch: false`/`pitchWithRotate: false` cover
+          // tilt. The aircraft marker already rotates to show heading, so a fixed north-up
+          // map loses nothing live tracking needs.
+          maxPitch: 0,
+          touchPitch: false,
+          pitchWithRotate: false,
+          dragRotate: false,
+          // `compact: true` is MapLibre's own mechanism for exactly this attribution, and
+          // OpenFreeMap's docs point to trusting MapLibre's default handling as sufficient
+          // ("If you are using MapLibre, they are automatically added, you have nothing to
+          // do") — confirmed 2026-09-07. Deliberately not left at its actual default
+          // (`compact: undefined`, auto-decided by container width) or the `compact: false`
+          // this was forced to for a time: read MapLibre's own AttributionControl source to
+          // confirm what each does, rather than assume from the option name. `undefined`
+          // re-evaluates on every 'resize' — the exact bug this was chasing
+          // (flight-test-findings-2026-09-06.md #2): before this component's own container
+          // settled to its final size, that could flip the control from collapsed to
+          // expanded a moment after mount, a real layout shift confirmed live via the
+          // Layout Instability API. `true` never re-evaluates by width, closing that gap —
+          // but it isn't a small icon from the first frame either: MapLibre starts a
+          // `compact: true` control in its *expanded* state and only collapses it to an
+          // icon after the user's first drag/pan (maplibre-gl-dev.mjs's
+          // `_updateCompactMinimize`, wired to the map's 'drag' event, not 'zoom'). So the
+          // real, verified behavior is: no more shift, and less space taken once the user
+          // actually pans the map — not "always the small icon."
+          attributionControl: { compact: true }
+        })
+        mapRef.current = map
+        // dragRotate/pitchWithRotate above already stop the mouse-drag gesture; these two
+        // cover the touch and keyboard paths to rotation, which aren't constructor options.
+        map.touchZoomRotate.disableRotation()
+        map.keyboard.disableRotation()
+
+        // Keeps uiMemory().liveCamera current as the user pans/zooms or follow mode recentres —
+        // not just captured once on unmount, so an unexpected early teardown (e.g. a fast
+        // double-navigation) can't lose it. Cheap: just reading two numbers into a plain
+        // variable, no re-render.
+        if (live) {
+          map.on('moveend', () => {
+            uiMemory().liveCamera = {
+              center: map.getCenter().toArray() as [number, number],
+              zoom: map.getZoom()
+            }
+          })
+          // originalEvent is only set for a zoom the user made (wheel, pinch, double-click).
+          map.on('zoomend', (e) => {
+            if (e.originalEvent) uiMemory().liveZoomChosenByUser = true
+          })
+        }
+
+        // 'load' waits for every tile in the current viewport to finish rendering — at this
+        // initial [0,0]/zoom 1 (whole-world) view that can take a very long time or never
+        // fully fire. 'style.load' fires once the style itself is parsed, which is all that's
+        // needed to safely add sources/layers (sim-confirmed: 'load' never fired within 10s
+        // in manual testing here, 'style.load' fires almost immediately).
+        map.on('style.load', () => {
+          // A theme switch reloads the style and drops these, so re-apply on every load.
+          applyLabelStyle(map, mapLanguageRef.current)
+          map.addSource(ROUTE_SOURCE_ID, { type: 'geojson', data: lineString([]) })
+          map.addLayer({
+            id: ROUTE_SOURCE_ID,
+            type: 'line',
+            source: ROUTE_SOURCE_ID,
+            paint: { 'line-color': '#888', 'line-width': 2, 'line-dasharray': [2, 2] }
+          })
+          // A synthesized great-circle route (docs/plans/great-circle-fallback-route.md) —
+          // same blue as the flown trail below, so it reads as an obvious, deliberate line
+          // rather than the faint "this isn't real data" grey a planned route normally gets.
+          // Hidden by default; the effect below toggles which of this pair is visible.
+          map.addLayer({
+            id: ROUTE_APPROXIMATE_LAYER_ID,
+            type: 'line',
+            source: ROUTE_SOURCE_ID,
+            layout: { visibility: 'none' },
+            paint: { 'line-color': '#1a73e8', 'line-width': 3 }
+          })
+
+          map.addSource(TRAIL_SOURCE_ID, { type: 'geojson', data: lineString([]) })
+          map.addLayer({
+            id: TRAIL_SOURCE_ID,
+            type: 'line',
+            source: TRAIL_SOURCE_ID,
+            paint: { 'line-color': '#1a73e8', 'line-width': 3 }
+          })
+
+          map.addSource(TRAIL_TIP_SOURCE_ID, { type: 'geojson', data: lineString([]) })
+          map.addLayer({
+            id: TRAIL_TIP_SOURCE_ID,
+            type: 'line',
+            source: TRAIL_TIP_SOURCE_ID,
+            paint: { 'line-color': '#1a73e8', 'line-width': 3 }
+          })
+
+          map.addSource(WAYPOINT_SOURCE_ID, { type: 'geojson', data: waypointFeatures([]) })
+          map.addLayer({
+            id: `${WAYPOINT_SOURCE_ID}-circle`,
+            type: 'circle',
+            source: WAYPOINT_SOURCE_ID,
+            paint: {
+              'circle-radius': 3,
+              // SID/STAR/approach fixes stand out from plain enroute waypoints — route.ts's
+              // segmentation, either SimBrief's own or a live navdata-backed selection
+              // (docs/plans/navdata-without-navigraph.md, Phase 5).
+              'circle-color': [
+                'match',
+                ['get', 'segment'],
+                'sid',
+                '#e67700',
+                'star',
+                '#7048e8',
+                'approach',
+                '#2f9e44',
+                /* enroute */ '#888'
+              ],
+              'circle-stroke-width': 1,
+              'circle-stroke-color': '#fff'
+            }
+          })
+          const waypointLabel = waypointLabelColors(dark)
+          map.addLayer({
+            id: `${WAYPOINT_SOURCE_ID}-label`,
+            type: 'symbol',
+            source: WAYPOINT_SOURCE_ID,
+            // A long-haul OFP has well over a hundred waypoints — every ident label drawn at
+            // every zoom (docs/plans/map-improvements.md #2) is the single biggest
+            // contributor to a busy-looking map at wide zoom, even with MapLibre's own
+            // collision detection hiding literal overlaps. The circles stay visible at every
+            // zoom (no minzoom on that layer); only the text waits until there's enough
+            // screen space per waypoint to actually read it against a specific leg.
+            minzoom: 6,
+            layout: {
+              'text-field': ['get', 'ident'],
+              'text-size': 11,
+              'text-offset': [0, 1],
+              'text-anchor': 'top'
+            },
+            paint: {
+              'text-color': waypointLabel.color,
+              'text-halo-color': waypointLabel.halo,
+              'text-halo-width': 1
+            }
+          })
+
+          // Taxiway designators when zoomed into an airport (docs/plans/map-improvements.md
+          // #3) — needs no new data source: the base style's own vector tiles (source id and
+          // aeroway layers confirmed directly against the real style JSON, 2026-09-07) already
+          // carry taxiway geometry and `ref` values (e.g. "Taxiway R", "A5"), drawing the
+          // lines themselves from zoom 12 already. This is purely the missing label layer.
+          // Runway idents (`class == 'runway'`, e.g. "09L/27R") come from the same source
+          // layer for free. Coverage is OSM-derived and varies by airport — a taxiway with no
+          // `ref` in the data simply renders unlabelled, which degrades fine.
+          const taxiwayLabel = taxiwayLabelColors(dark)
+          map.addLayer({
+            id: 'aeroway-taxiway-label',
+            type: 'symbol',
+            source: 'openmaptiles',
+            'source-layer': 'aeroway',
+            filter: ['in', ['get', 'class'], ['literal', ['taxiway', 'runway']]],
+            minzoom: 14,
+            layout: {
+              'text-field': ['get', 'ref'],
+              'text-size': 10,
+              'symbol-placement': 'line',
+              'text-letter-spacing': 0.05
+            },
+            paint: {
+              'text-color': taxiwayLabel.color,
+              'text-halo-color': taxiwayLabel.halo,
+              'text-halo-width': 1.2
+            }
+          })
+
+          // A text glyph (e.g. '✈') isn't drawn pointing true north in every font, so
+          // setRotation(heading) comes out offset by whatever the glyph's own heading is.
+          // This SVG is authored nose-up (pointing north at 0 rotation), so it lines up exactly.
+          const el = document.createElement('div')
+          el.style.width = '22px'
+          el.style.height = '22px'
+          el.innerHTML =
+            '<svg width="22" height="22" viewBox="0 0 24 24">' +
+            '<path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2.5 1.5V22l4-1 4 1v-1.5L13 19v-5.5l8 2.5z" fill="#1a73e8" stroke="#0b3d91" stroke-width="0.5"/>' +
+            '</svg>'
+          markerRef.current = new Marker({ element: el, rotationAlignment: 'map' })
+
+          setMapReady(true)
+        })
       })
-      mapRef.current = map
-      // dragRotate/pitchWithRotate above already stop the mouse-drag gesture; these two
-      // cover the touch and keyboard paths to rotation, which aren't constructor options.
-      map.touchZoomRotate.disableRotation()
-      map.keyboard.disableRotation()
-
-      // Keeps uiMemory().liveCamera current as the user pans/zooms or follow mode recentres —
-      // not just captured once on unmount, so an unexpected early teardown (e.g. a fast
-      // double-navigation) can't lose it. Cheap: just reading two numbers into a plain
-      // variable, no re-render.
-      if (live) {
-        map.on('moveend', () => {
-          uiMemory().liveCamera = { center: map.getCenter().toArray() as [number, number], zoom: map.getZoom() }
-        })
-        // originalEvent is only set for a zoom the user made (wheel, pinch, double-click).
-        map.on('zoomend', (e) => {
-          if (e.originalEvent) uiMemory().liveZoomChosenByUser = true
-        })
-      }
-
-      // 'load' waits for every tile in the current viewport to finish rendering — at this
-      // initial [0,0]/zoom 1 (whole-world) view that can take a very long time or never
-      // fully fire. 'style.load' fires once the style itself is parsed, which is all that's
-      // needed to safely add sources/layers (sim-confirmed: 'load' never fired within 10s
-      // in manual testing here, 'style.load' fires almost immediately).
-      map.on('style.load', () => {
-        // A theme switch reloads the style and drops these, so re-apply on every load.
-        applyLabelStyle(map, mapLanguageRef.current)
-        map.addSource(ROUTE_SOURCE_ID, { type: 'geojson', data: lineString([]) })
-        map.addLayer({
-          id: ROUTE_SOURCE_ID,
-          type: 'line',
-          source: ROUTE_SOURCE_ID,
-          paint: { 'line-color': '#888', 'line-width': 2, 'line-dasharray': [2, 2] }
-        })
-        // A synthesized great-circle route (docs/plans/great-circle-fallback-route.md) —
-        // same blue as the flown trail below, so it reads as an obvious, deliberate line
-        // rather than the faint "this isn't real data" grey a planned route normally gets.
-        // Hidden by default; the effect below toggles which of this pair is visible.
-        map.addLayer({
-          id: ROUTE_APPROXIMATE_LAYER_ID,
-          type: 'line',
-          source: ROUTE_SOURCE_ID,
-          layout: { visibility: 'none' },
-          paint: { 'line-color': '#1a73e8', 'line-width': 3 }
-        })
-
-        map.addSource(TRAIL_SOURCE_ID, { type: 'geojson', data: lineString([]) })
-        map.addLayer({
-          id: TRAIL_SOURCE_ID,
-          type: 'line',
-          source: TRAIL_SOURCE_ID,
-          paint: { 'line-color': '#1a73e8', 'line-width': 3 }
-        })
-
-        map.addSource(TRAIL_TIP_SOURCE_ID, { type: 'geojson', data: lineString([]) })
-        map.addLayer({
-          id: TRAIL_TIP_SOURCE_ID,
-          type: 'line',
-          source: TRAIL_TIP_SOURCE_ID,
-          paint: { 'line-color': '#1a73e8', 'line-width': 3 }
-        })
-
-        map.addSource(WAYPOINT_SOURCE_ID, { type: 'geojson', data: waypointFeatures([]) })
-        map.addLayer({
-          id: `${WAYPOINT_SOURCE_ID}-circle`,
-          type: 'circle',
-          source: WAYPOINT_SOURCE_ID,
-          paint: {
-            'circle-radius': 3,
-            // SID/STAR/approach fixes stand out from plain enroute waypoints — route.ts's
-            // segmentation, either SimBrief's own or a live navdata-backed selection
-            // (docs/plans/navdata-without-navigraph.md, Phase 5).
-            'circle-color': [
-              'match',
-              ['get', 'segment'],
-              'sid',
-              '#e67700',
-              'star',
-              '#7048e8',
-              'approach',
-              '#2f9e44',
-              /* enroute */ '#888'
-            ],
-            'circle-stroke-width': 1,
-            'circle-stroke-color': '#fff'
-          }
-        })
-        const waypointLabel = waypointLabelColors(dark)
-        map.addLayer({
-          id: `${WAYPOINT_SOURCE_ID}-label`,
-          type: 'symbol',
-          source: WAYPOINT_SOURCE_ID,
-          // A long-haul OFP has well over a hundred waypoints — every ident label drawn at
-          // every zoom (docs/plans/map-improvements.md #2) is the single biggest
-          // contributor to a busy-looking map at wide zoom, even with MapLibre's own
-          // collision detection hiding literal overlaps. The circles stay visible at every
-          // zoom (no minzoom on that layer); only the text waits until there's enough
-          // screen space per waypoint to actually read it against a specific leg.
-          minzoom: 6,
-          layout: {
-            'text-field': ['get', 'ident'],
-            'text-size': 11,
-            'text-offset': [0, 1],
-            'text-anchor': 'top'
-          },
-          paint: {
-            'text-color': waypointLabel.color,
-            'text-halo-color': waypointLabel.halo,
-            'text-halo-width': 1
-          }
-        })
-
-        // Taxiway designators when zoomed into an airport (docs/plans/map-improvements.md
-        // #3) — needs no new data source: the base style's own vector tiles (source id and
-        // aeroway layers confirmed directly against the real style JSON, 2026-09-07) already
-        // carry taxiway geometry and `ref` values (e.g. "Taxiway R", "A5"), drawing the
-        // lines themselves from zoom 12 already. This is purely the missing label layer.
-        // Runway idents (`class == 'runway'`, e.g. "09L/27R") come from the same source
-        // layer for free. Coverage is OSM-derived and varies by airport — a taxiway with no
-        // `ref` in the data simply renders unlabelled, which degrades fine.
-        const taxiwayLabel = taxiwayLabelColors(dark)
-        map.addLayer({
-          id: 'aeroway-taxiway-label',
-          type: 'symbol',
-          source: 'openmaptiles',
-          'source-layer': 'aeroway',
-          filter: ['in', ['get', 'class'], ['literal', ['taxiway', 'runway']]],
-          minzoom: 14,
-          layout: {
-            'text-field': ['get', 'ref'],
-            'text-size': 10,
-            'symbol-placement': 'line',
-            'text-letter-spacing': 0.05
-          },
-          paint: {
-            'text-color': taxiwayLabel.color,
-            'text-halo-color': taxiwayLabel.halo,
-            'text-halo-width': 1.2
-          }
-        })
-
-        // A text glyph (e.g. '✈') isn't drawn pointing true north in every font, so
-        // setRotation(heading) comes out offset by whatever the glyph's own heading is.
-        // This SVG is authored nose-up (pointing north at 0 rotation), so it lines up exactly.
-        const el = document.createElement('div')
-        el.style.width = '22px'
-        el.style.height = '22px'
-        el.innerHTML =
-          '<svg width="22" height="22" viewBox="0 0 24 24">' +
-          '<path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2.5 1.5V22l4-1 4 1v-1.5L13 19v-5.5l8 2.5z" fill="#1a73e8" stroke="#0b3d91" stroke-width="0.5"/>' +
-          '</svg>'
-        markerRef.current = new Marker({ element: el, rotationAlignment: 'map' })
-
-        setMapReady(true)
-      })
-    })
+    )
 
     // A safety net: never leave the map hidden if the aircraft can't be framed for some
     // reason (no idle event, a slow track load).
@@ -537,7 +560,10 @@ export function FlightMap({
       // air) would otherwise leave uiMemory().liveCamera at the last *finished* move, seconds
       // behind. Only once the map has framed something real, never the constructor default.
       if (live && mapRef.current && hasCenteredRef.current) {
-        uiMemory().liveCamera = { center: mapRef.current.getCenter().toArray() as [number, number], zoom: mapRef.current.getZoom() }
+        uiMemory().liveCamera = {
+          center: mapRef.current.getCenter().toArray() as [number, number],
+          zoom: mapRef.current.getZoom()
+        }
       }
       mapRef.current?.remove()
       mapRef.current = null
@@ -548,7 +574,7 @@ export function FlightMap({
     // own lifetime (TrackView and LogbookView each always pass one fixed value), so
     // there's no real remount behavior being traded away here, just an intentionally
     // narrow effect.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the map is created once per instance
   }, [])
 
   // Draw the planned route and its waypoint pins — falls back to nothing if the flight
@@ -556,9 +582,9 @@ export function FlightMap({
   useEffect(() => {
     if (!mapReady || !mapRef.current) return
     const routeSource = mapRef.current.getSource<GeoJSONSource>(ROUTE_SOURCE_ID)
-    routeSource?.setData(lineString(route))
+    updateSourceData(routeSource, lineString(route))
     const waypointSource = mapRef.current.getSource<GeoJSONSource>(WAYPOINT_SOURCE_ID)
-    waypointSource?.setData(waypointFeatures(waypoints))
+    updateSourceData(waypointSource, waypointFeatures(waypoints))
     if (!live || trackLoading) return
     // Same route as the remembered camera was framed for: keep the user's own view.
     const key = routeKey(route)
@@ -593,7 +619,7 @@ export function FlightMap({
     if (!mapReady || !mapRef.current || live) return
     const coords: [number, number][] = trackPoints.map((p) => [p.longitude, p.latitude])
     const source = mapRef.current.getSource<GeoJSONSource>(TRAIL_SOURCE_ID)
-    source?.setData(multiLineString(trailSegments(trackPoints)))
+    updateSourceData(source, multiLineString(trailSegments(trackPoints)))
 
     const last = trackPoints[trackPoints.length - 1]
     if (last && markerRef.current) {
@@ -620,8 +646,8 @@ export function FlightMap({
       // No points to show (e.g. the flight was just cancelled, finished, or auto-
       // completed) — clear both trail sources and pull the marker off the map rather than
       // leaving the last-drawn position stuck there indefinitely.
-      mapRef.current.getSource<GeoJSONSource>(TRAIL_SOURCE_ID)?.setData(lineString([]))
-      tipSource?.setData(lineString([]))
+      updateSourceData(mapRef.current.getSource<GeoJSONSource>(TRAIL_SOURCE_ID), lineString([]))
+      updateSourceData(tipSource, lineString([]))
       if (markerRef.current?.getElement().isConnected) markerRef.current.remove()
       hasCenteredRef.current = false
       return
@@ -650,8 +676,8 @@ export function FlightMap({
       // it may be catching up on a whole batch of history from a resumed in-progress
       // flight, possibly spanning several resume segments.
       hasCenteredRef.current = true
-      source?.setData(multiLineString(trailSegments(trackPoints)))
-      tipSource?.setData(lineString([]))
+      updateSourceData(source, multiLineString(trailSegments(trackPoints)))
+      updateSourceData(tipSource, lineString([]))
       markerRef.current.setLngLat([to.longitude, to.latitude])
       markerRef.current.setRotation(to.headingTrueDeg)
       if (followEnabled) {
@@ -659,8 +685,13 @@ export function FlightMap({
         // (uiMemory().liveCamera) — its zoom is kept only if the user chose it, so coming back to
         // Track doesn't re-clobber a zoom they set, but a zoom the map picked itself (e.g. a
         // route overview) never stands in for the ground/altitude follow zoom.
-        if (uiMemory().liveCamera && uiMemory().liveZoomChosenByUser) mapRef.current.jumpTo({ center: [to.longitude, to.latitude] })
-        else mapRef.current.jumpTo({ center: [to.longitude, to.latitude], zoom: zoomForBand(followBand(to, null)) })
+        if (uiMemory().liveCamera && uiMemory().liveZoomChosenByUser)
+          mapRef.current.jumpTo({ center: [to.longitude, to.latitude] })
+        else
+          mapRef.current.jumpTo({
+            center: [to.longitude, to.latitude],
+            zoom: zoomForBand(followBand(to, null))
+          })
         // Show the map once the tiles at the aircraft are drawn, not before.
         mapRef.current.once('idle', () => setFramed(true))
       }
@@ -672,8 +703,8 @@ export function FlightMap({
     // nothing in the same segment to animate the marker in from, so commit `to` straight
     // to the trail instead of drawing a tip line across the gap.
     if (!from || from.resumeSegment !== to.resumeSegment) {
-      source?.setData(multiLineString(trailSegments(trackPoints)))
-      tipSource?.setData(lineString([]))
+      updateSourceData(source, multiLineString(trailSegments(trackPoints)))
+      updateSourceData(tipSource, lineString([]))
       markerRef.current.setLngLat([to.longitude, to.latitude])
       markerRef.current.setRotation(to.headingTrueDeg)
       if (followEnabled) mapRef.current.easeTo({ center: [to.longitude, to.latitude], duration: 500 })
@@ -681,7 +712,7 @@ export function FlightMap({
     }
 
     // The committed trail is done for this sample — write it once, here, not per frame.
-    source?.setData(multiLineString(trailSegments(priorPoints)))
+    updateSourceData(source, multiLineString(trailSegments(priorPoints)))
 
     // Rotation shows the plane's actual nose heading (not the ground track the marker is
     // animating along) — the gap between the two through a turn or in a crosswind is
@@ -707,7 +738,7 @@ export function FlightMap({
       markerRef.current?.setRotation(from.headingTrueDeg + headingDelta * t)
       // Constant-size payload (2 points) every frame, regardless of flight length — this
       // is the only thing redrawn at animation rate; the long-lived trail above isn't.
-      tipSource?.setData(lineString([fromCoord, [lng, lat]]))
+      updateSourceData(tipSource, lineString([fromCoord, [lng, lat]]))
       if (t < 1) frame = requestAnimationFrame(step)
     })
     if (followEnabled) mapRef.current.easeTo({ center: [to.longitude, to.latitude], duration: durationMs })
@@ -718,7 +749,7 @@ export function FlightMap({
   // Takeoff, touchdown and altitude bands, while following: step the zoom out for the climb
   // and back in for the descent and taxi (Callum, 2026-09-30; by altitude 2026-10-02) — once
   // per band change, so a zoom the user sets in between is left alone until the next one.
-  const lastPoint = trackPoints.length > 0 ? trackPoints[trackPoints.length - 1]! : null
+  const lastPoint = trackPoints.at(-1) ?? null
   const followBandRef = useRef<FollowBand | null>(null)
   useEffect(() => {
     const previous = followBandRef.current
@@ -728,7 +759,7 @@ export function FlightMap({
     if (previous === null || next === null || previous === next) return
     mapRef.current.easeTo({ zoom: zoomForBand(next), duration: 1000 })
     // Only on a band change itself.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on a band change
   }, [lastPoint])
 
   // Re-center immediately when follow is switched back on, rather than waiting for the
@@ -739,7 +770,7 @@ export function FlightMap({
     if (last) mapRef.current.easeTo({ center: [last.longitude, last.latitude], duration: 500 })
     // Only on the follow-enabled transition itself — trackPoints already has its own
     // effect above driving the camera while following.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when follow is switched on
   }, [followEnabled])
 
   // Track's map is also `live` before any track points exist (previewing a planned
@@ -907,8 +938,9 @@ export function FlightMap({
       </div>
       {live && (
         <div className="absolute bottom-3 left-3 rounded-full border border-border bg-popover/85 px-3 py-1 font-mono text-xs text-popover-foreground backdrop-blur-sm">
-          {t('flightMap.speed')} {telemetry ? `${Math.round(msToKt(telemetry.indicatedAirspeedMs))} kt` : t('flightMap.na')}{' '}
-          · {t('flightMap.altitude')}{' '}
+          {t('flightMap.speed')}{' '}
+          {telemetry ? `${Math.round(msToKt(telemetry.indicatedAirspeedMs))} kt` : t('flightMap.na')} ·{' '}
+          {t('flightMap.altitude')}{' '}
           {telemetry
             ? `${Math.round(
                 displayAltitude(
@@ -921,7 +953,8 @@ export function FlightMap({
                 ).valueFt
               ).toLocaleString()} ft`
             : t('flightMap.na')}{' '}
-          · {t('flightMap.heading')} {telemetry ? `${Math.round(telemetry.headingTrueDeg)}°` : t('flightMap.na')}
+          · {t('flightMap.heading')}{' '}
+          {telemetry ? `${Math.round(telemetry.headingTrueDeg)}°` : t('flightMap.na')}
         </div>
       )}
       {live && vfr.enabled && vfr.nearestText && (

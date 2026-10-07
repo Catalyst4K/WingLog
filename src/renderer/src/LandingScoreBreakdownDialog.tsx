@@ -1,3 +1,5 @@
+/** The landing score breakdown dialog. */
+
 import { Fragment } from 'react'
 import { Info, TriangleAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -19,6 +21,9 @@ import { describeCategoryTolerance, formatCategoryScore, isCategoryBad } from '.
  * from the main process (landing-score-resolver.ts's CATEGORY_LABELS) and formatCategoryScore's
  * "N/A" is still a hardcoded English literal too — both real, known gaps for a later phase,
  * not fixed here.
+ *
+ * @param props The overall score, its categories, the distance unit and the button that opens it.
+ * @returns The element.
  */
 export function LandingScoreBreakdownDialog(props: {
   overall: number

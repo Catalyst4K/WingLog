@@ -1,14 +1,24 @@
+/** Logbook's "Add to fleet" dialog for a free flight's aircraft. */
+
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import type { Aircraft, AircraftTypeOption, Flight } from '@shared/ipc'
 import { isRetired } from '@shared/aircraft'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Combobox } from './components/Combobox'
+import { asyncHandler } from './report-error'
 
 const EXISTING = '__existing__'
 
@@ -24,6 +34,9 @@ const EXISTING = '__existing__'
  * Two modes: create a new fleet aircraft from the sim-reported identity (editable), or link
  * this flight to one already in the fleet — covers both "this was genuinely a new aircraft"
  * and "I forgot to pick it at flight-start, but it's actually my G-EUYY".
+ *
+ * @param props The flight, the fleet, and what to do when it's linked or created.
+ * @returns The element.
  */
 export function AddFlightToFleetDialog(props: {
   open: boolean
@@ -141,7 +154,11 @@ export function AddFlightToFleetDialog(props: {
           <Button type="button" variant="outline" onClick={() => props.onOpenChange(false)}>
             {t('addFlightToFleetDialog.cancel')}
           </Button>
-          <Button type="button" onClick={handleSubmit} disabled={submitting}>
+          <Button
+            type="button"
+            onClick={asyncHandler('AddFlightToFleetDialog handleSubmit', handleSubmit)}
+            disabled={submitting}
+          >
             {submitting ? t('addFlightToFleetDialog.adding') : t('addFlightToFleetDialog.addToFleet')}
           </Button>
         </DialogFooter>

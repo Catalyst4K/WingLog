@@ -1,3 +1,5 @@
+/** The Track tab: the live flight, its map, times and tracking controls. */
+
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
@@ -34,7 +36,14 @@ import { MetarPanel } from './MetarPanel'
 import { useLiveWaypoints, type ProcedureAirports } from './procedureSelection'
 import { parseTransitionAltitudes } from './route'
 import { StartFreeFlightDialog } from './StartFreeFlightDialog'
-import { computeTrackTimes, formatDuration, formatElapsed, formatUtcTime, type TrackTimes } from './trackTimes'
+import {
+  computeTrackTimes,
+  formatDuration,
+  formatElapsed,
+  formatUtcTime,
+  type TrackTimes
+} from './trackTimes'
+import { asyncHandler, runAsync } from './report-error'
 
 // Display-only duplicate of FlightRecorder's own MOVING_MS (~1kt) — the renderer can't
 // import main-process code (this repo's own layout rule), and this threshold only decides
@@ -42,11 +51,16 @@ import { computeTrackTimes, formatDuration, formatElapsed, formatUtcTime, type T
 // cheaper than a round trip for it.
 const GROUND_MOVEMENT_THRESHOLD_MS = 0.5
 
-/** "Flight Num: [airline logo] BAW31   A35K · G-XWBS" — the identity strip shown for a
- *  flight on this page, whether it's actively being tracked or just queued up to start.
- *  Falls back to simIcaoType/simRegistration (a free flight tracked with no fleet
- *  aircraft — free-flight-tracking.md's "don't add to fleet" option) when there's no
- *  linked Aircraft to read type/registration from. */
+/**
+ * "Flight Num: [airline logo] BAW31   A35K · G-XWBS" — the identity strip shown for a
+ * flight on this page, whether it's actively being tracked or just queued up to start.
+ * Falls back to simIcaoType/simRegistration (a free flight tracked with no fleet
+ * aircraft — free-flight-tracking.md's "don't add to fleet" option) when there's no
+ * linked Aircraft to read type/registration from.
+ *
+ * @param props The flight number, the fleet aircraft, and what the sim reports.
+ * @returns The element.
+ */
 function FlightIdentity(props: {
   flightNumber: string
   aircraft: Aircraft | undefined
@@ -68,12 +82,22 @@ function FlightIdentity(props: {
   )
 }
 
-
-/** A real airport code for the Weather dialog — a free flight's unset airports are `ZZZZ`. */
+/**
+ * A real airport code for the Weather dialog — a free flight's unset airports are `ZZZZ`.
+ *
+ * @param icao A stored ICAO code.
+ * @returns It, or null for a missing one or ZZZZ.
+ */
 function realIcao(icao: string | null | undefined): string | null {
   return icao && icao !== 'ZZZZ' ? icao : null
 }
 
+/**
+ * The Track tab.
+ *
+ * @param props A planned OFP to preview, live telemetry, and the map language.
+ * @returns The element.
+ */
 export function TrackView(props: {
   /** The OFP most recently fetched in Dispatch, not yet saved as a flight — last-resort
    *  preview so a route shows up here even before "Save as planned flight" is clicked. */
@@ -139,14 +163,17 @@ export function TrackView(props: {
   }, [props.onFlightEnded])
 
   useEffect(() => {
-    reload()
-    window.winglog
-      .trackingGetActive()
-      .then(async (a) => {
-        setActive(a)
-        if (a) setTrackPoints(await window.winglog.trackPointList(a.flightId))
-      })
-      .finally(() => setTrackLoading(false))
+    runAsync('TrackView reload', reload())
+    runAsync(
+      'TrackView trackPointList',
+      window.winglog
+        .trackingGetActive()
+        .then(async (a) => {
+          setActive(a)
+          if (a) setTrackPoints(await window.winglog.trackPointList(a.flightId))
+        })
+        .finally(() => setTrackLoading(false))
+    )
     const unsubscribe = window.winglog.onTrackingPoint((point) => {
       if (point.phase === 'shutdown') {
         // Auto-completed (as opposed to a manual "Finish & save") — clear the banner and
@@ -157,7 +184,7 @@ export function TrackView(props: {
         setCompletedLabel(flightLabel(completed))
         setActive(null)
         setTrackPoints([])
-        reload()
+        runAsync('TrackView reload', reload())
         onFlightEndedRef.current?.()
         return
       }
@@ -371,7 +398,8 @@ export function TrackView(props: {
       ignore = true
     }
   }, [freeFlightAirports])
-  const timesRoute = route.length >= 2 ? route : greatCircle?.key === freeFlightAirports ? greatCircle.route : []
+  const timesRoute =
+    route.length >= 2 ? route : greatCircle?.key === freeFlightAirports ? greatCircle.route : []
   // ET has to tick on its own — telemetry stops arriving while the sim is paused.
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -404,7 +432,7 @@ export function TrackView(props: {
   // neither of which round-trips through the renderer). A no-op before tracking starts.
   useEffect(() => {
     if (!active) return
-    window.winglog.trackingSetProcedureSelection(props.selection).catch(() => {})
+    runAsync('TrackView trackingSetProcedureSelection', window.winglog.trackingSetProcedureSelection(props.selection))
   }, [active, props.selection])
 
   return (
@@ -427,18 +455,33 @@ export function TrackView(props: {
               <TimeReadouts times={times} />
             </div>
             <div className="flex gap-2">
-              <Button type="button" variant="destructive" size="sm" onClick={handleCancelActive}>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={asyncHandler('TrackView handleCancelActive', handleCancelActive)}
+              >
                 {t('trackView.cancelFlight')}
               </Button>
-              <Button type="button" size="sm" onClick={handleFinish}>
+              <Button type="button" size="sm" onClick={asyncHandler('TrackView handleFinish', handleFinish)}>
                 {t('trackView.finishAndSave')}
               </Button>
             </div>
           </CardContent>
           {activeFlight && !activeFlight.ofpJson && (
             <CardContent className="flex flex-wrap gap-x-6 gap-y-2">
-              <FreeFlightAirport key={`dep-${activeFlight.depIcao}`} kind="departure" icao={activeFlight.depIcao} onChanged={reload} />
-              <FreeFlightAirport key={`arr-${activeFlight.arrIcao}`} kind="destination" icao={activeFlight.arrIcao} onChanged={reload} />
+              <FreeFlightAirport
+                key={`dep-${activeFlight.depIcao}`}
+                kind="departure"
+                icao={activeFlight.depIcao}
+                onChanged={asyncHandler('TrackView reload', reload)}
+              />
+              <FreeFlightAirport
+                key={`arr-${activeFlight.arrIcao}`}
+                kind="destination"
+                icao={activeFlight.arrIcao}
+                onChanged={asyncHandler('TrackView reload', reload)}
+              />
             </CardContent>
           )}
         </Card>
@@ -472,7 +515,9 @@ export function TrackView(props: {
             <Card>
               <CardContent className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-medium text-foreground">{t('trackView.flyingSomethingAlready')}</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {t('trackView.flyingSomethingAlready')}
+                  </p>
                   <p className="text-sm text-muted-foreground">{t('trackView.startTrackingNoPlanNeeded')}</p>
                 </div>
                 <Button type="button" variant="outline" size="sm" onClick={handleOpenFreeFlight}>
@@ -487,16 +532,26 @@ export function TrackView(props: {
             return (
               <Card key={f.id}>
                 <CardContent className="flex items-center justify-between gap-4">
-                  <FlightIdentity flightNumber={label} aircraft={aircraft.find((a) => a.id === f.aircraftId)} />
+                  <FlightIdentity
+                    flightNumber={label}
+                    aircraft={aircraft.find((a) => a.id === f.aircraftId)}
+                  />
                   <div className="flex gap-2">
-                    <Button type="button" size="sm" disabled={starting} onClick={() => handleStart(f.id)}>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={starting}
+                      onClick={asyncHandler('TrackView handleStart', () => handleStart(f.id))}
+                    >
                       {t('trackView.startTracking')}
                     </Button>
                     <Button
                       type="button"
                       variant="destructive"
                       size="sm"
-                      onClick={() => handleCancelPlanned(f.id, label)}
+                      onClick={asyncHandler('TrackView handleCancelPlanned', () =>
+                        handleCancelPlanned(f.id, label)
+                      )}
                     >
                       {t('trackView.cancelFlight')}
                     </Button>
@@ -532,34 +587,36 @@ export function TrackView(props: {
           </Dialog>
           {airports && !(airports.depIcao === 'ZZZZ' && airports.arrIcao === 'ZZZZ') && (
             <>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button type="button" variant="outline" size="sm">
-                {t('trackView.proceduresEllipsis')}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>{t('trackView.procedures')}</DialogTitle>
-              </DialogHeader>
-              <ProcedureSelector
-                airports={airports}
-                selection={props.selection}
-                onSelectionChange={props.onSelectionChange}
-                liveWaypoints={liveWaypoints}
-              />
-            </DialogContent>
-          </Dialog>
-          <span className="text-sm text-muted-foreground">
-            {[
-              props.selection.arrivalIcao ? t('trackView.alternateIcao', { icao: props.selection.arrivalIcao }) : null,
-              props.selection.sidIdent,
-              props.selection.starIdent,
-              props.selection.approachIdent
-            ]
-              .filter((v): v is string => v !== null)
-              .join(' · ') || t('trackView.nothingSelectedYet')}
-          </span>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button type="button" variant="outline" size="sm">
+                    {t('trackView.proceduresEllipsis')}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>{t('trackView.procedures')}</DialogTitle>
+                  </DialogHeader>
+                  <ProcedureSelector
+                    airports={airports}
+                    selection={props.selection}
+                    onSelectionChange={props.onSelectionChange}
+                    liveWaypoints={liveWaypoints}
+                  />
+                </DialogContent>
+              </Dialog>
+              <span className="text-sm text-muted-foreground">
+                {[
+                  props.selection.arrivalIcao
+                    ? t('trackView.alternateIcao', { icao: props.selection.arrivalIcao })
+                    : null,
+                  props.selection.sidIdent,
+                  props.selection.starIdent,
+                  props.selection.approachIdent
+                ]
+                  .filter((v): v is string => v !== null)
+                  .join(' · ') || t('trackView.nothingSelectedYet')}
+              </span>
             </>
           )}
         </div>
@@ -601,8 +658,7 @@ export function TrackView(props: {
             <AlertDialogTitle>{t('trackView.flightEnded')}</AlertDialogTitle>
             <AlertDialogDescription>
               {t('trackView.autoDetectedComplete', {
-                label:
-                  (completedLabel ?? '').charAt(0).toUpperCase() + (completedLabel ?? '').slice(1)
+                label: (completedLabel ?? '').charAt(0).toUpperCase() + (completedLabel ?? '').slice(1)
               })}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -615,7 +671,12 @@ export function TrackView(props: {
   )
 }
 
-/** ET · time remaining · ETA, beside the phase (trackTimes.ts). */
+/**
+ * ET · time remaining · ETA, beside the phase (trackTimes.ts).
+ *
+ * @param props ET, time remaining and ETA.
+ * @returns The element.
+ */
 function TimeReadouts(props: { times: TrackTimes }): React.JSX.Element {
   const { t } = useTranslation()
   const { times } = props
@@ -623,17 +684,23 @@ function TimeReadouts(props: { times: TrackTimes }): React.JSX.Element {
   return (
     <span className="flex flex-wrap items-center gap-x-3 text-sm text-muted-foreground">
       <span>
-        {t('trackView.times.et')} <span className="font-mono text-foreground">{formatElapsed(times.elapsedMs)}</span>
+        {t('trackView.times.et')}{' '}
+        <span className="font-mono text-foreground">{formatElapsed(times.elapsedMs)}</span>
       </span>
       <span>
-        {t('trackView.times.remaining')} <span className="font-mono text-foreground">{formatDuration(times.remainingMs)}</span>
+        {t('trackView.times.remaining')}{' '}
+        <span className="font-mono text-foreground">{formatDuration(times.remainingMs)}</span>
       </span>
       <span>
         {t(times.etaIsPlanned ? 'trackView.times.etaPlanned' : 'trackView.times.eta')}{' '}
         <span className="font-mono text-foreground">{formatUtcTime(times.etaMs)}</span>
         {vs !== null && (
           <span className="ml-1">
-            ({vs === 0 ? t('trackView.times.onTime') : t('trackView.times.vsSchedule', { value: `${vs > 0 ? '+' : '−'}${Math.abs(vs)}` })})
+            (
+            {vs === 0
+              ? t('trackView.times.onTime')
+              : t('trackView.times.vsSchedule', { value: `${vs > 0 ? '+' : '−'}${Math.abs(vs)}` })}
+            )
           </span>
         )}
       </span>

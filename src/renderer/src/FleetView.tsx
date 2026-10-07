@@ -1,10 +1,19 @@
+/** The Fleet tab: the aircraft list, each aircraft's detail, and adding, replacing and retiring. */
+
 import { useEffect, useState } from 'react'
 import { Archive, ArchiveRestore, ArrowLeft, ArrowRightLeft, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { isRetired } from '@shared/aircraft'
-import type { Aircraft, AircraftLanding, AircraftLastParked, Flight, FleetStats, NewAircraft } from '@shared/ipc'
+import type {
+  Aircraft,
+  AircraftLanding,
+  AircraftLastParked,
+  Flight,
+  FleetStats,
+  NewAircraft
+} from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -30,6 +39,7 @@ import { LandingBadge } from './LandingBadge'
 import { LandingScoreBadge } from './LandingScoreBadge'
 import { SortableHead } from './SortableHead'
 import { formatMinutes, msToFpm, msToKt } from './units'
+import { asyncHandler, runAsync } from './report-error'
 
 type View = { kind: 'list' } | { kind: 'detail'; id: number } | { kind: 'new' } | { kind: 'edit'; id: number }
 
@@ -79,6 +89,9 @@ function DetailField(props: { label: string; value: React.ReactNode }): React.JS
  * - no custom profile, but a SimBrief default type is chosen: show its type, plus
  *   engine/developer from the cached label when the picker set it.
  * - nothing set at all: explain the (usually fine) fallback.
+ *
+ * @param props The aircraft.
+ * @returns The element.
  */
 function SimBriefProfileCard(props: { aircraft: Aircraft }): React.JSX.Element {
   const { t } = useTranslation()
@@ -120,7 +133,8 @@ function SimBriefProfileCard(props: { aircraft: Aircraft }): React.JSX.Element {
               </>
             ) : (
               <>
-                {t('fleetView.simbriefProfile.usingDefault')} <span className="font-mono">{a.simbriefType}</span>
+                {t('fleetView.simbriefProfile.usingDefault')}{' '}
+                <span className="font-mono">{a.simbriefType}</span>
               </>
             )}
           </p>
@@ -134,16 +148,24 @@ function SimBriefProfileCard(props: { aircraft: Aircraft }): React.JSX.Element {
   )
 }
 
-/** Fleet's per-aircraft landing history, per docs/decisions.md's landing-analysis entry —
- *  not per-flight (Logbook's job), but how this specific tail has actually been landed
- *  over its life in the fleet. Empty state is the common case for a while: only flights
- *  tracked since this feature shipped have a landing record at all. */
+/**
+ * Fleet's per-aircraft landing history, per docs/decisions.md's landing-analysis entry —
+ * not per-flight (Logbook's job), but how this specific tail has actually been landed
+ * over its life in the fleet. Empty state is the common case for a while: only flights
+ * tracked since this feature shipped have a landing record at all.
+ *
+ * @param props The aircraft.
+ * @returns The element.
+ */
 function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
   const { t } = useTranslation()
   const [landings, setLandings] = useState<AircraftLanding[]>([])
 
   useEffect(() => {
-    window.winglog.fleetListLandings(props.aircraftId).then(setLandings)
+    runAsync(
+      'FleetView fleetListLandings',
+      window.winglog.fleetListLandings(props.aircraftId).then(setLandings)
+    )
   }, [props.aircraftId])
 
   return (
@@ -169,7 +191,9 @@ function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
                   </span>
                   <span className="text-muted-foreground">
                     {l.crosswindMs != null
-                      ? t('fleetView.landingHistory.crosswind', { kt: Math.round(msToKt(Math.abs(l.crosswindMs))) })
+                      ? t('fleetView.landingHistory.crosswind', {
+                          kt: Math.round(msToKt(Math.abs(l.crosswindMs)))
+                        })
                       : '—'}
                   </span>
                   <LandingScoreBadge score={l.score} />
@@ -184,12 +208,17 @@ function LandingHistoryCard(props: { aircraftId: number }): React.JSX.Element {
   )
 }
 
-/** An aircraft's own completed flights (docs/plans/fleet-redesign.md #2) — scrollable
- *  rather than paginated per Callum's ask, same fixed-height/overflow-y-auto pattern as
- *  LandingHistoryCard above so the detail page's own layout doesn't grow unbounded with
- *  flight count (his real fleet has one aircraft with well over a hundred). Rows are
- *  clickable, jumping to that flight's Logbook detail — the app's first cross-view
- *  navigation, confirmed wanted rather than assumed. */
+/**
+ * An aircraft's own completed flights (docs/plans/fleet-redesign.md #2) — scrollable
+ * rather than paginated per Callum's ask, same fixed-height/overflow-y-auto pattern as
+ * LandingHistoryCard above so the detail page's own layout doesn't grow unbounded with
+ * flight count (his real fleet has one aircraft with well over a hundred). Rows are
+ * clickable, jumping to that flight's Logbook detail — the app's first cross-view
+ * navigation, confirmed wanted rather than assumed.
+ *
+ * @param props The aircraft, and what to do when a flight is opened.
+ * @returns The element.
+ */
 function AircraftFlightsCard(props: {
   aircraftId: number
   onOpenFlight: (flightId: number) => void
@@ -198,7 +227,7 @@ function AircraftFlightsCard(props: {
   const [flights, setFlights] = useState<Flight[]>([])
 
   useEffect(() => {
-    window.winglog.fleetListFlights(props.aircraftId).then(setFlights)
+    runAsync('FleetView fleetListFlights', window.winglog.fleetListFlights(props.aircraftId).then(setFlights))
   }, [props.aircraftId])
 
   return (
@@ -235,13 +264,18 @@ function AircraftFlightsCard(props: {
   )
 }
 
-/** A livery/registration change on an airframe still being flown (docs/plans/
- *  aircraft-replacement.md) — picks an existing, active fleet aircraft to take over this
- *  one's flight history. The target list deliberately excludes already-retired aircraft:
- *  chaining a replacement onto one that's already been superseded would need its own
- *  "walk the chain" handling this plan doesn't build, and in practice a target is always
- *  still active at the moment a replace happens (it might get retired itself later, via a
- *  separate replace). */
+/**
+ * A livery/registration change on an airframe still being flown (docs/plans/
+ * aircraft-replacement.md) — picks an existing, active fleet aircraft to take over this
+ * one's flight history. The target list deliberately excludes already-retired aircraft:
+ * chaining a replacement onto one that's already been superseded would need its own
+ * "walk the chain" handling this plan doesn't build, and in practice a target is always
+ * still active at the moment a replace happens (it might get retired itself later, via a
+ * separate replace).
+ *
+ * @param props The aircraft, the candidates to replace it with, whether it's open, and the handlers.
+ * @returns The element.
+ */
 function ReplaceAircraftDialog(props: {
   aircraft: Aircraft
   candidates: Aircraft[]
@@ -259,9 +293,12 @@ function ReplaceAircraftDialog(props: {
   // already means a fresh target/flightCount — no need to reset them on `open` here, just
   // fetch once for whichever aircraft this instance was mounted for.
   useEffect(() => {
-    window.winglog
-      .flightList()
-      .then((flights) => setFlightCount(flights.filter((f) => f.aircraftId === props.aircraft.id).length))
+    runAsync(
+      'FleetView window.winglog',
+      window.winglog
+        .flightList()
+        .then((flights) => setFlightCount(flights.filter((f) => f.aircraftId === props.aircraft.id).length))
+    )
   }, [props.aircraft.id])
 
   const target = props.candidates.find((c) => c.id === targetId) ?? null
@@ -287,7 +324,9 @@ function ReplaceAircraftDialog(props: {
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t('fleetView.replaceDialog.title', { registration: props.aircraft.registration })}</DialogTitle>
+          <DialogTitle>
+            {t('fleetView.replaceDialog.title', { registration: props.aircraft.registration })}
+          </DialogTitle>
           <DialogDescription>{t('fleetView.replaceDialog.description')}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3">
@@ -329,7 +368,7 @@ function ReplaceAircraftDialog(props: {
           <Button
             type="button"
             variant="destructive"
-            onClick={handleConfirm}
+            onClick={asyncHandler('FleetView handleConfirm', handleConfirm)}
             disabled={!target || submitting}
           >
             {submitting ? t('fleetView.replaceDialog.replacing') : t('fleetView.replaceDialog.confirm')}
@@ -340,14 +379,20 @@ function ReplaceAircraftDialog(props: {
   )
 }
 
-/** "VHHH · stand N32" — the stand only when it's at the airport the aircraft is at now
- *  (stand-positions.md). */
+/**
+ * "VHHH · stand N32" — the stand only when it's at the airport the aircraft is at now
+ * (stand-positions.md).
+ *
+ * @returns A function giving an aircraft's location text from its airport and where it last parked.
+ */
 function useLocationLabel(): (icao: string | null, parked: AircraftLastParked | undefined) => string {
   const { t } = useTranslation()
   return (icao, parked) => {
     if (!icao) return '—'
     const airport = displayIcao(icao)
-    return parked && parked.icao === icao ? `${airport} · ${t('fleetView.atStand', { stand: parked.stand })}` : airport
+    return parked && parked.icao === icao
+      ? `${airport} · ${t('fleetView.atStand', { stand: parked.stand })}`
+      : airport
   }
 }
 
@@ -367,6 +412,7 @@ function AircraftDetail(props: {
 }): React.JSX.Element {
   const { t } = useTranslation()
   const a = props.aircraft
+  const replacedBy = props.replacedBy
   const s = props.stats
   const retired = isRetired(a)
   const replaced = a.replacedByAircraftId !== null
@@ -420,13 +466,13 @@ function AircraftDetail(props: {
       {replaced && (
         <p className="rounded-md bg-muted p-2 text-sm text-muted-foreground">
           {t('fleetView.detail.replacedPrefix')}{' '}
-          {props.replacedBy ? (
+          {replacedBy ? (
             <button
               type="button"
               className="cursor-pointer font-medium text-foreground underline underline-offset-2"
-              onClick={() => props.onViewAircraft(props.replacedBy!.id)}
+              onClick={() => props.onViewAircraft(replacedBy.id)}
             >
-              {props.replacedBy.registration}
+              {replacedBy.registration}
             </button>
           ) : (
             `#${a.replacedByAircraftId}`
@@ -454,7 +500,10 @@ function AircraftDetail(props: {
                   label={t('fleetView.detail.fields.currentAirport')}
                   value={locationLabel(currentIcao, props.lastParked)}
                 />
-                <DetailField label={t('fleetView.detail.fields.totalHours')} value={s ? s.totalHours.toFixed(1) : '0.0'} />
+                <DetailField
+                  label={t('fleetView.detail.fields.totalHours')}
+                  value={s ? s.totalHours.toFixed(1) : '0.0'}
+                />
                 <DetailField label={t('fleetView.detail.fields.flights')} value={s?.totalCycles ?? 0} />
                 <DetailField
                   label={t('fleetView.detail.fields.lastFlight')}
@@ -474,6 +523,12 @@ function AircraftDetail(props: {
   )
 }
 
+/**
+ * The Fleet tab.
+ *
+ * @param props The handler that opens a flight in the Logbook, an aircraft to open first, and the tab's reset signal.
+ * @returns The element.
+ */
 export function FleetView(props: {
   onOpenFlightInLogbook: (flightId: number, fromAircraftId: number) => void
   /** Set when Logbook's "Back" returns here for a specific aircraft, rather than the
@@ -503,7 +558,7 @@ export function FleetView(props: {
     if (props.initialAircraftId != null) props.onInitialAircraftConsumed?.()
     // Only ever meant to run once, against the initial prop value — see the state
     // initializer above, which already captured it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once, for the initial prop
   }, [])
 
   const activeAircraft = aircraft.filter((a) => !isRetired(a))
@@ -532,17 +587,19 @@ export function FleetView(props: {
   } = useSortable<Aircraft, FleetSortKey>(activeAircraft, fleetComparators, 'registration')
 
   function reload(): Promise<void> {
-    return Promise.all([window.winglog.aircraftList(), window.winglog.logbookFleetStats(), window.winglog.fleetListLastParked()]).then(
-      ([aircraftList, fleetStats, parked]) => {
-        setAircraft(aircraftList)
-        setStats(fleetStats)
-        setLastParked(parked)
-      }
-    )
+    return Promise.all([
+      window.winglog.aircraftList(),
+      window.winglog.logbookFleetStats(),
+      window.winglog.fleetListLastParked()
+    ]).then(([aircraftList, fleetStats, parked]) => {
+      setAircraft(aircraftList)
+      setStats(fleetStats)
+      setLastParked(parked)
+    })
   }
 
   useEffect(() => {
-    reload()
+    runAsync('FleetView reload', reload())
   }, [])
 
   async function handleCreate(data: NewAircraft): Promise<void> {
@@ -670,7 +727,7 @@ export function FleetView(props: {
           lastParked={lastParked.find((p) => p.aircraftId === existing.id)}
           replacedBy={aircraft.find((a) => a.id === existing.replacedByAircraftId)}
           onEdit={() => setView({ kind: 'edit', id: view.id })}
-          onDelete={() => handleDelete(existing)}
+          onDelete={asyncHandler('FleetView handleDelete', () => handleDelete(existing))}
           onReplace={() => setReplaceTarget(existing)}
           onRetire={() => void handleRetire(existing)}
           onUnretire={() => void handleUnretire(existing)}
@@ -726,7 +783,12 @@ export function FleetView(props: {
                 <TableCell>
                   <AirlineLabel operator={a.operator} operatorIata={a.operatorIata} />
                 </TableCell>
-                <TableCell>{locationLabel(icao, lastParked.find((p) => p.aircraftId === a.id))}</TableCell>
+                <TableCell>
+                  {locationLabel(
+                    icao,
+                    lastParked.find((p) => p.aircraftId === a.id)
+                  )}
+                </TableCell>
                 <TableCell>{s ? s.totalHours.toFixed(1) : '0.0'}</TableCell>
                 <TableCell>{s?.totalCycles ?? 0}</TableCell>
               </TableRow>
@@ -760,7 +822,9 @@ export function FleetView(props: {
                 <TableCell>
                   {a.replacedByAircraftId === null ? (
                     t('fleetView.retiredStatus', {
-                      date: a.retiredAt ? t('fleetView.detail.retiredOn', { date: formatDate(a.retiredAt) }) : ''
+                      date: a.retiredAt
+                        ? t('fleetView.detail.retiredOn', { date: formatDate(a.retiredAt) })
+                        : ''
                     })
                   ) : replacement ? (
                     <button
