@@ -1,9 +1,19 @@
+/**
+ * Touchdowns in the database: recording each one a flight makes, and the lists the Logbook and Fleet
+ * show, newest first. Deleting a flight soft-deletes its landings with it.
+ */
 import { randomUUID } from 'node:crypto'
 import { and, asc, desc, eq, isNull } from 'drizzle-orm'
 import type { AircraftLandingRow, Landing, NewLanding } from '@shared/ipc'
 import { aircraft, flight, landing } from './schema'
 import type { WingLogDb } from './client'
 
+/**
+ * A database row as a Landing.
+ *
+ * @param row The `landing` row.
+ * @returns The landing as the app sees it.
+ */
 function toLanding(row: typeof landing.$inferSelect): Landing {
   return {
     id: row.id,
@@ -36,7 +46,12 @@ export type { NewLanding } from '@shared/ipc'
 
 /** The flight's most recent touchdown — the one Logbook's landing card defaults to
  *  (winglog-backend's docs/plans/multiple-landings.md). Kept alongside
- *  listLandingsByFlight below for callers that only ever cared about "the" landing. */
+ *  listLandingsByFlight below for callers that only ever cared about "the" landing.
+ *
+ * @param db The database.
+ * @param flightId The flight.
+ * @returns The last landing, or undefined.
+ */
 export function getLandingByFlight(db: WingLogDb, flightId: number): Landing | undefined {
   const row = db
     .select()
@@ -47,13 +62,23 @@ export function getLandingByFlight(db: WingLogDb, flightId: number): Landing | u
   return row ? toLanding(row) : undefined
 }
 
-/** Every touchdown recorded for a flight, in the order they happened. */
 /** Every non-deleted landing, ordered by flight then seq — for building per-flight summaries
- *  in one query instead of one query per flight. */
+ *  in one query instead of one query per flight.
+ *
+ * @param db The database.
+ * @returns The landings.
+ */
 export function listLiveLandings(db: WingLogDb): Landing[] {
   return db.select().from(landing).where(isNull(landing.deletedAt)).orderBy(asc(landing.flightId), asc(landing.seq)).all().map(toLanding)
 }
 
+/**
+ * Every touchdown recorded for a flight, in the order they happened.
+ *
+ * @param db The database.
+ * @param flightId The flight.
+ * @returns Its landings, first touchdown first.
+ */
 export function listLandingsByFlight(db: WingLogDb, flightId: number): Landing[] {
   return db
     .select()
@@ -72,6 +97,10 @@ export function listLandingsByFlight(db: WingLogDb, flightId: number): Landing[]
  * identity rather than minting a new one, while a genuinely new row gets one from `values`
  * (winglog-backend/docs/plans/cloud-sync.md) — updatedAt bumps either way, so a
  * re-capture still re-syncs.
+ *
+ * @param db The database.
+ * @param input The touchdown, with its flight and sequence number.
+ * @returns The stored landing.
  */
 export function createLanding(db: WingLogDb, input: NewLanding): Landing {
   const now = new Date().toISOString()
@@ -85,7 +114,12 @@ export function createLanding(db: WingLogDb, input: NewLanding): Landing {
 }
 
 /** Fleet's per-aircraft landing history — one join, newest first. Aircraft with no
- *  landing records (the common case for a while) simply return an empty array. */
+ *  landing records (the common case for a while) simply return an empty array.
+ *
+ * @param db The database.
+ * @param aircraftId The fleet aircraft.
+ * @returns Its landings, with each flight's number and airports.
+ */
 export function listLandingsByAircraft(db: WingLogDb, aircraftId: number): AircraftLandingRow[] {
   return db
     .select({
@@ -111,7 +145,11 @@ export function listLandingsByAircraft(db: WingLogDb, aircraftId: number): Aircr
  *  sub-tab (winglog-backend's docs/plans/multiple-landings.md Phase 2/3), spanning the
  *  whole fleet rather than one aircraft (listLandingsByAircraft above). Score is resolved
  *  by the caller (main/index.ts), same composition as listLandingsByAircraft's own
- *  fleetListLandings handler. */
+ *  fleetListLandings handler.
+ *
+ * @param db The database.
+ * @returns The landings, with each flight's number, airports and aircraft.
+ */
 export function listAllLandings(db: WingLogDb): (Landing & {
   flightNumber: string | null
   aircraftRegistration: string
@@ -151,7 +189,13 @@ export function listAllLandings(db: WingLogDb): (Landing & {
     }))
 }
 
-/** See aircraft-repo.ts's listAircraftForSync for the shape/reasoning this mirrors. */
+/**
+ * See aircraft-repo.ts's listAircraftForSync for the shape/reasoning this mirrors.
+ *
+ * @param db The database.
+ * @param since The sync cursor, or null for every row.
+ * @returns The rows, oldest change first.
+ */
 export function listLandingsForSync(db: WingLogDb, since: string | null): (typeof landing.$inferSelect)[] {
   const rows = db.select().from(landing).all()
   return rows
@@ -160,7 +204,12 @@ export function listLandingsForSync(db: WingLogDb, since: string | null): (typeo
 }
 
 /** See aircraft-repo.ts's upsertAircraftByUuid for the shape/reasoning this mirrors,
- *  including the last-write-wins-against-a-local-edit check. */
+ *  including the last-write-wins-against-a-local-edit check.
+ *
+ * @param db The database.
+ * @param input The pulled row.
+ * @returns False when the local row is as new or newer, so nothing changed.
+ */
 export function upsertLandingByUuid(
   db: WingLogDb,
   input: Omit<typeof landing.$inferInsert, 'id'> & { uuid: string }

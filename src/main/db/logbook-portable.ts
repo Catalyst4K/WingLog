@@ -1,7 +1,3 @@
-import type { Aircraft, DataFormat, Flight, Landing } from '@shared/ipc'
-import { t } from '../i18n'
-import { columnIndex, parseCsvRows, toCsv } from './csv'
-
 /**
  * WingLog's own portable logbook format (winglog-backend docs/plans/data-export-import.md):
  * one record per completed flight, keyed by aircraft *registration* rather than an internal
@@ -12,6 +8,10 @@ import { columnIndex, parseCsvRows, toCsv } from './csv'
  * Units are explicit in the column names (`_kg`, `_fpm`, `_kt`) — the SI-internal rule stops
  * at the file boundary, and a spreadsheet user shouldn't have to guess.
  */
+import type { Aircraft, DataFormat, Flight, Landing } from '@shared/ipc'
+import { t } from '../i18n'
+import { columnIndex, parseCsvRows, toCsv } from './csv'
+
 export interface LogbookRecord {
   registration: string
   icaoType: string
@@ -67,6 +67,11 @@ const round = (value: number, places: number): number => {
  * One flight → one record, or null when it can't be exported usefully: not completed, no
  * block times (an import needs both), or no identifiable aircraft. A free flight tracked
  * with no fleet aircraft falls back to the sim's own registration/type.
+ *
+ * @param f The flight.
+ * @param aircraft Its fleet aircraft, if any.
+ * @param landing Its last landing, if any.
+ * @returns The record, or null.
  */
 export function toLogbookRecord(f: Flight, aircraft: Aircraft | undefined, landing: Landing | undefined): LogbookRecord | null {
   if (f.status !== 'completed' || !f.actualOutUtc || !f.actualInUtc) return null
@@ -97,6 +102,13 @@ export function toLogbookRecord(f: Flight, aircraft: Aircraft | undefined, landi
   }
 }
 
+/**
+ * Records as WingLog's JSON or CSV logbook.
+ *
+ * @param records The flights.
+ * @param format JSON or CSV.
+ * @returns The file's text.
+ */
 export function serializeLogbook(records: LogbookRecord[], format: DataFormat): string {
   if (format === 'json') return JSON.stringify(records, null, 2)
   return toCsv([
@@ -126,14 +138,24 @@ export type ParsedLogbookRow = { record: LogbookRecord; label: string } | { erro
 
 const text = (value: unknown): string | null => (typeof value === 'string' && value.trim() !== '' ? value.trim() : null)
 
-/** Finite number, or null — accepts a JSON number or a CSV string, never NaN/Infinity. */
+/**
+ * Finite number, or null — accepts a JSON number or a CSV string, never NaN/Infinity.
+ *
+ * @param value A JSON number or a CSV cell.
+ * @returns The number, or null.
+ */
 const num = (value: unknown): number | null => {
   if (value === null || value === undefined || value === '') return null
   const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN
   return Number.isFinite(n) ? n : null
 }
 
-/** A UTC instant re-serialised to canonical ISO, or null if it isn't a real date. */
+/**
+ * A UTC instant re-serialised to canonical ISO, or null if it isn't a real date.
+ *
+ * @param value The text.
+ * @returns The ISO time, or null.
+ */
 const isoInstant = (value: unknown): string | null => {
   const s = text(value)
   if (!s) return null
@@ -147,7 +169,12 @@ const icao = (value: unknown): string | null => {
 }
 
 /** Validates one untrusted object (a JSON element, or a CSV row keyed by header) — a bad
- *  field degrades to a skipped row with a reason, never a throw. */
+ *  field degrades to a skipped row with a reason, never a throw.
+ *
+ * @param raw One JSON element, or one CSV row keyed by lower-case header.
+ * @param csv Whether the keys are the CSV's column names.
+ * @returns The record, or why the row can't be imported.
+ */
 function toRecord(raw: unknown, csv: boolean): ParsedLogbookRow {
   if (typeof raw !== 'object' || raw === null) {
     return { error: t('errors.expectedAnObject'), label: t('labels.unreadableRow') }
@@ -199,13 +226,24 @@ function toRecord(raw: unknown, csv: boolean): ParsedLogbookRow {
   }
 }
 
-/** True for a CSV whose header is one of *ours* (as opposed to SimToolkitPro's). */
+/**
+ * True for a CSV whose header is one of *ours* (as opposed to SimToolkitPro's).
+ *
+ * @param header The CSV's header row.
+ * @returns True when it has WingLog's columns.
+ */
 export function isWingLogLogbookCsv(header: string[]): boolean {
   return columnIndex(header, 'registration') >= 0 && columnIndex(header, 'dep_icao') >= 0
 }
 
 /** Untrusted text → validated rows. Throws only when the text isn't a usable document at
- *  all (bad JSON, not an array, empty CSV); a bad *row* comes back as `{ error }`. */
+ *  all (bad JSON, not an array, empty CSV); a bad *row* comes back as `{ error }`.
+ *
+ * @param textInput The file's text.
+ * @param format JSON or CSV.
+ * @returns One entry per row.
+ * @throws When the text isn't a usable document.
+ */
 export function parseLogbook(textInput: string, format: DataFormat): ParsedLogbookRow[] {
   if (format === 'json') {
     const parsed: unknown = JSON.parse(textInput)

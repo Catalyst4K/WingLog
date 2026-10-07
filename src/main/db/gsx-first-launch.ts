@@ -1,3 +1,6 @@
+/**
+ * The one-time check, on the app's first launch, for GSX's receipts folder.
+ */
 import { existsSync } from 'node:fs'
 import type { GsxFirstLaunchResult } from '@shared/ipc'
 import type { WingLogDb } from './client'
@@ -16,6 +19,9 @@ import { defaultGsxReceiptsPath } from '../gsx/default-path'
  *
  * Returns null on every call after the first — the one time this actually has something
  * to report, the flag hasn't been set yet; every later launch is a no-op check.
+ *
+ * @param db The database.
+ * @returns Whether the folder was found, or null on every later call.
  */
 export function checkGsxFirstLaunch(db: WingLogDb): GsxFirstLaunchResult | null {
   if (hasCheckedGsxFirstLaunch(db)) return null

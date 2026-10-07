@@ -1,7 +1,3 @@
-import { copyFileSync, existsSync, mkdirSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import Database from 'better-sqlite3'
-
 /**
  * The app was called Flightdeck until the 2026-09-06 rename to WingLog
  * (winglog-backend/docs/decisions.md). Electron derives userData from the app name, so
@@ -21,6 +17,9 @@ import Database from 'better-sqlite3'
  *   migration that goes wrong is always recoverable by hand. Disk is cheap; a logbook
  *   isn't.
  */
+import { copyFileSync, existsSync, mkdirSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import Database from 'better-sqlite3'
 
 /** Both cases are checked: packaged builds used productName ("Flightdeck"), dev used the
  *  package name ("flightdeck"). They're the same directory on macOS/Windows, different on
@@ -44,6 +43,10 @@ export interface LegacyMigrationResult {
  * Copies a pre-rename Flightdeck userData directory into the current one, if there is one
  * to copy and the new database doesn't already exist. Safe to call on every launch: it is
  * a no-op once `dbPath` is present, which it always is after the first run.
+ *
+ * @param userDataPath The current userData directory.
+ * @param dbPath Where the current database belongs.
+ * @returns Whether anything was copied, from where, and which other files came with it.
  */
 export function migrateLegacyUserData(
   userDataPath: string,
@@ -73,7 +76,11 @@ export function migrateLegacyUserData(
 }
 
 /** Looks for a legacy directory beside the current userData directory, identified by it
- *  actually containing a Flightdeck database rather than by merely existing. */
+ *  actually containing a Flightdeck database rather than by merely existing.
+ *
+ * @param userDataPath The current userData directory.
+ * @returns The legacy directory, or null.
+ */
 function findLegacyDir(userDataPath: string): string | null {
   const parent = dirname(userDataPath)
   for (const name of LEGACY_APP_DIR_NAMES) {
@@ -86,6 +93,12 @@ function findLegacyDir(userDataPath: string): string | null {
   return null
 }
 
+/**
+ * Copies a database in WAL mode as one consistent file.
+ *
+ * @param source The database to copy.
+ * @param target Where the copy goes.
+ */
 function copyDatabaseConsistently(source: string, target: string): void {
   // Opening the source read-write is what replays any WAL content into the main database;
   // a read-only handle would not, which is the whole reason this isn't a file copy.

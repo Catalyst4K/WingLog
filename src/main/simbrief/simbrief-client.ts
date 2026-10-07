@@ -6,6 +6,13 @@ import { parseOfp, SimBriefError, type SimBriefOfp } from '@shared/simbrief-ofp'
 
 export { optNum, optStr, parseOfp, parseStepClimbs, type SimBriefOfp, type SimBriefStepClimb } from '@shared/simbrief-ofp'
 
+/**
+ * Fetches the pilot's latest OFP from SimBrief.
+ *
+ * @param username The pilot's SimBrief username.
+ * @returns The parsed OFP.
+ * @throws SimBriefError when SimBrief can't be reached, has no plan, or sends something unreadable.
+ */
 export async function fetchLatestOfp(username: string): Promise<SimBriefOfp> {
   const url = `https://www.simbrief.com/api/xml.fetcher.php?username=${encodeURIComponent(username)}&json=1`
   const response = await fetch(url)

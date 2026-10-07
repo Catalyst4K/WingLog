@@ -1,3 +1,8 @@
+/**
+ * Navdata from the sim itself: SimFacilitiesProvider fetches an airport's runways, procedures, taxi
+ * network and stands over a short-lived SimConnect connection of its own, caches them in the
+ * database, and answers every lookup from that cache.
+ */
 import { open as defaultOpen, Protocol } from 'node-simconnect'
 import type { WingLogDb } from '../db/client'
 import {

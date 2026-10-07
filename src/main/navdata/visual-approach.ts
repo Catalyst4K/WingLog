@@ -1,7 +1,3 @@
-import type { NavdataLeg, NavdataProcedureOption } from '@shared/ipc'
-import { visualApproachIdentifier } from '@shared/visual-approach'
-import { offsetAlongBearing } from '../airports/landing-maths'
-
 /**
  * A synthetic "Visual <runway>" approach (winglog-backend docs/plans/visual-approach.md):
  * real ATC — and BeyondATC — routinely clear a visual approach after a STAR, and every
@@ -10,6 +6,9 @@ import { offsetAlongBearing } from '../airports/landing-maths'
  * looks to everything downstream (the selector, `useLiveWaypoints`, `applyProcedureSelection`,
  * flight persistence — a plain identifier string) exactly like a real approach.
  */
+import type { NavdataLeg, NavdataProcedureOption } from '@shared/ipc'
+import { visualApproachIdentifier } from '@shared/visual-approach'
+import { offsetAlongBearing } from '../airports/landing-maths'
 
 /** How far out along the extended centreline the visual approach's join point is drawn.
  *  A drawing convention, not a rule — there is no single regulatory figure (the plan doc
@@ -30,7 +29,12 @@ export interface VisualRunwayEnd {
 }
 
 /** One `Visual <rwy>` option (transition: Vectors) per runway end, optionally only for
- *  `runway` — mirrors listCachedProcedures' own runway filter. */
+ *  `runway` — mirrors listCachedProcedures' own runway filter.
+ *
+ * @param runways The airport's runway ends.
+ * @param runway Only this runway's, or null for all.
+ * @returns One option per runway end.
+ */
 export function visualApproachOptions(runways: VisualRunwayEnd[], runway: string | null): NavdataProcedureOption[] {
   return runways
     .filter((r) => !runway || r.ident === runway)
@@ -38,7 +42,11 @@ export function visualApproachOptions(runways: VisualRunwayEnd[], runway: string
 }
 
 /** offsetAlongBearing doesn't wrap: a runway just west of the antimeridian heading out east
- *  lands past 180 degrees. */
+ *  lands past 180 degrees.
+ *
+ * @param lon Degrees, any value.
+ * @returns Degrees, -180 to 180.
+ */
 function wrapLongitude(lon: number): number {
   return ((((lon + 180) % 360) + 360) % 360) - 180
 }
@@ -61,7 +69,11 @@ function syntheticLeg(type: number, fixIdent: string, fixType: 'W' | 'R', lat: n
 
 /** The approach's two waypoints: the join point, `VISUAL_JOIN_DISTANCE_NM` back along the
  *  runway's reciprocal true heading, then the threshold. The join point is labelled
- *  "<rwy>/<nm>" like the FMC's own distance fixes (e.g. LAM/11). */
+ *  "<rwy>/<nm>" like the FMC's own distance fixes (e.g. LAM/11).
+ *
+ * @param runway The runway end.
+ * @returns The join point, then the threshold.
+ */
 export function visualApproachLegs(runway: VisualRunwayEnd): NavdataLeg[] {
   const join = offsetAlongBearing(
     runway.thresholdLat,

@@ -1,3 +1,7 @@
+/**
+ * SimBrief's community airframes for an aircraft type, for the fleet's airframe picker
+ * (docs/plans/simbrief-airframe-picker.md): fetched live once per session, filtered to MSFS.
+ */
 import type { SimbriefAirframeOption } from '../../shared/ipc'
 import { lazy } from '@shared/lazy'
 
@@ -92,6 +96,10 @@ function toOption(raw: RawAirframe, simbriefType: string): SimbriefAirframeOptio
  * ICAO type — filtered to `MSFS`-platform community entries plus the always-present stock
  * default (docs/plans/simbrief-airframe-picker.md). Exported separately from the fetch
  * below so real captured fixture JSON can be tested without a network call.
+ *
+ * @param data SimBrief's `inputs.airframes.json`.
+ * @param icaoType The ICAO type, e.g. A20N.
+ * @returns The options, stock default first, or none for an unknown type.
  */
 export function parseAirframesForType(data: RawAirframesResponse, icaoType: string): SimbriefAirframeOption[] {
   const entry = data[icaoType]
@@ -138,7 +146,11 @@ const fetchAirframesData = lazy(
 )
 
 /** Empty (not an error) for a type SimBrief doesn't recognise, or if the fetch itself
- *  fails — same defensive-parsing posture as every other external-data path in this app. */
+ *  fails — same defensive-parsing posture as every other external-data path in this app.
+ *
+ * @param icaoType The ICAO type, e.g. A20N.
+ * @returns The options, or none.
+ */
 export async function fetchAirframesForType(icaoType: string): Promise<SimbriefAirframeOption[]> {
   const data = await fetchAirframesData()
   if (!data) return []

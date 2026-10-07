@@ -16,6 +16,15 @@ export interface SyncRow {
   data: string
 }
 
+/**
+ * POSTs JSON to a backend route.
+ *
+ * @param path The route, from the base URL.
+ * @param body Sent as JSON.
+ * @param headers Extra request headers.
+ * @returns The response's JSON.
+ * @throws The backend's own error message, or the HTTP status.
+ */
 async function postJson<T>(path: string, body: unknown, headers?: Record<string, string>): Promise<T> {
   const res = await fetch(`${BACKEND_BASE_URL}${path}`, {
     method: 'POST',
@@ -29,6 +38,14 @@ async function postJson<T>(path: string, body: unknown, headers?: Record<string,
   return res.json() as Promise<T>
 }
 
+/**
+ * Signs in.
+ *
+ * @param email The account.
+ * @param password Sent once, never stored.
+ * @returns The session token and when it expires.
+ * @throws When the backend refuses the sign-in.
+ */
 export async function login(email: string, password: string): Promise<{ token: string; expiresAt: string }> {
   return postJson('/auth/login', { email, password })
 }
@@ -42,15 +59,36 @@ export async function login(email: string, password: string): Promise<{ token: s
  * into the app itself, always typed in at the moment it's used. A wrong/missing code gets
  * the same 404 the endpoint gives anyone else, not a distinguishable error, matching the
  * route's own "don't let this be discoverable" design. Provisioning alone doesn't return a
- * session — the caller logs in right after, same as a normal signup flow anywhere else. */
+ * session — the caller logs in right after, same as a normal signup flow anywhere else.
+ *
+ * @param email The new account.
+ * @param password Its password.
+ * @param inviteCode The provisioning secret, typed in at the time.
+ * @throws When the code is wrong or the backend refuses.
+ */
 export async function provision(email: string, password: string, inviteCode: string): Promise<void> {
   await postJson('/auth/provision', { email, password }, { 'X-Provision-Secret': inviteCode })
 }
 
+/**
+ * Ends the session on the backend.
+ *
+ * @param email The account.
+ * @param token The session to end.
+ */
 export async function logout(email: string, token: string): Promise<void> {
   await postJson('/auth/logout', { email, token })
 }
 
+/**
+ * Pulls one table's rows changed since the cursor.
+ *
+ * @param email The account.
+ * @param token Its session.
+ * @param table The table to pull.
+ * @param since The cursor: rows changed after this ISO time, or null for all.
+ * @returns The changed rows.
+ */
 export async function syncPull(
   email: string,
   token: string,
@@ -61,6 +99,15 @@ export async function syncPull(
   return rows
 }
 
+/**
+ * Pushes one table's changed rows.
+ *
+ * @param email The account.
+ * @param token Its session.
+ * @param table The table to push.
+ * @param rows The local rows changed since the last push.
+ * @returns The uuids the backend stored, and the ones it rejected as older than its copy.
+ */
 export async function syncPush(
   email: string,
   token: string,

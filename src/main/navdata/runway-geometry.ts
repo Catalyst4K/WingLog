@@ -1,3 +1,7 @@
+/**
+ * Each runway end's own threshold, worked out from the sim's runway record (a centre point and the
+ * primary end's heading).
+ */
 import { offsetAlongBearing } from '../airports/landing-maths'
 import type { ParsedRunway } from '../sim/facility-fields'
 
@@ -18,6 +22,9 @@ export interface DerivedRunwayEnd {
  * strip's centre point, not a threshold, and a FINAL_APPROACH_LEG's own runway-ident fix
  * resolves to that same centre for both ends too — this derivation is still necessary, not
  * something the facility API hands over for free (docs/navdata-notes.md).
+ *
+ * @param runway The sim's RUNWAY record.
+ * @returns Both ends, primary first, each with its threshold, heading and size.
  */
 export function runwayEndsFromCentre(runway: ParsedRunway): DerivedRunwayEnd[] {
   const halfLengthM = runway.lengthM / 2

@@ -1,3 +1,8 @@
+/**
+ * Reads an airport's navdata from MSFS through the SimConnect Facilities API: runways, procedures,
+ * the taxi network and stands. Each fetch runs on a connection the caller opened and owns
+ * (SimFacilitiesProvider), never on the live tracking connection.
+ */
 import {
   FacilityDataType,
   RawBuffer,
@@ -114,6 +119,16 @@ function buildDefinitions(handle: SimConnectConnection): void {
   addApproachTreeDefinition(addField)
 }
 
+/**
+ * Fetches an airport's runways and procedures. Runs on a connection the caller opened, never the
+ * live tracking one: a heavy facility fetch stalls live telemetry for as long as it takes
+ * (docs/navdata-notes.md).
+ *
+ * @param handle An open SimConnect connection the caller owns.
+ * @param icao The airport.
+ * @returns The runways, SIDs, STARs and approaches.
+ * @throws When the sim reports an exception or the fetch times out.
+ */
 export function fetchAirportNavdata(handle: SimConnectConnection, icao: string): Promise<FetchedAirportNavdata> {
   buildDefinitions(handle)
 
@@ -356,7 +371,13 @@ function buildTaxiDefinitions(handle: SimConnectConnection): void {
  *  already-open connection — see `fetchAirportNavdata`'s own doc comment for why this never
  *  opens its own connection. Unlike that fetch, this one can genuinely take minutes for a
  *  large airport (see `TAXI_FETCH_TIMEOUT_MS`); callers must treat it as an explicit,
- *  user-triggered operation, never an automatic background refresh. */
+ *  user-triggered operation, never an automatic background refresh.
+ *
+ * @param handle An open SimConnect connection the caller owns.
+ * @param icao The airport.
+ * @returns The taxi points, paths and names.
+ * @throws When the sim reports an exception or the fetch times out.
+ */
 export function fetchTaxiNetwork(handle: SimConnectConnection, icao: string): Promise<FetchedTaxiNetwork> {
   buildTaxiDefinitions(handle)
 
@@ -495,7 +516,13 @@ export interface FetchedStand {
 const STAND_FETCH_TIMEOUT_MS = 60_000
 
 /** Fetches an airport's stands/gates on an already-open connection. Its own definition, not
- *  part of fetchTaxiNetwork, so it never waits on (or invalidates) a minutes-long taxi fetch. */
+ *  part of fetchTaxiNetwork, so it never waits on (or invalidates) a minutes-long taxi fetch.
+ *
+ * @param handle An open SimConnect connection the caller owns.
+ * @param icao The airport.
+ * @returns The stands and gates.
+ * @throws When the sim reports an exception or the fetch times out.
+ */
 export function fetchStands(handle: SimConnectConnection, icao: string): Promise<FetchedStand[]> {
   addAirportIcaoLatLonFields((name) => handle.addToFacilityDefinition(NavdataDefId.TAXI_PARKINGS, name))
   handle.addToFacilityDefinition(NavdataDefId.TAXI_PARKINGS, 'N_TAXI_PARKINGS')

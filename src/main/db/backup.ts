@@ -1,7 +1,3 @@
-import { existsSync, mkdirSync, readdirSync, unlinkSync } from 'node:fs'
-import { join } from 'node:path'
-import Database from 'better-sqlite3'
-
 /**
  * DB backup-on-launch (PLAN.md §M7) — a local safety net against a bad migration or a
  * corrupted database, not a substitute for cloud sync or a real backup strategy. Runs once
@@ -13,6 +9,9 @@ import Database from 'better-sqlite3'
  * transactions still sitting in winglog.db-wal. Opening the live database and vacuuming
  * into the backup path replays the WAL first, producing one consistent file.
  */
+import { existsSync, mkdirSync, readdirSync, unlinkSync } from 'node:fs'
+import { join } from 'node:path'
+import Database from 'better-sqlite3'
 
 const BACKUP_FILENAME_PREFIX = 'winglog-'
 const BACKUP_FILENAME_SUFFIX = '.db'
@@ -22,6 +21,10 @@ const DEFAULT_KEEP = 5
  * Writes a timestamped snapshot of `dbPath` into `backupsDir`, then prunes older snapshots
  * beyond `keep`. A no-op if `dbPath` doesn't exist yet — a fresh install has nothing to
  * back up on its first launch.
+ *
+ * @param dbPath The live database.
+ * @param backupsDir Where snapshots go.
+ * @param keep How many snapshots to keep.
  */
 export function backupDatabaseOnLaunch(dbPath: string, backupsDir: string, keep = DEFAULT_KEEP): void {
   if (!existsSync(dbPath)) return
@@ -50,6 +53,12 @@ export function backupDatabaseOnLaunch(dbPath: string, backupsDir: string, keep 
   pruneOldBackups(backupsDir, keep)
 }
 
+/**
+ * Deletes all but the newest `keep` snapshots.
+ *
+ * @param backupsDir Where snapshots go.
+ * @param keep How many of the newest to keep.
+ */
 function pruneOldBackups(backupsDir: string, keep: number): void {
   const backups = readdirSync(backupsDir)
     .filter((name) => name.startsWith(BACKUP_FILENAME_PREFIX) && name.endsWith(BACKUP_FILENAME_SUFFIX))

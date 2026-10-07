@@ -1,3 +1,6 @@
+/**
+ * The one validator for aircraft input, used by create, update and import alike.
+ */
 import type { NewAircraft } from '@shared/ipc'
 import { t } from '../i18n'
 
@@ -21,6 +24,9 @@ export type AircraftInputResult = { data: NewAircraft } | { error: string }
  * Validates and normalizes aircraft input from an untrusted source (an imported JSON
  * file, and defensively for IPC from the renderer) into a well-typed NewAircraft. Shared
  * by create, update and bulk import so all three enforce the same rules.
+ *
+ * @param raw Anything: an imported record or the renderer's input.
+ * @returns The aircraft, trimmed and typed, or the first error found.
  */
 export function parseAircraftInput(raw: unknown): AircraftInputResult {
   if (typeof raw !== 'object' || raw === null) return { error: t('errors.expectedAnObject') }

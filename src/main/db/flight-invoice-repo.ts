@@ -1,3 +1,7 @@
+/**
+ * GSX ground-service invoices attached to flights. Additive only: a receipt is stored once per
+ * flight and never edited, and deleting the flight soft-deletes them.
+ */
 import { randomUUID } from 'node:crypto'
 import { and, eq, isNull } from 'drizzle-orm'
 import type { FlightInvoice } from '@shared/ipc'
@@ -5,6 +9,12 @@ import type { StoredInvoiceInput } from '../gsx/scan'
 import { flightInvoice } from './schema'
 import type { WingLogDb } from './client'
 
+/**
+ * A database row as a FlightInvoice.
+ *
+ * @param row The `flight_invoice` row.
+ * @returns The invoice as the app sees it.
+ */
 function toFlightInvoice(row: typeof flightInvoice.$inferSelect): FlightInvoice {
   return {
     id: row.id,
@@ -22,6 +32,13 @@ function toFlightInvoice(row: typeof flightInvoice.$inferSelect): FlightInvoice 
   }
 }
 
+/**
+ * A flight's invoices that aren't deleted.
+ *
+ * @param db The database.
+ * @param flightId The flight.
+ * @returns Its invoices.
+ */
 export function listInvoicesForFlight(db: WingLogDb, flightId: number): FlightInvoice[] {
   return db
     .select()
@@ -55,6 +72,11 @@ export function isStoredReceiptPath(db: WingLogDb, htmlPath: string): boolean {
  * candidate — additive rather than replace-wholesale, so a repeated rescan can't
  * duplicate rows, and can't wipe out a receipt attached by hand that the confident-match
  * scan itself would never find again.
+ *
+ * @param db The database.
+ * @param flightId The flight.
+ * @param invoices The receipts to attach.
+ * @returns The flight's invoices afterwards.
  */
 export function addInvoicesForFlight(
   db: WingLogDb,
@@ -75,7 +97,13 @@ export function addInvoicesForFlight(
   return listInvoicesForFlight(db, flightId)
 }
 
-/** See aircraft-repo.ts's listAircraftForSync for the shape/reasoning this mirrors. */
+/**
+ * See aircraft-repo.ts's listAircraftForSync for the shape/reasoning this mirrors.
+ *
+ * @param db The database.
+ * @param since The sync cursor, or null for every row.
+ * @returns The rows, oldest change first.
+ */
 export function listFlightInvoicesForSync(db: WingLogDb, since: string | null): (typeof flightInvoice.$inferSelect)[] {
   const rows = db.select().from(flightInvoice).all()
   return rows
@@ -86,7 +114,12 @@ export function listFlightInvoicesForSync(db: WingLogDb, since: string | null): 
 /** See aircraft-repo.ts's upsertAircraftByUuid for the shape/reasoning this mirrors. This
  *  table has no local update path outside sync (addInvoicesForFlight only ever inserts),
  *  so a pulled row that already exists locally by uuid is still handled — a second
- *  device's push landing back here after a conflict resolution, for instance. */
+ *  device's push landing back here after a conflict resolution, for instance.
+ *
+ * @param db The database.
+ * @param input The pulled row.
+ * @returns False when the local row is as new or newer, so nothing changed.
+ */
 export function upsertFlightInvoiceByUuid(
   db: WingLogDb,
   input: Omit<typeof flightInvoice.$inferInsert, 'id'> & { uuid: string }
