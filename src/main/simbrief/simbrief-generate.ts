@@ -1,3 +1,8 @@
+/**
+ * Generating a SimBrief OFP from Dispatch, and the SimBrief login it needs: a SimBrief window in its
+ * own persistent session, the authorization value from winglog-backend, and reading the account's
+ * username and pilot id from SimBrief's own pages.
+ */
 import { BrowserWindow, session } from 'electron'
 import type { DispatchOpenSimBriefParams } from '../../shared/ipc'
 import { signSimbriefRequest } from '../backend/backend-client'
@@ -23,14 +28,24 @@ const OUTPUT_PAGE = 'winglog.local/generate'
 /** The same `type=` value used both for signing and for the actual request — a saved
  *  airframe's internal ID takes priority, then a chosen SimBrief default type, then the
  *  bare ICAO type (docs/simbrief-notes.md: the keyed endpoint has no separate `airframe=`
- *  field, unlike the keyless prefill URL). */
+ *  field, unlike the keyless prefill URL).
+ *
+ * @param params The flight from Dispatch.
+ * @returns The `type=` value.
+ */
 function resolveType(params: DispatchOpenSimBriefParams): string {
   return params.simbriefAirframeId || params.simbriefType || params.icaoType
 }
 
 /** Pure query-string assembly, exported for testing — mirrors dispatchOpenSimBrief's
  *  keyless-prefill param set (airline/fltnum/date/deph/depm/extra) plus the three fields
- *  the keyed endpoint additionally needs (apicode/outputpage/timestamp). */
+ *  the keyed endpoint additionally needs (apicode/outputpage/timestamp).
+ *
+ * @param params The flight from Dispatch.
+ * @param apicode The authorization value from winglog-backend.
+ * @param timestamp The same Unix time, in seconds, the authorization was made for.
+ * @returns The generation URL.
+ */
 export function buildGenerateUrl(
   params: DispatchOpenSimBriefParams,
   apicode: string,
@@ -57,6 +72,12 @@ export function buildGenerateUrl(
   return `${SIMBRIEF_WORKER_URL}?${query.toString()}`
 }
 
+/**
+ * Opens a SimBrief window in the persistent SimBrief session.
+ *
+ * @param url The SimBrief page to open.
+ * @returns Settles when the pilot or the page closes the window.
+ */
 function openPopup(url: string): Promise<void> {
   return new Promise((resolve) => {
     const popup = new BrowserWindow({
@@ -65,7 +86,7 @@ function openPopup(url: string): Promise<void> {
       webPreferences: { partition: GENERATE_PARTITION }
     })
     popup.on('closed', () => resolve())
-    popup.loadURL(url)
+    void popup.loadURL(url)
   })
 }
 
@@ -74,7 +95,10 @@ function openPopup(url: string): Promise<void> {
  *  docs/decisions.md's SimBrief-login-persistence entry). generateOfp handles its own
  *  login inline regardless (SimBrief's worker page itself prompts for login when the
  *  session isn't already authenticated) — this is only for showing status without
- *  requiring the user to open Dispatch first. */
+ *  requiring the user to open Dispatch first.
+ *
+ * @returns Settles when the window closes.
+ */
 export function loginToSimbrief(): Promise<void> {
   return openPopup(SIMBRIEF_HOME_URL)
 }
@@ -89,6 +113,8 @@ const SIMBRIEF_COOKIE_DOMAIN = 'simbrief.com'
  * real session (docs/simbrief-notes.md's login-status entry). Google Analytics/Ads
  * cookies (`_ga`, `_gid`, `_gcl_au`, ...) are also present in this partition regardless
  * of login state, so checking for *any* cookie wouldn't distinguish the two.
+ *
+ * @returns True when SimBrief's sign-in cookie is present.
  */
 export async function isSimbriefLoggedIn(): Promise<boolean> {
   const cookies = await session
@@ -115,7 +141,11 @@ const ACCOUNT_PAGE_TIMEOUT_MS = 5000
  *  two fields actually needed so far. Returns `null` on anything unexpected (not logged
  *  in, page layout changed, timed out) rather than throwing — this is third-party page
  *  content, parsed defensively like any other external data, not something to let take
- *  down a caller if SimBrief changes their markup. */
+ *  down a caller if SimBrief changes their markup.
+ *
+ * @param dataKey The field's `data-key`, e.g. user.pilot_id.
+ * @returns The value, or null.
+ */
 async function readAccountField(dataKey: string): Promise<string | null> {
   const win = new BrowserWindow({
     show: false,
@@ -147,7 +177,10 @@ async function readAccountField(dataKey: string): Promise<string | null> {
  *  "Username" in the "Your SimBrief Data" section — Navigraph's acquisition unified the
  *  two, so this is the account's one real username, not something SimBrief-specific under
  *  the hood. Only meaningful to call once `isSimbriefLoggedIn()` is true. Used by Settings
- *  to offer to fill the username field automatically instead of requiring it be typed in. */
+ *  to offer to fill the username field automatically instead of requiring it be typed in.
+ *
+ * @returns The username, or null.
+ */
 export function fetchSimbriefUsername(): Promise<string | null> {
   return readAccountField('user.navigraph.username')
 }
@@ -156,7 +189,10 @@ export function fetchSimbriefUsername(): Promise<string | null> {
  *  (`<pilot_id>_<airframe_id>`, docs/decisions.md §4) that a share link's URL doesn't
  *  reveal on its own (docs/plans/simbrief-airframe-picker.md). Same page, same field-read
  *  pattern already confirmed live for the username above — this is a new field on the
- *  same "Your SimBrief Data" section, not a new mechanism. */
+ *  same "Your SimBrief Data" section, not a new mechanism.
+ *
+ * @returns The pilot id, or null.
+ */
 export function fetchSimbriefPilotId(): Promise<string | null> {
   return readAccountField('user.pilot_id')
 }
@@ -166,7 +202,11 @@ export function fetchSimbriefPilotId(): Promise<string | null> {
  *  progress, and closes itself once done — resolving this promise. The caller (main/
  *  index.ts) re-fetches via fetchLatestOfp and compares against a pre-generation baseline
  *  to confirm a new plan actually appeared, since this function itself has no way to know
- *  whether the popup closed because generation finished or because the user cancelled. */
+ *  whether the popup closed because generation finished or because the user cancelled.
+ *
+ * @param params The flight from Dispatch.
+ * @throws When winglog-backend won't authorize the request.
+ */
 export async function generateOfp(params: DispatchOpenSimBriefParams): Promise<void> {
   const timestamp = Math.floor(Date.now() / 1000)
   const apicode = await signSimbriefRequest({
@@ -187,7 +227,11 @@ const SAVED_AIRFRAME_PATTERN = /\/airframes\/saved\/(\d+)/
 
 /** Pure URL-matching, exported for testing — the part of createCustomAirframeFromShare
  *  that doesn't need a real BrowserWindow to exercise. Null for any URL that isn't the
- *  post-save redirect (every other navigation the share/login flow passes through). */
+ *  post-save redirect (every other navigation the share/login flow passes through).
+ *
+ * @param url A URL the window navigated to.
+ * @returns The saved airframe's id, or null.
+ */
 export function extractSavedAirframeId(url: string): string | null {
   return url.match(SAVED_AIRFRAME_PATTERN)?.[1] ?? null
 }
@@ -200,6 +244,9 @@ export function extractSavedAirframeId(url: string): string | null {
  * `<pilot_id>_<airframe_id>` once the save's own navigation is observed, or `null` if the
  * window was closed before that happened (the pilot backed out, or never finished
  * logging in) — a cancellation, not an error.
+ *
+ * @param shareUrl A SimBrief airframe share link.
+ * @returns `<pilot_id>_<airframe_id>`, or null if the pilot closed the window first.
  */
 export function createCustomAirframeFromShare(shareUrl: string): Promise<string | null> {
   return new Promise((resolve) => {
@@ -231,6 +278,6 @@ export function createCustomAirframeFromShare(shareUrl: string): Promise<string 
       }
     })
 
-    win.loadURL(shareUrl)
+    void win.loadURL(shareUrl)
   })
 }

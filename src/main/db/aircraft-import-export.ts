@@ -1,3 +1,8 @@
+/**
+ * Fleet import and export through a file dialog, as JSON or CSV. Each imported record goes through
+ * the same validator as the renderer's own edits, and a registration already in the fleet is skipped,
+ * not overwritten.
+ */
 import { writeFile } from 'node:fs/promises'
 import { dialog, type BrowserWindow } from 'electron'
 import type { AircraftImportSummary, DataFormat } from '@shared/ipc'
@@ -8,6 +13,14 @@ import { parseAircraftInput } from './aircraft-validation'
 import type { WingLogDb } from './client'
 import { readImportFile } from './import-limits'
 
+/**
+ * Writes the fleet to a file the pilot chooses.
+ *
+ * @param db The database.
+ * @param window The window the save dialog opens over.
+ * @param format JSON or CSV.
+ * @returns True once written, false when the pilot cancelled.
+ */
 export async function exportAircraft(
   db: WingLogDb,
   window: BrowserWindow,
@@ -25,6 +38,15 @@ export async function exportAircraft(
   return true
 }
 
+/**
+ * Adds the aircraft in a file the pilot chooses.
+ *
+ * @param db The database.
+ * @param window The window the open dialog opens over.
+ * @param format JSON or CSV.
+ * @returns How many were added and which were skipped, or null when the pilot cancelled.
+ * @throws When the file is too large or isn't a readable document.
+ */
 export async function importAircraft(
   db: WingLogDb,
   window: BrowserWindow,

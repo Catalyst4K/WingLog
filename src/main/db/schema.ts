@@ -1,3 +1,7 @@
+/**
+ * The database schema, in Drizzle's terms. Every change goes through a generated migration
+ * (`npm run db:generate`), never a hand edit, per CLAUDE.md.
+ */
 import { sql } from 'drizzle-orm'
 import { type AnySQLiteColumn, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 

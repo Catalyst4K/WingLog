@@ -16,7 +16,12 @@ export interface SimbriefSignParams {
 }
 
 /** Calls the backend's /simbrief/sign route to get the one authorization value SimBrief's
- *  generation request needs — the key itself never leaves the backend. */
+ *  generation request needs — the key itself never leaves the backend.
+ *
+ * @param params The flight and timestamp the generation request will carry.
+ * @returns The authorization value for SimBrief's generation request.
+ * @throws When the backend refuses or can't be reached.
+ */
 export async function signSimbriefRequest(params: SimbriefSignParams): Promise<string> {
   const res = await fetch(`${BACKEND_BASE_URL}/simbrief/sign`, {
     method: 'POST',

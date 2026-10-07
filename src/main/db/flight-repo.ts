@@ -1,3 +1,8 @@
+/**
+ * Flights in the database: the tracking lifecycle (planned, active, completed), free and imported
+ * flights, the Logbook's lists and statistics, and the sync helpers. Deleting is a soft delete, so
+ * anything user-facing filters `deletedAt`.
+ */
 import { randomUUID } from 'node:crypto'
 import { and, desc, eq, getTableColumns, isNotNull, isNull, or, sql } from 'drizzle-orm'
 import type { NewFreeFlightInput, PausedInterval } from '@shared/ipc'
@@ -18,6 +23,12 @@ import { aircraft, flight, flightInvoice, landing, trackPoint } from './schema'
 export type { NewFreeFlightInput, PausedInterval } from '@shared/ipc'
 import type { WingLogDb } from './client'
 
+/**
+ * A database row as a Flight.
+ *
+ * @param row The `flight` row.
+ * @returns The flight as the app sees it.
+ */
 function toFlight(row: typeof flight.$inferSelect): Flight {
   return {
     id: row.id,
@@ -64,6 +75,13 @@ function toFlight(row: typeof flight.$inferSelect): Flight {
   }
 }
 
+/**
+ * Minutes between two ISO times.
+ *
+ * @param startIso The start, or null.
+ * @param endIso The end, or null.
+ * @returns Minutes, or null when either end is missing.
+ */
 function minutesBetween(startIso: string | null, endIso: string | null): number | null {
   if (!startIso || !endIso) return null
   return (new Date(endIso).getTime() - new Date(startIso).getTime()) / 60_000
@@ -74,7 +92,13 @@ function minutesBetween(startIso: string | null, endIso: string | null): number 
  *  subtracted first — a pause interval outside that window (e.g. a taxi-in pause after
  *  touchdown, which doesn't touch airMinutes) contributes nothing. Floored at 0 so clock
  *  skew between the paused/resumed events and the off/on timestamps can't produce a
- *  negative duration. */
+ *  negative duration.
+ *
+ * @param startIso The start, or null.
+ * @param endIso The end, or null.
+ * @param pausedIntervals When the sim was paused.
+ * @returns Minutes, or null when either end is missing.
+ */
 function minutesBetweenExcludingPauses(
   startIso: string | null,
   endIso: string | null,
@@ -93,6 +117,12 @@ function minutesBetweenExcludingPauses(
   return Math.max(0, raw - pausedMs / 60_000)
 }
 
+/**
+ * Every flight that isn't deleted, whatever its status.
+ *
+ * @param db The database.
+ * @returns The flights, newest first.
+ */
 export function listFlights(db: WingLogDb): Flight[] {
   // Order by id, not created_at: current_timestamp has 1-second resolution and two
   // flights created in the same second would otherwise tie with no defined order.
@@ -101,7 +131,12 @@ export function listFlights(db: WingLogDb): Flight[] {
 
 /** An aircraft's completed flights, newest first — Fleet's per-tail flight list
  *  (docs/plans/fleet-redesign.md #2). Filtered in the query rather than in the renderer,
- *  since flightList() is already hundreds of rows on a well-used fleet and only grows. */
+ *  since flightList() is already hundreds of rows on a well-used fleet and only grows.
+ *
+ * @param db The database.
+ * @param aircraftId The fleet aircraft.
+ * @returns The flights.
+ */
 export function listFlightsByAircraft(db: WingLogDb, aircraftId: number): Flight[] {
   return db
     .select()
@@ -112,12 +147,25 @@ export function listFlightsByAircraft(db: WingLogDb, aircraftId: number): Flight
     .map(toFlight)
 }
 
+/**
+ * A flight by id, including a deleted one. Use getLiveFlight for anything user-facing.
+ *
+ * @param db The database.
+ * @param id The flight.
+ * @returns The flight, or undefined.
+ */
 export function getFlight(db: WingLogDb, id: number): Flight | undefined {
   const row = db.select().from(flight).where(eq(flight.id, id)).get()
   return row ? toFlight(row) : undefined
 }
 
-/** getFlight, but never a deleted (tombstoned) flight — for anything user-facing. */
+/**
+ * getFlight, but never a deleted (tombstoned) flight — for anything user-facing.
+ *
+ * @param db The database.
+ * @param id The flight.
+ * @returns The flight, or undefined when missing or deleted.
+ */
 export function getLiveFlight(db: WingLogDb, id: number): Flight | undefined {
   const row = db.select().from(flight).where(and(eq(flight.id, id), isNull(flight.deletedAt))).get()
   return row ? toFlight(row) : undefined
@@ -128,7 +176,11 @@ export function getLiveFlight(db: WingLogDb, id: number): Flight | undefined {
  *  phase-detection back up rather than leaving the flight orphaned (its own DB row,
  *  OFP/route included, was never at risk — only the in-memory phase-detection state was
  *  lost with the old process). Only one flight is ever meant to be 'active' at once (same
- *  invariant flightCreate's own comment relies on), so the first match is authoritative. */
+ *  invariant flightCreate's own comment relies on), so the first match is authoritative.
+ *
+ * @param db The database.
+ * @returns The active flight, or undefined.
+ */
 export function getActiveFlight(db: WingLogDb): Flight | undefined {
   const row = db.select().from(flight).where(eq(flight.status, 'active')).get()
   return row ? toFlight(row) : undefined
@@ -139,7 +191,11 @@ export function getActiveFlight(db: WingLogDb): Flight | undefined {
  *  used to restore Dispatch's own view of that flight after a restart (it otherwise only
  *  has its own in-memory `dispatchOfp`, which doesn't survive one, unlike Track's list,
  *  which already reads this same DB state directly). Same one-at-a-time invariant as
- *  flightCreate relies on, so the first match is authoritative. */
+ *  flightCreate relies on, so the first match is authoritative.
+ *
+ * @param db The database.
+ * @returns The planned or active flight, or undefined.
+ */
 export function getInProgressFlight(db: WingLogDb): Flight | undefined {
   const row = db
     .select()
@@ -152,6 +208,13 @@ export function getInProgressFlight(db: WingLogDb): Flight | undefined {
 // uuid/updatedAt (winglog-backend/docs/plans/cloud-sync.md) are set explicitly on every
 // write path here rather than left to a DB default — see schema.ts's aircraft.uuid
 // comment for why. An update that forgets to bump updatedAt would silently never sync.
+/**
+ * Creates a planned flight.
+ *
+ * @param db The database.
+ * @param input The flight from Dispatch.
+ * @returns The new planned flight.
+ */
 export function createFlight(db: WingLogDb, input: NewFlight): Flight {
   const [row] = db
     .insert(flight)
@@ -168,6 +231,10 @@ export function createFlight(db: WingLogDb, input: NewFlight): Flight {
  * press to transition from. Goes straight to 'active' with actualOutUtc/fuelOutKg/simVersion
  * already set — the same fields startFlight otherwise fills in on the planned -> active
  * transition, written here directly since there's no earlier 'planned' row for this flight.
+ *
+ * @param db The database.
+ * @param input The aircraft, airports, fuel and sim version.
+ * @returns The new active flight.
  */
 export function createFreeFlight(db: WingLogDb, input: NewFreeFlightInput): Flight {
   const [row] = db
@@ -199,12 +266,22 @@ export function createFreeFlight(db: WingLogDb, input: NewFreeFlightInput): Flig
  * runs (that function copies arr_icao into aircraft.current_icao). The caller
  * (TrackingController) scopes this to free flights only — a dispatched flight keeps its
  * filed arrival even on a real diversion, a separate, already-known gap this doesn't touch.
+ *
+ * @param db The database.
+ * @param id The flight.
+ * @param arrIcao Where it landed.
  */
 export function setArrIcao(db: WingLogDb, id: number, arrIcao: string): void {
   db.update(flight).set({ arrIcao, updatedAt: new Date().toISOString() }).where(eq(flight.id, id)).run()
 }
 
-/** A free flight's departure, set by the pilot after tracking has started (v1.1.2). */
+/**
+ * A free flight's departure, set by the pilot after tracking has started (v1.1.2).
+ *
+ * @param db The database.
+ * @param id The flight.
+ * @param depIcao The departure airport.
+ */
 export function setDepIcao(db: WingLogDb, id: number, depIcao: string): void {
   db.update(flight).set({ depIcao, updatedAt: new Date().toISOString() }).where(eq(flight.id, id)).run()
 }
@@ -219,6 +296,11 @@ export function setDepIcao(db: WingLogDb, id: number, depIcao: string): void {
  * without ever going through that write, since it had no aircraft to write it for), and
  * remembers the flight's own simTitle -> aircraft mapping so the next free flight in the same
  * add-on auto-matches, same as if fleet creation had happened inline at start.
+ *
+ * @param db The database.
+ * @param id The flight.
+ * @param aircraftId The fleet aircraft.
+ * @returns The updated flight, or undefined when the flight doesn't exist.
  */
 export function linkAircraftToFlight(db: WingLogDb, id: number, aircraftId: number): Flight | undefined {
   const existing = getFlight(db, id)
@@ -266,6 +348,10 @@ export interface HistoricalFlightInput {
  * with block time derived from the two timestamps; there's no off/on or fuel data in a
  * summary logbook export, so those stay null same as any other field the source doesn't
  * provide.
+ *
+ * @param db The database.
+ * @param input The imported flight.
+ * @returns The new completed flight.
  */
 export function createHistoricalFlight(db: WingLogDb, input: HistoricalFlightInput): Flight {
   const [row] = db
@@ -291,7 +377,15 @@ export function createHistoricalFlight(db: WingLogDb, input: HistoricalFlightInp
   return toFlight(row)
 }
 
-/** Block-out: the flight goes 'active' and tracking begins. */
+/**
+ * Block-out: the flight goes 'active' and tracking begins.
+ *
+ * @param db The database.
+ * @param id The flight.
+ * @param fuelOutKg Fuel on board now, provisional (see finalizeFuelOut).
+ * @param simVersion The sim's version, when known.
+ * @returns The updated flight, or undefined when it doesn't exist.
+ */
 export function startFlight(
   db: WingLogDb,
   id: number,
@@ -325,6 +419,11 @@ export function startFlight(
  * stationary and tracking has therefore already started. Waiting for the first real
  * ground-movement/engine-start signal sidesteps both: by then the reload window has long
  * since cleared and any deliberate defuel/refuel has already settled.
+ *
+ * @param db The database.
+ * @param id The flight.
+ * @param fuelOutKg Fuel on board at the first movement.
+ * @returns The updated flight, or undefined when it doesn't exist.
  */
 export function finalizeFuelOut(db: WingLogDb, id: number, fuelOutKg: number): Flight | undefined {
   const [row] = db
@@ -336,7 +435,13 @@ export function finalizeFuelOut(db: WingLogDb, id: number, fuelOutKg: number): F
   return row ? toFlight(row) : undefined
 }
 
-/** Liftoff — the takeoff → climb transition. */
+/**
+ * Liftoff — the takeoff → climb transition.
+ *
+ * @param db The database.
+ * @param id The flight.
+ * @returns The updated flight, or undefined when it doesn't exist.
+ */
 export function recordOff(db: WingLogDb, id: number): Flight | undefined {
   const [row] = db
     .update(flight)
@@ -347,7 +452,13 @@ export function recordOff(db: WingLogDb, id: number): Flight | undefined {
   return row ? toFlight(row) : undefined
 }
 
-/** Touchdown — the descent → landing transition. */
+/**
+ * Touchdown — the descent → landing transition.
+ *
+ * @param db The database.
+ * @param id The flight.
+ * @returns The updated flight, or undefined when it doesn't exist.
+ */
 export function recordOn(db: WingLogDb, id: number): Flight | undefined {
   const [row] = db
     .update(flight)
@@ -367,6 +478,12 @@ export function recordOn(db: WingLogDb, id: number): Flight | undefined {
  * an hour to test something mid-cruise added a real hour to the logged flight, since both
  * stats were a plain wall-clock diff between the recorded timestamps (real case, Callum's
  * flight 191, 2026-09-11).
+ *
+ * @param db The database.
+ * @param id The flight.
+ * @param fuelInKg Fuel on board at shutdown.
+ * @param pausedIntervals When the sim was paused, left out of block and air time.
+ * @returns The completed flight, or undefined when it doesn't exist.
  */
 export function completeFlight(
   db: WingLogDb,
@@ -417,7 +534,11 @@ export function completeFlight(
  *  finding a genuinely abandoned flight from an earlier crash-recovery test still holding
  *  hundreds of real track points. `FlightStatus` keeps the `'abandoned'` value for any
  *  historical row already in that state before this change — nothing new gets left there
- *  going forward. */
+ *  going forward.
+ *
+ * @param db The database.
+ * @param id The flight.
+ */
 export function abandonFlight(db: WingLogDb, id: number): void {
   deleteFlight(db, id)
 }
@@ -430,6 +551,9 @@ export function abandonFlight(db: WingLogDb, id: number): void {
  * resurrected by the next pull on another device. `trackPoint` is never synced and stays
  * hard-deleted, same as before. One transaction so a mid-way failure can't leave the flight
  * tombstoned but its dependents still visible, or vice versa.
+ *
+ * @param db The database.
+ * @param id The flight.
  */
 export function deleteFlight(db: WingLogDb, id: number): void {
   const now = new Date().toISOString()
@@ -445,6 +569,8 @@ export function deleteFlight(db: WingLogDb, id: number): void {
  * The app only ever means one flight to be "in progress" (planned or active) at a time —
  * pressing "Fly" on a new plan replaces whatever was already planned rather than piling
  * up alongside it. Called before creating a new flight; a no-op if nothing is planned.
+ *
+ * @param db The database.
  */
 export function abandonAllPlanned(db: WingLogDb): void {
   db.update(flight)
@@ -456,7 +582,12 @@ export function abandonAllPlanned(db: WingLogDb): void {
 /** Stores the flight's derived flown-route polyline (route-simplify.ts), computed at
  *  completion — see schema.ts's flownRouteJson comment. Best-effort: called from the same
  *  fire-and-forget spot as the GSX invoice snapshot, so a failure here must never affect
- *  the flight record that's already been marked completed. */
+ *  the flight record that's already been marked completed.
+ *
+ * @param db The database.
+ * @param id The flight.
+ * @param flownRouteJson The simplified route, as JSON.
+ */
 export function setFlownRoute(db: WingLogDb, id: number, flownRouteJson: string): void {
   db.update(flight)
     .set({ flownRouteJson, updatedAt: new Date().toISOString() })
@@ -467,7 +598,12 @@ export function setFlownRoute(db: WingLogDb, id: number, flownRouteJson: string)
 /** Writes the live-selected procedures at flight completion (TrackingController), the
  *  later of the two writes ProcedureSelection's doc comment describes — overwrites
  *  whatever createFlight wrote at save time, since the pilot may have changed things
- *  mid-flight after ATC actually assigned a runway/STAR/approach. */
+ *  mid-flight after ATC actually assigned a runway/STAR/approach.
+ *
+ * @param db The database.
+ * @param id The flight.
+ * @param selection The runway and procedures flown.
+ */
 export function setSelectedProcedures(db: WingLogDb, id: number, selection: ProcedureSelection): void {
   db.update(flight)
     .set({
@@ -487,7 +623,11 @@ export function setSelectedProcedures(db: WingLogDb, id: number, selection: Proc
 
 /** Every completed flight, newest first, *without* the OFP text — see LogbookFlight. The
  *  column is left out of the SELECT itself, so SQLite never reads those ~90 KB blobs either;
- *  the stats/score/fleet summaries built on top of this got the same saving for free. */
+ *  the stats/score/fleet summaries built on top of this got the same saving for free.
+ *
+ * @param db The database.
+ * @returns The flights, with `hasOfp` in place of the OFP.
+ */
 export function listCompletedFlights(db: WingLogDb): LogbookFlight[] {
   const { ofpJson, ...columns } = getTableColumns(flight)
   return db
@@ -497,7 +637,7 @@ export function listCompletedFlights(db: WingLogDb): LogbookFlight[] {
     .orderBy(desc(flight.actualInUtc))
     .all()
     .map(({ hasOfp, ...row }) => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- the OFP is dropped on purpose
       const { ofpJson: _omitted, ...rest } = toFlight({ ...row, ofpJson: null })
       return { ...rest, hasOfp: hasOfp === 1 }
     })
@@ -505,7 +645,11 @@ export function listCompletedFlights(db: WingLogDb): LogbookFlight[] {
 
 /** Logbook's summary row above the flight table. totalNm is great-circle dep→arr
  *  distance (airport-search.ts), not the actual flown track — good enough for a summary
- *  total, and unlike a flown-route length, available for a CSV-imported flight too. */
+ *  total, and unlike a flown-route length, available for a CSV-imported flight too.
+ *
+ * @param db The database.
+ * @returns The number of flights, total block minutes and total distance.
+ */
 export function getLogbookStats(db: WingLogDb): LogbookStats {
   const completed = listCompletedFlights(db)
   const totalBlockMinutes = completed.reduce((sum, f) => sum + (f.blockMinutes ?? 0), 0)
@@ -518,6 +662,9 @@ export function getLogbookStats(db: WingLogDb): LogbookStats {
  * `Aircraft.totalHours`/`totalCycles` — nothing currently writes to those columns, so
  * they can't be trusted as a running total. Aircraft with no completed flights are
  * omitted rather than shown with zeroes.
+ *
+ * @param db The database.
+ * @returns One row per aircraft, by registration.
  */
 export function getFleetStats(db: WingLogDb): FleetStats[] {
   const completed = listCompletedFlights(db) // newest first
@@ -553,7 +700,13 @@ export function getFleetStats(db: WingLogDb): FleetStats[] {
   return [...byAircraft.values()].sort((a, b) => a.registration.localeCompare(b.registration))
 }
 
-/** See aircraft-repo.ts's listAircraftForSync for the shape/reasoning this mirrors. */
+/**
+ * See aircraft-repo.ts's listAircraftForSync for the shape/reasoning this mirrors.
+ *
+ * @param db The database.
+ * @param since The sync cursor, or null for every row.
+ * @returns The rows, oldest change first.
+ */
 export function listFlightsForSync(db: WingLogDb, since: string | null): (typeof flight.$inferSelect)[] {
   const rows = db.select().from(flight).all()
   return rows
@@ -562,7 +715,12 @@ export function listFlightsForSync(db: WingLogDb, since: string | null): (typeof
 }
 
 /** See aircraft-repo.ts's upsertAircraftByUuid for the shape/reasoning this mirrors,
- *  including the last-write-wins-against-a-local-edit check. */
+ *  including the last-write-wins-against-a-local-edit check.
+ *
+ * @param db The database.
+ * @param input The pulled row.
+ * @returns False when the local row is as new or newer, so nothing changed.
+ */
 export function upsertFlightByUuid(
   db: WingLogDb,
   input: Omit<typeof flight.$inferInsert, 'id'> & { uuid: string }
@@ -583,23 +741,45 @@ export function upsertFlightByUuid(
  *  pulled row's parent-table reference this way (e.g. flightInvoice's flightUuid) rather
  *  than trusting a remote integer id, which is meaningless locally. Undefined if the
  *  parent hasn't been pulled yet — sync-engine.ts pulls in dependency order (aircraft,
- *  then flight, then landing/flightInvoice) specifically so this always resolves. */
+ *  then flight, then landing/flightInvoice) specifically so this always resolves.
+ *
+ * @param db The database.
+ * @param uuid The flight's sync uuid.
+ * @returns The local id, or undefined.
+ */
 export function getFlightIdByUuid(db: WingLogDb, uuid: string): number | undefined {
   return db.select({ id: flight.id }).from(flight).where(eq(flight.uuid, uuid)).get()?.id
 }
 
 /** The reverse of getFlightIdByUuid — sync-engine.ts's push side needs a flight's uuid
- *  (not its local id, meaningless remotely) to serialize landing/flightInvoice's flightId. */
+ *  (not its local id, meaningless remotely) to serialize landing/flightInvoice's flightId.
+ *
+ * @param db The database.
+ * @param id The local id.
+ * @returns The sync uuid, null for a row without one, or undefined when missing.
+ */
 export function getFlightUuidById(db: WingLogDb, id: number): string | null | undefined {
   return db.select({ uuid: flight.uuid }).from(flight).where(eq(flight.id, id)).get()?.uuid
 }
 
-/** Where the aircraft finished (stand-positions.md) — written once, after completion. */
+/**
+ * Where the aircraft finished (stand-positions.md) — written once, after completion.
+ *
+ * @param db The database.
+ * @param id The flight.
+ * @param icao The airport.
+ * @param stand The stand's name.
+ */
 export function setParkedStand(db: WingLogDb, id: number, icao: string, stand: string): void {
   db.update(flight).set({ parkedStandIcao: icao, parkedStand: stand, updatedAt: new Date().toISOString() }).where(eq(flight.id, id)).run()
 }
 
-/** Each fleet aircraft's latest completed (not deleted) flight that recorded a stand. */
+/**
+ * Each fleet aircraft's latest completed (not deleted) flight that recorded a stand.
+ *
+ * @param db The database.
+ * @returns One entry per aircraft that has one.
+ */
 export function listLastParkedByAircraft(db: WingLogDb): AircraftLastParked[] {
   const rows = db
     .select({ aircraftId: flight.aircraftId, icao: flight.parkedStandIcao, stand: flight.parkedStand })

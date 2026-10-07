@@ -1,3 +1,7 @@
+/**
+ * Brings a database up to the current schema with Drizzle's migrator, with foreign keys switched off
+ * while it runs so a migration that recreates a table can drop the old one.
+ */
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb } from './client'
 
@@ -5,6 +9,12 @@ import { createDb } from './client'
 // and tests, which always run from the project root. The real app can't rely on cwd (a
 // packaged app's cwd depends on how it was launched, not on where its files live), so
 // src/main/index.ts passes an absolute path derived from app.getAppPath() instead.
+/**
+ * Applies every pending migration.
+ *
+ * @param dbPath The database file.
+ * @param migrationsFolder Where the migrations are; the project's `drizzle/` by default.
+ */
 export function migrateDb(dbPath: string, migrationsFolder = 'drizzle'): void {
   const { sqlite, db } = createDb(dbPath)
   // drizzle-orm's own migrator (sqlite-core/dialect.js) runs every pending migration's SQL

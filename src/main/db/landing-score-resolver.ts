@@ -1,3 +1,7 @@
+/**
+ * Scores stored landings: each landing with its aircraft's wake category and its runway end, run
+ * through the shared scoring maths (src/shared/landing-score.ts).
+ */
 import type { Landing, LandingScoreCategory, LandingScoreCategoryKey, LandingScoreResult, LandingScoreSummary } from '@shared/ipc'
 import {
   classifyLanding,
@@ -26,6 +30,12 @@ const CATEGORY_LABELS: Record<LandingScoreCategoryKey, string> = {
   centrelineOffset: 'Centreline offset'
 }
 
+/**
+ * The breakdown as the categories the breakdown popup lists.
+ *
+ * @param breakdown The score's breakdown.
+ * @returns One entry per category, in the landing card's order.
+ */
 function toCategories(breakdown: LandingScoreBreakdown): LandingScoreCategory[] {
   const keys: LandingScoreCategoryKey[] = [
     'verticalSpeed',
@@ -59,6 +69,11 @@ function toCategories(breakdown: LandingScoreBreakdown): LandingScoreCategory[] 
  * `icaoType` is the owning aircraft's `icao_type` — null only for a landing whose aircraft
  * has since been deleted (a genuine, if rare, orphan), in which case the score falls back
  * to the M baseline like any other unrecognised type.
+ *
+ * @param landingRecord The landing.
+ * @param arrIcao The airport it was at.
+ * @param icaoType The aircraft's ICAO type, or null.
+ * @returns The score (floored at 0), firm or hard, and the categories.
  */
 export function resolveLandingScore(
   landingRecord: Landing,
@@ -117,6 +132,9 @@ export function resolveLandingScore(
  * multiple-landings.md) — the one that ended the flight, matching LandingCard's own
  * default — with `landingCount` alongside it so the list can show a "×3" badge for a flight
  * with several without a second round trip.
+ *
+ * @param db The database.
+ * @returns One summary per completed flight that has a landing.
  */
 export function getLandingScoresForCompletedFlights(db: WingLogDb): LandingScoreSummary[] {
   const icaoTypeByAircraftId = new Map<number, string | null>()

@@ -18,10 +18,23 @@ export interface StoredSession {
   expiresAt: string
 }
 
+/**
+ * Where the encrypted session lives.
+ *
+ * @param userDataPath Electron's userData directory.
+ * @returns The encrypted session file's path.
+ */
 function sessionFilePath(userDataPath: string): string {
   return join(userDataPath, 'cloud-session.enc')
 }
 
+/**
+ * Stores the session, encrypted with the OS keychain.
+ *
+ * @param userDataPath Electron's userData directory.
+ * @param session The signed-in account and its token.
+ * @throws When the OS can't encrypt it (no keychain).
+ */
 export function saveSession(userDataPath: string, session: StoredSession): void {
   if (!safeStorage.isEncryptionAvailable()) {
     throw new Error(t('errors.credentialEncryptionUnavailable'))
@@ -31,7 +44,11 @@ export function saveSession(userDataPath: string, session: StoredSession): void 
 
 /** Null for "no session" — never set, cleared, or a file that's corrupted/undecryptable
  *  (e.g. moved to a machine whose OS keychain can't decrypt it). All three are the same
- *  case to a caller: there's no usable session, log in again. */
+ *  case to a caller: there's no usable session, log in again.
+ *
+ * @param userDataPath Electron's userData directory.
+ * @returns The session, or null.
+ */
 export function loadSession(userDataPath: string): StoredSession | null {
   const path = sessionFilePath(userDataPath)
   if (!existsSync(path)) return null
@@ -42,6 +59,11 @@ export function loadSession(userDataPath: string): StoredSession | null {
   }
 }
 
+/**
+ * Forgets the session (signing out). A no-op when there isn't one.
+ *
+ * @param userDataPath Electron's userData directory.
+ */
 export function clearSession(userDataPath: string): void {
   const path = sessionFilePath(userDataPath)
   if (existsSync(path)) unlinkSync(path)

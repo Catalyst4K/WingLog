@@ -1,3 +1,7 @@
+/**
+ * The fleet in the database: creating, editing, replacing, retiring and deleting aircraft, and the
+ * sync helpers. Deleting is a soft delete, refused while the aircraft still has flights.
+ */
 import { randomUUID } from 'node:crypto'
 import { and, eq, isNull } from 'drizzle-orm'
 import type { Aircraft, AircraftUpdate, NewAircraft } from '@shared/ipc'
@@ -5,6 +9,12 @@ import { t } from '../i18n'
 import { aircraft, flight } from './schema'
 import type { WingLogDb } from './client'
 
+/**
+ * A database row as an Aircraft.
+ *
+ * @param row The `aircraft` row.
+ * @returns The aircraft as the app sees it.
+ */
 function toAircraft(row: typeof aircraft.$inferSelect): Aircraft {
   return {
     id: row.id,
@@ -26,6 +36,12 @@ function toAircraft(row: typeof aircraft.$inferSelect): Aircraft {
   }
 }
 
+/**
+ * Every aircraft that isn't deleted.
+ *
+ * @param db The database.
+ * @returns The aircraft, retired ones included.
+ */
 export function listAircraft(db: WingLogDb): Aircraft[] {
   return db.select().from(aircraft).where(isNull(aircraft.deletedAt)).all().map(toAircraft)
 }
@@ -35,7 +51,12 @@ export function listAircraft(db: WingLogDb): Aircraft[] {
  *  matching). One known edge case this doesn't solve: `registration` still carries a
  *  UNIQUE constraint at the schema level, so re-adding a registration that belonged to a
  *  now-deleted aircraft hits a raw constraint error on insert rather than a clean message —
- *  acceptable for how rarely aircraft are deleted at all, not solved here. */
+ *  acceptable for how rarely aircraft are deleted at all, not solved here.
+ *
+ * @param db The database.
+ * @param registration The registration, exactly as stored.
+ * @returns The aircraft, or undefined.
+ */
 export function getAircraftByRegistration(db: WingLogDb, registration: string): Aircraft | undefined {
   const row = db
     .select()
@@ -45,18 +66,36 @@ export function getAircraftByRegistration(db: WingLogDb, registration: string): 
   return row ? toAircraft(row) : undefined
 }
 
+/**
+ * An aircraft by id, including a deleted one.
+ *
+ * @param db The database.
+ * @param id The aircraft.
+ * @returns The aircraft, or undefined.
+ */
 export function getAircraftById(db: WingLogDb, id: number): Aircraft | undefined {
   const row = db.select().from(aircraft).where(eq(aircraft.id, id)).get()
   return row ? toAircraft(row) : undefined
 }
 
-/** See flight-repo.ts's getFlightIdByUuid for the shape/reasoning this mirrors. */
+/**
+ * See flight-repo.ts's getFlightIdByUuid for the shape/reasoning this mirrors.
+ *
+ * @param db The database.
+ * @param uuid The aircraft's sync uuid.
+ * @returns The local id, or undefined.
+ */
 export function getAircraftIdByUuid(db: WingLogDb, uuid: string): number | undefined {
   return db.select({ id: aircraft.id }).from(aircraft).where(eq(aircraft.uuid, uuid)).get()?.id
 }
 
 /** The reverse of getAircraftIdByUuid — sync-engine.ts's push side needs an aircraft's
- *  uuid (not its local id, meaningless remotely) to serialize a flight's aircraftId. */
+ *  uuid (not its local id, meaningless remotely) to serialize a flight's aircraftId.
+ *
+ * @param db The database.
+ * @param id The local id.
+ * @returns The sync uuid, null for a row without one, or undefined when missing.
+ */
 export function getAircraftUuidById(db: WingLogDb, id: number): string | null | undefined {
   return db.select({ uuid: aircraft.uuid }).from(aircraft).where(eq(aircraft.id, id)).get()?.uuid
 }
@@ -65,6 +104,13 @@ export function getAircraftUuidById(db: WingLogDb, id: number): string | null | 
 // left to a DB default — see schema.ts's aircraft.uuid comment for why a DB-level default
 // can't safely generate a distinct value per row for ALTER-TABLE-added columns; the same
 // reasoning is why every write path sets both explicitly rather than relying on SQLite.
+/**
+ * Adds an aircraft to the fleet.
+ *
+ * @param db The database.
+ * @param input The aircraft, already validated.
+ * @returns The new aircraft.
+ */
 export function createAircraft(db: WingLogDb, input: NewAircraft): Aircraft {
   const [row] = db
     .insert(aircraft)
@@ -74,6 +120,13 @@ export function createAircraft(db: WingLogDb, input: NewAircraft): Aircraft {
   return toAircraft(row)
 }
 
+/**
+ * Edits an aircraft.
+ *
+ * @param db The database.
+ * @param input The aircraft's id and its new values, already validated.
+ * @returns The updated aircraft, or undefined when it doesn't exist.
+ */
 export function updateAircraft(db: WingLogDb, input: AircraftUpdate): Aircraft | undefined {
   const { id, ...values } = input
   const [row] = db
@@ -92,6 +145,10 @@ export function updateAircraft(db: WingLogDb, input: AircraftUpdate): Aircraft |
  * any non-deleted flight still references this aircraft — previously an incidental
  * consequence of the FK constraint a hard DELETE ran into, now checked explicitly since a
  * tombstoned row no longer trips that constraint at all.
+ *
+ * @param db The database.
+ * @param id The aircraft.
+ * @throws When a flight that isn't deleted still uses it.
  */
 export function deleteAircraft(db: WingLogDb, id: number): void {
   const hasActiveFlights = db
@@ -125,6 +182,11 @@ export interface ReplaceAircraftInput {
  *
  * Both writes happen in one transaction — a partial merge (flights moved but the retired
  * flag never set, or vice versa) would be a worse state than either action alone.
+ *
+ * @param db The database.
+ * @param input The aircraft to retire, and the one taking over its flights.
+ * @returns The retired aircraft.
+ * @throws When the two are the same, either is missing, or the first was already replaced.
  */
 export function replaceAircraft(db: WingLogDb, input: ReplaceAircraftInput): Aircraft {
   const { retiredId, replacementId } = input
@@ -161,7 +223,13 @@ export function replaceAircraft(db: WingLogDb, input: ReplaceAircraftInput): Air
 
 /** Plain Retire (docs/plans/fleet-retire.md): the aircraft keeps its own flights and simply
  *  stops being selectable. Bumps updatedAt so cloud sync carries it. `currentIcao` is left
- *  as-is. Rejects a missing, soft-deleted or already-retired (retired *or* replaced) one. */
+ *  as-is. Rejects a missing, soft-deleted or already-retired (retired *or* replaced) one.
+ *
+ * @param db The database.
+ * @param id The aircraft.
+ * @returns The retired aircraft.
+ * @throws When it's missing, deleted, or already retired or replaced.
+ */
 export function retireAircraft(db: WingLogDb, id: number): Aircraft {
   const row = db.select().from(aircraft).where(and(eq(aircraft.id, id), isNull(aircraft.deletedAt))).get()
   if (!row) throw new Error(`Aircraft ${id} not found`)
@@ -174,7 +242,13 @@ export function retireAircraft(db: WingLogDb, id: number): Aircraft {
 }
 
 /** Reverses retireAircraft. A *replaced* aircraft can't come back this way — its flights
- *  were moved to the replacement, so reactivating it would resurrect an empty duplicate. */
+ *  were moved to the replacement, so reactivating it would resurrect an empty duplicate.
+ *
+ * @param db The database.
+ * @param id The aircraft.
+ * @returns The aircraft, back in service.
+ * @throws When it's missing, deleted, replaced, or not retired.
+ */
 export function unretireAircraft(db: WingLogDb, id: number): Aircraft {
   const row = db.select().from(aircraft).where(and(eq(aircraft.id, id), isNull(aircraft.deletedAt))).get()
   if (!row) throw new Error(`Aircraft ${id} not found`)
@@ -189,7 +263,12 @@ export function unretireAircraft(db: WingLogDb, id: number): Aircraft {
 
 /** Rows with uuid/updatedAt set (every row written by this app version — see the
  *  uuid comment above) whose updatedAt is after `since`, oldest first — sync-engine.ts's
- *  push side. `since: null` means "never synced", i.e. every row. */
+ *  push side. `since: null` means "never synced", i.e. every row.
+ *
+ * @param db The database.
+ * @param since The sync cursor, or null for every row.
+ * @returns The rows, oldest change first.
+ */
 export function listAircraftForSync(db: WingLogDb, since: string | null): (typeof aircraft.$inferSelect)[] {
   const rows = db.select().from(aircraft).all()
   return rows
@@ -214,7 +293,12 @@ export function listAircraftForSync(db: WingLogDb, since: string | null): (typeo
  *  last-write-wins, and silently so (no push ever happens for a row that already looks
  *  identical to what the pull just wrote). Returns whether the incoming row was actually
  *  applied, so sync-engine.ts can report/log the other outcome instead of counting it as
- *  a normal pull. */
+ *  a normal pull.
+ *
+ * @param db The database.
+ * @param input The pulled row.
+ * @returns False when the local row is as new or newer, so nothing changed.
+ */
 export function upsertAircraftByUuid(
   db: WingLogDb,
   input: Omit<typeof aircraft.$inferInsert, 'id'> & { uuid: string }

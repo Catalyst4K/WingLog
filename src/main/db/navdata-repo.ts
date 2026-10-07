@@ -1,3 +1,8 @@
+/**
+ * The navdata cache: each airport's runways, procedures and their legs, taxi network and stands, as
+ * last fetched from the sim. Each kind is replaced wholesale per airport on every fetch, and every
+ * lookup reads from here, never from the sim.
+ */
 import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
 import type { NavdataLeg, NavdataProcedureOption, NavdataRunway, NavdataTaxiSegment, ProcedureKind } from '../navdata/navdata-provider'
 import { runwayEndsFromCentre } from '../navdata/runway-geometry'
@@ -12,7 +17,13 @@ import { navdataProcedure, navdataProcedureLeg, navdataRunway, navdataStand, nav
 /** Replaces every cached row for `icao` with what was just fetched — one transaction, so a
  *  mid-way failure can't leave a stale runway list next to a fresh procedure list. Matches
  *  the "replaced wholesale per airport per fetch" shape the plan chose (no diffing, no
- *  versioning — the sim's own current data is always the source of truth). */
+ *  versioning — the sim's own current data is always the source of truth).
+ *
+ * @param db The database.
+ * @param icao The airport.
+ * @param fetched Its runways and procedures, as fetched.
+ * @param fetchedAt When, as an ISO time.
+ */
 export function replaceAirportNavdata(db: WingLogDb, icao: string, fetched: FetchedAirportNavdata, fetchedAt: string): void {
   db.transaction((tx) => {
     const staleProcedureIds = tx
@@ -150,11 +161,25 @@ export function replaceAirportNavdata(db: WingLogDb, icao: string, fetched: Fetc
   })
 }
 
+/**
+ * Whether an airport's navdata is cached.
+ *
+ * @param db The database.
+ * @param icao The airport.
+ * @returns True when it has cached runways.
+ */
 export function hasCachedAirport(db: WingLogDb, icao: string): boolean {
   const row = db.select({ id: navdataRunway.id }).from(navdataRunway).where(eq(navdataRunway.icao, icao)).get()
   return row !== undefined
 }
 
+/**
+ * An airport's cached runway ends.
+ *
+ * @param db The database.
+ * @param icao The airport.
+ * @returns Its runway ends, or none when it isn't cached.
+ */
 export function listCachedRunways(db: WingLogDb, icao: string): NavdataRunway[] {
   return db
     .select()
@@ -176,7 +201,14 @@ export function listCachedRunways(db: WingLogDb, icao: string): NavdataRunway[] 
  *  any runway) or whose runway-idents list names the requested runway. One stored procedure
  *  row can expand into several options here — one per real ENROUTE_TRANSITION name, or a
  *  single `transition: null` option when it has none (the common case so far, see
- *  schema.ts). */
+ *  schema.ts).
+ *
+ * @param db The database.
+ * @param icao The airport.
+ * @param kind SID, STAR or approach.
+ * @param runway Only this runway's, or null for all.
+ * @returns One option per procedure and transition, plus a visual approach per runway end for approaches.
+ */
 export function listCachedProcedures(
   db: WingLogDb,
   icao: string,
@@ -203,6 +235,12 @@ export function listCachedProcedures(
   return kind === 'approach' ? [...real, ...visualApproachOptions(listCachedRunways(db, icao), runway)] : real
 }
 
+/**
+ * A database row as a NavdataLeg.
+ *
+ * @param row The `navdata_procedure_leg` row.
+ * @returns The leg.
+ */
 function toNavdataLeg(row: typeof navdataProcedureLeg.$inferSelect): NavdataLeg {
   return {
     type: row.type,
@@ -229,6 +267,14 @@ function toNavdataLeg(row: typeof navdataProcedureLeg.$inferSelect): NavdataLeg 
  * runway transition (most real SIDs, per docs/navdata-notes.md) returns nothing at all if
  * the caller omits `runway`, rather than guessing which one to use. See schema.ts's
  * navdataProcedureLeg comment for the full ordering rationale.
+ *
+ * @param db The database.
+ * @param icao The airport.
+ * @param kind SID, STAR or approach.
+ * @param identifier The procedure, e.g. OCEAN2A.
+ * @param runway The runway transition, or null.
+ * @param transition The enroute or approach transition, or null.
+ * @returns The legs in flying order, or none for an unknown procedure.
  */
 export function listCachedProcedureLegs(
   db: WingLogDb,
@@ -317,7 +363,13 @@ export function listCachedProcedureLegs(
 }
 
 /** Same "replace wholesale per airport per fetch" shape as replaceAirportNavdata, its own
- *  table — a taxi-network refresh never touches the runway/procedure cache. */
+ *  table — a taxi-network refresh never touches the runway/procedure cache.
+ *
+ * @param db The database.
+ * @param icao The airport.
+ * @param fetched Its taxi network, as fetched.
+ * @param fetchedAt When, as an ISO time.
+ */
 export function replaceAirportTaxiSegments(db: WingLogDb, icao: string, fetched: FetchedTaxiNetwork, fetchedAt: string): void {
   db.transaction((tx) => {
     tx.delete(navdataTaxiSegment).where(eq(navdataTaxiSegment.icao, icao)).run()
@@ -340,6 +392,13 @@ export function replaceAirportTaxiSegments(db: WingLogDb, icao: string, fetched:
   })
 }
 
+/**
+ * Whether an airport's taxi network is cached.
+ *
+ * @param db The database.
+ * @param icao The airport.
+ * @returns True when a network with hold-short points is cached.
+ */
 export function hasCachedTaxiNetwork(db: WingLogDb, icao: string): boolean {
   // A cache written before hold-short points existed (null flags) counts as missing, so the
   // caller's usual "not cached → fetch" path refreshes it once.
@@ -351,6 +410,13 @@ export function hasCachedTaxiNetwork(db: WingLogDb, icao: string): boolean {
   return row !== undefined
 }
 
+/**
+ * An airport's cached taxi network.
+ *
+ * @param db The database.
+ * @param icao The airport.
+ * @returns Its taxi segments, or none when it isn't cached.
+ */
 export function listCachedTaxiSegments(db: WingLogDb, icao: string): NavdataTaxiSegment[] {
   return db
     .select()
@@ -368,7 +434,14 @@ export function listCachedTaxiSegments(db: WingLogDb, icao: string): NavdataTaxi
     }))
 }
 
-/** Same wholesale-per-airport replace as the taxi segments, its own table. */
+/**
+ * Same wholesale-per-airport replace as the taxi segments, its own table.
+ *
+ * @param db The database.
+ * @param icao The airport.
+ * @param stands Its stands, as fetched.
+ * @param fetchedAt When, as an ISO time.
+ */
 export function replaceAirportStands(db: WingLogDb, icao: string, stands: FetchedStand[], fetchedAt: string): void {
   db.transaction((tx) => {
     tx.delete(navdataStand).where(eq(navdataStand.icao, icao)).run()
@@ -380,6 +453,13 @@ export function replaceAirportStands(db: WingLogDb, icao: string, stands: Fetche
   })
 }
 
+/**
+ * An airport's cached stands.
+ *
+ * @param db The database.
+ * @param icao The airport.
+ * @returns Its stands, or none when they aren't cached.
+ */
 export function listCachedStands(db: WingLogDb, icao: string): NavdataStand[] {
   return db
     .select()
