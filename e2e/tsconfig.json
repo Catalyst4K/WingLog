@@ -20,5 +20,12 @@
       "@shared/*": ["src/shared/*"]
     }
   },
-  "include": ["**/*", "../src/preload/index.d.ts"]
+  "include": [
+    "**/*",
+    "../src/preload/index.d.ts",
+    "../src/shared/ipc.ts",
+    "../src/shared/ipc-channels.ts",
+    "../src/shared/types/*.ts",
+    "../src/shared/simbrief-ofp.ts"
+  ]
 }

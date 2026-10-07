@@ -69,22 +69,35 @@ const FIELDS = [
   'destrwy'
 ] as const satisfies readonly (keyof DispatchOptions)[]
 
+/**
+ * @returns Options with every field unset, which reproduces SimBrief's own defaults.
+ */
 export function defaultDispatchOptions(): DispatchOptions {
   const options = {} as DispatchOptions
   for (const field of FIELDS) options[field] = null
   return options
 }
 
-/** How many fields are actually set — drives the "Advanced (3)" button label, so a
- *  cost index left over from a previous flight is never silently in effect with nothing
- *  on screen saying so. */
+/**
+ * How many fields are actually set — drives the "Advanced (3)" button label, so a
+ * cost index left over from a previous flight is never silently in effect with nothing
+ * on screen saying so.
+ *
+ * @param options The dispatch options.
+ * @returns The number of fields set.
+ */
 export function countSetOptions(options: DispatchOptions): number {
   return FIELDS.filter((field) => options[field] !== null).length
 }
 
-/** Pure, returns only the parameters that are actually set — an all-default
- *  DispatchOptions produces an empty array, so leaving every advanced field untouched
- *  reproduces exactly today's URL. */
+/**
+ * Pure, returns only the parameters that are actually set — an all-default
+ * DispatchOptions produces an empty array, so leaving every advanced field untouched
+ * reproduces exactly today's URL.
+ *
+ * @param options The dispatch options.
+ * @returns The set fields as URL parameter pairs.
+ */
 export function dispatchOptionsToUrlParams(options: DispatchOptions): [string, string][] {
   const params: [string, string][] = []
   for (const field of FIELDS) {
@@ -94,12 +107,17 @@ export function dispatchOptionsToUrlParams(options: DispatchOptions): [string, s
   return params
 }
 
-/** SimBrief's `api_params` echo uses different names and units than its own input
- *  parameters for a few fields (docs/simbrief-notes.md) — confirmed mismatches, all
- *  deliberately NOT read here because they're either out of this branch's four groups
- *  (`notams`/`notams_opt`, `units`/`pounds`) or need a different source entirely
- *  (`civalue`, see below). Every field this module cares about besides `civalue` is
- *  echoed under its own input name unchanged. */
+/**
+ * SimBrief's `api_params` echo uses different names and units than its own input
+ * parameters for a few fields (docs/simbrief-notes.md) — confirmed mismatches, all
+ * deliberately NOT read here because they're either out of this branch's four groups
+ * (`notams`/`notams_opt`, `units`/`pounds`) or need a different source entirely
+ * (`civalue`, see below). Every field this module cares about besides `civalue` is
+ * echoed under its own input name unchanged.
+ *
+ * @param value One echoed value.
+ * @returns The option value, or null for an empty or missing one.
+ */
 function fromEchoed(value: unknown): OptionValue {
   if (value === 'auto') return 'auto'
   if (typeof value === 'string' && value !== '') return value
@@ -117,6 +135,9 @@ function fromEchoed(value: unknown): OptionValue {
  * index *value* isn't echoed in api_params at all (only `cruisemode`/`cruisesub`, which
  * say *how* CI is being used, not what it is) — the actual number lives in
  * `general.costindex` instead (docs/simbrief-notes.md).
+ *
+ * @param ofpJson A stored flight's raw OFP JSON.
+ * @returns The options it was planned with, or null.
  */
 export function dispatchOptionsFromApiParams(ofpJson: string): DispatchOptions | null {
   let parsed: unknown

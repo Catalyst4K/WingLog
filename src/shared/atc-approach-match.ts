@@ -1,8 +1,15 @@
+/** Matches the approach ATC cleared to the arrival airport's own approach names. */
+
 import type { NavdataProcedureOption } from './ipc'
 import type { AtcClearanceUpdate } from './atc-info-boxes'
 
-/** "R NAV 02L", "RNAV 02L", "rnav-02l" all compare equal: what BeyondATC calls a procedure and
- *  what the sim calls it differ only in spacing, hyphens and case. */
+/**
+ * "R NAV 02L", "RNAV 02L", "rnav-02l" all compare equal: what BeyondATC calls a procedure and
+ * what the sim calls it differ only in spacing, hyphens and case.
+ *
+ * @param ident A procedure or transition name.
+ * @returns The name, upper case, without spaces or hyphens.
+ */
 function compact(ident: string): string {
   return ident.toUpperCase().replace(/[\s-]/g, '')
 }
@@ -17,6 +24,10 @@ function compact(ident: string): string {
  * With no approach list to check against (the airport's navdata not fetched yet), the update
  * is returned unchanged. With a list and no match, the approach fields are dropped rather than
  * applied as a name nothing will show; the rest of the update still goes through.
+ *
+ * @param update The clearance update read from the InfoBoxes.
+ * @param options The arrival airport's approaches and their transitions.
+ * @returns The update with the sim's names, or null if nothing is left to apply.
  */
 export function matchClearanceApproach(
   update: AtcClearanceUpdate,

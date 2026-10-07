@@ -1,12 +1,15 @@
-// Landing score (0-100, floored for display) — winglog-backend's docs/plans/
-// landing-scoring.md ("Final design", settled 2026-09-12), reworked by
-// landing-scoring-v2.md (2026-09-20): tapered falloff (fraction^1.5 — see taperedScore's
-// own history for why not a full square) replacing the original straight-line taper, plus a
-// separate dangerous-exceedance deduction. Pure, no I/O:
-// usable from both the main process (which
-// resolves the runway/wake-category lookups this needs real vendored data for — see
-// src/main/db/landing-score-resolver.ts) and the renderer (for tests/rendering only, never
-// for its own I/O — the renderer still never touches the filesystem, per CLAUDE.md).
+/**
+ * Landing score (0-100, floored for display) — winglog-backend's docs/plans/
+ * landing-scoring.md ("Final design", settled 2026-09-12), reworked by
+ * landing-scoring-v2.md (2026-09-20): tapered falloff (fraction^1.5 — see taperedScore's
+ * own history for why not a full square) replacing the original straight-line taper, plus a
+ * separate dangerous-exceedance deduction. Pure, no I/O:
+ * usable from both the main process (which
+ * resolves the runway/wake-category lookups this needs real vendored data for — see
+ * src/main/db/landing-score-resolver.ts) and the renderer (for tests/rendering only, never
+ * for its own I/O — the renderer still never touches the filesystem, per CLAUDE.md).
+ */
+
 import type { LandingScoreCategoryKey, LandingSeverity } from './ipc'
 
 export type WakeCategory = 'L' | 'M' | 'H' | 'J'
@@ -46,6 +49,10 @@ export const LANDING_RATE_BANDS: Record<WakeCategory, LandingRateBand> = {
 // type this app doesn't actually know the category of.
 const UNKNOWN_CATEGORY_FALLBACK: WakeCategory = 'M'
 
+/**
+ * @param category The aircraft's wake category, or null if unknown.
+ * @returns Its touchdown rate band; an unknown category gets M's.
+ */
 export function landingRateBand(category: WakeCategory | null): LandingRateBand {
   return LANDING_RATE_BANDS[category ?? UNKNOWN_CATEGORY_FALLBACK]
 }
@@ -62,6 +69,10 @@ export interface LandingThresholds {
 const FIRM_MULTIPLIER = 2.5
 const HARD_MULTIPLIER = 4.0
 
+/**
+ * @param category The aircraft's wake category, or null if unknown.
+ * @returns The firm and hard touchdown rates for it.
+ */
 export function deriveLandingThresholds(category: WakeCategory | null): LandingThresholds {
   const ideal = landingRateBand(category).sweetSpotFpm
   return { firmFpm: ideal * FIRM_MULTIPLIER, hardFpm: ideal * HARD_MULTIPLIER }
@@ -81,8 +92,15 @@ function msToFpm(ms: number): number {
  * rate regardless of sign convention. Moved verbatim from the old
  * src/renderer/src/landing-severity.ts (same signature/behaviour) — only where its
  * `thresholds` argument comes from has changed.
+ *
+ * @param touchdownVerticalSpeedMs Vertical speed at touchdown, in m/s.
+ * @param thresholds The firm and hard rates.
+ * @returns How firm the landing was.
  */
-export function classifyLanding(touchdownVerticalSpeedMs: number, thresholds: LandingThresholds): LandingSeverity {
+export function classifyLanding(
+  touchdownVerticalSpeedMs: number,
+  thresholds: LandingThresholds
+): LandingSeverity {
   const fpm = Math.abs(msToFpm(touchdownVerticalSpeedMs))
   if (fpm >= thresholds.hardFpm) return 'hard'
   if (fpm >= thresholds.firmFpm) return 'firm'
@@ -256,6 +274,10 @@ const CRAB_TOLERANCE_DEG = 5
 // history) — they now only set how wide the tolerance is, same as every other category.
 export const TOUCHDOWN_ZONE_PAIR_SPACING_M = 150
 
+/**
+ * @param lengthM The runway's length, in metres.
+ * @returns How many touchdown-zone marking pairs a runway that long has.
+ */
 export function touchdownZonePairCountForLengthM(lengthM: number): number {
   if (lengthM < 900) return 1
   if (lengthM < 1200) return 2
@@ -359,14 +381,22 @@ function taperedScore(
   return { score, exceeded, dangerPenalty: exceeded ? dangerPenaltyForFraction(fraction, maxFraction) : 0 }
 }
 
-/** distanceFromAimingPoint's own scoring, the only category taperedScore alone can't cover:
- *  two real physical hard limits (the threshold, and the last real touchdown-zone marker)
- *  rather than one tolerance either side of `ideal` (0 = the aiming point) — see
- *  aimingPointDistanceM's own doc comment for why (2026-09-26). `deviation` is already
- *  signed the same way as elsewhere (`actual - ideal`): negative means short of the aiming
- *  point (toward the threshold), positive means long of it (toward the far marker) — so the
- *  sign alone picks which real tolerance applies, everything past that is the same tapered
- *  curve as every other category. */
+/**
+ * distanceFromAimingPoint's own scoring, the only category taperedScore alone can't cover:
+ * two real physical hard limits (the threshold, and the last real touchdown-zone marker)
+ * rather than one tolerance either side of `ideal` (0 = the aiming point) — see
+ * aimingPointDistanceM's own doc comment for why (2026-09-26). `deviation` is already
+ * signed the same way as elsewhere (`actual - ideal`): negative means short of the aiming
+ * point (toward the threshold), positive means long of it (toward the far marker) — so the
+ * sign alone picks which real tolerance applies, everything past that is the same tapered
+ * curve as every other category.
+ *
+ * @param deviation Distance from the aiming point, in metres; negative is short.
+ * @param toleranceShort The tolerance short of the aiming point.
+ * @param toleranceLong The tolerance long of it.
+ * @param maxFraction How far past the tolerance the danger penalty reaches its maximum.
+ * @returns The category's score.
+ */
 function asymmetricTaperedScore(
   deviation: number,
   toleranceShort: number,
@@ -383,6 +413,9 @@ function asymmetricTaperedScore(
  * `overall` negative on its own — only the separate dangerous-exceedance deduction(s) can
  * (landing-scoring-v2.md, 2026-09-20, reopening docs/decisions.md's 2026-09-12 "no separate
  * dangerous floor step" — v1 deliberately had none; v2 added one, per category, on purpose).
+ *
+ * @param inputs The touchdown's measurements, with null for any the landing doesn't have.
+ * @returns The overall score and each category's part in it.
  */
 export function computeLandingScore(inputs: LandingScoreInputs): LandingScoreBreakdown {
   const thresholds = deriveLandingThresholds(inputs.category)
@@ -405,32 +438,14 @@ export function computeLandingScore(inputs: LandingScoreInputs): LandingScoreBre
     inputs.crabDeg === null
       ? null
       : taperedScore(inputs.crabDeg - CRAB_IDEAL_DEG, CRAB_TOLERANCE_DEG, CRAB_DANGER_PENALTY_MAX_FRACTION)
-  const touchdownZonePairCount =
-    inputs.runwayLengthM === null ? null : touchdownZonePairCountForLengthM(inputs.runwayLengthM)
-  // Two real physical hard limits, not one symmetric tolerance (Callum, 2026-09-26 — see
-  // aimingPointDistanceM's own doc comment): toward the threshold, the real tolerance is
-  // just the aiming point's own distance from it — score reaches 0 exactly at the threshold.
-  // Away from the threshold, it's the gap from the aiming point to the last real
-  // touchdown-zone marker (that marker's own threshold-relative distance,
-  // touchdownZonePairCount * 150m, minus the aiming point's), clamped at 0 for the rare
-  // short/medium runway band where the aiming point marking sits beyond the single
-  // touchdown-zone pair (e.g. 800-900m runways: 1 pair at 150m, but the aiming point at
-  // 250m) — taperedScore treats a zero-or-negative tolerance as "any deviation at all scores
-  // 0", the correct read for a runway that short.
-  const distanceFromAimingPointToleranceShort = inputs.aimingPointDistanceM === null ? null : inputs.aimingPointDistanceM
-  const distanceFromAimingPointToleranceLong =
-    touchdownZonePairCount === null || inputs.aimingPointDistanceM === null
-      ? null
-      : Math.max(0, touchdownZonePairCount * TOUCHDOWN_ZONE_PAIR_SPACING_M - inputs.aimingPointDistanceM)
+  const aimingPoint = aimingPointTolerances(inputs)
   const distanceFromAimingPoint =
-    inputs.distanceFromAimingPointM === null ||
-    distanceFromAimingPointToleranceShort === null ||
-    distanceFromAimingPointToleranceLong === null
+    inputs.distanceFromAimingPointM === null || aimingPoint === null
       ? null
       : asymmetricTaperedScore(
           inputs.distanceFromAimingPointM,
-          distanceFromAimingPointToleranceShort,
-          distanceFromAimingPointToleranceLong,
+          aimingPoint.short,
+          aimingPoint.long,
           DISTANCE_FROM_AIMING_POINT_DANGER_PENALTY_MAX_FRACTION
         )
   const centrelineOffset =
@@ -438,16 +453,82 @@ export function computeLandingScore(inputs: LandingScoreInputs): LandingScoreBre
       ? null
       : taperedScore(inputs.centrelineOffsetM, inputs.centrelineToleranceM)
 
-  const scored: { key: LandingScoreCategoryKey; weight: number; result: CategoryScore | null }[] = [
+  const { overall, dangerPenalties } = combineScores([
     { key: 'verticalSpeed', weight: WEIGHTS.verticalSpeed, result: verticalSpeed },
     { key: 'gForce', weight: WEIGHTS.gForce, result: gForce },
-    { key: 'distanceFromAimingPoint', weight: WEIGHTS.distanceFromAimingPoint, result: distanceFromAimingPoint },
+    {
+      key: 'distanceFromAimingPoint',
+      weight: WEIGHTS.distanceFromAimingPoint,
+      result: distanceFromAimingPoint
+    },
     { key: 'centrelineOffset', weight: WEIGHTS.centrelineOffset, result: centrelineOffset },
     { key: 'pitch', weight: WEIGHTS.pitch, result: pitch },
     { key: 'bank', weight: WEIGHTS.bank, result: bank },
     { key: 'crab', weight: WEIGHTS.crab, result: crab }
-  ]
+  ])
 
+  return {
+    overall,
+    dangerPenalties,
+    inputs: {
+      verticalSpeed: verticalSpeed.score,
+      gForce: gForce.score,
+      distanceFromAimingPoint: distanceFromAimingPoint?.score ?? null,
+      centrelineOffset: centrelineOffset?.score ?? null,
+      pitch: pitch.score,
+      bank: bank.score,
+      crab: crab?.score ?? null
+    },
+    details: scoreDetails(
+      inputs,
+      { ideal: band.sweetSpotFpm, tolerance: verticalSpeedTolerance },
+      aimingPoint
+    )
+  }
+}
+
+/**
+ * distanceFromAimingPoint's two tolerances: two real physical hard limits, not one symmetric
+ * tolerance (Callum, 2026-09-26 — see aimingPointDistanceM's own doc comment). Toward the
+ * threshold, the real tolerance is just the aiming point's own distance from it — score
+ * reaches 0 exactly at the threshold. Away from the threshold, it's the gap from the aiming
+ * point to the last real touchdown-zone marker (that marker's own threshold-relative
+ * distance, touchdownZonePairCount * 150m, minus the aiming point's), clamped at 0 for the
+ * rare short/medium runway band where the aiming point marking sits beyond the single
+ * touchdown-zone pair (e.g. 800-900m runways: 1 pair at 150m, but the aiming point at
+ * 250m) — taperedScore treats a zero-or-negative tolerance as "any deviation at all scores
+ * 0", the correct read for a runway that short.
+ *
+ * @param inputs The touchdown's measurements.
+ * @returns The short and long tolerances in metres, or null without the runway's length or
+ *   aiming point.
+ */
+function aimingPointTolerances(inputs: LandingScoreInputs): { short: number; long: number } | null {
+  if (inputs.runwayLengthM === null || inputs.aimingPointDistanceM === null) return null
+  const touchdownZonePairCount = touchdownZonePairCountForLengthM(inputs.runwayLengthM)
+  return {
+    short: inputs.aimingPointDistanceM,
+    long: Math.max(0, touchdownZonePairCount * TOUCHDOWN_ZONE_PAIR_SPACING_M - inputs.aimingPointDistanceM)
+  }
+}
+
+/** One category's weight in the overall score, and its score (null when not scored). */
+interface WeightedCategory {
+  key: LandingScoreCategoryKey
+  weight: number
+  result: CategoryScore | null
+}
+
+/**
+ * The weighted average of the categories that could be scored (renormalised over their
+ * weights), minus every dangerous-exceedance penalty.
+ *
+ * @param scored Every category, scored or not.
+ * @returns The overall score, and each exceeded category's penalty.
+ */
+function combineScores(
+  scored: WeightedCategory[]
+): Pick<LandingScoreBreakdown, 'overall' | 'dangerPenalties'> {
   let weightedSum = 0
   let availableWeight = 0
   let totalDangerPenalty = 0
@@ -462,42 +543,48 @@ export function computeLandingScore(inputs: LandingScoreInputs): LandingScoreBre
     }
   }
   const weightedOverall = availableWeight === 0 ? 0 : Math.round(weightedSum / availableWeight)
-  const overall = weightedOverall - totalDangerPenalty
+  return { overall: weightedOverall - totalDangerPenalty, dangerPenalties }
+}
 
+/**
+ * The ideal and tolerance each category was scored against, for the breakdown popup.
+ *
+ * @param inputs The touchdown's measurements.
+ * @param verticalSpeed The category's sweet spot and tolerance, in fpm.
+ * @param aimingPoint The aiming point's tolerances, or null.
+ * @returns The details, with null for a category that wasn't scored.
+ */
+function scoreDetails(
+  inputs: LandingScoreInputs,
+  verticalSpeed: { ideal: number; tolerance: number },
+  aimingPoint: { short: number; long: number } | null
+): LandingScoreBreakdown['details'] {
   return {
-    overall,
-    dangerPenalties,
-    inputs: {
-      verticalSpeed: verticalSpeed.score,
-      gForce: gForce.score,
-      distanceFromAimingPoint: distanceFromAimingPoint?.score ?? null,
-      centrelineOffset: centrelineOffset?.score ?? null,
-      pitch: pitch.score,
-      bank: bank.score,
-      crab: crab?.score ?? null
+    verticalSpeed: { ...verticalSpeed, toleranceShort: null, toleranceLong: null },
+    gForce: { ideal: GFORCE_IDEAL, tolerance: GFORCE_TOLERANCE, toleranceShort: null, toleranceLong: null },
+    pitch: {
+      ideal: PITCH_IDEAL_DEG,
+      tolerance: PITCH_TOLERANCE_DEG,
+      toleranceShort: null,
+      toleranceLong: null
     },
-    details: {
-      verticalSpeed: { ideal: band.sweetSpotFpm, tolerance: verticalSpeedTolerance, toleranceShort: null, toleranceLong: null },
-      gForce: { ideal: GFORCE_IDEAL, tolerance: GFORCE_TOLERANCE, toleranceShort: null, toleranceLong: null },
-      pitch: { ideal: PITCH_IDEAL_DEG, tolerance: PITCH_TOLERANCE_DEG, toleranceShort: null, toleranceLong: null },
-      bank: { ideal: BANK_IDEAL_DEG, tolerance: BANK_TOLERANCE_DEG, toleranceShort: null, toleranceLong: null },
-      crab:
-        inputs.crabDeg === null
-          ? null
-          : { ideal: CRAB_IDEAL_DEG, tolerance: CRAB_TOLERANCE_DEG, toleranceShort: null, toleranceLong: null },
-      distanceFromAimingPoint:
-        distanceFromAimingPointToleranceShort === null || distanceFromAimingPointToleranceLong === null
-          ? null
-          : {
-              ideal: 0,
-              tolerance: distanceFromAimingPointToleranceLong,
-              toleranceShort: distanceFromAimingPointToleranceShort,
-              toleranceLong: distanceFromAimingPointToleranceLong
-            },
-      centrelineOffset:
-        inputs.centrelineToleranceM === null
-          ? null
-          : { ideal: 0, tolerance: inputs.centrelineToleranceM, toleranceShort: null, toleranceLong: null }
-    }
+    bank: { ideal: BANK_IDEAL_DEG, tolerance: BANK_TOLERANCE_DEG, toleranceShort: null, toleranceLong: null },
+    crab:
+      inputs.crabDeg === null
+        ? null
+        : { ideal: CRAB_IDEAL_DEG, tolerance: CRAB_TOLERANCE_DEG, toleranceShort: null, toleranceLong: null },
+    distanceFromAimingPoint:
+      aimingPoint === null
+        ? null
+        : {
+            ideal: 0,
+            tolerance: aimingPoint.long,
+            toleranceShort: aimingPoint.short,
+            toleranceLong: aimingPoint.long
+          },
+    centrelineOffset:
+      inputs.centrelineToleranceM === null
+        ? null
+        : { ideal: 0, tolerance: inputs.centrelineToleranceM, toleranceShort: null, toleranceLong: null }
   }
 }
