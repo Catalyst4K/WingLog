@@ -18,8 +18,7 @@ import type {
   SimConnectionStatus,
   SimTelemetry
 } from '@shared/ipc'
-import { parseAtcBoxClearance } from '@shared/atc-info-boxes'
-import { gsxMenuSignature, isImportantGsxMenu } from '../gsx-remote-importance'
+import { gsxPromptState } from '../gsx-remote-importance'
 import i18n from '../i18n'
 import {
   emptyProcedureSelection,
@@ -27,7 +26,7 @@ import {
   selectionFromFlight
 } from '../procedure-selection'
 import { runAsync } from '../report-error'
-import { resolveAtcClearance, type PendingAtcClearance } from './atc-clearance'
+import { readNewInfoBoxes, resolveAtcClearance, type PendingAtcClearance } from './atc-clearance'
 
 /** The dispatched OFP and procedure selection Dispatch and Track share, and their handlers. */
 export interface FlightPlan {
@@ -224,14 +223,13 @@ export function useAtcClearancePrompt(
 
   useEffect(() => {
     return winglogApi().onBeyondAtcState((state: BeyondAtcState) => {
-      const key = JSON.stringify(state.infoBoxes)
-      if (key === lastAtcBoxesKey.current) return
-      lastAtcBoxesKey.current = key
-      const update = parseAtcBoxClearance(state.infoBoxes)
-      if (!update) return
+      const read = readNewInfoBoxes(lastAtcBoxesKey.current, state, Date.now())
+      if (!read) return
+      lastAtcBoxesKey.current = read.key
+      if (!read.candidate) return
       runAsync(
         'atc clearance offer',
-        resolveAtcClearance({ ...update, sourceTs: state.infoBoxesAt ?? Date.now() }, selection).then((offer) => {
+        resolveAtcClearance(read.candidate, selection).then((offer) => {
           if (offer) setPending(offer)
         })
       )
@@ -273,11 +271,10 @@ export function useImportantGsxMenu(onGsxTab: boolean): {
     return winglogApi().onGsxRemoteMenu(setMenu)
   }, [])
 
-  const important = menu !== null && isImportantGsxMenu(menu)
-  const menuKey = menu && important ? gsxMenuSignature(menu) : null
+  const { open, menuKey } = gsxPromptState(menu, onGsxTab, dismissedKey)
   return {
     menu,
-    open: !onGsxTab && menuKey !== null && menuKey !== dismissedKey,
+    open,
     onDismiss: () => {
       if (menuKey) setDismissedKey(menuKey)
     }

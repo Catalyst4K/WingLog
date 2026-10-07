@@ -4,9 +4,9 @@
  */
 
 import { winglogApi } from '../data/winglog-api'
-import type { ProcedureSelection } from '@shared/ipc'
+import type { BeyondAtcInfoBox, ProcedureSelection } from '@shared/ipc'
 import { matchClearanceApproach } from '@shared/atc-approach-match'
-import type { AtcClearanceUpdate } from '@shared/atc-info-boxes'
+import { parseAtcBoxClearance, type AtcClearanceUpdate } from '@shared/atc-info-boxes'
 import { approachForArrivalRunway, starEndFix } from '../atc-approach-match'
 
 /** A clearance waiting for the user's accept or dismiss, with when BeyondATC gave it. */
@@ -71,4 +71,26 @@ export async function resolveAtcClearance(
   const update = needsApproach ? await withSimApproach(candidate, selection) : candidate
   if (!update || !clearanceDiffers(update, selection)) return null
   return { ...update, sourceTs: candidate.sourceTs }
+}
+
+/**
+ * Reads a new set of BeyondATC InfoBoxes for a clearance, once: the state is pushed on every BeyondATC message, so the last set
+ * read tells a genuinely new set from one already considered (and possibly dismissed).
+ *
+ * @param lastKey The key returned for the last set read, or '' before any.
+ * @param state The BeyondATC state just pushed.
+ * @param state.infoBoxes Its InfoBoxes.
+ * @param state.infoBoxesAt When they were set, epoch ms, or null.
+ * @param nowMs The current time, epoch ms, used when the boxes carry no time.
+ * @returns Null when this set was already read; otherwise its key, and the clearance in it (null when it holds none).
+ */
+export function readNewInfoBoxes(
+  lastKey: string,
+  state: { infoBoxes: BeyondAtcInfoBox[]; infoBoxesAt: number | null },
+  nowMs: number
+): { key: string; candidate: PendingAtcClearance | null } | null {
+  const key = JSON.stringify(state.infoBoxes)
+  if (key === lastKey) return null
+  const update = parseAtcBoxClearance(state.infoBoxes)
+  return { key, candidate: update ? { ...update, sourceTs: state.infoBoxesAt ?? nowMs } : null }
 }

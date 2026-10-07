@@ -43,3 +43,21 @@ export function isImportantGsxMenu(menu: GsxRemoteMenuState): boolean {
 export function gsxMenuSignature(menu: GsxRemoteMenuState): string {
   return `${menu.title}|${menu.entries.join('\u0000')}`
 }
+
+/**
+ * Whether the global GSX prompt is open, and which menu it is for.
+ *
+ * @param menu GSX's current menu, or null before the first.
+ * @param onGsxTab Whether the GSX tab is showing, where the menu is answered in place.
+ * @param dismissedKey The signature of the menu the user dismissed without answering, if any.
+ * @returns `open`, true for an important menu the user hasn't dismissed while off the GSX tab; and `menuKey`, the important
+ *   menu's signature (null when the menu isn't important), which a dismissal remembers.
+ */
+export function gsxPromptState(
+  menu: GsxRemoteMenuState | null,
+  onGsxTab: boolean,
+  dismissedKey: string | null
+): { open: boolean; menuKey: string | null } {
+  const menuKey = menu && isImportantGsxMenu(menu) ? gsxMenuSignature(menu) : null
+  return { open: !onGsxTab && menuKey !== null && menuKey !== dismissedKey, menuKey }
+}
