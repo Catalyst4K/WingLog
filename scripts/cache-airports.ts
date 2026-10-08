@@ -67,24 +67,32 @@ async function main(): Promise<void> {
   console.log(
     `${all.length} airports wanted, ${all.length - todo.length} already cached, ${todo.length} to fetch.`
   )
-  const { handle } = await open('WingLog airport cache', Protocol.SunRise)
+  let { handle } = await open('WingLog airport cache', Protocol.SunRise)
   let done = 0
   try {
     for (const icao of todo) {
       if (done >= LIMIT) break
       const started = Date.now()
-      try {
-        const network = await fetchTaxiNetwork(handle, icao)
-        const stands = await fetchStands(handle, icao)
-        const now = new Date().toISOString()
-        replaceAirportTaxiSegments(db, icao, network, now)
-        replaceAirportStands(db, icao, stands, now)
-        done++
-        console.log(
-          `${icao}: ${network.segments.length} segments, ${stands.length} stands (${Date.now() - started} ms) [${done}/${Math.min(todo.length, LIMIT)}]`
-        )
-      } catch (error) {
-        console.log(`${icao}: skipped (${error instanceof Error ? error.message : String(error)})`)
+      // A refused request leaves that connection refusing the next, so each failure gets a fresh connection and one retry.
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const network = await fetchTaxiNetwork(handle, icao)
+          const stands = await fetchStands(handle, icao)
+          const now = new Date().toISOString()
+          replaceAirportTaxiSegments(db, icao, network, now)
+          replaceAirportStands(db, icao, stands, now)
+          done++
+          console.log(
+            `${icao}: ${network.segments.length} segments, ${stands.length} stands (${Date.now() - started} ms) [${done}/${Math.min(todo.length, LIMIT)}]`
+          )
+          break
+        } catch (error) {
+          handle.close()
+          handle = (await open('WingLog airport cache', Protocol.SunRise)).handle
+          if (attempt === 2) {
+            console.log(`${icao}: skipped (${error instanceof Error ? error.message : String(error)})`)
+          }
+        }
       }
     }
   } finally {
