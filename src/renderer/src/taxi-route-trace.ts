@@ -237,13 +237,18 @@ interface TraceSearch {
 }
 
 /**
+ * A state is the node, how far through the sequence, and the node just come from. The last is part of the state so that "no
+ * immediate U-turn" is exact: with only (node, stage), the cheapest way to reach a state might arrive from the node the best
+ * route must leave towards, and that route was then lost (a valid clearance traced the long way round, or not at all).
+ *
  * @param search The search.
  * @param node A node.
  * @param stage How far through `sequence`, -1 before the first taxiway.
+ * @param cameFrom The node just come from, -1 at the start.
  * @returns The state.
  */
-function stateOf(search: TraceSearch, node: number, stage: number): number {
-  return node * (search.sequence.length + 1) + stage + 1
+function stateOf(search: TraceSearch, node: number, stage: number, cameFrom: number): number {
+  return ((cameFrom + 1) * search.graph.nodes.length + node) * (search.sequence.length + 1) + stage + 1
 }
 
 /**
@@ -252,7 +257,7 @@ function stateOf(search: TraceSearch, node: number, stage: number): number {
  * @returns Its node.
  */
 function nodeOfState(search: TraceSearch, state: number): number {
-  return Math.floor(state / (search.sequence.length + 1))
+  return Math.floor(state / (search.sequence.length + 1)) % search.graph.nodes.length
 }
 
 /**
@@ -261,8 +266,7 @@ function nodeOfState(search: TraceSearch, state: number): number {
  * @returns The node the state was reached from, or -1 for the start.
  */
 function cameFromNodeOf(search: TraceSearch, state: number): number {
-  const cameFrom = search.previous.get(state)
-  return cameFrom === undefined ? -1 : nodeOfState(search, cameFrom)
+  return Math.floor(Math.floor(state / (search.sequence.length + 1)) / search.graph.nodes.length) - 1
 }
 
 /**
@@ -314,7 +318,7 @@ function traceOnce(request: TaxiTraceRequest, strictEnd: boolean): TracedRoute |
 function searchRoute(search: TraceSearch, start: number, request: TaxiTraceRequest): TracedRoute | null {
   const { cost, realLength, queue } = search
   const last = search.sequence.length - 1
-  const startState = stateOf(search, start, -1)
+  const startState = stateOf(search, start, -1, -1)
   cost.set(startState, 0)
   realLength.set(startState, 0)
   queue.push(startState, 0)
@@ -342,7 +346,7 @@ function searchRoute(search: TraceSearch, start: number, request: TaxiTraceReque
         relax(
           search,
           state,
-          stateOf(search, edge.to, nextStage),
+          stateOf(search, edge.to, nextStage, node),
           stateCost + edgeCost + (wrongWay ? WRONG_WAY_PENALTY_M : 0),
           edge.lengthM
         )
