@@ -6,7 +6,7 @@
  *
  * WINGLOG_AIRPORTS_COUNT sets the clearances per airport (default 60); WINGLOG_AIRPORTS_SEED the seed (default 1).
  */
-import { existsSync } from 'node:fs'
+import { existsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, it } from 'vitest'
 import type { NavdataStand, NavdataTaxiSegment } from '../../src/shared/ipc'
@@ -16,7 +16,7 @@ import { seeded } from '../phase-rules'
 import { buildNetwork, checkClearance, generateClearances } from './airport-rules'
 import { airportsReport, type AirportOutcome } from './airports-report'
 import { openUserDb, userDataDir } from './local-data'
-import { writeReport } from './report'
+import { simOutputDir, writeReport } from './report'
 
 const COUNT = Number(process.env.WINGLOG_AIRPORTS_COUNT ?? 60)
 const SEED = Number(process.env.WINGLOG_AIRPORTS_SEED ?? 1)
@@ -59,7 +59,9 @@ function cachedAirports(): Source[] {
 }
 
 it('traces every generated clearance correctly at every cached airport', () => {
-  const airports: AirportOutcome[] = cachedAirports().map(({ icao, segments, stands }) => {
+  const cached = cachedAirports()
+  const cachedByIcao = new Map(cached.map((c) => [c.icao, c]))
+  const airports: AirportOutcome[] = cached.map(({ icao, segments, stands }) => {
     const network = buildNetwork(segments)
     const outcomes = generateClearances(network, stands, seeded(SEED + hash(icao)), COUNT).map(
       (generated) => ({
@@ -79,6 +81,31 @@ it('traces every generated clearance correctly at every cached airport', () => {
       failures: a.outcomes.flatMap((o) => o.failures.map((f) => f.rule))
     }))
   })
+  // Everything needed to replay the failures on another machine: the networks of the airports that failed, and each failing clearance.
+  const failing = airports.filter((a) => failedIn(a) > 0)
+  writeFileSync(
+    join(simOutputDir('airports'), 'failures.json'),
+    JSON.stringify({
+      seed: SEED,
+      networks: Object.fromEntries(
+        failing.map((a) => [a.icao, { segments: a.segments, stands: cachedByIcao.get(a.icao)?.stands ?? [] }])
+      ),
+      failures: failing.flatMap((a) =>
+        a.outcomes
+          .filter((o) => o.failures.length > 0)
+          .map((o) => ({
+            icao: a.icao,
+            kind: o.generated.kind,
+            clearance: o.generated.clearance,
+            stand: o.generated.stand,
+            walk: o.generated.walk,
+            walkM: o.generated.walkM,
+            route: o.route,
+            failures: o.failures
+          }))
+      )
+    })
+  )
   const total = airports.reduce((sum, a) => sum + a.outcomes.length, 0)
   const failed = airports.reduce((sum, a) => sum + failedIn(a), 0)
   console.log(`${airports.length} airports, ${total} clearances, ${failed} failed a rule. Report: ${page}`)
