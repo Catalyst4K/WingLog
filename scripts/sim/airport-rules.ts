@@ -120,7 +120,7 @@ function nearest(network: Network, at: { lat: number; lon: number }): { node: nu
 function namesOf(names: (string | null)[]): string[] {
   const out: string[] = []
   for (const name of names) {
-    if (name !== null && out.at(-1) !== name) out.push(name)
+    if (name !== null && name !== '' && out.at(-1) !== name) out.push(name)
   }
   return out
 }
@@ -219,7 +219,8 @@ export function generateClearances(
     const runs = namesOf(walk.names)
     if (runs.length === 0) continue
     // A hold short is reached along a named taxiway: that name is what the clearance gives it.
-    if (!stand && walk.names[walk.names.length - 1] === null) continue
+    if ((!stand && walk.names[walk.names.length - 1] === null) || walk.names[walk.names.length - 1] === '')
+      continue
     const points = walk.nodes.map((i): [number, number] => [network.nodes[i].lon, network.nodes[i].lat])
     const start = network.nodes[walk.nodes[0]]
     // A couple of metres off the node, as a position reading is; the aircraft is at that node, not beside another.
