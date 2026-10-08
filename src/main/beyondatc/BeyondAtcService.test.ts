@@ -213,6 +213,26 @@ describe('BeyondAtcService', () => {
     service.stop()
   })
 
+  it('tells listeners about a state line only when it changed something', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
+    const states = vi.fn()
+    service.on('state', states)
+    service.start()
+    instances[0].simulateOpen()
+
+    instances[0].simulateLine('AutoTune: true')
+    instances[0].simulateLine('AutoTune: true')
+    instances[0].simulateLine('AutoRespond: false')
+    instances[0].simulateLine('AutoRespond: false')
+    expect(states).toHaveBeenCalledTimes(2)
+
+    instances[0].simulateLine('AutoTune: false')
+    expect(states).toHaveBeenCalledTimes(3)
+    expect(states.mock.calls[2][0].autoTune).toBe(false)
+    service.stop()
+  })
+
   it('resolves an unrecognised AutoTune/AutoRespond value to null rather than guessing', () => {
     const { ctor, instances } = makeCtor()
     const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)

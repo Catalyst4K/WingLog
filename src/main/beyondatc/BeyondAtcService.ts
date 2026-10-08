@@ -434,11 +434,17 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
   }
 
   /**
-   * Updates the state and tells listeners.
+   * Updates the state and tells listeners, unless nothing in it actually changed. BeyondATC repeats lines it has already sent
+   * (its snapshot push, a poll answering with the same frequencies), and each emit is a copy of the whole state over IPC to the
+   * window.
    *
    * @param patch The fields that changed.
    */
   private setState(patch: Partial<BeyondAtcState>): void {
+    const changed = (Object.keys(patch) as (keyof BeyondAtcState)[]).some(
+      (key) => JSON.stringify(patch[key]) !== JSON.stringify(this.state[key])
+    )
+    if (!changed) return
     this.state = { ...this.state, ...patch }
     this.emit('state', this.state)
   }
