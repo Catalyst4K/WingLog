@@ -319,6 +319,53 @@ describe('traceTaxiRoute on a hand-built junction', () => {
   })
 })
 
+describe('traceTaxiRoute where the cheapest way to a point is from the point the route must leave towards', () => {
+  const seg = (
+    a: [number, number],
+    b: [number, number],
+    name: string,
+    endHoldShort = false
+  ): NavdataTaxiSegment => ({
+    startLat: a[0],
+    startLon: a[1],
+    endLat: b[0],
+    endLon: b[1],
+    name,
+    startHoldShort: false,
+    endHoldShort
+  })
+
+  it('still finds "A, B, A" when A also runs straight to the far junction (airport-rules found this at YBBN, ZSPD, RKSI)', () => {
+    // A runs straight from the start to P, and round via Q. B joins Q to X to P. Clearance A, B, A to the hold beyond P: the
+    // route must go A to Q, B to X and on to P, then A to the hold. Reaching X from P (straight A, then B) is cheaper, but
+    // that arrival can't carry on to P without a U-turn.
+    const start: [number, number] = [51.0, 0.0]
+    const p: [number, number] = [51.002, 0.0]
+    const q: [number, number] = [51.0, 0.0015]
+    const x: [number, number] = [51.002, 0.0008]
+    const hold: [number, number] = [51.004, 0.0]
+    const route = traceTaxiRoute({
+      segments: [
+        seg(start, p, 'A'),
+        seg(start, q, 'A'),
+        seg(q, x, 'B'),
+        seg(x, p, 'B'),
+        seg(p, hold, 'A', true)
+      ],
+      taxiways: ['A', 'B', 'A'],
+      holdingPoint: null,
+      from: { lat: start[0], lon: start[1] }
+    })
+    expect(route).toEqual([
+      [0.0, 51.0],
+      [0.0015, 51.0],
+      [0.0008, 51.002],
+      [0.0, 51.002],
+      [0.0, 51.004]
+    ])
+  })
+})
+
 describe('re-routing (taxi-reroute.md)', () => {
   const onD = { lat: 18.3074072, lon: 109.4093493 }
   const runway08Hold = { lat: 18.30168, lon: 109.39634 }
