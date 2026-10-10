@@ -2,21 +2,14 @@ import { resolve } from 'node:path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { resolveBuildFlags } from './src/shared/resolve-build-flags'
 
 export default defineConfig(({ command }) => {
-  // Cloud sync build-time flag (docs/plans/public-release-v1.md, Decision 1) — kept
-  // buildable, hidden and disabled by default in what ships publicly. `electron-vite dev`
-  // (command === 'serve') is always Callum's own machine, so it stays on there without
-  // needing to remember an env var every time; `electron-vite build` — used by both
-  // `npm run build`/`package:*` locally and CI's packaging workflow — defaults off unless
-  // WINGLOG_CLOUD_SYNC=1 is set, which is how a private build opts back in. A build-time
-  // constant rather than a runtime Settings toggle, so a public binary can't have it
-  // flipped back on by a user — see src/shared/build-flags.d.ts.
-  const cloudSyncEnabled = command === 'serve' || process.env.WINGLOG_CLOUD_SYNC === '1'
-  // The dev build (winglog-backend robustness/dev-build.md): diagnostic logging and the full
-  // flight capture, for Callum's test flights. Only `npm run package:win:dev` sets it; a
-  // release never does (src/main/diagnostics/release-safety.test.ts).
-  const devBuild = process.env.WINGLOG_DEV_BUILD === '1'
+  // Build-time flags (src/shared/resolve-build-flags.ts): cloud sync is on under
+  // `electron-vite dev` and in the dev build, off in every release/packaged build unless a
+  // private build sets WINGLOG_CLOUD_SYNC=1. A build-time constant rather than a runtime
+  // Settings toggle, so a public binary can't have it flipped on by a user.
+  const { cloudSyncEnabled, devBuild } = resolveBuildFlags(command, process.env)
   const define = {
     __WINGLOG_CLOUD_SYNC_ENABLED__: JSON.stringify(cloudSyncEnabled),
     __WINGLOG_DEV_BUILD__: JSON.stringify(devBuild)
