@@ -316,7 +316,7 @@ function GateSearchBox(props: {
         autoFocus
         onChange={(e) => search(e.target.value)}
       />
-      {/* One click, never automatic (Callum, 2026-10-02): BeyondATC's own stand, for when its
+      {/* One click, never automatic: BeyondATC's own stand, for when its
        *  handoff to GSX didn't happen. */}
       {atcStand && (
         <Button

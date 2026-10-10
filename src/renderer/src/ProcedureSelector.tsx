@@ -47,7 +47,7 @@ function ProcedureSelect(props: {
         </SelectTrigger>
         <SelectContent>
           {/* Radix Select can't return to "nothing chosen" on its own, so an explicit item
-           *  clears a pick made by mistake (Callum, 2026-09-19). */}
+           *  clears a pick made by mistake. */}
           <SelectItem value={NONE_OPTION}>{t('procedureSelector.none')}</SelectItem>
           {props.options.map((opt) => (
             <SelectItem key={opt} value={opt}>

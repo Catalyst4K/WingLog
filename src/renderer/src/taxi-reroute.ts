@@ -13,9 +13,9 @@ import { flatDistanceM } from '@shared/geo'
 
 /**
  * When the traced taxi line should be re-traced from where the aircraft is
- * (winglog-backend's docs/plans/taxi-reroute.md). Real case, ZJSY flight 227, 2026-10-02:
- * cleared "via D, B7, A" to A's runway 08 hold, pushed back facing the other way and taxied a
- * different route to the same hold, with the line pointing back along D the whole time.
+ * (winglog-backend's docs/plans/taxi-reroute.md): an aircraft that pushes back facing the other
+ * way and taxis a different route to the same hold would otherwise keep a line pointing back
+ * along the cleared route.
  * Where a re-route goes is taxi-route-trace.ts's rejoinTaxiRoute: the shortest total way to the
  * same end, joining the cleared route wherever that's shortest.
  *

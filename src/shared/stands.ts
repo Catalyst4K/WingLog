@@ -3,8 +3,8 @@
 import type { NavdataStand } from './ipc'
 import { flatDistanceM as distanceM } from './geo'
 
-/** How far from a stand's own point an aircraft can stop and still be "at" it — the real
- *  YBBN-VHHH flight stopped 13 m from N32 and started 15 m from gate 79 (2026-10-02). */
+/** How far from a stand's own point an aircraft can stop and still be "at" it — real
+ *  flights stopped 13 m from a stand and started 15 m from a gate. */
 export const AT_STAND_MAX_M = 40
 
 /**

@@ -50,7 +50,7 @@ function latLonDistanceMeters(point: LatLon, lineStart: LatLon, lineEnd: LatLon)
 /** Like latLonDistanceMeters, but to the segment rather than the infinite line through it.
  *  On the ground the aircraft reverses along its own path (pushback, then taxi forward over
  *  the same line), and a line distance scores that turn-around point as 0m off, so the
- *  simplified track cut it off (flight 225: worst ground cut 15m with line distance, 6m with
+ *  simplified track cut it off (a real taxi: worst ground cut 15m with line distance, 6m with
  *  this). In the air the track doesn't double back like that, so the air pass keeps the
  *  line distance it has always used.
  *

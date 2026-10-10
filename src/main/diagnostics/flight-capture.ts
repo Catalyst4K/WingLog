@@ -7,7 +7,7 @@
  * Local only. Captures hold personal data (callsign, SimBrief pilot ID in OFP lines), so a
  * committed fixture is always a trimmed, anonymised slice, never a capture file.
  *
- * Retention (Callum, 2026-10-05): the newest KEEP_COUNT captures are kept; anything moved into
+ * Retention: the newest KEEP_COUNT captures are kept; anything moved into
  * the `kept/` subfolder is never deleted.
  */
 import {

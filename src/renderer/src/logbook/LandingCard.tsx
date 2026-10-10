@@ -27,14 +27,14 @@ import { DETAIL_GRID_CLASS, DetailField } from './DetailField'
  *  landing to show (the common case for any flight tracked before this feature existed),
  *  not an empty card. */
 // Above this many landings, per-landing tabs across the card header would shrink to
-// unreadable — a Select takes over instead (Callum's design, 2026-09-16). 4 is the plan
+// unreadable — a Select takes over instead. 4 is the plan
 // doc's own recommendation from the card's layout, not a measured breakpoint — worth a
 // look at the real card at the narrowest supported width if it ever looks cramped.
 const LANDING_TAB_THRESHOLD = 4
 
 /** Labels for the tabs/select switcher: the airfield and which attempt it was *at that
  *  airfield* ("VHHX 1", "VHHH 1", then "VHHH 2") — not a runway and a clock time, which read as
- *  data rather than as "which landing is this" (Callum, 2026-09-19). A touchdown with no
+ *  data rather than as "which landing is this". A touchdown with no
  *  resolved airfield falls back to its position in the whole sequence ("Landing 2"). The
  *  runway is still shown inside the card itself. */
 /**
@@ -246,7 +246,7 @@ export function LandingCard(props: {
         <LandingFields landing={landing} scoreResult={scoreResult} unit={unit} />
         {scoreResult && (
           // The breakdown trigger lives in this same right-hand column, centred above the
-          // diagram (Callum, 2026-09-13), rather than in the card header — a header
+          // diagram, rather than in the card header — a header
           // button's own right-alignment doesn't line up with this narrower column's
           // centre, and CardHeader/CardContent are separate layout contexts with no shared
           // width to align against. Rendered whenever a score exists, independent of the

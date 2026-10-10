@@ -28,7 +28,7 @@ const MIN_MARK_LENGTH_PX = 6
 /**
  * Everything below is computed in the diagram's natural "along-track, lateral" frame —
  * matching touchdown-diagram.ts's own xPx (along-track)/yPx (lateral) fields — then placed
- * on screen running vertically rather than horizontally (Callum's request, 2026-09-12):
+ * on screen running vertically rather than horizontally:
  * landing near the card's bottom, rolling out toward the top, closer to how a pilot looking
  * straight ahead sees a runway extend away, rather than a sideways strip. This is a pure
  * rendering transform; touchdown-diagram.ts's own coordinate frame and tests are untouched.
@@ -167,7 +167,7 @@ export function TouchdownDiagram(props: {
   const stripeLengthPx = Math.max(MIN_STRIPE_LENGTH_PX, 30 * layout.pxPerM)
   const aimingPointLengthPx = Math.max(MIN_MARK_LENGTH_PX, 22 * layout.pxPerM)
   const tdzGroupLengthPx = Math.max(MIN_MARK_LENGTH_PX, 18 * layout.pxPerM)
-  // Bumped up (Callum, 2026-09-12: "brighter or more obvious") now that the diagram itself
+  // Bumped up now that the diagram itself
   // renders noticeably smaller (sized off height, not width — see the <svg> below) — the
   // old 4-7px radius was tuned for the diagram's original, bigger on-screen size and had
   // shrunk to a few screen pixels along with everything else.
@@ -320,7 +320,7 @@ export function TouchdownDiagram(props: {
         opacity={0.6}
       />
       {/* Soft halo behind the dot — makes the touchdown point read at a glance rather
-            than blending into the runway markings around it (Callum, 2026-09-12). */}
+            than blending into the runway markings around it. */}
       <circle
         cx={dot.x}
         cy={dot.y}

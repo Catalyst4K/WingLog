@@ -98,7 +98,7 @@ function splitFrequencyOptions(
  *  ZSPD's delivery frequency happened to already say "PUDONG DELIVERY". Leading every
  *  button with the real category, not trusting `name` to say it, is what actually makes
  *  Delivery/ATIS/etc. unambiguous regardless of how BeyondATC happened to name that one
- *  station (Callum's own call, 2026-09-29). BeyondATC's own `Clearance` type is shown as
+ *  station. BeyondATC's own `Clearance` type is shown as
  *  "Delivery" — the term pilots actually use for that frequency. An unrecognised type falls
  *  back to BeyondATC's own raw text rather than guessing a translation for it. */
 const FREQUENCY_TYPE_KEY: Record<string, string> = {

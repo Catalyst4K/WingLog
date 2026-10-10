@@ -28,7 +28,7 @@ function segmentsToFeatureCollection(segmentsByIcao: [string, NavdataTaxiSegment
   return {
     type: 'FeatureCollection',
     // `icao` lets useTaxiRouteHighlight limit a clearance to its own airport — the same
-    // taxiway letters exist at both ends of a flight (real report, 2026-09-30).
+    // taxiway letters exist at both ends of a flight.
     features: segmentsByIcao.flatMap(([icao, segments]) =>
       segments.map((s) => ({
         type: 'Feature' as const,

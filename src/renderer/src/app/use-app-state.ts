@@ -100,7 +100,7 @@ export function useFlightPlan(): FlightPlan {
   // A flight can auto-complete (shutdown detection) while the user is on any tab, not just
   // Track — TrackView's own onTrackingPoint subscription only exists while it's mounted, so
   // relying on that alone left Dispatch showing a finished flight's OFP/route indefinitely
-  // whenever Track wasn't open at the moment shutdown fired (real report, 2026-09-27).
+  // whenever Track wasn't open at the moment shutdown fired.
   // Subscribed here instead, at the top level, so it fires no matter what's currently on
   // screen.
   useEffect(() => {
@@ -203,7 +203,7 @@ export function useOrphanedFlight(
 
 /**
  * Reads each new set of BeyondATC InfoBoxes for a clearance whose fields differ from the current selection, and holds it for the
- * user's accept or dismiss: overwrite, but ask first, gently (decided 2026-09-25). Never ATC's speech (winglog-backend's
+ * user's accept or dismiss: overwrite, but ask first, gently. Never ATC's speech (winglog-backend's
  * docs/decisions.md, 2026-10-05). Re-subscribes whenever the selection changes so a diff is always checked against the live value,
  * the same "just resubscribe, it's cheap" style as procedure-selection.ts's fetch effects.
  *

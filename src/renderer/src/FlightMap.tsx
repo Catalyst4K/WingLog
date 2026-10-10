@@ -60,7 +60,7 @@ export interface FlightMapProps {
   arrIcao?: string | null
   /** Live only: the active flight's recorded track is still loading. The route isn't framed
    *  meanwhile — with follow on, the aircraft is about to be, and framing the route first
-   *  flashed it before jumping to the aircraft on every visit to Track (Callum, 2026-10-02). */
+   *  flashed it before jumping to the aircraft on every visit to Track. */
   trackLoading?: boolean
 }
 

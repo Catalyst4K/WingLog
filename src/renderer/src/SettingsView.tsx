@@ -189,7 +189,7 @@ function AboutCard(props: { appVersion: string; onRunSetup?: () => void }): Reac
 export function SettingsView(
   props: AppWideSettings & {
     /** Mirrors this toggle's live value up to App.tsx, which gates the GSX Remote Control tab
-     *  on it (Callum, 2026-09-27) — App.tsx doesn't otherwise see this card's own settings
+     *  on it — App.tsx doesn't otherwise see this card's own settings
      *  state, which lives entirely in this component. */
     onGsxRemoteEnabledChange: (enabled: boolean) => void
     /** Same reasoning as onGsxRemoteEnabledChange, for the BeyondATC tab. */

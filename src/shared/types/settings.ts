@@ -30,7 +30,7 @@ export interface UpdateStatus {
   skippedVersion: string | null
 }
 
-/** Settings → About. On by default (Callum, 2026-10-02). */
+/** Settings → About. On by default. */
 export interface UpdateSettings {
   checkEnabled: boolean
 }
