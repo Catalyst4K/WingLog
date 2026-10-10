@@ -25,3 +25,22 @@ describe('dev build release safety', () => {
     expect(scripts['package:win']).not.toContain('WINGLOG_DEV_BUILD')
   })
 })
+
+describe('cloud sync release safety', () => {
+  it('no CI workflow opts in to cloud sync or the dev build', () => {
+    const dir = join('.github', 'workflows')
+    for (const file of readdirSync(dir)) {
+      const text = readFileSync(join(dir, file), 'utf8')
+      expect(text, file).not.toContain('WINGLOG_CLOUD_SYNC')
+      expect(text, file).not.toContain('WINGLOG_DEV_BUILD')
+    }
+  })
+
+  it('no packaging script except package:win:dev turns sync or the dev build on', () => {
+    for (const [name, command] of Object.entries(scripts)) {
+      if (name === 'package:win:dev') continue
+      expect(command, name).not.toContain('WINGLOG_CLOUD_SYNC')
+      expect(command, name).not.toContain('WINGLOG_DEV_BUILD')
+    }
+  })
+})
