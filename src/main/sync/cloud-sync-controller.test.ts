@@ -6,18 +6,21 @@ import type { StoredSession } from '../backend/session-store'
 import type { SyncResult } from './sync-engine'
 import { CloudSyncController } from './cloud-sync-controller'
 
-const { loadSession, saveSession, clearSession, login, logout, provision, runSync } = vi.hoisted(() => ({
-  loadSession: vi.fn(),
-  saveSession: vi.fn(),
-  clearSession: vi.fn(),
-  login: vi.fn(),
-  logout: vi.fn(),
-  provision: vi.fn(),
-  runSync: vi.fn()
-}))
+const { backupBeforeFirstSync, loadSession, saveSession, clearSession, login, logout, provision, runSync } =
+  vi.hoisted(() => ({
+    backupBeforeFirstSync: vi.fn(),
+    loadSession: vi.fn(),
+    saveSession: vi.fn(),
+    clearSession: vi.fn(),
+    login: vi.fn(),
+    logout: vi.fn(),
+    provision: vi.fn(),
+    runSync: vi.fn()
+  }))
 
 vi.mock('../backend/session-store', () => ({ loadSession, saveSession, clearSession }))
 vi.mock('../backend/sync-client', () => ({ login, logout, provision, syncPull: vi.fn(), syncPush: vi.fn() }))
+vi.mock('../db/backup', () => ({ backupBeforeFirstSync }))
 vi.mock('./sync-engine', () => ({ runSync }))
 
 const SESSION: StoredSession = {
@@ -40,6 +43,7 @@ describe('CloudSyncController', () => {
     logout.mockReset().mockResolvedValue(undefined)
     provision.mockReset()
     runSync.mockReset()
+    backupBeforeFirstSync.mockReset().mockReturnValue('/fake/userdata/backups/before-first-sync-1.db')
   })
 
   it('reports logged-out status with no prior session on disk', () => {
@@ -164,5 +168,46 @@ describe('CloudSyncController', () => {
 
     expect(status.loggedIn).toBe(false)
     expect(clearSession).toHaveBeenCalledWith('/fake/userdata')
+  })
+
+  describe("backup before an account's first sync", () => {
+    const okResult = { syncedAt: '2026-09-11T12:00:00.000Z', tables: {} as SyncResult['tables'] }
+
+    it('snapshots the database once, before the first sync runs', async () => {
+      loadSession.mockReturnValue(SESSION)
+      const order: string[] = []
+      backupBeforeFirstSync.mockImplementation(() => {
+        order.push('backup')
+        return '/fake/userdata/backups/before-first-sync-1.db'
+      })
+      runSync.mockImplementation(async () => {
+        order.push('sync')
+        return okResult
+      })
+      const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata')
+
+      await controller.syncNow()
+      await controller.syncNow()
+
+      expect(order).toEqual(['backup', 'sync', 'sync'])
+      expect(backupBeforeFirstSync).toHaveBeenCalledWith('/fake/db/path', '/fake/userdata/backups')
+    })
+
+    it('does not sync, and tries again next time, when the snapshot fails', async () => {
+      loadSession.mockReturnValue(SESSION)
+      backupBeforeFirstSync.mockImplementationOnce(() => {
+        throw new Error('disk full')
+      })
+      runSync.mockResolvedValue(okResult)
+      const controller = new CloudSyncController(db, '/fake/db/path', '/fake/userdata')
+
+      const failed = await controller.syncNow()
+      expect(runSync).not.toHaveBeenCalled()
+      expect(failed.lastError).toBe('disk full')
+
+      await controller.syncNow()
+      expect(backupBeforeFirstSync).toHaveBeenCalledTimes(2)
+      expect(runSync).toHaveBeenCalledTimes(1)
+    })
   })
 })
