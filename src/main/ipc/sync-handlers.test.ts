@@ -2,7 +2,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { IpcChannels } from '@shared/ipc'
 import type { CloudSyncController } from '../sync/cloud-sync-controller'
 import { fakeIpc } from './fake-ipc'
-import { BACKGROUND_SYNC_DELAY_MS, createBackgroundSync, registerSyncHandlers } from './sync-handlers'
+import {
+  BACKGROUND_SYNC_DELAY_MS,
+  PERIODIC_SYNC_INTERVAL_MS,
+  createBackgroundSync,
+  registerSyncHandlers,
+  startPeriodicSync
+} from './sync-handlers'
 
 /** A sync controller, signed in or out. */
 function fakeCloudSync(loggedIn: boolean): Record<string, ReturnType<typeof vi.fn>> {
@@ -37,6 +43,29 @@ describe('createBackgroundSync', () => {
     const cloudSync = fakeCloudSync(false)
     createBackgroundSync(cloudSync as unknown as CloudSyncController)()
     vi.runAllTimers()
+    expect(cloudSync.syncNow).not.toHaveBeenCalled()
+  })
+})
+
+describe('startPeriodicSync', () => {
+  afterEach(() => vi.useRealTimers())
+
+  it('syncs every interval while signed in, and stops when told to', () => {
+    vi.useFakeTimers()
+    const cloudSync = fakeCloudSync(true)
+    const stop = startPeriodicSync(cloudSync as unknown as CloudSyncController)
+    vi.advanceTimersByTime(PERIODIC_SYNC_INTERVAL_MS * 2)
+    expect(cloudSync.syncNow).toHaveBeenCalledTimes(2)
+    stop()
+    vi.advanceTimersByTime(PERIODIC_SYNC_INTERVAL_MS)
+    expect(cloudSync.syncNow).toHaveBeenCalledTimes(2)
+  })
+
+  it('does nothing while signed out', () => {
+    vi.useFakeTimers()
+    const cloudSync = fakeCloudSync(false)
+    startPeriodicSync(cloudSync as unknown as CloudSyncController)
+    vi.advanceTimersByTime(PERIODIC_SYNC_INTERVAL_MS * 3)
     expect(cloudSync.syncNow).not.toHaveBeenCalled()
   })
 })

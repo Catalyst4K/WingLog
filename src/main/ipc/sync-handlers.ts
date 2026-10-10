@@ -37,6 +37,24 @@ export function createBackgroundSync(
   }
 }
 
+/** How often an open, signed-in app pulls other devices' changes, in milliseconds. */
+export const PERIODIC_SYNC_INTERVAL_MS = 10 * 60 * 1000
+
+/**
+ * Syncs on a timer while the app is open, so a change made on another device arrives without a
+ * relaunch. A no-op while signed out; a failed attempt is picked up by the next one.
+ *
+ * @param cloudSync The sync controller.
+ * @returns Stops the timer.
+ */
+export function startPeriodicSync(cloudSync: Pick<CloudSyncController, 'getStatus' | 'syncNow'>): () => void {
+  const timer = setInterval(() => {
+    if (cloudSync.getStatus().loggedIn) runLogged('periodic sync', cloudSync.syncNow())
+  }, PERIODIC_SYNC_INTERVAL_MS)
+  timer.unref()
+  return () => clearInterval(timer)
+}
+
 /**
  * Registers the account and sync channels — only when the build has cloud sync
  * (docs/plans/public-release-v1.md, Decision 1), which public builds don't. The controller still
