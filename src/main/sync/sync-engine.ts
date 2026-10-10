@@ -30,6 +30,8 @@ import {
 import { listLandingsForSync, upsertLandingByUuid } from '../db/landing-repo'
 import { getLastSyncedAt, setLastSyncedAt } from '../db/settings-repo'
 import { SYNC_TABLES, type SyncRow, type SyncTable } from '../backend/sync-client'
+import { aircraft, flight, flightInvoice, landing } from '../db/schema'
+import { validateSyncFields } from './sync-row-validation'
 
 export interface SyncClient {
   syncPull(email: string, token: string, table: SyncTable, since: string | null): Promise<SyncRow[]>
@@ -134,9 +136,11 @@ function applyAircraft(db: WingLogDb, row: SyncRow): ApplyResult {
   if (!data || typeof data.registration !== 'string' || typeof data.icaoType !== 'string') {
     return { ok: false, error: 'malformed aircraft data' }
   }
+  const checked = validateSyncFields(aircraft, data)
+  if (!checked.ok) return checked
   try {
     const applied = upsertAircraftByUuid(db, {
-      ...data,
+      ...checked.fields,
       uuid: row.uuid,
       updatedAt: row.updatedAt
     } as Parameters<typeof upsertAircraftByUuid>[1])
@@ -187,9 +191,11 @@ function applyFlight(db: WingLogDb, row: SyncRow): ApplyResult {
   }
   const aircraftId = getAircraftIdByUuid(db, data.aircraftUuid)
   if (aircraftId === undefined) return { ok: false, error: `unknown aircraft ${data.aircraftUuid}` }
+  const checked = validateSyncFields(flight, data, ['aircraftId'])
+  if (!checked.ok) return checked
   try {
     const applied = upsertFlightByUuid(db, {
-      ...omit(data, ['aircraftUuid']),
+      ...checked.fields,
       aircraftId,
       uuid: row.uuid,
       updatedAt: row.updatedAt
@@ -224,9 +230,11 @@ function applyLanding(db: WingLogDb, row: SyncRow): ApplyResult {
   if (!data || typeof data.flightUuid !== 'string') return { ok: false, error: 'malformed landing data' }
   const flightId = getFlightIdByUuid(db, data.flightUuid)
   if (flightId === undefined) return { ok: false, error: `unknown flight ${data.flightUuid}` }
+  const checked = validateSyncFields(landing, data, ['flightId'])
+  if (!checked.ok) return checked
   try {
     const applied = upsertLandingByUuid(db, {
-      ...omit(data, ['flightUuid']),
+      ...checked.fields,
       flightId,
       uuid: row.uuid,
       updatedAt: row.updatedAt
@@ -270,9 +278,11 @@ function applyFlightInvoice(db: WingLogDb, row: SyncRow): ApplyResult {
   }
   const flightId = getFlightIdByUuid(db, data.flightUuid)
   if (flightId === undefined) return { ok: false, error: `unknown flight ${data.flightUuid}` }
+  const checked = validateSyncFields(flightInvoice, data, ['flightId'])
+  if (!checked.ok) return checked
   try {
     const applied = upsertFlightInvoiceByUuid(db, {
-      ...omit(data, ['flightUuid']),
+      ...checked.fields,
       flightId,
       uuid: row.uuid,
       updatedAt: row.updatedAt

@@ -562,4 +562,85 @@ describe('sync-engine', () => {
 
     expect(result.tables.flightInvoice.skipped).toEqual(['invoice-for-unknown-flight'])
   })
+  describe('a pulled row is checked against its table before it is written', () => {
+    it('never lets a pulled row choose its own local id', async () => {
+      const mine = createAircraft(db, { registration: 'G-MINE', icaoType: 'A320' })
+      server.seed('aircraft', {
+        uuid: 'planted-id',
+        updatedAt: '2099-01-01T00:00:00.000Z',
+        data: JSON.stringify({ id: mine.id, registration: 'G-PLNT', icaoType: 'B738' })
+      })
+
+      await runSync(db, server, SESSION, dbPath)
+
+      const registrations = db
+        .select({ r: aircraft.registration })
+        .from(aircraft)
+        .all()
+        .map((a) => a.r)
+      expect(registrations.sort()).toEqual(['G-MINE', 'G-PLNT'])
+    })
+
+    it('skips a flight with a number column holding text, and logs why', async () => {
+      const a = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' })
+      await runSync(db, server, SESSION, dbPath)
+      const aircraftUuid = db
+        .select({ uuid: aircraft.uuid })
+        .from(aircraft)
+        .where(eq(aircraft.id, a.id))
+        .get()!.uuid as string
+      server.seed('flight', {
+        uuid: 'bad-fuel',
+        updatedAt: '2099-01-01T00:00:00.000Z',
+        data: JSON.stringify({ aircraftUuid, depIcao: 'EGLL', arrIcao: 'EGKK', fuelOutKg: 'lots' })
+      })
+
+      const result = await runSync(db, server, SESSION, dbPath)
+
+      expect(result.tables.flight.skipped).toEqual(['bad-fuel'])
+      expect(db.select().from(flight).all()).toHaveLength(0)
+      expect(readFileSync(join(dirname(dbPath), 'sync-conflicts.log'), 'utf8')).toContain(
+        'invalid flight data: fuelOutKg must be a finite number'
+      )
+    })
+
+    it('skips a receipt whose stored path is not text', async () => {
+      const a = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' })
+      const f = createFlight(db, { aircraftId: a.id, depIcao: 'EGLL', arrIcao: 'EGCC' })
+      await runSync(db, server, SESSION, dbPath)
+      const flightUuid = db.select({ uuid: flight.uuid }).from(flight).where(eq(flight.id, f.id)).get()!
+        .uuid as string
+      server.seed('flightInvoice', {
+        uuid: 'bad-path',
+        updatedAt: '2099-01-01T00:00:00.000Z',
+        data: JSON.stringify({
+          flightUuid,
+          serviceGroup: 'fuel',
+          receiptId: 'R1',
+          issuedUtc: '2026-09-04T09:00:00Z',
+          icao: 'EGLL',
+          tail: 'G-ABCD',
+          sourceHtmlPath: ['C:\\Windows\\system32\\calc.exe'],
+          receiptJson: '{}'
+        })
+      })
+
+      const result = await runSync(db, server, SESSION, dbPath)
+
+      expect(result.tables.flightInvoice.skipped).toEqual(['bad-path'])
+    })
+
+    it('ignores a field the table does not have rather than failing the row', async () => {
+      server.seed('aircraft', {
+        uuid: 'newer-app',
+        updatedAt: '2099-01-01T00:00:00.000Z',
+        data: JSON.stringify({ registration: 'G-NEWR', icaoType: 'A21N', fieldFromTheFuture: true })
+      })
+
+      const result = await runSync(db, server, SESSION, dbPath)
+
+      expect(result.tables.aircraft.skipped).toEqual([])
+      expect(listAircraft(db).map((x) => x.registration)).toContain('G-NEWR')
+    })
+  })
 })
