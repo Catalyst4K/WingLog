@@ -101,7 +101,7 @@ export function useMapInstance(live: boolean, mapLanguage: MapLanguage): MapInst
   const [mapReady, setMapReady] = useState(false)
   // Track's map stays invisible until it has framed the aircraft, so coming back to Track
   // doesn't show the remembered (by now stale) view and then jump to where the aircraft is
-  // now (Callum, 2026-10-02: "a second of stutter / tiny jump around as it loads").
+  // now.
   const [framed, setFramed] = useState(false)
   // Read by the 'style.load' handler, which is registered once at map creation — a ref so
   // it always sees the current language rather than the one from the first render.

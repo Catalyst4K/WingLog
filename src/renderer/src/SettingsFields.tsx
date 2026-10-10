@@ -125,7 +125,7 @@ export function UnitsFields(props: UnitsFieldsProps): React.JSX.Element {
       {/* No popover here, unlike the rows below — "Hybrid" isn't a self-explanatory
        *  option the way Feet/Meters are, so its explanation is what the option
        *  *means*, not a supplementary caveat. Hiding it behind a click was a
-       *  regression (Callum, 2026-09-23), not a decluttering win. */}
+       *  regression, not a decluttering win. */}
       <div className="flex flex-col gap-1.5">
         <SegmentedRow
           label={t('settingsView.units.ofpAltitudes')}

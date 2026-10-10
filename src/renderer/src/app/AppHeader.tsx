@@ -10,7 +10,7 @@ import { DevBuildBadge } from '../DevBuildBadge'
 
 /**
  * The tabs, in order. GSX Remote Control and BeyondATC's own tabs are gated on their settings'
- * `enabled` flag (Callum, 2026-09-27) — hidden until turned on in Settings, rather than always
+ * `enabled` flag — hidden until turned on in Settings, rather than always
  * shown regardless of configuration.
  *
  * @param t The translation function.

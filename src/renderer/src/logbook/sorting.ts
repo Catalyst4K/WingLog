@@ -5,7 +5,7 @@ import type { LogbookFlight, LandingListRow } from '@shared/ipc'
 
 export type SortKey = 'date' | 'flight' | 'route' | 'aircraft' | 'block' | 'score' | 'fuel'
 
-// 'score' is last (Callum, 2026-09-12) — it's the column most worth glancing down as a
+// 'score' is last — it's the column most worth glancing down as a
 // column, so it reads best at the row's end rather than interrupting block/fuel.
 export const SORT_KEYS: SortKey[] = ['date', 'flight', 'route', 'aircraft', 'block', 'fuel', 'score']
 

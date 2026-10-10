@@ -2,12 +2,12 @@
 
 // One taxiway name: letters/digits, optionally followed by a space and a number. Heathrow's
 // link taxiways are named that way ("taxi via E, LINK 36, F, A, R, hold short of runway
-// 27L", flight 229, 2026-10-05). Only a number may follow the space, so a list can't swallow
+// 27L"). Only a number may follow the space, so a list can't swallow
 // ordinary words after it.
 const TAXIWAY = String.raw`[A-Z0-9]+(?: \d+)?`
 const TAXIWAY_LIST = `${TAXIWAY}(?:, ${TAXIWAY})*`
 
-// The first half of a split taxi clearance (real, VHHH 2026-10-02, after landing 07L): "taxi via
+// The first half of a split taxi clearance (heard after landing): "taxi via
 // C7, Y, F, hold short of runway 07C." The stand comes in a second clearance once across.
 const HOLD_SHORT_TAXI = new RegExp(String.raw`taxi via ${TAXIWAY_LIST}, hold short of runway (\w+)`, 'i')
 

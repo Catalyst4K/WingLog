@@ -7,8 +7,7 @@ import { cn } from '@/lib/utils'
 
 /**
  * Folder-style tabs — the tab strip sits directly on top of the content it switches, and the
- * active tab joins that content's top border (beta feedback 2026-09-18, winglog-backend
- * docs/plans/beta-ui-polish.md §2). A thin wrapper over the same Radix `Tabs` the rest of the
+ * active tab joins that content's top border (winglog-backend docs/plans/beta-ui-polish.md §2). A thin wrapper over the same Radix `Tabs` the rest of the
  * app uses, so keyboard navigation and ARIA come for free; `components/ui/tabs.tsx` is
  * vendored shadcn and stays untouched. One tab pattern app-wide: Logbook's Flights/Landings
  * uses it, and Fleet's Retired table should too.

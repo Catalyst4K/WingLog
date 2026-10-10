@@ -66,7 +66,7 @@ export interface LayerChange {
 }
 
 /** Zoom each low-value place class first appears at — one or two levels later than the
- *  styles' own, per "doesn't need too much reduction" (Callum, 2026-09-18). "other" is the
+ *  styles' own, per "doesn't need too much reduction". "other" is the
  *  catch-all bucket a style builds by *excluding* the major classes. */
 const LOW_VALUE_MIN_ZOOM: Record<string, number> = {
   village: 10,
