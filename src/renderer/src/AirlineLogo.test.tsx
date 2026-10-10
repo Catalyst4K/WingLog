@@ -8,6 +8,11 @@ describe('AirlineLogo', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
+  it('renders nothing for a code whose logo is known to be a pre-rebrand one (KA, Cathay Dragon)', () => {
+    const { container } = render(<AirlineLogo iata="KA" />)
+    expect(container).toBeEmptyDOMElement()
+  })
+
   it('renders an image pointed at the logo service for the given IATA code', () => {
     // alt="" is deliberate (decorative image), which gives the <img> an implicit
     // "presentation" role rather than "img" — query by tag instead of role.
