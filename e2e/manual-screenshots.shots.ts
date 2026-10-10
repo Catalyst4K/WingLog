@@ -6,6 +6,7 @@ import { test, expect, type Page, type ElectronApplication } from '@playwright/t
 import { launchApp } from './launch-app'
 import { FakeBeyondAtcServer, LARGE_REAL_SNAPSHOT } from './beyondatc-server'
 import { FakeGsxRemoteServer, VHHH_BOOT_SNAPSHOT } from './gsx-remote-server'
+import { electronBinary } from './electron-binary'
 
 /**
  * Generates the manual's screenshots into docs/manual/images (winglog-backend's
@@ -43,12 +44,7 @@ async function shot(page: Page, name: string): Promise<void> {
 
 function seededProfile(): string {
   const dir = mkdtempSync(join(tmpdir(), 'winglog-manual-shots-'))
-  const electronBin = join(
-    'node_modules',
-    'electron',
-    'dist',
-    process.platform === 'win32' ? 'electron.exe' : 'electron'
-  )
+  const electronBin = electronBinary()
   execFileSync(
     electronBin,
     ['./node_modules/vitest/vitest.mjs', 'run', 'src/main/tracking/seed-e2e-completed-flight.test.ts'],

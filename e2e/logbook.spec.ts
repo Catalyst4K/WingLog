@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test, expect } from '@playwright/test'
 import { launchApp } from './launch-app'
+import { electronBinary } from './electron-binary'
 
 /**
  * Logbook's browse/detail/delete flow against the real built app, per winglog-backend's
@@ -25,12 +26,7 @@ test.beforeAll(() => {
   // Same electron-as-node recipe as package.json's db:migrate/test scripts (better-sqlite3
   // is built for Electron's Node ABI) — the real binary directly (not the node_modules/.bin
   // shim), since that's a .cmd on Windows and execFileSync can't run one without a shell.
-  const electronBin = join(
-    'node_modules',
-    'electron',
-    'dist',
-    process.platform === 'win32' ? 'electron.exe' : 'electron'
-  )
+  const electronBin = electronBinary()
   execFileSync(
     electronBin,
     ['./node_modules/vitest/vitest.mjs', 'run', 'src/main/tracking/seed-e2e-completed-flight.test.ts'],
