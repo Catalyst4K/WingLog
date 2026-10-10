@@ -227,7 +227,9 @@ describe('landing repo', () => {
 
     it('excludes landings updated at or before since', () => {
       createLanding(db, makeLanding(flightId))
-      const cutoff = db.select().from(landing).get()!.updatedAt as string
+      // Pinned, not read back: two creates in the same millisecond share a timestamp on a fast machine.
+      const cutoff = '2026-01-01T00:00:00.000Z'
+      db.update(landing).set({ updatedAt: cutoff }).run()
       const flight2 = createFlight(db, { aircraftId, depIcao: 'EGCC', arrIcao: 'EGLL' })
       createLanding(db, makeLanding(flight2.id))
       const rows = listLandingsForSync(db, cutoff)
