@@ -340,3 +340,19 @@ export function upsertAircraftByUuid(
   else db.insert(aircraft).values(input).run()
   return true
 }
+
+/**
+ * Points an aircraft at the one that replaced it, by sync uuid, without touching its updatedAt:
+ * sync-engine.ts sets this after a whole pull, once the replacing aircraft is certain to be here.
+ *
+ * @param db The database.
+ * @param uuid The retired aircraft's sync uuid.
+ * @param replacedByUuid The replacing aircraft's sync uuid.
+ * @returns False when either aircraft isn't here, so nothing changed.
+ */
+export function linkReplacedAircraftByUuid(db: WingLogDb, uuid: string, replacedByUuid: string): boolean {
+  const replacedById = getAircraftIdByUuid(db, replacedByUuid)
+  if (replacedById === undefined || getAircraftIdByUuid(db, uuid) === undefined) return false
+  db.update(aircraft).set({ replacedByAircraftId: replacedById }).where(eq(aircraft.uuid, uuid)).run()
+  return true
+}

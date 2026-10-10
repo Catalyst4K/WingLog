@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path'
 import { eq } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { createAircraft, deleteAircraft, listAircraft } from '../db/aircraft-repo'
+import { createAircraft, deleteAircraft, listAircraft, replaceAircraft } from '../db/aircraft-repo'
 import { createDb, type WingLogDb } from '../db/client'
 import { addInvoicesForFlight, listInvoicesForFlight } from '../db/flight-invoice-repo'
 import { createFlight } from '../db/flight-repo'
@@ -641,6 +641,75 @@ describe('sync-engine', () => {
 
       expect(result.tables.aircraft.skipped).toEqual([])
       expect(listAircraft(db).map((x) => x.registration)).toContain('G-NEWR')
+    })
+  })
+  describe('a replaced aircraft', () => {
+    it('keeps its replacement on a second device, whatever the local ids are there', async () => {
+      const old = createAircraft(db, { registration: 'G-OLD1', icaoType: 'A320' })
+      const next = createAircraft(db, { registration: 'G-NEW1', icaoType: 'A320' })
+      replaceAircraft(db, { retiredId: old.id, replacementId: next.id })
+      await runSync(db, server, SESSION, dbPath)
+      const pushed = (await server.syncPull(SESSION.email, SESSION.token, 'aircraft', null)).map(
+        (r) => JSON.parse(r.data) as Record<string, unknown>
+      )
+      expect(pushed.every((d) => d.replacedByAircraftId === undefined)).toBe(true)
+
+      const second = createDb(':memory:')
+      migrate(second.db, { migrationsFolder: 'drizzle' })
+      // Occupy ids 1 and 2 so the replacement's id differs from the first device's.
+      createAircraft(second.db, { registration: 'G-LOC1', icaoType: 'B738' })
+      createAircraft(second.db, { registration: 'G-LOC2', icaoType: 'B738' })
+      await runSync(second.db, server, SESSION, join(tempDir, 'second.db'))
+
+      const rows = second.db.select().from(aircraft).all()
+      const oldRow = rows.find((r) => r.registration === 'G-OLD1')
+      const newRow = rows.find((r) => r.registration === 'G-NEW1')
+      expect(oldRow?.replacedByAircraftId).toBe(newRow?.id)
+      expect(newRow?.id).toBeGreaterThan(2)
+    })
+
+    it('links even when the replacement comes later in the same pull', async () => {
+      server.seed('aircraft', {
+        uuid: 'retired',
+        updatedAt: '2099-01-01T00:00:00.000Z',
+        data: JSON.stringify({
+          registration: 'G-RET1',
+          icaoType: 'A320',
+          replacedByAircraftUuid: 'successor'
+        })
+      })
+      server.seed('aircraft', {
+        uuid: 'successor',
+        updatedAt: '2099-01-02T00:00:00.000Z',
+        data: JSON.stringify({ registration: 'G-SUC1', icaoType: 'A320' })
+      })
+
+      await runSync(db, server, SESSION, dbPath)
+
+      const rows = db.select().from(aircraft).all()
+      expect(rows.find((r) => r.uuid === 'retired')?.replacedByAircraftId).toBe(
+        rows.find((r) => r.uuid === 'successor')?.id
+      )
+    })
+
+    it('ignores a raw local id in a pulled row and a link to an aircraft that never arrives', async () => {
+      const mine = createAircraft(db, { registration: 'G-MINE', icaoType: 'A320' })
+      server.seed('aircraft', {
+        uuid: 'forged',
+        updatedAt: '2099-01-01T00:00:00.000Z',
+        data: JSON.stringify({
+          registration: 'G-FRG1',
+          icaoType: 'A320',
+          replacedByAircraftId: mine.id,
+          replacedByAircraftUuid: 'nobody'
+        })
+      })
+
+      await runSync(db, server, SESSION, dbPath)
+
+      expect(
+        db.select().from(aircraft).where(eq(aircraft.uuid, 'forged')).get()?.replacedByAircraftId
+      ).toBeNull()
     })
   })
 })

@@ -16,6 +16,7 @@ import { dirname, join } from 'node:path'
 import {
   getAircraftIdByUuid,
   getAircraftUuidById,
+  linkReplacedAircraftByUuid,
   listAircraftForSync,
   upsertAircraftByUuid
 } from '../db/aircraft-repo'
@@ -123,11 +124,24 @@ type ApplyResult = { ok: true; applied: boolean } | { ok: false; error: string }
 
 // --- aircraft ---------------------------------------------------------------------------
 
-function serializeAircraft(row: ReturnType<typeof listAircraftForSync>[number]): SyncRow {
+/**
+ * An aircraft as a sync row. `replacedByAircraftId` is a local id, meaningless on another device, so
+ * it travels as the replacing aircraft's uuid like every other parent reference.
+ *
+ * @param db The database.
+ * @param row The aircraft row.
+ * @returns The row to push.
+ */
+function serializeAircraft(db: WingLogDb, row: ReturnType<typeof listAircraftForSync>[number]): SyncRow {
+  const replacedByAircraftUuid =
+    row.replacedByAircraftId == null ? null : (getAircraftUuidById(db, row.replacedByAircraftId) ?? null)
   return {
     uuid: row.uuid as string,
     updatedAt: row.updatedAt as string,
-    data: JSON.stringify(omit(row, ['id', 'uuid', 'updatedAt']))
+    data: JSON.stringify({
+      ...omit(row, ['id', 'uuid', 'updatedAt', 'replacedByAircraftId']),
+      replacedByAircraftUuid
+    })
   }
 }
 
@@ -136,7 +150,7 @@ function applyAircraft(db: WingLogDb, row: SyncRow): ApplyResult {
   if (!data || typeof data.registration !== 'string' || typeof data.icaoType !== 'string') {
     return { ok: false, error: 'malformed aircraft data' }
   }
-  const checked = validateSyncFields(aircraft, data)
+  const checked = validateSyncFields(aircraft, data, ['replacedByAircraftId'])
   if (!checked.ok) return checked
   try {
     const applied = upsertAircraftByUuid(db, {
@@ -151,6 +165,20 @@ function applyAircraft(db: WingLogDb, row: SyncRow): ApplyResult {
      * case real testing can trigger. */
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
     /* v8 ignore stop */
+  }
+}
+
+/**
+ * Points each pulled aircraft at the one that replaced it. Done after the whole pull because the
+ * replacing aircraft may come later in the same batch; one that never arrives leaves the link empty.
+ *
+ * @param db The database.
+ * @param applied The aircraft rows that were applied this pull.
+ */
+function linkPulledReplacements(db: WingLogDb, applied: SyncRow[]): void {
+  for (const row of applied) {
+    const replacedBy = parseRowData(row.data)?.replacedByAircraftUuid
+    if (typeof replacedBy === 'string') linkReplacedAircraftByUuid(db, row.uuid, replacedBy)
   }
 }
 
@@ -301,7 +329,7 @@ function applyFlightInvoice(db: WingLogDb, row: SyncRow): ApplyResult {
 function listAndSerializeForPush(db: WingLogDb, table: SyncTable, since: string | null): SyncRow[] {
   switch (table) {
     case 'aircraft':
-      return listAircraftForSync(db, since).map(serializeAircraft)
+      return listAircraftForSync(db, since).map((row) => serializeAircraft(db, row))
     case 'flight':
       return listFlightsForSync(db, since)
         .map((row) => serializeFlight(db, row))
@@ -359,6 +387,7 @@ export async function runSync(
     const since = getLastSyncedAt(db, table)
 
     const pulledRows = await client.syncPull(session.email, session.token, table, since)
+    const appliedRows: SyncRow[] = []
     for (const row of pulledRows) {
       const outcome = applyPulledRow(db, table, row)
       if (!outcome.ok) {
@@ -366,6 +395,7 @@ export async function runSync(
         logSyncEvent(dbPath, { direction: 'pull', table, uuid: row.uuid, reason: outcome.error })
       } else if (outcome.applied) {
         result.pulled++
+        appliedRows.push(row)
       } else {
         // This device's own not-yet-pushed local edit to the same uuid was already the
         // same age or newer — the incoming row lost the last-write-wins comparison, and
@@ -379,6 +409,8 @@ export async function runSync(
         })
       }
     }
+
+    if (table === 'aircraft') linkPulledReplacements(db, appliedRows)
 
     const toPush = listAndSerializeForPush(db, table, since)
     if (toPush.length > 0) {
