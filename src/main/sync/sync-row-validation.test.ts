@@ -75,11 +75,11 @@ describe('validateSyncFields', () => {
   })
 
   it('caps ordinary text but allows a whole OFP in its own column', () => {
-    expect(validateSyncFields(aircraft, { operator: 'x'.repeat(4097) })).toEqual({
+    expect(validateSyncFields(aircraft, { operator: 'x'.repeat(65537) })).toEqual({
       ok: false,
       error: 'invalid aircraft data: operator is too long'
     })
-    expect(validateSyncFields(aircraft, { operator: 'x'.repeat(4096) }).ok).toBe(true)
+    expect(validateSyncFields(aircraft, { operator: 'x'.repeat(65536) }).ok).toBe(true)
     expect(validateSyncFields(flight, { ofpJson: 'x'.repeat(5_000_000) }).ok).toBe(true)
     expect(validateSyncFields(flight, { ofpJson: 'x'.repeat(16 * 1024 * 1024 + 1) })).toEqual({
       ok: false,

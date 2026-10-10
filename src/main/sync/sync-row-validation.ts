@@ -13,7 +13,7 @@ import type { SQLiteTable } from 'drizzle-orm/sqlite-core'
 import { getTableColumns, getTableName } from 'drizzle-orm'
 
 /** Longest accepted text value, in characters, for a column without its own limit below. */
-const DEFAULT_MAX_TEXT_LENGTH = 4096
+const DEFAULT_MAX_TEXT_LENGTH = 65536
 
 /** Columns that hold a whole JSON document (an OFP, a route polyline, a receipt). */
 const LARGE_TEXT_LIMITS: Record<string, number> = {
