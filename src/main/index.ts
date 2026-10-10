@@ -41,7 +41,7 @@ import { registerGsxHandlers } from './ipc/gsx-handlers'
 import { registerGsxRemoteHandlers } from './ipc/gsx-remote-handlers'
 import { registerBeyondAtcHandlers } from './ipc/beyondatc-handlers'
 import { registerDiagnosticsHandlers, registerSimHandlers } from './ipc/sim-handlers'
-import { createBackgroundSync, registerSyncHandlers } from './ipc/sync-handlers'
+import { createBackgroundSync, registerSyncHandlers, startPeriodicSync } from './ipc/sync-handlers'
 import { e2eBeyondAtcPort } from './beyondatc/BeyondAtcService'
 import { UpdateService } from './updates/update-check'
 import { LiveHub } from './live/LiveHub'
@@ -249,6 +249,7 @@ function startApp(): void {
   const cloudSync = new CloudSyncController(db, dbPath, app.getPath('userData'))
   if (cloudSync.getStatus().loggedIn) runLogged('cloud sync at launch', cloudSync.syncNow())
   const scheduleBackgroundSync = createBackgroundSync(cloudSync)
+  startPeriodicSync(cloudSync)
 
   registerFleetHandlers(ipcMain, { db, window, scheduleBackgroundSync })
   registerLogbookHandlers(ipcMain, { db, window, scheduleBackgroundSync })
