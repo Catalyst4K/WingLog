@@ -15,6 +15,7 @@ import { appendFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import {
   getAircraftIdByUuid,
+  getAircraftUuidByRegistration,
   getAircraftUuidById,
   linkReplacedAircraftByUuid,
   listAircraftForSync,
@@ -29,7 +30,7 @@ import {
   upsertFlightByUuid
 } from '../db/flight-repo'
 import { listLandingsForSync, upsertLandingByUuid } from '../db/landing-repo'
-import { getLastSyncedAt, setLastSyncedAt } from '../db/settings-repo'
+import { getLastSyncedAt, getSetting, setLastSyncedAt, setSetting } from '../db/settings-repo'
 import { SYNC_TABLES, type SyncRow, type SyncTable } from '../backend/sync-client'
 import { aircraft, flight, flightInvoice, landing } from '../db/schema'
 import { validateSyncFields } from './sync-row-validation'
@@ -145,6 +146,19 @@ function serializeAircraft(db: WingLogDb, row: ReturnType<typeof listAircraftFor
   }
 }
 
+/**
+ * The local uuid of an aircraft that another device created under a different uuid but the same
+ * registration. Registrations are unique, so two devices that each add the same aircraft offline would
+ * otherwise never merge: the second one to arrive could not be applied.
+ *
+ * @param db The database.
+ * @param uuid The uuid on the incoming row, or on a flight's reference to it.
+ * @returns The local uuid it stands for, or the same uuid when it has no alias.
+ */
+function resolveAircraftUuid(db: WingLogDb, uuid: string): string {
+  return getSetting(db, `aircraftAlias:${uuid}`) ?? uuid
+}
+
 function applyAircraft(db: WingLogDb, row: SyncRow): ApplyResult {
   const data = parseRowData(row.data)
   if (!data || typeof data.registration !== 'string' || typeof data.icaoType !== 'string') {
@@ -152,10 +166,18 @@ function applyAircraft(db: WingLogDb, row: SyncRow): ApplyResult {
   }
   const checked = validateSyncFields(aircraft, data, ['replacedByAircraftId'])
   if (!checked.ok) return checked
+  let uuid = resolveAircraftUuid(db, row.uuid)
+  if (getAircraftIdByUuid(db, uuid) === undefined) {
+    const sameRegistration = getAircraftUuidByRegistration(db, data.registration)
+    if (sameRegistration !== undefined) {
+      setSetting(db, `aircraftAlias:${row.uuid}`, sameRegistration)
+      uuid = sameRegistration
+    }
+  }
   try {
     const applied = upsertAircraftByUuid(db, {
       ...checked.fields,
-      uuid: row.uuid,
+      uuid,
       updatedAt: row.updatedAt
     } as Parameters<typeof upsertAircraftByUuid>[1])
     return { ok: true, applied }
@@ -178,7 +200,9 @@ function applyAircraft(db: WingLogDb, row: SyncRow): ApplyResult {
 function linkPulledReplacements(db: WingLogDb, applied: SyncRow[]): void {
   for (const row of applied) {
     const replacedBy = parseRowData(row.data)?.replacedByAircraftUuid
-    if (typeof replacedBy === 'string') linkReplacedAircraftByUuid(db, row.uuid, replacedBy)
+    if (typeof replacedBy === 'string') {
+      linkReplacedAircraftByUuid(db, resolveAircraftUuid(db, row.uuid), resolveAircraftUuid(db, replacedBy))
+    }
   }
 }
 
@@ -217,7 +241,7 @@ function applyFlight(db: WingLogDb, row: SyncRow): ApplyResult {
   ) {
     return { ok: false, error: 'malformed flight data' }
   }
-  const aircraftId = getAircraftIdByUuid(db, data.aircraftUuid)
+  const aircraftId = getAircraftIdByUuid(db, resolveAircraftUuid(db, data.aircraftUuid))
   if (aircraftId === undefined) return { ok: false, error: `unknown aircraft ${data.aircraftUuid}` }
   const checked = validateSyncFields(flight, data, ['aircraftId'])
   if (!checked.ok) return checked
