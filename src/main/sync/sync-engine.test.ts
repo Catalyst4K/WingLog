@@ -13,7 +13,7 @@ import { createLanding, getLandingByFlight } from '../db/landing-repo'
 import { getLastSyncedAt } from '../db/settings-repo'
 import { aircraft, flight, flightInvoice } from '../db/schema'
 import type { SyncRow, SyncTable } from '../backend/sync-client'
-import { runSync, type SyncClient } from './sync-engine'
+import { MAX_PUSH_ROWS, MAX_ROW_DATA_BYTES, runSync, splitPushBatches, type SyncClient } from './sync-engine'
 
 /** A high-fidelity fake of winglog-backend's real UserStore.push/pull semantics
  *  (last-write-wins on updatedAt, filter-by-since on pull) — see winglog-backend's
@@ -710,6 +710,58 @@ describe('sync-engine', () => {
       expect(
         db.select().from(aircraft).where(eq(aircraft.uuid, 'forged')).get()?.replacedByAircraftId
       ).toBeNull()
+    })
+  })
+
+  describe('push batching', () => {
+    const row = (n: number, size = 10): SyncRow => ({
+      uuid: `u${n}`,
+      updatedAt: '2026-09-04T10:00:00.000Z',
+      data: 'x'.repeat(size)
+    })
+
+    it('splits rows into batches of at most 500', () => {
+      const rows = Array.from({ length: MAX_PUSH_ROWS * 2 + 1 }, (_, i) => row(i))
+      const { batches, oversize } = splitPushBatches(rows)
+      expect(batches.map((b) => b.length)).toEqual([MAX_PUSH_ROWS, MAX_PUSH_ROWS, 1])
+      expect(oversize).toEqual([])
+    })
+
+    it('starts a new batch before the request body would pass the byte cap', () => {
+      const big = MAX_ROW_DATA_BYTES - 1
+      const { batches } = splitPushBatches(Array.from({ length: 12 }, (_, i) => row(i, big)))
+      expect(batches.length).toBeGreaterThan(1)
+      for (const b of batches) {
+        expect(b.reduce((sum, r) => sum + r.data.length, 0)).toBeLessThanOrEqual(20 * 1024 * 1024)
+      }
+      expect(batches.flat()).toHaveLength(12)
+    })
+
+    it('sets aside a row whose data is over the per-row limit instead of sending it', () => {
+      const { batches, oversize } = splitPushBatches([row(1), row(2, MAX_ROW_DATA_BYTES + 1), row(3)])
+      expect(oversize).toEqual(['u2'])
+      expect(batches.flat().map((r) => r.uuid)).toEqual(['u1', 'u3'])
+    })
+
+    it('returns no batches for no rows', () => {
+      expect(splitPushBatches([])).toEqual({ batches: [], oversize: [] })
+    })
+
+    it('runSync pushes a large first sync in several requests and counts every row', async () => {
+      for (let i = 0; i < MAX_PUSH_ROWS + 5; i++) {
+        createAircraft(db, { registration: `G-T${String(i).padStart(3, '0')}`, icaoType: 'A320' })
+      }
+      const sizes: number[] = []
+      const original = server.syncPush.bind(server)
+      server.syncPush = async (email, token, table, rows) => {
+        sizes.push(rows.length)
+        return original(email, token, table, rows)
+      }
+
+      const result = await runSync(db, server, SESSION, dbPath)
+
+      expect(sizes).toEqual([MAX_PUSH_ROWS, 5])
+      expect(result.tables.aircraft.pushed).toBe(MAX_PUSH_ROWS + 5)
     })
   })
 })

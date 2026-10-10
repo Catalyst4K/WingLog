@@ -358,6 +358,42 @@ function applyPulledRow(db: WingLogDb, table: SyncTable, row: SyncRow): ApplyRes
   }
 }
 
+/** The backend's push limits (winglog-backend `routes/sync.ts`): rows per request, one row's data, and
+ *  the request body. The body cap is kept under the backend's 25 MB to leave room for the envelope. */
+export const MAX_PUSH_ROWS = 500
+export const MAX_ROW_DATA_BYTES = 1_900_000
+export const MAX_PUSH_BATCH_BYTES = 20 * 1024 * 1024
+
+/**
+ * Splits rows into pushes the backend will accept. A row whose data alone is over the backend's limit
+ * would make it refuse the whole request, so it is set aside instead of sent.
+ *
+ * @param rows The rows to push.
+ * @returns The batches, in order, and the uuids of rows too large to push.
+ */
+export function splitPushBatches(rows: SyncRow[]): { batches: SyncRow[][]; oversize: string[] } {
+  const batches: SyncRow[][] = []
+  const oversize: string[] = []
+  let current: SyncRow[] = []
+  let currentBytes = 0
+  for (const row of rows) {
+    const bytes = Buffer.byteLength(row.data) + Buffer.byteLength(row.uuid) + Buffer.byteLength(row.updatedAt)
+    if (Buffer.byteLength(row.data) > MAX_ROW_DATA_BYTES) {
+      oversize.push(row.uuid)
+      continue
+    }
+    if (current.length >= MAX_PUSH_ROWS || currentBytes + bytes > MAX_PUSH_BATCH_BYTES) {
+      batches.push(current)
+      current = []
+      currentBytes = 0
+    }
+    current.push(row)
+    currentBytes += bytes
+  }
+  if (current.length > 0) batches.push(current)
+  return { batches, oversize }
+}
+
 /**
  * Runs one full pull-then-push cycle across all four synced tables, in dependency order.
  * `dbPath` is only used to place sync-conflicts.log next to the database file, per the
@@ -412,10 +448,14 @@ export async function runSync(
 
     if (table === 'aircraft') linkPulledReplacements(db, appliedRows)
 
-    const toPush = listAndSerializeForPush(db, table, since)
-    if (toPush.length > 0) {
-      const { upserted, rejected } = await client.syncPush(session.email, session.token, table, toPush)
-      result.pushed = upserted.length
+    const { batches, oversize } = splitPushBatches(listAndSerializeForPush(db, table, since))
+    for (const uuid of oversize) {
+      result.skipped.push(uuid)
+      logSyncEvent(dbPath, { direction: 'push', table, uuid, reason: 'row data too large for the backend' })
+    }
+    for (const batch of batches) {
+      const { upserted, rejected } = await client.syncPush(session.email, session.token, table, batch)
+      result.pushed += upserted.length
       // Appended, not assigned — a pull-side rejection above must not be clobbered by an
       // empty push-side rejected list.
       result.rejected.push(...rejected)
