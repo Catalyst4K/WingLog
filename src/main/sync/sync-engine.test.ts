@@ -384,20 +384,25 @@ describe('sync-engine', () => {
   })
 
   it('reports a real DB failure (unique constraint) applying a pulled row as skipped, not a crash', async () => {
-    // Two devices independently create an aircraft with the same registration before either
-    // has synced — the second one to be pulled here collides with the unique constraint
-    // already satisfied by the first, real local aircraft below.
+    // A known aircraft renamed on another device to a registration this device already has on a
+    // different aircraft, so the update collides with the unique constraint.
     createAircraft(db, { registration: 'G-DUPE', icaoType: 'A320' })
+    const other = createAircraft(db, { registration: 'G-OTHR', icaoType: 'A320' })
+    const otherUuid = db.select().from(aircraft).where(eq(aircraft.id, other.id)).get()!.uuid as string
     server.seed('aircraft', {
-      uuid: 'remote-dupe',
-      updatedAt: '2026-09-04T10:00:00.000Z',
+      uuid: otherUuid,
+      updatedAt: '2099-01-01T00:00:00.000Z',
       data: JSON.stringify({ registration: 'G-DUPE', icaoType: 'B738' })
     })
 
     const result = await runSync(db, server, SESSION, dbPath)
 
-    expect(result.tables.aircraft.skipped).toEqual(['remote-dupe'])
-    expect(listAircraft(db).map((a) => a.registration)).toEqual(['G-DUPE'])
+    expect(result.tables.aircraft.skipped).toEqual([otherUuid])
+    expect(
+      listAircraft(db)
+        .map((a) => a.registration)
+        .sort()
+    ).toEqual(['G-DUPE', 'G-OTHR'])
   })
 
   it('reports a real DB failure applying a pulled landing (missing NOT NULL fields) as skipped', async () => {
@@ -762,6 +767,45 @@ describe('sync-engine', () => {
 
       expect(sizes).toEqual([MAX_PUSH_ROWS, 5])
       expect(result.tables.aircraft.pushed).toBe(MAX_PUSH_ROWS + 5)
+    })
+  })
+
+  describe('the same registration created on two devices', () => {
+    const remoteAircraft = (updatedAt: string, icaoType: string): SyncRow => ({
+      uuid: 'other-device-uuid',
+      updatedAt,
+      data: JSON.stringify({ registration: 'G-ABCD', icaoType })
+    })
+
+    it('merges into the local aircraft instead of skipping it, and attaches its flights', async () => {
+      const mine = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' })
+      await runSync(db, server, SESSION, dbPath)
+      server.seed('aircraft', remoteAircraft('2099-01-01T00:00:00.000Z', 'A321'))
+      server.seed('flight', {
+        uuid: 'remote-flight',
+        updatedAt: '2099-01-01T00:00:00.000Z',
+        data: JSON.stringify({ aircraftUuid: 'other-device-uuid', depIcao: 'EGLL', arrIcao: 'EGCC' })
+      })
+
+      const result = await runSync(db, server, SESSION, dbPath)
+
+      expect(result.tables.aircraft.skipped).toEqual([])
+      expect(result.tables.flight.skipped).toEqual([])
+      const rows = db.select().from(aircraft).all()
+      expect(rows).toHaveLength(1)
+      expect(rows[0]).toMatchObject({ id: mine.id, icaoType: 'A321' })
+      expect(db.select().from(flight).get()?.aircraftId).toBe(mine.id)
+    })
+
+    it('keeps merging on later syncs, and an older copy does not overwrite a newer local edit', async () => {
+      const mine = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' })
+      server.seed('aircraft', remoteAircraft('2000-01-01T00:00:00.000Z', 'B738'))
+      await runSync(db, server, SESSION, dbPath)
+      await runSync(db, server, SESSION, dbPath)
+
+      const rows = db.select().from(aircraft).all()
+      expect(rows).toHaveLength(1)
+      expect(rows[0]).toMatchObject({ id: mine.id, icaoType: 'A320' })
     })
   })
 })

@@ -106,6 +106,20 @@ export function getAircraftIdByUuid(db: WingLogDb, uuid: string): number | undef
   return db.select({ id: aircraft.id }).from(aircraft).where(eq(aircraft.uuid, uuid)).get()?.id
 }
 
+/**
+ * The sync uuid of the aircraft with a registration.
+ *
+ * @param db The database.
+ * @param registration The registration.
+ * @returns The uuid, or undefined when there is no such aircraft.
+ */
+export function getAircraftUuidByRegistration(db: WingLogDb, registration: string): string | undefined {
+  return (
+    db.select({ uuid: aircraft.uuid }).from(aircraft).where(eq(aircraft.registration, registration)).get()
+      ?.uuid ?? undefined
+  )
+}
+
 /** The reverse of getAircraftIdByUuid — sync-engine.ts's push side needs an aircraft's
  *  uuid (not its local id, meaningless remotely) to serialize a flight's aircraftId.
  *
