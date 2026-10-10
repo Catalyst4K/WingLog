@@ -15,7 +15,9 @@ import {
   syncPush
 } from '../backend/sync-client'
 import { clearSession, loadSession, saveSession, type StoredSession } from '../backend/session-store'
-import { getLastSyncCompletedAt, setLastSyncCompletedAt } from '../db/settings-repo'
+import { join } from 'node:path'
+import { backupBeforeFirstSync } from '../db/backup'
+import { getLastSyncCompletedAt, getSetting, setLastSyncCompletedAt, setSetting } from '../db/settings-repo'
 import type { WingLogDb } from '../db/client'
 import { runSync } from './sync-engine'
 
@@ -93,6 +95,13 @@ export class CloudSyncController {
     if (this.syncing) return this.getStatus() // already running — don't overlap two syncs
     this.syncing = true
     try {
+      // A device's first sync with an account can overwrite local rows with newer ones from another
+      // device, so snapshot the database first. If the snapshot fails, no sync runs.
+      const backupKey = `firstSyncBackup:${this.session.email}`
+      if (getSetting(this.db, backupKey) === undefined) {
+        const backup = backupBeforeFirstSync(this.dbPath, join(this.userDataPath, 'backups'))
+        setSetting(this.db, backupKey, backup ?? 'no database file')
+      }
       const result = await runSync(this.db, { syncPull, syncPush }, this.session, this.dbPath)
       this.lastSyncedAt = result.syncedAt
       setLastSyncCompletedAt(this.db, result.syncedAt)

@@ -68,3 +68,24 @@ function pruneOldBackups(backupsDir: string, keep: number): void {
     unlinkSync(join(backupsDir, name))
   }
 }
+
+/**
+ * Snapshots the database before an account's first sync from this device. Kept apart from the
+ * launch backups, under a name the pruning above never matches, so ordinary launches can't push it out.
+ *
+ * @param dbPath The live database.
+ * @param backupsDir Where snapshots go.
+ * @returns The snapshot's path, or null when there is no database file to back up.
+ */
+export function backupBeforeFirstSync(dbPath: string, backupsDir: string): string | null {
+  if (!existsSync(dbPath)) return null
+  mkdirSync(backupsDir, { recursive: true })
+  const target = join(backupsDir, `before-first-sync-${new Date().toISOString().replace(/[-:.]/g, '')}.db`)
+  const sqlite = new Database(dbPath)
+  try {
+    sqlite.prepare('VACUUM INTO ?').run(target)
+  } finally {
+    sqlite.close()
+  }
+  return target
+}
