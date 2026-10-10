@@ -48,6 +48,19 @@ function gridAirport(): { segments: NavdataTaxiSegment[]; stands: NavdataStand[]
   return { segments, stands }
 }
 
+/** A straight named taxiway segment along the grid's bottom row, x in STEP units. */
+function seg4(ax: number, bx: number, name: string): NavdataTaxiSegment {
+  return {
+    startLat: LAT0,
+    startLon: LON0 + ax * STEP,
+    endLat: LAT0,
+    endLon: LON0 + bx * STEP,
+    name,
+    startHoldShort: false,
+    endHoldShort: false
+  }
+}
+
 describe('airport rules', () => {
   const { segments, stands } = gridAirport()
   const network = buildNetwork(segments)
@@ -124,5 +137,61 @@ describe('airport rules', () => {
       const withStand: [number, number][] = [...stand.walk, [stand.stand!.lon, stand.stand!.lat]]
       expect(rulesOf(stand, () => withStand)).not.toContain('ends right')
     })
+  })
+  describe('overlapping segments', () => {
+    const seg = (ax: number, bx: number, name: string, endHoldShort = false): NavdataTaxiSegment => ({
+      startLat: LAT0,
+      startLon: LON0 + ax * STEP,
+      endLat: LAT0,
+      endLon: LON0 + bx * STEP,
+      name,
+      startHoldShort: false,
+      endHoldShort
+    })
+    // G from x0 to x1, then x1 to x2 drawn twice: once unnamed, once as A (as FKKD, KDCA and KOMA have it).
+    const doubled = [seg(0, 1, 'G'), seg(1, 2, ''), seg(1, 2, 'A', true)]
+    const walk: [number, number][] = [0, 1, 2].map((x) => [LON0 + x * STEP, LAT0])
+    const generated: GeneratedClearance = {
+      kind: 'runway hold short',
+      clearance: {
+        stand: null,
+        holdShortRunway: '09',
+        from: { lat: LAT0, lon: LON0 },
+        taxiways: ['G', 'A'],
+        holdingPoint: null
+      },
+      stand: null,
+      walk,
+      walkM: 150
+    }
+
+    it('counts the route as following a name carried by either of two segments over the same ground', () => {
+      const net = buildNetwork(doubled)
+      expect(checkClearance(net, doubled, generated, () => walk).failures).toEqual([])
+    })
+
+    it('still fails a route when no overlapping segment carries the cleared name', () => {
+      const net = buildNetwork(doubled)
+      const wrong = { ...generated, clearance: { ...generated.clearance, taxiways: ['G', 'Q'] } }
+      expect(checkClearance(net, doubled, wrong, () => walk).failures.map((f) => f.rule)).toEqual([
+        'follows the names'
+      ])
+    })
+  })
+
+  it('makes no stand clearance for a stand that two nodes are equally near', () => {
+    const line = [seg4(0, 2, 'A'), seg4(2, 4, 'A')]
+    const midway: NavdataStand = {
+      name: 'M1',
+      number: 1,
+      suffix: 0,
+      headingDeg: 0,
+      lat: LAT0,
+      lon: LON0 + STEP
+    }
+    const net = buildNetwork(line)
+    expect(generateClearances(net, [midway], seeded(3), 20).filter((g) => g.kind === 'stand')).toEqual([])
+    const offCentre = { ...midway, lon: LON0 + 1.2 * STEP }
+    expect(generateClearances(net, [offCentre], seeded(3), 20).some((g) => g.kind === 'stand')).toBe(true)
   })
 })

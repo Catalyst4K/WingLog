@@ -116,6 +116,19 @@ function nearest(network: Network, at: { lat: number; lon: number }): { node: nu
   return best
 }
 
+/** Two nodes this close to equally near a stand make its link ambiguous (the trace may pick either). */
+export const LINK_TIE_M = 1
+
+/**
+ * @param network The network.
+ * @param at A stand's position.
+ * @returns Whether a second node is about as near as the nearest, so no single node is the stand's link.
+ */
+function linkIsAmbiguous(network: Network, at: { lat: number; lon: number }): boolean {
+  const metres = network.nodes.map((node) => distance(network, at, node)).sort((a, b) => a - b)
+  return metres.length > 1 && metres[1] - metres[0] <= LINK_TIE_M
+}
+
 /** Collapses repeated names and drops unnamed stretches: "B8, B8, (fillet), B, B" is "B8, B". */
 function namesOf(names: (string | null)[]): string[] {
   const out: string[] = []
@@ -211,6 +224,8 @@ export function generateClearances(
       ? nearest(network, stand)
       : { node: holds[Math.floor(rand() * holds.length)] ?? -1, metres: 0 }
     if (end.node < 0 || (stand && end.metres > MAX_STAND_LINK_M)) continue
+    // A stand with two equally near nodes may be linked to either; a walk to one says nothing about the other's route.
+    if (stand && linkIsAmbiguous(network, stand)) continue
     const walk = walkBackFrom(network, end.node, 150 + rand() * 1100, rand)
     if (!walk) continue
     // A controller gives an efficient route, so a walk much longer than the shortest way between its ends isn't one.
@@ -258,18 +273,40 @@ export function generateClearances(
 }
 
 /**
- * The segment between two route points, if the network has one.
+ * The segments between two route points. Usually one, but airports draw two taxiways over the same
+ * stretch of pavement (an unnamed link under A, or J and S as one strip), so two nodes can be joined by
+ * several segments with different names, and a route point list can't say which one was driven.
  *
  * @param network The network.
  * @param a One point, [lon, lat].
  * @param b The next point.
- * @returns The edge, or undefined.
+ * @returns The segments joining them; empty when the points aren't joined.
  */
-function edgeBetween(network: Network, a: [number, number], b: [number, number]): Edge | undefined {
+function edgesBetween(network: Network, a: [number, number], b: [number, number]): Edge[] {
   const from = nearest(network, { lat: a[1], lon: a[0] })
   const to = nearest(network, { lat: b[1], lon: b[0] })
-  if (from.metres > 0.5 || to.metres > 0.5) return undefined
-  return network.edges[from.node].find((e) => e.to === to.node)
+  if (from.metres > 0.5 || to.metres > 0.5) return []
+  return network.edges[from.node].filter((e) => e.to === to.node)
+}
+
+/**
+ * The names a route drove along. Where overlapping segments carry different names, the one the clearance
+ * is waiting for next is taken, since the route's points fit either.
+ *
+ * @param steps The segments each step of the route could be.
+ * @param wanted The names the clearance gave, in order.
+ * @returns One name (or null for unnamed) per step.
+ */
+function namesDriven(steps: Edge[][], wanted: string[]): (string | null)[] {
+  let next = 0
+  return steps.map((edges) => {
+    const wantedNext = edges.find((e) => e.name !== null && e.name === wanted[next])
+    if (wantedNext) {
+      next++
+      return wantedNext.name
+    }
+    return (edges.find((e) => e.name !== null && e.name !== '') ?? edges[0]).name
+  })
 }
 
 /**
@@ -326,22 +363,23 @@ export function checkClearance(
     route[route.length - 1][0] === stand.lon &&
     route[route.length - 1][1] === stand.lat
   const driven = standEnd ? route.slice(0, -1) : route
-  const names: (string | null)[] = []
+  const steps: Edge[][] = []
   let lengthM = 0
   for (let i = 0; i + 1 < driven.length; i++) {
-    const edge = edgeBetween(network, driven[i], driven[i + 1])
-    if (!edge) {
+    const edges = edgesBetween(network, driven[i], driven[i + 1])
+    if (edges.length === 0) {
       failures.push({ rule: 'connected', detail: `point ${i} to ${i + 1} is not a taxi segment` })
       break
     }
-    names.push(edge.name)
-    lengthM += edge.lengthM
+    steps.push(edges)
+    lengthM += edges[0].lengthM
   }
 
   const wanted =
     clearance.holdingPoint && clearance.taxiways.at(-1) !== clearance.holdingPoint
       ? [...clearance.taxiways, clearance.holdingPoint]
       : clearance.taxiways
+  const names = namesDriven(steps, wanted)
   if (!failures.some((f) => f.rule === 'connected') && !inOrder(wanted, namesOf(names))) {
     failures.push({
       rule: 'follows the names',
@@ -394,10 +432,14 @@ function endFailures(
   const node = network.nodes[lastNode.node]
   const deadEnd = new Set(network.edges[lastNode.node].map((e) => e.to)).size <= 1
   const previous = driven.length > 1 ? driven[driven.length - 2] : null
-  const lastEdge = previous ? edgeBetween(network, previous, last) : undefined
-  const nameStops =
-    lastEdge?.name != null &&
-    !network.edges[lastNode.node].some((e) => e.name === lastEdge.name && !samePlace(network, e.to, previous))
+  const lastEdges = previous ? edgesBetween(network, previous, last) : []
+  const nameStops = lastEdges.some(
+    (lastEdge) =>
+      lastEdge.name != null &&
+      !network.edges[lastNode.node].some(
+        (e) => e.name === lastEdge.name && !samePlace(network, e.to, previous)
+      )
+  )
   return node.holdShort || deadEnd || nameStops
     ? []
     : [
