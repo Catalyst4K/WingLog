@@ -98,6 +98,38 @@ describe('stepPhase', () => {
     expect(run(cruise, dip).every((r) => r.phase === 'cruise')).toBe(true)
   })
 
+  describe('tracking that starts in the air', () => {
+    const air = (verticalSpeedMs: number, altitudeAglM = 3000): Partial<SimTelemetry> => ({
+      onGround: false,
+      altitudeAglM,
+      verticalSpeedMs,
+      groundSpeedMs: 200
+    })
+    const ticks = (count: number, overrides: Partial<SimTelemetry>): Partial<SimTelemetry>[] =>
+      Array.from({ length: count }, () => overrides)
+
+    it('picks the phase the flight is in after ten airborne samples: climb, cruise or descent', () => {
+      expect(run(INITIAL_PHASE_STATE, ticks(10, air(8))).at(-1)?.phase).toBe('climb')
+      expect(run(INITIAL_PHASE_STATE, ticks(10, air(0.1))).at(-1)?.phase).toBe('cruise')
+      expect(run(INITIAL_PHASE_STATE, ticks(10, air(-6))).at(-1)?.phase).toBe('descent')
+    })
+
+    it('waits for ten samples, and for the aircraft to be well off the ground', () => {
+      expect(run(INITIAL_PHASE_STATE, ticks(9, air(8))).at(-1)?.phase).toBe('preflight')
+      expect(run(INITIAL_PHASE_STATE, ticks(30, air(0, 5))).at(-1)?.phase).toBe('preflight')
+    })
+
+    it('starts the count again after a tick on the ground', () => {
+      const flickering = [...ticks(9, air(8)), { onGround: true }, ...ticks(9, air(8))]
+      expect(run(INITIAL_PHASE_STATE, flickering).at(-1)?.phase).toBe('preflight')
+    })
+
+    it('carries on normally from there: a descent that lands reaches landing', () => {
+      const flight = [...ticks(10, air(-6)), { onGround: true, groundSpeedMs: 65 }]
+      expect(run(INITIAL_PHASE_STATE, flight).at(-1)?.phase).toBe('landing')
+    })
+  })
+
   it('lands on the first tick on the ground in descent, and notes the flight has landed', () => {
     const [landed] = run({ ...INITIAL_PHASE_STATE, phase: 'descent' }, [
       { onGround: true, groundSpeedMs: 70 }

@@ -23,6 +23,11 @@ const DESCENT_SUSTAIN_SAMPLES = 30
 // 'landing' -> 'climb' -> 'cruise' and recorded the whole taxi-in as cruise. Same count as TrackingController's
 // MIN_AIRBORNE_SAMPLES_FOR_NEW_TOUCHDOWN, which already kept that bounce from being logged as a second landing.
 const GO_AROUND_AIRBORNE_SAMPLES = 3
+// Tracking started in the air (a flight picked up after takeoff, or after the app was closed mid-flight): this many consecutive airborne
+// samples, well above the ground, and the machine starts from the phase the flight is in. Long enough that a sim spawning an aircraft a
+// few metres up for a moment isn't taken for one.
+const AIRBORNE_START_SAMPLES = 10
+const AIRBORNE_START_AGL_M = 30 // ~100 ft
 // docs/decisions.md, 2026-09-01: deviates from PLAN.md §5's "every 15s" — 5s reads better
 // live without needing to keep the old marker/camera interpolation to hide the jump.
 const CRUISE_TRACK_INTERVAL_S = 5
@@ -167,7 +172,7 @@ export function buildTrackPoint(
 function advancePhase(s: PhaseState, t: SimTelemetry, settings: PhaseSettings): void {
   switch (s.phase) {
     case 'preflight':
-      if (t.onGround && (t.groundSpeedMs > MOVING_MS || t.engineCombustion1)) s.phase = 'pushback'
+      fromPreflight(s, t)
       break
     case 'pushback':
       if (t.groundSpeedMs > TAXI_SPEED_MS) s.phase = 'taxi'
@@ -194,6 +199,26 @@ function advancePhase(s: PhaseState, t: SimTelemetry, settings: PhaseSettings): 
       break
   }
   shutDownIfParked(s, t, settings)
+}
+
+/**
+ * From 'preflight': the first ground movement is pushback; or, if tracking began in the air, the phase the flight is in.
+ *
+ * @param s The draft state.
+ * @param t This tick.
+ */
+function fromPreflight(s: PhaseState, t: SimTelemetry): void {
+  if (t.onGround) {
+    s.airborneStreak = 0
+    if (t.groundSpeedMs > MOVING_MS || t.engineCombustion1) s.phase = 'pushback'
+    return
+  }
+  s.airborneStreak = t.altitudeAglM > AIRBORNE_START_AGL_M ? s.airborneStreak + 1 : 0
+  if (s.airborneStreak < AIRBORNE_START_SAMPLES) return
+  s.airborneStreak = 0
+  if (t.verticalSpeedMs >= LEVEL_VS_MS) s.phase = 'climb'
+  else if (t.verticalSpeedMs < DESCENT_VS_MS) s.phase = 'descent'
+  else s.phase = 'cruise'
 }
 
 /**
