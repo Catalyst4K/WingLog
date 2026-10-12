@@ -7,6 +7,7 @@ import type { SimTelemetry } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { FlightMap } from '@/FlightMap'
+import { realIcao } from '@/display-icao'
 import { parseTransitionAltitudes, parseWaypointsFromOfpJson } from '@/route'
 import type { LanConnection, LanLinkState } from './lan-connection'
 
@@ -144,8 +145,8 @@ function FlightScreen({ link, offline }: { link: LanConnection; offline: boolean
           telemetry={snapshot ? (telemetry ?? null) : null}
           telemetryPhase={phase}
           telemetryTransition={transition}
-          depIcao={null}
-          arrIcao={null}
+          depIcao={realIcao(snapshot?.flight.depIcao)}
+          arrIcao={realIcao(snapshot?.flight.arrIcao)}
         />
       </div>
     </div>

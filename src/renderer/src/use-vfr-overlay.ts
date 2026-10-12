@@ -10,7 +10,12 @@
 
 import { winglogApi } from './data/winglog-api'
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
-import { ScaleControl, type GeoJSONSourceSpecification, type Map as MapLibreMap } from 'maplibre-gl'
+import {
+  ScaleControl,
+  type GeoJSONSourceSpecification,
+  type Map as MapLibreMap,
+  type Marker
+} from 'maplibre-gl'
 import type { Airfield, AirfieldType, SimTelemetry, TrackPoint } from '@shared/ipc'
 import {
   airfieldFeatureCollection,
@@ -21,6 +26,9 @@ import {
 } from './vfr'
 import { uiMemory } from './ui-memory'
 import { setSourceData } from './map-source'
+
+/** How often the rings and the recent trail catch up with the animated marker. */
+const FOLLOW_MARKER_MS = 100
 
 const AIRFIELDS_SOURCE = 'vfr-airfields'
 const RINGS_SOURCE = 'vfr-range-rings'
@@ -172,6 +180,64 @@ function setVisibility(map: MapLibreMap, visible: boolean): void {
   }
 }
 
+/** What the rings and the recent trail follow. */
+interface RingsAndTrailArgs {
+  mapRef: MutableRefObject<MapLibreMap | null>
+  markerRef?: MutableRefObject<Marker | null>
+  mapReady: boolean
+  active: boolean
+  latitude: number | null
+  longitude: number | null
+  trackPoints: TrackPoint[]
+}
+
+/**
+ * Keeps the range rings and the recent trail on the aircraft as it is drawn: the marker animates along each new leg, so a ring at the
+ * sim's latest position or a trail to the newest point would run ahead of it. Without a marker on the map they use the telemetry and the
+ * track.
+ *
+ * @param args The map, the marker, whether the overlay is on, the aircraft's position and the track.
+ */
+function useRingsAndRecentTrail({
+  mapRef,
+  markerRef,
+  mapReady,
+  active,
+  latitude,
+  longitude,
+  trackPoints
+}: RingsAndTrailArgs): void {
+  useEffect(() => {
+    const map = mapRef.current
+    if (!mapReady || !map || !active) return
+    const draw = (head: { latitude: number; longitude: number } | null): void => {
+      const segments = recentTrailSegments(trackPoints)
+      const last = segments.at(-1)
+      if (head && last) last[last.length - 1] = [head.longitude, head.latitude]
+      setSourceData(map, RINGS_SOURCE, rangeRingFeatures(head) as GeoData)
+      setSourceData(map, RECENT_TRAIL_SOURCE, multiLine(segments))
+    }
+    const marker = markerRef?.current
+    if (!marker?.getElement().isConnected) {
+      draw(latitude !== null && longitude !== null ? { latitude, longitude } : null)
+      return
+    }
+    let drawn: { lng: number; lat: number } | null = null
+    const follow = (): void => {
+      const at = marker.getLngLat()
+      if (!drawn || drawn.lng !== at.lng || drawn.lat !== at.lat) {
+        drawn = { lng: at.lng, lat: at.lat }
+        draw({ latitude: at.lat, longitude: at.lng })
+      }
+    }
+    follow()
+    // Ten times a second is as smooth as the head needs to be: the marker itself animates every frame, but a tenth of a second of lag is about
+    // 13 m at 250 kt, and a source update per frame would cost more than it shows.
+    const timer = setInterval(follow, FOLLOW_MARKER_MS)
+    return () => clearInterval(timer)
+  }, [mapRef, markerRef, mapReady, active, latitude, longitude, trackPoints])
+}
+
 export interface UseVfrOverlayArgs {
   mapRef: MutableRefObject<MapLibreMap | null>
   mapReady: boolean
@@ -181,6 +247,8 @@ export interface UseVfrOverlayArgs {
   trackPoints: TrackPoint[]
   /** The layer the airfield markers are inserted beneath (the planned route). */
   routeLayerId: string
+  /** The aircraft marker: the rings and the recent trail follow where it is drawn, which lags the newest point while it animates. */
+  markerRef?: MutableRefObject<Marker | null>
 }
 
 export interface VfrOverlay {
@@ -202,7 +270,8 @@ export function useVfrOverlay({
   live,
   telemetry,
   trackPoints,
-  routeLayerId
+  routeLayerId,
+  markerRef
 }: UseVfrOverlayArgs): VfrOverlay {
   const [enabled, setEnabled] = useState(uiMemory().vfrEnabled)
   const [airfields, setAirfields] = useState<Airfield[] | null>(uiMemory().vfrAirfields)
@@ -267,14 +336,15 @@ export function useVfrOverlay({
     setSourceData(map, AIRFIELDS_SOURCE, airfieldFeatureCollection(airfields) as GeoData)
   }, [mapRef, mapReady, active, airfields])
 
-  // Rings follow the aircraft; the recent-track emphasis follows the recorded points.
-  useEffect(() => {
-    const map = mapRef.current
-    if (!mapReady || !map || !active) return
-    const position = latitude !== null && longitude !== null ? { latitude, longitude } : null
-    setSourceData(map, RINGS_SOURCE, rangeRingFeatures(position) as GeoData)
-    setSourceData(map, RECENT_TRAIL_SOURCE, multiLine(recentTrailSegments(trackPoints)))
-  }, [mapRef, mapReady, active, latitude, longitude, trackPoints])
+  useRingsAndRecentTrail({
+    mapRef,
+    markerRef,
+    mapReady,
+    active,
+    latitude,
+    longitude,
+    trackPoints
+  })
 
   // Torn down with the map: the control belongs to it, so just forget our handle.
   useEffect(

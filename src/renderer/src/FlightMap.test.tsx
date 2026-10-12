@@ -59,6 +59,7 @@ interface FakeMapInstance {
 
 interface FakeMarkerInstance {
   setLngLat: ReturnType<typeof vi.fn>
+  getLngLat(): { lng: number; lat: number }
   setRotation: ReturnType<typeof vi.fn>
   addTo: ReturnType<typeof vi.fn>
   getElement(): HTMLElement
@@ -108,7 +109,13 @@ vi.mock('maplibre-gl', () => {
       this.el = opts.element
       markerInstances.push(this)
     }
-    setLngLat = vi.fn()
+    private at = { lng: 0, lat: 0 }
+    setLngLat = vi.fn((coords: [number, number]) => {
+      this.at = { lng: coords[0], lat: coords[1] }
+    })
+    getLngLat(): { lng: number; lat: number } {
+      return this.at
+    }
     setRotation = vi.fn()
     getElement(): HTMLElement {
       return this.el
@@ -893,6 +900,38 @@ describe('FlightMap', () => {
       }
       // Newest is minute 16 -> only minutes 8, 12 and 16 fall inside the 10-minute window.
       expect(trail.geometry.coordinates[0]).toHaveLength(3)
+    })
+
+    it('draws the rings and the trail head where the marker is drawn, not at the newest point or the telemetry', async () => {
+      stubWinglog()
+      const user = userEvent.setup()
+      const points = [0, 4, 8].map((m, i) =>
+        point({
+          id: i + 1,
+          tsUtc: new Date(Date.UTC(2026, 0, 1, 12, m)).toISOString(),
+          longitude: -0.5 + i * 0.01
+        })
+      )
+      const { map, markerInstances: markers } = await renderReady({
+        route: [],
+        trackPoints: points,
+        live: true,
+        telemetry: TELEMETRY
+      })
+      await user.click(toggleButton())
+      // The marker is part-way along the last leg (the animation has not finished).
+      ;(markers[0].setLngLat as (coords: [number, number]) => void)([-0.485, 51.4])
+      await waitFor(() => {
+        const trail = map.sources['vfr-recent-trail'].setData.mock.calls.at(-1)?.[0] as {
+          geometry: { coordinates: number[][][] }
+        }
+        expect(trail.geometry.coordinates.at(-1)?.at(-1)).toEqual([-0.485, 51.4])
+      })
+      const rings = map.sources['vfr-range-rings'].setData.mock.calls.at(-1)?.[0] as {
+        features: { geometry: { type: string; coordinates: number[][] } }[]
+      }
+      const centre = rings.features.find((f) => f.geometry.type === 'LineString')!.geometry.coordinates
+      expect(centre.some(([lon]) => Math.abs(lon - -0.485) < 0.1)).toBe(true)
     })
 
     it('shows the nearest landable airfield (not a heliport) with distance and bearing', async () => {

@@ -319,6 +319,7 @@ function startApp(): void {
     db,
     liveHub,
     trackingController,
+    navdata: navdataProvider,
     pageFolder: join(__dirname, '../lan'),
     testAddress: app.isPackaged ? undefined : process.env.WINGLOG_E2E_LAN_ADDRESS
   })

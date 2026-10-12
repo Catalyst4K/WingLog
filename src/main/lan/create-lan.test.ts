@@ -10,7 +10,7 @@ import { createDb } from '../db/client'
 import { setLanSettings } from '../db/settings-repo'
 import { LiveHub } from '../live/LiveHub'
 import type { LanController } from './LanController'
-import { createLan } from './create-lan'
+import { createLan, lanQueries } from './create-lan'
 
 /** A port nothing listens on. */
 async function freePort(): Promise<number> {
@@ -20,6 +20,35 @@ async function freePort(): Promise<number> {
   await new Promise<void>((resolve) => probe.close(() => resolve()))
   return port
 }
+
+const NAVDATA = {
+  hasTaxiNetwork: (icao: string) => icao === 'WSSS',
+  refreshTaxiNetwork: () => Promise.resolve(),
+  getTaxiNetwork: (icao: string) => [{ icao }] as never,
+  getStands: (icao: string) => Promise.resolve([{ icao }] as never)
+}
+
+describe('lanQueries', () => {
+  const queries = lanQueries(NAVDATA)
+
+  it('answers the taxi chart, stands and refresh for an airport code', async () => {
+    expect(queries['taxi.has']('WSSS')).toBe(true)
+    expect(queries['taxi.has']('EGLL')).toBe(false)
+    expect(queries['taxi.get']('WSSS')).toEqual([{ icao: 'WSSS' }])
+    await expect(queries.stands('K1B2')).resolves.toEqual([{ icao: 'K1B2' }])
+    await expect(queries['taxi.refresh']('EGLL')).resolves.toBeUndefined()
+  })
+
+  it('lists the airfields', () => {
+    expect(Array.isArray(queries.airfields(undefined))).toBe(true)
+  })
+
+  it('refuses anything that is not an airport code', () => {
+    for (const bad of [undefined, null, 5, '', 'ab', 'wsss', 'WSSSS', '../etc', {}, ['WSSS']]) {
+      expect(() => queries['taxi.get'](bad)).toThrow('Invalid airport')
+    }
+  })
+})
 
 describe('createLan', () => {
   const folders: string[] = []
@@ -42,6 +71,7 @@ describe('createLan', () => {
       db,
       liveHub: hub,
       trackingController: { getActive: () => undefined },
+      navdata: NAVDATA,
       pageFolder,
       testAddress: '127.0.0.1'
     })
@@ -103,6 +133,7 @@ describe('createLan', () => {
       db,
       liveHub: new LiveHub(),
       trackingController: { getActive: () => undefined },
+      navdata: NAVDATA,
       pageFolder: tmpdir()
     })
     const addresses = real.getStatus().addresses

@@ -1,13 +1,27 @@
 /**
- * The page has no Electron preload, but the shared map code reads a few lookups through `window.winglog` (airfield lists, taxi charts,
- * stands, ATC transcript). The second screen shows none of those, so each answers "nothing here" and the map draws without them.
+ * The page has no Electron preload, but the shared map code reads a few lookups through `window.winglog` (airfield list, taxi charts,
+ * stands). Each is asked of the PC over the link; anything else the page never uses answers "nothing here".
  */
 
-/** Installs the stand-in `window.winglog`. */
-export function installWindowShim(): void {
+import type { LanConnection } from './lan-connection'
+
+/**
+ * Installs the stand-in `window.winglog`.
+ *
+ * @param link The link to the PC, which answers the lookups.
+ */
+export function installWindowShim(link: Pick<LanConnection, 'query'>): void {
   const known: Record<string, (...args: never[]) => unknown> = {
-    navdataHasTaxiNetwork: () => Promise.resolve(false),
-    navdataRefreshTaxiNetwork: () => Promise.resolve(),
+    airportListAirfields: () => link.query('airfields'),
+    navdataHasTaxiNetwork: (icao: string) => link.query('taxi.has', icao),
+    // A chart the PC has not cached is fetched by the PC from the sim; if that cannot be done the chart is simply empty.
+    navdataRefreshTaxiNetwork: (icao: string) =>
+      link.query('taxi.refresh', icao).then(
+        () => undefined,
+        () => undefined
+      ),
+    navdataGetTaxiNetwork: (icao: string) => link.query('taxi.get', icao),
+    navdataGetStands: (icao: string) => link.query('stands', icao),
     onBeyondAtcTranscript: () => () => undefined
   }
   const shim = new Proxy(known, {

@@ -160,6 +160,55 @@ describe('LanConnection', () => {
     expect(flights).toHaveLength(3)
   })
 
+  describe('lookups', () => {
+    function liveLink() {
+      const ctx = setup('tok')
+      ctx.link.start()
+      ctx.sockets[0].open()
+      ctx.sockets[0].say({ t: 'snapshot', topics: {}, flight: null })
+      return ctx
+    }
+
+    it('asks the PC and resolves with its answer, matching by id', async () => {
+      const { link, sockets } = liveLink()
+      const first = link.query('taxi.get', 'WSSS')
+      const second = link.query('airfields')
+      expect(sockets[0].sent.slice(1)).toEqual([
+        { t: 'query', id: 1, name: 'taxi.get', arg: 'WSSS' },
+        { t: 'query', id: 2, name: 'airfields' }
+      ])
+      sockets[0].say({ t: 'result', id: 2, data: ['EGLL'] })
+      sockets[0].say({ t: 'result', id: 1, data: [{ a: 1 }] })
+      await expect(first).resolves.toEqual([{ a: 1 }])
+      await expect(second).resolves.toEqual(['EGLL'])
+    })
+
+    it('rejects when the PC could not answer, and ignores an answer nobody asked for', async () => {
+      const { link, sockets } = liveLink()
+      const asked = link.query('stands', 'WSSS')
+      sockets[0].say({ t: 'result', id: 99, data: 1 })
+      sockets[0].say({ t: 'result', id: 1, error: true })
+      await expect(asked).rejects.toThrow('could not answer')
+    })
+
+    it('rejects while not connected, and when the link drops with a lookup waiting', async () => {
+      const idle = setup('tok')
+      await expect(idle.link.query('airfields')).rejects.toThrow('Not connected')
+      const { link, sockets } = liveLink()
+      const waiting = link.query('airfields')
+      sockets[0].drop()
+      await expect(waiting).rejects.toThrow('Not connected')
+    })
+
+    it('gives up after a minute without an answer', async () => {
+      const { link } = liveLink()
+      const waiting = link.query('airfields')
+      const assertion = expect(waiting).rejects.toThrow('did not answer')
+      vi.advanceTimersByTime(60_000)
+      await assertion
+    })
+  })
+
   it('reconnects with a growing wait after the link drops, and resets the wait once live', () => {
     const { link, sockets, states } = setup('tok')
     link.start()
@@ -247,6 +296,17 @@ describe('parseServerMessage', () => {
       name: 'simTelemetry',
       payload: 1
     })
+  })
+
+  it('reads a lookup result, and ignores one without an id', () => {
+    expect(parseServerMessage('{"t":"result","id":3,"data":[1]}')).toEqual({ t: 'result', id: 3, data: [1] })
+    expect(parseServerMessage('{"t":"result","id":3,"error":true}')).toEqual({
+      t: 'result',
+      id: 3,
+      data: undefined,
+      error: true
+    })
+    expect(parseServerMessage('{"t":"result"}')).toBeNull()
   })
 
   it('reads a flight message, with none meaning no flight', () => {

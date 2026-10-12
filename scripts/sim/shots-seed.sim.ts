@@ -20,5 +20,15 @@ it.skipIf(!outputPath)('writes the screenshots database', () => {
   createFlight(db, { aircraftId: aircraft.id, depIcao: 'EGLL', arrIcao: 'WSSS' })
   seedRunways(db, 'WSSS', WSSS_RUNWAYS)
   seedApproaches(db, WSSS_ARRIVAL)
+  // Optional: WSSS's taxi chart from this machine's own database (the chart comes from the sim, so a fresh database has none), so the
+  // taxi overlay can be looked at. Local only; nothing is written to the source database.
+  const taxiSource = process.env.WINGLOG_SHOTS_TAXI_FROM
+  if (taxiSource) {
+    sqlite.prepare('ATTACH DATABASE ? AS source').run(taxiSource)
+    sqlite.exec(
+      "INSERT INTO navdata_taxi_segment SELECT * FROM source.navdata_taxi_segment WHERE icao = 'WSSS'"
+    )
+    sqlite.exec('DETACH DATABASE source')
+  }
   sqlite.close()
 })

@@ -33,6 +33,8 @@ export const LAN_TOPICS: readonly LiveTopic[] = [
   'beyondAtcArrival'
 ]
 
+/** Lookups one device may have waiting at once. */
+export const MAX_PENDING_QUERIES = 4
 /** Largest message a device may send, in bytes. */
 export const MAX_MESSAGE_BYTES = 16 * 1024
 /** Most open sockets at once. */
@@ -62,6 +64,8 @@ export interface LanServerDeps {
   }
   /** The active flight's route and waypoints, read-only, for a device that connects (null when there is none). */
   flight(): unknown
+  /** Read-only lookups a device may ask for (airfields, taxi charts, stands), each checking its own argument. */
+  queries: Record<string, (arg: unknown) => unknown>
   /** A page file for a path such as `/` or `/app.js`, or null. */
   staticFile(path: string): StaticFile | null
   now(): number
@@ -74,6 +78,7 @@ type Incoming =
   | { t: 'pair'; code: unknown; name?: unknown }
   | { t: 'hello'; token: unknown }
   | { t: 'cmd'; name: unknown; args: unknown }
+  | { t: 'query'; id: unknown; name: unknown; arg: unknown }
 
 /** A connected socket and what is known of it. */
 interface Client {
@@ -81,6 +86,8 @@ interface Client {
   deviceId: number | null
   windowStart: number
   count: number
+  /** Queries asked and not yet answered. */
+  pending: number
   authTimer: NodeJS.Timeout
 }
 
@@ -225,6 +232,7 @@ export class LanServer {
       deviceId: null,
       windowStart: this.deps.now(),
       count: 0,
+      pending: 0,
       authTimer: setTimeout(() => socket.close(), this.deps.authTimeoutMs ?? AUTH_TIMEOUT_MS)
     }
     this.clients.add(client)
@@ -252,11 +260,36 @@ export class LanServer {
     if (message.t === 'pair') return this.handlePair(client, message, now)
     if (message.t === 'hello') return this.handleHello(client, message.token)
     if (client.deviceId === null) return
+    if (message.t === 'query') return this.handleQuery(client, message)
     try {
       dispatchCommand(this.deps.commands, message.name, message.args)
     } catch {
       this.send(client, { t: 'error', message: 'Not allowed' })
     }
+  }
+
+  /**
+   * Answers a device's lookup. Only names in the queries table run, each checks its own argument, and a device may have a few in flight at once.
+   *
+   * @param client The device.
+   * @param message Its query: a number to match the answer to, the lookup's name and its argument.
+   */
+  private handleQuery(client: Client, message: { id: unknown; name: unknown; arg: unknown }): void {
+    const { id, name } = message
+    if (typeof id !== 'number' || !Number.isSafeInteger(id)) return
+    const query =
+      typeof name === 'string' && Object.hasOwn(this.deps.queries, name) ? this.deps.queries[name] : null
+    if (!query || client.pending >= MAX_PENDING_QUERIES) {
+      this.send(client, { t: 'result', id, error: true })
+      return
+    }
+    client.pending += 1
+    new Promise((resolve) => resolve(query(message.arg)))
+      .then(
+        (data) => this.send(client, { t: 'result', id, data }),
+        () => this.send(client, { t: 'result', id, error: true })
+      )
+      .finally(() => (client.pending -= 1))
   }
 
   private handlePair(client: Client, message: { code: unknown; name?: unknown }, now: number): void {
@@ -383,5 +416,6 @@ function parseIncoming(text: string): Incoming | null {
   if (record.t === 'pair') return { t: 'pair', code: record.code, name: record.name }
   if (record.t === 'hello') return { t: 'hello', token: record.token }
   if (record.t === 'cmd') return { t: 'cmd', name: record.name, args: record.args }
+  if (record.t === 'query') return { t: 'query', id: record.id, name: record.name, arg: record.arg }
   return null
 }

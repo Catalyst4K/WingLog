@@ -36,6 +36,9 @@ export interface TokenStore {
   clear(): void
 }
 
+/** How long a lookup waits for its answer, in milliseconds. */
+const QUERY_TIMEOUT_MS = 60_000
+
 /** Longest wait between reconnect attempts, in milliseconds. */
 const MAX_BACKOFF_MS = 10_000
 
@@ -52,6 +55,11 @@ export class LanConnection {
   private flightSnapshot: LanFlightSnapshot | null = null
   private trackPoints: TrackPoint[] = []
   private readonly trackListeners = new Set<() => void>()
+  private nextQueryId = 1
+  private readonly pendingQueries = new Map<
+    number,
+    { resolve: (data: unknown) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }
+  >()
   private readonly topics: Partial<LiveTopics> = {}
   private readonly stateListeners = new Set<StateListener>()
   private readonly topicListeners = new Map<LiveTopic, Set<(payload: never) => void>>()
@@ -78,6 +86,27 @@ export class LanConnection {
   /** @returns The active flight and its track, or null when the PC isn't tracking one. */
   get flight(): LanFlightSnapshot | null {
     return this.flightSnapshot
+  }
+
+  /**
+   * Asks the PC for read-only data the map needs (the airfield list, a taxi chart, stands).
+   *
+   * @param name The lookup's name.
+   * @param arg Its argument, such as an airport code.
+   * @returns The answer; rejects when the link is down, the PC refuses, or nothing comes back within a minute.
+   */
+  query(name: string, arg?: unknown): Promise<unknown> {
+    const socket = this.socket
+    if (!socket || this.current !== 'connected') return Promise.reject(new Error('Not connected'))
+    const id = this.nextQueryId++
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendingQueries.delete(id)
+        reject(new Error('The PC did not answer'))
+      }, QUERY_TIMEOUT_MS)
+      this.pendingQueries.set(id, { resolve, reject, timer })
+      socket.send(JSON.stringify({ t: 'query', id, name, arg }))
+    })
   }
 
   /** @returns The active flight's recorded track so far: the snapshot's points, then each new one; a new array whenever it changes. */
@@ -180,6 +209,7 @@ export class LanConnection {
     socket.onclose = () => {
       if (this.socket !== socket) return
       this.socket = null
+      this.failPendingQueries()
       if (this.stopped) return
       if (this.current === 'connected' || this.current === 'offline' || this.current === 'starting') {
         this.setState('offline')
@@ -207,6 +237,8 @@ export class LanConnection {
       this.handleDenied()
     } else if (message.t === 'snapshot') {
       this.handleSnapshot(message.topics, message.flight)
+    } else if (message.t === 'result') {
+      this.answerQuery(message)
     } else if (message.t === 'flight') {
       this.replaceFlight(message.flight)
     } else if (message.t === 'topic') {
@@ -214,6 +246,27 @@ export class LanConnection {
       this.followTrack(message.name, message.payload)
       this.emit(message.name, message.payload)
     }
+  }
+
+  /**
+   * @param message The PC's answer to a lookup.
+   */
+  private answerQuery(message: { id: number; data?: unknown; error?: true }): void {
+    const waiting = this.pendingQueries.get(message.id)
+    if (!waiting) return
+    clearTimeout(waiting.timer)
+    this.pendingQueries.delete(message.id)
+    if (message.error) waiting.reject(new Error('The PC could not answer'))
+    else waiting.resolve(message.data)
+  }
+
+  /** Fails every lookup still waiting: the link they were asked over has gone. */
+  private failPendingQueries(): void {
+    for (const waiting of this.pendingQueries.values()) {
+      clearTimeout(waiting.timer)
+      waiting.reject(new Error('Not connected'))
+    }
+    this.pendingQueries.clear()
   }
 
   /** The PC refused: a wrong code while pairing, otherwise a token it no longer knows (revoked). */
@@ -291,6 +344,10 @@ const READERS: Record<string, (r: Record<string, unknown>) => LanServerMessage |
         }
       : null,
   flight: (r) => ({ t: 'flight', flight: (r.flight ?? null) as LanFlightSnapshot | null }),
+  result: (r) =>
+    typeof r.id === 'number'
+      ? { t: 'result', id: r.id, data: r.data, ...(r.error === true ? { error: true as const } : {}) }
+      : null,
   topic: (r) =>
     typeof r.name === 'string' ? { t: 'topic', name: r.name as LiveTopic, payload: r.payload } : null
 }

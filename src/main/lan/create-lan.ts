@@ -12,6 +12,8 @@ import {
 import { getLanSettings, setLanSettings } from '../db/settings-repo'
 import type { LiveHub } from '../live/LiveHub'
 import type { TrackingController } from '../tracking/TrackingController'
+import { listAirfields } from '../airports/airfields'
+import type { SimFacilitiesProvider } from '../navdata/sim-facilities-provider'
 import { listLanAddresses, type LanAddress } from './adapters'
 import { LanController } from './LanController'
 import { lanFlightSnapshot } from './lan-flight'
@@ -23,10 +25,41 @@ export interface CreateLanDeps {
   db: WingLogDb
   liveHub: Pick<LiveHub, 'subscribe' | 'snapshot'>
   trackingController: Pick<TrackingController, 'getActive'>
+  /** The cached taxi charts and stands a device's map shows. */
+  navdata: Pick<
+    SimFacilitiesProvider,
+    'hasTaxiNetwork' | 'refreshTaxiNetwork' | 'getTaxiNetwork' | 'getStands'
+  >
   /** The built page's folder (`out/lan`). */
   pageFolder: string
   /** An acceptance test's own address to listen on, instead of the machine's (an unpackaged build only; see index.ts). */
   testAddress?: string
+}
+
+/**
+ * @param value A lookup argument from a device.
+ * @returns The airport code when it is 3 or 4 letters or digits.
+ * @throws When it is anything else.
+ */
+function icaoArg(value: unknown): string {
+  if (typeof value !== 'string' || !/^[A-Z0-9]{3,4}$/.test(value)) throw new Error('Invalid airport')
+  return value
+}
+
+/**
+ * The read-only lookups a device's map may ask for: the airfield list, and the taxi chart and stands of an airport by its code.
+ *
+ * @param navdata The cached navdata provider.
+ * @returns The queries table.
+ */
+export function lanQueries(navdata: CreateLanDeps['navdata']): Record<string, (arg: unknown) => unknown> {
+  return {
+    airfields: () => listAirfields(),
+    'taxi.has': (icao) => navdata.hasTaxiNetwork(icaoArg(icao)),
+    'taxi.refresh': (icao) => navdata.refreshTaxiNetwork(icaoArg(icao)),
+    'taxi.get': (icao) => navdata.getTaxiNetwork(icaoArg(icao)),
+    stands: (icao) => navdata.getStands(icaoArg(icao))
+  }
 }
 
 /**
@@ -40,6 +73,7 @@ export function createLan({
   db,
   liveHub,
   trackingController,
+  navdata,
   pageFolder,
   testAddress
 }: CreateLanDeps): LanController {
@@ -53,6 +87,7 @@ export function createLan({
       find: (tokenHash) => findActiveLanDevice(db, tokenHash),
       touch: (id) => touchLanDevice(db, id, new Date().toISOString())
     },
+    queries: lanQueries(navdata),
     flight: () => lanFlightSnapshot(db, trackingController.getActive()?.flightId),
     staticFile: (path) => (files ??= staticFilesFrom(pageFolder))(path),
     now: () => Date.now()

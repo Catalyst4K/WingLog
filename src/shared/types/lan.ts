@@ -74,3 +74,5 @@ export type LanServerMessage =
   | { t: 'topic'; name: LiveTopic; payload: unknown }
   /** A different flight is being tracked from here on (or none): replaces the snapshot's flight and track. */
   | { t: 'flight'; flight: LanFlightSnapshot | null }
+  /** The answer to a device's query: the data, or `error` when it could not be answered. */
+  | { t: 'result'; id: number; data?: unknown; error?: true }

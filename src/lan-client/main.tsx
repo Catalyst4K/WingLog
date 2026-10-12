@@ -40,7 +40,6 @@ const store = {
   }
 }
 
-installWindowShim()
 document.documentElement.classList.toggle('dark', matchMedia('(prefers-color-scheme: dark)').matches)
 i18n.changeLanguage(resolveAppLanguage('system', navigator.language)).catch(() => undefined)
 
@@ -50,6 +49,7 @@ const link = new LanConnection(
   (url) => new WebSocket(url),
   deviceNameFrom(navigator.userAgent)
 )
+installWindowShim(link)
 link.start()
 
 createRoot(document.getElementById('root') as HTMLElement).render(

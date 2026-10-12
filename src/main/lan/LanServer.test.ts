@@ -93,6 +93,14 @@ describe('LanServer', () => {
       },
       devices: store.devices,
       flight: () => ({ route: ['WSSS', 'EGLL'] }),
+      queries: {
+        echo: (arg) => arg,
+        later: (arg) => Promise.resolve(`later ${String(arg)}`),
+        broken: () => {
+          throw new Error('no')
+        },
+        never: () => new Promise(() => undefined)
+      },
       staticFile: (path) => (path === '/' ? { type: 'text/html', body: '<h1>WingLog</h1>' } : null),
       now: () => Date.now(),
       ...overrides
@@ -357,6 +365,38 @@ describe('LanServer', () => {
       expect(ran).toHaveLength(1)
     })
 
+    it('answers a lookup, including one that takes a moment, and says so when it cannot', async () => {
+      const { pair } = await setup()
+      const { client } = await pair()
+      client.send({ t: 'query', id: 1, name: 'echo', arg: { icao: 'WSSS' } })
+      client.send({ t: 'query', id: 2, name: 'later', arg: 'x' })
+      client.send({ t: 'query', id: 3, name: 'broken' })
+      client.send({ t: 'query', id: 4, name: 'settings.save' })
+      client.send({ t: 'query', id: 5, name: '__proto__' })
+      client.send({ t: 'query', id: 'six', name: 'echo' })
+      await client.waitFor(() => client.received.filter((m) => m.t === 'result').length === 5)
+      const results = client.received.filter((m) => m.t === 'result')
+      expect(results).toContainEqual({ t: 'result', id: 1, data: { icao: 'WSSS' } })
+      expect(results).toContainEqual({ t: 'result', id: 2, data: 'later x' })
+      for (const id of [3, 4, 5]) expect(results).toContainEqual({ t: 'result', id, error: true })
+    })
+
+    it('refuses a fifth lookup while four are still waiting', async () => {
+      const { pair } = await setup()
+      const { client } = await pair()
+      for (let id = 1; id <= 5; id++) client.send({ t: 'query', id, name: 'never' })
+      await client.waitFor(() => client.received.some((m) => m.t === 'result'))
+      expect(client.received.filter((m) => m.t === 'result')).toEqual([{ t: 'result', id: 5, error: true }])
+    })
+
+    it('ignores lookups from a socket that has not authenticated', async () => {
+      const { connect } = await setup()
+      const client = await connect()
+      client.send({ t: 'query', id: 1, name: 'echo', arg: 1 })
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(client.received).toEqual([])
+    })
+
     it('ignores commands from a socket that has not authenticated', async () => {
       const { connect, ran } = await setup()
       const client = await connect()
@@ -427,6 +467,7 @@ describe('LanServer', () => {
         commands: {},
         devices: deviceStore().devices,
         flight: () => null,
+        queries: {},
         staticFile: () => null,
         now: () => 0
       })
@@ -440,6 +481,7 @@ describe('LanServer', () => {
         commands: {},
         devices: deviceStore().devices,
         flight: () => null,
+        queries: {},
         staticFile: () => null,
         now: () => 0
       })

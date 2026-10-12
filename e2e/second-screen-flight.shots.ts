@@ -13,6 +13,7 @@ import { join } from 'node:path'
 import { test, type Page } from '@playwright/test'
 import { electronBinary } from './electron-binary'
 import { launchApp } from './launch-app'
+import { thisMachinesUserDataDirectory } from '../src/main/platform/this-machine'
 
 const OUT = join(process.cwd(), 'release', 'sim', 'second-screen')
 const SPEED = Number(process.env.WINGLOG_SHOTS_SPEED ?? 55)
@@ -50,7 +51,8 @@ test('the second screen follows a replayed flight, in portrait and landscape', a
       env: {
         ...process.env,
         ELECTRON_RUN_AS_NODE: '1',
-        WINGLOG_SHOTS_DB_PATH: join(userDataDir, 'winglog.db')
+        WINGLOG_SHOTS_DB_PATH: join(userDataDir, 'winglog.db'),
+        WINGLOG_SHOTS_TAXI_FROM: join(thisMachinesUserDataDirectory() ?? '', 'winglog.db')
       },
       stdio: 'inherit'
     }
@@ -129,6 +131,10 @@ test('the second screen follows a replayed flight, in portrait and landscape', a
 
     await portrait.waitForTimeout(6_000)
     await portrait.screenshot({ path: join(OUT, '1-portrait-early.png') })
+    await portrait.getByRole('button', { name: 'Show VFR overlay' }).click()
+    await portrait.getByRole('button', { name: 'Show taxi chart' }).click()
+    await portrait.waitForTimeout(3_000)
+    await portrait.screenshot({ path: join(OUT, '1b-portrait-vfr-taxi.png') })
     await portrait.waitForTimeout(12_000)
     await portrait.screenshot({ path: join(OUT, '2-portrait-descent.png') })
 

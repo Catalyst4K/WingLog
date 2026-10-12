@@ -115,7 +115,8 @@ export function FlightMap({
     live,
     telemetry,
     trackPoints,
-    routeLayerId: ROUTE_SOURCE_ID
+    routeLayerId: ROUTE_SOURCE_ID,
+    markerRef: instance.markerRef
   })
 
   const taxiChart = useTaxiChartOverlay({ mapRef, mapReady, depIcao, arrIcao })
