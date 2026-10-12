@@ -4,7 +4,10 @@
 @source '../renderer/src';
 @source './';
 
-/* On a phone the map's attribution opens across the whole bottom edge and hid the speed/altitude readout: lift the readout above it. */
+/* The readout along the map's bottom edge is wider than a phone leaves beside the attribution button: let it wrap instead of running under it. */
 div[class*='bottom-3'][class*='left-3'] {
-  bottom: 3.5rem;
+  max-width: calc(100% - 3.5rem);
+  white-space: normal;
+  border-radius: 1rem;
+  line-height: 1.3;
 }

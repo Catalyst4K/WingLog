@@ -1,9 +1,9 @@
 /** The second-screen page: pair with the PC once, then the live map of the flight being tracked. */
 
-import { useMemo, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { LiveTopic, LiveTopics } from '@shared/live'
-import type { SimTelemetry } from '@shared/ipc'
+import type { LanFlight, SimTelemetry } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { FlightMap } from '@/FlightMap'
@@ -104,6 +104,49 @@ function PairingScreen({
 }
 
 /**
+ * Starts the map's attribution as just its (i) button. MapLibre opens it across the bottom edge on a wide enough screen, which on a phone
+ * covers the speed and altitude readout; the licence text is still one tap away.
+ */
+function useCollapsedAttribution(): void {
+  useEffect(() => {
+    const collapse = (): void => {
+      for (const el of document.querySelectorAll('.maplibregl-ctrl-attrib.maplibregl-compact-show')) {
+        el.classList.remove('maplibregl-compact-show')
+        el.removeAttribute('open')
+      }
+    }
+    collapse()
+    const observer = new MutationObserver(collapse)
+    observer.observe(document.body, { childList: true, subtree: true })
+    // Only the first opening is undone: once the pilot taps (i), the text stays as they left it.
+    const stop = window.setTimeout(() => observer.disconnect(), 5000)
+    return () => {
+      window.clearTimeout(stop)
+      observer.disconnect()
+    }
+  }, [])
+}
+
+/**
+ * The flight at a glance along the top: its number, the route, and the aircraft.
+ *
+ * @param props The flight being tracked.
+ * @returns The element.
+ */
+function FlightBanner({ flight }: { flight: LanFlight }): React.JSX.Element {
+  const route = `${realIcao(flight.depIcao) ?? '—'} → ${realIcao(flight.arrIcao) ?? '—'}`
+  const aircraft = [flight.registration, flight.icaoType].filter(Boolean).join(' · ')
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-border bg-card px-3 py-1.5 text-xs">
+      <span className="truncate font-mono font-medium">
+        {[flight.flightNumber, route].filter(Boolean).join(' · ')}
+      </span>
+      {aircraft && <span className="shrink-0 text-muted-foreground">{aircraft}</span>}
+    </div>
+  )
+}
+
+/**
  * @param props The link, and whether it has dropped.
  * @returns The element.
  */
@@ -123,6 +166,7 @@ function FlightScreen({ link, offline }: { link: LanConnection; offline: boolean
   const route = useMemo<[number, number][]>(() => waypoints.map((w) => [w.lon, w.lat]), [waypoints])
   const transition = useMemo(() => parseTransitionAltitudes(ofpJson), [ofpJson])
   const phase = trackPoints.at(-1)?.phase
+  useCollapsedAttribution()
 
   return (
     <div className="flex h-dvh flex-col">
@@ -136,6 +180,7 @@ function FlightScreen({ link, offline }: { link: LanConnection; offline: boolean
           {t('lanPage.noFlight')}
         </p>
       )}
+      {snapshot && <FlightBanner flight={snapshot.flight} />}
       <div className="min-h-0 flex-1">
         <FlightMap
           live

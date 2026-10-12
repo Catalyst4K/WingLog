@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { sql } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb } from '../db/client'
 import { createAircraft } from '../db/aircraft-repo'
@@ -20,6 +21,18 @@ describe('lanFlightSnapshot', () => {
     expect(lanFlightSnapshot(freshDb(), 999)).toBeNull()
   })
 
+  it('has no registration or type for a free flight with no fleet aircraft', () => {
+    const db = freshDb()
+    const aircraftId = createAircraft(db, { registration: 'G-FREE', icaoType: 'C172' }).id
+    const flight = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'EGKK', status: 'active' })
+    db.run(sql`UPDATE flight SET aircraft_id = NULL WHERE id = ${flight.id}`)
+    expect(lanFlightSnapshot(db, flight.id)?.flight).toMatchObject({
+      registration: null,
+      icaoType: null,
+      flightNumber: null
+    })
+  })
+
   it('gives the active flight, its airports and OFP, and its recorded track', () => {
     const db = freshDb()
     const aircraftId = createAircraft(db, { registration: '9V-SKA', icaoType: 'A388' }).id
@@ -27,6 +40,7 @@ describe('lanFlightSnapshot', () => {
       aircraftId,
       depIcao: 'WSSS',
       arrIcao: 'EGLL',
+      flightNumber: 'SIA321',
       ofpJson: '{"general":{}}',
       status: 'active'
     })
@@ -35,6 +49,9 @@ describe('lanFlightSnapshot', () => {
       flightId: flight.id,
       depIcao: 'WSSS',
       arrIcao: 'EGLL',
+      flightNumber: 'SIA321',
+      registration: '9V-SKA',
+      icaoType: 'A388',
       ofpJson: '{"general":{}}'
     })
     expect(snapshot?.trackPoints).toEqual([])

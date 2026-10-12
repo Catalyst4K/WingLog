@@ -119,12 +119,22 @@ describe('LanApp', () => {
         t: 'snapshot',
         topics: { simTelemetry: { latitude: 11, longitude: 20 } },
         flight: {
-          flight: { flightId: 7, depIcao: 'WSSS', arrIcao: 'EGLL', ofpJson: OFP },
+          flight: {
+            flightId: 7,
+            depIcao: 'WSSS',
+            arrIcao: 'EGLL',
+            flightNumber: 'SIA321',
+            registration: '9V-SKA',
+            icaoType: 'A388',
+            ofpJson: OFP
+          },
           trackPoints: [point(1), point(2)]
         }
       })
     })
     expect(screen.queryByText('No flight is being tracked on the PC yet.')).not.toBeInTheDocument()
+    expect(screen.getByText('SIA321 · WSSS → EGLL')).toBeInTheDocument()
+    expect(screen.getByText('9V-SKA · A388')).toBeInTheDocument()
     expect(mapProps.current?.route).toEqual([
       [103.9915, 1.3644],
       [-0.4614, 51.4775]

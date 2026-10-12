@@ -51,7 +51,15 @@ function setup(token: string | null = null) {
 }
 
 const FLIGHT = {
-  flight: { flightId: 7, depIcao: 'WSSS', arrIcao: 'EGLL', ofpJson: null },
+  flight: {
+    flightId: 7,
+    depIcao: 'WSSS',
+    arrIcao: 'EGLL',
+    flightNumber: 'SIA321',
+    registration: '9V-SKA',
+    icaoType: 'A388',
+    ofpJson: null
+  },
   trackPoints: []
 }
 

@@ -2,6 +2,7 @@
 
 import type { LanFlightSnapshot } from '@shared/ipc'
 import type { WingLogDb } from '../db/client'
+import { getLiveAircraftById } from '../db/aircraft-repo'
 import { getLiveFlight } from '../db/flight-repo'
 import { listTrackPoints } from '../db/track-point-repo'
 
@@ -17,11 +18,15 @@ export function lanFlightSnapshot(
   if (activeFlightId === undefined) return null
   const flight = getLiveFlight(db, activeFlightId)
   if (!flight) return null
+  const aircraft = flight.aircraftId === null ? undefined : getLiveAircraftById(db, flight.aircraftId)
   return {
     flight: {
       flightId: flight.id,
       depIcao: flight.depIcao,
       arrIcao: flight.arrIcao,
+      flightNumber: flight.flightNumber,
+      registration: aircraft?.registration ?? null,
+      icaoType: aircraft?.icaoType ?? null,
       ofpJson: flight.ofpJson
     },
     trackPoints: listTrackPoints(db, flight.id)

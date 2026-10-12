@@ -56,6 +56,11 @@ export interface LanFlight {
   flightId: number
   depIcao: string
   arrIcao: string
+  /** The flight number, such as "CPA116", when the flight has one. */
+  flightNumber: string | null
+  /** The aircraft's registration and ICAO type, when it is a fleet aircraft. */
+  registration: string | null
+  icaoType: string | null
   ofpJson: string | null
 }
 

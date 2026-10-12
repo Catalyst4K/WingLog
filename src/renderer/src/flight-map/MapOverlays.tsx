@@ -182,7 +182,10 @@ function TelemetryReadout(props: {
 function NearestAirfieldPill(props: { text: string }): React.JSX.Element {
   const { t } = useTranslation()
   return (
-    <div className={`absolute top-3 left-3 ${PILL_CLASS_NAME}`} aria-label={t('flightMap.nearestAirfield')}>
+    <div
+      className={`absolute top-3 left-3 max-w-[calc(100%-4.5rem)] truncate ${PILL_CLASS_NAME}`}
+      aria-label={t('flightMap.nearestAirfield')}
+    >
       {t('flightMap.nearest')} {props.text}
     </div>
   )
