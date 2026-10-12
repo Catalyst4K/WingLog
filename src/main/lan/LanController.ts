@@ -16,6 +16,8 @@ export const ADDRESS_CHECK_MS = 15_000
 export interface LanServerPort {
   readonly listening: boolean
   readonly connectionCount: number
+  /** Whether a pairing window is still open (a used code is not). */
+  readonly pairingOpen: boolean
   start(address: string, port: number): Promise<void>
   stop(): Promise<void>
   openPairing(): { code: string; expiresAt: number }
@@ -94,7 +96,8 @@ export class LanController {
   getStatus(): LanStatus {
     const settings = this.deps.settings.get()
     const { server } = this.deps
-    if (this.pairing && this.pairing.expiresAt <= this.deps.now()) this.pairing = null
+    if (this.pairing && (this.pairing.expiresAt <= this.deps.now() || !server.pairingOpen))
+      this.pairing = null
     return {
       settings,
       addresses: this.deps.addresses().map((a) => ({

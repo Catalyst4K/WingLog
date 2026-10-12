@@ -228,6 +228,17 @@ describe('LanServer', () => {
       expect(store.rows.size).toBe(0)
     })
 
+    it('reports whether a pairing window is open: only until its code is used', async () => {
+      const { server, connect } = await setup()
+      expect(server.pairingOpen).toBe(false)
+      const { code } = server.openPairing()
+      expect(server.pairingOpen).toBe(true)
+      const client = await connect()
+      client.send({ t: 'pair', code })
+      await client.message('paired')
+      expect(server.pairingOpen).toBe(false)
+    })
+
     it('uses a code once', async () => {
       const { server, pair, connect } = await setup()
       const { code } = server.openPairing()

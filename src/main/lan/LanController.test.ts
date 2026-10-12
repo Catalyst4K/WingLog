@@ -200,6 +200,14 @@ describe('LanController', () => {
       expect(controller.getStatus().pairing).toBeNull()
     })
 
+    it('stops showing a code once the server has used it', async () => {
+      const { controller, server } = setup({ enabled: true })
+      await controller.sync()
+      expect(controller.startPairing().pairing?.code).toBe('123456')
+      server.pairingOpen = false
+      expect(controller.getStatus().pairing).toBeNull()
+    })
+
     it('can be closed, and closes when the server stops', async () => {
       const { controller, server } = setup({ enabled: true })
       await controller.sync()

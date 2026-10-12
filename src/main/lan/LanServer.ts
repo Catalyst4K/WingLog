@@ -150,6 +150,11 @@ export class LanServer {
     })
   }
 
+  /** @returns True while a pairing window is open: not yet used, expired or spent by wrong codes. */
+  get pairingOpen(): boolean {
+    return this.pairing?.isOpen(this.deps.now()) ?? false
+  }
+
   /**
    * Opens a pairing window, replacing any open one.
    *
