@@ -8,7 +8,8 @@
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
-    "build": "electron-vite build && vite build --config vite.lan.config.ts",
+    "build": "electron-vite build && npm run build:lan",
+    "build:lan": "vite build --config vite.lan.config.ts",
     "preview": "electron-vite preview",
     "test": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/vitest/vitest.mjs run",
     "test:watch": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/vitest/vitest.mjs",
@@ -47,13 +48,13 @@
     "cache:airports": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs --tsconfig tsconfig.node.json scripts/cache-airports.ts",
     "atc-corpus": "tsx --tsconfig tsconfig.node.json scripts/atc-corpus.ts",
     "licenses:generate": "tsx scripts/generate-third-party-licenses.ts",
-    "package": "electron-vite build && electron-builder --publish=never",
+    "package": "electron-vite build && npm run build:lan && electron-builder --publish=never",
     "sim:screens": "electron-vite build && playwright test -c playwright.screenshots.config.ts e2e/flight-sim.shots.ts",
     "manual:screenshots": "electron-vite build && playwright test -c playwright.screenshots.config.ts",
     "manual:build": "esbuild scripts/manual/build.ts --bundle --platform=node --format=cjs --external:electron --outfile=out-manual/build.cjs --log-level=warning && electron out-manual/build.cjs",
-    "package:win": "npm run manual:build && electron-vite build && electron-builder --win --publish=never",
-    "package:win:dev": "npm run manual:build && cross-env WINGLOG_DEV_BUILD=1 electron-vite build && electron-builder --win --publish=never \"-c.win.artifactName=${productName}-Dev-${version}-win-${arch}.${ext}\"",
-    "package:mac": "electron-vite build && electron-builder --mac --publish=never",
+    "package:win": "npm run manual:build && electron-vite build && npm run build:lan && electron-builder --win --publish=never",
+    "package:win:dev": "npm run manual:build && cross-env WINGLOG_DEV_BUILD=1 electron-vite build && npm run build:lan && electron-builder --win --publish=never \"-c.win.artifactName=${productName}-Dev-${version}-win-${arch}.${ext}\"",
+    "package:mac": "electron-vite build && npm run build:lan && electron-builder --mac --publish=never",
     "postinstall": "electron-rebuild -f -w better-sqlite3"
   },
   "dependencies": {
