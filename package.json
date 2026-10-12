@@ -42,6 +42,7 @@
     "spike:route-simplify": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs scripts/spike-route-simplify.ts",
     "vendor:runways": "tsx scripts/vendor-runways.ts",
     "perf:tabs": "tsx --tsconfig tsconfig.node.json e2e/tab-timing.perf.ts",
+    "perf:profile": "tsx --tsconfig tsconfig.node.json e2e/tab-profile.perf.ts",
     "test:airports": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/vitest/vitest.mjs run --config scripts/sim/vitest.config.ts airports",
     "cache:airports": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs --tsconfig tsconfig.node.json scripts/cache-airports.ts",
     "atc-corpus": "tsx --tsconfig tsconfig.node.json scripts/atc-corpus.ts",
