@@ -242,7 +242,7 @@ const SCREEN_CAPTIONS: Record<string, string> = {
     'After ATC clears the R-NAV approach with the BIPOP transition: the offer is now RNAV 20R.',
   '3b-after-update.png': 'After choosing Update.',
   '4-track-on-approach.png':
-    'The Track tab on the approach. The phase reads Preflight because the recording starts mid-flight.'
+    'The Track tab on the approach. The recording starts mid-flight, and the phase machine picks up the phase the flight is in.'
 }
 
 /** The screenshots as one section, or nothing without any. */
