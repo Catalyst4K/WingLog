@@ -124,6 +124,7 @@ describe('LanApp', () => {
             depIcao: 'WSSS',
             arrIcao: 'EGLL',
             flightNumber: 'SIA321',
+            schedInUtc: null,
             registration: '9V-SKA',
             icaoType: 'A388',
             ofpJson: OFP
@@ -151,6 +152,44 @@ describe('LanApp', () => {
 
     act(() => sockets[0].say({ t: 'topic', name: 'trackingPointsUpdated', payload: [point(2)] }))
     expect(mapProps.current?.trackPoints.map((p) => p.id)).toEqual([1, 2, 3])
+  })
+
+  it('shows ET, time remaining and ETA once the aircraft is airborne and moving', () => {
+    const { link, sockets } = setup('tok')
+    render(<LanApp link={link} />)
+    const airborne = {
+      id: 1,
+      flightId: 7,
+      latitude: 20,
+      longitude: 50,
+      phase: 'cruise',
+      onGround: false,
+      tsUtc: new Date(Date.now() - 30 * 60_000).toISOString()
+    }
+    act(() => {
+      sockets[0].onopen?.()
+      sockets[0].say({
+        t: 'snapshot',
+        topics: { simTelemetry: { latitude: 20, longitude: 50, groundSpeedMs: 230, onGround: false } },
+        flight: {
+          flight: {
+            flightId: 7,
+            depIcao: 'WSSS',
+            arrIcao: 'EGLL',
+            flightNumber: null,
+            schedInUtc: null,
+            registration: null,
+            icaoType: null,
+            ofpJson: OFP
+          },
+          trackPoints: [airborne]
+        }
+      })
+    })
+    expect(screen.getByText('ET')).toBeInTheDocument()
+    expect(screen.getByText('Remaining')).toBeInTheDocument()
+    expect(screen.getByText('ETA')).toBeInTheDocument()
+    expect(screen.getByText(/^0:30:\d\d$/)).toBeInTheDocument()
   })
 
   it('warns when the link to the PC drops, and carries on from the last picture', () => {

@@ -3,11 +3,18 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { LiveTopic, LiveTopics } from '@shared/live'
-import type { LanFlight, SimTelemetry } from '@shared/ipc'
+import type { LanFlight, SimTelemetry, TrackPoint } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { FlightMap } from '@/FlightMap'
 import { realIcao } from '@/display-icao'
+import {
+  computeTrackTimes,
+  formatDuration,
+  formatElapsed,
+  formatUtcTime,
+  type TrackTimes
+} from '@/track-times'
 import { parseTransitionAltitudes, parseWaypointsFromOfpJson } from '@/route'
 import type { LanConnection, LanLinkState } from './lan-connection'
 
@@ -147,6 +154,62 @@ function FlightBanner({ flight }: { flight: LanFlight }): React.JSX.Element {
 }
 
 /**
+ * ET, time remaining and ETA, as on the Track screen.
+ *
+ * @param props The readouts.
+ * @returns The element, or nothing before there is anything to show.
+ */
+function TimesBanner({ times }: { times: TrackTimes }): React.JSX.Element | null {
+  const { t } = useTranslation()
+  if (times.elapsedMs === null && times.remainingMs === null && times.etaMs === null) return null
+  return (
+    <div className="flex items-center justify-between gap-2 border-b border-border bg-card px-3 py-1 text-xs text-muted-foreground">
+      <span>
+        {t('trackView.times.et')}{' '}
+        <span className="font-mono text-foreground">{formatElapsed(times.elapsedMs)}</span>
+      </span>
+      <span>
+        {t('trackView.times.remaining')}{' '}
+        <span className="font-mono text-foreground">{formatDuration(times.remainingMs)}</span>
+      </span>
+      <span>
+        {t(times.etaIsPlanned ? 'trackView.times.etaPlanned' : 'trackView.times.eta')}{' '}
+        <span className="font-mono text-foreground">{formatUtcTime(times.etaMs)}</span>
+      </span>
+    </div>
+  )
+}
+
+/**
+ * ET, time remaining and ETA, recalculated every second: ET has to tick on its own, since telemetry stops arriving while the sim is paused.
+ *
+ * @param args The route, the live telemetry, the recorded track and the scheduled arrival.
+ * @returns The readouts.
+ */
+function useFlightTimes(args: {
+  route: [number, number][]
+  telemetry: SimTelemetry | undefined
+  trackPoints: TrackPoint[]
+  schedInUtc: string | null
+}): TrackTimes {
+  const { route, telemetry, trackPoints, schedInUtc } = args
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+  return computeTrackTimes({
+    route,
+    position: telemetry ? { lat: telemetry.latitude, lon: telemetry.longitude } : null,
+    groundSpeedMs: telemetry?.groundSpeedMs ?? null,
+    onGround: telemetry?.onGround ?? true,
+    takeoffUtc: trackPoints.find((p) => !p.onGround)?.tsUtc ?? null,
+    schedInUtc,
+    now
+  })
+}
+
+/**
  * @param props The link, and whether it has dropped.
  * @returns The element.
  */
@@ -166,6 +229,12 @@ function FlightScreen({ link, offline }: { link: LanConnection; offline: boolean
   const route = useMemo<[number, number][]>(() => waypoints.map((w) => [w.lon, w.lat]), [waypoints])
   const transition = useMemo(() => parseTransitionAltitudes(ofpJson), [ofpJson])
   const phase = trackPoints.at(-1)?.phase
+  const times = useFlightTimes({
+    route,
+    telemetry,
+    trackPoints,
+    schedInUtc: snapshot?.flight.schedInUtc ?? null
+  })
   useCollapsedAttribution()
 
   return (
@@ -181,6 +250,7 @@ function FlightScreen({ link, offline }: { link: LanConnection; offline: boolean
         </p>
       )}
       {snapshot && <FlightBanner flight={snapshot.flight} />}
+      {snapshot && <TimesBanner times={times} />}
       <div className="min-h-0 flex-1">
         <FlightMap
           live

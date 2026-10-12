@@ -58,6 +58,8 @@ export interface LanFlight {
   arrIcao: string
   /** The flight number, such as "CPA116", when the flight has one. */
   flightNumber: string | null
+  /** The scheduled arrival, UTC ISO text, for the ETA when there is no live estimate. */
+  schedInUtc: string | null
   /** The aircraft's registration and ICAO type, when it is a fleet aircraft. */
   registration: string | null
   icaoType: string | null

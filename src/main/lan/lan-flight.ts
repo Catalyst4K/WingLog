@@ -25,6 +25,7 @@ export function lanFlightSnapshot(
       depIcao: flight.depIcao,
       arrIcao: flight.arrIcao,
       flightNumber: flight.flightNumber,
+      schedInUtc: flight.schedInUtc,
       registration: aircraft?.registration ?? null,
       icaoType: aircraft?.icaoType ?? null,
       ofpJson: flight.ofpJson

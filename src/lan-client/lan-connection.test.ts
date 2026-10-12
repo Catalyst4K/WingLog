@@ -56,6 +56,7 @@ const FLIGHT = {
     depIcao: 'WSSS',
     arrIcao: 'EGLL',
     flightNumber: 'SIA321',
+    schedInUtc: null,
     registration: '9V-SKA',
     icaoType: 'A388',
     ofpJson: null
