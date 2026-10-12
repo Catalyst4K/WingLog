@@ -5,7 +5,8 @@
  * read-only; writes release/sim/flight/index.html (gitignored: it shows a real flight). Not part of
  * `npm test`: it needs a capture.
  */
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import { eq } from 'drizzle-orm'
 import { it, vi } from 'vitest'
 import { findRunwayEndByIdent } from '../../src/main/airports/runway-lookup'
@@ -40,7 +41,7 @@ import {
 } from './flight'
 import { flightReport, type FlightFindings } from './flight-report'
 import { openUserDb, userDataDir } from './local-data'
-import { writeReport } from './report'
+import { simOutputDir, writeReport } from './report'
 import { positionRelativeToRunway } from '../../src/main/airports/landing-maths'
 
 /** Copies the airports' cached runways and procedures into the scenario's database, ids and all. */
@@ -139,6 +140,7 @@ it('simulates a recorded flight', async () => {
       }
     ]
 
+    const screensDir = join(simOutputDir('flight'), 'screens')
     const findings: FlightFindings = {
       scenario: capture.header.scenario,
       aircraft: capture.header.aircraftType,
@@ -179,7 +181,12 @@ it('simulates a recorded flight', async () => {
       measured,
       replayPhases,
       livePhases,
-      rules
+      rules,
+      screens: existsSync(screensDir)
+        ? readdirSync(screensDir)
+            .filter((f) => f.endsWith('.png'))
+            .sort()
+        : []
     }
     const page = writeReport('flight', flightReport(findings), {
       capture: capturePath,
