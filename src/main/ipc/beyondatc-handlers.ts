@@ -1,6 +1,6 @@
 /**
  * BeyondATC integration (winglog-backend's docs/plans/beyondatc-integration.md; live protocol
- * confirmed docs/beyondatc-notes.md, 2026-09-25): the BeyondAtcService's lifecycle and settings,
+ * confirmed docs/beyondatc-notes.md): the BeyondAtcService's lifecycle and settings,
  * the arrival clearance shown on the BeyondATC tab, WingLog's own auto step climb, and their IPC.
  * Off by default, opt-in per user-entered host. Unlike GSX Remote, the port is fixed
  * (BeyondAtcService's own BEYONDATC_PORT), so there's no port to validate here.

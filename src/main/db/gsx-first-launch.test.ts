@@ -16,7 +16,7 @@ import { checkGsxFirstLaunch } from './gsx-first-launch'
 // short-circuit every case here to "not found" regardless of APPDATA.
 //
 // receiptsPath below is built with `win32.join`, not the ambient `join`, to match
-// defaultGsxReceiptsPath's own win32.join exactly (see that file's 2026-09-14 comment) —
+// defaultGsxReceiptsPath's own win32.join exactly (see that file's comment) —
 // on a POSIX host this creates one real filesystem entry whose literal name contains
 // backslashes rather than genuinely nested folders, but that's fine: existsSync only needs
 // the exact same string on both sides, which it now has.

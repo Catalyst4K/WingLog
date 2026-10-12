@@ -26,7 +26,7 @@ const INITIAL_RECONNECT_DELAY_MS = 2_000
 const MAX_RECONNECT_DELAY_MS = 30_000
 
 // Second, high-rate SimConnect stream for touchdown-severity capture (winglog-backend's docs/plans/landing-scoring-v2.md Part 3;
-// docs/simconnect-notes.md, 2026-09-20). Own definition/request id, independent of the primary 1 Hz stream above, which keeps
+// docs/simconnect-notes.md). Own definition/request id, independent of the primary 1 Hz stream above, which keeps
 // driving FlightRecorder's phase detection: its sample-count sustain counters would silently break if that stream's rate changed.
 const HIGH_RATE_DEFINITION_ID = 1
 const HIGH_RATE_REQUEST_ID = 1
@@ -41,10 +41,10 @@ const HIGH_RATE_STOP_AFTER_TOUCHDOWN_MS = 5_000
 // The near-contact window the production touchdown-severity value is drawn from — the
 // shortest of the three windows the spike measured (1/2/5s), chosen because it stays
 // closest to the true instantaneous contact severity without pulling in the earlier part of
-// the flare's own deceleration (docs/simconnect-notes.md, 2026-09-20's three real landings).
+// the flare's own deceleration (docs/simconnect-notes.md: three real landings).
 const NEAR_CONTACT_WINDOW_MS = 1_000
 // A liftoff must clear this much AGL, not just read onGround:false, before re-arming: taxi bumps and turns can flicker onGround
-// briefly enough to look like a departure (docs/simconnect-notes.md, 2026-09-20).
+// briefly enough to look like a departure.
 const LIFTOFF_AGL_MARGIN_M = 3
 
 /** Matches node-simconnect's `open` export — injected so tests don't need a live sim. */
@@ -243,7 +243,7 @@ export class SimConnectService extends EventEmitter<SimConnectServiceEvents> {
    * Arms/re-arms the high-rate stream from the primary 1 Hz telemetry alone, on every baseline tick. Requires genuinely airborne
    * (`!onGround`), not just the altitude band: AGL alone is also true during the takeoff roll and initial climb, and arming while
    * still on the ground reset wasOnGroundHighRate against a same-tick onGround still true, tripping a false touchdown with an
-   * empty ring buffer (docs/simconnect-notes.md, 2026-09-20; scripts/spike-landing-rate.ts is fixed the same way).
+   * empty ring buffer (docs/simconnect-notes.md; scripts/spike-landing-rate.ts is fixed the same way).
    *
    * @param telemetry The latest 1 Hz tick.
    */
@@ -325,8 +325,8 @@ export class SimConnectService extends EventEmitter<SimConnectServiceEvents> {
     }
     this.wasOnGroundHighRate = onGround
 
-    // highRateActive guard: a couple of ticks can still arrive after requestDataOnSimObject never takes effect
-    // (docs/simconnect-notes.md, 2026-09-20); without it this would call stopHighRate/emit for every leftover tick.
+    // highRateActive guard: a couple of ticks can still arrive after requestDataOnSimObject never takes effect;
+    // without it this would call stopHighRate/emit for every leftover tick.
     if (
       this.highRateActive &&
       this.touchdownAt !== null &&

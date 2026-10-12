@@ -31,7 +31,7 @@ describe('pickDefaultApproachIdentifier', () => {
     expect(pickDefaultApproachIdentifier(options)).toBe('ILS 07C')
   })
 
-  // ZJSY's real runway 08 approaches from the sim's navdata (2026-10-05 VHHH-ZJSY flight).
+  // ZJSY's real runway 08 approaches from the sim's navdata (VHHH-ZJSY flight).
   // UPRS2C ends at SY498.
   const ZJSY_08 = [
     ...['A', 'D046H', 'HUT1', 'HUT2', 'SYX'].map((t) => option('TYPE 8 08', t)),

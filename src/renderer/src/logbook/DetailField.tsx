@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 /** Two label/value columns whose tracks may shrink below their content's width
  *  (`minmax(0, 1fr)`, not the bare `1fr` of `grid-cols-2`, which can't) - otherwise a long
  *  label or mono-font value overflows into its neighbour when the window narrows (beta
- *  feedback 2026-09-18). Paired with DetailField's `min-w-0 break-words`. */
+ * feedback). Paired with DetailField's `min-w-0 break-words`. */
 export const DETAIL_GRID_CLASS = 'grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-6 gap-y-1.5 text-sm'
 
 /**

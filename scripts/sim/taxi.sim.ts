@@ -4,7 +4,7 @@
  * `npm test`: it needs local data (winglog-backend docs/plans/robustness/scenario-testing.md
  * Part 6).
  *
- * Taxis from before the InfoBoxes were logged (2026-10-05) can be added by hand in
+ * Taxis from before the InfoBoxes were logged can be added by hand in
  * release/sim/taxi/hand-scenarios.json, a list of HandScenario (taxi.ts).
  */
 import { existsSync, readFileSync } from 'node:fs'

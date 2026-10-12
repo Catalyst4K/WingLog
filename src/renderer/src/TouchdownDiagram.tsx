@@ -188,7 +188,7 @@ export function TouchdownDiagram(props: {
   return (
     <svg
       viewBox={`0 0 ${svgWidthPx} ${svgHeightPx}`}
-      // Sized off height, not width (Callum, 2026-09-12: the diagram should be no bigger
+      // Sized off height, not width (the diagram should be no bigger
       // than the text list it sits alongside, not its own separately-sized block) — the
       // parent column fixes the height (LogbookView.tsx) and this derives its own width
       // from that via the aspect-ratio, rather than the old width:100%/height:auto which

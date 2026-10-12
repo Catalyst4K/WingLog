@@ -368,7 +368,7 @@ describe('BeyondAtcPanel', () => {
   })
 
   describe('feedback after pressing an action (Callum, 2026-10-02: a press queued behind traffic looked like it did nothing)', () => {
-    // Real action labels, YBBN 2026-10-02.
+    // Real action labels, YBBN.
     const ACTIONS = ['Request Taxi', 'Radio Check']
 
     function withStateListener(): { push: (state: BeyondAtcState) => void } {

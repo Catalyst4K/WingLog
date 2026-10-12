@@ -14,13 +14,13 @@ import {
   type DeviationState
 } from './taxi-reroute'
 import ZJSY_RAW from './__fixtures__/zjsy-taxi-d-b7-a.json'
-// Flight 227's real taxi out at ZJSY, 2026-10-02: from the stand through the wrong-way
+// Flight 227's real taxi out at ZJSY: from the stand through the wrong-way
 // pushback to the runway 08 hold and lining up. Anonymised to what the replay needs. Rows:
 // [seconds from the first row, lat, lon, true heading, ground speed m/s, phase]. Pushback is
 // recorded at 1 s, taxi at 3 s (the taxi interval then).
 import REPLAY_227 from './__fixtures__/zjsy-227-taxi-out.json'
-// Flight 225's real taxi out at YBBN, 2026-10-01, from the end of pushback (same row shape),
-// and the airport's taxi network around it. Simulated 2026-10-06: the re-routes pointed back
+// Flight 225's real taxi out at YBBN, from the end of pushback (same row shape),
+// and the airport's taxi network around it. Simulated: the re-routes pointed back
 // behind the aircraft twice before following it, until a wrong-way start cost a flat 3 km.
 import REPLAY_225 from './__fixtures__/ybbn-225-taxi-out.json'
 import YBBN_225_RAW from './__fixtures__/ybbn-225-taxi-network.json'

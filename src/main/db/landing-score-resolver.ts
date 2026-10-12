@@ -72,7 +72,7 @@ function toCategories(breakdown: LandingScoreBreakdown): LandingScoreCategory[] 
  * Assembles a stored landing's real, already-vendored context (the aircraft's wake
  * category, and its runway end for the aiming-point/centreline inputs) into
  * computeLandingScore's inputs, and pairs that with the derived firm/hard classification —
- * see landing-score.ts and docs/decisions.md (2026-09-12) for the design this implements.
+ * see landing-score.ts and docs/decisions.md for the design this implements.
  * `icaoType` is the owning aircraft's `icao_type` — null only for a landing whose aircraft
  * has since been deleted (a genuine, if rare, orphan), in which case the score falls back
  * to the M baseline like any other unrecognised type.
@@ -119,7 +119,7 @@ export function resolveLandingScore(
   const breakdown = computeLandingScore(inputs)
   const severity = classifyLanding(landingRecord.verticalSpeedMs, deriveLandingThresholds(category))
   // breakdown.overall can be negative once one or more dangerous-exceedance deductions apply
-  // — floored here, once, for every consumer of the display-facing score (Callum, 2026-09-20:
+  // floored here, once, for every consumer of the display-facing score (
   // "the overall score floors at 0 for display even though the math can go negative
   // internally").
   return {

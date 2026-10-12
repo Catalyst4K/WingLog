@@ -193,7 +193,7 @@ describe('GsxInvoicesCard', () => {
     expect(totalLabel.parentElement).toHaveTextContent('£80.00')
   })
 
-  // Regression: flight 229 (RKSI-EGLL, 2026-10-04) with display currency GBP showed each row
+  // Regression: flight 229 (RKSI-EGLL) with display currency GBP showed each row
   // as GSX's "₩… ~$ …" text above a "Total (GBP)" line, so the rows and the total were in
   // different currencies. Real receipt values from that flight.
   it('shows each row in the display currency, matching a converted total', async () => {

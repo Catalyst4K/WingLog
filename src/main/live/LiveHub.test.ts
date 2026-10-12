@@ -4,7 +4,7 @@ import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { logger } from '../logging/logger'
 import { LiveHub } from './LiveHub'
 
-// A real-shaped sample: the A350 at VHHH stand N32, 2026-10-02.
+// A real-shaped sample: the A350 at VHHH stand N32.
 const POINT: LiveTopics['trackingPoint'] = {
   id: 86618,
   flightId: 216,

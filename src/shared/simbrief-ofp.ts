@@ -126,7 +126,7 @@ function epochSecondsToIso(value: unknown): string {
 /**
  * Recursively searches a parsed JSON value for the first string-valued property named `key`, at any depth. Used instead of a
  * fixed path (e.g. `general.stepclimb_string`) because only the field's name and value are confirmed against a real SimBrief
- * response, not which section it lives under (docs/decisions.md, 2026-09-02).
+ * response, not which section it lives under.
  *
  * @param value The parsed JSON.
  * @param key The property name.
@@ -156,7 +156,7 @@ const MAX_PLAUSIBLE_FLIGHT_LEVEL_FT = 52_000
 
 /**
  * Parses SimBrief's `stepclimb_string` field: a flat "IDENT/CODE/IDENT/CODE/..." string mirroring the "FL STEPS" line on the OFP
- * text, e.g. `"EGLL/0330/DENAK/0350/SUDAR/0370/KAMUD/1130/OMBON/1190"` from a China-crossing OFP (docs/decisions.md, 2026-09-02).
+ * text, e.g. `"EGLL/0330/DENAK/0350/SUDAR/0370/KAMUD/1130/OMBON/1190"` from a China-crossing OFP.
  *
  * Each 4-digit code is one of two notations, with nothing in the string marking which:
  * - A standard flight level, in hundreds of feet ("0330" = FL330 = 33,000 ft).
@@ -164,8 +164,7 @@ const MAX_PLAUSIBLE_FLIGHT_LEVEL_FT = 52_000
  *   metres ("1130" = 11,300 m ≈ 37,073 ft).
  *
  * The ranges overlap: China's metric RVSM levels run from roughly 600 m to 14,900 m, i.e. codes 0060-0990, so a code alone can't
- * disambiguate ("0890" is a plausible FL890 *and* 8,900 m; a code>=1000 threshold broke on exactly that, docs/decisions.md
- * 2026-09-06/07). Resolved instead by cross-referencing `waypointAltitudesFt`, keyed by the same ident (built from the OFP's
+ * disambiguate ("0890" is a plausible FL890 *and* 8,900 m; a code>=1000 threshold broke on exactly that, docs/decisions.md). Resolved instead by cross-referencing `waypointAltitudesFt`, keyed by the same ident (built from the OFP's
  * `navlog.fix[]`, which gives the real altitude in feet): whichever notation's converted value lands closer to the known altitude
  * wins. Only an ident with no navlog match falls back to a plausibility threshold: a "flight level" above ~FL520 must be metric.
  *

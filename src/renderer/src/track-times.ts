@@ -1,6 +1,6 @@
 /**
  * ET, time remaining and ETA for the Track page (winglog-backend's
- * docs/plans/track-time-readouts.md, Callum 2026-10-02).
+ * docs/plans/track-time-readouts.md, Callum).
  *
  * - **ET**: since takeoff, matching the Logbook's flight time.
  * - **Time remaining**: distance left *along the route* ÷ current ground speed — along the
@@ -140,7 +140,7 @@ export function formatDuration(ms: number | null): string {
 
 /**
  * ET: "2:05:30", seconds included since the readout ticks every second (Callum,
- * 2026-10-02). Time remaining stays at formatDuration's minutes: it's an estimate from
+ * ). Time remaining stays at formatDuration's minutes: it's an estimate from
  * ground speed, and ticking seconds would claim a precision it doesn't have.
  *
  * @param ms The elapsed time, or null.

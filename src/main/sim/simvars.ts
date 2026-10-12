@@ -52,7 +52,7 @@ export const SIM_VARS = [
     read: (d) => d.readFloat64()
   },
   // Barometric altitude with the Kohlsman on standard — sim-confirmed real and readable in
-  // meters, VHHH round trip, docs/simconnect-notes.md 2026-09-13 (logbook-detail-improvements.md
+  // meters, VHHH round trip, docs/simconnect-notes.md (logbook-detail-improvements.md
   // Phase 3). Used only for display (above the transition altitude); PLANE ALTITUDE above
   // stays the source for everything geometric, same as before this field existed.
   {
@@ -194,7 +194,7 @@ export const SIM_VARS = [
     read: asBool
   },
   // The autopilot's selected altitude — confirmed live on the Fenix A320 to follow the FCU
-  // knob exactly, every 1,000 ft click (docs/beyondatc-notes.md, 2026-10-01). Drives the
+  // knob exactly, every 1,000 ft click. Drives the
   // BeyondATC auto step climb's "the aircraft has started its step" trigger.
   {
     key: 'apSelectedAltitudeM',

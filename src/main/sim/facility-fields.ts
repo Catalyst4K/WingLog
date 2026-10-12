@@ -468,7 +468,7 @@ export function biasToLatLon(
 
 /** TAXI_POINT `TYPE` values that mark a hold-short line, per the SDK reference's own enum
  *  (2 HOLD_SHORT, 4 ILS_HOLD_SHORT, 5 HOLD_SHORT_NO_DRAW, 6 ILS_HOLD_SHORT_NO_DRAW). Only 5
- *  has been seen live so far (VHHH, 63 of 4,434 points, 2026-09-30). */
+ * has been seen live so far (VHHH, 63 of 4,434 points). */
 const HOLD_SHORT_TYPES = new Set([2, 4, 5, 6])
 
 export interface ParsedTaxiPoint {
@@ -503,13 +503,13 @@ export function parseTaxiPoint(d: RawBuffer): ParsedTaxiPoint {
 
 export interface ParsedTaxiPath {
   type: number
-  /** Index into the airport's TAXI_POINT list (docs/navdata-notes.md, 2026-09-28: confirmed
+  /** Index into the airport's TAXI_POINT list (docs/navdata-notes.md: confirmed
    *  this indexes the *unfiltered* point list — TAXI_POINT itself is never filtered, exactly
    *  because filtering it would desync these indices). */
   start: number
   end: number
   /** Index into the airport's TAXI_NAME list, or `null` for index 0 — confirmed live
-   *  2026-09-28 to be the real "no name" sentinel, not a missing/error case
+   * to be the real "no name" sentinel, not a missing/error case
    *  (docs/navdata-notes.md). */
   nameIndex: number | null
 }
@@ -563,7 +563,7 @@ export function parseTaxiName(d: RawBuffer): ParsedTaxiName {
   return { name: d.readString8() }
 }
 
-/** One TAXI_PARKING record (stands/gates) — every field confirmed live 2026-10-02
+/** One TAXI_PARKING record (stands/gates) — every field confirmed live
  *  (winglog-backend's docs/navdata-notes.md, "TAXI_PARKING"): positions are BIAS_X/BIAS_Z
  *  like TAXI_POINT's, within 13-15 m of where a real flight parked at VHHH N32 / YBBN gate 79. */
 export interface ParsedTaxiParking {

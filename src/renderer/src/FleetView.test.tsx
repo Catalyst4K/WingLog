@@ -963,7 +963,7 @@ describe('FleetView', () => {
 
     it('shows a severity badge for a firm/hard landing, from the server-resolved severity', async () => {
       // Severity is resolved server-side against the aircraft's own wake category
-      // (docs/decisions.md, 2026-09-12) — the client renders whatever fleetListLandings
+      // the client renders whatever fleetListLandings
       // returns rather than re-classifying verticalSpeedMs itself.
       setWinglog({
         aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),

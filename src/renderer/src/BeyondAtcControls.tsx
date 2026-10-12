@@ -35,7 +35,7 @@ import {
  * AutoTune/AutoRespond live inside `BeyondAtcRadios`, not a separate block — Callum's own
  * call once the panel was actually split into cards: radios is where you'd look for them,
  * same as the frequencies themselves. Both commands and the frequency list are confirmed
- * working live, 2026-09-29 (docs/beyondatc-notes.md).
+ * working live (docs/beyondatc-notes.md).
  */
 export interface BeyondAtcActionsProps {
   actions: string[]
@@ -175,7 +175,7 @@ function AirportFrequencies(props: {
 }
 
 /**
- * The frequency dialog: Departure and Arrival tabs (Callum's call, 2026-09-29), opened on the one the flight is at, each airport's
+ * The frequency dialog: Departure and Arrival tabs (Callum's call), opened on the one the flight is at, each airport's
  * stations grouped by type with the en-route entries last. In a centered dialog since the list is long.
  *
  * @param props The frequencies, the flight's airports and progress, the tuned frequency and the select handler.
@@ -357,7 +357,7 @@ function AutoToggle(props: {
 export interface BeyondAtcRadiosProps {
   /** The station name + frequency currently tuned, not just the raw frequency digits — this
    *  is the "what you're tuned to" surface now, moved out of the top info card per Callum's
-   *  own call (redesign conversation, 2026-09-29). */
+   * own call (redesign conversation). */
   facility: BeyondAtcFacility | null
   com2: BeyondAtcCom2 | null
   /** Drives the frequency picker's Departure/Arrival tab split — `from`/`to` are the same

@@ -1,12 +1,12 @@
 /**
  * The key facts from BeyondATC's most recent ATC instruction, for the panel's "Latest
- * instruction" card — Callum's call, 2026-09-30: whatever ATC said last (clearance, taxi,
+ * instruction" card — Callum's call: whatever ATC said last (clearance, taxi,
  * handoff, climb/descent, takeoff…) pulled out into clearly labelled fields, rather than a
  * readout accumulated across the whole flight.
  *
  * Every fact BeyondATC gives an InfoBox for comes from the boxes (instructionFromBoxes), never
- * from parsing the speech (winglog-backend's docs/decisions.md, 2026-10-05). The speech is
- * parsed only for what has no box (real VHHH-ZJSY flight, 2026-10-05): the station, the
+ * from parsing the speech. The speech is
+ * parsed only for what has no box (real VHHH-ZJSY flight): the station, the
  * cleared-to airport, "direct", wind, and the line-up / hold-short / readback-correct /
  * radar-identified labels. The card always shows the full spoken text too.
  */
@@ -231,7 +231,7 @@ function latestSpokenInstruction(entries: BeyondAtcTranscriptEntry[]): AtcInstru
 
 /**
  * "readback correct. Contact ground 122.25 when ready for pushback or engine start." (real,
- * VHHH 2026-10-02) — confirms the line before rather than replacing it.
+ * VHHH) — confirms the line before rather than replacing it.
  *
  * @param instruction An instruction.
  * @returns True if it only confirms the one before.
@@ -245,7 +245,7 @@ function isReadbackOnly(instruction: AtcInstruction): boolean {
 }
 
 /**
- * Callum, 2026-10-02: a readback keeps the instruction it confirms on the card (the clearance
+ * Callum: a readback keeps the instruction it confirms on the card (the clearance
  * stays up until ATC says something new, e.g. pushback approved). The full text shows both
  * lines; the frequency it hands over comes from the boxes (`Ground Frequency`).
  *

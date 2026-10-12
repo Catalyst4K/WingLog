@@ -765,7 +765,7 @@ describe('App', () => {
   })
 
   it('clears Dispatch’s OFP/route once tracking auto-completes, even if Track was never opened', async () => {
-    // Real bug (2026-09-27): a flight auto-completing via shutdown detection only cleared
+    // Real bug: a flight auto-completing via shutdown detection only cleared
     // Dispatch's stale OFP/route through TrackView's own onTrackingPoint subscription — which
     // only exists while Track is actually mounted. Staying on Dispatch (or any other tab) the
     // whole flight, as a pilot who isn't watching the map usually would, left it showing the

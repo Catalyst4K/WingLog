@@ -56,7 +56,7 @@ export interface FetchedProcedure {
   runwayTransitions: FetchedRunwayTransition[]
   enrouteTransitions: FetchedEnrouteTransition[]
   /** Legs registered directly on the procedure, outside any transition — confirmed live,
-   *  2026-09-08, that this is where EGLL's STARs (zero transitions each) put every real
+   * that this is where EGLL's STARs (zero transitions each) put every real
    *  leg, while EGLL/VHHH's SIDs put theirs inside their one runway transition instead and
    *  leave this empty — see facility-fields.ts's module doc comment. */
   commonLegs: ParsedLeg[]
@@ -78,7 +78,7 @@ export interface FetchedApproach {
   runwayIdent: string
   transitions: FetchedApproachTransition[]
   /** The approach's own final segment — always common to every transition, per real ARINC
-   *  424 shape confirmed live 2026-09-08 (docs/navdata-notes.md): a transition's own last
+   * 424 shape confirmed live (docs/navdata-notes.md): a transition's own last
    *  leg and this list's first leg are the same fix, duplicated across both — a caller
    *  assembling a flyable path needs to drop that repeat, not something fetched here. */
   finalLegs: ParsedLeg[]
@@ -397,14 +397,14 @@ export interface FetchedTaxiNetwork {
 }
 
 /** A large airport's `TAXI_POINT` list alone can take minutes to stream (EGLL: 5,389 points,
- *  ~170s, confirmed live 2026-09-28, winglog-backend's docs/navdata-notes.md) — this fetch
+ * ~170s, confirmed live winglog-backend's docs/navdata-notes.md) — this fetch
  *  needs a much longer timeout than `fetchAirportNavdata`'s 20s. 10 minutes covers the longest
  *  real session observed that night with headroom; a caller must treat this as a genuinely
  *  slow, explicit operation, never something fired silently in the background. */
 const TAXI_FETCH_TIMEOUT_MS = 600_000
 
 /** `TAXI_PATH.TYPE`'s numeric mapping is only partly confirmed (docs/navdata-notes.md,
- *  2026-09-28: `2` = Runway, confirmed; `1`/`4` are both plausible "Taxi"/"Path" drivable-
+ * `2` = Runway, confirmed; `1`/`4` are both plausible "Taxi"/"Path" drivable-
  *  network values, unconfirmed which is which) — both are fetched via separate filtered
  *  definitions and merged, rather than guessing one. */
 const TAXI_PATH_DEFINITIONS = [
@@ -574,7 +574,7 @@ export interface FetchedStand {
   lon: number
 }
 
-/** Stands come back in seconds even at VHHH (359 of them, live 2026-10-02) — unlike the
+/** Stands come back in seconds even at VHHH (359 of them, live) — unlike the
  *  taxi network, a fetch small enough to run on demand. */
 const STAND_FETCH_TIMEOUT_MS = 60_000
 

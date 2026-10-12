@@ -11,7 +11,7 @@ import { mToFt } from './units'
  * exactly, and roughly field elevation near the airports, where true altitude ≈ QNH
  * altitude. Both inputs are computed by the sim, so neither depends on how a given
  * aircraft implements its altimeter — the same reason PLANE ALTITUDE replaced INDICATED
- * ALTITUDE for storage in the first place (docs/decisions.md, 2026-09-05).
+ * ALTITUDE for storage in the first place.
  *
  * Whether a point is "above" or "below" the transition is read off its own recorded flight
  * phase rather than computed from the flight's actual highest altitude: the choice only

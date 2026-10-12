@@ -76,7 +76,7 @@ describe('TrackCleanupButton', () => {
   it('always renders the button, regardless of resume history', () => {
     // Rule 2 (resume-cleanup.ts) runs unconditionally and can find real junk on a flight
     // where resumeSegment never changed at all — most notably one recorded before Phase 1
-    // existed (confirmed live 2026-09-13 against a real flight, CPA319/#191) — so there's
+    // existed (confirmed live against a real flight, CPA319/#191) — so there's
     // no client-side signal that reliably rules this out ahead of actually asking.
     withWinglog()
     render(<TrackCleanupButton flightId={42} onCleaned={vi.fn()} />)

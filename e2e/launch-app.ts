@@ -70,7 +70,7 @@ const CLOSE_TIMEOUT_MS = 10_000
 
 /**
  * Keeps the app's main.log in `test-results/` when it records an uncaught exception, before the isolated profile is deleted: a
- * flake in which the main process threw (`timer._onTimeout is not a function`, one launch in about 80 under load, 2026-10-12)
+ * flake in which the main process threw (`timer._onTimeout is not a function`, one launch in about 80 under load)
  * otherwise leaves nothing to read.
  *
  * @param userDataDir The profile the app ran in.

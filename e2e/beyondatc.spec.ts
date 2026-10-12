@@ -57,7 +57,7 @@ test.describe('BeyondATC integration', () => {
       await expect(instructionCard.getByText('Cathay 116 Heavy, readability 5.')).toBeVisible()
 
       // BeyondAtcService requests the real frequency list itself, right after connecting —
-      // confirmed live 2026-09-29 (docs/beyondatc-notes.md).
+      // confirmed live (docs/beyondatc-notes.md).
       await expect.poll(() => server.receivedCommands).toContain('frequencies')
       server.sendLines(...FREQUENCIES_RESPONSE)
       server.sendLines(...AUTO_SETTINGS_SNAPSHOT)
@@ -66,8 +66,8 @@ test.describe('BeyondATC integration', () => {
       // wouldn't appear in either tab.
       server.sendLines('Progress: {"from": "WSSS", "to": "ZSPD", "pct": 0}')
 
-      // Picker moved from a Select dropdown to a centered dialog (Callum's own call,
-      // 2026-09-29) — every button leads with its real category, not just BeyondATC's own
+      // Picker moved from a Select dropdown to a centered dialog (Callum's own call)
+      // — every button leads with its real category, not just BeyondATC's own
       // station name (docs/plans/beyondatc-panel-redesign.md).
       await page.getByRole('button', { name: 'Frequencies' }).first().click()
       await page.getByRole('button', { name: /Singapore Approach.*RWY 02L.*124\.050/ }).click()

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { NavdataRunway } from '@shared/ipc'
 import { landingRunwayResolver } from './landing-runway'
 
-// WSSS 20R from the sim's own facility data (flight 236, 2026-10-12), and where the A380 touched down on it: 949 m past the sim's
+// WSSS 20R from the sim's own facility data (flight 236), and where the A380 touched down on it: 949 m past the sim's
 // threshold, 1.9 m left of its centreline. OurAirports' 20R is the same strip 40 m to the east, with a 740 m displaced threshold.
 const SIM_20R: NavdataRunway = {
   ident: '20R',

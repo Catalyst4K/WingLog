@@ -3,7 +3,7 @@ import { fetchMetars } from './metar-client'
 
 // Real response shape captured live from
 // https://aviationweather.gov/api/data/metar?ids=EGLL,KJFK&format=json
-// (docs/decisions.md, 2026-09-02) — not synthesised.
+// not synthesised.
 const REAL_RESPONSE = [
   {
     icaoId: 'EGLL',

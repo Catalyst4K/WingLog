@@ -37,7 +37,7 @@ export const ensureWorkerReady = lazy((): Promise<void> =>
     .then((blob) => setWorkerUrl(URL.createObjectURL(blob)))
 )
 
-// docs/decisions.md, 2026-09-01 M4 tile source entry: OpenFreeMap, no key/quota/backend. positron over liberty: a
+// docs/decisions.md M4 tile source entry: OpenFreeMap, no key/quota/backend. positron over liberty: a
 // low-color basemap reads better under a flight track overlay. 'dark' is a real OpenFreeMap style with a near-black
 // background and muted layer colors (docs/plans/settings-ui-page.md), the same URL shape as positron's. The style is picked
 // once at map creation from the active theme (documentElement's `dark` class, toggled by App.tsx) and not re-styled live

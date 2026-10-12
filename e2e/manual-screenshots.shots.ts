@@ -59,7 +59,7 @@ function seededProfile(): string {
 /**
  * One consistent clearance exchange for the BeyondATC page, on the same flight as
  * LARGE_REAL_SNAPSHOT (Singapore 830 Super, WSSS -> ZSPD, ATIS B: departures 20C). The wording
- * follows real BeyondATC lines from Player.log (2026-10-02, ZSPD); ANIT8B is a real WSSS SID
+ * follows real BeyondATC lines from Player.log (ZSPD); ANIT8B is a real WSSS SID
  * off 20C in the sim's navdata.
  */
 const DEMO_CLEARANCE = [

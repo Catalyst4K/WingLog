@@ -321,7 +321,7 @@ describe('navdata repo', () => {
               identifier: 'RNAV Z 07R',
               runwayIdent: '07R',
               // VH720 is both the transition's own last leg and the final segment's first
-              // leg — real ARINC 424 shape confirmed live 2026-09-08 (docs/navdata-notes.md).
+              // leg — real ARINC 424 shape confirmed live (docs/navdata-notes.md).
               transitions: [{ name: 'LIMES', legs: [leg('LIMES'), leg('VH720')] }],
               finalLegs: [leg('VH720'), leg('RW07R')]
             })
@@ -392,7 +392,7 @@ describe('navdata repo', () => {
             procedure({
               name: 'SMOK2A',
               // GARTH is both the common route's last leg and the runway transition's first
-              // leg — the real ARINC 424 shape found live 2026-09-11 (docs/navdata-notes.md).
+              // leg — the real ARINC 424 shape found live (docs/navdata-notes.md).
               commonLegs: [leg('SMOKA'), leg('OTGAT'), leg('GARTH')],
               runwayTransitions: [
                 {

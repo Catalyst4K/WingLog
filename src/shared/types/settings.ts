@@ -89,7 +89,7 @@ export type WindSpeedUnit = 'kt' | 'mps'
 export type MapLanguage = 'local' | 'en' | 'de' | 'es' | 'fr' | 'it' | 'ru'
 
 /**
- * The app's own UI display language (winglog-backend docs/plans/v1-2.md Part 3, decisions.md 2026-09-20), distinct from
+ * The app's own UI display language (winglog-backend docs/plans/v1-2.md Part 3, decisions.md), distinct from
  * MapLanguage above, which only affects map place names. 'system' (the default) resolves to the OS locale client-side
  * (app-language.ts's resolveAppLanguage), falling back to English when no catalogue exists for it; the rest are an explicit
  * override, persisted once chosen. Aviation terms of art (ILS, STAR, SID, FL, QNH, ICAO idents) and anything sourced from

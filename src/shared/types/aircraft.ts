@@ -1,7 +1,7 @@
 /** Fleet aircraft, and the reference lists the Fleet forms search (types, airframes, airlines). */
 
 /**
- * Identity + linkage only (docs/decisions.md, 2026-09-01 Fleet-simplification entry) —
+ * Identity + linkage only (docs/decisions.md Fleet-simplification entry) —
  * performance data lives in the linked SimBrief profile, not here. Hours/cycles are
  * computed live from flight history, see FleetStats below.
  */
@@ -12,7 +12,7 @@ export interface Aircraft {
   /** Airline/operator, shown as "Airline" in the UI. */
   operator: string | null
   /** IATA code of the operator, if picked from the airline search — used to fetch a
-   *  logo (docs/decisions.md, 2026-09-01 airline-search entry). Null for an operator
+   * logo (docs/decisions.md airline-search entry). Null for an operator
    *  typed free-hand or filled in from a registration lookup, which has no code. */
   operatorIata: string | null
   /** ICAO code of the operator — what SimBrief's `airline` generation parameter and a
@@ -88,7 +88,7 @@ export interface AircraftLookupResult {
   operatorIcao: string | null
   /** adsbdb's `url_photo_thumbnail` — see Aircraft.photoThumbnailUrl. Deliberately not
    *  `url_photo` (full-size): confirmed live it 404s consistently, see docs/decisions.md,
-   *  2026-09-07. Null if adsbdb had no photo for this registration. */
+   * . Null if adsbdb had no photo for this registration. */
   photoThumbnailUrl: string | null
 }
 
@@ -115,7 +115,7 @@ export interface SimbriefAirframeOption {
   developer: string | null
   /** Whatever in `airframe_comments` distinguishes this entry from another with the same
    *  developer/engines — e.g. "(SL)" vs "(WF)" on an A320, or a whole descriptive phrase
-   *  like "Dual Class" on a PMDG 737 (docs/simbrief-notes.md, 2026-09-08 entry). Null when
+   * like "Dual Class" on a PMDG 737 (docs/simbrief-notes.md entry). Null when
    *  there's nothing beyond developer/engines to show, or the comment didn't parse at all. */
   variant: string | null
   engines: string

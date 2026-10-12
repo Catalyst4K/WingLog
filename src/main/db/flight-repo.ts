@@ -131,7 +131,7 @@ export function listFlights(db: WingLogDb): Flight[] {
 
 /**
  * Every flight that isn't deleted, newest first, without the OFP text. The OFP is about 1 MB of JSON per flight, so the
- * whole list with it was 47 MB over IPC on every Dispatch and Track open (measured 2026-10-08, 200 flights); a page that
+ * whole list with it was 47 MB over IPC on every Dispatch and Track open (measured 200 flights); a page that
  * needs one OFP fetches that flight by id.
  *
  * @param db The database.

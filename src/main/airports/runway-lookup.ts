@@ -158,8 +158,8 @@ const MAX_HEADING_DIFFERENCE_DEG = 90
 // How far off the centreline a touchdown can be and still count as "on this runway" when a candidate's own widthM isn't
 // known: real runways are 30-90m wide, so 100m rejects a different, parallel strip while tolerating GPS and heading noise on
 // the real one. A fallback only; see runwayLateralToleranceM below. Exported for landing-score-resolver.ts's
-// centreline-offset scoring tolerance, which reuses this fallback when a runway's width is unknown (docs/decisions.md,
-// 2026-09-12): one value, not a second constant to keep in sync.
+// centreline-offset scoring tolerance, which reuses this fallback when a runway's width is unknown (docs/decisions.md):
+// one value, not a second constant to keep in sync.
 export const FALLBACK_LATERAL_TOLERANCE_M = 100
 
 // Along-track bounds a touchdown must fall within, relative to the threshold. Small

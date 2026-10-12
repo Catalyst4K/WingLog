@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { NavdataRunway } from '../navdata/navdata-provider'
 import { isOnRunway } from './runway-check'
 
-// VHHH's real runways from the navdata cache (2026-10-05).
+// VHHH's real runways from the navdata cache.
 const VHHH: NavdataRunway[] = [
   {
     ident: '25C',

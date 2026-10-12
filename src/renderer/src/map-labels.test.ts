@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { labelExpression, planStyleChanges, type StyleLayerLike } from './map-labels'
 
-// Synthetic fixtures shaped like the two real OpenFreeMap styles, as read on 2026-09-18
+// Synthetic fixtures shaped like the two real OpenFreeMap styles, as read on
 // (docs/navdata-notes.md-style spike, recorded in map-language-and-declutter.md): the same
 // two-line `name:latin` + `name:nonlatin` text-field everywhere, place layers told apart by
 // `source-layer: 'place'`, positron with minzooms and dark without.

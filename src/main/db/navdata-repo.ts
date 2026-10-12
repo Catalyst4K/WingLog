@@ -469,7 +469,7 @@ export function listCachedProcedureLegs(
 
   if (kind === 'approach') {
     // Transition (IAF entry) legs first, then the shared final segment — the reverse of
-    // SID/STAR's order, confirmed live 2026-09-08 (docs/navdata-notes.md) to be correct for
+    // SID/STAR's order, confirmed live (docs/navdata-notes.md) to be correct for
     // a real approach.
     return [...transitionLegs, ...dedupeBoundary(transitionLegs, commonLegs)].map(toNavdataLeg)
   }
@@ -477,7 +477,7 @@ export function listCachedProcedureLegs(
   if (kind === 'star') {
     // Enter via the enroute transition, fly the shared common route, then the runway
     // transition takes you down to the runway — the reverse of a SID's order. Confirmed
-    // live 2026-09-11 (docs/navdata-notes.md) against a real STAR (YBBN SMOK2A) with a
+    // live (docs/navdata-notes.md) against a real STAR (YBBN SMOK2A) with a
     // non-empty common route: the departure order drew two spurious lines across the
     // arrival, this order doesn't.
     const dedupedCommon = dedupeBoundary(transitionLegs, commonLegs)
@@ -489,7 +489,7 @@ export function listCachedProcedureLegs(
   }
 
   // SID: leave the runway (runway transition), fly the common route, then exit via the
-  // enroute transition. Confirmed live 2026-09-08 (docs/navdata-notes.md).
+  // enroute transition. Confirmed live (docs/navdata-notes.md).
   const dedupedCommon = dedupeBoundary(runwayLegs, commonLegs)
   const dedupedTransition = dedupeBoundary(
     dedupedCommon.length > 0 ? dedupedCommon : runwayLegs,

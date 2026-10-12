@@ -139,7 +139,7 @@ export const VHHH_BOOT_SNAPSHOT = {
   menu: { title: '', header: '', subtitle: '', entries: [], icons: [], disabled: [], layout: '' },
   menuShown: false,
   prompt: null,
-  // Real command-bar keys, confirmed live 2026-09-23 by reading GSX's own shipped menu.js
+  // Real command-bar keys, confirmed live by reading GSX's own shipped menu.js
   // source (STATIC_COMMANDS' ids) and capturing a real commandIcons/simbrief snapshot.
   commandIcons: {
     CUSTOMIZE_AIRPORT_POSITION: 'data:image/png;base64,AAA',

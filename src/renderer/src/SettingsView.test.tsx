@@ -399,7 +399,7 @@ describe('SettingsView', () => {
 
     it("keeps the OFP altitudes row's Hybrid explanation always visible, not behind a popover", async () => {
       // "Hybrid" isn't self-explanatory the way Feet/Meters are — hiding what it means
-      // behind a click was a real regression, not a decluttering win (Callum, 2026-09-23).
+      // behind a click was a real regression, not a decluttering win (Callum).
       renderSettings()
       expect(await screen.findByText(/rather than converting everything to one unit/)).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'More info about OFP altitudes' })).not.toBeInTheDocument()

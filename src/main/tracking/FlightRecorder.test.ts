@@ -377,7 +377,7 @@ describe('FlightRecorder', () => {
     expect(recorder.getPhase()).toBe('takeoff')
 
     // Aborts before ever getting airborne: decelerates back below ROLL_SPEED_MS, still on
-    // the ground the whole time — the real 2026-09-14 flight this bug was found on.
+    // the ground the whole time — the real flight this bug was found on.
     step({ engineCombustion1: true, onGround: true, groundSpeedMs: 10 })
     expect(recorder.getPhase()).toBe('taxi')
 

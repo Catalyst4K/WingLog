@@ -1,5 +1,5 @@
 /**
- * The app was called Flightdeck until the 2026-09-06 rename to WingLog
+ * The app was called Flightdeck until the rename to WingLog
  * (winglog-backend/docs/decisions.md). Electron derives userData from the app name, so
  * the rename moved `~/Library/Application Support/Flightdeck` to `.../WingLog` (and
  * `%APPDATA%\Flightdeck` likewise) — leaving every existing install's logbook sitting in a

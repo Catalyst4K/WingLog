@@ -96,7 +96,7 @@ for (const [width, height] of [
 }
 
 test('at the default window width every tab label sits on one line, under its underline', async () => {
-  // Real bug, 2026-10-02: lg:not-sr-only reset white-space, so "Ground services" wrapped onto
+  // Real bug: lg:not-sr-only reset white-space, so "Ground services" wrapped onto
   // two lines and the active tab's underline ran through "services".
   const gsx = await FakeGsxRemoteServer.start()
   const beyondAtc = await FakeBeyondAtcServer.start()

@@ -29,7 +29,7 @@ export type ServiceSocketCtor = new (url: string) => ServiceSocket
 
 /** `ws`'s WebSocket behind the ServiceSocket shape: the services' live connection. `ws`, not
  *  Node's built-in WebSocket: the built-in one drops lines from a large multi-line message
- *  (winglog-backend docs/beyondatc-notes.md, 2026-09-28). */
+ * (winglog-backend docs/beyondatc-notes.md). */
 export class NodeServiceSocket implements ServiceSocket {
   readonly OPEN = WebSocket.OPEN
   private readonly ws: WebSocket

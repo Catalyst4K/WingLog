@@ -10,7 +10,7 @@
  * Standards' tables — the same secondary source runway-lookup.ts's own
  * aimingPointDistanceForLengthM already cites — cross-checked against Annex 14's own text
  * describing the same bands (a fixed stripe/pair count per band, never interpolated). The
- * touchdown-zone pair count/spacing itself lives in @shared/landing-score now (2026-09-13,
+ * touchdown-zone pair count/spacing itself lives in @shared/landing-score now (
  * when the landing score started needing the same real geometry for its own stepped
  * distance-from-aiming-point scale) — imported below rather than redefined here, so the
  * diagram and the score can never quietly drift apart.

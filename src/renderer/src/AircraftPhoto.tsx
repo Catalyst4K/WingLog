@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
  * Real-world livery photo thumbnail (docs/plans/fleet-redesign.md #3). Deliberately just
  * the thumbnail, not a link to a larger version — adsbdb's full-size `url_photo` field
  * was spot-checked live against two real registrations and 404s consistently, so there's
- * no reliable "view larger" URL to offer (docs/decisions.md, 2026-09-07). Credits
+ * no reliable "view larger" URL to offer. Credits
  * airport-data.com rather than an individual photographer — adsbdb doesn't return one.
  * A failed load (photo removed/replaced since lookup, or a fictional/GA registration with
  * none to begin with) just hides the whole figure rather than a broken-image icon.

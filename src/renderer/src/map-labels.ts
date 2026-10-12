@@ -2,7 +2,7 @@
  * Tidies and localises the hosted OpenFreeMap base style's own place-name labels
  * (winglog-backend docs/plans/map-language-and-declutter.md, Parts A and B1).
  *
- * Spike 2026-09-18 (both `positron` and `dark` styles fetched and read): every name label in
+ * Spike (both `positron` and `dark` styles fetched and read): every name label in
  * both styles — places, water, airports, road names — uses one `text-field` expression that
  * stacks `name:latin` and `name:nonlatin` on two lines whenever a non-Latin name exists,
  * which is the multi-language clutter. Place layers are the ones with `source-layer:

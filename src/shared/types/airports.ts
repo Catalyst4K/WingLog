@@ -20,7 +20,7 @@ export interface Airfield {
   longitude: number
 }
 
-/** A METAR observation from aviationweather.gov (docs/decisions.md, 2026-09-02). */
+/** A METAR observation from aviationweather.gov. */
 export interface MetarReport {
   icao: string
   /** The raw METAR text, e.g. "METAR EGLL 012320Z AUTO 25008KT 9999 NCD 18/12 Q1020". */

@@ -1,5 +1,5 @@
 /**
- * Renderer-only display helpers for the landing score (docs/decisions.md, 2026-09-12), split out of
+ * Renderer-only display helpers for the landing score, split out of
  * LandingScoreBreakdownDialog.tsx so that file stays components-only (react-refresh/only-export-components; the same reason
  * LandingBadge.tsx doesn't export its own threshold constants).
  */
@@ -26,7 +26,7 @@ export function isCategoryBad(score: number | null): boolean {
  * A category's own 0-100 contribution, rescaled onto a plain 0-10 rating (a score of 89 reads as "9/10"). This
  * intentionally drops each category's weight in the overall formula (verticalSpeed counts for more than crab there):
  * showing each row's weighted contribution was more confusing than useful, so this favours the simpler reading over
- * formula-accuracy for this one display (docs/decisions.md, 2026-09-12). The overall 0-100 score is still the
+ * formula-accuracy for this one display. The overall 0-100 score is still the
  * correctly-weighted number.
  *
  * @param score The category's 0-100 score.

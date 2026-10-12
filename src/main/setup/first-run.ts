@@ -77,7 +77,7 @@ export function isListening(host: string, port: number, timeoutMs = 600): Promis
 /**
  * What the add-ons step shows: whether GSX's receipts folder exists and whether
  * BeyondATC is running right now. Nothing is switched on here; the user decides
- * (Callum, 2026-10-02: BeyondATC is always asked, never turned on automatically).
+ * (BeyondATC is always asked, never turned on automatically).
  *
  * @param probe The port check, injected for tests.
  * @returns The add-ons step's facts.

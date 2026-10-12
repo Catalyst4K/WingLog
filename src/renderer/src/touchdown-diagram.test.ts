@@ -23,7 +23,7 @@ describe('thresholdStripeCountForWidthM', () => {
 })
 
 // touchdownZonePairCountForLengthM's own tests now live in @shared/landing-score.test.ts,
-// alongside its definition (moved there 2026-09-13 — see touchdown-diagram.ts's own doc
+// alongside its definition (moved there — see touchdown-diagram.ts's own doc
 // comment for why).
 describe('touchdownZonePairPositionsM', () => {
   it('spaces pairs every 150m starting at 150m, one per band count', () => {

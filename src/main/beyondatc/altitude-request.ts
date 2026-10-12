@@ -88,7 +88,7 @@ export function pickLevelLabel(actions: string[], targetFt: number): string | nu
 }
 
 /** Whether BeyondATC's InfoBoxes, changed since the request, show this level as cleared
- *  (winglog-backend's docs/decisions.md, 2026-10-05: boxes only, no speech).
+ * (winglog-backend's docs/decisions.md: boxes only, no speech).
  *
  * @param state BeyondATC's state.
  * @param label The level requested.

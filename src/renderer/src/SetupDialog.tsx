@@ -26,7 +26,7 @@ import { itemAt } from '@shared/item-at'
 
 /**
  * The first-launch setup (winglog-backend's docs/plans/first-launch-setup.md; Callum,
- * 2026-10-02: GSX and BeyondATC were hidden behind Settings, so a new user never found out
+ * GSX and BeyondATC were hidden behind Settings, so a new user never found out
  * they existed). Every step can be skipped, closing at any point counts as done, and it can
  * be reopened from Settings → About. It uses the same controls and IPC as Settings.
  */

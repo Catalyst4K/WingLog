@@ -3,7 +3,7 @@
 /**
  * BeyondATC integration — a live control link to `BeyondATC.exe`'s own local WebSocket
  * server (winglog-backend's docs/plans/beyondatc-integration.md; real protocol findings
- * in docs/beyondatc-notes.md, confirmed live 2026-09-25). Unlike GSX's Remote Client, the
+ * in docs/beyondatc-notes.md, confirmed live). Unlike GSX's Remote Client, the
  * port is fixed (`41716`, confirmed on BeyondATC's own side, not user-configurable) — only
  * `host` and `enabled` are real settings.
  */
@@ -57,7 +57,7 @@ export interface BeyondAtcProgress {
 }
 
 /** One entry of the real `Frequencies: [...]` response to the `frequencies` command —
- *  confirmed live 2026-09-29 (winglog-backend's docs/beyondatc-notes.md), a genuine
+ * confirmed live (winglog-backend's docs/beyondatc-notes.md), a genuine
  *  structured station list for every airport in the flight plan, not the local-UI-only
  *  no-op it was previously suspected to be. `airport`/`airportName`/`stationType`/`runways`
  *  are sometimes empty strings (the one real enroute Center entry captured had no airport
@@ -120,7 +120,7 @@ export interface BeyondAtcState {
    *  when BeyondATC currently has no menu offered. */
   actions: string[]
   /** `AutoTune`/`AutoRespond: <bool>` — bare lowercase `true`/`false` on the wire (confirmed
-   *  live 2026-09-29, not JSON, not `True`/`False`), null until the first snapshot arrives.
+   * live not JSON, not `True`/`False`), null until the first snapshot arrives.
    *  `set_autotune`/`set_autorespond` (below) are confirmed working two-way control, same
    *  live session. */
   autoTune: boolean | null

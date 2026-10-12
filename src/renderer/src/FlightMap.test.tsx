@@ -140,7 +140,7 @@ vi.mock('maplibre-gl', () => {
     keyboard = { enable: vi.fn(), disable: vi.fn(), disableRotation: vi.fn() }
     // .disable() before .enable() forces MapLibre's own handlers to actually re-apply
     // options that would otherwise no-op while already enabled (map-controls.md,
-    // 2026-09-13 live-verification entry) — both real methods, not just .enable(), so the
+    // live-verification entry) — both real methods, not just.enable, so the
     // fake must expose both.
     scrollZoom = { enable: vi.fn(), disable: vi.fn() }
     touchZoomRotate = { enable: vi.fn(), disable: vi.fn(), disableRotation: vi.fn() }
@@ -1209,7 +1209,7 @@ describe('FlightMap', () => {
       }
     }
 
-    /** BeyondATC's InfoBoxes for a taxi clearance, in the real shape (VHHH, 2026-10-05). */
+    /** BeyondATC's InfoBoxes for a taxi clearance, in the real shape (VHHH). */
     const taxiBoxes = (
       via: string[],
       end?: { title: string; info: string }

@@ -59,7 +59,7 @@ function apiParamsSection(ofpJson: string | null): Record<string, unknown> {
 
 /**
  * Extracts the planned route as [lon, lat] pairs (GeoJSON order) from a flight's raw SimBrief OFP JSON, specifically
- * `navlog.fix[].pos_lat`/`pos_long` (docs/decisions.md, 2026-09-01 dispatch entry). Returns an empty route rather than
+ * `navlog.fix[].pos_lat`/`pos_long` (docs/decisions.md dispatch entry). Returns an empty route rather than
  * throwing on anything unexpected: a missing planned route just means the map has no line to draw.
  *
  * @param ofpJson The OFP JSON, or null.

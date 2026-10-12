@@ -62,7 +62,7 @@ export interface TaxiScenario {
   samples: GroundSample[]
 }
 
-/** A scenario written by hand, for taxis from before the boxes were logged (2026-10-05). */
+/** A scenario written by hand, for taxis from before the boxes were logged. */
 export interface HandScenario {
   id: string
   flightId: number

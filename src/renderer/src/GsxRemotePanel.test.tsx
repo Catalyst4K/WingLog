@@ -224,7 +224,7 @@ describe('GsxRemotePanel', () => {
     const gsxRemoteSearch = vi.fn().mockResolvedValue(undefined)
     withWinglog({
       gsxRemoteSearch,
-      // VHHH's stand N32, 2026-10-02, as main keeps it from the boxes.
+      // VHHH's stand N32, as main keeps it from the boxes.
       beyondAtcGetState: vi.fn().mockResolvedValue({ ...EMPTY_BEYONDATC_STATE, assignedGate: 'N32' }),
       onGsxRemoteMenu: vi.fn((listener) => {
         menuListener = listener
@@ -643,7 +643,7 @@ describe('GsxRemotePanel', () => {
   })
 
   it('shows why a service is stuck alongside its real progress, not instead of it', async () => {
-    // Real capture, 2026-09-23 (docs/gsx-notes.md round 11): a live Boarding session hit a
+    // Real capture (docs/gsx-notes.md round 11): a live Boarding session hit a
     // vehicle-pathing conflict — `detail.waitingFor` fired while `detail.pax`/`cargo` kept
     // reporting real (unmoving) counts, not empty ones. The bug this guards against: the pax
     // branch firing and silently dropping `waitingFor`, so the counts show but never explain

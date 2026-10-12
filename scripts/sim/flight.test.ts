@@ -17,7 +17,7 @@ import {
   type RunwayLine
 } from './flight'
 
-// WSSS 20R from the sim's own facility data (flight 236, 2026-10-12), and the same runway's
+// WSSS 20R from the sim's own facility data (flight 236), and the same runway's
 // physical end in the vendored OurAirports slice.
 const SIM_20R: RunwayLine = {
   source: 'sim',

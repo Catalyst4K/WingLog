@@ -199,9 +199,9 @@ interface AirportLocation {
   type: string
 }
 
-// Types this vendored slice actually contains, checked live (2026-09-16): heliport,
+// Types this vendored slice actually contains, checked live: heliport,
 // small_airport, seaplane_base, balloonport, medium_airport, large_airport — no 'closed'
-// row survived the original CSV trim (docs/decisions.md, 2026-09-01), so that exclusion
+// row survived the original CSV trim, so that exclusion
 // below is defensive rather than exercised by the current data; kept because OurAirports'
 // own schema uses it and a future re-vendor could reintroduce one.
 const NON_PRIMARY_AIRPORT_TYPES = new Set(['heliport', 'closed'])
@@ -239,7 +239,7 @@ const airportLocations = lazy(() => loadAirportLocations(airportsRaw))
  * happens at flight.arr_icao) and free-flight-tracking.md (departure/arrival for a flight
  * with no filed plan). Prefers a real airfield over a heliport/closed strip when both are
  * within range — a heliport is the literal nearest point in real vendored data checked
- * against Hong Kong's old Kai Tak site (2026-09-16: Wan Chai and Shun Tak heliports sit
+ * against Hong Kong's old Kai Tak site (: Wan Chai and Shun Tak heliports sit
  * closer than the nearest real airfield there) — but falls back to one if that's genuinely
  * all that's in range, rather than reporting nothing. Null when nothing at all is within
  * maxDistanceNm.

@@ -115,7 +115,7 @@ describe('flight replay harness (real fixture) — multiple landings', () => {
       expect(landings.map((l) => l.seq)).toEqual([1, 2, 3, 4])
 
       // The real finding this plan exists to fix: flight 198's deliberately firm landing
-      // (g-force 1.68, flight-replay-harness.md's 2026-09-14 entry) used to be overwritten
+      // (g-force 1.68, flight-replay-harness.md's entry) used to be overwritten
       // by an earlier accidental soft touchdown under the old one-row-per-flight capture.
       // It must now survive as its own row rather than being lost.
       const firmLanding = landings.find((l) => l.gForce > 1.5)

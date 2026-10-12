@@ -8,7 +8,7 @@ import {
   withoutLabel
 } from './atc-info-boxes'
 
-// Real InfoBoxes, verbatim from main.log (2026-10-05).
+// Real InfoBoxes, verbatim from main.log.
 const VHHH_TAXI_OUT = [
   { title: 'Taxi to Runway', info: '07R' },
   { title: 'Taxi Via 1', info: 'B' },
@@ -106,7 +106,7 @@ describe('assignedGate', () => {
   })
 })
 
-// Real box sets from the VHHH-ZJSY flight, 2026-10-05 (main.log).
+// Real box sets from the VHHH-ZJSY flight (main.log).
 describe('parseAtcBoxClearance', () => {
   it('reads the departure clearance: SID and runway', () => {
     const boxes = [

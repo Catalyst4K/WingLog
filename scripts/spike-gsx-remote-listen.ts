@@ -38,7 +38,7 @@ console.log(`Connecting to ${url} ...`)
 const ws = new WebSocket(url)
 
 ws.addEventListener('open', () => {
-  // Round 6, 2026-09-21: also subscribing to billing/gate/handlerData/handlerSet/settings —
+  // Round 6: also subscribing to billing/gate/handlerData/handlerSet/settings —
   // seen in the `hello` handshake's `capabilities` list but never actually subscribed to or
   // captured. Needed before building gate display / invoice pricing in the UI.
   console.log('OPEN — subscribing to state/prompts/toasts/billing/gate/handlerData/handlerSet/settings')
@@ -54,7 +54,7 @@ ws.addEventListener('message', (event) => {
   const raw = typeof event.data === 'string' ? event.data : String(event.data)
   // Synchronous, single-line writes: a pretty-printed multi-KB block can get cut off
   // mid-write if the process is killed (e.g. by `timeout`) before the buffered write
-  // drains — seen live, 2026-09-21, as a deterministic same-byte-offset truncation.
+  // drains — seen live, as a deterministic same-byte-offset truncation.
   // One compact JSON line per message is small enough to always land atomically.
   fs.appendFileSync(1, `${new Date().toISOString()} ${raw}\n`)
 })

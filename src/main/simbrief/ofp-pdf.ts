@@ -4,7 +4,7 @@
  */
 import { optStr } from './simbrief-client'
 
-// SimBrief's own PDF host, confirmed live 2026-09-06 (docs/simbrief-notes.md): the
+// SimBrief's own PDF host, confirmed live (docs/simbrief-notes.md): the
 // generated file resolves with a plain keyless GET, no signing needed. Pinned here as a
 // second check beyond "is this https" — files.directory/files.pdf.link are themselves
 // external data, so without this a compromised or malformed OFP response could redirect

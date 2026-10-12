@@ -13,7 +13,7 @@ export type WakeCategory = 'L' | 'M' | 'H' | 'J'
 
 /**
  * Touchdown vertical-speed sweet spots per ICAO wake-turbulence category (resources/icao-aircraft-types.csv's
- * `wtc` column): judgement calls, not per-type manufacturer figures (decisions.md, 2026-09-12).
+ * `wtc` column): judgement calls, not per-type manufacturer figures (decisions.md).
  * `minFpm`/`maxFpm` are the category's labelled ideal range, kept as reference data. The score's
  * tolerance (see computeLandingScore) is wider and symmetric around `sweetSpotFpm`, because a
  * touchdown just under the labelled range is still a gentle landing. J (only the A380) shares H's
@@ -53,7 +53,7 @@ export interface LandingThresholds {
   hardFpm: number
 }
 
-// Firm and hard derive from the category's own ideal, not a user setting (decisions.md, 2026-09-12).
+// Firm and hard derive from the category's own ideal, not a user setting (decisions.md).
 // The multipliers are judgement calls, like LANDING_RATE_BANDS above.
 const FIRM_MULTIPLIER = 2.5
 const HARD_MULTIPLIER = 4.0
@@ -151,14 +151,14 @@ export interface LandingScoreCategoryDetail {
 
 export interface LandingScoreBreakdown {
   /** The computed score. It can go negative once the dangerous-exceedance deduction(s) apply
-   *  (decisions.md, 2026-09-20). Flooring for display is the caller's job
+   * (decisions.md). Flooring for display is the caller's job
    *  (src/main/db/landing-score-resolver.ts): a negative value says how far past dangerous the
    *  landing was. */
   overall: number
   /** Every category whose deviation reached its tolerance, with its scaled danger penalty (see
    *  dangerPenaltyForFraction): where taperedScore would have gone negative before clamping, not just
    *  "scored badly". Each penalty is subtracted from `overall`, stacking when several categories are
-   *  this bad at once (landing-scoring-v2.md; decisions.md, 2026-09-20 and 2026-09-21). Empty when
+   * this bad at once (landing-scoring-v2.md; decisions.md and). Empty when
    *  nothing exceeded. */
   dangerPenalties: Partial<Record<LandingScoreCategoryKey, number>>
   inputs: {
@@ -188,7 +188,7 @@ export interface LandingScoreBreakdown {
 const GFORCE_IDEAL = 1.0
 const GFORCE_TOLERANCE = 1.0
 // MSFS's PLANE PITCH DEGREES (simvars.ts) is negative for nose-up and positive for nose-down
-// (simconnect-notes.md, 2026-09-03: -6.709° at a real touchdown), so a "4° nose-up" ideal flare is
+// (simconnect-notes.md: -6.709° at a real touchdown), so a "4° nose-up" ideal flare is
 // -4 here, not +4.
 const PITCH_IDEAL_DEG = -4
 // A tolerance of 6 gives -2° to 10° nose-up around the 4° sweet spot.
@@ -197,7 +197,7 @@ const BANK_IDEAL_DEG = 0
 const BANK_TOLERANCE_DEG = 8
 const CRAB_IDEAL_DEG = 0
 // Past ~5° of residual crab at touchdown is worth a warning, since technique guidance has the pilot
-// removing crab by touchdown (decisions.md, 2026-09-12). 5 is the limit itself: 5° scores exactly 0
+// removing crab by touchdown (decisions.md). 5 is the limit itself: 5° scores exactly 0
 // and triggers the dangerous-exceedance penalty at that point. (Earlier values were 15, 9 and 6.5;
 // the curve shape had moved the effective limit, see landing-scoring-v2.md.)
 const CRAB_TOLERANCE_DEG = 5
@@ -319,7 +319,7 @@ function asymmetricTaperedScore(
  * The 0-100 landing score (see LandingScoreBreakdown's `overall` for why the raw value can be
  * negative). Each of the 7 inputs is scored and clamped to [0,100] independently before combining, so
  * only the separate dangerous-exceedance deduction(s) can take `overall` negative
- * (landing-scoring-v2.md; decisions.md, 2026-09-20).
+ * (landing-scoring-v2.md; decisions.md).
  *
  * @param inputs The touchdown's measurements, with null for any the landing doesn't have.
  * @returns The overall score and each category's part in it.

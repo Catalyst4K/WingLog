@@ -7,7 +7,7 @@ import {
   remainingRouteNm
 } from './track-times'
 
-// A cut-down YBBN-VHHH (the real flight, 2026-10-02): YBBN, BARIA (the step climb fix), MIA
+// A cut-down YBBN-VHHH (the real flight): YBBN, BARIA (the step climb fix), MIA
 // (Manila), VHHH. [lon, lat].
 const YBBN: [number, number] = [153.117, -27.384]
 const BARIA: [number, number] = [149.5, -21.5]

@@ -16,7 +16,7 @@ const EGLL = parseFlightFixture(
 )
 const CAPTURED_AT = '2026-10-05T15:53:00.000Z'
 
-// Real lines: ZJSY arrival InfoBoxes (BeyondATC, 2026-10-05) and GSX's airport/parking keys.
+// Real lines: ZJSY arrival InfoBoxes (BeyondATC) and GSX's airport/parking keys.
 const STAR_BOXES = 'InfoBoxes: [{"title":"STAR","info":"UPRS2C"},{"title":"Arrival Runway","info":"08"}]'
 const LANDING_BOXES = 'InfoBoxes: [{"title":"Landing Runway","info":"08"},{"title":"QNH","info":"QNH 1014"}]'
 const GSX_SNAPSHOT = JSON.stringify({

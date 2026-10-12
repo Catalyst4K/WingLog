@@ -4,7 +4,7 @@
  * this becomes SimConnectService in src/main. Delete or leave inert once M1 is folded
  * into the real service — it's not meant to survive as production code.
  *
- * Sim-confirmed against a live MSFS 2024 session on Windows (2026-09-01) — see
+ * Sim-confirmed against a live MSFS 2024 session on Windows — see
  * docs/simconnect-notes.md for the full list of findings/divergences from the plan.
  * One correction already found by cross-checking the MSFS 2024 SDK docs against
  * PLAN.md §6's list: the parking-brake SimVar is `BRAKE PARKING POSITION`, not

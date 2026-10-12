@@ -37,7 +37,7 @@ export interface NavdataTaxiSegment {
   endLon: number
   name: string | null
   /** Whether each endpoint is a hold-short point (TAXI_POINT TYPE 2/4/5/6 — SDK enum; 5 seen
-   *  live at VHHH, 2026-09-30). Lets a traced taxi route stop exactly at a named holding
+   * live at VHHH). Lets a traced taxi route stop exactly at a named holding
    *  point (winglog-backend's docs/beyondatc-notes.md). */
   startHoldShort: boolean
   endHoldShort: boolean
@@ -61,7 +61,7 @@ export interface NavdataProvider {
    *  belongs to exactly one, unlike a SID/STAR. `identifier` is a constructed display label
    *  (e.g. "ILS 07C", "RNP Z 07R" — see facility-fields.ts's ParsedApproachHeader), since
    *  approaches carry no NAME field of their own. `transition` is the approach's own
-   *  APPROACH_TRANSITION name — confirmed live 2026-09-08 (docs/navdata-notes.md) to be the
+   * APPROACH_TRANSITION name — confirmed live (docs/navdata-notes.md) to be the
    *  literal fix ident a STAR hands off at (e.g. VHHH's "LIMES"), the link a caller uses to
    *  auto-connect a chosen STAR onto a chosen approach. */
   listApproaches(icao: string, runway?: string | null): NavdataProcedureOption[]
@@ -83,7 +83,7 @@ export interface NavdataProvider {
   ): NavdataLeg[]
   /** Fetches an airport's full taxiway network and replaces the cache for it. Unlike
    *  `refreshAirport`, this is genuinely slow for a large airport (minutes, not seconds —
-   *  winglog-backend's docs/navdata-notes.md, 2026-09-28) — only ever call this from an
+   * winglog-backend's docs/navdata-notes.md) — only ever call this from an
    *  explicit user action, never automatically. */
   refreshTaxiNetwork(icao: string): Promise<void>
   /** True once at least one refreshTaxiNetwork(icao) has completed for this ICAO. */

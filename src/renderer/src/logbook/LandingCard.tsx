@@ -273,7 +273,7 @@ export function LandingCard(props: {
               }
             />
             {runway && landing.distanceFromThresholdM != null && (
-              // No bigger than the field list it sits alongside (Callum, 2026-09-12: the
+              // No bigger than the field list it sits alongside (the
               // original width-only cap left height unconstrained, so a long runway's tall
               // window could still dwarf the text next to it) — fixed height, width
               // follows from the diagram's own aspect ratio (TouchdownDiagram.tsx).

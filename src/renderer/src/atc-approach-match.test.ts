@@ -3,7 +3,7 @@ import type { NavdataProcedureOption } from '@shared/ipc'
 import { parseAtcBoxClearance } from '@shared/atc-info-boxes'
 import { approachForArrivalRunway, starEndFix } from './atc-approach-match'
 
-// EGLL's real approaches from the sim's navdata (cached on the 2026-10-05 RKSI-EGLL flight):
+// EGLL's real approaches from the sim's navdata (cached on the RKSI-EGLL flight):
 // every ILS and LOC has the same six transitions, RNAVs have none. LOGA2H ends at LAM.
 const EGLL_TRANSITIONS = ['BIG', 'BNN', 'CHT', 'EPM', 'LAM', 'OCK']
 const EGLL: NavdataProcedureOption[] = [
@@ -71,7 +71,7 @@ describe('approachForArrivalRunway (EGLL, 2026-10-05)', () => {
   })
 })
 
-// ZJSY's real runway 08 approaches (2026-10-05 VHHH-ZJSY flight). UPRS2C ends at SY498, which
+// ZJSY's real runway 08 approaches (VHHH-ZJSY flight). UPRS2C ends at SY498, which
 // only ILS Z 08 starts from.
 const ZJSY: NavdataProcedureOption[] = [
   ...['A', 'D046H', 'HUT1', 'HUT2', 'SYX'].map((transition) => ({ identifier: 'TYPE 8 08', transition })),

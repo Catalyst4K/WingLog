@@ -10,7 +10,7 @@ import { useLiveTopic } from './live/LiveClient'
  * It's BeyondATC's "Expect Gate" / "Taxi to Gate" InfoBox, as main keeps it (`assignedGate`, BeyondAtcService) after the box set
  * is replaced. The box is set as soon as BeyondATC assigns the gate, which can be well before ATC says it (one gate was assigned
  * with the first half of a split clearance and only spoken in the second). Never read from speech (winglog-backend's
- * docs/decisions.md, 2026-10-05). Null when BeyondATC hasn't assigned one.
+ * docs/decisions.md). Null when BeyondATC hasn't assigned one.
  *
  * @returns The stand, or null.
  */

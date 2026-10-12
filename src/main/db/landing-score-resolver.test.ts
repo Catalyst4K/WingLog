@@ -45,7 +45,7 @@ const EGLL_27L_AIMING_POINT_M = 400
 const EGLL_27L_TOUCHDOWN_ZONE_END_M = 900
 // distanceFromAimingPoint's real tolerance is the gap from the aiming point to the last real
 // marker (900m from the threshold), not the marker's own 900m distance from the threshold —
-// see shared/landing-score.ts's aimingPointDistanceM doc comment, real incident 2026-09-26.
+// see shared/landing-score.ts's aimingPointDistanceM doc comment, real incident.
 const EGLL_27L_AIMING_POINT_TOLERANCE_M = EGLL_27L_TOUCHDOWN_ZONE_END_M - EGLL_27L_AIMING_POINT_M
 const EGLL_27L_HALF_WIDTH_M = (164 * 0.3048) / 2
 
@@ -94,7 +94,7 @@ describe('resolveLandingScore', () => {
     expect(aimingPoint).toMatchObject({
       ideal: 0,
       tolerance: EGLL_27L_AIMING_POINT_TOLERANCE_M,
-      // Asymmetric since 2026-09-26: short = the aiming point's own real distance back to
+      // Asymmetric since: short = the aiming point's own real distance back to
       // the threshold, long = its distance to the last real touchdown-zone marker (the same
       // as `tolerance` above).
       toleranceShort: EGLL_27L_AIMING_POINT_M,
@@ -181,7 +181,7 @@ describe('resolveLandingScore', () => {
       )
       const result = resolveLandingScore(scoreDb, landingRecord, 'EGLL', 'C172') // C172 -> L, lowest thresholds
       // Every one of the 7 categories is pushed past its own tolerance here, not just
-      // vertical speed (2026-09-21 — see LandingScoreCategory.dangerousPenalty's own doc
+      // vertical speed (— see LandingScoreCategory.dangerousPenalty's own doc
       // comment for why this generalised beyond hard landings).
       const dangerousKeys: LandingScoreCategoryKey[] = [
         'verticalSpeed',
@@ -202,7 +202,7 @@ describe('resolveLandingScore', () => {
 
   it('reports a 0 dangerousPenalty on every category for an ordinary landing', () => {
     // makeLanding's own default pitchDeg (4) is past pitch's own tolerance (ideal -4,
-    // tolerance 6 -> deviation 8) since it was tightened 2026-09-21, which would flag this
+    // tolerance 6 -> deviation 8) since it was tightened which would flag this
     // one category dangerous — overridden here to the exact ideal instead; this test is
     // about there being no dangerous exceedance at all, not about pitch specifically.
     const landingRecord = toLanding(makeLanding(1, { pitchDeg: -4 }))
@@ -213,7 +213,7 @@ describe('resolveLandingScore', () => {
   it('derives severity from the category-scaled thresholds, not a fixed universal one', () => {
     // -450 fpm ≈ -2.286 m/s: firm for both M (300-480) and H (375-600), hard for L (225-360)
     // — a light aircraft's much lower sweet spot means the same absolute fpm reads as far
-    // more violent for it than for a widebody (Landing Rate Sweet Spots table, 2026-09-13).
+    // more violent for it than for a widebody (Landing Rate Sweet Spots table).
     const landingRecord = toLanding(makeLanding(1, { verticalSpeedMs: -2.286 }))
     expect(resolveLandingScore(scoreDb, landingRecord, 'EGLL', 'A320').severity).toBe('firm') // A320 -> M
     expect(resolveLandingScore(scoreDb, landingRecord, 'EGLL', 'A35K').severity).toBe('firm') // A35K -> H
@@ -300,7 +300,7 @@ describe('getLandingScoresForCompletedFlights', () => {
 })
 
 describe('resolveLandingScore with a runway from the sim', () => {
-  // WSSS 20R from the sim's own facility data (flight 236, 2026-10-12): 60 m wide, 3,221 m long, no displaced threshold.
+  // WSSS 20R from the sim's own facility data (flight 236): 60 m wide, 3,221 m long, no displaced threshold.
   const wsssDb = createDb(':memory:').db
   migrate(wsssDb, { migrationsFolder: 'drizzle' })
   wsssDb

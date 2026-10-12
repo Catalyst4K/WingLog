@@ -1,7 +1,7 @@
 /**
  * i18next bootstrap (docs/plans/v1-2.md Part 3) — initialized once, as a side-effecting
  * import from main.tsx, before the app renders. Plain JSON catalogues, no build-time
- * compiler/macro step (decisions.md, 2026-09-20 — the reason react-i18next + i18next was
+ * compiler/macro step (decisions.md — the reason react-i18next + i18next was
  * chosen over lingui). Scope is the renderer only for now: main-process strings (native
  * dialog titles, the startup error box) aren't wired into this and stay English regardless
  * of the language chosen here.

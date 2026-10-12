@@ -4,7 +4,7 @@ import type { GsxRemoteGateInfo, GsxRemoteServiceStatus } from '@shared/ipc'
 
 /**
  * Services shown only while active, otherwise folded under "show more" — Callum's call
- * (2026-09-21): the core turnaround services (boarding/deboarding, catering, refuel,
+ * the core turnaround services (boarding/deboarding, catering, refuel,
  * pushback, jetway) stay visible always, the rest (stairs, GPU, de-ice, lavatory, water,
  * cleaning) only matter when actually in use. Ids are GSX's own wire ids, confirmed live
  * (winglog-backend's docs/gsx-notes.md, round 6/7 captures — the full real
@@ -55,7 +55,7 @@ export function hiddenServices(services: GsxRemoteServiceStatus[]): GsxRemoteSer
 
 /**
  * GSX's own `detail.bill` (and the wider `state.billing`) are already USD-equivalent —
- * confirmed live 2026-09-21 (docs/gsx-notes.md): a real Refueling `detail.bill: 24272`
+ * confirmed live (docs/gsx-notes.md): a real Refueling `detail.bill: 24272`
  * matched "Bill $24272" verbatim in the same message's `statusText`, with no decimals shown.
  * Mirrored here rather than reformatted with cents GSX itself never displays.
  *
@@ -76,7 +76,7 @@ function formatNumber(value: number): string {
 
 /**
  * `detail.fuel.current`/`target` as a nicely separated "15,357 / 81,488 kg" instead of
- * re-parsing it out of `statusText`'s free text — real shape confirmed live 2026-09-21
+ * re-parsing it out of `statusText`'s free text — real shape confirmed live
  * (docs/gsx-notes.md, round 6 capture).
  *
  * @param fuel The fuel loaded and its target.
@@ -87,7 +87,7 @@ export function formatFuelProgress(fuel: { current: number; target: number; unit
 }
 
 /**
- * `detail.pax.done`/`total` as "0 / 344" — real shape confirmed live 2026-09-21
+ * `detail.pax.done`/`total` as "0 / 344" — real shape confirmed live
  * (docs/gsx-notes.md, round 7 capture, a real Boarding session).
  *
  * @param pax The passengers boarded and their total.
@@ -119,7 +119,7 @@ export function formatCargoProgress(cargo: {
 
 /**
  * GSX's `state.parking` is one string, area and gate joined by a single "|" — real shape
- * confirmed live 2026-09-21 (docs/gsx-notes.md, round 6 capture): `"(N) T1 North|Gate N6"`.
+ * confirmed live (docs/gsx-notes.md, round 6 capture): `"(N) T1 North|Gate N6"`.
  * Split defensively: a parking string with no "|" (a simpler airport/profile) just becomes
  * the gate label with no area line, rather than assuming the "|" is always present.
  *

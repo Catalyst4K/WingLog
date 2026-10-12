@@ -16,7 +16,7 @@ function compact(ident: string): string {
 
 /**
  * Swaps BeyondATC's approach name (the `Cleared Approach` box) for the arrival airport's real
- * one, so accepting it selects something that exists (WSSS, 2026-10-02: BeyondATC's "R-NAV
+ * one, so accepting it selects something that exists (WSSS: BeyondATC's "R-NAV
  * approach runway 02L" became "R NAV 02L", which matched nothing, so Update did nothing; the
  * sim calls it "RNAV 02L"). The transition is checked against that approach's own
  * transitions the same way.

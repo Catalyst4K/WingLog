@@ -272,7 +272,7 @@ function trackFcu(
 }
 
 /**
- * The level ATC has cleared, from BeyondATC's InfoBoxes (decisions.md, 2026-10-05: boxes only, no speech), or the current
+ * The level ATC has cleared, from BeyondATC's InfoBoxes (decisions.md: boxes only, no speech), or the current
  * altitude rounded to 1,000 ft when no level has been given.
  *
  * @param s The draft state.

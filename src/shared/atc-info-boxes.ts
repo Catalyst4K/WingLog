@@ -25,10 +25,9 @@ const CLEARED_APPROACH = /^([A-Z0-9]+(?:-[A-Z0-9]+)*) approach,? runway (\d{1,2}
 
 /**
  * BeyondATC's InfoBoxes, read as typed facts (winglog-backend's docs/plans/beyondatc-infoboxes-first.md). The boxes carry each
- * clearance's facts as their own fields, and are the only source for any fact they cover: ATC's speech isn't parsed for them
- * (docs/decisions.md, 2026-10-05).
+ * clearance's facts as their own fields, and are the only source for any fact they cover: ATC's speech isn't parsed for them.
  *
- * Titles are matched exactly as captured on real flights (EGLL and VHHH-ZJSY, 2026-10-05), trimmed and ignoring case:
+ * Titles are matched exactly as captured on real flights (EGLL and VHHH-ZJSY), trimmed and ignoring case:
  * BeyondATC sends " Frequency" with a leading space and both "climb" and "Climb". A title not listed here is ignored,
  * never guessed at.
  */
@@ -147,7 +146,7 @@ export function boxValue(boxes: BeyondAtcInfoBox[], ...titles: string[]): string
 
 /**
  * "QNH 1014" → '1014': BeyondATC sometimes repeats the box's own label in its value (ZJSY,
- * 2026-10-05).
+ * ).
  *
  * @param value The box's value.
  * @param label The label it may start with.
@@ -295,7 +294,7 @@ export function levelToFeet(level: string): number | null {
   return unit && /^m/i.test(unit) ? Math.round(number * FEET_PER_METRE) : number
 }
 
-/** Titles that carry a cleared level (VHHH-ZJSY, 2026-10-05: `Altitude Clearance` FL140,
+/** Titles that carry a cleared level (VHHH-ZJSY: `Altitude Clearance` FL140,
  *  `climb`/`Climb` FL180/FL360, `Descend to` 3,000m; ZJSY-VHHH, same evening: `Continue Climb To`
  *  FL371 after a granted step, `Descend To` "11,000" in feet with no unit). */
 const LEVEL_TITLES = [
