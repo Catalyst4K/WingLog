@@ -314,7 +314,7 @@ export function useTrailLayers(
   }, [mapReady, trackPoints, live, followEnabled, mapRef, markerRef, hasCenteredRef, setFramed])
 
   // Takeoff, touchdown and altitude bands, while following: step the zoom out for the climb
-  // and back in for the descent and taxi (Callum, 2026-09-30; by altitude 2026-10-02) — once
+  // and back in for the descent and taxi (Callum; by altitude) — once
   // per band change, so a zoom the user sets in between is left alone until the next one.
   const lastPoint = trackPoints.at(-1) ?? null
   const followBandRef = useRef<FollowBand | null>(null)
@@ -372,7 +372,7 @@ export function useMapInteraction(
     if (config.keyboard) map.keyboard.enable()
     else map.keyboard.disable()
 
-    // Live-verified 2026-09-13 (map-controls.md's own "needs a live tracking session" item):
+    // Live-verified (map-controls.md's own "needs a live tracking session" item):
     // `ScrollZoomHandler.enable(options)` — and `TouchZoomRotateHandler`'s own pinch-zoom
     // handler underneath it — early-return with NO effect if the handler `isEnabled()`
     // already, which it always is here (MapLibre auto-enables both at map construction).

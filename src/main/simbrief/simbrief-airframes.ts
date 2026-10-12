@@ -35,7 +35,7 @@ export type RawAirframesResponse = Record<string, RawAircraftEntry>
 // null developer/platform — comments is always present regardless.
 const COMMENT_PATTERN = /^(.+?)\s+\(([^)]+)\)\s*-\s*(.+)$/
 // The bit after the final "-" is genuinely free text (docs/simbrief-notes.md, "Why near-
-// identical community airframes collapse to the same label", 2026-09-08) — a real A320
+// identical community airframes collapse to the same label") — a real A320
 // entry looks like "A320 CFM (SL)", a real 737 one looks like "Dual Class [credit: PMDG
 // Official]", with no shared shape between them beyond "whatever tells this one apart from
 // its siblings." Stripped, not parsed further.
@@ -62,7 +62,7 @@ function parseComment(
 // either the original Wing Fence wingtip or the later Sharklet retrofit. Fenix's own
 // comments only ever tag the Sharklet case explicitly ("(SL)"), leaving the older (and
 // more common) Wing Fence case with no tag at all — confirmed real, Callum's own domain
-// knowledge, 2026-09-08. Left as-is, a Wing Fence entry just looks like it has no
+// knowledge. Left as-is, a Wing Fence entry just looks like it has no
 // distinguishing detail rather than "the other real wingtip option" — made explicit here
 // instead, mirroring what Fenix's own comments only bother to state for one side of the
 // pair. Scoped to Fenix specifically (Callum's own wording — "the profile for fenix...

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { NavdataStand } from './ipc'
 import { findStand, nearestStand } from './stands'
 
-// Real VHHH stands from the sim (TAXI_PARKING spike, 2026-10-02), and where the real
+// Real VHHH stands from the sim (TAXI_PARKING spike), and where the real
 // YBBN-VHHH flight actually stopped at N32.
 const N32: NavdataStand = {
   name: 'N32',

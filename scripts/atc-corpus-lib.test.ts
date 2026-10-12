@@ -51,7 +51,7 @@ describe('atcLinesFromCapture', () => {
 })
 
 describe('boxes that arrive just after the line', () => {
-  // Flight 236 (WSSS, 2026-10-12): BeyondATC says the STAR clearance, then updates the boxes six
+  // Flight 236 (WSSS): BeyondATC says the STAR clearance, then updates the boxes six
   // seconds later. The boxes live when it was said were empty.
   const earlier = JSON.stringify([])
   const after = JSON.stringify([

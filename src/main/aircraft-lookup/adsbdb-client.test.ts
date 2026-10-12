@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fetchAircraftByRegistration } from './adsbdb-client'
 
 // Real response shape captured live from https://api.adsbdb.com/v0/aircraft/G-XWBS
-// (docs/decisions.md, 2026-09-01) — not synthesised.
+// not synthesised.
 const REAL_RESPONSE = {
   response: {
     aircraft: {
@@ -65,7 +65,7 @@ describe('fetchAircraftByRegistration', () => {
   })
 
   // Real response shape captured live from https://api.adsbdb.com/v0/aircraft/G-EZTK
-  // (docs/decisions.md, 2026-09-07) — deliberately maps url_photo_thumbnail, not
+  // deliberately maps url_photo_thumbnail, not
   // url_photo (full-size): spot-checked live and the full-size URL 404s consistently.
   it('maps url_photo_thumbnail to photoThumbnailUrl, ignoring the unreliable full-size url_photo', async () => {
     vi.stubGlobal(

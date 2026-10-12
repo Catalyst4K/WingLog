@@ -12,7 +12,7 @@ export interface SimTelemetry {
    *  logbook-detail-improvements.md Phase 3: what a correctly-flown PFD reads above the
    *  transition altitude, independent of each aircraft's own altimeter implementation
    *  (confirmed real and trustworthy for this live, winglog-backend's
-   *  docs/simconnect-notes.md, 2026-09-13 entry — unlike INDICATED ALTITUDE, which depends
+   * docs/simconnect-notes.md entry — unlike INDICATED ALTITUDE, which depends
    *  on the aircraft's own Kohlsman setting and produced the -13,500 ft chart bug this
    *  field exists to avoid repeating). */
   pressureAltitudeM: number

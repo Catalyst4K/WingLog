@@ -28,7 +28,7 @@ const GO_AROUND_AIRBORNE_SAMPLES = 3
 // few metres up for a moment isn't taken for one.
 const AIRBORNE_START_SAMPLES = 10
 const AIRBORNE_START_AGL_M = 30 // ~100 ft
-// docs/decisions.md, 2026-09-01: deviates from PLAN.md §5's "every 15s" — 5s reads better
+// docs/decisions.md: deviates from PLAN.md §5's "every 15s" — 5s reads better
 // live without needing to keep the old marker/camera interpolation to hide the jump.
 const CRUISE_TRACK_INTERVAL_S = 5
 const CLIMB_TRACK_INTERVAL_S = 2 // slightly coarser than the 1s default elsewhere

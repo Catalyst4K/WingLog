@@ -14,7 +14,7 @@ const IDEAL_TOLERANCE: Record<
   pitch: { ideal: -4, tolerance: 8 },
   bank: { ideal: 0, tolerance: 8 },
   crab: { ideal: 0, tolerance: 9 },
-  // Asymmetric since 2026-09-26 — toleranceShort (toward the threshold) and toleranceLong
+  // Asymmetric since — toleranceShort (toward the threshold) and toleranceLong
   // (toward the far touchdown-zone marker, same value as `tolerance`).
   distanceFromAimingPoint: { ideal: 0, tolerance: 500, toleranceShort: 400, toleranceLong: 500 },
   centrelineOffset: { ideal: 0, tolerance: 12.5 }

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { instructionFromBoxes, latestAtcInstruction, parseAtcInstruction } from './beyond-atc-instruction'
 
 // Every line below is real, verbatim ATC text from BeyondATC's Player.log (VHHH→KPHX and
-// WSSS→ZSPD sessions, 2026-09-28/30) or winglog-backend's docs/beyondatc-notes.md.
+// WSSS→ZSPD sessions) or winglog-backend's docs/beyondatc-notes.md.
 function fieldsOf(text: string): Record<string, string> {
   return Object.fromEntries(parseAtcInstruction(text).fields.map((f) => [f.key, f.value]))
 }
@@ -108,7 +108,7 @@ describe('latestAtcInstruction', () => {
     })
   })
 
-  // Real YBBN lines, 2026-10-02: the readback used to replace the clearance on the card.
+  // Real YBBN lines: the readback used to replace the clearance on the card.
   const CLEARANCE =
     'Cathay 168 Heavy, Brisbane Delivery, information A current, cleared to Hong Kong airport via the BIXAD2 departure, runway 01R, climb via SID to 10000 feet, squawk 6022.'
   const READBACK =
@@ -185,7 +185,7 @@ describe('latestAtcInstruction', () => {
   })
 })
 
-// Real box sets, VHHH-ZJSY flight 230, 2026-10-05 (main.log).
+// Real box sets, VHHH-ZJSY flight 230 (main.log).
 const boxFields = (boxes: { title: string; info: string }[]): Record<string, string> =>
   Object.fromEntries(instructionFromBoxes(boxes).fields.map((f) => [f.key, f.value]))
 

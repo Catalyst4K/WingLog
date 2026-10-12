@@ -135,7 +135,7 @@ function isRawSimBrief(value: unknown): value is { status: string; error: string
  * docs/plans/gsx-remote-control.md; protocol findings in docs/gsx-notes.md). Tracks GSX's state as a flat object, like
  * GSX's own store.js, and exposes the three slices WingLog's UI needs: services (read-only status), menu (the control
  * surface, generic and index-based) and prompt (a free-text modal). No embed and no exception to the
- * renderer-never-touches-network rule (docs/decisions.md, 2026-09-21).
+ * renderer-never-touches-network rule.
  */
 export class GsxRemoteService extends EventEmitter<GsxRemoteServiceEvents> {
   private ws: ServiceSocket | undefined

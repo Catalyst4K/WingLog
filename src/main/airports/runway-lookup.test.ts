@@ -75,7 +75,7 @@ describe('resolveRunwayEnd', () => {
   // 07L was previously scored against 07C (overnight-test-findings.md #7) because heading
   // dominated the old scoring formula and 07C's heading (71) was closer to typical touchdown
   // headings than 07L's (74). 07L's 74° was itself later found to be a genuine OurAirports
-  // data error and corrected to 71° (2026-09-13, runway-lookup.ts's own doc comment) — kept
+  // data error and corrected to 71° (runway-lookup.ts's own doc comment) — kept
   // here as a synthetic fixture with the *old* value regardless, since the scenario this
   // test defends against (candidates publishing different integer-rounded headings) is a
   // real, general risk independent of this one airport's data now being fixed.

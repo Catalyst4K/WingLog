@@ -139,7 +139,7 @@ describe('computeTrackCleanup', () => {
 
   it('flags nothing across a genuine 22-loop hold (regression fixture, flight 193/PECAN)', () => {
     // Real calibration: 194 points over 18 minutes, zero physically-impossible jumps, max
-    // dist/threshold ratio 0.51 (resume-track-cleanup.md, "settled 2026-09-13"). Modelled
+    // dist/threshold ratio 0.51 (resume-track-cleanup.md). Modelled
     // here as a tight circle flown at a steady ground speed and 1Hz sampling — the actual
     // property under test is that continuous, always-in-range motion never trips Rule 2,
     // regardless of how much it doubles back on itself.

@@ -1078,7 +1078,7 @@ describe('TrackingController', () => {
       )
       // A payware aircraft's own save-state/reload feature teleports the aircraft — no
       // resume() anywhere near this, matching the real flight 193 iniBuilds A350 case
-      // (resume-track-cleanup.md, "New real case found live, 2026-09-13").
+      // (resume-track-cleanup.md).
       vi.advanceTimersByTime(5_000)
       sim.emit(
         'telemetry',

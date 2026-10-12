@@ -8,7 +8,7 @@ import { pointToLineM, pointToSegmentM } from '@shared/geo'
 import { perpendicularDistance2D, simplifyIndices, type Point2D } from './douglas-peucker'
 
 // Route tolerance matches scripts/spike-route-simplify.ts's confirmed value (run against a
-// real recorded flight, VHHH -> WSSS, docs/decisions.md 2026-09-04) — 100m kept the route's
+// real recorded flight, VHHH -> WSSS, docs/decisions.md) — 100m kept the route's
 // shape and turns indistinguishable from 50m at ~1.5x fewer points. That spike was built
 // for a different feature (cloud-sync's flownRouteJson payload size), but the technique and
 // tolerance apply equally well here, for the same reason: a straight cruise leg doesn't need
@@ -17,7 +17,7 @@ const ROUTE_TOLERANCE_M = 100
 // On the ground 100m is the wrong scale: a taxiway is ~23m wide and parallel taxiways are
 // often 100-200m apart, so a whole flight's taxiing collapsed to 21-33 points and cut
 // corners by up to 54m, straight across the taxi chart (flights 220-227, measured
-// 2026-10-05, winglog-backend's ground-track-resolution.md). Each on-ground run gets its
+// winglog-backend's ground-track-resolution.md). Each on-ground run gets its
 // own pass at 5m instead, which cost only +5 to +25 points per flight on that same data.
 const GROUND_ROUTE_TOLERANCE_M = 5
 // Altitude/speed tolerances are generous enough to erase 1Hz sensor noise and cruise-level

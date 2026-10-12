@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fetchExchangeRate } from './fx-client'
 
 // Real response shape captured live from
-// https://api.frankfurter.dev/v1/latest?base=USD&symbols=GBP (docs/decisions.md, 2026-09-05)
+// https://api.frankfurter.dev/v1/latest?base=USD&symbols=GBP
 // — not synthesised.
 const REAL_RESPONSE = { amount: 1.0, base: 'USD', date: '2026-09-04', rates: { GBP: 0.7391 } }
 

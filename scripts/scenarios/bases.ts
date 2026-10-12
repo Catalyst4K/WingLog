@@ -74,7 +74,7 @@ export interface ArrivalTimeline {
   beyondatc: { secondsFromTouchdown: number; text: string }[]
 }
 
-/** BeyondATC's InfoBoxes for flight 230's ZJSY arrival (2026-10-05), timed from touchdown. */
+/** BeyondATC's InfoBoxes for flight 230's ZJSY arrival, timed from touchdown. */
 export function zjsyArrival(): ArrivalTimeline {
   return JSON.parse(readRepoFile('scripts/scenarios/__fixtures__/zjsy-230-arrival.json')) as ArrivalTimeline
 }
@@ -138,13 +138,13 @@ export function seedApproaches(db: WingLogDb, arrival: ArrivalTimeline): void {
   }
 }
 
-/** A380 final approach and touchdown on WSSS 20R, 2.5 minutes of 1 Hz telemetry (flight 236, 2026-10-12). */
+/** A380 final approach and touchdown on WSSS 20R, 2.5 minutes of 1 Hz telemetry (flight 236). */
 export function wsssLanding(): ParsedFlightFixture {
   return parseFlightFixture(readRepoFile('scripts/scenarios/__fixtures__/wsss-236-landing.ndjson'))
 }
 
 /**
- * WSSS's 20R and its reciprocal 02L from the sim's navdata cache, fetched 2026-10-12. The sim's 20R
+ * WSSS's 20R and its reciprocal 02L from the sim's navdata cache, fetched. The sim's 20R
  * threshold is about 820 m past OurAirports' physical end and about 40 m to its west: the same strip,
  * placed differently (WingLog docs/plans/landing-runway-from-sim.md).
  */
@@ -171,14 +171,14 @@ export const WSSS_RUNWAYS: NavdataRunway[] = [
 
 /**
  * The last 36 minutes of flight 236 into WSSS 20R, with BeyondATC's real stream: the descent
- * clearances that arrived in one burst after 73 minutes of silence (2026-10-12). The first real
+ * clearances that arrived in one burst after 73 minutes of silence. The first real
  * dev-build capture in the scenario base set.
  */
 export function wsssDescent(): ParsedFlightFixture {
   return parseFlightFixture(readRepoFile('scripts/scenarios/__fixtures__/wsss-236-descent.ndjson'))
 }
 
-/** WSSS's approaches to 20R from the sim's navdata cache, fetched 2026-10-12, for the arrival card. */
+/** WSSS's approaches to 20R from the sim's navdata cache, fetched for the arrival card. */
 export const WSSS_ARRIVAL: ArrivalTimeline = {
   arrivalIcao: 'WSSS',
   approaches: [

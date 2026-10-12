@@ -236,7 +236,7 @@ function CommandBar(props: {
 
 /**
  * GSX's live menu entries, mirrored generically, not a semantic "click this service" UI. GSX's client (menu.js) "reads NO
- * services array, recognizes NO ids/names"; this does the same on purpose (docs/gsx-notes.md; decisions.md, 2026-09-21).
+ * services array, recognizes NO ids/names"; this does the same on purpose.
  * Provider choice, when GSX asks, is another snapshot of the same `entries`/`icons`/`disabled` shape, so rendering generically
  * needs no special case. Only shown while `menuShown` is true, like GSX's own client: entries can be stale while the menu is
  * closed.

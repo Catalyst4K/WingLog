@@ -55,7 +55,7 @@ export function simbriefPrefillUrl(params: DispatchOpenSimBriefParams): string {
     `&dest=${encodeURIComponent(destIcao)}&${airframeParam}`
   // Optional generation prefills (docs/decisions.md, SimBrief-generation entry) — each
   // only appended when present, so leaving them unset reproduces the URL above exactly.
-  // Verified live 2026-09-02 (docs/simbrief-notes.md) that the keyless prefill form
+  // Verified live (docs/simbrief-notes.md) that the keyless prefill form
   // honours all of these, including `date` taking epoch seconds rather than a date
   // string — `departure` arrives pre-converted from src/renderer/src/dispatch-time.ts,
   // never computed here from free text.

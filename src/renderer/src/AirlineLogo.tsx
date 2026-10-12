@@ -14,7 +14,7 @@ const BUNDLED_LOGOS = import.meta.glob('./airline-logos/*.png', {
 }) as Record<string, string>
 
 /**
- * Free, keyless logo-by-IATA-code image service (docs/decisions.md, 2026-09-01 airline-
+ * Free, keyless logo-by-IATA-code image service (docs/decisions.md airline-
  * search entry) — the same service Kiwi.com's own site uses. Not every IATA code has a
  * logo there, and the service itself could go away, so a failed load swaps in a neutral
  * badge with the IATA code rather than a broken or blank icon.

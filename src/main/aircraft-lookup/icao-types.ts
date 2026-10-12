@@ -110,7 +110,7 @@ function isWakeCategory(value: string): value is WakeCategory {
 }
 
 /** Exact type-code → real ICAO wake-turbulence-category lookup, for landing-score.ts's
- *  per-category baseline (docs/decisions.md, 2026-09-12) — as opposed to searchAircraftTypes'
+ *  per-category baseline — as opposed to searchAircraftTypes'
  *  fuzzy manufacturer/model/code search above. Null for a type absent from the vendored
  *  data, or one whose real `wtc` value isn't a clean single category (e.g. "L/M", ~69 real
  *  rows) — not guessed at. When a type code appears with more than one wtc value across

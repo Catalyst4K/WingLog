@@ -1,11 +1,11 @@
 /**
  * METAR lookup via aviationweather.gov's public Data API (NOAA/NWS Aviation Weather Center): free, keyless, public-domain US
- * government data (docs/decisions.md, 2026-09-02 Track METAR entry). Its usage guidance (aviationweather.gov/data/api) caps
+ * government data (docs/decisions.md Track METAR entry). Its usage guidance (aviationweather.gov/data/api) caps
  * clients at 100 requests a minute and asks each to send its own User-Agent, which every request here does.
  *
  *   GET https://aviationweather.gov/api/data/metar?ids=EGLL,KJFK&format=json
  *   [{ "icaoId": "EGLL", "rawOb": "METAR EGLL 012320Z AUTO 25008KT 9999 NCD 18/12 Q1020",
- *      "reportTime": "2026-09-01T23:20:00.000Z", "fltCat": "VFR", ... }, ...]
+ * "reportTime": "2026-09-01T23:20:00.000Z", "fltCat": "VFR",... },...]
  *
  * A request where every code is unknown or non-reporting returns HTTP 204 with an empty body; a request mixing known and
  * unknown codes just omits the unknown ones from the array. Both are the normal "nothing to report for this code" outcome here,

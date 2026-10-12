@@ -1,7 +1,7 @@
 /**
  * Client for the winglog-backend Cloudflare Worker (github.com/Catalyst4K/winglog-
  * backend, private repo) — the credential broker that replaced the built-in-key
- * architecture (docs/decisions.md, 2026-09-04). One constant base URL, per CLAUDE.md's
+ * architecture. One constant base URL, per CLAUDE.md's
  * rule for anything that shouldn't be sprinkled through the codebase. The Worker
  * kept its old name when the repo was renamed, because that name is its URL.
  */

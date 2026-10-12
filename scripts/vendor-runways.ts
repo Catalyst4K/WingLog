@@ -14,7 +14,7 @@ const AIRPORTS_CSV = new URL('../resources/airports.csv', import.meta.url)
 
 // Known-bad upstream headings, keyed "ICAO,IDENT" — applied after the fetch so a re-run of
 // this script doesn't silently reintroduce a real data error OurAirports itself hasn't
-// fixed. VHHH's 07L/25R found 2026-09-13: published 74°/254° against 07C/07R's real 71°,
+// fixed. VHHH's 07L/25R found: published 74°/254° against 07C/07R's real 71°,
 // but 07L's own two threshold coordinates geometrically bear ~70.8° — matching its siblings
 // almost exactly (three physically-parallel strips should share a near-identical true
 // heading) and consistent with VHHH's real in-sim SimConnect facility centre point already

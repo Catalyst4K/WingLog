@@ -3,7 +3,7 @@ import { resetLazyValues } from '@shared/lazy'
 import { fetchAirframesForType, parseAirframesForType, type RawAirframesResponse } from './simbrief-airframes'
 
 // Shaped like a real trimmed slice of inputs.airframes.json — the A320 fixture mirrors
-// real rows captured 2026-09-07 (docs/plans/simbrief-airframe-picker.md): the stock
+// real rows captured (docs/plans/simbrief-airframe-picker.md): the stock
 // default, two MSFS community entries with the usual "Developer (Platform) - variant"
 // comment shape, an X-Plane entry that must be filtered out, and a niche type with no
 // real payware addon (no dev/platform structure at all) to exercise the fallback.
@@ -27,7 +27,7 @@ const FIXTURE: RawAirframesResponse = {
         airframe_engines: 'CFM56-5B4/P',
         airframe_registration: 'G-FENX'
       },
-      // Real collision case (docs/simbrief-notes.md, 2026-09-08): same developer and
+      // Real collision case: same developer and
       // engines as the entry above, so today's label formula alone can't tell them apart —
       // only the "(SL)" in the comment does.
       {
@@ -159,7 +159,7 @@ describe('parseAirframesForType', () => {
     const noSl = options.find((o) => o.comments === 'Fenix Simulations (MSFS) - A320 CFM')
     const withSl = options.find((o) => o.comments === 'Fenix Simulations (MSFS) - A320 CFM (SL)')
     // Fenix + A320-family classic: the no-tag entry gets Wing Fence made explicit
-    // (Callum's own domain knowledge, 2026-09-08) rather than staying blank.
+    // (Callum's own domain knowledge) rather than staying blank.
     expect(noSl?.variant).toBe('CFM (WF)')
     expect(withSl?.variant).toBe('CFM (SL)')
   })

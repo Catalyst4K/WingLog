@@ -5,7 +5,7 @@ import Database from 'better-sqlite3'
 import { afterEach, describe, expect, it } from 'vitest'
 import { migrateLegacyUserData } from './legacy-userdata'
 
-// Covers the 2026-09-06 Flightdeck -> WingLog rename. The rename moves Electron's
+// Covers the Flightdeck -> WingLog rename. The rename moves Electron's
 // userData directory, so without this the app silently starts with an empty logbook while
 // the real one sits in the old directory. The WAL case below is the reason this uses
 // VACUUM INTO rather than copyFileSync.

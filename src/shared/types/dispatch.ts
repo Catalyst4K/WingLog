@@ -21,7 +21,7 @@ export interface DispatchOfp extends Omit<SimBriefOfp, 'rawJson'> {
 
 /**
  * A departure time to prefill on SimBrief's form, already split into the shape its input
- * parameters want (docs/simbrief-notes.md, 2026-09-02 spike): `date` is midnight UTC of
+ * parameters want (docs/simbrief-notes.md spike): `date` is midnight UTC of
  * the departure day in epoch seconds, `hour`/`minute` are plain UTC integers.
  * `src/renderer/src/dispatch-time.ts` computes this from a `Date` — a wrong-format date
  * is silently misread by SimBrief (yields a 1970 departure) rather than rejected, so it's

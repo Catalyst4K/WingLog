@@ -8,7 +8,7 @@ import {
   stationDisplayName
 } from './beyondatc-frequencies'
 
-// The real list from flight 236 (EGLL-WSSS, 2026-10-12), shortened: airports, types and names as BeyondATC sent them, runways empty.
+// The real list from flight 236 (EGLL-WSSS), shortened: airports, types and names as BeyondATC sent them, runways empty.
 const option = (
   airport: string,
   type: string,

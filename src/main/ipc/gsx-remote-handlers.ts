@@ -1,7 +1,7 @@
 /**
  * GSX Remote Control (winglog-backend's docs/plans/gsx-remote-control.md; live protocol confirmed
- * docs/gsx-notes.md, 2026-09-21): the GsxRemoteService's lifecycle, its settings, and its IPC.
- * Native reimplementation (docs/decisions.md, 2026-09-21 Option C): GsxRemoteService owns the
+ * docs/gsx-notes.md): the GsxRemoteService's lifecycle, its settings, and its IPC.
+ * Native reimplementation (docs/decisions.md Option C): GsxRemoteService owns the
  * WebSocket, and the renderer only ever gets typed IPC. Off by default, opt-in per user-entered
  * host and port: GSX's Remote Client port is genuinely user-configurable, never assumed.
  *

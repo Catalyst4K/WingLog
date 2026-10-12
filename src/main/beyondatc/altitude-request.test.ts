@@ -4,9 +4,9 @@ import type { BeyondAtcState } from '@shared/ipc'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { boxConfirmsLevel, levelLabelToFeet, pickLevelLabel, requestAltitude } from './altitude-request'
 
-// Real Actions lists, captured live 2026-10-01 (Fenix A320, cleared FL380 — winglog-backend's
+// Real Actions lists, captured live (Fenix A320, cleared FL380 — winglog-backend's
 // docs/beyondatc-notes.md, "requesting a new cruise altitude"). The cleared-level box is the
-// `Climb` box seen on the VHHH-ZJSY flight, 2026-10-05.
+// `Climb` box seen on the VHHH-ZJSY flight.
 const CRUISE_ACTIONS = [
   'Call Ready for Descent',
   'Request Approach Change',
@@ -65,7 +65,7 @@ describe('levelLabelToFeet / pickLevelLabel / boxConfirmsLevel', () => {
     expect(pickLevelLabel(LEVEL_ACTIONS, 36000)).toBe('FL360')
     expect(pickLevelLabel(LEVEL_ACTIONS, 40000)).toBeNull()
     // A SimBrief metric step (11,300 m) against BeyondATC's metric label over China —
-    // "11,300m", per Callum (2026-10-01).
+    // "11,300m".
     expect(pickLevelLabel(['Cancel Altitude Change', '10,700m', '11,300m', '11,900m'], 11300 / 0.3048)).toBe(
       '11,300m'
     )

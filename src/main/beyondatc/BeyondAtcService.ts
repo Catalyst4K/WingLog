@@ -119,7 +119,7 @@ function isCommsState(value: unknown): value is BeyondAtcCommsState {
   )
 }
 
-/** `InfoBoxes: [{"title", "info"}]` (real, EGLL 2026-10-05). Keeps only well-formed entries;
+/** `InfoBoxes: [{"title", "info"}]` (real, EGLL). Keeps only well-formed entries;
  *  anything else in the array is skipped rather than failing the whole list.
  *
  * @param rest The line's value, after "Key:".
@@ -176,7 +176,7 @@ function parseActions(rest: string): string[] {
 }
 
 /** `AutoTune`/`AutoRespond: <bool>` — bare lowercase `true`/`false`, confirmed live
- *  2026-09-29 (a real capture, not the notes doc's earlier unquoted `<bool>` placeholder).
+ * (a real capture, not the notes doc's earlier unquoted `<bool>` placeholder).
  *  Anything else (unexpected casing, a malformed push) resolves to `null` rather than a
  *  guess, same defensive-parser discipline as parseFacility.
  *
@@ -205,7 +205,7 @@ function isFrequencyOption(value: unknown): value is BeyondAtcFrequencyOption {
   )
 }
 
-/** `Frequencies: [...]` — confirmed live 2026-09-29, the real response to the `frequencies`
+/** `Frequencies: [...]` — confirmed live the real response to the `frequencies`
  *  command (docs/beyondatc-notes.md), not the local-UI-only no-op it was previously
  *  suspected to be. Unlike `Actions`, this genuinely is a JSON array. Any entry that doesn't
  *  match the confirmed shape is dropped rather than surfacing a half-parsed option.
@@ -286,7 +286,7 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
     if (valid) this.sendCommand(`set_frequency_com2: ${valid}`)
   }
 
-  /** Confirmed working two-way control, 2026-09-29 (docs/beyondatc-notes.md) — sends the
+  /** Confirmed working two-way control (docs/beyondatc-notes.md) — sends the
    *  real `set_autotune`/`set_autorespond` command, value lowercased by template
    *  interpolation same as the confirmed wire format expects.
    *
@@ -336,7 +336,7 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
   }
 
   /** The list is empty if asked before BeyondATC has a flight loaded (real report,
-   *  2026-09-29: picker empty when WingLog connected first, fine after a manual off/on).
+   * picker empty when WingLog connected first, fine after a manual off/on).
    *  So it's re-asked whenever facility/progress arrives while still empty, and whenever the
    *  origin/destination changes. Throttled so a burst of state lines sends one request.
    *
@@ -375,7 +375,7 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
       this.backoffMs = RECONNECT_MIN_MS
       this.setStatus({ state: 'connected', lastError: null })
       // Proactively requested, not part of the initial snapshot — confirmed live
-      // 2026-09-29 (docs/beyondatc-notes.md), a real bare command with no value/colon.
+      // (docs/beyondatc-notes.md), a real bare command with no value/colon.
       this.requestFrequencies(true)
     })
 

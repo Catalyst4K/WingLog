@@ -218,7 +218,7 @@ describe('fetchAirportNavdata', () => {
       data: airportBuffer('VHHH')
     })
     // type=10 (RNAV/RNP), suffixCode=90 ('Z'), runway 07R — real values captured live
-    // 2026-09-08 (docs/navdata-notes.md).
+    // (docs/navdata-notes.md).
     handle.emit('facilityData', {
       type: FacilityDataType.APPROACH,
       userRequestId: NavdataDefId.APPROACHES,
@@ -426,7 +426,7 @@ describe('fetchTaxiNetwork', () => {
     const promise = fetchTaxiNetwork(handle as unknown as SimConnectConnection, 'EGKB')
 
     // Real EGKB reference point + two real captured TAXI_POINT records (the runway 03/21
-    // centerline's threshold points, 2026-09-28).
+    // centerline's threshold points).
     handle.emit('facilityData', {
       type: FacilityDataType.AIRPORT,
       userRequestId: NavdataDefId.TAXI_POINTS,
@@ -548,7 +548,7 @@ describe('fetchTaxiNetwork', () => {
 })
 
 describe('fetchStands (stand-positions.md)', () => {
-  // Real VHHH values from the TAXI_PARKING spike, 2026-10-02: the airport reference point and
+  // Real VHHH values from the TAXI_PARKING spike: the airport reference point and
   // stand N32 (GATE_N = 25) plus its suffix-29 twin.
   const VHHH_REF = { lat: 22.30888891965151, lon: 113.91472220420837 }
   function parkingBuffer(

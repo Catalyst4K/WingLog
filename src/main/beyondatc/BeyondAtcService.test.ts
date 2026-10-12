@@ -538,7 +538,7 @@ describe('BeyondAtcService', () => {
     const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
     service.start()
     instances[0].simulateOpen()
-    // Real capture, 2026-09-25.
+    // Real capture.
     instances[0].simulateLine('Actions: [Request IFR Clearance¬Request Departure Runway Change¬Radio Check¬]')
     instances[0].sent.length = 0
 
@@ -580,7 +580,7 @@ describe('BeyondAtcService', () => {
   })
 
   it('accepts VHF airband frequencies as typed and rejects everything else', () => {
-    // Real values: YBBN delivery/ground and VHHH tower, 2026-10-02, plus a bare MHz.
+    // Real values: YBBN delivery/ground and VHHH tower, plus a bare MHz.
     expect(validFrequency('118.850')).toBe('118.850')
     expect(validFrequency('121.7')).toBe('121.7')
     expect(validFrequency('122.825')).toBe('122.825')

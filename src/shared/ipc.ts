@@ -176,7 +176,7 @@ export interface WingLogApi {
   settingsSetSimbriefUsername: (username: string) => Promise<void>
   /**
    * Triggers a real plan generation via SimBrief's keyed API, signed by winglog-backend
-   * rather than a locally-held key (docs/decisions.md, 2026-09-04) — opens a visible window
+   * rather than a locally-held key — opens a visible window
    * for SimBrief's own login/generation UI, and resolves with the resulting OFP once it
    * closes. Throws if no username is set, the backend signing request fails, or the window
    * closed without a new plan actually being generated.
@@ -519,7 +519,7 @@ export interface WingLogApi {
   beyondAtcSetAction: (label: string) => Promise<void>
   beyondAtcSetFrequency: (frequency: string) => Promise<void>
   beyondAtcSetFrequencyCom2: (frequency: string) => Promise<void>
-  /** `set_autotune`/`set_autorespond` — confirmed working two-way control, 2026-09-29
+  /** `set_autotune`/`set_autorespond` — confirmed working two-way control
    *  (winglog-backend's docs/beyondatc-notes.md). No-op if not connected. */
   beyondAtcSetAutoTune: (value: boolean) => Promise<void>
   beyondAtcSetAutoRespond: (value: boolean) => Promise<void>

@@ -191,7 +191,7 @@ function wireTracking(
 }
 
 /**
- * The update check (winglog-backend's docs/plans/update-check.md, Part A; agreed 2026-10-02):
+ * The update check (winglog-backend's docs/plans/update-check.md, Part A; agreed):
  * asks GitHub for the latest published release, on by default, switchable off in Settings →
  * About. The endpoint can only be overridden in an unpackaged build, for the Playwright
  * acceptance test's fake release server.

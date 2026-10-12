@@ -73,7 +73,7 @@ const SERVICES: GsxRemoteServiceStatus[] = [
 ]
 
 // The real wire shape: `menuShown` is GSX's own SEPARATE top-level key, a sibling of
-// `menu`, not nested inside it (docs/gsx-notes.md, 2026-09-21) — RAW_MENU is what a real
+// `menu`, not nested inside it — RAW_MENU is what a real
 // `/menu` snapshot/patch value looks like; MENU is the combined shape GsxRemoteService
 // exposes to callers via getMenu(), used in assertions below.
 const RAW_MENU = {
@@ -87,7 +87,7 @@ const RAW_MENU = {
 }
 const MENU: GsxRemoteMenuState = { ...RAW_MENU, menuShown: true, searchActive: false, searchSession: 0 }
 
-// Real wire shape, confirmed live 2026-09-21 (docs/gsx-notes.md, round 6/7 captures): a
+// Real wire shape, confirmed live (docs/gsx-notes.md, round 6/7 captures): a
 // real VHHH session's `airport`/`parking`/`gateProperties` top-level keys, and a real
 // Refueling `detail` (fuel + a live bill) and Boarding `detail` (pax + per-hold cargo).
 const AIRPORT = { icao: 'VHHH', name: 'Hong Kong Intl', country: 'Hong Kong' }
@@ -611,7 +611,7 @@ describe('GsxRemoteService', () => {
     service.stop()
   })
 
-  // Real wire shapes, confirmed live 2026-09-23 (docs/gsx-notes.md) by reading GSX's own
+  // Real wire shapes, confirmed live (docs/gsx-notes.md) by reading GSX's own
   // shipped menu.js source directly — STATIC_COMMANDS' ids/labels, and a real
   // commandIcons/commandIconsSvg/simbrief capture from a live VHHH session.
   const COMMAND_ICONS = {

@@ -8,7 +8,7 @@ import type { GsxRemoteMenuState } from '@shared/ipc'
  * (handler choice, provider choice, the boarding→"attach pushback tug?" follow-up all stay
  * confined to the GSX tab, resolved by GSX's own default/timeout if nobody answers there).
  *
- * Matched on `menu.title`/`header` text — the real signal confirmed live, 2026-09-21
+ * Matched on `menu.title`/`header` text — the real signal confirmed live
  * (winglog-backend's docs/gsx-notes.md): both cases are ordinary `state.menu` snapshots,
  * not a distinct "important" flag GSX exposes. Case-sensitive substring match against GSX's
  * own confirmed wording is deliberately narrow — a near-miss should fail open (treated as
@@ -24,8 +24,8 @@ const IMPORTANT_MENU_TITLES = ['Select pushback direction', 'Select refueling le
  * @returns True if it should prompt wherever the user is.
  */
 export function isImportantGsxMenu(menu: GsxRemoteMenuState): boolean {
-  // `menuShown` is a real, separate flag from having entries (docs/gsx-notes.md,
-  // 2026-09-21) — entries can be stale/leftover while the menu itself is closed, so this
+  // `menuShown` is a real, separate flag from having entries (docs/gsx-notes.md)
+  // — entries can be stale/leftover while the menu itself is closed, so this
   // must gate on both, exactly like GSX's own client does.
   if (!menu.menuShown || menu.entries.length === 0) return false
   const title = menu.title || menu.header

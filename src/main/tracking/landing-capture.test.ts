@@ -177,7 +177,7 @@ describe('buildLandingRecord', () => {
   })
 
   it('takes verticalSpeedMs from previousTelemetry (the last airborne tick), not the touchdown tick', () => {
-    // Real 2026-09-14 finding: the touchdown tick's own vertical speed under-reads true
+    // Real finding: the touchdown tick's own vertical speed under-reads true
     // impact severity by 55-87% (a full second of gear compression usually already
     // happened by the time on-ground reads true at 1 Hz) — the tick just before is
     // consistently closer to the real figure.
@@ -194,7 +194,7 @@ describe('buildLandingRecord', () => {
   })
 
   it('prefers touchdownSeverity (high-rate near-contact peak) over previousTelemetry when both are given', () => {
-    // Real 2026-09-20 finding: the high-rate near-contact peak is more representative of
+    // Real finding: the high-rate near-contact peak is more representative of
     // true touchdown severity than the primary 1 Hz stream's own previous tick, which can
     // miss by 55-87% in either direction depending on where its 1-second grid falls
     // relative to the flare.

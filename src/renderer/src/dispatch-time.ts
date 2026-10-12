@@ -23,7 +23,7 @@ export function defaultDepartureTime(now: Date): Date {
 
 /**
  * Converts a departure Date into the shape SimBrief's prefill URL wants
- * (docs/simbrief-notes.md, 2026-09-02 spike): `date` is midnight UTC of the departure
+ * (docs/simbrief-notes.md spike): `date` is midnight UTC of the departure
  * day in epoch seconds, `hour`/`minute` are the plain UTC time. Uses UTC getters
  * throughout — the local-time getters are the easy mistake here, since a departure
  * "23:58 UTC" must roll the date forward in UTC, not in whatever timezone this process

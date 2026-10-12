@@ -21,7 +21,7 @@ import { asyncHandler } from './report-error'
  * Always shown, not gated on `resumeSegment > 0` (an earlier version was) — Rule 2 (the
  * physically-impossible-jump test, resume-cleanup.ts) runs unconditionally and can find
  * real junk on a flight where `resumeSegment` never changed at all, most notably any
- * flight recorded before Phase 1 existed (confirmed live 2026-09-13 against a real flight,
+ * flight recorded before Phase 1 existed (confirmed live against a real flight,
  * CPA319/#191: `resumeSegment` was 0 throughout, yet the cleanup pass still found and
  * fixed its real restore-teleport). `applyTrackCleanup` already no-ops cheaply when
  * there's nothing to find, so showing this unconditionally costs nothing on a clean flight.

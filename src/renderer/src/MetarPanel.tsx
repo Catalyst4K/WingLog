@@ -78,7 +78,7 @@ function MetarBody(props: {
  * departure/destination/alternate come from the fetched OFP once there is one, or the
  * "Plan a flight" panel's own selections before that; "Custom" is a free airport search
  * for anything else — a fuel stop, a diversion candidate, wherever. Fetches all four in
- * one batched call (docs/decisions.md, 2026-09-02) rather than one request per tab, and
+ * one batched call rather than one request per tab, and
  * only for slots that actually have a real 4-letter code.
  *
  * @param props The airports to show weather for.

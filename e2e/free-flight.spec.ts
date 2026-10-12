@@ -4,7 +4,7 @@ import { launchApp } from './launch-app'
 
 /**
  * Drives free-flight-tracking.md's whole point through a real launched app: scenario #15
- * (flight-replay-harness.md, 2026-09-14) — a VHHH VFR hop with no SimBrief plan — used to
+ * (flight-replay-harness.md) — a VHHH VFR hop with no SimBrief plan — used to
  * have no path into WingLog at all (TrackView only listed `status === 'planned'` flights).
  * Uses the same committed replay fixture src/main/tracking/flight-replay.test.ts already
  * drives through TrackingController.startFree at the module level; this test's own job is

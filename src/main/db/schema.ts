@@ -14,7 +14,7 @@ import {
 } from 'drizzle-orm/sqlite-core'
 import { compressedText } from './compressed-text'
 
-// Identity + linkage only, per docs/decisions.md's 2026-09-01 Fleet-simplification entry:
+// Identity + linkage only, per docs/decisions.md's Fleet-simplification entry:
 // all performance data (weights, equip, PBN, wake cat...) lives in the linked SimBrief
 // profile now, not duplicated here. Hours/cycles are computed live from flight history
 // (flight-repo.ts's getFleetStats) rather than stored — this table never carried the
@@ -75,7 +75,7 @@ export const aircraft = sqliteTable('aircraft', {
   // Real-world livery photo thumbnail from adsbdb's registration lookup (docs/plans/fleet-redesign.md #3), stored at lookup
   // time rather than fetched per detail-page view (local-first); it goes stale if the photo is replaced, an accepted
   // tradeoff. Deliberately NOT adsbdb's full-size `url_photo`, which 404s consistently while the thumbnail host serves
-  // reliably (docs/decisions.md, 2026-09-07). adsbdb gives no photographer name, so the UI credits airport-data.com.
+  // reliably. adsbdb gives no photographer name, so the UI credits airport-data.com.
   photoThumbnailUrl: text('photo_thumbnail_url'),
   // Soft-delete tombstone (winglog-backend/docs/plans/cloud-sync-v2.md #3a) — a hard
   // DELETE is indistinguishable from "never created" once it reaches the sync protocol, so
@@ -339,7 +339,7 @@ export const landing = sqliteTable(
     distanceFromThresholdM: real('distance_from_threshold_m'),
     centrelineOffsetM: real('centreline_offset_m'),
     flapSetting: integer('flap_setting'),
-    // 'derived' throughout — scripts/spike-landing.ts confirmed 2026-09-04 that MSFS 2024's
+    // 'derived' throughout — scripts/spike-landing.ts confirmed that MSFS 2024's
     // dedicated touchdown SimVars disagree with the derived value in trend, not just
     // magnitude, across a real bounce; nothing writes 'simvar'.
     touchdownSource: text('touchdown_source', { enum: ['simvar', 'derived'] })
@@ -480,7 +480,7 @@ export const navdataTaxiSegment = sqliteTable(
     endLat: real('end_lat').notNull(),
     endLon: real('end_lon').notNull(),
     name: text('name'),
-    // Null = cached before hold-short points were fetched (2026-09-30); hasCachedTaxiNetwork
+    // Null = cached before hold-short points were fetched; hasCachedTaxiNetwork
     // treats such a cache as stale so it's re-fetched once, rather than silently lacking them.
     startHoldShort: integer('start_hold_short', { mode: 'boolean' }),
     endHoldShort: integer('end_hold_short', { mode: 'boolean' }),
@@ -490,7 +490,7 @@ export const navdataTaxiSegment = sqliteTable(
   (table) => [index('navdata_taxi_segment_icao_idx').on(table.icao)]
 )
 
-// An airport's stands/gates from the sim (TAXI_PARKING, confirmed live 2026-10-02 — see
+// An airport's stands/gates from the sim (TAXI_PARKING, confirmed live — see
 // sim-facilities-fetch.ts's fetchStands). Fetched on demand, replaced wholesale per airport.
 export const navdataStand = sqliteTable(
   'navdata_stand',

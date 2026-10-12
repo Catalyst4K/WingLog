@@ -9,7 +9,7 @@ import type { SimTelemetry } from '@shared/ipc'
  * SimConnect stream (v1.2 Part 1, winglog-backend's docs/plans/landing-scoring-v2.md
  * Part 3) — the peak (max-magnitude) vertical speed in the last second before ground
  * contact, sampled far more densely than the primary 1 Hz stream. Real flights
- * (docs/simconnect-notes.md, 2026-09-20) found the 1 Hz "previous tick" value can miss true
+ * found the 1 Hz "previous tick" value can miss true
  * touchdown severity by 55-87% in either direction depending on where the 1-second grid
  * happens to fall relative to each landing's own flare — this is the fix. Same sign
  * convention as SimTelemetry.verticalSpeedMs (negative = descending).

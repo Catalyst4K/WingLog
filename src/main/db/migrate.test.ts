@@ -37,7 +37,7 @@ function migrationNumber(tagOrFilename: string): number {
  *  this exclusion list wasn't updated) would record that later migration's timestamp as "last
  *  applied" — which, being newer, would then cause the real migrateDb run afterward to skip
  *  every older migration in between as "already applied", including the very one the test
- *  means to exercise. A real incident, 2026-09-28: adding migration 0029 silently broke the
+ * means to exercise. A real incident: adding migration 0029 silently broke the
  *  0027 and 0028 tests below this exact way, `migrateDb` never threw, and the resulting
  *  database was just silently missing both migrations' columns. */
 function buildBaselineMigrationsFolder(
@@ -84,7 +84,7 @@ describe('migrateDb', () => {
     sqlite.close()
   })
 
-  // Regression for a real failure on Callum's own installed build (2026-09-17):
+  // Regression for a real failure on Callum's own installed build:
   // "WingLog failed to start" — DrizzleError on `DROP TABLE 'flight'` — the moment a real
   // database with actual flight history upgraded through migration 0024
   // (flight.aircraft_id -> nullable, for free-flight-tracking.md's "don't add to fleet"

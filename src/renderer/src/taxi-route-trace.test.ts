@@ -20,9 +20,9 @@ const toSegments = (rows: unknown): NavdataTaxiSegment[] =>
     startHoldShort: startHoldShort === 1,
     endHoldShort: endHoldShort === 1
   }))
-// VHHH, fetched live 2026-09-30: ~1.2 km around the east end of runway 25C.
+// VHHH, fetched live: ~1.2 km around the east end of runway 25C.
 const VHHH = toSegments(VHHH_RAW)
-// YBBN and VHHH from the real YBBN-VHHH flight (2026-10-02), around the departure and arrival taxi routes.
+// YBBN and VHHH from the real YBBN-VHHH flight, around the departure and arrival taxi routes.
 const YBBN = toSegments(YBBN_RAW)
 const VHHH_ARRIVAL = toSegments(VHHH_ARRIVAL_RAW)
 // The whole airport, so A's far ends are real ends rather than the edge of a trimmed box.
@@ -253,7 +253,7 @@ describe('traceTaxiRoute', () => {
     expect(namesDriven(VHHH_ARRIVAL, route).slice(0, 6)).toEqual(['J5', 'J', 'H6', 'H', 'V', 'B'])
     expect(route.at(-1)).toEqual([n32.lon, n32.lat])
     // From B to the stand is the pilot's choice: straight along the gate taxilane B7, which ATC
-    // doesn't name, not in and out of every gate lead-in to avoid it (simulated, 2026-10-06).
+    // doesn't name, not in and out of every gate lead-in to avoid it (simulated).
     expect(namesDriven(VHHH_ARRIVAL, route).at(-1)).toBe('B7')
     expect(detours(VHHH_ARRIVAL, route)).toBe(0)
     const [endLon, endLat] = route.at(-1)!
@@ -396,7 +396,7 @@ describe('re-routing (taxi-reroute.md)', () => {
     })
 
     it("goes forwards even the long way round: an airliner can't turn round mid-taxiway", () => {
-      // On D facing away from B7, forwards is a loop. Before 2026-10-06 (a ×10 factor on the
+      // On D facing away from B7, forwards is a loop. Before (a ×10 factor on the
       // first edge) the U-turn won; YBBN's simulated re-routes then pointed back behind the
       // aircraft twice before following it.
       const plain = traceTaxiRoute({ ...ZJSY_REQUEST, from: onD })!

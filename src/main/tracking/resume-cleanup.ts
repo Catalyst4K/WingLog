@@ -31,8 +31,7 @@ export interface TrackCleanupResult {
   segmentReassignments: { id: number; resumeSegment: number }[]
 }
 
-/** ~0.5 nm: a sampling-jitter floor under the speed*time*simRate threshold below
- *  (docs/simconnect-notes.md, 2026-09-11). */
+/** ~0.5 nm: a sampling-jitter floor under the speed*time*simRate threshold below. */
 const JUMP_DISTANCE_FLOOR_KM = 0.93
 const JUMP_SPEED_MULTIPLIER = 2
 
@@ -40,7 +39,7 @@ const JUMP_SPEED_MULTIPLIER = 2
  *  restore resolves it, so it has to cover the spawn-to-restore gap (~426 s for the iniBuilds A350 on the reference
  *  flight), not the anchor-to-spawn gap. 10 minutes leaves headroom above that measurement. */
 const RESUME_WINDOW_MS = 10 * 60 * 1000
-/** ~3 nm: a real restore landed ~2.9 nm behind its anchor (docs/simconnect-notes.md, 2026-09-11). */
+/** ~3 nm: a real restore landed ~2.9 nm behind its anchor. */
 const CASE_A_LANDING_RADIUS_KM = 3 * 1.852
 const CASE_B_LATERAL_TOLERANCE_KM = 1 * 1.852
 const CASE_B_HEADING_TOLERANCE_DEG = 30

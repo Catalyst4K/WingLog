@@ -204,7 +204,7 @@ export function useOrphanedFlight(
 /**
  * Reads each new set of BeyondATC InfoBoxes for a clearance whose fields differ from the current selection, and holds it for the
  * user's accept or dismiss: overwrite, but ask first, gently. Never ATC's speech (winglog-backend's
- * docs/decisions.md, 2026-10-05). Re-subscribes whenever the selection changes so a diff is always checked against the live value,
+ * docs/decisions.md). Re-subscribes whenever the selection changes so a diff is always checked against the live value,
  * the same "just resubscribe, it's cheap" style as procedure-selection.ts's fetch effects.
  *
  * @param selection The current procedure selection.
@@ -251,7 +251,7 @@ export function useAtcClearancePrompt(
 
 /**
  * GSX's live menu, tracked at the top level (not just inside GsxRemoteView) so an "important"
- * one — pushback direction, fuel amount, Callum's explicit call, 2026-09-21 — can interrupt
+ * one — pushback direction, fuel amount, Callum's explicit call — can interrupt
  * wherever the user currently is, not just when they happen to be on the GSX tab. Everything
  * else GSX might ask stays confined to that tab, unflagged, resolved by GSX's own
  * default/timeout if nobody answers there (winglog-backend's docs/gsx-notes.md).

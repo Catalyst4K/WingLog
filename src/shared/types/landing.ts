@@ -82,7 +82,7 @@ export type LandingScoreCategoryKey =
   'verticalSpeed' | 'gForce' | 'distanceFromAimingPoint' | 'centrelineOffset' | 'pitch' | 'bank' | 'crab'
 
 /** One scored input's own 0-100 contribution (landing-score.ts's LandingScoreBreakdown,
- *  reshaped for the UI — see docs/decisions.md, 2026-09-12: Callum wanted a breakdown
+ * reshaped for the UI — see docs/decisions.md: Callum wanted a breakdown
  *  popup showing "why" a score is what it is). Null when this input had no runway match to
  *  score against (same null-handling as the stored landing fields themselves), never a
  *  fabricated number. `label` is decided server-side so the renderer doesn't keep its own
@@ -95,14 +95,14 @@ export interface LandingScoreCategory {
    *  (fpm, degrees, g, or metres for the two runway-dependent ones) — real per-flight
    *  numbers for the runway-dependent categories, not a fixed constant, since they come
    *  from this specific runway's own real Annex-14/width data. Powers the breakdown
-   *  popup's per-category info button (docs/decisions.md, 2026-09-12). Null exactly when
+   *  popup's per-category info button. Null exactly when
    *  `score` is null. */
   ideal: number | null
   tolerance: number | null
   /** distanceFromAimingPoint only — the real tolerance toward the threshold and away from it
    *  respectively, since that's the only category with two distinct real physical hard
    *  limits rather than one tolerance either side of `ideal` (shared/landing-score.ts's
-   *  LandingScoreCategoryDetail, 2026-09-26). `tolerance` above still holds `toleranceLong`
+   * LandingScoreCategoryDetail). `tolerance` above still holds `toleranceLong`
    *  for any generic consumer. null for every other category, and null together with
    *  `tolerance` whenever this category has no runway match. */
   toleranceShort: number | null
@@ -114,21 +114,21 @@ export interface LandingScoreCategory {
    *  different ramps; shared/landing-score.ts's dangerPenaltyForFraction) already subtracted
    *  from `LandingScoreResult.score`. Lets the breakdown popup mark this category more
    *  strongly than the plain <50 "bad" warning every other poor score already gets, and show
-   *  exactly how much it cost (docs/decisions.md, 2026-09-21). */
+   *  exactly how much it cost. */
   dangerousPenalty: number
 }
 
 /** The 0-100 landing score plus its derived firm/hard classification — computed at read
  *  time from a stored landing's own fields (src/main/db/landing-score-resolver.ts), not
- *  stored itself, per docs/decisions.md (2026-09-12). No longer a Settings-configurable
+ * stored itself, per docs/decisions.md. No longer a Settings-configurable
  *  value — see @shared/landing-score for the per-aircraft-category baseline this derives
  *  from. `categories` backs the Logbook score-breakdown popup and the landing card's
  *  per-field warning icons. */
 export interface LandingScoreResult {
   /** Floored at 0 for display — the underlying computeLandingScore can go negative
    *  internally once one or more categories' dangerousPenalty applies (landing-scoring-v2.md,
-   *  2026-09-20; rescaled from a flat per-category deduction to a severity-scaled one,
-   *  2026-09-21); flooring happens once, server-side (landing-score-resolver.ts), so every
+   * rescaled from a flat per-category deduction to a severity-scaled one,
+   * ); flooring happens once, server-side (landing-score-resolver.ts), so every
    *  consumer of this field already sees the real display value. */
   score: number
   severity: LandingSeverity

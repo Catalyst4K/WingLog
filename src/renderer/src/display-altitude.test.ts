@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { displayAltitude } from './display-altitude'
 import type { TransitionAltitudes } from './route'
 
-// VHHH round trip's real numbers (docs/simconnect-notes.md, 2026-09-13): trans_alt 9,000 ft,
+// VHHH round trip's real numbers: trans_alt 9,000 ft,
 // trans_level 11,000 ft.
 const VHHH_TRANSITION: TransitionAltitudes = { transAltFt: 9000, transLevelFt: 11000 }
 

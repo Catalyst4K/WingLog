@@ -156,7 +156,7 @@ export function setMapLanguage(db: WingLogDb, language: MapLanguage): void {
   setSetting(db, MAP_LANGUAGE_KEY, language)
 }
 
-/** Defaults to 'system' (docs/plans/v1-2.md Part 3, decisions.md 2026-09-20) — resolved to
+/** Defaults to 'system' (docs/plans/v1-2.md Part 3, decisions.md) — resolved to
  *  an actual language client-side (app-language.ts's resolveAppLanguage), against the OS's
  *  own locale, falling back to English. A stored value that isn't a known language (a
  *  hand-edited or future-version row) also reads as 'system'.
@@ -315,7 +315,7 @@ export function setCheckedGsxFirstLaunch(db: WingLogDb): void {
 }
 
 /** Default off, localhost, port 8744 — GSX's own real default Remote Client port (Callum,
- *  2026-09-21, confirmed directly; the community-cited 8090 is not it — docs/gsx-notes.md).
+ * confirmed directly; the community-cited 8090 is not it — docs/gsx-notes.md).
  *  Still genuinely user-configurable in GSX's own settings, so the field stays editable —
  *  this is a sensible pre-fill, not treated as the only possible value.
  *

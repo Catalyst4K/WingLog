@@ -5,7 +5,7 @@ import { renderReport } from './report'
 import { boundsAround, boundsOf, escapeHtml, makeFrame, polyline } from './svg'
 import { groundSamples, scenarioFromHand, scenariosFromLog } from './taxi'
 
-// Real main.log lines (flight 230, 2026-10-05), local time as electron-log writes it.
+// Real main.log lines (flight 230), local time as electron-log writes it.
 const LOG = `[2026-10-05 14:52:37.953] [info]  [beyondatc] InfoBoxes [{"title":"Pushback Direction","info":"southwest"}]
 [2026-10-05 14:58:42.980] [info]  [beyondatc] InfoBoxes [{"title":"Taxi to Runway","info":"07R"},{"title":"Taxi Via 1","info":"B"},{"title":"Hold Position","info":"J1"}]
 [2026-10-05 15:06:39.605] [info]  [beyondatc] InfoBoxes [{"title":"Taxi to Runway","info":"07R"},{"title":"Taxi Via 1","info":"B"},{"title":"Hold Position","info":"J1"}]

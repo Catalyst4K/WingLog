@@ -20,7 +20,7 @@ const GROUND_MOVEMENT_THRESHOLD_MS = 0.5
 // Raised from 3 to match AutoStartDetector's own proven bar (8 consecutive 1Hz samples) for
 // the analogous "is this real or reload garbage" problem — a reasonable tightening, not a
 // confirmed fix: AutoStartDetector's 8-sample number is proven against a *flight-to-flight*
-// reload specifically (docs/decisions.md, 2026-09-02), not "sitting at the main menu before
+// reload specifically, not "sitting at the main menu before
 // anything is loaded," which hasn't actually been captured. If a false trigger still shows
 // up before a flight is loaded, the next step is a throwaway capture script through that
 // specific transition (same shape as the old spike-capture-flight.ts/spike-flight-reload.ts
@@ -202,13 +202,13 @@ export function useFreeFlightBanner(
   const [dismissed, setDismissed] = useState(false)
 
   // Raw per-sample trigger — moving on the ground or airborne. Not used directly: a single
-  // sample of this can't be trusted on its own. Callum saw this live (2026-09-16, sitting at
+  // sample of this can't be trusted on its own. Callum saw this live (sitting at
   // MSFS's World Map with no flight loaded at all) — WingLog briefly showed the aircraft as
   // airborne, then it corrected itself a moment later. AutoStartDetector already documents
   // this same family of transient garbage for the on-the-ground case (a reload's telemetry
   // "looks plausible but isn't" for the better part of a minute) and requires several
   // consecutive stable samples before trusting it; this banner had no equivalent guard. See
-  // docs/simconnect-notes.md, 2026-09-16.
+  // docs/simconnect-notes.md.
   const rawTrigger =
     !!telemetry && (!telemetry.onGround || telemetry.groundSpeedMs > GROUND_MOVEMENT_THRESHOLD_MS)
   // Counts consecutive samples agreeing with rawTrigger, adjusted during render (same pattern
@@ -217,7 +217,7 @@ export function useFreeFlightBanner(
   const [prevTelemetry, setPrevTelemetry] = useState(telemetry)
   const [sustainedCount, setSustainedCount] = useState(rawTrigger ? 1 : 0)
   if (telemetry !== prevTelemetry) {
-    // `title` changing is a new episode — confirmed (docs/decisions.md, 2026-09-02) as the
+    // `title` changing is a new episode — confirmed as the
     // one signal that changes instantly and reliably across a reload, unlike position/
     // altitude/onGround, which can hold a stale, plausible-looking value for the better part
     // of a minute. Restarting the sustain count from scratch here, rather than trusting

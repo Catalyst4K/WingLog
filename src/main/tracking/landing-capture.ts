@@ -40,8 +40,7 @@ function clampGForce(value: number): number {
  *
  * Vertical speed prefers `touchdownSeverity` (SimConnectService's second high-rate stream) when given: the peak vertical speed in
  * the last second before ground contact, sampled far more densely than the primary 1 Hz stream, whose derived value can miss
- * the true severity by 55-87% in either direction depending on where the 1-second grid falls relative to the flare
- * (docs/simconnect-notes.md, 2026-09-20).
+ * the true severity by 55-87% in either direction depending on where the 1-second grid falls relative to the flare.
  *
  * Falls back to `previousTelemetry` (the last sample *before* on-ground flipped true) when no high-rate reading is available
  * (a replayed flight, or a live one where the stream didn't arm in time): the touchdown tick's own value under-reads impact

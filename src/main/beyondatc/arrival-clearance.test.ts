@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { NavdataProcedureOption } from '@shared/ipc'
 import { ArrivalClearanceTracker } from './arrival-clearance'
 
-// EGLL's real approaches (cached on flight 229, 2026-10-05), trimmed to what's used here.
+// EGLL's real approaches (cached on flight 229), trimmed to what's used here.
 const EGLL: NavdataProcedureOption[] = [
   { identifier: 'ILS 27L', transition: 'LAM' },
   { identifier: 'ILS 27R', transition: 'LAM' },
@@ -17,7 +17,7 @@ function tracker(): { tracker: ArrivalClearanceTracker; changes: unknown[] } {
   return { tracker: t, changes }
 }
 
-// BeyondATC's InfoBox sets, in the real titles (VHHH-ZJSY flight 230, 2026-10-05), for EGLL's
+// BeyondATC's InfoBox sets, in the real titles (VHHH-ZJSY flight 230), for EGLL's
 // flight 229 clearances.
 const STAR_27R = [
   { title: 'STAR', info: 'LOGA2H' },
@@ -112,7 +112,7 @@ describe('ArrivalClearanceTracker', () => {
   })
 })
 
-// ZJSY's real runway 08 approaches and box sets (VHHH-ZJSY flight 230, 2026-10-05, main.log).
+// ZJSY's real runway 08 approaches and box sets (VHHH-ZJSY flight 230, main.log).
 const ZJSY: NavdataProcedureOption[] = [
   { identifier: 'ILS X 08', transition: 'SY462' },
   { identifier: 'ILS Z 08', transition: 'SY498' }

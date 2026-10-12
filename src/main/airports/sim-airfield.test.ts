@@ -4,7 +4,7 @@ import { FacilityDataType, RawBuffer } from 'node-simconnect'
 import { NavdataDefId } from '../sim/facility-fields'
 import { SimAirfieldResolver, simRunwayEnds } from './sim-airfield'
 
-// Kai Tak as the live sim reported it, 2026-09-19 (docs/simconnect-notes.md): one runway
+// Kai Tak as the live sim reported it (docs/simconnect-notes.md): one runway
 // record, centre point + primary heading + length, idents 13/31.
 const KAI_TAK_RUNWAY = {
   latitude: 22.31480285525322,

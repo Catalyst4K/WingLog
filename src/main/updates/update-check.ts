@@ -1,6 +1,6 @@
 /**
  * Asks GitHub whether a newer WingLog release is out (winglog-backend's
- * docs/plans/update-check.md, Part A; decided 2026-10-02 in its decisions.md). One GET of the
+ * docs/plans/update-check.md, Part A; decided in its decisions.md). One GET of the
  * latest *published, non-prerelease* release — drafts never show up — sending nothing but
  * WingLog's own version in the User-Agent. The user downloads and installs it themselves,
  * same as today; this only tells them it exists.

@@ -17,7 +17,7 @@
  * (docs/decisions.md) — it isn't a candidate for use.
  *
  * Each SimVar gets its OWN data definition and request (the SIM RATE lesson,
- * docs/simconnect-notes.md 2026-09-06): if one name is wrong, only that one field is
+ * docs/simconnect-notes.md): if one name is wrong, only that one field is
  * missing from the printed snapshot instead of corrupting every read.
  *
  * Usage: npm run spike:altitude
@@ -145,7 +145,7 @@ open(APP_NAME, Protocol.SunRise, connectionOptions())
       latest[spec.key] = spec.read(recvSimObjectData.data)
     })
 
-    // docs/simconnect-notes.md (2026-09-06): recvException.index is a parameter-slot index
+    // docs/simconnect-notes.md: recvException.index is a parameter-slot index
     // into the specific SimConnect call, not a position in SIM_VARS — don't trust it to name
     // the failing var directly. Each var already has its own isolated definition/request
     // here, so the reliable way to identify it is: whichever key never shows up in a

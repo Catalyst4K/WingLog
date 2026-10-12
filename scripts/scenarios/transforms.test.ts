@@ -34,7 +34,7 @@ const atc = (tOffsetMs: number, text: string): FlightFixtureEvent => ({
 const texts = (capture: ParsedFlightFixture): string[] =>
   capture.events.flatMap((e) => (e.type === 'beyondatc' ? [e.text] : []))
 
-// Real lines: flight 230's ZJSY arrival boxes (2026-10-05) and a BeyondATC taxi call.
+// Real lines: flight 230's ZJSY arrival boxes and a BeyondATC taxi call.
 const STAR = 'InfoBoxes: [{"title":"STAR","info":"UPRS2C"},{"title":"Arrival Runway","info":"08"}]'
 const APPROACH =
   'InfoBoxes: [{"title":"Cross SY498","info":"At or above 1,200m"},{"title":"Cleared Approach","info":"ILS-Z approach runway 08"}]'

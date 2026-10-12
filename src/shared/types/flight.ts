@@ -108,7 +108,7 @@ export interface FreeFlightPrefill {
 
 /** A Logbook list row: a completed `Flight` without its raw SimBrief OFP text. That text is
  *  ~90 KB per flight and the list only ever needed to know whether one exists — sending it
- *  made the Logbook copy ~16 MB on every open (real measurement, 173 flights, 2026-10-01).
+ * made the Logbook copy ~16 MB on every open (real measurement, 173 flights).
  *  Anything needing the OFP itself fetches it per flight by id. */
 export type LogbookFlight = Omit<Flight, 'ofpJson'> & { hasOfp: boolean }
 

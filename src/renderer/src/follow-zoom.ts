@@ -1,7 +1,7 @@
 /**
  * The zoom Track's map follows the aircraft at, by phase of flight (winglog-backend's
  * docs/plans/map-follow-zoom-and-load.md). On the ground it's close enough to read the taxi
- * chart; in the air it steps out with altitude (Callum, 2026-10-02: one fixed airborne zoom
+ * chart; in the air it steps out with altitude (one fixed airborne zoom
  * was too close once airborne, and no SID fixes were on screen after takeoff).
  */
 

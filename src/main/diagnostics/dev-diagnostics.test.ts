@@ -118,7 +118,7 @@ describe('DevDiagnostics', () => {
     beyondAtc.emit('raw', { direction: 'in', text: 'CommsState: ready' })
     tracking.emit('started', 1)
     beyondAtc.emit('raw', { direction: 'out', text: 'set_action: Radio Check' })
-    // Real boxes, VHHH 2026-10-05.
+    // Real boxes, VHHH.
     const infoBoxes = [
       { title: 'Taxi Via 1', info: 'B' },
       { title: 'Taxi Via 2', info: 'V' },

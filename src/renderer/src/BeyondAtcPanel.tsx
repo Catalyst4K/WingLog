@@ -354,7 +354,7 @@ export function BeyondAtcPanel(): React.JSX.Element {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       {/* Always shown, including while connected, so an idle session still confirms the
-       *  link is live (real gap found live, 2026-09-28). */}
+       * link is live (real gap found live). */}
       <p className="text-xs text-muted-foreground">
         {status.state === 'connected'
           ? t('beyondAtcPanel.connected')

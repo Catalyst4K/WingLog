@@ -11,7 +11,7 @@
  * network): a second `line` layer on the same `taxi-chart` source, filtered to every segment sharing a cleared taxiway name.
  *
  * The clearance comes only from BeyondATC's InfoBoxes (`Taxi Via 1..n`, `Hold Position`, `Taxi to Gate`; boxTaxiClearance),
- * never from parsing the speech (winglog-backend's docs/decisions.md, 2026-10-05). The one exception is a spoken "hold short
+ * never from parsing the speech. The one exception is a spoken "hold short
  * of runway 07C", which has no box: it's added to the box route heard within HOLD_SHORT_PAIR_MS of it.
  *
  * Re-routing (winglog-backend's docs/plans/taxi-reroute.md): when the aircraft leaves the line, or drives the wrong way along

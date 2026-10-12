@@ -130,7 +130,7 @@ describe('parseRouteProcedures', () => {
 })
 
 describe('parseTransitionAltitudes', () => {
-  // Real VHHH round trip's OFP fields, confirmed live (docs/simbrief-notes.md, 2026-09-13):
+  // Real VHHH round trip's OFP fields, confirmed live:
   // zero-padded strings, not plain numbers.
   it('reads real zero-padded trans_alt/trans_level strings', () => {
     expect(
@@ -355,7 +355,7 @@ describe('applyProcedureSelection', () => {
   })
 
   it('plots an FC leg as its navaid plus the computed distance endpoint, labelled like the FMC (LAM → LAM/11)', () => {
-    // EGLL ILS 27R, LAM transition — real values confirmed live 2026-09-18.
+    // EGLL ILS 27R, LAM transition — real values confirmed live.
     const lam = leg('LAM', 0, {
       type: 9,
       fixType: 'V',

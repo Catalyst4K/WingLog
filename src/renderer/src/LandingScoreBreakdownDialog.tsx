@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 import { describeCategoryTolerance, formatCategoryScore, isCategoryBad } from './landing-score-ui'
 
 /**
- * Logbook's landing-score breakdown popup (docs/decisions.md, 2026-09-12) — lets Callum
+ * Logbook's landing-score breakdown popup — lets Callum
  * see exactly which of the score's 7 inputs pulled it down, not just the combined number.
  * Triggered from LandingCard's own "Score breakdown" header button.
  *

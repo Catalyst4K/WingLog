@@ -2,7 +2,7 @@
  * Decides the build-time flags that electron.vite.config.ts injects. Pulled out of the config
  * so a test can prove which kinds of build get cloud sync: `electron-vite dev` and the dev
  * build (`package:win:dev`) have it, a release or packaged build never does unless a private
- * build opts in with WINGLOG_CLOUD_SYNC=1 (docs: winglog-backend decisions.md, 2026-10-10,
+ * build opts in with WINGLOG_CLOUD_SYNC=1 (docs: winglog-backend decisions.md,
  * "cloud sync is a parallel dev-build track").
  */
 export interface BuildFlags {
