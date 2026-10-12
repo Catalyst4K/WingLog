@@ -23,6 +23,22 @@ jobs:
       - run: npm run typecheck
       - run: npm run test:coverage
 
+  # The same checks on Windows, the platform WingLog ships on and the one the sim host runs (winglog-backend docs/plans/cross-platform.md,
+  # Part 5). Not a required check yet: `build` and `e2e` above keep their names for the branch protection in
+  # scripts/github-repo-security.sh; adding this one there is a decision to take once it has run clean on a release PR.
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:coverage
+
   e2e:
     # Confirmed working on real ubuntu-latest CI 2026-09-14 (winglog-backend's
     # docs/plans/test-coverage.md Phase 5) — a manual workflow_dispatch run against

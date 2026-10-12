@@ -139,6 +139,23 @@ export default tseslint.config(
     }
   },
   {
+    // The operating system is asked in one place, src/main/platform/ (winglog-backend docs/plans/cross-platform.md): everything else
+    // takes a platform or one of its answers, so it can be tested for each OS.
+    files: ['src/main/**/*.ts', 'src/preload/**/*.ts'],
+    ignores: [...NOT_APP_CODE, 'src/main/platform/**'],
+    rules: {
+      'no-restricted-properties': [
+        'error',
+        {
+          object: 'process',
+          property: 'platform',
+          message:
+            'Ask src/main/platform/ (currentPlatform(), canHostSim(), ...), not process.platform (cross-platform.md).'
+        }
+      ]
+    }
+  },
+  {
     // Components are split above ~300 lines (coding-standards.md §5), not 100.
     files: ['src/renderer/**/*.tsx'],
     ignores: NOT_APP_CODE,

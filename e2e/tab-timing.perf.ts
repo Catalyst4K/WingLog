@@ -12,6 +12,7 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Page } from '@playwright/test'
+import { thisMachinesUserDataDirectory } from '../src/main/platform/this-machine'
 import { launchApp } from './launch-app'
 
 const TABS = ['Dispatch', 'Track', 'Logbook', 'Settings', 'Fleet']
@@ -101,7 +102,7 @@ async function main(): Promise<void> {
     for (let i = 0; i < RUNS; i++) {
       let dir: string | undefined
       if (real) {
-        const source = join(process.env.APPDATA ?? '', 'WingLog', 'winglog.db')
+        const source = join(thisMachinesUserDataDirectory() ?? '', 'winglog.db')
         if (!existsSync(source)) throw new Error(`no database at ${source}`)
         dir = mkdtempSync(join(tmpdir(), 'winglog-perf-'))
         copyFileSync(source, join(dir, 'winglog.db'))
