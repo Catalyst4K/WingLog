@@ -17,7 +17,8 @@ import {
   type LandingScoreInputs
 } from '@shared/landing-score'
 import { getWakeCategory } from '../aircraft-lookup/icao-types'
-import { FALLBACK_LATERAL_TOLERANCE_M, findRunwayEndByIdent } from '../airports/runway-lookup'
+import { FALLBACK_LATERAL_TOLERANCE_M } from '../airports/runway-lookup'
+import { runwayEndForLanding } from './landing-runway'
 import { getAircraftById } from './aircraft-repo'
 import type { WingLogDb } from './client'
 import { listCompletedFlights } from './flight-repo'
@@ -76,20 +77,20 @@ function toCategories(breakdown: LandingScoreBreakdown): LandingScoreCategory[] 
  * has since been deleted (a genuine, if rare, orphan), in which case the score falls back
  * to the M baseline like any other unrecognised type.
  *
+ * @param db The database, for the sim's cached runways.
  * @param landingRecord The landing.
  * @param arrIcao The airport it was at.
  * @param icaoType The aircraft's ICAO type, or null.
  * @returns The score (floored at 0), firm or hard, and the categories.
  */
 export function resolveLandingScore(
+  db: WingLogDb,
   landingRecord: Landing,
   arrIcao: string,
   icaoType: string | null
 ): LandingScoreResult {
   const category = icaoType ? getWakeCategory(icaoType) : null
-  const runwayEnd = landingRecord.runwayIdent
-    ? findRunwayEndByIdent(arrIcao, landingRecord.runwayIdent)
-    : null
+  const runwayEnd = runwayEndForLanding(db, landingRecord, arrIcao)
 
   const aimingPointToleranceM = runwayEnd?.aimingPointDistanceM ?? null
   const centrelineToleranceM = runwayEnd
@@ -173,7 +174,7 @@ export function getLandingScoresForCompletedFlights(db: WingLogDb): LandingScore
       icaoType = f.simIcaoType
     }
     const icao = finalLanding.icao ?? f.arrIcao
-    const { score } = resolveLandingScore(finalLanding, icao, icaoType)
+    const { score } = resolveLandingScore(db, finalLanding, icao, icaoType)
     summaries.push({ flightId: f.id, score, landingCount: landings.length })
   }
 

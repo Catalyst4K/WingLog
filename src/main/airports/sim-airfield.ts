@@ -59,6 +59,7 @@ export function simRunwayEnds(icao: string, runway: ParsedRunway): RunwayEnd[] {
   return runwayEndsFromCentre(runway).map((end) => ({
     icao: icao.toUpperCase(),
     ident: end.ident,
+    source: 'sim',
     lat: end.thresholdLat,
     lon: end.thresholdLon,
     headingTrueDeg: end.headingTrueDeg,

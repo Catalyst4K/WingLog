@@ -39,6 +39,7 @@ function makeLanding(flightId: number, overrides: Partial<NewLanding> = {}): New
     centrelineOffsetM: 1.5,
     flapSetting: 3,
     touchdownSource: 'derived',
+    runwaySource: null,
     ...overrides
   }
 }
@@ -254,6 +255,7 @@ describe('landing repo', () => {
         windSpeedMs: 3,
         windDirectionDeg: 90,
         touchdownSource: 'derived',
+        runwaySource: null,
         updatedAt: '2026-09-06T12:00:00.000Z'
       })
       expect(applied).toBe(true)

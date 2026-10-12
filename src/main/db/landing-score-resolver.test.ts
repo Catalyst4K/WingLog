@@ -6,6 +6,7 @@ import { createAircraft } from './aircraft-repo'
 import { createDb, type WingLogDb } from './client'
 import { completeFlight, createFlight, createFreeFlight } from './flight-repo'
 import { createLanding, type NewLanding } from './landing-repo'
+import { navdataRunway } from './schema'
 import { getLandingScoresForCompletedFlights, resolveLandingScore } from './landing-score-resolver'
 
 function makeLanding(flightId: number, overrides: Partial<NewLanding> = {}): NewLanding {
@@ -31,6 +32,7 @@ function makeLanding(flightId: number, overrides: Partial<NewLanding> = {}): New
     centrelineOffsetM: 0,
     flapSetting: 3,
     touchdownSource: 'derived',
+    runwaySource: null,
     ...overrides
   }
 }
@@ -47,6 +49,10 @@ const EGLL_27L_TOUCHDOWN_ZONE_END_M = 900
 const EGLL_27L_AIMING_POINT_TOLERANCE_M = EGLL_27L_TOUCHDOWN_ZONE_END_M - EGLL_27L_AIMING_POINT_M
 const EGLL_27L_HALF_WIDTH_M = (164 * 0.3048) / 2
 
+// A migrated, empty database for the lookups that don't need one's rows: the sim's runway cache is read through it.
+const scoreDb = createDb(':memory:').db
+migrate(scoreDb, { migrationsFolder: 'drizzle' })
+
 function toLanding(newLanding: NewLanding): Landing {
   return { id: 1, ...newLanding }
 }
@@ -56,7 +62,7 @@ describe('resolveLandingScore', () => {
     const landingRecord = toLanding(
       makeLanding(1, { distanceFromThresholdM: 420, centrelineOffsetM: 5, crabDeg: 2 })
     )
-    const result = resolveLandingScore(landingRecord, 'EGLL', 'A320')
+    const result = resolveLandingScore(scoreDb, landingRecord, 'EGLL', 'A320')
 
     const expectedInputs: LandingScoreInputs = {
       category: 'M',
@@ -79,7 +85,7 @@ describe('resolveLandingScore', () => {
     const landingRecord = toLanding(
       makeLanding(1, { distanceFromThresholdM: 420, centrelineOffsetM: 5, crabDeg: 2 })
     )
-    const result = resolveLandingScore(landingRecord, 'EGLL', 'A320')
+    const result = resolveLandingScore(scoreDb, landingRecord, 'EGLL', 'A320')
 
     const verticalSpeed = result.categories.find((c) => c.key === 'verticalSpeed')!
     expect(verticalSpeed).toMatchObject({ ideal: 120, tolerance: 360 }) // M category
@@ -108,7 +114,7 @@ describe('resolveLandingScore', () => {
         crabDeg: null
       })
     )
-    const result = resolveLandingScore(landingRecord, 'EGLL', 'A320')
+    const result = resolveLandingScore(scoreDb, landingRecord, 'EGLL', 'A320')
 
     for (const key of ['crab', 'distanceFromAimingPoint', 'centrelineOffset'] as const) {
       const category = result.categories.find((c) => c.key === key)!
@@ -127,15 +133,16 @@ describe('resolveLandingScore', () => {
         crabDeg: null
       })
     )
-    const result = resolveLandingScore(landingRecord, 'EGLL', 'A320')
+    const result = resolveLandingScore(scoreDb, landingRecord, 'EGLL', 'A320')
     expect(result.score).toBeGreaterThan(0)
     expect(result.score).toBeLessThanOrEqual(100)
   })
 
   it('drops the runway-dependent inputs when the runway ident does not match any vendored data', () => {
     const landingRecord = toLanding(makeLanding(1, { runwayIdent: '99Z' }))
-    const result = resolveLandingScore(landingRecord, 'EGLL', 'A320')
+    const result = resolveLandingScore(scoreDb, landingRecord, 'EGLL', 'A320')
     const withoutRunway = resolveLandingScore(
+      scoreDb,
       toLanding(makeLanding(1, { runwayIdent: null })),
       'EGLL',
       'A320'
@@ -145,9 +152,9 @@ describe('resolveLandingScore', () => {
 
   it('falls back to the M baseline, without throwing, for a type absent from the vendored CSV', () => {
     const landingRecord = toLanding(makeLanding(1))
-    expect(() => resolveLandingScore(landingRecord, 'EGLL', 'NOTATYPE')).not.toThrow()
-    expect(resolveLandingScore(landingRecord, 'EGLL', 'NOTATYPE')).toEqual(
-      resolveLandingScore(landingRecord, 'EGLL', null)
+    expect(() => resolveLandingScore(scoreDb, landingRecord, 'EGLL', 'NOTATYPE')).not.toThrow()
+    expect(resolveLandingScore(scoreDb, landingRecord, 'EGLL', 'NOTATYPE')).toEqual(
+      resolveLandingScore(scoreDb, landingRecord, 'EGLL', null)
     )
   })
 
@@ -172,7 +179,7 @@ describe('resolveLandingScore', () => {
           centrelineOffsetM: 100
         })
       )
-      const result = resolveLandingScore(landingRecord, 'EGLL', 'C172') // C172 -> L, lowest thresholds
+      const result = resolveLandingScore(scoreDb, landingRecord, 'EGLL', 'C172') // C172 -> L, lowest thresholds
       // Every one of the 7 categories is pushed past its own tolerance here, not just
       // vertical speed (2026-09-21 — see LandingScoreCategory.dangerousPenalty's own doc
       // comment for why this generalised beyond hard landings).
@@ -199,7 +206,7 @@ describe('resolveLandingScore', () => {
     // one category dangerous — overridden here to the exact ideal instead; this test is
     // about there being no dangerous exceedance at all, not about pitch specifically.
     const landingRecord = toLanding(makeLanding(1, { pitchDeg: -4 }))
-    const result = resolveLandingScore(landingRecord, 'EGLL', 'A320')
+    const result = resolveLandingScore(scoreDb, landingRecord, 'EGLL', 'A320')
     expect(result.categories.every((c) => c.dangerousPenalty === 0)).toBe(true)
   })
 
@@ -208,9 +215,9 @@ describe('resolveLandingScore', () => {
     // — a light aircraft's much lower sweet spot means the same absolute fpm reads as far
     // more violent for it than for a widebody (Landing Rate Sweet Spots table, 2026-09-13).
     const landingRecord = toLanding(makeLanding(1, { verticalSpeedMs: -2.286 }))
-    expect(resolveLandingScore(landingRecord, 'EGLL', 'A320').severity).toBe('firm') // A320 -> M
-    expect(resolveLandingScore(landingRecord, 'EGLL', 'A35K').severity).toBe('firm') // A35K -> H
-    expect(resolveLandingScore(landingRecord, 'EGLL', 'C172').severity).toBe('hard') // C172 -> L
+    expect(resolveLandingScore(scoreDb, landingRecord, 'EGLL', 'A320').severity).toBe('firm') // A320 -> M
+    expect(resolveLandingScore(scoreDb, landingRecord, 'EGLL', 'A35K').severity).toBe('firm') // A35K -> H
+    expect(resolveLandingScore(scoreDb, landingRecord, 'EGLL', 'C172').severity).toBe('hard') // C172 -> L
   })
 })
 
@@ -283,10 +290,69 @@ describe('getLandingScoresForCompletedFlights', () => {
     // Matches the landing's own icao ('EGCC', the makeLanding default — not the flight's
     // filed EGLL arrival), same as getLandingScoresForCompletedFlights itself resolves.
     const finalOnlyScore = resolveLandingScore(
+      scoreDb,
       { ...makeLanding(flight.id), id: 2, seq: 2, verticalSpeedMs: -3.5, gForce: 1.9 } as Landing,
       'EGCC',
       'A320'
     ).score
     expect(summaries[0].score).toBe(finalOnlyScore)
+  })
+})
+
+describe('resolveLandingScore with a runway from the sim', () => {
+  // WSSS 20R from the sim's own facility data (flight 236, 2026-10-12): 60 m wide, 3,221 m long, no displaced threshold.
+  const wsssDb = createDb(':memory:').db
+  migrate(wsssDb, { migrationsFolder: 'drizzle' })
+  wsssDb
+    .insert(navdataRunway)
+    .values({
+      icao: 'WSSS',
+      ident: '20R',
+      headingTrueDeg: 203,
+      lengthM: 3221.2,
+      widthM: 60,
+      surface: 4,
+      thresholdLat: 1.3757575921283205,
+      thresholdLon: 103.98878019536174,
+      source: 'sim-facility',
+      fetchedAt: '2026-10-12T10:19:46.706Z'
+    })
+    .run()
+  const landing = (overrides: Partial<NewLanding>): Landing =>
+    toLanding(makeLanding(1, { icao: 'WSSS', runwayIdent: '20R', distanceFromThresholdM: 949, ...overrides }))
+
+  it("scores the centreline against the sim's runway when the landing was measured against it", () => {
+    const fromSim = resolveLandingScore(
+      wsssDb,
+      landing({ runwaySource: 'sim', centrelineOffsetM: -1.9 }),
+      'WSSS',
+      'A388'
+    )
+    // The runway is 60 m wide, so 1.9 m off is well inside half its width: the centreline category is near full marks.
+    const centreline = fromSim.categories.find((c) => c.key === 'centrelineOffset')
+    expect(centreline?.tolerance).toBe(30)
+    expect(centreline?.score).toBeGreaterThan(90)
+  })
+
+  it('reads a landing with no stored source from the airport database, as it always did', () => {
+    const fromDatabase = resolveLandingScore(
+      wsssDb,
+      landing({ runwaySource: null, centrelineOffsetM: 38.3 }),
+      'WSSS',
+      'A388'
+    )
+    const centreline = fromDatabase.categories.find((c) => c.key === 'centrelineOffset')
+    // OurAirports' WSSS 20R is 197 ft (60 m) wide too, so the tolerance matches; the offset is what differs.
+    expect(centreline?.tolerance).toBeCloseTo(29.99, 1)
+  })
+
+  it('falls back to the airport database when a sim runway is no longer cached', () => {
+    const uncached = resolveLandingScore(
+      scoreDb,
+      landing({ runwaySource: 'sim', centrelineOffsetM: 0 }),
+      'WSSS',
+      'A388'
+    )
+    expect(uncached.categories.find((c) => c.key === 'centrelineOffset')?.tolerance).toBeCloseTo(29.99, 1)
   })
 })

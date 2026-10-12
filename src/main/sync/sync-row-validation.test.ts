@@ -52,6 +52,12 @@ describe('validateSyncFields', () => {
     expect(validateSyncFields(landing, { seq: 2 })).toEqual({ ok: true, fields: { seq: 2 } })
   })
 
+  it("takes a landing's runway source from the two it knows, or none, and refuses any other", () => {
+    for (const runwaySource of ['sim', 'database', null])
+      expect(validateSyncFields(landing, { runwaySource })).toEqual({ ok: true, fields: { runwaySource } })
+    expect(validateSyncFields(landing, { runwaySource: 'moon' }).ok).toBe(false)
+  })
+
   it('refuses text that is not text, and an enum value the column does not allow', () => {
     expect(validateSyncFields(aircraft, { registration: 42 })).toEqual({
       ok: false,

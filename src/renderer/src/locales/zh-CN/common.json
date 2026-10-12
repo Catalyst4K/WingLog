@@ -627,6 +627,9 @@
       "airspeedGroundSpeed": "空速 / 地速",
       "headwindCrosswind": "逆风 / 侧风",
       "runway": "跑道",
+      "runwayData": "跑道数据",
+      "runwayDataSim": "模拟器",
+      "runwayDataDatabase": "机场数据库",
       "distanceFromThreshold": "距入口距离",
       "centrelineOffset": "中线偏移",
       "scoreBreakdown": "评分明细"

@@ -345,6 +345,10 @@ export const landing = sqliteTable(
     touchdownSource: text('touchdown_source', { enum: ['simvar', 'derived'] })
       .notNull()
       .default('derived'),
+    // Whose runway the position, offset and distance above were measured against: the sim's own (its cached facility data, which is
+    // where the aircraft actually was) or the vendored OurAirports slice. Null for every landing recorded before this column, read as
+    // 'database', which is what they were. A later lookup of the same runway (the score, the touchdown diagram) uses the same source.
+    runwaySource: text('runway_source', { enum: ['database', 'sim'] }),
     // See aircraft.uuid's comment for why these are nullable rather than NOT NULL. The
     // migration backfills updatedAt from touchdownTsUtc, the closest real timestamp
     // available for a pre-existing landing record.

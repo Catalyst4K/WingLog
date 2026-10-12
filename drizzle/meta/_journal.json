@@ -232,6 +232,13 @@
       "when": 1791414530786,
       "tag": "0032_mysterious_puppet_master",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1791812642190,
+      "tag": "0033_sudden_dreaming_celestial",
+      "breakpoints": true
     }
   ]
 }

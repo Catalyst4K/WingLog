@@ -17,6 +17,7 @@ function runwayEnd(
   fields: Pick<RunwayEnd, 'icao' | 'ident' | 'lat' | 'lon' | 'headingTrueDeg'> & Partial<RunwayEnd>
 ): RunwayEnd {
   return {
+    source: 'database',
     lengthM: null,
     widthM: null,
     displacedThresholdM: 0,

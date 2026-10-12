@@ -58,7 +58,8 @@ function newLandingFixture(flightId: number): NewLanding {
     distanceFromThresholdM: 120,
     centrelineOffsetM: 2,
     flapSetting: 3,
-    touchdownSource: 'derived'
+    touchdownSource: 'derived',
+    runwaySource: null
   }
 }
 

@@ -38,7 +38,8 @@ function toLanding(row: typeof landing.$inferSelect): Landing {
     distanceFromThresholdM: row.distanceFromThresholdM,
     centrelineOffsetM: row.centrelineOffsetM,
     flapSetting: row.flapSetting,
-    touchdownSource: row.touchdownSource
+    touchdownSource: row.touchdownSource,
+    runwaySource: row.runwaySource
   }
 }
 

@@ -135,6 +135,7 @@ function makeLanding(overrides: Partial<AircraftLanding> = {}): AircraftLanding 
     centrelineOffsetM: 1,
     flapSetting: 3,
     touchdownSource: 'derived',
+    runwaySource: null,
     flightNumber: 'TA100',
     depIcao: 'EGLL',
     arrIcao: 'EGKK',

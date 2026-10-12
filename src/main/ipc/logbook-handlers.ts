@@ -21,7 +21,8 @@ import { listInvoicesForFlight } from '../db/flight-invoice-repo'
 import { extractOfpPdfUrl } from '../simbrief/ofp-pdf'
 import { getAircraftById } from '../db/aircraft-repo'
 import { listLandingsByFlight, listAllLandings } from '../db/landing-repo'
-import { findLandingRunway } from '../airports/runway-lookup'
+import { toLandingRunway } from '../airports/runway-lookup'
+import { runwayEndForLanding } from '../db/landing-runway'
 import { resolveLandingScore, getLandingScoresForCompletedFlights } from '../db/landing-score-resolver'
 import { greatCircleWaypoints } from '../airports/airport-search'
 import { simplifyTrackPoints } from '../tracking/track-simplify'
@@ -104,8 +105,8 @@ export function registerLogbookHandlers(
       const icao = landingRecord.icao ?? landingFlight.arrIcao
       return {
         ...landingRecord,
-        runway: landingRecord.runwayIdent ? findLandingRunway(icao, landingRecord.runwayIdent) : null,
-        score: resolveLandingScore(landingRecord, icao, icaoType)
+        runway: toLandingRunway(runwayEndForLanding(db, landingRecord, icao)),
+        score: resolveLandingScore(db, landingRecord, icao, icaoType)
       }
     })
   })
@@ -113,7 +114,7 @@ export function registerLogbookHandlers(
   ipcMain.handle(IpcChannels.logbookListAllLandings, () =>
     listAllLandings(db).map(({ icaoType, ...row }) => {
       const icao = row.icao ?? row.arrIcao
-      const { score, severity } = resolveLandingScore(row, icao, icaoType)
+      const { score, severity } = resolveLandingScore(db, row, icao, icaoType)
       return { ...row, score, severity }
     })
   )

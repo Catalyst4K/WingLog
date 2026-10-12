@@ -202,15 +202,31 @@ describe('scenario: a landing on a runway the sim places differently (flight 236
     SCENARIO_TIMEOUT_MS
   )
 
-  // The aircraft touched down 1.9 m left of the sim's 20R centreline. The landing record measures
-  // against OurAirports' 20R, 40 m away, and says 38 m right. Known bug, planned as
-  // winglog-backend docs/plans/landing-runway-from-sim.md: `it.fails` turns red the moment the fix
-  // lands, and the `.fails` comes off then.
-  it.fails(
-    "measures the centreline offset against the sim's runway (within 10 m of -1.9 m)",
+  // The aircraft touched down 1.9 m left of the sim's 20R centreline, 949 m past its threshold. OurAirports' 20R is 40 m away (a 38 m
+  // "right" offset, 1,030 m): the landing is measured against the sim's own runway when it is cached (landing-runway-from-sim.md).
+  it(
+    "measures the landing against the sim's runway: 1.9 m left, 949 m past the threshold",
     async () => {
       const [landing] = await wsssLandingRun()
-      expect(Math.abs((landing.centrelineOffsetM ?? 99) - -1.9)).toBeLessThan(10)
+      expect(landing.runwaySource).toBe('sim')
+      expect(Math.abs((landing.centrelineOffsetM ?? 99) - -1.9)).toBeLessThan(1)
+      expect(Math.abs((landing.distanceFromThresholdM ?? 0) - 949)).toBeLessThan(10)
+    },
+    SCENARIO_TIMEOUT_MS
+  )
+
+  it(
+    'measures against the airport database when the sim has not cached the airport',
+    async () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      const { db, flightId } = await runScenario(wsssLanding(), {
+        depIcao: 'WSSS',
+        arrIcao: 'WSSS',
+        setClock: (ms) => vi.setSystemTime(ms)
+      })
+      const [landing] = listLandingsByFlight(db, flightId)
+      expect(landing.runwaySource).toBe('database')
+      expect(landing.centrelineOffsetM).toBeGreaterThan(30)
     },
     SCENARIO_TIMEOUT_MS
   )

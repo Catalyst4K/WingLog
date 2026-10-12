@@ -635,6 +635,9 @@
       "airspeedGroundSpeed": "Velocidad aerodinámica / Velocidad respecto al suelo",
       "headwindCrosswind": "Viento de frente / Viento cruzado",
       "runway": "Pista",
+      "runwayData": "Datos de pista",
+      "runwayDataSim": "Simulador",
+      "runwayDataDatabase": "Base de datos de aeropuertos",
       "distanceFromThreshold": "Distancia al umbral",
       "centrelineOffset": "Desviación de la línea central",
       "scoreBreakdown": "Desglose de la puntuación"
