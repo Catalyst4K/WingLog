@@ -6,7 +6,8 @@
  */
 import { runLogged } from './logging/run-logged'
 import { join } from 'node:path'
-import { app, BrowserWindow, dialog, ipcMain, Menu } from 'electron'
+import { E2E_DISPLAY_ENV, E2E_WINDOW_ENV, chooseDisplay, windowShow } from './e2e-window'
+import { app, BrowserWindow, dialog, ipcMain, Menu, screen } from 'electron'
 import { IpcChannels } from '@shared/ipc'
 import { initLogger, logger } from './logging/logger'
 import { setMainLanguage, t } from './i18n'
@@ -346,6 +347,35 @@ function startApp(): void {
 }
 
 /**
+ * Shows the window once it is ready. An e2e run can ask (e2e/launch-app.ts) for it to be shown without taking the keyboard focus, on a
+ * second display if there is one, or not shown at all; a normal run always shows it normally.
+ *
+ * @param window The main window.
+ */
+function showWindow(window: BrowserWindow): void {
+  const how = windowShow(process.env[E2E_WINDOW_ENV])
+  if (how === 'normal') {
+    window.show()
+    return
+  }
+  if (how === 'hidden') return
+  const display = chooseDisplay(
+    screen
+      .getAllDisplays()
+      .map((d) => ({ bounds: d.bounds, primary: d.id === screen.getPrimaryDisplay().id })),
+    process.env[E2E_DISPLAY_ENV]
+  )
+  if (display) {
+    const { x, y, width, height } = display.bounds
+    window.setPosition(
+      x + Math.max(0, Math.round((width - window.getSize()[0]) / 2)),
+      y + Math.max(0, Math.round((height - window.getSize()[1]) / 2))
+    )
+  }
+  window.showInactive()
+}
+
+/**
  * Creates the main window, hidden until it is ready to show, with the preload script, and loads
  * the renderer: the dev server while developing, the built page otherwise.
  *
@@ -362,7 +392,7 @@ function createWindow(): BrowserWindow {
     }
   })
 
-  window.on('ready-to-show', () => window.show())
+  window.on('ready-to-show', () => showWindow(window))
 
   if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
     runLogged('load renderer', window.loadURL(process.env['ELECTRON_RENDERER_URL']))

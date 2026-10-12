@@ -1,4 +1,5 @@
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test'
@@ -48,6 +49,22 @@ export interface LaunchAppOptions {
   keepSetup?: boolean
 }
 
+/**
+ * A port nothing listens on: bound and released at once.
+ *
+ * @returns The port.
+ */
+async function unusedPort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = createServer()
+    server.once('error', reject)
+    server.listen(0, '127.0.0.1', () => {
+      const { port } = server.address() as { port: number }
+      server.close(() => resolve(port))
+    })
+  })
+}
+
 /** How long to wait for the app to close before killing it. */
 const CLOSE_TIMEOUT_MS = 10_000
 
@@ -85,6 +102,13 @@ export async function launchApp(options: LaunchAppOptions = {}): Promise<Launche
   // closed local port so no e2e run ever reaches the real API; updates.spec.ts overrides
   // this with its own fake release server. Only honoured by an unpackaged build.
   env.WINGLOG_UPDATE_URL = 'http://127.0.0.1:9/releases/latest'
+  // A test run never reaches the real sim or BeyondATC on this machine, whether or not they are running: each is pointed at a port of
+  // its own that nothing listens on, which a test's fake server (FakeBeyondAtcServer's env) or replay replaces.
+  env.WINGLOG_E2E_SIMCONNECT_PORT = String(await unusedPort())
+  env.WINGLOG_E2E_BEYONDATC_PORT = String(await unusedPort())
+  // The window is shown without taking the keyboard focus, on a second display when there is one, so a run doesn't interrupt other
+  // work. Set WINGLOG_E2E_WINDOW=normal to watch a run like a normal launch, or hidden to show nothing; WINGLOG_E2E_DISPLAY picks a display.
+  env.WINGLOG_E2E_WINDOW = process.env.WINGLOG_E2E_WINDOW ?? 'inactive'
   Object.assign(env, options.env)
 
   const app = await electron.launch({
