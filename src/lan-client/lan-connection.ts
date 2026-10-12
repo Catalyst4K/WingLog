@@ -200,43 +200,55 @@ export class LanConnection {
   private handle(text: string): void {
     const message = parseServerMessage(text)
     if (!message) return
-    switch (message.t) {
-      case 'paired':
-        this.store.set(message.token)
-        this.pairingCode = null
-        break
-      case 'denied':
-        if (this.pairingCode !== null) {
-          this.pairingCode = null
-          this.setState('wrong-code')
-        } else {
-          this.store.clear()
-          this.setState('needs-pairing')
-        }
-        break
-      case 'snapshot':
-        this.backoff = 1000
-        for (const key of Object.keys(this.topics)) delete this.topics[key as LiveTopic]
-        Object.assign(this.topics, message.topics)
-        this.flightSnapshot = message.flight
-        this.setTrack(message.flight?.trackPoints ?? [])
-        this.setState('connected')
-        for (const listener of this.flightListeners) listener(message.flight)
-        for (const [topic, value] of Object.entries(message.topics)) this.emit(topic as LiveTopic, value)
-        break
-      case 'flight':
-        this.flightSnapshot = message.flight
-        this.setTrack(message.flight?.trackPoints ?? [])
-        for (const listener of this.flightListeners) listener(message.flight)
-        break
-      case 'topic':
-        ;(this.topics as Record<string, unknown>)[message.name] = message.payload
-        this.followTrack(message.name, message.payload)
-        this.emit(message.name, message.payload)
-        break
-      case 'error':
-        break
+    if (message.t === 'paired') {
+      this.store.set(message.token)
+      this.pairingCode = null
+    } else if (message.t === 'denied') {
+      this.handleDenied()
+    } else if (message.t === 'snapshot') {
+      this.handleSnapshot(message.topics, message.flight)
+    } else if (message.t === 'flight') {
+      this.replaceFlight(message.flight)
+    } else if (message.t === 'topic') {
+      ;(this.topics as Record<string, unknown>)[message.name] = message.payload
+      this.followTrack(message.name, message.payload)
+      this.emit(message.name, message.payload)
     }
+  }
+
+  /** The PC refused: a wrong code while pairing, otherwise a token it no longer knows (revoked). */
+  private handleDenied(): void {
+    if (this.pairingCode !== null) {
+      this.pairingCode = null
+      this.setState('wrong-code')
+    } else {
+      this.store.clear()
+      this.setState('needs-pairing')
+    }
+  }
+
+  /**
+   * The full picture sent after hello or pairing: replaces every topic and the flight, and the link is live.
+   *
+   * @param topics Every topic the PC has published.
+   * @param flight The flight being tracked, if any.
+   */
+  private handleSnapshot(topics: LiveSnapshot, flight: LanFlightSnapshot | null): void {
+    this.backoff = 1000
+    for (const key of Object.keys(this.topics)) delete this.topics[key as LiveTopic]
+    Object.assign(this.topics, topics)
+    this.setState('connected')
+    this.replaceFlight(flight)
+    for (const [topic, value] of Object.entries(topics)) this.emit(topic as LiveTopic, value)
+  }
+
+  /**
+   * @param flight The flight now being tracked, or null.
+   */
+  private replaceFlight(flight: LanFlightSnapshot | null): void {
+    this.flightSnapshot = flight
+    this.setTrack(flight?.trackPoints ?? [])
+    for (const listener of this.flightListeners) listener(flight)
   }
 
   private setTrack(points: TrackPoint[]): void {
@@ -264,6 +276,24 @@ export class LanConnection {
   }
 }
 
+/** Reads each kind of message from its raw fields, or null when they are not what that kind carries. */
+const READERS: Record<string, (r: Record<string, unknown>) => LanServerMessage | null> = {
+  paired: (r) => (typeof r.token === 'string' ? { t: 'paired', token: r.token } : null),
+  denied: () => ({ t: 'denied' }),
+  error: (r) => ({ t: 'error', message: String(r.message ?? '') }),
+  snapshot: (r) =>
+    typeof r.topics === 'object' && r.topics !== null
+      ? {
+          t: 'snapshot',
+          topics: r.topics as LiveSnapshot,
+          flight: (r.flight ?? null) as LanFlightSnapshot | null
+        }
+      : null,
+  flight: (r) => ({ t: 'flight', flight: (r.flight ?? null) as LanFlightSnapshot | null }),
+  topic: (r) =>
+    typeof r.name === 'string' ? { t: 'topic', name: r.name as LiveTopic, payload: r.payload } : null
+}
+
 /**
  * @param text A message from the PC.
  * @returns The message when it is one of the kinds the PC sends, otherwise null. Never throws.
@@ -277,28 +307,6 @@ export function parseServerMessage(text: string): LanServerMessage | null {
   }
   if (typeof value !== 'object' || value === null) return null
   const record = value as Record<string, unknown>
-  switch (record.t) {
-    case 'paired':
-      return typeof record.token === 'string' ? { t: 'paired', token: record.token } : null
-    case 'denied':
-      return { t: 'denied' }
-    case 'error':
-      return { t: 'error', message: String(record.message ?? '') }
-    case 'snapshot':
-      return typeof record.topics === 'object' && record.topics !== null
-        ? {
-            t: 'snapshot',
-            topics: record.topics as LiveSnapshot,
-            flight: (record.flight ?? null) as LanFlightSnapshot | null
-          }
-        : null
-    case 'flight':
-      return { t: 'flight', flight: (record.flight ?? null) as LanFlightSnapshot | null }
-    case 'topic':
-      return typeof record.name === 'string'
-        ? { t: 'topic', name: record.name as LiveTopic, payload: record.payload }
-        : null
-    default:
-      return null
-  }
+  const read = typeof record.t === 'string' && Object.hasOwn(READERS, record.t) ? READERS[record.t] : null
+  return read ? read(record) : null
 }

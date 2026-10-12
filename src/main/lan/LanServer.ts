@@ -302,7 +302,12 @@ export class LanServer {
     }
   }
 
-  /** A tracked point from a flight the devices have not been told about means tracking started (or moved on): send them the flight first. */
+  /**
+   * A tracked point from a flight the devices have not been told about means tracking started (or moved on): sends them the flight first.
+   *
+   * @param topic The topic being published.
+   * @param payload Its value.
+   */
   private announceFlightChange(topic: LiveTopic, payload: unknown): void {
     if (topic !== 'trackingPoint' || typeof payload !== 'object' || payload === null) return
     const flightId = (payload as { flightId?: unknown }).flightId
