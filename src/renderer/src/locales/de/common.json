@@ -906,7 +906,8 @@
     "wrongCode": "Dieser Code hat nicht funktioniert. Prüfe, ob der PC einen Code anzeigt, und versuche es erneut.",
     "offline": "Der PC ist nicht erreichbar. Neuer Versuch…",
     "noFlight": "Auf dem PC wird noch kein Flug aufgezeichnet.",
-    "noPlan": "Auf dem PC gibt es noch keinen Flugplan. Plane am PC einen Flug unter Dispatch."
+    "noPlan": "Auf dem PC gibt es noch keinen Flugplan. Plane am PC einen Flug unter Dispatch.",
+    "groundLoads": "Ladung laut Flugplan"
   },
   "lan": {
     "settings": {

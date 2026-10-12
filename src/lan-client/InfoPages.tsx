@@ -1,6 +1,6 @@
 /** The pages besides Track: the flight plan's figures with the weather, ground services and ATC. */
 
-import { useMemo } from 'react'
+import { Fragment, useMemo } from 'react'
 import { useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import { parseOfp } from '@shared/simbrief-ofp'
@@ -11,6 +11,9 @@ import { MetarPanel } from '@/MetarPanel'
 import { GsxRemotePanel } from '@/GsxRemotePanel'
 import { BeyondAtcPanel } from '@/BeyondAtcPanel'
 import { realIcao } from '@/display-icao'
+import { formatWeight } from '@/units'
+import { formatUtcTime } from '@/track-times'
+import { FlightBanner } from './TrackPage'
 import type { LanConnection } from './lan-connection'
 import type { PageId } from './NavBar'
 import type { PcSettings } from './use-pc-settings'
@@ -60,7 +63,6 @@ function DispatchPage({
   return (
     <div className="flex flex-col gap-3 p-3">
       <h1 className="font-heading text-xl font-semibold">{t('app.tabs.dispatch')}</h1>
-      <h2 className="font-heading text-lg font-semibold">{t('trackView.weather')}</h2>
       <MetarPanel
         depIcao={realIcao(flight?.depIcao)}
         arrIcao={realIcao(flight?.arrIcao)}
@@ -91,6 +93,76 @@ function DispatchPage({
 }
 
 /**
+ * What the ground crew will be asked for, from the flight plan: the fuel to uplift, the passengers and cargo to load, the weights and the
+ * scheduled times. It sits above GSX's own menu so the figures to request are in front of you while you use it.
+ *
+ * @param props The flight plan's OFP and the PC's weight unit.
+ * @returns The element.
+ */
+function GroundLoadsCard({ ofp, settings }: { ofp: DispatchOfp; settings: PcSettings }): React.JSX.Element {
+  const { t } = useTranslation()
+  const unit = settings.weightUnit
+  const rows: [string, string][] = [
+    [t('dispatchView.fields.plannedFuel'), formatWeight(ofp.fuelPlannedKg, unit)],
+    [t('dispatchView.fields.paxCargo'), `${ofp.pax} / ${formatWeight(ofp.cargoKg, unit)}`],
+    [
+      t('dispatchView.fields.zfwTowLdw'),
+      `${formatWeight(ofp.zfwKg, unit)} / ${formatWeight(ofp.towKg, unit)} / ${formatWeight(ofp.ldwKg, unit)}`
+    ],
+    [
+      t('dispatchView.fields.scheduledOutIn'),
+      `${formatUtcTime(Date.parse(ofp.schedOutUtc))} / ${formatUtcTime(Date.parse(ofp.schedInUtc))}`
+    ]
+  ]
+  return (
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle>{t('lanPage.groundLoads')}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-sm">
+          {rows.map(([label, value]) => (
+            <Fragment key={label}>
+              <dt className="text-muted-foreground">{label}</dt>
+              <dd className="text-foreground">{value}</dd>
+            </Fragment>
+          ))}
+        </dl>
+      </CardContent>
+    </Card>
+  )
+}
+
+/**
+ * Ground services: the flight and its loads to request, above the same GSX panel as the app's.
+ *
+ * @param props The PC's flight and unit settings.
+ * @returns The element.
+ */
+function GsxPage({
+  flight,
+  settings
+}: {
+  flight: LanFlight | null
+  settings: PcSettings
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  const ofp = useMemo(() => readOfp(flight?.ofpJson ?? null), [flight?.ofpJson])
+  return (
+    <div className="flex flex-col gap-3 p-3">
+      <h1 className="font-heading text-xl font-semibold">{t('gsxRemoteView.title')}</h1>
+      {flight && (
+        <div className="overflow-hidden rounded-lg border border-border">
+          <FlightBanner flight={flight} />
+        </div>
+      )}
+      {ofp && <GroundLoadsCard ofp={ofp} settings={settings} />}
+      <GsxRemotePanel />
+    </div>
+  )
+}
+
+/**
  * @param props The page to show, the link, and the PC's settings.
  * @returns The element.
  */
@@ -102,14 +174,7 @@ export function InfoPage(props: {
   const { t } = useTranslation()
   const flight = useFlight(props.link)
   if (props.page === 'dispatch') return <DispatchPage flight={flight} settings={props.settings} />
-  if (props.page === 'gsx') {
-    return (
-      <div className="flex flex-col gap-3 p-3">
-        <h1 className="font-heading text-xl font-semibold">{t('gsxRemoteView.title')}</h1>
-        <GsxRemotePanel />
-      </div>
-    )
-  }
+  if (props.page === 'gsx') return <GsxPage flight={flight} settings={props.settings} />
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 p-3">
       <h1 className="font-heading text-xl font-semibold">{t('beyondAtcView.title')}</h1>
