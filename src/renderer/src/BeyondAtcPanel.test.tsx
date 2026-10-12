@@ -87,6 +87,21 @@ describe('BeyondAtcPanel on a phone (compact)', () => {
     expect(within(dialog).getByText('Auto-respond: Off')).toBeInTheDocument()
   })
 
+  it('opens the radios without putting the cursor in a frequency box, so no keyboard appears until one is tapped', async () => {
+    withWinglog({
+      beyondAtcGetState: vi
+        .fn()
+        .mockResolvedValue(makeState({ facility: { name: 'Singapore Delivery', frequency: '118.850' } }))
+    })
+    render(<BeyondAtcPanel compact />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Radios…' }))
+    const dialog = await screen.findByRole('dialog')
+    const box = within(dialog).getByRole('textbox', { name: 'COM1 frequency' })
+    expect(box).toBeVisible()
+    expect(box).not.toHaveFocus()
+    expect(document.activeElement?.tagName).not.toBe('INPUT')
+  })
+
   it('keeps everything else in one column that scrolls with the page: instruction, actions and the transcript', async () => {
     withWinglog({
       beyondAtcGetState: vi.fn().mockResolvedValue(makeState({ actions: ['Request Taxi'] })),

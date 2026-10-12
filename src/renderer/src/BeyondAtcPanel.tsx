@@ -300,7 +300,11 @@ function RadiosButton(props: React.ComponentProps<typeof BeyondAtcRadios>): Reac
             {t('beyondAtcPanel.radios')}…
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-h-[88dvh] overflow-y-auto">
+        <DialogContent
+          className="max-h-[88dvh] overflow-y-auto"
+          // The first field is the COM1 frequency box: focusing it on open raises the phone's keyboard before the pilot has chosen anything.
+          onOpenAutoFocus={(event) => event.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>{t('beyondAtcPanel.radios')}</DialogTitle>
           </DialogHeader>
