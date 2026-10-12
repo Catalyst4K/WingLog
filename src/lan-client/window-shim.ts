@@ -6,6 +6,18 @@
 import type { LanConnection } from './lan-connection'
 
 /**
+ * @param value An answer from the PC.
+ * @param key A field of it.
+ * @param fallback What to use when it is not there.
+ * @returns The field, or the fallback.
+ */
+function field(value: unknown, key: string, fallback: string): unknown {
+  return typeof value === 'object' && value !== null && key in value
+    ? (value as Record<string, unknown>)[key]
+    : fallback
+}
+
+/**
  * Installs the stand-in `window.winglog`.
  *
  * @param link The link to the PC, which answers the lookups.
@@ -42,6 +54,15 @@ export function installWindowShim(link: Pick<LanConnection, 'query'>): void {
       runway?: string | null,
       transition?: string | null
     ) => link.query('navdata.procedureWaypoints', icao, kind, identifier, runway ?? null, transition ?? null),
+    // The pages read the PC's own settings, not their own: units, and whether GSX Remote and BeyondATC are on.
+    settingsGetWeightUnit: () => link.query('settings.display').then((d) => field(d, 'weightUnit', 'kg')),
+    settingsGetAltitudeUnit: () => link.query('settings.display').then((d) => field(d, 'altitudeUnit', 'ft')),
+    settingsGetWindSpeedUnit: () =>
+      link.query('settings.display').then((d) => field(d, 'windSpeedUnit', 'kt')),
+    settingsGetMapLanguage: () => link.query('settings.display').then((d) => field(d, 'mapLanguage', 'en')),
+    settingsGetGsxRemote: () => link.query('settings.gsxRemote'),
+    settingsGetBeyondAtc: () => link.query('settings.beyondAtc'),
+    weatherGetMetars: (codes: string[]) => link.query('weather.metars', codes),
     onBeyondAtcTranscript: () => () => undefined
   }
   const shim = new Proxy(known, {

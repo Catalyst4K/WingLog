@@ -9,15 +9,26 @@ import {
   revokeLanDevice,
   touchLanDevice
 } from '../db/lan-device-repo'
-import { getLanSettings, setLanSettings } from '../db/settings-repo'
+import {
+  getAltitudeUnit,
+  getBeyondAtcSettings,
+  getGsxRemoteSettings,
+  getLanSettings,
+  getMapLanguage,
+  getWeightUnit,
+  getWindSpeedUnit,
+  setLanSettings
+} from '../db/settings-repo'
 import type { LiveHub } from '../live/LiveHub'
 import type { TrackingController } from '../tracking/TrackingController'
 import { listAirfields } from '../airports/airfields'
 import type { SimFacilitiesProvider } from '../navdata/sim-facilities-provider'
 import { listLanAddresses, type LanAddress } from './adapters'
 import { trackCommands } from '../live/commands'
+import type { LiveCommand } from '@shared/live'
+import { fetchMetars } from '../weather/metar-client'
 import { LanController } from './LanController'
-import { lanFlightSnapshot } from './lan-flight'
+import { lanFlightKey, lanFlightSnapshot } from './lan-flight'
 import { LanServer, type StaticFile } from './LanServer'
 import { staticFilesFrom } from './static-files'
 
@@ -43,6 +54,10 @@ export interface CreateLanDeps {
     | 'listApproaches'
     | 'getProcedureWaypoints'
   >
+  /** The BeyondATC and GSX Remote commands a second screen may send (the same tables the window's own channels use). */
+  addOnCommands: Partial<Record<LiveCommand, (...args: unknown[]) => void>>
+  /** The User-Agent METAR lookups send. */
+  userAgent: string
   /** The built page's folder (`out/lan`). */
   pageFolder: string
   /** An acceptance test's own address to listen on, instead of the machine's (an unpackaged build only; see index.ts). */
@@ -73,17 +88,41 @@ function nameArg(value: unknown): string | null {
 /** The kinds of procedure a device may ask the legs of. */
 const PROCEDURE_KINDS = ['sid', 'star', 'approach'] as const
 
+/** The most airports one weather lookup may ask about. */
+const MAX_METAR_CODES = 6
+
+/** The PC's own settings and weather a device's pages read, as lookups. */
+export interface LanLocalData {
+  /** The unit and map-language settings, so the page shows figures as the PC does. */
+  display(): unknown
+  /** Whether GSX Remote and BeyondATC are switched on at the PC (their pages only show then). */
+  addOns(): { gsxRemote: boolean; beyondAtc: boolean }
+  /** Current METARs for airport codes. */
+  metars(codes: unknown): Promise<unknown>
+}
+
 /**
- * The read-only lookups a device may ask for: the airfield list, and an airport's taxi chart, stands, runways and procedures by its code.
+ * The read-only lookups a device may ask for: the airfield list, an airport's taxi chart, stands, runways and procedures by its code,
+ * the PC's unit settings, which add-ons are on, and weather.
  *
  * @param navdata The cached navdata provider.
+ * @param local The PC's settings and weather.
  * @returns The queries table.
  */
 export function lanQueries(
-  navdata: CreateLanDeps['navdata']
+  navdata: CreateLanDeps['navdata'],
+  local: LanLocalData
 ): Record<string, (...args: unknown[]) => unknown> {
   return {
     airfields: () => listAirfields(),
+    'settings.display': () => local.display(),
+    // Only whether they are on: the host and port stay on the PC.
+    'settings.gsxRemote': () => ({ enabled: local.addOns().gsxRemote, host: '', port: 1 }),
+    'settings.beyondAtc': () => ({ enabled: local.addOns().beyondAtc, host: '' }),
+    'weather.metars': (codes) => {
+      if (!Array.isArray(codes) || codes.length > MAX_METAR_CODES) throw new Error('Invalid airports')
+      return local.metars(codes)
+    },
     'taxi.has': (icao) => navdata.hasTaxiNetwork(icaoArg(icao)),
     'taxi.refresh': (icao) => navdata.refreshTaxiNetwork(icaoArg(icao)),
     'taxi.get': (icao) => navdata.getTaxiNetwork(icaoArg(icao)),
@@ -103,8 +142,8 @@ export function lanQueries(
 }
 
 /**
- * The second-screen controller, wired to the database, the live hub and the machine's network. Phase 1 is view-only, so the server is
- * given no commands.
+ * The second-screen controller, wired to the database, the live hub and the machine's network. A device may send only the commands in the
+ * remote-safe tables (`live/commands.ts`): BeyondATC, GSX Remote and choosing procedures.
  *
  * @param deps The database, hub, tracking and page folder.
  * @returns The controller; call `init()` to start the server if it was left on.
@@ -114,6 +153,8 @@ export function createLan({
   liveHub,
   trackingController,
   navdata,
+  addOnCommands,
+  userAgent,
   pageFolder,
   testAddress
 }: CreateLanDeps): LanController {
@@ -121,13 +162,26 @@ export function createLan({
   let files: ((path: string) => StaticFile | null) | undefined
   const server = new LanServer({
     hub: liveHub,
-    commands: trackCommands(trackingController),
+    commands: { ...addOnCommands, ...trackCommands(trackingController) },
     devices: {
       add: (name, tokenHash) => addLanDevice(db, name, tokenHash, new Date().toISOString()),
       find: (tokenHash) => findActiveLanDevice(db, tokenHash),
       touch: (id) => touchLanDevice(db, id, new Date().toISOString())
     },
-    queries: lanQueries(navdata),
+    queries: lanQueries(navdata, {
+      display: () => ({
+        weightUnit: getWeightUnit(db),
+        altitudeUnit: getAltitudeUnit(db),
+        windSpeedUnit: getWindSpeedUnit(db),
+        mapLanguage: getMapLanguage(db)
+      }),
+      addOns: () => ({
+        gsxRemote: getGsxRemoteSettings(db).enabled,
+        beyondAtc: getBeyondAtcSettings(db).enabled
+      }),
+      metars: (codes) => fetchMetars(codes, userAgent)
+    }),
+    flightKey: () => lanFlightKey(db, trackingController.getActive()?.flightId),
     flight: () =>
       lanFlightSnapshot(
         db,

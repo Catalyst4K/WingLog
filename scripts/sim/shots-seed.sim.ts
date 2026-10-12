@@ -55,6 +55,10 @@ it.skipIf(!outputPath)('writes the screenshots database', () => {
     sqlite.exec(
       "INSERT INTO navdata_taxi_segment SELECT * FROM source.navdata_taxi_segment WHERE icao = 'WSSS'"
     )
+    // Flight 236's own plan (EGLL to WSSS, the recorded flight), so the Dispatch page has figures to show.
+    sqlite.exec(
+      'UPDATE flight SET ofp_json = (SELECT ofp_json FROM source.flight WHERE id = 236) WHERE id = (SELECT MAX(id) FROM flight) AND EXISTS (SELECT 1 FROM source.flight WHERE id = 236 AND ofp_json IS NOT NULL)'
+    )
     sqlite.exec('DETACH DATABASE source')
   }
   sqlite.close()

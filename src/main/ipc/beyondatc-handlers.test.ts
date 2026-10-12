@@ -56,6 +56,18 @@ describe('BeyondATC IPC handlers', () => {
     }
   })
 
+  it('hands back the BeyondATC command table, for a second screen', () => {
+    const { commands } = registerBeyondAtcHandlers(fakeIpc().ipcMain, deps)
+    expect(Object.keys(commands).sort()).toEqual([
+      'atc.setAction',
+      'atc.setAutoRespond',
+      'atc.setAutoTune',
+      'atc.setFrequency',
+      'atc.setFrequencyCom2',
+      'atc.setStepClimb'
+    ])
+  })
+
   it("connects at startup when it's on, to BeyondATC's port unless e2e gives another", () => {
     setBeyondAtcSettings(db, { enabled: true, host: 'localhost' })
     registerBeyondAtcHandlers(fakeIpc().ipcMain, deps)

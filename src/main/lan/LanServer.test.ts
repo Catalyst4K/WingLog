@@ -479,6 +479,23 @@ describe('LanServer', () => {
       expect(stranger.received.some((m) => m.t === 'hb')).toBe(false)
     })
 
+    it('sends devices the flight again when its key changes, and not otherwise', async () => {
+      let key = 'a'
+      let shown: unknown = { flight: { flightId: 1 } }
+      const { pair } = await setup({ heartbeatMs: 30, flightKey: () => key, flight: () => shown })
+      const { client } = await pair()
+      await client.message('snapshot')
+      await new Promise((resolve) => setTimeout(resolve, 120))
+      expect(client.received.some((m) => m.t === 'flight')).toBe(false)
+      key = 'b'
+      shown = { flight: { flightId: 2 } }
+      await client.waitFor(() => client.received.some((m) => m.t === 'flight'))
+      expect(client.received.find((m) => m.t === 'flight')).toEqual({ t: 'flight', flight: shown })
+      const count = client.received.filter((m) => m.t === 'flight').length
+      await new Promise((resolve) => setTimeout(resolve, 120))
+      expect(client.received.filter((m) => m.t === 'flight')).toHaveLength(count)
+    })
+
     it('refuses to start twice, and reports a port already in use', async () => {
       const { server, port } = await setup()
       await expect(server.start(HOST, port)).rejects.toThrow('Already listening')

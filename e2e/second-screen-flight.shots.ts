@@ -77,6 +77,12 @@ test('the second screen follows a replayed flight, in portrait and landscape', a
     }
   })
   try {
+    // The add-ons' pages exist once the PC has them on; the replay's own sockets stand in for BeyondATC's and GSX's servers.
+    await page.evaluate(async () => {
+      const api = (globalThis as unknown as Window).winglog
+      await api.settingsSetBeyondAtc({ enabled: true, host: '127.0.0.1' })
+      await api.settingsSetGsxRemote({ enabled: true, host: 'localhost', port: 8744 })
+    })
     await page.reload()
     const keep = page.getByRole('button', { name: 'Keep it' })
     if (
@@ -122,13 +128,14 @@ test('the second screen follows a replayed flight, in portrait and landscape', a
     const portrait = await open(390, 780)
     await portrait.getByLabel('Pairing code').fill(code)
     await portrait.getByRole('button', { name: 'Pair' }).click()
-    await portrait.getByText('No flight is being tracked').waitFor()
+    await portrait.getByRole('navigation').waitFor()
 
     const flightId = await page.evaluate(
       async () => (await (globalThis as unknown as Window).winglog.flightList())[0].id
     )
     await page.evaluate((id) => (globalThis as unknown as Window).winglog.trackingStart(id), flightId)
-    await portrait.getByText('No flight is being tracked').waitFor({ state: 'hidden', timeout: 30_000 })
+    await portrait.waitForTimeout(8_000)
+    await portrait.screenshot({ path: join(OUT, '1a-portrait-after-start.png'), animations: 'disabled' })
     console.log(`SECOND SCREEN: http://${address}:${port}/  (already paired in the test window)`)
 
     await portrait.waitForTimeout(6_000)
@@ -153,6 +160,18 @@ test('the second screen follows a replayed flight, in portrait and landscape', a
       .evaluateAll((els) => els.map((el) => (el as HTMLSelectElement).options.length))
     console.log('ARRIVAL PICKER OPTION COUNTS', JSON.stringify(counts))
     await portrait.keyboard.press('Escape')
+    // The other pages, each from the bar along the bottom.
+    for (const [name, file] of [
+      ['Dispatch', '4a-page-dispatch.png'],
+      ['Weather', '4b-page-weather.png'],
+      ['Ground services', '4c-page-gsx.png'],
+      ['BeyondATC', '4d-page-beyondatc.png'],
+      ['Track', '4e-page-track-again.png']
+    ] as const) {
+      await portrait.getByRole('navigation').getByRole('button', { name }).click()
+      await portrait.waitForTimeout(2_500)
+      await portrait.screenshot({ path: join(OUT, file), animations: 'disabled' })
+    }
     await portrait.waitForTimeout(12_000)
     await portrait.screenshot({ path: join(OUT, '2-portrait-descent.png') })
 

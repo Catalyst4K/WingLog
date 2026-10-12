@@ -20,7 +20,7 @@ import type { WingLogDb } from '../db/client'
 import { getFlight } from '../db/flight-repo'
 import { getBeyondAtcSettings, setBeyondAtcSettings } from '../db/settings-repo'
 import type { DevDiagnostics } from '../diagnostics/dev-diagnostics'
-import { atcCommands, dispatchCommand, type AtcCommand } from '../live/commands'
+import { atcCommands, dispatchCommand, type AtcCommand, type CommandTable } from '../live/commands'
 import type { LiveHub } from '../live/LiveHub'
 import type { ServiceSocketCtor } from '../net/service-socket'
 import type { SimConnectSource } from '../sim/SimConnectSource'
@@ -50,12 +50,12 @@ export interface BeyondAtcHandlerDeps {
  *
  * @param ipcMain Electron's IPC.
  * @param deps The database, LiveHub, tracking, telemetry, navdata, diagnostics and the socket.
- * @returns `stop`, to close the connection on quit.
+ * @returns `stop`, to close the connection on quit, and the BeyondATC commands (the same table the window's channels use), for a second screen.
  */
 export function registerBeyondAtcHandlers(
   ipcMain: IpcMain,
   deps: BeyondAtcHandlerDeps
-): { stop: () => void } {
+): { stop: () => void; commands: CommandTable<AtcCommand> } {
   const { db, liveHub, trackingController, devDiagnostics, socketCtor, port } = deps
   let beyondAtcService: BeyondAtcService | undefined
   // ATC's arrival clearance for the BeyondATC tab's info card, until touchdown.
@@ -97,9 +97,9 @@ export function registerBeyondAtcHandlers(
     startBeyondAtcIfConfigured()
   })
   registerSessionHandlers(ipcMain, () => beyondAtcService)
-  registerStepClimb(ipcMain, deps, () => beyondAtcService)
+  const commands = registerStepClimb(ipcMain, deps, () => beyondAtcService)
 
-  return { stop: () => beyondAtcService?.stop() }
+  return { stop: () => beyondAtcService?.stop(), commands }
 }
 
 /**
@@ -125,12 +125,13 @@ function registerSessionHandlers(ipcMain: IpcMain, session: () => BeyondAtcServi
  * @param ipcMain Electron's IPC.
  * @param deps The database, LiveHub, tracking and telemetry.
  * @param session The current BeyondATC session; undefined while BeyondATC is off.
+ * @returns The BeyondATC command table.
  */
 function registerStepClimb(
   ipcMain: IpcMain,
   { db, liveHub, trackingController, sim }: BeyondAtcHandlerDeps,
   session: () => BeyondAtcService | undefined
-): void {
+): CommandTable<AtcCommand> {
   const stepClimb = new StepClimbController({
     getSession: session,
     getActive: () => trackingController.getActive(),
@@ -151,4 +152,5 @@ function registerStepClimb(
   ipcMain.handle(IpcChannels.beyondAtcSetAutoTune, command('atc.setAutoTune'))
   ipcMain.handle(IpcChannels.beyondAtcSetAutoRespond, command('atc.setAutoRespond'))
   ipcMain.handle(IpcChannels.beyondAtcSetStepClimb, command('atc.setStepClimb'))
+  return commands
 }

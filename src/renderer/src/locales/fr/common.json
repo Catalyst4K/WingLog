@@ -907,7 +907,8 @@
     "pair": "Associer",
     "wrongCode": "Ce code n'a pas fonctionné. Vérifiez que le PC affiche un code, puis réessayez.",
     "offline": "Impossible de joindre le PC. Nouvelle tentative…",
-    "noFlight": "Aucun vol n'est encore suivi sur le PC."
+    "noFlight": "Aucun vol n'est encore suivi sur le PC.",
+    "noPlan": "Aucun plan de vol sur le PC pour l'instant. Planifiez un vol dans Dispatch sur le PC."
   },
   "lan": {
     "settings": {

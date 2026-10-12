@@ -15,7 +15,7 @@ import type { WingLogDb } from '../db/client'
 import { getGsxRemoteSettings, setGsxRemoteSettings } from '../db/settings-repo'
 import type { DevDiagnostics } from '../diagnostics/dev-diagnostics'
 import { EMPTY_COMMAND_BAR, EMPTY_MENU, GsxRemoteService } from '../gsx-remote/GsxRemoteService'
-import { dispatchCommand, gsxCommands, type GsxCommand } from '../live/commands'
+import { dispatchCommand, gsxCommands, type CommandTable, type GsxCommand } from '../live/commands'
 import type { LiveHub } from '../live/LiveHub'
 import type { ServiceSocketCtor } from '../net/service-socket'
 
@@ -35,12 +35,12 @@ export interface GsxRemoteHandlerDeps {
  *
  * @param ipcMain Electron's IPC.
  * @param deps The database, LiveHub, diagnostics and the socket.
- * @returns `stop`, to close the connection on quit.
+ * @returns `stop`, to close the connection on quit, and the GSX Remote commands, for a second screen.
  */
 export function registerGsxRemoteHandlers(
   ipcMain: IpcMain,
   deps: GsxRemoteHandlerDeps
-): { stop: () => void } {
+): { stop: () => void; commands: CommandTable<GsxCommand> } {
   const { db, liveHub, devDiagnostics, socketCtor } = deps
   let gsxRemoteService: GsxRemoteService | undefined
   const startGsxRemoteIfConfigured = (): void => {
@@ -89,5 +89,5 @@ export function registerGsxRemoteHandlers(
   ipcMain.handle(IpcChannels.gsxRemoteCancelPrompt, command('gsx.cancelPrompt'))
   ipcMain.handle(IpcChannels.gsxRemoteRunCommand, command('gsx.runCommand'))
 
-  return { stop: () => gsxRemoteService?.stop() }
+  return { stop: () => gsxRemoteService?.stop(), commands }
 }

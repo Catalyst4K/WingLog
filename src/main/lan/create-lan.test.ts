@@ -46,8 +46,33 @@ const TRACKING = {
   setProcedureSelection: () => undefined
 }
 
+const LOCAL = {
+  display: () => ({ weightUnit: 'kg', altitudeUnit: 'ft', windSpeedUnit: 'kt', mapLanguage: 'en' }),
+  addOns: () => ({ gsxRemote: true, beyondAtc: false }),
+  metars: (codes: unknown) => Promise.resolve([{ asked: codes }])
+}
+
+const CREATE_DEPS = { navdata: NAVDATA, addOnCommands: {}, userAgent: 'WingLog/test' }
+
 describe('lanQueries', () => {
-  const queries = lanQueries(NAVDATA)
+  const queries = lanQueries(NAVDATA, LOCAL)
+
+  it("answers the PC's unit settings and which add-ons are on, never their host or port", () => {
+    expect(queries['settings.display']()).toEqual({
+      weightUnit: 'kg',
+      altitudeUnit: 'ft',
+      windSpeedUnit: 'kt',
+      mapLanguage: 'en'
+    })
+    expect(queries['settings.gsxRemote']()).toEqual({ enabled: true, host: '', port: 1 })
+    expect(queries['settings.beyondAtc']()).toEqual({ enabled: false, host: '' })
+  })
+
+  it('looks up weather for a few airports, and refuses anything else', async () => {
+    await expect(queries['weather.metars'](['WSSS', 'EGLL'])).resolves.toEqual([{ asked: ['WSSS', 'EGLL'] }])
+    expect(() => queries['weather.metars']('WSSS')).toThrow('Invalid airports')
+    expect(() => queries['weather.metars'](['A', 'B', 'C', 'D', 'E', 'F', 'G'])).toThrow('Invalid airports')
+  })
 
   it('answers the taxi chart, stands and refresh for an airport code', async () => {
     expect(queries['taxi.has']('WSSS')).toBe(true)
@@ -117,7 +142,7 @@ describe('createLan', () => {
       db,
       liveHub: hub,
       trackingController: TRACKING,
-      navdata: NAVDATA,
+      ...CREATE_DEPS,
       pageFolder,
       testAddress: '127.0.0.1'
     })
@@ -179,7 +204,7 @@ describe('createLan', () => {
       db,
       liveHub: new LiveHub(),
       trackingController: TRACKING,
-      navdata: NAVDATA,
+      ...CREATE_DEPS,
       pageFolder: tmpdir()
     })
     const addresses = real.getStatus().addresses

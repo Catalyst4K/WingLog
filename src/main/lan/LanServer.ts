@@ -70,6 +70,8 @@ export interface LanServerDeps {
   flight(): unknown
   /** Read-only lookups a device may ask for (airfields, taxi charts, stands), each checking its own argument. */
   queries: Record<string, (...args: unknown[]) => unknown>
+  /** A cheap text that changes when `flight()` would answer differently (the flight shown, or its saved details). */
+  flightKey?(): string
   /** A page file for a path such as `/` or `/app.js`, or null. */
   staticFile(path: string): StaticFile | null
   now(): number
@@ -110,6 +112,7 @@ export class LanServer {
   private readonly clients = new Set<Client>()
   /** The flight the connected devices were last told about. */
   private sentFlightId: number | null = null
+  private lastFlightKey: string | null = null
 
   constructor(private readonly deps: LanServerDeps) {}
 
@@ -207,6 +210,7 @@ export class LanServer {
 
   /** Pings every socket and drops the ones that never answered the last ping, so a device that went away does not hold a slot. */
   private pingClients(): void {
+    this.syncFlight()
     for (const client of this.clients) {
       if (!client.alive) {
         client.socket.terminate()
@@ -360,6 +364,7 @@ export class LanServer {
     const snapshot = this.deps.hub.snapshot()
     const flight = this.deps.flight() as { flight?: { flightId?: number } } | null
     this.sentFlightId = flight?.flight?.flightId ?? null
+    this.lastFlightKey = this.deps.flightKey?.() ?? null
     for (const topic of LAN_TOPICS) {
       if (topic in snapshot) (topics as Record<string, unknown>)[topic] = snapshot[topic]
     }
@@ -371,6 +376,18 @@ export class LanServer {
     this.announceFlightChange(topic, payload)
     for (const client of this.clients) {
       if (client.deviceId !== null) this.send(client, { t: 'topic', name: topic, payload })
+    }
+  }
+
+  /** Sends every paired device the flight again when the one shown, or its details, changed since they were last told. */
+  private syncFlight(): void {
+    const key = this.deps.flightKey?.()
+    if (key === undefined || key === this.lastFlightKey) return
+    this.lastFlightKey = key
+    const flight = this.deps.flight() as { flight?: { flightId?: number } } | null
+    this.sentFlightId = flight?.flight?.flightId ?? null
+    for (const client of this.clients) {
+      if (client.deviceId !== null) this.send(client, { t: 'flight', flight })
     }
   }
 

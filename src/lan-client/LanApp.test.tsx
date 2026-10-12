@@ -308,16 +308,17 @@ describe('LanApp', () => {
     expect(screen.getByText(/^0:30:\d\d$/)).toBeInTheDocument()
   })
 
-  it('warns when the link to the PC drops, and carries on from the last picture', () => {
+  it('warns when the link to the PC drops, and carries on showing the last picture', () => {
+    stubNavdata()
     const { link, sockets } = setup('tok')
     render(<LanApp link={link} />)
     act(() => {
       sockets[0].onopen?.()
-      sockets[0].say({ t: 'snapshot', topics: {}, flight: null })
+      sockets[0].say({ t: 'snapshot', topics: {}, flight: FLIGHT_WITH_SELECTION })
     })
     act(() => sockets[0].onclose?.())
     expect(screen.getByText("Can't reach the PC. Trying again…")).toBeInTheDocument()
-    expect(screen.queryByText('No flight is being tracked on the PC yet.')).not.toBeInTheDocument()
+    expect(screen.getByText('KAMI2A · SIER7B · ILS 27L')).toBeInTheDocument()
   })
 
   it('goes back to the code screen when the PC no longer knows this device', () => {
