@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { logger } from '../logging/logger'
 import { IpcChannels } from '@shared/ipc'
 import type { NavdataProvider } from '../navdata/navdata-provider'
 import { registerNavdataHandlers } from './navdata-handlers'
@@ -42,6 +43,21 @@ describe('navdata IPC handlers', () => {
     expect(provider.refreshTaxiNetwork).toHaveBeenCalledWith('ZJSY')
     expect(provider.hasTaxiNetwork).toHaveBeenCalledWith('ZJSY')
     expect(provider.getTaxiNetwork).toHaveBeenCalledWith('ZJSY')
+  })
+
+  it('treats a refresh the sim could not answer as an ordinary event: noted at info, never a failed handler', async () => {
+    const info = vi.spyOn(logger, 'info').mockImplementation(() => undefined)
+    provider.refreshAirport.mockRejectedValueOnce(new Error('Open timeout'))
+    provider.refreshTaxiNetwork.mockRejectedValueOnce(new Error('connect ECONNREFUSED'))
+    await expect(invoke(IpcChannels.navdataRefreshAirport, 'WSSS')).resolves.toBeUndefined()
+    await expect(invoke(IpcChannels.navdataRefreshTaxiNetwork, 'WSSS')).resolves.toBeUndefined()
+    expect(info).toHaveBeenCalledWith(
+      expect.stringContaining('WSSS runways and procedures not refreshed: Error: Open timeout')
+    )
+    expect(info).toHaveBeenCalledWith(
+      expect.stringContaining('WSSS taxi network not refreshed: Error: connect ECONNREFUSED')
+    )
+    info.mockRestore()
   })
 
   it('looks stands up only for a well-formed airport code, upper-cased', () => {

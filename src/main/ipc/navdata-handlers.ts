@@ -7,7 +7,25 @@
  */
 import type { IpcMain } from 'electron'
 import { IpcChannels, type NavdataProcedureKind } from '@shared/ipc'
+import { logger } from '../logging/logger'
 import type { NavdataProvider } from '../navdata/navdata-provider'
+
+/**
+ * A refresh that needs the sim: when the sim isn't running or is still loading, the cache keeps serving and the caller tries again
+ * next time, so a failed attempt is an ordinary event to note at info level, not an error for Electron to log as a failed handler.
+ *
+ * @param icao The airport.
+ * @param what What was being refreshed, for the log.
+ * @param refresh The refresh.
+ * @returns Resolves whether or not it worked.
+ */
+async function refreshQuietly(icao: string, what: string, refresh: () => Promise<void>): Promise<void> {
+  try {
+    await refresh()
+  } catch (error) {
+    logger.info(`[navdata] ${icao} ${what} not refreshed: ${String(error)}`)
+  }
+}
 
 /**
  * Registers the navdata channels.
@@ -21,7 +39,7 @@ export function registerNavdataHandlers(
   { navdataProvider }: { navdataProvider: NavdataProvider }
 ): void {
   ipcMain.handle(IpcChannels.navdataRefreshAirport, (_event, icao: string) =>
-    navdataProvider.refreshAirport(icao)
+    refreshQuietly(icao, 'runways and procedures', () => navdataProvider.refreshAirport(icao))
   )
   ipcMain.handle(IpcChannels.navdataHasAirport, (_event, icao: string) => navdataProvider.hasAirport(icao))
   ipcMain.handle(IpcChannels.navdataListRunways, (_event, icao: string) => navdataProvider.listRunways(icao))
@@ -46,7 +64,7 @@ export function registerNavdataHandlers(
     ) => navdataProvider.getProcedureWaypoints(icao, kind, identifier, runway, transition)
   )
   ipcMain.handle(IpcChannels.navdataRefreshTaxiNetwork, (_event, icao: string) =>
-    navdataProvider.refreshTaxiNetwork(icao)
+    refreshQuietly(icao, 'taxi network', () => navdataProvider.refreshTaxiNetwork(icao))
   )
   ipcMain.handle(IpcChannels.navdataHasTaxiNetwork, (_event, icao: string) =>
     navdataProvider.hasTaxiNetwork(icao)
