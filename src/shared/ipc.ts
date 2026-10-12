@@ -27,6 +27,7 @@ import type {
   BeyondAtcStepClimbStatus,
   BeyondAtcTranscriptEntry
 } from './types/beyondatc'
+import type { LanSettings, LanStatus } from './types/lan'
 import type { DispatchOfp, DispatchOpenSimBriefParams } from './types/dispatch'
 import type {
   ActiveTracking,
@@ -96,6 +97,7 @@ export type * from './types/flight'
 export type * from './types/landing'
 export type * from './types/gsx'
 export type * from './types/beyondatc'
+export type * from './types/lan'
 export type * from './types/settings'
 export type * from './types/dispatch'
 export type * from './types/navdata'
@@ -542,4 +544,10 @@ export interface WingLogApi {
   setupGetContext: () => Promise<SetupContext>
   /** Finished or closed: never shown again unless reopened from Settings → About. */
   setupComplete: () => Promise<void>
+  /** The second-screen server (Settings → Second screen). Each call returns the new status. */
+  lanGetStatus: () => Promise<LanStatus>
+  lanSetSettings: (settings: LanSettings) => Promise<LanStatus>
+  lanStartPairing: () => Promise<LanStatus>
+  lanStopPairing: () => Promise<LanStatus>
+  lanRevokeDevice: (id: number) => Promise<LanStatus>
 }

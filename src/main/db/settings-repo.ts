@@ -13,6 +13,7 @@ import type {
   LandingDistanceUnit,
   MapLanguage,
   Theme,
+  LanSettings,
   UpdateSettings,
   TrackingSettings,
   WeightUnit,
@@ -495,4 +496,46 @@ export function getSkippedUpdateVersion(db: WingLogDb): string | null {
  */
 export function setSkippedUpdateVersion(db: WingLogDb, version: string): void {
   setSetting(db, UPDATE_SKIPPED_VERSION_KEY, version)
+}
+
+const LAN_ENABLED_KEY = 'lanEnabled'
+const LAN_ADAPTER_KEY = 'lanAdapter'
+const LAN_PORT_KEY = 'lanPort'
+
+/** The port the second-screen server listens on unless the pilot changes it. */
+export const DEFAULT_LAN_PORT = 8765
+
+/**
+ * @param value A port number from outside.
+ * @returns True for a whole number from 1024 to 65535 (the unprivileged ports).
+ */
+export function isValidLanPort(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1024 && value <= 65535
+}
+
+/**
+ * The second-screen server's settings (off, on the only real adapter, port 8765 until the pilot says otherwise).
+ *
+ * @param db The database.
+ * @returns The settings.
+ */
+export function getLanSettings(db: WingLogDb): LanSettings {
+  const port = Number(getSetting(db, LAN_PORT_KEY))
+  return {
+    enabled: getSetting(db, LAN_ENABLED_KEY) === '1',
+    adapter: getSetting(db, LAN_ADAPTER_KEY) || null,
+    port: isValidLanPort(port) ? port : DEFAULT_LAN_PORT
+  }
+}
+
+/**
+ * Stores the second-screen server's settings.
+ *
+ * @param db The database.
+ * @param settings The settings, already checked.
+ */
+export function setLanSettings(db: WingLogDb, settings: LanSettings): void {
+  setSetting(db, LAN_ENABLED_KEY, settings.enabled ? '1' : '0')
+  setSetting(db, LAN_ADAPTER_KEY, settings.adapter ?? '')
+  setSetting(db, LAN_PORT_KEY, String(settings.port))
 }

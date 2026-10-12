@@ -41,6 +41,8 @@ import { registerFlightHandlers, registerTrackingHandlers } from './ipc/tracking
 import { registerGsxHandlers } from './ipc/gsx-handlers'
 import { registerGsxRemoteHandlers } from './ipc/gsx-remote-handlers'
 import { registerBeyondAtcHandlers } from './ipc/beyondatc-handlers'
+import { registerLanHandlers } from './ipc/lan-handlers'
+import { createLan } from './lan/create-lan'
 import { registerDiagnosticsHandlers, registerSimHandlers } from './ipc/sim-handlers'
 import { createBackgroundSync, registerSyncHandlers, startPeriodicSync } from './ipc/sync-handlers'
 import { e2eBeyondAtcPort } from './beyondatc/BeyondAtcService'
@@ -311,6 +313,18 @@ function startApp(): void {
     port: e2eBeyondAtcPort(process.env.WINGLOG_E2E_BEYONDATC_PORT)
   })
   app.on('before-quit', () => beyondAtc.stop())
+
+  // The second screen (a phone or tablet in a browser): off until the pilot turns it on in Settings.
+  const lan = createLan({
+    db,
+    liveHub,
+    trackingController,
+    pageFolder: join(__dirname, '../lan'),
+    testAddress: app.isPackaged ? undefined : process.env.WINGLOG_E2E_LAN_ADDRESS
+  })
+  registerLanHandlers(ipcMain, { lan })
+  runLogged('second screen at launch', lan.init())
+  app.on('before-quit', () => runLogged('second screen stop', lan.stop()))
 
   registerSyncHandlers(ipcMain, { cloudSync, enabled: __WINGLOG_CLOUD_SYNC_ENABLED__ })
 

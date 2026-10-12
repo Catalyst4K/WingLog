@@ -44,7 +44,7 @@ export default defineConfig({
         test: {
           name: 'renderer',
           environment: 'jsdom',
-          include: ['src/renderer/**/*.test.tsx'],
+          include: ['src/renderer/**/*.test.tsx', 'src/lan-client/**/*.test.tsx'],
           setupFiles: ['./vitest.setup.renderer.ts']
         }
       }
@@ -63,6 +63,7 @@ export default defineConfig({
         'src/main/index.ts',
         'src/preload/index.ts',
         'src/renderer/src/main.tsx',
+        'src/lan-client/main.tsx',
         'src/renderer/src/components/ui/**'
       ],
       // A ratchet, not the end goal — winglog-backend's docs/plans/test-coverage.md

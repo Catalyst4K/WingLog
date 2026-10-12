@@ -18,6 +18,7 @@ import type {
 import { SegmentedRow, TrackingFields, UnitsFields } from './SettingsFields'
 import { trackingLabels } from './tracking-labels'
 import { UpdatesCard } from './UpdatesCard'
+import { LanCard } from './settings/LanCard'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -262,6 +263,7 @@ export function SettingsView(
             {/* v8 ignore next -- vitest.config.ts's `define` fixes the flag at `true`, so the
                 "hidden in a public build" arm of this && can't be exercised in this test run. */}
             {__WINGLOG_CLOUD_SYNC_ENABLED__ && <CloudSyncCard sync={sync} />}
+            <LanCard />
           </div>
         </TabsContent>
 

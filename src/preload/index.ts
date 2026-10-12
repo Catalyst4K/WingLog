@@ -10,6 +10,7 @@ import {
   type BeyondAtcSettings,
   type BeyondAtcState,
   type BeyondAtcTranscriptEntry,
+  type LanSettings,
   type UpdateSettings,
   type UpdateStatus,
   type BeyondAtcStepClimbStatus,
@@ -325,7 +326,12 @@ const api: WingLogApi = {
   },
   setupGetState: () => ipcRenderer.invoke(IpcChannels.setupGetState),
   setupGetContext: () => ipcRenderer.invoke(IpcChannels.setupGetContext),
-  setupComplete: () => ipcRenderer.invoke(IpcChannels.setupComplete)
+  setupComplete: () => ipcRenderer.invoke(IpcChannels.setupComplete),
+  lanGetStatus: () => ipcRenderer.invoke(IpcChannels.lanGetStatus),
+  lanSetSettings: (settings: LanSettings) => ipcRenderer.invoke(IpcChannels.lanSetSettings, settings),
+  lanStartPairing: () => ipcRenderer.invoke(IpcChannels.lanStartPairing),
+  lanStopPairing: () => ipcRenderer.invoke(IpcChannels.lanStopPairing),
+  lanRevokeDevice: (id: number) => ipcRenderer.invoke(IpcChannels.lanRevokeDevice, id)
 }
 
 contextBridge.exposeInMainWorld('winglog', api)

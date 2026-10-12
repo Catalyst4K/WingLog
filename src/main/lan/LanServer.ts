@@ -193,8 +193,7 @@ export class LanServer {
       'content-type': file.type,
       'cache-control': 'no-store',
       'x-content-type-options': 'nosniff',
-      'content-security-policy':
-        "default-src 'self'; img-src 'self' data: blob:; connect-src 'self' ws: https:; style-src 'self' 'unsafe-inline'; worker-src blob:"
+      'content-security-policy': pageSecurityPolicy(this.hostHeader)
     })
     res.end(req.method === 'HEAD' ? undefined : file.body)
   }
@@ -307,6 +306,25 @@ export class LanServer {
     }
     socket.send(JSON.stringify(message))
   }
+}
+
+/**
+ * What the page may load: its own files, the map tiles and style from OpenFreeMap, and its WebSocket back to this server, nothing else.
+ *
+ * @param host The host (with port) this server is bound to.
+ * @returns The Content-Security-Policy header value.
+ */
+export function pageSecurityPolicy(host: string): string {
+  return [
+    "default-src 'self'",
+    "img-src 'self' data: blob: https://tiles.openfreemap.org",
+    `connect-src 'self' ws://${host} https://tiles.openfreemap.org`,
+    "style-src 'self' 'unsafe-inline'",
+    "worker-src 'self' blob:",
+    "frame-ancestors 'none'",
+    "base-uri 'none'",
+    "form-action 'none'"
+  ].join('; ')
 }
 
 /**

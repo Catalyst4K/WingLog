@@ -896,5 +896,48 @@
       "title": "Alles bereit",
       "body": "Alles hier lässt sich in den Einstellungen ändern. Diese Einrichtung findest du wieder unter Einstellungen → Über → Einrichtung erneut ausführen."
     }
+  },
+  "lanPage": {
+    "connecting": "Verbindung zu WingLog wird hergestellt…",
+    "pairTitle": "Mit WingLog koppeln",
+    "pairHelp": "Öffne am PC Einstellungen, dann Zweiter Bildschirm, dann Gerät koppeln. Gib den angezeigten 6-stelligen Code ein.",
+    "codeLabel": "Kopplungscode",
+    "pair": "Koppeln",
+    "wrongCode": "Dieser Code hat nicht funktioniert. Prüfe, ob der PC einen Code anzeigt, und versuche es erneut.",
+    "offline": "Der PC ist nicht erreichbar. Neuer Versuch…",
+    "noFlight": "Auf dem PC wird noch kein Flug aufgezeichnet."
+  },
+  "lan": {
+    "settings": {
+      "title": "Zweiter Bildschirm",
+      "description": "Zeigt die Live-Karte auf einem Smartphone oder Tablet in deinem Heimnetzwerk. Die Funktion ist ausgeschaltet, bis du sie einschaltest, sie lauscht nur im Heimnetzwerk, und jedes Gerät muss per Code gekoppelt werden.",
+      "enable": "Zweiter Bildschirm",
+      "on": "An",
+      "off": "Aus",
+      "adapter": "Netzwerk",
+      "adapterAuto": "Automatisch",
+      "adapterOption": "{{adapter}} ({{address}})",
+      "adapterVirtual": "{{adapter}} ({{address}}), virtuell: ein Smartphone kann sich damit nicht verbinden",
+      "port": "Port",
+      "open": "Öffne diese Adresse auf dem Smartphone oder Tablet:",
+      "connected_one": "{{count}} Gerät derzeit verbunden",
+      "connected_other": "{{count}} Geräte derzeit verbunden",
+      "pairButton": "Gerät koppeln",
+      "pairingCode": "Gib auf dem Gerät diesen Code ein:",
+      "pairingNote": "Der Code gilt nur einmal und läuft nach 5 Minuten ab.",
+      "pairingClose": "Schließen",
+      "devices": "Gekoppelte Geräte",
+      "noDevices": "Noch kein Gerät gekoppelt.",
+      "lastSeen": "Zuletzt gesehen {{when}}",
+      "neverSeen": "Noch nie verbunden",
+      "revoke": "Entfernen",
+      "help": "Keine Verbindung? Smartphone und PC müssen im selben WLAN sein (kein Gast-WLAN), das Netzwerk dieses PCs sollte als Privat eingestellt sein, und die Firewall muss WingLog zulassen.",
+      "problem": {
+        "noAdapter": "Dieser PC hat keine Heimnetzwerk-Verbindung, auf der gelauscht werden kann.",
+        "chooseAdapter": "Wähle das Netzwerk, auf dem gelauscht werden soll.",
+        "portInUse": "Dieser Port wird bereits verwendet. Wähle einen anderen.",
+        "failed": "Der zweite Bildschirm konnte nicht gestartet werden."
+      }
+    }
   }
 }

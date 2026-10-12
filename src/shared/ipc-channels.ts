@@ -167,5 +167,10 @@ export const IpcChannels = {
   beyondAtcArrival: 'beyondatc:arrival',
   setupGetState: 'setup:get-state',
   setupGetContext: 'setup:get-context',
-  setupComplete: 'setup:complete'
+  setupComplete: 'setup:complete',
+  lanGetStatus: 'lan:get-status',
+  lanSetSettings: 'lan:set-settings',
+  lanStartPairing: 'lan:start-pairing',
+  lanStopPairing: 'lan:stop-pairing',
+  lanRevokeDevice: 'lan:revoke-device'
 } as const

@@ -898,5 +898,48 @@
       "title": "Tout est prêt",
       "body": "Tout cela se modifie dans les Paramètres. Pour revoir cette configuration, allez dans Paramètres → À propos → Relancer la configuration."
     }
+  },
+  "lanPage": {
+    "connecting": "Connexion à WingLog…",
+    "pairTitle": "Associer avec WingLog",
+    "pairHelp": "Sur le PC, ouvrez Paramètres, puis Deuxième écran, puis Associer un appareil. Saisissez le code à 6 chiffres affiché.",
+    "codeLabel": "Code d'association",
+    "pair": "Associer",
+    "wrongCode": "Ce code n'a pas fonctionné. Vérifiez que le PC affiche un code, puis réessayez.",
+    "offline": "Impossible de joindre le PC. Nouvelle tentative…",
+    "noFlight": "Aucun vol n'est encore suivi sur le PC."
+  },
+  "lan": {
+    "settings": {
+      "title": "Deuxième écran",
+      "description": "Affiche la carte en direct sur un téléphone ou une tablette de votre réseau domestique. Désactivé tant que vous ne l'activez pas, il n'écoute que sur votre réseau domestique, et chaque appareil doit être associé avec un code.",
+      "enable": "Deuxième écran",
+      "on": "Activé",
+      "off": "Désactivé",
+      "adapter": "Réseau",
+      "adapterAuto": "Automatique",
+      "adapterOption": "{{adapter}} ({{address}})",
+      "adapterVirtual": "{{adapter}} ({{address}}), virtuel : un téléphone ne peut pas y être connecté",
+      "port": "Port",
+      "open": "Ouvrez cette adresse sur le téléphone ou la tablette :",
+      "connected_one": "{{count}} appareil connecté en ce moment",
+      "connected_other": "{{count}} appareils connectés en ce moment",
+      "pairButton": "Associer un appareil",
+      "pairingCode": "Sur l'appareil, saisissez ce code :",
+      "pairingNote": "Le code ne sert qu'une fois et expire au bout de 5 minutes.",
+      "pairingClose": "Fermer",
+      "devices": "Appareils associés",
+      "noDevices": "Aucun appareil associé pour l'instant.",
+      "lastSeen": "Vu pour la dernière fois {{when}}",
+      "neverSeen": "Jamais connecté",
+      "revoke": "Révoquer",
+      "help": "Impossible de se connecter ? Le téléphone et ce PC doivent être sur le même Wi-Fi (pas un réseau invité), le réseau de ce PC doit être défini sur Privé, et votre pare-feu doit autoriser WingLog.",
+      "problem": {
+        "noAdapter": "Ce PC n'a aucune connexion au réseau domestique sur laquelle écouter.",
+        "chooseAdapter": "Choisissez le réseau sur lequel écouter.",
+        "portInUse": "Ce port est déjà utilisé. Choisissez-en un autre.",
+        "failed": "Le deuxième écran n'a pas pu démarrer."
+      }
+    }
   }
 }
