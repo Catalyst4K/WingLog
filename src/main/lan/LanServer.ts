@@ -34,7 +34,7 @@ export const LAN_TOPICS: readonly LiveTopic[] = [
 ]
 
 /** How often a silent socket is pinged; one that has not answered by the next round is dropped. */
-export const HEARTBEAT_MS = 20_000
+export const HEARTBEAT_MS = 10_000
 /** Lookups one device may have waiting at once. */
 export const MAX_PENDING_QUERIES = 4
 /** Largest message a device may send, in bytes. */
@@ -212,6 +212,7 @@ export class LanServer {
       }
       client.alive = false
       client.socket.ping()
+      if (client.deviceId !== null) this.send(client, { t: 'hb' })
     }
   }
 

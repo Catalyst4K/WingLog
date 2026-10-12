@@ -233,6 +233,35 @@ describe('LanConnection', () => {
     expect(sockets).toHaveLength(4)
   })
 
+  describe('a PC that goes quiet', () => {
+    it('says so and reconnects when nothing has been heard for 35 s, and not while heartbeats arrive', () => {
+      const { link, sockets, states } = setup('tok')
+      link.start()
+      sockets[0].open()
+      sockets[0].say({ t: 'snapshot', topics: {}, flight: null })
+      for (let i = 0; i < 6; i++) {
+        vi.advanceTimersByTime(10_000)
+        sockets[0].say({ t: 'hb' })
+      }
+      expect(states).toEqual(['connected'])
+      expect(sockets).toHaveLength(1)
+      vi.advanceTimersByTime(40_000)
+      expect(states).toEqual(['connected', 'offline'])
+      expect(sockets).toHaveLength(2)
+      expect(sockets[0].closed).toBe(true)
+    })
+
+    it('stops watching once stopped', () => {
+      const { link, sockets } = setup('tok')
+      link.start()
+      sockets[0].open()
+      sockets[0].say({ t: 'snapshot', topics: {}, flight: null })
+      link.stop()
+      vi.advanceTimersByTime(120_000)
+      expect(sockets).toHaveLength(1)
+    })
+  })
+
   describe('resume (a phone coming back from a lock)', () => {
     it('replaces a socket that looks open but is dead, and is live again on the new snapshot', () => {
       const { link, sockets, states } = setup('tok')
@@ -352,6 +381,10 @@ describe('parseServerMessage', () => {
       error: true
     })
     expect(parseServerMessage('{"t":"result"}')).toBeNull()
+  })
+
+  it('reads a heartbeat', () => {
+    expect(parseServerMessage('{"t":"hb"}')).toEqual({ t: 'hb' })
   })
 
   it('reads a flight message, with none meaning no flight', () => {

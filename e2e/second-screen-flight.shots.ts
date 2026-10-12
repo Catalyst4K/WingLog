@@ -196,20 +196,20 @@ test('the second screen follows a replayed flight, in portrait and landscape', a
       // A pairing code lasts 5 minutes and works once, so a held run opens a new one every 4 minutes and keeps the latest in a file.
       const codeFile = join(OUT, 'current-code.txt')
       for (let waited = 0; waited < HOLD_MIN; waited += 4) {
-        await card
-          .getByRole('button', { name: 'Close' })
-          .click({ timeout: 1_000 })
-          .catch(() => undefined)
-        await card.getByRole('button', { name: 'Pair a device' }).click()
-        const fresh =
-          (await card
-            .locator('[aria-label]')
-            .filter({ hasText: /^\d{6}$/ })
-            .textContent()) ?? ''
-        writeFileSync(codeFile, fresh)
-        console.log(
-          `PAIRING CODE ${fresh} for http://${address}:${port}/ (valid 5 min; held ${waited}/${HOLD_MIN} min)`
-        )
+        try {
+          // Straight through the app's own IPC, not the Settings card: a code that cannot be read must never end the held run.
+          const fresh = await page.evaluate(async () => {
+            const lan = (globalThis as unknown as Window).winglog
+            await lan.lanStopPairing()
+            return (await lan.lanStartPairing()).pairing?.code ?? ''
+          })
+          writeFileSync(codeFile, fresh)
+          console.log(
+            `PAIRING CODE ${fresh} for http://${address}:${port}/ (valid 5 min; held ${waited}/${HOLD_MIN} min)`
+          )
+        } catch (error) {
+          console.log(`PAIRING CODE could not be refreshed: ${String(error)}`)
+        }
         await page.waitForTimeout(Math.min(4, HOLD_MIN - waited) * 60_000)
       }
     }

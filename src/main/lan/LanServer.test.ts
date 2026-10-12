@@ -469,6 +469,14 @@ describe('LanServer', () => {
       expect(answering.closed).toBe(false)
     })
 
+    it('sends a paired device a heartbeat each round, and nothing to one that has not paired', async () => {
+      const { pair, connect } = await setup({ heartbeatMs: 30 })
+      const stranger = await connect()
+      const { client } = await pair()
+      await client.waitFor(() => client.received.filter((m) => m.t === 'hb').length >= 2)
+      expect(stranger.received.some((m) => m.t === 'hb')).toBe(false)
+    })
+
     it('refuses to start twice, and reports a port already in use', async () => {
       const { server, port } = await setup()
       await expect(server.start(HOST, port)).rejects.toThrow('Already listening')

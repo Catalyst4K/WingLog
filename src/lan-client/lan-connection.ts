@@ -39,6 +39,11 @@ export interface TokenStore {
 /** How long a lookup waits for its answer, in milliseconds. */
 const QUERY_TIMEOUT_MS = 60_000
 
+/** A connected link that has heard nothing for this long is treated as dead: the PC sends a heartbeat every 10 s. */
+const STALE_MS = 35_000
+/** How often the link checks it has heard from the PC. */
+const STALE_CHECK_MS = 5_000
+
 /** Longest wait between reconnect attempts, in milliseconds. */
 const MAX_BACKOFF_MS = 10_000
 
@@ -56,6 +61,8 @@ export class LanConnection {
   private trackPoints: TrackPoint[] = []
   private readonly trackListeners = new Set<() => void>()
   private nextQueryId = 1
+  private lastHeard = 0
+  private watchdog: ReturnType<typeof setInterval> | null = null
   private readonly pendingQueries = new Map<
     number,
     { resolve: (data: unknown) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }
@@ -134,6 +141,7 @@ export class LanConnection {
   /** Connects with the stored token, or waits for a code when there is none. */
   start(): void {
     this.stopped = false
+    if (!this.watchdog) this.watchdog = setInterval(() => this.checkHeard(), STALE_CHECK_MS)
     if (this.store.get()) this.connect()
     else this.setState('needs-pairing')
   }
@@ -154,6 +162,8 @@ export class LanConnection {
   /** Closes the link and stops reconnecting. */
   stop(): void {
     this.stopped = true
+    if (this.watchdog) clearInterval(this.watchdog)
+    this.watchdog = null
     if (this.retry) clearTimeout(this.retry)
     this.retry = null
     this.socket?.close()
@@ -243,9 +253,17 @@ export class LanConnection {
     this.backoff = Math.min(this.backoff * 2, MAX_BACKOFF_MS)
   }
 
+  /** A link that says it is connected but has heard nothing for a while is dead (the PC froze or went away): say so and reconnect. */
+  private checkHeard(): void {
+    if (this.current !== 'connected' || Date.now() - this.lastHeard < STALE_MS) return
+    this.setState('offline')
+    this.resume()
+  }
+
   private handle(text: string): void {
     const message = parseServerMessage(text)
     if (!message) return
+    this.lastHeard = Date.now()
     if (message.t === 'paired') {
       this.store.set(message.token)
       this.pairingCode = null
@@ -350,6 +368,7 @@ export class LanConnection {
 const READERS: Record<string, (r: Record<string, unknown>) => LanServerMessage | null> = {
   paired: (r) => (typeof r.token === 'string' ? { t: 'paired', token: r.token } : null),
   denied: () => ({ t: 'denied' }),
+  hb: () => ({ t: 'hb' }),
   error: (r) => ({ t: 'error', message: String(r.message ?? '') }),
   snapshot: (r) =>
     typeof r.topics === 'object' && r.topics !== null

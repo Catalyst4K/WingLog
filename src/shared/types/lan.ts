@@ -69,6 +69,8 @@ export interface LanFlightSnapshot {
 export type LanServerMessage =
   | { t: 'paired'; token: string }
   | { t: 'denied' }
+  /** Sent every few seconds so a device can tell a quiet PC from a frozen or vanished one. */
+  | { t: 'hb' }
   | { t: 'error'; message: string }
   | { t: 'snapshot'; topics: LiveSnapshot; flight: LanFlightSnapshot | null }
   | { t: 'topic'; name: LiveTopic; payload: unknown }
