@@ -163,7 +163,6 @@ test('the second screen follows a replayed flight, in portrait and landscape', a
     // The other pages, each from the bar along the bottom.
     for (const [name, file] of [
       ['Dispatch', '4a-page-dispatch.png'],
-      ['Weather', '4b-page-weather.png'],
       ['Ground services', '4c-page-gsx.png'],
       ['BeyondATC', '4d-page-beyondatc.png'],
       ['Track', '4e-page-track-again.png']

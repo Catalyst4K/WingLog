@@ -137,13 +137,13 @@ function stubWinglog(overrides: Record<string, unknown> = {}): void {
 }
 
 describe('the pages bar', () => {
-  it('offers Track, Dispatch and Weather, and ground services and BeyondATC only when the PC has them on', async () => {
+  it('offers Track and Dispatch, and ground services and BeyondATC only when the PC has them on', async () => {
     stubWinglog()
     open()
     const bar = screen.getByRole('navigation')
     expect(bar).toHaveTextContent('Track')
     expect(bar).toHaveTextContent('Dispatch')
-    expect(bar).toHaveTextContent('Weather')
+    expect(bar).not.toHaveTextContent('Weather')
     expect(bar).not.toHaveTextContent('Ground services')
     expect(bar).not.toHaveTextContent('BeyondATC')
     open({ gsx: true, atc: true })
@@ -201,11 +201,12 @@ describe('the Dispatch page', () => {
   })
 })
 
-describe('the Weather page', () => {
-  it("asks the PC for the flight's airports and shows the weather panel", async () => {
+describe('the weather on the Dispatch page', () => {
+  it("asks the PC for the flight's airports and shows the weather panel under the plan", async () => {
     stubWinglog()
     open()
-    await userEvent.click(screen.getByRole('button', { name: 'Weather' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Dispatch' }))
+    expect(await screen.findByRole('heading', { name: 'Weather' })).toBeInTheDocument()
     await waitFor(() =>
       expect(window.winglog.weatherGetMetars).toHaveBeenCalledWith(['EGLL', 'VHHH', 'VMMC'])
     )

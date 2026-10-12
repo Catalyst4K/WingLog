@@ -1,4 +1,4 @@
-/** The pages besides Track: the flight plan's figures, weather, ground services and ATC. */
+/** The pages besides Track: the flight plan's figures with the weather, ground services and ATC. */
 
 import { useMemo } from 'react'
 import { useSyncExternalStore } from 'react'
@@ -42,7 +42,8 @@ function readOfp(ofpJson: string | null): DispatchOfp | null {
 
 /**
  * The flight plan's figures, as the Dispatch screen shows them: aircraft, cruise altitude, times, fuel, passengers and cargo, weights, cost
- * index, step climbs and the route. Nothing to import or generate here: that stays at the PC.
+ * index, step climbs and the route, and below them the weather for the departure, destination and alternate (and any other airport).
+ * Nothing to import or generate here: that stays at the PC.
  *
  * @param props The PC's flight, and the PC's unit settings.
  * @returns The element.
@@ -78,28 +79,7 @@ function DispatchPage({
       ) : (
         <p className="text-sm text-muted-foreground">{t('lanPage.noPlan')}</p>
       )}
-    </div>
-  )
-}
-
-/**
- * Weather for the flight's departure, destination and alternate, and any other airport.
- *
- * @param props The PC's flight and unit settings.
- * @returns The element.
- */
-function WeatherPage({
-  flight,
-  settings
-}: {
-  flight: LanFlight | null
-  settings: PcSettings
-}): React.JSX.Element {
-  const { t } = useTranslation()
-  const ofp = useMemo(() => readOfp(flight?.ofpJson ?? null), [flight?.ofpJson])
-  return (
-    <div className="flex flex-col gap-3 p-3">
-      <h1 className="font-heading text-xl font-semibold">{t('trackView.weather')}</h1>
+      <h2 className="font-heading text-lg font-semibold">{t('trackView.weather')}</h2>
       <MetarPanel
         depIcao={realIcao(flight?.depIcao)}
         arrIcao={realIcao(flight?.arrIcao)}
@@ -122,7 +102,6 @@ export function InfoPage(props: {
   const { t } = useTranslation()
   const flight = useFlight(props.link)
   if (props.page === 'dispatch') return <DispatchPage flight={flight} settings={props.settings} />
-  if (props.page === 'weather') return <WeatherPage flight={flight} settings={props.settings} />
   if (props.page === 'gsx') {
     return (
       <div className="flex flex-col gap-3 p-3">
@@ -134,7 +113,7 @@ export function InfoPage(props: {
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 p-3">
       <h1 className="font-heading text-xl font-semibold">{t('beyondAtcView.title')}</h1>
-      <BeyondAtcPanel />
+      <BeyondAtcPanel compact />
     </div>
   )
 }

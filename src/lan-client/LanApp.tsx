@@ -1,4 +1,4 @@
-/** The second-screen page: pair with the PC once, then the pages: the live map, the flight plan, weather, ground services and ATC. */
+/** The second-screen page: pair with the PC once, then the pages: the live map, the flight plan with the weather, ground services and ATC. */
 
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'

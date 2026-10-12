@@ -17,7 +17,9 @@ import { BeyondAtcActions, BeyondAtcRadios } from './BeyondAtcControls'
 import { latestAtcInstruction, type AtcInstruction } from './beyond-atc-instruction'
 import { useLiveClient, useLiveTopic } from './live/LiveClient'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { asyncHandler, runAsync } from './report-error'
 
 const STEP_CLIMB_OFF: BeyondAtcStepClimbStatus = {
@@ -281,6 +283,67 @@ function TranscriptCard(props: { entries: BeyondAtcTranscriptEntry[] }): React.J
 }
 
 /**
+ * The radios, behind a button, for a phone: the COM1 station shows beside it, and the dialog holds the frequency boxes, auto-tune and
+ * auto-respond, which on a narrow screen otherwise sit squeezed in the page.
+ *
+ * @param props The radios' props.
+ * @returns The element.
+ */
+function RadiosButton(props: React.ComponentProps<typeof BeyondAtcRadios>): React.JSX.Element {
+  const { t } = useTranslation()
+  const { facility } = props
+  return (
+    <div className="flex items-center gap-3">
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button type="button" variant="outline" className="h-11">
+            {t('beyondAtcPanel.radios')}…
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-h-[88dvh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t('beyondAtcPanel.radios')}</DialogTitle>
+          </DialogHeader>
+          <BeyondAtcRadios {...props} />
+        </DialogContent>
+      </Dialog>
+      <span className="truncate text-xs text-muted-foreground">
+        {facility ? `${facility.name} · ${facility.frequency}` : '—'}
+      </span>
+    </div>
+  )
+}
+
+/**
+ * The phone layout: one column that scrolls with the page, the radios behind a button, and the transcript at a fixed height at the end.
+ *
+ * @param props Each card's props, and the connection line.
+ * @returns The element.
+ */
+function CompactLayout(props: {
+  statusLine: React.ReactNode
+  state: BeyondAtcState
+  instruction: AtcInstruction | null
+  arrival: BeyondAtcArrivalClearance | null
+  actions: React.ComponentProps<typeof ActionsCard>
+  radios: React.ComponentProps<typeof BeyondAtcRadios>
+  transcript: BeyondAtcTranscriptEntry[]
+}): React.JSX.Element {
+  return (
+    <div className="flex flex-col gap-3">
+      {props.statusLine}
+      <InfoCard state={props.state} />
+      <LatestInstructionCard instruction={props.instruction} arrival={props.arrival} />
+      <ActionsCard {...props.actions} />
+      <RadiosButton {...props.radios} />
+      <div className="flex h-80 flex-col">
+        <TranscriptCard entries={props.transcript} />
+      </div>
+    </div>
+  )
+}
+
+/**
  * BeyondATC integration's live panel (Parts 1-2 of winglog-backend's docs/plans/beyondatc-integration.md), its own
  * top-level tab, same shape as GsxRemotePanel: current-value fetches on mount plus live subscriptions, so a panel
  * mounting after BeyondATC already pushed state doesn't show nothing until the next line arrives.
@@ -296,9 +359,10 @@ const NO_TRANSCRIPT: BeyondAtcTranscriptEntry[] = []
 /**
  * The BeyondATC panel, live from BeyondATC's state and transcript.
  *
+ * @param props `compact` for a phone: one column that scrolls with the page, with the radios behind a button.
  * @returns The element.
  */
-export function BeyondAtcPanel(): React.JSX.Element {
+export function BeyondAtcPanel(props: { compact?: boolean } = {}): React.JSX.Element {
   const { t } = useTranslation()
   const [settings, setSettings] = useState<BeyondAtcSettings | null>(null)
   // Live state and commands through the LiveClient (live-data-seam.md, part C).
@@ -351,51 +415,71 @@ export function BeyondAtcPanel(): React.JSX.Element {
     return <p className="text-xs text-muted-foreground">{t('beyondAtcPanel.notConfigured')}</p>
   }
 
+  const statusLine = (
+    <p className="text-xs text-muted-foreground">
+      {status.state === 'connected'
+        ? t('beyondAtcPanel.connected')
+        : status.state === 'connecting'
+          ? t('beyondAtcPanel.connecting')
+          : t('beyondAtcPanel.disconnected')}
+    </p>
+  )
+  const actionsProps = {
+    actions: state.actions,
+    onSelectAction: selectAction,
+    pendingLabel: pendingAction,
+    commsState: state.commsState
+  }
+  const radiosProps = {
+    facility: state.facility,
+    com2: state.com2,
+    progress: state.progress,
+    onSetFrequency: asyncHandler('BeyondAtcPanel atc.setFrequency', (frequency: string) =>
+      live.command('atc.setFrequency', frequency)
+    ),
+    onSetFrequencyCom2: asyncHandler('BeyondAtcPanel atc.setFrequencyCom2', (frequency: string) =>
+      live.command('atc.setFrequencyCom2', frequency)
+    ),
+    frequencyOptions: state.frequencies,
+    autoTune: state.autoTune,
+    autoRespond: state.autoRespond,
+    onSetAutoTune: asyncHandler('BeyondAtcPanel atc.setAutoTune', (value: boolean) =>
+      live.command('atc.setAutoTune', value)
+    ),
+    onSetAutoRespond: asyncHandler('BeyondAtcPanel atc.setAutoRespond', (value: boolean) =>
+      live.command('atc.setAutoRespond', value)
+    ),
+    stepClimb,
+    onSetStepClimb: asyncHandler('BeyondAtcPanel atc.setStepClimb', (enabled: boolean) =>
+      live.command('atc.setStepClimb', enabled)
+    )
+  }
+
+  if (props.compact) {
+    return (
+      <CompactLayout
+        statusLine={statusLine}
+        state={state}
+        instruction={latestInstruction}
+        arrival={arrival}
+        actions={actionsProps}
+        radios={radiosProps}
+        transcript={transcript}
+      />
+    )
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       {/* Always shown, including while connected, so an idle session still confirms the
        * link is live (real gap found live). */}
-      <p className="text-xs text-muted-foreground">
-        {status.state === 'connected'
-          ? t('beyondAtcPanel.connected')
-          : status.state === 'connecting'
-            ? t('beyondAtcPanel.connecting')
-            : t('beyondAtcPanel.disconnected')}
-      </p>
+      {statusLine}
       <InfoCard state={state} />
       <LatestInstructionCard instruction={latestInstruction} arrival={arrival} />
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-[minmax(18rem,28rem)_minmax(18rem,1fr)]">
         <div className="flex min-h-0 flex-col gap-4 self-start">
-          <ActionsCard
-            actions={state.actions}
-            onSelectAction={selectAction}
-            pendingLabel={pendingAction}
-            commsState={state.commsState}
-          />
-          <RadiosCard
-            facility={state.facility}
-            com2={state.com2}
-            progress={state.progress}
-            onSetFrequency={asyncHandler('BeyondAtcPanel atc.setFrequency', (frequency) =>
-              live.command('atc.setFrequency', frequency)
-            )}
-            onSetFrequencyCom2={asyncHandler('BeyondAtcPanel atc.setFrequencyCom2', (frequency) =>
-              live.command('atc.setFrequencyCom2', frequency)
-            )}
-            frequencyOptions={state.frequencies}
-            autoTune={state.autoTune}
-            autoRespond={state.autoRespond}
-            onSetAutoTune={asyncHandler('BeyondAtcPanel atc.setAutoTune', (value) =>
-              live.command('atc.setAutoTune', value)
-            )}
-            onSetAutoRespond={asyncHandler('BeyondAtcPanel atc.setAutoRespond', (value) =>
-              live.command('atc.setAutoRespond', value)
-            )}
-            stepClimb={stepClimb}
-            onSetStepClimb={asyncHandler('BeyondAtcPanel atc.setStepClimb', (enabled) =>
-              live.command('atc.setStepClimb', enabled)
-            )}
-          />
+          <ActionsCard {...actionsProps} />
+          <RadiosCard {...radiosProps} />
         </div>
         <div className="flex min-h-0 flex-col gap-4">
           <TranscriptCard entries={transcript} />

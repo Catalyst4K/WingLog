@@ -4,7 +4,7 @@ import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /** The pages the bar can show. */
-export type PageId = 'track' | 'dispatch' | 'weather' | 'gsx' | 'beyondatc'
+export type PageId = 'track' | 'dispatch' | 'gsx' | 'beyondatc'
 
 /** One button in the bar. */
 export interface PageEntry {
