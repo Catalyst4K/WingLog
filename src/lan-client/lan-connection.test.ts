@@ -145,8 +145,15 @@ describe('LanConnection', () => {
     expect(link.track).toEqual([{ id: 1 }])
     sockets[0].say({ t: 'topic', name: 'trackingPoint', payload: { id: 2 } })
     sockets[0].say({ t: 'topic', name: 'trackingPoint', payload: { id: 2 } })
-    sockets[0].say({ t: 'topic', name: 'trackingPointsUpdated', payload: [{ id: 9 }] })
-    expect(link.track).toEqual([{ id: 9 }])
+    sockets[0].say({
+      t: 'topic',
+      name: 'trackingPointsUpdated',
+      payload: [{ id: 2, excludedReason: 'jump' }, { id: 9 }]
+    })
+    // A cleanup pass sends only the points it changed: they are patched in place and the rest of the trail stays.
+    expect(link.track).toEqual([{ id: 1 }, { id: 2, excludedReason: 'jump' }])
+    sockets[0].say({ t: 'topic', name: 'trackingPointsUpdated', payload: [] })
+    expect(link.track).toHaveLength(2)
     sockets[0].say({ t: 'flight', flight: null })
     expect(link.flight).toBeNull()
     expect(link.track).toEqual([])

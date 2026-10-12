@@ -257,14 +257,15 @@ export class LanConnection {
   }
 
   /**
-   * Keeps the track current from the two topics that carry it: a new point is added, a cleanup pass replaces them all.
+   * Keeps the track current from the two topics that carry it: a new point is added, and a cleanup pass's changed points (it sends only those) are patched in by id.
    *
    * @param topic The topic that arrived.
    * @param payload Its value.
    */
   private followTrack(topic: LiveTopic, payload: unknown): void {
     if (topic === 'trackingPointsUpdated' && Array.isArray(payload)) {
-      this.setTrack(payload as TrackPoint[])
+      const byId = new Map((payload as TrackPoint[]).map((p) => [p.id, p]))
+      if (byId.size > 0) this.setTrack(this.trackPoints.map((p) => byId.get(p.id) ?? p))
     } else if (topic === 'trackingPoint' && typeof payload === 'object' && payload !== null) {
       const point = payload as TrackPoint
       if (!this.trackPoints.some((p) => p.id === point.id)) this.setTrack([...this.trackPoints, point])

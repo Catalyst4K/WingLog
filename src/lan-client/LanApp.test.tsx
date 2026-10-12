@@ -139,8 +139,8 @@ describe('LanApp', () => {
     act(() => sockets[0].say({ t: 'topic', name: 'trackingPoint', payload: point(3, 'descent') }))
     expect(mapProps.current?.trackPoints).toHaveLength(3)
 
-    act(() => sockets[0].say({ t: 'topic', name: 'trackingPointsUpdated', payload: [point(9)] }))
-    expect(mapProps.current?.trackPoints.map((p) => p.id)).toEqual([9])
+    act(() => sockets[0].say({ t: 'topic', name: 'trackingPointsUpdated', payload: [point(2)] }))
+    expect(mapProps.current?.trackPoints.map((p) => p.id)).toEqual([1, 2, 3])
   })
 
   it('warns when the link to the PC drops, and carries on from the last picture', () => {
