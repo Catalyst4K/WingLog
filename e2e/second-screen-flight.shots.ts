@@ -141,6 +141,17 @@ test('the second screen follows a replayed flight, in portrait and landscape', a
     await portrait.getByRole('dialog').waitFor()
     await portrait.waitForTimeout(1_500)
     await portrait.screenshot({ path: join(OUT, '1c-portrait-procedures.png'), animations: 'disabled' })
+    await portrait.getByRole('tab', { name: 'Arrival' }).click()
+    await portrait.waitForTimeout(800)
+    await portrait.screenshot({
+      path: join(OUT, '1d-portrait-procedures-arrival.png'),
+      animations: 'disabled'
+    })
+    const counts = await portrait
+      .getByRole('dialog')
+      .getByRole('combobox')
+      .evaluateAll((els) => els.map((el) => (el as HTMLSelectElement).options.length))
+    console.log('ARRIVAL PICKER OPTION COUNTS', JSON.stringify(counts))
     await portrait.keyboard.press('Escape')
     await portrait.waitForTimeout(12_000)
     await portrait.screenshot({ path: join(OUT, '2-portrait-descent.png') })
