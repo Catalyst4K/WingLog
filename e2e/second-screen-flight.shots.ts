@@ -227,24 +227,28 @@ test('the second screen follows a replayed flight, in portrait and landscape', a
     }
 
     if (HOLD_MIN > 0) {
-      // A pairing code lasts 5 minutes and works once, so a held run opens a new one every 4 minutes and keeps the latest in a file.
+      // A pairing code lasts 5 minutes and works once, so a held run keeps one open: every few seconds it checks, and as soon as a code has
+      // been used or has expired it opens the next and keeps the latest in a file (a second device can then pair straight after the first).
       const codeFile = join(OUT, 'current-code.txt')
-      for (let waited = 0; waited < HOLD_MIN; waited += 4) {
+      const until = Date.now() + HOLD_MIN * 60_000
+      let last = ''
+      while (Date.now() < until) {
         try {
           // Straight through the app's own IPC, not the Settings card: a code that cannot be read must never end the held run.
-          const fresh = await page.evaluate(async () => {
+          const code = await page.evaluate(async () => {
             const lan = (globalThis as unknown as Window).winglog
-            await lan.lanStopPairing()
-            return (await lan.lanStartPairing()).pairing?.code ?? ''
+            const open = (await lan.lanGetStatus()).pairing
+            return open ? open.code : ((await lan.lanStartPairing()).pairing?.code ?? '')
           })
-          writeFileSync(codeFile, fresh)
-          console.log(
-            `PAIRING CODE ${fresh} for http://${address}:${port}/ (valid 5 min; held ${waited}/${HOLD_MIN} min)`
-          )
+          if (code !== '' && code !== last) {
+            last = code
+            writeFileSync(codeFile, code)
+            console.log(`PAIRING CODE ${code} for http://${address}:${port}/ (valid 5 min, works once)`)
+          }
         } catch (error) {
           console.log(`PAIRING CODE could not be refreshed: ${String(error)}`)
         }
-        await page.waitForTimeout(Math.min(4, HOLD_MIN - waited) * 60_000)
+        await page.waitForTimeout(4_000)
       }
     }
   } finally {
