@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test'
@@ -48,6 +48,24 @@ export interface LaunchAppOptions {
   keepSetup?: boolean
 }
 
+/** How long to wait for the app to close before killing it. */
+const CLOSE_TIMEOUT_MS = 10_000
+
+/**
+ * Keeps the app's main.log in `test-results/` when it records an uncaught exception, before the isolated profile is deleted: a
+ * flake in which the main process threw (`timer._onTimeout is not a function`, one launch in about 80 under load, 2026-10-12)
+ * otherwise leaves nothing to read.
+ *
+ * @param userDataDir The profile the app ran in.
+ */
+function keepErrorLog(userDataDir: string): void {
+  const log = join(userDataDir, 'logs', 'main.log')
+  if (!existsSync(log) || !/Uncaught|TypeError|ReferenceError/.test(readFileSync(log, 'utf8'))) return
+  const dir = join(process.cwd(), 'test-results')
+  mkdirSync(dir, { recursive: true })
+  copyFileSync(log, join(dir, `main-log-${Date.now()}.log`))
+}
+
 export async function launchApp(options: LaunchAppOptions = {}): Promise<LaunchedApp> {
   const projectRoot = process.cwd()
   const ownedUserDataDir = options.userDataDir === undefined
@@ -91,7 +109,13 @@ export async function launchApp(options: LaunchAppOptions = {}): Promise<Launche
     app,
     window,
     cleanup: async () => {
-      await app.close()
+      // An error dialog in the app's main process (an uncaught exception) blocks it, and with it app.close(): don't hang the test on it.
+      const closed = await Promise.race([
+        app.close().then(() => true),
+        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), CLOSE_TIMEOUT_MS))
+      ])
+      if (!closed) app.process().kill()
+      keepErrorLog(userDataDir)
       if (ownedUserDataDir) rmSync(userDataDir, { recursive: true, force: true })
     }
   }
