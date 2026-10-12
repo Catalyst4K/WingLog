@@ -196,6 +196,17 @@ export const appSetting = sqliteTable('app_setting', {
   value: text('value').notNull()
 })
 
+// A phone or tablet paired with the second-screen server (winglog-backend's docs/plans/lan-web-viewer.md). Only a SHA-256 hash of its
+// token is stored, so a copy of the database can't be replayed against the server. Revoked rows are kept, with revoked_at set.
+export const lanDevice = sqliteTable('lan_device', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  tokenHash: text('token_hash').notNull().unique(),
+  createdAt: text('created_at').notNull(),
+  lastSeenAt: text('last_seen_at'),
+  revokedAt: text('revoked_at')
+})
+
 // A snapshot of a matched GSX ground-service receipt, taken at flight completion rather
 // than read live from the folder — GSX's own admin UI can bulk-delete old receipts, so a
 // Logbook that only ever reads the live folder would silently lose historical costs the
