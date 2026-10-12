@@ -104,6 +104,66 @@ describe('BeyondAtcService', () => {
     service.stop()
   })
 
+  describe("runways learned from the tuned station (flight 236's WSSS list, which carries none)", () => {
+    // Two WSSS tower frequencies and a ground one as BeyondATC listed them: capitals, runways empty.
+    const LIST =
+      'Frequencies: [{"airport":"WSSS","airportName":"Changi","frequency":"118.250","name":"SINGAPORE TOWER","type":"Tower","stationType":"","runways":""},' +
+      '{"airport":"WSSS","airportName":"Changi","frequency":"118.600","name":"SINGAPORE TOWER","type":"Tower","stationType":"","runways":""},' +
+      '{"airport":"WSSS","airportName":"Changi","frequency":"124.300","name":"SINGAPORE GROUND","type":"Ground","stationType":"","runways":""}]'
+    const open = (): { service: BeyondAtcService; line: (text: string) => void } => {
+      const { ctor, instances } = makeCtor()
+      const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)
+      service.start()
+      instances[0].simulateOpen()
+      return { service, line: (text) => instances[0].simulateLine(text) }
+    }
+    const runwaysOf = (service: BeyondAtcService): Record<string, string> =>
+      Object.fromEntries(service.getState().frequencies.map((f) => [f.frequency, f.runways]))
+
+    it('fills in the runways of a frequency once a station on it has been tuned, whichever order the lines come in', () => {
+      const first = open()
+      first.line(LIST)
+      expect(runwaysOf(first.service)).toEqual({ '118.250': '', '118.600': '', '124.300': '' })
+      first.line('Facility: Singapore Tower (20R)|118.600')
+      expect(runwaysOf(first.service)).toEqual({ '118.250': '', '118.600': '20R', '124.300': '' })
+      first.service.stop()
+
+      // The tuning arrives before the list: the list is filled in when it comes.
+      const second = open()
+      second.line('Facility: Singapore Ground (20R)|124.300')
+      second.line(LIST)
+      expect(runwaysOf(second.service)).toEqual({ '118.250': '', '118.600': '', '124.300': '20R' })
+      second.service.stop()
+    })
+
+    it('matches 133.9 to 133.900, replaces a runway when the station is tuned with another, and keeps one the list gave', () => {
+      const { service, line } = open()
+      line(
+        'Frequencies: [{"airport":"WSSS","airportName":"Changi","frequency":"133.900","name":"SINGAPORE APPROACH","type":"Approach","stationType":"","runways":""},' +
+          '{"airport":"WSSS","airportName":"Changi","frequency":"124.050","name":"SINGAPORE APPROACH","type":"Approach","stationType":"","runways":"02L"}]'
+      )
+      line('Facility: Singapore Approach (20R, 20C)|133.9')
+      line('Facility: Singapore Approach (20R, 20C)|124.050')
+      expect(runwaysOf(service)).toEqual({ '133.900': '20R, 20C', '124.050': '02L' })
+      line('Facility: Singapore Approach (02L, 02C)|133.900')
+      expect(runwaysOf(service)['133.900']).toBe('02L, 02C')
+      service.stop()
+    })
+
+    it('forgets what it learned when the route changes, and ignores a station named without runways', () => {
+      const { service, line } = open()
+      line('Progress: {"from": "EGLL", "to": "WSSS", "pct": 90}')
+      line(LIST)
+      line('Facility: Singapore Radar|134.4')
+      line('Facility: Singapore Tower (20R)|118.600')
+      expect(runwaysOf(service)['118.600']).toBe('20R')
+      line('Progress: {"from": "WSSS", "to": "VHHH", "pct": 1}')
+      line(LIST)
+      expect(runwaysOf(service)['118.600']).toBe('')
+      service.stop()
+    })
+  })
+
   it('parses Com2/Callsign/CommsState/Progress JSON values', () => {
     const { ctor, instances } = makeCtor()
     const service = new BeyondAtcService('localhost', BEYONDATC_PORT, ctor)

@@ -108,7 +108,8 @@ describe('BeyondAtcPanel', () => {
     render(<BeyondAtcPanel />)
 
     expect(await screen.findByText('Cathay 116 Heavy')).toBeInTheDocument()
-    expect(screen.getByText('Brisbane Delivery (118.850)')).toBeInTheDocument()
+    expect(screen.getByText('Brisbane Delivery')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'COM1 frequency' })).toHaveValue('118.850')
     expect(screen.getByText('YBBN → YSSY · 12%')).toBeInTheDocument()
   })
 
@@ -455,7 +456,7 @@ describe('BeyondAtcPanel', () => {
     expect(beyondAtcSetAutoTune).toHaveBeenCalledWith(false)
   })
 
-  it('picking a frequency from the real list calls beyondAtcSetFrequency, runway shown alongside it', async () => {
+  it('picking a frequency from the real list calls beyondAtcSetFrequency', async () => {
     const beyondAtcSetFrequency = vi.fn().mockResolvedValue(undefined)
     withWinglog({
       beyondAtcGetState: vi.fn().mockResolvedValue(
@@ -481,9 +482,7 @@ describe('BeyondAtcPanel', () => {
     render(<BeyondAtcPanel />)
 
     await user.click((await screen.findAllByRole('button', { name: 'Frequencies' }))[0])
-    await user.click(
-      await screen.findByRole('button', { name: 'Approach — SINGAPORE APPROACH 124.050 (RWY 02L)' })
-    )
+    await user.click(await screen.findByRole('button', { name: /Singapore Approach\s+RWY 02L\s+124\.050/ }))
 
     expect(beyondAtcSetFrequency).toHaveBeenCalledWith('124.050')
   })

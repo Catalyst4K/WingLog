@@ -18,6 +18,7 @@ import type {
   BeyondAtcTranscriptEntry
 } from '@shared/ipc'
 import { assignedGate, parseAtcTaxiFacts } from '@shared/atc-info-boxes'
+import { normaliseFrequency, runwaysFromStationName } from '@shared/beyondatc-frequencies'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { logger } from '../logging/logger'
 
@@ -236,6 +237,11 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
   private status: BeyondAtcConnectionStatus = { state: 'disconnected', lastError: null }
 
   private state: BeyondAtcState = { ...EMPTY_BEYONDATC_STATE }
+  // The list as BeyondATC sent it (it carries no runways), and the runways each frequency has been tuned with, read from the `Facility`
+  // line's station name ("Singapore Tower (20R)"). The state's list is the first with the second filled in, kept apart so a runway change
+  // reported by a later `Facility` replaces the one learned before.
+  private listedFrequencies: BeyondAtcFrequencyOption[] = []
+  private readonly learnedRunways = new Map<string, string>()
   private transcript: BeyondAtcTranscriptEntry[] = []
 
   constructor(
@@ -402,7 +408,9 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
     [
       'Facility',
       (rest) => {
-        this.setState({ facility: parseFacility(rest) })
+        const facility = parseFacility(rest)
+        if (facility) this.learnRunways(facility)
+        this.setState({ facility, frequencies: this.frequenciesWithRunways() })
         if (this.state.frequencies.length === 0) this.requestFrequencies()
       }
     ],
@@ -413,7 +421,13 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
     ['Actions', (rest) => this.setState({ actions: parseActions(rest) })],
     ['AutoTune', (rest) => this.setState({ autoTune: parseBool(rest) })],
     ['AutoRespond', (rest) => this.setState({ autoRespond: parseBool(rest) })],
-    ['Frequencies', (rest) => this.setState({ frequencies: parseFrequencies(rest) })],
+    [
+      'Frequencies',
+      (rest) => {
+        this.listedFrequencies = parseFrequencies(rest)
+        this.setState({ frequencies: this.frequenciesWithRunways() })
+      }
+    ],
     ['InfoBoxes', (rest) => this.onInfoBoxes(rest)],
     ['Player', (rest) => this.pushTranscript('player', rest)],
     ['ATC', (rest) => this.pushTranscript('atc', rest)],
@@ -466,6 +480,28 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
   }
 
   /**
+   * Remembers which runways a station was tuned with: BeyondATC's frequency list has none, but the station it tunes is named with them.
+   *
+   * @param facility The station just tuned.
+   */
+  private learnRunways(facility: BeyondAtcFacility): void {
+    const runways = runwaysFromStationName(facility.name)
+    if (runways) this.learnedRunways.set(normaliseFrequency(facility.frequency), runways)
+  }
+
+  /**
+   * The frequency list with the runways learned so far filled in. A runway the list itself gives is kept.
+   *
+   * @returns The list for the state.
+   */
+  private frequenciesWithRunways(): BeyondAtcFrequencyOption[] {
+    return this.listedFrequencies.map((option) => {
+      const learned = this.learnedRunways.get(normaliseFrequency(option.frequency))
+      return option.runways === '' && learned ? { ...option, runways: learned } : option
+    })
+  }
+
+  /**
    * `Progress`: the route and how far along it. A new route, or one arriving before the
    * frequencies, asks for the frequency list again.
    *
@@ -475,6 +511,8 @@ export class BeyondAtcService extends EventEmitter<BeyondAtcServiceEvents> {
     const value = parseJson(rest)
     if (!isProgress(value)) return
     const prev = this.state.progress
+    // A new route is a new flight: what was learned about its stations' runways no longer applies.
+    if (prev && (prev.from !== value.from || prev.to !== value.to)) this.learnedRunways.clear()
     this.setState({ progress: value })
     if (this.state.frequencies.length === 0 || prev?.from !== value.from || prev?.to !== value.to) {
       this.requestFrequencies()
