@@ -3,8 +3,9 @@
  * network and stands over a short-lived SimConnect connection of its own, caches them in the
  * database, and answers every lookup from that cache.
  */
-import { open as defaultOpen, Protocol } from 'node-simconnect'
+import { Protocol } from 'node-simconnect'
 import { airacCycleStart, predatesCurrentCycle } from '@shared/airac'
+import { openSimConnect as defaultOpen } from '../sim/open-simconnect'
 import type { WingLogDb } from '../db/client'
 import { logger } from '../logging/logger'
 import {

@@ -12,7 +12,7 @@ import type { WingLogDb } from '../db/client'
 import { aircraft, flight } from '../db/schema'
 import { getSetting, setSetting } from '../db/settings-repo'
 import { defaultGsxReceiptsPath } from '../gsx/default-path'
-import { BEYONDATC_PORT } from '../beyondatc/BeyondAtcService'
+import { BEYONDATC_PORT, e2eBeyondAtcPort } from '../beyondatc/BeyondAtcService'
 
 const SETUP_COMPLETED_KEY = 'setupCompleted'
 
@@ -87,6 +87,9 @@ export async function getSetupContext(probe: typeof isListening = isListening): 
   return {
     gsxFolderFound: gsxFolderPath !== null && existsSync(gsxFolderPath),
     gsxFolderPath,
-    beyondAtcRunning: await probe('127.0.0.1', BEYONDATC_PORT)
+    beyondAtcRunning: await probe(
+      '127.0.0.1',
+      e2eBeyondAtcPort(process.env.WINGLOG_E2E_BEYONDATC_PORT) ?? BEYONDATC_PORT
+    )
   }
 }

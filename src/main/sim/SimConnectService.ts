@@ -5,7 +5,6 @@
  */
 import { EventEmitter } from 'node:events'
 import {
-  open,
   Protocol,
   SimConnectConstants,
   SimConnectDataType,
@@ -15,6 +14,7 @@ import {
 } from 'node-simconnect'
 import type { SimConnectionStatus, SimTelemetry } from '@shared/ipc'
 import type { TouchdownSeverity } from './SimConnectSource'
+import { openSimConnect as openSimConnectDefault } from './open-simconnect'
 import { SIM_VARS, readTelemetry } from './simvars'
 
 const APP_NAME = 'WingLog'
@@ -48,7 +48,7 @@ const NEAR_CONTACT_WINDOW_MS = 1_000
 const LIFTOFF_AGL_MARGIN_M = 3
 
 /** Matches node-simconnect's `open` export — injected so tests don't need a live sim. */
-export type OpenSimConnect = typeof open
+export type OpenSimConnect = typeof openSimConnectDefault
 
 interface SimConnectServiceEvents {
   telemetry: [SimTelemetry]
@@ -95,7 +95,7 @@ export class SimConnectService extends EventEmitter<SimConnectServiceEvents> {
   private touchdownAt: number | null = null
   private ringBuffer: { t: number; verticalSpeedMs: number }[] = []
 
-  constructor(private readonly openSimConnect: OpenSimConnect = open) {
+  constructor(private readonly openSimConnect: OpenSimConnect = openSimConnectDefault) {
     super()
   }
 

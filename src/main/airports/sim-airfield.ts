@@ -13,12 +13,12 @@
 import {
   FacilityDataType,
   FacilityListType,
-  open as defaultOpen,
   Protocol,
   type RecvAirportList,
   type RecvFacilityData,
   type SimConnectConnection
 } from 'node-simconnect'
+import { openSimConnect as defaultOpen } from '../sim/open-simconnect'
 import {
   NavdataDefId,
   addRunwayFields,
