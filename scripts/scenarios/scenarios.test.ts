@@ -14,12 +14,15 @@ import {
   seedApproaches,
   seedRunways,
   withArrival,
+  WSSS_ARRIVAL,
   WSSS_RUNWAYS,
+  wsssDescent,
   wsssLanding,
   zjsyArrival
 } from './bases'
 import { runScenario, type ScenarioResult } from './harness'
 import {
+  arrivalCardPrompt,
   arrivalCardUntilTouchdown,
   gateWithItsBox,
   neverAirbornePhaseOnGround,
@@ -208,6 +211,57 @@ describe('scenario: a landing on a runway the sim places differently (flight 236
     async () => {
       const [landing] = await wsssLandingRun()
       expect(Math.abs((landing.centrelineOffsetM ?? 99) - -1.9)).toBeLessThan(10)
+    },
+    SCENARIO_TIMEOUT_MS
+  )
+})
+
+describe('scenario: the descent after BeyondATC went silent (flight 236, WSSS 20R)', () => {
+  /** The real last 36 minutes, varied by `transforms`, with WSSS's runways and approaches cached. */
+  function wsssDescentFlight(transforms: Transform[]): Promise<ScenarioResult> {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    return runScenario(applyTransforms(wsssDescent(), transforms), {
+      depIcao: 'EGLL',
+      arrIcao: 'WSSS',
+      seed: (db) => {
+        seedRunways(db, 'WSSS', WSSS_RUNWAYS)
+        seedApproaches(db, WSSS_ARRIVAL)
+      },
+      setClock: (ms) => vi.setSystemTime(ms)
+    })
+  }
+
+  it(
+    'shows the arrival card with the STAR clearance, on 20R, until touchdown',
+    async () => {
+      const { samples } = await wsssDescentFlight([])
+      expect(arrivalCardUntilTouchdown(samples, '20R')).toEqual([])
+      expect(arrivalCardPrompt(samples, 60)).toEqual([])
+    },
+    SCENARIO_TIMEOUT_MS
+  )
+
+  it(
+    'keeps the card through missed, repeated and late transmissions',
+    async () => {
+      const variations: Transform[][] = [
+        [dropAtcLine(/Descend to|Cross BIPOP/)],
+        [duplicateAtcLine(/STAR|Cleared Approach/)],
+        [stallFieldUpdates('beyondatc', 45)]
+      ]
+      for (const transforms of variations) {
+        const { samples } = await wsssDescentFlight(transforms)
+        expect(arrivalCardUntilTouchdown(samples, '20R')).toEqual([])
+      }
+    },
+    SCENARIO_TIMEOUT_MS
+  )
+
+  it(
+    'follows the runway when ATC changes it mid-descent',
+    async () => {
+      const { samples } = await wsssDescentFlight([changeClearedRunway('20R', '20C')])
+      expect(arrivalCardUntilTouchdown(samples, '20C')).toEqual([])
     },
     SCENARIO_TIMEOUT_MS
   )

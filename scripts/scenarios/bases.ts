@@ -68,7 +68,7 @@ export const EGLL_RUNWAYS: NavdataRunway[] = [
 /** The EGLL fixture's taxi out: first movement to just before lining up on 27L. */
 export const EGLL_TAXI_OUT = { fromMs: 983_942, toMs: 1_525_000 }
 
-interface ArrivalTimeline {
+export interface ArrivalTimeline {
   arrivalIcao: string
   approaches: { identifier: string; runways: string[]; transitions: string[] }[]
   beyondatc: { secondsFromTouchdown: number; text: string }[]
@@ -168,3 +168,22 @@ export const WSSS_RUNWAYS: NavdataRunway[] = [
     thresholdLon: 103.97747058188283
   }
 ]
+
+/**
+ * The last 36 minutes of flight 236 into WSSS 20R, with BeyondATC's real stream: the descent
+ * clearances that arrived in one burst after 73 minutes of silence (2026-10-12). The first real
+ * dev-build capture in the scenario base set.
+ */
+export function wsssDescent(): ParsedFlightFixture {
+  return parseFlightFixture(readRepoFile('scripts/scenarios/__fixtures__/wsss-236-descent.ndjson'))
+}
+
+/** WSSS's approaches to 20R from the sim's navdata cache, fetched 2026-10-12, for the arrival card. */
+export const WSSS_ARRIVAL: ArrivalTimeline = {
+  arrivalIcao: 'WSSS',
+  approaches: [
+    { identifier: 'ILS 20R', runways: ['20R'], transitions: ['IPNAK'] },
+    { identifier: 'RNAV 20R', runways: ['20R'], transitions: ['BIDUS', 'BIPOP', 'NYLON'] }
+  ],
+  beyondatc: []
+}
