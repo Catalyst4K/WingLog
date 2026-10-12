@@ -1,11 +1,12 @@
 /** The SID, STAR and approach dropdowns, from the sim's navdata. */
 
 import { winglogApi } from './data/winglog-api'
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { NavdataProcedureOption, NavdataRunwayOption, ProcedureSelection } from '@shared/ipc'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { approachRunway, parseRouteProcedures, pickDefaultApproachIdentifier, type Waypoint } from './route'
 import { arrivalAirport, type ProcedureAirports } from './procedure-selection'
 import { displayIcao } from './display-icao'
@@ -21,9 +22,39 @@ import { runAsync } from './report-error'
 const NONE_OPTION = '__none__'
 
 /**
+ * The browser's own dropdown, styled like the app's.
+ *
+ * @param props The value, the [value, label] choices, the change handler and whether it is disabled.
+ * @returns The element.
+ */
+function NativePicker(props: {
+  id: string
+  value: string
+  options: [string, string][]
+  onChange: (value: string) => void
+  disabled?: boolean
+}): React.JSX.Element {
+  return (
+    <select
+      id={props.id}
+      className="h-11 w-full rounded-lg border border-input bg-background px-2.5 text-base text-foreground disabled:opacity-50"
+      value={props.value}
+      disabled={props.disabled}
+      onChange={(event) => props.onChange(event.target.value)}
+    >
+      {props.options.map(([value, label]) => (
+        <option key={value} value={value}>
+          {label}
+        </option>
+      ))}
+    </select>
+  )
+}
+
+/**
  * One procedure picker with a leading 'none' choice.
  *
- * @param props The label, value, options, change handler and whether it is disabled.
+ * @param props The label, value, options, change handler, whether it is disabled, and whether to use the device's own picker.
  * @returns The picker.
  */
 function ProcedureSelect(props: {
@@ -32,8 +63,25 @@ function ProcedureSelect(props: {
   options: string[]
   onChange: (value: string | null) => void
   disabled?: boolean
+  /** The browser's own `<select>`: on a phone it opens the device's picker, which scrolls and fits the screen. */
+  native?: boolean
 }): React.JSX.Element {
   const { t } = useTranslation()
+  const id = useId()
+  if (props.native) {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor={id}>{props.label}</Label>
+        <NativePicker
+          id={id}
+          value={props.value ?? ''}
+          disabled={props.disabled}
+          onChange={(v) => props.onChange(v === '' ? null : v)}
+          options={[['', t('procedureSelector.none')], ...props.options.map((o): [string, string] => [o, o])]}
+        />
+      </div>
+    )
+  }
   return (
     <div className="flex flex-col gap-1.5">
       <Label>{props.label}</Label>
@@ -89,9 +137,11 @@ export function ProcedureSelector(props: {
   /** The currently-assembled route — used only to find the current STAR's last waypoint,
    *  for the approach-transition auto-connect below. */
   liveWaypoints: Waypoint[]
+  /** A phone-sized layout: Departure and Arrival as two tabs, each picker the device's own. */
+  compact?: boolean
 }): React.JSX.Element {
   const { t } = useTranslation()
-  const { airports, selection, onSelectionChange, liveWaypoints } = props
+  const { airports, selection, onSelectionChange, liveWaypoints, compact = false } = props
   const [depRunways, setDepRunways] = useState<NavdataRunwayOption[]>([])
   const [sidOptions, setSidOptions] = useState<NavdataProcedureOption[]>([])
   const [starOptions, setStarOptions] = useState<NavdataProcedureOption[]>([])
@@ -218,6 +268,7 @@ export function ProcedureSelector(props: {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- set is new every render
   }, [selection.approachIdent, selection.approachTransition, approachOptions, liveWaypoints])
 
+  const arrivalAirportId = useId()
   const depRunwayIdents = depRunways.map((r) => r.ident)
   const sidIdentifiers = [...new Set(sidOptions.map((o) => o.identifier))]
   const starIdentifiers = [...new Set(starOptions.map((o) => o.identifier))]
@@ -226,102 +277,148 @@ export function ProcedureSelector(props: {
   const starTransitions = transitionsFor(starOptions, selection.starIdent)
   const approachTransitions = transitionsFor(approachOptions, selection.approachIdent)
 
+  /**
+   * Switches the arrival dropdowns between the filed destination and the alternate.
+   *
+   * @param v 'alternate' or 'destination'.
+   */
+  function changeArrivalAirport(v: string): void {
+    // The STAR/approach picked belong to the airport being left — start clean.
+    set({
+      arrivalIcao: v === 'alternate' ? altnIcao : null,
+      starIdent: null,
+      starTransition: null,
+      approachIdent: null,
+      approachTransition: null
+    })
+  }
+
+  const departureColumn = (
+    <div className="flex flex-col gap-3">
+      <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        {t('procedureSelector.departure')}
+      </span>
+      <ProcedureSelect
+        native={compact}
+        label={t('procedureSelector.departureRunway')}
+        value={selection.departureRunway}
+        options={depRunwayIdents}
+        onChange={(v) => set({ departureRunway: v })}
+        disabled={depRunwayIdents.length === 0}
+      />
+      <ProcedureSelect
+        native={compact}
+        label={t('procedureSelector.sid')}
+        value={selection.sidIdent}
+        options={sidIdentifiers}
+        onChange={(v) => set({ sidIdent: v, sidTransition: null })}
+        disabled={sidIdentifiers.length === 0}
+      />
+      <ProcedureSelect
+        native={compact}
+        label={t('procedureSelector.sidTransition')}
+        value={selection.sidTransition}
+        options={sidTransitions}
+        onChange={(v) => set({ sidTransition: v })}
+        disabled={sidTransitions.length === 0}
+      />
+    </div>
+  )
+  const arrivalColumn = (
+    <div className="flex flex-col gap-3">
+      <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        {t('procedureSelector.arrival')}
+      </span>
+      {altnIcao && (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={arrivalAirportId}>{t('procedureSelector.arrivalAirport')}</Label>
+          {compact ? (
+            <NativePicker
+              id={arrivalAirportId}
+              value={selection.arrivalIcao ? 'alternate' : 'destination'}
+              options={[
+                ['destination', t('procedureSelector.destination', { icao: displayIcao(airports.arrIcao) })],
+                ['alternate', t('procedureSelector.alternate', { icao: altnIcao })]
+              ]}
+              onChange={changeArrivalAirport}
+            />
+          ) : (
+            <Select
+              value={selection.arrivalIcao ? 'alternate' : 'destination'}
+              onValueChange={changeArrivalAirport}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="destination">
+                  {t('procedureSelector.destination', { icao: displayIcao(airports.arrIcao) })}
+                </SelectItem>
+                <SelectItem value="alternate">
+                  {t('procedureSelector.alternate', { icao: altnIcao })}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+      )}
+      <ProcedureSelect
+        native={compact}
+        label={t('procedureSelector.approach')}
+        value={selection.approachIdent}
+        options={approachIdentifiers}
+        onChange={(v) => {
+          if (v === null) uiMemory().approachCleared.add(approachKey)
+          else uiMemory().approachCleared.delete(approachKey)
+          set({ approachIdent: v, approachTransition: null })
+        }}
+        disabled={approachIdentifiers.length === 0}
+      />
+      <ProcedureSelect
+        native={compact}
+        label={t('procedureSelector.star')}
+        value={selection.starIdent}
+        options={starIdentifiers}
+        onChange={(v) => set({ starIdent: v, starTransition: null })}
+        disabled={starIdentifiers.length === 0}
+      />
+      <ProcedureSelect
+        native={compact}
+        label={t('procedureSelector.starTransition')}
+        value={selection.starTransition}
+        options={starTransitions}
+        onChange={(v) => set({ starTransition: v })}
+        disabled={starTransitions.length === 0}
+      />
+      <ProcedureSelect
+        native={compact}
+        label={t('procedureSelector.approachTransition')}
+        value={selection.approachTransition}
+        options={approachTransitions}
+        onChange={(v) => set({ approachTransition: v })}
+        disabled={approachTransitions.length === 0}
+      />
+    </div>
+  )
+
+  if (compact) {
+    return (
+      <Tabs defaultValue="departure">
+        <TabsList className="w-full">
+          <TabsTrigger value="departure">{t('procedureSelector.departure')}</TabsTrigger>
+          <TabsTrigger value="arrival">{t('procedureSelector.arrival')}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="departure">{departureColumn}</TabsContent>
+        <TabsContent value="arrival">{arrivalColumn}</TabsContent>
+      </Tabs>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-3">
-          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            {t('procedureSelector.departure')}
-          </span>
-          <ProcedureSelect
-            label={t('procedureSelector.departureRunway')}
-            value={selection.departureRunway}
-            options={depRunwayIdents}
-            onChange={(v) => set({ departureRunway: v })}
-            disabled={depRunwayIdents.length === 0}
-          />
-          <ProcedureSelect
-            label={t('procedureSelector.sid')}
-            value={selection.sidIdent}
-            options={sidIdentifiers}
-            onChange={(v) => set({ sidIdent: v, sidTransition: null })}
-            disabled={sidIdentifiers.length === 0}
-          />
-          <ProcedureSelect
-            label={t('procedureSelector.sidTransition')}
-            value={selection.sidTransition}
-            options={sidTransitions}
-            onChange={(v) => set({ sidTransition: v })}
-            disabled={sidTransitions.length === 0}
-          />
-        </div>
-        <div className="flex flex-col gap-3">
-          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            {t('procedureSelector.arrival')}
-          </span>
-          {altnIcao && (
-            <div className="flex flex-col gap-1.5">
-              <Label>{t('procedureSelector.arrivalAirport')}</Label>
-              <Select
-                value={selection.arrivalIcao ? 'alternate' : 'destination'}
-                onValueChange={(v) =>
-                  // The STAR/approach picked belong to the airport being left — start clean.
-                  set({
-                    arrivalIcao: v === 'alternate' ? altnIcao : null,
-                    starIdent: null,
-                    starTransition: null,
-                    approachIdent: null,
-                    approachTransition: null
-                  })
-                }
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="destination">
-                    {t('procedureSelector.destination', { icao: displayIcao(airports.arrIcao) })}
-                  </SelectItem>
-                  <SelectItem value="alternate">
-                    {t('procedureSelector.alternate', { icao: altnIcao })}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          <ProcedureSelect
-            label={t('procedureSelector.approach')}
-            value={selection.approachIdent}
-            options={approachIdentifiers}
-            onChange={(v) => {
-              if (v === null) uiMemory().approachCleared.add(approachKey)
-              else uiMemory().approachCleared.delete(approachKey)
-              set({ approachIdent: v, approachTransition: null })
-            }}
-            disabled={approachIdentifiers.length === 0}
-          />
-          <ProcedureSelect
-            label={t('procedureSelector.star')}
-            value={selection.starIdent}
-            options={starIdentifiers}
-            onChange={(v) => set({ starIdent: v, starTransition: null })}
-            disabled={starIdentifiers.length === 0}
-          />
-          <ProcedureSelect
-            label={t('procedureSelector.starTransition')}
-            value={selection.starTransition}
-            options={starTransitions}
-            onChange={(v) => set({ starTransition: v })}
-            disabled={starTransitions.length === 0}
-          />
-          <ProcedureSelect
-            label={t('procedureSelector.approachTransition')}
-            value={selection.approachTransition}
-            options={approachTransitions}
-            onChange={(v) => set({ approachTransition: v })}
-            disabled={approachTransitions.length === 0}
-          />
-        </div>
+        {departureColumn}
+        {arrivalColumn}
       </div>
     </div>
   )

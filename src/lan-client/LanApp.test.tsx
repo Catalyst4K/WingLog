@@ -147,9 +147,10 @@ describe('the Procedures button', () => {
     expect(screen.getByText('Nothing selected yet')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Procedures…' }))
     const dialog = await screen.findByRole('dialog')
-    const runway = within(within(dialog).getByText('Departure runway').closest('div')!).getByRole('combobox')
-    await userEvent.click(runway)
-    await userEvent.click(await screen.findByRole('option', { name: '02C' }))
+    expect(within(dialog).getByRole('tab', { name: 'Departure' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('tab', { name: 'Arrival' })).toBeInTheDocument()
+    const runway = await within(dialog).findByLabelText('Departure runway')
+    await userEvent.selectOptions(runway, '02C')
     expect(sockets[0].sent.at(-1)).toEqual({
       t: 'cmd',
       name: 'track.setProcedureSelection',
@@ -168,10 +169,9 @@ describe('the Procedures button', () => {
     act(() => sockets[0].onclose?.())
     await userEvent.click(screen.getByRole('button', { name: 'Procedures…' }))
     const dialog = await screen.findByRole('dialog')
-    const runway = within(within(dialog).getByText('Departure runway').closest('div')!).getByRole('combobox')
-    await userEvent.click(runway)
-    await userEvent.click(await screen.findByRole('option', { name: '02L' }))
-    expect(runway).toHaveTextContent('02L')
+    const runway = await within(dialog).findByLabelText('Departure runway')
+    await userEvent.selectOptions(runway, '02L')
+    expect(runway).toHaveValue('02L')
   })
 })
 

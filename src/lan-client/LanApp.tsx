@@ -256,7 +256,7 @@ function ProceduresBar(props: {
           <DialogHeader>
             <DialogTitle>{t('trackView.procedures')}</DialogTitle>
           </DialogHeader>
-          <ProcedureSelector {...props} />
+          <ProcedureSelector {...props} compact />
         </DialogContent>
       </Dialog>
       <span className="truncate text-xs text-muted-foreground">
