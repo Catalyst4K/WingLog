@@ -92,6 +92,8 @@ export class LanServer {
   private hostHeader = ''
   private pairing: PairingWindow | null = null
   private readonly clients = new Set<Client>()
+  /** The flight the connected devices were last told about. */
+  private sentFlightId: number | null = null
 
   constructor(private readonly deps: LanServerDeps) {}
 
@@ -284,16 +286,31 @@ export class LanServer {
     client.deviceId = deviceId
     const topics: LiveSnapshot = {}
     const snapshot = this.deps.hub.snapshot()
+    const flight = this.deps.flight() as { flight?: { flightId?: number } } | null
+    this.sentFlightId = flight?.flight?.flightId ?? null
     for (const topic of LAN_TOPICS) {
       if (topic in snapshot) (topics as Record<string, unknown>)[topic] = snapshot[topic]
     }
-    this.send(client, { t: 'snapshot', topics, flight: this.deps.flight() })
+    this.send(client, { t: 'snapshot', topics, flight })
   }
 
   private broadcast(topic: LiveTopic, payload: unknown): void {
     if (!LAN_TOPICS.includes(topic)) return
+    this.announceFlightChange(topic, payload)
     for (const client of this.clients) {
       if (client.deviceId !== null) this.send(client, { t: 'topic', name: topic, payload })
+    }
+  }
+
+  /** A tracked point from a flight the devices have not been told about means tracking started (or moved on): send them the flight first. */
+  private announceFlightChange(topic: LiveTopic, payload: unknown): void {
+    if (topic !== 'trackingPoint' || typeof payload !== 'object' || payload === null) return
+    const flightId = (payload as { flightId?: unknown }).flightId
+    if (typeof flightId !== 'number' || flightId === this.sentFlightId) return
+    this.sentFlightId = flightId
+    const flight = this.deps.flight()
+    for (const client of this.clients) {
+      if (client.deviceId !== null) this.send(client, { t: 'flight', flight })
     }
   }
 

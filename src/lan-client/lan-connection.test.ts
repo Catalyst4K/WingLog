@@ -133,6 +133,26 @@ describe('LanConnection', () => {
     expect(link.latest('simTelemetry')).toBeUndefined()
   })
 
+  it('swaps in a flight the PC starts tracking after the device connected, with its track', () => {
+    const { link, sockets } = setup('tok')
+    const flights: unknown[] = []
+    link.onFlight((f) => flights.push(f))
+    link.start()
+    sockets[0].open()
+    sockets[0].say({ t: 'snapshot', topics: {}, flight: null })
+    sockets[0].say({ t: 'flight', flight: { ...FLIGHT, trackPoints: [{ id: 1 }] } })
+    expect(link.flight?.flight.flightId).toBe(7)
+    expect(link.track).toEqual([{ id: 1 }])
+    sockets[0].say({ t: 'topic', name: 'trackingPoint', payload: { id: 2 } })
+    sockets[0].say({ t: 'topic', name: 'trackingPoint', payload: { id: 2 } })
+    sockets[0].say({ t: 'topic', name: 'trackingPointsUpdated', payload: [{ id: 9 }] })
+    expect(link.track).toEqual([{ id: 9 }])
+    sockets[0].say({ t: 'flight', flight: null })
+    expect(link.flight).toBeNull()
+    expect(link.track).toEqual([])
+    expect(flights).toHaveLength(3)
+  })
+
   it('reconnects with a growing wait after the link drops, and resets the wait once live', () => {
     const { link, sockets, states } = setup('tok')
     link.start()
@@ -220,6 +240,10 @@ describe('parseServerMessage', () => {
       name: 'simTelemetry',
       payload: 1
     })
+  })
+
+  it('reads a flight message, with none meaning no flight', () => {
+    expect(parseServerMessage('{"t":"flight"}')).toEqual({ t: 'flight', flight: null })
   })
 
   it('treats a snapshot without a flight as having none', () => {

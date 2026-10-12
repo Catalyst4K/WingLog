@@ -49,6 +49,7 @@
     "atc-corpus": "tsx --tsconfig tsconfig.node.json scripts/atc-corpus.ts",
     "licenses:generate": "tsx scripts/generate-third-party-licenses.ts",
     "package": "electron-vite build && npm run build:lan && electron-builder --publish=never",
+    "sim:second-screen": "electron-vite build && npm run build:lan && playwright test -c playwright.screenshots.config.ts e2e/second-screen-flight.shots.ts",
     "sim:screens": "electron-vite build && playwright test -c playwright.screenshots.config.ts e2e/flight-sim.shots.ts",
     "manual:screenshots": "electron-vite build && playwright test -c playwright.screenshots.config.ts",
     "manual:build": "esbuild scripts/manual/build.ts --bundle --platform=node --format=cjs --external:electron --outfile=out-manual/build.cjs --log-level=warning && electron out-manual/build.cjs",

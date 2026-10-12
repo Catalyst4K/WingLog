@@ -302,6 +302,35 @@ describe('LanServer', () => {
       expect(stranger.received).toEqual([])
     })
 
+    it('tells a connected device when tracking starts, once per flight, before the first point', async () => {
+      let active: unknown = null
+      const { pair, hub } = await setup({ flight: () => active })
+      const { client } = await pair()
+      await client.message('snapshot')
+      expect(client.received.find((m) => m.t === 'snapshot')).toMatchObject({ flight: null })
+      active = { flight: { flightId: 7, depIcao: 'WSSS', arrIcao: 'EGLL', ofpJson: null }, trackPoints: [] }
+      hub.publish('trackingPoint', { id: 1, flightId: 7 } as never)
+      hub.publish('trackingPoint', { id: 2, flightId: 7 } as never)
+      await client.waitFor(() => client.received.filter((m) => m.t === 'topic').length === 2)
+      const kinds = client.received.slice(2).map((m) => m.t)
+      expect(kinds).toEqual(['flight', 'topic', 'topic'])
+      expect(client.received[2]).toEqual({ t: 'flight', flight: active })
+      hub.publish('trackingPoint', { id: 3, flightId: 8 } as never)
+      await client.waitFor(() => client.received.filter((m) => m.t === 'flight').length === 2)
+    })
+
+    it('does not announce a flight for points without a flight id, or other topics', async () => {
+      const { pair, hub } = await setup({ flight: () => ({ flight: { flightId: 7 } }) })
+      const { client } = await pair()
+      await client.message('snapshot')
+      hub.publish('trackingPoint', { id: 1 } as never)
+      hub.publish('trackingPoint', null as never)
+      hub.publish('simTelemetry', { flightId: 99 } as never)
+      hub.publish('trackingPoint', { id: 2, flightId: 7 } as never)
+      await client.waitFor(() => client.received.filter((m) => m.t === 'topic').length === 4)
+      expect(client.received.some((m) => m.t === 'flight')).toBe(false)
+    })
+
     it('runs a command from the table and refuses one that is not in it', async () => {
       const { pair, ran } = await setup()
       const { client } = await pair()

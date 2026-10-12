@@ -224,6 +224,11 @@ export class LanConnection {
         for (const listener of this.flightListeners) listener(message.flight)
         for (const [topic, value] of Object.entries(message.topics)) this.emit(topic as LiveTopic, value)
         break
+      case 'flight':
+        this.flightSnapshot = message.flight
+        this.setTrack(message.flight?.trackPoints ?? [])
+        for (const listener of this.flightListeners) listener(message.flight)
+        break
       case 'topic':
         ;(this.topics as Record<string, unknown>)[message.name] = message.payload
         this.followTrack(message.name, message.payload)
@@ -287,6 +292,8 @@ export function parseServerMessage(text: string): LanServerMessage | null {
             flight: (record.flight ?? null) as LanFlightSnapshot | null
           }
         : null
+    case 'flight':
+      return { t: 'flight', flight: (record.flight ?? null) as LanFlightSnapshot | null }
     case 'topic':
       return typeof record.name === 'string'
         ? { t: 'topic', name: record.name as LiveTopic, payload: record.payload }

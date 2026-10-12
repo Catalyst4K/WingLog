@@ -1,0 +1,10 @@
+@import '../renderer/src/index.css';
+
+/* Tailwind only scans the folder the build runs in by default; the page's classes live in the renderer's components too. */
+@source '../renderer/src';
+@source './';
+
+/* On a phone the map's attribution opens across the whole bottom edge and hid the speed/altitude readout: lift the readout above it. */
+div[class*='bottom-3'][class*='left-3'] {
+  bottom: 3.5rem;
+}

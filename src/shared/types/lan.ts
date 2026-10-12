@@ -72,3 +72,5 @@ export type LanServerMessage =
   | { t: 'error'; message: string }
   | { t: 'snapshot'; topics: LiveSnapshot; flight: LanFlightSnapshot | null }
   | { t: 'topic'; name: LiveTopic; payload: unknown }
+  /** A different flight is being tracked from here on (or none): replaces the snapshot's flight and track. */
+  | { t: 'flight'; flight: LanFlightSnapshot | null }
