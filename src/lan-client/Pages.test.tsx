@@ -202,6 +202,15 @@ describe('the Dispatch page', () => {
 })
 
 describe('the weather on the Dispatch page', () => {
+  it('comes before the flight plan', async () => {
+    stubWinglog()
+    open()
+    await userEvent.click(screen.getByRole('button', { name: 'Dispatch' }))
+    const weather = await screen.findByRole('heading', { name: 'Weather' })
+    const plan = await screen.findByText(/BAW31: EGLL → VHHH/)
+    expect(weather.compareDocumentPosition(plan) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it("asks the PC for the flight's airports and shows the weather panel under the plan", async () => {
     stubWinglog()
     open()

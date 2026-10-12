@@ -42,7 +42,7 @@ function readOfp(ofpJson: string | null): DispatchOfp | null {
 
 /**
  * The flight plan's figures, as the Dispatch screen shows them: aircraft, cruise altitude, times, fuel, passengers and cargo, weights, cost
- * index, step climbs and the route, and below them the weather for the departure, destination and alternate (and any other airport).
+ * index, step climbs and the route, with the weather for the departure, destination and alternate (and any other airport) above them.
  * Nothing to import or generate here: that stays at the PC.
  *
  * @param props The PC's flight, and the PC's unit settings.
@@ -60,6 +60,13 @@ function DispatchPage({
   return (
     <div className="flex flex-col gap-3 p-3">
       <h1 className="font-heading text-xl font-semibold">{t('app.tabs.dispatch')}</h1>
+      <h2 className="font-heading text-lg font-semibold">{t('trackView.weather')}</h2>
+      <MetarPanel
+        depIcao={realIcao(flight?.depIcao)}
+        arrIcao={realIcao(flight?.arrIcao)}
+        altnIcao={realIcao(ofp?.altnIcao)}
+        windSpeedUnit={settings.windSpeedUnit}
+      />
       {ofp ? (
         <Card>
           <CardHeader>
@@ -79,13 +86,6 @@ function DispatchPage({
       ) : (
         <p className="text-sm text-muted-foreground">{t('lanPage.noPlan')}</p>
       )}
-      <h2 className="font-heading text-lg font-semibold">{t('trackView.weather')}</h2>
-      <MetarPanel
-        depIcao={realIcao(flight?.depIcao)}
-        arrIcao={realIcao(flight?.arrIcao)}
-        altnIcao={realIcao(ofp?.altnIcao)}
-        windSpeedUnit={settings.windSpeedUnit}
-      />
     </div>
   )
 }
