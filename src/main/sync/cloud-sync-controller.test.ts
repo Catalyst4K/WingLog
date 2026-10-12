@@ -1,3 +1,4 @@
+import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb, type WingLogDb } from '../db/client'
@@ -190,7 +191,7 @@ describe('CloudSyncController', () => {
       await controller.syncNow()
 
       expect(order).toEqual(['backup', 'sync', 'sync'])
-      expect(backupBeforeFirstSync).toHaveBeenCalledWith('/fake/db/path', '/fake/userdata/backups')
+      expect(backupBeforeFirstSync).toHaveBeenCalledWith('/fake/db/path', join('/fake/userdata', 'backups'))
     })
 
     it('does not sync, and tries again next time, when the snapshot fails', async () => {

@@ -83,7 +83,10 @@ for (const [width, height] of [
       await expectNoHorizontalScroll(page)
 
       // The connection badge is still there, just shorter on a phone.
-      await expect(page.getByText(width < 640 ? /^disconnected$/ : 'SimConnect: disconnected')).toBeVisible()
+      // Whether the sim is running on this machine doesn't matter: connected or not, the badge is there.
+      await expect(
+        page.getByText(width < 640 ? /^(dis)?connected$/ : /^SimConnect: (dis)?connected$/)
+      ).toBeVisible()
     } finally {
       await cleanup()
       await beyondAtc.stop()

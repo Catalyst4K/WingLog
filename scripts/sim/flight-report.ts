@@ -44,6 +44,8 @@ export interface FlightFindings {
   /** When BeyondATC reported no station tuned, after the first minute: ms into the capture. */
   nothingTunedAtMs: number[]
   rules: { name: string; broken: string[] }[]
+  /** Real-app screenshots from `npm run sim:screens`, found beside the report; empty when there are none. */
+  screens: string[]
 }
 
 const SIM_COLOUR = TRACK_COLOUR
@@ -231,6 +233,36 @@ function burstTable(f: FlightFindings): string {
   return table(['From touchdown', 'ATC said', 'Boxes 10 s later', 'Arrival card'], rows)
 }
 
+/** What each real-app screenshot shows, by its file name (e2e/flight-sim.shots.ts). */
+const SCREEN_CAPTIONS: Record<string, string> = {
+  '1-before-tracking.png': 'The BeyondATC tab before tracking starts.',
+  '2-star-cleared.png':
+    'After the STAR clearance (TEBU1B, runway 20R): the app offers an approach, ILS 20R, before ATC has named one.',
+  '3-approach-cleared.png':
+    'After ATC clears the R-NAV approach with the BIPOP transition: the offer is now RNAV 20R.',
+  '3b-after-update.png': 'After choosing Update.',
+  '4-track-on-approach.png':
+    'The Track tab on the approach. The phase reads Preflight because the recording starts mid-flight.'
+}
+
+/** The screenshots as one section, or nothing without any. */
+function screensSection(f: FlightFindings): ReportSection[] {
+  if (f.screens.length === 0) return []
+  return [
+    {
+      title: 'The real app, at each decision',
+      meta: 'The built app replaying the last 36 minutes into WSSS (BeyondATC stream and telemetry), 55 times faster. `npm run sim:screens`.',
+      metrics: [],
+      figures: f.screens
+        .map(
+          (file) =>
+            `<figure><img src="screens/${escapeHtml(file)}" alt="${escapeHtml(SCREEN_CAPTIONS[file] ?? file)}" style="width:100%;border-radius:8px"><figcaption>${escapeHtml(SCREEN_CAPTIONS[file] ?? file)}</figcaption></figure>`
+        )
+        .join('')
+    }
+  ]
+}
+
 /**
  * The page.
  *
@@ -325,6 +357,6 @@ export function flightReport(f: FlightFindings): Report {
       { label: 'Rules passed', value: `${f.rules.length - failed.length} of ${f.rules.length}` },
       ...failed.map((r) => ({ label: 'Failed', value: r.name }))
     ],
-    sections
+    sections: [...sections, ...screensSection(f)]
   }
 }
