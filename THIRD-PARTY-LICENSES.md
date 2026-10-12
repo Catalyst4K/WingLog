@@ -220,8 +220,8 @@ Library.
 | [@mapbox/unitbezier](git@github.com:mapbox/unitbezier) | 1.0.0 | BSD-2-Clause |
 | [@mapbox/vector-tile](https://github.com/mapbox/vector-tile-js) | 3.0.0 | BSD-3-Clause |
 | [@maplibre/geojson-vt](https://github.com/maplibre/geojson-vt) | 6.1.1 | ISC |
-| [@maplibre/maplibre-gl-style-spec](https://github.com/maplibre/maplibre-style-spec) | 26.4.1 | ISC |
-| [@maplibre/mlt](https://github.com/maplibre/maplibre-tile-spec) | 1.2.0 | (MIT OR Apache-2.0) |
+| [@maplibre/maplibre-gl-style-spec](https://github.com/maplibre/maplibre-style-spec) | 26.4.4 | ISC |
+| [@maplibre/mlt](https://github.com/maplibre/maplibre-tile-spec) | 1.3.0 | (MIT OR Apache-2.0) |
 | [@maplibre/vt-pbf](https://github.com/maplibre/vt-pbf) | 4.3.2 | MIT |
 | [@radix-ui/number](https://github.com/radix-ui/primitives) | 1.1.3 | MIT |
 | [@radix-ui/primitive](https://github.com/radix-ui/primitives) | 1.1.7 | MIT |
@@ -297,15 +297,15 @@ Library.
 | [@types/d3-time](https://github.com/DefinitelyTyped/DefinitelyTyped) | 3.0.4 | MIT |
 | [@types/d3-timer](https://github.com/DefinitelyTyped/DefinitelyTyped) | 3.0.2 | MIT |
 | [@types/geojson](https://github.com/DefinitelyTyped/DefinitelyTyped) | 7946.0.16 | MIT |
-| [@types/node](https://github.com/DefinitelyTyped/DefinitelyTyped) | 26.4.0 | MIT |
-| [@types/react](https://github.com/DefinitelyTyped/DefinitelyTyped) | 19.2.18 | MIT |
-| [@types/react-dom](https://github.com/DefinitelyTyped/DefinitelyTyped) | 19.2.5 | MIT |
+| [@types/node](https://github.com/DefinitelyTyped/DefinitelyTyped) | 26.6.4 | MIT |
+| [@types/react](https://github.com/DefinitelyTyped/DefinitelyTyped) | 19.3.0 | MIT |
+| [@types/react-dom](https://github.com/DefinitelyTyped/DefinitelyTyped) | 19.3.0 | MIT |
 | [@types/use-sync-external-store](https://github.com/DefinitelyTyped/DefinitelyTyped) | 0.0.6 | MIT |
 | [aria-hidden](https://github.com/theKashey/aria-hidden) | 1.2.6 | MIT |
 | [better-sqlite3](git://github.com/WiseLibs/better-sqlite3) | 13.0.3 | MIT |
+| [bidi-js](https://github.com/lojjic/bidi-js) | 1.1.0 | MIT |
 | [class-variance-authority](https://github.com/joe-bell/cva) | 0.7.1 | Apache-2.0 |
 | [clsx](lukeed/clsx) | 2.1.1 | MIT |
-| [core-util-is](git://github.com/isaacs/core-util-is) | 1.0.3 | MIT |
 | [csstype](https://github.com/frenic/csstype) | 3.2.3 | MIT |
 | [d3-array](https://github.com/d3/d3-array) | 3.2.4 | ISC |
 | [d3-color](https://github.com/d3/d3-color) | 3.1.0 | ISC |
@@ -321,8 +321,8 @@ Library.
 | [debug](git://github.com/debug-js/debug) | 4.4.3 | MIT |
 | [decimal.js-light](https://github.com/MikeMcl/decimal.js-light) | 2.5.1 | MIT |
 | [detect-node-es](https://github.com/thekashey/detect-node) | 1.1.0 | MIT |
-| [drizzle-orm](https://github.com/drizzle-team/drizzle-orm) | 0.45.2 | Apache-2.0 |
-| [earcut](git://github.com/mapbox/earcut) | 3.2.3 | ISC |
+| [drizzle-orm](https://github.com/drizzle-team/drizzle-orm) | 0.45.3 | Apache-2.0 |
+| [earcut](git://github.com/mapbox/earcut) | 3.2.4 | ISC |
 | [electron-log](megahertz/electron-log) | 5.4.4 | MIT |
 | [es-toolkit](https://github.com/toss/es-toolkit) | 1.52.0 | MIT |
 | [eventemitter3](git://github.com/primus/eventemitter3) | 5.0.4 | MIT |
@@ -330,59 +330,51 @@ Library.
 | [gl-matrix](https://github.com/toji/gl-matrix) | 3.4.4 | MIT |
 | [html-parse-stringify](https://github.com/i18next/html-parse-stringify) | 4.0.1 | MIT |
 | [i18next](https://github.com/i18next/i18next) | 26.4.2 | MIT |
-| [if-async](https://github.com/kessler/if-async) | 3.7.4 | MIT |
 | [immer](https://github.com/immerjs/immer) | 11.1.18 | MIT |
-| [inherits](git://github.com/isaacs/inherits) | 2.0.4 | ISC |
 | [ini](git://github.com/isaacs/ini) | 2.0.0 | ISC |
 | [internmap](https://github.com/mbostock/internmap) | 2.0.3 | ISC |
-| [isarray](git://github.com/juliangruber/isarray) | 0.0.1 | MIT |
 | [json-stringify-pretty-compact](lydell/json-stringify-pretty-compact) | 4.0.0 | MIT |
 | [kdbush](git://github.com/mourner/kdbush) | 4.1.0 | ISC |
-| [lucide-react](https://github.com/lucide-icons/lucide) | 1.39.0 | ISC |
-| [maplibre-gl](https://github.com/maplibre/maplibre-gl-js) | 6.6.0 | BSD-3-Clause |
+| [lucide-react](https://github.com/lucide-icons/lucide) | 1.52.0 | ISC |
+| [maplibre-gl](https://github.com/maplibre/maplibre-gl-js) | 6.12.0 | BSD-3-Clause |
 | [minimist](git://github.com/minimistjs/minimist) | 1.2.8 | MIT |
 | [ms](vercel/ms) | 2.1.3 | MIT |
 | [murmurhash-js](git://github.com/mikolalysenko/murmurhash-js) | 1.0.0 | MIT |
 | [next-themes](https://github.com/pacocoursey/next-themes) | 0.4.6 | MIT |
 | [node-addon-api](git://github.com/nodejs/node-addon-api) | 8.9.2 | MIT |
-| [node-simconnect](https://github.com/EvenAR/node-simconnect) | 4.2.0 | LGPL-3.0-or-later |
+| [node-simconnect](https://github.com/EvenAR/node-simconnect) | 4.2.1 | LGPL-3.0-or-later |
 | [pbf](ssh://git@github.com/mapbox/pbf) | 5.1.2 | BSD-3-Clause |
 | [potpack](https://github.com/mapbox/potpack) | 2.1.0 | ISC |
 | [protocol-buffers-schema](https://github.com/mafintosh/protocol-buffers-schema) | 3.6.1 | MIT |
 | [quickselect](https://github.com/mourner/quickselect) | 3.0.0 | ISC |
 | [radix-ui](https://github.com/radix-ui/primitives) | 1.6.7 | MIT |
-| [react](https://github.com/react/react) | 19.2.8 | MIT |
-| [react-dom](https://github.com/react/react) | 19.2.8 | MIT |
-| [react-i18next](https://github.com/i18next/react-i18next) | 17.0.14 | MIT |
+| [react](https://github.com/react/react) | 19.3.0 | MIT |
+| [react-dom](https://github.com/react/react) | 19.3.0 | MIT |
+| [react-i18next](https://github.com/i18next/react-i18next) | 17.0.15 | MIT |
 | [react-is](https://github.com/react/react) | 19.2.8 | MIT |
 | [react-redux](https://github.com/reduxjs/react-redux) | 9.3.0 | MIT |
 | [react-remove-scroll](https://github.com/theKashey/react-remove-scroll) | 2.7.2 | MIT |
 | [react-remove-scroll-bar](https://github.com/theKashey/react-remove-scroll-bar) | 2.3.8 | MIT |
 | [react-style-singleton](https://github.com/theKashey/react-style-singleton) | 2.2.3 | MIT |
-| [readable-stream](git://github.com/isaacs/readable-stream) | 1.0.34 | MIT |
 | [recharts](https://github.com/recharts/recharts) | 3.10.1 | MIT |
 | [redux](https://github.com/reduxjs/redux) | 5.0.1 | MIT |
 | [redux-thunk](https://github.com/reduxjs/redux-thunk) | 3.1.0 | MIT |
-| [regedit](https://github.com/kessler/node-regedit) | 5.1.4 | MIT |
+| [require-from-string](floatdrop/require-from-string) | 2.0.2 | MIT |
 | [reselect](https://github.com/reduxjs/reselect) | 5.2.0 | MIT |
 | [resolve-protobuf-schema](https://github.com/mafintosh/resolve-protobuf-schema) | 2.1.0 | MIT |
-| [scheduler](https://github.com/facebook/react) | 0.27.0 | MIT |
+| [scheduler](https://github.com/react/react) | 0.28.0 | MIT |
 | [sonner](https://github.com/emilkowalski/sonner) | 2.0.8 | MIT |
-| [stream-slicer](https://github.com/kessler/stream-slicer) | 0.0.6 | MIT |
-| [string_decoder](git://github.com/rvagg/string_decoder) | 0.10.31 | MIT |
-| [tailwind-merge](https://github.com/dcastil/tailwind-merge) | 3.6.0 | MIT |
-| [through2](https://github.com/rvagg/through2) | 0.6.5 | MIT |
+| [tailwind-merge](https://github.com/dcastil/tailwind-merge) | 3.7.0 | MIT |
 | [tiny-invariant](https://github.com/alexreardon/tiny-invariant) | 1.3.3 | MIT |
 | [tinyqueue](https://github.com/mourner/tinyqueue) | 3.0.0 | ISC |
 | [tslib](https://github.com/Microsoft/tslib) | 2.8.1 | 0BSD |
 | [typescript](https://github.com/microsoft/TypeScript) | 5.9.3 | Apache-2.0 |
-| [undici-types](https://github.com/nodejs/undici) | 8.3.0 | MIT |
+| [undici-types](https://github.com/nodejs/undici) | 8.9.0 | MIT |
 | [use-callback-ref](https://github.com/theKashey/use-callback-ref/) | 1.3.3 | MIT |
 | [use-sidecar](https://github.com/theKashey/use-sidecar) | 1.1.3 | MIT |
 | [use-sync-external-store](https://github.com/facebook/react) | 1.6.0 | MIT |
 | [victory-vendor](https://github.com/FormidableLabs/victory) | 37.3.6 | MIT AND ISC |
-| [ws](https://github.com/websockets/ws) | 8.21.3 | MIT |
-| [xtend](git://github.com/Raynos/xtend) | 4.0.2 | MIT |
+| [ws](https://github.com/websockets/ws) | 8.22.0 | MIT |
 
 ### @babel/runtime 7.29.7 — MIT
 
@@ -678,7 +670,7 @@ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ```
 
-### @maplibre/maplibre-gl-style-spec 26.4.1 — ISC
+### @maplibre/maplibre-gl-style-spec 26.4.4 — ISC
 
 ```
 Copyright (c) 2020, MapLibre contributors
@@ -799,7 +791,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### @maplibre/mlt 1.2.0 — (MIT OR Apache-2.0)
+### @maplibre/mlt 1.3.0 — (MIT OR Apache-2.0)
 
 ```
 ===== MIT License =====
@@ -1026,7 +1018,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -3019,7 +3011,7 @@ MIT License
     SOFTWARE
 ```
 
-### @types/node 26.4.0 — MIT
+### @types/node 26.6.4 — MIT
 
 ```
 MIT License
@@ -3045,7 +3037,7 @@ MIT License
     SOFTWARE
 ```
 
-### @types/react 19.2.18 — MIT
+### @types/react 19.3.0 — MIT
 
 ```
 MIT License
@@ -3071,7 +3063,7 @@ MIT License
     SOFTWARE
 ```
 
-### @types/react-dom 19.2.5 — MIT
+### @types/react-dom 19.3.0 — MIT
 
 ```
 MIT License
@@ -3173,6 +3165,33 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+```
+
+### bidi-js 1.1.0 — MIT
+
+```
+Copyright (c) 2021 Jason Johnston
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ### class-variance-authority 0.7.1 — Apache-2.0
@@ -3382,30 +3401,6 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
-### core-util-is 1.0.3 — MIT
-
-```
-Copyright Node.js contributors. All rights reserved.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to
-deal in the Software without restriction, including without limitation the
-rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-sell copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-IN THE SOFTWARE.
 ```
 
 ### csstype 3.2.3 — MIT
@@ -3722,7 +3717,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### drizzle-orm 0.45.2 — Apache-2.0
+### drizzle-orm 0.45.3 — Apache-2.0
 
 This package declares `Apache-2.0` in its manifest but does not ship a licence file. Upstream: https://github.com/drizzle-team/drizzle-orm. The standard text of that licence is reproduced below.
 
@@ -3919,7 +3914,7 @@ Apache License
    limitations under the License.
 ```
 
-### earcut 3.2.3 — ISC
+### earcut 3.2.4 — ISC
 
 ```
 ISC License
@@ -4120,32 +4115,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### if-async 3.7.4 — MIT
-
-```
-The MIT License (MIT)
-
-Copyright (c) 2014 Yaniv Kessler
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
 ### immer 11.1.18 — MIT
 
 ```
@@ -4170,26 +4139,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-```
-
-### inherits 2.0.4 — ISC
-
-```
-The ISC License
-
-Copyright (c) Isaac Z. Schlueter
-
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted, provided that the above
-copyright notice and this permission notice appear in all copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
-REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
-FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
-INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
-LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
-OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
-PERFORMANCE OF THIS SOFTWARE.
 ```
 
 ### ini 2.0.0 — ISC
@@ -4228,34 +4177,6 @@ INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
 OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
-```
-
-### isarray 0.0.1 — MIT
-
-This package declares `MIT` in its manifest but does not ship a licence file. Upstream: git://github.com/juliangruber/isarray. The standard text of that licence is reproduced below.
-
-```
-MIT License
-
-Copyright (c) Julian Gruber
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
 ```
 
 ### json-stringify-pretty-compact 4.0.0 — MIT
@@ -4304,7 +4225,7 @@ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ```
 
-### lucide-react 1.39.0 — ISC
+### lucide-react 1.52.0 — ISC
 
 ```
 ISC License
@@ -4352,7 +4273,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### maplibre-gl 6.6.0 — BSD-3-Clause
+### maplibre-gl 6.12.0 — BSD-3-Clause
 
 ```
 Copyright (c) 2023, MapLibre contributors
@@ -4714,7 +4635,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### react 19.2.8 — MIT
+### react 19.3.0 — MIT
 
 ```
 MIT License
@@ -4740,7 +4661,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### react-dom 19.2.8 — MIT
+### react-dom 19.3.0 — MIT
 
 ```
 MIT License
@@ -4766,7 +4687,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### react-i18next 17.0.14 — MIT
+### react-i18next 17.0.15 — MIT
 
 ```
 The MIT License (MIT)
@@ -4924,29 +4845,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### readable-stream 1.0.34 — MIT
-
-```
-Copyright Joyent, Inc. and other Node contributors. All rights reserved.
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to
-deal in the Software without restriction, including without limitation the
-rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-sell copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-IN THE SOFTWARE.
-```
-
 ### recharts 3.10.1 — MIT
 
 ```
@@ -5025,12 +4923,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### regedit 5.1.4 — MIT
+### require-from-string 2.0.2 — MIT
 
 ```
 The MIT License (MIT)
 
-Copyright (c) 2014 ironSource
+Copyright (c) Vsevolod Strukchinsky <floatdrop@gmail.com> (github.com/floatdrop)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -5039,16 +4937,16 @@ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 ```
 
 ### reselect 5.2.0 — MIT
@@ -5103,7 +5001,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### scheduler 0.27.0 — MIT
+### scheduler 0.28.0 — MIT
 
 ```
 MIT License
@@ -5155,60 +5053,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### stream-slicer 0.0.6 — MIT
-
-This package declares `MIT` in its manifest but does not ship a licence file. Upstream: https://github.com/kessler/stream-slicer. The standard text of that licence is reproduced below.
-
-```
-MIT License
-
-Copyright (c) Yaniv Kessler
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-### string_decoder 0.10.31 — MIT
-
-```
-Copyright Joyent, Inc. and other Node contributors.
-
-Permission is hereby granted, free of charge, to any person obtaining a
-copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to permit
-persons to whom the Software is furnished to do so, subject to the
-following conditions:
-
-The above copyright notice and this permission notice shall be included
-in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
-NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
-### tailwind-merge 3.6.0 — MIT
+### tailwind-merge 3.7.0 — MIT
 
 ```
 MIT License
@@ -5232,50 +5077,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-```
-
-### through2 0.6.5 — MIT
-
-```
-Copyright 2013, Rod Vagg (the "Original Author")
-All rights reserved.
-
-MIT +no-false-attribs License
-
-Permission is hereby granted, free of charge, to any person
-obtaining a copy of this software and associated documentation
-files (the "Software"), to deal in the Software without
-restriction, including without limitation the rights to use,
-copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the
-Software is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-Distributions of all or part of the Software intended to be used
-by the recipients as they would use the unmodified Software,
-containing modifications that substantially alter, remove, or
-disable functionality of the Software, outside of the documented
-configuration mechanisms provided by the Software, shall be
-modified such that the Original Author's bug reporting email
-addresses and urls are either replaced with the contact information
-of the parties responsible for the changes, or removed entirely.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
-OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-OTHER DEALINGS IN THE SOFTWARE.
-
-
-Except where noted, this license applies to any and all software
-programs and associated documentation files created by the
-Original Author, when distributed with the Software.
 ```
 
 ### tiny-invariant 1.3.3 — MIT
@@ -5401,7 +5202,7 @@ If the Work includes a "NOTICE" text file as part of its distribution, then any 
 END OF TERMS AND CONDITIONS
 ```
 
-### undici-types 8.3.0 — MIT
+### undici-types 8.9.0 — MIT
 
 ```
 MIT License
@@ -5551,7 +5352,7 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-### ws 8.21.3 — MIT
+### ws 8.22.0 — MIT
 
 ```
 Copyright (c) 2011 Einar Otto Stangvik <einaros@gmail.com>
@@ -5574,31 +5375,6 @@ FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
-### xtend 4.0.2 — MIT
-
-```
-The MIT License (MIT)
-Copyright (c) 2012-2014 Raynos.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
 ```
 
 ---
