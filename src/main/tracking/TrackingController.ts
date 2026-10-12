@@ -14,6 +14,7 @@ import type { SimAirfieldMatch } from '../airports/sim-airfield'
 import type { SimConnectSource, TouchdownSeverity } from '../sim/SimConnectSource'
 import { FlightRecorder, MOVING_MS } from './FlightRecorder'
 import { seedPhaseFromTelemetry } from './free-flight'
+import { landingRunwayResolver } from '../airports/landing-runway'
 import { buildLandingRecord } from './landing-capture'
 import {
   isPhysicallyImpossibleJump,
@@ -277,13 +278,15 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
         ? this.lastTouchdownSeverity.result
         : undefined
     this.lastTouchdownSeverity = undefined
+    const landingIcao = resolvedIcao ?? flight.arrIcao
     const record = buildLandingRecord(
       flightId,
       seq,
-      resolvedIcao ?? flight.arrIcao,
+      landingIcao,
       telemetry,
       touchdownTsUtc,
-      undefined,
+      // The sim's own runways first, when cached for this airport: that is where the aircraft actually was.
+      landingRunwayResolver(this.store.listRunways(landingIcao)),
       previousTelemetry,
       touchdownSeverity
     )

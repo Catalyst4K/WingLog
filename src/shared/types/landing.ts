@@ -35,6 +35,9 @@ export interface Landing {
   flapSetting: number | null
   /** Always 'derived' for now — see the schema.ts column comment. */
   touchdownSource: 'simvar' | 'derived'
+  /** Whose runway the position was measured against: the sim's own or the airport database's. Null for a landing recorded before
+   *  this was stored, which was measured against the database. */
+  runwaySource: 'database' | 'sim' | null
 }
 
 /** One row per aircraft-with-a-landing-record, newest first, before its score is resolved

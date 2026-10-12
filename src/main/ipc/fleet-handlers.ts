@@ -104,7 +104,7 @@ export function registerFleetHandlers(
       const icao = row.icao ?? row.arrIcao
       return {
         ...row,
-        ...resolveLandingScore(row, icao, icaoType)
+        ...resolveLandingScore(db, row, icao, icaoType)
       }
     })
   })

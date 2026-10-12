@@ -461,7 +461,8 @@ describe('sync-engine', () => {
       distanceFromThresholdM: null,
       centrelineOffsetM: null,
       flapSetting: null,
-      touchdownSource: 'derived'
+      touchdownSource: 'derived',
+      runwaySource: 'sim'
     })
 
     const result = await runSync(db, server, SESSION, dbPath)
@@ -472,6 +473,8 @@ describe('sync-engine', () => {
     const data = JSON.parse(pushed[0].data) as Record<string, unknown>
     expect(data.flightUuid).toBeTypeOf('string')
     expect(data.flightId).toBeUndefined()
+    // Which runway source the touchdown was measured against travels with it.
+    expect(data.runwaySource).toBe('sim')
   })
 
   it('does not push a landing or flightInvoice whose parent flight has no uuid yet, and retries it next sync', async () => {
@@ -506,7 +509,8 @@ describe('sync-engine', () => {
       distanceFromThresholdM: null,
       centrelineOffsetM: null,
       flapSetting: null,
-      touchdownSource: 'derived'
+      touchdownSource: 'derived',
+      runwaySource: null
     })
     addInvoicesForFlight(db, createdFlight.id, [
       {

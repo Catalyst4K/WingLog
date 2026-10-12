@@ -40,6 +40,7 @@ function telemetry(overrides: Partial<SimTelemetry> = {}): SimTelemetry {
 const RUNWAY_27L: RunwayEnd = {
   icao: 'EGLL',
   ident: '27L',
+  source: 'database',
   lat: 51.4775,
   lon: -0.4614,
   headingTrueDeg: 270,

@@ -133,6 +133,7 @@ const baseLanding: LandingListRow = {
   centrelineOffsetM: 1,
   flapSetting: 4,
   touchdownSource: 'derived',
+  runwaySource: null,
   flightNumber: 'BAW304',
   aircraftRegistration: 'G-EUYB',
   depIcao: 'EGLL',

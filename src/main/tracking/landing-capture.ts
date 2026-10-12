@@ -102,7 +102,13 @@ export function buildLandingRecord(
 /** The landing's fields that need the runway: all null when it couldn't be resolved. */
 type RunwayFields = Pick<
   NewLanding,
-  'headwindMs' | 'crosswindMs' | 'crabDeg' | 'runwayIdent' | 'distanceFromThresholdM' | 'centrelineOffsetM'
+  | 'headwindMs'
+  | 'crosswindMs'
+  | 'crabDeg'
+  | 'runwayIdent'
+  | 'distanceFromThresholdM'
+  | 'centrelineOffsetM'
+  | 'runwaySource'
 >
 
 /**
@@ -120,7 +126,8 @@ function runwayFields(telemetry: SimTelemetry, runway: RunwayEnd | null): Runway
       crabDeg: null,
       runwayIdent: null,
       distanceFromThresholdM: null,
-      centrelineOffsetM: null
+      centrelineOffsetM: null,
+      runwaySource: null
     }
   }
   const position = positionRelativeToRunway(
@@ -138,6 +145,7 @@ function runwayFields(telemetry: SimTelemetry, runway: RunwayEnd | null): Runway
     // From the usable (displacement-adjusted) threshold, not the physical end `position` is
     // measured from (runway-lookup.ts's RunwayEnd.lat explains the difference).
     distanceFromThresholdM: distanceFromUsableThresholdM(position, runway),
-    centrelineOffsetM: position.centrelineOffsetM
+    centrelineOffsetM: position.centrelineOffsetM,
+    runwaySource: runway.source
   }
 }

@@ -633,6 +633,9 @@
       "airspeedGroundSpeed": "Fluggeschwindigkeit / Geschwindigkeit über Grund",
       "headwindCrosswind": "Gegenwind / Seitenwind",
       "runway": "Landebahn",
+      "runwayData": "Pistendaten",
+      "runwayDataSim": "Simulator",
+      "runwayDataDatabase": "Flughafendatenbank",
       "distanceFromThreshold": "Abstand zur Schwelle",
       "centrelineOffset": "Abweichung von der Mittellinie",
       "scoreBreakdown": "Bewertungsdetails"

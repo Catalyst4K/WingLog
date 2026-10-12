@@ -7,7 +7,7 @@
  * as airport-search.ts/icao-types.ts.
  */
 
-import type { LandingRunway } from '@shared/ipc'
+import type { LandingRunway, NavdataRunway } from '@shared/ipc'
 import { columnIndex, parseCsvRows } from '../db/csv'
 import { angularDifference, positionRelativeToRunway, type RunwayRelativePosition } from './landing-maths'
 import runwaysRaw from '../../../resources/runways.csv?raw'
@@ -17,6 +17,8 @@ import { METRES_PER_FOOT } from '@shared/units'
 export interface RunwayEnd {
   icao: string
   ident: string
+  /** Whose data this end is: the vendored OurAirports slice, or the sim's own facility data. Stored on a landing, so a later lookup uses the same. */
+  source: 'database' | 'sim'
   /** This end's physical threshold position (OurAirports' `le_latitude_deg`/`he_latitude_deg` etc.): the centre of the physical
    *  runway end, since OurAirports' length_ft includes displaced thresholds, not the displacement-adjusted usable threshold.
    *  Matching and gating below use this physical point deliberately: a touchdown short of a displaced threshold but still on the
@@ -105,6 +107,7 @@ export function loadRunwayEnds(raw: string): RunwayEnd[] {
     ends.push({
       icao: row[icaoIdx].toUpperCase(),
       ident: row[identIdx],
+      source: 'database',
       lat,
       lon,
       headingTrueDeg,
@@ -117,6 +120,32 @@ export function loadRunwayEnds(raw: string): RunwayEnd[] {
     })
   }
   return ends
+}
+
+/**
+ * An airport's runway ends from the sim's own facility data, as cached in `navdata_runway`: where MSFS really puts them. The sim's
+ * threshold is the usable one (its runway length already leaves out a displaced part), so there is no displacement to subtract; the
+ * width and length are the sim's; what the sim doesn't give (elevation, surface) stays unknown.
+ *
+ * @param icao The airport.
+ * @param runways Its cached runways.
+ * @returns One end per cached runway end.
+ */
+export function runwayEndsFromNavdata(icao: string, runways: NavdataRunway[]): RunwayEnd[] {
+  return runways.map((runway) => ({
+    icao: icao.toUpperCase(),
+    ident: runway.ident,
+    source: 'sim',
+    lat: runway.thresholdLat,
+    lon: runway.thresholdLon,
+    headingTrueDeg: runway.headingTrueDeg,
+    lengthM: runway.lengthM,
+    widthM: runway.widthM,
+    displacedThresholdM: 0,
+    elevationM: null,
+    surface: null,
+    aimingPointDistanceM: aimingPointDistanceForLengthM(runway.lengthM)
+  }))
 }
 
 // A touchdown heading more than this far from a runway end's published heading isn't
