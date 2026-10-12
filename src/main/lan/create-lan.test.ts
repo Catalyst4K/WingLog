@@ -25,7 +25,25 @@ const NAVDATA = {
   hasTaxiNetwork: (icao: string) => icao === 'WSSS',
   refreshTaxiNetwork: () => Promise.resolve(),
   getTaxiNetwork: (icao: string) => [{ icao }] as never,
-  getStands: (icao: string) => Promise.resolve([{ icao }] as never)
+  getStands: (icao: string) => Promise.resolve([{ icao }] as never),
+  refreshAirport: () => Promise.resolve(),
+  listRunways: (icao: string) => [{ ident: '02L', icao }] as never,
+  listSids: (icao: string, runway: string | null) => [{ kind: 'sid', icao, runway }] as never,
+  listStars: (icao: string, runway: string | null) => [{ kind: 'star', icao, runway }] as never,
+  listApproaches: (icao: string, runway: string | null) => [{ kind: 'approach', icao, runway }] as never,
+  getProcedureWaypoints: (
+    icao: string,
+    kind: string,
+    identifier: string,
+    runway: string | null,
+    transition: string | null
+  ) => [{ icao, kind, identifier, runway, transition }] as never
+}
+
+const TRACKING = {
+  getActive: () => undefined,
+  getProcedureSelection: () => undefined,
+  setProcedureSelection: () => undefined
 }
 
 describe('lanQueries', () => {
@@ -41,6 +59,34 @@ describe('lanQueries', () => {
 
   it('lists the airfields', () => {
     expect(Array.isArray(queries.airfields(undefined))).toBe(true)
+  })
+
+  it('answers the runways and procedures for the Procedures dialog', async () => {
+    expect(queries['navdata.listRunways']('WSSS')).toEqual([{ ident: '02L', icao: 'WSSS' }])
+    expect(queries['navdata.listSids']('WSSS', '02L')).toEqual([{ kind: 'sid', icao: 'WSSS', runway: '02L' }])
+    expect(queries['navdata.listStars']('WSSS')).toEqual([{ kind: 'star', icao: 'WSSS', runway: null }])
+    expect(queries['navdata.listApproaches']('WSSS', null)).toEqual([
+      { kind: 'approach', icao: 'WSSS', runway: null }
+    ])
+    expect(queries['navdata.procedureWaypoints']('WSSS', 'star', 'TEBU1B', '20R', undefined)).toEqual([
+      { icao: 'WSSS', kind: 'star', identifier: 'TEBU1B', runway: '20R', transition: null }
+    ])
+    await expect(queries['navdata.refreshAirport']('WSSS')).resolves.toBeUndefined()
+  })
+
+  it('refuses a procedure query with a bad airport, kind, name or runway', () => {
+    expect(() => queries['navdata.listSids']('WSSS', 5)).toThrow('Invalid name')
+    expect(() => queries['navdata.listSids']('WSSS', 'x'.repeat(41))).toThrow('Invalid name')
+    expect(() => queries['navdata.listSids']('../x', null)).toThrow('Invalid airport')
+    expect(() => queries['navdata.procedureWaypoints']('WSSS', 'taxi', 'X', null, null)).toThrow(
+      'Invalid procedure'
+    )
+    expect(() => queries['navdata.procedureWaypoints']('WSSS', 'star', '', null, null)).toThrow(
+      'Invalid name'
+    )
+    expect(() => queries['navdata.procedureWaypoints']('WSSS', 'star', null, null, null)).toThrow(
+      'Invalid procedure'
+    )
   })
 
   it('refuses anything that is not an airport code', () => {
@@ -70,7 +116,7 @@ describe('createLan', () => {
     lan = createLan({
       db,
       liveHub: hub,
-      trackingController: { getActive: () => undefined },
+      trackingController: TRACKING,
       navdata: NAVDATA,
       pageFolder,
       testAddress: '127.0.0.1'
@@ -132,7 +178,7 @@ describe('createLan', () => {
     const real = createLan({
       db,
       liveHub: new LiveHub(),
-      trackingController: { getActive: () => undefined },
+      trackingController: TRACKING,
       navdata: NAVDATA,
       pageFolder: tmpdir()
     })

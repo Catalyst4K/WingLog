@@ -86,7 +86,8 @@ export const electronLiveClient: LiveClient = {
       'gsx.toggleMenu': () => w.gsxRemoteToggleMenu(),
       'gsx.submitPrompt': (gen, text) => w.gsxRemoteSubmitPrompt(gen, text),
       'gsx.cancelPrompt': (gen) => w.gsxRemoteCancelPrompt(gen),
-      'gsx.runCommand': (id) => w.gsxRemoteRunCommand(id)
+      'gsx.runCommand': (id) => w.gsxRemoteRunCommand(id),
+      'track.setProcedureSelection': (selection) => w.trackingSetProcedureSelection(selection)
     }
     return (commands[name] as (...a: LiveCommands[typeof name]) => Promise<void>)(...args)
   }

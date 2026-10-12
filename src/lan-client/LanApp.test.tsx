@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { FlightMapProps } from '@/FlightMap'
 import { LanApp } from './LanApp'
@@ -58,6 +58,122 @@ function setup(token: string | null = null) {
   link.start()
   return { link, sockets }
 }
+
+/** Stands in for the PC's navdata, the one thing the Procedures dialog reads through window.winglog. */
+function stubNavdata(overrides: Record<string, unknown> = {}): void {
+  window.winglog = {
+    navdataRefreshAirport: vi.fn().mockResolvedValue(undefined),
+    navdataListRunways: vi.fn().mockResolvedValue([{ ident: '02L' }, { ident: '02C' }]),
+    navdataListSids: vi.fn().mockResolvedValue([]),
+    navdataListStars: vi.fn().mockResolvedValue([]),
+    navdataListApproaches: vi.fn().mockResolvedValue([]),
+    navdataGetProcedureWaypoints: vi.fn().mockResolvedValue([]),
+    appLogRendererError: vi.fn().mockResolvedValue(undefined),
+    ...overrides
+  } as unknown as typeof window.winglog
+}
+
+const FLIGHT_WITH_SELECTION = {
+  flight: {
+    flightId: 7,
+    depIcao: 'WSSS',
+    arrIcao: 'EGLL',
+    flightNumber: null,
+    schedInUtc: null,
+    registration: null,
+    icaoType: null,
+    ofpJson: null,
+    selection: {
+      departureRunway: null,
+      sidIdent: 'KAMI2A',
+      sidTransition: null,
+      starIdent: 'SIER7B',
+      starTransition: null,
+      approachIdent: 'ILS 27L',
+      approachTransition: null,
+      arrivalIcao: null
+    }
+  },
+  trackPoints: []
+}
+
+describe('the Procedures button', () => {
+  it('shows what is chosen, and nothing-selected-yet when nothing is', () => {
+    stubNavdata()
+    const { link, sockets } = setup('tok')
+    render(<LanApp link={link} />)
+    act(() => {
+      sockets[0].onopen?.()
+      sockets[0].say({ t: 'snapshot', topics: {}, flight: FLIGHT_WITH_SELECTION })
+    })
+    expect(screen.getByRole('button', { name: 'Procedures…' })).toBeInTheDocument()
+    expect(screen.getByText('KAMI2A · SIER7B · ILS 27L')).toBeInTheDocument()
+  })
+
+  it('is not shown before a flight is being tracked', () => {
+    stubNavdata()
+    const { link, sockets } = setup('tok')
+    render(<LanApp link={link} />)
+    act(() => {
+      sockets[0].onopen?.()
+      sockets[0].say({ t: 'snapshot', topics: {}, flight: null })
+    })
+    expect(screen.queryByRole('button', { name: 'Procedures…' })).not.toBeInTheDocument()
+  })
+
+  it('opens the same dialog as the Track screen, and sends a choice to the PC', async () => {
+    stubNavdata()
+    const { link, sockets } = setup('tok')
+    render(<LanApp link={link} />)
+    act(() => {
+      sockets[0].onopen?.()
+      sockets[0].say({
+        t: 'snapshot',
+        topics: {},
+        flight: {
+          ...FLIGHT_WITH_SELECTION,
+          flight: {
+            ...FLIGHT_WITH_SELECTION.flight,
+            selection: {
+              ...FLIGHT_WITH_SELECTION.flight.selection,
+              sidIdent: null,
+              starIdent: null,
+              approachIdent: null
+            }
+          }
+        }
+      })
+    })
+    expect(screen.getByText('Nothing selected yet')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Procedures…' }))
+    const dialog = await screen.findByRole('dialog')
+    const runway = within(within(dialog).getByText('Departure runway').closest('div')!).getByRole('combobox')
+    await userEvent.click(runway)
+    await userEvent.click(await screen.findByRole('option', { name: '02C' }))
+    expect(sockets[0].sent.at(-1)).toEqual({
+      t: 'cmd',
+      name: 'track.setProcedureSelection',
+      args: [expect.objectContaining({ departureRunway: '02C' })]
+    })
+  })
+
+  it('still shows the choice when the link is down, without throwing', async () => {
+    stubNavdata()
+    const { link, sockets } = setup('tok')
+    render(<LanApp link={link} />)
+    act(() => {
+      sockets[0].onopen?.()
+      sockets[0].say({ t: 'snapshot', topics: {}, flight: FLIGHT_WITH_SELECTION })
+    })
+    act(() => sockets[0].onclose?.())
+    await userEvent.click(screen.getByRole('button', { name: 'Procedures…' }))
+    const dialog = await screen.findByRole('dialog')
+    const runway = within(within(dialog).getByText('Departure runway').closest('div')!).getByRole('combobox')
+    await userEvent.click(runway)
+    await userEvent.click(await screen.findByRole('option', { name: '02L' }))
+    expect(runway).toHaveTextContent('02L')
+  })
+})
 
 describe('LanApp', () => {
   it('asks for the pairing code first, and sends it to the PC', async () => {

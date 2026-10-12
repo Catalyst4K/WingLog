@@ -1181,6 +1181,13 @@ describe('TrackingController', () => {
       arrivalIcao: 'EGKK'
     }
 
+    it('remembers the last-pushed selection and gives it back', () => {
+      const controller = new TrackingController(dbFlightStore(db), sim)
+      expect(controller.getProcedureSelection()).toBeUndefined()
+      controller.setProcedureSelection(selection)
+      expect(controller.getProcedureSelection()).toEqual(selection)
+    })
+
     it('writes the last-pushed selection into the flight row on finish()', () => {
       sim.setLastTelemetry(telemetry({}))
       const controller = new TrackingController(dbFlightStore(db), sim)

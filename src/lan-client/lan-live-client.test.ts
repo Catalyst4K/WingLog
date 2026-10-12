@@ -7,7 +7,10 @@ class FakeSocket implements LinkSocket {
   onopen: (() => void) | null = null
   onmessage: ((event: { data: unknown }) => void) | null = null
   onclose: (() => void) | null = null
-  send(): void {}
+  sent: unknown[] = []
+  send(text: string): void {
+    this.sent.push(JSON.parse(text))
+  }
   close(): void {}
 }
 
@@ -25,7 +28,7 @@ function connectedLink() {
   )
   link.start()
   const say = (message: unknown): void => sockets[0].onmessage?.({ data: JSON.stringify(message) })
-  return { link, say }
+  return { link, say, sent: sockets[0].sent }
 }
 
 describe('lanLiveClient', () => {
@@ -44,8 +47,11 @@ describe('lanLiveClient', () => {
     expect(seen).toEqual([{ state: 'disconnected' }])
   })
 
-  it('refuses every command: the page is view-only', async () => {
-    const { link } = connectedLink()
-    await expect(lanLiveClient(link).command('gsx.toggleMenu')).rejects.toThrow('view-only')
+  it('sends a command to the PC when connected, and rejects when it is not', async () => {
+    const { link, say, sent } = connectedLink()
+    await expect(lanLiveClient(link).command('gsx.toggleMenu')).rejects.toThrow('Not connected')
+    say({ t: 'snapshot', topics: {}, flight: null })
+    await expect(lanLiveClient(link).command('gsx.pickMenu', 2)).resolves.toBeUndefined()
+    expect(sent.at(-1)).toEqual({ t: 'cmd', name: 'gsx.pickMenu', args: [2] })
   })
 })

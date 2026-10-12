@@ -94,7 +94,7 @@ describe('LanServer', () => {
       devices: store.devices,
       flight: () => ({ route: ['WSSS', 'EGLL'] }),
       queries: {
-        echo: (arg) => arg,
+        echo: (...args) => args,
         later: (arg) => Promise.resolve(`later ${String(arg)}`),
         broken: () => {
           throw new Error('no')
@@ -368,17 +368,19 @@ describe('LanServer', () => {
     it('answers a lookup, including one that takes a moment, and says so when it cannot', async () => {
       const { pair } = await setup()
       const { client } = await pair()
-      client.send({ t: 'query', id: 1, name: 'echo', arg: { icao: 'WSSS' } })
-      client.send({ t: 'query', id: 2, name: 'later', arg: 'x' })
+      client.send({ t: 'query', id: 1, name: 'echo', args: [{ icao: 'WSSS' }, 'x'] })
+      client.send({ t: 'query', id: 2, name: 'later', args: ['x'] })
       client.send({ t: 'query', id: 3, name: 'broken' })
       client.send({ t: 'query', id: 4, name: 'settings.save' })
       client.send({ t: 'query', id: 5, name: '__proto__' })
       client.send({ t: 'query', id: 'six', name: 'echo' })
-      await client.waitFor(() => client.received.filter((m) => m.t === 'result').length === 5)
+      client.send({ t: 'query', id: 7, name: 'echo', args: 'not a list' })
+      client.send({ t: 'query', id: 8, name: 'echo', args: [1, 2, 3, 4, 5, 6, 7] })
+      await client.waitFor(() => client.received.filter((m) => m.t === 'result').length === 7)
       const results = client.received.filter((m) => m.t === 'result')
-      expect(results).toContainEqual({ t: 'result', id: 1, data: { icao: 'WSSS' } })
+      expect(results).toContainEqual({ t: 'result', id: 1, data: [{ icao: 'WSSS' }, 'x'] })
       expect(results).toContainEqual({ t: 'result', id: 2, data: 'later x' })
-      for (const id of [3, 4, 5]) expect(results).toContainEqual({ t: 'result', id, error: true })
+      for (const id of [3, 4, 5, 7, 8]) expect(results).toContainEqual({ t: 'result', id, error: true })
     })
 
     it('refuses a fifth lookup while four are still waiting', async () => {
@@ -392,7 +394,7 @@ describe('LanServer', () => {
     it('ignores lookups from a socket that has not authenticated', async () => {
       const { connect } = await setup()
       const client = await connect()
-      client.send({ t: 'query', id: 1, name: 'echo', arg: 1 })
+      client.send({ t: 'query', id: 1, name: 'echo', args: [1] })
       await new Promise((resolve) => setTimeout(resolve, 50))
       expect(client.received).toEqual([])
     })

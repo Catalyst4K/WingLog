@@ -137,6 +137,11 @@ test('the second screen follows a replayed flight, in portrait and landscape', a
     await portrait.getByRole('button', { name: 'Show taxi chart' }).click()
     await portrait.waitForTimeout(3_000)
     await portrait.screenshot({ path: join(OUT, '1b-portrait-vfr-taxi.png') })
+    await portrait.getByRole('button', { name: 'Procedures…' }).click()
+    await portrait.getByRole('dialog').waitFor()
+    await portrait.waitForTimeout(1_500)
+    await portrait.screenshot({ path: join(OUT, '1c-portrait-procedures.png'), animations: 'disabled' })
+    await portrait.keyboard.press('Escape')
     await portrait.waitForTimeout(12_000)
     await portrait.screenshot({ path: join(OUT, '2-portrait-descent.png') })
 

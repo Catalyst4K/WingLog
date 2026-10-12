@@ -612,6 +612,11 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     this.currentSelection = selection
   }
 
+  /** @returns The selection last pushed while this flight is tracked, if any. */
+  getProcedureSelection(): ProcedureSelection | undefined {
+    return this.currentSelection
+  }
+
   /**
    * Sets the destination of the free flight being tracked (blank/null = "not set", stored as
    * ZZZZ like the start dialog does). Only a free flight — a dispatched flight's arrival is

@@ -14,6 +14,34 @@ describe('installWindowShim', () => {
     expect(query).toHaveBeenCalledWith('taxi.refresh', 'WSSS')
   })
 
+  it('asks the PC for the runways and procedures the Procedures dialog lists', async () => {
+    const query = vi.fn((name: string, ...args: unknown[]) => Promise.resolve({ name, args }))
+    installWindowShim({ query })
+    const api = window.winglog
+    await expect(api.navdataListRunways('WSSS')).resolves.toEqual({
+      name: 'navdata.listRunways',
+      args: ['WSSS']
+    })
+    await expect(api.navdataListSids('WSSS', '02L')).resolves.toEqual({
+      name: 'navdata.listSids',
+      args: ['WSSS', '02L']
+    })
+    await expect(api.navdataListStars('WSSS')).resolves.toEqual({
+      name: 'navdata.listStars',
+      args: ['WSSS', null]
+    })
+    await expect(api.navdataListApproaches('WSSS', null)).resolves.toEqual({
+      name: 'navdata.listApproaches',
+      args: ['WSSS', null]
+    })
+    await expect(api.navdataGetProcedureWaypoints('WSSS', 'star', 'TEBU1B', '20R')).resolves.toEqual({
+      name: 'navdata.procedureWaypoints',
+      args: ['WSSS', 'star', 'TEBU1B', '20R', null]
+    })
+    await expect(api.navdataRefreshAirport('WSSS')).resolves.toBeUndefined()
+    expect(query).toHaveBeenCalledWith('navdata.refreshAirport', 'WSSS')
+  })
+
   it('carries on without a chart when the PC cannot refresh one', async () => {
     installWindowShim({ query: () => Promise.reject(new Error('no sim')) })
     await expect(window.winglog.navdataRefreshTaxiNetwork('WSSS')).resolves.toBeUndefined()

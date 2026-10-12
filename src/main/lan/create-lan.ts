@@ -15,6 +15,7 @@ import type { TrackingController } from '../tracking/TrackingController'
 import { listAirfields } from '../airports/airfields'
 import type { SimFacilitiesProvider } from '../navdata/sim-facilities-provider'
 import { listLanAddresses, type LanAddress } from './adapters'
+import { trackCommands } from '../live/commands'
 import { LanController } from './LanController'
 import { lanFlightSnapshot } from './lan-flight'
 import { LanServer, type StaticFile } from './LanServer'
@@ -24,11 +25,23 @@ import { staticFilesFrom } from './static-files'
 export interface CreateLanDeps {
   db: WingLogDb
   liveHub: Pick<LiveHub, 'subscribe' | 'snapshot'>
-  trackingController: Pick<TrackingController, 'getActive'>
-  /** The cached taxi charts and stands a device's map shows. */
+  trackingController: Pick<
+    TrackingController,
+    'getActive' | 'getProcedureSelection' | 'setProcedureSelection'
+  >
+  /** The cached taxi charts, stands and procedures a device's map and Procedures dialog show. */
   navdata: Pick<
     SimFacilitiesProvider,
-    'hasTaxiNetwork' | 'refreshTaxiNetwork' | 'getTaxiNetwork' | 'getStands'
+    | 'hasTaxiNetwork'
+    | 'refreshTaxiNetwork'
+    | 'getTaxiNetwork'
+    | 'getStands'
+    | 'refreshAirport'
+    | 'listRunways'
+    | 'listSids'
+    | 'listStars'
+    | 'listApproaches'
+    | 'getProcedureWaypoints'
   >
   /** The built page's folder (`out/lan`). */
   pageFolder: string
@@ -47,18 +60,45 @@ function icaoArg(value: unknown): string {
 }
 
 /**
- * The read-only lookups a device's map may ask for: the airfield list, and the taxi chart and stands of an airport by its code.
+ * @param value A runway, procedure or transition name from a device.
+ * @returns The name when it is a short string, or null when it is null or absent.
+ * @throws When it is anything else.
+ */
+function nameArg(value: unknown): string | null {
+  if (value === null || value === undefined) return null
+  if (typeof value !== 'string' || value.length === 0 || value.length > 40) throw new Error('Invalid name')
+  return value
+}
+
+/** The kinds of procedure a device may ask the legs of. */
+const PROCEDURE_KINDS = ['sid', 'star', 'approach'] as const
+
+/**
+ * The read-only lookups a device may ask for: the airfield list, and an airport's taxi chart, stands, runways and procedures by its code.
  *
  * @param navdata The cached navdata provider.
  * @returns The queries table.
  */
-export function lanQueries(navdata: CreateLanDeps['navdata']): Record<string, (arg: unknown) => unknown> {
+export function lanQueries(
+  navdata: CreateLanDeps['navdata']
+): Record<string, (...args: unknown[]) => unknown> {
   return {
     airfields: () => listAirfields(),
     'taxi.has': (icao) => navdata.hasTaxiNetwork(icaoArg(icao)),
     'taxi.refresh': (icao) => navdata.refreshTaxiNetwork(icaoArg(icao)),
     'taxi.get': (icao) => navdata.getTaxiNetwork(icaoArg(icao)),
-    stands: (icao) => navdata.getStands(icaoArg(icao))
+    stands: (icao) => navdata.getStands(icaoArg(icao)),
+    'navdata.refreshAirport': (icao) => navdata.refreshAirport(icaoArg(icao)),
+    'navdata.listRunways': (icao) => navdata.listRunways(icaoArg(icao)),
+    'navdata.listSids': (icao, runway) => navdata.listSids(icaoArg(icao), nameArg(runway)),
+    'navdata.listStars': (icao, runway) => navdata.listStars(icaoArg(icao), nameArg(runway)),
+    'navdata.listApproaches': (icao, runway) => navdata.listApproaches(icaoArg(icao), nameArg(runway)),
+    'navdata.procedureWaypoints': (icao, kind, identifier, runway, transition) => {
+      const checked = PROCEDURE_KINDS.find((k) => k === kind)
+      const name = nameArg(identifier)
+      if (!checked || name === null) throw new Error('Invalid procedure')
+      return navdata.getProcedureWaypoints(icaoArg(icao), checked, name, nameArg(runway), nameArg(transition))
+    }
   }
 }
 
@@ -81,14 +121,19 @@ export function createLan({
   let files: ((path: string) => StaticFile | null) | undefined
   const server = new LanServer({
     hub: liveHub,
-    commands: {},
+    commands: trackCommands(trackingController),
     devices: {
       add: (name, tokenHash) => addLanDevice(db, name, tokenHash, new Date().toISOString()),
       find: (tokenHash) => findActiveLanDevice(db, tokenHash),
       touch: (id) => touchLanDevice(db, id, new Date().toISOString())
     },
     queries: lanQueries(navdata),
-    flight: () => lanFlightSnapshot(db, trackingController.getActive()?.flightId),
+    flight: () =>
+      lanFlightSnapshot(
+        db,
+        trackingController.getActive()?.flightId,
+        trackingController.getProcedureSelection()
+      ),
     staticFile: (path) => (files ??= staticFilesFrom(pageFolder))(path),
     now: () => Date.now()
   })

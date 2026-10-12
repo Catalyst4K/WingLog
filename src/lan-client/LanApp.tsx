@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { LiveTopic, LiveTopics } from '@shared/live'
-import type { LanFlight, SimTelemetry, TrackPoint } from '@shared/ipc'
+import type { LanFlight, LanFlightSnapshot, ProcedureSelection, SimTelemetry, TrackPoint } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { FlightMap } from '@/FlightMap'
 import { realIcao } from '@/display-icao'
+import type { Waypoint } from '@/route'
 import {
   computeTrackTimes,
   formatDuration,
@@ -15,7 +17,9 @@ import {
   formatUtcTime,
   type TrackTimes
 } from '@/track-times'
-import { parseTransitionAltitudes, parseWaypointsFromOfpJson } from '@/route'
+import { ProcedureSelector } from '@/ProcedureSelector'
+import { emptyProcedureSelection, useLiveWaypoints, type ProcedureAirports } from '@/procedure-selection'
+import { parseTransitionAltitudes } from '@/route'
 import type { LanConnection, LanLinkState } from './lan-connection'
 
 /**
@@ -211,13 +215,69 @@ function useFlightTimes(args: {
 
 /**
  * @param props The link, and whether it has dropped.
- * @returns The element.
+ * @returns The element: the flight view, started afresh for each flight so its procedure choices follow the flight.
  */
 function FlightScreen({ link, offline }: { link: LanConnection; offline: boolean }): React.JSX.Element {
-  const { t } = useTranslation()
   const snapshot = useSyncExternalStore(
     (notify) => link.onFlight(() => notify()),
     () => link.flight
+  )
+  return (
+    <FlightView key={snapshot?.flight.flightId ?? 'none'} link={link} offline={offline} snapshot={snapshot} />
+  )
+}
+
+/**
+ * The Procedures button and what is chosen, as on the Track screen: the SID, STAR and approach, which the PC saves with the flight.
+ *
+ * @param props The flight's airports, the choice, what to do when it changes, and the route it builds.
+ * @returns The element.
+ */
+function ProceduresBar(props: {
+  airports: ProcedureAirports
+  selection: ProcedureSelection
+  onSelectionChange: (next: ProcedureSelection) => void
+  liveWaypoints: Waypoint[]
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  const { selection } = props
+  const chosen = [selection.sidIdent, selection.starIdent, selection.approachIdent]
+    .filter(Boolean)
+    .join(' · ')
+  return (
+    <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-1">
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button type="button" variant="outline" size="sm" className="h-8">
+            {t('trackView.proceduresEllipsis')}
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-h-[88dvh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t('trackView.procedures')}</DialogTitle>
+          </DialogHeader>
+          <ProcedureSelector {...props} />
+        </DialogContent>
+      </Dialog>
+      <span className="truncate text-xs text-muted-foreground">
+        {chosen || t('trackView.nothingSelectedYet')}
+      </span>
+    </div>
+  )
+}
+
+/**
+ * @param props The link, whether it has dropped, and the flight being tracked (null when none).
+ * @returns The element.
+ */
+function FlightView(props: {
+  link: LanConnection
+  offline: boolean
+  snapshot: LanFlightSnapshot | null
+}): React.JSX.Element {
+  const { link, offline, snapshot } = props
+  const [selection, setSelection] = useState<ProcedureSelection>(
+    snapshot?.flight.selection ?? emptyProcedureSelection()
   )
   const trackPoints = useSyncExternalStore(
     (notify) => link.onTrack(notify),
@@ -225,7 +285,13 @@ function FlightScreen({ link, offline }: { link: LanConnection; offline: boolean
   )
   const telemetry = useTopic(link, 'simTelemetry') as SimTelemetry | undefined
   const ofpJson = snapshot?.flight.ofpJson ?? null
-  const waypoints = useMemo(() => parseWaypointsFromOfpJson(ofpJson), [ofpJson])
+  const depIcao = snapshot?.flight.depIcao
+  const arrIcao = snapshot?.flight.arrIcao
+  const airports = useMemo<ProcedureAirports | null>(
+    () => (depIcao && arrIcao ? { depIcao, arrIcao, altnIcao: null, ofpJson } : null),
+    [depIcao, arrIcao, ofpJson]
+  )
+  const waypoints = useLiveWaypoints(airports, selection)
   const route = useMemo<[number, number][]>(() => waypoints.map((w) => [w.lon, w.lat]), [waypoints])
   const transition = useMemo(() => parseTransitionAltitudes(ofpJson), [ofpJson])
   const phase = trackPoints.at(-1)?.phase
@@ -237,20 +303,30 @@ function FlightScreen({ link, offline }: { link: LanConnection; offline: boolean
   })
   useCollapsedAttribution()
 
+  /**
+   * Chooses procedures here and tells the PC, which saves them with the flight as its own window's choice does.
+   *
+   * @param next The new choice.
+   */
+  const choose = (next: ProcedureSelection): void => {
+    setSelection(next)
+    try {
+      link.command('track.setProcedureSelection', next)
+    } catch {
+      // Offline: the choice shows here, and the PC keeps its own until the link is back and it is chosen again.
+    }
+  }
+
   return (
     <div className="flex h-dvh flex-col">
-      {offline && (
-        <p role="status" className="bg-destructive px-4 py-2 text-center text-sm text-white">
-          {t('lanPage.offline')}
-        </p>
-      )}
-      {!snapshot && !offline && (
-        <p role="status" className="bg-muted px-4 py-2 text-center text-sm text-muted-foreground">
-          {t('lanPage.noFlight')}
-        </p>
-      )}
-      {snapshot && <FlightBanner flight={snapshot.flight} />}
-      {snapshot && <TimesBanner times={times} />}
+      <FlightHeader
+        offline={offline}
+        snapshot={snapshot}
+        times={times}
+        procedures={
+          airports ? { airports, selection, onSelectionChange: choose, liveWaypoints: waypoints } : null
+        }
+      />
       <div className="min-h-0 flex-1">
         <FlightMap
           live
@@ -265,5 +341,38 @@ function FlightScreen({ link, offline }: { link: LanConnection; offline: boolean
         />
       </div>
     </div>
+  )
+}
+
+/**
+ * Everything above the map: the connection warning, or the flight's banners and Procedures bar.
+ *
+ * @param props Whether the link dropped, the flight, its times, and the procedures bar's props (null before the flight is known).
+ * @returns The element.
+ */
+function FlightHeader(props: {
+  offline: boolean
+  snapshot: LanFlightSnapshot | null
+  times: TrackTimes
+  procedures: Parameters<typeof ProceduresBar>[0] | null
+}): React.JSX.Element {
+  const { offline, snapshot, times, procedures } = props
+  const { t } = useTranslation()
+  return (
+    <>
+      {offline && (
+        <p role="status" className="bg-destructive px-4 py-2 text-center text-sm text-white">
+          {t('lanPage.offline')}
+        </p>
+      )}
+      {!snapshot && !offline && (
+        <p role="status" className="bg-muted px-4 py-2 text-center text-sm text-muted-foreground">
+          {t('lanPage.noFlight')}
+        </p>
+      )}
+      {snapshot && <FlightBanner flight={snapshot.flight} />}
+      {snapshot && <TimesBanner times={times} />}
+      {snapshot && procedures && <ProceduresBar {...procedures} />}
+    </>
   )
 }

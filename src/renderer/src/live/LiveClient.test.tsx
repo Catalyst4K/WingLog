@@ -34,7 +34,22 @@ const COMMANDS: { [C in LiveCommand]: [keyof WingLogApi, LiveCommands[C]] } = {
   'gsx.toggleMenu': ['gsxRemoteToggleMenu', []],
   'gsx.submitPrompt': ['gsxRemoteSubmitPrompt', [3, '12000']],
   'gsx.cancelPrompt': ['gsxRemoteCancelPrompt', [3]],
-  'gsx.runCommand': ['gsxRemoteRunCommand', ['RELOAD_SIMBRIEF']]
+  'gsx.runCommand': ['gsxRemoteRunCommand', ['RELOAD_SIMBRIEF']],
+  'track.setProcedureSelection': [
+    'trackingSetProcedureSelection',
+    [
+      {
+        departureRunway: '02L',
+        sidIdent: null,
+        sidTransition: null,
+        starIdent: 'TEBU1B',
+        starTransition: null,
+        approachIdent: null,
+        approachTransition: null,
+        arrivalIcao: null
+      }
+    ]
+  ]
 }
 
 function mockWinglog(): Record<string, ReturnType<typeof vi.fn>> {

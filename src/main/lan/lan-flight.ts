@@ -1,6 +1,6 @@
 /** What the second-screen server tells a device about the flight, read-only and assembled here so no database handle crosses. */
 
-import type { LanFlightSnapshot } from '@shared/ipc'
+import type { LanFlightSnapshot, ProcedureSelection } from '@shared/ipc'
 import type { WingLogDb } from '../db/client'
 import { getLiveAircraftById } from '../db/aircraft-repo'
 import { getLiveFlight } from '../db/flight-repo'
@@ -9,11 +9,13 @@ import { listTrackPoints } from '../db/track-point-repo'
 /**
  * @param db The database.
  * @param activeFlightId The flight being tracked, if any.
+ * @param chosen The SID, STAR and approach the PC's own window last chose; the flight's saved choice when left out.
  * @returns The active flight with its recorded track, or null when none is being tracked.
  */
 export function lanFlightSnapshot(
   db: WingLogDb,
-  activeFlightId: number | undefined
+  activeFlightId: number | undefined,
+  chosen?: ProcedureSelection
 ): LanFlightSnapshot | null {
   if (activeFlightId === undefined) return null
   const flight = getLiveFlight(db, activeFlightId)
@@ -28,7 +30,17 @@ export function lanFlightSnapshot(
       schedInUtc: flight.schedInUtc,
       registration: aircraft?.registration ?? null,
       icaoType: aircraft?.icaoType ?? null,
-      ofpJson: flight.ofpJson
+      ofpJson: flight.ofpJson,
+      selection: chosen ?? {
+        departureRunway: flight.selectedDepartureRunway,
+        sidIdent: flight.selectedSidIdent,
+        sidTransition: flight.selectedSidTransition,
+        starIdent: flight.selectedStarIdent,
+        starTransition: flight.selectedStarTransition,
+        approachIdent: flight.selectedApproachIdent,
+        approachTransition: flight.selectedApproachTransition,
+        arrivalIcao: flight.selectedArrivalIcao
+      }
     },
     trackPoints: listTrackPoints(db, flight.id)
   }

@@ -96,13 +96,25 @@ export class LanConnection {
   }
 
   /**
+   * Sends the PC a command (the same validated ones the app's own window uses).
+   *
+   * @param name The command's name.
+   * @param args Its arguments.
+   * @throws When the link is not up.
+   */
+  command(name: string, ...args: unknown[]): void {
+    if (!this.socket || this.current !== 'connected') throw new Error('Not connected')
+    this.socket.send(JSON.stringify({ t: 'cmd', name, args }))
+  }
+
+  /**
    * Asks the PC for read-only data the map needs (the airfield list, a taxi chart, stands).
    *
    * @param name The lookup's name.
-   * @param arg Its argument, such as an airport code.
+   * @param args Its arguments, such as an airport code.
    * @returns The answer; rejects when the link is down, the PC refuses, or nothing comes back within a minute.
    */
-  query(name: string, arg?: unknown): Promise<unknown> {
+  query(name: string, ...args: unknown[]): Promise<unknown> {
     const socket = this.socket
     if (!socket || this.current !== 'connected') return Promise.reject(new Error('Not connected'))
     const id = this.nextQueryId++
@@ -112,7 +124,7 @@ export class LanConnection {
         reject(new Error('The PC did not answer'))
       }, QUERY_TIMEOUT_MS)
       this.pendingQueries.set(id, { resolve, reject, timer })
-      socket.send(JSON.stringify({ t: 'query', id, name, arg }))
+      socket.send(JSON.stringify({ t: 'query', id, name, args }))
     })
   }
 

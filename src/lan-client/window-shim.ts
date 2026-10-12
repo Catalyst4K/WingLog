@@ -22,6 +22,26 @@ export function installWindowShim(link: Pick<LanConnection, 'query'>): void {
       ),
     navdataGetTaxiNetwork: (icao: string) => link.query('taxi.get', icao),
     navdataGetStands: (icao: string) => link.query('stands', icao),
+    // The Procedures dialog: the same cached runways and procedures the PC's own window lists.
+    navdataRefreshAirport: (icao: string) =>
+      link.query('navdata.refreshAirport', icao).then(
+        () => undefined,
+        () => undefined
+      ),
+    navdataListRunways: (icao: string) => link.query('navdata.listRunways', icao),
+    navdataListSids: (icao: string, runway?: string | null) =>
+      link.query('navdata.listSids', icao, runway ?? null),
+    navdataListStars: (icao: string, runway?: string | null) =>
+      link.query('navdata.listStars', icao, runway ?? null),
+    navdataListApproaches: (icao: string, runway?: string | null) =>
+      link.query('navdata.listApproaches', icao, runway ?? null),
+    navdataGetProcedureWaypoints: (
+      icao: string,
+      kind: string,
+      identifier: string,
+      runway?: string | null,
+      transition?: string | null
+    ) => link.query('navdata.procedureWaypoints', icao, kind, identifier, runway ?? null, transition ?? null),
     onBeyondAtcTranscript: () => () => undefined
   }
   const shim = new Proxy(known, {

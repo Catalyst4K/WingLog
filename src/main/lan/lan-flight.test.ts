@@ -53,8 +53,51 @@ describe('lanFlightSnapshot', () => {
       schedInUtc: null,
       registration: '9V-SKA',
       icaoType: 'A388',
-      ofpJson: '{"general":{}}'
+      ofpJson: '{"general":{}}',
+      selection: {
+        departureRunway: null,
+        sidIdent: null,
+        sidTransition: null,
+        starIdent: null,
+        starTransition: null,
+        approachIdent: null,
+        approachTransition: null,
+        arrivalIcao: null
+      }
     })
     expect(snapshot?.trackPoints).toEqual([])
+  })
+
+  it('gives the flight’s saved procedures, or the ones the PC’s window chose when it has chosen', () => {
+    const db = freshDb()
+    const aircraftId = createAircraft(db, { registration: '9V-SKA', icaoType: 'A388' }).id
+    const flight = createFlight(db, {
+      aircraftId,
+      depIcao: 'WSSS',
+      arrIcao: 'EGLL',
+      status: 'active',
+      selectedDepartureRunway: '02L',
+      selectedSidIdent: 'KAMI2A',
+      selectedStarIdent: 'SIER7B',
+      selectedApproachIdent: 'ILS 27L',
+      selectedArrivalIcao: null
+    })
+    expect(lanFlightSnapshot(db, flight.id)?.flight.selection).toMatchObject({
+      departureRunway: '02L',
+      sidIdent: 'KAMI2A',
+      starIdent: 'SIER7B',
+      approachIdent: 'ILS 27L'
+    })
+    const chosen = {
+      departureRunway: '02C',
+      sidIdent: null,
+      sidTransition: null,
+      starIdent: 'TEBU1B',
+      starTransition: null,
+      approachIdent: null,
+      approachTransition: null,
+      arrivalIcao: null
+    }
+    expect(lanFlightSnapshot(db, flight.id, chosen)?.flight.selection).toEqual(chosen)
   })
 })

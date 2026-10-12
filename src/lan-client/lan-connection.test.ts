@@ -183,13 +183,36 @@ describe('LanConnection', () => {
       const first = link.query('taxi.get', 'WSSS')
       const second = link.query('airfields')
       expect(sockets[0].sent.slice(1)).toEqual([
-        { t: 'query', id: 1, name: 'taxi.get', arg: 'WSSS' },
-        { t: 'query', id: 2, name: 'airfields' }
+        { t: 'query', id: 1, name: 'taxi.get', args: ['WSSS'] },
+        { t: 'query', id: 2, name: 'airfields', args: [] }
       ])
       sockets[0].say({ t: 'result', id: 2, data: ['EGLL'] })
       sockets[0].say({ t: 'result', id: 1, data: [{ a: 1 }] })
       await expect(first).resolves.toEqual([{ a: 1 }])
       await expect(second).resolves.toEqual(['EGLL'])
+    })
+
+    it('sends several arguments in order', () => {
+      const { link, sockets } = liveLink()
+      void link.query('navdata.listSids', 'WSSS', null)
+      expect(sockets[0].sent.at(-1)).toEqual({
+        t: 'query',
+        id: 1,
+        name: 'navdata.listSids',
+        args: ['WSSS', null]
+      })
+    })
+
+    it('sends a command to the PC, and throws while not connected', () => {
+      const { link, sockets } = liveLink()
+      link.command('track.setProcedureSelection', { sidIdent: 'KAMI2A' })
+      expect(sockets[0].sent.at(-1)).toEqual({
+        t: 'cmd',
+        name: 'track.setProcedureSelection',
+        args: [{ sidIdent: 'KAMI2A' }]
+      })
+      const idle = setup('tok')
+      expect(() => idle.link.command('gsx.toggleMenu')).toThrow('Not connected')
     })
 
     it('rejects when the PC could not answer, and ignores an answer nobody asked for', async () => {

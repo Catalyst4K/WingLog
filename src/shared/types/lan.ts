@@ -1,7 +1,7 @@
 /** The second-screen server (winglog-backend's docs/plans/lan-web-viewer.md): its settings, status and paired devices. */
 
 import type { LiveSnapshot, LiveTopic } from '../live'
-import type { TrackPoint } from './flight'
+import type { ProcedureSelection, TrackPoint } from './flight'
 
 /** What the pilot sets in Settings → Second screen. */
 export interface LanSettings {
@@ -64,6 +64,8 @@ export interface LanFlight {
   registration: string | null
   icaoType: string | null
   ofpJson: string | null
+  /** The SID, STAR and approach chosen so far: the window's own choice if it has made one, else the flight's saved one. */
+  selection: ProcedureSelection
 }
 
 /** The active flight with its recorded track, sent to a device when it connects. */
