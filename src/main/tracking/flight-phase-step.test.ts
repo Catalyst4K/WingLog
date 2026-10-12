@@ -77,15 +77,25 @@ describe('stepPhase', () => {
     expect(run(landed, [{ groundSpeedMs: 25 }])[0]?.phase).toBe('taxi')
   })
 
-  it('leaves climb for cruise after ten level samples, and cruise for descent after five descending ones', () => {
+  it('leaves climb for cruise after ten level samples, and cruise for descent after thirty descending ones', () => {
     const level = Array.from({ length: 10 }, () => ({ onGround: false, verticalSpeedMs: 0 }))
     const climb: PhaseState = { ...INITIAL_PHASE_STATE, phase: 'climb' }
     expect(run(climb, level.slice(0, 9)).at(-1)?.phase).toBe('climb')
     expect(run(climb, level).at(-1)?.phase).toBe('cruise')
-    const down = Array.from({ length: 5 }, () => ({ onGround: false, verticalSpeedMs: -3 }))
+    const down = Array.from({ length: 30 }, () => ({ onGround: false, verticalSpeedMs: -3 }))
     const cruise: PhaseState = { ...INITIAL_PHASE_STATE, phase: 'cruise' }
-    expect(run(cruise, down.slice(0, 4)).at(-1)?.phase).toBe('cruise')
+    expect(run(cruise, down.slice(0, 29)).at(-1)?.phase).toBe('cruise')
     expect(run(cruise, down).at(-1)?.phase).toBe('descent')
+  })
+
+  it('does not read an autopilot hunting around its level as a descent (flight 236, A380)', () => {
+    const cruise: PhaseState = { ...INITIAL_PHASE_STATE, phase: 'cruise' }
+    // Twenty seconds at about -300 fpm, then level again: a dip, not a descent.
+    const dip = [
+      ...Array.from({ length: 20 }, () => ({ onGround: false, verticalSpeedMs: -1.5 })),
+      ...Array.from({ length: 20 }, () => ({ onGround: false, verticalSpeedMs: 0 }))
+    ]
+    expect(run(cruise, dip).every((r) => r.phase === 'cruise')).toBe(true)
   })
 
   it('lands on the first tick on the ground in descent, and notes the flight has landed', () => {

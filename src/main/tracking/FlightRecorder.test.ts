@@ -83,7 +83,7 @@ describe('FlightRecorder', () => {
       })
     }
     // cruise -> descent: needs DESCENT_SUSTAIN_SAMPLES consecutive descending samples
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 32; i++) {
       step({
         engineCombustion1: true,
         onGround: false,
@@ -205,7 +205,7 @@ describe('FlightRecorder', () => {
 
     // A routine flight-level change: sustained descent long enough to (previously) commit
     // to "descent", then leveling off again well above the ground.
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 32; i++) {
       step({ engineCombustion1: true, onGround: false, groundSpeedMs: 220, verticalSpeedMs: -3 })
     }
     expect(recorder.getPhase()).toBe('descent')
@@ -312,7 +312,7 @@ describe('FlightRecorder', () => {
         altitudeM: 10025
       }) // climb -> cruise
     }
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 32; i++) {
       step({
         engineCombustion1: true,
         onGround: false,
@@ -472,7 +472,7 @@ describe('FlightRecorder', () => {
         altitudeAglM: 10000
       })
     }
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 32; i++) {
       step({
         engineCombustion1: true,
         onGround: false,
@@ -539,7 +539,7 @@ describe('FlightRecorder', () => {
         altitudeAglM: 10000
       })
     }
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 32; i++) {
       step({
         engineCombustion1: true,
         onGround: false,
@@ -606,7 +606,7 @@ describe('FlightRecorder', () => {
       step({ onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12, altitudeAglM: 50 })
       for (let i = 0; i < 12; i++)
         step({ onGround: false, groundSpeedMs: 230, verticalSpeedMs: 0.1, altitudeAglM: 10000 })
-      for (let i = 0; i < 7; i++)
+      for (let i = 0; i < 32; i++)
         step({ onGround: false, groundSpeedMs: 200, verticalSpeedMs: -3, altitudeAglM: 8000 })
       expect(recorder.getPhase()).toBe('descent')
       return { recorder, step }
@@ -746,7 +746,7 @@ describe('FlightRecorder', () => {
         altitudeAglM: 10000
       })
     }
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 32; i++) {
       step({
         engineCombustion1: true,
         onGround: false,

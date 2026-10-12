@@ -15,7 +15,9 @@ const ROLL_SPEED_MS = 18 // ~35 kt — takeoff-roll / landing-rollout boundary v
 export const LEVEL_VS_MS = 0.5 // ~100 fpm — vertical speed magnitude counted as "level"
 const DESCENT_VS_MS = -1.0 // ~-200 fpm — sustained descent rate that ends cruise
 const LEVEL_SUSTAIN_SAMPLES = 10 // consecutive 1 Hz samples of level flight to confirm cruise
-const DESCENT_SUSTAIN_SAMPLES = 5 // consecutive samples of descent to confirm leaving cruise
+// consecutive samples of descent to confirm leaving cruise. Long enough that an autopilot hunting around its level isn't read as a
+// descent: flight 236 (A380) dipped below -200 fpm for 5 to 20 s six times in cruise, each a 17-33 s false descent.
+const DESCENT_SUSTAIN_SAMPLES = 30
 // Consecutive airborne samples before a rollout or taxi counts as a go-around (and, the other way round, ground samples before
 // 'climb'/'cruise' counts as a missed landing). One wasn't enough: a single airborne tick on a bouncy rollout sent the phase
 // 'landing' -> 'climb' -> 'cruise' and recorded the whole taxi-in as cruise. Same count as TrackingController's

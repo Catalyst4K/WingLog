@@ -217,13 +217,13 @@ describe('TrackingController', () => {
     )
     expect(getFlight(db, flightId)?.actualOffUtc).toBeTruthy()
 
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 32; i++) {
       sim.emit(
         'telemetry',
         telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 230, verticalSpeedMs: 0.1 })
       )
     }
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 32; i++) {
       sim.emit(
         'telemetry',
         telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 200, verticalSpeedMs: -3 })
@@ -258,13 +258,13 @@ describe('TrackingController', () => {
       'telemetry',
       telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
     )
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 32; i++) {
       sim.emit(
         'telemetry',
         telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 230, verticalSpeedMs: 0.1 })
       )
     }
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 32; i++) {
       sim.emit(
         'telemetry',
         telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 200, verticalSpeedMs: -3 })
@@ -299,13 +299,13 @@ describe('TrackingController', () => {
       'telemetry',
       telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
     )
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 32; i++) {
       sim.emit(
         'telemetry',
         telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 230, verticalSpeedMs: 0.1 })
       )
     }
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 32; i++) {
       sim.emit(
         'telemetry',
         telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 200, verticalSpeedMs: -3 })
@@ -347,7 +347,7 @@ describe('TrackingController', () => {
     // start) before the real touchdown tick — must not be reused for this touchdown.
     sim.emit('touchdownSeverity', { verticalSpeedMs: -99 })
     vi.advanceTimersByTime(3_001)
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 32; i++) {
       sim.emit(
         'telemetry',
         telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 200, verticalSpeedMs: -3 })
@@ -410,13 +410,13 @@ describe('TrackingController', () => {
       sim.emit('paused', false)
 
       // -> cruise -> descent -> landing (touchdown, actualOnUtc).
-      for (let i = 0; i < 12; i++) {
+      for (let i = 0; i < 32; i++) {
         sim.emit(
           'telemetry',
           telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 230, verticalSpeedMs: 0.1 })
         )
       }
-      for (let i = 0; i < 7; i++) {
+      for (let i = 0; i < 32; i++) {
         sim.emit(
           'telemetry',
           telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 200, verticalSpeedMs: -3 })
@@ -1212,13 +1212,13 @@ describe('TrackingController', () => {
         'telemetry',
         telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
       )
-      for (let i = 0; i < 12; i++) {
+      for (let i = 0; i < 32; i++) {
         sim.emit(
           'telemetry',
           telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 230, verticalSpeedMs: 0.1 })
         )
       }
-      for (let i = 0; i < 7; i++) {
+      for (let i = 0; i < 32; i++) {
         sim.emit(
           'telemetry',
           telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 200, verticalSpeedMs: -3 })
@@ -1345,7 +1345,7 @@ describe('TrackingController', () => {
       // the last airborne tick's verticalSpeedMs is what buildLandingRecord actually
       // stores (it reads the pre-touchdown sample, not the touchdown tick itself; see
       // landing-capture.ts's own doc comment).
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 32; i++) {
         sim.emit(
           'telemetry',
           telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 10 })
