@@ -7,6 +7,7 @@
 import { copyFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { thisMachinesUserDataDirectory } from '../src/main/platform/this-machine'
 import { launchApp } from './launch-app'
 
 interface ProfileNode {
@@ -32,7 +33,7 @@ function scriptName(url: string): string {
 
 async function main(): Promise<void> {
   const tab = process.argv[2] ?? 'Logbook'
-  const source = join(process.env.APPDATA ?? '', 'WingLog', 'winglog.db')
+  const source = join(thisMachinesUserDataDirectory() ?? '', 'winglog.db')
   if (!existsSync(source)) throw new Error(`no database at ${source}`)
   const dir = mkdtempSync(join(tmpdir(), 'winglog-profile-'))
   copyFileSync(source, join(dir, 'winglog.db'))

@@ -11,17 +11,18 @@ import { drizzle } from 'drizzle-orm/better-sqlite3'
 import type { BeyondAtcInfoBox } from '../../src/shared/ipc'
 import * as schema from '../../src/main/db/schema'
 import type { WingLogDb } from '../../src/main/db/client'
+import { thisMachinesUserDataDirectory } from '../../src/main/platform/this-machine'
 
-/** WingLog's data folder: %APPDATA%\WingLog, or WINGLOG_SIM_DATA_DIR to use another copy. */
+/** WingLog's data folder on this machine (`%APPDATA%\WingLog`, `~/Library/Application Support/WingLog`, `~/.config/WingLog`), or WINGLOG_SIM_DATA_DIR to use another copy. */
 export function userDataDir(): string {
   const override = process.env.WINGLOG_SIM_DATA_DIR
   if (override) return resolve(override)
-  const appData = process.env.APPDATA
-  if (!appData)
+  const dir = thisMachinesUserDataDirectory()
+  if (!dir)
     throw new Error(
-      'APPDATA is not set: run the simulation on the machine WingLog flies on, or set WINGLOG_SIM_DATA_DIR'
+      "WingLog's data folder could not be found (APPDATA is not set): run the simulation on the machine WingLog flies on, or set WINGLOG_SIM_DATA_DIR"
     )
-  return join(appData, 'WingLog')
+  return dir
 }
 
 /** The database, opened read-only: a simulation can never change a flight. */

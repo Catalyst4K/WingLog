@@ -13,6 +13,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import Database from 'better-sqlite3'
+import { thisMachinesUserDataDirectory } from '../src/main/platform/this-machine'
 import {
   LOGO_URL_PREFIX,
   classifyLogo,
@@ -42,9 +43,9 @@ async function fetchLogo(iata: string): Promise<LogoAnswer> {
 
 /** @returns The IATA codes of the aircraft in this machine's fleet. */
 function fleetCodes(): string[] {
-  const appData = process.env.APPDATA
-  const path = appData ? join(appData, 'WingLog', 'winglog.db') : ''
-  if (!path || !existsSync(path)) throw new Error('No WingLog database in %APPDATA%\\WingLog')
+  const dataDir = thisMachinesUserDataDirectory()
+  const path = dataDir ? join(dataDir, 'winglog.db') : ''
+  if (!path || !existsSync(path)) throw new Error('No WingLog database in the WingLog data folder')
   const sqlite = new Database(path, { readonly: true })
   try {
     const rows = sqlite

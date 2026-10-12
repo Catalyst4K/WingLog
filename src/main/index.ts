@@ -6,6 +6,7 @@
  */
 import { runLogged } from './logging/run-logged'
 import { join } from 'node:path'
+import { quitsWhenAllWindowsClose } from './platform/platform'
 import { E2E_DISPLAY_ENV, E2E_WINDOW_ENV, chooseDisplay, windowShow } from './e2e-window'
 import { app, BrowserWindow, dialog, ipcMain, Menu, screen } from 'electron'
 import { IpcChannels } from '@shared/ipc'
@@ -455,6 +456,6 @@ if (!gotSingleInstanceLock) {
     })
 
   app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit()
+    if (quitsWhenAllWindowsClose()) app.quit()
   })
 }

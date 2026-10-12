@@ -11,6 +11,7 @@ import { copyFileSync, existsSync, mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { airacCycleStart, predatesCurrentCycle } from '../src/shared/airac'
 import { createDb } from '../src/main/db/client'
+import { thisMachinesUserDataDirectory } from '../src/main/platform/this-machine'
 import { listCachedProcedures, listCachedRunways, navdataFetchTimes } from '../src/main/db/navdata-repo'
 import { navdataRunway } from '../src/main/db/schema'
 import { SimFacilitiesProvider } from '../src/main/navdata/sim-facilities-provider'
@@ -19,9 +20,9 @@ const DIR = join('release', 'sim', 'airac-check')
 const WAIT_MS = 90_000
 
 async function main(): Promise<void> {
-  const appData = process.env.APPDATA
-  const source = appData ? join(appData, 'WingLog', 'winglog.db') : ''
-  if (!source || !existsSync(source)) throw new Error('No WingLog database in %APPDATA%\\WingLog')
+  const dataDir = thisMachinesUserDataDirectory()
+  const source = dataDir ? join(dataDir, 'winglog.db') : ''
+  if (!source || !existsSync(source)) throw new Error('No WingLog database in the WingLog data folder')
   rmSync(DIR, { recursive: true, force: true })
   mkdirSync(DIR, { recursive: true })
   const copy = join(DIR, 'winglog.db')

@@ -23,6 +23,7 @@ import {
 } from '../src/main/db/navdata-repo'
 import { fetchStands, fetchTaxiNetwork } from '../src/main/navdata/sim-facilities-fetch'
 import Database from 'better-sqlite3'
+import { thisMachinesUserDataDirectory } from '../src/main/platform/this-machine'
 
 /** Where the cache lives, relative to the project root. */
 const CACHE_DIR = join('release', 'sim', 'airport-cache')
@@ -40,8 +41,8 @@ function largeAirports(): string[] {
 
 /** @returns Every airport in this machine's logbook, or none when there's no database. */
 function logbookAirports(): string[] {
-  const appData = process.env.APPDATA
-  const path = appData ? join(appData, 'WingLog', 'winglog.db') : ''
+  const dataDir = thisMachinesUserDataDirectory()
+  const path = dataDir ? join(dataDir, 'winglog.db') : ''
   if (!path || !existsSync(path)) return []
   const sqlite = new Database(path, { readonly: true })
   try {
