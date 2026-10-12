@@ -51,6 +51,12 @@ const link = new LanConnection(
 )
 installWindowShim(link)
 link.start()
+// A locked phone suspends the page and its socket: reconnect as soon as it is back, and when the network returns.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') link.resume()
+})
+window.addEventListener('online', () => link.resume())
+window.addEventListener('pageshow', () => link.resume())
 
 createRoot(document.getElementById('root') as HTMLElement).render(
   <StrictMode>

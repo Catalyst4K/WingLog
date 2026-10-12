@@ -233,6 +233,51 @@ describe('LanConnection', () => {
     expect(sockets).toHaveLength(4)
   })
 
+  describe('resume (a phone coming back from a lock)', () => {
+    it('replaces a socket that looks open but is dead, and is live again on the new snapshot', () => {
+      const { link, sockets, states } = setup('tok')
+      link.start()
+      sockets[0].open()
+      sockets[0].say({ t: 'snapshot', topics: {}, flight: null })
+      link.resume()
+      expect(sockets).toHaveLength(2)
+      expect(sockets[0].closed).toBe(true)
+      expect(states).toEqual(['connected'])
+      sockets[1].open()
+      expect(sockets[1].sent).toEqual([{ t: 'hello', token: 'tok' }])
+      sockets[1].say({ t: 'snapshot', topics: {}, flight: null })
+      expect(link.state).toBe('connected')
+    })
+
+    it('reconnects at once, without waiting out the backoff', () => {
+      const { link, sockets } = setup('tok')
+      link.start()
+      sockets[0].drop()
+      sockets[1]?.drop()
+      vi.advanceTimersByTime(500)
+      link.resume()
+      expect(sockets.length).toBeGreaterThanOrEqual(2)
+      const count = sockets.length
+      vi.advanceTimersByTime(60_000)
+      expect(sockets.length).toBe(count)
+    })
+
+    it('does nothing when there is no token, a code is being tried, or it was stopped', () => {
+      const unpaired = setup()
+      unpaired.link.start()
+      unpaired.link.resume()
+      expect(unpaired.sockets).toHaveLength(0)
+      unpaired.link.pair('123456')
+      unpaired.link.resume()
+      expect(unpaired.sockets).toHaveLength(1)
+      const stopped = setup('tok')
+      stopped.link.start()
+      stopped.link.stop()
+      stopped.link.resume()
+      expect(stopped.sockets).toHaveLength(1)
+    })
+  })
+
   it('never waits longer than ten seconds between attempts', () => {
     const { link, sockets } = setup('tok')
     link.start()

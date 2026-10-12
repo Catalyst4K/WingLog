@@ -33,6 +33,8 @@ export const LAN_TOPICS: readonly LiveTopic[] = [
   'beyondAtcArrival'
 ]
 
+/** How often a silent socket is pinged; one that has not answered by the next round is dropped. */
+export const HEARTBEAT_MS = 20_000
 /** Lookups one device may have waiting at once. */
 export const MAX_PENDING_QUERIES = 4
 /** Largest message a device may send, in bytes. */
@@ -71,6 +73,8 @@ export interface LanServerDeps {
   now(): number
   /** How long a socket may stay unauthenticated; `AUTH_TIMEOUT_MS` when left out (tests shorten it). */
   authTimeoutMs?: number
+  /** How often sockets are pinged; `HEARTBEAT_MS` when left out (tests shorten it). */
+  heartbeatMs?: number
 }
 
 /** What a device may send. Anything else is dropped. */
@@ -88,6 +92,8 @@ interface Client {
   count: number
   /** Queries asked and not yet answered. */
   pending: number
+  /** False from a ping until its pong: a socket still false at the next ping is dead (a locked phone, a dropped Wi-Fi). */
+  alive: boolean
   authTimer: NodeJS.Timeout
 }
 
@@ -96,6 +102,7 @@ export class LanServer {
   private server: Server | null = null
   private wss: WebSocketServer | null = null
   private unsubscribe: (() => void) | null = null
+  private heartbeat: NodeJS.Timeout | null = null
   private hostHeader = ''
   private pairing: PairingWindow | null = null
   private readonly clients = new Set<Client>()
@@ -135,6 +142,8 @@ export class LanServer {
         this.server = server
         this.wss = wss
         this.unsubscribe = this.deps.hub.subscribe((topic, payload) => this.broadcast(topic, payload))
+        this.heartbeat = setInterval(() => this.pingClients(), this.deps.heartbeatMs ?? HEARTBEAT_MS)
+        this.heartbeat.unref()
         resolve()
       })
     })
@@ -144,6 +153,8 @@ export class LanServer {
   stop(): Promise<void> {
     this.unsubscribe?.()
     this.unsubscribe = null
+    if (this.heartbeat) clearInterval(this.heartbeat)
+    this.heartbeat = null
     this.pairing = null
     for (const client of [...this.clients]) client.socket.terminate()
     const server = this.server
@@ -192,6 +203,18 @@ export class LanServer {
     }
   }
 
+  /** Pings every socket and drops the ones that never answered the last ping, so a device that went away does not hold a slot. */
+  private pingClients(): void {
+    for (const client of this.clients) {
+      if (!client.alive) {
+        client.socket.terminate()
+        continue
+      }
+      client.alive = false
+      client.socket.ping()
+    }
+  }
+
   private handleHttp(req: IncomingMessage, res: ServerResponse): void {
     if (req.headers.host !== this.hostHeader || (req.method !== 'GET' && req.method !== 'HEAD')) {
       res.writeHead(404).end()
@@ -233,6 +256,7 @@ export class LanServer {
       windowStart: this.deps.now(),
       count: 0,
       pending: 0,
+      alive: true,
       authTimer: setTimeout(() => socket.close(), this.deps.authTimeoutMs ?? AUTH_TIMEOUT_MS)
     }
     this.clients.add(client)
@@ -240,6 +264,7 @@ export class LanServer {
       if (isBinary) return
       this.handleMessage(client, data.toString())
     })
+    socket.on('pong', () => (client.alive = true))
     socket.on('error', () => undefined)
     socket.on('close', () => {
       clearTimeout(client.authTimer)

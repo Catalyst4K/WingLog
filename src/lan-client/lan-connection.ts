@@ -138,6 +138,19 @@ export class LanConnection {
     else this.setState('needs-pairing')
   }
 
+  /**
+   * Reconnects now. A phone that was locked or switched to another app often comes back with a socket the OS killed without telling the
+   * page, so it looks connected and is not: the page calls this when it becomes visible again, or the network returns.
+   */
+  resume(): void {
+    if (this.stopped || this.pairingCode !== null || !this.store.get()) return
+    if (this.current === 'needs-pairing' || this.current === 'wrong-code') return
+    if (this.retry) clearTimeout(this.retry)
+    this.retry = null
+    this.backoff = 1000
+    this.connect()
+  }
+
   /** Closes the link and stops reconnecting. */
   stop(): void {
     this.stopped = true
@@ -194,7 +207,10 @@ export class LanConnection {
   }
 
   private connect(): void {
-    this.socket?.close()
+    // Forget the old socket before closing it, so its close is not mistaken for the link dropping.
+    const old = this.socket
+    this.socket = null
+    old?.close()
     const socket = this.createSocket(this.url)
     this.socket = socket
     socket.onopen = () => {

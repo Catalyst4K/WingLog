@@ -459,6 +459,16 @@ describe('LanServer', () => {
       expect(spy).not.toHaveBeenCalled()
     })
 
+    it('drops a socket that stops answering pings, and keeps one that answers', async () => {
+      const { connect } = await setup({ heartbeatMs: 40 })
+      const quiet = await connect()
+      const answering = await connect()
+      // ws answers pings by itself; make the first client unable to by stopping its automatic pong.
+      ;(quiet.ws as unknown as { pong: () => void }).pong = () => undefined
+      await quiet.waitFor(() => quiet.closed)
+      expect(answering.closed).toBe(false)
+    })
+
     it('refuses to start twice, and reports a port already in use', async () => {
       const { server, port } = await setup()
       await expect(server.start(HOST, port)).rejects.toThrow('Already listening')

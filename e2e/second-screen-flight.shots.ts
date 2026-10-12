@@ -10,7 +10,9 @@ import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { networkInterfaces, tmpdir } from 'node:os'
 import { createServer } from 'node:net'
 import { join } from 'node:path'
+import { appendFileSync, writeFileSync } from 'node:fs'
 import { test, type Page } from '@playwright/test'
+import { WebSocket } from 'ws'
 import { electronBinary } from './electron-binary'
 import { launchApp } from './launch-app'
 import { thisMachinesUserDataDirectory } from '../src/main/platform/this-machine'
@@ -151,18 +153,65 @@ test('the second screen follows a replayed flight, in portrait and landscape', a
     await landscape.waitForTimeout(500)
     await landscape.screenshot({ path: join(OUT, '3-landscape-before-pairing.png') })
 
-    if (HOLD_MIN > 0) {
-      await card
-        .getByRole('button', { name: 'Pair a device' })
-        .click()
-        .catch(() => undefined)
-      const fresh =
+    if (process.env.WINGLOG_SHOTS_DIAG) {
+      // What a second device is sent through the whole replay, and what the page shows every 25 s.
+      const log = join(OUT, 'messages.ndjson')
+      writeFileSync(log, '')
+      await card.getByRole('button', { name: 'Pair a device' }).click()
+      const diagCode =
         (await card
           .locator('[aria-label]')
           .filter({ hasText: /^\d{6}$/ })
           .textContent()) ?? ''
-      console.log(`HOLDING ${HOLD_MIN} min. Open http://${address}:${port}/ and pair with code ${fresh}`)
-      await page.waitForTimeout(HOLD_MIN * 60_000)
+      const raw = new WebSocket(`ws://${address}:${port}/live`)
+      raw.on('message', (data) => {
+        const m = JSON.parse(data.toString())
+        const p = m.payload ?? {}
+        appendFileSync(
+          log,
+          JSON.stringify({
+            at: Date.now(),
+            t: m.t,
+            name: m.name,
+            n: Array.isArray(p) ? p.length : undefined,
+            id: p.id,
+            ts: p.tsUtc,
+            seg: p.resumeSegment,
+            ex: p.excludedReason,
+            lat: p.latitude,
+            lon: p.longitude
+          }) + '\n'
+        )
+      })
+      await new Promise<void>((resolve) => raw.once('open', () => resolve()))
+      raw.send(JSON.stringify({ t: 'pair', code: diagCode, name: 'diag' }))
+      for (let i = 1; i <= 10; i++) {
+        await portrait.waitForTimeout(25_000)
+        await portrait.screenshot({ path: join(OUT, `diag-${String(i).padStart(2, '0')}.png`) })
+      }
+      raw.close()
+    }
+
+    if (HOLD_MIN > 0) {
+      // A pairing code lasts 5 minutes and works once, so a held run opens a new one every 4 minutes and keeps the latest in a file.
+      const codeFile = join(OUT, 'current-code.txt')
+      for (let waited = 0; waited < HOLD_MIN; waited += 4) {
+        await card
+          .getByRole('button', { name: 'Close' })
+          .click({ timeout: 1_000 })
+          .catch(() => undefined)
+        await card.getByRole('button', { name: 'Pair a device' }).click()
+        const fresh =
+          (await card
+            .locator('[aria-label]')
+            .filter({ hasText: /^\d{6}$/ })
+            .textContent()) ?? ''
+        writeFileSync(codeFile, fresh)
+        console.log(
+          `PAIRING CODE ${fresh} for http://${address}:${port}/ (valid 5 min; held ${waited}/${HOLD_MIN} min)`
+        )
+        await page.waitForTimeout(Math.min(4, HOLD_MIN - waited) * 60_000)
+      }
     }
   } finally {
     await cleanup()
