@@ -751,7 +751,6 @@
     "connecting": "Подключение к BeyondATC…",
     "connected": "Подключено к BeyondATC.",
     "disconnected": "Нет подключения к BeyondATC.",
-    "stationFrequency": "{{station}} ({{frequency}})",
     "progress": "{{from}} → {{to}} · {{pct}}%",
     "transcript": "Радиообмен",
     "actions": "Действия",
@@ -772,8 +771,6 @@
     "departure": "Вылет",
     "arrival": "Прилёт",
     "noFrequencies": "Для этого аэропорта пока нет частот.",
-    "frequencyOption": "{{type}} — {{station}} {{frequency}}",
-    "frequencyOptionRunway": "{{type}} — {{station}} {{frequency}} (ВПП {{runway}})",
     "frequencyType": {
       "approach": "Подход",
       "departure": "Вылет",
@@ -846,6 +843,12 @@
       "atc": "Диспетчер",
       "traffic": "Трафик",
       "atcTraffic": "Диспетчер → Трафик"
+    },
+    "frequencyField": "Частота {{radio}}",
+    "frequencyPicker": {
+      "tuned": "Настроена",
+      "runways": "ВПП {{runways}}",
+      "enroute": "На маршруте"
     }
   },
   "updates": {

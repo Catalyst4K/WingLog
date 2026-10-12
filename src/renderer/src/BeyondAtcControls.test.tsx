@@ -29,19 +29,6 @@ function makeRadiosProps(overrides: Partial<BeyondAtcRadiosProps> = {}): BeyondA
   }
 }
 
-function makeFrequencyOption(overrides: Partial<BeyondAtcFrequencyOption> = {}): BeyondAtcFrequencyOption {
-  return {
-    airport: 'WSSS',
-    airportName: 'Changi',
-    frequency: '124.050',
-    name: 'SINGAPORE APPROACH',
-    type: 'Approach',
-    stationType: '',
-    runways: '02L',
-    ...overrides
-  }
-}
-
 describe('BeyondAtcActions', () => {
   it('renders nothing when there are no live actions', () => {
     const { container } = render(<BeyondAtcActions actions={[]} onSelectAction={vi.fn()} />)
@@ -68,7 +55,7 @@ describe('BeyondAtcRadios', () => {
     expect(screen.getAllByText('—')).toHaveLength(2)
   })
 
-  it('shows the current COM1/COM2 station name and frequency together, not just the raw digits', () => {
+  it('shows the tuned station name beside the radio and its frequency in the field, not both in the text', () => {
     render(
       <BeyondAtcRadios
         {...makeRadiosProps({
@@ -78,8 +65,53 @@ describe('BeyondAtcRadios', () => {
       />
     )
 
-    expect(screen.getByText('Brisbane Delivery (118.850)')).toBeInTheDocument()
-    expect(screen.getByText('Brisbane Ground (121.700)')).toBeInTheDocument()
+    expect(screen.getByText('Brisbane Delivery')).toBeInTheDocument()
+    expect(screen.getByText('Brisbane Ground')).toBeInTheDocument()
+    expect(screen.queryByText(/118\.850/)).not.toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'COM1 frequency' })).toHaveValue('118.850')
+    expect(screen.getByRole('textbox', { name: 'COM2 frequency' })).toHaveValue('121.700')
+  })
+
+  it('follows the tuned frequency when it changes, and leaves a frequency being typed alone until it is set or the row is left', async () => {
+    const user = userEvent.setup()
+    const onSetFrequency = vi.fn()
+    const { rerender } = render(
+      <BeyondAtcRadios
+        {...makeRadiosProps({ facility: { name: 'Singapore Radar', frequency: '133.250' }, onSetFrequency })}
+      />
+    )
+    const field = screen.getByRole('textbox', { name: 'COM1 frequency' })
+    expect(field).toHaveValue('133.250')
+
+    // BeyondATC tunes the next station: the field follows.
+    rerender(
+      <BeyondAtcRadios
+        {...makeRadiosProps({ facility: { name: 'Singapore Radar', frequency: '134.400' }, onSetFrequency })}
+      />
+    )
+    expect(field).toHaveValue('134.400')
+
+    // Part-way through typing, a change from BeyondATC does not overwrite what is typed.
+    await user.clear(field)
+    await user.type(field, '119.1')
+    rerender(
+      <BeyondAtcRadios
+        {...makeRadiosProps({
+          facility: { name: 'Singapore Approach', frequency: '124.050' },
+          onSetFrequency
+        })}
+      />
+    )
+    expect(field).toHaveValue('119.1')
+
+    // Moving on to this radio's Set button keeps what was typed, so it can be set.
+    await user.tab()
+    expect(field).toHaveValue('119.1')
+
+    // Leaving the row abandons the edit and shows the tuned frequency again.
+    await user.click(document.body)
+    expect(field).toHaveValue('124.050')
+    expect(onSetFrequency).not.toHaveBeenCalled()
   })
 
   it('typing a new COM1 frequency and clicking Set calls onSetFrequency, not onSetFrequencyCom2', async () => {
@@ -88,12 +120,23 @@ describe('BeyondAtcRadios', () => {
     const user = userEvent.setup()
     render(<BeyondAtcRadios {...makeRadiosProps({ onSetFrequency, onSetFrequencyCom2 })} />)
 
-    const [com1Input] = screen.getAllByPlaceholderText('118.850')
-    await user.type(com1Input, '119.100')
+    await user.type(screen.getByRole('textbox', { name: 'COM1 frequency' }), '119.100')
     await user.click(screen.getAllByRole('button', { name: 'Set' })[0])
 
     expect(onSetFrequency).toHaveBeenCalledWith('119.100')
     expect(onSetFrequencyCom2).not.toHaveBeenCalled()
+  })
+
+  it('does not re-send the frequency that is already tuned', async () => {
+    const onSetFrequency = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <BeyondAtcRadios
+        {...makeRadiosProps({ facility: { name: 'Singapore Radar', frequency: '133.250' }, onSetFrequency })}
+      />
+    )
+    await user.click(screen.getAllByRole('button', { name: 'Set' })[0])
+    expect(onSetFrequency).not.toHaveBeenCalled()
   })
 
   it('shows a switched-off COM2 as "Radio Off", not with empty brackets', () => {
@@ -105,6 +148,7 @@ describe('BeyondAtcRadios', () => {
     )
     expect(screen.getByText('Radio Off')).toBeInTheDocument()
     expect(screen.queryByText(/Radio Off \(/)).not.toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'COM2 frequency' })).toHaveValue('')
   })
 
   it('pressing Enter in the COM2 frequency field commits it and clears the input', async () => {
@@ -135,73 +179,100 @@ describe('BeyondAtcRadios', () => {
     expect(screen.queryByRole('button', { name: 'Frequencies' })).not.toBeInTheDocument()
   })
 
-  it('splits the real frequency list into Departure/Arrival tabs by matching Progress.from/to, runway shown next to the frequency it applies to', async () => {
-    const onSetFrequency = vi.fn()
-    const user = userEvent.setup()
-    const options: BeyondAtcFrequencyOption[] = [
-      makeFrequencyOption(), // WSSS, SINGAPORE APPROACH 124.050, runway 02L
-      makeFrequencyOption({
-        airport: 'ZSPD',
-        airportName: 'Pudong',
-        frequency: '121.100',
-        name: 'SHANGHAI APPROACH',
-        runways: '34R'
-      }),
-      makeFrequencyOption({
-        airport: '',
-        airportName: '',
-        frequency: '134.400',
-        name: 'Singapore Radar',
-        type: 'Center',
-        runways: ''
+  describe('the frequency dialog', () => {
+    // Flight 236's lists (EGLL-WSSS), shortened: capitals, no runways in the list itself.
+    const option = (
+      airport: string,
+      airportName: string,
+      type: string,
+      frequency: string,
+      name: string,
+      runways = ''
+    ): BeyondAtcFrequencyOption => ({ airport, airportName, frequency, name, type, stationType: '', runways })
+    const LIST: BeyondAtcFrequencyOption[] = [
+      option('EGLL', 'Heathrow', 'Approach', '119.730', 'HEATHROW DIRECTOR'),
+      option('EGLL', 'Heathrow', 'Tower', '118.705', 'HEATHROW TOWER'),
+      option('EGLL', 'Heathrow', 'Ground', '121.705', 'HEATHROW GROUND'),
+      option('EGLL', 'Heathrow', 'Clearance', '121.980', 'HEATHROW DELIVERY'),
+      option('', '', 'Center', '120.530', 'London Control'),
+      option('WSSS', 'Changi', 'Tower', '118.250', 'SINGAPORE TOWER'),
+      option('WSSS', 'Changi', 'Tower', '118.600', 'SINGAPORE TOWER', '20R'),
+      option('WSSS', 'Changi', 'Clearance', '121.650', 'SINGAPORE'),
+      option('WSSS', 'Changi', 'ATIS', '128.600', 'WSSS')
+    ]
+    const open = async (
+      overrides: Partial<BeyondAtcRadiosProps> = {}
+    ): Promise<ReturnType<typeof userEvent.setup>> => {
+      const user = userEvent.setup()
+      render(
+        <BeyondAtcRadios
+          {...makeRadiosProps({
+            frequencyOptions: LIST,
+            progress: { from: 'EGLL', to: 'WSSS', pct: 10 },
+            ...overrides
+          })}
+        />
+      )
+      await user.click(screen.getAllByRole('button', { name: 'Frequencies' })[0])
+      return user
+    }
+
+    it('opens on the departure in the first half of the flight and lists its stations by type, in the order a flight uses them', async () => {
+      await open()
+      const headings = (await screen.findAllByRole('heading', { level: 3 })).map((h) => h.textContent)
+      // Delivery, Ground, Tower, Approach, then the en-route entry's own heading last.
+      expect(headings).toEqual(['Delivery', 'Ground', 'Tower', 'Approach', 'Center'])
+      expect(screen.getByRole('button', { name: /Heathrow Tower\s+118\.705/ })).toBeInTheDocument()
+      expect(screen.getByText('EGLL Heathrow')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Singapore Tower/ })).not.toBeInTheDocument()
+    })
+
+    it('opens on the arrival in the second half of the flight', async () => {
+      await open({ progress: { from: 'EGLL', to: 'WSSS', pct: 80 } })
+      expect(await screen.findByText('WSSS Changi')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Singapore Tower\s+118\.250/ })).toBeInTheDocument()
+    })
+
+    it('reads station names as words and leaves a code like WSSS alone', async () => {
+      await open({ progress: { from: 'EGLL', to: 'WSSS', pct: 80 } })
+      expect(await screen.findByRole('button', { name: /^Singapore\s+121\.650/ })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^WSSS\s+128\.600/ })).toBeInTheDocument()
+    })
+
+    it('shows the runways beside the stations that have them, and tells two towers apart by them', async () => {
+      await open({ progress: { from: 'EGLL', to: 'WSSS', pct: 80 } })
+      const towers = await screen.findAllByRole('button', { name: /Singapore Tower/ })
+      expect(towers).toHaveLength(2)
+      expect(towers[0]).not.toHaveTextContent('RWY')
+      expect(towers[1]).toHaveTextContent('RWY 20R')
+      expect(towers[1]).toHaveTextContent('118.600')
+    })
+
+    it('marks the station that is tuned now, matching 133.9 to 133.900', async () => {
+      await open({
+        facility: { name: 'Singapore Tower (20R)', frequency: '118.6' },
+        progress: { from: 'EGLL', to: 'WSSS', pct: 80 }
       })
-    ]
-    render(
-      <BeyondAtcRadios
-        {...makeRadiosProps({
-          frequencyOptions: options,
-          progress: { from: 'WSSS', to: 'ZSPD', pct: 0 },
-          onSetFrequency
-        })}
-      />
-    )
+      const tuned = await screen.findByRole('button', { name: /118\.600/ })
+      expect(tuned).toHaveAttribute('aria-current', 'true')
+      expect(tuned).toHaveTextContent('Tuned')
+      expect(screen.getByRole('button', { name: /118\.250/ })).not.toHaveAttribute('aria-current')
+    })
 
-    await user.click(screen.getAllByRole('button', { name: 'Frequencies' })[0])
-    // Departure tab (default): the WSSS station (with its runway) and the enroute Center
-    // entry (no runway), but not the ZSPD-only station. Each button leads with the real
-    // category (Approach/Center), not just BeyondATC's own station name.
-    expect(
-      await screen.findByRole('button', { name: 'Approach — SINGAPORE APPROACH 124.050 (RWY 02L)' })
-    ).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Center — Singapore Radar 134.400' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /SHANGHAI APPROACH/ })).not.toBeInTheDocument()
+    it('has a tab for each airport, and picking a station sets the frequency and closes the dialog', async () => {
+      const onSetFrequency = vi.fn()
+      const user = await open({ onSetFrequency })
+      await user.click(await screen.findByRole('tab', { name: 'Arrival' }))
+      await user.click(await screen.findByRole('button', { name: /Singapore Tower.*118\.600/ }))
+      expect(onSetFrequency).toHaveBeenCalledWith('118.600')
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
 
-    await user.click(screen.getByRole('tab', { name: 'Arrival' }))
-    await user.click(
-      await screen.findByRole('button', { name: 'Approach — SHANGHAI APPROACH 121.100 (RWY 34R)' })
-    )
-
-    expect(onSetFrequency).toHaveBeenCalledWith('121.100')
-  })
-
-  it('leads a Clearance-type frequency with "Delivery" and an ATIS-type one with "ATIS", regardless of what BeyondATC named the station itself', async () => {
-    const user = userEvent.setup()
-    // Real captures: WSSS's own delivery/ATIS stations are named just "SINGAPORE"/"WSSS" —
-    // no "Delivery" or "ATIS" anywhere in the name field itself.
-    const options: BeyondAtcFrequencyOption[] = [
-      makeFrequencyOption({ frequency: '121.650', name: 'SINGAPORE', type: 'Clearance', runways: '' }),
-      makeFrequencyOption({ frequency: '128.600', name: 'WSSS', type: 'ATIS', runways: '' })
-    ]
-    render(
-      <BeyondAtcRadios
-        {...makeRadiosProps({ frequencyOptions: options, progress: { from: 'WSSS', to: 'ZSPD', pct: 0 } })}
-      />
-    )
-
-    await user.click(screen.getAllByRole('button', { name: 'Frequencies' })[0])
-
-    expect(await screen.findByRole('button', { name: 'Delivery — SINGAPORE 121.650' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'ATIS — WSSS 128.600' })).toBeInTheDocument()
+    it('says so when BeyondATC has listed nothing for the airport, and still shows the en-route stations', async () => {
+      await open({ progress: { from: 'ZZZZ', to: 'WSSS', pct: 10 } })
+      expect(await screen.findByText('No frequencies for this airport yet.')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /London Control\s+120\.530/ })).toBeInTheDocument()
+    })
   })
 
   it('shows the current AutoTune/AutoRespond state and toggles them on click', async () => {

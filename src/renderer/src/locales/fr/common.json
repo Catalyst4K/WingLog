@@ -728,7 +728,6 @@
     "connecting": "Connexion à BeyondATC…",
     "connected": "Connecté à BeyondATC.",
     "disconnected": "Non connecté à BeyondATC.",
-    "stationFrequency": "{{station}} ({{frequency}})",
     "progress": "{{from}} → {{to}} · {{pct}}%",
     "transcript": "Transcription",
     "actions": "Actions",
@@ -749,8 +748,6 @@
     "departure": "Départ",
     "arrival": "Arrivée",
     "noFrequencies": "Aucune fréquence pour cet aéroport pour l'instant.",
-    "frequencyOption": "{{type}} — {{station}} {{frequency}}",
-    "frequencyOptionRunway": "{{type}} — {{station}} {{frequency}} (piste {{runway}})",
     "frequencyType": {
       "approach": "Approche",
       "departure": "Départ",
@@ -823,6 +820,12 @@
       "atc": "ATC",
       "traffic": "Trafic",
       "atcTraffic": "ATC → Trafic"
+    },
+    "frequencyField": "Fréquence {{radio}}",
+    "frequencyPicker": {
+      "tuned": "Syntonisée",
+      "runways": "Piste {{runways}}",
+      "enroute": "En route"
     }
   },
   "updates": {

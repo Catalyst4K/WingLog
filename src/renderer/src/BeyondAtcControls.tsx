@@ -10,10 +10,18 @@ import type {
   BeyondAtcProgress,
   BeyondAtcStepClimbStatus
 } from '@shared/ipc'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  groupFrequencies,
+  normaliseFrequency,
+  openingAirport,
+  stationDisplayName,
+  type AirportFrequencies as AirportFrequencyGroups
+} from '@shared/beyondatc-frequencies'
 
 /**
  * BeyondATC's own live "Actions" menu and the COM1/COM2 radios control (Part 2 of
@@ -68,39 +76,9 @@ export function BeyondAtcActions(props: BeyondAtcActionsProps): React.JSX.Elemen
   )
 }
 
-/**
- * Splits the flat real frequency list into departure/arrival, by matching each option's
- * `airport` (an ICAO code) against `Progress.from`/`to` — real captures only ever had the
- * two flight-plan airports plus one enroute Center entry with no `airport` at all. That
- * enroute entry doesn't belong to either phase specifically, so it's included in both
- * tabs rather than dropped or given a third tab nobody asked for.
- *
- * @param options Every frequency BeyondATC offers.
- * @param departureAirport The departure, or null.
- * @param arrivalAirport The arrival, or null.
- * @returns The options for each tab.
- */
-function splitFrequencyOptions(
-  options: BeyondAtcFrequencyOption[],
-  departureAirport: string | null,
-  arrivalAirport: string | null
-): { departure: BeyondAtcFrequencyOption[]; arrival: BeyondAtcFrequencyOption[] } {
-  const enroute = options.filter((o) => !o.airport)
-  const departure = [...options.filter((o) => o.airport === departureAirport), ...enroute]
-  const arrival = [...options.filter((o) => o.airport === arrivalAirport), ...enroute]
-  return { departure, arrival }
-}
-
-/** BeyondATC's own `type` field, mapped to a clear translated label — the station `name`
- *  field alone isn't reliably clear about what a frequency is *for*: real captures showed
- *  WSSS's own clearance/delivery frequency named just "SINGAPORE" (no "Delivery" anywhere)
- *  and its ATIS frequencies named just "WSSS" (the bare airport code, no "ATIS"), while
- *  ZSPD's delivery frequency happened to already say "PUDONG DELIVERY". Leading every
- *  button with the real category, not trusting `name` to say it, is what actually makes
- *  Delivery/ATIS/etc. unambiguous regardless of how BeyondATC happened to name that one
- *  station. BeyondATC's own `Clearance` type is shown as
- *  "Delivery" — the term pilots actually use for that frequency. An unrecognised type falls
- *  back to BeyondATC's own raw text rather than guessing a translation for it. */
+/** BeyondATC's own `type` field, mapped to a clear translated heading: the station `name` alone isn't reliably clear about what a
+ *  frequency is *for* (real captures: WSSS's delivery frequency is named just "SINGAPORE", its ATIS "WSSS"). BeyondATC's `Clearance`
+ *  is shown as "Delivery", the term pilots use. An unrecognised type falls back to BeyondATC's own raw text. */
 const FREQUENCY_TYPE_KEY: Record<string, string> = {
   Approach: 'beyondAtcPanel.frequencyType.approach',
   Departure: 'beyondAtcPanel.frequencyType.departure',
@@ -112,92 +90,139 @@ const FREQUENCY_TYPE_KEY: Record<string, string> = {
 }
 
 /**
- * One selectable station. Real captures showed BeyondATC supplying several distinct
- * Approach frequencies for the same airport, one per runway, so the runway (when present)
- * is shown next to the frequency it actually applies to, not just the station name.
+ * One selectable station: its name, the runways it serves when known (BeyondATC's list carries none; they are learned from the station
+ * once tuned), its frequency, and a mark on the one already tuned.
  *
- * @param props The station and the select handler.
+ * @param props The station, whether it is the tuned one, and the select handler.
  * @returns The element.
  */
-function FrequencyOptionButton(props: {
+function FrequencyStationButton(props: {
   station: BeyondAtcFrequencyOption
+  tuned: boolean
   onSelect: (frequency: string) => void
 }): React.JSX.Element {
   const { t } = useTranslation()
-  const typeKey = FREQUENCY_TYPE_KEY[props.station.type]
-  const typeLabel = typeKey ? t(typeKey) : props.station.type
-  const label = props.station.runways
-    ? t('beyondAtcPanel.frequencyOptionRunway', {
-        type: typeLabel,
-        station: props.station.name,
-        frequency: props.station.frequency,
-        runway: props.station.runways
-      })
-    : t('beyondAtcPanel.frequencyOption', {
-        type: typeLabel,
-        station: props.station.name,
-        frequency: props.station.frequency
-      })
+  const { station } = props
   return (
     <Button
       type="button"
       variant="ghost"
       size="sm"
-      className="h-auto w-full justify-start py-1.5 text-left text-xs whitespace-normal"
-      onClick={() => props.onSelect(props.station.frequency)}
+      className="h-auto w-full justify-start gap-2 py-1.5 text-left text-xs whitespace-normal"
+      aria-current={props.tuned || undefined}
+      onClick={() => props.onSelect(station.frequency)}
     >
-      {label}
+      <span className="min-w-0 flex-1">{stationDisplayName(station.name)}</span>{' '}
+      {station.runways && (
+        <>
+          <Badge variant="outline" className="font-normal">
+            {t('beyondAtcPanel.frequencyPicker.runways', { runways: station.runways })}
+          </Badge>{' '}
+        </>
+      )}
+      {props.tuned && (
+        <>
+          <Badge>{t('beyondAtcPanel.frequencyPicker.tuned')}</Badge>{' '}
+        </>
+      )}
+      <span className="font-mono tabular-nums">{station.frequency}</span>
     </Button>
   )
 }
 
-function FrequencyOptionList(props: {
-  stations: BeyondAtcFrequencyOption[]
+/**
+ * One airport's stations, a section per type in the order a flight uses them, or a note when BeyondATC listed nothing for it.
+ *
+ * @param props The airport's grouped frequencies (or undefined), the tuned frequency and the select handler.
+ * @returns The element.
+ */
+function AirportFrequencies(props: {
+  airport: AirportFrequencyGroups | undefined
+  tunedFrequency: string | null
   onSelect: (frequency: string) => void
 }): React.JSX.Element {
   const { t } = useTranslation()
-  if (props.stations.length === 0)
+  if (!props.airport || props.airport.groups.length === 0)
     return <p className="px-1.5 py-1 text-xs text-muted-foreground">{t('beyondAtcPanel.noFrequencies')}</p>
   return (
-    <ul className="flex max-h-80 flex-col gap-0.5 overflow-y-auto">
-      {props.stations.map((station) => (
-        <li key={`${station.name}-${station.frequency}`}>
-          <FrequencyOptionButton station={station} onSelect={props.onSelect} />
-        </li>
-      ))}
-    </ul>
+    <div className="flex flex-col gap-2">
+      {props.airport.groups.map((group) => {
+        const typeKey = FREQUENCY_TYPE_KEY[group.type]
+        return (
+          <section key={group.type} aria-label={typeKey ? t(typeKey) : group.type}>
+            <h3 className="px-1.5 pb-0.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+              {typeKey ? t(typeKey) : group.type}
+            </h3>
+            <ul className="flex flex-col gap-0.5">
+              {group.stations.map((station) => (
+                <li key={`${station.name}-${station.frequency}`}>
+                  <FrequencyStationButton
+                    station={station}
+                    tuned={
+                      props.tunedFrequency !== null &&
+                      normaliseFrequency(station.frequency) === normaliseFrequency(props.tunedFrequency)
+                    }
+                    onSelect={props.onSelect}
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      })}
+    </div>
   )
 }
 
 /**
- * Departure/arrival tabs (Callum's own call, 2026-09-29 — a single grouped-by-airport list
- * read as one long list once a real flight plan filled it with every real station at both
- * airports), in a centered dialog rather than a small anchored dropdown — Callum's own
- * follow-up call, same evening, once the popover version turned out cramped for a list this
- * long. Tabs need button/tabpanel semantics a listbox (`Select`) doesn't offer, which is
- * why this was never a native `<select>`-style control to begin with.
+ * The frequency dialog: Departure and Arrival tabs (Callum's call, 2026-09-29), opened on the one the flight is at, each airport's
+ * stations grouped by type with the en-route entries last. In a centered dialog since the list is long.
  *
- * @param props The frequencies, the flight's airports and the select handler.
+ * @param props The frequencies, the flight's airports and progress, the tuned frequency and the select handler.
  * @returns The element.
  */
 function FrequencyPicker(props: {
   departureAirport: string | null
   arrivalAirport: string | null
+  progressPct: number | null
+  tunedFrequency: string | null
   options: BeyondAtcFrequencyOption[]
   onSelect: (frequency: string) => void
 }): React.JSX.Element | null {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const { departure, arrival } = useMemo(
-    () => splitFrequencyOptions(props.options, props.departureAirport, props.arrivalAirport),
-    [props.options, props.departureAirport, props.arrivalAirport]
-  )
+  const airports = useMemo(() => groupFrequencies(props.options), [props.options])
 
   if (props.options.length === 0) return null
 
   function select(frequency: string): void {
     props.onSelect(frequency)
     setOpen(false)
+  }
+
+  /**
+   * One tab's content: the airport's stations, then the en-route ones every tab shares.
+   *
+   * @param icao The tab's airport.
+   * @returns The element.
+   */
+  function tabContent(icao: string | null): React.JSX.Element {
+    const airport = airports.find((a) => a.airport === icao)
+    const enroute = airports.find((a) => a.airport === '')
+    return (
+      <div className="flex max-h-96 flex-col gap-3 overflow-y-auto">
+        {airport?.airportName && (
+          <p className="px-1.5 text-xs font-medium">{`${airport.airport} ${airport.airportName}`}</p>
+        )}
+        <AirportFrequencies airport={airport} tunedFrequency={props.tunedFrequency} onSelect={select} />
+        {enroute && (
+          <div className="flex flex-col gap-1">
+            <p className="px-1.5 text-xs font-medium">{t('beyondAtcPanel.frequencyPicker.enroute')}</p>
+            <AirportFrequencies airport={enroute} tunedFrequency={props.tunedFrequency} onSelect={select} />
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -218,17 +243,13 @@ function FrequencyPicker(props: {
         <DialogHeader>
           <DialogTitle>{t('beyondAtcPanel.selectFrequency')}</DialogTitle>
         </DialogHeader>
-        <Tabs defaultValue="departure">
+        <Tabs defaultValue={openingAirport(props.progressPct)}>
           <TabsList className="w-full">
             <TabsTrigger value="departure">{t('beyondAtcPanel.departure')}</TabsTrigger>
             <TabsTrigger value="arrival">{t('beyondAtcPanel.arrival')}</TabsTrigger>
           </TabsList>
-          <TabsContent value="departure">
-            <FrequencyOptionList stations={departure} onSelect={select} />
-          </TabsContent>
-          <TabsContent value="arrival">
-            <FrequencyOptionList stations={arrival} onSelect={select} />
-          </TabsContent>
+          <TabsContent value="departure">{tabContent(props.departureAirport)}</TabsContent>
+          <TabsContent value="arrival">{tabContent(props.arrivalAirport)}</TabsContent>
         </Tabs>
       </DialogContent>
     </Dialog>
@@ -236,28 +257,32 @@ function FrequencyPicker(props: {
 }
 
 /**
- * One frequency control: the current value, a choice of known options, and a field to type any other
- * frequency.
+ * One frequency control: the tuned station's name, the frequency in a field that holds the tuned value (and can be edited and set),
+ * and the dialog of known stations. Only a frequency the user is part-way through typing is held back from a change coming from
+ * BeyondATC, until it is set or the field loses focus.
  *
- * @param props The label, current frequency and options, the airports they belong to, and the setter.
+ * @param props The label, the tuned station and frequency, the options and flight, and the setter.
  * @returns The row.
  */
 function FrequencyRow(props: {
   label: string
-  current: string | null
+  stationName: string | null
+  frequency: string | null
   options: BeyondAtcFrequencyOption[]
   departureAirport: string | null
   arrivalAirport: string | null
+  progressPct: number | null
   onSet: (frequency: string) => void
 }): React.JSX.Element {
   const { t } = useTranslation()
-  const [value, setValue] = useState('')
+  const [draft, setDraft] = useState<string | null>(null)
+  const shown = draft ?? props.frequency ?? ''
 
   function commit(): void {
-    const trimmed = value.trim()
-    if (trimmed === '') return
+    const trimmed = shown.trim()
+    setDraft(null)
+    if (trimmed === '' || trimmed === (props.frequency ?? '').trim()) return
     props.onSet(trimmed)
-    setValue('')
   }
 
   return (
@@ -265,26 +290,35 @@ function FrequencyRow(props: {
       <div className="flex items-baseline justify-between gap-2 text-xs">
         <span className="font-medium text-foreground">{props.label}</span>
         <span className="truncate text-muted-foreground">
-          {props.current ?? t('beyondAtcPanel.frequencyUnknown')}
+          {props.stationName ?? t('beyondAtcPanel.frequencyUnknown')}
         </span>
       </div>
-      <div className="flex items-center gap-1.5">
+      {/* Moving between the field and this row's own buttons keeps what was typed; leaving the row abandons it. */}
+      <div
+        className="flex items-center gap-1.5"
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget)) setDraft(null)
+        }}
+      >
         <FrequencyPicker
           options={props.options}
           departureAirport={props.departureAirport}
           arrivalAirport={props.arrivalAirport}
+          progressPct={props.progressPct}
+          tunedFrequency={props.frequency}
           onSelect={props.onSet}
         />
         <Input
           type="text"
           inputMode="decimal"
+          aria-label={t('beyondAtcPanel.frequencyField', { radio: props.label })}
           placeholder={t('beyondAtcPanel.frequencyPlaceholder')}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
+          value={shown}
+          onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') commit()
           }}
-          className="h-7 w-24 text-xs"
+          className="h-7 w-24 font-mono text-xs"
         />
         <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={commit}>
           {t('beyondAtcPanel.setFrequency')}
@@ -405,38 +439,32 @@ function StepClimbStatusLine(props: { status: BeyondAtcStepClimbStatus }): React
  */
 export function BeyondAtcRadios(props: BeyondAtcRadiosProps): React.JSX.Element {
   const { t } = useTranslation()
-  const com1Current = props.facility
-    ? t('beyondAtcPanel.stationFrequency', {
-        station: props.facility.name,
-        frequency: props.facility.frequency
-      })
-    : null
-  // A switched-off COM2 comes through as {"label":"Radio Off","frequency":""}: show the label alone, not "Radio Off ()".
-  const com2Current = props.com2
-    ? props.com2.frequency
-      ? t('beyondAtcPanel.stationFrequency', { station: props.com2.label, frequency: props.com2.frequency })
-      : props.com2.label
-    : null
   const departureAirport = props.progress?.from ?? null
   const arrivalAirport = props.progress?.to ?? null
+  const progressPct = props.progress?.pct ?? null
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-2">
         <FrequencyRow
           label="COM1"
-          current={com1Current}
+          stationName={props.facility?.name ?? null}
+          frequency={props.facility?.frequency ?? null}
           options={props.frequencyOptions}
           departureAirport={departureAirport}
           arrivalAirport={arrivalAirport}
+          progressPct={progressPct}
           onSet={props.onSetFrequency}
         />
+        {/* A switched-off COM2 comes through as {"label":"Radio Off","frequency":""}: the label alone, and an empty field. */}
         <FrequencyRow
           label="COM2"
-          current={com2Current}
+          stationName={props.com2?.label ?? null}
+          frequency={props.com2?.frequency || null}
           options={props.frequencyOptions}
           departureAirport={departureAirport}
           arrivalAirport={arrivalAirport}
+          progressPct={progressPct}
           onSet={props.onSetFrequencyCom2}
         />
       </div>

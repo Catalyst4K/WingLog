@@ -718,7 +718,6 @@
     "connecting": "正在连接 BeyondATC…",
     "connected": "已连接到 BeyondATC。",
     "disconnected": "未连接到 BeyondATC。",
-    "stationFrequency": "{{station}}（{{frequency}}）",
     "progress": "{{from}} → {{to}} · {{pct}}%",
     "transcript": "通话记录",
     "actions": "操作",
@@ -739,8 +738,6 @@
     "departure": "离场",
     "arrival": "进场",
     "noFrequencies": "该机场暂无频率。",
-    "frequencyOption": "{{type}} — {{station}} {{frequency}}",
-    "frequencyOptionRunway": "{{type}} — {{station}} {{frequency}}（跑道 {{runway}}）",
     "frequencyType": {
       "approach": "进近",
       "departure": "离场",
@@ -813,6 +810,12 @@
       "atc": "管制员",
       "traffic": "其他机组",
       "atcTraffic": "管制员 → 其他机组"
+    },
+    "frequencyField": "{{radio}} 频率",
+    "frequencyPicker": {
+      "tuned": "已调谐",
+      "runways": "跑道 {{runways}}",
+      "enroute": "航路"
     }
   },
   "updates": {
