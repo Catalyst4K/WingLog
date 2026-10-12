@@ -14,7 +14,12 @@ export interface CorpusLine {
   text: string
   /** The InfoBoxes live when it was said, where a capture has them; null otherwise. */
   boxes: BeyondAtcInfoBox[] | null
+  /** The first InfoBoxes to arrive within a few seconds after it: BeyondATC speaks the line, then updates the boxes (flight 236). */
+  boxesAfter?: BeyondAtcInfoBox[]
 }
+
+/** How long after a line BeyondATC's boxes for it are still counted as its own. */
+const BOXES_AFTER_WINDOW_MS = 15_000
 
 export type Verdict =
   /** The speech readers found something in it (station, cleared-to airport, direct, wind, an action, a hold short). */
@@ -68,10 +73,11 @@ export function instructionLinesFromPlayerLog(log: string, source: string): Corp
  */
 export function atcLinesFromCapture(ndjson: string, source: string): CorpusLine[] {
   const lines: CorpusLine[] = []
+  const said: { line: CorpusLine; atMs: number }[] = []
   let boxes: BeyondAtcInfoBox[] | null = null
   for (const raw of ndjson.split('\n')) {
     if (!raw.trim()) continue
-    let event: { type?: string; direction?: string; text?: string }
+    let event: { type?: string; direction?: string; text?: string; tOffsetMs?: number }
     try {
       event = JSON.parse(raw) as typeof event
     } catch {
@@ -82,10 +88,19 @@ export function atcLinesFromCapture(ndjson: string, source: string): CorpusLine[
       const infoBoxes = /^InfoBoxes:\s*(\[.*\])\s*$/.exec(wire)?.[1]
       if (infoBoxes) {
         boxes = readBoxes(infoBoxes)
+        const atMs = event.tOffsetMs
+        for (const { line, atMs: saidAtMs } of said) {
+          if (boxes && !line.boxesAfter && atMs !== undefined && atMs - saidAtMs <= BOXES_AFTER_WINDOW_MS)
+            line.boxesAfter = boxes
+        }
         continue
       }
       const atc = /^ATC:\s*(.+)$/.exec(wire)?.[1]?.trim()
-      if (atc) lines.push({ source, text: atc, boxes })
+      if (atc) {
+        const line: CorpusLine = { source, text: atc, boxes }
+        lines.push(line)
+        if (event.tOffsetMs !== undefined) said.push({ line, atMs: event.tOffsetMs })
+      }
     }
   }
   return lines
@@ -124,10 +139,14 @@ export function classifyLine(line: CorpusLine): { verdict: Verdict; why: string 
   if (!CLEARANCE_WORDS.test(line.text)) return { verdict: 'not-a-clearance', why: 'no clearance wording' }
   if (CALL_OR_ACKNOWLEDGEMENT.test(line.text))
     return { verdict: 'not-a-clearance', why: 'a pilot call or an acknowledgement' }
-  if (line.boxes) {
-    const fromBoxes = instructionFromBoxes(line.boxes)
-    const carried =
-      parseAtcBoxClearance(line.boxes) !== null || fromBoxes.fields.length > 0 || fromBoxes.actions.length > 0
+  const boxSets = [line.boxes, line.boxesAfter].filter(
+    (b): b is BeyondAtcInfoBox[] => b !== null && b !== undefined
+  )
+  if (boxSets.length > 0) {
+    const carried = boxSets.some((set) => {
+      const fromBoxes = instructionFromBoxes(set)
+      return parseAtcBoxClearance(set) !== null || fromBoxes.fields.length > 0 || fromBoxes.actions.length > 0
+    })
     return carried
       ? { verdict: 'box-carried', why: 'the live InfoBoxes carry its facts' }
       : { verdict: 'not-understood', why: 'boxes were captured with it and nothing in them was understood' }

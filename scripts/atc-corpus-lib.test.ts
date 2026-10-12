@@ -50,6 +50,48 @@ describe('atcLinesFromCapture', () => {
   })
 })
 
+describe('boxes that arrive just after the line', () => {
+  // Flight 236 (WSSS, 2026-10-12): BeyondATC says the STAR clearance, then updates the boxes six
+  // seconds later. The boxes live when it was said were empty.
+  const earlier = JSON.stringify([])
+  const after = JSON.stringify([
+    { title: 'STAR', info: 'TEBU1B' },
+    { title: 'Arrival Runway', info: '20R' }
+  ])
+  const ndjson = [
+    JSON.stringify({ type: 'beyondatc', direction: 'in', tOffsetMs: 1000, text: `InfoBoxes: ${earlier}` }),
+    JSON.stringify({
+      type: 'beyondatc',
+      direction: 'in',
+      tOffsetMs: 100_000,
+      text: 'ATC: Speedbird 2 Super, cleared TEBU1B arrival, runway 20R.'
+    }),
+    JSON.stringify({ type: 'beyondatc', direction: 'in', tOffsetMs: 106_000, text: `InfoBoxes: ${after}` }),
+    JSON.stringify({
+      type: 'beyondatc',
+      direction: 'in',
+      tOffsetMs: 300_000,
+      text: 'ATC: Speedbird 2 Super, cleared TEBU1B arrival, runway 20R.'
+    })
+  ].join('\n')
+
+  it('keeps the boxes that follow a line within 15 s, and not ones that come much later', () => {
+    const [first, second] = atcLinesFromCapture(ndjson, 'flight-236.ndjson')
+    expect(first.boxes).toEqual([])
+    expect(first.boxesAfter).toEqual([
+      { title: 'STAR', info: 'TEBU1B' },
+      { title: 'Arrival Runway', info: '20R' }
+    ])
+    expect(second.boxesAfter).toBeUndefined()
+  })
+
+  it('counts the line as carried by the boxes that followed it', () => {
+    const [first] = atcLinesFromCapture(ndjson, 'flight-236.ndjson')
+    expect(classifyLine(first).verdict).toBe('box-carried')
+    expect(classifyLine({ ...first, boxesAfter: undefined }).verdict).toBe('not-understood')
+  })
+})
+
 describe('classifyLine', () => {
   it('understands what the speech readers read: a hold short, the station, a wind', () => {
     expect(classifyLine(line('Test 230, taxi via E, F, hold short of runway 27L.')).verdict).toBe(

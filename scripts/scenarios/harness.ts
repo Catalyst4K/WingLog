@@ -51,6 +51,9 @@ export interface ScenarioResult {
   samples: Sample[]
   /** The flight row at the end. */
   flight: ReturnType<typeof getFlight>
+  /** The scenario's database, as the app left it: landings and track points can be read back. */
+  db: WingLogDb
+  flightId: number
 }
 
 function nextTurn(): Promise<void> {
@@ -114,5 +117,5 @@ export async function runScenario(
   await done
   beyondAtc.stop()
   gsx.stop()
-  return { samples, flight: getFlight(db, flightId) }
+  return { samples, flight: getFlight(db, flightId), db, flightId }
 }
