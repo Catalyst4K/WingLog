@@ -137,3 +137,34 @@ export function seedApproaches(db: WingLogDb, arrival: ArrivalTimeline): void {
       .run()
   }
 }
+
+/** A380 final approach and touchdown on WSSS 20R, 2.5 minutes of 1 Hz telemetry (flight 236, 2026-10-12). */
+export function wsssLanding(): ParsedFlightFixture {
+  return parseFlightFixture(readRepoFile('scripts/scenarios/__fixtures__/wsss-236-landing.ndjson'))
+}
+
+/**
+ * WSSS's 20R and its reciprocal 02L from the sim's navdata cache, fetched 2026-10-12. The sim's 20R
+ * threshold is about 820 m past OurAirports' physical end and about 40 m to its west: the same strip,
+ * placed differently (WingLog docs/plans/landing-runway-from-sim.md).
+ */
+export const WSSS_RUNWAYS: NavdataRunway[] = [
+  {
+    ident: '20R',
+    headingTrueDeg: 203,
+    lengthM: 3221.21826171875,
+    widthM: 60,
+    surface: 4,
+    thresholdLat: 1.3757575921283205,
+    thresholdLon: 103.98878019536174
+  },
+  {
+    ident: '02L',
+    headingTrueDeg: 23,
+    lengthM: 3221.21826171875,
+    widthM: 60,
+    surface: 4,
+    thresholdLat: 1.3491213448776762,
+    thresholdLon: 103.97747058188283
+  }
+]

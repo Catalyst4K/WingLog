@@ -6,6 +6,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { parseAtcTaxiFacts } from '../../src/shared/atc-info-boxes'
+import { listLandingsByFlight } from '../../src/main/db/landing-repo'
 import {
   EGLL_RUNWAYS,
   EGLL_TAXI_OUT,
@@ -13,6 +14,8 @@ import {
   seedApproaches,
   seedRunways,
   withArrival,
+  WSSS_RUNWAYS,
+  wsssLanding,
   zjsyArrival
 } from './bases'
 import { runScenario, type ScenarioResult } from './harness'
@@ -166,6 +169,45 @@ describe('scenario: the gate and taxi boxes after landing (#111, #112)', () => {
       const { samples } = await zjsyArrivalFlight([renameTaxiway('A4', 'LINK 36')])
       const taxiBoxes = samples.find((s) => s.infoBoxes.some((b) => b.title === 'Taxi to Gate'))
       expect(taxiBoxes && parseAtcTaxiFacts(taxiBoxes.infoBoxes).taxiVia).toEqual(['LINK 36', 'D'])
+    },
+    SCENARIO_TIMEOUT_MS
+  )
+})
+
+describe('scenario: a landing on a runway the sim places differently (flight 236, WSSS 20R)', () => {
+  /** The A380's touchdown, replayed with the sim's own WSSS runways cached. */
+  async function wsssLandingRun(): Promise<ReturnType<typeof listLandingsByFlight>> {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    const { db, flightId } = await runScenario(wsssLanding(), {
+      depIcao: 'WSSS',
+      arrIcao: 'WSSS',
+      seed: (seeded) => seedRunways(seeded, 'WSSS', WSSS_RUNWAYS),
+      setClock: (ms) => vi.setSystemTime(ms)
+    })
+    return listLandingsByFlight(db, flightId)
+  }
+
+  it(
+    'records one landing on 20R, with its runway and offset',
+    async () => {
+      const landings = await wsssLandingRun()
+      expect(landings).toHaveLength(1)
+      expect(landings[0].icao).toBe('WSSS')
+      expect(landings[0].runwayIdent).toBe('20R')
+      expect(landings[0].centrelineOffsetM).not.toBeNull()
+    },
+    SCENARIO_TIMEOUT_MS
+  )
+
+  // The aircraft touched down 1.9 m left of the sim's 20R centreline. The landing record measures
+  // against OurAirports' 20R, 40 m away, and says 38 m right. Known bug, planned as
+  // winglog-backend docs/plans/landing-runway-from-sim.md: `it.fails` turns red the moment the fix
+  // lands, and the `.fails` comes off then.
+  it.fails(
+    "measures the centreline offset against the sim's runway (within 10 m of -1.9 m)",
+    async () => {
+      const [landing] = await wsssLandingRun()
+      expect(Math.abs((landing.centrelineOffsetM ?? 99) - -1.9)).toBeLessThan(10)
     },
     SCENARIO_TIMEOUT_MS
   )

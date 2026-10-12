@@ -52,7 +52,7 @@ export function taxiAfterLanding(samples: Sample[]): string[] {
 }
 
 /** The runway a set of boxes clears for arrival (`Arrival Runway`, `Landing Runway`), if any. */
-function boxedArrivalRunway(sample: Sample): string | null {
+export function boxedArrivalRunway(sample: Sample): string | null {
   return sample.infoBoxes.find((b) => /^(arrival|landing) runway$/i.test(b.title.trim()))?.info.trim() ?? null
 }
 
@@ -96,4 +96,62 @@ export function gateWithItsBox(samples: Sample[], gate: string): string[] {
   return samples[named].assignedGate === gate
     ? []
     : [`gate ${gate} named at ${at(samples[named])} but assigned ${samples[named].assignedGate ?? 'nothing'}`]
+}
+
+/**
+ * The arrival card shows soon after ATC clears the arrival, even when the clearances arrive in one
+ * burst after a long silence (flight 236: BeyondATC stopped talking for over an hour, then gave the
+ * whole descent at once).
+ *
+ * @param maxDelayS The longest wait from the boxes naming the runway to the card appearing.
+ */
+export function arrivalCardPrompt(samples: Sample[], maxDelayS: number): string[] {
+  const boxed = samples.find((s) => boxedArrivalRunway(s) !== null)
+  if (!boxed) return ['the boxes never named an arrival runway']
+  const card = samples.find((s) => s.arrival !== null)
+  if (!card) return [`the boxes named the runway at ${at(boxed)} and the card never appeared`]
+  const delayS = (card.tOffsetMs - boxed.tOffsetMs) / 1000
+  return delayS > maxDelayS
+    ? [
+        `the card appeared ${delayS.toFixed(0)} s after the boxes named the runway (${at(boxed)}), over ${maxDelayS} s`
+      ]
+    : []
+}
+
+/** What a landing record says, and what the same touchdown measures against another runway source. */
+export interface LandingCheck {
+  recordedRunway: string | null
+  recordedOffsetM: number | null
+  recordedDistanceM: number | null
+  measuredOffsetM: number
+  measuredDistanceM: number
+}
+
+/**
+ * The landing record agrees with an independent measure of the same touchdown against the sim's
+ * runway (WingLog `landing-runway-from-sim.md`). Fails today on flight 236: the record measures
+ * against OurAirports' WSSS 20R, 40 m from the sim's.
+ *
+ * @param toleranceM How far apart the two offsets may be.
+ */
+export function landingMatchesSimRunway(check: LandingCheck, toleranceM: number): string[] {
+  if (check.recordedOffsetM === null) return ['the landing has no centreline offset']
+  const gap = Math.abs(check.recordedOffsetM - check.measuredOffsetM)
+  return gap > toleranceM
+    ? [
+        `the landing says ${check.recordedOffsetM.toFixed(1)} m off the centreline, the sim's runway measures ${check.measuredOffsetM.toFixed(1)} m (${gap.toFixed(1)} m apart, over ${toleranceM} m)`
+      ]
+    : []
+}
+
+/**
+ * The replay reaches the same phases, in the same order, as the live app recorded. The live flight
+ * ends in `shutdown`, which ends tracking, so the replay's last sample is already empty: a trailing
+ * `shutdown` on the live side is not a difference.
+ */
+export function samePhasesAsLive(replay: string[], live: string[]): string[] {
+  const liveWithoutShutdown = live[live.length - 1] === 'shutdown' ? live.slice(0, -1) : live
+  return replay.join(' > ') === liveWithoutShutdown.join(' > ')
+    ? []
+    : [`replay phases: ${replay.join(' > ')}; live phases: ${live.join(' > ')}`]
 }
