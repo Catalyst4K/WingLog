@@ -29,7 +29,6 @@ import { dbFlightStore } from './db/flight-store'
 import { SimConnectService } from './sim/SimConnectService'
 import { ReplaySimConnectService, type ReplayMode } from './sim/ReplaySimConnectService'
 import { replayCapture, type ReplayedCapture } from './sim/replay-capture'
-import { pointRegeditAtUnpackedScripts } from './sim/regedit-scripts'
 import { registerFleetHandlers } from './ipc/fleet-handlers'
 import { registerLogbookHandlers } from './ipc/logbook-handlers'
 import { registerLookupHandlers } from './ipc/lookup-handlers'
@@ -405,15 +404,6 @@ function createWindow(): BrowserWindow {
 
 // Before anything else can throw — a crash logged nowhere is a crash nobody can debug.
 initLogger()
-
-// Before SimConnect's first connection attempt — see regedit-scripts.ts. Never fatal: at worst
-// the registry lookup keeps failing the way it always has, and node-simconnect falls back.
-try {
-  const result = pointRegeditAtUnpackedScripts(app.isPackaged, process.resourcesPath)
-  if (result !== null) logger.info(`regedit scripts: ${result}`)
-} catch (err) {
-  logger.warn('regedit scripts not redirected:', err)
-}
 
 // e2e-only (e2e/launch-app.ts always sets this): headless Linux CI's xvfb display has no
 // real GPU, and Electron's bundled Chromium doesn't reliably fall back to a working
