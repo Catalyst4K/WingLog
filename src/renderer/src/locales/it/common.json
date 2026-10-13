@@ -943,7 +943,8 @@
         "failed": "Impossibile avviare il secondo schermo."
       },
       "qrLabel": "Codice QR dell’indirizzo del secondo schermo",
-      "qrHint": "Inquadralo con la fotocamera dello smartphone per aprire la pagina."
+      "qrHint": "Inquadralo con la fotocamera dello smartphone per aprire la pagina.",
+      "qrHintPairing": "Inquadralo con lo smartphone per aprire la pagina e associare. Il codice cambia ogni 5 minuti."
     }
   }
 }

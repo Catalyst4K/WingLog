@@ -190,4 +190,39 @@ test.describe('Second screen', () => {
       await cleanup()
     }
   })
+
+  test('opening the address a QR code carries pairs the phone without typing, and takes the code out of the address', async () => {
+    const port = await freePort()
+    const { app, window: page, cleanup } = await launchApp({ env: { WINGLOG_E2E_LAN_ADDRESS: '127.0.0.1' } })
+    try {
+      const card = await switchOn(page, port)
+      await card.getByRole('button', { name: 'Pair a device' }).click()
+      const code =
+        (await card
+          .locator('[aria-label]')
+          .filter({ hasText: /^\d{6}$/ })
+          .textContent()) ?? ''
+
+      const known = app.windows().length
+      await app.evaluate(async ({ BrowserWindow }, url) => {
+        const window = new BrowserWindow({ show: false })
+        await window.loadURL(url)
+      }, `http://127.0.0.1:${port}/#code=${code}`)
+      await expect.poll(() => app.windows().length).toBeGreaterThan(known)
+      const phone = app.windows().find((w) => w.url().startsWith(`http://127.0.0.1:${port}`))!
+
+      // Straight to the pages: no code was asked for, and the code is no longer in the address.
+      await expect(phone.getByRole('navigation')).toBeVisible()
+      await expect(phone.getByLabel('Pairing code')).toHaveCount(0)
+      expect(phone.url()).toBe(`http://127.0.0.1:${port}/`)
+      await expect(
+        card
+          .getByText('Phone', { exact: false })
+          .or(card.getByText(/Chrome|Electron|Windows PC|Linux PC|Mac|Browser/))
+          .first()
+      ).toBeVisible()
+    } finally {
+      await cleanup()
+    }
+  })
 })

@@ -1,6 +1,6 @@
 /** Settings → Data → Second screen: the live map on a phone or tablet (winglog-backend's docs/plans/lan-web-viewer.md). */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { LanSettings, LanStatus } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
@@ -22,6 +22,13 @@ export function LanCard(): React.JSX.Element {
   const { t } = useTranslation()
   const [status, setStatus] = useState<LanStatus | null>(null)
   const [port, setPort] = useState('')
+  // Pairing mode, from pressing "Pair a device" until "Close": a code that runs out or is used is replaced by a new one (so a QR left on
+  // screen never goes stale, and a second device can follow the first), but a window cancelled by wrong guesses is not reopened.
+  const pairing = useRef<{ on: boolean; expiresAt: number; devices: number }>({
+    on: false,
+    expiresAt: 0,
+    devices: 0
+  })
 
   const refresh = useCallback(() => {
     runAsync(
@@ -31,6 +38,7 @@ export function LanCard(): React.JSX.Element {
         .then((next) => {
           setStatus(next)
           setPort((current) => (current === '' ? String(next.settings.port) : current))
+          renewPairing(next, pairing.current, setStatus)
         })
     )
   }, [])
@@ -52,6 +60,16 @@ export function LanCard(): React.JSX.Element {
     asyncHandler(context, async () => setStatus(await action()))
 
   if (!status) return <Card className="w-full max-w-2xl" />
+  /** Opens pairing mode: a code now, and a new one whenever it runs out or is used, until Close. */
+  function startPairing(): void {
+    pairing.current = { on: true, expiresAt: 0, devices: status?.devices.length ?? 0 }
+    runAsync('LanCard lanStartPairing', winglogApi().lanStartPairing().then(setStatus))
+  }
+  /** Closes pairing mode. */
+  function stopPairing(): void {
+    pairing.current.on = false
+    runAsync('LanCard lanStopPairing', winglogApi().lanStopPairing().then(setStatus))
+  }
   const { settings } = status
   const save = (patch: Partial<LanSettings>): Promise<LanStatus> =>
     winglogApi().lanSetSettings({ ...settings, ...patch })
@@ -144,8 +162,13 @@ export function LanCard(): React.JSX.Element {
                   </span>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <QrCode text={status.url} label={t('lan.settings.qrLabel')} />
-                  <span className="max-w-44 text-xs text-muted-foreground">{t('lan.settings.qrHint')}</span>
+                  <QrCode
+                    text={status.pairing ? `${status.url}#code=${status.pairing.code}` : status.url}
+                    label={t('lan.settings.qrLabel')}
+                  />
+                  <span className="max-w-44 text-xs text-muted-foreground">
+                    {t(status.pairing ? 'lan.settings.qrHintPairing' : 'lan.settings.qrHint')}
+                  </span>
                 </div>
               </div>
             )}
@@ -160,23 +183,14 @@ export function LanCard(): React.JSX.Element {
                     </span>
                     <span className="text-xs text-muted-foreground">{t('lan.settings.pairingNote')}</span>
                     <div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={change(() => winglogApi().lanStopPairing(), 'LanCard lanStopPairing')}
-                      >
+                      <Button type="button" size="sm" variant="outline" onClick={stopPairing}>
                         {t('lan.settings.pairingClose')}
                       </Button>
                     </div>
                   </div>
                 ) : (
                   <div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={change(() => winglogApi().lanStartPairing(), 'LanCard lanStartPairing')}
-                    >
+                    <Button type="button" size="sm" onClick={startPairing}>
                       {t('lan.settings.pairButton')}
                     </Button>
                   </div>
@@ -226,6 +240,38 @@ export function LanCard(): React.JSX.Element {
       </CardContent>
     </Card>
   )
+}
+
+/**
+ * Keeps the pairing code fresh while the pilot is in pairing mode.
+ *
+ * @param status The status just read.
+ * @param pairing Whether pairing mode is on, when the code on screen runs out, and how many devices were paired when it was opened.
+ * @param show Shows the status a new code comes back with.
+ */
+function renewPairing(
+  status: LanStatus,
+  pairing: { on: boolean; expiresAt: number; devices: number },
+  show: (next: LanStatus) => void
+): void {
+  if (!pairing.on) return
+  if (!status.url) {
+    pairing.on = false
+    return
+  }
+  if (status.pairing) {
+    pairing.expiresAt = status.pairing.expiresAt
+    return
+  }
+  const used = status.devices.length > pairing.devices
+  const expired = pairing.expiresAt !== 0 && Date.now() >= pairing.expiresAt
+  if (used || expired) {
+    pairing.devices = status.devices.length
+    runAsync('LanCard lanStartPairing (renew)', winglogApi().lanStartPairing().then(show))
+  } else {
+    // Gone before its time and nobody paired: the PC cancelled it after wrong guesses, so stop offering codes.
+    pairing.on = false
+  }
 }
 
 /** The locale key under `lan.settings.problem` for each problem. */

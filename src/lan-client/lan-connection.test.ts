@@ -75,6 +75,17 @@ describe('LanConnection', () => {
     expect(sockets).toHaveLength(0)
   })
 
+  it('shows it is connecting while a code is being tried, and goes back to asking when the PC never answers', () => {
+    const { link, sockets, states } = setup()
+    link.start()
+    link.pair('123456')
+    expect(states).toEqual(['needs-pairing', 'starting'])
+    sockets[0].drop()
+    expect(states).toEqual(['needs-pairing', 'starting', 'needs-pairing'])
+    vi.advanceTimersByTime(60_000)
+    expect(sockets).toHaveLength(1)
+  })
+
   it('pairs with the typed code, keeps the token and goes live on the snapshot', () => {
     const { link, sockets, states, token } = setup()
     link.start()
@@ -84,7 +95,7 @@ describe('LanConnection', () => {
     sockets[0].say({ t: 'paired', token: 'tok' })
     sockets[0].say({ t: 'snapshot', topics: { simTelemetry: { altitudeM: 1000 } }, flight: FLIGHT })
     expect(token()).toBe('tok')
-    expect(states).toEqual(['needs-pairing', 'connected'])
+    expect(states).toEqual(['needs-pairing', 'starting', 'connected'])
     expect(link.flight).toEqual(FLIGHT)
     expect(link.latest('simTelemetry')).toEqual({ altitudeM: 1000 })
   })
@@ -96,7 +107,7 @@ describe('LanConnection', () => {
     sockets[0].open()
     sockets[0].say({ t: 'denied' })
     sockets[0].drop()
-    expect(states).toEqual(['needs-pairing', 'wrong-code'])
+    expect(states).toEqual(['needs-pairing', 'starting', 'wrong-code'])
     expect(token()).toBeNull()
   })
 

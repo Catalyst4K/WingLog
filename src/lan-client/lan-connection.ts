@@ -189,6 +189,7 @@ export class LanConnection {
    */
   pair(code: string): void {
     this.pairingCode = code.trim()
+    this.setState('starting')
     this.connect()
   }
 
@@ -249,6 +250,12 @@ export class LanConnection {
       this.socket = null
       this.failPendingQueries()
       if (this.stopped) return
+      if (this.pairingCode !== null) {
+        // The PC never answered the code (it was unreachable): back to asking for it, as there is no token to retry with.
+        this.pairingCode = null
+        this.setState('needs-pairing')
+        return
+      }
       if (this.current === 'connected' || this.current === 'offline' || this.current === 'starting') {
         this.setState('offline')
         this.scheduleRetry()

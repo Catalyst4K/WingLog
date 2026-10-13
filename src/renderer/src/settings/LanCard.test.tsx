@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { LanSettings, LanStatus } from '@shared/ipc'
 import { LanCard } from './LanCard'
+import { QrCode } from './QrCode'
 
 const OFF: LanStatus = {
   settings: { enabled: false, adapter: null, port: 8765 },
@@ -72,6 +73,113 @@ describe('LanCard', () => {
     render(<LanCard />)
     await screen.findByRole('alert')
     expect(screen.queryByRole('img')).not.toBeInTheDocument()
+  })
+
+  it('carries the pairing code in the QR code while a code is open, and only the address otherwise', async () => {
+    setup(ON)
+    render(<LanCard />)
+    const plain = (await screen.findByRole('img', { name: 'QR code for the second-screen address' }))
+      .querySelector('path')
+      ?.getAttribute('d')
+    expect(plain).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: 'Pair a device' }))
+    const withCode = (await screen.findAllByRole('img', { name: 'QR code for the second-screen address' }))[0]
+      .querySelector('path')
+      ?.getAttribute('d')
+    expect(withCode).not.toBe(plain)
+    expect(
+      screen.getByText('Scan it with the phone to open the page and pair. The code changes every 5 minutes.')
+    ).toBeInTheDocument()
+    const expected = render(<QrCode text="http://192.168.1.136:8765/#code=482913" label="expected" />)
+    expect(withCode).toBe(expected.container.querySelector('path')?.getAttribute('d'))
+  })
+
+  /**
+   * A stand-in PC for the pairing code: it shows a code for as long as it is open, is spent when a device pairs, and opens a new one
+   * when asked.
+   *
+   * @param api The mocked window.winglog calls.
+   * @param lifetimeMs How long each code lasts.
+   * @returns What a test can do to it.
+   */
+  function fakePc(api: ReturnType<typeof setup>, lifetimeMs: number) {
+    const startPairing = api.lanStartPairing as ReturnType<typeof vi.fn>
+    let devices = 0
+    let open: { code: string; expiresAt: number } | null = null
+    let issued = 0
+    const status = (): LanStatus => ({
+      ...ON,
+      devices: Array.from({ length: devices }, (_, i) => ({
+        id: i + 1,
+        name: 'Phone',
+        createdAt: 'x',
+        lastSeenAt: null
+      })),
+      pairing: open && Date.now() < open.expiresAt ? open : null
+    })
+    api.lanGetStatus.mockImplementation(() => Promise.resolve(status()))
+    startPairing.mockImplementation(() => {
+      issued += 1
+      open = { code: String(100000 + issued), expiresAt: Date.now() + lifetimeMs }
+      return Promise.resolve(status())
+    })
+    api.lanStopPairing.mockImplementation(() => {
+      open = null
+      return Promise.resolve(status())
+    })
+    return {
+      /** A device pairs with the open code: the code is spent. */
+      pair: () => {
+        devices += 1
+        open = null
+      },
+      /** The PC cancels the code after wrong guesses: nobody paired. */
+      cancel: () => {
+        open = null
+      }
+    }
+  }
+
+  it('opens a new code when the one on screen is used, so a second device can follow, until Close', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const api = setup(ON)
+    const pc = fakePc(api, 300_000)
+    render(<LanCard />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Pair a device' }))
+    expect(api.lanStartPairing).toHaveBeenCalledTimes(1)
+    pc.pair()
+    await vi.advanceTimersByTimeAsync(2100)
+    await vi.waitFor(() => expect(api.lanStartPairing).toHaveBeenCalledTimes(2))
+    expect(await screen.findByLabelText('100002')).toBeInTheDocument()
+    await userEvent.click(await screen.findByRole('button', { name: 'Close' }))
+    pc.pair()
+    await vi.advanceTimersByTimeAsync(4200)
+    expect(api.lanStartPairing).toHaveBeenCalledTimes(2)
+    vi.useRealTimers()
+  })
+
+  it('opens a new code when the one on screen runs out', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const api = setup(ON)
+    fakePc(api, 3000)
+    render(<LanCard />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Pair a device' }))
+    await vi.advanceTimersByTimeAsync(6300)
+    await vi.waitFor(() => expect(api.lanStartPairing.mock.calls.length).toBeGreaterThanOrEqual(2))
+    vi.useRealTimers()
+  })
+
+  it('does not reopen a code the PC cancelled after wrong guesses', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const api = setup(ON)
+    const pc = fakePc(api, 300_000)
+    render(<LanCard />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Pair a device' }))
+    pc.cancel()
+    await vi.advanceTimersByTimeAsync(8400)
+    expect(api.lanStartPairing).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('button', { name: 'Pair a device' })).toBeInTheDocument()
+    vi.useRealTimers()
   })
 
   it('lists the real adapter and the virtual one, marked as unusable for a phone', async () => {

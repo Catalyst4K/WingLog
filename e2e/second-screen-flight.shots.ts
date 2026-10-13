@@ -235,18 +235,21 @@ test('the second screen follows a replayed flight, in portrait and landscape', a
       // The address as the QR code Settings draws, on a page opened in the default browser with the current pairing code beside it, so a
       // phone can scan it straight off this screen. The page reloads itself, and is rewritten whenever the code changes.
       const connectFile = join(OUT, 'connect.html')
-      const qrSvg = await card
-        .getByRole('img')
-        .first()
-        .evaluate((el) => el.outerHTML)
+      // The QR code Settings draws while a code is open: it carries the address and that code, so a scan pairs by itself.
+      const qrSvg = (): Promise<string> =>
+        card
+          .getByRole('img')
+          .first()
+          .evaluate((el) => el.outerHTML)
       const connectPage = (
-        code: string
+        code: string,
+        svg: string
       ): string => `<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="3"><title>WingLog second screen test</title>
 <body style="font:20px system-ui;margin:0;padding:32px;text-align:center;background:#f4f6f8;color:#111">
 <h1 style="margin:0 0 8px">WingLog second screen (replay)</h1>
-<p style="margin:0 0 20px">Scan with the phone camera, or open <b>http://${address}:${port}/</b></p>
-<div style="display:inline-block;width:340px;height:340px">${qrSvg.replace(/width="\d+" height="\d+"/, 'width="340" height="340"')}</div>
-<p style="margin:24px 0 4px">Then type this pairing code (works once, then the next one appears here):</p>
+<p style="margin:0 0 20px">Scan with the phone camera: it opens the page and pairs by itself.</p>
+<div style="display:inline-block;width:340px;height:340px">${svg.replace(/width="\d+" height="\d+"/, 'width="340" height="340"')}</div>
+<p style="margin:24px 0 4px">Or open <b>http://${address}:${port}/</b> and type this code (works once; the QR code and code here change when it is used):</p>
 <p style="font:700 56px ui-monospace,monospace;letter-spacing:.2em;margin:0">${code}</p></body>`
       const until = Date.now() + HOLD_MIN * 60_000
       let last = ''
@@ -262,7 +265,9 @@ test('the second screen follows a replayed flight, in portrait and landscape', a
           if (code !== '' && code !== last) {
             last = code
             writeFileSync(codeFile, code)
-            writeFileSync(connectFile, connectPage(code))
+            // Settings redraws the QR code with the new code within a couple of seconds.
+            await page.waitForTimeout(2_600)
+            writeFileSync(connectFile, connectPage(code, await qrSvg()))
             if (!opened) {
               opened = true
               execFile('cmd', ['/c', 'start', '', connectFile], () => undefined)
