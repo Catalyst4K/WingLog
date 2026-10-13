@@ -94,7 +94,7 @@ test.describe('Second screen', () => {
       // The address as a QR code to scan: drawn, and holding more than a blank square.
       const qr = card.getByRole('img', { name: 'QR code for the second-screen address' })
       await expect(qr).toBeVisible()
-      expect(await qr.locator('path').getAttribute('d')).toMatch(/^Md+ d+hd+v1/)
+      expect(await qr.locator('path').getAttribute('d')).toMatch(/^M\d+ \d+h\d+v1/)
 
       // The page itself carries no data, and anything else is not found.
       const html = await fetch(`http://127.0.0.1:${port}/`)
