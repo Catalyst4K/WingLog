@@ -156,8 +156,6 @@ function CloudSignIn(props: { sync: CloudSyncState }): React.JSX.Element {
   const emailId = useId()
   const passwordId = useId()
   const inviteId = useId()
-  const modeClass = (mode: 'login' | 'signup'): string =>
-    `flex-1 cursor-pointer rounded-sm py-1 ${s.mode === mode ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground'}`
   const submitLabel = s.submitting
     ? s.mode === 'login'
       ? t('settingsView.cloudSync.loggingIn')
@@ -167,13 +165,20 @@ function CloudSignIn(props: { sync: CloudSyncState }): React.JSX.Element {
       : t('settingsView.cloudSync.signUp')
   return (
     <>
-      <div className="flex gap-1 rounded-md bg-muted p-1 text-sm">
-        <button type="button" onClick={() => s.setMode('login')} className={modeClass('login')}>
-          {t('settingsView.cloudSync.logIn')}
-        </button>
-        <button type="button" onClick={() => s.setMode('signup')} className={modeClass('signup')}>
-          {t('settingsView.cloudSync.signUp')}
-        </button>
+      <div className="flex gap-1.5" role="group" aria-label={t('settingsView.cloudSync.cardTitle')}>
+        {(['login', 'signup'] as const).map((mode) => (
+          <Button
+            key={mode}
+            type="button"
+            size="sm"
+            variant={s.mode === mode ? 'default' : 'outline'}
+            aria-pressed={s.mode === mode}
+            className="min-w-[4.5rem]"
+            onClick={() => s.setMode(mode)}
+          >
+            {t(mode === 'login' ? 'settingsView.cloudSync.logIn' : 'settingsView.cloudSync.signUp')}
+          </Button>
+        ))}
       </div>
       <form
         onSubmit={asyncHandler('SettingsView handleCloudLogin', s.mode === 'login' ? s.logIn : s.signUp)}

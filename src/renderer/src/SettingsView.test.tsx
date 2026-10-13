@@ -1032,8 +1032,11 @@ describe('SettingsView', () => {
       const user = userEvent.setup()
       renderSettings()
       await user.click(screen.getByRole('tab', { name: 'Data' }))
+      const modes = screen.getByRole('group', { name: 'Cloud sync' })
+      expect(within(modes).getByRole('button', { name: 'Log in' })).toHaveAttribute('aria-pressed', 'true')
       await user.click(screen.getByRole('button', { name: 'Sign up' }))
 
+      expect(within(modes).getByRole('button', { name: 'Sign up' })).toHaveAttribute('aria-pressed', 'true')
       expect(screen.getByText('At least 12 characters.')).toBeInTheDocument()
       await user.type(screen.getByLabelText('Email'), 'new@example.com')
       await user.type(screen.getByLabelText('Password'), 'twelvecharspw')
