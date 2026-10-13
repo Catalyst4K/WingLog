@@ -24,6 +24,7 @@ import type { TrackingController } from '../tracking/TrackingController'
 import { listAirfields } from '../airports/airfields'
 import type { SimFacilitiesProvider } from '../navdata/sim-facilities-provider'
 import { listLanAddresses, type LanAddress } from './adapters'
+import { defaultRouteAddress } from './default-route'
 import { trackCommands } from '../live/commands'
 import type { LiveCommand } from '@shared/live'
 import { fetchMetars } from '../weather/metar-client'
@@ -198,6 +199,7 @@ export function createLan({
       testAddress
         ? [{ adapter: 'Test network', address: testAddress, kind: 'physical' }]
         : listLanAddresses(networkInterfaces()),
+    routeAddress: () => (testAddress ? Promise.resolve(null) : defaultRouteAddress()),
     devices: {
       list: () => listLanDevices(db),
       revoke: (id) => revokeLanDevice(db, id, new Date().toISOString())

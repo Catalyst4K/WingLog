@@ -915,10 +915,6 @@
       "enable": "Second screen",
       "on": "On",
       "off": "Off",
-      "adapter": "Network",
-      "adapterAuto": "Automatic",
-      "adapterOption": "{{adapter}} ({{address}})",
-      "adapterVirtual": "{{adapter}} ({{address}}), virtual: a phone cannot be on it",
       "port": "Port",
       "open": "Open this address on the phone or tablet:",
       "connected_one": "{{count}} device connected now",
@@ -935,7 +931,6 @@
       "help": "Can't connect? The phone and this PC must be on the same Wi-Fi (not a guest network), this PC's network should be set to Private, and your firewall must allow WingLog.",
       "problem": {
         "noAdapter": "This PC has no home-network connection to listen on.",
-        "chooseAdapter": "Choose which network to listen on.",
         "portInUse": "That port is already in use. Choose another.",
         "failed": "The second screen could not start."
       },

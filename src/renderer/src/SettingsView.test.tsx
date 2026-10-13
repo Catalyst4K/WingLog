@@ -110,7 +110,7 @@ function createWinglog(overrides: Record<string, unknown> = {}): typeof window.w
     logbookExport: vi.fn().mockResolvedValue(false),
     appOpenGithub: vi.fn().mockResolvedValue(undefined),
     lanGetStatus: vi.fn().mockResolvedValue({
-      settings: { enabled: false, adapter: null, port: 8765 },
+      settings: { enabled: false, port: 8765 },
       addresses: [],
       listening: false,
       url: null,

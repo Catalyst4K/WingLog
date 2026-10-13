@@ -237,7 +237,7 @@ test.describe('Second screen', () => {
         async (args) => {
           const api = (globalThis as unknown as Window).winglog
           await api.settingsSetGsxRemote({ enabled: true, host: '127.0.0.1', port: args.gsxPort })
-          await api.lanSetSettings({ enabled: true, adapter: null, port: args.port })
+          await api.lanSetSettings({ enabled: true, port: args.port })
           return (await api.lanStartPairing()).pairing?.code ?? ''
         },
         { gsxPort: gsx.port, port }

@@ -51,15 +51,14 @@ export function listLanAddresses(
 }
 
 /**
- * Picks the address to listen on: the user's saved adapter if it is still there, otherwise the only physical adapter. With several
- * physical adapters and no saved choice there is no safe default, so the user picks.
+ * Picks the address to listen on: the real adapter this PC reaches the network through (the default route), else the first real
+ * adapter. A virtual adapter (WSL, Hyper-V, a VPN) is never picked: a phone can't be on it.
  *
  * @param addresses The list from `listLanAddresses`.
- * @param savedAdapter The adapter name the user chose, if any.
- * @returns The address, or null when there is none or the user must choose.
+ * @param routeAddress The local address of the default route (`defaultRouteAddress`), or null when there is none.
+ * @returns The address, or null when there is no real adapter.
  */
-export function chooseAddress(addresses: LanAddress[], savedAdapter: string | null): LanAddress | null {
-  if (savedAdapter) return addresses.find((a) => a.adapter === savedAdapter) ?? null
+export function chooseAddress(addresses: LanAddress[], routeAddress: string | null): LanAddress | null {
   const physical = addresses.filter((a) => a.kind === 'physical')
-  return physical.length === 1 ? physical[0] : null
+  return physical.find((a) => a.address === routeAddress) ?? physical[0] ?? null
 }

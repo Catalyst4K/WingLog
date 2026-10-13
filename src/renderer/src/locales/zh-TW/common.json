@@ -907,10 +907,6 @@
       "enable": "第二螢幕",
       "on": "開",
       "off": "關",
-      "adapter": "網路",
-      "adapterAuto": "自動",
-      "adapterOption": "{{adapter}}（{{address}}）",
-      "adapterVirtual": "{{adapter}}（{{address}}），虛擬網路：手機無法連線",
       "port": "連接埠",
       "open": "在手機或平板上開啟此位址：",
       "connected_other": "目前已連線 {{count}} 台裝置",
@@ -926,7 +922,6 @@
       "help": "無法連線？手機與這台電腦必須在同一個 Wi-Fi 下（不能是訪客網路），這台電腦的網路應設為「私人」，而且防火牆必須允許 WingLog。",
       "problem": {
         "noAdapter": "這台電腦沒有可供監聽的家用網路連線。",
-        "chooseAdapter": "請選擇要監聽的網路。",
         "portInUse": "該連接埠已被使用，請換一個。",
         "failed": "第二螢幕無法啟動。"
       },

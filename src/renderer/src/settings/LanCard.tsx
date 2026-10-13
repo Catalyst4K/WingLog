@@ -5,14 +5,10 @@ import { useTranslation } from 'react-i18next'
 import type { LanSettings, LanStatus } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { winglogApi } from '../data/winglog-api'
 import { QrCode } from './QrCode'
 import { asyncHandler, runAsync } from '../report-error'
 import { OnOffControl, SettingRow, SettingsCard, SettingsSection, StatusBadge } from './ui/SettingsCard'
-
-/** The adapter list's "Automatic" choice (a Select item cannot have an empty value). */
-const AUTO_ADAPTER = '__auto__'
 
 /** How often the card re-reads the status, for the pairing countdown, devices and connections. */
 const REFRESH_MS = 2000
@@ -26,7 +22,6 @@ export function LanCard(): React.JSX.Element {
   const { t } = useTranslation()
   const [status, setStatus] = useState<LanStatus | null>(null)
   const [port, setPort] = useState('')
-  const adapterId = useId()
   const portId = useId()
   // Pairing mode, from pressing "Pair a device" until "Close": a code that runs out or is used is replaced by a new one (so a QR left on
   // screen never goes stale, and a second device can follow the first), but a window cancelled by wrong guesses is not reopened.
@@ -104,32 +99,6 @@ export function LanCard(): React.JSX.Element {
 
       {settings.enabled && (
         <>
-          <SettingRow label={t('lan.settings.adapter')} controlId={adapterId}>
-            <Select
-              value={settings.adapter ?? AUTO_ADAPTER}
-              onValueChange={(value) =>
-                runAsync(
-                  'LanCard lanSetSettings',
-                  save({ adapter: value === AUTO_ADAPTER ? null : value }).then(setStatus)
-                )
-              }
-            >
-              <SelectTrigger id={adapterId} className="w-72 max-w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={AUTO_ADAPTER}>{t('lan.settings.adapterAuto')}</SelectItem>
-                {status.addresses.map((a) => (
-                  <SelectItem key={a.adapter} value={a.adapter}>
-                    {t(a.virtual ? 'lan.settings.adapterVirtual' : 'lan.settings.adapterOption', {
-                      adapter: a.adapter,
-                      address: a.address
-                    })}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </SettingRow>
           <SettingRow label={t('lan.settings.port')} controlId={portId}>
             <Input
               id={portId}
@@ -286,7 +255,6 @@ function renewPairing(
 /** The locale key under `lan.settings.problem` for each problem. */
 const PROBLEM_KEY = {
   'no-adapter': 'noAdapter',
-  'choose-adapter': 'chooseAdapter',
   'port-in-use': 'portInUse',
   failed: 'failed'
 } as const

@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { LanSettings, LanStatus } from '@shared/ipc'
@@ -6,11 +6,7 @@ import { LanCard } from './LanCard'
 import { QrCode } from './QrCode'
 
 const OFF: LanStatus = {
-  settings: { enabled: false, adapter: null, port: 8765 },
-  addresses: [
-    { adapter: 'Ethernet', address: '192.168.1.136', virtual: false },
-    { adapter: 'vEthernet (WSLCore)', address: '172.28.64.1', virtual: true }
-  ],
+  settings: { enabled: false, port: 8765 },
   listening: false,
   url: null,
   problem: null,
@@ -21,7 +17,7 @@ const OFF: LanStatus = {
 
 const ON: LanStatus = {
   ...OFF,
-  settings: { enabled: true, adapter: null, port: 8765 },
+  settings: { enabled: true, port: 8765 },
   listening: true,
   url: 'http://192.168.1.136:8765/'
 }
@@ -42,14 +38,6 @@ function setup(status: LanStatus) {
   return api
 }
 
-// Radix Select reaches for pointer-capture/scroll APIs jsdom does not implement (SettingsView.test.tsx needs the same).
-beforeAll(() => {
-  Element.prototype.hasPointerCapture = () => false
-  Element.prototype.setPointerCapture = () => {}
-  Element.prototype.releasePointerCapture = () => {}
-  Element.prototype.scrollIntoView = () => {}
-})
-
 describe('LanCard', () => {
   afterEach(() => vi.useRealTimers())
 
@@ -59,7 +47,7 @@ describe('LanCard', () => {
     expect(await screen.findByRole('button', { name: 'Off' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.queryByText('Pair a device')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'On' }))
-    expect(api.lanSetSettings).toHaveBeenCalledWith({ enabled: true, adapter: null, port: 8765 })
+    expect(api.lanSetSettings).toHaveBeenCalledWith({ enabled: true, port: 8765 })
   })
 
   it('shows the address to open and how many devices are connected when it is listening', async () => {
@@ -190,26 +178,12 @@ describe('LanCard', () => {
     vi.useRealTimers()
   })
 
-  it('lists the real adapter and the virtual one, marked as unusable for a phone', async () => {
+  it('offers no choice of network: the PC picks its own home network', async () => {
     setup(ON)
     render(<LanCard />)
     await screen.findByText('http://192.168.1.136:8765/')
-    await userEvent.click(screen.getByRole('combobox'))
-    expect(await screen.findByRole('option', { name: 'Ethernet (192.168.1.136)' })).toBeInTheDocument()
-    expect(
-      screen.getByRole('option', {
-        name: 'vEthernet (WSLCore) (172.28.64.1), virtual: a phone cannot be on it'
-      })
-    ).toBeInTheDocument()
-  })
-
-  it('saves the adapter the pilot chooses', async () => {
-    const api = setup(ON)
-    render(<LanCard />)
-    await screen.findByText('http://192.168.1.136:8765/')
-    await userEvent.click(screen.getByRole('combobox'))
-    await userEvent.click(await screen.findByRole('option', { name: 'Ethernet (192.168.1.136)' }))
-    expect(api.lanSetSettings).toHaveBeenCalledWith({ enabled: true, adapter: 'Ethernet', port: 8765 })
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    expect(screen.queryByText('Network')).not.toBeInTheDocument()
   })
 
   it('saves a new port when the field is left, and puts the old one back if it is not a usable port', async () => {
@@ -219,7 +193,7 @@ describe('LanCard', () => {
     await userEvent.clear(port)
     await userEvent.type(port, '9100')
     await userEvent.tab()
-    expect(api.lanSetSettings).toHaveBeenCalledWith({ enabled: true, adapter: null, port: 9100 })
+    expect(api.lanSetSettings).toHaveBeenCalledWith({ enabled: true, port: 9100 })
 
     api.lanSetSettings.mockClear()
     await userEvent.clear(port)

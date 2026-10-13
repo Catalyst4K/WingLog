@@ -1,6 +1,6 @@
 /**
  * Runs the second-screen server according to the pilot's settings (winglog-backend's docs/plans/lan-web-viewer.md): starts it on the
- * chosen adapter when it is switched on, moves it when the address changes, stops it when switched off, and tells Settings what state it
+ * PC's home-network address when it is switched on, moves it when the address changes, stops it when switched off, and tells Settings what state it
  * is in. Everything it touches arrives as a dependency so it can be tested without a network.
  */
 
@@ -9,7 +9,7 @@ import { isValidLanPort } from '../db/settings-repo'
 import { logger } from '../logging/logger'
 import { chooseAddress, type LanAddress } from './adapters'
 
-/** How often the controller checks that the chosen adapter still has the address it listens on. */
+/** How often the controller checks that the home-network address it listens on is still the PC's. */
 export const ADDRESS_CHECK_MS = 15_000
 
 /** The part of `LanServer` the controller uses. */
@@ -31,12 +31,11 @@ export interface LanControllerDeps {
   settings: { get(): LanSettings; set(settings: LanSettings): void }
   /** The private addresses on this machine, real adapters first (`listLanAddresses` over the OS's interfaces). */
   addresses(): LanAddress[]
+  /** The local address of the default route (`defaultRouteAddress`), or null when the PC has no route. */
+  routeAddress(): Promise<string | null>
   devices: { list(): LanDevice[]; revoke(id: number): boolean }
   now(): number
 }
-
-/** The longest adapter name accepted from the window. */
-const MAX_ADAPTER_NAME = 200
 
 /** Runs the second-screen server to match the settings and the machine's network. */
 export class LanController {
@@ -100,11 +99,6 @@ export class LanController {
       this.pairing = null
     return {
       settings,
-      addresses: this.deps.addresses().map((a) => ({
-        adapter: a.adapter,
-        address: a.address,
-        virtual: a.kind === 'virtual'
-      })),
       listening: server.listening,
       url: server.listening && this.boundTo ? `http://${this.boundTo.address}:${this.boundTo.port}/` : null,
       problem: this.problem,
@@ -154,11 +148,10 @@ export class LanController {
       if (server.listening) await this.release()
       return
     }
-    const addresses = this.deps.addresses()
-    const target = chooseAddress(addresses, settings.adapter)
+    const target = chooseAddress(this.deps.addresses(), await this.deps.routeAddress())
     if (!target) {
       if (server.listening) await this.release()
-      this.problem = settings.adapter || addresses.length > 0 ? 'choose-adapter' : 'no-adapter'
+      this.problem = 'no-adapter'
       return
     }
     if (server.listening && this.boundTo?.address === target.address && this.boundTo.port === settings.port) {
@@ -198,9 +191,5 @@ export function parseSettings(value: unknown): LanSettings {
   if (!record || typeof record.enabled !== 'boolean' || !isValidLanPort(record.port)) {
     throw new Error('Invalid second-screen settings')
   }
-  const adapter = record.adapter
-  if (adapter !== null && (typeof adapter !== 'string' || adapter.length > MAX_ADAPTER_NAME)) {
-    throw new Error('Invalid second-screen settings')
-  }
-  return { enabled: record.enabled, adapter: adapter === '' ? null : adapter, port: record.port }
+  return { enabled: record.enabled, port: record.port }
 }
