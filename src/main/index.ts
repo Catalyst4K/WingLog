@@ -116,7 +116,8 @@ function openDatabase(userDataPath: string): {
  * either way.
  *
  * @returns The connection (not started), and the replayed capture's BeyondATC and GSX streams
- *   when WINGLOG_E2E_REPLAY_STREAMS=1 asks for them (scenario-testing.md Part 1).
+ *   when WINGLOG_E2E_REPLAY_STREAMS=1 asks for them (scenario-testing.md Part 1). `beyondatc` replays only BeyondATC's, leaving GSX to a
+ *   real socket (a test's fake GSX server, whose service list the capture lacks).
  */
 function connectSim(): { sim: SimConnectService | ReplaySimConnectService; replayStreams?: ReplayedCapture } {
   const replayFixture = process.env.WINGLOG_E2E_FIXTURE
@@ -131,7 +132,8 @@ function connectSim(): { sim: SimConnectService | ReplaySimConnectService; repla
     : undefined
   return {
     sim: replay?.sim ?? new SimConnectService(),
-    replayStreams: replay && process.env.WINGLOG_E2E_REPLAY_STREAMS === '1' ? replay : undefined
+    replayStreams:
+      replay && ['1', 'beyondatc'].includes(process.env.WINGLOG_E2E_REPLAY_STREAMS ?? '') ? replay : undefined
   }
 }
 
@@ -317,7 +319,8 @@ function startApp(): void {
     db,
     liveHub,
     devDiagnostics,
-    socketCtor: replayStreams?.gsx.socketCtor
+    socketCtor:
+      process.env.WINGLOG_E2E_REPLAY_STREAMS === 'beyondatc' ? undefined : replayStreams?.gsx.socketCtor
   })
   app.on('before-quit', () => gsxRemote.stop())
 

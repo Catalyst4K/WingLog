@@ -4,6 +4,8 @@
  * Writes release/sim/second-screen/ (gitignored). Run with `npm run sim:second-screen` (builds first); needs BeyondATC and WingLog closed.
  * Set WINGLOG_SHOTS_HOLD_MIN=N to keep the replay running N minutes afterwards on this PC's real network address, printing the address
  * and a pairing code, so a real phone or browser can watch it; WINGLOG_SHOTS_SPEED sets the playback speed (default 55).
+ * Set WINGLOG_SHOTS_GSX=1 to give GSX Remote a stand-in server carrying a real captured gate and service list (the replay's own GSX
+ * stream has no services), so the Ground services page has its gate, menu and service boxes to look at.
  */
 import { execFile, execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
@@ -14,12 +16,14 @@ import { appendFileSync, writeFileSync } from 'node:fs'
 import { test, type Page } from '@playwright/test'
 import { WebSocket } from 'ws'
 import { electronBinary } from './electron-binary'
+import { FakeGsxRemoteServer, VHHH_BOOT_SNAPSHOT } from './gsx-remote-server'
 import { launchApp } from './launch-app'
 import { thisMachinesUserDataDirectory } from '../src/main/platform/this-machine'
 
 const OUT = join(process.cwd(), 'release', 'sim', 'second-screen')
 const SPEED = Number(process.env.WINGLOG_SHOTS_SPEED ?? 55)
 const HOLD_MIN = Number(process.env.WINGLOG_SHOTS_HOLD_MIN ?? 0)
+const FAKE_GSX = process.env.WINGLOG_SHOTS_GSX === '1'
 
 function freePort(): Promise<number> {
   return new Promise((resolve) => {
@@ -59,6 +63,7 @@ test('the second screen follows a replayed flight, in portrait and landscape', a
       stdio: 'inherit'
     }
   )
+  const gsx = FAKE_GSX ? await FakeGsxRemoteServer.start() : null
   const address = HOLD_MIN > 0 ? lanAddress() : '127.0.0.1'
   const port = HOLD_MIN > 0 ? 8790 : await freePort()
   const {
@@ -72,17 +77,25 @@ test('the second screen follows a replayed flight, in portrait and landscape', a
       WINGLOG_E2E_FIXTURE: join(process.cwd(), 'scripts/scenarios/__fixtures__/wsss-236-descent.ndjson'),
       WINGLOG_E2E_REPLAY_MODE: 'paced',
       WINGLOG_E2E_REPLAY_SPEED: String(SPEED),
-      WINGLOG_E2E_REPLAY_STREAMS: '1',
+      WINGLOG_E2E_REPLAY_STREAMS: FAKE_GSX ? 'beyondatc' : '1',
       WINGLOG_E2E_REPLAY_HOLD: '1'
     }
   })
   try {
     // The add-ons' pages exist once the PC has them on; the replay's own sockets stand in for BeyondATC's and GSX's servers.
-    await page.evaluate(async () => {
+    await page.evaluate(async (gsxPort) => {
       const api = (globalThis as unknown as Window).winglog
       await api.settingsSetBeyondAtc({ enabled: true, host: '127.0.0.1' })
-      await api.settingsSetGsxRemote({ enabled: true, host: 'localhost', port: 8744 })
-    })
+      await api.settingsSetGsxRemote({
+        enabled: true,
+        host: gsxPort ? '127.0.0.1' : 'localhost',
+        port: gsxPort ?? 8744
+      })
+    }, gsx?.port ?? null)
+    if (gsx) {
+      await gsx.waitForConnection()
+      gsx.sendSnapshot(VHHH_BOOT_SNAPSHOT)
+    }
     await page.reload()
     const keep = page.getByRole('button', { name: 'Keep it' })
     if (
@@ -281,6 +294,7 @@ test('the second screen follows a replayed flight, in portrait and landscape', a
       }
     }
   } finally {
+    await gsx?.stop()
     await cleanup()
     rmSync(userDataDir, { recursive: true, force: true })
   }
