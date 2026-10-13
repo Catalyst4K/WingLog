@@ -11,3 +11,38 @@ div[class*='bottom-3'][class*='left-3'] {
   border-radius: 1rem;
   line-height: 1.3;
 }
+
+/* A thumb needs at least 44 px each way (Apple's and Google's minimum) on everything it presses: buttons, tabs, selects, fields and the
+   disclosure triangles. e2e/second-screen-touch.spec.ts measures every control on every page at phone and tablet sizes. */
+#root
+  :is(
+    button,
+    [role='tab'],
+    [role='combobox'],
+    select,
+    summary,
+    input:not([type='checkbox'], [type='radio'], [type='hidden'])
+  ) {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* A map control's icon stays centred, once, in its larger square. */
+#root .maplibregl-ctrl-group button,
+#root .maplibregl-ctrl-attrib-button {
+  background-position: center;
+  background-repeat: no-repeat;
+}
+#root .maplibregl-ctrl-attrib-button {
+  background-size: 20px;
+}
+
+/* On a landscape phone the map is too short for five 44 px buttons in a column: lay them out in a row. */
+@media (max-height: 520px) {
+  div[class*='top-3'][class*='right-3'][class*='flex-col'] {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: calc(100% - 1.5rem);
+  }
+}

@@ -43,6 +43,8 @@ export const MAX_PENDING_QUERIES = 4
 export const MAX_MESSAGE_BYTES = 16 * 1024
 /** Most open sockets at once. */
 export const MAX_SOCKETS = 8
+/** Most sockets one address may have open without having paired or said hello, so one device on the network can't fill every slot. */
+export const MAX_UNAUTHENTICATED_PER_ADDRESS = 4
 /** How long a socket may stay unauthenticated, in milliseconds. */
 export const AUTH_TIMEOUT_MS = 10_000
 /** Most messages one socket may send in a second. */
@@ -91,6 +93,8 @@ type Incoming =
 /** A connected socket and what is known of it. */
 interface Client {
   socket: WebSocket
+  /** The network address it connected from. */
+  address: string | undefined
   deviceId: number | null
   windowStart: number
   count: number
@@ -237,6 +241,8 @@ export class LanServer {
       'content-type': file.type,
       'cache-control': 'no-store',
       'x-content-type-options': 'nosniff',
+      // The tile requests must not tell OpenFreeMap which address on the home network this page came from.
+      'referrer-policy': 'no-referrer',
       'content-security-policy': pageSecurityPolicy(this.hostHeader)
     })
     res.end(req.method === 'HEAD' ? undefined : file.body)
@@ -253,12 +259,18 @@ export class LanServer {
     const origin = req.headers.origin
     if (origin !== undefined && !originMatches(origin, this.hostHeader)) return refuse('403 Forbidden')
     if (this.clients.size >= MAX_SOCKETS) return refuse('503 Service Unavailable')
-    wss.handleUpgrade(req, socket, head, (ws) => this.accept(ws))
+    const address = req.socket.remoteAddress
+    let waiting = 0
+    for (const client of this.clients)
+      if (client.deviceId === null && client.address === address) waiting += 1
+    if (waiting >= MAX_UNAUTHENTICATED_PER_ADDRESS) return refuse('429 Too Many Requests')
+    wss.handleUpgrade(req, socket, head, (ws) => this.accept(ws, address))
   }
 
-  private accept(socket: WebSocket): void {
+  private accept(socket: WebSocket, address: string | undefined): void {
     const client: Client = {
       socket,
+      address,
       deviceId: null,
       windowStart: this.deps.now(),
       count: 0,

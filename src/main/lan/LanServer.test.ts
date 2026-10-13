@@ -4,7 +4,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { WebSocket } from 'ws'
 import { LiveHub } from '../live/LiveHub'
 import { hashToken } from './pairing'
-import { LAN_TOPICS, LanServer, MAX_MESSAGES_PER_SECOND, MAX_SOCKETS, type LanServerDeps } from './LanServer'
+import {
+  LAN_TOPICS,
+  LanServer,
+  MAX_MESSAGES_PER_SECOND,
+  MAX_SOCKETS,
+  MAX_UNAUTHENTICATED_PER_ADDRESS,
+  type LanServerDeps
+} from './LanServer'
 
 const HOST = '127.0.0.1'
 
@@ -130,18 +137,26 @@ describe('LanServer', () => {
     it('serves the page on the bound address and nothing else', async () => {
       const { port } = await setup()
       const get = (path: string, host = `${HOST}:${port}`, method = 'GET') =>
-        new Promise<{ status: number; body: string; type?: string }>((resolve, reject) => {
-          const req = request({ host: HOST, port, path, method, headers: { host } }, (res) => {
-            let body = ''
-            res.on('data', (chunk) => (body += chunk))
-            res.on('end', () =>
-              resolve({ status: res.statusCode ?? 0, body, type: res.headers['content-type'] })
-            )
-          })
-          req.on('error', reject)
-          req.end()
-        })
+        new Promise<{ status: number; body: string; type?: string; referrerPolicy?: string }>(
+          (resolve, reject) => {
+            const req = request({ host: HOST, port, path, method, headers: { host } }, (res) => {
+              let body = ''
+              res.on('data', (chunk) => (body += chunk))
+              res.on('end', () =>
+                resolve({
+                  status: res.statusCode ?? 0,
+                  body,
+                  type: res.headers['content-type'],
+                  referrerPolicy: res.headers['referrer-policy'] as string | undefined
+                })
+              )
+            })
+            req.on('error', reject)
+            req.end()
+          }
+        )
       expect(await get('/')).toMatchObject({ status: 200, body: '<h1>WingLog</h1>', type: 'text/html' })
+      expect((await get('/')).referrerPolicy).toBe('no-referrer')
       expect((await get('/secret.js')).status).toBe(404)
       expect((await get('/', 'evil.example:80')).status).toBe(404)
       expect((await get('/', `${HOST}:${port}`, 'POST')).status).toBe(404)
@@ -173,10 +188,31 @@ describe('LanServer', () => {
     })
 
     it('refuses the ninth socket', async () => {
-      const { connect, url } = await setup()
-      for (let i = 0; i < MAX_SOCKETS; i++) open.push(await connect())
+      const { connect, pair, url } = await setup()
+      const { token } = await pair()
+      for (let i = 1; i < MAX_SOCKETS; i++) {
+        const device = await connect()
+        device.send({ t: 'hello', token })
+        await device.message('snapshot')
+      }
       const ninth = new TestClient(url, { host: new URL(url).host })
       await expect(ninth.opened()).rejects.toThrow(/503/)
+    })
+
+    it('refuses a fifth socket from one address that has not paired, but not a paired device from the same address', async () => {
+      const { connect, pair, url } = await setup()
+      const { token } = await pair()
+      for (let i = 0; i < MAX_UNAUTHENTICATED_PER_ADDRESS; i++) await connect()
+      const fifth = new TestClient(url, { host: new URL(url).host })
+      await expect(fifth.opened()).rejects.toThrow(/429/)
+      // The paired device's own socket does not count against the limit, and closing waiting ones frees room.
+      open[1].ws.terminate()
+      await vi.waitFor(async () => {
+        const next = new TestClient(url, { host: new URL(url).host })
+        open.push(next)
+        await expect(next.opened()).resolves.toBeUndefined()
+      })
+      expect(token).toBeTruthy()
     })
 
     it('closes a socket that has not paired or said hello in time', async () => {

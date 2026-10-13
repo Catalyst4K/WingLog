@@ -38,7 +38,7 @@ open the folder.
 - **Logs.** If something goes wrong, `logs\main.log` in the same folder is what to attach to a bug
   report.
 - **Exports.** To keep a copy of your fleet and logbook in a portable form, use
-  **Settings → Data → Export** (see [Settings](10-settings.md)).
+  **Settings → Data → Export** (see [Settings](11-settings.md)).
 
 ## Uninstalling
 

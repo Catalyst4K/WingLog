@@ -17,6 +17,7 @@ you have them.
 | **Track** | The live flight: map, phase, times, procedures, weather, taxi routes, and automatic start and finish. |
 | **Ground services** | GSX Pro's menu and services, run from inside WingLog (when turned on). |
 | **BeyondATC** | BeyondATC's clearances, radio calls, actions and frequencies, plus automatic step climbs (when turned on). |
+| **Second screen** | Your flight on a phone or tablet on the same Wi-Fi: the live map, your plan, GSX and BeyondATC (when turned on in Settings). |
 | **Logbook** | Every flight and every landing, with charts, a map of the route flown and a 0-100 landing score. |
 | **Settings** | Units, language, theme, add-ons, tracking, your data, updates, and About. |
 
