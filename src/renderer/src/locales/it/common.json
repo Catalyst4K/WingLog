@@ -937,8 +937,7 @@
         "failed": "Impossibile avviare il secondo schermo."
       },
       "qrLabel": "Codice QR dell’indirizzo del secondo schermo",
-      "qrHintPairing": "Inquadralo con lo smartphone per aprire la pagina e associare. Il codice cambia ogni 5 minuti.",
-      "pairingHidden": "Il codice QR e il codice di associazione restano nascosti finché non li richiedi."
+      "qrHintPairing": "Inquadralo con lo smartphone per aprire la pagina e associare. Il codice cambia ogni 5 minuti."
     }
   }
 }

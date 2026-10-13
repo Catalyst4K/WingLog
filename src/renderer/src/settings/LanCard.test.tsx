@@ -69,9 +69,6 @@ describe('LanCard', () => {
     expect(placeholder).toHaveAttribute('aria-hidden', 'true')
     expect(placeholder).toHaveClass('blur-md')
     expect(screen.queryByLabelText('482913')).not.toBeInTheDocument()
-    expect(
-      screen.getByText('The QR code and pairing code stay hidden until you ask for them.')
-    ).toBeInTheDocument()
     unmount()
     setup({ ...ON, listening: false, url: null, problem: 'port-in-use' })
     const off = render(<LanCard />)
