@@ -32,7 +32,7 @@ test.describe('GSX Remote Control', () => {
       const portInput = gsxRemoteCard.getByLabel('Port')
       await portInput.fill(String(server.port))
       await portInput.blur()
-      await gsxRemoteCard.getByRole('button', { name: 'Off', exact: true }).click()
+      await gsxRemoteCard.getByRole('button', { name: 'On', exact: true }).click()
 
       await server.waitForConnection()
       await expect(gsxRemoteCard.getByText('Connected', { exact: true })).toBeVisible()
@@ -104,7 +104,7 @@ test.describe('GSX Remote Control', () => {
       const portInput = gsxRemoteCard.getByLabel('Port')
       await portInput.fill(String(server.port))
       await portInput.blur()
-      await gsxRemoteCard.getByRole('button', { name: 'Off', exact: true }).click()
+      await gsxRemoteCard.getByRole('button', { name: 'On', exact: true }).click()
       await server.waitForConnection()
       server.sendSnapshot(VHHH_BOOT_SNAPSHOT)
 
@@ -154,7 +154,7 @@ test.describe('GSX Remote Control', () => {
       const portInput = gsxRemoteCard.getByLabel('Port')
       await portInput.fill(String(server.port))
       await portInput.blur()
-      await gsxRemoteCard.getByRole('button', { name: 'Off', exact: true }).click()
+      await gsxRemoteCard.getByRole('button', { name: 'On', exact: true }).click()
       await server.waitForConnection()
       server.sendSnapshot(VHHH_BOOT_SNAPSHOT)
 

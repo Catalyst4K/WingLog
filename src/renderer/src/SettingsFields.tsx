@@ -22,21 +22,15 @@ import { trackingLabels } from './tracking-labels'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { runAsync } from './report-error'
+import { SettingRow } from './settings/ui/SettingsCard'
 
 /**
- * Label above an equal-width button group, one row of the UI page's Units/Theme cards
- * (docs/plans/settings-ui-page.md) — replaces the old label-beside-buttons rows, whose
- * button groups started at three different x positions depending on label length. Every
- * button gets the same min-width so a two-option row and a three-option row read as the
- * same kind of control.
+ * One row of option buttons, laid out as every other Settings row is (SettingRow): the label (with an optional visible note, or an
+ * info-icon popover for a caveat) beside the buttons, or above them when there are more than three options. Every button gets the
+ * same min-width so a two-option row and a three-option row read as the same kind of control. A hint is for caveats only; what an
+ * option *means* is a note, always visible (docs/plans/v1-2.md Part 4, settings-layout.md).
  *
- * An optional `hint` moves what used to be an always-visible paragraph under the row into
- * an info-icon popover instead (winglog-backend docs/plans/v1-2.md Part 4) — the Units
- * card previously stacked five of these paragraphs at once, reading as mostly caveats
- * rather than mostly controls. Reuses `LandingScoreBreakdownDialog`'s existing
- * Info+Popover pattern rather than a new one.
- *
- * @param props The label, options, value, change handler and optional hint.
+ * @param props The label, options, value, change handler, and an optional note or hint.
  * @returns The element.
  */
 export function SegmentedRow<T extends string>(props: {
@@ -44,14 +38,17 @@ export function SegmentedRow<T extends string>(props: {
   value: T
   options: readonly { value: T; label: string }[]
   onChange: (value: T) => void
+  note?: string
   hint?: string
   hintAriaLabel?: string
 }): React.JSX.Element {
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-1">
-        <span className="text-sm text-muted-foreground">{props.label}</span>
-        {props.hint && (
+    <SettingRow
+      label={props.label}
+      note={props.note}
+      stacked={props.options.length > 3}
+      labelAddOn={
+        props.hint && (
           <Popover>
             <PopoverTrigger asChild>
               <button
@@ -64,8 +61,9 @@ export function SegmentedRow<T extends string>(props: {
             </PopoverTrigger>
             <PopoverContent>{props.hint}</PopoverContent>
           </Popover>
-        )}
-      </div>
+        )
+      }
+    >
       {/* Grouped and labelled so two rows with overlapping option labels (App language and
        *  Map language both offer "Deutsch", "Español", etc.) can still be queried
        *  unambiguously, in tests and by assistive tech alike. */}
@@ -84,7 +82,7 @@ export function SegmentedRow<T extends string>(props: {
           </Button>
         ))}
       </div>
-    </div>
+    </SettingRow>
   )
 }
 
@@ -122,23 +120,21 @@ export function UnitsFields(props: UnitsFieldsProps): React.JSX.Element {
         ]}
         onChange={props.onWeightUnitChange}
       />
-      {/* No popover here, unlike the rows below — "Hybrid" isn't a self-explanatory
+      {/* A note, not a popover, unlike the rows below — "Hybrid" isn't a self-explanatory
        *  option the way Feet/Meters are, so its explanation is what the option
        *  *means*, not a supplementary caveat. Hiding it behind a click was a
        *  regression, not a decluttering win. */}
-      <div className="flex flex-col gap-1.5">
-        <SegmentedRow
-          label={t('settingsView.units.ofpAltitudes')}
-          value={props.altitudeUnit}
-          options={[
-            { value: 'ft', label: t('settingsView.units.feet') },
-            { value: 'm', label: t('settingsView.units.meters') },
-            { value: 'hybrid', label: t('settingsView.units.hybrid') }
-          ]}
-          onChange={props.onAltitudeUnitChange}
-        />
-        <p className="text-xs text-muted-foreground">{t('settingsView.units.hybridHint')}</p>
-      </div>
+      <SegmentedRow
+        label={t('settingsView.units.ofpAltitudes')}
+        value={props.altitudeUnit}
+        options={[
+          { value: 'ft', label: t('settingsView.units.feet') },
+          { value: 'm', label: t('settingsView.units.meters') },
+          { value: 'hybrid', label: t('settingsView.units.hybrid') }
+        ]}
+        onChange={props.onAltitudeUnitChange}
+        note={t('settingsView.units.hybridHint')}
+      />
       <SegmentedRow
         label={t('settingsView.units.appLanguage')}
         value={props.appLanguage}
@@ -205,23 +201,22 @@ export function TrackingFields(): React.JSX.Element {
   return (
     <>
       {(['autoStart', 'autoFinish'] as const).map((key) => (
-        <div key={key} className="flex flex-col gap-1">
-          <SegmentedRow
-            label={t(`settingsView.tracking.${key}`)}
-            value={tracking[key] ? 'on' : 'off'}
-            options={[
-              { value: 'on', label: t('settingsView.tracking.on') },
-              { value: 'off', label: t('settingsView.tracking.off') }
-            ]}
-            onChange={(value) =>
-              runAsync(
-                'settings: change tracking',
-                handleTrackingChange({ ...tracking, [key]: value === 'on' })
-              )
-            }
-          />
-          <p className="text-xs text-muted-foreground">{t(`settingsView.tracking.${key}Off`, labels)}</p>
-        </div>
+        <SegmentedRow
+          key={key}
+          label={t(`settingsView.tracking.${key}`)}
+          value={tracking[key] ? 'on' : 'off'}
+          options={[
+            { value: 'on', label: t('settingsView.tracking.on') },
+            { value: 'off', label: t('settingsView.tracking.off') }
+          ]}
+          onChange={(value) =>
+            runAsync(
+              'settings: change tracking',
+              handleTrackingChange({ ...tracking, [key]: value === 'on' })
+            )
+          }
+          note={t(`settingsView.tracking.${key}Off`, labels)}
+        />
       ))}
     </>
   )

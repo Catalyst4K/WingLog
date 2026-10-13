@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { LanSettings, LanStatus } from '@shared/ipc'
@@ -41,6 +41,14 @@ function setup(status: LanStatus) {
   window.winglog = api as unknown as typeof window.winglog
   return api
 }
+
+// Radix Select reaches for pointer-capture/scroll APIs jsdom does not implement (SettingsView.test.tsx needs the same).
+beforeAll(() => {
+  Element.prototype.hasPointerCapture = () => false
+  Element.prototype.setPointerCapture = () => {}
+  Element.prototype.releasePointerCapture = () => {}
+  Element.prototype.scrollIntoView = () => {}
+})
 
 describe('LanCard', () => {
   afterEach(() => vi.useRealTimers())
@@ -186,7 +194,8 @@ describe('LanCard', () => {
     setup(ON)
     render(<LanCard />)
     await screen.findByText('http://192.168.1.136:8765/')
-    expect(screen.getByRole('option', { name: 'Ethernet (192.168.1.136)' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('combobox'))
+    expect(await screen.findByRole('option', { name: 'Ethernet (192.168.1.136)' })).toBeInTheDocument()
     expect(
       screen.getByRole('option', {
         name: 'vEthernet (WSLCore) (172.28.64.1), virtual: a phone cannot be on it'
@@ -198,7 +207,8 @@ describe('LanCard', () => {
     const api = setup(ON)
     render(<LanCard />)
     await screen.findByText('http://192.168.1.136:8765/')
-    await userEvent.selectOptions(screen.getByRole('combobox'), 'Ethernet')
+    await userEvent.click(screen.getByRole('combobox'))
+    await userEvent.click(await screen.findByRole('option', { name: 'Ethernet (192.168.1.136)' }))
     expect(api.lanSetSettings).toHaveBeenCalledWith({ enabled: true, adapter: 'Ethernet', port: 8765 })
   })
 

@@ -1,13 +1,13 @@
 /** Settings → Data: Fleet and Logbook import and export, and cloud sync. */
 
+import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { DataFormat } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { SegmentedRow } from '../SettingsFields'
 import { asyncHandler } from '../report-error'
+import { SettingRow, SettingsCard, SettingsSection } from './ui/SettingsCard'
 import type { CloudSyncState, DataTransferState } from './use-settings-state'
 
 const DATA_FORMATS = [
@@ -33,13 +33,11 @@ function DataSection(props: {
 }): React.JSX.Element {
   const { t } = useTranslation()
   return (
-    <section
-      aria-label={t('settingsView.data.regionLabel', { title: props.title })}
-      className="flex flex-col gap-2"
-    >
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-sm font-medium text-foreground">{props.title}</span>
-        <div className="flex gap-2">
+    <SettingsSection
+      title={props.title}
+      ariaLabel={t('settingsView.data.regionLabel', { title: props.title })}
+      action={
+        <>
           <Button
             type="button"
             variant="outline"
@@ -52,16 +50,17 @@ function DataSection(props: {
           <Button type="button" variant="outline" size="sm" onClick={props.onExport}>
             {t('settingsView.data.export')}
           </Button>
-        </div>
-      </div>
+        </>
+      }
+    >
+      <p className="text-xs text-muted-foreground">{props.hint}</p>
       <SegmentedRow
         label={t('settingsView.data.fileFormat')}
         value={props.format}
         options={DATA_FORMATS}
         onChange={props.onFormatChange}
       />
-      <p className="text-xs text-muted-foreground">{props.hint}</p>
-    </section>
+    </SettingsSection>
   )
 }
 
@@ -75,32 +74,26 @@ export function DataCard(props: { data: DataTransferState }): React.JSX.Element 
   const { t } = useTranslation()
   const d = props.data
   return (
-    <Card className="max-w-sm">
-      <CardHeader>
-        <CardTitle>{t('settingsView.data.cardTitle')}</CardTitle>
-        <CardDescription>{t('settingsView.data.description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <DataSection
-          title={t('settingsView.data.fleetTitle')}
-          hint={t('settingsView.data.fleetHint')}
-          format={d.fleetFormat}
-          onFormatChange={d.setFleetFormat}
-          importing={d.importingAircraft}
-          onImport={asyncHandler('SettingsView handleImportAircraft', d.importAircraft)}
-          onExport={asyncHandler('SettingsView handleExportAircraft', d.exportAircraft)}
-        />
-        <DataSection
-          title={t('settingsView.data.logbookTitle')}
-          hint={t('settingsView.data.logbookHint')}
-          format={d.logbookFormat}
-          onFormatChange={d.setLogbookFormat}
-          importing={d.importingLogbook}
-          onImport={asyncHandler('SettingsView handleImportLogbook', d.importLogbook)}
-          onExport={asyncHandler('SettingsView handleExportLogbook', d.exportLogbook)}
-        />
-      </CardContent>
-    </Card>
+    <SettingsCard title={t('settingsView.data.cardTitle')} description={t('settingsView.data.description')}>
+      <DataSection
+        title={t('settingsView.data.fleetTitle')}
+        hint={t('settingsView.data.fleetHint')}
+        format={d.fleetFormat}
+        onFormatChange={d.setFleetFormat}
+        importing={d.importingAircraft}
+        onImport={asyncHandler('SettingsView handleImportAircraft', d.importAircraft)}
+        onExport={asyncHandler('SettingsView handleExportAircraft', d.exportAircraft)}
+      />
+      <DataSection
+        title={t('settingsView.data.logbookTitle')}
+        hint={t('settingsView.data.logbookHint')}
+        format={d.logbookFormat}
+        onFormatChange={d.setLogbookFormat}
+        importing={d.importingLogbook}
+        onImport={asyncHandler('SettingsView handleImportLogbook', d.importLogbook)}
+        onExport={asyncHandler('SettingsView handleExportLogbook', d.exportLogbook)}
+      />
+    </SettingsCard>
   )
 }
 
@@ -115,8 +108,7 @@ function CloudAccount(props: { sync: CloudSyncState }): React.JSX.Element {
   const { status } = props.sync
   return (
     <>
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-sm text-foreground">{status.email}</span>
+      <SettingRow label={status.email ?? ''}>
         <Button
           type="button"
           variant="outline"
@@ -125,13 +117,14 @@ function CloudAccount(props: { sync: CloudSyncState }): React.JSX.Element {
         >
           {t('settingsView.cloudSync.logOut')}
         </Button>
-      </div>
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-muted-foreground">
-          {status.lastSyncedAt
+      </SettingRow>
+      <SettingRow
+        label={
+          status.lastSyncedAt
             ? t('settingsView.cloudSync.lastSynced', { date: new Date(status.lastSyncedAt).toLocaleString() })
-            : t('settingsView.cloudSync.neverSyncedYet')}
-        </p>
+            : t('settingsView.cloudSync.neverSyncedYet')
+        }
+      >
         <Button
           type="button"
           variant="outline"
@@ -141,8 +134,12 @@ function CloudAccount(props: { sync: CloudSyncState }): React.JSX.Element {
         >
           {status.syncing ? t('settingsView.cloudSync.syncing') : t('settingsView.cloudSync.syncNow')}
         </Button>
-      </div>
-      {status.lastError && <p className="text-xs text-destructive">{status.lastError}</p>}
+      </SettingRow>
+      {status.lastError && (
+        <p role="alert" className="text-xs text-destructive">
+          {status.lastError}
+        </p>
+      )}
     </>
   )
 }
@@ -156,6 +153,9 @@ function CloudAccount(props: { sync: CloudSyncState }): React.JSX.Element {
 function CloudSignIn(props: { sync: CloudSyncState }): React.JSX.Element {
   const { t } = useTranslation()
   const s = props.sync
+  const emailId = useId()
+  const passwordId = useId()
+  const inviteId = useId()
   const modeClass = (mode: 'login' | 'signup'): string =>
     `flex-1 cursor-pointer rounded-sm py-1 ${s.mode === mode ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground'}`
   const submitLabel = s.submitting
@@ -179,36 +179,48 @@ function CloudSignIn(props: { sync: CloudSyncState }): React.JSX.Element {
         onSubmit={asyncHandler('SettingsView handleCloudLogin', s.mode === 'login' ? s.logIn : s.signUp)}
         className="flex flex-col gap-3"
       >
-        <Label className="flex flex-col items-start gap-1.5">
-          {t('settingsView.cloudSync.email')}
-          <Input type="email" value={s.email} onChange={(e) => s.setEmail(e.target.value)} required />
-        </Label>
-        <Label className="flex flex-col items-start gap-1.5">
-          {t('settingsView.cloudSync.password')}
+        <SettingRow label={t('settingsView.cloudSync.email')} controlId={emailId}>
           <Input
+            id={emailId}
+            className="w-64"
+            type="email"
+            value={s.email}
+            onChange={(e) => s.setEmail(e.target.value)}
+            required
+          />
+        </SettingRow>
+        <SettingRow
+          label={t('settingsView.cloudSync.password')}
+          note={s.mode === 'signup' ? t('settingsView.cloudSync.atLeast12Chars') : undefined}
+          controlId={passwordId}
+        >
+          <Input
+            id={passwordId}
+            className="w-64"
             type="password"
             value={s.password}
             onChange={(e) => s.setPassword(e.target.value)}
             minLength={s.mode === 'signup' ? 12 : undefined}
             required
           />
-        </Label>
+        </SettingRow>
         {s.mode === 'signup' && (
-          <>
-            <p className="text-xs text-muted-foreground">{t('settingsView.cloudSync.atLeast12Chars')}</p>
-            <Label className="flex flex-col items-start gap-1.5">
-              {t('settingsView.cloudSync.inviteCode')}
-              <Input
-                type="password"
-                value={s.inviteCode}
-                onChange={(e) => s.setInviteCode(e.target.value)}
-                required
-              />
-            </Label>
-            <p className="text-xs text-muted-foreground">{t('settingsView.cloudSync.signupHint')}</p>
-          </>
+          <SettingRow
+            label={t('settingsView.cloudSync.inviteCode')}
+            note={t('settingsView.cloudSync.signupHint')}
+            controlId={inviteId}
+          >
+            <Input
+              id={inviteId}
+              className="w-64"
+              type="password"
+              value={s.inviteCode}
+              onChange={(e) => s.setInviteCode(e.target.value)}
+              required
+            />
+          </SettingRow>
         )}
-        <Button type="submit" variant="outline" size="sm" className="w-fit" disabled={s.submitting}>
+        <Button type="submit" variant="outline" size="sm" className="self-end" disabled={s.submitting}>
           {submitLabel}
         </Button>
       </form>
@@ -225,14 +237,11 @@ function CloudSignIn(props: { sync: CloudSyncState }): React.JSX.Element {
 export function CloudSyncCard(props: { sync: CloudSyncState }): React.JSX.Element {
   const { t } = useTranslation()
   return (
-    <Card className="max-w-sm">
-      <CardHeader>
-        <CardTitle>{t('settingsView.cloudSync.cardTitle')}</CardTitle>
-        <CardDescription>{t('settingsView.cloudSync.description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        {props.sync.status.loggedIn ? <CloudAccount sync={props.sync} /> : <CloudSignIn sync={props.sync} />}
-      </CardContent>
-    </Card>
+    <SettingsCard
+      title={t('settingsView.cloudSync.cardTitle')}
+      description={t('settingsView.cloudSync.description')}
+    >
+      {props.sync.status.loggedIn ? <CloudAccount sync={props.sync} /> : <CloudSignIn sync={props.sync} />}
+    </SettingsCard>
   )
 }

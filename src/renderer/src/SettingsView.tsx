@@ -19,8 +19,8 @@ import { SegmentedRow, TrackingFields, UnitsFields } from './SettingsFields'
 import { trackingLabels } from './tracking-labels'
 import { UpdatesCard } from './UpdatesCard'
 import { LanCard } from './settings/LanCard'
+import { SettingsCard } from './settings/ui/SettingsCard'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useResetSignal } from './hooks/use-reset-signal'
 import { asyncHandler, runAsync } from './report-error'
@@ -37,6 +37,8 @@ import {
 
 type SettingsCategory = 'ui' | 'thirdParty' | 'data' | 'about'
 const DEFAULT_SETTINGS_CATEGORY: SettingsCategory = 'ui'
+/** Every category panel is one column of equal-width cards (the width is SettingsCard's). */
+const PANEL = 'flex min-w-0 flex-col gap-4'
 
 /**
  * @param t The translation function.
@@ -79,55 +81,42 @@ function InterfacePanel(props: AppWideSettings): React.JSX.Element {
   const { t } = useTranslation()
   return (
     <>
-      <Card className="max-w-2xl">
-        <CardHeader>
-          <CardTitle>{t('settingsView.units.cardTitle')}</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <UnitsFields
-            weightUnit={props.weightUnit}
-            onWeightUnitChange={props.onWeightUnitChange}
-            altitudeUnit={props.altitudeUnit}
-            onAltitudeUnitChange={props.onAltitudeUnitChange}
-            windSpeedUnit={props.windSpeedUnit}
-            onWindSpeedUnitChange={props.onWindSpeedUnitChange}
-            landingDistanceUnit={props.landingDistanceUnit}
-            onLandingDistanceUnitChange={props.onLandingDistanceUnitChange}
-            mapLanguage={props.mapLanguage}
-            onMapLanguageChange={props.onMapLanguageChange}
-            appLanguage={props.appLanguage}
-            onAppLanguageChange={props.onAppLanguageChange}
-          />
-        </CardContent>
-      </Card>
+      <SettingsCard title={t('settingsView.units.cardTitle')}>
+        <UnitsFields
+          weightUnit={props.weightUnit}
+          onWeightUnitChange={props.onWeightUnitChange}
+          altitudeUnit={props.altitudeUnit}
+          onAltitudeUnitChange={props.onAltitudeUnitChange}
+          windSpeedUnit={props.windSpeedUnit}
+          onWindSpeedUnitChange={props.onWindSpeedUnitChange}
+          landingDistanceUnit={props.landingDistanceUnit}
+          onLandingDistanceUnitChange={props.onLandingDistanceUnitChange}
+          mapLanguage={props.mapLanguage}
+          onMapLanguageChange={props.onMapLanguageChange}
+          appLanguage={props.appLanguage}
+          onAppLanguageChange={props.onAppLanguageChange}
+        />
+      </SettingsCard>
 
-      <Card className="max-w-2xl">
-        <CardHeader>
-          <CardTitle>{t('settingsView.theme.cardTitle')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <SegmentedRow
-            label={t('settingsView.theme.appearance')}
-            value={props.theme}
-            options={[
-              { value: 'light', label: t('settingsView.theme.light') },
-              { value: 'dark', label: t('settingsView.theme.dark') },
-              { value: 'system', label: t('settingsView.theme.system') }
-            ]}
-            onChange={props.onThemeChange}
-          />
-        </CardContent>
-      </Card>
+      <SettingsCard title={t('settingsView.theme.cardTitle')}>
+        <SegmentedRow
+          label={t('settingsView.theme.appearance')}
+          value={props.theme}
+          options={[
+            { value: 'light', label: t('settingsView.theme.light') },
+            { value: 'dark', label: t('settingsView.theme.dark') },
+            { value: 'system', label: t('settingsView.theme.system') }
+          ]}
+          onChange={props.onThemeChange}
+        />
+      </SettingsCard>
 
-      <Card className="max-w-2xl">
-        <CardHeader>
-          <CardTitle>{t('settingsView.tracking.cardTitle')}</CardTitle>
-          <CardDescription>{t('settingsView.tracking.description', trackingLabels(t))}</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <TrackingFields />
-        </CardContent>
-      </Card>
+      <SettingsCard
+        title={t('settingsView.tracking.cardTitle')}
+        description={t('settingsView.tracking.description', trackingLabels(t))}
+      >
+        <TrackingFields />
+      </SettingsCard>
     </>
   )
 }
@@ -141,25 +130,11 @@ function InterfacePanel(props: AppWideSettings): React.JSX.Element {
 function AboutCard(props: { appVersion: string; onRunSetup?: () => void }): React.JSX.Element {
   const { t } = useTranslation()
   return (
-    <Card className="max-w-2xl">
-      <CardHeader>
-        <CardTitle>WingLog{props.appVersion ? ` v${props.appVersion}` : ''}</CardTitle>
-        <CardDescription>{t('settingsView.about.description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <p className="text-sm font-medium text-foreground">{t('settingsView.about.simulationOnly')}</p>
-        <p className="text-sm text-foreground">{t('settingsView.about.disclaimer')}</p>
-        <p className="text-xs text-muted-foreground">
-          {t('settingsView.about.license')}{' '}
-          <button
-            type="button"
-            onClick={asyncHandler('SettingsView appOpenGithub', () => winglogApi().appOpenGithub())}
-            className="cursor-pointer underline underline-offset-2 hover:text-foreground"
-          >
-            github.com/Catalyst4K/WingLog
-          </button>
-        </p>
-        <div className="flex flex-wrap gap-2">
+    <SettingsCard
+      title={`WingLog${props.appVersion ? ` v${props.appVersion}` : ''}`}
+      description={t('settingsView.about.description')}
+      footer={
+        <>
           <Button
             type="button"
             variant="outline"
@@ -175,9 +150,22 @@ function AboutCard(props: { appVersion: string; onRunSetup?: () => void }): Reac
               {t('settingsView.about.runSetup')}
             </Button>
           )}
-        </div>
-      </CardContent>
-    </Card>
+        </>
+      }
+    >
+      <p className="text-sm font-medium text-foreground">{t('settingsView.about.simulationOnly')}</p>
+      <p className="text-sm text-foreground">{t('settingsView.about.disclaimer')}</p>
+      <p className="text-xs text-muted-foreground">
+        {t('settingsView.about.license')}{' '}
+        <button
+          type="button"
+          onClick={asyncHandler('SettingsView appOpenGithub', () => winglogApi().appOpenGithub())}
+          className="cursor-pointer underline underline-offset-2 hover:text-foreground"
+        >
+          github.com/Catalyst4K/WingLog
+        </button>
+      </p>
+    </SettingsCard>
   )
 }
 
@@ -241,33 +229,29 @@ export function SettingsView(
           ))}
         </TabsList>
 
-        <TabsContent value="ui" className="flex min-w-0 flex-col gap-4">
+        <TabsContent value="ui" className={PANEL}>
           <InterfacePanel {...props} />
         </TabsContent>
 
-        <TabsContent value="thirdParty" className="min-w-0">
-          <div className="flex flex-wrap gap-4">
-            <CredentialsCard credentials={credentials} />
-            <GsxCard gsx={gsx} />
-            <GsxRemoteCard gsxRemote={gsxRemote} />
-            <BeyondAtcCard beyondAtc={beyondAtc} />
-          </div>
+        <TabsContent value="thirdParty" className={PANEL}>
+          <CredentialsCard credentials={credentials} />
+          <GsxCard gsx={gsx} />
+          <GsxRemoteCard gsxRemote={gsxRemote} />
+          <BeyondAtcCard beyondAtc={beyondAtc} />
         </TabsContent>
 
-        <TabsContent value="data" className="min-w-0">
-          <div className="flex flex-wrap gap-4">
-            <DataCard data={data} />
-            {/* Cloud sync build-time flag (docs/plans/public-release-v1.md, Decision 1) —
+        <TabsContent value="data" className={PANEL}>
+          <DataCard data={data} />
+          {/* Cloud sync build-time flag (docs/plans/public-release-v1.md, Decision 1) —
                 hidden entirely in a public build, not just disabled: the syncLogin/etc.
                 channels this card calls don't exist there at all (see index.ts). */}
-            {/* v8 ignore next -- vitest.config.ts's `define` fixes the flag at `true`, so the
+          {/* v8 ignore next -- vitest.config.ts's `define` fixes the flag at `true`, so the
                 "hidden in a public build" arm of this && can't be exercised in this test run. */}
-            {__WINGLOG_CLOUD_SYNC_ENABLED__ && <CloudSyncCard sync={sync} />}
-            <LanCard />
-          </div>
+          {__WINGLOG_CLOUD_SYNC_ENABLED__ && <CloudSyncCard sync={sync} />}
+          <LanCard />
         </TabsContent>
 
-        <TabsContent value="about" className="flex min-w-0 flex-col gap-4">
+        <TabsContent value="about" className={PANEL}>
           <AboutCard appVersion={appVersion} onRunSetup={props.onRunSetup} />
           <UpdatesCard />
         </TabsContent>
