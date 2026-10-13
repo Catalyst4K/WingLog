@@ -101,6 +101,8 @@ test('the second screen follows a replayed flight, in portrait and landscape', a
     await portBox.fill(String(port))
     await portBox.blur()
     await card.getByText(`http://${address}:${port}/`).waitFor()
+    await page.setViewportSize({ width: 1100, height: 900 }).catch(() => undefined)
+    await card.screenshot({ path: join(OUT, '0-settings-card.png'), animations: 'disabled' })
     await card.getByRole('button', { name: 'Pair a device' }).click()
     const code =
       (await card

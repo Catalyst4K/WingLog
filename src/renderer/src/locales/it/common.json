@@ -941,7 +941,9 @@
         "chooseAdapter": "Scegli su quale rete ascoltare.",
         "portInUse": "Quella porta è già in uso. Scegline un’altra.",
         "failed": "Impossibile avviare il secondo schermo."
-      }
+      },
+      "qrLabel": "Codice QR dell’indirizzo del secondo schermo",
+      "qrHint": "Inquadralo con la fotocamera dello smartphone per aprire la pagina."
     }
   }
 }

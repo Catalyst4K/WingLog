@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { winglogApi } from '../data/winglog-api'
+import { QrCode } from './QrCode'
 import { asyncHandler, runAsync } from '../report-error'
 
 /** How often the card re-reads the status, for the pairing countdown, devices and connections. */
@@ -134,12 +135,18 @@ export function LanCard(): React.JSX.Element {
             )}
 
             {status.url && (
-              <div className="flex flex-col gap-1">
-                <span className="text-sm text-muted-foreground">{t('lan.settings.open')}</span>
-                <code className="w-fit rounded bg-muted px-2 py-1 font-mono text-sm">{status.url}</code>
-                <span className="text-xs text-muted-foreground">
-                  {t('lan.settings.connected', { count: status.connections })}
-                </span>
+              <div className="flex flex-wrap items-start gap-4">
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm text-muted-foreground">{t('lan.settings.open')}</span>
+                  <code className="w-fit rounded bg-muted px-2 py-1 font-mono text-sm">{status.url}</code>
+                  <span className="text-xs text-muted-foreground">
+                    {t('lan.settings.connected', { count: status.connections })}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <QrCode text={status.url} label={t('lan.settings.qrLabel')} />
+                  <span className="max-w-44 text-xs text-muted-foreground">{t('lan.settings.qrHint')}</span>
+                </div>
               </div>
             )}
 

@@ -60,6 +60,20 @@ describe('LanCard', () => {
     expect(screen.getByText('2 devices connected now')).toBeInTheDocument()
   })
 
+  it('shows a QR code for the address to scan with a phone, and none when it is not listening', async () => {
+    setup(ON)
+    const { unmount } = render(<LanCard />)
+    expect(
+      await screen.findByRole('img', { name: 'QR code for the second-screen address' })
+    ).toBeInTheDocument()
+    expect(screen.getByText("Scan it with the phone's camera to open the page.")).toBeInTheDocument()
+    unmount()
+    setup({ ...ON, listening: false, url: null, problem: 'port-in-use' })
+    render(<LanCard />)
+    await screen.findByRole('alert')
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+  })
+
   it('lists the real adapter and the virtual one, marked as unusable for a phone', async () => {
     setup(ON)
     render(<LanCard />)

@@ -87,8 +87,14 @@ test.describe('Second screen', () => {
         'true'
       )
       await expect(card.getByText('Pair a device')).toHaveCount(0)
+      await expect(card.getByRole('img')).toHaveCount(0)
 
       await switchOn(page, port)
+
+      // The address as a QR code to scan: drawn, and holding more than a blank square.
+      const qr = card.getByRole('img', { name: 'QR code for the second-screen address' })
+      await expect(qr).toBeVisible()
+      expect(await qr.locator('path').getAttribute('d')).toMatch(/^Md+ d+hd+v1/)
 
       // The page itself carries no data, and anything else is not found.
       const html = await fetch(`http://127.0.0.1:${port}/`)

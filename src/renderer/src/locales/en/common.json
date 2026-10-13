@@ -939,7 +939,9 @@
         "chooseAdapter": "Choose which network to listen on.",
         "portInUse": "That port is already in use. Choose another.",
         "failed": "The second screen could not start."
-      }
+      },
+      "qrLabel": "QR code for the second-screen address",
+      "qrHint": "Scan it with the phone's camera to open the page."
     }
   }
 }

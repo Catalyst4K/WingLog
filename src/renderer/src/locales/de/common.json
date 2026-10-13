@@ -939,7 +939,9 @@
         "chooseAdapter": "Wähle das Netzwerk, auf dem gelauscht werden soll.",
         "portInUse": "Dieser Port wird bereits verwendet. Wähle einen anderen.",
         "failed": "Der zweite Bildschirm konnte nicht gestartet werden."
-      }
+      },
+      "qrLabel": "QR-Code für die Adresse des zweiten Bildschirms",
+      "qrHint": "Mit der Kamera des Smartphones scannen, um die Seite zu öffnen."
     }
   }
 }
