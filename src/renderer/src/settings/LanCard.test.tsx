@@ -50,17 +50,19 @@ describe('LanCard', () => {
     expect(api.lanSetSettings).toHaveBeenCalledWith({ enabled: true, port: 8765 })
   })
 
-  it('shows the address to open and how many devices are connected when it is listening', async () => {
+  it('shows how many devices are connected when it is listening, and the address only once Pair a device is pressed', async () => {
     setup({ ...ON, connections: 2 })
     render(<LanCard />)
+    expect(await screen.findByText('2 devices connected now')).toBeInTheDocument()
+    expect(screen.queryByText('http://192.168.1.136:8765/')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Pair a device' }))
     expect(await screen.findByText('http://192.168.1.136:8765/')).toBeInTheDocument()
-    expect(screen.getByText('2 devices connected now')).toBeInTheDocument()
   })
 
   it('keeps the QR code blurred and the pairing code hidden until Pair a device is pressed, and shows no QR code at all when it is not listening', async () => {
     setup(ON)
     const { unmount, container } = render(<LanCard />)
-    await screen.findByText('http://192.168.1.136:8765/')
+    await screen.findByRole('button', { name: 'Pair a device' })
     // A blurred placeholder only: not an image a person or a scanner is offered, and no code on screen.
     expect(
       screen.queryByRole('img', { name: 'QR code for the second-screen address' })
@@ -191,7 +193,7 @@ describe('LanCard', () => {
   it('offers no choice of network: the PC picks its own home network', async () => {
     setup(ON)
     render(<LanCard />)
-    await screen.findByText('http://192.168.1.136:8765/')
+    await screen.findByRole('button', { name: 'Pair a device' })
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
     expect(screen.queryByText('Network')).not.toBeInTheDocument()
   })
@@ -265,7 +267,7 @@ describe('LanCard', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const api = setup(ON)
     render(<LanCard />)
-    await screen.findByText('http://192.168.1.136:8765/')
+    await screen.findByRole('button', { name: 'Pair a device' })
     const before = api.lanGetStatus.mock.calls.length
     await vi.advanceTimersByTimeAsync(4100)
     expect(api.lanGetStatus.mock.calls.length).toBeGreaterThanOrEqual(before + 2)

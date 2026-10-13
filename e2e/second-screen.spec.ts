@@ -71,7 +71,7 @@ async function switchOn(page: Page, port: number) {
   const portBox = card.getByRole('textbox', { name: 'Port' })
   await portBox.fill(String(port))
   await portBox.blur()
-  await expect(card.getByText(`http://127.0.0.1:${port}/`)).toBeVisible()
+  await expect(card.getByRole('button', { name: 'Pair a device' })).toBeVisible()
   return card
 }
 

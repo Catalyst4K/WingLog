@@ -123,7 +123,7 @@ export function LanCard(): React.JSX.Element {
             </p>
           )}
 
-          {status.url && (
+          {status.url && status.pairing && (
             <SettingRow label={t('lan.settings.open')}>
               <code className="w-fit rounded bg-muted px-2 py-1 font-mono text-sm">{status.url}</code>
             </SettingRow>
