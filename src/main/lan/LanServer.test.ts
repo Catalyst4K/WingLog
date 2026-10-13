@@ -93,6 +93,14 @@ describe('LanServer', () => {
       },
       devices: store.devices,
       flight: () => ({ route: ['WSSS', 'EGLL'] }),
+      queries: {
+        echo: (...args) => args,
+        later: (arg) => Promise.resolve(`later ${String(arg)}`),
+        broken: () => {
+          throw new Error('no')
+        },
+        never: () => new Promise(() => undefined)
+      },
       staticFile: (path) => (path === '/' ? { type: 'text/html', body: '<h1>WingLog</h1>' } : null),
       now: () => Date.now(),
       ...overrides
@@ -228,6 +236,17 @@ describe('LanServer', () => {
       expect(store.rows.size).toBe(0)
     })
 
+    it('reports whether a pairing window is open: only until its code is used', async () => {
+      const { server, connect } = await setup()
+      expect(server.pairingOpen).toBe(false)
+      const { code } = server.openPairing()
+      expect(server.pairingOpen).toBe(true)
+      const client = await connect()
+      client.send({ t: 'pair', code })
+      await client.message('paired')
+      expect(server.pairingOpen).toBe(false)
+    })
+
     it('uses a code once', async () => {
       const { server, pair, connect } = await setup()
       const { code } = server.openPairing()
@@ -302,6 +321,35 @@ describe('LanServer', () => {
       expect(stranger.received).toEqual([])
     })
 
+    it('tells a connected device when tracking starts, once per flight, before the first point', async () => {
+      let active: unknown = null
+      const { pair, hub } = await setup({ flight: () => active })
+      const { client } = await pair()
+      await client.message('snapshot')
+      expect(client.received.find((m) => m.t === 'snapshot')).toMatchObject({ flight: null })
+      active = { flight: { flightId: 7, depIcao: 'WSSS', arrIcao: 'EGLL', ofpJson: null }, trackPoints: [] }
+      hub.publish('trackingPoint', { id: 1, flightId: 7 } as never)
+      hub.publish('trackingPoint', { id: 2, flightId: 7 } as never)
+      await client.waitFor(() => client.received.filter((m) => m.t === 'topic').length === 2)
+      const kinds = client.received.slice(2).map((m) => m.t)
+      expect(kinds).toEqual(['flight', 'topic', 'topic'])
+      expect(client.received[2]).toEqual({ t: 'flight', flight: active })
+      hub.publish('trackingPoint', { id: 3, flightId: 8 } as never)
+      await client.waitFor(() => client.received.filter((m) => m.t === 'flight').length === 2)
+    })
+
+    it('does not announce a flight for points without a flight id, or other topics', async () => {
+      const { pair, hub } = await setup({ flight: () => ({ flight: { flightId: 7 } }) })
+      const { client } = await pair()
+      await client.message('snapshot')
+      hub.publish('trackingPoint', { id: 1 } as never)
+      hub.publish('trackingPoint', null as never)
+      hub.publish('simTelemetry', { flightId: 99 } as never)
+      hub.publish('trackingPoint', { id: 2, flightId: 7 } as never)
+      await client.waitFor(() => client.received.filter((m) => m.t === 'topic').length === 4)
+      expect(client.received.some((m) => m.t === 'flight')).toBe(false)
+    })
+
     it('runs a command from the table and refuses one that is not in it', async () => {
       const { pair, ran } = await setup()
       const { client } = await pair()
@@ -315,6 +363,40 @@ describe('LanServer', () => {
         Array(3).fill({ t: 'error', message: 'Not allowed' })
       )
       expect(ran).toHaveLength(1)
+    })
+
+    it('answers a lookup, including one that takes a moment, and says so when it cannot', async () => {
+      const { pair } = await setup()
+      const { client } = await pair()
+      client.send({ t: 'query', id: 1, name: 'echo', args: [{ icao: 'WSSS' }, 'x'] })
+      client.send({ t: 'query', id: 2, name: 'later', args: ['x'] })
+      client.send({ t: 'query', id: 3, name: 'broken' })
+      client.send({ t: 'query', id: 4, name: 'settings.save' })
+      client.send({ t: 'query', id: 5, name: '__proto__' })
+      client.send({ t: 'query', id: 'six', name: 'echo' })
+      client.send({ t: 'query', id: 7, name: 'echo', args: 'not a list' })
+      client.send({ t: 'query', id: 8, name: 'echo', args: [1, 2, 3, 4, 5, 6, 7] })
+      await client.waitFor(() => client.received.filter((m) => m.t === 'result').length === 7)
+      const results = client.received.filter((m) => m.t === 'result')
+      expect(results).toContainEqual({ t: 'result', id: 1, data: [{ icao: 'WSSS' }, 'x'] })
+      expect(results).toContainEqual({ t: 'result', id: 2, data: 'later x' })
+      for (const id of [3, 4, 5, 7, 8]) expect(results).toContainEqual({ t: 'result', id, error: true })
+    })
+
+    it('refuses a fifth lookup while four are still waiting', async () => {
+      const { pair } = await setup()
+      const { client } = await pair()
+      for (let id = 1; id <= 5; id++) client.send({ t: 'query', id, name: 'never' })
+      await client.waitFor(() => client.received.some((m) => m.t === 'result'))
+      expect(client.received.filter((m) => m.t === 'result')).toEqual([{ t: 'result', id: 5, error: true }])
+    })
+
+    it('ignores lookups from a socket that has not authenticated', async () => {
+      const { connect } = await setup()
+      const client = await connect()
+      client.send({ t: 'query', id: 1, name: 'echo', args: [1] })
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(client.received).toEqual([])
     })
 
     it('ignores commands from a socket that has not authenticated', async () => {
@@ -379,6 +461,41 @@ describe('LanServer', () => {
       expect(spy).not.toHaveBeenCalled()
     })
 
+    it('drops a socket that stops answering pings, and keeps one that answers', async () => {
+      const { connect } = await setup({ heartbeatMs: 40 })
+      const quiet = await connect()
+      const answering = await connect()
+      // ws answers pings by itself; make the first client unable to by stopping its automatic pong.
+      ;(quiet.ws as unknown as { pong: () => void }).pong = () => undefined
+      await quiet.waitFor(() => quiet.closed)
+      expect(answering.closed).toBe(false)
+    })
+
+    it('sends a paired device a heartbeat each round, and nothing to one that has not paired', async () => {
+      const { pair, connect } = await setup({ heartbeatMs: 30 })
+      const stranger = await connect()
+      const { client } = await pair()
+      await client.waitFor(() => client.received.filter((m) => m.t === 'hb').length >= 2)
+      expect(stranger.received.some((m) => m.t === 'hb')).toBe(false)
+    })
+
+    it('sends devices the flight again when its key changes, and not otherwise', async () => {
+      let key = 'a'
+      let shown: unknown = { flight: { flightId: 1 } }
+      const { pair } = await setup({ heartbeatMs: 30, flightKey: () => key, flight: () => shown })
+      const { client } = await pair()
+      await client.message('snapshot')
+      await new Promise((resolve) => setTimeout(resolve, 120))
+      expect(client.received.some((m) => m.t === 'flight')).toBe(false)
+      key = 'b'
+      shown = { flight: { flightId: 2 } }
+      await client.waitFor(() => client.received.some((m) => m.t === 'flight'))
+      expect(client.received.find((m) => m.t === 'flight')).toEqual({ t: 'flight', flight: shown })
+      const count = client.received.filter((m) => m.t === 'flight').length
+      await new Promise((resolve) => setTimeout(resolve, 120))
+      expect(client.received.filter((m) => m.t === 'flight')).toHaveLength(count)
+    })
+
     it('refuses to start twice, and reports a port already in use', async () => {
       const { server, port } = await setup()
       await expect(server.start(HOST, port)).rejects.toThrow('Already listening')
@@ -387,6 +504,7 @@ describe('LanServer', () => {
         commands: {},
         devices: deviceStore().devices,
         flight: () => null,
+        queries: {},
         staticFile: () => null,
         now: () => 0
       })
@@ -400,6 +518,7 @@ describe('LanServer', () => {
         commands: {},
         devices: deviceStore().devices,
         flight: () => null,
+        queries: {},
         staticFile: () => null,
         now: () => 0
       })

@@ -36,7 +36,7 @@ export default tseslint.config(
     }
   },
   {
-    files: ['src/renderer/**/*.{ts,tsx}'],
+    files: ['src/renderer/**/*.{ts,tsx}', 'src/lan-client/**/*.{ts,tsx}'],
     languageOptions: {
       globals: globals.browser
     },
@@ -183,7 +183,7 @@ export default tseslint.config(
     }
   },
   {
-    files: ['src/renderer/**/*.{ts,tsx}'],
+    files: ['src/renderer/**/*.{ts,tsx}', 'src/lan-client/**/*.{ts,tsx}'],
     ignores: NOT_APP_CODE,
     rules: {
       'no-restricted-imports': [

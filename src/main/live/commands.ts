@@ -9,6 +9,8 @@
  * here: this table is the remote-safe surface, so a security review of it is a review of one file.
  */
 import type { LiveCommand } from '@shared/live'
+import type { ProcedureSelection } from '@shared/ipc'
+import type { TrackingController } from '../tracking/TrackingController'
 import type { BeyondAtcService } from '../beyondatc/BeyondAtcService'
 import type { GsxRemoteService } from '../gsx-remote/GsxRemoteService'
 import type { StepClimbController } from '../beyondatc/step-climb'
@@ -24,6 +26,9 @@ export type AtcCommand = Extract<LiveCommand, `atc.${string}`>
 
 /** The GSX Remote commands. */
 export type GsxCommand = Extract<LiveCommand, `gsx.${string}`>
+
+/** The tracking commands a second screen may send. */
+export type TrackCommand = Extract<LiveCommand, `track.${string}`>
 
 /**
  * The BeyondATC commands.
@@ -76,6 +81,58 @@ export function gsxCommands(
     'gsx.submitPrompt': (gen, text) => service()?.submitPrompt(gen, text),
     'gsx.cancelPrompt': (gen) => service()?.cancelPrompt(gen),
     'gsx.runCommand': (id) => service()?.runCommand(id)
+  }
+}
+
+/** The longest procedure or transition name accepted. */
+const MAX_PROCEDURE_NAME = 40
+
+/**
+ * @param value One field of a procedure selection from a client.
+ * @returns The field when it is a short string, or null when it is null or absent.
+ * @throws When it is anything else.
+ */
+function shortNameOrNull(value: unknown): string | null {
+  if (value === null || value === undefined) return null
+  if (typeof value !== 'string' || value.length > MAX_PROCEDURE_NAME)
+    throw new Error('Invalid procedure selection')
+  return value
+}
+
+/**
+ * @param value A procedure selection from a client.
+ * @returns The selection when every field is a short string or null, with nothing else in it.
+ * @throws When it is anything else.
+ */
+export function parseProcedureSelection(value: unknown): ProcedureSelection {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error('Invalid procedure selection')
+  }
+  const record: Record<string, unknown> = { ...value }
+  return {
+    departureRunway: shortNameOrNull(record.departureRunway),
+    sidIdent: shortNameOrNull(record.sidIdent),
+    sidTransition: shortNameOrNull(record.sidTransition),
+    starIdent: shortNameOrNull(record.starIdent),
+    starTransition: shortNameOrNull(record.starTransition),
+    approachIdent: shortNameOrNull(record.approachIdent),
+    approachTransition: shortNameOrNull(record.approachTransition),
+    arrivalIcao: shortNameOrNull(record.arrivalIcao)
+  }
+}
+
+/**
+ * The tracking commands a second screen may send: choosing the SID, STAR and approach, which the flight is saved with.
+ *
+ * @param controller The tracking controller.
+ * @returns The table.
+ */
+export function trackCommands(
+  controller: Pick<TrackingController, 'setProcedureSelection'>
+): CommandTable<TrackCommand> {
+  return {
+    'track.setProcedureSelection': (selection) =>
+      controller.setProcedureSelection(parseProcedureSelection(selection))
   }
 }
 

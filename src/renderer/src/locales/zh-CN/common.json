@@ -888,5 +888,51 @@
       "title": "一切就绪",
       "body": "这里的所有内容都可以在设置中更改。要再次查看此向导，请前往“设置 → 关于 → 重新运行设置向导”。"
     }
+  },
+  "lanPage": {
+    "connecting": "正在连接 WingLog…",
+    "pairTitle": "与 WingLog 配对",
+    "pairHelp": "在电脑上打开“设置”，然后选择“第二屏幕”，再选择“配对设备”。输入显示的 6 位代码。",
+    "codeLabel": "配对码",
+    "pair": "配对",
+    "wrongCode": "这个代码无效。请确认电脑上正在显示代码，然后重试。",
+    "offline": "无法连接到电脑。正在重试…",
+    "noFlight": "电脑上尚未跟踪任何航班。",
+    "noPlan": "电脑上还没有飞行计划。请在电脑上的“签派”中规划航班。"
+  },
+  "lan": {
+    "settings": {
+      "title": "第二屏幕",
+      "description": "在家庭网络中的手机或平板上显示实时地图。开启前它一直处于关闭状态，只会在家庭网络上监听，并且每台设备都必须用代码配对。",
+      "enable": "第二屏幕",
+      "on": "开",
+      "off": "关",
+      "adapter": "网络",
+      "adapterAuto": "自动",
+      "adapterOption": "{{adapter}}（{{address}}）",
+      "adapterVirtual": "{{adapter}}（{{address}}），虚拟网络：手机无法连接",
+      "port": "端口",
+      "open": "在手机或平板上打开此地址：",
+      "connected_other": "当前已连接 {{count}} 台设备",
+      "pairButton": "配对设备",
+      "pairingCode": "在设备上输入此代码：",
+      "pairingNote": "代码只能使用一次，5 分钟后失效。",
+      "pairingClose": "关闭",
+      "devices": "已配对的设备",
+      "noDevices": "尚未配对任何设备。",
+      "lastSeen": "上次连接：{{when}}",
+      "neverSeen": "从未连接",
+      "revoke": "撤销",
+      "help": "无法连接？手机和这台电脑必须在同一个 Wi-Fi 下（不能是访客网络），这台电脑的网络应设为“专用”，并且防火墙必须允许 WingLog。",
+      "problem": {
+        "noAdapter": "这台电脑没有可供监听的家庭网络连接。",
+        "chooseAdapter": "请选择要监听的网络。",
+        "portInUse": "该端口已被占用，请换一个。",
+        "failed": "第二屏幕无法启动。"
+      },
+      "qrLabel": "第二屏幕地址的二维码",
+      "qrHint": "用手机相机扫描即可打开页面。",
+      "qrHintPairing": "用手机扫描即可打开页面并配对。代码每 5 分钟更换一次。"
+    }
   }
 }

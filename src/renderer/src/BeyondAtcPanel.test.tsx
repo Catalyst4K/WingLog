@@ -66,6 +66,61 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): void {
   } as unknown as WingLogApi
 }
 
+describe('BeyondAtcPanel on a phone (compact)', () => {
+  it('puts the radios behind a button, with the tuned station beside it, and no radios card', async () => {
+    withWinglog({
+      beyondAtcGetState: vi.fn().mockResolvedValue(
+        makeState({
+          facility: { name: 'Singapore Delivery', frequency: '118.850' },
+          autoTune: true,
+          autoRespond: false
+        })
+      )
+    })
+    render(<BeyondAtcPanel compact />)
+    const button = await screen.findByRole('button', { name: 'Radios…' })
+    expect(await screen.findByText('Singapore Delivery · 118.850')).toBeInTheDocument()
+    expect(screen.queryByText('Auto-tune: On')).not.toBeInTheDocument()
+    await userEvent.click(button)
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText('Auto-tune: On')).toBeInTheDocument()
+    expect(within(dialog).getByText('Auto-respond: Off')).toBeInTheDocument()
+  })
+
+  it('opens the radios without putting the cursor in a frequency box, so no keyboard appears until one is tapped', async () => {
+    withWinglog({
+      beyondAtcGetState: vi
+        .fn()
+        .mockResolvedValue(makeState({ facility: { name: 'Singapore Delivery', frequency: '118.850' } }))
+    })
+    render(<BeyondAtcPanel compact />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Radios…' }))
+    const dialog = await screen.findByRole('dialog')
+    const box = within(dialog).getByRole('textbox', { name: 'COM1 frequency' })
+    expect(box).toBeVisible()
+    expect(box).not.toHaveFocus()
+    expect(document.activeElement?.tagName).not.toBe('INPUT')
+  })
+
+  it('keeps everything else in one column that scrolls with the page: instruction, actions and the transcript', async () => {
+    withWinglog({
+      beyondAtcGetState: vi.fn().mockResolvedValue(makeState({ actions: ['Request Taxi'] })),
+      beyondAtcGetTranscript: vi.fn().mockResolvedValue([{ speaker: 'atc', text: 'Cleared to land.' }])
+    })
+    render(<BeyondAtcPanel compact />)
+    expect(await screen.findByRole('button', { name: 'Request Taxi' })).toBeInTheDocument()
+    expect(await screen.findAllByText('Cleared to land.')).not.toHaveLength(0)
+    expect(screen.getByText('Transcript')).toBeInTheDocument()
+  })
+
+  it('shows a dash beside the button while nothing is tuned', async () => {
+    withWinglog()
+    render(<BeyondAtcPanel compact />)
+    await screen.findByRole('button', { name: 'Radios…' })
+    expect(screen.getByText('—')).toBeInTheDocument()
+  })
+})
+
 describe('BeyondAtcPanel', () => {
   it('shows a not-configured message when BeyondATC integration is off', async () => {
     withWinglog({ settingsGetBeyondAtc: vi.fn().mockResolvedValue(makeSettings({ enabled: false })) })

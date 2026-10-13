@@ -896,5 +896,52 @@
       "title": "You're all set",
       "body": "Everything here can be changed in Settings. To see this setup again, go to Settings → About → Run setup again."
     }
+  },
+  "lanPage": {
+    "connecting": "Connecting to WingLog…",
+    "pairTitle": "Pair with WingLog",
+    "pairHelp": "On the PC, open Settings, then Second screen, then Pair a device. Type the 6-digit code it shows.",
+    "codeLabel": "Pairing code",
+    "pair": "Pair",
+    "wrongCode": "That code didn't work. Check the PC is showing a code, then try again.",
+    "offline": "Can't reach the PC. Trying again…",
+    "noFlight": "No flight is being tracked on the PC yet.",
+    "noPlan": "No flight plan on the PC yet. Plan a flight in Dispatch on the PC."
+  },
+  "lan": {
+    "settings": {
+      "title": "Second screen",
+      "description": "Show the live map on a phone or tablet on your home network. It is off until you turn it on, it only listens on your home network, and every device has to be paired with a code.",
+      "enable": "Second screen",
+      "on": "On",
+      "off": "Off",
+      "adapter": "Network",
+      "adapterAuto": "Automatic",
+      "adapterOption": "{{adapter}} ({{address}})",
+      "adapterVirtual": "{{adapter}} ({{address}}), virtual: a phone cannot be on it",
+      "port": "Port",
+      "open": "Open this address on the phone or tablet:",
+      "connected_one": "{{count}} device connected now",
+      "connected_other": "{{count}} devices connected now",
+      "pairButton": "Pair a device",
+      "pairingCode": "On the device, type this code:",
+      "pairingNote": "The code works once and closes after 5 minutes.",
+      "pairingClose": "Close",
+      "devices": "Paired devices",
+      "noDevices": "No devices paired yet.",
+      "lastSeen": "Last seen {{when}}",
+      "neverSeen": "Never connected",
+      "revoke": "Revoke",
+      "help": "Can't connect? The phone and this PC must be on the same Wi-Fi (not a guest network), this PC's network should be set to Private, and your firewall must allow WingLog.",
+      "problem": {
+        "noAdapter": "This PC has no home-network connection to listen on.",
+        "chooseAdapter": "Choose which network to listen on.",
+        "portInUse": "That port is already in use. Choose another.",
+        "failed": "The second screen could not start."
+      },
+      "qrLabel": "QR code for the second-screen address",
+      "qrHint": "Scan it with the phone's camera to open the page.",
+      "qrHintPairing": "Scan it with the phone to open the page and pair. The code changes every 5 minutes."
+    }
   }
 }

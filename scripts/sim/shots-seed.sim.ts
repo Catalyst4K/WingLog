@@ -20,5 +20,46 @@ it.skipIf(!outputPath)('writes the screenshots database', () => {
   createFlight(db, { aircraftId: aircraft.id, depIcao: 'EGLL', arrIcao: 'WSSS' })
   seedRunways(db, 'WSSS', WSSS_RUNWAYS)
   seedApproaches(db, WSSS_ARRIVAL)
+  // Optional: the real navdata (runways, every SID, STAR and approach, stands and the taxi chart) for the flight's two airports from this
+  // machine's own database, which the sim filled when those airports were flown. The scenario's own seed above holds only the few
+  // procedures the recording used, so a screen that lists them looks nearly empty. Local only; nothing is written to the source database.
+  const navdataSource = process.env.WINGLOG_SHOTS_TAXI_FROM
+  if (navdataSource) {
+    sqlite.prepare('ATTACH DATABASE ? AS source').run(navdataSource)
+    for (const icao of ['WSSS', 'EGLL']) {
+      const has = sqlite
+        .prepare('SELECT COUNT(*) AS n FROM source.navdata_procedure WHERE icao = ?')
+        .get(icao) as { n: number }
+      // Replace the airport's seeded rows only when there is something real to replace them with.
+      if (has.n === 0) continue
+      const own = [icao]
+      sqlite
+        .prepare(
+          'DELETE FROM navdata_procedure_leg WHERE procedure_id IN (SELECT id FROM navdata_procedure WHERE icao = ?)'
+        )
+        .run(...own)
+      sqlite.prepare('DELETE FROM navdata_procedure WHERE icao = ?').run(...own)
+      sqlite.prepare('DELETE FROM navdata_runway WHERE icao = ?').run(...own)
+      sqlite
+        .prepare('INSERT INTO navdata_procedure SELECT * FROM source.navdata_procedure WHERE icao = ?')
+        .run(...own)
+      sqlite
+        .prepare(
+          'INSERT INTO navdata_procedure_leg SELECT * FROM source.navdata_procedure_leg WHERE procedure_id IN (SELECT id FROM source.navdata_procedure WHERE icao = ?)'
+        )
+        .run(...own)
+      sqlite
+        .prepare('INSERT INTO navdata_runway SELECT * FROM source.navdata_runway WHERE icao = ?')
+        .run(...own)
+    }
+    sqlite.exec(
+      "INSERT INTO navdata_taxi_segment SELECT * FROM source.navdata_taxi_segment WHERE icao = 'WSSS'"
+    )
+    // Flight 236's own plan (EGLL to WSSS, the recorded flight), so the Dispatch page has figures to show.
+    sqlite.exec(
+      'UPDATE flight SET ofp_json = (SELECT ofp_json FROM source.flight WHERE id = 236) WHERE id = (SELECT MAX(id) FROM flight) AND EXISTS (SELECT 1 FROM source.flight WHERE id = 236 AND ofp_json IS NOT NULL)'
+    )
+    sqlite.exec('DETACH DATABASE source')
+  }
   sqlite.close()
 })

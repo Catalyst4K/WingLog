@@ -41,6 +41,8 @@ import { registerFlightHandlers, registerTrackingHandlers } from './ipc/tracking
 import { registerGsxHandlers } from './ipc/gsx-handlers'
 import { registerGsxRemoteHandlers } from './ipc/gsx-remote-handlers'
 import { registerBeyondAtcHandlers } from './ipc/beyondatc-handlers'
+import { registerLanHandlers } from './ipc/lan-handlers'
+import { createLan } from './lan/create-lan'
 import { registerDiagnosticsHandlers, registerSimHandlers } from './ipc/sim-handlers'
 import { createBackgroundSync, registerSyncHandlers, startPeriodicSync } from './ipc/sync-handlers'
 import { e2eBeyondAtcPort } from './beyondatc/BeyondAtcService'
@@ -216,6 +218,28 @@ function startUpdates(db: WingLogDb, window: BrowserWindow): UpdateService {
   return updateService
 }
 
+/**
+ * The second screen (a phone or tablet in a browser): off until the pilot turns it on in Settings.
+ *
+ * @param deps The database, the live hub, tracking, navdata and the add-on commands a second screen may send.
+ */
+function startSecondScreen(
+  deps: Pick<
+    Parameters<typeof createLan>[0],
+    'db' | 'liveHub' | 'trackingController' | 'navdata' | 'addOnCommands'
+  >
+): void {
+  const lan = createLan({
+    ...deps,
+    userAgent: `WingLog/${app.getVersion()}`,
+    pageFolder: join(__dirname, '../lan'),
+    testAddress: app.isPackaged ? undefined : process.env.WINGLOG_E2E_LAN_ADDRESS
+  })
+  registerLanHandlers(ipcMain, { lan })
+  runLogged('second screen at launch', lan.init())
+  app.on('before-quit', () => runLogged('second screen stop', lan.stop()))
+}
+
 /** Opens the database and the window, starts the services, and registers every IPC area. */
 function startApp(): void {
   const { db, sqlite, dbPath, backedUp } = openDatabase(app.getPath('userData'))
@@ -311,6 +335,14 @@ function startApp(): void {
     port: e2eBeyondAtcPort(process.env.WINGLOG_E2E_BEYONDATC_PORT)
   })
   app.on('before-quit', () => beyondAtc.stop())
+
+  startSecondScreen({
+    db,
+    liveHub,
+    trackingController,
+    navdata: navdataProvider,
+    addOnCommands: { ...beyondAtc.commands, ...gsxRemote.commands }
+  })
 
   registerSyncHandlers(ipcMain, { cloudSync, enabled: __WINGLOG_CLOUD_SYNC_ENABLED__ })
 

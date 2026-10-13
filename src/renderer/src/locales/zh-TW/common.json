@@ -888,5 +888,51 @@
       "title": "一切就緒",
       "body": "這裡的所有內容都可以在設定中變更。要再次查看此精靈，請前往「設定 → 關於 → 重新執行設定精靈」。"
     }
+  },
+  "lanPage": {
+    "connecting": "正在連線到 WingLog…",
+    "pairTitle": "與 WingLog 配對",
+    "pairHelp": "在電腦上開啟「設定」，然後選擇「第二螢幕」，再選擇「配對裝置」。輸入顯示的 6 位數代碼。",
+    "codeLabel": "配對碼",
+    "pair": "配對",
+    "wrongCode": "這個代碼無效。請確認電腦上正在顯示代碼，然後再試一次。",
+    "offline": "無法連線到電腦。正在重試…",
+    "noFlight": "電腦上尚未追蹤任何航班。",
+    "noPlan": "電腦上還沒有飛行計畫。請在電腦上的「簽派」中規劃航班。"
+  },
+  "lan": {
+    "settings": {
+      "title": "第二螢幕",
+      "description": "在家用網路中的手機或平板上顯示即時地圖。開啟前它一直處於關閉狀態，只會在家用網路上監聽，而且每台裝置都必須用代碼配對。",
+      "enable": "第二螢幕",
+      "on": "開",
+      "off": "關",
+      "adapter": "網路",
+      "adapterAuto": "自動",
+      "adapterOption": "{{adapter}}（{{address}}）",
+      "adapterVirtual": "{{adapter}}（{{address}}），虛擬網路：手機無法連線",
+      "port": "連接埠",
+      "open": "在手機或平板上開啟此位址：",
+      "connected_other": "目前已連線 {{count}} 台裝置",
+      "pairButton": "配對裝置",
+      "pairingCode": "在裝置上輸入此代碼：",
+      "pairingNote": "代碼只能使用一次，5 分鐘後失效。",
+      "pairingClose": "關閉",
+      "devices": "已配對的裝置",
+      "noDevices": "尚未配對任何裝置。",
+      "lastSeen": "上次連線：{{when}}",
+      "neverSeen": "從未連線",
+      "revoke": "撤銷",
+      "help": "無法連線？手機與這台電腦必須在同一個 Wi-Fi 下（不能是訪客網路），這台電腦的網路應設為「私人」，而且防火牆必須允許 WingLog。",
+      "problem": {
+        "noAdapter": "這台電腦沒有可供監聽的家用網路連線。",
+        "chooseAdapter": "請選擇要監聽的網路。",
+        "portInUse": "該連接埠已被使用，請換一個。",
+        "failed": "第二螢幕無法啟動。"
+      },
+      "qrLabel": "第二螢幕位址的 QR 碼",
+      "qrHint": "用手機相機掃描即可開啟頁面。",
+      "qrHintPairing": "用手機掃描即可開啟頁面並配對。代碼每 5 分鐘更換一次。"
+    }
   }
 }

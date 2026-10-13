@@ -1,0 +1,13 @@
+@import '../renderer/src/index.css';
+
+/* Tailwind only scans the folder the build runs in by default; the page's classes live in the renderer's components too. */
+@source '../renderer/src';
+@source './';
+
+/* The readout along the map's bottom edge is wider than a phone leaves beside the attribution button: let it wrap instead of running under it. */
+div[class*='bottom-3'][class*='left-3'] {
+  max-width: calc(100% - 3.5rem);
+  white-space: normal;
+  border-radius: 1rem;
+  line-height: 1.3;
+}

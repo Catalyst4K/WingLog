@@ -50,6 +50,7 @@ function Harness(props: {
   initialSelection?: ProcedureSelection
   liveWaypoints?: Waypoint[]
   onSelectionChange?: (next: ProcedureSelection) => void
+  compact?: boolean
 }): React.JSX.Element {
   const [selection, setSelection] = useState<ProcedureSelection>(
     props.initialSelection ?? emptyProcedureSelection()
@@ -63,6 +64,7 @@ function Harness(props: {
         props.onSelectionChange?.(next)
       }}
       liveWaypoints={props.liveWaypoints ?? []}
+      compact={props.compact}
     />
   )
 }
@@ -122,6 +124,58 @@ describe('ProcedureSelector', () => {
     render(<Harness airports={airports()} />)
 
     expect(await screen.findByText('Departure runway')).toBeInTheDocument()
+  })
+
+  describe('compact (a phone)', () => {
+    it('splits Departure and Arrival into two tabs, Departure first', async () => {
+      withWinglog({ navdataListRunways: vi.fn().mockResolvedValue([runway('27L')]) })
+      const user = userEvent.setup()
+      render(<Harness airports={airports()} compact />)
+      expect(await screen.findByRole('tab', { name: 'Departure' })).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByText('Departure runway')).toBeInTheDocument()
+      expect(screen.queryByText('Approach')).not.toBeInTheDocument()
+      await user.click(screen.getByRole('tab', { name: 'Arrival' }))
+      expect(await screen.findByText('Approach')).toBeInTheDocument()
+      expect(screen.queryByText('Departure runway')).not.toBeInTheDocument()
+    })
+
+    it("uses the device's own dropdowns, which scroll and fit a phone", async () => {
+      withWinglog({ navdataListRunways: vi.fn().mockResolvedValue([runway('27L'), runway('27R')]) })
+      const onSelectionChange = vi.fn()
+      const user = userEvent.setup()
+      render(<Harness airports={airports()} compact onSelectionChange={onSelectionChange} />)
+      const select = await screen.findByLabelText('Departure runway')
+      await waitFor(() => expect(select).not.toBeDisabled())
+      expect(
+        within(select)
+          .getAllByRole('option')
+          .map((o) => o.textContent)
+      ).toEqual(['None', '27L', '27R'])
+      await user.selectOptions(select, '27R')
+      expect(onSelectionChange).toHaveBeenCalledWith(expect.objectContaining({ departureRunway: '27R' }))
+      await user.selectOptions(select, 'None')
+      expect(onSelectionChange).toHaveBeenLastCalledWith(expect.objectContaining({ departureRunway: null }))
+    })
+
+    it('switches the arrival to the alternate with the device dropdown, clearing the arrival procedures', async () => {
+      withWinglog({ navdataListApproaches: vi.fn().mockResolvedValue([proc('ILS 04L')]) })
+      const onSelectionChange = vi.fn()
+      const user = userEvent.setup()
+      render(
+        <Harness
+          airports={airports({ altnIcao: 'KEWR' })}
+          compact
+          onSelectionChange={onSelectionChange}
+          initialSelection={{ ...emptyProcedureSelection(), starIdent: 'CAMRN4', approachIdent: 'ILS 04L' }}
+        />
+      )
+      await user.click(await screen.findByRole('tab', { name: 'Arrival' }))
+      const airport = await screen.findByLabelText('Arrival airport')
+      await user.selectOptions(airport, 'alternate')
+      expect(onSelectionChange).toHaveBeenCalledWith(
+        expect.objectContaining({ arrivalIcao: 'KEWR', starIdent: null, approachIdent: null })
+      )
+    })
   })
 
   it('lists departure runways once loaded, and disables the field when there are none', async () => {

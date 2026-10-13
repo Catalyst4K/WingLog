@@ -109,6 +109,16 @@ function createWinglog(overrides: Record<string, unknown> = {}): typeof window.w
     logbookImportJson: vi.fn().mockResolvedValue(null),
     logbookExport: vi.fn().mockResolvedValue(false),
     appOpenGithub: vi.fn().mockResolvedValue(undefined),
+    lanGetStatus: vi.fn().mockResolvedValue({
+      settings: { enabled: false, adapter: null, port: 8765 },
+      addresses: [],
+      listening: false,
+      url: null,
+      problem: null,
+      connections: 0,
+      pairing: null,
+      devices: []
+    }),
     ...overrides
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any

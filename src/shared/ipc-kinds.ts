@@ -92,7 +92,12 @@ const NOT_QUERIES = {
     'dispatchGenerateOfp',
     'dispatchLoginSimbrief',
     'dispatchLogoutSimbrief',
-    'simbriefCreateCustomAirframe'
+    'simbriefCreateCustomAirframe',
+    'lanGetStatus',
+    'lanSetSettings',
+    'lanStartPairing',
+    'lanStopPairing',
+    'lanRevokeDevice'
   ]
 } as const satisfies Record<Exclude<ChannelKind, 'query'>, readonly (keyof typeof IpcChannels)[]>
 

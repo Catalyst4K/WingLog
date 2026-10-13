@@ -12,6 +12,7 @@ import type {
   GsxRemoteGateInfo,
   GsxRemoteMenuState,
   GsxRemotePromptState,
+  ProcedureSelection,
   GsxRemoteServiceStatus,
   SimConnectionStatus,
   SimTelemetry,
@@ -67,6 +68,7 @@ export interface LiveCommands {
   'gsx.submitPrompt': [gen: number, text: string]
   'gsx.cancelPrompt': [gen: number]
   'gsx.runCommand': [id: GsxRemoteCommandId]
+  'track.setProcedureSelection': [selection: ProcedureSelection]
 }
 
 export type LiveCommand = keyof LiveCommands

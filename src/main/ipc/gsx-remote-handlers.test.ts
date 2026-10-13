@@ -21,6 +21,22 @@ describe('GSX Remote IPC handlers', () => {
     publish.mockClear()
   })
 
+  it('hands back the GSX Remote command table, for a second screen', () => {
+    const { commands } = registerGsxRemoteHandlers(fakeIpc().ipcMain, {
+      db,
+      liveHub: { publish },
+      socketCtor: FakeServiceSocket
+    })
+    expect(Object.keys(commands).sort()).toEqual([
+      'gsx.cancelPrompt',
+      'gsx.pickMenu',
+      'gsx.runCommand',
+      'gsx.search',
+      'gsx.submitPrompt',
+      'gsx.toggleMenu'
+    ])
+  })
+
   it('stays off by default, answering with empty state and ignoring commands', () => {
     const { ipcMain, invoke } = fakeIpc()
     registerGsxRemoteHandlers(ipcMain, { db, liveHub: { publish }, socketCtor: FakeServiceSocket })

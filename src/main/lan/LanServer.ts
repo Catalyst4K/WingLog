@@ -33,6 +33,12 @@ export const LAN_TOPICS: readonly LiveTopic[] = [
   'beyondAtcArrival'
 ]
 
+/** How often a silent socket is pinged; one that has not answered by the next round is dropped. */
+export const HEARTBEAT_MS = 10_000
+/** Most arguments a lookup takes. */
+const MAX_QUERY_ARGS = 6
+/** Lookups one device may have waiting at once. */
+export const MAX_PENDING_QUERIES = 4
 /** Largest message a device may send, in bytes. */
 export const MAX_MESSAGE_BYTES = 16 * 1024
 /** Most open sockets at once. */
@@ -62,11 +68,17 @@ export interface LanServerDeps {
   }
   /** The active flight's route and waypoints, read-only, for a device that connects (null when there is none). */
   flight(): unknown
+  /** Read-only lookups a device may ask for (airfields, taxi charts, stands), each checking its own argument. */
+  queries: Record<string, (...args: unknown[]) => unknown>
+  /** A cheap text that changes when `flight()` would answer differently (the flight shown, or its saved details). */
+  flightKey?(): string
   /** A page file for a path such as `/` or `/app.js`, or null. */
   staticFile(path: string): StaticFile | null
   now(): number
   /** How long a socket may stay unauthenticated; `AUTH_TIMEOUT_MS` when left out (tests shorten it). */
   authTimeoutMs?: number
+  /** How often sockets are pinged; `HEARTBEAT_MS` when left out (tests shorten it). */
+  heartbeatMs?: number
 }
 
 /** What a device may send. Anything else is dropped. */
@@ -74,6 +86,7 @@ type Incoming =
   | { t: 'pair'; code: unknown; name?: unknown }
   | { t: 'hello'; token: unknown }
   | { t: 'cmd'; name: unknown; args: unknown }
+  | { t: 'query'; id: unknown; name: unknown; args: unknown }
 
 /** A connected socket and what is known of it. */
 interface Client {
@@ -81,6 +94,10 @@ interface Client {
   deviceId: number | null
   windowStart: number
   count: number
+  /** Queries asked and not yet answered. */
+  pending: number
+  /** False from a ping until its pong: a socket still false at the next ping is dead (a locked phone, a dropped Wi-Fi). */
+  alive: boolean
   authTimer: NodeJS.Timeout
 }
 
@@ -89,9 +106,13 @@ export class LanServer {
   private server: Server | null = null
   private wss: WebSocketServer | null = null
   private unsubscribe: (() => void) | null = null
+  private heartbeat: NodeJS.Timeout | null = null
   private hostHeader = ''
   private pairing: PairingWindow | null = null
   private readonly clients = new Set<Client>()
+  /** The flight the connected devices were last told about. */
+  private sentFlightId: number | null = null
+  private lastFlightKey: string | null = null
 
   constructor(private readonly deps: LanServerDeps) {}
 
@@ -126,6 +147,8 @@ export class LanServer {
         this.server = server
         this.wss = wss
         this.unsubscribe = this.deps.hub.subscribe((topic, payload) => this.broadcast(topic, payload))
+        this.heartbeat = setInterval(() => this.pingClients(), this.deps.heartbeatMs ?? HEARTBEAT_MS)
+        this.heartbeat.unref()
         resolve()
       })
     })
@@ -135,6 +158,8 @@ export class LanServer {
   stop(): Promise<void> {
     this.unsubscribe?.()
     this.unsubscribe = null
+    if (this.heartbeat) clearInterval(this.heartbeat)
+    this.heartbeat = null
     this.pairing = null
     for (const client of [...this.clients]) client.socket.terminate()
     const server = this.server
@@ -146,6 +171,11 @@ export class LanServer {
       server.close(() => resolve())
       server.closeAllConnections()
     })
+  }
+
+  /** @returns True while a pairing window is open: not yet used, expired or spent by wrong codes. */
+  get pairingOpen(): boolean {
+    return this.pairing?.isOpen(this.deps.now()) ?? false
   }
 
   /**
@@ -178,6 +208,20 @@ export class LanServer {
     }
   }
 
+  /** Pings every socket and drops the ones that never answered the last ping, so a device that went away does not hold a slot. */
+  private pingClients(): void {
+    this.syncFlight()
+    for (const client of this.clients) {
+      if (!client.alive) {
+        client.socket.terminate()
+        continue
+      }
+      client.alive = false
+      client.socket.ping()
+      if (client.deviceId !== null) this.send(client, { t: 'hb' })
+    }
+  }
+
   private handleHttp(req: IncomingMessage, res: ServerResponse): void {
     if (req.headers.host !== this.hostHeader || (req.method !== 'GET' && req.method !== 'HEAD')) {
       res.writeHead(404).end()
@@ -193,8 +237,7 @@ export class LanServer {
       'content-type': file.type,
       'cache-control': 'no-store',
       'x-content-type-options': 'nosniff',
-      'content-security-policy':
-        "default-src 'self'; img-src 'self' data: blob:; connect-src 'self' ws: https:; style-src 'self' 'unsafe-inline'; worker-src blob:"
+      'content-security-policy': pageSecurityPolicy(this.hostHeader)
     })
     res.end(req.method === 'HEAD' ? undefined : file.body)
   }
@@ -219,6 +262,8 @@ export class LanServer {
       deviceId: null,
       windowStart: this.deps.now(),
       count: 0,
+      pending: 0,
+      alive: true,
       authTimer: setTimeout(() => socket.close(), this.deps.authTimeoutMs ?? AUTH_TIMEOUT_MS)
     }
     this.clients.add(client)
@@ -226,6 +271,7 @@ export class LanServer {
       if (isBinary) return
       this.handleMessage(client, data.toString())
     })
+    socket.on('pong', () => (client.alive = true))
     socket.on('error', () => undefined)
     socket.on('close', () => {
       clearTimeout(client.authTimer)
@@ -246,11 +292,42 @@ export class LanServer {
     if (message.t === 'pair') return this.handlePair(client, message, now)
     if (message.t === 'hello') return this.handleHello(client, message.token)
     if (client.deviceId === null) return
+    if (message.t === 'query') return this.handleQuery(client, message)
     try {
       dispatchCommand(this.deps.commands, message.name, message.args)
     } catch {
       this.send(client, { t: 'error', message: 'Not allowed' })
     }
+  }
+
+  /**
+   * Answers a device's lookup. Only names in the queries table run, each checks its own argument, and a device may have a few in flight at once.
+   *
+   * @param client The device.
+   * @param message Its query: a number to match the answer to, the lookup's name and its argument list.
+   */
+  private handleQuery(client: Client, message: { id: unknown; name: unknown; args: unknown }): void {
+    const { id, name } = message
+    if (typeof id !== 'number' || !Number.isSafeInteger(id)) return
+    const query =
+      typeof name === 'string' && Object.hasOwn(this.deps.queries, name) ? this.deps.queries[name] : null
+    const args = message.args === undefined ? [] : message.args
+    if (
+      !query ||
+      !Array.isArray(args) ||
+      args.length > MAX_QUERY_ARGS ||
+      client.pending >= MAX_PENDING_QUERIES
+    ) {
+      this.send(client, { t: 'result', id, error: true })
+      return
+    }
+    client.pending += 1
+    new Promise((resolve) => resolve(query(...(args as unknown[]))))
+      .then(
+        (data) => this.send(client, { t: 'result', id, data }),
+        () => this.send(client, { t: 'result', id, error: true })
+      )
+      .finally(() => (client.pending -= 1))
   }
 
   private handlePair(client: Client, message: { code: unknown; name?: unknown }, now: number): void {
@@ -285,16 +362,49 @@ export class LanServer {
     client.deviceId = deviceId
     const topics: LiveSnapshot = {}
     const snapshot = this.deps.hub.snapshot()
+    const flight = this.deps.flight() as { flight?: { flightId?: number } } | null
+    this.sentFlightId = flight?.flight?.flightId ?? null
+    this.lastFlightKey = this.deps.flightKey?.() ?? null
     for (const topic of LAN_TOPICS) {
       if (topic in snapshot) (topics as Record<string, unknown>)[topic] = snapshot[topic]
     }
-    this.send(client, { t: 'snapshot', topics, flight: this.deps.flight() })
+    this.send(client, { t: 'snapshot', topics, flight })
   }
 
   private broadcast(topic: LiveTopic, payload: unknown): void {
     if (!LAN_TOPICS.includes(topic)) return
+    this.announceFlightChange(topic, payload)
     for (const client of this.clients) {
       if (client.deviceId !== null) this.send(client, { t: 'topic', name: topic, payload })
+    }
+  }
+
+  /** Sends every paired device the flight again when the one shown, or its details, changed since they were last told. */
+  private syncFlight(): void {
+    const key = this.deps.flightKey?.()
+    if (key === undefined || key === this.lastFlightKey) return
+    this.lastFlightKey = key
+    const flight = this.deps.flight() as { flight?: { flightId?: number } } | null
+    this.sentFlightId = flight?.flight?.flightId ?? null
+    for (const client of this.clients) {
+      if (client.deviceId !== null) this.send(client, { t: 'flight', flight })
+    }
+  }
+
+  /**
+   * A tracked point from a flight the devices have not been told about means tracking started (or moved on): sends them the flight first.
+   *
+   * @param topic The topic being published.
+   * @param payload Its value.
+   */
+  private announceFlightChange(topic: LiveTopic, payload: unknown): void {
+    if (topic !== 'trackingPoint' || typeof payload !== 'object' || payload === null) return
+    const flightId = (payload as { flightId?: unknown }).flightId
+    if (typeof flightId !== 'number' || flightId === this.sentFlightId) return
+    this.sentFlightId = flightId
+    const flight = this.deps.flight()
+    for (const client of this.clients) {
+      if (client.deviceId !== null) this.send(client, { t: 'flight', flight })
     }
   }
 
@@ -307,6 +417,25 @@ export class LanServer {
     }
     socket.send(JSON.stringify(message))
   }
+}
+
+/**
+ * What the page may load: its own files, the map tiles and style from OpenFreeMap, and its WebSocket back to this server, nothing else.
+ *
+ * @param host The host (with port) this server is bound to.
+ * @returns The Content-Security-Policy header value.
+ */
+export function pageSecurityPolicy(host: string): string {
+  return [
+    "default-src 'self'",
+    "img-src 'self' data: blob: https://tiles.openfreemap.org",
+    `connect-src 'self' ws://${host} https://tiles.openfreemap.org`,
+    "style-src 'self' 'unsafe-inline'",
+    "worker-src 'self' blob:",
+    "frame-ancestors 'none'",
+    "base-uri 'none'",
+    "form-action 'none'"
+  ].join('; ')
 }
 
 /**
@@ -338,5 +467,6 @@ function parseIncoming(text: string): Incoming | null {
   if (record.t === 'pair') return { t: 'pair', code: record.code, name: record.name }
   if (record.t === 'hello') return { t: 'hello', token: record.token }
   if (record.t === 'cmd') return { t: 'cmd', name: record.name, args: record.args }
+  if (record.t === 'query') return { t: 'query', id: record.id, name: record.name, args: record.args }
   return null
 }

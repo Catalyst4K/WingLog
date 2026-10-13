@@ -898,5 +898,52 @@
       "title": "Tutto pronto",
       "body": "Puoi cambiare tutto questo nelle Impostazioni. Per rivedere questa configurazione vai in Impostazioni → Informazioni → Ripeti la configurazione."
     }
+  },
+  "lanPage": {
+    "connecting": "Connessione a WingLog…",
+    "pairTitle": "Associa con WingLog",
+    "pairHelp": "Sul PC apri Impostazioni, poi Secondo schermo, poi Associa un dispositivo. Digita il codice a 6 cifre mostrato.",
+    "codeLabel": "Codice di associazione",
+    "pair": "Associa",
+    "wrongCode": "Quel codice non ha funzionato. Controlla che il PC mostri un codice e riprova.",
+    "offline": "Impossibile raggiungere il PC. Nuovo tentativo…",
+    "noFlight": "Sul PC non è ancora tracciato nessun volo.",
+    "noPlan": "Non c’è ancora un piano di volo sul PC. Pianifica un volo in Dispatch sul PC."
+  },
+  "lan": {
+    "settings": {
+      "title": "Secondo schermo",
+      "description": "Mostra la mappa in tempo reale su uno smartphone o tablet della tua rete domestica. È disattivato finché non lo attivi, ascolta solo sulla tua rete domestica e ogni dispositivo deve essere associato con un codice.",
+      "enable": "Secondo schermo",
+      "on": "Sì",
+      "off": "No",
+      "adapter": "Rete",
+      "adapterAuto": "Automatica",
+      "adapterOption": "{{adapter}} ({{address}})",
+      "adapterVirtual": "{{adapter}} ({{address}}), virtuale: uno smartphone non può collegarsi",
+      "port": "Porta",
+      "open": "Apri questo indirizzo sullo smartphone o sul tablet:",
+      "connected_one": "{{count}} dispositivo connesso ora",
+      "connected_other": "{{count}} dispositivi connessi ora",
+      "pairButton": "Associa un dispositivo",
+      "pairingCode": "Sul dispositivo, digita questo codice:",
+      "pairingNote": "Il codice vale una sola volta e scade dopo 5 minuti.",
+      "pairingClose": "Chiudi",
+      "devices": "Dispositivi associati",
+      "noDevices": "Nessun dispositivo associato.",
+      "lastSeen": "Ultimo accesso {{when}}",
+      "neverSeen": "Mai connesso",
+      "revoke": "Revoca",
+      "help": "Non riesci a connetterti? Lo smartphone e questo PC devono essere sullo stesso Wi-Fi (non una rete ospiti), la rete di questo PC dovrebbe essere impostata come Privata e il firewall deve consentire WingLog.",
+      "problem": {
+        "noAdapter": "Questo PC non ha nessuna connessione alla rete domestica su cui ascoltare.",
+        "chooseAdapter": "Scegli su quale rete ascoltare.",
+        "portInUse": "Quella porta è già in uso. Scegline un’altra.",
+        "failed": "Impossibile avviare il secondo schermo."
+      },
+      "qrLabel": "Codice QR dell’indirizzo del secondo schermo",
+      "qrHint": "Inquadralo con la fotocamera dello smartphone per aprire la pagina.",
+      "qrHintPairing": "Inquadralo con lo smartphone per aprire la pagina e associare. Il codice cambia ogni 5 minuti."
+    }
   }
 }

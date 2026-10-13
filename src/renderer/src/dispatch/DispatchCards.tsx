@@ -194,7 +194,7 @@ export function PlanFlightCard(props: {
  * @param props The OFP and the unit settings.
  * @returns The element.
  */
-function OfpDetails(props: {
+export function OfpDetails(props: {
   ofp: DispatchOfp
   weightUnit: WeightUnit
   altitudeUnit: AltitudeUnit
