@@ -132,7 +132,7 @@ export function LanCard(): React.JSX.Element {
           {status.url && (
             <SettingRow
               label={status.pairing ? t('lan.settings.pairingCode') : t('lan.settings.pairButton')}
-              note={status.pairing ? t('lan.settings.pairingNote') : t('lan.settings.pairingHidden')}
+              note={status.pairing ? t('lan.settings.pairingNote') : undefined}
               stacked
             >
               <div className="flex flex-wrap items-center gap-4">
