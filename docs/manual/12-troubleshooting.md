@@ -42,6 +42,19 @@ it. Nothing recorded before it closed is lost.
 - Check the port in **Settings → 3rd party → GSX Remote Control** matches **Remote Client** in GSX's
   own settings (8744 by default).
 
+## The phone can't open the second screen
+
+- **Settings → Data → Second screen** must be **On**, with no red message under it.
+- The phone must be on the same Wi-Fi as this PC, not a guest network, and not on mobile data.
+- When Windows asked whether to let WingLog through its firewall, **Allow** is needed. If you pressed
+  Cancel, the phone just times out. Allow WingLog under Windows Security → Firewall & network
+  protection → Allow an app through firewall. If your network is set to **Public** in Windows, allow
+  Public networks too, or set the network to Private.
+- Another firewall or security suite may have its own firewall that needs the same permission.
+- The page says "Can't reach the PC. Trying again…" when WingLog is closed or the second screen is
+  off. It connects again by itself when WingLog is back.
+- A scanned QR code that does nothing has run out. Press **Pair a device** for a new one.
+
 ## The taxi chart takes a long time
 
 The first time you open the taxi chart at an airport, WingLog reads the airport's taxiways from the

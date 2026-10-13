@@ -33,6 +33,8 @@ Import or export your **Fleet** and **Logbook** as CSV or JSON. Choose the file 
 - A logbook export is a summary of each flight and its landing, not a full backup (no route or OFP).
   For a full backup, copy the database (see [Installing and updating](02-installing.md)).
 
+- **Second screen**: on/off and port, and a button that shows a QR code and pairing code for a phone or tablet. Lists the devices that have paired, each with **Revoke** (see [Second screen](09-second-screen.md)).
+
 ## About
 
 - WingLog's version, the simulation-only and not-affiliated notices, and the licence.
