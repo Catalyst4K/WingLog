@@ -917,10 +917,6 @@
       "enable": "Deuxième écran",
       "on": "Activé",
       "off": "Désactivé",
-      "adapter": "Réseau",
-      "adapterAuto": "Automatique",
-      "adapterOption": "{{adapter}} ({{address}})",
-      "adapterVirtual": "{{adapter}} ({{address}}), virtuel : un téléphone ne peut pas y être connecté",
       "port": "Port",
       "open": "Ouvrez cette adresse sur le téléphone ou la tablette :",
       "connected_one": "{{count}} appareil connecté en ce moment",
@@ -937,12 +933,10 @@
       "help": "Impossible de se connecter ? Le téléphone et ce PC doivent être sur le même Wi-Fi (pas un réseau invité), le réseau de ce PC doit être défini sur Privé, et votre pare-feu doit autoriser WingLog.",
       "problem": {
         "noAdapter": "Ce PC n'a aucune connexion au réseau domestique sur laquelle écouter.",
-        "chooseAdapter": "Choisissez le réseau sur lequel écouter.",
         "portInUse": "Ce port est déjà utilisé. Choisissez-en un autre.",
         "failed": "Le deuxième écran n'a pas pu démarrer."
       },
       "qrLabel": "Code QR de l'adresse du deuxième écran",
-      "qrHint": "Scannez-le avec l'appareil photo du téléphone pour ouvrir la page.",
       "qrHintPairing": "Scannez-le avec le téléphone pour ouvrir la page et associer. Le code change toutes les 5 minutes."
     }
   }

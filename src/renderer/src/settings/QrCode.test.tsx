@@ -35,4 +35,11 @@ describe('QrCode', () => {
     rerender(<QrCode text="http://192.168.1.137:8765/" label="x" />)
     expect(container.querySelector('path')?.getAttribute('d')).not.toBe(before)
   })
+
+  it('can be a blurred placeholder that screen readers skip', () => {
+    const { container } = render(<QrCode text="http://192.168.1.136:8765/" label="QR" blurred />)
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+    expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+    expect(container.querySelector('svg')).toHaveClass('blur-md')
+  })
 })

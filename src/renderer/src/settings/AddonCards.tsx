@@ -1,15 +1,14 @@
 /** Settings → 3rd party: the SimBrief credentials, GSX, GSX Remote and BeyondATC cards. */
 
+import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { NavigraphLogo } from '../NavigraphLogo'
 import { asyncHandler, runAsync } from '../report-error'
+import { OnOffControl, SettingRow, SettingsCard, StatusBadge } from './ui/SettingsCard'
 import type {
   BeyondAtcSettingsState,
   GsxRemoteSettingsState,
@@ -46,35 +45,34 @@ function displayCurrencyOptions(t: TFunction): { code: string; label: string }[]
 export function CredentialsCard(props: { credentials: SimbriefCredentials }): React.JSX.Element {
   const { t } = useTranslation()
   const c = props.credentials
+  const usernameId = useId()
   return (
-    <Card className="max-w-sm">
-      <CardHeader>
-        <CardTitle>{t('settingsView.credentials.cardTitle')}</CardTitle>
-        <CardDescription>{t('settingsView.credentials.description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+    <SettingsCard
+      title={t('settingsView.credentials.cardTitle')}
+      description={t('settingsView.credentials.description')}
+    >
+      <SettingRow label={t('settingsView.credentials.simbriefUsername')} controlId={usernameId}>
         <form
           onSubmit={asyncHandler('SettingsView handleSaveSimbriefUsername', c.save)}
-          className="flex items-end gap-2"
+          className="flex items-center gap-2"
         >
-          <Label className="flex flex-1 flex-col items-start gap-1.5">
-            {t('settingsView.credentials.simbriefUsername')}
-            <Input
-              value={c.username}
-              onChange={(e) => c.setUsername(e.target.value)}
-              placeholder={t('settingsView.credentials.usernamePlaceholder')}
-            />
-          </Label>
+          <Input
+            id={usernameId}
+            className="w-56"
+            value={c.username}
+            onChange={(e) => c.setUsername(e.target.value)}
+            placeholder={t('settingsView.credentials.usernamePlaceholder')}
+          />
           <Button type="submit" variant="outline" size="sm">
             {t('settingsView.credentials.save')}
           </Button>
         </form>
+      </SettingRow>
+      <SettingRow label="Navigraph">
         {c.loggedIn ? (
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <NavigraphLogo className="size-6" />
-              <Badge variant="default">{t('settingsView.credentials.loggedIn')}</Badge>
-            </div>
+          <>
+            <NavigraphLogo className="size-6" />
+            <StatusBadge state="connected" label={t('settingsView.credentials.loggedIn')} />
             <Button
               type="button"
               variant="outline"
@@ -84,26 +82,23 @@ export function CredentialsCard(props: { credentials: SimbriefCredentials }): Re
             >
               {c.loggingOut ? t('settingsView.credentials.loggingOut') : t('settingsView.credentials.logOut')}
             </Button>
-          </div>
+          </>
         ) : (
           <Button
             type="button"
             variant="outline"
-            size="lg"
-            className="h-auto w-full justify-start gap-3 py-3"
+            size="sm"
             onClick={asyncHandler('SettingsView handleLoginToNavigraph', c.logIn)}
             disabled={c.loggingIn}
           >
-            <NavigraphLogo className="size-8" />
-            <span className="text-sm font-medium">
-              {c.loggingIn
-                ? t('settingsView.credentials.loggingIn')
-                : t('settingsView.credentials.logInWithNavigraph')}
-            </span>
+            <NavigraphLogo className="size-4" />
+            {c.loggingIn
+              ? t('settingsView.credentials.loggingIn')
+              : t('settingsView.credentials.logInWithNavigraph')}
           </Button>
         )}
-      </CardContent>
-    </Card>
+      </SettingRow>
+    </SettingsCard>
   )
 }
 
@@ -116,71 +111,76 @@ export function CredentialsCard(props: { credentials: SimbriefCredentials }): Re
 export function GsxCard(props: { gsx: GsxSettingsState }): React.JSX.Element {
   const { t } = useTranslation()
   const { gsx } = props.gsx
+  const folderId = useId()
+  const currencyId = useId()
   return (
-    <Card className="max-w-sm">
-      <CardHeader>
-        <CardTitle>{t('settingsView.gsx.cardTitle')}</CardTitle>
-        <CardDescription>{t('settingsView.gsx.description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-sm text-foreground">{t('settingsView.gsx.enabled')}</span>
-          <Button
-            type="button"
-            size="sm"
-            variant={gsx.enabled ? 'default' : 'outline'}
-            onClick={asyncHandler('SettingsView handleGsxToggle', () => props.gsx.toggle(!gsx.enabled))}
-          >
-            {gsx.enabled ? t('settingsView.gsx.on') : t('settingsView.gsx.off')}
-          </Button>
-        </div>
-        <Label className="flex flex-col items-start gap-1.5">
-          {t('settingsView.gsx.receiptsFolder')}
-          <div className="flex w-full gap-1.5">
-            <Input
-              type="text"
-              readOnly
-              value={gsx.folderPath ?? ''}
-              placeholder={t('settingsView.gsx.notSet')}
-              className="flex-1"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={asyncHandler('SettingsView handleGsxBrowse', props.gsx.browse)}
-            >
-              {t('settingsView.gsx.browse')}
-            </Button>
-          </div>
-        </Label>
-        <p className="text-xs text-muted-foreground">{t('settingsView.gsx.pathHint')}</p>
-        <Label className="flex flex-col items-start gap-1.5">
-          {t('settingsView.gsx.displayCurrency')}
-          <Select
-            value={gsx.displayCurrency}
-            onValueChange={asyncHandler('SettingsView handleGsxCurrencyChange', props.gsx.setCurrency)}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {displayCurrencyOptions(t).map((c) => (
-                <SelectItem key={c.code} value={c.code}>
-                  {c.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Label>
-        <p className="text-xs text-muted-foreground">{t('settingsView.gsx.currencyHint')}</p>
-      </CardContent>
-    </Card>
+    <SettingsCard title={t('settingsView.gsx.cardTitle')} description={t('settingsView.gsx.description')}>
+      <SettingRow label={t('settingsView.gsx.enabled')}>
+        <OnOffControl
+          label={t('settingsView.gsx.enabled')}
+          enabled={gsx.enabled}
+          onText={t('settingsView.gsx.on')}
+          offText={t('settingsView.gsx.off')}
+          onChange={asyncHandler('SettingsView handleGsxToggle', props.gsx.toggle)}
+        />
+      </SettingRow>
+      <SettingRow
+        label={t('settingsView.gsx.receiptsFolder')}
+        note={t('settingsView.gsx.pathHint')}
+        controlId={folderId}
+        stacked
+      >
+        <Input
+          id={folderId}
+          type="text"
+          readOnly
+          value={gsx.folderPath ?? ''}
+          placeholder={t('settingsView.gsx.notSet')}
+          className="min-w-0 flex-1"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={asyncHandler('SettingsView handleGsxBrowse', props.gsx.browse)}
+        >
+          {t('settingsView.gsx.browse')}
+        </Button>
+      </SettingRow>
+      <SettingRow
+        label={t('settingsView.gsx.displayCurrency')}
+        note={t('settingsView.gsx.currencyHint')}
+        controlId={currencyId}
+      >
+        <Select
+          value={gsx.displayCurrency}
+          onValueChange={asyncHandler('SettingsView handleGsxCurrencyChange', props.gsx.setCurrency)}
+        >
+          <SelectTrigger id={currencyId} className="w-64 max-w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {displayCurrencyOptions(t).map((c) => (
+              <SelectItem key={c.code} value={c.code}>
+                {c.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </SettingRow>
+    </SettingsCard>
   )
 }
 
+/** The text key for each connection state, under a card's translation key prefix. */
+const CONNECTION_KEY = {
+  connected: 'statusConnected',
+  connecting: 'statusConnecting',
+  disconnected: 'statusDisconnected'
+} as const
+
 /**
- * A connection's state as a badge, shown while the add-on is switched on.
+ * A connection's state as the card's header badge, shown while the add-on is switched on.
  *
  * @param props The connection state, and the card's translation key prefix
  *   ('settingsView.gsxRemote' or 'settingsView.beyondAtc').
@@ -191,19 +191,7 @@ function ConnectionBadge(props: {
   keyPrefix: string
 }): React.JSX.Element {
   const { t } = useTranslation()
-  return (
-    <Badge
-      variant={
-        props.state === 'connected' ? 'default' : props.state === 'connecting' ? 'secondary' : 'outline'
-      }
-    >
-      {props.state === 'connected'
-        ? t(`${props.keyPrefix}.statusConnected`)
-        : props.state === 'connecting'
-          ? t(`${props.keyPrefix}.statusConnecting`)
-          : t(`${props.keyPrefix}.statusDisconnected`)}
-    </Badge>
-  )
+  return <StatusBadge state={props.state} label={t(`${props.keyPrefix}.${CONNECTION_KEY[props.state]}`)} />
 }
 
 /**
@@ -215,61 +203,59 @@ function ConnectionBadge(props: {
 export function GsxRemoteCard(props: { gsxRemote: GsxRemoteSettingsState }): React.JSX.Element {
   const { t } = useTranslation()
   const r = props.gsxRemote
+  const hostId = useId()
+  const portId = useId()
   return (
-    <Card className="max-w-sm">
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between gap-2">
-          {t('settingsView.gsxRemote.cardTitle')}
-          {r.settings.enabled && (
-            <ConnectionBadge state={r.status.state} keyPrefix="settingsView.gsxRemote" />
-          )}
-        </CardTitle>
-        <CardDescription>{t('settingsView.gsxRemote.description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-sm text-foreground">{t('settingsView.gsxRemote.enabled')}</span>
-          <Button
-            type="button"
-            size="sm"
-            variant={r.settings.enabled ? 'default' : 'outline'}
-            onClick={asyncHandler('SettingsView handleGsxRemoteToggle', () => r.toggle(!r.settings.enabled))}
-          >
-            {r.settings.enabled ? t('settingsView.gsxRemote.on') : t('settingsView.gsxRemote.off')}
-          </Button>
-        </div>
-        <Label className="flex flex-col items-start gap-1.5">
-          {t('settingsView.gsxRemote.host')}
-          <Input
-            type="text"
-            value={r.settings.host}
-            onChange={asyncHandler('SettingsView handleGsxRemoteHostChange', (e) =>
-              r.setHost(e.target.value)
-            )}
-          />
-        </Label>
+    <SettingsCard
+      title={t('settingsView.gsxRemote.cardTitle')}
+      status={
+        r.settings.enabled && <ConnectionBadge state={r.status.state} keyPrefix="settingsView.gsxRemote" />
+      }
+      description={t('settingsView.gsxRemote.description')}
+    >
+      <SettingRow label={t('settingsView.gsxRemote.enabled')}>
+        <OnOffControl
+          label={t('settingsView.gsxRemote.enabled')}
+          enabled={r.settings.enabled}
+          onText={t('settingsView.gsxRemote.on')}
+          offText={t('settingsView.gsxRemote.off')}
+          onChange={asyncHandler('SettingsView handleGsxRemoteToggle', r.toggle)}
+        />
+      </SettingRow>
+      <SettingRow label={t('settingsView.gsxRemote.host')} controlId={hostId}>
+        <Input
+          id={hostId}
+          type="text"
+          className="w-56"
+          value={r.settings.host}
+          onChange={asyncHandler('SettingsView handleGsxRemoteHostChange', (e) => r.setHost(e.target.value))}
+        />
+      </SettingRow>
+      <SettingRow
+        label={t('settingsView.gsxRemote.port')}
+        note={t('settingsView.gsxRemote.portHint')}
+        controlId={portId}
+      >
         <form
           onSubmit={(e) => {
             e.preventDefault()
             runAsync('SettingsView commitGsxRemotePort', r.commitPort())
           }}
         >
-          <Label className="flex flex-col items-start gap-1.5">
-            {t('settingsView.gsxRemote.port')}
-            <Input
-              type="number"
-              min={1}
-              max={65535}
-              value={r.portInput}
-              placeholder={t('settingsView.gsxRemote.portPlaceholder')}
-              onChange={(e) => r.setPortInput(e.target.value)}
-              onBlur={asyncHandler('SettingsView commitGsxRemotePort', () => r.commitPort())}
-            />
-          </Label>
+          <Input
+            id={portId}
+            type="number"
+            min={1}
+            max={65535}
+            className="w-24"
+            value={r.portInput}
+            placeholder={t('settingsView.gsxRemote.portPlaceholder')}
+            onChange={(e) => r.setPortInput(e.target.value)}
+            onBlur={asyncHandler('SettingsView commitGsxRemotePort', () => r.commitPort())}
+          />
         </form>
-        <p className="text-xs text-muted-foreground">{t('settingsView.gsxRemote.portHint')}</p>
-      </CardContent>
-    </Card>
+      </SettingRow>
+    </SettingsCard>
   )
 }
 
@@ -282,41 +268,37 @@ export function GsxRemoteCard(props: { gsxRemote: GsxRemoteSettingsState }): Rea
 export function BeyondAtcCard(props: { beyondAtc: BeyondAtcSettingsState }): React.JSX.Element {
   const { t } = useTranslation()
   const b = props.beyondAtc
+  const hostId = useId()
   return (
-    <Card className="max-w-sm">
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between gap-2">
-          {t('settingsView.beyondAtc.cardTitle')}
-          {b.settings.enabled && (
-            <ConnectionBadge state={b.status.state} keyPrefix="settingsView.beyondAtc" />
-          )}
-        </CardTitle>
-        <CardDescription>{t('settingsView.beyondAtc.description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-sm text-foreground">{t('settingsView.beyondAtc.enabled')}</span>
-          <Button
-            type="button"
-            size="sm"
-            variant={b.settings.enabled ? 'default' : 'outline'}
-            onClick={asyncHandler('SettingsView handleBeyondAtcToggle', () => b.toggle(!b.settings.enabled))}
-          >
-            {b.settings.enabled ? t('settingsView.beyondAtc.on') : t('settingsView.beyondAtc.off')}
-          </Button>
-        </div>
-        <Label className="flex flex-col items-start gap-1.5">
-          {t('settingsView.beyondAtc.host')}
-          <Input
-            type="text"
-            value={b.settings.host}
-            onChange={asyncHandler('SettingsView handleBeyondAtcHostChange', (e) =>
-              b.setHost(e.target.value)
-            )}
-          />
-        </Label>
-        <p className="text-xs text-muted-foreground">{t('settingsView.beyondAtc.hostHint')}</p>
-      </CardContent>
-    </Card>
+    <SettingsCard
+      title={t('settingsView.beyondAtc.cardTitle')}
+      status={
+        b.settings.enabled && <ConnectionBadge state={b.status.state} keyPrefix="settingsView.beyondAtc" />
+      }
+      description={t('settingsView.beyondAtc.description')}
+    >
+      <SettingRow label={t('settingsView.beyondAtc.enabled')}>
+        <OnOffControl
+          label={t('settingsView.beyondAtc.enabled')}
+          enabled={b.settings.enabled}
+          onText={t('settingsView.beyondAtc.on')}
+          offText={t('settingsView.beyondAtc.off')}
+          onChange={asyncHandler('SettingsView handleBeyondAtcToggle', b.toggle)}
+        />
+      </SettingRow>
+      <SettingRow
+        label={t('settingsView.beyondAtc.host')}
+        note={t('settingsView.beyondAtc.hostHint')}
+        controlId={hostId}
+      >
+        <Input
+          id={hostId}
+          type="text"
+          className="w-56"
+          value={b.settings.host}
+          onChange={asyncHandler('SettingsView handleBeyondAtcHostChange', (e) => b.setHost(e.target.value))}
+        />
+      </SettingRow>
+    </SettingsCard>
   )
 }

@@ -85,23 +85,26 @@ describe('listLanAddresses', () => {
 
 describe('chooseAddress', () => {
   const list = listLanAddresses(THIS_PC)
+  const two = listLanAddresses({ Ethernet: [ipv4('192.168.1.10')], 'Wi-Fi': [ipv4('192.168.1.11')] })
 
-  it('takes the only physical adapter without being asked, even when a virtual one exists', () => {
+  it('takes the only real adapter, even when a virtual one exists and whatever the route says', () => {
     expect(chooseAddress(list, null)?.address).toBe('192.168.1.136')
+    expect(chooseAddress(list, '192.168.1.136')?.address).toBe('192.168.1.136')
   })
 
-  it("takes the user's saved adapter, including a virtual one they picked on purpose", () => {
-    expect(chooseAddress(list, 'vEthernet (WSLCore)')?.address).toBe('172.28.64.1')
+  it('takes the real adapter the PC reaches the network through when there are several', () => {
+    expect(chooseAddress(two, '192.168.1.11')?.address).toBe('192.168.1.11')
+    expect(chooseAddress(two, '192.168.1.10')?.address).toBe('192.168.1.10')
   })
 
-  it('does not listen when the saved adapter has gone', () => {
-    expect(chooseAddress(list, 'Wi-Fi')).toBeNull()
+  it('takes the first real adapter when there is no route, or the route is not on a real adapter', () => {
+    expect(chooseAddress(two, null)?.address).toBe('192.168.1.10')
+    expect(chooseAddress(list, '172.28.64.1')?.address).toBe('192.168.1.136')
   })
 
-  it('needs the user to choose when there are several physical adapters', () => {
-    const two = listLanAddresses({ Ethernet: [ipv4('192.168.1.10')], 'Wi-Fi': [ipv4('192.168.1.11')] })
-    expect(chooseAddress(two, null)).toBeNull()
-    expect(chooseAddress(two, 'Wi-Fi')?.address).toBe('192.168.1.11')
+  it('never takes a virtual adapter', () => {
+    const onlyVirtual = listLanAddresses({ 'vEthernet (WSLCore)': [ipv4('172.28.64.1')] })
+    expect(chooseAddress(onlyVirtual, '172.28.64.1')).toBeNull()
   })
 
   it('has no answer when there is no private network', () => {

@@ -6,17 +6,7 @@ import type { ProcedureSelection, TrackPoint } from './flight'
 /** What the pilot sets in Settings → Second screen. */
 export interface LanSettings {
   enabled: boolean
-  /** The network adapter to listen on, or null to take the only real one. */
-  adapter: string | null
   port: number
-}
-
-/** A private-network address the server could listen on. */
-export interface LanAddressOption {
-  adapter: string
-  address: string
-  /** A Hyper-V, WSL, Docker or VPN adapter: listed, but a phone can't be on it. */
-  virtual: boolean
 }
 
 /** A phone or tablet that has paired. */
@@ -35,12 +25,11 @@ export interface LanPairing {
 }
 
 /** Why the server isn't listening although it is switched on. */
-export type LanProblem = 'no-adapter' | 'choose-adapter' | 'port-in-use' | 'failed'
+export type LanProblem = 'no-adapter' | 'port-in-use' | 'failed'
 
 /** The server's state as Settings shows it. */
 export interface LanStatus {
   settings: LanSettings
-  addresses: LanAddressOption[]
   listening: boolean
   /** The address a device opens, when listening. */
   url: string | null

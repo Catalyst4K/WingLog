@@ -1,14 +1,14 @@
 /** Settings → Data → Second screen: the live map on a phone or tablet (winglog-backend's docs/plans/lan-web-viewer.md). */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { LanSettings, LanStatus } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { winglogApi } from '../data/winglog-api'
 import { QrCode } from './QrCode'
 import { asyncHandler, runAsync } from '../report-error'
+import { OnOffControl, SettingRow, SettingsCard, SettingsSection, StatusBadge } from './ui/SettingsCard'
 
 /** How often the card re-reads the status, for the pairing countdown, devices and connections. */
 const REFRESH_MS = 2000
@@ -22,6 +22,7 @@ export function LanCard(): React.JSX.Element {
   const { t } = useTranslation()
   const [status, setStatus] = useState<LanStatus | null>(null)
   const [port, setPort] = useState('')
+  const portId = useId()
   // Pairing mode, from pressing "Pair a device" until "Close": a code that runs out or is used is replaced by a new one (so a QR left on
   // screen never goes stale, and a second device can follow the first), but a window cancelled by wrong guesses is not reopened.
   const pairing = useRef<{ on: boolean; expiresAt: number; devices: number }>({
@@ -59,7 +60,7 @@ export function LanCard(): React.JSX.Element {
   const change = (action: () => Promise<LanStatus>, context: string) =>
     asyncHandler(context, async () => setStatus(await action()))
 
-  if (!status) return <Card className="w-full max-w-2xl" />
+  if (!status) return <SettingsCard title={t('lan.settings.title')} />
   /** Opens pairing mode: a code now, and a new one whenever it runs out or is used, until Close. */
   function startPairing(): void {
     pairing.current = { on: true, expiresAt: 0, devices: status?.devices.length ?? 0 }
@@ -77,168 +78,148 @@ export function LanCard(): React.JSX.Element {
   const portValid = Number.isInteger(portNumber) && portNumber >= 1024 && portNumber <= 65535
 
   return (
-    <Card className="w-full max-w-2xl">
-      <CardHeader>
-        <CardTitle>{t('lan.settings.title')}</CardTitle>
-        <CardDescription>{t('lan.settings.description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <span className="text-sm text-muted-foreground">{t('lan.settings.enable')}</span>
-          <div className="flex gap-1.5" role="group" aria-label={t('lan.settings.enable')}>
-            {[true, false].map((value) => (
-              <Button
-                key={String(value)}
-                type="button"
-                size="sm"
-                variant={settings.enabled === value ? 'default' : 'outline'}
-                aria-pressed={settings.enabled === value}
-                onClick={change(() => save({ enabled: value }), 'LanCard lanSetSettings')}
-              >
-                {value ? t('lan.settings.on') : t('lan.settings.off')}
-              </Button>
-            ))}
-          </div>
-        </div>
+    <SettingsCard
+      title={t('lan.settings.title')}
+      status={
+        status.url && (
+          <StatusBadge state="connected" label={t('lan.settings.connected', { count: status.connections })} />
+        )
+      }
+      description={t('lan.settings.description')}
+    >
+      <SettingRow label={t('lan.settings.enable')}>
+        <OnOffControl
+          label={t('lan.settings.enable')}
+          enabled={settings.enabled}
+          onText={t('lan.settings.on')}
+          offText={t('lan.settings.off')}
+          onChange={(enabled) => change(() => save({ enabled }), 'LanCard lanSetSettings')()}
+        />
+      </SettingRow>
 
-        {settings.enabled && (
-          <>
-            <div className="flex flex-wrap items-end gap-4">
-              <label className="flex flex-col gap-1.5 text-sm text-muted-foreground">
-                {t('lan.settings.adapter')}
-                <select
-                  className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground"
-                  value={settings.adapter ?? ''}
-                  onChange={(event) =>
-                    runAsync(
-                      'LanCard lanSetSettings',
-                      save({ adapter: event.target.value || null }).then(setStatus)
-                    )
-                  }
-                >
-                  <option value="">{t('lan.settings.adapterAuto')}</option>
-                  {status.addresses.map((a) => (
-                    <option key={a.adapter} value={a.adapter}>
-                      {t(a.virtual ? 'lan.settings.adapterVirtual' : 'lan.settings.adapterOption', {
-                        adapter: a.adapter,
-                        address: a.address
-                      })}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex flex-col gap-1.5 text-sm text-muted-foreground">
-                {t('lan.settings.port')}
-                <Input
-                  className="h-8 w-24"
-                  inputMode="numeric"
-                  value={port}
-                  aria-invalid={!portValid}
-                  onChange={(event) => setPort(event.target.value.replace(/\D/g, '').slice(0, 5))}
-                  onBlur={() => {
-                    if (portValid && portNumber !== settings.port) {
-                      runAsync('LanCard lanSetSettings', save({ port: portNumber }).then(setStatus))
-                    } else if (!portValid) {
-                      setPort(String(settings.port))
-                    }
-                  }}
-                />
-              </label>
-            </div>
+      {settings.enabled && (
+        <>
+          <SettingRow label={t('lan.settings.port')} controlId={portId}>
+            <Input
+              id={portId}
+              className="w-24"
+              inputMode="numeric"
+              value={port}
+              aria-invalid={!portValid}
+              onChange={(event) => setPort(event.target.value.replace(/\D/g, '').slice(0, 5))}
+              onBlur={() => {
+                if (portValid && portNumber !== settings.port) {
+                  runAsync('LanCard lanSetSettings', save({ port: portNumber }).then(setStatus))
+                } else if (!portValid) {
+                  setPort(String(settings.port))
+                }
+              }}
+            />
+          </SettingRow>
 
-            {status.problem && (
-              <p role="alert" className="text-sm text-destructive">
-                {t(`lan.settings.problem.${PROBLEM_KEY[status.problem]}`)}
-              </p>
-            )}
+          {status.problem && (
+            <p role="alert" className="text-sm text-destructive">
+              {t(`lan.settings.problem.${PROBLEM_KEY[status.problem]}`)}
+            </p>
+          )}
 
-            {status.url && (
-              <div className="flex flex-wrap items-start gap-4">
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm text-muted-foreground">{t('lan.settings.open')}</span>
-                  <code className="w-fit rounded bg-muted px-2 py-1 font-mono text-sm">{status.url}</code>
-                  <span className="text-xs text-muted-foreground">
-                    {t('lan.settings.connected', { count: status.connections })}
-                  </span>
-                </div>
-                <div className="flex flex-col gap-1">
+          {status.url && status.pairing && (
+            <SettingRow label={t('lan.settings.open')}>
+              <code className="w-fit rounded bg-muted px-2 py-1 font-mono text-sm">{status.url}</code>
+            </SettingRow>
+          )}
+
+          {status.url && (
+            <SettingRow
+              label={status.pairing ? t('lan.settings.pairingCode') : t('lan.settings.pairButton')}
+              note={status.pairing ? t('lan.settings.pairingNote') : undefined}
+              stacked
+            >
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="relative overflow-hidden rounded-md">
                   <QrCode
                     text={status.pairing ? `${status.url}#code=${status.pairing.code}` : status.url}
                     label={t('lan.settings.qrLabel')}
+                    blurred={!status.pairing}
                   />
-                  <span className="max-w-44 text-xs text-muted-foreground">
-                    {t(status.pairing ? 'lan.settings.qrHintPairing' : 'lan.settings.qrHint')}
-                  </span>
+                  {!status.pairing && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Button type="button" size="sm" onClick={startPairing}>
+                        {t('lan.settings.pairButton')}
+                      </Button>
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
-
-            {status.url && (
-              <div className="flex flex-col gap-2">
-                {status.pairing ? (
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-sm text-muted-foreground">{t('lan.settings.pairingCode')}</span>
+                {status.pairing && (
+                  <div className="flex flex-col gap-2">
                     <span className="font-mono text-3xl tracking-widest" aria-label={status.pairing.code}>
                       {status.pairing.code}
                     </span>
-                    <span className="text-xs text-muted-foreground">{t('lan.settings.pairingNote')}</span>
+                    <span className="max-w-52 text-xs text-muted-foreground">
+                      {t('lan.settings.qrHintPairing')}
+                    </span>
                     <div>
                       <Button type="button" size="sm" variant="outline" onClick={stopPairing}>
                         {t('lan.settings.pairingClose')}
                       </Button>
                     </div>
                   </div>
-                ) : (
-                  <div>
-                    <Button type="button" size="sm" onClick={startPairing}>
-                      {t('lan.settings.pairButton')}
-                    </Button>
-                  </div>
                 )}
               </div>
-            )}
+            </SettingRow>
+          )}
 
-            <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium">{t('lan.settings.devices')}</span>
-              {status.devices.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t('lan.settings.noDevices')}</p>
-              ) : (
-                <ul className="flex flex-col gap-1.5">
-                  {status.devices.map((device) => (
-                    <li key={device.id} className="flex items-center justify-between gap-3 text-sm">
-                      <span className="flex flex-col">
-                        <span>{device.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {device.lastSeenAt
-                            ? t('lan.settings.lastSeen', {
-                                when: new Date(device.lastSeenAt).toLocaleString()
-                              })
-                            : t('lan.settings.neverSeen')}
-                        </span>
-                      </span>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        aria-label={`${t('lan.settings.revoke')} ${device.name}`}
-                        onClick={change(
-                          () => winglogApi().lanRevokeDevice(device.id),
-                          'LanCard lanRevokeDevice'
-                        )}
-                      >
-                        {t('lan.settings.revoke')}
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+          <PairedDevices
+            status={status}
+            onRevoke={(id) => change(() => winglogApi().lanRevokeDevice(id), 'LanCard lanRevokeDevice')()}
+          />
 
-            <p className="text-xs text-muted-foreground">{t('lan.settings.help')}</p>
-          </>
-        )}
-      </CardContent>
-    </Card>
+          <p className="text-xs text-muted-foreground">{t('lan.settings.help')}</p>
+        </>
+      )}
+    </SettingsCard>
+  )
+}
+
+/**
+ * The paired devices, each with a Revoke button.
+ *
+ * @param props The status, and what pressing Revoke does.
+ * @returns The element.
+ */
+function PairedDevices(props: { status: LanStatus; onRevoke: (id: number) => void }): React.JSX.Element {
+  const { t } = useTranslation()
+  const { status } = props
+  return (
+    <SettingsSection title={t('lan.settings.devices')}>
+      {status.devices.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t('lan.settings.noDevices')}</p>
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {status.devices.map((device) => (
+            <li key={device.id} className="flex items-center justify-between gap-3 text-sm">
+              <span className="flex flex-col">
+                <span>{device.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  {device.lastSeenAt
+                    ? t('lan.settings.lastSeen', { when: new Date(device.lastSeenAt).toLocaleString() })
+                    : t('lan.settings.neverSeen')}
+                </span>
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                aria-label={`${t('lan.settings.revoke')} ${device.name}`}
+                onClick={() => props.onRevoke(device.id)}
+              >
+                {t('lan.settings.revoke')}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </SettingsSection>
   )
 }
 
@@ -277,7 +258,6 @@ function renewPairing(
 /** The locale key under `lan.settings.problem` for each problem. */
 const PROBLEM_KEY = {
   'no-adapter': 'noAdapter',
-  'choose-adapter': 'chooseAdapter',
   'port-in-use': 'portInUse',
   failed: 'failed'
 } as const

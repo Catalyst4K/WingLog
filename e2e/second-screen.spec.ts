@@ -71,7 +71,7 @@ async function switchOn(page: Page, port: number) {
   const portBox = card.getByRole('textbox', { name: 'Port' })
   await portBox.fill(String(port))
   await portBox.blur()
-  await expect(card.getByText(`http://127.0.0.1:${port}/`)).toBeVisible()
+  await expect(card.getByRole('button', { name: 'Pair a device' })).toBeVisible()
   return card
 }
 
@@ -92,10 +92,9 @@ test.describe('Second screen', () => {
 
       await switchOn(page, port)
 
-      // The address as a QR code to scan: drawn, and holding more than a blank square.
-      const qr = card.getByRole('img', { name: 'QR code for the second-screen address' })
-      await expect(qr).toBeVisible()
-      expect(await qr.locator('path').getAttribute('d')).toMatch(/^M\d+ \d+h\d+v1/)
+      // No QR code to scan until a pairing code is asked for: only a blurred placeholder that is hidden from assistive tech.
+      await expect(card.getByRole('img', { name: 'QR code for the second-screen address' })).toHaveCount(0)
+      await expect(card.locator('svg.blur-md')).toHaveCount(1)
 
       // The page itself carries no data, and anything else is not found.
       const html = await fetch(`http://127.0.0.1:${port}/`)
@@ -111,6 +110,12 @@ test.describe('Second screen', () => {
           .filter({ hasText: /^\d{6}$/ })
           .textContent()) ?? ''
       expect(code).toMatch(/^\d{6}$/)
+
+      // Asking for the code reveals a sharp QR code that holds it.
+      const qr = card.getByRole('img', { name: 'QR code for the second-screen address' })
+      await expect(qr).toBeVisible()
+      expect(await qr.locator('path').getAttribute('d')).toMatch(/^M\d+ \d+h\d+v1/)
+      await expect(card.locator('svg.blur-md')).toHaveCount(0)
 
       const wrong = new Device(port)
       await wrong.opened()
@@ -237,7 +242,7 @@ test.describe('Second screen', () => {
         async (args) => {
           const api = (globalThis as unknown as Window).winglog
           await api.settingsSetGsxRemote({ enabled: true, host: '127.0.0.1', port: args.gsxPort })
-          await api.lanSetSettings({ enabled: true, adapter: null, port: args.port })
+          await api.lanSetSettings({ enabled: true, port: args.port })
           return (await api.lanStartPairing()).pairing?.code ?? ''
         },
         { gsxPort: gsx.port, port }

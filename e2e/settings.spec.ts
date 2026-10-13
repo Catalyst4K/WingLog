@@ -51,10 +51,12 @@ test('changes units, theme, SimBrief username, and GSX settings, all persisted',
     // has its own, differently-purposed "Off"/"On" toggle with the same button text.
     const gsxCard = page.locator('[data-slot="card"]').filter({ hasText: 'GSX ground services' })
     const initiallyEnabled = (await page.evaluate(() => window.winglog.settingsGetGsx())).enabled
-    await gsxCard.getByRole('button', { name: initiallyEnabled ? 'On' : 'Off', exact: true }).click()
-    await expect(
-      gsxCard.getByRole('button', { name: initiallyEnabled ? 'Off' : 'On', exact: true })
-    ).toBeVisible()
+    const flipTo = initiallyEnabled ? 'Off' : 'On'
+    await gsxCard.getByRole('button', { name: flipTo, exact: true }).click()
+    await expect(gsxCard.getByRole('button', { name: flipTo, exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
     expect((await page.evaluate(() => window.winglog.settingsGetGsx())).enabled).toBe(!initiallyEnabled)
   } finally {
     await cleanup()

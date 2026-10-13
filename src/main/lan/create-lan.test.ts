@@ -158,7 +158,7 @@ describe('createLan', () => {
   it('serves the built page and pairs a device once switched on, keeping only its token hash', async () => {
     const { db, hub, lan } = build()
     const port = await freePort()
-    setLanSettings(db, { enabled: true, adapter: null, port })
+    setLanSettings(db, { enabled: true, port })
     await lan.init()
     expect(lan.getStatus().url).toBe(`http://127.0.0.1:${port}/`)
 
@@ -195,20 +195,5 @@ describe('createLan', () => {
     expect(lan.getStatus().devices).toEqual([])
     ws.terminate()
     second.terminate()
-  })
-
-  it('is given the machine’s own addresses when no test address is passed', async () => {
-    const { db } = createDb(':memory:')
-    migrate(db, { migrationsFolder: 'drizzle' })
-    const real = createLan({
-      db,
-      liveHub: new LiveHub(),
-      trackingController: TRACKING,
-      ...CREATE_DEPS,
-      pageFolder: tmpdir()
-    })
-    const addresses = real.getStatus().addresses
-    expect(addresses.every((a) => /^\d+\.\d+\.\d+\.\d+$/.test(a.address))).toBe(true)
-    expect(addresses.map((a) => a.address)).not.toContain('127.0.0.1')
   })
 })

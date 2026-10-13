@@ -29,7 +29,7 @@ test.describe('BeyondATC integration', () => {
       // works around for the file-based GSX card).
       const beyondAtcCard = page.locator('[data-slot="card"]').filter({ hasText: 'BeyondATC' })
       await beyondAtcCard.getByLabel('Host').fill('127.0.0.1')
-      await beyondAtcCard.getByRole('button', { name: 'Off', exact: true }).click()
+      await beyondAtcCard.getByRole('button', { name: 'On', exact: true }).click()
 
       await server.waitForConnection()
       await expect(beyondAtcCard.getByText('Connected', { exact: true })).toBeVisible()
@@ -102,7 +102,7 @@ test.describe('BeyondATC integration', () => {
       await page.getByRole('tab', { name: '3rd party' }).click()
       const beyondAtcCard = page.locator('[data-slot="card"]').filter({ hasText: 'BeyondATC' })
       await beyondAtcCard.getByLabel('Host').fill('127.0.0.1')
-      await beyondAtcCard.getByRole('button', { name: 'Off', exact: true }).click()
+      await beyondAtcCard.getByRole('button', { name: 'On', exact: true }).click()
       await server.waitForConnection()
 
       server.sendLines(...LARGE_REAL_SNAPSHOT)

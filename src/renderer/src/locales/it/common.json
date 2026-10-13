@@ -917,10 +917,6 @@
       "enable": "Secondo schermo",
       "on": "Sì",
       "off": "No",
-      "adapter": "Rete",
-      "adapterAuto": "Automatica",
-      "adapterOption": "{{adapter}} ({{address}})",
-      "adapterVirtual": "{{adapter}} ({{address}}), virtuale: uno smartphone non può collegarsi",
       "port": "Porta",
       "open": "Apri questo indirizzo sullo smartphone o sul tablet:",
       "connected_one": "{{count}} dispositivo connesso ora",
@@ -937,12 +933,10 @@
       "help": "Non riesci a connetterti? Lo smartphone e questo PC devono essere sullo stesso Wi-Fi (non una rete ospiti), la rete di questo PC dovrebbe essere impostata come Privata e il firewall deve consentire WingLog.",
       "problem": {
         "noAdapter": "Questo PC non ha nessuna connessione alla rete domestica su cui ascoltare.",
-        "chooseAdapter": "Scegli su quale rete ascoltare.",
         "portInUse": "Quella porta è già in uso. Scegline un’altra.",
         "failed": "Impossibile avviare il secondo schermo."
       },
       "qrLabel": "Codice QR dell’indirizzo del secondo schermo",
-      "qrHint": "Inquadralo con la fotocamera dello smartphone per aprire la pagina.",
       "qrHintPairing": "Inquadralo con lo smartphone per aprire la pagina e associare. Il codice cambia ogni 5 minuti."
     }
   }

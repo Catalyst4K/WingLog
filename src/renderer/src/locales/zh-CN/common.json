@@ -907,10 +907,6 @@
       "enable": "第二屏幕",
       "on": "开",
       "off": "关",
-      "adapter": "网络",
-      "adapterAuto": "自动",
-      "adapterOption": "{{adapter}}（{{address}}）",
-      "adapterVirtual": "{{adapter}}（{{address}}），虚拟网络：手机无法连接",
       "port": "端口",
       "open": "在手机或平板上打开此地址：",
       "connected_other": "当前已连接 {{count}} 台设备",
@@ -926,12 +922,10 @@
       "help": "无法连接？手机和这台电脑必须在同一个 Wi-Fi 下（不能是访客网络），这台电脑的网络应设为“专用”，并且防火墙必须允许 WingLog。",
       "problem": {
         "noAdapter": "这台电脑没有可供监听的家庭网络连接。",
-        "chooseAdapter": "请选择要监听的网络。",
         "portInUse": "该端口已被占用，请换一个。",
         "failed": "第二屏幕无法启动。"
       },
       "qrLabel": "第二屏幕地址的二维码",
-      "qrHint": "用手机相机扫描即可打开页面。",
       "qrHintPairing": "用手机扫描即可打开页面并配对。代码每 5 分钟更换一次。"
     }
   }

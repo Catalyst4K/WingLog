@@ -6,11 +6,7 @@ import { LanCard } from './LanCard'
 import { QrCode } from './QrCode'
 
 const OFF: LanStatus = {
-  settings: { enabled: false, adapter: null, port: 8765 },
-  addresses: [
-    { adapter: 'Ethernet', address: '192.168.1.136', virtual: false },
-    { adapter: 'vEthernet (WSLCore)', address: '172.28.64.1', virtual: true }
-  ],
+  settings: { enabled: false, port: 8765 },
   listening: false,
   url: null,
   problem: null,
@@ -21,7 +17,7 @@ const OFF: LanStatus = {
 
 const ON: LanStatus = {
   ...OFF,
-  settings: { enabled: true, adapter: null, port: 8765 },
+  settings: { enabled: true, port: 8765 },
   listening: true,
   url: 'http://192.168.1.136:8765/'
 }
@@ -51,47 +47,59 @@ describe('LanCard', () => {
     expect(await screen.findByRole('button', { name: 'Off' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.queryByText('Pair a device')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'On' }))
-    expect(api.lanSetSettings).toHaveBeenCalledWith({ enabled: true, adapter: null, port: 8765 })
+    expect(api.lanSetSettings).toHaveBeenCalledWith({ enabled: true, port: 8765 })
   })
 
-  it('shows the address to open and how many devices are connected when it is listening', async () => {
+  it('shows how many devices are connected when it is listening, and the address only once Pair a device is pressed', async () => {
     setup({ ...ON, connections: 2 })
     render(<LanCard />)
+    expect(await screen.findByText('2 devices connected now')).toBeInTheDocument()
+    expect(screen.queryByText('http://192.168.1.136:8765/')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Pair a device' }))
     expect(await screen.findByText('http://192.168.1.136:8765/')).toBeInTheDocument()
-    expect(screen.getByText('2 devices connected now')).toBeInTheDocument()
   })
 
-  it('shows a QR code for the address to scan with a phone, and none when it is not listening', async () => {
+  it('keeps the QR code blurred and the pairing code hidden until Pair a device is pressed, and shows no QR code at all when it is not listening', async () => {
     setup(ON)
-    const { unmount } = render(<LanCard />)
+    const { unmount, container } = render(<LanCard />)
+    await screen.findByRole('button', { name: 'Pair a device' })
+    // A blurred placeholder only: not an image a person or a scanner is offered, and no code on screen.
     expect(
-      await screen.findByRole('img', { name: 'QR code for the second-screen address' })
-    ).toBeInTheDocument()
-    expect(screen.getByText("Scan it with the phone's camera to open the page.")).toBeInTheDocument()
+      screen.queryByRole('img', { name: 'QR code for the second-screen address' })
+    ).not.toBeInTheDocument()
+    const placeholder = container.querySelector('svg')
+    expect(placeholder).toHaveAttribute('aria-hidden', 'true')
+    expect(placeholder).toHaveClass('blur-md')
+    expect(screen.queryByLabelText('482913')).not.toBeInTheDocument()
     unmount()
     setup({ ...ON, listening: false, url: null, problem: 'port-in-use' })
-    render(<LanCard />)
+    const off = render(<LanCard />)
     await screen.findByRole('alert')
-    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+    expect(off.container.querySelector('svg')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Pair a device' })).not.toBeInTheDocument()
   })
 
-  it('carries the pairing code in the QR code while a code is open, and only the address otherwise', async () => {
+  it('reveals a sharp QR code carrying the pairing code, and the code, when Pair a device is pressed, and hides them again on Close', async () => {
     setup(ON)
     render(<LanCard />)
-    const plain = (await screen.findByRole('img', { name: 'QR code for the second-screen address' }))
-      .querySelector('path')
-      ?.getAttribute('d')
-    expect(plain).toBeTruthy()
-    await userEvent.click(screen.getByRole('button', { name: 'Pair a device' }))
-    const withCode = (await screen.findAllByRole('img', { name: 'QR code for the second-screen address' }))[0]
-      .querySelector('path')
-      ?.getAttribute('d')
-    expect(withCode).not.toBe(plain)
+    await userEvent.click(await screen.findByRole('button', { name: 'Pair a device' }))
+    const image = await screen.findByRole('img', { name: 'QR code for the second-screen address' })
+    expect(image).not.toHaveClass('blur-md')
+    expect(screen.getByLabelText('482913')).toBeInTheDocument()
     expect(
       screen.getByText('Scan it with the phone to open the page and pair. The code changes every 5 minutes.')
     ).toBeInTheDocument()
     const expected = render(<QrCode text="http://192.168.1.136:8765/#code=482913" label="expected" />)
-    expect(withCode).toBe(expected.container.querySelector('path')?.getAttribute('d'))
+    expect(image.querySelector('path')?.getAttribute('d')).toBe(
+      expected.container.querySelector('path')?.getAttribute('d')
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }))
+    await vi.waitFor(() =>
+      expect(
+        screen.queryByRole('img', { name: 'QR code for the second-screen address' })
+      ).not.toBeInTheDocument()
+    )
+    expect(screen.getByRole('button', { name: 'Pair a device' })).toBeInTheDocument()
   })
 
   /**
@@ -182,24 +190,12 @@ describe('LanCard', () => {
     vi.useRealTimers()
   })
 
-  it('lists the real adapter and the virtual one, marked as unusable for a phone', async () => {
+  it('offers no choice of network: the PC picks its own home network', async () => {
     setup(ON)
     render(<LanCard />)
-    await screen.findByText('http://192.168.1.136:8765/')
-    expect(screen.getByRole('option', { name: 'Ethernet (192.168.1.136)' })).toBeInTheDocument()
-    expect(
-      screen.getByRole('option', {
-        name: 'vEthernet (WSLCore) (172.28.64.1), virtual: a phone cannot be on it'
-      })
-    ).toBeInTheDocument()
-  })
-
-  it('saves the adapter the pilot chooses', async () => {
-    const api = setup(ON)
-    render(<LanCard />)
-    await screen.findByText('http://192.168.1.136:8765/')
-    await userEvent.selectOptions(screen.getByRole('combobox'), 'Ethernet')
-    expect(api.lanSetSettings).toHaveBeenCalledWith({ enabled: true, adapter: 'Ethernet', port: 8765 })
+    await screen.findByRole('button', { name: 'Pair a device' })
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    expect(screen.queryByText('Network')).not.toBeInTheDocument()
   })
 
   it('saves a new port when the field is left, and puts the old one back if it is not a usable port', async () => {
@@ -209,7 +205,7 @@ describe('LanCard', () => {
     await userEvent.clear(port)
     await userEvent.type(port, '9100')
     await userEvent.tab()
-    expect(api.lanSetSettings).toHaveBeenCalledWith({ enabled: true, adapter: null, port: 9100 })
+    expect(api.lanSetSettings).toHaveBeenCalledWith({ enabled: true, port: 9100 })
 
     api.lanSetSettings.mockClear()
     await userEvent.clear(port)
@@ -271,7 +267,7 @@ describe('LanCard', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const api = setup(ON)
     render(<LanCard />)
-    await screen.findByText('http://192.168.1.136:8765/')
+    await screen.findByRole('button', { name: 'Pair a device' })
     const before = api.lanGetStatus.mock.calls.length
     await vi.advanceTimersByTimeAsync(4100)
     expect(api.lanGetStatus.mock.calls.length).toBeGreaterThanOrEqual(before + 2)

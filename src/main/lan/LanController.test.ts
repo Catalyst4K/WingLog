@@ -54,8 +54,9 @@ function setup(
   interfaces: Record<string, NetworkInterfaceInfo[] | undefined> = THIS_PC
 ) {
   const server = new FakeServer()
-  let settings: LanSettings = { enabled: false, adapter: null, port: 8765, ...initial }
+  let settings: LanSettings = { enabled: false, port: 8765, ...initial }
   let network = interfaces
+  let route: string | null = null
   let clock = 1_000_000
   const devices: LanDevice[] = [{ id: 1, name: 'iPad', createdAt: 'x', lastSeenAt: null }]
   const revoke = vi.fn((id: number) => devices.some((d) => d.id === id))
@@ -63,6 +64,7 @@ function setup(
     server,
     settings: { get: () => settings, set: (s) => (settings = s) },
     addresses: () => listLanAddresses(network),
+    routeAddress: () => Promise.resolve(route),
     devices: { list: () => devices, revoke },
     now: () => clock
   })
@@ -72,21 +74,18 @@ function setup(
     revoke,
     settings: () => settings,
     setNetwork: (n: Record<string, NetworkInterfaceInfo[] | undefined>) => (network = n),
+    setRoute: (address: string | null) => (route = address),
     advance: (ms: number) => (clock += ms)
   }
 }
 
 describe('LanController', () => {
-  it('does nothing while switched off, but still lists the addresses and devices', async () => {
+  it('does nothing while switched off, but still lists the devices', async () => {
     const { controller, server } = setup()
     await controller.sync()
     expect(server.starts).toEqual([])
     const status = controller.getStatus()
     expect(status).toMatchObject({ listening: false, url: null, problem: null, pairing: null })
-    expect(status.addresses).toEqual([
-      { adapter: 'Ethernet', address: '192.168.1.136', virtual: false },
-      { adapter: 'vEthernet (WSLCore)', address: '172.28.64.1', virtual: true }
-    ])
     expect(status.devices).toHaveLength(1)
   })
 
@@ -109,13 +108,9 @@ describe('LanController', () => {
 
   it('applies new settings: switch on, then off', async () => {
     const { controller, server, settings } = setup()
-    expect((await controller.applySettings({ enabled: true, adapter: null, port: 8765 })).listening).toBe(
-      true
-    )
+    expect((await controller.applySettings({ enabled: true, port: 8765 })).listening).toBe(true)
     expect(settings().enabled).toBe(true)
-    expect((await controller.applySettings({ enabled: false, adapter: null, port: 8765 })).listening).toBe(
-      false
-    )
+    expect((await controller.applySettings({ enabled: false, port: 8765 })).listening).toBe(false)
     expect(server.stops).toBe(1)
   })
 
@@ -124,7 +119,7 @@ describe('LanController', () => {
     await controller.sync()
     await controller.sync()
     expect(server.starts).toHaveLength(1)
-    await controller.applySettings({ enabled: true, adapter: null, port: 9100 })
+    await controller.applySettings({ enabled: true, port: 9100 })
     expect(server.starts).toEqual([
       ['192.168.1.136', 8765],
       ['192.168.1.136', 9100]
@@ -132,42 +127,42 @@ describe('LanController', () => {
     expect(server.stops).toBe(1)
   })
 
-  it('rebinds when the address of the chosen adapter changes (DHCP)', async () => {
-    const { controller, server, setNetwork } = setup({ enabled: true, adapter: 'Ethernet' })
+  it('rebinds when the PC gets a new address (DHCP)', async () => {
+    const { controller, server, setNetwork } = setup({ enabled: true })
     await controller.sync()
     setNetwork({ Ethernet: [ipv4('192.168.1.200')] })
     await controller.sync()
     expect(server.starts.map(([address]) => address)).toEqual(['192.168.1.136', '192.168.1.200'])
   })
 
-  it('stops listening and says so when the chosen adapter has gone', async () => {
-    const { controller, server, setNetwork } = setup({ enabled: true, adapter: 'Wi-Fi' })
-    setNetwork({ Other: [ipv4('192.168.0.9')] })
+  it('stops a running server and says so when the network goes away, and starts again when it is back', async () => {
+    const { controller, server, setNetwork } = setup({ enabled: true })
+    await controller.sync()
+    setNetwork({})
     await controller.sync()
     expect(server.listening).toBe(false)
-    expect(controller.getStatus().problem).toBe('choose-adapter')
+    expect(controller.getStatus().problem).toBe('no-adapter')
     setNetwork({ 'Wi-Fi': [ipv4('192.168.0.9')] })
     await controller.sync()
     expect(controller.getStatus()).toMatchObject({ listening: true, problem: null })
   })
 
-  it('stops a running server when its adapter goes away', async () => {
-    const { controller, server, setNetwork } = setup({ enabled: true, adapter: 'Ethernet' })
-    await controller.sync()
-    setNetwork({})
-    await controller.sync()
-    expect(server.listening).toBe(false)
-    expect(controller.getStatus().problem).toBe('choose-adapter')
+  it('with several real adapters, listens on the one the PC reaches the network through', async () => {
+    const two = { Ethernet: [ipv4('192.168.1.10')], 'Wi-Fi': [ipv4('192.168.1.11')] }
+    const wifi = setup({ enabled: true }, two)
+    wifi.setRoute('192.168.1.11')
+    await wifi.controller.sync()
+    expect(wifi.server.starts).toEqual([['192.168.1.11', 8765]])
+    const none = setup({ enabled: true }, two)
+    await none.controller.sync()
+    expect(none.server.starts).toEqual([['192.168.1.10', 8765]])
   })
 
-  it('asks the pilot to choose when there are several real adapters', async () => {
-    const { controller, server } = setup(
-      { enabled: true },
-      { Ethernet: [ipv4('192.168.1.10')], 'Wi-Fi': [ipv4('192.168.1.11')] }
-    )
+  it('never listens on a virtual adapter, even when that is the route (a VPN)', async () => {
+    const { controller, server, setRoute } = setup({ enabled: true })
+    setRoute('172.28.64.1')
     await controller.sync()
-    expect(server.listening).toBe(false)
-    expect(controller.getStatus().problem).toBe('choose-adapter')
+    expect(server.starts).toEqual([['192.168.1.136', 8765]])
   })
 
   it('says there is no private network when there is none', async () => {
@@ -215,7 +210,7 @@ describe('LanController', () => {
       expect(controller.stopPairing().pairing).toBeNull()
       expect(server.pairingOpen).toBe(false)
       controller.startPairing()
-      await controller.applySettings({ enabled: false, adapter: null, port: 8765 })
+      await controller.applySettings({ enabled: false, port: 8765 })
       expect(controller.getStatus().pairing).toBeNull()
     })
   })
@@ -243,15 +238,10 @@ describe('LanController', () => {
 })
 
 describe('parseSettings', () => {
-  it('accepts a complete setting, an empty adapter meaning "the only real one"', () => {
-    expect(parseSettings({ enabled: true, adapter: 'Wi-Fi', port: 8765 })).toEqual({
-      enabled: true,
-      adapter: 'Wi-Fi',
-      port: 8765
-    })
-    expect(parseSettings({ enabled: false, adapter: '', port: 1024 })).toEqual({
+  it('accepts a complete setting, and ignores an adapter an older version stored', () => {
+    expect(parseSettings({ enabled: true, port: 8765 })).toEqual({ enabled: true, port: 8765 })
+    expect(parseSettings({ enabled: false, adapter: 'Wi-Fi', port: 1024 })).toEqual({
       enabled: false,
-      adapter: null,
       port: 1024
     })
   })
@@ -261,14 +251,12 @@ describe('parseSettings', () => {
       null,
       'on',
       {},
-      { enabled: 'yes', adapter: null, port: 8765 },
-      { enabled: true, adapter: 5, port: 8765 },
-      { enabled: true, adapter: 'x'.repeat(201), port: 8765 },
-      { enabled: true, adapter: null, port: 80 },
-      { enabled: true, adapter: null, port: 1023 },
-      { enabled: true, adapter: null, port: 65536 },
-      { enabled: true, adapter: null, port: 8765.5 },
-      { enabled: true, adapter: null, port: '8765' }
+      { enabled: 'yes', port: 8765 },
+      { enabled: true, port: 80 },
+      { enabled: true, port: 1023 },
+      { enabled: true, port: 65536 },
+      { enabled: true, port: 8765.5 },
+      { enabled: true, port: '8765' }
     ]
     for (const value of bad) expect(() => parseSettings(value)).toThrow('Invalid second-screen settings')
   })

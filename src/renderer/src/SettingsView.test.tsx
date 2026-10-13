@@ -110,7 +110,7 @@ function createWinglog(overrides: Record<string, unknown> = {}): typeof window.w
     logbookExport: vi.fn().mockResolvedValue(false),
     appOpenGithub: vi.fn().mockResolvedValue(undefined),
     lanGetStatus: vi.fn().mockResolvedValue({
-      settings: { enabled: false, adapter: null, port: 8765 },
+      settings: { enabled: false, port: 8765 },
       addresses: [],
       listening: false,
       url: null,
@@ -529,14 +529,18 @@ describe('SettingsView', () => {
       const card = within(
         (await screen.findByText('GSX ground services')).closest('[data-slot="card"]') as HTMLElement
       )
-      const toggle = await card.findByRole('button', { name: 'Off' })
+      const toggle = await card.findByRole('button', { name: 'On' })
 
       await user.click(toggle)
-      expect(await card.findByRole('button', { name: 'On' })).toBeInTheDocument()
+      await waitFor(() =>
+        expect(card.getByRole('button', { name: 'On' })).toHaveAttribute('aria-pressed', 'true')
+      )
       expect(winglog.settingsSetGsx).toHaveBeenCalledWith(expect.objectContaining({ enabled: true }))
 
-      await user.click(card.getByRole('button', { name: 'On' }))
-      expect(await card.findByRole('button', { name: 'Off' })).toBeInTheDocument()
+      await user.click(card.getByRole('button', { name: 'Off' }))
+      await waitFor(() =>
+        expect(card.getByRole('button', { name: 'Off' })).toHaveAttribute('aria-pressed', 'true')
+      )
       expect(winglog.settingsSetGsx).toHaveBeenLastCalledWith(expect.objectContaining({ enabled: false }))
     })
 
@@ -591,14 +595,18 @@ describe('SettingsView', () => {
       renderSettings()
       await user.click(screen.getByRole('tab', { name: '3rd party' }))
       const card = within(await findCard())
-      const toggle = await card.findByRole('button', { name: 'Off' })
+      const toggle = await card.findByRole('button', { name: 'On' })
 
       await user.click(toggle)
-      expect(await card.findByRole('button', { name: 'On' })).toBeInTheDocument()
+      await waitFor(() =>
+        expect(card.getByRole('button', { name: 'On' })).toHaveAttribute('aria-pressed', 'true')
+      )
       expect(winglog.settingsSetGsxRemote).toHaveBeenCalledWith(expect.objectContaining({ enabled: true }))
 
-      await user.click(card.getByRole('button', { name: 'On' }))
-      expect(await card.findByRole('button', { name: 'Off' })).toBeInTheDocument()
+      await user.click(card.getByRole('button', { name: 'Off' }))
+      await waitFor(() =>
+        expect(card.getByRole('button', { name: 'Off' })).toHaveAttribute('aria-pressed', 'true')
+      )
       expect(winglog.settingsSetGsxRemote).toHaveBeenLastCalledWith(
         expect.objectContaining({ enabled: false })
       )
@@ -1024,8 +1032,11 @@ describe('SettingsView', () => {
       const user = userEvent.setup()
       renderSettings()
       await user.click(screen.getByRole('tab', { name: 'Data' }))
+      const modes = screen.getByRole('group', { name: 'Cloud sync' })
+      expect(within(modes).getByRole('button', { name: 'Log in' })).toHaveAttribute('aria-pressed', 'true')
       await user.click(screen.getByRole('button', { name: 'Sign up' }))
 
+      expect(within(modes).getByRole('button', { name: 'Sign up' })).toHaveAttribute('aria-pressed', 'true')
       expect(screen.getByText('At least 12 characters.')).toBeInTheDocument()
       await user.type(screen.getByLabelText('Email'), 'new@example.com')
       await user.type(screen.getByLabelText('Password'), 'twelvecharspw')
