@@ -935,8 +935,8 @@
         "failed": "Der zweite Bildschirm konnte nicht gestartet werden."
       },
       "qrLabel": "QR-Code für die Adresse des zweiten Bildschirms",
-      "qrHint": "Mit der Kamera des Smartphones scannen, um die Seite zu öffnen.",
-      "qrHintPairing": "Mit dem Smartphone scannen, um die Seite zu öffnen und zu koppeln. Der Code ändert sich alle 5 Minuten."
+      "qrHintPairing": "Mit dem Smartphone scannen, um die Seite zu öffnen und zu koppeln. Der Code ändert sich alle 5 Minuten.",
+      "pairingHidden": "QR-Code und Kopplungscode bleiben verborgen, bis du sie anzeigst."
     }
   }
 }

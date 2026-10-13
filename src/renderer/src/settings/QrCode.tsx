@@ -7,17 +7,20 @@ import { qrMatrix } from '../qr'
 const QUIET_ZONE = 4
 
 /**
- * @param props The text the code holds, a description for screen readers, and its size in pixels.
+ * @param props The text the code holds, a description for screen readers, its size in pixels, and whether it is blurred and hidden
+ *   from screen readers (a placeholder that is not to be scanned).
  * @returns The element.
  */
 export function QrCode({
   text,
   label,
-  size = 176
+  size = 176,
+  blurred = false
 }: {
   text: string
   label: string
   size?: number
+  blurred?: boolean
 }): React.JSX.Element {
   const grid = useMemo(() => qrMatrix(text), [text])
   const span = grid.length + QUIET_ZONE * 2
@@ -37,13 +40,14 @@ export function QrCode({
     .join('')
   return (
     <svg
-      role="img"
-      aria-label={label}
+      role={blurred ? undefined : 'img'}
+      aria-label={blurred ? undefined : label}
+      aria-hidden={blurred ? true : undefined}
       viewBox={`0 0 ${span} ${span}`}
       width={size}
       height={size}
       shapeRendering="crispEdges"
-      className="shrink-0 rounded-md"
+      className={blurred ? 'shrink-0 rounded-md blur-md select-none' : 'shrink-0 rounded-md'}
     >
       <rect width={span} height={span} fill="#ffffff" />
       <path d={path} fill="#000000" />

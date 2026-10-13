@@ -124,36 +124,53 @@ export function LanCard(): React.JSX.Element {
           )}
 
           {status.url && (
-            <SettingRow label={t('lan.settings.open')} stacked>
-              <div className="flex flex-wrap items-start gap-4">
-                <code className="w-fit rounded bg-muted px-2 py-1 font-mono text-sm">{status.url}</code>
-                <div className="flex flex-col gap-1">
-                  <QrCode
-                    text={status.pairing ? `${status.url}#code=${status.pairing.code}` : status.url}
-                    label={t('lan.settings.qrLabel')}
-                  />
-                  <span className="max-w-44 text-xs text-muted-foreground">
-                    {t(status.pairing ? 'lan.settings.qrHintPairing' : 'lan.settings.qrHint')}
-                  </span>
-                </div>
-              </div>
+            <SettingRow label={t('lan.settings.open')}>
+              <code className="w-fit rounded bg-muted px-2 py-1 font-mono text-sm">{status.url}</code>
             </SettingRow>
           )}
 
-          {status.url && status.pairing && (
-            <SettingRow label={t('lan.settings.pairingCode')} note={t('lan.settings.pairingNote')}>
-              <span className="font-mono text-3xl tracking-widest" aria-label={status.pairing.code}>
-                {status.pairing.code}
-              </span>
-              <Button type="button" size="sm" variant="outline" onClick={stopPairing}>
-                {t('lan.settings.pairingClose')}
-              </Button>
+          {status.url && (
+            <SettingRow
+              label={status.pairing ? t('lan.settings.pairingCode') : t('lan.settings.pairButton')}
+              note={status.pairing ? t('lan.settings.pairingNote') : t('lan.settings.pairingHidden')}
+              stacked
+            >
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="relative overflow-hidden rounded-md">
+                  <QrCode
+                    text={status.pairing ? `${status.url}#code=${status.pairing.code}` : status.url}
+                    label={t('lan.settings.qrLabel')}
+                    blurred={!status.pairing}
+                  />
+                  {!status.pairing && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Button type="button" size="sm" onClick={startPairing}>
+                        {t('lan.settings.pairButton')}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                {status.pairing && (
+                  <div className="flex flex-col gap-2">
+                    <span className="font-mono text-3xl tracking-widest" aria-label={status.pairing.code}>
+                      {status.pairing.code}
+                    </span>
+                    <span className="max-w-52 text-xs text-muted-foreground">
+                      {t('lan.settings.qrHintPairing')}
+                    </span>
+                    <div>
+                      <Button type="button" size="sm" variant="outline" onClick={stopPairing}>
+                        {t('lan.settings.pairingClose')}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </SettingRow>
           )}
 
           <PairedDevices
             status={status}
-            onPair={startPairing}
             onRevoke={(id) => change(() => winglogApi().lanRevokeDevice(id), 'LanCard lanRevokeDevice')()}
           />
 
@@ -165,30 +182,16 @@ export function LanCard(): React.JSX.Element {
 }
 
 /**
- * The paired devices, each with a Revoke button, and the button that opens pairing.
+ * The paired devices, each with a Revoke button.
  *
- * @param props The status, and what pressing Pair a device and Revoke do.
+ * @param props The status, and what pressing Revoke does.
  * @returns The element.
  */
-function PairedDevices(props: {
-  status: LanStatus
-  onPair: () => void
-  onRevoke: (id: number) => void
-}): React.JSX.Element {
+function PairedDevices(props: { status: LanStatus; onRevoke: (id: number) => void }): React.JSX.Element {
   const { t } = useTranslation()
   const { status } = props
   return (
-    <SettingsSection
-      title={t('lan.settings.devices')}
-      action={
-        status.url &&
-        !status.pairing && (
-          <Button type="button" size="sm" onClick={props.onPair}>
-            {t('lan.settings.pairButton')}
-          </Button>
-        )
-      }
-    >
+    <SettingsSection title={t('lan.settings.devices')}>
       {status.devices.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t('lan.settings.noDevices')}</p>
       ) : (

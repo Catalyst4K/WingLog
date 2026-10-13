@@ -937,8 +937,8 @@
         "failed": "Le deuxième écran n'a pas pu démarrer."
       },
       "qrLabel": "Code QR de l'adresse du deuxième écran",
-      "qrHint": "Scannez-le avec l'appareil photo du téléphone pour ouvrir la page.",
-      "qrHintPairing": "Scannez-le avec le téléphone pour ouvrir la page et associer. Le code change toutes les 5 minutes."
+      "qrHintPairing": "Scannez-le avec le téléphone pour ouvrir la page et associer. Le code change toutes les 5 minutes.",
+      "pairingHidden": "Le code QR et le code d'association restent masqués tant que vous ne les demandez pas."
     }
   }
 }

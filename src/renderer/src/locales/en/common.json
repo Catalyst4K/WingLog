@@ -935,8 +935,8 @@
         "failed": "The second screen could not start."
       },
       "qrLabel": "QR code for the second-screen address",
-      "qrHint": "Scan it with the phone's camera to open the page.",
-      "qrHintPairing": "Scan it with the phone to open the page and pair. The code changes every 5 minutes."
+      "qrHintPairing": "Scan it with the phone to open the page and pair. The code changes every 5 minutes.",
+      "pairingHidden": "The QR code and pairing code stay hidden until you ask for them."
     }
   }
 }

@@ -937,8 +937,8 @@
         "failed": "No se pudo iniciar la segunda pantalla."
       },
       "qrLabel": "Código QR de la dirección de la segunda pantalla",
-      "qrHint": "Escanéalo con la cámara del teléfono para abrir la página.",
-      "qrHintPairing": "Escanéalo con el teléfono para abrir la página y vincular. El código cambia cada 5 minutos."
+      "qrHintPairing": "Escanéalo con el teléfono para abrir la página y vincular. El código cambia cada 5 minutos.",
+      "pairingHidden": "El código QR y el código de vinculación permanecen ocultos hasta que los pidas."
     }
   }
 }

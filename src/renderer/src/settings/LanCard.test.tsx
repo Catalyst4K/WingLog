@@ -57,37 +57,50 @@ describe('LanCard', () => {
     expect(screen.getByText('2 devices connected now')).toBeInTheDocument()
   })
 
-  it('shows a QR code for the address to scan with a phone, and none when it is not listening', async () => {
+  it('keeps the QR code blurred and the pairing code hidden until Pair a device is pressed, and shows no QR code at all when it is not listening', async () => {
     setup(ON)
-    const { unmount } = render(<LanCard />)
+    const { unmount, container } = render(<LanCard />)
+    await screen.findByText('http://192.168.1.136:8765/')
+    // A blurred placeholder only: not an image a person or a scanner is offered, and no code on screen.
     expect(
-      await screen.findByRole('img', { name: 'QR code for the second-screen address' })
+      screen.queryByRole('img', { name: 'QR code for the second-screen address' })
+    ).not.toBeInTheDocument()
+    const placeholder = container.querySelector('svg')
+    expect(placeholder).toHaveAttribute('aria-hidden', 'true')
+    expect(placeholder).toHaveClass('blur-md')
+    expect(screen.queryByLabelText('482913')).not.toBeInTheDocument()
+    expect(
+      screen.getByText('The QR code and pairing code stay hidden until you ask for them.')
     ).toBeInTheDocument()
-    expect(screen.getByText("Scan it with the phone's camera to open the page.")).toBeInTheDocument()
     unmount()
     setup({ ...ON, listening: false, url: null, problem: 'port-in-use' })
-    render(<LanCard />)
+    const off = render(<LanCard />)
     await screen.findByRole('alert')
-    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+    expect(off.container.querySelector('svg')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Pair a device' })).not.toBeInTheDocument()
   })
 
-  it('carries the pairing code in the QR code while a code is open, and only the address otherwise', async () => {
+  it('reveals a sharp QR code carrying the pairing code, and the code, when Pair a device is pressed, and hides them again on Close', async () => {
     setup(ON)
     render(<LanCard />)
-    const plain = (await screen.findByRole('img', { name: 'QR code for the second-screen address' }))
-      .querySelector('path')
-      ?.getAttribute('d')
-    expect(plain).toBeTruthy()
-    await userEvent.click(screen.getByRole('button', { name: 'Pair a device' }))
-    const withCode = (await screen.findAllByRole('img', { name: 'QR code for the second-screen address' }))[0]
-      .querySelector('path')
-      ?.getAttribute('d')
-    expect(withCode).not.toBe(plain)
+    await userEvent.click(await screen.findByRole('button', { name: 'Pair a device' }))
+    const image = await screen.findByRole('img', { name: 'QR code for the second-screen address' })
+    expect(image).not.toHaveClass('blur-md')
+    expect(screen.getByLabelText('482913')).toBeInTheDocument()
     expect(
       screen.getByText('Scan it with the phone to open the page and pair. The code changes every 5 minutes.')
     ).toBeInTheDocument()
     const expected = render(<QrCode text="http://192.168.1.136:8765/#code=482913" label="expected" />)
-    expect(withCode).toBe(expected.container.querySelector('path')?.getAttribute('d'))
+    expect(image.querySelector('path')?.getAttribute('d')).toBe(
+      expected.container.querySelector('path')?.getAttribute('d')
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }))
+    await vi.waitFor(() =>
+      expect(
+        screen.queryByRole('img', { name: 'QR code for the second-screen address' })
+      ).not.toBeInTheDocument()
+    )
+    expect(screen.getByRole('button', { name: 'Pair a device' })).toBeInTheDocument()
   })
 
   /**
