@@ -908,8 +908,7 @@
     "wrongCode": "Quel codice non ha funzionato. Controlla che il PC mostri un codice e riprova.",
     "offline": "Impossibile raggiungere il PC. Nuovo tentativo…",
     "noFlight": "Sul PC non è ancora tracciato nessun volo.",
-    "noPlan": "Non c’è ancora un piano di volo sul PC. Pianifica un volo in Dispatch sul PC.",
-    "groundLoads": "Carichi del piano di volo"
+    "noPlan": "Non c’è ancora un piano di volo sul PC. Pianifica un volo in Dispatch sul PC."
   },
   "lan": {
     "settings": {

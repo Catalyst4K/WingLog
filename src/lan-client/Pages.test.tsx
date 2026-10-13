@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import { LanApp } from './LanApp'
@@ -231,28 +231,6 @@ describe('the ground services and BeyondATC pages', () => {
     expect(await screen.findByRole('heading', { name: 'Ground services' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'BeyondATC' }))
     expect(await screen.findByRole('heading', { name: 'BeyondATC' })).toBeInTheDocument()
-  })
-
-  it('show the flight and its plan loads above the GSX menu, in the PC’s units', async () => {
-    stubWinglog()
-    open({ gsx: true, weightUnit: 'lb' })
-    await userEvent.click(await screen.findByRole('button', { name: 'Ground services' }))
-    expect(await screen.findByText('Flight plan loads')).toBeInTheDocument()
-    // The Track page stays mounted beneath with its own banner: look only at this page.
-    const page = within(screen.getByRole('heading', { name: 'Ground services' }).parentElement!)
-    expect(page.getByText('BAW31 · EGLL → VHHH')).toBeInTheDocument()
-    expect(page.getByText('G-XWBS · A35K')).toBeInTheDocument()
-    await waitFor(() => expect(page.getByText('328 / 18,078 lb')).toBeInTheDocument())
-    expect(screen.getByText('Planned fuel')).toBeInTheDocument()
-    expect(screen.getByText(/\d\d:\d\dZ \/ \d\d:\d\dZ/)).toBeInTheDocument()
-  })
-
-  it('show no plan loads when the PC has no plan', async () => {
-    stubWinglog()
-    open({ gsx: true, flight: null })
-    await userEvent.click(await screen.findByRole('button', { name: 'Ground services' }))
-    expect(await screen.findByRole('heading', { name: 'Ground services' })).toBeInTheDocument()
-    expect(screen.queryByText('Flight plan loads')).not.toBeInTheDocument()
   })
 
   it('send an action to the PC the way the app does', async () => {

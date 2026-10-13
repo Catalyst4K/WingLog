@@ -2,6 +2,7 @@ import { createServer } from 'node:net'
 import { expect, test, type Page } from '@playwright/test'
 import { WebSocket } from 'ws'
 import { launchApp } from './launch-app'
+import { FakeGsxRemoteServer, VHHH_BOOT_SNAPSHOT } from './gsx-remote-server'
 
 /**
  * The second screen (winglog-backend's docs/plans/lan-web-viewer.md) through a real launched app: switching it on in Settings, pairing a
@@ -223,6 +224,48 @@ test.describe('Second screen', () => {
       ).toBeVisible()
     } finally {
       await cleanup()
+    }
+  })
+
+  test("the ground services page shows GSX's gate and service boxes as the app does, from live GSX data", async () => {
+    const gsx = await FakeGsxRemoteServer.start()
+    const port = await freePort()
+    const { app, window: page, cleanup } = await launchApp({ env: { WINGLOG_E2E_LAN_ADDRESS: '127.0.0.1' } })
+    try {
+      // GSX Remote and the second screen switched on, then a pairing code, straight through the app's own IPC.
+      const code = await page.evaluate(
+        async (args) => {
+          const api = (globalThis as unknown as Window).winglog
+          await api.settingsSetGsxRemote({ enabled: true, host: '127.0.0.1', port: args.gsxPort })
+          await api.lanSetSettings({ enabled: true, adapter: null, port: args.port })
+          return (await api.lanStartPairing()).pairing?.code ?? ''
+        },
+        { gsxPort: gsx.port, port }
+      )
+      expect(code).toMatch(/^\d{6}$/)
+      await gsx.waitForConnection()
+
+      const known = app.windows().length
+      await app.evaluate(async ({ BrowserWindow }, url) => {
+        const window = new BrowserWindow({ show: false, width: 390, height: 780, useContentSize: true })
+        await window.loadURL(url)
+      }, `http://127.0.0.1:${port}/#code=${code}`)
+      await expect.poll(() => app.windows().length).toBeGreaterThan(known)
+      const phone = app.windows().find((w) => w.url().startsWith(`http://127.0.0.1:${port}`))!
+
+      gsx.sendSnapshot(VHHH_BOOT_SNAPSHOT)
+      await phone.getByRole('navigation').getByRole('button', { name: 'Ground services' }).click()
+
+      // The same gate header, service box and figures the app's own GSX tab shows.
+      await expect(phone.getByText('Gate N6')).toBeVisible()
+      await expect(phone.getByText('VHHH · Hong Kong Intl · (N) T1 North')).toBeVisible()
+      await expect(phone.getByText('Refuel')).toBeVisible()
+      await expect(phone.getByText('15,357 / 81,488 kg')).toBeVisible()
+      await expect(phone.getByText(/24,272/)).toBeVisible()
+      await phone.screenshot({ path: 'release/sim/second-screen/gsx-services.png', animations: 'disabled' })
+    } finally {
+      await cleanup()
+      await gsx.stop()
     }
   })
 })

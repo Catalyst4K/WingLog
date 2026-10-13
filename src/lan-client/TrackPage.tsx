@@ -51,7 +51,7 @@ function useCollapsedAttribution(): void {
  * @param props The flight being tracked.
  * @returns The element.
  */
-export function FlightBanner({ flight }: { flight: LanFlight }): React.JSX.Element {
+function FlightBanner({ flight }: { flight: LanFlight }): React.JSX.Element {
   const route = `${realIcao(flight.depIcao) ?? '—'} → ${realIcao(flight.arrIcao) ?? '—'}`
   const aircraft = [flight.registration, flight.icaoType].filter(Boolean).join(' · ')
   return (
