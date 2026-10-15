@@ -1,6 +1,6 @@
 /** Reading the planned route and procedures out of a flight's OFP JSON, and splicing in selected procedures. */
 
-import type { NavdataLeg, NavdataProcedureOption } from '@shared/ipc'
+import type { NavdataLeg, NavdataProcedureOption, ProcedureSelection } from '@shared/ipc'
 import { isVisualApproach } from '@shared/visual-approach'
 import { destinationPoint, METRES_PER_NM, wrapLongitude } from '@shared/geo'
 
@@ -440,4 +440,43 @@ export function pickDefaultApproachIdentifier(
     identifiers[0] ??
     null
   )
+}
+
+/**
+ * The approach to fly so it connects to a STAR, for one runway: the one the STAR's last fix leads into, with that fix as its
+ * transition. Shared by the two places an approach is suggested (the default after a plan loads, and a BeyondATC clearance), so
+ * they can't disagree about what "connects" means.
+ *
+ * Nothing changes (null) when the current approach is already for the runway and either no approach there starts at the STAR's
+ * last fix (so there's nothing better to switch to) or the current one does. Otherwise the choice is `pickDefaultApproachIdentifier`'s,
+ * with the STAR's last fix as the transition when the approach has it, else the current transition when the approach has that,
+ * else none (left for the entry-transition connection to fill).
+ *
+ * @param options The airport's approaches and their transitions.
+ * @param current The approach and transition selected now.
+ * @param runway The runway to be on, such as "08"; null means any.
+ * @param starEndFix The STAR's last fix, or null when it isn't known.
+ * @returns The approach and transition to select, or null when the selection should stay as it is.
+ */
+export function approachConnectingToStar(
+  options: NavdataProcedureOption[],
+  current: Pick<ProcedureSelection, 'approachIdent' | 'approachTransition'>,
+  runway: string | null,
+  starEndFix: string | null
+): Pick<ProcedureSelection, 'approachIdent' | 'approachTransition'> | null {
+  const forRunway = runway ? options.filter((o) => approachRunway(o.identifier) === runway) : options
+  const hasTransition = (identifier: string | null, transition: string | null): boolean =>
+    transition !== null && forRunway.some((o) => o.identifier === identifier && o.transition === transition)
+  if (current.approachIdent && approachRunway(current.approachIdent) === runway) {
+    const connectsElsewhere = starEndFix !== null && forRunway.some((o) => o.transition === starEndFix)
+    if (!connectsElsewhere || hasTransition(current.approachIdent, starEndFix)) return null
+  }
+  const approachIdent = pickDefaultApproachIdentifier(forRunway, starEndFix)
+  if (!approachIdent) return null
+  const approachTransition = hasTransition(approachIdent, starEndFix)
+    ? starEndFix
+    : hasTransition(approachIdent, current.approachTransition)
+      ? current.approachTransition
+      : null
+  return { approachIdent, approachTransition }
 }

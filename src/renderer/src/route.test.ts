@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { NavdataLeg } from '@shared/ipc'
 import {
   applyProcedureSelection,
+  approachConnectingToStar,
   approachRunway,
   formatEnrouteOnly,
   parseRouteFromOfpJson,
@@ -541,5 +542,63 @@ describe('approachRunway', () => {
 
   it('returns null for null input', () => {
     expect(approachRunway(null)).toBeNull()
+  })
+})
+
+describe('approachConnectingToStar', () => {
+  // ZJSY 08: UPRS2C ends at SY498, which only ILS Z 08 starts from (docs/navdata-notes.md).
+  const options = [
+    { identifier: 'ILS X 08', transition: 'SY400' },
+    { identifier: 'ILS Z 08', transition: 'SY498' },
+    { identifier: 'LOC Z 08', transition: 'SY498' },
+    { identifier: 'ILS 26', transition: 'SY600' }
+  ]
+
+  it("swaps an approach the STAR does not lead into for the one it does, with the STAR's last fix as its transition", () => {
+    expect(
+      approachConnectingToStar(
+        options,
+        { approachIdent: 'ILS X 08', approachTransition: null },
+        '08',
+        'SY498'
+      )
+    ).toEqual({ approachIdent: 'ILS Z 08', approachTransition: 'SY498' })
+  })
+
+  it('leaves it alone when the approach already connects, or when no approach for the runway does', () => {
+    expect(
+      approachConnectingToStar(
+        options,
+        { approachIdent: 'ILS Z 08', approachTransition: null },
+        '08',
+        'SY498'
+      )
+    ).toBeNull()
+    expect(
+      approachConnectingToStar(
+        options,
+        { approachIdent: 'ILS X 08', approachTransition: null },
+        '08',
+        'NOWHERE'
+      )
+    ).toBeNull()
+    expect(
+      approachConnectingToStar(options, { approachIdent: 'ILS X 08', approachTransition: null }, '08', null)
+    ).toBeNull()
+  })
+
+  it('chooses an approach when none is selected, keeping the current transition when the new approach has it', () => {
+    expect(
+      approachConnectingToStar(options, { approachIdent: null, approachTransition: null }, '08', 'SY498')
+    ).toEqual({ approachIdent: 'ILS Z 08', approachTransition: 'SY498' })
+    expect(
+      approachConnectingToStar(options, { approachIdent: 'ILS 26', approachTransition: 'SY400' }, '08', null)
+    ).toEqual({ approachIdent: 'ILS X 08', approachTransition: 'SY400' })
+  })
+
+  it('has no answer when the runway has no approach', () => {
+    expect(
+      approachConnectingToStar(options, { approachIdent: null, approachTransition: null }, '17', 'SY498')
+    ).toBeNull()
   })
 })
