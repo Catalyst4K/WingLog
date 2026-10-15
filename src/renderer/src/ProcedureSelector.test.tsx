@@ -654,6 +654,54 @@ describe('ProcedureSelector', () => {
       await waitFor(() => expect(latest?.approachTransition).toBe('SY498'))
     })
 
+    // UPRS3D to ILS Z 08 with ATC vectors from the end of the STAR to the approach (flown 2026-10-15).
+    it('offers Vectors as an approach transition, even for an approach with no transitions, and records the choice', async () => {
+      withWinglog({ navdataListApproaches: vi.fn().mockResolvedValue([proc('ILS Z 08'), proc('ILS X 08')]) })
+      const user = userEvent.setup()
+      let latest: ProcedureSelection | null = null
+      render(
+        <Harness
+          airports={airports({ arrIcao: 'ZJSY' })}
+          initialSelection={{ ...emptyProcedureSelection(), approachIdent: 'ILS Z 08' }}
+          onSelectionChange={(s) => (latest = s)}
+        />
+      )
+      await waitFor(() => expect(selectFor('Approach transition')).not.toBeDisabled())
+      await user.click(selectFor('Approach transition'))
+      expect(await screen.findByRole('option', { name: 'Vectors' })).toBeInTheDocument()
+      await user.click(screen.getByRole('option', { name: 'Vectors' }))
+      expect(latest).toEqual(
+        expect.objectContaining({ approachIdent: 'ILS Z 08', approachTransition: 'Vectors' })
+      )
+    })
+
+    it('keeps Vectors when the STAR ends where the approach has a transition: the choice is not overwritten', async () => {
+      withWinglog({ navdataListApproaches: vi.fn().mockResolvedValue(zjsy) })
+      const onSelectionChange = vi.fn()
+      render(
+        <Harness
+          airports={airports({ arrIcao: 'ZJSY' })}
+          initialSelection={{
+            ...emptyProcedureSelection(),
+            approachIdent: 'ILS Z 08',
+            approachTransition: 'Vectors'
+          }}
+          liveWaypoints={[waypoint({ ident: 'SY498', segment: 'star' })]}
+          onSelectionChange={onSelectionChange}
+        />
+      )
+      await new Promise((resolve) => setTimeout(resolve, 40))
+      expect(onSelectionChange).not.toHaveBeenCalled()
+    })
+
+    it('offers no transitions until an approach is chosen', async () => {
+      withWinglog({ navdataListApproaches: vi.fn().mockResolvedValue(zjsy) })
+      render(
+        <Harness airports={airports({ arrIcao: 'ZJSY' })} initialSelection={emptyProcedureSelection()} />
+      )
+      expect(selectFor('Approach transition')).toBeDisabled()
+    })
+
     it('never swaps an approach the pilot chose', async () => {
       withWinglog({ navdataListApproaches: vi.fn().mockResolvedValue(zjsy) })
       const onSelectionChange = vi.fn()

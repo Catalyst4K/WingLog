@@ -279,6 +279,30 @@ describe('navdata repo', () => {
     ])
   })
 
+  it('gives only the final segment for the Vectors transition on a real approach (no real approach has one by that name), as with no transition', () => {
+    replaceAirportNavdata(
+      db,
+      'EGLL',
+      fetched({
+        icao: 'EGLL',
+        approaches: [
+          approach({
+            identifier: 'ILS 27R',
+            runwayIdent: '27R',
+            transitions: [{ name: 'LAM', legs: [leg('LAM', { type: 9 }), leg('D125O', { type: 7 })] }],
+            finalLegs: [leg('D125O'), leg('CF27R')]
+          })
+        ]
+      }),
+      '2026-09-18T12:00:00.000Z'
+    )
+    const fixes = (transition: string | null) =>
+      listCachedProcedureLegs(db, 'EGLL', 'approach', 'ILS 27R', null, transition).map((l) => l.fixIdent)
+    expect(fixes('Vectors')).toEqual(['D125O', 'CF27R'])
+    expect(fixes(null)).toEqual(['D125O', 'CF27R'])
+    expect(fixes('LAM')).toEqual(['LAM', 'D125O', 'CF27R'])
+  })
+
   it('caches an approach with its runway and transition names', () => {
     replaceAirportNavdata(
       db,

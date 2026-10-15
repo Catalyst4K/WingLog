@@ -410,6 +410,14 @@ export function approachRunway(approachIdent: string | null): string | null {
 }
 
 /**
+ * The approach transition that means "ATC vectors me from the end of the STAR to the approach": the route runs from the STAR's last
+ * fix straight to the approach's final segment. It is the same word the synthetic Visual approach uses for its only transition. No real
+ * approach has a transition of this name, so asking the navdata for it gives the final segment alone, as no transition at all does; the
+ * difference is that it is a choice, which is never overwritten by connecting the approach to the STAR.
+ */
+export const VECTORS_TRANSITION = 'Vectors'
+
+/**
  * Among approaches for the planned runway, prefer ILS (always unsuffixed when present), then LOC, then whatever RNAV/other
  * option sorts first: a reasonable starting point, not a correctness claim, since no signal (SimBrief or navdata) says
  * which of several same-runway approaches ATC will assign (docs/navdata-notes.md). It is a sane default that is
@@ -464,6 +472,14 @@ export function approachConnectingToStar(
   runway: string | null,
   starEndFix: string | null
 ): Pick<ProcedureSelection, 'approachIdent' | 'approachTransition'> | null {
+  // Vectors were chosen on purpose: the approach stays as chosen whatever the STAR ends at.
+  if (
+    current.approachIdent &&
+    current.approachTransition === VECTORS_TRANSITION &&
+    approachRunway(current.approachIdent) === runway
+  ) {
+    return null
+  }
   const forRunway = runway ? options.filter((o) => approachRunway(o.identifier) === runway) : options
   const hasTransition = (identifier: string | null, transition: string | null): boolean =>
     transition !== null && forRunway.some((o) => o.identifier === identifier && o.transition === transition)
