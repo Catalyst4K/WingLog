@@ -55,22 +55,28 @@ export function usePcSettings(link: LanConnection): PcSettings {
     const enabled = (value: unknown): boolean =>
       typeof value === 'object' && value !== null && (value as { enabled?: unknown }).enabled === true
     let retry: ReturnType<typeof setTimeout> | undefined
-    /** Asks for the three answers; any that fail are asked again shortly, so one refused lookup can't leave a page missing. */
+    /**
+     * Asks for the three answers; any that fail are asked again shortly, so one refused lookup can't leave a page missing.
+     *
+     * @param attempt Which try this is, from 1.
+     */
     const ask = (attempt: number): void => {
       Promise.allSettled([
         link.query('settings.display'),
         link.query('settings.gsxRemote'),
         link.query('settings.beyondAtc')
-      ]).then(([display, gsx, atc]) => {
-        if (!current) return
-        setSettings((now) => ({
-          ...(display.status === 'fulfilled' ? unitsFrom(display.value) : unitsFrom(now)),
-          gsxRemote: gsx.status === 'fulfilled' ? enabled(gsx.value) : now.gsxRemote,
-          beyondAtc: atc.status === 'fulfilled' ? enabled(atc.value) : now.beyondAtc
-        }))
-        const failed = [display, gsx, atc].some((answer) => answer.status === 'rejected')
-        if (failed && attempt < RETRIES) retry = setTimeout(() => ask(attempt + 1), RETRY_MS)
-      })
+      ])
+        .then(([display, gsx, atc]) => {
+          if (!current) return
+          setSettings((now) => ({
+            ...(display.status === 'fulfilled' ? unitsFrom(display.value) : unitsFrom(now)),
+            gsxRemote: gsx.status === 'fulfilled' ? enabled(gsx.value) : now.gsxRemote,
+            beyondAtc: atc.status === 'fulfilled' ? enabled(atc.value) : now.beyondAtc
+          }))
+          const failed = [display, gsx, atc].some((answer) => answer.status === 'rejected')
+          if (failed && attempt < RETRIES) retry = setTimeout(() => ask(attempt + 1), RETRY_MS)
+        })
+        .catch(() => undefined)
     }
     ask(1)
     return () => {
