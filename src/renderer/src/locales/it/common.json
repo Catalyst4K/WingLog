@@ -838,9 +838,18 @@
       "skip": "Salta questa versione",
       "dismiss": "Nascondi per ora"
     },
+    "install": {
+      "downloadAndInstall": "Scarica e installa",
+      "downloading": "Download in corso… {{percent}}%",
+      "restart": "Riavvia per aggiornare",
+      "retry": "Riprova",
+      "failed": "Il download non è stato completato. Riprova oppure scaricalo dalla pagina della versione.",
+      "flightActive": "Un volo è in registrazione. Terminalo prima, poi riavvia per aggiornare.",
+      "releasePage": "Pagina della versione"
+    },
     "settings": {
       "title": "Aggiornamenti",
-      "description": "WingLog chiede a GitHub il numero dell'ultima versione. Non viene inviato nient'altro, e gli aggiornamenti li scarichi e installi tu.",
+      "description": "WingLog chiede a GitHub il numero dell'ultima versione. Non viene inviato nient'altro. Installare un aggiornamento è sempre una tua scelta e non avviene mai mentre un volo è in registrazione.",
       "autoCheck": "Cerca aggiornamenti automaticamente",
       "on": "Sì",
       "off": "No",

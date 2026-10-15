@@ -6,7 +6,7 @@
  */
 import { runLogged } from './logging/run-logged'
 import { join } from 'node:path'
-import { quitsWhenAllWindowsClose } from './platform/platform'
+import { currentPlatform, quitsWhenAllWindowsClose } from './platform/platform'
 import { E2E_DISPLAY_ENV, E2E_WINDOW_ENV, chooseDisplay, windowShow } from './e2e-window'
 import { app, BrowserWindow, dialog, ipcMain, Menu, screen } from 'electron'
 import { IpcChannels } from '@shared/ipc'
@@ -47,6 +47,8 @@ import { registerDiagnosticsHandlers, registerSimHandlers } from './ipc/sim-hand
 import { createBackgroundSync, registerSyncHandlers, startPeriodicSync } from './ipc/sync-handlers'
 import { e2eBeyondAtcPort } from './beyondatc/BeyondAtcService'
 import { UpdateService } from './updates/update-check'
+import { canInstallInApp, UpdateInstaller } from './updates/update-install'
+import { createUpdaterEngine } from './updates/updater-engine'
 import { LiveHub } from './live/LiveHub'
 import { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
 import { SimAirfieldResolver } from './airports/sim-airfield'
@@ -203,10 +205,21 @@ function wireTracking(
  *
  * @param db The database, for the settings and the skipped version.
  * @param window The window its status goes to.
+ * @param isFlightActive Whether a flight is being tracked: an update never installs then.
  * @returns The started service.
  */
-function startUpdates(db: WingLogDb, window: BrowserWindow): UpdateService {
+function startUpdates(db: WingLogDb, window: BrowserWindow, isFlightActive: () => boolean): UpdateService {
+  const canInstall = canInstallInApp({
+    isPackaged: app.isPackaged,
+    isDevBuild: __WINGLOG_DEV_BUILD__,
+    platform: currentPlatform()
+  })
   const updateService = new UpdateService({
+    installer: new UpdateInstaller({
+      engine: canInstall ? createUpdaterEngine() : null,
+      isFlightActive,
+      log: (message) => logger.warn(`[updates] ${message}`)
+    }),
     currentVersion: app.getVersion(),
     isEnabled: () => getUpdateSettings(db).checkEnabled,
     getSkippedVersion: () => getSkippedUpdateVersion(db),
@@ -349,7 +362,7 @@ function startApp(): void {
 
   registerSyncHandlers(ipcMain, { cloudSync, enabled: __WINGLOG_CLOUD_SYNC_ENABLED__ })
 
-  const updateService = startUpdates(db, window)
+  const updateService = startUpdates(db, window, () => trackingController.getActive() !== undefined)
   app.on('before-quit', () => updateService.stop())
   registerSettingsHandlers(ipcMain, { db, trackingController })
   registerAppHandlers(ipcMain, { updateService })

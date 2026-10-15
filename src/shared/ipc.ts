@@ -83,6 +83,7 @@ import type {
   SyncStatus,
   Theme,
   TrackingSettings,
+  UpdateInstallOutcome,
   UpdateSettings,
   UpdateStatus,
   WeightUnit,
@@ -534,6 +535,10 @@ export interface WingLogApi {
   updatesSkipVersion: (version: string) => Promise<void>
   /** Opens the latest release's page — the URL main validated, never one from here. */
   updatesOpenRelease: () => Promise<void>
+  /** Starts downloading the found update in the background; progress arrives in the status. */
+  updatesDownload: () => Promise<void>
+  /** Runs the downloaded installer and restarts. Refused while a flight is being tracked. */
+  updatesInstall: () => Promise<UpdateInstallOutcome>
   /** WingLog's auto step climb — see BeyondAtcStepClimbStatus. */
   beyondAtcGetStepClimb: () => Promise<BeyondAtcStepClimbStatus>
   onBeyondAtcStepClimb: (listener: (status: BeyondAtcStepClimbStatus) => void) => () => void

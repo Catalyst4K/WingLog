@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import type { UpdateSettings, UpdateStatus } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { asyncHandler, runAsync } from './report-error'
+import { UpdateActions } from './UpdateActions'
 import { OnOffControl, SettingRow, SettingsCard } from './settings/ui/SettingsCard'
 
 /**
@@ -43,15 +44,7 @@ export function UpdatesCard(): React.JSX.Element {
         />
       </SettingRow>
       <SettingRow label={status ? statusText(t, status) : ''} labelRole="status">
-        {status?.state === 'available' && status.latest && (
-          <Button
-            type="button"
-            size="sm"
-            onClick={asyncHandler('UpdatesCard updatesOpenRelease', () => winglogApi().updatesOpenRelease())}
-          >
-            {t('updates.banner.download')}
-          </Button>
-        )}
+        {status?.state === 'available' && status.latest && <UpdateActions status={status} />}
         <Button
           type="button"
           variant="outline"

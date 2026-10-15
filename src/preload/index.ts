@@ -309,6 +309,8 @@ const api: WingLogApi = {
   updatesCheckNow: () => ipcRenderer.invoke(IpcChannels.updatesCheckNow),
   updatesSkipVersion: (version: string) => ipcRenderer.invoke(IpcChannels.updatesSkipVersion, version),
   updatesOpenRelease: () => ipcRenderer.invoke(IpcChannels.updatesOpenRelease),
+  updatesDownload: () => ipcRenderer.invoke(IpcChannels.updatesDownload),
+  updatesInstall: () => ipcRenderer.invoke(IpcChannels.updatesInstall),
   beyondAtcGetStepClimb: () => ipcRenderer.invoke(IpcChannels.beyondAtcGetStepClimb),
   onBeyondAtcStepClimb: (listener: (status: BeyondAtcStepClimbStatus) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, status: BeyondAtcStepClimbStatus): void =>

@@ -838,9 +838,18 @@
       "skip": "Ignorer cette version",
       "dismiss": "Masquer pour le moment"
     },
+    "install": {
+      "downloadAndInstall": "Télécharger et installer",
+      "downloading": "Téléchargement… {{percent}} %",
+      "restart": "Redémarrer pour mettre à jour",
+      "retry": "Réessayer",
+      "failed": "Le téléchargement n'a pas abouti. Réessayez, ou téléchargez-la depuis la page de la version.",
+      "flightActive": "Un vol est en cours d'enregistrement. Terminez-le d'abord, puis redémarrez pour mettre à jour.",
+      "releasePage": "Page de la version"
+    },
     "settings": {
       "title": "Mises à jour",
-      "description": "WingLog demande à GitHub le numéro de la dernière version. Rien d'autre n'est envoyé, et vous téléchargez et installez les mises à jour vous-même.",
+      "description": "WingLog demande à GitHub le numéro de la dernière version. Rien d'autre n'est envoyé. Installer une mise à jour reste toujours votre choix, et rien ne s'installe pendant l'enregistrement d'un vol.",
       "autoCheck": "Rechercher automatiquement les mises à jour",
       "on": "Activé",
       "off": "Désactivé",

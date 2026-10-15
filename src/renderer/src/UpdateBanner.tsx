@@ -3,10 +3,11 @@
 import { winglogApi } from './data/winglog-api'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Download, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import type { UpdateStatus } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { asyncHandler, runAsync } from './report-error'
+import { UpdateActions } from './UpdateActions'
 
 /**
  * "WingLog 1.4.1 is available" across the top of the app (winglog-backend's
@@ -30,6 +31,7 @@ export function UpdateBanner(props: { airborne: boolean }): React.JSX.Element | 
 
   const latest = status?.state === 'available' ? status.latest : null
   if (
+    !status ||
     !latest ||
     props.airborne ||
     latest.version === status?.skippedVersion ||
@@ -59,14 +61,7 @@ export function UpdateBanner(props: { airborne: boolean }): React.JSX.Element | 
               {showNotes ? t('updates.banner.hideNotes') : t('updates.banner.whatsNew')}
             </Button>
           )}
-          <Button
-            type="button"
-            size="sm"
-            onClick={asyncHandler('UpdateBanner updatesOpenRelease', () => winglogApi().updatesOpenRelease())}
-          >
-            <Download aria-hidden="true" />
-            {t('updates.banner.download')}
-          </Button>
+          <UpdateActions status={status} />
           <Button
             type="button"
             variant="outline"

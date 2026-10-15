@@ -78,6 +78,8 @@ const NOT_QUERIES = {
     'appOpenGithub',
     'appOpenManual',
     'updatesOpenRelease',
+    'updatesDownload',
+    'updatesInstall',
     'gsxBrowseFolder',
     'gsxOpenReceipt',
     'aircraftImport',

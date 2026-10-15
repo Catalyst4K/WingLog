@@ -22,6 +22,8 @@ describe('app IPC handlers', () => {
     getStatus: vi.fn(() => ({ state: 'idle' })),
     checkNow: vi.fn(),
     skipVersion: vi.fn(),
+    startDownload: vi.fn(async () => {}),
+    restartToUpdate: vi.fn(() => 'flightActive'),
     releaseUrl: vi.fn<() => string | null>()
   }
   const { ipcMain, invoke } = fakeIpc()
@@ -91,5 +93,12 @@ describe('app IPC handlers', () => {
     expect(openExternal).not.toHaveBeenCalled()
     await invoke(IpcChannels.updatesOpenRelease)
     expect(openExternal).toHaveBeenCalledWith('https://github.com/Catalyst4K/WingLog/releases/tag/v1.5.0')
+  })
+
+  it('hands the in-app download and the restart to the update service, and returns its answer', async () => {
+    await invoke(IpcChannels.updatesDownload)
+    expect(updateService.startDownload).toHaveBeenCalledWith()
+    expect(invoke(IpcChannels.updatesInstall)).toBe('flightActive')
+    expect(updateService.restartToUpdate).toHaveBeenCalledWith()
   })
 })
