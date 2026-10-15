@@ -31,6 +31,8 @@ export interface LiveTopics {
   simConnectionStatus: SimConnectionStatus
   trackingPoint: TrackPoint
   trackingPointsUpdated: TrackPoint[]
+  /** The SID, STAR and approach chosen for the tracked flight, from whichever screen changed it last. */
+  procedureSelection: ProcedureSelection | null
   gsxRemoteStatus: GsxRemoteConnectionStatus
   gsxRemoteServices: GsxRemoteServiceStatus[]
   gsxRemoteGate: GsxRemoteGateInfo | null

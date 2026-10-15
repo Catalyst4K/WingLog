@@ -157,6 +157,63 @@ test.describe('Second screen', () => {
     }
   })
 
+  test('procedures chosen on a paired device reach the app\x27s window, and ones chosen in the window reach the device', async () => {
+    const port = await freePort()
+    const { window: page, cleanup } = await launchApp({ env: { WINGLOG_E2E_LAN_ADDRESS: '127.0.0.1' } })
+    try {
+      const code = await page.evaluate(async (p) => {
+        const api = (globalThis as unknown as Window).winglog
+        await api.lanSetSettings({ enabled: true, port: p })
+        // What the app\x27s own window hears, kept where the test can read it.
+        ;(globalThis as unknown as { heard: unknown[] }).heard = []
+        api.onProcedureSelection((selection) =>
+          (globalThis as unknown as { heard: unknown[] }).heard.push(selection)
+        )
+        return (await api.lanStartPairing()).pairing?.code ?? ''
+      }, port)
+      const device = new Device(port)
+      await device.opened()
+      device.send({ t: 'pair', code, name: 'Phone' })
+      await device.message('paired')
+
+      // The device chooses an approach: the window is told.
+      const chosen = {
+        departureRunway: '27R',
+        sidIdent: 'BPK7F',
+        sidTransition: null,
+        starIdent: 'SIER7B',
+        starTransition: null,
+        approachIdent: 'ILS 27L',
+        approachTransition: null,
+        arrivalIcao: null
+      }
+      device.send({ t: 'cmd', name: 'track.setProcedureSelection', args: [chosen] })
+      await expect
+        .poll(() => page.evaluate(() => (globalThis as unknown as { heard: unknown[] }).heard))
+        .toEqual([chosen])
+
+      // The window chooses another: the device is told.
+      const other = { ...chosen, approachIdent: 'ILS 27R' }
+      await page.evaluate(
+        (selection) => (globalThis as unknown as Window).winglog.trackingSetProcedureSelection(selection),
+        other
+      )
+      await expect
+        .poll(() =>
+          device.received.some(
+            (m) =>
+              m.t === 'topic' &&
+              m.name === 'procedureSelection' &&
+              JSON.stringify(m.payload) === JSON.stringify(other)
+          )
+        )
+        .toBe(true)
+      device.close()
+    } finally {
+      await cleanup()
+    }
+  })
+
   test('the page a phone opens pairs with the code and shows the map', async () => {
     const port = await freePort()
     const { app, window: page, cleanup } = await launchApp({ env: { WINGLOG_E2E_LAN_ADDRESS: '127.0.0.1' } })

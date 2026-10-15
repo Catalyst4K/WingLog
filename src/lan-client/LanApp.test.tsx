@@ -110,6 +110,27 @@ describe('the Procedures button', () => {
     expect(screen.getByText('KAMI2A · SIER7B · ILS 27L')).toBeInTheDocument()
   })
 
+  it("follows a change made on the PC's own window, and ignores an announcement of nothing", () => {
+    stubNavdata()
+    const { link, sockets } = setup('tok')
+    render(<LanApp link={link} />)
+    act(() => {
+      sockets[0].onopen?.()
+      sockets[0].say({ t: 'snapshot', topics: {}, flight: FLIGHT_WITH_SELECTION })
+    })
+    expect(screen.getByText('KAMI2A · SIER7B · ILS 27L')).toBeInTheDocument()
+    act(() =>
+      sockets[0].say({
+        t: 'topic',
+        name: 'procedureSelection',
+        payload: { ...FLIGHT_WITH_SELECTION.flight.selection, sidIdent: 'DET2G', approachIdent: 'ILS 27R' }
+      })
+    )
+    expect(screen.getByText('DET2G · SIER7B · ILS 27R')).toBeInTheDocument()
+    act(() => sockets[0].say({ t: 'topic', name: 'procedureSelection', payload: null }))
+    expect(screen.getByText('DET2G · SIER7B · ILS 27R')).toBeInTheDocument()
+  })
+
   it('is not shown before a flight is being tracked', () => {
     stubNavdata()
     const { link, sockets } = setup('tok')

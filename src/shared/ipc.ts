@@ -251,6 +251,8 @@ export interface WingLogApi {
    *  value so a live map already showing the earlier copy (from onTrackingPoint) can patch
    *  it in place. */
   onTrackingPointsUpdated: (listener: (points: TrackPoint[]) => void) => () => void
+  /** Pushed when the procedures chosen for the tracked flight change, from this window or from a second screen, so every screen agrees. */
+  onProcedureSelection: (listener: (selection: ProcedureSelection | null) => void) => () => void
   /** Manually re-runs the resume-cleanup pass for one already-completed flight — the
    *  Logbook detail page's "Clean up track" button, alongside the automatic live/
    *  completion-time pass TrackingController already runs on its own. Useful for a flight

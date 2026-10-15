@@ -23,6 +23,7 @@ const NOT_QUERIES = {
     'simConnectionStatusGet',
     'trackingPoint',
     'trackingPointsUpdated',
+    'procedureSelection',
     'trackingGetActive',
     'updatesStatus',
     'gsxRemoteStatus',

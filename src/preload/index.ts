@@ -128,6 +128,12 @@ const api: WingLogApi = {
     ipcRenderer.on(IpcChannels.trackingPointsUpdated, handler)
     return () => ipcRenderer.removeListener(IpcChannels.trackingPointsUpdated, handler)
   },
+  onProcedureSelection: (listener: (selection: ProcedureSelection | null) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, selection: ProcedureSelection | null): void =>
+      listener(selection)
+    ipcRenderer.on(IpcChannels.procedureSelection, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.procedureSelection, handler)
+  },
   logbookListCompletedFlights: () => ipcRenderer.invoke(IpcChannels.logbookListCompletedFlights),
   logbookGetFlight: (id: number) => ipcRenderer.invoke(IpcChannels.logbookGetFlight, id),
   logbookGetStats: () => ipcRenderer.invoke(IpcChannels.logbookGetStats),

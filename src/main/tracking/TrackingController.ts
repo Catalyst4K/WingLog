@@ -609,7 +609,10 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
    * @param selection The SID, STAR and approach chosen in Track.
    */
   setProcedureSelection(selection: ProcedureSelection): void {
+    const changed = JSON.stringify(this.currentSelection) !== JSON.stringify(selection)
     this.currentSelection = selection
+    // Only a real change is announced: every screen that hears it applies it and may push it back, which must stop here.
+    if (changed) this.emit('selectionChanged', selection)
   }
 
   /** @returns The selection last pushed while this flight is tracked, if any. */

@@ -579,7 +579,8 @@ describe('LanServer', () => {
         'simConnectionStatus',
         'simTelemetry',
         'trackingPoint',
-        'trackingPointsUpdated'
+        'trackingPointsUpdated',
+        'procedureSelection'
       ].sort()
     )
   })

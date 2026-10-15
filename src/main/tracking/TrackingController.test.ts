@@ -1188,6 +1188,16 @@ describe('TrackingController', () => {
       expect(controller.getProcedureSelection()).toEqual(selection)
     })
 
+    it('announces a change of selection, once, and nothing for the same selection pushed again', () => {
+      const controller = new TrackingController(dbFlightStore(db), sim)
+      const heard: unknown[] = []
+      controller.on('selectionChanged', (next) => heard.push(next))
+      controller.setProcedureSelection(selection)
+      controller.setProcedureSelection({ ...selection })
+      controller.setProcedureSelection({ ...selection, approachIdent: 'ILS 07L' })
+      expect(heard).toEqual([selection, { ...selection, approachIdent: 'ILS 07L' }])
+    })
+
     it('writes the last-pushed selection into the flight row on finish()', () => {
       sim.setLastTelemetry(telemetry({}))
       const controller = new TrackingController(dbFlightStore(db), sim)

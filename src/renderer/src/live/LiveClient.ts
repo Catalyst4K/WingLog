@@ -58,6 +58,7 @@ export const electronLiveClient: LiveClient = {
       simConnectionStatus: w.onSimConnectionStatus,
       trackingPoint: w.onTrackingPoint,
       trackingPointsUpdated: w.onTrackingPointsUpdated,
+      procedureSelection: w.onProcedureSelection,
       gsxRemoteStatus: w.onGsxRemoteStatus,
       gsxRemoteServices: w.onGsxRemoteServices,
       gsxRemoteGate: w.onGsxRemoteGate,
