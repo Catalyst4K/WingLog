@@ -42,7 +42,7 @@ export function boxTaxiClearance(boxes: BeyondAtcInfoBox[]): Omit<TaxiClearance,
     taxiways: facts.taxiVia,
     holdingPoint: holdIsRunway ? null : hold,
     stand: facts.taxiToGate,
-    holdShortRunway: holdIsRunway ? hold : null
+    holdShortRunway: holdIsRunway ? hold : facts.holdShort
   }
 }
 

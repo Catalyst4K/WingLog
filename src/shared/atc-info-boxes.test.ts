@@ -35,7 +35,27 @@ describe('parseAtcTaxiFacts', () => {
     expect(parseAtcTaxiFacts(VHHH_TAXI_OUT)).toEqual({
       taxiVia: ['B', 'B', 'V', 'H', 'J'],
       holdPosition: 'J1',
+      holdShort: null,
       taxiToRunway: '07R',
+      taxiToGate: null,
+      expectGate: null
+    })
+  })
+
+  it('reads the Hold Short box: a runway to stop short of, with the taxi route (EGLL 2026-10-15)', () => {
+    expect(
+      parseAtcTaxiFacts([
+        { title: 'Taxi to Runway', info: '27R' },
+        { title: 'Taxi Via 1', info: 'LINK 44' },
+        { title: 'Taxi Via 2', info: 'T' },
+        { title: 'Taxi Via 3', info: 'S' },
+        { title: 'Hold Short', info: '27l' }
+      ])
+    ).toEqual({
+      taxiVia: ['LINK 44', 'T', 'S'],
+      holdPosition: null,
+      holdShort: '27L',
+      taxiToRunway: '27R',
       taxiToGate: null,
       expectGate: null
     })
@@ -87,7 +107,14 @@ describe('parseAtcTaxiFacts', () => {
         { title: 'Taxi Via', info: 'X' },
         { title: 'Hold Position', info: '' }
       ])
-    ).toEqual({ taxiVia: [], holdPosition: null, taxiToRunway: null, taxiToGate: null, expectGate: null })
+    ).toEqual({
+      taxiVia: [],
+      holdPosition: null,
+      holdShort: null,
+      taxiToRunway: null,
+      taxiToGate: null,
+      expectGate: null
+    })
     expect(parseAtcTaxiFacts([])).toMatchObject({ taxiVia: [] })
   })
 

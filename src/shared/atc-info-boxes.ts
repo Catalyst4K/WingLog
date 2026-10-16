@@ -36,6 +36,8 @@ export interface AtcTaxiFacts {
   taxiVia: string[]
   /** `Hold Position`: the holding point at the end of a departure taxi ('J1'). */
   holdPosition: string | null
+  /** `Hold Short`: the runway to stop short of on the way ('27L'), sent when the route crosses or meets a runway (EGLL, 2026-10-15). */
+  holdShort: string | null
   /** `Taxi to Runway`: '07R'. */
   taxiToRunway: string | null
   /** `Taxi to Gate` / `Taxi to Stand`, label removed: "Gate 102" → '102'. */
@@ -45,6 +47,21 @@ export interface AtcTaxiFacts {
 }
 
 const TAXI_VIA = /^taxi via (\d+)$/i
+
+/** The boxes whose value is a code ('J1', '27L', '07R'), by normalised title. */
+const UPPER_FACTS = new Map<string, 'holdPosition' | 'holdShort' | 'taxiToRunway'>([
+  ['hold position', 'holdPosition'],
+  ['hold short', 'holdShort'],
+  ['taxi to runway', 'taxiToRunway']
+])
+
+/** The boxes whose value is a gate or stand, by normalised title. */
+const GATE_FACTS = new Map<string, 'taxiToGate' | 'expectGate'>([
+  ['taxi to gate', 'taxiToGate'],
+  ['taxi to stand', 'taxiToGate'],
+  ['expect gate', 'expectGate'],
+  ['expect stand', 'expectGate']
+])
 
 /**
  * @param title An InfoBox title as BeyondATC sent it.
@@ -81,6 +98,7 @@ export function parseAtcTaxiFacts(boxes: BeyondAtcInfoBox[]): AtcTaxiFacts {
   const facts: AtcTaxiFacts = {
     taxiVia: [],
     holdPosition: null,
+    holdShort: null,
     taxiToRunway: null,
     taxiToGate: null,
     expectGate: null
@@ -94,22 +112,13 @@ export function parseAtcTaxiFacts(boxes: BeyondAtcInfoBox[]): AtcTaxiFacts {
       if (taxiway) via.push({ n: Number(viaMatch[1]), taxiway: taxiway.toUpperCase() })
       continue
     }
-    switch (title) {
-      case 'hold position':
-        facts.holdPosition = nonEmpty(box.info)?.toUpperCase() ?? null
-        break
-      case 'taxi to runway':
-        facts.taxiToRunway = nonEmpty(box.info)?.toUpperCase() ?? null
-        break
-      case 'taxi to gate':
-      case 'taxi to stand':
-        facts.taxiToGate = gateValue(box.info)
-        break
-      case 'expect gate':
-      case 'expect stand':
-        facts.expectGate = gateValue(box.info)
-        break
+    const upper = UPPER_FACTS.get(title)
+    if (upper) {
+      facts[upper] = nonEmpty(box.info)?.toUpperCase() ?? null
+      continue
     }
+    const gate = GATE_FACTS.get(title)
+    if (gate) facts[gate] = gateValue(box.info)
   }
   facts.taxiVia = via.sort((a, b) => a.n - b.n).map((v) => v.taxiway)
   return facts
