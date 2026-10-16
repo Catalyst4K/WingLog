@@ -4,6 +4,7 @@
  * a bad row never reaches the UI.
  */
 import { eq } from 'drizzle-orm'
+import { APP_LANGUAGE_OPTIONS } from '@shared/app-language'
 import type {
   AltitudeUnit,
   AppLanguage,
@@ -30,7 +31,9 @@ const MAP_LANGUAGE_KEY = 'mapLanguage'
 const APP_LANGUAGE_KEY = 'appLanguage'
 
 const MAP_LANGUAGES: readonly MapLanguage[] = ['local', 'en', 'de', 'es', 'fr', 'it', 'ru']
-const APP_LANGUAGES: readonly AppLanguage[] = ['system', 'en', 'de', 'es', 'fr', 'it', 'ru']
+// Every language the picker offers (shared/app-language.ts), so a language added there can't be refused here again: 简体中文 and 繁體中文 were
+// missing from a copy of this list, and choosing either looked fine but was never saved.
+const APP_LANGUAGES: readonly AppLanguage[] = APP_LANGUAGE_OPTIONS.map((option) => option.value)
 const LANDING_DISTANCE_UNIT_KEY = 'landingDistanceUnit'
 const THEME_KEY = 'theme'
 const TRACKING_AUTO_START_KEY = 'trackingAutoStart'

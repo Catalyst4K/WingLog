@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb, type WingLogDb } from './client'
 import { appSetting } from './schema'
+import { APP_LANGUAGE_OPTIONS } from '@shared/app-language'
 import {
   getAircraftIdForTitle,
   getAltitudeUnit,
@@ -105,7 +106,19 @@ describe('settings repo', () => {
 
   it('defaults the app language to "system", and round-trips every supported language', () => {
     expect(getAppLanguage(db)).toBe('system')
-    for (const language of ['de', 'es', 'fr', 'it', 'ru', 'en', 'system'] as const) {
+    // Every option the picker offers, Chinese included: both were once refused here, so choosing one was never saved.
+    expect(APP_LANGUAGE_OPTIONS.map((o) => o.value)).toEqual([
+      'system',
+      'en',
+      'de',
+      'es',
+      'fr',
+      'it',
+      'ru',
+      'zh-CN',
+      'zh-TW'
+    ])
+    for (const { value: language } of APP_LANGUAGE_OPTIONS) {
       setAppLanguage(db, language)
       expect(getAppLanguage(db)).toBe(language)
     }
