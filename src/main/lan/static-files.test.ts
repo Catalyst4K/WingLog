@@ -17,6 +17,7 @@ describe('staticFilesFrom', () => {
     writeFileSync(join(folder, 'index.html'), '<h1>WingLog</h1>')
     writeFileSync(join(folder, 'assets', 'app.js'), 'console.log(1)')
     writeFileSync(join(folder, 'assets', 'app.css'), 'body{}')
+    writeFileSync(join(folder, 'manifest.webmanifest'), '{}')
     writeFileSync(join(folder, 'notes.txt'), 'not served')
     return folder
   }
@@ -27,6 +28,7 @@ describe('staticFilesFrom', () => {
     expect(lookup('/index.html')?.type).toBe('text/html; charset=utf-8')
     expect(lookup('/assets/app.js')?.type).toBe('text/javascript; charset=utf-8')
     expect(lookup('/assets/app.css')?.type).toBe('text/css; charset=utf-8')
+    expect(lookup('/manifest.webmanifest')?.type).toBe('application/manifest+json')
   })
 
   it('does not find a file of an unlisted type, a missing path, or anything outside the folder', () => {
