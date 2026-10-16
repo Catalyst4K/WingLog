@@ -16,6 +16,8 @@ import {
   type TrackTimes
 } from '@/track-times'
 import { ProcedureSelector } from '@/ProcedureSelector'
+import { AtcClearanceDialog } from '@/app/AppDialogs'
+import { useAtcClearancePrompt } from '@/app/use-prompts'
 import { emptyProcedureSelection, useLiveWaypoints, type ProcedureAirports } from '@/procedure-selection'
 import { parseTransitionAltitudes } from '@/route'
 import type { LanConnection } from './lan-connection'
@@ -227,8 +229,20 @@ function FlightView(props: { link: LanConnection; snapshot: LanFlightSnapshot | 
     }
   }
 
+  // A BeyondATC clearance that would change the procedures is offered here too, over whichever page is showing (this page stays
+  // mounted, and the dialog is portalled). Update pushes the new choice to the PC like any other choice made here.
+  const atcClearance = useAtcClearancePrompt(selection, (action) =>
+    choose(typeof action === 'function' ? action(selection) : action)
+  )
+
   return (
     <div className="flex h-full flex-col">
+      <AtcClearanceDialog
+        clearance={atcClearance.pending}
+        selection={selection}
+        onAccept={atcClearance.onAccept}
+        onDismiss={atcClearance.onDismiss}
+      />
       <FlightHeader
         snapshot={snapshot}
         times={times}

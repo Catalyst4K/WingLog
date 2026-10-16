@@ -3,7 +3,6 @@
  * an important GSX menu, and a BeyondATC clearance.
  */
 
-import { winglogApi } from '../data/winglog-api'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import type { Flight, GsxRemoteMenuState, ProcedureSelection } from '@shared/ipc'
@@ -20,6 +19,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { flightLabel } from '../flight-label'
+import { useLiveClient } from '../live/LiveClient'
 import { asyncHandler, runAsync } from '../report-error'
 import type { PendingAtcClearance } from './atc-clearance'
 
@@ -116,8 +116,9 @@ export function ImportantGsxMenuDialog(props: {
 }): React.JSX.Element {
   const { t } = useTranslation()
   const { menu } = props
+  const client = useLiveClient()
   function handlePick(index: number): void {
-    runAsync('App gsxRemotePickMenu', winglogApi().gsxRemotePickMenu(index))
+    runAsync('App gsxRemotePickMenu', client.command('gsx.pickMenu', index))
     // GSX will clear/replace state.menu itself once the pick is processed — no need to
     // clear the menu here too, and doing so would just make the dialog flash closed then
     // (possibly) reopen for the next patch.
