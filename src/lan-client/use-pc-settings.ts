@@ -1,7 +1,7 @@
-/** What the page needs to know about the PC's own settings: its units, and which add-ons are switched on. */
+/** What the page needs to know about the PC's own settings: its units, how it looks (language, theme, map language), and which add-ons are on. */
 
 import { useEffect, useState } from 'react'
-import type { AltitudeUnit, WeightUnit, WindSpeedUnit } from '@shared/ipc'
+import type { AltitudeUnit, AppLanguage, MapLanguage, Theme, WeightUnit, WindSpeedUnit } from '@shared/ipc'
 import type { LanConnection } from './lan-connection'
 import { useLinkState } from './use-link'
 
@@ -10,6 +10,11 @@ export interface PcSettings {
   weightUnit: WeightUnit
   altitudeUnit: AltitudeUnit
   windSpeedUnit: WindSpeedUnit
+  /** How the app looks on the PC, which the page follows: its language ("system" means the PC's own OS language), theme and map language. */
+  appLanguage: AppLanguage
+  systemLocale: string
+  theme: Theme
+  mapLanguage: MapLanguage
   gsxRemote: boolean
   beyondAtc: boolean
 }
@@ -20,10 +25,18 @@ const RETRY_MS = 1500
 /** How often the PC's settings are asked for again while the page is showing. */
 const REFRESH_MS = 5_000
 
+const APP_LANGUAGES: readonly string[] = ['system', 'en', 'de', 'es', 'fr', 'it', 'ru', 'zh-CN', 'zh-TW']
+const MAP_LANGUAGES: readonly string[] = ['local', 'en', 'de', 'es', 'fr', 'it', 'ru']
+
 const DEFAULTS: PcSettings = {
   weightUnit: 'kg',
   altitudeUnit: 'ft',
   windSpeedUnit: 'kt',
+  // Until the PC answers, the page looks as it always did: the phone's own language, and its own light or dark.
+  appLanguage: 'system',
+  systemLocale: typeof navigator === 'undefined' ? 'en' : navigator.language,
+  theme: 'system',
+  mapLanguage: 'en',
   gsxRemote: false,
   beyondAtc: false
 }
@@ -32,13 +45,31 @@ const DEFAULTS: PcSettings = {
  * @param value The answer to the display-settings lookup.
  * @returns The units from it, each falling back to the default when it is not one the page knows.
  */
-function unitsFrom(value: unknown): Pick<PcSettings, 'weightUnit' | 'altitudeUnit' | 'windSpeedUnit'> {
+function unitsFrom(
+  value: unknown
+): Pick<
+  PcSettings,
+  'weightUnit' | 'altitudeUnit' | 'windSpeedUnit' | 'appLanguage' | 'systemLocale' | 'theme' | 'mapLanguage'
+> {
   const record = typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {}
   return {
     weightUnit: record.weightUnit === 'lb' ? 'lb' : 'kg',
     altitudeUnit:
       record.altitudeUnit === 'm' || record.altitudeUnit === 'hybrid' ? record.altitudeUnit : 'ft',
-    windSpeedUnit: record.windSpeedUnit === 'mps' ? 'mps' : 'kt'
+    windSpeedUnit: record.windSpeedUnit === 'mps' ? 'mps' : 'kt',
+    appLanguage: APP_LANGUAGES.includes(String(record.appLanguage))
+      ? (record.appLanguage as AppLanguage)
+      : 'system',
+    systemLocale:
+      typeof record.systemLocale === 'string' &&
+      record.systemLocale.length > 0 &&
+      record.systemLocale.length <= 35
+        ? record.systemLocale
+        : DEFAULTS.systemLocale,
+    theme: record.theme === 'light' || record.theme === 'dark' ? record.theme : 'system',
+    mapLanguage: MAP_LANGUAGES.includes(String(record.mapLanguage))
+      ? (record.mapLanguage as MapLanguage)
+      : 'en'
   }
 }
 

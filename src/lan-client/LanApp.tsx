@@ -15,6 +15,7 @@ import { InfoPage } from './InfoPages'
 import { TrackPage } from './TrackPage'
 import { useLinkState } from './use-link'
 import { usePages } from './use-pages'
+import { usePcAppearance } from './use-pc-appearance'
 import { usePcSettings } from './use-pc-settings'
 
 /**
@@ -107,12 +108,13 @@ function Shell({ link, offline }: { link: LanConnection; offline: boolean }): Re
   const { t } = useTranslation()
   const [page, setPage] = useState<PageId>('track')
   const settings = usePcSettings(link)
+  usePcAppearance(settings)
   const pages = usePages(settings)
   const shown = pages.some((p) => p.id === page) ? page : 'track'
   // An important GSX menu (pushback direction, fuel amount) interrupts on any page but GSX's own, where it is answered in place.
   const gsxMenu = useImportantGsxMenu(shown === 'gsx')
   return (
-    <div className="lan-shell flex h-dvh flex-col pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
+    <div className="flex h-dvh flex-col">
       {offline && (
         <p role="status" className="bg-destructive px-4 py-2 text-center text-sm text-white">
           {t('lanPage.offline')}
@@ -121,7 +123,7 @@ function Shell({ link, offline }: { link: LanConnection; offline: boolean }): Re
       <StorageBanner />
       <main className="min-h-0 flex-1">
         <div className={shown === 'track' ? 'h-full' : 'hidden'}>
-          <TrackPage link={link} />
+          <TrackPage link={link} mapLanguage={settings.mapLanguage} />
         </div>
         {shown !== 'track' && (
           <div className="h-full overflow-y-auto">
