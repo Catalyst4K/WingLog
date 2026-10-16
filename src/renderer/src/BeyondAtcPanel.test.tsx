@@ -183,8 +183,8 @@ describe('BeyondAtcPanel', () => {
     expect(screen.getByText('ATC:')).toBeInTheDocument()
   })
 
-  it('scrolls the newest transcript line into view when a new entry arrives', async () => {
-    const scrollIntoView = vi.spyOn(HTMLElement.prototype, 'scrollIntoView')
+  /** Renders the panel with one transcript entry and a list whose scroll position the test controls. */
+  async function renderWithScrollableList() {
     const first: BeyondAtcTranscriptEntry[] = [
       { speaker: 'player', text: 'Cathay 116 Heavy, radio check.', ts: 1 }
     ]
@@ -197,14 +197,58 @@ describe('BeyondAtcPanel', () => {
       })
     })
     render(<BeyondAtcPanel />)
-    await screen.findByText('Cathay 116 Heavy, radio check.')
-    scrollIntoView.mockClear()
+    const line = await screen.findByText('Cathay 116 Heavy, radio check.')
+    const list = line.closest('ul') as HTMLUListElement
+    // jsdom does no layout: a list 100 px tall holding 400 px, with a scroll position the test owns.
+    let top = 300
+    Object.defineProperty(list, 'scrollHeight', { configurable: true, get: () => 400 })
+    Object.defineProperty(list, 'clientHeight', { configurable: true, get: () => 100 })
+    Object.defineProperty(list, 'scrollTop', {
+      configurable: true,
+      get: () => top,
+      set: (value: number) => (top = value)
+    })
+    return {
+      list,
+      first,
+      scrollTop: () => top,
+      scrollTo: (value: number) => {
+        top = value
+        fireEvent.scroll(list)
+      },
+      push: (entries: BeyondAtcTranscriptEntry[]) => act(() => pushTranscript(entries))
+    }
+  }
 
-    pushTranscript([...first, { speaker: 'atc', text: 'Cathay 116 Heavy, readability 5.', ts: 2 }])
+  it('follows the newest transcript line when the reader is at the bottom, moving only the list and never the page', async () => {
+    const scrollIntoView = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+    const panel = await renderWithScrollableList()
+    panel.scrollTo(300)
+    panel.push([...panel.first, { speaker: 'atc', text: 'Cathay 116 Heavy, readability 5.', ts: 2 }])
     await screen.findAllByText('Cathay 116 Heavy, readability 5.')
+    expect(panel.scrollTop()).toBe(400)
+    expect(scrollIntoView).not.toHaveBeenCalled()
+  })
 
-    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
-    scrollIntoView.mockRestore()
+  it('leaves the transcript where the reader scrolled it when a new entry arrives', async () => {
+    const scrollIntoView = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+    const panel = await renderWithScrollableList()
+    panel.scrollTo(50)
+    panel.push([...panel.first, { speaker: 'atc', text: 'Cathay 116 Heavy, readability 5.', ts: 2 }])
+    await screen.findAllByText('Cathay 116 Heavy, readability 5.')
+    expect(panel.scrollTop()).toBe(50)
+    expect(scrollIntoView).not.toHaveBeenCalled()
+    // Back at the bottom, it follows again.
+    panel.scrollTo(300)
+    panel.push([
+      ...panel.first,
+      { speaker: 'atc', text: 'Cathay 116 Heavy, readability 5.', ts: 2 },
+      { speaker: 'player', text: 'Thank you.', ts: 3 }
+    ])
+    await screen.findByText('Thank you.')
+    expect(panel.scrollTop()).toBe(400)
   })
 
   it("shows the latest ATC instruction's key facts in their own card, separate from the callsign/progress strip", async () => {

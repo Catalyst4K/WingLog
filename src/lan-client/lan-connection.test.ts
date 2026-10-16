@@ -243,6 +243,46 @@ describe('LanConnection', () => {
       await expect(waiting).rejects.toThrow('Not connected')
     })
 
+    it('never has more than four lookups out at once (the PC refuses the rest), and sends the rest as answers come in', async () => {
+      const { link, sockets } = liveLink()
+      const asked = Array.from({ length: 7 }, (_, i) => link.query('echo', i))
+      const sentQueries = () => sockets[0].sent.filter((m) => (m as { t: string }).t === 'query')
+      expect(sentQueries()).toHaveLength(4)
+      sockets[0].say({ t: 'result', id: 1, data: 'a' })
+      expect(sentQueries()).toHaveLength(5)
+      sockets[0].say({ t: 'result', id: 2, data: 'b' })
+      sockets[0].say({ t: 'result', id: 3, data: 'c' })
+      expect(sentQueries()).toHaveLength(7)
+      for (const id of [4, 5, 6, 7]) sockets[0].say({ t: 'result', id, data: id })
+      await expect(asked[0]).resolves.toBe('a')
+      await expect(asked[6]).resolves.toBe(7)
+      expect(sentQueries().map((m) => (m as { args: unknown[] }).args[0])).toEqual([0, 1, 2, 3, 4, 5, 6])
+    })
+
+    it('fails the lookups still waiting for a slot when the link drops, and lets a refused one free its slot', async () => {
+      const { link, sockets } = liveLink()
+      const outcomes = Array.from({ length: 6 }, (_, i) =>
+        link.query('echo', i).then(
+          () => 'answered',
+          (e: Error) => e.message
+        )
+      )
+      const sentQueries = () => sockets[0].sent.filter((m) => (m as { t: string }).t === 'query')
+      expect(sentQueries()).toHaveLength(4)
+      sockets[0].say({ t: 'result', id: 1, error: true })
+      expect(await outcomes[0]).toBe('The PC could not answer')
+      expect(sentQueries()).toHaveLength(5)
+      sockets[0].drop()
+      expect(await Promise.all(outcomes)).toEqual([
+        'The PC could not answer',
+        'Not connected',
+        'Not connected',
+        'Not connected',
+        'Not connected',
+        'Not connected'
+      ])
+    })
+
     it('gives up after a minute without an answer', async () => {
       const { link } = liveLink()
       const waiting = link.query('airfields')

@@ -36,6 +36,9 @@ export interface TokenStore {
   clear(): void
 }
 
+/** Most lookups asked of the PC at once: it answers this many per device and refuses the rest, so the rest wait their turn here. */
+const MAX_QUERIES_IN_FLIGHT = 4
+
 /** How long a lookup waits for its answer, in milliseconds. */
 const QUERY_TIMEOUT_MS = 60_000
 
@@ -67,6 +70,13 @@ export class LanConnection {
     number,
     { resolve: (data: unknown) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }
   >()
+  /** Lookups waiting for one of the PC's few lookup slots, oldest first. */
+  private readonly queuedQueries: {
+    name: string
+    args: unknown[]
+    resolve: (data: unknown) => void
+    reject: (error: Error) => void
+  }[] = []
   private readonly topics: Partial<LiveTopics> = {}
   private readonly stateListeners = new Set<StateListener>()
   private readonly topicListeners = new Map<LiveTopic, Set<(payload: never) => void>>()
@@ -115,17 +125,29 @@ export class LanConnection {
    * @returns The answer; rejects when the link is down, the PC refuses, or nothing comes back within a minute.
    */
   query(name: string, ...args: unknown[]): Promise<unknown> {
-    const socket = this.socket
-    if (!socket || this.current !== 'connected') return Promise.reject(new Error('Not connected'))
-    const id = this.nextQueryId++
+    if (!this.socket || this.current !== 'connected') return Promise.reject(new Error('Not connected'))
     return new Promise((resolve, reject) => {
+      this.queuedQueries.push({ name, args, resolve, reject })
+      this.sendQueuedQueries()
+    })
+  }
+
+  /** Sends waiting lookups while the PC has a slot free for them. */
+  private sendQueuedQueries(): void {
+    const socket = this.socket
+    if (!socket || this.current !== 'connected') return
+    while (this.pendingQueries.size < MAX_QUERIES_IN_FLIGHT) {
+      const next = this.queuedQueries.shift()
+      if (!next) return
+      const id = this.nextQueryId++
       const timer = setTimeout(() => {
         this.pendingQueries.delete(id)
-        reject(new Error('The PC did not answer'))
+        next.reject(new Error('The PC did not answer'))
+        this.sendQueuedQueries()
       }, QUERY_TIMEOUT_MS)
-      this.pendingQueries.set(id, { resolve, reject, timer })
-      socket.send(JSON.stringify({ t: 'query', id, name, args }))
-    })
+      this.pendingQueries.set(id, { resolve: next.resolve, reject: next.reject, timer })
+      socket.send(JSON.stringify({ t: 'query', id, name: next.name, args: next.args }))
+    }
   }
 
   /** @returns The active flight's recorded track so far: the snapshot's points, then each new one; a new array whenever it changes. */
@@ -311,6 +333,7 @@ export class LanConnection {
     this.pendingQueries.delete(message.id)
     if (message.error) waiting.reject(new Error('The PC could not answer'))
     else waiting.resolve(message.data)
+    this.sendQueuedQueries()
   }
 
   /** Fails every lookup still waiting: the link they were asked over has gone. */
@@ -320,6 +343,7 @@ export class LanConnection {
       waiting.reject(new Error('Not connected'))
     }
     this.pendingQueries.clear()
+    for (const queued of this.queuedQueries.splice(0)) queued.reject(new Error('Not connected'))
   }
 
   /** The PC refused: a wrong code while pairing, otherwise a token it no longer knows (revoked). */

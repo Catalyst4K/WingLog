@@ -236,6 +236,9 @@ function RadiosCard(props: React.ComponentProps<typeof BeyondAtcRadios>): React.
   )
 }
 
+/** How close to the bottom of the transcript counts as "at the bottom" (a line is about 16 px). */
+const FOLLOW_SLACK_PX = 24
+
 /**
  * Always visible, like `ActionsCard`'s Radios sibling: an empty scrollable box rather than disappearing, so the right
  * column doesn't jump around as the panel connects (beyondatc-panel-redesign.md). It fills the bounded height
@@ -246,17 +249,21 @@ function RadiosCard(props: React.ComponentProps<typeof BeyondAtcRadios>): React.
  * not reliably give this column a definite height for its `min-h-0` descendants, so the list rendered at its full height
  * and the whole *page* scrolled to follow the newest line (via `scrollIntoView` below), pushing the other cards off
  * screen. Grid resolves a definite height for every cell in a row before laying out its contents. The list stays
- * always-expanded but scroll-anchored to the latest line, so a long transcript's newest exchange isn't left out of view.
+ * always-expanded and follows the newest line while the reader is at the bottom of it, but only by moving the list's own
+ * scroll position: never the page (`scrollIntoView` scrolled every ancestor, so on a phone each new instruction threw the
+ * whole page to the bottom), and not at all once the reader has scrolled up to read.
  *
  * @param props The transcript.
  * @returns The element.
  */
 function TranscriptCard(props: { entries: BeyondAtcTranscriptEntry[] }): React.JSX.Element {
   const { t } = useTranslation()
-  const latestRef = useRef<HTMLLIElement>(null)
+  const listRef = useRef<HTMLUListElement>(null)
+  const following = useRef(true)
 
   useEffect(() => {
-    latestRef.current?.scrollIntoView({ block: 'nearest' })
+    const list = listRef.current
+    if (list && following.current) list.scrollTop = list.scrollHeight
   }, [props.entries])
 
   return (
@@ -265,13 +272,16 @@ function TranscriptCard(props: { entries: BeyondAtcTranscriptEntry[] }): React.J
         <CardTitle>{t('beyondAtcPanel.transcript')}</CardTitle>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col">
-        <ul className="flex h-full min-h-0 flex-col gap-1 overflow-y-auto text-xs">
+        <ul
+          ref={listRef}
+          onScroll={(event) => {
+            const list = event.currentTarget
+            following.current = list.scrollHeight - list.scrollTop - list.clientHeight < FOLLOW_SLACK_PX
+          }}
+          className="flex h-full min-h-0 flex-col gap-1 overflow-y-auto text-xs"
+        >
           {props.entries.map((entry, index) => (
-            <li
-              key={index}
-              ref={index === props.entries.length - 1 ? latestRef : undefined}
-              className="flex gap-1.5"
-            >
+            <li key={index} className="flex gap-1.5">
               <span className="shrink-0 font-medium text-foreground">{t(SPEAKER_KEY[entry.speaker])}:</span>
               <span className="text-muted-foreground">{entry.text}</span>
             </li>
