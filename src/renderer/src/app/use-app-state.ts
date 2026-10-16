@@ -10,15 +10,12 @@ import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import type {
   AppPage,
-  BeyondAtcState,
   DispatchOfp,
   Flight,
-  GsxRemoteMenuState,
   ProcedureSelection,
   SimConnectionStatus,
   SimTelemetry
 } from '@shared/ipc'
-import { gsxPromptState } from '../gsx-remote-importance'
 import i18n from '../i18n'
 import {
   emptyProcedureSelection,
@@ -26,7 +23,7 @@ import {
   selectionFromFlight
 } from '../procedure-selection'
 import { runAsync } from '../report-error'
-import { readNewInfoBoxes, resolveAtcClearance, type PendingAtcClearance } from './atc-clearance'
+import { useAtcClearancePrompt, useImportantGsxMenu } from './use-prompts'
 
 /** The dispatched OFP and procedure selection Dispatch and Track share, and their handlers. */
 export interface FlightPlan {
@@ -210,88 +207,6 @@ export function useOrphanedFlight(
   }
 }
 
-/**
- * Reads each new set of BeyondATC InfoBoxes for a clearance whose fields differ from the current selection, and holds it for the
- * user's accept or dismiss: overwrite, but ask first, gently. Never ATC's speech (winglog-backend's
- * docs/decisions.md). Re-subscribes whenever the selection changes so a diff is always checked against the live value,
- * the same "just resubscribe, it's cheap" style as procedure-selection.ts's fetch effects.
- *
- * @param selection The current procedure selection.
- * @param setSelection Applies an accepted clearance.
- * @returns The clearance awaiting an answer, and the accept and dismiss handlers.
- */
-export function useAtcClearancePrompt(
-  selection: ProcedureSelection,
-  setSelection: React.Dispatch<React.SetStateAction<ProcedureSelection>>
-): { pending: PendingAtcClearance | null; onAccept: () => void; onDismiss: () => void } {
-  // Unlike the GSX prompt, no remembered-dismissal key is needed: each new set of InfoBoxes
-  // is read once (lastAtcBoxesKey below), not re-offered while it stays up.
-  const [pending, setPending] = useState<PendingAtcClearance | null>(null)
-  // The last set of BeyondATC InfoBoxes already read: the state is pushed on every BeyondATC
-  // message, so this tells a genuinely new set apart from one already considered (and
-  // possibly dismissed).
-  const lastAtcBoxesKey = useRef('')
-
-  useEffect(() => {
-    return winglogApi().onBeyondAtcState((state: BeyondAtcState) => {
-      const read = readNewInfoBoxes(lastAtcBoxesKey.current, state, Date.now())
-      if (!read) return
-      lastAtcBoxesKey.current = read.key
-      if (!read.candidate) return
-      runAsync(
-        'atc clearance offer',
-        resolveAtcClearance(read.candidate, selection).then((offer) => {
-          if (offer) setPending(offer)
-        })
-      )
-    })
-  }, [selection])
-
-  return {
-    pending,
-    onAccept: () => {
-      if (!pending) return
-      setSelection((prev) => ({ ...prev, ...pending.fields }))
-      setPending(null)
-    },
-    onDismiss: () => setPending(null)
-  }
-}
-
-/**
- * GSX's live menu, tracked at the top level (not just inside GsxRemoteView) so an "important"
- * one — pushback direction, fuel amount, Callum's explicit call — can interrupt
- * wherever the user currently is, not just when they happen to be on the GSX tab. Everything
- * else GSX might ask stays confined to that tab, unflagged, resolved by GSX's own
- * default/timeout if nobody answers there (winglog-backend's docs/gsx-notes.md).
- *
- * @param onGsxTab Whether the GSX tab is showing, where the menu is answered in place.
- * @returns The menu, whether the global prompt is open, and its dismiss handler.
- */
-export function useImportantGsxMenu(onGsxTab: boolean): {
-  menu: GsxRemoteMenuState | null
-  open: boolean
-  onDismiss: () => void
-} {
-  const [menu, setMenu] = useState<GsxRemoteMenuState | null>(null)
-  // Remembers which exact menu the user dismissed without answering, so closing the global
-  // prompt doesn't just reopen itself on the next unrelated re-render — only a genuinely
-  // different menu (a new signature) triggers it again.
-  const [dismissedKey, setDismissedKey] = useState<string | null>(null)
-  useEffect(() => {
-    return winglogApi().onGsxRemoteMenu(setMenu)
-  }, [])
-
-  const { open, menuKey } = gsxPromptState(menu, onGsxTab, dismissedKey)
-  return {
-    menu,
-    open,
-    onDismiss: () => {
-      if (menuKey) setDismissedKey(menuKey)
-    }
-  }
-}
-
 /** Which tab is showing, the cross-tab hand-offs, and the handlers that navigate. */
 export interface Navigation {
   /** The tab showing — the chosen one, or Fleet when the chosen tab has since been hidden. */
@@ -455,3 +370,5 @@ export function useFirstLaunchSetup(): { setupOpen: boolean; setSetupOpen: (open
   }, [])
   return { setupOpen, setSetupOpen }
 }
+
+export { useAtcClearancePrompt, useImportantGsxMenu }

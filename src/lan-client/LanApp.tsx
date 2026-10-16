@@ -1,10 +1,14 @@
 /** The second-screen page: pair with the PC once, then the pages: the live map, the flight plan with the weather, ground services and ATC. */
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ImportantGsxMenuDialog } from '@/app/AppDialogs'
+import { LiveClientContext } from '@/live/LiveClient'
+import { useImportantGsxMenu } from '@/app/use-prompts'
 import type { LanConnection } from './lan-connection'
+import { lanLiveClient } from './lan-live-client'
 import { NavBar, type PageId } from './NavBar'
 import { InfoPage } from './InfoPages'
 import { TrackPage } from './TrackPage'
@@ -18,11 +22,17 @@ import { usePcSettings } from './use-pc-settings'
  */
 export function LanApp({ link }: { link: LanConnection }): React.JSX.Element {
   const state = useLinkState(link)
+  // Everything below reads the PC's live topics through the link, the same hooks the desktop window runs through Electron's preload.
+  const client = useMemo(() => lanLiveClient(link), [link])
   if (state === 'needs-pairing' || state === 'wrong-code') {
     return <PairingScreen wrong={state === 'wrong-code'} onPair={(code) => link.pair(code)} />
   }
   if (state === 'starting') return <Centered>{<Connecting />}</Centered>
-  return <Shell link={link} offline={state === 'offline'} />
+  return (
+    <LiveClientContext.Provider value={client}>
+      <Shell link={link} offline={state === 'offline'} />
+    </LiveClientContext.Provider>
+  )
 }
 
 function Connecting(): React.JSX.Element {
@@ -94,6 +104,8 @@ function Shell({ link, offline }: { link: LanConnection; offline: boolean }): Re
   const settings = usePcSettings(link)
   const pages = usePages(settings)
   const shown = pages.some((p) => p.id === page) ? page : 'track'
+  // An important GSX menu (pushback direction, fuel amount) interrupts on any page but GSX's own, where it is answered in place.
+  const gsxMenu = useImportantGsxMenu(shown === 'gsx')
   return (
     <div className="flex h-dvh flex-col">
       {offline && (
@@ -112,6 +124,7 @@ function Shell({ link, offline }: { link: LanConnection; offline: boolean }): Re
         )}
       </main>
       <NavBar pages={pages} current={shown} onChange={setPage} />
+      <ImportantGsxMenuDialog menu={gsxMenu.menu} open={gsxMenu.open} onDismiss={gsxMenu.onDismiss} />
     </div>
   )
 }

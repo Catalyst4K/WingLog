@@ -9,6 +9,7 @@ import { Tabs } from '@/components/ui/tabs'
 import { Toaster } from '@/components/ui/sonner'
 import { FleetView } from './FleetView'
 import { asyncHandler, runAsync } from './report-error'
+import { winglogApi } from './data/winglog-api'
 import { AppHeader } from './app/AppHeader'
 import { AtcClearanceDialog, ImportantGsxMenuDialog, OrphanedFlightDialog } from './app/AppDialogs'
 import {
@@ -215,7 +216,13 @@ export default function App(): React.JSX.Element {
   const plan = useFlightPlan()
   const nav = useNavigation(settings.gsxRemoteEnabled, settings.beyondAtcEnabled)
   const orphaned = useOrphanedFlight(plan, () => nav.setPage('track'))
-  const atcClearance = useAtcClearancePrompt(plan.procedureSelection, plan.setProcedureSelection)
+  // Accepting a clearance tells the PC's own copy of the choice at once, from whichever page is open: Track pushes it too, but only
+  // while it is showing, and the second screen reads the PC's copy.
+  const atcClearance = useAtcClearancePrompt(plan.procedureSelection, (action) => {
+    plan.setProcedureSelection(action)
+    const next = typeof action === 'function' ? action(plan.procedureSelection) : action
+    runAsync('App trackingSetProcedureSelection', winglogApi().trackingSetProcedureSelection(next))
+  })
   usePrefetchViews()
   const { setupOpen, setSetupOpen } = useFirstLaunchSetup()
   const gsxMenu = useImportantGsxMenu(nav.effectivePage === 'gsx')

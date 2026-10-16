@@ -6,11 +6,9 @@ import i18n from 'i18next'
 import { resolveAppLanguage } from '@shared/app-language'
 import '@/i18n'
 import './lan.css'
-import { LiveClientContext } from '@/live/LiveClient'
 import { LanApp } from './LanApp'
 import { deviceNameFrom } from './device-name'
 import { LanConnection } from './lan-connection'
-import { lanLiveClient } from './lan-live-client'
 import { codeFromHash } from './pairing-link'
 import { installWindowShim } from './window-shim'
 
@@ -67,8 +65,6 @@ window.addEventListener('pageshow', () => link.resume())
 
 createRoot(document.getElementById('root') as HTMLElement).render(
   <StrictMode>
-    <LiveClientContext.Provider value={lanLiveClient(link)}>
-      <LanApp link={link} />
-    </LiveClientContext.Provider>
+    <LanApp link={link} />
   </StrictMode>
 )

@@ -22,7 +22,7 @@ function field(value: unknown, key: string, fallback: string): unknown {
  *
  * @param link The link to the PC, which answers the lookups.
  */
-export function installWindowShim(link: Pick<LanConnection, 'query'>): void {
+export function installWindowShim(link: Pick<LanConnection, 'query' | 'latest'>): void {
   const known: Record<string, (...args: never[]) => unknown> = {
     airportListAirfields: () => link.query('airfields'),
     navdataHasTaxiNetwork: (icao: string) => link.query('taxi.has', icao),
@@ -62,6 +62,8 @@ export function installWindowShim(link: Pick<LanConnection, 'query'>): void {
     settingsGetMapLanguage: () => link.query('settings.display').then((d) => field(d, 'mapLanguage', 'en')),
     settingsGetGsxRemote: () => link.query('settings.gsxRemote'),
     settingsGetBeyondAtc: () => link.query('settings.beyondAtc'),
+    // What BeyondATC shows now: the clearance prompt reads the route's arrival airport from it.
+    beyondAtcGetState: () => Promise.resolve(link.latest('beyondAtcState')),
     weatherGetMetars: (codes: string[]) => link.query('weather.metars', codes),
     onBeyondAtcTranscript: () => () => undefined
   }

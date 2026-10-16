@@ -196,6 +196,88 @@ describe('the Procedures button', () => {
   })
 })
 
+describe('pop-ups from the other apps (docs/plans/lan-popups.md)', () => {
+  const PUSHBACK = {
+    menuShown: true,
+    searchActive: false,
+    searchSession: 0,
+    title: 'Select pushback direction',
+    header: '',
+    subtitle: '',
+    entries: ['Left', 'Right'],
+    icons: [],
+    disabled: [],
+    layout: 'list'
+  }
+  const STAR_CLEARANCE = { infoBoxes: [{ title: 'STAR', info: 'LOGA2H' }], infoBoxesAt: 1_000 }
+
+  it('shows GSX’s important menu over any page, and sends the answer to the PC', async () => {
+    stubNavdata()
+    const { link, sockets } = setup('tok')
+    render(<LanApp link={link} />)
+    act(() => {
+      sockets[0].onopen?.()
+      sockets[0].say({ t: 'snapshot', topics: { gsxRemoteMenu: PUSHBACK }, flight: null })
+    })
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText('GSX needs your input')).toBeInTheDocument()
+    expect(within(dialog).getByText('Select pushback direction')).toBeInTheDocument()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Right' }))
+    expect(sockets[0].sent.at(-1)).toEqual({ t: 'cmd', name: 'gsx.pickMenu', args: [1] })
+    // GSX clears the menu once it has the answer: the prompt goes with it.
+    act(() =>
+      sockets[0].say({
+        t: 'topic',
+        name: 'gsxRemoteMenu',
+        payload: { ...PUSHBACK, menuShown: false, entries: [] }
+      })
+    )
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('offers a BeyondATC clearance on the phone, and Update sends the new choice to the PC', async () => {
+    stubNavdata()
+    const { link, sockets } = setup('tok')
+    render(<LanApp link={link} />)
+    act(() => {
+      sockets[0].onopen?.()
+      sockets[0].say({ t: 'snapshot', topics: {}, flight: FLIGHT_WITH_SELECTION })
+    })
+    act(() => sockets[0].say({ t: 'topic', name: 'beyondAtcState', payload: STAR_CLEARANCE }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText('Update procedure from ATC clearance?')).toBeInTheDocument()
+    expect(within(dialog).getByText(/SIER7B/)).toBeInTheDocument()
+    expect(within(dialog).getByText(/LOGA2H/)).toBeInTheDocument()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Update' }))
+    expect(sockets[0].sent.at(-1)).toEqual({
+      t: 'cmd',
+      name: 'track.setProcedureSelection',
+      args: [expect.objectContaining({ starIdent: 'LOGA2H', approachIdent: 'ILS 27L' })]
+    })
+    expect(screen.getByText('KAMI2A · LOGA2H · ILS 27L')).toBeInTheDocument()
+  })
+
+  it('closes the phone’s prompt when the PC answers it first', async () => {
+    stubNavdata()
+    const { link, sockets } = setup('tok')
+    render(<LanApp link={link} />)
+    act(() => {
+      sockets[0].onopen?.()
+      sockets[0].say({ t: 'snapshot', topics: {}, flight: FLIGHT_WITH_SELECTION })
+    })
+    act(() => sockets[0].say({ t: 'topic', name: 'beyondAtcState', payload: STAR_CLEARANCE }))
+    await screen.findByRole('dialog')
+    act(() =>
+      sockets[0].say({
+        t: 'topic',
+        name: 'procedureSelection',
+        payload: { ...FLIGHT_WITH_SELECTION.flight.selection, starIdent: 'LOGA2H' }
+      })
+    )
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+})
+
 describe('LanApp', () => {
   it('asks for the pairing code first, and sends it to the PC', async () => {
     const { link, sockets } = setup()
