@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { StorageBanner } from '@/StorageBanner'
 import type { LanConnection } from './lan-connection'
 import { NavBar, type PageId } from './NavBar'
 import { InfoPage } from './InfoPages'
@@ -101,6 +102,7 @@ function Shell({ link, offline }: { link: LanConnection; offline: boolean }): Re
           {t('lanPage.offline')}
         </p>
       )}
+      <StorageBanner />
       <main className="min-h-0 flex-1">
         <div className={shown === 'track' ? 'h-full' : 'hidden'}>
           <TrackPage link={link} />

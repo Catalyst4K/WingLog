@@ -828,6 +828,12 @@
       "enroute": "En route"
     }
   },
+  "storage": {
+    "label": "Espace disque faible",
+    "low": "Votre disque se remplit ({{free}} restants). Libérez de l'espace avant un long vol.",
+    "critical": "Votre disque est presque plein ({{free}} restants). Libérez de l'espace maintenant, sinon WingLog risque de ne pas pouvoir enregistrer votre vol.",
+    "saveFailing": "Votre disque est plein, WingLog ne peut donc pas enregistrer le vol. Il garde la trace en mémoire et l'enregistrera dès qu'il y aura de la place."
+  },
   "updates": {
     "banner": {
       "label": "Mise à jour disponible",

@@ -4,6 +4,7 @@ import { Suspense, useEffect } from 'react'
 import type { AppPage as AppPageId, SimTelemetry } from '@shared/ipc'
 import { SetupDialog } from './SetupDialog'
 import { UpdateBanner } from './UpdateBanner'
+import { StorageBanner } from './StorageBanner'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs } from '@/components/ui/tabs'
 import { Toaster } from '@/components/ui/sonner'
@@ -223,6 +224,7 @@ export default function App(): React.JSX.Element {
 
   return (
     <main className="flex h-screen flex-col">
+      <StorageBanner />
       <UpdateBanner airborne={telemetry !== null && !telemetry.onGround} />
       <Tabs
         value={nav.effectivePage}

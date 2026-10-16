@@ -29,6 +29,7 @@ export const electronLiveClient: LiveClient = {
     const w = window.winglog
     const getters: Getters = {
       simConnectionStatus: w.getSimConnectionStatus,
+      storageStatus: w.getStorageStatus,
       gsxRemoteStatus: w.gsxRemoteGetStatus,
       gsxRemoteServices: w.gsxRemoteGetServices,
       gsxRemoteGate: w.gsxRemoteGetGateInfo,
@@ -58,6 +59,7 @@ export const electronLiveClient: LiveClient = {
       simConnectionStatus: w.onSimConnectionStatus,
       trackingPoint: w.onTrackingPoint,
       trackingPointsUpdated: w.onTrackingPointsUpdated,
+      storageStatus: w.onStorageStatus,
       gsxRemoteStatus: w.onGsxRemoteStatus,
       gsxRemoteServices: w.onGsxRemoteServices,
       gsxRemoteGate: w.onGsxRemoteGate,

@@ -818,6 +818,12 @@
       "enroute": "航路"
     }
   },
+  "storage": {
+    "label": "磁碟空間不足",
+    "low": "磁碟空間不足（剩餘 {{free}}）。長途飛行前請先釋放一些空間。",
+    "critical": "磁碟幾乎已滿（剩餘 {{free}}）。請立即釋放空間，否則 WingLog 可能無法儲存你的飛行。",
+    "saveFailing": "磁碟已滿，WingLog 無法儲存飛行。航跡暫存在記憶體中，有空間後會立即儲存。"
+  },
   "updates": {
     "banner": {
       "label": "有可用更新",
