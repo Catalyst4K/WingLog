@@ -594,6 +594,33 @@ export function setFlownRoute(db: WingLogDb, id: number, flownRouteJson: string)
     .run()
 }
 
+/**
+ * The stretches of this flight's path estimated from its flight plan, as stored (schema.ts's estimatedTrackJson).
+ *
+ * @param db The database.
+ * @param id The flight.
+ * @returns The stored JSON, or null when there are none or the flight doesn't exist.
+ */
+export function getEstimatedTrackJson(db: WingLogDb, id: number): string | null {
+  return (
+    db.select({ json: flight.estimatedTrackJson }).from(flight).where(eq(flight.id, id)).get()?.json ?? null
+  )
+}
+
+/**
+ * Stores, or with null removes, the flight's estimated stretches.
+ *
+ * @param db The database.
+ * @param id The flight.
+ * @param estimatedTrackJson The stretches as JSON, or null for none.
+ */
+export function setEstimatedTrack(db: WingLogDb, id: number, estimatedTrackJson: string | null): void {
+  db.update(flight)
+    .set({ estimatedTrackJson, updatedAt: new Date().toISOString() })
+    .where(eq(flight.id, id))
+    .run()
+}
+
 /** Writes the live-selected procedures at flight completion (TrackingController), the
  *  later of the two writes ProcedureSelection's doc comment describes — overwrites
  *  whatever createFlight wrote at save time, since the pilot may have changed things

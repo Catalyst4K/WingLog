@@ -341,6 +341,7 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     navdataGetTaxiNetwork: vi.fn().mockResolvedValue([]),
     // TrackView (lazy)
     trackPointList: vi.fn().mockResolvedValue([]),
+    trackEstimateGet: vi.fn().mockResolvedValue([]),
     onTrackingPoint: vi.fn(() => () => {}),
     onTrackingPointsUpdated: vi.fn(() => () => {}),
     trackingStart: vi.fn().mockResolvedValue(undefined),

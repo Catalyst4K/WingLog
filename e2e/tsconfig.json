@@ -28,6 +28,8 @@
     "../src/shared/types/*.ts",
     "../src/shared/live.ts",
     "../src/shared/simbrief-ofp.ts",
+    "../src/shared/track-gap-fill.ts",
+    "../src/shared/geo.ts",
     "../src/shared/units.ts",
     "../src/main/platform/*.ts"
   ]

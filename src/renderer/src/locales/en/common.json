@@ -619,6 +619,7 @@
     "approximateRoute": "Approximate route — no flight plan on file for this flight"
   },
   "logbookView": {
+    "estimatedTrack": "The dashed line is about {{nm}} nm estimated from the flight plan. It was not recorded.",
     "loading": "Loading…",
     "belowAverage": "Below average",
     "landingCard": {
@@ -825,6 +826,14 @@
       "runways": "RWY {{runways}}",
       "enroute": "En route"
     }
+  },
+  "trackGapFillButton": {
+    "button": "Fill gaps from the flight plan",
+    "remove": "Remove estimated stretches",
+    "filled": "Gaps filled: {{count}}, about {{nm}} nm in all, dashed on the map.",
+    "noGaps": "There are no gaps to fill along the flight plan.",
+    "noRoute": "This flight has no flight plan route to follow.",
+    "removed": "Removed the estimated stretches."
   },
   "updates": {
     "banner": {

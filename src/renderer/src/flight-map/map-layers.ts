@@ -81,6 +81,9 @@ export const TRAIL_SOURCE_ID = 'breadcrumb-trail'
 // real sample (not once per frame). Same paint style as the main trail so the two read as
 // one continuous line.
 export const TRAIL_TIP_SOURCE_ID = 'breadcrumb-trail-tip'
+// The stretches estimated from the flight plan (docs/plans/track-gap-fill.md): the trail's blue, but lighter and dashed, so a made-up
+// stretch can never be read as a recorded one.
+export const ESTIMATED_TRAIL_SOURCE_ID = 'estimated-trail'
 export const WAYPOINT_SOURCE_ID = 'planned-waypoints'
 // fitBoundsTo's zoom for a single coordinate (nothing to fit a box around). Following the
 // aircraft uses follow-zoom.ts's ground/altitude bands instead.
@@ -323,6 +326,14 @@ export function addFlightLayers(map: MapLibreMap, dark: boolean): Marker {
     type: 'line',
     source: TRAIL_SOURCE_ID,
     paint: { 'line-color': '#1a73e8', 'line-width': 3 }
+  })
+
+  map.addSource(ESTIMATED_TRAIL_SOURCE_ID, { type: 'geojson', data: lineString([]) })
+  map.addLayer({
+    id: ESTIMATED_TRAIL_SOURCE_ID,
+    type: 'line',
+    source: ESTIMATED_TRAIL_SOURCE_ID,
+    paint: { 'line-color': '#1a73e8', 'line-width': 3, 'line-opacity': 0.55, 'line-dasharray': [2, 2] }
   })
 
   map.addSource(TRAIL_TIP_SOURCE_ID, { type: 'geojson', data: lineString([]) })

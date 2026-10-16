@@ -613,6 +613,7 @@
     "approximateRoute": "近似航路 — 该航班没有存档的飞行计划"
   },
   "logbookView": {
+    "estimatedTrack": "虚线约 {{nm}} nm，是根据飞行计划估算的，并非实际记录。",
     "loading": "加载中…",
     "belowAverage": "低于平均水平",
     "landingCard": {
@@ -817,6 +818,14 @@
       "runways": "跑道 {{runways}}",
       "enroute": "航路"
     }
+  },
+  "trackGapFillButton": {
+    "button": "用飞行计划补全缺口",
+    "remove": "移除估算路段",
+    "filled": "已补全 {{count}} 处缺口，共约 {{nm}} nm，在地图上以虚线显示。",
+    "noGaps": "沿飞行计划没有可补全的缺口。",
+    "noRoute": "这次飞行没有可沿用的飞行计划航线。",
+    "removed": "已移除估算路段。"
   },
   "updates": {
     "banner": {

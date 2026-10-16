@@ -16,6 +16,7 @@ import {
   useMapInstance,
   useMapInteraction,
   useRouteLayers,
+  useEstimatedTrail,
   useTrailLayers
 } from './flight-map/use-flight-map'
 
@@ -28,6 +29,8 @@ export interface FlightMapProps {
    *  a crash-resume or a mid-flight teleport, winglog-backend's docs/plans/
    *  resume-track-cleanup.md) are dropped inside this component, not by the caller. */
   trackPoints: TrackPoint[]
+  /** Logbook only: stretches estimated from the flight plan, drawn dashed apart from the recorded track (docs/plans/track-gap-fill.md). */
+  estimatedTrack?: [number, number][][]
   /**
    * true (TrackView): animated marker/camera follow as new points arrive.
    * false (Logbook detail): draw the whole trail once and fit the view to it — the
@@ -67,6 +70,7 @@ export interface FlightMapProps {
 // Stable reference for the default so the route/waypoint effect doesn't re-fire on
 // every render just because callers that don't pass `waypoints` get a fresh `[]` each time.
 const EMPTY_WAYPOINTS: Waypoint[] = []
+const NO_ESTIMATE: [number, number][][] = []
 
 /**
  * The flight map.
@@ -78,6 +82,7 @@ export function FlightMap({
   route,
   waypoints = EMPTY_WAYPOINTS,
   trackPoints: rawTrackPoints,
+  estimatedTrack = NO_ESTIMATE,
   live,
   telemetry,
   telemetryPhase: activePhase,
@@ -107,6 +112,7 @@ export function FlightMap({
     routeIsApproximate
   })
   useTrailLayers(instance, { trackPoints, route, live, followEnabled })
+  useEstimatedTrail(instance, estimatedTrack)
   useMapInteraction(instance, live, followEnabled, hasAircraft)
 
   const vfr = useVfrOverlay({

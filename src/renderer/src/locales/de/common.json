@@ -619,6 +619,7 @@
     "approximateRoute": "Ungefähre Route — kein Flugplan für diesen Flug hinterlegt"
   },
   "logbookView": {
+    "estimatedTrack": "Die gestrichelte Linie sind etwa {{nm}} nm, aus dem Flugplan geschätzt. Sie wurden nicht aufgezeichnet.",
     "loading": "Wird geladen…",
     "belowAverage": "Unterdurchschnittlich",
     "landingCard": {
@@ -825,6 +826,14 @@
       "runways": "Piste {{runways}}",
       "enroute": "Streckenflug"
     }
+  },
+  "trackGapFillButton": {
+    "button": "Lücken aus dem Flugplan füllen",
+    "remove": "Geschätzte Abschnitte entfernen",
+    "filled": "Lücken gefüllt: {{count}}, insgesamt etwa {{nm}} nm, gestrichelt auf der Karte.",
+    "noGaps": "Es gibt keine Lücken, die sich entlang des Flugplans füllen lassen.",
+    "noRoute": "Dieser Flug hat keine Flugplanroute, der man folgen könnte.",
+    "removed": "Die geschätzten Abschnitte wurden entfernt."
   },
   "updates": {
     "banner": {

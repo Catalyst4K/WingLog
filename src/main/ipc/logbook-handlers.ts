@@ -14,7 +14,9 @@ import {
   getLogbookStats,
   getFleetStats,
   getFlight,
-  setFlownRoute
+  setFlownRoute,
+  getEstimatedTrackJson,
+  setEstimatedTrack
 } from '../db/flight-repo'
 import { importLogbookCsv, importLogbookJson, exportLogbook } from '../db/logbook-import'
 import { listInvoicesForFlight } from '../db/flight-invoice-repo'
@@ -29,6 +31,13 @@ import { simplifyTrackPoints } from '../tracking/track-simplify'
 import { listTrackPoints } from '../db/track-point-repo'
 import { runTrackCleanupForFlight } from '../db/run-track-cleanup'
 import { deriveFlownRouteJson } from '../tracking/route-simplify'
+import { parseRouteFromOfpJson } from '@shared/ofp-route'
+import {
+  estimatedLengthNm,
+  fillTrackGaps,
+  parseEstimatedStretches,
+  type TrackEstimateResult
+} from '@shared/track-gap-fill'
 
 /** What the logbook channels need. */
 export interface LogbookHandlerDeps {
@@ -149,5 +158,32 @@ export function registerLogbookHandlers(
     if (flownRouteJson) setFlownRoute(db, flightId, flownRouteJson)
     scheduleBackgroundSync()
     return { excludedCount: result.exclusions.length, resegmentedCount: result.segmentReassignments.length }
+  })
+
+  // Logbook's "Fill gaps from the flight plan" (winglog-backend's docs/plans/track-gap-fill.md): the flight's recording gaps
+  // estimated along its OFP route, stored with the flight beside, never inside, its recorded points.
+  ipcMain.handle(IpcChannels.trackEstimateGet, (_event, flightId: unknown) =>
+    Number.isInteger(flightId) ? parseEstimatedStretches(getEstimatedTrackJson(db, flightId as number)) : []
+  )
+
+  ipcMain.handle(IpcChannels.trackEstimateFill, (_event, flightId: unknown): TrackEstimateResult => {
+    const none = { count: 0, lengthNm: 0 }
+    if (!Number.isInteger(flightId)) return { outcome: 'noGaps', ...none }
+    const found = getFlight(db, flightId as number)
+    const route = parseRouteFromOfpJson(found?.ofpJson ?? null)
+    if (!found || route.length < 2) return { outcome: 'noRoute', ...none }
+    const points = listTrackPoints(db, found.id).filter((p) => p.excludedReason == null)
+    const stretches = fillTrackGaps(points, route)
+    setEstimatedTrack(db, found.id, stretches.length > 0 ? JSON.stringify(stretches) : null)
+    scheduleBackgroundSync()
+    return stretches.length > 0
+      ? { outcome: 'filled', count: stretches.length, lengthNm: estimatedLengthNm(stretches) }
+      : { outcome: 'noGaps', ...none }
+  })
+
+  ipcMain.handle(IpcChannels.trackEstimateClear, (_event, flightId: unknown) => {
+    if (!Number.isInteger(flightId)) return
+    setEstimatedTrack(db, flightId as number, null)
+    scheduleBackgroundSync()
   })
 }

@@ -621,6 +621,7 @@
     "approximateRoute": "Route approximative — aucun plan de vol enregistré pour ce vol"
   },
   "logbookView": {
+    "estimatedTrack": "La ligne en pointillés représente environ {{nm}} nm estimés d’après le plan de vol. Ils n’ont pas été enregistrés.",
     "loading": "Chargement…",
     "belowAverage": "Sous la moyenne",
     "landingCard": {
@@ -827,6 +828,14 @@
       "runways": "Piste {{runways}}",
       "enroute": "En route"
     }
+  },
+  "trackGapFillButton": {
+    "button": "Combler les trous avec le plan de vol",
+    "remove": "Retirer les tronçons estimés",
+    "filled": "Trous comblés : {{count}}, environ {{nm}} nm au total, en pointillés sur la carte.",
+    "noGaps": "Il n’y a aucun trou à combler le long du plan de vol.",
+    "noRoute": "Ce vol n’a pas de route de plan de vol à suivre.",
+    "removed": "Les tronçons estimés ont été retirés."
   },
   "updates": {
     "banner": {
