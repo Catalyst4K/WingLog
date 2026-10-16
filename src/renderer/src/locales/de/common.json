@@ -619,6 +619,7 @@
     "approximateRoute": "Ungefähre Route — kein Flugplan für diesen Flug hinterlegt"
   },
   "logbookView": {
+    "estimatedTrack": "Die gestrichelte Linie sind etwa {{nm}} nm, aus dem Flugplan geschätzt. Sie wurden nicht aufgezeichnet.",
     "loading": "Wird geladen…",
     "belowAverage": "Unterdurchschnittlich",
     "landingCard": {
@@ -831,6 +832,14 @@
     "low": "Dein Datenträger wird knapp ({{free}} frei). Schaffe vor einem langen Flug etwas Platz.",
     "critical": "Dein Datenträger ist fast voll ({{free}} frei). Schaffe jetzt Platz, sonst kann WingLog deinen Flug eventuell nicht speichern.",
     "saveFailing": "Dein Datenträger ist voll, WingLog kann den Flug deshalb nicht speichern. Die Strecke wird im Arbeitsspeicher gehalten und gespeichert, sobald wieder Platz da ist."
+  },
+  "trackGapFillButton": {
+    "button": "Lücken aus dem Flugplan füllen",
+    "remove": "Geschätzte Abschnitte entfernen",
+    "filled": "Lücken gefüllt: {{count}}, insgesamt etwa {{nm}} nm, gestrichelt auf der Karte.",
+    "noGaps": "Es gibt keine Lücken, die sich entlang des Flugplans füllen lassen.",
+    "noRoute": "Dieser Flug hat keine Flugplanroute, der man folgen könnte.",
+    "removed": "Die geschätzten Abschnitte wurden entfernt."
   },
   "updates": {
     "banner": {

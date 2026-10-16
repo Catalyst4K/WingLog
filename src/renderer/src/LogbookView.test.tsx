@@ -343,6 +343,7 @@ function buildRawWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     logbookListFlightScores: vi.fn().mockResolvedValue([]),
     // FlightDetail (opened from the list)
     trackPointList: vi.fn().mockResolvedValue([]),
+    trackEstimateGet: vi.fn().mockResolvedValue([]),
     logbookListLandings: vi.fn().mockResolvedValue([]),
     logbookListAllLandings: vi.fn().mockResolvedValue([]),
     logbookGreatCircleRoute: vi.fn().mockResolvedValue(null),

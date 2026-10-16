@@ -621,6 +621,7 @@
     "approximateRoute": "Rotta approssimativa — nessun piano di volo registrato per questo volo"
   },
   "logbookView": {
+    "estimatedTrack": "La linea tratteggiata è di circa {{nm}} nm stimati dal piano di volo. Non sono stati registrati.",
     "loading": "Caricamento…",
     "belowAverage": "Sotto la media",
     "landingCard": {
@@ -833,6 +834,14 @@
     "low": "Il disco si sta riempiendo (restano {{free}}). Libera spazio prima di un volo lungo.",
     "critical": "Il disco è quasi pieno (restano {{free}}). Libera spazio ora, altrimenti WingLog potrebbe non riuscire a salvare il volo.",
     "saveFailing": "Il disco è pieno, quindi WingLog non può salvare il volo. Tiene la traccia in memoria e la salverà appena c'è spazio."
+  },
+  "trackGapFillButton": {
+    "button": "Riempi i vuoti con il piano di volo",
+    "remove": "Rimuovi i tratti stimati",
+    "filled": "Vuoti riempiti: {{count}}, circa {{nm}} nm in tutto, tratteggiati sulla mappa.",
+    "noGaps": "Non ci sono vuoti da riempire lungo il piano di volo.",
+    "noRoute": "Questo volo non ha una rotta del piano di volo da seguire.",
+    "removed": "I tratti stimati sono stati rimossi."
   },
   "updates": {
     "banner": {

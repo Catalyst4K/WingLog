@@ -3,17 +3,7 @@
 import type { NavdataLeg, NavdataProcedureOption, ProcedureSelection } from '@shared/ipc'
 import { isVisualApproach } from '@shared/visual-approach'
 import { destinationPoint, METRES_PER_NM, wrapLongitude } from '@shared/geo'
-
-function navlogFixes(ofpJson: string | null): Record<string, unknown>[] {
-  if (!ofpJson) return []
-  try {
-    const parsed: unknown = JSON.parse(ofpJson)
-    const fixes = (parsed as { navlog?: { fix?: unknown } })?.navlog?.fix
-    return Array.isArray(fixes) ? (fixes as Record<string, unknown>[]) : []
-  } catch {
-    return []
-  }
-}
+import { navlogFixes, parseRouteFromOfpJson } from '@shared/ofp-route'
 
 /**
  * Empty SimBrief fields deserialize to `{}`, not `""` or missing (docs/simbrief-notes.md)
@@ -57,23 +47,7 @@ function apiParamsSection(ofpJson: string | null): Record<string, unknown> {
   return objectSection(ofpJson, 'api_params')
 }
 
-/**
- * Extracts the planned route as [lon, lat] pairs (GeoJSON order) from a flight's raw SimBrief OFP JSON, specifically
- * `navlog.fix[].pos_lat`/`pos_long` (docs/decisions.md dispatch entry). Returns an empty route rather than
- * throwing on anything unexpected: a missing planned route just means the map has no line to draw.
- *
- * @param ofpJson The OFP JSON, or null.
- * @returns The route's [lon, lat] pairs.
- */
-export function parseRouteFromOfpJson(ofpJson: string | null): [number, number][] {
-  const points: [number, number][] = []
-  for (const fix of navlogFixes(ofpJson)) {
-    const lon = Number(fix.pos_long)
-    const lat = Number(fix.pos_lat)
-    if (Number.isFinite(lon) && Number.isFinite(lat)) points.push([lon, lat])
-  }
-  return points
-}
+export { parseRouteFromOfpJson }
 
 export type RouteSegment = 'sid' | 'enroute' | 'star' | 'approach'
 

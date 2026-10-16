@@ -27,6 +27,10 @@ Click a flight to see:
 - **View OFP PDF** for SimBrief's flight plan;
 - **Add to fleet** for a free flight flown in an aircraft that isn't in your fleet yet;
 - **Clean up track**, if a resumed flight left odd points in its track;
+- **Fill gaps from the flight plan**, if the recording stopped for a while (WingLog closed, or the disk was full). It draws the
+  missing stretch along the flight's flight plan, as a dashed line apart from the blue line that was recorded, and says how many
+  nautical miles of it are estimated. It needs the flight to have a flight plan from SimBrief, and both ends of the gap to lie near
+  it. The recorded track itself is never changed, and the same button then reads **Remove estimated stretches**;
 - **Delete flight**.
 
 ## The landing report

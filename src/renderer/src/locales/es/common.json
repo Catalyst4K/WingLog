@@ -621,6 +621,7 @@
     "approximateRoute": "Ruta aproximada — no hay plan de vuelo registrado para este vuelo"
   },
   "logbookView": {
+    "estimatedTrack": "La línea discontinua son unas {{nm}} nm estimadas a partir del plan de vuelo. No se grabaron.",
     "loading": "Cargando…",
     "belowAverage": "Por debajo del promedio",
     "landingCard": {
@@ -833,6 +834,14 @@
     "low": "Tu disco se está quedando sin espacio (quedan {{free}}). Libera espacio antes de un vuelo largo.",
     "critical": "Tu disco está casi lleno (quedan {{free}}). Libera espacio ahora o WingLog podría no poder guardar tu vuelo.",
     "saveFailing": "Tu disco está lleno, así que WingLog no puede guardar el vuelo. Mantiene el recorrido en memoria y lo guardará en cuanto haya espacio."
+  },
+  "trackGapFillButton": {
+    "button": "Rellenar huecos con el plan de vuelo",
+    "remove": "Quitar los tramos estimados",
+    "filled": "Huecos rellenados: {{count}}, unas {{nm}} nm en total, con línea discontinua en el mapa.",
+    "noGaps": "No hay huecos que rellenar a lo largo del plan de vuelo.",
+    "noRoute": "Este vuelo no tiene una ruta del plan de vuelo que seguir.",
+    "removed": "Se quitaron los tramos estimados."
   },
   "updates": {
     "banner": {

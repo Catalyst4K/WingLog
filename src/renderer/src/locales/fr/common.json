@@ -621,6 +621,7 @@
     "approximateRoute": "Route approximative — aucun plan de vol enregistré pour ce vol"
   },
   "logbookView": {
+    "estimatedTrack": "La ligne en pointillés représente environ {{nm}} nm estimés d’après le plan de vol. Ils n’ont pas été enregistrés.",
     "loading": "Chargement…",
     "belowAverage": "Sous la moyenne",
     "landingCard": {
@@ -833,6 +834,14 @@
     "low": "Votre disque se remplit ({{free}} restants). Libérez de l'espace avant un long vol.",
     "critical": "Votre disque est presque plein ({{free}} restants). Libérez de l'espace maintenant, sinon WingLog risque de ne pas pouvoir enregistrer votre vol.",
     "saveFailing": "Votre disque est plein, WingLog ne peut donc pas enregistrer le vol. Il garde la trace en mémoire et l'enregistrera dès qu'il y aura de la place."
+  },
+  "trackGapFillButton": {
+    "button": "Combler les trous avec le plan de vol",
+    "remove": "Retirer les tronçons estimés",
+    "filled": "Trous comblés : {{count}}, environ {{nm}} nm au total, en pointillés sur la carte.",
+    "noGaps": "Il n’y a aucun trou à combler le long du plan de vol.",
+    "noRoute": "Ce vol n’a pas de route de plan de vol à suivre.",
+    "removed": "Les tronçons estimés ont été retirés."
   },
   "updates": {
     "banner": {

@@ -19,6 +19,7 @@ const DEFAULT_MAX_TEXT_LENGTH = 65536
 const LARGE_TEXT_LIMITS: Record<string, number> = {
   ofpJson: 16 * 1024 * 1024,
   flownRouteJson: 1024 * 1024,
+  estimatedTrackJson: 1024 * 1024,
   receiptJson: 1024 * 1024
 }
 

@@ -7,6 +7,7 @@
 import { winglogApi } from '../data/winglog-api'
 import { useEffect, useMemo, useState } from 'react'
 import type { Flight, TrackPoint } from '@shared/ipc'
+import { estimatedLengthNm, type EstimatedStretch } from '@shared/track-gap-fill'
 import { computeChartAxisTicks, formatTickLabel } from '../chart-ticks'
 import { displayAltitude } from '../display-altitude'
 import { selectionFromFlight, useLiveWaypoints } from '../procedure-selection'
@@ -34,6 +35,26 @@ export function useFlightTrack(flightId: number): {
     runAsync('LogbookView trackPointList', winglogApi().trackPointList(flightId).then(setTrackPoints))
   }, [flightId])
   return { trackPoints, setTrackPoints }
+}
+
+/**
+ * Loads the stretches of the flight's path estimated from its flight plan (TrackGapFillButton).
+ *
+ * @param flightId The flight.
+ * @returns The stretches, the same as map lines, the estimated distance in nautical miles, and a setter for when they change.
+ */
+export function useTrackEstimate(flightId: number): {
+  estimate: EstimatedStretch[]
+  estimatedLines: [number, number][][]
+  estimatedNm: number
+  setEstimate: (estimate: EstimatedStretch[]) => void
+} {
+  const [estimate, setEstimate] = useState<EstimatedStretch[]>([])
+  useEffect(() => {
+    runAsync('LogbookView trackEstimateGet', winglogApi().trackEstimateGet(flightId).then(setEstimate))
+  }, [flightId])
+  const estimatedLines = useMemo(() => estimate.map((s) => s.coordinates), [estimate])
+  return { estimate, estimatedLines, estimatedNm: estimatedLengthNm(estimate), setEstimate }
 }
 
 /** The route and waypoints the map draws for a flight. */

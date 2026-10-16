@@ -59,6 +59,11 @@ test('browses to a completed flight, sees its landing/track detail, and deletes 
     await expect(window.getByText('Touchdown rate')).toBeVisible()
     await expect(window.getByText('23R', { exact: true })).toBeVisible()
 
+    // "Fill gaps from the flight plan": the seeded flight has no OFP, so the app says there is no route to follow
+    // (the gap logic itself is unit-tested against flight 239's real route).
+    await window.getByRole('button', { name: 'Fill gaps from the flight plan' }).click()
+    await expect(window.getByText('This flight has no flight plan route to follow.')).toBeVisible()
+
     // Delete — the confirm button shares its accessible name with the trigger that opened
     // it, so the second click is scoped to the dialog itself, rather than a bare role query
     // that could still resolve the original page button for a moment.

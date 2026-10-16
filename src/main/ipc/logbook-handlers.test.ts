@@ -6,7 +6,7 @@ import { createAircraft } from '../db/aircraft-repo'
 import { createDb, type WingLogDb } from '../db/client'
 import { completeFlight, createFlight, recordOff, recordOn, startFlight } from '../db/flight-repo'
 import { createLanding } from '../db/landing-repo'
-import { createTrackPoint } from '../db/track-point-repo'
+import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
 import { buildLandingRecord } from '../tracking/landing-capture'
 import { registerLogbookHandlers } from './logbook-handlers'
 import { fakeIpc } from './fake-ipc'
@@ -146,5 +146,96 @@ describe('logbook IPC handlers', () => {
     expect((invoke(IpcChannels.logbookGreatCircleRoute, 'EGLL', 'KJFK') as unknown[]).length).toBeGreaterThan(
       2
     )
+  })
+
+  describe('filling recording gaps from the flight plan (docs/plans/track-gap-fill.md)', () => {
+    // A plan along 50 N from 0 to 30 E, and a flight recorded at 1 E and 2 E, then at 12 E and 13 E after a 3 hour gap.
+    const OFP = JSON.stringify({
+      navlog: {
+        fix: [0, 10, 20, 30].map((lon) => ({ pos_long: String(lon), pos_lat: '50' }))
+      }
+    })
+    const fix = (id: number, minute: number, lon: number, resumeSegment: number): NewTrackPoint => ({
+      ...point(id, 0),
+      tsUtc: new Date(Date.UTC(2026, 9, 5, 12, minute)).toISOString(),
+      latitude: 50,
+      longitude: lon,
+      resumeSegment
+    })
+    let planned: number
+
+    beforeEach(() => {
+      const aircraft = createAircraft(db, { registration: 'G-EUUA', icaoType: 'A320' })
+      planned = createFlight(db, {
+        aircraftId: aircraft.id,
+        depIcao: 'EGLL',
+        arrIcao: 'EDDF',
+        ofpJson: OFP
+      }).id
+      createTrackPoint(db, fix(planned, 0, 1, 0))
+      createTrackPoint(db, fix(planned, 1, 2, 0))
+      createTrackPoint(db, fix(planned, 181, 12, 1))
+      createTrackPoint(db, fix(planned, 182, 13, 1))
+      sync.mockClear()
+    })
+
+    it('estimates the gap along the plan, keeps it with the flight and syncs it, leaving the recorded points alone', () => {
+      expect(invoke(IpcChannels.trackEstimateGet, planned)).toEqual([])
+      const result = invoke(IpcChannels.trackEstimateFill, planned) as {
+        outcome: string
+        count: number
+        lengthNm: number
+      }
+      expect(result).toMatchObject({ outcome: 'filled', count: 1 })
+      // 2 E to 12 E along 50 N is about 10 degrees of longitude, 6.4 degrees of arc: roughly 385 nm.
+      expect(result.lengthNm).toBeGreaterThan(380)
+      expect(result.lengthNm).toBeLessThan(390)
+      expect(sync).toHaveBeenCalledTimes(1)
+
+      const [stretch] = invoke(IpcChannels.trackEstimateGet, planned) as { coordinates: [number, number][] }[]
+      expect(stretch.coordinates[0]).toEqual([2, 50])
+      expect(stretch.coordinates.at(-1)).toEqual([12, 50])
+      expect(stretch.coordinates.some(([lon]) => lon === 10)).toBe(true)
+      expect(listTrackPoints(db, planned)).toHaveLength(4)
+    })
+
+    it('removes the estimate again', () => {
+      invoke(IpcChannels.trackEstimateFill, planned)
+      sync.mockClear()
+      invoke(IpcChannels.trackEstimateClear, planned)
+      expect(invoke(IpcChannels.trackEstimateGet, planned)).toEqual([])
+      expect(sync).toHaveBeenCalledTimes(1)
+    })
+
+    it('says so when there is no flight plan route or no gap, and stores nothing', () => {
+      expect(invoke(IpcChannels.trackEstimateFill, flightId)).toEqual({
+        outcome: 'noRoute',
+        count: 0,
+        lengthNm: 0
+      })
+      const aircraft = createAircraft(db, { registration: 'G-EUUB', icaoType: 'A320' })
+      const steady = createFlight(db, {
+        aircraftId: aircraft.id,
+        depIcao: 'EGLL',
+        arrIcao: 'EDDF',
+        ofpJson: OFP
+      }).id
+      createTrackPoint(db, fix(steady, 0, 1, 0))
+      createTrackPoint(db, fix(steady, 1, 2, 0))
+      expect(invoke(IpcChannels.trackEstimateFill, steady)).toEqual({
+        outcome: 'noGaps',
+        count: 0,
+        lengthNm: 0
+      })
+      expect(invoke(IpcChannels.trackEstimateGet, steady)).toEqual([])
+    })
+
+    it('ignores an excluded point when looking for gaps, and ids that are not whole numbers', () => {
+      createTrackPoint(db, { ...fix(planned, 90, 7, 0), excludedReason: 'resume-spurious' })
+      expect(invoke(IpcChannels.trackEstimateFill, planned)).toMatchObject({ outcome: 'filled', count: 1 })
+      expect(invoke(IpcChannels.trackEstimateGet, 'x')).toEqual([])
+      expect(invoke(IpcChannels.trackEstimateFill, 'x')).toMatchObject({ outcome: 'noGaps' })
+      expect(invoke(IpcChannels.trackEstimateClear, 'x')).toBeUndefined()
+    })
   })
 })

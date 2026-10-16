@@ -156,6 +156,11 @@ export const flight = sqliteTable(
     // map. Null for any flight that hasn't completed, or completed before this existed;
     // the full-resolution track_point table stays local-only and is never itself synced.
     flownRouteJson: text('flown_route_json'),
+    // Stretches of the flown path the pilot asked to be estimated from the flight plan (Logbook's "Fill gaps from the flight plan",
+    // winglog-backend's docs/plans/track-gap-fill.md): a JSON list of { coordinates, lengthNm, fromTsUtc, toTsUtc }. Kept apart from
+    // track_point on purpose: an estimate is never a recorded point, so analysis and exports can't mistake one for the other.
+    // Null means none; syncs like flownRouteJson, so a second device's map shows it too.
+    estimatedTrackJson: text('estimated_track_json'),
     // The procedures actually chosen, live — written at flight save and again (overwriting)
     // at flight completion, whichever is later, from Dispatch/Track's shared live-selection
     // state (winglog-backend's docs/plans/navdata-without-navigraph.md, Phase 5). Null

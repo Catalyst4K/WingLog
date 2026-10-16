@@ -27,6 +27,7 @@ import {
   ROUTE_APPROXIMATE_LAYER_ID,
   ROUTE_SOURCE_ID,
   trailSegments,
+  ESTIMATED_TRAIL_SOURCE_ID,
   TRAIL_SOURCE_ID,
   waypointFeatures,
   WAYPOINT_SOURCE_ID
@@ -235,6 +236,23 @@ export function useRouteLayers(
     map.setLayoutProperty(ROUTE_SOURCE_ID, 'visibility', routeIsApproximate ? 'none' : 'visible')
     map.setLayoutProperty(ROUTE_APPROXIMATE_LAYER_ID, 'visibility', routeIsApproximate ? 'visible' : 'none')
   }, [mapReady, routeIsApproximate, mapRef])
+}
+
+/**
+ * Draws the stretches estimated from the flight plan, dashed, in their own layer under the recorded trail.
+ *
+ * @param instance The map instance.
+ * @param estimatedTrack The estimated stretches, each a list of [lon, lat] pairs; none draws nothing.
+ */
+export function useEstimatedTrail(instance: MapInstance, estimatedTrack: [number, number][][]): void {
+  const { mapRef, mapReady } = instance
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return
+    updateSourceData(
+      mapRef.current.getSource<GeoJSONSource>(ESTIMATED_TRAIL_SOURCE_ID),
+      multiLineString(estimatedTrack)
+    )
+  }, [mapReady, estimatedTrack, mapRef])
 }
 
 /**

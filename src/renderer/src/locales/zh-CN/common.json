@@ -613,6 +613,7 @@
     "approximateRoute": "近似航路 — 该航班没有存档的飞行计划"
   },
   "logbookView": {
+    "estimatedTrack": "虚线约 {{nm}} nm，是根据飞行计划估算的，并非实际记录。",
     "loading": "加载中…",
     "belowAverage": "低于平均水平",
     "landingCard": {
@@ -823,6 +824,14 @@
     "low": "磁盘空间不足（剩余 {{free}}）。长途飞行前请先释放一些空间。",
     "critical": "磁盘几乎已满（剩余 {{free}}）。请立即释放空间，否则 WingLog 可能无法保存你的飞行。",
     "saveFailing": "磁盘已满，WingLog 无法保存飞行。航迹暂存在内存中，有空间后会立即保存。"
+  },
+  "trackGapFillButton": {
+    "button": "用飞行计划补全缺口",
+    "remove": "移除估算路段",
+    "filled": "已补全 {{count}} 处缺口，共约 {{nm}} nm，在地图上以虚线显示。",
+    "noGaps": "沿飞行计划没有可补全的缺口。",
+    "noRoute": "这次飞行没有可沿用的飞行计划航线。",
+    "removed": "已移除估算路段。"
   },
   "updates": {
     "banner": {

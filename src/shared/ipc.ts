@@ -90,6 +90,7 @@ import type {
   WindSpeedUnit
 } from './types/settings'
 import type { StorageStatus } from './types/storage'
+import type { EstimatedStretch, TrackEstimateResult } from './track-gap-fill'
 import type { SimConnectionStatus, SimTelemetry } from './types/sim'
 
 export type * from './types/aircraft'
@@ -262,6 +263,12 @@ export interface WingLogApi {
    *  completed before Phase 2 existed, or on the rare chance the live check missed
    *  something. A no-op (both counts 0) when there's nothing to clean up. */
   trackPointCleanup: (flightId: number) => Promise<TrackCleanupSummary>
+  /** The stretches of a flight's path filled in from its flight plan, or none (docs/plans/track-gap-fill.md). */
+  trackEstimateGet: (flightId: number) => Promise<EstimatedStretch[]>
+  /** Estimates the flight's path through its recording gaps along the flight plan, stores it with the flight and says what it did. */
+  trackEstimateFill: (flightId: number) => Promise<TrackEstimateResult>
+  /** Removes the flight's estimated stretches. */
+  trackEstimateClear: (flightId: number) => Promise<void>
   logbookListCompletedFlights: () => Promise<LogbookFlight[]>
   /** One flight in full, OFP included — the detail view's own fetch, so the list doesn't
    *  have to carry every flight's OFP. Null for an unknown or deleted id. */

@@ -23,13 +23,14 @@ import { GsxInvoicesCard } from '../GsxInvoicesCard'
 import { useConfirm } from '../hooks/use-confirm'
 import { KeepCaptureButton } from '../KeepCaptureButton'
 import { TrackCleanupButton } from '../TrackCleanupButton'
+import { TrackGapFillButton } from '../TrackGapFillButton'
 import { formatMinutes, formatWeight } from '../units'
 import { asyncHandler, runAsync } from '../report-error'
 import { formatDate, isFreeFlight } from './logbook-format'
 import { DETAIL_GRID_CLASS, DetailField } from './DetailField'
 import { AltitudeChart, FuelChart, SpeedChart } from './FlightCharts'
 import { LandingCard } from './LandingCard'
-import { useFlightProfile, useFlightRoute, useFlightTrack } from './use-flight-detail'
+import { useFlightProfile, useFlightRoute, useFlightTrack, useTrackEstimate } from './use-flight-detail'
 
 /**
  * The flight's summary card: its title and free-flight badge, the buttons that open its OFP
@@ -173,6 +174,7 @@ function FlightDetail(props: {
   const { t } = useTranslation()
   const { flight, weightUnit } = props
   const { trackPoints, setTrackPoints } = useFlightTrack(flight.id)
+  const { estimate, estimatedLines, estimatedNm, setEstimate } = useTrackEstimate(flight.id)
   const [confirm, confirmDialog] = useConfirm()
   const [addToFleetOpen, setAddToFleetOpen] = useState(false)
   const { displayRoute, displayWaypoints, routeIsApproximate } = useFlightRoute(flight)
@@ -221,6 +223,7 @@ function FlightDetail(props: {
         <div className="flex items-center gap-2">
           <KeepCaptureButton flightId={flight.id} />
           <TrackCleanupButton flightId={flight.id} onCleaned={setTrackPoints} />
+          <TrackGapFillButton flightId={flight.id} estimate={estimate} onChanged={setEstimate} />
           <Button
             type="button"
             variant="ghost"
@@ -250,10 +253,17 @@ function FlightDetail(props: {
           route={displayRoute}
           waypoints={displayWaypoints}
           trackPoints={trackPoints}
+          estimatedTrack={estimatedLines}
           routeIsApproximate={routeIsApproximate}
           mapLanguage={props.mapLanguage}
         />
       </div>
+
+      {estimate.length > 0 && (
+        <p className="text-sm text-muted-foreground">
+          {t('logbookView.estimatedTrack', { nm: Math.round(estimatedNm) })}
+        </p>
+      )}
 
       {profile.profile.length > 1 && (
         <div className="flex flex-wrap gap-4">
