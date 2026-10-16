@@ -12,6 +12,7 @@ import {
   approachRunway,
   parseRouteProcedures,
   pickDefaultApproachIdentifier,
+  VECTORS_TRANSITION,
   type Waypoint
 } from './route'
 import { arrivalAirport, type ProcedureAirports } from './procedure-selection'
@@ -306,7 +307,12 @@ export function ProcedureSelector(props: {
   const approachIdentifiers = [...new Set(approachOptions.map((o) => o.identifier))]
   const sidTransitions = transitionsFor(sidOptions, selection.sidIdent)
   const starTransitions = transitionsFor(starOptions, selection.starIdent)
-  const approachTransitions = transitionsFor(approachOptions, selection.approachIdent)
+  // Vectors from the end of the STAR to the approach is always a choice, with an approach selected: the navdata only lists the
+  // transitions the approach itself starts from, and ATC often hands out a different way in.
+  const approachNamedTransitions = transitionsFor(approachOptions, selection.approachIdent)
+  const approachTransitions = selection.approachIdent
+    ? [...new Set([...approachNamedTransitions, VECTORS_TRANSITION])]
+    : []
 
   /**
    * Switches the arrival dropdowns between the filed destination and the alternate.

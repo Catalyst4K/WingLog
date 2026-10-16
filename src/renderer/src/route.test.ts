@@ -11,6 +11,7 @@ import {
   parseWaypointsFromOfpJson,
   type ProcedureLegs,
   segmentWaypoints,
+  VECTORS_TRANSITION,
   type Waypoint
 } from './route'
 
@@ -594,6 +595,17 @@ describe('approachConnectingToStar', () => {
     expect(
       approachConnectingToStar(options, { approachIdent: 'ILS 26', approachTransition: 'SY400' }, '08', null)
     ).toEqual({ approachIdent: 'ILS X 08', approachTransition: 'SY400' })
+  })
+
+  it("leaves an approach alone when vectors were chosen for it, even though another approach starts at the STAR's last fix", () => {
+    expect(
+      approachConnectingToStar(
+        options,
+        { approachIdent: 'ILS X 08', approachTransition: VECTORS_TRANSITION },
+        '08',
+        'SY498'
+      )
+    ).toBeNull()
   })
 
   it('has no answer when the runway has no approach', () => {
