@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 // The page saved to a phone's Home Screen: the icon, name and full-screen mode come from these files, which nothing else exercises.
-const folder = join(__dirname)
+const folder = join(__dirname, '..', '..', 'lan-client')
 const html = readFileSync(join(folder, 'index.html'), 'utf8')
 const manifest = JSON.parse(readFileSync(join(folder, 'public', 'manifest.webmanifest'), 'utf8')) as {
   name: string
