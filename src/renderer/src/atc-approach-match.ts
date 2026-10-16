@@ -3,7 +3,7 @@
 import { winglogApi } from './data/winglog-api'
 import type { NavdataProcedureOption, ProcedureSelection } from '@shared/ipc'
 import type { AtcClearanceUpdate } from '@shared/atc-info-boxes'
-import { approachRunway, pickDefaultApproachIdentifier } from './route'
+import { approachConnectingToStar } from './route'
 
 /**
  * Turns a STAR clearance's runway into the approach to fly when it isn't the runway the selected approach is for. At EGLL ATC
@@ -34,20 +34,9 @@ export function approachForArrivalRunway(
 ): AtcClearanceUpdate {
   const runway = update.arrivalRunway
   if (!runway) return update
-  const forRunway = options.filter((o) => approachRunway(o.identifier) === runway)
-  const hasTransition = (identifier: string | null, transition: string | null): boolean =>
-    transition !== null && forRunway.some((o) => o.identifier === identifier && o.transition === transition)
-  if (approachRunway(current.approachIdent) === runway) {
-    const connectsElsewhere = starEndFix !== null && forRunway.some((o) => o.transition === starEndFix)
-    if (!connectsElsewhere || hasTransition(current.approachIdent, starEndFix)) return update
-  }
-  const approachIdent = pickDefaultApproachIdentifier(forRunway, starEndFix)
-  if (!approachIdent) return update
-  const approachTransition = hasTransition(approachIdent, starEndFix)
-    ? starEndFix
-    : hasTransition(approachIdent, current.approachTransition)
-      ? current.approachTransition
-      : null
+  const next = approachConnectingToStar(options, current, runway, starEndFix)
+  if (!next) return update
+  const { approachIdent, approachTransition } = next
   return {
     ...update,
     fields: { ...update.fields, approachIdent, approachTransition },

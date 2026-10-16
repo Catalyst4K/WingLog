@@ -1,13 +1,19 @@
 /** The SID, STAR and approach dropdowns, from the sim's navdata. */
 
 import { winglogApi } from './data/winglog-api'
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { NavdataProcedureOption, NavdataRunwayOption, ProcedureSelection } from '@shared/ipc'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { approachRunway, parseRouteProcedures, pickDefaultApproachIdentifier, type Waypoint } from './route'
+import {
+  approachConnectingToStar,
+  approachRunway,
+  parseRouteProcedures,
+  pickDefaultApproachIdentifier,
+  type Waypoint
+} from './route'
 import { arrivalAirport, type ProcedureAirports } from './procedure-selection'
 import { displayIcao } from './display-icao'
 import { uiMemory } from './ui-memory'
@@ -226,6 +232,8 @@ export function ProcedureSelector(props: {
   // pickDefaultApproachIdentifier's own doc comment for why this is a starting point, not a
   // guess to get right.
   const approachKey = `${airports.depIcao}>${arrIcao}|${airports.ofpJson?.slice(0, 300) ?? ''}`
+  // The approach WingLog itself suggested, so a later look at the STAR may swap it; one the pilot chose is never touched.
+  const suggestedApproach = useRef<string | null>(null)
   useEffect(() => {
     if (
       selection.approachIdent ||
@@ -243,7 +251,10 @@ export function ProcedureSelector(props: {
     // Prefer an approach the STAR leads into (ZJSY: UPRS2C ends at SY498, ILS Z 08's entry).
     const starLastIdent = [...liveWaypoints].reverse().find((w) => w.segment === 'star')?.ident ?? null
     const pick = pickDefaultApproachIdentifier(candidates, starLastIdent)
-    if (pick) set({ approachIdent: pick })
+    if (pick) {
+      suggestedApproach.current = pick
+      set({ approachIdent: pick })
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- set is new every render; arrIcao and approachKey cover the airports
   }, [
     approachOptions,
@@ -254,6 +265,26 @@ export function ProcedureSelector(props: {
     approachKey,
     liveWaypoints
   ])
+
+  // The default above is picked as soon as the approach list is in, which can be before the route's STAR waypoints are: then it
+  // couldn't prefer the approach the STAR leads into. Once the STAR's last fix is known, check the suggestion connects to it the
+  // way a BeyondATC clearance's approach is checked (same function), and swap it when it doesn't. Only for an approach WingLog
+  // suggested, never one the pilot picked.
+  useEffect(() => {
+    if (!selection.approachIdent || suggestedApproach.current !== selection.approachIdent) return
+    const starLastIdent = [...liveWaypoints].reverse().find((w) => w.segment === 'star')?.ident ?? null
+    if (!starLastIdent) return
+    const swap = approachConnectingToStar(
+      approachOptions,
+      selection,
+      approachRunway(selection.approachIdent),
+      starLastIdent
+    )
+    if (!swap) return
+    suggestedApproach.current = swap.approachIdent
+    set(swap)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- set is new every render
+  }, [selection.approachIdent, selection.approachTransition, approachOptions, liveWaypoints])
 
   // Auto-connect the approach's own entry transition to wherever the current STAR actually
   // ends, when one matches — confirmed live that a real APPROACH_TRANSITION's name is the
