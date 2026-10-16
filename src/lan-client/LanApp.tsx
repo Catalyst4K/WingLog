@@ -31,7 +31,11 @@ function Connecting(): React.JSX.Element {
 }
 
 function Centered({ children }: { children: React.ReactNode }): React.JSX.Element {
-  return <div className="flex h-dvh flex-col items-center justify-center gap-4 p-4">{children}</div>
+  return (
+    <div className="flex h-dvh flex-col items-center justify-center gap-4 p-4 pt-[max(1rem,env(safe-area-inset-top))]">
+      {children}
+    </div>
+  )
 }
 
 /**
@@ -95,7 +99,7 @@ function Shell({ link, offline }: { link: LanConnection; offline: boolean }): Re
   const pages = usePages(settings)
   const shown = pages.some((p) => p.id === page) ? page : 'track'
   return (
-    <div className="flex h-dvh flex-col">
+    <div className="flex h-dvh flex-col pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
       {offline && (
         <p role="status" className="bg-destructive px-4 py-2 text-center text-sm text-white">
           {t('lanPage.offline')}

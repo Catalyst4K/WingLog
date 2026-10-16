@@ -28,12 +28,33 @@ div[class*='bottom-3'][class*='left-3'] {
 }
 
 /* A map control's icon stays centred, once, in its larger square. */
-#root .maplibregl-ctrl-group button,
-#root .maplibregl-ctrl-attrib-button {
+#root .maplibregl-ctrl-group button {
   background-position: center;
   background-repeat: no-repeat;
 }
+
+/* The attribution is a 24 px circle (maplibre's compact mode) holding an absolutely placed button. Stretching only the button to 44 px
+   left it spilling out of its circle: on an iPhone Home Screen app it showed as a large pale square off the corner. The circle itself is
+   44 px, the button fills it, and the (i) is drawn centred inside. Opened, the text keeps clear of the button. */
+#root .maplibregl-ctrl-attrib.maplibregl-compact {
+  box-sizing: border-box;
+  min-width: 44px;
+  min-height: 44px;
+  margin: 8px;
+  padding: 0;
+  border-radius: 22px;
+}
+#root .maplibregl-ctrl-attrib.maplibregl-compact-show {
+  padding: 12px 52px 12px 12px;
+  border-radius: 22px;
+}
 #root .maplibregl-ctrl-attrib-button {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 22px;
+  background-position: center;
+  background-repeat: no-repeat;
   background-size: 20px;
 }
 
