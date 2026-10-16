@@ -219,59 +219,59 @@ Library.
 | [@mapbox/tiny-sdf](https://github.com/mapbox/tiny-sdf) | 2.2.0 | BSD-2-Clause |
 | [@mapbox/unitbezier](git@github.com:mapbox/unitbezier) | 1.0.0 | BSD-2-Clause |
 | [@mapbox/vector-tile](https://github.com/mapbox/vector-tile-js) | 3.0.0 | BSD-3-Clause |
-| [@maplibre/geojson-vt](https://github.com/maplibre/geojson-vt) | 6.1.1 | ISC |
+| [@maplibre/geojson-vt](https://github.com/maplibre/geojson-vt) | 6.1.2 | ISC |
 | [@maplibre/maplibre-gl-style-spec](https://github.com/maplibre/maplibre-style-spec) | 26.4.4 | ISC |
 | [@maplibre/mlt](https://github.com/maplibre/maplibre-tile-spec) | 1.3.0 | (MIT OR Apache-2.0) |
 | [@maplibre/vt-pbf](https://github.com/maplibre/vt-pbf) | 4.3.2 | MIT |
 | [@radix-ui/number](https://github.com/radix-ui/primitives) | 1.1.3 | MIT |
 | [@radix-ui/primitive](https://github.com/radix-ui/primitives) | 1.1.7 | MIT |
-| [@radix-ui/react-accessible-icon](https://github.com/radix-ui/primitives) | 1.1.15 | MIT |
-| [@radix-ui/react-accordion](https://github.com/radix-ui/primitives) | 1.2.20 | MIT |
-| [@radix-ui/react-alert-dialog](https://github.com/radix-ui/primitives) | 1.1.23 | MIT |
-| [@radix-ui/react-arrow](https://github.com/radix-ui/primitives) | 1.1.15 | MIT |
-| [@radix-ui/react-aspect-ratio](https://github.com/radix-ui/primitives) | 1.1.15 | MIT |
-| [@radix-ui/react-avatar](https://github.com/radix-ui/primitives) | 1.2.6 | MIT |
-| [@radix-ui/react-checkbox](https://github.com/radix-ui/primitives) | 1.3.11 | MIT |
-| [@radix-ui/react-collapsible](https://github.com/radix-ui/primitives) | 1.1.20 | MIT |
-| [@radix-ui/react-collection](https://github.com/radix-ui/primitives) | 1.1.15 | MIT |
+| [@radix-ui/react-accessible-icon](https://github.com/radix-ui/primitives) | 1.1.16 | MIT |
+| [@radix-ui/react-accordion](https://github.com/radix-ui/primitives) | 1.2.21 | MIT |
+| [@radix-ui/react-alert-dialog](https://github.com/radix-ui/primitives) | 1.1.24 | MIT |
+| [@radix-ui/react-arrow](https://github.com/radix-ui/primitives) | 1.1.16 | MIT |
+| [@radix-ui/react-aspect-ratio](https://github.com/radix-ui/primitives) | 1.1.16 | MIT |
+| [@radix-ui/react-avatar](https://github.com/radix-ui/primitives) | 1.2.7 | MIT |
+| [@radix-ui/react-checkbox](https://github.com/radix-ui/primitives) | 1.3.12 | MIT |
+| [@radix-ui/react-collapsible](https://github.com/radix-ui/primitives) | 1.1.21 | MIT |
+| [@radix-ui/react-collection](https://github.com/radix-ui/primitives) | 1.1.16 | MIT |
 | [@radix-ui/react-compose-refs](https://github.com/radix-ui/primitives) | 1.1.5 | MIT |
 | [@radix-ui/react-context](https://github.com/radix-ui/primitives) | 1.2.2 | MIT |
-| [@radix-ui/react-context-menu](https://github.com/radix-ui/primitives) | 2.3.7 | MIT |
-| [@radix-ui/react-dialog](https://github.com/radix-ui/primitives) | 1.1.23 | MIT |
-| [@radix-ui/react-direction](https://github.com/radix-ui/primitives) | 1.1.4 | MIT |
-| [@radix-ui/react-dismissable-layer](https://github.com/radix-ui/primitives) | 1.1.19 | MIT |
-| [@radix-ui/react-dropdown-menu](https://github.com/radix-ui/primitives) | 2.1.24 | MIT |
+| [@radix-ui/react-context-menu](https://github.com/radix-ui/primitives) | 2.3.8 | MIT |
+| [@radix-ui/react-dialog](https://github.com/radix-ui/primitives) | 1.2.0 | MIT |
+| [@radix-ui/react-direction](https://github.com/radix-ui/primitives) | 1.1.5 | MIT |
+| [@radix-ui/react-dismissable-layer](https://github.com/radix-ui/primitives) | 1.1.20 | MIT |
+| [@radix-ui/react-dropdown-menu](https://github.com/radix-ui/primitives) | 2.1.25 | MIT |
 | [@radix-ui/react-focus-guards](https://github.com/radix-ui/primitives) | 1.1.6 | MIT |
-| [@radix-ui/react-focus-scope](https://github.com/radix-ui/primitives) | 1.1.16 | MIT |
-| [@radix-ui/react-form](https://github.com/radix-ui/primitives) | 0.1.16 | MIT |
-| [@radix-ui/react-hover-card](https://github.com/radix-ui/primitives) | 1.1.23 | MIT |
+| [@radix-ui/react-focus-scope](https://github.com/radix-ui/primitives) | 1.2.0 | MIT |
+| [@radix-ui/react-form](https://github.com/radix-ui/primitives) | 0.2.0 | MIT |
+| [@radix-ui/react-hover-card](https://github.com/radix-ui/primitives) | 1.1.24 | MIT |
 | [@radix-ui/react-id](https://github.com/radix-ui/primitives) | 1.1.4 | MIT |
-| [@radix-ui/react-label](https://github.com/radix-ui/primitives) | 2.1.15 | MIT |
-| [@radix-ui/react-menu](https://github.com/radix-ui/primitives) | 2.1.24 | MIT |
-| [@radix-ui/react-menubar](https://github.com/radix-ui/primitives) | 1.1.24 | MIT |
-| [@radix-ui/react-navigation-menu](https://github.com/radix-ui/primitives) | 1.2.22 | MIT |
-| [@radix-ui/react-one-time-password-field](https://github.com/radix-ui/primitives) | 0.1.16 | MIT |
-| [@radix-ui/react-password-toggle-field](https://github.com/radix-ui/primitives) | 0.1.11 | MIT |
-| [@radix-ui/react-popover](https://github.com/radix-ui/primitives) | 1.1.23 | MIT |
-| [@radix-ui/react-popper](https://github.com/radix-ui/primitives) | 1.3.7 | MIT |
-| [@radix-ui/react-portal](https://github.com/radix-ui/primitives) | 1.1.17 | MIT |
-| [@radix-ui/react-presence](https://github.com/radix-ui/primitives) | 1.1.10 | MIT |
-| [@radix-ui/react-primitive](https://github.com/radix-ui/primitives) | 2.1.10 | MIT |
-| [@radix-ui/react-progress](https://github.com/radix-ui/primitives) | 1.1.16 | MIT |
-| [@radix-ui/react-radio-group](https://github.com/radix-ui/primitives) | 1.4.7 | MIT |
-| [@radix-ui/react-roving-focus](https://github.com/radix-ui/primitives) | 1.1.19 | MIT |
-| [@radix-ui/react-scroll-area](https://github.com/radix-ui/primitives) | 1.2.18 | MIT |
-| [@radix-ui/react-select](https://github.com/radix-ui/primitives) | 2.3.7 | MIT |
-| [@radix-ui/react-separator](https://github.com/radix-ui/primitives) | 1.1.15 | MIT |
-| [@radix-ui/react-slider](https://github.com/radix-ui/primitives) | 1.4.7 | MIT |
-| [@radix-ui/react-slot](https://github.com/radix-ui/primitives) | 1.3.3 | MIT |
-| [@radix-ui/react-switch](https://github.com/radix-ui/primitives) | 1.3.7 | MIT |
-| [@radix-ui/react-tabs](https://github.com/radix-ui/primitives) | 1.1.21 | MIT |
-| [@radix-ui/react-toast](https://github.com/radix-ui/primitives) | 1.2.23 | MIT |
-| [@radix-ui/react-toggle](https://github.com/radix-ui/primitives) | 1.1.18 | MIT |
-| [@radix-ui/react-toggle-group](https://github.com/radix-ui/primitives) | 1.1.19 | MIT |
-| [@radix-ui/react-toolbar](https://github.com/radix-ui/primitives) | 1.1.19 | MIT |
-| [@radix-ui/react-tooltip](https://github.com/radix-ui/primitives) | 1.2.16 | MIT |
+| [@radix-ui/react-label](https://github.com/radix-ui/primitives) | 2.1.16 | MIT |
+| [@radix-ui/react-menu](https://github.com/radix-ui/primitives) | 2.1.25 | MIT |
+| [@radix-ui/react-menubar](https://github.com/radix-ui/primitives) | 1.1.25 | MIT |
+| [@radix-ui/react-navigation-menu](https://github.com/radix-ui/primitives) | 1.3.0 | MIT |
+| [@radix-ui/react-one-time-password-field](https://github.com/radix-ui/primitives) | 0.1.17 | MIT |
+| [@radix-ui/react-password-toggle-field](https://github.com/radix-ui/primitives) | 0.1.12 | MIT |
+| [@radix-ui/react-popover](https://github.com/radix-ui/primitives) | 1.2.0 | MIT |
+| [@radix-ui/react-popper](https://github.com/radix-ui/primitives) | 1.3.8 | MIT |
+| [@radix-ui/react-portal](https://github.com/radix-ui/primitives) | 1.1.18 | MIT |
+| [@radix-ui/react-presence](https://github.com/radix-ui/primitives) | 1.1.11 | MIT |
+| [@radix-ui/react-primitive](https://github.com/radix-ui/primitives) | 2.1.11 | MIT |
+| [@radix-ui/react-progress](https://github.com/radix-ui/primitives) | 1.1.17 | MIT |
+| [@radix-ui/react-radio-group](https://github.com/radix-ui/primitives) | 1.4.8 | MIT |
+| [@radix-ui/react-roving-focus](https://github.com/radix-ui/primitives) | 1.1.20 | MIT |
+| [@radix-ui/react-scroll-area](https://github.com/radix-ui/primitives) | 1.3.0 | MIT |
+| [@radix-ui/react-select](https://github.com/radix-ui/primitives) | 2.3.8 | MIT |
+| [@radix-ui/react-separator](https://github.com/radix-ui/primitives) | 1.1.16 | MIT |
+| [@radix-ui/react-slider](https://github.com/radix-ui/primitives) | 1.5.0 | MIT |
+| [@radix-ui/react-slot](https://github.com/radix-ui/primitives) | 1.4.0 | MIT |
+| [@radix-ui/react-switch](https://github.com/radix-ui/primitives) | 1.3.8 | MIT |
+| [@radix-ui/react-tabs](https://github.com/radix-ui/primitives) | 1.1.22 | MIT |
+| [@radix-ui/react-toast](https://github.com/radix-ui/primitives) | 1.2.24 | MIT |
+| [@radix-ui/react-toggle](https://github.com/radix-ui/primitives) | 1.1.19 | MIT |
+| [@radix-ui/react-toggle-group](https://github.com/radix-ui/primitives) | 1.1.20 | MIT |
+| [@radix-ui/react-toolbar](https://github.com/radix-ui/primitives) | 1.1.20 | MIT |
+| [@radix-ui/react-tooltip](https://github.com/radix-ui/primitives) | 1.3.0 | MIT |
 | [@radix-ui/react-use-callback-ref](https://github.com/radix-ui/primitives) | 1.1.4 | MIT |
 | [@radix-ui/react-use-controllable-state](https://github.com/radix-ui/primitives) | 1.2.6 | MIT |
 | [@radix-ui/react-use-effect-event](https://github.com/radix-ui/primitives) | 0.0.5 | MIT |
@@ -280,8 +280,8 @@ Library.
 | [@radix-ui/react-use-layout-effect](https://github.com/radix-ui/primitives) | 1.1.4 | MIT |
 | [@radix-ui/react-use-previous](https://github.com/radix-ui/primitives) | 1.1.4 | MIT |
 | [@radix-ui/react-use-rect](https://github.com/radix-ui/primitives) | 1.1.4 | MIT |
-| [@radix-ui/react-use-size](https://github.com/radix-ui/primitives) | 1.1.4 | MIT |
-| [@radix-ui/react-visually-hidden](https://github.com/radix-ui/primitives) | 1.2.11 | MIT |
+| [@radix-ui/react-use-size](https://github.com/radix-ui/primitives) | 1.1.5 | MIT |
+| [@radix-ui/react-visually-hidden](https://github.com/radix-ui/primitives) | 1.2.12 | MIT |
 | [@radix-ui/rect](https://github.com/radix-ui/primitives) | 1.1.3 | MIT |
 | [@reduxjs/toolkit](https://github.com/reduxjs/redux-toolkit) | 2.12.0 | MIT |
 | [@standard-schema/spec](https://github.com/standard-schema/standard-schema) | 1.1.0 | MIT |
@@ -297,7 +297,7 @@ Library.
 | [@types/d3-time](https://github.com/DefinitelyTyped/DefinitelyTyped) | 3.0.4 | MIT |
 | [@types/d3-timer](https://github.com/DefinitelyTyped/DefinitelyTyped) | 3.0.2 | MIT |
 | [@types/geojson](https://github.com/DefinitelyTyped/DefinitelyTyped) | 7946.0.16 | MIT |
-| [@types/node](https://github.com/DefinitelyTyped/DefinitelyTyped) | 26.6.4 | MIT |
+| [@types/node](https://github.com/DefinitelyTyped/DefinitelyTyped) | 26.6.5 | MIT |
 | [@types/react](https://github.com/DefinitelyTyped/DefinitelyTyped) | 19.3.0 | MIT |
 | [@types/react-dom](https://github.com/DefinitelyTyped/DefinitelyTyped) | 19.3.0 | MIT |
 | [@types/use-sync-external-store](https://github.com/DefinitelyTyped/DefinitelyTyped) | 0.0.6 | MIT |
@@ -323,7 +323,7 @@ Library.
 | [debug](git://github.com/debug-js/debug) | 4.4.3 | MIT |
 | [decimal.js-light](https://github.com/MikeMcl/decimal.js-light) | 2.5.1 | MIT |
 | [detect-node-es](https://github.com/thekashey/detect-node) | 1.1.0 | MIT |
-| [drizzle-orm](https://github.com/drizzle-team/drizzle-orm) | 0.45.3 | Apache-2.0 |
+| [drizzle-orm](https://github.com/drizzle-team/drizzle-orm) | 0.45.4 | Apache-2.0 |
 | [earcut](git://github.com/mapbox/earcut) | 3.2.4 | ISC |
 | [electron-log](megahertz/electron-log) | 5.4.4 | MIT |
 | [electron-updater](https://github.com/electron-userland/electron-builder) | 6.8.9 | MIT |
@@ -334,7 +334,7 @@ Library.
 | [gl-matrix](https://github.com/toji/gl-matrix) | 3.4.4 | MIT |
 | [graceful-fs](https://github.com/isaacs/node-graceful-fs) | 4.2.11 | ISC |
 | [html-parse-stringify](https://github.com/i18next/html-parse-stringify) | 4.0.1 | MIT |
-| [i18next](https://github.com/i18next/i18next) | 26.4.2 | MIT |
+| [i18next](https://github.com/i18next/i18next) | 26.4.3 | MIT |
 | [immer](https://github.com/immerjs/immer) | 11.1.18 | MIT |
 | [ini](git://github.com/isaacs/ini) | 2.0.0 | ISC |
 | [internmap](https://github.com/mbostock/internmap) | 2.0.3 | ISC |
@@ -345,8 +345,8 @@ Library.
 | [lazy-val](develar/lazy-val) | 1.0.5 | MIT |
 | [lodash.escaperegexp](lodash/lodash) | 4.1.2 | MIT |
 | [lodash.isequal](lodash/lodash) | 4.5.0 | MIT |
-| [lucide-react](https://github.com/lucide-icons/lucide) | 1.52.0 | ISC |
-| [maplibre-gl](https://github.com/maplibre/maplibre-gl-js) | 6.12.0 | BSD-3-Clause |
+| [lucide-react](https://github.com/lucide-icons/lucide) | 1.55.0 | ISC |
+| [maplibre-gl](https://github.com/maplibre/maplibre-gl-js) | 6.13.0 | BSD-3-Clause |
 | [minimist](git://github.com/minimistjs/minimist) | 1.2.8 | MIT |
 | [ms](vercel/ms) | 2.1.3 | MIT |
 | [murmurhash-js](git://github.com/mikolalysenko/murmurhash-js) | 1.0.0 | MIT |
@@ -358,10 +358,10 @@ Library.
 | [protocol-buffers-schema](https://github.com/mafintosh/protocol-buffers-schema) | 3.6.1 | MIT |
 | [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) | 2.0.4 | MIT |
 | [quickselect](https://github.com/mourner/quickselect) | 3.0.0 | ISC |
-| [radix-ui](https://github.com/radix-ui/primitives) | 1.6.7 | MIT |
+| [radix-ui](https://github.com/radix-ui/primitives) | 1.7.0 | MIT |
 | [react](https://github.com/react/react) | 19.3.0 | MIT |
 | [react-dom](https://github.com/react/react) | 19.3.0 | MIT |
-| [react-i18next](https://github.com/i18next/react-i18next) | 17.0.15 | MIT |
+| [react-i18next](https://github.com/i18next/react-i18next) | 17.0.16 | MIT |
 | [react-is](https://github.com/react/react) | 19.2.8 | MIT |
 | [react-redux](https://github.com/reduxjs/react-redux) | 9.3.0 | MIT |
 | [react-remove-scroll](https://github.com/theKashey/react-remove-scroll) | 2.7.2 | MIT |
@@ -641,7 +641,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### @maplibre/geojson-vt 6.1.1 — ISC
+### @maplibre/geojson-vt 6.1.2 — ISC
 
 ```
 The MIT License (MIT)
@@ -1154,7 +1154,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-accessible-icon 1.1.15 — MIT
+### @radix-ui/react-accessible-icon 1.1.16 — MIT
 
 ```
 MIT License
@@ -1180,7 +1180,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-accordion 1.2.20 — MIT
+### @radix-ui/react-accordion 1.2.21 — MIT
 
 ```
 MIT License
@@ -1206,7 +1206,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-alert-dialog 1.1.23 — MIT
+### @radix-ui/react-alert-dialog 1.1.24 — MIT
 
 ```
 MIT License
@@ -1232,7 +1232,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-arrow 1.1.15 — MIT
+### @radix-ui/react-arrow 1.1.16 — MIT
 
 ```
 MIT License
@@ -1258,7 +1258,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-aspect-ratio 1.1.15 — MIT
+### @radix-ui/react-aspect-ratio 1.1.16 — MIT
 
 ```
 MIT License
@@ -1284,7 +1284,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-avatar 1.2.6 — MIT
+### @radix-ui/react-avatar 1.2.7 — MIT
 
 ```
 MIT License
@@ -1310,7 +1310,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-checkbox 1.3.11 — MIT
+### @radix-ui/react-checkbox 1.3.12 — MIT
 
 ```
 MIT License
@@ -1336,7 +1336,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-collapsible 1.1.20 — MIT
+### @radix-ui/react-collapsible 1.1.21 — MIT
 
 ```
 MIT License
@@ -1362,7 +1362,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-collection 1.1.15 — MIT
+### @radix-ui/react-collection 1.1.16 — MIT
 
 ```
 MIT License
@@ -1440,7 +1440,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-context-menu 2.3.7 — MIT
+### @radix-ui/react-context-menu 2.3.8 — MIT
 
 ```
 MIT License
@@ -1466,7 +1466,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-dialog 1.1.23 — MIT
+### @radix-ui/react-dialog 1.2.0 — MIT
 
 ```
 MIT License
@@ -1492,7 +1492,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-direction 1.1.4 — MIT
+### @radix-ui/react-direction 1.1.5 — MIT
 
 ```
 MIT License
@@ -1518,7 +1518,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-dismissable-layer 1.1.19 — MIT
+### @radix-ui/react-dismissable-layer 1.1.20 — MIT
 
 ```
 MIT License
@@ -1544,7 +1544,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-dropdown-menu 2.1.24 — MIT
+### @radix-ui/react-dropdown-menu 2.1.25 — MIT
 
 ```
 MIT License
@@ -1596,7 +1596,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-focus-scope 1.1.16 — MIT
+### @radix-ui/react-focus-scope 1.2.0 — MIT
 
 ```
 MIT License
@@ -1622,7 +1622,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-form 0.1.16 — MIT
+### @radix-ui/react-form 0.2.0 — MIT
 
 ```
 MIT License
@@ -1648,7 +1648,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-hover-card 1.1.23 — MIT
+### @radix-ui/react-hover-card 1.1.24 — MIT
 
 ```
 MIT License
@@ -1700,7 +1700,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-label 2.1.15 — MIT
+### @radix-ui/react-label 2.1.16 — MIT
 
 ```
 MIT License
@@ -1726,7 +1726,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-menu 2.1.24 — MIT
+### @radix-ui/react-menu 2.1.25 — MIT
 
 ```
 MIT License
@@ -1752,7 +1752,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-menubar 1.1.24 — MIT
+### @radix-ui/react-menubar 1.1.25 — MIT
 
 ```
 MIT License
@@ -1778,7 +1778,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-navigation-menu 1.2.22 — MIT
+### @radix-ui/react-navigation-menu 1.3.0 — MIT
 
 ```
 MIT License
@@ -1804,7 +1804,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-one-time-password-field 0.1.16 — MIT
+### @radix-ui/react-one-time-password-field 0.1.17 — MIT
 
 ```
 MIT License
@@ -1830,7 +1830,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-password-toggle-field 0.1.11 — MIT
+### @radix-ui/react-password-toggle-field 0.1.12 — MIT
 
 ```
 MIT License
@@ -1856,7 +1856,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-popover 1.1.23 — MIT
+### @radix-ui/react-popover 1.2.0 — MIT
 
 ```
 MIT License
@@ -1882,7 +1882,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-popper 1.3.7 — MIT
+### @radix-ui/react-popper 1.3.8 — MIT
 
 ```
 MIT License
@@ -1908,7 +1908,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-portal 1.1.17 — MIT
+### @radix-ui/react-portal 1.1.18 — MIT
 
 ```
 MIT License
@@ -1934,7 +1934,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-presence 1.1.10 — MIT
+### @radix-ui/react-presence 1.1.11 — MIT
 
 ```
 MIT License
@@ -1960,7 +1960,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-primitive 2.1.10 — MIT
+### @radix-ui/react-primitive 2.1.11 — MIT
 
 ```
 MIT License
@@ -1986,7 +1986,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-progress 1.1.16 — MIT
+### @radix-ui/react-progress 1.1.17 — MIT
 
 ```
 MIT License
@@ -2012,7 +2012,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-radio-group 1.4.7 — MIT
+### @radix-ui/react-radio-group 1.4.8 — MIT
 
 ```
 MIT License
@@ -2038,7 +2038,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-roving-focus 1.1.19 — MIT
+### @radix-ui/react-roving-focus 1.1.20 — MIT
 
 ```
 MIT License
@@ -2064,7 +2064,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-scroll-area 1.2.18 — MIT
+### @radix-ui/react-scroll-area 1.3.0 — MIT
 
 ```
 MIT License
@@ -2090,7 +2090,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-select 2.3.7 — MIT
+### @radix-ui/react-select 2.3.8 — MIT
 
 ```
 MIT License
@@ -2116,7 +2116,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-separator 1.1.15 — MIT
+### @radix-ui/react-separator 1.1.16 — MIT
 
 ```
 MIT License
@@ -2142,7 +2142,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-slider 1.4.7 — MIT
+### @radix-ui/react-slider 1.5.0 — MIT
 
 ```
 MIT License
@@ -2168,7 +2168,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-slot 1.3.3 — MIT
+### @radix-ui/react-slot 1.4.0 — MIT
 
 ```
 MIT License
@@ -2194,7 +2194,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-switch 1.3.7 — MIT
+### @radix-ui/react-switch 1.3.8 — MIT
 
 ```
 MIT License
@@ -2220,7 +2220,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-tabs 1.1.21 — MIT
+### @radix-ui/react-tabs 1.1.22 — MIT
 
 ```
 MIT License
@@ -2246,7 +2246,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-toast 1.2.23 — MIT
+### @radix-ui/react-toast 1.2.24 — MIT
 
 ```
 MIT License
@@ -2272,7 +2272,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-toggle 1.1.18 — MIT
+### @radix-ui/react-toggle 1.1.19 — MIT
 
 ```
 MIT License
@@ -2298,7 +2298,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-toggle-group 1.1.19 — MIT
+### @radix-ui/react-toggle-group 1.1.20 — MIT
 
 ```
 MIT License
@@ -2324,7 +2324,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-toolbar 1.1.19 — MIT
+### @radix-ui/react-toolbar 1.1.20 — MIT
 
 ```
 MIT License
@@ -2350,7 +2350,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-tooltip 1.2.16 — MIT
+### @radix-ui/react-tooltip 1.3.0 — MIT
 
 ```
 MIT License
@@ -2584,7 +2584,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-use-size 1.1.4 — MIT
+### @radix-ui/react-use-size 1.1.5 — MIT
 
 ```
 MIT License
@@ -2610,7 +2610,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-visually-hidden 1.2.11 — MIT
+### @radix-ui/react-visually-hidden 1.2.12 — MIT
 
 ```
 MIT License
@@ -3026,7 +3026,7 @@ MIT License
     SOFTWARE
 ```
 
-### @types/node 26.6.4 — MIT
+### @types/node 26.6.5 — MIT
 
 ```
 MIT License
@@ -4017,7 +4017,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### drizzle-orm 0.45.3 — Apache-2.0
+### drizzle-orm 0.45.4 — Apache-2.0
 
 This package declares `Apache-2.0` in its manifest but does not ship a licence file. Upstream: https://github.com/drizzle-team/drizzle-orm. The standard text of that licence is reproduced below.
 
@@ -4455,7 +4455,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### i18next 26.4.2 — MIT
+### i18next 26.4.3 — MIT
 
 ```
 The MIT License (MIT)
@@ -4769,7 +4769,7 @@ licenses; we recommend you read them, as their terms may differ from the
 terms above.
 ```
 
-### lucide-react 1.52.0 — ISC
+### lucide-react 1.55.0 — ISC
 
 ```
 ISC License
@@ -4817,7 +4817,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### maplibre-gl 6.12.0 — BSD-3-Clause
+### maplibre-gl 6.13.0 — BSD-3-Clause
 
 ```
 Copyright (c) 2023, MapLibre contributors
@@ -5181,7 +5181,7 @@ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ```
 
-### radix-ui 1.6.7 — MIT
+### radix-ui 1.7.0 — MIT
 
 ```
 MIT License
@@ -5259,7 +5259,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### react-i18next 17.0.15 — MIT
+### react-i18next 17.0.16 — MIT
 
 ```
 The MIT License (MIT)
