@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { WebSocket } from 'ws'
 import { createDb } from '../db/client'
-import { setLanSettings } from '../db/settings-repo'
+import { setAppLanguage, setLanSettings, setTheme } from '../db/settings-repo'
 import { LiveHub } from '../live/LiveHub'
 import type { LanController } from './LanController'
 import { createLan, lanQueries } from './create-lan'
@@ -143,6 +143,7 @@ describe('createLan', () => {
       liveHub: hub,
       trackingController: TRACKING,
       ...CREATE_DEPS,
+      systemLocale: () => 'de-DE',
       pageFolder,
       testAddress: '127.0.0.1'
     })
@@ -153,6 +154,29 @@ describe('createLan', () => {
     const { lan } = build()
     await lan.init()
     expect(lan.getStatus()).toMatchObject({ listening: false, url: null, devices: [] })
+  })
+
+  it("tells a paired device how the PC looks: its language and theme, and the OS language 'system' means", async () => {
+    const { db, lan } = build()
+    setAppLanguage(db, 'system')
+    setTheme(db, 'dark')
+    const port = await freePort()
+    setLanSettings(db, { enabled: true, port })
+    await lan.init()
+    const { code } = lan.startPairing().pairing!
+    const messages: Record<string, unknown>[] = []
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/live`)
+    ws.on('message', (data) => messages.push(JSON.parse(data.toString())))
+    await new Promise<void>((resolve) => ws.once('open', () => resolve()))
+    ws.send(JSON.stringify({ t: 'pair', code, name: 'iPhone (Safari)' }))
+    await expect.poll(() => messages.some((m) => m.t === 'snapshot')).toBe(true)
+
+    ws.send(JSON.stringify({ t: 'query', id: 7, name: 'settings.display', args: [] }))
+    await expect.poll(() => messages.some((m) => m.t === 'result' && m.id === 7)).toBe(true)
+    expect(messages.find((m) => m.t === 'result' && m.id === 7)).toMatchObject({
+      data: { appLanguage: 'system', theme: 'dark', systemLocale: 'de-DE', mapLanguage: 'en' }
+    })
+    ws.terminate()
   })
 
   it('serves the built page and pairs a device once switched on, keeping only its token hash', async () => {

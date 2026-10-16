@@ -2,7 +2,14 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { LanFlight, LanFlightSnapshot, ProcedureSelection, SimTelemetry, TrackPoint } from '@shared/ipc'
+import type {
+  LanFlight,
+  LanFlightSnapshot,
+  MapLanguage,
+  ProcedureSelection,
+  SimTelemetry,
+  TrackPoint
+} from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { FlightMap } from '@/FlightMap'
@@ -126,12 +133,25 @@ function useFlightTimes(args: {
  * @param props The link to the PC.
  * @returns The element: the flight view, started afresh for each flight so its procedure choices follow the flight.
  */
-export function TrackPage({ link }: { link: LanConnection }): React.JSX.Element {
+export function TrackPage({
+  link,
+  mapLanguage = 'en'
+}: {
+  link: LanConnection
+  mapLanguage?: MapLanguage
+}): React.JSX.Element {
   const snapshot = useSyncExternalStore(
     (notify) => link.onFlight(() => notify()),
     () => link.flight
   )
-  return <FlightView key={snapshot?.flight.flightId ?? 'none'} link={link} snapshot={snapshot} />
+  return (
+    <FlightView
+      key={snapshot?.flight.flightId ?? 'none'}
+      link={link}
+      snapshot={snapshot}
+      mapLanguage={mapLanguage}
+    />
+  )
 }
 
 /**
@@ -177,8 +197,12 @@ function ProceduresBar(props: {
  * @param props The link, and the flight being tracked (null when none).
  * @returns The element.
  */
-function FlightView(props: { link: LanConnection; snapshot: LanFlightSnapshot | null }): React.JSX.Element {
-  const { link, snapshot } = props
+function FlightView(props: {
+  link: LanConnection
+  snapshot: LanFlightSnapshot | null
+  mapLanguage: MapLanguage
+}): React.JSX.Element {
+  const { link, snapshot, mapLanguage } = props
   const [selection, setSelection] = useState<ProcedureSelection>(
     snapshot?.flight.selection ?? emptyProcedureSelection()
   )
@@ -252,6 +276,7 @@ function FlightView(props: { link: LanConnection; snapshot: LanFlightSnapshot | 
       />
       <div className="min-h-0 flex-1">
         <FlightMap
+          mapLanguage={mapLanguage}
           live
           route={route}
           waypoints={waypoints}

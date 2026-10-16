@@ -1,5 +1,6 @@
+import i18n from 'i18next'
 import { describe, expect, it, vi } from 'vitest'
-import { act, render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { FlightMapProps } from '@/FlightMap'
 import { LanApp } from './LanApp'
@@ -281,6 +282,45 @@ describe('pop-ups from the other apps (docs/plans/lan-popups.md)', () => {
 })
 
 describe('LanApp', () => {
+  it("looks the way the PC's settings say: its map language on the map, its language and theme on the page", async () => {
+    stubNavdata()
+    const { link, sockets } = setup('tok')
+    render(<LanApp link={link} />)
+    act(() => {
+      sockets[0].onopen?.()
+      sockets[0].say({ t: 'snapshot', topics: {}, flight: FLIGHT_WITH_SELECTION })
+    })
+    // The page asks the PC for its display settings and the add-on switches; the PC answers.
+    const queries = (sockets[0].sent as { t: string; id: number; name: string }[]).filter(
+      (m) => m.t === 'query'
+    )
+    const answer = (name: string, data: unknown): void => {
+      const asked = queries.find((m) => m.name === name)
+      expect(asked).toBeDefined()
+      sockets[0].say({ t: 'result', id: asked!.id, data })
+    }
+    await act(async () => {
+      answer('settings.display', {
+        weightUnit: 'kg',
+        altitudeUnit: 'ft',
+        windSpeedUnit: 'kt',
+        appLanguage: 'de',
+        systemLocale: 'en-US',
+        theme: 'dark',
+        mapLanguage: 'fr'
+      })
+      answer('settings.gsxRemote', { enabled: false })
+      answer('settings.beyondAtc', { enabled: false })
+      await Promise.resolve()
+    })
+    expect(mapProps.current?.mapLanguage).toBe('fr')
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Verfahren…' })).toBeInTheDocument())
+    // The page is global state: leave it as the other tests expect it.
+    await i18n.changeLanguage('en')
+    document.documentElement.classList.remove('dark')
+  })
+
   it('asks for the pairing code first, and sends it to the PC', async () => {
     const { link, sockets } = setup()
     render(<LanApp link={link} />)

@@ -35,9 +35,21 @@ describe('Home Screen web app', () => {
     }
   })
 
-  it('lets the page extend under the status bar, and pads for it', () => {
+  it('lets the page extend under the status bar, and pads for it with extra room below the blurred band iOS draws there', () => {
     expect(html).toContain('viewport-fit=cover')
     const app = readFileSync(join(folder, 'LanApp.tsx'), 'utf8')
-    expect(app).toContain('pt-[env(safe-area-inset-top)]')
+    const css = readFileSync(join(folder, 'lan.css'), 'utf8')
+    expect(app).toContain('lan-shell')
+    expect(css).toMatch(/\.lan-shell\s*\{\s*padding-top: env\(safe-area-inset-top/)
+    expect(css).toMatch(
+      /@media \(display-mode: standalone\)\s*\{\s*\.lan-shell\s*\{\s*padding-top: calc\(env\(safe-area-inset-top/
+    )
+  })
+
+  it('keeps the map’s (i) in its corner when its text is open', () => {
+    const css = readFileSync(join(folder, 'lan.css'), 'utf8')
+    expect(css).toMatch(
+      /\.maplibregl-compact-show \.maplibregl-ctrl-attrib-button\s*\{\s*inset: 0 0 auto auto;\s*width: 44px;\s*height: 44px;/
+    )
   })
 })

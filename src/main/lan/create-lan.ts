@@ -11,10 +11,12 @@ import {
 } from '../db/lan-device-repo'
 import {
   getAltitudeUnit,
+  getAppLanguage,
   getBeyondAtcSettings,
   getGsxRemoteSettings,
   getLanSettings,
   getMapLanguage,
+  getTheme,
   getWeightUnit,
   getWindSpeedUnit,
   setLanSettings
@@ -59,6 +61,8 @@ export interface CreateLanDeps {
   addOnCommands: Partial<Record<LiveCommand, (...args: unknown[]) => void>>
   /** The User-Agent METAR lookups send. */
   userAgent: string
+  /** The OS language the PC reports, which its "system" language setting follows; the phone shows the same one. */
+  systemLocale?: () => string
   /** The built page's folder (`out/lan`). */
   pageFolder: string
   /** An acceptance test's own address to listen on, instead of the machine's (an unpackaged build only; see index.ts). */
@@ -156,6 +160,7 @@ export function createLan({
   navdata,
   addOnCommands,
   userAgent,
+  systemLocale = () => 'en',
   pageFolder,
   testAddress
 }: CreateLanDeps): LanController {
@@ -174,7 +179,10 @@ export function createLan({
         weightUnit: getWeightUnit(db),
         altitudeUnit: getAltitudeUnit(db),
         windSpeedUnit: getWindSpeedUnit(db),
-        mapLanguage: getMapLanguage(db)
+        mapLanguage: getMapLanguage(db),
+        appLanguage: getAppLanguage(db),
+        theme: getTheme(db),
+        systemLocale: systemLocale()
       }),
       addOns: () => ({
         gsxRemote: getGsxRemoteSettings(db).enabled,

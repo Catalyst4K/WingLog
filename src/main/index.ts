@@ -266,6 +266,7 @@ function startSecondScreen(
   const lan = createLan({
     ...deps,
     userAgent: `WingLog/${app.getVersion()}`,
+    systemLocale: () => app.getLocale(),
     pageFolder: join(__dirname, '../lan'),
     testAddress: app.isPackaged ? undefined : process.env.WINGLOG_E2E_LAN_ADDRESS
   })

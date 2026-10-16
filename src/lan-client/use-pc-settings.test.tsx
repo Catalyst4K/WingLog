@@ -36,13 +36,41 @@ describe('usePcSettings', () => {
     const { link } = fakeLink(ANSWERS)
     const { result } = renderHook(() => usePcSettings(link))
     await act(() => vi.advanceTimersByTimeAsync(0))
-    expect(result.current).toEqual({
+    expect(result.current).toMatchObject({
       weightUnit: 'lb',
       altitudeUnit: 'm',
       windSpeedUnit: 'mps',
       gsxRemote: true,
       beyondAtc: true
     })
+  })
+
+  it("reads how the PC looks (language, theme, map language), and ignores anything it doesn't know", async () => {
+    const looks = {
+      weightUnit: 'kg',
+      altitudeUnit: 'ft',
+      windSpeedUnit: 'kt',
+      appLanguage: 'de',
+      systemLocale: 'de-DE',
+      theme: 'dark',
+      mapLanguage: 'fr'
+    }
+    const { link } = fakeLink({ ...ANSWERS, 'settings.display': () => Promise.resolve(looks) })
+    const { result } = renderHook(() => usePcSettings(link))
+    await act(() => vi.advanceTimersByTimeAsync(0))
+    expect(result.current).toMatchObject({
+      appLanguage: 'de',
+      systemLocale: 'de-DE',
+      theme: 'dark',
+      mapLanguage: 'fr'
+    })
+
+    const junk = { ...looks, appLanguage: 'klingon', systemLocale: 42, theme: 'neon', mapLanguage: 'xx' }
+    const other = fakeLink({ ...ANSWERS, 'settings.display': () => Promise.resolve(junk) })
+    const { result: safe } = renderHook(() => usePcSettings(other.link))
+    await act(() => vi.advanceTimersByTimeAsync(0))
+    expect(safe.current).toMatchObject({ appLanguage: 'system', theme: 'system', mapLanguage: 'en' })
+    expect(typeof safe.current.systemLocale).toBe('string')
   })
 
   it('asks again when the PC refuses a lookup, so the add-on pages still appear', async () => {
