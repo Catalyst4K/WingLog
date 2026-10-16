@@ -62,8 +62,8 @@ describe('usePcSettings', () => {
     await act(() => vi.advanceTimersByTimeAsync(1500))
     await act(() => vi.advanceTimersByTimeAsync(1500))
     expect(result.current.gsxRemote).toBe(true)
-    // It gives up after a few tries rather than asking for ever.
-    await act(() => vi.advanceTimersByTimeAsync(20_000))
+    // It gives up after a few tries (the periodic refresh, every 5 s, is separate).
+    await act(() => vi.advanceTimersByTimeAsync(1_600))
     const askedGsx = asked.filter((name) => name === 'settings.gsxRemote').length
     expect(askedGsx).toBeGreaterThanOrEqual(3)
     expect(asked.filter((name) => name === 'settings.beyondAtc')).toHaveLength(4)
@@ -81,5 +81,40 @@ describe('usePcSettings', () => {
     const before = asked.length
     await act(() => vi.advanceTimersByTimeAsync(20_000))
     expect(asked).toHaveLength(before)
+  })
+
+  it('shows a change made on the PC within a few seconds, and when the page comes back to the front', async () => {
+    let units = { weightUnit: 'kg', altitudeUnit: 'ft', windSpeedUnit: 'kt' }
+    const { link, asked } = fakeLink({ ...ANSWERS, 'settings.display': () => Promise.resolve(units) })
+    const { result } = renderHook(() => usePcSettings(link))
+    await act(() => vi.advanceTimersByTimeAsync(0))
+    expect(result.current).toMatchObject({ weightUnit: 'kg', altitudeUnit: 'ft' })
+
+    units = { weightUnit: 'lb', altitudeUnit: 'm', windSpeedUnit: 'mps' }
+    await act(() => vi.advanceTimersByTimeAsync(5_000))
+    expect(result.current).toMatchObject({ weightUnit: 'lb', altitudeUnit: 'm', windSpeedUnit: 'mps' })
+
+    const before = result.current
+    await act(() => vi.advanceTimersByTimeAsync(5_000))
+    expect(result.current).toBe(before) // the same answer is not a new object
+
+    units = { weightUnit: 'kg', altitudeUnit: 'hybrid', windSpeedUnit: 'kt' }
+    const asks = asked.length
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'))
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(asked.length).toBeGreaterThan(asks)
+    expect(result.current).toMatchObject({ weightUnit: 'kg', altitudeUnit: 'hybrid' })
+  })
+
+  it('stops asking when the page is closed', async () => {
+    const { link, asked } = fakeLink(ANSWERS)
+    const { unmount } = renderHook(() => usePcSettings(link))
+    await act(() => vi.advanceTimersByTimeAsync(0))
+    unmount()
+    const asks = asked.length
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(asked.length).toBe(asks)
   })
 })
