@@ -31,6 +31,20 @@ describe('boxTaxiClearance', () => {
     ).toMatchObject({ holdingPoint: null, holdShortRunway: '07C' })
   })
 
+  it('reads the first half of a runway crossing from the Hold Short box alone, with no speech (real EGLL boxes, flight 239, 2026-10-15)', () => {
+    // Before this the clearance had no end: it was taken for the arrival's, drawn nowhere, and only the spoken "hold short" (which the
+    // phone never gets) made the desktop's line appear.
+    expect(
+      boxTaxiClearance([
+        { title: 'Taxi to Runway', info: '27R' },
+        { title: 'Taxi Via 1', info: 'LINK 44' },
+        { title: 'Taxi Via 2', info: 'T' },
+        { title: 'Taxi Via 3', info: 'S' },
+        { title: 'Hold Short', info: '27L' }
+      ])
+    ).toEqual({ taxiways: ['LINK 44', 'T', 'S'], holdingPoint: null, stand: null, holdShortRunway: '27L' })
+  })
+
   it('is null when the boxes hold no taxi route', () => {
     expect(boxTaxiClearance([{ title: 'Expect Gate', info: 'Gate 102' }])).toBeNull()
     expect(boxTaxiClearance([])).toBeNull()
