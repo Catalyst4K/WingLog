@@ -12,6 +12,18 @@ div[class*='bottom-3'][class*='left-3'] {
   line-height: 1.3;
 }
 
+/* The top of the page, clear of the phone's status area. In a Home Screen app iOS draws a blurred edge over the first stretch of the page
+   below its safe area, which left the header's text stuck in the blur: the page starts a little further down there. In a browser tab there is
+   no such edge, and the safe area alone is enough. */
+.lan-shell {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+@media (display-mode: standalone) {
+  .lan-shell {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 2rem);
+  }
+}
+
 /* A thumb needs at least 44 px each way (Apple's and Google's minimum) on everything it presses: buttons, tabs, selects, fields and the
    disclosure triangles. e2e/second-screen-touch.spec.ts measures every control on every page at phone and tablet sizes. */
 #root
