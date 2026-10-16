@@ -154,3 +154,34 @@ export function planStyleChanges(layers: StyleLayerLike[], language: MapLanguage
   }
   return changes
 }
+
+/**
+ * Whether a layer's `text-field` is one this module wrote for some language: such a layer was relabelled already.
+ *
+ * @param layer A style layer.
+ * @returns True if its label is one of ours.
+ */
+const isRelabelled = (layer: StyleLayerLike): boolean => {
+  if (layer.type !== 'symbol') return false
+  const current = JSON.stringify(layer.layout?.['text-field'] ?? null)
+  return MAP_LANGUAGES.some((l) => JSON.stringify(labelExpression(l.value)) === current)
+}
+
+/**
+ * The changes for a language, whether or not the style's own labels have been replaced already. `planStyleChanges` recognises a label by
+ * its original two-line `text-field`, which the first application replaces: asked again for another language on the same loaded style it
+ * finds nothing, so the map kept its first language. A map that is open when the language changes (the second screen's, when the PC's
+ * setting arrives after the map is up) therefore never switched. A label this module wrote itself is recognised too, and written again.
+ *
+ * @param layers The style's layers as they are now.
+ * @param language The map language.
+ * @returns The changes to make.
+ */
+export function planLanguageChange(layers: StyleLayerLike[], language: MapLanguage): LayerChange[] {
+  const byId = new Map<string, LayerChange>(planStyleChanges(layers, language).map((c) => [c.id, c]))
+  for (const layer of layers) {
+    if (isRelabelled(layer))
+      byId.set(layer.id, { ...byId.get(layer.id), id: layer.id, textField: labelExpression(language) })
+  }
+  return [...byId.values()]
+}
