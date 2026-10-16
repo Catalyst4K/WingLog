@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { labelExpression, planStyleChanges, type StyleLayerLike } from './map-labels'
+import { labelExpression, planLanguageChange, planStyleChanges, type StyleLayerLike } from './map-labels'
 
 // Synthetic fixtures shaped like the two real OpenFreeMap styles, as read on
 // (docs/navdata-notes.md-style spike, recorded in map-language-and-declutter.md): the same
@@ -183,5 +183,46 @@ describe('planStyleChanges — declutter', () => {
 
   it('returns nothing for an empty style, so a style that changes shape degrades to unchanged', () => {
     expect(planStyleChanges([], 'en')).toEqual([])
+  })
+})
+
+describe('planLanguageChange — a language changed while the map is open', () => {
+  /** What the map's style looks like after changes were applied: the relabelled layers lose their two-line text-field. */
+  function applied(
+    layers: StyleLayerLike[],
+    changes: { id: string; textField?: unknown[] }[]
+  ): StyleLayerLike[] {
+    return layers.map((l) => {
+      const change = changes.find((c) => c.id === l.id && c.textField)
+      return change ? { ...l, layout: { ...l.layout, 'text-field': change.textField } } : l
+    })
+  }
+
+  it('relabels again for the new language, which the plain plan cannot (the layers no longer look like the original two-line labels)', () => {
+    const first = planLanguageChange(POSITRON, 'en')
+    const labelled = first.filter((c) => c.textField).map((c) => c.id)
+    expect(labelled.length).toBeGreaterThan(0)
+    const afterFirst = applied(POSITRON, first)
+    // The bug: planning from the changed style finds nothing, so the map stayed in its first language.
+    expect(planStyleChanges(afterFirst, 'fr').filter((c) => c.textField)).toEqual([])
+
+    const second = planLanguageChange(afterFirst, 'fr')
+    expect(second.map((c) => c.id).sort()).toEqual([...labelled].sort())
+    for (const change of second) expect(change.textField).toEqual(labelExpression('fr'))
+
+    // And again, to a third.
+    const third = planLanguageChange(applied(afterFirst, second), 'local')
+    expect(third.map((c) => c.id).sort()).toEqual([...labelled].sort())
+    for (const change of third) expect(change.textField).toEqual(labelExpression('local'))
+  })
+
+  it('plans from the original labels when the style has just been loaded again (a theme switch)', () => {
+    expect(planLanguageChange(DARK, 'de').some((c) => c.textField)).toBe(true)
+  })
+
+  it('leaves a style with no labels it knows alone, and a label that is not ours', () => {
+    expect(planLanguageChange([{ id: 'background', type: 'background' }], 'fr')).toEqual([])
+    const foreign = { id: 'x', type: 'symbol', layout: { 'text-field': ['get', 'ref'] } } as StyleLayerLike
+    expect(planLanguageChange([foreign], 'fr')).toEqual([])
   })
 })

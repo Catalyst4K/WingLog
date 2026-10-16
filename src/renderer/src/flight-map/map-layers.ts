@@ -14,7 +14,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import type { MapLanguage, TrackPoint } from '@shared/ipc'
 import { lazy } from '@shared/lazy'
-import { planStyleChanges, type StyleLayerLike } from '../map-labels'
+import { planLanguageChange, type StyleLayerLike } from '../map-labels'
 import type { Waypoint } from '../route'
 import { uiMemory } from '../ui-memory'
 
@@ -200,7 +200,7 @@ export function waypointFeatures(waypoints: Waypoint[]): WaypointFeatureCollecti
 export function applyLabelStyle(map: MapLibreMap, language: MapLanguage): void {
   try {
     const layers = map.getStyle().layers as StyleLayerLike[]
-    for (const change of planStyleChanges(layers, language)) {
+    for (const change of planLanguageChange(layers, language)) {
       if (change.textField)
         map.setLayoutProperty(change.id, 'text-field', change.textField as ExpressionSpecification)
       if (change.minzoom !== undefined) {
