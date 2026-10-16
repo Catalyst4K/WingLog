@@ -58,6 +58,8 @@ const LANDING_ICAO_SEARCH_RADIUS_NM = 5
 
 interface TrackingControllerEvents {
   point: [TrackPoint]
+  /** Saving the track started failing (true) or works again (false): a full disk. Emitted on the change only. */
+  storageProblem: [boolean]
   /** Emitted whenever a resume-cleanup pass (resume-cleanup.ts) actually changes something
    *  — a point newly excluded, or retagged with a new resumeSegment — carrying every
    *  affected point at its now-current values, so a live map (already holding the earlier,
@@ -248,6 +250,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
         `[tracking] saving works again after ${Math.round((Date.now() - this.storageFailingSinceMs) / 1000)}s`
       )
       this.storageFailingSinceMs = undefined
+      this.emit('storageProblem', false)
     }
     return saved
   }
@@ -260,7 +263,10 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
    */
   private logStorageFailure(error: unknown): void {
     const now = Date.now()
-    this.storageFailingSinceMs ??= now
+    if (this.storageFailingSinceMs === undefined) {
+      this.storageFailingSinceMs = now
+      this.emit('storageProblem', true)
+    }
     if (now - this.lastStorageFailureLoggedMs < STORAGE_FAILURE_LOG_INTERVAL_MS) return
     this.lastStorageFailureLoggedMs = now
     logger.error(

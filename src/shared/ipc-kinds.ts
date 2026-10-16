@@ -24,6 +24,8 @@ const NOT_QUERIES = {
     'trackingPoint',
     'trackingPointsUpdated',
     'procedureSelection',
+    'storageStatus',
+    'storageGetStatus',
     'trackingGetActive',
     'updatesStatus',
     'gsxRemoteStatus',

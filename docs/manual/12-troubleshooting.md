@@ -60,6 +60,15 @@ it. Nothing recorded before it closed is lost.
 The first time you open the taxi chart at an airport, WingLog reads the airport's taxiways from the
 sim, which can take a few minutes at a large airport. After that it's saved and opens straight away.
 
+## The low disk space warning
+
+A bar across the top of WingLog, and of the second screen, warns when the drive holding WingLog's data is running out of room:
+
+- **Amber, under 5 GB free:** free some space before a long flight. Your flight, its track and the launch backup are all kept on this drive.
+- **Red, under 1 GB free, or "your disk is full":** free space now. If saving fails mid-flight, WingLog keeps the track in memory (about seven hours' worth) and saves it as soon as there is room, so nothing is lost if you free space in time.
+
+The bar goes away on its own once there is room again. Emptying the Recycle Bin and removing old downloads is usually the quickest way to make space.
+
 ## Reporting a bug
 
 Open an issue at

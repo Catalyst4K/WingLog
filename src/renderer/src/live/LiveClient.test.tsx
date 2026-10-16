@@ -10,6 +10,7 @@ const SUBSCRIBERS: Record<LiveTopic, keyof WingLogApi> = {
   trackingPoint: 'onTrackingPoint',
   trackingPointsUpdated: 'onTrackingPointsUpdated',
   procedureSelection: 'onProcedureSelection',
+  storageStatus: 'onStorageStatus',
   gsxRemoteStatus: 'onGsxRemoteStatus',
   gsxRemoteServices: 'onGsxRemoteServices',
   gsxRemoteGate: 'onGsxRemoteGate',

@@ -828,6 +828,12 @@
       "enroute": "In rotta"
     }
   },
+  "storage": {
+    "label": "Poco spazio su disco",
+    "low": "Il disco si sta riempiendo (restano {{free}}). Libera spazio prima di un volo lungo.",
+    "critical": "Il disco è quasi pieno (restano {{free}}). Libera spazio ora, altrimenti WingLog potrebbe non riuscire a salvare il volo.",
+    "saveFailing": "Il disco è pieno, quindi WingLog non può salvare il volo. Tiene la traccia in memoria e la salverà appena c'è spazio."
+  },
   "updates": {
     "banner": {
       "label": "Aggiornamento disponibile",

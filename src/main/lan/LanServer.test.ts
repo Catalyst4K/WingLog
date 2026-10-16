@@ -578,6 +578,7 @@ describe('LanServer', () => {
         'gsxRemoteStatus',
         'simConnectionStatus',
         'simTelemetry',
+        'storageStatus',
         'trackingPoint',
         'trackingPointsUpdated',
         'procedureSelection'

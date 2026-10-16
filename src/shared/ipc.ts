@@ -88,6 +88,7 @@ import type {
   WeightUnit,
   WindSpeedUnit
 } from './types/settings'
+import type { StorageStatus } from './types/storage'
 import type { SimConnectionStatus, SimTelemetry } from './types/sim'
 
 export type * from './types/aircraft'
@@ -99,6 +100,7 @@ export type * from './types/gsx'
 export type * from './types/beyondatc'
 export type * from './types/lan'
 export type * from './types/settings'
+export type * from './types/storage'
 export type * from './types/dispatch'
 export type * from './types/navdata'
 export { IpcChannels } from './ipc-channels'
@@ -529,6 +531,10 @@ export interface WingLogApi {
   beyondAtcSetAutoRespond: (value: boolean) => Promise<void>
   settingsGetUpdates: () => Promise<UpdateSettings>
   settingsSetUpdates: (settings: UpdateSettings) => Promise<void>
+  /** The room left on the drive holding WingLog's data, and whether saving is failing: for the first render of the low-disk warning. */
+  getStorageStatus: () => Promise<StorageStatus>
+  /** Pushed when the free space crosses a warning level, or saving starts or stops failing. */
+  onStorageStatus: (listener: (status: StorageStatus) => void) => () => void
   updatesGetStatus: () => Promise<UpdateStatus>
   onUpdateStatus: (listener: (status: UpdateStatus) => void) => () => void
   /** Checks GitHub now, whatever the automatic-check setting, and returns the result. */

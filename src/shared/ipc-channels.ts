@@ -54,6 +54,8 @@ export const IpcChannels = {
   trackingPoint: 'tracking:point',
   trackingPointsUpdated: 'tracking:points-updated',
   procedureSelection: 'tracking:procedure-selection',
+  storageStatus: 'storage:status',
+  storageGetStatus: 'storage:get-status',
   trackPointList: 'track-point:list',
   trackPointCleanup: 'track-point:cleanup',
   logbookListCompletedFlights: 'logbook:list-completed-flights',

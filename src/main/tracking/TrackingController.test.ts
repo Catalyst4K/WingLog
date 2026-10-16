@@ -1777,6 +1777,35 @@ describe('TrackingController lifecycle events (dev build diagnostics)', () => {
       error.mockRestore()
     })
 
+    it('tells the rest of the app when saving starts failing and when it works again, once each', () => {
+      vi.useFakeTimers()
+      sim.setLastTelemetry(telemetry({}))
+      const store = dbFlightStore(db)
+      let failing = true
+      const controller = new TrackingController(
+        {
+          ...store,
+          addTrackPoint: (point) => {
+            if (failing) throw new Error('SqliteError: database or disk is full')
+            return store.addTrackPoint(point)
+          }
+        },
+        sim
+      )
+      const problems: boolean[] = []
+      controller.on('storageProblem', (value) => problems.push(value))
+      const error = vi.spyOn(logger, 'error').mockImplementation(() => {})
+      vi.spyOn(logger, 'warn').mockImplementation(() => {})
+      controller.start(flightId)
+      tick(10)
+      expect(problems).toEqual([true])
+
+      failing = false
+      tick(5, 10)
+      expect(problems).toEqual([true, false])
+      error.mockRestore()
+    })
+
     it('keeps tracking when a step other than the point write throws', () => {
       vi.useFakeTimers()
       sim.setLastTelemetry(telemetry({}))

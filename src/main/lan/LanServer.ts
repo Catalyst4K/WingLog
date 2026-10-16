@@ -21,6 +21,7 @@ export const LAN_TOPICS: readonly LiveTopic[] = [
   'trackingPoint',
   'trackingPointsUpdated',
   'procedureSelection',
+  'storageStatus',
   'gsxRemoteStatus',
   'gsxRemoteServices',
   'gsxRemoteGate',

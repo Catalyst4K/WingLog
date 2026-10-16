@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { ImportantGsxMenuDialog } from '@/app/AppDialogs'
 import { LiveClientContext } from '@/live/LiveClient'
 import { useImportantGsxMenu } from '@/app/use-prompts'
+import { StorageBanner } from '@/StorageBanner'
 import type { LanConnection } from './lan-connection'
 import { lanLiveClient } from './lan-live-client'
 import { NavBar, type PageId } from './NavBar'
@@ -113,6 +114,7 @@ function Shell({ link, offline }: { link: LanConnection; offline: boolean }): Re
           {t('lanPage.offline')}
         </p>
       )}
+      <StorageBanner />
       <main className="min-h-0 flex-1">
         <div className={shown === 'track' ? 'h-full' : 'hidden'}>
           <TrackPage link={link} />

@@ -16,6 +16,7 @@ import type {
   GsxRemoteServiceStatus,
   SimConnectionStatus,
   SimTelemetry,
+  StorageStatus,
   TrackPoint
 } from './ipc'
 
@@ -33,6 +34,8 @@ export interface LiveTopics {
   trackingPointsUpdated: TrackPoint[]
   /** The SID, STAR and approach chosen for the tracked flight, from whichever screen changed it last. */
   procedureSelection: ProcedureSelection | null
+  /** The disk's free space and whether saving is failing, for the low-disk warning on every screen. */
+  storageStatus: StorageStatus
   gsxRemoteStatus: GsxRemoteConnectionStatus
   gsxRemoteServices: GsxRemoteServiceStatus[]
   gsxRemoteGate: GsxRemoteGateInfo | null

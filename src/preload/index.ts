@@ -11,6 +11,7 @@ import {
   type BeyondAtcState,
   type BeyondAtcTranscriptEntry,
   type LanSettings,
+  type StorageStatus,
   type UpdateSettings,
   type UpdateStatus,
   type BeyondAtcStepClimbStatus,
@@ -306,6 +307,12 @@ const api: WingLogApi = {
   settingsGetUpdates: () => ipcRenderer.invoke(IpcChannels.settingsGetUpdates),
   settingsSetUpdates: (settings: UpdateSettings) =>
     ipcRenderer.invoke(IpcChannels.settingsSetUpdates, settings),
+  getStorageStatus: () => ipcRenderer.invoke(IpcChannels.storageGetStatus),
+  onStorageStatus: (listener: (status: StorageStatus) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, status: StorageStatus): void => listener(status)
+    ipcRenderer.on(IpcChannels.storageStatus, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.storageStatus, handler)
+  },
   updatesGetStatus: () => ipcRenderer.invoke(IpcChannels.updatesGetStatus),
   onUpdateStatus: (listener: (status: UpdateStatus) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, status: UpdateStatus): void => listener(status)

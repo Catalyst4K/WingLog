@@ -826,6 +826,12 @@
       "enroute": "Streckenflug"
     }
   },
+  "storage": {
+    "label": "Wenig Speicherplatz",
+    "low": "Dein Datenträger wird knapp ({{free}} frei). Schaffe vor einem langen Flug etwas Platz.",
+    "critical": "Dein Datenträger ist fast voll ({{free}} frei). Schaffe jetzt Platz, sonst kann WingLog deinen Flug eventuell nicht speichern.",
+    "saveFailing": "Dein Datenträger ist voll, WingLog kann den Flug deshalb nicht speichern. Die Strecke wird im Arbeitsspeicher gehalten und gespeichert, sobald wieder Platz da ist."
+  },
   "updates": {
     "banner": {
       "label": "Update verfügbar",

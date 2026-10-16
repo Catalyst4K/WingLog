@@ -69,6 +69,8 @@ function stubNavdata(overrides: Record<string, unknown> = {}): void {
     navdataListApproaches: vi.fn().mockResolvedValue([]),
     navdataGetProcedureWaypoints: vi.fn().mockResolvedValue([]),
     appLogRendererError: vi.fn().mockResolvedValue(undefined),
+    getStorageStatus: vi.fn().mockResolvedValue({ freeBytes: null, level: 'ok', saveFailing: false }),
+    onStorageStatus: vi.fn().mockReturnValue(() => {}),
     ...overrides
   } as unknown as typeof window.winglog
 }

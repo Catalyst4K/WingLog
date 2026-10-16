@@ -826,6 +826,12 @@
       "enroute": "En route"
     }
   },
+  "storage": {
+    "label": "Low disk space",
+    "low": "Your disk is running low ({{free}} left). Free some space before a long flight.",
+    "critical": "Your disk is almost full ({{free}} left). Free some space now, or WingLog may not be able to save your flight.",
+    "saveFailing": "Your disk is full, so WingLog can't save the flight. It is keeping the track in memory and will save it as soon as there is room."
+  },
   "updates": {
     "banner": {
       "label": "Update available",

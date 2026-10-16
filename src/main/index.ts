@@ -12,6 +12,8 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, screen } from 'electron'
 import { IpcChannels } from '@shared/ipc'
 import { initLogger, logger } from './logging/logger'
 import { installProcessGuards } from './logging/process-guards'
+import { DiskSpaceMonitor } from './storage/disk-space'
+import { registerStorageHandlers } from './ipc/storage-handlers'
 import { setMainLanguage, t } from './i18n'
 import { backupDatabaseOnLaunch } from './db/backup'
 import { createDb, type WingLogDb } from './db/client'
@@ -198,6 +200,21 @@ function wireTracking(
 }
 
 /**
+ * The room left on the drive holding the database: a warning on every screen (a live topic), and tracking's word when saving fails
+ * (the overnight flight that lost seven hours to a full disk, 2026-10-16).
+ *
+ * @param liveHub Where the status is published.
+ * @param trackingController Says when saving the track starts or stops failing.
+ */
+function startDiskSpaceWarning(liveHub: LiveHub, trackingController: TrackingController): void {
+  const diskSpace = new DiskSpaceMonitor({ folder: app.getPath('userData') })
+  registerStorageHandlers(ipcMain, { monitor: diskSpace, liveHub })
+  trackingController.on('storageProblem', (failing) => diskSpace.setSaveFailing(failing))
+  diskSpace.start()
+  app.on('before-quit', () => diskSpace.stop())
+}
+
+/**
  * The update check (winglog-backend's docs/plans/update-check.md, Part A; agreed):
  * asks GitHub for the latest published release, on by default, switchable off in Settings →
  * About. The endpoint can only be overridden in an unpackaged build, for the Playwright
@@ -350,6 +367,8 @@ function startApp(): void {
   })
 
   registerSyncHandlers(ipcMain, { cloudSync, enabled: __WINGLOG_CLOUD_SYNC_ENABLED__ })
+
+  startDiskSpaceWarning(liveHub, trackingController)
 
   const updateService = startUpdates(db, window)
   app.on('before-quit', () => updateService.stop())
