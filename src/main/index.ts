@@ -173,6 +173,7 @@ function wireTracking(
 ): AutoStartDetector {
   trackingController.on('point', (point) => liveHub.publish('trackingPoint', point))
   trackingController.on('pointsUpdated', (points) => liveHub.publish('trackingPointsUpdated', points))
+  trackingController.on('selectionChanged', (selection) => liveHub.publish('procedureSelection', selection))
   // Push-on-mutation's real-time case: a flight reaching 'completed' (auto shutdown
   // detection or a manual finish()) is the highest-value moment to sync promptly, whether
   // or not the user touches any other IPC channel afterward.

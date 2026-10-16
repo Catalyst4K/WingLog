@@ -131,6 +131,15 @@ export function useFlightPlan(): FlightPlan {
     )
   }, [])
 
+  // The procedures can also be chosen on a second screen (a phone on the home network): the PC announces the change, so Dispatch and
+  // Track here follow it. An announcement equal to what is already chosen changes nothing, which is what stops the echo of our own pushes.
+  useEffect(() => {
+    return winglogApi().onProcedureSelection((selection) => {
+      if (!selection) return
+      setProcedureSelection((now) => (JSON.stringify(now) === JSON.stringify(selection) ? now : selection))
+    })
+  }, [])
+
   return {
     dispatchOfp,
     dispatchedOfpId,

@@ -53,6 +53,7 @@ export const IpcChannels = {
   flightLinkAircraft: 'flight:link-aircraft',
   trackingPoint: 'tracking:point',
   trackingPointsUpdated: 'tracking:points-updated',
+  procedureSelection: 'tracking:procedure-selection',
   trackPointList: 'track-point:list',
   trackPointCleanup: 'track-point:cleanup',
   logbookListCompletedFlights: 'logbook:list-completed-flights',

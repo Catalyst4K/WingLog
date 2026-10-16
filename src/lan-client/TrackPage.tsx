@@ -180,6 +180,15 @@ function FlightView(props: { link: LanConnection; snapshot: LanFlightSnapshot | 
   const [selection, setSelection] = useState<ProcedureSelection>(
     snapshot?.flight.selection ?? emptyProcedureSelection()
   )
+  // The PC announces a change made on its own window (or another device): show it here too. The first value a connection brings is
+  // not used, only changes, so an old flight's choice can't replace this flight's.
+  useEffect(
+    () =>
+      link.subscribe('procedureSelection', (next) => {
+        if (next) setSelection((now) => (JSON.stringify(now) === JSON.stringify(next) ? now : next))
+      }),
+    [link]
+  )
   const trackPoints = useSyncExternalStore(
     (notify) => link.onTrack(notify),
     () => link.track
