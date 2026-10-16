@@ -61,6 +61,8 @@ export default defineConfig({
       exclude: [
         'src/**/*.test.{ts,tsx}',
         'src/main/index.ts',
+        // electron-updater's configuration; the logic around it is update-install.ts.
+        'src/main/updates/updater-engine.ts',
         'src/preload/index.ts',
         'src/renderer/src/main.tsx',
         'src/lan-client/main.tsx',

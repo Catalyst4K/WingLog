@@ -163,6 +163,8 @@ export const IpcChannels = {
   updatesCheckNow: 'updates:check-now',
   updatesSkipVersion: 'updates:skip-version',
   updatesOpenRelease: 'updates:open-release',
+  updatesDownload: 'updates:download',
+  updatesInstall: 'updates:install',
   beyondAtcGetStepClimb: 'beyondatc:get-step-climb',
   beyondAtcStepClimb: 'beyondatc:step-climb',
   beyondAtcSetStepClimb: 'beyondatc:set-step-climb',

@@ -2,13 +2,14 @@
  * Asks GitHub whether a newer WingLog release is out (winglog-backend's
  * docs/plans/update-check.md, Part A; decided in its decisions.md). One GET of the
  * latest *published, non-prerelease* release — drafts never show up — sending nothing but
- * WingLog's own version in the User-Agent. The user downloads and installs it themselves,
- * same as today; this only tells them it exists.
+ * WingLog's own version in the User-Agent. This only tells them it exists; the download and
+ * install, where the build can do it, are update-install.ts's.
  */
 
 import { runLogged } from '../logging/run-logged'
 import { EventEmitter } from 'node:events'
-import type { UpdateRelease, UpdateStatus } from '@shared/ipc'
+import type { UpdateInstallOutcome, UpdateRelease, UpdateStatus } from '@shared/ipc'
+import type { UpdateInstaller } from './update-install'
 import { logger } from '../logging/logger'
 
 /** GitHub's "latest release" endpoint for the public repo. One constant, https only. */
@@ -71,6 +72,8 @@ export interface UpdateServiceOptions {
   isEnabled: () => boolean
   getSkippedVersion: () => string | null
   setSkippedVersion: (version: string) => void
+  /** The in-app download and install; absent in tests that only check for updates. */
+  installer?: UpdateInstaller
   fetchImpl?: typeof fetch
   url?: string
   log?: (message: string) => void
@@ -97,8 +100,10 @@ export class UpdateService extends EventEmitter<{ status: [UpdateStatus] }> {
       currentVersion: options.currentVersion,
       latest: null,
       checkedAt: null,
-      skippedVersion: options.getSkippedVersion()
+      skippedVersion: options.getSkippedVersion(),
+      install: this.installState()
     }
+    options.installer?.on('state', () => this.setStatus({ ...this.status, install: this.installState() }))
   }
 
   /**
@@ -178,6 +183,28 @@ export class UpdateService extends EventEmitter<{ status: [UpdateStatus] }> {
    */
   releaseUrl(): string | null {
     return this.status.latest?.url ?? null
+  }
+
+  /**
+   * Starts downloading the update the check found, if the build can install by itself.
+   * Returns once the download is under way or done; progress arrives as status events.
+   */
+  async startDownload(): Promise<void> {
+    const latest = this.status.state === 'available' ? this.status.latest : null
+    if (latest) await this.options.installer?.download(latest.version)
+  }
+
+  /**
+   * "Restart to update". Refused while a flight is being tracked.
+   *
+   * @returns What happened.
+   */
+  restartToUpdate(): UpdateInstallOutcome {
+    return this.options.installer?.installAndRestart() ?? 'notReady'
+  }
+
+  private installState(): UpdateStatus['install'] {
+    return this.options.installer?.getState() ?? { supported: false, phase: 'idle', percent: 0 }
   }
 
   private async scheduledCheck(): Promise<void> {

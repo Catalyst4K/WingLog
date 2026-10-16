@@ -42,6 +42,14 @@ nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
 
+# Where the in-app updater looks (it writes resources/app-update.yml). `--publish=never` stays on
+# every script: nothing is uploaded by the build, releases are published by hand with the .exe,
+# latest.yml and the .blockmap from release/ (winglog-backend CLAUDE.md, release checklist).
+publish:
+  provider: github
+  owner: Catalyst4K
+  repo: WingLog
+
 mac:
   # Unsigned is fine for personal use (see PLAN.md M7) — without this,
   # electron-builder auto-discovers any local dev signing identity and signs

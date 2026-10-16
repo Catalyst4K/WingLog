@@ -39,7 +39,7 @@ Import or export your **Fleet** and **Logbook** as CSV or JSON. Choose the file 
 
 - WingLog's version, the simulation-only and not-affiliated notices, and the licence.
 - **Run setup again** reopens the first-launch setup.
-- **Updates**: whether WingLog checks for new versions automatically, **Check now**, and the result
-  of the last check.
+- **Updates**: whether WingLog checks for new versions automatically, **Check now**, the result
+  of the last check, and **Download and install** when there is a newer version.
 
 ![Settings, About](images/settings-about.png)

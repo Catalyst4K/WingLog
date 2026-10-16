@@ -834,9 +834,18 @@
       "skip": "略過此版本",
       "dismiss": "暫時隱藏"
     },
+    "install": {
+      "downloadAndInstall": "下載並安裝",
+      "downloading": "正在下載… {{percent}}%",
+      "restart": "重新啟動以更新",
+      "retry": "重試",
+      "failed": "下載未完成。請重試，或前往發布頁面下載。",
+      "flightActive": "正在記錄飛行。請先結束飛行，再重新啟動以更新。",
+      "releasePage": "發布頁面"
+    },
     "settings": {
       "title": "更新",
-      "description": "WingLog 會向 GitHub 查詢最新版本號，不會傳送其他任何內容。更新需要你自行下載和安裝。",
+      "description": "WingLog 會向 GitHub 查詢最新版本號，不會傳送其他任何內容。是否安裝更新始終由你決定，並且在記錄飛行期間絕不會安裝。",
       "autoCheck": "自動檢查更新",
       "on": "開",
       "off": "關",

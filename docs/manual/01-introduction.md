@@ -43,6 +43,7 @@ features that need it:
 | Exchange rates | Showing GSX invoices in your currency | The currencies |
 | Airline logos | Showing an airline | The airline code |
 | Update check | Shortly after launch and every few hours, if switched on | A request for the latest version number only |
+| Update download | Only when you press **Download and install** | A request for WingLog's installer from its GitHub release |
 
 There are no analytics, no tracking and no adverts.
 

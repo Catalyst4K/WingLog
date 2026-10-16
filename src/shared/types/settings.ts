@@ -20,8 +20,21 @@ export interface UpdateRelease {
   publishedAt: string | null
 }
 
+/** The in-app download and install of a found update (main/updates/update-install.ts). */
+export interface UpdateInstallState {
+  /** False on a build that can't install itself (unpackaged, the dev build, not Windows): Download opens the release page. */
+  supported: boolean
+  phase: 'idle' | 'downloading' | 'ready' | 'error'
+  /** 0 to 100, while downloading. */
+  percent: number
+}
+
+/** What "Restart to update" did: it never runs while a flight is being tracked. */
+export type UpdateInstallOutcome = 'started' | 'flightActive' | 'notReady'
+
 export interface UpdateStatus {
   state: 'idle' | 'checking' | 'available' | 'upToDate' | 'error'
+  install: UpdateInstallState
   currentVersion: string
   latest: UpdateRelease | null
   /** ISO time of the last finished check, successful or not. */

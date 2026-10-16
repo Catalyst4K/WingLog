@@ -66,4 +66,10 @@ export function registerAppHandlers(
     const url = updateService.releaseUrl()
     if (url) await shell.openExternal(url)
   })
+
+  // The in-app update: main decides what is downloaded (the version the check found) and
+  // whether it may install (never during a flight); the renderer only asks.
+  ipcMain.handle(IpcChannels.updatesDownload, () => updateService.startDownload())
+
+  ipcMain.handle(IpcChannels.updatesInstall, () => updateService.restartToUpdate())
 }
