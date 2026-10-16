@@ -10,6 +10,7 @@ import { getAircraftIdForTitle } from '../db/settings-repo'
 import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
 import type { SimConnectSource } from '../sim/SimConnectSource'
 import { navdataRunway } from '../db/schema'
+import { logger } from '../logging/logger'
 import { TrackingController } from './TrackingController'
 import { dbFlightStore } from '../db/flight-store'
 
@@ -1689,5 +1690,101 @@ describe('TrackingController lifecycle events (dev build diagnostics)', () => {
     sim.emit('telemetry', telemetry({ engineCombustion1: true, parkingBrakeOn: true }))
 
     expect(changes).toEqual([{ from: 'preflight', to: 'pushback', engine: true }])
+  })
+
+  describe('when the database refuses writes (a full disk, 2026-10-16)', () => {
+    /** Ticks a flight on the ground every 10 s of fake time. */
+    function tick(count: number, first = 0): void {
+      for (let n = first; n < first + count; n += 1) {
+        vi.setSystemTime(new Date(Date.UTC(2026, 9, 15, 23, 0, 0) + n * 10_000))
+        sim.emit(
+          'telemetry',
+          telemetry({ engineCombustion1: true, parkingBrakeOn: false, latitude: 51 + n * 0.001 })
+        )
+      }
+    }
+
+    function run(failBetween: [number, number] | null): number[] {
+      vi.useFakeTimers()
+      sim.setLastTelemetry(telemetry({}))
+      let calls = 0
+      const store = dbFlightStore(db)
+      const real = store.addTrackPoint
+      const failing = {
+        ...store,
+        addTrackPoint: (point: Parameters<typeof real>[0]) => {
+          calls += 1
+          if (failBetween && calls >= failBetween[0] && calls <= failBetween[1]) {
+            throw new Error('SqliteError: database or disk is full')
+          }
+          return real(point)
+        }
+      }
+      const controller = new TrackingController(failing, sim)
+      const warn = vi.spyOn(logger, 'error').mockImplementation(() => {})
+      controller.start(flightId)
+      expect(() => tick(40)).not.toThrow()
+      warn.mockRestore()
+      return listTrackPoints(db, flightId).map((p) => p.latitude)
+    }
+
+    it('never throws into the sim, and the track still ends up complete and in order once writes work again', () => {
+      const healthy = run(null)
+      expect(healthy.length).toBeGreaterThan(5)
+
+      // A fresh database for the second run.
+      const created = createDb(':memory:')
+      migrate(created.db, { migrationsFolder: 'drizzle' })
+      db = created.db
+      const aircraftId = createAircraft(db, { registration: 'G-WXYZ', icaoType: 'A320' }).id
+      flightId = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' }).id
+      sim = fakeSimConnectService()
+
+      const afterFailure = run([3, 12])
+      expect(afterFailure).toEqual(healthy)
+    })
+
+    it('says so in the log once a minute, not once per sample', () => {
+      vi.useFakeTimers()
+      sim.setLastTelemetry(telemetry({}))
+      const store = dbFlightStore(db)
+      const controller = new TrackingController(
+        {
+          ...store,
+          addTrackPoint: () => {
+            throw new Error('SqliteError: database or disk is full')
+          }
+        },
+        sim
+      )
+      const error = vi.spyOn(logger, 'error').mockImplementation(() => {})
+      controller.start(flightId)
+      expect(() => tick(30)).not.toThrow()
+      // 30 samples over 290 s of fake time: the first, then one a minute.
+      expect(error).toHaveBeenCalledTimes(5)
+      expect(error.mock.calls[0][0]).toContain('database or disk is full')
+      expect(listTrackPoints(db, flightId)).toHaveLength(0)
+      error.mockRestore()
+    })
+
+    it('keeps tracking when a step other than the point write throws', () => {
+      vi.useFakeTimers()
+      sim.setLastTelemetry(telemetry({}))
+      const store = dbFlightStore(db)
+      const controller = new TrackingController(
+        {
+          ...store,
+          finalizeFuelOut: () => {
+            throw new Error('SqliteError: database or disk is full')
+          }
+        },
+        sim
+      )
+      const error = vi.spyOn(logger, 'error').mockImplementation(() => {})
+      controller.start(flightId)
+      expect(() => tick(20)).not.toThrow()
+      expect(listTrackPoints(db, flightId).length).toBeGreaterThan(0)
+      error.mockRestore()
+    })
   })
 })

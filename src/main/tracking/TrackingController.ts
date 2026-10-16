@@ -4,8 +4,16 @@
  * map and the BeyondATC features listen to (point, phaseChanged, completed).
  */
 import { runLogged } from '../logging/run-logged'
+import { logger } from '../logging/logger'
 import { EventEmitter } from 'node:events'
-import type { ActiveTracking, FlightPhase, ProcedureSelection, SimTelemetry, TrackPoint } from '@shared/ipc'
+import type {
+  ActiveTracking,
+  FlightPhase,
+  NewTrackPoint,
+  ProcedureSelection,
+  SimTelemetry,
+  TrackPoint
+} from '@shared/ipc'
 import { t } from '../i18n'
 import { nearestAirport } from '../airports/airport-search'
 import type { PausedInterval } from '@shared/ipc'
@@ -30,6 +38,10 @@ import { deriveFlownRouteJson } from './route-simplify'
 // (gear compression briefly reporting on-ground->off->on again) without missing a real
 // short circuit hop (winglog-backend's docs/plans/multiple-landings.md).
 const MIN_AIRBORNE_SAMPLES_FOR_NEW_TOUCHDOWN = 3
+
+/** Track points kept in memory while the database refuses writes: about seven hours at one every 5 s. */
+const MAX_UNSAVED_POINTS = 5_000
+const STORAGE_FAILURE_LOG_INTERVAL_MS = 60_000
 // How long a cached touchdownSeverity reading (SimConnectService's high-rate stream, v1.2
 // Part 1) stays usable after it arrives, before detectTouchdown falls back to
 // previousTelemetry instead. The high-rate stream detects ground contact from its own,
@@ -137,6 +149,10 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   // moment it arrives (fractionally before the primary stream's own touchdown edge) until
   // detectTouchdown actually fires for the same touchdown.
   private lastTouchdownSeverity: { result: TouchdownSeverity; atMs: number } | undefined
+  // Track points the database refused, oldest first (see saveTrackPoint), and when saving started failing.
+  private readonly unsavedPoints: NewTrackPoint[] = []
+  private storageFailingSinceMs: number | undefined
+  private lastStorageFailureLoggedMs = 0
 
   /** Settings → Tracking → "Finish flights automatically" — see FlightRecorder.setAutoShutdown.
    *  Applied every telemetry tick, so a change takes effect mid-flight.
@@ -163,59 +179,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     this.simConnectService.on('touchdownSeverity', (result) => {
       this.lastTouchdownSeverity = { result, atMs: Date.now() }
     })
-    this.simConnectService.on('telemetry', (telemetry) => {
-      if (!this.recorder) return
-      const previousTelemetry = this.previousTelemetry
-      this.previousTelemetry = telemetry
-      this.recorder.setAutoShutdown(this.autoFinish)
-      const phaseBefore = this.recorder.getPhase()
-      const result = this.recorder.ingest(telemetry, new Date())
-      if (result.phase !== phaseBefore)
-        this.emit('phaseChanged', { from: phaseBefore, to: result.phase, telemetry })
-
-      // The value startFlight wrote at tracking-start is provisional (see finalizeFuelOut): corrected at the aircraft's first
-      // ground movement (off-blocks), when ground fuel service is over. Not on leaving 'preflight', which also fires on engine
-      // combustion alone, and a stale post-reload tick can report that too: the phase flipped to 'pushback' 26s in, stationary,
-      // locking in a leftover 10,184 kg before the sim settled to 3,000 kg and GSX refuelled, so "burn" exceeded the load.
-      // Airborne without ever seeing that (tracking started in the air) is the fallback.
-      const movedOnGround = telemetry.onGround && telemetry.groundSpeedMs > MOVING_MS && !telemetry.slewActive
-      if ((movedOnGround || !telemetry.onGround) && result.phase !== 'preflight' && !this.fuelOutFinalized) {
-        this.fuelOutFinalized = true
-        this.store.finalizeFuelOut(this.recorder.getFlightId(), telemetry.fuelTotalKg)
-      }
-
-      if (result.phase === 'climb' && !this.offRecorded) {
-        this.offRecorded = true
-        this.store.recordOff(this.recorder.getFlightId())
-      }
-
-      // Independent of the phase machine's own descent -> landing edge — keyed off the raw
-      // telemetry directly so a circuit that never reaches 'descent' still gets its
-      // touchdown captured (winglog-backend's docs/plans/multiple-landings.md). Guarded
-      // the same way FlightRecorder.ingest guards phase advancement, since a slew teleport
-      // or a paused sim can otherwise report a nonsensical onGround flip.
-      if (!this.paused && !telemetry.slewActive) {
-        this.detectTouchdown(telemetry, previousTelemetry)
-      }
-
-      if (result.point) {
-        const saved = this.store.addTrackPoint(result.point)
-        this.emit('point', saved)
-        this.checkForLiveJump(saved)
-      }
-
-      if (result.phase === 'shutdown') {
-        const flightId = this.recorder.getFlightId()
-        this.resolveFreeFlightArrival(flightId, telemetry)
-        this.store.completeFlight(flightId, telemetry.fuelTotalKg, this.closedPauseIntervals())
-        this.snapshotGsxInvoices(flightId)
-        this.runTrackCleanup(flightId)
-        this.deriveFlownRoute(flightId)
-        this.persistSelection(flightId)
-        this.recorder = undefined
-        this.emit('completed', flightId)
-      }
-    })
+    this.simConnectService.on('telemetry', (telemetry) => this.handleTelemetrySafely(telemetry))
     this.simConnectService.on('paused', (paused) => {
       this.paused = paused
       this.recorder?.setPaused(paused)
@@ -228,6 +192,130 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
         this.openPauseStartIso = undefined
       }
     })
+  }
+
+  /**
+   * One telemetry sample, from the sim. Nothing in here may throw into the sim's event emitter: an
+   * uncaught error in the main process shows Electron's blocking error dialog, which froze tracking
+   * until someone clicked it (a full disk, 2026-10-16: seven hours of an overnight flight lost).
+   * A failure is logged and the next sample tries again.
+   *
+   * @param telemetry The sample.
+   */
+  private handleTelemetrySafely(telemetry: SimTelemetry): void {
+    try {
+      this.handleTelemetry(telemetry)
+    } catch (error) {
+      this.logStorageFailure(error)
+    }
+  }
+
+  /**
+   * Stores a sampled point and tells the live views about it, and about any that were waiting.
+   *
+   * @param point The point the recorder sampled.
+   */
+  private recordPoint(point: NewTrackPoint): void {
+    for (const saved of this.saveTrackPoint(point)) {
+      this.emit('point', saved)
+      this.checkForLiveJump(saved)
+    }
+  }
+
+  /**
+   * Saves a track point, or keeps it in memory when the database refuses it (a full disk, a locked
+   * file), so the track picks up in order, with nothing missing, once writes work again.
+   *
+   * @param point The point to store.
+   * @returns The points stored by this call, oldest first: just this one normally, several when
+   *   earlier ones were waiting, none while writes are failing.
+   */
+  private saveTrackPoint(point: NewTrackPoint): TrackPoint[] {
+    this.unsavedPoints.push(point)
+    if (this.unsavedPoints.length > MAX_UNSAVED_POINTS) this.unsavedPoints.shift()
+    const saved: TrackPoint[] = []
+    try {
+      while (this.unsavedPoints.length > 0) {
+        saved.push(this.store.addTrackPoint(this.unsavedPoints[0]))
+        this.unsavedPoints.shift()
+      }
+    } catch (error) {
+      this.logStorageFailure(error)
+      return saved
+    }
+    if (this.storageFailingSinceMs !== undefined) {
+      logger.warn(
+        `[tracking] saving works again after ${Math.round((Date.now() - this.storageFailingSinceMs) / 1000)}s`
+      )
+      this.storageFailingSinceMs = undefined
+    }
+    return saved
+  }
+
+  /**
+   * Logs a failed save, the first time and then once a minute, so a full disk doesn't fill the log
+   * (every sample fails the same way).
+   *
+   * @param error What failed.
+   */
+  private logStorageFailure(error: unknown): void {
+    const now = Date.now()
+    this.storageFailingSinceMs ??= now
+    if (now - this.lastStorageFailureLoggedMs < STORAGE_FAILURE_LOG_INTERVAL_MS) return
+    this.lastStorageFailureLoggedMs = now
+    logger.error(
+      `[tracking] could not save flight data (${this.unsavedPoints.length} points waiting in memory): ${String(error)}`
+    )
+  }
+
+  private handleTelemetry(telemetry: SimTelemetry): void {
+    if (!this.recorder) return
+    const previousTelemetry = this.previousTelemetry
+    this.previousTelemetry = telemetry
+    this.recorder.setAutoShutdown(this.autoFinish)
+    const phaseBefore = this.recorder.getPhase()
+    const result = this.recorder.ingest(telemetry, new Date())
+    if (result.phase !== phaseBefore)
+      this.emit('phaseChanged', { from: phaseBefore, to: result.phase, telemetry })
+
+    // The value startFlight wrote at tracking-start is provisional (see finalizeFuelOut): corrected at the aircraft's first
+    // ground movement (off-blocks), when ground fuel service is over. Not on leaving 'preflight', which also fires on engine
+    // combustion alone, and a stale post-reload tick can report that too: the phase flipped to 'pushback' 26s in, stationary,
+    // locking in a leftover 10,184 kg before the sim settled to 3,000 kg and GSX refuelled, so "burn" exceeded the load.
+    // Airborne without ever seeing that (tracking started in the air) is the fallback.
+    const movedOnGround = telemetry.onGround && telemetry.groundSpeedMs > MOVING_MS && !telemetry.slewActive
+    if ((movedOnGround || !telemetry.onGround) && result.phase !== 'preflight' && !this.fuelOutFinalized) {
+      this.fuelOutFinalized = true
+      this.store.finalizeFuelOut(this.recorder.getFlightId(), telemetry.fuelTotalKg)
+    }
+
+    if (result.phase === 'climb' && !this.offRecorded) {
+      this.offRecorded = true
+      this.store.recordOff(this.recorder.getFlightId())
+    }
+
+    // Independent of the phase machine's own descent -> landing edge — keyed off the raw
+    // telemetry directly so a circuit that never reaches 'descent' still gets its
+    // touchdown captured (winglog-backend's docs/plans/multiple-landings.md). Guarded
+    // the same way FlightRecorder.ingest guards phase advancement, since a slew teleport
+    // or a paused sim can otherwise report a nonsensical onGround flip.
+    if (!this.paused && !telemetry.slewActive) {
+      this.detectTouchdown(telemetry, previousTelemetry)
+    }
+
+    if (result.point) this.recordPoint(result.point)
+
+    if (result.phase === 'shutdown') {
+      const flightId = this.recorder.getFlightId()
+      this.resolveFreeFlightArrival(flightId, telemetry)
+      this.store.completeFlight(flightId, telemetry.fuelTotalKg, this.closedPauseIntervals())
+      this.snapshotGsxInvoices(flightId)
+      this.runTrackCleanup(flightId)
+      this.deriveFlownRoute(flightId)
+      this.persistSelection(flightId)
+      this.recorder = undefined
+      this.emit('completed', flightId)
+    }
   }
 
   /**

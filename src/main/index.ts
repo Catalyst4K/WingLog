@@ -11,6 +11,7 @@ import { E2E_DISPLAY_ENV, E2E_WINDOW_ENV, chooseDisplay, windowShow } from './e2
 import { app, BrowserWindow, dialog, ipcMain, Menu, screen } from 'electron'
 import { IpcChannels } from '@shared/ipc'
 import { initLogger, logger } from './logging/logger'
+import { installProcessGuards } from './logging/process-guards'
 import { setMainLanguage, t } from './i18n'
 import { backupDatabaseOnLaunch } from './db/backup'
 import { createDb, type WingLogDb } from './db/client'
@@ -440,6 +441,8 @@ function createWindow(): BrowserWindow {
 
 // Before anything else can throw — a crash logged nowhere is a crash nobody can debug.
 initLogger()
+// Uncaught errors go to main.log, never to Electron's blocking error dialog (process-guards.ts).
+installProcessGuards()
 
 // e2e-only (e2e/launch-app.ts always sets this): headless Linux CI's xvfb display has no
 // real GPU, and Electron's bundled Chromium doesn't reliably fall back to a working
