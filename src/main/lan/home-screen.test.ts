@@ -38,6 +38,12 @@ describe('Home Screen web app', () => {
   it('lets the page extend under the status bar, and pads for it', () => {
     expect(html).toContain('viewport-fit=cover')
     const app = readFileSync(join(folder, 'LanApp.tsx'), 'utf8')
-    expect(app).toContain('pt-[env(safe-area-inset-top)]')
+    const css = readFileSync(join(folder, 'lan.css'), 'utf8')
+    expect(app).toContain('lan-shell')
+    expect(css).toMatch(/\.lan-shell\s*\{\s*padding-top: env\(safe-area-inset-top/)
+    // A Home Screen app gets more room again, below the blurred edge iOS draws over the top of the page.
+    expect(css).toMatch(
+      /@media \(display-mode: standalone\)\s*\{\s*\.lan-shell\s*\{\s*padding-top: calc\(env\(safe-area-inset-top/
+    )
   })
 })

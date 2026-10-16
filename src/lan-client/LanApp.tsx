@@ -112,7 +112,7 @@ function Shell({ link, offline }: { link: LanConnection; offline: boolean }): Re
   // An important GSX menu (pushback direction, fuel amount) interrupts on any page but GSX's own, where it is answered in place.
   const gsxMenu = useImportantGsxMenu(shown === 'gsx')
   return (
-    <div className="flex h-dvh flex-col pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
+    <div className="lan-shell flex h-dvh flex-col pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
       {offline && (
         <p role="status" className="bg-destructive px-4 py-2 text-center text-sm text-white">
           {t('lanPage.offline')}
