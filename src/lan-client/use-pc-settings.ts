@@ -17,6 +17,8 @@ export interface PcSettings {
 /** How many times the settings are asked for when a lookup fails, and how long to wait between asks. */
 const RETRIES = 4
 const RETRY_MS = 1500
+/** How often the PC's settings are asked for again while the page is showing. */
+const REFRESH_MS = 5_000
 
 const DEFAULTS: PcSettings = {
   weightUnit: 'kg',
@@ -41,7 +43,8 @@ function unitsFrom(value: unknown): Pick<PcSettings, 'weightUnit' | 'altitudeUni
 }
 
 /**
- * Asks the PC for its unit settings and which add-ons are on, each time the link comes up.
+ * Asks the PC for its unit settings and which add-ons are on, each time the link comes up, and again every few seconds so a change made
+ * on the PC shows here.
  *
  * @param link The link to the PC.
  * @returns The settings; the defaults until the PC has answered.
@@ -68,20 +71,33 @@ export function usePcSettings(link: LanConnection): PcSettings {
       ])
         .then(([display, gsx, atc]) => {
           if (!current) return
-          setSettings((now) => ({
-            ...(display.status === 'fulfilled' ? unitsFrom(display.value) : unitsFrom(now)),
-            gsxRemote: gsx.status === 'fulfilled' ? enabled(gsx.value) : now.gsxRemote,
-            beyondAtc: atc.status === 'fulfilled' ? enabled(atc.value) : now.beyondAtc
-          }))
+          setSettings((now) => {
+            const next = {
+              ...(display.status === 'fulfilled' ? unitsFrom(display.value) : unitsFrom(now)),
+              gsxRemote: gsx.status === 'fulfilled' ? enabled(gsx.value) : now.gsxRemote,
+              beyondAtc: atc.status === 'fulfilled' ? enabled(atc.value) : now.beyondAtc
+            }
+            // The same answer again is not a change: keep the object so nothing re-renders.
+            return JSON.stringify(next) === JSON.stringify(now) ? now : next
+          })
           const failed = [display, gsx, atc].some((answer) => answer.status === 'rejected')
           if (failed && attempt < RETRIES) retry = setTimeout(() => ask(attempt + 1), RETRY_MS)
         })
         .catch(() => undefined)
     }
     ask(1)
+    // The PC's settings can change while the page is open (units, an add-on switched on): look again every few seconds while the page is
+    // showing, and at once when it comes back to the front. A refresh that fails is simply tried again at the next one.
+    const refresh = (): void => {
+      if (document.visibilityState === 'visible') ask(RETRIES)
+    }
+    const refreshTimer = setInterval(refresh, REFRESH_MS)
+    document.addEventListener('visibilitychange', refresh)
     return () => {
       current = false
       clearTimeout(retry)
+      clearInterval(refreshTimer)
+      document.removeEventListener('visibilitychange', refresh)
     }
   }, [link, state])
   return settings
