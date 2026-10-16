@@ -10,9 +10,8 @@
  * Fallback, whenever a trace isn't possible (the holding point isn't in the data, no live position, aircraft off the
  * network): a second `line` layer on the same `taxi-chart` source, filtered to every segment sharing a cleared taxiway name.
  *
- * The clearance comes only from BeyondATC's InfoBoxes (`Taxi Via 1..n`, `Hold Position`, `Taxi to Gate`; boxTaxiClearance),
- * never from parsing the speech. The one exception is a spoken "hold short
- * of runway 07C", which has no box: it's added to the box route heard within HOLD_SHORT_PAIR_MS of it.
+ * The clearance comes only from BeyondATC's InfoBoxes (`Taxi Via 1..n`, `Hold Position`, `Hold Short`, `Taxi to Gate`;
+ * boxTaxiClearance), never from parsing the speech.
  *
  * Re-routing (winglog-backend's docs/plans/taxi-reroute.md): when the aircraft leaves the line, or drives the wrong way along
  * it, while taxiing, the line is redrawn as the shortest way from where it is to the same end, rejoining the cleared route
@@ -26,18 +25,12 @@
 import { winglogApi } from './data/winglog-api'
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
 import type { Map as MapLibreMap } from 'maplibre-gl'
-import type {
-  BeyondAtcState,
-  BeyondAtcTranscriptEntry,
-  FlightPhase,
-  NavdataStand,
-  NavdataTaxiSegment
-} from '@shared/ipc'
+import type { BeyondAtcState, FlightPhase, NavdataStand, NavdataTaxiSegment } from '@shared/ipc'
 import { findStand } from '@shared/stands'
 import type { TracedRoute } from './taxi-route-trace'
 import { clearanceAirport, startOf, traceClearance, type TaxiClearance } from './taxi-clearance'
 import { startTracker, trackPosition, type RerouteTracker } from './taxi-reroute'
-import { isDeparted, stepTaxiBoxes, stepTaxiTranscript } from './taxi-clearance-step'
+import { isDeparted, stepTaxiBoxes } from './taxi-clearance-step'
 import { diagMap } from './diag'
 import { setSourceData } from './map-source'
 import { TAXI_SOURCE_ID } from './use-taxi-chart-overlay'
@@ -96,21 +89,6 @@ export interface UseTaxiRouteHighlightArgs {
   position: { lat: number; lon: number; headingDeg?: number; groundSpeedMs?: number } | null
   /** The active flight's phase, or null with no active flight. */
   phase: FlightPhase | null
-}
-
-/**
- * Takes the spoken part of ATC's clearance (the hold short) into the remembered state.
- *
- * @param transcript BeyondATC's transcript.
- * @param setClearance Sets the hook's clearance.
- */
-function ingestTranscript(
-  transcript: BeyondAtcTranscriptEntry[],
-  setClearance: (clearance: TaxiClearance) => void
-): void {
-  const result = stepTaxiTranscript(uiMemory().taxiRoute, transcript, Date.now())
-  uiMemory().taxiRoute = result.memory
-  if (result.clearance) setClearance(result.clearance)
 }
 
 /**
@@ -262,24 +240,17 @@ export function useTaxiRouteHighlight({
     positionRef.current = position
   }, [position, phase])
 
-  // Gated on `enabled`: nothing happens until the chart is switched on, as in useTaxiChartOverlay's fetch effect. The boxes and
-  // transcript BeyondATC already has are read straight away, not just on the next push, so a clearance given while Track wasn't
+  // Gated on `enabled`: nothing happens until the chart is switched on, as in useTaxiChartOverlay's fetch effect. The boxes
+  // BeyondATC already has are read straight away, not just on the next push, so a clearance given while Track wasn't
   // open isn't left waiting for ATC's next line.
   useEffect(() => {
     if (!enabled) return
     let live = true
-    const ingest = (transcript: BeyondAtcTranscriptEntry[]): void => {
-      if (live) ingestTranscript(transcript, setClearance)
-    }
     const ingestState = (state: BeyondAtcState): void => {
       if (live) ingestBoxes(state, positionRef.current, setClearance)
     }
     // A failed first read (BeyondATC not connected) has nothing to show; the subscriptions bring
     // the next update.
-    winglogApi()
-      .beyondAtcGetTranscript()
-      .then(ingest, () => undefined)
-    const unsubscribe = winglogApi().onBeyondAtcTranscript(ingest)
     client.get('beyondAtcState').then(
       (state) => state && ingestState(state),
       () => undefined
@@ -287,7 +258,6 @@ export function useTaxiRouteHighlight({
     const unsubscribeBoxes = client.subscribe('beyondAtcState', ingestState)
     return () => {
       live = false
-      unsubscribe()
       unsubscribeBoxes()
     }
   }, [enabled, client])

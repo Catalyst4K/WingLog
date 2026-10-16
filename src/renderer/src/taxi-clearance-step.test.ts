@@ -1,23 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import type { BeyondAtcInfoBox, BeyondAtcTranscriptEntry } from '@shared/ipc'
-import {
-  HOLD_SHORT_PAIR_MS,
-  INITIAL_TAXI_MEMORY,
-  isDeparted,
-  stepTaxiBoxes,
-  stepTaxiTranscript
-} from './taxi-clearance-step'
+import type { BeyondAtcInfoBox } from '@shared/ipc'
+import { INITIAL_TAXI_MEMORY, isDeparted, stepTaxiBoxes } from './taxi-clearance-step'
 
 const via = (names: string[]): BeyondAtcInfoBox[] =>
   names.map((info, i) => ({ title: `Taxi Via ${i + 1}`, info }))
-// ZJSY: cleared "taxi via D, B7, A", then ATC adds the spoken hold short.
+// ZJSY: cleared "taxi via D, B7, A" to the holding point A.
 const ROUTE = [...via(['D', 'B7', 'A']), { title: 'Hold Position', info: 'A' }]
-const HOLD_SHORT_LINE = (ts: number): BeyondAtcTranscriptEntry =>
-  ({
-    ts,
-    speaker: 'atc',
-    text: 'Test 230, taxi via D, B7, A, hold short of runway 08.'
-  }) as BeyondAtcTranscriptEntry
 const HERE = { lat: 30.9, lon: 121.8 }
 
 describe('stepTaxiBoxes', () => {
@@ -36,38 +24,16 @@ describe('stepTaxiBoxes', () => {
     expect(noise).toEqual({ memory: first.memory, clearance: null })
   })
 
-  it('adds a hold short heard just before the boxes, but not one heard long before', () => {
-    const heard = stepTaxiTranscript(INITIAL_TAXI_MEMORY, [HOLD_SHORT_LINE(100)], 10_000).memory
-    expect(stepTaxiBoxes(heard, ROUTE, HERE, 10_000 + HOLD_SHORT_PAIR_MS).clearance?.holdShortRunway).toBe(
-      '08'
-    )
+  it('takes the hold short from its own box (EGLL and RKSI, 2026-10-15 and 16), never from what ATC said', () => {
+    const boxes = [...via(['P8', 'P']), { title: 'Hold Short', info: '34R' }]
+    expect(stepTaxiBoxes(INITIAL_TAXI_MEMORY, boxes, HERE, 1_000).clearance).toMatchObject({
+      taxiways: ['P8', 'P'],
+      holdShortRunway: '34R'
+    })
+    // The same route without the box has no hold short, whatever ATC went on to say.
     expect(
-      stepTaxiBoxes(heard, ROUTE, HERE, 10_001 + HOLD_SHORT_PAIR_MS).clearance?.holdShortRunway
+      stepTaxiBoxes(INITIAL_TAXI_MEMORY, via(['P8', 'P']), HERE, 1_000).clearance?.holdShortRunway
     ).toBeNull()
-  })
-})
-
-describe('stepTaxiTranscript', () => {
-  it('adds a spoken hold short to a clearance taken from the boxes within the pairing window', () => {
-    const taken = stepTaxiBoxes(INITIAL_TAXI_MEMORY, ROUTE, HERE, 1_000).memory
-    const { memory, clearance } = stepTaxiTranscript(taken, [HOLD_SHORT_LINE(50)], 1_000 + HOLD_SHORT_PAIR_MS)
-    expect(clearance?.holdShortRunway).toBe('08')
-    expect(memory.clearance).toBe(clearance)
-  })
-
-  it('leaves an older clearance alone, but still remembers the hold short for the next boxes', () => {
-    const taken = stepTaxiBoxes(INITIAL_TAXI_MEMORY, ROUTE, HERE, 1_000).memory
-    const { memory, clearance } = stepTaxiTranscript(taken, [HOLD_SHORT_LINE(50)], 1_001 + HOLD_SHORT_PAIR_MS)
-    expect(clearance).toBeNull()
-    expect(memory.holdShort).toEqual({ runway: '08', at: 1_001 + HOLD_SHORT_PAIR_MS })
-  })
-
-  it('reads each line once, and only ATC lines', () => {
-    const pilot = { ts: 10, speaker: 'player', text: 'hold short of runway 27L.' } as BeyondAtcTranscriptEntry
-    const first = stepTaxiTranscript(INITIAL_TAXI_MEMORY, [pilot, HOLD_SHORT_LINE(20)], 5_000)
-    expect(first.memory).toMatchObject({ lastTranscriptTs: 20, holdShort: { runway: '08', at: 5_000 } })
-    const second = stepTaxiTranscript(first.memory, [pilot, HOLD_SHORT_LINE(20)], 9_000)
-    expect(second.memory).toBe(first.memory)
   })
 })
 
