@@ -6,7 +6,6 @@
  */
 import type { BeyondAtcState, BeyondAtcTranscriptEntry, FlightPhase, SimTelemetry } from '@shared/ipc'
 import { parseAtcTaxiFacts } from '@shared/atc-info-boxes'
-import { parseTaxiHoldShortRunway } from '@shared/taxi-route-parser'
 import type { Diag } from './diag'
 import type { FlightCapture } from './flight-capture'
 
@@ -113,7 +112,7 @@ export class DevDiagnostics {
         if (entry.ts <= this.lastTranscriptTs) continue
         this.lastTranscriptTs = entry.ts
         if (entry.speaker !== 'atc') continue
-        this.diag('atc', entry.text, { holdShortRunway: parseTaxiHoldShortRunway(entry.text) })
+        this.diag('atc', entry.text)
       }
     })
   }

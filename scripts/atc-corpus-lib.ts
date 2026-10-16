@@ -5,7 +5,6 @@
  */
 import type { BeyondAtcInfoBox } from '@shared/ipc'
 import { parseAtcBoxClearance } from '@shared/atc-info-boxes'
-import { parseTaxiHoldShortRunway } from '@shared/taxi-route-parser'
 import { instructionFromBoxes, parseAtcInstruction } from '../src/renderer/src/beyond-atc-instruction'
 
 /** One line ATC said, and where it came from. */
@@ -133,7 +132,7 @@ function readBoxes(json: string): BeyondAtcInfoBox[] | null {
  */
 export function classifyLine(line: CorpusLine): { verdict: Verdict; why: string } {
   const speech = parseAtcInstruction(line.text)
-  if (speech.fields.length > 0 || speech.actions.length > 0 || parseTaxiHoldShortRunway(line.text)) {
+  if (speech.fields.length > 0 || speech.actions.length > 0) {
     return { verdict: 'understood', why: 'the speech readers found a fact in it' }
   }
   if (!CLEARANCE_WORDS.test(line.text)) return { verdict: 'not-a-clearance', why: 'no clearance wording' }

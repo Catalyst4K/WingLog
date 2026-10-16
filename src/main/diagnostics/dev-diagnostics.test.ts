@@ -146,7 +146,7 @@ describe('DevDiagnostics', () => {
     expect(atc).toHaveLength(2)
     expect(atc[0]).toContain('"taxiVia":["B","V"]')
     expect(atc[0]).toContain('"holdPosition":"J1"')
-    expect(atc[1]).toBe('atc: Cathay 251, taxi via B, V, hold short of runway 07R. {"holdShortRunway":"07R"}')
+    expect(atc[1]).toBe('atc: Cathay 251, taxi via B, V, hold short of runway 07R.')
   })
 
   it('logs every GSX message and command, and records them while tracking', () => {
