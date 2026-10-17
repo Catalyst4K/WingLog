@@ -158,12 +158,16 @@ function useClearanceStand(
  * @param icao The clearance's airport, or null.
  * @returns The threshold, or null.
  */
-function useClearanceRunway(
+export function useClearanceRunway(
   enabled: boolean,
   clearance: TaxiClearance | null,
   icao: string | null
 ): { lat: number; lon: number } | null {
-  const [found, setFound] = useState<{ icao: string; ident: string; lat: number; lon: number } | null>(null)
+  const [found, setFound] = useState<{
+    icao: string
+    ident: string
+    threshold: { lat: number; lon: number }
+  } | null>(null)
   const ident =
     enabled && clearance?.holdingPoint && clearance.taxiToRunway && icao ? clearance.taxiToRunway : null
   useEffect(() => {
@@ -175,7 +179,7 @@ function useClearanceRunway(
       .then(
         (runways) => {
           const threshold = clearanceRunwayThreshold(ident, runways)
-          if (!ignore && threshold) setFound({ icao, ident, ...threshold })
+          if (!ignore && threshold) setFound({ icao, ident, threshold })
         },
         () => undefined
       )
@@ -183,9 +187,9 @@ function useClearanceRunway(
       ignore = true
     }
   }, [ident, icao])
-  return ident && found && found.icao === icao && found.ident === ident
-    ? { lat: found.lat, lon: found.lon }
-    : null
+  // The stored object itself, never a copy: the line is traced again whenever this changes, and a new object on every render re-traced it on
+  // every render and restarted its re-routing each time, so the line never followed a wrong turn.
+  return ident && found && found.icao === icao && found.ident === ident ? found.threshold : null
 }
 
 /**
