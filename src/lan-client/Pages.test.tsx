@@ -230,7 +230,10 @@ describe('the ground services and BeyondATC pages', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Ground services' }))
     expect(await screen.findByRole('heading', { name: 'Ground services' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'BeyondATC' }))
-    expect(await screen.findByRole('heading', { name: 'BeyondATC' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'BeyondATC' })).toBeInTheDocument()
+    // Grows with its content rather than being the scroller's height, so a tall transcript keeps the page's bottom padding above the bar.
+    expect(screen.getByTestId('beyondatc-page')).toHaveClass('min-h-full')
+    expect(screen.getByTestId('beyondatc-page')).not.toHaveClass('h-full')
   })
 
   it('send an action to the PC the way the app does', async () => {

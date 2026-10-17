@@ -110,7 +110,7 @@ export function InfoPage(props: {
     )
   }
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 p-3">
+    <div className="flex min-h-full flex-col gap-3 p-3" data-testid="beyondatc-page">
       <h1 className="font-heading text-xl font-semibold">{t('beyondAtcView.title')}</h1>
       <BeyondAtcPanel compact />
     </div>
