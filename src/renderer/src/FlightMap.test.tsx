@@ -1051,6 +1051,7 @@ describe('FlightMap', () => {
         navdataGetTaxiNetwork: getTaxiNetwork,
         beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
         navdataGetStands: vi.fn().mockResolvedValue([]),
+        navdataListRunways: vi.fn().mockResolvedValue([]),
         onBeyondAtcState: vi.fn(() => () => {}),
         onBeyondAtcTranscript
       }
@@ -1142,6 +1143,7 @@ describe('FlightMap', () => {
         navdataGetTaxiNetwork: getTaxiNetwork,
         beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
         navdataGetStands: vi.fn().mockResolvedValue([]),
+        navdataListRunways: vi.fn().mockResolvedValue([]),
         onBeyondAtcState: vi.fn(() => () => {}),
         onBeyondAtcTranscript: vi.fn(() => () => {})
       }
@@ -1191,6 +1193,7 @@ describe('FlightMap', () => {
         navdataGetTaxiNetwork: getTaxiNetwork,
         beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
         navdataGetStands: vi.fn().mockResolvedValue([]),
+        navdataListRunways: vi.fn().mockResolvedValue([]),
         onBeyondAtcState: vi.fn(() => () => {}),
         onBeyondAtcTranscript: vi.fn(() => () => {})
       }
@@ -1233,6 +1236,7 @@ describe('FlightMap', () => {
           .fn()
           .mockResolvedValue({ ...EMPTY_BEYONDATC_STATE, infoBoxes: initialBoxes, infoBoxesAt: 1 }),
         navdataGetStands: vi.fn().mockResolvedValue(stands),
+        navdataListRunways: vi.fn().mockResolvedValue([]),
         onBeyondAtcState: vi.fn((l: (state: { infoBoxes: { title: string; info: string }[] }) => void) => {
           stateListener = l
           return () => {}

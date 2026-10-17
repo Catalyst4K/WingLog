@@ -48,13 +48,19 @@ describe('Home Screen web app', () => {
 
   it('keeps the map’s (i) in its corner when its text is open', () => {
     const css = readFileSync(join(folder, 'lan.css'), 'utf8')
-    expect(css).toMatch(/\.maplibregl-compact-show \.maplibregl-ctrl-attrib-button\s*\{\s*inset: -6px -6px auto auto;/)
+    expect(css).toMatch(
+      /\.maplibregl-compact-show \.maplibregl-ctrl-attrib-button\s*\{\s*inset: -6px -6px auto auto;/
+    )
   })
 
   it('draws the (i) as a small circle that clears the readout, with a full-size touch button over it', () => {
     const css = readFileSync(join(folder, 'lan.css'), 'utf8')
-    expect(css).toMatch(/\.maplibregl-ctrl-attrib\.maplibregl-compact\s*\{[^}]*min-width: 32px;[^}]*min-height: 32px;/)
+    expect(css).toMatch(
+      /\.maplibregl-ctrl-attrib\.maplibregl-compact\s*\{[^}]*min-width: 32px;[^}]*min-height: 32px;/
+    )
     // The button is 44 px (the touch minimum) and reaches 6 px past the 32 px circle on every side: nothing is drawn out there.
-    expect(css).toMatch(/#root \.maplibregl-ctrl-attrib-button\s*\{\s*inset: -6px;\s*width: 44px;\s*height: 44px;/)
+    expect(css).toMatch(
+      /#root \.maplibregl-ctrl-attrib-button\s*\{\s*inset: -6px;\s*width: 44px;\s*height: 44px;/
+    )
   })
 })

@@ -188,7 +188,11 @@ function nearestNode({ nodes, distanceM }: Graph, from: { lat: number; lon: numb
  * @param threshold The runway's threshold, or null when unknown.
  * @returns The node's index, or -1 when there is no threshold or no hold short of the taxiway within MAX_HOLD_FROM_THRESHOLD_M of it.
  */
-function holdNodeByRunway(graph: Graph, holdingPoint: string, threshold: { lat: number; lon: number } | null): number {
+function holdNodeByRunway(
+  graph: Graph,
+  holdingPoint: string,
+  threshold: { lat: number; lon: number } | null
+): number {
   if (!threshold) return -1
   let best = -1
   let bestDistance = MAX_HOLD_FROM_THRESHOLD_M
@@ -252,7 +256,11 @@ export function traceTaxiRoute(request: TaxiTraceRequest): TracedRoute | null {
     // already beside the threshold stays: EGLL's A1 has hold shorts about as near either side, and the cleared one was the first.
     const end = first?.at(-1)
     const threshold = request.runwayThreshold
-    if (threshold && end && flatDistanceM({ lat: end[1], lon: end[0] }, threshold) > MAX_HOLD_FROM_THRESHOLD_M) {
+    if (
+      threshold &&
+      end &&
+      flatDistanceM({ lat: end[1], lon: end[0] }, threshold) > MAX_HOLD_FROM_THRESHOLD_M
+    ) {
       const byRunway = traceOnce(request, true)
       if (byRunway) return byRunway
     }

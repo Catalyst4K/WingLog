@@ -46,7 +46,8 @@ it('simulates the taxi line on real taxis', () => {
       const a = without.cleared?.at(-1)
       const b = run.cleared?.at(-1)
       if (a && b && (a[0] !== b[0] || a[1] !== b[1]))
-        process.stdout.write(`RUNWAY RULE MOVED THE END ${sc.id} ${sc.icao}: ${a[1].toFixed(5)},${a[0].toFixed(5)} -> ${b[1].toFixed(5)},${b[0].toFixed(5)}
+        process.stdout
+          .write(`RUNWAY RULE MOVED THE END ${sc.id} ${sc.icao}: ${a[1].toFixed(5)},${a[0].toFixed(5)} -> ${b[1].toFixed(5)},${b[0].toFixed(5)}
 `)
       return {
         sc,

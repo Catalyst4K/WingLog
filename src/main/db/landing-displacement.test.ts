@@ -91,16 +91,27 @@ describe('correctLandingDisplacements', () => {
   })
 
   it('leaves a sim runway that already leaves its displaced part out, one from the database, and one with no runway cached', () => {
-    createLanding(db, landingAt(flightId, { seq: 1, icao: 'WSSS', runwayIdent: '20R', distanceFromThresholdM: 949 }))
+    createLanding(
+      db,
+      landingAt(flightId, { seq: 1, icao: 'WSSS', runwayIdent: '20R', distanceFromThresholdM: 949 })
+    )
     createLanding(db, landingAt(flightId, { seq: 2, runwaySource: 'database' }))
-    createLanding(db, landingAt(flightId, { seq: 3, icao: 'EGLL', runwayIdent: '27L', distanceFromThresholdM: 300 }))
+    createLanding(
+      db,
+      landingAt(flightId, { seq: 3, icao: 'EGLL', runwayIdent: '27L', distanceFromThresholdM: 300 })
+    )
     expect(correctLandingDisplacements(db)).toBe(0)
-    expect(listLandingsByFlight(db, flightId).map((l) => l.distanceFromThresholdM)).toEqual([949, 730.27, 300])
+    expect(listLandingsByFlight(db, flightId).map((l) => l.distanceFromThresholdM)).toEqual([
+      949, 730.27, 300
+    ])
   })
 
   it('skips a deleted landing', () => {
     createLanding(db, landingAt(flightId, {}))
-    db.update(landing).set({ deletedAt: '2026-10-17T14:00:00.000Z' }).where(eq(landing.flightId, flightId)).run()
+    db.update(landing)
+      .set({ deletedAt: '2026-10-17T14:00:00.000Z' })
+      .where(eq(landing.flightId, flightId))
+      .run()
     expect(correctLandingDisplacements(db)).toBe(0)
   })
 })

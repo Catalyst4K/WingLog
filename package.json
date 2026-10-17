@@ -30,6 +30,7 @@
     "spike:landing": "tsx scripts/spike-landing.ts",
     "spike:altitude": "tsx scripts/spike-altitude.ts",
     "logo-health": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs --tsconfig tsconfig.node.json scripts/logo-health.ts",
+    "spike:runway-thresholds": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs --tsconfig tsconfig.node.json scripts/spike-runway-thresholds.ts",
     "spike:airac": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs --tsconfig tsconfig.node.json scripts/spike-airac-refresh.ts",
     "spike:live-position": "tsx scripts/spike-live-position.ts",
     "spike:facilities": "tsx scripts/spike-facilities.ts",

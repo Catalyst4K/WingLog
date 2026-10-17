@@ -164,12 +164,14 @@ function useClearanceRunway(
   icao: string | null
 ): { lat: number; lon: number } | null {
   const [found, setFound] = useState<{ icao: string; ident: string; lat: number; lon: number } | null>(null)
-  const ident = enabled && clearance?.holdingPoint && clearance.taxiToRunway && icao ? clearance.taxiToRunway : null
+  const ident =
+    enabled && clearance?.holdingPoint && clearance.taxiToRunway && icao ? clearance.taxiToRunway : null
   useEffect(() => {
     if (!ident || !icao) return
     let ignore = false
-    winglogApi()
-      .navdataListRunways(icao)
+    // A runway list that can't be had leaves the line drawn as before, so a failure, even a missing call, is only swallowed.
+    Promise.resolve()
+      .then(() => winglogApi().navdataListRunways(icao))
       .then(
         (runways) => {
           const threshold = clearanceRunwayThreshold(ident, runways)
@@ -181,7 +183,9 @@ function useClearanceRunway(
       ignore = true
     }
   }, [ident, icao])
-  return ident && found && found.icao === icao && found.ident === ident ? { lat: found.lat, lon: found.lon } : null
+  return ident && found && found.icao === icao && found.ident === ident
+    ? { lat: found.lat, lon: found.lon }
+    : null
 }
 
 /**
