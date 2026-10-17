@@ -20,6 +20,7 @@ import { createDb, type WingLogDb } from './db/client'
 import { startStorageMaintenance } from './db/storage-maintenance'
 import type { Database as SqliteDatabase } from 'better-sqlite3'
 import { migrateDb } from './db/migrate'
+import { correctLandingDisplacements } from './db/landing-displacement'
 import { migrateLegacyUserData } from './db/legacy-userdata'
 import { getFlight, setParkedStand } from './db/flight-repo'
 import {
@@ -106,6 +107,13 @@ function openDatabase(userDataPath: string): {
   // isn't reliable once the app is launched from a shortcut rather than a terminal.
   migrateDb(dbPath, join(app.getAppPath(), 'drizzle'))
   const handle = createDb(dbPath)
+  try {
+    const corrected = correctLandingDisplacements(handle.db)
+    if (corrected) logger.info(`Corrected ${corrected} landing distance(s) for displaced thresholds`)
+  } catch (error) {
+    // A failed correction leaves the stored distances as they were; never blocks startup.
+    logger.error('Landing displaced-threshold correction failed:', error)
+  }
   return { db: handle.db, sqlite: handle.sqlite, dbPath, backedUp }
 }
 

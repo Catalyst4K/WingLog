@@ -6,6 +6,7 @@ import {
   resolveAirportPosition,
   resolveRunwayEnd,
   resolveRunwayEndByIdent,
+  runwayEndsFromNavdata,
   toLandingRunway,
   type RunwayEnd
 } from './runway-lookup'
@@ -294,5 +295,38 @@ describe('distanceFromUsableThresholdM', () => {
   it('is a no-op when the runway has no displacement', () => {
     const end = runwayEnd({ icao: 'X', ident: '09', lat: 0, lon: 0, headingTrueDeg: 90 })
     expect(distanceFromUsableThresholdM({ distanceFromThresholdM: 350, centrelineOffsetM: 0 }, end)).toBe(350)
+  })
+})
+
+describe('runwayEndsFromNavdata: a displaced threshold the sim still includes', () => {
+  const sim = (ident: string, lengthM: number, thresholdLat: number, thresholdLon: number, headingTrueDeg: number) => ({
+    ident,
+    headingTrueDeg,
+    lengthM,
+    widthM: 45,
+    surface: 4,
+    thresholdLat,
+    thresholdLon
+  })
+
+  it("applies the database's 270 m to Bergen 17, whose sim runway is the whole strip (flight 242, 2026-10-17)", () => {
+    const [end] = runwayEndsFromNavdata('ENBR', [sim('17', 2982.9, 60.306639864245795, 5.21371178198079, 170.56)])
+    expect(end?.source).toBe('sim')
+    expect(end?.displacedThresholdM).toBeCloseTo(270, 0)
+    expect(end?.aimingPointDistanceM).toBe(400)
+  })
+
+  it("does not apply it to Singapore 20R, whose sim runway already leaves the displaced part out (flight 236)", () => {
+    const [end] = runwayEndsFromNavdata('WSSS', [sim('20R', 3221.2, 1.3757575921283205, 103.98878019536174, 203)])
+    expect(end?.displacedThresholdM).toBe(0)
+  })
+
+  it('does not apply it when the sim runway is a different length or sits elsewhere', () => {
+    expect(runwayEndsFromNavdata('ENBR', [sim('17', 2000, 60.306639864245795, 5.21371178198079, 170.56)])[0]?.displacedThresholdM).toBe(0)
+    expect(runwayEndsFromNavdata('ENBR', [sim('17', 2982.9, 60.4, 5.3, 170.56)])[0]?.displacedThresholdM).toBe(0)
+  })
+
+  it('has none for an airport the database lacks, or a runway it has no displacement for', () => {
+    expect(runwayEndsFromNavdata('ZZZZ', [sim('09', 2000, 1, 1, 90)])[0]?.displacedThresholdM).toBe(0)
   })
 })
