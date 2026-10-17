@@ -39,7 +39,9 @@ export function correctLandingDisplacements(db: WingLogDb): number | null {
   let corrected = 0
   for (const row of rows) {
     if (row.icao === null || row.distanceFromThresholdM === null) continue
-    const end = runwayEndsFromNavdata(row.icao, listCachedRunways(db, row.icao)).find((e) => e.ident === row.runwayIdent)
+    const end = runwayEndsFromNavdata(row.icao, listCachedRunways(db, row.icao)).find(
+      (e) => e.ident === row.runwayIdent
+    )
     if (!end || end.displacedThresholdM <= 0) continue
     db.update(landing)
       .set({

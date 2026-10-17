@@ -589,7 +589,9 @@ describe('traceTaxiRoute: the hold short beside the cleared runway (EGCC, 2026-1
 
   it('ignores a runway whose threshold is nowhere near the holding point', () => {
     const farAway = { lat: 53.4, lon: -2.2 }
-    expect(endOf(traceTaxiRoute({ ...request, runwayThreshold: farAway }))).toEqual(endOf(traceTaxiRoute(request)))
+    expect(endOf(traceTaxiRoute({ ...request, runwayThreshold: farAway }))).toEqual(
+      endOf(traceTaxiRoute(request))
+    )
   })
 })
 
@@ -609,6 +611,8 @@ describe('traceTaxiRoute: a first hold short that is already beside the cleared 
     const withRunway = traceTaxiRoute({ ...request, runwayThreshold: THRESHOLD_27R })
     expect(plain).not.toBeNull()
     expect(withRunway?.at(-1)).toEqual(plain?.at(-1))
-    expect(distanceM({ lat: plain!.at(-1)![1], lon: plain!.at(-1)![0] }, { lat: 51.47768, lon: -0.43539 })).toBeLessThan(15)
+    expect(
+      distanceM({ lat: plain!.at(-1)![1], lon: plain!.at(-1)![0] }, { lat: 51.47768, lon: -0.43539 })
+    ).toBeLessThan(15)
   })
 })

@@ -164,7 +164,8 @@ function useClearanceRunway(
   icao: string | null
 ): { lat: number; lon: number } | null {
   const [found, setFound] = useState<{ icao: string; ident: string; lat: number; lon: number } | null>(null)
-  const ident = enabled && clearance?.holdingPoint && clearance.taxiToRunway && icao ? clearance.taxiToRunway : null
+  const ident =
+    enabled && clearance?.holdingPoint && clearance.taxiToRunway && icao ? clearance.taxiToRunway : null
   useEffect(() => {
     if (!ident || !icao) return
     let ignore = false
@@ -181,7 +182,9 @@ function useClearanceRunway(
       ignore = true
     }
   }, [ident, icao])
-  return ident && found && found.icao === icao && found.ident === ident ? { lat: found.lat, lon: found.lon } : null
+  return ident && found && found.icao === icao && found.ident === ident
+    ? { lat: found.lat, lon: found.lon }
+    : null
 }
 
 /**
