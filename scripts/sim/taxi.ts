@@ -11,6 +11,7 @@ import type {
   BeyondAtcInfoBox,
   Flight,
   FlightPhase,
+  NavdataRunway,
   NavdataStand,
   NavdataTaxiSegment,
   TrackPoint
@@ -20,6 +21,7 @@ import { flatDistanceM } from '../../src/shared/geo'
 import {
   boxTaxiClearance,
   startOf,
+  clearanceRunwayThreshold,
   traceClearance,
   type TaxiClearance
 } from '../../src/renderer/src/taxi-clearance'
@@ -207,11 +209,13 @@ export function runTaxi(
   sc: TaxiScenario,
   segments: NavdataTaxiSegment[],
   stands: NavdataStand[],
-  reroute: boolean
+  reroute: boolean,
+  runways: NavdataRunway[] = []
 ): TaxiRun {
   const clearance = clearanceFor(sc)
   const stand = clearance?.stand ? findStand(stands, clearance.stand) : null
-  const cleared = clearance ? traceClearance(clearance, segments, stand) : null
+  const threshold = clearance?.holdingPoint ? clearanceRunwayThreshold(clearance.taxiToRunway, runways) : null
+  const cleared = clearance ? traceClearance(clearance, segments, stand, threshold) : null
   if (!clearance || !cleared)
     return { cleared, clearance, stand, reroutes: [], onLinePct: null, endToAircraftM: null }
 
