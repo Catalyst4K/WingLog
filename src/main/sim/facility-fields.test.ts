@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { RawBuffer } from 'node-simconnect'
 import {
+  addRunwayFields,
   biasToLatLon,
   parseAirportHeader,
   parseAirportHeaderWithLatLon,
@@ -11,6 +12,7 @@ import {
   parseRunway,
   parseRunwayTransition,
   parseTaxiName,
+  parseThresholdLength,
   parseTaxiPath,
   parseTaxiPoint,
   runwayIdent,
@@ -69,6 +71,46 @@ describe('parseRunway', () => {
     expect(runway.surface).toBe(2)
     expect(runway.primaryIdent).toBe('27')
     expect(runway.secondaryIdent).toBe('09')
+  })
+})
+
+describe('the runway thresholds', () => {
+  it("registers each end's threshold length inside the runway, the primary end's first (live 2026-10-17)", () => {
+    const names: string[] = []
+    addRunwayFields((name) => names.push(name))
+    expect(names.slice(-8)).toEqual([
+      'SECONDARY_DESIGNATOR',
+      'OPEN PRIMARY_THRESHOLD',
+      'LENGTH',
+      'CLOSE PRIMARY_THRESHOLD',
+      'OPEN SECONDARY_THRESHOLD',
+      'LENGTH',
+      'CLOSE SECONDARY_THRESHOLD',
+      'CLOSE RUNWAY'
+    ])
+  })
+
+  it('reads a threshold record as one float32, the displaced length in metres', () => {
+    expect(parseThresholdLength(buffer((w) => w.writeFloat32(270)))).toBeCloseTo(270, 3)
+    expect(parseThresholdLength(buffer((w) => w.writeFloat32(0)))).toBe(0)
+  })
+
+  it('leaves both displaced lengths unread when only the runway record has been parsed', () => {
+    const b = buffer((w) => {
+      w.writeFloat64(60.29)
+      w.writeFloat64(5.22)
+      w.writeFloat32(350.56)
+      w.writeFloat32(2982.91)
+      w.writeFloat32(45.24)
+      w.writeInt32(4)
+      w.writeInt32(35)
+      w.writeInt32(0)
+      w.writeInt32(17)
+      w.writeInt32(0)
+    })
+    const runway = parseRunway(b)
+    expect(runway.primaryDisplacedM).toBeNull()
+    expect(runway.secondaryDisplacedM).toBeNull()
   })
 })
 

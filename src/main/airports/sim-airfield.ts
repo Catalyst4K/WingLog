@@ -19,16 +19,11 @@ import {
   type SimConnectConnection
 } from 'node-simconnect'
 import { openSimConnect as defaultOpen } from '../sim/open-simconnect'
-import {
-  NavdataDefId,
-  addRunwayFields,
-  parseAirportHeader,
-  parseRunway,
-  type ParsedRunway
-} from '../sim/facility-fields'
+import { NavdataDefId, addRunwayFields, parseAirportHeader, type ParsedRunway } from '../sim/facility-fields'
 import { runwayEndsFromCentre } from '../navdata/runway-geometry'
 import { greatCircleNm } from '@shared/geo'
-import { aimingPointDistanceForLengthM, resolveRunwayEnd, type RunwayEnd } from './runway-lookup'
+import { resolveRunwayEnd, simRunwayEnd, type RunwayEnd } from './runway-lookup'
+import { createRunwayCollector } from '../sim/runway-collector'
 
 const APP_NAME = 'WingLog landing airfield'
 const AIRPORT_LIST_REQUEST_ID = 1
@@ -47,29 +42,15 @@ export interface SimAirfieldMatch {
 export type OpenSimConnect = typeof defaultOpen
 
 /**
- * Adapts the sim's runway record (split into ends by runwayEndsFromCentre) to the vendored
- * lookup's RunwayEnd shape. The sim gives no displaced-threshold figure here, so it's 0 —
- * distances are from the physical end.
+ * Adapts the sim's runway record (split into ends by runwayEndsFromCentre) to the vendored lookup's RunwayEnd shape, with the sim's own
+ * displaced thresholds.
  *
  * @param icao The airport.
  * @param runway The sim's runway record.
  * @returns Its two ends.
  */
 export function simRunwayEnds(icao: string, runway: ParsedRunway): RunwayEnd[] {
-  return runwayEndsFromCentre(runway).map((end) => ({
-    icao: icao.toUpperCase(),
-    ident: end.ident,
-    source: 'sim',
-    lat: end.thresholdLat,
-    lon: end.thresholdLon,
-    headingTrueDeg: end.headingTrueDeg,
-    lengthM: end.lengthM,
-    widthM: end.widthM,
-    displacedThresholdM: 0,
-    elevationM: null,
-    surface: null,
-    aimingPointDistanceM: aimingPointDistanceForLengthM(end.lengthM)
-  }))
+  return runwayEndsFromCentre(runway).map((end) => simRunwayEnd(icao, end))
 }
 
 function requestAirportList(
@@ -101,7 +82,7 @@ function requestAirportList(
  */
 function requestRunways(handle: SimConnectConnection, icao: string): Promise<ParsedRunway[]> {
   return new Promise((resolve) => {
-    const runways: ParsedRunway[] = []
+    const collector = createRunwayCollector()
     const cleanup = (): void => {
       handle.removeListener('facilityData', onData)
       handle.removeListener('facilityDataEnd', onEnd)
@@ -110,14 +91,14 @@ function requestRunways(handle: SimConnectConnection, icao: string): Promise<Par
     }
     const onData = (recv: RecvFacilityData): void => {
       if (recv.userRequestId !== NavdataDefId.RUNWAYS) return
-      if (recv.type === FacilityDataType.RUNWAY) runways.push(parseRunway(recv.data))
-      else if (recv.type === FacilityDataType.AIRPORT) parseAirportHeader(recv.data)
+      if (recv.type === FacilityDataType.AIRPORT) parseAirportHeader(recv.data)
+      else collector.take(recv)
     }
     // Any terminal event — end of data, an ambiguous-ICAO candidate list, an exception —
     // just ends this candidate with whatever runways arrived (none, for the last two).
     const onEnd = (): void => {
       cleanup()
-      resolve(runways)
+      resolve(collector.runways)
     }
     handle.on('facilityData', onData)
     handle.on('facilityDataEnd', onEnd)

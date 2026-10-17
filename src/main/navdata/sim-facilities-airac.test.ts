@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb, type WingLogDb } from '../db/client'
-import { navdataFetchTimes } from '../db/navdata-repo'
+import { listCachedRunways, navdataFetchTimes } from '../db/navdata-repo'
+import { createAircraft } from '../db/aircraft-repo'
+import { createFlight } from '../db/flight-repo'
+import { createLanding, listLandingsByFlight } from '../db/landing-repo'
+import { navdataRunway } from '../db/schema'
 import type { FetchedAirportNavdata, FetchedTaxiNetwork } from './sim-facilities-fetch'
 import { SimFacilitiesProvider, type OpenSimConnect } from './sim-facilities-provider'
 
@@ -20,7 +24,9 @@ const RUNWAY = {
   widthM: 50,
   surface: 2,
   primaryIdent: '27R',
-  secondaryIdent: '09L'
+  secondaryIdent: '09L',
+  primaryDisplacedM: 0,
+  secondaryDisplacedM: 0
 }
 const AIRPORT = (icao: string): FetchedAirportNavdata => ({
   icao,
@@ -204,5 +210,94 @@ describe('navdata follows the AIRAC cycle', () => {
     clock = EARLY_OCTOBER
     expect(await provider.getStands('EGLL')).toHaveLength(1)
     await vi.waitFor(() => expect(fetchStands).toHaveBeenCalledTimes(1))
+  })
+
+  describe('runways cached before the sim displaced thresholds were read', () => {
+    /** A cache as the app wrote it before: runways with no displaced threshold, fetched in the current cycle. */
+    function cacheOldRunways(): void {
+      for (const [ident, thresholdLat] of [
+        ['27R', 51.4775],
+        ['09L', 51.4776]
+      ] as const) {
+        db.insert(navdataRunway)
+          .values({
+            icao: 'EGLL',
+            ident,
+            headingTrueDeg: 270,
+            lengthM: 3902,
+            widthM: 50,
+            surface: 2,
+            thresholdLat,
+            thresholdLon: -0.46,
+            source: 'sim-facility',
+            fetchedAt: SEPTEMBER.toISOString()
+          })
+          .run()
+      }
+    }
+
+    it('fetches them again in the same cycle, and corrects the sim-measured landings there once', async () => {
+      cacheOldRunways()
+      const aircraftId = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' }).id
+      const flightId = createFlight(db, { aircraftId, depIcao: 'EGCC', arrIcao: 'EGLL' }).id
+      createLanding(db, {
+        flightId,
+        seq: 1,
+        icao: 'EGLL',
+        touchdownTsUtc: '2026-09-20T09:00:00.000Z',
+        verticalSpeedMs: -1,
+        gForce: 1.2,
+        pitchDeg: 3,
+        bankDeg: 0,
+        headingTrueDeg: 270,
+        indicatedAirspeedMs: 70,
+        groundSpeedMs: 68,
+        windSpeedMs: 0,
+        windDirectionDeg: 0,
+        headwindMs: 0,
+        crosswindMs: 0,
+        crabDeg: 0,
+        runwayIdent: '27R',
+        distanceFromThresholdM: 800,
+        centrelineOffsetM: 1,
+        flapSetting: 3,
+        touchdownSource: 'derived',
+        runwaySource: 'sim'
+      })
+      fetchAirport.mockImplementation(async (_h, icao) => ({
+        ...AIRPORT(icao),
+        runways: [{ ...RUNWAY, primaryDisplacedM: 250, secondaryDisplacedM: 0 }]
+      }))
+      clock = new Date('2026-09-25T10:00:00Z')
+
+      provider.listRunways('EGLL')
+      await vi.waitFor(() => expect(fetchAirport).toHaveBeenCalledTimes(1))
+      await settle()
+
+      expect(
+        Object.fromEntries(listCachedRunways(db, 'EGLL').map((r) => [r.ident, r.displacedThresholdM]))
+      ).toEqual({
+        '27R': 250,
+        '09L': 0
+      })
+      expect(listLandingsByFlight(db, flightId)[0]?.distanceFromThresholdM).toBe(550)
+
+      // A later fetch of runways that already had their thresholds does not take it off again.
+      clock = NEXT_CYCLE
+      provider.listRunways('EGLL')
+      await vi.waitFor(() => expect(fetchAirport).toHaveBeenCalledTimes(2))
+      await settle()
+      expect(listLandingsByFlight(db, flightId)[0]?.distanceFromThresholdM).toBe(550)
+    })
+
+    it('leaves runways that already have them alone in the same cycle', async () => {
+      await provider.refreshAirport('EGLL')
+      fetchAirport.mockClear()
+      open.mockClear()
+      clock = new Date('2026-09-25T10:00:00Z')
+      provider.listRunways('EGLL')
+      await settle()
+      expect(open).not.toHaveBeenCalled()
+    })
   })
 })

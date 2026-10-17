@@ -15,6 +15,8 @@ export interface NavdataRunwayOption {
   surface: number
   thresholdLat: number
   thresholdLon: number
+  /** How far along from the pavement end the landing threshold is, metres; null when not yet fetched. */
+  displacedThresholdM?: number | null
 }
 
 /** One selectable SID/STAR + transition combination — `transition` is null for "no
@@ -65,6 +67,9 @@ export interface NavdataRunway {
   surface: number
   thresholdLat: number
   thresholdLon: number
+  /** How far along from the pavement end the landing threshold is, metres, from the sim's own threshold record; null for a cache from
+   *  before it was fetched, which is fetched again when next used. */
+  displacedThresholdM?: number | null
 }
 
 /** One taxiway-network segment (a single TAXI_PATH record, resolved to real lat/lon

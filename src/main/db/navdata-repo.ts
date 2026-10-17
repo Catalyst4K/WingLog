@@ -106,6 +106,7 @@ function insertRunways(
           surface: end.surface,
           thresholdLat: end.thresholdLat,
           thresholdLon: end.thresholdLon,
+          displacedThresholdM: end.displacedThresholdM,
           source: 'sim-facility',
           fetchedAt
         })
@@ -308,8 +309,26 @@ export function listCachedRunways(db: WingLogDb, icao: string): NavdataRunway[] 
       widthM: row.widthM,
       surface: row.surface,
       thresholdLat: row.thresholdLat,
-      thresholdLon: row.thresholdLon
+      thresholdLon: row.thresholdLon,
+      displacedThresholdM: row.displacedThresholdM
     }))
+}
+
+/**
+ * Whether an airport's cached runways were fetched before the sim's displaced thresholds were read, so they must be fetched again.
+ *
+ * @param db The database.
+ * @param icao The airport.
+ * @returns True when it has cached runways and any lacks its displaced threshold.
+ */
+export function runwaysLackDisplacedThresholds(db: WingLogDb, icao: string): boolean {
+  return (
+    db
+      .select({ id: navdataRunway.id })
+      .from(navdataRunway)
+      .where(and(eq(navdataRunway.icao, icao), isNull(navdataRunway.displacedThresholdM)))
+      .get() !== undefined
+  )
 }
 
 /** `runway`, when given, keeps only procedures with no runway transitions at all (apply to

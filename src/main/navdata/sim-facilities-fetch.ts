@@ -24,7 +24,6 @@ import {
   addTaxiParkingFields,
   parseAirportHeader,
   parseAirportHeaderWithLatLon,
-  parseRunway,
   parseProcedureHeader,
   parseRunwayTransition,
   parseEnrouteTransition,
@@ -40,6 +39,7 @@ import {
   type ParsedRunway,
   type ParsedLeg
 } from '../sim/facility-fields'
+import { createRunwayCollector } from '../sim/runway-collector'
 
 export interface FetchedRunwayTransition {
   runwayIdent: string
@@ -276,7 +276,14 @@ function emptyApproach(header: ReturnType<typeof parseApproachHeader>): FetchedA
  * @returns The collector.
  */
 function airportNavdataCollector(icao: string): FacilityCollector<FetchedAirportNavdata> {
-  const navdata: FetchedAirportNavdata = { icao, runways: [], departures: [], arrivals: [], approaches: [] }
+  const runwayCollector = createRunwayCollector()
+  const navdata: FetchedAirportNavdata = {
+    icao,
+    runways: runwayCollector.runways,
+    departures: [],
+    arrivals: [],
+    approaches: []
+  }
   const procedureByUniqueRequestId = new Map<number, FetchedProcedure>()
   const transitionByUniqueRequestId = new Map<number, { legs: ParsedLeg[] }>()
   const approachByUniqueRequestId = new Map<number, FetchedApproach>()
@@ -370,8 +377,8 @@ function airportNavdataCollector(icao: string): FacilityCollector<FetchedAirport
         // NAME anywhere), so this record's shape is uniform across all requests, sidestepping the
         // per-definition buffer-shape gotcha the Phase 2 spike found (docs/navdata-notes.md).
         parseAirportHeader(recv.data)
-      } else if (recv.type === FacilityDataType.RUNWAY) {
-        navdata.runways.push(parseRunway(recv.data))
+      } else if (recv.type === FacilityDataType.RUNWAY || recv.type === FacilityDataType.PAVEMENT) {
+        runwayCollector.take(recv)
       } else {
         onProcedureRecord(recv)
         onApproachRecord(recv)

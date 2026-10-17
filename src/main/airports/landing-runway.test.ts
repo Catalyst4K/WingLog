@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { NavdataRunway } from '@shared/ipc'
 import { landingRunwayResolver } from './landing-runway'
+import { distanceFromUsableThresholdM } from './runway-lookup'
+import { offsetAlongBearing, positionRelativeToRunway } from './landing-maths'
 
 // WSSS 20R from the sim's own facility data (flight 236), and where the A380 touched down on it: 949 m past the sim's
 // threshold, 1.9 m left of its centreline. OurAirports' 20R is the same strip 40 m to the east, with a 740 m displaced threshold.
@@ -38,5 +40,37 @@ describe('landingRunwayResolver', () => {
 
   it('finds nothing where neither knows the airport', () => {
     expect(landingRunwayResolver([])('ZZZZ', 90, 10, 10)).toBeNull()
+  })
+
+  it('measures a landing from the landing threshold when the sim states a displaced one (Bergen 17, flight 242)', () => {
+    // The sim's Bergen 17 is the whole strip with 270 m displaced; the touchdown was 730 m from its end.
+    const bergen17: NavdataRunway = {
+      ident: '17',
+      headingTrueDeg: 170.5601806640625,
+      lengthM: 2982.910400390625,
+      widthM: 45.24,
+      surface: 4,
+      thresholdLat: 60.306639864245795,
+      thresholdLon: 5.21371178198079,
+      displacedThresholdM: 270
+    }
+    const touchdown = offsetAlongBearing(
+      bergen17.thresholdLat,
+      bergen17.thresholdLon,
+      bergen17.headingTrueDeg,
+      730.27
+    )
+    const end = landingRunwayResolver([bergen17])('ENBR', 170.53, touchdown.lat, touchdown.lon)
+    expect(end?.source).toBe('sim')
+    expect(end?.displacedThresholdM).toBe(270)
+    const position = positionRelativeToRunway(
+      touchdown.lat,
+      touchdown.lon,
+      end!.lat,
+      end!.lon,
+      end!.headingTrueDeg
+    )
+    expect(position.distanceFromThresholdM).toBeCloseTo(730.27, 0)
+    expect(distanceFromUsableThresholdM(position, end!)).toBeCloseTo(460.27, 0)
   })
 })

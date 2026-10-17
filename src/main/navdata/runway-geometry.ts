@@ -13,6 +13,8 @@ export interface DerivedRunwayEnd {
   surface: number
   thresholdLat: number
   thresholdLon: number
+  /** The displaced part of this end's threshold, metres; null when the sim's answer hasn't been read. */
+  displacedThresholdM: number | null
 }
 
 /**
@@ -52,7 +54,8 @@ export function runwayEndsFromCentre(runway: ParsedRunway): DerivedRunwayEnd[] {
       widthM: runway.widthM,
       surface: runway.surface,
       thresholdLat: primaryThreshold.lat,
-      thresholdLon: primaryThreshold.lon
+      thresholdLon: primaryThreshold.lon,
+      displacedThresholdM: runway.primaryDisplacedM ?? null
     },
     {
       ident: runway.secondaryIdent,
@@ -61,7 +64,8 @@ export function runwayEndsFromCentre(runway: ParsedRunway): DerivedRunwayEnd[] {
       widthM: runway.widthM,
       surface: runway.surface,
       thresholdLat: secondaryThreshold.lat,
-      thresholdLon: secondaryThreshold.lon
+      thresholdLon: secondaryThreshold.lon,
+      displacedThresholdM: runway.secondaryDisplacedM ?? null
     }
   ]
 }
