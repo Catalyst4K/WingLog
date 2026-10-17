@@ -28,7 +28,13 @@ import type { Map as MapLibreMap } from 'maplibre-gl'
 import type { BeyondAtcState, FlightPhase, NavdataStand, NavdataTaxiSegment } from '@shared/ipc'
 import { findStand } from '@shared/stands'
 import type { TracedRoute } from './taxi-route-trace'
-import { clearanceAirport, startOf, traceClearance, type TaxiClearance } from './taxi-clearance'
+import {
+  clearanceAirport,
+  clearanceRunwayThreshold,
+  startOf,
+  traceClearance,
+  type TaxiClearance
+} from './taxi-clearance'
 import { startTracker, trackPosition, type RerouteTracker } from './taxi-reroute'
 import { isDeparted, stepTaxiBoxes } from './taxi-clearance-step'
 import { diagMap } from './diag'
@@ -143,9 +149,6 @@ function useClearanceStand(
   return clearance?.stand && stands && stands.icao === icao ? findStand(stands.list, clearance.stand) : null
 }
 
-// "05L" and "5L" name the same runway.
-const runwayKey = (ident: string): string => ident.replace(/^0+/, '').toUpperCase()
-
 /**
  * The threshold of the runway a holding-point clearance is for ("taxi to holding point A, runway 05L"), which picks the taxiway's
  * hold short beside it. Read from the navdata cache, so null when the airport isn't cached; the line is then drawn as before.
@@ -169,8 +172,8 @@ function useClearanceRunway(
       .navdataListRunways(icao)
       .then(
         (runways) => {
-          const runway = runways.find((r) => runwayKey(r.ident) === runwayKey(ident))
-          if (!ignore && runway) setFound({ icao, ident, lat: runway.thresholdLat, lon: runway.thresholdLon })
+          const threshold = clearanceRunwayThreshold(ident, runways)
+          if (!ignore && threshold) setFound({ icao, ident, ...threshold })
         },
         () => undefined
       )

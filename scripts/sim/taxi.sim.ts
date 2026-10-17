@@ -11,7 +11,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { it } from 'vitest'
 import { getFlight, listFlights } from '../../src/main/db/flight-repo'
-import { listCachedStands, listCachedTaxiSegments } from '../../src/main/db/navdata-repo'
+import { listCachedRunways, listCachedStands, listCachedTaxiSegments } from '../../src/main/db/navdata-repo'
 import { listTrackPoints } from '../../src/main/db/track-point-repo'
 import { openUserDb, readInfoBoxesLogs } from './local-data'
 import { simOutputDir, writeReport } from './report'
@@ -40,10 +40,18 @@ it('simulates the taxi line on real taxis', () => {
     const outcomes: TaxiOutcome[] = scenarios.map((sc) => {
       const segments = listCachedTaxiSegments(db, sc.icao)
       const stands = listCachedStands(db, sc.icao)
+      const runways = listCachedRunways(db, sc.icao)
+      const without = runTaxi(sc, segments, stands, true)
+      const run = runTaxi(sc, segments, stands, true, runways)
+      const a = without.cleared?.at(-1)
+      const b = run.cleared?.at(-1)
+      if (a && b && (a[0] !== b[0] || a[1] !== b[1]))
+        process.stdout.write(`RUNWAY RULE MOVED THE END ${sc.id} ${sc.icao}: ${a[1].toFixed(5)},${a[0].toFixed(5)} -> ${b[1].toFixed(5)},${b[0].toFixed(5)}
+`)
       return {
         sc,
         segments,
-        run: runTaxi(sc, segments, stands, true),
+        run,
         baseline: runTaxi(sc, segments, stands, false)
       }
     })

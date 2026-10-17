@@ -95,6 +95,23 @@ export function startOf(position: { lat: number; lon: number } | null): Pick<Tax
 }
 
 /**
+ * The threshold of the runway a holding-point clearance is for, from an airport's runways: "05L" and "5L" name the same runway.
+ *
+ * @param taxiToRunway The clearance's runway (the `Taxi to Runway` box), null for a clearance with no holding point or none named.
+ * @param runways The airport's runways, each with its threshold.
+ * @returns The threshold, or null when no runway is named or it is not among them.
+ */
+export function clearanceRunwayThreshold(
+  taxiToRunway: string | null | undefined,
+  runways: { ident: string; thresholdLat: number; thresholdLon: number }[]
+): { lat: number; lon: number } | null {
+  if (!taxiToRunway) return null
+  const key = (ident: string): string => ident.replace(/^0+/, '').toUpperCase()
+  const runway = runways.find((r) => key(r.ident) === key(taxiToRunway))
+  return runway ? { lat: runway.thresholdLat, lon: runway.thresholdLon } : null
+}
+
+/**
  * The line for a clearance, from where the aircraft was when it arrived: to the holding point,
  * along the last taxiway to a runway's hold short, or to the stand. Null when it can't be traced.
  *

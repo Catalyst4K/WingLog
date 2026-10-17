@@ -36,9 +36,9 @@ const MAX_STAND_LINK_M = 150
 const MAX_START_DISTANCE_M = 300
 /** A cleared taxi route longer than this is almost certainly a wrong trace, not a real one. */
 const MAX_ROUTE_LENGTH_M = 15_000
-/** How far the holding point's hold short may be from the cleared runway's threshold for the runway to choose between a taxiway's
- *  several hold shorts. Beyond it the runway says nothing about this holding point (an intersection departure's), so none is
- *  preferred. */
+/** How near the cleared runway's threshold a holding point's hold short is for the runway to say anything about it. A first hold short
+ *  farther than this is replaced by the one nearest the threshold, when there is one this near; none this near (an intersection
+ *  departure's holding point), or the first already this near, and the first stays. */
 const MAX_HOLD_FROM_THRESHOLD_M = 500
 
 export interface TaxiTraceRequest {
@@ -247,8 +247,16 @@ function isWrongWay(graph: Graph, from: number, to: number, headingDeg: number |
 export function traceTaxiRoute(request: TaxiTraceRequest): TracedRoute | null {
   if (request.holdingPoint) {
     const plain = { ...request, runwayThreshold: null }
-    const byRunway = request.runwayThreshold ? traceOnce(request, true) : null
-    return byRunway ?? traceOnce(plain, true) ?? traceOnce(plain, false)
+    const first = traceOnce(plain, true)
+    // The runway only chooses when the first hold short the search reaches is nowhere near it (EGCC: 1.5 km up the runway). One
+    // already beside the threshold stays: EGLL's A1 has hold shorts about as near either side, and the cleared one was the first.
+    const end = first?.at(-1)
+    const threshold = request.runwayThreshold
+    if (threshold && end && flatDistanceM({ lat: end[1], lon: end[0] }, threshold) > MAX_HOLD_FROM_THRESHOLD_M) {
+      const byRunway = traceOnce(request, true)
+      if (byRunway) return byRunway
+    }
+    return first ?? traceOnce(plain, false)
   }
   if (!request.stand) return traceOnce(request, true)
   return traceOnce(request, true) ?? traceOnce({ ...request, stand: null }, true)

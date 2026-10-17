@@ -7,6 +7,7 @@ import YBBN_RAW from './__fixtures__/ybbn-taxi-c9-b9-a9.json'
 import ZJSY_RAW from './__fixtures__/zjsy-taxi-d-b7-a.json'
 import VHHH_HOLD_07C_RAW from './__fixtures__/vhhh-taxi-c7-y-f-hold-07c.json'
 import EGCC_RAW from './__fixtures__/egcc-taxi-e-d-b-a-hold-05l.json'
+import EGLL_RAW from './__fixtures__/egll-taxi-s3-a1-hold-27r.json'
 
 // Real taxi networks (MSFS facility data), each trimmed to a box around one real clearance's
 // route. Rows: [startLat, startLon, endLat, endLon, name, startHoldShort, endHoldShort].
@@ -31,6 +32,8 @@ const ZJSY = toSegments(ZJSY_RAW)
 const VHHH_HOLD_07C = toSegments(VHHH_HOLD_07C_RAW)
 // EGCC, fetched live 2026-10-17: the parallel taxiway A beside runway 05L/23R, from the north apron.
 const EGCC = toSegments(EGCC_RAW)
+// EGLL, fetched live: flight 239's departure, S3 to A1 for runway 27R.
+const EGLL = toSegments(EGLL_RAW)
 
 function distanceM(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
   return Math.hypot((a.lat - b.lat) * 111_320, (a.lon - b.lon) * 111_320 * Math.cos((a.lat * Math.PI) / 180))
@@ -587,5 +590,25 @@ describe('traceTaxiRoute: the hold short beside the cleared runway (EGCC, 2026-1
   it('ignores a runway whose threshold is nowhere near the holding point', () => {
     const farAway = { lat: 53.4, lon: -2.2 }
     expect(endOf(traceTaxiRoute({ ...request, runwayThreshold: farAway }))).toEqual(endOf(traceTaxiRoute(request)))
+  })
+})
+
+describe('traceTaxiRoute: a first hold short that is already beside the cleared runway stays (EGLL, flight 239, 2026-10-15)', () => {
+  // "Taxi to runway 27R ... hold position A1": the aircraft went to the first A1 hold short the search reaches, 150 m from the 27R
+  // threshold. A1's other hold short is about as near (149 m), so the runway must not swap one for the other.
+  const request = {
+    segments: EGLL,
+    taxiways: ['S3', 'NB3', 'N3', 'L', 'B', 'LINK 25', 'A', 'LINK 23'],
+    holdingPoint: 'A1',
+    from: { lat: 51.463254679102654, lon: -0.44070621067071797 }
+  }
+  const THRESHOLD_27R = { lat: 51.477688154927705, lon: -0.4332168419824973 }
+
+  it('ends where it did without the runway', () => {
+    const plain = traceTaxiRoute(request)
+    const withRunway = traceTaxiRoute({ ...request, runwayThreshold: THRESHOLD_27R })
+    expect(plain).not.toBeNull()
+    expect(withRunway?.at(-1)).toEqual(plain?.at(-1))
+    expect(distanceM({ lat: plain!.at(-1)![1], lon: plain!.at(-1)![0] }, { lat: 51.47768, lon: -0.43539 })).toBeLessThan(15)
   })
 })
