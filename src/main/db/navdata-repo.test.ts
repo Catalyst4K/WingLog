@@ -18,7 +18,8 @@ import {
   listCachedTaxiSegments,
   replaceAirportNavdata,
   replaceAirportStands,
-  replaceAirportTaxiSegments
+  replaceAirportTaxiSegments,
+  runwaysLackDisplacedThresholds
 } from './navdata-repo'
 import { navdataTaxiSegment } from './schema'
 
@@ -89,6 +90,50 @@ function fetched(overrides: Partial<FetchedAirportNavdata> = {}): FetchedAirport
     ...overrides
   }
 }
+
+describe("navdata repo: the sim's displaced thresholds", () => {
+  let db: WingLogDb
+
+  beforeEach(() => {
+    const created = createDb(':memory:')
+    migrate(created.db, { migrationsFolder: 'drizzle' })
+    db = created.db
+  })
+
+  const withThresholds = (primary: number | null, secondary: number | null): FetchedAirportNavdata =>
+    fetched({
+      runways: [
+        {
+          latitude: 51.4775,
+          longitude: -0.4614,
+          headingDeg: 270,
+          lengthM: 3902,
+          widthM: 50,
+          surface: 2,
+          primaryIdent: '27R',
+          secondaryIdent: '09L',
+          primaryDisplacedM: primary,
+          secondaryDisplacedM: secondary
+        }
+      ]
+    })
+
+  it("stores each end's displaced threshold and reads it back", () => {
+    replaceAirportNavdata(db, 'EGLL', withThresholds(0, 310), '2026-10-17T10:00:00.000Z')
+    const byIdent = Object.fromEntries(
+      listCachedRunways(db, 'EGLL').map((r) => [r.ident, r.displacedThresholdM])
+    )
+    expect(byIdent).toEqual({ '27R': 0, '09L': 310 })
+  })
+
+  it('counts runways cached without them as needing a fetch, and runways with them, or none cached, as not', () => {
+    expect(runwaysLackDisplacedThresholds(db, 'EGLL')).toBe(false)
+    replaceAirportNavdata(db, 'EGLL', withThresholds(null, null), '2026-10-17T10:00:00.000Z')
+    expect(runwaysLackDisplacedThresholds(db, 'EGLL')).toBe(true)
+    replaceAirportNavdata(db, 'EGLL', withThresholds(0, 0), '2026-10-17T11:00:00.000Z')
+    expect(runwaysLackDisplacedThresholds(db, 'EGLL')).toBe(false)
+  })
+})
 
 describe('navdata repo', () => {
   let db: WingLogDb

@@ -4,23 +4,23 @@ import { eq } from 'drizzle-orm'
 import { createDb, type WingLogDb } from './client'
 import { createAircraft } from './aircraft-repo'
 import { createFlight } from './flight-repo'
-import { correctLandingDisplacements } from './landing-displacement'
+import { correctLandingsForDisplacedThresholds } from './landing-displacement'
 import { createLanding, listLandingsByFlight, type NewLanding } from './landing-repo'
 import { landing, navdataRunway } from './schema'
-import { getSetting } from './settings-repo'
 
-// Bergen 17 as the sim has it (fetched 2026-10-17): the whole 2,983 m strip, its end 5 m from OurAirports', which lists the 270 m
-// displaced threshold. Flight 242 touched down 730 m from that end, 3.5 m left of the centreline, and was stored as 730.
+// Bergen 17 as the sim has it (2026-10-17): the whole strip, with the displaced threshold the sim states, 270 m. Flight 242 touched
+// down 730 m from the pavement end, 3.5 m left of the centreline, and was stored as 730.
 const ENBR_17 = {
   ident: '17',
-  headingTrueDeg: 170.5601806640625,
-  lengthM: 2982.910400390625,
-  widthM: 45.24243927001953,
+  headingTrueDeg: 170.56,
+  lengthM: 2982.91,
+  widthM: 45.24,
   surface: 4,
   thresholdLat: 60.306639864245795,
-  thresholdLon: 5.21371178198079
+  thresholdLon: 5.21371178198079,
+  displacedThresholdM: 270
 }
-// Singapore 20R as the sim has it (flight 236): the usable threshold already, 822 m from OurAirports' physical end.
+// Singapore 20R: the sim runway already starts at the usable threshold, so it reports none.
 const WSSS_20R = {
   ident: '20R',
   headingTrueDeg: 203,
@@ -28,7 +28,8 @@ const WSSS_20R = {
   widthM: 60,
   surface: 4,
   thresholdLat: 1.3757575921283205,
-  thresholdLon: 103.98878019536174
+  thresholdLon: 103.98878019536174,
+  displacedThresholdM: 0
 }
 
 function landingAt(flightId: number, overrides: Partial<NewLanding>): NewLanding {
@@ -59,7 +60,7 @@ function landingAt(flightId: number, overrides: Partial<NewLanding>): NewLanding
   }
 }
 
-describe('correctLandingDisplacements', () => {
+describe('correctLandingsForDisplacedThresholds', () => {
   let db: WingLogDb
   let flightId: number
 
@@ -79,18 +80,16 @@ describe('correctLandingDisplacements', () => {
     }
   })
 
-  it("takes Bergen 17's 270 m displaced threshold off a landing measured from the pavement end, once", () => {
+  const distances = (): (number | null)[] =>
+    listLandingsByFlight(db, flightId).map((l) => l.distanceFromThresholdM)
+
+  it('takes the sim displaced threshold off a landing measured from the pavement end', () => {
     createLanding(db, landingAt(flightId, {}))
-    expect(correctLandingDisplacements(db)).toBe(1)
-    const [row] = listLandingsByFlight(db, flightId)
-    expect(row?.distanceFromThresholdM).toBeCloseTo(730.27 - 270, 0)
-    // A second launch changes nothing, so a landing is never corrected twice.
-    expect(correctLandingDisplacements(db)).toBeNull()
-    expect(listLandingsByFlight(db, flightId)[0]?.distanceFromThresholdM).toBe(row?.distanceFromThresholdM)
-    expect(getSetting(db, 'landing_displacement_corrected')).toBe('done')
+    expect(correctLandingsForDisplacedThresholds(db, 'ENBR')).toBe(1)
+    expect(distances()[0]).toBeCloseTo(730.27 - 270, 2)
   })
 
-  it('leaves a sim runway that already leaves its displaced part out, one from the database, and one with no runway cached', () => {
+  it('leaves a runway the sim reports no displacement for, a database-measured landing, and other airports alone', () => {
     createLanding(
       db,
       landingAt(flightId, { seq: 1, icao: 'WSSS', runwayIdent: '20R', distanceFromThresholdM: 949 })
@@ -100,18 +99,20 @@ describe('correctLandingDisplacements', () => {
       db,
       landingAt(flightId, { seq: 3, icao: 'EGLL', runwayIdent: '27L', distanceFromThresholdM: 300 })
     )
-    expect(correctLandingDisplacements(db)).toBe(0)
-    expect(listLandingsByFlight(db, flightId).map((l) => l.distanceFromThresholdM)).toEqual([
-      949, 730.27, 300
-    ])
+    expect(correctLandingsForDisplacedThresholds(db, 'ENBR')).toBe(0)
+    expect(correctLandingsForDisplacedThresholds(db, 'WSSS')).toBe(0)
+    expect(distances()).toEqual([949, 730.27, 300])
   })
 
-  it('skips a deleted landing', () => {
-    createLanding(db, landingAt(flightId, {}))
+  it('treats a runway whose threshold the sim has not stated as having none, and skips a deleted landing', () => {
+    db.update(navdataRunway).set({ displacedThresholdM: null }).where(eq(navdataRunway.icao, 'ENBR')).run()
+    createLanding(db, landingAt(flightId, { seq: 1 }))
+    expect(correctLandingsForDisplacedThresholds(db, 'ENBR')).toBe(0)
+    db.update(navdataRunway).set({ displacedThresholdM: 270 }).where(eq(navdataRunway.icao, 'ENBR')).run()
     db.update(landing)
       .set({ deletedAt: '2026-10-17T14:00:00.000Z' })
       .where(eq(landing.flightId, flightId))
       .run()
-    expect(correctLandingDisplacements(db)).toBe(0)
+    expect(correctLandingsForDisplacedThresholds(db, 'ENBR')).toBe(0)
   })
 })

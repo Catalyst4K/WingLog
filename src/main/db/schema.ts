@@ -401,6 +401,10 @@ export const navdataRunway = sqliteTable(
     // live, not a threshold) — not the centre point itself.
     thresholdLat: real('threshold_lat').notNull(),
     thresholdLon: real('threshold_lon').notNull(),
+    // How far along from the pavement end this end's landing threshold is, metres, read from the sim's own PRIMARY_THRESHOLD and
+    // SECONDARY_THRESHOLD records (navdata-notes.md, 2026-10-17). Null = cached before it was fetched: such a cache is stale and is
+    // fetched again the next time the airport is used, as hold-short points were.
+    displacedThresholdM: real('displaced_threshold_m'),
     source: text('source', { enum: ['sim-facility'] }).notNull(),
     fetchedAt: text('fetched_at').notNull()
   },

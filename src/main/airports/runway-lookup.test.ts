@@ -298,50 +298,38 @@ describe('distanceFromUsableThresholdM', () => {
   })
 })
 
-describe('runwayEndsFromNavdata: a displaced threshold the sim still includes', () => {
-  const sim = (
-    ident: string,
-    lengthM: number,
-    thresholdLat: number,
-    thresholdLon: number,
-    headingTrueDeg: number
-  ) => ({
-    ident,
-    headingTrueDeg,
-    lengthM,
-    widthM: 45,
+describe("runwayEndsFromNavdata: the sim's own displaced threshold", () => {
+  // Bergen 17 as the sim has it (2026-10-17): the whole 2,983 m strip, with a 270 m displaced threshold at each end.
+  const BERGEN_17 = {
+    ident: '17',
+    headingTrueDeg: 170.56,
+    lengthM: 2982.9,
+    widthM: 45.2,
     surface: 4,
-    thresholdLat,
-    thresholdLon
-  })
+    thresholdLat: 60.306639864245795,
+    thresholdLon: 5.21371178198079
+  }
 
-  it("applies the database's 270 m to Bergen 17, whose sim runway is the whole strip (flight 242, 2026-10-17)", () => {
-    const [end] = runwayEndsFromNavdata('ENBR', [
-      sim('17', 2982.9, 60.306639864245795, 5.21371178198079, 170.56)
-    ])
+  it("takes the sim's displaced threshold, with the aiming point from the length that is left", () => {
+    const [end] = runwayEndsFromNavdata('ENBR', [{ ...BERGEN_17, displacedThresholdM: 270 }])
     expect(end?.source).toBe('sim')
-    expect(end?.displacedThresholdM).toBeCloseTo(270, 0)
+    expect(end?.lat).toBe(BERGEN_17.thresholdLat)
+    expect(end?.displacedThresholdM).toBe(270)
     expect(end?.aimingPointDistanceM).toBe(400)
-  })
-
-  it('does not apply it to Singapore 20R, whose sim runway already leaves the displaced part out (flight 236)', () => {
-    const [end] = runwayEndsFromNavdata('WSSS', [
-      sim('20R', 3221.2, 1.3757575921283205, 103.98878019536174, 203)
-    ])
-    expect(end?.displacedThresholdM).toBe(0)
-  })
-
-  it('does not apply it when the sim runway is a different length or sits elsewhere', () => {
+    // A 2,500 m strip with 200 m displaced has 2,300 m to land on: the 300 m aiming point band.
     expect(
-      runwayEndsFromNavdata('ENBR', [sim('17', 2000, 60.306639864245795, 5.21371178198079, 170.56)])[0]
-        ?.displacedThresholdM
+      runwayEndsFromNavdata('XXXX', [{ ...BERGEN_17, lengthM: 2500, displacedThresholdM: 200 }])[0]
+        ?.aimingPointDistanceM
+    ).toBe(300)
+  })
+
+  it('has none where the sim reports none (Singapore 20R) or has not been read yet', () => {
+    expect(
+      runwayEndsFromNavdata('WSSS', [{ ...BERGEN_17, displacedThresholdM: 0 }])[0]?.displacedThresholdM
     ).toBe(0)
     expect(
-      runwayEndsFromNavdata('ENBR', [sim('17', 2982.9, 60.4, 5.3, 170.56)])[0]?.displacedThresholdM
+      runwayEndsFromNavdata('ENBR', [{ ...BERGEN_17, displacedThresholdM: null }])[0]?.displacedThresholdM
     ).toBe(0)
-  })
-
-  it('has none for an airport the database lacks, or a runway it has no displacement for', () => {
-    expect(runwayEndsFromNavdata('ZZZZ', [sim('09', 2000, 1, 1, 90)])[0]?.displacedThresholdM).toBe(0)
+    expect(runwayEndsFromNavdata('ENBR', [BERGEN_17])[0]?.displacedThresholdM).toBe(0)
   })
 })

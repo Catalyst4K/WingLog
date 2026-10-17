@@ -13,7 +13,6 @@ import { angularDifference, positionRelativeToRunway, type RunwayRelativePositio
 import runwaysRaw from '../../../resources/runways.csv?raw'
 import { lazy } from '@shared/lazy'
 import { METRES_PER_FOOT } from '@shared/units'
-import { flatDistanceM } from '@shared/geo'
 
 export interface RunwayEnd {
   icao: string
@@ -123,60 +122,51 @@ export function loadRunwayEnds(raw: string): RunwayEnd[] {
   return ends
 }
 
-/** A sim runway is the same pavement as the database's when its length is within this fraction of the database's. */
-const SAME_PAVEMENT_TOLERANCE = 0.02
-/** And its end is within this of the database's: the same end of the same runway. */
-const SAME_END_WITHIN_M = 100
-
 /**
- * The displaced threshold of a sim runway end, taken from the airport database when the sim's runway still includes it. MSFS sometimes
- * models the displaced part (Bergen's 17 and 35: the sim's 2,983 m is the whole 2,990 m strip, the glideslope's touchdown point 270 m +
- * 400 m in) and sometimes leaves it out (Singapore's 20R: 3,221 m of a 4,000 m strip, the threshold already the usable one). The two
- * are told apart by length: a sim runway about as long as the database's still has the displaced part in it.
+ * One runway end from the sim's own facility data as a RunwayEnd: where MSFS really puts it. The end's position is the pavement end; its
+ * displaced threshold is the sim's own figure (the nested PRIMARY_THRESHOLD / SECONDARY_THRESHOLD record, navdata-notes.md 2026-10-17),
+ * 0 when the sim has not been asked yet (a cache from before it was read). Width and length are the sim's; what the sim doesn't give
+ * (elevation, surface) stays unknown.
  *
  * @param icao The airport.
- * @param runway The sim's runway end.
- * @returns The displacement in metres from the sim end, 0 when there is none or the sim's runway already leaves it out.
+ * @param end The sim's runway end.
+ * @returns The runway end.
  */
-function simDisplacedThresholdM(icao: string, runway: NavdataRunway): number {
-  const known = findRunwayEndByIdent(icao, runway.ident)
-  if (!known || known.displacedThresholdM <= 0 || known.lengthM === null) return 0
-  if (Math.abs(runway.lengthM - known.lengthM) > known.lengthM * SAME_PAVEMENT_TOLERANCE) return 0
-  const apart = flatDistanceM(
-    { lat: runway.thresholdLat, lon: runway.thresholdLon },
-    { lat: known.lat, lon: known.lon },
-    known.lat
-  )
-  return apart <= SAME_END_WITHIN_M ? known.displacedThresholdM : 0
+export function simRunwayEnd(
+  icao: string,
+  end: Pick<
+    NavdataRunway,
+    'ident' | 'headingTrueDeg' | 'lengthM' | 'widthM' | 'thresholdLat' | 'thresholdLon'
+  > & {
+    displacedThresholdM?: number | null
+  }
+): RunwayEnd {
+  const displacedThresholdM = end.displacedThresholdM ?? 0
+  return {
+    icao: icao.toUpperCase(),
+    ident: end.ident,
+    source: 'sim',
+    lat: end.thresholdLat,
+    lon: end.thresholdLon,
+    headingTrueDeg: end.headingTrueDeg,
+    lengthM: end.lengthM,
+    widthM: end.widthM,
+    displacedThresholdM,
+    elevationM: null,
+    surface: null,
+    aimingPointDistanceM: aimingPointDistanceForLengthM(end.lengthM - displacedThresholdM)
+  }
 }
 
 /**
- * An airport's runway ends from the sim's own facility data, as cached in `navdata_runway`: where MSFS really puts them. The width and
- * length are the sim's; what the sim doesn't give (elevation, surface) stays unknown. The sim's end is the physical end, so a displaced
- * threshold the airport database knows of is applied when the sim's runway still includes it (simDisplacedThresholdM).
+ * An airport's runway ends from the sim's cached facility data (`navdata_runway`).
  *
  * @param icao The airport.
  * @param runways Its cached runways.
  * @returns One end per cached runway end.
  */
 export function runwayEndsFromNavdata(icao: string, runways: NavdataRunway[]): RunwayEnd[] {
-  return runways.map((runway) => {
-    const displacedThresholdM = simDisplacedThresholdM(icao, runway)
-    return {
-      icao: icao.toUpperCase(),
-      ident: runway.ident,
-      source: 'sim',
-      lat: runway.thresholdLat,
-      lon: runway.thresholdLon,
-      headingTrueDeg: runway.headingTrueDeg,
-      lengthM: runway.lengthM,
-      widthM: runway.widthM,
-      displacedThresholdM,
-      elevationM: null,
-      surface: null,
-      aimingPointDistanceM: aimingPointDistanceForLengthM(runway.lengthM - displacedThresholdM)
-    }
-  })
+  return runways.map((runway) => simRunwayEnd(icao, runway))
 }
 
 // A touchdown heading more than this far from a runway end's published heading isn't

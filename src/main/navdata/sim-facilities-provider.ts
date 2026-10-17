@@ -5,6 +5,7 @@
  */
 import { Protocol } from 'node-simconnect'
 import { airacCycleStart, predatesCurrentCycle } from '@shared/airac'
+import { correctLandingsForDisplacedThresholds } from '../db/landing-displacement'
 import { openSimConnect as defaultOpen } from '../sim/open-simconnect'
 import type { WingLogDb } from '../db/client'
 import { logger } from '../logging/logger'
@@ -17,6 +18,7 @@ import {
   listCachedStands,
   listCachedTaxiSegments,
   navdataFetchTimes,
+  runwaysLackDisplacedThresholds,
   replaceAirportNavdata,
   replaceAirportStands,
   replaceAirportTaxiSegments
@@ -82,7 +84,10 @@ export class SimFacilitiesProvider implements NavdataProvider {
     if (seen && seen.cycleStartMs === cycleStartMs && nowMs < seen.retryAtMs) return
     const times = navdataFetchTimes(this.db, icao)
     const stale = {
-      airport: times.airport !== null && predatesCurrentCycle(times.airport, at),
+      // Runways cached before the sim's displaced thresholds were read are fetched again whatever the cycle.
+      airport:
+        times.airport !== null &&
+        (predatesCurrentCycle(times.airport, at) || runwaysLackDisplacedThresholds(this.db, icao)),
       taxi: times.taxi !== null && predatesCurrentCycle(times.taxi, at),
       stands: times.stands !== null && predatesCurrentCycle(times.stands, at)
     }
@@ -108,7 +113,13 @@ export class SimFacilitiesProvider implements NavdataProvider {
     const { handle } = await this.openSimConnect(APP_NAME, Protocol.SunRise)
     try {
       const fetched = await fetchAirportNavdata(handle, icao)
+      const firstWithThresholds = runwaysLackDisplacedThresholds(this.db, icao)
       replaceAirportNavdata(this.db, icao, fetched, this.now().toISOString())
+      if (firstWithThresholds) {
+        const corrected = correctLandingsForDisplacedThresholds(this.db, icao)
+        if (corrected > 0)
+          logger.info(`[navdata] ${icao}: ${corrected} landing(s) corrected for displaced thresholds`)
+      }
     } finally {
       handle.close()
     }

@@ -253,6 +253,13 @@
       "when": 1792145205613,
       "tag": "0035_aberrant_the_twelve",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1792244445201,
+      "tag": "0036_sudden_sprite",
+      "breakpoints": true
     }
   ]
 }

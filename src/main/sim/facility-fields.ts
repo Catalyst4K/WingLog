@@ -119,10 +119,19 @@ export interface ParsedRunway {
   surface: number
   primaryIdent: string
   secondaryIdent: string
+  /** The displaced part of the primary end's threshold, metres: the landing threshold is this far along from the pavement end. Null until
+   *  the nested PRIMARY_THRESHOLD record, a message of its own, has been read (see `addRunwayFields`). */
+  primaryDisplacedM?: number | null
+  /** The same for the secondary end. */
+  secondaryDisplacedM?: number | null
 }
 
 /**
- * Registers the RUNWAY records: position, heading, size, surface and both ends' idents.
+ * Registers the RUNWAY records: position, heading, size, surface, both ends' idents and each end's displaced threshold length.
+ *
+ * The thresholds are nested records, which the sim sends as separate PAVEMENT messages straight after their RUNWAY message, the primary
+ * end's first (live, 2026-10-17: winglog-backend's docs/navdata-notes.md): each holds one float32, `LENGTH`, the displaced part in metres.
+ * Bergen's strip is whole in the sim with 270 m at each end; Singapore's runways leave the displaced part out and read 0.
  *
  * @param addField Adds one field to the facility definition being built, in read order.
  */
@@ -139,7 +148,22 @@ export function addRunwayFields(addField: (name: string) => void): void {
   addField('PRIMARY_DESIGNATOR')
   addField('SECONDARY_NUMBER')
   addField('SECONDARY_DESIGNATOR')
+  for (const threshold of ['PRIMARY_THRESHOLD', 'SECONDARY_THRESHOLD']) {
+    addField(`OPEN ${threshold}`)
+    addField('LENGTH')
+    addField(`CLOSE ${threshold}`)
+  }
   addField('CLOSE RUNWAY')
+}
+
+/**
+ * Reads one threshold record addRunwayFields registered.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The displaced part of the threshold, metres.
+ */
+export function parseThresholdLength(d: RawBuffer): number {
+  return d.readFloat32()
 }
 
 /**
@@ -167,7 +191,9 @@ export function parseRunway(d: RawBuffer): ParsedRunway {
     widthM,
     surface,
     primaryIdent: runwayIdent(primaryNumber, primaryDesignator),
-    secondaryIdent: runwayIdent(secondaryNumber, secondaryDesignator)
+    secondaryIdent: runwayIdent(secondaryNumber, secondaryDesignator),
+    primaryDisplacedM: null,
+    secondaryDisplacedM: null
   }
 }
 
