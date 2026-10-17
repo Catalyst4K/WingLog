@@ -166,6 +166,11 @@
   filter: invert(1);
   background-color: var(--muted);
 }
+/* MapLibre's blue focus ring on the (i) stays after a click or tap, and the inversion above turns it orange. The map has no use for it. */
+.maplibregl-ctrl-attrib .maplibregl-ctrl-attrib-button:focus,
+.maplibregl-ctrl-attrib .maplibregl-ctrl-attrib-button:focus-visible {
+  box-shadow: none;
+}
 
 /*
  * docs/plans/map-controls.md: while FlightMap.tsx's pan lock disables `dragPan`, MapLibre's
