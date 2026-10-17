@@ -36,6 +36,10 @@ const MAX_STAND_LINK_M = 150
 const MAX_START_DISTANCE_M = 300
 /** A cleared taxi route longer than this is almost certainly a wrong trace, not a real one. */
 const MAX_ROUTE_LENGTH_M = 15_000
+/** How far the holding point's hold short may be from the cleared runway's threshold for the runway to choose between a taxiway's
+ *  several hold shorts. Beyond it the runway says nothing about this holding point (an intersection departure's), so none is
+ *  preferred. */
+const MAX_HOLD_FROM_THRESHOLD_M = 500
 
 export interface TaxiTraceRequest {
   segments: NavdataTaxiSegment[]
@@ -47,6 +51,10 @@ export interface TaxiTraceRequest {
   /** A stand clearance's stand, positioned (the `Taxi to Gate` box + the sim's
    *  stands); ignored for a holding-point clearance. */
   stand?: { lat: number; lon: number } | null
+  /** The cleared runway's threshold ("taxi to holding point A, runway 05L"). A taxiway running along a runway has a hold short at each
+   *  of its entries; the holding point is the one by this threshold, not whichever the search reaches first. Ignored when none is
+   *  near it. */
+  runwayThreshold?: { lat: number; lon: number } | null
   /** The aircraft's true heading, when it's taxiing under its own power. A first edge pointing
    *  more than WRONG_WAY_DEG away from it costs an extra WRONG_WAY_PENALTY_M, so the
    *  route starts forwards; a U-turn is still taken when it's the only way (dead-end stand
@@ -171,6 +179,31 @@ function nearestNode({ nodes, distanceM }: Graph, from: { lat: number; lon: numb
 }
 
 /**
+ * The holding point's hold short beside the cleared runway's threshold. "Holding point A, runway 05L" at EGCC: A runs the length of
+ * the runway with a hold short at each end, and the one by the 05L numbers is the holding point; the search reaches the far one
+ * first when it comes in from that side.
+ *
+ * @param graph The graph.
+ * @param holdingPoint The holding point's taxiway.
+ * @param threshold The runway's threshold, or null when unknown.
+ * @returns The node's index, or -1 when there is no threshold or no hold short of the taxiway within MAX_HOLD_FROM_THRESHOLD_M of it.
+ */
+function holdNodeByRunway(graph: Graph, holdingPoint: string, threshold: { lat: number; lon: number } | null): number {
+  if (!threshold) return -1
+  let best = -1
+  let bestDistance = MAX_HOLD_FROM_THRESHOLD_M
+  for (const [i, node] of graph.nodes.entries()) {
+    if (!node.holdShort || !edgesOf(graph, i).some((e) => e.name === holdingPoint)) continue
+    const d = graph.distanceM(threshold.lat, threshold.lon, node.lat, node.lon)
+    if (d <= bestDistance) {
+      bestDistance = d
+      best = i
+    }
+  }
+  return best
+}
+
+/**
  * The network point a stand links to: the nearest within MAX_STAND_LINK_M (the last one found
  * on a tie), or -1.
  *
@@ -212,7 +245,11 @@ function isWrongWay(graph: Graph, from: number, to: number, headingDeg: number |
  * @returns The route, or null if it can't be traced.
  */
 export function traceTaxiRoute(request: TaxiTraceRequest): TracedRoute | null {
-  if (request.holdingPoint) return traceOnce(request, true) ?? traceOnce(request, false)
+  if (request.holdingPoint) {
+    const plain = { ...request, runwayThreshold: null }
+    const byRunway = request.runwayThreshold ? traceOnce(request, true) : null
+    return byRunway ?? traceOnce(plain, true) ?? traceOnce(plain, false)
+  }
   if (!request.stand) return traceOnce(request, true)
   return traceOnce(request, true) ?? traceOnce({ ...request, stand: null }, true)
 }
@@ -228,6 +265,8 @@ interface TraceSearch {
   holdingPoint: string | null
   /** The node the stand links to, or -1 without a stand. */
   standNode: number
+  /** The hold short the cleared runway picks for the holding point, or -1 for the first one the search reaches. */
+  holdNode: number
   strictEnd: boolean
   /** Each reached state's best cost, real length driven, and the state it was reached from. */
   cost: Map<number, number>
@@ -298,6 +337,7 @@ function traceOnce(request: TaxiTraceRequest, strictEnd: boolean): TracedRoute |
     sequence,
     holdingPoint,
     standNode,
+    holdNode: holdingPoint ? holdNodeByRunway(graph, holdingPoint, request.runwayThreshold ?? null) : -1,
     strictEnd,
     cost: new Map(),
     realLength: new Map(),
@@ -415,6 +455,7 @@ function isRouteEnd(search: TraceSearch, state: number, node: number): boolean {
   // past B7: that fillet's far point has no A edge, so it passed for "A's far end".
   if (cameFromNode < 0 || !edgesOf(graph, cameFromNode).some((e) => e.to === node && e.name === holdingPoint))
     return false
+  if (search.holdNode >= 0) return node === search.holdNode
   if (itemAt(graph.nodes, node, 'taxi node').holdShort) return true
   // A real far end: nothing else joins here (the runway isn't in the taxi network). Not merely
   // where the name stops: ZJSY's A forks by the runway 08 threshold, and the branch that isn't

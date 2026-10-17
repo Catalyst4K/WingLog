@@ -9,7 +9,7 @@ describe('boxTaxiClearance', () => {
         ...['B', 'B', 'V', 'H', 'J'].map((info, i) => ({ title: `Taxi Via ${i + 1}`, info })),
         { title: 'Hold Position', info: 'J1' }
       ])
-    ).toEqual({ taxiways: ['B', 'B', 'V', 'H', 'J'], holdingPoint: 'J1', stand: null, holdShortRunway: null })
+    ).toEqual({ taxiways: ['B', 'B', 'V', 'H', 'J'], holdingPoint: 'J1', stand: null, holdShortRunway: null, taxiToRunway: '07R' })
   })
 
   it('reads an arrival clearance to a gate (real ZJSY boxes, 2026-10-05)', () => {
@@ -19,7 +19,7 @@ describe('boxTaxiClearance', () => {
         { title: 'Taxi Via 1', info: 'A4' },
         { title: 'Taxi Via 2', info: 'D' }
       ])
-    ).toEqual({ taxiways: ['A4', 'D'], holdingPoint: null, stand: '102', holdShortRunway: null })
+    ).toEqual({ taxiways: ['A4', 'D'], holdingPoint: null, stand: '102', holdShortRunway: null, taxiToRunway: null })
   })
 
   it('treats a Hold Position naming a runway as a hold short, not a holding point', () => {
@@ -42,7 +42,7 @@ describe('boxTaxiClearance', () => {
         { title: 'Taxi Via 3', info: 'S' },
         { title: 'Hold Short', info: '27L' }
       ])
-    ).toEqual({ taxiways: ['LINK 44', 'T', 'S'], holdingPoint: null, stand: null, holdShortRunway: '27L' })
+    ).toEqual({ taxiways: ['LINK 44', 'T', 'S'], holdingPoint: null, stand: null, holdShortRunway: '27L', taxiToRunway: '27R' })
   })
 
   it('is null when the boxes hold no taxi route', () => {
@@ -64,6 +64,7 @@ describe('clearanceAirport', () => {
     holdingPoint: null,
     stand: null,
     holdShortRunway: null,
+    taxiToRunway: null,
     from: { lat: 22.31, lon: 113.91 }
   }
   const segment = (lat: number, lon: number) =>
@@ -94,7 +95,7 @@ describe('traceClearance', () => {
   it('traces nothing before the aircraft position is known', () => {
     expect(
       traceClearance(
-        { taxiways: ['A'], holdingPoint: 'A1', stand: null, holdShortRunway: null, from: null },
+        { taxiways: ['A'], holdingPoint: 'A1', stand: null, holdShortRunway: null, taxiToRunway: null, from: null },
         [],
         null
       )

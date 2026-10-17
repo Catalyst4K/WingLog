@@ -6,6 +6,7 @@ import VHHH_ARRIVAL_RAW from './__fixtures__/vhhh-taxi-arrival-j-h6-h-v-b.json'
 import YBBN_RAW from './__fixtures__/ybbn-taxi-c9-b9-a9.json'
 import ZJSY_RAW from './__fixtures__/zjsy-taxi-d-b7-a.json'
 import VHHH_HOLD_07C_RAW from './__fixtures__/vhhh-taxi-c7-y-f-hold-07c.json'
+import EGCC_RAW from './__fixtures__/egcc-taxi-e-d-b-a-hold-05l.json'
 
 // Real taxi networks (MSFS facility data), each trimmed to a box around one real clearance's
 // route. Rows: [startLat, startLon, endLat, endLon, name, startHoldShort, endHoldShort].
@@ -28,6 +29,8 @@ const VHHH_ARRIVAL = toSegments(VHHH_ARRIVAL_RAW)
 // The whole airport, so A's far ends are real ends rather than the edge of a trimmed box.
 const ZJSY = toSegments(ZJSY_RAW)
 const VHHH_HOLD_07C = toSegments(VHHH_HOLD_07C_RAW)
+// EGCC, fetched live 2026-10-17: the parallel taxiway A beside runway 05L/23R, from the north apron.
+const EGCC = toSegments(EGCC_RAW)
 
 function distanceM(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
   return Math.hypot((a.lat - b.lat) * 111_320, (a.lon - b.lon) * 111_320 * Math.cos((a.lat * Math.PI) / 180))
@@ -559,5 +562,30 @@ describe('remainingRoute', () => {
 
   it('has no direction for a one-point route', () => {
     expect(remainingRoute([[0.03, 51.33]], { lat: 51.33, lon: 0.03 }).bearingDeg).toBeNull()
+  })
+})
+
+describe('traceTaxiRoute: the hold short beside the cleared runway (EGCC, 2026-10-17)', () => {
+  // BeyondATC: "taxi to holding point A, runway 05L, via E, D, B, A", and its own map ends the line at A's hold short by the 05L
+  // numbers. A has a hold short at each end of the runway; the route comes in from the north, so the far (23R) one was reached first.
+  const FROM = { lat: 53.36099230499224, lon: -2.2790271040177106 }
+  const THRESHOLD_05L = { lat: 53.345140869529, lon: -2.2927934260192853 }
+  const request = { segments: EGCC, taxiways: ['E', 'D', 'B', 'A'], holdingPoint: 'A', from: FROM }
+  const endOf = (route: ReturnType<typeof traceTaxiRoute>): [number, number] | undefined => route?.at(-1)
+
+  it('ends at the hold short nearest the cleared runway threshold', () => {
+    const end = endOf(traceTaxiRoute({ ...request, runwayThreshold: THRESHOLD_05L }))
+    expect(end).toBeDefined()
+    expect(distanceM({ lat: end![1], lon: end![0] }, { lat: 53.3466, lon: -2.29343 })).toBeLessThan(15)
+  })
+
+  it('keeps the first hold short reached when no runway is known, as before', () => {
+    const end = endOf(traceTaxiRoute(request))
+    expect(distanceM({ lat: end![1], lon: end![0] }, { lat: 53.35576, lon: -2.28002 })).toBeLessThan(15)
+  })
+
+  it('ignores a runway whose threshold is nowhere near the holding point', () => {
+    const farAway = { lat: 53.4, lon: -2.2 }
+    expect(endOf(traceTaxiRoute({ ...request, runwayThreshold: farAway }))).toEqual(endOf(traceTaxiRoute(request)))
   })
 })
