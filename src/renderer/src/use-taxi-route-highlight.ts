@@ -143,6 +143,44 @@ function useClearanceStand(
   return clearance?.stand && stands && stands.icao === icao ? findStand(stands.list, clearance.stand) : null
 }
 
+// "05L" and "5L" name the same runway.
+const runwayKey = (ident: string): string => ident.replace(/^0+/, '').toUpperCase()
+
+/**
+ * The threshold of the runway a holding-point clearance is for ("taxi to holding point A, runway 05L"), which picks the taxiway's
+ * hold short beside it. Read from the navdata cache, so null when the airport isn't cached; the line is then drawn as before.
+ *
+ * @param enabled Whether the taxi chart is on.
+ * @param clearance The clearance, or null.
+ * @param icao The clearance's airport, or null.
+ * @returns The threshold, or null.
+ */
+function useClearanceRunway(
+  enabled: boolean,
+  clearance: TaxiClearance | null,
+  icao: string | null
+): { lat: number; lon: number } | null {
+  const [found, setFound] = useState<{ icao: string; ident: string; lat: number; lon: number } | null>(null)
+  const ident = enabled && clearance?.holdingPoint && clearance.taxiToRunway && icao ? clearance.taxiToRunway : null
+  useEffect(() => {
+    if (!ident || !icao) return
+    let ignore = false
+    winglogApi()
+      .navdataListRunways(icao)
+      .then(
+        (runways) => {
+          const runway = runways.find((r) => runwayKey(r.ident) === runwayKey(ident))
+          if (!ignore && runway) setFound({ icao, ident, lat: runway.thresholdLat, lon: runway.thresholdLon })
+        },
+        () => undefined
+      )
+    return () => {
+      ignore = true
+    }
+  }, [ident, icao])
+  return ident && found && found.icao === icao && found.ident === ident ? { lat: found.lat, lon: found.lon } : null
+}
+
 /**
  * Draws the traced line from the aircraft, re-routing first if it has left the line.
  *
@@ -287,13 +325,14 @@ export function useTaxiRouteHighlight({
   const icao = clearance ? clearanceAirport(clearance, depIcao, arrIcao, segmentsByIcao) : null
 
   const standPosition = useClearanceStand(enabled, clearance, icao)
+  const runwayThreshold = useClearanceRunway(enabled, clearance, icao)
 
   const segments = icao ? segmentsByIcao[icao] : undefined
   // Re-traced when segments finish loading too — a clearance can arrive before the chart has.
   const traced: TracedRoute | null = useMemo(() => {
     if (!clearance?.from || !segments || segments.length === 0) return null
-    return traceClearance(clearance, segments, standPosition)
-  }, [clearance, segments, standPosition])
+    return traceClearance(clearance, segments, standPosition, runwayThreshold)
+  }, [clearance, segments, standPosition, runwayThreshold])
 
   useEffect(() => {
     trackerRef.current = traced ? startTracker(traced) : null

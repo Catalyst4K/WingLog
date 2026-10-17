@@ -15,6 +15,8 @@ export interface TaxiClearance {
   /** "taxi via C7, Y, F, hold short of runway 07C" → '07C': the route runs along its last
    *  taxiway to the hold short, the same way as a holding point. */
   holdShortRunway: string | null
+  /** "taxi to holding point A, runway 05L" → '05L' (the `Taxi to Runway` box): the runway the holding point is for. */
+  taxiToRunway?: string | null
   /** Where the aircraft was when the clearance arrived — the trace's start. The line follows
    *  the clearance from there whichever way the aircraft faces: if it's driven the other way,
    *  the re-route takes over. */
@@ -42,7 +44,8 @@ export function boxTaxiClearance(boxes: BeyondAtcInfoBox[]): Omit<TaxiClearance,
     taxiways: facts.taxiVia,
     holdingPoint: holdIsRunway ? null : hold,
     stand: facts.taxiToGate,
-    holdShortRunway: holdIsRunway ? hold : facts.holdShort
+    holdShortRunway: holdIsRunway ? hold : facts.holdShort,
+    taxiToRunway: facts.taxiToRunway
   }
 }
 
@@ -98,12 +101,14 @@ export function startOf(position: { lat: number; lon: number } | null): Pick<Tax
  * @param clearance The clearance.
  * @param segments The airport's taxi network.
  * @param stand The cleared stand, or null.
+ * @param runwayThreshold The threshold of the runway a holding point is for, or null.
  * @returns The traced line, or null.
  */
 export function traceClearance(
   clearance: TaxiClearance,
   segments: NavdataTaxiSegment[],
-  stand: NavdataStand | null
+  stand: NavdataStand | null,
+  runwayThreshold: { lat: number; lon: number } | null = null
 ): TracedRoute | null {
   if (!clearance.from) return null
   return traceTaxiRoute({
@@ -112,6 +117,7 @@ export function traceClearance(
     holdingPoint:
       clearance.holdingPoint ?? (clearance.holdShortRunway ? (clearance.taxiways.at(-1) ?? null) : null),
     from: clearance.from,
-    stand
+    stand,
+    runwayThreshold: clearance.holdingPoint ? runwayThreshold : null
   })
 }
