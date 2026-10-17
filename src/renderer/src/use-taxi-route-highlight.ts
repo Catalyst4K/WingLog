@@ -169,8 +169,9 @@ function useClearanceRunway(
   useEffect(() => {
     if (!ident || !icao) return
     let ignore = false
-    winglogApi()
-      .navdataListRunways(icao)
+    // A runway list that can't be had leaves the line drawn as before, so a failure, even a missing call, is only swallowed.
+    Promise.resolve()
+      .then(() => winglogApi().navdataListRunways(icao))
       .then(
         (runways) => {
           const threshold = clearanceRunwayThreshold(ident, runways)
