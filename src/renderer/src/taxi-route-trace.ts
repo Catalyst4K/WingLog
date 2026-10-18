@@ -492,17 +492,22 @@ function isRouteEnd(search: TraceSearch, state: number, node: number): boolean {
   const { graph, holdingPoint, standNode, strictEnd } = search
   if (!holdingPoint) return standNode < 0 || node === standNode
   const cameFromNode = cameFromNodeOf(search, state)
+  const edges = edgesOf(graph, node)
+  // A hold short on the holding point's own taxiway ends the route however it was reached: RKSI's P runs on through a junction
+  // by an unnamed fillet, so insisting on arriving by a P edge sent the line right round the junction to come back into it.
+  if (edges.some((e) => e.name === holdingPoint)) {
+    if (search.holdNode >= 0) return node === search.holdNode
+    if (itemAt(graph.nodes, node, 'taxi node').holdShort) return true
+  }
   // The final stage stays the same over unnamed and off-route edges, so check that the edge just driven really was the
   // holding point's. Without this, ZJSY's "holding point A, runway 08, via D, B7, A" ended one unnamed fillet off A, ~150 m
   // past B7: that fillet's far point has no A edge, so it passed for "A's far end".
   if (cameFromNode < 0 || !edgesOf(graph, cameFromNode).some((e) => e.to === node && e.name === holdingPoint))
     return false
-  if (search.holdNode >= 0) return node === search.holdNode
-  if (itemAt(graph.nodes, node, 'taxi node').holdShort) return true
+  if (search.holdNode >= 0) return false
   // A real far end: nothing else joins here (the runway isn't in the taxi network). Not merely
   // where the name stops: ZJSY's A forks by the runway 08 threshold, and the branch that isn't
   // the hold carries on as A1.
-  const edges = edgesOf(graph, node)
   if (edges.every((e) => e.to === cameFromNode)) return true
   return !strictEnd && !edges.some((e) => e.name === holdingPoint && e.to !== cameFromNode)
 }

@@ -698,3 +698,35 @@ describe('rejoinTaxiRoute follows the cleared route once the way back meets it (
     expect(rejoined?.slice(1)).toEqual(route.slice(1))
   })
 })
+
+describe('traceTaxiRoute ends at a hold short reached by an unnamed fillet (RKSI flight 239, 2026-10-16)', () => {
+  const seg = (
+    a: [number, number],
+    b: [number, number],
+    name: string | null,
+    endHoldShort = false
+  ): NavdataTaxiSegment => ({
+    startLat: a[0],
+    startLon: a[1],
+    endLat: b[0],
+    endLon: b[1],
+    name,
+    startHoldShort: false,
+    endHoldShort
+  })
+  const A: [number, number] = [51.0, 0]
+  const J: [number, number] = [51.001, 0]
+  const K: [number, number] = [51.002, 0]
+  const H: [number, number] = [51.0025, 0.0005]
+  const M: [number, number] = [51.003, 0.001]
+
+  it('stops at the hold short instead of going on to the far end of the taxiway', () => {
+    const route = traceTaxiRoute({
+      segments: [seg(A, J, 'P'), seg(J, K, 'P'), seg(K, H, null, true), seg(H, M, 'P')],
+      taxiways: ['P'],
+      holdingPoint: 'P',
+      from: { lat: A[0], lon: A[1] }
+    })
+    expect(route?.at(-1)).toEqual([H[1], H[0]])
+  })
+})

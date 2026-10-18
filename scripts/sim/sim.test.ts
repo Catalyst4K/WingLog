@@ -54,6 +54,14 @@ describe('parseInfoBoxesLog', () => {
   })
 })
 
+describe('parseInfoBoxesLog and the fake clearances from the unit tests', () => {
+  it('skips the sets the unit tests used to write into the real log', () => {
+    const fake =
+      '[2026-10-16 11:19:15.848] [info]  [beyondatc] InfoBoxes [{"title":"Taxi to Gate","info":"Gate 104"},{"title":"Taxi Via 1","info":"A4"}]'
+    expect(parseInfoBoxesLog(fake)).toEqual([])
+  })
+})
+
 describe('taxi scenarios', () => {
   const points = [
     point('2026-10-05T14:55:00', { phase: 'pushback' }),

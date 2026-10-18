@@ -43,6 +43,16 @@ const INFO_BOXES_LINE =
   /^\[(\d{4})-(\d\d)-(\d\d) (\d\d):(\d\d):(\d\d)\.(\d{1,3})\] \[info\]\s+\[beyondatc\] InfoBoxes (.*)$/
 
 /**
+ * The InfoBoxes sets BeyondAtcService.test.ts feeds the service. Before the unit tests stopped writing a log file (2026-10-18) these
+ * landed in the real main.log, and read as Callum's flights. A real taxi never gives a one-box "A4" route to Gate 104 or the same
+ * nine-box route to Gate 411 (A R N5W S5W W LINK 44 T, ATIS C).
+ */
+const TEST_FIXTURE_SETS = [
+  '[{"title":"Taxi to Gate","info":"Gate 104"},{"title":"Taxi Via 1","info":"A4"}]',
+  '[{"title":"Taxi to Gate","info":"Gate 411"},{"title":"Taxi Via 1","info":"A"},{"title":"Taxi Via 2","info":"R"},{"title":"Taxi Via 3","info":"N5W"},{"title":"Taxi Via 4","info":"S5W"},{"title":"Taxi Via 5","info":"W"},{"title":"Taxi Via 6","info":"LINK 44"},{"title":"Taxi Via 7","info":"T"},{"title":"ATIS Current","info":"C"}]'
+]
+
+/**
  * Every InfoBoxes set in a main.log's text, oldest first. Times are local, as electron-log writes
  * them, so this runs on the machine (and in the time zone) that wrote the log.
  */
@@ -52,6 +62,7 @@ export function parseInfoBoxesLog(text: string): LoggedInfoBoxes[] {
     const match = INFO_BOXES_LINE.exec(line)
     if (!match) continue
     const [, y, mo, d, h, mi, s, ms, json] = match
+    if (TEST_FIXTURE_SETS.includes(json)) continue
     let boxes: unknown
     try {
       boxes = JSON.parse(json)
