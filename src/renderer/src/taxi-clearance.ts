@@ -5,7 +5,12 @@
  */
 import type { BeyondAtcInfoBox, NavdataStand, NavdataTaxiSegment } from '@shared/ipc'
 import { parseAtcTaxiFacts } from '@shared/atc-info-boxes'
-import { traceTaxiRoute, type TracedRoute } from './taxi-route-trace'
+import {
+  traceTaxiRoute,
+  traceTaxiRouteFromFirstTaxiway,
+  type RunwayStrip,
+  type TracedRoute
+} from './taxi-route-trace'
 
 export interface TaxiClearance {
   taxiways: string[]
@@ -105,10 +110,24 @@ export function clearanceRunwayThreshold(
   taxiToRunway: string | null | undefined,
   runways: { ident: string; thresholdLat: number; thresholdLon: number }[]
 ): { lat: number; lon: number } | null {
-  if (!taxiToRunway) return null
-  const key = (ident: string): string => ident.replace(/^0+/, '').toUpperCase()
-  const runway = runways.find((r) => key(r.ident) === key(taxiToRunway))
+  const runway = clearanceRunway(taxiToRunway, runways)
   return runway ? { lat: runway.thresholdLat, lon: runway.thresholdLon } : null
+}
+
+/**
+ * A cleared runway from an airport's runways: "05L" and "5L" name the same runway.
+ *
+ * @param ident The runway the clearance names, or null.
+ * @param runways The airport's runways.
+ * @returns The runway, or null when none is named or it is not among them.
+ */
+export function clearanceRunway<R extends { ident: string }>(
+  ident: string | null | undefined,
+  runways: R[]
+): R | null {
+  if (!ident) return null
+  const key = (name: string): string => name.replace(/^0+/, '').toUpperCase()
+  return runways.find((r) => key(r.ident) === key(ident)) ?? null
 }
 
 /**
@@ -119,22 +138,27 @@ export function clearanceRunwayThreshold(
  * @param segments The airport's taxi network.
  * @param stand The cleared stand, or null.
  * @param runwayThreshold The threshold of the runway a holding point is for, or null.
+ * @param holdShortRunway The runway of a "hold short of runway" clearance, or null.
  * @returns The traced line, or null.
  */
 export function traceClearance(
   clearance: TaxiClearance,
   segments: NavdataTaxiSegment[],
   stand: NavdataStand | null,
-  runwayThreshold: { lat: number; lon: number } | null = null
+  runwayThreshold: { lat: number; lon: number } | null = null,
+  holdShortRunway: RunwayStrip | null = null
 ): TracedRoute | null {
   if (!clearance.from) return null
-  return traceTaxiRoute({
+  const request = {
     segments,
     taxiways: clearance.taxiways,
     holdingPoint:
       clearance.holdingPoint ?? (clearance.holdShortRunway ? (clearance.taxiways.at(-1) ?? null) : null),
     from: clearance.from,
     stand,
-    runwayThreshold: clearance.holdingPoint ? runwayThreshold : null
-  })
+    runwayThreshold: clearance.holdingPoint ? runwayThreshold : null,
+    holdShortRunway: clearance.holdingPoint ? null : holdShortRunway
+  }
+  // An aircraft already past the clearance's start (Track opened mid-taxi) traces from the first taxiway instead; else whole taxiways.
+  return traceTaxiRoute(request) ?? traceTaxiRouteFromFirstTaxiway(request)
 }

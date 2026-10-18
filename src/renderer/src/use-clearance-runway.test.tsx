@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import type { NavdataRunwayOption } from '@shared/ipc'
 import type { TaxiClearance } from './taxi-clearance'
-import { useClearanceRunway } from './use-taxi-route-highlight'
+import { useClearanceRunway, useHoldShortRunway } from './use-taxi-route-highlight'
 
 // EGCC 05L from the sim's own runway data (2026-10-17).
 const RUNWAY_05L: NavdataRunwayOption = {
@@ -71,5 +71,48 @@ describe('useClearanceRunway', () => {
     const other = renderHook(() => useClearanceRunway(true, CLEARANCE, 'EGCC'))
     await new Promise((r) => setTimeout(r, 0))
     expect(other.result.current).toBeNull()
+  })
+})
+
+// RKSI 34R from the sim's own runway data (2026-10-16).
+const RUNWAY_34R: NavdataRunwayOption = {
+  ident: '34R',
+  headingTrueDeg: 325,
+  lengthM: 4010,
+  widthM: 60,
+  surface: 4,
+  thresholdLat: 37.44335,
+  thresholdLon: 126.44177
+}
+const HOLD_SHORT: TaxiClearance = {
+  taxiways: ['P8', 'P'],
+  holdingPoint: null,
+  stand: '236',
+  holdShortRunway: '34R',
+  from: { lat: 37.459, lon: 126.4242 }
+}
+
+describe('useHoldShortRunway', () => {
+  it('gives the runway of a hold short, the same object on every render', async () => {
+    stubRunways([RUNWAY_34R])
+    const { result, rerender } = renderHook(() => useHoldShortRunway(true, HOLD_SHORT, 'RKSI'))
+    await waitFor(() => expect(result.current).not.toBeNull())
+    expect(result.current).toBe(RUNWAY_34R)
+    rerender()
+    expect(result.current).toBe(RUNWAY_34R)
+  })
+
+  it('asks for nothing for a holding-point clearance, no hold short, or the chart off', () => {
+    const listed = stubRunways([RUNWAY_34R])
+    for (const [enabled, clearance] of [
+      [false, HOLD_SHORT],
+      [true, { ...HOLD_SHORT, holdingPoint: 'P' }],
+      [true, { ...HOLD_SHORT, holdShortRunway: null }],
+      [true, null]
+    ] as const) {
+      const { result } = renderHook(() => useHoldShortRunway(enabled, clearance, 'RKSI'))
+      expect(result.current).toBeNull()
+    }
+    expect(listed).not.toHaveBeenCalled()
   })
 })

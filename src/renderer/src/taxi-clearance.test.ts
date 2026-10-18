@@ -1,3 +1,4 @@
+import type { NavdataTaxiSegment } from '@shared/ipc'
 import { describe, expect, it } from 'vitest'
 import { boxTaxiClearance, clearanceAirport, startOf, traceClearance } from './taxi-clearance'
 
@@ -125,5 +126,35 @@ describe('traceClearance', () => {
         null
       )
     ).toBeNull()
+  })
+
+  it('traces from the first taxiway when the aircraft is already past the clearance start (EGCC 2026-10-18)', () => {
+    const seg = (a: [number, number], b: [number, number], name: string): NavdataTaxiSegment => ({
+      startLat: a[0],
+      startLon: a[1],
+      endLat: b[0],
+      endLon: b[1],
+      name,
+      startHoldShort: false,
+      endHoldShort: false
+    })
+    const segments = [
+      seg([53.344, -2.284], [53.349, -2.28], 'VC'),
+      seg([53.349, -2.28], [53.35, -2.279], 'V'),
+      seg([53.35, -2.279], [53.353, -2.2815], 'A')
+    ]
+    const route = traceClearance(
+      {
+        taxiways: ['VC', 'V', 'A'],
+        holdingPoint: null,
+        stand: null,
+        holdShortRunway: null,
+        taxiToRunway: null,
+        from: { lat: 53.353, lon: -2.2815 }
+      },
+      segments,
+      null
+    )
+    expect(route?.[0]).toEqual([-2.284, 53.344])
   })
 })

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { NavdataTaxiSegment } from '@shared/ipc'
-import { angleBetweenDeg, rejoinTaxiRoute, remainingRoute, traceTaxiRoute } from './taxi-route-trace'
+import {
+  angleBetweenDeg,
+  rejoinTaxiRoute,
+  remainingRoute,
+  traceTaxiRoute,
+  traceTaxiRouteFromFirstTaxiway
+} from './taxi-route-trace'
 import VHHH_RAW from './__fixtures__/vhhh-taxi-b8-b10.json'
 import VHHH_ARRIVAL_RAW from './__fixtures__/vhhh-taxi-arrival-j-h6-h-v-b.json'
 import YBBN_RAW from './__fixtures__/ybbn-taxi-c9-b9-a9.json'
@@ -614,5 +620,153 @@ describe('traceTaxiRoute: a first hold short that is already beside the cleared 
     expect(
       distanceM({ lat: plain!.at(-1)![1], lon: plain!.at(-1)![0] }, { lat: 51.47768, lon: -0.43539 })
     ).toBeLessThan(15)
+  })
+})
+
+describe('traceTaxiRouteFromFirstTaxiway (EGCC 2026-10-18: Track opened with the aircraft already past the start)', () => {
+  const seg = (a: [number, number], b: [number, number], name: string): NavdataTaxiSegment => ({
+    startLat: a[0],
+    startLon: a[1],
+    endLat: b[0],
+    endLon: b[1],
+    name,
+    startHoldShort: false,
+    endHoldShort: false
+  })
+  // VC meets V only at its north end; the aircraft is on A, beyond the end of the cleared route's first half.
+  const segments = [
+    seg([53.344, -2.284], [53.3465, -2.282], 'VC'),
+    seg([53.3465, -2.282], [53.349, -2.28], 'VC'),
+    seg([53.349, -2.28], [53.35, -2.279], 'V'),
+    seg([53.35, -2.279], [53.353, -2.2815], 'A')
+  ]
+  const request = {
+    segments,
+    taxiways: ['VC', 'V', 'A'],
+    holdingPoint: null,
+    from: { lat: 53.353, lon: -2.2815 }
+  }
+
+  it('cannot trace from the aircraft, because the clearance begins behind it', () => {
+    expect(traceTaxiRoute(request)).toBeNull()
+  })
+
+  it('traces from the far end of the first taxiway, not part-way along it', () => {
+    const route = traceTaxiRouteFromFirstTaxiway(request)
+    expect(route?.[0]).toEqual([-2.284, 53.344])
+    expect(route?.at(-1)).toEqual([-2.2815, 53.353])
+  })
+
+  it('is null for a clearance with no taxiways or a first taxiway the data lacks', () => {
+    expect(traceTaxiRouteFromFirstTaxiway({ ...request, taxiways: [] })).toBeNull()
+    expect(traceTaxiRouteFromFirstTaxiway({ ...request, taxiways: ['QQ', 'V'] })).toBeNull()
+  })
+})
+
+describe('rejoinTaxiRoute follows the cleared route once the way back meets it (EGLL flight 239, 2026-10-15)', () => {
+  const seg = (a: [number, number], b: [number, number], name: string): NavdataTaxiSegment => ({
+    startLat: a[0],
+    startLon: a[1],
+    endLat: b[0],
+    endLon: b[1],
+    name,
+    startHoldShort: false,
+    endHoldShort: false
+  })
+  const R = [
+    [51.0, 0],
+    [51.001, 0],
+    [51.002, 0],
+    [51.003, 0.002],
+    [51.004, 0]
+  ] as [number, number][]
+  const P: [number, number] = [51.001, -0.0004]
+  // The cleared X runs round R3; Z cuts straight from R2 to R4, the shorter way to the end.
+  const segments = [
+    seg(R[0]!, R[1]!, 'X'),
+    seg(R[1]!, R[2]!, 'X'),
+    seg(R[2]!, R[3]!, 'X'),
+    seg(R[3]!, R[4]!, 'X'),
+    seg(R[2]!, R[4]!, 'Z'),
+    seg(P, R[1]!, 'Y')
+  ]
+  const route = R.map(([lat, lon]): [number, number] => [lon, lat])
+
+  it('keeps the cleared stretch after the join instead of cutting to a later join over the shortcut', () => {
+    const rejoined = rejoinTaxiRoute({ segments, route, fromSegment: 0, from: { lat: P[0], lon: P[1] } })
+    expect(rejoined?.[0]).toEqual([P[1], P[0]])
+    expect(rejoined?.slice(1)).toEqual(route.slice(1))
+  })
+})
+
+describe('traceTaxiRoute ends at a hold short reached by an unnamed fillet (RKSI flight 239, 2026-10-16)', () => {
+  const seg = (
+    a: [number, number],
+    b: [number, number],
+    name: string | null,
+    endHoldShort = false
+  ): NavdataTaxiSegment => ({
+    startLat: a[0],
+    startLon: a[1],
+    endLat: b[0],
+    endLon: b[1],
+    name,
+    startHoldShort: false,
+    endHoldShort
+  })
+  const A: [number, number] = [51.0, 0]
+  const J: [number, number] = [51.001, 0]
+  const K: [number, number] = [51.002, 0]
+  const H: [number, number] = [51.0025, 0.0005]
+  const M: [number, number] = [51.003, 0.001]
+
+  it('stops at the hold short instead of going on to the far end of the taxiway', () => {
+    const route = traceTaxiRoute({
+      segments: [seg(A, J, 'P'), seg(J, K, 'P'), seg(K, H, null, true), seg(H, M, 'P')],
+      taxiways: ['P'],
+      holdingPoint: 'P',
+      from: { lat: A[0], lon: A[1] }
+    })
+    expect(route?.at(-1)).toEqual([H[1], H[0]])
+  })
+})
+
+describe('traceTaxiRoute with a hold short of a runway (RKSI flight 239, 2026-10-16)', () => {
+  const seg = (
+    a: [number, number],
+    b: [number, number],
+    name: string,
+    endHoldShort = false
+  ): NavdataTaxiSegment => ({
+    startLat: a[0],
+    startLon: a[1],
+    endLat: b[0],
+    endLon: b[1],
+    name,
+    startHoldShort: false,
+    endHoldShort
+  })
+  // A runway running north from its threshold, 60 m wide. P runs alongside it; P9 turns off P across to it, with a hold short
+  // 100 m from its edge. P's own hold short is at its far end, 1.5 km on.
+  const runway = { thresholdLat: 51.0, thresholdLon: 0, headingTrueDeg: 0, lengthM: 4000, widthM: 60 }
+  const metres = (m: number): number => m / 111_320
+  const P0: [number, number] = [51 + metres(500), -metres(300)]
+  const P1: [number, number] = [51 + metres(700), -metres(300)]
+  const P2: [number, number] = [51 + metres(2200), -metres(300)]
+  const P9HOLD: [number, number] = [51 + metres(700), -metres(130)]
+  const request = {
+    segments: [seg(P0, P1, 'P'), seg(P1, P2, 'P', true), seg(P1, P9HOLD, 'P9', true)],
+    taxiways: ['P'],
+    holdingPoint: 'P',
+    from: { lat: P0[0], lon: P0[1] }
+  }
+
+  it('ends at the first hold short beside the runway, which can be on another taxiway', () => {
+    const route = traceTaxiRoute({ ...request, holdShortRunway: runway })
+    expect(route?.at(-1)).toEqual([P9HOLD[1], P9HOLD[0]])
+  })
+
+  it("without the runway, goes on to the taxiway's own hold short", () => {
+    expect(traceTaxiRoute(request)?.at(-1)).toEqual([P2[1], P2[0]])
   })
 })
