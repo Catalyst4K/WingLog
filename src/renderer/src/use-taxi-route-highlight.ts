@@ -27,9 +27,10 @@ import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'rea
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import type { BeyondAtcState, FlightPhase, NavdataStand, NavdataTaxiSegment } from '@shared/ipc'
 import { findStand } from '@shared/stands'
-import type { TracedRoute } from './taxi-route-trace'
+import type { RunwayStrip, TracedRoute } from './taxi-route-trace'
 import {
   clearanceAirport,
+  clearanceRunway,
   clearanceRunwayThreshold,
   startOf,
   traceClearance,
@@ -193,6 +194,45 @@ export function useClearanceRunway(
 }
 
 /**
+ * The runway of a "hold short of runway 34R" clearance, which picks the hold short beside it. Null when the airport isn't cached or
+ * the clearance has a holding point (the runway is then the threshold hook's); the line is then drawn as before.
+ *
+ * @param enabled Whether the taxi chart is on.
+ * @param clearance The clearance, or null.
+ * @param icao The clearance's airport, or null.
+ * @returns The runway, or null.
+ */
+export function useHoldShortRunway(
+  enabled: boolean,
+  clearance: TaxiClearance | null,
+  icao: string | null
+): RunwayStrip | null {
+  const [found, setFound] = useState<{ icao: string; ident: string; runway: RunwayStrip } | null>(null)
+  const ident =
+    enabled && !clearance?.holdingPoint && clearance?.holdShortRunway && icao
+      ? clearance.holdShortRunway
+      : null
+  useEffect(() => {
+    if (!ident || !icao) return
+    let ignore = false
+    Promise.resolve()
+      .then(() => winglogApi().navdataListRunways(icao))
+      .then(
+        (runways) => {
+          const runway = clearanceRunway(ident, runways)
+          if (!ignore && runway) setFound({ icao, ident, runway })
+        },
+        () => undefined
+      )
+    return () => {
+      ignore = true
+    }
+  }, [ident, icao])
+  // The stored object itself, never a copy (see useClearanceRunway).
+  return ident && found && found.icao === icao && found.ident === ident ? found.runway : null
+}
+
+/**
  * Draws the traced line from the aircraft, re-routing first if it has left the line.
  *
  * @param map The map.
@@ -337,13 +377,14 @@ export function useTaxiRouteHighlight({
 
   const standPosition = useClearanceStand(enabled, clearance, icao)
   const runwayThreshold = useClearanceRunway(enabled, clearance, icao)
+  const holdShortRunway = useHoldShortRunway(enabled, clearance, icao)
 
   const segments = icao ? segmentsByIcao[icao] : undefined
   // Re-traced when segments finish loading too — a clearance can arrive before the chart has.
   const traced: TracedRoute | null = useMemo(() => {
     if (!clearance?.from || !segments || segments.length === 0) return null
-    return traceClearance(clearance, segments, standPosition, runwayThreshold)
-  }, [clearance, segments, standPosition, runwayThreshold])
+    return traceClearance(clearance, segments, standPosition, runwayThreshold, holdShortRunway)
+  }, [clearance, segments, standPosition, runwayThreshold, holdShortRunway])
 
   useEffect(() => {
     trackerRef.current = traced ? startTracker(traced) : null

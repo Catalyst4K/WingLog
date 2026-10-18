@@ -27,6 +27,7 @@
 import type { NavdataTaxiSegment } from '@shared/ipc'
 import { flatDistanceM, toLocalXy } from '@shared/geo'
 import { itemAt } from '@shared/item-at'
+import { MinQueue } from './min-queue'
 
 const OFF_ROUTE_COST_FACTOR = 5
 /** How far a stand's own point may be from the taxi network's nearest point (its lead-in line
@@ -40,6 +41,18 @@ const MAX_ROUTE_LENGTH_M = 15_000
  *  farther than this is replaced by the one nearest the threshold, when there is one this near; none this near (an intersection
  *  departure's holding point), or the first already this near, and the first stays. */
 const MAX_HOLD_FROM_THRESHOLD_M = 500
+
+/** A runway as a strip on the ground: where it starts, which way it runs, how long and wide. */
+export interface RunwayStrip {
+  thresholdLat: number
+  thresholdLon: number
+  headingTrueDeg: number
+  lengthM: number
+  widthM: number
+}
+
+/** How far past a runway's edge a hold short still counts as beside it (RKSI's sit 75-105 m out). */
+const HOLD_SHORT_BESIDE_RUNWAY_M = 150
 
 export interface TaxiTraceRequest {
   segments: NavdataTaxiSegment[]
@@ -60,6 +73,10 @@ export interface TaxiTraceRequest {
    *  route starts forwards; a U-turn is still taken when it's the only way (dead-end stand
    *  rows). Null or absent: no preference. */
   headingDeg?: number | null
+  /** The runway of a "hold short of runway 34R" clearance. The route ends at the first hold short beside it, which can be on
+   *  another taxiway than the last cleared one (RKSI flight 239: "via P8, P, hold short of 34R", crossing at P9, not at P's far
+   *  end 1.5 km on). */
+  holdShortRunway?: RunwayStrip | null
 }
 
 interface Edge {
@@ -309,6 +326,8 @@ interface TraceSearch {
   standNode: number
   /** The hold short the cleared runway picks for the holding point, or -1 for the first one the search reaches. */
   holdNode: number
+  /** The runway a hold short is for, or null. */
+  holdShortRunway: RunwayStrip | null
   strictEnd: boolean
   /** Each reached state's best cost, real length driven, and the state it was reached from. */
   cost: Map<number, number>
@@ -360,7 +379,7 @@ function cameFromNodeOf(search: TraceSearch, state: number): number {
  * @returns The route, or null.
  */
 function traceOnce(request: TaxiTraceRequest, strictEnd: boolean): TracedRoute | null {
-  const { segments, taxiways, holdingPoint, from, stand } = request
+  const { segments, taxiways, holdingPoint, from } = request
   if (taxiways.length === 0) return null
   if (holdingPoint && !segments.some((s) => s.name === holdingPoint)) return null
 
@@ -368,6 +387,20 @@ function traceOnce(request: TaxiTraceRequest, strictEnd: boolean): TracedRoute |
   const start = nearestNode(graph, from)
   if (start < 0) return null
 
+  const search = newSearch(request, graph, strictEnd)
+  return search && searchRoute(search, start, request)
+}
+
+/**
+ * An empty search for a clearance.
+ *
+ * @param request The clearance.
+ * @param graph The network's graph.
+ * @param strictEnd Whether a holding-point route must end at a hold short or dead end.
+ * @returns The search, or null when the stand has no link to the network.
+ */
+function newSearch(request: TaxiTraceRequest, graph: Graph, strictEnd: boolean): TraceSearch | null {
+  const { taxiways, holdingPoint, stand } = request
   const standNode = !holdingPoint && stand ? standLinkNode(graph, stand) : -1
   if (!holdingPoint && stand && standNode < 0) return null
 
@@ -380,13 +413,14 @@ function traceOnce(request: TaxiTraceRequest, strictEnd: boolean): TracedRoute |
     holdingPoint,
     standNode,
     holdNode: holdingPoint ? holdNodeByRunway(graph, holdingPoint, request.runwayThreshold ?? null) : -1,
+    holdShortRunway: holdingPoint ? (request.holdShortRunway ?? null) : null,
     strictEnd,
     cost: new Map(),
     realLength: new Map(),
     previous: new Map(),
     queue: new MinQueue()
   }
-  return searchRoute(search, start, request)
+  return search
 }
 
 /**
@@ -493,6 +527,11 @@ function isRouteEnd(search: TraceSearch, state: number, node: number): boolean {
   if (!holdingPoint) return standNode < 0 || node === standNode
   const cameFromNode = cameFromNodeOf(search, state)
   const edges = edgesOf(graph, node)
+  if (
+    search.holdShortRunway &&
+    isHoldShortBeside(itemAt(graph.nodes, node, 'taxi node'), search.holdShortRunway)
+  )
+    return true
   // A hold short on the holding point's own taxiway ends the route however it was reached: RKSI's P runs on through a junction
   // by an unnamed fillet, so insisting on arriving by a P edge sent the line right round the junction to come back into it.
   if (edges.some((e) => e.name === holdingPoint)) {
@@ -510,6 +549,27 @@ function isRouteEnd(search: TraceSearch, state: number, node: number): boolean {
   // the hold carries on as A1.
   if (edges.every((e) => e.to === cameFromNode)) return true
   return !strictEnd && !edges.some((e) => e.name === holdingPoint && e.to !== cameFromNode)
+}
+
+/**
+ * Whether a node is a hold short beside a runway.
+ *
+ * @param node The node.
+ * @param runway The runway.
+ * @returns True if it is flagged as a hold short and lies within HOLD_SHORT_BESIDE_RUNWAY_M of the runway's edge.
+ */
+function isHoldShortBeside(node: GraphNode, runway: RunwayStrip): boolean {
+  if (!node.holdShort) return false
+  const north = (node.lat - runway.thresholdLat) * 111_320
+  const east = (node.lon - runway.thresholdLon) * 111_320 * Math.cos((runway.thresholdLat * Math.PI) / 180)
+  const heading = (runway.headingTrueDeg * Math.PI) / 180
+  const along = north * Math.cos(heading) + east * Math.sin(heading)
+  const across = Math.abs(east * Math.cos(heading) - north * Math.sin(heading))
+  return (
+    along > -HOLD_SHORT_BESIDE_RUNWAY_M &&
+    along < runway.lengthM + HOLD_SHORT_BESIDE_RUNWAY_M &&
+    across <= runway.widthM / 2 + HOLD_SHORT_BESIDE_RUNWAY_M
+  )
 }
 
 /**
@@ -751,86 +811,4 @@ export function remainingRoute(
   const line: TracedRoute =
     best.distance < 0.5 ? [best.point, ...rest] : [[position.lon, position.lat], best.point, ...rest]
   return { line, segment: best.segment, distanceM: best.distance, bearingDeg }
-}
-
-/** A small binary min-heap of (state, cost) — VHHH's real network is ~4,400 points, well
- *  past what a linear-scan "queue" handles comfortably per clearance. */
-class MinQueue {
-  private readonly items: [number, number][] = []
-
-  get size(): number {
-    return this.items.length
-  }
-
-  /**
-   * @param state The state.
-   * @param cost Its cost.
-   */
-  push(state: number, cost: number): void {
-    const items = this.items
-    items.push([state, cost])
-    let i = items.length - 1
-    while (i > 0) {
-      const parent = (i - 1) >> 1
-      if (!this.swapIfLess(i, parent)) break
-      i = parent
-    }
-  }
-
-  /**
-   * @returns The cheapest (state, cost), removed.
-   * @throws RangeError if the queue is empty.
-   */
-  pop(): [number, number] {
-    const items = this.items
-    const top = itemAt(items, 0, 'queue item')
-    const end = itemAt(items, items.length - 1, 'queue item')
-    items.pop()
-    if (items.length > 0) {
-      items[0] = end
-      let i = 0
-      for (;;) {
-        const left = i * 2 + 1
-        const right = left + 1
-        let smallest = i
-        if (left < items.length && this.costAt(left) < this.costAt(smallest)) smallest = left
-        if (right < items.length && this.costAt(right) < this.costAt(smallest)) smallest = right
-        if (smallest === i) break
-        this.swap(smallest, i)
-        i = smallest
-      }
-    }
-    return top
-  }
-
-  /**
-   * @param i An index in the heap.
-   * @returns That item's cost.
-   */
-  private costAt(i: number): number {
-    return itemAt(this.items, i, 'queue item')[1]
-  }
-
-  /**
-   * @param a One index.
-   * @param b The other.
-   */
-  private swap(a: number, b: number): void {
-    const itemA = itemAt(this.items, a, 'queue item')
-    this.items[a] = itemAt(this.items, b, 'queue item')
-    this.items[b] = itemA
-  }
-
-  /**
-   * Swaps a child up past its parent when the child costs less.
-   *
-   * @param child The child's index.
-   * @param parent The parent's index.
-   * @returns True if they were swapped.
-   */
-  private swapIfLess(child: number, parent: number): boolean {
-    if (this.costAt(parent) <= this.costAt(child)) return false
-    this.swap(parent, child)
-    return true
-  }
 }

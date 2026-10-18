@@ -730,3 +730,43 @@ describe('traceTaxiRoute ends at a hold short reached by an unnamed fillet (RKSI
     expect(route?.at(-1)).toEqual([H[1], H[0]])
   })
 })
+
+describe('traceTaxiRoute with a hold short of a runway (RKSI flight 239, 2026-10-16)', () => {
+  const seg = (
+    a: [number, number],
+    b: [number, number],
+    name: string,
+    endHoldShort = false
+  ): NavdataTaxiSegment => ({
+    startLat: a[0],
+    startLon: a[1],
+    endLat: b[0],
+    endLon: b[1],
+    name,
+    startHoldShort: false,
+    endHoldShort
+  })
+  // A runway running north from its threshold, 60 m wide. P runs alongside it; P9 turns off P across to it, with a hold short
+  // 100 m from its edge. P's own hold short is at its far end, 1.5 km on.
+  const runway = { thresholdLat: 51.0, thresholdLon: 0, headingTrueDeg: 0, lengthM: 4000, widthM: 60 }
+  const metres = (m: number): number => m / 111_320
+  const P0: [number, number] = [51 + metres(500), -metres(300)]
+  const P1: [number, number] = [51 + metres(700), -metres(300)]
+  const P2: [number, number] = [51 + metres(2200), -metres(300)]
+  const P9HOLD: [number, number] = [51 + metres(700), -metres(130)]
+  const request = {
+    segments: [seg(P0, P1, 'P'), seg(P1, P2, 'P', true), seg(P1, P9HOLD, 'P9', true)],
+    taxiways: ['P'],
+    holdingPoint: 'P',
+    from: { lat: P0[0], lon: P0[1] }
+  }
+
+  it('ends at the first hold short beside the runway, which can be on another taxiway', () => {
+    const route = traceTaxiRoute({ ...request, holdShortRunway: runway })
+    expect(route?.at(-1)).toEqual([P9HOLD[1], P9HOLD[0]])
+  })
+
+  it("without the runway, goes on to the taxiway's own hold short", () => {
+    expect(traceTaxiRoute(request)?.at(-1)).toEqual([P2[1], P2[0]])
+  })
+})

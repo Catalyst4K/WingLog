@@ -21,6 +21,7 @@ import { flatDistanceM } from '../../src/shared/geo'
 import {
   boxTaxiClearance,
   startOf,
+  clearanceRunway,
   clearanceRunwayThreshold,
   traceClearance,
   type TaxiClearance
@@ -238,7 +239,10 @@ export function runTaxi(
   const clearance = clearanceFor(sc)
   const stand = clearance?.stand ? findStand(stands, clearance.stand) : null
   const threshold = clearance?.holdingPoint ? clearanceRunwayThreshold(clearance.taxiToRunway, runways) : null
-  const cleared = clearance ? traceClearance(clearance, segments, stand, threshold) : null
+  const holdShortRunway = clearance?.holdingPoint
+    ? null
+    : clearanceRunway(clearance?.holdShortRunway, runways)
+  const cleared = clearance ? traceClearance(clearance, segments, stand, threshold, holdShortRunway) : null
   if (!clearance || !cleared)
     return { cleared, clearance, stand, reroutes: [], onLinePct: null, endToAircraftM: null }
 
