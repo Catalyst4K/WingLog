@@ -311,6 +311,34 @@ describe('BeyondAtcPanel', () => {
     expect(within(card).getByText('Hong Kong Delivery')).toBeInTheDocument()
   })
 
+  it('shows a radar vector: the turn with its heading, and the altitude (EGCC, 2026-10-18)', async () => {
+    withWinglog({
+      beyondAtcGetTranscript: vi.fn().mockResolvedValue([
+        {
+          speaker: 'atc',
+          text: 'Cathay 168 Heavy, turn left, heading 140, descend to altitude 4,000.',
+          ts: 1_000
+        }
+      ]),
+      beyondAtcGetState: vi.fn().mockResolvedValue(
+        makeState({
+          infoBoxes: [
+            { title: 'Turn Left', info: '140' },
+            { title: 'Descend To Altitude', info: '4,000' }
+          ],
+          infoBoxesAt: 7_000
+        })
+      )
+    })
+    render(<BeyondAtcPanel />)
+
+    const card = (await screen.findByText('Latest instruction')).closest('[data-slot="card"]') as HTMLElement
+    expect(await within(card).findByText('Turn left:')).toBeInTheDocument()
+    expect(within(card).getByText('140°')).toBeInTheDocument()
+    expect(within(card).getByText('Descend:')).toBeInTheDocument()
+    expect(within(card).getByText('4,000')).toBeInTheDocument()
+  })
+
   describe("ATC's arrival clearance in the latest-instruction header (flight 229, EGLL, 2026-10-05)", () => {
     const LATER_LINE: BeyondAtcTranscriptEntry[] = [
       { speaker: 'atc', text: 'Koreanair 443 Heavy, cleared LOGA2H arrival, runway 27R.', ts: 1 },
