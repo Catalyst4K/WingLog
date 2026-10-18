@@ -271,6 +271,32 @@ export function traceTaxiRoute(request: TaxiTraceRequest): TracedRoute | null {
 }
 
 /**
+ * Traces a clearance from wherever its first taxiway can be entered, for an aircraft that is already past the start: Track
+ * opened (or the position arrived) mid-taxi, so tracing from the aircraft fails because the clearance begins behind it
+ * (EGCC 2026-10-18: "via VC, V, U, BZ, B, A, D, E, NA" with the aircraft already on A). Tries every point of the first
+ * taxiway and keeps the longest route found, which starts at an end of that taxiway rather than part-way along it.
+ *
+ * @param request The clearance and the network; `from` is ignored.
+ * @returns The route, or null if no point of the first taxiway starts a trace.
+ */
+export function traceTaxiRouteFromFirstTaxiway(request: TaxiTraceRequest): TracedRoute | null {
+  const first = request.taxiways[0]
+  if (!first) return null
+  const starts = new Map<string, { lat: number; lon: number }>()
+  for (const s of request.segments) {
+    if (s.name !== first) continue
+    starts.set(nodeKey(s.startLat, s.startLon), { lat: s.startLat, lon: s.startLon })
+    starts.set(nodeKey(s.endLat, s.endLon), { lat: s.endLat, lon: s.endLon })
+  }
+  let best: TracedRoute | null = null
+  for (const from of starts.values()) {
+    const route = traceTaxiRoute({ ...request, from, headingDeg: null })
+    if (route && (!best || route.length > best.length)) best = route
+  }
+  return best
+}
+
+/**
  * One trace's search over (node, stage) states. State = node * (stages + 1) + (stage + 1);
  * stage -1 is the lead-in before the first cleared taxiway.
  */

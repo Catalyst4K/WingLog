@@ -5,7 +5,7 @@
  */
 import type { BeyondAtcInfoBox, NavdataStand, NavdataTaxiSegment } from '@shared/ipc'
 import { parseAtcTaxiFacts } from '@shared/atc-info-boxes'
-import { traceTaxiRoute, type TracedRoute } from './taxi-route-trace'
+import { traceTaxiRoute, traceTaxiRouteFromFirstTaxiway, type TracedRoute } from './taxi-route-trace'
 
 export interface TaxiClearance {
   taxiways: string[]
@@ -128,7 +128,7 @@ export function traceClearance(
   runwayThreshold: { lat: number; lon: number } | null = null
 ): TracedRoute | null {
   if (!clearance.from) return null
-  return traceTaxiRoute({
+  const request = {
     segments,
     taxiways: clearance.taxiways,
     holdingPoint:
@@ -136,5 +136,7 @@ export function traceClearance(
     from: clearance.from,
     stand,
     runwayThreshold: clearance.holdingPoint ? runwayThreshold : null
-  })
+  }
+  // An aircraft already past the clearance's start (Track opened mid-taxi) traces from the first taxiway instead; else whole taxiways.
+  return traceTaxiRoute(request) ?? traceTaxiRouteFromFirstTaxiway(request)
 }
