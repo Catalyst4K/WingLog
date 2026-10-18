@@ -1,6 +1,6 @@
 /** The second-screen page's files: the built page in `out/lan/`, served from memory by path, nothing outside that folder. */
 
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { extname, join, relative, sep } from 'node:path'
 import type { StaticFile } from './LanServer'
 
@@ -24,13 +24,15 @@ const TYPES: Record<string, string> = {
 export function staticFilesFrom(folder: string): (path: string) => StaticFile | null {
   const files = new Map<string, StaticFile>()
   const walk = (dir: string): void => {
-    for (const name of readdirSync(dir)) {
-      const full = join(dir, name)
-      if (statSync(full).isDirectory()) {
+    // The entry's own kind, not a second look at the path: nothing is checked and then read as if it were still the same file.
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name)
+      if (entry.isDirectory()) {
         walk(full)
         continue
       }
-      const type = TYPES[extname(name).toLowerCase()]
+      if (!entry.isFile()) continue
+      const type = TYPES[extname(entry.name).toLowerCase()]
       if (!type) continue
       const urlPath = '/' + relative(folder, full).split(sep).join('/')
       files.set(urlPath, { type, body: readFileSync(full) })
