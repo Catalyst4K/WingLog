@@ -192,8 +192,8 @@ describe('AutoStartDetector', () => {
     expect(fired).toEqual([2])
   })
 
-  it('rejects a settled sample nowhere near the armed flight\'s departure airport (the MSFS menu-background trap)', () => {
-    // Real case, 2026-09-03: MSFS's flight-picker/World Map screen runs a live background
+  it("rejects a settled sample nowhere near the armed flight's departure airport (the MSFS menu-background trap)", () => {
+    // Real case: MSFS's flight-picker/World Map screen runs a live background
     // scene — parked, on the ground, perfectly stationary at e.g. Boeing Field — that
     // looks exactly as "stable" as a genuinely armed, parked flight. Arming (WingLog's
     // "Fly") can land while MSFS is still on that menu, so without this check the detector

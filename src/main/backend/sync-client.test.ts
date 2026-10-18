@@ -2,9 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { login, logout, provision, syncPull, syncPush } from './sync-client'
 
 function fetchMock(status: number, body: unknown) {
-  return vi.fn<(url: string, init?: RequestInit) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>>(
-    async () => ({ ok: status < 400, status, json: async () => body })
-  )
+  return vi.fn<
+    (
+      url: string,
+      init?: RequestInit
+    ) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>
+  >(async () => ({ ok: status < 400, status, json: async () => body }))
 }
 
 afterEach(() => {
@@ -21,7 +24,10 @@ describe('login', () => {
     expect(result).toEqual({ token: 'tok', expiresAt: '2026-10-01T00:00:00Z' })
     const [url, init] = mock.mock.calls[0]
     expect(url).toBe('https://flightdeck-backend.callum-jones5.workers.dev/auth/login')
-    expect(JSON.parse(init?.body as string)).toEqual({ email: 'callum@example.com', password: 'hunter22222222' })
+    expect(JSON.parse(init?.body as string)).toEqual({
+      email: 'callum@example.com',
+      password: 'hunter22222222'
+    })
   })
 
   it('surfaces the same message on wrong password or unknown account', async () => {
@@ -39,13 +45,18 @@ describe('provision', () => {
 
     const [url, init] = mock.mock.calls[0]
     expect(url).toBe('https://flightdeck-backend.callum-jones5.workers.dev/auth/provision')
-    expect(JSON.parse(init?.body as string)).toEqual({ email: 'newuser@example.com', password: 'hunter22222222' })
+    expect(JSON.parse(init?.body as string)).toEqual({
+      email: 'newuser@example.com',
+      password: 'hunter22222222'
+    })
     expect((init?.headers as Record<string, string>)['X-Provision-Secret']).toBe('the-invite-code')
   })
 
   it('surfaces a wrong invite code as the same not-found error the route gives anyone else', async () => {
     vi.stubGlobal('fetch', fetchMock(404, { error: 'not found' }))
-    await expect(provision('newuser@example.com', 'hunter22222222', 'wrong-code')).rejects.toThrow('not found')
+    await expect(provision('newuser@example.com', 'hunter22222222', 'wrong-code')).rejects.toThrow(
+      'not found'
+    )
   })
 })
 
@@ -74,7 +85,9 @@ describe('syncPull', () => {
 
   it('surfaces a 401 as a thrown error, distinguishable from a network failure', async () => {
     vi.stubGlobal('fetch', fetchMock(401, { error: 'invalid or expired session' }))
-    await expect(syncPull('callum@example.com', 'tok', 'aircraft', null)).rejects.toThrow('invalid or expired session')
+    await expect(syncPull('callum@example.com', 'tok', 'aircraft', null)).rejects.toThrow(
+      'invalid or expired session'
+    )
   })
 })
 
@@ -88,6 +101,11 @@ describe('syncPush', () => {
 
     expect(result).toEqual({ upserted: ['a'], rejected: ['b'] })
     const [, init] = mock.mock.calls[0]
-    expect(JSON.parse(init?.body as string)).toEqual({ email: 'callum@example.com', token: 'tok', table: 'flight', rows })
+    expect(JSON.parse(init?.body as string)).toEqual({
+      email: 'callum@example.com',
+      token: 'tok',
+      table: 'flight',
+      rows
+    })
   })
 })

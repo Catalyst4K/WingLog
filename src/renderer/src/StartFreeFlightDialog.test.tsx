@@ -128,7 +128,6 @@ describe('StartFreeFlightDialog', () => {
     expect(screen.getByText('Verfolgung starten')).toBeInTheDocument()
   })
 
-
   it('does not auto-match on atcId any more — registration alone never selects a fleet aircraft', async () => {
     setWinglog({
       trackingGetFreeFlightPrefill: vi.fn().mockResolvedValue(makePrefill({ registration: 'G-EUYY' }))

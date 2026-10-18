@@ -106,7 +106,9 @@ describe('aircraft import/export', () => {
 
       expect(summary?.imported).toBe(1)
       expect(summary?.skipped).toHaveLength(3)
-      expect(summary?.skipped.find((s) => s.reason === 'registration already exists')?.registration).toBe('G-EXIST')
+      expect(summary?.skipped.find((s) => s.reason === 'registration already exists')?.registration).toBe(
+        'G-EXIST'
+      )
       expect(listAircraft(db).map((a) => a.registration)).toEqual(['G-EXIST', 'G-NEW1'])
     })
 
@@ -149,7 +151,10 @@ describe('aircraft CSV import/export (docs/plans/data-export-import.md)', () => 
 
     expect(showSaveDialog).toHaveBeenCalledWith(
       FAKE_WINDOW,
-      expect.objectContaining({ defaultPath: 'winglog-fleet.csv', filters: [{ name: 'CSV', extensions: ['csv'] }] })
+      expect.objectContaining({
+        defaultPath: 'winglog-fleet.csv',
+        filters: [{ name: 'CSV', extensions: ['csv'] }]
+      })
     )
     expect(readFileSync(filePath, 'utf-8')).toBe(
       'registration,icaoType,operator,operatorIata,operatorIcao,simbriefAirframeId,simbriefType,currentIcao\r\n' +
@@ -158,11 +163,20 @@ describe('aircraft CSV import/export (docs/plans/data-export-import.md)', () => 
   })
 
   it('round-trips a fleet through CSV, skipping existing registrations and invalid rows with a reason', async () => {
-    createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320', operator: 'Test, Air', currentIcao: 'EGLL' })
+    createAircraft(db, {
+      registration: 'G-ABCD',
+      icaoType: 'A320',
+      operator: 'Test, Air',
+      currentIcao: 'EGLL'
+    })
     const filePath = join(dir, 'fleet.csv')
     showSaveDialog.mockResolvedValue({ canceled: false, filePath })
     await exportAircraft(db, FAKE_WINDOW, 'csv')
-    writeFileSync(filePath, readFileSync(filePath, 'utf-8') + ',B738,,,,,,\r\nG-NEWW,B738,Other Air,,,,,\r\n', 'utf-8')
+    writeFileSync(
+      filePath,
+      readFileSync(filePath, 'utf-8') + ',B738,,,,,,\r\nG-NEWW,B738,Other Air,,,,,\r\n',
+      'utf-8'
+    )
 
     const target = createDb(':memory:')
     migrate(target.db, { migrationsFolder: 'drizzle' })

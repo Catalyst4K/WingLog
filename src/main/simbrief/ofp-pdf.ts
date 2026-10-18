@@ -1,6 +1,10 @@
+/**
+ * Finds the PDF link inside a stored SimBrief OFP, checked so only SimBrief's own PDF host is ever
+ * opened.
+ */
 import { optStr } from './simbrief-client'
 
-// SimBrief's own PDF host, confirmed live 2026-09-06 (docs/simbrief-notes.md): the
+// SimBrief's own PDF host, confirmed live (docs/simbrief-notes.md): the
 // generated file resolves with a plain keyless GET, no signing needed. Pinned here as a
 // second check beyond "is this https" — files.directory/files.pdf.link are themselves
 // external data, so without this a compromised or malformed OFP response could redirect
@@ -13,6 +17,9 @@ const SIMBRIEF_PDF_HOST = 'www.simbrief.com'
  * no separate fetch, no signing, unlike OFP generation itself. Defensive throughout:
  * this is external, third-party data, so anything missing or malformed degrades to null
  * rather than throwing, per CLAUDE.md's external-data rule.
+ *
+ * @param ofpJsonRaw The OFP JSON as stored on the flight, or null.
+ * @returns An https URL on www.simbrief.com, or null.
  */
 export function extractOfpPdfUrl(ofpJsonRaw: string | null): string | null {
   if (!ofpJsonRaw) return null

@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { resetLazyValues } from '@shared/lazy'
+import { resetUiMemory } from './ui-memory'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { FlightPhase, SimTelemetry, TrackPoint } from '@shared/ipc'
@@ -24,7 +26,10 @@ interface FakeMapInstance {
   zoom: number
   handlers: Record<string, ((e?: { originalEvent?: unknown }) => void)[]>
   sources: Record<string, { setData: ReturnType<typeof vi.fn> }>
-  layers: Record<string, { paint?: Record<string, unknown>; layout?: Record<string, unknown>; filter?: unknown }>
+  layers: Record<
+    string,
+    { paint?: Record<string, unknown>; layout?: Record<string, unknown>; filter?: unknown }
+  >
   setFilter: ReturnType<typeof vi.fn>
   dragPan: { enable: ReturnType<typeof vi.fn>; disable: ReturnType<typeof vi.fn> }
   keyboard: {
@@ -54,6 +59,7 @@ interface FakeMapInstance {
 
 interface FakeMarkerInstance {
   setLngLat: ReturnType<typeof vi.fn>
+  getLngLat(): { lng: number; lat: number }
   setRotation: ReturnType<typeof vi.fn>
   addTo: ReturnType<typeof vi.fn>
   getElement(): HTMLElement
@@ -82,7 +88,7 @@ interface FakeMarkerInstance {
 // every fresh import), so no test's map interactions can affect another's.
 vi.mock('maplibre-gl', () => {
   class FakeSource {
-    setData = vi.fn()
+    setData = vi.fn().mockResolvedValue(undefined)
   }
 
   class FakeLngLatBounds {
@@ -103,7 +109,13 @@ vi.mock('maplibre-gl', () => {
       this.el = opts.element
       markerInstances.push(this)
     }
-    setLngLat = vi.fn()
+    private at = { lng: 0, lat: 0 }
+    setLngLat = vi.fn((coords: [number, number]) => {
+      this.at = { lng: coords[0], lat: coords[1] }
+    })
+    getLngLat(): { lng: number; lat: number } {
+      return this.at
+    }
     setRotation = vi.fn()
     getElement(): HTMLElement {
       return this.el
@@ -127,12 +139,15 @@ vi.mock('maplibre-gl', () => {
     zoom: number
     handlers: Record<string, ((e?: { originalEvent?: unknown }) => void)[]> = {}
     sources: Record<string, FakeSource> = {}
-    layers: Record<string, { paint?: Record<string, unknown>; layout?: Record<string, unknown>; filter?: unknown }> = {}
+    layers: Record<
+      string,
+      { paint?: Record<string, unknown>; layout?: Record<string, unknown>; filter?: unknown }
+    > = {}
     dragPan = { enable: vi.fn(), disable: vi.fn() }
     keyboard = { enable: vi.fn(), disable: vi.fn(), disableRotation: vi.fn() }
     // .disable() before .enable() forces MapLibre's own handlers to actually re-apply
     // options that would otherwise no-op while already enabled (map-controls.md,
-    // 2026-09-13 live-verification entry) — both real methods, not just .enable(), so the
+    // live-verification entry) — both real methods, not just.enable, so the
     // fake must expose both.
     scrollZoom = { enable: vi.fn(), disable: vi.fn() }
     touchZoomRotate = { enable: vi.fn(), disable: vi.fn(), disableRotation: vi.fn() }
@@ -179,7 +194,12 @@ vi.mock('maplibre-gl', () => {
     addSource(id: string): void {
       this.sources[id] = new FakeSource()
     }
-    addLayer(def: { id: string; paint?: Record<string, unknown>; layout?: Record<string, unknown>; filter?: unknown }): void {
+    addLayer(def: {
+      id: string
+      paint?: Record<string, unknown>
+      layout?: Record<string, unknown>
+      filter?: unknown
+    }): void {
       this.layers[def.id] = def
     }
     getSource(id: string): FakeSource | undefined {
@@ -218,7 +238,7 @@ const WAYPOINT_SOURCE_ID = 'planned-waypoints'
 // fitBoundsTo's zoom for a lone coordinate.
 const SINGLE_POINT_ZOOM = 12
 const FOLLOW_ZOOM_GROUND = 15
-// point()'s default 1,000 m is below 10,000 ft: the lowest airborne band (followZoom.ts).
+// point()'s default 1,000 m is below 10,000 ft: the lowest airborne band (follow-zoom.ts).
 const FOLLOW_ZOOM_LOW = 11
 
 function point(overrides: Partial<TrackPoint> = {}): TrackPoint {
@@ -264,7 +284,8 @@ async function loadFlightMap(): Promise<{
   // Fresh module graph every call (not just every test) — some tests call renderReady more
   // than once to compare two independent mounts (e.g. light vs dark theme), and each of
   // those needs its own liveCameraState/workerReady singletons.
-  vi.resetModules()
+  resetUiMemory()
+  resetLazyValues()
   const mod = await import('./FlightMap')
   const maplibre = (await import('maplibre-gl')) as unknown as {
     __instances: FakeMapInstance[]
@@ -309,7 +330,8 @@ async function renderReady(
 }
 
 beforeEach(() => {
-  vi.resetModules()
+  resetUiMemory()
+  resetLazyValues()
   vi.stubGlobal(
     'fetch',
     vi.fn().mockResolvedValue({ blob: () => Promise.resolve(new Blob()) } as unknown as Response)
@@ -434,7 +456,11 @@ describe('FlightMap', () => {
     })
 
     it('while following an aircraft, frames the aircraft rather than the whole route', async () => {
-      const { map } = await renderReady({ route: ROUTE, trackPoints: [point({ onGround: true })], live: true })
+      const { map } = await renderReady({
+        route: ROUTE,
+        trackPoints: [point({ onGround: true })],
+        live: true
+      })
       expect(map.fitBounds).not.toHaveBeenCalled()
       expect(map.jumpTo).toHaveBeenCalledWith({ center: [-0.5, 51], zoom: FOLLOW_ZOOM_GROUND })
     })
@@ -465,7 +491,12 @@ describe('FlightMap', () => {
     })
 
     it("doesn't frame the route while the flight's track is still loading — no flash before jumping to the aircraft (2026-10-02)", async () => {
-      const { map, rerender } = await renderReady({ route: ROUTE, trackPoints: [], live: true, trackLoading: true })
+      const { map, rerender } = await renderReady({
+        route: ROUTE,
+        trackPoints: [],
+        live: true,
+        trackLoading: true
+      })
       expect(map.fitBounds).not.toHaveBeenCalled()
 
       await act(async () => {
@@ -476,67 +507,77 @@ describe('FlightMap', () => {
     })
 
     it('frames the route once loading finds no flight to follow', async () => {
-      const { map, rerender } = await renderReady({ route: ROUTE, trackPoints: [], live: true, trackLoading: true })
+      const { map, rerender } = await renderReady({
+        route: ROUTE,
+        trackPoints: [],
+        live: true,
+        trackLoading: true
+      })
       await act(async () => {
         rerender({ route: ROUTE, trackPoints: [], live: true, trackLoading: false })
       })
       expect(map.fitBounds).toHaveBeenCalledTimes(1)
     })
 
-    it("saves the camera where it actually is when leaving Track mid-pan, not the last finished move (2026-10-02)", async () => {
-    const { secondMap } = await mountTwice(
-      { route: ROUTE, trackPoints: [point()], live: true },
-      (map) => {
-        map.handlers['moveend']![0]!() // a finished move at [0, 0]…
-        // …then an easeTo still in flight when the user switches tab.
-        map.getCenter = () => ({ toArray: () => [113.5, 22.1] })
-      },
-      { route: ROUTE, trackPoints: [], live: true, trackLoading: true }
-    )
-    expect(secondMap.center).toEqual([113.5, 22.1])
-  })
-
-  describe('hidden until the aircraft is framed, so Track never shows a stale view then jumps (2026-10-02)', () => {
-    const container = (map: FakeMapInstance): HTMLElement => map.container
-
-    it('stays hidden while the flight loads, and appears once the tiles at the aircraft are drawn', async () => {
-      const { map, rerender } = await renderReady({ route: ROUTE, trackPoints: [], live: true, trackLoading: true })
-      expect(container(map)).toHaveAttribute('data-framed', 'false')
-      expect(container(map)).toHaveClass('opacity-0')
-
-      await act(async () => {
-        rerender({ route: ROUTE, trackPoints: [point()], live: true, trackLoading: false })
-      })
-      expect(map.jumpTo).toHaveBeenCalledWith({ center: [-0.5, 51], zoom: FOLLOW_ZOOM_LOW })
-      expect(container(map)).toHaveAttribute('data-framed', 'false') // tiles still loading
-      await act(async () => map.handlers['idle']!.forEach((cb) => cb()))
-      expect(container(map)).toHaveAttribute('data-framed', 'true')
-      expect(container(map)).not.toHaveClass('opacity-0')
+    it('saves the camera where it actually is when leaving Track mid-pan, not the last finished move (2026-10-02)', async () => {
+      const { secondMap } = await mountTwice(
+        { route: ROUTE, trackPoints: [point()], live: true },
+        (map) => {
+          map.handlers['moveend']![0]!() // a finished move at [0, 0]…
+          // …then an easeTo still in flight when the user switches tab.
+          map.getCenter = () => ({ toArray: () => [113.5, 22.1] })
+        },
+        { route: ROUTE, trackPoints: [], live: true, trackLoading: true }
+      )
+      expect(secondMap.center).toEqual([113.5, 22.1])
     })
 
-    it('shows straight away with no flight to follow, with follow off, and on the Logbook map', async () => {
-      const noFlight = await renderReady({ route: ROUTE, trackPoints: [], live: true })
-      expect(container(noFlight.map)).toHaveAttribute('data-framed', 'true')
-      const logbook = await renderReady({ route: ROUTE, trackPoints: [point()], live: false })
-      expect(container(logbook.map)).toHaveAttribute('data-framed', 'true')
-    })
+    describe('hidden until the aircraft is framed, so Track never shows a stale view then jumps (2026-10-02)', () => {
+      const container = (map: FakeMapInstance): HTMLElement => map.container
 
-    it('never stays hidden for more than a moment if the aircraft never gets framed', async () => {
-      vi.useFakeTimers({ shouldAdvanceTime: true })
-      try {
-        const { map } = await renderReady({ route: ROUTE, trackPoints: [], live: true, trackLoading: true })
-        expect(container(map)).toHaveAttribute('data-framed', 'false')
-        await act(async () => {
-          vi.advanceTimersByTime(1500)
+      it('stays hidden while the flight loads, and appears once the tiles at the aircraft are drawn', async () => {
+        const { map, rerender } = await renderReady({
+          route: ROUTE,
+          trackPoints: [],
+          live: true,
+          trackLoading: true
         })
-        expect(container(map)).toHaveAttribute('data-framed', 'true')
-      } finally {
-        vi.useRealTimers()
-      }
-    })
-  })
+        expect(container(map)).toHaveAttribute('data-framed', 'false')
+        expect(container(map)).toHaveClass('opacity-0')
 
-  it('remembers "Center on aircraft" being switched off across a tab switch', async () => {
+        await act(async () => {
+          rerender({ route: ROUTE, trackPoints: [point()], live: true, trackLoading: false })
+        })
+        expect(map.jumpTo).toHaveBeenCalledWith({ center: [-0.5, 51], zoom: FOLLOW_ZOOM_LOW })
+        expect(container(map)).toHaveAttribute('data-framed', 'false') // tiles still loading
+        await act(async () => map.handlers['idle']!.forEach((cb) => cb()))
+        expect(container(map)).toHaveAttribute('data-framed', 'true')
+        expect(container(map)).not.toHaveClass('opacity-0')
+      })
+
+      it('shows straight away with no flight to follow, with follow off, and on the Logbook map', async () => {
+        const noFlight = await renderReady({ route: ROUTE, trackPoints: [], live: true })
+        expect(container(noFlight.map)).toHaveAttribute('data-framed', 'true')
+        const logbook = await renderReady({ route: ROUTE, trackPoints: [point()], live: false })
+        expect(container(logbook.map)).toHaveAttribute('data-framed', 'true')
+      })
+
+      it('never stays hidden for more than a moment if the aircraft never gets framed', async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true })
+        try {
+          const { map } = await renderReady({ route: ROUTE, trackPoints: [], live: true, trackLoading: true })
+          expect(container(map)).toHaveAttribute('data-framed', 'false')
+          await act(async () => {
+            vi.advanceTimersByTime(1500)
+          })
+          expect(container(map)).toHaveAttribute('data-framed', 'true')
+        } finally {
+          vi.useRealTimers()
+        }
+      })
+    })
+
+    it('remembers "Center on aircraft" being switched off across a tab switch', async () => {
       const user = userEvent.setup()
       const { FlightMap, instances } = await loadFlightMap()
       const view = render(<FlightMap route={[]} trackPoints={[]} live />)
@@ -545,45 +586,58 @@ describe('FlightMap', () => {
       await user.click(screen.getByRole('button', { name: 'Stop centering on aircraft' }))
       view.unmount()
       render(<FlightMap route={[]} trackPoints={[]} live />)
-      expect(await screen.findByRole('button', { name: 'Center on aircraft' })).toHaveAttribute('aria-pressed', 'false')
+      expect(await screen.findByRole('button', { name: 'Center on aircraft' })).toHaveAttribute(
+        'aria-pressed',
+        'false'
+      )
     })
 
     it('steps the zoom out by altitude band in the climb and back in on descent, once per band (2026-10-02)', async () => {
-    // Real YBBN-VHHH levels: climb-out, through 10,000 ft, FL150, initial cruise FL380.
-    const at = (id: number, ft: number): TrackPoint => point({ id, altitudeM: ft * 0.3048, pressureAltitudeM: ft * 0.3048 })
-    const climb = [at(1, 3_000)]
-    const { map, rerender } = await renderReady({ route: [], trackPoints: climb, live: true })
-    map.easeTo.mockClear()
-    const zoomEases = (): unknown[] => map.easeTo.mock.calls.map((c) => c[0]).filter((arg) => 'zoom' in (arg as object))
+      // Real YBBN-VHHH levels: climb-out, through 10,000 ft, FL150, initial cruise FL380.
+      const at = (id: number, ft: number): TrackPoint =>
+        point({ id, altitudeM: ft * 0.3048, pressureAltitudeM: ft * 0.3048 })
+      const climb = [at(1, 3_000)]
+      const { map, rerender } = await renderReady({ route: [], trackPoints: climb, live: true })
+      map.easeTo.mockClear()
+      const zoomEases = (): unknown[] =>
+        map.easeTo.mock.calls.map((c) => c[0]).filter((arg) => 'zoom' in (arg as object))
 
-    async function fly(ft: number): Promise<void> {
-      climb.push(at(climb.length + 1, ft))
-      await act(async () => {
-        rerender({ route: [], trackPoints: [...climb], live: true })
+      async function fly(ft: number): Promise<void> {
+        climb.push(at(climb.length + 1, ft))
+        await act(async () => {
+          rerender({ route: [], trackPoints: [...climb], live: true })
+        })
+      }
+
+      await fly(8_000)
+      await fly(10_300) // within 500 ft of the band edge: no change yet
+      expect(zoomEases()).toEqual([])
+      await fly(11_000)
+      expect(zoomEases()).toEqual([{ zoom: 10, duration: 1000 }])
+      await fly(15_000) // same band: a zoom the user set here is left alone
+      await fly(38_000)
+      expect(zoomEases()).toEqual([
+        { zoom: 10, duration: 1000 },
+        { zoom: 9, duration: 1000 }
+      ])
+      await fly(24_000) // descending below FL250 by more than the margin
+      expect(zoomEases().at(-1)).toEqual({ zoom: 10, duration: 1000 })
+    })
+
+    it('zooms out at takeoff and back in at touchdown while following', async () => {
+      const { map, rerender } = await renderReady({
+        route: [],
+        trackPoints: [point({ id: 1, onGround: true })],
+        live: true
       })
-    }
-
-    await fly(8_000)
-    await fly(10_300) // within 500 ft of the band edge: no change yet
-    expect(zoomEases()).toEqual([])
-    await fly(11_000)
-    expect(zoomEases()).toEqual([{ zoom: 10, duration: 1000 }])
-    await fly(15_000) // same band: a zoom the user set here is left alone
-    await fly(38_000)
-    expect(zoomEases()).toEqual([
-      { zoom: 10, duration: 1000 },
-      { zoom: 9, duration: 1000 }
-    ])
-    await fly(24_000) // descending below FL250 by more than the margin
-    expect(zoomEases().at(-1)).toEqual({ zoom: 10, duration: 1000 })
-  })
-
-  it('zooms out at takeoff and back in at touchdown while following', async () => {
-      const { map, rerender } = await renderReady({ route: [], trackPoints: [point({ id: 1, onGround: true })], live: true })
       map.easeTo.mockClear()
 
       await act(async () => {
-        rerender({ route: [], trackPoints: [point({ id: 1, onGround: true }), point({ id: 2, onGround: false })], live: true })
+        rerender({
+          route: [],
+          trackPoints: [point({ id: 1, onGround: true }), point({ id: 2, onGround: false })],
+          live: true
+        })
       })
       expect(map.easeTo).toHaveBeenCalledWith({ zoom: FOLLOW_ZOOM_LOW, duration: 1000 })
 
@@ -591,7 +645,11 @@ describe('FlightMap', () => {
       await act(async () => {
         rerender({
           route: [],
-          trackPoints: [point({ id: 1, onGround: true }), point({ id: 2, onGround: false }), point({ id: 3, onGround: true })],
+          trackPoints: [
+            point({ id: 1, onGround: true }),
+            point({ id: 2, onGround: false }),
+            point({ id: 3, onGround: true })
+          ],
           live: true
         })
       })
@@ -844,6 +902,38 @@ describe('FlightMap', () => {
       expect(trail.geometry.coordinates[0]).toHaveLength(3)
     })
 
+    it('draws the rings and the trail head where the marker is drawn, not at the newest point or the telemetry', async () => {
+      stubWinglog()
+      const user = userEvent.setup()
+      const points = [0, 4, 8].map((m, i) =>
+        point({
+          id: i + 1,
+          tsUtc: new Date(Date.UTC(2026, 0, 1, 12, m)).toISOString(),
+          longitude: -0.5 + i * 0.01
+        })
+      )
+      const { map, markerInstances: markers } = await renderReady({
+        route: [],
+        trackPoints: points,
+        live: true,
+        telemetry: TELEMETRY
+      })
+      await user.click(toggleButton())
+      // The marker is part-way along the last leg (the animation has not finished).
+      ;(markers[0].setLngLat as (coords: [number, number]) => void)([-0.485, 51.4])
+      await waitFor(() => {
+        const trail = map.sources['vfr-recent-trail'].setData.mock.calls.at(-1)?.[0] as {
+          geometry: { coordinates: number[][][] }
+        }
+        expect(trail.geometry.coordinates.at(-1)?.at(-1)).toEqual([-0.485, 51.4])
+      })
+      const rings = map.sources['vfr-range-rings'].setData.mock.calls.at(-1)?.[0] as {
+        features: { geometry: { type: string; coordinates: number[][] } }[]
+      }
+      const centre = rings.features.find((f) => f.geometry.type === 'LineString')!.geometry.coordinates
+      expect(centre.some(([lon]) => Math.abs(lon - -0.485) < 0.1)).toBe(true)
+    })
+
     it('shows the nearest landable airfield (not a heliport) with distance and bearing', async () => {
       stubWinglog()
       const user = userEvent.setup()
@@ -933,7 +1023,7 @@ describe('FlightMap', () => {
     })
   })
 
-  describe('Taxi chart overlay (flightdeck-backend docs/plans/taxi-network-overlay.md)', () => {
+  describe('Taxi chart overlay (winglog-backend docs/plans/taxi-network-overlay.md)', () => {
     const DEP_SEGMENTS = [{ startLat: 51.338, startLon: 0.038, endLat: 51.324, endLon: 0.027, name: null }]
     const ARR_SEGMENTS = [{ startLat: 22.31, startLon: 113.91, endLat: 22.32, endLon: 113.92, name: 'C' }]
 
@@ -944,10 +1034,14 @@ describe('FlightMap', () => {
       onBeyondAtcTranscript: ReturnType<typeof vi.fn>
     } {
       const segmentsByIcao: Record<string, unknown> = { EGKB: DEP_SEGMENTS, VHHH: ARR_SEGMENTS }
-      const hasTaxiNetwork = vi.fn().mockImplementation((icao: string) => Promise.resolve(cached[icao] ?? false))
+      const hasTaxiNetwork = vi
+        .fn()
+        .mockImplementation((icao: string) => Promise.resolve(cached[icao] ?? false))
       const refreshTaxiNetwork = vi.fn().mockResolvedValue(undefined)
-      const getTaxiNetwork = vi.fn().mockImplementation((icao: string) => Promise.resolve(segmentsByIcao[icao] ?? []))
-      // useTaxiRouteHighlight.ts subscribes once the chart is switched on — a no-op
+      const getTaxiNetwork = vi
+        .fn()
+        .mockImplementation((icao: string) => Promise.resolve(segmentsByIcao[icao] ?? []))
+      // use-taxi-route-highlight.ts subscribes once the chart is switched on — a no-op
       // unsubscribe is enough for every test in this block that doesn't care about it
       // (the "ATC-driven route highlight" block below overrides this to actually push).
       const onBeyondAtcTranscript = vi.fn(() => () => {})
@@ -957,6 +1051,7 @@ describe('FlightMap', () => {
         navdataGetTaxiNetwork: getTaxiNetwork,
         beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
         navdataGetStands: vi.fn().mockResolvedValue([]),
+        navdataListRunways: vi.fn().mockResolvedValue([]),
         onBeyondAtcState: vi.fn(() => () => {}),
         onBeyondAtcTranscript
       }
@@ -974,7 +1069,7 @@ describe('FlightMap', () => {
       expect(map.layers['taxi-chart-line']).toBeUndefined()
     })
 
-    it('is offered even on a finished flight\'s static map, unlike the VFR overlay', async () => {
+    it("is offered even on a finished flight's static map, unlike the VFR overlay", async () => {
       stubWinglog()
       await renderReady({ route: [], trackPoints: [], live: false, depIcao: 'EGKB' })
       expect(toggleButton()).toBeInTheDocument()
@@ -991,7 +1086,8 @@ describe('FlightMap', () => {
       expect(refreshTaxiNetwork).toHaveBeenCalledWith('EGKB')
       await waitFor(() => expect(getTaxiNetwork).toHaveBeenCalledWith('EGKB'))
       await waitFor(() => {
-        const data = map.sources['taxi-chart']?.setData.mock.calls.at(-1)?.[0] as { features: unknown[] } | undefined
+        const data = map.sources['taxi-chart']?.setData.mock.calls.at(-1)?.[0] as
+          { features: unknown[] } | undefined
         expect(data?.features).toHaveLength(1)
       })
       expect(toggleButton()).toHaveAttribute('aria-pressed', 'true')
@@ -1025,7 +1121,8 @@ describe('FlightMap', () => {
       await waitFor(() => expect(getTaxiNetwork).toHaveBeenCalledWith('EGKB'))
       await waitFor(() => expect(getTaxiNetwork).toHaveBeenCalledWith('VHHH'))
       await waitFor(() => {
-        const data = map.sources['taxi-chart']?.setData.mock.calls.at(-1)?.[0] as { features: unknown[] } | undefined
+        const data = map.sources['taxi-chart']?.setData.mock.calls.at(-1)?.[0] as
+          { features: unknown[] } | undefined
         expect(data?.features).toHaveLength(2)
       })
     })
@@ -1046,6 +1143,7 @@ describe('FlightMap', () => {
         navdataGetTaxiNetwork: getTaxiNetwork,
         beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
         navdataGetStands: vi.fn().mockResolvedValue([]),
+        navdataListRunways: vi.fn().mockResolvedValue([]),
         onBeyondAtcState: vi.fn(() => () => {}),
         onBeyondAtcTranscript: vi.fn(() => () => {})
       }
@@ -1095,6 +1193,7 @@ describe('FlightMap', () => {
         navdataGetTaxiNetwork: getTaxiNetwork,
         beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
         navdataGetStands: vi.fn().mockResolvedValue([]),
+        navdataListRunways: vi.fn().mockResolvedValue([]),
         onBeyondAtcState: vi.fn(() => () => {}),
         onBeyondAtcTranscript: vi.fn(() => () => {})
       }
@@ -1109,7 +1208,7 @@ describe('FlightMap', () => {
     })
   })
 
-  describe('ATC-driven taxi route highlight (flightdeck-backend docs/plans/beyondatc-taxi-route-highlight.md)', () => {
+  describe('ATC-driven taxi route highlight (winglog-backend docs/plans/beyondatc-taxi-route-highlight.md)', () => {
     const NAMED_SEGMENTS = [
       { startLat: 51.338, startLon: 0.038, endLat: 51.324, endLon: 0.027, name: 'D' },
       { startLat: 51.34, startLon: 0.04, endLat: 51.335, endLon: 0.036, name: 'B' },
@@ -1122,7 +1221,10 @@ describe('FlightMap', () => {
       segments: unknown[] = NAMED_SEGMENTS,
       initialBoxes: { title: string; info: string }[] = [],
       stands: unknown[] = []
-    ): { push: (transcript: TranscriptEntry[]) => void; pushBoxes: (boxes: { title: string; info: string }[]) => void } {
+    ): {
+      push: (transcript: TranscriptEntry[]) => void
+      pushBoxes: (boxes: { title: string; info: string }[]) => void
+    } {
       let listener: ((transcript: TranscriptEntry[]) => void) | undefined
       let stateListener: ((state: { infoBoxes: { title: string; info: string }[] }) => void) | undefined
       ;(window as unknown as { winglog: unknown }).winglog = {
@@ -1130,8 +1232,11 @@ describe('FlightMap', () => {
         navdataRefreshTaxiNetwork: vi.fn().mockResolvedValue(undefined),
         navdataGetTaxiNetwork: vi.fn().mockResolvedValue(segments),
         beyondAtcGetTranscript: vi.fn().mockResolvedValue([]),
-        beyondAtcGetState: vi.fn().mockResolvedValue({ ...EMPTY_BEYONDATC_STATE, infoBoxes: initialBoxes, infoBoxesAt: 1 }),
+        beyondAtcGetState: vi
+          .fn()
+          .mockResolvedValue({ ...EMPTY_BEYONDATC_STATE, infoBoxes: initialBoxes, infoBoxesAt: 1 }),
         navdataGetStands: vi.fn().mockResolvedValue(stands),
+        navdataListRunways: vi.fn().mockResolvedValue([]),
         onBeyondAtcState: vi.fn((l: (state: { infoBoxes: { title: string; info: string }[] }) => void) => {
           stateListener = l
           return () => {}
@@ -1147,8 +1252,11 @@ describe('FlightMap', () => {
       }
     }
 
-    /** BeyondATC's InfoBoxes for a taxi clearance, in the real shape (VHHH, 2026-10-05). */
-    const taxiBoxes = (via: string[], end?: { title: string; info: string }): { title: string; info: string }[] => [
+    /** BeyondATC's InfoBoxes for a taxi clearance, in the real shape (VHHH). */
+    const taxiBoxes = (
+      via: string[],
+      end?: { title: string; info: string }
+    ): { title: string; info: string }[] => [
       ...(end ? [end] : []),
       ...via.map((info, i) => ({ title: `Taxi Via ${i + 1}`, info }))
     ]
@@ -1165,7 +1273,9 @@ describe('FlightMap', () => {
 
       pushBoxes(taxiBoxes(['D', 'B', 'LINK'], { title: 'Hold Position', info: 'A1' }))
 
-      await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
+      await waitFor(() =>
+        expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
+      )
       expect(map.layers[HIGHLIGHT_LAYER_ID]?.filter).toEqual([
         'all',
         ['in', ['get', 'name'], ['literal', ['D', 'B', 'LINK']]],
@@ -1176,7 +1286,13 @@ describe('FlightMap', () => {
     it("limits a clearance to its own airport — the departure's taxiway letters never light up at the arrival (real report, 2026-09-30)", async () => {
       const { pushBoxes } = withTranscriptListener()
       const user = userEvent.setup()
-      const { map } = await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'VHHH', arrIcao: 'KPHX' })
+      const { map } = await renderReady({
+        route: [],
+        trackPoints: [],
+        live: true,
+        depIcao: 'VHHH',
+        arrIcao: 'KPHX'
+      })
       await user.click(toggleButton())
       await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
 
@@ -1210,7 +1326,12 @@ describe('FlightMap', () => {
         bFar: [51.34, 0.05],
         hold: [51.3335, 0.0335]
       } as const
-      const seg = (a: readonly [number, number], b: readonly [number, number], name: string | null, endHoldShort = false): unknown => ({
+      const seg = (
+        a: readonly [number, number],
+        b: readonly [number, number],
+        name: string | null,
+        endHoldShort = false
+      ): unknown => ({
         startLat: a[0],
         startLon: a[1],
         endLat: b[0],
@@ -1239,7 +1360,9 @@ describe('FlightMap', () => {
 
       pushBoxes(taxiBoxes(['D', 'B'], { title: 'Hold Position', info: 'A1' }))
 
-      await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible'))
+      await waitFor(() =>
+        expect(map.setLayoutProperty).toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible')
+      )
       expect(map.sources['taxi-route-trace']?.setData).toHaveBeenLastCalledWith(
         expect.objectContaining({
           geometry: {
@@ -1266,7 +1389,12 @@ describe('FlightMap', () => {
         bFar: [51.34, 0.05],
         hold: [51.3335, 0.0335]
       } as const
-      const seg = (a: readonly [number, number], b: readonly [number, number], name: string | null, endHoldShort = false): unknown => ({
+      const seg = (
+        a: readonly [number, number],
+        b: readonly [number, number],
+        name: string | null,
+        endHoldShort = false
+      ): unknown => ({
         startLat: a[0],
         startLon: a[1],
         endLat: b[0],
@@ -1275,22 +1403,47 @@ describe('FlightMap', () => {
         startHoldShort: false,
         endHoldShort
       })
-      const NETWORK = [seg(P.stand, P.d, 'D'), seg(P.d, P.b, 'D'), seg(P.b, P.a1, 'B'), seg(P.a1, P.bFar, 'B'), seg(P.a1, P.hold, 'A1', true)]
+      const NETWORK = [
+        seg(P.stand, P.d, 'D'),
+        seg(P.d, P.b, 'D'),
+        seg(P.b, P.a1, 'B'),
+        seg(P.a1, P.bFar, 'B'),
+        seg(P.a1, P.hold, 'A1', true)
+      ]
       const CLEARANCE = taxiBoxes(['D', 'B'], { title: 'Hold Position', info: 'A1' })
-      const at = (lat: number, lon: number): SimTelemetry => ({ latitude: lat, longitude: lon }) as SimTelemetry
+      const at = (lat: number, lon: number): SimTelemetry =>
+        ({ latitude: lat, longitude: lon }) as SimTelemetry
       const lastLine = (map: FakeMapInstance): unknown =>
-        (map.sources['taxi-route-trace']?.setData.mock.calls.at(-1)?.[0] as { geometry: { coordinates: unknown } }).geometry.coordinates
+        (
+          map.sources['taxi-route-trace']?.setData.mock.calls.at(-1)?.[0] as {
+            geometry: { coordinates: unknown }
+          }
+        ).geometry.coordinates
 
       it('draws a stand clearance on to the stand itself once the stand is known (stand-positions.md)', async () => {
         // Arriving at the hold end of A1 and cleared back to the stand via B, D.
         const standPoint = { name: 'S1', number: 1, suffix: 0, headingDeg: 0, lat: 51.32995, lon: 0.02995 }
         const { pushBoxes } = withTranscriptListener(NETWORK, [], [standPoint])
         const user = userEvent.setup()
-        const { map, rerender } = await renderReady({ route: [], trackPoints: [], live: true, arrIcao: 'EGKB', telemetry: at(51.3335, 0.0335) })
+        const { map, rerender } = await renderReady({
+          route: [],
+          trackPoints: [],
+          live: true,
+          arrIcao: 'EGKB',
+          telemetry: at(51.3335, 0.0335)
+        })
         await user.click(toggleButton())
         await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
         pushBoxes(taxiBoxes(['A1', 'B', 'D'], { title: 'Taxi to Gate', info: 'Gate S1' }))
-        await act(async () => rerender({ route: [], trackPoints: [], live: true, arrIcao: 'EGKB', telemetry: at(51.3335, 0.0335) }))
+        await act(async () =>
+          rerender({
+            route: [],
+            trackPoints: [],
+            live: true,
+            arrIcao: 'EGKB',
+            telemetry: at(51.3335, 0.0335)
+          })
+        )
 
         await waitFor(() => expect((lastLine(map) as [number, number][]).at(-1)).toEqual([0.02995, 51.32995]))
       })
@@ -1302,23 +1455,43 @@ describe('FlightMap', () => {
         // The route comes from the boxes; "hold short of runway" has no box, so from the speech.
         const { push, pushBoxes } = withTranscriptListener(NETWORK, [])
         const user = userEvent.setup()
-        const { map, rerender } = await renderReady({ route: [], trackPoints: [], live: true, arrIcao: 'EGKB', telemetry: at(51.33, 0.03) })
+        const { map, rerender } = await renderReady({
+          route: [],
+          trackPoints: [],
+          live: true,
+          arrIcao: 'EGKB',
+          telemetry: at(51.33, 0.03)
+        })
         await user.click(toggleButton())
         await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
         pushBoxes(taxiBoxes(['D', 'B', 'A1']))
-        await act(async () => push([{ speaker: 'atc', text: 'Test 230, taxi via D, B, A1, hold short of runway 27R.', ts: 3000 }]))
-        await act(async () => rerender({ route: [], trackPoints: [], live: true, arrIcao: 'EGKB', telemetry: at(51.33, 0.03) }))
+        await act(async () =>
+          push([{ speaker: 'atc', text: 'Test 230, taxi via D, B, A1, hold short of runway 27R.', ts: 3000 }])
+        )
+        await act(async () =>
+          rerender({ route: [], trackPoints: [], live: true, arrIcao: 'EGKB', telemetry: at(51.33, 0.03) })
+        )
 
-        await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible'))
+        await waitFor(() =>
+          expect(map.setLayoutProperty).toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible')
+        )
         expect((lastLine(map) as [number, number][]).at(-1)).toEqual([0.0335, 51.3335])
       })
 
       it("draws a clearance given before Track was opened, without waiting for ATC's next line (YBBN, 2026-10-02)", async () => {
         withTranscriptListener(NETWORK, CLEARANCE)
         const user = userEvent.setup()
-        const { map } = await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB', telemetry: at(51.33, 0.03) })
+        const { map } = await renderReady({
+          route: [],
+          trackPoints: [],
+          live: true,
+          depIcao: 'EGKB',
+          telemetry: at(51.33, 0.03)
+        })
         await user.click(toggleButton())
-        await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible'))
+        await waitFor(() =>
+          expect(map.setLayoutProperty).toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible')
+        )
       })
 
       it('traces a clearance read before the aircraft position was known, once it arrives (ZSPD, 2026-10-02)', async () => {
@@ -1329,11 +1502,19 @@ describe('FlightMap', () => {
         const props = { route: [], trackPoints: [], live: true, depIcao: 'EGKB' }
         const { map, rerender } = await renderReady({ ...props, telemetry: null })
         await user.click(toggleButton())
-        await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
-        expect(map.setLayoutProperty).not.toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible')
+        await waitFor(() =>
+          expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
+        )
+        expect(map.setLayoutProperty).not.toHaveBeenCalledWith(
+          'taxi-route-trace-line',
+          'visibility',
+          'visible'
+        )
 
         await act(async () => rerender({ ...props, telemetry: at(51.33, 0.03) }))
-        await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible'))
+        await waitFor(() =>
+          expect(map.setLayoutProperty).toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible')
+        )
         expect((lastLine(map) as [number, number][]).at(-1)).toEqual([0.0335, 51.3335])
       })
 
@@ -1345,7 +1526,9 @@ describe('FlightMap', () => {
         await user.click(toggleButton())
         await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
         pushBoxes(CLEARANCE)
-        await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible'))
+        await waitFor(() =>
+          expect(map.setLayoutProperty).toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible')
+        )
 
         // Halfway along D, a little off the centreline.
         await act(async () => rerender({ ...props, telemetry: at(51.33155, 0.03145) }))
@@ -1381,7 +1564,13 @@ describe('FlightMap', () => {
           await user.click(toggleButton())
           await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
           pushBoxes(CLEARANCE)
-          await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith('taxi-route-trace-line', 'visibility', 'visible'))
+          await waitFor(() =>
+            expect(map.setLayoutProperty).toHaveBeenCalledWith(
+              'taxi-route-trace-line',
+              'visibility',
+              'visible'
+            )
+          )
 
           for (let k = 1; k <= 7; k++) {
             now += 1000
@@ -1419,7 +1608,9 @@ describe('FlightMap', () => {
       // Nothing to assert on `pushBoxes` itself (no listener registered yet) — the real
       // assertion is that mounting with the chart off never threw calling into BeyondATC,
       // matching every other test in this file that never stubs it at all.
-      expect(() => pushBoxes(taxiBoxes(['D', 'B', 'LINK'], { title: 'Hold Position', info: 'A1' }))).not.toThrow()
+      expect(() =>
+        pushBoxes(taxiBoxes(['D', 'B', 'LINK'], { title: 'Hold Position', info: 'A1' }))
+      ).not.toThrow()
     })
 
     it('ignores box sets with no taxi route', async () => {
@@ -1436,7 +1627,7 @@ describe('FlightMap', () => {
       expect(map.setLayoutProperty).not.toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
     })
 
-    it('never draws a route from speech alone, ours or another aircraft\'s', async () => {
+    it("never draws a route from speech alone, ours or another aircraft's", async () => {
       const { push } = withTranscriptListener()
       const user = userEvent.setup()
       const { map } = await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB' })
@@ -1446,7 +1637,11 @@ describe('FlightMap', () => {
 
       push([
         { speaker: 'atc', text: 'Test 230, taxi to holding point A1, runway 27R, via D, B, LINK.', ts: 1000 },
-        { speaker: 'atcTraffic', text: 'Other 42, taxi to holding point A1, runway 27R, via D, B, LINK.', ts: 2000 }
+        {
+          speaker: 'atcTraffic',
+          text: 'Other 42, taxi to holding point A1, runway 27R, via D, B, LINK.',
+          ts: 2000
+        }
       ])
 
       await new Promise((resolve) => setTimeout(resolve, 50))
@@ -1461,14 +1656,28 @@ describe('FlightMap', () => {
         { startLat: 51.472, startLon: -0.452, endLat: 51.473, endLon: -0.453, name: 'F' }
       ])
       const user = userEvent.setup()
-      const { map } = await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'RKSI', arrIcao: 'EGLL' })
+      const { map } = await renderReady({
+        route: [],
+        trackPoints: [],
+        live: true,
+        depIcao: 'RKSI',
+        arrIcao: 'EGLL'
+      })
       await user.click(toggleButton())
       await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
 
       pushBoxes(taxiBoxes(['E', 'LINK 36', 'F', 'A', 'R']))
-      push([{ speaker: 'atc', text: 'Koreanair 443 Heavy, taxi via E, LINK 36, F, A, R, hold short of runway 27L.', ts: 1000 }])
+      push([
+        {
+          speaker: 'atc',
+          text: 'Koreanair 443 Heavy, taxi via E, LINK 36, F, A, R, hold short of runway 27L.',
+          ts: 1000
+        }
+      ])
 
-      await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
+      await waitFor(() =>
+        expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
+      )
       expect(map.layers[HIGHLIGHT_LAYER_ID]?.filter).toEqual([
         'all',
         ['in', ['get', 'name'], ['literal', ['E', 'LINK 36', 'F', 'A', 'R']]],
@@ -1486,22 +1695,43 @@ describe('FlightMap', () => {
         await user.click(toggleButton())
         await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
 
-        pushBoxes([{ title: 'Taxi to Runway', info: '27R' }, ...taxiBoxes(['D', 'B', 'LINK'], { title: 'Hold Position', info: 'A1' })])
+        pushBoxes([
+          { title: 'Taxi to Runway', info: '27R' },
+          ...taxiBoxes(['D', 'B', 'LINK'], { title: 'Hold Position', info: 'A1' })
+        ])
 
-        await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
-        expect(routeFilter(map)).toEqual(['all', ['in', ['get', 'name'], ['literal', ['D', 'B', 'LINK']]], ['==', ['get', 'icao'], 'EGKB']])
+        await waitFor(() =>
+          expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
+        )
+        expect(routeFilter(map)).toEqual([
+          'all',
+          ['in', ['get', 'name'], ['literal', ['D', 'B', 'LINK']]],
+          ['==', ['get', 'icao'], 'EGKB']
+        ])
       })
 
       it("treats a Taxi to Gate clearance as the arrival's, like a spoken stand", async () => {
         const { pushBoxes } = withTranscriptListener()
         const user = userEvent.setup()
-        const { map } = await renderReady({ route: [], trackPoints: [], live: true, depIcao: 'EGKB', arrIcao: 'EGLL' })
+        const { map } = await renderReady({
+          route: [],
+          trackPoints: [],
+          live: true,
+          depIcao: 'EGKB',
+          arrIcao: 'EGLL'
+        })
         await user.click(toggleButton())
         await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
 
         pushBoxes(taxiBoxes(['B', 'D'], { title: 'Taxi to Gate', info: 'Gate 102' }))
 
-        await waitFor(() => expect(routeFilter(map)).toEqual(['all', ['in', ['get', 'name'], ['literal', ['B', 'D']]], ['==', ['get', 'icao'], 'EGLL']]))
+        await waitFor(() =>
+          expect(routeFilter(map)).toEqual([
+            'all',
+            ['in', ['get', 'name'], ['literal', ['B', 'D']]],
+            ['==', ['get', 'icao'], 'EGLL']
+          ])
+        )
       })
 
       it("doesn't take the same boxes again after the takeoff roll dropped the route", async () => {
@@ -1513,11 +1743,15 @@ describe('FlightMap', () => {
         await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
         const boxes = taxiBoxes(['D', 'B'], { title: 'Hold Position', info: 'A1' })
         pushBoxes(boxes)
-        await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
+        await waitFor(() =>
+          expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
+        )
 
         // A fast taxi reads as the takeoff roll, then the phase drops back to taxi.
         rerender({ ...props, telemetryPhase: 'takeoff' })
-        await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'none'))
+        await waitFor(() =>
+          expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'none')
+        )
         rerender({ ...props, telemetryPhase: 'taxi' })
         map.setLayoutProperty.mockClear()
         pushBoxes([...boxes])
@@ -1534,7 +1768,9 @@ describe('FlightMap', () => {
       await user.click(toggleButton())
       await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
       pushBoxes(taxiBoxes(['D', 'B', 'LINK'], { title: 'Hold Position', info: 'A1' }))
-      await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
+      await waitFor(() =>
+        expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
+      )
       map.setLayoutProperty.mockClear()
 
       await user.click(toggleButton())
@@ -1550,24 +1786,36 @@ describe('FlightMap', () => {
       await user.click(toggleButton())
       await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
       pushBoxes(taxiBoxes(['D', 'B', 'LINK'], { title: 'Hold Position', info: 'A1' }))
-      await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
+      await waitFor(() =>
+        expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
+      )
       map.setLayoutProperty.mockClear()
 
       rerender({ ...props, telemetryPhase: 'takeoff' })
 
-      await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'none'))
+      await waitFor(() =>
+        expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'none')
+      )
       expect(map.setLayoutProperty).not.toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
     })
 
     it("doesn't bring the departure route back after landing, but draws the arrival's own taxi clearance", async () => {
       const { pushBoxes } = withTranscriptListener()
       const user = userEvent.setup()
-      const props: FlightMapProps = { route: [], trackPoints: [], live: true, depIcao: 'EGKB', arrIcao: 'EGLL' }
+      const props: FlightMapProps = {
+        route: [],
+        trackPoints: [],
+        live: true,
+        depIcao: 'EGKB',
+        arrIcao: 'EGLL'
+      }
       const { map, rerender } = await renderReady({ ...props, telemetryPhase: 'taxi' })
       await user.click(toggleButton())
       await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
       pushBoxes(taxiBoxes(['D', 'B', 'LINK'], { title: 'Hold Position', info: 'A1' }))
-      await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
+      await waitFor(() =>
+        expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
+      )
       rerender({ ...props, telemetryPhase: 'cruise' })
       map.setLayoutProperty.mockClear()
 
@@ -1576,7 +1824,9 @@ describe('FlightMap', () => {
       expect(map.setLayoutProperty).not.toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
 
       pushBoxes(taxiBoxes(['B', 'D'], { title: 'Taxi to Gate', info: 'Gate N32' }))
-      await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
+      await waitFor(() =>
+        expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
+      )
       expect(map.layers[HIGHLIGHT_LAYER_ID]?.filter).toEqual([
         'all',
         ['in', ['get', 'name'], ['literal', ['B', 'D']]],
@@ -1587,7 +1837,13 @@ describe('FlightMap', () => {
     it('keeps a taxi clearance heard while the phase still reads airborne, and draws it once down', async () => {
       const { pushBoxes } = withTranscriptListener()
       const user = userEvent.setup()
-      const props: FlightMapProps = { route: [], trackPoints: [], live: true, depIcao: 'EGKB', arrIcao: 'EGLL' }
+      const props: FlightMapProps = {
+        route: [],
+        trackPoints: [],
+        live: true,
+        depIcao: 'EGKB',
+        arrIcao: 'EGLL'
+      }
       const { map, rerender } = await renderReady({ ...props, telemetryPhase: 'descent' })
       await user.click(toggleButton())
       await waitFor(() => expect(map.sources['taxi-chart']?.setData).toHaveBeenCalled())
@@ -1597,18 +1853,28 @@ describe('FlightMap', () => {
       expect(map.setLayoutProperty).not.toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
 
       rerender({ ...props, telemetryPhase: 'landing' })
-      await waitFor(() => expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
+      await waitFor(() =>
+        expect(map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
+      )
     })
 
     it('drops the departure route when Track was left at the holding point and reopened in cruise', async () => {
       const { pushBoxes } = withTranscriptListener()
       const user = userEvent.setup()
-      const props: FlightMapProps = { route: [], trackPoints: [], live: true, depIcao: 'EGKB', arrIcao: 'EGLL' }
+      const props: FlightMapProps = {
+        route: [],
+        trackPoints: [],
+        live: true,
+        depIcao: 'EGKB',
+        arrIcao: 'EGLL'
+      }
       const first = await renderReady({ ...props, telemetryPhase: 'taxi' })
       await user.click(toggleButton())
       await waitFor(() => expect(first.map.sources['taxi-chart']?.setData).toHaveBeenCalled())
       pushBoxes(taxiBoxes(['D', 'B', 'LINK'], { title: 'Hold Position', info: 'A1' }))
-      await waitFor(() => expect(first.map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible'))
+      await waitFor(() =>
+        expect(first.map.setLayoutProperty).toHaveBeenCalledWith(HIGHLIGHT_LAYER_ID, 'visibility', 'visible')
+      )
       cleanup()
 
       // Same module instance (no resetModules), so the remembered clearance carries over.
@@ -1913,7 +2179,7 @@ describe('FlightMap', () => {
 
     const { map } = await renderReady({ route: [], trackPoints: [point()], live: true })
     // live + followEnabled (default true) + an aircraft present -> locked, per
-    // mapInteraction.ts.
+    // map-interaction.ts.
     await waitFor(() => expect(map.dragPan.disable).toHaveBeenCalled())
     expect(map.scrollZoom.enable).toHaveBeenCalledWith({ around: 'center' })
     expect(map.container.classList.contains('map-pan-locked')).toBe(true)

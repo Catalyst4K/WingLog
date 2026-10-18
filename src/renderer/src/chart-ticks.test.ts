@@ -34,7 +34,7 @@ describe('pickTickStep', () => {
     expect(pickTickStep(13, HOURS_TICK_LADDER)).toBe(2)
   })
 
-  it('falls back to the ladder\'s largest step when nothing else keeps it within budget', () => {
+  it("falls back to the ladder's largest step when nothing else keeps it within budget", () => {
     expect(pickTickStep(1000, HOURS_TICK_LADDER)).toBe(2)
   })
 })

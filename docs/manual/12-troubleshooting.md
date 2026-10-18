@@ -1,0 +1,77 @@
+# Troubleshooting
+
+## The sim isn't connecting
+
+The top-right corner shows **SimConnect: connected** once WingLog can see MSFS. If it stays on
+**connecting** or **disconnected**:
+
+- Make sure MSFS 2024 is running and you've loaded into a flight (the main menu is enough to
+  connect, but there's nothing to track there).
+- WingLog keeps retrying by itself; there's nothing to restart.
+- If you run MSFS as administrator, run WingLog the same way, or neither.
+
+## Tracking didn't start
+
+- Check you loaded at the departure airport in Dispatch's plan, and that the aircraft has stopped
+  moving.
+- Press **Start tracking** on Track. This always works.
+- If automatic starting keeps misfiring with your setup, switch it off in **Settings → UI →
+  Tracking** and use the button.
+
+## The flight didn't finish
+
+WingLog finishes the flight once you're parked with the engines off after landing. If you shut down
+somewhere unusual, or left an engine running, press **Finish & save**. Automatic finishing can be
+switched off in **Settings → UI → Tracking**.
+
+## WingLog closed during a flight
+
+Start it again. It offers to resume tracking the flight (if it's still going in the sim) or discard
+it. Nothing recorded before it closed is lost.
+
+## BeyondATC isn't connecting
+
+- BeyondATC must be running, with a flight loaded.
+- **Settings → 3rd party → BeyondATC** must be **On**, with the host `localhost` if BeyondATC runs on
+  the same PC.
+- If the **Frequencies** list is empty, it fills in once BeyondATC has your flight plan loaded.
+
+## GSX Remote Control isn't connecting
+
+- GSX Pro must be running in the sim (Couatl started).
+- Check the port in **Settings → 3rd party → GSX Remote Control** matches **Remote Client** in GSX's
+  own settings (8744 by default).
+
+## The phone can't open the second screen
+
+- **Settings → Data → Second screen** must be **On**, with no red message under it.
+- The phone must be on the same Wi-Fi as this PC, not a guest network, and not on mobile data.
+- When Windows asked whether to let WingLog through its firewall, **Allow** is needed. If you pressed
+  Cancel, the phone just times out. Allow WingLog under Windows Security → Firewall & network
+  protection → Allow an app through firewall. If your network is set to **Public** in Windows, allow
+  Public networks too, or set the network to Private.
+- Another firewall or security suite may have its own firewall that needs the same permission.
+- The page says "Can't reach the PC. Trying again…" when WingLog is closed or the second screen is
+  off. It connects again by itself when WingLog is back.
+- A scanned QR code that does nothing has run out. Press **Pair a device** for a new one.
+
+## The taxi chart takes a long time
+
+The first time you open the taxi chart at an airport, WingLog reads the airport's taxiways from the
+sim, which can take a few minutes at a large airport. After that it's saved and opens straight away.
+
+## The low disk space warning
+
+A bar across the top of WingLog, and of the second screen, warns when the drive holding WingLog's data is running out of room:
+
+- **Amber, under 5 GB free:** free some space before a long flight. Your flight, its track and the launch backup are all kept on this drive.
+- **Red, under 1 GB free, or "your disk is full":** free space now. If saving fails mid-flight, WingLog keeps the track in memory (about seven hours' worth) and saves it as soon as there is room, so nothing is lost if you free space in time.
+
+The bar goes away on its own once there is room again. Emptying the Recycle Bin and removing old downloads is usually the quickest way to make space.
+
+## Reporting a bug
+
+Open an issue at
+[github.com/Catalyst4K/WingLog/issues](https://github.com/Catalyst4K/WingLog/issues). Say what you
+were doing and what you expected, and attach `logs\main.log` from `%APPDATA%\WingLog` (see
+[Installing and updating](02-installing.md)).

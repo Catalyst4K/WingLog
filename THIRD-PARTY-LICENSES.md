@@ -219,59 +219,59 @@ Library.
 | [@mapbox/tiny-sdf](https://github.com/mapbox/tiny-sdf) | 2.2.0 | BSD-2-Clause |
 | [@mapbox/unitbezier](git@github.com:mapbox/unitbezier) | 1.0.0 | BSD-2-Clause |
 | [@mapbox/vector-tile](https://github.com/mapbox/vector-tile-js) | 3.0.0 | BSD-3-Clause |
-| [@maplibre/geojson-vt](https://github.com/maplibre/geojson-vt) | 6.1.1 | ISC |
-| [@maplibre/maplibre-gl-style-spec](https://github.com/maplibre/maplibre-style-spec) | 26.4.1 | ISC |
-| [@maplibre/mlt](https://github.com/maplibre/maplibre-tile-spec) | 1.2.0 | (MIT OR Apache-2.0) |
+| [@maplibre/geojson-vt](https://github.com/maplibre/geojson-vt) | 6.1.2 | ISC |
+| [@maplibre/maplibre-gl-style-spec](https://github.com/maplibre/maplibre-style-spec) | 26.4.4 | ISC |
+| [@maplibre/mlt](https://github.com/maplibre/maplibre-tile-spec) | 1.3.0 | (MIT OR Apache-2.0) |
 | [@maplibre/vt-pbf](https://github.com/maplibre/vt-pbf) | 4.3.2 | MIT |
 | [@radix-ui/number](https://github.com/radix-ui/primitives) | 1.1.3 | MIT |
 | [@radix-ui/primitive](https://github.com/radix-ui/primitives) | 1.1.7 | MIT |
-| [@radix-ui/react-accessible-icon](https://github.com/radix-ui/primitives) | 1.1.15 | MIT |
-| [@radix-ui/react-accordion](https://github.com/radix-ui/primitives) | 1.2.20 | MIT |
-| [@radix-ui/react-alert-dialog](https://github.com/radix-ui/primitives) | 1.1.23 | MIT |
-| [@radix-ui/react-arrow](https://github.com/radix-ui/primitives) | 1.1.15 | MIT |
-| [@radix-ui/react-aspect-ratio](https://github.com/radix-ui/primitives) | 1.1.15 | MIT |
-| [@radix-ui/react-avatar](https://github.com/radix-ui/primitives) | 1.2.6 | MIT |
-| [@radix-ui/react-checkbox](https://github.com/radix-ui/primitives) | 1.3.11 | MIT |
-| [@radix-ui/react-collapsible](https://github.com/radix-ui/primitives) | 1.1.20 | MIT |
-| [@radix-ui/react-collection](https://github.com/radix-ui/primitives) | 1.1.15 | MIT |
+| [@radix-ui/react-accessible-icon](https://github.com/radix-ui/primitives) | 1.1.16 | MIT |
+| [@radix-ui/react-accordion](https://github.com/radix-ui/primitives) | 1.2.21 | MIT |
+| [@radix-ui/react-alert-dialog](https://github.com/radix-ui/primitives) | 1.1.24 | MIT |
+| [@radix-ui/react-arrow](https://github.com/radix-ui/primitives) | 1.1.16 | MIT |
+| [@radix-ui/react-aspect-ratio](https://github.com/radix-ui/primitives) | 1.1.16 | MIT |
+| [@radix-ui/react-avatar](https://github.com/radix-ui/primitives) | 1.2.7 | MIT |
+| [@radix-ui/react-checkbox](https://github.com/radix-ui/primitives) | 1.3.12 | MIT |
+| [@radix-ui/react-collapsible](https://github.com/radix-ui/primitives) | 1.1.21 | MIT |
+| [@radix-ui/react-collection](https://github.com/radix-ui/primitives) | 1.1.16 | MIT |
 | [@radix-ui/react-compose-refs](https://github.com/radix-ui/primitives) | 1.1.5 | MIT |
 | [@radix-ui/react-context](https://github.com/radix-ui/primitives) | 1.2.2 | MIT |
-| [@radix-ui/react-context-menu](https://github.com/radix-ui/primitives) | 2.3.7 | MIT |
-| [@radix-ui/react-dialog](https://github.com/radix-ui/primitives) | 1.1.23 | MIT |
-| [@radix-ui/react-direction](https://github.com/radix-ui/primitives) | 1.1.4 | MIT |
-| [@radix-ui/react-dismissable-layer](https://github.com/radix-ui/primitives) | 1.1.19 | MIT |
-| [@radix-ui/react-dropdown-menu](https://github.com/radix-ui/primitives) | 2.1.24 | MIT |
+| [@radix-ui/react-context-menu](https://github.com/radix-ui/primitives) | 2.3.8 | MIT |
+| [@radix-ui/react-dialog](https://github.com/radix-ui/primitives) | 1.2.0 | MIT |
+| [@radix-ui/react-direction](https://github.com/radix-ui/primitives) | 1.1.5 | MIT |
+| [@radix-ui/react-dismissable-layer](https://github.com/radix-ui/primitives) | 1.1.20 | MIT |
+| [@radix-ui/react-dropdown-menu](https://github.com/radix-ui/primitives) | 2.1.25 | MIT |
 | [@radix-ui/react-focus-guards](https://github.com/radix-ui/primitives) | 1.1.6 | MIT |
-| [@radix-ui/react-focus-scope](https://github.com/radix-ui/primitives) | 1.1.16 | MIT |
-| [@radix-ui/react-form](https://github.com/radix-ui/primitives) | 0.1.16 | MIT |
-| [@radix-ui/react-hover-card](https://github.com/radix-ui/primitives) | 1.1.23 | MIT |
+| [@radix-ui/react-focus-scope](https://github.com/radix-ui/primitives) | 1.2.0 | MIT |
+| [@radix-ui/react-form](https://github.com/radix-ui/primitives) | 0.2.0 | MIT |
+| [@radix-ui/react-hover-card](https://github.com/radix-ui/primitives) | 1.1.24 | MIT |
 | [@radix-ui/react-id](https://github.com/radix-ui/primitives) | 1.1.4 | MIT |
-| [@radix-ui/react-label](https://github.com/radix-ui/primitives) | 2.1.15 | MIT |
-| [@radix-ui/react-menu](https://github.com/radix-ui/primitives) | 2.1.24 | MIT |
-| [@radix-ui/react-menubar](https://github.com/radix-ui/primitives) | 1.1.24 | MIT |
-| [@radix-ui/react-navigation-menu](https://github.com/radix-ui/primitives) | 1.2.22 | MIT |
-| [@radix-ui/react-one-time-password-field](https://github.com/radix-ui/primitives) | 0.1.16 | MIT |
-| [@radix-ui/react-password-toggle-field](https://github.com/radix-ui/primitives) | 0.1.11 | MIT |
-| [@radix-ui/react-popover](https://github.com/radix-ui/primitives) | 1.1.23 | MIT |
-| [@radix-ui/react-popper](https://github.com/radix-ui/primitives) | 1.3.7 | MIT |
-| [@radix-ui/react-portal](https://github.com/radix-ui/primitives) | 1.1.17 | MIT |
-| [@radix-ui/react-presence](https://github.com/radix-ui/primitives) | 1.1.10 | MIT |
-| [@radix-ui/react-primitive](https://github.com/radix-ui/primitives) | 2.1.10 | MIT |
-| [@radix-ui/react-progress](https://github.com/radix-ui/primitives) | 1.1.16 | MIT |
-| [@radix-ui/react-radio-group](https://github.com/radix-ui/primitives) | 1.4.7 | MIT |
-| [@radix-ui/react-roving-focus](https://github.com/radix-ui/primitives) | 1.1.19 | MIT |
-| [@radix-ui/react-scroll-area](https://github.com/radix-ui/primitives) | 1.2.18 | MIT |
-| [@radix-ui/react-select](https://github.com/radix-ui/primitives) | 2.3.7 | MIT |
-| [@radix-ui/react-separator](https://github.com/radix-ui/primitives) | 1.1.15 | MIT |
-| [@radix-ui/react-slider](https://github.com/radix-ui/primitives) | 1.4.7 | MIT |
-| [@radix-ui/react-slot](https://github.com/radix-ui/primitives) | 1.3.3 | MIT |
-| [@radix-ui/react-switch](https://github.com/radix-ui/primitives) | 1.3.7 | MIT |
-| [@radix-ui/react-tabs](https://github.com/radix-ui/primitives) | 1.1.21 | MIT |
-| [@radix-ui/react-toast](https://github.com/radix-ui/primitives) | 1.2.23 | MIT |
-| [@radix-ui/react-toggle](https://github.com/radix-ui/primitives) | 1.1.18 | MIT |
-| [@radix-ui/react-toggle-group](https://github.com/radix-ui/primitives) | 1.1.19 | MIT |
-| [@radix-ui/react-toolbar](https://github.com/radix-ui/primitives) | 1.1.19 | MIT |
-| [@radix-ui/react-tooltip](https://github.com/radix-ui/primitives) | 1.2.16 | MIT |
+| [@radix-ui/react-label](https://github.com/radix-ui/primitives) | 2.1.16 | MIT |
+| [@radix-ui/react-menu](https://github.com/radix-ui/primitives) | 2.1.25 | MIT |
+| [@radix-ui/react-menubar](https://github.com/radix-ui/primitives) | 1.1.25 | MIT |
+| [@radix-ui/react-navigation-menu](https://github.com/radix-ui/primitives) | 1.3.0 | MIT |
+| [@radix-ui/react-one-time-password-field](https://github.com/radix-ui/primitives) | 0.1.17 | MIT |
+| [@radix-ui/react-password-toggle-field](https://github.com/radix-ui/primitives) | 0.1.12 | MIT |
+| [@radix-ui/react-popover](https://github.com/radix-ui/primitives) | 1.2.0 | MIT |
+| [@radix-ui/react-popper](https://github.com/radix-ui/primitives) | 1.3.8 | MIT |
+| [@radix-ui/react-portal](https://github.com/radix-ui/primitives) | 1.1.18 | MIT |
+| [@radix-ui/react-presence](https://github.com/radix-ui/primitives) | 1.1.11 | MIT |
+| [@radix-ui/react-primitive](https://github.com/radix-ui/primitives) | 2.1.11 | MIT |
+| [@radix-ui/react-progress](https://github.com/radix-ui/primitives) | 1.1.17 | MIT |
+| [@radix-ui/react-radio-group](https://github.com/radix-ui/primitives) | 1.4.8 | MIT |
+| [@radix-ui/react-roving-focus](https://github.com/radix-ui/primitives) | 1.1.20 | MIT |
+| [@radix-ui/react-scroll-area](https://github.com/radix-ui/primitives) | 1.3.0 | MIT |
+| [@radix-ui/react-select](https://github.com/radix-ui/primitives) | 2.3.8 | MIT |
+| [@radix-ui/react-separator](https://github.com/radix-ui/primitives) | 1.1.16 | MIT |
+| [@radix-ui/react-slider](https://github.com/radix-ui/primitives) | 1.5.0 | MIT |
+| [@radix-ui/react-slot](https://github.com/radix-ui/primitives) | 1.4.0 | MIT |
+| [@radix-ui/react-switch](https://github.com/radix-ui/primitives) | 1.3.8 | MIT |
+| [@radix-ui/react-tabs](https://github.com/radix-ui/primitives) | 1.1.22 | MIT |
+| [@radix-ui/react-toast](https://github.com/radix-ui/primitives) | 1.2.24 | MIT |
+| [@radix-ui/react-toggle](https://github.com/radix-ui/primitives) | 1.1.19 | MIT |
+| [@radix-ui/react-toggle-group](https://github.com/radix-ui/primitives) | 1.1.20 | MIT |
+| [@radix-ui/react-toolbar](https://github.com/radix-ui/primitives) | 1.1.20 | MIT |
+| [@radix-ui/react-tooltip](https://github.com/radix-ui/primitives) | 1.3.0 | MIT |
 | [@radix-ui/react-use-callback-ref](https://github.com/radix-ui/primitives) | 1.1.4 | MIT |
 | [@radix-ui/react-use-controllable-state](https://github.com/radix-ui/primitives) | 1.2.6 | MIT |
 | [@radix-ui/react-use-effect-event](https://github.com/radix-ui/primitives) | 0.0.5 | MIT |
@@ -280,8 +280,8 @@ Library.
 | [@radix-ui/react-use-layout-effect](https://github.com/radix-ui/primitives) | 1.1.4 | MIT |
 | [@radix-ui/react-use-previous](https://github.com/radix-ui/primitives) | 1.1.4 | MIT |
 | [@radix-ui/react-use-rect](https://github.com/radix-ui/primitives) | 1.1.4 | MIT |
-| [@radix-ui/react-use-size](https://github.com/radix-ui/primitives) | 1.1.4 | MIT |
-| [@radix-ui/react-visually-hidden](https://github.com/radix-ui/primitives) | 1.2.11 | MIT |
+| [@radix-ui/react-use-size](https://github.com/radix-ui/primitives) | 1.1.5 | MIT |
+| [@radix-ui/react-visually-hidden](https://github.com/radix-ui/primitives) | 1.2.12 | MIT |
 | [@radix-ui/rect](https://github.com/radix-ui/primitives) | 1.1.3 | MIT |
 | [@reduxjs/toolkit](https://github.com/reduxjs/redux-toolkit) | 2.12.0 | MIT |
 | [@standard-schema/spec](https://github.com/standard-schema/standard-schema) | 1.1.0 | MIT |
@@ -297,15 +297,17 @@ Library.
 | [@types/d3-time](https://github.com/DefinitelyTyped/DefinitelyTyped) | 3.0.4 | MIT |
 | [@types/d3-timer](https://github.com/DefinitelyTyped/DefinitelyTyped) | 3.0.2 | MIT |
 | [@types/geojson](https://github.com/DefinitelyTyped/DefinitelyTyped) | 7946.0.16 | MIT |
-| [@types/node](https://github.com/DefinitelyTyped/DefinitelyTyped) | 26.4.0 | MIT |
-| [@types/react](https://github.com/DefinitelyTyped/DefinitelyTyped) | 19.2.18 | MIT |
-| [@types/react-dom](https://github.com/DefinitelyTyped/DefinitelyTyped) | 19.2.5 | MIT |
+| [@types/node](https://github.com/DefinitelyTyped/DefinitelyTyped) | 26.6.5 | MIT |
+| [@types/react](https://github.com/DefinitelyTyped/DefinitelyTyped) | 19.3.0 | MIT |
+| [@types/react-dom](https://github.com/DefinitelyTyped/DefinitelyTyped) | 19.3.0 | MIT |
 | [@types/use-sync-external-store](https://github.com/DefinitelyTyped/DefinitelyTyped) | 0.0.6 | MIT |
+| [argparse](nodeca/argparse) | 2.0.1 | Python-2.0 |
 | [aria-hidden](https://github.com/theKashey/aria-hidden) | 1.2.6 | MIT |
 | [better-sqlite3](git://github.com/WiseLibs/better-sqlite3) | 13.0.3 | MIT |
+| [bidi-js](https://github.com/lojjic/bidi-js) | 1.1.0 | MIT |
+| [builder-util-runtime](https://github.com/electron-userland/electron-builder) | 9.7.0 | MIT |
 | [class-variance-authority](https://github.com/joe-bell/cva) | 0.7.1 | Apache-2.0 |
 | [clsx](lukeed/clsx) | 2.1.1 | MIT |
-| [core-util-is](git://github.com/isaacs/core-util-is) | 1.0.3 | MIT |
 | [csstype](https://github.com/frenic/csstype) | 3.2.3 | MIT |
 | [d3-array](https://github.com/d3/d3-array) | 3.2.4 | ISC |
 | [d3-color](https://github.com/d3/d3-color) | 3.1.0 | ISC |
@@ -321,68 +323,73 @@ Library.
 | [debug](git://github.com/debug-js/debug) | 4.4.3 | MIT |
 | [decimal.js-light](https://github.com/MikeMcl/decimal.js-light) | 2.5.1 | MIT |
 | [detect-node-es](https://github.com/thekashey/detect-node) | 1.1.0 | MIT |
-| [drizzle-orm](https://github.com/drizzle-team/drizzle-orm) | 0.45.2 | Apache-2.0 |
-| [earcut](git://github.com/mapbox/earcut) | 3.2.3 | ISC |
+| [drizzle-orm](https://github.com/drizzle-team/drizzle-orm) | 0.45.4 | Apache-2.0 |
+| [earcut](git://github.com/mapbox/earcut) | 3.2.4 | ISC |
 | [electron-log](megahertz/electron-log) | 5.4.4 | MIT |
+| [electron-updater](https://github.com/electron-userland/electron-builder) | 6.8.9 | MIT |
 | [es-toolkit](https://github.com/toss/es-toolkit) | 1.52.0 | MIT |
 | [eventemitter3](git://github.com/primus/eventemitter3) | 5.0.4 | MIT |
+| [fs-extra](https://github.com/jprichardson/node-fs-extra) | 10.1.0 | MIT |
 | [get-nonce](git@github.com:theKashey/get-nonce) | 1.0.1 | MIT |
 | [gl-matrix](https://github.com/toji/gl-matrix) | 3.4.4 | MIT |
+| [graceful-fs](https://github.com/isaacs/node-graceful-fs) | 4.2.11 | ISC |
 | [html-parse-stringify](https://github.com/i18next/html-parse-stringify) | 4.0.1 | MIT |
-| [i18next](https://github.com/i18next/i18next) | 26.4.2 | MIT |
-| [if-async](https://github.com/kessler/if-async) | 3.7.4 | MIT |
+| [i18next](https://github.com/i18next/i18next) | 26.4.3 | MIT |
 | [immer](https://github.com/immerjs/immer) | 11.1.18 | MIT |
-| [inherits](git://github.com/isaacs/inherits) | 2.0.4 | ISC |
 | [ini](git://github.com/isaacs/ini) | 2.0.0 | ISC |
 | [internmap](https://github.com/mbostock/internmap) | 2.0.3 | ISC |
-| [isarray](git://github.com/juliangruber/isarray) | 0.0.1 | MIT |
+| [js-yaml](nodeca/js-yaml) | 4.3.2 | MIT |
 | [json-stringify-pretty-compact](lydell/json-stringify-pretty-compact) | 4.0.0 | MIT |
+| [jsonfile](git@github.com:jprichardson/node-jsonfile) | 6.2.1 | MIT |
 | [kdbush](git://github.com/mourner/kdbush) | 4.1.0 | ISC |
-| [lucide-react](https://github.com/lucide-icons/lucide) | 1.39.0 | ISC |
-| [maplibre-gl](https://github.com/maplibre/maplibre-gl-js) | 6.6.0 | BSD-3-Clause |
+| [lazy-val](develar/lazy-val) | 1.0.5 | MIT |
+| [lodash.escaperegexp](lodash/lodash) | 4.1.2 | MIT |
+| [lodash.isequal](lodash/lodash) | 4.5.0 | MIT |
+| [lucide-react](https://github.com/lucide-icons/lucide) | 1.55.0 | ISC |
+| [maplibre-gl](https://github.com/maplibre/maplibre-gl-js) | 6.13.0 | BSD-3-Clause |
 | [minimist](git://github.com/minimistjs/minimist) | 1.2.8 | MIT |
 | [ms](vercel/ms) | 2.1.3 | MIT |
 | [murmurhash-js](git://github.com/mikolalysenko/murmurhash-js) | 1.0.0 | MIT |
 | [next-themes](https://github.com/pacocoursey/next-themes) | 0.4.6 | MIT |
 | [node-addon-api](git://github.com/nodejs/node-addon-api) | 8.9.2 | MIT |
-| [node-simconnect](https://github.com/EvenAR/node-simconnect) | 4.2.0 | LGPL-3.0-or-later |
+| [node-simconnect](https://github.com/EvenAR/node-simconnect) | 4.2.1 | LGPL-3.0-or-later |
 | [pbf](ssh://git@github.com/mapbox/pbf) | 5.1.2 | BSD-3-Clause |
 | [potpack](https://github.com/mapbox/potpack) | 2.1.0 | ISC |
 | [protocol-buffers-schema](https://github.com/mafintosh/protocol-buffers-schema) | 3.6.1 | MIT |
+| [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) | 2.0.4 | MIT |
 | [quickselect](https://github.com/mourner/quickselect) | 3.0.0 | ISC |
-| [radix-ui](https://github.com/radix-ui/primitives) | 1.6.7 | MIT |
-| [react](https://github.com/react/react) | 19.2.8 | MIT |
-| [react-dom](https://github.com/react/react) | 19.2.8 | MIT |
-| [react-i18next](https://github.com/i18next/react-i18next) | 17.0.14 | MIT |
+| [radix-ui](https://github.com/radix-ui/primitives) | 1.7.0 | MIT |
+| [react](https://github.com/react/react) | 19.3.0 | MIT |
+| [react-dom](https://github.com/react/react) | 19.3.0 | MIT |
+| [react-i18next](https://github.com/i18next/react-i18next) | 17.0.16 | MIT |
 | [react-is](https://github.com/react/react) | 19.2.8 | MIT |
 | [react-redux](https://github.com/reduxjs/react-redux) | 9.3.0 | MIT |
 | [react-remove-scroll](https://github.com/theKashey/react-remove-scroll) | 2.7.2 | MIT |
 | [react-remove-scroll-bar](https://github.com/theKashey/react-remove-scroll-bar) | 2.3.8 | MIT |
 | [react-style-singleton](https://github.com/theKashey/react-style-singleton) | 2.2.3 | MIT |
-| [readable-stream](git://github.com/isaacs/readable-stream) | 1.0.34 | MIT |
 | [recharts](https://github.com/recharts/recharts) | 3.10.1 | MIT |
 | [redux](https://github.com/reduxjs/redux) | 5.0.1 | MIT |
 | [redux-thunk](https://github.com/reduxjs/redux-thunk) | 3.1.0 | MIT |
-| [regedit](https://github.com/kessler/node-regedit) | 5.1.4 | MIT |
+| [require-from-string](floatdrop/require-from-string) | 2.0.2 | MIT |
 | [reselect](https://github.com/reduxjs/reselect) | 5.2.0 | MIT |
 | [resolve-protobuf-schema](https://github.com/mafintosh/resolve-protobuf-schema) | 2.1.0 | MIT |
-| [scheduler](https://github.com/facebook/react) | 0.27.0 | MIT |
+| [sax](ssh://git@github.com/isaacs/sax-js) | 1.6.1 | BlueOak-1.0.0 |
+| [scheduler](https://github.com/react/react) | 0.28.0 | MIT |
+| [semver](https://github.com/npm/node-semver) | 7.7.4 | ISC |
 | [sonner](https://github.com/emilkowalski/sonner) | 2.0.8 | MIT |
-| [stream-slicer](https://github.com/kessler/stream-slicer) | 0.0.6 | MIT |
-| [string_decoder](git://github.com/rvagg/string_decoder) | 0.10.31 | MIT |
-| [tailwind-merge](https://github.com/dcastil/tailwind-merge) | 3.6.0 | MIT |
-| [through2](https://github.com/rvagg/through2) | 0.6.5 | MIT |
+| [tailwind-merge](https://github.com/dcastil/tailwind-merge) | 3.7.0 | MIT |
 | [tiny-invariant](https://github.com/alexreardon/tiny-invariant) | 1.3.3 | MIT |
+| [tiny-typed-emitter](https://github.com/binier/tiny-typed-emitter) | 2.1.0 | MIT |
 | [tinyqueue](https://github.com/mourner/tinyqueue) | 3.0.0 | ISC |
 | [tslib](https://github.com/Microsoft/tslib) | 2.8.1 | 0BSD |
 | [typescript](https://github.com/microsoft/TypeScript) | 5.9.3 | Apache-2.0 |
-| [undici-types](https://github.com/nodejs/undici) | 8.3.0 | MIT |
+| [undici-types](https://github.com/nodejs/undici) | 8.9.0 | MIT |
+| [universalify](https://github.com/RyanZim/universalify) | 2.0.1 | MIT |
 | [use-callback-ref](https://github.com/theKashey/use-callback-ref/) | 1.3.3 | MIT |
 | [use-sidecar](https://github.com/theKashey/use-sidecar) | 1.1.3 | MIT |
 | [use-sync-external-store](https://github.com/facebook/react) | 1.6.0 | MIT |
 | [victory-vendor](https://github.com/FormidableLabs/victory) | 37.3.6 | MIT AND ISC |
-| [ws](https://github.com/websockets/ws) | 8.21.3 | MIT |
-| [xtend](git://github.com/Raynos/xtend) | 4.0.2 | MIT |
+| [ws](https://github.com/websockets/ws) | 8.22.0 | MIT |
 
 ### @babel/runtime 7.29.7 — MIT
 
@@ -634,7 +641,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### @maplibre/geojson-vt 6.1.1 — ISC
+### @maplibre/geojson-vt 6.1.2 — ISC
 
 ```
 The MIT License (MIT)
@@ -678,7 +685,7 @@ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ```
 
-### @maplibre/maplibre-gl-style-spec 26.4.1 — ISC
+### @maplibre/maplibre-gl-style-spec 26.4.4 — ISC
 
 ```
 Copyright (c) 2020, MapLibre contributors
@@ -799,7 +806,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### @maplibre/mlt 1.2.0 — (MIT OR Apache-2.0)
+### @maplibre/mlt 1.3.0 — (MIT OR Apache-2.0)
 
 ```
 ===== MIT License =====
@@ -1026,7 +1033,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -1147,7 +1154,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-accessible-icon 1.1.15 — MIT
+### @radix-ui/react-accessible-icon 1.1.16 — MIT
 
 ```
 MIT License
@@ -1173,7 +1180,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-accordion 1.2.20 — MIT
+### @radix-ui/react-accordion 1.2.21 — MIT
 
 ```
 MIT License
@@ -1199,7 +1206,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-alert-dialog 1.1.23 — MIT
+### @radix-ui/react-alert-dialog 1.1.24 — MIT
 
 ```
 MIT License
@@ -1225,7 +1232,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-arrow 1.1.15 — MIT
+### @radix-ui/react-arrow 1.1.16 — MIT
 
 ```
 MIT License
@@ -1251,7 +1258,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-aspect-ratio 1.1.15 — MIT
+### @radix-ui/react-aspect-ratio 1.1.16 — MIT
 
 ```
 MIT License
@@ -1277,7 +1284,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-avatar 1.2.6 — MIT
+### @radix-ui/react-avatar 1.2.7 — MIT
 
 ```
 MIT License
@@ -1303,7 +1310,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-checkbox 1.3.11 — MIT
+### @radix-ui/react-checkbox 1.3.12 — MIT
 
 ```
 MIT License
@@ -1329,7 +1336,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-collapsible 1.1.20 — MIT
+### @radix-ui/react-collapsible 1.1.21 — MIT
 
 ```
 MIT License
@@ -1355,7 +1362,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-collection 1.1.15 — MIT
+### @radix-ui/react-collection 1.1.16 — MIT
 
 ```
 MIT License
@@ -1433,7 +1440,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-context-menu 2.3.7 — MIT
+### @radix-ui/react-context-menu 2.3.8 — MIT
 
 ```
 MIT License
@@ -1459,7 +1466,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-dialog 1.1.23 — MIT
+### @radix-ui/react-dialog 1.2.0 — MIT
 
 ```
 MIT License
@@ -1485,7 +1492,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-direction 1.1.4 — MIT
+### @radix-ui/react-direction 1.1.5 — MIT
 
 ```
 MIT License
@@ -1511,7 +1518,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-dismissable-layer 1.1.19 — MIT
+### @radix-ui/react-dismissable-layer 1.1.20 — MIT
 
 ```
 MIT License
@@ -1537,7 +1544,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-dropdown-menu 2.1.24 — MIT
+### @radix-ui/react-dropdown-menu 2.1.25 — MIT
 
 ```
 MIT License
@@ -1589,7 +1596,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-focus-scope 1.1.16 — MIT
+### @radix-ui/react-focus-scope 1.2.0 — MIT
 
 ```
 MIT License
@@ -1615,7 +1622,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-form 0.1.16 — MIT
+### @radix-ui/react-form 0.2.0 — MIT
 
 ```
 MIT License
@@ -1641,7 +1648,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-hover-card 1.1.23 — MIT
+### @radix-ui/react-hover-card 1.1.24 — MIT
 
 ```
 MIT License
@@ -1693,7 +1700,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-label 2.1.15 — MIT
+### @radix-ui/react-label 2.1.16 — MIT
 
 ```
 MIT License
@@ -1719,7 +1726,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-menu 2.1.24 — MIT
+### @radix-ui/react-menu 2.1.25 — MIT
 
 ```
 MIT License
@@ -1745,7 +1752,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-menubar 1.1.24 — MIT
+### @radix-ui/react-menubar 1.1.25 — MIT
 
 ```
 MIT License
@@ -1771,7 +1778,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-navigation-menu 1.2.22 — MIT
+### @radix-ui/react-navigation-menu 1.3.0 — MIT
 
 ```
 MIT License
@@ -1797,7 +1804,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-one-time-password-field 0.1.16 — MIT
+### @radix-ui/react-one-time-password-field 0.1.17 — MIT
 
 ```
 MIT License
@@ -1823,7 +1830,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-password-toggle-field 0.1.11 — MIT
+### @radix-ui/react-password-toggle-field 0.1.12 — MIT
 
 ```
 MIT License
@@ -1849,7 +1856,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-popover 1.1.23 — MIT
+### @radix-ui/react-popover 1.2.0 — MIT
 
 ```
 MIT License
@@ -1875,7 +1882,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-popper 1.3.7 — MIT
+### @radix-ui/react-popper 1.3.8 — MIT
 
 ```
 MIT License
@@ -1901,7 +1908,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-portal 1.1.17 — MIT
+### @radix-ui/react-portal 1.1.18 — MIT
 
 ```
 MIT License
@@ -1927,7 +1934,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-presence 1.1.10 — MIT
+### @radix-ui/react-presence 1.1.11 — MIT
 
 ```
 MIT License
@@ -1953,7 +1960,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-primitive 2.1.10 — MIT
+### @radix-ui/react-primitive 2.1.11 — MIT
 
 ```
 MIT License
@@ -1979,7 +1986,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-progress 1.1.16 — MIT
+### @radix-ui/react-progress 1.1.17 — MIT
 
 ```
 MIT License
@@ -2005,7 +2012,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-radio-group 1.4.7 — MIT
+### @radix-ui/react-radio-group 1.4.8 — MIT
 
 ```
 MIT License
@@ -2031,7 +2038,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-roving-focus 1.1.19 — MIT
+### @radix-ui/react-roving-focus 1.1.20 — MIT
 
 ```
 MIT License
@@ -2057,7 +2064,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-scroll-area 1.2.18 — MIT
+### @radix-ui/react-scroll-area 1.3.0 — MIT
 
 ```
 MIT License
@@ -2083,7 +2090,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-select 2.3.7 — MIT
+### @radix-ui/react-select 2.3.8 — MIT
 
 ```
 MIT License
@@ -2109,7 +2116,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-separator 1.1.15 — MIT
+### @radix-ui/react-separator 1.1.16 — MIT
 
 ```
 MIT License
@@ -2135,7 +2142,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-slider 1.4.7 — MIT
+### @radix-ui/react-slider 1.5.0 — MIT
 
 ```
 MIT License
@@ -2161,7 +2168,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-slot 1.3.3 — MIT
+### @radix-ui/react-slot 1.4.0 — MIT
 
 ```
 MIT License
@@ -2187,7 +2194,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-switch 1.3.7 — MIT
+### @radix-ui/react-switch 1.3.8 — MIT
 
 ```
 MIT License
@@ -2213,7 +2220,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-tabs 1.1.21 — MIT
+### @radix-ui/react-tabs 1.1.22 — MIT
 
 ```
 MIT License
@@ -2239,7 +2246,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-toast 1.2.23 — MIT
+### @radix-ui/react-toast 1.2.24 — MIT
 
 ```
 MIT License
@@ -2265,7 +2272,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-toggle 1.1.18 — MIT
+### @radix-ui/react-toggle 1.1.19 — MIT
 
 ```
 MIT License
@@ -2291,7 +2298,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-toggle-group 1.1.19 — MIT
+### @radix-ui/react-toggle-group 1.1.20 — MIT
 
 ```
 MIT License
@@ -2317,7 +2324,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-toolbar 1.1.19 — MIT
+### @radix-ui/react-toolbar 1.1.20 — MIT
 
 ```
 MIT License
@@ -2343,7 +2350,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-tooltip 1.2.16 — MIT
+### @radix-ui/react-tooltip 1.3.0 — MIT
 
 ```
 MIT License
@@ -2577,7 +2584,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-use-size 1.1.4 — MIT
+### @radix-ui/react-use-size 1.1.5 — MIT
 
 ```
 MIT License
@@ -2603,7 +2610,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### @radix-ui/react-visually-hidden 1.2.11 — MIT
+### @radix-ui/react-visually-hidden 1.2.12 — MIT
 
 ```
 MIT License
@@ -3019,7 +3026,7 @@ MIT License
     SOFTWARE
 ```
 
-### @types/node 26.4.0 — MIT
+### @types/node 26.6.5 — MIT
 
 ```
 MIT License
@@ -3045,7 +3052,7 @@ MIT License
     SOFTWARE
 ```
 
-### @types/react 19.2.18 — MIT
+### @types/react 19.3.0 — MIT
 
 ```
 MIT License
@@ -3071,7 +3078,7 @@ MIT License
     SOFTWARE
 ```
 
-### @types/react-dom 19.2.5 — MIT
+### @types/react-dom 19.3.0 — MIT
 
 ```
 MIT License
@@ -3123,6 +3130,265 @@ MIT License
     SOFTWARE
 ```
 
+### argparse 2.0.1 — Python-2.0
+
+```
+A. HISTORY OF THE SOFTWARE
+==========================
+
+Python was created in the early 1990s by Guido van Rossum at Stichting
+Mathematisch Centrum (CWI, see http://www.cwi.nl) in the Netherlands
+as a successor of a language called ABC.  Guido remains Python's
+principal author, although it includes many contributions from others.
+
+In 1995, Guido continued his work on Python at the Corporation for
+National Research Initiatives (CNRI, see http://www.cnri.reston.va.us)
+in Reston, Virginia where he released several versions of the
+software.
+
+In May 2000, Guido and the Python core development team moved to
+BeOpen.com to form the BeOpen PythonLabs team.  In October of the same
+year, the PythonLabs team moved to Digital Creations, which became
+Zope Corporation.  In 2001, the Python Software Foundation (PSF, see
+https://www.python.org/psf/) was formed, a non-profit organization
+created specifically to own Python-related Intellectual Property.
+Zope Corporation was a sponsoring member of the PSF.
+
+All Python releases are Open Source (see http://www.opensource.org for
+the Open Source Definition).  Historically, most, but not all, Python
+releases have also been GPL-compatible; the table below summarizes
+the various releases.
+
+    Release         Derived     Year        Owner       GPL-
+                    from                                compatible? (1)
+
+    0.9.0 thru 1.2              1991-1995   CWI         yes
+    1.3 thru 1.5.2  1.2         1995-1999   CNRI        yes
+    1.6             1.5.2       2000        CNRI        no
+    2.0             1.6         2000        BeOpen.com  no
+    1.6.1           1.6         2001        CNRI        yes (2)
+    2.1             2.0+1.6.1   2001        PSF         no
+    2.0.1           2.0+1.6.1   2001        PSF         yes
+    2.1.1           2.1+2.0.1   2001        PSF         yes
+    2.1.2           2.1.1       2002        PSF         yes
+    2.1.3           2.1.2       2002        PSF         yes
+    2.2 and above   2.1.1       2001-now    PSF         yes
+
+Footnotes:
+
+(1) GPL-compatible doesn't mean that we're distributing Python under
+    the GPL.  All Python licenses, unlike the GPL, let you distribute
+    a modified version without making your changes open source.  The
+    GPL-compatible licenses make it possible to combine Python with
+    other software that is released under the GPL; the others don't.
+
+(2) According to Richard Stallman, 1.6.1 is not GPL-compatible,
+    because its license has a choice of law clause.  According to
+    CNRI, however, Stallman's lawyer has told CNRI's lawyer that 1.6.1
+    is "not incompatible" with the GPL.
+
+Thanks to the many outside volunteers who have worked under Guido's
+direction to make these releases possible.
+
+
+B. TERMS AND CONDITIONS FOR ACCESSING OR OTHERWISE USING PYTHON
+===============================================================
+
+PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2
+--------------------------------------------
+
+1. This LICENSE AGREEMENT is between the Python Software Foundation
+("PSF"), and the Individual or Organization ("Licensee") accessing and
+otherwise using this software ("Python") in source or binary form and
+its associated documentation.
+
+2. Subject to the terms and conditions of this License Agreement, PSF hereby
+grants Licensee a nonexclusive, royalty-free, world-wide license to reproduce,
+analyze, test, perform and/or display publicly, prepare derivative works,
+distribute, and otherwise use Python alone or in any derivative version,
+provided, however, that PSF's License Agreement and PSF's notice of copyright,
+i.e., "Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020 Python Software Foundation;
+All Rights Reserved" are retained in Python alone or in any derivative version
+prepared by Licensee.
+
+3. In the event Licensee prepares a derivative work that is based on
+or incorporates Python or any part thereof, and wants to make
+the derivative work available to others as provided herein, then
+Licensee hereby agrees to include in any such work a brief summary of
+the changes made to Python.
+
+4. PSF is making Python available to Licensee on an "AS IS"
+basis.  PSF MAKES NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR
+IMPLIED.  BY WAY OF EXAMPLE, BUT NOT LIMITATION, PSF MAKES NO AND
+DISCLAIMS ANY REPRESENTATION OR WARRANTY OF MERCHANTABILITY OR FITNESS
+FOR ANY PARTICULAR PURPOSE OR THAT THE USE OF PYTHON WILL NOT
+INFRINGE ANY THIRD PARTY RIGHTS.
+
+5. PSF SHALL NOT BE LIABLE TO LICENSEE OR ANY OTHER USERS OF PYTHON
+FOR ANY INCIDENTAL, SPECIAL, OR CONSEQUENTIAL DAMAGES OR LOSS AS
+A RESULT OF MODIFYING, DISTRIBUTING, OR OTHERWISE USING PYTHON,
+OR ANY DERIVATIVE THEREOF, EVEN IF ADVISED OF THE POSSIBILITY THEREOF.
+
+6. This License Agreement will automatically terminate upon a material
+breach of its terms and conditions.
+
+7. Nothing in this License Agreement shall be deemed to create any
+relationship of agency, partnership, or joint venture between PSF and
+Licensee.  This License Agreement does not grant permission to use PSF
+trademarks or trade name in a trademark sense to endorse or promote
+products or services of Licensee, or any third party.
+
+8. By copying, installing or otherwise using Python, Licensee
+agrees to be bound by the terms and conditions of this License
+Agreement.
+
+
+BEOPEN.COM LICENSE AGREEMENT FOR PYTHON 2.0
+-------------------------------------------
+
+BEOPEN PYTHON OPEN SOURCE LICENSE AGREEMENT VERSION 1
+
+1. This LICENSE AGREEMENT is between BeOpen.com ("BeOpen"), having an
+office at 160 Saratoga Avenue, Santa Clara, CA 95051, and the
+Individual or Organization ("Licensee") accessing and otherwise using
+this software in source or binary form and its associated
+documentation ("the Software").
+
+2. Subject to the terms and conditions of this BeOpen Python License
+Agreement, BeOpen hereby grants Licensee a non-exclusive,
+royalty-free, world-wide license to reproduce, analyze, test, perform
+and/or display publicly, prepare derivative works, distribute, and
+otherwise use the Software alone or in any derivative version,
+provided, however, that the BeOpen Python License is retained in the
+Software, alone or in any derivative version prepared by Licensee.
+
+3. BeOpen is making the Software available to Licensee on an "AS IS"
+basis.  BEOPEN MAKES NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR
+IMPLIED.  BY WAY OF EXAMPLE, BUT NOT LIMITATION, BEOPEN MAKES NO AND
+DISCLAIMS ANY REPRESENTATION OR WARRANTY OF MERCHANTABILITY OR FITNESS
+FOR ANY PARTICULAR PURPOSE OR THAT THE USE OF THE SOFTWARE WILL NOT
+INFRINGE ANY THIRD PARTY RIGHTS.
+
+4. BEOPEN SHALL NOT BE LIABLE TO LICENSEE OR ANY OTHER USERS OF THE
+SOFTWARE FOR ANY INCIDENTAL, SPECIAL, OR CONSEQUENTIAL DAMAGES OR LOSS
+AS A RESULT OF USING, MODIFYING OR DISTRIBUTING THE SOFTWARE, OR ANY
+DERIVATIVE THEREOF, EVEN IF ADVISED OF THE POSSIBILITY THEREOF.
+
+5. This License Agreement will automatically terminate upon a material
+breach of its terms and conditions.
+
+6. This License Agreement shall be governed by and interpreted in all
+respects by the law of the State of California, excluding conflict of
+law provisions.  Nothing in this License Agreement shall be deemed to
+create any relationship of agency, partnership, or joint venture
+between BeOpen and Licensee.  This License Agreement does not grant
+permission to use BeOpen trademarks or trade names in a trademark
+sense to endorse or promote products or services of Licensee, or any
+third party.  As an exception, the "BeOpen Python" logos available at
+http://www.pythonlabs.com/logos.html may be used according to the
+permissions granted on that web page.
+
+7. By copying, installing or otherwise using the software, Licensee
+agrees to be bound by the terms and conditions of this License
+Agreement.
+
+
+CNRI LICENSE AGREEMENT FOR PYTHON 1.6.1
+---------------------------------------
+
+1. This LICENSE AGREEMENT is between the Corporation for National
+Research Initiatives, having an office at 1895 Preston White Drive,
+Reston, VA 20191 ("CNRI"), and the Individual or Organization
+("Licensee") accessing and otherwise using Python 1.6.1 software in
+source or binary form and its associated documentation.
+
+2. Subject to the terms and conditions of this License Agreement, CNRI
+hereby grants Licensee a nonexclusive, royalty-free, world-wide
+license to reproduce, analyze, test, perform and/or display publicly,
+prepare derivative works, distribute, and otherwise use Python 1.6.1
+alone or in any derivative version, provided, however, that CNRI's
+License Agreement and CNRI's notice of copyright, i.e., "Copyright (c)
+1995-2001 Corporation for National Research Initiatives; All Rights
+Reserved" are retained in Python 1.6.1 alone or in any derivative
+version prepared by Licensee.  Alternately, in lieu of CNRI's License
+Agreement, Licensee may substitute the following text (omitting the
+quotes): "Python 1.6.1 is made available subject to the terms and
+conditions in CNRI's License Agreement.  This Agreement together with
+Python 1.6.1 may be located on the Internet using the following
+unique, persistent identifier (known as a handle): 1895.22/1013.  This
+Agreement may also be obtained from a proxy server on the Internet
+using the following URL: http://hdl.handle.net/1895.22/1013".
+
+3. In the event Licensee prepares a derivative work that is based on
+or incorporates Python 1.6.1 or any part thereof, and wants to make
+the derivative work available to others as provided herein, then
+Licensee hereby agrees to include in any such work a brief summary of
+the changes made to Python 1.6.1.
+
+4. CNRI is making Python 1.6.1 available to Licensee on an "AS IS"
+basis.  CNRI MAKES NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR
+IMPLIED.  BY WAY OF EXAMPLE, BUT NOT LIMITATION, CNRI MAKES NO AND
+DISCLAIMS ANY REPRESENTATION OR WARRANTY OF MERCHANTABILITY OR FITNESS
+FOR ANY PARTICULAR PURPOSE OR THAT THE USE OF PYTHON 1.6.1 WILL NOT
+INFRINGE ANY THIRD PARTY RIGHTS.
+
+5. CNRI SHALL NOT BE LIABLE TO LICENSEE OR ANY OTHER USERS OF PYTHON
+1.6.1 FOR ANY INCIDENTAL, SPECIAL, OR CONSEQUENTIAL DAMAGES OR LOSS AS
+A RESULT OF MODIFYING, DISTRIBUTING, OR OTHERWISE USING PYTHON 1.6.1,
+OR ANY DERIVATIVE THEREOF, EVEN IF ADVISED OF THE POSSIBILITY THEREOF.
+
+6. This License Agreement will automatically terminate upon a material
+breach of its terms and conditions.
+
+7. This License Agreement shall be governed by the federal
+intellectual property law of the United States, including without
+limitation the federal copyright law, and, to the extent such
+U.S. federal law does not apply, by the law of the Commonwealth of
+Virginia, excluding Virginia's conflict of law provisions.
+Notwithstanding the foregoing, with regard to derivative works based
+on Python 1.6.1 that incorporate non-separable material that was
+previously distributed under the GNU General Public License (GPL), the
+law of the Commonwealth of Virginia shall govern this License
+Agreement only as to issues arising under or with respect to
+Paragraphs 4, 5, and 7 of this License Agreement.  Nothing in this
+License Agreement shall be deemed to create any relationship of
+agency, partnership, or joint venture between CNRI and Licensee.  This
+License Agreement does not grant permission to use CNRI trademarks or
+trade name in a trademark sense to endorse or promote products or
+services of Licensee, or any third party.
+
+8. By clicking on the "ACCEPT" button where indicated, or by copying,
+installing or otherwise using Python 1.6.1, Licensee agrees to be
+bound by the terms and conditions of this License Agreement.
+
+        ACCEPT
+
+
+CWI LICENSE AGREEMENT FOR PYTHON 0.9.0 THROUGH 1.2
+--------------------------------------------------
+
+Copyright (c) 1991 - 1995, Stichting Mathematisch Centrum Amsterdam,
+The Netherlands.  All rights reserved.
+
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
+provided that the above copyright notice appear in all copies and that
+both that copyright notice and this permission notice appear in
+supporting documentation, and that the name of Stichting Mathematisch
+Centrum or CWI not be used in advertising or publicity pertaining to
+distribution of the software without specific, written prior
+permission.
+
+STICHTING MATHEMATISCH CENTRUM DISCLAIMS ALL WARRANTIES WITH REGARD TO
+THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+FITNESS, IN NO EVENT SHALL STICHTING MATHEMATISCH CENTRUM BE LIABLE
+FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
+OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+```
+
 ### aria-hidden 1.2.6 — MIT
 
 ```
@@ -3155,6 +3421,59 @@ SOFTWARE.
 The MIT License (MIT)
 
 Copyright (c) 2017 Joshua Wise
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### bidi-js 1.1.0 — MIT
+
+```
+Copyright (c) 2021 Jason Johnston
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+### builder-util-runtime 9.7.0 — MIT
+
+```
+The MIT License (MIT)
+
+Copyright (c) 2015 Loopline Systems
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -3382,30 +3701,6 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
-### core-util-is 1.0.3 — MIT
-
-```
-Copyright Node.js contributors. All rights reserved.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to
-deal in the Software without restriction, including without limitation the
-rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-sell copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-IN THE SOFTWARE.
 ```
 
 ### csstype 3.2.3 — MIT
@@ -3722,7 +4017,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### drizzle-orm 0.45.2 — Apache-2.0
+### drizzle-orm 0.45.4 — Apache-2.0
 
 This package declares `Apache-2.0` in its manifest but does not ship a licence file. Upstream: https://github.com/drizzle-team/drizzle-orm. The standard text of that licence is reproduced below.
 
@@ -3919,7 +4214,7 @@ Apache License
    limitations under the License.
 ```
 
-### earcut 3.2.3 — ISC
+### earcut 3.2.4 — ISC
 
 ```
 ISC License
@@ -3945,6 +4240,32 @@ THIS SOFTWARE.
 The MIT License (MIT)
 
 Copyright (c) 2016 Alexey Prokhorov
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### electron-updater 6.8.9 — MIT
+
+```
+The MIT License (MIT)
+
+Copyright (c) 2015 Loopline Systems
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -4017,6 +4338,26 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+### fs-extra 10.1.0 — MIT
+
+```
+(The MIT License)
+
+Copyright (c) 2011-2017 JP Richardson
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files
+(the 'Software'), to deal in the Software without restriction, including without limitation the rights to use, copy, modify,
+ merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS
+OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
 ### get-nonce 1.0.1 — MIT
 
 ```
@@ -4067,6 +4408,26 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
+### graceful-fs 4.2.11 — ISC
+
+```
+The ISC License
+
+Copyright (c) 2011-2022 Isaac Z. Schlueter, Ben Noordhuis, and Contributors
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
+IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+```
+
 ### html-parse-stringify 4.0.1 — MIT
 
 ```
@@ -4094,38 +4455,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### i18next 26.4.2 — MIT
+### i18next 26.4.3 — MIT
 
 ```
 The MIT License (MIT)
 
 Copyright (c) 2011-present i18next
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-### if-async 3.7.4 — MIT
-
-```
-The MIT License (MIT)
-
-Copyright (c) 2014 Yaniv Kessler
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -4172,26 +4507,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### inherits 2.0.4 — ISC
-
-```
-The ISC License
-
-Copyright (c) Isaac Z. Schlueter
-
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted, provided that the above
-copyright notice and this permission notice appear in all copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
-REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
-FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
-INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
-LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
-OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
-PERFORMANCE OF THIS SOFTWARE.
-```
-
 ### ini 2.0.0 — ISC
 
 ```
@@ -4230,14 +4545,12 @@ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ```
 
-### isarray 0.0.1 — MIT
-
-This package declares `MIT` in its manifest but does not ship a licence file. Upstream: git://github.com/juliangruber/isarray. The standard text of that licence is reproduced below.
+### js-yaml 4.3.2 — MIT
 
 ```
-MIT License
+(The MIT License)
 
-Copyright (c) Julian Gruber
+Copyright (C) 2011-2015 by Vitaly Puzrin
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -4246,16 +4559,16 @@ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 ```
 
 ### json-stringify-pretty-compact 4.0.0 — MIT
@@ -4284,6 +4597,26 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
+### jsonfile 6.2.1 — MIT
+
+```
+(The MIT License)
+
+Copyright (c) 2012-2015, JP Richardson <jprichardson@gmail.com>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files
+(the 'Software'), to deal in the Software without restriction, including without limitation the rights to use, copy, modify,
+ merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS
+OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
 ### kdbush 4.1.0 — ISC
 
 ```
@@ -4304,7 +4637,139 @@ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ```
 
-### lucide-react 1.39.0 — ISC
+### lazy-val 1.0.5 — MIT
+
+This package declares `MIT` in its manifest but does not ship a licence file. Upstream: develar/lazy-val. The standard text of that licence is reproduced below.
+
+```
+MIT License
+
+Copyright (c) Vladimir Krivosheev
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### lodash.escaperegexp 4.1.2 — MIT
+
+```
+Copyright jQuery Foundation and other contributors <https://jquery.org/>
+
+Based on Underscore.js, copyright Jeremy Ashkenas,
+DocumentCloud and Investigative Reporters & Editors <http://underscorejs.org/>
+
+This software consists of voluntary contributions made by many
+individuals. For exact contribution history, see the revision history
+available at https://github.com/lodash/lodash
+
+The following license applies to all parts of this software except as
+documented below:
+
+====
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+====
+
+Copyright and related rights for sample code are waived via CC0. Sample
+code is defined as all source code displayed within the prose of the
+documentation.
+
+CC0: http://creativecommons.org/publicdomain/zero/1.0/
+
+====
+
+Files located in the node_modules and vendor directories are externally
+maintained libraries used by this software which have their own
+licenses; we recommend you read them, as their terms may differ from the
+terms above.
+```
+
+### lodash.isequal 4.5.0 — MIT
+
+```
+Copyright JS Foundation and other contributors <https://js.foundation/>
+
+Based on Underscore.js, copyright Jeremy Ashkenas,
+DocumentCloud and Investigative Reporters & Editors <http://underscorejs.org/>
+
+This software consists of voluntary contributions made by many
+individuals. For exact contribution history, see the revision history
+available at https://github.com/lodash/lodash
+
+The following license applies to all parts of this software except as
+documented below:
+
+====
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+====
+
+Copyright and related rights for sample code are waived via CC0. Sample
+code is defined as all source code displayed within the prose of the
+documentation.
+
+CC0: http://creativecommons.org/publicdomain/zero/1.0/
+
+====
+
+Files located in the node_modules and vendor directories are externally
+maintained libraries used by this software which have their own
+licenses; we recommend you read them, as their terms may differ from the
+terms above.
+```
+
+### lucide-react 1.55.0 — ISC
 
 ```
 ISC License
@@ -4352,7 +4817,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### maplibre-gl 6.6.0 — BSD-3-Clause
+### maplibre-gl 6.13.0 — BSD-3-Clause
 
 ```
 Copyright (c) 2023, MapLibre contributors
@@ -4668,6 +5133,34 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
+### qrcode-generator 2.0.4 — MIT
+
+This package declares `MIT` in its manifest but does not ship a licence file. Upstream: https://github.com/kazuhikoarase/qrcode-generator. The standard text of that licence is reproduced below.
+
+```
+MIT License
+
+Copyright (c) Kazuhiko Arase
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ### quickselect 3.0.0 — ISC
 
 ```
@@ -4688,7 +5181,7 @@ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ```
 
-### radix-ui 1.6.7 — MIT
+### radix-ui 1.7.0 — MIT
 
 ```
 MIT License
@@ -4714,7 +5207,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### react 19.2.8 — MIT
+### react 19.3.0 — MIT
 
 ```
 MIT License
@@ -4740,7 +5233,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### react-dom 19.2.8 — MIT
+### react-dom 19.3.0 — MIT
 
 ```
 MIT License
@@ -4766,7 +5259,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### react-i18next 17.0.14 — MIT
+### react-i18next 17.0.16 — MIT
 
 ```
 The MIT License (MIT)
@@ -4924,29 +5417,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### readable-stream 1.0.34 — MIT
-
-```
-Copyright Joyent, Inc. and other Node contributors. All rights reserved.
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to
-deal in the Software without restriction, including without limitation the
-rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-sell copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-IN THE SOFTWARE.
-```
-
 ### recharts 3.10.1 — MIT
 
 ```
@@ -5025,12 +5495,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### regedit 5.1.4 — MIT
+### require-from-string 2.0.2 — MIT
 
 ```
 The MIT License (MIT)
 
-Copyright (c) 2014 ironSource
+Copyright (c) Vsevolod Strukchinsky <floatdrop@gmail.com> (github.com/floatdrop)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -5039,16 +5509,16 @@ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 ```
 
 ### reselect 5.2.0 — MIT
@@ -5103,7 +5573,67 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### scheduler 0.27.0 — MIT
+### sax 1.6.1 — BlueOak-1.0.0
+
+```
+# Blue Oak Model License
+
+Version 1.0.0
+
+## Purpose
+
+This license gives everyone as much permission to work with
+this software as possible, while protecting contributors
+from liability.
+
+## Acceptance
+
+In order to receive this license, you must agree to its
+rules.  The rules of this license are both obligations
+under that agreement and conditions to your license.
+You must not do anything with this software that triggers
+a rule that you cannot or will not follow.
+
+## Copyright
+
+Each contributor licenses you to do everything with this
+software that would otherwise infringe that contributor's
+copyright in it.
+
+## Notices
+
+You must ensure that everyone who gets a copy of
+any part of this software from you, with or without
+changes, also gets the text of this license or a link to
+<https://blueoakcouncil.org/license/1.0.0>.
+
+## Excuse
+
+If anyone notifies you in writing that you have not
+complied with [Notices](#notices), you can keep your
+license by taking all practical steps to comply within 30
+days after the notice.  If you do not do so, your license
+ends immediately.
+
+## Patent
+
+Each contributor licenses you to do everything with this
+software that would otherwise infringe any patent claims
+they can license or become able to license.
+
+## Reliability
+
+No contributor can revoke this license.
+
+## No Liability
+
+***As far as the law allows, this software comes as is,
+without any warranty or condition, and no contributor
+will be liable to anyone for any damages related to this
+software or this license, under any kind of legal claim.***
+```
+
+### scheduler 0.28.0 — MIT
 
 ```
 MIT License
@@ -5127,6 +5657,26 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+```
+
+### semver 7.7.4 — ISC
+
+```
+The ISC License
+
+Copyright (c) Isaac Z. Schlueter and Contributors
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
+IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
 ### sonner 2.0.8 — MIT
@@ -5155,60 +5705,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### stream-slicer 0.0.6 — MIT
-
-This package declares `MIT` in its manifest but does not ship a licence file. Upstream: https://github.com/kessler/stream-slicer. The standard text of that licence is reproduced below.
-
-```
-MIT License
-
-Copyright (c) Yaniv Kessler
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-### string_decoder 0.10.31 — MIT
-
-```
-Copyright Joyent, Inc. and other Node contributors.
-
-Permission is hereby granted, free of charge, to any person obtaining a
-copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to permit
-persons to whom the Software is furnished to do so, subject to the
-following conditions:
-
-The above copyright notice and this permission notice shall be included
-in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
-NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
-### tailwind-merge 3.6.0 — MIT
+### tailwind-merge 3.7.0 — MIT
 
 ```
 MIT License
@@ -5234,56 +5731,38 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### through2 0.6.5 — MIT
-
-```
-Copyright 2013, Rod Vagg (the "Original Author")
-All rights reserved.
-
-MIT +no-false-attribs License
-
-Permission is hereby granted, free of charge, to any person
-obtaining a copy of this software and associated documentation
-files (the "Software"), to deal in the Software without
-restriction, including without limitation the rights to use,
-copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the
-Software is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-Distributions of all or part of the Software intended to be used
-by the recipients as they would use the unmodified Software,
-containing modifications that substantially alter, remove, or
-disable functionality of the Software, outside of the documented
-configuration mechanisms provided by the Software, shall be
-modified such that the Original Author's bug reporting email
-addresses and urls are either replaced with the contact information
-of the parties responsible for the changes, or removed entirely.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
-OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-OTHER DEALINGS IN THE SOFTWARE.
-
-
-Except where noted, this license applies to any and all software
-programs and associated documentation files created by the
-Original Author, when distributed with the Software.
-```
-
 ### tiny-invariant 1.3.3 — MIT
 
 ```
 MIT License
 
 Copyright (c) 2019 Alexander Reardon
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### tiny-typed-emitter 2.1.0 — MIT
+
+```
+MIT License
+
+Copyright (c) 2020 Zurab Benashvili (binier) <zura.bena@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -5401,7 +5880,7 @@ If the Work includes a "NOTICE" text file as part of its distribution, then any 
 END OF TERMS AND CONDITIONS
 ```
 
-### undici-types 8.3.0 — MIT
+### undici-types 8.9.0 — MIT
 
 ```
 MIT License
@@ -5425,6 +5904,31 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+```
+
+### universalify 2.0.1 — MIT
+
+```
+(The MIT License)
+
+Copyright (c) 2017, Ryan Zimmerman <opensrc@ryanzim.com>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the 'Software'), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ### use-callback-ref 1.3.3 — MIT
@@ -5551,7 +6055,7 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-### ws 8.21.3 — MIT
+### ws 8.22.0 — MIT
 
 ```
 Copyright (c) 2011 Einar Otto Stangvik <einaros@gmail.com>
@@ -5574,31 +6078,6 @@ FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
-### xtend 4.0.2 — MIT
-
-```
-The MIT License (MIT)
-Copyright (c) 2012-2014 Raynos.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
 ```
 
 ---
@@ -5662,7 +6141,7 @@ directly to this error before it was found. See the script's own comment for the
 evidence trail.
 
 Used by src/main/airports/runway-lookup.ts (landing analysis, PLAN.md M6; Phase 1 of
-flightdeck-backend's docs/plans/navdata-without-navigraph.md) to resolve a touchdown
+winglog-backend's docs/plans/navdata-without-navigraph.md) to resolve a touchdown
 position/heading to the nearest matching runway end, using each end's own real
 width/length for matching tolerance rather than a fixed stand-in, report distance from the
 real (displacement-adjusted) landing threshold, and derive an ICAO Annex 14 aiming-point

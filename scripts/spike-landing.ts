@@ -20,7 +20,14 @@
  * Usage: npm run spike:landing
  * (SIMCONNECT_HOST/SIMCONNECT_PORT env vars for a remote sim — see spike-simconnect.ts.)
  */
-import { open, Protocol, SimConnectConstants, SimConnectDataType, SimConnectPeriod, type RawBuffer } from 'node-simconnect'
+import {
+  open,
+  Protocol,
+  SimConnectConstants,
+  SimConnectDataType,
+  SimConnectPeriod,
+  type RawBuffer
+} from 'node-simconnect'
 
 const APP_NAME = 'WingLog landing spike'
 const DEFINITION_ID = 0
@@ -40,9 +47,24 @@ const asBool = (data: RawBuffer): boolean => data.readInt32() === 1
 // tick for a fair comparison.
 const SIM_VARS: SimVarSpec[] = [
   { name: 'SIM ON GROUND', unit: 'bool', dataType: SimConnectDataType.INT32, read: asBool },
-  { name: 'VERTICAL SPEED', unit: 'feet/minute', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
-  { name: 'PLANE PITCH DEGREES', unit: 'degrees', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
-  { name: 'PLANE BANK DEGREES', unit: 'degrees', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
+  {
+    name: 'VERTICAL SPEED',
+    unit: 'feet/minute',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
+  {
+    name: 'PLANE PITCH DEGREES',
+    unit: 'degrees',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
+  {
+    name: 'PLANE BANK DEGREES',
+    unit: 'degrees',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
   // Unverified — the whole point of this spike.
   {
     name: 'PLANE TOUCHDOWN NORMAL VELOCITY',
@@ -50,8 +72,18 @@ const SIM_VARS: SimVarSpec[] = [
     dataType: SimConnectDataType.FLOAT64,
     read: (d) => d.readFloat64()
   },
-  { name: 'PLANE TOUCHDOWN PITCH DEGREES', unit: 'degrees', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
-  { name: 'PLANE TOUCHDOWN BANK DEGREES', unit: 'degrees', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() }
+  {
+    name: 'PLANE TOUCHDOWN PITCH DEGREES',
+    unit: 'degrees',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
+  {
+    name: 'PLANE TOUCHDOWN BANK DEGREES',
+    unit: 'degrees',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  }
 ]
 
 function connectionOptions(): { remote: { host: string; port: number } } | undefined {
@@ -63,13 +95,20 @@ function connectionOptions(): { remote: { host: string; port: number } } | undef
 
 open(APP_NAME, Protocol.SunRise, connectionOptions())
   .then(({ recvOpen, handle }) => {
-    console.log(`Connected: ${recvOpen.applicationName} (SimConnect ${recvOpen.simConnectVersionMajor}.${recvOpen.simConnectVersionMinor})`)
+    console.log(
+      `Connected: ${recvOpen.applicationName} (SimConnect ${recvOpen.simConnectVersionMajor}.${recvOpen.simConnectVersionMinor})`
+    )
     console.log('Waiting for a landing... (SIM ON GROUND false -> true transition)')
 
     for (const [index, spec] of SIM_VARS.entries()) {
       handle.addToDataDefinition(DEFINITION_ID, spec.name, spec.unit, spec.dataType, 0, index)
     }
-    handle.requestDataOnSimObject(REQUEST_ID, DEFINITION_ID, SimConnectConstants.OBJECT_ID_USER, SimConnectPeriod.SECOND)
+    handle.requestDataOnSimObject(
+      REQUEST_ID,
+      DEFINITION_ID,
+      SimConnectConstants.OBJECT_ID_USER,
+      SimConnectPeriod.SECOND
+    )
 
     let wasOnGround = false
 
@@ -100,7 +139,9 @@ open(APP_NAME, Protocol.SunRise, connectionOptions())
     })
 
     handle.on('exception', (recvException) => {
-      console.error(`SimConnect exception: ${recvException.exceptionName} (index ${recvException.index}, sendId ${recvException.sendId})`)
+      console.error(
+        `SimConnect exception: ${recvException.exceptionName} (index ${recvException.index}, sendId ${recvException.sendId})`
+      )
       console.error('-> if this names one of the PLANE TOUCHDOWN vars, that answers question 1 on its own')
     })
 

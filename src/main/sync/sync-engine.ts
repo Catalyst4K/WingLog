@@ -1,5 +1,5 @@
 /**
- * Implements the pull-then-push protocol from flightdeck-backend/docs/plans/cloud-sync.md
+ * Implements the pull-then-push protocol from winglog-backend/docs/plans/cloud-sync.md
  * against the local DB, table by table, in FK dependency order (aircraft, then flight,
  * then landing/flightInvoice — both reference flight). Talks to the backend only through
  * the SyncClient interface, not sync-client.ts directly, so this is unit-testable against
@@ -15,16 +15,25 @@ import { appendFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import {
   getAircraftIdByUuid,
+  getAircraftUuidByRegistration,
   getAircraftUuidById,
+  linkReplacedAircraftByUuid,
   listAircraftForSync,
   upsertAircraftByUuid
 } from '../db/aircraft-repo'
 import type { WingLogDb } from '../db/client'
 import { listFlightInvoicesForSync, upsertFlightInvoiceByUuid } from '../db/flight-invoice-repo'
-import { getFlightIdByUuid, getFlightUuidById, listFlightsForSync, upsertFlightByUuid } from '../db/flight-repo'
+import {
+  getFlightIdByUuid,
+  getFlightUuidById,
+  listFlightsForSync,
+  upsertFlightByUuid
+} from '../db/flight-repo'
 import { listLandingsForSync, upsertLandingByUuid } from '../db/landing-repo'
-import { getLastSyncedAt, setLastSyncedAt } from '../db/settings-repo'
+import { getLastSyncedAt, getSetting, setLastSyncedAt, setSetting } from '../db/settings-repo'
 import { SYNC_TABLES, type SyncRow, type SyncTable } from '../backend/sync-client'
+import { aircraft, flight, flightInvoice, landing } from '../db/schema'
+import { validateSyncFields } from './sync-row-validation'
 
 export interface SyncClient {
   syncPull(email: string, token: string, table: SyncTable, since: string | null): Promise<SyncRow[]>
@@ -65,17 +74,25 @@ function conflictLogPath(dbPath: string): string {
 }
 
 function logSyncEvent(dbPath: string, event: Record<string, unknown>): void {
-  appendFileSync(conflictLogPath(dbPath), JSON.stringify({ loggedAt: new Date().toISOString(), ...event }) + '\n')
+  appendFileSync(
+    conflictLogPath(dbPath),
+    JSON.stringify({ loggedAt: new Date().toISOString(), ...event }) + '\n'
+  )
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-/** Cheap defensive parse (CLAUDE.md: "external data is data, never code, parse
- *  defensively") — this is server-relayed data this same app wrote, not a hostile third
- *  party, but it did cross a network boundary, so a malformed row degrades to "skipped"
- *  rather than throwing and aborting the whole table's sync. */
+/**
+ * Cheap defensive parse (CLAUDE.md: "external data is data, never code, parse
+ * defensively") — this is server-relayed data this same app wrote, not a hostile third
+ * party, but it did cross a network boundary, so a malformed row degrades to "skipped"
+ * rather than throwing and aborting the whole table's sync.
+ *
+ * @param json A pulled row's data.
+ * @returns The row, or null if it isn't a JSON object.
+ */
 function parseRowData(json: string): Record<string, unknown> | null {
   try {
     const parsed: unknown = JSON.parse(json)
@@ -85,9 +102,15 @@ function parseRowData(json: string): Record<string, unknown> | null {
   }
 }
 
-/** Shallow copy with the given keys removed — used instead of destructure-and-discard
- *  (`const { x: _x, ...rest } = obj`) so the deliberately-unused binding doesn't need a
- *  lint exemption. */
+/**
+ * Shallow copy with the given keys removed — used instead of destructure-and-discard
+ * (`const { x: _x, ...rest } = obj`) so the deliberately-unused binding doesn't need a
+ * lint exemption.
+ *
+ * @param obj The object.
+ * @param keys The keys to leave out.
+ * @returns The copy.
+ */
 function omit<T extends Record<string, unknown>>(obj: T, keys: string[]): Record<string, unknown> {
   const copy: Record<string, unknown> = { ...obj }
   for (const key of keys) delete copy[key]
@@ -102,12 +125,38 @@ type ApplyResult = { ok: true; applied: boolean } | { ok: false; error: string }
 
 // --- aircraft ---------------------------------------------------------------------------
 
-function serializeAircraft(row: ReturnType<typeof listAircraftForSync>[number]): SyncRow {
+/**
+ * An aircraft as a sync row. `replacedByAircraftId` is a local id, meaningless on another device, so
+ * it travels as the replacing aircraft's uuid like every other parent reference.
+ *
+ * @param db The database.
+ * @param row The aircraft row.
+ * @returns The row to push.
+ */
+function serializeAircraft(db: WingLogDb, row: ReturnType<typeof listAircraftForSync>[number]): SyncRow {
+  const replacedByAircraftUuid =
+    row.replacedByAircraftId == null ? null : (getAircraftUuidById(db, row.replacedByAircraftId) ?? null)
   return {
     uuid: row.uuid as string,
     updatedAt: row.updatedAt as string,
-    data: JSON.stringify(omit(row, ['id', 'uuid', 'updatedAt']))
+    data: JSON.stringify({
+      ...omit(row, ['id', 'uuid', 'updatedAt', 'replacedByAircraftId']),
+      replacedByAircraftUuid
+    })
   }
+}
+
+/**
+ * The local uuid of an aircraft that another device created under a different uuid but the same
+ * registration. Registrations are unique, so two devices that each add the same aircraft offline would
+ * otherwise never merge: the second one to arrive could not be applied.
+ *
+ * @param db The database.
+ * @param uuid The uuid on the incoming row, or on a flight's reference to it.
+ * @returns The local uuid it stands for, or the same uuid when it has no alias.
+ */
+function resolveAircraftUuid(db: WingLogDb, uuid: string): string {
+  return getSetting(db, `aircraftAlias:${uuid}`) ?? uuid
 }
 
 function applyAircraft(db: WingLogDb, row: SyncRow): ApplyResult {
@@ -115,10 +164,20 @@ function applyAircraft(db: WingLogDb, row: SyncRow): ApplyResult {
   if (!data || typeof data.registration !== 'string' || typeof data.icaoType !== 'string') {
     return { ok: false, error: 'malformed aircraft data' }
   }
+  const checked = validateSyncFields(aircraft, data, ['replacedByAircraftId'])
+  if (!checked.ok) return checked
+  let uuid = resolveAircraftUuid(db, row.uuid)
+  if (getAircraftIdByUuid(db, uuid) === undefined) {
+    const sameRegistration = getAircraftUuidByRegistration(db, data.registration)
+    if (sameRegistration !== undefined) {
+      setSetting(db, `aircraftAlias:${row.uuid}`, sameRegistration)
+      uuid = sameRegistration
+    }
+  }
   try {
     const applied = upsertAircraftByUuid(db, {
-      ...data,
-      uuid: row.uuid,
+      ...checked.fields,
+      uuid,
       updatedAt: row.updatedAt
     } as Parameters<typeof upsertAircraftByUuid>[1])
     return { ok: true, applied }
@@ -128,6 +187,22 @@ function applyAircraft(db: WingLogDb, row: SyncRow): ApplyResult {
      * case real testing can trigger. */
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
     /* v8 ignore stop */
+  }
+}
+
+/**
+ * Points each pulled aircraft at the one that replaced it. Done after the whole pull because the
+ * replacing aircraft may come later in the same batch; one that never arrives leaves the link empty.
+ *
+ * @param db The database.
+ * @param applied The aircraft rows that were applied this pull.
+ */
+function linkPulledReplacements(db: WingLogDb, applied: SyncRow[]): void {
+  for (const row of applied) {
+    const replacedBy = parseRowData(row.data)?.replacedByAircraftUuid
+    if (typeof replacedBy === 'string') {
+      linkReplacedAircraftByUuid(db, resolveAircraftUuid(db, row.uuid), resolveAircraftUuid(db, replacedBy))
+    }
   }
 }
 
@@ -148,16 +223,31 @@ function serializeFlight(db: WingLogDb, row: ReturnType<typeof listFlightsForSyn
   }
 }
 
+/**
+ * Applies one pulled flight row to the local database, by uuid. The aircraft it refers to must already
+ * exist.
+ *
+ * @param db The database.
+ * @param row The pulled row.
+ * @returns Whether it applied, or the reason it didn't.
+ */
 function applyFlight(db: WingLogDb, row: SyncRow): ApplyResult {
   const data = parseRowData(row.data)
-  if (!data || typeof data.aircraftUuid !== 'string' || typeof data.depIcao !== 'string' || typeof data.arrIcao !== 'string') {
+  if (
+    !data ||
+    typeof data.aircraftUuid !== 'string' ||
+    typeof data.depIcao !== 'string' ||
+    typeof data.arrIcao !== 'string'
+  ) {
     return { ok: false, error: 'malformed flight data' }
   }
-  const aircraftId = getAircraftIdByUuid(db, data.aircraftUuid)
+  const aircraftId = getAircraftIdByUuid(db, resolveAircraftUuid(db, data.aircraftUuid))
   if (aircraftId === undefined) return { ok: false, error: `unknown aircraft ${data.aircraftUuid}` }
+  const checked = validateSyncFields(flight, data, ['aircraftId'])
+  if (!checked.ok) return checked
   try {
     const applied = upsertFlightByUuid(db, {
-      ...omit(data, ['aircraftUuid']),
+      ...checked.fields,
       aircraftId,
       uuid: row.uuid,
       updatedAt: row.updatedAt
@@ -174,7 +264,10 @@ function applyFlight(db: WingLogDb, row: SyncRow): ApplyResult {
 
 // --- landing ----------------------------------------------------------------------------
 
-function serializeLanding(db: WingLogDb, row: ReturnType<typeof listLandingsForSync>[number]): SyncRow | null {
+function serializeLanding(
+  db: WingLogDb,
+  row: ReturnType<typeof listLandingsForSync>[number]
+): SyncRow | null {
   const flightUuid = getFlightUuidById(db, row.flightId)
   if (!flightUuid) return null // parent flight not yet pulled/created here — retried next sync
   return {
@@ -189,9 +282,11 @@ function applyLanding(db: WingLogDb, row: SyncRow): ApplyResult {
   if (!data || typeof data.flightUuid !== 'string') return { ok: false, error: 'malformed landing data' }
   const flightId = getFlightIdByUuid(db, data.flightUuid)
   if (flightId === undefined) return { ok: false, error: `unknown flight ${data.flightUuid}` }
+  const checked = validateSyncFields(landing, data, ['flightId'])
+  if (!checked.ok) return checked
   try {
     const applied = upsertLandingByUuid(db, {
-      ...omit(data, ['flightUuid']),
+      ...checked.fields,
       flightId,
       uuid: row.uuid,
       updatedAt: row.updatedAt
@@ -220,6 +315,14 @@ function serializeFlightInvoice(
   }
 }
 
+/**
+ * Applies one pulled receipt row to the local database, by uuid. The flight it refers to must already
+ * exist.
+ *
+ * @param db The database.
+ * @param row The pulled row.
+ * @returns Whether it applied, or the reason it didn't.
+ */
 function applyFlightInvoice(db: WingLogDb, row: SyncRow): ApplyResult {
   const data = parseRowData(row.data)
   if (!data || typeof data.flightUuid !== 'string' || typeof data.receiptId !== 'string') {
@@ -227,9 +330,11 @@ function applyFlightInvoice(db: WingLogDb, row: SyncRow): ApplyResult {
   }
   const flightId = getFlightIdByUuid(db, data.flightUuid)
   if (flightId === undefined) return { ok: false, error: `unknown flight ${data.flightUuid}` }
+  const checked = validateSyncFields(flightInvoice, data, ['flightId'])
+  if (!checked.ok) return checked
   try {
     const applied = upsertFlightInvoiceByUuid(db, {
-      ...omit(data, ['flightUuid']),
+      ...checked.fields,
       flightId,
       uuid: row.uuid,
       updatedAt: row.updatedAt
@@ -248,7 +353,7 @@ function applyFlightInvoice(db: WingLogDb, row: SyncRow): ApplyResult {
 function listAndSerializeForPush(db: WingLogDb, table: SyncTable, since: string | null): SyncRow[] {
   switch (table) {
     case 'aircraft':
-      return listAircraftForSync(db, since).map(serializeAircraft)
+      return listAircraftForSync(db, since).map((row) => serializeAircraft(db, row))
     case 'flight':
       return listFlightsForSync(db, since)
         .map((row) => serializeFlight(db, row))
@@ -277,12 +382,59 @@ function applyPulledRow(db: WingLogDb, table: SyncTable, row: SyncRow): ApplyRes
   }
 }
 
+/** The backend's push limits (winglog-backend `routes/sync.ts`): rows per request, one row's data, and
+ *  the request body. The body cap is kept under the backend's 25 MB to leave room for the envelope. */
+export const MAX_PUSH_ROWS = 500
+export const MAX_ROW_DATA_BYTES = 1_900_000
+export const MAX_PUSH_BATCH_BYTES = 20 * 1024 * 1024
+
+/**
+ * Splits rows into pushes the backend will accept. A row whose data alone is over the backend's limit
+ * would make it refuse the whole request, so it is set aside instead of sent.
+ *
+ * @param rows The rows to push.
+ * @returns The batches, in order, and the uuids of rows too large to push.
+ */
+export function splitPushBatches(rows: SyncRow[]): { batches: SyncRow[][]; oversize: string[] } {
+  const batches: SyncRow[][] = []
+  const oversize: string[] = []
+  let current: SyncRow[] = []
+  let currentBytes = 0
+  for (const row of rows) {
+    const bytes = Buffer.byteLength(row.data) + Buffer.byteLength(row.uuid) + Buffer.byteLength(row.updatedAt)
+    if (Buffer.byteLength(row.data) > MAX_ROW_DATA_BYTES) {
+      oversize.push(row.uuid)
+      continue
+    }
+    if (current.length >= MAX_PUSH_ROWS || currentBytes + bytes > MAX_PUSH_BATCH_BYTES) {
+      batches.push(current)
+      current = []
+      currentBytes = 0
+    }
+    current.push(row)
+    currentBytes += bytes
+  }
+  if (current.length > 0) batches.push(current)
+  return { batches, oversize }
+}
+
 /**
  * Runs one full pull-then-push cycle across all four synced tables, in dependency order.
  * `dbPath` is only used to place sync-conflicts.log next to the database file, per the
  * plan's "next to the DB, not a new table" — never opened directly here.
+ *
+ * @param db The database.
+ * @param client The backend sync client.
+ * @param session The signed-in session.
+ * @param dbPath The database file's path.
+ * @returns What was pulled, pushed and skipped.
  */
-export async function runSync(db: WingLogDb, client: SyncClient, session: SyncSession, dbPath: string): Promise<SyncResult> {
+export async function runSync(
+  db: WingLogDb,
+  client: SyncClient,
+  session: SyncSession,
+  dbPath: string
+): Promise<SyncResult> {
   // Captured once, before any table is touched — a local write that lands in the exact
   // window between this and a table's own read is simply picked up on the *next* sync
   // rather than this one; not lost, just delayed one cycle. Not worth engineering around
@@ -295,6 +447,7 @@ export async function runSync(db: WingLogDb, client: SyncClient, session: SyncSe
     const since = getLastSyncedAt(db, table)
 
     const pulledRows = await client.syncPull(session.email, session.token, table, since)
+    const appliedRows: SyncRow[] = []
     for (const row of pulledRows) {
       const outcome = applyPulledRow(db, table, row)
       if (!outcome.ok) {
@@ -302,6 +455,7 @@ export async function runSync(db: WingLogDb, client: SyncClient, session: SyncSe
         logSyncEvent(dbPath, { direction: 'pull', table, uuid: row.uuid, reason: outcome.error })
       } else if (outcome.applied) {
         result.pulled++
+        appliedRows.push(row)
       } else {
         // This device's own not-yet-pushed local edit to the same uuid was already the
         // same age or newer — the incoming row lost the last-write-wins comparison, and
@@ -316,15 +470,26 @@ export async function runSync(db: WingLogDb, client: SyncClient, session: SyncSe
       }
     }
 
-    const toPush = listAndSerializeForPush(db, table, since)
-    if (toPush.length > 0) {
-      const { upserted, rejected } = await client.syncPush(session.email, session.token, table, toPush)
-      result.pushed = upserted.length
+    if (table === 'aircraft') linkPulledReplacements(db, appliedRows)
+
+    const { batches, oversize } = splitPushBatches(listAndSerializeForPush(db, table, since))
+    for (const uuid of oversize) {
+      result.skipped.push(uuid)
+      logSyncEvent(dbPath, { direction: 'push', table, uuid, reason: 'row data too large for the backend' })
+    }
+    for (const batch of batches) {
+      const { upserted, rejected } = await client.syncPush(session.email, session.token, table, batch)
+      result.pushed += upserted.length
       // Appended, not assigned — a pull-side rejection above must not be clobbered by an
       // empty push-side rejected list.
       result.rejected.push(...rejected)
       for (const uuid of rejected) {
-        logSyncEvent(dbPath, { direction: 'push', table, uuid, reason: 'server already had a newer updatedAt (last-write-wins)' })
+        logSyncEvent(dbPath, {
+          direction: 'push',
+          table,
+          uuid,
+          reason: 'server already had a newer updatedAt (last-write-wins)'
+        })
       }
     }
 

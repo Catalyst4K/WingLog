@@ -1,5 +1,5 @@
 /**
- * Throwaway spike for flightdeck-backend docs/plans/landing-airfield-from-sim.md, Step 1.
+ * Throwaway spike for winglog-backend docs/plans/landing-airfield-from-sim.md, Step 1.
  * Confirms against a live MSFS 2024 whether the sim's own airport list (SimConnect
  * RequestFacilitiesList / SubscribeToFacilities on AIRPORT) includes add-on/closed fields
  * that the vendored OurAirports slice lacks (Kai Tak = VHHX), and how long it takes.
@@ -12,7 +12,7 @@
  * Usage (MSFS running, aircraft loaded near Kai Tak or anywhere):
  *   npm run spike:airport-list
  *   SPIKE_ICAO=VHHX npm run spike:airport-list
- * Log answers in flightdeck-backend docs/simconnect-notes.md.
+ * Log answers in winglog-backend docs/simconnect-notes.md.
  */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -25,7 +25,12 @@ import {
   FacilityListType,
   FacilityDataType
 } from 'node-simconnect'
-import { NavdataDefId, addRunwayFields, parseAirportHeader, parseRunway } from '../src/main/sim/facility-fields'
+import {
+  NavdataDefId,
+  addRunwayFields,
+  parseAirportHeader,
+  parseRunway
+} from '../src/main/sim/facility-fields'
 
 const RADIUS_NM = Number(process.env['SPIKE_RADIUS_NM'] ?? 15)
 const RUNWAY_ICAO = process.env['SPIKE_ICAO']
@@ -65,7 +70,9 @@ open('WingLog airport-list spike', Protocol.SunRise)
 
     handle.on('airportList', (list) => {
       listCount++
-      airports.push(...list.airports.map((a) => ({ icao: a.icao, region: a.region, lat: a.latitude, lon: a.longitude })))
+      airports.push(
+        ...list.airports.map((a) => ({ icao: a.icao, region: a.region, lat: a.latitude, lon: a.longitude }))
+      )
       if (list.entryNumber + 1 >= list.outOf) report()
     })
 
@@ -73,7 +80,9 @@ open('WingLog airport-list spike', Protocol.SunRise)
     function report(): void {
       if (reported) return
       reported = true
-      console.log(`Total airports received: ${airports.length} in ${Date.now() - started}ms (${listCount} packets)`)
+      console.log(
+        `Total airports received: ${airports.length} in ${Date.now() - started}ms (${listCount} packets)`
+      )
       if (lat === null || lon === null) {
         console.log('No aircraft position yet — waiting for the flight to load...')
         reported = false
@@ -128,7 +137,9 @@ open('WingLog airport-list spike', Protocol.SunRise)
       }, 20_000)
     }
 
-    handle.on('exception', (e) => console.error(`SimConnect exception: ${e.exceptionName} (index ${e.index})`))
+    handle.on('exception', (e) =>
+      console.error(`SimConnect exception: ${e.exceptionName} (index ${e.index})`)
+    )
     handle.on('quit', () => process.exit(0))
   })
   .catch((error: unknown) => {

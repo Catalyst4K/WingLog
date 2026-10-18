@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { parseAirframesForType, type RawAirframesResponse } from './simbrief-airframes'
+import { resetLazyValues } from '@shared/lazy'
+import { fetchAirframesForType, parseAirframesForType, type RawAirframesResponse } from './simbrief-airframes'
 
 // Shaped like a real trimmed slice of inputs.airframes.json — the A320 fixture mirrors
-// real rows captured 2026-09-07 (docs/plans/simbrief-airframe-picker.md): the stock
+// real rows captured (docs/plans/simbrief-airframe-picker.md): the stock
 // default, two MSFS community entries with the usual "Developer (Platform) - variant"
 // comment shape, an X-Plane entry that must be filtered out, and a niche type with no
 // real payware addon (no dev/platform structure at all) to exercise the fallback.
@@ -26,7 +27,7 @@ const FIXTURE: RawAirframesResponse = {
         airframe_engines: 'CFM56-5B4/P',
         airframe_registration: 'G-FENX'
       },
-      // Real collision case (docs/simbrief-notes.md, 2026-09-08): same developer and
+      // Real collision case: same developer and
       // engines as the entry above, so today's label formula alone can't tell them apart —
       // only the "(SL)" in the comment does.
       {
@@ -158,7 +159,7 @@ describe('parseAirframesForType', () => {
     const noSl = options.find((o) => o.comments === 'Fenix Simulations (MSFS) - A320 CFM')
     const withSl = options.find((o) => o.comments === 'Fenix Simulations (MSFS) - A320 CFM (SL)')
     // Fenix + A320-family classic: the no-tag entry gets Wing Fence made explicit
-    // (Callum's own domain knowledge, 2026-09-08) rather than staying blank.
+    // (Callum's own domain knowledge) rather than staying blank.
     expect(noSl?.variant).toBe('CFM (WF)')
     expect(withSl?.variant).toBe('CFM (SL)')
   })
@@ -258,11 +259,10 @@ describe('parseAirframesForType', () => {
 })
 
 describe('fetchAirframesForType', () => {
-  // fetchAirframesData caches its in-flight/resolved promise at module scope for the
-  // process lifetime (deliberately — see the file's own comment) — reset modules between
-  // tests so each one observes a fresh, uncached fetch.
+  // The response is cached for the process (a lazy value): cleared between tests so each one
+  // sees a fresh fetch.
   beforeEach(() => {
-    vi.resetModules()
+    resetLazyValues()
   })
 
   afterEach(() => {
@@ -277,7 +277,6 @@ describe('fetchAirframesForType', () => {
         json: () => Promise.resolve(FIXTURE)
       })
     )
-    const { fetchAirframesForType } = await import('./simbrief-airframes')
 
     const options = await fetchAirframesForType('A320')
 
@@ -285,25 +284,19 @@ describe('fetchAirframesForType', () => {
   })
 
   it('returns an empty list for a type the response does not contain', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(FIXTURE) })
-    )
-    const { fetchAirframesForType } = await import('./simbrief-airframes')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(FIXTURE) }))
 
     expect(await fetchAirframesForType('B788')).toEqual([])
   })
 
   it('returns an empty list when the response is not ok', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }))
-    const { fetchAirframesForType } = await import('./simbrief-airframes')
 
     expect(await fetchAirframesForType('A320')).toEqual([])
   })
 
   it('returns an empty list when the fetch itself throws', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')))
-    const { fetchAirframesForType } = await import('./simbrief-airframes')
 
     expect(await fetchAirframesForType('A320')).toEqual([])
   })
@@ -311,7 +304,6 @@ describe('fetchAirframesForType', () => {
   it('only fetches once for repeated calls within the same process (cached)', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(FIXTURE) })
     vi.stubGlobal('fetch', fetchMock)
-    const { fetchAirframesForType } = await import('./simbrief-airframes')
 
     await fetchAirframesForType('A320')
     await fetchAirframesForType('B738')

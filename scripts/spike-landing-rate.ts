@@ -1,5 +1,5 @@
 /**
- * Throwaway spike for flightdeck-backend docs/plans/landing-scoring-v2.md's "sampling
+ * Throwaway spike for winglog-backend docs/plans/landing-scoring-v2.md's "sampling
  * resolution near touchdown" idea, now scoped into v1.2 (docs/plans/v1-2.md, Part 3).
  *
  * Question this answers: can a SECOND, high-rate SimConnect request run alongside the
@@ -21,11 +21,11 @@
  *
  * Usage (MSFS running, fly a normal approach and landing):
  *   npm run spike:landing-rate
- * Log the answers in flightdeck-backend's docs/simconnect-notes.md before any production
+ * Log the answers in winglog-backend's docs/simconnect-notes.md before any production
  * code is written against this.
  *
- * v2, 2026-09-20, after the first live run found two bugs in this script (not in
- * SimConnect) — see docs/simconnect-notes.md's 2026-09-20 entry: the peak tracker now
+ * v2, after the first live run found two bugs in this script (not in
+ * SimConnect) — see docs/simconnect-notes.md's entry: the peak tracker now
  * resets on every fresh arming, re-arming now requires a genuine liftoff since the last
  * capture rather than just "AGL reads below the trigger" (which was also true while
  * parked, causing an infinite start/stop loop), and the peak is split into before- and
@@ -65,7 +65,7 @@ const HIGH_RATE_TRIGGER_AGL_M = 500
 const HIGH_RATE_STOP_AFTER_TOUCHDOWN_MS = 5_000
 // The real window(s) worth comparing against today's single 1 Hz "previous tick" value —
 // short enough that an early, unrelated steep-descent segment minutes before touchdown
-// can't be included, per the 2026-09-20 real-flight finding above.
+// can't be included, per the real-flight finding above.
 const NEAR_CONTACT_WINDOWS_MS = [1_000, 2_000, 5_000]
 // How far back the rolling buffer keeps ticks — must cover the largest window above.
 const RING_BUFFER_MS = Math.max(...NEAR_CONTACT_WINDOWS_MS)
@@ -75,18 +75,46 @@ const msToFpm = (ms: number): number => (ms / M_PER_FT) * 60
 
 open('WingLog landing-rate spike', Protocol.SunRise)
   .then(({ recvOpen, handle }) => {
-    console.log(`Connected: ${recvOpen.applicationName} (SimConnect ${recvOpen.simConnectVersionMajor}.${recvOpen.simConnectVersionMinor})`)
+    console.log(
+      `Connected: ${recvOpen.applicationName} (SimConnect ${recvOpen.simConnectVersionMajor}.${recvOpen.simConnectVersionMinor})`
+    )
 
     // Baseline: exactly what SimConnectService.ts requests today.
-    handle.addToDataDefinition(BASELINE_DEF, 'PLANE ALT ABOVE GROUND', 'meters', SimConnectDataType.FLOAT64, 0, 0)
-    handle.addToDataDefinition(BASELINE_DEF, 'VERTICAL SPEED', 'meters per second', SimConnectDataType.FLOAT64, 0, 1)
+    handle.addToDataDefinition(
+      BASELINE_DEF,
+      'PLANE ALT ABOVE GROUND',
+      'meters',
+      SimConnectDataType.FLOAT64,
+      0,
+      0
+    )
+    handle.addToDataDefinition(
+      BASELINE_DEF,
+      'VERTICAL SPEED',
+      'meters per second',
+      SimConnectDataType.FLOAT64,
+      0,
+      1
+    )
     handle.addToDataDefinition(BASELINE_DEF, 'SIM ON GROUND', 'bool', SimConnectDataType.INT32, 0, 2)
     handle.addToDataDefinition(BASELINE_DEF, 'G FORCE', 'GForce', SimConnectDataType.FLOAT64, 0, 3)
-    handle.requestDataOnSimObject(BASELINE_REQ, BASELINE_DEF, SimConnectConstants.OBJECT_ID_USER, SimConnectPeriod.SECOND)
+    handle.requestDataOnSimObject(
+      BASELINE_REQ,
+      BASELINE_DEF,
+      SimConnectConstants.OBJECT_ID_USER,
+      SimConnectPeriod.SECOND
+    )
 
     // High-rate: a separate, minimal definition — only what buildLandingRecord actually
     // needs for the two touchdown-severity inputs this spike is investigating.
-    handle.addToDataDefinition(HIGH_RATE_DEF, 'VERTICAL SPEED', 'meters per second', SimConnectDataType.FLOAT64, 0, 0)
+    handle.addToDataDefinition(
+      HIGH_RATE_DEF,
+      'VERTICAL SPEED',
+      'meters per second',
+      SimConnectDataType.FLOAT64,
+      0,
+      0
+    )
     handle.addToDataDefinition(HIGH_RATE_DEF, 'SIM ON GROUND', 'bool', SimConnectDataType.INT32, 0, 1)
     handle.addToDataDefinition(HIGH_RATE_DEF, 'G FORCE', 'GForce', SimConnectDataType.FLOAT64, 0, 2)
 
@@ -99,7 +127,7 @@ open('WingLog landing-rate spike', Protocol.SunRise)
     // Split so a rollout bounce/gear-rebound after contact (real physics, not noise, but a
     // different question from "how hard did it actually touch down") can't masquerade as
     // the pre-contact severity number scoring actually cares about. Whole-window figures —
-    // kept as context only; per the 2026-09-20 finding, NOT the number that answers "how
+    // kept as context only; per the finding, NOT the number that answers "how
     // hard did it touch down" on its own.
     let peakFpmPreTouchdown = 0
     let peakFpmPostTouchdown = 0
@@ -118,7 +146,7 @@ open('WingLog landing-rate spike', Protocol.SunRise)
     let previousBaselineFpm: number | null = null
     let baselineFpmAtDetection: number | null = null
     let wasOnGroundBaseline = false
-    // Bug found on the second live run (2026-09-20, docs/simconnect-notes.md): the script
+    // Bug found on the second live run (docs/simconnect-notes.md): the script
     // was (re)started while already on the ground taxiing, and wasOnGroundBaseline/
     // previousBaselineFpm both default as if it always starts mid-air. That made the very
     // first-ever baseline tick (onGround already true) look like a fresh touchdown against
@@ -126,7 +154,7 @@ open('WingLog landing-rate spike', Protocol.SunRise)
     // stream with an empty ring buffer, hence the null/0 near-contact peaks. Seed state from
     // the first tick instead of evaluating transitions against it.
     let hasBaselineTick = false
-    // Bug found on the first live run (2026-09-20, docs/simconnect-notes.md): without this
+    // Bug found on the first live run (docs/simconnect-notes.md): without this
     // latch, sitting on the ground afterwards (AGL reads a low-but-nonzero value) kept
     // re-satisfying the arm condition below every baseline tick, restarting the high-rate
     // stream and re-triggering the "5s since touchdown" stop on every single tick forever.
@@ -154,7 +182,12 @@ open('WingLog landing-rate spike', Protocol.SunRise)
       wasOnGroundHighRate = false
       preciseTouchdownAt = null
       console.log('Starting high-rate stream (SIM_FRAME)...')
-      handle.requestDataOnSimObject(HIGH_RATE_REQ, HIGH_RATE_DEF, SimConnectConstants.OBJECT_ID_USER, SimConnectPeriod.SIM_FRAME)
+      handle.requestDataOnSimObject(
+        HIGH_RATE_REQ,
+        HIGH_RATE_DEF,
+        SimConnectConstants.OBJECT_ID_USER,
+        SimConnectPeriod.SIM_FRAME
+      )
     }
 
     function stopHighRate(): void {
@@ -166,7 +199,12 @@ open('WingLog landing-rate spike', Protocol.SunRise)
         `Stopping high-rate stream. ${highRateTickCount} ticks in ${elapsedS.toFixed(1)}s = ${achievedHz.toFixed(1)} Hz achieved.`
       )
       log('high-rate-summary', { ticks: highRateTickCount, elapsedS, achievedHz })
-      handle.requestDataOnSimObject(HIGH_RATE_REQ, HIGH_RATE_DEF, SimConnectConstants.OBJECT_ID_USER, SimConnectPeriod.NEVER)
+      handle.requestDataOnSimObject(
+        HIGH_RATE_REQ,
+        HIGH_RATE_DEF,
+        SimConnectConstants.OBJECT_ID_USER,
+        SimConnectPeriod.NEVER
+      )
     }
 
     handle.on('simObjectData', (recv) => {
@@ -185,13 +223,19 @@ open('WingLog landing-rate spike', Protocol.SunRise)
           return
         }
 
-        // Bug found on the third live run (2026-09-20, docs/simconnect-notes.md): AGL alone
+        // Bug found on the third live run (docs/simconnect-notes.md): AGL alone
         // is also true during the takeoff roll/initial climb, not just on approach — arming
         // while still genuinely on the ground (still rolling) reset wasOnGroundHighRate to
         // false against a same-tick onGround still true, tripping an immediate bogus
         // "precise touchdown" with an empty ring buffer, same failure shape as the cold-start
         // bug above. Require actually airborne, not just the altitude band, before arming.
-        if (!highRateActive && awaitingLanding && !onGround && altAglM < HIGH_RATE_TRIGGER_AGL_M && altAglM > 0)
+        if (
+          !highRateActive &&
+          awaitingLanding &&
+          !onGround &&
+          altAglM < HIGH_RATE_TRIGGER_AGL_M &&
+          altAglM > 0
+        )
           startHighRate()
 
         if (!wasOnGroundBaseline && onGround) {
@@ -239,7 +283,9 @@ open('WingLog landing-rate spike', Protocol.SunRise)
               return [`last${windowMs}ms`, peak]
             })
           )
-          console.log(`Precise touchdown. Peak fpm in the last N ms before contact: ${JSON.stringify(nearContact)}`)
+          console.log(
+            `Precise touchdown. Peak fpm in the last N ms before contact: ${JSON.stringify(nearContact)}`
+          )
           log('near-contact-peaks', nearContact)
         }
         wasOnGroundHighRate = onGround
@@ -251,9 +297,13 @@ open('WingLog landing-rate spike', Protocol.SunRise)
           else peakFpmPostTouchdown = Math.max(peakFpmPostTouchdown, Math.abs(fpm))
         }
         // highRateActive guard: a couple of high-rate ticks can still arrive after
-        // requestDataOnSimObject(..., NEVER) takes effect (found on the third live run,
-        // 2026-09-20) — without it, this block re-fired its summary for every leftover tick.
-        if (highRateActive && touchdownAt !== null && now - touchdownAt >= HIGH_RATE_STOP_AFTER_TOUCHDOWN_MS) {
+        // requestDataOnSimObject(..., NEVER) takes effect (found on the third live run)
+        // — without it, this block re-fired its summary for every leftover tick.
+        if (
+          highRateActive &&
+          touchdownAt !== null &&
+          now - touchdownAt >= HIGH_RATE_STOP_AFTER_TOUCHDOWN_MS
+        ) {
           stopHighRate()
           awaitingLanding = false // captured; don't re-arm until a real liftoff happens
           console.log(
@@ -262,7 +312,12 @@ open('WingLog landing-rate spike', Protocol.SunRise)
               `After contact (rollout/bounce): ${peakFpmPostTouchdown.toFixed(0)} — ` +
               `vs. baseline's previous-tick: ${baselineFpmAtDetection?.toFixed(0)} — peak G: ${peakGHighRate.toFixed(2)}`
           )
-          log('comparison', { peakFpmPreTouchdown, peakFpmPostTouchdown, baselineFpmAtDetection, peakGHighRate })
+          log('comparison', {
+            peakFpmPreTouchdown,
+            peakFpmPostTouchdown,
+            baselineFpmAtDetection,
+            peakGHighRate
+          })
         }
       }
     })

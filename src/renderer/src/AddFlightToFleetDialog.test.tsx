@@ -92,7 +92,9 @@ function setWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
   const api = {
     aircraftCreate: vi.fn().mockResolvedValue({ ...AIRCRAFT, id: 99 }),
     aircraftTypeSearch: vi.fn().mockResolvedValue([]),
-    flightLinkAircraft: vi.fn().mockResolvedValue(makeFlight({ aircraftId: 99, simRegistration: null, simIcaoType: null })),
+    flightLinkAircraft: vi
+      .fn()
+      .mockResolvedValue(makeFlight({ aircraftId: 99, simRegistration: null, simIcaoType: null })),
     ...overrides
   } as WingLogApi
   window.winglog = api
@@ -126,8 +128,7 @@ describe('AddFlightToFleetDialog', () => {
     expect(screen.getByText('Abbrechen')).toBeInTheDocument()
   })
 
-
-  it('defaults to creating a new aircraft, prefilled from the flight\'s sim-reported identity, when the fleet is empty', () => {
+  it("defaults to creating a new aircraft, prefilled from the flight's sim-reported identity, when the fleet is empty", () => {
     setWinglog()
     renderDialog({ fleetAircraft: [] })
     expect(screen.getByLabelText('Registration')).toHaveValue('G-TEST')
@@ -147,7 +148,9 @@ describe('AddFlightToFleetDialog', () => {
     await user.type(screen.getByLabelText('Registration'), 'N1234')
     await user.click(screen.getByRole('button', { name: 'Add to fleet' }))
 
-    await waitFor(() => expect(aircraftCreate).toHaveBeenCalledWith({ registration: 'N1234', icaoType: 'C172' }))
+    await waitFor(() =>
+      expect(aircraftCreate).toHaveBeenCalledWith({ registration: 'N1234', icaoType: 'C172' })
+    )
     await waitFor(() => expect(flightLinkAircraft).toHaveBeenCalledWith(7, 42))
     expect(onLinked).toHaveBeenCalled()
     expect(onOpenChange).toHaveBeenCalledWith(false)
@@ -179,7 +182,9 @@ describe('AddFlightToFleetDialog', () => {
     expect(screen.getByLabelText('Registration')).toHaveValue('G-TEST')
 
     await user.click(screen.getByRole('button', { name: 'Add to fleet' }))
-    await waitFor(() => expect(aircraftCreate).toHaveBeenCalledWith({ registration: 'G-TEST', icaoType: 'C172' }))
+    await waitFor(() =>
+      expect(aircraftCreate).toHaveBeenCalledWith({ registration: 'G-TEST', icaoType: 'C172' })
+    )
   })
 
   it('requires a registration and type before creating a new aircraft', async () => {
@@ -207,7 +212,9 @@ describe('AddFlightToFleetDialog', () => {
 
   it('shows a toast and keeps the dialog open when flightLinkAircraft throws', async () => {
     const { toast } = await import('sonner')
-    setWinglog({ flightLinkAircraft: vi.fn().mockRejectedValue(new Error('Aircraft 42 not found or retired')) })
+    setWinglog({
+      flightLinkAircraft: vi.fn().mockRejectedValue(new Error('Aircraft 42 not found or retired'))
+    })
     const onOpenChange = vi.fn()
     const user = userEvent.setup()
     renderDialog({ fleetAircraft: [AIRCRAFT], onOpenChange })

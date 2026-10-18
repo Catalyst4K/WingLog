@@ -6,7 +6,12 @@ import type { AirportOption, WingLogApi } from '@shared/ipc'
 import { AirportSearch } from './AirportSearch'
 
 const HEATHROW: AirportOption = { icao: 'EGLL', name: 'Heathrow', municipality: 'London', isoCountry: 'GB' }
-const NO_MUNICIPALITY: AirportOption = { icao: 'ZZZZ', name: 'Nowhere Field', municipality: null, isoCountry: 'ZZ' }
+const NO_MUNICIPALITY: AirportOption = {
+  icao: 'ZZZZ',
+  name: 'Nowhere Field',
+  municipality: null,
+  isoCountry: 'ZZ'
+}
 
 function Harness(): React.JSX.Element {
   const [value, setValue] = useState('')

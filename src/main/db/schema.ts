@@ -1,7 +1,20 @@
+/**
+ * The database schema, in Drizzle's terms. Every change goes through a generated migration
+ * (`npm run db:generate`), never a hand edit, per CLAUDE.md.
+ */
 import { sql } from 'drizzle-orm'
-import { type AnySQLiteColumn, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import {
+  type AnySQLiteColumn,
+  index,
+  integer,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex
+} from 'drizzle-orm/sqlite-core'
+import { compressedText } from './compressed-text'
 
-// Identity + linkage only, per docs/decisions.md's 2026-09-01 Fleet-simplification entry:
+// Identity + linkage only, per docs/decisions.md's Fleet-simplification entry:
 // all performance data (weights, equip, PBN, wake cat...) lives in the linked SimBrief
 // profile now, not duplicated here. Hours/cycles are computed live from flight history
 // (flight-repo.ts's getFleetStats) rather than stored — this table never carried the
@@ -37,7 +50,7 @@ export const aircraft = sqliteTable('aircraft', {
   createdAt: text('created_at')
     .notNull()
     .default(sql`(current_timestamp)`),
-  // Cloud-sync identity (flightdeck-backend/docs/plans/cloud-sync.md). Nullable rather
+  // Cloud-sync identity (winglog-backend/docs/plans/cloud-sync.md). Nullable rather
   // than NOT NULL: SQLite's ALTER TABLE ADD COLUMN bakes a non-constant default (e.g. a
   // random-blob expression) into every existing row identically, which would give every
   // pre-migration aircraft the *same* uuid — the opposite of what sync identity needs.
@@ -46,7 +59,7 @@ export const aircraft = sqliteTable('aircraft', {
   // so in practice this is never actually null once written by this app version.
   uuid: text('uuid'),
   updatedAt: text('updated_at'),
-  // Aircraft replacement (flightdeck-backend/docs/plans/aircraft-replacement.md) — null
+  // Aircraft replacement (winglog-backend/docs/plans/aircraft-replacement.md) — null
   // (the default) means active/selectable. Set means this row is retired, superseded by
   // the aircraft at that id: its flights have already been reassigned there, and every
   // identity field on this row (registration, type, operator...) stays untouched purely
@@ -55,20 +68,16 @@ export const aircraft = sqliteTable('aircraft', {
   // `aircraft`'s own type isn't inferred yet while this object literal is still being
   // evaluated, so TS can't resolve `aircraft.id`'s type without the hint).
   replacedByAircraftId: integer('replaced_by_aircraft_id').references((): AnySQLiteColumn => aircraft.id),
-  // ISO 8601 UTC. Set by a plain Retire (flightdeck-backend docs/plans/fleet-retire.md): the
+  // ISO 8601 UTC. Set by a plain Retire (winglog-backend docs/plans/fleet-retire.md): the
   // aircraft keeps its own flights, unlike replacedByAircraftId above. Retired means either
   // column is set — see src/shared/aircraft.ts's isRetired.
   retiredAt: text('retired_at'),
-  // Real-world livery photo thumbnail, from adsbdb's registration lookup (docs/plans/
-  // fleet-redesign.md #3) — stored at lookup time rather than fetched per detail-page
-  // view, matching this app's local-first bias; goes stale if the photo is replaced, an
-  // accepted tradeoff. Deliberately NOT adsbdb's `url_photo` (full-size): spot-checked
-  // live against two real registrations and it 404s consistently on both, while the
-  // thumbnail host serves reliably — see docs/decisions.md, 2026-09-07. No attribution
-  // metadata (photographer name) is available from adsbdb, so the UI credits
-  // airport-data.com as the source, not an individual photographer.
+  // Real-world livery photo thumbnail from adsbdb's registration lookup (docs/plans/fleet-redesign.md #3), stored at lookup
+  // time rather than fetched per detail-page view (local-first); it goes stale if the photo is replaced, an accepted
+  // tradeoff. Deliberately NOT adsbdb's full-size `url_photo`, which 404s consistently while the thumbnail host serves
+  // reliably. adsbdb gives no photographer name, so the UI credits airport-data.com.
   photoThumbnailUrl: text('photo_thumbnail_url'),
-  // Soft-delete tombstone (flightdeck-backend/docs/plans/cloud-sync-v2.md #3a) — a hard
+  // Soft-delete tombstone (winglog-backend/docs/plans/cloud-sync-v2.md #3a) — a hard
   // DELETE is indistinguishable from "never created" once it reaches the sync protocol, so
   // a pull would resurrect it on every other device. Null (the default) means live; set
   // means deleted, filtered out of every read path (listAircraft) but still synced like any
@@ -84,93 +93,106 @@ export const aircraft = sqliteTable('aircraft', {
 // ISO 8601 UTC strings (SimBrief reports unix epoch seconds — converted on fetch).
 // actual_*/block/air/fuel_out/fuel_in/fuel_burn/sim_version stay null until M4 tracking
 // fills them in; M3 only ever writes a 'planned' row from a fetched OFP.
-export const flight = sqliteTable('flight', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  // Nullable since free-flight-tracking.md's "don't add to fleet" option (added after this
-  // was NOT NULL from M3 onward) — a free flight can be tracked without ever creating or
-  // linking a fleet aircraft. simRegistration/simIcaoType below carry the sim-reported
-  // identity in that case; when aircraftId is set, those two stay null and the aircraft
-  // table is the source of truth instead, same as before.
-  aircraftId: integer('aircraft_id').references(() => aircraft.id),
-  // As read from the sim at free-flight start (StartFreeFlightDialog's own prefill/parse),
-  // kept only for a flight with no aircraftId — the identity a fleet aircraft record would
-  // otherwise have provided. Always null together with a non-null aircraftId.
-  simRegistration: text('sim_registration'),
-  simIcaoType: text('sim_icao_type'),
-  // The raw sim `title` at free-flight start (e.g. "FenixA320 IAE SL") — same
-  // null-together-with-aircraftId convention as the two fields above. Exists only so
-  // linkAircraftToFlight (flight-repo.ts) can seed the title -> aircraft memory
-  // (settings-repo.ts's rememberAircraftForTitle) retroactively, when "Add to fleet" happens
-  // from Logbook after the flight completes rather than inline in the start dialog.
-  simTitle: text('sim_title'),
-  status: text('status', { enum: ['planned', 'active', 'completed', 'abandoned'] })
-    .notNull()
-    .default('planned'),
-  flightNumber: text('flight_number'),
-  depIcao: text('dep_icao').notNull(),
-  arrIcao: text('arr_icao').notNull(),
-  altnIcao: text('altn_icao'),
-  routeString: text('route_string'),
-  cruiseAltM: real('cruise_alt_m'),
-  schedOutUtc: text('sched_out_utc'),
-  schedInUtc: text('sched_in_utc'),
-  actualOutUtc: text('actual_out_utc'),
-  actualOffUtc: text('actual_off_utc'),
-  actualOnUtc: text('actual_on_utc'),
-  actualInUtc: text('actual_in_utc'),
-  blockMinutes: real('block_minutes'),
-  airMinutes: real('air_minutes'),
-  fuelPlannedKg: real('fuel_planned_kg'),
-  fuelOutKg: real('fuel_out_kg'),
-  fuelInKg: real('fuel_in_kg'),
-  fuelBurnKg: real('fuel_burn_kg'),
-  pax: integer('pax'),
-  cargoKg: real('cargo_kg'),
-  zfwKg: real('zfw_kg'),
-  towKg: real('tow_kg'),
-  ldwKg: real('ldw_kg'),
-  ofpId: text('ofp_id'),
-  ofpJson: text('ofp_json'),
-  simVersion: text('sim_version'),
-  createdAt: text('created_at')
-    .notNull()
-    .default(sql`(current_timestamp)`),
-  // See aircraft.uuid's comment for why these are nullable rather than NOT NULL.
-  uuid: text('uuid'),
-  updatedAt: text('updated_at'),
-  // Derived, simplified flown path (flightdeck-backend/docs/plans/cloud-sync.md, "The
-  // flown route, not the full track") — a lightweight polyline computed from this
-  // flight's own track_point rows at completion, for cloud sync and a second device's
-  // map. Null for any flight that hasn't completed, or completed before this existed;
-  // the full-resolution track_point table stays local-only and is never itself synced.
-  flownRouteJson: text('flown_route_json'),
-  // The procedures actually chosen, live — written at flight save and again (overwriting)
-  // at flight completion, whichever is later, from Dispatch/Track's shared live-selection
-  // state (flightdeck-backend's docs/plans/navdata-without-navigraph.md, Phase 5). Null
-  // means nothing was ever chosen for that slot — a pre-Phase-5 flight, or a field the
-  // pilot never touched — not "SimBrief's own choice was deliberately kept": there's no
-  // separate "use SimBrief's choice" state any more, see shared/ipc.ts's
-  // ProcedureSelection doc comment.
-  selectedDepartureRunway: text('selected_departure_runway'),
-  selectedSidIdent: text('selected_sid_ident'),
-  selectedSidTransition: text('selected_sid_transition'),
-  selectedStarIdent: text('selected_star_ident'),
-  selectedStarTransition: text('selected_star_transition'),
-  selectedApproachIdent: text('selected_approach_ident'),
-  selectedApproachTransition: text('selected_approach_transition'),
-  // The airport the selected STAR/approach belong to when the pilot switched the Procedures
-  // dialog to the alternate (a diversion); null = the filed destination (v1.1.1).
-  selectedArrivalIcao: text('selected_arrival_icao'),
-  // Soft-delete tombstone — see aircraft.deletedAt's comment for why. deleteFlight cascades
-  // this to the flight's own landing/flightInvoice rows too (track_point, never synced,
-  // stays hard-deleted as before).
-  deletedAt: text('deleted_at'),
-  // The stand the aircraft finished at ("N32" at VHHH), found from the sim's own stand data
-  // when the flight completed (flightdeck-backend's docs/plans/stand-positions.md). Null for
-  // flights before this existed, or when no stand was within reach of the final position.
-  parkedStandIcao: text('parked_stand_icao'),
-  parkedStand: text('parked_stand')
-})
+export const flight = sqliteTable(
+  'flight',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    // Nullable since free-flight-tracking.md's "don't add to fleet" option (added after this
+    // was NOT NULL from M3 onward) — a free flight can be tracked without ever creating or
+    // linking a fleet aircraft. simRegistration/simIcaoType below carry the sim-reported
+    // identity in that case; when aircraftId is set, those two stay null and the aircraft
+    // table is the source of truth instead, same as before.
+    aircraftId: integer('aircraft_id').references(() => aircraft.id),
+    // As read from the sim at free-flight start (StartFreeFlightDialog's own prefill/parse),
+    // kept only for a flight with no aircraftId — the identity a fleet aircraft record would
+    // otherwise have provided. Always null together with a non-null aircraftId.
+    simRegistration: text('sim_registration'),
+    simIcaoType: text('sim_icao_type'),
+    // The raw sim `title` at free-flight start (e.g. "FenixA320 IAE SL") — same
+    // null-together-with-aircraftId convention as the two fields above. Exists only so
+    // linkAircraftToFlight (flight-repo.ts) can seed the title -> aircraft memory
+    // (settings-repo.ts's rememberAircraftForTitle) retroactively, when "Add to fleet" happens
+    // from Logbook after the flight completes rather than inline in the start dialog.
+    simTitle: text('sim_title'),
+    status: text('status', { enum: ['planned', 'active', 'completed', 'abandoned'] })
+      .notNull()
+      .default('planned'),
+    flightNumber: text('flight_number'),
+    depIcao: text('dep_icao').notNull(),
+    arrIcao: text('arr_icao').notNull(),
+    altnIcao: text('altn_icao'),
+    routeString: text('route_string'),
+    cruiseAltM: real('cruise_alt_m'),
+    schedOutUtc: text('sched_out_utc'),
+    schedInUtc: text('sched_in_utc'),
+    actualOutUtc: text('actual_out_utc'),
+    actualOffUtc: text('actual_off_utc'),
+    actualOnUtc: text('actual_on_utc'),
+    actualInUtc: text('actual_in_utc'),
+    blockMinutes: real('block_minutes'),
+    airMinutes: real('air_minutes'),
+    fuelPlannedKg: real('fuel_planned_kg'),
+    fuelOutKg: real('fuel_out_kg'),
+    fuelInKg: real('fuel_in_kg'),
+    fuelBurnKg: real('fuel_burn_kg'),
+    pax: integer('pax'),
+    cargoKg: real('cargo_kg'),
+    zfwKg: real('zfw_kg'),
+    towKg: real('tow_kg'),
+    ldwKg: real('ldw_kg'),
+    ofpId: text('ofp_id'),
+    // The SimBrief OFP, stored compressed (compressed-text.ts): about 70% of the database before that.
+    ofpJson: compressedText('ofp_json'),
+    simVersion: text('sim_version'),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(current_timestamp)`),
+    // See aircraft.uuid's comment for why these are nullable rather than NOT NULL.
+    uuid: text('uuid'),
+    updatedAt: text('updated_at'),
+    // Derived, simplified flown path (winglog-backend/docs/plans/cloud-sync.md, "The
+    // flown route, not the full track") — a lightweight polyline computed from this
+    // flight's own track_point rows at completion, for cloud sync and a second device's
+    // map. Null for any flight that hasn't completed, or completed before this existed;
+    // the full-resolution track_point table stays local-only and is never itself synced.
+    flownRouteJson: text('flown_route_json'),
+    // Stretches of the flown path the pilot asked to be estimated from the flight plan (Logbook's "Fill gaps from the flight plan",
+    // winglog-backend's docs/plans/track-gap-fill.md): a JSON list of { coordinates, lengthNm, fromTsUtc, toTsUtc }. Kept apart from
+    // track_point on purpose: an estimate is never a recorded point, so analysis and exports can't mistake one for the other.
+    // Null means none; syncs like flownRouteJson, so a second device's map shows it too.
+    estimatedTrackJson: text('estimated_track_json'),
+    // The procedures actually chosen, live — written at flight save and again (overwriting)
+    // at flight completion, whichever is later, from Dispatch/Track's shared live-selection
+    // state (winglog-backend's docs/plans/navdata-without-navigraph.md, Phase 5). Null
+    // means nothing was ever chosen for that slot — a pre-Phase-5 flight, or a field the
+    // pilot never touched — not "SimBrief's own choice was deliberately kept": there's no
+    // separate "use SimBrief's choice" state any more, see shared/ipc.ts's
+    // ProcedureSelection doc comment.
+    selectedDepartureRunway: text('selected_departure_runway'),
+    selectedSidIdent: text('selected_sid_ident'),
+    selectedSidTransition: text('selected_sid_transition'),
+    selectedStarIdent: text('selected_star_ident'),
+    selectedStarTransition: text('selected_star_transition'),
+    selectedApproachIdent: text('selected_approach_ident'),
+    selectedApproachTransition: text('selected_approach_transition'),
+    // The airport the selected STAR/approach belong to when the pilot switched the Procedures
+    // dialog to the alternate (a diversion); null = the filed destination (v1.1.1).
+    selectedArrivalIcao: text('selected_arrival_icao'),
+    // Soft-delete tombstone — see aircraft.deletedAt's comment for why. deleteFlight cascades
+    // this to the flight's own landing/flightInvoice rows too (track_point, never synced,
+    // stays hard-deleted as before).
+    deletedAt: text('deleted_at'),
+    // The stand the aircraft finished at ("N32" at VHHH), found from the sim's own stand data
+    // when the flight completed (winglog-backend's docs/plans/stand-positions.md). Null for
+    // flights before this existed, or when no stand was within reach of the final position.
+    parkedStandIcao: text('parked_stand_icao'),
+    parkedStand: text('parked_stand')
+  },
+  (table) => [
+    index('flight_aircraft_id_idx').on(table.aircraftId),
+    index('flight_status_idx').on(table.status)
+  ]
+)
 
 // Local app settings — key/value so future milestones (map tile source, etc.) don't need
 // a new migration per setting. Not an "account": nothing here leaves the machine.
@@ -179,97 +201,116 @@ export const appSetting = sqliteTable('app_setting', {
   value: text('value').notNull()
 })
 
+// A phone or tablet paired with the second-screen server (winglog-backend's docs/plans/lan-web-viewer.md). Only a SHA-256 hash of its
+// token is stored, so a copy of the database can't be replayed against the server. Revoked rows are kept, with revoked_at set.
+export const lanDevice = sqliteTable('lan_device', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  tokenHash: text('token_hash').notNull().unique(),
+  createdAt: text('created_at').notNull(),
+  lastSeenAt: text('last_seen_at'),
+  revokedAt: text('revoked_at')
+})
+
 // A snapshot of a matched GSX ground-service receipt, taken at flight completion rather
 // than read live from the folder — GSX's own admin UI can bulk-delete old receipts, so a
 // Logbook that only ever reads the live folder would silently lose historical costs the
 // day someone tidies up (docs/decisions.md, gsx-invoices entry). logoDataUri is stripped
 // from receiptJson before storage — 16-30 KB of repeated base64 PNG nothing here renders.
-export const flightInvoice = sqliteTable('flight_invoice', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  flightId: integer('flight_id')
-    .notNull()
-    .references(() => flight.id),
-  serviceGroup: text('service_group', { enum: ['catering', 'fuel', 'handling', 'passengerBus'] }).notNull(),
-  receiptId: text('receipt_id').notNull(),
-  issuedUtc: text('issued_utc').notNull(),
-  icao: text('icao').notNull(),
-  tail: text('tail').notNull(),
-  operator: text('operator'),
-  // USD equivalent GSX itself computed, for cross-currency totals — never re-derived from
-  // the local-currency text, which isn't safely parseable (docs/gsx-notes.md).
-  totalUsd: real('total_usd'),
-  totalText: text('total_text'),
-  sourceHtmlPath: text('source_html_path').notNull(),
-  receiptJson: text('receipt_json').notNull(),
-  // See aircraft.uuid's comment for why these are nullable rather than NOT NULL. No
-  // createdAt column exists on this table to backfill updatedAt from — the migration
-  // backfills it from the parent flight's createdAt instead, the closest real timestamp
-  // available for a pre-existing receipt.
-  uuid: text('uuid'),
-  updatedAt: text('updated_at'),
-  // Soft-delete tombstone, set by deleteFlight cascading from its parent flight — see
-  // aircraft.deletedAt's comment for why. No standalone delete path exists for this table.
-  deletedAt: text('deleted_at')
-})
+export const flightInvoice = sqliteTable(
+  'flight_invoice',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    flightId: integer('flight_id')
+      .notNull()
+      .references(() => flight.id),
+    serviceGroup: text('service_group', { enum: ['catering', 'fuel', 'handling', 'passengerBus'] }).notNull(),
+    receiptId: text('receipt_id').notNull(),
+    issuedUtc: text('issued_utc').notNull(),
+    icao: text('icao').notNull(),
+    tail: text('tail').notNull(),
+    operator: text('operator'),
+    // USD equivalent GSX itself computed, for cross-currency totals — never re-derived from
+    // the local-currency text, which isn't safely parseable (docs/gsx-notes.md).
+    totalUsd: real('total_usd'),
+    totalText: text('total_text'),
+    sourceHtmlPath: text('source_html_path').notNull(),
+    receiptJson: text('receipt_json').notNull(),
+    // See aircraft.uuid's comment for why these are nullable rather than NOT NULL. No
+    // createdAt column exists on this table to backfill updatedAt from — the migration
+    // backfills it from the parent flight's createdAt instead, the closest real timestamp
+    // available for a pre-existing receipt.
+    uuid: text('uuid'),
+    updatedAt: text('updated_at'),
+    // Soft-delete tombstone, set by deleteFlight cascading from its parent flight — see
+    // aircraft.deletedAt's comment for why. No standalone delete path exists for this table.
+    deletedAt: text('deleted_at')
+  },
+  (table) => [index('flight_invoice_flight_id_idx').on(table.flightId)]
+)
 
 // track_point per PLAN.md §5 — "keep sparse; this table gets big". FlightRecorder
 // (src/main/tracking) downsamples cruise to ~15s intervals and writes every other phase
 // at the sim feed's own 1 Hz, so a short flight is a few hundred rows, not tens of
 // thousands. SI throughout per docs/decisions.md §5 — convert only at the UI layer.
-export const trackPoint = sqliteTable('track_point', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  flightId: integer('flight_id')
-    .notNull()
-    .references(() => flight.id),
-  tsUtc: text('ts_utc').notNull(),
-  latitude: real('latitude').notNull(),
-  longitude: real('longitude').notNull(),
-  altitudeM: real('altitude_m').notNull(),
-  // Barometric altitude with the Kohlsman on standard (flightdeck-backend's docs/plans/
-  // logbook-detail-improvements.md, Phase 3) — nullable, unlike every other telemetry
-  // column here: existing rows predate this and stay null forever, nothing backfills them.
-  // altitudeM (true/geometric) stays the source for everything geometric; this is read-only
-  // display data, used above the OFP's transition altitude.
-  pressureAltitudeM: real('pressure_altitude_m'),
-  altitudeAglM: real('altitude_agl_m').notNull(),
-  indicatedAirspeedMs: real('indicated_airspeed_ms').notNull(),
-  // Default 0 only so ALTER TABLE ADD COLUMN can backfill pre-existing NOT NULL rows —
-  // every new row from FlightRecorder.toTrackPoint always supplies a real value, same
-  // pattern as gForce/windSpeedMs/windDirectionDeg below.
-  machSpeed: real('mach_speed').notNull().default(0),
-  groundSpeedMs: real('ground_speed_ms').notNull(),
-  verticalSpeedMs: real('vertical_speed_ms').notNull(),
-  headingTrueDeg: real('heading_true_deg').notNull(),
-  pitchDeg: real('pitch_deg').notNull(),
-  bankDeg: real('bank_deg').notNull(),
-  phase: text('phase', {
-    enum: ['preflight', 'pushback', 'taxi', 'takeoff', 'climb', 'cruise', 'descent', 'landing', 'shutdown']
-  }).notNull(),
-  onGround: integer('on_ground', { mode: 'boolean' }).notNull(),
-  fuelKg: real('fuel_kg').notNull(),
-  // Added for landing analysis (PLAN.md M6, docs/decisions.md) — already computed and
-  // shown live (Track's telemetry overlay) from every tick, but discarded before this;
-  // a landing record needs at least G-force and wind at the touchdown moment, and having
-  // them on every point (not just the touchdown one) also lets a future wind/G trace be
-  // plotted alongside the existing altitude/speed charts. Defaults exist only so SQLite's
-  // ALTER TABLE ADD COLUMN can backfill pre-existing rows (a NOT NULL column added via
-  // ALTER TABLE must have one) — every new row from FlightRecorder.toTrackPoint always
-  // supplies real values explicitly, so these are never actually relied on going forward.
-  gForce: real('g_force').notNull().default(1),
-  windSpeedMs: real('wind_speed_ms').notNull().default(0),
-  windDirectionDeg: real('wind_direction_deg').notNull().default(0),
-  // Resume-track cleanup (flightdeck-backend's docs/plans/done/resume-track-cleanup.md) — marks
-  // rather than deletes, so the raw samples stay available for re-running the cleanup after
-  // a threshold change. Defaults exist only so ALTER TABLE ADD COLUMN can backfill
-  // pre-existing rows (all as segment 0, sim rate 1x, nothing excluded — the only sane
-  // reading of "no resume ever happened" for a flight recorded before this existed); every
-  // new row from FlightRecorder.toTrackPoint always supplies real values explicitly.
-  resumeSegment: integer('resume_segment').notNull().default(0),
-  simRate: real('sim_rate').notNull().default(1),
-  excludedReason: text('excluded_reason', { enum: ['resume-spurious', 'resume-superseded'] })
-})
+export const trackPoint = sqliteTable(
+  'track_point',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    flightId: integer('flight_id')
+      .notNull()
+      .references(() => flight.id),
+    tsUtc: text('ts_utc').notNull(),
+    latitude: real('latitude').notNull(),
+    longitude: real('longitude').notNull(),
+    altitudeM: real('altitude_m').notNull(),
+    // Barometric altitude with the Kohlsman on standard (winglog-backend's docs/plans/
+    // logbook-detail-improvements.md, Phase 3) — nullable, unlike every other telemetry
+    // column here: existing rows predate this and stay null forever, nothing backfills them.
+    // altitudeM (true/geometric) stays the source for everything geometric; this is read-only
+    // display data, used above the OFP's transition altitude.
+    pressureAltitudeM: real('pressure_altitude_m'),
+    altitudeAglM: real('altitude_agl_m').notNull(),
+    indicatedAirspeedMs: real('indicated_airspeed_ms').notNull(),
+    // Default 0 only so ALTER TABLE ADD COLUMN can backfill pre-existing NOT NULL rows —
+    // every new row from FlightRecorder.toTrackPoint always supplies a real value, same
+    // pattern as gForce/windSpeedMs/windDirectionDeg below.
+    machSpeed: real('mach_speed').notNull().default(0),
+    groundSpeedMs: real('ground_speed_ms').notNull(),
+    verticalSpeedMs: real('vertical_speed_ms').notNull(),
+    headingTrueDeg: real('heading_true_deg').notNull(),
+    pitchDeg: real('pitch_deg').notNull(),
+    bankDeg: real('bank_deg').notNull(),
+    phase: text('phase', {
+      enum: ['preflight', 'pushback', 'taxi', 'takeoff', 'climb', 'cruise', 'descent', 'landing', 'shutdown']
+    }).notNull(),
+    onGround: integer('on_ground', { mode: 'boolean' }).notNull(),
+    fuelKg: real('fuel_kg').notNull(),
+    // Added for landing analysis (PLAN.md M6, docs/decisions.md) — already computed and
+    // shown live (Track's telemetry overlay) from every tick, but discarded before this;
+    // a landing record needs at least G-force and wind at the touchdown moment, and having
+    // them on every point (not just the touchdown one) also lets a future wind/G trace be
+    // plotted alongside the existing altitude/speed charts. Defaults exist only so SQLite's
+    // ALTER TABLE ADD COLUMN can backfill pre-existing rows (a NOT NULL column added via
+    // ALTER TABLE must have one) — every new row from FlightRecorder.toTrackPoint always
+    // supplies real values explicitly, so these are never actually relied on going forward.
+    gForce: real('g_force').notNull().default(1),
+    windSpeedMs: real('wind_speed_ms').notNull().default(0),
+    windDirectionDeg: real('wind_direction_deg').notNull().default(0),
+    // Resume-track cleanup (winglog-backend's docs/plans/done/resume-track-cleanup.md) — marks
+    // rather than deletes, so the raw samples stay available for re-running the cleanup after
+    // a threshold change. Defaults exist only so ALTER TABLE ADD COLUMN can backfill
+    // pre-existing rows (all as segment 0, sim rate 1x, nothing excluded — the only sane
+    // reading of "no resume ever happened" for a flight recorded before this existed); every
+    // new row from FlightRecorder.toTrackPoint always supplies real values explicitly.
+    resumeSegment: integer('resume_segment').notNull().default(0),
+    simRate: real('sim_rate').notNull().default(1),
+    excludedReason: text('excluded_reason', { enum: ['resume-spurious', 'resume-superseded'] })
+  },
+  (table) => [index('track_point_flight_id_idx').on(table.flightId)]
+)
 
-// One row per touchdown — many per flight (flightdeck-backend's docs/plans/
+// One row per touchdown — many per flight (winglog-backend's docs/plans/
 // multiple-landings.md). Captured off the raw on-ground false->true transition directly
 // (TrackingController), not the phase machine's descent -> landing edge, which has real
 // holes for circuit flying (see that plan's "finding that changes the design"). SI
@@ -314,12 +355,16 @@ export const landing = sqliteTable(
     distanceFromThresholdM: real('distance_from_threshold_m'),
     centrelineOffsetM: real('centreline_offset_m'),
     flapSetting: integer('flap_setting'),
-    // 'derived' throughout — scripts/spike-landing.ts confirmed 2026-09-04 that MSFS 2024's
+    // 'derived' throughout — scripts/spike-landing.ts confirmed that MSFS 2024's
     // dedicated touchdown SimVars disagree with the derived value in trend, not just
     // magnitude, across a real bounce; nothing writes 'simvar'.
     touchdownSource: text('touchdown_source', { enum: ['simvar', 'derived'] })
       .notNull()
       .default('derived'),
+    // Whose runway the position, offset and distance above were measured against: the sim's own (its cached facility data, which is
+    // where the aircraft actually was) or the vendored OurAirports slice. Null for every landing recorded before this column, read as
+    // 'database', which is what they were. A later lookup of the same runway (the score, the touchdown diagram) uses the same source.
+    runwaySource: text('runway_source', { enum: ['database', 'sim'] }),
     // See aircraft.uuid's comment for why these are nullable rather than NOT NULL. The
     // migration backfills updatedAt from touchdownTsUtc, the closest real timestamp
     // available for a pre-existing landing record.
@@ -333,109 +378,110 @@ export const landing = sqliteTable(
 )
 
 // Cached navdata for one airport, from src/main/navdata/'s NavdataProvider (Phase 3,
-// flightdeck-backend's docs/plans/navdata-without-navigraph.md) — SimConnect Facilities is
+// winglog-backend's docs/plans/navdata-without-navigraph.md) — SimConnect Facilities is
 // the only provider today, so there's no AIRAC package/subscription state to track; each
 // table is simply replaced wholesale for an ICAO whenever navdata-repo.ts's
 // replaceAirportNavdata re-fetches it. `source` stays a column (not hardcoded) so a future
 // second provider (e.g. Navigraph, if credentials ever arrive) is a new value here, not a
 // schema change. Never synced (no uuid/updatedAt) — purely a local cache of what the sim
 // itself already has, cheap to lose and re-fetch.
-export const navdataRunway = sqliteTable('navdata_runway', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  icao: text('icao').notNull(),
-  ident: text('ident').notNull(),
-  headingTrueDeg: real('heading_true_deg').notNull(),
-  lengthM: real('length_m').notNull(),
-  widthM: real('width_m').notNull(),
-  // Raw SimConnect surface-type integer, not yet mapped to a name — see facility-fields.ts.
-  surface: integer('surface').notNull(),
-  // This end's own threshold, derived from the RUNWAY record's centre ± length/2 along
-  // heading (navdata-notes.md: RUNWAY.LATITUDE/LONGITUDE is the strip's centre, confirmed
-  // live, not a threshold) — not the centre point itself.
-  thresholdLat: real('threshold_lat').notNull(),
-  thresholdLon: real('threshold_lon').notNull(),
-  source: text('source', { enum: ['sim-facility'] }).notNull(),
-  fetchedAt: text('fetched_at').notNull()
-})
+export const navdataRunway = sqliteTable(
+  'navdata_runway',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    icao: text('icao').notNull(),
+    ident: text('ident').notNull(),
+    headingTrueDeg: real('heading_true_deg').notNull(),
+    lengthM: real('length_m').notNull(),
+    widthM: real('width_m').notNull(),
+    // Raw SimConnect surface-type integer, not yet mapped to a name — see facility-fields.ts.
+    surface: integer('surface').notNull(),
+    // This end's own threshold, derived from the RUNWAY record's centre ± length/2 along
+    // heading (navdata-notes.md: RUNWAY.LATITUDE/LONGITUDE is the strip's centre, confirmed
+    // live, not a threshold) — not the centre point itself.
+    thresholdLat: real('threshold_lat').notNull(),
+    thresholdLon: real('threshold_lon').notNull(),
+    // How far along from the pavement end this end's landing threshold is, metres, read from the sim's own PRIMARY_THRESHOLD and
+    // SECONDARY_THRESHOLD records (navdata-notes.md, 2026-10-17). Null = cached before it was fetched: such a cache is stale and is
+    // fetched again the next time the airport is used, as hold-short points were.
+    displacedThresholdM: real('displaced_threshold_m'),
+    source: text('source', { enum: ['sim-facility'] }).notNull(),
+    fetchedAt: text('fetched_at').notNull()
+  },
+  (table) => [index('navdata_runway_icao_idx').on(table.icao)]
+)
 
-// One row per (icao, kind, identifier) — not per transition. Confirmed live, 2026-09-08
-// (docs/navdata-notes.md), that runway and enroute-transition variation are independent
-// axes on the same procedure, not row-multiplying dimensions: EGLL/VHHH's real SIDs have
-// exactly one runway transition each and zero enroute transitions; VHHH's STARs can have
-// several runway transitions (parallel-runway airports) and still zero enroute transitions.
-// Both lists are kept as metadata here for filtering/listing; navdataProcedureLeg (below)
-// is where the actual per-runway/per-transition leg data lives.
-export const navdataProcedure = sqliteTable('navdata_procedure', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  icao: text('icao').notNull(),
-  kind: text('kind', { enum: ['sid', 'star', 'approach'] }).notNull(),
-  // For 'sid'/'star', a raw SimConnect NAME. For 'approach' (added 2026-09-08, Phase 5), a
-  // constructed display label ("ILS 07C", "RNP Z 07R") — approaches have no NAME field of
-  // their own, see facility-fields.ts's ParsedApproachHeader.
-  identifier: text('identifier').notNull(),
-  // JSON array of runway idents this procedure's RUNWAY_TRANSITION list names, e.g.
-  // '["07L","07R"]' — null means no runway transitions were registered for it (applies to
-  // any runway), not "applies to none". For 'approach', always a single-element array — an
-  // approach belongs to exactly one runway.
-  runwayIdentsJson: text('runway_idents_json'),
-  // JSON array of this procedure's ENROUTE_TRANSITION names — null means none registered.
-  // Real airports checked so far (EGLL, VHHH) never had any; kept for when one does. For
-  // 'approach', this is its APPROACH_TRANSITION names instead (e.g. '["LIMES","TD"]') —
-  // confirmed live that a transition's name is the real fix a STAR hands off at, the link
-  // used to auto-connect a chosen STAR onto a chosen approach.
-  transitionNamesJson: text('transition_names_json'),
-  source: text('source', { enum: ['sim-facility'] }).notNull(),
-  fetchedAt: text('fetched_at').notNull()
-})
+// One row per (icao, kind, identifier), not per transition: runway and enroute-transition variation are independent axes on
+// the same procedure, not row-multiplying dimensions (docs/navdata-notes.md): EGLL/VHHH's SIDs have exactly one runway
+// transition each and no enroute transitions; VHHH's STARs can have several runway transitions and still none enroute.
+// Both lists are kept as metadata here for filtering and listing; navdataProcedureLeg (below) holds the per-runway and
+// per-transition leg data.
+export const navdataProcedure = sqliteTable(
+  'navdata_procedure',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    icao: text('icao').notNull(),
+    kind: text('kind', { enum: ['sid', 'star', 'approach'] }).notNull(),
+    // For 'sid'/'star', a raw SimConnect NAME. For 'approach', a constructed display label ("ILS 07C", "RNP Z 07R"):
+    // approaches have no NAME field of their own, see facility-fields.ts's ParsedApproachHeader.
+    identifier: text('identifier').notNull(),
+    // JSON array of runway idents this procedure's RUNWAY_TRANSITION list names, e.g.
+    // '["07L","07R"]' — null means no runway transitions were registered for it (applies to
+    // any runway), not "applies to none". For 'approach', always a single-element array — an
+    // approach belongs to exactly one runway.
+    runwayIdentsJson: text('runway_idents_json'),
+    // JSON array of this procedure's ENROUTE_TRANSITION names; null means none registered (EGLL and VHHH have none). For
+    // 'approach', its APPROACH_TRANSITION names instead (e.g. '["LIMES","TD"]'): a transition's name is the fix a STAR hands
+    // off at, the link used to auto-connect a chosen STAR onto a chosen approach.
+    transitionNamesJson: text('transition_names_json'),
+    source: text('source', { enum: ['sim-facility'] }).notNull(),
+    fetchedAt: text('fetched_at').notNull()
+  },
+  (table) => [index('navdata_procedure_icao_kind_idx').on(table.icao, table.kind)]
+)
 
-// One row per leg. `runwayIdent`/`transitionName` are mutually exclusive: both null means
-// a common leg (registered on the procedure itself, outside any transition — where EGLL's
-// STARs put all of theirs); `runwayIdent` set means a leg nested inside that specific
-// RUNWAY_TRANSITION (where EGLL/VHHH's SIDs put all of theirs instead, and VHHH's STARs);
-// `transitionName` set means a leg nested inside that specific ENROUTE_TRANSITION —
-// confirmed as a real, supported nesting live, 2026-09-08, though no real procedure seen
-// so far actually has one (docs/navdata-notes.md). A full flyable path for a chosen
-// (runway, transition) pair is, for a SID: that runway's legs + the common legs + that
-// transition's legs, in that order (initial climb-out, then the shared body, then the exit
-// transition) — confirmed live 2026-09-08. For a STAR it's the reverse: that transition's
-// legs + the common legs + that runway's legs (transition entry, then the shared body, then
-// the runway-specific final legs) — confirmed live 2026-09-11 against a real STAR (YBBN
-// SMOK2A) with a non-empty common route, after the departure order was found to draw two
-// spurious lines across a real arrival (docs/plans/star-leg-ordering.md, flightdeck-backend).
+// One row per leg. `runwayIdent`/`transitionName` are mutually exclusive: both null means a common leg (registered on the
+// procedure itself, outside any transition; EGLL's STARs put all of theirs there); `runwayIdent` set means a leg nested
+// inside that RUNWAY_TRANSITION (where EGLL/VHHH's SIDs and VHHH's STARs put theirs); `transitionName` set means a leg nested
+// inside that ENROUTE_TRANSITION (a supported nesting, though no real procedure seen has one; docs/navdata-notes.md).
+// A flyable path for a chosen (runway, transition) pair is, for a SID: that runway's legs + the common legs + that
+// transition's legs (initial climb-out, shared body, exit transition). For a STAR it is the reverse: that transition's legs
+// + the common legs + that runway's legs (entry, shared body, runway-specific final legs). A STAR assembled in departure
+// order drew two spurious lines across a real arrival (docs/plans/star-leg-ordering.md, winglog-backend).
 //
-// For `kind: 'approach'` (added 2026-09-08, Phase 5): `runwayIdent` is never set (an
-// approach's one runway is on the procedure row instead, not per-leg); `transitionName`
-// set means a leg inside that APPROACH_TRANSITION (the STAR-handoff/IAF entry legs); both
-// null means the approach's own FINAL_APPROACH_LEG list. Order confirmed live to be the
-// same as a STAR's: transition legs first, then the shared final segment — fly the
-// transition inbound, then the shared final segment down to the runway.
+// For `kind: 'approach'`: `runwayIdent` is never set (an approach's one runway is on the procedure row); `transitionName`
+// set means a leg inside that APPROACH_TRANSITION (the STAR-handoff/IAF entry legs); both null means the approach's own
+// FINAL_APPROACH_LEG list. Order is the same as a STAR's: transition legs first, then the shared final segment.
 //
-// ARINC 424 repeats the boundary fix between adjacent groups (a transition's last leg is
-// the same fix as the common route's first leg, or the common route's last leg the same as
-// a runway transition's first, depending on direction) — a reader assembling the flyable
-// path drops the duplicate at each boundary it crosses (listCachedProcedureLegs does this).
-export const navdataProcedureLeg = sqliteTable('navdata_procedure_leg', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  procedureId: integer('procedure_id')
-    .notNull()
-    .references(() => navdataProcedure.id),
-  runwayIdent: text('runway_ident'),
-  transitionName: text('transition_name'),
-  seq: integer('seq').notNull(),
-  type: integer('type').notNull(),
-  fixIdent: text('fix_ident'),
-  fixType: text('fix_type'),
-  fixLatitude: real('fix_latitude').notNull(),
-  fixLongitude: real('fix_longitude').notNull(),
-  turnDirection: integer('turn_direction').notNull(),
-  courseDeg: real('course_deg').notNull(),
-  altitude1: real('altitude1').notNull(),
-  altitude2: real('altitude2').notNull(),
-  speedLimit: real('speed_limit').notNull(),
-  // Metres; only set for FC/FD legs (see ParsedLeg.routeDistanceM). Default 0 covers legs
-  // cached before this column existed — they read as "no distance known" until refreshed.
-  routeDistanceM: real('route_distance_m').notNull().default(0)
-})
+// ARINC 424 repeats the boundary fix between adjacent groups (a transition's last leg is the same fix as the common
+// route's first leg, or the common route's last leg the same as a runway transition's first, depending on direction), so a
+// reader assembling the flyable path drops the duplicate at each boundary it crosses (listCachedProcedureLegs does this).
+export const navdataProcedureLeg = sqliteTable(
+  'navdata_procedure_leg',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    procedureId: integer('procedure_id')
+      .notNull()
+      .references(() => navdataProcedure.id),
+    runwayIdent: text('runway_ident'),
+    transitionName: text('transition_name'),
+    seq: integer('seq').notNull(),
+    type: integer('type').notNull(),
+    fixIdent: text('fix_ident'),
+    fixType: text('fix_type'),
+    fixLatitude: real('fix_latitude').notNull(),
+    fixLongitude: real('fix_longitude').notNull(),
+    turnDirection: integer('turn_direction').notNull(),
+    courseDeg: real('course_deg').notNull(),
+    altitude1: real('altitude1').notNull(),
+    altitude2: real('altitude2').notNull(),
+    speedLimit: real('speed_limit').notNull(),
+    // Metres; only set for FC/FD legs (see ParsedLeg.routeDistanceM). Default 0 covers legs
+    // cached before this column existed — they read as "no distance known" until refreshed.
+    routeDistanceM: real('route_distance_m').notNull().default(0)
+  },
+  (table) => [index('navdata_procedure_leg_procedure_id_idx').on(table.procedureId)]
+)
 
 // One row per taxi-network segment (a single TAXI_PATH record, resolved down to real lat/lon
 // endpoints — see fetchTaxiNetwork in sim-facilities-fetch.ts). Deliberately flat, no separate
@@ -444,34 +490,42 @@ export const navdataProcedureLeg = sqliteTable('navdata_procedure_leg', {
 // both TYPE 1 and TYPE 4 (see facility-fields.ts's NavdataDefId comment) are fetched and
 // merged, since which is really "Taxi" vs "Path" is unconfirmed and this app doesn't
 // distinguish them for rendering purposes.
-export const navdataTaxiSegment = sqliteTable('navdata_taxi_segment', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  icao: text('icao').notNull(),
-  startLat: real('start_lat').notNull(),
-  startLon: real('start_lon').notNull(),
-  endLat: real('end_lat').notNull(),
-  endLon: real('end_lon').notNull(),
-  name: text('name'),
-  // Null = cached before hold-short points were fetched (2026-09-30); hasCachedTaxiNetwork
-  // treats such a cache as stale so it's re-fetched once, rather than silently lacking them.
-  startHoldShort: integer('start_hold_short', { mode: 'boolean' }),
-  endHoldShort: integer('end_hold_short', { mode: 'boolean' }),
-  source: text('source', { enum: ['sim-facility'] }).notNull(),
-  fetchedAt: text('fetched_at').notNull()
-})
+export const navdataTaxiSegment = sqliteTable(
+  'navdata_taxi_segment',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    icao: text('icao').notNull(),
+    startLat: real('start_lat').notNull(),
+    startLon: real('start_lon').notNull(),
+    endLat: real('end_lat').notNull(),
+    endLon: real('end_lon').notNull(),
+    name: text('name'),
+    // Null = cached before hold-short points were fetched; hasCachedTaxiNetwork
+    // treats such a cache as stale so it's re-fetched once, rather than silently lacking them.
+    startHoldShort: integer('start_hold_short', { mode: 'boolean' }),
+    endHoldShort: integer('end_hold_short', { mode: 'boolean' }),
+    source: text('source', { enum: ['sim-facility'] }).notNull(),
+    fetchedAt: text('fetched_at').notNull()
+  },
+  (table) => [index('navdata_taxi_segment_icao_idx').on(table.icao)]
+)
 
-// An airport's stands/gates from the sim (TAXI_PARKING, confirmed live 2026-10-02 — see
+// An airport's stands/gates from the sim (TAXI_PARKING, confirmed live — see
 // sim-facilities-fetch.ts's fetchStands). Fetched on demand, replaced wholesale per airport.
-export const navdataStand = sqliteTable('navdata_stand', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  icao: text('icao').notNull(),
-  /** As ATC says it: "N32", "79". */
-  name: text('name').notNull(),
-  nameCode: integer('name_code').notNull(),
-  number: integer('number').notNull(),
-  suffix: integer('suffix').notNull(),
-  headingDeg: real('heading_deg').notNull(),
-  lat: real('lat').notNull(),
-  lon: real('lon').notNull(),
-  fetchedAt: text('fetched_at').notNull()
-})
+export const navdataStand = sqliteTable(
+  'navdata_stand',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    icao: text('icao').notNull(),
+    /** As ATC says it: "N32", "79". */
+    name: text('name').notNull(),
+    nameCode: integer('name_code').notNull(),
+    number: integer('number').notNull(),
+    suffix: integer('suffix').notNull(),
+    headingDeg: real('heading_deg').notNull(),
+    lat: real('lat').notNull(),
+    lon: real('lon').notNull(),
+    fetchedAt: text('fetched_at').notNull()
+  },
+  (table) => [index('navdata_stand_icao_idx').on(table.icao)]
+)

@@ -1,0 +1,27 @@
+/**
+ * Runs the track cleanup (resume-cleanup.ts) over one flight's stored track and saves what it finds.
+ */
+import type { WingLogDb } from './client'
+import { applyTrackCleanup, listTrackPoints } from './track-point-repo'
+import { computeTrackCleanup, type TrackCleanupResult } from '../tracking/resume-cleanup'
+
+/**
+ * Runs resume-cleanup.ts's pure function over one flight's full current `track_point`
+ * history and persists whatever it finds. Depends on nothing but the DB, so it works
+ * equally for a flight actively being tracked (TrackingController.runTrackCleanup wraps
+ * this and also emits 'pointsUpdated' for the live map) and a flight completed long ago
+ * (the Logbook "Clean up track" button, main/index.ts — winglog-backend's docs/plans/
+ * done/resume-track-cleanup.md). Returns undefined when nothing changed; `applyTrackCleanup`
+ * itself already no-ops a write for an empty result, so a no-op call here is cheap.
+ *
+ * @param db The database.
+ * @param flightId The flight.
+ * @returns What changed, or undefined when nothing did.
+ */
+export function runTrackCleanupForFlight(db: WingLogDb, flightId: number): TrackCleanupResult | undefined {
+  const points = listTrackPoints(db, flightId)
+  const result = computeTrackCleanup(points)
+  if (result.exclusions.length === 0 && result.segmentReassignments.length === 0) return undefined
+  applyTrackCleanup(db, result)
+  return result
+}

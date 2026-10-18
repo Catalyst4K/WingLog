@@ -107,6 +107,8 @@ describe('Combobox', () => {
     expect(await screen.findByText('EGLL — Heathrow', {}, { timeout: 2000 })).toBeInTheDocument()
 
     await user.clear(screen.getByRole('textbox'))
-    await waitFor(() => expect(screen.queryByText('EGLL — Heathrow')).not.toBeInTheDocument(), { timeout: 2000 })
+    await waitFor(() => expect(screen.queryByText('EGLL — Heathrow')).not.toBeInTheDocument(), {
+      timeout: 2000
+    })
   }, 10000)
 })

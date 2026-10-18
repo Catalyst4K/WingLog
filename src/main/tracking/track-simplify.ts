@@ -1,8 +1,14 @@
+/**
+ * Thins a flight's recorded track for display (the Track map, the Logbook map and charts): three
+ * Douglas-Peucker passes over position, altitude and speed, plus a finer pass for each stretch on
+ * the ground. Storage keeps every point; this only shapes what's drawn.
+ */
 import type { TrackPoint } from '@shared/ipc'
+import { pointToLineM, pointToSegmentM } from '@shared/geo'
 import { perpendicularDistance2D, simplifyIndices, type Point2D } from './douglas-peucker'
 
 // Route tolerance matches scripts/spike-route-simplify.ts's confirmed value (run against a
-// real recorded flight, VHHH -> WSSS, docs/decisions.md 2026-09-04) — 100m kept the route's
+// real recorded flight, VHHH -> WSSS, docs/decisions.md) — 100m kept the route's
 // shape and turns indistinguishable from 50m at ~1.5x fewer points. That spike was built
 // for a different feature (cloud-sync's flownRouteJson payload size), but the technique and
 // tolerance apply equally well here, for the same reason: a straight cruise leg doesn't need
@@ -11,7 +17,7 @@ const ROUTE_TOLERANCE_M = 100
 // On the ground 100m is the wrong scale: a taxiway is ~23m wide and parallel taxiways are
 // often 100-200m apart, so a whole flight's taxiing collapsed to 21-33 points and cut
 // corners by up to 54m, straight across the taxi chart (flights 220-227, measured
-// 2026-10-05, flightdeck-backend's ground-track-resolution.md). Each on-ground run gets its
+// winglog-backend's ground-track-resolution.md). Each on-ground run gets its
 // own pass at 5m instead, which cost only +5 to +25 points per flight on that same data.
 const GROUND_ROUTE_TOLERANCE_M = 5
 // Altitude/speed tolerances are generous enough to erase 1Hz sensor noise and cruise-level
@@ -20,48 +26,50 @@ const GROUND_ROUTE_TOLERANCE_M = 5
 const ALTITUDE_TOLERANCE_M = 15 // ~50 ft
 const SPEED_TOLERANCE_MS = 3 // ~6 kt
 
-const METERS_PER_DEG_LAT = 111_320
-
 interface LatLon {
   latitude: number
   longitude: number
 }
 
-/** Local equirectangular projection, re-referenced per segment (using the segment's own
- *  midpoint latitude) so longitude compression — which varies with latitude — doesn't
- *  distort the distance check over a route spanning many degrees of latitude (VHHH ~22°N
- *  to WSSS ~1°N is the real case that motivated this in the original spike). */
-function project(point: LatLon, refLatDeg: number): Point2D {
-  const metersPerDegLon = METERS_PER_DEG_LAT * Math.cos((refLatDeg * Math.PI) / 180)
-  return { x: point.longitude * metersPerDegLon, y: point.latitude * METERS_PER_DEG_LAT }
+function toLatLon(p: LatLon): { lat: number; lon: number } {
+  return { lat: p.latitude, lon: p.longitude }
 }
 
+/** Distance from a point to the line through two others, re-projected per line so it holds over
+ *  routes spanning many degrees of latitude (VHHH ~22°N to WSSS ~1°N).
+ *
+ * @param point The point measured.
+ * @param lineStart One point on the line.
+ * @param lineEnd Another point on the line.
+ * @returns Metres.
+ */
 function latLonDistanceMeters(point: LatLon, lineStart: LatLon, lineEnd: LatLon): number {
-  const refLat = (lineStart.latitude + lineEnd.latitude) / 2
-  return perpendicularDistance2D(project(point, refLat), project(lineStart, refLat), project(lineEnd, refLat))
+  return pointToLineM(toLatLon(point), toLatLon(lineStart), toLatLon(lineEnd))
 }
 
 /** Like latLonDistanceMeters, but to the segment rather than the infinite line through it.
  *  On the ground the aircraft reverses along its own path (pushback, then taxi forward over
  *  the same line), and a line distance scores that turn-around point as 0m off, so the
- *  simplified track cut it off (flight 225: worst ground cut 15m with line distance, 6m with
+ *  simplified track cut it off (a real taxi: worst ground cut 15m with line distance, 6m with
  *  this). In the air the track doesn't double back like that, so the air pass keeps the
- *  line distance it has always used. */
+ *  line distance it has always used.
+ *
+ * @param point The point measured.
+ * @param segStart The segment's start.
+ * @param segEnd The segment's end.
+ * @returns Metres.
+ */
 function latLonSegmentDistanceMeters(point: LatLon, segStart: LatLon, segEnd: LatLon): number {
-  const refLat = (segStart.latitude + segEnd.latitude) / 2
-  const p = project(point, refLat)
-  const a = project(segStart, refLat)
-  const b = project(segEnd, refLat)
-  const dx = b.x - a.x
-  const dy = b.y - a.y
-  const len2 = dx * dx + dy * dy
-  const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2))
-  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy))
+  return pointToSegmentM(toLatLon(point), toLatLon(segStart), toLatLon(segEnd))
 }
 
 /** Indices to keep from each contiguous on-ground run, simplified at the ground tolerance.
  *  Each run's first and last point are always kept, so the air/ground join stays exactly
- *  where it was recorded. */
+ *  where it was recorded.
+ *
+ * @param points A flight's track, in order.
+ * @returns Indices into `points`, run by run.
+ */
 function groundRouteIndices(points: TrackPoint[]): number[] {
   const indices: number[] = []
   let runStart = -1
@@ -94,6 +102,9 @@ function groundRouteIndices(points: TrackPoint[]): number[] {
  * profile), unioned rather than run once — a flight-level step climb over an otherwise
  * arrow-straight cruise leg has essentially zero lat/lon deviation, so a route-only pass
  * would erase it from the altitude chart even though the map wouldn't miss it.
+ *
+ * @param points A flight's track, in order.
+ * @returns The points kept, in order.
  */
 export function simplifyTrackPoints(points: TrackPoint[]): TrackPoint[] {
   if (points.length <= 2) return points

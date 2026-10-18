@@ -49,7 +49,13 @@ describe('parseWindGroup', () => {
 })
 
 describe('formatWind', () => {
-  const kt = { directionDeg: 250, isVariable: false, speedValue: 8, gustValue: null, sourceUnit: 'kt' as const }
+  const kt = {
+    directionDeg: 250,
+    isVariable: false,
+    speedValue: 8,
+    gustValue: null,
+    sourceUnit: 'kt' as const
+  }
 
   it('shows the value verbatim when the display unit matches the source unit', () => {
     expect(formatWind(kt, 'kt')).toBe('Wind 250° at 8 kt')
@@ -61,23 +67,47 @@ describe('formatWind', () => {
   })
 
   it('converts mps to kt for display', () => {
-    const mps = { directionDeg: 310, isVariable: false, speedValue: 15, gustValue: null, sourceUnit: 'mps' as const }
+    const mps = {
+      directionDeg: 310,
+      isVariable: false,
+      speedValue: 15,
+      gustValue: null,
+      sourceUnit: 'mps' as const
+    }
     // 15 mps / 0.514444 = 29.15... -> rounds to 29
     expect(formatWind(mps, 'kt')).toBe('Wind 310° at 29 kt')
   })
 
   it('never round-trips a same-unit value through a conversion (no rounding drift)', () => {
-    const mps = { directionDeg: 100, isVariable: false, speedValue: 7, gustValue: null, sourceUnit: 'mps' as const }
+    const mps = {
+      directionDeg: 100,
+      isVariable: false,
+      speedValue: 7,
+      gustValue: null,
+      sourceUnit: 'mps' as const
+    }
     expect(formatWind(mps, 'mps')).toBe('Wind 100° at 7 m/s')
   })
 
   it('formats a gust', () => {
-    const gust = { directionDeg: 280, isVariable: false, speedValue: 15, gustValue: 25, sourceUnit: 'kt' as const }
+    const gust = {
+      directionDeg: 280,
+      isVariable: false,
+      speedValue: 15,
+      gustValue: 25,
+      sourceUnit: 'kt' as const
+    }
     expect(formatWind(gust, 'kt')).toBe('Wind 280° at 15 kt, gusting 25 kt')
   })
 
   it('formats a variable direction', () => {
-    const variable = { directionDeg: null, isVariable: true, speedValue: 3, gustValue: null, sourceUnit: 'kt' as const }
+    const variable = {
+      directionDeg: null,
+      isVariable: true,
+      speedValue: 3,
+      gustValue: null,
+      sourceUnit: 'kt' as const
+    }
     expect(formatWind(variable, 'kt')).toBe('Wind Variable at 3 kt')
   })
 })

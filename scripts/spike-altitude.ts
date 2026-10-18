@@ -1,6 +1,6 @@
 /**
  * M1/M6 throwaway spike (CLAUDE.md's spike-first discipline) for
- * flightdeck-backend/docs/plans/logbook-detail-improvements.md Phase 3, Step 1(b).
+ * winglog-backend/docs/plans/logbook-detail-improvements.md Phase 3, Step 1(b).
  *
  * The chart plots PLANE ALTITUDE (true altitude), which reads high vs. the PFD in cruise
  * because the PFD shows pressure altitude above the transition altitude. This spike proves,
@@ -17,7 +17,7 @@
  * (docs/decisions.md) — it isn't a candidate for use.
  *
  * Each SimVar gets its OWN data definition and request (the SIM RATE lesson,
- * docs/simconnect-notes.md 2026-09-06): if one name is wrong, only that one field is
+ * docs/simconnect-notes.md): if one name is wrong, only that one field is
  * missing from the printed snapshot instead of corrupting every read.
  *
  * Usage: npm run spike:altitude
@@ -29,10 +29,17 @@
  * altitude (~18,000 ft, TRANSITION_ALT_FT below), cruise stabilizing, and landing. Every
  * sample (not just milestones) still prints as a plain JSON line, so the full trace can be
  * recovered from wherever stdout was captured. Findings go in docs/simconnect-notes.md and
- * simbrief-notes.md (transition-altitude field names from a real OFP) in flightdeck-backend.
+ * simbrief-notes.md (transition-altitude field names from a real OFP) in winglog-backend.
  */
 import { appendFileSync } from 'node:fs'
-import { open, Protocol, SimConnectConstants, SimConnectDataType, SimConnectPeriod, type RawBuffer } from 'node-simconnect'
+import {
+  open,
+  Protocol,
+  SimConnectConstants,
+  SimConnectDataType,
+  SimConnectPeriod,
+  type RawBuffer
+} from 'node-simconnect'
 
 const APP_NAME = 'WingLog altitude spike'
 // Every 2s tick is appended here regardless of milestones, so the exact numbers around a
@@ -54,14 +61,62 @@ interface SimVarSpec {
 
 // One data definition + request per var, numbered 0..7 — see the SIM RATE lesson above.
 const SIM_VARS: SimVarSpec[] = [
-  { key: 'onGround', name: 'SIM ON GROUND', unit: 'bool', dataType: SimConnectDataType.INT32, read: (d) => d.readInt32() },
-  { key: 'trueAltFt', name: 'PLANE ALTITUDE', unit: 'feet', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
-  { key: 'indicatedAltFt', name: 'INDICATED ALTITUDE', unit: 'feet', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
-  { key: 'pressureAltFt', name: 'PRESSURE ALTITUDE', unit: 'feet', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
-  { key: 'kohlsmanMb', name: 'KOHLSMAN SETTING MB:1', unit: 'millibars', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
-  { key: 'seaLevelPressureMb', name: 'SEA LEVEL PRESSURE', unit: 'millibars', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
-  { key: 'ambientTempC', name: 'AMBIENT TEMPERATURE', unit: 'celsius', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() },
-  { key: 'standardTempC', name: 'STANDARD ATM TEMPERATURE', unit: 'celsius', dataType: SimConnectDataType.FLOAT64, read: (d) => d.readFloat64() }
+  {
+    key: 'onGround',
+    name: 'SIM ON GROUND',
+    unit: 'bool',
+    dataType: SimConnectDataType.INT32,
+    read: (d) => d.readInt32()
+  },
+  {
+    key: 'trueAltFt',
+    name: 'PLANE ALTITUDE',
+    unit: 'feet',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
+  {
+    key: 'indicatedAltFt',
+    name: 'INDICATED ALTITUDE',
+    unit: 'feet',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
+  {
+    key: 'pressureAltFt',
+    name: 'PRESSURE ALTITUDE',
+    unit: 'feet',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
+  {
+    key: 'kohlsmanMb',
+    name: 'KOHLSMAN SETTING MB:1',
+    unit: 'millibars',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
+  {
+    key: 'seaLevelPressureMb',
+    name: 'SEA LEVEL PRESSURE',
+    unit: 'millibars',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
+  {
+    key: 'ambientTempC',
+    name: 'AMBIENT TEMPERATURE',
+    unit: 'celsius',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  },
+  {
+    key: 'standardTempC',
+    name: 'STANDARD ATM TEMPERATURE',
+    unit: 'celsius',
+    dataType: SimConnectDataType.FLOAT64,
+    read: (d) => d.readFloat64()
+  }
 ]
 
 function connectionOptions(): { remote: { host: string; port: number } } | undefined {
@@ -90,7 +145,7 @@ open(APP_NAME, Protocol.SunRise, connectionOptions())
       latest[spec.key] = spec.read(recvSimObjectData.data)
     })
 
-    // docs/simconnect-notes.md (2026-09-06): recvException.index is a parameter-slot index
+    // docs/simconnect-notes.md: recvException.index is a parameter-slot index
     // into the specific SimConnect call, not a position in SIM_VARS — don't trust it to name
     // the failing var directly. Each var already has its own isolated definition/request
     // here, so the reliable way to identify it is: whichever key never shows up in a
@@ -111,7 +166,13 @@ open(APP_NAME, Protocol.SunRise, connectionOptions())
         latest['ambientTempC'] != null && latest['standardTempC'] != null
           ? Math.round(latest['ambientTempC'] - latest['standardTempC'])
           : null
-      return { ts: new Date().toISOString(), ...latest, onGround: latest['onGround'] === 1, gapTrueMinusPressureFt: gap, tempDevC }
+      return {
+        ts: new Date().toISOString(),
+        ...latest,
+        onGround: latest['onGround'] === 1,
+        gapTrueMinusPressureFt: gap,
+        tempDevC
+      }
     }
 
     // Phase-detection state, driven off the 1s sample tick below rather than each

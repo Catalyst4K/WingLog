@@ -1,0 +1,1 @@
+ALTER TABLE `flight` ADD `estimated_track_json` text;

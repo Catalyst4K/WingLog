@@ -1,11 +1,12 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test'
 
 /**
  * Launches the real built app (`npm run build`'s `out/`) against a fresh, isolated
- * `--user-data-dir` — never the real developer profile. Confirmed live (flightdeck-backend's
+ * `--user-data-dir` — never the real developer profile. Confirmed live (winglog-backend's
  * docs/plans/test-coverage.md) before this existed:
  *
  * - The first arg must be the project ROOT directory (containing package.json, whose
@@ -33,7 +34,7 @@ export interface LaunchedApp {
 export interface LaunchAppOptions {
   /** Extra env vars for this launch only — merged over the inherited environment, never
    *  mutating process.env, so concurrent tests can request different fixtures safely. Used
-   *  to drive main/index.ts's replay seam (WINGLOG_E2E_FIXTURE and friends — flightdeck-
+   *  to drive main/index.ts's replay seam (WINGLOG_E2E_FIXTURE and friends — winglog-
    *  backend's docs/plans/flight-replay-harness.md Phase 3) without a live sim. */
   env?: Record<string, string>
   /** Use this directory as `--user-data-dir` instead of a freshly created empty one — for
@@ -42,10 +43,44 @@ export interface LaunchAppOptions {
    *  Still isolated, still the caller's responsibility to have created it and to clean it
    *  up (cleanup() below only removes a directory it created itself). */
   userDataDir?: string
-  /** Leave the first-launch setup open (flightdeck-backend's docs/plans/first-launch-setup.md)
+  /** Leave the first-launch setup open (winglog-backend's docs/plans/first-launch-setup.md)
    *  for a test about the setup itself. By default it's closed straight away, since every
    *  other test starts from a fresh profile and would otherwise find it in the way. */
   keepSetup?: boolean
+}
+
+/**
+ * A port nothing listens on: bound and released at once.
+ *
+ * @returns The port.
+ */
+async function unusedPort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = createServer()
+    server.once('error', reject)
+    server.listen(0, '127.0.0.1', () => {
+      const { port } = server.address() as { port: number }
+      server.close(() => resolve(port))
+    })
+  })
+}
+
+/** How long to wait for the app to close before killing it. */
+const CLOSE_TIMEOUT_MS = 10_000
+
+/**
+ * Keeps the app's main.log in `test-results/` when it records an uncaught exception, before the isolated profile is deleted: a
+ * flake in which the main process threw (`timer._onTimeout is not a function`, one launch in about 80 under load)
+ * otherwise leaves nothing to read.
+ *
+ * @param userDataDir The profile the app ran in.
+ */
+function keepErrorLog(userDataDir: string): void {
+  const log = join(userDataDir, 'logs', 'main.log')
+  if (!existsSync(log) || !/Uncaught|TypeError|ReferenceError/.test(readFileSync(log, 'utf8'))) return
+  const dir = join(process.cwd(), 'test-results')
+  mkdirSync(dir, { recursive: true })
+  copyFileSync(log, join(dir, `main-log-${Date.now()}.log`))
 }
 
 export async function launchApp(options: LaunchAppOptions = {}): Promise<LaunchedApp> {
@@ -67,6 +102,13 @@ export async function launchApp(options: LaunchAppOptions = {}): Promise<Launche
   // closed local port so no e2e run ever reaches the real API; updates.spec.ts overrides
   // this with its own fake release server. Only honoured by an unpackaged build.
   env.WINGLOG_UPDATE_URL = 'http://127.0.0.1:9/releases/latest'
+  // A test run never reaches the real sim or BeyondATC on this machine, whether or not they are running: each is pointed at a port of
+  // its own that nothing listens on, which a test's fake server (FakeBeyondAtcServer's env) or replay replaces.
+  env.WINGLOG_E2E_SIMCONNECT_PORT = String(await unusedPort())
+  env.WINGLOG_E2E_BEYONDATC_PORT = String(await unusedPort())
+  // The window is shown without taking the keyboard focus, on a second display when there is one, so a run doesn't interrupt other
+  // work. Set WINGLOG_E2E_WINDOW=normal to watch a run like a normal launch, or hidden to show nothing; WINGLOG_E2E_DISPLAY picks a display.
+  env.WINGLOG_E2E_WINDOW = process.env.WINGLOG_E2E_WINDOW ?? 'inactive'
   Object.assign(env, options.env)
 
   const app = await electron.launch({
@@ -91,7 +133,13 @@ export async function launchApp(options: LaunchAppOptions = {}): Promise<Launche
     app,
     window,
     cleanup: async () => {
-      await app.close()
+      // An error dialog in the app's main process (an uncaught exception) blocks it, and with it app.close(): don't hang the test on it.
+      const closed = await Promise.race([
+        app.close().then(() => true),
+        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), CLOSE_TIMEOUT_MS))
+      ])
+      if (!closed) app.process().kill()
+      keepErrorLog(userDataDir)
       if (ownedUserDataDir) rmSync(userDataDir, { recursive: true, force: true })
     }
   }

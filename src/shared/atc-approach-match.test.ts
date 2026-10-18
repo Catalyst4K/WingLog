@@ -3,7 +3,7 @@ import type { NavdataProcedureOption } from './ipc'
 import { parseAtcBoxClearance } from './atc-info-boxes'
 import { matchClearanceApproach } from './atc-approach-match'
 
-// WSSS's real approaches from the sim's navdata (cached 2026-10-02), one row per transition.
+// WSSS's real approaches from the sim's navdata (cached), one row per transition.
 const WSSS: NavdataProcedureOption[] = [
   { identifier: 'ILS 02L', transition: 'APIPA' },
   { identifier: 'RNAV 02C', transition: 'SAMKO' },
@@ -13,7 +13,7 @@ const WSSS: NavdataProcedureOption[] = [
   { identifier: 'TYPE 8 20C', transition: 'NYLON' }
 ]
 
-/** BeyondATC's `Cleared Approach` box (+ `Transition`), in the real ZJSY shape (2026-10-05). */
+/** BeyondATC's `Cleared Approach` box (+ `Transition`), in the real ZJSY shape. */
 const cleared = (approach: string, transition?: string) =>
   parseAtcBoxClearance([
     { title: 'Cleared Approach', info: approach },
@@ -29,11 +29,15 @@ describe('matchClearanceApproach (WSSS, 2026-10-02)', () => {
   })
 
   it('keeps an ILS match exactly as named', () => {
-    expect(matchClearanceApproach(cleared('ILS approach runway 02L'), WSSS)?.fields).toEqual({ approachIdent: 'ILS 02L' })
+    expect(matchClearanceApproach(cleared('ILS approach runway 02L'), WSSS)?.fields).toEqual({
+      approachIdent: 'ILS 02L'
+    })
   })
 
   it("drops a transition the approach doesn't have, keeping the approach", () => {
-    expect(matchClearanceApproach(cleared('R-NAV approach runway 02L', 'NYLON'), WSSS)?.fields).toEqual({ approachIdent: 'RNAV 02L' })
+    expect(matchClearanceApproach(cleared('R-NAV approach runway 02L', 'NYLON'), WSSS)?.fields).toEqual({
+      approachIdent: 'RNAV 02L'
+    })
   })
 
   it('offers nothing for an approach the airport does not have, rather than a name nothing shows', () => {

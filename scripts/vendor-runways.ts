@@ -14,7 +14,7 @@ const AIRPORTS_CSV = new URL('../resources/airports.csv', import.meta.url)
 
 // Known-bad upstream headings, keyed "ICAO,IDENT" — applied after the fetch so a re-run of
 // this script doesn't silently reintroduce a real data error OurAirports itself hasn't
-// fixed. VHHH's 07L/25R found 2026-09-13: published 74°/254° against 07C/07R's real 71°,
+// fixed. VHHH's 07L/25R found: published 74°/254° against 07C/07R's real 71°,
 // but 07L's own two threshold coordinates geometrically bear ~70.8° — matching its siblings
 // almost exactly (three physically-parallel strips should share a near-identical true
 // heading) and consistent with VHHH's real in-sim SimConnect facility centre point already
@@ -92,7 +92,7 @@ async function main(): Promise<void> {
   const iHeLat = idx('he_latitude_deg')
   const iHeLon = idx('he_longitude_deg')
   const iHeHdg = idx('he_heading_degT')
-  // Phase 1 (docs/plans/navdata-without-navigraph.md, flightdeck-backend) — real extent
+  // Phase 1 (docs/plans/navdata-without-navigraph.md, winglog-backend) — real extent
   // gating and threshold-displacement/aiming-point maths, replacing the fixed stand-in
   // constants runway-lookup.ts used until now. length_ft/width_ft/surface describe the
   // whole physical strip (shared by both ends); the displaced-threshold/elevation columns
@@ -148,11 +148,23 @@ async function main(): Promise<void> {
       if (!ident || !lat || !lon || !hdg) continue
       const override = HEADING_OVERRIDES[`${icao},${ident}`]
       const outHdg = override !== undefined ? String(override) : hdg
-      outRows.push([icao, ident, lat, lon, outHdg, row[iLength] ?? '', row[iWidth] ?? '', displaced ?? '', elevation ?? '', row[iSurface] ?? ''])
+      outRows.push([
+        icao,
+        ident,
+        lat,
+        lon,
+        outHdg,
+        row[iLength] ?? '',
+        row[iWidth] ?? '',
+        displaced ?? '',
+        elevation ?? '',
+        row[iSurface] ?? ''
+      ])
     }
   }
 
-  const csvText = outRows.map((r) => r.map((f) => (f.includes(',') ? `"${f}"` : f)).join(',')).join('\n') + '\n'
+  const csvText =
+    outRows.map((r) => r.map((f) => (f.includes(',') ? `"${f}"` : f)).join(',')).join('\n') + '\n'
   writeFileSync(OUT_CSV, csvText, 'utf-8')
 
   const license = `runways.csv
@@ -176,7 +188,7 @@ heading_true_deg is patched post-fetch for a small HEADING_OVERRIDES list in thi
 against the runway's own real geometry — see this script's own comment for the evidence.
 
 Used by src/main/airports/runway-lookup.ts (landing analysis, PLAN.md M6; Phase 1 of
-flightdeck-backend's docs/plans/navdata-without-navigraph.md) to resolve a touchdown
+winglog-backend's docs/plans/navdata-without-navigraph.md) to resolve a touchdown
 position/heading to the nearest matching runway end, using each end's own real
 width/length for matching tolerance rather than a fixed stand-in, report distance from the
 real (displacement-adjusted) landing threshold, and derive an ICAO Annex 14 aiming-point

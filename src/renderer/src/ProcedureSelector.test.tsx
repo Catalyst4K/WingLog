@@ -5,11 +5,19 @@ import userEvent from '@testing-library/user-event'
 import type { NavdataProcedureOption, NavdataRunwayOption, ProcedureSelection, WingLogApi } from '@shared/ipc'
 import i18n from './i18n'
 import { ProcedureSelector } from './ProcedureSelector'
-import { emptyProcedureSelection, type ProcedureAirports } from './procedureSelection'
+import { emptyProcedureSelection, type ProcedureAirports } from './procedure-selection'
 import type { Waypoint } from './route'
 
 function runway(ident: string): NavdataRunwayOption {
-  return { ident, headingTrueDeg: 270, lengthM: 3800, widthM: 60, surface: 1, thresholdLat: 51.5, thresholdLon: -0.5 }
+  return {
+    ident,
+    headingTrueDeg: 270,
+    lengthM: 3800,
+    widthM: 60,
+    surface: 1,
+    thresholdLat: 51.5,
+    thresholdLon: -0.5
+  }
 }
 
 function proc(identifier: string, transition: string | null = null): NavdataProcedureOption {
@@ -42,8 +50,11 @@ function Harness(props: {
   initialSelection?: ProcedureSelection
   liveWaypoints?: Waypoint[]
   onSelectionChange?: (next: ProcedureSelection) => void
+  compact?: boolean
 }): React.JSX.Element {
-  const [selection, setSelection] = useState<ProcedureSelection>(props.initialSelection ?? emptyProcedureSelection())
+  const [selection, setSelection] = useState<ProcedureSelection>(
+    props.initialSelection ?? emptyProcedureSelection()
+  )
   return (
     <ProcedureSelector
       airports={props.airports}
@@ -53,6 +64,7 @@ function Harness(props: {
         props.onSelectionChange?.(next)
       }}
       liveWaypoints={props.liveWaypoints ?? []}
+      compact={props.compact}
     />
   )
 }
@@ -114,6 +126,58 @@ describe('ProcedureSelector', () => {
     expect(await screen.findByText('Departure runway')).toBeInTheDocument()
   })
 
+  describe('compact (a phone)', () => {
+    it('splits Departure and Arrival into two tabs, Departure first', async () => {
+      withWinglog({ navdataListRunways: vi.fn().mockResolvedValue([runway('27L')]) })
+      const user = userEvent.setup()
+      render(<Harness airports={airports()} compact />)
+      expect(await screen.findByRole('tab', { name: 'Departure' })).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByText('Departure runway')).toBeInTheDocument()
+      expect(screen.queryByText('Approach')).not.toBeInTheDocument()
+      await user.click(screen.getByRole('tab', { name: 'Arrival' }))
+      expect(await screen.findByText('Approach')).toBeInTheDocument()
+      expect(screen.queryByText('Departure runway')).not.toBeInTheDocument()
+    })
+
+    it("uses the device's own dropdowns, which scroll and fit a phone", async () => {
+      withWinglog({ navdataListRunways: vi.fn().mockResolvedValue([runway('27L'), runway('27R')]) })
+      const onSelectionChange = vi.fn()
+      const user = userEvent.setup()
+      render(<Harness airports={airports()} compact onSelectionChange={onSelectionChange} />)
+      const select = await screen.findByLabelText('Departure runway')
+      await waitFor(() => expect(select).not.toBeDisabled())
+      expect(
+        within(select)
+          .getAllByRole('option')
+          .map((o) => o.textContent)
+      ).toEqual(['None', '27L', '27R'])
+      await user.selectOptions(select, '27R')
+      expect(onSelectionChange).toHaveBeenCalledWith(expect.objectContaining({ departureRunway: '27R' }))
+      await user.selectOptions(select, 'None')
+      expect(onSelectionChange).toHaveBeenLastCalledWith(expect.objectContaining({ departureRunway: null }))
+    })
+
+    it('switches the arrival to the alternate with the device dropdown, clearing the arrival procedures', async () => {
+      withWinglog({ navdataListApproaches: vi.fn().mockResolvedValue([proc('ILS 04L')]) })
+      const onSelectionChange = vi.fn()
+      const user = userEvent.setup()
+      render(
+        <Harness
+          airports={airports({ altnIcao: 'KEWR' })}
+          compact
+          onSelectionChange={onSelectionChange}
+          initialSelection={{ ...emptyProcedureSelection(), starIdent: 'CAMRN4', approachIdent: 'ILS 04L' }}
+        />
+      )
+      await user.click(await screen.findByRole('tab', { name: 'Arrival' }))
+      const airport = await screen.findByLabelText('Arrival airport')
+      await user.selectOptions(airport, 'alternate')
+      expect(onSelectionChange).toHaveBeenCalledWith(
+        expect.objectContaining({ arrivalIcao: 'KEWR', starIdent: null, approachIdent: null })
+      )
+    })
+  })
+
   it('lists departure runways once loaded, and disables the field when there are none', async () => {
     withWinglog({ navdataListRunways: vi.fn().mockResolvedValue([runway('27L'), runway('27R')]) })
     const user = userEvent.setup()
@@ -169,7 +233,9 @@ describe('ProcedureSelector', () => {
 
   it('lists SID transitions for the currently-selected SID only, and lets one be picked', async () => {
     withWinglog({
-      navdataListSids: vi.fn().mockResolvedValue([proc('DET2G', 'DET'), proc('DET2G', 'LYD'), proc('OTHER', 'ABC')])
+      navdataListSids: vi
+        .fn()
+        .mockResolvedValue([proc('DET2G', 'DET'), proc('DET2G', 'LYD'), proc('OTHER', 'ABC')])
     })
     const user = userEvent.setup()
     let latest: ProcedureSelection | null = null
@@ -235,7 +301,11 @@ describe('ProcedureSelector', () => {
   })
 
   it('lists STAR transitions for the currently-selected STAR only', async () => {
-    withWinglog({ navdataListStars: vi.fn().mockResolvedValue([proc('BIG1A', 'BIG'), proc('BIG1A', 'LAM'), proc('OTHER', 'X')]) })
+    withWinglog({
+      navdataListStars: vi
+        .fn()
+        .mockResolvedValue([proc('BIG1A', 'BIG'), proc('BIG1A', 'LAM'), proc('OTHER', 'X')])
+    })
     const user = userEvent.setup()
     let latest: ProcedureSelection | null = null
     render(
@@ -253,10 +323,15 @@ describe('ProcedureSelector', () => {
     expect(latest).toEqual(expect.objectContaining({ starTransition: 'LAM' }))
   })
 
-  it('re-fetches STARs filtered by the current approach\'s runway once an approach is chosen', async () => {
+  it("re-fetches STARs filtered by the current approach's runway once an approach is chosen", async () => {
     const navdataListStars = vi.fn().mockResolvedValue([])
     withWinglog({ navdataListStars })
-    render(<Harness airports={airports()} initialSelection={{ ...emptyProcedureSelection(), approachIdent: 'ILS 07R' }} />)
+    render(
+      <Harness
+        airports={airports()}
+        initialSelection={{ ...emptyProcedureSelection(), approachIdent: 'ILS 07R' }}
+      />
+    )
 
     await waitFor(() => expect(navdataListStars).toHaveBeenCalledWith('KJFK', '07R'))
   })
@@ -271,7 +346,11 @@ describe('ProcedureSelector', () => {
     render(
       <Harness
         airports={airports()}
-        initialSelection={{ ...emptyProcedureSelection(), approachIdent: 'ILS 07R', approachTransition: 'STALE' }}
+        initialSelection={{
+          ...emptyProcedureSelection(),
+          approachIdent: 'ILS 07R',
+          approachTransition: 'STALE'
+        }}
         onSelectionChange={(s) => (latest = s)}
       />
     )
@@ -285,7 +364,9 @@ describe('ProcedureSelector', () => {
 
   it('lists approach transitions for the currently-selected approach only', async () => {
     withWinglog({
-      navdataListApproaches: vi.fn().mockResolvedValue([proc('ILS 07R', 'LIMES'), proc('ILS 07R', 'TD'), proc('LOC 07R', 'X')])
+      navdataListApproaches: vi
+        .fn()
+        .mockResolvedValue([proc('ILS 07R', 'LIMES'), proc('ILS 07R', 'TD'), proc('LOC 07R', 'X')])
     })
     const user = userEvent.setup()
     let latest: ProcedureSelection | null = null
@@ -325,7 +406,12 @@ describe('ProcedureSelector', () => {
       render(
         <Harness
           airports={airports({ altnIcao: 'KEWR' })}
-          initialSelection={{ ...emptyProcedureSelection(), starIdent: 'DEEZZ5', approachIdent: 'ILS 22R', approachTransition: 'X' }}
+          initialSelection={{
+            ...emptyProcedureSelection(),
+            starIdent: 'DEEZZ5',
+            approachIdent: 'ILS 22R',
+            approachTransition: 'X'
+          }}
           onSelectionChange={(s) => {
             latest = s
             history.push(s)
@@ -339,7 +425,13 @@ describe('ProcedureSelector', () => {
 
       // The switch itself starts clean (the auto-default then fills in the alternate's approach).
       expect(history[0]).toEqual(
-        expect.objectContaining({ arrivalIcao: 'KEWR', starIdent: null, starTransition: null, approachIdent: null, approachTransition: null })
+        expect.objectContaining({
+          arrivalIcao: 'KEWR',
+          starIdent: null,
+          starTransition: null,
+          approachIdent: null,
+          approachTransition: null
+        })
       )
       await waitFor(() => expect(api.navdataRefreshAirport).toHaveBeenCalledWith('KEWR'))
       await waitFor(() => expect(navdataListApproaches).toHaveBeenCalledWith('KEWR', null))
@@ -367,8 +459,11 @@ describe('ProcedureSelector', () => {
       await waitFor(() => expect(history[history.length - 1]?.approachIdent).toBe('ILS 22R'))
     })
 
-    it('does not restrict the alternate\'s auto-picked approach to the OFP\'s planned destination runway', async () => {
-      const ofpJson = JSON.stringify({ general: { route_ifps: '', sid_ident: '', star_ident: '' }, destination: { plan_rwy: '22R' } })
+    it("does not restrict the alternate's auto-picked approach to the OFP's planned destination runway", async () => {
+      const ofpJson = JSON.stringify({
+        general: { route_ifps: '', sid_ident: '', star_ident: '' },
+        destination: { plan_rwy: '22R' }
+      })
       withWinglog({ navdataListApproaches: vi.fn().mockResolvedValue([proc('ILS 04R'), proc('ILS 22R')]) })
       let latest: ProcedureSelection | null = null
       render(
@@ -404,7 +499,9 @@ describe('ProcedureSelector', () => {
     })
 
     it('clears a transition on its own', async () => {
-      withWinglog({ navdataListStars: vi.fn().mockResolvedValue([proc('BNN1A', 'BNN'), proc('BNN1A', 'LAM')]) })
+      withWinglog({
+        navdataListStars: vi.fn().mockResolvedValue([proc('BNN1A', 'BNN'), proc('BNN1A', 'LAM')])
+      })
       const user = userEvent.setup()
       let latest: ProcedureSelection | null = null
       render(
@@ -446,7 +543,9 @@ describe('ProcedureSelector', () => {
   })
 
   it('auto-picks a default approach once options load, when nothing is chosen yet', async () => {
-    withWinglog({ navdataListApproaches: vi.fn().mockResolvedValue([proc('RNAV Z 07R'), proc('ILS 07R'), proc('LOC 07R')]) })
+    withWinglog({
+      navdataListApproaches: vi.fn().mockResolvedValue([proc('RNAV Z 07R'), proc('ILS 07R'), proc('LOC 07R')])
+    })
     let latest: ProcedureSelection | null = null
     render(<Harness airports={airports()} onSelectionChange={(s) => (latest = s)} />)
 
@@ -455,7 +554,9 @@ describe('ProcedureSelector', () => {
 
   it('never auto-picks the synthetic Visual approach over a real one, but does when it is all there is', async () => {
     withWinglog({
-      navdataListApproaches: vi.fn().mockResolvedValue([proc('Visual 07R', 'Vectors'), proc('ILS 07R'), proc('RNAV Z 07R')])
+      navdataListApproaches: vi
+        .fn()
+        .mockResolvedValue([proc('Visual 07R', 'Vectors'), proc('ILS 07R'), proc('RNAV Z 07R')])
     })
     let latest: ProcedureSelection | null = null
     const first = render(<Harness airports={airports()} onSelectionChange={(s) => (latest = s)} />)
@@ -489,7 +590,7 @@ describe('ProcedureSelector', () => {
     await waitFor(() => expect(listStars).toHaveBeenLastCalledWith('KJFK', '07R'))
   })
 
-  it('restricts the auto-picked approach to the OFP\'s planned arrival runway when one is set', async () => {
+  it("restricts the auto-picked approach to the OFP's planned arrival runway when one is set", async () => {
     const ofpJson = JSON.stringify({ api_params: { destrwy: '25L' }, general: {} })
     withWinglog({
       navdataListApproaches: vi.fn().mockResolvedValue([proc('ILS 07R'), proc('LOC 25L'), proc('RNAV Z 25L')])
@@ -517,8 +618,124 @@ describe('ProcedureSelector', () => {
     expect(onSelectionChange).not.toHaveBeenCalled()
   })
 
-  it('auto-connects the approach transition to the STAR\'s last waypoint when it matches', async () => {
-    withWinglog({ navdataListApproaches: vi.fn().mockResolvedValue([proc('ILS 07R', 'LIMES'), proc('ILS 07R', 'OTHER')]) })
+  describe('the suggested approach connects to the STAR (ZJSY: UPRS2C ends at SY498, the entry to ILS Z 08, not ILS X 08)', () => {
+    const zjsy = [proc('ILS X 08', 'SY400'), proc('ILS Z 08', 'SY498')]
+
+    it('swaps the approach WingLog suggested when the STAR waypoints arrive after it, as a BeyondATC clearance would', async () => {
+      withWinglog({ navdataListApproaches: vi.fn().mockResolvedValue(zjsy) })
+      let latest: ProcedureSelection | null = null
+      const props = {
+        airports: airports({ arrIcao: 'ZJSY' }),
+        onSelectionChange: (s: ProcedureSelection) => (latest = s)
+      }
+      const { rerender } = render(<Harness {...props} />)
+      // The list is in before the route's waypoints: with no STAR end to go on, the first ILS is suggested.
+      await waitFor(() => expect(latest?.approachIdent).toBe('ILS X 08'))
+
+      rerender(<Harness {...props} liveWaypoints={[waypoint({ ident: 'SY498', segment: 'star' })]} />)
+      await waitFor(() =>
+        expect(latest).toEqual(
+          expect.objectContaining({ approachIdent: 'ILS Z 08', approachTransition: 'SY498' })
+        )
+      )
+    })
+
+    it('suggests the connecting approach straight away when the STAR waypoints are already there', async () => {
+      withWinglog({ navdataListApproaches: vi.fn().mockResolvedValue(zjsy) })
+      let latest: ProcedureSelection | null = null
+      render(
+        <Harness
+          airports={airports({ arrIcao: 'ZJSY' })}
+          liveWaypoints={[waypoint({ ident: 'SY498', segment: 'star' })]}
+          onSelectionChange={(s) => (latest = s)}
+        />
+      )
+      await waitFor(() => expect(latest).toEqual(expect.objectContaining({ approachIdent: 'ILS Z 08' })))
+      await waitFor(() => expect(latest?.approachTransition).toBe('SY498'))
+    })
+
+    // UPRS3D to ILS Z 08 with ATC vectors from the end of the STAR to the approach (flown 2026-10-15).
+    it('offers Vectors as an approach transition, even for an approach with no transitions, and records the choice', async () => {
+      withWinglog({ navdataListApproaches: vi.fn().mockResolvedValue([proc('ILS Z 08'), proc('ILS X 08')]) })
+      const user = userEvent.setup()
+      let latest: ProcedureSelection | null = null
+      render(
+        <Harness
+          airports={airports({ arrIcao: 'ZJSY' })}
+          initialSelection={{ ...emptyProcedureSelection(), approachIdent: 'ILS Z 08' }}
+          onSelectionChange={(s) => (latest = s)}
+        />
+      )
+      await waitFor(() => expect(selectFor('Approach transition')).not.toBeDisabled())
+      await user.click(selectFor('Approach transition'))
+      expect(await screen.findByRole('option', { name: 'Vectors' })).toBeInTheDocument()
+      await user.click(screen.getByRole('option', { name: 'Vectors' }))
+      expect(latest).toEqual(
+        expect.objectContaining({ approachIdent: 'ILS Z 08', approachTransition: 'Vectors' })
+      )
+    })
+
+    it('keeps Vectors when the STAR ends where the approach has a transition: the choice is not overwritten', async () => {
+      withWinglog({ navdataListApproaches: vi.fn().mockResolvedValue(zjsy) })
+      const onSelectionChange = vi.fn()
+      render(
+        <Harness
+          airports={airports({ arrIcao: 'ZJSY' })}
+          initialSelection={{
+            ...emptyProcedureSelection(),
+            approachIdent: 'ILS Z 08',
+            approachTransition: 'Vectors'
+          }}
+          liveWaypoints={[waypoint({ ident: 'SY498', segment: 'star' })]}
+          onSelectionChange={onSelectionChange}
+        />
+      )
+      await new Promise((resolve) => setTimeout(resolve, 40))
+      expect(onSelectionChange).not.toHaveBeenCalled()
+    })
+
+    it('offers no transitions until an approach is chosen', async () => {
+      withWinglog({ navdataListApproaches: vi.fn().mockResolvedValue(zjsy) })
+      render(
+        <Harness airports={airports({ arrIcao: 'ZJSY' })} initialSelection={emptyProcedureSelection()} />
+      )
+      expect(selectFor('Approach transition')).toBeDisabled()
+    })
+
+    it('never swaps an approach the pilot chose', async () => {
+      withWinglog({ navdataListApproaches: vi.fn().mockResolvedValue(zjsy) })
+      const onSelectionChange = vi.fn()
+      render(
+        <Harness
+          airports={airports({ arrIcao: 'ZJSY' })}
+          initialSelection={{ ...emptyProcedureSelection(), approachIdent: 'ILS X 08' }}
+          liveWaypoints={[waypoint({ ident: 'SY498', segment: 'star' })]}
+          onSelectionChange={onSelectionChange}
+        />
+      )
+      await new Promise((resolve) => setTimeout(resolve, 40))
+      expect(onSelectionChange).not.toHaveBeenCalled()
+    })
+
+    it('does not swap the suggestion when no approach for its runway starts where the STAR ends', async () => {
+      withWinglog({ navdataListApproaches: vi.fn().mockResolvedValue(zjsy) })
+      let latest: ProcedureSelection | null = null
+      const props = {
+        airports: airports({ arrIcao: 'ZJSY' }),
+        onSelectionChange: (s: ProcedureSelection) => (latest = s)
+      }
+      const { rerender } = render(<Harness {...props} />)
+      await waitFor(() => expect(latest?.approachIdent).toBe('ILS X 08'))
+      rerender(<Harness {...props} liveWaypoints={[waypoint({ ident: 'NOWHERE', segment: 'star' })]} />)
+      await new Promise((resolve) => setTimeout(resolve, 40))
+      expect(latest?.approachIdent).toBe('ILS X 08')
+    })
+  })
+
+  it("auto-connects the approach transition to the STAR's last waypoint when it matches", async () => {
+    withWinglog({
+      navdataListApproaches: vi.fn().mockResolvedValue([proc('ILS 07R', 'LIMES'), proc('ILS 07R', 'OTHER')])
+    })
     let latest: ProcedureSelection | null = null
     render(
       <Harness
@@ -532,7 +749,7 @@ describe('ProcedureSelector', () => {
     await waitFor(() => expect(latest?.approachTransition).toBe('LIMES'))
   })
 
-  it('does not auto-connect when the STAR\'s last waypoint is not one of the approach\'s transitions', async () => {
+  it("does not auto-connect when the STAR's last waypoint is not one of the approach's transitions", async () => {
     withWinglog({ navdataListApproaches: vi.fn().mockResolvedValue([proc('ILS 07R', 'OTHERFIX')]) })
     const onSelectionChange = vi.fn()
     render(
@@ -572,7 +789,11 @@ describe('ProcedureSelector', () => {
     render(
       <Harness
         airports={airports()}
-        initialSelection={{ ...emptyProcedureSelection(), approachIdent: 'ILS 07R', approachTransition: 'MANUAL' }}
+        initialSelection={{
+          ...emptyProcedureSelection(),
+          approachIdent: 'ILS 07R',
+          approachTransition: 'MANUAL'
+        }}
         liveWaypoints={[waypoint({ ident: 'LIMES', segment: 'star' })]}
         onSelectionChange={onSelectionChange}
       />

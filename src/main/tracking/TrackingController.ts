@@ -1,37 +1,34 @@
+/**
+ * Tracks one flight at a time: feeds each sim tick to the phase machine (FlightRecorder), records
+ * the track and the touchdowns, and completes the flight in the database. Emits what the live
+ * map and the BeyondATC features listen to (point, phaseChanged, completed).
+ */
+import { runLogged } from '../logging/run-logged'
+import { logger } from '../logging/logger'
 import { EventEmitter } from 'node:events'
-import type { ActiveTracking, FlightPhase, ProcedureSelection, SimTelemetry, TrackPoint } from '@shared/ipc'
+import type {
+  ActiveTracking,
+  FlightPhase,
+  NewTrackPoint,
+  ProcedureSelection,
+  SimTelemetry,
+  TrackPoint
+} from '@shared/ipc'
 import { t } from '../i18n'
 import { nearestAirport } from '../airports/airport-search'
-import type { WingLogDb } from '../db/client'
-import { addInvoicesForFlight } from '../db/flight-invoice-repo'
-import {
-  abandonFlight,
-  completeFlight,
-  createFreeFlight,
-  finalizeFuelOut,
-  getFlight,
-  type PausedInterval,
-  recordOff,
-  recordOn,
-  setArrIcao,
-  setDepIcao,
-  setFlownRoute,
-  setSelectedProcedures,
-  startFlight
-} from '../db/flight-repo'
-import { createLanding, listLandingsByFlight } from '../db/landing-repo'
+import type { PausedInterval } from '@shared/ipc'
+import type { FlightStore } from './flight-store'
 import type { SimAirfieldMatch } from '../airports/sim-airfield'
-import { getGsxSettings, rememberAircraftForTitle } from '../db/settings-repo'
-import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
-import { buildFlightMatchWindow } from '../gsx/flight-window'
-import { scanGsxFolder } from '../gsx/scan'
 import type { SimConnectSource, TouchdownSeverity } from '../sim/SimConnectSource'
 import { FlightRecorder, MOVING_MS } from './FlightRecorder'
 import { seedPhaseFromTelemetry } from './free-flight'
+import { landingRunwayResolver } from '../airports/landing-runway'
 import { buildLandingRecord } from './landing-capture'
-import { isPhysicallyImpossibleJump, RESUME_CLEANUP_CONSTANTS, type TrackCleanupResult } from './resume-cleanup'
-import { runTrackCleanupForFlight } from './run-track-cleanup'
-import { listCachedRunways } from '../db/navdata-repo'
+import {
+  isPhysicallyImpossibleJump,
+  RESUME_CLEANUP_CONSTANTS,
+  type TrackCleanupResult
+} from './resume-cleanup'
 import { isOnRunway } from './runway-check'
 import { deriveFlownRouteJson } from './route-simplify'
 
@@ -39,8 +36,12 @@ import { deriveFlownRouteJson } from './route-simplify'
 // since the last one — at the 1 Hz telemetry rate every SimConnect period request uses
 // (SimConnectService), a handful of seconds genuinely airborne rules out a rollout bounce
 // (gear compression briefly reporting on-ground->off->on again) without missing a real
-// short circuit hop (flightdeck-backend's docs/plans/multiple-landings.md).
+// short circuit hop (winglog-backend's docs/plans/multiple-landings.md).
 const MIN_AIRBORNE_SAMPLES_FOR_NEW_TOUCHDOWN = 3
+
+/** Track points kept in memory while the database refuses writes: about seven hours at one every 5 s. */
+const MAX_UNSAVED_POINTS = 5_000
+const STORAGE_FAILURE_LOG_INTERVAL_MS = 60_000
 // How long a cached touchdownSeverity reading (SimConnectService's high-rate stream, v1.2
 // Part 1) stays usable after it arrives, before detectTouchdown falls back to
 // previousTelemetry instead. The high-rate stream detects ground contact from its own,
@@ -57,6 +58,8 @@ const LANDING_ICAO_SEARCH_RADIUS_NM = 5
 
 interface TrackingControllerEvents {
   point: [TrackPoint]
+  /** Saving the track started failing (true) or works again (false): a full disk. Emitted on the change only. */
+  storageProblem: [boolean]
   /** Emitted whenever a resume-cleanup pass (resume-cleanup.ts) actually changes something
    *  — a point newly excluded, or retagged with a new resumeSegment — carrying every
    *  affected point at its now-current values, so a live map (already holding the earlier,
@@ -65,9 +68,16 @@ interface TrackingControllerEvents {
   pointsUpdated: [TrackPoint[]]
   /** Emitted whenever a flight reaches 'completed' — auto shutdown detection or a manual
    *  finish() alike — so main/index.ts can trigger a background cloud sync
-   *  (flightdeck-backend/docs/plans/cloud-sync-v2.md #3) without this class needing to
+   *  (winglog-backend/docs/plans/cloud-sync-v2.md #3) without this class needing to
    *  know anything about sync itself. */
   completed: [number]
+  /** A flight's tracking has started (start, startFree or resume), so a recording can begin. */
+  started: [number]
+  /** Tracking was cancelled mid-flight (stop()), as opposed to completed. */
+  stopped: [number]
+  /** The phase machine moved from one phase to another, with the tick that moved it. Includes
+   *  ticks not stored as track points (the dev build's diagnostic log). */
+  phaseChanged: [{ from: FlightPhase; to: FlightPhase; telemetry: SimTelemetry }]
 }
 
 /**
@@ -79,14 +89,14 @@ interface TrackingControllerEvents {
  *
  * Constructor takes a SimConnectSource, not the concrete SimConnectService class — the
  * structural interface both SimConnectService and ReplaySimConnectService satisfy, per
- * flightdeck-backend's docs/plans/flight-replay-harness.md Phase 3. main/index.ts is the
+ * winglog-backend's docs/plans/flight-replay-harness.md Phase 3. main/index.ts is the
  * only place that decides which concrete implementation gets constructed.
  */
 export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   private recorder: FlightRecorder | undefined
   private offRecorded = false
   private fuelOutFinalized = false
-  // Landing capture (flightdeck-backend's docs/plans/multiple-landings.md) — keyed off the
+  // Landing capture (winglog-backend's docs/plans/multiple-landings.md) — keyed off the
   // raw telemetry.onGround false->true edge directly, independent of the phase machine's
   // own descent -> landing transition, which has real holes for circuit flying (a tight
   // circuit that never holds level for ten seconds never reaches 'descent' at all).
@@ -119,24 +129,20 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   // going anywhere (see flight-repo.ts's own completeFlight comment). In-memory only, same
   // as offRecorded/onRecorded/fuelOutFinalized above: a pause that happened before an
   // app/process restart can't be recovered here, which is fine — that's a full resume, a
-  // different scenario (flightdeck-backend's docs/plans/done/resume-track-cleanup.md), not an
+  // different scenario (winglog-backend's docs/plans/done/resume-track-cleanup.md), not an
   // in-session pause.
   private pausedIntervals: PausedInterval[] = []
   private openPauseStartIso: string | undefined
-  // Live-jump detection for resume-cleanup.ts's Phase 2 (flightdeck-backend's docs/plans/
-  // resume-track-cleanup.md) — cheap, incremental, and separate from the full pass run at
-  // completion: lastPersistedPoint lets each new sample be checked against just its one
-  // predecessor (Rule 2 is a per-pair test) without re-scanning the whole flight on every
-  // tick. resumeWindowDeadlineMs is only used to know when a window has timed out with
-  // nothing resolving it (Case C) — the jump check itself runs unconditionally either way,
-  // per the design decided 2026-09-13 (see resume-cleanup.ts's own doc comment).
+  // Live-jump detection for resume-cleanup.ts's Phase 2 (winglog-backend's docs/plans/resume-track-cleanup.md): cheap,
+  // incremental, and separate from the full pass at completion. lastPersistedPoint lets each new sample be checked against
+  // just its one predecessor (Rule 2 is a per-pair test) without re-scanning the flight on every tick.
+  // resumeWindowDeadlineMs only tells when a window has timed out with nothing resolving it (Case C); the jump check itself
+  // runs unconditionally (see resume-cleanup.ts).
   private lastPersistedPoint: TrackPoint | undefined
   private resumeWindowDeadlineMs: number | undefined
-  // The raw tick immediately before the current one — every tick, not just persisted ones
-  // (unlike lastPersistedPoint above, which skips whatever a phase's downsampling drops).
-  // landing-capture.ts's buildLandingRecord needs this exact predecessor for a more honest
-  // touchdown vertical speed than the touchdown tick's own value (flightdeck-backend's
-  // docs/plans/flight-replay-harness.md, 2026-09-14 finding).
+  // The raw tick immediately before the current one: every tick, not just persisted ones (unlike lastPersistedPoint above,
+  // which skips what a phase's downsampling drops). landing-capture.ts's buildLandingRecord needs this exact predecessor for
+  // a more honest touchdown vertical speed than the touchdown tick's own value (flight-replay-harness.md).
   private previousTelemetry: SimTelemetry | undefined
   // Latest touchdown-severity reading from SimConnectService's high-rate stream (v1.2 Part
   // 1), with the wall-clock time it arrived — undefined for a replayed flight (never
@@ -145,78 +151,37 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   // moment it arrives (fractionally before the primary stream's own touchdown edge) until
   // detectTouchdown actually fires for the same touchdown.
   private lastTouchdownSeverity: { result: TouchdownSeverity; atMs: number } | undefined
+  // Track points the database refused, oldest first (see saveTrackPoint), and when saving started failing.
+  private readonly unsavedPoints: NewTrackPoint[] = []
+  private storageFailingSinceMs: number | undefined
+  private lastStorageFailureLoggedMs = 0
 
   /** Settings → Tracking → "Finish flights automatically" — see FlightRecorder.setAutoShutdown.
-   *  Applied every telemetry tick, so a change takes effect mid-flight. */
+   *  Applied every telemetry tick, so a change takes effect mid-flight.
+   *
+   * @param enabled Whether shutdown at the stand finishes the flight.
+   */
   setAutoFinish(enabled: boolean): void {
     this.autoFinish = enabled
   }
 
   constructor(
-    private readonly db: WingLogDb,
+    private readonly store: FlightStore,
     private readonly simConnectService: SimConnectSource,
     /** Asks the sim which airfield/runway a touchdown was on, for fields the vendored
      *  airport list doesn't know (landing-airfield-from-sim.md). Omitted in tests and in
      *  replay mode, where there's no live sim to ask. */
-    private readonly resolveSimAirfield?: (lat: number, lon: number, headingTrueDeg: number) => Promise<SimAirfieldMatch | null>
+    private readonly resolveSimAirfield?: (
+      lat: number,
+      lon: number,
+      headingTrueDeg: number
+    ) => Promise<SimAirfieldMatch | null>
   ) {
     super()
     this.simConnectService.on('touchdownSeverity', (result) => {
       this.lastTouchdownSeverity = { result, atMs: Date.now() }
     })
-    this.simConnectService.on('telemetry', (telemetry) => {
-      if (!this.recorder) return
-      const previousTelemetry = this.previousTelemetry
-      this.previousTelemetry = telemetry
-      this.recorder.setAutoShutdown(this.autoFinish)
-      const result = this.recorder.ingest(telemetry, new Date())
-
-      // The value startFlight wrote at tracking-start is only provisional (see
-      // finalizeFuelOut's doc comment) — corrected at the aircraft's first real ground
-      // movement (off-blocks), when ground fuel service is genuinely over. Not on leaving
-      // 'preflight': that also fires on engine combustion alone, which a stale post-reload
-      // tick can report too — real bug, flight 223 (2026-09-30): the phase flipped to
-      // 'pushback' 26s in, stationary, locking in a leftover 10,184 kg before the sim
-      // settled to 3,000 kg and GSX refuelled to ~6,268 kg, so "burn" exceeded the load.
-      // Airborne without ever seeing that (tracking started in the air) is the fallback.
-      const movedOnGround = telemetry.onGround && telemetry.groundSpeedMs > MOVING_MS && !telemetry.slewActive
-      if ((movedOnGround || !telemetry.onGround) && result.phase !== 'preflight' && !this.fuelOutFinalized) {
-        this.fuelOutFinalized = true
-        finalizeFuelOut(this.db, this.recorder.getFlightId(), telemetry.fuelTotalKg)
-      }
-
-      if (result.phase === 'climb' && !this.offRecorded) {
-        this.offRecorded = true
-        recordOff(this.db, this.recorder.getFlightId())
-      }
-
-      // Independent of the phase machine's own descent -> landing edge — keyed off the raw
-      // telemetry directly so a circuit that never reaches 'descent' still gets its
-      // touchdown captured (flightdeck-backend's docs/plans/multiple-landings.md). Guarded
-      // the same way FlightRecorder.ingest guards phase advancement, since a slew teleport
-      // or a paused sim can otherwise report a nonsensical onGround flip.
-      if (!this.paused && !telemetry.slewActive) {
-        this.detectTouchdown(telemetry, previousTelemetry)
-      }
-
-      if (result.point) {
-        const saved = createTrackPoint(this.db, result.point)
-        this.emit('point', saved)
-        this.checkForLiveJump(saved)
-      }
-
-      if (result.phase === 'shutdown') {
-        const flightId = this.recorder.getFlightId()
-        this.resolveFreeFlightArrival(flightId, telemetry)
-        completeFlight(this.db, flightId, telemetry.fuelTotalKg, this.closedPauseIntervals())
-        this.snapshotGsxInvoices(flightId)
-        this.runTrackCleanup(flightId)
-        this.deriveFlownRoute(flightId)
-        this.persistSelection(flightId)
-        this.recorder = undefined
-        this.emit('completed', flightId)
-      }
-    })
+    this.simConnectService.on('telemetry', (telemetry) => this.handleTelemetrySafely(telemetry))
     this.simConnectService.on('paused', (paused) => {
       this.paused = paused
       this.recorder?.setPaused(paused)
@@ -232,12 +197,143 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   }
 
   /**
+   * One telemetry sample, from the sim. Nothing in here may throw into the sim's event emitter: an
+   * uncaught error in the main process shows Electron's blocking error dialog, which froze tracking
+   * until someone clicked it (a full disk, 2026-10-16: seven hours of an overnight flight lost).
+   * A failure is logged and the next sample tries again.
+   *
+   * @param telemetry The sample.
+   */
+  private handleTelemetrySafely(telemetry: SimTelemetry): void {
+    try {
+      this.handleTelemetry(telemetry)
+    } catch (error) {
+      this.logStorageFailure(error)
+    }
+  }
+
+  /**
+   * Stores a sampled point and tells the live views about it, and about any that were waiting.
+   *
+   * @param point The point the recorder sampled.
+   */
+  private recordPoint(point: NewTrackPoint): void {
+    for (const saved of this.saveTrackPoint(point)) {
+      this.emit('point', saved)
+      this.checkForLiveJump(saved)
+    }
+  }
+
+  /**
+   * Saves a track point, or keeps it in memory when the database refuses it (a full disk, a locked
+   * file), so the track picks up in order, with nothing missing, once writes work again.
+   *
+   * @param point The point to store.
+   * @returns The points stored by this call, oldest first: just this one normally, several when
+   *   earlier ones were waiting, none while writes are failing.
+   */
+  private saveTrackPoint(point: NewTrackPoint): TrackPoint[] {
+    this.unsavedPoints.push(point)
+    if (this.unsavedPoints.length > MAX_UNSAVED_POINTS) this.unsavedPoints.shift()
+    const saved: TrackPoint[] = []
+    try {
+      while (this.unsavedPoints.length > 0) {
+        saved.push(this.store.addTrackPoint(this.unsavedPoints[0]))
+        this.unsavedPoints.shift()
+      }
+    } catch (error) {
+      this.logStorageFailure(error)
+      return saved
+    }
+    if (this.storageFailingSinceMs !== undefined) {
+      logger.warn(
+        `[tracking] saving works again after ${Math.round((Date.now() - this.storageFailingSinceMs) / 1000)}s`
+      )
+      this.storageFailingSinceMs = undefined
+      this.emit('storageProblem', false)
+    }
+    return saved
+  }
+
+  /**
+   * Logs a failed save, the first time and then once a minute, so a full disk doesn't fill the log
+   * (every sample fails the same way).
+   *
+   * @param error What failed.
+   */
+  private logStorageFailure(error: unknown): void {
+    const now = Date.now()
+    if (this.storageFailingSinceMs === undefined) {
+      this.storageFailingSinceMs = now
+      this.emit('storageProblem', true)
+    }
+    if (now - this.lastStorageFailureLoggedMs < STORAGE_FAILURE_LOG_INTERVAL_MS) return
+    this.lastStorageFailureLoggedMs = now
+    logger.error(
+      `[tracking] could not save flight data (${this.unsavedPoints.length} points waiting in memory): ${String(error)}`
+    )
+  }
+
+  private handleTelemetry(telemetry: SimTelemetry): void {
+    if (!this.recorder) return
+    const previousTelemetry = this.previousTelemetry
+    this.previousTelemetry = telemetry
+    this.recorder.setAutoShutdown(this.autoFinish)
+    const phaseBefore = this.recorder.getPhase()
+    const result = this.recorder.ingest(telemetry, new Date())
+    if (result.phase !== phaseBefore)
+      this.emit('phaseChanged', { from: phaseBefore, to: result.phase, telemetry })
+
+    // The value startFlight wrote at tracking-start is provisional (see finalizeFuelOut): corrected at the aircraft's first
+    // ground movement (off-blocks), when ground fuel service is over. Not on leaving 'preflight', which also fires on engine
+    // combustion alone, and a stale post-reload tick can report that too: the phase flipped to 'pushback' 26s in, stationary,
+    // locking in a leftover 10,184 kg before the sim settled to 3,000 kg and GSX refuelled, so "burn" exceeded the load.
+    // Airborne without ever seeing that (tracking started in the air) is the fallback.
+    const movedOnGround = telemetry.onGround && telemetry.groundSpeedMs > MOVING_MS && !telemetry.slewActive
+    if ((movedOnGround || !telemetry.onGround) && result.phase !== 'preflight' && !this.fuelOutFinalized) {
+      this.fuelOutFinalized = true
+      this.store.finalizeFuelOut(this.recorder.getFlightId(), telemetry.fuelTotalKg)
+    }
+
+    if (result.phase === 'climb' && !this.offRecorded) {
+      this.offRecorded = true
+      this.store.recordOff(this.recorder.getFlightId())
+    }
+
+    // Independent of the phase machine's own descent -> landing edge — keyed off the raw
+    // telemetry directly so a circuit that never reaches 'descent' still gets its
+    // touchdown captured (winglog-backend's docs/plans/multiple-landings.md). Guarded
+    // the same way FlightRecorder.ingest guards phase advancement, since a slew teleport
+    // or a paused sim can otherwise report a nonsensical onGround flip.
+    if (!this.paused && !telemetry.slewActive) {
+      this.detectTouchdown(telemetry, previousTelemetry)
+    }
+
+    if (result.point) this.recordPoint(result.point)
+
+    if (result.phase === 'shutdown') {
+      const flightId = this.recorder.getFlightId()
+      this.resolveFreeFlightArrival(flightId, telemetry)
+      this.store.completeFlight(flightId, telemetry.fuelTotalKg, this.closedPauseIntervals())
+      this.snapshotGsxInvoices(flightId)
+      this.runTrackCleanup(flightId)
+      this.deriveFlownRoute(flightId)
+      this.persistSelection(flightId)
+      this.recorder = undefined
+      this.emit('completed', flightId)
+    }
+  }
+
+  /**
    * Captures a touchdown on the raw telemetry.onGround false->true edge, independent of
-   * the phase machine (flightdeck-backend's docs/plans/multiple-landings.md) — called for
+   * the phase machine (winglog-backend's docs/plans/multiple-landings.md) — called for
    * every tick while a flight is tracked (guarded by the caller against pause/slew).
    * `wasOnGround`/`airborneStreak` are read before being updated for this tick, so the
    * hysteresis check sees how many consecutive airborne samples preceded *this* ground
    * contact, not this one itself.
+   *
+   * @param telemetry This tick.
+   * @param previousTelemetry The tick before it, for the touchdown's vertical speed.
    */
   private detectTouchdown(telemetry: SimTelemetry, previousTelemetry: SimTelemetry | undefined): void {
     if (!this.recorder) return
@@ -252,14 +348,18 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     const flightId = this.recorder.getFlightId()
     // Last-wins, not first: air_minutes should span first liftoff -> *final* touchdown,
     // not stop counting at the first one a circuit flies.
-    recordOn(this.db, flightId)
+    this.store.recordOn(flightId)
     this.landingSeq += 1
-    const flight = getFlight(this.db, flightId)
+    const flight = this.store.getFlight(flightId)
     if (!flight) return
     // This touchdown's own airport, not assumed to be the flight's filed arrival — a
     // circuit, a diversion, or a free flight can land somewhere else. Falls back to
     // arr_icao when nothing vendored is close enough to resolve.
-    const resolvedIcao = nearestAirport(telemetry.latitude, telemetry.longitude, LANDING_ICAO_SEARCH_RADIUS_NM)
+    const resolvedIcao = nearestAirport(
+      telemetry.latitude,
+      telemetry.longitude,
+      LANDING_ICAO_SEARCH_RADIUS_NM
+    )
     const seq = this.landingSeq
     const touchdownTsUtc = new Date().toISOString()
     // Consumed once per touchdown — a reading recent enough for *this* one must not linger
@@ -267,38 +367,59 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     // already keeps real touchdowns further apart than TOUCHDOWN_SEVERITY_FRESHNESS_MS, but
     // clearing it is cheap insurance against relying on that timing alone).
     const touchdownSeverity =
-      this.lastTouchdownSeverity && Date.now() - this.lastTouchdownSeverity.atMs <= TOUCHDOWN_SEVERITY_FRESHNESS_MS
+      this.lastTouchdownSeverity &&
+      Date.now() - this.lastTouchdownSeverity.atMs <= TOUCHDOWN_SEVERITY_FRESHNESS_MS
         ? this.lastTouchdownSeverity.result
         : undefined
     this.lastTouchdownSeverity = undefined
+    const landingIcao = resolvedIcao ?? flight.arrIcao
     const record = buildLandingRecord(
       flightId,
       seq,
-      resolvedIcao ?? flight.arrIcao,
+      landingIcao,
       telemetry,
       touchdownTsUtc,
-      undefined,
+      // The sim's own runways first, when cached for this airport: that is where the aircraft actually was.
+      landingRunwayResolver(this.store.listRunways(landingIcao)),
       previousTelemetry,
       touchdownSeverity
     )
-    createLanding(this.db, record)
+    this.store.addLanding(record)
     // No runway from the vendored data — a scenery add-on, a closed field, a strip missing
     // from OurAirports (the Kai Tak touch-and-go landed on a nearby heliport's code with no
     // runway). The sim knows those; ask it and upgrade the row once it answers.
     if (record.runwayIdent === null) {
-      void this.upgradeLandingFromSim(flightId, seq, telemetry, touchdownTsUtc, previousTelemetry, touchdownSeverity)
+      runLogged(
+        'landing runway upgrade',
+        this.upgradeLandingFromSim(
+          flightId,
+          seq,
+          telemetry,
+          touchdownTsUtc,
+          previousTelemetry,
+          touchdownSeverity
+        )
+      )
     }
     // A free flight's arr_icao is a placeholder ('ZZZZ' or an unconfirmed guess) until
     // something real is known — the touchdown position is that first real signal
     // (free-flight-tracking.md's "Arrival is resolved, not filed"). A dispatched flight's
     // filed arrival is left alone even when this resolves to somewhere else (a real
     // diversion), a separate, already-known gap this isn't scoped to fix.
-    if (this.isFreeFlight && resolvedIcao) setArrIcao(this.db, flightId, resolvedIcao)
+    if (this.isFreeFlight && resolvedIcao) this.store.setArrIcao(flightId, resolvedIcao)
   }
 
   /** Replaces a landing's airfield/runway (and everything derived from the runway) with the
    *  sim's answer when it has one. The touchdown itself was already recorded from vendored
-   *  data, so a missing, slow or failing sim just leaves that record as it was. */
+   *  data, so a missing, slow or failing sim just leaves that record as it was.
+   *
+   * @param flightId The flight.
+   * @param seq Which of its landings.
+   * @param telemetry The touchdown tick.
+   * @param touchdownTsUtc When it touched down, ISO UTC.
+   * @param previousTelemetry The tick before it.
+   * @param touchdownSeverity The high-rate stream's reading, if any.
+   */
   private async upgradeLandingFromSim(
     flightId: number,
     seq: number,
@@ -309,10 +430,13 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   ): Promise<void> {
     if (!this.resolveSimAirfield) return
     try {
-      const match = await this.resolveSimAirfield(telemetry.latitude, telemetry.longitude, telemetry.headingTrueDeg)
+      const match = await this.resolveSimAirfield(
+        telemetry.latitude,
+        telemetry.longitude,
+        telemetry.headingTrueDeg
+      )
       if (!match) return
-      createLanding(
-        this.db,
+      this.store.addLanding(
         buildLandingRecord(
           flightId,
           seq,
@@ -328,7 +452,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
       // only while this is still the latest touchdown, so a late answer never overwrites a
       // later landing's arrival.
       if (this.isFreeFlight && this.recorder?.getFlightId() === flightId && this.landingSeq === seq) {
-        setArrIcao(this.db, flightId, match.icao)
+        this.store.setArrIcao(flightId, match.icao)
       }
     } catch {
       // Best effort only.
@@ -339,15 +463,22 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
    *  field after the final touchdown already set one — must run before completeFlight,
    *  which copies arr_icao into aircraft.current_icao. A no-op for a dispatched flight or
    *  when there's no live telemetry to resolve from (finish() called with the sim
-   *  disconnected). */
+   *  disconnected).
+   *
+   * @param flightId The flight.
+   * @param telemetry The latest tick, or undefined with no sim.
+   */
   private resolveFreeFlightArrival(flightId: number, telemetry: SimTelemetry | undefined): void {
     if (!this.isFreeFlight || !telemetry) return
     const icao = nearestAirport(telemetry.latitude, telemetry.longitude, LANDING_ICAO_SEARCH_RADIUS_NM)
-    if (icao) setArrIcao(this.db, flightId, icao)
+    if (icao) this.store.setArrIcao(flightId, icao)
   }
 
   /** `pausedIntervals` plus whatever pause is still open at completion time (the user can
-   *  hit "Finish now" while paused) — closed off at "now" so it's still counted. */
+   *  hit "Finish now" while paused) — closed off at "now" so it's still counted.
+   *
+   * @returns Every pause, the open one ending now.
+   */
   private closedPauseIntervals(): PausedInterval[] {
     if (!this.openPauseStartIso) return this.pausedIntervals
     return [...this.pausedIntervals, { startIso: this.openPauseStartIso, endIso: new Date().toISOString() }]
@@ -360,39 +491,43 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   }
 
   /** The recorder's "on a runway?" check, from the departure airport's cached runways, read
-   *  when asked (the cache can fill after tracking starts). Null with nothing cached. */
+   *  when asked (the cache can fill after tracking starts). Null with nothing cached.
+   *
+   * @param flightId The flight, for its departure airport.
+   */
   private attachRunwayCheck(flightId: number): void {
     this.recorder?.setRunwayCheck((lat, lon) => {
-      const depIcao = getFlight(this.db, flightId)?.depIcao
-      return depIcao ? isOnRunway(listCachedRunways(this.db, depIcao), lat, lon) : null
+      const depIcao = this.store.getFlight(flightId)?.depIcao
+      return depIcao ? isOnRunway(this.store.listRunways(depIcao), lat, lon) : null
     })
   }
 
+  /**
+   * Starts tracking a flight. A different flight left active with no progress (no off-block, no track
+   * points) is retired first; the same flight, or one with progress, is refused. Needs the sim
+   * connected for the fuel at start.
+   *
+   * @param flightId The flight to track.
+   */
   start(flightId: number): void {
     if (this.recorder) {
       const stale = this.recorder.getFlightId()
-      // A *different* flight is still 'active' in memory. If it's made zero real progress —
-      // no track points recorded, never even got off the ground — it's almost certainly a
-      // stale artifact (a dispatch attempt abandoned mid-setup, or auto-start firing for a
-      // since-superseded plan) rather than something worth protecting, so retire it
-      // automatically instead of blocking the flight actually being started now. Without
-      // this, that stale flight was left stuck at status='active' forever — invisible for
-      // the rest of the session, surfacing only as a confusing "resume?" prompt on the
-      // *next* app restart (a real orphaned flight found 2026-09-14, flightdeck-backend's
-      // docs/plans/flight-replay-harness.md). Same flightId, or any flight with real
-      // progress, still throws — never silently restart a duplicate call or abandon actual
-      // data.
-      const staleFlight = getFlight(this.db, stale)
-      const hasProgress = staleFlight?.actualOffUtc != null || listTrackPoints(this.db, stale).length > 0
+      // A *different* flight is still 'active' in memory. With zero real progress (no track points, never off the ground) it is
+      // almost certainly a stale artifact (a dispatch attempt abandoned mid-setup, or auto-start firing for a superseded plan),
+      // so retire it instead of blocking the flight being started now. Left alone it stays status='active' forever and surfaces
+      // as a confusing "resume?" prompt on the next restart (flight-replay-harness.md). Same flightId, or any flight with real
+      // progress, still throws: never silently restart a duplicate call or abandon actual data.
+      const staleFlight = this.store.getFlight(stale)
+      const hasProgress = staleFlight?.actualOffUtc != null || this.store.listTrackPoints(stale).length > 0
       if (stale === flightId || hasProgress) throw new Error(`Already tracking flight ${stale}`)
       this.stop()
     }
-    if (!getFlight(this.db, flightId)) throw new Error(`Flight ${flightId} not found`)
+    if (!this.store.getFlight(flightId)) throw new Error(`Flight ${flightId} not found`)
 
     const telemetry = this.simConnectService.getLastTelemetry()
     if (!telemetry) throw new Error(t('errors.notConnectedToSim'))
 
-    startFlight(this.db, flightId, telemetry.fuelTotalKg)
+    this.store.startFlight(flightId, telemetry.fuelTotalKg)
     this.recorder = new FlightRecorder(flightId)
     this.attachRunwayCheck(flightId)
     this.offRecorded = false
@@ -411,6 +546,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     this.resumeWindowDeadlineMs = undefined
     this.previousTelemetry = undefined
     this.lastTouchdownSeverity = undefined
+    this.emit('started', flightId)
   }
 
   /**
@@ -423,6 +559,9 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
    *
    * Returns the new flight's id so the caller (the IPC handler) can hand it back to the
    * renderer, e.g. to switch Track's view onto it immediately.
+   *
+   * @param input The fleet aircraft (or the sim's registration and type), the airports and flight number.
+   * @returns The new flight's id.
    */
   startFree(input: {
     /** Null when the pilot chose not to add this aircraft to the fleet — simRegistration/
@@ -438,8 +577,8 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
       // Same stale-flight tolerance as start() above — a free flight is just as likely to
       // be started right after an abandoned dispatch attempt as a normal one is.
       const stale = this.recorder.getFlightId()
-      const staleFlight = getFlight(this.db, stale)
-      const hasProgress = staleFlight?.actualOffUtc != null || listTrackPoints(this.db, stale).length > 0
+      const staleFlight = this.store.getFlight(stale)
+      const hasProgress = staleFlight?.actualOffUtc != null || this.store.listTrackPoints(stale).length > 0
       if (hasProgress) throw new Error(`Already tracking flight ${stale}`)
       this.stop()
     }
@@ -447,7 +586,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     const telemetry = this.simConnectService.getLastTelemetry()
     if (!telemetry) throw new Error(t('errors.notConnectedToSim'))
 
-    const flight = createFreeFlight(this.db, {
+    const flight = this.store.createFreeFlight({
       aircraftId: input.aircraftId,
       simRegistration: input.simRegistration,
       simIcaoType: input.simIcaoType,
@@ -469,7 +608,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     // skips straight to the memory lookup (free-flight-tracking.md's aircraft-resolution
     // order). Skipped when the pilot chose not to add a fleet aircraft at all — there's
     // nothing to remember this title as next time.
-    if (input.aircraftId != null) rememberAircraftForTitle(this.db, telemetry.title, input.aircraftId)
+    if (input.aircraftId != null) this.store.rememberAircraftForTitle(telemetry.title, input.aircraftId)
 
     const seededPhase = seedPhaseFromTelemetry(telemetry)
     this.recorder = new FlightRecorder(flight.id, { phase: seededPhase, hasLanded: false, resumeSegment: 0 })
@@ -480,7 +619,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     // again. "Now" is the best available approximation of the real liftoff time, the same
     // spirit as the rest of this plan's position-at-a-moment approximations.
     this.offRecorded = seededPhase !== 'preflight' && seededPhase !== 'taxi'
-    if (this.offRecorded) recordOff(this.db, flight.id)
+    if (this.offRecorded) this.store.recordOff(flight.id)
     this.landingSeq = 0
     this.wasOnGround = undefined
     this.airborneStreak = 0
@@ -493,6 +632,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     this.resumeWindowDeadlineMs = undefined
     this.previousTelemetry = undefined
     this.lastTouchdownSeverity = undefined
+    this.emit('started', flight.id)
     return flight.id
   }
 
@@ -508,16 +648,18 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
    * 'preflight', so an aircraft that's actually mid-air doesn't get stuck waiting for an
    * on-ground transition that will never come (see FlightRecorder's own resume-parameter
    * doc comment).
+   *
+   * @param flightId The flight left active.
    */
   resume(flightId: number): void {
-    const flight = getFlight(this.db, flightId)
+    const flight = this.store.getFlight(flightId)
     if (!flight || flight.status !== 'active') return
 
-    const points = listTrackPoints(this.db, flightId)
+    const points = this.store.listTrackPoints(flightId)
     const lastPhase: FlightPhase = points.length ? points[points.length - 1].phase : 'preflight'
     // One more than whatever segment the flight was last recording in — 0 for a flight
     // resumed for the first time, incrementing further on a second/third resume in the
-    // same flight (flightdeck-backend's docs/plans/done/resume-track-cleanup.md).
+    // same flight (winglog-backend's docs/plans/done/resume-track-cleanup.md).
     const resumeSegment = points.length ? points[points.length - 1].resumeSegment + 1 : 0
 
     this.recorder = new FlightRecorder(flightId, {
@@ -529,7 +671,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     this.offRecorded = flight.actualOffUtc != null
     // Continues the same seq sequence rather than restarting it — a resume mid-circuit
     // must not overwrite landing #1 with what should be landing #2.
-    this.landingSeq = listLandingsByFlight(this.db, flightId).length
+    this.landingSeq = this.store.countLandings(flightId)
     this.wasOnGround = undefined
     this.airborneStreak = 0
     this.fuelOutFinalized = this.offRecorded
@@ -551,13 +693,25 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     this.resumeWindowDeadlineMs = Date.now() + RESUME_CLEANUP_CONSTANTS.RESUME_WINDOW_MS
     this.previousTelemetry = undefined
     this.lastTouchdownSeverity = undefined
+    this.emit('started', flightId)
   }
 
   /** Called from the renderer (tracking:set-procedure-selection) on every live selection
    *  change while a flight is being tracked — see the currentSelection field's own comment
-   *  for why this can't just be read on demand at completion time. */
+   *  for why this can't just be read on demand at completion time.
+   *
+   * @param selection The SID, STAR and approach chosen in Track.
+   */
   setProcedureSelection(selection: ProcedureSelection): void {
+    const changed = JSON.stringify(this.currentSelection) !== JSON.stringify(selection)
     this.currentSelection = selection
+    // Only a real change is announced: every screen that hears it applies it and may push it back, which must stop here.
+    if (changed) this.emit('selectionChanged', selection)
+  }
+
+  /** @returns The selection last pushed while this flight is tracked, if any. */
+  getProcedureSelection(): ProcedureSelection | undefined {
+    return this.currentSelection
   }
 
   /**
@@ -566,30 +720,39 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
    * its filed one. Deliberately a plan rather than a promise: the touchdown still resolves
    * the real arrival from position, so a diversion is recorded truthfully whatever was
    * entered here.
+   *
+   * @param icao The ICAO, or blank or null for none.
+   * @throws With no free flight being tracked, or an invalid code.
    */
   setDestination(icao: string | null): void {
     if (!this.recorder) throw new Error(t('errors.noFlightBeingTracked'))
     if (!this.isFreeFlight) throw new Error(t('errors.plannedFlightDestinationFromPlan'))
     const normalized = icao?.trim().toUpperCase() || 'ZZZZ'
     if (!/^[A-Z0-9]{2,5}$/.test(normalized)) throw new Error(t('errors.notValidAirportCode'))
-    setArrIcao(this.db, this.recorder.getFlightId(), normalized)
+    this.store.setArrIcao(this.recorder.getFlightId(), normalized)
   }
 
   /** Sets the departure of the free flight being tracked (blank/null = "not set", ZZZZ) —
-   *  the start dialog leaves it optional, and the Weather dialog reads it. */
+   *  the start dialog leaves it optional, and the Weather dialog reads it.
+   *
+   * @param icao The ICAO, or blank or null for none.
+   * @throws With no free flight being tracked, or an invalid code.
+   */
   setDeparture(icao: string | null): void {
     if (!this.recorder) throw new Error(t('errors.noFlightBeingTracked'))
     if (!this.isFreeFlight) throw new Error(t('errors.plannedFlightDepartureFromPlan'))
     const normalized = icao?.trim().toUpperCase() || 'ZZZZ'
     if (!/^[A-Z0-9]{2,5}$/.test(normalized)) throw new Error(t('errors.notValidAirportCode'))
-    setDepIcao(this.db, this.recorder.getFlightId(), normalized)
+    this.store.setDepIcao(this.recorder.getFlightId(), normalized)
   }
 
   /** User cancelled tracking mid-flight, rather than reaching shutdown naturally. */
   stop(): void {
     if (!this.recorder) return
-    abandonFlight(this.db, this.recorder.getFlightId())
+    const flightId = this.recorder.getFlightId()
+    this.store.abandonFlight(flightId)
     this.recorder = undefined
+    this.emit('stopped', flightId)
   }
 
   /**
@@ -604,7 +767,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     const flightId = this.recorder.getFlightId()
     const telemetry = this.simConnectService.getLastTelemetry()
     this.resolveFreeFlightArrival(flightId, telemetry)
-    completeFlight(this.db, flightId, telemetry?.fuelTotalKg ?? 0, this.closedPauseIntervals())
+    this.store.completeFlight(flightId, telemetry?.fuelTotalKg ?? 0, this.closedPauseIntervals())
     this.snapshotGsxInvoices(flightId)
     this.runTrackCleanup(flightId)
     this.deriveFlownRoute(flightId)
@@ -614,14 +777,13 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   }
 
   /**
-   * Incremental half of resume-cleanup.ts's Phase 2 — checked once per newly-persisted
-   * sample against just its immediate predecessor (Rule 2 is a per-pair test, so this
-   * never needs the whole flight's history to decide whether *this* pair looks like a
-   * jump). A real jump either resolves an open resume window (Case A/B) or, per the
-   * 2026-09-13 design decision, stands alone with none open at all (a payware aircraft's
-   * own save-state/reload feature, confirmed live with no WingLog resume anywhere near
-   * it) — either way `runTrackCleanup` below is the authoritative pass, cheap to run right
-   * now since it's bounded to one flight's own points, not per-tick cost.
+   * Incremental half of resume-cleanup.ts's Phase 2: checked once per newly-persisted sample against just its immediate
+   * predecessor (Rule 2 is a per-pair test, so this never needs the whole flight's history). A jump either resolves an open
+   * resume window (Case A/B) or stands alone with none open (a payware aircraft's own save-state/reload, with no WingLog
+   * resume near it). Either way `runTrackCleanup` below is the authoritative pass, cheap to run now since it is bounded to
+   * one flight's points.
+   *
+   * @param saved The point just stored.
    */
   private checkForLiveJump(saved: TrackPoint): void {
     const previous = this.lastPersistedPoint
@@ -657,15 +819,19 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
    *  actively being tracked. A no-op write when nothing changed, and nothing is emitted in
    *  that case either — no already-drawn point needs correcting. Returns the raw result so
    *  a live caller can react to specifics (checkForLiveJump uses it to keep the recorder's
-   *  own segment counter in step); undefined when nothing changed. */
+   *  own segment counter in step); undefined when nothing changed.
+   *
+   * @param flightId The flight.
+   * @returns What changed, or undefined when nothing did.
+   */
   private runTrackCleanup(flightId: number): TrackCleanupResult | undefined {
-    const result = runTrackCleanupForFlight(this.db, flightId)
+    const result = this.store.cleanUpTrack(flightId)
     if (!result) return undefined
     const changedIds = new Set([
       ...result.exclusions.map((e) => e.id),
       ...result.segmentReassignments.map((r) => r.id)
     ])
-    const updated = listTrackPoints(this.db, flightId).filter((p) => changedIds.has(p.id))
+    const updated = this.store.listTrackPoints(flightId).filter((p) => changedIds.has(p.id))
     this.emit('pointsUpdated', updated)
     return result
   }
@@ -678,39 +844,39 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
    * completion, which has already succeeded by the time this runs. The Logbook detail
    * page's manual "rescan" action covers anything this misses (e.g. a receipt GSX writes
    * slightly after this fires).
+   *
+   * @param flightId The flight just completed.
    */
   private snapshotGsxInvoices(flightId: number): void {
-    const settings = getGsxSettings(this.db)
-    if (!settings.enabled || !settings.folderPath) return
-    const window = buildFlightMatchWindow(this.db, flightId)
-    if (!window) return
-    scanGsxFolder(settings.folderPath, window)
-      .then((result) => addInvoicesForFlight(this.db, flightId, result.matched))
-      .catch(() => {})
+    this.store.saveGsxInvoices(flightId)
   }
 
-  /** Derives and stores the flight's flown-route polyline (route-simplify.ts) at
-   *  completion — same best-effort shape as the GSX snapshot above: reads back this
-   *  flight's own already-persisted track_point rows, so a failure here can't affect the
-   *  flight record, which is already marked completed by the time this runs. Synchronous
-   *  (unlike the GSX scan, no I/O involved), so no .catch needed — a thrown error here
-   *  would already be a real bug, not an expected "folder missing" case. */
+  /** Derives and stores the flight's flown-route polyline (route-simplify.ts) at completion, best-effort like the GSX snapshot
+   *  above: it reads back this flight's already-persisted track_point rows, so a failure can't affect the flight record,
+   *  which is already marked completed. Synchronous (no I/O, unlike the GSX scan), so no .catch: a thrown error here would be
+   *  a real bug, not an expected "folder missing" case.
+   *
+   * @param flightId The flight just completed.
+   */
   private deriveFlownRoute(flightId: number): void {
     // Called after runTrackCleanup above, so any junk this flight picked up is already
-    // flagged — excluded here the same way the map filters it (flightdeck-backend's
+    // flagged — excluded here the same way the map filters it (winglog-backend's
     // docs/plans/done/resume-track-cleanup.md), so a crash-resume triangle or a mid-flight
     // teleport never gets baked into the synced flown-route polyline.
-    const points = listTrackPoints(this.db, flightId).filter((p) => p.excludedReason == null)
+    const points = this.store.listTrackPoints(flightId).filter((p) => p.excludedReason == null)
     const flownRouteJson = deriveFlownRouteJson(points)
-    if (flownRouteJson) setFlownRoute(this.db, flightId, flownRouteJson)
+    if (flownRouteJson) this.store.setFlownRoute(flightId, flownRouteJson)
   }
 
   /** Writes whatever selection the renderer last pushed — a no-op if nothing ever was
    *  (e.g. tracking a flight from before Phase 5, or Track was never opened this session),
    *  which leaves createFlight's own saved-at-plan-time values in place rather than
-   *  clobbering them with nulls. */
+   *  clobbering them with nulls.
+   *
+   * @param flightId The flight just completed.
+   */
   private persistSelection(flightId: number): void {
     if (!this.currentSelection) return
-    setSelectedProcedures(this.db, flightId, this.currentSelection)
+    this.store.setSelectedProcedures(flightId, this.currentSelection)
   }
 }

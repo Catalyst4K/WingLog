@@ -1,79 +1,68 @@
+/** Settings → About's update check card. */
+
+import { winglogApi } from './data/winglog-api'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { UpdateSettings, UpdateStatus } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { asyncHandler, runAsync } from './report-error'
+import { UpdateActions } from './UpdateActions'
+import { OnOffControl, SettingRow, SettingsCard } from './settings/ui/SettingsCard'
 
-/** Settings → About: the automatic update check's switch, "Check now", and the last result
- *  (flightdeck-backend's docs/plans/update-check.md). */
+/**
+ * Settings → About: the automatic update check's switch, "Check now", and the last result
+ * (winglog-backend's docs/plans/update-check.md).
+ *
+ * @returns The element.
+ */
 export function UpdatesCard(): React.JSX.Element {
   const { t } = useTranslation()
   const [settings, setSettings] = useState<UpdateSettings | null>(null)
   const [status, setStatus] = useState<UpdateStatus | null>(null)
 
   useEffect(() => {
-    window.winglog.settingsGetUpdates().then(setSettings)
-    window.winglog.updatesGetStatus().then(setStatus)
-    return window.winglog.onUpdateStatus(setStatus)
+    runAsync('UpdatesCard settingsGetUpdates', winglogApi().settingsGetUpdates().then(setSettings))
+    runAsync('UpdatesCard updatesGetStatus', winglogApi().updatesGetStatus().then(setStatus))
+    return winglogApi().onUpdateStatus(setStatus)
   }, [])
 
   function setCheckEnabled(checkEnabled: boolean): void {
     setSettings({ checkEnabled })
-    window.winglog.settingsSetUpdates({ checkEnabled })
+    runAsync('UpdatesCard settingsSetUpdates', winglogApi().settingsSetUpdates({ checkEnabled }))
   }
 
   return (
-    <Card className="max-w-2xl">
-      <CardHeader>
-        <CardTitle>{t('updates.settings.title')}</CardTitle>
-        <CardDescription>{t('updates.settings.description')}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1.5">
-          <span className="text-sm text-muted-foreground">{t('updates.settings.autoCheck')}</span>
-          <div className="flex gap-1.5" role="group" aria-label={t('updates.settings.autoCheck')}>
-            {[true, false].map((value) => (
-              <Button
-                key={String(value)}
-                type="button"
-                size="sm"
-                variant={settings?.checkEnabled === value ? 'default' : 'outline'}
-                aria-pressed={settings?.checkEnabled === value}
-                disabled={settings === null}
-                onClick={() => setCheckEnabled(value)}
-              >
-                {value ? t('updates.settings.on') : t('updates.settings.off')}
-              </Button>
-            ))}
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={status?.state === 'checking'}
-            onClick={() => window.winglog.updatesCheckNow()}
-          >
-            {t('updates.settings.checkNow')}
-          </Button>
-          <p role="status" className="text-xs text-muted-foreground">
-            {status && statusText(t, status)}
-          </p>
-        </div>
-        {status?.state === 'available' && status.latest && (
-          <div>
-            <Button type="button" size="sm" onClick={() => window.winglog.updatesOpenRelease()}>
-              {t('updates.banner.download')}
-            </Button>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+    <SettingsCard title={t('updates.settings.title')} description={t('updates.settings.description')}>
+      <SettingRow label={t('updates.settings.autoCheck')}>
+        <OnOffControl
+          label={t('updates.settings.autoCheck')}
+          enabled={settings?.checkEnabled === true}
+          disabled={settings === null}
+          onText={t('updates.settings.on')}
+          offText={t('updates.settings.off')}
+          onChange={setCheckEnabled}
+        />
+      </SettingRow>
+      <SettingRow label={status ? statusText(t, status) : ''} labelRole="status">
+        {status?.state === 'available' && status.latest && <UpdateActions status={status} />}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={status?.state === 'checking'}
+          onClick={asyncHandler('UpdatesCard updatesCheckNow', () => winglogApi().updatesCheckNow())}
+        >
+          {t('updates.settings.checkNow')}
+        </Button>
+      </SettingRow>
+    </SettingsCard>
   )
 }
 
-function statusText(t: (key: string, options?: Record<string, string>) => string, status: UpdateStatus): string {
+function statusText(
+  t: (key: string, options?: Record<string, string>) => string,
+  status: UpdateStatus
+): string {
   switch (status.state) {
     case 'checking':
       return t('updates.settings.checking')

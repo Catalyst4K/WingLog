@@ -71,7 +71,10 @@ describe('flight invoice repo', () => {
   it('excludes soft-deleted invoices from listInvoicesForFlight', () => {
     addInvoicesForFlight(db, flightId, [makeInvoice()])
     const row = db.select().from(flightInvoice).where(eq(flightInvoice.flightId, flightId)).get()!
-    db.update(flightInvoice).set({ deletedAt: new Date().toISOString() }).where(eq(flightInvoice.id, row.id)).run()
+    db.update(flightInvoice)
+      .set({ deletedAt: new Date().toISOString() })
+      .where(eq(flightInvoice.id, row.id))
+      .run()
     expect(listInvoicesForFlight(db, flightId)).toEqual([])
   })
 

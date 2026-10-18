@@ -224,7 +224,7 @@
       "update": "更新",
       "dismiss": "忽略"
     },
-    "whatsNew": "WingLog 1.4 新功能：BeyondATC 整合、地圖上的滑行路線、自動階梯爬升和更新檢查。在「設定 → 第三方」中開啟 BeyondATC。"
+    "whatsNew": "WingLog 1.5 新功能：適用於手機或平板的第二螢幕、一鍵更新、磁碟空間不足提醒，以及更準確的滑行線。在「設定 → 資料」中開啟第二螢幕。"
   },
   "fleetView": {
     "atStand": "機位 {{stand}}",
@@ -613,6 +613,7 @@
     "approximateRoute": "近似航路 — 此航班沒有存檔的飛行計畫"
   },
   "logbookView": {
+    "estimatedTrack": "虛線約 {{nm}} nm，是根據飛行計畫估算的，並非實際記錄。",
     "loading": "載入中…",
     "belowAverage": "低於平均水準",
     "landingCard": {
@@ -627,6 +628,9 @@
       "airspeedGroundSpeed": "空速／地速",
       "headwindCrosswind": "逆風／側風",
       "runway": "跑道",
+      "runwayData": "跑道資料",
+      "runwayDataSim": "模擬器",
+      "runwayDataDatabase": "機場資料庫",
       "distanceFromThreshold": "距跑道頭距離",
       "centrelineOffset": "中線偏移",
       "scoreBreakdown": "評分明細"
@@ -715,7 +719,6 @@
     "connecting": "正在連線至 BeyondATC…",
     "connected": "已連線至 BeyondATC。",
     "disconnected": "未連線至 BeyondATC。",
-    "stationFrequency": "{{station}}（{{frequency}}）",
     "progress": "{{from}} → {{to}} · {{pct}}%",
     "transcript": "通話紀錄",
     "actions": "操作",
@@ -736,8 +739,6 @@
     "departure": "離場",
     "arrival": "進場",
     "noFrequencies": "該機場暫無頻率。",
-    "frequencyOption": "{{type}} — {{station}} {{frequency}}",
-    "frequencyOptionRunway": "{{type}} — {{station}} {{frequency}}（跑道 {{runway}}）",
     "frequencyType": {
       "approach": "近場",
       "departure": "離場",
@@ -785,6 +786,10 @@
         "runway": "跑道",
         "climb": "爬升",
         "descend": "下降",
+        "maintain": "保持",
+        "turnLeft": "左轉",
+        "turnRight": "右轉",
+        "heading": "航向",
         "qnh": "QNH",
         "squawk": "詢答機",
         "contact": "聯絡",
@@ -810,7 +815,27 @@
       "atc": "管制員",
       "traffic": "其他機組",
       "atcTraffic": "管制員 → 其他機組"
+    },
+    "frequencyField": "{{radio}} 頻率",
+    "frequencyPicker": {
+      "tuned": "已調諧",
+      "runways": "跑道 {{runways}}",
+      "enroute": "航路"
     }
+  },
+  "storage": {
+    "label": "磁碟空間不足",
+    "low": "磁碟空間不足（剩餘 {{free}}）。長途飛行前請先釋放一些空間。",
+    "critical": "磁碟幾乎已滿（剩餘 {{free}}）。請立即釋放空間，否則 WingLog 可能無法儲存你的飛行。",
+    "saveFailing": "磁碟已滿，WingLog 無法儲存飛行。航跡暫存在記憶體中，有空間後會立即儲存。"
+  },
+  "trackGapFillButton": {
+    "button": "用飛行計畫補全缺口",
+    "remove": "移除估算路段",
+    "filled": "已補全 {{count}} 處缺口，共約 {{nm}} nm，在地圖上以虛線顯示。",
+    "noGaps": "沿飛行計畫沒有可補全的缺口。",
+    "noRoute": "這次飛行沒有可沿用的飛行計畫航線。",
+    "removed": "已移除估算路段。"
   },
   "updates": {
     "banner": {
@@ -822,9 +847,18 @@
       "skip": "略過此版本",
       "dismiss": "暫時隱藏"
     },
+    "install": {
+      "downloadAndInstall": "下載並安裝",
+      "downloading": "正在下載… {{percent}}%",
+      "restart": "重新啟動以更新",
+      "retry": "重試",
+      "failed": "下載未完成。請重試，或前往發布頁面下載。",
+      "flightActive": "正在記錄飛行。請先結束飛行，再重新啟動以更新。",
+      "releasePage": "發布頁面"
+    },
     "settings": {
       "title": "更新",
-      "description": "WingLog 會向 GitHub 查詢最新版本號，不會傳送其他任何內容。更新需要你自行下載和安裝。",
+      "description": "WingLog 會向 GitHub 查詢最新版本號，不會傳送其他任何內容。是否安裝更新始終由你決定，並且在記錄飛行期間絕不會安裝。",
       "autoCheck": "自動檢查更新",
       "on": "開",
       "off": "關",
@@ -881,6 +915,46 @@
     "done": {
       "title": "一切就緒",
       "body": "這裡的所有內容都可以在設定中變更。要再次查看此精靈，請前往「設定 → 關於 → 重新執行設定精靈」。"
+    }
+  },
+  "lanPage": {
+    "connecting": "正在連線到 WingLog…",
+    "pairTitle": "與 WingLog 配對",
+    "pairHelp": "在電腦上開啟「設定」，然後選擇「第二螢幕」，再選擇「配對裝置」。輸入顯示的 6 位數代碼。",
+    "codeLabel": "配對碼",
+    "pair": "配對",
+    "wrongCode": "這個代碼無效。請確認電腦上正在顯示代碼，然後再試一次。",
+    "offline": "無法連線到電腦。正在重試…",
+    "noFlight": "電腦上尚未追蹤任何航班。",
+    "noPlan": "電腦上還沒有飛行計畫。請在電腦上的「簽派」中規劃航班。"
+  },
+  "lan": {
+    "settings": {
+      "title": "第二螢幕",
+      "description": "在家用網路中的手機或平板上顯示即時地圖。開啟前它一直處於關閉狀態，只會在家用網路上監聽，而且每台裝置都必須用代碼配對。",
+      "enable": "第二螢幕",
+      "on": "開",
+      "off": "關",
+      "port": "連接埠",
+      "open": "在手機或平板上開啟此位址：",
+      "connected_other": "目前已連線 {{count}} 台裝置",
+      "pairButton": "配對裝置",
+      "pairingCode": "在裝置上輸入此代碼：",
+      "pairingNote": "代碼只能使用一次，5 分鐘後失效。",
+      "pairingClose": "關閉",
+      "devices": "已配對的裝置",
+      "noDevices": "尚未配對任何裝置。",
+      "lastSeen": "上次連線：{{when}}",
+      "neverSeen": "從未連線",
+      "revoke": "撤銷",
+      "help": "無法連線？手機與這台電腦必須在同一個 Wi-Fi 下（不能是訪客網路），這台電腦的網路應設為「私人」，而且防火牆必須允許 WingLog。",
+      "problem": {
+        "noAdapter": "這台電腦沒有可供監聽的家用網路連線。",
+        "portInUse": "該連接埠已被使用，請換一個。",
+        "failed": "第二螢幕無法啟動。"
+      },
+      "qrLabel": "第二螢幕位址的 QR 碼",
+      "qrHintPairing": "用手機掃描即可開啟頁面並配對。代碼每 5 分鐘更換一次。"
     }
   }
 }

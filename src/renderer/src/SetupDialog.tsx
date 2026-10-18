@@ -1,14 +1,32 @@
+/** The first-launch setup dialog. */
+
+import { winglogApi } from './data/winglog-api'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { BeyondAtcSettings, GsxRemoteSettings, GsxSettings, SetupContext, UpdateSettings } from '@shared/ipc'
+import type {
+  BeyondAtcSettings,
+  GsxRemoteSettings,
+  GsxSettings,
+  SetupContext,
+  UpdateSettings
+} from '@shared/ipc'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { SegmentedRow, TrackingFields, UnitsFields, type UnitsFieldsProps } from './SettingsFields'
+import { asyncHandler, runAsync } from './report-error'
+import { itemAt } from '@shared/item-at'
 
 /**
- * The first-launch setup (flightdeck-backend's docs/plans/first-launch-setup.md; Callum,
- * 2026-10-02: GSX and BeyondATC were hidden behind Settings, so a new user never found out
+ * The first-launch setup (winglog-backend's docs/plans/first-launch-setup.md; Callum,
+ * GSX and BeyondATC were hidden behind Settings, so a new user never found out
  * they existed). Every step can be skipped, closing at any point counts as done, and it can
  * be reopened from Settings → About. It uses the same controls and IPC as Settings.
  */
@@ -22,13 +40,19 @@ export interface SetupDialogProps extends UnitsFieldsProps {
   onBeyondAtcEnabledChange: (enabled: boolean) => void
 }
 
+/**
+ * The setup's steps, one at a time (see STEPS).
+ *
+ * @param props Whether it's open, the close handler, and the settings it edits.
+ * @returns The element.
+ */
 export function SetupDialog(props: SetupDialogProps): React.JSX.Element {
   const { t } = useTranslation()
   const [index, setIndex] = useState(0)
-  const step: Step = STEPS[index]!
+  const step: Step = itemAt(STEPS, index, 'setup step')
 
   function close(): void {
-    window.winglog.setupComplete()
+    runAsync('SetupDialog setupComplete', winglogApi().setupComplete())
     setIndex(0)
     props.onClose()
   }
@@ -95,22 +119,32 @@ function WelcomeStep(): React.JSX.Element {
   )
 }
 
+/**
+ * The setup step that asks for the pilot's SimBrief username.
+ *
+ * @returns The step.
+ */
 function SimbriefStep(): React.JSX.Element {
   const { t } = useTranslation()
   const [username, setUsername] = useState('')
   const [saved, setSaved] = useState(false)
   useEffect(() => {
-    window.winglog.settingsGetSimbriefUsername().then((value) => setUsername(value ?? ''))
+    runAsync(
+      'SetupDialog settingsGetSimbriefUsername',
+      winglogApi()
+        .settingsGetSimbriefUsername()
+        .then((value) => setUsername(value ?? ''))
+    )
   }, [])
 
   async function save(event: React.FormEvent): Promise<void> {
     event.preventDefault()
-    await window.winglog.settingsSetSimbriefUsername(username.trim())
+    await winglogApi().settingsSetSimbriefUsername(username.trim())
     setSaved(true)
   }
 
   return (
-    <form className="flex flex-col gap-2" onSubmit={save}>
+    <form className="flex flex-col gap-2" onSubmit={asyncHandler('SetupDialog save SimBrief username', save)}>
       <p className="text-sm text-muted-foreground">{t('setup.simbrief.body')}</p>
       <div className="flex gap-2">
         <Input
@@ -133,7 +167,18 @@ function SimbriefStep(): React.JSX.Element {
   )
 }
 
-function OnOffRow(props: { label: string; value: boolean | null; onChange: (value: boolean) => void; detail: string }): React.JSX.Element {
+/**
+ * A labelled On/Off choice with an explanation underneath.
+ *
+ * @param props The label, the value (null while loading), the change handler and the detail text.
+ * @returns The row.
+ */
+function OnOffRow(props: {
+  label: string
+  value: boolean | null
+  onChange: (value: boolean) => void
+  detail: string
+}): React.JSX.Element {
   const { t } = useTranslation()
   return (
     <div className="flex flex-col gap-1">
@@ -155,6 +200,13 @@ function OnOffRow(props: { label: string; value: boolean | null; onChange: (valu
   )
 }
 
+/**
+ * The setup step for the optional add-ons (GSX receipts, GSX remote, BeyondATC), loading each one's
+ * settings and showing its On/Off switch.
+ *
+ * @param props Called when the GSX remote or BeyondATC switch changes, so the app can react.
+ * @returns The step.
+ */
 function AddonsStep(props: {
   onGsxRemoteEnabledChange: (enabled: boolean) => void
   onBeyondAtcEnabledChange: (enabled: boolean) => void
@@ -165,18 +217,22 @@ function AddonsStep(props: {
   const [gsxRemote, setGsxRemote] = useState<GsxRemoteSettings | null>(null)
   const [beyondAtc, setBeyondAtc] = useState<BeyondAtcSettings | null>(null)
   useEffect(() => {
-    window.winglog.setupGetContext().then(setContext)
-    window.winglog.settingsGetGsx().then(setGsx)
-    window.winglog.settingsGetGsxRemote().then(setGsxRemote)
-    window.winglog.settingsGetBeyondAtc().then(setBeyondAtc)
+    runAsync('SetupDialog setupGetContext', winglogApi().setupGetContext().then(setContext))
+    runAsync('SetupDialog settingsGetGsx', winglogApi().settingsGetGsx().then(setGsx))
+    runAsync('SetupDialog settingsGetGsxRemote', winglogApi().settingsGetGsxRemote().then(setGsxRemote))
+    runAsync('SetupDialog settingsGetBeyondAtc', winglogApi().settingsGetBeyondAtc().then(setBeyondAtc))
   }, [])
 
   function setGsxEnabled(enabled: boolean): void {
     if (!gsx) return
     // Turning it on with no folder chosen yet uses GSX's standard one, when it exists.
-    const next = { ...gsx, enabled, folderPath: gsx.folderPath ?? (context?.gsxFolderFound ? context.gsxFolderPath : null) }
+    const next = {
+      ...gsx,
+      enabled,
+      folderPath: gsx.folderPath ?? (context?.gsxFolderFound ? context.gsxFolderPath : null)
+    }
     setGsx(next)
-    window.winglog.settingsSetGsx(next)
+    runAsync('SetupDialog settingsSetGsx', winglogApi().settingsSetGsx(next))
   }
 
   function setGsxRemoteEnabled(enabled: boolean): void {
@@ -184,7 +240,7 @@ function AddonsStep(props: {
     const next = { ...gsxRemote, enabled }
     setGsxRemote(next)
     props.onGsxRemoteEnabledChange(enabled)
-    window.winglog.settingsSetGsxRemote(next)
+    runAsync('SetupDialog settingsSetGsxRemote', winglogApi().settingsSetGsxRemote(next))
   }
 
   function setBeyondAtcEnabled(enabled: boolean): void {
@@ -192,10 +248,15 @@ function AddonsStep(props: {
     const next = { ...beyondAtc, enabled }
     setBeyondAtc(next)
     props.onBeyondAtcEnabledChange(enabled)
-    window.winglog.settingsSetBeyondAtc(next)
+    runAsync('SetupDialog settingsSetBeyondAtc', winglogApi().settingsSetBeyondAtc(next))
   }
 
-  const gsxFolder = context === null ? '' : context.gsxFolderFound ? t('setup.addons.gsxFound') : t('setup.addons.gsxNotFound')
+  const gsxFolder =
+    context === null
+      ? ''
+      : context.gsxFolderFound
+        ? t('setup.addons.gsxFound')
+        : t('setup.addons.gsxNotFound')
   const atcRunning = context?.beyondAtcRunning ? ` ${t('setup.addons.beyondAtcRunning')}` : ''
   return (
     <>
@@ -227,7 +288,7 @@ function UpdatesStep(): React.JSX.Element {
   const { t } = useTranslation()
   const [settings, setSettings] = useState<UpdateSettings | null>(null)
   useEffect(() => {
-    window.winglog.settingsGetUpdates().then(setSettings)
+    runAsync('SetupDialog settingsGetUpdates', winglogApi().settingsGetUpdates().then(setSettings))
   }, [])
   return (
     <OnOffRow
@@ -235,7 +296,7 @@ function UpdatesStep(): React.JSX.Element {
       value={settings?.checkEnabled ?? null}
       onChange={(checkEnabled) => {
         setSettings({ checkEnabled })
-        window.winglog.settingsSetUpdates({ checkEnabled })
+        runAsync('SetupDialog settingsSetUpdates', winglogApi().settingsSetUpdates({ checkEnabled }))
       }}
       detail={t('updates.settings.description')}
     />

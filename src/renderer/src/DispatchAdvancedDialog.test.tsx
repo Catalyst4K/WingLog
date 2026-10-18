@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { afterEach, describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { render as renderUi, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { Flight } from '@shared/ipc'
+import type { Flight, LogbookFlight, WingLogApi } from '@shared/ipc'
 import { defaultDispatchOptions, type DispatchOptions } from '@shared/dispatch-options'
 import i18n from './i18n'
 import { DispatchAdvancedDialog } from './DispatchAdvancedDialog'
@@ -54,7 +54,12 @@ function flight(overrides: Partial<Flight> = {}): Flight {
   }
 }
 
+/** The dialog, handed the flights as the list sends them (no OFP text). */
 function Harness(props: { flights: Flight[]; open?: boolean }): React.JSX.Element {
+  const listed: LogbookFlight[] = props.flights.map(({ ofpJson, ...rest }) => ({
+    ...rest,
+    hasOfp: ofpJson != null
+  }))
   const [options, setOptions] = useState<DispatchOptions>(defaultDispatchOptions())
   const [open, setOpen] = useState(props.open ?? true)
   return (
@@ -63,9 +68,18 @@ function Harness(props: { flights: Flight[]; open?: boolean }): React.JSX.Elemen
       onOpenChange={setOpen}
       options={options}
       onOptionsChange={setOptions}
-      flights={props.flights}
+      flights={listed}
     />
   )
+}
+
+/** Renders the Harness, with the one-flight lookup behind it answering from the same full rows. */
+function render(ui: React.ReactElement<{ flights: Flight[] }>): void {
+  const full = ui.props.flights
+  window.winglog = {
+    logbookGetFlight: vi.fn((id: number) => Promise.resolve(full.find((f) => f.id === id) ?? null))
+  } as Partial<WingLogApi> as WingLogApi
+  renderUi(ui)
 }
 
 describe('DispatchAdvancedDialog', () => {
@@ -80,7 +94,6 @@ describe('DispatchAdvancedDialog', () => {
     expect(screen.getByLabelText('Passagiere')).toBeInTheDocument()
     expect(screen.getByText('Fertig (0 gesetzt)')).toBeInTheDocument()
   })
-
 
   it('renders nothing (a closed dialog) when open is false', () => {
     render(<Harness flights={[]} open={false} />)
@@ -103,7 +116,14 @@ describe('DispatchAdvancedDialog', () => {
       <Harness
         flights={[
           flight({ id: 1, flightNumber: 'BA123', ofpJson: '{}', createdAt: '2026-09-05T00:00:00.000Z' }),
-          flight({ id: 2, flightNumber: null, depIcao: 'EGLL', arrIcao: 'KJFK', ofpJson: '{}', createdAt: '2026-09-06T00:00:00.000Z' })
+          flight({
+            id: 2,
+            flightNumber: null,
+            depIcao: 'EGLL',
+            arrIcao: 'KJFK',
+            ofpJson: '{}',
+            createdAt: '2026-09-06T00:00:00.000Z'
+          })
         ]}
       />
     )
@@ -113,7 +133,7 @@ describe('DispatchAdvancedDialog', () => {
     expect(screen.getByText('EGLL → KJFK (2026-09-06)')).toBeInTheDocument()
   })
 
-  it('loads a flight\'s stored options and shows a confirmation naming it', async () => {
+  it("loads a flight's stored options and shows a confirmation naming it", async () => {
     const user = userEvent.setup()
     const ofpJson = JSON.stringify({
       api_params: { pax: '150', fuelfactor: '1.05' },
@@ -134,7 +154,7 @@ describe('DispatchAdvancedDialog', () => {
     expect(screen.getByLabelText('Cost index')).toHaveValue('25')
   })
 
-  it('does not show a confirmation when the selected flight\'s OFP has no usable api_params', async () => {
+  it("does not show a confirmation when the selected flight's OFP has no usable api_params", async () => {
     const user = userEvent.setup()
     render(<Harness flights={[flight({ id: 3, flightNumber: 'NOPARAMS', ofpJson: '{}' })]} />)
 
@@ -149,7 +169,9 @@ describe('DispatchAdvancedDialog', () => {
     const ofpJson = JSON.stringify({ api_params: { pax: '10' }, general: {} })
     render(
       <Harness
-        flights={[flight({ id: 9, flightNumber: null, depIcao: 'EGLL', arrIcao: 'KJFK', ofpJson, createdAt: '' })]}
+        flights={[
+          flight({ id: 9, flightNumber: null, depIcao: 'EGLL', arrIcao: 'KJFK', ofpJson, createdAt: '' })
+        ]}
       />
     )
 
@@ -158,7 +180,11 @@ describe('DispatchAdvancedDialog', () => {
     expect(await screen.findByText('EGLL → KJFK')).toBeInTheDocument()
     await user.click(screen.getByText('EGLL → KJFK'))
 
-    expect(await screen.findByText('Loaded from EGLL → KJFK — departure date/time was not restored, since it\'s always the one thing worth setting fresh.')).toBeInTheDocument()
+    expect(
+      await screen.findByText(
+        "Loaded from EGLL → KJFK — departure date/time was not restored, since it's always the one thing worth setting fresh."
+      )
+    ).toBeInTheDocument()
   })
 
   it('lets every field be typed into and cleared back to blank (null)', async () => {

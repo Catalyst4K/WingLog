@@ -6,21 +6,21 @@ logbook with landing analysis. Runs locally against a local SQLite database.
 
 **All development documentation for this project — architecture, data model, milestone
 history, the decision log, and design docs for ongoing work — lives in the private
-`flightdeck-backend` repo, not here.** Read its `PLAN.md` and `docs/decisions.md` in full
+`winglog-backend` repo, not here.** Read its `PLAN.md` and `docs/decisions.md` in full
 before doing any non-trivial work; this file only carries what's needed to make routine
-code changes in *this* repo day to day. `flightdeck-backend` needs to be cloned (or
+code changes in *this* repo day to day. `winglog-backend` needs to be cloned (or
 otherwise readable) alongside this repo to follow that instruction — if it isn't
 available, ask before assuming a default rather than guessing at unrecorded context.
 
 This repo's own `docs/` folder holds nothing but user-facing content (or is currently
 empty) — no development history, decisions, or plans belong here. If you're about to
-write a design doc or record a decision, it goes in `flightdeck-backend`'s `docs/plans/`
-or `docs/decisions.md`, never here — see `flightdeck-backend`'s `CLAUDE.md` ("WingLog's
+write a design doc or record a decision, it goes in `winglog-backend`'s `docs/plans/`
+or `docs/decisions.md`, never here — see `winglog-backend`'s `CLAUDE.md` ("WingLog's
 plan-doc workflow") for the full workflow.
 
-## Cross-repo process: `flightdeck-backend` is primary
+## Cross-repo process: `winglog-backend` is primary
 
-**`flightdeck-backend` is the primary home for every decision, rule and process. This file
+**`winglog-backend` is the primary home for every decision, rule and process. This file
 is secondary.** It holds only rules about this codebase itself (Commands, Layout, Rules,
 Spike-first, Security, Testing below), plus short pointers. Two full copies of a rule drift,
 and then nobody knows which one is current.
@@ -29,25 +29,25 @@ Where things go:
 
 | What | Where |
 |---|---|
-| A decision of any kind (what, why, the date, who agreed) | `flightdeck-backend` `docs/decisions.md` |
-| A process rule: how the project is worked on (plan-doc workflow, branching, two-machine sync, Dependabot, releases) | `flightdeck-backend` `CLAUDE.md`, in full |
-| A design or plan for a piece of work | `flightdeck-backend` `docs/plans/<name>.md` |
-| Findings about an external system (SimConnect, SimBrief, GSX, BeyondATC…) | `flightdeck-backend` `docs/*-notes.md` |
-| Dependency assessments | `flightdeck-backend` `docs/dependency-log.md` |
+| A decision of any kind (what, why, the date, who agreed) | `winglog-backend` `docs/decisions.md` |
+| A process rule: how the project is worked on (plan-doc workflow, branching, two-machine sync, Dependabot, releases) | `winglog-backend` `CLAUDE.md`, in full |
+| A design or plan for a piece of work | `winglog-backend` `docs/plans/<name>.md` |
+| Findings about an external system (SimConnect, SimBrief, GSX, BeyondATC…) | `winglog-backend` `docs/*-notes.md` |
+| Dependency assessments | `winglog-backend` `docs/dependency-log.md` |
 | A rule about this codebase's code (layout, units, IPC, security specifics, tests) | this file |
 | User-facing documentation | this repo's `docs/` |
 
 **When adding or changing a rule, always in this order:**
-1. Write it in full in `flightdeck-backend`. That's its `CLAUDE.md` for process, or this file
+1. Write it in full in `winglog-backend`. That's its `CLAUDE.md` for process, or this file
    only if it's genuinely about this codebase's code.
-2. Record the decision in `flightdeck-backend`'s `docs/decisions.md`.
+2. Record the decision in `winglog-backend`'s `docs/decisions.md`.
 3. In this file, add at most a short pointer: one or two sentences naming the rule, where it
    lives, and that it's binding here. Never a second copy.
-4. Commit and push `flightdeck-backend` first, then this repo.
+4. Commit and push `winglog-backend` first, then this repo.
 
-If unsure which side something belongs on, it goes in `flightdeck-backend`.
+If unsure which side something belongs on, it goes in `winglog-backend`.
 
-**Rules in `flightdeck-backend`'s `CLAUDE.md` are binding here.** Read it alongside this file.
+**Rules in `winglog-backend`'s `CLAUDE.md` are binding here.** Read it alongside this file.
 It currently holds:
 - the plan-doc workflow;
 - the branching model (`main`/`develop`/`fixes`/`fix/<name>`);
@@ -57,7 +57,8 @@ It currently holds:
 
 The plan-doc workflow, branching model and two-machine sync moved there 2026-09-13
 (`docs/decisions.md` has why). In the other direction, that file treats this file's code
-rules (including Security) as binding there.
+rules (including Security and Testing) and the coding standards as binding on the backend's
+code too (2026-10-07).
 
 ## Commands (once scaffolded)
 
@@ -88,6 +89,10 @@ docs/           User-facing content only, or empty — see the note at the top o
 
 ## Rules
 
+- **Coding standards:** `winglog-backend`'s `docs/coding-standards.md` (agreed 2026-10-05,
+  written 2026-10-06) is binding on all new and changed code here. Read it before writing code;
+  it opens with the principle behind it, simple and working over clever.
+  The rules below are the architecture ones it builds on.
 - The renderer never touches the filesystem, network, or SimConnect directly. Every
   side effect crosses a typed IPC channel defined in `src/shared/ipc.ts`.
 - SimVar names, units, and per-aircraft-type overrides live only in
@@ -107,18 +112,16 @@ docs/           User-facing content only, or empty — see the note at the top o
   *pre-migration* table, which would have failed on its own.
 - Anything that sends data off the machine, stores credentials, or introduces an account
   or a server is a **decision, not an implementation detail**. Propose it, get agreement,
-  and record it in `flightdeck-backend`'s `docs/decisions.md` before building it. Nothing
+  and record it in `winglog-backend`'s `docs/decisions.md` before building it. Nothing
   is ruled out — but nothing arrives by accident either, and the default stays local. The
   backend-service credential broker is the first case of this actually happening — SimBrief
   and Navigraph access built in rather than every user requesting their own key — not a
   hypothetical the rule is guarding against anymore.
-- Prefer a boring, working implementation over a clever one. This is a personal tool
-  flown solo, not a platform.
 - Convert units at the IPC boundary (SI internally, aviation units only at the UI layer)
   — don't let sim-native and SI units mix inside the same layer.
 - **Don't hand work off to a session on the other machine unless you've been asked to, for
   that specific piece of work.** Work sometimes runs in parallel across two machines (see
-  `flightdeck-backend`'s `CLAUDE.md`, "Working across two machines"), and delegating is
+  `winglog-backend`'s `CLAUDE.md`, "Working across two machines"), and delegating is
   genuinely useful — but "hand this batch off" is authorisation for that batch, not a
   standing arrangement to keep doing it. Finish the plan or the investigation, report back,
   and let the delegation be an explicit choice each time.
@@ -129,7 +132,7 @@ For anything depending on a real external system whose behaviour isn't documente
 SimConnect, SimBrief's JSON schema, GSX's receipt files, a future Navigraph integration —
 write a throwaway script or read real captured data first, confirm actual behaviour, *then*
 build the production version. Don't build any of it from assumptions. Log anything
-surprising in `flightdeck-backend`'s matching `docs/*-notes.md` file (`simconnect-notes.md`,
+surprising in `winglog-backend`'s matching `docs/*-notes.md` file (`simconnect-notes.md`,
 `simbrief-notes.md`, and so on) as you find it. (The original M1/M6 milestones this rule is
 named for are long since done; the discipline they set outlived them.)
 
@@ -154,9 +157,9 @@ Before committing or pushing:
   in this repo — not in prose, not in code, not even in a "throwaway" spike. A working
   implementation of a keyed signature scheme discloses it more completely than any
   paraphrase would, so "it's just code, not a description" is not an exception — a real
-  case of exactly this mistake happened and was corrected (`flightdeck-backend`'s
+  case of exactly this mistake happened and was corrected (`winglog-backend`'s
   `docs/decisions.md`, 2026-09-04). If a future spike needs to exercise a mechanism like
-  this, run it locally, capture only the safe findings in `flightdeck-backend`'s matching
+  this, run it locally, capture only the safe findings in `winglog-backend`'s matching
   `docs/*-notes.md`, and don't commit the script itself here.
 - **Check what a broad `git add` actually staged** (`git status` after it) and read any
   file whose name doesn't obviously explain its contents.
@@ -190,12 +193,12 @@ rather than assuming there isn't one:
   wants postinstall scripts or network access at build time deserves scrutiny.
 - **Stay on top of Dependabot.** Assess each Dependabot PR and alert as it appears, and act
   on them in one batch at the start of each minor version's work (next: v1.5). The full rule
-  lives in `flightdeck-backend`'s `CLAUDE.md` ("WingLog's dependency updates") and is
+  lives in `winglog-backend`'s `CLAUDE.md` ("WingLog's dependency updates") and is
   binding here; assessments go in its `docs/dependency-log.md`.
 
 **A second trust boundary exists: the backend-service WingLog talks to over HTTPS**
 (a credential broker for SimBrief and Navigraph, living in its own private repo,
-`flightdeck-backend` — not this one). It changes how a couple of the rules above apply:
+`winglog-backend` — not this one). It changes how a couple of the rules above apply:
 - The base URL is one constant (matching the `simvars.ts` discipline above), always
   `https:`, never sprinkled through the codebase.
 - Its responses are external data like any other third-party input — parse them
@@ -210,8 +213,8 @@ alerts, secret scanning with push protection, and branch protection on `main`, `
 and `fixes` blocking force-push and branch deletion. `main` also requires a pull request
 to merge into it (0 required approvals — still solo, just a forced PR+diff step instead
 of a plain push) and CI's `build` and `e2e` checks to pass, admins included, so a release
-can't be cut red ("CI gates every release" in `flightdeck-backend`'s `CLAUDE.md`, binding
-here; CI also runs on `develop` and `fixes`), matching the branching model there;
+can't be cut red ("CI gates every release" in `winglog-backend`'s `CLAUDE.md`, binding
+here; CI runs only on PRs into `main` and by hand, so the local battery, e2e included, is the check before merging into `develop`), matching the branching model there;
 `develop`/`fixes` deliberately don't require a PR, since that's where day-to-day
 `plan/<name>`/`fix/<name>` branches merge and this is developed solo, pushing directly from
 more than one machine — see `scripts/github-repo-security.sh` for the full rationale on
@@ -236,7 +239,7 @@ plain `node`/`tsx`: it's the same binary the app ships with, so there's only one
 the module to keep track of. Don't "simplify" these scripts back to bare `vitest`/`tsx` —
 that reintroduces an ABI mismatch and the native module fails to load.
 
-**Three layers, per `flightdeck-backend`'s `docs/plans/test-coverage.md`** (100% of
+**Three layers, per `winglog-backend`'s `docs/plans/test-coverage.md`** (100% of
 business logic is the target; see that plan for the current real number and the exclusion
 list — Electron bootstrap, preload, vendored `components/ui/**`):
 
@@ -260,7 +263,7 @@ list — Electron bootstrap, preload, vendored `components/ui/**`):
 threshold in `vitest.config.ts` — a ratchet, raised as real coverage improves, not the
 100% target itself; never lower it to make a red build green.
 
-**Going forward (rule as of 2026-09-12 — see `flightdeck-backend`'s `docs/decisions.md`):
+**Going forward (rule as of 2026-09-12 — see `winglog-backend`'s `docs/decisions.md`):
 every new feature and every fix carries its own tests in the right layer(s) above, written
 as part of the same branch, not backfilled later.** `test-coverage.md` exists to close the
 gap from years of code that shipped without this; the rule here is what keeps that gap from
@@ -283,12 +286,13 @@ target: it only proves nothing dropped, not that the right things were tested, s
 judgement above rather than writing tests to satisfy the number.
 
 **Run the full suite only at a real checkpoint (rule as of 2026-09-13 — see
-`flightdeck-backend`'s `docs/decisions.md`).** The rule above is about what gets *written* —
+`winglog-backend`'s `docs/decisions.md`).** The rule above is about what gets *written* —
 every change still needs its own real, relevant tests, every time. This rule is about how
 often the *whole* suite gets *re-run*: during day-to-day iteration on a change, run only the
 test file(s) actually relevant to what changed, not a full `npm test` / `npm run
 test:coverage` across all 80+ files each time. Run the complete battery —
-`typecheck` + `lint` + `test` + `test:coverage` + `build` — at a real checkpoint instead:
+`typecheck` + `lint` + `test` + `test:coverage` + `build`, plus `test:e2e` before merging
+into `develop` (CI runs only on release PRs) — at a real checkpoint instead:
 opening or updating a PR, merging a branch, running `npm run package:win`, or cutting a
 release. If genuinely unsure whether a change is small enough to skip the full battery,
 run it rather than guess wrong on something that gates a release.

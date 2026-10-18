@@ -63,8 +63,8 @@ vi.mock('maplibre-gl', () => {
     off(): void {}
     addSource(): void {}
     addLayer(): void {}
-    getSource(): { setData: () => void } {
-      return { setData: vi.fn() }
+    getSource(): { setData: () => Promise<void> } {
+      return { setData: vi.fn().mockResolvedValue(undefined) }
     }
     getCenter(): { toArray: () => [number, number] } {
       return { toArray: () => [0, 0] }
@@ -296,7 +296,9 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     trackingResumeOrphaned: vi.fn().mockResolvedValue(undefined),
     trackingDiscardOrphaned: vi.fn().mockResolvedValue(undefined),
     dispatchGetInProgressFlight: vi.fn().mockResolvedValue(null),
-    getSimConnectionStatus: vi.fn().mockResolvedValue({ state: 'disconnected' } satisfies SimConnectionStatus),
+    getSimConnectionStatus: vi
+      .fn()
+      .mockResolvedValue({ state: 'disconnected' } satisfies SimConnectionStatus),
     onSimConnectionStatus: vi.fn(() => () => {}),
     onSimTelemetry: vi.fn(() => () => {}),
     // FleetView (eager)
@@ -339,7 +341,9 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     navdataGetTaxiNetwork: vi.fn().mockResolvedValue([]),
     // TrackView (lazy)
     trackPointList: vi.fn().mockResolvedValue([]),
+    trackEstimateGet: vi.fn().mockResolvedValue([]),
     onTrackingPoint: vi.fn(() => () => {}),
+    onProcedureSelection: vi.fn(() => () => {}),
     onTrackingPointsUpdated: vi.fn(() => () => {}),
     trackingStart: vi.fn().mockResolvedValue(undefined),
     trackingStop: vi.fn().mockResolvedValue(undefined),
@@ -376,11 +380,22 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     onGsxRemoteServices: vi.fn(() => () => {}),
     gsxRemoteGetGateInfo: vi.fn().mockResolvedValue(null),
     onGsxRemoteGate: vi.fn(() => () => {}),
-    gsxRemoteGetMenu: vi.fn().mockResolvedValue({ menuShown: false, title: '', header: '', subtitle: '', entries: [], icons: [], disabled: [], layout: '' }),
+    gsxRemoteGetMenu: vi.fn().mockResolvedValue({
+      menuShown: false,
+      title: '',
+      header: '',
+      subtitle: '',
+      entries: [],
+      icons: [],
+      disabled: [],
+      layout: ''
+    }),
     onGsxRemoteMenu: vi.fn(() => () => {}),
     gsxRemoteGetPrompt: vi.fn().mockResolvedValue(null),
     onGsxRemotePrompt: vi.fn(() => () => {}),
-    gsxRemoteGetCommandBar: vi.fn().mockResolvedValue({ commands: [], simbrief: null, simbriefIconUri: null }),
+    gsxRemoteGetCommandBar: vi
+      .fn()
+      .mockResolvedValue({ commands: [], simbrief: null, simbriefIconUri: null }),
     onGsxRemoteCommandBar: vi.fn(() => () => {}),
     gsxRemotePickMenu: vi.fn().mockResolvedValue(undefined),
     gsxRemoteToggleMenu: vi.fn().mockResolvedValue(undefined),
@@ -393,7 +408,14 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     onBeyondAtcStatus: vi.fn(() => () => {}),
     beyondAtcGetState: vi.fn().mockResolvedValue(EMPTY_BEYONDATC_STATE),
     onBeyondAtcState: vi.fn(() => () => {}),
-    beyondAtcGetStepClimb: vi.fn().mockResolvedValue({ enabled: false, nextStep: null, pendingAltitudeFt: null, waitingForClimbFt: null, pastTopOfDescent: false, last: null }),
+    beyondAtcGetStepClimb: vi.fn().mockResolvedValue({
+      enabled: false,
+      nextStep: null,
+      pendingAltitudeFt: null,
+      waitingForClimbFt: null,
+      pastTopOfDescent: false,
+      last: null
+    }),
     onBeyondAtcStepClimb: vi.fn(() => () => {}),
     beyondAtcGetArrival: vi.fn().mockResolvedValue(null),
     onBeyondAtcArrival: vi.fn(() => () => {}),
@@ -414,13 +436,29 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     appGetVersion: vi.fn().mockResolvedValue('1.0.0'),
     settingsGetUpdates: vi.fn().mockResolvedValue({ checkEnabled: true }),
     settingsSetUpdates: vi.fn().mockResolvedValue(undefined),
-    updatesGetStatus: vi.fn().mockResolvedValue({ state: 'idle', currentVersion: '1.0.0', latest: null, checkedAt: null, skippedVersion: null }),
+    updatesGetStatus: vi.fn().mockResolvedValue({
+      state: 'idle',
+      currentVersion: '1.0.0',
+      latest: null,
+      checkedAt: null,
+      skippedVersion: null
+    }),
     onUpdateStatus: vi.fn().mockReturnValue(() => {}),
-    updatesCheckNow: vi.fn().mockResolvedValue({ state: 'upToDate', currentVersion: '1.0.0', latest: null, checkedAt: null, skippedVersion: null }),
+    getStorageStatus: vi.fn().mockResolvedValue({ freeBytes: null, level: 'ok', saveFailing: false }),
+    onStorageStatus: vi.fn().mockReturnValue(() => {}),
+    updatesCheckNow: vi.fn().mockResolvedValue({
+      state: 'upToDate',
+      currentVersion: '1.0.0',
+      latest: null,
+      checkedAt: null,
+      skippedVersion: null
+    }),
     updatesSkipVersion: vi.fn().mockResolvedValue(undefined),
     updatesOpenRelease: vi.fn().mockResolvedValue(undefined),
     setupGetState: vi.fn().mockResolvedValue({ show: false, whatsNew: false }),
-    setupGetContext: vi.fn().mockResolvedValue({ gsxFolderFound: false, gsxFolderPath: null, beyondAtcRunning: false }),
+    setupGetContext: vi
+      .fn()
+      .mockResolvedValue({ gsxFolderFound: false, gsxFolderPath: null, beyondAtcRunning: false }),
     setupComplete: vi.fn().mockResolvedValue(undefined),
     appOpenManual: vi.fn().mockResolvedValue(true),
     appOpenGithub: vi.fn().mockResolvedValue(undefined),
@@ -481,7 +519,15 @@ describe('App', () => {
     })
     await i18n.changeLanguage('de')
     render(<App />)
-    for (const name of ['Flotte', 'Flugplanung', 'Flugverfolgung', 'Bodendienste', 'BeyondATC', 'Logbuch', 'Einstellungen']) {
+    for (const name of [
+      'Flotte',
+      'Flugplanung',
+      'Flugverfolgung',
+      'Bodendienste',
+      'BeyondATC',
+      'Logbuch',
+      'Einstellungen'
+    ]) {
       expect(await screen.findByRole('tab', { name })).toBeInTheDocument()
     }
     expect(screen.getByText('SimConnect: getrennt')).toBeInTheDocument()
@@ -494,7 +540,15 @@ describe('App', () => {
     })
     render(<App />)
     expect(await screen.findByText('Fleet', { selector: 'h1' })).toBeInTheDocument()
-    for (const name of ['Fleet', 'Dispatch', 'Track', 'Ground services', 'BeyondATC', 'Logbook', 'Settings']) {
+    for (const name of [
+      'Fleet',
+      'Dispatch',
+      'Track',
+      'Ground services',
+      'BeyondATC',
+      'Logbook',
+      'Settings'
+    ]) {
       expect(screen.getByRole('tab', { name })).toBeInTheDocument()
     }
     expect(screen.getByText('SimConnect: disconnected')).toBeInTheDocument()
@@ -507,45 +561,41 @@ describe('App', () => {
     expect(screen.queryByRole('tab', { name: 'BeyondATC' })).not.toBeInTheDocument()
   })
 
-  it(
-    'navigates to every other tab, lazily loading its real view',
-    async () => {
-      setWinglog({
-        settingsGetGsxRemote: vi.fn().mockResolvedValue({ enabled: true, host: 'localhost', port: 8744 }),
-        settingsGetBeyondAtc: vi.fn().mockResolvedValue({ enabled: true, host: 'localhost' })
-      })
-      const user = userEvent.setup()
-      render(<App />)
-      await screen.findByText('Fleet', { selector: 'h1' })
+  it('navigates to every other tab, lazily loading its real view', async () => {
+    setWinglog({
+      settingsGetGsxRemote: vi.fn().mockResolvedValue({ enabled: true, host: 'localhost', port: 8744 }),
+      settingsGetBeyondAtc: vi.fn().mockResolvedValue({ enabled: true, host: 'localhost' })
+    })
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByText('Fleet', { selector: 'h1' })
 
-      // A generous timeout here, not the default ~1s — each of these is a genuine dynamic
-      // `import()` (React.lazy) resolving through Suspense for the first time, which is
-      // slow under the full test suite's parallel load even though it's instant alone.
-      const lazyTimeout = { timeout: 10000 }
+    // A generous timeout here, not the default ~1s — each of these is a genuine dynamic
+    // `import()` (React.lazy) resolving through Suspense for the first time, which is
+    // slow under the full test suite's parallel load even though it's instant alone.
+    const lazyTimeout = { timeout: 10000 }
 
-      await clickTab(user, 'Dispatch')
-      expect(await screen.findByText('Dispatch', { selector: 'h1' }, lazyTimeout)).toBeInTheDocument()
+    await clickTab(user, 'Dispatch')
+    expect(await screen.findByText('Dispatch', { selector: 'h1' }, lazyTimeout)).toBeInTheDocument()
 
-      await clickTab(user, 'Track')
-      expect(await screen.findByText('Track', { selector: 'h1' }, lazyTimeout)).toBeInTheDocument()
+    await clickTab(user, 'Track')
+    expect(await screen.findByText('Track', { selector: 'h1' }, lazyTimeout)).toBeInTheDocument()
 
-      await clickTab(user, 'Ground services')
-      expect(await screen.findByText('Ground services', { selector: 'h1' }, lazyTimeout)).toBeInTheDocument()
+    await clickTab(user, 'Ground services')
+    expect(await screen.findByText('Ground services', { selector: 'h1' }, lazyTimeout)).toBeInTheDocument()
 
-      await clickTab(user, 'BeyondATC')
-      expect(await screen.findByText('BeyondATC', { selector: 'h1' }, lazyTimeout)).toBeInTheDocument()
+    await clickTab(user, 'BeyondATC')
+    expect(await screen.findByText('BeyondATC', { selector: 'h1' }, lazyTimeout)).toBeInTheDocument()
 
-      await clickTab(user, 'Logbook')
-      expect(await screen.findByText('Logbook', { selector: 'h1' }, lazyTimeout)).toBeInTheDocument()
+    await clickTab(user, 'Logbook')
+    expect(await screen.findByText('Logbook', { selector: 'h1' }, lazyTimeout)).toBeInTheDocument()
 
-      await clickTab(user, 'Settings')
-      expect(await screen.findByText('Settings', { selector: 'h1' }, lazyTimeout)).toBeInTheDocument()
+    await clickTab(user, 'Settings')
+    expect(await screen.findByText('Settings', { selector: 'h1' }, lazyTimeout)).toBeInTheDocument()
 
-      await clickTab(user, 'Fleet')
-      expect(await screen.findByText('Fleet', { selector: 'h1' }, lazyTimeout)).toBeInTheDocument()
-    },
-    15000
-  )
+    await clickTab(user, 'Fleet')
+    expect(await screen.findByText('Fleet', { selector: 'h1' }, lazyTimeout)).toBeInTheDocument()
+  }, 15000)
 
   it('reflects a live SimConnect status push, and clears telemetry once disconnected', async () => {
     let statusListener: ((status: SimConnectionStatus) => void) | undefined
@@ -661,7 +711,13 @@ describe('App', () => {
   })
 
   it('shows the continue-flight prompt for a merely planned orphaned flight, and discards it', async () => {
-    const orphan = makeFlight({ id: 6, status: 'planned', flightNumber: null, depIcao: 'EGLL', arrIcao: 'KJFK' })
+    const orphan = makeFlight({
+      id: 6,
+      status: 'planned',
+      flightNumber: null,
+      depIcao: 'EGLL',
+      arrIcao: 'KJFK'
+    })
     const winglog = setWinglog({ trackingGetOrphanedFlight: vi.fn().mockResolvedValue(orphan) })
     const user = userEvent.setup()
     render(<App />)
@@ -707,11 +763,13 @@ describe('App', () => {
     await screen.findByText('Fleet', { selector: 'h1' })
 
     await clickTab(user, 'Dispatch')
-    expect(await screen.findByText(`${ofp.flightNumber}: ${ofp.depIcao} → ${ofp.arrIcao} (altn ${ofp.altnIcao})`)).toBeInTheDocument()
+    expect(
+      await screen.findByText(`${ofp.flightNumber}: ${ofp.depIcao} → ${ofp.arrIcao} (altn ${ofp.altnIcao})`)
+    ).toBeInTheDocument()
   })
 
   it('clears Dispatch’s OFP/route once tracking auto-completes, even if Track was never opened', async () => {
-    // Real bug (2026-09-27): a flight auto-completing via shutdown detection only cleared
+    // Real bug: a flight auto-completing via shutdown detection only cleared
     // Dispatch's stale OFP/route through TrackView's own onTrackingPoint subscription — which
     // only exists while Track is actually mounted. Staying on Dispatch (or any other tab) the
     // whole flight, as a pilot who isn't watching the map usually would, left it showing the
@@ -731,7 +789,9 @@ describe('App', () => {
     await screen.findByText('Fleet', { selector: 'h1' })
 
     await clickTab(user, 'Dispatch')
-    expect(await screen.findByText(`${ofp.flightNumber}: ${ofp.depIcao} → ${ofp.arrIcao} (altn ${ofp.altnIcao})`)).toBeInTheDocument()
+    expect(
+      await screen.findByText(`${ofp.flightNumber}: ${ofp.depIcao} → ${ofp.arrIcao} (altn ${ofp.altnIcao})`)
+    ).toBeInTheDocument()
 
     pointListener?.(makeTrackPoint({ phase: 'shutdown', flightId: inProgress.id }))
 
@@ -778,7 +838,9 @@ describe('App', () => {
     })
     render(<App />)
     await waitFor(() =>
-      expect(toast.info).toHaveBeenCalledWith('GSX ground-service tracking is off — enable it in Settings if you use GSX.')
+      expect(toast.info).toHaveBeenCalledWith(
+        'GSX ground-service tracking is off — enable it in Settings if you use GSX.'
+      )
     )
   })
 
@@ -812,7 +874,11 @@ describe('App', () => {
     it("gives an existing user a one-off what's-new note instead", async () => {
       setWinglog({ setupGetState: vi.fn().mockResolvedValue({ show: false, whatsNew: true }) })
       render(<App />)
-      await waitFor(() => expect(toast.info).toHaveBeenCalledWith(expect.stringContaining('New in WingLog 1.4'), { duration: 15_000 }))
+      await waitFor(() =>
+        expect(toast.info).toHaveBeenCalledWith(expect.stringContaining('New in WingLog 1.5'), {
+          duration: 15_000
+        })
+      )
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     })
 
@@ -869,7 +935,10 @@ describe('App', () => {
   })
 
   describe('GSX important-menu global prompt', () => {
-    function withMenuListener(overrides: Partial<WingLogApi> = {}): { push: (menu: GsxRemoteMenuState) => void; winglog: WingLogApi } {
+    function withMenuListener(overrides: Partial<WingLogApi> = {}): {
+      push: (menu: GsxRemoteMenuState) => void
+      winglog: WingLogApi
+    } {
       let listener: ((menu: GsxRemoteMenuState) => void) | undefined
       const winglog = setWinglog({
         onGsxRemoteMenu: vi.fn((l) => {
@@ -888,7 +957,10 @@ describe('App', () => {
       title: 'Select refueling level',
       header: 'Select refueling level',
       subtitle: '',
-      entries: [' 76% - BLOCK FUEL from Simbrief - 31949 USGAL / 97095 kg', 'Custom refueling using default Fuel menu'],
+      entries: [
+        ' 76% - BLOCK FUEL from Simbrief - 31949 USGAL / 97095 kg',
+        'Custom refueling using default Fuel menu'
+      ],
       icons: ['', ''],
       disabled: [false, false],
       layout: 'list'
@@ -903,9 +975,7 @@ describe('App', () => {
 
       expect(await screen.findByText('GSX needs your input')).toBeInTheDocument()
       expect(screen.getByText('Select refueling level')).toBeInTheDocument()
-      expect(
-        screen.getByRole('button', { name: /76% - BLOCK FUEL from Simbrief/ })
-      ).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /76% - BLOCK FUEL from Simbrief/ })).toBeInTheDocument()
     })
 
     it('picking an entry calls gsxRemotePickMenu with its index', async () => {
@@ -994,7 +1064,10 @@ describe('App', () => {
 
     /** Captures every beyondAtcState listener (the prompt's and the panels'), so a box set can be
      *  pushed the way BeyondAtcService pushes it. */
-    function withBoxListener(overrides: Partial<WingLogApi> = {}): { pushBoxes: (boxes: Box[]) => void; winglog: WingLogApi } {
+    function withBoxListener(overrides: Partial<WingLogApi> = {}): {
+      pushBoxes: (boxes: Box[]) => void
+      winglog: WingLogApi
+    } {
       const listeners: ((state: BeyondAtcState) => void)[] = []
       const winglog = setWinglog({
         // Active tracking is what makes TrackView actually push procedureSelection back to
@@ -1058,7 +1131,9 @@ describe('App', () => {
     it("matches BeyondATC's R-NAV approach to the sim's own RNAV name before offering it (WSSS, 2026-10-02)", async () => {
       // Real WSSS navdata: "R-NAV" used to become "R NAV 02L", which matched nothing.
       const { pushBoxes, winglog } = withBoxListener({
-        beyondAtcGetState: vi.fn().mockResolvedValue({ ...EMPTY_BEYONDATC_STATE, progress: { from: 'ZSPD', to: 'WSSS', pct: 96 } }),
+        beyondAtcGetState: vi
+          .fn()
+          .mockResolvedValue({ ...EMPTY_BEYONDATC_STATE, progress: { from: 'ZSPD', to: 'WSSS', pct: 96 } }),
         navdataListApproaches: vi.fn().mockResolvedValue([
           { identifier: 'ILS 02L', transition: 'APIPA' },
           { identifier: 'RNAV 02L', transition: 'SAMKO' },
@@ -1099,7 +1174,9 @@ describe('App', () => {
     it('offers the approach for the runway in a STAR clearance when it differs from the planned one (EGLL, 2026-10-05)', async () => {
       // Runway 27R against a planned ILS 27L via LAM, no approach named.
       const { pushBoxes, winglog } = withBoxListener({
-        beyondAtcGetState: vi.fn().mockResolvedValue({ ...EMPTY_BEYONDATC_STATE, progress: { from: 'RKSI', to: 'EGLL', pct: 97 } }),
+        beyondAtcGetState: vi
+          .fn()
+          .mockResolvedValue({ ...EMPTY_BEYONDATC_STATE, progress: { from: 'RKSI', to: 'EGLL', pct: 97 } }),
         navdataListApproaches: vi.fn().mockResolvedValue([
           { identifier: 'ILS 27L', transition: 'LAM' },
           { identifier: 'ILS 27R', transition: 'LAM' },
@@ -1131,21 +1208,29 @@ describe('App', () => {
       await user.click(screen.getByRole('button', { name: 'Update' }))
       await waitFor(() =>
         expect(winglog.trackingSetProcedureSelection).toHaveBeenLastCalledWith(
-          expect.objectContaining({ starIdent: 'LOGA2H', approachIdent: 'ILS 27R', approachTransition: 'LAM' })
+          expect.objectContaining({
+            starIdent: 'LOGA2H',
+            approachIdent: 'ILS 27R',
+            approachTransition: 'LAM'
+          })
         )
       )
     })
 
     it("follows flight 230's real boxes: STAR to the approach it leads into, briefing and clearance asking nothing more (ZJSY, 2026-10-05)", async () => {
       const { pushBoxes, winglog } = withBoxListener({
-        beyondAtcGetState: vi.fn().mockResolvedValue({ ...EMPTY_BEYONDATC_STATE, progress: { from: 'VHHH', to: 'ZJSY', pct: 80 } }),
+        beyondAtcGetState: vi
+          .fn()
+          .mockResolvedValue({ ...EMPTY_BEYONDATC_STATE, progress: { from: 'VHHH', to: 'ZJSY', pct: 80 } }),
         navdataListApproaches: vi.fn().mockResolvedValue([
           { identifier: 'ILS X 08', transition: 'SY462' },
           { identifier: 'ILS X 08', transition: 'SY935' },
           { identifier: 'ILS Z 08', transition: 'SY462' },
           { identifier: 'ILS Z 08', transition: 'SY498' }
         ]),
-        navdataGetProcedureWaypoints: vi.fn().mockResolvedValue([{ fixIdent: 'UPRIS' }, { fixIdent: 'SY497' }, { fixIdent: 'SY498' }])
+        navdataGetProcedureWaypoints: vi
+          .fn()
+          .mockResolvedValue([{ fixIdent: 'UPRIS' }, { fixIdent: 'SY497' }, { fixIdent: 'SY498' }])
       })
       const user = userEvent.setup()
       render(<App />)
@@ -1167,7 +1252,11 @@ describe('App', () => {
       await user.click(screen.getByRole('button', { name: 'Update' }))
       await waitFor(() =>
         expect(winglog.trackingSetProcedureSelection).toHaveBeenLastCalledWith(
-          expect.objectContaining({ starIdent: 'UPRS2C', approachIdent: 'ILS Z 08', approachTransition: 'SY498' })
+          expect.objectContaining({
+            starIdent: 'UPRS2C',
+            approachIdent: 'ILS Z 08',
+            approachTransition: 'SY498'
+          })
         )
       )
       await waitFor(() => expect(screen.queryByText(PROMPT)).not.toBeInTheDocument())
@@ -1191,7 +1280,9 @@ describe('App', () => {
 
     it('still prompts when the briefed transition differs from the one predicted', async () => {
       const { pushBoxes } = withBoxListener({
-        beyondAtcGetState: vi.fn().mockResolvedValue({ ...EMPTY_BEYONDATC_STATE, progress: { from: 'RKSI', to: 'EGLL', pct: 97 } }),
+        beyondAtcGetState: vi
+          .fn()
+          .mockResolvedValue({ ...EMPTY_BEYONDATC_STATE, progress: { from: 'RKSI', to: 'EGLL', pct: 97 } }),
         navdataListApproaches: vi.fn().mockResolvedValue([
           { identifier: 'ILS 27R', transition: 'LAM' },
           { identifier: 'ILS 27R', transition: 'BIG' }

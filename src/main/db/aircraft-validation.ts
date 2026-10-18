@@ -1,3 +1,6 @@
+/**
+ * The one validator for aircraft input, used by create, update and import alike.
+ */
 import type { NewAircraft } from '@shared/ipc'
 import { t } from '../i18n'
 
@@ -21,16 +24,21 @@ export type AircraftInputResult = { data: NewAircraft } | { error: string }
  * Validates and normalizes aircraft input from an untrusted source (an imported JSON
  * file, and defensively for IPC from the renderer) into a well-typed NewAircraft. Shared
  * by create, update and bulk import so all three enforce the same rules.
+ *
+ * @param raw Anything: an imported record or the renderer's input.
+ * @returns The aircraft, trimmed and typed, or the first error found.
  */
 export function parseAircraftInput(raw: unknown): AircraftInputResult {
   if (typeof raw !== 'object' || raw === null) return { error: t('errors.expectedAnObject') }
   const input = raw as Record<string, unknown>
-  const fields: Record<string, unknown> = {}
+  const required = { registration: '', icaoType: '' }
+  const fields: Partial<Record<(typeof OPTIONAL_STRING_FIELDS)[number], string | null>> = {}
 
   for (const field of REQUIRED_STRING_FIELDS) {
     const value = input[field]
-    if (typeof value !== 'string' || value.trim() === '') return { error: t('errors.fieldRequired', { field }) }
-    fields[field] = value.trim()
+    if (typeof value !== 'string' || value.trim() === '')
+      return { error: t('errors.fieldRequired', { field }) }
+    required[field] = value.trim()
   }
 
   for (const field of OPTIONAL_STRING_FIELDS) {
@@ -51,7 +59,5 @@ export function parseAircraftInput(raw: unknown): AircraftInputResult {
     fields[field] = value.trim()
   }
 
-  // Every field above was validated against NewAircraft's exact shape; a single cast
-  // here (rather than one per field) keeps the validation loops readable.
-  return { data: fields as unknown as NewAircraft }
+  return { data: { ...required, ...fields } }
 }

@@ -1,21 +1,13 @@
-import type { NavdataStand } from '@shared/ipc'
 /**
- * Navdata provider interface (Phase 3, flightdeck-backend's docs/plans/
+ * Navdata provider interface (Phase 3, winglog-backend's docs/plans/
  * navdata-without-navigraph.md) — built behind this interface so a future Navigraph
  * provider is a swap, not a rewrite, per that plan's Decision. `SimFacilitiesProvider`
  * (sim-facilities-provider.ts) is the only implementation today.
  */
+import type { NavdataRunway, NavdataStand } from '@shared/ipc'
 
-export interface NavdataRunway {
-  ident: string
-  headingTrueDeg: number
-  lengthM: number
-  widthM: number
-  /** Raw SimConnect surface-type integer — not yet mapped to a name (facility-fields.ts). */
-  surface: number
-  thresholdLat: number
-  thresholdLon: number
-}
+// Lives in src/shared so host-side code (the runway check) can use it without importing navdata.
+export type { NavdataRunway } from '@shared/ipc'
 
 export interface NavdataProcedureOption {
   identifier: string
@@ -45,8 +37,8 @@ export interface NavdataTaxiSegment {
   endLon: number
   name: string | null
   /** Whether each endpoint is a hold-short point (TAXI_POINT TYPE 2/4/5/6 — SDK enum; 5 seen
-   *  live at VHHH, 2026-09-30). Lets a traced taxi route stop exactly at a named holding
-   *  point (flightdeck-backend's docs/beyondatc-notes.md). */
+   * live at VHHH). Lets a traced taxi route stop exactly at a named holding
+   *  point (winglog-backend's docs/beyondatc-notes.md). */
   startHoldShort: boolean
   endHoldShort: boolean
 }
@@ -69,27 +61,29 @@ export interface NavdataProvider {
    *  belongs to exactly one, unlike a SID/STAR. `identifier` is a constructed display label
    *  (e.g. "ILS 07C", "RNP Z 07R" — see facility-fields.ts's ParsedApproachHeader), since
    *  approaches carry no NAME field of their own. `transition` is the approach's own
-   *  APPROACH_TRANSITION name — confirmed live 2026-09-08 (docs/navdata-notes.md) to be the
+   * APPROACH_TRANSITION name — confirmed live (docs/navdata-notes.md) to be the
    *  literal fix ident a STAR hands off at (e.g. VHHH's "LIMES"), the link a caller uses to
    *  auto-connect a chosen STAR onto a chosen approach. */
   listApproaches(icao: string, runway?: string | null): NavdataProcedureOption[]
   /**
-   * The full ordered waypoint list for this procedure at a chosen runway/transition —
-   * confirmed live (2026-09-08, docs/navdata-notes.md) that a real procedure's legs can
-   * live inside a specific runway transition, the procedure's own common list, a specific
-   * enroute transition, or some combination, so both selectors matter: omitting `runway`
-   * on a procedure whose real legs live entirely inside one runway transition (the common
-   * case for a SID) returns nothing, rather than guessing which runway's legs to use.
-   * For `kind: 'approach'`, `runway` is ignored (already implied by `identifier`) and the
-   * order is transition legs then the shared final segment — the reverse of SID/STAR's
-   * runway-then-common-then-transition order, confirmed live the same day to be correct for
-   * a real approach (fly the transition inbound, then the shared final segment to the
-   * runway) — with the duplicate fix ARINC 424 repeats at that boundary dropped.
+   * The full ordered waypoint list for this procedure at a chosen runway/transition. A procedure's legs can live inside a specific
+   * runway transition, the procedure's own common list, a specific enroute transition, or a combination (docs/navdata-notes.md),
+   * so both selectors matter: omitting `runway` on a procedure whose legs live entirely inside one runway transition (the common
+   * case for a SID) returns nothing, rather than guessing which runway's legs to use. For `kind: 'approach'`, `runway` is ignored
+   * (already implied by `identifier`) and the order is transition legs then the shared final segment, the reverse of SID/STAR's
+   * runway-then-common-then-transition order (fly the transition inbound, then the final segment to the runway), with the
+   * duplicate fix ARINC 424 repeats at that boundary dropped.
    */
-  getProcedureWaypoints(icao: string, kind: ProcedureKind, identifier: string, runway?: string | null, transition?: string | null): NavdataLeg[]
+  getProcedureWaypoints(
+    icao: string,
+    kind: ProcedureKind,
+    identifier: string,
+    runway?: string | null,
+    transition?: string | null
+  ): NavdataLeg[]
   /** Fetches an airport's full taxiway network and replaces the cache for it. Unlike
    *  `refreshAirport`, this is genuinely slow for a large airport (minutes, not seconds —
-   *  flightdeck-backend's docs/navdata-notes.md, 2026-09-28) — only ever call this from an
+   * winglog-backend's docs/navdata-notes.md) — only ever call this from an
    *  explicit user action, never automatically. */
   refreshTaxiNetwork(icao: string): Promise<void>
   /** True once at least one refreshTaxiNetwork(icao) has completed for this ICAO. */

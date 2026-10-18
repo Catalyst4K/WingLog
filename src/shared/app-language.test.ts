@@ -34,7 +34,7 @@ describe('resolveAppLanguage', () => {
   })
 
   describe('Chinese: zh-CN and zh-TW share a primary subtag, so region/script decides', () => {
-    it("resolves mainland/Singapore-shaped locales to Simplified (zh-CN)", () => {
+    it('resolves mainland/Singapore-shaped locales to Simplified (zh-CN)', () => {
       expect(resolveAppLanguage('system', 'zh-CN')).toBe('zh-CN')
       expect(resolveAppLanguage('system', 'zh-SG')).toBe('zh-CN')
     })

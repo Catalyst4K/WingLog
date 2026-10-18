@@ -10,7 +10,9 @@ import { getAircraftIdForTitle } from '../db/settings-repo'
 import { createTrackPoint, listTrackPoints } from '../db/track-point-repo'
 import type { SimConnectSource } from '../sim/SimConnectSource'
 import { navdataRunway } from '../db/schema'
+import { logger } from '../logging/logger'
 import { TrackingController } from './TrackingController'
+import { dbFlightStore } from '../db/flight-store'
 
 function telemetry(overrides: Partial<SimTelemetry>): SimTelemetry {
   return {
@@ -90,40 +92,57 @@ describe('TrackingController', () => {
       { ident: '25L', headingTrueDeg: 250.8805, thresholdLat: 22.307392794, thresholdLon: 113.932832502 }
     ]) {
       db.insert(navdataRunway)
-        .values({ icao: 'VHHH', lengthM: 3787.4, widthM: 60.6, surface: 0, source: 'sim-facility', fetchedAt: '2026-10-05T00:00:00Z', ...end })
+        .values({
+          icao: 'VHHH',
+          lengthM: 3787.4,
+          widthM: 60.6,
+          surface: 0,
+          source: 'sim-facility',
+          fetchedAt: '2026-10-05T00:00:00Z',
+          ...end
+        })
         .run()
     }
     const base = { engineCombustion1: true, parkingBrakeOn: false, onGround: true }
     sim.setLastTelemetry(telemetry({}))
-    const controller = new TrackingController(db, sim)
+    const controller = new TrackingController(dbFlightStore(db), sim)
     controller.start(vhhhFlight)
     sim.emit('telemetry', telemetry({ engineCombustion1: true, parkingBrakeOn: true }))
-    sim.emit('telemetry', telemetry({ ...base, groundSpeedMs: 5, latitude: 22.30309808, longitude: 113.91080964 }))
+    sim.emit(
+      'telemetry',
+      telemetry({ ...base, groundSpeedMs: 5, latitude: 22.30309808, longitude: 113.91080964 })
+    )
     expect(controller.getActive()?.phase).toBe('taxi')
 
     // 35 kt on the parallel taxiway, 291 m off 25L.
-    sim.emit('telemetry', telemetry({ ...base, groundSpeedMs: 18.3, latitude: 22.30237804, longitude: 113.90856782 }))
+    sim.emit(
+      'telemetry',
+      telemetry({ ...base, groundSpeedMs: 18.3, latitude: 22.30237804, longitude: 113.90856782 })
+    )
     expect(controller.getActive()?.phase).toBe('taxi')
 
     // The real roll on 07R.
-    sim.emit('telemetry', telemetry({ ...base, groundSpeedMs: 19.8, latitude: 22.29686586, longitude: 113.90006854 }))
+    sim.emit(
+      'telemetry',
+      telemetry({ ...base, groundSpeedMs: 19.8, latitude: 22.29686586, longitude: 113.90006854 })
+    )
     expect(controller.getActive()?.phase).toBe('takeoff')
   })
 
   it('refuses to start without a live telemetry sample', () => {
-    const controller = new TrackingController(db, sim)
+    const controller = new TrackingController(dbFlightStore(db), sim)
     expect(() => controller.start(flightId)).toThrow('Not connected')
   })
 
   it('refuses to start tracking a nonexistent flight', () => {
     sim.setLastTelemetry(telemetry({}))
-    const controller = new TrackingController(db, sim)
+    const controller = new TrackingController(dbFlightStore(db), sim)
     expect(() => controller.start(99999)).toThrow('not found')
   })
 
   it('marks the flight active and snapshots fuel on start', () => {
     sim.setLastTelemetry(telemetry({ fuelTotalKg: 12345 }))
-    const controller = new TrackingController(db, sim)
+    const controller = new TrackingController(dbFlightStore(db), sim)
     controller.start(flightId)
 
     const flight = getFlight(db, flightId)
@@ -134,7 +153,7 @@ describe('TrackingController', () => {
 
   it('refuses to start a second flight while one is already being tracked', () => {
     sim.setLastTelemetry(telemetry({}))
-    const controller = new TrackingController(db, sim)
+    const controller = new TrackingController(dbFlightStore(db), sim)
     controller.start(flightId)
     expect(() => controller.start(flightId)).toThrow('Already tracking')
   })
@@ -144,7 +163,7 @@ describe('TrackingController', () => {
     const otherFlightId = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'EGCC' }).id
 
     sim.setLastTelemetry(telemetry({}))
-    const controller = new TrackingController(db, sim)
+    const controller = new TrackingController(dbFlightStore(db), sim)
     controller.start(flightId) // still preflight: never took off, no points recorded
 
     controller.start(otherFlightId)
@@ -160,7 +179,7 @@ describe('TrackingController', () => {
     const otherFlightId = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'EGCC' }).id
 
     sim.setLastTelemetry(telemetry({}))
-    const controller = new TrackingController(db, sim)
+    const controller = new TrackingController(dbFlightStore(db), sim)
     controller.start(flightId)
     sim.emit('telemetry', telemetry({})) // first tick always persists a track_point
 
@@ -171,7 +190,7 @@ describe('TrackingController', () => {
   it('persists points and emits them as telemetry streams in', () => {
     vi.useFakeTimers()
     sim.setLastTelemetry(telemetry({}))
-    const controller = new TrackingController(db, sim)
+    const controller = new TrackingController(dbFlightStore(db), sim)
     controller.start(flightId)
 
     const emitted: number[] = []
@@ -187,7 +206,7 @@ describe('TrackingController', () => {
 
   it('records off/on/completion and stops tracking at shutdown', () => {
     sim.setLastTelemetry(telemetry({}))
-    const controller = new TrackingController(db, sim)
+    const controller = new TrackingController(dbFlightStore(db), sim)
     controller.start(flightId)
 
     sim.emit('telemetry', telemetry({ engineCombustion1: true }))
@@ -199,13 +218,13 @@ describe('TrackingController', () => {
     )
     expect(getFlight(db, flightId)?.actualOffUtc).toBeTruthy()
 
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 32; i++) {
       sim.emit(
         'telemetry',
         telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 230, verticalSpeedMs: 0.1 })
       )
     }
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 32; i++) {
       sim.emit(
         'telemetry',
         telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 200, verticalSpeedMs: -3 })
@@ -228,9 +247,9 @@ describe('TrackingController', () => {
     expect(controller.getActive()).toBeUndefined()
   })
 
-  it('records the landing\'s verticalSpeedMs from the last airborne tick, not the touchdown tick', () => {
+  it("records the landing's verticalSpeedMs from the last airborne tick, not the touchdown tick", () => {
     sim.setLastTelemetry(telemetry({}))
-    const controller = new TrackingController(db, sim)
+    const controller = new TrackingController(dbFlightStore(db), sim)
     controller.start(flightId)
 
     sim.emit('telemetry', telemetry({ engineCombustion1: true }))
@@ -240,13 +259,13 @@ describe('TrackingController', () => {
       'telemetry',
       telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
     )
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 32; i++) {
       sim.emit(
         'telemetry',
         telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 230, verticalSpeedMs: 0.1 })
       )
     }
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 32; i++) {
       sim.emit(
         'telemetry',
         telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 200, verticalSpeedMs: -3 })
@@ -271,7 +290,7 @@ describe('TrackingController', () => {
   it('prefers a fresh touchdownSeverity reading (high-rate stream) over previousTelemetry', () => {
     vi.useFakeTimers()
     sim.setLastTelemetry(telemetry({}))
-    const controller = new TrackingController(db, sim)
+    const controller = new TrackingController(dbFlightStore(db), sim)
     controller.start(flightId)
 
     sim.emit('telemetry', telemetry({ engineCombustion1: true }))
@@ -281,13 +300,13 @@ describe('TrackingController', () => {
       'telemetry',
       telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
     )
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 32; i++) {
       sim.emit(
         'telemetry',
         telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 230, verticalSpeedMs: 0.1 })
       )
     }
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 32; i++) {
       sim.emit(
         'telemetry',
         telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 200, verticalSpeedMs: -3 })
@@ -311,7 +330,7 @@ describe('TrackingController', () => {
   it('ignores a stale touchdownSeverity reading, falling back to previousTelemetry instead', () => {
     vi.useFakeTimers()
     sim.setLastTelemetry(telemetry({}))
-    const controller = new TrackingController(db, sim)
+    const controller = new TrackingController(dbFlightStore(db), sim)
     controller.start(flightId)
 
     sim.emit('telemetry', telemetry({ engineCombustion1: true }))
@@ -329,7 +348,7 @@ describe('TrackingController', () => {
     // start) before the real touchdown tick — must not be reused for this touchdown.
     sim.emit('touchdownSeverity', { verticalSpeedMs: -99 })
     vi.advanceTimersByTime(3_001)
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 32; i++) {
       sim.emit(
         'telemetry',
         telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 200, verticalSpeedMs: -3 })
@@ -349,7 +368,7 @@ describe('TrackingController', () => {
 
   it('freezes recording while the sim reports paused', () => {
     sim.setLastTelemetry(telemetry({}))
-    const controller = new TrackingController(db, sim)
+    const controller = new TrackingController(dbFlightStore(db), sim)
     controller.start(flightId)
 
     sim.emit('paused', true)
@@ -362,13 +381,13 @@ describe('TrackingController', () => {
   })
 
   it(
-    'excludes a real in-session pause from the completed flight\'s block/air minutes ' +
+    "excludes a real in-session pause from the completed flight's block/air minutes " +
       '(real case: pausing mid-cruise to test this exact thing inflated the logged time)',
     () => {
       vi.useFakeTimers()
       vi.setSystemTime(new Date('2026-09-01T12:00:00.000Z'))
       sim.setLastTelemetry(telemetry({}))
-      const controller = new TrackingController(db, sim)
+      const controller = new TrackingController(dbFlightStore(db), sim)
       controller.start(flightId)
 
       // preflight -> pushback -> taxi -> takeoff -> climb, each a real elapsed tick apart.
@@ -392,13 +411,13 @@ describe('TrackingController', () => {
       sim.emit('paused', false)
 
       // -> cruise -> descent -> landing (touchdown, actualOnUtc).
-      for (let i = 0; i < 12; i++) {
+      for (let i = 0; i < 32; i++) {
         sim.emit(
           'telemetry',
           telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 230, verticalSpeedMs: 0.1 })
         )
       }
-      for (let i = 0; i < 7; i++) {
+      for (let i = 0; i < 32; i++) {
         sim.emit(
           'telemetry',
           telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 200, verticalSpeedMs: -3 })
@@ -429,7 +448,7 @@ describe('TrackingController', () => {
 
   it('deletes the flight on stop() rather than completing it or saving it as abandoned', () => {
     sim.setLastTelemetry(telemetry({}))
-    const controller = new TrackingController(db, sim)
+    const controller = new TrackingController(dbFlightStore(db), sim)
     controller.start(flightId)
     controller.stop()
 
@@ -442,7 +461,7 @@ describe('TrackingController', () => {
 
   it('with "Finish flights automatically" off, stays active when parked and shut down until finish()', () => {
     sim.setLastTelemetry(telemetry({}))
-    const controller = new TrackingController(db, sim)
+    const controller = new TrackingController(dbFlightStore(db), sim)
     controller.setAutoFinish(false)
     controller.start(flightId)
     const points: string[] = []
@@ -451,10 +470,19 @@ describe('TrackingController', () => {
     sim.emit('telemetry', telemetry({ engineCombustion1: true }))
     sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 5 }))
     sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 40 }))
-    sim.emit('telemetry', telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 }))
-    sim.emit('telemetry', telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 65, verticalSpeedMs: -1.5 }))
+    sim.emit(
+      'telemetry',
+      telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+    )
+    sim.emit(
+      'telemetry',
+      telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 65, verticalSpeedMs: -1.5 })
+    )
     sim.emit('telemetry', telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 10 }))
-    sim.emit('telemetry', telemetry({ engineCombustion1: false, onGround: true, groundSpeedMs: 0, parkingBrakeOn: true }))
+    sim.emit(
+      'telemetry',
+      telemetry({ engineCombustion1: false, onGround: true, groundSpeedMs: 0, parkingBrakeOn: true })
+    )
 
     expect(getFlight(db, flightId)?.status).toBe('active')
     expect(controller.getActive()).toBeDefined()
@@ -467,7 +495,7 @@ describe('TrackingController', () => {
 
   it('completes the flight on finish() using the last known fuel figure, without waiting for shutdown', () => {
     sim.setLastTelemetry(telemetry({ fuelTotalKg: 9000 }))
-    const controller = new TrackingController(db, sim)
+    const controller = new TrackingController(dbFlightStore(db), sim)
     controller.start(flightId)
 
     sim.setLastTelemetry(telemetry({ fuelTotalKg: 4000 }))
@@ -484,7 +512,7 @@ describe('TrackingController', () => {
     // the instant tracking starts can be stale post-reload telemetry or simply "before
     // ground fuel service finished" — this correction is what fixes both.
     sim.setLastTelemetry(telemetry({ fuelTotalKg: 10187 }))
-    const controller = new TrackingController(db, sim)
+    const controller = new TrackingController(dbFlightStore(db), sim)
     controller.start(flightId)
     expect(getFlight(db, flightId)?.fuelOutKg).toBe(10187)
 
@@ -513,7 +541,7 @@ describe('TrackingController', () => {
     // refuels to ~6,268 kg over half an hour, then pushback. Before this fix the stale
     // engine tick locked in 10,184 kg and the logbook showed 7,174 kg burned of 6,268.
     sim.setLastTelemetry(telemetry({ fuelTotalKg: 10185 }))
-    const controller = new TrackingController(db, sim)
+    const controller = new TrackingController(dbFlightStore(db), sim)
     controller.start(flightId)
 
     sim.emit('telemetry', telemetry({ fuelTotalKg: 10184, engineCombustion1: true }))
@@ -527,15 +555,24 @@ describe('TrackingController', () => {
 
   it('falls back to the first airborne tick when no ground movement was ever seen', () => {
     sim.setLastTelemetry(telemetry({ fuelTotalKg: 9000 }))
-    const controller = new TrackingController(db, sim)
+    const controller = new TrackingController(dbFlightStore(db), sim)
     controller.start(flightId)
     sim.emit('telemetry', telemetry({ fuelTotalKg: 8800, engineCombustion1: true }))
-    sim.emit('telemetry', telemetry({ fuelTotalKg: 8700, engineCombustion1: true, onGround: false, groundSpeedMs: 80, verticalSpeedMs: 10 }))
+    sim.emit(
+      'telemetry',
+      telemetry({
+        fuelTotalKg: 8700,
+        engineCombustion1: true,
+        onGround: false,
+        groundSpeedMs: 80,
+        verticalSpeedMs: 10
+      })
+    )
     expect(getFlight(db, flightId)?.fuelOutKg).toBe(8700)
   })
 
   it('finish() is a no-op when nothing is being tracked', () => {
-    const controller = new TrackingController(db, sim)
+    const controller = new TrackingController(dbFlightStore(db), sim)
     expect(() => controller.finish()).not.toThrow()
     expect(getFlight(db, flightId)?.status).toBe('planned')
   })
@@ -548,15 +585,20 @@ describe('TrackingController', () => {
     })
 
     it('refuses to start without a live telemetry sample', () => {
-      const controller = new TrackingController(db, sim)
+      const controller = new TrackingController(dbFlightStore(db), sim)
       expect(() =>
-        controller.startFree({ aircraftId: freeAircraftId, depIcao: 'EGLL', arrIcao: 'ZZZZ', flightNumber: null })
+        controller.startFree({
+          aircraftId: freeAircraftId,
+          depIcao: 'EGLL',
+          arrIcao: 'ZZZZ',
+          flightNumber: null
+        })
       ).toThrow('Not connected')
     })
 
     it('creates the flight directly at active, with no planned stage, and starts tracking it', () => {
       sim.setLastTelemetry(telemetry({ fuelTotalKg: 3200, title: 'Cessna 172 Classic' }))
-      const controller = new TrackingController(db, sim)
+      const controller = new TrackingController(dbFlightStore(db), sim)
       const newFlightId = controller.startFree({
         aircraftId: freeAircraftId,
         depIcao: 'EGLL',
@@ -573,7 +615,7 @@ describe('TrackingController', () => {
 
     it('seeds phase detection from the current telemetry rather than always starting at preflight', () => {
       sim.setLastTelemetry(telemetry({ onGround: false, verticalSpeedMs: 0, groundSpeedMs: 120 }))
-      const controller = new TrackingController(db, sim)
+      const controller = new TrackingController(dbFlightStore(db), sim)
       const newFlightId = controller.startFree({
         aircraftId: freeAircraftId,
         depIcao: 'EGLL',
@@ -585,7 +627,7 @@ describe('TrackingController', () => {
 
     it('records off-block time immediately for a flight seeded already airborne, not waiting for a climb edge that will never come', () => {
       sim.setLastTelemetry(telemetry({ onGround: false, verticalSpeedMs: 0, groundSpeedMs: 120 }))
-      const controller = new TrackingController(db, sim)
+      const controller = new TrackingController(dbFlightStore(db), sim)
       const newFlightId = controller.startFree({
         aircraftId: freeAircraftId,
         depIcao: 'EGLL',
@@ -598,8 +640,13 @@ describe('TrackingController', () => {
     describe('setDeparture (v1.1.2)', () => {
       function startFreeFlight(): { controller: TrackingController; id: number } {
         sim.setLastTelemetry(telemetry({}))
-        const controller = new TrackingController(db, sim)
-        const id = controller.startFree({ aircraftId: freeAircraftId, depIcao: 'ZZZZ', arrIcao: 'ZZZZ', flightNumber: null })
+        const controller = new TrackingController(dbFlightStore(db), sim)
+        const id = controller.startFree({
+          aircraftId: freeAircraftId,
+          depIcao: 'ZZZZ',
+          arrIcao: 'ZZZZ',
+          flightNumber: null
+        })
         return { controller, id }
       }
 
@@ -615,10 +662,12 @@ describe('TrackingController', () => {
         const { controller, id } = startFreeFlight()
         expect(() => controller.setDeparture('nope!')).toThrow('not a valid airport code')
         expect(getFlight(db, id)?.depIcao).toBe('ZZZZ')
-        expect(() => new TrackingController(db, sim).setDeparture('VHHH')).toThrow('No flight is being tracked')
+        expect(() => new TrackingController(dbFlightStore(db), sim).setDeparture('VHHH')).toThrow(
+          'No flight is being tracked'
+        )
         controller.stop()
         sim.setLastTelemetry(telemetry({}))
-        const planned = new TrackingController(db, sim)
+        const planned = new TrackingController(dbFlightStore(db), sim)
         planned.start(flightId)
         expect(() => planned.setDeparture('VHHH')).toThrow('flight plan')
       })
@@ -627,8 +676,13 @@ describe('TrackingController', () => {
     describe('setDestination (v1.1.1)', () => {
       function startFreeFlight(): { controller: TrackingController; id: number } {
         sim.setLastTelemetry(telemetry({}))
-        const controller = new TrackingController(db, sim)
-        const id = controller.startFree({ aircraftId: freeAircraftId, depIcao: 'VHHH', arrIcao: 'ZZZZ', flightNumber: null })
+        const controller = new TrackingController(dbFlightStore(db), sim)
+        const id = controller.startFree({
+          aircraftId: freeAircraftId,
+          depIcao: 'VHHH',
+          arrIcao: 'ZZZZ',
+          flightNumber: null
+        })
         return { controller, id }
       }
 
@@ -644,16 +698,20 @@ describe('TrackingController', () => {
 
       it('rejects something that is not an airport code, leaving the flight untouched', () => {
         const { controller, id } = startFreeFlight()
-        expect(() => controller.setDestination("X'; DROP TABLE flight;--")).toThrow('not a valid airport code')
+        expect(() => controller.setDestination("X'; DROP TABLE flight;--")).toThrow(
+          'not a valid airport code'
+        )
         expect(() => controller.setDestination('A')).toThrow('not a valid airport code')
         expect(getFlight(db, id)?.arrIcao).toBe('ZZZZ')
       })
 
       it('refuses when nothing is being tracked, and for a planned (OFP) flight', () => {
-        expect(() => new TrackingController(db, sim).setDestination('VHHH')).toThrow('No flight is being tracked')
+        expect(() => new TrackingController(dbFlightStore(db), sim).setDestination('VHHH')).toThrow(
+          'No flight is being tracked'
+        )
 
         sim.setLastTelemetry(telemetry({}))
-        const controller = new TrackingController(db, sim)
+        const controller = new TrackingController(dbFlightStore(db), sim)
         controller.start(flightId) // a dispatched flight, not a free one
         expect(() => controller.setDestination('VHHH')).toThrow('flight plan')
       })
@@ -665,14 +723,17 @@ describe('TrackingController', () => {
         sim.emit('telemetry', telemetry({ engineCombustion1: true }))
         sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 40 }))
         for (let i = 0; i < 5; i++) sim.emit('telemetry', telemetry(air))
-        sim.emit('telemetry', telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 60, verticalSpeedMs: -1.5 }))
+        sim.emit(
+          'telemetry',
+          telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 60, verticalSpeedMs: -1.5 })
+        )
         expect(getFlight(db, id)?.arrIcao).toBe('EGLL')
       })
     })
 
     it('leaves off-block time unset for a flight seeded on the ground, same as a normal dispatched start', () => {
       sim.setLastTelemetry(telemetry({ onGround: true, groundSpeedMs: 0 }))
-      const controller = new TrackingController(db, sim)
+      const controller = new TrackingController(dbFlightStore(db), sim)
       const newFlightId = controller.startFree({
         aircraftId: freeAircraftId,
         depIcao: 'EGLL',
@@ -684,14 +745,19 @@ describe('TrackingController', () => {
 
     it('remembers the title -> aircraft mapping so a later flight in the same add-on can resolve it', () => {
       sim.setLastTelemetry(telemetry({ title: 'FenixA320 IAE SL' }))
-      const controller = new TrackingController(db, sim)
-      controller.startFree({ aircraftId: freeAircraftId, depIcao: 'EGLL', arrIcao: 'ZZZZ', flightNumber: null })
+      const controller = new TrackingController(dbFlightStore(db), sim)
+      controller.startFree({
+        aircraftId: freeAircraftId,
+        depIcao: 'EGLL',
+        arrIcao: 'ZZZZ',
+        flightNumber: null
+      })
       expect(getAircraftIdForTitle(db, 'FenixA320 IAE SL')).toBe(freeAircraftId)
     })
 
     it('leaves simTitle null on the flight row when a fleet aircraft is already linked at start', () => {
       sim.setLastTelemetry(telemetry({ title: 'FenixA320 IAE SL' }))
-      const controller = new TrackingController(db, sim)
+      const controller = new TrackingController(dbFlightStore(db), sim)
       const newFlightId = controller.startFree({
         aircraftId: freeAircraftId,
         depIcao: 'EGLL',
@@ -703,7 +769,7 @@ describe('TrackingController', () => {
 
     it('stores simTitle on the flight row when tracked with no linked aircraft, so Logbook can remember it later', () => {
       sim.setLastTelemetry(telemetry({ title: 'FenixA320 IAE SL' }))
-      const controller = new TrackingController(db, sim)
+      const controller = new TrackingController(dbFlightStore(db), sim)
       const newFlightId = controller.startFree({
         aircraftId: null,
         simRegistration: 'G-TEST',
@@ -717,7 +783,7 @@ describe('TrackingController', () => {
 
     it('resolves arrival from position at touchdown, overwriting the ZZZZ placeholder', () => {
       sim.setLastTelemetry(telemetry({ onGround: true, groundSpeedMs: 0 }))
-      const controller = new TrackingController(db, sim)
+      const controller = new TrackingController(dbFlightStore(db), sim)
       const newFlightId = controller.startFree({
         aircraftId: freeAircraftId,
         depIcao: 'ZZZZ',
@@ -747,11 +813,11 @@ describe('TrackingController', () => {
       expect(getFlight(db, newFlightId)?.arrIcao).toBe('EGLL')
     })
 
-    it('never overwrites a dispatched flight\'s filed arrival, even on a real touchdown elsewhere', () => {
+    it("never overwrites a dispatched flight's filed arrival, even on a real touchdown elsewhere", () => {
       // The outer beforeEach's flightId files EGLL -> VHHH via the normal createFlight/
       // start() path, not startFree() — arrival resolution must stay off for it.
       sim.setLastTelemetry(telemetry({}))
-      const controller = new TrackingController(db, sim)
+      const controller = new TrackingController(dbFlightStore(db), sim)
       controller.start(flightId)
 
       sim.emit('telemetry', telemetry({ engineCombustion1: true }))
@@ -778,12 +844,22 @@ describe('TrackingController', () => {
 
     it('refuses to start a second free flight while one is already being tracked with real progress', () => {
       sim.setLastTelemetry(telemetry({}))
-      const controller = new TrackingController(db, sim)
-      controller.startFree({ aircraftId: freeAircraftId, depIcao: 'EGLL', arrIcao: 'ZZZZ', flightNumber: null })
+      const controller = new TrackingController(dbFlightStore(db), sim)
+      controller.startFree({
+        aircraftId: freeAircraftId,
+        depIcao: 'EGLL',
+        arrIcao: 'ZZZZ',
+        flightNumber: null
+      })
       sim.emit('telemetry', telemetry({})) // first tick always persists a track_point
 
       expect(() =>
-        controller.startFree({ aircraftId: freeAircraftId, depIcao: 'EGLL', arrIcao: 'ZZZZ', flightNumber: null })
+        controller.startFree({
+          aircraftId: freeAircraftId,
+          depIcao: 'EGLL',
+          arrIcao: 'ZZZZ',
+          flightNumber: null
+        })
       ).toThrow('Already tracking flight')
     })
   })
@@ -794,7 +870,7 @@ describe('TrackingController', () => {
   // the second standing in for the fresh process after a restart.
   describe('resume', () => {
     it('does nothing for a flight that is not active', () => {
-      const controller = new TrackingController(db, sim)
+      const controller = new TrackingController(dbFlightStore(db), sim)
       controller.resume(flightId)
       expect(controller.getActive()).toBeUndefined()
     })
@@ -807,7 +883,7 @@ describe('TrackingController', () => {
       vi.useFakeTimers()
       const sim1 = fakeSimConnectService()
       sim1.setLastTelemetry(telemetry({}))
-      const original = new TrackingController(db, sim1)
+      const original = new TrackingController(dbFlightStore(db), sim1)
       original.start(flightId)
 
       sim1.emit('telemetry', telemetry({ engineCombustion1: true }))
@@ -826,7 +902,7 @@ describe('TrackingController', () => {
       // The old process is gone (neither stop() nor finish() ran, so the row stayed
       // 'active') — a fresh controller/sim pair stands in for the restarted app.
       const sim2 = fakeSimConnectService()
-      const resumed = new TrackingController(db, sim2)
+      const resumed = new TrackingController(dbFlightStore(db), sim2)
       resumed.resume(flightId)
       expect(resumed.getActive()).toEqual({ flightId, phase: 'climb' })
 
@@ -845,13 +921,13 @@ describe('TrackingController', () => {
     it('tags every point recorded after a resume with a new, incremented resumeSegment', () => {
       const sim1 = fakeSimConnectService()
       sim1.setLastTelemetry(telemetry({}))
-      const original = new TrackingController(db, sim1)
+      const original = new TrackingController(dbFlightStore(db), sim1)
       original.start(flightId)
       sim1.emit('telemetry', telemetry({ engineCombustion1: true }))
       expect(listTrackPoints(db, flightId).every((p) => p.resumeSegment === 0)).toBe(true)
 
       const sim2 = fakeSimConnectService()
-      const resumed = new TrackingController(db, sim2)
+      const resumed = new TrackingController(dbFlightStore(db), sim2)
       resumed.resume(flightId)
       sim2.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 5 }))
 
@@ -861,7 +937,7 @@ describe('TrackingController', () => {
 
       // A second resume in the same flight increments again, not just back to 1.
       const sim3 = fakeSimConnectService()
-      const resumedAgain = new TrackingController(db, sim3)
+      const resumedAgain = new TrackingController(dbFlightStore(db), sim3)
       resumedAgain.resume(flightId)
       sim3.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 5 }))
       expect(listTrackPoints(db, flightId).at(-1)?.resumeSegment).toBe(2)
@@ -870,7 +946,7 @@ describe('TrackingController', () => {
     it('does not re-record off time or the fuel-out correction already locked in before the crash', () => {
       const sim1 = fakeSimConnectService()
       sim1.setLastTelemetry(telemetry({ fuelTotalKg: 9000 }))
-      const original = new TrackingController(db, sim1)
+      const original = new TrackingController(dbFlightStore(db), sim1)
       original.start(flightId)
 
       sim1.emit('telemetry', telemetry({ engineCombustion1: true, fuelTotalKg: 8500 }))
@@ -878,7 +954,13 @@ describe('TrackingController', () => {
       sim1.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 40, fuelTotalKg: 8300 }))
       sim1.emit(
         'telemetry',
-        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12, fuelTotalKg: 8200 })
+        telemetry({
+          engineCombustion1: true,
+          onGround: false,
+          groundSpeedMs: 90,
+          verticalSpeedMs: 12,
+          fuelTotalKg: 8200
+        })
       )
       const offAtCrash = getFlight(db, flightId)?.actualOffUtc
       const fuelOutAtCrash = getFlight(db, flightId)?.fuelOutKg
@@ -886,11 +968,17 @@ describe('TrackingController', () => {
       expect(fuelOutAtCrash).toBe(8400) // locked in at the first real ground movement
 
       const sim2 = fakeSimConnectService()
-      const resumed = new TrackingController(db, sim2)
+      const resumed = new TrackingController(dbFlightStore(db), sim2)
       resumed.resume(flightId)
       sim2.emit(
         'telemetry',
-        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 200, verticalSpeedMs: 0.1, fuelTotalKg: 8000 })
+        telemetry({
+          engineCombustion1: true,
+          onGround: false,
+          groundSpeedMs: 200,
+          verticalSpeedMs: 0.1,
+          fuelTotalKg: 8000
+        })
       )
 
       expect(getFlight(db, flightId)?.actualOffUtc).toBe(offAtCrash)
@@ -898,7 +986,7 @@ describe('TrackingController', () => {
     })
   })
 
-  // Phase 2 of flightdeck-backend's docs/plans/done/resume-track-cleanup.md — the actual
+  // Phase 2 of winglog-backend's docs/plans/done/resume-track-cleanup.md — the actual
   // junk-exclusion pass, live-wired through checkForLiveJump/runTrackCleanup rather than
   // just the pure computeTrackCleanup function (resume-cleanup.test.ts covers that in
   // isolation).
@@ -907,15 +995,21 @@ describe('TrackingController', () => {
       vi.useFakeTimers()
       const sim1 = fakeSimConnectService()
       sim1.setLastTelemetry(telemetry({}))
-      const original = new TrackingController(db, sim1)
+      const original = new TrackingController(dbFlightStore(db), sim1)
       original.start(flightId)
       sim1.emit(
         'telemetry',
-        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 100, latitude: 51.4775, longitude: -0.4614 })
+        telemetry({
+          engineCombustion1: true,
+          onGround: false,
+          groundSpeedMs: 100,
+          latitude: 51.4775,
+          longitude: -0.4614
+        })
       )
 
       const sim2 = fakeSimConnectService()
-      const resumed = new TrackingController(db, sim2)
+      const resumed = new TrackingController(dbFlightStore(db), sim2)
       const updates: number[][] = []
       resumed.on('pointsUpdated', (points) => updates.push(points.map((p) => p.id)))
       resumed.resume(flightId)
@@ -924,13 +1018,25 @@ describe('TrackingController', () => {
       vi.advanceTimersByTime(5_000)
       sim2.emit(
         'telemetry',
-        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 100, latitude: 52, longitude: 0 })
+        telemetry({
+          engineCombustion1: true,
+          onGround: false,
+          groundSpeedMs: 100,
+          latitude: 52,
+          longitude: 0
+        })
       )
       // The restore tool's teleport: instantly back near the anchor.
       vi.advanceTimersByTime(5_000)
       sim2.emit(
         'telemetry',
-        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 100, latitude: 51.4776, longitude: -0.4613 })
+        telemetry({
+          engineCombustion1: true,
+          onGround: false,
+          groundSpeedMs: 100,
+          latitude: 51.4776,
+          longitude: -0.4613
+        })
       )
 
       const points = listTrackPoints(db, flightId)
@@ -945,32 +1051,56 @@ describe('TrackingController', () => {
       vi.useFakeTimers()
       const sim = fakeSimConnectService()
       sim.setLastTelemetry(telemetry({}))
-      const controller = new TrackingController(db, sim)
+      const controller = new TrackingController(dbFlightStore(db), sim)
       controller.start(flightId)
       const updates: number[][] = []
       controller.on('pointsUpdated', (points) => updates.push(points.map((p) => p.id)))
 
       sim.emit(
         'telemetry',
-        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 100, latitude: 51.4775, longitude: -0.4614 })
+        telemetry({
+          engineCombustion1: true,
+          onGround: false,
+          groundSpeedMs: 100,
+          latitude: 51.4775,
+          longitude: -0.4614
+        })
       )
       vi.advanceTimersByTime(5_000)
       sim.emit(
         'telemetry',
-        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 100, latitude: 51.478, longitude: -0.462 })
+        telemetry({
+          engineCombustion1: true,
+          onGround: false,
+          groundSpeedMs: 100,
+          latitude: 51.478,
+          longitude: -0.462
+        })
       )
       // A payware aircraft's own save-state/reload feature teleports the aircraft — no
       // resume() anywhere near this, matching the real flight 193 iniBuilds A350 case
-      // (resume-track-cleanup.md, "New real case found live, 2026-09-13").
+      // (resume-track-cleanup.md).
       vi.advanceTimersByTime(5_000)
       sim.emit(
         'telemetry',
-        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 100, latitude: 10, longitude: 10 })
+        telemetry({
+          engineCombustion1: true,
+          onGround: false,
+          groundSpeedMs: 100,
+          latitude: 10,
+          longitude: 10
+        })
       )
       vi.advanceTimersByTime(5_000)
       sim.emit(
         'telemetry',
-        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 100, latitude: 10.001, longitude: 10.001 })
+        telemetry({
+          engineCombustion1: true,
+          onGround: false,
+          groundSpeedMs: 100,
+          latitude: 10.001,
+          longitude: 10.001
+        })
       )
 
       const points = listTrackPoints(db, flightId)
@@ -991,7 +1121,7 @@ describe('TrackingController', () => {
       // runTrackCleanup call is the only thing that can catch this.
       const sim = fakeSimConnectService()
       sim.setLastTelemetry(telemetry({}))
-      const controller = new TrackingController(db, sim)
+      const controller = new TrackingController(dbFlightStore(db), sim)
       controller.start(flightId)
 
       function seed(tsUtc: string, latitude: number, longitude: number): void {
@@ -1052,9 +1182,26 @@ describe('TrackingController', () => {
       arrivalIcao: 'EGKK'
     }
 
+    it('remembers the last-pushed selection and gives it back', () => {
+      const controller = new TrackingController(dbFlightStore(db), sim)
+      expect(controller.getProcedureSelection()).toBeUndefined()
+      controller.setProcedureSelection(selection)
+      expect(controller.getProcedureSelection()).toEqual(selection)
+    })
+
+    it('announces a change of selection, once, and nothing for the same selection pushed again', () => {
+      const controller = new TrackingController(dbFlightStore(db), sim)
+      const heard: unknown[] = []
+      controller.on('selectionChanged', (next) => heard.push(next))
+      controller.setProcedureSelection(selection)
+      controller.setProcedureSelection({ ...selection })
+      controller.setProcedureSelection({ ...selection, approachIdent: 'ILS 07L' })
+      expect(heard).toEqual([selection, { ...selection, approachIdent: 'ILS 07L' }])
+    })
+
     it('writes the last-pushed selection into the flight row on finish()', () => {
       sim.setLastTelemetry(telemetry({}))
-      const controller = new TrackingController(db, sim)
+      const controller = new TrackingController(dbFlightStore(db), sim)
       controller.start(flightId)
       controller.setProcedureSelection(selection)
       controller.finish()
@@ -1072,23 +1219,38 @@ describe('TrackingController', () => {
 
     it('writes the last-pushed selection at shutdown-detected completion too', () => {
       sim.setLastTelemetry(telemetry({}))
-      const controller = new TrackingController(db, sim)
+      const controller = new TrackingController(dbFlightStore(db), sim)
       controller.start(flightId)
       controller.setProcedureSelection(selection)
 
       sim.emit('telemetry', telemetry({ engineCombustion1: true }))
       sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 5 }))
       sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 40 }))
-      sim.emit('telemetry', telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 }))
-      for (let i = 0; i < 12; i++) {
-        sim.emit('telemetry', telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 230, verticalSpeedMs: 0.1 }))
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12 })
+      )
+      for (let i = 0; i < 32; i++) {
+        sim.emit(
+          'telemetry',
+          telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 230, verticalSpeedMs: 0.1 })
+        )
       }
-      for (let i = 0; i < 7; i++) {
-        sim.emit('telemetry', telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 200, verticalSpeedMs: -3 }))
+      for (let i = 0; i < 32; i++) {
+        sim.emit(
+          'telemetry',
+          telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 200, verticalSpeedMs: -3 })
+        )
       }
-      sim.emit('telemetry', telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 65, verticalSpeedMs: -1.5 }))
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 65, verticalSpeedMs: -1.5 })
+      )
       sim.emit('telemetry', telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 10 }))
-      sim.emit('telemetry', telemetry({ engineCombustion1: false, onGround: true, groundSpeedMs: 0, parkingBrakeOn: true }))
+      sim.emit(
+        'telemetry',
+        telemetry({ engineCombustion1: false, onGround: true, groundSpeedMs: 0, parkingBrakeOn: true })
+      )
 
       expect(getFlight(db, flightId)?.selectedApproachIdent).toBe('ILS 07C')
     })
@@ -1102,7 +1264,7 @@ describe('TrackingController', () => {
         selectedSidIdent: 'PLANNED_SID'
       }).id
       sim.setLastTelemetry(telemetry({}))
-      const controller = new TrackingController(db, sim)
+      const controller = new TrackingController(dbFlightStore(db), sim)
       controller.start(plannedFlightId)
       controller.finish()
 
@@ -1114,7 +1276,7 @@ describe('TrackingController', () => {
       const secondFlightId = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' }).id
 
       sim.setLastTelemetry(telemetry({}))
-      const controller = new TrackingController(db, sim)
+      const controller = new TrackingController(dbFlightStore(db), sim)
       controller.start(flightId)
       controller.setProcedureSelection(selection)
       controller.stop()
@@ -1126,13 +1288,13 @@ describe('TrackingController', () => {
     })
   })
 
-  // flightdeck-backend's docs/plans/multiple-landings.md — touchdown detection moved off
+  // winglog-backend's docs/plans/multiple-landings.md — touchdown detection moved off
   // the phase machine's descent -> landing edge (which has real holes for circuit flying)
   // onto the raw telemetry.onGround transition directly.
   describe('multiple landings', () => {
-    it('captures a touchdown even while the phase machine is still in \'climb\' (a tight circuit that never reaches descent)', () => {
+    it("captures a touchdown even while the phase machine is still in 'climb' (a tight circuit that never reaches descent)", () => {
       sim.setLastTelemetry(telemetry({}))
-      const controller = new TrackingController(db, sim)
+      const controller = new TrackingController(dbFlightStore(db), sim)
       controller.start(flightId)
 
       sim.emit('telemetry', telemetry({ engineCombustion1: true }))
@@ -1175,7 +1337,7 @@ describe('TrackingController', () => {
 
     it('gives a second real touchdown its own row with the next seq, not overwriting the first', () => {
       sim.setLastTelemetry(telemetry({}))
-      const controller = new TrackingController(db, sim)
+      const controller = new TrackingController(dbFlightStore(db), sim)
       controller.start(flightId)
 
       sim.emit('telemetry', telemetry({ engineCombustion1: true }))
@@ -1201,7 +1363,7 @@ describe('TrackingController', () => {
       // the last airborne tick's verticalSpeedMs is what buildLandingRecord actually
       // stores (it reads the pre-touchdown sample, not the touchdown tick itself; see
       // landing-capture.ts's own doc comment).
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 32; i++) {
         sim.emit(
           'telemetry',
           telemetry({ engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 10 })
@@ -1223,7 +1385,7 @@ describe('TrackingController', () => {
 
     it('does not count a rollout bounce (too few airborne samples) as a second landing', () => {
       sim.setLastTelemetry(telemetry({}))
-      const controller = new TrackingController(db, sim)
+      const controller = new TrackingController(dbFlightStore(db), sim)
       controller.start(flightId)
 
       sim.emit('telemetry', telemetry({ engineCombustion1: true }))
@@ -1264,7 +1426,7 @@ describe('TrackingController', () => {
       // sample here sits at real Heathrow coordinates — the touchdown should resolve to
       // EGLL from position, not fall back to the filed (and wrong) VHHH.
       sim.setLastTelemetry(telemetry({}))
-      const controller = new TrackingController(db, sim)
+      const controller = new TrackingController(dbFlightStore(db), sim)
       controller.start(flightId)
 
       sim.emit('telemetry', telemetry({ engineCombustion1: true }))
@@ -1288,9 +1450,9 @@ describe('TrackingController', () => {
       expect(getLandingByFlight(db, flightId)?.icao).toBe('EGLL')
     })
 
-    it('falls back to the flight\'s filed arrival when no vendored airport is in range of the touchdown', () => {
+    it("falls back to the flight's filed arrival when no vendored airport is in range of the touchdown", () => {
       sim.setLastTelemetry(telemetry({ latitude: 10, longitude: -160 })) // open Pacific
-      const controller = new TrackingController(db, sim)
+      const controller = new TrackingController(dbFlightStore(db), sim)
       controller.start(flightId)
 
       sim.emit('telemetry', telemetry({ engineCombustion1: true, latitude: 10, longitude: -160 }))
@@ -1347,13 +1509,25 @@ describe('TrackingController', () => {
       function flyCircuit(controller: TrackingController, overrides: Partial<SimTelemetry>): void {
         sim.setLastTelemetry(telemetry({ ...overrides }))
         controller.start(flightId)
-        const air = { engineCombustion1: true, onGround: false, groundSpeedMs: 90, verticalSpeedMs: 12, ...overrides }
+        const air = {
+          engineCombustion1: true,
+          onGround: false,
+          groundSpeedMs: 90,
+          verticalSpeedMs: 12,
+          ...overrides
+        }
         sim.emit('telemetry', telemetry({ engineCombustion1: true, ...overrides }))
         sim.emit('telemetry', telemetry({ engineCombustion1: true, groundSpeedMs: 40, ...overrides }))
         for (let i = 0; i < 5; i++) sim.emit('telemetry', telemetry(air))
         sim.emit(
           'telemetry',
-          telemetry({ engineCombustion1: true, onGround: true, groundSpeedMs: 60, verticalSpeedMs: -1.5, ...overrides })
+          telemetry({
+            engineCombustion1: true,
+            onGround: true,
+            groundSpeedMs: 60,
+            verticalSpeedMs: -1.5,
+            ...overrides
+          })
         )
       }
 
@@ -1373,7 +1547,7 @@ describe('TrackingController', () => {
 
       it("replaces a heliport/unknown attribution with the sim's airfield and runway once it answers", async () => {
         const resolveSimAirfield = vi.fn().mockResolvedValue({ icao: 'VHHX', runway: kaiTakRunway })
-        const controller = new TrackingController(db, sim, resolveSimAirfield)
+        const controller = new TrackingController(dbFlightStore(db), sim, resolveSimAirfield)
         flyCircuit(controller, { ...pos, headingTrueDeg: 134 })
 
         // Recorded straight away from vendored data (no runway there)...
@@ -1388,7 +1562,7 @@ describe('TrackingController', () => {
 
       it('keeps the vendored record when the sim has no answer or fails', async () => {
         const resolveSimAirfield = vi.fn().mockResolvedValueOnce(null)
-        const controller = new TrackingController(db, sim, resolveSimAirfield)
+        const controller = new TrackingController(dbFlightStore(db), sim, resolveSimAirfield)
         flyCircuit(controller, { ...pos, headingTrueDeg: 134 })
         await vi.waitFor(() => expect(resolveSimAirfield).toHaveBeenCalled())
         expect(getLandingByFlight(db, flightId)?.runwayIdent).toBeNull()
@@ -1397,7 +1571,7 @@ describe('TrackingController', () => {
 
       it('survives a rejecting resolver', async () => {
         const resolveSimAirfield = vi.fn().mockRejectedValue(new Error('no sim'))
-        const controller = new TrackingController(db, sim, resolveSimAirfield)
+        const controller = new TrackingController(dbFlightStore(db), sim, resolveSimAirfield)
         flyCircuit(controller, { ...pos, headingTrueDeg: 134 })
         await vi.waitFor(() => expect(resolveSimAirfield).toHaveBeenCalled())
         expect(listLandingsByFlight(db, flightId)).toHaveLength(1)
@@ -1405,7 +1579,7 @@ describe('TrackingController', () => {
 
       it('does not ask the sim when the vendored data already resolved a runway', () => {
         const resolveSimAirfield = vi.fn()
-        const controller = new TrackingController(db, sim, resolveSimAirfield)
+        const controller = new TrackingController(dbFlightStore(db), sim, resolveSimAirfield)
         // Heathrow's 27L threshold area, heading 270: vendored runway lookup succeeds.
         flyCircuit(controller, { latitude: 51.4775, longitude: -0.4614, headingTrueDeg: 270 })
         expect(getLandingByFlight(db, flightId)?.runwayIdent).not.toBeNull()
@@ -1417,7 +1591,7 @@ describe('TrackingController', () => {
       vi.useFakeTimers()
       vi.setSystemTime(new Date('2026-09-01T12:00:00.000Z'))
       sim.setLastTelemetry(telemetry({}))
-      const controller = new TrackingController(db, sim)
+      const controller = new TrackingController(dbFlightStore(db), sim)
       controller.start(flightId)
 
       vi.setSystemTime(new Date('2026-09-01T12:01:00.000Z'))
@@ -1465,6 +1639,191 @@ describe('TrackingController', () => {
       // actual_on_utc reflects the *last* touchdown, not the first.
       expect(getFlight(db, flightId)?.actualOnUtc).toBe('2026-09-01T12:30:00.000Z')
       vi.useRealTimers()
+    })
+  })
+})
+
+describe('TrackingController lifecycle events (dev build diagnostics)', () => {
+  let db: WingLogDb
+  let sim: ReturnType<typeof fakeSimConnectService>
+  let flightId: number
+
+  beforeEach(() => {
+    const created = createDb(':memory:')
+    migrate(created.db, { migrationsFolder: 'drizzle' })
+    db = created.db
+    sim = fakeSimConnectService()
+    const aircraftId = createAircraft(db, { registration: 'G-ABCD', icaoType: 'A320' }).id
+    flightId = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' }).id
+  })
+
+  it('emits started when tracking starts and stopped when it is cancelled', () => {
+    sim.setLastTelemetry(telemetry({}))
+    const controller = new TrackingController(dbFlightStore(db), sim)
+    const events: string[] = []
+    controller.on('started', (id) => events.push(`started ${id}`))
+    controller.on('stopped', (id) => events.push(`stopped ${id}`))
+
+    controller.start(flightId)
+    controller.stop()
+
+    expect(events).toEqual([`started ${flightId}`, `stopped ${flightId}`])
+  })
+
+  it('emits started for a free flight too', () => {
+    const freeAircraftId = createAircraft(db, { registration: 'G-FREE', icaoType: 'C172' }).id
+    sim.setLastTelemetry(telemetry({ title: 'Cessna 172 Classic' }))
+    const controller = new TrackingController(dbFlightStore(db), sim)
+    const started: number[] = []
+    controller.on('started', (id) => started.push(id))
+
+    const id = controller.startFree({
+      aircraftId: freeAircraftId,
+      depIcao: 'EGLL',
+      arrIcao: 'ZZZZ',
+      flightNumber: null
+    })
+
+    expect(started).toEqual([id])
+  })
+
+  it('emits phaseChanged with the tick that moved the phase, and nothing for a tick that did not', () => {
+    sim.setLastTelemetry(telemetry({}))
+    const controller = new TrackingController(dbFlightStore(db), sim)
+    const changes: { from: string; to: string; engine: boolean }[] = []
+    controller.on('phaseChanged', ({ from, to, telemetry: t }) =>
+      changes.push({ from, to, engine: t.engineCombustion1 })
+    )
+    controller.start(flightId)
+
+    sim.emit('telemetry', telemetry({ parkingBrakeOn: true }))
+    sim.emit('telemetry', telemetry({ engineCombustion1: true, parkingBrakeOn: true }))
+
+    expect(changes).toEqual([{ from: 'preflight', to: 'pushback', engine: true }])
+  })
+
+  describe('when the database refuses writes (a full disk, 2026-10-16)', () => {
+    /** Ticks a flight on the ground every 10 s of fake time. */
+    function tick(count: number, first = 0): void {
+      for (let n = first; n < first + count; n += 1) {
+        vi.setSystemTime(new Date(Date.UTC(2026, 9, 15, 23, 0, 0) + n * 10_000))
+        sim.emit(
+          'telemetry',
+          telemetry({ engineCombustion1: true, parkingBrakeOn: false, latitude: 51 + n * 0.001 })
+        )
+      }
+    }
+
+    function run(failBetween: [number, number] | null): number[] {
+      vi.useFakeTimers()
+      sim.setLastTelemetry(telemetry({}))
+      let calls = 0
+      const store = dbFlightStore(db)
+      const real = store.addTrackPoint
+      const failing = {
+        ...store,
+        addTrackPoint: (point: Parameters<typeof real>[0]) => {
+          calls += 1
+          if (failBetween && calls >= failBetween[0] && calls <= failBetween[1]) {
+            throw new Error('SqliteError: database or disk is full')
+          }
+          return real(point)
+        }
+      }
+      const controller = new TrackingController(failing, sim)
+      const warn = vi.spyOn(logger, 'error').mockImplementation(() => {})
+      controller.start(flightId)
+      expect(() => tick(40)).not.toThrow()
+      warn.mockRestore()
+      return listTrackPoints(db, flightId).map((p) => p.latitude)
+    }
+
+    it('never throws into the sim, and the track still ends up complete and in order once writes work again', () => {
+      const healthy = run(null)
+      expect(healthy.length).toBeGreaterThan(5)
+
+      // A fresh database for the second run.
+      const created = createDb(':memory:')
+      migrate(created.db, { migrationsFolder: 'drizzle' })
+      db = created.db
+      const aircraftId = createAircraft(db, { registration: 'G-WXYZ', icaoType: 'A320' }).id
+      flightId = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' }).id
+      sim = fakeSimConnectService()
+
+      const afterFailure = run([3, 12])
+      expect(afterFailure).toEqual(healthy)
+    })
+
+    it('says so in the log once a minute, not once per sample', () => {
+      vi.useFakeTimers()
+      sim.setLastTelemetry(telemetry({}))
+      const store = dbFlightStore(db)
+      const controller = new TrackingController(
+        {
+          ...store,
+          addTrackPoint: () => {
+            throw new Error('SqliteError: database or disk is full')
+          }
+        },
+        sim
+      )
+      const error = vi.spyOn(logger, 'error').mockImplementation(() => {})
+      controller.start(flightId)
+      expect(() => tick(30)).not.toThrow()
+      // 30 samples over 290 s of fake time: the first, then one a minute.
+      expect(error).toHaveBeenCalledTimes(5)
+      expect(error.mock.calls[0][0]).toContain('database or disk is full')
+      expect(listTrackPoints(db, flightId)).toHaveLength(0)
+      error.mockRestore()
+    })
+
+    it('tells the rest of the app when saving starts failing and when it works again, once each', () => {
+      vi.useFakeTimers()
+      sim.setLastTelemetry(telemetry({}))
+      const store = dbFlightStore(db)
+      let failing = true
+      const controller = new TrackingController(
+        {
+          ...store,
+          addTrackPoint: (point) => {
+            if (failing) throw new Error('SqliteError: database or disk is full')
+            return store.addTrackPoint(point)
+          }
+        },
+        sim
+      )
+      const problems: boolean[] = []
+      controller.on('storageProblem', (value) => problems.push(value))
+      const error = vi.spyOn(logger, 'error').mockImplementation(() => {})
+      vi.spyOn(logger, 'warn').mockImplementation(() => {})
+      controller.start(flightId)
+      tick(10)
+      expect(problems).toEqual([true])
+
+      failing = false
+      tick(5, 10)
+      expect(problems).toEqual([true, false])
+      error.mockRestore()
+    })
+
+    it('keeps tracking when a step other than the point write throws', () => {
+      vi.useFakeTimers()
+      sim.setLastTelemetry(telemetry({}))
+      const store = dbFlightStore(db)
+      const controller = new TrackingController(
+        {
+          ...store,
+          finalizeFuelOut: () => {
+            throw new Error('SqliteError: database or disk is full')
+          }
+        },
+        sim
+      )
+      const error = vi.spyOn(logger, 'error').mockImplementation(() => {})
+      controller.start(flightId)
+      expect(() => tick(20)).not.toThrow()
+      expect(listTrackPoints(db, flightId).length).toBeGreaterThan(0)
+      error.mockRestore()
     })
   })
 })

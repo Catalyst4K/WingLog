@@ -1,8 +1,19 @@
+/**
+ * Plays a recorded flight (a capture or fixture) to TrackingController in place of the live sim:
+ * the replay harness behind the scenario tests, the e2e tests and the simulations
+ * (winglog-backend docs/plans/done/flight-replay-harness.md).
+ */
 import { EventEmitter } from 'node:events'
 import { readFileSync } from 'node:fs'
 import type { SimConnectionStatus, SimTelemetry } from '@shared/ipc'
 import type { TouchdownSeverity } from './SimConnectSource'
-import { parseFlightFixture, type FlightFixtureEvent, type FlightFixtureHeader } from './flight-fixture'
+import {
+  parseFlightFixture,
+  type CapturedLineEvent,
+  type FlightFixtureEvent,
+  type FlightFixtureHeader,
+  type ParsedFlightFixture
+} from './flight-fixture'
 
 interface ReplaySimConnectServiceEvents {
   telemetry: [SimTelemetry]
@@ -18,6 +29,12 @@ interface ReplaySimConnectServiceEvents {
    *  been replayed, so a driving script/test knows when it's safe to inspect the result
    *  instead of guessing at a timeout. */
   replayComplete: []
+  /** A BeyondATC or GSX line from a full capture, at its moment in the replay; replay-capture.ts
+   *  hands it to the matching service. */
+  captured: [CapturedLineEvent]
+  /** Before each event is replayed: its offset from the start of the capture, in ms, so a
+   *  driver can keep a clock in step with the recording. */
+  offset: [number]
 }
 
 export type ReplayMode = 'instant' | 'paced'
@@ -29,7 +46,7 @@ export interface ReplaySimConnectServiceOptions {
    *  time elapses between ticks — needed for a Playwright test that wants to watch Track's
    *  map update live, or for anything that depends on FlightRecorder's own
    *  wall-clock-based downsampling (shouldRecord) behaving like a real live session. See
-   *  flightdeck-backend's docs/plans/flight-replay-harness.md Phase 1 notes: only
+   *  winglog-backend's docs/plans/flight-replay-harness.md Phase 1 notes: only
    *  speedMultiplier 1 (real time) reproduces the original recording's exact downsampled
    *  point density — any other speed changes how much wall-clock time elapses between
    *  ticks and therefore how often shouldRecord's per-phase interval check trips, same as
@@ -54,7 +71,7 @@ const HOLD_INTERVAL_MS = 250
  * through the same public surface as SimConnectService (extends EventEmitter,
  * start()/stop()/getStatus()/getLastTelemetry(), the same telemetry/status/paused events)
  * so TrackingController can be driven by a recorded flight instead of a live sim — per
- * flightdeck-backend's docs/plans/flight-replay-harness.md Phase 1. TrackingController's
+ * winglog-backend's docs/plans/flight-replay-harness.md Phase 1. TrackingController's
  * constructor takes SimConnectSource (Phase 3), the structural interface this class
  * satisfies directly — no cast needed to hand an instance to it.
  */
@@ -70,13 +87,19 @@ export class ReplaySimConnectService extends EventEmitter<ReplaySimConnectServic
   private readonly holdUntilReleased: boolean
   private holdTimer: NodeJS.Timeout | undefined
 
-  constructor(fixturePath: string, options: ReplaySimConnectServiceOptions = {}) {
+  /**
+   * @param fixture A fixture file's path, or one already parsed (a transformed capture).
+   *
+   * @param options Instant or paced, the speed, and whether to hold at the first tick.
+   */
+  constructor(fixture: string | ParsedFlightFixture, options: ReplaySimConnectServiceOptions = {}) {
     super()
     this.mode = options.mode ?? 'instant'
     this.speedMultiplier = options.speedMultiplier ?? 1
     this.holdUntilReleased = options.holdUntilReleased ?? false
 
-    const { header, events } = parseFlightFixture(readFileSync(fixturePath, 'utf8'))
+    const { header, events } =
+      typeof fixture === 'string' ? parseFlightFixture(readFileSync(fixture, 'utf8')) : fixture
     this.header = header
     this.events = events
 
@@ -85,7 +108,9 @@ export class ReplaySimConnectService extends EventEmitter<ReplaySimConnectServic
     // doc's Design §2 a replay double must satisfy that before start() is even called.
     const firstTelemetry = events.find((e) => e.type === 'telemetry')
     if (!firstTelemetry || firstTelemetry.type !== 'telemetry') {
-      throw new Error(`Fixture ${fixturePath} has no telemetry events`)
+      throw new Error(
+        `Fixture ${typeof fixture === 'string' ? fixture : header.scenario} has no telemetry events`
+      )
     }
     this.lastTelemetry = firstTelemetry.data
   }
@@ -138,6 +163,12 @@ export class ReplaySimConnectService extends EventEmitter<ReplaySimConnectServic
     this.status = { state: 'disconnected' }
   }
 
+  /**
+   * Plays the recorded event at `index`, then schedules the next one: straight away in instant mode,
+   * otherwise after the recorded gap divided by the speed. Emits replayComplete after the last event.
+   *
+   * @param index The position in the recording to play.
+   */
   private playFrom(index: number): void {
     if (this.stopped) return
     if (index >= this.events.length) {
@@ -149,11 +180,14 @@ export class ReplaySimConnectService extends EventEmitter<ReplaySimConnectServic
     const emitAndAdvance = (): void => {
       if (this.stopped) return
       const event = this.events[index]
+      this.emit('offset', event.tOffsetMs)
       if (event.type === 'telemetry') {
         this.lastTelemetry = event.data
         this.emit('telemetry', event.data)
-      } else {
+      } else if (event.type === 'paused') {
         this.emit('paused', event.value)
+      } else {
+        this.emit('captured', event)
       }
       this.playFrom(index + 1)
     }

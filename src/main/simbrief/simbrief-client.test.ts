@@ -98,15 +98,23 @@ describe('fetchLatestOfp', () => {
     const ofp = await fetchLatestOfp('LandingHangar711')
 
     expect(ofp.stepClimbs).toHaveLength(5)
-    expect(ofp.stepClimbs[0]).toEqual({ atIdent: 'EGLL', toAltitudeFt: 33000, native: { unit: 'ft', value: 33000 } })
-    expect(ofp.stepClimbs[2]).toEqual({ atIdent: 'SUDAR', toAltitudeFt: 37000, native: { unit: 'ft', value: 37000 } })
+    expect(ofp.stepClimbs[0]).toEqual({
+      atIdent: 'EGLL',
+      toAltitudeFt: 33000,
+      native: { unit: 'ft', value: 33000 }
+    })
+    expect(ofp.stepClimbs[2]).toEqual({
+      atIdent: 'SUDAR',
+      toAltitudeFt: 37000,
+      native: { unit: 'ft', value: 37000 }
+    })
     expect(ofp.stepClimbs[3].atIdent).toBe('KAMUD')
     expect(ofp.stepClimbs[3].native).toEqual({ unit: 'm', value: 11300 })
     expect(ofp.stepClimbs[3].toAltitudeFt).toBeCloseTo(11300 / 0.3048, 1)
   })
 
   it('reads a sub-1000 metric step climb correctly end to end, cross-referencing the navlog', async () => {
-    // Real reported bug, 2026-09-06: 8,900 m coded "0890" was read as FL890 (89,000 ft)
+    // Real reported bug: 8,900 m coded "0890" was read as FL890 (89,000 ft)
     // because 890 < 1000. Confirm the fix by wiring a matching navlog fix through
     // fetchLatestOfp itself, not just calling parseStepClimbs directly.
     const withMetricStep = fixture('kgs') as { general: Record<string, unknown>; navlog: { fix: unknown[] } }
@@ -198,7 +206,7 @@ describe('fetchLatestOfp', () => {
   })
 })
 
-// Confirmed against a real China-crossing OFP (2026-09-02, see docs/decisions.md) — the
+// Confirmed against a real China-crossing OFP (see docs/decisions.md) — the
 // exact stepclimb_string a user shared from an exported OFP JSON.
 describe('parseStepClimbs', () => {
   it('returns no step climbs for an empty or missing string', () => {
@@ -240,7 +248,7 @@ describe('parseStepClimbs', () => {
     ])
   })
 
-  // Real bug, 2026-09-06: Callum saw 8,900 m read as "89,000 ft" (27,127 m in metric
+  // Real bug: Callum saw 8,900 m read as "89,000 ft" (27,127 m in metric
   // display). "0890" < 1000 so the old code>=1000 threshold called it FL890, not 8,900 m —
   // China's metric RVSM levels start well below 1000, so no threshold on the code alone
   // can tell these apart. Cross-referencing the navlog altitude resolves it correctly.

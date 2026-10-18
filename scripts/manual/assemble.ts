@@ -4,7 +4,7 @@ import { marked } from 'marked'
 
 /**
  * Turns the manual's Markdown chapters (docs/manual/NN-*.md) into one HTML page for
- * printing to PDF (flightdeck-backend's docs/plans/user-docs-v1-4.md). Pure apart from
+ * printing to PDF (winglog-backend's docs/plans/user-docs-v1-4.md). Pure apart from
  * reading the chapter and image files, so it's unit-tested; scripts/manual/build.ts does the
  * Electron printing.
  */
@@ -37,7 +37,8 @@ export function checkReferences(chapters: ManualChapter[], dir: string): string[
   for (const chapter of chapters) {
     for (const m of chapter.markdown.matchAll(/!\[[^\]]*\]\(([^)\s]+)[^)]*\)/g)) {
       const src = m[1]!
-      if (!src.startsWith('images/') || src.includes('..')) problems.push(`${chapter.file}: image outside images/: ${src}`)
+      if (!src.startsWith('images/') || src.includes('..'))
+        problems.push(`${chapter.file}: image outside images/: ${src}`)
       else if (!existsSync(resolve(dir, src))) problems.push(`${chapter.file}: missing image ${src}`)
     }
     for (const m of chapter.markdown.matchAll(/(?<!!)\[[^\]]*\]\(([^)\s]+)[^)]*\)/g)) {
@@ -59,7 +60,11 @@ export function slug(text: string): string {
     .replace(/^-|-$/g, '')
 }
 
-export function assembleManual(chapters: ManualChapter[], dir: string, options: { version: string; css: string }): AssembledManual {
+export function assembleManual(
+  chapters: ManualChapter[],
+  dir: string,
+  options: { version: string; css: string }
+): AssembledManual {
   const problems = checkReferences(chapters, dir)
   const toc: { level: number; text: string; id: string }[] = []
   const renderer = new marked.Renderer()
@@ -83,7 +88,10 @@ export function assembleManual(chapters: ManualChapter[], dir: string, options: 
   }
 
   const body = chapters
-    .map((c) => `<section class="chapter">${marked.parse(c.markdown, { renderer, async: false }) as string}</section>`)
+    .map(
+      (c) =>
+        `<section class="chapter">${marked.parse(c.markdown, { renderer, async: false }) as string}</section>`
+    )
     .join('\n')
   const tocHtml = toc
     .map((e) => `<li class="toc-${e.level}"><a href="#${e.id}">${e.text}</a></li>`)

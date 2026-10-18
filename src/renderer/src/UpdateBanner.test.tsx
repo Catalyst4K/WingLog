@@ -15,11 +15,22 @@ const AVAILABLE: UpdateStatus = {
     publishedAt: '2026-10-04T18:00:00Z'
   },
   checkedAt: '2026-10-04T18:30:00Z',
-  skippedVersion: null
+  skippedVersion: null,
+  install: { supported: false, phase: 'idle', percent: 0 }
 }
-const IDLE: UpdateStatus = { state: 'idle', currentVersion: '1.3.2', latest: null, checkedAt: null, skippedVersion: null }
+const IDLE: UpdateStatus = {
+  state: 'idle',
+  currentVersion: '1.3.2',
+  latest: null,
+  checkedAt: null,
+  skippedVersion: null,
+  install: { supported: false, phase: 'idle', percent: 0 }
+}
 
-function withWinglog(status: UpdateStatus, overrides: Partial<WingLogApi> = {}): { push: (status: UpdateStatus) => void; api: WingLogApi } {
+function withWinglog(
+  status: UpdateStatus,
+  overrides: Partial<WingLogApi> = {}
+): { push: (status: UpdateStatus) => void; api: WingLogApi } {
   let listener: (status: UpdateStatus) => void = () => {}
   const api = {
     updatesGetStatus: vi.fn().mockResolvedValue(status),
@@ -28,6 +39,8 @@ function withWinglog(status: UpdateStatus, overrides: Partial<WingLogApi> = {}):
       return () => {}
     }),
     updatesOpenRelease: vi.fn().mockResolvedValue(undefined),
+    updatesDownload: vi.fn().mockResolvedValue(undefined),
+    updatesInstall: vi.fn().mockResolvedValue('started'),
     updatesSkipVersion: vi.fn().mockResolvedValue(undefined),
     updatesCheckNow: vi.fn().mockResolvedValue(status),
     settingsGetUpdates: vi.fn().mockResolvedValue({ checkEnabled: true }),
@@ -100,13 +113,72 @@ describe('UpdateBanner', () => {
   })
 })
 
+/** A build that can install itself: the button walks download, progress, restart. */
+function installing(phase: UpdateStatus['install']['phase'], percent = 0): UpdateStatus {
+  return { ...AVAILABLE, install: { supported: true, phase, percent } }
+}
+
+describe('in-app install', () => {
+  it('asks main to download and install, instead of opening the release page', async () => {
+    const { api } = withWinglog(installing('idle'))
+    const user = userEvent.setup()
+    render(<UpdateBanner airborne={false} />)
+    await user.click(await screen.findByRole('button', { name: 'Download and install' }))
+    expect(api.updatesDownload).toHaveBeenCalledWith()
+    expect(api.updatesOpenRelease).not.toHaveBeenCalled()
+  })
+
+  it('shows the download progress, then offers the restart once it is ready', async () => {
+    const { api, push } = withWinglog(installing('downloading', 40))
+    const user = userEvent.setup()
+    render(<UpdateBanner airborne={false} />)
+    const progress = await screen.findByRole('button', { name: 'Downloading… 40%' })
+    expect(progress).toBeDisabled()
+
+    push(installing('ready', 100))
+    await user.click(screen.getByRole('button', { name: 'Restart to update' }))
+    expect(api.updatesInstall).toHaveBeenCalledWith()
+  })
+
+  it('says why nothing restarted while a flight is being tracked', async () => {
+    withWinglog(installing('ready', 100), { updatesInstall: vi.fn().mockResolvedValue('flightActive') })
+    const user = userEvent.setup()
+    render(<UpdateBanner airborne={false} />)
+    await user.click(await screen.findByRole('button', { name: 'Restart to update' }))
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'A flight is being tracked. Finish it first, then restart to update.'
+    )
+  })
+
+  it('after a failed download, says so and offers a retry and the release page', async () => {
+    const { api } = withWinglog(installing('error'))
+    const user = userEvent.setup()
+    render(<UpdateBanner airborne={false} />)
+    expect(await screen.findByRole('status')).toHaveTextContent("The download didn't finish.")
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(api.updatesDownload).toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Release page' }))
+    expect(api.updatesOpenRelease).toHaveBeenCalled()
+  })
+
+  it('offers the same steps in Settings → About', async () => {
+    const { api } = withWinglog(installing('idle'))
+    const user = userEvent.setup()
+    render(<UpdatesCard />)
+    await user.click(await screen.findByRole('button', { name: 'Download and install' }))
+    expect(api.updatesDownload).toHaveBeenCalled()
+  })
+})
+
 describe('UpdatesCard (Settings → About)', () => {
   it('switches the automatic check off and on, starting from on', async () => {
     const { api } = withWinglog(IDLE)
     const user = userEvent.setup()
     render(<UpdatesCard />)
     const group = await screen.findByRole('group', { name: 'Check for updates automatically' })
-    await waitFor(() => expect(screen.getByRole('button', { name: 'On' })).toHaveAttribute('aria-pressed', 'true'))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'On' })).toHaveAttribute('aria-pressed', 'true')
+    )
     expect(group).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Off' }))

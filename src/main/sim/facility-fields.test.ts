@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { RawBuffer } from 'node-simconnect'
 import {
+  addRunwayFields,
   biasToLatLon,
   parseAirportHeader,
   parseAirportHeaderWithLatLon,
@@ -11,9 +12,12 @@ import {
   parseRunway,
   parseRunwayTransition,
   parseTaxiName,
+  parseThresholdLength,
   parseTaxiPath,
   parseTaxiPoint,
-  runwayIdent, standLabel } from './facility-fields'
+  runwayIdent,
+  standLabel
+} from './facility-fields'
 
 /** Builds a buffer via RawBuffer's own write* methods (the exact wire format SimConnect
  *  itself would produce), then rewinds it for reading — so these tests exercise the real
@@ -70,6 +74,46 @@ describe('parseRunway', () => {
   })
 })
 
+describe('the runway thresholds', () => {
+  it("registers each end's threshold length inside the runway, the primary end's first (live 2026-10-17)", () => {
+    const names: string[] = []
+    addRunwayFields((name) => names.push(name))
+    expect(names.slice(-8)).toEqual([
+      'SECONDARY_DESIGNATOR',
+      'OPEN PRIMARY_THRESHOLD',
+      'LENGTH',
+      'CLOSE PRIMARY_THRESHOLD',
+      'OPEN SECONDARY_THRESHOLD',
+      'LENGTH',
+      'CLOSE SECONDARY_THRESHOLD',
+      'CLOSE RUNWAY'
+    ])
+  })
+
+  it('reads a threshold record as one float32, the displaced length in metres', () => {
+    expect(parseThresholdLength(buffer((w) => w.writeFloat32(270)))).toBeCloseTo(270, 3)
+    expect(parseThresholdLength(buffer((w) => w.writeFloat32(0)))).toBe(0)
+  })
+
+  it('leaves both displaced lengths unread when only the runway record has been parsed', () => {
+    const b = buffer((w) => {
+      w.writeFloat64(60.29)
+      w.writeFloat64(5.22)
+      w.writeFloat32(350.56)
+      w.writeFloat32(2982.91)
+      w.writeFloat32(45.24)
+      w.writeInt32(4)
+      w.writeInt32(35)
+      w.writeInt32(0)
+      w.writeInt32(17)
+      w.writeInt32(0)
+    })
+    const runway = parseRunway(b)
+    expect(runway.primaryDisplacedM).toBeNull()
+    expect(runway.secondaryDisplacedM).toBeNull()
+  })
+})
+
 describe('parseProcedureHeader', () => {
   it('reads the procedure name and the three child counts', () => {
     const b = buffer((w) => {
@@ -109,7 +153,12 @@ describe('parseEnrouteTransition', () => {
 })
 
 describe('parseApproachHeader', () => {
-  function approachBuffer(type: number, suffixCode: number, runwayNumber: number, runwayDesignator: number): RawBuffer {
+  function approachBuffer(
+    type: number,
+    suffixCode: number,
+    runwayNumber: number,
+    runwayDesignator: number
+  ): RawBuffer {
     return buffer((w) => {
       w.writeInt32(type)
       w.writeInt32(suffixCode)
@@ -146,7 +195,15 @@ describe('parseApproachHeader', () => {
 })
 
 describe('parseLeg', () => {
-  function legBuffer(overrides: Partial<{ fixIcao: string; fixTypeCode: number; routeDistanceM: number; type: number; courseDeg: number }> = {}): RawBuffer {
+  function legBuffer(
+    overrides: Partial<{
+      fixIcao: string
+      fixTypeCode: number
+      routeDistanceM: number
+      type: number
+      courseDeg: number
+    }> = {}
+  ): RawBuffer {
     return buffer((w) => {
       w.writeInt32(overrides.type ?? 4)
       w.writeString8(overrides.fixIcao ?? 'BPK')
@@ -180,7 +237,9 @@ describe('parseLeg', () => {
   })
 
   it("reads ROUTE_DISTANCE (metres) — EGLL ILS 27R's LAM transition FC leg, confirmed live 2026-09-18", () => {
-    const leg = parseLeg(legBuffer({ type: 9, fixIcao: 'LAM', fixTypeCode: 86, courseDeg: 272, routeDistanceM: 20372 }))
+    const leg = parseLeg(
+      legBuffer({ type: 9, fixIcao: 'LAM', fixTypeCode: 86, courseDeg: 272, routeDistanceM: 20372 })
+    )
     expect(leg.type).toBe(9)
     expect(leg.courseDeg).toBe(272)
     expect(leg.routeDistanceM).toBe(20372) // 11.0 nm — the FMC's "LAM/11"
@@ -282,7 +341,7 @@ describe('biasToLatLon', () => {
     expect(result.longitude).toBeGreaterThan(0.03246232867240906) // east = higher longitude
   })
 
-  it('matches EGKB runway 03/21\'s real heading and length within noise — confirmed live 2026-09-28 (flightdeck-backend docs/navdata-notes.md)', () => {
+  it("matches EGKB runway 03/21's real heading and length within noise — confirmed live 2026-09-28 (winglog-backend docs/navdata-notes.md)", () => {
     // Real TAXI_POINT values for the runway centerline's two extreme threshold points,
     // captured live against Callum's MSFS session. Real RUNWAY facility data for the same
     // airport: HEADING 25.64043617248535 deg, LENGTH 1800.79833984375 m.
@@ -295,14 +354,17 @@ describe('biasToLatLon', () => {
     const bearingDeg = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
       const dLon = toRad(lon2 - lon1)
       const y = Math.sin(dLon) * Math.cos(toRad(lat2))
-      const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon)
+      const x =
+        Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+        Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon)
       return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360
     }
     const distanceM = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
       const R = 6371000
       const dLat = toRad(lat2 - lat1)
       const dLon = toRad(lon2 - lon1)
-      const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
+      const a =
+        Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
       return 2 * R * Math.asin(Math.sqrt(a))
     }
 

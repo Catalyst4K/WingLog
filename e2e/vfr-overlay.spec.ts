@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import { launchApp } from './launch-app'
 
 /**
- * The Track map's VFR overlay (flightdeck-backend docs/plans/map-language-and-declutter.md,
+ * The Track map's VFR overlay (winglog-backend docs/plans/map-language-and-declutter.md,
  * Part C) through the real built app — the unit tests mock MapLibre, so this is the check
  * that the real IPC channel serves the real vendored airfield list and that switching the
  * overlay on and off against a real (software-WebGL) map doesn't throw.

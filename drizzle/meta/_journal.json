@@ -225,6 +225,41 @@
       "when": 1790931230780,
       "tag": "0031_tearful_victor_mancha",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1791414530786,
+      "tag": "0032_mysterious_puppet_master",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1791812642190,
+      "tag": "0033_sudden_dreaming_celestial",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1791816240257,
+      "tag": "0034_groovy_wrecking_crew",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "6",
+      "when": 1792145205613,
+      "tag": "0035_aberrant_the_twelve",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1792244445201,
+      "tag": "0036_sudden_sprite",
+      "breakpoints": true
     }
   ]
 }

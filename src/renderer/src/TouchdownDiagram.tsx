@@ -1,3 +1,5 @@
+/** Logbook's touchdown diagram: where the aircraft touched down on the runway. */
+
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { LandingRunway } from '@shared/ipc'
@@ -26,13 +28,20 @@ const MIN_MARK_LENGTH_PX = 6
 /**
  * Everything below is computed in the diagram's natural "along-track, lateral" frame —
  * matching touchdown-diagram.ts's own xPx (along-track)/yPx (lateral) fields — then placed
- * on screen running vertically rather than horizontally (Callum's request, 2026-09-12):
+ * on screen running vertically rather than horizontally:
  * landing near the card's bottom, rolling out toward the top, closer to how a pilot looking
  * straight ahead sees a runway extend away, rather than a sideways strip. This is a pure
  * rendering transform; touchdown-diagram.ts's own coordinate frame and tests are untouched.
  * Lateral offset maps directly onto the SVG's X axis (a pilot's right stays screen-right);
  * along-track distance maps onto the SVG's Y axis, flipped (bigger along-track distance ⇒
  * smaller Y ⇒ higher on screen).
+ *
+ * @param alongStartPx Start along the runway.
+ * @param alongLengthPx Length along the runway.
+ * @param lateralCenterPx Centre across the runway.
+ * @param lateralThicknessPx Thickness across the runway.
+ * @param widthPx The diagram's width.
+ * @returns The rectangle in SVG coordinates.
  */
 function rotatedRect(
   alongStartPx: number,
@@ -53,6 +62,12 @@ function rotatedPoint(alongPx: number, lateralPx: number, widthPx: number): { x:
   return { x: lateralPx, y: widthPx - alongPx }
 }
 
+/**
+ * The runway threshold's piano-key stripes.
+ *
+ * @param props Where the stripes start, how many, and their extent and size in pixels.
+ * @returns The stripes.
+ */
 function ThresholdStripes(props: {
   alongStartPx: number
   count: number
@@ -84,6 +99,9 @@ function ThresholdStripes(props: {
  * centreline on each side, not just one pair regardless of position. The aiming point
  * marking reuses this with barCount=1 and bigger dimensions, since it's the one always-
  * prominent marking rather than part of the countdown.
+ *
+ * @param props The group's position, bar count and spacing.
+ * @returns The element.
  */
 function TouchdownZoneGroup(props: {
   alongStartPx: number
@@ -103,7 +121,13 @@ function TouchdownZoneGroup(props: {
       const laneCenterPx = centreY + side * (innerEdgeDistancePx + props.barThicknessPx / 2)
       bars.push({
         key: `${side}-${i}`,
-        rect: rotatedRect(props.alongStartPx, props.alongLengthPx, laneCenterPx, props.barThicknessPx, props.widthPx)
+        rect: rotatedRect(
+          props.alongStartPx,
+          props.alongLengthPx,
+          laneCenterPx,
+          props.barThicknessPx,
+          props.widthPx
+        )
       })
     }
   }
@@ -126,6 +150,9 @@ function TouchdownZoneGroup(props: {
  * reference point, not its main gear (landing-capture.ts's own doc comment) — the tail
  * behind the dot represents that one-second window rather than implying more precision
  * than the data has.
+ *
+ * @param props The runway end and the touchdown.
+ * @returns The element.
  */
 export function TouchdownDiagram(props: {
   runway: LandingRunway
@@ -140,7 +167,7 @@ export function TouchdownDiagram(props: {
   const stripeLengthPx = Math.max(MIN_STRIPE_LENGTH_PX, 30 * layout.pxPerM)
   const aimingPointLengthPx = Math.max(MIN_MARK_LENGTH_PX, 22 * layout.pxPerM)
   const tdzGroupLengthPx = Math.max(MIN_MARK_LENGTH_PX, 18 * layout.pxPerM)
-  // Bumped up (Callum, 2026-09-12: "brighter or more obvious") now that the diagram itself
+  // Bumped up now that the diagram itself
   // renders noticeably smaller (sized off height, not width — see the <svg> below) — the
   // old 4-7px radius was tuned for the diagram's original, bigger on-screen size and had
   // shrunk to a few screen pixels along with everything else.
@@ -161,7 +188,7 @@ export function TouchdownDiagram(props: {
   return (
     <svg
       viewBox={`0 0 ${svgWidthPx} ${svgHeightPx}`}
-      // Sized off height, not width (Callum, 2026-09-12: the diagram should be no bigger
+      // Sized off height, not width (the diagram should be no bigger
       // than the text list it sits alongside, not its own separately-sized block) — the
       // parent column fixes the height (LogbookView.tsx) and this derives its own width
       // from that via the aspect-ratio, rather than the old width:100%/height:auto which
@@ -173,133 +200,142 @@ export function TouchdownDiagram(props: {
       role="img"
       aria-label={t('touchdownDiagram.ariaLabel', { ident: props.runway.ident })}
     >
-        {/* Approach area before the physical runway start, when the window extends into it. */}
-        {layout.runwayStartXPx > 0 && (
-          <rect {...rotatedRect(0, layout.runwayStartXPx, svgWidthPx / 2, svgWidthPx, layout.widthPx)} fill={APPROACH_COLOR} />
-        )}
-
-        {/* Runway surface. */}
+      {/* Approach area before the physical runway start, when the window extends into it. */}
+      {layout.runwayStartXPx > 0 && (
         <rect
-          {...rotatedRect(layout.runwayStartXPx, runwayBandLengthPx, svgWidthPx / 2, svgWidthPx, layout.widthPx)}
-          fill={ASPHALT_COLOR}
+          {...rotatedRect(0, layout.runwayStartXPx, svgWidthPx / 2, svgWidthPx, layout.widthPx)}
+          fill={APPROACH_COLOR}
         />
+      )}
 
-        {/* Touchdown zone shading — "the" touchdown zone for now (landing-scoring.md defines
+      {/* Runway surface. */}
+      <rect
+        {...rotatedRect(
+          layout.runwayStartXPx,
+          runwayBandLengthPx,
+          svgWidthPx / 2,
+          svgWidthPx,
+          layout.widthPx
+        )}
+        fill={ASPHALT_COLOR}
+      />
+
+      {/* Touchdown zone shading — "the" touchdown zone for now (landing-scoring.md defines
             a scored "ideal" zone separately, shown in the score-breakdown popup instead). */}
-        <rect
-          {...rotatedRect(
-            layout.touchdownZoneStartXPx,
-            tdzShadingLengthPx,
-            svgWidthPx / 2,
-            svgWidthPx,
-            layout.widthPx
-          )}
-          fill="var(--color-primary)"
-          opacity={0.12}
-        />
-
-        {/* Displaced threshold: arrows across the displaced section, ending at the usable
-            threshold bar. */}
-        {layout.displaced && (
-          <line
-            x1={svgWidthPx / 2}
-            y1={layout.widthPx - layout.displaced.startXPx}
-            x2={svgWidthPx / 2}
-            y2={layout.widthPx - layout.displaced.endXPx}
-            stroke={DISPLACED_ARROW_COLOR}
-            strokeWidth={Math.max(2, svgWidthPx * 0.04)}
-            strokeDasharray="6 4"
-          />
+      <rect
+        {...rotatedRect(
+          layout.touchdownZoneStartXPx,
+          tdzShadingLengthPx,
+          svgWidthPx / 2,
+          svgWidthPx,
+          layout.widthPx
         )}
+        fill="var(--color-primary)"
+        opacity={0.12}
+      />
 
-        {/* Usable threshold bar. */}
-        <rect
-          {...rotatedRect(
-            Math.max(layout.runwayStartXPx, layout.thresholdXPx - 1),
-            2,
-            svgWidthPx / 2,
-            svgWidthPx,
-            layout.widthPx
-          )}
-          fill={MARKING_COLOR}
-        />
-
-        {/* Threshold piano keys. */}
-        <ThresholdStripes
-          alongStartPx={layout.thresholdXPx + 3}
-          count={layout.thresholdStripeCount}
-          lateralExtentPx={svgWidthPx}
-          alongLengthPx={stripeLengthPx}
-          widthPx={layout.widthPx}
-        />
-
-        {/* Touchdown-zone marking groups — the real 3/2/1 "countdown" bar pattern. */}
-        {layout.touchdownZoneGroups.map((group, i) => (
-          <TouchdownZoneGroup
-            key={i}
-            alongStartPx={group.xPx}
-            alongLengthPx={tdzGroupLengthPx}
-            barCount={group.barCount}
-            barThicknessPx={svgWidthPx * 0.07}
-            barSpacingPx={svgWidthPx * 0.03}
-            centreGapPx={svgWidthPx * 0.1}
-            lateralExtentPx={svgWidthPx}
-            widthPx={layout.widthPx}
-          />
-        ))}
-
-        {/* Aiming point marking — drawn last (on top) and bigger, since it's the
-            prominent one, always a single bar per side regardless of runway length. */}
-        <TouchdownZoneGroup
-          alongStartPx={layout.aimingPointXPx}
-          alongLengthPx={aimingPointLengthPx}
-          barCount={1}
-          barThicknessPx={svgWidthPx * 0.22}
-          barSpacingPx={0}
-          centreGapPx={svgWidthPx * 0.11}
-          lateralExtentPx={svgWidthPx}
-          widthPx={layout.widthPx}
-        />
-
-        {/* Centreline. */}
+      {/* Displaced threshold: arrows across the displaced section, ending at the usable
+            threshold bar. */}
+      {layout.displaced && (
         <line
           x1={svgWidthPx / 2}
-          y1={layout.widthPx - layout.runwayStartXPx}
+          y1={layout.widthPx - layout.displaced.startXPx}
           x2={svgWidthPx / 2}
-          y2={layout.widthPx - layout.runwayEndXPx}
-          stroke={CENTRELINE_COLOR}
-          strokeWidth={Math.max(1, svgWidthPx * 0.015)}
-          strokeDasharray="10 6"
+          y2={layout.widthPx - layout.displaced.endXPx}
+          stroke={DISPLACED_ARROW_COLOR}
+          strokeWidth={Math.max(2, svgWidthPx * 0.04)}
+          strokeDasharray="6 4"
         />
+      )}
 
-        {/* Touchdown tail (the one-second capture window) and dot. */}
-        <line
-          x1={tail.x}
-          y1={tail.y}
-          x2={dot.x}
-          y2={dot.y}
-          stroke={layout.touchdown.offRunwayLaterally ? 'var(--color-destructive)' : 'var(--color-primary)'}
-          strokeWidth={Math.max(2, dotRadiusPx * 0.5)}
-          strokeLinecap="round"
-          opacity={0.6}
+      {/* Usable threshold bar. */}
+      <rect
+        {...rotatedRect(
+          Math.max(layout.runwayStartXPx, layout.thresholdXPx - 1),
+          2,
+          svgWidthPx / 2,
+          svgWidthPx,
+          layout.widthPx
+        )}
+        fill={MARKING_COLOR}
+      />
+
+      {/* Threshold piano keys. */}
+      <ThresholdStripes
+        alongStartPx={layout.thresholdXPx + 3}
+        count={layout.thresholdStripeCount}
+        lateralExtentPx={svgWidthPx}
+        alongLengthPx={stripeLengthPx}
+        widthPx={layout.widthPx}
+      />
+
+      {/* Touchdown-zone marking groups — the real 3/2/1 "countdown" bar pattern. */}
+      {layout.touchdownZoneGroups.map((group, i) => (
+        <TouchdownZoneGroup
+          key={i}
+          alongStartPx={group.xPx}
+          alongLengthPx={tdzGroupLengthPx}
+          barCount={group.barCount}
+          barThicknessPx={svgWidthPx * 0.07}
+          barSpacingPx={svgWidthPx * 0.03}
+          centreGapPx={svgWidthPx * 0.1}
+          lateralExtentPx={svgWidthPx}
+          widthPx={layout.widthPx}
         />
-        {/* Soft halo behind the dot — makes the touchdown point read at a glance rather
-            than blending into the runway markings around it (Callum, 2026-09-12). */}
-        <circle
-          cx={dot.x}
-          cy={dot.y}
-          r={dotRadiusPx * 2.2}
-          fill={layout.touchdown.offRunwayLaterally ? 'var(--color-destructive)' : 'var(--color-primary)'}
-          opacity={0.25}
-        />
-        <circle
-          cx={dot.x}
-          cy={dot.y}
-          r={dotRadiusPx}
-          fill={layout.touchdown.offRunwayLaterally ? 'var(--color-destructive)' : 'var(--color-primary)'}
-          stroke={MARKING_COLOR}
-          strokeWidth={2.5}
-        />
+      ))}
+
+      {/* Aiming point marking — drawn last (on top) and bigger, since it's the
+            prominent one, always a single bar per side regardless of runway length. */}
+      <TouchdownZoneGroup
+        alongStartPx={layout.aimingPointXPx}
+        alongLengthPx={aimingPointLengthPx}
+        barCount={1}
+        barThicknessPx={svgWidthPx * 0.22}
+        barSpacingPx={0}
+        centreGapPx={svgWidthPx * 0.11}
+        lateralExtentPx={svgWidthPx}
+        widthPx={layout.widthPx}
+      />
+
+      {/* Centreline. */}
+      <line
+        x1={svgWidthPx / 2}
+        y1={layout.widthPx - layout.runwayStartXPx}
+        x2={svgWidthPx / 2}
+        y2={layout.widthPx - layout.runwayEndXPx}
+        stroke={CENTRELINE_COLOR}
+        strokeWidth={Math.max(1, svgWidthPx * 0.015)}
+        strokeDasharray="10 6"
+      />
+
+      {/* Touchdown tail (the one-second capture window) and dot. */}
+      <line
+        x1={tail.x}
+        y1={tail.y}
+        x2={dot.x}
+        y2={dot.y}
+        stroke={layout.touchdown.offRunwayLaterally ? 'var(--color-destructive)' : 'var(--color-primary)'}
+        strokeWidth={Math.max(2, dotRadiusPx * 0.5)}
+        strokeLinecap="round"
+        opacity={0.6}
+      />
+      {/* Soft halo behind the dot — makes the touchdown point read at a glance rather
+            than blending into the runway markings around it. */}
+      <circle
+        cx={dot.x}
+        cy={dot.y}
+        r={dotRadiusPx * 2.2}
+        fill={layout.touchdown.offRunwayLaterally ? 'var(--color-destructive)' : 'var(--color-primary)'}
+        opacity={0.25}
+      />
+      <circle
+        cx={dot.x}
+        cy={dot.y}
+        r={dotRadiusPx}
+        fill={layout.touchdown.offRunwayLaterally ? 'var(--color-destructive)' : 'var(--color-primary)'}
+        stroke={MARKING_COLOR}
+        strokeWidth={2.5}
+      />
     </svg>
   )
 }

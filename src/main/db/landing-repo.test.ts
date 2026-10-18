@@ -39,6 +39,7 @@ function makeLanding(flightId: number, overrides: Partial<NewLanding> = {}): New
     centrelineOffsetM: 1.5,
     flapSetting: 3,
     touchdownSource: 'derived',
+    runwaySource: null,
     ...overrides
   }
 }
@@ -134,7 +135,12 @@ describe('landing repo', () => {
     })
 
     it('lists landings newest-first, joined with flight route info', () => {
-      const olderFlight = createFlight(db, { aircraftId, depIcao: 'EGCC', arrIcao: 'EGLL', flightNumber: 'BA100' })
+      const olderFlight = createFlight(db, {
+        aircraftId,
+        depIcao: 'EGCC',
+        arrIcao: 'EGLL',
+        flightNumber: 'BA100'
+      })
       createLanding(db, makeLanding(olderFlight.id, { touchdownTsUtc: '2026-09-01T00:00:00.000Z' }))
       createLanding(db, makeLanding(flightId, { touchdownTsUtc: '2026-09-06T12:00:00.000Z' }))
 
@@ -177,7 +183,7 @@ describe('landing repo', () => {
       expect(rows[1].aircraftRegistration).toBe('G-ABCD')
     })
 
-    it('falls back to the flight\'s own sim-reported registration/type for a free flight tracked with no fleet aircraft', () => {
+    it("falls back to the flight's own sim-reported registration/type for a free flight tracked with no fleet aircraft", () => {
       const freeFlight = createFreeFlight(db, {
         aircraftId: null,
         simRegistration: 'G-TEST',
@@ -222,7 +228,9 @@ describe('landing repo', () => {
 
     it('excludes landings updated at or before since', () => {
       createLanding(db, makeLanding(flightId))
-      const cutoff = db.select().from(landing).get()!.updatedAt as string
+      // Pinned, not read back: two creates in the same millisecond share a timestamp on a fast machine.
+      const cutoff = '2026-01-01T00:00:00.000Z'
+      db.update(landing).set({ updatedAt: cutoff }).run()
       const flight2 = createFlight(db, { aircraftId, depIcao: 'EGCC', arrIcao: 'EGLL' })
       createLanding(db, makeLanding(flight2.id))
       const rows = listLandingsForSync(db, cutoff)
@@ -247,6 +255,7 @@ describe('landing repo', () => {
         windSpeedMs: 3,
         windDirectionDeg: 90,
         touchdownSource: 'derived',
+        runwaySource: null,
         updatedAt: '2026-09-06T12:00:00.000Z'
       })
       expect(applied).toBe(true)

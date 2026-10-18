@@ -90,7 +90,9 @@ describe('toLogbookRecord', () => {
 
   it('has a null landing when none was recorded, and a null crosswind when unresolved', () => {
     expect(toLogbookRecord(makeFlight(), AIRCRAFT, undefined)?.landing).toBeNull()
-    expect(toLogbookRecord(makeFlight(), AIRCRAFT, { ...LANDING, crosswindMs: null })?.landing?.crosswindKt).toBeNull()
+    expect(
+      toLogbookRecord(makeFlight(), AIRCRAFT, { ...LANDING, crosswindMs: null })?.landing?.crosswindKt
+    ).toBeNull()
   })
 
   it('falls back to the sim registration/type for a free flight with no fleet aircraft', () => {
@@ -114,11 +116,15 @@ describe('serializeLogbook', () => {
     expect(header).toBe(
       'registration,aircraft_type,flight_number,dep_icao,arr_icao,out_utc,in_utc,block_minutes,air_minutes,fuel_out_kg,fuel_in_kg,fuel_burn_kg,touchdown_fpm,touchdown_g,crosswind_kt,landing_runway'
     )
-    expect(row).toBe('G-XWBA,A35K,BAW117,EGLL,KJFK,2026-09-01T10:00:00.000Z,2026-09-01T17:30:00.000Z,450,430,52000,8000,44000,-295,1.23,5.8,04R')
+    expect(row).toBe(
+      'G-XWBA,A35K,BAW117,EGLL,KJFK,2026-09-01T10:00:00.000Z,2026-09-01T17:30:00.000Z,450,430,52000,8000,44000,-295,1.23,5.8,04R'
+    )
   })
 
   it('leaves landing columns empty for a flight with no landing', () => {
-    const row = serializeLogbook([record({ landing: null })], 'csv').trimEnd().split('\r\n')[1]!
+    const row = serializeLogbook([record({ landing: null })], 'csv')
+      .trimEnd()
+      .split('\r\n')[1]!
     expect(row.endsWith(',44000,,,,')).toBe(true)
   })
 
@@ -130,7 +136,10 @@ describe('serializeLogbook', () => {
 
 describe('parseLogbook — round trips', () => {
   it('reads back a CSV export exactly, including a flight number that needs quoting', () => {
-    const records = [record(), record({ flightNumber: 'A, "B"', landing: null, fuelBurnKg: null, registration: 'G-ÄBCD' })]
+    const records = [
+      record(),
+      record({ flightNumber: 'A, "B"', landing: null, fuelBurnKg: null, registration: 'G-ÄBCD' })
+    ]
     const rows = parseLogbook(serializeLogbook(records, 'csv'), 'csv')
     expect(rows.map((r) => ('record' in r ? r.record : r))).toEqual(records)
   })
@@ -147,29 +156,59 @@ describe('parseLogbook — untrusted input', () => {
     `registration,aircraft_type,flight_number,dep_icao,arr_icao,out_utc,in_utc,block_minutes\r\n${row}\r\n`
 
   it('skips a row with a missing or malformed required field, with a label and reason', () => {
-    const rows = parseLogbook(csv(',A320,,EGLL,EGCC,2026-09-01T10:00:00Z,2026-09-01T11:00:00Z,60\r\nG-ABCD,A320,,EGLL,EGCC,not-a-date,2026-09-01T11:00:00Z,60'), 'csv')
+    const rows = parseLogbook(
+      csv(
+        ',A320,,EGLL,EGCC,2026-09-01T10:00:00Z,2026-09-01T11:00:00Z,60\r\nG-ABCD,A320,,EGLL,EGCC,not-a-date,2026-09-01T11:00:00Z,60'
+      ),
+      'csv'
+    )
     expect(rows).toHaveLength(2)
     expect(rows[0]).toEqual({ error: 'missing or malformed required field', label: 'EGLL-EGCC' })
     expect(rows[1]).toEqual({ error: 'missing or malformed required field', label: 'G-ABCD EGLL-EGCC' })
   })
 
   it('rejects an in-block time before the out-block time', () => {
-    const [row] = parseLogbook(csv('G-ABCD,A320,,EGLL,EGCC,2026-09-01T12:00:00Z,2026-09-01T11:00:00Z,60'), 'csv')
+    const [row] = parseLogbook(
+      csv('G-ABCD,A320,,EGLL,EGCC,2026-09-01T12:00:00Z,2026-09-01T11:00:00Z,60'),
+      'csv'
+    )
     expect(row).toEqual({ error: 'in-block time is before out-block time', label: 'G-ABCD EGLL-EGCC' })
   })
 
   it('treats a non-numeric or infinite metric as absent rather than throwing or storing NaN', () => {
-    const [row] = parseLogbook(csv('G-ABCD,A320,,EGLL,EGCC,2026-09-01T10:00:00Z,2026-09-01T11:00:00Z,lots'), 'csv')
+    const [row] = parseLogbook(
+      csv('G-ABCD,A320,,EGLL,EGCC,2026-09-01T10:00:00Z,2026-09-01T11:00:00Z,lots'),
+      'csv'
+    )
     expect('record' in row! && row.record.blockMinutes).toBeNull()
-    const json = JSON.stringify([{ registration: 'G-ABCD', icaoType: 'A320', depIcao: 'EGLL', arrIcao: 'EGCC', outUtc: '2026-09-01T10:00:00Z', inUtc: '2026-09-01T11:00:00Z', fuelOutKg: '1e999', airMinutes: '45' }])
+    const json = JSON.stringify([
+      {
+        registration: 'G-ABCD',
+        icaoType: 'A320',
+        depIcao: 'EGLL',
+        arrIcao: 'EGCC',
+        outUtc: '2026-09-01T10:00:00Z',
+        inUtc: '2026-09-01T11:00:00Z',
+        fuelOutKg: '1e999',
+        airMinutes: '45'
+      }
+    ])
     const [j] = parseLogbook(json, 'json')
     expect('record' in j! && [j.record.fuelOutKg, j.record.airMinutes]).toEqual([null, 45])
   })
 
   it('normalises ICAO codes and re-serialises dates to canonical ISO', () => {
-    const [row] = parseLogbook(csv('G-ABCD,A320,,egll,eGcc,2026-09-01T10:00:00Z,2026-09-01T11:00:00+00:00,60'), 'csv')
+    const [row] = parseLogbook(
+      csv('G-ABCD,A320,,egll,eGcc,2026-09-01T10:00:00Z,2026-09-01T11:00:00+00:00,60'),
+      'csv'
+    )
     expect('record' in row! && row.record).toEqual(
-      expect.objectContaining({ depIcao: 'EGLL', arrIcao: 'EGCC', outUtc: '2026-09-01T10:00:00.000Z', inUtc: '2026-09-01T11:00:00.000Z' })
+      expect.objectContaining({
+        depIcao: 'EGLL',
+        arrIcao: 'EGCC',
+        outUtc: '2026-09-01T10:00:00.000Z',
+        inUtc: '2026-09-01T11:00:00.000Z'
+      })
     )
   })
 
@@ -190,7 +229,7 @@ describe('parseLogbook — untrusted input', () => {
 })
 
 describe('isWingLogLogbookCsv', () => {
-  it('recognises our header and not SimToolkitPro\'s', () => {
+  it("recognises our header and not SimToolkitPro's", () => {
     expect(isWingLogLogbookCsv(['registration', 'dep_icao'])).toBe(true)
     expect(isWingLogLogbookCsv(['DepartureICAO', 'ArrivalICAO', 'AircraftReg'])).toBe(false)
   })

@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { assignedGate, boxClearedLevelFt, levelToFeet, parseAtcBoxClearance, parseAtcTaxiFacts, withoutLabel } from './atc-info-boxes'
+import {
+  assignedGate,
+  boxClearedLevelFt,
+  levelToFeet,
+  parseAtcBoxClearance,
+  parseAtcTaxiFacts,
+  withoutLabel
+} from './atc-info-boxes'
 
-// Real InfoBoxes, verbatim from main.log (2026-10-05).
+// Real InfoBoxes, verbatim from main.log.
 const VHHH_TAXI_OUT = [
   { title: 'Taxi to Runway', info: '07R' },
   { title: 'Taxi Via 1', info: 'B' },
@@ -28,14 +35,38 @@ describe('parseAtcTaxiFacts', () => {
     expect(parseAtcTaxiFacts(VHHH_TAXI_OUT)).toEqual({
       taxiVia: ['B', 'B', 'V', 'H', 'J'],
       holdPosition: 'J1',
+      holdShort: null,
       taxiToRunway: '07R',
       taxiToGate: null,
       expectGate: null
     })
   })
 
+  it('reads the Hold Short box: a runway to stop short of, with the taxi route (EGLL 2026-10-15)', () => {
+    expect(
+      parseAtcTaxiFacts([
+        { title: 'Taxi to Runway', info: '27R' },
+        { title: 'Taxi Via 1', info: 'LINK 44' },
+        { title: 'Taxi Via 2', info: 'T' },
+        { title: 'Taxi Via 3', info: 'S' },
+        { title: 'Hold Short', info: '27l' }
+      ])
+    ).toEqual({
+      taxiVia: ['LINK 44', 'T', 'S'],
+      holdPosition: null,
+      holdShort: '27L',
+      taxiToRunway: '27R',
+      taxiToGate: null,
+      expectGate: null
+    })
+  })
+
   it('reads an arrival taxi clearance to a gate, label removed (ZJSY)', () => {
-    expect(parseAtcTaxiFacts(ZJSY_TAXI_IN)).toMatchObject({ taxiVia: ['A4', 'D'], taxiToGate: '102', holdPosition: null })
+    expect(parseAtcTaxiFacts(ZJSY_TAXI_IN)).toMatchObject({
+      taxiVia: ['A4', 'D'],
+      taxiToGate: '102',
+      holdPosition: null
+    })
   })
 
   it('keeps a taxiway name with a space (EGLL LINK 44)', () => {
@@ -43,7 +74,10 @@ describe('parseAtcTaxiFacts', () => {
   })
 
   it('orders Taxi Via by number, not by arrival order, including past 9', () => {
-    const boxes = Array.from({ length: 11 }, (_, i) => ({ title: `Taxi Via ${i + 1}`, info: `T${i + 1}` })).reverse()
+    const boxes = Array.from({ length: 11 }, (_, i) => ({
+      title: `Taxi Via ${i + 1}`,
+      info: `T${i + 1}`
+    })).reverse()
     expect(parseAtcTaxiFacts(boxes).taxiVia).toEqual(Array.from({ length: 11 }, (_, i) => `T${i + 1}`))
   })
 
@@ -73,7 +107,14 @@ describe('parseAtcTaxiFacts', () => {
         { title: 'Taxi Via', info: 'X' },
         { title: 'Hold Position', info: '' }
       ])
-    ).toEqual({ taxiVia: [], holdPosition: null, taxiToRunway: null, taxiToGate: null, expectGate: null })
+    ).toEqual({
+      taxiVia: [],
+      holdPosition: null,
+      holdShort: null,
+      taxiToRunway: null,
+      taxiToGate: null,
+      expectGate: null
+    })
     expect(parseAtcTaxiFacts([])).toMatchObject({ taxiVia: [] })
   })
 
@@ -84,13 +125,15 @@ describe('parseAtcTaxiFacts', () => {
 
 describe('assignedGate', () => {
   it('prefers the taxi clearance gate, else Expect Gate, else null', () => {
-    expect(assignedGate(parseAtcTaxiFacts([...ZJSY_TAXI_IN, { title: 'Expect Gate', info: 'Gate 999' }]))).toBe('102')
+    expect(
+      assignedGate(parseAtcTaxiFacts([...ZJSY_TAXI_IN, { title: 'Expect Gate', info: 'Gate 999' }]))
+    ).toBe('102')
     expect(assignedGate(parseAtcTaxiFacts([{ title: 'Expect Gate', info: 'Gate 102' }]))).toBe('102')
     expect(assignedGate(parseAtcTaxiFacts(VHHH_TAXI_OUT))).toBeNull()
   })
 })
 
-// Real box sets from the VHHH-ZJSY flight, 2026-10-05 (main.log).
+// Real box sets from the VHHH-ZJSY flight (main.log).
 describe('parseAtcBoxClearance', () => {
   it('reads the departure clearance: SID and runway', () => {
     const boxes = [
@@ -99,11 +142,19 @@ describe('parseAtcBoxClearance', () => {
       { title: 'Altitude Clearance', info: 'FL140' },
       { title: 'Squawk', info: '3711' }
     ]
-    expect(parseAtcBoxClearance(boxes)).toEqual({ fields: { sidIdent: 'PECA3A', departureRunway: '07R' }, summary: 'SID PECA3A, runway 07R' })
+    expect(parseAtcBoxClearance(boxes)).toEqual({
+      fields: { sidIdent: 'PECA3A', departureRunway: '07R' },
+      summary: 'SID PECA3A, runway 07R'
+    })
   })
 
   it('reads the STAR clearance with its runway', () => {
-    expect(parseAtcBoxClearance([{ title: 'STAR', info: 'UPRS2C' }, { title: 'Arrival Runway', info: '08' }])).toEqual({
+    expect(
+      parseAtcBoxClearance([
+        { title: 'STAR', info: 'UPRS2C' },
+        { title: 'Arrival Runway', info: '08' }
+      ])
+    ).toEqual({
       fields: { starIdent: 'UPRS2C' },
       summary: 'STAR UPRS2C, runway 08',
       arrivalRunway: '08'
@@ -117,7 +168,11 @@ describe('parseAtcBoxClearance', () => {
       { title: 'Transition', info: 'SY498' },
       { title: 'QNH', info: 'QNH 1014' }
     ]
-    expect(parseAtcBoxClearance(boxes)).toEqual({ fields: { approachTransition: 'SY498' }, summary: 'Runway 08 via SY498', arrivalRunway: '08' })
+    expect(parseAtcBoxClearance(boxes)).toEqual({
+      fields: { approachTransition: 'SY498' },
+      summary: 'Runway 08 via SY498',
+      arrivalRunway: '08'
+    })
   })
 
   it('reads the approach clearance, named the way the sim names it', () => {
@@ -125,11 +180,19 @@ describe('parseAtcBoxClearance', () => {
       { title: 'Cross SY498', info: 'At or above 1,200m' },
       { title: 'Cleared Approach', info: 'ILS-Z approach runway 08' }
     ]
-    expect(parseAtcBoxClearance(boxes)).toEqual({ fields: { approachIdent: 'ILS Z 08' }, summary: 'Approach ILS Z 08' })
+    expect(parseAtcBoxClearance(boxes)).toEqual({
+      fields: { approachIdent: 'ILS Z 08' },
+      summary: 'Approach ILS Z 08'
+    })
   })
 
   it('reads a lone Landing Runway as the runway only', () => {
-    expect(parseAtcBoxClearance([{ title: 'Landing Runway', info: '08' }, { title: 'QNH', info: 'QNH 1014' }])).toEqual({
+    expect(
+      parseAtcBoxClearance([
+        { title: 'Landing Runway', info: '08' },
+        { title: 'QNH', info: 'QNH 1014' }
+      ])
+    ).toEqual({
       fields: {},
       summary: 'Runway 08',
       arrivalRunway: '08'
@@ -138,7 +201,10 @@ describe('parseAtcBoxClearance', () => {
 
   it('is null for sets with no procedure: taxi, frequency, speed, takeoff', () => {
     for (const boxes of [
-      [{ title: 'Taxi to Runway', info: '07R' }, { title: 'Taxi Via 1', info: 'B' }],
+      [
+        { title: 'Taxi to Runway', info: '07R' },
+        { title: 'Taxi Via 1', info: 'B' }
+      ],
       [{ title: ' Frequency', info: '123.8' }],
       [{ title: 'Reduce Speed', info: '220' }],
       [{ title: 'Cleared for Takeoff', info: '07R' }],
@@ -151,20 +217,56 @@ describe('parseAtcBoxClearance', () => {
 
 describe('boxClearedLevelFt', () => {
   it('reads every level title seen, in flight levels and metres', () => {
-    expect(boxClearedLevelFt([{ title: 'Altitude Clearance', info: 'FL140' }, { title: 'Squawk', info: '3711' }])).toBe(14000)
+    expect(
+      boxClearedLevelFt([
+        { title: 'Altitude Clearance', info: 'FL140' },
+        { title: 'Squawk', info: '3711' }
+      ])
+    ).toBe(14000)
     expect(boxClearedLevelFt([{ title: 'climb', info: 'FL180' }])).toBe(18000)
     expect(boxClearedLevelFt([{ title: 'Climb', info: 'FL360' }])).toBe(36000)
-    expect(boxClearedLevelFt([{ title: 'Descend to', info: '3,000m' }, { title: 'QNH', info: 'QNH 1014' }])).toBe(9843)
+    expect(
+      boxClearedLevelFt([
+        { title: 'Descend to', info: '3,000m' },
+        { title: 'QNH', info: 'QNH 1014' }
+      ])
+    ).toBe(9843)
   })
 
   it('reads the ZJSY-VHHH titles: Continue Climb To, and a unitless Descend To in feet (2026-10-05)', () => {
     expect(boxClearedLevelFt([{ title: 'Continue Climb To', info: 'FL371' }])).toBe(37100)
-    expect(boxClearedLevelFt([{ title: 'Descend To', info: '11,000' }, { title: 'QNH', info: 'QNH 1015' }])).toBe(11000)
-    expect(boxClearedLevelFt([{ title: 'Cross CANTO', info: 'At or above FL130' }, { title: 'Descend To', info: '11,000' }])).toBe(11000)
+    expect(
+      boxClearedLevelFt([
+        { title: 'Descend To', info: '11,000' },
+        { title: 'QNH', info: 'QNH 1015' }
+      ])
+    ).toBe(11000)
+    expect(
+      boxClearedLevelFt([
+        { title: 'Cross CANTO', info: 'At or above FL130' },
+        { title: 'Descend To', info: '11,000' }
+      ])
+    ).toBe(11000)
+  })
+
+  it('reads an altitude below the transition level: Descend To Altitude (VHHH-EGCC, 2026-10-18)', () => {
+    expect(
+      boxClearedLevelFt([
+        { title: 'Descend To Altitude', info: '5,000' },
+        { title: 'QNH', info: 'QNH 1034' }
+      ])
+    ).toBe(5000)
+  })
+
+  it("reads Maintain and Continue Climb levels from Callum's recorded flights", () => {
+    expect(boxClearedLevelFt([{ title: 'Maintain', info: 'FL380' }])).toBe(38000)
+    expect(boxClearedLevelFt([{ title: 'Maintain', info: '1,200m' }])).toBe(3937)
+    expect(boxClearedLevelFt([{ title: 'Continue Climb', info: 'FL350' }])).toBe(35000)
   })
 
   it('ignores speeds and other boxes', () => {
     expect(boxClearedLevelFt([{ title: 'Maintain Speed', info: '250' }])).toBeNull()
+    expect(boxClearedLevelFt([{ title: 'Turn Left', info: '140' }])).toBeNull()
     expect(boxClearedLevelFt([{ title: 'Cross SY498', info: 'At or above 1,200m' }])).toBeNull()
   })
 })

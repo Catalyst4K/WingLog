@@ -5,7 +5,7 @@ import { test, expect } from '@playwright/test'
 import { launchApp } from './launch-app'
 
 /**
- * Settings' real-persistence flows against the real built app, per flightdeck-backend's
+ * Settings' real-persistence flows against the real built app, per winglog-backend's
  * docs/plans/test-coverage.md Phase 4. Deliberately avoids anything that opens a real OS
  * dialog or external browser window (Import/Export, "Log in with Navigraph", GSX's
  * "Browse…") or hits the network (SimBrief login) — those aren't drivable headlessly and
@@ -51,8 +51,12 @@ test('changes units, theme, SimBrief username, and GSX settings, all persisted',
     // has its own, differently-purposed "Off"/"On" toggle with the same button text.
     const gsxCard = page.locator('[data-slot="card"]').filter({ hasText: 'GSX ground services' })
     const initiallyEnabled = (await page.evaluate(() => window.winglog.settingsGetGsx())).enabled
-    await gsxCard.getByRole('button', { name: initiallyEnabled ? 'On' : 'Off', exact: true }).click()
-    await expect(gsxCard.getByRole('button', { name: initiallyEnabled ? 'Off' : 'On', exact: true })).toBeVisible()
+    const flipTo = initiallyEnabled ? 'Off' : 'On'
+    await gsxCard.getByRole('button', { name: flipTo, exact: true }).click()
+    await expect(gsxCard.getByRole('button', { name: flipTo, exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
     expect((await page.evaluate(() => window.winglog.settingsGetGsx())).enabled).toBe(!initiallyEnabled)
   } finally {
     await cleanup()
@@ -60,26 +64,38 @@ test('changes units, theme, SimBrief username, and GSX settings, all persisted',
 })
 
 test('automatic tracking start and finish can each be switched off, and stay off after a restart', async () => {
-  // Settings → Tracking (flightdeck-backend's docs/plans/tracking-auto-toggles.md).
+  // Settings → Tracking (winglog-backend's docs/plans/tracking-auto-toggles.md).
   const userDataDir = mkdtempSync(join(tmpdir(), 'winglog-e2e-tracking-'))
   try {
     const first = await launchApp({ userDataDir })
     try {
       await first.window.getByRole('tab', { name: 'Settings' }).click()
       const finishRow = first.window.getByRole('group', { name: 'Finish flights automatically' })
-      await expect(finishRow.getByRole('button', { name: 'On', exact: true })).toHaveAttribute('aria-pressed', 'true')
+      await expect(finishRow.getByRole('button', { name: 'On', exact: true })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      )
       await finishRow.getByRole('button', { name: 'Off', exact: true }).click()
-      await expect(finishRow.getByRole('button', { name: 'Off', exact: true })).toHaveAttribute('aria-pressed', 'true')
+      await expect(finishRow.getByRole('button', { name: 'Off', exact: true })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      )
     } finally {
       await first.cleanup()
     }
 
     const second = await launchApp({ userDataDir })
     try {
-      expect(await second.window.evaluate(() => window.winglog.settingsGetTracking())).toEqual({ autoStart: true, autoFinish: false })
+      expect(await second.window.evaluate(() => window.winglog.settingsGetTracking())).toEqual({
+        autoStart: true,
+        autoFinish: false
+      })
       await second.window.getByRole('tab', { name: 'Settings' }).click()
       const finishRow = second.window.getByRole('group', { name: 'Finish flights automatically' })
-      await expect(finishRow.getByRole('button', { name: 'Off', exact: true })).toHaveAttribute('aria-pressed', 'true')
+      await expect(finishRow.getByRole('button', { name: 'Off', exact: true })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      )
     } finally {
       await second.cleanup()
     }

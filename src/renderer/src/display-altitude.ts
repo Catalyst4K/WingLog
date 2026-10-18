@@ -1,15 +1,17 @@
+/** The altitude Track and the Logbook show: pressure altitude above the transition, true altitude below it. */
+
 import type { FlightPhase } from '@shared/ipc'
 import type { TransitionAltitudes } from './route'
 import { mToFt } from './units'
 
 /**
  * Picks pressure altitude above the transition, true altitude below it — what a correctly
- * set altimeter actually reads in each regime (flightdeck-backend's docs/plans/
+ * set altimeter actually reads in each regime (winglog-backend's docs/plans/
  * logbook-detail-improvements.md, Phase 3): flight levels in cruise, matching the PFD
  * exactly, and roughly field elevation near the airports, where true altitude ≈ QNH
  * altitude. Both inputs are computed by the sim, so neither depends on how a given
  * aircraft implements its altimeter — the same reason PLANE ALTITUDE replaced INDICATED
- * ALTITUDE for storage in the first place (docs/decisions.md, 2026-09-05).
+ * ALTITUDE for storage in the first place.
  *
  * Whether a point is "above" or "below" the transition is read off its own recorded flight
  * phase rather than computed from the flight's actual highest altitude: the choice only
@@ -19,7 +21,13 @@ import { mToFt } from './units'
  * practice, since a real cruise altitude sits far above either transition figure regardless
  * of which one gets picked.
  */
-const CLIMB_SIDE_PHASES: ReadonlySet<FlightPhase> = new Set(['preflight', 'pushback', 'taxi', 'takeoff', 'climb'])
+const CLIMB_SIDE_PHASES: ReadonlySet<FlightPhase> = new Set([
+  'preflight',
+  'pushback',
+  'taxi',
+  'takeoff',
+  'climb'
+])
 
 /** Falls back to this when there's no OFP to read a real transition altitude/level from
  *  (an ad hoc Track-started flight, or one predating this feature) — see the plan's own
@@ -43,7 +51,17 @@ export interface DisplayAltitudeResult {
   label: 'Altitude' | 'True altitude'
 }
 
-export function displayAltitude(input: DisplayAltitudeInput, transition: TransitionAltitudes | null): DisplayAltitudeResult {
+/**
+ * The altitude to show for one track point or telemetry tick (CLIMB_SIDE_PHASES's comment has how it picks).
+ *
+ * @param input The point's altitudes and flight phase.
+ * @param transition The flight's transition altitude and level, or null.
+ * @returns The altitude to show, and which kind it is.
+ */
+export function displayAltitude(
+  input: DisplayAltitudeInput,
+  transition: TransitionAltitudes | null
+): DisplayAltitudeResult {
   const trueAltFt = mToFt(input.altitudeM)
   if (input.pressureAltitudeM == null) {
     return { valueFt: trueAltFt, label: 'True altitude' }

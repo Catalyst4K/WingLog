@@ -27,7 +27,9 @@ describe('matchesFlight', () => {
   })
 
   it('matches the arrival ICAO too, not just departure', () => {
-    expect(matchesFlight(receipt({ icao: 'VHHH', timestampUtc: '2026-09-01T21:00:00Z' }), window())).toBe(true)
+    expect(matchesFlight(receipt({ icao: 'VHHH', timestampUtc: '2026-09-01T21:00:00Z' }), window())).toBe(
+      true
+    )
   })
 
   it('never matches NOTAIL, even with a matching window and ICAO', () => {

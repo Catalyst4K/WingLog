@@ -17,9 +17,6 @@ asarUnpack:
   # already dynamically required rather than bundled (externalizeDepsPlugin in
   # electron.vite.config.ts). See THIRD-PARTY-LICENSES.md.
   - node_modules/node-simconnect/**/*
-  # node-simconnect's registry reads go through regedit, which runs these scripts with
-  # Windows Script Host — which can't read inside an asar. See src/main/sim/regedit-scripts.ts.
-  - node_modules/regedit/vbs/**/*
 
 # Licence notices, and a getting-started guide, have to be readable in an installed copy,
 # not sealed inside the asar.
@@ -44,6 +41,14 @@ win:
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
+
+# Where the in-app updater looks (it writes resources/app-update.yml). `--publish=never` stays on
+# every script: nothing is uploaded by the build, releases are published by hand with the .exe,
+# latest.yml and the .blockmap from release/ (winglog-backend CLAUDE.md, release checklist).
+publish:
+  provider: github
+  owner: Catalyst4K
+  repo: WingLog
 
 mac:
   # Unsigned is fine for personal use (see PLAN.md M7) — without this,

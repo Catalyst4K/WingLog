@@ -229,7 +229,7 @@
       "update": "Update",
       "dismiss": "Dismiss"
     },
-    "whatsNew": "New in WingLog 1.4: BeyondATC integration, taxi routes on the map, automatic step climbs and an update check. Turn BeyondATC on in Settings → 3rd party."
+    "whatsNew": "New in WingLog 1.5: a second screen for your phone or tablet, one-click updates, a low disk space warning and a more accurate taxi line. Turn the second screen on in Settings → Data."
   },
   "fleetView": {
     "atStand": "stand {{stand}}",
@@ -619,6 +619,7 @@
     "approximateRoute": "Approximate route — no flight plan on file for this flight"
   },
   "logbookView": {
+    "estimatedTrack": "The dashed line is about {{nm}} nm estimated from the flight plan. It was not recorded.",
     "loading": "Loading…",
     "belowAverage": "Below average",
     "landingCard": {
@@ -633,6 +634,9 @@
       "airspeedGroundSpeed": "Airspeed / Ground speed",
       "headwindCrosswind": "Headwind / Crosswind",
       "runway": "Runway",
+      "runwayData": "Runway data",
+      "runwayDataSim": "Simulator",
+      "runwayDataDatabase": "Airport database",
       "distanceFromThreshold": "Distance from threshold",
       "centrelineOffset": "Centreline offset",
       "scoreBreakdown": "Score breakdown"
@@ -723,7 +727,6 @@
     "connecting": "Connecting to BeyondATC…",
     "connected": "Connected to BeyondATC.",
     "disconnected": "Not connected to BeyondATC.",
-    "stationFrequency": "{{station}} ({{frequency}})",
     "progress": "{{from}} → {{to}} · {{pct}}%",
     "transcript": "Transcript",
     "actions": "Actions",
@@ -744,8 +747,6 @@
     "departure": "Departure",
     "arrival": "Arrival",
     "noFrequencies": "No frequencies for this airport yet.",
-    "frequencyOption": "{{type}} — {{station}} {{frequency}}",
-    "frequencyOptionRunway": "{{type}} — {{station}} {{frequency}} (RWY {{runway}})",
     "frequencyType": {
       "approach": "Approach",
       "departure": "Departure",
@@ -793,6 +794,10 @@
         "runway": "Runway",
         "climb": "Climb",
         "descend": "Descend",
+        "maintain": "Maintain",
+        "turnLeft": "Turn left",
+        "turnRight": "Turn right",
+        "heading": "Heading",
         "qnh": "QNH",
         "squawk": "Squawk",
         "contact": "Contact",
@@ -818,7 +823,27 @@
       "atc": "ATC",
       "traffic": "Traffic",
       "atcTraffic": "ATC → Traffic"
+    },
+    "frequencyField": "{{radio}} frequency",
+    "frequencyPicker": {
+      "tuned": "Tuned",
+      "runways": "RWY {{runways}}",
+      "enroute": "En route"
     }
+  },
+  "storage": {
+    "label": "Low disk space",
+    "low": "Your disk is running low ({{free}} left). Free some space before a long flight.",
+    "critical": "Your disk is almost full ({{free}} left). Free some space now, or WingLog may not be able to save your flight.",
+    "saveFailing": "Your disk is full, so WingLog can't save the flight. It is keeping the track in memory and will save it as soon as there is room."
+  },
+  "trackGapFillButton": {
+    "button": "Fill gaps from the flight plan",
+    "remove": "Remove estimated stretches",
+    "filled": "Gaps filled: {{count}}, about {{nm}} nm in all, dashed on the map.",
+    "noGaps": "There are no gaps to fill along the flight plan.",
+    "noRoute": "This flight has no flight plan route to follow.",
+    "removed": "Removed the estimated stretches."
   },
   "updates": {
     "banner": {
@@ -830,9 +855,18 @@
       "skip": "Skip this version",
       "dismiss": "Dismiss for now"
     },
+    "install": {
+      "downloadAndInstall": "Download and install",
+      "downloading": "Downloading… {{percent}}%",
+      "restart": "Restart to update",
+      "retry": "Try again",
+      "failed": "The download didn't finish. Try again, or download it from the release page.",
+      "flightActive": "A flight is being tracked. Finish it first, then restart to update.",
+      "releasePage": "Release page"
+    },
     "settings": {
       "title": "Updates",
-      "description": "WingLog asks GitHub for the latest release number. Nothing else is sent, and you download and install updates yourself.",
+      "description": "WingLog asks GitHub for the latest release number. Nothing else is sent. Installing an update is always your choice, and it never installs while a flight is being tracked.",
       "autoCheck": "Check for updates automatically",
       "on": "On",
       "off": "Off",
@@ -889,6 +923,47 @@
     "done": {
       "title": "You're all set",
       "body": "Everything here can be changed in Settings. To see this setup again, go to Settings → About → Run setup again."
+    }
+  },
+  "lanPage": {
+    "connecting": "Connecting to WingLog…",
+    "pairTitle": "Pair with WingLog",
+    "pairHelp": "On the PC, open Settings, then Second screen, then Pair a device. Type the 6-digit code it shows.",
+    "codeLabel": "Pairing code",
+    "pair": "Pair",
+    "wrongCode": "That code didn't work. Check the PC is showing a code, then try again.",
+    "offline": "Can't reach the PC. Trying again…",
+    "noFlight": "No flight is being tracked on the PC yet.",
+    "noPlan": "No flight plan on the PC yet. Plan a flight in Dispatch on the PC."
+  },
+  "lan": {
+    "settings": {
+      "title": "Second screen",
+      "description": "Show the live map on a phone or tablet on your home network. It is off until you turn it on, it only listens on your home network, and every device has to be paired with a code.",
+      "enable": "Second screen",
+      "on": "On",
+      "off": "Off",
+      "port": "Port",
+      "open": "Open this address on the phone or tablet:",
+      "connected_one": "{{count}} device connected now",
+      "connected_other": "{{count}} devices connected now",
+      "pairButton": "Pair a device",
+      "pairingCode": "On the device, type this code:",
+      "pairingNote": "The code works once and closes after 5 minutes.",
+      "pairingClose": "Close",
+      "devices": "Paired devices",
+      "noDevices": "No devices paired yet.",
+      "lastSeen": "Last seen {{when}}",
+      "neverSeen": "Never connected",
+      "revoke": "Revoke",
+      "help": "Can't connect? The phone and this PC must be on the same Wi-Fi (not a guest network), this PC's network should be set to Private, and your firewall must allow WingLog.",
+      "problem": {
+        "noAdapter": "This PC has no home-network connection to listen on.",
+        "portInUse": "That port is already in use. Choose another.",
+        "failed": "The second screen could not start."
+      },
+      "qrLabel": "QR code for the second-screen address",
+      "qrHintPairing": "Scan it with the phone to open the page and pair. The code changes every 5 minutes."
     }
   }
 }

@@ -109,18 +109,23 @@ describe('logbook export → import round trip', () => {
     rmSync(dir, { recursive: true, force: true })
   })
 
-  it.each(['csv', 'json'] as const)('exports %s and re-imports it into an empty database with identical flights', async (format) => {
-    const filePath = join(dir, `logbook.${format}`)
-    showSaveDialog.mockResolvedValue({ canceled: false, filePath })
-    expect(await exportLogbook(db, FAKE_WINDOW, format)).toBe(true)
+  it.each(['csv', 'json'] as const)(
+    'exports %s and re-imports it into an empty database with identical flights',
+    async (format) => {
+      const filePath = join(dir, `logbook.${format}`)
+      showSaveDialog.mockResolvedValue({ canceled: false, filePath })
+      expect(await exportLogbook(db, FAKE_WINDOW, format)).toBe(true)
 
-    const target = freshDb()
-    showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [filePath] })
-    const summary = await (format === 'csv' ? importLogbookCsv(target, FAKE_WINDOW) : importLogbookJson(target, FAKE_WINDOW))
+      const target = freshDb()
+      showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [filePath] })
+      const summary = await (format === 'csv'
+        ? importLogbookCsv(target, FAKE_WINDOW)
+        : importLogbookJson(target, FAKE_WINDOW))
 
-    expect(summary).toEqual({ imported: 2, aircraftCreated: 2, skipped: [] })
-    expect(summarise(target)).toEqual(summarise(db))
-  })
+      expect(summary).toEqual({ imported: 2, aircraftCreated: 2, skipped: [] })
+      expect(summarise(target)).toEqual(summarise(db))
+    }
+  )
 
   it('does not double the logbook when the same export is imported twice', async () => {
     const filePath = join(dir, 'logbook.json')
@@ -155,7 +160,10 @@ describe('logbook export → import round trip', () => {
     await exportLogbook(db, FAKE_WINDOW, 'json')
     expect(showSaveDialog).toHaveBeenCalledWith(
       FAKE_WINDOW,
-      expect.objectContaining({ defaultPath: 'winglog-logbook.json', filters: [{ name: 'JSON', extensions: ['json'] }] })
+      expect.objectContaining({
+        defaultPath: 'winglog-logbook.json',
+        filters: [{ name: 'JSON', extensions: ['json'] }]
+      })
     )
   })
 
@@ -171,7 +179,14 @@ describe('logbook export → import round trip', () => {
     writeFileSync(
       filePath,
       JSON.stringify([
-        { registration: 'G-GOOD', icaoType: 'A320', depIcao: 'EGLL', arrIcao: 'EGCC', outUtc: '2026-09-01T10:00:00Z', inUtc: '2026-09-01T11:00:00Z' },
+        {
+          registration: 'G-GOOD',
+          icaoType: 'A320',
+          depIcao: 'EGLL',
+          arrIcao: 'EGCC',
+          outUtc: '2026-09-01T10:00:00Z',
+          inUtc: '2026-09-01T11:00:00Z'
+        },
         { registration: 'G-BAD', icaoType: 'A320', depIcao: 'EGLL' }
       ]),
       'utf-8'
@@ -198,7 +213,11 @@ describe('logbook export → import round trip', () => {
 
   it('importFlightRows skips error rows with their label and reason', () => {
     const summary = importFlightRows(freshDb(), [{ label: 'row 3', error: 'nope' }])
-    expect(summary).toEqual({ imported: 0, aircraftCreated: 0, skipped: [{ label: 'row 3', reason: 'nope' }] })
+    expect(summary).toEqual({
+      imported: 0,
+      aircraftCreated: 0,
+      skipped: [{ label: 'row 3', reason: 'nope' }]
+    })
   })
 
   it('writes the file exactly as buildLogbookExport returns it', async () => {

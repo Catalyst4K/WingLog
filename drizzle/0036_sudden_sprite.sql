@@ -1,0 +1,1 @@
+ALTER TABLE `navdata_runway` ADD `displaced_threshold_m` real;

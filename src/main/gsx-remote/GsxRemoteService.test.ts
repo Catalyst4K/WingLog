@@ -73,7 +73,7 @@ const SERVICES: GsxRemoteServiceStatus[] = [
 ]
 
 // The real wire shape: `menuShown` is GSX's own SEPARATE top-level key, a sibling of
-// `menu`, not nested inside it (docs/gsx-notes.md, 2026-09-21) — RAW_MENU is what a real
+// `menu`, not nested inside it — RAW_MENU is what a real
 // `/menu` snapshot/patch value looks like; MENU is the combined shape GsxRemoteService
 // exposes to callers via getMenu(), used in assertions below.
 const RAW_MENU = {
@@ -87,7 +87,7 @@ const RAW_MENU = {
 }
 const MENU: GsxRemoteMenuState = { ...RAW_MENU, menuShown: true, searchActive: false, searchSession: 0 }
 
-// Real wire shape, confirmed live 2026-09-21 (docs/gsx-notes.md, round 6/7 captures): a
+// Real wire shape, confirmed live (docs/gsx-notes.md, round 6/7 captures): a
 // real VHHH session's `airport`/`parking`/`gateProperties` top-level keys, and a real
 // Refueling `detail` (fuel + a live bill) and Boarding `detail` (pax + per-hold cargo).
 const AIRPORT = { icao: 'VHHH', name: 'Hong Kong Intl', country: 'Hong Kong' }
@@ -104,7 +104,11 @@ const SERVICE_WITH_DETAIL: GsxRemoteServiceStatus = {
   operator: 'AFSC',
   statusText: 'pumping\nfuel 15357/81488 kg\naircraft 15606→30963 kg\nBill $24272',
   progressText: '19%',
-  detail: { phase: 'pumping', fuel: { current: 15357, target: 81488, unit: 'kg', startTotal: 15606, aircraftTotal: 30963 }, bill: 24272 }
+  detail: {
+    phase: 'pumping',
+    fuel: { current: 15357, target: 81488, unit: 'kg', startTotal: 15606, aircraftTotal: 30963 },
+    bill: 24272
+  }
 }
 
 const PROMPT: GsxRemotePromptState = {
@@ -270,11 +274,27 @@ describe('GsxRemoteService', () => {
         entries: ['Gate 73 with Safedock© - Heavy - 1x /J (too small)', '', '', 'Back']
       }
     })
-    instances[0].simulateMessage({ v: 1, type: 'patch', ts: 2, path: '/search', value: { active: true, session: 2 } })
+    instances[0].simulateMessage({
+      v: 1,
+      type: 'patch',
+      ts: 2,
+      path: '/search',
+      value: { active: true, session: 2 }
+    })
 
-    expect(menus.at(-1)).toMatchObject({ searchActive: true, searchSession: 2, title: 'Type a gate, terminal or number' })
+    expect(menus.at(-1)).toMatchObject({
+      searchActive: true,
+      searchSession: 2,
+      title: 'Type a gate, terminal or number'
+    })
 
-    instances[0].simulateMessage({ v: 1, type: 'patch', ts: 3, path: '/search', value: { active: false, session: 2 } })
+    instances[0].simulateMessage({
+      v: 1,
+      type: 'patch',
+      ts: 3,
+      path: '/search',
+      value: { active: false, session: 2 }
+    })
     expect(service.getMenu().searchActive).toBe(false)
     service.stop()
   })
@@ -316,7 +336,15 @@ describe('GsxRemoteService', () => {
     const service = new GsxRemoteService('localhost', 8744, ctor)
     service.start()
     instances[0].simulateOpen()
-    instances[0].simulateMessage({ v: 1, type: 'snapshot', ts: 1, services: [], menu: RAW_MENU, menuShown: true, prompt: null })
+    instances[0].simulateMessage({
+      v: 1,
+      type: 'snapshot',
+      ts: 1,
+      services: [],
+      menu: RAW_MENU,
+      menuShown: true,
+      prompt: null
+    })
     instances[0].sent = []
 
     service.pickMenu(1)
@@ -331,7 +359,15 @@ describe('GsxRemoteService', () => {
     service.start()
     instances[0].simulateOpen()
     // RAW_MENU has two entries.
-    instances[0].simulateMessage({ v: 1, type: 'snapshot', ts: 1, services: [], menu: RAW_MENU, menuShown: true, prompt: null })
+    instances[0].simulateMessage({
+      v: 1,
+      type: 'snapshot',
+      ts: 1,
+      services: [],
+      menu: RAW_MENU,
+      menuShown: true,
+      prompt: null
+    })
     instances[0].sent = []
 
     service.pickMenu(2)
@@ -346,7 +382,9 @@ describe('GsxRemoteService', () => {
     expect(instances[0].sent).toEqual([])
 
     service.submitPrompt(3, 'x'.repeat(1000))
-    expect(instances[0].sent).toEqual([{ type: 'command', verb: 'input.submit', args: { gen: 3, text: 'x'.repeat(256) } }])
+    expect(instances[0].sent).toEqual([
+      { type: 'command', verb: 'input.submit', args: { gen: 3, text: 'x'.repeat(256) } }
+    ])
     service.stop()
   })
 
@@ -517,11 +555,16 @@ describe('GsxRemoteService', () => {
     instances[0].simulateMessage({ v: 1, type: 'patch', ts: 4, path: '/parking', value: PARKING })
 
     expect(gateListener).toHaveBeenCalledTimes(2)
-    expect(service.getGateInfo()).toEqual({ airportIcao: 'VHHH', airportName: 'Hong Kong Intl', parking: PARKING, gateProperties: [] })
+    expect(service.getGateInfo()).toEqual({
+      airportIcao: 'VHHH',
+      airportName: 'Hong Kong Intl',
+      parking: PARKING,
+      gateProperties: []
+    })
     service.stop()
   })
 
-  it('passes a service\'s structured detail (fuel/bill) through unchanged', () => {
+  it("passes a service's structured detail (fuel/bill) through unchanged", () => {
     const { ctor, instances } = makeCtor()
     const service = new GsxRemoteService('localhost', 8744, ctor)
     service.start()
@@ -568,7 +611,7 @@ describe('GsxRemoteService', () => {
     service.stop()
   })
 
-  // Real wire shapes, confirmed live 2026-09-23 (docs/gsx-notes.md) by reading GSX's own
+  // Real wire shapes, confirmed live (docs/gsx-notes.md) by reading GSX's own
   // shipped menu.js source directly — STATIC_COMMANDS' ids/labels, and a real
   // commandIcons/commandIconsSvg/simbrief capture from a live VHHH session.
   const COMMAND_ICONS = {
@@ -620,10 +663,25 @@ describe('GsxRemoteService', () => {
     expect(service.getCommandBar()).toEqual({
       commands: [
         // SVG preferred over PNG when both exist, per menu.js's own fallback order.
-        { id: 'CUSTOMIZE_AIRPORT_POSITION', label: 'Customize Airport', iconUri: 'data:image/svg+xml;base64,AAA', confirm: false },
+        {
+          id: 'CUSTOMIZE_AIRPORT_POSITION',
+          label: 'Customize Airport',
+          iconUri: 'data:image/svg+xml;base64,AAA',
+          confirm: false
+        },
         // PNG-only when no SVG exists for this id.
-        { id: 'CUSTOMIZE_AIRPLANE', label: 'Customize Aircraft', iconUri: 'data:image/png;base64,BBB', confirm: false },
-        { id: 'RESTART_COUATL', label: 'Restart Couatl', iconUri: 'data:image/svg+xml;base64,DDD', confirm: true }
+        {
+          id: 'CUSTOMIZE_AIRPLANE',
+          label: 'Customize Aircraft',
+          iconUri: 'data:image/png;base64,BBB',
+          confirm: false
+        },
+        {
+          id: 'RESTART_COUATL',
+          label: 'Restart Couatl',
+          iconUri: 'data:image/svg+xml;base64,DDD',
+          confirm: true
+        }
       ],
       simbrief: { status: 'loaded', error: '', gen: 3 },
       simbriefIconUri: 'data:image/png;base64,EEE'
@@ -648,7 +706,11 @@ describe('GsxRemoteService', () => {
     })
 
     const commandBar = service.getCommandBar()
-    expect(commandBar.commands.map((c) => c.id)).toEqual(['CUSTOMIZE_AIRPORT_POSITION', 'CUSTOMIZE_AIRPLANE', 'RESTART_COUATL'])
+    expect(commandBar.commands.map((c) => c.id)).toEqual([
+      'CUSTOMIZE_AIRPORT_POSITION',
+      'CUSTOMIZE_AIRPLANE',
+      'RESTART_COUATL'
+    ])
     expect(commandBar.commands.every((c) => c.iconUri === null)).toBe(true)
     service.stop()
   })
@@ -675,12 +737,18 @@ describe('GsxRemoteService', () => {
     expect(commandBarListener).not.toHaveBeenCalled()
 
     instances[0].simulateMessage({ v: 1, type: 'patch', ts: 3, path: '/commandIcons', value: COMMAND_ICONS })
-    instances[0].simulateMessage({ v: 1, type: 'patch', ts: 4, path: '/simbrief', value: { status: 'error', error: 'x', gen: 1 } })
+    instances[0].simulateMessage({
+      v: 1,
+      type: 'patch',
+      ts: 4,
+      path: '/simbrief',
+      value: { status: 'error', error: 'x', gen: 1 }
+    })
     expect(commandBarListener).toHaveBeenCalledTimes(2)
     service.stop()
   })
 
-  it('runCommand sends command.run with the id, GSX\'s own real wire shape', () => {
+  it("runCommand sends command.run with the id, GSX's own real wire shape", () => {
     const { ctor, instances } = makeCtor()
     const service = new GsxRemoteService('localhost', 8744, ctor)
     service.start()
@@ -688,10 +756,43 @@ describe('GsxRemoteService', () => {
     instances[0].sent = []
 
     service.runCommand('RESTART_COUATL')
-    expect(instances[0].sent).toEqual([{ type: 'command', verb: 'command.run', args: { command: 'RESTART_COUATL' } }])
+    expect(instances[0].sent).toEqual([
+      { type: 'command', verb: 'command.run', args: { command: 'RESTART_COUATL' } }
+    ])
 
     service.runCommand('RELOAD_SIMBRIEF')
-    expect(instances[0].sent[1]).toEqual({ type: 'command', verb: 'command.run', args: { command: 'RELOAD_SIMBRIEF' } })
+    expect(instances[0].sent[1]).toEqual({
+      type: 'command',
+      verb: 'command.run',
+      args: { command: 'RELOAD_SIMBRIEF' }
+    })
+    service.stop()
+  })
+})
+
+describe('GsxRemoteService raw messages (dev build capture)', () => {
+  it('emits every message received and every command sent, as their JSON text', () => {
+    const { ctor, instances } = makeCtor()
+    const service = new GsxRemoteService('localhost', 8744, ctor)
+    const raw: { direction: 'in' | 'out'; text: string }[] = []
+    service.on('raw', (message) => raw.push(message))
+    service.start()
+    instances[0].simulateOpen()
+    const snapshot = {
+      v: 1,
+      type: 'snapshot',
+      ts: 1,
+      services: SERVICES,
+      menu: RAW_MENU,
+      menuShown: true,
+      prompt: null
+    }
+    instances[0].simulateMessage(snapshot)
+    service.search('73')
+
+    expect(raw.map((r) => r.direction)).toEqual(['in', 'out'])
+    expect(JSON.parse(raw[0]!.text)).toEqual(snapshot)
+    expect(JSON.parse(raw[1]!.text)).toMatchObject({ type: 'command' })
     service.stop()
   })
 })

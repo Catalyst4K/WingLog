@@ -7,7 +7,7 @@ import { test, expect } from '@playwright/test'
 import { launchApp } from './launch-app'
 
 /**
- * The update check end to end (flightdeck-backend's docs/plans/update-check.md, Part A),
+ * The update check end to end (winglog-backend's docs/plans/update-check.md, Part A),
  * against a fake GitHub "latest release" endpoint serving the real response shape. Never
  * clicks Download: that opens the real browser.
  */
@@ -40,7 +40,10 @@ test('"Check now" finds a newer release, the banner offers it, and "Skip this ve
       const page = first.window
       await page.getByRole('tab', { name: 'Settings' }).click()
       await page.getByRole('tab', { name: 'About' }).click()
-      await expect(page.getByRole('button', { name: 'On', exact: true })).toHaveAttribute('aria-pressed', 'true')
+      await expect(page.getByRole('button', { name: 'On', exact: true })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      )
       await page.getByRole('button', { name: 'Check now' }).click()
 
       const banner = page.getByRole('region', { name: 'Update available' })

@@ -6,12 +6,14 @@ import {
   dispatchOptionsToUrlParams
 } from './dispatch-options'
 
-// Trimmed real api_params block (docs/simbrief-notes.md, 2026-09-02 reference response),
+// Trimmed real api_params block (docs/simbrief-notes.md reference response),
 // plus the general.costindex sibling field civalue is actually read from.
-function fixtureOfpJson(overrides: {
-  api_params?: Record<string, unknown>
-  general?: Record<string, unknown>
-} = {}): string {
+function fixtureOfpJson(
+  overrides: {
+    api_params?: Record<string, unknown>
+    general?: Record<string, unknown>
+  } = {}
+): string {
   return JSON.stringify({
     general: { costindex: '200', ...overrides.general },
     api_params: {

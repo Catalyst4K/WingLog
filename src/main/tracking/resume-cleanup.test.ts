@@ -42,7 +42,7 @@ describe('computeTrackCleanup', () => {
     expect(computeTrackCleanup(points)).toEqual({ exclusions: [], segmentReassignments: [] })
   })
 
-  it('catches a real crash-relocation where the anchor\'s own stale high speed would otherwise mask it (flight 191/CPA319, confirmed live 2026-09-13)', () => {
+  it("catches a real crash-relocation where the anchor's own stale high speed would otherwise mask it (flight 191/CPA319, confirmed live 2026-09-13)", () => {
     // Real numbers: 266.647s gap, 81.23km, anchor still showing pre-crash cruise speed
     // (260.7 m/s) while the freshly-respawned point reads near-stationary (8.8 m/s). Using
     // max(gsA, gsB) here gives a ~139km threshold and lets this through — exactly what
@@ -82,7 +82,7 @@ describe('computeTrackCleanup', () => {
     expect(isPhysicallyImpossibleJump(a, b)).toBe(false)
   })
 
-  it('does not flag a real sim-pause with minor position drift (flight 191/CPA319\'s own two real pauses)', () => {
+  it("does not flag a real sim-pause with minor position drift (flight 191/CPA319's own two real pauses)", () => {
     // Real numbers: a 2.7-hour pause with 0.56km of drift, and a 20-minute pause with
     // 1.17km of drift — both well past any reasonable "sampling jitter" floor if taken at
     // face value, but tiny next to the 81km/132km real relocations above. Confirms the
@@ -139,7 +139,7 @@ describe('computeTrackCleanup', () => {
 
   it('flags nothing across a genuine 22-loop hold (regression fixture, flight 193/PECAN)', () => {
     // Real calibration: 194 points over 18 minutes, zero physically-impossible jumps, max
-    // dist/threshold ratio 0.51 (resume-track-cleanup.md, "settled 2026-09-13"). Modelled
+    // dist/threshold ratio 0.51 (resume-track-cleanup.md). Modelled
     // here as a tight circle flown at a steady ground speed and 1Hz sampling — the actual
     // property under test is that continuous, always-in-range motion never trips Rule 2,
     // regardless of how much it doubles back on itself.
@@ -204,7 +204,10 @@ describe('computeTrackCleanup', () => {
     // one end reading near-zero because the aircraft had just respawned, the real
     // discontinuity isPhysicallyImpossibleJump's own min(gsA, gsB) is built to catch).
     const later = pt(3, 100 + 6 * 60, 5.5, 5.5, { resumeSegment: 1, groundSpeedMs: 200 })
-    expect(computeTrackCleanup([anchor, boundary, later])).toEqual({ exclusions: [], segmentReassignments: [] })
+    expect(computeTrackCleanup([anchor, boundary, later])).toEqual({
+      exclusions: [],
+      segmentReassignments: []
+    })
   })
 
   it('a physically-impossible jump with no resume window open reassigns a new segment instead of excluding anything', () => {

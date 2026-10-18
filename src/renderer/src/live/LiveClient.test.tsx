@@ -9,6 +9,8 @@ const SUBSCRIBERS: Record<LiveTopic, keyof WingLogApi> = {
   simConnectionStatus: 'onSimConnectionStatus',
   trackingPoint: 'onTrackingPoint',
   trackingPointsUpdated: 'onTrackingPointsUpdated',
+  procedureSelection: 'onProcedureSelection',
+  storageStatus: 'onStorageStatus',
   gsxRemoteStatus: 'onGsxRemoteStatus',
   gsxRemoteServices: 'onGsxRemoteServices',
   gsxRemoteGate: 'onGsxRemoteGate',
@@ -34,7 +36,22 @@ const COMMANDS: { [C in LiveCommand]: [keyof WingLogApi, LiveCommands[C]] } = {
   'gsx.toggleMenu': ['gsxRemoteToggleMenu', []],
   'gsx.submitPrompt': ['gsxRemoteSubmitPrompt', [3, '12000']],
   'gsx.cancelPrompt': ['gsxRemoteCancelPrompt', [3]],
-  'gsx.runCommand': ['gsxRemoteRunCommand', ['RELOAD_SIMBRIEF']]
+  'gsx.runCommand': ['gsxRemoteRunCommand', ['RELOAD_SIMBRIEF']],
+  'track.setProcedureSelection': [
+    'trackingSetProcedureSelection',
+    [
+      {
+        departureRunway: '02L',
+        sidIdent: null,
+        sidTransition: null,
+        starIdent: 'TEBU1B',
+        starTransition: null,
+        approachIdent: null,
+        approachTransition: null,
+        arrivalIcao: null
+      }
+    ]
+  ]
 }
 
 function mockWinglog(): Record<string, ReturnType<typeof vi.fn>> {
@@ -79,7 +96,10 @@ describe('useLiveTopic', () => {
   }
 
   it('starts from the initial value, takes the current one, then follows pushes, from any client (a LAN client later)', async () => {
-    let push: (s: { state: 'connected' | 'connecting' | 'disconnected'; lastError: string | null }) => void = () => {}
+    let push: (s: {
+      state: 'connected' | 'connecting' | 'disconnected'
+      lastError: string | null
+    }) => void = () => {}
     const client: LiveClient = {
       get: vi.fn().mockResolvedValue({ state: 'connecting', lastError: null }),
       subscribe: vi.fn((_topic, listener) => {

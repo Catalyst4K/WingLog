@@ -231,7 +231,7 @@
       "update": "Actualizar",
       "dismiss": "Descartar"
     },
-    "whatsNew": "Novedades de WingLog 1.4: integración con BeyondATC, rutas de rodaje en el mapa, ascensos escalonados automáticos y búsqueda de actualizaciones. Activa BeyondATC en Ajustes → Terceros."
+    "whatsNew": "Novedades de WingLog 1.5: una segunda pantalla para tu móvil o tableta, actualizaciones con un clic, un aviso de poco espacio en disco y una línea de rodaje más precisa. Activa la segunda pantalla en Ajustes → Datos."
   },
   "fleetView": {
     "atStand": "puesto {{stand}}",
@@ -621,6 +621,7 @@
     "approximateRoute": "Ruta aproximada — no hay plan de vuelo registrado para este vuelo"
   },
   "logbookView": {
+    "estimatedTrack": "La línea discontinua son unas {{nm}} nm estimadas a partir del plan de vuelo. No se grabaron.",
     "loading": "Cargando…",
     "belowAverage": "Por debajo del promedio",
     "landingCard": {
@@ -635,6 +636,9 @@
       "airspeedGroundSpeed": "Velocidad aerodinámica / Velocidad respecto al suelo",
       "headwindCrosswind": "Viento de frente / Viento cruzado",
       "runway": "Pista",
+      "runwayData": "Datos de pista",
+      "runwayDataSim": "Simulador",
+      "runwayDataDatabase": "Base de datos de aeropuertos",
       "distanceFromThreshold": "Distancia al umbral",
       "centrelineOffset": "Desviación de la línea central",
       "scoreBreakdown": "Desglose de la puntuación"
@@ -725,7 +729,6 @@
     "connecting": "Conectando con BeyondATC…",
     "connected": "Conectado a BeyondATC.",
     "disconnected": "Sin conexión con BeyondATC.",
-    "stationFrequency": "{{station}} ({{frequency}})",
     "progress": "{{from}} → {{to}} · {{pct}}%",
     "transcript": "Transcripción",
     "actions": "Acciones",
@@ -746,8 +749,6 @@
     "departure": "Salida",
     "arrival": "Llegada",
     "noFrequencies": "Aún no hay frecuencias para este aeropuerto.",
-    "frequencyOption": "{{type}} — {{station}} {{frequency}}",
-    "frequencyOptionRunway": "{{type}} — {{station}} {{frequency}} (pista {{runway}})",
     "frequencyType": {
       "approach": "Aproximación",
       "departure": "Salida",
@@ -795,6 +796,10 @@
         "runway": "Pista",
         "climb": "Ascender",
         "descend": "Descender",
+        "maintain": "Mantener",
+        "turnLeft": "Virar a la izquierda",
+        "turnRight": "Virar a la derecha",
+        "heading": "Rumbo",
         "qnh": "QNH",
         "squawk": "Squawk",
         "contact": "Contactar",
@@ -820,7 +825,27 @@
       "atc": "ATC",
       "traffic": "Tráfico",
       "atcTraffic": "ATC → Tráfico"
+    },
+    "frequencyField": "Frecuencia {{radio}}",
+    "frequencyPicker": {
+      "tuned": "Sintonizada",
+      "runways": "Pista {{runways}}",
+      "enroute": "En ruta"
     }
+  },
+  "storage": {
+    "label": "Poco espacio en disco",
+    "low": "Tu disco se está quedando sin espacio (quedan {{free}}). Libera espacio antes de un vuelo largo.",
+    "critical": "Tu disco está casi lleno (quedan {{free}}). Libera espacio ahora o WingLog podría no poder guardar tu vuelo.",
+    "saveFailing": "Tu disco está lleno, así que WingLog no puede guardar el vuelo. Mantiene el recorrido en memoria y lo guardará en cuanto haya espacio."
+  },
+  "trackGapFillButton": {
+    "button": "Rellenar huecos con el plan de vuelo",
+    "remove": "Quitar los tramos estimados",
+    "filled": "Huecos rellenados: {{count}}, unas {{nm}} nm en total, con línea discontinua en el mapa.",
+    "noGaps": "No hay huecos que rellenar a lo largo del plan de vuelo.",
+    "noRoute": "Este vuelo no tiene una ruta del plan de vuelo que seguir.",
+    "removed": "Se quitaron los tramos estimados."
   },
   "updates": {
     "banner": {
@@ -832,9 +857,18 @@
       "skip": "Omitir esta versión",
       "dismiss": "Ocultar por ahora"
     },
+    "install": {
+      "downloadAndInstall": "Descargar e instalar",
+      "downloading": "Descargando… {{percent}} %",
+      "restart": "Reiniciar para actualizar",
+      "retry": "Reintentar",
+      "failed": "La descarga no se completó. Inténtalo de nuevo o descárgala desde la página de la versión.",
+      "flightActive": "Se está registrando un vuelo. Termínalo primero y luego reinicia para actualizar.",
+      "releasePage": "Página de la versión"
+    },
     "settings": {
       "title": "Actualizaciones",
-      "description": "WingLog consulta a GitHub el número de la última versión. No se envía nada más, y tú descargas e instalas las actualizaciones.",
+      "description": "WingLog consulta a GitHub el número de la última versión. No se envía nada más. Instalar una actualización siempre depende de ti, y nunca se instala mientras se registra un vuelo.",
       "autoCheck": "Buscar actualizaciones automáticamente",
       "on": "Sí",
       "off": "No",
@@ -891,6 +925,47 @@
     "done": {
       "title": "Todo listo",
       "body": "Todo esto se puede cambiar en Ajustes. Para volver a ver esta configuración, ve a Ajustes → Acerca de → Volver a ejecutar la configuración."
+    }
+  },
+  "lanPage": {
+    "connecting": "Conectando con WingLog…",
+    "pairTitle": "Vincular con WingLog",
+    "pairHelp": "En el PC, abre Ajustes, luego Segunda pantalla y luego Vincular un dispositivo. Escribe el código de 6 dígitos que aparece.",
+    "codeLabel": "Código de vinculación",
+    "pair": "Vincular",
+    "wrongCode": "Ese código no ha funcionado. Comprueba que el PC muestra un código e inténtalo de nuevo.",
+    "offline": "No se puede conectar con el PC. Reintentando…",
+    "noFlight": "Aún no se está registrando ningún vuelo en el PC.",
+    "noPlan": "Todavía no hay un plan de vuelo en el PC. Planifica un vuelo en Despacho en el PC."
+  },
+  "lan": {
+    "settings": {
+      "title": "Segunda pantalla",
+      "description": "Muestra el mapa en vivo en un teléfono o tableta de tu red doméstica. Está desactivada hasta que la actives, solo escucha en tu red doméstica y cada dispositivo debe vincularse con un código.",
+      "enable": "Segunda pantalla",
+      "on": "Sí",
+      "off": "No",
+      "port": "Puerto",
+      "open": "Abre esta dirección en el teléfono o la tableta:",
+      "connected_one": "{{count}} dispositivo conectado ahora",
+      "connected_other": "{{count}} dispositivos conectados ahora",
+      "pairButton": "Vincular un dispositivo",
+      "pairingCode": "En el dispositivo, escribe este código:",
+      "pairingNote": "El código sirve una sola vez y caduca a los 5 minutos.",
+      "pairingClose": "Cerrar",
+      "devices": "Dispositivos vinculados",
+      "noDevices": "Aún no hay dispositivos vinculados.",
+      "lastSeen": "Visto por última vez {{when}}",
+      "neverSeen": "Nunca conectado",
+      "revoke": "Revocar",
+      "help": "¿No conecta? El teléfono y este PC deben estar en la misma Wi-Fi (no una red de invitados), la red de este PC debería estar configurada como Privada y tu cortafuegos debe permitir WingLog.",
+      "problem": {
+        "noAdapter": "Este PC no tiene ninguna conexión de red doméstica en la que escuchar.",
+        "portInUse": "Ese puerto ya está en uso. Elige otro.",
+        "failed": "No se pudo iniciar la segunda pantalla."
+      },
+      "qrLabel": "Código QR de la dirección de la segunda pantalla",
+      "qrHintPairing": "Escanéalo con el teléfono para abrir la página y vincular. El código cambia cada 5 minutos."
     }
   }
 }

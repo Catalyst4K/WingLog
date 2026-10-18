@@ -1,37 +1,22 @@
-import { type RawBuffer } from 'node-simconnect'
-
 /**
- * Facility Data Definition field names and record parsing for the navdata provider
- * (src/main/navdata/) — kept in src/main/sim/ next to simvars.ts, per CLAUDE.md's "SimVar/
- * facility names live in one place" rule. Field lists and read order are sim-confirmed
- * live, 2026-09-08 (flightdeck-backend's docs/navdata-notes.md, scripts/spike-facilities.ts
- * — same spike, reused here) against a real MSFS 2024: RUNWAY, DEPARTURE/ARRIVAL,
- * RUNWAY_TRANSITION, ENROUTE_TRANSITION and APPROACH_LEG record shapes all match what that
- * spike observed. Registration order = buffer read order, exactly like simvars.ts.
+ * Facility Data Definition field names and record parsing for the navdata provider (src/main/navdata/), kept next to
+ * simvars.ts per CLAUDE.md's "SimVar/facility names live in one place" rule. The field lists and read order are
+ * sim-confirmed (winglog-backend's docs/navdata-notes.md): registration order = buffer read order, exactly like
+ * simvars.ts. APPROACH, APPROACH_TRANSITION and FINAL_APPROACH_LEG are parsed for real approach selection
+ * (navdata-without-navigraph.md Phase 5); `MISSED_APPROACH_LEG` is deliberately unregistered, since nothing needs a
+ * go-around path.
  *
- * APPROACH/APPROACH_TRANSITION/FINAL_APPROACH_LEG parsing added 2026-09-08 for
- * flightdeck-backend's navdata-without-navigraph.md Phase 5 (real approach selection) —
- * spike-confirmed live the same day against a real MSFS 2024 session
- * (flightdeck-backend's docs/navdata-notes.md, "approach procedures, previously out of
- * scope" entry). `MISSED_APPROACH_LEG` deliberately still unregistered — nothing built so
- * far needs a go-around path.
- *
- * **Where a procedure's legs actually live is airport/procedure-dependent — confirmed live,
- * 2026-09-08, against real EGLL and VHHH departures/arrivals** (a nested
- * `OPEN APPROACH_LEG`/`CLOSE APPROACH_LEG` block *inside* `RUNWAY_TRANSITION` and
- * `ENROUTE_TRANSITION` works — not something either the original spike or the SDK reference
- * table made obvious, since only a leg *count* was ever requested there before). Every real
- * SID seen at both airports had `N_APPROACH_LEGS = 0` at the procedure's own top level and
- * all its real legs nested inside its one `RUNWAY_TRANSITION` (e.g. EGLL's BPK5K: 6 legs,
- * all under its 09L runway transition); EGLL's STARs were the reverse — `N_RUNWAY_TRANSITIONS
- * = 0` and every real leg at the procedure's own top level (e.g. ALES1H: 6 common legs, no
- * transitions at all). No enroute-transition-nested legs were observed in either airport's
- * data (VHHH's SIDs/STARs register zero enroute transitions outright; EGLL's do too) — the
- * nesting is registered defensively below since it's the same confirmed mechanism, but it's
- * untested against real data with a non-zero `N_ENROUTE_TRANSITIONS`. `getProcedureWaypoints`
- * therefore concatenates all three groups (runway-transition legs, common legs,
- * enroute-transition legs) rather than assuming legs live in only one place.
+ * **Where a procedure's legs live depends on the airport and procedure** (confirmed on EGLL and VHHH,
+ * navdata-notes.md): a nested `OPEN APPROACH_LEG`/`CLOSE APPROACH_LEG` block inside `RUNWAY_TRANSITION` and
+ * `ENROUTE_TRANSITION` works. Every SID seen had `N_APPROACH_LEGS = 0` at its top level and all its legs inside its one
+ * `RUNWAY_TRANSITION` (EGLL's BPK5K: 6 legs under its 09L transition); EGLL's STARs were the reverse:
+ * `N_RUNWAY_TRANSITIONS = 0` and every leg at the top level (ALES1H). No leg nested in an enroute transition was ever
+ * observed (none of those procedures has one), so that nesting is registered defensively and untested against data with
+ * a non-zero `N_ENROUTE_TRANSITIONS`. `getProcedureWaypoints` therefore concatenates all three groups (runway-transition,
+ * common and enroute-transition legs).
  */
+import { type RawBuffer } from 'node-simconnect'
+import { offsetBy } from '@shared/geo'
 
 export const enum NavdataDefId {
   RUNWAYS = 10,
@@ -39,22 +24,26 @@ export const enum NavdataDefId {
   ARRIVALS = 12,
   APPROACHES = 13,
   TAXI_POINTS = 14,
-  /** Two separate definitions for the same TAXI_PATH shape, filtered to different `TYPE`
-   *  values — a facility data definition's filter (`addFacilityDataDefinitionFilter`) matches
-   *  exactly one value, and which numeric `TYPE` is really "Taxi" vs "Path" is unconfirmed
-   *  (flightdeck-backend's docs/navdata-notes.md, 2026-09-28) — TYPE 1 and TYPE 4 are both
-   *  fetched and merged rather than guessing one. */
+  /** Two definitions for the same TAXI_PATH shape, filtered to different `TYPE` values: a filter matches exactly one
+   *  value, and which numeric `TYPE` is "Taxi" and which "Path" is unconfirmed (docs/navdata-notes.md), so TYPE 1 and
+   *  TYPE 4 are both fetched and merged. */
   TAXI_PATHS_TYPE_1 = 15,
   TAXI_PATHS_TYPE_4 = 16,
   TAXI_NAMES = 17,
   TAXI_PARKINGS = 18
 }
 
-/** 0/1/2/3 = none/L/R/C — confirmed against two real airports with known real layouts
- *  (EGLL: designators 1/2 only, no C; VHHH: 1/2/3, its real three-runway system) —
+/** 0/1/2/3 = none/L/R/C, confirmed against two airports with known layouts (EGLL: 1/2 only; VHHH: 1/2/3);
  *  docs/navdata-notes.md. */
 const RUNWAY_DESIGNATORS = ['', 'L', 'R', 'C'] as const
 
+/**
+ * A runway end's ident from SimConnect's number and designator.
+ *
+ * @param number Runway number, 1 to 36.
+ * @param designator 0 to 3: none, L, R, C.
+ * @returns The ident, e.g. '07L'.
+ */
 export function runwayIdent(number: number, designator: number): string {
   const suffix = RUNWAY_DESIGNATORS[designator] ?? ''
   return `${String(number).padStart(2, '0')}${suffix}`
@@ -64,11 +53,22 @@ export interface ParsedAirportHeader {
   icao: string
 }
 
+/**
+ * Registers the AIRPORT header with its ICAO only.
+ *
+ * @param addField Adds one field to the facility definition being built, in read order.
+ */
 export function addAirportIcaoField(addField: (name: string) => void): void {
   addField('OPEN AIRPORT')
   addField('ICAO')
 }
 
+/**
+ * Reads the header addAirportIcaoField registered.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The airport's ICAO.
+ */
 export function parseAirportHeader(d: RawBuffer): ParsedAirportHeader {
   return { icao: d.readString8() }
 }
@@ -84,7 +84,10 @@ export interface ParsedAirportHeaderWithLatLon {
  *  the reference point — so every request's AIRPORT record has an identical buffer layout,
  *  sidestepping the per-definition buffer-shape gotcha `fetchAirportNavdata`'s own comment
  *  describes. Only the TAXI_POINTS fetch actually uses the lat/lon (as the reference point for
- *  `biasToLatLon`). */
+ *  `biasToLatLon`).
+ *
+ * @param addField Adds one field to the facility definition being built, in read order.
+ */
 export function addAirportIcaoLatLonFields(addField: (name: string) => void): void {
   addField('OPEN AIRPORT')
   addField('ICAO')
@@ -92,6 +95,12 @@ export function addAirportIcaoLatLonFields(addField: (name: string) => void): vo
   addField('LONGITUDE')
 }
 
+/**
+ * Reads the header addAirportIcaoLatLonFields registered.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The ICAO and the airport's reference point, in degrees.
+ */
 export function parseAirportHeaderWithLatLon(d: RawBuffer): ParsedAirportHeaderWithLatLon {
   const icao = d.readString8()
   const latitude = d.readFloat64()
@@ -110,8 +119,22 @@ export interface ParsedRunway {
   surface: number
   primaryIdent: string
   secondaryIdent: string
+  /** The displaced part of the primary end's threshold, metres: the landing threshold is this far along from the pavement end. Null until
+   *  the nested PRIMARY_THRESHOLD record, a message of its own, has been read (see `addRunwayFields`). */
+  primaryDisplacedM?: number | null
+  /** The same for the secondary end. */
+  secondaryDisplacedM?: number | null
 }
 
+/**
+ * Registers the RUNWAY records: position, heading, size, surface, both ends' idents and each end's displaced threshold length.
+ *
+ * The thresholds are nested records, which the sim sends as separate PAVEMENT messages straight after their RUNWAY message, the primary
+ * end's first (live, 2026-10-17: winglog-backend's docs/navdata-notes.md): each holds one float32, `LENGTH`, the displaced part in metres.
+ * Bergen's strip is whole in the sim with 270 m at each end; Singapore's runways leave the displaced part out and read 0.
+ *
+ * @param addField Adds one field to the facility definition being built, in read order.
+ */
 export function addRunwayFields(addField: (name: string) => void): void {
   addField('N_RUNWAYS')
   addField('OPEN RUNWAY')
@@ -125,9 +148,30 @@ export function addRunwayFields(addField: (name: string) => void): void {
   addField('PRIMARY_DESIGNATOR')
   addField('SECONDARY_NUMBER')
   addField('SECONDARY_DESIGNATOR')
+  for (const threshold of ['PRIMARY_THRESHOLD', 'SECONDARY_THRESHOLD']) {
+    addField(`OPEN ${threshold}`)
+    addField('LENGTH')
+    addField(`CLOSE ${threshold}`)
+  }
   addField('CLOSE RUNWAY')
 }
 
+/**
+ * Reads one threshold record addRunwayFields registered.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The displaced part of the threshold, metres.
+ */
+export function parseThresholdLength(d: RawBuffer): number {
+  return d.readFloat32()
+}
+
+/**
+ * Reads one RUNWAY record addRunwayFields registered.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The runway, metres and degrees true.
+ */
 export function parseRunway(d: RawBuffer): ParsedRunway {
   const latitude = d.readFloat64()
   const longitude = d.readFloat64()
@@ -147,7 +191,9 @@ export function parseRunway(d: RawBuffer): ParsedRunway {
     widthM,
     surface,
     primaryIdent: runwayIdent(primaryNumber, primaryDesignator),
-    secondaryIdent: runwayIdent(secondaryNumber, secondaryDesignator)
+    secondaryIdent: runwayIdent(secondaryNumber, secondaryDesignator),
+    primaryDisplacedM: null,
+    secondaryDisplacedM: null
   }
 }
 
@@ -182,10 +228,9 @@ export interface ParsedLeg {
   altitude1: number
   altitude2: number
   speedLimit: number
-  /** ROUTE_DISTANCE, metres. Only meaningful for distance-terminated legs — FC (type 9) and
-   *  FD (type 10) — where `fixIdent` is the navaid the leg is anchored to and this is how far
-   *  along `courseDeg` it runs (confirmed live 2026-09-18: EGLL's LAM transition FC leg reads
-   *  20372 m = 11.0 nm, the FMC's "LAM/11"). 0 for every other leg type. */
+  /** ROUTE_DISTANCE, metres. Only meaningful for distance-terminated legs, FC (type 9) and FD (type 10), where
+   *  `fixIdent` is the navaid the leg is anchored to and this is how far along `courseDeg` it runs (EGLL's LAM
+   *  transition FC leg: 20372 m = 11.0 nm, the FMC's "LAM/11"). 0 for every other leg type. */
   routeDistanceM: number
 }
 
@@ -193,7 +238,10 @@ const FIX_TYPE_CODES: Record<number, ParsedLeg['fixType']> = { 87: 'W', 86: 'V',
 
 /** Shared field list — identical layout for every leg-bearing struct (APPROACH_LEG,
  *  FINAL_APPROACH_LEG, MISSED_APPROACH_LEG all share it per the MSFS 2024 SDK reference;
- *  only APPROACH_LEG is actually registered here, see the module doc comment). */
+ *  only APPROACH_LEG is actually registered here, see the module doc comment).
+ *
+ * @param addField Adds one field to the facility definition being built, in read order.
+ */
 export function addLegFields(addField: (name: string) => void): void {
   addField('TYPE')
   addField('FIX_ICAO')
@@ -208,6 +256,12 @@ export function addLegFields(addField: (name: string) => void): void {
   addField('ROUTE_DISTANCE')
 }
 
+/**
+ * Reads one leg addLegFields registered.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The leg.
+ */
 export function parseLeg(d: RawBuffer): ParsedLeg {
   const type = d.readInt32()
   const fixIcaoRaw = d.readString8()
@@ -237,7 +291,12 @@ export function parseLeg(d: RawBuffer): ParsedLeg {
 
 /** Builds the full DEPARTURE/ARRIVAL facility definition on `defId` — the airport header,
  *  the procedure header, runway/enroute transition summaries, and the procedure's own
- *  common leg list. Reused for both kinds, since DEPARTURE/ARRIVAL share the same shape. */
+ *  common leg list. Reused for both kinds, since DEPARTURE/ARRIVAL share the same shape.
+ *
+ * @param addField Adds one field to a definition, in read order.
+ * @param defId The definition to build.
+ * @param kind Departures (SIDs) or arrivals (STARs).
+ */
 export function addProcedureTreeDefinition(
   addField: (defId: NavdataDefId, name: string) => void,
   defId: NavdataDefId,
@@ -274,6 +333,12 @@ export function addProcedureTreeDefinition(
   add('CLOSE AIRPORT')
 }
 
+/**
+ * Reads a SID or STAR header addProcedureTreeDefinition registered.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The procedure's name and how many transitions and legs follow.
+ */
 export function parseProcedureHeader(d: RawBuffer): ParsedProcedureHeader {
   return {
     name: d.readString8(),
@@ -283,6 +348,12 @@ export function parseProcedureHeader(d: RawBuffer): ParsedProcedureHeader {
   }
 }
 
+/**
+ * Reads one RUNWAY_TRANSITION header.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The runway and how many legs follow.
+ */
 export function parseRunwayTransition(d: RawBuffer): ParsedRunwayTransition {
   const runwayNumber = d.readInt32()
   const runwayDesignator = d.readInt32()
@@ -290,29 +361,39 @@ export function parseRunwayTransition(d: RawBuffer): ParsedRunwayTransition {
   return { runwayIdent: runwayIdent(runwayNumber, runwayDesignator), nApproachLegs }
 }
 
+/**
+ * Reads one ENROUTE_TRANSITION header.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The transition's name and how many legs follow.
+ */
 export function parseEnrouteTransition(d: RawBuffer): ParsedEnrouteTransition {
   return { name: d.readString8(), nApproachLegs: d.readInt32() }
 }
 
-/** `APPROACH.TYPE`'s raw integer, mapped with confidence — cross-validated against real
- *  EGLL/VHHH approach counts rather than an authoritative SDK table (none found), 2026-09-08
- *  (flightdeck-backend's docs/navdata-notes.md): every runway end at both airports had
- *  exactly one `type=4` and, where present, exactly one `type=5`, matching real published
- *  ILS + LOC-only-backup pairs; `type=10` was the only one ever duplicated per runway,
- *  matching real "RNP Y"/"RNP Z" pairs (confirmed via SUFFIX on VHHH 07R's two `type=10`
- *  approaches). An unrecognized code falls back to its own raw number rather than a made-up
- *  label — better to show "TYPE 7" than silently mislabel something as ILS. */
+/** `APPROACH.TYPE`'s raw integer, mapped by cross-validating real EGLL/VHHH approach counts (no authoritative SDK
+ *  table exists; navdata-notes.md): every runway end had exactly one `type=4` and, where present, one `type=5` (ILS +
+ *  LOC-only backup pairs); `type=10` was the only type duplicated per runway ("RNP Y"/"RNP Z", told apart by SUFFIX).
+ *  An unrecognized code falls back to its raw number: better "TYPE 7" than silently mislabelling it ILS. */
 const APPROACH_TYPE_LABELS: Record<number, string> = { 4: 'ILS', 5: 'LOC', 10: 'RNAV' }
 
+/**
+ * The approach type's name, from APPROACH_TYPE_LABELS.
+ *
+ * @param type APPROACH.TYPE's raw value.
+ * @returns 'ILS', 'LOC', 'RNAV', or 'TYPE n' for anything else.
+ */
 function approachTypeLabel(type: number): string {
   return APPROACH_TYPE_LABELS[type] ?? `TYPE ${type}`
 }
 
-/** `APPROACH.SUFFIX`'s raw integer is the ASCII code of the approach's letter suffix (or
- *  '0' for none) — confirmed clean 2026-09-08: 32/40 approaches seen had no suffix, the rest
- *  were 'Y'/'Z'. Falls back to the raw character for anything outside that observed set
- *  rather than assuming — the encoding itself (ASCII code of a single char) is confirmed,
- *  just not every value it can take. */
+/** `APPROACH.SUFFIX`'s raw integer is the ASCII code of the approach's letter suffix ('0' for none); 32 of the 40
+ *  approaches seen had none, the rest 'Y' or 'Z'. Falls back to the raw character for anything outside that observed
+ *  set.
+ *
+ * @param suffixCode APPROACH.SUFFIX's raw value.
+ * @returns The letter, or '' for none.
+ */
 function suffixLetter(suffixCode: number): string {
   if (suffixCode === 0 || suffixCode === 48) return ''
   return String.fromCharCode(suffixCode)
@@ -329,6 +410,11 @@ export interface ParsedApproachHeader {
   nMissedApproachLegs: number
 }
 
+/**
+ * Registers the APPROACHES definition: each approach's header, its transitions and its final legs.
+ *
+ * @param addField Adds one field to the APPROACHES definition, in read order.
+ */
 export function addApproachTreeDefinition(addField: (defId: NavdataDefId, name: string) => void): void {
   const defId = NavdataDefId.APPROACHES
   const add = (name: string): void => addField(defId, name)
@@ -357,6 +443,12 @@ export function addApproachTreeDefinition(addField: (defId: NavdataDefId, name: 
   add('CLOSE AIRPORT')
 }
 
+/**
+ * Reads one APPROACH header addApproachTreeDefinition registered.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The approach, named as a chart would ("ILS Z 07R"), and how many transitions and legs follow.
+ */
 export function parseApproachHeader(d: RawBuffer): ParsedApproachHeader {
   const type = d.readInt32()
   const suffixCode = d.readInt32()
@@ -380,31 +472,29 @@ export function parseApproachHeader(d: RawBuffer): ParsedApproachHeader {
  *  rather than a duplicate parser. `parseEnrouteTransition`'s name is generic on purpose. */
 export const parseApproachTransition = parseEnrouteTransition
 
-/** Metres per degree of latitude, WGS84 mean — confirmed accurate enough for this app's
- *  purpose (a reference overlay, not navigation-grade positioning) live 2026-09-28: converting
- *  EGKB's real runway 03/21 threshold points this way and comparing against the runway's own
- *  real HEADING/LENGTH gave a bearing within 0.2° and a distance within 5m over a ~1.8km
- *  baseline (flightdeck-backend's docs/navdata-notes.md). */
-const METRES_PER_DEGREE_LATITUDE = 111_320
-
-/** `TAXI_POINT`'s `BIAS_X`/`BIAS_Z` are metre offsets from the airport's own reference point —
- *  no LATITUDE/LONGITUDE of their own. Axis convention confirmed live 2026-09-28: `BIAS_X` =
- *  metres east, `BIAS_Z` = metres north, true-north aligned, plain flat local tangent plane —
- *  no rotation or magnetic-variance correction needed (docs/navdata-notes.md). */
+/** `TAXI_POINT`'s `BIAS_X`/`BIAS_Z` are metre offsets from the airport's reference point, with no LATITUDE/LONGITUDE of
+ *  their own: `BIAS_X` = metres east, `BIAS_Z` = metres north, true-north aligned on a flat local tangent plane, so no
+ *  rotation or magnetic-variance correction is needed (docs/navdata-notes.md).
+ *
+ * @param refLatitude The airport's reference point, degrees.
+ * @param refLongitude The airport's reference point, degrees.
+ * @param biasX Metres east of it.
+ * @param biasZ Metres north of it.
+ * @returns The point, in degrees.
+ */
 export function biasToLatLon(
   refLatitude: number,
   refLongitude: number,
   biasX: number,
   biasZ: number
 ): { latitude: number; longitude: number } {
-  const latitude = refLatitude + biasZ / METRES_PER_DEGREE_LATITUDE
-  const longitude = refLongitude + biasX / (METRES_PER_DEGREE_LATITUDE * Math.cos((refLatitude * Math.PI) / 180))
-  return { latitude, longitude }
+  const { lat, lon } = offsetBy({ lat: refLatitude, lon: refLongitude }, biasX, biasZ)
+  return { latitude: lat, longitude: lon }
 }
 
 /** TAXI_POINT `TYPE` values that mark a hold-short line, per the SDK reference's own enum
  *  (2 HOLD_SHORT, 4 ILS_HOLD_SHORT, 5 HOLD_SHORT_NO_DRAW, 6 ILS_HOLD_SHORT_NO_DRAW). Only 5
- *  has been seen live so far (VHHH, 63 of 4,434 points, 2026-09-30). */
+ * has been seen live so far (VHHH, 63 of 4,434 points). */
 const HOLD_SHORT_TYPES = new Set([2, 4, 5, 6])
 
 export interface ParsedTaxiPoint {
@@ -413,12 +503,23 @@ export interface ParsedTaxiPoint {
   biasZ: number
 }
 
+/**
+ * Registers the TAXI_POINT records: type and offset from the airport's reference point.
+ *
+ * @param addField Adds one field to the facility definition being built, in read order.
+ */
 export function addTaxiPointFields(addField: (name: string) => void): void {
   addField('TYPE')
   addField('BIAS_X')
   addField('BIAS_Z')
 }
 
+/**
+ * Reads one TAXI_POINT record.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The point's type and offset, in metres.
+ */
 export function parseTaxiPoint(d: RawBuffer): ParsedTaxiPoint {
   const type = d.readInt32()
   const biasX = d.readFloat32()
@@ -428,17 +529,22 @@ export function parseTaxiPoint(d: RawBuffer): ParsedTaxiPoint {
 
 export interface ParsedTaxiPath {
   type: number
-  /** Index into the airport's TAXI_POINT list (docs/navdata-notes.md, 2026-09-28: confirmed
+  /** Index into the airport's TAXI_POINT list (docs/navdata-notes.md: confirmed
    *  this indexes the *unfiltered* point list — TAXI_POINT itself is never filtered, exactly
    *  because filtering it would desync these indices). */
   start: number
   end: number
   /** Index into the airport's TAXI_NAME list, or `null` for index 0 — confirmed live
-   *  2026-09-28 to be the real "no name" sentinel, not a missing/error case
+   * to be the real "no name" sentinel, not a missing/error case
    *  (docs/navdata-notes.md). */
   nameIndex: number | null
 }
 
+/**
+ * Registers the TAXI_PATH records: the two points each joins, its type and its name index.
+ *
+ * @param addField Adds one field to the facility definition being built, in read order.
+ */
 export function addTaxiPathFields(addField: (name: string) => void): void {
   addField('TYPE')
   addField('START')
@@ -446,6 +552,12 @@ export function addTaxiPathFields(addField: (name: string) => void): void {
   addField('NAME_INDEX')
 }
 
+/**
+ * Reads one TAXI_PATH record.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The path.
+ */
 export function parseTaxiPath(d: RawBuffer): ParsedTaxiPath {
   const type = d.readInt32()
   const start = d.readInt32()
@@ -458,16 +570,27 @@ export interface ParsedTaxiName {
   name: string
 }
 
+/**
+ * Registers the TAXI_NAME records: the taxiway names TAXI_PATH's name index points into.
+ *
+ * @param addField Adds one field to the facility definition being built, in read order.
+ */
 export function addTaxiNameFields(addField: (name: string) => void): void {
   addField('NAME')
 }
 
+/**
+ * Reads one TAXI_NAME record.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The name.
+ */
 export function parseTaxiName(d: RawBuffer): ParsedTaxiName {
   return { name: d.readString8() }
 }
 
-/** One TAXI_PARKING record (stands/gates) — every field confirmed live 2026-10-02
- *  (flightdeck-backend's docs/navdata-notes.md, "TAXI_PARKING"): positions are BIAS_X/BIAS_Z
+/** One TAXI_PARKING record (stands/gates) — every field confirmed live
+ *  (winglog-backend's docs/navdata-notes.md, "TAXI_PARKING"): positions are BIAS_X/BIAS_Z
  *  like TAXI_POINT's, within 13-15 m of where a real flight parked at VHHH N32 / YBBN gate 79. */
 export interface ParsedTaxiParking {
   /** SDK NAME enum: 0 NONE, 1 PARKING, 2-9 N..NW_PARKING, 10 GATE, 11 DOCK, 12-37 GATE_A..Z. */
@@ -481,6 +604,11 @@ export interface ParsedTaxiParking {
   biasZ: number
 }
 
+/**
+ * Registers the TAXI_PARKING records (stands and gates).
+ *
+ * @param addField Adds one field to the facility definition being built, in read order.
+ */
 export function addTaxiParkingFields(addField: (name: string) => void): void {
   addField('NAME')
   addField('SUFFIX')
@@ -490,6 +618,12 @@ export function addTaxiParkingFields(addField: (name: string) => void): void {
   addField('BIAS_Z')
 }
 
+/**
+ * Reads one TAXI_PARKING record.
+ *
+ * @param d The record buffer, positioned at this record.
+ * @returns The stand.
+ */
 export function parseTaxiParking(d: RawBuffer): ParsedTaxiParking {
   const nameCode = d.readInt32()
   const suffix = d.readInt32()
@@ -502,7 +636,12 @@ export function parseTaxiParking(d: RawBuffer): ParsedTaxiParking {
 
 /** The stand's name as ATC says it: GATE_N 32 → "N32" (BeyondATC's "Stand N32", VHHH), and
  *  every other NAME (GATE, PARKING, a compass-point PARKING, DOCK) just the number — "Gate 79"
- *  at YBBN is NAME GATE, NUMBER 79. */
+ *  at YBBN is NAME GATE, NUMBER 79.
+ *
+ * @param nameCode TAXI_PARKING's NAME value.
+ * @param number TAXI_PARKING's NUMBER.
+ * @returns The stand as ATC says it, e.g. 'N32' or '79'.
+ */
 export function standLabel(nameCode: number, number: number): string {
   const letter = nameCode >= 12 && nameCode <= 37 ? String.fromCharCode(65 + nameCode - 12) : ''
   return `${letter}${number}`

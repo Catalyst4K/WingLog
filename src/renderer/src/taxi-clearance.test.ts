@@ -1,0 +1,160 @@
+import type { NavdataTaxiSegment } from '@shared/ipc'
+import { describe, expect, it } from 'vitest'
+import { boxTaxiClearance, clearanceAirport, startOf, traceClearance } from './taxi-clearance'
+
+describe('boxTaxiClearance', () => {
+  it('reads a departure clearance to a holding point (real VHHH boxes, 2026-10-05)', () => {
+    expect(
+      boxTaxiClearance([
+        { title: 'Taxi to Runway', info: '07R' },
+        ...['B', 'B', 'V', 'H', 'J'].map((info, i) => ({ title: `Taxi Via ${i + 1}`, info })),
+        { title: 'Hold Position', info: 'J1' }
+      ])
+    ).toEqual({
+      taxiways: ['B', 'B', 'V', 'H', 'J'],
+      holdingPoint: 'J1',
+      stand: null,
+      holdShortRunway: null,
+      taxiToRunway: '07R'
+    })
+  })
+
+  it('reads an arrival clearance to a gate (real ZJSY boxes, 2026-10-05)', () => {
+    expect(
+      boxTaxiClearance([
+        { title: 'Taxi to Gate', info: 'Gate 102' },
+        { title: 'Taxi Via 1', info: 'A4' },
+        { title: 'Taxi Via 2', info: 'D' }
+      ])
+    ).toEqual({
+      taxiways: ['A4', 'D'],
+      holdingPoint: null,
+      stand: '102',
+      holdShortRunway: null,
+      taxiToRunway: null
+    })
+  })
+
+  it('treats a Hold Position naming a runway as a hold short, not a holding point', () => {
+    expect(
+      boxTaxiClearance([
+        { title: 'Taxi Via 1', info: 'C7' },
+        { title: 'Hold Position', info: '07C' }
+      ])
+    ).toMatchObject({ holdingPoint: null, holdShortRunway: '07C' })
+  })
+
+  it('reads the first half of a runway crossing from the Hold Short box alone, with no speech (real EGLL boxes, flight 239, 2026-10-15)', () => {
+    // Before this the clearance had no end: it was taken for the arrival's, drawn nowhere, and only the spoken "hold short" (which the
+    // phone never gets) made the desktop's line appear.
+    expect(
+      boxTaxiClearance([
+        { title: 'Taxi to Runway', info: '27R' },
+        { title: 'Taxi Via 1', info: 'LINK 44' },
+        { title: 'Taxi Via 2', info: 'T' },
+        { title: 'Taxi Via 3', info: 'S' },
+        { title: 'Hold Short', info: '27L' }
+      ])
+    ).toEqual({
+      taxiways: ['LINK 44', 'T', 'S'],
+      holdingPoint: null,
+      stand: null,
+      holdShortRunway: '27L',
+      taxiToRunway: '27R'
+    })
+  })
+
+  it('is null when the boxes hold no taxi route', () => {
+    expect(boxTaxiClearance([{ title: 'Expect Gate', info: 'Gate 102' }])).toBeNull()
+    expect(boxTaxiClearance([])).toBeNull()
+  })
+})
+
+describe('startOf', () => {
+  it('starts from the aircraft, whichever way it faces', () => {
+    expect(startOf({ lat: 22.3089, lon: 113.9146 })).toEqual({ from: { lat: 22.3089, lon: 113.9146 } })
+    expect(startOf(null)).toEqual({ from: null })
+  })
+})
+
+describe('clearanceAirport', () => {
+  const clearance = {
+    taxiways: ['C7'],
+    holdingPoint: null,
+    stand: null,
+    holdShortRunway: null,
+    taxiToRunway: null,
+    from: { lat: 22.31, lon: 113.91 }
+  }
+  const segment = (lat: number, lon: number) =>
+    ({
+      startLat: lat,
+      startLon: lon,
+      endLat: lat,
+      endLon: lon,
+      name: 'C7',
+      startHoldShort: false,
+      endHoldShort: false
+    }) as never
+  const networks = { VHHH: [segment(22.31, 113.91)], ZJSY: [segment(18.3, 109.4)] }
+
+  it('puts a holding point at the departure and a stand at the arrival', () => {
+    expect(clearanceAirport({ ...clearance, holdingPoint: 'J1' }, 'VHHH', 'ZJSY', networks)).toBe('VHHH')
+    expect(clearanceAirport({ ...clearance, stand: '102' }, 'VHHH', 'ZJSY', networks)).toBe('ZJSY')
+  })
+
+  it('puts a hold short at whichever airport is nearest the aircraft', () => {
+    expect(clearanceAirport({ ...clearance, holdShortRunway: '07C' }, 'ZJSY', 'VHHH', networks)).toBe('VHHH')
+    expect(clearanceAirport({ ...clearance, holdShortRunway: '07C' }, 'VHHH', 'ZJSY', networks)).toBe('VHHH')
+    expect(clearanceAirport({ ...clearance, holdShortRunway: '07C' }, 'VHHH', 'ZJSY', {})).toBe('ZJSY')
+  })
+})
+
+describe('traceClearance', () => {
+  it('traces nothing before the aircraft position is known', () => {
+    expect(
+      traceClearance(
+        {
+          taxiways: ['A'],
+          holdingPoint: 'A1',
+          stand: null,
+          holdShortRunway: null,
+          taxiToRunway: null,
+          from: null
+        },
+        [],
+        null
+      )
+    ).toBeNull()
+  })
+
+  it('traces from the first taxiway when the aircraft is already past the clearance start (EGCC 2026-10-18)', () => {
+    const seg = (a: [number, number], b: [number, number], name: string): NavdataTaxiSegment => ({
+      startLat: a[0],
+      startLon: a[1],
+      endLat: b[0],
+      endLon: b[1],
+      name,
+      startHoldShort: false,
+      endHoldShort: false
+    })
+    const segments = [
+      seg([53.344, -2.284], [53.349, -2.28], 'VC'),
+      seg([53.349, -2.28], [53.35, -2.279], 'V'),
+      seg([53.35, -2.279], [53.353, -2.2815], 'A')
+    ]
+    const route = traceClearance(
+      {
+        taxiways: ['VC', 'V', 'A'],
+        holdingPoint: null,
+        stand: null,
+        holdShortRunway: null,
+        taxiToRunway: null,
+        from: { lat: 53.353, lon: -2.2815 }
+      },
+      segments,
+      null
+    )
+    expect(route?.[0]).toEqual([-2.284, 53.344])
+  })
+})

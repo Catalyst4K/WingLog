@@ -28,8 +28,8 @@ describe('parseUsdAmount', () => {
     expect(parseUsdAmount('')).toBeNull()
   })
 
-  // Real strings from a KJFK flight (flightdeck-backend's flight-replay-harness.md,
-  // 2026-09-14) — GSX shows no "~" conversion at all when its own currency setting is
+  // Real strings from a KJFK flight (winglog-backend's flight-replay-harness.md)
+  // — GSX shows no "~" conversion at all when its own currency setting is
   // already USD, unlike every other sample above.
   it('parses a US-airport receipt with no currency conversion (no tilde at all)', () => {
     expect(parseUsdAmount('$ 3,939.86')).toBe(3939.86)

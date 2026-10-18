@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { NavdataLeg } from '@shared/ipc'
 import {
   applyProcedureSelection,
+  approachConnectingToStar,
   approachRunway,
   formatEnrouteOnly,
   parseRouteFromOfpJson,
@@ -10,6 +11,7 @@ import {
   parseWaypointsFromOfpJson,
   type ProcedureLegs,
   segmentWaypoints,
+  VECTORS_TRANSITION,
   type Waypoint
 } from './route'
 
@@ -130,7 +132,7 @@ describe('parseRouteProcedures', () => {
 })
 
 describe('parseTransitionAltitudes', () => {
-  // Real VHHH round trip's OFP fields, confirmed live (docs/simbrief-notes.md, 2026-09-13):
+  // Real VHHH round trip's OFP fields, confirmed live:
   // zero-padded strings, not plain numbers.
   it('reads real zero-padded trans_alt/trans_level strings', () => {
     expect(
@@ -141,8 +143,12 @@ describe('parseTransitionAltitudes', () => {
   })
 
   it('returns null when either field is missing, guarding the {}-when-absent trap', () => {
-    expect(parseTransitionAltitudes(JSON.stringify({ origin: {}, destination: { trans_level: '11000' } }))).toBeNull()
-    expect(parseTransitionAltitudes(JSON.stringify({ origin: { trans_alt: '09000' }, destination: {} }))).toBeNull()
+    expect(
+      parseTransitionAltitudes(JSON.stringify({ origin: {}, destination: { trans_level: '11000' } }))
+    ).toBeNull()
+    expect(
+      parseTransitionAltitudes(JSON.stringify({ origin: { trans_alt: '09000' }, destination: {} }))
+    ).toBeNull()
   })
 
   it('returns null for missing sections/null input', () => {
@@ -351,9 +357,19 @@ describe('applyProcedureSelection', () => {
   })
 
   it('plots an FC leg as its navaid plus the computed distance endpoint, labelled like the FMC (LAM → LAM/11)', () => {
-    // EGLL ILS 27R, LAM transition — real values confirmed live 2026-09-18.
-    const lam = leg('LAM', 0, { type: 9, fixType: 'V', fixLatitude: 51.646, fixLongitude: 0.1517, courseDeg: 272, routeDistanceM: 20372 })
-    const result = applyProcedureSelection(baseWaypoints, null, null, { identifier: 'ILS 27R', legs: [lam, leg('D125O')] })
+    // EGLL ILS 27R, LAM transition — real values confirmed live.
+    const lam = leg('LAM', 0, {
+      type: 9,
+      fixType: 'V',
+      fixLatitude: 51.646,
+      fixLongitude: 0.1517,
+      courseDeg: 272,
+      routeDistanceM: 20372
+    })
+    const result = applyProcedureSelection(baseWaypoints, null, null, {
+      identifier: 'ILS 27R',
+      legs: [lam, leg('D125O')]
+    })
     const idents = result.map((w) => w.ident)
     expect(idents.slice(-3)).toEqual(['LAM', 'LAM/11', 'D125O'])
     const end = result.find((w) => w.ident === 'LAM/11')!
@@ -481,7 +497,9 @@ describe('applyProcedureSelection', () => {
     const altApproach = { identifier: 'ILS 09', legs: [leg('ALTFAF', 2000)] }
 
     it("drops the filed destination's STAR and follows the enroute with the alternate's STAR and approach", () => {
-      const result = applyProcedureSelection(baseWaypoints, null, altStar, altApproach, { alternateArrival: true })
+      const result = applyProcedureSelection(baseWaypoints, null, altStar, altApproach, {
+        alternateArrival: true
+      })
       expect(result.map((w) => w.ident)).toEqual([
         'SIMBRIEF_SID',
         'ENR1',
@@ -503,12 +521,16 @@ describe('applyProcedureSelection', () => {
     })
 
     it('still drops the destination STAR when no alternate STAR is chosen yet', () => {
-      const result = applyProcedureSelection(baseWaypoints, null, null, altApproach, { alternateArrival: true })
+      const result = applyProcedureSelection(baseWaypoints, null, null, altApproach, {
+        alternateArrival: true
+      })
       expect(result.map((w) => w.ident)).toEqual(['SIMBRIEF_SID', 'ENR1', 'ENR2', 'ALTFAF'])
     })
 
     it('leaves the filed route alone when the flag is off', () => {
-      expect(applyProcedureSelection(baseWaypoints, null, null, null, { alternateArrival: false })).toEqual(baseWaypoints)
+      expect(applyProcedureSelection(baseWaypoints, null, null, null, { alternateArrival: false })).toEqual(
+        baseWaypoints
+      )
     })
   })
 })
@@ -521,5 +543,74 @@ describe('approachRunway', () => {
 
   it('returns null for null input', () => {
     expect(approachRunway(null)).toBeNull()
+  })
+})
+
+describe('approachConnectingToStar', () => {
+  // ZJSY 08: UPRS2C ends at SY498, which only ILS Z 08 starts from (docs/navdata-notes.md).
+  const options = [
+    { identifier: 'ILS X 08', transition: 'SY400' },
+    { identifier: 'ILS Z 08', transition: 'SY498' },
+    { identifier: 'LOC Z 08', transition: 'SY498' },
+    { identifier: 'ILS 26', transition: 'SY600' }
+  ]
+
+  it("swaps an approach the STAR does not lead into for the one it does, with the STAR's last fix as its transition", () => {
+    expect(
+      approachConnectingToStar(
+        options,
+        { approachIdent: 'ILS X 08', approachTransition: null },
+        '08',
+        'SY498'
+      )
+    ).toEqual({ approachIdent: 'ILS Z 08', approachTransition: 'SY498' })
+  })
+
+  it('leaves it alone when the approach already connects, or when no approach for the runway does', () => {
+    expect(
+      approachConnectingToStar(
+        options,
+        { approachIdent: 'ILS Z 08', approachTransition: null },
+        '08',
+        'SY498'
+      )
+    ).toBeNull()
+    expect(
+      approachConnectingToStar(
+        options,
+        { approachIdent: 'ILS X 08', approachTransition: null },
+        '08',
+        'NOWHERE'
+      )
+    ).toBeNull()
+    expect(
+      approachConnectingToStar(options, { approachIdent: 'ILS X 08', approachTransition: null }, '08', null)
+    ).toBeNull()
+  })
+
+  it('chooses an approach when none is selected, keeping the current transition when the new approach has it', () => {
+    expect(
+      approachConnectingToStar(options, { approachIdent: null, approachTransition: null }, '08', 'SY498')
+    ).toEqual({ approachIdent: 'ILS Z 08', approachTransition: 'SY498' })
+    expect(
+      approachConnectingToStar(options, { approachIdent: 'ILS 26', approachTransition: 'SY400' }, '08', null)
+    ).toEqual({ approachIdent: 'ILS X 08', approachTransition: 'SY400' })
+  })
+
+  it("leaves an approach alone when vectors were chosen for it, even though another approach starts at the STAR's last fix", () => {
+    expect(
+      approachConnectingToStar(
+        options,
+        { approachIdent: 'ILS X 08', approachTransition: VECTORS_TRANSITION },
+        '08',
+        'SY498'
+      )
+    ).toBeNull()
+  })
+
+  it('has no answer when the runway has no approach', () => {
+    expect(
+      approachConnectingToStar(options, { approachIdent: null, approachTransition: null }, '17', 'SY498')
+    ).toBeNull()
   })
 })

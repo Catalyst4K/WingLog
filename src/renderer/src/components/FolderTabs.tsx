@@ -1,3 +1,5 @@
+/** Folder-style tabs: shadcn's Tabs, restyled. */
+
 import * as React from 'react'
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -5,8 +7,7 @@ import { cn } from '@/lib/utils'
 
 /**
  * Folder-style tabs — the tab strip sits directly on top of the content it switches, and the
- * active tab joins that content's top border (beta feedback 2026-09-18, flightdeck-backend
- * docs/plans/beta-ui-polish.md §2). A thin wrapper over the same Radix `Tabs` the rest of the
+ * active tab joins that content's top border (winglog-backend docs/plans/beta-ui-polish.md §2). A thin wrapper over the same Radix `Tabs` the rest of the
  * app uses, so keyboard navigation and ARIA come for free; `components/ui/tabs.tsx` is
  * vendored shadcn and stays untouched. One tab pattern app-wide: Logbook's Flights/Landings
  * uses it, and Fleet's Retired table should too.
@@ -14,7 +15,16 @@ import { cn } from '@/lib/utils'
 export const FolderTabs = Tabs
 export const FolderTabsContent = TabsContent
 
-export function FolderTabsList({ className, ...props }: React.ComponentProps<typeof TabsList>): React.JSX.Element {
+/**
+ * The row of folder tabs.
+ *
+ * @param props TabsList's props.
+ * @returns The element.
+ */
+export function FolderTabsList({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsList>): React.JSX.Element {
   return (
     <TabsList
       variant="line"
@@ -24,7 +34,16 @@ export function FolderTabsList({ className, ...props }: React.ComponentProps<typ
   )
 }
 
-export function FolderTabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsTrigger>): React.JSX.Element {
+/**
+ * One folder tab.
+ *
+ * @param props TabsTrigger's props.
+ * @returns The element.
+ */
+export function FolderTabsTrigger({
+  className,
+  ...props
+}: React.ComponentProps<typeof TabsTrigger>): React.JSX.Element {
   return (
     <TabsTrigger
       className={cn(

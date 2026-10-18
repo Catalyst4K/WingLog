@@ -23,7 +23,7 @@ directly to this error before it was found. See the script's own comment for the
 evidence trail.
 
 Used by src/main/airports/runway-lookup.ts (landing analysis, PLAN.md M6; Phase 1 of
-flightdeck-backend's docs/plans/navdata-without-navigraph.md) to resolve a touchdown
+winglog-backend's docs/plans/navdata-without-navigraph.md) to resolve a touchdown
 position/heading to the nearest matching runway end, using each end's own real
 width/length for matching tolerance rather than a fixed stand-in, report distance from the
 real (displacement-adjusted) landing threshold, and derive an ICAO Annex 14 aiming-point

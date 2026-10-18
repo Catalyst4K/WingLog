@@ -3,7 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const { startCatching, functions, transports } = vi.hoisted(() => ({
   startCatching: vi.fn(),
   functions: { log: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-  transports: { file: { level: undefined as string | undefined }, console: { level: undefined as string | undefined } }
+  transports: {
+    file: { level: undefined as string | undefined },
+    console: { level: undefined as string | undefined }
+  }
 }))
 
 vi.mock('electron-log/main', () => ({

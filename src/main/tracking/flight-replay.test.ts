@@ -1,7 +1,7 @@
 /**
  * Replays a real captured flight fixture (scrubbed per CLAUDE.md's Security section — see
  * __fixtures__/short-hop-egll-egcc.ndjson's own header) through the real
- * TrackingController/FlightRecorder against a scratch DB. Closes flightdeck-backend's
+ * TrackingController/FlightRecorder against a scratch DB. Closes winglog-backend's
  * docs/plans/flight-replay-harness.md Phase 3: the permanent regression test a committed
  * fixture makes possible, following on from Phase 1's one-off spike cross-check against the
  * same underlying flight (EGLL -> EGCC, Fenix A320, pushback to shutdown).
@@ -21,6 +21,7 @@ import { getLandingByFlight, listLandingsByFlight } from '../db/landing-repo'
 import { listTrackPoints } from '../db/track-point-repo'
 import { ReplaySimConnectService } from '../sim/ReplaySimConnectService'
 import { TrackingController } from './TrackingController'
+import { dbFlightStore } from '../db/flight-store'
 
 function fixturePath(name: string): string {
   return new URL(`./__fixtures__/${name}`, import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')
@@ -29,73 +30,72 @@ function fixturePath(name: string): string {
 const FIXTURE_PATH = fixturePath('short-hop-egll-egcc.ndjson')
 
 describe('flight replay harness (real fixture)', () => {
-  it(
-    'replays a real captured EGLL -> EGCC flight through TrackingController end to end',
-    async () => {
-      const { db } = createDb(':memory:')
-      migrate(db, { migrationsFolder: 'drizzle' })
+  it('replays a real captured EGLL -> EGCC flight through TrackingController end to end', async () => {
+    const { db } = createDb(':memory:')
+    migrate(db, { migrationsFolder: 'drizzle' })
 
-      const replay = new ReplaySimConnectService(FIXTURE_PATH, { mode: 'instant' })
-      const aircraft = createAircraft(db, { registration: 'REPLAY', icaoType: replay.header.aircraftType })
-      const flight = createFlight(db, { aircraftId: aircraft.id, depIcao: 'EGLL', arrIcao: 'EGCC' })
+    const replay = new ReplaySimConnectService(FIXTURE_PATH, { mode: 'instant' })
+    const aircraft = createAircraft(db, { registration: 'REPLAY', icaoType: replay.header.aircraftType })
+    const flight = createFlight(db, { aircraftId: aircraft.id, depIcao: 'EGLL', arrIcao: 'EGCC' })
 
-      const controller = new TrackingController(db, replay)
+    const controller = new TrackingController(dbFlightStore(db), replay)
 
-      const completedFlightId = await new Promise<number>((resolve, reject) => {
-        controller.on('completed', resolve)
-        replay.on('replayComplete', () =>
-          reject(new Error('Fixture ended without TrackingController ever completing the flight'))
-        )
-        controller.start(flight.id)
-        replay.start()
-      })
+    const completedFlightId = await new Promise<number>((resolve, reject) => {
+      controller.on('completed', resolve)
+      replay.on('replayComplete', () =>
+        reject(new Error('Fixture ended without TrackingController ever completing the flight'))
+      )
+      controller.start(flight.id)
+      replay.start()
+    })
 
-      const finalFlight = getFlight(db, completedFlightId)
-      const points = listTrackPoints(db, completedFlightId)
-      const landing = getLandingByFlight(db, completedFlightId)
+    const finalFlight = getFlight(db, completedFlightId)
+    const points = listTrackPoints(db, completedFlightId)
+    const landing = getLandingByFlight(db, completedFlightId)
 
-      // Assertions deliberately don't depend on point density — under instant mode
-      // FlightRecorder.shouldRecord's wall-clock-based downsampling persists only the
-      // mandatory first track_point (Phase 1 finding, flight-replay-harness.md). What IS
-      // speed-independent (tick-count-driven, not wall-clock-driven): phase completion,
-      // OFF/ON detection, and the landing capture itself.
-      expect(finalFlight?.status).toBe('completed')
-      expect(finalFlight?.actualOutUtc).toBeTruthy()
-      expect(finalFlight?.actualOffUtc).toBeTruthy()
-      expect(finalFlight?.actualOnUtc).toBeTruthy()
-      expect(finalFlight?.actualInUtc).toBeTruthy()
-      const times = [
-        finalFlight?.actualOutUtc,
-        finalFlight?.actualOffUtc,
-        finalFlight?.actualOnUtc,
-        finalFlight?.actualInUtc
-      ].map((t) => new Date(t as string).getTime())
-      expect(times, 'OUT/OFF/ON/IN should be non-decreasing').toEqual([...times].sort((a, b) => a - b))
-      expect(points.length).toBeGreaterThan(0)
-      expect(landing).toBeDefined()
-      expect(landing?.runwayIdent).toBe('23R')
+    // Assertions deliberately don't depend on point density — under instant mode
+    // FlightRecorder.shouldRecord's wall-clock-based downsampling persists only the
+    // mandatory first track_point (Phase 1 finding, flight-replay-harness.md). What IS
+    // speed-independent (tick-count-driven, not wall-clock-driven): phase completion,
+    // OFF/ON detection, and the landing capture itself.
+    expect(finalFlight?.status).toBe('completed')
+    expect(finalFlight?.actualOutUtc).toBeTruthy()
+    expect(finalFlight?.actualOffUtc).toBeTruthy()
+    expect(finalFlight?.actualOnUtc).toBeTruthy()
+    expect(finalFlight?.actualInUtc).toBeTruthy()
+    const times = [
+      finalFlight?.actualOutUtc,
+      finalFlight?.actualOffUtc,
+      finalFlight?.actualOnUtc,
+      finalFlight?.actualInUtc
+    ].map((t) => new Date(t as string).getTime())
+    expect(times, 'OUT/OFF/ON/IN should be non-decreasing').toEqual([...times].sort((a, b) => a - b))
+    expect(points.length).toBeGreaterThan(0)
+    expect(landing).toBeDefined()
+    expect(landing?.runwayIdent).toBe('23R')
 
-      replay.stop()
-    },
-    60_000
-  )
+    replay.stop()
+  }, 60_000)
 })
 
 describe('flight replay harness (real fixture) — multiple landings', () => {
   it(
     'captures every real touchdown of a circuits flight, including the firm landing that ' +
-      'the old one-per-flight capture used to lose (flightdeck-backend docs/plans/multiple-landings.md)',
+      'the old one-per-flight capture used to lose (winglog-backend docs/plans/multiple-landings.md)',
     async () => {
       const { db } = createDb(':memory:')
       migrate(db, { migrationsFolder: 'drizzle' })
 
-      const replay = new ReplaySimConnectService(fixturePath('tier2-circuits-firm-landing-goaround-crash.ndjson'), {
-        mode: 'instant'
-      })
+      const replay = new ReplaySimConnectService(
+        fixturePath('tier2-circuits-firm-landing-goaround-crash.ndjson'),
+        {
+          mode: 'instant'
+        }
+      )
       const aircraft = createAircraft(db, { registration: 'REPLAY', icaoType: replay.header.aircraftType })
       const flight = createFlight(db, { aircraftId: aircraft.id, depIcao: 'VHHH', arrIcao: 'VHHH' })
 
-      const controller = new TrackingController(db, replay)
+      const controller = new TrackingController(dbFlightStore(db), replay)
 
       // This fixture ends with a real crash, not a normal shutdown (parking brake never
       // sets, engines never stop) — 'completed' never fires, only replayComplete. That
@@ -115,7 +115,7 @@ describe('flight replay harness (real fixture) — multiple landings', () => {
       expect(landings.map((l) => l.seq)).toEqual([1, 2, 3, 4])
 
       // The real finding this plan exists to fix: flight 198's deliberately firm landing
-      // (g-force 1.68, flight-replay-harness.md's 2026-09-14 entry) used to be overwritten
+      // (g-force 1.68, flight-replay-harness.md's entry) used to be overwritten
       // by an earlier accidental soft touchdown under the old one-row-per-flight capture.
       // It must now survive as its own row rather than being lost.
       const firmLanding = landings.find((l) => l.gForce > 1.5)
@@ -150,7 +150,7 @@ describe('flight replay harness (real fixture) — free flight tracking', () => 
       if (!firstTelemetry) throw new Error('fixture has no telemetry')
       const aircraft = createAircraft(db, { registration: 'G-TEST', icaoType: 'C172' })
 
-      const controller = new TrackingController(db, replay)
+      const controller = new TrackingController(dbFlightStore(db), replay)
 
       // Resolved from position, the same way the real "Start a free flight" dialog's
       // Departure field would — nothing was ever filed for this flight, the whole point of
@@ -159,7 +159,12 @@ describe('flight replay harness (real fixture) — free flight tracking', () => 
       const depIcao = nearestAirport(firstTelemetry.latitude, firstTelemetry.longitude, 15) ?? 'ZZZZ'
       expect(depIcao).toBe('VHHH')
 
-      const flightId = controller.startFree({ aircraftId: aircraft.id, depIcao, arrIcao: 'ZZZZ', flightNumber: null })
+      const flightId = controller.startFree({
+        aircraftId: aircraft.id,
+        depIcao,
+        arrIcao: 'ZZZZ',
+        flightNumber: null
+      })
 
       await new Promise<void>((resolve) => {
         replay.on('replayComplete', resolve)

@@ -73,10 +73,10 @@ describe('describeCategoryTolerance', () => {
   )
 
   it('describes bank and crab as symmetric ± bands around 0', () => {
-    expect(describeCategoryTolerance('bank', 0, 8, 'ft')).toBe('Ideal: 0° (wings level). Score reaches 0 at ±8°.')
-    expect(describeCategoryTolerance('crab', 0, 9, 'ft')).toBe(
-      'Ideal: 0°. Score reaches 0 at ±9°.'
+    expect(describeCategoryTolerance('bank', 0, 8, 'ft')).toBe(
+      'Ideal: 0° (wings level). Score reaches 0 at ±8°.'
     )
+    expect(describeCategoryTolerance('crab', 0, 9, 'ft')).toBe('Ideal: 0°. Score reaches 0 at ±9°.')
   })
 
   it(
@@ -92,7 +92,7 @@ describe('describeCategoryTolerance', () => {
 
   it('describes centreline offset in the chosen distance unit', () => {
     expect(describeCategoryTolerance('centrelineOffset', 0, 12.5, 'ft')).toBe(
-      'Ideal: on the centreline. Score reaches 0 at 41 ft off it — half this runway\'s real width.'
+      "Ideal: on the centreline. Score reaches 0 at 41 ft off it — half this runway's real width."
     )
   })
 

@@ -1,9 +1,11 @@
+/** The renderer's live data client: how views read the live topics main publishes. */
+
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { LiveCommand, LiveCommands, LiveTopic, LiveTopics } from '@shared/live'
 
 /**
  * How the remote-capable panels (BeyondATC, GSX Remote) read live state and send commands,
- * instead of calling `window.winglog` directly (flightdeck-backend's
+ * instead of calling `window.winglog` directly (winglog-backend's
  * docs/plans/live-data-seam.md, part C). Today the only implementation goes through
  * Electron's preload; v1.5's LAN viewer and a v2.x app talking to a sim-PC host will each
  * provide their own, and the panels won't change.
@@ -27,6 +29,7 @@ export const electronLiveClient: LiveClient = {
     const w = window.winglog
     const getters: Getters = {
       simConnectionStatus: w.getSimConnectionStatus,
+      storageStatus: w.getStorageStatus,
       gsxRemoteStatus: w.gsxRemoteGetStatus,
       gsxRemoteServices: w.gsxRemoteGetServices,
       gsxRemoteGate: w.gsxRemoteGetGateInfo,
@@ -42,6 +45,13 @@ export const electronLiveClient: LiveClient = {
     const getter = getters[topic]
     return getter ? getter() : Promise.resolve(undefined)
   },
+  /**
+   * Subscribes to one live topic through the matching preload listener.
+   *
+   * @param topic The topic.
+   * @param listener Called with each update.
+   * @returns A function that stops the subscription.
+   */
   subscribe(topic, listener) {
     const w = window.winglog
     const subscribers: Subscribers = {
@@ -49,6 +59,8 @@ export const electronLiveClient: LiveClient = {
       simConnectionStatus: w.onSimConnectionStatus,
       trackingPoint: w.onTrackingPoint,
       trackingPointsUpdated: w.onTrackingPointsUpdated,
+      procedureSelection: w.onProcedureSelection,
+      storageStatus: w.onStorageStatus,
       gsxRemoteStatus: w.onGsxRemoteStatus,
       gsxRemoteServices: w.onGsxRemoteServices,
       gsxRemoteGate: w.onGsxRemoteGate,
@@ -77,7 +89,8 @@ export const electronLiveClient: LiveClient = {
       'gsx.toggleMenu': () => w.gsxRemoteToggleMenu(),
       'gsx.submitPrompt': (gen, text) => w.gsxRemoteSubmitPrompt(gen, text),
       'gsx.cancelPrompt': (gen) => w.gsxRemoteCancelPrompt(gen),
-      'gsx.runCommand': (id) => w.gsxRemoteRunCommand(id)
+      'gsx.runCommand': (id) => w.gsxRemoteRunCommand(id),
+      'track.setProcedureSelection': (selection) => w.trackingSetProcedureSelection(selection)
     }
     return (commands[name] as (...a: LiveCommands[typeof name]) => Promise<void>)(...args)
   }
@@ -85,11 +98,22 @@ export const electronLiveClient: LiveClient = {
 
 export const LiveClientContext = createContext<LiveClient>(electronLiveClient)
 
+/**
+ * The live client: Electron's, unless a test provides another.
+ *
+ * @returns The client from context.
+ */
 export function useLiveClient(): LiveClient {
   return useContext(LiveClientContext)
 }
 
-/** A topic's current value, kept up to date: fetched on mount, then followed live. */
+/**
+ * A topic's current value, kept up to date: fetched on mount, then followed live.
+ *
+ * @param topic The topic.
+ * @param initial Its value until the first fetch returns.
+ * @returns The topic's current value.
+ */
 export function useLiveTopic<T extends LiveTopic>(topic: T, initial: LiveTopics[T]): LiveTopics[T] {
   const client = useLiveClient()
   const [value, setValue] = useState<LiveTopics[T]>(initial)

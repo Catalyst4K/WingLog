@@ -1,6 +1,11 @@
-/** Navigraph's four-point compass-star mark, as a plain inline SVG — same "just a
- *  component" pattern as the lucide-react icons used everywhere else, since this one
- *  isn't in that set. Colors are fixed (not theme-tokenized) to match the real mark. */
+/**
+ * Navigraph's four-point compass-star mark, as a plain inline SVG — same "just a
+ * component" pattern as the lucide-react icons used everywhere else, since this one
+ * isn't in that set. Colors are fixed (not theme-tokenized) to match the real mark.
+ *
+ * @param props Extra classes.
+ * @returns The element.
+ */
 export function NavigraphLogo(props: { className?: string }): React.JSX.Element {
   return (
     <svg viewBox="0 0 100 100" className={props.className} aria-hidden="true">

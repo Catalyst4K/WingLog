@@ -1,3 +1,7 @@
+/**
+ * The fleet's file formats: an aircraft as an export record, records as JSON or CSV text, and that text
+ * back into raw records. Pure, with no Electron or filesystem, so the formats test on their own.
+ */
 import type { Aircraft, DataFormat, NewAircraft } from '@shared/ipc'
 import { t } from '../i18n'
 import { parseCsvRows, toCsv } from './csv'
@@ -15,6 +19,12 @@ export const AIRCRAFT_EXPORT_COLUMNS = [
   'currentIcao'
 ] as const
 
+/**
+ * An aircraft's identity, without its id or history.
+ *
+ * @param a The aircraft.
+ * @returns The fields an export carries.
+ */
 export function toAircraftExportRecord(a: Aircraft): NewAircraft {
   return {
     registration: a.registration,
@@ -28,7 +38,13 @@ export function toAircraftExportRecord(a: Aircraft): NewAircraft {
   }
 }
 
-/** Pure — no Electron, no filesystem — so the formats are unit-testable on their own. */
+/**
+ * Pure — no Electron, no filesystem — so the formats are unit-testable on their own.
+ *
+ * @param records The aircraft.
+ * @param format JSON or CSV.
+ * @returns The file's text.
+ */
 export function serializeAircraft(records: NewAircraft[], format: DataFormat): string {
   if (format === 'json') return JSON.stringify(records, null, 2)
   const header = [...AIRCRAFT_EXPORT_COLUMNS]
@@ -41,6 +57,11 @@ export function serializeAircraft(records: NewAircraft[], format: DataFormat): s
  * IPC share one validator). A CSV blank cell is passed through as '' — `parseAircraftInput`
  * turns that into a cleared (null) field, same as a JSON null. Throws on text that isn't a
  * usable document at all (bad JSON, a CSV with no header), never on a single bad row.
+ *
+ * @param text The file's text.
+ * @param format JSON or CSV.
+ * @returns The raw records.
+ * @throws When the text isn't JSON, or the CSV has no header.
  */
 export function parseAircraftRecords(text: string, format: DataFormat): unknown[] {
   if (format === 'json') {

@@ -17,7 +17,6 @@ import {
   createHistoricalFlight,
   deleteFlight,
   finalizeFuelOut,
-  getActiveFlight,
   getFleetStats,
   getFlight,
   getLiveFlight,
@@ -26,6 +25,7 @@ import {
   linkAircraftToFlight,
   listCompletedFlights,
   listFlights,
+  listFlightSummaries,
   listFlightsByAircraft,
   listLastParkedByAircraft,
   recordOff,
@@ -58,7 +58,8 @@ function newLandingFixture(flightId: number): NewLanding {
     distanceFromThresholdM: 120,
     centrelineOffsetM: 2,
     flapSetting: 3,
-    touchdownSource: 'derived'
+    touchdownSource: 'derived',
+    runwaySource: null
   }
 }
 
@@ -75,6 +76,7 @@ describe('flight repo', () => {
 
   it('starts empty', () => {
     expect(listFlights(db)).toEqual([])
+    expect(listFlightSummaries(db)).toEqual([])
   })
 
   it('creates a planned flight with defaults applied', () => {
@@ -372,18 +374,6 @@ describe('flight repo', () => {
       }
     )
 
-    it('getActiveFlight finds the one flight left mid-tracking, for TrackingController.resume() at startup', () => {
-      expect(getActiveFlight(db)).toBeUndefined()
-
-      const created = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' })
-      startFlight(db, created.id, 10000)
-
-      expect(getActiveFlight(db)?.id).toBe(created.id)
-
-      completeFlight(db, created.id, 4000)
-      expect(getActiveFlight(db)).toBeUndefined()
-    })
-
     it('getInProgressFlight finds a planned flight too, not just an active one — for restoring Dispatch after a restart', () => {
       expect(getInProgressFlight(db)).toBeUndefined()
 
@@ -403,8 +393,7 @@ describe('flight repo', () => {
       // abandonFlight (deleteFlight) tombstones via deletedAt — it never touches status
       // itself, so a stale 'active' flight retired this way must be excluded on deletedAt,
       // not status alone. A real flight was found stuck reappearing in the resume-or-
-      // discard prompt on every future launch because this filter was missing
-      // (flightdeck-backend's docs/plans/flight-replay-harness.md, 2026-09-14).
+      // discard prompt on every future launch because this filter was missing.
       const created = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' })
       startFlight(db, created.id, 10000)
       expect(getInProgressFlight(db)?.id).toBe(created.id)
@@ -580,6 +569,23 @@ describe('flight repo', () => {
       completeFlight(db, created.id, 10000 - fuelBurnKg)
     }
 
+    it('lists every live flight newest first without the OFP text, hasOfp in its place', () => {
+      const first = createFlight(db, {
+        aircraftId,
+        depIcao: 'EGLL',
+        arrIcao: 'EGCC',
+        ofpJson: '{"big":"ofp"}'
+      })
+      const second = createFlight(db, { aircraftId, depIcao: 'EGCC', arrIcao: 'EGPH' })
+      const gone = createFlight(db, { aircraftId, depIcao: 'EGPH', arrIcao: 'EGLL' })
+      deleteFlight(db, gone.id)
+
+      const summaries = listFlightSummaries(db)
+      expect(summaries.map((f) => f.id)).toEqual([second.id, first.id])
+      expect(summaries.every((f) => !('ofpJson' in f))).toBe(true)
+      expect(summaries.map((f) => f.hasOfp)).toEqual([false, true])
+    })
+
     it('lists only completed flights, newest actualInUtc first', () => {
       createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' }) // stays planned
       flyAndComplete(aircraftId, 'EGCC', 30, 500)
@@ -593,7 +599,12 @@ describe('flight repo', () => {
     })
 
     it('leaves the OFP text out of the list, with hasOfp in its place (2026-10-01: ~16 MB per Logbook open)', () => {
-      const withOfp = createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'EGCC', ofpJson: '{"big":"ofp"}' })
+      const withOfp = createFlight(db, {
+        aircraftId,
+        depIcao: 'EGLL',
+        arrIcao: 'EGCC',
+        ofpJson: '{"big":"ofp"}'
+      })
       startFlight(db, withOfp.id, 10000)
       completeFlight(db, withOfp.id, 9500)
       flyAndComplete(aircraftId, 'EGPH', 45, 700) // no OFP
@@ -675,7 +686,7 @@ describe('flight repo', () => {
       expect(stats.map((s) => s.registration)).toEqual(['G-ABCD'])
     })
 
-    it('lists one aircraft\'s own completed flights, newest first, excluding other tails and planned flights', () => {
+    it("lists one aircraft's own completed flights, newest first, excluding other tails and planned flights", () => {
       const secondAircraftId = createAircraft(db, { registration: 'G-WXYZ', icaoType: 'B738' }).id
       createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'VHHH' }) // stays planned, must be excluded
 
@@ -744,7 +755,10 @@ describe('flight repo', () => {
 
     it('bumps updatedAt so the stand syncs', () => {
       const id = completed('YBBN', 'VHHH', '2026-10-02T08:00:00Z')
-      db.update(flightTable).set({ updatedAt: '2000-01-01T00:00:00.000Z' }).where(eq(flightTable.id, id)).run()
+      db.update(flightTable)
+        .set({ updatedAt: '2000-01-01T00:00:00.000Z' })
+        .where(eq(flightTable.id, id))
+        .run()
       setParkedStand(db, id, 'VHHH', 'N32')
       const row = db.select().from(flightTable).where(eq(flightTable.id, id)).get()!
       expect(row).toMatchObject({ parkedStandIcao: 'VHHH', parkedStand: 'N32' })

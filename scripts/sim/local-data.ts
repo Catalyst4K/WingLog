@@ -1,0 +1,99 @@
+/**
+ * Read-only access to the data a simulation replays: WingLog's own database and logs on this
+ * machine (winglog-backend docs/plans/robustness/scenario-testing.md Part 6, "The method").
+ * Nothing here writes to them, and what's read stays in `release/sim/` (gitignored): it's
+ * personal data.
+ */
+import { existsSync, readFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
+import Database from 'better-sqlite3'
+import { drizzle } from 'drizzle-orm/better-sqlite3'
+import type { BeyondAtcInfoBox } from '../../src/shared/ipc'
+import * as schema from '../../src/main/db/schema'
+import type { WingLogDb } from '../../src/main/db/client'
+import { thisMachinesUserDataDirectory } from '../../src/main/platform/this-machine'
+
+/** WingLog's data folder on this machine (`%APPDATA%\WingLog`, `~/Library/Application Support/WingLog`, `~/.config/WingLog`), or WINGLOG_SIM_DATA_DIR to use another copy. */
+export function userDataDir(): string {
+  const override = process.env.WINGLOG_SIM_DATA_DIR
+  if (override) return resolve(override)
+  const dir = thisMachinesUserDataDirectory()
+  if (!dir)
+    throw new Error(
+      "WingLog's data folder could not be found (APPDATA is not set): run the simulation on the machine WingLog flies on, or set WINGLOG_SIM_DATA_DIR"
+    )
+  return dir
+}
+
+/** The database, opened read-only: a simulation can never change a flight. */
+export function openUserDb(dir: string = userDataDir()): { db: WingLogDb; close: () => void } {
+  const sqlite = new Database(join(dir, 'winglog.db'), { readonly: true, fileMustExist: true })
+  return { db: drizzle(sqlite, { schema }), close: () => sqlite.close() }
+}
+
+/** One set of InfoBoxes BeyondATC showed, as WingLog logged it. */
+export interface LoggedInfoBoxes {
+  /** Epoch ms. */
+  atMs: number
+  boxes: BeyondAtcInfoBox[]
+}
+
+/** `[2026-10-05 14:41:26.550] [info]  [beyondatc] InfoBoxes [...]`: electron-log's local time. */
+const INFO_BOXES_LINE =
+  /^\[(\d{4})-(\d\d)-(\d\d) (\d\d):(\d\d):(\d\d)\.(\d{1,3})\] \[info\]\s+\[beyondatc\] InfoBoxes (.*)$/
+
+/**
+ * The InfoBoxes sets BeyondAtcService.test.ts feeds the service. Before the unit tests stopped writing a log file (2026-10-18) these
+ * landed in the real main.log, and read as Callum's flights. A real taxi never gives a one-box "A4" route to Gate 104 or the same
+ * nine-box route to Gate 411 (A R N5W S5W W LINK 44 T, ATIS C).
+ */
+const TEST_FIXTURE_SETS = [
+  '[{"title":"Taxi to Gate","info":"Gate 104"},{"title":"Taxi Via 1","info":"A4"}]',
+  '[{"title":"Taxi to Gate","info":"Gate 411"},{"title":"Taxi Via 1","info":"A"},{"title":"Taxi Via 2","info":"R"},{"title":"Taxi Via 3","info":"N5W"},{"title":"Taxi Via 4","info":"S5W"},{"title":"Taxi Via 5","info":"W"},{"title":"Taxi Via 6","info":"LINK 44"},{"title":"Taxi Via 7","info":"T"},{"title":"ATIS Current","info":"C"}]'
+]
+
+/**
+ * Every InfoBoxes set in a main.log's text, oldest first. Times are local, as electron-log writes
+ * them, so this runs on the machine (and in the time zone) that wrote the log.
+ */
+export function parseInfoBoxesLog(text: string): LoggedInfoBoxes[] {
+  const out: LoggedInfoBoxes[] = []
+  for (const line of text.split(/\r?\n/)) {
+    const match = INFO_BOXES_LINE.exec(line)
+    if (!match) continue
+    const [, y, mo, d, h, mi, s, ms, json] = match
+    if (TEST_FIXTURE_SETS.includes(json)) continue
+    let boxes: unknown
+    try {
+      boxes = JSON.parse(json)
+    } catch {
+      // A line cut short when the log rotated: nothing to read.
+      continue
+    }
+    if (!Array.isArray(boxes)) continue
+    const atMs = new Date(
+      Number(y),
+      Number(mo) - 1,
+      Number(d),
+      Number(h),
+      Number(mi),
+      Number(s),
+      Number(ms.padEnd(3, '0'))
+    ).getTime()
+    const valid = boxes.filter(
+      (b): b is BeyondAtcInfoBox =>
+        typeof b === 'object' && b !== null && typeof b.title === 'string' && typeof b.info === 'string'
+    )
+    out.push({ atMs, boxes: valid })
+  }
+  return out.sort((a, b) => a.atMs - b.atMs)
+}
+
+/** main.log and its rotated copy, parsed together. */
+export function readInfoBoxesLogs(dir: string = userDataDir()): LoggedInfoBoxes[] {
+  const texts = ['main.old.log', 'main.log']
+    .map((name) => join(dir, 'logs', name))
+    .filter(existsSync)
+    .map((path) => readFileSync(path, 'utf8'))
+  return parseInfoBoxesLog(texts.join('\n'))
+}

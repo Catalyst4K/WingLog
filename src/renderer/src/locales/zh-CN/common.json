@@ -224,7 +224,7 @@
       "update": "更新",
       "dismiss": "忽略"
     },
-    "whatsNew": "WingLog 1.4 新功能：BeyondATC 集成、地图上的滑行路线、自动阶梯爬升和更新检查。在“设置 → 第三方”中开启 BeyondATC。"
+    "whatsNew": "WingLog 1.5 新功能：适用于手机或平板的第二屏幕、一键更新、磁盘空间不足提醒，以及更准确的滑行线。在“设置 → 数据”中开启第二屏幕。"
   },
   "fleetView": {
     "atStand": "机位 {{stand}}",
@@ -613,6 +613,7 @@
     "approximateRoute": "近似航路 — 该航班没有存档的飞行计划"
   },
   "logbookView": {
+    "estimatedTrack": "虚线约 {{nm}} nm，是根据飞行计划估算的，并非实际记录。",
     "loading": "加载中…",
     "belowAverage": "低于平均水平",
     "landingCard": {
@@ -627,6 +628,9 @@
       "airspeedGroundSpeed": "空速 / 地速",
       "headwindCrosswind": "逆风 / 侧风",
       "runway": "跑道",
+      "runwayData": "跑道数据",
+      "runwayDataSim": "模拟器",
+      "runwayDataDatabase": "机场数据库",
       "distanceFromThreshold": "距入口距离",
       "centrelineOffset": "中线偏移",
       "scoreBreakdown": "评分明细"
@@ -715,7 +719,6 @@
     "connecting": "正在连接 BeyondATC…",
     "connected": "已连接到 BeyondATC。",
     "disconnected": "未连接到 BeyondATC。",
-    "stationFrequency": "{{station}}（{{frequency}}）",
     "progress": "{{from}} → {{to}} · {{pct}}%",
     "transcript": "通话记录",
     "actions": "操作",
@@ -736,8 +739,6 @@
     "departure": "离场",
     "arrival": "进场",
     "noFrequencies": "该机场暂无频率。",
-    "frequencyOption": "{{type}} — {{station}} {{frequency}}",
-    "frequencyOptionRunway": "{{type}} — {{station}} {{frequency}}（跑道 {{runway}}）",
     "frequencyType": {
       "approach": "进近",
       "departure": "离场",
@@ -785,6 +786,10 @@
         "runway": "跑道",
         "climb": "上升",
         "descend": "下降",
+        "maintain": "保持",
+        "turnLeft": "左转",
+        "turnRight": "右转",
+        "heading": "航向",
         "qnh": "QNH",
         "squawk": "应答机",
         "contact": "联系",
@@ -810,7 +815,27 @@
       "atc": "管制员",
       "traffic": "其他机组",
       "atcTraffic": "管制员 → 其他机组"
+    },
+    "frequencyField": "{{radio}} 频率",
+    "frequencyPicker": {
+      "tuned": "已调谐",
+      "runways": "跑道 {{runways}}",
+      "enroute": "航路"
     }
+  },
+  "storage": {
+    "label": "磁盘空间不足",
+    "low": "磁盘空间不足（剩余 {{free}}）。长途飞行前请先释放一些空间。",
+    "critical": "磁盘几乎已满（剩余 {{free}}）。请立即释放空间，否则 WingLog 可能无法保存你的飞行。",
+    "saveFailing": "磁盘已满，WingLog 无法保存飞行。航迹暂存在内存中，有空间后会立即保存。"
+  },
+  "trackGapFillButton": {
+    "button": "用飞行计划补全缺口",
+    "remove": "移除估算路段",
+    "filled": "已补全 {{count}} 处缺口，共约 {{nm}} nm，在地图上以虚线显示。",
+    "noGaps": "沿飞行计划没有可补全的缺口。",
+    "noRoute": "这次飞行没有可沿用的飞行计划航线。",
+    "removed": "已移除估算路段。"
   },
   "updates": {
     "banner": {
@@ -822,9 +847,18 @@
       "skip": "跳过此版本",
       "dismiss": "暂时隐藏"
     },
+    "install": {
+      "downloadAndInstall": "下载并安装",
+      "downloading": "正在下载… {{percent}}%",
+      "restart": "重启以更新",
+      "retry": "重试",
+      "failed": "下载未完成。请重试，或前往发布页面下载。",
+      "flightActive": "正在记录飞行。请先结束飞行，再重启以更新。",
+      "releasePage": "发布页面"
+    },
     "settings": {
       "title": "更新",
-      "description": "WingLog 会向 GitHub 查询最新版本号，不会发送其他任何内容。更新需要你自行下载和安装。",
+      "description": "WingLog 会向 GitHub 查询最新版本号，不会发送其他任何内容。是否安装更新始终由你决定，并且在记录飞行期间绝不会安装。",
       "autoCheck": "自动检查更新",
       "on": "开",
       "off": "关",
@@ -881,6 +915,46 @@
     "done": {
       "title": "一切就绪",
       "body": "这里的所有内容都可以在设置中更改。要再次查看此向导，请前往“设置 → 关于 → 重新运行设置向导”。"
+    }
+  },
+  "lanPage": {
+    "connecting": "正在连接 WingLog…",
+    "pairTitle": "与 WingLog 配对",
+    "pairHelp": "在电脑上打开“设置”，然后选择“第二屏幕”，再选择“配对设备”。输入显示的 6 位代码。",
+    "codeLabel": "配对码",
+    "pair": "配对",
+    "wrongCode": "这个代码无效。请确认电脑上正在显示代码，然后重试。",
+    "offline": "无法连接到电脑。正在重试…",
+    "noFlight": "电脑上尚未跟踪任何航班。",
+    "noPlan": "电脑上还没有飞行计划。请在电脑上的“签派”中规划航班。"
+  },
+  "lan": {
+    "settings": {
+      "title": "第二屏幕",
+      "description": "在家庭网络中的手机或平板上显示实时地图。开启前它一直处于关闭状态，只会在家庭网络上监听，并且每台设备都必须用代码配对。",
+      "enable": "第二屏幕",
+      "on": "开",
+      "off": "关",
+      "port": "端口",
+      "open": "在手机或平板上打开此地址：",
+      "connected_other": "当前已连接 {{count}} 台设备",
+      "pairButton": "配对设备",
+      "pairingCode": "在设备上输入此代码：",
+      "pairingNote": "代码只能使用一次，5 分钟后失效。",
+      "pairingClose": "关闭",
+      "devices": "已配对的设备",
+      "noDevices": "尚未配对任何设备。",
+      "lastSeen": "上次连接：{{when}}",
+      "neverSeen": "从未连接",
+      "revoke": "撤销",
+      "help": "无法连接？手机和这台电脑必须在同一个 Wi-Fi 下（不能是访客网络），这台电脑的网络应设为“专用”，并且防火墙必须允许 WingLog。",
+      "problem": {
+        "noAdapter": "这台电脑没有可供监听的家庭网络连接。",
+        "portInUse": "该端口已被占用，请换一个。",
+        "failed": "第二屏幕无法启动。"
+      },
+      "qrLabel": "第二屏幕地址的二维码",
+      "qrHintPairing": "用手机扫描即可打开页面并配对。代码每 5 分钟更换一次。"
     }
   }
 }

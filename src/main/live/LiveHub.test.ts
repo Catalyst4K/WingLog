@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { LiveTopics } from '@shared/live'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
+import { logger } from '../logging/logger'
 import { LiveHub } from './LiveHub'
 
-// A real-shaped sample: the A350 at VHHH stand N32, 2026-10-02.
+// A real-shaped sample: the A350 at VHHH stand N32.
 const POINT: LiveTopics['trackingPoint'] = {
   id: 86618,
   flightId: 216,
@@ -55,7 +56,10 @@ describe('LiveHub', () => {
     hub.publish('beyondAtcStatus', { state: 'connected', lastError: null })
     hub.publish('trackingPoint', POINT)
 
-    expect(hub.snapshot()).toEqual({ beyondAtcStatus: { state: 'connected', lastError: null }, trackingPoint: POINT })
+    expect(hub.snapshot()).toEqual({
+      beyondAtcStatus: { state: 'connected', lastError: null },
+      trackingPoint: POINT
+    })
     // A copy: changing it doesn't change the hub.
     const snap = hub.snapshot()
     delete snap.trackingPoint
@@ -64,7 +68,7 @@ describe('LiveHub', () => {
 
   it("keeps going when one subscriber throws (a closed window mustn't cut off the rest)", () => {
     const hub = new LiveHub()
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
     const after = vi.fn()
     hub.subscribe(() => {
       throw new Error('Object has been destroyed')
@@ -81,7 +85,9 @@ describe('LiveHub', () => {
     hub.publish('trackingPoint', POINT)
     hub.publish('trackingPointsUpdated', [POINT, { ...POINT, id: 86619, excludedReason: 'resume-spurious' }])
     hub.publish('beyondAtcState', EMPTY_BEYONDATC_STATE)
-    hub.publish('beyondAtcTranscript', [{ speaker: 'atc', text: 'Cathay 168 Heavy, taxi to Stand N32 via J, H6, H, V, B.', ts: 1759401600000 }])
+    hub.publish('beyondAtcTranscript', [
+      { speaker: 'atc', text: 'Cathay 168 Heavy, taxi to Stand N32 via J, H6, H, V, B.', ts: 1759401600000 }
+    ])
     hub.publish('gsxRemoteGate', null)
     const snapshot = hub.snapshot()
     expect(JSON.parse(JSON.stringify(snapshot))).toEqual(snapshot)

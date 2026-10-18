@@ -25,7 +25,12 @@ import { join } from 'node:path'
 import { open, Protocol } from 'node-simconnect'
 import { createDb } from '../src/main/db/client'
 import { migrateDb } from '../src/main/db/migrate'
-import { listCachedProcedureLegs, listCachedProcedures, listCachedRunways, replaceAirportNavdata } from '../src/main/db/navdata-repo'
+import {
+  listCachedProcedureLegs,
+  listCachedProcedures,
+  listCachedRunways,
+  replaceAirportNavdata
+} from '../src/main/db/navdata-repo'
 import { fetchAirportNavdata } from '../src/main/navdata/sim-facilities-fetch'
 
 const icao = (process.argv[2] ?? process.env['SPIKE_ICAO'] ?? '').toUpperCase()
@@ -69,10 +74,14 @@ async function main(): Promise<void> {
   ] as const) {
     console.log(`\n${procedures.length} ${kind}:`)
     for (const p of procedures.slice(0, 5)) {
-      console.log(`  ${p.name}  header: rwyTrans=${p.expected.runwayTransitions} enrTrans=${p.expected.enrouteTransitions} legs=${p.expected.approachLegs}`)
+      console.log(
+        `  ${p.name}  header: rwyTrans=${p.expected.runwayTransitions} enrTrans=${p.expected.enrouteTransitions} legs=${p.expected.approachLegs}`
+      )
       console.log(`    common legs: ${legSummary(p.commonLegs.map((l) => l.fixIdent))}`)
-      for (const rt of p.runwayTransitions) console.log(`    runway ${rt.runwayIdent}: ${legSummary(rt.legs.map((l) => l.fixIdent))}`)
-      for (const et of p.enrouteTransitions) console.log(`    enroute ${et.name}: ${legSummary(et.legs.map((l) => l.fixIdent))}`)
+      for (const rt of p.runwayTransitions)
+        console.log(`    runway ${rt.runwayIdent}: ${legSummary(rt.legs.map((l) => l.fixIdent))}`)
+      for (const et of p.enrouteTransitions)
+        console.log(`    enroute ${et.name}: ${legSummary(et.legs.map((l) => l.fixIdent))}`)
     }
     if (procedures.length > 5) console.log(`  ...and ${procedures.length - 5} more`)
   }
@@ -90,22 +99,34 @@ async function main(): Promise<void> {
     const first = fetchedResult.departures.find((p) => p.name === sids[0]!.identifier)
     const testRunway = first?.runwayTransitions[0]?.runwayIdent ?? null
     const commonOnly = listCachedProcedureLegs(db, icao, 'sid', sids[0]!.identifier)
-    const withRunway = testRunway ? listCachedProcedureLegs(db, icao, 'sid', sids[0]!.identifier, testRunway) : []
-    console.log(`\n${sids[0]!.identifier}'s cached legs — common only: ${legSummary(commonOnly.map((l) => l.fixIdent))}`)
-    if (testRunway) console.log(`${sids[0]!.identifier}'s cached legs — with runway ${testRunway}: ${legSummary(withRunway.map((l) => l.fixIdent))}`)
+    const withRunway = testRunway
+      ? listCachedProcedureLegs(db, icao, 'sid', sids[0]!.identifier, testRunway)
+      : []
+    console.log(
+      `\n${sids[0]!.identifier}'s cached legs — common only: ${legSummary(commonOnly.map((l) => l.fixIdent))}`
+    )
+    if (testRunway)
+      console.log(
+        `${sids[0]!.identifier}'s cached legs — with runway ${testRunway}: ${legSummary(withRunway.map((l) => l.fixIdent))}`
+      )
   }
 
   if (cachedRunways.length > 0) {
     const testRunway = cachedRunways[0]!.ident
     const filtered = listCachedProcedures(db, icao, 'sid', testRunway)
-    console.log(`\n${filtered.length} of ${sids.length} SIDs apply to runway ${testRunway} (runway-filter check)`)
+    console.log(
+      `\n${filtered.length} of ${sids.length} SIDs apply to runway ${testRunway} (runway-filter check)`
+    )
   }
 
   console.log(`\n${fetchedResult.approaches.length} approaches:`)
   for (const a of fetchedResult.approaches.slice(0, 8)) {
-    console.log(`  ${a.identifier}  header: trans=${a.expected.transitions} final=${a.expected.finalApproachLegs} missed=${a.expected.missedApproachLegs}`)
+    console.log(
+      `  ${a.identifier}  header: trans=${a.expected.transitions} final=${a.expected.finalApproachLegs} missed=${a.expected.missedApproachLegs}`
+    )
     console.log(`    final: ${legSummary(a.finalLegs.map((l) => l.fixIdent))}`)
-    for (const t of a.transitions) console.log(`    transition ${t.name}: ${legSummary(t.legs.map((l) => l.fixIdent))}`)
+    for (const t of a.transitions)
+      console.log(`    transition ${t.name}: ${legSummary(t.legs.map((l) => l.fixIdent))}`)
   }
   if (fetchedResult.approaches.length > 8) console.log(`  ...and ${fetchedResult.approaches.length - 8} more`)
 
@@ -116,8 +137,17 @@ async function main(): Promise<void> {
   const withTransition = fetchedResult.approaches.find((a) => a.transitions.length > 0)
   if (withTransition) {
     const finalOnly = listCachedProcedureLegs(db, icao, 'approach', withTransition.identifier)
-    const withTrans = listCachedProcedureLegs(db, icao, 'approach', withTransition.identifier, null, withTransition.transitions[0]!.name)
-    console.log(`\n${withTransition.identifier}'s cached legs — final only: ${legSummary(finalOnly.map((l) => l.fixIdent))}`)
+    const withTrans = listCachedProcedureLegs(
+      db,
+      icao,
+      'approach',
+      withTransition.identifier,
+      null,
+      withTransition.transitions[0]!.name
+    )
+    console.log(
+      `\n${withTransition.identifier}'s cached legs — final only: ${legSummary(finalOnly.map((l) => l.fixIdent))}`
+    )
     console.log(
       `${withTransition.identifier}'s cached legs — with transition ${withTransition.transitions[0]!.name}: ${legSummary(withTrans.map((l) => l.fixIdent))}`
     )

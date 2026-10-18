@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb, type WingLogDb } from './client'
 import { appSetting } from './schema'
+import { APP_LANGUAGE_OPTIONS } from '@shared/app-language'
 import {
   getAircraftIdForTitle,
   getAltitudeUnit,
@@ -96,13 +97,28 @@ describe('settings repo', () => {
     setMapLanguage(db, 'de')
     setMapLanguage(db, 'xx' as never)
     expect(getMapLanguage(db)).toBe('de')
-    db.insert(appSetting).values({ key: 'mapLanguage', value: 'klingon' }).onConflictDoUpdate({ target: appSetting.key, set: { value: 'klingon' } }).run()
+    db.insert(appSetting)
+      .values({ key: 'mapLanguage', value: 'klingon' })
+      .onConflictDoUpdate({ target: appSetting.key, set: { value: 'klingon' } })
+      .run()
     expect(getMapLanguage(db)).toBe('en')
   })
 
   it('defaults the app language to "system", and round-trips every supported language', () => {
     expect(getAppLanguage(db)).toBe('system')
-    for (const language of ['de', 'es', 'fr', 'it', 'ru', 'en', 'system'] as const) {
+    // Every option the picker offers, Chinese included: both were once refused here, so choosing one was never saved.
+    expect(APP_LANGUAGE_OPTIONS.map((o) => o.value)).toEqual([
+      'system',
+      'en',
+      'de',
+      'es',
+      'fr',
+      'it',
+      'ru',
+      'zh-CN',
+      'zh-TW'
+    ])
+    for (const { value: language } of APP_LANGUAGE_OPTIONS) {
       setAppLanguage(db, language)
       expect(getAppLanguage(db)).toBe(language)
     }
@@ -112,7 +128,10 @@ describe('settings repo', () => {
     setAppLanguage(db, 'de')
     setAppLanguage(db, 'xx' as never)
     expect(getAppLanguage(db)).toBe('de')
-    db.insert(appSetting).values({ key: 'appLanguage', value: 'klingon' }).onConflictDoUpdate({ target: appSetting.key, set: { value: 'klingon' } }).run()
+    db.insert(appSetting)
+      .values({ key: 'appLanguage', value: 'klingon' })
+      .onConflictDoUpdate({ target: appSetting.key, set: { value: 'klingon' } })
+      .run()
     expect(getAppLanguage(db)).toBe('system')
   })
 
@@ -175,7 +194,7 @@ describe('settings repo', () => {
     })
   })
 
-  it('defaults GSX Remote settings to disabled, localhost, GSX\'s real default port 8744', () => {
+  it("defaults GSX Remote settings to disabled, localhost, GSX's real default port 8744", () => {
     expect(getGsxRemoteSettings(db)).toEqual({ enabled: false, host: 'localhost', port: 8744 })
   })
 

@@ -15,10 +15,15 @@ import {
   syncPush
 } from '../backend/sync-client'
 import { clearSession, loadSession, saveSession, type StoredSession } from '../backend/session-store'
-import { getLastSyncCompletedAt, setLastSyncCompletedAt } from '../db/settings-repo'
+import { join } from 'node:path'
+import { backupBeforeFirstSync } from '../db/backup'
+import { getLastSyncCompletedAt, getSetting, setLastSyncCompletedAt, setSetting } from '../db/settings-repo'
 import type { WingLogDb } from '../db/client'
 import { runSync } from './sync-engine'
 
+/**
+ * Cloud sync for the app: the signed-in session, its status, and running a sync.
+ */
 export class CloudSyncController {
   private session: StoredSession | null
   private syncing = false
@@ -52,7 +57,14 @@ export class CloudSyncController {
     return this.getStatus()
   }
 
-  /** Provision then log in — see sync-client.ts's provision() for the invite-code gate. */
+  /**
+   * Provision then log in — see sync-client.ts's provision() for the invite-code gate.
+   *
+   * @param email The account email.
+   * @param password The password.
+   * @param inviteCode The invite code.
+   * @returns The status after logging in.
+   */
   async signup(email: string, password: string, inviteCode: string): Promise<SyncStatus> {
     await backendProvision(email, password, inviteCode)
     return this.login(email, password)
@@ -73,11 +85,23 @@ export class CloudSyncController {
     return this.getStatus()
   }
 
+  /**
+   * Runs a sync cycle, pull then push. Does nothing extra when a sync is already running.
+   *
+   * @returns The sync status afterwards.
+   */
   async syncNow(): Promise<SyncStatus> {
     if (!this.session) throw new Error(t('errors.notLoggedIn'))
     if (this.syncing) return this.getStatus() // already running — don't overlap two syncs
     this.syncing = true
     try {
+      // A device's first sync with an account can overwrite local rows with newer ones from another
+      // device, so snapshot the database first. If the snapshot fails, no sync runs.
+      const backupKey = `firstSyncBackup:${this.session.email}`
+      if (getSetting(this.db, backupKey) === undefined) {
+        const backup = backupBeforeFirstSync(this.dbPath, join(this.userDataPath, 'backups'))
+        setSetting(this.db, backupKey, backup ?? 'no database file')
+      }
       const result = await runSync(this.db, { syncPull, syncPush }, this.session, this.dbPath)
       this.lastSyncedAt = result.syncedAt
       setLastSyncCompletedAt(this.db, result.syncedAt)

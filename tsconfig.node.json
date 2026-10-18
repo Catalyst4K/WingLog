@@ -31,6 +31,11 @@
     "src/preload/**/*",
     "src/shared/**/*",
     "scripts/**/*",
-    "src/renderer/src/i18n.ts"
+    "src/renderer/src/i18n.ts",
+    "src/renderer/src/taxi-clearance.ts",
+    "src/renderer/src/taxi-route-trace.ts",
+    "src/renderer/src/min-queue.ts",
+    "src/renderer/src/taxi-reroute.ts",
+    "src/renderer/src/beyond-atc-instruction.ts"
   ]
 }

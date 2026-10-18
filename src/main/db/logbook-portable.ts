@@ -1,9 +1,5 @@
-import type { Aircraft, DataFormat, Flight, Landing } from '@shared/ipc'
-import { t } from '../i18n'
-import { columnIndex, parseCsvRows, toCsv } from './csv'
-
 /**
- * WingLog's own portable logbook format (flightdeck-backend docs/plans/data-export-import.md):
+ * WingLog's own portable logbook format (winglog-backend docs/plans/data-export-import.md):
  * one record per completed flight, keyed by aircraft *registration* rather than an internal
  * id so a file moves between installs. It's a **summary**, not a backup — no OFP, no track
  * points (backup.ts is the whole-database path). Import restores the flights themselves;
@@ -12,6 +8,10 @@ import { columnIndex, parseCsvRows, toCsv } from './csv'
  * Units are explicit in the column names (`_kg`, `_fpm`, `_kt`) — the SI-internal rule stops
  * at the file boundary, and a spreadsheet user shouldn't have to guess.
  */
+import type { Aircraft, DataFormat, Flight, Landing } from '@shared/ipc'
+import { t } from '../i18n'
+import { columnIndex, parseCsvRows, toCsv } from './csv'
+
 export interface LogbookRecord {
   registration: string
   icaoType: string
@@ -67,8 +67,17 @@ const round = (value: number, places: number): number => {
  * One flight → one record, or null when it can't be exported usefully: not completed, no
  * block times (an import needs both), or no identifiable aircraft. A free flight tracked
  * with no fleet aircraft falls back to the sim's own registration/type.
+ *
+ * @param f The flight.
+ * @param aircraft Its fleet aircraft, if any.
+ * @param landing Its last landing, if any.
+ * @returns The record, or null.
  */
-export function toLogbookRecord(f: Flight, aircraft: Aircraft | undefined, landing: Landing | undefined): LogbookRecord | null {
+export function toLogbookRecord(
+  f: Flight,
+  aircraft: Aircraft | undefined,
+  landing: Landing | undefined
+): LogbookRecord | null {
   if (f.status !== 'completed' || !f.actualOutUtc || !f.actualInUtc) return null
   const registration = aircraft?.registration ?? f.simRegistration
   const icaoType = aircraft?.icaoType ?? f.simIcaoType
@@ -97,6 +106,13 @@ export function toLogbookRecord(f: Flight, aircraft: Aircraft | undefined, landi
   }
 }
 
+/**
+ * Records as WingLog's JSON or CSV logbook.
+ *
+ * @param records The flights.
+ * @param format JSON or CSV.
+ * @returns The file's text.
+ */
 export function serializeLogbook(records: LogbookRecord[], format: DataFormat): string {
   if (format === 'json') return JSON.stringify(records, null, 2)
   return toCsv([
@@ -124,16 +140,27 @@ export function serializeLogbook(records: LogbookRecord[], format: DataFormat): 
 
 export type ParsedLogbookRow = { record: LogbookRecord; label: string } | { error: string; label: string }
 
-const text = (value: unknown): string | null => (typeof value === 'string' && value.trim() !== '' ? value.trim() : null)
+const text = (value: unknown): string | null =>
+  typeof value === 'string' && value.trim() !== '' ? value.trim() : null
 
-/** Finite number, or null — accepts a JSON number or a CSV string, never NaN/Infinity. */
+/**
+ * Finite number, or null — accepts a JSON number or a CSV string, never NaN/Infinity.
+ *
+ * @param value A JSON number or a CSV cell.
+ * @returns The number, or null.
+ */
 const num = (value: unknown): number | null => {
   if (value === null || value === undefined || value === '') return null
   const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN
   return Number.isFinite(n) ? n : null
 }
 
-/** A UTC instant re-serialised to canonical ISO, or null if it isn't a real date. */
+/**
+ * A UTC instant re-serialised to canonical ISO, or null if it isn't a real date.
+ *
+ * @param value The text.
+ * @returns The ISO time, or null.
+ */
 const isoInstant = (value: unknown): string | null => {
   const s = text(value)
   if (!s) return null
@@ -146,66 +173,97 @@ const icao = (value: unknown): string | null => {
   return s !== null && /^[A-Z0-9]{3,4}$/.test(s) ? s : null
 }
 
+/** Reads a record's fields by their JSON key, or by their CSV column name for a CSV row. */
+type FieldReader = (jsonKey: string, csvKey: string) => unknown
+
+/**
+ * The landing summary of a record, when it has a touchdown rate and G-force. A JSON record keeps it
+ * in a nested `landing` object; a CSV row has it as plain columns.
+ *
+ * @param o The record.
+ * @param csv Whether it's a CSV row.
+ * @returns The summary, or null.
+ */
+function toLandingSummary(o: Record<string, unknown>, csv: boolean): LogbookLandingSummary | null {
+  const source = csv ? o : (o['landing'] as Record<string, unknown> | null | undefined)
+  if (!source) return null
+  const get: FieldReader = (jsonKey, csvKey) => source[csv ? csvKey : jsonKey]
+  const touchdownFpm = num(get('touchdownFpm', 'touchdown_fpm'))
+  const gForce = num(get('gForce', 'touchdown_g'))
+  if (touchdownFpm === null || gForce === null) return null
+  return {
+    touchdownFpm,
+    gForce,
+    crosswindKt: num(get('crosswindKt', 'crosswind_kt')),
+    runway: text(get('runway', 'landing_runway'))
+  }
+}
+
 /** Validates one untrusted object (a JSON element, or a CSV row keyed by header) — a bad
- *  field degrades to a skipped row with a reason, never a throw. */
+ *  field degrades to a skipped row with a reason, never a throw.
+ *
+ * @param raw One JSON element, or one CSV row keyed by lower-case header.
+ * @param csv Whether the keys are the CSV's column names.
+ * @returns The record, or why the row can't be imported.
+ */
 function toRecord(raw: unknown, csv: boolean): ParsedLogbookRow {
   if (typeof raw !== 'object' || raw === null) {
     return { error: t('errors.expectedAnObject'), label: t('labels.unreadableRow') }
   }
   const o = raw as Record<string, unknown>
+  const get: FieldReader = (jsonKey, csvKey) => o[csv ? csvKey : jsonKey]
   const registration = text(o['registration'])
-  const dep = icao(o[csv ? 'dep_icao' : 'depIcao'])
-  const arr = icao(o[csv ? 'arr_icao' : 'arrIcao'])
+  const dep = icao(get('depIcao', 'dep_icao'))
+  const arr = icao(get('arrIcao', 'arr_icao'))
   const label =
     [registration, dep && arr ? `${dep}-${arr}` : null].filter(Boolean).join(' ') || t('labels.unreadableRow')
 
-  const icaoType = text(o[csv ? 'aircraft_type' : 'icaoType'])
-  const outUtc = isoInstant(o[csv ? 'out_utc' : 'outUtc'])
-  const inUtc = isoInstant(o[csv ? 'in_utc' : 'inUtc'])
+  const icaoType = text(get('icaoType', 'aircraft_type'))
+  const outUtc = isoInstant(get('outUtc', 'out_utc'))
+  const inUtc = isoInstant(get('inUtc', 'in_utc'))
   if (!registration || !icaoType || !dep || !arr || !outUtc || !inUtc) {
     return { error: t('errors.missingOrMalformedField'), label }
   }
   if (Date.parse(inUtc) < Date.parse(outUtc)) return { error: t('errors.inBlockBeforeOutBlock'), label }
 
-  const landingRaw = csv ? null : (o['landing'] as Record<string, unknown> | null | undefined)
-  const landingSource = csv ? o : landingRaw
-  const touchdownFpm = landingSource ? num(landingSource[csv ? 'touchdown_fpm' : 'touchdownFpm']) : null
-  const gForce = landingSource ? num(landingSource[csv ? 'touchdown_g' : 'gForce']) : null
   return {
     label,
     record: {
       registration,
       icaoType,
-      flightNumber: text(o[csv ? 'flight_number' : 'flightNumber']),
+      flightNumber: text(get('flightNumber', 'flight_number')),
       depIcao: dep,
       arrIcao: arr,
       outUtc,
       inUtc,
-      blockMinutes: num(o[csv ? 'block_minutes' : 'blockMinutes']),
-      airMinutes: num(o[csv ? 'air_minutes' : 'airMinutes']),
-      fuelOutKg: num(o[csv ? 'fuel_out_kg' : 'fuelOutKg']),
-      fuelInKg: num(o[csv ? 'fuel_in_kg' : 'fuelInKg']),
-      fuelBurnKg: num(o[csv ? 'fuel_burn_kg' : 'fuelBurnKg']),
-      landing:
-        touchdownFpm !== null && gForce !== null && landingSource
-          ? {
-              touchdownFpm,
-              gForce,
-              crosswindKt: num(landingSource[csv ? 'crosswind_kt' : 'crosswindKt']),
-              runway: text(landingSource[csv ? 'landing_runway' : 'runway'])
-            }
-          : null
+      blockMinutes: num(get('blockMinutes', 'block_minutes')),
+      airMinutes: num(get('airMinutes', 'air_minutes')),
+      fuelOutKg: num(get('fuelOutKg', 'fuel_out_kg')),
+      fuelInKg: num(get('fuelInKg', 'fuel_in_kg')),
+      fuelBurnKg: num(get('fuelBurnKg', 'fuel_burn_kg')),
+      landing: toLandingSummary(o, csv)
     }
   }
 }
 
-/** True for a CSV whose header is one of *ours* (as opposed to SimToolkitPro's). */
+/**
+ * True for a CSV whose header is one of *ours* (as opposed to SimToolkitPro's).
+ *
+ * @param header The CSV's header row.
+ * @returns True when it has WingLog's columns.
+ */
 export function isWingLogLogbookCsv(header: string[]): boolean {
   return columnIndex(header, 'registration') >= 0 && columnIndex(header, 'dep_icao') >= 0
 }
 
 /** Untrusted text → validated rows. Throws only when the text isn't a usable document at
- *  all (bad JSON, not an array, empty CSV); a bad *row* comes back as `{ error }`. */
+ *  all (bad JSON, not an array, empty CSV); a bad *row* comes back as `{ error }`.
+ *
+ * @param textInput The file's text.
+ * @param format JSON or CSV.
+ * @returns One entry per row.
+ * @throws When the text isn't a usable document.
+ */
 export function parseLogbook(textInput: string, format: DataFormat): ParsedLogbookRow[] {
   if (format === 'json') {
     const parsed: unknown = JSON.parse(textInput)

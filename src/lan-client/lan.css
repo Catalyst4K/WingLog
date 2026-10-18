@@ -1,0 +1,97 @@
+@import '../renderer/src/index.css';
+
+/* Tailwind only scans the folder the build runs in by default; the page's classes live in the renderer's components too. */
+@source '../renderer/src';
+@source './';
+
+/* The readout along the map's bottom edge is wider than a phone leaves beside the attribution button: let it wrap instead of running under it. */
+div[class*='bottom-3'][class*='left-3'] {
+  max-width: calc(100% - 3.5rem);
+  white-space: normal;
+  border-radius: 1rem;
+  line-height: 1.3;
+}
+
+/* The top of the page, clear of the phone's status area. In a Home Screen app iOS draws a blurred edge over the first stretch of the page
+   below its safe area, which left the header's text stuck in the blur: the page starts a little further down there. In a browser tab there is
+   no such edge, and the safe area alone is enough. */
+.lan-shell {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+@media (display-mode: standalone) {
+  .lan-shell {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 2rem);
+  }
+}
+
+/* A thumb needs at least 44 px each way (Apple's and Google's minimum) on everything it presses: buttons, tabs, selects, fields and the
+   disclosure triangles. e2e/second-screen-touch.spec.ts measures every control on every page at phone and tablet sizes. */
+#root
+  :is(
+    button,
+    [role='tab'],
+    [role='combobox'],
+    select,
+    summary,
+    input:not([type='checkbox'], [type='radio'], [type='hidden'])
+  ) {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* A map control's icon stays centred, once, in its larger square. */
+#root .maplibregl-ctrl-group button {
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* The attribution is a 24 px circle (maplibre's compact mode) holding an absolutely placed button. A thumb needs 44 px but the circle drawn
+   needs no more than 32: the circle is 32 px, and the button over it is 44 px, extending 6 px past the circle on every side with nothing
+   drawn there (the (i) is its background, centred), so the readout beside it clears the circle yet the touch target stays full size. Opened,
+   the text keeps clear of the button. */
+#root .maplibregl-ctrl-attrib.maplibregl-compact {
+  box-sizing: border-box;
+  min-width: 32px;
+  min-height: 32px;
+  margin: 8px;
+  padding: 0;
+  border-radius: 16px;
+}
+#root .maplibregl-ctrl-attrib.maplibregl-compact-show {
+  padding: 10px 40px 10px 12px;
+  border-radius: 16px;
+}
+#root .maplibregl-ctrl-attrib-button {
+  inset: -6px;
+  width: 44px;
+  height: 44px;
+  border-radius: 22px;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 18px;
+}
+/* MapLibre draws a blue ring (box-shadow) on the focused (i), and a tapped button keeps focus on a phone. The dark theme inverts the button,
+   which turns the blue to orange, and the ring followed the 44 px touch box, so it stayed on after the tap and spilled over the bar below the
+   map. The (i) takes no ring: the page is used by touch, and the circle itself shows when it is open. */
+#root .maplibregl-ctrl-attrib-button,
+#root .maplibregl-ctrl-attrib-button:focus,
+#root .maplibregl-ctrl-attrib-button:focus-visible,
+#root .maplibregl-ctrl-attrib-button:active {
+  box-shadow: none;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Opened, the (i) stays in the corner rather than centring over the text. */
+#root .maplibregl-ctrl-attrib.maplibregl-compact-show .maplibregl-ctrl-attrib-button {
+  inset: -6px -6px auto auto;
+}
+
+/* On a landscape phone the map is too short for five 44 px buttons in a column: lay them out in a row. */
+@media (max-height: 520px) {
+  div[class*='top-3'][class*='right-3'][class*='flex-col'] {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: calc(100% - 1.5rem);
+  }
+}

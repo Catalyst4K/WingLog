@@ -1,14 +1,13 @@
-import type { Airfield, TrackPoint } from '@shared/ipc'
-
 /**
- * Pure geometry for the Track map's VFR overlay (flightdeck-backend docs/plans/
+ * Pure geometry for the Track map's VFR overlay (winglog-backend docs/plans/
  * map-language-and-declutter.md, Part C items 1-3): range rings, a "recent track" emphasis
  * and the nearest-airfield readout. No map, no DOM — FlightMap's `useVfrOverlay` feeds
  * these into GeoJSON sources.
  */
 
-const EARTH_RADIUS_M = 6371008.8
-const METRES_PER_NM = 1852
+import type { Airfield, TrackPoint } from '@shared/ipc'
+import { destinationPoint, greatCircleNm, initialBearingDeg, METRES_PER_NM } from '@shared/geo'
+
 const RAD = Math.PI / 180
 
 /** Ring radii drawn around the aircraft. */
@@ -17,39 +16,24 @@ export const RANGE_RING_RADII_NM = [5, 10, 20] as const
 /** How much of the flown track is emphasised — circuits and pattern work read at a glance. */
 export const RECENT_TRAIL_MINUTES = 10
 
-export function haversineNm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const dLat = (lat2 - lat1) * RAD
-  const dLon = (lon2 - lon1) * RAD
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * RAD) * Math.cos(lat2 * RAD) * Math.sin(dLon / 2) ** 2
-  return (2 * EARTH_RADIUS_M * Math.asin(Math.min(1, Math.sqrt(a)))) / METRES_PER_NM
-}
-
-/** Initial true bearing from point 1 to point 2, 0..360. */
-export function bearingDeg(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const dLon = (lon2 - lon1) * RAD
-  const y = Math.sin(dLon) * Math.cos(lat2 * RAD)
-  const x =
-    Math.cos(lat1 * RAD) * Math.sin(lat2 * RAD) - Math.sin(lat1 * RAD) * Math.cos(lat2 * RAD) * Math.cos(dLon)
-  return (((Math.atan2(y, x) / RAD) % 360) + 360) % 360
-}
-
-/** Great-circle destination point [lon, lat]. Longitude is left unwrapped, so a ring that
- *  crosses the antimeridian stays continuous for the renderer instead of jumping across. */
+/**
+ * Great-circle destination point [lon, lat]. Longitude is left unwrapped, so a ring that
+ * crosses the antimeridian stays continuous for the renderer instead of jumping across.
+ *
+ * @param lat Start latitude.
+ * @param lon Start longitude.
+ * @param bearing Bearing, degrees true.
+ * @param distanceNm Distance, nautical miles.
+ * @returns The point, [lon, lat].
+ */
 export function destinationLonLat(
   lat: number,
   lon: number,
   bearing: number,
   distanceNm: number
 ): [number, number] {
-  const d = (distanceNm * METRES_PER_NM) / EARTH_RADIUS_M
-  const brg = bearing * RAD
-  const lat1 = lat * RAD
-  const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(brg))
-  const dLon = Math.atan2(
-    Math.sin(brg) * Math.sin(d) * Math.cos(lat1),
-    Math.cos(d) - Math.sin(lat1) * Math.sin(lat2)
-  )
-  return [lon + dLon / RAD, lat2 / RAD]
+  const to = destinationPoint({ lat, lon }, bearing, distanceNm * METRES_PER_NM)
+  return [to.lon, to.lat]
 }
 
 export interface RingFeatureCollection {
@@ -68,7 +52,15 @@ export interface RingFeatureCollection {
   )[]
 }
 
-/** A closed circle of `steps` segments at `radiusNm` around the given position. */
+/**
+ * A closed circle of `steps` segments at `radiusNm` around the given position.
+ *
+ * @param lat Centre latitude.
+ * @param lon Centre longitude.
+ * @param radiusNm Radius, nautical miles.
+ * @param steps How many segments.
+ * @returns The circle's points, closed.
+ */
 export function circleCoordinates(
   lat: number,
   lon: number,
@@ -77,11 +69,17 @@ export function circleCoordinates(
 ): [number, number][] {
   const ring: [number, number][] = []
   for (let i = 0; i < steps; i++) ring.push(destinationLonLat(lat, lon, (i * 360) / steps, radiusNm))
-  ring.push(ring[0]!)
+  const first = ring[0]
+  if (first) ring.push(first)
   return ring
 }
 
-/** One line per ring plus a label point at the ring's northern edge; empty with no position. */
+/**
+ * One line per ring plus a label point at the ring's northern edge; empty with no position.
+ *
+ * @param position The aircraft's position, or null.
+ * @returns The rings and their labels.
+ */
 export function rangeRingFeatures(
   position: { latitude: number; longitude: number } | null
 ): RingFeatureCollection {
@@ -113,6 +111,10 @@ export function rangeRingFeatures(
  * starts a new segment, so a restart never draws a straight line across the gap). "Now" is
  * the newest point's own timestamp rather than the wall clock — correct while the sim is
  * paused, when a replay runs faster than real time, and for a finished flight.
+ *
+ * @param points The flight's track points.
+ * @param minutes How far back.
+ * @returns The segments' [lon, lat] points.
  */
 export function recentTrailSegments(
   points: TrackPoint[],
@@ -154,6 +156,11 @@ const NEAREST_TYPES: ReadonlySet<string> = new Set(['large_airport', 'medium_air
  * distance picks the candidate across ~43k rows (this runs on every telemetry tick); only
  * the winner gets the exact great-circle figure. Longitude difference is wrapped so a
  * position near the antimeridian still finds a neighbour on the other side.
+ *
+ * @param lat Latitude.
+ * @param lon Longitude.
+ * @param airfields Every airfield.
+ * @returns The nearest, with its distance and bearing, or null.
  */
 export function nearestAirfield(lat: number, lon: number, airfields: Airfield[]): NearestAirfield | null {
   const cosLat = Math.cos(lat * RAD)
@@ -174,19 +181,29 @@ export function nearestAirfield(lat: number, lon: number, airfields: Airfield[])
   if (!best) return null
   return {
     airfield: best,
-    distanceNm: haversineNm(lat, lon, best.latitude, best.longitude),
-    bearingDeg: bearingDeg(lat, lon, best.latitude, best.longitude)
+    distanceNm: greatCircleNm({ lat, lon }, { lat: best.latitude, lon: best.longitude }),
+    bearingDeg: initialBearingDeg({ lat, lon }, { lat: best.latitude, lon: best.longitude })
   }
 }
 
-/** "EGLL Heathrow · 12.3 nm · 270°" — one decimal under 10 nm, whole numbers above. */
+/**
+ * "EGLL Heathrow · 12.3 nm · 270°" — one decimal under 10 nm, whole numbers above.
+ *
+ * @param n The nearest airfield.
+ * @returns The readout text.
+ */
 export function formatNearest(n: NearestAirfield): string {
   const distance = n.distanceNm < 10 ? n.distanceNm.toFixed(1) : String(Math.round(n.distanceNm))
   const bearing = String(Math.round(n.bearingDeg) % 360).padStart(3, '0')
   return `${n.airfield.icao}${n.airfield.name ? ` ${n.airfield.name}` : ''} · ${distance} nm · ${bearing}°`
 }
 
-/** GeoJSON for the airfields source — properties are only what the layers need. */
+/**
+ * GeoJSON for the airfields source — properties are only what the layers need.
+ *
+ * @param airfields Every airfield.
+ * @returns The GeoJSON.
+ */
 export function airfieldFeatureCollection(airfields: Airfield[]): {
   type: 'FeatureCollection'
   features: {

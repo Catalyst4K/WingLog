@@ -3,7 +3,7 @@ import { defineConfig } from 'vitest/config'
 
 // Two projects: 'unit' is the original main-process/shared/pure-logic suite (node
 // environment, .test.ts only); 'renderer' is real React component/integration tests (jsdom,
-// .test.tsx) added for docs/plans/test-coverage.md (flightdeck-backend) — kept separate
+// .test.tsx) added for docs/plans/test-coverage.md (winglog-backend) — kept separate
 // rather than one shared config because jsdom has real per-test overhead a hundred pure
 // main-process tests shouldn't pay, and because a renderer test needs setupFiles
 // (@testing-library/jest-dom matchers) the unit suite has no use for.
@@ -23,7 +23,12 @@ export default defineConfig({
   // card's real UI is exercised in tests rather than permanently dark; the off-build's
   // branch is narrowly `v8 ignore`d at its two call sites in SettingsView.tsx instead, since
   // a single test run can't hold both literal values of a define at once.
-  define: { __WINGLOG_CLOUD_SYNC_ENABLED__: JSON.stringify(true) },
+  // The dev-build flag is false here, as in every normal build: tests see the app as users
+  // get it. The dev build's own code is tested directly (src/main/diagnostics/).
+  define: {
+    __WINGLOG_CLOUD_SYNC_ENABLED__: JSON.stringify(true),
+    __WINGLOG_DEV_BUILD__: JSON.stringify(false)
+  },
   test: {
     projects: [
       {
@@ -31,7 +36,8 @@ export default defineConfig({
         test: {
           name: 'unit',
           environment: 'node',
-          include: ['src/**/*.test.ts', 'scripts/**/*.test.ts']
+          include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'],
+          setupFiles: ['./vitest.setup.unit.ts']
         }
       },
       {
@@ -39,7 +45,7 @@ export default defineConfig({
         test: {
           name: 'renderer',
           environment: 'jsdom',
-          include: ['src/renderer/**/*.test.tsx'],
+          include: ['src/renderer/**/*.test.tsx', 'src/lan-client/**/*.test.tsx'],
           setupFiles: ['./vitest.setup.renderer.ts']
         }
       }
@@ -48,7 +54,7 @@ export default defineConfig({
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],
       // Wiring/vendored, not business logic — see docs/plans/test-coverage.md
-      // (flightdeck-backend) for why each of these is excluded rather than tested:
+      // (winglog-backend) for why each of these is excluded rather than tested:
       // Electron bootstrap and preload have no logic of their own to unit-test (every real
       // effect they trigger is covered by the Playwright acceptance suite instead); the
       // renderer's own entrypoint is React bootstrap; components/ui/** is vendored shadcn,
@@ -56,11 +62,14 @@ export default defineConfig({
       exclude: [
         'src/**/*.test.{ts,tsx}',
         'src/main/index.ts',
+        // electron-updater's configuration; the logic around it is update-install.ts.
+        'src/main/updates/updater-engine.ts',
         'src/preload/index.ts',
         'src/renderer/src/main.tsx',
+        'src/lan-client/main.tsx',
         'src/renderer/src/components/ui/**'
       ],
-      // A ratchet, not the end goal — flightdeck-backend's docs/plans/test-coverage.md
+      // A ratchet, not the end goal — winglog-backend's docs/plans/test-coverage.md
       // targets 100% (of business logic; see the `exclude` list above), but setting that
       // as the enforced threshold before the work to get there is done would break `npm
       // test` for every unrelated change in the meantime. Raise these numbers at the end
@@ -83,10 +92,10 @@ export default defineConfig({
       // Track-finish flow driven through real child views. Phase 4 (Playwright acceptance)
       // and Phase 5 (CI enforcement at 100%) are what's left of this plan.
       thresholds: {
-        statements: 95,
-        branches: 89,
-        functions: 94,
-        lines: 96
+        statements: 97,
+        branches: 92,
+        functions: 96,
+        lines: 98
       }
     }
   }

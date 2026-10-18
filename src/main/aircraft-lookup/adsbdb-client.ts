@@ -1,5 +1,5 @@
 /**
- * Aircraft registration lookup via adsbdb.com (docs/decisions.md, 2026-09-01) — free,
+ * Aircraft registration lookup via adsbdb.com — free,
  * keyless, no documented rate limit. Verified against a real live response, not just its
  * docs:
  *
@@ -31,6 +31,13 @@ interface AdsbdbAircraft {
   url_photo_thumbnail?: unknown
 }
 
+/**
+ * Looks a registration up on adsbdb.com.
+ *
+ * @param registration The registration to look up.
+ * @returns The aircraft, or null if adsbdb doesn't know the registration.
+ * @throws AdsbdbError on any other failed or malformed reply.
+ */
 export async function fetchAircraftByRegistration(
   registration: string
 ): Promise<AircraftLookupResult | null> {
@@ -56,7 +63,7 @@ export async function fetchAircraftByRegistration(
         ? aircraft.registered_owner_operator_flag_code
         : null,
     // Deliberately url_photo_thumbnail, not url_photo (full-size) — see
-    // docs/decisions.md, 2026-09-07: the full-size URL 404s consistently in practice.
+    // docs/decisions.md: the full-size URL 404s consistently in practice.
     photoThumbnailUrl: typeof aircraft.url_photo_thumbnail === 'string' ? aircraft.url_photo_thumbnail : null
   }
 }

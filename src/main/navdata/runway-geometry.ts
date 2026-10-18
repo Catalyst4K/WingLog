@@ -1,4 +1,8 @@
-import { destinationPoint } from '../airports/landing-maths'
+/**
+ * Each runway end's own threshold, worked out from the sim's runway record (a centre point and the
+ * primary end's heading).
+ */
+import { offsetAlongBearing } from '../airports/landing-maths'
 import type { ParsedRunway } from '../sim/facility-fields'
 
 export interface DerivedRunwayEnd {
@@ -9,6 +13,8 @@ export interface DerivedRunwayEnd {
   surface: number
   thresholdLat: number
   thresholdLon: number
+  /** The displaced part of this end's threshold, metres; null when the sim's answer hasn't been read. */
+  displacedThresholdM: number | null
 }
 
 /**
@@ -18,6 +24,9 @@ export interface DerivedRunwayEnd {
  * strip's centre point, not a threshold, and a FINAL_APPROACH_LEG's own runway-ident fix
  * resolves to that same centre for both ends too — this derivation is still necessary, not
  * something the facility API hands over for free (docs/navdata-notes.md).
+ *
+ * @param runway The sim's RUNWAY record.
+ * @returns Both ends, primary first, each with its threshold, heading and size.
  */
 export function runwayEndsFromCentre(runway: ParsedRunway): DerivedRunwayEnd[] {
   const halfLengthM = runway.lengthM / 2
@@ -25,8 +34,18 @@ export function runwayEndsFromCentre(runway: ParsedRunway): DerivedRunwayEnd[] {
   // The primary end is reached by moving from centre *against* the primary heading — an
   // aircraft crosses this threshold, then rolls out in the primary-heading direction
   // toward the far (secondary) end.
-  const primaryThreshold = destinationPoint(runway.latitude, runway.longitude, runway.headingDeg, -halfLengthM)
-  const secondaryThreshold = destinationPoint(runway.latitude, runway.longitude, runway.headingDeg, halfLengthM)
+  const primaryThreshold = offsetAlongBearing(
+    runway.latitude,
+    runway.longitude,
+    runway.headingDeg,
+    -halfLengthM
+  )
+  const secondaryThreshold = offsetAlongBearing(
+    runway.latitude,
+    runway.longitude,
+    runway.headingDeg,
+    halfLengthM
+  )
   return [
     {
       ident: runway.primaryIdent,
@@ -35,7 +54,8 @@ export function runwayEndsFromCentre(runway: ParsedRunway): DerivedRunwayEnd[] {
       widthM: runway.widthM,
       surface: runway.surface,
       thresholdLat: primaryThreshold.lat,
-      thresholdLon: primaryThreshold.lon
+      thresholdLon: primaryThreshold.lon,
+      displacedThresholdM: runway.primaryDisplacedM ?? null
     },
     {
       ident: runway.secondaryIdent,
@@ -44,7 +64,8 @@ export function runwayEndsFromCentre(runway: ParsedRunway): DerivedRunwayEnd[] {
       widthM: runway.widthM,
       surface: runway.surface,
       thresholdLat: secondaryThreshold.lat,
-      thresholdLon: secondaryThreshold.lon
+      thresholdLon: secondaryThreshold.lon,
+      displacedThresholdM: runway.secondaryDisplacedM ?? null
     }
   ]
 }

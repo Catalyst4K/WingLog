@@ -1,6 +1,10 @@
+/**
+ * The live connection to MSFS through SimConnect: the 1 Hz telemetry stream TrackingController
+ * records, a high-rate stream around touchdown for the landing rate, pause state, and reconnecting
+ * whenever the sim goes away. SimVar names and read order are in simvars.ts.
+ */
 import { EventEmitter } from 'node:events'
 import {
-  open,
   Protocol,
   SimConnectConstants,
   SimConnectDataType,
@@ -10,7 +14,8 @@ import {
 } from 'node-simconnect'
 import type { SimConnectionStatus, SimTelemetry } from '@shared/ipc'
 import type { TouchdownSeverity } from './SimConnectSource'
-import { SIM_VARS } from './simvars'
+import { openSimConnect as openSimConnectDefault } from './open-simconnect'
+import { SIM_VARS, readTelemetry } from './simvars'
 
 const APP_NAME = 'WingLog'
 const DEFINITION_ID = 0
@@ -20,12 +25,9 @@ const PAUSE_EVENT_ID = 1
 const INITIAL_RECONNECT_DELAY_MS = 2_000
 const MAX_RECONNECT_DELAY_MS = 30_000
 
-// Second, high-rate SimConnect stream for touchdown-severity capture (v1.2 Part 1,
-// flightdeck-backend's docs/plans/landing-scoring-v2.md Part 3; real spike findings in
-// docs/simconnect-notes.md, 2026-09-20). Own definition/request id, entirely independent of
-// the primary 1 Hz stream above, which keeps driving FlightRecorder's phase detection
-// exactly as today — its sample-count sustain counters would silently break if that stream's
-// own rate changed (found by reading the code, not guessed).
+// Second, high-rate SimConnect stream for touchdown-severity capture (winglog-backend's docs/plans/landing-scoring-v2.md Part 3;
+// docs/simconnect-notes.md). Own definition/request id, independent of the primary 1 Hz stream above, which keeps
+// driving FlightRecorder's phase detection: its sample-count sustain counters would silently break if that stream's rate changed.
 const HIGH_RATE_DEFINITION_ID = 1
 const HIGH_RATE_REQUEST_ID = 1
 // Matches FlightRecorder's own DESCENT_APPROACH_AGL_M (not imported — sim/ has no existing
@@ -39,15 +41,14 @@ const HIGH_RATE_STOP_AFTER_TOUCHDOWN_MS = 5_000
 // The near-contact window the production touchdown-severity value is drawn from — the
 // shortest of the three windows the spike measured (1/2/5s), chosen because it stays
 // closest to the true instantaneous contact severity without pulling in the earlier part of
-// the flare's own deceleration (docs/simconnect-notes.md, 2026-09-20's three real landings).
+// the flare's own deceleration (docs/simconnect-notes.md: three real landings).
 const NEAR_CONTACT_WINDOW_MS = 1_000
-// A liftoff must clear this much AGL, not just read onGround:false, before re-arming —
-// taxi bumps/turns can flicker onGround briefly enough to look like a departure otherwise
-// (real bug found live, docs/simconnect-notes.md, 2026-09-20's third run).
+// A liftoff must clear this much AGL, not just read onGround:false, before re-arming: taxi bumps and turns can flicker onGround
+// briefly enough to look like a departure.
 const LIFTOFF_AGL_MARGIN_M = 3
 
 /** Matches node-simconnect's `open` export — injected so tests don't need a live sim. */
-export type OpenSimConnect = typeof open
+export type OpenSimConnect = typeof openSimConnectDefault
 
 interface SimConnectServiceEvents {
   telemetry: [SimTelemetry]
@@ -94,7 +95,7 @@ export class SimConnectService extends EventEmitter<SimConnectServiceEvents> {
   private touchdownAt: number | null = null
   private ringBuffer: { t: number; verticalSpeedMs: number }[] = []
 
-  constructor(private readonly openSimConnect: OpenSimConnect = open) {
+  constructor(private readonly openSimConnect: OpenSimConnect = openSimConnectDefault) {
     super()
   }
 
@@ -102,12 +103,18 @@ export class SimConnectService extends EventEmitter<SimConnectServiceEvents> {
    * Current status, for a renderer that mounts after the initial connect already
    * happened — `status` events are fire-and-forget over IPC and aren't replayed to late
    * subscribers, so a freshly-mounted renderer needs to pull this once on mount.
+   *
+   * @returns Connected, connecting or disconnected, with the last error.
    */
   getStatus(): SimConnectionStatus {
     return this.status
   }
 
-  /** Most recent telemetry sample, for snapshotting state (e.g. fuel) outside the 1 Hz stream. */
+  /**
+   * Most recent telemetry sample, for snapshotting state (e.g. fuel) outside the 1 Hz stream.
+   *
+   * @returns The latest tick, or undefined before the first.
+   */
   getLastTelemetry(): SimTelemetry | undefined {
     return this.lastTelemetry
   }
@@ -129,6 +136,12 @@ export class SimConnectService extends EventEmitter<SimConnectServiceEvents> {
     this.handle = undefined
   }
 
+  /**
+   * Opens a SimConnect connection and, once open, registers the data definitions and requests. A failed
+   * or lost connection retries after a growing delay.
+   *
+   * @param reconnectDelayMs Wait before the next attempt if this one fails, milliseconds.
+   */
   private connect(reconnectDelayMs = INITIAL_RECONNECT_DELAY_MS): void {
     if (this.stopped) return
     this.setStatus({ state: 'connecting' })
@@ -168,8 +181,22 @@ export class SimConnectService extends EventEmitter<SimConnectServiceEvents> {
         // block's own doc comment). Not requested yet; armed/disarmed by
         // evaluateHighRateArming below as the primary stream's own telemetry crosses the
         // trigger altitude.
-        handle.addToDataDefinition(HIGH_RATE_DEFINITION_ID, 'VERTICAL SPEED', 'meters per second', SimConnectDataType.FLOAT64, 0, 0)
-        handle.addToDataDefinition(HIGH_RATE_DEFINITION_ID, 'SIM ON GROUND', 'bool', SimConnectDataType.INT32, 0, 1)
+        handle.addToDataDefinition(
+          HIGH_RATE_DEFINITION_ID,
+          'VERTICAL SPEED',
+          'meters per second',
+          SimConnectDataType.FLOAT64,
+          0,
+          0
+        )
+        handle.addToDataDefinition(
+          HIGH_RATE_DEFINITION_ID,
+          'SIM ON GROUND',
+          'bool',
+          SimConnectDataType.INT32,
+          0,
+          1
+        )
 
         handle.on('simObjectData', (recv) => {
           if (recv.requestID === HIGH_RATE_REQUEST_ID) {
@@ -177,13 +204,7 @@ export class SimConnectService extends EventEmitter<SimConnectServiceEvents> {
             return
           }
           if (recv.requestID !== REQUEST_ID) return
-          const fields: Record<string, unknown> = {}
-          for (const spec of SIM_VARS) {
-            fields[spec.key] = spec.read(recv.data)
-          }
-          // SIM_VARS is a heterogeneous const array; per-field typing is enforced at its
-          // declaration site, so a single cast here (rather than one per field) is fine.
-          const telemetry = fields as unknown as SimTelemetry
+          const telemetry = readTelemetry(recv.data)
           this.lastTelemetry = telemetry
           this.emit('telemetry', telemetry)
           this.evaluateHighRateArming(telemetry)
@@ -219,13 +240,12 @@ export class SimConnectService extends EventEmitter<SimConnectServiceEvents> {
   }
 
   /**
-   * Arms/re-arms the high-rate stream from the primary 1 Hz telemetry alone — called on
-   * every baseline tick. Requires genuinely airborne (`!onGround`), not just the altitude
-   * band, before arming: AGL alone is also true during the takeoff roll/initial climb, and
-   * arming while still on the ground reset wasOnGroundHighRate against a same-tick onGround
-   * still true, tripping a false touchdown with an empty ring buffer (real bug found live,
-   * docs/simconnect-notes.md, 2026-09-20's third run — scripts/spike-landing-rate.ts hit
-   * this first and is fixed the same way).
+   * Arms/re-arms the high-rate stream from the primary 1 Hz telemetry alone, on every baseline tick. Requires genuinely airborne
+   * (`!onGround`), not just the altitude band: AGL alone is also true during the takeoff roll and initial climb, and arming while
+   * still on the ground reset wasOnGroundHighRate against a same-tick onGround still true, tripping a false touchdown with an
+   * empty ring buffer (docs/simconnect-notes.md; scripts/spike-landing-rate.ts is fixed the same way).
+   *
+   * @param telemetry The latest 1 Hz tick.
    */
   private evaluateHighRateArming(telemetry: SimTelemetry): void {
     if (
@@ -274,13 +294,20 @@ export class SimConnectService extends EventEmitter<SimConnectServiceEvents> {
     )
   }
 
+  /**
+   * Handles one tick of the fast vertical-speed stream while a landing is expected: keeps a short
+   * window of readings, takes the largest vertical speed in it at ground contact as the touchdown
+   * severity, and stops the stream shortly after.
+   *
+   * @param data The SimConnect response: vertical speed, then on-ground.
+   */
   private handleHighRateTick(data: RawBuffer): void {
     const verticalSpeedMs = data.readFloat64()
     const onGround = data.readInt32() === 1
     const now = Date.now()
 
     this.ringBuffer.push({ t: now, verticalSpeedMs })
-    while (this.ringBuffer.length > 0 && this.ringBuffer[0]!.t < now - NEAR_CONTACT_WINDOW_MS) {
+    while ((this.ringBuffer[0]?.t ?? Infinity) < now - NEAR_CONTACT_WINDOW_MS) {
       this.ringBuffer.shift()
     }
 
@@ -290,17 +317,21 @@ export class SimConnectService extends EventEmitter<SimConnectServiceEvents> {
     if (!this.wasOnGroundHighRate && onGround && this.touchdownAt === null) {
       this.touchdownAt = now
       const peak = this.ringBuffer.reduce<{ t: number; verticalSpeedMs: number } | null>(
-        (best, p) => (best === null || Math.abs(p.verticalSpeedMs) > Math.abs(best.verticalSpeedMs) ? p : best),
+        (best, p) =>
+          best === null || Math.abs(p.verticalSpeedMs) > Math.abs(best.verticalSpeedMs) ? p : best,
         null
       )
       if (peak) this.emit('touchdownSeverity', { verticalSpeedMs: peak.verticalSpeedMs })
     }
     this.wasOnGroundHighRate = onGround
 
-    // highRateActive guard: a couple of ticks can still arrive after requestDataOnSimObject
-    // NEVER takes effect (found live, docs/simconnect-notes.md, 2026-09-20) — without it
-    // this would call stopHighRate/emit repeatedly for every leftover tick.
-    if (this.highRateActive && this.touchdownAt !== null && now - this.touchdownAt >= HIGH_RATE_STOP_AFTER_TOUCHDOWN_MS) {
+    // highRateActive guard: a couple of ticks can still arrive after requestDataOnSimObject never takes effect;
+    // without it this would call stopHighRate/emit for every leftover tick.
+    if (
+      this.highRateActive &&
+      this.touchdownAt !== null &&
+      now - this.touchdownAt >= HIGH_RATE_STOP_AFTER_TOUCHDOWN_MS
+    ) {
       this.stopHighRate()
       this.awaitingLanding = false // captured; don't re-arm until a real liftoff happens
     }

@@ -24,7 +24,14 @@ function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 }
 
-function makeService(options: { currentVersion?: string; fetchImpl?: typeof fetch; enabled?: boolean; skipped?: string | null } = {}): {
+function makeService(
+  options: {
+    currentVersion?: string
+    fetchImpl?: typeof fetch
+    enabled?: boolean
+    skipped?: string | null
+  } = {}
+): {
   service: UpdateService
   setSkipped: ReturnType<typeof vi.fn>
   fetchImpl: ReturnType<typeof vi.fn>
@@ -69,10 +76,22 @@ describe('parseLatestRelease (GitHub data is third-party input)', () => {
     })
   })
 
-  it('rejects a release page anywhere but WingLog\'s own releases', () => {
-    expect(parseLatestRelease({ ...RELEASE_1_4_0, html_url: 'https://evil.example.com/WingLog-1.4.0.exe' })).toBeNull()
-    expect(parseLatestRelease({ ...RELEASE_1_4_0, html_url: 'http://github.com/Catalyst4K/WingLog/releases/tag/v1.4.0' })).toBeNull()
-    expect(parseLatestRelease({ ...RELEASE_1_4_0, html_url: 'https://github.com/someone-else/WingLog/releases/tag/v1.4.0' })).toBeNull()
+  it("rejects a release page anywhere but WingLog's own releases", () => {
+    expect(
+      parseLatestRelease({ ...RELEASE_1_4_0, html_url: 'https://evil.example.com/WingLog-1.4.0.exe' })
+    ).toBeNull()
+    expect(
+      parseLatestRelease({
+        ...RELEASE_1_4_0,
+        html_url: 'http://github.com/Catalyst4K/WingLog/releases/tag/v1.4.0'
+      })
+    ).toBeNull()
+    expect(
+      parseLatestRelease({
+        ...RELEASE_1_4_0,
+        html_url: 'https://github.com/someone-else/WingLog/releases/tag/v1.4.0'
+      })
+    ).toBeNull()
   })
 
   it('rejects drafts, prereleases, odd tags and non-objects', () => {
@@ -87,7 +106,10 @@ describe('parseLatestRelease (GitHub data is third-party input)', () => {
     const script = '<script>alert(1)</script>'
     expect(parseLatestRelease({ ...RELEASE_1_4_0, body: script })?.notes).toBe(script)
     expect(parseLatestRelease({ ...RELEASE_1_4_0, body: 'x'.repeat(50_000) })?.notes).toHaveLength(20_000)
-    expect(parseLatestRelease({ ...RELEASE_1_4_0, body: null, published_at: undefined })).toMatchObject({ notes: '', publishedAt: null })
+    expect(parseLatestRelease({ ...RELEASE_1_4_0, body: null, published_at: undefined })).toMatchObject({
+      notes: '',
+      publishedAt: null
+    })
   })
 })
 
@@ -96,14 +118,18 @@ describe('UpdateService', () => {
     vi.useRealTimers()
   })
 
-  it('reports a newer release as available, asking only GitHub with WingLog\'s version', async () => {
+  it("reports a newer release as available, asking only GitHub with WingLog's version", async () => {
     const { service, fetchImpl } = makeService()
     const statuses: string[] = []
     service.on('status', (s) => statuses.push(s.state))
 
     const status = await service.checkNow()
 
-    expect(status).toMatchObject({ state: 'available', currentVersion: '1.3.2', latest: { version: '1.4.0' } })
+    expect(status).toMatchObject({
+      state: 'available',
+      currentVersion: '1.3.2',
+      latest: { version: '1.4.0' }
+    })
     expect(status.checkedAt).not.toBeNull()
     expect(statuses).toEqual(['checking', 'available'])
     expect(fetchImpl).toHaveBeenCalledWith(LATEST_RELEASE_URL, {
@@ -120,9 +146,13 @@ describe('UpdateService', () => {
   it('never throws: offline, rate-limited and malformed replies end as an error state', async () => {
     const offline = makeService({ fetchImpl: async () => Promise.reject(new TypeError('fetch failed')) })
     expect((await offline.service.checkNow()).state).toBe('error')
-    const limited = makeService({ fetchImpl: async () => jsonResponse({ message: 'API rate limit exceeded' }, 403) })
+    const limited = makeService({
+      fetchImpl: async () => jsonResponse({ message: 'API rate limit exceeded' }, 403)
+    })
     expect((await limited.service.checkNow()).state).toBe('error')
-    const odd = makeService({ fetchImpl: async () => jsonResponse({ tag_name: 'v9.9.9', html_url: 'https://evil.example.com' }) })
+    const odd = makeService({
+      fetchImpl: async () => jsonResponse({ tag_name: 'v9.9.9', html_url: 'https://evil.example.com' })
+    })
     expect((await odd.service.checkNow()).state).toBe('error')
     expect(odd.service.releaseUrl()).toBeNull()
   })

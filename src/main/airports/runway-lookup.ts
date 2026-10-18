@@ -1,24 +1,28 @@
-// Runway threshold geometry for landing analysis (PLAN.md M6) — resources/runways.csv, a
-// trimmed slice of OurAirports' runways.csv (public domain, see
-// resources/runways.LICENSE.txt and scripts/vendor-runways.mjs), one row per usable
-// runway end (heading + threshold position both present) for airports already in this
-// app's vendored resources/airports.csv. Bundled via Vite's `?raw` import, same pattern
-// as airport-search.ts/icao-types.ts.
-import type { LandingRunway } from '@shared/ipc'
+/**
+ * Runway threshold geometry for landing analysis (PLAN.md M6) — resources/runways.csv, a
+ * trimmed slice of OurAirports' runways.csv (public domain, see
+ * resources/runways.LICENSE.txt and scripts/vendor-runways.mjs), one row per usable
+ * runway end (heading + threshold position both present) for airports already in this
+ * app's vendored resources/airports.csv. Bundled via Vite's `?raw` import, same pattern
+ * as airport-search.ts/icao-types.ts.
+ */
+
+import type { LandingRunway, NavdataRunway } from '@shared/ipc'
 import { columnIndex, parseCsvRows } from '../db/csv'
 import { angularDifference, positionRelativeToRunway, type RunwayRelativePosition } from './landing-maths'
 import runwaysRaw from '../../../resources/runways.csv?raw'
+import { lazy } from '@shared/lazy'
+import { METRES_PER_FOOT } from '@shared/units'
 
 export interface RunwayEnd {
   icao: string
   ident: string
-  /** This end's own physical threshold position — OurAirports' `le_latitude_deg`/
-   *  `he_latitude_deg` etc., the centre of the physical runway end (length_ft's own
-   *  definition explicitly includes displaced thresholds, confirmed against OurAirports'
-   *  data dictionary), not the displacement-adjusted usable threshold. Matching/gating
-   *  below is deliberately done against this physical point — a touchdown short of a
-   *  displaced threshold but still on the paved surface is still "on this runway", not a
-   *  different one. Use distanceFromUsableThresholdM for the distance actually reported. */
+  /** Whose data this end is: the vendored OurAirports slice, or the sim's own facility data. Stored on a landing, so a later lookup uses the same. */
+  source: 'database' | 'sim'
+  /** This end's physical threshold position (OurAirports' `le_latitude_deg`/`he_latitude_deg` etc.): the centre of the physical
+   *  runway end, since OurAirports' length_ft includes displaced thresholds, not the displacement-adjusted usable threshold.
+   *  Matching and gating below use this physical point deliberately: a touchdown short of a displaced threshold but still on the
+   *  paved surface is still "on this runway". Use distanceFromUsableThresholdM for the distance actually reported. */
   lat: number
   lon: number
   headingTrueDeg: number
@@ -43,21 +47,20 @@ export interface RunwayEnd {
   aimingPointDistanceM: number | null
 }
 
-const FEET_TO_METERS = 0.3048
-
 function feetToMetersOrNull(raw: string | undefined): number | null {
   if (!raw) return null
   const feet = Number(raw)
-  return Number.isFinite(feet) ? feet * FEET_TO_METERS : null
+  return Number.isFinite(feet) ? feet * METRES_PER_FOOT : null
 }
 
 /**
- * ICAO Annex 14, Vol I, §5.2.5 (aiming point marking) — the marking's distance from the
- * threshold depends on the runway's landing distance available. Sourced from the Manual
- * of Aerodrome Standards' Table 9-1 (a secondary source; the ≥2400m band was independently
- * confirmed against the primary Annex 14 text before this table was written) — worth a
- * cross-check against a primary ICAO source if this ever needs to be authoritative rather
- * than an informational display value. Null when lengthM itself is unknown.
+ * ICAO Annex 14, Vol I, §5.2.5 (aiming point marking): the marking's distance from the threshold depends on the runway's
+ * landing distance available. Sourced from the Manual of Aerodrome Standards' Table 9-1 (a secondary source; the ≥2400m band
+ * was confirmed against the primary Annex 14 text), so cross-check against a primary ICAO source if this ever needs to be
+ * authoritative rather than an informational display value. Null when lengthM itself is unknown.
+ *
+ * @param lengthM The runway's length in metres, or null.
+ * @returns The aiming point's distance from the threshold, in metres, or null.
  */
 export function aimingPointDistanceForLengthM(lengthM: number | null): number | null {
   if (lengthM === null) return null
@@ -67,6 +70,12 @@ export function aimingPointDistanceForLengthM(lengthM: number | null): number | 
   return 400
 }
 
+/**
+ * Parses the vendored runways, one row per runway into its two ends.
+ *
+ * @param raw The OurAirports runways CSV.
+ * @returns Every usable runway end.
+ */
 export function loadRunwayEnds(raw: string): RunwayEnd[] {
   const [header, ...rows] = parseCsvRows(raw)
   const icaoIdx = columnIndex(header, 'icao')
@@ -85,13 +94,20 @@ export function loadRunwayEnds(raw: string): RunwayEnd[] {
     const lat = Number(row[latIdx])
     const lon = Number(row[lonIdx])
     const headingTrueDeg = Number(row[hdgIdx])
-    if (!row[icaoIdx] || !row[identIdx] || !Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(headingTrueDeg)) {
+    if (
+      !row[icaoIdx] ||
+      !row[identIdx] ||
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lon) ||
+      !Number.isFinite(headingTrueDeg)
+    ) {
       continue
     }
     const lengthM = feetToMetersOrNull(row[lengthIdx])
     ends.push({
       icao: row[icaoIdx].toUpperCase(),
       ident: row[identIdx],
+      source: 'database',
       lat,
       lon,
       headingTrueDeg,
@@ -106,6 +122,53 @@ export function loadRunwayEnds(raw: string): RunwayEnd[] {
   return ends
 }
 
+/**
+ * One runway end from the sim's own facility data as a RunwayEnd: where MSFS really puts it. The end's position is the pavement end; its
+ * displaced threshold is the sim's own figure (the nested PRIMARY_THRESHOLD / SECONDARY_THRESHOLD record, navdata-notes.md 2026-10-17),
+ * 0 when the sim has not been asked yet (a cache from before it was read). Width and length are the sim's; what the sim doesn't give
+ * (elevation, surface) stays unknown.
+ *
+ * @param icao The airport.
+ * @param end The sim's runway end.
+ * @returns The runway end.
+ */
+export function simRunwayEnd(
+  icao: string,
+  end: Pick<
+    NavdataRunway,
+    'ident' | 'headingTrueDeg' | 'lengthM' | 'widthM' | 'thresholdLat' | 'thresholdLon'
+  > & {
+    displacedThresholdM?: number | null
+  }
+): RunwayEnd {
+  const displacedThresholdM = end.displacedThresholdM ?? 0
+  return {
+    icao: icao.toUpperCase(),
+    ident: end.ident,
+    source: 'sim',
+    lat: end.thresholdLat,
+    lon: end.thresholdLon,
+    headingTrueDeg: end.headingTrueDeg,
+    lengthM: end.lengthM,
+    widthM: end.widthM,
+    displacedThresholdM,
+    elevationM: null,
+    surface: null,
+    aimingPointDistanceM: aimingPointDistanceForLengthM(end.lengthM - displacedThresholdM)
+  }
+}
+
+/**
+ * An airport's runway ends from the sim's cached facility data (`navdata_runway`).
+ *
+ * @param icao The airport.
+ * @param runways Its cached runways.
+ * @returns One end per cached runway end.
+ */
+export function runwayEndsFromNavdata(icao: string, runways: NavdataRunway[]): RunwayEnd[] {
+  return runways.map((runway) => simRunwayEnd(icao, runway))
+}
+
 // A touchdown heading more than this far from a runway end's published heading isn't
 // plausibly that end (e.g. matching 09 to a landing that was actually on 27). Wide on
 // purpose (was 45): heading's only real job here is picking which end of a strip was
@@ -113,13 +176,11 @@ export function loadRunwayEnds(raw: string): RunwayEnd[] {
 // telling parallel runways apart, so heading doesn't need to be tight too.
 const MAX_HEADING_DIFFERENCE_DEG = 90
 
-// How far off the centreline a touchdown can be and still count as "on this runway", when
-// a candidate's own real widthM (Phase 1) isn't known — real runways are 30-90m wide, so
-// 100m already rejects a different, parallel strip while tolerating GPS/heading noise on
-// the real one. Used as a fallback only; see runwayLateralToleranceM below.
-// Exported for landing-score-resolver.ts's centreline-offset scoring tolerance, which
-// reuses this exact fallback when a runway's real width is unknown (docs/decisions.md,
-// 2026-09-12) — same value, not a second constant to keep in sync.
+// How far off the centreline a touchdown can be and still count as "on this runway" when a candidate's own widthM isn't
+// known: real runways are 30-90m wide, so 100m rejects a different, parallel strip while tolerating GPS and heading noise on
+// the real one. A fallback only; see runwayLateralToleranceM below. Exported for landing-score-resolver.ts's
+// centreline-offset scoring tolerance, which reuses this fallback when a runway's width is unknown (docs/decisions.md):
+// one value, not a second constant to keep in sync.
 export const FALLBACK_LATERAL_TOLERANCE_M = 100
 
 // Along-track bounds a touchdown must fall within, relative to the threshold. Small
@@ -146,31 +207,37 @@ function runwayMaxAlongTrackM(end: RunwayEnd): number {
   return end.lengthM ?? FALLBACK_MAX_ALONG_TRACK_M
 }
 
-/** Distance from this end's real, usable (displacement-adjusted) landing threshold — what
- *  should actually be reported/stored, as opposed to `position.distanceFromThresholdM`
- *  (distance from the physical runway end, which is what resolveRunwayEnd's gating uses;
- *  see RunwayEnd.lat's doc comment for why those are deliberately different points). */
+/**
+ * Distance from this end's real, usable (displacement-adjusted) landing threshold — what
+ * should actually be reported/stored, as opposed to `position.distanceFromThresholdM`
+ * (distance from the physical runway end, which is what resolveRunwayEnd's gating uses;
+ * see RunwayEnd.lat's doc comment for why those are deliberately different points).
+ *
+ * @param position The touchdown relative to this end.
+ * @param end The runway end.
+ * @returns The distance in metres; negative before the usable threshold.
+ */
 export function distanceFromUsableThresholdM(position: RunwayRelativePosition, end: RunwayEnd): number {
   return position.distanceFromThresholdM - end.displacedThresholdM
 }
 
 /**
- * Resolves a touchdown ICAO + heading + position to the matching runway end, using real
- * geometry rather than heading alone. Two candidate ends can share the same published
- * heading (parallel runways, e.g. 25L/25R) or publish slightly *different* integer-rounded
- * headings for what are physically parallel strips — either way, only position relative to
- * each candidate's own threshold can tell them apart, so heading only breaks a tie between
- * geometrically-plausible survivors rather than deciding on its own. (VHHH's 07L used to be
- * exactly this case, published as 74° against 07C/07R's 71° — turned out to be a genuine
- * OurAirports data error rather than a real integer-rounding quirk: 07L's own two threshold
- * coordinates geometrically bear ~71°, matching its siblings, and headingTrueDeg was
- * corrected to match, 2026-09-13. Kept as the design rationale here since the *general*
- * risk — a future re-vendor reintroducing this, or a different airport with a real one —
- * is exactly what this position-first design is defending against.) A touchdown must fall
- * within a candidate's own real lateral tolerance (half its published width, plus a fixed
- * noise margin — resources/runways.csv's `width_ft`, Phase 1) of its centreline and within
- * its along-track bounds (its own real length, same source) to be considered at all. Falls
- * back to fixed, generous defaults for the rare candidate missing that data.
+ * Resolves a touchdown ICAO + heading + position to the matching runway end, using real geometry rather than heading alone.
+ * Two candidate ends can share the same published heading (parallel runways, e.g. 25L/25R) or publish slightly different
+ * integer-rounded headings for parallel strips, so only position relative to each candidate's own threshold can tell them
+ * apart; heading only breaks a tie between geometrically-plausible survivors. (VHHH's 07L was published as 74° against
+ * 07C/07R's 71°, a data error in OurAirports since corrected in headingTrueDeg. A re-vendor could reintroduce one, or
+ * another airport could have one, which is what this position-first design defends against.) A touchdown must fall within a
+ * candidate's lateral tolerance (half its published width, plus a fixed noise margin; resources/runways.csv's `width_ft`) of
+ * its centreline and within its along-track bounds (its length) to be considered at all. Falls back to fixed, generous
+ * defaults for the rare candidate missing that data.
+ *
+ * @param ends The runway ends to search.
+ * @param icao The airport.
+ * @param touchdownHeadingDeg Heading at touchdown, degrees true.
+ * @param touchdownLat Touchdown latitude.
+ * @param touchdownLon Touchdown longitude.
+ * @returns The runway end, or null if none fits.
  */
 export function resolveRunwayEnd(
   ends: RunwayEnd[],
@@ -195,7 +262,8 @@ export function resolveRunwayEnd(
       end.lon,
       end.headingTrueDeg
     )
-    if (distanceFromThresholdM < MIN_ALONG_TRACK_M || distanceFromThresholdM > runwayMaxAlongTrackM(end)) continue
+    if (distanceFromThresholdM < MIN_ALONG_TRACK_M || distanceFromThresholdM > runwayMaxAlongTrackM(end))
+      continue
     if (Math.abs(centrelineOffsetM) > runwayLateralToleranceM(end)) continue
 
     // Position dominates the score — a candidate only reaches here already confirmed to
@@ -214,11 +282,17 @@ export function resolveRunwayEnd(
 // reasoning as airport-search.ts. This one's real use (a touchdown) can be hours into a
 // session, so deferring the parse to then still matters even though every flight
 // eventually needs it.
-let allRunwayEnds: RunwayEnd[] | null = null
-function getAllRunwayEnds(): RunwayEnd[] {
-  return (allRunwayEnds ??= loadRunwayEnds(runwaysRaw))
-}
+const getAllRunwayEnds = lazy(() => loadRunwayEnds(runwaysRaw))
 
+/**
+ * resolveRunwayEnd against the vendored runways.
+ *
+ * @param icao The airport.
+ * @param touchdownHeadingDeg Heading at touchdown, degrees true.
+ * @param touchdownLat Touchdown latitude.
+ * @param touchdownLon Touchdown longitude.
+ * @returns The runway end, or null.
+ */
 export function findRunwayEnd(
   icao: string,
   touchdownHeadingDeg: number,
@@ -234,12 +308,24 @@ export function findRunwayEnd(
  * to resolveRunwayEnd's position-based matching, which is only needed at capture time
  * before the ident is known. Case-insensitive on the ICAO, exact on the ident (idents are
  * already normalized to how they're stored — no case variation to absorb there).
+ *
+ * @param ends The runway ends to search.
+ * @param icao The airport.
+ * @param ident The runway, as stored.
+ * @returns The runway end, or null.
  */
 export function resolveRunwayEndByIdent(ends: RunwayEnd[], icao: string, ident: string): RunwayEnd | null {
   const upperIcao = icao.toUpperCase()
   return ends.find((end) => end.icao === upperIcao && end.ident === ident) ?? null
 }
 
+/**
+ * resolveRunwayEndByIdent against the vendored runways.
+ *
+ * @param icao The airport.
+ * @param ident The runway, as stored.
+ * @returns The runway end, or null.
+ */
 export function findRunwayEndByIdent(icao: string, ident: string): RunwayEnd | null {
   return resolveRunwayEndByIdent(getAllRunwayEnds(), icao, ident)
 }
@@ -249,6 +335,9 @@ export function findRunwayEndByIdent(icao: string, ident: string): RunwayEnd | n
  * the end itself wasn't found, or it's missing length/width/aiming-point data (the same
  * cases LandingCard's own fields already show as "—" for, so the diagram simply doesn't
  * render rather than showing something that looks more precise than the data is).
+ *
+ * @param end The runway end, or null.
+ * @returns The diagram's runway, or null.
  */
 export function toLandingRunway(end: RunwayEnd | null): LandingRunway | null {
   if (!end || end.lengthM == null || end.widthM == null || end.aimingPointDistanceM == null) return null
@@ -261,8 +350,14 @@ export function toLandingRunway(end: RunwayEnd | null): LandingRunway | null {
   }
 }
 
-/** Real, vendored-data version of toLandingRunway(findRunwayEndByIdent(...)) — what
- *  main/index.ts's logbookGetLandingRunway handler actually calls. */
+/**
+ * Real, vendored-data version of toLandingRunway(findRunwayEndByIdent(...)) — what
+ * main/index.ts's logbookGetLandingRunway handler actually calls.
+ *
+ * @param icao The airport.
+ * @param ident The runway, as stored.
+ * @returns The diagram's runway, or null.
+ */
 export function findLandingRunway(icao: string, ident: string): LandingRunway | null {
   return toLandingRunway(findRunwayEndByIdent(icao, ident))
 }
@@ -274,6 +369,10 @@ export function findLandingRunway(icao: string, ident: string): LandingRunway | 
  * position guard); not precise enough for anything that needs a real position, which is
  * what findRunwayEnd/resolveRunwayEnd are for. Null when the ICAO isn't in the vendored
  * runway data at all (the check this feeds should then skip itself, not reject everything).
+ *
+ * @param ends The runway ends to search.
+ * @param icao The airport.
+ * @returns The mean of its thresholds, or null.
  */
 export function resolveAirportPosition(ends: RunwayEnd[], icao: string): { lat: number; lon: number } | null {
   const upperIcao = icao.toUpperCase()
@@ -285,6 +384,12 @@ export function resolveAirportPosition(ends: RunwayEnd[], icao: string): { lat: 
   }
 }
 
+/**
+ * resolveAirportPosition against the vendored runways.
+ *
+ * @param icao The airport.
+ * @returns The mean of its thresholds, or null.
+ */
 export function airportPosition(icao: string): { lat: number; lon: number } | null {
   return resolveAirportPosition(getAllRunwayEnds(), icao)
 }

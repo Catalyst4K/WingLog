@@ -27,7 +27,9 @@ describe('main-process i18n', () => {
 
   it('interpolates values into a translated message', () => {
     setMainLanguage('de', 'en-US')
-    expect(t('errors.aircraftAlreadyRetired', { registration: 'G-ONE' })).toBe('G-ONE ist bereits ausgemustert')
+    expect(t('errors.aircraftAlreadyRetired', { registration: 'G-ONE' })).toBe(
+      'G-ONE ist bereits ausgemustert'
+    )
   })
 
   it("resolves a Taiwan/Hong Kong-shaped system locale to zh-TW, mainland/bare 'zh' to zh-CN", () => {

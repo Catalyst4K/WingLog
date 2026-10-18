@@ -1,4 +1,10 @@
+/** The main-process logger, and its setup at startup. */
+
 import log from 'electron-log/main'
+
+/** The main-process logger: main.log (and the console). Use it instead of console.* in app code
+ *  (coding-standards.md §6). */
+export const logger = log
 
 /**
  * Crash/error logging (PLAN.md §M7) — a rotating local file so a bug report can include

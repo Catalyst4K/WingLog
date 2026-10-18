@@ -1,6 +1,10 @@
+/** Dispatch's Advanced dialog: SimBrief's optional planning parameters. */
+
+import { winglogApi } from './data/winglog-api'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { Flight } from '@shared/ipc'
+import type { LogbookFlight } from '@shared/ipc'
+import { asyncHandler } from './report-error'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -22,10 +26,15 @@ import {
   type OptionValue
 } from '@shared/dispatch-options'
 
-/** Bound to a plain text Input: blank means unset (don't send this parameter at all —
- *  SimBrief's own default applies), and typing the literal word "auto" sends SimBrief's
- *  own "auto" value, which is a distinct, real option for several fields (pax, manual
- *  ZFW/payload, contingency %, reserve rule, cruise sub-mode) — see dispatch-options.ts. */
+/**
+ * Bound to a plain text Input: blank means unset (don't send this parameter at all —
+ * SimBrief's own default applies), and typing the literal word "auto" sends SimBrief's
+ * own "auto" value, which is a distinct, real option for several fields (pax, manual
+ * ZFW/payload, contingency %, reserve rule, cruise sub-mode) — see dispatch-options.ts.
+ *
+ * @param props The field's label, value and change handler.
+ * @returns The element.
+ */
 function OptionField(props: {
   label: string
   value: OptionValue
@@ -42,7 +51,9 @@ function OptionField(props: {
         value={props.value ?? ''}
         placeholder={
           props.placeholder ??
-          (props.autoEligible ? t('dispatchAdvancedDialog.blankOrAuto') : t('dispatchAdvancedDialog.blankDefault'))
+          (props.autoEligible
+            ? t('dispatchAdvancedDialog.blankOrAuto')
+            : t('dispatchAdvancedDialog.blankDefault'))
         }
         onChange={(e) => {
           const raw = e.target.value
@@ -57,37 +68,43 @@ function OptionField(props: {
   )
 }
 
+/**
+ * The Advanced dialog: SimBrief's optional parameters, grouped, each blank for SimBrief's default.
+ *
+ * @param props The current options and the handler that applies new ones.
+ * @returns The element.
+ */
 export function DispatchAdvancedDialog(props: {
   open: boolean
   onOpenChange: (open: boolean) => void
   options: DispatchOptions
   onOptionsChange: (options: DispatchOptions) => void
   /** Recent flights with a stored OFP — source list for "Load settings from…". */
-  flights: Flight[]
+  flights: LogbookFlight[]
 }): React.JSX.Element {
   const { t } = useTranslation()
   const [loadedFrom, setLoadedFrom] = useState<string | null>(null)
   const set = <K extends keyof DispatchOptions>(key: K, value: OptionValue): void =>
     props.onOptionsChange({ ...props.options, [key]: value })
 
-  function handleLoadFrom(flightId: string): void {
-    const flight = props.flights.find((f) => String(f.id) === flightId)
-    // Unreachable through the UI: the Select's own items are built from `loadable` (this
-    // same `flights` list already filtered to a truthy ofpJson), so a value it hands back
-    // always resolves to a flight that passes this guard. Kept as a defensive fallback
-    // rather than a non-null assertion, in case that invariant ever changes.
+  async function handleLoadFrom(flightId: string): Promise<void> {
+    const listed = props.flights.find((f) => String(f.id) === flightId)
+    // Unreachable through the UI: the Select's items are built from `loadable` (this same list, filtered to flights with an
+    // OFP), so a value it hands back always resolves. Kept as a defensive fallback rather than a non-null assertion.
     /* v8 ignore next */
-    if (!flight?.ofpJson) return
-    const loaded = dispatchOptionsFromApiParams(flight.ofpJson)
+    if (!listed) return
+    // The list leaves OFPs out (they are about 1 MB each); only the chosen flight's is fetched.
+    const ofpJson = (await winglogApi().logbookGetFlight(listed.id))?.ofpJson
+    const loaded = ofpJson ? dispatchOptionsFromApiParams(ofpJson) : null
     if (!loaded) {
       setLoadedFrom(null)
       return
     }
     props.onOptionsChange(loaded)
-    setLoadedFrom(flight.flightNumber ?? `${flight.depIcao} → ${flight.arrIcao}`)
+    setLoadedFrom(listed.flightNumber ?? `${listed.depIcao} → ${listed.arrIcao}`)
   }
 
-  const loadable = props.flights.filter((f) => f.ofpJson)
+  const loadable = props.flights.filter((f) => f.hasOfp)
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
@@ -100,7 +117,7 @@ export function DispatchAdvancedDialog(props: {
         {loadable.length > 0 && (
           <div className="flex flex-col gap-1.5">
             <Label>{t('dispatchAdvancedDialog.loadFromPreviousFlight')}</Label>
-            <Select onValueChange={handleLoadFrom}>
+            <Select onValueChange={asyncHandler('DispatchAdvancedDialog handleLoadFrom', handleLoadFrom)}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder={t('dispatchAdvancedDialog.selectPastFlight')} />
               </SelectTrigger>

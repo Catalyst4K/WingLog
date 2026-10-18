@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { BeyondAtcConnectionStatus, BeyondAtcSettings, BeyondAtcState, BeyondAtcTranscriptEntry, WingLogApi } from '@shared/ipc'
+import type {
+  BeyondAtcConnectionStatus,
+  BeyondAtcSettings,
+  BeyondAtcState,
+  BeyondAtcTranscriptEntry,
+  WingLogApi
+} from '@shared/ipc'
 import { BeyondAtcPanel, PENDING_ACTION_TIMEOUT_MS } from './BeyondAtcPanel'
 
 function makeSettings(overrides: Partial<BeyondAtcSettings> = {}): BeyondAtcSettings {
@@ -44,7 +50,14 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): void {
     beyondAtcSetFrequencyCom2: vi.fn().mockResolvedValue(undefined),
     beyondAtcSetAutoTune: vi.fn().mockResolvedValue(undefined),
     beyondAtcSetAutoRespond: vi.fn().mockResolvedValue(undefined),
-    beyondAtcGetStepClimb: vi.fn().mockResolvedValue({ enabled: false, nextStep: null, pendingAltitudeFt: null, waitingForClimbFt: null, pastTopOfDescent: false, last: null }),
+    beyondAtcGetStepClimb: vi.fn().mockResolvedValue({
+      enabled: false,
+      nextStep: null,
+      pendingAltitudeFt: null,
+      waitingForClimbFt: null,
+      pastTopOfDescent: false,
+      last: null
+    }),
     onBeyondAtcStepClimb: vi.fn(() => () => {}),
     beyondAtcGetArrival: vi.fn().mockResolvedValue(null),
     onBeyondAtcArrival: vi.fn(() => () => {}),
@@ -52,6 +65,61 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): void {
     ...overrides
   } as unknown as WingLogApi
 }
+
+describe('BeyondAtcPanel on a phone (compact)', () => {
+  it('puts the radios behind a button, with the tuned station beside it, and no radios card', async () => {
+    withWinglog({
+      beyondAtcGetState: vi.fn().mockResolvedValue(
+        makeState({
+          facility: { name: 'Singapore Delivery', frequency: '118.850' },
+          autoTune: true,
+          autoRespond: false
+        })
+      )
+    })
+    render(<BeyondAtcPanel compact />)
+    const button = await screen.findByRole('button', { name: 'Radios…' })
+    expect(await screen.findByText('Singapore Delivery · 118.850')).toBeInTheDocument()
+    expect(screen.queryByText('Auto-tune: On')).not.toBeInTheDocument()
+    await userEvent.click(button)
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText('Auto-tune: On')).toBeInTheDocument()
+    expect(within(dialog).getByText('Auto-respond: Off')).toBeInTheDocument()
+  })
+
+  it('opens the radios without putting the cursor in a frequency box, so no keyboard appears until one is tapped', async () => {
+    withWinglog({
+      beyondAtcGetState: vi
+        .fn()
+        .mockResolvedValue(makeState({ facility: { name: 'Singapore Delivery', frequency: '118.850' } }))
+    })
+    render(<BeyondAtcPanel compact />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Radios…' }))
+    const dialog = await screen.findByRole('dialog')
+    const box = within(dialog).getByRole('textbox', { name: 'COM1 frequency' })
+    expect(box).toBeVisible()
+    expect(box).not.toHaveFocus()
+    expect(document.activeElement?.tagName).not.toBe('INPUT')
+  })
+
+  it('keeps everything else in one column that scrolls with the page: instruction, actions and the transcript', async () => {
+    withWinglog({
+      beyondAtcGetState: vi.fn().mockResolvedValue(makeState({ actions: ['Request Taxi'] })),
+      beyondAtcGetTranscript: vi.fn().mockResolvedValue([{ speaker: 'atc', text: 'Cleared to land.' }])
+    })
+    render(<BeyondAtcPanel compact />)
+    expect(await screen.findByRole('button', { name: 'Request Taxi' })).toBeInTheDocument()
+    expect(await screen.findAllByText('Cleared to land.')).not.toHaveLength(0)
+    expect(screen.getByText('Transcript')).toBeInTheDocument()
+  })
+
+  it('shows a dash beside the button while nothing is tuned', async () => {
+    withWinglog()
+    render(<BeyondAtcPanel compact />)
+    await screen.findByRole('button', { name: 'Radios…' })
+    expect(screen.getByText('—')).toBeInTheDocument()
+  })
+})
 
 describe('BeyondAtcPanel', () => {
   it('shows a not-configured message when BeyondATC integration is off', async () => {
@@ -95,7 +163,8 @@ describe('BeyondAtcPanel', () => {
     render(<BeyondAtcPanel />)
 
     expect(await screen.findByText('Cathay 116 Heavy')).toBeInTheDocument()
-    expect(screen.getByText('Brisbane Delivery (118.850)')).toBeInTheDocument()
+    expect(screen.getByText('Brisbane Delivery')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'COM1 frequency' })).toHaveValue('118.850')
     expect(screen.getByText('YBBN → YSSY · 12%')).toBeInTheDocument()
   })
 
@@ -114,9 +183,11 @@ describe('BeyondAtcPanel', () => {
     expect(screen.getByText('ATC:')).toBeInTheDocument()
   })
 
-  it('scrolls the newest transcript line into view when a new entry arrives', async () => {
-    const scrollIntoView = vi.spyOn(HTMLElement.prototype, 'scrollIntoView')
-    const first: BeyondAtcTranscriptEntry[] = [{ speaker: 'player', text: 'Cathay 116 Heavy, radio check.', ts: 1 }]
+  /** Renders the panel with one transcript entry and a list whose scroll position the test controls. */
+  async function renderWithScrollableList() {
+    const first: BeyondAtcTranscriptEntry[] = [
+      { speaker: 'player', text: 'Cathay 116 Heavy, radio check.', ts: 1 }
+    ]
     let pushTranscript: (entries: BeyondAtcTranscriptEntry[]) => void = () => {}
     withWinglog({
       beyondAtcGetTranscript: vi.fn().mockResolvedValue(first),
@@ -126,14 +197,58 @@ describe('BeyondAtcPanel', () => {
       })
     })
     render(<BeyondAtcPanel />)
-    await screen.findByText('Cathay 116 Heavy, radio check.')
-    scrollIntoView.mockClear()
+    const line = await screen.findByText('Cathay 116 Heavy, radio check.')
+    const list = line.closest('ul') as HTMLUListElement
+    // jsdom does no layout: a list 100 px tall holding 400 px, with a scroll position the test owns.
+    let top = 300
+    Object.defineProperty(list, 'scrollHeight', { configurable: true, get: () => 400 })
+    Object.defineProperty(list, 'clientHeight', { configurable: true, get: () => 100 })
+    Object.defineProperty(list, 'scrollTop', {
+      configurable: true,
+      get: () => top,
+      set: (value: number) => (top = value)
+    })
+    return {
+      list,
+      first,
+      scrollTop: () => top,
+      scrollTo: (value: number) => {
+        top = value
+        fireEvent.scroll(list)
+      },
+      push: (entries: BeyondAtcTranscriptEntry[]) => act(() => pushTranscript(entries))
+    }
+  }
 
-    pushTranscript([...first, { speaker: 'atc', text: 'Cathay 116 Heavy, readability 5.', ts: 2 }])
+  it('follows the newest transcript line when the reader is at the bottom, moving only the list and never the page', async () => {
+    const scrollIntoView = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+    const panel = await renderWithScrollableList()
+    panel.scrollTo(300)
+    panel.push([...panel.first, { speaker: 'atc', text: 'Cathay 116 Heavy, readability 5.', ts: 2 }])
     await screen.findAllByText('Cathay 116 Heavy, readability 5.')
+    expect(panel.scrollTop()).toBe(400)
+    expect(scrollIntoView).not.toHaveBeenCalled()
+  })
 
-    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
-    scrollIntoView.mockRestore()
+  it('leaves the transcript where the reader scrolled it when a new entry arrives', async () => {
+    const scrollIntoView = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+    const panel = await renderWithScrollableList()
+    panel.scrollTo(50)
+    panel.push([...panel.first, { speaker: 'atc', text: 'Cathay 116 Heavy, readability 5.', ts: 2 }])
+    await screen.findAllByText('Cathay 116 Heavy, readability 5.')
+    expect(panel.scrollTop()).toBe(50)
+    expect(scrollIntoView).not.toHaveBeenCalled()
+    // Back at the bottom, it follows again.
+    panel.scrollTo(300)
+    panel.push([
+      ...panel.first,
+      { speaker: 'atc', text: 'Cathay 116 Heavy, readability 5.', ts: 2 },
+      { speaker: 'player', text: 'Thank you.', ts: 3 }
+    ])
+    await screen.findByText('Thank you.')
+    expect(panel.scrollTop()).toBe(400)
   })
 
   it("shows the latest ATC instruction's key facts in their own card, separate from the callsign/progress strip", async () => {
@@ -147,7 +262,11 @@ describe('BeyondAtcPanel', () => {
     ]
     withWinglog({
       beyondAtcGetTranscript: vi.fn().mockResolvedValue(transcript),
-      beyondAtcGetState: vi.fn().mockResolvedValue(makeState({ infoBoxes: [{ title: 'Cleared for Takeoff', info: '25C' }], infoBoxesAt: 60_200 }))
+      beyondAtcGetState: vi
+        .fn()
+        .mockResolvedValue(
+          makeState({ infoBoxes: [{ title: 'Cleared for Takeoff', info: '25C' }], infoBoxesAt: 60_200 })
+        )
     })
     render(<BeyondAtcPanel />)
 
@@ -192,6 +311,34 @@ describe('BeyondAtcPanel', () => {
     expect(within(card).getByText('Hong Kong Delivery')).toBeInTheDocument()
   })
 
+  it('shows a radar vector: the turn with its heading, and the altitude (EGCC, 2026-10-18)', async () => {
+    withWinglog({
+      beyondAtcGetTranscript: vi.fn().mockResolvedValue([
+        {
+          speaker: 'atc',
+          text: 'Cathay 168 Heavy, turn left, heading 140, descend to altitude 4,000.',
+          ts: 1_000
+        }
+      ]),
+      beyondAtcGetState: vi.fn().mockResolvedValue(
+        makeState({
+          infoBoxes: [
+            { title: 'Turn Left', info: '140' },
+            { title: 'Descend To Altitude', info: '4,000' }
+          ],
+          infoBoxesAt: 7_000
+        })
+      )
+    })
+    render(<BeyondAtcPanel />)
+
+    const card = (await screen.findByText('Latest instruction')).closest('[data-slot="card"]') as HTMLElement
+    expect(await within(card).findByText('Turn left:')).toBeInTheDocument()
+    expect(within(card).getByText('140°')).toBeInTheDocument()
+    expect(within(card).getByText('Descend:')).toBeInTheDocument()
+    expect(within(card).getByText('4,000')).toBeInTheDocument()
+  })
+
   describe("ATC's arrival clearance in the latest-instruction header (flight 229, EGLL, 2026-10-05)", () => {
     const LATER_LINE: BeyondAtcTranscriptEntry[] = [
       { speaker: 'atc', text: 'Koreanair 443 Heavy, cleared LOGA2H arrival, runway 27R.', ts: 1 },
@@ -199,14 +346,21 @@ describe('BeyondAtcPanel', () => {
     ]
 
     async function headerOf(): Promise<HTMLElement> {
-      const card = (await screen.findByText('Latest instruction')).closest('[data-slot="card"]') as HTMLElement
+      const card = (await screen.findByText('Latest instruction')).closest(
+        '[data-slot="card"]'
+      ) as HTMLElement
       return card.querySelector('[data-slot="card-header"]') as HTMLElement
     }
 
     it('keeps STAR and runway in the header while later instructions still show in the body', async () => {
       withWinglog({
         beyondAtcGetTranscript: vi.fn().mockResolvedValue(LATER_LINE),
-        beyondAtcGetArrival: vi.fn().mockResolvedValue({ starIdent: 'LOGA2H', runway: '27R', approachIdent: null, approachTransition: null })
+        beyondAtcGetArrival: vi.fn().mockResolvedValue({
+          starIdent: 'LOGA2H',
+          runway: '27R',
+          approachIdent: null,
+          approachTransition: null
+        })
       })
       render(<BeyondAtcPanel />)
 
@@ -216,14 +370,21 @@ describe('BeyondAtcPanel', () => {
       expect(within(header).getByText('STAR:', { exact: false })).toBeInTheDocument()
       // The body is still the latest line, not the STAR clearance.
       const card = header.closest('[data-slot="card"]') as HTMLElement
-      expect(within(card).getAllByText('Koreanair 443 Heavy, report ready for descent.').length).toBeGreaterThan(0)
+      expect(
+        within(card).getAllByText('Koreanair 443 Heavy, report ready for descent.').length
+      ).toBeGreaterThan(0)
     })
 
     it('switches to approach and transition once those are given', async () => {
       let push: ((c: unknown) => void) | undefined
       withWinglog({
         beyondAtcGetTranscript: vi.fn().mockResolvedValue(LATER_LINE),
-        beyondAtcGetArrival: vi.fn().mockResolvedValue({ starIdent: 'LOGA2H', runway: '27R', approachIdent: null, approachTransition: null }),
+        beyondAtcGetArrival: vi.fn().mockResolvedValue({
+          starIdent: 'LOGA2H',
+          runway: '27R',
+          approachIdent: null,
+          approachTransition: null
+        }),
         onBeyondAtcArrival: vi.fn((l) => {
           push = l as (c: unknown) => void
           return () => {}
@@ -233,7 +394,9 @@ describe('BeyondAtcPanel', () => {
       const header = await headerOf()
       await within(header).findByText('LOGA2H')
 
-      act(() => push?.({ starIdent: 'LOGA2H', runway: '27R', approachIdent: 'ILS 27R', approachTransition: 'LAM' }))
+      act(() =>
+        push?.({ starIdent: 'LOGA2H', runway: '27R', approachIdent: 'ILS 27R', approachTransition: 'LAM' })
+      )
 
       expect(await within(header).findByText('ILS 27R')).toBeInTheDocument()
       expect(within(header).getByText('LAM')).toBeInTheDocument()
@@ -255,7 +418,11 @@ describe('BeyondAtcPanel', () => {
         text: 'Cathay 168 Heavy, Brisbane Delivery, information A current, cleared to Hong Kong airport via the BIXAD2 departure, runway 01R, climb via SID to 10000 feet, squawk 6022.',
         ts: 1
       },
-      { speaker: 'atc', text: 'Cathay 168 Heavy, readback correct. Contact ground 122.25 when ready for pushback or engine start.', ts: 2 }
+      {
+        speaker: 'atc',
+        text: 'Cathay 168 Heavy, readback correct. Contact ground 122.25 when ready for pushback or engine start.',
+        ts: 2
+      }
     ]
     withWinglog({
       beyondAtcGetTranscript: vi.fn().mockResolvedValue(transcript),
@@ -278,14 +445,24 @@ describe('BeyondAtcPanel', () => {
 
     const card = (await screen.findByText('Latest instruction')).closest('[data-slot="card"]') as HTMLElement
     await within(card).findByText('BIXAD2')
-    for (const value of ['Brisbane Delivery', 'Hong Kong airport', 'A', '01R', '10,000 ft', '6022', 'Ground 122.25']) {
+    for (const value of [
+      'Brisbane Delivery',
+      'Hong Kong airport',
+      'A',
+      '01R',
+      '10,000 ft',
+      '6022',
+      'Ground 122.25'
+    ]) {
       expect(within(card).getByText(value)).toBeInTheDocument()
     }
   })
 
   it('shows placeholders when no status is known and ATC has said nothing yet', async () => {
     withWinglog({
-      beyondAtcGetTranscript: vi.fn().mockResolvedValue([{ speaker: 'player', text: 'Cathay 116 Heavy, radio check.', ts: 1 }])
+      beyondAtcGetTranscript: vi
+        .fn()
+        .mockResolvedValue([{ speaker: 'player', text: 'Cathay 116 Heavy, radio check.', ts: 1 }])
     })
     render(<BeyondAtcPanel />)
 
@@ -318,7 +495,7 @@ describe('BeyondAtcPanel', () => {
   })
 
   describe('feedback after pressing an action (Callum, 2026-10-02: a press queued behind traffic looked like it did nothing)', () => {
-    // Real action labels, YBBN 2026-10-02.
+    // Real action labels, YBBN.
     const ACTIONS = ['Request Taxi', 'Radio Check']
 
     function withStateListener(): { push: (state: BeyondAtcState) => void } {
@@ -340,7 +517,9 @@ describe('BeyondAtcPanel', () => {
 
       expect(screen.getByRole('button', { name: 'Request Taxi' })).toHaveAttribute('aria-busy', 'true')
       expect(screen.getByRole('button', { name: 'Radio Check' })).not.toHaveAttribute('aria-busy')
-      expect(screen.getByRole('status')).toHaveTextContent('Queued: Request Taxi. Waiting for a gap on the frequency.')
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Queued: Request Taxi. Waiting for a gap on the frequency.'
+      )
 
       push(makeState({ actions: ACTIONS, commsState: { mode: 'traffic', text: '' } }))
       expect(screen.getByRole('status')).toHaveTextContent('Queued: Request Taxi.')
@@ -404,7 +583,7 @@ describe('BeyondAtcPanel', () => {
     expect(beyondAtcSetAutoTune).toHaveBeenCalledWith(false)
   })
 
-  it('picking a frequency from the real list calls beyondAtcSetFrequency, runway shown alongside it', async () => {
+  it('picking a frequency from the real list calls beyondAtcSetFrequency', async () => {
     const beyondAtcSetFrequency = vi.fn().mockResolvedValue(undefined)
     withWinglog({
       beyondAtcGetState: vi.fn().mockResolvedValue(
@@ -430,7 +609,7 @@ describe('BeyondAtcPanel', () => {
     render(<BeyondAtcPanel />)
 
     await user.click((await screen.findAllByRole('button', { name: 'Frequencies' }))[0])
-    await user.click(await screen.findByRole('button', { name: 'Approach — SINGAPORE APPROACH 124.050 (RWY 02L)' }))
+    await user.click(await screen.findByRole('button', { name: /Singapore Approach\s+RWY 02L\s+124\.050/ }))
 
     expect(beyondAtcSetFrequency).toHaveBeenCalledWith('124.050')
   })

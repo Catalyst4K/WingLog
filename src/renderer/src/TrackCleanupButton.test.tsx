@@ -40,7 +40,9 @@ function trackPoint(overrides: Partial<TrackPoint> = {}): TrackPoint {
 
 function withWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
   const api = {
-    trackPointCleanup: vi.fn().mockResolvedValue({ excludedCount: 0, resegmentedCount: 0 } satisfies TrackCleanupSummary),
+    trackPointCleanup: vi
+      .fn()
+      .mockResolvedValue({ excludedCount: 0, resegmentedCount: 0 } satisfies TrackCleanupSummary),
     trackPointList: vi.fn().mockResolvedValue([]),
     ...overrides
   } as unknown as WingLogApi
@@ -74,7 +76,7 @@ describe('TrackCleanupButton', () => {
   it('always renders the button, regardless of resume history', () => {
     // Rule 2 (resume-cleanup.ts) runs unconditionally and can find real junk on a flight
     // where resumeSegment never changed at all — most notably one recorded before Phase 1
-    // existed (confirmed live 2026-09-13 against a real flight, CPA319/#191) — so there's
+    // existed (confirmed live against a real flight, CPA319/#191) — so there's
     // no client-side signal that reliably rules this out ahead of actually asking.
     withWinglog()
     render(<TrackCleanupButton flightId={42} onCleaned={vi.fn()} />)
@@ -112,7 +114,9 @@ describe('TrackCleanupButton', () => {
 
     await user.click(screen.getByRole('button', { name: /clean up track/i }))
 
-    await waitFor(() => expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('Nothing to clean up')))
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('Nothing to clean up'))
+    )
     expect(onCleaned).not.toHaveBeenCalled()
     expect(trackPointList).not.toHaveBeenCalled()
   })

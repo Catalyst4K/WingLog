@@ -1,3 +1,5 @@
+/** The live topics main pushes while flying, and what each one carries. */
+
 import type {
   BeyondAtcArrivalClearance,
   BeyondAtcConnectionStatus,
@@ -10,15 +12,17 @@ import type {
   GsxRemoteGateInfo,
   GsxRemoteMenuState,
   GsxRemotePromptState,
+  ProcedureSelection,
   GsxRemoteServiceStatus,
   SimConnectionStatus,
   SimTelemetry,
+  StorageStatus,
   TrackPoint
 } from './ipc'
 
 /**
  * Every live stream the app pushes while flying, keyed by its IPC channel name
- * (flightdeck-backend's docs/plans/live-data-seam.md, part A). One map so the main
+ * (winglog-backend's docs/plans/live-data-seam.md, part A). One map so the main
  * process's LiveHub, the renderer, and later a LAN client (v1.5) and a sim-PC host (v2.x)
  * all agree on what each topic carries. Payloads are plain JSON (SI units), never class
  * instances, so they survive any transport, not just Electron's structured clone.
@@ -28,6 +32,10 @@ export interface LiveTopics {
   simConnectionStatus: SimConnectionStatus
   trackingPoint: TrackPoint
   trackingPointsUpdated: TrackPoint[]
+  /** The SID, STAR and approach chosen for the tracked flight, from whichever screen changed it last. */
+  procedureSelection: ProcedureSelection | null
+  /** The disk's free space and whether saving is failing, for the low-disk warning on every screen. */
+  storageStatus: StorageStatus
   gsxRemoteStatus: GsxRemoteConnectionStatus
   gsxRemoteServices: GsxRemoteServiceStatus[]
   gsxRemoteGate: GsxRemoteGateInfo | null
@@ -65,7 +73,7 @@ export interface LiveCommands {
   'gsx.submitPrompt': [gen: number, text: string]
   'gsx.cancelPrompt': [gen: number]
   'gsx.runCommand': [id: GsxRemoteCommandId]
+  'track.setProcedureSelection': [selection: ProcedureSelection]
 }
 
 export type LiveCommand = keyof LiveCommands
-

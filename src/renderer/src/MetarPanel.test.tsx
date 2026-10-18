@@ -80,9 +80,13 @@ describe('MetarPanel', () => {
 
   it('renders the flight category tag and the parsed wind line when both are present', async () => {
     withWinglog({
-      weatherGetMetars: vi
-        .fn()
-        .mockResolvedValue([report({ icao: 'EGLL', flightCategory: 'VFR', rawText: 'METAR EGLL 012320Z 25008KT 9999 NCD 18/12 Q1020' })])
+      weatherGetMetars: vi.fn().mockResolvedValue([
+        report({
+          icao: 'EGLL',
+          flightCategory: 'VFR',
+          rawText: 'METAR EGLL 012320Z 25008KT 9999 NCD 18/12 Q1020'
+        })
+      ])
     })
     render(<MetarPanel depIcao="EGLL" arrIcao={null} altnIcao={null} windSpeedUnit="kt" />)
 
@@ -105,7 +109,9 @@ describe('MetarPanel', () => {
     withWinglog({
       weatherGetMetars: vi.fn().mockResolvedValue([report({ icao: 'EGLL', flightCategory: null })])
     })
-    const { container } = render(<MetarPanel depIcao="EGLL" arrIcao={null} altnIcao={null} windSpeedUnit="kt" />)
+    const { container } = render(
+      <MetarPanel depIcao="EGLL" arrIcao={null} altnIcao={null} windSpeedUnit="kt" />
+    )
 
     await screen.findByText(/METAR EGLL/, {}, { timeout: 2000 })
     for (const cat of ['VFR', 'MVFR', 'IFR', 'LIFR']) {
@@ -114,7 +120,9 @@ describe('MetarPanel', () => {
   })
 
   it.each(['MVFR', 'IFR', 'LIFR'] as const)('renders the %s flight-category tag', async (cat) => {
-    withWinglog({ weatherGetMetars: vi.fn().mockResolvedValue([report({ icao: 'EGLL', flightCategory: cat })]) })
+    withWinglog({
+      weatherGetMetars: vi.fn().mockResolvedValue([report({ icao: 'EGLL', flightCategory: cat })])
+    })
     render(<MetarPanel depIcao="EGLL" arrIcao={null} altnIcao={null} windSpeedUnit="kt" />)
 
     expect(await screen.findByText(cat, {}, { timeout: 2000 })).toBeInTheDocument()
@@ -122,7 +130,9 @@ describe('MetarPanel', () => {
 
   it('formats "just now" for a report observed under a minute ago', async () => {
     withWinglog({
-      weatherGetMetars: vi.fn().mockResolvedValue([report({ icao: 'EGLL', observedUtc: new Date().toISOString() })])
+      weatherGetMetars: vi
+        .fn()
+        .mockResolvedValue([report({ icao: 'EGLL', observedUtc: new Date().toISOString() })])
     })
     render(<MetarPanel depIcao="EGLL" arrIcao={null} altnIcao={null} windSpeedUnit="kt" />)
 
@@ -131,7 +141,9 @@ describe('MetarPanel', () => {
 
   it('formats "N min ago" for a report observed several minutes ago', async () => {
     const fiveMinAgo = new Date(Date.now() - 5 * 60_000).toISOString()
-    withWinglog({ weatherGetMetars: vi.fn().mockResolvedValue([report({ icao: 'EGLL', observedUtc: fiveMinAgo })]) })
+    withWinglog({
+      weatherGetMetars: vi.fn().mockResolvedValue([report({ icao: 'EGLL', observedUtc: fiveMinAgo })])
+    })
     render(<MetarPanel depIcao="EGLL" arrIcao={null} altnIcao={null} windSpeedUnit="kt" />)
 
     expect(await screen.findByText('5 min ago', {}, { timeout: 2000 })).toBeInTheDocument()
@@ -139,7 +151,9 @@ describe('MetarPanel', () => {
 
   it('formats "N h ago" for a report observed over an hour ago', async () => {
     const twoHoursAgo = new Date(Date.now() - 130 * 60_000).toISOString()
-    withWinglog({ weatherGetMetars: vi.fn().mockResolvedValue([report({ icao: 'EGLL', observedUtc: twoHoursAgo })]) })
+    withWinglog({
+      weatherGetMetars: vi.fn().mockResolvedValue([report({ icao: 'EGLL', observedUtc: twoHoursAgo })])
+    })
     render(<MetarPanel depIcao="EGLL" arrIcao={null} altnIcao={null} windSpeedUnit="kt" />)
 
     expect(await screen.findByText('2 h ago', {}, { timeout: 2000 })).toBeInTheDocument()
@@ -154,11 +168,9 @@ describe('MetarPanel', () => {
   })
 
   it('lets each of Dep/Dest/Altn/Custom show its own airport', async () => {
-    const weatherGetMetars = vi.fn().mockResolvedValue([
-      report({ icao: 'EGLL' }),
-      report({ icao: 'KJFK' }),
-      report({ icao: 'EGKK' })
-    ])
+    const weatherGetMetars = vi
+      .fn()
+      .mockResolvedValue([report({ icao: 'EGLL' }), report({ icao: 'KJFK' }), report({ icao: 'EGKK' })])
     withWinglog({ weatherGetMetars })
     const user = userEvent.setup()
     render(<MetarPanel depIcao="EGLL" arrIcao="KJFK" altnIcao="EGKK" windSpeedUnit="kt" />)
@@ -210,7 +222,9 @@ describe('MetarPanel', () => {
         })
     )
     withWinglog({ weatherGetMetars })
-    const { unmount } = render(<MetarPanel depIcao="EGLL" arrIcao={null} altnIcao={null} windSpeedUnit="kt" />)
+    const { unmount } = render(
+      <MetarPanel depIcao="EGLL" arrIcao={null} altnIcao={null} windSpeedUnit="kt" />
+    )
 
     await waitFor(() => expect(weatherGetMetars).toHaveBeenCalled())
     unmount()
@@ -224,7 +238,9 @@ describe('MetarPanel', () => {
     withWinglog({
       weatherGetMetars: vi
         .fn()
-        .mockResolvedValue([report({ icao: 'EGLL', rawText: 'METAR EGLL 012320Z 25008KT 9999 NCD 18/12 Q1020' })])
+        .mockResolvedValue([
+          report({ icao: 'EGLL', rawText: 'METAR EGLL 012320Z 25008KT 9999 NCD 18/12 Q1020' })
+        ])
     })
     render(<MetarPanel depIcao="EGLL" arrIcao={null} altnIcao={null} windSpeedUnit="mps" />)
 

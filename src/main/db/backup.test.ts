@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import Database from 'better-sqlite3'
 import { afterEach, describe, expect, it } from 'vitest'
-import { backupDatabaseOnLaunch } from './backup'
+import { backupBeforeFirstSync, backupDatabaseOnLaunch } from './backup'
 
 describe('backupDatabaseOnLaunch', () => {
   let parent: string
@@ -82,5 +82,34 @@ describe('backupDatabaseOnLaunch', () => {
     expect(backups[0]).toBe('winglog-20260103T000000000Z.db')
     expect(backups).not.toContain('winglog-20260101T000000000Z.db')
     expect(backups).not.toContain('winglog-20260102T000000000Z.db')
+  })
+})
+
+describe('backupBeforeFirstSync', () => {
+  let parent: string
+  afterEach(() => rmSync(parent, { recursive: true, force: true }))
+
+  it('returns null when there is no database', () => {
+    parent = mkdtempSync(join(tmpdir(), 'winglog-first-sync-'))
+    expect(backupBeforeFirstSync(join(parent, 'none.db'), join(parent, 'backups'))).toBeNull()
+  })
+
+  it('copies the database, and launch backups never prune the copy', () => {
+    parent = mkdtempSync(join(tmpdir(), 'winglog-first-sync-'))
+    const dbPath = join(parent, 'winglog.db')
+    const sqlite = new Database(dbPath)
+    sqlite.exec("create table t (v text); insert into t values ('windows row')")
+    sqlite.close()
+    const backupsDir = join(parent, 'backups')
+
+    const copy = backupBeforeFirstSync(dbPath, backupsDir)!
+    for (let i = 0; i < 8; i++) writeFileSync(join(backupsDir, `winglog-2020010${i}.db`), '')
+    backupDatabaseOnLaunch(dbPath, backupsDir, 2)
+    expect(readdirSync(backupsDir).filter((n) => n.startsWith('winglog-'))).toHaveLength(2)
+
+    expect(existsSync(copy)).toBe(true)
+    const reopened = new Database(copy, { readonly: true })
+    expect(reopened.prepare('select v from t').get()).toEqual({ v: 'windows row' })
+    reopened.close()
   })
 })

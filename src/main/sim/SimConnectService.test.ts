@@ -249,7 +249,11 @@ describe('SimConnectService high-rate touchdown severity (v1.2 Part 1)', () => {
     handle.emit('simObjectData', { requestID: 0, data: fakeTelemetryBuffer(overrides) })
   }
 
-  function emitHighRate(handle: ReturnType<typeof fakeHandle>, verticalSpeedMs: number, onGround: boolean): void {
+  function emitHighRate(
+    handle: ReturnType<typeof fakeHandle>,
+    verticalSpeedMs: number,
+    onGround: boolean
+  ): void {
     handle.emit('simObjectData', { requestID: 1, data: fakeHighRateBuffer(verticalSpeedMs, onGround) })
   }
 
@@ -263,7 +267,7 @@ describe('SimConnectService high-rate touchdown severity (v1.2 Part 1)', () => {
     const { handle } = await connectedService()
 
     // Still on the ground (a small positive AGL reading, e.g. taxiing/rolling) — the third
-    // real-run bug (docs/simconnect-notes.md, 2026-09-20): AGL alone is also true during the
+    // real-run bug: AGL alone is also true during the
     // takeoff roll, so arming must also require !onGround.
     emitBaseline(handle, { altitudeAglM: 0.05, onGround: true })
     expect(highRateCalls(handle)).toHaveLength(0)
@@ -287,7 +291,7 @@ describe('SimConnectService high-rate touchdown severity (v1.2 Part 1)', () => {
     emitBaseline(handle, { altitudeAglM: 400, onGround: false }) // arms
 
     // A flare: a big early descent rate outside the near-contact window, decaying by the
-    // time of contact — real shape found live, docs/simconnect-notes.md, 2026-09-20.
+    // time of contact — real shape found live, docs/simconnect-notes.md.
     emitHighRate(handle, -8, false)
     vi.advanceTimersByTime(1_500) // outside the 1s near-contact window by the time contact happens
     emitHighRate(handle, -4, false)

@@ -73,3 +73,32 @@ describe('runwayEndsFromCentre', () => {
     }
   })
 })
+
+describe('runwayEndsFromCentre: displaced thresholds', () => {
+  const base: ParsedRunway = {
+    latitude: 60.29,
+    longitude: 5.22,
+    headingDeg: 350.56,
+    lengthM: 2982.91,
+    widthM: 45.24,
+    surface: 4,
+    primaryIdent: '35',
+    secondaryIdent: '17'
+  }
+
+  it('gives each end the displaced threshold the sim stated for it', () => {
+    const [primary, secondary] = runwayEndsFromCentre({
+      ...base,
+      primaryDisplacedM: 270,
+      secondaryDisplacedM: 120
+    })
+    expect(primary?.displacedThresholdM).toBe(270)
+    expect(secondary?.displacedThresholdM).toBe(120)
+  })
+
+  it('leaves it null, not 0, when the sim has not been read for it', () => {
+    const [primary, secondary] = runwayEndsFromCentre(base)
+    expect(primary?.displacedThresholdM).toBeNull()
+    expect(secondary?.displacedThresholdM).toBeNull()
+  })
+})

@@ -178,7 +178,7 @@ describe('greatCircleWaypoints (real vendored data)', () => {
 
 // Real, not synthetic: the old Kai Tak site (22.3157, 114.2036 — the real touchdown
 // position from flight-captures/tier2-vfr-no-ofp-short-hop-*.ndjson, multiple-landings.md's
-// own motivating flight). Checked live against the real vendored CSV 2026-09-16: unlike
+// own motivating flight). Checked live against the real vendored CSV: unlike
 // that plan doc's claim, there is no VHHX/"closed" row here at all — the two nearest rows
 // are genuinely heliports (Wan Chai ~4.7km, Shun Tak ~6.4km), with the nearest real
 // airfield (Shek Kong Air Base, medium_airport) at ~19km. That's exactly the case the

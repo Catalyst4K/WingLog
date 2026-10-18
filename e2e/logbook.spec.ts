@@ -4,9 +4,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test, expect } from '@playwright/test'
 import { launchApp } from './launch-app'
+import { electronBinary } from './electron-binary'
 
 /**
- * Logbook's browse/detail/delete flow against the real built app, per flightdeck-backend's
+ * Logbook's browse/detail/delete flow against the real built app, per winglog-backend's
  * docs/plans/test-coverage.md Phase 4. Logbook only ever shows *completed* flights, and
  * there's no way to reach that state through the UI alone without either a live sim or a
  * network-dependent SimBrief OFP (Dispatch's "Fetch"/"Generate" both hit a real external
@@ -25,11 +26,15 @@ test.beforeAll(() => {
   // Same electron-as-node recipe as package.json's db:migrate/test scripts (better-sqlite3
   // is built for Electron's Node ABI) — the real binary directly (not the node_modules/.bin
   // shim), since that's a .cmd on Windows and execFileSync can't run one without a shell.
-  const electronBin = join('node_modules', 'electron', 'dist', process.platform === 'win32' ? 'electron.exe' : 'electron')
-  execFileSync(electronBin, ['./node_modules/vitest/vitest.mjs', 'run', 'src/main/tracking/seed-e2e-completed-flight.test.ts'], {
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', WINGLOG_E2E_SEED_DB_PATH: dbPath },
-    stdio: 'inherit'
-  })
+  const electronBin = electronBinary()
+  execFileSync(
+    electronBin,
+    ['./node_modules/vitest/vitest.mjs', 'run', 'src/main/tracking/seed-e2e-completed-flight.test.ts'],
+    {
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', WINGLOG_E2E_SEED_DB_PATH: dbPath },
+      stdio: 'inherit'
+    }
+  )
 })
 
 test.afterAll(() => {
@@ -54,6 +59,11 @@ test('browses to a completed flight, sees its landing/track detail, and deletes 
     await expect(window.getByText('Touchdown rate')).toBeVisible()
     await expect(window.getByText('23R', { exact: true })).toBeVisible()
 
+    // "Fill gaps from the flight plan": the seeded flight has no OFP, so the app says there is no route to follow
+    // (the gap logic itself is unit-tested against flight 239's real route).
+    await window.getByRole('button', { name: 'Fill gaps from the flight plan' }).click()
+    await expect(window.getByText('This flight has no flight plan route to follow.')).toBeVisible()
+
     // Delete — the confirm button shares its accessible name with the trigger that opened
     // it, so the second click is scoped to the dialog itself, rather than a bare role query
     // that could still resolve the original page button for a moment.
@@ -75,7 +85,7 @@ test('browses to a completed flight, sees its landing/track detail, and deletes 
   }
 })
 
-test('browses the Landings sub-tab and switches between a flight\'s several landings (flightdeck-backend docs/plans/multiple-landings.md)', async () => {
+test("browses the Landings sub-tab and switches between a flight's several landings (winglog-backend docs/plans/multiple-landings.md)", async () => {
   const { window, cleanup } = await launchApp({ userDataDir })
   try {
     await window.getByRole('tab', { name: 'Logbook' }).click()

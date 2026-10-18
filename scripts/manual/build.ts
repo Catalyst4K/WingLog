@@ -1,5 +1,5 @@
 /**
- * Builds release/manual/WingLog Manual.pdf from docs/manual (flightdeck-backend's
+ * Builds release/manual/WingLog Manual.pdf from docs/manual (winglog-backend's
  * docs/plans/user-docs-v1-4.md). Runs inside Electron, printing with Chromium's own
  * printToPDF, so there's no PDF library to ship or trust. `npm run manual:build` bundles this
  * with esbuild and runs it with electron; `npm run package:win` does that first, and
@@ -17,7 +17,8 @@ const outDir = join(root, 'release', 'manual')
 const outFile = join(outDir, 'WingLog Manual.pdf')
 
 async function main(): Promise<void> {
-  const version = (JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { version: string }).version
+  const version = (JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { version: string })
+    .version
   const css = readFileSync(join(manualDir, 'manual.css'), 'utf8')
   const { html, problems } = assembleManual(readChapters(manualDir), manualDir, { version, css })
   if (problems.length > 0) {

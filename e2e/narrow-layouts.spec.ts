@@ -4,17 +4,20 @@ import { FakeBeyondAtcServer, LARGE_REAL_SNAPSHOT } from './beyondatc-server'
 import { FakeGsxRemoteServer, VHHH_BOOT_SNAPSHOT } from './gsx-remote-server'
 
 /**
- * Track, BeyondATC and Ground services at phone and tablet widths (flightdeck-backend's
+ * Track, BeyondATC and Ground services at phone and tablet widths (winglog-backend's
  * docs/plans/live-data-seam.md, D): a narrow WingLog window on a second monitor now, and the
  * LAN remote's screens later. Layout can't be checked in jsdom, so this runs the real app.
  * Before this, the header's seven labelled tabs were ~1,010 px wide and pushed every page
  * sideways at any width below that.
  */
 async function setWidth(app: ElectronApplication, width: number, height: number): Promise<void> {
-  await app.evaluate(({ BrowserWindow }, size) => BrowserWindow.getAllWindows()[0]!.setContentSize(size.width, size.height), {
-    width,
-    height
-  })
+  await app.evaluate(
+    ({ BrowserWindow }, size) => BrowserWindow.getAllWindows()[0]!.setContentSize(size.width, size.height),
+    {
+      width,
+      height
+    }
+  )
 }
 
 /**
@@ -46,7 +49,7 @@ for (const [width, height] of [
   test(`Track, BeyondATC and Ground services fit a ${width} px window`, async () => {
     const beyondAtc = await FakeBeyondAtcServer.start()
     const gsx = await FakeGsxRemoteServer.start()
-    const { app, window: page, cleanup } = await launchApp()
+    const { app, window: page, cleanup } = await launchApp({ env: beyondAtc.env })
     try {
       await page.evaluate((port) => {
         const api = (globalThis as unknown as Window).winglog
@@ -80,7 +83,10 @@ for (const [width, height] of [
       await expectNoHorizontalScroll(page)
 
       // The connection badge is still there, just shorter on a phone.
-      await expect(page.getByText(width < 640 ? /^disconnected$/ : 'SimConnect: disconnected')).toBeVisible()
+      // Whether the sim is running on this machine doesn't matter: connected or not, the badge is there.
+      await expect(
+        page.getByText(width < 640 ? /^(dis)?connected$/ : /^SimConnect: (dis)?connected$/)
+      ).toBeVisible()
     } finally {
       await cleanup()
       await beyondAtc.stop()
@@ -90,11 +96,11 @@ for (const [width, height] of [
 }
 
 test('at the default window width every tab label sits on one line, under its underline', async () => {
-  // Real bug, 2026-10-02: lg:not-sr-only reset white-space, so "Ground services" wrapped onto
+  // Real bug: lg:not-sr-only reset white-space, so "Ground services" wrapped onto
   // two lines and the active tab's underline ran through "services".
   const gsx = await FakeGsxRemoteServer.start()
   const beyondAtc = await FakeBeyondAtcServer.start()
-  const { app, window: page, cleanup } = await launchApp()
+  const { app, window: page, cleanup } = await launchApp({ env: beyondAtc.env })
   try {
     await page.evaluate((port) => {
       const api = (globalThis as unknown as Window).winglog
@@ -108,7 +114,9 @@ test('at the default window width every tab label sits on one line, under its un
     await page.reload()
     await setWidth(app, 1100, 720)
     await page.getByRole('tab', { name: 'Ground services' }).click()
-    const heights = await page.getByRole('tab').evaluateAll((tabs) => tabs.map((tab) => tab.getBoundingClientRect().height))
+    const heights = await page
+      .getByRole('tab')
+      .evaluateAll((tabs) => tabs.map((tab) => tab.getBoundingClientRect().height))
     expect(heights.length).toBe(7)
     expect(new Set(heights).size).toBe(1)
     const label = page.getByRole('tab', { name: 'Ground services' }).getByText('Ground services')

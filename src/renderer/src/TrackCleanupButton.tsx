@@ -1,12 +1,16 @@
+/** Logbook's "Clean up track" button. */
+
+import { winglogApi } from './data/winglog-api'
 import { useState } from 'react'
 import { Wrench } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import type { TrackPoint } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
+import { asyncHandler } from './report-error'
 
 /**
- * Logbook's manual "Clean up track" action (flightdeck-backend's docs/plans/done/
+ * Logbook's manual "Clean up track" action (winglog-backend's docs/plans/done/
  * resume-track-cleanup.md) — re-runs the same cleanup pass TrackingController already
  * runs automatically (live, and once more at flight completion), on demand for a flight
  * with no active recorder at all: one completed before Phase 2 existed, or the rare case
@@ -17,10 +21,13 @@ import { Button } from '@/components/ui/button'
  * Always shown, not gated on `resumeSegment > 0` (an earlier version was) — Rule 2 (the
  * physically-impossible-jump test, resume-cleanup.ts) runs unconditionally and can find
  * real junk on a flight where `resumeSegment` never changed at all, most notably any
- * flight recorded before Phase 1 existed (confirmed live 2026-09-13 against a real flight,
+ * flight recorded before Phase 1 existed (confirmed live against a real flight,
  * CPA319/#191: `resumeSegment` was 0 throughout, yet the cleanup pass still found and
  * fixed its real restore-teleport). `applyTrackCleanup` already no-ops cheaply when
  * there's nothing to find, so showing this unconditionally costs nothing on a clean flight.
+ *
+ * @param props The flight, and what to do once it's cleaned.
+ * @returns The element.
  */
 export function TrackCleanupButton(props: {
   flightId: number
@@ -29,15 +36,18 @@ export function TrackCleanupButton(props: {
   const [cleaningUp, setCleaningUp] = useState(false)
   const { t } = useTranslation()
 
+  /**
+   * Cleans up the flight's track points and says what changed, or that there was nothing to do.
+   */
   async function handleCleanupTrack(): Promise<void> {
     setCleaningUp(true)
     try {
-      const result = await window.winglog.trackPointCleanup(props.flightId)
+      const result = await winglogApi().trackPointCleanup(props.flightId)
       if (result.excludedCount === 0 && result.resegmentedCount === 0) {
         toast.success(t('trackCleanupButton.nothingToCleanUp'))
         return
       }
-      props.onCleaned(await window.winglog.trackPointList(props.flightId))
+      props.onCleaned(await winglogApi().trackPointList(props.flightId))
       const parts: string[] = []
       if (result.excludedCount > 0) {
         parts.push(t('trackCleanupButton.excludedCount', { count: result.excludedCount }))
@@ -54,7 +64,13 @@ export function TrackCleanupButton(props: {
   }
 
   return (
-    <Button type="button" variant="ghost" size="sm" onClick={handleCleanupTrack} disabled={cleaningUp}>
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      onClick={asyncHandler('TrackCleanupButton handleCleanupTrack', handleCleanupTrack)}
+      disabled={cleaningUp}
+    >
       <Wrench />
       {cleaningUp ? t('trackCleanupButton.cleaningUp') : t('trackCleanupButton.button')}
     </Button>

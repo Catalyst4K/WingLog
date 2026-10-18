@@ -1,0 +1,305 @@
+/**
+ * SimBrief OFP parsing: SimBrief's JSON to WingLog's flight plan (fetching is in
+ * src/main/simbrief/simbrief-client.ts). Field names and shapes here are verified against a real
+ * response from https://www.simbrief.com/api/xml.fetcher.php?username=...&json=1 (not
+ * from docs alone, which don't document the JSON schema) — see the M3 commit for the
+ * captured example. Two things the docs don't mention but the real response does:
+ *
+ * - Every numeric value in the JSON is a STRING (e.g. `"33000"`), not a number.
+ * - `params.units` is `'kgs'` or `'lbs'` depending on the SimBrief user's own profile
+ *   setting — weight/fuel figures are in THAT unit, not a fixed one. Must convert.
+ *
+ * Times (`times.sched_out` etc.) are unix epoch seconds, converted to ISO 8601 UTC here
+ * so the rest of the app never has to know about SimBrief's time format.
+ */
+
+import { METRES_PER_FOOT } from './units'
+
+const LB_PER_KG = 2.2046226218
+const FT_PER_M = 1 / METRES_PER_FOOT
+
+export interface SimBriefStepClimb {
+  /** Waypoint where the new cruise altitude begins. */
+  atIdent: string
+  /** Real feet-equivalent altitude, regardless of which notation the point was coded
+   *  in — used for the 'ft' and 'm' AltitudeUnit settings. */
+  toAltitudeFt: number
+  /** The unit and value this point was actually coded in on the OFP: a standard flight
+   *  level is 'ft' (e.g. FL330 -> {unit: 'ft', value: 33000}); a Chinese-airspace metric
+   *  level is 'm' (e.g. FL1130 -> {unit: 'm', value: 11300}) — see parseStepClimbs. Used
+   *  for the 'hybrid' AltitudeUnit setting. */
+  native: { unit: 'ft' | 'm'; value: number }
+}
+
+export interface SimBriefOfp {
+  ofpId: string
+  aircraftIcaoType: string
+  /** Tail number from the OFP, for auto-matching against a Fleet aircraft — may not match anything. */
+  aircraftRegistration: string
+  flightNumber: string
+  depIcao: string
+  arrIcao: string
+  altnIcao: string
+  routeString: string
+  cruiseAltM: number
+  schedOutUtc: string
+  schedInUtc: string
+  fuelPlannedKg: number
+  pax: number
+  cargoKg: number
+  zfwKg: number
+  towKg: number
+  ldwKg: number
+  /** Plain cost index, no scaling — null if the field is absent (see optNum). */
+  costIndex: number | null
+  /** Whether this OFP was generated against a saved custom airframe (`aircraft.is_custom`)
+   *  rather than SimBrief's own default for the type. See simbriefInternalId. */
+  simbriefIsCustom: boolean
+  /** `aircraft.internal_id` — for a stock airframe this is just the bare type code
+   *  ("A388"), NOT comparable to aircraft.simbrief_airframe_id. Only meaningful (and only
+   *  in the `<user id>_<airframe id>` form that simbrief_airframe_id stores) when
+   *  simbriefIsCustom is true — docs/simbrief-notes.md, "aircraft — which airframe
+   *  profile was used". Callers must check simbriefIsCustom before treating this as an
+   *  airframe ID. */
+  simbriefInternalId: string | null
+  waypoints: { ident: string; altitudeFt: number; distanceNm: number }[]
+  /** Planned mid-cruise altitude increases — see parseStepClimbs. */
+  stepClimbs: SimBriefStepClimb[]
+  /** The full response, stored verbatim per PLAN.md §5 ("Store the raw JSON"). */
+  rawJson: string
+}
+
+/** An OFP SimBrief returned as an error, or one missing what WingLog needs. */
+export class SimBriefError extends Error {}
+
+/**
+ * @param value A field SimBrief always fills, usually a numeric string.
+ * @returns The number.
+ * @throws SimBriefError if it isn't one.
+ */
+function num(value: unknown): number {
+  const n = Number(value)
+  if (!Number.isFinite(n)) throw new SimBriefError(`Expected a numeric value, got: ${JSON.stringify(value)}`)
+  return n
+}
+
+/**
+ * @param value A field SimBrief always fills.
+ * @returns It as a string; '' for a missing one.
+ */
+function str(value: unknown): string {
+  return typeof value === 'string' ? value : String(value ?? '')
+}
+
+/**
+ * Guarded counterparts of num()/str() for genuinely optional fields (docs/simbrief-notes.md
+ * — "empty values come back as {}, not "" or null"). `num()`/`str()` stay as they are for
+ * fields already verified to always be populated in practice; any *new* optional field
+ * should use these instead, since Number({}) throws and String({}) yields
+ * "[object Object]".
+ *
+ * @param value An optional field.
+ * @returns The number, or null for an empty or non-numeric one.
+ */
+export function optNum(value: unknown): number | null {
+  if (typeof value !== 'string' && typeof value !== 'number') return null
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+/**
+ * @param value An optional field.
+ * @returns The string, or null for an empty or non-string one.
+ */
+export function optStr(value: unknown): string | null {
+  return typeof value === 'string' && value !== '' ? value : null
+}
+
+/**
+ * @param value Unix epoch seconds, as SimBrief sends them.
+ * @returns The time as ISO 8601 UTC.
+ */
+function epochSecondsToIso(value: unknown): string {
+  return new Date(num(value) * 1000).toISOString()
+}
+
+/**
+ * Recursively searches a parsed JSON value for the first string-valued property named `key`, at any depth. Used instead of a
+ * fixed path (e.g. `general.stepclimb_string`) because only the field's name and value are confirmed against a real SimBrief
+ * response, not which section it lives under.
+ *
+ * @param value The parsed JSON.
+ * @param key The property name.
+ * @returns The first string value found, or undefined.
+ */
+function findStringField(value: unknown, key: string): string | undefined {
+  if (typeof value !== 'object' || value === null) return undefined
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findStringField(item, key)
+      if (found !== undefined) return found
+    }
+    return undefined
+  }
+  const record = value as Record<string, unknown>
+  if (typeof record[key] === 'string') return record[key] as string
+  for (const nested of Object.values(record)) {
+    const found = findStringField(nested, key)
+    if (found !== undefined) return found
+  }
+  return undefined
+}
+
+// Above the certified ceiling of essentially every civil aircraft — used only as a
+// fallback when a step's ident has no navlog match to cross-reference against.
+const MAX_PLAUSIBLE_FLIGHT_LEVEL_FT = 52_000
+
+/**
+ * Parses SimBrief's `stepclimb_string` field: a flat "IDENT/CODE/IDENT/CODE/..." string mirroring the "FL STEPS" line on the OFP
+ * text, e.g. `"EGLL/0330/DENAK/0350/SUDAR/0370/KAMUD/1130/OMBON/1190"` from a China-crossing OFP.
+ *
+ * Each 4-digit code is one of two notations, with nothing in the string marking which:
+ * - A standard flight level, in hundreds of feet ("0330" = FL330 = 33,000 ft).
+ * - A metric flight level, used once a flight crosses into airspace (e.g. China) that assigns levels in metres, in tens of
+ *   metres ("1130" = 11,300 m ≈ 37,073 ft).
+ *
+ * The ranges overlap: China's metric RVSM levels run from roughly 600 m to 14,900 m, i.e. codes 0060-0990, so a code alone can't
+ * disambiguate ("0890" is a plausible FL890 *and* 8,900 m; a code>=1000 threshold broke on exactly that, docs/decisions.md). Resolved instead by cross-referencing `waypointAltitudesFt`, keyed by the same ident (built from the OFP's
+ * `navlog.fix[]`, which gives the real altitude in feet): whichever notation's converted value lands closer to the known altitude
+ * wins. Only an ident with no navlog match falls back to a plausibility threshold: a "flight level" above ~FL520 must be metric.
+ *
+ * @param stepclimbString The `stepclimb_string` field, if the OFP has one.
+ * @param waypointAltitudesFt The navlog's altitude at each fix, in feet.
+ * @returns The step climbs, in route order.
+ */
+export function parseStepClimbs(
+  stepclimbString: string | undefined,
+  waypointAltitudesFt: ReadonlyMap<string, number> = new Map()
+): SimBriefStepClimb[] {
+  if (!stepclimbString) return []
+  const parts = stepclimbString.split('/')
+  const climbs: SimBriefStepClimb[] = []
+  for (let i = 0; i + 1 < parts.length; i += 2) {
+    const atIdent = parts[i]
+    const code = Number(parts[i + 1])
+    if (!Number.isFinite(code)) continue
+
+    const asFeet = code * 100
+    const asMeters = code * 10
+    const asMetersInFeet = asMeters * FT_PER_M
+    const knownAltitudeFt = waypointAltitudesFt.get(atIdent)
+
+    const isMetric =
+      knownAltitudeFt === undefined
+        ? asFeet > MAX_PLAUSIBLE_FLIGHT_LEVEL_FT
+        : Math.abs(asMetersInFeet - knownAltitudeFt) < Math.abs(asFeet - knownAltitudeFt)
+
+    climbs.push(
+      isMetric
+        ? { atIdent, toAltitudeFt: asMetersInFeet, native: { unit: 'm', value: asMeters } }
+        : { atIdent, toAltitudeFt: asFeet, native: { unit: 'ft', value: asFeet } }
+    )
+  }
+  return climbs
+}
+
+/**
+ * Parses a SimBrief OFP JSON response (whether freshly fetched or read back out of a
+ * flight's own stored `ofpJson`, e.g. to reconstruct Dispatch's view of a flight that
+ * survived a restart — see dispatchGetInProgressFlight) into the shape the rest of the
+ * app works with. Pulled out of fetchLatestOfp so both callers share one parser rather
+ * than fetchLatestOfp being the only place this logic could ever run.
+ *
+ * @param raw The parsed OFP JSON.
+ * @returns The flight plan.
+ * @throws SimBriefError if SimBrief reported an error or a needed section is missing.
+ */
+export function parseOfp(raw: unknown): SimBriefOfp {
+  const { origin, destination, alternate, general, aircraft, weights, fuel, times, params, navlog } =
+    ofpSections(raw)
+
+  const kgFactor = params.units === 'lbs' ? 1 / LB_PER_KG : 1
+  const toKg = (value: unknown): number => num(value) * kgFactor
+
+  const waypoints = navlogWaypoints(navlog)
+  const waypointAltitudesFt = new Map(waypoints.map((w) => [w.ident, w.altitudeFt] as const))
+
+  return {
+    ofpId: str(params.request_id),
+    aircraftIcaoType: str(aircraft.icaocode),
+    aircraftRegistration: str(aircraft.reg),
+    flightNumber: `${str(general.icao_airline)}${str(general.flight_number)}`,
+    depIcao: str(origin.icao_code),
+    arrIcao: str(destination.icao_code),
+    altnIcao: str(alternate?.icao_code),
+    routeString: str(general.route),
+    cruiseAltM: num(general.initial_altitude) * METRES_PER_FOOT,
+    schedOutUtc: epochSecondsToIso(times.sched_out),
+    schedInUtc: epochSecondsToIso(times.sched_in),
+    fuelPlannedKg: toKg(fuel.plan_ramp),
+    pax: Math.round(num(weights.pax_count)),
+    cargoKg: toKg(weights.cargo),
+    zfwKg: toKg(weights.est_zfw),
+    towKg: toKg(weights.est_tow),
+    ldwKg: toKg(weights.est_ldw),
+    costIndex: optNum(general.costindex),
+    simbriefIsCustom: str(aircraft.is_custom) === '1',
+    simbriefInternalId: optStr(aircraft.internal_id),
+    waypoints,
+    stepClimbs: parseStepClimbs(findStringField(raw, 'stepclimb_string'), waypointAltitudesFt),
+    rawJson: JSON.stringify(raw)
+  }
+}
+
+/** One top-level section of the OFP JSON. */
+type OfpSection = Record<string, unknown>
+
+/** The OFP sections parseOfp reads; `alternate` and `navlog` may be missing. */
+interface OfpSections {
+  origin: OfpSection
+  destination: OfpSection
+  alternate: OfpSection | undefined
+  general: OfpSection
+  aircraft: OfpSection
+  weights: OfpSection
+  fuel: OfpSection
+  times: OfpSection
+  params: OfpSection
+  navlog: OfpSection | undefined
+}
+
+/**
+ * @param raw The parsed OFP JSON.
+ * @returns Its sections.
+ * @throws SimBriefError if it isn't an object, SimBrief reported an error, or a needed
+ *   section is missing.
+ */
+function ofpSections(raw: unknown): OfpSections {
+  if (typeof raw !== 'object' || raw === null) {
+    throw new SimBriefError('SimBrief OFP is not a valid JSON object')
+  }
+
+  const ofp = raw as Record<string, OfpSection | undefined>
+  if (ofp.fetch?.status !== 'Success') {
+    throw new SimBriefError(`SimBrief reported an error: ${JSON.stringify(ofp.fetch)}`)
+  }
+
+  const { origin, destination, alternate, general, aircraft, weights, fuel, times, params, navlog } = ofp
+  if (!origin || !destination || !general || !aircraft || !weights || !fuel || !times || !params) {
+    throw new SimBriefError('SimBrief response is missing an expected top-level section')
+  }
+  return { origin, destination, alternate, general, aircraft, weights, fuel, times, params, navlog }
+}
+
+/**
+ * @param navlog The OFP's `navlog` section, if it has one.
+ * @returns Each fix's ident, altitude and distance; empty without a fix list.
+ */
+function navlogWaypoints(navlog: OfpSection | undefined): SimBriefOfp['waypoints'] {
+  const fixes = Array.isArray(navlog?.fix) ? (navlog.fix as OfpSection[]) : []
+  return fixes.map((fix) => ({
+    ident: str(fix.ident),
+    altitudeFt: num(fix.altitude_feet ?? 0),
+    distanceNm: num(fix.distance ?? 0)
+  }))
+}

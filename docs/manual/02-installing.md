@@ -18,13 +18,18 @@ WingLog checks GitHub for a newer version shortly after it starts and every few 
 switch this off in **Settings → About**). When there is one, a banner appears across the top:
 
 - **What's new** shows the release notes.
-- **Download** opens the release page, where you download the new installer.
+- **Download and install** downloads the new version in the background, with its progress shown on
+  the button. When it's ready the button becomes **Restart to update**: WingLog closes, installs the
+  update quietly into the same folder, and starts again.
+- **Restart to update** won't run while a flight is being tracked. Finish the flight first.
+- On a copy of WingLog that can't install itself, **Download** opens the release page instead.
 - **Skip this version** hides the banner until a newer version comes out.
 - The **×** hides it until you next start WingLog.
 
 The banner never appears while you're in the air.
 
-To update, run the new installer over the old one. Your fleet, logbook and settings are kept.
+Updating never touches your fleet, logbook or settings. You can also update by hand by running the new
+installer over the old one. Nothing installs unless you press the button.
 **Settings → About → Check now** checks straight away.
 
 ## Where your data lives
@@ -38,7 +43,7 @@ open the folder.
 - **Logs.** If something goes wrong, `logs\main.log` in the same folder is what to attach to a bug
   report.
 - **Exports.** To keep a copy of your fleet and logbook in a portable form, use
-  **Settings → Data → Export** (see [Settings](10-settings.md)).
+  **Settings → Data → Export** (see [Settings](11-settings.md)).
 
 ## Uninstalling
 

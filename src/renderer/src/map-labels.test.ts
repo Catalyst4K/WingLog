@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { labelExpression, planStyleChanges, type StyleLayerLike } from './map-labels'
+import { labelExpression, planLanguageChange, planStyleChanges, type StyleLayerLike } from './map-labels'
 
-// Synthetic fixtures shaped like the two real OpenFreeMap styles, as read on 2026-09-18
+// Synthetic fixtures shaped like the two real OpenFreeMap styles, as read on
 // (docs/navdata-notes.md-style spike, recorded in map-language-and-declutter.md): the same
 // two-line `name:latin` + `name:nonlatin` text-field everywhere, place layers told apart by
 // `source-layer: 'place'`, positron with minzooms and dark without.
@@ -21,7 +21,13 @@ const POSITRON: StyleLayerLike[] = [
   { id: 'road_fill', type: 'fill', 'source-layer': 'transportation' },
   symbol('label_other', 'place', {
     minzoom: 8,
-    filter: ['match', ['get', 'class'], ['city', 'continent', 'country', 'state', 'town', 'village'], false, true]
+    filter: [
+      'match',
+      ['get', 'class'],
+      ['city', 'continent', 'country', 'state', 'town', 'village'],
+      false,
+      true
+    ]
   }),
   symbol('label_village', 'place', { minzoom: 9, filter: ['==', ['get', 'class'], 'village'] }),
   symbol('label_town', 'place', { minzoom: 6, filter: ['==', ['get', 'class'], 'town'] }),
@@ -30,20 +36,33 @@ const POSITRON: StyleLayerLike[] = [
     minzoom: 3,
     filter: ['all', ['==', ['get', 'class'], 'city'], ['!=', ['get', 'capital'], 2]]
   }),
-  symbol('label_country_1', 'place', { maxzoom: 9, filter: ['all', ['==', ['get', 'class'], 'country'], ['==', ['get', 'rank'], 1]] }),
+  symbol('label_country_1', 'place', {
+    maxzoom: 9,
+    filter: ['all', ['==', ['get', 'class'], 'country'], ['==', ['get', 'rank'], 1]]
+  }),
   symbol('water_name_point_label', 'water_name', { minzoom: 0 }),
   symbol('airport', 'aerodrome_label', { minzoom: 11 }),
-  symbol('highway-shield-non-us', 'transportation_name', { layout: { 'text-field': ['to-string', ['get', 'ref']] } })
+  symbol('highway-shield-non-us', 'transportation_name', {
+    layout: { 'text-field': ['to-string', ['get', 'ref']] }
+  })
 ]
 
 const DARK: StyleLayerLike[] = [
   symbol('place_village', 'place', {
     maxzoom: 14,
-    filter: ['all', ['match', ['geometry-type'], ['MultiPoint', 'Point'], true, false], ['==', ['get', 'class'], 'village']]
+    filter: [
+      'all',
+      ['match', ['geometry-type'], ['MultiPoint', 'Point'], true, false],
+      ['==', ['get', 'class'], 'village']
+    ]
   }),
   symbol('place_suburb', 'place', {
     maxzoom: 15,
-    filter: ['all', ['match', ['geometry-type'], ['MultiPoint', 'Point'], true, false], ['==', ['get', 'class'], 'suburb']]
+    filter: [
+      'all',
+      ['match', ['geometry-type'], ['MultiPoint', 'Point'], true, false],
+      ['==', ['get', 'class'], 'suburb']
+    ]
   }),
   symbol('place_other', 'place', {
     filter: [
@@ -55,12 +74,19 @@ const DARK: StyleLayerLike[] = [
   symbol('place_city', 'place', { maxzoom: 14, filter: ['all', ['==', ['get', 'class'], 'city']] })
 ]
 
-const byId = (changes: ReturnType<typeof planStyleChanges>, id: string): (typeof changes)[number] | undefined =>
-  changes.find((c) => c.id === id)
+const byId = (
+  changes: ReturnType<typeof planStyleChanges>,
+  id: string
+): (typeof changes)[number] | undefined => changes.find((c) => c.id === id)
 
 describe('labelExpression', () => {
   it('collapses to a single line preferring the chosen language, then a Latin name, then the native one', () => {
-    expect(labelExpression('de')).toEqual(['coalesce', ['get', 'name:de'], ['get', 'name:latin'], ['get', 'name']])
+    expect(labelExpression('de')).toEqual([
+      'coalesce',
+      ['get', 'name:de'],
+      ['get', 'name:latin'],
+      ['get', 'name']
+    ])
     expect(labelExpression('en')).toEqual([
       'coalesce',
       ['get', 'name:en'],
@@ -71,7 +97,12 @@ describe('labelExpression', () => {
   })
 
   it('prefers the native (often Cyrillic) name for Russian, and the native name for "local"', () => {
-    expect(labelExpression('ru')).toEqual(['coalesce', ['get', 'name:ru'], ['get', 'name'], ['get', 'name:latin']])
+    expect(labelExpression('ru')).toEqual([
+      'coalesce',
+      ['get', 'name:ru'],
+      ['get', 'name'],
+      ['get', 'name:latin']
+    ])
     expect(labelExpression('local')).toEqual(['coalesce', ['get', 'name'], ['get', 'name:latin']])
   })
 })
@@ -81,7 +112,16 @@ describe('planStyleChanges — language', () => {
     const changes = planStyleChanges(POSITRON, 'es')
     const rewritten = changes.filter((c) => c.textField).map((c) => c.id)
     expect(rewritten).toEqual(
-      expect.arrayContaining(['label_other', 'label_village', 'label_town', 'label_state', 'label_city', 'label_country_1', 'water_name_point_label', 'airport'])
+      expect.arrayContaining([
+        'label_other',
+        'label_village',
+        'label_town',
+        'label_state',
+        'label_city',
+        'label_country_1',
+        'water_name_point_label',
+        'airport'
+      ])
     )
     expect(byId(changes, 'label_town')?.textField).toEqual(labelExpression('es'))
     // A road-shield's ref text, a fill and a background carry no two-line name: untouched.
@@ -104,7 +144,8 @@ describe('planStyleChanges — declutter', () => {
     expect(byId(changes, 'label_other')?.minzoom).toBe(10) // the "everything except" bucket, was 8
     expect(byId(changes, 'label_state')?.minzoom).toBe(6) // was 5, still below its maxzoom of 8
     // Towns, cities and countries are never pushed back.
-    for (const id of ['label_town', 'label_city', 'label_country_1']) expect(byId(changes, id)?.minzoom).toBeUndefined()
+    for (const id of ['label_town', 'label_city', 'label_country_1'])
+      expect(byId(changes, id)?.minzoom).toBeUndefined()
     // Non-place layers keep their zoom range.
     expect(byId(changes, 'airport')?.minzoom).toBeUndefined()
     expect(byId(changes, 'water_name_point_label')?.minzoom).toBeUndefined()
@@ -120,7 +161,9 @@ describe('planStyleChanges — declutter', () => {
   })
 
   it('never raises a layer to or past its own maxzoom, which would hide it entirely', () => {
-    const layers = [symbol('label_state', 'place', { minzoom: 3, maxzoom: 6, filter: ['==', ['get', 'class'], 'state'] })]
+    const layers = [
+      symbol('label_state', 'place', { minzoom: 3, maxzoom: 6, filter: ['==', ['get', 'class'], 'state'] })
+    ]
     expect(planStyleChanges(layers, 'en')[0]?.minzoom).toBeUndefined()
   })
 
@@ -132,11 +175,54 @@ describe('planStyleChanges — declutter', () => {
   })
 
   it('still rewrites the text of an unclassifiable place layer, and skips layers with no layout at all', () => {
-    expect(planStyleChanges([symbol('label_x', 'place', { filter: ['some', 'shape'] })], 'en')[0]?.textField).toBeDefined()
+    expect(
+      planStyleChanges([symbol('label_x', 'place', { filter: ['some', 'shape'] })], 'en')[0]?.textField
+    ).toBeDefined()
     expect(planStyleChanges([{ id: 'bare', type: 'symbol' }], 'en')).toEqual([])
   })
 
   it('returns nothing for an empty style, so a style that changes shape degrades to unchanged', () => {
     expect(planStyleChanges([], 'en')).toEqual([])
+  })
+})
+
+describe('planLanguageChange — a language changed while the map is open', () => {
+  /** What the map's style looks like after changes were applied: the relabelled layers lose their two-line text-field. */
+  function applied(
+    layers: StyleLayerLike[],
+    changes: { id: string; textField?: unknown[] }[]
+  ): StyleLayerLike[] {
+    return layers.map((l) => {
+      const change = changes.find((c) => c.id === l.id && c.textField)
+      return change ? { ...l, layout: { ...l.layout, 'text-field': change.textField } } : l
+    })
+  }
+
+  it('relabels again for the new language, which the plain plan cannot (the layers no longer look like the original two-line labels)', () => {
+    const first = planLanguageChange(POSITRON, 'en')
+    const labelled = first.filter((c) => c.textField).map((c) => c.id)
+    expect(labelled.length).toBeGreaterThan(0)
+    const afterFirst = applied(POSITRON, first)
+    // The bug: planning from the changed style finds nothing, so the map stayed in its first language.
+    expect(planStyleChanges(afterFirst, 'fr').filter((c) => c.textField)).toEqual([])
+
+    const second = planLanguageChange(afterFirst, 'fr')
+    expect(second.map((c) => c.id).sort()).toEqual([...labelled].sort())
+    for (const change of second) expect(change.textField).toEqual(labelExpression('fr'))
+
+    // And again, to a third.
+    const third = planLanguageChange(applied(afterFirst, second), 'local')
+    expect(third.map((c) => c.id).sort()).toEqual([...labelled].sort())
+    for (const change of third) expect(change.textField).toEqual(labelExpression('local'))
+  })
+
+  it('plans from the original labels when the style has just been loaded again (a theme switch)', () => {
+    expect(planLanguageChange(DARK, 'de').some((c) => c.textField)).toBe(true)
+  })
+
+  it('leaves a style with no labels it knows alone, and a label that is not ours', () => {
+    expect(planLanguageChange([{ id: 'background', type: 'background' }], 'fr')).toEqual([])
+    const foreign = { id: 'x', type: 'symbol', layout: { 'text-field': ['get', 'ref'] } } as StyleLayerLike
+    expect(planLanguageChange([foreign], 'fr')).toEqual([])
   })
 })

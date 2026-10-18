@@ -1,4 +1,9 @@
+/**
+ * SimBrief's community airframes for an aircraft type, for the fleet's airframe picker
+ * (docs/plans/simbrief-airframe-picker.md): fetched live once per session, filtered to MSFS.
+ */
 import type { SimbriefAirframeOption } from '../../shared/ipc'
+import { lazy } from '@shared/lazy'
 
 // Forum-documented, not in SimBrief's own official docs (docs/plans/
 // simbrief-airframe-picker.md) — same undocumented-external-system status as SimBrief's
@@ -30,13 +35,16 @@ export type RawAirframesResponse = Record<string, RawAircraftEntry>
 // null developer/platform — comments is always present regardless.
 const COMMENT_PATTERN = /^(.+?)\s+\(([^)]+)\)\s*-\s*(.+)$/
 // The bit after the final "-" is genuinely free text (docs/simbrief-notes.md, "Why near-
-// identical community airframes collapse to the same label", 2026-09-08) — a real A320
+// identical community airframes collapse to the same label") — a real A320
 // entry looks like "A320 CFM (SL)", a real 737 one looks like "Dual Class [credit: PMDG
 // Official]", with no shared shape between them beyond "whatever tells this one apart from
 // its siblings." Stripped, not parsed further.
 const CREDIT_SUFFIX_PATTERN = /\s*\[credit:[^\]]*\]\s*$/i
 
-function parseComment(comments: string, icaoType: string): { developer: string | null; platform: string | null; variant: string | null } {
+function parseComment(
+  comments: string,
+  icaoType: string
+): { developer: string | null; platform: string | null; variant: string | null } {
   const match = comments.match(COMMENT_PATTERN)
   if (!match) return { developer: null, platform: null, variant: null }
   let variant = match[3].trim().replace(CREDIT_SUFFIX_PATTERN, '')
@@ -54,7 +62,7 @@ function parseComment(comments: string, icaoType: string): { developer: string |
 // either the original Wing Fence wingtip or the later Sharklet retrofit. Fenix's own
 // comments only ever tag the Sharklet case explicitly ("(SL)"), leaving the older (and
 // more common) Wing Fence case with no tag at all — confirmed real, Callum's own domain
-// knowledge, 2026-09-08. Left as-is, a Wing Fence entry just looks like it has no
+// knowledge. Left as-is, a Wing Fence entry just looks like it has no
 // distinguishing detail rather than "the other real wingtip option" — made explicit here
 // instead, mirroring what Fenix's own comments only bother to state for one side of the
 // pair. Scoped to Fenix specifically (Callum's own wording — "the profile for fenix...
@@ -73,7 +81,8 @@ function withWingFenceMadeExplicit(variant: string | null, icaoType: string): st
 function toOption(raw: RawAirframe, simbriefType: string): SimbriefAirframeOption {
   const isDefault = raw.airframe_id === false
   const { developer, variant: parsedVariant } = parseComment(raw.airframe_comments, simbriefType)
-  const variant = developer === 'Fenix Simulations' ? withWingFenceMadeExplicit(parsedVariant, simbriefType) : parsedVariant
+  const variant =
+    developer === 'Fenix Simulations' ? withWingFenceMadeExplicit(parsedVariant, simbriefType) : parsedVariant
   return {
     isDefault,
     developer,
@@ -91,8 +100,15 @@ function toOption(raw: RawAirframe, simbriefType: string): SimbriefAirframeOptio
  * ICAO type — filtered to `MSFS`-platform community entries plus the always-present stock
  * default (docs/plans/simbrief-airframe-picker.md). Exported separately from the fetch
  * below so real captured fixture JSON can be tested without a network call.
+ *
+ * @param data SimBrief's `inputs.airframes.json`.
+ * @param icaoType The ICAO type, e.g. A20N.
+ * @returns The options, stock default first, or none for an unknown type.
  */
-export function parseAirframesForType(data: RawAirframesResponse, icaoType: string): SimbriefAirframeOption[] {
+export function parseAirframesForType(
+  data: RawAirframesResponse,
+  icaoType: string
+): SimbriefAirframeOption[] {
   const entry = data[icaoType]
   if (!entry) return []
 
@@ -128,17 +144,19 @@ export function parseAirframesForType(data: RawAirframesResponse, icaoType: stri
 // as airport-search.ts's allAirports/airportCoords). No on-disk cache: this is a browse
 // list, not something that needs surviving a restart, and the source is only ever "updated
 // every 5 minutes" (unconfirmed, forum post) — a longer cache would just risk staleness.
-let cachedResponse: Promise<RawAirframesResponse | null> | null = null
-
-async function fetchAirframesData(): Promise<RawAirframesResponse | null> {
-  cachedResponse ??= fetch(AIRFRAMES_URL)
+const fetchAirframesData = lazy((): Promise<RawAirframesResponse | null> =>
+  fetch(AIRFRAMES_URL)
     .then((res) => (res.ok ? (res.json() as Promise<RawAirframesResponse>) : null))
+    // A failed fetch is an empty list for the session, the same as an unknown type.
     .catch(() => null)
-  return cachedResponse
-}
+)
 
 /** Empty (not an error) for a type SimBrief doesn't recognise, or if the fetch itself
- *  fails — same defensive-parsing posture as every other external-data path in this app. */
+ *  fails — same defensive-parsing posture as every other external-data path in this app.
+ *
+ * @param icaoType The ICAO type, e.g. A20N.
+ * @returns The options, or none.
+ */
 export async function fetchAirframesForType(icaoType: string): Promise<SimbriefAirframeOption[]> {
   const data = await fetchAirframesData()
   if (!data) return []

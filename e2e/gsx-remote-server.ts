@@ -6,7 +6,7 @@ import { WebSocketServer, type WebSocket } from 'ws'
  * MSFS + GSX install — same "real protocol, fake transport" shape as `ReplaySimConnectService`
  * (flight-replay-harness.md), but for `GsxRemoteService`'s WebSocket instead of SimConnect.
  *
- * All payloads below are real captures, not invented shapes — see flightdeck-backend's
+ * All payloads below are real captures, not invented shapes — see winglog-backend's
  * docs/gsx-notes.md (round 6/7 for the gate/service `detail` fields, the pushback-direction
  * menu capture for the important-menu dialog). `GsxRemoteService` only ever sends one
  * `{type:"subscribe",...}` message on open and ignores anything else it doesn't recognise
@@ -97,7 +97,15 @@ export class FakeGsxRemoteServer {
 export const VHHH_BOOT_SNAPSHOT = {
   airport: { icao: 'VHHH', name: 'Hong Kong Intl', country: 'Hong Kong' },
   parking: '(N) T1 North|Gate N6',
-  gateProperties: ['Gate Heavy', 'SafeDockT42', 'jetway', 'underground fuel', 'no stairs', 'no bus', 'max wingspan 70m'],
+  gateProperties: [
+    'Gate Heavy',
+    'SafeDockT42',
+    'jetway',
+    'underground fuel',
+    'no stairs',
+    'no bus',
+    'max wingspan 70m'
+  ],
   services: [
     {
       id: 'Refueling',
@@ -131,7 +139,7 @@ export const VHHH_BOOT_SNAPSHOT = {
   menu: { title: '', header: '', subtitle: '', entries: [], icons: [], disabled: [], layout: '' },
   menuShown: false,
   prompt: null,
-  // Real command-bar keys, confirmed live 2026-09-23 by reading GSX's own shipped menu.js
+  // Real command-bar keys, confirmed live by reading GSX's own shipped menu.js
   // source (STATIC_COMMANDS' ids) and capturing a real commandIcons/simbrief snapshot.
   commandIcons: {
     CUSTOMIZE_AIRPORT_POSITION: 'data:image/png;base64,AAA',
@@ -171,7 +179,18 @@ export const GATE_SEARCH_MENU = {
   subtitle: '',
   layout: 'list',
   icons: [],
-  entries: ['Parking 347 - Ramp Cargo', 'Parking 346 - Ramp Cargo', 'Parking 15Z - Ramp GA Medium', '', '', '', '', '', '', 'Back'],
+  entries: [
+    'Parking 347 - Ramp Cargo',
+    'Parking 346 - Ramp Cargo',
+    'Parking 15Z - Ramp GA Medium',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    'Back'
+  ],
   disabled: [false, false, false, false, false, false, false, false, false, false]
 }
 

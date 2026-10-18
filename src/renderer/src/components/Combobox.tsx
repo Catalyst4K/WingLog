@@ -1,12 +1,18 @@
+/** A text input with a debounced search dropdown. */
+
 import { useEffect, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { runAsync } from '../report-error'
 
 /**
  * A free-text input backed by a debounced async search dropdown. `value` is always the
  * live field content (typed or picked) — picking a result just replaces it, it doesn't
  * switch the field into some other "selected" mode. Used for both airport and aircraft
  * type lookups (previously two near-identical implementations).
+ *
+ * @param props The value, its change handler, the search, and how to show and pick a result.
+ * @returns The element.
  */
 export function Combobox<T>(props: {
   value: string
@@ -40,13 +46,16 @@ export function Combobox<T>(props: {
         return
       }
       setSearching(true)
-      props
-        .search(q)
-        .then(setResults)
-        .finally(() => setSearching(false))
+      runAsync(
+        'Combobox props',
+        props
+          .search(q)
+          .then(setResults)
+          .finally(() => setSearching(false))
+      )
     }, 300)
     return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only a new query searches; the callbacks are new every render
   }, [query])
 
   function handleInput(value: string): void {
