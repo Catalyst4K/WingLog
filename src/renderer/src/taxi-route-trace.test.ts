@@ -662,3 +662,39 @@ describe('traceTaxiRouteFromFirstTaxiway (EGCC 2026-10-18: Track opened with the
     expect(traceTaxiRouteFromFirstTaxiway({ ...request, taxiways: ['QQ', 'V'] })).toBeNull()
   })
 })
+
+describe('rejoinTaxiRoute follows the cleared route once the way back meets it (EGLL flight 239, 2026-10-15)', () => {
+  const seg = (a: [number, number], b: [number, number], name: string): NavdataTaxiSegment => ({
+    startLat: a[0],
+    startLon: a[1],
+    endLat: b[0],
+    endLon: b[1],
+    name,
+    startHoldShort: false,
+    endHoldShort: false
+  })
+  const R = [
+    [51.0, 0],
+    [51.001, 0],
+    [51.002, 0],
+    [51.003, 0.002],
+    [51.004, 0]
+  ] as [number, number][]
+  const P: [number, number] = [51.001, -0.0004]
+  // The cleared X runs round R3; Z cuts straight from R2 to R4, the shorter way to the end.
+  const segments = [
+    seg(R[0]!, R[1]!, 'X'),
+    seg(R[1]!, R[2]!, 'X'),
+    seg(R[2]!, R[3]!, 'X'),
+    seg(R[3]!, R[4]!, 'X'),
+    seg(R[2]!, R[4]!, 'Z'),
+    seg(P, R[1]!, 'Y')
+  ]
+  const route = R.map(([lat, lon]): [number, number] => [lon, lat])
+
+  it('keeps the cleared stretch after the join instead of cutting to a later join over the shortcut', () => {
+    const rejoined = rejoinTaxiRoute({ segments, route, fromSegment: 0, from: { lat: P[0], lon: P[1] } })
+    expect(rejoined?.[0]).toEqual([P[1], P[0]])
+    expect(rejoined?.slice(1)).toEqual(route.slice(1))
+  })
+})

@@ -568,13 +568,47 @@ export function rejoinTaxiRoute({
   const best = bestJoin(graph, route, fromSegment, cost)
   if (best.index < 0 || best.total > MAX_ROUTE_LENGTH_M + WRONG_WAY_PENALTY_M) return null
 
-  const path: TracedRoute = []
-  for (let n = best.node; n !== -1; n = itemAt(previous, n, 'taxi node')) {
+  const nodes: number[] = []
+  for (let n = best.node; n !== -1; n = itemAt(previous, n, 'taxi node')) nodes.push(n)
+  nodes.reverse()
+  // The way back ends where it first meets the cleared route, which is followed from there: the shortest way may run on past
+  // cleared taxiways to a join near the end, skipping the stretch ATC cleared (EGLL flight 239's last leg).
+  const onRoute = firstOnRoute(graph, nodes, route, fromSegment, best.index)
+  const path: TracedRoute = nodes.slice(0, onRoute.at + 1).map((n) => {
     const node = itemAt(graph.nodes, n, 'taxi node')
-    path.push([node.lon, node.lat])
+    return [node.lon, node.lat]
+  })
+  return [...path, ...route.slice(onRoute.index + 1)]
+}
+
+/**
+ * Where a way back first meets the cleared route.
+ *
+ * @param graph The graph.
+ * @param nodes The way back, from the aircraft's node to its join.
+ * @param route The cleared route.
+ * @param fromSegment The furthest segment driven; only later points count.
+ * @param joinIndex The route index of the way back's last node, used if no earlier node is on the route.
+ * @returns The position in `nodes` of the first node on the route, and that node's (first) index in `route`.
+ */
+function firstOnRoute(
+  graph: Graph,
+  nodes: number[],
+  route: TracedRoute,
+  fromSegment: number,
+  joinIndex: number
+): { at: number; index: number } {
+  const indexOf = new Map<number, number>()
+  for (let i = Math.max(0, fromSegment); i < route.length; i++) {
+    const [lon, lat] = itemAt(route, i, 'route point')
+    const node = graph.nodeIndex.get(nodeKey(lat, lon))
+    if (node !== undefined && !indexOf.has(node)) indexOf.set(node, i)
   }
-  path.reverse()
-  return [...path, ...route.slice(best.index + 1)]
+  for (const [at, n] of nodes.entries()) {
+    const index = indexOf.get(n)
+    if (index !== undefined) return { at, index }
+  }
+  return { at: nodes.length - 1, index: joinIndex }
 }
 
 /**
