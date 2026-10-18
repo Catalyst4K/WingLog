@@ -70,6 +70,17 @@ div[class*='bottom-3'][class*='left-3'] {
   background-repeat: no-repeat;
   background-size: 18px;
 }
+/* MapLibre draws a blue ring (box-shadow) on the focused (i), and a tapped button keeps focus on a phone. The dark theme inverts the button,
+   which turns the blue to orange, and the ring followed the 44 px touch box, so it stayed on after the tap and spilled over the bar below the
+   map. The (i) takes no ring: the page is used by touch, and the circle itself shows when it is open. */
+#root .maplibregl-ctrl-attrib-button,
+#root .maplibregl-ctrl-attrib-button:focus,
+#root .maplibregl-ctrl-attrib-button:focus-visible,
+#root .maplibregl-ctrl-attrib-button:active {
+  box-shadow: none;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
 /* Opened, the (i) stays in the corner rather than centring over the text. */
 #root .maplibregl-ctrl-attrib.maplibregl-compact-show .maplibregl-ctrl-attrib-button {
   inset: -6px -6px auto auto;

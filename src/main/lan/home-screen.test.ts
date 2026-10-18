@@ -63,4 +63,16 @@ describe('Home Screen web app', () => {
       /#root \.maplibregl-ctrl-attrib-button\s*\{\s*inset: -6px;\s*width: 44px;\s*height: 44px;/
     )
   })
+
+  it('shows no focus ring on the map (i) after a tap, which MapLibre draws blue and the dark theme turns orange', () => {
+    const css = readFileSync(join(folder, 'lan.css'), 'utf8')
+    expect(css).toMatch(
+      /#root \.maplibregl-ctrl-attrib-button:focus,[^{]*:active\s*\{\s*box-shadow: none;\s*outline: none;\s*-webkit-tap-highlight-color: transparent;/
+    )
+  })
+
+  it('takes the same ring off the desktop map, where the dark theme turns it orange too', () => {
+    const css = readFileSync(join(folder, '..', 'renderer', 'src', 'index.css'), 'utf8')
+    expect(css).toMatch(/\.maplibregl-ctrl-attrib-button:focus-visible\s*\{\s*box-shadow: none;/)
+  })
 })
