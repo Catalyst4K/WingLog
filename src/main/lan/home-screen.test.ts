@@ -75,4 +75,9 @@ describe('Home Screen web app', () => {
     const css = readFileSync(join(folder, '..', 'renderer', 'src', 'index.css'), 'utf8')
     expect(css).toMatch(/\.maplibregl-ctrl-attrib-button:focus-visible\s*\{\s*box-shadow: none;/)
   })
+
+  it('paints nothing on the (i) button itself: its 44 px is the touch target, and the dark theme would fill it as a big disc over the bar', () => {
+    const css = readFileSync(join(folder, 'lan.css'), 'utf8')
+    expect(css).toMatch(/#root \.maplibregl-ctrl-attrib-button\s*\{[^}]*background-color: transparent;/)
+  })
 })
