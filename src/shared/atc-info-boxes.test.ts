@@ -249,8 +249,24 @@ describe('boxClearedLevelFt', () => {
     ).toBe(11000)
   })
 
+  it('reads an altitude below the transition level: Descend To Altitude (VHHH-EGCC, 2026-10-18)', () => {
+    expect(
+      boxClearedLevelFt([
+        { title: 'Descend To Altitude', info: '5,000' },
+        { title: 'QNH', info: 'QNH 1034' }
+      ])
+    ).toBe(5000)
+  })
+
+  it("reads Maintain and Continue Climb levels from Callum's recorded flights", () => {
+    expect(boxClearedLevelFt([{ title: 'Maintain', info: 'FL380' }])).toBe(38000)
+    expect(boxClearedLevelFt([{ title: 'Maintain', info: '1,200m' }])).toBe(3937)
+    expect(boxClearedLevelFt([{ title: 'Continue Climb', info: 'FL350' }])).toBe(35000)
+  })
+
   it('ignores speeds and other boxes', () => {
     expect(boxClearedLevelFt([{ title: 'Maintain Speed', info: '250' }])).toBeNull()
+    expect(boxClearedLevelFt([{ title: 'Turn Left', info: '140' }])).toBeNull()
     expect(boxClearedLevelFt([{ title: 'Cross SY498', info: 'At or above 1,200m' }])).toBeNull()
   })
 })

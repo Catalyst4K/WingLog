@@ -172,6 +172,31 @@ describe('latestAtcInstruction', () => {
     expect(latestAtcInstruction([{ speaker: 'player', text: 'Radio check.', ts: 1 }], NO_BOXES)).toBeNull()
   })
 
+  // Real, VHHH-EGCC 2026-10-18 (diag.log): the boxes came seven seconds after the line, and the card
+  // showed only the QNH because "Descend To Altitude" wasn't a known title.
+  it('shows the altitude and the QNH of a descent below the transition level', () => {
+    const latest = latestAtcInstruction(
+      [
+        {
+          speaker: 'atc',
+          text: 'Cathay 168 Heavy, descend to altitude 5,000, QNH 1034, vectors for the approach.',
+          ts: 1_000
+        }
+      ],
+      {
+        infoBoxes: [
+          { title: 'Descend To Altitude', info: '5,000' },
+          { title: 'QNH', info: 'QNH 1034' }
+        ],
+        infoBoxesAt: 7_931
+      }
+    )
+    expect(latest?.fields).toEqual([
+      { key: 'descend', value: '5,000' },
+      { key: 'qnh', value: '1034' }
+    ])
+  })
+
   it("doesn't show an older box set with a later line that has none (exit left at A7)", () => {
     const result = latestAtcInstruction(
       [{ speaker: 'atc', text: 'Hongkong Shuttle 250, exit left at A7.', ts: 100_000 }],
@@ -223,6 +248,33 @@ describe('instructionFromBoxes', () => {
       fields: [{ key: 'runway', value: '07R' }]
     })
     expect(instructionFromBoxes([{ title: 'Cleared for Landing', info: '08' }]).actions).toEqual(['land'])
+  })
+
+  // Real box sets, VHHH-EGCC radar vectors (diag.log, 2026-10-18), and the Maintain and Continue Climb boxes
+  // in Callum's earlier recorded flights.
+  it('reads radar vectors: the turn and heading, with the altitude or the approach that came with them', () => {
+    expect(
+      boxFields([
+        { title: 'Turn Left', info: '140' },
+        { title: 'Descend To Altitude', info: '4,000' }
+      ])
+    ).toEqual({ turnLeft: '140°', descend: '4,000' })
+    expect(
+      boxFields([
+        { title: 'Turn Left', info: '080' },
+        { title: 'Descend To', info: '3,000' },
+        { title: 'Cleared Approach', info: 'ILS approach runway 05R' }
+      ])
+    ).toMatchObject({ turnLeft: '080°', descend: '3,000' })
+    expect(boxFields([{ title: 'Turn Right', info: '230' }])).toEqual({ turnRight: '230°' })
+    expect(boxFields([{ title: 'Leave STAR Heading', info: '205' }])).toEqual({ heading: '205°' })
+  })
+
+  it('labels a held level Maintain, and a continued climb Climb', () => {
+    expect(boxFields([{ title: 'Maintain', info: 'FL380' }])).toEqual({ maintain: 'FL380' })
+    expect(boxFields([{ title: 'Maintain', info: '9,800m' }])).toEqual({ maintain: '9,800 m' })
+    expect(boxFields([{ title: 'Continue Climb', info: 'FL350' }])).toEqual({ climb: 'FL350' })
+    expect(boxFields([{ title: 'Maintain Speed', info: '250' }])).toEqual({})
   })
 
   it('reads levels in either unit and case, a bare frequency, QNH without its label', () => {

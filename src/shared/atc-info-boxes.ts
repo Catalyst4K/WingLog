@@ -305,14 +305,20 @@ export function levelToFeet(level: string): number | null {
 
 /** Titles that carry a cleared level (VHHH-ZJSY: `Altitude Clearance` FL140,
  *  `climb`/`Climb` FL180/FL360, `Descend to` 3,000m; ZJSY-VHHH, same evening: `Continue Climb To`
- *  FL371 after a granted step, `Descend To` "11,000" in feet with no unit). */
+ *  FL371 after a granted step, `Descend To` "11,000" in feet with no unit; VHHH-EGCC, 2026-10-18:
+ *  `Descend To Altitude` "5,000", an altitude below the transition level, spoken "descend to altitude 5,000".
+ *  Also in Callum's recorded logs: `Continue Climb` FL350, and `Maintain` FL380, 9,800m, 1,200m and 600m;
+ *  a held speed has its own title, `Maintain Speed`). */
 const LEVEL_TITLES = [
   'altitude clearance',
   'climb',
   'climb to',
+  'continue climb',
   'continue climb to',
+  'maintain',
   'descend',
   'descend to',
+  'descend to altitude',
   'new cruise altitude',
   'cruise altitude'
 ]

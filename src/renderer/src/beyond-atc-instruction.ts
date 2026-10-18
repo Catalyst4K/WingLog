@@ -32,6 +32,10 @@ export type InstructionFieldKey =
   | 'runway'
   | 'climb'
   | 'descend'
+  | 'maintain'
+  | 'turnLeft'
+  | 'turnRight'
+  | 'heading'
   | 'qnh'
   | 'squawk'
   | 'contact'
@@ -117,8 +121,25 @@ const RUNWAY_TITLES = [
   'cleared for takeoff',
   'cleared for landing'
 ]
-const DESCEND_TITLES = ['descend', 'descend to']
+const DESCEND_TITLES = ['descend', 'descend to', 'descend to altitude']
 const RUNWAY_IDENT = /^\d{1,2}[LRC]?$/
+
+/**
+ * @param title A level box's normalised title.
+ * @returns Which label the level goes under.
+ */
+function levelKey(title: string): InstructionFieldKey {
+  if (DESCEND_TITLES.includes(title)) return 'descend'
+  return title === 'maintain' ? 'maintain' : 'climb'
+}
+
+/**
+ * @param value A heading box's value: "140", "080".
+ * @returns It as a heading, "140°", or the value as given if it isn't one.
+ */
+function heading(value: string): string {
+  return /^\d{3}$/.test(value) ? `${value}°` : value
+}
 
 type BoxField = (value: string) => [InstructionFieldKey, string | null]
 
@@ -132,6 +153,10 @@ const BOX_FIELDS = new Map<string, BoxField>([
   ['transition', (value) => ['transition', value.toUpperCase()]],
   ...RUNWAY_TITLES.map((title): [string, BoxField] => [title, (value) => ['runway', value.toUpperCase()]]),
   ['qnh', (value) => ['qnh', withoutLabel(value, 'QNH')]],
+  // Radar vectors (EGCC, 2026-10-18): `Turn Left` 140, `Turn Right` 230, and `Leave STAR Heading` 205.
+  ['turn left', (value) => ['turnLeft', heading(value)]],
+  ['turn right', (value) => ['turnRight', heading(value)]],
+  ['leave star heading', (value) => ['heading', heading(value)]],
   ['squawk', (value) => ['squawk', value]],
   ['pushback direction', (value) => ['face', value.toLowerCase()]]
 ])
@@ -181,8 +206,7 @@ export function instructionFromBoxes(boxes: BeyondAtcInfoBox[]): Pick<AtcInstruc
     if (field) add(...field)
     const action = BOX_ACTIONS.get(title)
     if (action) actions.push(action)
-    if (boxClearedLevelFt([box]) !== null)
-      add(DESCEND_TITLES.includes(title) ? 'descend' : 'climb', formatAltitude(value))
+    if (boxClearedLevelFt([box]) !== null) add(levelKey(title), formatAltitude(value))
   }
   const taxi = parseAtcTaxiFacts(boxes)
   if (taxi.holdPosition && !RUNWAY_IDENT.test(taxi.holdPosition)) add('holdingPoint', taxi.holdPosition)
