@@ -154,17 +154,40 @@ export function scenariosFromLog(
   })
 }
 
+/** How far past a runway's edge the aircraft must be to have vacated it (the hold line is further out still). */
+const VACATED_CLEARANCE_M = 25
+
+/**
+ * Whether a position is on a runway or within VACATED_CLEARANCE_M of its edge.
+ *
+ * @param p The position.
+ * @param runways The airport's runways (threshold, heading, length, width).
+ * @returns True if it is.
+ */
+export function onRunway(p: { lat: number; lon: number }, runways: NavdataRunway[]): boolean {
+  return runways.some((r) => {
+    const north = (p.lat - r.thresholdLat) * 111_320
+    const east = (p.lon - r.thresholdLon) * 111_320 * Math.cos((r.thresholdLat * Math.PI) / 180)
+    const h = (r.headingTrueDeg * Math.PI) / 180
+    const along = north * Math.cos(h) + east * Math.sin(h)
+    const across = Math.abs(east * Math.cos(h) - north * Math.sin(h))
+    return along > -300 && along < r.lengthM + 300 && across < r.widthM / 2 + VACATED_CLEARANCE_M
+  })
+}
+
 /** A hand-written scenario, with its time resolved against the recorded taxi. */
 export function scenarioFromHand(
   hand: HandScenario,
   flight: Flight,
-  points: TrackPoint[]
+  points: TrackPoint[],
+  runways: NavdataRunway[] = []
 ): TaxiScenario | null {
   const all = groundSamples(flight, points, hand.side)
   const resolve: Record<string, () => number | undefined> = {
     pushbackStart: () => all.find((s) => s.phase === 'pushback')?.tMs,
     pushbackEnd: () => all.find((s) => s.phase === 'taxi')?.tMs,
-    vacated: () => all.find((s) => s.groundSpeedMs < 15)?.tMs
+    // BeyondATC only gives the taxi clearance once the aircraft is off the runway, so not at the first slow position of the rollout.
+    vacated: () => all.find((s) => s.groundSpeedMs < 15 && !onRunway(s, runways))?.tMs
   }
   const atMs = resolve[hand.at]?.() ?? Date.parse(hand.at)
   const icao = hand.side === 'out' ? flight.depIcao : flight.arrIcao

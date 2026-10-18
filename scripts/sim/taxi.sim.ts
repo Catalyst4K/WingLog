@@ -30,7 +30,14 @@ it('simulates the taxi line on real taxis', () => {
     const fromLog = scenariosFromLog(readInfoBoxesLogs(), listFlights(db), pointsFor)
     const fromHand = handScenarios().flatMap((hand) => {
       const flight = getFlight(db, hand.flightId)
-      const scenario = flight ? scenarioFromHand(hand, flight, pointsFor(hand.flightId)) : null
+      const scenario = flight
+        ? scenarioFromHand(
+            hand,
+            flight,
+            pointsFor(hand.flightId),
+            listCachedRunways(db, hand.side === 'out' ? (flight.depIcao ?? '') : (flight.arrIcao ?? ''))
+          )
+        : null
       return scenario ? [scenario] : []
     })
     const scenarios: TaxiScenario[] = [...fromLog, ...fromHand]
