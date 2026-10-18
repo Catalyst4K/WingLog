@@ -229,7 +229,7 @@
       "update": "Aktualisieren",
       "dismiss": "Verwerfen"
     },
-    "whatsNew": "Neu in WingLog 1.4: BeyondATC-Integration, Rollrouten auf der Karte, automatische Stufensteigflüge und eine Update-Prüfung. BeyondATC aktivierst du unter Einstellungen → Drittanbieter."
+    "whatsNew": "Neu in WingLog 1.5: ein zweiter Bildschirm für Handy oder Tablet, Updates mit einem Klick, eine Warnung bei wenig Speicherplatz und eine genauere Rollroute. Den zweiten Bildschirm aktivierst du unter Einstellungen → Daten."
   },
   "fleetView": {
     "atStand": "Position {{stand}}",

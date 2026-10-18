@@ -231,7 +231,7 @@
       "update": "Actualizar",
       "dismiss": "Descartar"
     },
-    "whatsNew": "Novedades de WingLog 1.4: integración con BeyondATC, rutas de rodaje en el mapa, ascensos escalonados automáticos y búsqueda de actualizaciones. Activa BeyondATC en Ajustes → Terceros."
+    "whatsNew": "Novedades de WingLog 1.5: una segunda pantalla para tu móvil o tableta, actualizaciones con un clic, un aviso de poco espacio en disco y una línea de rodaje más precisa. Activa la segunda pantalla en Ajustes → Datos."
   },
   "fleetView": {
     "atStand": "puesto {{stand}}",

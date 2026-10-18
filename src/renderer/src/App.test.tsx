@@ -875,7 +875,7 @@ describe('App', () => {
       setWinglog({ setupGetState: vi.fn().mockResolvedValue({ show: false, whatsNew: true }) })
       render(<App />)
       await waitFor(() =>
-        expect(toast.info).toHaveBeenCalledWith(expect.stringContaining('New in WingLog 1.4'), {
+        expect(toast.info).toHaveBeenCalledWith(expect.stringContaining('New in WingLog 1.5'), {
           duration: 15_000
         })
       )

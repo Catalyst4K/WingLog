@@ -224,7 +224,7 @@
       "update": "更新",
       "dismiss": "忽略"
     },
-    "whatsNew": "WingLog 1.4 新功能：BeyondATC 整合、地圖上的滑行路線、自動階梯爬升和更新檢查。在「設定 → 第三方」中開啟 BeyondATC。"
+    "whatsNew": "WingLog 1.5 新功能：適用於手機或平板的第二螢幕、一鍵更新、磁碟空間不足提醒，以及更準確的滑行線。在「設定 → 資料」中開啟第二螢幕。"
   },
   "fleetView": {
     "atStand": "機位 {{stand}}",

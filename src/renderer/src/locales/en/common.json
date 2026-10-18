@@ -229,7 +229,7 @@
       "update": "Update",
       "dismiss": "Dismiss"
     },
-    "whatsNew": "New in WingLog 1.4: BeyondATC integration, taxi routes on the map, automatic step climbs and an update check. Turn BeyondATC on in Settings → 3rd party."
+    "whatsNew": "New in WingLog 1.5: a second screen for your phone or tablet, one-click updates, a low disk space warning and a more accurate taxi line. Turn the second screen on in Settings → Data."
   },
   "fleetView": {
     "atStand": "stand {{stand}}",

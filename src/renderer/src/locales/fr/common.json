@@ -231,7 +231,7 @@
       "update": "Mettre à jour",
       "dismiss": "Ignorer"
     },
-    "whatsNew": "Nouveau dans WingLog 1.4 : intégration de BeyondATC, itinéraires de roulage sur la carte, montées par paliers automatiques et recherche de mises à jour. Activez BeyondATC dans Paramètres → Tiers."
+    "whatsNew": "Nouveau dans WingLog 1.5 : un second écran pour votre téléphone ou tablette, des mises à jour en un clic, une alerte d’espace disque faible et une ligne de roulage plus précise. Activez le second écran dans Paramètres → Données."
   },
   "fleetView": {
     "atStand": "poste {{stand}}",

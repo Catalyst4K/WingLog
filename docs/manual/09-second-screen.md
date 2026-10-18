@@ -49,6 +49,28 @@ A bar along the bottom switches between four pages:
 From the phone you can press BeyondATC's actions, use GSX's menu and commands, and choose
 procedures. Nothing else: no changes to your fleet, logbook or settings.
 
+## Using it in the browser or as an app
+
+The page works two ways, on an iPhone, iPad or Android phone or tablet. Pair it first (see above), then pick either:
+
+**In the browser.** Scanning the QR code opens the page in the phone's browser and pairs it. To come back to it later, open the same address again, or bookmark the page while it is open. WingLog shows the address only while a pairing code is open, so bookmark it then.
+
+**As an app on the Home Screen.** It then opens full screen, with no browser bars, and with WingLog's icon and name.
+
+*iPhone and iPad (Safari):*
+1. Open the page in **Safari**.
+2. Tap the **Share** button, then **Add to Home Screen**, then **Add**.
+3. Open **WingLog** from the Home Screen. If it shows the pairing screen, press **Pair a device** on the PC and type the six-digit code: an iPhone keeps a Home Screen app's pairing apart from Safari's.
+
+*Android (Chrome):*
+1. Open the page in **Chrome**.
+2. Open the **⋮** menu, then **Add to Home screen** (or **Install app**, if Chrome offers it), then **Add**.
+3. Open **WingLog** from the Home screen. In Samsung Internet, use the menu, then **Add page to**, then **Home screen**.
+
+The page is plain HTTP on your home network, so some Android browsers add a shortcut that opens in a browser tab rather than a full-screen app. It works the same either way.
+
+If you change Wi-Fi or your router gives the PC a different address, the saved page won't open. Press **Pair a device** to see the new address, and save the page again.
+
 ## Privacy and safety
 
 - Off until you turn it on, and only reachable from your home network.
