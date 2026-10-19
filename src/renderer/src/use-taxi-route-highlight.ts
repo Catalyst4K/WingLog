@@ -295,6 +295,34 @@ function drawWholeTaxiways(map: MapLibreMap, names: string[], icao: string | nul
   }
 }
 
+/**
+ * Says why a clearance has no traced line. A clearance that never traces leaves `traced` null before and after, so the trace's own log
+ * line never comes for it (WSSS 2026-10-19: a clearance with no holding point was taken for the arrival's, found no taxi network, and the
+ * log said nothing).
+ *
+ * @param clearance The clearance, or null.
+ * @param traced Its traced line, or null.
+ * @param icao The clearance's airport, or null.
+ * @param segments That airport's taxi network, once loaded.
+ */
+export function useLogUntraced(
+  clearance: TaxiClearance | null,
+  traced: TracedRoute | null,
+  icao: string | null,
+  segments: NavdataTaxiSegment[] | undefined
+): void {
+  useEffect(() => {
+    if (clearance && !traced) {
+      diagMap('taxi clearance not traced yet', {
+        icao,
+        taxiways: clearance.taxiways,
+        haveSegments: (segments?.length ?? 0) > 0,
+        hasPosition: clearance.from !== null
+      })
+    }
+  }, [clearance, traced, icao, segments])
+}
+
 // The clearance and what's been read survive a FlightMap remount (ui-memory.ts): a route parsed
 // before a tab switch doesn't vanish, old clearances aren't re-read as new, and leaving Track at
 // the holding point then coming back in cruise still drops the departure's route.
@@ -403,6 +431,8 @@ export function useTaxiRouteHighlight({
     // Logged once per new trace, not when the clearance object alone changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- clearance/icao are read only to describe this trace
   }, [traced])
+
+  useLogUntraced(clearance, traced, icao, segments)
 
   useEffect(() => {
     const map = mapRef.current

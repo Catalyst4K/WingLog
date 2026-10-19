@@ -11,6 +11,7 @@ import {
   type RunwayStrip,
   type TracedRoute
 } from './taxi-route-trace'
+import type { RunwayThreshold } from './taxi-runway-hold'
 
 export interface TaxiClearance {
   taxiways: string[]
@@ -45,9 +46,12 @@ export function boxTaxiClearance(boxes: BeyondAtcInfoBox[]): Omit<TaxiClearance,
   if (facts.taxiVia.length === 0) return null
   const hold = facts.holdPosition
   const holdIsRunway = hold !== null && RUNWAY_IDENT.test(hold)
+  // "taxi holding point runway 02C via P, T" arrives with only the Taxi to Runway and Taxi Via boxes (WSSS 2026-10-19): the holding point
+  // is then the last taxiway's hold short beside that runway's threshold.
+  const toRunwayOnly = hold === null && !facts.holdShort && !facts.taxiToGate && facts.taxiToRunway !== null
   return {
     taxiways: facts.taxiVia,
-    holdingPoint: holdIsRunway ? null : hold,
+    holdingPoint: holdIsRunway ? null : (hold ?? (toRunwayOnly ? (facts.taxiVia.at(-1) ?? null) : null)),
     stand: facts.taxiToGate,
     holdShortRunway: holdIsRunway ? hold : facts.holdShort,
     taxiToRunway: facts.taxiToRunway
@@ -108,10 +112,12 @@ export function startOf(position: { lat: number; lon: number } | null): Pick<Tax
  */
 export function clearanceRunwayThreshold(
   taxiToRunway: string | null | undefined,
-  runways: { ident: string; thresholdLat: number; thresholdLon: number }[]
-): { lat: number; lon: number } | null {
+  runways: { ident: string; thresholdLat: number; thresholdLon: number; headingTrueDeg?: number }[]
+): RunwayThreshold | null {
   const runway = clearanceRunway(taxiToRunway, runways)
-  return runway ? { lat: runway.thresholdLat, lon: runway.thresholdLon } : null
+  if (!runway) return null
+  const threshold = { lat: runway.thresholdLat, lon: runway.thresholdLon }
+  return runway.headingTrueDeg === undefined ? threshold : { ...threshold, headingDeg: runway.headingTrueDeg }
 }
 
 /**
@@ -145,7 +151,7 @@ export function traceClearance(
   clearance: TaxiClearance,
   segments: NavdataTaxiSegment[],
   stand: NavdataStand | null,
-  runwayThreshold: { lat: number; lon: number } | null = null,
+  runwayThreshold: RunwayThreshold | null = null,
   holdShortRunway: RunwayStrip | null = null
 ): TracedRoute | null {
   if (!clearance.from) return null
