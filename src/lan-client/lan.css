@@ -66,6 +66,8 @@ div[class*='bottom-3'][class*='left-3'] {
   width: 44px;
   height: 44px;
   border-radius: 22px;
+  /* The 44 px is the touch target only: MapLibre's own button colour (and the dark theme's) would paint it as a big disc over the bar below. */
+  background-color: transparent;
   background-position: center;
   background-repeat: no-repeat;
   background-size: 18px;
