@@ -41,6 +41,9 @@ const MAX_ROUTE_LENGTH_M = 15_000
  *  farther than this is replaced by the one nearest the threshold, when there is one this near; none this near (an intersection
  *  departure's holding point), or the first already this near, and the first stays. */
 const MAX_HOLD_FROM_THRESHOLD_M = 500
+/** When no hold short of the holding-point taxiway is near the cleared runway's threshold, any flagged hold short this near it ends the route
+ *  (WSSS "taxi holding point runway 02C via P, T": T has no flagged points, and the holding point is on its T12 branch). */
+const HOLD_NEAR_THRESHOLD_M = 250
 
 /** A runway as a strip on the ground: where it starts, which way it runs, how long and wide. */
 export interface RunwayStrip {
@@ -273,10 +276,10 @@ export function traceTaxiRoute(request: TaxiTraceRequest): TracedRoute | null {
     // already beside the threshold stays: EGLL's A1 has hold shorts about as near either side, and the cleared one was the first.
     const end = first?.at(-1)
     const threshold = request.runwayThreshold
+    // No first end at all (WSSS's T has no flagged hold short) lets the runway choose too.
     if (
       threshold &&
-      end &&
-      flatDistanceM({ lat: end[1], lon: end[0] }, threshold) > MAX_HOLD_FROM_THRESHOLD_M
+      (!end || flatDistanceM({ lat: end[1], lon: end[0] }, threshold) > MAX_HOLD_FROM_THRESHOLD_M)
     ) {
       const byRunway = traceOnce(request, true)
       if (byRunway) return byRunway
@@ -326,6 +329,8 @@ interface TraceSearch {
   standNode: number
   /** The hold short the cleared runway picks for the holding point, or -1 for the first one the search reaches. */
   holdNode: number
+  /** The cleared runway's threshold when the route is traced by it, else null. */
+  threshold: { lat: number; lon: number } | null
   /** The runway a hold short is for, or null. */
   holdShortRunway: RunwayStrip | null
   strictEnd: boolean
@@ -413,6 +418,7 @@ function newSearch(request: TaxiTraceRequest, graph: Graph, strictEnd: boolean):
     holdingPoint,
     standNode,
     holdNode: holdingPoint ? holdNodeByRunway(graph, holdingPoint, request.runwayThreshold ?? null) : -1,
+    threshold: holdingPoint ? (request.runwayThreshold ?? null) : null,
     holdShortRunway: holdingPoint ? (request.holdShortRunway ?? null) : null,
     strictEnd,
     cost: new Map(),
@@ -527,11 +533,7 @@ function isRouteEnd(search: TraceSearch, state: number, node: number): boolean {
   if (!holdingPoint) return standNode < 0 || node === standNode
   const cameFromNode = cameFromNodeOf(search, state)
   const edges = edgesOf(graph, node)
-  if (
-    search.holdShortRunway &&
-    isHoldShortBeside(itemAt(graph.nodes, node, 'taxi node'), search.holdShortRunway)
-  )
-    return true
+  if (endsAtRunwayHold(search, node)) return true
   // A hold short on the holding point's own taxiway ends the route however it was reached: RKSI's P runs on through a junction
   // by an unnamed fillet, so insisting on arriving by a P edge sent the line right round the junction to come back into it.
   if (edges.some((e) => e.name === holdingPoint)) {
@@ -549,6 +551,32 @@ function isRouteEnd(search: TraceSearch, state: number, node: number): boolean {
   // the hold carries on as A1.
   if (edges.every((e) => e.to === cameFromNode)) return true
   return !strictEnd && !edges.some((e) => e.name === holdingPoint && e.to !== cameFromNode)
+}
+
+/**
+ * Whether a node is where the cleared runway ends the route: a hold short beside the runway of a "hold short of runway" clearance, or
+ * (with no hold short of the taxiway found by its threshold) one near the threshold.
+ *
+ * @param search The search.
+ * @param node A node index.
+ * @returns True if the route ends here.
+ */
+function endsAtRunwayHold(search: TraceSearch, node: number): boolean {
+  const { graph, holdShortRunway, holdNode, threshold } = search
+  if (holdShortRunway && isHoldShortBeside(itemAt(graph.nodes, node, 'taxi node'), holdShortRunway))
+    return true
+  return holdNode < 0 && threshold !== null && isHoldShortNear(graph, node, threshold)
+}
+
+/**
+ * @param graph The graph.
+ * @param node A node index.
+ * @param threshold The cleared runway's threshold.
+ * @returns True if the node is a flagged hold short within HOLD_NEAR_THRESHOLD_M of it.
+ */
+function isHoldShortNear(graph: Graph, node: number, threshold: { lat: number; lon: number }): boolean {
+  const n = itemAt(graph.nodes, node, 'taxi node')
+  return n.holdShort && graph.distanceM(threshold.lat, threshold.lon, n.lat, n.lon) <= HOLD_NEAR_THRESHOLD_M
 }
 
 /**

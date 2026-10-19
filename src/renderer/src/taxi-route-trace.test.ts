@@ -770,3 +770,40 @@ describe('traceTaxiRoute with a hold short of a runway (RKSI flight 239, 2026-10
     expect(traceTaxiRoute(request)?.at(-1)).toEqual([P2[1], P2[0]])
   })
 })
+
+describe('traceTaxiRoute to a runway threshold with no hold short on the holding-point taxiway (WSSS 2026-10-19)', () => {
+  const seg = (
+    a: [number, number],
+    b: [number, number],
+    name: string,
+    endHoldShort = false
+  ): NavdataTaxiSegment => ({
+    startLat: a[0],
+    startLon: a[1],
+    endLat: b[0],
+    endLon: b[1],
+    name,
+    startHoldShort: false,
+    endHoldShort
+  })
+  const metres = (m: number): number => m / 111_320
+  const A: [number, number] = [51.0, 0]
+  const J: [number, number] = [51 + metres(500), 0]
+  const K: [number, number] = [51 + metres(3500), 0]
+  const H: [number, number] = [51 + metres(3550), metres(60)]
+  const request = {
+    segments: [seg(A, J, 'P'), seg(J, K, 'T'), seg(K, H, 'T12', true)],
+    taxiways: ['P', 'T'],
+    holdingPoint: 'T',
+    from: { lat: A[0], lon: A[1] }
+  }
+
+  it('without the runway, stops where the taxiway name stops', () => {
+    expect(traceTaxiRoute(request)?.at(-1)).toEqual([K[1], K[0]])
+  })
+
+  it('with the runway threshold, goes on to the hold short beside it, on a branch of the taxiway', () => {
+    const route = traceTaxiRoute({ ...request, runwayThreshold: { lat: 51 + metres(3600), lon: 0 } })
+    expect(route?.at(-1)).toEqual([H[1], H[0]])
+  })
+})
