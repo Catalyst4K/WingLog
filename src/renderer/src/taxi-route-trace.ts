@@ -28,6 +28,7 @@ import type { NavdataTaxiSegment } from '@shared/ipc'
 import { flatDistanceM, toLocalXy } from '@shared/geo'
 import { itemAt } from '@shared/item-at'
 import { MinQueue } from './min-queue'
+import { furthestBackHold, type RunwayThreshold } from './taxi-runway-hold'
 
 const OFF_ROUTE_COST_FACTOR = 5
 /** How far a stand's own point may be from the taxi network's nearest point (its lead-in line
@@ -70,7 +71,9 @@ export interface TaxiTraceRequest {
   /** The cleared runway's threshold ("taxi to holding point A, runway 05L"). A taxiway running along a runway has a hold short at each
    *  of its entries; the holding point is the one by this threshold, not whichever the search reaches first. Ignored when none is
    *  near it. */
-  runwayThreshold?: { lat: number; lon: number } | null
+  runwayThreshold?: RunwayThreshold | null
+  /** A hold short the route must end at: the furthest-back one beside the cleared runway (see taxi-runway-hold.ts). */
+  holdAt?: { lat: number; lon: number } | null
   /** The aircraft's true heading, when it's taxiing under its own power. A first edge pointing
    *  more than WRONG_WAY_DEG away from it costs an extra WRONG_WAY_PENALTY_M, so the
    *  route starts forwards; a U-turn is still taken when it's the only way (dead-end stand
@@ -282,12 +285,27 @@ export function traceTaxiRoute(request: TaxiTraceRequest): TracedRoute | null {
       (!end || flatDistanceM({ lat: end[1], lon: end[0] }, threshold) > MAX_HOLD_FROM_THRESHOLD_M)
     ) {
       const byRunway = traceOnce(request, true)
-      if (byRunway) return byRunway
+      if (byRunway) return atFurthestHold(request, byRunway)
     }
     return first ?? traceOnce(plain, false)
   }
   if (!request.stand) return traceOnce(request, true)
   return traceOnce(request, true) ?? traceOnce({ ...request, stand: null }, true)
+}
+
+/**
+ * A route that ends at the first hold short near the runway's threshold, moved on to the furthest-back one on that side when there is one.
+ *
+ * @param request The clearance, with the runway's threshold.
+ * @param route The route to the first hold short.
+ * @returns The route to the furthest-back hold short, or `route` itself.
+ */
+function atFurthestHold(request: TaxiTraceRequest, route: TracedRoute): TracedRoute {
+  const end = route.at(-1)
+  const threshold = request.runwayThreshold
+  if (!end || !threshold) return route
+  const further = furthestBackHold(request.segments, { lat: end[1], lon: end[0] }, threshold)
+  return (further && traceOnce({ ...request, holdAt: further }, true)) ?? route
 }
 
 /**
@@ -331,6 +349,8 @@ interface TraceSearch {
   holdNode: number
   /** The cleared runway's threshold when the route is traced by it, else null. */
   threshold: { lat: number; lon: number } | null
+  /** The node the route must end at (`holdAt`), or -1. */
+  forcedEnd: number
   /** The runway a hold short is for, or null. */
   holdShortRunway: RunwayStrip | null
   strictEnd: boolean
@@ -397,6 +417,15 @@ function traceOnce(request: TaxiTraceRequest, strictEnd: boolean): TracedRoute |
 }
 
 /**
+ * @param graph The graph.
+ * @param point A position that is a node of the graph, or null.
+ * @returns That node's index, or -1.
+ */
+function nodeAt(graph: Graph, point: { lat: number; lon: number } | null | undefined): number {
+  return point ? (graph.nodeIndex.get(nodeKey(point.lat, point.lon)) ?? -1) : -1
+}
+
+/**
  * An empty search for a clearance.
  *
  * @param request The clearance.
@@ -419,6 +448,7 @@ function newSearch(request: TaxiTraceRequest, graph: Graph, strictEnd: boolean):
     standNode,
     holdNode: holdingPoint ? holdNodeByRunway(graph, holdingPoint, request.runwayThreshold ?? null) : -1,
     threshold: holdingPoint ? (request.runwayThreshold ?? null) : null,
+    forcedEnd: nodeAt(graph, request.holdAt),
     holdShortRunway: holdingPoint ? (request.holdShortRunway ?? null) : null,
     strictEnd,
     cost: new Map(),
@@ -562,7 +592,8 @@ function isRouteEnd(search: TraceSearch, state: number, node: number): boolean {
  * @returns True if the route ends here.
  */
 function endsAtRunwayHold(search: TraceSearch, node: number): boolean {
-  const { graph, holdShortRunway, holdNode, threshold } = search
+  const { graph, holdShortRunway, holdNode, threshold, forcedEnd } = search
+  if (forcedEnd >= 0) return node === forcedEnd
   if (holdShortRunway && isHoldShortBeside(itemAt(graph.nodes, node, 'taxi node'), holdShortRunway))
     return true
   return holdNode < 0 && threshold !== null && isHoldShortNear(graph, node, threshold)
