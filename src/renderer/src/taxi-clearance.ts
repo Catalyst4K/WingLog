@@ -45,9 +45,12 @@ export function boxTaxiClearance(boxes: BeyondAtcInfoBox[]): Omit<TaxiClearance,
   if (facts.taxiVia.length === 0) return null
   const hold = facts.holdPosition
   const holdIsRunway = hold !== null && RUNWAY_IDENT.test(hold)
+  // "taxi holding point runway 02C via P, T" arrives with only the Taxi to Runway and Taxi Via boxes (WSSS 2026-10-19): the holding point
+  // is then the last taxiway's hold short beside that runway's threshold.
+  const toRunwayOnly = hold === null && !facts.holdShort && !facts.taxiToGate && facts.taxiToRunway !== null
   return {
     taxiways: facts.taxiVia,
-    holdingPoint: holdIsRunway ? null : hold,
+    holdingPoint: holdIsRunway ? null : (hold ?? (toRunwayOnly ? (facts.taxiVia.at(-1) ?? null) : null)),
     stand: facts.taxiToGate,
     holdShortRunway: holdIsRunway ? hold : facts.holdShort,
     taxiToRunway: facts.taxiToRunway

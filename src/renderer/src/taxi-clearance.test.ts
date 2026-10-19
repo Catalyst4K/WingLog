@@ -110,6 +110,52 @@ describe('clearanceAirport', () => {
   })
 })
 
+describe('boxTaxiClearance with only the Taxi to Runway and Taxi Via boxes (WSSS 2026-10-19)', () => {
+  it('takes the last taxiway as the holding point, for the runway named', () => {
+    expect(
+      boxTaxiClearance([
+        { title: 'Taxi to Runway', info: '02C' },
+        { title: 'Taxi Via 1', info: 'P' },
+        { title: 'Taxi Via 2', info: 'T' }
+      ])
+    ).toEqual({
+      taxiways: ['P', 'T'],
+      holdingPoint: 'T',
+      stand: null,
+      holdShortRunway: null,
+      taxiToRunway: '02C'
+    })
+  })
+
+  it("is the departure airport's clearance: the line is looked for on the departure's taxi network, not the arrival's (the WSSS no-line bug)", () => {
+    const box = boxTaxiClearance([
+      { title: 'Taxi to Runway', info: '02C' },
+      { title: 'Taxi Via 1', info: 'P' },
+      { title: 'Taxi Via 2', info: 'T' }
+    ])!
+    const clearance = { ...box, from: { lat: 1.363, lon: 103.995 } }
+    expect(clearanceAirport(clearance, 'WSSS', 'EGLL', {})).toBe('WSSS')
+  })
+
+  it('leaves a clearance with a Hold Short, Hold Position or gate as it was', () => {
+    const via = [
+      { title: 'Taxi to Runway', info: '27R' },
+      { title: 'Taxi Via 1', info: 'S' }
+    ]
+    expect(boxTaxiClearance([...via, { title: 'Hold Short', info: '27L' }])).toMatchObject({
+      holdingPoint: null,
+      holdShortRunway: '27L'
+    })
+    expect(boxTaxiClearance([...via, { title: 'Hold Position', info: 'A1' }])).toMatchObject({
+      holdingPoint: 'A1'
+    })
+    expect(boxTaxiClearance([{ title: 'Taxi to Gate', info: 'Gate 102' }, ...via.slice(1)])).toMatchObject({
+      holdingPoint: null,
+      stand: '102'
+    })
+  })
+})
+
 describe('traceClearance', () => {
   it('traces nothing before the aircraft position is known', () => {
     expect(
