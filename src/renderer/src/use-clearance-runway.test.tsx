@@ -39,7 +39,11 @@ describe('useClearanceRunway', () => {
     stubRunways([RUNWAY_05L])
     const { result, rerender } = renderHook(() => useClearanceRunway(true, CLEARANCE, 'EGCC'))
     await waitFor(() => expect(result.current).not.toBeNull())
-    expect(result.current).toEqual({ lat: RUNWAY_05L.thresholdLat, lon: RUNWAY_05L.thresholdLon })
+    expect(result.current).toEqual({
+      lat: RUNWAY_05L.thresholdLat,
+      lon: RUNWAY_05L.thresholdLon,
+      headingDeg: RUNWAY_05L.headingTrueDeg
+    })
     const first = result.current
     rerender()
     rerender()

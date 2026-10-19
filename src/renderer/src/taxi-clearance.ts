@@ -11,6 +11,7 @@ import {
   type RunwayStrip,
   type TracedRoute
 } from './taxi-route-trace'
+import type { RunwayThreshold } from './taxi-runway-hold'
 
 export interface TaxiClearance {
   taxiways: string[]
@@ -111,10 +112,12 @@ export function startOf(position: { lat: number; lon: number } | null): Pick<Tax
  */
 export function clearanceRunwayThreshold(
   taxiToRunway: string | null | undefined,
-  runways: { ident: string; thresholdLat: number; thresholdLon: number }[]
-): { lat: number; lon: number } | null {
+  runways: { ident: string; thresholdLat: number; thresholdLon: number; headingTrueDeg?: number }[]
+): RunwayThreshold | null {
   const runway = clearanceRunway(taxiToRunway, runways)
-  return runway ? { lat: runway.thresholdLat, lon: runway.thresholdLon } : null
+  if (!runway) return null
+  const threshold = { lat: runway.thresholdLat, lon: runway.thresholdLon }
+  return runway.headingTrueDeg === undefined ? threshold : { ...threshold, headingDeg: runway.headingTrueDeg }
 }
 
 /**
@@ -148,7 +151,7 @@ export function traceClearance(
   clearance: TaxiClearance,
   segments: NavdataTaxiSegment[],
   stand: NavdataStand | null,
-  runwayThreshold: { lat: number; lon: number } | null = null,
+  runwayThreshold: RunwayThreshold | null = null,
   holdShortRunway: RunwayStrip | null = null
 ): TracedRoute | null {
   if (!clearance.from) return null
