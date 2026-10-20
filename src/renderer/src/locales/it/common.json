@@ -512,6 +512,12 @@
   "useConfirm": {
     "back": "Indietro"
   },
+  "closeConfirm": {
+    "title": "Chiudere WingLog?",
+    "description": "Un volo è in corso. Se chiudi WingLog ora, il tracciamento si interrompe, ma il volo viene conservato e potrai riprenderlo o scartarlo alla prossima apertura di WingLog. Per togliere di mezzo la finestra, riducila a icona.",
+    "close": "Chiudi WingLog",
+    "keepOpen": "Lascia aperto"
+  },
   "dispatchView": {
     "lastParkedHere": "Ultimo parcheggio qui alla piazzola {{stand}}: sceglila come gate di partenza in MSFS.",
     "title": "Pianificazione",

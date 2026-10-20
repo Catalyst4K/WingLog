@@ -512,6 +512,12 @@
   "useConfirm": {
     "back": "Retour"
   },
+  "closeConfirm": {
+    "title": "Fermer WingLog ?",
+    "description": "Un vol est en cours. Si vous fermez WingLog maintenant, le suivi s’arrête, mais le vol est conservé et vous pourrez le reprendre ou l’abandonner à la prochaine ouverture de WingLog. Pour écarter la fenêtre, réduisez-la plutôt.",
+    "close": "Fermer WingLog",
+    "keepOpen": "Garder ouvert"
+  },
   "dispatchView": {
     "lastParkedHere": "Dernier stationnement ici au poste {{stand}} — choisissez-le comme porte de départ dans MSFS.",
     "title": "Régulation",

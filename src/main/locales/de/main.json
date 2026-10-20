@@ -51,12 +51,5 @@
     "quit": "WingLog beenden",
     "tooltip": "WingLog",
     "tooltipTracking": "WingLog: Flug wird aufgezeichnet"
-  },
-  "closeGuard": {
-    "title": "WingLog schließen?",
-    "message": "Ein Flug läuft.",
-    "detail": "Wenn du WingLog jetzt schließt, wird er unterbrochen. Minimiere das Fenster stattdessen, wenn es nur nicht stören soll.",
-    "close": "WingLog schließen",
-    "keepOpen": "Geöffnet lassen"
   }
 }

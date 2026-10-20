@@ -510,6 +510,12 @@
   "useConfirm": {
     "back": "Zurück"
   },
+  "closeConfirm": {
+    "title": "WingLog schließen?",
+    "description": "Ein Flug läuft. Wenn du WingLog jetzt schließt, endet die Aufzeichnung, der Flug bleibt aber erhalten, und du kannst ihn beim nächsten Start fortsetzen oder verwerfen. Minimiere das Fenster stattdessen, wenn es nur nicht stören soll.",
+    "close": "WingLog schließen",
+    "keepOpen": "Geöffnet lassen"
+  },
   "dispatchView": {
     "lastParkedHere": "Zuletzt hier auf Position {{stand}} geparkt — wähle sie in MSFS als Startposition.",
     "title": "Flugplanung",

@@ -313,6 +313,12 @@ const api: WingLogApi = {
   settingsGetUpdates: () => ipcRenderer.invoke(IpcChannels.settingsGetUpdates),
   settingsSetUpdates: (settings: UpdateSettings) =>
     ipcRenderer.invoke(IpcChannels.settingsSetUpdates, settings),
+  onCloseConfirmRequested: (listener: () => void) => {
+    const handler = (): void => listener()
+    ipcRenderer.on(IpcChannels.closeConfirmRequested, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.closeConfirmRequested, handler)
+  },
+  closeConfirmAnswer: (close: boolean) => ipcRenderer.invoke(IpcChannels.closeConfirmAnswer, close),
   settingsGetWindow: () => ipcRenderer.invoke(IpcChannels.settingsGetWindow),
   settingsSetWindow: (settings: Pick<WindowSettings, 'minimizeToTray'>) =>
     ipcRenderer.invoke(IpcChannels.settingsSetWindow, settings),

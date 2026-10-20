@@ -510,6 +510,12 @@
   "useConfirm": {
     "back": "Back"
   },
+  "closeConfirm": {
+    "title": "Close WingLog?",
+    "description": "A flight is in progress. If you close WingLog now, tracking stops, but the flight is kept and you can resume or discard it when you open WingLog again. To keep the window out of the way, minimise it instead.",
+    "close": "Close WingLog",
+    "keepOpen": "Keep open"
+  },
   "dispatchView": {
     "lastParkedHere": "Last parked here at stand {{stand}} — choose it as your starting gate in MSFS.",
     "title": "Dispatch",

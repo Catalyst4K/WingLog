@@ -51,12 +51,5 @@
     "quit": "Quit WingLog",
     "tooltip": "WingLog",
     "tooltipTracking": "WingLog: tracking a flight"
-  },
-  "closeGuard": {
-    "title": "Close WingLog?",
-    "message": "A flight is in progress.",
-    "detail": "Closing WingLog now will interrupt it. To keep the window out of the way, minimise it instead.",
-    "close": "Close WingLog",
-    "keepOpen": "Keep open"
   }
 }

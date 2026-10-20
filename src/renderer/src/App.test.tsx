@@ -446,6 +446,8 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
       skippedVersion: null
     }),
     onUpdateStatus: vi.fn().mockReturnValue(() => {}),
+    onCloseConfirmRequested: vi.fn().mockReturnValue(() => {}),
+    closeConfirmAnswer: vi.fn().mockResolvedValue(undefined),
     getStorageStatus: vi.fn().mockResolvedValue({ freeBytes: null, level: 'ok', saveFailing: false }),
     onStorageStatus: vi.fn().mockReturnValue(() => {}),
     updatesCheckNow: vi.fn().mockResolvedValue({

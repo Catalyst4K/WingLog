@@ -8,6 +8,8 @@ import { runLogged } from './logging/run-logged'
 import { join } from 'node:path'
 import { canShowTray, currentPlatform, quitsWhenAllWindowsClose } from './platform/platform'
 import { CloseGuard } from './window/CloseGuard'
+import { CloseQuestion } from './window/CloseQuestion'
+import { registerWindowHandlers } from './ipc/window-handlers'
 import { TrayController } from './window/TrayController'
 import { createElectronTray } from './window/electron-tray'
 import { trayIconPath } from './window/tray-icon-path'
@@ -451,37 +453,21 @@ function startWindowBehaviour(
     trackingController.on(event, () => controller.updateToolTip())
   }
   app.on('before-quit', () => controller.dispose())
+  const closeQuestion = new CloseQuestion({
+    send: () => window.webContents.send(IpcChannels.closeConfirmRequested),
+    isRendererReady: () => !window.isDestroyed() && !window.webContents.isLoading(),
+    showWindow: () => controller.showWindow()
+  })
+  registerWindowHandlers(ipcMain, { closeQuestion })
   new CloseGuard({
     window,
     // A flight loaded with Fly counts before the sim connects and tracking starts. An e2e run closes the app mid-flight, with no one to answer.
     isFlightInProgress: () =>
       !process.env['WINGLOG_E2E_NO_CLOSE_PROMPT'] && getInProgressFlight(db) !== undefined,
-    confirmClose: () => confirmCloseWhileTracking(window),
+    confirmClose: () => closeQuestion.ask(),
     onError: (error) => logger.warn('close confirmation failed:', error)
   }).start()
   return controller
-}
-
-/**
- * Asks whether to close WingLog while a flight is being tracked.
- *
- * @param window The main window, which the question sits over when it is showing.
- * @returns True if the pilot chose to close.
- */
-async function confirmCloseWhileTracking(window: BrowserWindow): Promise<boolean> {
-  const options = {
-    type: 'warning' as const,
-    title: t('closeGuard.title'),
-    message: t('closeGuard.message'),
-    detail: t('closeGuard.detail'),
-    buttons: [t('closeGuard.close'), t('closeGuard.keepOpen')],
-    defaultId: 1,
-    cancelId: 1
-  }
-  const { response } = await (window.isVisible()
-    ? dialog.showMessageBox(window, options)
-    : dialog.showMessageBox(options))
-  return response === 0
 }
 
 /**

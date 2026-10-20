@@ -51,12 +51,5 @@
     "quit": "Выйти из WingLog",
     "tooltip": "WingLog",
     "tooltipTracking": "WingLog: идёт запись полёта"
-  },
-  "closeGuard": {
-    "title": "Закрыть WingLog?",
-    "message": "Идёт полёт.",
-    "detail": "Если закрыть WingLog сейчас, полёт будет прерван. Чтобы убрать окно с глаз, лучше сверните его.",
-    "close": "Закрыть WingLog",
-    "keepOpen": "Оставить открытым"
   }
 }

@@ -504,6 +504,12 @@
   "useConfirm": {
     "back": "返回"
   },
+  "closeConfirm": {
+    "title": "要關閉 WingLog 嗎？",
+    "description": "有一個航班正在進行。現在關閉 WingLog 會停止記錄，但航班會保留，下次開啟 WingLog 時可以繼續或捨棄。如果只是想讓視窗不礙事，請改為最小化。",
+    "close": "關閉 WingLog",
+    "keepOpen": "保持開啟"
+  },
   "dispatchView": {
     "lastParkedHere": "上次停在這裡的 {{stand}} 號機位，可在 MSFS 中選它作為起始機位。",
     "title": "簽派",

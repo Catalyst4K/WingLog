@@ -512,6 +512,12 @@
   "useConfirm": {
     "back": "Atrás"
   },
+  "closeConfirm": {
+    "title": "¿Cerrar WingLog?",
+    "description": "Hay un vuelo en curso. Si cierras WingLog ahora, el seguimiento se detiene, pero el vuelo se conserva y podrás reanudarlo o descartarlo al abrir WingLog de nuevo. Para quitar la ventana de en medio, minimízala.",
+    "close": "Cerrar WingLog",
+    "keepOpen": "Mantener abierto"
+  },
   "dispatchView": {
     "lastParkedHere": "Último aparcamiento aquí: puesto {{stand}}. Elígelo como puerta de salida en MSFS.",
     "title": "Despacho",
