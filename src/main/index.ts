@@ -25,7 +25,7 @@ import { startStorageMaintenance } from './db/storage-maintenance'
 import type { Database as SqliteDatabase } from 'better-sqlite3'
 import { migrateDb } from './db/migrate'
 import { migrateLegacyUserData } from './db/legacy-userdata'
-import { getFlight, setParkedStand } from './db/flight-repo'
+import { getFlight, getInProgressFlight, setParkedStand } from './db/flight-repo'
 import {
   getAppLanguage,
   getMinimizeToTray,
@@ -453,9 +453,9 @@ function startWindowBehaviour(
   app.on('before-quit', () => controller.dispose())
   new CloseGuard({
     window,
-    // An e2e run closes the app with a flight still tracked, with no one to answer.
-    isFlightActive: () =>
-      !process.env['WINGLOG_E2E_NO_CLOSE_PROMPT'] && trackingController.getActive() !== undefined,
+    // A flight loaded with Fly counts before the sim connects and tracking starts. An e2e run closes the app mid-flight, with no one to answer.
+    isFlightInProgress: () =>
+      !process.env['WINGLOG_E2E_NO_CLOSE_PROMPT'] && getInProgressFlight(db) !== undefined,
     confirmClose: () => confirmCloseWhileTracking(window),
     onError: (error) => logger.warn('close confirmation failed:', error)
   }).start()

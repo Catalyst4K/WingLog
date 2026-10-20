@@ -32,7 +32,12 @@ describe('CloseGuard', () => {
   function build(answer: () => Promise<boolean>) {
     const win = fakeWindow()
     const confirmClose = vi.fn(answer)
-    new CloseGuard({ window: win.window, isFlightActive: () => flightActive, confirmClose, onError }).start()
+    new CloseGuard({
+      window: win.window,
+      isFlightInProgress: () => flightActive,
+      confirmClose,
+      onError
+    }).start()
     return { ...win, confirmClose }
   }
 

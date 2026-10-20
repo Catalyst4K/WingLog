@@ -54,8 +54,8 @@
   },
   "closeGuard": {
     "title": "WingLog schließen?",
-    "message": "Ein Flug wird aufgezeichnet.",
-    "detail": "Wenn du WingLog jetzt schließt, endet die Aufzeichnung. Minimiere das Fenster stattdessen, wenn es nur nicht stören soll.",
+    "message": "Ein Flug läuft.",
+    "detail": "Wenn du WingLog jetzt schließt, wird er unterbrochen. Minimiere das Fenster stattdessen, wenn es nur nicht stören soll.",
     "close": "WingLog schließen",
     "keepOpen": "Geöffnet lassen"
   }

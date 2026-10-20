@@ -54,8 +54,8 @@
   },
   "closeGuard": {
     "title": "Fermer WingLog ?",
-    "message": "Un vol est en cours d’enregistrement.",
-    "detail": "Fermer WingLog arrête maintenant l’enregistrement. Pour écarter la fenêtre, réduisez-la plutôt.",
+    "message": "Un vol est en cours.",
+    "detail": "Fermer WingLog maintenant l’interrompra. Pour écarter la fenêtre, réduisez-la plutôt.",
     "close": "Fermer WingLog",
     "keepOpen": "Garder ouvert"
   }

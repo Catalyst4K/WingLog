@@ -18,15 +18,15 @@ export interface GuardedWindow {
 /** What the guard is built from. */
 export interface CloseGuardDeps {
   window: GuardedWindow
-  /** Whether a flight is being tracked. */
-  isFlightActive: () => boolean
+  /** Whether a flight is in progress: planned and loaded with Fly, or being tracked. */
+  isFlightInProgress: () => boolean
   /** Asks the pilot; true to close WingLog. */
   confirmClose: () => Promise<boolean>
   /** Where a failure to ask is logged. */
   onError: (error: unknown) => void
 }
 
-/** Holds a close while a flight is tracked, until the pilot confirms. */
+/** Holds a close while a flight is in progress, until the pilot confirms. */
 export class CloseGuard {
   private isConfirmed = false
   private isAsking = false
@@ -43,7 +43,7 @@ export class CloseGuard {
   }
 
   private handleClose(event: CloseEventLike): void {
-    if (this.isConfirmed || !this.deps.isFlightActive()) return
+    if (this.isConfirmed || !this.deps.isFlightInProgress()) return
     event.preventDefault()
     if (this.isAsking) return
     this.isAsking = true

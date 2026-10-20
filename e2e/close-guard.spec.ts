@@ -1,34 +1,27 @@
-import { join } from 'node:path'
 import { test, expect } from '@playwright/test'
 import { launchApp } from './launch-app'
 
 /**
- * Closing the window while a flight is tracked asks first (src/main/window/CloseGuard.ts, winglog-backend's
- * docs/plans/tray.md): answering "keep open" leaves the window up and the flight recording. The native
- * question is stood in for by a stub in the main process, since a test can't click an OS dialog.
+ * Closing the window while a flight is in progress asks first (src/main/window/CloseGuard.ts, winglog-backend's
+ * docs/plans/tray.md). A flight counts from the moment Dispatch's "Fly" loads it, before the sim connects and tracking
+ * starts, so this plans a flight with no sim at all. Answering "keep open" leaves the window up. The native question is
+ * stood in for by a stub in the main process, since a test can't click an OS dialog.
  */
-test('closing the window while a flight is tracked asks first, and keeps it open on no', async () => {
-  const fixturePath = join(process.cwd(), 'src/main/tracking/__fixtures__/tier2-vfr-no-ofp-short-hop.ndjson')
+test('closing the window with a flight loaded asks first, and keeps it open on no', async () => {
   const {
     app,
     window: page,
     cleanup
   } = await launchApp({
-    env: {
-      WINGLOG_E2E_FIXTURE: fixturePath,
-      WINGLOG_E2E_REPLAY_MODE: 'paced',
-      WINGLOG_E2E_REPLAY_SPEED: '200',
-      WINGLOG_E2E_REPLAY_HOLD: '1',
-      // Turns the guard on: launchApp switches it off for every other test.
-      WINGLOG_E2E_NO_CLOSE_PROMPT: ''
-    }
+    // Turns the guard on: launchApp switches it off for every other test.
+    env: { WINGLOG_E2E_NO_CLOSE_PROMPT: '' }
   })
+  const asked = (): Promise<number> => app.evaluate(() => (globalThis as unknown as { asked: number }).asked)
+  const isVisible = (): Promise<boolean> =>
+    app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible())
+  const tryClose = (): Promise<void> =>
+    app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close())
   try {
-    await page.getByRole('tab', { name: 'Track' }).click()
-    await page.getByRole('button', { name: 'Free flight' }).click()
-    await page.getByRole('button', { name: 'Start tracking' }).click()
-    await expect(page.getByText(/Phase:/)).toBeVisible()
-
     // Answers the question with "keep open" (button 1), counting how often it is asked.
     await app.evaluate(({ dialog }) => {
       const state = globalThis as unknown as { asked: number; answer: number }
@@ -39,10 +32,16 @@ test('closing the window while a flight is tracked asks first, and keeps it open
         return Promise.resolve({ response: state.answer, checkboxChecked: false })
       }) as never
     })
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close())
-    await expect.poll(() => app.evaluate(() => (globalThis as unknown as { asked: number }).asked)).toBe(1)
-    expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible())).toBe(true)
-    await expect(page.getByText(/Phase:/)).toBeVisible()
+
+    // A planned flight, as Dispatch's Fly leaves it: no sim connected, nothing tracked yet.
+    await page.evaluate(async () => {
+      const aircraft = await window.winglog.aircraftCreate({ registration: 'G-GUARD', icaoType: 'C172' })
+      await window.winglog.flightCreate({ aircraftId: aircraft.id, depIcao: 'EGLL', arrIcao: 'EGCC' })
+    })
+
+    await tryClose()
+    await expect.poll(asked).toBe(1)
+    expect(await isVisible()).toBe(true)
 
     // Let the app close for the cleanup.
     await app.evaluate(() => {
