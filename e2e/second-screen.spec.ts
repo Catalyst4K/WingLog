@@ -251,6 +251,12 @@ test.describe('Second screen', () => {
       await expect.poll(() => routes().at(-1)?.selection.sidIdent).toBe('BPK7F')
       const first = routes().at(-1)!
 
+      // The same choice again changes nothing on the PC, and the device is still answered, with the same route: how it learns it was heard.
+      const heard = routes().length
+      device.send({ t: 'cmd', name: 'track.setProcedureSelection', args: [chosen] })
+      await expect.poll(() => routes().length).toBeGreaterThan(heard)
+      expect(routes().at(-1)).toEqual(first)
+
       // A choice made in the window comes back as the next revision.
       await page.evaluate(
         (selection) => (globalThis as unknown as Window).winglog.trackingSetProcedureSelection(selection),

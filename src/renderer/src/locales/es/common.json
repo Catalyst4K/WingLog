@@ -596,6 +596,7 @@
     "procedures": "Procedimientos",
     "alternateIcao": "Alternativo {{icao}}",
     "nothingSelectedYet": "Nada seleccionado todavía",
+    "choiceNotConfirmed": "No se pudo conectar con WingLog en el PC. Los procedimientos allí no se han cambiado.",
     "flightEnded": "Vuelo finalizado",
     "autoDetectedComplete": "{{label}} se detectó automáticamente como completado y se guardó en tu bitácora.",
     "ok": "Aceptar"

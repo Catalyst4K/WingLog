@@ -594,6 +594,7 @@
     "procedures": "Procedures",
     "alternateIcao": "Alternate {{icao}}",
     "nothingSelectedYet": "Nothing selected yet",
+    "choiceNotConfirmed": "Couldn't reach WingLog on the PC. The procedures there weren't changed.",
     "flightEnded": "Flight ended",
     "autoDetectedComplete": "{{label}} was automatically detected as complete and saved to your logbook.",
     "ok": "OK"

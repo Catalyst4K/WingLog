@@ -25,11 +25,12 @@ import {
 import { ProcedureSelector } from '@/ProcedureSelector'
 import { AtcClearanceDialog } from '@/app/AppDialogs'
 import { useAtcClearancePrompt } from '@/app/use-prompts'
-import { emptyProcedureSelection, type ProcedureAirports } from '@shared/procedure-selection'
+import type { ProcedureAirports } from '@shared/procedure-selection'
 import { parseTransitionAltitudes } from '@shared/route'
 import type { LanConnection } from './lan-connection'
 import { useTopic } from './use-link'
 import { usePlannedWaypoints } from './use-planned-route'
+import { useProcedureChoice } from './use-procedure-choice'
 
 /**
  * Starts the map's attribution as just its (i) button. MapLibre opens it across the bottom edge on a wide enough screen, which on a phone
@@ -166,31 +167,41 @@ function ProceduresBar(props: {
   selection: ProcedureSelection
   onSelectionChange: (next: ProcedureSelection) => void
   liveWaypoints: Waypoint[]
+  /** The last choice made here could not be confirmed by the PC. */
+  unconfirmed: boolean
 }): React.JSX.Element {
   const { t } = useTranslation()
-  const { selection } = props
+  const { unconfirmed, ...selectorProps } = props
+  const { selection } = selectorProps
   const chosen = [selection.sidIdent, selection.starIdent, selection.approachIdent]
     .filter(Boolean)
     .join(' · ')
   return (
-    <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-1">
-      <Dialog>
-        <DialogTrigger asChild>
-          <Button type="button" variant="outline" size="sm" className="h-8">
-            {t('trackView.proceduresEllipsis')}
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="max-h-[88dvh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{t('trackView.procedures')}</DialogTitle>
-          </DialogHeader>
-          <ProcedureSelector {...props} compact />
-        </DialogContent>
-      </Dialog>
-      <span className="truncate text-xs text-muted-foreground">
-        {chosen || t('trackView.nothingSelectedYet')}
-      </span>
-    </div>
+    <>
+      <div className="flex items-center gap-2 border-b border-border bg-card px-3 py-1">
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button type="button" variant="outline" size="sm" className="h-8">
+              {t('trackView.proceduresEllipsis')}
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-h-[88dvh] overflow-y-auto sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>{t('trackView.procedures')}</DialogTitle>
+            </DialogHeader>
+            <ProcedureSelector {...selectorProps} compact />
+          </DialogContent>
+        </Dialog>
+        <span className="truncate text-xs text-muted-foreground">
+          {chosen || t('trackView.nothingSelectedYet')}
+        </span>
+      </div>
+      {unconfirmed && (
+        <p role="alert" className="border-b border-border bg-muted px-3 py-1.5 text-xs text-foreground">
+          {t('trackView.choiceNotConfirmed')}
+        </p>
+      )}
+    </>
   )
 }
 
@@ -204,18 +215,8 @@ function FlightView(props: {
   mapLanguage: MapLanguage
 }): React.JSX.Element {
   const { link, snapshot, mapLanguage } = props
-  const [selection, setSelection] = useState<ProcedureSelection>(
-    snapshot?.flight.selection ?? emptyProcedureSelection()
-  )
-  // The PC announces a change made on its own window (or another device): show it here too. The first value a connection brings is
-  // not used, only changes, so an old flight's choice can't replace this flight's.
-  useEffect(
-    () =>
-      link.subscribe('procedureSelection', (next) => {
-        if (next) setSelection((now) => (JSON.stringify(now) === JSON.stringify(next) ? now : next))
-      }),
-    [link]
-  )
+  // What the PC has chosen, kept in step with it: a choice made here is confirmed by the route it sends back, and sent again if not.
+  const { selection, choose, unconfirmed } = useProcedureChoice(link, snapshot)
   const trackPoints = useSyncExternalStore(
     (notify) => link.onTrack(notify),
     () => link.track
@@ -240,20 +241,6 @@ function FlightView(props: {
   })
   useCollapsedAttribution()
 
-  /**
-   * Chooses procedures here and tells the PC, which saves them with the flight as its own window's choice does.
-   *
-   * @param next The new choice.
-   */
-  const choose = (next: ProcedureSelection): void => {
-    setSelection(next)
-    try {
-      link.command('track.setProcedureSelection', next)
-    } catch {
-      // Offline: the choice shows here, and the PC keeps its own until the link is back and it is chosen again.
-    }
-  }
-
   // A BeyondATC clearance that would change the procedures is offered here too, over whichever page is showing (this page stays
   // mounted, and the dialog is portalled). Update pushes the new choice to the PC like any other choice made here.
   const atcClearance = useAtcClearancePrompt(selection, (action) =>
@@ -272,7 +259,9 @@ function FlightView(props: {
         snapshot={snapshot}
         times={times}
         procedures={
-          airports ? { airports, selection, onSelectionChange: choose, liveWaypoints: waypoints } : null
+          airports
+            ? { airports, selection, onSelectionChange: choose, liveWaypoints: waypoints, unconfirmed }
+            : null
         }
       />
       <div className="min-h-0 flex-1">

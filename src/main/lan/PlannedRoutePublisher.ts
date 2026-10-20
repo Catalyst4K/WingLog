@@ -38,8 +38,23 @@ export class PlannedRoutePublisher {
   private flightId: number | null = null
   private revision = 0
   private lastKey = ''
+  private last: PlannedRoute | null = null
+  private published = 0
 
   constructor(private readonly deps: PlannedRoutePublisherDeps) {}
+
+  /** @returns How many routes have been published so far. */
+  get publishedCount(): number {
+    return this.published
+  }
+
+  /**
+   * Sends the route last published again, unchanged (same revision). A device that chose something the PC already had gets no new
+   * route to confirm its choice with, so the PC answers it with this one.
+   */
+  resend(): void {
+    if (this.last) this.deps.hub.publish('plannedRoute', this.last)
+  }
 
   /** Works out the route now and publishes it if it is not the one already published. Safe to call as often as anything might have changed. */
   refresh(): void {
@@ -59,6 +74,8 @@ export class PlannedRoutePublisher {
       if (this.flightId !== null) {
         this.flightId = null
         this.lastKey = ''
+        this.last = null
+        this.published += 1
         hub.publish('plannedRoute', null)
       }
       return
@@ -70,6 +87,8 @@ export class PlannedRoutePublisher {
     this.flightId = flight.id
     this.lastKey = key
     const route: PlannedRoute = { flightId: flight.id, revision: this.revision, selection, waypoints }
+    this.last = route
+    this.published += 1
     hub.publish('plannedRoute', route)
     logger.info(
       `[lan] route for flight ${flight.id} r${route.revision}: SID ${selection.sidIdent ?? '-'} ${selection.departureRunway ?? '-'}, STAR ${selection.starIdent ?? '-'}, approach ${selection.approachIdent ?? '-'} (sid ${legCounts.sid}, star ${legCounts.star}, approach ${legCounts.approach} legs)`

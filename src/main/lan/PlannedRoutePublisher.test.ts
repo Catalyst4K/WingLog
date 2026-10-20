@@ -177,6 +177,20 @@ describe('PlannedRoutePublisher', () => {
     expect(t.sent.at(-1)).toMatchObject({ flightId: second.id, revision: 1 })
   })
 
+  it('can send the route last published again, unchanged, and counts what it has published', () => {
+    const t = build()
+    t.publisher.resend()
+    expect(t.sent).toEqual([])
+    createFlight(t.db, { aircraftId: t.aircraftId, depIcao: 'EGLL', arrIcao: 'KJFK', ofpJson: OFP_JSON })
+    t.publisher.refresh()
+    t.publisher.refresh()
+    expect(t.publisher.publishedCount).toBe(1)
+    t.publisher.resend()
+    expect(t.sent).toHaveLength(2)
+    expect(t.sent[1]).toBe(t.sent[0])
+    expect(t.publisher.publishedCount).toBe(1)
+  })
+
   it('keeps the last route and carries on when building one fails', () => {
     const t = build({
       legsOf: () => {

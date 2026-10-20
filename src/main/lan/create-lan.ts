@@ -183,7 +183,18 @@ export function createLan({
   let files: ((path: string) => StaticFile | null) | undefined
   const server = new LanServer({
     hub: liveHub,
-    commands: { ...addOnCommands, ...trackCommands(trackingController) },
+    commands: {
+      ...addOnCommands,
+      ...trackCommands({
+        setProcedureSelection: (selection) => {
+          const before = route.publishedCount
+          trackingController.setProcedureSelection(selection)
+          // A choice the PC already had changes nothing and so builds no new route: answer it with the current one, which is how the
+          // device learns it was heard.
+          if (route.publishedCount === before) route.resend()
+        }
+      })
+    },
     devices: {
       add: (name, tokenHash) => addLanDevice(db, name, tokenHash, new Date().toISOString()),
       find: (tokenHash) => findActiveLanDevice(db, tokenHash),

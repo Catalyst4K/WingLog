@@ -615,6 +615,7 @@
     "procedures": "Процедуры",
     "alternateIcao": "Запасной {{icao}}",
     "nothingSelectedYet": "Пока ничего не выбрано",
+    "choiceNotConfirmed": "Не удалось связаться с WingLog на компьютере. Процедуры там не были изменены.",
     "flightEnded": "Рейс завершён",
     "autoDetectedComplete": "{{label}} был автоматически определён как завершённый и сохранён в логбуке.",
     "ok": "ОК"

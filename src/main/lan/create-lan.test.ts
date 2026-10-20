@@ -212,6 +212,63 @@ describe('createLan', () => {
     expect(sent).toHaveLength(2)
   })
 
+  it('answers a choice from a device with the route built for it, even when the PC already had that choice', async () => {
+    const { db, hub } = build()
+    let current: unknown
+    const tracking = Object.assign(new EventEmitter(), {
+      getActive: () => undefined,
+      getProcedureSelection: () => current,
+      // As the real controller: only a change is announced.
+      setProcedureSelection: (selection: unknown) => {
+        if (JSON.stringify(current) === JSON.stringify(selection)) return
+        current = selection
+        tracking.emit('selectionChanged', selection)
+      }
+    })
+    const aircraftId = createAircraft(db, { registration: '9V-SKA', icaoType: 'A388' }).id
+    createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'KJFK' })
+    await lan?.stop()
+    lan = createLan({
+      db,
+      liveHub: hub,
+      trackingController: tracking as never,
+      ...CREATE_DEPS,
+      pageFolder: folders[0],
+      testAddress: '127.0.0.1'
+    })
+    const port = await freePort()
+    setLanSettings(db, { enabled: true, port })
+    await lan.init()
+    const { code } = lan.startPairing().pairing!
+    const messages: Record<string, unknown>[] = []
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/live`)
+    ws.on('message', (data) => messages.push(JSON.parse(data.toString())))
+    await new Promise<void>((resolve) => ws.once('open', () => resolve()))
+    ws.send(JSON.stringify({ t: 'pair', code, name: 'Phone' }))
+    await expect.poll(() => messages.some((m) => m.t === 'snapshot')).toBe(true)
+    const routes = () => messages.filter((m) => m.t === 'topic' && m.name === 'plannedRoute')
+    const choice = {
+      departureRunway: '27L',
+      sidIdent: 'BPK7F',
+      sidTransition: null,
+      starIdent: null,
+      starTransition: null,
+      approachIdent: null,
+      approachTransition: null,
+      arrivalIcao: null
+    }
+
+    ws.send(JSON.stringify({ t: 'cmd', name: 'track.setProcedureSelection', args: [choice] }))
+    await expect.poll(() => routes().length).toBe(1)
+    expect(routes()[0]).toMatchObject({ payload: { revision: 2, selection: { sidIdent: 'BPK7F' } } })
+
+    // The same choice again: nothing changed on the PC, and the device is still answered, with the same route.
+    ws.send(JSON.stringify({ t: 'cmd', name: 'track.setProcedureSelection', args: [choice] }))
+    await expect.poll(() => routes().length).toBe(2)
+    expect(routes()[1]).toEqual(routes()[0])
+    ws.terminate()
+  })
+
   it('stays off until the settings say otherwise', async () => {
     const { lan } = build()
     await lan.init()
