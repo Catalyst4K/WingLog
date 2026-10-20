@@ -50,7 +50,7 @@ const GSX_REMOTE_PORT_KEY = 'gsxRemotePort'
 const BEYONDATC_ENABLED_KEY = 'beyondAtcEnabled'
 const BEYONDATC_HOST_KEY = 'beyondAtcHost'
 const UPDATE_CHECK_ENABLED_KEY = 'updateCheckEnabled'
-const CLOSE_TO_TRAY_KEY = 'closeToTray'
+const MINIMIZE_TO_TRAY_KEY = 'minimizeToTray'
 const UPDATE_SKIPPED_VERSION_KEY = 'updateSkippedVersion'
 
 /**
@@ -483,23 +483,23 @@ export function setUpdateSettings(db: WingLogDb, settings: UpdateSettings): void
 }
 
 /**
- * Whether closing the window keeps WingLog running in the tray. Off unless the pilot chose it.
+ * Whether minimising the window goes to the tray, not the taskbar. Off unless the pilot chose it.
  *
  * @param db The database.
- * @returns True when closing hides the window.
+ * @returns True when minimising hides the window.
  */
-export function getCloseToTray(db: WingLogDb): boolean {
-  return getSetting(db, CLOSE_TO_TRAY_KEY) === '1'
+export function getMinimizeToTray(db: WingLogDb): boolean {
+  return getSetting(db, MINIMIZE_TO_TRAY_KEY) === '1'
 }
 
 /**
- * Stores whether closing the window keeps WingLog running in the tray.
+ * Stores whether minimising the window goes to the tray, not the taskbar.
  *
  * @param db The database.
- * @param closeToTray True to hide the window on close.
+ * @param minimizeToTray True to hide the window when it is minimised.
  */
-export function setCloseToTray(db: WingLogDb, closeToTray: boolean): void {
-  setSetting(db, CLOSE_TO_TRAY_KEY, closeToTray ? '1' : '0')
+export function setMinimizeToTray(db: WingLogDb, minimizeToTray: boolean): void {
+  setSetting(db, MINIMIZE_TO_TRAY_KEY, minimizeToTray ? '1' : '0')
 }
 
 /**

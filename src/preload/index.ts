@@ -314,7 +314,7 @@ const api: WingLogApi = {
   settingsSetUpdates: (settings: UpdateSettings) =>
     ipcRenderer.invoke(IpcChannels.settingsSetUpdates, settings),
   settingsGetWindow: () => ipcRenderer.invoke(IpcChannels.settingsGetWindow),
-  settingsSetWindow: (settings: Pick<WindowSettings, 'closeToTray'>) =>
+  settingsSetWindow: (settings: Pick<WindowSettings, 'minimizeToTray'>) =>
     ipcRenderer.invoke(IpcChannels.settingsSetWindow, settings),
   getStorageStatus: () => ipcRenderer.invoke(IpcChannels.storageGetStatus),
   onStorageStatus: (listener: (status: StorageStatus) => void) => {

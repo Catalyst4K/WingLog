@@ -1,13 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { TrayController, type CloseEventLike, type TrayActions, type WindowLike } from './TrayController'
+import { TrayController, type TrayActions, type WindowLike } from './TrayController'
 
 /** A window that records what was done to it, and lets a test fire its events. */
 function fakeWindow() {
   let visible = true
   let minimized = false
   let destroyed = false
-  let onClose: (event: CloseEventLike) => void = () => undefined
-  let onSessionEnd: () => void = () => undefined
+  let onMinimize: () => void = () => undefined
   const window: WindowLike = {
     hide: vi.fn(() => {
       visible = false
@@ -22,27 +21,20 @@ function fakeWindow() {
     isMinimized: () => minimized,
     isVisible: () => visible,
     isDestroyed: () => destroyed,
-    on: ((event: string, listener: never) => {
-      if (event === 'close') onClose = listener
-      else onSessionEnd = listener
-    }) as WindowLike['on']
+    on: (_event, listener) => {
+      onMinimize = listener
+    }
   }
   return {
     window,
+    /** Minimises the window, as the minimise button does. */
     minimize: () => {
       minimized = true
-      visible = false
+      onMinimize()
     },
     destroy: () => {
       destroyed = true
-    },
-    /** Closes the window, returning whether the close was cancelled. */
-    close: (): boolean => {
-      const preventDefault = vi.fn()
-      onClose({ preventDefault })
-      return preventDefault.mock.calls.length > 0
-    },
-    endSession: () => onSessionEnd()
+    }
   }
 }
 
@@ -62,7 +54,7 @@ describe('TrayController', () => {
     const controller = new TrayController({
       window: win.window,
       isTrayAvailable,
-      isCloseToTray: () => setting,
+      isMinimizeToTray: () => setting,
       isFlightActive: () => flightActive,
       createTray,
       quit,
@@ -78,20 +70,20 @@ describe('TrayController', () => {
     vi.clearAllMocks()
   })
 
-  it('lets the window close (and the app quit) while the setting is off, and shows no tray', () => {
+  it('leaves minimising to the taskbar while the setting is off, and shows no tray', () => {
     const win = fakeWindow()
     build(win)
+    win.minimize()
     expect(createTray).not.toHaveBeenCalled()
-    expect(win.close()).toBe(false)
     expect(win.window.hide).not.toHaveBeenCalled()
   })
 
-  it('hides the window instead of closing it while the setting is on, and shows the tray icon from the start', () => {
+  it('hides the window when it is minimised while the setting is on, with the tray icon there from the start', () => {
     setting = true
     const win = fakeWindow()
     build(win)
     expect(createTray).toHaveBeenCalledTimes(1)
-    expect(win.close()).toBe(true)
+    win.minimize()
     expect(win.window.hide).toHaveBeenCalledTimes(1)
   })
 
@@ -99,23 +91,12 @@ describe('TrayController', () => {
     setting = true
     const win = fakeWindow()
     build(win, false)
+    win.minimize()
     expect(createTray).not.toHaveBeenCalled()
-    expect(win.close()).toBe(false)
+    expect(win.window.hide).not.toHaveBeenCalled()
   })
 
-  it('does not hold back a real quit, or Windows shutting down', () => {
-    setting = true
-    const quitting = fakeWindow()
-    build(quitting).markQuitting()
-    expect(quitting.close()).toBe(false)
-
-    const shutdown = fakeWindow()
-    build(shutdown)
-    shutdown.endSession()
-    expect(shutdown.close()).toBe(false)
-  })
-
-  it('brings the window back from a tray click, restoring it first if it was minimised', () => {
+  it('brings the window back from a tray click, restoring it from minimised first', () => {
     setting = true
     const win = fakeWindow()
     build(win)
@@ -124,6 +105,7 @@ describe('TrayController', () => {
     expect(win.window.restore).toHaveBeenCalledTimes(1)
     expect(win.window.show).toHaveBeenCalledTimes(1)
     expect(win.window.focus).toHaveBeenCalledTimes(1)
+    expect(win.window.isVisible()).toBe(true)
   })
 
   it('does not touch a window that is already gone', () => {
@@ -154,14 +136,15 @@ describe('TrayController', () => {
     controller.sync()
     controller.sync()
     expect(createTray).toHaveBeenCalledTimes(1)
-    win.close()
+    win.minimize()
     expect(win.window.isVisible()).toBe(false)
 
     setting = false
     controller.sync()
     expect(destroyTray).toHaveBeenCalledTimes(1)
     expect(win.window.isVisible()).toBe(true)
-    expect(win.close()).toBe(false)
+    win.minimize()
+    expect(win.window.hide).toHaveBeenCalledTimes(1)
   })
 
   it('leaves a visible window alone when the tray is removed', () => {

@@ -24,7 +24,7 @@ function withWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     settingsSetTracking: vi.fn().mockResolvedValue(undefined),
     settingsGetUpdates: vi.fn().mockResolvedValue({ checkEnabled: true }),
     settingsSetUpdates: vi.fn().mockResolvedValue(undefined),
-    settingsGetWindow: vi.fn().mockResolvedValue({ closeToTray: false, trayAvailable: true }),
+    settingsGetWindow: vi.fn().mockResolvedValue({ minimizeToTray: false, trayAvailable: true }),
     settingsSetWindow: vi.fn().mockResolvedValue(undefined),
     ...overrides
   } as unknown as WingLogApi

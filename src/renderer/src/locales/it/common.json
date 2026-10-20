@@ -72,10 +72,10 @@
     },
     "window": {
       "cardTitle": "Finestra",
-      "closeLabel": "Quando chiudo la finestra",
-      "quit": "Esci da WingLog",
-      "tray": "Resta attivo nell’area di notifica",
-      "description": "Nell’area di notifica, il tracciamento e il secondo schermo continuano senza la finestra. Fai clic sull’icona per riaprirla."
+      "minimizeLabel": "Quando riduco a icona la finestra",
+      "taskbar": "Barra delle applicazioni",
+      "tray": "Area di notifica",
+      "description": "Nell’area di notifica, WingLog non occupa spazio nella barra delle applicazioni e continua il tracciamento e il secondo schermo. Fai clic sull’icona per riaprire la finestra. Chiudere la finestra chiude comunque WingLog."
     },
     "credentials": {
       "cardTitle": "Credenziali",

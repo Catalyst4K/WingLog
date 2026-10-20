@@ -16,34 +16,25 @@ function setup(settings: WindowSettings) {
 }
 
 describe('WindowCard', () => {
-  it('offers quit or the tray, starting on quit, and saves the choice', async () => {
-    const api = setup({ closeToTray: false, trayAvailable: true })
+  it('offers the taskbar or the tray, starting on the taskbar, and saves the choice', async () => {
+    const api = setup({ minimizeToTray: false, trayAvailable: true })
     render(<WindowCard />)
-    expect(await screen.findByRole('button', { name: 'Quit WingLog' })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    )
-    await userEvent.click(screen.getByRole('button', { name: 'Keep running in the tray' }))
-    expect(api.settingsSetWindow).toHaveBeenCalledWith({ closeToTray: true })
-    expect(screen.getByRole('button', { name: 'Keep running in the tray' })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    )
+    expect(await screen.findByRole('button', { name: 'Taskbar' })).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(screen.getByRole('button', { name: 'System tray' }))
+    expect(api.settingsSetWindow).toHaveBeenCalledWith({ minimizeToTray: true })
+    expect(screen.getByRole('button', { name: 'System tray' })).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('shows a saved tray choice, and can switch back to quitting', async () => {
-    const api = setup({ closeToTray: true, trayAvailable: true })
+  it('shows a saved tray choice, and can switch back to the taskbar', async () => {
+    const api = setup({ minimizeToTray: true, trayAvailable: true })
     render(<WindowCard />)
-    expect(await screen.findByRole('button', { name: 'Keep running in the tray' })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    )
-    await userEvent.click(screen.getByRole('button', { name: 'Quit WingLog' }))
-    expect(api.settingsSetWindow).toHaveBeenCalledWith({ closeToTray: false })
+    expect(await screen.findByRole('button', { name: 'System tray' })).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(screen.getByRole('button', { name: 'Taskbar' }))
+    expect(api.settingsSetWindow).toHaveBeenCalledWith({ minimizeToTray: false })
   })
 
   it('shows nothing where there is no tray', async () => {
-    const api = setup({ closeToTray: false, trayAvailable: false })
+    const api = setup({ minimizeToTray: false, trayAvailable: false })
     const { container } = render(<WindowCard />)
     await vi.waitFor(() => expect(api.settingsGetWindow).toHaveBeenCalled())
     expect(container).toBeEmptyDOMElement()

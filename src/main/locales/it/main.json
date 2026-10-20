@@ -51,5 +51,12 @@
     "quit": "Esci da WingLog",
     "tooltip": "WingLog",
     "tooltipTracking": "WingLog: volo in registrazione"
+  },
+  "closeGuard": {
+    "title": "Chiudere WingLog?",
+    "message": "Un volo è in registrazione.",
+    "detail": "Chiudere WingLog ora interrompe la registrazione. Per togliere di mezzo la finestra, riducila a icona.",
+    "close": "Chiudi WingLog",
+    "keepOpen": "Lascia aperto"
   }
 }

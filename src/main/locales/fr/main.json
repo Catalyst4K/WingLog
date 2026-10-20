@@ -51,5 +51,12 @@
     "quit": "Quitter WingLog",
     "tooltip": "WingLog",
     "tooltipTracking": "WingLog : vol en cours d’enregistrement"
+  },
+  "closeGuard": {
+    "title": "Fermer WingLog ?",
+    "message": "Un vol est en cours d’enregistrement.",
+    "detail": "Fermer WingLog arrête maintenant l’enregistrement. Pour écarter la fenêtre, réduisez-la plutôt.",
+    "close": "Fermer WingLog",
+    "keepOpen": "Garder ouvert"
   }
 }

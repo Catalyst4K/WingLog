@@ -7,6 +7,7 @@
 import { runLogged } from './logging/run-logged'
 import { join } from 'node:path'
 import { canShowTray, currentPlatform, quitsWhenAllWindowsClose } from './platform/platform'
+import { CloseGuard } from './window/CloseGuard'
 import { TrayController } from './window/TrayController'
 import { createElectronTray } from './window/electron-tray'
 import { trayIconPath } from './window/tray-icon-path'
@@ -27,7 +28,7 @@ import { migrateLegacyUserData } from './db/legacy-userdata'
 import { getFlight, setParkedStand } from './db/flight-repo'
 import {
   getAppLanguage,
-  getCloseToTray,
+  getMinimizeToTray,
   getSkippedUpdateVersion,
   getTrackingSettings,
   getUpdateSettings,
@@ -390,7 +391,7 @@ function startApp(): void {
 
   const updateService = startUpdates(db, window, () => trackingController.getActive() !== undefined)
   app.on('before-quit', () => updateService.stop())
-  const trayController = startTray(db, window, trackingController)
+  const trayController = startWindowBehaviour(db, window, trackingController)
   registerSettingsHandlers(ipcMain, { db, trackingController, trayController })
   registerAppHandlers(ipcMain, { updateService })
 
@@ -422,15 +423,15 @@ function startApp(): void {
 }
 
 /**
- * The "keep running in the tray" behaviour (winglog-backend's docs/plans/tray.md): closing the window hides it
- * to a tray icon while the setting is on.
+ * How the main window minimises and closes (winglog-backend's docs/plans/tray.md): minimising hides it to a tray
+ * icon, not the taskbar, while that setting is on; and closing asks first while a flight is being tracked.
  *
  * @param db The database, which holds the setting.
  * @param window The main window.
  * @param trackingController Says whether a flight is being tracked, for the tray's tooltip.
  * @returns The controller, so Settings can apply a change at once.
  */
-function startTray(
+function startWindowBehaviour(
   db: WingLogDb,
   window: BrowserWindow,
   trackingController: TrackingController
@@ -439,7 +440,7 @@ function startTray(
   const controller = new TrayController({
     window,
     isTrayAvailable: canShowTray(),
-    isCloseToTray: () => getCloseToTray(db),
+    isMinimizeToTray: () => getMinimizeToTray(db),
     isFlightActive: () => trackingController.getActive() !== undefined,
     createTray: (actions) => createElectronTray(iconPath, actions),
     quit: () => app.quit(),
@@ -449,11 +450,38 @@ function startTray(
   for (const event of ['started', 'stopped', 'completed'] as const) {
     trackingController.on(event, () => controller.updateToolTip())
   }
-  app.on('before-quit', () => {
-    controller.markQuitting()
-    controller.dispose()
-  })
+  app.on('before-quit', () => controller.dispose())
+  new CloseGuard({
+    window,
+    // An e2e run closes the app with a flight still tracked, with no one to answer.
+    isFlightActive: () =>
+      !process.env['WINGLOG_E2E_NO_CLOSE_PROMPT'] && trackingController.getActive() !== undefined,
+    confirmClose: () => confirmCloseWhileTracking(window),
+    onError: (error) => logger.warn('close confirmation failed:', error)
+  }).start()
   return controller
+}
+
+/**
+ * Asks whether to close WingLog while a flight is being tracked.
+ *
+ * @param window The main window, which the question sits over when it is showing.
+ * @returns True if the pilot chose to close.
+ */
+async function confirmCloseWhileTracking(window: BrowserWindow): Promise<boolean> {
+  const options = {
+    type: 'warning' as const,
+    title: t('closeGuard.title'),
+    message: t('closeGuard.message'),
+    detail: t('closeGuard.detail'),
+    buttons: [t('closeGuard.close'), t('closeGuard.keepOpen')],
+    defaultId: 1,
+    cancelId: 1
+  }
+  const { response } = await (window.isVisible()
+    ? dialog.showMessageBox(window, options)
+    : dialog.showMessageBox(options))
+  return response === 0
 }
 
 /**

@@ -50,8 +50,8 @@ export interface UpdateSettings {
 
 /** Settings → Interface → Window. */
 export interface WindowSettings {
-  /** Closing the window hides it to a tray icon instead of quitting. Off by default. */
-  closeToTray: boolean
+  /** Minimising the window hides it to a tray icon instead of the taskbar. Off by default. */
+  minimizeToTray: boolean
   /** Whether this install can show a tray icon at all (Windows only for now). */
   trayAvailable: boolean
 }

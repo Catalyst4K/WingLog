@@ -51,5 +51,12 @@
     "quit": "退出 WingLog",
     "tooltip": "WingLog",
     "tooltipTracking": "WingLog：正在记录航班"
+  },
+  "closeGuard": {
+    "title": "关闭 WingLog？",
+    "message": "正在记录航班。",
+    "detail": "现在关闭 WingLog 会停止记录。如果只是想让窗口不碍事，请改为最小化。",
+    "close": "关闭 WingLog",
+    "keepOpen": "保持打开"
   }
 }

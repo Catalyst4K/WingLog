@@ -109,6 +109,8 @@ export async function launchApp(options: LaunchAppOptions = {}): Promise<Launche
   // The window is shown without taking the keyboard focus, on a second display when there is one, so a run doesn't interrupt other
   // work. Set WINGLOG_E2E_WINDOW=normal to watch a run like a normal launch, or hidden to show nothing; WINGLOG_E2E_DISPLAY picks a display.
   env.WINGLOG_E2E_WINDOW = process.env.WINGLOG_E2E_WINDOW ?? 'inactive'
+  // Closing asks first while a flight is tracked (main/window/CloseGuard.ts); a test that ends with a flight still running has no one to answer.
+  env.WINGLOG_E2E_NO_CLOSE_PROMPT = '1'
   Object.assign(env, options.env)
 
   const app = await electron.launch({

@@ -545,7 +545,7 @@ export interface WingLogApi {
   settingsGetUpdates: () => Promise<UpdateSettings>
   settingsSetUpdates: (settings: UpdateSettings) => Promise<void>
   settingsGetWindow: () => Promise<WindowSettings>
-  settingsSetWindow: (settings: Pick<WindowSettings, 'closeToTray'>) => Promise<void>
+  settingsSetWindow: (settings: Pick<WindowSettings, 'minimizeToTray'>) => Promise<void>
   /** The room left on the drive holding WingLog's data, and whether saving is failing: for the first render of the low-disk warning. */
   getStorageStatus: () => Promise<StorageStatus>
   /** Pushed when the free space crosses a warning level, or saving starts or stops failing. */

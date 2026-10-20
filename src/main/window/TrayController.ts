@@ -1,17 +1,11 @@
 /**
- * Keeps WingLog running in a tray icon when the window is closed (winglog-backend's docs/plans/tray.md).
+ * Minimises WingLog to a tray icon instead of the taskbar (winglog-backend's docs/plans/tray.md).
  *
- * With the "keep running in the tray" setting on, closing the main window hides it instead of quitting,
- * and a tray icon brings it back. Tracking, the second screen and the add-on links live in the main process,
- * so they carry on while the window is hidden. A real quit (the tray's Quit, an update restart, Windows
- * shutdown) is never held back. The Electron pieces (the window, the tray) come in through small interfaces,
+ * With the "minimise to the tray" setting on, minimising the main window hides it, and a tray icon brings it
+ * back. Closing the window still quits. Tracking, the second screen and the add-on links live in the main
+ * process, so they carry on while the window is hidden. The Electron pieces (the window, the tray) come in through small interfaces,
  * so the decisions here are tested without Electron.
  */
-
-/** The close event, which can be cancelled. */
-export interface CloseEventLike {
-  preventDefault(): void
-}
 
 /** What the controller needs from the main window. */
 export interface WindowLike {
@@ -22,8 +16,7 @@ export interface WindowLike {
   isMinimized(): boolean
   isVisible(): boolean
   isDestroyed(): boolean
-  on(event: 'close', listener: (event: CloseEventLike) => void): void
-  on(event: 'session-end', listener: () => void): void
+  on(event: 'minimize', listener: () => void): void
 }
 
 /** A tray icon that has been created. */
@@ -43,8 +36,8 @@ export interface TrayControllerDeps {
   window: WindowLike
   /** Whether this platform can show a tray icon at all. */
   isTrayAvailable: boolean
-  /** The pilot's setting, read each time it matters. */
-  isCloseToTray: () => boolean
+  /** The pilot's setting, read each time it matters. True: minimising goes to the tray, not the taskbar. */
+  isMinimizeToTray: () => boolean
   /** Whether a flight is being tracked, for the tooltip. */
   isFlightActive: () => boolean
   /** Makes the real tray icon. */
@@ -55,10 +48,9 @@ export interface TrayControllerDeps {
   translate: (key: string) => string
 }
 
-/** Hides the window to the tray on close, and brings it back. */
+/** Hides the window to the tray when it is minimised, and brings it back. */
 export class TrayController {
   private tray: TrayHandle | null = null
-  private isQuitting = false
 
   constructor(private readonly deps: TrayControllerDeps) {}
 
@@ -69,15 +61,8 @@ export class TrayController {
 
   /** Starts listening to the window, and shows the tray icon if the setting is already on. */
   start(): void {
-    this.deps.window.on('close', (event) => this.handleClose(event))
-    // Windows is shutting down or logging off: a window that refuses to close would hold it up.
-    this.deps.window.on('session-end', () => this.markQuitting())
+    this.deps.window.on('minimize', () => this.handleMinimize())
     this.sync()
-  }
-
-  /** Called when the app is about to quit for real, so closing the window is let through. */
-  markQuitting(): void {
-    this.isQuitting = true
   }
 
   /**
@@ -85,7 +70,7 @@ export class TrayController {
    * while the window is hidden shows the window first, so the pilot is not left with no way in.
    */
   sync(): void {
-    const wanted = this.deps.isTrayAvailable && this.deps.isCloseToTray()
+    const wanted = this.deps.isTrayAvailable && this.deps.isMinimizeToTray()
     if (wanted && !this.tray) {
       this.tray = this.deps.createTray({ onOpen: () => this.showWindow(), onQuit: () => this.deps.quit() })
       this.updateToolTip()
@@ -117,9 +102,7 @@ export class TrayController {
     this.tray = null
   }
 
-  private handleClose(event: CloseEventLike): void {
-    if (this.isQuitting || !this.tray) return
-    event.preventDefault()
-    this.deps.window.hide()
+  private handleMinimize(): void {
+    if (this.tray) this.deps.window.hide()
   }
 }

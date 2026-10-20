@@ -72,10 +72,10 @@
     },
     "window": {
       "cardTitle": "Fenêtre",
-      "closeLabel": "Quand je ferme la fenêtre",
-      "quit": "Quitter WingLog",
-      "tray": "Rester actif dans la zone de notification",
-      "description": "Dans la zone de notification, le suivi et le second écran continuent sans la fenêtre. Cliquez sur l’icône pour la rouvrir."
+      "minimizeLabel": "Quand je réduis la fenêtre",
+      "taskbar": "Barre des tâches",
+      "tray": "Zone de notification",
+      "description": "Dans la zone de notification, WingLog n’occupe pas la barre des tâches et continue le suivi et le second écran. Cliquez sur l’icône pour rouvrir la fenêtre. Fermer la fenêtre quitte toujours WingLog."
     },
     "credentials": {
       "cardTitle": "Identifiants",

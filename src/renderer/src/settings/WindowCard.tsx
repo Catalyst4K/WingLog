@@ -1,4 +1,4 @@
-/** Settings → Interface → Window: what closing the window does (winglog-backend's docs/plans/tray.md). */
+/** Settings → Interface → Window: where the window goes when minimised (winglog-backend's docs/plans/tray.md). */
 
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -8,10 +8,10 @@ import { runAsync } from '../report-error'
 import { SegmentedRow } from '../SettingsFields'
 import { SettingsCard } from './ui/SettingsCard'
 
-type CloseChoice = 'quit' | 'tray'
+type MinimizeChoice = 'taskbar' | 'tray'
 
 /**
- * The Window card: quit on close, or keep running in the tray. Not shown where there is no tray.
+ * The Window card: minimise to the taskbar, or to the tray. Not shown where there is no tray.
  *
  * @returns The element, or nothing until the setting is read and wherever a tray is not possible.
  */
@@ -25,19 +25,19 @@ export function WindowCard(): React.JSX.Element | null {
 
   if (!settings?.trayAvailable) return null
 
-  function choose(choice: CloseChoice): void {
-    const closeToTray = choice === 'tray'
-    setSettings((current) => current && { ...current, closeToTray })
-    runAsync('WindowCard settingsSetWindow', winglogApi().settingsSetWindow({ closeToTray }))
+  function choose(choice: MinimizeChoice): void {
+    const minimizeToTray = choice === 'tray'
+    setSettings((current) => current && { ...current, minimizeToTray })
+    runAsync('WindowCard settingsSetWindow', winglogApi().settingsSetWindow({ minimizeToTray }))
   }
 
   return (
     <SettingsCard title={t('settingsView.window.cardTitle')}>
-      <SegmentedRow<CloseChoice>
-        label={t('settingsView.window.closeLabel')}
-        value={settings.closeToTray ? 'tray' : 'quit'}
+      <SegmentedRow<MinimizeChoice>
+        label={t('settingsView.window.minimizeLabel')}
+        value={settings.minimizeToTray ? 'tray' : 'taskbar'}
         options={[
-          { value: 'quit', label: t('settingsView.window.quit') },
+          { value: 'taskbar', label: t('settingsView.window.taskbar') },
           { value: 'tray', label: t('settingsView.window.tray') }
         ]}
         onChange={choose}

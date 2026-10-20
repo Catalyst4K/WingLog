@@ -44,8 +44,8 @@ import {
   setGsxSettings,
   getUpdateSettings,
   setUpdateSettings,
-  getCloseToTray,
-  setCloseToTray
+  getMinimizeToTray,
+  setMinimizeToTray
 } from '../db/settings-repo'
 import { setMainLanguage } from '../i18n'
 import { checkGsxFirstLaunch } from '../db/gsx-first-launch'
@@ -56,7 +56,7 @@ export interface SettingsHandlerDeps {
   db: WingLogDb
   /** Takes "Finish flights automatically" as soon as it changes. */
   trackingController: Pick<TrackingController, 'setAutoFinish'>
-  /** The tray icon follows the "keep running in the tray" setting as soon as it changes. */
+  /** The tray icon follows the "minimise to the tray" setting as soon as it changes. */
   trayController: Pick<TrayController, 'sync' | 'isAvailable'>
 }
 
@@ -151,14 +151,14 @@ export function registerSettingsHandlers(
   })
 
   ipcMain.handle(IpcChannels.settingsGetWindow, (): WindowSettings => ({
-    closeToTray: getCloseToTray(db),
+    minimizeToTray: getMinimizeToTray(db),
     trayAvailable: trayController.isAvailable
   }))
 
   ipcMain.handle(IpcChannels.settingsSetWindow, (_event, settings: unknown) => {
-    const closeToTray = (settings as Pick<WindowSettings, 'closeToTray'> | null)?.closeToTray
-    if (typeof closeToTray !== 'boolean') throw new Error('Invalid window settings')
-    setCloseToTray(db, closeToTray)
+    const minimizeToTray = (settings as Pick<WindowSettings, 'minimizeToTray'> | null)?.minimizeToTray
+    if (typeof minimizeToTray !== 'boolean') throw new Error('Invalid window settings')
+    setMinimizeToTray(db, minimizeToTray)
     trayController.sync()
   })
 }

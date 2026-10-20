@@ -72,10 +72,10 @@
     },
     "window": {
       "cardTitle": "Window",
-      "closeLabel": "When I close the window",
-      "quit": "Quit WingLog",
-      "tray": "Keep running in the tray",
-      "description": "Keeping WingLog in the tray lets tracking and the second screen carry on without the window. Click the tray icon to bring it back."
+      "minimizeLabel": "When I minimise the window",
+      "taskbar": "Taskbar",
+      "tray": "System tray",
+      "description": "In the tray, WingLog takes no taskbar space and carries on tracking and serving the second screen. Click the tray icon to bring the window back. Closing the window still quits."
     },
     "credentials": {
       "cardTitle": "Credentials",

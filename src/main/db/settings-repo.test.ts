@@ -10,8 +10,8 @@ import {
   getBeyondAtcSettings,
   getSkippedUpdateVersion,
   getUpdateSettings,
-  getCloseToTray,
-  setCloseToTray,
+  getMinimizeToTray,
+  setMinimizeToTray,
   getGsxRemoteSettings,
   getGsxSettings,
   getTrackingSettings,
@@ -232,12 +232,12 @@ describe('settings repo', () => {
     expect(getSkippedUpdateVersion(db)).toBe('1.4.0')
   })
 
-  it('keeps closing the window as a quit unless the pilot chose the tray', () => {
-    expect(getCloseToTray(db)).toBe(false)
-    setCloseToTray(db, true)
-    expect(getCloseToTray(db)).toBe(true)
-    setCloseToTray(db, false)
-    expect(getCloseToTray(db)).toBe(false)
+  it('minimises to the taskbar unless the pilot chose the tray', () => {
+    expect(getMinimizeToTray(db)).toBe(false)
+    setMinimizeToTray(db, true)
+    expect(getMinimizeToTray(db)).toBe(true)
+    setMinimizeToTray(db, false)
+    expect(getMinimizeToTray(db)).toBe(false)
   })
 
   it('defaults the last-synced-completed timestamp to null when never set', () => {

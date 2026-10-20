@@ -72,10 +72,10 @@
     },
     "window": {
       "cardTitle": "Fenster",
-      "closeLabel": "Wenn ich das Fenster schließe",
-      "quit": "WingLog beenden",
-      "tray": "Im Infobereich weiterlaufen",
-      "description": "Im Infobereich laufen Aufzeichnung und Zweitbildschirm ohne Fenster weiter. Mit einem Klick auf das Symbol erscheint das Fenster wieder."
+      "minimizeLabel": "Wenn ich das Fenster minimiere",
+      "taskbar": "Taskleiste",
+      "tray": "Infobereich",
+      "description": "Im Infobereich belegt WingLog keinen Platz in der Taskleiste und zeichnet weiter auf und bedient den Zweitbildschirm. Mit einem Klick auf das Symbol erscheint das Fenster wieder. Beim Schließen des Fensters wird WingLog weiterhin beendet."
     },
     "credentials": {
       "cardTitle": "Zugangsdaten",

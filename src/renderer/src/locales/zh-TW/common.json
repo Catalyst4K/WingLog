@@ -70,10 +70,10 @@
     },
     "window": {
       "cardTitle": "視窗",
-      "closeLabel": "關閉視窗時",
-      "quit": "結束 WingLog",
-      "tray": "在系統匣中繼續執行",
-      "description": "留在系統匣時，航班記錄和第二螢幕無需視窗也能繼續運作。點擊系統匣圖示即可重新開啟視窗。"
+      "minimizeLabel": "最小化視窗時",
+      "taskbar": "工作列",
+      "tray": "系統匣",
+      "description": "放入系統匣後，WingLog 不占用工作列，仍會繼續記錄航班並服務第二螢幕。點擊系統匣圖示即可重新開啟視窗。關閉視窗仍會結束 WingLog。"
     },
     "credentials": {
       "cardTitle": "帳號憑證",

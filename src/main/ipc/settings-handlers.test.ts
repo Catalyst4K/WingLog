@@ -62,12 +62,12 @@ describe('settings IPC handlers', () => {
     })
   })
 
-  it('reads and saves the close-to-tray choice, tells the tray, and refuses anything else', () => {
-    expect(invoke(IpcChannels.settingsGetWindow)).toEqual({ closeToTray: false, trayAvailable: true })
-    invoke(IpcChannels.settingsSetWindow, { closeToTray: true })
-    expect(invoke(IpcChannels.settingsGetWindow)).toEqual({ closeToTray: true, trayAvailable: true })
+  it('reads and saves the minimise-to-tray choice, tells the tray, and refuses anything else', () => {
+    expect(invoke(IpcChannels.settingsGetWindow)).toEqual({ minimizeToTray: false, trayAvailable: true })
+    invoke(IpcChannels.settingsSetWindow, { minimizeToTray: true })
+    expect(invoke(IpcChannels.settingsGetWindow)).toEqual({ minimizeToTray: true, trayAvailable: true })
     expect(syncTray).toHaveBeenCalledTimes(1)
-    expect(() => invoke(IpcChannels.settingsSetWindow, { closeToTray: 'yes' })).toThrow(
+    expect(() => invoke(IpcChannels.settingsSetWindow, { minimizeToTray: 'yes' })).toThrow(
       'Invalid window settings'
     )
     expect(() => invoke(IpcChannels.settingsSetWindow, null)).toThrow('Invalid window settings')
