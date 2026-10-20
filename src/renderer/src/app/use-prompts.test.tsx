@@ -106,4 +106,21 @@ describe('useAtcClearancePrompt on a LiveClient', () => {
     expect(apply(selection)).toEqual({ ...selection, starIdent: 'LOGA2H' })
     expect(result.current.pending).toBeNull()
   })
+
+  it('drops the old procedure transition when the accepted clearance names a different procedure', async () => {
+    window.winglog = { appLogRendererError: vi.fn().mockResolvedValue(undefined) } as unknown as WingLogApi
+    const { client, push } = fakeClient()
+    const setSelection = vi.fn()
+    const flown = { ...selection, starIdent: 'UPRS2C', starTransition: 'SY498' }
+    const { result } = renderHook(() => useAtcClearancePrompt(flown, setSelection), {
+      wrapper: wrapper(client)
+    })
+    await act(async () => {
+      push('beyondAtcState', state('LOGA2H'))
+      await Promise.resolve()
+    })
+    act(() => result.current.onAccept())
+    const apply = setSelection.mock.calls[0][0] as (prev: ProcedureSelection) => ProcedureSelection
+    expect(apply(flown)).toMatchObject({ starIdent: 'LOGA2H', starTransition: null })
+  })
 })

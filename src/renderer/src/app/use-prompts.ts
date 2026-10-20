@@ -10,6 +10,7 @@ import { gsxPromptState } from '../gsx-remote-importance'
 import { useLiveClient } from '../live/LiveClient'
 import { runAsync } from '../report-error'
 import {
+  applyClearance,
   clearanceDiffers,
   readNewInfoBoxes,
   resolveAtcClearance,
@@ -63,7 +64,7 @@ export function useAtcClearancePrompt(
     pending,
     onAccept: () => {
       if (!pending) return
-      setSelection((prev) => ({ ...prev, ...pending.fields }))
+      setSelection((prev) => applyClearance(prev, pending.fields))
       setPending(null)
     },
     onDismiss: () => setPending(null)

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ProcedureSelection } from '@shared/ipc'
-import { clearanceDiffers, readNewInfoBoxes, resolveAtcClearance } from './atc-clearance'
+import { applyClearance, clearanceDiffers, readNewInfoBoxes, resolveAtcClearance } from './atc-clearance'
 
 // VHHH departure, as SimBrief planned it.
 const selection: ProcedureSelection = {
@@ -31,6 +31,46 @@ describe('clearanceDiffers', () => {
         selection
       )
     ).toBe(true)
+  })
+})
+
+describe('applyClearance', () => {
+  const withTransitions: ProcedureSelection = {
+    ...selection,
+    sidTransition: 'LAM',
+    starIdent: 'LOGA2H',
+    starTransition: 'KAIPA',
+    approachIdent: 'ILS-Y-27L',
+    approachTransition: 'ABC'
+  }
+
+  it('drops the old SID transition when a different SID is cleared, and sets the runway and SID', () => {
+    const next = applyClearance(withTransitions, { departureRunway: '07L', sidIdent: 'BEKOL3B' })
+    expect(next).toMatchObject({ departureRunway: '07L', sidIdent: 'BEKOL3B', sidTransition: null })
+    // The arrival side is untouched.
+    expect(next).toMatchObject({ starTransition: 'KAIPA', approachTransition: 'ABC' })
+  })
+
+  it('keeps the transition when the SID is the same one', () => {
+    expect(
+      applyClearance(withTransitions, { sidIdent: 'OCEAN2B', departureRunway: '07L' }).sidTransition
+    ).toBe('LAM')
+  })
+
+  it('drops the STAR transition when a different STAR is cleared', () => {
+    expect(applyClearance(withTransitions, { starIdent: 'UPRS2C' })).toMatchObject({
+      starIdent: 'UPRS2C',
+      starTransition: null
+    })
+  })
+
+  it('drops the approach transition for a different approach, unless the clearance names one', () => {
+    expect(applyClearance(withTransitions, { approachIdent: 'ILS-Z-08' }).approachTransition).toBeNull()
+    expect(
+      applyClearance(withTransitions, { approachIdent: 'ILS-Z-08', approachTransition: 'SY498' })
+        .approachTransition
+    ).toBe('SY498')
+    expect(applyClearance(withTransitions, { approachIdent: 'ILS-Y-27L' }).approachTransition).toBe('ABC')
   })
 })
 
