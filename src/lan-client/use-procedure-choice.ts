@@ -82,9 +82,10 @@ export function useProcedureChoice(
       const next = confirmTimeout(stateRef.current, routeRef.current)
       update(next.state)
       if (next.resend) send(next.resend)
+      if (next.state.unconfirmed) link.report('selection-unconfirmed')
     }, CONFIRM_MS)
     return () => clearTimeout(timer)
-  }, [pending, send, update])
+  }, [pending, link, send, update])
 
   const { unconfirmed } = state
   useEffect(() => {

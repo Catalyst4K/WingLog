@@ -11,8 +11,10 @@ import {
   isKept,
   isWorthKeeping,
   laneOf,
+  LAN_QUERY_KINDS,
   type LanQueryLane
 } from '@shared/lan-queries'
+import { queryFailedReport } from '@shared/lan-report'
 
 /** Where the link stands. */
 export type LanLinkState =
@@ -174,6 +176,16 @@ export class LanConnection {
     })
   }
 
+  /**
+   * Tells the PC about something the page gave up on, so its log shows both sides of a problem. A code from a fixed list
+   * (shared/lan-report.ts); nothing is sent while the link is down.
+   *
+   * @param code What happened.
+   */
+  report(code: string): void {
+    if (this.socket && this.current === 'connected') this.socket.send(JSON.stringify({ t: 'report', code }))
+  }
+
   /** Sends waiting lookups while the PC has a slot free for them in their lane. */
   private sendWaiting(): void {
     const socket = this.socket
@@ -206,6 +218,7 @@ export class LanConnection {
     this.letGo(lookup)
     if (lookup.tries >= MAX_TRIES) {
       this.settle(lookup, new Error(reason))
+      if (Object.hasOwn(LAN_QUERY_KINDS, lookup.name)) this.report(queryFailedReport(lookup.name))
       this.sendWaiting()
       return
     }

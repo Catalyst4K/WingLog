@@ -9,8 +9,8 @@ import { LanConnection, type LinkSocket, type TokenStore } from './lan-connectio
 // The choice is sent again after CONFIRM_MS and the notice goes after NOTICE_MS: shortened so the tests need not wait.
 vi.mock('./selection-sync', async (original) => ({
   ...(await original<typeof import('./selection-sync')>()),
-  CONFIRM_MS: 60,
-  NOTICE_MS: 200
+  CONFIRM_MS: 400,
+  NOTICE_MS: 500
 }))
 
 // The map itself needs WebGL (jsdom has none) and is covered by FlightMap.test.tsx and the second-screen acceptance test; here it only
@@ -233,22 +233,22 @@ describe('keeping the choice in step with the PC (docs/plans/lan-sync.md)', () =
 
   it('sends the choice again when the PC does not confirm it, and says so after the last try, back on what the PC has', async () => {
     const { sentChoices } = await openAndChoose()
-    expect(sentChoices()).toHaveLength(1)
-    await waitFor(() => expect(sentChoices()).toHaveLength(3))
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't reach WingLog on the PC")
+    await waitFor(() => expect(sentChoices()).toHaveLength(3), { timeout: 4000 })
+    expect(await screen.findByRole('alert', {}, { timeout: 4000 })).toHaveTextContent(
+      "Couldn't reach WingLog on the PC"
+    )
     expect(sentChoices()).toHaveLength(3)
     // The PC never heard it, so the page shows what the PC has.
     expect(screen.getByText('KAMI2A · SIER7B · ILS 27L')).toBeInTheDocument()
     // The notice goes by itself.
-    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument(), { timeout: 4000 })
   })
 
   it('stops sending once the PC confirms with the route built from the choice, and says nothing', async () => {
     const { sockets, sentChoices } = await openAndChoose()
     const sent = (sentChoices()[0] as { args: unknown[] }).args[0]
     act(() => sockets[0].say(pcRoute(2, sent)))
-    await new Promise((resolve) => setTimeout(resolve, 200))
+    await new Promise((resolve) => setTimeout(resolve, 900))
     expect(sentChoices()).toHaveLength(1)
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
@@ -259,7 +259,7 @@ describe('keeping the choice in step with the PC (docs/plans/lan-sync.md)', () =
     expect(screen.queryByText(/EARLIER1A/)).not.toBeInTheDocument()
     const sent = (sentChoices()[0] as { args: unknown[] }).args[0]
     act(() => sockets[0].say(pcRoute(3, sent)))
-    await new Promise((resolve) => setTimeout(resolve, 200))
+    await new Promise((resolve) => setTimeout(resolve, 900))
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })

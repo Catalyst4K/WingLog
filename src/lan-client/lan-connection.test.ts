@@ -392,6 +392,46 @@ describe('LanConnection', () => {
       })
     })
 
+    describe('telling the PC what it gave up on', () => {
+      beforeEach(() => void vi.spyOn(Math, 'random').mockReturnValue(1))
+      afterEach(() => void vi.restoreAllMocks())
+
+      const reports = (sockets: FakeSocket[]) =>
+        sockets[0].sent.filter((m) => (m as { t: string }).t === 'report')
+
+      it('sends a report with a fixed code when a lookup is given up on after its last try', async () => {
+        const { link, sockets } = liveLink()
+        const outcome = link.query('navdata.listSids', 'ZUCK', null).catch((e: Error) => e.message)
+        for (let id = 1; id <= 4; id++) {
+          sockets[0].say({ t: 'result', id, error: true })
+          wait(sockets, 4000)
+        }
+        expect(await outcome).toBe('The PC could not answer')
+        expect(reports(sockets)).toEqual([{ t: 'report', code: 'query-failed:navdata.listSids' }])
+      })
+
+      it('says nothing about a lookup that is not in the PC’s table, whose name the PC would refuse', async () => {
+        const { link, sockets } = liveLink()
+        const outcome = link.query('made.up').catch((e: Error) => e.message)
+        for (let id = 1; id <= 4; id++) {
+          sockets[0].say({ t: 'result', id, error: true })
+          wait(sockets, 4000)
+        }
+        await outcome
+        expect(reports(sockets)).toEqual([])
+      })
+
+      it('sends a report only while connected', () => {
+        const { link, sockets } = liveLink()
+        link.report('route-missing')
+        expect(reports(sockets)).toEqual([{ t: 'report', code: 'route-missing' }])
+        sockets[0].drop()
+        link.report('route-missing')
+        expect(reports(sockets)).toHaveLength(1)
+        expect(() => setup('tok').link.report('route-missing')).not.toThrow()
+      })
+    })
+
     describe('sharing and keeping answers', () => {
       it('sends one request for the same lookup asked twice, and answers both', async () => {
         const { link, sockets } = liveLink()

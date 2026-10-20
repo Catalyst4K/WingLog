@@ -2,6 +2,7 @@ import { createServer, request } from 'node:http'
 import { type AddressInfo } from 'node:net'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { WebSocket } from 'ws'
+import { logger } from '../logging/logger'
 import { LiveHub } from '../live/LiveHub'
 import { hashToken } from './pairing'
 import {
@@ -16,6 +17,8 @@ import {
   MAX_UNAUTHENTICATED_PER_ADDRESS,
   type LanServerDeps
 } from './LanServer'
+
+vi.mock('../logging/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn() } }))
 
 const HOST = '127.0.0.1'
 
@@ -624,6 +627,99 @@ describe('LanServer', () => {
       await client.waitFor(() => client.received.some((m) => m.t === 'topic' && m.name === 'plannedRoute'))
       expect(client.received.find((m) => m.t === 'topic' && m.name === 'plannedRoute')).toMatchObject({
         payload: { revision: 2 }
+      })
+    })
+
+    describe('the log (docs/plans/lan-sync.md, step 4)', () => {
+      const logged = (level: 'info' | 'warn'): string[] =>
+        vi.mocked(logger[level]).mock.calls.map((call) => String(call[0]))
+
+      it('writes one line a round for the messages it refused as busy, with the device and the count', async () => {
+        vi.mocked(logger.warn).mockClear()
+        const { pair } = await setup({ now: () => 1_000_000, heartbeatMs: 40 })
+        const { client } = await pair()
+        for (let i = 0; i < RATE_BURST + 7; i++) client.send({ t: 'cmd', name: 'gsx.toggleMenu', args: [] })
+        await vi.waitFor(() => expect(logged('warn').some((l) => l.includes('refused as busy'))).toBe(true))
+        const line = logged('warn').find((l) => l.includes('refused as busy'))!
+        expect(line).toMatch(/^\[lan\] device 1: \d+ messages refused as busy/)
+        // A quiet round writes nothing more.
+        const count = logged('warn').filter((l) => l.includes('refused as busy')).length
+        await new Promise((resolve) => setTimeout(resolve, 120))
+        expect(logged('warn').filter((l) => l.includes('refused as busy')).length).toBe(count)
+      })
+
+      it('writes a line when it closes a socket for ignoring the wait', async () => {
+        vi.mocked(logger.warn).mockClear()
+        const { pair } = await setup({ now: () => 1_000_000 })
+        const { client } = await pair()
+        for (let i = 0; i < RATE_BURST + ABUSE_FACTOR * RATE_PER_SECOND + 5; i++)
+          client.send({ t: 'cmd', name: 'gsx.toggleMenu', args: [] })
+        await client.waitFor(() => client.closed)
+        expect(logged('warn').some((l) => l.includes('closed for sending far more'))).toBe(true)
+      })
+
+      it('writes the name of a lookup it refused, made safe, and never its arguments', async () => {
+        vi.mocked(logger.warn).mockClear()
+        const { pair } = await setup()
+        const { client } = await pair()
+        client.send({ t: 'query', id: 1, name: 'steal\nthe.token', args: ['secret-value'] })
+        client.send({ t: 'query', id: 2, name: 'echo', args: [1, 2, 3, 4, 5, 6, 7] })
+        await client.waitFor(() => client.received.filter((m) => m.t === 'result').length === 2)
+        const lines = logged('warn').join('\n')
+        expect(lines).toContain('lookup refused (unknown lookup "steal?the.token")')
+        expect(lines).toContain('lookup refused (bad arguments "echo")')
+        expect(lines).not.toContain('secret-value')
+      })
+
+      it('writes the name and the reason when a lookup fails, and how long a slow one took', async () => {
+        vi.mocked(logger.warn).mockClear()
+        vi.mocked(logger.info).mockClear()
+        let t = 0
+        const { pair } = await setup({ now: () => (t += 2500) })
+        const { client } = await pair()
+        client.send({ t: 'query', id: 1, name: 'broken' })
+        client.send({ t: 'query', id: 2, name: 'later', args: ['x'] })
+        await client.waitFor(() => client.received.filter((m) => m.t === 'result').length === 2)
+        expect(logged('warn')).toContain('[lan] lookup "broken" failed: no')
+        expect(logged('info').some((l) => /^\[lan\] lookup "later" took \d+ ms$/.test(l))).toBe(true)
+      })
+
+      it('writes what a device reports, from the fixed list only, and the same one at most once a minute', async () => {
+        vi.mocked(logger.warn).mockClear()
+        let now = 1_000_000
+        const { pair } = await setup({ now: () => now })
+        const { client } = await pair()
+        const report = (code: unknown): void => client.send({ t: 'report', code })
+        report('selection-unconfirmed')
+        report('selection-unconfirmed')
+        report('query-failed:navdata.listSids')
+        report('query-failed:not.a.lookup')
+        report('anything I like \n [lan] fake line')
+        report(42)
+        await vi.waitFor(() => expect(logged('warn').filter((l) => l.includes('device 1')).length).toBe(3))
+        const lines = logged('warn')
+        expect(lines.filter((l) => l === '[lan] device 1 reports selection-unconfirmed')).toHaveLength(1)
+        expect(lines).toContain('[lan] device 1 reports query-failed:navdata.listSids')
+        // Anything else is one generic line, not the device's own words.
+        expect(lines.filter((l) => l.includes('a report the PC does not know'))).toHaveLength(1)
+        expect(lines.join('')).not.toContain('fake line')
+        // A minute on, it is written again.
+        now += 61_000
+        report('selection-unconfirmed')
+        await vi.waitFor(() =>
+          expect(
+            logged('warn').filter((l) => l === '[lan] device 1 reports selection-unconfirmed')
+          ).toHaveLength(2)
+        )
+      })
+
+      it('ignores a report from a socket that is not paired', async () => {
+        vi.mocked(logger.warn).mockClear()
+        const { connect } = await setup()
+        const stranger = await connect()
+        stranger.send({ t: 'report', code: 'route-missing' })
+        await new Promise((resolve) => setTimeout(resolve, 60))
+        expect(logged('warn').some((l) => l.includes('reports'))).toBe(false)
       })
     })
 

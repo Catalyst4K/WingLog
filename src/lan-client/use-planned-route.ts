@@ -1,10 +1,13 @@
 /** The route the second screen draws: the one the PC builds and pushes (winglog-backend's docs/plans/lan-sync.md). */
 
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import type { LanFlightSnapshot } from '@shared/ipc'
 import { segmentWaypoints, type Waypoint } from '@shared/route'
 import type { LanConnection } from './lan-connection'
 import { useTopic } from './use-link'
+
+/** How long a flight can be shown without a route from the PC before the page tells the PC, in milliseconds. */
+const ROUTE_WAIT_MS = 10_000
 
 /**
  * The planned route of the flight shown. The PC builds it from the flight's plan and the procedures chosen, so the page needs no
@@ -19,6 +22,12 @@ export function usePlannedWaypoints(link: LanConnection, snapshot: LanFlightSnap
   const route = useTopic(link, 'plannedRoute')
   const flightId = snapshot?.flight.flightId
   const ofpJson = snapshot?.flight.ofpJson ?? null
+  const missing = flightId !== undefined && !(route && route.flightId === flightId)
+  useEffect(() => {
+    if (!missing) return
+    const timer = setTimeout(() => link.report('route-missing'), ROUTE_WAIT_MS)
+    return () => clearTimeout(timer)
+  }, [missing, link])
   return useMemo(() => {
     if (flightId === undefined) return []
     return route && route.flightId === flightId ? route.waypoints : segmentWaypoints(ofpJson)

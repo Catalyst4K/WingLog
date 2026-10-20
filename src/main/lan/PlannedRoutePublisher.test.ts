@@ -6,7 +6,10 @@ import { emptyProcedureSelection } from '@shared/procedure-selection'
 import { createAircraft } from '../db/aircraft-repo'
 import { createDb } from '../db/client'
 import { createFlight, setSelectedProcedures, startFlight } from '../db/flight-repo'
+import { logger } from '../logging/logger'
 import { PlannedRoutePublisher } from './PlannedRoutePublisher'
+
+vi.mock('../logging/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn() } }))
 
 const OFP_JSON = JSON.stringify({
   general: { sid_ident: 'BPK7F' },
@@ -175,6 +178,23 @@ describe('PlannedRoutePublisher', () => {
     t.publisher.refresh()
     expect(first.id).not.toBe(second.id)
     expect(t.sent.at(-1)).toMatchObject({ flightId: second.id, revision: 1 })
+  })
+
+  it('writes a line for each route it publishes: the flight, the revision, the procedures and how many legs each brought', () => {
+    vi.mocked(logger.info).mockClear()
+    const t = build({ legsOf: (id) => [leg(id), leg(id + 'B')] })
+    createFlight(t.db, { aircraftId: t.aircraftId, depIcao: 'EGLL', arrIcao: 'KJFK', ofpJson: OFP_JSON })
+    t.choose({
+      ...emptyProcedureSelection(),
+      sidIdent: 'VILU1Z',
+      departureRunway: '03L',
+      starIdent: 'SIER7C'
+    })
+    t.publisher.refresh()
+    t.publisher.refresh()
+    expect(vi.mocked(logger.info).mock.calls.map((c) => c[0])).toEqual([
+      '[lan] route for flight 1 r1: SID VILU1Z 03L, STAR SIER7C, approach - (sid 2, star 2, approach 0 legs)'
+    ])
   })
 
   it('can send the route last published again, unchanged, and counts what it has published', () => {

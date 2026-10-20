@@ -9,6 +9,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { Duplex } from 'node:stream'
 import { WebSocketServer, type WebSocket } from 'ws'
 import { laneOf, type LanQueryLane } from '@shared/lan-queries'
+import { parseReport } from '@shared/lan-report'
 import type { LiveCommand, LiveSnapshot, LiveTopic } from '@shared/live'
 import { logger } from '../logging/logger'
 import type { LiveHub } from '../live/LiveHub'
@@ -61,6 +62,10 @@ export const RATE_PER_SECOND = 20
 export const ABUSE_FACTOR = 5
 /** What a device is told to wait before asking again when it has too many lookups waiting, in milliseconds. */
 const BUSY_RETRY_MS = 250
+/** A lookup that takes longer than this is written to the log, in milliseconds. */
+export const SLOW_QUERY_LOG_MS = 2000
+/** The most often one device's report of the same thing is written to the log, in milliseconds. */
+export const REPORT_LOG_INTERVAL_MS = 60_000
 /** A socket with more than this waiting to be sent is too slow to keep. */
 export const MAX_BUFFERED_BYTES = 1024 * 1024
 
@@ -103,6 +108,7 @@ type Incoming =
   | { t: 'hello'; token: unknown }
   | { t: 'cmd'; name: unknown; args: unknown }
   | { t: 'query'; id: unknown; name: unknown; args: unknown }
+  | { t: 'report'; code: unknown }
 
 /** A connected socket and what is known of it. */
 interface Client {
@@ -118,6 +124,10 @@ interface Client {
   refusedSince: number
   /** Queries asked and not yet answered, by lane. */
   pending: Record<LanQueryLane, number>
+  /** Messages refused as busy since the last heartbeat, for the log. */
+  busyRefusals: number
+  /** When each report from the device was last written to the log. */
+  reportedAt: Map<string, number>
   /** False from a ping until its pong: a socket still false at the next ping is dead (a locked phone, a dropped Wi-Fi). */
   alive: boolean
   authTimer: NodeJS.Timeout
@@ -234,6 +244,7 @@ export class LanServer {
   private pingClients(): void {
     this.syncFlight()
     for (const client of this.clients) {
+      this.logBusyRefusals(client)
       if (!client.alive) {
         client.socket.terminate()
         continue
@@ -242,6 +253,19 @@ export class LanServer {
       client.socket.ping()
       if (client.deviceId !== null) this.send(client, { t: 'hb' })
     }
+  }
+
+  /**
+   * Writes how many of a device's messages were refused as busy since the last round, once a round, so a flood is one line.
+   *
+   * @param client The device.
+   */
+  private logBusyRefusals(client: Client): void {
+    if (client.busyRefusals === 0) return
+    logger.warn(
+      `[lan] device ${client.deviceId ?? 'not paired'}: ${client.busyRefusals} messages refused as busy in the last ${(this.deps.heartbeatMs ?? HEARTBEAT_MS) / 1000} s`
+    )
+    client.busyRefusals = 0
   }
 
   private handleHttp(req: IncomingMessage, res: ServerResponse): void {
@@ -295,6 +319,8 @@ export class LanServer {
       refused: 0,
       refusedSince: this.deps.now(),
       pending: { fast: 0, slow: 0 },
+      busyRefusals: 0,
+      reportedAt: new Map(),
       alive: true,
       authTimer: setTimeout(() => socket.close(), this.deps.authTimeoutMs ?? AUTH_TIMEOUT_MS)
     }
@@ -320,6 +346,7 @@ export class LanServer {
     if (message.t === 'hello') return this.handleHello(client, message.token)
     if (client.deviceId === null) return
     if (message.t === 'query') return this.handleQuery(client, message)
+    if (message.t === 'report') return this.handleReport(client, message.code, now)
     try {
       dispatchCommand(this.deps.commands, message.name, message.args)
     } catch {
@@ -357,7 +384,11 @@ export class LanServer {
       client.refused = 0
     }
     client.refused += 1
+    client.busyRefusals += 1
     if (client.refused > ABUSE_FACTOR * RATE_PER_SECOND) {
+      logger.warn(
+        `[lan] device ${client.deviceId ?? 'not paired'}: closed for sending far more than it was told to wait for`
+      )
       client.socket.close()
       return
     }
@@ -383,21 +414,53 @@ export class LanServer {
       typeof name === 'string' && Object.hasOwn(this.deps.queries, name) ? this.deps.queries[name] : null
     const args = message.args === undefined ? [] : message.args
     if (!query || !Array.isArray(args) || args.length > MAX_QUERY_ARGS) {
+      logger.warn(
+        `[lan] device ${client.deviceId}: lookup refused (${query ? 'bad arguments' : 'unknown lookup'} ${logName(name)})`
+      )
       this.send(client, { t: 'result', id, error: true })
       return
     }
     const lane = laneOf(name as string)
     if (client.pending[lane] >= (lane === 'slow' ? MAX_PENDING_SLOW : MAX_PENDING_FAST)) {
+      client.busyRefusals += 1
       this.send(client, { t: 'result', id, error: true, busy: true, retryAfterMs: BUSY_RETRY_MS })
       return
     }
     client.pending[lane] += 1
+    const startedAt = this.deps.now()
     new Promise((resolve) => resolve(query(...(args as unknown[]))))
       .then(
-        (data) => this.send(client, { t: 'result', id, data }),
-        () => this.send(client, { t: 'result', id, error: true })
+        (data) => {
+          const tookMs = this.deps.now() - startedAt
+          if (tookMs > SLOW_QUERY_LOG_MS) logger.info(`[lan] lookup ${logName(name)} took ${tookMs} ms`)
+          this.send(client, { t: 'result', id, data })
+        },
+        (error: unknown) => {
+          logger.warn(
+            `[lan] lookup ${logName(name)} failed: ${error instanceof Error ? error.message : String(error)}`
+          )
+          this.send(client, { t: 'result', id, error: true })
+        }
       )
       .finally(() => (client.pending[lane] -= 1))
+  }
+
+  /**
+   * Writes what a device says it gave up on to the log, so both sides of a problem are there. Only a code from the fixed list is
+   * written, and the same one from the same device at most once a minute.
+   *
+   * @param client The device.
+   * @param code What it sent.
+   * @param now The time, in milliseconds.
+   */
+  private handleReport(client: Client, code: unknown, now: number): void {
+    const known = parseReport(code)
+    const key = known ?? 'unknown'
+    const last = client.reportedAt.get(key)
+    if (last !== undefined && now - last < REPORT_LOG_INTERVAL_MS) return
+    client.reportedAt.set(key, now)
+    if (known) logger.warn(`[lan] device ${client.deviceId} reports ${known}`)
+    else logger.warn(`[lan] device ${client.deviceId} sent a report the PC does not know`)
   }
 
   private handlePair(client: Client, message: { code: unknown; name?: unknown }, now: number): void {
@@ -491,6 +554,14 @@ export class LanServer {
 }
 
 /**
+ * @param name A lookup's name as a device sent it.
+ * @returns A short, safe version of it for the log: a device is not trusted to write what it likes there.
+ */
+function logName(name: unknown): string {
+  return typeof name === 'string' ? `"${name.slice(0, 40).replace(/[^\w.:-]/g, '?')}"` : '(not a name)'
+}
+
+/**
  * What the page may load: its own files, the map tiles and style from OpenFreeMap, and its WebSocket back to this server, nothing else.
  *
  * @param host The host (with port) this server is bound to.
@@ -539,5 +610,6 @@ function parseIncoming(text: string): Incoming | null {
   if (record.t === 'hello') return { t: 'hello', token: record.token }
   if (record.t === 'cmd') return { t: 'cmd', name: record.name, args: record.args }
   if (record.t === 'query') return { t: 'query', id: record.id, name: record.name, args: record.args }
+  if (record.t === 'report') return { t: 'report', code: record.code }
   return null
 }
