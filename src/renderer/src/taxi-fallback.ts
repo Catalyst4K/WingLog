@@ -8,6 +8,7 @@
 import type { NavdataTaxiSegment } from '@shared/ipc'
 import { itemAt } from '@shared/item-at'
 import { MinQueue } from './min-queue'
+import { startOfRunwayHolds, type RunwayThreshold } from './taxi-runway-hold'
 import {
   buildGraph,
   edgesOf,
@@ -118,7 +119,8 @@ function destinationNodes(graph: Graph, request: TaxiTraceRequest): number[] {
   }
   const nearThreshold = (): number[] =>
     runwayThreshold ? nodes.filter(([i]) => isHoldShortNear(graph, i, runwayThreshold)).map(([i]) => i) : []
-  if (!holdingPoint) return nearThreshold()
+  if (!holdingPoint)
+    return runwayThreshold ? startOfRunwayNodes(graph, request.segments, runwayThreshold) : []
   const byRunway = holdNodeByRunway(graph, holdingPoint, runwayThreshold ?? null)
   if (byRunway >= 0) return [byRunway]
   const onHoldingPoint = nodes
@@ -126,6 +128,24 @@ function destinationNodes(graph: Graph, request: TaxiTraceRequest): number[] {
     .map(([i]) => i)
   // A holding point the data has no taxiway for (or no hold short on): the hold shorts by the cleared runway's threshold.
   return onHoldingPoint.length > 0 ? onHoldingPoint : nearThreshold()
+}
+
+/**
+ * Where a clearance that names only the runway ends: the hold short at the very start of the runway, for a full-length departure.
+ *
+ * @param graph The network's graph.
+ * @param segments The taxi network.
+ * @param threshold The cleared runway's threshold.
+ * @returns The nodes of the start-of-runway hold shorts, one a side.
+ */
+function startOfRunwayNodes(
+  graph: Graph,
+  segments: NavdataTaxiSegment[],
+  threshold: RunwayThreshold
+): number[] {
+  return startOfRunwayHolds(segments, threshold)
+    .map((p) => graph.nodeIndex.get(nodeKey(p.lat, p.lon)) ?? -1)
+    .filter((n) => n >= 0)
 }
 
 /**

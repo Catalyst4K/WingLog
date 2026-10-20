@@ -99,6 +99,23 @@ describe('findTaxiPath', () => {
     expect(route?.at(-1)).toEqual([stand.lon, stand.lat])
   })
 
+  it('goes to the hold short at the very start of the runway when only the runway is named, past one reached first', () => {
+    // A second entry 72 m along the runway (P6), with the aircraft right beside it: the full-length departure's hold short is P5.
+    const P6: [number, number] = [29.715, 106.6637]
+    const route = findTaxiPath(
+      request({
+        segments: [...NETWORK, seg(P5, P6, 'H2', true)],
+        from: { lat: P6[0], lon: P6[1] },
+        taxiways: [],
+        holdingPoint: null,
+        // The runway's centreline 22 m north of the hold shorts, so both are on the same side of it.
+        runwayThreshold: { lat: P5[0] + 0.0002, lon: P5[1] + 0.0005, headingDeg: 90 }
+      })
+    )
+    expect(route?.[0]).toEqual(lonLat(P6))
+    expect(route?.at(-1)).toEqual(lonLat(P5))
+  })
+
   it('goes to the hold short by the threshold when only the runway is named', () => {
     const route = findTaxiPath(
       request({

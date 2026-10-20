@@ -32,6 +32,7 @@ import {
   clearanceAirport,
   clearanceRunway,
   clearanceRunwayThreshold,
+  isRunwayOnly,
   startOf,
   traceClearanceDetailed,
   type TaxiClearance
@@ -191,7 +192,13 @@ export function useClearanceRunway(
     threshold: { lat: number; lon: number }
   } | null>(null)
   const ident =
-    enabled && clearance?.holdingPoint && clearance.taxiToRunway && icao ? clearance.taxiToRunway : null
+    enabled &&
+    clearance &&
+    (clearance.holdingPoint || isRunwayOnly(clearance)) &&
+    clearance.taxiToRunway &&
+    icao
+      ? clearance.taxiToRunway
+      : null
   useEffect(() => {
     if (!ident || !icao) return
     let ignore = false

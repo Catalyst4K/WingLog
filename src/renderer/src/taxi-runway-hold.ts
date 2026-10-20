@@ -62,6 +62,31 @@ function holdPointsNear(
 }
 
 /**
+ * The hold shorts at the very start of the runway, one on each side of it: of those near the threshold, the furthest back along the
+ * runway on either side. A clearance that names only the runway ends at one of these (a full-length departure).
+ *
+ * @param segments The airport's taxi network.
+ * @param threshold The runway's threshold.
+ * @returns The furthest-back hold short of each side. Every hold short near the threshold when the runway's heading is not known.
+ */
+export function startOfRunwayHolds(
+  segments: NavdataTaxiSegment[],
+  threshold: RunwayThreshold
+): { lat: number; lon: number }[] {
+  const near = holdPointsNear(segments, threshold)
+  const heading = threshold.headingDeg
+  if (heading === undefined) return near
+  const bySide = new Map<number, { lat: number; lon: number; along: number }>()
+  for (const point of near) {
+    const { along, across } = alongAndAcross(point, threshold, heading)
+    const side = Math.sign(across)
+    const best = bySide.get(side)
+    if (!best || along < best.along) bySide.set(side, { ...point, along })
+  }
+  return [...bySide.values()].map(({ lat, lon }) => ({ lat, lon }))
+}
+
+/**
  * The hold short at the very start of the runway, on the side the route reached it from: of the hold shorts near the threshold that
  * are on the same side of the runway as the one the search reached first, the one furthest back along the runway.
  *

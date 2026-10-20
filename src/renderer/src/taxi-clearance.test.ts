@@ -1,6 +1,6 @@
 import type { NavdataTaxiSegment } from '@shared/ipc'
 import { describe, expect, it } from 'vitest'
-import { boxTaxiClearance, clearanceAirport, startOf, traceClearance } from './taxi-clearance'
+import { boxTaxiClearance, clearanceAirport, isRunwayOnly, startOf, traceClearance } from './taxi-clearance'
 
 describe('boxTaxiClearance', () => {
   it('reads a departure clearance to a holding point (real VHHH boxes, 2026-10-05)', () => {
@@ -67,6 +67,40 @@ describe('boxTaxiClearance', () => {
   it('is null when the boxes hold no taxi route', () => {
     expect(boxTaxiClearance([{ title: 'Expect Gate', info: 'Gate 102' }])).toBeNull()
     expect(boxTaxiClearance([])).toBeNull()
+  })
+})
+
+describe('boxTaxiClearance with only the Taxi to Runway box (ZUCK 2026-10-20, the clearance-delivery boxes)', () => {
+  const boxes = [
+    { title: 'Taxi to Runway', info: '03L' },
+    { title: 'SID', info: 'VILU1Z' },
+    { title: 'Altitude Clearance', info: '2,100m' },
+    { title: 'Squawk', info: '2325' }
+  ]
+
+  it('is a clearance to the runway alone, with no taxiways, holding point or stand', () => {
+    const clearance = boxTaxiClearance(boxes)
+    expect(clearance).toEqual({
+      taxiways: [],
+      holdingPoint: null,
+      stand: null,
+      holdShortRunway: null,
+      taxiToRunway: '03L'
+    })
+    expect(clearance && isRunwayOnly({ ...clearance, from: null })).toBe(true)
+  })
+
+  it('is at the departure airport, and no longer runway-only once it has a holding point or a stand', () => {
+    const runwayOnly = { ...(boxTaxiClearance(boxes) as object), from: null } as Parameters<
+      typeof clearanceAirport
+    >[0]
+    expect(clearanceAirport(runwayOnly, 'ZUCK', 'VHHH', {})).toBe('ZUCK')
+    expect(isRunwayOnly({ ...runwayOnly, holdingPoint: 'H1' })).toBe(false)
+    expect(isRunwayOnly({ ...runwayOnly, stand: '656' })).toBe(false)
+  })
+
+  it('is no clearance without a Taxi to Runway box', () => {
+    expect(boxTaxiClearance(boxes.slice(1))).toBeNull()
   })
 })
 
