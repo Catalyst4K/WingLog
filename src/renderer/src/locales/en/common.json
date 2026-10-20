@@ -70,6 +70,13 @@
       "dark": "Dark",
       "system": "System"
     },
+    "window": {
+      "cardTitle": "Window",
+      "minimizeLabel": "When I minimise the window",
+      "taskbar": "Taskbar",
+      "tray": "System tray",
+      "description": "In the tray, WingLog takes no taskbar space and carries on tracking and serving the second screen. Click the tray icon to bring the window back. Closing the window still quits."
+    },
     "credentials": {
       "cardTitle": "Credentials",
       "description": "Used by Dispatch to fetch and generate plans on SimBrief.",
@@ -502,6 +509,12 @@
   },
   "useConfirm": {
     "back": "Back"
+  },
+  "closeConfirm": {
+    "title": "Close WingLog?",
+    "description": "A flight is in progress. If you close WingLog now, tracking stops, but the flight is kept and you can resume or discard it when you open WingLog again. To keep the window out of the way, minimise it instead.",
+    "close": "Close WingLog",
+    "keepOpen": "Keep open"
   },
   "dispatchView": {
     "lastParkedHere": "Last parked here at stand {{stand}} — choose it as your starting gate in MSFS.",

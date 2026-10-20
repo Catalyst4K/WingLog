@@ -68,6 +68,13 @@
       "dark": "深色",
       "system": "跟随系统"
     },
+    "window": {
+      "cardTitle": "窗口",
+      "minimizeLabel": "最小化窗口时",
+      "taskbar": "任务栏",
+      "tray": "系统托盘",
+      "description": "放入托盘后，WingLog 不占用任务栏，仍会继续记录航班并服务第二屏幕。点击托盘图标即可重新打开窗口。关闭窗口仍会退出 WingLog。"
+    },
     "credentials": {
       "cardTitle": "账号凭据",
       "description": "供签派用于在 SimBrief 上获取和生成计划。",
@@ -496,6 +503,12 @@
   },
   "useConfirm": {
     "back": "返回"
+  },
+  "closeConfirm": {
+    "title": "关闭 WingLog？",
+    "description": "有一个航班正在进行。现在关闭 WingLog 会停止记录，但航班会保留，下次打开 WingLog 时可以继续或放弃。如果只是想让窗口不碍事，请改为最小化。",
+    "close": "关闭 WingLog",
+    "keepOpen": "保持打开"
   },
   "dispatchView": {
     "lastParkedHere": "上次停在这里的 {{stand}} 号机位，可在 MSFS 中选它作为起始机位。",

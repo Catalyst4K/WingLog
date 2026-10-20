@@ -86,6 +86,7 @@ import type {
   UpdateInstallOutcome,
   UpdateSettings,
   UpdateStatus,
+  WindowSettings,
   WeightUnit,
   WindSpeedUnit
 } from './types/settings'
@@ -543,6 +544,11 @@ export interface WingLogApi {
   beyondAtcSetAutoRespond: (value: boolean) => Promise<void>
   settingsGetUpdates: () => Promise<UpdateSettings>
   settingsSetUpdates: (settings: UpdateSettings) => Promise<void>
+  /** Main asks whether to close WingLog while a flight is in progress; answer with closeConfirmAnswer (true to close). */
+  onCloseConfirmRequested: (listener: () => void) => () => void
+  closeConfirmAnswer: (close: boolean) => Promise<void>
+  settingsGetWindow: () => Promise<WindowSettings>
+  settingsSetWindow: (settings: Pick<WindowSettings, 'minimizeToTray'>) => Promise<void>
   /** The room left on the drive holding WingLog's data, and whether saving is failing: for the first render of the low-disk warning. */
   getStorageStatus: () => Promise<StorageStatus>
   /** Pushed when the free space crosses a warning level, or saving starts or stops failing. */

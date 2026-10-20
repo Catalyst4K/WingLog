@@ -68,6 +68,13 @@
       "dark": "深色",
       "system": "跟隨系統"
     },
+    "window": {
+      "cardTitle": "視窗",
+      "minimizeLabel": "最小化視窗時",
+      "taskbar": "工作列",
+      "tray": "系統匣",
+      "description": "放入系統匣後，WingLog 不占用工作列，仍會繼續記錄航班並服務第二螢幕。點擊系統匣圖示即可重新開啟視窗。關閉視窗仍會結束 WingLog。"
+    },
     "credentials": {
       "cardTitle": "帳號憑證",
       "description": "供簽派用於在 SimBrief 上取得與產生計畫。",
@@ -496,6 +503,12 @@
   },
   "useConfirm": {
     "back": "返回"
+  },
+  "closeConfirm": {
+    "title": "要關閉 WingLog 嗎？",
+    "description": "有一個航班正在進行。現在關閉 WingLog 會停止記錄，但航班會保留，下次開啟 WingLog 時可以繼續或捨棄。如果只是想讓視窗不礙事，請改為最小化。",
+    "close": "關閉 WingLog",
+    "keepOpen": "保持開啟"
   },
   "dispatchView": {
     "lastParkedHere": "上次停在這裡的 {{stand}} 號機位，可在 MSFS 中選它作為起始機位。",

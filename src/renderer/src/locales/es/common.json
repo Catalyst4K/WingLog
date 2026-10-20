@@ -70,6 +70,13 @@
       "dark": "Oscuro",
       "system": "Sistema"
     },
+    "window": {
+      "cardTitle": "Ventana",
+      "minimizeLabel": "Al minimizar la ventana",
+      "taskbar": "Barra de tareas",
+      "tray": "Bandeja del sistema",
+      "description": "En la bandeja, WingLog no ocupa espacio en la barra de tareas y sigue registrando y sirviendo la segunda pantalla. Haz clic en el icono para recuperar la ventana. Cerrar la ventana sigue cerrando WingLog."
+    },
     "credentials": {
       "cardTitle": "Credenciales",
       "description": "Usado por Despacho para obtener y generar planes en SimBrief.",
@@ -504,6 +511,12 @@
   },
   "useConfirm": {
     "back": "Atrás"
+  },
+  "closeConfirm": {
+    "title": "¿Cerrar WingLog?",
+    "description": "Hay un vuelo en curso. Si cierras WingLog ahora, el seguimiento se detiene, pero el vuelo se conserva y podrás reanudarlo o descartarlo al abrir WingLog de nuevo. Para quitar la ventana de en medio, minimízala.",
+    "close": "Cerrar WingLog",
+    "keepOpen": "Mantener abierto"
   },
   "dispatchView": {
     "lastParkedHere": "Último aparcamiento aquí: puesto {{stand}}. Elígelo como puerta de salida en MSFS.",

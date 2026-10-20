@@ -45,5 +45,11 @@
   "labels": {
     "unknownRegistration": "（未知）",
     "unreadableRow": "（无法读取的行）"
+  },
+  "tray": {
+    "open": "打开 WingLog",
+    "quit": "退出 WingLog",
+    "tooltip": "WingLog",
+    "tooltipTracking": "WingLog：正在记录航班"
   }
 }

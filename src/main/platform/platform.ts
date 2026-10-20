@@ -26,6 +26,16 @@ export function canHostSim(platform: Platform = currentPlatform()): boolean {
 }
 
 /**
+ * Whether WingLog can minimise to a tray icon. Windows only for now (winglog-backend's docs/plans/tray.md).
+ *
+ * @param platform The platform to ask about; defaults to this machine's.
+ * @returns True on Windows.
+ */
+export function canShowTray(platform: Platform = currentPlatform()): boolean {
+  return platform === 'win32'
+}
+
+/**
  * Whether closing the last window quits the app. macOS keeps an app running with no window, ready to reopen; Windows and Linux quit.
  *
  * @param platform The platform to ask about; defaults to this machine's.

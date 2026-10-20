@@ -71,12 +71,15 @@ test('browses to a completed flight, sees its landing/track detail, and deletes 
     const confirmDialog = window.getByRole('alertdialog')
     await expect(confirmDialog.getByRole('heading', { name: 'Delete this flight?' })).toBeVisible()
     await confirmDialog.getByRole('button', { name: 'Delete flight' }).click()
-    // It was the aircraft's most recent flight, so deleting it asks where the aircraft should be parked (the move-back choice itself is
-    // covered in LogbookView.test.tsx, this keeps the seeded flight's shared database simple).
-    const parkedDialog = window.getByRole('alertdialog', { name: 'Where should the aircraft be parked?' })
-    await expect(parkedDialog).toBeVisible()
-    await parkedDialog.getByRole('button', { name: 'Keep at EGCC' }).click()
-    await expect(window.getByRole('alertdialog')).toHaveCount(0)
+    // The seeded flight is its aircraft's latest, so deleting it also asks where the aircraft should be parked.
+    await expect(
+      window.getByRole('alertdialog').getByRole('heading', { name: 'Where should the aircraft be parked?' })
+    ).toBeVisible()
+    await window
+      .getByRole('alertdialog')
+      .getByRole('button', { name: /^Keep at / })
+      .click()
+    await expect(confirmDialog).toBeHidden()
 
     // Navigating away unmounts FlightDetail's FlightMap (a real maplibre-gl/WebGL map) —
     // a generous timeout here, since that teardown plus flightDelete's IPC round trip and

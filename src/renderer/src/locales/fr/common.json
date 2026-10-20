@@ -70,6 +70,13 @@
       "dark": "Sombre",
       "system": "Système"
     },
+    "window": {
+      "cardTitle": "Fenêtre",
+      "minimizeLabel": "Quand je réduis la fenêtre",
+      "taskbar": "Barre des tâches",
+      "tray": "Zone de notification",
+      "description": "Dans la zone de notification, WingLog n’occupe pas la barre des tâches et continue le suivi et le second écran. Cliquez sur l’icône pour rouvrir la fenêtre. Fermer la fenêtre quitte toujours WingLog."
+    },
     "credentials": {
       "cardTitle": "Identifiants",
       "description": "Utilisé par Régulation pour récupérer et générer des plans sur SimBrief.",
@@ -504,6 +511,12 @@
   },
   "useConfirm": {
     "back": "Retour"
+  },
+  "closeConfirm": {
+    "title": "Fermer WingLog ?",
+    "description": "Un vol est en cours. Si vous fermez WingLog maintenant, le suivi s’arrête, mais le vol est conservé et vous pourrez le reprendre ou l’abandonner à la prochaine ouverture de WingLog. Pour écarter la fenêtre, réduisez-la plutôt.",
+    "close": "Fermer WingLog",
+    "keepOpen": "Garder ouvert"
   },
   "dispatchView": {
     "lastParkedHere": "Dernier stationnement ici au poste {{stand}} — choisissez-le comme porte de départ dans MSFS.",

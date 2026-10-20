@@ -70,6 +70,13 @@
       "dark": "Scuro",
       "system": "Sistema"
     },
+    "window": {
+      "cardTitle": "Finestra",
+      "minimizeLabel": "Quando riduco a icona la finestra",
+      "taskbar": "Barra delle applicazioni",
+      "tray": "Area di notifica",
+      "description": "Nell’area di notifica, WingLog non occupa spazio nella barra delle applicazioni e continua il tracciamento e il secondo schermo. Fai clic sull’icona per riaprire la finestra. Chiudere la finestra chiude comunque WingLog."
+    },
     "credentials": {
       "cardTitle": "Credenziali",
       "description": "Usato da Pianificazione per recuperare e generare piani su SimBrief.",
@@ -504,6 +511,12 @@
   },
   "useConfirm": {
     "back": "Indietro"
+  },
+  "closeConfirm": {
+    "title": "Chiudere WingLog?",
+    "description": "Un volo è in corso. Se chiudi WingLog ora, il tracciamento si interrompe, ma il volo viene conservato e potrai riprenderlo o scartarlo alla prossima apertura di WingLog. Per togliere di mezzo la finestra, riducila a icona.",
+    "close": "Chiudi WingLog",
+    "keepOpen": "Lascia aperto"
   },
   "dispatchView": {
     "lastParkedHere": "Ultimo parcheggio qui alla piazzola {{stand}}: sceglila come gate di partenza in MSFS.",

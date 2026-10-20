@@ -6,7 +6,13 @@
  */
 import { runLogged } from './logging/run-logged'
 import { join } from 'node:path'
-import { currentPlatform, quitsWhenAllWindowsClose } from './platform/platform'
+import { canShowTray, currentPlatform, quitsWhenAllWindowsClose } from './platform/platform'
+import { CloseGuard } from './window/CloseGuard'
+import { CloseQuestion } from './window/CloseQuestion'
+import { registerWindowHandlers } from './ipc/window-handlers'
+import { TrayController } from './window/TrayController'
+import { createElectronTray } from './window/electron-tray'
+import { trayIconPath } from './window/tray-icon-path'
 import { E2E_DISPLAY_ENV, E2E_WINDOW_ENV, chooseDisplay, windowShow } from './e2e-window'
 import { app, BrowserWindow, dialog, ipcMain, Menu, screen } from 'electron'
 import { IpcChannels } from '@shared/ipc'
@@ -21,9 +27,10 @@ import { startStorageMaintenance } from './db/storage-maintenance'
 import type { Database as SqliteDatabase } from 'better-sqlite3'
 import { migrateDb } from './db/migrate'
 import { migrateLegacyUserData } from './db/legacy-userdata'
-import { getFlight, setParkedStand } from './db/flight-repo'
+import { getFlight, getInProgressFlight, setParkedStand } from './db/flight-repo'
 import {
   getAppLanguage,
+  getMinimizeToTray,
   getSkippedUpdateVersion,
   getTrackingSettings,
   getUpdateSettings,
@@ -386,7 +393,8 @@ function startApp(): void {
 
   const updateService = startUpdates(db, window, () => trackingController.getActive() !== undefined)
   app.on('before-quit', () => updateService.stop())
-  registerSettingsHandlers(ipcMain, { db, trackingController })
+  const trayController = startWindowBehaviour(db, window, trackingController)
+  registerSettingsHandlers(ipcMain, { db, trackingController, trayController })
   registerAppHandlers(ipcMain, { updateService })
 
   registerNavdataHandlers(ipcMain, { navdataProvider })
@@ -414,6 +422,52 @@ function startApp(): void {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+}
+
+/**
+ * How the main window minimises and closes (winglog-backend's docs/plans/tray.md): minimising hides it to a tray
+ * icon, not the taskbar, while that setting is on; and closing asks first while a flight is being tracked.
+ *
+ * @param db The database, which holds the setting.
+ * @param window The main window.
+ * @param trackingController Says whether a flight is being tracked, for the tray's tooltip.
+ * @returns The controller, so Settings can apply a change at once.
+ */
+function startWindowBehaviour(
+  db: WingLogDb,
+  window: BrowserWindow,
+  trackingController: TrackingController
+): TrayController {
+  const iconPath = trayIconPath(app.isPackaged, process.resourcesPath, app.getAppPath())
+  const controller = new TrayController({
+    window,
+    isTrayAvailable: canShowTray(),
+    isMinimizeToTray: () => getMinimizeToTray(db),
+    isFlightActive: () => trackingController.getActive() !== undefined,
+    createTray: (actions) => createElectronTray(iconPath, actions),
+    quit: () => app.quit(),
+    translate: t
+  })
+  controller.start()
+  for (const event of ['started', 'stopped', 'completed'] as const) {
+    trackingController.on(event, () => controller.updateToolTip())
+  }
+  app.on('before-quit', () => controller.dispose())
+  const closeQuestion = new CloseQuestion({
+    send: () => window.webContents.send(IpcChannels.closeConfirmRequested),
+    isRendererReady: () => !window.isDestroyed() && !window.webContents.isLoading(),
+    showWindow: () => controller.showWindow()
+  })
+  registerWindowHandlers(ipcMain, { closeQuestion })
+  new CloseGuard({
+    window,
+    // A flight loaded with Fly counts before the sim connects and tracking starts. An e2e run closes the app mid-flight, with no one to answer.
+    isFlightInProgress: () =>
+      !process.env['WINGLOG_E2E_NO_CLOSE_PROMPT'] && getInProgressFlight(db) !== undefined,
+    confirmClose: () => closeQuestion.ask(),
+    onError: (error) => logger.warn('close confirmation failed:', error)
+  }).start()
+  return controller
 }
 
 /**
@@ -509,6 +563,8 @@ if (!gotSingleInstanceLock) {
     const [window] = BrowserWindow.getAllWindows()
     if (!window) return
     if (window.isMinimized()) window.restore()
+    // It may be hidden in the tray.
+    window.show()
     window.focus()
   })
 

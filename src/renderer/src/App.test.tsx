@@ -436,6 +436,8 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     appGetVersion: vi.fn().mockResolvedValue('1.0.0'),
     settingsGetUpdates: vi.fn().mockResolvedValue({ checkEnabled: true }),
     settingsSetUpdates: vi.fn().mockResolvedValue(undefined),
+    settingsGetWindow: vi.fn().mockResolvedValue({ minimizeToTray: false, trayAvailable: true }),
+    settingsSetWindow: vi.fn().mockResolvedValue(undefined),
     updatesGetStatus: vi.fn().mockResolvedValue({
       state: 'idle',
       currentVersion: '1.0.0',
@@ -444,6 +446,8 @@ function createWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
       skippedVersion: null
     }),
     onUpdateStatus: vi.fn().mockReturnValue(() => {}),
+    onCloseConfirmRequested: vi.fn().mockReturnValue(() => {}),
+    closeConfirmAnswer: vi.fn().mockResolvedValue(undefined),
     getStorageStatus: vi.fn().mockResolvedValue({ freeBytes: null, level: 'ok', saveFailing: false }),
     onStorageStatus: vi.fn().mockReturnValue(() => {}),
     updatesCheckNow: vi.fn().mockResolvedValue({
