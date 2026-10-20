@@ -162,6 +162,8 @@ export const IpcChannels = {
   beyondAtcSetAutoRespond: 'beyondatc:set-autorespond',
   settingsGetUpdates: 'settings:get-updates',
   settingsSetUpdates: 'settings:set-updates',
+  settingsGetWindow: 'settings:get-window',
+  settingsSetWindow: 'settings:set-window',
   updatesGetStatus: 'updates:get-status',
   updatesStatus: 'updates:status',
   updatesCheckNow: 'updates:check-now',

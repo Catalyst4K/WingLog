@@ -27,6 +27,9 @@ extraResources:
   # The user manual, built by `npm run manual:build` (package:win runs it first).
   - from: release/manual/WingLog Manual.pdf
     to: WingLog Manual.pdf
+  # The tray icon's picture (src/main/window/tray-icon-path.ts).
+  - from: build/icon.png
+    to: tray-icon.png
 
 # Windows is the primary target — MSFS (and therefore this app's real usage) is
 # Windows-only. macOS is built for development convenience; there is no plan to

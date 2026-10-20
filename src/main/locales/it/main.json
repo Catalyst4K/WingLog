@@ -45,5 +45,11 @@
   "labels": {
     "unknownRegistration": "(sconosciuta)",
     "unreadableRow": "(riga illeggibile)"
+  },
+  "tray": {
+    "open": "Apri WingLog",
+    "quit": "Esci da WingLog",
+    "tooltip": "WingLog",
+    "tooltipTracking": "WingLog: volo in registrazione"
   }
 }

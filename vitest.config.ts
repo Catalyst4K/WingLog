@@ -64,6 +64,8 @@ export default defineConfig({
         'src/main/index.ts',
         // electron-updater's configuration; the logic around it is update-install.ts.
         'src/main/updates/updater-engine.ts',
+        // The real Tray and Menu; the logic around them is TrayController.ts.
+        'src/main/window/electron-tray.ts',
         'src/preload/index.ts',
         'src/renderer/src/main.tsx',
         'src/lan-client/main.tsx',

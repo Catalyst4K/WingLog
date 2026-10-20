@@ -21,6 +21,7 @@ describe('settings IPC handlers', () => {
   let db: WingLogDb
   let invoke: ReturnType<typeof fakeIpc>['invoke']
   const setAutoFinish = vi.fn()
+  const syncTray = vi.fn()
 
   beforeEach(() => {
     db = createDb(':memory:').db
@@ -29,7 +30,12 @@ describe('settings IPC handlers', () => {
     setMainLanguage.mockClear()
     const ipc = fakeIpc()
     invoke = ipc.invoke
-    registerSettingsHandlers(ipc.ipcMain, { db, trackingController: { setAutoFinish } })
+    syncTray.mockClear()
+    registerSettingsHandlers(ipc.ipcMain, {
+      db,
+      trackingController: { setAutoFinish },
+      trayController: { sync: syncTray, isAvailable: true }
+    })
   })
 
   it('reads back each unit and preference it stores', () => {
@@ -54,6 +60,18 @@ describe('settings IPC handlers', () => {
       folderPath: 'C:\\GSX',
       displayCurrency: 'GBP'
     })
+  })
+
+  it('reads and saves the close-to-tray choice, tells the tray, and refuses anything else', () => {
+    expect(invoke(IpcChannels.settingsGetWindow)).toEqual({ closeToTray: false, trayAvailable: true })
+    invoke(IpcChannels.settingsSetWindow, { closeToTray: true })
+    expect(invoke(IpcChannels.settingsGetWindow)).toEqual({ closeToTray: true, trayAvailable: true })
+    expect(syncTray).toHaveBeenCalledTimes(1)
+    expect(() => invoke(IpcChannels.settingsSetWindow, { closeToTray: 'yes' })).toThrow(
+      'Invalid window settings'
+    )
+    expect(() => invoke(IpcChannels.settingsSetWindow, null)).toThrow('Invalid window settings')
+    expect(syncTray).toHaveBeenCalledTimes(1)
   })
 
   it('switches the main-process language with the OS locale, and reports that locale', () => {
@@ -99,7 +117,11 @@ describe('settings IPC handlers', () => {
     migrate(upgraded, { migrationsFolder: 'drizzle' })
     createAircraft(upgraded, { registration: 'G-EUPT', icaoType: 'A319' })
     const ipc = fakeIpc()
-    registerSettingsHandlers(ipc.ipcMain, { db: upgraded, trackingController: { setAutoFinish } })
+    registerSettingsHandlers(ipc.ipcMain, {
+      db: upgraded,
+      trackingController: { setAutoFinish },
+      trayController: { sync: syncTray, isAvailable: true }
+    })
     expect(ipc.invoke(IpcChannels.setupGetState)).toEqual({ show: false, whatsNew: true })
 
     getSetupContext.mockResolvedValueOnce({ simConnected: false })

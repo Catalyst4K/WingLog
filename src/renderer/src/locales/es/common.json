@@ -70,6 +70,13 @@
       "dark": "Oscuro",
       "system": "Sistema"
     },
+    "window": {
+      "cardTitle": "Ventana",
+      "closeLabel": "Al cerrar la ventana",
+      "quit": "Salir de WingLog",
+      "tray": "Seguir en la bandeja",
+      "description": "En la bandeja, el seguimiento y la segunda pantalla siguen funcionando sin la ventana. Haz clic en el icono para recuperarla."
+    },
     "credentials": {
       "cardTitle": "Credenciales",
       "description": "Usado por Despacho para obtener y generar planes en SimBrief.",

@@ -45,5 +45,11 @@
   "labels": {
     "unknownRegistration": "(unknown)",
     "unreadableRow": "(unreadable row)"
+  },
+  "tray": {
+    "open": "Open WingLog",
+    "quit": "Quit WingLog",
+    "tooltip": "WingLog",
+    "tooltipTracking": "WingLog: tracking a flight"
   }
 }

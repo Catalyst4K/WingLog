@@ -68,6 +68,13 @@
       "dark": "深色",
       "system": "跟随系统"
     },
+    "window": {
+      "cardTitle": "窗口",
+      "closeLabel": "关闭窗口时",
+      "quit": "退出 WingLog",
+      "tray": "在托盘中继续运行",
+      "description": "留在托盘中时，航班记录和第二屏幕无需窗口也能继续工作。点击托盘图标即可重新打开窗口。"
+    },
     "credentials": {
       "cardTitle": "账号凭据",
       "description": "供签派用于在 SimBrief 上获取和生成计划。",

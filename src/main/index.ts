@@ -6,7 +6,10 @@
  */
 import { runLogged } from './logging/run-logged'
 import { join } from 'node:path'
-import { currentPlatform, quitsWhenAllWindowsClose } from './platform/platform'
+import { canShowTray, currentPlatform, quitsWhenAllWindowsClose } from './platform/platform'
+import { TrayController } from './window/TrayController'
+import { createElectronTray } from './window/electron-tray'
+import { trayIconPath } from './window/tray-icon-path'
 import { E2E_DISPLAY_ENV, E2E_WINDOW_ENV, chooseDisplay, windowShow } from './e2e-window'
 import { app, BrowserWindow, dialog, ipcMain, Menu, screen } from 'electron'
 import { IpcChannels } from '@shared/ipc'
@@ -24,6 +27,7 @@ import { migrateLegacyUserData } from './db/legacy-userdata'
 import { getFlight, setParkedStand } from './db/flight-repo'
 import {
   getAppLanguage,
+  getCloseToTray,
   getSkippedUpdateVersion,
   getTrackingSettings,
   getUpdateSettings,
@@ -386,7 +390,8 @@ function startApp(): void {
 
   const updateService = startUpdates(db, window, () => trackingController.getActive() !== undefined)
   app.on('before-quit', () => updateService.stop())
-  registerSettingsHandlers(ipcMain, { db, trackingController })
+  const trayController = startTray(db, window, trackingController)
+  registerSettingsHandlers(ipcMain, { db, trackingController, trayController })
   registerAppHandlers(ipcMain, { updateService })
 
   registerNavdataHandlers(ipcMain, { navdataProvider })
@@ -414,6 +419,41 @@ function startApp(): void {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+}
+
+/**
+ * The "keep running in the tray" behaviour (winglog-backend's docs/plans/tray.md): closing the window hides it
+ * to a tray icon while the setting is on.
+ *
+ * @param db The database, which holds the setting.
+ * @param window The main window.
+ * @param trackingController Says whether a flight is being tracked, for the tray's tooltip.
+ * @returns The controller, so Settings can apply a change at once.
+ */
+function startTray(
+  db: WingLogDb,
+  window: BrowserWindow,
+  trackingController: TrackingController
+): TrayController {
+  const iconPath = trayIconPath(app.isPackaged, process.resourcesPath, app.getAppPath())
+  const controller = new TrayController({
+    window,
+    isTrayAvailable: canShowTray(),
+    isCloseToTray: () => getCloseToTray(db),
+    isFlightActive: () => trackingController.getActive() !== undefined,
+    createTray: (actions) => createElectronTray(iconPath, actions),
+    quit: () => app.quit(),
+    translate: t
+  })
+  controller.start()
+  for (const event of ['started', 'stopped', 'completed'] as const) {
+    trackingController.on(event, () => controller.updateToolTip())
+  }
+  app.on('before-quit', () => {
+    controller.markQuitting()
+    controller.dispose()
+  })
+  return controller
 }
 
 /**
@@ -509,6 +549,8 @@ if (!gotSingleInstanceLock) {
     const [window] = BrowserWindow.getAllWindows()
     if (!window) return
     if (window.isMinimized()) window.restore()
+    // It may be hidden in the tray.
+    window.show()
     window.focus()
   })
 

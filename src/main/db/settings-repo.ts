@@ -50,6 +50,7 @@ const GSX_REMOTE_PORT_KEY = 'gsxRemotePort'
 const BEYONDATC_ENABLED_KEY = 'beyondAtcEnabled'
 const BEYONDATC_HOST_KEY = 'beyondAtcHost'
 const UPDATE_CHECK_ENABLED_KEY = 'updateCheckEnabled'
+const CLOSE_TO_TRAY_KEY = 'closeToTray'
 const UPDATE_SKIPPED_VERSION_KEY = 'updateSkippedVersion'
 
 /**
@@ -479,6 +480,26 @@ export function getUpdateSettings(db: WingLogDb): UpdateSettings {
  */
 export function setUpdateSettings(db: WingLogDb, settings: UpdateSettings): void {
   setSetting(db, UPDATE_CHECK_ENABLED_KEY, settings.checkEnabled ? '1' : '0')
+}
+
+/**
+ * Whether closing the window keeps WingLog running in the tray. Off unless the pilot chose it.
+ *
+ * @param db The database.
+ * @returns True when closing hides the window.
+ */
+export function getCloseToTray(db: WingLogDb): boolean {
+  return getSetting(db, CLOSE_TO_TRAY_KEY) === '1'
+}
+
+/**
+ * Stores whether closing the window keeps WingLog running in the tray.
+ *
+ * @param db The database.
+ * @param closeToTray True to hide the window on close.
+ */
+export function setCloseToTray(db: WingLogDb, closeToTray: boolean): void {
+  setSetting(db, CLOSE_TO_TRAY_KEY, closeToTray ? '1' : '0')
 }
 
 /**

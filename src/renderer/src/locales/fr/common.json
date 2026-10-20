@@ -70,6 +70,13 @@
       "dark": "Sombre",
       "system": "Système"
     },
+    "window": {
+      "cardTitle": "Fenêtre",
+      "closeLabel": "Quand je ferme la fenêtre",
+      "quit": "Quitter WingLog",
+      "tray": "Rester actif dans la zone de notification",
+      "description": "Dans la zone de notification, le suivi et le second écran continuent sans la fenêtre. Cliquez sur l’icône pour la rouvrir."
+    },
     "credentials": {
       "cardTitle": "Identifiants",
       "description": "Utilisé par Régulation pour récupérer et générer des plans sur SimBrief.",

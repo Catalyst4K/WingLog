@@ -48,6 +48,14 @@ export interface UpdateSettings {
   checkEnabled: boolean
 }
 
+/** Settings → Interface → Window. */
+export interface WindowSettings {
+  /** Closing the window hides it to a tray icon instead of quitting. Off by default. */
+  closeToTray: boolean
+  /** Whether this install can show a tray icon at all (Windows only for now). */
+  trayAvailable: boolean
+}
+
 /** First-launch setup (winglog-backend's docs/plans/first-launch-setup.md). */
 export interface SetupState {
   /** A new install that hasn't finished or closed the setup yet. */

@@ -68,6 +68,13 @@
       "dark": "深色",
       "system": "跟隨系統"
     },
+    "window": {
+      "cardTitle": "視窗",
+      "closeLabel": "關閉視窗時",
+      "quit": "結束 WingLog",
+      "tray": "在系統匣中繼續執行",
+      "description": "留在系統匣時，航班記錄和第二螢幕無需視窗也能繼續運作。點擊系統匣圖示即可重新開啟視窗。"
+    },
     "credentials": {
       "cardTitle": "帳號憑證",
       "description": "供簽派用於在 SimBrief 上取得與產生計畫。",

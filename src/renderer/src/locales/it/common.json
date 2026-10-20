@@ -70,6 +70,13 @@
       "dark": "Scuro",
       "system": "Sistema"
     },
+    "window": {
+      "cardTitle": "Finestra",
+      "closeLabel": "Quando chiudo la finestra",
+      "quit": "Esci da WingLog",
+      "tray": "Resta attivo nell’area di notifica",
+      "description": "Nell’area di notifica, il tracciamento e il secondo schermo continuano senza la finestra. Fai clic sull’icona per riaprirla."
+    },
     "credentials": {
       "cardTitle": "Credenziali",
       "description": "Usato da Pianificazione per recuperare e generare piani su SimBrief.",

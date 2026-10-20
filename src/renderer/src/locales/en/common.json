@@ -70,6 +70,13 @@
       "dark": "Dark",
       "system": "System"
     },
+    "window": {
+      "cardTitle": "Window",
+      "closeLabel": "When I close the window",
+      "quit": "Quit WingLog",
+      "tray": "Keep running in the tray",
+      "description": "Keeping WingLog in the tray lets tracking and the second screen carry on without the window. Click the tray icon to bring it back."
+    },
     "credentials": {
       "cardTitle": "Credentials",
       "description": "Used by Dispatch to fetch and generate plans on SimBrief.",

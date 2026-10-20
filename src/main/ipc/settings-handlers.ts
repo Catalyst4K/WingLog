@@ -15,10 +15,12 @@ import {
   type Theme,
   type TrackingSettings,
   type GsxSettings,
-  type UpdateSettings
+  type UpdateSettings,
+  type WindowSettings
 } from '@shared/ipc'
 import type { WingLogDb } from '../db/client'
 import type { TrackingController } from '../tracking/TrackingController'
+import type { TrayController } from '../window/TrayController'
 import {
   getSimbriefUsername,
   setSimbriefUsername,
@@ -41,7 +43,9 @@ import {
   getGsxSettings,
   setGsxSettings,
   getUpdateSettings,
-  setUpdateSettings
+  setUpdateSettings,
+  getCloseToTray,
+  setCloseToTray
 } from '../db/settings-repo'
 import { setMainLanguage } from '../i18n'
 import { checkGsxFirstLaunch } from '../db/gsx-first-launch'
@@ -52,6 +56,8 @@ export interface SettingsHandlerDeps {
   db: WingLogDb
   /** Takes "Finish flights automatically" as soon as it changes. */
   trackingController: Pick<TrackingController, 'setAutoFinish'>
+  /** The tray icon follows the "keep running in the tray" setting as soon as it changes. */
+  trayController: Pick<TrayController, 'sync' | 'isAvailable'>
 }
 
 /**
@@ -62,7 +68,7 @@ export interface SettingsHandlerDeps {
  */
 export function registerSettingsHandlers(
   ipcMain: IpcMain,
-  { db, trackingController }: SettingsHandlerDeps
+  { db, trackingController, trayController }: SettingsHandlerDeps
 ): void {
   ipcMain.handle(IpcChannels.settingsGetSimbriefUsername, () => getSimbriefUsername(db) ?? null)
 
@@ -142,5 +148,17 @@ export function registerSettingsHandlers(
     const checkEnabled = (settings as UpdateSettings | null)?.checkEnabled
     if (typeof checkEnabled !== 'boolean') throw new Error('Invalid update settings')
     setUpdateSettings(db, { checkEnabled })
+  })
+
+  ipcMain.handle(IpcChannels.settingsGetWindow, (): WindowSettings => ({
+    closeToTray: getCloseToTray(db),
+    trayAvailable: trayController.isAvailable
+  }))
+
+  ipcMain.handle(IpcChannels.settingsSetWindow, (_event, settings: unknown) => {
+    const closeToTray = (settings as Pick<WindowSettings, 'closeToTray'> | null)?.closeToTray
+    if (typeof closeToTray !== 'boolean') throw new Error('Invalid window settings')
+    setCloseToTray(db, closeToTray)
+    trayController.sync()
   })
 }

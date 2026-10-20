@@ -70,6 +70,13 @@
       "dark": "Dunkel",
       "system": "System"
     },
+    "window": {
+      "cardTitle": "Fenster",
+      "closeLabel": "Wenn ich das Fenster schließe",
+      "quit": "WingLog beenden",
+      "tray": "Im Infobereich weiterlaufen",
+      "description": "Im Infobereich laufen Aufzeichnung und Zweitbildschirm ohne Fenster weiter. Mit einem Klick auf das Symbol erscheint das Fenster wieder."
+    },
     "credentials": {
       "cardTitle": "Zugangsdaten",
       "description": "Wird von der Flugplanung verwendet, um Pläne auf SimBrief abzurufen und zu erstellen.",
