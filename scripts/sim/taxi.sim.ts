@@ -7,14 +7,15 @@
  * Taxis from before the InfoBoxes were logged can be added by hand in
  * release/sim/taxi/hand-scenarios.json, a list of HandScenario (taxi.ts).
  */
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { it } from 'vitest'
 import { getFlight, listFlights } from '../../src/main/db/flight-repo'
 import { listCachedRunways, listCachedStands, listCachedTaxiSegments } from '../../src/main/db/navdata-repo'
 import { listTrackPoints } from '../../src/main/db/track-point-repo'
 import { openUserDb, readInfoBoxesLogs } from './local-data'
-import { simOutputDir, writeReport } from './report'
+import { renderReport, simOutputDir, writeReport } from './report'
+import { taxiCompareReport } from './taxi-compare-report'
 import {
   runTaxi,
   scenarioFromHand,
@@ -118,6 +119,7 @@ it('simulates the taxi line on real taxis', () => {
       notScored: sc.notScored ?? null
     }))
     const page = writeReport('taxi', taxiReport(outcomes), results)
+    writeFileSync(join(simOutputDir('taxi'), 'compare.html'), renderReport(taxiCompareReport(outcomes)))
     process.stdout.write(`\n${outcomes.length} taxis simulated. Report: ${page}\n`)
     console.table(results)
   } finally {

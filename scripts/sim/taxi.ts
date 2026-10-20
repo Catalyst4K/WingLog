@@ -28,7 +28,13 @@ import {
   type TaxiClearance
 } from '../../src/renderer/src/taxi-clearance'
 import { findTaxiPath } from '../../src/renderer/src/taxi-fallback'
-import { remainingRoute, type TracedRoute } from '../../src/renderer/src/taxi-route-trace'
+import {
+  remainingRoute,
+  traceTaxiRoute,
+  traceTaxiRouteFromFirstTaxiway,
+  type TaxiTraceRequest,
+  type TracedRoute
+} from '../../src/renderer/src/taxi-route-trace'
 import {
   REROUTE_DISTANCE_M,
   REROUTE_MIN_SPEED_MS,
@@ -213,7 +219,11 @@ export interface TaxiRun {
   clearance: TaxiClearance | null
   stand: NavdataStand | null
   reroutes: Reroute[]
-  /** The pathfinder's line for the same clearance, to compare with `cleared`: what the fallback would draw if the trace failed. */
+  /** The clearance as the trace takes it, for checking a line against it. */
+  request: TaxiTraceRequest | null
+  /** The main trace alone (through the cleared taxiways, no fallback). */
+  exact: TracedRoute | null
+  /** The pathfinder's line for the same clearance, to compare with `exact`: what the fallback would draw if the trace failed. */
   pathfinder: TracedRoute | null
   /** Share of moving taxi samples within REROUTE_DISTANCE_M of the line shown, 0-100. */
   onLinePct: number | null
@@ -249,8 +259,19 @@ export function runTaxi(
   const cleared = clearance ? traceClearance(clearance, segments, stand, threshold, holdShortRunway) : null
   const request = clearance ? clearanceRequest(clearance, segments, stand, threshold, holdShortRunway) : null
   const pathfinder = request ? findTaxiPath(request) : null
+  const exact = request ? (traceTaxiRoute(request) ?? traceTaxiRouteFromFirstTaxiway(request)) : null
   if (!clearance || !cleared)
-    return { cleared, clearance, stand, pathfinder, reroutes: [], onLinePct: null, endToAircraftM: null }
+    return {
+      cleared,
+      clearance,
+      stand,
+      request,
+      exact,
+      pathfinder,
+      reroutes: [],
+      onLinePct: null,
+      endToAircraftM: null
+    }
 
   let tracker = startTracker(cleared)
   let drawn: TracedRoute = cleared
@@ -288,6 +309,8 @@ export function runTaxi(
     cleared,
     clearance,
     stand,
+    request,
+    exact,
     pathfinder,
     reroutes,
     onLinePct: moving > 0 ? Math.round((100 * onLine) / moving) : null,
