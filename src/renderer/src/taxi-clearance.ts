@@ -11,6 +11,7 @@ import {
   type RunwayStrip,
   type TracedRoute
 } from './taxi-route-trace'
+import { aliasSplitTaxiways } from './taxi-name-alias'
 import type { RunwayThreshold } from './taxi-runway-hold'
 
 export interface TaxiClearance {
@@ -155,11 +156,16 @@ export function traceClearance(
   holdShortRunway: RunwayStrip | null = null
 ): TracedRoute | null {
   if (!clearance.from) return null
+  const holdingPoint =
+    clearance.holdingPoint ?? (clearance.holdShortRunway ? (clearance.taxiways.at(-1) ?? null) : null)
   const request = {
-    segments,
+    // A taxiway the sim splits into numbered pieces (ZUCK's M is M1 to M4) is followed by those.
+    segments: aliasSplitTaxiways(
+      segments,
+      holdingPoint ? [...clearance.taxiways, holdingPoint] : clearance.taxiways
+    ),
     taxiways: clearance.taxiways,
-    holdingPoint:
-      clearance.holdingPoint ?? (clearance.holdShortRunway ? (clearance.taxiways.at(-1) ?? null) : null),
+    holdingPoint,
     from: clearance.from,
     stand,
     runwayThreshold: clearance.holdingPoint ? runwayThreshold : null,

@@ -203,4 +203,43 @@ describe('traceClearance', () => {
     )
     expect(route?.[0]).toEqual([-2.284, 53.344])
   })
+
+  it("follows a taxiway the sim splits into numbered pieces, so the line starts at the aircraft (ZUCK 2026-10-20: 'via M, G, H1' with M1 and M2)", () => {
+    const seg = (
+      a: [number, number],
+      b: [number, number],
+      name: string,
+      holdShort = false
+    ): NavdataTaxiSegment => ({
+      startLat: a[0],
+      startLon: a[1],
+      endLat: b[0],
+      endLon: b[1],
+      name,
+      startHoldShort: false,
+      endHoldShort: holdShort
+    })
+    // The apron (M2, M1), the parallel taxiway G, then H1 to the runway's hold short: no segment is named just "M".
+    const segments = [
+      seg([29.727, 106.655], [29.7275, 106.6556], 'M2'),
+      seg([29.7275, 106.6556], [29.7275, 106.66], 'M1'),
+      seg([29.7275, 106.66], [29.72, 106.66], 'G'),
+      seg([29.72, 106.66], [29.715, 106.66], 'G'),
+      seg([29.715, 106.66], [29.715, 106.662], 'H1', true)
+    ]
+    const route = traceClearance(
+      {
+        taxiways: ['M', 'G', 'H1'],
+        holdingPoint: 'H1',
+        stand: null,
+        holdShortRunway: null,
+        taxiToRunway: '03L',
+        from: { lat: 29.727, lon: 106.655 }
+      },
+      segments,
+      null
+    )
+    expect(route?.[0]).toEqual([106.655, 29.727])
+    expect(route?.at(-1)).toEqual([106.662, 29.715])
+  })
 })
