@@ -5,12 +5,8 @@
  */
 import type { BeyondAtcInfoBox, NavdataStand, NavdataTaxiSegment } from '@shared/ipc'
 import { parseAtcTaxiFacts } from '@shared/atc-info-boxes'
-import {
-  traceTaxiRoute,
-  traceTaxiRouteFromFirstTaxiway,
-  type RunwayStrip,
-  type TracedRoute
-} from './taxi-route-trace'
+import { traceWithFallback, type TracedClearance } from './taxi-fallback'
+import type { RunwayStrip, TaxiTraceRequest, TracedRoute } from './taxi-route-trace'
 import { aliasSplitTaxiways } from './taxi-name-alias'
 import type { RunwayThreshold } from './taxi-runway-hold'
 
@@ -155,10 +151,52 @@ export function traceClearance(
   runwayThreshold: RunwayThreshold | null = null,
   holdShortRunway: RunwayStrip | null = null
 ): TracedRoute | null {
+  return traceClearanceDetailed(clearance, segments, stand, runwayThreshold, holdShortRunway)?.route ?? null
+}
+
+/**
+ * The line for a clearance as traceClearance gives it, with how it was made (traced through the cleared taxiways, or found by the
+ * pathfinder when that fails) and how well it matches the clearance.
+ *
+ * @param clearance The clearance.
+ * @param segments The airport's taxi network.
+ * @param stand The cleared stand, or null.
+ * @param runwayThreshold The threshold of the runway a holding point is for, or null.
+ * @param holdShortRunway The runway of a "hold short of runway" clearance, or null.
+ * @returns The line, how it was made and its match; null when neither way works.
+ */
+export function traceClearanceDetailed(
+  clearance: TaxiClearance,
+  segments: NavdataTaxiSegment[],
+  stand: NavdataStand | null,
+  runwayThreshold: RunwayThreshold | null = null,
+  holdShortRunway: RunwayStrip | null = null
+): TracedClearance | null {
+  const request = clearanceRequest(clearance, segments, stand, runwayThreshold, holdShortRunway)
+  return request && traceWithFallback(request)
+}
+
+/**
+ * What a clearance asks of the trace: the cleared taxiways, where it ends, and where the aircraft starts.
+ *
+ * @param clearance The clearance.
+ * @param segments The airport's taxi network.
+ * @param stand The cleared stand, or null.
+ * @param runwayThreshold The threshold of the runway a holding point is for, or null.
+ * @param holdShortRunway The runway of a "hold short of runway" clearance, or null.
+ * @returns The request, or null before the aircraft's position is known.
+ */
+export function clearanceRequest(
+  clearance: TaxiClearance,
+  segments: NavdataTaxiSegment[],
+  stand: NavdataStand | null,
+  runwayThreshold: RunwayThreshold | null = null,
+  holdShortRunway: RunwayStrip | null = null
+): TaxiTraceRequest | null {
   if (!clearance.from) return null
   const holdingPoint =
     clearance.holdingPoint ?? (clearance.holdShortRunway ? (clearance.taxiways.at(-1) ?? null) : null)
-  const request = {
+  return {
     // A taxiway the sim splits into numbered pieces (ZUCK's M is M1 to M4) is followed by those.
     segments: aliasSplitTaxiways(
       segments,
@@ -171,6 +209,4 @@ export function traceClearance(
     runwayThreshold: clearance.holdingPoint ? runwayThreshold : null,
     holdShortRunway: clearance.holdingPoint ? null : holdShortRunway
   }
-  // An aircraft already past the clearance's start (Track opened mid-taxi) traces from the first taxiway instead; else whole taxiways.
-  return traceTaxiRoute(request) ?? traceTaxiRouteFromFirstTaxiway(request)
 }

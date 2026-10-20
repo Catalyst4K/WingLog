@@ -15,12 +15,54 @@ import { listCachedRunways, listCachedStands, listCachedTaxiSegments } from '../
 import { listTrackPoints } from '../../src/main/db/track-point-repo'
 import { openUserDb, readInfoBoxesLogs } from './local-data'
 import { simOutputDir, writeReport } from './report'
-import { runTaxi, scenarioFromHand, scenariosFromLog, type HandScenario, type TaxiScenario } from './taxi'
+import {
+  runTaxi,
+  scenarioFromHand,
+  scenariosFromLog,
+  type HandScenario,
+  type TaxiRun,
+  type TaxiScenario
+} from './taxi'
+import { flatDistanceM } from '../../src/shared/geo'
+import type { TracedRoute } from '../../src/renderer/src/taxi-route-trace'
 import { taxiReport, type TaxiOutcome } from './taxi-report'
 
 function handScenarios(): HandScenario[] {
   const path = join(simOutputDir('taxi'), 'hand-scenarios.json')
   return existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')) as HandScenario[]) : []
+}
+
+/**
+ * Prints how the pathfinder's line compares with the traced one for a taxi: how far apart the two ends are and how much longer the
+ * pathfinder's way is. The fallback is only as good as it is close to the real route.
+ *
+ * @param id The taxi's id.
+ * @param run The taxi as played.
+ */
+function logPathfinderAgainstTrace(id: string, run: TaxiRun): void {
+  const exact = run.cleared
+  const found = run.pathfinder
+  if (!exact) return
+  if (!found) {
+    process.stdout.write(`PATHFINDER found nothing for ${id}
+`)
+    return
+  }
+  const end = (route: TracedRoute): { lat: number; lon: number } => ({
+    lat: route.at(-1)?.[1] ?? 0,
+    lon: route.at(-1)?.[0] ?? 0
+  })
+  const length = (route: TracedRoute): number =>
+    route
+      .slice(1)
+      .reduce(
+        (sum, p, i) => sum + flatDistanceM({ lat: route[i][1], lon: route[i][0] }, { lat: p[1], lon: p[0] }),
+        0
+      )
+  const apart = Math.round(flatDistanceM(end(exact), end(found)))
+  const ratio = (length(found) / Math.max(1, length(exact))).toFixed(2)
+  process.stdout.write(`PATHFINDER vs TRACE ${id}: ends ${apart} m apart, length x${ratio}
+`)
 }
 
 it('simulates the taxi line on real taxis', () => {
@@ -63,6 +105,7 @@ it('simulates the taxi line on real taxis', () => {
         baseline: runTaxi(sc, segments, stands, false)
       }
     })
+    for (const { sc, run } of outcomes) logPathfinderAgainstTrace(sc.id, run)
     const results = outcomes.map(({ sc, run, baseline }) => ({
       id: sc.id,
       icao: sc.icao,

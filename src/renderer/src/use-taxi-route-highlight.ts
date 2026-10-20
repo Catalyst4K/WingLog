@@ -33,9 +33,10 @@ import {
   clearanceRunway,
   clearanceRunwayThreshold,
   startOf,
-  traceClearance,
+  traceClearanceDetailed,
   type TaxiClearance
 } from './taxi-clearance'
+import type { TracedClearance, TraceKind } from './taxi-fallback'
 import { startTracker, trackPosition, type RerouteTracker } from './taxi-reroute'
 import { isDeparted, stepTaxiBoxes } from './taxi-clearance-step'
 import { diagMap } from './diag'
@@ -47,6 +48,8 @@ import { uiMemory } from './ui-memory'
 const HIGHLIGHT_LAYER_ID = 'taxi-chart-route-highlight'
 const TRACE_SOURCE_ID = 'taxi-route-trace'
 const TRACE_LAYER_ID = 'taxi-route-trace-line'
+// The same line drawn dashed, for one the pathfinder found rather than one traced through the cleared taxiways: an estimate.
+const TRACE_DASHED_LAYER_ID = 'taxi-route-trace-line-dashed'
 
 // Bright and thick against the base chart's muted, thin line (use-taxi-chart-overlay.ts) —
 // meant to read as "your route," not just another taxiway.
@@ -77,7 +80,25 @@ function ensureLayers(map: MapLibreMap): void {
       layout: { visibility: 'none', 'line-join': 'round', 'line-cap': 'round' },
       paint: ROUTE_PAINT
     })
+    map.addLayer({
+      id: TRACE_DASHED_LAYER_ID,
+      type: 'line',
+      source: TRACE_SOURCE_ID,
+      layout: { visibility: 'none', 'line-join': 'round', 'line-cap': 'butt' },
+      paint: { ...ROUTE_PAINT, 'line-dasharray': [2, 1.5] }
+    })
   }
+}
+
+/**
+ * Shows the traced line solid, dashed (an estimate), or not at all.
+ *
+ * @param map The map.
+ * @param show Which to show.
+ */
+function showTraceLine(map: MapLibreMap, show: TraceKind | 'none'): void {
+  map.setLayoutProperty(TRACE_LAYER_ID, 'visibility', show === 'exact' ? 'visible' : 'none')
+  map.setLayoutProperty(TRACE_DASHED_LAYER_ID, 'visibility', show === 'pathfinder' ? 'visible' : 'none')
 }
 
 export interface UseTaxiRouteHighlightArgs {
@@ -240,6 +261,7 @@ export function useHoldShortRunway(
  * @param position The aircraft's position, or null.
  * @param phase The flight phase, or null.
  * @param segments The airport's taxi network.
+ * @param kind How the line was made: a pathfinder line is drawn dashed.
  * @returns The tracker after this update.
  */
 function drawTracedLine(
@@ -247,7 +269,8 @@ function drawTracedLine(
   tracker: RerouteTracker,
   position: UseTaxiRouteHighlightArgs['position'],
   phase: FlightPhase | null,
-  segments: NavdataTaxiSegment[] | undefined
+  segments: NavdataTaxiSegment[] | undefined,
+  kind: TraceKind
 ): RerouteTracker {
   let next = tracker
   let line = tracker.active
@@ -268,7 +291,7 @@ function drawTracedLine(
     properties: {},
     geometry: { type: 'LineString', coordinates: line }
   })
-  map.setLayoutProperty(TRACE_LAYER_ID, 'visibility', 'visible')
+  showTraceLine(map, kind)
   map.setLayoutProperty(HIGHLIGHT_LAYER_ID, 'visibility', 'none')
   return next
 }
@@ -282,7 +305,7 @@ function drawTracedLine(
  * @param icao The clearance's airport, or null.
  */
 function drawWholeTaxiways(map: MapLibreMap, names: string[], icao: string | null): void {
-  map.setLayoutProperty(TRACE_LAYER_ID, 'visibility', 'none')
+  showTraceLine(map, 'none')
   map.setLayoutProperty(HIGHLIGHT_LAYER_ID, 'visibility', names.length > 0 ? 'visible' : 'none')
   if (names.length > 0) {
     const byName = ['in', ['get', 'name'], ['literal', names]]
@@ -293,6 +316,60 @@ function drawWholeTaxiways(map: MapLibreMap, names: string[], icao: string | nul
       >[1]
     )
   }
+}
+
+/**
+ * The line for a clearance. Re-traced when the segments finish loading too: a clearance can arrive before the chart has.
+ *
+ * @param clearance The clearance, or null.
+ * @param segments The clearance airport's taxi network, once loaded.
+ * @param where The cleared stand's position, the cleared runway's threshold, and the runway of a hold short clearance.
+ * @returns The line with how it was made, or null.
+ */
+function useTracedClearance(
+  clearance: TaxiClearance | null,
+  segments: NavdataTaxiSegment[] | undefined,
+  where: {
+    standPosition: NavdataStand | null
+    runwayThreshold: { lat: number; lon: number } | null
+    holdShortRunway: RunwayStrip | null
+  }
+): TracedClearance | null {
+  const { standPosition, runwayThreshold, holdShortRunway } = where
+  return useMemo(() => {
+    if (!clearance?.from || !segments || segments.length === 0) return null
+    return traceClearanceDetailed(clearance, segments, standPosition, runwayThreshold, holdShortRunway)
+  }, [clearance, segments, standPosition, runwayThreshold, holdShortRunway])
+}
+
+/**
+ * Logs each new trace: how the line was made (traced, or found by the pathfinder), and which cleared taxiways it doesn't match.
+ *
+ * @param clearance The clearance, or null.
+ * @param traced Its line with how it was made, or null.
+ * @param icao The clearance's airport, or null.
+ */
+function useLogTrace(
+  clearance: TaxiClearance | null,
+  traced: TracedClearance | null,
+  icao: string | null
+): void {
+  useEffect(() => {
+    if (!clearance) return
+    diagMap(traced ? `taxi route traced (${traced.kind})` : 'taxi route not traced: whole taxiways instead', {
+      icao,
+      taxiways: clearance.taxiways,
+      holdingPoint: clearance.holdingPoint,
+      stand: clearance.stand,
+      holdShortRunway: clearance.holdShortRunway,
+      from: clearance.from,
+      match: traced?.match ?? null,
+      points: traced?.route.length ?? 0,
+      end: traced?.route.at(-1) ?? null
+    })
+    // Logged once per new trace, not when the clearance object alone changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- clearance/icao are read only to describe this trace
+  }, [traced])
 }
 
 /**
@@ -396,10 +473,8 @@ export function useTaxiRouteHighlight({
   }
   useEffect(() => {
     uiMemory().taxiRoute.departed = wasDeparted
-  }, [wasDeparted])
-  useEffect(() => {
     uiMemory().taxiRoute.clearance = clearance
-  }, [clearance])
+  }, [wasDeparted, clearance])
 
   const icao = clearance ? clearanceAirport(clearance, depIcao, arrIcao, segmentsByIcao) : null
 
@@ -408,29 +483,17 @@ export function useTaxiRouteHighlight({
   const holdShortRunway = useHoldShortRunway(enabled, clearance, icao)
 
   const segments = icao ? segmentsByIcao[icao] : undefined
-  // Re-traced when segments finish loading too — a clearance can arrive before the chart has.
-  const traced: TracedRoute | null = useMemo(() => {
-    if (!clearance?.from || !segments || segments.length === 0) return null
-    return traceClearance(clearance, segments, standPosition, runwayThreshold, holdShortRunway)
-  }, [clearance, segments, standPosition, runwayThreshold, holdShortRunway])
+  const tracedClearance = useTracedClearance(clearance, segments, {
+    standPosition,
+    runwayThreshold,
+    holdShortRunway
+  })
+  const traced: TracedRoute | null = tracedClearance?.route ?? null
 
   useEffect(() => {
     trackerRef.current = traced ? startTracker(traced) : null
-    if (clearance) {
-      diagMap(traced ? 'taxi route traced' : 'taxi route not traced: whole taxiways instead', {
-        icao,
-        taxiways: clearance.taxiways,
-        holdingPoint: clearance.holdingPoint,
-        stand: clearance.stand,
-        holdShortRunway: clearance.holdShortRunway,
-        from: clearance.from,
-        points: traced?.length ?? 0,
-        end: traced?.at(-1) ?? null
-      })
-    }
-    // Logged once per new trace, not when the clearance object alone changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- clearance/icao are read only to describe this trace
   }, [traced])
+  useLogTrace(clearance, tracedClearance, icao)
 
   useLogUntraced(clearance, traced, icao, segments)
 
@@ -440,7 +503,7 @@ export function useTaxiRouteHighlight({
     if (!enabled || departed) {
       if (createdRef.current) {
         map.setLayoutProperty(HIGHLIGHT_LAYER_ID, 'visibility', 'none')
-        map.setLayoutProperty(TRACE_LAYER_ID, 'visibility', 'none')
+        showTraceLine(map, 'none')
       }
       return
     }
@@ -449,9 +512,28 @@ export function useTaxiRouteHighlight({
 
     const tracker = trackerRef.current
     if (traced && tracker) {
-      trackerRef.current = drawTracedLine(map, tracker, position, phase, segments)
+      trackerRef.current = drawTracedLine(
+        map,
+        tracker,
+        position,
+        phase,
+        segments,
+        tracedClearance?.kind ?? 'exact'
+      )
       return
     }
     drawWholeTaxiways(map, clearance?.taxiways ?? [], icao)
-  }, [mapRef, mapReady, enabled, departed, clearance, traced, segments, icao, position, phase])
+  }, [
+    mapRef,
+    mapReady,
+    enabled,
+    departed,
+    clearance,
+    traced,
+    tracedClearance,
+    segments,
+    icao,
+    position,
+    phase
+  ])
 }

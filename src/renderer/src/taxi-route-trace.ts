@@ -37,14 +37,14 @@ const MAX_STAND_LINK_M = 150
 /** How far the aircraft may be from the nearest taxi-network point to start a trace. */
 const MAX_START_DISTANCE_M = 300
 /** A cleared taxi route longer than this is almost certainly a wrong trace, not a real one. */
-const MAX_ROUTE_LENGTH_M = 15_000
+export const MAX_ROUTE_LENGTH_M = 15_000
 /** How near the cleared runway's threshold a holding point's hold short is for the runway to say anything about it. A first hold short
  *  farther than this is replaced by the one nearest the threshold, when there is one this near; none this near (an intersection
  *  departure's holding point), or the first already this near, and the first stays. */
-const MAX_HOLD_FROM_THRESHOLD_M = 500
+export const MAX_HOLD_FROM_THRESHOLD_M = 500
 /** When no hold short of the holding-point taxiway is near the cleared runway's threshold, any flagged hold short this near it ends the route
  *  (WSSS "taxi holding point runway 02C via P, T": T has no flagged points, and the holding point is on its T12 branch). */
-const HOLD_NEAR_THRESHOLD_M = 250
+export const HOLD_NEAR_THRESHOLD_M = 250
 
 /** A runway as a strip on the ground: where it starts, which way it runs, how long and wide. */
 export interface RunwayStrip {
@@ -99,7 +99,7 @@ export const WRONG_WAY_DEG = 120
 /** An airliner can't turn round in the middle of a taxiway, so starting the wrong way costs more than any sensible way
  *  round; it only wins when there's no way forwards at all (a dead-end stand row). A ×10 factor on the first edge wasn't
  *  enough: with a short first edge the trace re-routed back behind the aircraft (taxi-reroute.md). */
-const WRONG_WAY_PENALTY_M = 3_000
+export const WRONG_WAY_PENALTY_M = 3_000
 
 /**
  * Smallest angle between two bearings, 0-180.
@@ -113,13 +113,13 @@ export function angleBetweenDeg(a: number, b: number): number {
   return d > 180 ? 360 - d : d
 }
 
-interface GraphNode {
+export interface GraphNode {
   lat: number
   lon: number
   holdShort: boolean
 }
 
-interface Graph {
+export interface Graph {
   nodeIndex: Map<string, number>
   nodes: GraphNode[]
   edges: Edge[][]
@@ -127,7 +127,12 @@ interface Graph {
   bearingDeg: (a: number, b: number) => number
 }
 
-const nodeKey = (lat: number, lon: number): string => `${lat.toFixed(7)},${lon.toFixed(7)}`
+/**
+ * @param lat A point's latitude.
+ * @param lon Its longitude.
+ * @returns The point's key in the network: segments that share an endpoint share this key.
+ */
+export const nodeKey = (lat: number, lon: number): string => `${lat.toFixed(7)},${lon.toFixed(7)}`
 
 /**
  * Segments join at shared TAXI_POINTs, so identical endpoint coordinates are the nodes.
@@ -136,7 +141,7 @@ const nodeKey = (lat: number, lon: number): string => `${lat.toFixed(7)},${lon.t
  * @param refLat The airport's latitude, for the local projection.
  * @returns The graph.
  */
-function buildGraph(segments: NavdataTaxiSegment[], refLat: number): Graph {
+export function buildGraph(segments: NavdataTaxiSegment[], refLat: number): Graph {
   const cosLat = Math.cos((refLat * Math.PI) / 180)
   const distanceM = (aLat: number, aLon: number, bLat: number, bLon: number): number =>
     flatDistanceM({ lat: aLat, lon: aLon }, { lat: bLat, lon: bLon }, refLat)
@@ -177,7 +182,7 @@ function buildGraph(segments: NavdataTaxiSegment[], refLat: number): Graph {
  * @param node A node index the graph handed out.
  * @returns The node's edges.
  */
-function edgesOf(graph: Graph, node: number): Edge[] {
+export function edgesOf(graph: Graph, node: number): Edge[] {
   return itemAt(graph.edges, node, 'taxi node')
 }
 
@@ -188,7 +193,7 @@ function edgesOf(graph: Graph, node: number): Edge[] {
  * @param from The position.
  * @returns The node's index, or -1.
  */
-function nearestNode({ nodes, distanceM }: Graph, from: { lat: number; lon: number }): number {
+export function nearestNode({ nodes, distanceM }: Graph, from: { lat: number; lon: number }): number {
   let start = -1
   let startDistance = Infinity
   for (const [i, node] of nodes.entries()) {
@@ -211,7 +216,7 @@ function nearestNode({ nodes, distanceM }: Graph, from: { lat: number; lon: numb
  * @param threshold The runway's threshold, or null when unknown.
  * @returns The node's index, or -1 when there is no threshold or no hold short of the taxiway within MAX_HOLD_FROM_THRESHOLD_M of it.
  */
-function holdNodeByRunway(
+export function holdNodeByRunway(
   graph: Graph,
   holdingPoint: string,
   threshold: { lat: number; lon: number } | null
@@ -238,7 +243,7 @@ function holdNodeByRunway(
  * @param stand The stand's position.
  * @returns The node's index, or -1.
  */
-function standLinkNode({ nodes, distanceM }: Graph, stand: { lat: number; lon: number }): number {
+export function standLinkNode({ nodes, distanceM }: Graph, stand: { lat: number; lon: number }): number {
   let standNode = -1
   let best = MAX_STAND_LINK_M
   for (const [i, node] of nodes.entries()) {
@@ -261,7 +266,7 @@ function standLinkNode({ nodes, distanceM }: Graph, stand: { lat: number; lon: n
  * @param headingDeg The aircraft's heading, or null for no preference.
  * @returns True if it does.
  */
-function isWrongWay(graph: Graph, from: number, to: number, headingDeg: number | null): boolean {
+export function isWrongWay(graph: Graph, from: number, to: number, headingDeg: number | null): boolean {
   return headingDeg !== null && angleBetweenDeg(graph.bearingDeg(from, to), headingDeg) > WRONG_WAY_DEG
 }
 
@@ -605,7 +610,11 @@ function endsAtRunwayHold(search: TraceSearch, node: number): boolean {
  * @param threshold The cleared runway's threshold.
  * @returns True if the node is a flagged hold short within HOLD_NEAR_THRESHOLD_M of it.
  */
-function isHoldShortNear(graph: Graph, node: number, threshold: { lat: number; lon: number }): boolean {
+export function isHoldShortNear(
+  graph: Graph,
+  node: number,
+  threshold: { lat: number; lon: number }
+): boolean {
   const n = itemAt(graph.nodes, node, 'taxi node')
   return n.holdShort && graph.distanceM(threshold.lat, threshold.lon, n.lat, n.lon) <= HOLD_NEAR_THRESHOLD_M
 }
@@ -617,7 +626,7 @@ function isHoldShortNear(graph: Graph, node: number, threshold: { lat: number; l
  * @param runway The runway.
  * @returns True if it is flagged as a hold short and lies within HOLD_SHORT_BESIDE_RUNWAY_M of the runway's edge.
  */
-function isHoldShortBeside(node: GraphNode, runway: RunwayStrip): boolean {
+export function isHoldShortBeside(node: GraphNode, runway: RunwayStrip): boolean {
   if (!node.holdShort) return false
   const north = (node.lat - runway.thresholdLat) * 111_320
   const east = (node.lon - runway.thresholdLon) * 111_320 * Math.cos((runway.thresholdLat * Math.PI) / 180)

@@ -23,9 +23,11 @@ import {
   startOf,
   clearanceRunway,
   clearanceRunwayThreshold,
+  clearanceRequest,
   traceClearance,
   type TaxiClearance
 } from '../../src/renderer/src/taxi-clearance'
+import { findTaxiPath } from '../../src/renderer/src/taxi-fallback'
 import { remainingRoute, type TracedRoute } from '../../src/renderer/src/taxi-route-trace'
 import {
   REROUTE_DISTANCE_M,
@@ -211,6 +213,8 @@ export interface TaxiRun {
   clearance: TaxiClearance | null
   stand: NavdataStand | null
   reroutes: Reroute[]
+  /** The pathfinder's line for the same clearance, to compare with `cleared`: what the fallback would draw if the trace failed. */
+  pathfinder: TracedRoute | null
   /** Share of moving taxi samples within REROUTE_DISTANCE_M of the line shown, 0-100. */
   onLinePct: number | null
   /** Closest the line's end came to the aircraft, in metres. */
@@ -243,8 +247,10 @@ export function runTaxi(
     ? null
     : clearanceRunway(clearance?.holdShortRunway, runways)
   const cleared = clearance ? traceClearance(clearance, segments, stand, threshold, holdShortRunway) : null
+  const request = clearance ? clearanceRequest(clearance, segments, stand, threshold, holdShortRunway) : null
+  const pathfinder = request ? findTaxiPath(request) : null
   if (!clearance || !cleared)
-    return { cleared, clearance, stand, reroutes: [], onLinePct: null, endToAircraftM: null }
+    return { cleared, clearance, stand, pathfinder, reroutes: [], onLinePct: null, endToAircraftM: null }
 
   let tracker = startTracker(cleared)
   let drawn: TracedRoute = cleared
@@ -282,6 +288,7 @@ export function runTaxi(
     cleared,
     clearance,
     stand,
+    pathfinder,
     reroutes,
     onLinePct: moving > 0 ? Math.round((100 * onLine) / moving) : null,
     endToAircraftM
