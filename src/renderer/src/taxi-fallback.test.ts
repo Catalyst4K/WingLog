@@ -1,7 +1,7 @@
 import type { NavdataTaxiSegment } from '@shared/ipc'
 import { describe, expect, it } from 'vitest'
 import { findTaxiPath, matchClearance, traceWithFallback } from './taxi-fallback'
-import type { TaxiTraceRequest } from './taxi-route-trace'
+import { traceTaxiRoute, type TaxiTraceRequest } from './taxi-route-trace'
 
 const seg = (
   a: [number, number],
@@ -53,11 +53,21 @@ describe('findTaxiPath', () => {
     expect(route?.at(-1)).toEqual(lonLat(P5))
   })
 
-  it('prefers the taxiway the clearance names where two ways are equally long', () => {
-    expect(findTaxiPath(request({ taxiways: ['G'], holdingPoint: 'H1' }))).toContainEqual(lonLat(P3))
-    const viaW = findTaxiPath(request({ taxiways: ['W'], holdingPoint: 'H1' }))
+  it('prefers the taxiway the clearance names where two ways to a stand are equally long', () => {
+    const stand = { lat: 29.715, lon: 106.6598 }
+    const viaG = findTaxiPath(request({ taxiways: ['M', 'G'], holdingPoint: null, stand }))
+    expect(viaG).toContainEqual(lonLat(P3))
+    const viaW = findTaxiPath(request({ taxiways: ['M', 'W'], holdingPoint: null, stand }))
     expect(viaW).not.toContainEqual(lonLat(P3))
-    expect(viaW?.at(-1)).toEqual(lonLat(P5))
+    expect(viaW?.at(-2)).toEqual(lonLat(P4))
+  })
+
+  it('ends a holding-point route where the trace ends one, so the two lines enter the runway at the same hold (EGLL A1, YBBN A9)', () => {
+    // The same rules decide where the route ends (a hold short by the runway, a far end, a hold short part-way along): the pathfinder
+    // uses the trace's own, needing only the holding point's taxiway.
+    const req = request({ taxiways: ['M', 'G', 'H1'], holdingPoint: 'H1' })
+    expect(findTaxiPath(req)).toEqual(traceTaxiRoute({ ...req, taxiways: ['H1'] }))
+    expect(findTaxiPath(req)?.at(-1)).toEqual(traceTaxiRoute(req)?.at(-1) ?? lonLat(P5))
   })
 
   it('ends at the hold short by the cleared runway when the holding point is not in the data at all', () => {
@@ -156,7 +166,8 @@ describe('traceWithFallback', () => {
   })
 
   it('falls back to the pathfinder when a cleared taxiway is in the data nowhere near the aircraft route, and says what did not match', () => {
-    const fallback = traceWithFallback(request({ taxiways: ['Q', 'G', 'H1'] }))
+    const withoutW = NETWORK.filter((s) => s.name !== 'W')
+    const fallback = traceWithFallback(request({ segments: withoutW, taxiways: ['Q', 'G', 'H1'] }))
     expect(fallback?.kind).toBe('pathfinder')
     expect(fallback?.route[0]).toEqual(lonLat(P0))
     expect(fallback?.route.at(-1)).toEqual(lonLat(P5))

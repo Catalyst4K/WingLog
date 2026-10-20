@@ -40,8 +40,12 @@ function handScenarios(): HandScenario[] {
  * @param id The taxi's id.
  * @param run The taxi as played.
  */
-function logPathfinderAgainstTrace(id: string, run: TaxiRun): void {
-  const exact = run.cleared
+function logPathfinderAgainstTrace(
+  id: string,
+  run: TaxiRun,
+  last: { lat: number; lon: number } | null
+): void {
+  const exact = run.exact
   const found = run.pathfinder
   if (!exact) return
   if (!found) {
@@ -62,8 +66,15 @@ function logPathfinderAgainstTrace(id: string, run: TaxiRun): void {
       )
   const apart = Math.round(flatDistanceM(end(exact), end(found)))
   const ratio = (length(found) / Math.max(1, length(exact))).toFixed(2)
-  process.stdout.write(`PATHFINDER vs TRACE ${id}: ends ${apart} m apart, length x${ratio}
-`)
+  const toReal = (route: TracedRoute): string =>
+    last ? String(Math.round(flatDistanceM(end(route), last))) : 'n/a'
+  const startApart = Math.round(
+    flatDistanceM({ lat: exact[0][1], lon: exact[0][0] }, { lat: found[0][1], lon: found[0][0] })
+  )
+  process.stdout.write(
+    `PATHFINDER vs TRACE ${id}: starts ${startApart} m apart, ends ${apart} m apart, length ${Math.round(length(exact))} m main / ${Math.round(length(found))} m fallback (x${ratio}), end to the real taxi's last point: main ${toReal(exact)} m, fallback ${toReal(found)} m
+`
+  )
 }
 
 it('simulates the taxi line on real taxis', () => {
@@ -106,7 +117,10 @@ it('simulates the taxi line on real taxis', () => {
         baseline: runTaxi(sc, segments, stands, false)
       }
     })
-    for (const { sc, run } of outcomes) logPathfinderAgainstTrace(sc.id, run)
+    for (const { sc, run } of outcomes) {
+      const end = sc.samples.filter((s) => s.phase !== 'takeoff').at(-1) ?? null
+      logPathfinderAgainstTrace(sc.id, run, end)
+    }
     const results = outcomes.map(({ sc, run, baseline }) => ({
       id: sc.id,
       icao: sc.icao,

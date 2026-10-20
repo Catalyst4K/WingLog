@@ -12,7 +12,6 @@ import { startOfRunwayHolds, type RunwayThreshold } from './taxi-runway-hold'
 import {
   buildGraph,
   edgesOf,
-  holdNodeByRunway,
   isHoldShortBeside,
   isWrongWay,
   MAX_ROUTE_LENGTH_M,
@@ -100,7 +99,9 @@ export function matchClearance(request: TaxiTraceRequest, route: TracedRoute): C
 }
 
 /**
- * The nodes where the clearance ends, for the pathfinder to head for.
+ * The nodes where the clearance ends, for the shortest-path search to head for: a stand's link, the hold shorts beside a runway to hold
+ * short of, or (a holding point the data has no taxiway for) the hold short at the very start of the cleared runway, for a full-length
+ * departure.
  *
  * @param graph The network's graph.
  * @param request The clearance.
@@ -108,25 +109,14 @@ export function matchClearance(request: TaxiTraceRequest, route: TracedRoute): C
  */
 function destinationNodes(graph: Graph, request: TaxiTraceRequest): number[] {
   const { holdingPoint, stand, runwayThreshold, holdShortRunway } = request
-  const nodes = [...graph.nodes.entries()]
   if (stand && !holdingPoint) {
     const link = standLinkNode(graph, stand)
     return link >= 0 ? [link] : []
   }
   if (holdShortRunway) {
-    return nodes.filter(([, n]) => isHoldShortBeside(n, holdShortRunway)).map(([i]) => i)
+    return [...graph.nodes.entries()].filter(([, n]) => isHoldShortBeside(n, holdShortRunway)).map(([i]) => i)
   }
-  if (!holdingPoint) return []
-  const byRunway = holdNodeByRunway(graph, holdingPoint, runwayThreshold ?? null)
-  if (byRunway >= 0) return [byRunway]
-  const onHoldingPoint = nodes
-    .filter(([i, n]) => n.holdShort && edgesOf(graph, i).some((e) => e.name === holdingPoint))
-    .map(([i]) => i)
-  // A holding point the data has no taxiway for (or no hold short on): the hold shorts by the cleared runway's threshold.
-  if (onHoldingPoint.length > 0) return onHoldingPoint
-  // A holding point the data has no taxiway for (or no hold short on): the hold short at the start of the cleared runway, for a
-  // full-length departure.
-  return runwayThreshold ? startOfRunwayNodes(graph, request.segments, runwayThreshold) : []
+  return holdingPoint && runwayThreshold ? startOfRunwayNodes(graph, request.segments, runwayThreshold) : []
 }
 
 /**
@@ -148,6 +138,24 @@ function startOfRunwayNodes(
 }
 
 /**
+ * A way from the aircraft to where the clearance ends, whatever the other cleared taxiways. A holding point the data has is traced to
+ * with the trace's own rules for where such a route ends (a hold short by the runway, or the far end of the taxiway where it meets the
+ * runway: not simply the first hold short flagged on it, which at EGLL is part-way along A1), but needing only that taxiway: the
+ * route there is the shortest from the aircraft. Anything else (a stand, a hold short of a runway, a holding point the data lacks) is a
+ * shortest path to where it ends.
+ *
+ * @param request The clearance, the network and where the aircraft is.
+ * @returns The line, or null with no destination, an aircraft off the network, or a way longer than MAX_ROUTE_LENGTH_M.
+ */
+export function findTaxiPath(request: TaxiTraceRequest): TracedRoute | null {
+  const { holdingPoint } = request
+  if (holdingPoint && request.segments.some((s) => s.name === holdingPoint)) {
+    return traceTaxiRoute({ ...request, taxiways: [holdingPoint] })
+  }
+  return shortestWayToEnd(request)
+}
+
+/**
  * A shortest way from the aircraft to where the clearance ends. Segments on a cleared taxiway cost their length, so do unnamed ones, and
  * any other named taxiway costs OFF_CLEARANCE_COST_FACTOR times that. The first edge pointing back against the aircraft's heading
  * costs WRONG_WAY_PENALTY_M more, as in the trace.
@@ -155,7 +163,7 @@ function startOfRunwayNodes(
  * @param request The clearance, the network and where the aircraft is.
  * @returns The line, or null with no destination, an aircraft off the network, or a way longer than MAX_ROUTE_LENGTH_M.
  */
-export function findTaxiPath(request: TaxiTraceRequest): TracedRoute | null {
+function shortestWayToEnd(request: TaxiTraceRequest): TracedRoute | null {
   const graph = buildGraph(request.segments, request.from.lat)
   const start = nearestNode(graph, request.from)
   if (start < 0) return null
