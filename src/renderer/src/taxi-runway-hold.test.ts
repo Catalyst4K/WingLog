@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { NavdataTaxiSegment } from '@shared/ipc'
-import { furthestBackHold } from './taxi-runway-hold'
+import { furthestBackHold, startOfRunwayHolds } from './taxi-runway-hold'
 import { traceTaxiRoute } from './taxi-route-trace'
 
 // WSSS runway 02C from the sim's own data (2026-10-19): threshold, and the hold shorts beside it on the side the flown taxi came from
@@ -42,6 +42,21 @@ describe('furthestBackHold', () => {
   it('does nothing without the runway heading, or with no hold short near the threshold', () => {
     expect(furthestBackHold(segments, T11, { lat: THRESHOLD.lat, lon: THRESHOLD.lon })).toBeNull()
     expect(furthestBackHold([hold({ lat: 1.35, lon: 103.99 })], T11, THRESHOLD)).toBeNull()
+  })
+})
+
+describe('startOfRunwayHolds', () => {
+  it('is the entry behind the threshold on each side of the runway (WSSS 02C), never a part-way entry', () => {
+    const found = startOfRunwayHolds([T11, T12, LAST, FAR_SIDE].map(hold), THRESHOLD)
+    expect(found).toHaveLength(2)
+    expect(found).toContainEqual({ lat: LAST.lat, lon: LAST.lon })
+    expect(found).toContainEqual({ lat: FAR_SIDE.lat, lon: FAR_SIDE.lon })
+  })
+
+  it('is every hold short near the threshold when the runway heading is not known, and none when there are none', () => {
+    const noHeading = { lat: THRESHOLD.lat, lon: THRESHOLD.lon }
+    expect(startOfRunwayHolds([T12, LAST].map(hold), noHeading)).toHaveLength(2)
+    expect(startOfRunwayHolds([hold({ lat: 1.35, lon: 103.99 })], THRESHOLD)).toEqual([])
   })
 })
 

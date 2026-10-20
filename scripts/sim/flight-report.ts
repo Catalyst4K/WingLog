@@ -250,8 +250,8 @@ function screensSection(f: FlightFindings): ReportSection[] {
   if (f.screens.length === 0) return []
   return [
     {
-      title: 'The real app, at each decision',
-      meta: 'The built app replaying the last 36 minutes into WSSS (BeyondATC stream and telemetry), 55 times faster. `npm run sim:screens`.',
+      title: 'A separate check: the real app on flight 236 into WSSS',
+      meta: "Not this flight. A fixed recording of flight 236's last 36 minutes into WSSS (BeyondATC stream and telemetry), replayed through the built app 55 times faster, with a picture at each decision. Made by `npm run sim:screens`, so it only changes when that is run again.",
       metrics: [],
       figures: f.screens
         .map(
