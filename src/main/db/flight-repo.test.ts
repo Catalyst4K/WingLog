@@ -4,7 +4,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { createDb, type WingLogDb } from './client'
 import { createAircraft, getAircraftById, getAircraftByRegistration } from './aircraft-repo'
 import { createLanding, getLandingByFlight, type NewLanding } from './landing-repo'
-import { flight as flightTable } from './schema'
+import { aircraft as aircraftTable, flight as flightTable } from './schema'
 import { getAircraftIdForTitle } from './settings-repo'
 import { createTrackPoint, listTrackPoints } from './track-point-repo'
 import { greatCircleDistanceNm } from '../airports/airport-search'
@@ -16,6 +16,7 @@ import {
   createFreeFlight,
   createHistoricalFlight,
   deleteFlight,
+  getDeleteLocationImpact,
   finalizeFuelOut,
   getFleetStats,
   getFlight,
@@ -535,6 +536,70 @@ describe('flight repo', () => {
       expect(raw?.deletedAt).not.toBeNull()
       expect(listTrackPoints(db, created.id)).toEqual([]) // never synced, still hard-deleted
       expect(getLandingByFlight(db, created.id)).toBeUndefined() // tombstoned, filtered out
+    })
+
+    describe('deleteFlight reverts the aircraft location', () => {
+      const location = (): string | null | undefined =>
+        db.select().from(aircraftTable).where(eq(aircraftTable.id, aircraftId)).get()?.currentIcao
+
+      beforeEach(() => {
+        vi.useFakeTimers()
+        vi.setSystemTime(new Date('2026-09-01T12:00:00Z'))
+      })
+      afterEach(() => {
+        vi.useRealTimers()
+      })
+
+      /** Creates, starts and completes a flight, which moves the aircraft to `arrIcao`. */
+      function fly(depIcao: string, arrIcao: string): number {
+        vi.advanceTimersByTime(60 * 60 * 1000)
+        const f = createFlight(db, { aircraftId, depIcao, arrIcao })
+        startFlight(db, f.id, 10000)
+        completeFlight(db, f.id, 9000)
+        return f.id
+      }
+
+      it('goes back to the previous flight arrival', () => {
+        fly('VHHH', 'WSSS')
+        const second = fly('WSSS', 'EGLL')
+        expect(location()).toBe('EGLL')
+        deleteFlight(db, second, true)
+        expect(location()).toBe('WSSS')
+      })
+
+      it('goes back to the deleted flight departure when it was the only flight', () => {
+        const only = fly('WSSS', 'EGLL')
+        deleteFlight(db, only, true)
+        expect(location()).toBe('WSSS')
+      })
+
+      it('does nothing unless the revert is asked for', () => {
+        const f = fly('WSSS', 'EGLL')
+        deleteFlight(db, f)
+        expect(location()).toBe('EGLL')
+      })
+
+      it('reports the impact only for the most recent flight', () => {
+        const first = fly('VHHH', 'WSSS')
+        const second = fly('WSSS', 'EGLL')
+        expect(getDeleteLocationImpact(db, first)).toBeUndefined()
+        expect(getDeleteLocationImpact(db, second)).toEqual({ currentIcao: 'EGLL', revertIcao: 'WSSS' })
+        expect(getDeleteLocationImpact(db, 9999)).toBeUndefined()
+      })
+
+      it('leaves a manually changed location alone', () => {
+        const f = fly('WSSS', 'EGLL')
+        db.update(aircraftTable).set({ currentIcao: 'KJFK' }).where(eq(aircraftTable.id, aircraftId)).run()
+        deleteFlight(db, f, true)
+        expect(location()).toBe('KJFK')
+      })
+
+      it('leaves the location alone when a later flight exists', () => {
+        const first = fly('WSSS', 'EGLL')
+        fly('EGLL', 'LFPG')
+        deleteFlight(db, first, true)
+        expect(location()).toBe('LFPG')
+      })
     })
 
     it('deleteFlight on a flight with no dependents still tombstones it', () => {

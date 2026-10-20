@@ -190,7 +190,18 @@ function FlightDetail(props: {
     })
     if (!ok) return
     try {
-      await winglogApi().flightDelete(flight.id)
+      // Deleting the aircraft's most recent flight would otherwise leave it parked at an
+      // airport it never reached, so ask whether to put it back.
+      const impact = await winglogApi().flightDeleteLocationImpact(flight.id)
+      const revertLocation =
+        impact != null &&
+        (await confirm({
+          title: t('logbookView.revertLocationTitle'),
+          description: t('logbookView.revertLocationDescription', impact),
+          confirmLabel: t('logbookView.revertLocationMoveBack', { icao: impact.revertIcao }),
+          cancelLabel: t('logbookView.revertLocationKeep', { icao: impact.currentIcao })
+        }))
+      await winglogApi().flightDelete(flight.id, revertLocation)
       props.onDeleted()
       toast.success(t('logbookView.flightDeleted'))
     } catch (err) {

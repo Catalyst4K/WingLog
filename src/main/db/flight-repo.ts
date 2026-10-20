@@ -540,6 +540,66 @@ export function abandonFlight(db: WingLogDb, id: number): void {
 }
 
 /**
+ * Where the aircraft would go back to if this flight were deleted. completeFlight sets
+ * `aircraft.currentIcao` to the arrival airport, so deleting that flight leaves the aircraft
+ * parked somewhere it never went. Only the aircraft's most recent completed flight qualifies:
+ * deleting an older one never changes its location. Also requires the aircraft to still be at
+ * that arrival (a manual location change since then is left alone). The location to go back to
+ * is the arrival of the aircraft's previous completed flight, or this flight's departure when
+ * there is none.
+ *
+ * @param db The database, or the transaction the delete runs in.
+ * @param deleted The flight being deleted.
+ * @returns The aircraft's current and revert airports, or undefined when nothing would change.
+ */
+function findLocationRevert(
+  db: Pick<WingLogDb, 'select'>,
+  deleted: Flight
+): { aircraftId: number; currentIcao: string; revertIcao: string } | undefined {
+  if (deleted.status !== 'completed' || deleted.aircraftId == null || !deleted.actualInUtc) return undefined
+
+  const [plane] = db.select().from(aircraft).where(eq(aircraft.id, deleted.aircraftId)).all()
+  if (!plane || plane.currentIcao !== deleted.arrIcao) return undefined
+
+  const [previous] = db
+    .select()
+    .from(flight)
+    .where(
+      and(
+        eq(flight.aircraftId, deleted.aircraftId),
+        eq(flight.status, 'completed'),
+        isNull(flight.deletedAt),
+        isNotNull(flight.actualInUtc)
+      )
+    )
+    .orderBy(desc(flight.actualInUtc))
+    .all()
+    .filter((f) => f.id !== deleted.id)
+  if (previous && (previous.actualInUtc ?? '') > deleted.actualInUtc) return undefined // a later flight exists
+
+  const revertIcao = previous && previous.arrIcao !== 'ZZZZ' ? previous.arrIcao : deleted.depIcao
+  if (revertIcao === plane.currentIcao) return undefined
+  return { aircraftId: deleted.aircraftId, currentIcao: plane.currentIcao, revertIcao }
+}
+
+/**
+ * What deleting a flight would do to its aircraft's location, so the UI can ask the pilot first.
+ *
+ * @param db The database.
+ * @param id The flight.
+ * @returns The airport the aircraft is parked at now and the one it would move back to, or
+ *   undefined when deleting the flight wouldn't move it.
+ */
+export function getDeleteLocationImpact(
+  db: WingLogDb,
+  id: number
+): { currentIcao: string; revertIcao: string } | undefined {
+  const existing = getFlight(db, id)
+  const revert = existing && findLocationRevert(db, existing)
+  return revert ? { currentIcao: revert.currentIcao, revertIcao: revert.revertIcao } : undefined
+}
+
+/**
  * Removes a flight — a bad test entry, or any flight that logged wrong data (e.g. a
  * phase-machine hiccup that produced a nonsense fuel-burn figure). Soft-deletes the flight
  * and cascades the same tombstone to its `landing`/`flightInvoice` rows (winglog-backend/
@@ -550,10 +610,20 @@ export function abandonFlight(db: WingLogDb, id: number): void {
  *
  * @param db The database.
  * @param id The flight.
+ * @param revertLocation Also move the aircraft back to where it was before this flight, when
+ *   that applies (see findLocationRevert). Off by default: the pilot is asked first.
  */
-export function deleteFlight(db: WingLogDb, id: number): void {
+export function deleteFlight(db: WingLogDb, id: number, revertLocation = false): void {
   const now = new Date().toISOString()
+  const existing = getFlight(db, id)
   db.transaction((tx) => {
+    const revert = revertLocation && existing ? findLocationRevert(tx, existing) : undefined
+    if (revert) {
+      tx.update(aircraft)
+        .set({ currentIcao: revert.revertIcao, updatedAt: now })
+        .where(eq(aircraft.id, revert.aircraftId))
+        .run()
+    }
     tx.delete(trackPoint).where(eq(trackPoint.flightId, id)).run()
     tx.update(landing).set({ deletedAt: now, updatedAt: now }).where(eq(landing.flightId, id)).run()
     tx.update(flightInvoice)

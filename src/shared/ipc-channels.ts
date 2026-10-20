@@ -50,6 +50,7 @@ export const IpcChannels = {
   trackingGetActive: 'tracking:get-active',
   flightCancel: 'flight:cancel',
   flightDelete: 'flight:delete',
+  flightDeleteLocationImpact: 'flight:delete-location-impact',
   flightLinkAircraft: 'flight:link-aircraft',
   trackingPoint: 'tracking:point',
   trackingPointsUpdated: 'tracking:points-updated',

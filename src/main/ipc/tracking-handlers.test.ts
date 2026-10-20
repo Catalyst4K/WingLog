@@ -1,9 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { IpcChannels, type Flight, type SimTelemetry, type StartFreeFlightInput } from '@shared/ipc'
-import { createAircraft, deleteAircraft, retireAircraft } from '../db/aircraft-repo'
+import { createAircraft, deleteAircraft, getAircraftById, retireAircraft } from '../db/aircraft-repo'
 import { createDb, type WingLogDb } from '../db/client'
-import { createFlight, createFreeFlight, getFlight, getInProgressFlight } from '../db/flight-repo'
+import {
+  completeFlight,
+  createFlight,
+  createFreeFlight,
+  getFlight,
+  getInProgressFlight,
+  startFlight
+} from '../db/flight-repo'
 import type { TrackingController } from '../tracking/TrackingController'
 import { fakeIpc } from './fake-ipc'
 import {
@@ -209,6 +216,22 @@ describe('tracking and flight IPC handlers', () => {
     expect(tracking.stop).toHaveBeenCalledTimes(1)
     expect(getInProgressFlight(db)).toBeUndefined()
     expect(sync).toHaveBeenCalledTimes(3)
+  })
+
+  it('reports and applies the aircraft location revert when its latest flight is deleted', () => {
+    const invoke = register()
+    const aircraft = createAircraft(db, { registration: 'B-HSM', icaoType: 'A320' })
+    const flown = createFlight(db, { aircraftId: aircraft.id, depIcao: 'WSSS', arrIcao: 'EGLL' })
+    startFlight(db, flown.id, 10000)
+    completeFlight(db, flown.id, 9000)
+
+    expect(invoke(IpcChannels.flightDeleteLocationImpact, flown.id)).toEqual({
+      currentIcao: 'EGLL',
+      revertIcao: 'WSSS'
+    })
+    invoke(IpcChannels.flightDelete, flown.id, true)
+    expect(getAircraftById(db, aircraft.id)?.currentIcao).toBe('WSSS')
+    expect(invoke(IpcChannels.flightDeleteLocationImpact, flown.id)).toBeNull()
   })
 
   it('links a fleet aircraft to a free flight flown without one, only once', () => {
