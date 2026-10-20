@@ -609,6 +609,7 @@
     "procedures": "Procédures",
     "alternateIcao": "Déroutement {{icao}}",
     "nothingSelectedYet": "Rien de sélectionné pour l'instant",
+    "choiceNotConfirmed": "Impossible de joindre WingLog sur le PC. Les procédures n'y ont pas été modifiées.",
     "flightEnded": "Vol terminé",
     "autoDetectedComplete": "{{label}} a été automatiquement détecté comme terminé et enregistré dans votre carnet.",
     "ok": "OK"

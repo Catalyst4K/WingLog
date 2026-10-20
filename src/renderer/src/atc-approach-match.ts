@@ -3,7 +3,7 @@
 import { winglogApi } from './data/winglog-api'
 import type { NavdataProcedureOption, ProcedureSelection } from '@shared/ipc'
 import type { AtcClearanceUpdate } from '@shared/atc-info-boxes'
-import { approachConnectingToStar } from './route'
+import { approachConnectingToStar } from '@shared/route'
 
 /**
  * Turns a STAR clearance's runway into the approach to fly when it isn't the runway the selected approach is for. At EGLL ATC

@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import type { BeyondAtcState, GsxRemoteMenuState, ProcedureSelection, WingLogApi } from '@shared/ipc'
 import { LiveClientContext, type LiveClient } from '../live/LiveClient'
-import { emptyProcedureSelection } from '../procedure-selection'
+import { emptyProcedureSelection } from '@shared/procedure-selection'
 import { useAtcClearancePrompt, useImportantGsxMenu } from './use-prompts'
 
 /** A LiveClient fed by hand: the two hooks must run on it alone, as they do on the second screen. */
@@ -105,5 +105,22 @@ describe('useAtcClearancePrompt on a LiveClient', () => {
     const apply = setSelection.mock.calls[0][0] as (prev: ProcedureSelection) => ProcedureSelection
     expect(apply(selection)).toEqual({ ...selection, starIdent: 'LOGA2H' })
     expect(result.current.pending).toBeNull()
+  })
+
+  it('drops the old procedure transition when the accepted clearance names a different procedure', async () => {
+    window.winglog = { appLogRendererError: vi.fn().mockResolvedValue(undefined) } as unknown as WingLogApi
+    const { client, push } = fakeClient()
+    const setSelection = vi.fn()
+    const flown = { ...selection, starIdent: 'UPRS2C', starTransition: 'SY498' }
+    const { result } = renderHook(() => useAtcClearancePrompt(flown, setSelection), {
+      wrapper: wrapper(client)
+    })
+    await act(async () => {
+      push('beyondAtcState', state('LOGA2H'))
+      await Promise.resolve()
+    })
+    act(() => result.current.onAccept())
+    const apply = setSelection.mock.calls[0][0] as (prev: ProcedureSelection) => ProcedureSelection
+    expect(apply(flown)).toMatchObject({ starIdent: 'LOGA2H', starTransition: null })
   })
 })

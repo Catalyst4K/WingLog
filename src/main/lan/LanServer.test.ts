@@ -2,16 +2,23 @@ import { createServer, request } from 'node:http'
 import { type AddressInfo } from 'node:net'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { WebSocket } from 'ws'
+import { logger } from '../logging/logger'
 import { LiveHub } from '../live/LiveHub'
 import { hashToken } from './pairing'
 import {
   LAN_TOPICS,
   LanServer,
-  MAX_MESSAGES_PER_SECOND,
+  ABUSE_FACTOR,
+  MAX_PENDING_FAST,
+  MAX_PENDING_SLOW,
+  RATE_BURST,
+  RATE_PER_SECOND,
   MAX_SOCKETS,
   MAX_UNAUTHENTICATED_PER_ADDRESS,
   type LanServerDeps
 } from './LanServer'
+
+vi.mock('../logging/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn() } }))
 
 const HOST = '127.0.0.1'
 
@@ -106,7 +113,10 @@ describe('LanServer', () => {
         broken: () => {
           throw new Error('no')
         },
-        never: () => new Promise(() => undefined)
+        never: () => new Promise(() => undefined),
+        // Names in the lookup table's slow lane (src/shared/lan-queries.ts).
+        'navdata.refreshAirport': () => new Promise(() => undefined),
+        stands: () => new Promise(() => undefined)
       },
       staticFile: (path) => (path === '/' ? { type: 'text/html', body: '<h1>WingLog</h1>' } : null),
       now: () => Date.now(),
@@ -419,12 +429,28 @@ describe('LanServer', () => {
       for (const id of [3, 4, 5, 7, 8]) expect(results).toContainEqual({ t: 'result', id, error: true })
     })
 
-    it('refuses a fifth lookup while four are still waiting', async () => {
+    it('answers a quick lookup over the limit with busy and a time to wait, not with silence', async () => {
       const { pair } = await setup()
       const { client } = await pair()
-      for (let id = 1; id <= 5; id++) client.send({ t: 'query', id, name: 'never' })
+      for (let id = 1; id <= MAX_PENDING_FAST + 1; id++) client.send({ t: 'query', id, name: 'never' })
       await client.waitFor(() => client.received.some((m) => m.t === 'result'))
-      expect(client.received.filter((m) => m.t === 'result')).toEqual([{ t: 'result', id: 5, error: true }])
+      expect(client.received.filter((m) => m.t === 'result')).toEqual([
+        { t: 'result', id: MAX_PENDING_FAST + 1, error: true, busy: true, retryAfterMs: 250 }
+      ])
+    })
+
+    it('counts slow lookups apart, so two of them waiting never hold up a quick one', async () => {
+      const { pair } = await setup()
+      const { client } = await pair()
+      client.send({ t: 'query', id: 1, name: 'navdata.refreshAirport', args: ['EGLL'] })
+      client.send({ t: 'query', id: 2, name: 'stands', args: ['EGLL'] })
+      client.send({ t: 'query', id: 3, name: 'stands', args: ['WSSS'] })
+      client.send({ t: 'query', id: 4, name: 'echo', args: ['quick'] })
+      await client.waitFor(() => client.received.filter((m) => m.t === 'result').length === 2)
+      const results = client.received.filter((m) => m.t === 'result')
+      expect(MAX_PENDING_SLOW).toBe(2)
+      expect(results).toContainEqual({ t: 'result', id: 3, error: true, busy: true, retryAfterMs: 250 })
+      expect(results).toContainEqual({ t: 'result', id: 4, data: ['quick'] })
     })
 
     it('ignores lookups from a socket that has not authenticated', async () => {
@@ -454,14 +480,55 @@ describe('LanServer', () => {
       expect(client.received.filter((m) => m.t === 'error')).toEqual([])
     })
 
-    it('is limited to a set number of messages a second', async () => {
-      const { pair, ran } = await setup({ now: () => 1_000_000 })
-      const { client } = await pair()
-      for (let i = 0; i < MAX_MESSAGES_PER_SECOND + 10; i++)
-        client.send({ t: 'cmd', name: 'gsx.toggleMenu', args: [] })
-      await new Promise((resolve) => setTimeout(resolve, 150))
-      // The pair message used one of this second's slots.
-      expect(ran.length).toBe(MAX_MESSAGES_PER_SECOND - 1)
+    describe('the rate limit', () => {
+      it('lets a burst through, then answers each message over the limit with busy and how long to wait', async () => {
+        const { pair, ran } = await setup({ now: () => 1_000_000 })
+        const { client } = await pair()
+        for (let i = 0; i < RATE_BURST + 5; i++) client.send({ t: 'cmd', name: 'gsx.toggleMenu', args: [] })
+        client.send({ t: 'query', id: 9, name: 'echo', args: ['x'] })
+        await client.waitFor(() => client.received.some((m) => m.t === 'result'))
+        // The pairing message used one of the burst.
+        expect(ran.length).toBe(RATE_BURST - 1)
+        const busy = client.received.filter((m) => m.t === 'error')
+        expect(busy).toHaveLength(6)
+        expect(busy[0]).toEqual({ t: 'error', message: 'busy', retryAfterMs: 50 })
+        expect(client.received.find((m) => m.t === 'result')).toEqual({
+          t: 'result',
+          id: 9,
+          error: true,
+          busy: true,
+          retryAfterMs: 50
+        })
+        expect(client.closed).toBe(false)
+      })
+
+      it('lets messages through again as the bucket refills', async () => {
+        let now = 1_000_000
+        const { pair, ran } = await setup({ now: () => now })
+        const { client } = await pair()
+        for (let i = 0; i < RATE_BURST; i++) client.send({ t: 'cmd', name: 'gsx.toggleMenu', args: [] })
+        await vi.waitFor(() => expect(ran.length).toBe(RATE_BURST - 1))
+        now += 500
+        for (let i = 0; i < RATE_PER_SECOND; i++) client.send({ t: 'cmd', name: 'gsx.toggleMenu', args: [] })
+        // Half a second refills half a second's worth of the rate.
+        await vi.waitFor(() => expect(ran.length).toBe(RATE_BURST - 1 + RATE_PER_SECOND / 2))
+      })
+
+      it('closes a socket that keeps sending long after it was told to wait', async () => {
+        const { pair } = await setup({ now: () => 1_000_000 })
+        const { client } = await pair()
+        for (let i = 0; i < RATE_BURST + ABUSE_FACTOR * RATE_PER_SECOND + 5; i++)
+          client.send({ t: 'cmd', name: 'gsx.toggleMenu', args: [] })
+        await client.waitFor(() => client.closed)
+      })
+
+      it('does not answer pairing or hello from a socket that is not in yet, only drops it', async () => {
+        const { connect } = await setup({ now: () => 1_000_000 })
+        const stranger = await connect()
+        for (let i = 0; i < RATE_BURST + 5; i++) stranger.send({ t: 'hello', token: 'nope' })
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        expect(stranger.received.filter((m) => m.t === 'error' || m.t === 'result')).toEqual([])
+      })
     })
 
     it('is dropped at once when revoked, and its token no longer works', async () => {
@@ -532,6 +599,130 @@ describe('LanServer', () => {
       expect(client.received.filter((m) => m.t === 'flight')).toHaveLength(count)
     })
 
+    it('tells the PC when the flight shown changed, so the route built from it can be built again', async () => {
+      let key = 'a'
+      let changed = 0
+      const { pair } = await setup({
+        heartbeatMs: 30,
+        flightKey: () => key,
+        onFlightChanged: () => (changed += 1)
+      })
+      await pair()
+      await new Promise((resolve) => setTimeout(resolve, 120))
+      expect(changed).toBe(0)
+      key = 'b'
+      await vi.waitFor(() => expect(changed).toBe(1))
+      await new Promise((resolve) => setTimeout(resolve, 120))
+      expect(changed).toBe(1)
+    })
+
+    it('gives a connecting device the planned route in its snapshot, and each new one as it is published', async () => {
+      const { pair, hub } = await setup()
+      const route = { flightId: 1, revision: 1, selection: {}, waypoints: [] }
+      hub.publish('plannedRoute', route as never)
+      const { client } = await pair()
+      const snapshot = await client.message('snapshot')
+      expect((snapshot.topics as Record<string, unknown>).plannedRoute).toEqual(route)
+      hub.publish('plannedRoute', { ...route, revision: 2 } as never)
+      await client.waitFor(() => client.received.some((m) => m.t === 'topic' && m.name === 'plannedRoute'))
+      expect(client.received.find((m) => m.t === 'topic' && m.name === 'plannedRoute')).toMatchObject({
+        payload: { revision: 2 }
+      })
+    })
+
+    describe('the log (docs/plans/lan-sync.md, step 4)', () => {
+      const logged = (level: 'info' | 'warn'): string[] =>
+        vi.mocked(logger[level]).mock.calls.map((call) => String(call[0]))
+
+      it('writes one line a round for the messages it refused as busy, with the device and the count', async () => {
+        vi.mocked(logger.warn).mockClear()
+        const { pair } = await setup({ now: () => 1_000_000, heartbeatMs: 40 })
+        const { client } = await pair()
+        for (let i = 0; i < RATE_BURST + 7; i++) client.send({ t: 'cmd', name: 'gsx.toggleMenu', args: [] })
+        await vi.waitFor(() => expect(logged('warn').some((l) => l.includes('refused as busy'))).toBe(true))
+        const line = logged('warn').find((l) => l.includes('refused as busy'))!
+        expect(line).toMatch(/^\[lan\] device 1: \d+ messages refused as busy/)
+        // A quiet round writes nothing more.
+        const count = logged('warn').filter((l) => l.includes('refused as busy')).length
+        await new Promise((resolve) => setTimeout(resolve, 120))
+        expect(logged('warn').filter((l) => l.includes('refused as busy')).length).toBe(count)
+      })
+
+      it('writes a line when it closes a socket for ignoring the wait', async () => {
+        vi.mocked(logger.warn).mockClear()
+        const { pair } = await setup({ now: () => 1_000_000 })
+        const { client } = await pair()
+        for (let i = 0; i < RATE_BURST + ABUSE_FACTOR * RATE_PER_SECOND + 5; i++)
+          client.send({ t: 'cmd', name: 'gsx.toggleMenu', args: [] })
+        await client.waitFor(() => client.closed)
+        expect(logged('warn').some((l) => l.includes('closed for sending far more'))).toBe(true)
+      })
+
+      it('writes the name of a lookup it refused, made safe, and never its arguments', async () => {
+        vi.mocked(logger.warn).mockClear()
+        const { pair } = await setup()
+        const { client } = await pair()
+        client.send({ t: 'query', id: 1, name: 'steal\nthe.token', args: ['secret-value'] })
+        client.send({ t: 'query', id: 2, name: 'echo', args: [1, 2, 3, 4, 5, 6, 7] })
+        await client.waitFor(() => client.received.filter((m) => m.t === 'result').length === 2)
+        const lines = logged('warn').join('\n')
+        expect(lines).toContain('lookup refused (unknown lookup "steal?the.token")')
+        expect(lines).toContain('lookup refused (bad arguments "echo")')
+        expect(lines).not.toContain('secret-value')
+      })
+
+      it('writes the name and the reason when a lookup fails, and how long a slow one took', async () => {
+        vi.mocked(logger.warn).mockClear()
+        vi.mocked(logger.info).mockClear()
+        let t = 0
+        const { pair } = await setup({ now: () => (t += 2500) })
+        const { client } = await pair()
+        client.send({ t: 'query', id: 1, name: 'broken' })
+        client.send({ t: 'query', id: 2, name: 'later', args: ['x'] })
+        await client.waitFor(() => client.received.filter((m) => m.t === 'result').length === 2)
+        expect(logged('warn')).toContain('[lan] lookup "broken" failed: no')
+        expect(logged('info').some((l) => /^\[lan\] lookup "later" took \d+ ms$/.test(l))).toBe(true)
+      })
+
+      it('writes what a device reports, from the fixed list only, and the same one at most once a minute', async () => {
+        vi.mocked(logger.warn).mockClear()
+        let now = 1_000_000
+        const { pair } = await setup({ now: () => now })
+        const { client } = await pair()
+        const report = (code: unknown): void => client.send({ t: 'report', code })
+        report('selection-unconfirmed')
+        report('selection-unconfirmed')
+        report('query-failed:navdata.listSids')
+        report('query-failed:not.a.lookup')
+        report('anything I like \n [lan] fake line')
+        report(42)
+        await vi.waitFor(() => expect(logged('warn').filter((l) => l.includes('device 1')).length).toBe(3))
+        const lines = logged('warn')
+        expect(lines.filter((l) => l === '[lan] device 1 reports selection-unconfirmed')).toHaveLength(1)
+        expect(lines).toContain('[lan] device 1 reports query-failed:navdata.listSids')
+        // Anything else is one generic line, not the device's own words.
+        expect(lines.filter((l) => l.includes('a report the PC does not know'))).toHaveLength(1)
+        expect(lines.join('')).not.toContain('fake line')
+        // A minute on, it is written again.
+        now += 61_000
+        report('selection-unconfirmed')
+        await vi.waitFor(() =>
+          expect(
+            logged('warn').filter((l) => l === '[lan] device 1 reports selection-unconfirmed')
+          ).toHaveLength(2)
+        )
+      })
+
+      it('ignores a report from a socket that is not paired', async () => {
+        vi.mocked(logger.warn).mockClear()
+        const { connect } = await setup()
+        const stranger = await connect()
+        stranger.send({ t: 'report', code: 'route-missing' })
+        await new Promise((resolve) => setTimeout(resolve, 60))
+        expect(logged('warn').some((l) => l.includes('reports'))).toBe(false)
+      })
+    })
+
     it('refuses to start twice, and reports a port already in use', async () => {
       const { server, port } = await setup()
       await expect(server.start(HOST, port)).rejects.toThrow('Already listening')
@@ -581,7 +772,8 @@ describe('LanServer', () => {
         'storageStatus',
         'trackingPoint',
         'trackingPointsUpdated',
-        'procedureSelection'
+        'procedureSelection',
+        'plannedRoute'
       ].sort()
     )
   })

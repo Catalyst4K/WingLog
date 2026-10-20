@@ -1,3 +1,4 @@
+import { EventEmitter } from 'node:events'
 import { createServer } from 'node:http'
 import { type AddressInfo } from 'node:net'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -7,9 +8,12 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { WebSocket } from 'ws'
 import { createDb } from '../db/client'
+import { createAircraft } from '../db/aircraft-repo'
+import { createFlight } from '../db/flight-repo'
 import { setAppLanguage, setLanSettings, setTheme } from '../db/settings-repo'
 import { LiveHub } from '../live/LiveHub'
 import type { LanController } from './LanController'
+import { LAN_QUERY_KINDS } from '@shared/lan-queries'
 import { createLan, lanQueries } from './create-lan'
 
 /** A port nothing listens on. */
@@ -27,6 +31,7 @@ const NAVDATA = {
   getTaxiNetwork: (icao: string) => [{ icao }] as never,
   getStands: (icao: string) => Promise.resolve([{ icao }] as never),
   refreshAirport: () => Promise.resolve(),
+  onAirportRefreshed: () => () => undefined,
   listRunways: (icao: string) => [{ ident: '02L', icao }] as never,
   listSids: (icao: string, runway: string | null) => [{ kind: 'sid', icao, runway }] as never,
   listStars: (icao: string, runway: string | null) => [{ kind: 'star', icao, runway }] as never,
@@ -40,11 +45,11 @@ const NAVDATA = {
   ) => [{ icao, kind, identifier, runway, transition }] as never
 }
 
-const TRACKING = {
+const TRACKING = Object.assign(new EventEmitter(), {
   getActive: () => undefined,
   getProcedureSelection: () => undefined,
   setProcedureSelection: () => undefined
-}
+}) as never
 
 const LOCAL = {
   display: () => ({ weightUnit: 'kg', altitudeUnit: 'ft', windSpeedUnit: 'kt', mapLanguage: 'en' }),
@@ -66,6 +71,10 @@ describe('lanQueries', () => {
     })
     expect(queries['settings.gsxRemote']()).toEqual({ enabled: true, host: '', port: 1 })
     expect(queries['settings.beyondAtc']()).toEqual({ enabled: false, host: '' })
+  })
+
+  it('has every lookup placed in a lane in the shared table, and nothing in the table that it does not answer', () => {
+    expect(Object.keys(queries).sort()).toEqual(Object.keys(LAN_QUERY_KINDS).sort())
   })
 
   it('looks up weather for a few airports, and refuses anything else', async () => {
@@ -149,6 +158,121 @@ describe('createLan', () => {
     })
     return { db, hub, lan }
   }
+
+  it('builds the route of the flight shown, and builds it again when the choice, the navdata or the flight changes', async () => {
+    const { db, hub } = build()
+    let refreshed: ((icao: string) => void) | undefined
+    const choice: { current: unknown } = { current: undefined }
+    const tracking = Object.assign(new EventEmitter(), {
+      getActive: () => undefined,
+      getProcedureSelection: () => choice.current,
+      setProcedureSelection: () => undefined
+    })
+    const sent: { revision: number; selection: { sidIdent: string | null } }[] = []
+    hub.subscribe((topic, payload) => {
+      if (topic === 'plannedRoute' && payload) sent.push(payload as never)
+    })
+    const aircraftId = createAircraft(db, { registration: '9V-SKA', icaoType: 'A388' }).id
+    createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'KJFK' })
+    await lan?.stop()
+    lan = createLan({
+      db,
+      liveHub: hub,
+      trackingController: tracking as never,
+      ...CREATE_DEPS,
+      navdata: {
+        ...NAVDATA,
+        onAirportRefreshed: (listener: (icao: string) => void) => {
+          refreshed = listener
+          return () => undefined
+        }
+      },
+      pageFolder: folders[0],
+      testAddress: '127.0.0.1'
+    })
+    // Built at once for the flight shown.
+    expect(sent).toHaveLength(1)
+    expect(hub.snapshot().plannedRoute).toMatchObject({ revision: 1 })
+
+    // A choice made on any screen.
+    choice.current = {
+      departureRunway: '27L',
+      sidIdent: 'BPK7F',
+      sidTransition: null,
+      starIdent: null,
+      starTransition: null,
+      approachIdent: null,
+      approachTransition: null,
+      arrivalIcao: null
+    }
+    tracking.emit('selectionChanged', choice.current)
+    expect(sent.map((r) => r.revision)).toEqual([1, 2])
+    expect(sent[1].selection.sidIdent).toBe('BPK7F')
+
+    // Nothing changed: nothing more is sent, whatever asks.
+    tracking.emit('started', 1)
+    tracking.emit('stopped', 1)
+    tracking.emit('completed', 1)
+    refreshed?.('EGLL')
+    expect(sent).toHaveLength(2)
+  })
+
+  it('answers a choice from a device with the route built for it, even when the PC already had that choice', async () => {
+    const { db, hub } = build()
+    let current: unknown
+    const tracking = Object.assign(new EventEmitter(), {
+      getActive: () => undefined,
+      getProcedureSelection: () => current,
+      // As the real controller: only a change is announced.
+      setProcedureSelection: (selection: unknown) => {
+        if (JSON.stringify(current) === JSON.stringify(selection)) return
+        current = selection
+        tracking.emit('selectionChanged', selection)
+      }
+    })
+    const aircraftId = createAircraft(db, { registration: '9V-SKA', icaoType: 'A388' }).id
+    createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'KJFK' })
+    await lan?.stop()
+    lan = createLan({
+      db,
+      liveHub: hub,
+      trackingController: tracking as never,
+      ...CREATE_DEPS,
+      pageFolder: folders[0],
+      testAddress: '127.0.0.1'
+    })
+    const port = await freePort()
+    setLanSettings(db, { enabled: true, port })
+    await lan.init()
+    const { code } = lan.startPairing().pairing!
+    const messages: Record<string, unknown>[] = []
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/live`)
+    ws.on('message', (data) => messages.push(JSON.parse(data.toString())))
+    await new Promise<void>((resolve) => ws.once('open', () => resolve()))
+    ws.send(JSON.stringify({ t: 'pair', code, name: 'Phone' }))
+    await expect.poll(() => messages.some((m) => m.t === 'snapshot')).toBe(true)
+    const routes = () => messages.filter((m) => m.t === 'topic' && m.name === 'plannedRoute')
+    const choice = {
+      departureRunway: '27L',
+      sidIdent: 'BPK7F',
+      sidTransition: null,
+      starIdent: null,
+      starTransition: null,
+      approachIdent: null,
+      approachTransition: null,
+      arrivalIcao: null
+    }
+
+    ws.send(JSON.stringify({ t: 'cmd', name: 'track.setProcedureSelection', args: [choice] }))
+    await expect.poll(() => routes().length).toBe(1)
+    expect(routes()[0]).toMatchObject({ payload: { revision: 2, selection: { sidIdent: 'BPK7F' } } })
+
+    // The same choice again: nothing changed on the PC, and the device is still answered, with the same route.
+    ws.send(JSON.stringify({ t: 'cmd', name: 'track.setProcedureSelection', args: [choice] }))
+    await expect.poll(() => routes().length).toBe(2)
+    expect(routes()[1]).toEqual(routes()[0])
+    ws.terminate()
+  })
 
   it('stays off until the settings say otherwise', async () => {
     const { lan } = build()

@@ -21,7 +21,7 @@ import {
   emptyProcedureSelection,
   seedProcedureSelectionFromOfp,
   selectionFromFlight
-} from '../procedure-selection'
+} from '@shared/procedure-selection'
 import { runAsync } from '../report-error'
 import { useAtcClearancePrompt, useImportantGsxMenu } from './use-prompts'
 

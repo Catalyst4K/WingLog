@@ -14,8 +14,8 @@ import {
   pickDefaultApproachIdentifier,
   VECTORS_TRANSITION,
   type Waypoint
-} from './route'
-import { arrivalAirport, type ProcedureAirports } from './procedure-selection'
+} from '@shared/route'
+import { arrivalAirport, type ProcedureAirports } from '@shared/procedure-selection'
 import { displayIcao } from './display-icao'
 import { uiMemory } from './ui-memory'
 import { runAsync } from './report-error'

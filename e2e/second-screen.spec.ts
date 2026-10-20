@@ -214,6 +214,62 @@ test.describe('Second screen', () => {
     }
   })
 
+  test('the PC builds the route of the flight shown and sends the device a new one each time the procedures change, whichever screen changes them', async () => {
+    const port = await freePort()
+    const { window: page, cleanup } = await launchApp({ env: { WINGLOG_E2E_LAN_ADDRESS: '127.0.0.1' } })
+    try {
+      const code = await page.evaluate(async (p) => {
+        const api = (globalThis as unknown as Window).winglog
+        const aircraft = await api.aircraftCreate({ registration: '9V-SKA', icaoType: 'A388' })
+        await api.flightCreate({ aircraftId: aircraft.id, depIcao: 'EGLL', arrIcao: 'KJFK' })
+        await api.lanSetSettings({ enabled: true, port: p })
+        return (await api.lanStartPairing()).pairing?.code ?? ''
+      }, port)
+      const device = new Device(port)
+      await device.opened()
+      device.send({ t: 'pair', code, name: 'Phone' })
+      await device.message('paired')
+      const routes = () =>
+        device.received
+          .filter((m) => m.t === 'topic' && m.name === 'plannedRoute')
+          .map(
+            (m) => m.payload as { flightId: number; revision: number; selection: { sidIdent: string | null } }
+          )
+
+      // A choice made on the device comes back as the route built for it.
+      const chosen = {
+        departureRunway: '27R',
+        sidIdent: 'BPK7F',
+        sidTransition: null,
+        starIdent: null,
+        starTransition: null,
+        approachIdent: null,
+        approachTransition: null,
+        arrivalIcao: null
+      }
+      device.send({ t: 'cmd', name: 'track.setProcedureSelection', args: [chosen] })
+      await expect.poll(() => routes().at(-1)?.selection.sidIdent).toBe('BPK7F')
+      const first = routes().at(-1)!
+
+      // The same choice again changes nothing on the PC, and the device is still answered, with the same route: how it learns it was heard.
+      const heard = routes().length
+      device.send({ t: 'cmd', name: 'track.setProcedureSelection', args: [chosen] })
+      await expect.poll(() => routes().length).toBeGreaterThan(heard)
+      expect(routes().at(-1)).toEqual(first)
+
+      // A choice made in the window comes back as the next revision.
+      await page.evaluate(
+        (selection) => (globalThis as unknown as Window).winglog.trackingSetProcedureSelection(selection),
+        { ...chosen, sidIdent: 'DET2G' }
+      )
+      await expect.poll(() => routes().at(-1)?.selection.sidIdent).toBe('DET2G')
+      expect(routes().at(-1)).toMatchObject({ flightId: first.flightId, revision: first.revision + 1 })
+      device.close()
+    } finally {
+      await cleanup()
+    }
+  })
+
   test('the page a phone opens pairs with the code and shows the map', async () => {
     const port = await freePort()
     const { app, window: page, cleanup } = await launchApp({ env: { WINGLOG_E2E_LAN_ADDRESS: '127.0.0.1' } })

@@ -601,6 +601,7 @@
     "procedures": "程序",
     "alternateIcao": "备降 {{icao}}",
     "nothingSelectedYet": "尚未选择",
+    "choiceNotConfirmed": "无法连接到电脑上的 WingLog。那里的程序未被更改。",
     "flightEnded": "航班已结束",
     "autoDetectedComplete": "{{label}} 已被自动识别为完成，并保存到你的飞行日志。",
     "ok": "确定"

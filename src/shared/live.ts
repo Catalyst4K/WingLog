@@ -1,5 +1,6 @@
 /** The live topics main pushes while flying, and what each one carries. */
 
+import type { Waypoint } from './route'
 import type {
   BeyondAtcArrivalClearance,
   BeyondAtcConnectionStatus,
@@ -21,6 +22,19 @@ import type {
 } from './ipc'
 
 /**
+ * The planned route of the flight a second screen shows, built on the PC from the flight's plan and the SID, STAR and approach chosen
+ * (winglog-backend's docs/plans/lan-sync.md). The screen draws it as it is.
+ */
+export interface PlannedRoute {
+  flightId: number
+  /** Goes up by one each time the PC publishes a different route or choice for this flight, and starts again at 1 for another flight. */
+  revision: number
+  /** The choice this route was built from. */
+  selection: ProcedureSelection
+  waypoints: Waypoint[]
+}
+
+/**
  * Every live stream the app pushes while flying, keyed by its IPC channel name
  * (winglog-backend's docs/plans/live-data-seam.md, part A). One map so the main
  * process's LiveHub, the renderer, and later a LAN client (v1.5) and a sim-PC host (v2.x)
@@ -34,6 +48,8 @@ export interface LiveTopics {
   trackingPointsUpdated: TrackPoint[]
   /** The SID, STAR and approach chosen for the tracked flight, from whichever screen changed it last. */
   procedureSelection: ProcedureSelection | null
+  /** The planned route with that choice spliced in, from the PC, for the screens that don't build it themselves. */
+  plannedRoute: PlannedRoute | null
   /** The disk's free space and whether saving is failing, for the low-disk warning on every screen. */
   storageStatus: StorageStatus
   gsxRemoteStatus: GsxRemoteConnectionStatus

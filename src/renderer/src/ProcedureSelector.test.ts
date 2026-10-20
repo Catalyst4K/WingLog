@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { NavdataProcedureOption } from '@shared/ipc'
-import { pickDefaultApproachIdentifier } from './route'
+import { pickDefaultApproachIdentifier } from '@shared/route'
 
 function option(identifier: string, transition: string | null = null): NavdataProcedureOption {
   return { identifier, transition }

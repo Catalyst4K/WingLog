@@ -5,7 +5,7 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { FlightPhase, SimTelemetry, TrackPoint } from '@shared/ipc'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
-import type { Waypoint } from './route'
+import type { Waypoint } from '@shared/route'
 import i18n from './i18n'
 import type { FlightMapProps } from './FlightMap'
 

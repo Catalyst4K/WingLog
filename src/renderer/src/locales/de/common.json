@@ -607,6 +607,7 @@
     "procedures": "Verfahren",
     "alternateIcao": "Ausweichflughafen {{icao}}",
     "nothingSelectedYet": "Noch nichts ausgewählt",
+    "choiceNotConfirmed": "WingLog auf dem PC wurde nicht erreicht. Die Verfahren dort wurden nicht geändert.",
     "flightEnded": "Flug beendet",
     "autoDetectedComplete": "{{label}} wurde automatisch als abgeschlossen erkannt und im Logbuch gespeichert.",
     "ok": "OK"
