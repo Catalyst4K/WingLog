@@ -7,7 +7,11 @@ import { hashToken } from './pairing'
 import {
   LAN_TOPICS,
   LanServer,
-  MAX_MESSAGES_PER_SECOND,
+  ABUSE_FACTOR,
+  MAX_PENDING_FAST,
+  MAX_PENDING_SLOW,
+  RATE_BURST,
+  RATE_PER_SECOND,
   MAX_SOCKETS,
   MAX_UNAUTHENTICATED_PER_ADDRESS,
   type LanServerDeps
@@ -106,7 +110,10 @@ describe('LanServer', () => {
         broken: () => {
           throw new Error('no')
         },
-        never: () => new Promise(() => undefined)
+        never: () => new Promise(() => undefined),
+        // Names in the lookup table's slow lane (src/shared/lan-queries.ts).
+        'navdata.refreshAirport': () => new Promise(() => undefined),
+        stands: () => new Promise(() => undefined)
       },
       staticFile: (path) => (path === '/' ? { type: 'text/html', body: '<h1>WingLog</h1>' } : null),
       now: () => Date.now(),
@@ -419,12 +426,28 @@ describe('LanServer', () => {
       for (const id of [3, 4, 5, 7, 8]) expect(results).toContainEqual({ t: 'result', id, error: true })
     })
 
-    it('refuses a fifth lookup while four are still waiting', async () => {
+    it('answers a quick lookup over the limit with busy and a time to wait, not with silence', async () => {
       const { pair } = await setup()
       const { client } = await pair()
-      for (let id = 1; id <= 5; id++) client.send({ t: 'query', id, name: 'never' })
+      for (let id = 1; id <= MAX_PENDING_FAST + 1; id++) client.send({ t: 'query', id, name: 'never' })
       await client.waitFor(() => client.received.some((m) => m.t === 'result'))
-      expect(client.received.filter((m) => m.t === 'result')).toEqual([{ t: 'result', id: 5, error: true }])
+      expect(client.received.filter((m) => m.t === 'result')).toEqual([
+        { t: 'result', id: MAX_PENDING_FAST + 1, error: true, busy: true, retryAfterMs: 250 }
+      ])
+    })
+
+    it('counts slow lookups apart, so two of them waiting never hold up a quick one', async () => {
+      const { pair } = await setup()
+      const { client } = await pair()
+      client.send({ t: 'query', id: 1, name: 'navdata.refreshAirport', args: ['EGLL'] })
+      client.send({ t: 'query', id: 2, name: 'stands', args: ['EGLL'] })
+      client.send({ t: 'query', id: 3, name: 'stands', args: ['WSSS'] })
+      client.send({ t: 'query', id: 4, name: 'echo', args: ['quick'] })
+      await client.waitFor(() => client.received.filter((m) => m.t === 'result').length === 2)
+      const results = client.received.filter((m) => m.t === 'result')
+      expect(MAX_PENDING_SLOW).toBe(2)
+      expect(results).toContainEqual({ t: 'result', id: 3, error: true, busy: true, retryAfterMs: 250 })
+      expect(results).toContainEqual({ t: 'result', id: 4, data: ['quick'] })
     })
 
     it('ignores lookups from a socket that has not authenticated', async () => {
@@ -454,14 +477,55 @@ describe('LanServer', () => {
       expect(client.received.filter((m) => m.t === 'error')).toEqual([])
     })
 
-    it('is limited to a set number of messages a second', async () => {
-      const { pair, ran } = await setup({ now: () => 1_000_000 })
-      const { client } = await pair()
-      for (let i = 0; i < MAX_MESSAGES_PER_SECOND + 10; i++)
-        client.send({ t: 'cmd', name: 'gsx.toggleMenu', args: [] })
-      await new Promise((resolve) => setTimeout(resolve, 150))
-      // The pair message used one of this second's slots.
-      expect(ran.length).toBe(MAX_MESSAGES_PER_SECOND - 1)
+    describe('the rate limit', () => {
+      it('lets a burst through, then answers each message over the limit with busy and how long to wait', async () => {
+        const { pair, ran } = await setup({ now: () => 1_000_000 })
+        const { client } = await pair()
+        for (let i = 0; i < RATE_BURST + 5; i++) client.send({ t: 'cmd', name: 'gsx.toggleMenu', args: [] })
+        client.send({ t: 'query', id: 9, name: 'echo', args: ['x'] })
+        await client.waitFor(() => client.received.some((m) => m.t === 'result'))
+        // The pairing message used one of the burst.
+        expect(ran.length).toBe(RATE_BURST - 1)
+        const busy = client.received.filter((m) => m.t === 'error')
+        expect(busy).toHaveLength(6)
+        expect(busy[0]).toEqual({ t: 'error', message: 'busy', retryAfterMs: 50 })
+        expect(client.received.find((m) => m.t === 'result')).toEqual({
+          t: 'result',
+          id: 9,
+          error: true,
+          busy: true,
+          retryAfterMs: 50
+        })
+        expect(client.closed).toBe(false)
+      })
+
+      it('lets messages through again as the bucket refills', async () => {
+        let now = 1_000_000
+        const { pair, ran } = await setup({ now: () => now })
+        const { client } = await pair()
+        for (let i = 0; i < RATE_BURST; i++) client.send({ t: 'cmd', name: 'gsx.toggleMenu', args: [] })
+        await vi.waitFor(() => expect(ran.length).toBe(RATE_BURST - 1))
+        now += 500
+        for (let i = 0; i < RATE_PER_SECOND; i++) client.send({ t: 'cmd', name: 'gsx.toggleMenu', args: [] })
+        // Half a second refills half a second's worth of the rate.
+        await vi.waitFor(() => expect(ran.length).toBe(RATE_BURST - 1 + RATE_PER_SECOND / 2))
+      })
+
+      it('closes a socket that keeps sending long after it was told to wait', async () => {
+        const { pair } = await setup({ now: () => 1_000_000 })
+        const { client } = await pair()
+        for (let i = 0; i < RATE_BURST + ABUSE_FACTOR * RATE_PER_SECOND + 5; i++)
+          client.send({ t: 'cmd', name: 'gsx.toggleMenu', args: [] })
+        await client.waitFor(() => client.closed)
+      })
+
+      it('does not answer pairing or hello from a socket that is not in yet, only drops it', async () => {
+        const { connect } = await setup({ now: () => 1_000_000 })
+        const stranger = await connect()
+        for (let i = 0; i < RATE_BURST + 5; i++) stranger.send({ t: 'hello', token: 'nope' })
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        expect(stranger.received.filter((m) => m.t === 'error' || m.t === 'result')).toEqual([])
+      })
     })
 
     it('is dropped at once when revoked, and its token no longer works', async () => {

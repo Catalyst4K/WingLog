@@ -8,6 +8,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { Duplex } from 'node:stream'
 import { WebSocketServer, type WebSocket } from 'ws'
+import { laneOf, type LanQueryLane } from '@shared/lan-queries'
 import type { LiveCommand, LiveSnapshot, LiveTopic } from '@shared/live'
 import { logger } from '../logging/logger'
 import type { LiveHub } from '../live/LiveHub'
@@ -40,8 +41,10 @@ export const LAN_TOPICS: readonly LiveTopic[] = [
 export const HEARTBEAT_MS = 10_000
 /** Most arguments a lookup takes. */
 const MAX_QUERY_ARGS = 6
-/** Lookups one device may have waiting at once. */
-export const MAX_PENDING_QUERIES = 4
+/** Quick lookups (from the PC's own data) one device may have waiting at once. */
+export const MAX_PENDING_FAST = 4
+/** Slow lookups (that reach the sim or the internet) one device may have waiting at once, counted apart so they cannot hold up quick ones. */
+export const MAX_PENDING_SLOW = 2
 /** Largest message a device may send, in bytes. */
 export const MAX_MESSAGE_BYTES = 16 * 1024
 /** Most open sockets at once. */
@@ -50,8 +53,14 @@ export const MAX_SOCKETS = 8
 export const MAX_UNAUTHENTICATED_PER_ADDRESS = 4
 /** How long a socket may stay unauthenticated, in milliseconds. */
 export const AUTH_TIMEOUT_MS = 10_000
-/** Most messages one socket may send in a second. */
-export const MAX_MESSAGES_PER_SECOND = 20
+/** How many messages one socket may send in a burst (a token bucket's size). */
+export const RATE_BURST = 40
+/** How many messages a second one socket may keep sending (the bucket's refill). */
+export const RATE_PER_SECOND = 20
+/** A socket that keeps sending this many times the rate after it is told to wait is closed as abusive. */
+export const ABUSE_FACTOR = 5
+/** What a device is told to wait before asking again when it has too many lookups waiting, in milliseconds. */
+const BUSY_RETRY_MS = 250
 /** A socket with more than this waiting to be sent is too slow to keep. */
 export const MAX_BUFFERED_BYTES = 1024 * 1024
 
@@ -101,10 +110,14 @@ interface Client {
   /** The network address it connected from. */
   address: string | undefined
   deviceId: number | null
-  windowStart: number
-  count: number
-  /** Queries asked and not yet answered. */
-  pending: number
+  /** The rate limit's token bucket: messages the socket may still send now, and when it was last topped up. */
+  tokens: number
+  refilledAt: number
+  /** Messages refused in the current second, to tell a burst from abuse. */
+  refused: number
+  refusedSince: number
+  /** Queries asked and not yet answered, by lane. */
+  pending: Record<LanQueryLane, number>
   /** False from a ping until its pong: a socket still false at the next ping is dead (a locked phone, a dropped Wi-Fi). */
   alive: boolean
   authTimer: NodeJS.Timeout
@@ -277,9 +290,11 @@ export class LanServer {
       socket,
       address,
       deviceId: null,
-      windowStart: this.deps.now(),
-      count: 0,
-      pending: 0,
+      tokens: RATE_BURST,
+      refilledAt: this.deps.now(),
+      refused: 0,
+      refusedSince: this.deps.now(),
+      pending: { fast: 0, slow: 0 },
       alive: true,
       authTimer: setTimeout(() => socket.close(), this.deps.authTimeoutMs ?? AUTH_TIMEOUT_MS)
     }
@@ -298,14 +313,9 @@ export class LanServer {
 
   private handleMessage(client: Client, text: string): void {
     const now = this.deps.now()
-    if (now - client.windowStart >= 1000) {
-      client.windowStart = now
-      client.count = 0
-    }
-    client.count += 1
-    if (client.count > MAX_MESSAGES_PER_SECOND) return
     const message = parseIncoming(text)
     if (!message) return
+    if (!this.takeToken(client, now)) return this.refuse(client, message, now)
     if (message.t === 'pair') return this.handlePair(client, message, now)
     if (message.t === 'hello') return this.handleHello(client, message.token)
     if (client.deviceId === null) return
@@ -315,6 +325,49 @@ export class LanServer {
     } catch {
       this.send(client, { t: 'error', message: 'Not allowed' })
     }
+  }
+
+  /**
+   * Spends one message from the socket's bucket: it holds RATE_BURST and fills at RATE_PER_SECOND.
+   *
+   * @param client The socket.
+   * @param now The time, in milliseconds.
+   * @returns False when the bucket is empty and the message is over the limit.
+   */
+  private takeToken(client: Client, now: number): boolean {
+    const elapsed = Math.max(0, now - client.refilledAt)
+    client.tokens = Math.min(RATE_BURST, client.tokens + (elapsed * RATE_PER_SECOND) / 1000)
+    client.refilledAt = now
+    if (client.tokens < 1) return false
+    client.tokens -= 1
+    return true
+  }
+
+  /**
+   * Answers a message that is over the limit, so its sender is told to wait and ask again rather than left to time out. A socket that
+   * keeps sending long after it is told is closed.
+   *
+   * @param client The socket.
+   * @param message The message that was refused.
+   * @param now The time, in milliseconds.
+   */
+  private refuse(client: Client, message: Incoming, now: number): void {
+    if (now - client.refusedSince >= 1000) {
+      client.refusedSince = now
+      client.refused = 0
+    }
+    client.refused += 1
+    if (client.refused > ABUSE_FACTOR * RATE_PER_SECOND) {
+      client.socket.close()
+      return
+    }
+    const retryAfterMs = Math.max(50, Math.ceil(((1 - client.tokens) * 1000) / RATE_PER_SECOND))
+    if (message.t === 'query' && typeof message.id === 'number' && Number.isSafeInteger(message.id)) {
+      this.send(client, { t: 'result', id: message.id, error: true, busy: true, retryAfterMs })
+    } else if (message.t === 'cmd') {
+      this.send(client, { t: 'error', message: 'busy', retryAfterMs })
+    }
+    // Pairing and hello from a socket not yet let in are dropped: there is nobody to tell.
   }
 
   /**
@@ -329,22 +382,22 @@ export class LanServer {
     const query =
       typeof name === 'string' && Object.hasOwn(this.deps.queries, name) ? this.deps.queries[name] : null
     const args = message.args === undefined ? [] : message.args
-    if (
-      !query ||
-      !Array.isArray(args) ||
-      args.length > MAX_QUERY_ARGS ||
-      client.pending >= MAX_PENDING_QUERIES
-    ) {
+    if (!query || !Array.isArray(args) || args.length > MAX_QUERY_ARGS) {
       this.send(client, { t: 'result', id, error: true })
       return
     }
-    client.pending += 1
+    const lane = laneOf(name as string)
+    if (client.pending[lane] >= (lane === 'slow' ? MAX_PENDING_SLOW : MAX_PENDING_FAST)) {
+      this.send(client, { t: 'result', id, error: true, busy: true, retryAfterMs: BUSY_RETRY_MS })
+      return
+    }
+    client.pending[lane] += 1
     new Promise((resolve) => resolve(query(...(args as unknown[]))))
       .then(
         (data) => this.send(client, { t: 'result', id, data }),
         () => this.send(client, { t: 'result', id, error: true })
       )
-      .finally(() => (client.pending -= 1))
+      .finally(() => (client.pending[lane] -= 1))
   }
 
   private handlePair(client: Client, message: { code: unknown; name?: unknown }, now: number): void {

@@ -13,6 +13,7 @@ import { createFlight } from '../db/flight-repo'
 import { setAppLanguage, setLanSettings, setTheme } from '../db/settings-repo'
 import { LiveHub } from '../live/LiveHub'
 import type { LanController } from './LanController'
+import { LAN_QUERY_KINDS } from '@shared/lan-queries'
 import { createLan, lanQueries } from './create-lan'
 
 /** A port nothing listens on. */
@@ -70,6 +71,10 @@ describe('lanQueries', () => {
     })
     expect(queries['settings.gsxRemote']()).toEqual({ enabled: true, host: '', port: 1 })
     expect(queries['settings.beyondAtc']()).toEqual({ enabled: false, host: '' })
+  })
+
+  it('has every lookup placed in a lane in the shared table, and nothing in the table that it does not answer', () => {
+    expect(Object.keys(queries).sort()).toEqual(Object.keys(LAN_QUERY_KINDS).sort())
   })
 
   it('looks up weather for a few airports, and refuses anything else', async () => {

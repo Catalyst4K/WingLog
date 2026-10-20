@@ -69,10 +69,14 @@ export type LanServerMessage =
   | { t: 'denied' }
   /** Sent every few seconds so a device can tell a quiet PC from a frozen or vanished one. */
   | { t: 'hb' }
-  | { t: 'error'; message: string }
+  /** A message was refused. `retryAfterMs` is set when the device sent too many and should wait that long before sending again. */
+  | { t: 'error'; message: string; retryAfterMs?: number }
   | { t: 'snapshot'; topics: LiveSnapshot; flight: LanFlightSnapshot | null }
   | { t: 'topic'; name: LiveTopic; payload: unknown }
   /** A different flight is being tracked from here on (or none): replaces the snapshot's flight and track. */
   | { t: 'flight'; flight: LanFlightSnapshot | null }
-  /** The answer to a device's query: the data, or `error` when it could not be answered. */
-  | { t: 'result'; id: number; data?: unknown; error?: true }
+  /**
+   * The answer to a device's query: the data, or `error` when it could not be answered. `busy` means it was not tried because the
+   * device has too many waiting or sent too fast: asking again after `retryAfterMs` may work, and is worth doing.
+   */
+  | { t: 'result'; id: number; data?: unknown; error?: true; busy?: true; retryAfterMs?: number }

@@ -226,69 +226,245 @@ describe('LanConnection', () => {
       expect(() => idle.link.command('gsx.toggleMenu')).toThrow('Not connected')
     })
 
-    it('rejects when the PC could not answer, and ignores an answer nobody asked for', async () => {
-      const { link, sockets } = liveLink()
-      const asked = link.query('stands', 'WSSS')
-      sockets[0].say({ t: 'result', id: 99, data: 1 })
-      sockets[0].say({ t: 'result', id: 1, error: true })
-      await expect(asked).rejects.toThrow('could not answer')
-    })
+    const sentQueries = (sockets: FakeSocket[], n = 0) =>
+      sockets[n].sent.filter((m) => (m as { t: string }).t === 'query') as {
+        id: number
+        name: string
+        args: unknown[]
+      }[]
 
-    it('rejects while not connected, and when the link drops with a lookup waiting', async () => {
+    /** Moves time on in steps, with the PC's heartbeat arriving as it does, so a long wait is not taken for a dead link. */
+    const wait = (sockets: FakeSocket[], ms: number): void => {
+      for (let left = ms; left > 0; left -= 5000) {
+        vi.advanceTimersByTime(Math.min(5000, left))
+        sockets.at(-1)?.say({ t: 'hb' })
+      }
+    }
+
+    it('ignores an answer nobody asked for, and rejects while not connected', async () => {
       const idle = setup('tok')
       await expect(idle.link.query('airfields')).rejects.toThrow('Not connected')
       const { link, sockets } = liveLink()
-      const waiting = link.query('airfields')
-      sockets[0].drop()
-      await expect(waiting).rejects.toThrow('Not connected')
+      sockets[0].say({ t: 'result', id: 99, data: 1 })
+      const asked = link.query('echo', 1)
+      sockets[0].say({ t: 'result', id: 1, data: 'fine' })
+      await expect(asked).resolves.toBe('fine')
     })
 
-    it('never has more than four lookups out at once (the PC refuses the rest), and sends the rest as answers come in', async () => {
-      const { link, sockets } = liveLink()
-      const asked = Array.from({ length: 7 }, (_, i) => link.query('echo', i))
-      const sentQueries = () => sockets[0].sent.filter((m) => (m as { t: string }).t === 'query')
-      expect(sentQueries()).toHaveLength(4)
-      sockets[0].say({ t: 'result', id: 1, data: 'a' })
-      expect(sentQueries()).toHaveLength(5)
-      sockets[0].say({ t: 'result', id: 2, data: 'b' })
-      sockets[0].say({ t: 'result', id: 3, data: 'c' })
-      expect(sentQueries()).toHaveLength(7)
-      for (const id of [4, 5, 6, 7]) sockets[0].say({ t: 'result', id, data: id })
-      await expect(asked[0]).resolves.toBe('a')
-      await expect(asked[6]).resolves.toBe(7)
-      expect(sentQueries().map((m) => (m as { args: unknown[] }).args[0])).toEqual([0, 1, 2, 3, 4, 5, 6])
-    })
+    describe('retrying', () => {
+      beforeEach(() => void vi.spyOn(Math, 'random').mockReturnValue(1))
+      afterEach(() => void vi.restoreAllMocks())
 
-    it('fails the lookups still waiting for a slot when the link drops, and lets a refused one free its slot', async () => {
-      const { link, sockets } = liveLink()
-      const outcomes = Array.from({ length: 6 }, (_, i) =>
-        link.query('echo', i).then(
+      it('asks again after a wait that doubles when the PC could not answer, and gives up after four tries', async () => {
+        const { link, sockets } = liveLink()
+        const asked = link.query('stands', 'WSSS')
+        const outcome = asked.then(
           () => 'answered',
           (e: Error) => e.message
         )
-      )
-      const sentQueries = () => sockets[0].sent.filter((m) => (m as { t: string }).t === 'query')
-      expect(sentQueries()).toHaveLength(4)
-      sockets[0].say({ t: 'result', id: 1, error: true })
-      expect(await outcomes[0]).toBe('The PC could not answer')
-      expect(sentQueries()).toHaveLength(5)
-      sockets[0].drop()
-      expect(await Promise.all(outcomes)).toEqual([
-        'The PC could not answer',
-        'Not connected',
-        'Not connected',
-        'Not connected',
-        'Not connected',
-        'Not connected'
-      ])
+        expect(sentQueries(sockets)).toHaveLength(1)
+        sockets[0].say({ t: 'result', id: 1, error: true })
+        vi.advanceTimersByTime(999)
+        expect(sentQueries(sockets)).toHaveLength(1)
+        vi.advanceTimersByTime(1)
+        expect(sentQueries(sockets)).toHaveLength(2)
+        sockets[0].say({ t: 'result', id: 2, error: true })
+        vi.advanceTimersByTime(1999)
+        expect(sentQueries(sockets)).toHaveLength(2)
+        vi.advanceTimersByTime(1)
+        expect(sentQueries(sockets)).toHaveLength(3)
+        sockets[0].say({ t: 'result', id: 3, error: true })
+        vi.advanceTimersByTime(4000)
+        expect(sentQueries(sockets)).toHaveLength(4)
+        sockets[0].say({ t: 'result', id: 4, error: true })
+        expect(await outcome).toBe('The PC could not answer')
+        vi.advanceTimersByTime(60_000)
+        expect(sentQueries(sockets)).toHaveLength(4)
+      })
+
+      it('succeeds on a retry, and the caller never knows', async () => {
+        const { link, sockets } = liveLink()
+        const asked = link.query('navdata.listSids', 'WSSS', null)
+        sockets[0].say({ t: 'result', id: 1, error: true })
+        vi.advanceTimersByTime(1000)
+        sockets[0].say({ t: 'result', id: 2, data: [{ identifier: 'KAMI2A' }] })
+        await expect(asked).resolves.toEqual([{ identifier: 'KAMI2A' }])
+      })
+
+      it('waits as long as the PC says when it answers busy', () => {
+        const { link, sockets } = liveLink()
+        void link.query('echo', 1).catch(() => undefined)
+        sockets[0].say({ t: 'result', id: 1, error: true, busy: true, retryAfterMs: 250 })
+        vi.advanceTimersByTime(249)
+        expect(sentQueries(sockets)).toHaveLength(1)
+        vi.advanceTimersByTime(1)
+        expect(sentQueries(sockets)).toHaveLength(2)
+      })
+
+      it('asks again when the PC does not answer a quick lookup in ten seconds, and gives up on the fourth', async () => {
+        const { link, sockets } = liveLink()
+        const outcome = link.query('airfields').then(
+          () => 'answered',
+          (e: Error) => e.message
+        )
+        vi.advanceTimersByTime(9999)
+        expect(sentQueries(sockets)).toHaveLength(1)
+        vi.advanceTimersByTime(1)
+        vi.advanceTimersByTime(1000)
+        expect(sentQueries(sockets)).toHaveLength(2)
+        wait(sockets, 10_000 + 2000)
+        wait(sockets, 10_000 + 4000)
+        expect(sentQueries(sockets)).toHaveLength(4)
+        wait(sockets, 10_000)
+        expect(await outcome).toBe('The PC did not answer')
+      })
+
+      it('gives a slow lookup three minutes', () => {
+        const { link, sockets } = liveLink()
+        void link.query('taxi.refresh', 'EGLL').catch(() => undefined)
+        wait(sockets, 179_999)
+        expect(sentQueries(sockets)).toHaveLength(1)
+        vi.advanceTimersByTime(1 + 1000)
+        expect(sentQueries(sockets)).toHaveLength(2)
+      })
     })
 
-    it('gives up after a minute without an answer', async () => {
-      const { link } = liveLink()
-      const waiting = link.query('airfields')
-      const assertion = expect(waiting).rejects.toThrow('did not answer')
-      vi.advanceTimersByTime(60_000)
-      await assertion
+    it('never has more than four quick lookups out at once, and sends the rest as answers come in', async () => {
+      const { link, sockets } = liveLink()
+      const asked = Array.from({ length: 7 }, (_, i) => link.query('echo', i))
+      expect(sentQueries(sockets)).toHaveLength(4)
+      sockets[0].say({ t: 'result', id: 1, data: 'a' })
+      expect(sentQueries(sockets)).toHaveLength(5)
+      sockets[0].say({ t: 'result', id: 2, data: 'b' })
+      sockets[0].say({ t: 'result', id: 3, data: 'c' })
+      expect(sentQueries(sockets)).toHaveLength(7)
+      for (const id of [4, 5, 6, 7]) sockets[0].say({ t: 'result', id, data: id })
+      await expect(asked[0]).resolves.toBe('a')
+      await expect(asked[6]).resolves.toBe(7)
+      expect(sentQueries(sockets).map((m) => m.args[0])).toEqual([0, 1, 2, 3, 4, 5, 6])
+    })
+
+    it('keeps slow lookups in their own two slots, so they never hold up a quick one', () => {
+      const { link, sockets } = liveLink()
+      for (const icao of ['EGLL', 'WSSS', 'VHHH'])
+        void link.query('navdata.refreshAirport', icao).catch(() => undefined)
+      expect(sentQueries(sockets).map((m) => m.args[0])).toEqual(['EGLL', 'WSSS'])
+      void link.query('echo', 'quick').catch(() => undefined)
+      expect(sentQueries(sockets).at(-1)).toMatchObject({ name: 'echo' })
+      // A slow one answered frees a slow slot.
+      sockets[0].say({ t: 'result', id: 1, data: null })
+      expect(sentQueries(sockets).map((m) => m.args[0])).toEqual(['EGLL', 'WSSS', 'quick', 'VHHH'])
+    })
+
+    describe('when the link drops', () => {
+      it('keeps the lookups, without using up a try, and sends them when the link is back', async () => {
+        const { link, sockets } = liveLink()
+        const asked = link.query('navdata.listSids', 'WSSS', null)
+        const later = link.query('echo', 'x')
+        expect(sentQueries(sockets)).toHaveLength(2)
+        sockets[0].drop()
+        vi.advanceTimersByTime(1000)
+        // The page reconnects, and the PC sends its snapshot.
+        sockets[1].open()
+        sockets[1].say({ t: 'snapshot', topics: {}, flight: null })
+        expect(sentQueries(sockets, 1).map((m) => m.name)).toEqual(['navdata.listSids', 'echo'])
+        sockets[1].say({ t: 'result', id: sentQueries(sockets, 1)[0].id, data: ['KAMI2A'] })
+        sockets[1].say({ t: 'result', id: sentQueries(sockets, 1)[1].id, data: 'y' })
+        await expect(asked).resolves.toEqual(['KAMI2A'])
+        await expect(later).resolves.toBe('y')
+      })
+
+      it('fails them if the link stays down for as long as the page waits to call it dead', async () => {
+        const { link, sockets } = liveLink()
+        const asked = link.query('echo', 1)
+        const failure = expect(asked).rejects.toThrow('Not connected')
+        sockets[0].drop()
+        vi.advanceTimersByTime(60_000)
+        await failure
+      })
+
+      it('fails them at once when the page is stopped', async () => {
+        const { link } = liveLink()
+        const asked = link.query('echo', 1)
+        const failure = expect(asked).rejects.toThrow('Not connected')
+        link.stop()
+        await failure
+      })
+    })
+
+    describe('sharing and keeping answers', () => {
+      it('sends one request for the same lookup asked twice, and answers both', async () => {
+        const { link, sockets } = liveLink()
+        const first = link.query('navdata.procedureWaypoints', 'ZUCK', 'sid', 'VILU1Z', '03L', null)
+        const second = link.query('navdata.procedureWaypoints', 'ZUCK', 'sid', 'VILU1Z', '03L', null)
+        expect(sentQueries(sockets)).toHaveLength(1)
+        sockets[0].say({ t: 'result', id: 1, data: [{ fixIdent: 'CK403' }] })
+        await expect(first).resolves.toEqual([{ fixIdent: 'CK403' }])
+        await expect(second).resolves.toEqual([{ fixIdent: 'CK403' }])
+      })
+
+      it('answers a lookup it has kept without asking the PC again', async () => {
+        const { link, sockets } = liveLink()
+        const first = link.query('navdata.listSids', 'ZUCK', '03L')
+        sockets[0].say({ t: 'result', id: 1, data: [{ identifier: 'VILU1Z' }] })
+        await first
+        await expect(link.query('navdata.listSids', 'ZUCK', '03L')).resolves.toEqual([
+          { identifier: 'VILU1Z' }
+        ])
+        expect(sentQueries(sockets)).toHaveLength(1)
+        // A different question is a different lookup.
+        void link.query('navdata.listSids', 'ZUCK', '21R').catch(() => undefined)
+        expect(sentQueries(sockets)).toHaveLength(2)
+      })
+
+      it('does not keep an empty answer, which usually means the PC has not loaded that airport yet', async () => {
+        const { link, sockets } = liveLink()
+        const first = link.query('navdata.listSids', 'ZUCK', null)
+        sockets[0].say({ t: 'result', id: 1, data: [] })
+        await first
+        void link.query('navdata.listSids', 'ZUCK', null).catch(() => undefined)
+        expect(sentQueries(sockets)).toHaveLength(2)
+      })
+
+      it('does not keep a failure, and does not keep what is not a read of cached data', async () => {
+        const { link, sockets } = liveLink()
+        const settings = link.query('settings.display')
+        sockets[0].say({ t: 'result', id: 1, data: { weightUnit: 'kg' } })
+        await settings
+        void link.query('settings.display').catch(() => undefined)
+        expect(sentQueries(sockets)).toHaveLength(2)
+      })
+
+      it('forgets what it kept about an airport when the PC has refreshed it, and only that airport', async () => {
+        const { link, sockets } = liveLink()
+        const ask = async (icao: string, id: number) => {
+          const asked = link.query('navdata.listRunways', icao)
+          sockets[0].say({ t: 'result', id, data: [{ ident: '03L' }] })
+          await asked
+        }
+        await ask('ZUCK', 1)
+        await ask('VHHH', 2)
+        const refresh = link.query('navdata.refreshAirport', 'ZUCK')
+        sockets[0].say({ t: 'result', id: 3, data: null })
+        await refresh
+        await expect(link.query('navdata.listRunways', 'VHHH')).resolves.toEqual([{ ident: '03L' }])
+        expect(sentQueries(sockets)).toHaveLength(3)
+        void link.query('navdata.listRunways', 'ZUCK').catch(() => undefined)
+        expect(sentQueries(sockets)).toHaveLength(4)
+      })
+
+      it('forgets everything it kept when the link comes back, since the PC may have refreshed its data meanwhile', async () => {
+        const { link, sockets } = liveLink()
+        const first = link.query('airfields')
+        sockets[0].say({ t: 'result', id: 1, data: [{ icao: 'EGLL' }] })
+        await first
+        sockets[0].drop()
+        vi.advanceTimersByTime(1000)
+        sockets[1].open()
+        sockets[1].say({ t: 'snapshot', topics: {}, flight: null })
+        void link.query('airfields').catch(() => undefined)
+        expect(sentQueries(sockets, 1)).toHaveLength(1)
+      })
     })
   })
 
