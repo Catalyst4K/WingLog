@@ -9,8 +9,8 @@ import type { BeyondAtcState, GsxRemoteMenuState, ProcedureSelection } from '@sh
 import { gsxPromptState } from '../gsx-remote-importance'
 import { useLiveClient } from '../live/LiveClient'
 import { runAsync } from '../report-error'
+import { applyClearance } from '@shared/procedure-selection'
 import {
-  applyClearance,
   clearanceDiffers,
   readNewInfoBoxes,
   resolveAtcClearance,

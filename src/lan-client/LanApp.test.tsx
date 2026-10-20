@@ -415,6 +415,60 @@ describe('LanApp', () => {
     expect(mapProps.current?.trackPoints.map((p) => p.id)).toEqual([1, 2, 3])
   })
 
+  it('draws the route the PC builds and pushes, follows each new one, and ignores one for another flight', () => {
+    const { link, sockets } = setup('tok')
+    render(<LanApp link={link} />)
+    const waypoints = (...coords: [string, number, number][]) =>
+      coords.map(([ident, lon, lat]) => ({ ident, lon, lat, altitudeFt: 0, segment: 'enroute' }))
+    const route = (
+      flightId: number,
+      revision: number,
+      sidIdent: string,
+      ...coords: [string, number, number][]
+    ) => ({
+      t: 'topic',
+      name: 'plannedRoute',
+      payload: {
+        flightId,
+        revision,
+        selection: { ...FLIGHT_WITH_SELECTION.flight.selection, sidIdent },
+        waypoints: waypoints(...coords)
+      }
+    })
+    act(() => {
+      sockets[0].onopen?.()
+      sockets[0].say({
+        t: 'snapshot',
+        topics: {},
+        flight: { ...FLIGHT_WITH_SELECTION, flight: { ...FLIGHT_WITH_SELECTION.flight, ofpJson: OFP } }
+      })
+    })
+    // Until the PC has sent a route, SimBrief's own stands in.
+    expect(mapProps.current?.route).toEqual([
+      [103.9915, 1.3644],
+      [-0.4614, 51.4775]
+    ])
+    act(() => sockets[0].say(route(7, 1, 'OLD1A', ['A', 1, 2], ['B', 3, 4])))
+    expect(mapProps.current?.route).toEqual([
+      [1, 2],
+      [3, 4]
+    ])
+    // The PC's next route replaces it, SID and all.
+    act(() => sockets[0].say(route(7, 2, 'NEW1Z', ['C', 5, 6], ['D', 7, 8], ['E', 9, 10])))
+    expect(mapProps.current?.route).toEqual([
+      [5, 6],
+      [7, 8],
+      [9, 10]
+    ])
+    expect(mapProps.current?.waypoints.map((w) => w.ident)).toEqual(['C', 'D', 'E'])
+    // A route built for a different flight is never drawn on this one.
+    act(() => sockets[0].say(route(8, 1, 'OTHER', ['X', 11, 12])))
+    expect(mapProps.current?.route).toEqual([
+      [103.9915, 1.3644],
+      [-0.4614, 51.4775]
+    ])
+  })
+
   it('shows ET, time remaining and ETA once the aircraft is airborne and moving', () => {
     const { link, sockets } = setup('tok')
     render(<LanApp link={link} />)

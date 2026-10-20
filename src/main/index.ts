@@ -45,6 +45,7 @@ import { registerGsxHandlers } from './ipc/gsx-handlers'
 import { registerGsxRemoteHandlers } from './ipc/gsx-remote-handlers'
 import { registerBeyondAtcHandlers } from './ipc/beyondatc-handlers'
 import { registerLanHandlers } from './ipc/lan-handlers'
+import type { LiveTopic } from '@shared/live'
 import { createLan } from './lan/create-lan'
 import { registerDiagnosticsHandlers, registerSimHandlers } from './ipc/sim-handlers'
 import { createBackgroundSync, registerSyncHandlers, startPeriodicSync } from './ipc/sync-handlers'
@@ -296,7 +297,9 @@ function startApp(): void {
   // is its first subscriber (winglog-backend's docs/plans/live-data-seam.md, part A).
   const liveHub = new LiveHub()
   liveHub.subscribe((topic, payload) => {
-    if (!window.isDestroyed()) window.webContents.send(IpcChannels[topic], payload)
+    // The planned route is for the second screens; the window builds its own.
+    if (topic !== 'plannedRoute' && !window.isDestroyed())
+      window.webContents.send(IpcChannels[topic as Exclude<LiveTopic, 'plannedRoute'>], payload)
   })
 
   // Cloud sync (winglog-backend/docs/plans/cloud-sync.md) — off by default, and the only

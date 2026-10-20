@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import type { FlightPhase, SimTelemetry } from '@shared/ipc'
 import { Button } from '@/components/ui/button'
 import { displayAltitude } from '../display-altitude'
-import type { TransitionAltitudes } from '../route'
+import type { TransitionAltitudes } from '@shared/route'
 import { uiMemory } from '../ui-memory'
 import { msToKt } from '../units'
 

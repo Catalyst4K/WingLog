@@ -1,76 +1,74 @@
-// @vitest-environment jsdom
 /**
- * The route the map is drawn from, through the app's real hook, when a SID clearance is accepted: flight 250's planned selection,
- * then BeyondATC's clearance applied, with the real navdata cache behind `window.winglog`.
+ * The route a second screen is sent when a SID clearance is accepted, replayed from a recorded flight: the flight's plan, then
+ * BeyondATC's clearance applied, through the real planned-route publisher against this machine's cached navdata (winglog-backend's
+ * docs/plans/lan-sync.md, step 1). Set WINGLOG_SIM_CAPTURE to use another capture.
  */
 import { readFileSync, writeFileSync } from 'node:fs'
-import { act, renderHook, waitFor } from '@testing-library/react'
 import { expect, it } from 'vitest'
+import type { ProcedureSelection } from '../../src/shared/ipc'
+import type { PlannedRoute } from '../../src/shared/live'
+import { parseAtcBoxClearance } from '../../src/shared/atc-info-boxes'
+import { applyClearance, seedProcedureSelectionFromOfp } from '../../src/shared/procedure-selection'
 import { getFlight } from '../../src/main/db/flight-repo'
 import { listCachedProcedureLegs } from '../../src/main/db/navdata-repo'
+import { PlannedRoutePublisher } from '../../src/main/lan/PlannedRoutePublisher'
 import { parseFlightFixture } from '../../src/main/sim/flight-fixture'
-import { parseAtcBoxClearance } from '../../src/shared/atc-info-boxes'
-import { applyClearance } from '../../src/renderer/src/app/atc-clearance'
-import { seedProcedureSelectionFromOfp, useLiveWaypoints } from '../../src/renderer/src/procedure-selection'
 import { findCapture } from './flight'
 import { openUserDb, userDataDir } from './local-data'
+import { simOutputDir } from './report'
+import { join } from 'node:path'
 
-it('the route follows an accepted SID clearance', async () => {
+it('the route sent follows an accepted SID clearance', () => {
   const capture = parseFlightFixture(
     readFileSync(findCapture(userDataDir(), process.env.WINGLOG_SIM_CAPTURE), 'utf8')
   )
-  const flightId = (capture.header as { flightId: number }).flightId
+  const flightId = (capture.header as unknown as { flightId: number }).flightId
   const { db, close } = openUserDb()
   try {
     const flight = getFlight(db, flightId)
-    if (!flight) throw new Error('no flight')
-    ;(window as unknown as { winglog: unknown }).winglog = {
-      navdataGetProcedureWaypoints: (
-        icao: string,
-        kind: never,
-        id: string,
-        rwy?: string | null,
-        tr?: string | null
-      ) => Promise.resolve(listCachedProcedureLegs(db, icao, kind, id, rwy ?? null, tr ?? null))
-    }
+    if (!flight) throw new Error('The capture has no flight in the database')
     const planned = seedProcedureSelectionFromOfp(flight.ofpJson ?? null)
-    const e = capture.events.find(
-      (x) =>
-        x.type === 'beyondatc' &&
-        x.direction === 'in' &&
-        x.text.startsWith('InfoBoxes: ') &&
-        x.text.includes('"SID"')
+    const event = capture.events.find(
+      (e) =>
+        e.type === 'beyondatc' &&
+        e.direction === 'in' &&
+        e.text.startsWith('InfoBoxes: ') &&
+        e.text.includes('"SID"')
     )
-    const clearance = parseAtcBoxClearance(
-      JSON.parse((e as { text: string }).text.slice('InfoBoxes: '.length))
-    )
-    if (!clearance) throw new Error('no clearance')
-    const airports = {
-      depIcao: flight.depIcao,
-      arrIcao: flight.arrIcao,
-      altnIcao: null,
-      ofpJson: flight.ofpJson ?? null
-    }
-    const { result, rerender } = renderHook(({ s }) => useLiveWaypoints(airports as never, s), {
-      initialProps: { s: planned }
-    })
-    const sidIdents = (): string[] => result.current.filter((w) => w.segment === 'sid').map((w) => w.ident)
-    await waitFor(() => expect(sidIdents().length).toBeGreaterThan(0))
-    const before = sidIdents()
-    act(() => rerender({ s: applyClearance(planned, clearance.fields) }))
-    const expected = listCachedProcedureLegs(
+    const clearance =
+      event && parseAtcBoxClearance(JSON.parse((event as { text: string }).text.slice('InfoBoxes: '.length)))
+    if (!clearance) throw new Error('No departure clearance in the capture')
+
+    let chosen: ProcedureSelection | undefined = planned
+    const sent: PlannedRoute[] = []
+    const publisher = new PlannedRoutePublisher({
       db,
-      flight.depIcao,
-      'sid',
-      clearance.fields.sidIdent as string,
-      clearance.fields.departureRunway as string,
-      null
-    ).map((l) => l.fixIdent)
-    await waitFor(() => expect(sidIdents()).toEqual(expected))
+      hub: { publish: (_topic, payload) => void (payload && sent.push(payload as PlannedRoute)) },
+      navdata: {
+        getProcedureWaypoints: (icao, kind, identifier, runway, transition) =>
+          listCachedProcedureLegs(db, icao, kind, identifier, runway ?? null, transition ?? null)
+      },
+      activeFlightId: () => flightId,
+      chosenSelection: () => chosen
+    })
+    publisher.refresh()
+    chosen = applyClearance(planned, clearance.fields)
+    publisher.refresh()
+    publisher.refresh() // nothing changed: nothing is sent again
+
+    const sidOf = (route: PlannedRoute): string[] =>
+      route.waypoints.filter((w) => w.segment === 'sid').map((w) => w.ident)
     writeFileSync(
-      'release/sim/sid/route.txt',
-      JSON.stringify({ before, after: sidIdents(), expected }, null, 1)
+      join(simOutputDir('sid'), 'route.txt'),
+      JSON.stringify(
+        sent.map((r) => ({ revision: r.revision, sid: r.selection.sidIdent, fixes: sidOf(r) })),
+        null,
+        1
+      )
     )
+    expect(sent.map((r) => r.revision)).toEqual([1, 2])
+    expect(sidOf(sent[0]!)).not.toEqual(sidOf(sent[1]!))
+    expect(sent[1]!.selection.sidIdent).toBe(clearance.fields.sidIdent)
   } finally {
     close()
   }

@@ -21,6 +21,7 @@ export const LAN_TOPICS: readonly LiveTopic[] = [
   'trackingPoint',
   'trackingPointsUpdated',
   'procedureSelection',
+  'plannedRoute',
   'storageStatus',
   'gsxRemoteStatus',
   'gsxRemoteServices',
@@ -76,6 +77,8 @@ export interface LanServerDeps {
   queries: Record<string, (...args: unknown[]) => unknown>
   /** A cheap text that changes when `flight()` would answer differently (the flight shown, or its saved details). */
   flightKey?(): string
+  /** Called when the flight shown, or its saved details, changed (as `flightKey` told), so what is built from it can be built again. */
+  onFlightChanged?(): void
   /** A page file for a path such as `/` or `/app.js`, or null. */
   staticFile(path: string): StaticFile | null
   now(): number
@@ -398,6 +401,7 @@ export class LanServer {
     const key = this.deps.flightKey?.()
     if (key === undefined || key === this.lastFlightKey) return
     this.lastFlightKey = key
+    this.deps.onFlightChanged?.()
     const flight = this.deps.flight() as { flight?: { flightId?: number } } | null
     this.sentFlightId = flight?.flight?.flightId ?? null
     for (const client of this.clients) {

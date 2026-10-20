@@ -15,7 +15,7 @@ import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&ur
 import type { MapLanguage, TrackPoint } from '@shared/ipc'
 import { lazy } from '@shared/lazy'
 import { planLanguageChange, type StyleLayerLike } from '../map-labels'
-import type { Waypoint } from '../route'
+import type { Waypoint } from '@shared/route'
 import { uiMemory } from '../ui-memory'
 
 // maplibre-gl ships its tile-parsing worker as a separate chunk and locates it via its own import.meta.url, which doesn't

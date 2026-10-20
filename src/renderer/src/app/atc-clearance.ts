@@ -26,32 +26,6 @@ export function clearanceDiffers(update: AtcClearanceUpdate, selection: Procedur
 }
 
 /**
- * The selection after the pilot accepts a clearance. A procedure that changes drops the old one's transition, as choosing it in
- * the selector does: the old transition belongs to the old procedure, and asking navdata for the new one with it finds no legs,
- * so the map would keep drawing the old route.
- *
- * @param selection The current procedure selection.
- * @param fields The clearance's fields.
- * @returns The selection with the clearance applied.
- */
-export function applyClearance(
-  selection: ProcedureSelection,
-  fields: AtcClearanceUpdate['fields']
-): ProcedureSelection {
-  const next = { ...selection, ...fields }
-  if (fields.sidIdent !== undefined && fields.sidIdent !== selection.sidIdent) next.sidTransition = null
-  if (fields.starIdent !== undefined && fields.starIdent !== selection.starIdent) next.starTransition = null
-  if (
-    fields.approachIdent !== undefined &&
-    fields.approachIdent !== selection.approachIdent &&
-    fields.approachTransition === undefined
-  ) {
-    next.approachTransition = null
-  }
-  return next
-}
-
-/**
  * BeyondATC names approaches its own way ("R-NAV approach runway 02L"); swap in the arrival airport's own name so accepting it
  * selects something real. The airport is the one being flown to: the selected arrival, else BeyondATC's own route. A STAR
  * clearance's runway picks the approach for it when it isn't the selected approach's runway (LOGA2H, runway 27R against a

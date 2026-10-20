@@ -1,3 +1,4 @@
+import { EventEmitter } from 'node:events'
 import { createServer } from 'node:http'
 import { type AddressInfo } from 'node:net'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -7,6 +8,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { WebSocket } from 'ws'
 import { createDb } from '../db/client'
+import { createAircraft } from '../db/aircraft-repo'
+import { createFlight } from '../db/flight-repo'
 import { setAppLanguage, setLanSettings, setTheme } from '../db/settings-repo'
 import { LiveHub } from '../live/LiveHub'
 import type { LanController } from './LanController'
@@ -27,6 +30,7 @@ const NAVDATA = {
   getTaxiNetwork: (icao: string) => [{ icao }] as never,
   getStands: (icao: string) => Promise.resolve([{ icao }] as never),
   refreshAirport: () => Promise.resolve(),
+  onAirportRefreshed: () => () => undefined,
   listRunways: (icao: string) => [{ ident: '02L', icao }] as never,
   listSids: (icao: string, runway: string | null) => [{ kind: 'sid', icao, runway }] as never,
   listStars: (icao: string, runway: string | null) => [{ kind: 'star', icao, runway }] as never,
@@ -40,11 +44,11 @@ const NAVDATA = {
   ) => [{ icao, kind, identifier, runway, transition }] as never
 }
 
-const TRACKING = {
+const TRACKING = Object.assign(new EventEmitter(), {
   getActive: () => undefined,
   getProcedureSelection: () => undefined,
   setProcedureSelection: () => undefined
-}
+}) as never
 
 const LOCAL = {
   display: () => ({ weightUnit: 'kg', altitudeUnit: 'ft', windSpeedUnit: 'kt', mapLanguage: 'en' }),
@@ -149,6 +153,64 @@ describe('createLan', () => {
     })
     return { db, hub, lan }
   }
+
+  it('builds the route of the flight shown, and builds it again when the choice, the navdata or the flight changes', async () => {
+    const { db, hub } = build()
+    let refreshed: ((icao: string) => void) | undefined
+    const choice: { current: unknown } = { current: undefined }
+    const tracking = Object.assign(new EventEmitter(), {
+      getActive: () => undefined,
+      getProcedureSelection: () => choice.current,
+      setProcedureSelection: () => undefined
+    })
+    const sent: { revision: number; selection: { sidIdent: string | null } }[] = []
+    hub.subscribe((topic, payload) => {
+      if (topic === 'plannedRoute' && payload) sent.push(payload as never)
+    })
+    const aircraftId = createAircraft(db, { registration: '9V-SKA', icaoType: 'A388' }).id
+    createFlight(db, { aircraftId, depIcao: 'EGLL', arrIcao: 'KJFK' })
+    await lan?.stop()
+    lan = createLan({
+      db,
+      liveHub: hub,
+      trackingController: tracking as never,
+      ...CREATE_DEPS,
+      navdata: {
+        ...NAVDATA,
+        onAirportRefreshed: (listener: (icao: string) => void) => {
+          refreshed = listener
+          return () => undefined
+        }
+      },
+      pageFolder: folders[0],
+      testAddress: '127.0.0.1'
+    })
+    // Built at once for the flight shown.
+    expect(sent).toHaveLength(1)
+    expect(hub.snapshot().plannedRoute).toMatchObject({ revision: 1 })
+
+    // A choice made on any screen.
+    choice.current = {
+      departureRunway: '27L',
+      sidIdent: 'BPK7F',
+      sidTransition: null,
+      starIdent: null,
+      starTransition: null,
+      approachIdent: null,
+      approachTransition: null,
+      arrivalIcao: null
+    }
+    tracking.emit('selectionChanged', choice.current)
+    expect(sent.map((r) => r.revision)).toEqual([1, 2])
+    expect(sent[1].selection.sidIdent).toBe('BPK7F')
+
+    // Nothing changed: nothing more is sent, whatever asks.
+    tracking.emit('started', 1)
+    tracking.emit('stopped', 1)
+    tracking.emit('completed', 1)
+    refreshed?.('EGLL')
+    expect(sent).toHaveLength(2)
+  })
 
   it('stays off until the settings say otherwise', async () => {
     const { lan } = build()

@@ -532,6 +532,37 @@ describe('LanServer', () => {
       expect(client.received.filter((m) => m.t === 'flight')).toHaveLength(count)
     })
 
+    it('tells the PC when the flight shown changed, so the route built from it can be built again', async () => {
+      let key = 'a'
+      let changed = 0
+      const { pair } = await setup({
+        heartbeatMs: 30,
+        flightKey: () => key,
+        onFlightChanged: () => (changed += 1)
+      })
+      await pair()
+      await new Promise((resolve) => setTimeout(resolve, 120))
+      expect(changed).toBe(0)
+      key = 'b'
+      await vi.waitFor(() => expect(changed).toBe(1))
+      await new Promise((resolve) => setTimeout(resolve, 120))
+      expect(changed).toBe(1)
+    })
+
+    it('gives a connecting device the planned route in its snapshot, and each new one as it is published', async () => {
+      const { pair, hub } = await setup()
+      const route = { flightId: 1, revision: 1, selection: {}, waypoints: [] }
+      hub.publish('plannedRoute', route as never)
+      const { client } = await pair()
+      const snapshot = await client.message('snapshot')
+      expect((snapshot.topics as Record<string, unknown>).plannedRoute).toEqual(route)
+      hub.publish('plannedRoute', { ...route, revision: 2 } as never)
+      await client.waitFor(() => client.received.some((m) => m.t === 'topic' && m.name === 'plannedRoute'))
+      expect(client.received.find((m) => m.t === 'topic' && m.name === 'plannedRoute')).toMatchObject({
+        payload: { revision: 2 }
+      })
+    })
+
     it('refuses to start twice, and reports a port already in use', async () => {
       const { server, port } = await setup()
       await expect(server.start(HOST, port)).rejects.toThrow('Already listening')
@@ -581,7 +612,8 @@ describe('LanServer', () => {
         'storageStatus',
         'trackingPoint',
         'trackingPointsUpdated',
-        'procedureSelection'
+        'procedureSelection',
+        'plannedRoute'
       ].sort()
     )
   })

@@ -1,9 +1,9 @@
 /** Reading the planned route and procedures out of a flight's OFP JSON, and splicing in selected procedures. */
 
-import type { NavdataLeg, NavdataProcedureOption, ProcedureSelection } from '@shared/ipc'
-import { isVisualApproach } from '@shared/visual-approach'
-import { destinationPoint, METRES_PER_NM, wrapLongitude } from '@shared/geo'
-import { navlogFixes, parseRouteFromOfpJson } from '@shared/ofp-route'
+import type { NavdataLeg, NavdataProcedureOption, ProcedureSelection } from './ipc'
+import { isVisualApproach } from './visual-approach'
+import { destinationPoint, METRES_PER_NM, wrapLongitude } from './geo'
+import { navlogFixes, parseRouteFromOfpJson } from './ofp-route'
 
 /**
  * Empty SimBrief fields deserialize to `{}`, not `""` or missing (docs/simbrief-notes.md)

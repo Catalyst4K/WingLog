@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import type { BeyondAtcState, GsxRemoteMenuState, ProcedureSelection, WingLogApi } from '@shared/ipc'
 import { LiveClientContext, type LiveClient } from '../live/LiveClient'
-import { emptyProcedureSelection } from '../procedure-selection'
+import { emptyProcedureSelection } from '@shared/procedure-selection'
 import { useAtcClearancePrompt, useImportantGsxMenu } from './use-prompts'
 
 /** A LiveClient fed by hand: the two hooks must run on it alone, as they do on the second screen. */

@@ -10,9 +10,10 @@ import type { Flight, TrackPoint } from '@shared/ipc'
 import { estimatedLengthNm, type EstimatedStretch } from '@shared/track-gap-fill'
 import { computeChartAxisTicks, formatTickLabel } from '../chart-ticks'
 import { displayAltitude } from '../display-altitude'
-import { selectionFromFlight, useLiveWaypoints } from '../procedure-selection'
+import { selectionFromFlight } from '@shared/procedure-selection'
+import { useLiveWaypoints } from '../procedure-selection'
 import { runAsync } from '../report-error'
-import { parseTransitionAltitudes, type Waypoint } from '../route'
+import { parseTransitionAltitudes, type Waypoint } from '@shared/route'
 import { msToKt } from '../units'
 
 // Past this, a minutes axis on a long-haul chart reads as a wall of three-digit ticks

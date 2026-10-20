@@ -33,15 +33,16 @@ import { fetchMetars } from '../weather/metar-client'
 import { LanController } from './LanController'
 import { lanFlightKey, lanFlightSnapshot } from './lan-flight'
 import { LanServer, type StaticFile } from './LanServer'
+import { PlannedRoutePublisher } from './PlannedRoutePublisher'
 import { staticFilesFrom } from './static-files'
 
 /** What the second screen needs from the rest of the app. */
 export interface CreateLanDeps {
   db: WingLogDb
-  liveHub: Pick<LiveHub, 'subscribe' | 'snapshot'>
+  liveHub: Pick<LiveHub, 'subscribe' | 'snapshot' | 'publish'>
   trackingController: Pick<
     TrackingController,
-    'getActive' | 'getProcedureSelection' | 'setProcedureSelection'
+    'getActive' | 'getProcedureSelection' | 'setProcedureSelection' | 'on'
   >
   /** The cached taxi charts, stands and procedures a device's map and Procedures dialog show. */
   navdata: Pick<
@@ -56,6 +57,7 @@ export interface CreateLanDeps {
     | 'listStars'
     | 'listApproaches'
     | 'getProcedureWaypoints'
+    | 'onAirportRefreshed'
   >
   /** The BeyondATC and GSX Remote commands a second screen may send (the same tables the window's own channels use). */
   addOnCommands: Partial<Record<LiveCommand, (...args: unknown[]) => void>>
@@ -164,6 +166,19 @@ export function createLan({
   pageFolder,
   testAddress
 }: CreateLanDeps): LanController {
+  // The planned route of the flight shown, built here and pushed to the devices: built again whenever the choice, the flight or the
+  // navdata it uses may have changed.
+  const route = new PlannedRoutePublisher({
+    db,
+    hub: liveHub,
+    navdata,
+    activeFlightId: () => trackingController.getActive()?.flightId,
+    chosenSelection: () => trackingController.getProcedureSelection()
+  })
+  for (const event of ['selectionChanged', 'started', 'stopped', 'completed'] as const)
+    trackingController.on(event, () => route.refresh())
+  navdata.onAirportRefreshed(() => route.refresh())
+  route.refresh()
   // The page is read from disk the first time a device asks for it, not at every launch.
   let files: ((path: string) => StaticFile | null) | undefined
   const server = new LanServer({
@@ -191,6 +206,7 @@ export function createLan({
       metars: (codes) => fetchMetars(codes, userAgent)
     }),
     flightKey: () => lanFlightKey(db, trackingController.getActive()?.flightId),
+    onFlightChanged: () => route.refresh(),
     flight: () =>
       lanFlightSnapshot(
         db,

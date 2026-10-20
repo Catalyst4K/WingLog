@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { FlightMap } from '@/FlightMap'
 import { realIcao } from '@/display-icao'
-import type { Waypoint } from '@/route'
+import type { Waypoint } from '@shared/route'
 import {
   computeTrackTimes,
   formatDuration,
@@ -25,10 +25,11 @@ import {
 import { ProcedureSelector } from '@/ProcedureSelector'
 import { AtcClearanceDialog } from '@/app/AppDialogs'
 import { useAtcClearancePrompt } from '@/app/use-prompts'
-import { emptyProcedureSelection, useLiveWaypoints, type ProcedureAirports } from '@/procedure-selection'
-import { parseTransitionAltitudes } from '@/route'
+import { emptyProcedureSelection, type ProcedureAirports } from '@shared/procedure-selection'
+import { parseTransitionAltitudes } from '@shared/route'
 import type { LanConnection } from './lan-connection'
 import { useTopic } from './use-link'
+import { usePlannedWaypoints } from './use-planned-route'
 
 /**
  * Starts the map's attribution as just its (i) button. MapLibre opens it across the bottom edge on a wide enough screen, which on a phone
@@ -227,7 +228,7 @@ function FlightView(props: {
     () => (depIcao && arrIcao ? { depIcao, arrIcao, altnIcao: null, ofpJson } : null),
     [depIcao, arrIcao, ofpJson]
   )
-  const waypoints = useLiveWaypoints(airports, selection)
+  const waypoints = usePlannedWaypoints(link, snapshot)
   const route = useMemo<[number, number][]>(() => waypoints.map((w) => [w.lon, w.lat]), [waypoints])
   const transition = useMemo(() => parseTransitionAltitudes(ofpJson), [ofpJson])
   const phase = trackPoints.at(-1)?.phase

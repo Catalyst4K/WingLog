@@ -109,6 +109,17 @@ export class SimFacilitiesProvider implements NavdataProvider {
     })
   }
 
+  private readonly refreshedListeners = new Set<(icao: string) => void>()
+
+  /**
+   * @param listener Called with an airport's code each time its navdata has been refreshed from the sim.
+   * @returns A function that stops it.
+   */
+  onAirportRefreshed(listener: (icao: string) => void): () => void {
+    this.refreshedListeners.add(listener)
+    return () => this.refreshedListeners.delete(listener)
+  }
+
   async refreshAirport(icao: string): Promise<void> {
     const { handle } = await this.openSimConnect(APP_NAME, Protocol.SunRise)
     try {
@@ -120,6 +131,7 @@ export class SimFacilitiesProvider implements NavdataProvider {
         if (corrected > 0)
           logger.info(`[navdata] ${icao}: ${corrected} landing(s) corrected for displaced thresholds`)
       }
+      for (const listener of this.refreshedListeners) listener(icao)
     } finally {
       handle.close()
     }

@@ -11,7 +11,7 @@ import { followBand, zoomForBand, type FollowBand } from '../follow-zoom'
 import { mapInteraction } from '../map-interaction'
 import { updateSourceData } from '../map-source'
 import { runAsync } from '../report-error'
-import type { Waypoint } from '../route'
+import type { Waypoint } from '@shared/route'
 import { uiMemory } from '../ui-memory'
 import { animateLatestLeg, clearLiveTrail, jumpAcrossGap, showFirstPoint } from './live-trail'
 import {
