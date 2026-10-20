@@ -60,7 +60,7 @@ describe('findTaxiPath', () => {
     expect(viaW?.at(-1)).toEqual(lonLat(P5))
   })
 
-  it('ends at the hold short nearest the cleared runway when the holding point is not in the data at all', () => {
+  it('ends at the hold short by the cleared runway when the holding point is not in the data at all', () => {
     const route = findTaxiPath(
       request({
         taxiways: ['G'],
@@ -68,6 +68,23 @@ describe('findTaxiPath', () => {
         runwayThreshold: { lat: P5[0], lon: P5[1] + 0.0005 }
       })
     )
+    expect(route?.at(-1)).toEqual(lonLat(P5))
+  })
+
+  it('goes on to the hold short at the very start of the runway when the holding point is not in the data, past one reached first', () => {
+    // A second entry 72 m along the runway (P6), with the aircraft right beside it: the full-length departure's hold short is P5.
+    const P6: [number, number] = [29.715, 106.6637]
+    const route = findTaxiPath(
+      request({
+        segments: [...NETWORK, seg(P5, P6, 'H2', true)],
+        from: { lat: P6[0], lon: P6[1] },
+        taxiways: ['G'],
+        holdingPoint: 'Q9',
+        // The runway's centreline 22 m north of the hold shorts, so both are on the same side of it.
+        runwayThreshold: { lat: P5[0] + 0.0002, lon: P5[1] + 0.0005, headingDeg: 90 }
+      })
+    )
+    expect(route?.[0]).toEqual(lonLat(P6))
     expect(route?.at(-1)).toEqual(lonLat(P5))
   })
 
@@ -99,32 +116,13 @@ describe('findTaxiPath', () => {
     expect(route?.at(-1)).toEqual([stand.lon, stand.lat])
   })
 
-  it('goes to the hold short at the very start of the runway when only the runway is named, past one reached first', () => {
-    // A second entry 72 m along the runway (P6), with the aircraft right beside it: the full-length departure's hold short is P5.
-    const P6: [number, number] = [29.715, 106.6637]
-    const route = findTaxiPath(
-      request({
-        segments: [...NETWORK, seg(P5, P6, 'H2', true)],
-        from: { lat: P6[0], lon: P6[1] },
-        taxiways: [],
-        holdingPoint: null,
-        // The runway's centreline 22 m north of the hold shorts, so both are on the same side of it.
-        runwayThreshold: { lat: P5[0] + 0.0002, lon: P5[1] + 0.0005, headingDeg: 90 }
-      })
-    )
-    expect(route?.[0]).toEqual(lonLat(P6))
-    expect(route?.at(-1)).toEqual(lonLat(P5))
-  })
-
-  it('goes to the hold short by the threshold when only the runway is named', () => {
-    const route = findTaxiPath(
-      request({
-        taxiways: [],
-        holdingPoint: null,
-        runwayThreshold: { lat: P5[0], lon: P5[1] + 0.0005 }
-      })
-    )
-    expect(route?.at(-1)).toEqual(lonLat(P5))
+  it('has no destination for a clearance with nothing to say where it ends', () => {
+    expect(findTaxiPath(request({ taxiways: [], holdingPoint: null }))).toBeNull()
+    expect(
+      findTaxiPath(
+        request({ taxiways: [], holdingPoint: null, runwayThreshold: { lat: P5[0], lon: P5[1] + 0.0005 } })
+      )
+    ).toBeNull()
   })
 
   it('finds nothing for an aircraft off the network, or with no destination to head for', () => {

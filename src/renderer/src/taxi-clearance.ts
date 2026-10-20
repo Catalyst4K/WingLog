@@ -40,24 +40,12 @@ const RUNWAY_IDENT = /^\d{1,2}[LRC]?$/
  */
 export function boxTaxiClearance(boxes: BeyondAtcInfoBox[]): Omit<TaxiClearance, 'from'> | null {
   const facts = parseAtcTaxiFacts(boxes)
+  if (facts.taxiVia.length === 0) return null
   const hold = facts.holdPosition
   const holdIsRunway = hold !== null && RUNWAY_IDENT.test(hold)
   // "taxi holding point runway 02C via P, T" arrives with only the Taxi to Runway and Taxi Via boxes (WSSS 2026-10-19): the holding point
   // is then the last taxiway's hold short beside that runway's threshold.
   const toRunwayOnly = hold === null && !facts.holdShort && !facts.taxiToGate && facts.taxiToRunway !== null
-  // "Taxi to Runway" with no taxiways yet (the clearance-delivery boxes): the runway is all that's known, so the line goes to the start
-  // of that runway, for a full-length departure.
-  if (facts.taxiVia.length === 0) {
-    return toRunwayOnly
-      ? {
-          taxiways: [],
-          holdingPoint: null,
-          stand: null,
-          holdShortRunway: null,
-          taxiToRunway: facts.taxiToRunway
-        }
-      : null
-  }
   return {
     taxiways: facts.taxiVia,
     holdingPoint: holdIsRunway ? null : (hold ?? (toRunwayOnly ? (facts.taxiVia.at(-1) ?? null) : null)),
@@ -65,19 +53,6 @@ export function boxTaxiClearance(boxes: BeyondAtcInfoBox[]): Omit<TaxiClearance,
     holdShortRunway: holdIsRunway ? hold : facts.holdShort,
     taxiToRunway: facts.taxiToRunway
   }
-}
-
-/**
- * @param clearance The clearance.
- * @returns True for a clearance that names only a runway: no holding point, stand or hold short, so the line goes to the start of it.
- */
-export function isRunwayOnly(clearance: TaxiClearance): boolean {
-  return (
-    Boolean(clearance.taxiToRunway) &&
-    !clearance.holdingPoint &&
-    !clearance.stand &&
-    !clearance.holdShortRunway
-  )
 }
 
 /**
@@ -98,7 +73,7 @@ export function clearanceAirport(
   arrIcao: string | null,
   segmentsByIcao: Record<string, NavdataTaxiSegment[]>
 ): string | null {
-  if (clearance.holdingPoint || isRunwayOnly(clearance)) return depIcao
+  if (clearance.holdingPoint) return depIcao
   if (!clearance.holdShortRunway || !clearance.from) return arrIcao
   const from = clearance.from
   let best: { icao: string; distance: number } | null = null
@@ -231,7 +206,7 @@ export function clearanceRequest(
     holdingPoint,
     from: clearance.from,
     stand,
-    runwayThreshold: clearance.holdingPoint || isRunwayOnly(clearance) ? runwayThreshold : null,
+    runwayThreshold: clearance.holdingPoint ? runwayThreshold : null,
     holdShortRunway: clearance.holdingPoint ? null : holdShortRunway
   }
 }

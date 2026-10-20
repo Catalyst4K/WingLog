@@ -14,7 +14,6 @@ import {
   edgesOf,
   holdNodeByRunway,
   isHoldShortBeside,
-  isHoldShortNear,
   isWrongWay,
   MAX_ROUTE_LENGTH_M,
   nearestNode,
@@ -117,21 +116,21 @@ function destinationNodes(graph: Graph, request: TaxiTraceRequest): number[] {
   if (holdShortRunway) {
     return nodes.filter(([, n]) => isHoldShortBeside(n, holdShortRunway)).map(([i]) => i)
   }
-  const nearThreshold = (): number[] =>
-    runwayThreshold ? nodes.filter(([i]) => isHoldShortNear(graph, i, runwayThreshold)).map(([i]) => i) : []
-  if (!holdingPoint)
-    return runwayThreshold ? startOfRunwayNodes(graph, request.segments, runwayThreshold) : []
+  if (!holdingPoint) return []
   const byRunway = holdNodeByRunway(graph, holdingPoint, runwayThreshold ?? null)
   if (byRunway >= 0) return [byRunway]
   const onHoldingPoint = nodes
     .filter(([i, n]) => n.holdShort && edgesOf(graph, i).some((e) => e.name === holdingPoint))
     .map(([i]) => i)
   // A holding point the data has no taxiway for (or no hold short on): the hold shorts by the cleared runway's threshold.
-  return onHoldingPoint.length > 0 ? onHoldingPoint : nearThreshold()
+  if (onHoldingPoint.length > 0) return onHoldingPoint
+  // A holding point the data has no taxiway for (or no hold short on): the hold short at the start of the cleared runway, for a
+  // full-length departure.
+  return runwayThreshold ? startOfRunwayNodes(graph, request.segments, runwayThreshold) : []
 }
 
 /**
- * Where a clearance that names only the runway ends: the hold short at the very start of the runway, for a full-length departure.
+ * The hold short at the very start of the cleared runway, for a full-length departure.
  *
  * @param graph The network's graph.
  * @param segments The taxi network.
