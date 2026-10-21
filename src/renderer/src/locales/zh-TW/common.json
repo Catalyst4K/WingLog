@@ -68,6 +68,13 @@
       "dark": "深色",
       "system": "跟隨系統"
     },
+    "window": {
+      "cardTitle": "視窗",
+      "minimizeLabel": "最小化視窗時",
+      "taskbar": "工作列",
+      "tray": "系統匣",
+      "description": "放入系統匣後，WingLog 不占用工作列，仍會繼續記錄航班並服務第二螢幕。點擊系統匣圖示即可重新開啟視窗。關閉視窗仍會結束 WingLog。"
+    },
     "credentials": {
       "cardTitle": "帳號憑證",
       "description": "供簽派用於在 SimBrief 上取得與產生計畫。",
@@ -497,6 +504,12 @@
   "useConfirm": {
     "back": "返回"
   },
+  "closeConfirm": {
+    "title": "要關閉 WingLog 嗎？",
+    "description": "有一個航班正在進行。現在關閉 WingLog 會停止記錄，但航班會保留，下次開啟 WingLog 時可以繼續或捨棄。如果只是想讓視窗不礙事，請改為最小化。",
+    "close": "關閉 WingLog",
+    "keepOpen": "保持開啟"
+  },
   "dispatchView": {
     "lastParkedHere": "上次停在這裡的 {{stand}} 號機位，可在 MSFS 中選它作為起始機位。",
     "title": "簽派",
@@ -588,6 +601,7 @@
     "procedures": "程序",
     "alternateIcao": "備降 {{icao}}",
     "nothingSelectedYet": "尚未選擇",
+    "choiceNotConfirmed": "無法連線到電腦上的 WingLog。那裡的程序未被變更。",
     "flightEnded": "航班已結束",
     "autoDetectedComplete": "{{label}} 已被自動辨識為完成，並儲存到你的飛行日誌。",
     "ok": "確定"
@@ -639,6 +653,10 @@
     "deleteFlightConfirmDescription_other": "其航跡（{{count}} 個點）、落地報告及地面服務收據也會一併刪除。此操作無法復原。",
     "deleteFlight": "刪除航班",
     "flightDeleted": "航班已刪除。",
+    "revertLocationTitle": "飛機應停放在哪裡？",
+    "revertLocationDescription": "這是該飛機最近的一次航班，目前它停放在 {{currentIcao}}。要保持不變，還是移回此航班之前所在的 {{revertIcao}}？",
+    "revertLocationMoveBack": "移回 {{icao}}",
+    "revertLocationKeep": "保持在 {{icao}}",
     "noOfpPdfForFlight": "此航班目前沒有可用的 OFP PDF。",
     "backToAircraft": "返回飛機",
     "backToLogbook": "返回飛行日誌",

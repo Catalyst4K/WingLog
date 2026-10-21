@@ -62,6 +62,8 @@ function createWinglog(overrides: Record<string, unknown> = {}): typeof window.w
     appGetVersion: vi.fn().mockResolvedValue('1.2.3'),
     settingsGetUpdates: vi.fn().mockResolvedValue({ checkEnabled: true }),
     settingsSetUpdates: vi.fn().mockResolvedValue(undefined),
+    settingsGetWindow: vi.fn().mockResolvedValue({ minimizeToTray: false, trayAvailable: true }),
+    settingsSetWindow: vi.fn().mockResolvedValue(undefined),
     updatesGetStatus: vi.fn().mockResolvedValue({
       state: 'idle',
       currentVersion: '1.2.3',

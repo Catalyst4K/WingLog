@@ -70,6 +70,13 @@
       "dark": "Dunkel",
       "system": "System"
     },
+    "window": {
+      "cardTitle": "Fenster",
+      "minimizeLabel": "Wenn ich das Fenster minimiere",
+      "taskbar": "Taskleiste",
+      "tray": "Infobereich",
+      "description": "Im Infobereich belegt WingLog keinen Platz in der Taskleiste und zeichnet weiter auf und bedient den Zweitbildschirm. Mit einem Klick auf das Symbol erscheint das Fenster wieder. Beim Schließen des Fensters wird WingLog weiterhin beendet."
+    },
     "credentials": {
       "cardTitle": "Zugangsdaten",
       "description": "Wird von der Flugplanung verwendet, um Pläne auf SimBrief abzurufen und zu erstellen.",
@@ -503,6 +510,12 @@
   "useConfirm": {
     "back": "Zurück"
   },
+  "closeConfirm": {
+    "title": "WingLog schließen?",
+    "description": "Ein Flug läuft. Wenn du WingLog jetzt schließt, endet die Aufzeichnung, der Flug bleibt aber erhalten, und du kannst ihn beim nächsten Start fortsetzen oder verwerfen. Minimiere das Fenster stattdessen, wenn es nur nicht stören soll.",
+    "close": "WingLog schließen",
+    "keepOpen": "Geöffnet lassen"
+  },
   "dispatchView": {
     "lastParkedHere": "Zuletzt hier auf Position {{stand}} geparkt — wähle sie in MSFS als Startposition.",
     "title": "Flugplanung",
@@ -594,6 +607,7 @@
     "procedures": "Verfahren",
     "alternateIcao": "Ausweichflughafen {{icao}}",
     "nothingSelectedYet": "Noch nichts ausgewählt",
+    "choiceNotConfirmed": "WingLog auf dem PC wurde nicht erreicht. Die Verfahren dort wurden nicht geändert.",
     "flightEnded": "Flug beendet",
     "autoDetectedComplete": "{{label}} wurde automatisch als abgeschlossen erkannt und im Logbuch gespeichert.",
     "ok": "OK"
@@ -646,6 +660,10 @@
     "deleteFlightConfirmDescription_other": "Die Flugspur ({{count}} Punkte), der Landungsbericht und die Bodenservice-Belege werden mit gelöscht. Dies kann nicht rückgängig gemacht werden.",
     "deleteFlight": "Flug löschen",
     "flightDeleted": "Flug gelöscht.",
+    "revertLocationTitle": "Wo soll das Flugzeug geparkt sein?",
+    "revertLocationDescription": "Dies war der letzte Flug des Flugzeugs, und es steht derzeit in {{currentIcao}}. Dort lassen oder zurück nach {{revertIcao}} versetzen, wo es vor diesem Flug war?",
+    "revertLocationMoveBack": "Zurück nach {{icao}}",
+    "revertLocationKeep": "In {{icao}} lassen",
     "noOfpPdfForFlight": "Kein OFP-PDF für diesen Flug verfügbar.",
     "backToAircraft": "Zurück zum Flugzeug",
     "backToLogbook": "Zurück zum Logbuch",

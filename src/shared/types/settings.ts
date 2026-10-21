@@ -48,6 +48,14 @@ export interface UpdateSettings {
   checkEnabled: boolean
 }
 
+/** Settings → Interface → Window. */
+export interface WindowSettings {
+  /** Minimising the window hides it to a tray icon instead of the taskbar. Off by default. */
+  minimizeToTray: boolean
+  /** Whether this install can show a tray icon at all (Windows only for now). */
+  trayAvailable: boolean
+}
+
 /** First-launch setup (winglog-backend's docs/plans/first-launch-setup.md). */
 export interface SetupState {
   /** A new install that hasn't finished or closed the setup yet. */

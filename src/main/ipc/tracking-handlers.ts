@@ -22,6 +22,7 @@ import {
   abandonFlight,
   createFlight,
   deleteFlight,
+  getDeleteLocationImpact,
   getFlight,
   getInProgressFlight,
   linkAircraftToFlight
@@ -190,11 +191,14 @@ export function registerFlightHandlers(ipcMain: IpcMain, deps: TrackingHandlerDe
     autoStartDetector.disarm()
     scheduleBackgroundSync()
   })
-  ipcMain.handle(IpcChannels.flightDelete, (_event, id: number) => {
+  ipcMain.handle(IpcChannels.flightDeleteLocationImpact, (_event, id: number) => {
+    return getDeleteLocationImpact(db, id) ?? null
+  })
+  ipcMain.handle(IpcChannels.flightDelete, (_event, id: number, revertLocation?: boolean) => {
     // Refuse to delete the flight currently being tracked out from under
     // TrackingController — stop() (same path flightCancel uses) first if it's the one.
     if (trackingController.getActive()?.flightId === id) trackingController.stop()
-    deleteFlight(db, id)
+    deleteFlight(db, id, revertLocation === true)
     scheduleBackgroundSync()
   })
   ipcMain.handle(IpcChannels.flightLinkAircraft, (_event, flightId: number, aircraftId: number) => {

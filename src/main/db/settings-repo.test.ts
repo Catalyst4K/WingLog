@@ -10,6 +10,8 @@ import {
   getBeyondAtcSettings,
   getSkippedUpdateVersion,
   getUpdateSettings,
+  getMinimizeToTray,
+  setMinimizeToTray,
   getGsxRemoteSettings,
   getGsxSettings,
   getTrackingSettings,
@@ -228,6 +230,14 @@ describe('settings repo', () => {
     expect(getSkippedUpdateVersion(db)).toBeNull()
     setSkippedUpdateVersion(db, '1.4.0')
     expect(getSkippedUpdateVersion(db)).toBe('1.4.0')
+  })
+
+  it('minimises to the taskbar unless the pilot chose the tray', () => {
+    expect(getMinimizeToTray(db)).toBe(false)
+    setMinimizeToTray(db, true)
+    expect(getMinimizeToTray(db)).toBe(true)
+    setMinimizeToTray(db, false)
+    expect(getMinimizeToTray(db)).toBe(false)
   })
 
   it('defaults the last-synced-completed timestamp to null when never set', () => {

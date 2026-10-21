@@ -6,6 +6,13 @@ import type { FlightMapProps } from '@/FlightMap'
 import { LanApp } from './LanApp'
 import { LanConnection, type LinkSocket, type TokenStore } from './lan-connection'
 
+// The choice is sent again after CONFIRM_MS and the notice goes after NOTICE_MS: shortened so the tests need not wait.
+vi.mock('./selection-sync', async (original) => ({
+  ...(await original<typeof import('./selection-sync')>()),
+  CONFIRM_MS: 400,
+  NOTICE_MS: 500
+}))
+
 // The map itself needs WebGL (jsdom has none) and is covered by FlightMap.test.tsx and the second-screen acceptance test; here it only
 // records what the page hands it.
 const mapProps = vi.hoisted(() => ({ current: null as FlightMapProps | null }))
@@ -100,6 +107,11 @@ const FLIGHT_WITH_SELECTION = {
   trackPoints: []
 }
 
+/** A route the PC pushes for flight 7, built from a choice. */
+function pcRoute(revision: number, selection: unknown) {
+  return { t: 'topic', name: 'plannedRoute', payload: { flightId: 7, revision, selection, waypoints: [] } }
+}
+
 describe('the Procedures button', () => {
   it('shows what is chosen, and nothing-selected-yet when nothing is', () => {
     stubNavdata()
@@ -123,14 +135,12 @@ describe('the Procedures button', () => {
     })
     expect(screen.getByText('KAMI2A · SIER7B · ILS 27L')).toBeInTheDocument()
     act(() =>
-      sockets[0].say({
-        t: 'topic',
-        name: 'procedureSelection',
-        payload: { ...FLIGHT_WITH_SELECTION.flight.selection, sidIdent: 'DET2G', approachIdent: 'ILS 27R' }
-      })
+      sockets[0].say(
+        pcRoute(2, { ...FLIGHT_WITH_SELECTION.flight.selection, sidIdent: 'DET2G', approachIdent: 'ILS 27R' })
+      )
     )
     expect(screen.getByText('DET2G · SIER7B · ILS 27R')).toBeInTheDocument()
-    act(() => sockets[0].say({ t: 'topic', name: 'procedureSelection', payload: null }))
+    act(() => sockets[0].say({ t: 'topic', name: 'plannedRoute', payload: null }))
     expect(screen.getByText('DET2G · SIER7B · ILS 27R')).toBeInTheDocument()
   })
 
@@ -196,6 +206,61 @@ describe('the Procedures button', () => {
     const runway = await within(dialog).findByLabelText('Departure runway')
     await userEvent.selectOptions(runway, '02L')
     expect(runway).toHaveValue('02L')
+  })
+})
+
+describe('keeping the choice in step with the PC (docs/plans/lan-sync.md)', () => {
+  const CHOICE = { ...FLIGHT_WITH_SELECTION.flight.selection, sidIdent: 'DET2G' }
+
+  /** The page open on flight 7 with the PC's route at revision 1, and a choice made through the Procedures dialog. */
+  async function openAndChoose() {
+    stubNavdata()
+    const { link, sockets } = setup('tok')
+    render(<LanApp link={link} />)
+    act(() => {
+      sockets[0].onopen?.()
+      sockets[0].say({ t: 'snapshot', topics: {}, flight: FLIGHT_WITH_SELECTION })
+      sockets[0].say(pcRoute(1, FLIGHT_WITH_SELECTION.flight.selection))
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Procedures…' }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.selectOptions(await within(dialog).findByLabelText('Departure runway'), '02C')
+    await userEvent.keyboard('{Escape}')
+    const sentChoices = (): unknown[] =>
+      sockets[0].sent.filter((m) => (m as { name?: string }).name === 'track.setProcedureSelection')
+    return { sockets, sentChoices }
+  }
+
+  it('sends the choice again when the PC does not confirm it, and says so after the last try, back on what the PC has', async () => {
+    const { sentChoices } = await openAndChoose()
+    await waitFor(() => expect(sentChoices()).toHaveLength(3), { timeout: 4000 })
+    expect(await screen.findByRole('alert', {}, { timeout: 4000 })).toHaveTextContent(
+      "Couldn't reach WingLog on the PC"
+    )
+    expect(sentChoices()).toHaveLength(3)
+    // The PC never heard it, so the page shows what the PC has.
+    expect(screen.getByText('KAMI2A · SIER7B · ILS 27L')).toBeInTheDocument()
+    // The notice goes by itself.
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument(), { timeout: 4000 })
+  })
+
+  it('stops sending once the PC confirms with the route built from the choice, and says nothing', async () => {
+    const { sockets, sentChoices } = await openAndChoose()
+    const sent = (sentChoices()[0] as { args: unknown[] }).args[0]
+    act(() => sockets[0].say(pcRoute(2, sent)))
+    await new Promise((resolve) => setTimeout(resolve, 900))
+    expect(sentChoices()).toHaveLength(1)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('is not undone by a route for an earlier choice arriving while it waits', async () => {
+    const { sockets, sentChoices } = await openAndChoose()
+    act(() => sockets[0].say(pcRoute(2, { ...CHOICE, sidIdent: 'EARLIER1A' })))
+    expect(screen.queryByText(/EARLIER1A/)).not.toBeInTheDocument()
+    const sent = (sentChoices()[0] as { args: unknown[] }).args[0]
+    act(() => sockets[0].say(pcRoute(3, sent)))
+    await new Promise((resolve) => setTimeout(resolve, 900))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })
 
@@ -270,13 +335,7 @@ describe('pop-ups from the other apps (docs/plans/lan-popups.md)', () => {
     })
     act(() => sockets[0].say({ t: 'topic', name: 'beyondAtcState', payload: STAR_CLEARANCE }))
     await screen.findByRole('dialog')
-    act(() =>
-      sockets[0].say({
-        t: 'topic',
-        name: 'procedureSelection',
-        payload: { ...FLIGHT_WITH_SELECTION.flight.selection, starIdent: 'LOGA2H' }
-      })
-    )
+    act(() => sockets[0].say(pcRoute(2, { ...FLIGHT_WITH_SELECTION.flight.selection, starIdent: 'LOGA2H' })))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })
@@ -413,6 +472,60 @@ describe('LanApp', () => {
 
     act(() => sockets[0].say({ t: 'topic', name: 'trackingPointsUpdated', payload: [point(2)] }))
     expect(mapProps.current?.trackPoints.map((p) => p.id)).toEqual([1, 2, 3])
+  })
+
+  it('draws the route the PC builds and pushes, follows each new one, and ignores one for another flight', () => {
+    const { link, sockets } = setup('tok')
+    render(<LanApp link={link} />)
+    const waypoints = (...coords: [string, number, number][]) =>
+      coords.map(([ident, lon, lat]) => ({ ident, lon, lat, altitudeFt: 0, segment: 'enroute' }))
+    const route = (
+      flightId: number,
+      revision: number,
+      sidIdent: string,
+      ...coords: [string, number, number][]
+    ) => ({
+      t: 'topic',
+      name: 'plannedRoute',
+      payload: {
+        flightId,
+        revision,
+        selection: { ...FLIGHT_WITH_SELECTION.flight.selection, sidIdent },
+        waypoints: waypoints(...coords)
+      }
+    })
+    act(() => {
+      sockets[0].onopen?.()
+      sockets[0].say({
+        t: 'snapshot',
+        topics: {},
+        flight: { ...FLIGHT_WITH_SELECTION, flight: { ...FLIGHT_WITH_SELECTION.flight, ofpJson: OFP } }
+      })
+    })
+    // Until the PC has sent a route, SimBrief's own stands in.
+    expect(mapProps.current?.route).toEqual([
+      [103.9915, 1.3644],
+      [-0.4614, 51.4775]
+    ])
+    act(() => sockets[0].say(route(7, 1, 'OLD1A', ['A', 1, 2], ['B', 3, 4])))
+    expect(mapProps.current?.route).toEqual([
+      [1, 2],
+      [3, 4]
+    ])
+    // The PC's next route replaces it, SID and all.
+    act(() => sockets[0].say(route(7, 2, 'NEW1Z', ['C', 5, 6], ['D', 7, 8], ['E', 9, 10])))
+    expect(mapProps.current?.route).toEqual([
+      [5, 6],
+      [7, 8],
+      [9, 10]
+    ])
+    expect(mapProps.current?.waypoints?.map((w) => w.ident)).toEqual(['C', 'D', 'E'])
+    // A route built for a different flight is never drawn on this one.
+    act(() => sockets[0].say(route(8, 1, 'OTHER', ['X', 11, 12])))
+    expect(mapProps.current?.route).toEqual([
+      [103.9915, 1.3644],
+      [-0.4614, 51.4775]
+    ])
   })
 
   it('shows ET, time remaining and ETA once the aircraft is airborne and moving', () => {

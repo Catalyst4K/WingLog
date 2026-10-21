@@ -6,6 +6,15 @@
 
 import type { LiveSnapshot, LiveTopic, LiveTopics } from '@shared/live'
 import type { LanFlightSnapshot, LanServerMessage, TrackPoint } from '@shared/ipc'
+import {
+  AIRPORT_REFRESH_QUERIES,
+  isKept,
+  isWorthKeeping,
+  laneOf,
+  LAN_QUERY_KINDS,
+  type LanQueryLane
+} from '@shared/lan-queries'
+import { queryFailedReport } from '@shared/lan-report'
 
 /** Where the link stands. */
 export type LanLinkState =
@@ -36,11 +45,17 @@ export interface TokenStore {
   clear(): void
 }
 
-/** Most lookups asked of the PC at once: it answers this many per device and refuses the rest, so the rest wait their turn here. */
-const MAX_QUERIES_IN_FLIGHT = 4
+/** Most lookups of each lane asked of the PC at once: it answers this many per device and says busy to the rest, so the rest wait their turn here. */
+const MAX_IN_FLIGHT: Record<LanQueryLane, number> = { fast: 4, slow: 2 }
 
-/** How long a lookup waits for its answer, in milliseconds. */
-const QUERY_TIMEOUT_MS = 60_000
+/** How long a lookup waits for its answer, in milliseconds: quick ones answer from the PC's own data, slow ones reach the sim or the internet. */
+const QUERY_TIMEOUT_MS: Record<LanQueryLane, number> = { fast: 10_000, slow: 180_000 }
+
+/** How many times a lookup is sent before it is given up on (the first, and three retries). */
+const MAX_TRIES = 4
+
+/** The wait before the first retry of a lookup that failed or timed out, in milliseconds. It doubles each time, with jitter. */
+const RETRY_BASE_MS = 1000
 
 /** A connected link that has heard nothing for this long is treated as dead: the PC sends a heartbeat every 10 s. */
 const STALE_MS = 35_000
@@ -51,6 +66,22 @@ const STALE_CHECK_MS = 5_000
 const MAX_BACKOFF_MS = 10_000
 
 type StateListener = (state: LanLinkState) => void
+
+/** A lookup asked of the PC, with everything waiting on its answer. */
+interface Lookup {
+  name: string
+  args: unknown[]
+  lane: LanQueryLane
+  /** What identifies the ask for sharing and keeping, when the answer may be kept. */
+  key: string | null
+  waiters: { resolve: (data: unknown) => void; reject: (error: Error) => void }[]
+  /** How many times it has been sent. */
+  tries: number
+  /** The id of the send that is out, and its timeout. */
+  id?: number
+  timer?: ReturnType<typeof setTimeout>
+  retry?: ReturnType<typeof setTimeout>
+}
 
 /** The link to the PC: pairing, the live topics and the active flight's track. */
 export class LanConnection {
@@ -66,17 +97,18 @@ export class LanConnection {
   private nextQueryId = 1
   private lastHeard = 0
   private watchdog: ReturnType<typeof setInterval> | null = null
-  private readonly pendingQueries = new Map<
-    number,
-    { resolve: (data: unknown) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }
-  >()
-  /** Lookups waiting for one of the PC's few lookup slots, oldest first. */
-  private readonly queuedQueries: {
-    name: string
-    args: unknown[]
-    resolve: (data: unknown) => void
-    reject: (error: Error) => void
-  }[] = []
+  /** Lookups out with the PC, by the id they were sent with. */
+  private readonly inFlight = new Map<number, Lookup>()
+  /** Lookups waiting for one of the PC's few lookup slots, by lane, oldest first. */
+  private readonly waiting: Record<LanQueryLane, Lookup[]> = { fast: [], slow: [] }
+  /** Lookups waiting out the pause before a retry. */
+  private readonly retrying = new Set<Lookup>()
+  /** Lookups of a kept kind that are out or waiting, so the same ask made twice shares one request. */
+  private readonly sharing = new Map<string, Lookup>()
+  /** Answers kept for the length of this connection (see `isKept`). */
+  private readonly kept = new Map<string, { data: unknown; subject: unknown }>()
+  /** When the link dropped with lookups waiting, so they can be given up on if it does not come back. */
+  private downSince: number | null = null
   private readonly topics: Partial<LiveTopics> = {}
   private readonly stateListeners = new Set<StateListener>()
   private readonly topicListeners = new Map<LiveTopic, Set<(payload: never) => void>>()
@@ -118,35 +150,108 @@ export class LanConnection {
   }
 
   /**
-   * Asks the PC for read-only data the map needs (the airfield list, a taxi chart, stands).
+   * Asks the PC for read-only data the page needs (the airfield list, a taxi chart, stands, procedures). Quick and slow lookups use
+   * separate slots, a failed or unanswered one is asked again (waiting longer each time), the same lookup asked twice is one request,
+   * and an answer about data that only changes when the PC refreshes it is kept for the length of the connection.
    *
    * @param name The lookup's name.
    * @param args Its arguments, such as an airport code.
-   * @returns The answer; rejects when the link is down, the PC refuses, or nothing comes back within a minute.
+   * @returns The answer; rejects when the link is down, or the PC could not answer after MAX_TRIES tries.
    */
   query(name: string, ...args: unknown[]): Promise<unknown> {
+    const key = isKept(name) ? JSON.stringify([name, args]) : null
+    const keptAnswer = key === null ? undefined : this.kept.get(key)
+    if (keptAnswer) return Promise.resolve(keptAnswer.data)
     if (!this.socket || this.current !== 'connected') return Promise.reject(new Error('Not connected'))
     return new Promise((resolve, reject) => {
-      this.queuedQueries.push({ name, args, resolve, reject })
-      this.sendQueuedQueries()
+      const shared = key === null ? undefined : this.sharing.get(key)
+      if (shared) {
+        shared.waiters.push({ resolve, reject })
+        return
+      }
+      const lookup: Lookup = { name, args, lane: laneOf(name), key, waiters: [{ resolve, reject }], tries: 0 }
+      if (key !== null) this.sharing.set(key, lookup)
+      this.waiting[lookup.lane].push(lookup)
+      this.sendWaiting()
     })
   }
 
-  /** Sends waiting lookups while the PC has a slot free for them. */
-  private sendQueuedQueries(): void {
+  /**
+   * Tells the PC about something the page gave up on, so its log shows both sides of a problem. A code from a fixed list
+   * (shared/lan-report.ts); nothing is sent while the link is down.
+   *
+   * @param code What happened.
+   */
+  report(code: string): void {
+    if (this.socket && this.current === 'connected') this.socket.send(JSON.stringify({ t: 'report', code }))
+  }
+
+  /** Sends waiting lookups while the PC has a slot free for them in their lane. */
+  private sendWaiting(): void {
     const socket = this.socket
     if (!socket || this.current !== 'connected') return
-    while (this.pendingQueries.size < MAX_QUERIES_IN_FLIGHT) {
-      const next = this.queuedQueries.shift()
-      if (!next) return
-      const id = this.nextQueryId++
-      const timer = setTimeout(() => {
-        this.pendingQueries.delete(id)
-        next.reject(new Error('The PC did not answer'))
-        this.sendQueuedQueries()
-      }, QUERY_TIMEOUT_MS)
-      this.pendingQueries.set(id, { resolve: next.resolve, reject: next.reject, timer })
-      socket.send(JSON.stringify({ t: 'query', id, name: next.name, args: next.args }))
+    for (const lane of ['fast', 'slow'] as const) {
+      const sent = [...this.inFlight.values()].filter((l) => l.lane === lane).length
+      let free = MAX_IN_FLIGHT[lane] - sent
+      while (free > 0) {
+        const next = this.waiting[lane].shift()
+        if (!next) break
+        free -= 1
+        const id = this.nextQueryId++
+        next.id = id
+        next.tries += 1
+        next.timer = setTimeout(() => this.failed(next, 'The PC did not answer'), QUERY_TIMEOUT_MS[lane])
+        this.inFlight.set(id, next)
+        socket.send(JSON.stringify({ t: 'query', id, name: next.name, args: next.args }))
+      }
+    }
+  }
+
+  /**
+   * A send came to nothing (the PC could not answer, said busy, or did not answer in time): try again after a pause, or give up.
+   *
+   * @param lookup The lookup.
+   * @param reason What to tell the callers if it is given up on.
+   * @param waitMs How long the PC asked to wait (busy), when it said.
+   */
+  private failed(lookup: Lookup, reason: string, waitMs?: number): void {
+    this.letGo(lookup)
+    if (lookup.tries >= MAX_TRIES) {
+      this.settle(lookup, new Error(reason))
+      if (Object.hasOwn(LAN_QUERY_KINDS, lookup.name)) this.report(queryFailedReport(lookup.name))
+      this.sendWaiting()
+      return
+    }
+    const wait = waitMs ?? RETRY_BASE_MS * 2 ** (lookup.tries - 1) * (0.5 + Math.random() / 2)
+    this.retrying.add(lookup)
+    lookup.retry = setTimeout(() => {
+      this.retrying.delete(lookup)
+      this.waiting[lookup.lane].push(lookup)
+      this.sendWaiting()
+    }, wait)
+    this.sendWaiting()
+  }
+
+  /**
+   * @param lookup A lookup that was out: stops its timeout and frees its slot.
+   */
+  private letGo(lookup: Lookup): void {
+    clearTimeout(lookup.timer)
+    if (lookup.id !== undefined) this.inFlight.delete(lookup.id)
+    lookup.id = undefined
+  }
+
+  /**
+   * Ends a lookup for good, telling everyone waiting on it.
+   *
+   * @param lookup The lookup.
+   * @param outcome The answer, or the error to give.
+   */
+  private settle(lookup: Lookup, outcome: Error | { data: unknown }): void {
+    if (lookup.key !== null) this.sharing.delete(lookup.key)
+    for (const waiter of lookup.waiters) {
+      if (outcome instanceof Error) waiter.reject(outcome)
+      else waiter.resolve(outcome.data)
     }
   }
 
@@ -202,6 +307,7 @@ export class LanConnection {
     this.retry = null
     this.socket?.close()
     this.socket = null
+    this.failAllLookups(new Error('Not connected'))
   }
 
   /**
@@ -270,7 +376,7 @@ export class LanConnection {
     socket.onclose = () => {
       if (this.socket !== socket) return
       this.socket = null
-      this.failPendingQueries()
+      this.holdLookups()
       if (this.stopped) return
       if (this.pairingCode !== null) {
         // The PC never answered the code (it was unreachable): back to asking for it, as there is no token to retry with.
@@ -296,6 +402,7 @@ export class LanConnection {
 
   /** A link that says it is connected but has heard nothing for a while is dead (the PC froze or went away): say so and reconnect. */
   private checkHeard(): void {
+    this.failStaleLookups()
     if (this.current !== 'connected' || Date.now() - this.lastHeard < STALE_MS) return
     this.setState('offline')
     this.resume()
@@ -326,24 +433,67 @@ export class LanConnection {
   /**
    * @param message The PC's answer to a lookup.
    */
-  private answerQuery(message: { id: number; data?: unknown; error?: true }): void {
-    const waiting = this.pendingQueries.get(message.id)
-    if (!waiting) return
-    clearTimeout(waiting.timer)
-    this.pendingQueries.delete(message.id)
-    if (message.error) waiting.reject(new Error('The PC could not answer'))
-    else waiting.resolve(message.data)
-    this.sendQueuedQueries()
+  private answerQuery(message: {
+    id: number
+    data?: unknown
+    error?: true
+    busy?: true
+    retryAfterMs?: number
+  }): void {
+    const lookup = this.inFlight.get(message.id)
+    if (!lookup) return
+    if (message.error) {
+      this.failed(lookup, 'The PC could not answer', message.busy ? message.retryAfterMs : undefined)
+      return
+    }
+    this.letGo(lookup)
+    if (lookup.key !== null && isWorthKeeping(message.data)) {
+      this.kept.set(lookup.key, { data: message.data, subject: lookup.args[0] })
+    }
+    // A refresh from the sim makes what was kept about that airport out of date.
+    if (AIRPORT_REFRESH_QUERIES.includes(lookup.name)) {
+      for (const [key, entry] of this.kept) if (entry.subject === lookup.args[0]) this.kept.delete(key)
+    }
+    this.settle(lookup, { data: message.data })
+    this.sendWaiting()
   }
 
-  /** Fails every lookup still waiting: the link they were asked over has gone. */
-  private failPendingQueries(): void {
-    for (const waiting of this.pendingQueries.values()) {
-      clearTimeout(waiting.timer)
-      waiting.reject(new Error('Not connected'))
+  /**
+   * The link dropped. Lookups that were out go back to waiting, without using up a try, and everything waits for the link to come
+   * back; ones still waiting when it has been down for STALE_MS are failed (see `failStaleLookups`).
+   */
+  private holdLookups(): void {
+    // Newest first, so the oldest ends up at the front again.
+    for (const lookup of [...this.inFlight.values()].reverse()) {
+      this.letGo(lookup)
+      lookup.tries -= 1
+      this.waiting[lookup.lane].unshift(lookup)
     }
-    this.pendingQueries.clear()
-    for (const queued of this.queuedQueries.splice(0)) queued.reject(new Error('Not connected'))
+    if (this.hasLookups()) this.downSince ??= Date.now()
+  }
+
+  private hasLookups(): boolean {
+    return this.waiting.fast.length + this.waiting.slow.length + this.retrying.size > 0
+  }
+
+  /** Fails the lookups still waiting once the link has been down for STALE_MS: the page would rather say so than wait. */
+  private failStaleLookups(): void {
+    if (this.downSince === null || Date.now() - this.downSince < STALE_MS) return
+    this.failAllLookups(new Error('Not connected'))
+  }
+
+  /**
+   * @param error What to tell everyone waiting.
+   */
+  private failAllLookups(error: Error): void {
+    this.downSince = null
+    for (const lookup of [...this.inFlight.values()]) this.letGo(lookup)
+    for (const lookup of this.retrying) clearTimeout(lookup.retry)
+    const all = [...this.waiting.fast, ...this.waiting.slow, ...this.retrying]
+    this.waiting.fast.length = 0
+    this.waiting.slow.length = 0
+    this.retrying.clear()
+    for (const lookup of all) this.settle(lookup, error)
   }
 
   /** The PC refused: a wrong code while pairing, otherwise a token it no longer knows (revoked). */
@@ -365,9 +515,13 @@ export class LanConnection {
    */
   private handleSnapshot(topics: LiveSnapshot, flight: LanFlightSnapshot | null): void {
     this.backoff = 1000
+    // The PC may have refreshed its data, or restarted, while the link was down.
+    this.kept.clear()
+    this.downSince = null
     for (const key of Object.keys(this.topics)) delete this.topics[key as LiveTopic]
     Object.assign(this.topics, topics)
     this.setState('connected')
+    this.sendWaiting()
     this.replaceFlight(flight)
     for (const [topic, value] of Object.entries(topics)) this.emit(topic as LiveTopic, value)
   }
@@ -412,7 +566,11 @@ const READERS: Record<string, (r: Record<string, unknown>) => LanServerMessage |
   paired: (r) => (typeof r.token === 'string' ? { t: 'paired', token: r.token } : null),
   denied: () => ({ t: 'denied' }),
   hb: () => ({ t: 'hb' }),
-  error: (r) => ({ t: 'error', message: String(r.message ?? '') }),
+  error: (r) => ({
+    t: 'error',
+    message: String(r.message ?? ''),
+    ...(typeof r.retryAfterMs === 'number' ? { retryAfterMs: r.retryAfterMs } : {})
+  }),
   snapshot: (r) =>
     typeof r.topics === 'object' && r.topics !== null
       ? {
@@ -424,7 +582,14 @@ const READERS: Record<string, (r: Record<string, unknown>) => LanServerMessage |
   flight: (r) => ({ t: 'flight', flight: (r.flight ?? null) as LanFlightSnapshot | null }),
   result: (r) =>
     typeof r.id === 'number'
-      ? { t: 'result', id: r.id, data: r.data, ...(r.error === true ? { error: true as const } : {}) }
+      ? {
+          t: 'result',
+          id: r.id,
+          data: r.data,
+          ...(r.error === true ? { error: true as const } : {}),
+          ...(r.busy === true ? { busy: true as const } : {}),
+          ...(typeof r.retryAfterMs === 'number' ? { retryAfterMs: r.retryAfterMs } : {})
+        }
       : null,
   topic: (r) =>
     typeof r.name === 'string' ? { t: 'topic', name: r.name as LiveTopic, payload: r.payload } : null

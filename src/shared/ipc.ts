@@ -86,6 +86,7 @@ import type {
   UpdateInstallOutcome,
   UpdateSettings,
   UpdateStatus,
+  WindowSettings,
   WeightUnit,
   WindSpeedUnit
 } from './types/settings'
@@ -149,7 +150,11 @@ export interface WingLogApi {
   flightCancel: (id: number) => Promise<void>
   /** Permanently deletes a flight and its landing/invoice/track-point rows — a completed
    *  or abandoned flight with bad data, not an in-progress one (use flightCancel for that). */
-  flightDelete: (id: number) => Promise<void>
+  /** `revertLocation` also moves the aircraft back to where it was before this flight; only
+   *  honoured when flightDeleteLocationImpact says it applies. */
+  flightDelete: (id: number, revertLocation?: boolean) => Promise<void>
+  /** What deleting this flight would do to its aircraft's location, or null when nothing. */
+  flightDeleteLocationImpact: (id: number) => Promise<{ currentIcao: string; revertIcao: string } | null>
   /** Links a fleet aircraft (existing or just created via aircraftCreate) to a completed
    *  free flight that was tracked with no aircraft at all — Logbook's post-flight "Add to
    *  fleet" flow, replacing the fleet-creation option that used to live inline in the start
@@ -539,6 +544,11 @@ export interface WingLogApi {
   beyondAtcSetAutoRespond: (value: boolean) => Promise<void>
   settingsGetUpdates: () => Promise<UpdateSettings>
   settingsSetUpdates: (settings: UpdateSettings) => Promise<void>
+  /** Main asks whether to close WingLog while a flight is in progress; answer with closeConfirmAnswer (true to close). */
+  onCloseConfirmRequested: (listener: () => void) => () => void
+  closeConfirmAnswer: (close: boolean) => Promise<void>
+  settingsGetWindow: () => Promise<WindowSettings>
+  settingsSetWindow: (settings: Pick<WindowSettings, 'minimizeToTray'>) => Promise<void>
   /** The room left on the drive holding WingLog's data, and whether saving is failing: for the first render of the low-disk warning. */
   getStorageStatus: () => Promise<StorageStatus>
   /** Pushed when the free space crosses a warning level, or saving starts or stops failing. */

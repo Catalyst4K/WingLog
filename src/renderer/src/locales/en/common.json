@@ -70,6 +70,13 @@
       "dark": "Dark",
       "system": "System"
     },
+    "window": {
+      "cardTitle": "Window",
+      "minimizeLabel": "When I minimise the window",
+      "taskbar": "Taskbar",
+      "tray": "System tray",
+      "description": "In the tray, WingLog takes no taskbar space and carries on tracking and serving the second screen. Click the tray icon to bring the window back. Closing the window still quits."
+    },
     "credentials": {
       "cardTitle": "Credentials",
       "description": "Used by Dispatch to fetch and generate plans on SimBrief.",
@@ -503,6 +510,12 @@
   "useConfirm": {
     "back": "Back"
   },
+  "closeConfirm": {
+    "title": "Close WingLog?",
+    "description": "A flight is in progress. If you close WingLog now, tracking stops, but the flight is kept and you can resume or discard it when you open WingLog again. To keep the window out of the way, minimise it instead.",
+    "close": "Close WingLog",
+    "keepOpen": "Keep open"
+  },
   "dispatchView": {
     "lastParkedHere": "Last parked here at stand {{stand}} — choose it as your starting gate in MSFS.",
     "title": "Dispatch",
@@ -594,6 +607,7 @@
     "procedures": "Procedures",
     "alternateIcao": "Alternate {{icao}}",
     "nothingSelectedYet": "Nothing selected yet",
+    "choiceNotConfirmed": "Couldn't reach WingLog on the PC. The procedures there weren't changed.",
     "flightEnded": "Flight ended",
     "autoDetectedComplete": "{{label}} was automatically detected as complete and saved to your logbook.",
     "ok": "OK"
@@ -646,6 +660,10 @@
     "deleteFlightConfirmDescription_other": "Its track ({{count}} points), landing report and ground-service invoices go with it. This cannot be undone.",
     "deleteFlight": "Delete flight",
     "flightDeleted": "Flight deleted.",
+    "revertLocationTitle": "Where should the aircraft be parked?",
+    "revertLocationDescription": "This was the aircraft's most recent flight, and it is currently parked at {{currentIcao}}. Keep it there, or move it back to {{revertIcao}}, where it was before this flight?",
+    "revertLocationMoveBack": "Move back to {{icao}}",
+    "revertLocationKeep": "Keep at {{icao}}",
     "noOfpPdfForFlight": "No OFP PDF available for this flight.",
     "backToAircraft": "Back to aircraft",
     "backToLogbook": "Back to logbook",

@@ -13,7 +13,7 @@ import { listTrackPoints } from '../db/track-point-repo'
  * @param activeFlightId The flight being tracked, if any.
  * @returns The flight's id, or undefined when there is none.
  */
-function shownFlightId(db: WingLogDb, activeFlightId: number | undefined): number | undefined {
+export function shownFlightId(db: WingLogDb, activeFlightId: number | undefined): number | undefined {
   if (activeFlightId !== undefined) return activeFlightId
   return listFlightSummaries(db).find((f) => f.status === 'planned')?.id
 }

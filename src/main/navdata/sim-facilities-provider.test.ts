@@ -67,6 +67,22 @@ describe('SimFacilitiesProvider', () => {
     expect(listCachedRunways(db, 'EGLL')).toHaveLength(2)
   })
 
+  it('tells its listeners which airport was refreshed, once the new data is cached, and not when the fetch fails', async () => {
+    const { fetchAirportNavdata } = await import('./sim-facilities-fetch')
+    const provider = new SimFacilitiesProvider(db, openSimConnect)
+    const heard: [string, boolean][] = []
+    const stop = provider.onAirportRefreshed((icao) => heard.push([icao, hasCachedAirport(db, icao)]))
+    vi.mocked(fetchAirportNavdata).mockRejectedValueOnce(new Error('sim not running'))
+    await expect(provider.refreshAirport('EGLL')).rejects.toThrow()
+    expect(heard).toEqual([])
+    vi.mocked(fetchAirportNavdata).mockResolvedValue(FETCHED)
+    await provider.refreshAirport('EGLL')
+    expect(heard).toEqual([['EGLL', true]])
+    stop()
+    await provider.refreshAirport('EGLL')
+    expect(heard).toHaveLength(1)
+  })
+
   it('still closes the connection when the fetch throws', async () => {
     const { fetchAirportNavdata } = await import('./sim-facilities-fetch')
     vi.mocked(fetchAirportNavdata).mockRejectedValue(new Error('sim not running'))

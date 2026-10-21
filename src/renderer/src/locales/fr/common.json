@@ -70,6 +70,13 @@
       "dark": "Sombre",
       "system": "Système"
     },
+    "window": {
+      "cardTitle": "Fenêtre",
+      "minimizeLabel": "Quand je réduis la fenêtre",
+      "taskbar": "Barre des tâches",
+      "tray": "Zone de notification",
+      "description": "Dans la zone de notification, WingLog n’occupe pas la barre des tâches et continue le suivi et le second écran. Cliquez sur l’icône pour rouvrir la fenêtre. Fermer la fenêtre quitte toujours WingLog."
+    },
     "credentials": {
       "cardTitle": "Identifiants",
       "description": "Utilisé par Régulation pour récupérer et générer des plans sur SimBrief.",
@@ -505,6 +512,12 @@
   "useConfirm": {
     "back": "Retour"
   },
+  "closeConfirm": {
+    "title": "Fermer WingLog ?",
+    "description": "Un vol est en cours. Si vous fermez WingLog maintenant, le suivi s’arrête, mais le vol est conservé et vous pourrez le reprendre ou l’abandonner à la prochaine ouverture de WingLog. Pour écarter la fenêtre, réduisez-la plutôt.",
+    "close": "Fermer WingLog",
+    "keepOpen": "Garder ouvert"
+  },
   "dispatchView": {
     "lastParkedHere": "Dernier stationnement ici au poste {{stand}} — choisissez-le comme porte de départ dans MSFS.",
     "title": "Régulation",
@@ -596,6 +609,7 @@
     "procedures": "Procédures",
     "alternateIcao": "Déroutement {{icao}}",
     "nothingSelectedYet": "Rien de sélectionné pour l'instant",
+    "choiceNotConfirmed": "Impossible de joindre WingLog sur le PC. Les procédures n'y ont pas été modifiées.",
     "flightEnded": "Vol terminé",
     "autoDetectedComplete": "{{label}} a été automatiquement détecté comme terminé et enregistré dans votre carnet.",
     "ok": "OK"
@@ -648,6 +662,10 @@
     "deleteFlightConfirmDescription_other": "Sa trace ({{count}} points), le rapport d'atterrissage et les reçus des services au sol seront supprimés avec lui. Cette action est irréversible.",
     "deleteFlight": "Supprimer le vol",
     "flightDeleted": "Vol supprimé.",
+    "revertLocationTitle": "Où l'avion doit-il être stationné ?",
+    "revertLocationDescription": "C'était le vol le plus récent de l'avion, et il est actuellement stationné à {{currentIcao}}. Le laisser là, ou le replacer à {{revertIcao}}, où il se trouvait avant ce vol ?",
+    "revertLocationMoveBack": "Replacer à {{icao}}",
+    "revertLocationKeep": "Laisser à {{icao}}",
     "noOfpPdfForFlight": "Aucun PDF d'OFP disponible pour ce vol.",
     "backToAircraft": "Retour à l'appareil",
     "backToLogbook": "Retour au carnet",

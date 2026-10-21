@@ -1,7 +1,7 @@
 /** The altitude Track and the Logbook show: pressure altitude above the transition, true altitude below it. */
 
 import type { FlightPhase } from '@shared/ipc'
-import type { TransitionAltitudes } from './route'
+import type { TransitionAltitudes } from '@shared/route'
 import { mToFt } from './units'
 
 /**

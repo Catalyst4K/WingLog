@@ -349,6 +349,7 @@ function buildRawWinglog(overrides: Partial<WingLogApi> = {}): WingLogApi {
     logbookGreatCircleRoute: vi.fn().mockResolvedValue(null),
     logbookOpenOfpPdf: vi.fn().mockResolvedValue(true),
     flightDelete: vi.fn().mockResolvedValue(undefined),
+    flightDeleteLocationImpact: vi.fn().mockResolvedValue(null),
     trackPointCleanup: vi.fn().mockResolvedValue({ excludedCount: 0, resegmentedCount: 0 }),
     // GsxInvoicesCard, mounted unconditionally inside FlightDetail
     logbookListInvoices: vi.fn().mockResolvedValue([]),
@@ -1202,12 +1203,47 @@ describe('FlightDetail', () => {
     expect(within(dialog).getByText(/1 point/)).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Delete flight' }))
 
-    expect(winglog.flightDelete).toHaveBeenCalledWith(1)
+    expect(winglog.flightDelete).toHaveBeenCalledWith(1, false)
     expect(
       await screen.findByText(
         'No completed flights yet — track one, or import a CSV logbook from Settings → Data.'
       )
     ).toBeInTheDocument()
+  })
+
+  async function deleteWithLocationImpact(choice: string): Promise<ReturnType<typeof setWinglog>> {
+    const winglog = setWinglog({
+      logbookListCompletedFlights: vi.fn().mockResolvedValue([makeFlight()]),
+      aircraftList: vi.fn().mockResolvedValue([makeAircraft()]),
+      flightDeleteLocationImpact: vi.fn().mockResolvedValue({ currentIcao: 'EGKK', revertIcao: 'EGLL' })
+    })
+    const user = userEvent.setup()
+    render(<LogbookView weightUnit="kg" landingDistanceUnit="ft" />)
+    await user.click(await screen.findByText('TA100'))
+    await screen.findByText('TA100 — EGLL → EGKK')
+
+    await user.click(screen.getByRole('button', { name: 'Delete flight' }))
+    await user.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Delete flight' })
+    )
+    const locationDialog = await waitFor(() => {
+      const d = screen.getByRole('alertdialog')
+      expect(within(d).getByText('Where should the aircraft be parked?')).toBeInTheDocument()
+      return d
+    })
+    await user.click(within(locationDialog).getByRole('button', { name: choice }))
+    await waitFor(() => expect(winglog.flightDelete).toHaveBeenCalled())
+    return winglog
+  }
+
+  it('moves the aircraft back when asked to after deleting its most recent flight', async () => {
+    const winglog = await deleteWithLocationImpact('Move back to EGLL')
+    expect(winglog.flightDelete).toHaveBeenCalledWith(1, true)
+  })
+
+  it('keeps the aircraft where it is when asked to after deleting its most recent flight', async () => {
+    const winglog = await deleteWithLocationImpact('Keep at EGKK')
+    expect(winglog.flightDelete).toHaveBeenCalledWith(1, false)
   })
 
   it('leaves the flight alone when the delete confirmation is cancelled', async () => {

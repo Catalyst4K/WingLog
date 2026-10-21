@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import type { FlightPhase, MapLanguage, SimTelemetry, TrackPoint } from '@shared/ipc'
 import { cn } from '@/lib/utils'
-import type { TransitionAltitudes, Waypoint } from './route'
+import type { TransitionAltitudes, Waypoint } from '@shared/route'
 import { filterVisibleTrackPoints } from './track-point-visibility'
 import { useTaxiChartOverlay } from './use-taxi-chart-overlay'
 import { useTaxiRouteHighlight } from './use-taxi-route-highlight'

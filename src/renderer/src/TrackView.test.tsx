@@ -12,7 +12,7 @@ import type {
   WingLogApi
 } from '@shared/ipc'
 import i18n from './i18n'
-import { emptyProcedureSelection } from './procedure-selection'
+import { emptyProcedureSelection } from '@shared/procedure-selection'
 import { TrackView } from './TrackView'
 
 // sonner's real toast has nothing to render into in these tests (no <Toaster/> mounted)

@@ -19,6 +19,7 @@ import { SegmentedRow, TrackingFields, UnitsFields } from './SettingsFields'
 import { trackingLabels } from './tracking-labels'
 import { UpdatesCard } from './UpdatesCard'
 import { LanCard } from './settings/LanCard'
+import { WindowCard } from './settings/WindowCard'
 import { SettingsCard } from './settings/ui/SettingsCard'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -110,6 +111,8 @@ function InterfacePanel(props: AppWideSettings): React.JSX.Element {
           onChange={props.onThemeChange}
         />
       </SettingsCard>
+
+      <WindowCard />
 
       <SettingsCard
         title={t('settingsView.tracking.cardTitle')}

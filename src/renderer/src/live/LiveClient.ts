@@ -71,7 +71,9 @@ export const electronLiveClient: LiveClient = {
       beyondAtcState: w.onBeyondAtcState,
       beyondAtcTranscript: w.onBeyondAtcTranscript,
       beyondAtcStepClimb: w.onBeyondAtcStepClimb,
-      beyondAtcArrival: w.onBeyondAtcArrival
+      beyondAtcArrival: w.onBeyondAtcArrival,
+      // Built for the second screens (lan-sync.md); the window assembles its own route from IPC lookups and is never sent this.
+      plannedRoute: () => () => undefined
     }
     return subscribers[topic](listener)
   },

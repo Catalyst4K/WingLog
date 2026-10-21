@@ -62,6 +62,7 @@ route on the chart: from your aircraft, along the taxiways in the order cleared,
   WingLog redraws it from where you are: the shortest way to the same holding point or gate, joining
   ATC's route wherever that's quickest. It never sends you back behind you unless you're at a dead
   end, and it doesn't redraw during pushback or once you've reached the hold.
+- **If the clearance can't be followed.** When the taxiways ATC names can't be traced on the airport's data, WingLog draws the shortest way to the same holding point or gate instead, in the same line.
 - **Hold short.** When a clearance ends "hold short of runway …", the route ends at that hold short.
   The rest comes with the next clearance.
 - **Departure route removed.** It's taken off the map once your takeoff roll starts, and the arrival

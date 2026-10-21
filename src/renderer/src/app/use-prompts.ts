@@ -9,6 +9,7 @@ import type { BeyondAtcState, GsxRemoteMenuState, ProcedureSelection } from '@sh
 import { gsxPromptState } from '../gsx-remote-importance'
 import { useLiveClient } from '../live/LiveClient'
 import { runAsync } from '../report-error'
+import { applyClearance } from '@shared/procedure-selection'
 import {
   clearanceDiffers,
   readNewInfoBoxes,
@@ -63,7 +64,7 @@ export function useAtcClearancePrompt(
     pending,
     onAccept: () => {
       if (!pending) return
-      setSelection((prev) => ({ ...prev, ...pending.fields }))
+      setSelection((prev) => applyClearance(prev, pending.fields))
       setPending(null)
     },
     onDismiss: () => setPending(null)

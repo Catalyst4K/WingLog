@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { displayAltitude } from './display-altitude'
-import type { TransitionAltitudes } from './route'
+import type { TransitionAltitudes } from '@shared/route'
 
 // VHHH round trip's real numbers: trans_alt 9,000 ft,
 // trans_level 11,000 ft.

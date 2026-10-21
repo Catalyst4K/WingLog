@@ -13,6 +13,7 @@ Settings has four sections down the left.
 | **METAR wind speed** | Knots or m/s. |
 | **Landing distances** | Feet or metres. |
 | **Theme** | Light, dark, or follow Windows. |
+| **Window: When I minimise the window** | **Taskbar** (the default) or **System tray**. In the tray WingLog takes no taskbar space and carries on tracking and serving the second screen; click the tray icon to bring the window back. Closing the window always closes WingLog, but while a flight is being tracked it asks first: the flight is kept, and you can resume or discard it when you open WingLog again. |
 | **Tracking: Start tracking automatically** | On: WingLog starts tracking when the aircraft settles at the departure. Off: press **Start tracking** on Track (Dispatch's **Fly** still sets the flight up). |
 | **Tracking: Finish flights automatically** | On: the flight is saved once you're parked with the engines off after landing. Off: press **Finish & save**. |
 

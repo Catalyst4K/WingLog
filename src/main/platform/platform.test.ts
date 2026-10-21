@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canHostSim, currentPlatform, quitsWhenAllWindowsClose } from './platform'
+import { canHostSim, canShowTray, currentPlatform, quitsWhenAllWindowsClose } from './platform'
 import { gsxReceiptsDefaultPath, userDataDirectory } from './paths'
 
 describe('currentPlatform', () => {
@@ -20,6 +20,14 @@ describe('canHostSim', () => {
     expect(canHostSim('win32')).toBe(true)
     expect(canHostSim('darwin')).toBe(false)
     expect(canHostSim('linux')).toBe(false)
+  })
+})
+
+describe('canShowTray', () => {
+  it('is true only on Windows, the sim host', () => {
+    expect(canShowTray('win32')).toBe(true)
+    expect(canShowTray('darwin')).toBe(false)
+    expect(canShowTray('linux')).toBe(false)
   })
 })
 

@@ -71,6 +71,14 @@ test('browses to a completed flight, sees its landing/track detail, and deletes 
     const confirmDialog = window.getByRole('alertdialog')
     await expect(confirmDialog.getByRole('heading', { name: 'Delete this flight?' })).toBeVisible()
     await confirmDialog.getByRole('button', { name: 'Delete flight' }).click()
+    // The seeded flight is its aircraft's latest, so deleting it also asks where the aircraft should be parked.
+    await expect(
+      window.getByRole('alertdialog').getByRole('heading', { name: 'Where should the aircraft be parked?' })
+    ).toBeVisible()
+    await window
+      .getByRole('alertdialog')
+      .getByRole('button', { name: /^Keep at / })
+      .click()
     await expect(confirmDialog).toBeHidden()
 
     // Navigating away unmounts FlightDetail's FlightMap (a real maplibre-gl/WebGL map) —

@@ -31,7 +31,7 @@ Click a flight to see:
   missing stretch along the flight's flight plan, as a dashed line apart from the blue line that was recorded, and says how many
   nautical miles of it are estimated. It needs the flight to have a flight plan from SimBrief, and both ends of the gap to lie near
   it. The recorded track itself is never changed, and the same button then reads **Remove estimated stretches**;
-- **Delete flight**.
+- **Delete flight**. If it was the aircraft's most recent flight, WingLog also asks where the aircraft should be parked: keep it where it is now, or move it back to where it was before this flight.
 
 ## The landing report
 

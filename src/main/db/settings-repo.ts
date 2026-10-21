@@ -50,6 +50,7 @@ const GSX_REMOTE_PORT_KEY = 'gsxRemotePort'
 const BEYONDATC_ENABLED_KEY = 'beyondAtcEnabled'
 const BEYONDATC_HOST_KEY = 'beyondAtcHost'
 const UPDATE_CHECK_ENABLED_KEY = 'updateCheckEnabled'
+const MINIMIZE_TO_TRAY_KEY = 'minimizeToTray'
 const UPDATE_SKIPPED_VERSION_KEY = 'updateSkippedVersion'
 
 /**
@@ -479,6 +480,26 @@ export function getUpdateSettings(db: WingLogDb): UpdateSettings {
  */
 export function setUpdateSettings(db: WingLogDb, settings: UpdateSettings): void {
   setSetting(db, UPDATE_CHECK_ENABLED_KEY, settings.checkEnabled ? '1' : '0')
+}
+
+/**
+ * Whether minimising the window goes to the tray, not the taskbar. Off unless the pilot chose it.
+ *
+ * @param db The database.
+ * @returns True when minimising hides the window.
+ */
+export function getMinimizeToTray(db: WingLogDb): boolean {
+  return getSetting(db, MINIMIZE_TO_TRAY_KEY) === '1'
+}
+
+/**
+ * Stores whether minimising the window goes to the tray, not the taskbar.
+ *
+ * @param db The database.
+ * @param minimizeToTray True to hide the window when it is minimised.
+ */
+export function setMinimizeToTray(db: WingLogDb, minimizeToTray: boolean): void {
+  setSetting(db, MINIMIZE_TO_TRAY_KEY, minimizeToTray ? '1' : '0')
 }
 
 /**
