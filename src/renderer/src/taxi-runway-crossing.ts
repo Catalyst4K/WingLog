@@ -10,8 +10,9 @@ import { itemAt } from '@shared/item-at'
 import { MinQueue } from './min-queue'
 import { nodeKey, type Graph, type GraphNode, type RunwayStrip } from './taxi-route-trace'
 
-/** How far past a runway's edge a hold short still counts as beside it (RKSI's sit 75-105 m out). */
-const HOLD_SHORT_BESIDE_RUNWAY_M = 150
+/** How far past a runway's edge a hold short still counts as beside it: RKSI's sit 75-105 m out, and EGLL's S1, by 27L's threshold,
+ *  190 m (where flight 239 crossed). */
+const HOLD_SHORT_BESIDE_RUNWAY_M = 250
 /** A crossing's way across is at most this many times the straight line between its two hold shorts; an exit's angled way to the far
  *  side, where one exists, is about twice it. */
 const CROSSING_MAX_DETOUR = 1.25

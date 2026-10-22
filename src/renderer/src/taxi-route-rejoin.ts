@@ -45,7 +45,9 @@ export interface RejoinRequest {
  *
  * Joins only from `fromSegment` on, so never back onto a part already driven. The end (the hold or the stand) is the original
  * route's, or for a "hold short of runway" route another hold short of that runway on the same side, if nearer (holdsOnSide).
- * Null when the aircraft is off the network or nothing joins.
+ * Of the ways, the cheapest that passes no point twice: a re-route laps round a block back to a turn the aircraft has just driven
+ * past only when there is no other way (EGLL flight 239, on past the turn to its 27L hold short). Null when the aircraft is off the
+ * network or nothing joins.
  *
  * @param request The network, the cleared route, how far along it the aircraft is, and where it is.
  * @returns The new route, or null.
@@ -70,22 +72,75 @@ export function rejoinTaxiRoute({
 
   // Dijkstra over the whole network from the aircraft, by node and the node come from (a few ms even at VHHH).
   const ways = waysBack(graph, addNose(graph, from, headingDeg, starts), headingDeg)
-  const best = bestJoin(graph, route, fromSegment, ways)
-  const holds = holdShortRunway ? holdsOnSide(graph, holdShortRunway, { lat: last[1], lon: last[0] }) : null
-  const hold = holds ? nearestHold(ways, holds) : null
-  if (hold && hold.total < best.total) return fromAircraft(graph, from, pathTo(graph, ways, hold.state))
-  if (best.index < 0 || best.total > MAX_ROUTE_LENGTH_M + WRONG_WAY_PENALTY_M) return null
+  const holds = holdShortRunway
+    ? holdsOnSide(graph, holdShortRunway, { lat: last[1], lon: last[0] })
+    : new Set<number>()
+  const candidates = [...joins(graph, route, fromSegment, ways), ...holdEnds(ways, holds)]
+    .filter((c) => c.total <= MAX_ROUTE_LENGTH_M + WRONG_WAY_PENALTY_M)
+    // Of equal ways (one starting at the point under the aircraft, one at the next), the one keeping more of the cleared route.
+    .sort((a, b) =>
+      Math.abs(a.total - b.total) > 0.01 ? a.total - b.total : (a.index ?? Infinity) - (b.index ?? Infinity)
+    )
+  const lineOf = (c: Candidate): TracedRoute =>
+    fromAircraft(graph, from, candidateLine(graph, ways, route, fromSegment, c))
+  for (const c of candidates) {
+    const line = lineOf(c)
+    if (!passesAPointTwice(line)) return line
+  }
+  const cheapest = candidates[0]
+  return cheapest ? lineOf(cheapest) : null
+}
 
-  // Without the nose's two points.
-  const nodes = nodesBack(ways, best.state, Infinity).reverse().slice(2)
-  // The way back ends where it first meets the cleared route, which is followed from there: the shortest way may run on past
-  // cleared taxiways to a join near the end, skipping the stretch ATC cleared (EGLL flight 239's last leg).
-  const onRoute = firstOnRoute(graph, nodes, route, fromSegment, best.index)
-  const path: TracedRoute = nodes.slice(0, onRoute.at + 1).map((n) => {
+/** A way to end a re-route: a state the way back reaches, its total cost, and the cleared route's point it joins at, or null for
+ *  another hold short of the runway (holdsOnSide). */
+interface Candidate {
+  index: number | null
+  state: number
+  total: number
+}
+
+/**
+ * @param graph The graph.
+ * @param ways The ways back.
+ * @param route The cleared route.
+ * @param fromSegment The furthest segment of it driven.
+ * @param candidate The way to end.
+ * @returns The re-route's line, without the nose's two points.
+ */
+function candidateLine(
+  graph: Graph,
+  ways: WaysBack,
+  route: TracedRoute,
+  fromSegment: number,
+  { index, state }: Candidate
+): TracedRoute {
+  const nodes = nodesBack(ways, state, Infinity).reverse().slice(2)
+  const point = (n: number): [number, number] => {
     const node = itemAt(graph.nodes, n, 'taxi node')
     return [node.lon, node.lat]
-  })
-  return fromAircraft(graph, from, [...path, ...route.slice(onRoute.index + 1)])
+  }
+  if (index === null) return nodes.map(point)
+  // The way back ends where it first meets the cleared route, which is followed from there: the shortest way may run on past
+  // cleared taxiways to a join near the end, skipping the stretch ATC cleared (EGLL flight 239's last leg).
+  const onRoute = firstOnRoute(graph, nodes, route, fromSegment, index)
+  return [...nodes.slice(0, onRoute.at + 1).map(point), ...route.slice(onRoute.index + 1)]
+}
+
+/**
+ * @param line A line.
+ * @returns True if it comes back to a point it has already passed (a point repeated straight after itself doesn't count).
+ */
+function passesAPointTwice(line: TracedRoute): boolean {
+  const seen = new Set<string>()
+  let previous = ''
+  for (const [lon, lat] of line) {
+    const key = nodeKey(lat, lon)
+    if (key === previous) continue
+    if (seen.has(key)) return true
+    seen.add(key)
+    previous = key
+  }
+  return false
 }
 
 /**
@@ -112,21 +167,26 @@ function fromAircraft(graph: Graph, from: { lat: number; lon: number }, line: Tr
  * @param graph The graph.
  * @param at The aircraft's position.
  * @param headingDeg Its true heading.
- * @returns The point and its distance, or null when the aircraft isn't driving along a segment or its end is behind.
+ * @returns The point and its distance, or null when the aircraft isn't driving along a segment that ends ahead.
  */
 export function nodeAheadOnTaxiway(
   graph: Graph,
   at: { lat: number; lon: number },
   headingDeg: number
 ): { node: number; distanceM: number } | null {
+  const cosLat = Math.cos((at.lat * Math.PI) / 180)
+  const isAhead = (n: number): boolean => {
+    const node = itemAt(graph.nodes, n, 'taxi node')
+    const bearing = (Math.atan2((node.lon - at.lon) * cosLat, node.lat - at.lat) * 180) / Math.PI
+    return angleBetweenDeg(bearing, headingDeg) <= 90
+  }
+  // Not the stretch just driven, whose far end is behind: on a straight it lines up with the nose as well as the one under it
+  // (ZJSY flight 253's departure, 6 m past the point between them).
   const along = segmentsUnder(graph, at, headingDeg)
-    .filter((s) => s.offDeg <= ON_TAXIWAY_DEG)
+    .filter((s) => s.offDeg <= ON_TAXIWAY_DEG && isAhead(s.ahead))
     .sort((x, y) => x.offDeg - y.offDeg || x.distanceM - y.distanceM)[0]
   if (!along) return null
   const node = itemAt(graph.nodes, along.ahead, 'taxi node')
-  const cosLat = Math.cos((at.lat * Math.PI) / 180)
-  const bearing = (Math.atan2((node.lon - at.lon) * cosLat, node.lat - at.lat) * 180) / Math.PI
-  if (angleBetweenDeg(bearing, headingDeg) > 90) return null
   return { node: along.ahead, distanceM: graph.distanceM(at.lat, at.lon, node.lat, node.lon) }
 }
 
@@ -167,16 +227,16 @@ interface WaysBack {
   previous: Map<number, number>
 }
 
-/** Where the nose points: two points the graph gains for one search, behind the aircraft along its heading (`tail`) and just behind
- *  it (`nose`), joined from `nose` to every start. The search starts at `nose` come from `tail`, so the turn from the heading onto
+/** Where the nose points: two points the graph gains for one search, at the aircraft (`nose`) and behind it along its heading
+ *  (`tail`), joined from `nose` to every start. The search starts at `nose` come from `tail`, so the turn from the heading onto
  *  the first point counts like any other turn: a start on a junction's fillet curving back the way the aircraft came (VHHH flight
- *  253's arrival) costs the U-turn it is. */
+ *  253's arrival), or the nearest point a few metres behind (ZJSY flight 253's departure), costs the U-turn it is. */
 interface Nose {
   tail: number
   nose: number
 }
 
-/** How far behind the aircraft `nose` is, and `tail` behind that: enough to give the heading a direction (turnAt). */
+/** How far behind the aircraft `tail` is: enough to give the heading a direction (turnAt). */
 const NOSE_BACK_M = 5
 
 /**
@@ -203,9 +263,9 @@ function addNose(
       holdShort: false
     }
   }
-  const tail = graph.nodes.push(back(2 * NOSE_BACK_M)) - 1
+  const tail = graph.nodes.push(back(NOSE_BACK_M)) - 1
   graph.edges.push([])
-  const nose = graph.nodes.push(back(NOSE_BACK_M)) - 1
+  const nose = graph.nodes.push(back(0)) - 1
   graph.edges.push(starts.map(({ node, distanceM }) => ({ to: node, name: null, lengthM: distanceM })))
   return { tail, nose }
 }
@@ -276,21 +336,16 @@ function nodesBack({ graph, previous }: WaysBack, state: number, limitM: number)
 }
 
 /**
- * Where to join the cleared route: the reached state on one of its points, from `fromSegment` on, with the least cost to it plus the
- * distance left along the route after it plus the cost of turning onto it.
+ * Where the cleared route can be joined: each reached state on one of its points, from `fromSegment` on, with the cost to it plus
+ * the distance left along the route after it plus the cost of turning onto it.
  *
  * @param graph The graph.
  * @param route The cleared route.
  * @param fromSegment The furthest segment driven.
  * @param ways The ways back from the aircraft.
- * @returns The point's index in `route`, the state reaching it, and the total; index -1 when none joins.
+ * @returns Each join: the point's index in `route`, the state reaching it, and the total.
  */
-function bestJoin(
-  graph: Graph,
-  route: TracedRoute,
-  fromSegment: number,
-  ways: WaysBack
-): { index: number; state: number; total: number } {
+function joins(graph: Graph, route: TracedRoute, fromSegment: number, ways: WaysBack): Candidate[] {
   // Distance left along the route from each of its points to the end, and the route's points by node.
   const remainingFrom: number[] = new Array<number>(route.length).fill(0)
   for (let i = route.length - 2; i >= 0; i--) {
@@ -309,7 +364,7 @@ function bestJoin(
     if (node !== undefined) pointsOf.set(node, [...(pointsOf.get(node) ?? []), i])
   }
 
-  let best = { index: -1, state: -1, total: Infinity }
+  const found: Candidate[] = []
   for (const [state, cost] of ways.cost) {
     const node = nodeOf(graph, state)
     for (const i of pointsOf.get(node) ?? []) {
@@ -322,44 +377,22 @@ function bestJoin(
               node,
               onward
             ])
-      const total = cost + itemAt(remainingFrom, i, 'route point') + turning
-      // Of equal ways (one starting at the point under the aircraft, one at the next), the one keeping more of the cleared route.
-      if (total < best.total - 0.01 || (total <= best.total + 0.01 && i < best.index))
-        best = { index: i, state, total }
+      found.push({ index: i, state, total: cost + itemAt(remainingFrom, i, 'route point') + turning })
     }
   }
-  return best
+  return found
 }
 
 /**
- * The nearest of some hold shorts the way back reaches.
- *
  * @param ways The ways back.
- * @param holds The hold shorts, by node index.
- * @returns The state reaching it and its cost, or null when none is reached.
+ * @param holds Hold shorts a re-route may end at instead, by node index.
+ * @returns Each reached state on one of them, with its cost.
  */
-function nearestHold(ways: WaysBack, holds: Set<number>): { state: number; total: number } | null {
-  let best: { state: number; total: number } | null = null
+function holdEnds(ways: WaysBack, holds: Set<number>): Candidate[] {
+  const found: Candidate[] = []
   for (const [state, cost] of ways.cost)
-    if (holds.has(nodeOf(ways.graph, state)) && cost < (best?.total ?? MAX_ROUTE_LENGTH_M))
-      best = { state, total: cost }
-  return best
-}
-
-/**
- * @param graph The graph.
- * @param ways The ways back.
- * @param state A reached state.
- * @returns The way to it from the aircraft, without the nose's two points.
- */
-function pathTo(graph: Graph, ways: WaysBack, state: number): TracedRoute {
-  return nodesBack(ways, state, Infinity)
-    .reverse()
-    .slice(2)
-    .map((n) => {
-      const node = itemAt(graph.nodes, n, 'taxi node')
-      return [node.lon, node.lat]
-    })
+    if (holds.has(nodeOf(ways.graph, state))) found.push({ index: null, state, total: cost })
+  return found
 }
 
 export interface RemainingRoute {
@@ -373,7 +406,7 @@ export interface RemainingRoute {
 }
 
 /** Beyond this from the traced line, the aircraft isn't following it — the line is left as is. */
-const MAX_FOLLOW_DISTANCE_M = 150
+export const MAX_FOLLOW_DISTANCE_M = 150
 
 /**
  * What's left of a traced route from the aircraft, drawn from the aircraft itself: the line starts at the plane, and the

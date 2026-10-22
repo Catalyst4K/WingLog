@@ -5,6 +5,8 @@ import { angleBetweenDeg, traceTaxiRoute, type TracedRoute } from './taxi-route-
 import {
   checkDeviation,
   INITIAL_DEVIATION,
+  PASSED_AFTER_MS,
+  PASSED_DISTANCE_M,
   reachedEnd,
   REROUTE_AFTER_MS,
   REROUTE_DISTANCE_M,
@@ -96,6 +98,7 @@ describe('checkDeviation', () => {
     overrides: {
       distanceM?: number
       lineBearingDeg?: number | null
+      nearestBearingDeg?: number | null
       headingDeg?: number
       groundSpeedMs?: number
     } = {}
@@ -154,6 +157,32 @@ describe('checkDeviation', () => {
     expect(run(60, { distanceM: 2, lineBearingDeg: 0, headingDeg: 110 }).reroutes).toEqual([])
   })
 
+  it('triggers 2 s after driving on past the line: its nearest point behind, off the taxiway', () => {
+    const passed = {
+      distanceM: PASSED_DISTANCE_M + 1,
+      nearestBearingDeg: 82,
+      headingDeg: 262,
+      lineBearingDeg: 262
+    }
+    expect(run(1, passed).reroutes).toEqual([])
+    expect(run(3, passed).reroutes).toEqual([PASSED_AFTER_MS / 1000])
+  })
+
+  it('does not count a nearest point beside the aircraft, or one behind still on its taxiway, as driven past', () => {
+    // Beside: a wide turn onto the line.
+    expect(
+      run(60, { distanceM: 30, nearestBearingDeg: 172, headingDeg: 262, lineBearingDeg: 262 }).reroutes
+    ).toEqual([])
+    expect(
+      run(60, {
+        distanceM: PASSED_DISTANCE_M - 1,
+        nearestBearingDeg: 82,
+        headingDeg: 262,
+        lineBearingDeg: 262
+      }).reroutes
+    ).toEqual([])
+  })
+
   it('re-routes at most once per 10 s while the deviation goes on', () => {
     const { reroutes } = run(60, { distanceM: 100 })
     expect(reroutes[0]).toBe(5)
@@ -194,7 +223,8 @@ describe('re-routing replay: ZJSY flight 227, the wrong-way pushback (2026-10-02
   it('re-routes within 10 s of starting to taxi the wrong way', () => {
     const { reroutes, taxiStart } = replay()
     expect(reroutes.length).toBeGreaterThan(0)
-    expect(reroutes[0]!.t - taxiStart).toBeGreaterThanOrEqual(REROUTE_AFTER_MS / 1000)
+    // Driving away from the line's nearest point: the 2 s "driven past it" wait, not the 5 s one.
+    expect(reroutes[0]!.t - taxiStart).toBeGreaterThanOrEqual(PASSED_AFTER_MS / 1000)
     expect(reroutes[0]!.t - taxiStart).toBeLessThanOrEqual(10)
   })
 

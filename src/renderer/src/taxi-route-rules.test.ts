@@ -423,6 +423,14 @@ describe('nodeAheadOnTaxiway', () => {
   it('is nothing when the aircraft is crossing the taxiway', () => {
     expect(nodeAheadOnTaxiway(graph, { lat, lon }, 180)).toBeNull()
   })
+
+  it('is not the end of the stretch just driven, behind the aircraft, though it lines up as well', () => {
+    // ZJSY flight 253's departure, 6 m past the point between two stretches of B.
+    const straight = buildGraph([seg(pt(-200, 0), pt(0, 0), 'B'), seg(pt(0, 0), pt(110, 1), 'B')], 22.3)
+    const [aLat, aLon] = pt(6, 0)
+    const ahead = nodeAheadOnTaxiway(straight, { lat: aLat, lon: aLon }, 90)!
+    expect([straight.nodes[ahead.node]!.lat, straight.nodes[ahead.node]!.lon]).toEqual(pt(110, 1))
+  })
 })
 
 describe('re-routes keep to the nose', () => {
@@ -490,6 +498,33 @@ describe('re-routing a "hold short of runway" route', () => {
       [lon, lat],
       ...[pt(600, 0), pt(600, 40)].map(lonLat)
     ])
+  })
+
+  it('holds short at a crossing further on rather than lap round a block back to the one just passed', () => {
+    // A loop south of T comes back up onto T at x = 200, ahead of the aircraft, and back west to the crossing at x = 100: shorter
+    // than going on to the crossing at x = 700, but it passes x = 200 twice (EGLL flight 239, on past S3's crossing of 27L).
+    const looped = [
+      seg(pt(-100, 0), pt(100, 0), 'T'),
+      seg(pt(100, 0), pt(150, 0), 'T'),
+      seg(pt(150, 0), pt(200, 0), 'T'),
+      seg(pt(200, 0), pt(300, 0), 'T'),
+      seg(pt(300, 0), pt(700, 0), 'T'),
+      seg(pt(300, 0), pt(300, -80), null),
+      seg(pt(300, -80), pt(200, -80), 'R'),
+      seg(pt(200, -80), pt(200, 0), null),
+      ...crossing(100),
+      ...crossing(700)
+    ]
+    const [aLat, aLon] = pt(130, 0)
+    const route = rejoinTaxiRoute({
+      segments: looped,
+      route: cleared,
+      fromSegment: 1,
+      from: { lat: aLat, lon: aLon },
+      headingDeg: 90,
+      holdShortRunway: runway
+    })!
+    expect(route.at(-1)).toEqual(lonLat(pt(700, 40)))
   })
 
   it('still goes back to the route traced without the runway', () => {

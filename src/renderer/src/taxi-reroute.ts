@@ -1,7 +1,12 @@
 /** When and how a traced taxi line is re-traced from where the aircraft is. */
 
 import type { FlightPhase, NavdataTaxiSegment } from '@shared/ipc'
-import { rejoinTaxiRoute, remainingRoute, type RemainingRoute } from './taxi-route-rejoin'
+import {
+  MAX_FOLLOW_DISTANCE_M,
+  rejoinTaxiRoute,
+  remainingRoute,
+  type RemainingRoute
+} from './taxi-route-rejoin'
 import { angleBetweenDeg, WRONG_WAY_DEG, type RunwayStrip, type TracedRoute } from './taxi-route-trace'
 import { flatDistanceM } from '@shared/geo'
 
@@ -18,6 +23,10 @@ import { flatDistanceM } from '@shared/geo'
  * - or going the wrong way along it: heading more than WRONG_WAY_DEG off the line's direction;
  * - either one continuously for REROUTE_AFTER_MS while moving faster than
  *   REROUTE_MIN_SPEED_MS, so cutting a corner or a pause doesn't trigger it;
+ * - or past it: the line's nearest point more than PASSED_DISTANCE_M away and more than WRONG_WAY_DEG off the nose, for
+ *   PASSED_AFTER_MS. Driving straight on past the line's turn is neither of the others for a while (still heading along the
+ *   taxiway, not yet 40 m away), and meanwhile the line points back at the turn behind: 5 to 16 s at a time over Callum's
+ *   recorded taxis (2026-10-22, "some of the routes seem to offer the taxiway behind on reroute");
  * - at most one re-route per REROUTE_MIN_INTERVAL_MS, so a bad position can't make the line
  *   flicker.
  */
@@ -25,6 +34,9 @@ export const REROUTE_DISTANCE_M = 40
 export const REROUTE_AFTER_MS = 5_000
 export const REROUTE_MIN_INTERVAL_MS = 10_000
 export const REROUTE_MIN_SPEED_MS = 1.03 // ~2 kt
+/** Beyond this, the line's nearest point is off the taxiway the aircraft is on (half of a ~23 m taxiway, and some). */
+export const PASSED_DISTANCE_M = 15
+export const PASSED_AFTER_MS = 2_000
 /** Within this of the cleared route, a segment of it counts as driven; within this of the
  *  end, the clearance is done. */
 export const DRIVEN_DISTANCE_M = 30
@@ -42,6 +54,8 @@ export interface DeviationSample {
   /** remainingRoute's distance from, and direction of, the nearest part of the line. */
   distanceM: number
   lineBearingDeg: number | null
+  /** The bearing from the aircraft to the line's nearest point; null when on it or unknown. */
+  nearestBearingDeg?: number | null
   headingDeg: number
   groundSpeedMs: number
 }
@@ -63,15 +77,34 @@ export function checkDeviation(
     !offLine &&
     sample.lineBearingDeg !== null &&
     angleBetweenDeg(sample.headingDeg, sample.lineBearingDeg) > WRONG_WAY_DEG
-  if (!moving || !(offLine || wrongWay)) return { reroute: false, state: { ...state, deviatingSince: null } }
+  const passed =
+    sample.distanceM > PASSED_DISTANCE_M &&
+    sample.nearestBearingDeg !== undefined &&
+    sample.nearestBearingDeg !== null &&
+    angleBetweenDeg(sample.headingDeg, sample.nearestBearingDeg) > WRONG_WAY_DEG
+  if (!moving || !(offLine || wrongWay || passed))
+    return { reroute: false, state: { ...state, deviatingSince: null } }
 
   const since = state.deviatingSince ?? sample.nowMs
-  const longEnough = sample.nowMs - since >= REROUTE_AFTER_MS
+  const longEnough = sample.nowMs - since >= (passed ? PASSED_AFTER_MS : REROUTE_AFTER_MS)
   const intervalOk =
     state.lastRerouteAt === null || sample.nowMs - state.lastRerouteAt >= REROUTE_MIN_INTERVAL_MS
   if (longEnough && intervalOk)
     return { reroute: true, state: { deviatingSince: null, lastRerouteAt: sample.nowMs } }
   return { reroute: false, state: { ...state, deviatingSince: since } }
+}
+
+/**
+ * @param remaining The route remaining from the aircraft (remainingRoute), which runs from the aircraft to the line's nearest point.
+ * @param position The aircraft's position.
+ * @returns The bearing from the aircraft to that point, degrees true; null on the line or too far from it to know the point.
+ */
+function nearestBearing(remaining: RemainingRoute, position: { lat: number; lon: number }): number | null {
+  const point = remaining.line[1]
+  if (remaining.distanceM < 0.5 || remaining.distanceM > MAX_FOLLOW_DISTANCE_M || !point) return null
+  const [lon, lat] = point
+  const dx = (lon - position.lon) * Math.cos((position.lat * Math.PI) / 180)
+  return ((Math.atan2(dx, lat - position.lat) * 180) / Math.PI + 360) % 360
 }
 
 /**
@@ -172,6 +205,7 @@ export function trackPosition(
       nowMs,
       distanceM: remaining.distanceM,
       lineBearingDeg: remaining.bearingDeg,
+      nearestBearingDeg: nearestBearing(remaining, position),
       headingDeg,
       groundSpeedMs
     })
