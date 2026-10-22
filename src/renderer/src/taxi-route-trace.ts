@@ -279,22 +279,66 @@ export function taxiwayUnder(
   at: { lat: number; lon: number },
   headingDeg: number
 ): string | null {
-  let best: { name: string | null; bearing: number } | null = null
-  let bestDistance = ON_TAXIWAY_M
+  const nearest = segmentsUnder(graph, at, headingDeg).sort((x, y) => x.distanceM - y.distanceM)[0]
+  return nearest && nearest.offDeg <= ON_TAXIWAY_DEG ? nearest.name : null
+}
+
+/**
+ * The next network point along the taxiway the aircraft is driving along, however far ahead: of the segments within ON_TAXIWAY_M,
+ * the one the nose follows most closely (within ON_TAXIWAY_DEG). Not simply the nearest: just past a junction, the start of a fillet
+ * leaving the taxiway at a shallow angle can be nearer than the taxiway itself (VHHH flight 253's arrival).
+ *
+ * @param graph The graph.
+ * @param at The aircraft's position.
+ * @param headingDeg Its true heading.
+ * @returns The point and its distance, or null when the aircraft isn't driving along a segment or its end is behind.
+ */
+export function nodeAheadOnTaxiway(
+  graph: Graph,
+  at: { lat: number; lon: number },
+  headingDeg: number
+): { node: number; distanceM: number } | null {
+  const along = segmentsUnder(graph, at, headingDeg)
+    .filter((s) => s.offDeg <= ON_TAXIWAY_DEG)
+    .sort((x, y) => x.offDeg - y.offDeg || x.distanceM - y.distanceM)[0]
+  if (!along) return null
+  const node = itemAt(graph.nodes, along.ahead, 'taxi node')
+  const cosLat = Math.cos((at.lat * Math.PI) / 180)
+  const bearing = (Math.atan2((node.lon - at.lon) * cosLat, node.lat - at.lat) * 180) / Math.PI
+  if (angleBetweenDeg(bearing, headingDeg) > 90) return null
+  return { node: along.ahead, distanceM: graph.distanceM(at.lat, at.lon, node.lat, node.lon) }
+}
+
+/**
+ * The network segments within ON_TAXIWAY_M of the aircraft.
+ *
+ * @param graph The graph.
+ * @param at The aircraft's position.
+ * @param headingDeg Its true heading.
+ * @returns Each segment's taxiway name, distance, how far the nose is off its line either way (0-90°), and the end the nose points at.
+ */
+function segmentsUnder(
+  graph: Graph,
+  at: { lat: number; lon: number },
+  headingDeg: number
+): { name: string | null; distanceM: number; offDeg: number; ahead: number }[] {
+  const found: { name: string | null; distanceM: number; offDeg: number; ahead: number }[] = []
   for (const [a, edges] of graph.edges.entries()) {
     const pa = itemAt(graph.nodes, a, 'taxi node')
     for (const edge of edges) {
       if (edge.to < a) continue
-      const d = pointToSegmentM(at, pa, itemAt(graph.nodes, edge.to, 'taxi node'))
-      if (d < bestDistance) {
-        bestDistance = d
-        best = { name: edge.name, bearing: graph.bearingDeg(a, edge.to) }
-      }
+      const distanceM = pointToSegmentM(at, pa, itemAt(graph.nodes, edge.to, 'taxi node'))
+      if (distanceM >= ON_TAXIWAY_M) continue
+      const off = angleBetweenDeg(graph.bearingDeg(a, edge.to), headingDeg)
+      found.push({
+        name: edge.name,
+        distanceM,
+        offDeg: Math.min(off, 180 - off),
+        ahead: off <= 90 ? edge.to : a
+      })
     }
   }
-  if (!best?.name) return null
-  const off = angleBetweenDeg(best.bearing, headingDeg)
-  return Math.min(off, 180 - off) <= ON_TAXIWAY_DEG ? best.name : null
+  return found
 }
 
 /**

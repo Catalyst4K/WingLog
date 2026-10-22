@@ -2,7 +2,7 @@
 
 import type { FlightPhase, NavdataTaxiSegment } from '@shared/ipc'
 import { rejoinTaxiRoute, remainingRoute, type RemainingRoute } from './taxi-route-rejoin'
-import { angleBetweenDeg, WRONG_WAY_DEG, type TracedRoute } from './taxi-route-trace'
+import { angleBetweenDeg, WRONG_WAY_DEG, type RunwayStrip, type TracedRoute } from './taxi-route-trace'
 import { flatDistanceM } from '@shared/geo'
 
 /**
@@ -113,16 +113,30 @@ export interface RerouteTracker {
   deviation: DeviationState
   /** Set once the aircraft reaches the end of the line: the clearance is done. */
   done: boolean
+  /** The runway of a "hold short of runway" clearance: a re-route may hold short of it somewhere else (rejoinTaxiRoute). */
+  holdShortRunway: RunwayStrip | null
 }
 
 /**
  * Starts tracking a newly traced clearance.
  *
  * @param cleared The traced clearance.
+ * @param holdShortRunway The runway of a "hold short of runway" clearance, or null.
  * @returns The tracker.
  */
-export function startTracker(cleared: TracedRoute): RerouteTracker {
-  return { cleared, active: cleared, progress: 0, driven: 0, deviation: INITIAL_DEVIATION, done: false }
+export function startTracker(
+  cleared: TracedRoute,
+  holdShortRunway: RunwayStrip | null = null
+): RerouteTracker {
+  return {
+    cleared,
+    active: cleared,
+    progress: 0,
+    driven: 0,
+    deviation: INITIAL_DEVIATION,
+    done: false,
+    holdShortRunway
+  }
 }
 
 export interface TrackerUpdate {
@@ -168,7 +182,8 @@ export function trackPosition(
         route: tracker.cleared,
         fromSegment: driven,
         from: { lat: position.lat, lon: position.lon },
-        headingDeg
+        headingDeg,
+        holdShortRunway: tracker.holdShortRunway
       })
       if (next) {
         active = next
@@ -178,7 +193,7 @@ export function trackPosition(
     }
   }
   return {
-    tracker: { cleared: tracker.cleared, active, progress: remaining.segment, driven, deviation, done },
+    tracker: { ...tracker, active, progress: remaining.segment, driven, deviation, done },
     line: remaining.line,
     rerouted
   }

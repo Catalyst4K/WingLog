@@ -8,7 +8,7 @@
 
 import { itemAt } from '@shared/item-at'
 import { MinQueue } from './min-queue'
-import type { Graph, GraphNode, RunwayStrip } from './taxi-route-trace'
+import { nodeKey, type Graph, type GraphNode, type RunwayStrip } from './taxi-route-trace'
 
 /** How far past a runway's edge a hold short still counts as beside it (RKSI's sit 75-105 m out). */
 const HOLD_SHORT_BESIDE_RUNWAY_M = 150
@@ -78,6 +78,33 @@ export function crossingHolds(graph: Graph, runway: RunwayStrip): Set<number> {
     }
   }
   return crossings
+}
+
+/**
+ * Where a re-route of a "hold short of runway" route may end instead (taxi-route-rejoin.ts): any hold short on the same side of the
+ * runway as the route's own, at a crossing, or beside the runway where that side has no crossing. ATC's "hold short of 27L" names the
+ * runway, not the crossing; the trace picks one, and an aircraft that taxied on past it holds at the next (EGLL flight 239: its line
+ * ended at S's crossing of 27L to the west, and it taxied east to the one by 27L's threshold).
+ *
+ * @param graph The graph.
+ * @param runway The runway.
+ * @param end The route's last point.
+ * @returns The hold shorts, by node index; empty when the route doesn't end at a hold short beside the runway.
+ */
+export function holdsOnSide(
+  graph: Graph,
+  runway: RunwayStrip,
+  end: { lat: number; lon: number }
+): Set<number> {
+  const endNode = graph.nodeIndex.get(nodeKey(end.lat, end.lon))
+  if (endNode === undefined || !isHoldShortBeside(itemAt(graph.nodes, endNode, 'taxi node'), runway))
+    return new Set()
+  const side = Math.sign(alongAndAcross(end, runway).across)
+  const onSide = (i: number): boolean =>
+    isHoldShortBeside(itemAt(graph.nodes, i, 'taxi node'), runway) &&
+    Math.sign(alongAndAcross(itemAt(graph.nodes, i, 'taxi node'), runway).across) === side
+  const crossings = [...crossingHolds(graph, runway)].filter(onSide)
+  return new Set(crossings.length > 0 ? crossings : graph.nodes.flatMap((_, i) => (onSide(i) ? [i] : [])))
 }
 
 /**

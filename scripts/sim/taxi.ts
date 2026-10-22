@@ -272,7 +272,7 @@ export function runTaxi(
       endToAircraftM: null
     }
 
-  let tracker = startTracker(cleared)
+  let tracker = startTracker(cleared, holdShortRunway)
   let drawn: TracedRoute = cleared
   const reroutes: Reroute[] = []
   let moving = 0

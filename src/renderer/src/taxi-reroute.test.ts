@@ -318,4 +318,14 @@ describe('re-routing replay: ZJSY flight 253, cleared D, A3, A and driven D, B5,
       expect(new Set(line.map(([lon, lat]) => `${lon},${lat}`)).size).toBe(line.length)
     }
   })
+  it('sets every re-route off from the aircraft the way its nose points', () => {
+    const bearing = ([aLon, aLat]: [number, number], [bLon, bLat]: [number, number]): number =>
+      (Math.atan2((bLon - aLon) * Math.cos((aLat * Math.PI) / 180), bLat - aLat) * 180) / Math.PI
+    for (const { t, line } of reroutes) {
+      const [, lat, lon, headingDeg] = (REPLAY_253 as Sample[]).find(([time]) => time === t)!
+      expect(line[0]).toEqual([lon, lat])
+      const onward = line.find(([x, y]) => distanceM({ lat, lon }, { lat: y, lon: x }) > 20)!
+      expect(angleBetweenDeg(bearing(line[0]!, onward), headingDeg)).toBeLessThan(45)
+    }
+  })
 })

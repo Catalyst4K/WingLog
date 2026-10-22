@@ -3,6 +3,7 @@ import type { NavdataTaxiSegment } from '@shared/ipc'
 import {
   angleBetweenDeg,
   buildGraph,
+  nodeAheadOnTaxiway,
   startNodes,
   taxiwayUnder,
   traceTaxiRoute,
@@ -17,6 +18,7 @@ import EGCC_243_RAW from './__fixtures__/egcc-taxi-243-on-bz.json'
 import YBBN_225_RAW from './__fixtures__/ybbn-225-taxi-network.json'
 import VHHH_227_RAW from './__fixtures__/vhhh-taxi-227-c7-y-f-cross-07c.json'
 import { crossingHolds } from './taxi-runway-crossing'
+import { rejoinTaxiRoute } from './taxi-route-rejoin'
 
 // The taxi routing rules (winglog-backend's docs/plans/taxi-routing-rules.md), each on the real taxi it was worked out from: MSFS
 // facility data from WingLog's navdata cache, trimmed to 250 m either side of the taxi. Rows: [startLat, startLon, endLat, endLon,
@@ -400,5 +402,97 @@ describe('startNodes', () => {
     expect(facingAway.map((s) => graph.nodes[s.node]).map((n) => [n!.lat, n!.lon])).toEqual([side])
     expect(facingAway[0]!.distanceM).toBe(0)
     expect(startNodes(graph, { lat, lon }, null).map((s) => s.distanceM)).toEqual([0])
+  })
+})
+
+describe('nodeAheadOnTaxiway', () => {
+  // T runs east from a junction at the origin; a fillet leaves the junction at 30° and curves north. Just past the junction the
+  // fillet's first stretch is nearer the aircraft than T is.
+  const graph = buildGraph(
+    [seg(pt(0, 0), pt(300, 0), 'T'), seg(pt(0, 0), pt(26, 15), null), seg(pt(26, 15), pt(40, 40), null)],
+    22.3
+  )
+  const [lat, lon] = pt(14, 3)
+
+  it('is the next point along the taxiway the nose follows, however far, not the nearer fillet', () => {
+    const ahead = nodeAheadOnTaxiway(graph, { lat, lon }, 90)!
+    expect([graph.nodes[ahead.node]!.lat, graph.nodes[ahead.node]!.lon]).toEqual(pt(300, 0))
+    expect(ahead.distanceM).toBeCloseTo(286, 0)
+  })
+
+  it('is nothing when the aircraft is crossing the taxiway', () => {
+    expect(nodeAheadOnTaxiway(graph, { lat, lon }, 180)).toBeNull()
+  })
+})
+
+describe('re-routes keep to the nose', () => {
+  // T runs east; S runs parallel 60 m south, and the hold short H is on S. The cleared crossover to S is at x = 0, just behind the
+  // aircraft; the next is at x = 300. A fillet leaves T at x = 0 and loops back north and west to come down to S behind: its first
+  // points are the only ones within 40 m ahead of the nose (VHHH flight 253's arrival, 2026-10-22).
+  const H = pt(400, -60)
+  const segments = [
+    seg(pt(-100, 0), pt(0, 0), 'T'),
+    seg(pt(0, 0), pt(300, 0), 'T'),
+    seg(pt(0, 0), pt(0, -60), null),
+    seg(pt(300, 0), pt(300, -60), null),
+    seg(pt(-80, -60), pt(0, -60), 'S'),
+    seg(pt(0, -60), pt(300, -60), 'S'),
+    seg(pt(300, -60), H, 'S', true),
+    seg(pt(0, 0), pt(20, 8), null),
+    seg(pt(20, 8), pt(30, 25), null),
+    seg(pt(30, 25), pt(20, 40), null),
+    seg(pt(20, 40), pt(0, 45), null),
+    seg(pt(0, 45), pt(-80, 45), null),
+    seg(pt(-80, 45), pt(-80, -60), null)
+  ]
+  const cleared: TracedRoute = [pt(-100, 0), pt(0, 0), pt(0, -60), pt(300, -60), H].map(lonLat)
+  const [lat, lon] = pt(16, 0)
+
+  it('goes on to the next crossover rather than round a fillet curving back the way it came', () => {
+    const route = rejoinTaxiRoute({
+      segments,
+      route: cleared,
+      fromSegment: 1,
+      from: { lat, lon },
+      headingDeg: 90
+    })!
+    expect(route).toEqual([[lon, lat], ...[pt(300, 0), pt(300, -60), H].map(lonLat)])
+  })
+})
+
+describe('re-routing a "hold short of runway" route', () => {
+  // A runway runs east, 60 m wide, 100-160 m north of T. Taxiways cross it straight at x = 100 and x = 600, with hold shorts 60 m
+  // out either side. The route was traced to the crossing at x = 100; the aircraft taxied on past it along T (EGLL flight 239).
+  const runway: RunwayStrip = {
+    thresholdLat: pt(0, 130)[0],
+    thresholdLon: pt(0, 130)[1],
+    headingTrueDeg: 90,
+    lengthM: 1000,
+    widthM: 60
+  }
+  const crossing = (x: number): NavdataTaxiSegment[] => [
+    seg(pt(x, 0), pt(x, 40), null, true),
+    { ...seg(pt(x, 40), pt(x, 220), null, true), startHoldShort: true }
+  ]
+  const segments = [
+    seg(pt(-100, 0), pt(100, 0), 'T'),
+    seg(pt(100, 0), pt(600, 0), 'T'),
+    seg(pt(600, 0), pt(800, 0), 'T'),
+    ...crossing(100),
+    ...crossing(600)
+  ]
+  const cleared: TracedRoute = [pt(-100, 0), pt(100, 0), pt(100, 40)].map(lonLat)
+  const [lat, lon] = pt(300, 0)
+  const request = { segments, route: cleared, fromSegment: 1, from: { lat, lon }, headingDeg: 90 }
+
+  it('holds short at the crossing ahead, on the same side, not back at the one traced', () => {
+    expect(rejoinTaxiRoute({ ...request, holdShortRunway: runway })).toEqual([
+      [lon, lat],
+      ...[pt(600, 0), pt(600, 40)].map(lonLat)
+    ])
+  })
+
+  it('still goes back to the route traced without the runway', () => {
+    expect(rejoinTaxiRoute(request)?.at(-1)).toEqual(lonLat(pt(100, 40)))
   })
 })

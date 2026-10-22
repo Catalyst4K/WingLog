@@ -479,8 +479,8 @@ export function useTaxiRouteHighlight({
   const traced: TracedRoute | null = tracedClearance?.route ?? null
 
   useEffect(() => {
-    trackerRef.current = traced ? startTracker(traced) : null
-  }, [traced])
+    trackerRef.current = traced ? startTracker(traced, holdShortRunway) : null
+  }, [traced, holdShortRunway])
   useLogTrace(clearance, tracedClearance, icao)
 
   useLogUntraced(clearance, traced, icao, segments)
