@@ -33,6 +33,7 @@ import { flatDistanceM, pointToSegmentM } from '@shared/geo'
 import { itemAt } from '@shared/item-at'
 import { MinQueue } from './min-queue'
 import { edgeKey, linksBetween } from './taxi-route-links'
+import { crossingHolds, isHoldShortBeside } from './taxi-runway-crossing'
 import { furthestBackHold, type RunwayThreshold } from './taxi-runway-hold'
 
 const OFF_ROUTE_COST_FACTOR = 5
@@ -86,9 +87,6 @@ export interface RunwayStrip {
   widthM: number
 }
 
-/** How far past a runway's edge a hold short still counts as beside it (RKSI's sit 75-105 m out). */
-const HOLD_SHORT_BESIDE_RUNWAY_M = 150
-
 export interface TaxiTraceRequest {
   segments: NavdataTaxiSegment[]
   /** The cleared taxiways, in order, as ATC said them ("via B8, B" → ['B8', 'B']). */
@@ -117,6 +115,8 @@ export interface TaxiTraceRequest {
   /** Ends a "hold short of runway" route only at a hold short beside that runway, not at the first hold short of the last taxiway.
    *  Set by the first try; the second drops it for scenery with no hold short beside the runway. */
   onlyAtRunwayHold?: boolean
+  /** With onlyAtRunwayHold, ends only where the route crosses the runway (taxi-runway-crossing.ts), not at a hold short on an exit. */
+  crossingOnly?: boolean
 }
 
 interface Edge {
@@ -378,7 +378,9 @@ export function isWrongWay(graph: Graph, from: number, to: number, headingDeg: n
 export function traceTaxiRoute(request: TaxiTraceRequest): TracedRoute | null {
   // "Hold short of runway 07C" at VHHH (flight 253): the first hold short of the last taxiway was beside another runway.
   if (request.holdShortRunway && !request.onlyAtRunwayHold) {
-    const atRunway = traceTaxiRoute({ ...request, onlyAtRunwayHold: true })
+    const atRunway =
+      traceTaxiRoute({ ...request, onlyAtRunwayHold: true, crossingOnly: true }) ??
+      traceTaxiRoute({ ...request, onlyAtRunwayHold: true })
     if (atRunway) return atRunway
   }
   if (request.holdingPoint) {
@@ -438,6 +440,8 @@ interface TraceSearch {
   holdShortRunway: RunwayStrip | null
   /** Whether a "hold short of runway" route ends only beside that runway. */
   onlyAtRunwayHold: boolean
+  /** The hold shorts where the route may cross that runway, or null for any beside it. */
+  crossings: Set<number> | null
   /** Per stage, the links on to the next cleared taxiway (edgeKey), worked out when first needed. */
   links: (Set<number> | undefined)[]
   strictEnd: boolean
@@ -541,8 +545,7 @@ function newSearch(request: TaxiTraceRequest, graph: Graph, strictEnd: boolean):
     holdNode: holdingPoint ? holdNodeByRunway(graph, holdingPoint, request.runwayThreshold ?? null) : -1,
     threshold: holdingPoint ? (request.runwayThreshold ?? null) : null,
     forcedEnd: nodeAt(graph, request.holdAt),
-    holdShortRunway: holdingPoint ? (request.holdShortRunway ?? null) : null,
-    onlyAtRunwayHold: request.onlyAtRunwayHold === true,
+    ...runwayHold(request, graph),
     links: [],
     strictEnd,
     cost: new Map(),
@@ -551,6 +554,26 @@ function newSearch(request: TaxiTraceRequest, graph: Graph, strictEnd: boolean):
     queue: new MinQueue()
   }
   return search
+}
+
+/**
+ * Where a "hold short of runway" route may end.
+ *
+ * @param request The clearance.
+ * @param graph The network's graph.
+ * @returns The runway (null for any other clearance), whether only a hold short beside it ends the route, and whether only one where
+ *   the route crosses it.
+ */
+function runwayHold(
+  request: TaxiTraceRequest,
+  graph: Graph
+): Pick<TraceSearch, 'holdShortRunway' | 'onlyAtRunwayHold' | 'crossings'> {
+  const runway = request.holdingPoint ? (request.holdShortRunway ?? null) : null
+  return {
+    holdShortRunway: runway,
+    onlyAtRunwayHold: request.onlyAtRunwayHold === true,
+    crossings: runway && request.crossingOnly === true ? crossingHolds(graph, runway) : null
+  }
 }
 
 /**
@@ -843,7 +866,8 @@ function isRouteEnd(search: TraceSearch, state: number, node: number): boolean {
 }
 
 /**
- * Whether a node is where the cleared runway ends the route: a hold short beside the runway of a "hold short of runway" clearance, or
+ * Whether a node is where the cleared runway ends the route: a hold short beside the runway of a "hold short of runway" clearance (where
+ * the route crosses it, on the first try), or
  * (with no hold short of the taxiway found by its threshold) one near the threshold.
  *
  * @param search The search.
@@ -854,7 +878,7 @@ function endsAtRunwayHold(search: TraceSearch, node: number): boolean {
   const { graph, holdShortRunway, holdNode, threshold, forcedEnd } = search
   if (forcedEnd >= 0) return node === forcedEnd
   if (holdShortRunway && isHoldShortBeside(itemAt(graph.nodes, node, 'taxi node'), holdShortRunway))
-    return true
+    return !search.crossings || search.crossings.has(node)
   return holdNode < 0 && threshold !== null && isHoldShortNear(graph, node, threshold)
 }
 
@@ -871,27 +895,6 @@ export function isHoldShortNear(
 ): boolean {
   const n = itemAt(graph.nodes, node, 'taxi node')
   return n.holdShort && graph.distanceM(threshold.lat, threshold.lon, n.lat, n.lon) <= HOLD_NEAR_THRESHOLD_M
-}
-
-/**
- * Whether a node is a hold short beside a runway.
- *
- * @param node The node.
- * @param runway The runway.
- * @returns True if it is flagged as a hold short and lies within HOLD_SHORT_BESIDE_RUNWAY_M of the runway's edge.
- */
-export function isHoldShortBeside(node: GraphNode, runway: RunwayStrip): boolean {
-  if (!node.holdShort) return false
-  const north = (node.lat - runway.thresholdLat) * 111_320
-  const east = (node.lon - runway.thresholdLon) * 111_320 * Math.cos((runway.thresholdLat * Math.PI) / 180)
-  const heading = (runway.headingTrueDeg * Math.PI) / 180
-  const along = north * Math.cos(heading) + east * Math.sin(heading)
-  const across = Math.abs(east * Math.cos(heading) - north * Math.sin(heading))
-  return (
-    along > -HOLD_SHORT_BESIDE_RUNWAY_M &&
-    along < runway.lengthM + HOLD_SHORT_BESIDE_RUNWAY_M &&
-    across <= runway.widthM / 2 + HOLD_SHORT_BESIDE_RUNWAY_M
-  )
 }
 
 /**

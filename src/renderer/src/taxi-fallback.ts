@@ -9,10 +9,10 @@ import type { NavdataTaxiSegment } from '@shared/ipc'
 import { itemAt } from '@shared/item-at'
 import { MinQueue } from './min-queue'
 import { startOfRunwayHolds, type RunwayThreshold } from './taxi-runway-hold'
+import { crossingHolds, isHoldShortBeside } from './taxi-runway-crossing'
 import {
   buildGraph,
   edgesOf,
-  isHoldShortBeside,
   isWrongWay,
   MAX_ROUTE_LENGTH_M,
   nearestNode,
@@ -113,6 +113,9 @@ function destinationNodes(graph: Graph, request: TaxiTraceRequest): number[] {
     return link >= 0 ? [link] : []
   }
   if (holdShortRunway) {
+    // Where the route crosses the runway, or any hold short beside it when the scenery has no crossing.
+    const crossings = crossingHolds(graph, holdShortRunway)
+    if (crossings.size > 0) return [...crossings]
     return [...graph.nodes.entries()].filter(([, n]) => isHoldShortBeside(n, holdShortRunway)).map(([i]) => i)
   }
   return holdingPoint && runwayThreshold ? startOfRunwayNodes(graph, request.segments, runwayThreshold) : []

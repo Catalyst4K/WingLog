@@ -15,6 +15,8 @@ import VHHH_253_SECOND_RAW from './__fixtures__/vhhh-taxi-253-f7-a-b-w.json'
 import VHHH_238_RAW from './__fixtures__/vhhh-taxi-238-u-v-h-j.json'
 import EGCC_243_RAW from './__fixtures__/egcc-taxi-243-on-bz.json'
 import YBBN_225_RAW from './__fixtures__/ybbn-225-taxi-network.json'
+import VHHH_227_RAW from './__fixtures__/vhhh-taxi-227-c7-y-f-cross-07c.json'
+import { crossingHolds } from './taxi-runway-crossing'
 
 // The taxi routing rules (winglog-backend's docs/plans/taxi-routing-rules.md), each on the real taxi it was worked out from: MSFS
 // facility data from WingLog's navdata cache, trimmed to 250 m either side of the taxi. Rows: [startLat, startLon, endLat, endLon,
@@ -36,6 +38,7 @@ const VHHH_253_SECOND = toSegments(VHHH_253_SECOND_RAW)
 const VHHH_238 = toSegments(VHHH_238_RAW)
 const EGCC_243 = toSegments(EGCC_243_RAW)
 const YBBN_225 = toSegments(YBBN_225_RAW)
+const VHHH_227 = toSegments(VHHH_227_RAW)
 
 const RUNWAY_07C: RunwayStrip = {
   thresholdLat: 22.309533893514097,
@@ -137,6 +140,34 @@ describe('VHHH flight 253 arrival, "taxi via C7, C, D, C, F, hold short of runwa
     const end = at(route.at(-1)!)
     // Where the aircraft stopped for the hold, the start of the next clearance.
     expect(distanceM(end, { lat: 22.321479100689785, lon: 113.92706019806538 })).toBeLessThan(30)
+  })
+})
+
+describe('VHHH flight 227 arrival, "taxi via C7, Y, F, hold short of runway 07C"', () => {
+  const route = traceTaxiRoute({
+    segments: VHHH_227,
+    taxiways: ['C7', 'Y', 'F'],
+    holdingPoint: 'F',
+    from: { lat: 22.326749153608112, lon: 113.90214962211722 },
+    headingDeg: 110.45889075430183,
+    holdShortRunway: RUNWAY_07C
+  })!
+
+  it('holds short where the route crosses 07C (F2, near its end), not on the high-speed exit F4 beside Y (Callum, 2026-10-22)', () => {
+    const names = runsDriven(VHHH_227, route).map((r) => r.name)
+    expect(names).toEqual(['C7', 'Y', 'F', 'F2'])
+    // F2's hold short, straight across 07C from A2's.
+    expect(distanceM(at(route.at(-1)!), { lat: 22.311993766590778, lon: 113.89814976025207 })).toBeLessThan(1)
+  })
+
+  it('finds the crossings near both ends of 07C and none of its exits', () => {
+    const graph = buildGraph(VHHH_227, 22.32)
+    const names = [...crossingHolds(graph, RUNWAY_07C)].flatMap((n) =>
+      graph.edges[n]!.map((e) => e.name).filter((name) => name !== null)
+    )
+    expect(names).toContain('F2')
+    expect(names).not.toContain('F3')
+    expect(names).not.toContain('F4')
   })
 })
 
@@ -268,6 +299,38 @@ describe('sharp turns', () => {
 
   it('still takes the sharp turn when there is no other way', () => {
     expect(traceTaxiRoute(request([sharp]))).toEqual([P0, P1, P2].map(lonLat))
+  })
+})
+
+describe('crossingHolds', () => {
+  // A runway running east, 60 m wide, centreline on y = 0. A taxiway crosses it straight at x = 500 between hold shorts 100 m either
+  // side; at x = 1500 an exit runs from a hold short 100 m north to the centreline at a 30° angle, and another from the south to the
+  // same point, so the two connect, but only by a way about twice the straight line between them.
+  const runway: RunwayStrip = {
+    thresholdLat: 22.3,
+    thresholdLon: 113.9,
+    headingTrueDeg: 90,
+    lengthM: 3000,
+    widthM: 60
+  }
+  const hold = (a: [number, number], b: [number, number]): NavdataTaxiSegment => ({
+    ...seg(a, b, null),
+    startHoldShort: true
+  })
+  const graph = buildGraph(
+    [
+      hold(pt(500, 100), pt(500, 0)),
+      hold(pt(500, -100), pt(500, 0)),
+      hold(pt(1500, 100), pt(1673, 0)),
+      hold(pt(1500, -100), pt(1673, 0))
+    ],
+    22.3
+  )
+
+  it('is the hold shorts a taxiway joins straight across the runway, not those of exits that only meet at it', () => {
+    const crossings = [...crossingHolds(graph, runway)].map((n) => [graph.nodes[n]!.lat, graph.nodes[n]!.lon])
+    expect(crossings).toHaveLength(2)
+    expect(crossings).toEqual(expect.arrayContaining([pt(500, 100), pt(500, -100)]))
   })
 })
 
