@@ -222,7 +222,7 @@ describe('traceClearance', () => {
     ).toBeNull()
   })
 
-  it('traces from the first taxiway when the aircraft is already past the clearance start (EGCC 2026-10-18)', () => {
+  it('shows the rest of the clearance from the aircraft when it is already past the start (EGCC 2026-10-18)', () => {
     const seg = (a: [number, number], b: [number, number], name: string): NavdataTaxiSegment => ({
       startLat: a[0],
       startLon: a[1],
@@ -235,11 +235,12 @@ describe('traceClearance', () => {
     const segments = [
       seg([53.344, -2.284], [53.349, -2.28], 'VC'),
       seg([53.349, -2.28], [53.35, -2.279], 'V'),
-      seg([53.35, -2.279], [53.353, -2.2815], 'A')
+      seg([53.35, -2.279], [53.353, -2.2815], 'A'),
+      seg([53.353, -2.2815], [53.355, -2.284], 'D')
     ]
     const route = traceClearance(
       {
-        taxiways: ['VC', 'V', 'A'],
+        taxiways: ['VC', 'V', 'A', 'D'],
         holdingPoint: null,
         stand: null,
         holdShortRunway: null,
@@ -249,7 +250,10 @@ describe('traceClearance', () => {
       segments,
       null
     )
-    expect(route?.[0]).toEqual([-2.284, 53.344])
+    expect(route).toEqual([
+      [-2.2815, 53.353],
+      [-2.284, 53.355]
+    ])
   })
 
   it("follows a taxiway the sim splits into numbered pieces, so the line starts at the aircraft (ZUCK 2026-10-20: 'via M, G, H1' with M1 and M2)", () => {

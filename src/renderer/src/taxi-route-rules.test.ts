@@ -14,6 +14,7 @@ import VHHH_253_RAW from './__fixtures__/vhhh-taxi-253-c7-c-d-c-f-hold-07c.json'
 import VHHH_253_SECOND_RAW from './__fixtures__/vhhh-taxi-253-f7-a-b-w.json'
 import VHHH_238_RAW from './__fixtures__/vhhh-taxi-238-u-v-h-j.json'
 import EGCC_243_RAW from './__fixtures__/egcc-taxi-243-on-bz.json'
+import YBBN_225_RAW from './__fixtures__/ybbn-225-taxi-network.json'
 
 // The taxi routing rules (winglog-backend's docs/plans/taxi-routing-rules.md), each on the real taxi it was worked out from: MSFS
 // facility data from WingLog's navdata cache, trimmed to 250 m either side of the taxi. Rows: [startLat, startLon, endLat, endLon,
@@ -34,6 +35,7 @@ const VHHH_253 = toSegments(VHHH_253_RAW)
 const VHHH_253_SECOND = toSegments(VHHH_253_SECOND_RAW)
 const VHHH_238 = toSegments(VHHH_238_RAW)
 const EGCC_243 = toSegments(EGCC_243_RAW)
+const YBBN_225 = toSegments(YBBN_225_RAW)
 
 const RUNWAY_07C: RunwayStrip = {
   thresholdLat: 22.309533893514097,
@@ -202,6 +204,22 @@ describe('EGCC flight 243, the whole clearance again once on BZ: "taxi to stand 
     expect(names[0]).toBe('BZ')
     expect(names).not.toContain('VC')
     expect(names.filter((n) => ['B', 'A', 'D', 'E', 'NA'].includes(n))).toEqual(['B', 'A', 'D', 'E', 'NA'])
+  })
+})
+
+describe('YBBN flight 225 departure, "taxi to holding point A9 via C9, B9", pushed back facing away from C9', () => {
+  const route = traceTaxiRoute({
+    segments: YBBN_225,
+    taxiways: ['C9', 'B9'],
+    holdingPoint: 'A9',
+    from: { lat: -27.402681391156552, lon: 153.1128160761545 },
+    headingDeg: 210.95381974587798
+  })!
+
+  it('joins the clearance at B9 the way the nose points, as Callum did by C10 and B, not past B9 and round the block to drive C9', () => {
+    const names = runsDriven(YBBN_225, route).map((r) => r.name)
+    expect(names).toEqual(['C10', 'B', 'B9', 'A9'])
+    expect(revisitsAPoint(route)).toBe(false)
   })
 })
 

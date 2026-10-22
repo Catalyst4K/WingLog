@@ -174,11 +174,11 @@ describe('traceWithFallback', () => {
     expect(traced?.match).toEqual({ absent: ['Q'], notFollowed: [] })
   })
 
-  it('falls back to the pathfinder when a cleared taxiway is in the data but nowhere the route can reach, and says what did not match', () => {
-    // Q is a piece of taxiway on its own, joined to nothing.
+  it('falls back to the pathfinder when a cleared taxiway part-way through is in the data but nowhere the route can reach, and says what did not match', () => {
+    // Q is a piece of taxiway on its own, joined to nothing. (A first taxiway like that is joined past, from the start.)
     const island = seg([29.7, 106.7], [29.7005, 106.7], 'Q')
     const withoutW = [...NETWORK.filter((s) => s.name !== 'W'), island]
-    const fallback = traceWithFallback(request({ segments: withoutW, taxiways: ['Q', 'G', 'H1'] }))
+    const fallback = traceWithFallback(request({ segments: withoutW, taxiways: ['G', 'Q', 'H1'] }))
     expect(fallback?.kind).toBe('pathfinder')
     expect(fallback?.route[0]).toEqual(lonLat(P0))
     expect(fallback?.route.at(-1)).toEqual(lonLat(P5))

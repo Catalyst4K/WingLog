@@ -44,6 +44,10 @@ export const LINK_PENALTY_M = 200
 /** How much more a metre of a cleared taxiway costs while another is still to come, so the route moves on at the first chance when
  *  two ways are otherwise equal. Small against LINK_PENALTY_M: 2.6 km of VHHH's D costs 52 m more, not enough to hop to C by a link. */
 const FIRST_CHANCE_BIAS = 0.02
+/** What joining the clearance at a later taxiway costs, for each one skipped at its start. An aircraft that can only drive the first
+ *  one by a loop joins at the next instead: YBBN flight 225 pushed back facing away from C9, and the line went past B9 and round the
+ *  block by C8 to come back down C9, where Callum took C10 and B straight to B9. A first taxiway within reach is still driven. */
+export const SKIP_COST_M = 500
 /** The most an airliner's heading can change over TURN_WINDOW_M of taxiing: with a turning radius of about 25 m, 60 m of path turns it
  *  137° at most. More than that is a hairpin or a turn on the spot, however finely the network splits it: VHHH flight 253's line lapped
  *  the C/D/F roundabout through turns of 150° and 170°, flight 243's turned round on B9 by 124° then 107° 11 m apart, through a
@@ -414,32 +418,6 @@ function atFurthestHold(request: TaxiTraceRequest, route: TracedRoute): TracedRo
 }
 
 /**
- * Traces a clearance from wherever its first taxiway can be entered, for an aircraft that is already past the start: Track
- * opened (or the position arrived) mid-taxi, so tracing from the aircraft fails because the clearance begins behind it
- * (EGCC 2026-10-18: "via VC, V, U, BZ, B, A, D, E, NA" with the aircraft already on A). Tries every point of the first
- * taxiway and keeps the longest route found, which starts at an end of that taxiway rather than part-way along it.
- *
- * @param request The clearance and the network; `from` is ignored.
- * @returns The route, or null if no point of the first taxiway starts a trace.
- */
-export function traceTaxiRouteFromFirstTaxiway(request: TaxiTraceRequest): TracedRoute | null {
-  const first = request.taxiways[0]
-  if (!first) return null
-  const starts = new Map<string, { lat: number; lon: number }>()
-  for (const s of request.segments) {
-    if (s.name !== first) continue
-    starts.set(nodeKey(s.startLat, s.startLon), { lat: s.startLat, lon: s.startLon })
-    starts.set(nodeKey(s.endLat, s.endLon), { lat: s.endLat, lon: s.endLon })
-  }
-  let best: TracedRoute | null = null
-  for (const from of starts.values()) {
-    const route = traceTaxiRoute({ ...request, from, headingDeg: null })
-    if (route && (!best || route.length > best.length)) best = route
-  }
-  return best
-}
-
-/**
  * One trace's search over (node, stage) states. State = node * (stages + 1) + (stage + 1);
  * stage -1 is the lead-in before the first cleared taxiway.
  */
@@ -758,29 +736,50 @@ function edgeMoves(
   [before, from]: [number, number],
   edge: Edge
 ): [number, number][] {
-  const { sequence, standNode } = search
+  const { sequence } = search
   const moves: [number, number][] = []
   const nextName = sequence[stage + 1]
   if (edge.name !== null && edge.name === nextName) moves.push([stage + 1, edge.lengthM])
+  // From the lead-in, the clearance can be joined at a later taxiway, at SKIP_COST_M for each one skipped.
+  const later =
+    stage < 0 && edge.name !== null && edge.name !== nextName ? sequence.indexOf(edge.name, 1) : -1
+  if (later > 0) moves.push([later, edge.lengthM + later * SKIP_COST_M])
   // On a cleared taxiway with another to come, a little more than its length: of two parallel ways that are otherwise equal, the
   // route joins the next taxiway at the first chance, as Callum read "H, J" at VHHH (flight 238: onto J at the first link, H6).
   if (stage >= 0 && edge.name === sequence[stage])
     moves.push([stage, edge.lengthM * (stage < sequence.length - 1 ? 1 + FIRST_CHANCE_BIAS : 1)])
   else if (edge.name === null) moves.push([stage, edge.lengthM])
-  // Before the first cleared taxiway, how to get there is the pilot's choice, so a named taxilane costs its plain length
-  // like an unnamed lead-in: at 5×, the line zigzagged through every gate lead-in beside B8 instead of straight along it.
-  // The same at the other end of a stand clearance, from the last cleared taxiway to the stand: the gate taxilane (B7
-  // for N32) isn't named by ATC, so at 5× the line hopped in and out of every gate lead-in along it.
-  else if (edge.name !== nextName) {
-    const pilotsChoice = stage < 0 || (standNode >= 0 && stage === sequence.length - 1)
-    if (pilotsChoice) moves.push([stage, edge.lengthM])
-    else if (isLink(search, stage, from, edge.to)) {
-      // Charged once, as the route turns off onto the link; nothing for the last leg to a runway's hold short.
-      const turnsOff = stage < sequence.length - 1 && (before < 0 || !isLink(search, stage, before, from))
-      moves.push([stage, edge.lengthM + (turnsOff ? LINK_PENALTY_M : 0)])
-    } else moves.push([stage, edge.lengthM * OFF_ROUTE_COST_FACTOR])
-  }
+  else if (edge.name !== nextName) moves.push([stage, offClearanceCost(search, stage, [before, from], edge)])
   return moves
+}
+
+/**
+ * What a segment of another taxiway than the cleared ones costs.
+ *
+ * Before the first cleared taxiway, how to get there is the pilot's choice, so a named taxilane costs its plain length
+ * like an unnamed lead-in: at 5×, the line zigzagged through every gate lead-in beside B8 instead of straight along it.
+ * The same at the other end of a stand clearance, from the last cleared taxiway to the stand: the gate taxilane (B7
+ * for N32) isn't named by ATC, so at 5× the line hopped in and out of every gate lead-in along it.
+ *
+ * @param search The search.
+ * @param stage The current stage.
+ * @param from The node the edge leaves, and the node before it (-1 at the start).
+ * @param edge The edge.
+ * @returns The cost.
+ */
+function offClearanceCost(
+  search: TraceSearch,
+  stage: number,
+  [before, from]: [number, number],
+  edge: Edge
+): number {
+  const { sequence, standNode } = search
+  const pilotsChoice = stage < 0 || (standNode >= 0 && stage === sequence.length - 1)
+  if (pilotsChoice) return edge.lengthM
+  if (!isLink(search, stage, from, edge.to)) return edge.lengthM * OFF_ROUTE_COST_FACTOR
+  // Charged once, as the route turns off onto the link; nothing for the last leg to a runway's hold short.
+  const turnsOff = stage < sequence.length - 1 && (before < 0 || !isLink(search, stage, before, from))
+  return edge.lengthM + (turnsOff ? LINK_PENALTY_M : 0)
 }
 
 /**

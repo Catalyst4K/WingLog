@@ -31,7 +31,6 @@ import { findTaxiPath } from '../../src/renderer/src/taxi-fallback'
 import { remainingRoute } from '../../src/renderer/src/taxi-route-rejoin'
 import {
   traceTaxiRoute,
-  traceTaxiRouteFromFirstTaxiway,
   type TaxiTraceRequest,
   type TracedRoute
 } from '../../src/renderer/src/taxi-route-trace'
@@ -259,7 +258,7 @@ export function runTaxi(
   const cleared = clearance ? traceClearance(clearance, segments, stand, threshold, holdShortRunway) : null
   const request = clearance ? clearanceRequest(clearance, segments, stand, threshold, holdShortRunway) : null
   const pathfinder = request ? findTaxiPath(request) : null
-  const exact = request ? (traceTaxiRoute(request) ?? traceTaxiRouteFromFirstTaxiway(request)) : null
+  const exact = request ? traceTaxiRoute(request) : null
   if (!clearance || !cleared)
     return {
       cleared,
