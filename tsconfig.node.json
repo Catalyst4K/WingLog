@@ -39,6 +39,7 @@
     "src/renderer/src/taxi-route-rejoin.ts",
     "src/renderer/src/taxi-route-links.ts",
     "src/renderer/src/taxi-runway-crossing.ts",
+    "src/renderer/src/taxi-route-turns.ts",
     "src/renderer/src/min-queue.ts",
     "src/renderer/src/taxi-runway-hold.ts",
     "src/renderer/src/taxi-reroute.ts",

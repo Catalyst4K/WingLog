@@ -25,6 +25,9 @@ import REPLAY_227 from './__fixtures__/zjsy-227-taxi-out.json'
 // behind the aircraft twice before following it, until a wrong-way start cost a flat 3 km.
 import REPLAY_225 from './__fixtures__/ybbn-225-taxi-out.json'
 import YBBN_225_RAW from './__fixtures__/ybbn-225-taxi-network.json'
+// Flight 253's real taxi out at ZJSY (same row shape), cleared "via D, A3, A" to the holding point A and driven D, B5, B, A1: re-routed
+// all the way. The 1.5.2 re-route drew one of its lines with a turn on the spot.
+import REPLAY_253 from './__fixtures__/zjsy-253-taxi-out.json'
 
 type Row = [number, number, number, number, string | null, number, number]
 const toSegments = (raw: unknown): NavdataTaxiSegment[] =>
@@ -274,5 +277,45 @@ describe('re-routing replay: YBBN flight 225, taxiing away from the first trace 
       ...SAMPLES_225.map(([, lat, lon]) => distanceM({ lat, lon }, { lat: end[1], lon: end[0] }))
     )
     expect(closest).toBeLessThan(20)
+  })
+})
+
+/** The most a line turns within 60 m of it anywhere, degrees, summed over its points. */
+function sharpestTurnWithin60(line: TracedRoute): number {
+  const bearing = (a: [number, number], b: [number, number]): number =>
+    (Math.atan2((b[0] - a[0]) * Math.cos((a[1] * Math.PI) / 180), b[1] - a[1]) * 180) / Math.PI
+  const lengthOf = (a: [number, number], b: [number, number]): number =>
+    distanceM({ lat: a[1], lon: a[0] }, { lat: b[1], lon: b[0] })
+  const turnAt = (i: number): number =>
+    lengthOf(line[i - 1]!, line[i]!) < 0.5 || lengthOf(line[i]!, line[i + 1]!) < 0.5
+      ? 0
+      : angleBetweenDeg(bearing(line[i - 1]!, line[i]!), bearing(line[i]!, line[i + 1]!))
+  let sharpest = 0
+  for (let i = 1; i + 1 < line.length; i++) {
+    let turned = 0
+    let travelled = 0
+    for (let k = i; k + 1 < line.length && travelled <= 60; k++) {
+      turned += turnAt(k)
+      travelled += lengthOf(line[k]!, line[k + 1]!)
+    }
+    sharpest = Math.max(sharpest, turned)
+  }
+  return sharpest
+}
+
+describe('re-routing replay: ZJSY flight 253, cleared D, A3, A and driven D, B5, B, A1 (2026-10-21)', () => {
+  const { reroutes } = replayTaxi(
+    REPLAY_253 as Sample[],
+    ZJSY,
+    { taxiways: ['D', 'A3', 'A'], holdingPoint: 'A' },
+    true
+  )
+
+  it('re-routes, and every re-route turns no sharper than an airliner can and never passes the same point twice', () => {
+    expect(reroutes.length).toBeGreaterThan(0)
+    for (const { line } of reroutes) {
+      expect(sharpestTurnWithin60(line)).toBeLessThanOrEqual(135)
+      expect(new Set(line.map(([lon, lat]) => `${lon},${lat}`)).size).toBe(line.length)
+    }
   })
 })

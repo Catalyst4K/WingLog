@@ -8,12 +8,13 @@ import {
   edgesOf,
   isWrongWay,
   MAX_ROUTE_LENGTH_M,
-  nearestNode,
   nodeKey,
+  startNodes,
   WRONG_WAY_PENALTY_M,
   type Graph,
   type TracedRoute
 } from './taxi-route-trace'
+import { turnCost, turnedBefore, TURN_WINDOW_M } from './taxi-route-turns'
 
 export interface RejoinRequest {
   segments: NavdataTaxiSegment[]
@@ -30,7 +31,9 @@ export interface RejoinRequest {
  * A re-route (winglog-backend's docs/plans/taxi-reroute.md): the shortest total way from the aircraft to the end of the
  * cleared route, joining it at whichever of its points makes that shortest and then following it. Getting to the route
  * costs plain distance on any taxiway; pulling the pilot back to the next cleared taxiway instead pointed back along
- * the route for a whole taxi while the aircraft went the other way to the same hold.
+ * the route for a whole taxi while the aircraft went the other way to the same hold. The way back keeps the cleared route's
+ * driving rules (winglog-backend's docs/plans/taxi-routing-rules.md): it starts ahead of the nose (rule 5) and turns no sharper
+ * than an airliner can, on the way and onto the cleared route (rule 4, taxi-route-turns.ts).
  *
  * Joins only from `fromSegment` on, so never back onto a part already driven. The end (the hold or the stand) is always
  * the original route's. Null when the aircraft is off the network or nothing joins.
@@ -47,17 +50,15 @@ export function rejoinTaxiRoute({
 }: RejoinRequest): TracedRoute | null {
   if (route.length < 2) return null
   const graph = buildGraph(segments, from.lat)
-  const start = nearestNode(graph, from)
-  if (start < 0) return null
+  const starts = startNodes(graph, from, headingDeg)
+  if (starts.length === 0) return null
 
-  // Plain-distance Dijkstra over the whole network from the aircraft (a few ms even at VHHH).
-  const { cost, previous } = shortestPathsFrom(graph, start, headingDeg)
-  const best = bestJoin(graph, route, fromSegment, cost)
+  // Dijkstra over the whole network from the aircraft, by node and the node come from (a few ms even at VHHH).
+  const ways = waysBack(graph, starts, headingDeg)
+  const best = bestJoin(graph, route, fromSegment, ways)
   if (best.index < 0 || best.total > MAX_ROUTE_LENGTH_M + WRONG_WAY_PENALTY_M) return null
 
-  const nodes: number[] = []
-  for (let n = best.node; n !== -1; n = itemAt(previous, n, 'taxi node')) nodes.push(n)
-  nodes.reverse()
+  const nodes = nodesBack(ways, best.state, Infinity).reverse()
   // The way back ends where it first meets the cleared route, which is followed from there: the shortest way may run on past
   // cleared taxiways to a join near the end, skipping the stretch ATC cleared (EGLL flight 239's last leg).
   const onRoute = firstOnRoute(graph, nodes, route, fromSegment, best.index)
@@ -98,71 +99,134 @@ function firstOnRoute(
   return { at: nodes.length - 1, index: joinIndex }
 }
 
+/** The ways back from the aircraft: each state (a node and the node come from) with its cost and the state before it. */
+interface WaysBack {
+  graph: Graph
+  cost: Map<number, number>
+  previous: Map<number, number>
+}
+
+const stateOf = (graph: Graph, node: number, cameFrom: number): number =>
+  (cameFrom + 1) * graph.nodes.length + node
+const nodeOf = (graph: Graph, state: number): number => state % graph.nodes.length
+const cameFromOf = (graph: Graph, state: number): number => Math.floor(state / graph.nodes.length) - 1
+
 /**
- * Plain-distance shortest paths from one node to every other, with the wrong-way penalty on
- * the first edge.
+ * The cheapest way from the aircraft to every node, by the node come from: plain distance, plus WRONG_WAY_PENALTY_M for a first edge
+ * against the heading and the cost of turning more than an airliner can (taxi-route-turns.ts). No immediate U-turns.
  *
  * @param graph The graph.
- * @param start The start node.
+ * @param starts Where the way can start (startNodes), each with its distance from the aircraft.
  * @param headingDeg The aircraft's heading, or null.
- * @returns Each node's cost and the node it was reached from (-1 for none).
+ * @returns Every reached state's cost and the state before it.
  */
-function shortestPathsFrom(
+function waysBack(
   graph: Graph,
-  start: number,
+  starts: { node: number; distanceM: number }[],
   headingDeg: number | null
-): { cost: number[]; previous: number[] } {
-  const cost = new Array<number>(graph.nodes.length).fill(Infinity)
-  const previous = new Array<number>(graph.nodes.length).fill(-1)
-  cost[start] = 0
+): WaysBack {
+  const ways: WaysBack = { graph, cost: new Map(), previous: new Map() }
   const queue = new MinQueue()
-  queue.push(start, 0)
+  for (const { node, distanceM } of starts) {
+    ways.cost.set(stateOf(graph, node, -1), distanceM)
+    queue.push(stateOf(graph, node, -1), distanceM)
+  }
   while (queue.size > 0) {
-    const [node, nodeCost] = queue.pop()
-    if (nodeCost > itemAt(cost, node, 'taxi node')) continue
+    const [state, stateCost] = queue.pop()
+    if (stateCost > (ways.cost.get(state) ?? Infinity)) continue
+    const node = nodeOf(graph, state)
+    const cameFrom = cameFromOf(graph, state)
+    const turned = turnedBefore(graph, nodesBack(ways, state, TURN_WINDOW_M))
     for (const edge of edgesOf(graph, node)) {
-      const wrongWay = node === start && isWrongWay(graph, node, edge.to, headingDeg)
-      const nextCost = nodeCost + edge.lengthM + (wrongWay ? WRONG_WAY_PENALTY_M : 0)
-      if (nextCost >= itemAt(cost, edge.to, 'taxi node')) continue
-      cost[edge.to] = nextCost
-      previous[edge.to] = node
-      queue.push(edge.to, nextCost)
+      if (edge.to === cameFrom) continue
+      const wrongWay = cameFrom < 0 && isWrongWay(graph, node, edge.to, headingDeg)
+      const next = stateOf(graph, edge.to, node)
+      const nextCost =
+        stateCost +
+        edge.lengthM +
+        (wrongWay ? WRONG_WAY_PENALTY_M : 0) +
+        turnCost(graph, turned, [cameFrom, node, edge.to])
+      if (nextCost >= (ways.cost.get(next) ?? Infinity)) continue
+      ways.cost.set(next, nextCost)
+      ways.previous.set(next, state)
+      queue.push(next, nextCost)
     }
   }
-  return { cost, previous }
+  return ways
 }
 
 /**
- * Where to join the cleared route: the point, from `fromSegment` on, with the least distance
- * to it plus distance left along the route after it.
+ * The nodes of the way to a state, latest first.
+ *
+ * @param ways The ways back.
+ * @param state A reached state.
+ * @param limitM How far back to go; Infinity for the whole way.
+ * @returns The nodes.
+ */
+function nodesBack({ graph, previous }: WaysBack, state: number, limitM: number): number[] {
+  const nodes = [nodeOf(graph, state)]
+  let distance = 0
+  for (let s = previous.get(state); s !== undefined && distance < limitM; s = previous.get(s)) {
+    const a = itemAt(graph.nodes, itemAt(nodes, nodes.length - 1, 'route node'), 'taxi node')
+    const b = itemAt(graph.nodes, nodeOf(graph, s), 'taxi node')
+    distance += graph.distanceM(a.lat, a.lon, b.lat, b.lon)
+    nodes.push(nodeOf(graph, s))
+  }
+  return nodes
+}
+
+/**
+ * Where to join the cleared route: the reached state on one of its points, from `fromSegment` on, with the least cost to it plus the
+ * distance left along the route after it plus the cost of turning onto it.
  *
  * @param graph The graph.
  * @param route The cleared route.
  * @param fromSegment The furthest segment driven.
- * @param cost Each node's distance from the aircraft.
- * @returns The point's index in `route`, its node, and the total; index -1 when none joins.
+ * @param ways The ways back from the aircraft.
+ * @returns The point's index in `route`, the state reaching it, and the total; index -1 when none joins.
  */
 function bestJoin(
   graph: Graph,
   route: TracedRoute,
   fromSegment: number,
-  cost: number[]
-): { index: number; node: number; total: number } {
-  // Distance left along the route from each of its points to the end.
+  ways: WaysBack
+): { index: number; state: number; total: number } {
+  // Distance left along the route from each of its points to the end, and the route's points by node.
   const remainingFrom: number[] = new Array<number>(route.length).fill(0)
   for (let i = route.length - 2; i >= 0; i--) {
     const [aLon, aLat] = itemAt(route, i, 'route point')
     const [bLon, bLat] = itemAt(route, i + 1, 'route point')
     remainingFrom[i] = itemAt(remainingFrom, i + 1, 'route point') + graph.distanceM(aLat, aLon, bLat, bLon)
   }
-
-  let best = { index: -1, node: -1, total: Infinity }
+  const nodeAt = (i: number): number | undefined => {
+    const point = route[i]
+    return point ? graph.nodeIndex.get(nodeKey(point[1], point[0])) : undefined
+  }
+  const pointsOf = new Map<number, number[]>()
   for (let i = Math.max(0, fromSegment); i < route.length; i++) {
-    const [lon, lat] = itemAt(route, i, 'route point')
-    const node = graph.nodeIndex.get(nodeKey(lat, lon))
-    if (node === undefined) continue // a stand's own point, not on the network
-    const total = itemAt(cost, node, 'taxi node') + itemAt(remainingFrom, i, 'route point')
-    if (total < best.total) best = { index: i, node, total }
+    const node = nodeAt(i)
+    // A stand's own point isn't on the network.
+    if (node !== undefined) pointsOf.set(node, [...(pointsOf.get(node) ?? []), i])
+  }
+
+  let best = { index: -1, state: -1, total: Infinity }
+  for (const [state, cost] of ways.cost) {
+    const node = nodeOf(graph, state)
+    for (const i of pointsOf.get(node) ?? []) {
+      const onward = nodeAt(i + 1)
+      const turning =
+        onward === undefined
+          ? 0
+          : turnCost(graph, turnedBefore(graph, nodesBack(ways, state, TURN_WINDOW_M)), [
+              cameFromOf(graph, state),
+              node,
+              onward
+            ])
+      const total = cost + itemAt(remainingFrom, i, 'route point') + turning
+      // Of equal ways (one starting at the point under the aircraft, one at the next), the one keeping more of the cleared route.
+      if (total < best.total - 0.01 || (total <= best.total + 0.01 && i < best.index))
+        best = { index: i, state, total }
+    }
   }
   return best
 }

@@ -34,6 +34,7 @@ import { itemAt } from '@shared/item-at'
 import { MinQueue } from './min-queue'
 import { edgeKey, linksBetween } from './taxi-route-links'
 import { crossingHolds, isHoldShortBeside } from './taxi-runway-crossing'
+import { turnCost, turnedBefore, TURN_WINDOW_M } from './taxi-route-turns'
 import { furthestBackHold, type RunwayThreshold } from './taxi-runway-hold'
 
 const OFF_ROUTE_COST_FACTOR = 5
@@ -49,16 +50,6 @@ const FIRST_CHANCE_BIAS = 0.02
  *  one by a loop joins at the next instead: YBBN flight 225 pushed back facing away from C9, and the line went past B9 and round the
  *  block by C8 to come back down C9, where Callum took C10 and B straight to B9. A first taxiway within reach is still driven. */
 export const SKIP_COST_M = 500
-/** The most an airliner's heading can change over TURN_WINDOW_M of taxiing: with a turning radius of about 25 m, 60 m of path turns it
- *  137° at most. More than that is a hairpin or a turn on the spot, however finely the network splits it: VHHH flight 253's line lapped
- *  the C/D/F roundabout through turns of 150° and 170°, flight 243's turned round on B9 by 124° then 107° 11 m apart, through a
- *  stand's lead-in lines. A real turn, through a junction's fillet or round VHHH's U1 (180° in 110 m), stays within it. */
-export const TURN_WINDOW_MAX_DEG = 135
-export const TURN_WINDOW_M = 60
-/** What each degree of turning past TURN_WINDOW_MAX_DEG costs, in metres: turning right round on the spot costs about as much as
- *  starting backwards (WRONG_WAY_PENALTY_M), so neither is taken while a drivable way exists, and a line that has to go the other
- *  way from the nose (just pushed back facing away from the cleared route) starts from the aircraft along the cleared way. */
-export const TURN_COST_M_PER_DEG = 60
 /** How far a stand's own point may be from the taxi network's nearest point (its lead-in line
  *  normally ends right at it). */
 const MAX_STAND_LINK_M = 150
@@ -263,7 +254,8 @@ export function startNodes(
       const distanceM = graph.distanceM(from.lat, from.lon, node.lat, node.lon)
       if (distanceM > START_AHEAD_M) continue
       const bearing = (Math.atan2((node.lon - from.lon) * cosLat, node.lat - from.lat) * 180) / Math.PI
-      if (angleBetweenDeg(bearing, headingDeg) <= 90) ahead.push({ node: i, distanceM })
+      // A point right under the aircraft is neither ahead nor behind.
+      if (distanceM < 1 || angleBetweenDeg(bearing, headingDeg) <= 90) ahead.push({ node: i, distanceM })
     }
   }
   return ahead.length > 0 ? ahead : [{ node: nearest, distanceM: 0 }]
@@ -654,7 +646,7 @@ function expand(
   // No immediate U-turns: without this, a clearance whose next taxiway is only touched at a
   // junction gets "satisfied" by driving out along it and straight back.
   const cameFromNode = cameFromNodeOf(search, state)
-  const turned = turnedBefore(search, state)
+  const turned = turnedBefore(search.graph, nodesBack(search, state))
   for (const edge of edgesOf(search.graph, node)) {
     if (edge.to === cameFromNode) continue
     const wrongWay = cameFromNode < 0 && isWrongWay(search.graph, node, edge.to, headingDeg)
@@ -673,13 +665,13 @@ function expand(
 }
 
 /**
- * How much the route to a state has turned at its points within TURN_WINDOW_M back of it, not counting the state's own node.
+ * The nodes of the route to a state, latest first, back to TURN_WINDOW_M or the start.
  *
  * @param search The search.
  * @param state A state taken from the queue, so the route to it is final.
- * @returns The turning, degrees.
+ * @returns The nodes.
  */
-function turnedBefore(search: TraceSearch, state: number): number {
+function nodesBack(search: TraceSearch, state: number): number[] {
   const { graph, previous } = search
   const nodes = [nodeOfState(search, state)]
   let distance = 0
@@ -690,41 +682,7 @@ function turnedBefore(search: TraceSearch, state: number): number {
     distance += graph.distanceM(a.lat, a.lon, b.lat, b.lon)
     nodes.push(n)
   }
-  let turned = 0
-  for (let i = 1; i + 1 < nodes.length; i++)
-    turned += turnAt(graph, [
-      itemAt(nodes, i + 1, 'route node'),
-      itemAt(nodes, i, 'route node'),
-      itemAt(nodes, i - 1, 'route node')
-    ])
-  return turned
-}
-
-/**
- * @param graph The graph.
- * @param nodes A node before, the node turned at, and a node after.
- * @returns How far the route turns there, degrees; 0 where either segment is too short to have a direction.
- */
-function turnAt(graph: Graph, [from, node, to]: [number, number, number]): number {
-  const a = itemAt(graph.nodes, from, 'taxi node')
-  const b = itemAt(graph.nodes, node, 'taxi node')
-  const c = itemAt(graph.nodes, to, 'taxi node')
-  if (graph.distanceM(a.lat, a.lon, b.lat, b.lon) < 0.5 || graph.distanceM(b.lat, b.lon, c.lat, c.lon) < 0.5)
-    return 0
-  return angleBetweenDeg(graph.bearingDeg(from, node), graph.bearingDeg(node, to))
-}
-
-/**
- * What going on to the next node costs for turning more than an airliner can (TURN_WINDOW_MAX_DEG over TURN_WINDOW_M).
- *
- * @param graph The graph.
- * @param turned How much the route has turned within TURN_WINDOW_M before the node (turnedBefore).
- * @param nodes The node come from (-1 at the start), the node, and the node gone on to.
- * @returns The cost in metres, 0 within the limit.
- */
-function turnCost(graph: Graph, turned: number, [from, node, to]: [number, number, number]): number {
-  const total = turned + (from < 0 ? 0 : turnAt(graph, [from, node, to]))
-  return Math.max(0, total - TURN_WINDOW_MAX_DEG) * TURN_COST_M_PER_DEG
+  return nodes
 }
 
 /**

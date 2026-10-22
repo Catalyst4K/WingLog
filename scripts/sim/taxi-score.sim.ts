@@ -54,6 +54,10 @@ interface Score {
   revisits: boolean | null
   /** The line itself, so a later run can draw it as the line before. */
   line: LonLat[] | null
+  /** How many times the line re-routed as the taxi was replayed, and how many of those lines turned more than an airliner can
+   *  (over 135° within 60 m) or passed a place twice. */
+  reroutes: number | null
+  badReroutes: number | null
 }
 
 const pct = (part: number, whole: number): number => (whole > 0 ? Math.round((100 * part) / whole) : 0)
@@ -101,10 +105,48 @@ function revisits(line: Xy[]): boolean {
   return false
 }
 
+/** The most a line turns within 60 m of it anywhere, degrees, summed over its points. */
+function sharpestTurnWithin60(line: Xy[]): number {
+  const turnAt = (i: number): number => {
+    const [a, b, c] = [line[i - 1], line[i], line[i + 1]]
+    if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 0.5 || Math.hypot(c[0] - b[0], c[1] - b[1]) < 0.5) return 0
+    const d = Math.abs(
+      (((((Math.atan2(c[0] - b[0], c[1] - b[1]) - Math.atan2(b[0] - a[0], b[1] - a[1])) * 180) / Math.PI) %
+        360) +
+        360) %
+        360
+    )
+    return d > 180 ? 360 - d : d
+  }
+  let sharpest = 0
+  for (let i = 1; i + 1 < line.length; i++) {
+    let turned = 0
+    let distance = 0
+    for (let k = i; k + 1 < line.length && distance <= 60; k++) {
+      turned += turnAt(k)
+      distance += Math.hypot(line[k + 1][0] - line[k][0], line[k + 1][1] - line[k][1])
+    }
+    sharpest = Math.max(sharpest, turned)
+  }
+  return sharpest
+}
+
+/** How many re-route lines turned more than an airliner can or passed a place twice. */
+function badReroutes(sc: TaxiScenario, reroutes: LonLat[][]): number {
+  const ref = sc.samples[0]?.lat ?? 0
+  return reroutes.filter((line) => {
+    const xy = line.map(([lon, lat]): Xy => {
+      const { x, y } = toLocalXy({ lat, lon }, ref)
+      return [x, y]
+    })
+    return sharpestTurnWithin60(xy) > 135 || revisits(xy)
+  }).length
+}
+
 function score(sc: TaxiScenario, line: LonLat[] | null, kind: Score['kind'], verdict: Verdict): Score {
   const clearance =
     sc.boxes.map((b) => b.info).join(' ') + (sc.holdShortRunway ? `, hold short ${sc.holdShortRunway}` : '')
-  const base = { id: sc.id, icao: sc.icao, verdict, clearance, kind, line }
+  const base = { id: sc.id, icao: sc.icao, verdict, clearance, kind, line, reroutes: null, badReroutes: null }
   const moving = movingSamples(sc.samples)
   if (!line || line.length < 2 || moving.length < 2)
     return {
@@ -207,7 +249,9 @@ function section(sc: TaxiScenario, s: Score, was: Score | undefined, figure: str
       metric('Your track on the line', 'trackOnLinePct', '%'),
       metric('End to your track', 'endGapM', ' m'),
       metric('Length', 'lengthM', ' m'),
-      metric('Passes a place twice', 'revisits')
+      metric('Passes a place twice', 'revisits'),
+      metric('Re-routes', 'reroutes'),
+      metric('Re-routes with a hairpin or a lap', 'badReroutes')
     ],
     figures: figure
   }
@@ -235,7 +279,21 @@ it('scores the taxi line against the taxis as driven', () => {
         )
         const traced = run.request ? traceWithFallback(run.request) : null
         const { verdict } = verdictOf(sc, loadFlownNetwork(sc.icao))
-        const s = score(sc, run.cleared, traced?.kind ?? 'none', verdict)
+        const replayed = runTaxi(
+          sc,
+          segments,
+          listCachedStands(db, sc.icao),
+          true,
+          listCachedRunways(db, sc.icao)
+        )
+        const s = {
+          ...score(sc, run.cleared, traced?.kind ?? 'none', verdict),
+          reroutes: replayed.reroutes.length,
+          badReroutes: badReroutes(
+            sc,
+            replayed.reroutes.map((r) => r.after)
+          )
+        }
         const lines = { line: run.cleared, before: baseline.find((b) => b.id === sc.id)?.line ?? null }
         // Each map on its own large page too, for looking at one taxi closely.
         mkdirSync(join(dir, 'maps'), { recursive: true })
@@ -273,7 +331,11 @@ it('scores the taxi line against the taxis as driven', () => {
             value: mean(followed.map((r) => r.lineOnTrackPct as number))
           },
           { label: 'Followed: track on the line', value: mean(followed.map((r) => r.trackOnLinePct ?? 0)) },
-          { label: 'Lines that pass a place twice', value: String(results.filter((r) => r.revisits).length) }
+          { label: 'Lines that pass a place twice', value: String(results.filter((r) => r.revisits).length) },
+          {
+            label: 'Re-routes with a hairpin or a lap',
+            value: `${results.reduce((n, r) => n + (r.badReroutes ?? 0), 0)} of ${results.reduce((n, r) => n + (r.reroutes ?? 0), 0)}`
+          }
         ],
         sections: outcomes.map(({ sc, s, figure }) =>
           section(
@@ -292,7 +354,7 @@ it('scores the taxi line against the taxis as driven', () => {
       const cell = (k: 'lineOnTrackPct' | 'trackOnLinePct' | 'endGapM' | 'revisits', width: number): string =>
         `${show(r[k])}${b && b[k] !== r[k] ? `(${show(b[k])})` : ''}`.padEnd(width)
       process.stdout.write(
-        `SCORE ${r.id.padEnd(10)} ${r.icao} ${r.verdict.padEnd(9)} ${r.kind.padEnd(10)} line-on-track ${cell('lineOnTrackPct', 9)} track-on-line ${cell('trackOnLinePct', 9)} end-gap ${cell('endGapM', 10)} revisits ${cell('revisits', 8)} len ${show(r.lengthM)}\n`
+        `SCORE ${r.id.padEnd(10)} ${r.icao} ${r.verdict.padEnd(9)} ${r.kind.padEnd(10)} line-on-track ${cell('lineOnTrackPct', 9)} track-on-line ${cell('trackOnLinePct', 9)} end-gap ${cell('endGapM', 10)} revisits ${cell('revisits', 8)} reroutes ${show(r.reroutes)} bad ${show(r.badReroutes)} len ${show(r.lengthM)}\n`
       )
     }
     process.stdout.write(`Report: ${page}\n`)
