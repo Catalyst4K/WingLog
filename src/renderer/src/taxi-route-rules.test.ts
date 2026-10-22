@@ -3,7 +3,6 @@ import type { NavdataTaxiSegment } from '@shared/ipc'
 import {
   angleBetweenDeg,
   buildGraph,
-  nodeAheadOnTaxiway,
   startNodes,
   taxiwayUnder,
   traceTaxiRoute,
@@ -18,7 +17,8 @@ import EGCC_243_RAW from './__fixtures__/egcc-taxi-243-on-bz.json'
 import YBBN_225_RAW from './__fixtures__/ybbn-225-taxi-network.json'
 import VHHH_227_RAW from './__fixtures__/vhhh-taxi-227-c7-y-f-cross-07c.json'
 import { crossingHolds } from './taxi-runway-crossing'
-import { rejoinTaxiRoute } from './taxi-route-rejoin'
+import { nodeAheadOnTaxiway, rejoinTaxiRoute } from './taxi-route-rejoin'
+import { drivesTaxiwayAgain, namedRuns } from './taxi-route-repeats'
 
 // The taxi routing rules (winglog-backend's docs/plans/taxi-routing-rules.md), each on the real taxi it was worked out from: MSFS
 // facility data from WingLog's navdata cache, trimmed to 250 m either side of the taxi. Rows: [startLat, startLon, endLat, endLon,
@@ -494,5 +494,51 @@ describe('re-routing a "hold short of runway" route', () => {
 
   it('still goes back to the route traced without the runway', () => {
     expect(rejoinTaxiRoute(request)?.at(-1)).toEqual(lonLat(pt(100, 40)))
+  })
+})
+
+describe('a route never drives a taxiway more often than the clearance names it (rule 10)', () => {
+  // The aircraft is on T heading east, just past U, the first cleared taxiway, which leaves T north at x = 0. Reaching U the cleared way
+  // means a lap: down and back west along R, up to T at x = 150 and back along T. W goes north from T's end straight to V, the next
+  // cleared taxiway, and its hold short (EGLL flight 239's second clearance, 2026-10-22).
+  const request: TaxiTraceRequest = {
+    segments: [
+      seg(pt(0, 0), pt(60, 0), 'T'),
+      seg(pt(60, 0), pt(150, 0), 'T'),
+      seg(pt(150, 0), pt(300, 0), 'T'),
+      seg(pt(300, 0), pt(300, -80), null),
+      seg(pt(300, -80), pt(150, -80), 'R'),
+      seg(pt(150, -80), pt(150, 0), null),
+      seg(pt(0, 0), pt(0, 200), 'U'),
+      seg(pt(0, 200), pt(100, 200), 'V', true),
+      seg(pt(100, 200), pt(300, 200), 'V'),
+      seg(pt(300, 0), pt(300, 200), 'W')
+    ],
+    taxiways: ['U', 'V'],
+    holdingPoint: 'V',
+    from: { lat: pt(30, 0)[0], lon: pt(30, 0)[1] },
+    headingDeg: 90
+  }
+
+  it('joins the clearance at its next taxiway rather than lap back to one already passed', () => {
+    const route = traceTaxiRoute(request)!
+    expect(namedRuns(route, request.segments)).toEqual(['T', 'W', 'V'])
+    expect(route.at(-1)).toEqual(lonLat(pt(100, 200)))
+  })
+
+  it('counts a taxiway the clearance names twice as allowed twice, and an unnamed one between runs as no break', () => {
+    const route: TracedRoute = [pt(0, 0), pt(60, 0), pt(200, 0), pt(200, -30), pt(300, -30), pt(300, 0)].map(
+      lonLat
+    )
+    const segments = [
+      seg(pt(0, 0), pt(60, 0), 'T'),
+      seg(pt(60, 0), pt(200, 0), null),
+      seg(pt(200, 0), pt(200, -30), 'T'),
+      seg(pt(200, -30), pt(300, -30), 'R'),
+      seg(pt(300, -30), pt(300, 0), 'T')
+    ]
+    expect(namedRuns(route, segments)).toEqual(['T', 'R', 'T'])
+    expect(drivesTaxiwayAgain(route, segments, ['R'])).toBe(true)
+    expect(drivesTaxiwayAgain(route, segments, ['T', 'R', 'T'])).toBe(false)
   })
 })

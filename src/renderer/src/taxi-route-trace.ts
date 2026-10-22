@@ -33,6 +33,7 @@ import { flatDistanceM, pointToSegmentM } from '@shared/geo'
 import { itemAt } from '@shared/item-at'
 import { MinQueue } from './min-queue'
 import { edgeKey, linksBetween } from './taxi-route-links'
+import { drivesTaxiwayAgain } from './taxi-route-repeats'
 import { crossingHolds, isHoldShortBeside } from './taxi-runway-crossing'
 import { turnCost, turnedBefore, TURN_WINDOW_M } from './taxi-route-turns'
 import { furthestBackHold, type RunwayThreshold } from './taxi-runway-hold'
@@ -263,7 +264,7 @@ export function startNodes(
 
 /** How near a taxiway's line the aircraft must be, and how closely its nose must follow it, to be driving along it. */
 const ON_TAXIWAY_M = 25
-const ON_TAXIWAY_DEG = 30
+export const ON_TAXIWAY_DEG = 30
 
 /**
  * The named taxiway the aircraft is driving along: the nearest segment within ON_TAXIWAY_M, if the nose points along it (within
@@ -284,32 +285,6 @@ export function taxiwayUnder(
 }
 
 /**
- * The next network point along the taxiway the aircraft is driving along, however far ahead: of the segments within ON_TAXIWAY_M,
- * the one the nose follows most closely (within ON_TAXIWAY_DEG). Not simply the nearest: just past a junction, the start of a fillet
- * leaving the taxiway at a shallow angle can be nearer than the taxiway itself (VHHH flight 253's arrival).
- *
- * @param graph The graph.
- * @param at The aircraft's position.
- * @param headingDeg Its true heading.
- * @returns The point and its distance, or null when the aircraft isn't driving along a segment or its end is behind.
- */
-export function nodeAheadOnTaxiway(
-  graph: Graph,
-  at: { lat: number; lon: number },
-  headingDeg: number
-): { node: number; distanceM: number } | null {
-  const along = segmentsUnder(graph, at, headingDeg)
-    .filter((s) => s.offDeg <= ON_TAXIWAY_DEG)
-    .sort((x, y) => x.offDeg - y.offDeg || x.distanceM - y.distanceM)[0]
-  if (!along) return null
-  const node = itemAt(graph.nodes, along.ahead, 'taxi node')
-  const cosLat = Math.cos((at.lat * Math.PI) / 180)
-  const bearing = (Math.atan2((node.lon - at.lon) * cosLat, node.lat - at.lat) * 180) / Math.PI
-  if (angleBetweenDeg(bearing, headingDeg) > 90) return null
-  return { node: along.ahead, distanceM: graph.distanceM(at.lat, at.lon, node.lat, node.lon) }
-}
-
-/**
  * The network segments within ON_TAXIWAY_M of the aircraft.
  *
  * @param graph The graph.
@@ -317,7 +292,7 @@ export function nodeAheadOnTaxiway(
  * @param headingDeg Its true heading.
  * @returns Each segment's taxiway name, distance, how far the nose is off its line either way (0-90°), and the end the nose points at.
  */
-function segmentsUnder(
+export function segmentsUnder(
   graph: Graph,
   at: { lat: number; lon: number },
   headingDeg: number
@@ -406,17 +381,36 @@ export function isWrongWay(graph: Graph, from: number, to: number, headingDeg: n
 }
 
 /**
- * Traces a clearance, strictly first, then accepting where the holding-point taxiway's name stops (see traceOnce).
+ * Traces a clearance (traceClearanceRoute). A route that drives a taxiway more often than the clearance names it (rule 10,
+ * taxi-route-repeats.ts) has doubled back to reach cleared taxiways the aircraft is already past, so the clearance is joined later
+ * instead: at the first of its taxiways from which the route keeps to it. With none, the route stands.
  *
  * @param request The clearance, the network and where the aircraft is.
  * @returns The route, or null if it can't be traced.
  */
 export function traceTaxiRoute(request: TaxiTraceRequest): TracedRoute | null {
+  const route = traceClearanceRoute(request)
+  const cleared = [...request.taxiways, ...(request.holdingPoint ? [request.holdingPoint] : [])]
+  if (!route || !drivesTaxiwayAgain(route, request.segments, cleared)) return route
+  for (let skip = 1; skip < request.taxiways.length; skip++) {
+    const later = traceClearanceRoute({ ...request, taxiways: request.taxiways.slice(skip) })
+    if (later && !drivesTaxiwayAgain(later, request.segments, cleared)) return later
+  }
+  return route
+}
+
+/**
+ * Traces a clearance, strictly first, then accepting where the holding-point taxiway's name stops (see traceOnce).
+ *
+ * @param request The clearance, the network and where the aircraft is.
+ * @returns The route, or null if it can't be traced.
+ */
+function traceClearanceRoute(request: TaxiTraceRequest): TracedRoute | null {
   // "Hold short of runway 07C" at VHHH (flight 253): the first hold short of the last taxiway was beside another runway.
   if (request.holdShortRunway && !request.onlyAtRunwayHold) {
     const atRunway =
-      traceTaxiRoute({ ...request, onlyAtRunwayHold: true, crossingOnly: true }) ??
-      traceTaxiRoute({ ...request, onlyAtRunwayHold: true })
+      traceClearanceRoute({ ...request, onlyAtRunwayHold: true, crossingOnly: true }) ??
+      traceClearanceRoute({ ...request, onlyAtRunwayHold: true })
     if (atRunway) return atRunway
   }
   if (request.holdingPoint) {

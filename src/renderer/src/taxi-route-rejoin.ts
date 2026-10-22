@@ -4,12 +4,14 @@ import { toLocalXy } from '@shared/geo'
 import { itemAt } from '@shared/item-at'
 import { MinQueue } from './min-queue'
 import {
+  angleBetweenDeg,
   buildGraph,
   edgesOf,
   isWrongWay,
   MAX_ROUTE_LENGTH_M,
-  nodeAheadOnTaxiway,
   nodeKey,
+  ON_TAXIWAY_DEG,
+  segmentsUnder,
   startNodes,
   WRONG_WAY_PENALTY_M,
   type Graph,
@@ -100,6 +102,32 @@ function fromAircraft(graph: Graph, from: { lat: number; lon: number }, line: Tr
   return first && graph.distanceM(from.lat, from.lon, first[1], first[0]) > 1
     ? [[from.lon, from.lat], ...line]
     : line
+}
+
+/**
+ * The next network point along the taxiway the aircraft is driving along, however far ahead: of the segments within ON_TAXIWAY_M,
+ * the one the nose follows most closely (within ON_TAXIWAY_DEG). Not simply the nearest: just past a junction, the start of a fillet
+ * leaving the taxiway at a shallow angle can be nearer than the taxiway itself (VHHH flight 253's arrival).
+ *
+ * @param graph The graph.
+ * @param at The aircraft's position.
+ * @param headingDeg Its true heading.
+ * @returns The point and its distance, or null when the aircraft isn't driving along a segment or its end is behind.
+ */
+export function nodeAheadOnTaxiway(
+  graph: Graph,
+  at: { lat: number; lon: number },
+  headingDeg: number
+): { node: number; distanceM: number } | null {
+  const along = segmentsUnder(graph, at, headingDeg)
+    .filter((s) => s.offDeg <= ON_TAXIWAY_DEG)
+    .sort((x, y) => x.offDeg - y.offDeg || x.distanceM - y.distanceM)[0]
+  if (!along) return null
+  const node = itemAt(graph.nodes, along.ahead, 'taxi node')
+  const cosLat = Math.cos((at.lat * Math.PI) / 180)
+  const bearing = (Math.atan2((node.lon - at.lon) * cosLat, node.lat - at.lat) * 180) / Math.PI
+  if (angleBetweenDeg(bearing, headingDeg) > 90) return null
+  return { node: along.ahead, distanceM: graph.distanceM(at.lat, at.lon, node.lat, node.lon) }
 }
 
 /**
