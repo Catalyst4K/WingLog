@@ -6,9 +6,13 @@
  * A shortest path (Dijkstra) over (node, stage) states, where the stage is how far through the cleared taxiway sequence
  * the route has got. Built around these findings in real facility data (VHHH):
  * - Segments join at shared TAXI_POINTs, so identical endpoint coordinates are the graph's nodes.
- * - The sim's taxiway names don't always match ATC's: VHHH's scenery calls the 137 m stretch between B and B10 "B12",
- *   which the clearance never mentions. Segments with an unlisted name are allowed, at `OFF_ROUTE_COST_FACTOR` times
- *   their length, so the cleared names win but a short scenery-naming gap doesn't break the trace.
+ * - A clearance names the taxiways driven along, not the short links between them (winglog-backend's
+ *   docs/plans/taxi-routing-rules.md): "U, V, H, J" at VHHH was driven U, U1, V, H, H6, J. A stretch of other taxiways between
+ *   two cleared ones, no longer than LINK_MAX_M in all, is such a link and costs its plain length, so the route is the shortest
+ *   through the cleared taxiways, as ATC planned it (VHHH's "C, D, C, F" takes the link to D and the inside of the bend, where
+ *   pricing the link higher kept the route on C and found a D on the roundabout's arcs instead). Any other segment with an
+ *   unlisted name is allowed at `OFF_ROUTE_COST_FACTOR` times its length, so the cleared names win but a scenery-naming gap
+ *   doesn't break the trace.
  * - Unnamed segments (junction fillets, stand lead-ins) cost their plain length. So does any segment before the route
  *   reaches its first cleared taxiway: getting from the stand to the cleared route is the pilot's choice.
  *
@@ -25,17 +29,40 @@
  */
 
 import type { NavdataTaxiSegment } from '@shared/ipc'
-import { flatDistanceM, toLocalXy } from '@shared/geo'
+import { flatDistanceM, pointToSegmentM } from '@shared/geo'
 import { itemAt } from '@shared/item-at'
 import { MinQueue } from './min-queue'
+import { edgeKey, linksBetween } from './taxi-route-links'
 import { furthestBackHold, type RunwayThreshold } from './taxi-runway-hold'
 
 const OFF_ROUTE_COST_FACTOR = 5
+/** What taking a link costs on top of its length: where two cleared taxiways meet, the route switches there rather than by a link
+ *  (VHHH's "C, F" through the C/D/F roundabout's C arcs, as Callum drove it, not by E and F7 35 m shorter), and of two parallel
+ *  taxiways the route stays on the cleared one rather than hopping across and back (flight 250's "D, C, F": D all the way to the
+ *  roundabout, not D9 to C). */
+export const LINK_PENALTY_M = 200
+/** How much more a metre of a cleared taxiway costs while another is still to come, so the route moves on at the first chance when
+ *  two ways are otherwise equal. Small against LINK_PENALTY_M: 2.6 km of VHHH's D costs 52 m more, not enough to hop to C by a link. */
+const FIRST_CHANCE_BIAS = 0.02
+/** The most an airliner's heading can change over TURN_WINDOW_M of taxiing: with a turning radius of about 25 m, 60 m of path turns it
+ *  137° at most. More than that is a hairpin or a turn on the spot, however finely the network splits it: VHHH flight 253's line lapped
+ *  the C/D/F roundabout through turns of 150° and 170°, flight 243's turned round on B9 by 124° then 107° 11 m apart, through a
+ *  stand's lead-in lines. A real turn, through a junction's fillet or round VHHH's U1 (180° in 110 m), stays within it. */
+export const TURN_WINDOW_MAX_DEG = 135
+export const TURN_WINDOW_M = 60
+/** What each degree of turning past TURN_WINDOW_MAX_DEG costs, in metres: turning right round on the spot costs about as much as
+ *  starting backwards (WRONG_WAY_PENALTY_M), so neither is taken while a drivable way exists, and a line that has to go the other
+ *  way from the nose (just pushed back facing away from the cleared route) starts from the aircraft along the cleared way. */
+export const TURN_COST_M_PER_DEG = 60
 /** How far a stand's own point may be from the taxi network's nearest point (its lead-in line
  *  normally ends right at it). */
 const MAX_STAND_LINK_M = 150
 /** How far the aircraft may be from the nearest taxi-network point to start a trace. */
 const MAX_START_DISTANCE_M = 300
+/** How far ahead of the nose a network point may be to start the route from. VHHH flight 253: the point nearest the aircraft was
+ *  16 m off to the side, on C7's curve west onto C; the curve east, the way it went, started 26 m ahead. In 19 of Callum's 23
+ *  recorded taxis a point lies this near ahead; the others (mid-pushback, not yet off the runway) start from the nearest. */
+const START_AHEAD_M = 40
 /** A cleared taxi route longer than this is almost certainly a wrong trace, not a real one. */
 export const MAX_ROUTE_LENGTH_M = 15_000
 /** How near the cleared runway's threshold a holding point's hold short is for the runway to say anything about it. A first hold short
@@ -83,6 +110,9 @@ export interface TaxiTraceRequest {
    *  another taxiway than the last cleared one (RKSI flight 239: "via P8, P, hold short of 34R", crossing at P9, not at P's far
    *  end 1.5 km on). */
   holdShortRunway?: RunwayStrip | null
+  /** Ends a "hold short of runway" route only at a hold short beside that runway, not at the first hold short of the last taxiway.
+   *  Set by the first try; the second drops it for scenery with no hold short beside the runway. */
+  onlyAtRunwayHold?: boolean
 }
 
 interface Edge {
@@ -207,6 +237,71 @@ export function nearestNode({ nodes, distanceM }: Graph, from: { lat: number; lo
 }
 
 /**
+ * Where a route can start: every network point within START_AHEAD_M ahead of the nose (within 90° of the heading), each with its
+ * distance; with none, or no heading, the nearest point.
+ *
+ * @param graph The graph.
+ * @param from The aircraft's position.
+ * @param headingDeg Its true heading, or null.
+ * @returns The start points and how far each is from the aircraft; empty when the aircraft is off the network.
+ */
+export function startNodes(
+  graph: Graph,
+  from: { lat: number; lon: number },
+  headingDeg: number | null
+): { node: number; distanceM: number }[] {
+  const nearest = nearestNode(graph, from)
+  if (nearest < 0) return []
+  const ahead: { node: number; distanceM: number }[] = []
+  if (headingDeg !== null) {
+    const cosLat = Math.cos((from.lat * Math.PI) / 180)
+    for (const [i, node] of graph.nodes.entries()) {
+      const distanceM = graph.distanceM(from.lat, from.lon, node.lat, node.lon)
+      if (distanceM > START_AHEAD_M) continue
+      const bearing = (Math.atan2((node.lon - from.lon) * cosLat, node.lat - from.lat) * 180) / Math.PI
+      if (angleBetweenDeg(bearing, headingDeg) <= 90) ahead.push({ node: i, distanceM })
+    }
+  }
+  return ahead.length > 0 ? ahead : [{ node: nearest, distanceM: 0 }]
+}
+
+/** How near a taxiway's line the aircraft must be, and how closely its nose must follow it, to be driving along it. */
+const ON_TAXIWAY_M = 25
+const ON_TAXIWAY_DEG = 30
+
+/**
+ * The named taxiway the aircraft is driving along: the nearest segment within ON_TAXIWAY_M, if the nose points along it (within
+ * ON_TAXIWAY_DEG). Crossing a taxiway at a junction isn't driving along it.
+ *
+ * @param graph The graph.
+ * @param at The aircraft's position.
+ * @param headingDeg Its true heading.
+ * @returns The taxiway's name, or null.
+ */
+export function taxiwayUnder(
+  graph: Graph,
+  at: { lat: number; lon: number },
+  headingDeg: number
+): string | null {
+  let best: { name: string | null; bearing: number } | null = null
+  let bestDistance = ON_TAXIWAY_M
+  for (const [a, edges] of graph.edges.entries()) {
+    const pa = itemAt(graph.nodes, a, 'taxi node')
+    for (const edge of edges) {
+      if (edge.to < a) continue
+      const d = pointToSegmentM(at, pa, itemAt(graph.nodes, edge.to, 'taxi node'))
+      if (d < bestDistance) {
+        bestDistance = d
+        best = { name: edge.name, bearing: graph.bearingDeg(a, edge.to) }
+      }
+    }
+  }
+  if (!best?.name) return null
+  const off = angleBetweenDeg(best.bearing, headingDeg)
+  return Math.min(off, 180 - off) <= ON_TAXIWAY_DEG ? best.name : null
+}
+
+/**
  * The holding point's hold short beside the cleared runway's threshold. "Holding point A, runway 05L" at EGCC: A runs the length of
  * the runway with a hold short at each end, and the one by the 05L numbers is the holding point; the search reaches the far one
  * first when it comes in from that side.
@@ -277,6 +372,11 @@ export function isWrongWay(graph: Graph, from: number, to: number, headingDeg: n
  * @returns The route, or null if it can't be traced.
  */
 export function traceTaxiRoute(request: TaxiTraceRequest): TracedRoute | null {
+  // "Hold short of runway 07C" at VHHH (flight 253): the first hold short of the last taxiway was beside another runway.
+  if (request.holdShortRunway && !request.onlyAtRunwayHold) {
+    const atRunway = traceTaxiRoute({ ...request, onlyAtRunwayHold: true })
+    if (atRunway) return atRunway
+  }
   if (request.holdingPoint) {
     const plain = { ...request, runwayThreshold: null }
     const first = traceOnce(plain, true)
@@ -358,6 +458,10 @@ interface TraceSearch {
   forcedEnd: number
   /** The runway a hold short is for, or null. */
   holdShortRunway: RunwayStrip | null
+  /** Whether a "hold short of runway" route ends only beside that runway. */
+  onlyAtRunwayHold: boolean
+  /** Per stage, the links on to the next cleared taxiway (edgeKey), worked out when first needed. */
+  links: (Set<number> | undefined)[]
   strictEnd: boolean
   /** Each reached state's best cost, real length driven, and the state it was reached from. */
   cost: Map<number, number>
@@ -412,13 +516,18 @@ function traceOnce(request: TaxiTraceRequest, strictEnd: boolean): TracedRoute |
   const { segments, taxiways, holdingPoint, from } = request
   if (taxiways.length === 0) return null
   if (holdingPoint && !segments.some((s) => s.name === holdingPoint)) return null
+  // A cleared taxiway the scenery has no segment for can't be followed, so the route goes on to the next one: ZUCK's "via M, G, H1"
+  // has only pieces M1 to M4, which don't join into one run (taxi-name-alias.ts).
+  const present = new Set(segments.map((s) => s.name))
+  const followable = taxiways.filter((name) => present.has(name))
+  if (followable.length === 0 && !holdingPoint) return null
 
   const graph = buildGraph(segments, from.lat)
-  const start = nearestNode(graph, from)
-  if (start < 0) return null
+  const starts = startNodes(graph, from, request.headingDeg ?? null)
+  if (starts.length === 0) return null
 
-  const search = newSearch(request, graph, strictEnd)
-  return search && searchRoute(search, start, request)
+  const search = newSearch({ ...request, taxiways: followable }, graph, strictEnd)
+  return search && searchRoute(search, starts, request)
 }
 
 /**
@@ -455,6 +564,8 @@ function newSearch(request: TaxiTraceRequest, graph: Graph, strictEnd: boolean):
     threshold: holdingPoint ? (request.runwayThreshold ?? null) : null,
     forcedEnd: nodeAt(graph, request.holdAt),
     holdShortRunway: holdingPoint ? (request.holdShortRunway ?? null) : null,
+    onlyAtRunwayHold: request.onlyAtRunwayHold === true,
+    links: [],
     strictEnd,
     cost: new Map(),
     realLength: new Map(),
@@ -465,20 +576,21 @@ function newSearch(request: TaxiTraceRequest, graph: Graph, strictEnd: boolean):
 }
 
 /**
- * The Dijkstra search itself, from the aircraft's nearest node.
+ * The Dijkstra search itself, from where the route can start (startNodes).
  *
  * @param search The search, empty.
- * @param start The aircraft's nearest node.
+ * @param starts The start nodes, each with its distance from the aircraft.
  * @param request The clearance, for the aircraft's heading and the stand.
  * @returns The route, or null.
  */
-function searchRoute(search: TraceSearch, start: number, request: TaxiTraceRequest): TracedRoute | null {
+function searchRoute(
+  search: TraceSearch,
+  starts: { node: number; distanceM: number }[],
+  request: TaxiTraceRequest
+): TracedRoute | null {
   const { cost, realLength, queue } = search
   const last = search.sequence.length - 1
-  const startState = stateOf(search, start, -1, -1)
-  cost.set(startState, 0)
-  realLength.set(startState, 0)
-  queue.push(startState, 0)
+  seedStarts(search, starts, request)
 
   while (queue.size > 0) {
     const [state, stateCost] = queue.pop()
@@ -491,26 +603,127 @@ function searchRoute(search: TraceSearch, start: number, request: TaxiTraceReque
         ? null
         : routeTo(search, state, request.stand ?? null)
     }
-
-    // No immediate U-turns: without this, a clearance whose next taxiway is only touched at a
-    // junction gets "satisfied" by driving out along it and straight back.
-    const cameFromNode = cameFromNodeOf(search, state)
-    for (const edge of edgesOf(search.graph, node)) {
-      if (edge.to === cameFromNode) continue
-      const wrongWay =
-        state === startState && isWrongWay(search.graph, node, edge.to, request.headingDeg ?? null)
-      for (const [nextStage, edgeCost] of edgeMoves(search, stage, edge)) {
-        relax(
-          search,
-          state,
-          stateOf(search, edge.to, nextStage, node),
-          stateCost + edgeCost + (wrongWay ? WRONG_WAY_PENALTY_M : 0),
-          edge.lengthM
-        )
-      }
-    }
+    expand(search, [state, stateCost], [node, stage], request.headingDeg ?? null)
   }
   return null
+}
+
+/**
+ * Puts the route's possible starts in the queue: each start node before the first cleared taxiway, and also part-way through the
+ * clearance when the aircraft is already driving along one of its taxiways (VHHH flight 253's "via F7, A, B, W" came at F7's hold
+ * short, and EGCC flight 243's full "via VC, V, U, BZ, B, ..." again once on BZ): the route goes on from there rather than back round
+ * to drive the ones before it.
+ *
+ * @param search The search, empty.
+ * @param starts The start nodes, each with its distance from the aircraft.
+ * @param request The clearance, for the aircraft's position and heading.
+ */
+function seedStarts(
+  search: TraceSearch,
+  starts: { node: number; distanceM: number }[],
+  request: TaxiTraceRequest
+): void {
+  const heading = request.headingDeg ?? null
+  const under = heading === null ? null : taxiwayUnder(search.graph, request.from, heading)
+  const onStage = under === null ? -1 : search.sequence.indexOf(under)
+  for (const { node, distanceM } of starts) {
+    for (const stage of onStage >= 0 ? [-1, onStage] : [-1]) {
+      const startState = stateOf(search, node, stage, -1)
+      search.cost.set(startState, distanceM)
+      search.realLength.set(startState, 0)
+      search.queue.push(startState, distanceM)
+    }
+  }
+}
+
+/**
+ * Relaxes every edge out of a state.
+ *
+ * @param search The search.
+ * @param stateAndCost The state and its cost.
+ * @param nodeAndStage Its node and stage.
+ * @param headingDeg The aircraft's heading, for the first edge, or null.
+ */
+function expand(
+  search: TraceSearch,
+  [state, stateCost]: [number, number],
+  [node, stage]: [number, number],
+  headingDeg: number | null
+): void {
+  // No immediate U-turns: without this, a clearance whose next taxiway is only touched at a
+  // junction gets "satisfied" by driving out along it and straight back.
+  const cameFromNode = cameFromNodeOf(search, state)
+  const turned = turnedBefore(search, state)
+  for (const edge of edgesOf(search.graph, node)) {
+    if (edge.to === cameFromNode) continue
+    const wrongWay = cameFromNode < 0 && isWrongWay(search.graph, node, edge.to, headingDeg)
+    const penalty =
+      (wrongWay ? WRONG_WAY_PENALTY_M : 0) + turnCost(search.graph, turned, [cameFromNode, node, edge.to])
+    for (const [nextStage, edgeCost] of edgeMoves(search, stage, [cameFromNode, node], edge)) {
+      relax(
+        search,
+        state,
+        stateOf(search, edge.to, nextStage, node),
+        stateCost + edgeCost + penalty,
+        edge.lengthM
+      )
+    }
+  }
+}
+
+/**
+ * How much the route to a state has turned at its points within TURN_WINDOW_M back of it, not counting the state's own node.
+ *
+ * @param search The search.
+ * @param state A state taken from the queue, so the route to it is final.
+ * @returns The turning, degrees.
+ */
+function turnedBefore(search: TraceSearch, state: number): number {
+  const { graph, previous } = search
+  const nodes = [nodeOfState(search, state)]
+  let distance = 0
+  for (let s = previous.get(state); s !== undefined && distance < TURN_WINDOW_M; s = previous.get(s)) {
+    const n = nodeOfState(search, s)
+    const a = itemAt(graph.nodes, itemAt(nodes, nodes.length - 1, 'route node'), 'taxi node')
+    const b = itemAt(graph.nodes, n, 'taxi node')
+    distance += graph.distanceM(a.lat, a.lon, b.lat, b.lon)
+    nodes.push(n)
+  }
+  let turned = 0
+  for (let i = 1; i + 1 < nodes.length; i++)
+    turned += turnAt(graph, [
+      itemAt(nodes, i + 1, 'route node'),
+      itemAt(nodes, i, 'route node'),
+      itemAt(nodes, i - 1, 'route node')
+    ])
+  return turned
+}
+
+/**
+ * @param graph The graph.
+ * @param nodes A node before, the node turned at, and a node after.
+ * @returns How far the route turns there, degrees; 0 where either segment is too short to have a direction.
+ */
+function turnAt(graph: Graph, [from, node, to]: [number, number, number]): number {
+  const a = itemAt(graph.nodes, from, 'taxi node')
+  const b = itemAt(graph.nodes, node, 'taxi node')
+  const c = itemAt(graph.nodes, to, 'taxi node')
+  if (graph.distanceM(a.lat, a.lon, b.lat, b.lon) < 0.5 || graph.distanceM(b.lat, b.lon, c.lat, c.lon) < 0.5)
+    return 0
+  return angleBetweenDeg(graph.bearingDeg(from, node), graph.bearingDeg(node, to))
+}
+
+/**
+ * What going on to the next node costs for turning more than an airliner can (TURN_WINDOW_MAX_DEG over TURN_WINDOW_M).
+ *
+ * @param graph The graph.
+ * @param turned How much the route has turned within TURN_WINDOW_M before the node (turnedBefore).
+ * @param nodes The node come from (-1 at the start), the node, and the node gone on to.
+ * @returns The cost in metres, 0 within the limit.
+ */
+function turnCost(graph: Graph, turned: number, [from, node, to]: [number, number, number]): number {
+  const total = turned + (from < 0 ? 0 : turnAt(graph, [from, node, to]))
+  return Math.max(0, total - TURN_WINDOW_MAX_DEG) * TURN_COST_M_PER_DEG
 }
 
 /**
@@ -535,24 +748,65 @@ function relax(search: TraceSearch, state: number, next: number, nextCost: numbe
  *
  * @param search The search.
  * @param stage The current stage.
+ * @param from The node the edge leaves, and the node before it (-1 at the start).
  * @param edge The edge.
  * @returns Each [next stage, cost].
  */
-function edgeMoves(search: TraceSearch, stage: number, edge: Edge): [number, number][] {
+function edgeMoves(
+  search: TraceSearch,
+  stage: number,
+  [before, from]: [number, number],
+  edge: Edge
+): [number, number][] {
   const { sequence, standNode } = search
   const moves: [number, number][] = []
   const nextName = sequence[stage + 1]
   if (edge.name !== null && edge.name === nextName) moves.push([stage + 1, edge.lengthM])
-  if (edge.name === null || (stage >= 0 && edge.name === sequence[stage])) moves.push([stage, edge.lengthM])
+  // On a cleared taxiway with another to come, a little more than its length: of two parallel ways that are otherwise equal, the
+  // route joins the next taxiway at the first chance, as Callum read "H, J" at VHHH (flight 238: onto J at the first link, H6).
+  if (stage >= 0 && edge.name === sequence[stage])
+    moves.push([stage, edge.lengthM * (stage < sequence.length - 1 ? 1 + FIRST_CHANCE_BIAS : 1)])
+  else if (edge.name === null) moves.push([stage, edge.lengthM])
   // Before the first cleared taxiway, how to get there is the pilot's choice, so a named taxilane costs its plain length
   // like an unnamed lead-in: at 5×, the line zigzagged through every gate lead-in beside B8 instead of straight along it.
   // The same at the other end of a stand clearance, from the last cleared taxiway to the stand: the gate taxilane (B7
   // for N32) isn't named by ATC, so at 5× the line hopped in and out of every gate lead-in along it.
   else if (edge.name !== nextName) {
     const pilotsChoice = stage < 0 || (standNode >= 0 && stage === sequence.length - 1)
-    moves.push([stage, pilotsChoice ? edge.lengthM : edge.lengthM * OFF_ROUTE_COST_FACTOR])
+    if (pilotsChoice) moves.push([stage, edge.lengthM])
+    else if (isLink(search, stage, from, edge.to)) {
+      // Charged once, as the route turns off onto the link; nothing for the last leg to a runway's hold short.
+      const turnsOff = stage < sequence.length - 1 && (before < 0 || !isLink(search, stage, before, from))
+      moves.push([stage, edge.lengthM + (turnsOff ? LINK_PENALTY_M : 0)])
+    } else moves.push([stage, edge.lengthM * OFF_ROUTE_COST_FACTOR])
   }
   return moves
+}
+
+/**
+ * Whether an edge is part of a link from the stage's taxiway to the next cleared one (LINK_MAX_M), or, for a "hold short of runway"
+ * clearance's last taxiway, of a last leg from it to the hold short: VHHH flight 253's hold short of 07C was 62 m down F7 from F.
+ *
+ * @param search The search.
+ * @param stage The current stage.
+ * @param a The edge's start.
+ * @param b Its end.
+ * @returns True if it is.
+ */
+function isLink(search: TraceSearch, stage: number, a: number, b: number): boolean {
+  const { graph, sequence } = search
+  const last = sequence.length - 1
+  if (stage < 0 || stage > last || (stage === last && !search.holdShortRunway)) return false
+  let links = search.links[stage]
+  if (!links) {
+    const from = itemAt(sequence, stage, 'stage')
+    links =
+      stage === last
+        ? linksBetween(graph, from, null)
+        : linksBetween(graph, from, itemAt(sequence, stage + 1, 'stage'))
+    search.links[stage] = links
+  }
+  return links.has(edgeKey(graph, a, b))
 }
 
 /**
@@ -569,6 +823,7 @@ function isRouteEnd(search: TraceSearch, state: number, node: number): boolean {
   const cameFromNode = cameFromNodeOf(search, state)
   const edges = edgesOf(graph, node)
   if (endsAtRunwayHold(search, node)) return true
+  if (search.onlyAtRunwayHold) return false
   // A hold short on the holding point's own taxiway ends the route however it was reached: RKSI's P runs on through a junction
   // by an unnamed fillet, so insisting on arriving by a P edge sent the line right round the junction to come back into it.
   if (edges.some((e) => e.name === holdingPoint)) {
@@ -659,224 +914,4 @@ function routeTo(
   route.reverse()
   if (stand && search.standNode >= 0) route.push([stand.lon, stand.lat])
   return route
-}
-
-export interface RejoinRequest {
-  segments: NavdataTaxiSegment[]
-  /** The cleared route as first traced: what a re-route joins back onto. */
-  route: TracedRoute
-  /** The furthest segment of `route` the aircraft has driven; it only rejoins from there on. */
-  fromSegment: number
-  from: { lat: number; lon: number }
-  /** As TaxiTraceRequest's: the route prefers to start forwards. */
-  headingDeg?: number | null
-}
-
-/**
- * A re-route (winglog-backend's docs/plans/taxi-reroute.md): the shortest total way from the aircraft to the end of the
- * cleared route, joining it at whichever of its points makes that shortest and then following it. Getting to the route
- * costs plain distance on any taxiway; pulling the pilot back to the next cleared taxiway instead pointed back along
- * the route for a whole taxi while the aircraft went the other way to the same hold.
- *
- * Joins only from `fromSegment` on, so never back onto a part already driven. The end (the hold or the stand) is always
- * the original route's. Null when the aircraft is off the network or nothing joins.
- *
- * @param request The network, the cleared route, how far along it the aircraft is, and where it is.
- * @returns The new route, or null.
- */
-export function rejoinTaxiRoute({
-  segments,
-  route,
-  fromSegment,
-  from,
-  headingDeg = null
-}: RejoinRequest): TracedRoute | null {
-  if (route.length < 2) return null
-  const graph = buildGraph(segments, from.lat)
-  const start = nearestNode(graph, from)
-  if (start < 0) return null
-
-  // Plain-distance Dijkstra over the whole network from the aircraft (a few ms even at VHHH).
-  const { cost, previous } = shortestPathsFrom(graph, start, headingDeg)
-  const best = bestJoin(graph, route, fromSegment, cost)
-  if (best.index < 0 || best.total > MAX_ROUTE_LENGTH_M + WRONG_WAY_PENALTY_M) return null
-
-  const nodes: number[] = []
-  for (let n = best.node; n !== -1; n = itemAt(previous, n, 'taxi node')) nodes.push(n)
-  nodes.reverse()
-  // The way back ends where it first meets the cleared route, which is followed from there: the shortest way may run on past
-  // cleared taxiways to a join near the end, skipping the stretch ATC cleared (EGLL flight 239's last leg).
-  const onRoute = firstOnRoute(graph, nodes, route, fromSegment, best.index)
-  const path: TracedRoute = nodes.slice(0, onRoute.at + 1).map((n) => {
-    const node = itemAt(graph.nodes, n, 'taxi node')
-    return [node.lon, node.lat]
-  })
-  return [...path, ...route.slice(onRoute.index + 1)]
-}
-
-/**
- * Where a way back first meets the cleared route.
- *
- * @param graph The graph.
- * @param nodes The way back, from the aircraft's node to its join.
- * @param route The cleared route.
- * @param fromSegment The furthest segment driven; only later points count.
- * @param joinIndex The route index of the way back's last node, used if no earlier node is on the route.
- * @returns The position in `nodes` of the first node on the route, and that node's (first) index in `route`.
- */
-function firstOnRoute(
-  graph: Graph,
-  nodes: number[],
-  route: TracedRoute,
-  fromSegment: number,
-  joinIndex: number
-): { at: number; index: number } {
-  const indexOf = new Map<number, number>()
-  for (let i = Math.max(0, fromSegment); i < route.length; i++) {
-    const [lon, lat] = itemAt(route, i, 'route point')
-    const node = graph.nodeIndex.get(nodeKey(lat, lon))
-    if (node !== undefined && !indexOf.has(node)) indexOf.set(node, i)
-  }
-  for (const [at, n] of nodes.entries()) {
-    const index = indexOf.get(n)
-    if (index !== undefined) return { at, index }
-  }
-  return { at: nodes.length - 1, index: joinIndex }
-}
-
-/**
- * Plain-distance shortest paths from one node to every other, with the wrong-way penalty on
- * the first edge.
- *
- * @param graph The graph.
- * @param start The start node.
- * @param headingDeg The aircraft's heading, or null.
- * @returns Each node's cost and the node it was reached from (-1 for none).
- */
-function shortestPathsFrom(
-  graph: Graph,
-  start: number,
-  headingDeg: number | null
-): { cost: number[]; previous: number[] } {
-  const cost = new Array<number>(graph.nodes.length).fill(Infinity)
-  const previous = new Array<number>(graph.nodes.length).fill(-1)
-  cost[start] = 0
-  const queue = new MinQueue()
-  queue.push(start, 0)
-  while (queue.size > 0) {
-    const [node, nodeCost] = queue.pop()
-    if (nodeCost > itemAt(cost, node, 'taxi node')) continue
-    for (const edge of edgesOf(graph, node)) {
-      const wrongWay = node === start && isWrongWay(graph, node, edge.to, headingDeg)
-      const nextCost = nodeCost + edge.lengthM + (wrongWay ? WRONG_WAY_PENALTY_M : 0)
-      if (nextCost >= itemAt(cost, edge.to, 'taxi node')) continue
-      cost[edge.to] = nextCost
-      previous[edge.to] = node
-      queue.push(edge.to, nextCost)
-    }
-  }
-  return { cost, previous }
-}
-
-/**
- * Where to join the cleared route: the point, from `fromSegment` on, with the least distance
- * to it plus distance left along the route after it.
- *
- * @param graph The graph.
- * @param route The cleared route.
- * @param fromSegment The furthest segment driven.
- * @param cost Each node's distance from the aircraft.
- * @returns The point's index in `route`, its node, and the total; index -1 when none joins.
- */
-function bestJoin(
-  graph: Graph,
-  route: TracedRoute,
-  fromSegment: number,
-  cost: number[]
-): { index: number; node: number; total: number } {
-  // Distance left along the route from each of its points to the end.
-  const remainingFrom: number[] = new Array<number>(route.length).fill(0)
-  for (let i = route.length - 2; i >= 0; i--) {
-    const [aLon, aLat] = itemAt(route, i, 'route point')
-    const [bLon, bLat] = itemAt(route, i + 1, 'route point')
-    remainingFrom[i] = itemAt(remainingFrom, i + 1, 'route point') + graph.distanceM(aLat, aLon, bLat, bLon)
-  }
-
-  let best = { index: -1, node: -1, total: Infinity }
-  for (let i = Math.max(0, fromSegment); i < route.length; i++) {
-    const [lon, lat] = itemAt(route, i, 'route point')
-    const node = graph.nodeIndex.get(nodeKey(lat, lon))
-    if (node === undefined) continue // a stand's own point, not on the network
-    const total = itemAt(cost, node, 'taxi node') + itemAt(remainingFrom, i, 'route point')
-    if (total < best.total) best = { index: i, node, total }
-  }
-  return best
-}
-
-export interface RemainingRoute {
-  line: TracedRoute
-  /** The segment of `route` nearest the aircraft (`route[segment]` → `route[segment + 1]`). */
-  segment: number
-  /** How far the aircraft is from that segment, in metres. */
-  distanceM: number
-  /** That segment's direction of travel, degrees true; null for a zero-length one. */
-  bearingDeg: number | null
-}
-
-/** Beyond this from the traced line, the aircraft isn't following it — the line is left as is. */
-const MAX_FOLLOW_DISTANCE_M = 150
-
-/**
- * What's left of a traced route from the aircraft, drawn from the aircraft itself: the line starts at the plane, and the
- * part already taxied drops away. `fromSegment` is the furthest segment reached so far: the search never goes back, so a
- * route passing close to itself can't jump backwards.
- *
- * @param route The traced route.
- * @param position The aircraft's position.
- * @param fromSegment The furthest segment reached so far.
- * @returns The route left, from the aircraft.
- */
-export function remainingRoute(
-  route: TracedRoute,
-  position: { lat: number; lon: number },
-  fromSegment = 0
-): RemainingRoute {
-  if (route.length < 2) return { line: route, segment: 0, distanceM: 0, bearingDeg: null }
-  const toXy = ([lon, lat]: [number, number]): [number, number] => {
-    const { x, y } = toLocalXy({ lat, lon }, position.lat)
-    return [x, y]
-  }
-  const point = (i: number): [number, number] => itemAt(route, i, 'route point')
-  const [px, py] = toXy([position.lon, position.lat])
-
-  let best = { segment: fromSegment, distance: Infinity, point: point(fromSegment) }
-  for (let i = fromSegment; i < route.length - 1; i++) {
-    const [ax, ay] = toXy(point(i))
-    const [bx, by] = toXy(point(i + 1))
-    const lengthSq = (bx - ax) ** 2 + (by - ay) ** 2
-    const t =
-      lengthSq === 0
-        ? 0
-        : Math.max(0, Math.min(1, ((px - ax) * (bx - ax) + (py - ay) * (by - ay)) / lengthSq))
-    const distance = Math.hypot(px - (ax + t * (bx - ax)), py - (ay + t * (by - ay)))
-    if (distance < best.distance) {
-      const [aLon, aLat] = point(i)
-      const [bLon, bLat] = point(i + 1)
-      best = { segment: i, distance, point: [aLon + t * (bLon - aLon), aLat + t * (bLat - aLat)] }
-    }
-  }
-  let bearingDeg: number | null = null
-  if (best.segment + 1 < route.length) {
-    const [aX, aY] = toXy(point(best.segment))
-    const [bX, bY] = toXy(point(best.segment + 1))
-    if (aX !== bX || aY !== bY) bearingDeg = ((Math.atan2(bX - aX, bY - aY) * 180) / Math.PI + 360) % 360
-  }
-  if (best.distance > MAX_FOLLOW_DISTANCE_M) {
-    return { line: route.slice(fromSegment), segment: fromSegment, distanceM: best.distance, bearingDeg }
-  }
-  const rest = route.slice(best.segment + 1)
-  // Already on the line: no zero-length join from the aircraft to itself.
-  const line: TracedRoute =
-    best.distance < 0.5 ? [best.point, ...rest] : [[position.lon, position.lat], best.point, ...rest]
-  return { line, segment: best.segment, distanceM: best.distance, bearingDeg }
 }

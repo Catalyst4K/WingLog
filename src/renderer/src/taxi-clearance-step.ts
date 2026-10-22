@@ -44,14 +44,14 @@ export function isDeparted(phase: FlightPhase | null): boolean {
  *
  * @param memory What's been read so far.
  * @param infoBoxes BeyondATC's InfoBoxes now.
- * @param position The aircraft's position now, where the clearance starts.
+ * @param position The aircraft's position and heading now, where the clearance starts.
  * @param nowMs The current time, epoch ms.
  * @returns The memory after, and the new clearance, or null when the boxes hold no new taxi clearance.
  */
 export function stepTaxiBoxes(
   memory: TaxiMemory,
   infoBoxes: BeyondAtcInfoBox[],
-  position: { lat: number; lon: number } | null,
+  position: { lat: number; lon: number; headingDeg?: number } | null,
   nowMs: number
 ): { memory: TaxiMemory; clearance: TaxiClearance | null } {
   const box = boxTaxiClearance(infoBoxes)

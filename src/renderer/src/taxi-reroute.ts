@@ -1,14 +1,8 @@
 /** When and how a traced taxi line is re-traced from where the aircraft is. */
 
 import type { FlightPhase, NavdataTaxiSegment } from '@shared/ipc'
-import {
-  angleBetweenDeg,
-  rejoinTaxiRoute,
-  remainingRoute,
-  WRONG_WAY_DEG,
-  type RemainingRoute,
-  type TracedRoute
-} from './taxi-route-trace'
+import { rejoinTaxiRoute, remainingRoute, type RemainingRoute } from './taxi-route-rejoin'
+import { angleBetweenDeg, WRONG_WAY_DEG, type TracedRoute } from './taxi-route-trace'
 import { flatDistanceM } from '@shared/geo'
 
 /**

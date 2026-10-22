@@ -165,13 +165,24 @@ describe('traceWithFallback', () => {
     expect(exact?.match).toEqual({ absent: [], notFollowed: [] })
   })
 
-  it('falls back to the pathfinder when a cleared taxiway is in the data nowhere near the aircraft route, and says what did not match', () => {
+  it('traces on past a cleared taxiway the data lacks, and says it is absent', () => {
     const withoutW = NETWORK.filter((s) => s.name !== 'W')
+    const traced = traceWithFallback(request({ segments: withoutW, taxiways: ['Q', 'G', 'H1'] }))
+    expect(traced?.kind).toBe('exact')
+    expect(traced?.route[0]).toEqual(lonLat(P0))
+    expect(traced?.route.at(-1)).toEqual(lonLat(P5))
+    expect(traced?.match).toEqual({ absent: ['Q'], notFollowed: [] })
+  })
+
+  it('falls back to the pathfinder when a cleared taxiway is in the data but nowhere the route can reach, and says what did not match', () => {
+    // Q is a piece of taxiway on its own, joined to nothing.
+    const island = seg([29.7, 106.7], [29.7005, 106.7], 'Q')
+    const withoutW = [...NETWORK.filter((s) => s.name !== 'W'), island]
     const fallback = traceWithFallback(request({ segments: withoutW, taxiways: ['Q', 'G', 'H1'] }))
     expect(fallback?.kind).toBe('pathfinder')
     expect(fallback?.route[0]).toEqual(lonLat(P0))
     expect(fallback?.route.at(-1)).toEqual(lonLat(P5))
-    expect(fallback?.match).toEqual({ absent: ['Q'], notFollowed: [] })
+    expect(fallback?.match).toEqual({ absent: [], notFollowed: ['Q'] })
   })
 
   it('has nothing when neither way works', () => {

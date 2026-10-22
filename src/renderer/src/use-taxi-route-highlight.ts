@@ -113,12 +113,12 @@ export interface UseTaxiRouteHighlightArgs {
  * Takes the clearance from a new set of taxi boxes into the remembered state.
  *
  * @param state BeyondATC's state.
- * @param position The aircraft's position now, where the clearance starts.
+ * @param position The aircraft's position and heading now, where the clearance starts.
  * @param setClearance Sets the hook's clearance.
  */
 function ingestBoxes(
   state: BeyondAtcState,
-  position: { lat: number; lon: number } | null,
+  position: { lat: number; lon: number; headingDeg?: number } | null,
   setClearance: (clearance: TaxiClearance) => void
 ): void {
   const result = stepTaxiBoxes(uiMemory().taxiRoute, state.infoBoxes, position, Date.now())

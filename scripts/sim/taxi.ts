@@ -28,8 +28,8 @@ import {
   type TaxiClearance
 } from '../../src/renderer/src/taxi-clearance'
 import { findTaxiPath } from '../../src/renderer/src/taxi-fallback'
+import { remainingRoute } from '../../src/renderer/src/taxi-route-rejoin'
 import {
-  remainingRoute,
   traceTaxiRoute,
   traceTaxiRouteFromFirstTaxiway,
   type TaxiTraceRequest,

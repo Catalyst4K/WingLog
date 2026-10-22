@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { FlightPhase, NavdataTaxiSegment } from '@shared/ipc'
-import { angleBetweenDeg, remainingRoute, traceTaxiRoute, type TracedRoute } from './taxi-route-trace'
+import { remainingRoute } from './taxi-route-rejoin'
+import { angleBetweenDeg, traceTaxiRoute, type TracedRoute } from './taxi-route-trace'
 import {
   checkDeviation,
   INITIAL_DEVIATION,

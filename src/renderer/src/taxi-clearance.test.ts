@@ -1,6 +1,12 @@
 import type { NavdataTaxiSegment } from '@shared/ipc'
 import { describe, expect, it } from 'vitest'
-import { boxTaxiClearance, clearanceAirport, startOf, traceClearance } from './taxi-clearance'
+import {
+  boxTaxiClearance,
+  clearanceAirport,
+  clearanceRequest,
+  startOf,
+  traceClearance
+} from './taxi-clearance'
 
 describe('boxTaxiClearance', () => {
   it('reads a departure clearance to a holding point (real VHHH boxes, 2026-10-05)', () => {
@@ -71,9 +77,38 @@ describe('boxTaxiClearance', () => {
 })
 
 describe('startOf', () => {
-  it('starts from the aircraft, whichever way it faces', () => {
+  it('starts from the aircraft, and keeps which way its nose points when that is known', () => {
     expect(startOf({ lat: 22.3089, lon: 113.9146 })).toEqual({ from: { lat: 22.3089, lon: 113.9146 } })
+    expect(startOf({ lat: 22.3268, lon: 113.9019, headingDeg: 100.7 })).toEqual({
+      from: { lat: 22.3268, lon: 113.9019, headingDeg: 100.7 }
+    })
     expect(startOf(null)).toEqual({ from: null })
+  })
+})
+
+describe('clearanceRequest', () => {
+  const clearance = {
+    taxiways: ['C7', 'C', 'D', 'C', 'F'],
+    holdingPoint: null,
+    stand: null,
+    holdShortRunway: '07C',
+    taxiToRunway: null
+  }
+
+  it('starts the trace the way the nose pointed when the clearance arrived (VHHH flight 253: 101°, east along C)', () => {
+    const request = clearanceRequest(
+      { ...clearance, from: { lat: 22.3268, lon: 113.9019, headingDeg: 100.7 } },
+      [],
+      null
+    )
+    expect(request?.from).toEqual({ lat: 22.3268, lon: 113.9019 })
+    expect(request?.headingDeg).toBe(100.7)
+  })
+
+  it('has no preference when the heading is not known', () => {
+    expect(
+      clearanceRequest({ ...clearance, from: { lat: 22.3268, lon: 113.9019 } }, [], null)?.headingDeg
+    ).toBeNull()
   })
 })
 
