@@ -63,6 +63,7 @@ import { createUpdaterEngine } from './updates/updater-engine'
 import { LiveHub } from './live/LiveHub'
 import { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
 import { wireFlightNavdata } from './navdata/wire-flight-navdata'
+import { startTaxiRoute } from './taxi/start-taxi-route'
 import { SimAirfieldResolver } from './airports/sim-airfield'
 import { TrackingController } from './tracking/TrackingController'
 import { AutoStartDetector } from './tracking/AutoStartDetector'
@@ -375,6 +376,10 @@ function startApp(): void {
   // fetcher gets the shown flight's runways, procedures and taxi charts through it, whichever screen is open.
   const navdataProvider = new SimFacilitiesProvider(db)
   const flightNavdata = wireFlightNavdata({ db, sim, trackingController, provider: navdataProvider })
+  app.on(
+    'before-quit',
+    startTaxiRoute(ipcMain, { db, liveHub, trackingController, navdata: navdataProvider })
+  )
 
   const trackingDeps = {
     db,

@@ -11,6 +11,7 @@ const SUBSCRIBERS: Record<Exclude<LiveTopic, 'plannedRoute'>, keyof WingLogApi> 
   trackingPoint: 'onTrackingPoint',
   trackingPointsUpdated: 'onTrackingPointsUpdated',
   procedureSelection: 'onProcedureSelection',
+  taxiRoute: 'onTaxiRoute',
   storageStatus: 'onStorageStatus',
   gsxRemoteStatus: 'onGsxRemoteStatus',
   gsxRemoteServices: 'onGsxRemoteServices',

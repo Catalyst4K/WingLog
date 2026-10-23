@@ -44,6 +44,7 @@ import {
   type WeightUnit,
   type WindSpeedUnit
 } from '@shared/ipc'
+import type { TaxiRoute } from '@shared/live'
 
 const api: WingLogApi = {
   aircraftList: () => ipcRenderer.invoke(IpcChannels.aircraftList),
@@ -140,6 +141,12 @@ const api: WingLogApi = {
       listener(selection)
     ipcRenderer.on(IpcChannels.procedureSelection, handler)
     return () => ipcRenderer.removeListener(IpcChannels.procedureSelection, handler)
+  },
+  getTaxiRoute: () => ipcRenderer.invoke(IpcChannels.taxiRouteGet),
+  onTaxiRoute: (listener: (route: TaxiRoute | null) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, route: TaxiRoute | null): void => listener(route)
+    ipcRenderer.on(IpcChannels.taxiRoute, handler)
+    return () => ipcRenderer.removeListener(IpcChannels.taxiRoute, handler)
   },
   logbookListCompletedFlights: () => ipcRenderer.invoke(IpcChannels.logbookListCompletedFlights),
   logbookGetFlight: (id: number) => ipcRenderer.invoke(IpcChannels.logbookGetFlight, id),

@@ -112,7 +112,7 @@ export class SimFacilitiesProvider implements NavdataProvider {
   private readonly refreshedListeners = new Set<(icao: string) => void>()
 
   /**
-   * @param listener Called with an airport's code each time its navdata has been refreshed from the sim.
+   * @param listener Called with an airport's code each time its runways and procedures, or its taxi network, have been refreshed from the sim.
    * @returns A function that stops it.
    */
   onAirportRefreshed(listener: (icao: string) => void): () => void {
@@ -181,6 +181,7 @@ export class SimFacilitiesProvider implements NavdataProvider {
         return
       }
       replaceAirportTaxiSegments(this.db, icao, fetched, this.now().toISOString())
+      for (const listener of this.refreshedListeners) listener(icao)
     } finally {
       handle.close()
     }

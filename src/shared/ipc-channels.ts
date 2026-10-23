@@ -55,6 +55,8 @@ export const IpcChannels = {
   trackingPoint: 'tracking:point',
   trackingPointsUpdated: 'tracking:points-updated',
   procedureSelection: 'tracking:procedure-selection',
+  taxiRoute: 'taxi:route',
+  taxiRouteGet: 'taxi:route-get',
   storageStatus: 'storage:status',
   storageGetStatus: 'storage:get-status',
   trackPointList: 'track-point:list',
