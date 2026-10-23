@@ -39,6 +39,18 @@ describe('FlightNavdataFetcher', () => {
     expect(calls).toEqual(['airport VHHH', 'airport ZJSY', 'taxi VHHH', 'taxi ZJSY'])
   })
 
+  it('asks nothing of the sim while it is down, and fetches once it is up', async () => {
+    const { fetcher, calls, state } = setup()
+    state.connected = false
+    fetcher.refresh()
+    await fetcher.idle()
+    expect(calls).toEqual([])
+    state.connected = true
+    fetcher.refresh()
+    await fetcher.idle()
+    expect(calls).toContain('airport VHHH')
+  })
+
   it("includes the plan's alternate", async () => {
     const { fetcher, calls } = setup(flight({ ofpJson: PLAN_WITH_ALTERNATE }))
     fetcher.refresh()

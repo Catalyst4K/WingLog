@@ -48,7 +48,8 @@ const MIN_ROUTE_M = 150
 const MAX_ROUTE_M = 9_000
 /** The sharpest turn at one junction the search will take. An airliner's route is also checked as a whole (routeProblems). */
 const MAX_JUNCTION_TURN_DEG = 100
-/** A holding point is a hold short this close to a runway's threshold. */
+/** A holding point is a hold short this close to a runway's threshold: as the app's (runway-hold.ts), but its own on purpose, since the
+ *  generator is independent of the code it tests. */
 const HOLD_NEAR_THRESHOLD_M = 250
 /** A stand's lead-in joins the network within this of the stand. */
 const STAND_LINK_M = 100

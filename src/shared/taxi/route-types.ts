@@ -24,9 +24,6 @@ export const MAX_TRACE_STATES = 60_000
  *  farther than this is replaced by the one nearest the threshold, when there is one this near; none this near (an intersection
  *  departure's holding point), or the first already this near, and the first stays. */
 export const MAX_HOLD_FROM_THRESHOLD_M = 500
-/** When no hold short of the holding-point taxiway is near the cleared runway's threshold, any flagged hold short this near it ends the route
- *  (WSSS "taxi holding point runway 02C via P, T": T has no flagged points, and the holding point is on its T12 branch). */
-export const HOLD_NEAR_THRESHOLD_M = 250
 
 /** A runway as a strip on the ground: where it starts, which way it runs, how long and wide. */
 export interface RunwayStrip {
@@ -51,7 +48,7 @@ export interface TaxiTraceRequest {
    *  of its entries; the holding point is the one by this threshold, not whichever the search reaches first. Ignored when none is
    *  near it. */
   runwayThreshold?: RunwayThreshold | null
-  /** A hold short the route must end at: the furthest-back one beside the cleared runway (see taxi-runway-hold.ts). */
+  /** A hold short the route must end at: the furthest-back one beside the cleared runway (see runway-hold.ts). */
   holdAt?: { lat: number; lon: number } | null
   /** The aircraft's true heading, when it's taxiing under its own power. A first edge pointing
    *  more than WRONG_WAY_DEG away from it costs an extra WRONG_WAY_PENALTY_M, so the
@@ -65,7 +62,7 @@ export interface TaxiTraceRequest {
   /** Ends a "hold short of runway" route only at a hold short beside that runway, not at the first hold short of the last taxiway.
    *  Set by the first try; the second drops it for scenery with no hold short beside the runway. */
   onlyAtRunwayHold?: boolean
-  /** With onlyAtRunwayHold, ends only where the route crosses the runway (taxi-runway-crossing.ts), not at a hold short on an exit. */
+  /** With onlyAtRunwayHold, ends only where the route crosses the runway (runway-crossing.ts), not at a hold short on an exit. */
   crossingOnly?: boolean
   /** The states left for the searches of this trace (MAX_TRACE_STATES when absent), shared by them all. Callers set it to share one budget
    *  between the trace and its fallback; the searches count it down. */

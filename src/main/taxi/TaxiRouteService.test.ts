@@ -321,6 +321,17 @@ describe('TaxiRouteService: the line goes when the aircraft has left the ground,
     expect(w.published.at(-1)).toBeNull()
   })
 
+  it('does not bring the departure clearance back after landing: it was finished with at the takeoff roll', () => {
+    const w = setup({ active: { flightId: 1, phase: 'taxi' } })
+    w.telemetry(ON_D)
+    w.clearance(D_B7_A)
+    expect(w.last()).toMatchObject({ kind: 'exact' })
+    w.telemetry([60, 18.3017, 109.3964, 80, 30, 'takeoff'])
+    w.telemetry([600, 18.3, 109.3, 80, 70, 'landing'])
+    w.telemetry([700, ON_D[1], ON_D[2], 270, 8, 'taxi'])
+    expect(w.published.at(-1)).toBeNull()
+  })
+
   it("drops another flight's clearance when tracking moves to a different flight", () => {
     const w = setup({ active: { flightId: 1, phase: 'taxi' } })
     w.telemetry(ON_D)

@@ -1,4 +1,4 @@
-/** A small binary min-heap of (state, cost) pairs: the taxi trace's search queue (taxi-route-trace.ts). */
+/** A small binary min-heap of (state, cost) pairs: the taxi trace's search queue (route-search.ts). */
 import { itemAt } from '@shared/item-at'
 
 /** A small binary min-heap of (state, cost) — VHHH's real network is ~4,400 points, well

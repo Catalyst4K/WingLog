@@ -11,7 +11,7 @@ import { flatDistanceM } from '@shared/geo'
  * (winglog-backend's docs/plans/taxi-reroute.md): an aircraft that pushes back facing the other
  * way and taxis a different route to the same hold would otherwise keep a line pointing back
  * along the cleared route.
- * Where a re-route goes is taxi-route-trace.ts's rejoinTaxiRoute: the shortest total way to the
+ * Where a re-route goes is route-rejoin.ts's rejoinTaxiRoute: the shortest total way to the
  * same end, joining the cleared route wherever that's shortest.
  *
  * Starting values, checked against that flight's replay (taxi-reroute.test.ts):

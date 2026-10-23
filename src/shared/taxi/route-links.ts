@@ -1,6 +1,6 @@
 /**
  * The links between cleared taxiways that a clearance leaves out (winglog-backend's docs/plans/taxi-routing-rules.md): a short
- * stretch of other taxiways from one cleared taxiway to the next, as taxi-route-trace.ts prices them.
+ * stretch of other taxiways from one cleared taxiway to the next, as route-search.ts prices them.
  */
 import { itemAt } from '@shared/item-at'
 import { MinQueue } from './min-queue'

@@ -83,7 +83,7 @@ export function crossingHolds(graph: Graph, runway: RunwayStrip): Set<number> {
 }
 
 /**
- * Where a re-route of a "hold short of runway" route may end instead (taxi-route-rejoin.ts): any hold short on the same side of the
+ * Where a re-route of a "hold short of runway" route may end instead (route-rejoin.ts): any hold short on the same side of the
  * runway as the route's own, at a crossing, or beside the runway where that side has no crossing. ATC's "hold short of 27L" names the
  * runway, not the crossing; the trace picks one, and an aircraft that taxied on past it holds at the next (EGLL flight 239: its line
  * ended at S's crossing of 27L to the west, and it taxied east to the one by 27L's threshold).

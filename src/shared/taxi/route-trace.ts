@@ -43,7 +43,7 @@ import { furthestBackHold } from './runway-hold'
 
 /**
  * Traces a clearance (traceClearanceRoute). A route that drives a taxiway more often than the clearance names it (rule 10,
- * taxi-route-repeats.ts) has doubled back to reach cleared taxiways the aircraft is already past, so the clearance is joined later
+ * route-repeats.ts) has doubled back to reach cleared taxiways the aircraft is already past, so the clearance is joined later
  * instead: at the first of its taxiways from which the route keeps to it. With none, the route stands.
  *
  * @param input The clearance, the network and where the aircraft is.
@@ -127,7 +127,7 @@ function traceOnce(request: TaxiTraceRequest, strictEnd: boolean): TracedRoute |
   if (taxiways.length === 0) return null
   if (holdingPoint && !segments.some((s) => s.name === holdingPoint)) return null
   // A cleared taxiway the scenery has no segment for can't be followed, so the route goes on to the next one: ZUCK's "via M, G, H1"
-  // has only pieces M1 to M4, which don't join into one run (taxi-name-alias.ts).
+  // has only pieces M1 to M4, which don't join into one run (name-alias.ts).
   const present = new Set(segments.map((s) => s.name))
   const followable = taxiways.filter((name) => present.has(name))
   if (followable.length === 0 && !holdingPoint) return null

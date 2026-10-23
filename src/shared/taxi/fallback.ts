@@ -253,7 +253,7 @@ function routeFrom(
  */
 export function traceWithFallback(input: TaxiTraceRequest): TracedClearance | null {
   const request = { ...input, budget: input.budget ?? { left: MAX_TRACE_STATES } }
-  // An aircraft already past the clearance's start (Track opened mid-taxi) joins it where it is: taxi-route-trace.ts's SKIP_COST_M.
+  // An aircraft already past the clearance's start (Track opened mid-taxi) joins it where it is: route-types.ts's SKIP_COST_M.
   const exact = traceTaxiRoute(request)
   const exactLine = exact && { route: exact, problems: routeProblems(exact, request) }
   // The shortest way is only looked for when the traced line is missing or has a problem.

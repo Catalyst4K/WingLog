@@ -14,7 +14,9 @@ export interface RunwayThreshold {
   headingDeg?: number
 }
 
-/** A hold short is beside a runway's threshold when it is this near it. */
+/** A hold short is beside a runway's threshold when it is this near it. The trace also ends a holding-point route at any flagged hold short
+ *  this near the threshold when none of the holding-point taxiway's is (WSSS "taxi holding point runway 02C via P, T": T has no flagged
+ *  points, and the holding point is on its T12 branch). */
 export const HOLD_NEAR_THRESHOLD_M = 250
 
 const METRES_PER_DEGREE = 111_320
