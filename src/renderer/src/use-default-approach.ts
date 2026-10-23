@@ -67,19 +67,23 @@ function useApproachOptions(
 /**
  * Suggests an approach when none is chosen, and keeps the suggestion joined to the STAR (see the file header).
  *
- * @param airports The flight's airports, or null when there is no flight.
+ * @param planAirports The plan's airports, or null when there is none.
  * @param selection The selection.
  * @param onSelectionChange Applies a changed selection.
  * @param liveWaypoints The route assembled from the selection, for the STAR's last fix.
  * @param isSimConnected Whether the sim is connected; navdata a refresh couldn't fetch earlier is fetched again when it connects.
+ * @param enabled False to suggest nothing: for a plan that has been saved as a flight.
  */
 export function useDefaultApproach(
-  airports: ProcedureAirports | null,
+  planAirports: ProcedureAirports | null,
   selection: ProcedureSelection,
   onSelectionChange: (next: ProcedureSelection) => void,
   liveWaypoints: Waypoint[],
-  isSimConnected = false
+  isSimConnected = false,
+  enabled = true
 ): void {
+  // Off for a plan that is a saved flight: the main process suggests the approach for it.
+  const airports = enabled ? planAirports : null
   const arrIcao = airports ? realIcao(arrivalAirport(airports, selection)) : null
   const listed = useApproachOptions(realIcao(airports?.depIcao), arrIcao, isSimConnected)
   // The list for the airport in use now: switching to the alternate leaves the destination's in place until the new one is in.

@@ -22,7 +22,7 @@ import {
   setLanSettings
 } from '../db/settings-repo'
 import type { LiveHub } from '../live/LiveHub'
-import type { ProcedureSelectionStore } from '../tracking/ProcedureSelectionStore'
+import type { ProcedureSelectionStore } from '../procedures/ProcedureSelectionStore'
 import type { TrackingController } from '../tracking/TrackingController'
 import { listAirfields } from '../airports/airfields'
 import type { SimFacilitiesProvider } from '../navdata/sim-facilities-provider'

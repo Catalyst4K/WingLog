@@ -32,7 +32,9 @@ export interface FlightPlan {
   dispatchedOfpId: string | null
   setDispatchedOfpId: (ofpId: string | null) => void
   procedureSelection: ProcedureSelection
-  setProcedureSelection: React.Dispatch<React.SetStateAction<ProcedureSelection>>
+  /** Changes the choice. For a flight that has been saved it is also sent to the main process, which holds the choice and tells every
+   *  screen; for a plan not yet saved as a flight (Dispatch's) it stays here until Fly saves it. */
+  setProcedureSelection: (action: React.SetStateAction<ProcedureSelection>) => void
   /** Sets the OFP, re-seeding the selection when it's a different one. */
   onDispatchOfpChange: (ofp: DispatchOfp | null) => void
   /** Clears Dispatch's view once a flight stops being current. */
@@ -56,11 +58,31 @@ export function useFlightPlan(): FlightPlan {
   // planning this" from "already flying this, showing it for reference" apart, and that
   // distinction has to survive the same tab-switch-and-back as dispatchOfp itself.
   const [dispatchedOfpId, setDispatchedOfpId] = useState<string | null>(null)
-  // The live procedure selection — lifted here (not local to either view) so Dispatch and
-  // Track always agree on what's currently chosen, with no save step between them
-  // (docs/plans/navdata-without-navigraph.md, Phase 5). Re-seeded from SimBrief's own
-  // choice whenever a genuinely new OFP loads — see onDispatchOfpChange below.
-  const [procedureSelection, setProcedureSelection] = useState<ProcedureSelection>(emptyProcedureSelection())
+  // The procedure selection Dispatch and Track show, lifted here (not local to either view) so they always agree on what's chosen.
+  // For a flight that has been saved the main process holds the choice (winglog-backend's docs/plans/taxi-and-second-screen-robustness.md,
+  // stage 4): changes are sent to it and its copy comes back, so the PC window, a phone and a restart all agree. For a plan that has not been
+  // saved yet (a fetched OFP, before Fly) it is only here, seeded from SimBrief's own choice whenever a genuinely new OFP loads (see
+  // onDispatchOfpChange below). The ref keeps the latest value for the changes that arrive in the same moment and for the listeners below.
+  const [procedureSelection, setLocalSelection] = useState<ProcedureSelection>(emptyProcedureSelection())
+  const selectionRef = useRef(procedureSelection)
+  function applySelection(next: ProcedureSelection): void {
+    selectionRef.current = next
+    setLocalSelection(next)
+  }
+  // A plan not yet turned into a flight: its choice is the window's alone, and main's copy (an older flight's) must not change it or be
+  // changed by it.
+  const unsaved = dispatchOfp !== null && dispatchedOfpId !== dispatchOfp.ofpId
+  const unsavedRef = useRef(unsaved)
+  useEffect(() => {
+    unsavedRef.current = unsaved
+  })
+  function setProcedureSelection(action: React.SetStateAction<ProcedureSelection>): void {
+    const next = typeof action === 'function' ? action(selectionRef.current) : action
+    if (JSON.stringify(next) === JSON.stringify(selectionRef.current)) return
+    applySelection(next)
+    if (!unsaved)
+      runAsync('App trackingSetProcedureSelection', winglogApi().trackingSetProcedureSelection(next))
+  }
 
   // Wraps setDispatchOfp so a *new* OFP (a different ofpId, including "cleared to null")
   // always re-seeds the procedure selection from its own SimBrief choice — the previous
@@ -69,7 +91,7 @@ export function useFlightPlan(): FlightPlan {
   // or every dropdown edit would be wiped out from under them.
   function onDispatchOfpChange(ofp: DispatchOfp | null): void {
     if ((ofp?.ofpId ?? null) !== (dispatchOfp?.ofpId ?? null)) {
-      setProcedureSelection(ofp ? seedProcedureSelectionFromOfp(ofp.ofpJson) : emptyProcedureSelection())
+      applySelection(ofp ? seedProcedureSelectionFromOfp(ofp.ofpJson) : emptyProcedureSelection())
     }
     setDispatchOfp(ofp)
   }
@@ -123,18 +145,23 @@ export function useFlightPlan(): FlightPlan {
           if (!result) return
           setDispatchOfp(result.ofp)
           setDispatchedOfpId(result.ofp.ofpId)
-          setProcedureSelection(selectionFromFlight(result.flight))
+          applySelection(selectionFromFlight(result.flight))
         })
     )
   }, [])
 
-  // The procedures can also be chosen on a second screen (a phone on the home network): the PC announces the change, so Dispatch and
-  // Track here follow it. An announcement equal to what is already chosen changes nothing, which is what stops the echo of our own pushes.
+  // The procedures can also be chosen on a second screen (a phone on the home network), and the suggested approach is chosen in the main
+  // process: it announces each change, so Dispatch and Track here follow it, whichever page is open. An announcement equal to what is
+  // already chosen changes nothing, which is what stops the echo of our own changes. Not while a plan is being drafted: the announcement is
+  // for the flight shown, not for it.
   useEffect(() => {
-    return winglogApi().onProcedureSelection((selection) => {
-      if (!selection) return
-      setProcedureSelection((now) => (JSON.stringify(now) === JSON.stringify(selection) ? now : selection))
-    })
+    const follow = (announced: ProcedureSelection | null): void => {
+      if (!announced || unsavedRef.current) return
+      if (JSON.stringify(selectionRef.current) !== JSON.stringify(announced)) applySelection(announced)
+    }
+    // The choice held now, for a window that opens after it was last announced (a restart, or a flight chosen on a phone).
+    runAsync('App trackingGetProcedureSelection', winglogApi().trackingGetProcedureSelection().then(follow))
+    return winglogApi().onProcedureSelection(follow)
   }, [])
 
   return {

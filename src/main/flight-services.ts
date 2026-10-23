@@ -11,8 +11,8 @@ import type { SimStatusSource } from './ipc/sim-handlers'
 import type { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
 import { wireFlightNavdata } from './navdata/wire-flight-navdata'
 import { startTaxiRoute } from './taxi/start-taxi-route'
-import type { ProcedureSelectionStore } from './tracking/ProcedureSelectionStore'
-import { startProcedureSelection } from './tracking/start-procedure-selection'
+import type { ProcedureSelectionStore } from './procedures/ProcedureSelectionStore'
+import { startProcedureSelection } from './procedures/start-procedure-selection'
 import type { TrackingController } from './tracking/TrackingController'
 
 /** What the rest of the app needs from them. */

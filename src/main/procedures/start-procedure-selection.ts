@@ -7,8 +7,8 @@ import { setSelectedProcedures } from '../db/flight-repo'
 import { shownFlight } from '../lan/lan-flight'
 import type { LiveHub } from '../live/LiveHub'
 import { parseProcedureSelection } from '../live/commands'
+import type { TrackingController } from '../tracking/TrackingController'
 import { ProcedureSelectionStore, type ProcedureSelectionStoreDeps } from './ProcedureSelectionStore'
-import type { TrackingController } from './TrackingController'
 
 /**
  * @param ipcMain Electron's IPC.
