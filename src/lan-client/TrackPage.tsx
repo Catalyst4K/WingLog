@@ -205,6 +205,20 @@ function ProceduresBar(props: {
 }
 
 /**
+ * The sim's readings, and whether the sim is gone. The PC keeps the last reading of a sim that has gone, and sends it to a phone that
+ * connects later: while the sim is not connected there are no readings to show.
+ *
+ * @param link The link to the PC.
+ * @returns The readings (undefined while there are none to show), and whether the sim is not connected.
+ */
+function useLiveTelemetry(link: LanConnection): { telemetry: SimTelemetry | undefined; simGone: boolean } {
+  const status = useTopic(link, 'simConnectionStatus')
+  const latest = useTopic(link, 'simTelemetry') as SimTelemetry | undefined
+  const simGone = status !== undefined && status.state !== 'connected'
+  return { telemetry: simGone ? undefined : latest, simGone }
+}
+
+/**
  * @param props The link, and the flight being tracked (null when none).
  * @returns The element.
  */
@@ -214,13 +228,14 @@ function FlightView(props: {
   mapLanguage: MapLanguage
 }): React.JSX.Element {
   const { link, snapshot, mapLanguage } = props
+  const { t } = useTranslation()
   // What the PC has chosen, kept in step with it: a choice made here is confirmed by the route it sends back, and sent again if not.
   const { selection, choose, unconfirmed } = useProcedureChoice(link, snapshot)
   const trackPoints = useSyncExternalStore(
     (notify) => link.onTrack(notify),
     () => link.track
   )
-  const telemetry = useTopic(link, 'simTelemetry') as SimTelemetry | undefined
+  const { telemetry, simGone } = useLiveTelemetry(link)
   const ofpJson = snapshot?.flight.ofpJson ?? null
   const depIcao = snapshot?.flight.depIcao
   const arrIcao = snapshot?.flight.arrIcao
@@ -249,6 +264,11 @@ function FlightView(props: {
 
   return (
     <div className="flex h-full flex-col">
+      {simGone && (
+        <p role="status" className="bg-muted px-4 py-2 text-center text-sm text-muted-foreground">
+          {t('lanPage.simGone')}
+        </p>
+      )}
       <AtcClearanceDialog
         clearance={atcClearance.pending}
         selection={selection}

@@ -62,6 +62,9 @@ export interface ReplaySimConnectServiceOptions {
    *  fixture takes off 0.8 s in at 200x, so whether tracking started before takeoff (and
    *  the flight got an off time) depended on how fast the CI runner was (runs #166, #171). */
   holdUntilReleased?: boolean
+  /** Paced mode: the sim goes away once, when the replay reaches `atMs` into the capture, and comes back `seconds` of real time later
+   *  (status disconnected, nothing sent, then connected and carrying on). For an e2e test of what the screens show while the sim is gone. */
+  gap?: { atMs: number; seconds: number }
 }
 
 const HOLD_INTERVAL_MS = 250
@@ -85,6 +88,8 @@ export class ReplaySimConnectService extends EventEmitter<ReplaySimConnectServic
   private stopped = true
   private timer: NodeJS.Timeout | undefined
   private readonly holdUntilReleased: boolean
+  private readonly gap: ReplaySimConnectServiceOptions['gap']
+  private gapTaken = false
   private holdTimer: NodeJS.Timeout | undefined
 
   /**
@@ -97,6 +102,7 @@ export class ReplaySimConnectService extends EventEmitter<ReplaySimConnectServic
     this.mode = options.mode ?? 'instant'
     this.speedMultiplier = options.speedMultiplier ?? 1
     this.holdUntilReleased = options.holdUntilReleased ?? false
+    this.gap = options.gap
 
     const { header, events } =
       typeof fixture === 'string' ? parseFlightFixture(readFileSync(fixture, 'utf8')) : fixture
@@ -180,6 +186,18 @@ export class ReplaySimConnectService extends EventEmitter<ReplaySimConnectServic
     const emitAndAdvance = (): void => {
       if (this.stopped) return
       const event = this.events[index]
+      if (this.gap && !this.gapTaken && event.tOffsetMs >= this.gap.atMs) {
+        this.gapTaken = true
+        this.status = { state: 'disconnected' }
+        this.emit('status', this.status)
+        this.timer = setTimeout(() => {
+          if (this.stopped) return
+          this.status = { state: 'connected', simConnectVersion: 'replay' }
+          this.emit('status', this.status)
+          emitAndAdvance()
+        }, this.gap.seconds * 1000)
+        return
+      }
       this.emit('offset', event.tOffsetMs)
       if (event.type === 'telemetry') {
         this.lastTelemetry = event.data
@@ -203,4 +221,13 @@ export class ReplaySimConnectService extends EventEmitter<ReplaySimConnectServic
     const deltaMs = Math.max(0, this.events[index].tOffsetMs - previousOffsetMs)
     this.timer = setTimeout(emitAndAdvance, deltaMs / this.speedMultiplier)
   }
+}
+
+/**
+ * @param text An e2e test's WINGLOG_E2E_REPLAY_GAP_S: "<seconds into the capture>:<seconds the sim is gone>", as "120:20".
+ * @returns The gap, or undefined for no setting or one that is not two non-negative numbers.
+ */
+export function parseReplayGap(text: string | undefined): ReplaySimConnectServiceOptions['gap'] {
+  const match = /^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/.exec(text ?? '')
+  return match ? { atMs: Number(match[1]) * 1000, seconds: Number(match[2]) } : undefined
 }

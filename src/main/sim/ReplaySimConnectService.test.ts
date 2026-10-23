@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SimConnectionStatus, SimTelemetry } from '@shared/ipc'
 import type { FlightFixtureEvent, FlightFixtureHeader } from './flight-fixture'
-import { ReplaySimConnectService } from './ReplaySimConnectService'
+import { ReplaySimConnectService, parseReplayGap } from './ReplaySimConnectService'
 
 function telemetry(overrides: Partial<SimTelemetry> = {}): SimTelemetry {
   return {
@@ -141,6 +141,72 @@ describe('ReplaySimConnectService', () => {
 
     await vi.advanceTimersByTimeAsync(1)
     expect(lats).toEqual([1, 2, 3])
+  })
+
+  describe('gap', () => {
+    const FIXTURE = (): string =>
+      writeFixture([
+        { type: 'telemetry', tOffsetMs: 0, data: telemetry({ latitude: 1 }) },
+        { type: 'telemetry', tOffsetMs: 1000, data: telemetry({ latitude: 2 }) },
+        { type: 'telemetry', tOffsetMs: 2000, data: telemetry({ latitude: 3 }) },
+        { type: 'telemetry', tOffsetMs: 3000, data: telemetry({ latitude: 4 }) }
+      ])
+
+    it('takes the sim away once at the offset, for real seconds, and then carries on from the tick it stopped at', async () => {
+      vi.useFakeTimers()
+      const service = new ReplaySimConnectService(FIXTURE(), {
+        mode: 'paced',
+        speedMultiplier: 10,
+        gap: { atMs: 2000, seconds: 20 }
+      })
+      const lats: number[] = []
+      const states: string[] = []
+      service.on('telemetry', (t) => lats.push(t.latitude))
+      service.on('status', (status) => states.push(status.state))
+
+      service.start()
+      await vi.advanceTimersByTimeAsync(1000) // the replay reaches 2000 ms of the capture (200 ms of real time) and stops
+      expect(lats).toEqual([1, 2])
+      expect(service.getStatus().state).toBe('disconnected')
+      expect(states).toEqual(['connected', 'disconnected'])
+
+      await vi.advanceTimersByTimeAsync(19_100) // 20 s of real time from the stop at 200 ms, not scaled by the speed: 100 ms short
+      expect(lats).toEqual([1, 2])
+      await vi.advanceTimersByTimeAsync(100)
+      expect(service.getStatus().state).toBe('connected')
+      expect(states).toEqual(['connected', 'disconnected', 'connected'])
+      expect(lats).toEqual([1, 2, 3])
+
+      await vi.advanceTimersByTimeAsync(100)
+      expect(lats).toEqual([1, 2, 3, 4]) // and only once: no second gap
+      expect(states).toEqual(['connected', 'disconnected', 'connected'])
+    })
+
+    it('stop() during the gap ends the replay for good', async () => {
+      vi.useFakeTimers()
+      const service = new ReplaySimConnectService(FIXTURE(), {
+        mode: 'paced',
+        speedMultiplier: 10,
+        gap: { atMs: 1000, seconds: 5 }
+      })
+      const lats: number[] = []
+      service.on('telemetry', (t) => lats.push(t.latitude))
+      service.start()
+      await vi.advanceTimersByTimeAsync(300)
+      service.stop()
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(lats).toEqual([1])
+      expect(service.getStatus().state).toBe('disconnected')
+    })
+  })
+
+  describe('parseReplayGap', () => {
+    it('reads "<offset seconds>:<gap seconds>", and nothing else', () => {
+      expect(parseReplayGap('120:20')).toEqual({ atMs: 120_000, seconds: 20 })
+      expect(parseReplayGap('0.5:1.5')).toEqual({ atMs: 500, seconds: 1.5 })
+      for (const bad of [undefined, '', '120', '120:', ':20', '-1:5', 'a:b', '1:2:3'])
+        expect(parseReplayGap(bad)).toBeUndefined()
+    })
   })
 
   describe('holdUntilReleased', () => {
