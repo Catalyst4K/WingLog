@@ -38,7 +38,7 @@ import {
 } from './db/settings-repo'
 import { dbFlightStore } from './db/flight-store'
 import { SimConnectService } from './sim/SimConnectService'
-import { ReplaySimConnectService, type ReplayMode } from './sim/ReplaySimConnectService'
+import { ReplaySimConnectService, parseReplayGap, type ReplayMode } from './sim/ReplaySimConnectService'
 import { replayCapture, type ReplayedCapture } from './sim/replay-capture'
 import { registerFleetHandlers } from './ipc/fleet-handlers'
 import { registerLogbookHandlers } from './ipc/logbook-handlers'
@@ -143,7 +143,8 @@ function connectSim(): { sim: SimConnectService | ReplaySimConnectService; repla
         speedMultiplier: process.env.WINGLOG_E2E_REPLAY_SPEED
           ? Number(process.env.WINGLOG_E2E_REPLAY_SPEED)
           : undefined,
-        holdUntilReleased: process.env.WINGLOG_E2E_REPLAY_HOLD === '1'
+        holdUntilReleased: process.env.WINGLOG_E2E_REPLAY_HOLD === '1',
+        gap: parseReplayGap(process.env.WINGLOG_E2E_REPLAY_GAP_S)
       })
     : undefined
   return {

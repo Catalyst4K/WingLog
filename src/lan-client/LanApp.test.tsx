@@ -474,6 +474,53 @@ describe('LanApp', () => {
     expect(mapProps.current?.trackPoints.map((p) => p.id)).toEqual([1, 2, 3])
   })
 
+  it('says the sim is not connected, and gives the map no readings, while the PC has no sim: a phone that joins late is sent the last reading of one that has gone', () => {
+    const { link, sockets } = setup('tok')
+    render(<LanApp link={link} />)
+    const flight = {
+      flight: {
+        flightId: 7,
+        depIcao: 'WSSS',
+        arrIcao: 'EGLL',
+        flightNumber: 'SIA321',
+        schedInUtc: null,
+        registration: '9V-SKA',
+        icaoType: 'A388',
+        ofpJson: OFP
+      },
+      trackPoints: []
+    }
+    act(() => {
+      sockets[0].onopen?.()
+      sockets[0].say({
+        t: 'snapshot',
+        topics: {
+          simTelemetry: { latitude: 11, longitude: 20 },
+          simConnectionStatus: { state: 'disconnected' }
+        },
+        flight
+      })
+    })
+    expect(screen.getByText("The sim isn't connected to WingLog on the PC.")).toBeInTheDocument()
+    expect(mapProps.current?.telemetry).toBeNull()
+
+    // It comes back: the banner goes and the readings return.
+    act(() =>
+      sockets[0].say({
+        t: 'topic',
+        name: 'simConnectionStatus',
+        payload: { state: 'connected', simConnectVersion: 'test' }
+      })
+    )
+    expect(screen.queryByText("The sim isn't connected to WingLog on the PC.")).not.toBeInTheDocument()
+    expect(mapProps.current?.telemetry).toMatchObject({ latitude: 11 })
+
+    // And it goes again.
+    act(() => sockets[0].say({ t: 'topic', name: 'simConnectionStatus', payload: { state: 'connecting' } }))
+    expect(screen.getByText("The sim isn't connected to WingLog on the PC.")).toBeInTheDocument()
+    expect(mapProps.current?.telemetry).toBeNull()
+  })
+
   it('draws the route the PC builds and pushes, follows each new one, and ignores one for another flight', () => {
     const { link, sockets } = setup('tok')
     render(<LanApp link={link} />)

@@ -954,6 +954,7 @@
     "wrongCode": "Ese código no ha funcionado. Comprueba que el PC muestra un código e inténtalo de nuevo.",
     "offline": "No se puede conectar con el PC. Reintentando…",
     "noFlight": "Aún no se está registrando ningún vuelo en el PC.",
+    "simGone": "El simulador no está conectado a WingLog en el PC.",
     "noPlan": "Todavía no hay un plan de vuelo en el PC. Planifica un vuelo en Despacho en el PC."
   },
   "lan": {
