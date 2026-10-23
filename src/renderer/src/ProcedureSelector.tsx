@@ -11,7 +11,7 @@ import { approachRunway, VECTORS_TRANSITION } from '@shared/route'
 import { arrivalAirport, type ProcedureAirports } from '@shared/procedure-selection'
 import { displayIcao } from './display-icao'
 import { runAsync } from './report-error'
-import { transitionsFor } from './use-default-approach'
+import { transitionsFor } from '@shared/approach-suggestion'
 
 /** One procedure dropdown, backed by real navdata (docs/plans/navdata-without-navigraph.md
  *  Phase 3/5) — `options` is whatever's currently cached for this ICAO/kind. No "SimBrief
