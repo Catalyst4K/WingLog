@@ -18,6 +18,7 @@ import { realIcao } from './display-icao'
 import { flightLabel } from './flight-label'
 import type { ProcedureAirports } from '@shared/procedure-selection'
 import { useLiveWaypoints } from './procedure-selection'
+import { useDefaultApproach } from './use-default-approach'
 import { parseTransitionAltitudes } from '@shared/route'
 import { StartFreeFlightDialog } from './StartFreeFlightDialog'
 import { runAsync } from './report-error'
@@ -195,6 +196,14 @@ export function TrackView(props: {
   // preview uses, so the two can never disagree (docs/plans/navdata-without-navigraph.md,
   // Phase 5).
   const liveWaypoints = useLiveWaypoints(airports, props.selection)
+  // Telemetry only arrives while the sim is connected, so this also retries navdata that couldn't be fetched before it was.
+  useDefaultApproach(
+    airports,
+    props.selection,
+    props.onSelectionChange,
+    liveWaypoints,
+    props.telemetry != null
+  )
   // Memoized so this stays reference-stable across renders liveWaypoints itself didn't
   // change on (e.g. a telemetry update ticking TrackView) — FlightMap's fit-bounds effect
   // keys off `route`'s identity, and an unmemoized `.map()` here recreated a "new" array on
@@ -255,7 +264,6 @@ export function TrackView(props: {
           airports={airports}
           selection={props.selection}
           onSelectionChange={props.onSelectionChange}
-          liveWaypoints={liveWaypoints}
           windSpeedUnit={props.windSpeedUnit ?? 'kt'}
         />
       )}

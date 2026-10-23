@@ -29,7 +29,6 @@ import { MetarPanel } from '../MetarPanel'
 import type { ProcedureAirports } from '@shared/procedure-selection'
 import { ProcedureSelector } from '../ProcedureSelector'
 import { asyncHandler } from '../report-error'
-import type { Waypoint } from '@shared/route'
 import { formatDuration, formatElapsed, formatUtcTime, type TrackTimes } from '../track-times'
 import type { FreeFlightBanner } from './use-track-state'
 
@@ -264,14 +263,13 @@ export function NotTrackingCards(props: {
 /**
  * The Weather and Procedures dialogs, and the procedures chosen so far.
  *
- * @param props The flight's airports, the procedure selection and its change handler, the live route, and the wind unit.
+ * @param props The flight's airports, the procedure selection and its change handler, and the wind unit.
  * @returns The element.
  */
 export function FlightToolbar(props: {
   airports: ProcedureAirports | null
   selection: ProcedureSelection
   onSelectionChange: (next: ProcedureSelection) => void
-  liveWaypoints: Waypoint[]
   windSpeedUnit: WindSpeedUnit
 }): React.JSX.Element {
   const { t } = useTranslation()
@@ -314,7 +312,6 @@ export function FlightToolbar(props: {
                 airports={airports}
                 selection={selection}
                 onSelectionChange={props.onSelectionChange}
-                liveWaypoints={props.liveWaypoints}
               />
             </DialogContent>
           </Dialog>
