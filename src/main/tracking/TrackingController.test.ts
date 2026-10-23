@@ -1421,6 +1421,26 @@ describe('TrackingController', () => {
       expect(listLandingsByFlight(db, flightId)).toHaveLength(1)
     })
 
+    it('does not count the sim loading the aircraft in at the gate as a landing', () => {
+      // Flight 253 at ZJSY, from its capture: parked, the sim reported off the ground for 16 s while loading, then again for
+      // a second when the aircraft was set back down; speed zero throughout. Both were logged as landings.
+      sim.setLastTelemetry(telemetry({}))
+      const controller = new TrackingController(dbFlightStore(db), sim)
+      controller.start(flightId)
+
+      const parked = { groundSpeedMs: 0, indicatedAirspeedMs: 0, verticalSpeedMs: 0, altitudeAglM: 3.18 }
+      sim.emit('telemetry', telemetry({ ...parked, onGround: true }))
+      for (let i = 0; i < 16; i++) sim.emit('telemetry', telemetry({ ...parked, onGround: false, gForce: 0 }))
+      sim.emit('telemetry', telemetry({ ...parked, onGround: true }))
+      for (let i = 0; i < 4; i++) {
+        sim.emit('telemetry', telemetry({ ...parked, onGround: false, groundSpeedMs: 0.004, gForce: 0.53 }))
+      }
+      sim.emit('telemetry', telemetry({ ...parked, onGround: true, altitudeAglM: 2.78 }))
+
+      expect(listLandingsByFlight(db, flightId)).toHaveLength(0)
+      expect(getFlight(db, flightId)?.actualOnUtc).toBeFalsy()
+    })
+
     it("resolves each landing's own icao from touchdown position, not assumed to be the flight's filed arrival", () => {
       // The default flight fixture (beforeEach) files EGLL -> VHHH, but every telemetry
       // sample here sits at real Heathrow coordinates — the touchdown should resolve to

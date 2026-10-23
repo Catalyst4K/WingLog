@@ -152,7 +152,10 @@ export class SimConnectService extends EventEmitter<SimConnectServiceEvents> {
           handle.close()
           return
         }
+        // One connection at a time: a second one would stream every tick twice.
+        const previous = this.handle
         this.handle = handle
+        previous?.close()
         this.setStatus({
           state: 'connected',
           simConnectVersion: `${recvOpen.simConnectVersionMajor}.${recvOpen.simConnectVersionMinor}`
@@ -216,23 +219,33 @@ export class SimConnectService extends EventEmitter<SimConnectServiceEvents> {
           this.emit('paused', recvEvent.data === 1)
         })
 
-        handle.on('quit', () => this.handleDisconnect())
-        handle.on('close', () => this.handleDisconnect())
+        // MSFS exiting fires both: 'quit' from the sim's own message, then 'close' from the socket.
+        handle.on('quit', () => this.handleDisconnect(handle))
+        handle.on('close', () => this.handleDisconnect(handle))
       })
       .catch(() => {
         this.scheduleReconnect(reconnectDelayMs)
       })
   }
 
-  private handleDisconnect(): void {
-    if (this.stopped) return
+  /**
+   * Starts one reconnect when the current connection drops. Only the current handle counts, and only once: MSFS exiting
+   * fires 'quit' and 'close' together, and reconnecting for each left two live connections both streaming telemetry,
+   * doubling with every sim restart (flight 253 got each tick four times, and logged ghost landings from it).
+   *
+   * @param handle The connection that dropped.
+   */
+  private handleDisconnect(handle: SimConnectConnection): void {
+    if (this.stopped || handle !== this.handle) return
     this.handle = undefined
+    handle.close()
     this.scheduleReconnect()
   }
 
   private scheduleReconnect(delayMs = INITIAL_RECONNECT_DELAY_MS): void {
     if (this.stopped) return
     this.setStatus({ state: 'disconnected' })
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
     this.reconnectTimer = setTimeout(
       () => this.connect(Math.min(delayMs * 2, MAX_RECONNECT_DELAY_MS)),
       delayMs
