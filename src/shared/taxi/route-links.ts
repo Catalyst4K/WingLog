@@ -4,7 +4,7 @@
  */
 import { itemAt } from '@shared/item-at'
 import { MinQueue } from './min-queue'
-import type { Graph } from './route-trace'
+import type { Graph } from './route-graph'
 
 /** The longest stretch of uncleared named taxiways that counts as a link between two cleared ones; unnamed segments (junction fillets,
  *  runway crossings) don't count towards it: VHHH flight 253's way from F7's hold short to A crosses runway 07C on 138 m of unnamed

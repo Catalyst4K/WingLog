@@ -9,7 +9,7 @@
  * - `wrong-way-start`: the pushback ends with the nose pointing away from the route, and the aircraft goes the way its nose points.
  */
 import { destinationPoint, greatCircleM, initialBearingDeg, toLocalXy } from '../../src/shared/geo'
-import { angleBetweenDeg } from '../../src/shared/taxi/route-trace'
+import { angleBetweenDeg } from '../../src/shared/taxi/route-graph'
 import { distToPolyline } from './taxi-geometry'
 import { nodeAtPoint, shortestRoute, type GGraph } from './taxi-generate'
 import type { LonLat } from './svg'

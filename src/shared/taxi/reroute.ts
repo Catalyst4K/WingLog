@@ -2,7 +2,8 @@
 
 import type { FlightPhase, NavdataTaxiSegment } from '@shared/ipc'
 import { MAX_FOLLOW_DISTANCE_M, rejoinTaxiRoute, remainingRoute, type RemainingRoute } from './route-rejoin'
-import { angleBetweenDeg, WRONG_WAY_DEG, type RunwayStrip, type TracedRoute } from './route-trace'
+import { angleBetweenDeg, WRONG_WAY_DEG } from './route-graph'
+import { type RunwayStrip, type TracedRoute } from './route-types'
 import { flatDistanceM } from '@shared/geo'
 
 /**

@@ -8,17 +8,15 @@ import {
   buildGraph,
   edgesOf,
   isWrongWay,
-  MAX_ROUTE_LENGTH_M,
   nodeKey,
   ON_TAXIWAY_DEG,
   segmentsUnder,
   startNodes,
   WRONG_WAY_PENALTY_M,
   type Graph,
-  type GraphNode,
-  type RunwayStrip,
-  type TracedRoute
-} from './route-trace'
+  type GraphNode
+} from './route-graph'
+import { MAX_ROUTE_LENGTH_M, type RunwayStrip, type TracedRoute } from './route-types'
 import { holdsOnSide } from './runway-crossing'
 import { turnCost, turnedBefore, TURN_WINDOW_M } from './route-turns'
 

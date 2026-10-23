@@ -9,7 +9,8 @@ import {
   type RouteCheckRequest,
   type Xy
 } from './route-checks'
-import { traceTaxiRoute, type TracedRoute } from './route-trace'
+import { traceTaxiRoute } from './route-trace'
+import { type TracedRoute } from './route-types'
 import ZJSY_RAW from './__fixtures__/zjsy-taxi-d-b7-a.json'
 
 // ZJSY, the whole airport (MSFS facility data from WingLog's cache). Rows: [startLat, startLon, endLat, endLon, name,

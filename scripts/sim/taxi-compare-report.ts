@@ -6,7 +6,7 @@
 import type { NavdataTaxiSegment } from '../../src/shared/ipc'
 import { flatDistanceM } from '../../src/shared/geo'
 import { matchClearance } from '../../src/shared/taxi/fallback'
-import type { TracedRoute } from '../../src/shared/taxi/route-trace'
+import type { TracedRoute } from '../../src/shared/taxi/route-types'
 import type { Report, ReportSection } from './report'
 import { boundsOf, makeFrame, networkLines, polyline, svg, TRACK_COLOUR, type LonLat } from './svg'
 import type { TaxiRun, TaxiScenario } from './taxi'

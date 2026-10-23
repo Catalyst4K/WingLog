@@ -9,7 +9,8 @@ import { greatCircleM, initialBearingDeg, pointToSegmentM, toLocalXy } from '@sh
 import type { NavdataTaxiSegment } from '@shared/ipc'
 import { drivesTaxiwayAgain } from './route-repeats'
 import { TURN_WINDOW_M, TURN_WINDOW_MAX_DEG } from './route-turns'
-import { angleBetweenDeg, MAX_ROUTE_LENGTH_M, type TaxiTraceRequest, type TracedRoute } from './route-trace'
+import { angleBetweenDeg } from './route-graph'
+import { MAX_ROUTE_LENGTH_M, type TaxiTraceRequest, type TracedRoute } from './route-types'
 
 /** A point in metres on a flat plane. */
 export type Xy = [number, number]

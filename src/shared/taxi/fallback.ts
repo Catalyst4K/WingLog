@@ -15,18 +15,20 @@ import {
   buildGraph,
   edgesOf,
   isWrongWay,
-  MAX_CLEARANCE_TAXIWAYS,
-  MAX_ROUTE_LENGTH_M,
-  MAX_TRACE_STATES,
   nearestNode,
   nodeKey,
   standLinkNode,
-  traceTaxiRoute,
   WRONG_WAY_PENALTY_M,
-  type Graph,
+  type Graph
+} from './route-graph'
+import {
+  MAX_CLEARANCE_TAXIWAYS,
+  MAX_ROUTE_LENGTH_M,
+  MAX_TRACE_STATES,
   type TaxiTraceRequest,
   type TracedRoute
-} from './route-trace'
+} from './route-types'
+import { traceTaxiRoute } from './route-trace'
 
 /** A named taxiway the clearance doesn't mention costs this many times its length, so cleared taxiways win without being required: the
  *  sim's names for a taxiway don't always match ATC's. */
