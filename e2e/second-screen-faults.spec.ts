@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test'
@@ -56,6 +56,11 @@ test.describe('Second screen: faults', () => {
       await taxiLineSettled(world.window)
       await screensAgree(world.window, [back])
       back.close()
+      // The recorded taxi leaves the line twice: both re-routes came back from the worker thread, none from the main one.
+      const userData = await world.app.evaluate(({ app: electronApp }) => electronApp.getPath('userData'))
+      const log = readFileSync(join(userData, 'logs', 'main.log'), 'utf8')
+      expect(log).toMatch(/ZJSY taxi line re-routed at .* points [(][0-9]+ ms[)]/)
+      expect(log).not.toContain('could not re-route')
     } finally {
       await world.cleanup()
     }

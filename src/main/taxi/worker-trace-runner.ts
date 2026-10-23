@@ -1,13 +1,15 @@
 /**
- * Runs the taxi line's traces on a worker thread so a slow one (seconds, on the largest airports) never holds up the main process, which
- * also talks to the sim. If the worker cannot start or dies, the job fails and the caller traces it itself: a worker is only ever a
+ * Runs the taxi line's traces and re-routes on a worker thread so a slow one (seconds, on the largest airports) never holds up the main
+ * process, which also talks to the sim. If the worker cannot start or dies, the job fails and the caller traces it itself: a worker is only ever a
  * way to be faster to respond, never a way to get no line.
  */
 
 import type { NavdataTaxiSegment } from '@shared/ipc'
 import type { TracedClearance } from '@shared/taxi/fallback'
+import type { RejoinRequest } from '@shared/taxi/route-rejoin'
+import type { TracedRoute } from '@shared/taxi/route-types'
 import type { TraceJob } from './trace-runner'
-import type { WorkerReply, WorkerRequest } from './worker-protocol'
+import type { WorkerJob, WorkerReply, WorkerRequest } from './worker-protocol'
 
 /** The part of a worker thread this runner uses (a `worker_threads` Worker, or a stand-in in tests). */
 export interface WorkerLike {
@@ -27,11 +29,17 @@ export interface RunnerLog {
 /** After this many workers in a row die before answering anything, no more are started: every job goes to the caller to trace itself. */
 const MAX_FAILURES = 3
 
+/** What a job is sent as: its network, and the rest. */
+interface Sent {
+  segments: NavdataTaxiSegment[]
+  job: WorkerJob
+}
+
 interface Pending {
-  resolve(result: TracedClearance | null): void
+  resolve(result: TracedClearance | TracedRoute | null): void
   reject(error: Error): void
   /** The job, kept to send again when the worker says it was never sent the network. */
-  job: TraceJob
+  sent: Sent
 }
 
 /** Traces jobs on a worker thread, started when the first one needs it. */
@@ -60,6 +68,24 @@ export class WorkerTraceRunner {
    * @returns The traced clearance, or a rejection when the worker could not do it.
    */
   run(job: TraceJob): Promise<TracedClearance | null> {
+    const { segments, ...rest } = job
+    return this.submit({ segments, job: { kind: 'trace', ...rest } }) as Promise<TracedClearance | null>
+  }
+
+  /**
+   * @param request A line to re-route.
+   * @returns The re-routed line, or a rejection when the worker could not do it.
+   */
+  rejoin(request: RejoinRequest): Promise<TracedRoute | null> {
+    const { segments, ...rest } = request
+    return this.submit({ segments, job: { kind: 'rejoin', ...rest } }) as Promise<TracedRoute | null>
+  }
+
+  /**
+   * @param sent A job and its network.
+   * @returns The worker's answer, or a rejection when it could not give one.
+   */
+  private submit(sent: Sent): Promise<TracedClearance | TracedRoute | null> {
     if (this.stopped || this.failures >= MAX_FAILURES) return Promise.reject(new Error('no trace worker'))
     let worker: WorkerLike
     try {
@@ -70,8 +96,8 @@ export class WorkerTraceRunner {
     }
     return new Promise((resolve, reject) => {
       const id = this.nextId++
-      this.pending.set(id, { resolve, reject, job })
-      this.send(worker, id, job, false)
+      this.pending.set(id, { resolve, reject, sent })
+      this.send(worker, id, sent, false)
     })
   }
 
@@ -92,16 +118,15 @@ export class WorkerTraceRunner {
     this.drop(new Error('trace worker stopped'))
   }
 
-  private send(worker: WorkerLike, id: number, job: TraceJob, resendNetwork: boolean): void {
-    let key = this.networkKeys.get(job.segments)
+  private send(worker: WorkerLike, id: number, { segments, job }: Sent, resendNetwork: boolean): void {
+    let key = this.networkKeys.get(segments)
     if (key === undefined) {
       key = this.nextNetworkKey++
-      this.networkKeys.set(job.segments, key)
+      this.networkKeys.set(segments, key)
     }
     const needsNetwork = resendNetwork || !this.sent.has(key)
     if (needsNetwork) this.sent.add(key)
-    const { segments, ...rest } = job
-    worker.postMessage({ id, networkKey: key, ...(needsNetwork ? { segments } : {}), job: rest })
+    worker.postMessage({ id, networkKey: key, ...(needsNetwork ? { segments } : {}), job })
   }
 
   private start(): WorkerLike {
@@ -124,7 +149,7 @@ export class WorkerTraceRunner {
     if (!entry) return
     if ('missingNetwork' in reply) {
       // The worker dropped that network to make room: send it again with this job.
-      if (this.worker) this.send(this.worker, reply.id, entry.job, true)
+      if (this.worker) this.send(this.worker, reply.id, entry.sent, true)
       return
     }
     this.pending.delete(reply.id)

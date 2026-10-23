@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { FlightPhase, NavdataTaxiSegment } from '@shared/ipc'
-import { remainingRoute } from './route-rejoin'
+import { rejoinTaxiRoute, remainingRoute } from './route-rejoin'
 import { angleBetweenDeg } from './route-graph'
 import { traceTaxiRoute } from './route-trace'
 import { type TracedRoute } from './route-types'
@@ -15,6 +15,8 @@ import {
   REROUTE_DISTANCE_M,
   REROUTE_MIN_INTERVAL_MS,
   segmentDriven,
+  applyReroute,
+  followPosition,
   startTracker,
   trackPosition,
   type DeviationState
@@ -363,5 +365,72 @@ describe('re-routing replay: ZJSY flight 253, cleared D, A3, A and driven D, B5,
       const onward = line.find(([x, y]) => distanceM({ lat, lon }, { lat: y, lon: x }) > 20)!
       expect(angleBetweenDeg(bearing(line[0]!, onward), headingDeg)).toBeLessThan(45)
     }
+  })
+})
+
+describe('followPosition and applyReroute: trackPosition in two steps, for the worker', () => {
+  it('give the same tracker and line as trackPosition at every sample of flight 227, asking for each re-route trackPosition made', () => {
+    const [, lat0, lon0] = SAMPLES[0]!
+    const cleared = traceTaxiRoute({
+      taxiways: ['D', 'B7', 'A'],
+      holdingPoint: 'A',
+      segments: ZJSY,
+      from: { lat: lat0, lon: lon0 },
+      headingDeg: null
+    })!
+    let whole = startTracker(cleared)
+    let split = startTracker(cleared)
+    let asked = 0
+    let rerouted = 0
+    for (const [t, lat, lon, headingDeg, groundSpeedMs, phase] of SAMPLES) {
+      const update = {
+        position: { lat, lon, headingDeg, groundSpeedMs },
+        phase: phase as FlightPhase,
+        nowMs: t * 1000,
+        segments: ZJSY
+      }
+      const one = trackPosition(whole, update)
+      const followed = followPosition(split, update)
+      let line = followed.line
+      split = followed.tracker
+      if (followed.reroute) {
+        asked += 1
+        const next = rejoinTaxiRoute(followed.reroute)
+        if (next) ({ tracker: split, line } = applyReroute(split, next, update.position))
+      }
+      if (one.rerouted) rerouted += 1
+      whole = one.tracker
+      expect(split).toEqual(whole)
+      expect(line).toEqual(one.line)
+    }
+    expect(rerouted).toBeGreaterThan(0)
+    expect(asked).toBeGreaterThanOrEqual(rerouted)
+  })
+
+  it('followPosition asks for a re-route from where the aircraft is, rejoining the cleared route from the furthest part driven', () => {
+    const cleared: TracedRoute = [
+      [109.4093, 18.3074],
+      [109.4113, 18.3074]
+    ]
+    const tracker = startTracker(cleared)
+    const at = (t: number) => ({
+      position: { lat: 18.3079, lon: 109.4093, headingDeg: 0, groundSpeedMs: 5 },
+      phase: 'taxi' as FlightPhase,
+      nowMs: t,
+      segments: ZJSY
+    })
+    const first = followPosition(tracker, at(0))
+    expect(first.reroute).toBeNull()
+    const later = followPosition(first.tracker, at(REROUTE_AFTER_MS))
+    expect(later.reroute).toEqual({
+      segments: ZJSY,
+      route: cleared,
+      fromSegment: 0,
+      from: { lat: 18.3079, lon: 109.4093 },
+      headingDeg: 0,
+      holdShortRunway: null
+    })
+    // Asking is not re-routing: the line stays the cleared one until an answer is applied.
+    expect(later.tracker.active).toBe(cleared)
   })
 })

@@ -1,7 +1,13 @@
 /** When and how a traced taxi line is re-traced from where the aircraft is. */
 
 import type { FlightPhase, NavdataTaxiSegment } from '@shared/ipc'
-import { MAX_FOLLOW_DISTANCE_M, rejoinTaxiRoute, remainingRoute, type RemainingRoute } from './route-rejoin'
+import {
+  MAX_FOLLOW_DISTANCE_M,
+  rejoinTaxiRoute,
+  remainingRoute,
+  type RejoinRequest,
+  type RemainingRoute
+} from './route-rejoin'
 import { angleBetweenDeg, WRONG_WAY_DEG } from './route-graph'
 import { type RunwayStrip, type TracedRoute } from './route-types'
 import { flatDistanceM } from '@shared/geo'
@@ -190,25 +196,23 @@ export interface TrackerUpdate {
 }
 
 /**
- * One position update: what's left of the line to draw, re-routing first if the aircraft
- * has left it (useTaxiRouteHighlight calls this on every update; the offline simulation of
- * real flights calls exactly the same thing). Only re-routes while taxiing: a pushback
- * drives tail first, so its heading is backwards.
+ * One position update, without the re-route search: what's left of the line to draw, and the re-route to search for when the aircraft
+ * has left it. The app sends that search to its worker thread and applies the answer with applyReroute; trackPosition does both at once.
+ * Only re-routes while taxiing: a pushback drives tail first, so its heading is backwards.
  *
  * @param tracker The tracker.
  * @param update The position, phase, time and taxi network.
- * @returns The new tracker, the line to draw, and whether it re-routed.
+ * @returns The new tracker, the line to draw, and the re-route to search for (null when none is due).
  */
-export function trackPosition(
+export function followPosition(
   tracker: RerouteTracker,
   { position, phase, nowMs, segments }: TrackerUpdate
-): { tracker: RerouteTracker; line: TracedRoute; rerouted: boolean } {
-  let { active } = tracker
-  let remaining = remainingRoute(active, position, tracker.progress)
+): { tracker: RerouteTracker; line: TracedRoute; reroute: RejoinRequest | null } {
+  const remaining = remainingRoute(tracker.active, position, tracker.progress)
   const driven = segmentDriven(remainingRoute(tracker.cleared, position, tracker.driven), tracker.driven)
-  const done = tracker.done || reachedEnd(active, position)
+  const done = tracker.done || reachedEnd(tracker.active, position)
   let deviation = tracker.deviation
-  let rerouted = false
+  let reroute: RejoinRequest | null = null
   const { headingDeg, groundSpeedMs } = position
   if (phase === 'taxi' && !done && segments && headingDeg !== undefined && groundSpeedMs !== undefined) {
     const check = checkDeviation(deviation, {
@@ -220,25 +224,54 @@ export function trackPosition(
       groundSpeedMs
     })
     deviation = check.state
-    if (check.reroute) {
-      const next = rejoinTaxiRoute({
+    if (check.reroute)
+      reroute = {
         segments,
         route: tracker.cleared,
         fromSegment: driven,
         from: { lat: position.lat, lon: position.lon },
         headingDeg,
         holdShortRunway: tracker.holdShortRunway
-      })
-      if (next) {
-        active = next
-        remaining = remainingRoute(next, position, 0)
-        rerouted = true
       }
-    }
   }
   return {
-    tracker: { ...tracker, active, progress: remaining.segment, driven, deviation, done },
+    tracker: { ...tracker, progress: remaining.segment, driven, deviation, done },
     line: remaining.line,
-    rerouted
+    reroute
   }
+}
+
+/**
+ * Takes a re-routed line as the one drawn, from where the aircraft is now.
+ *
+ * @param tracker The tracker.
+ * @param next The re-routed line (rejoinTaxiRoute's answer).
+ * @param position The aircraft's position.
+ * @returns The new tracker and the line to draw.
+ */
+export function applyReroute(
+  tracker: RerouteTracker,
+  next: TracedRoute,
+  position: { lat: number; lon: number }
+): { tracker: RerouteTracker; line: TracedRoute } {
+  const remaining = remainingRoute(next, position, 0)
+  return { tracker: { ...tracker, active: next, progress: remaining.segment }, line: remaining.line }
+}
+
+/**
+ * One position update: what's left of the line to draw, re-routing first if the aircraft has left it (followPosition, then the
+ * re-route search and applyReroute in the same call). The offline simulations of real flights call this.
+ *
+ * @param tracker The tracker.
+ * @param update The position, phase, time and taxi network.
+ * @returns The new tracker, the line to draw, and whether it re-routed.
+ */
+export function trackPosition(
+  tracker: RerouteTracker,
+  update: TrackerUpdate
+): { tracker: RerouteTracker; line: TracedRoute; rerouted: boolean } {
+  const followed = followPosition(tracker, update)
+  const next = followed.reroute && rejoinTaxiRoute(followed.reroute)
+  if (!next) return { tracker: followed.tracker, line: followed.line, rerouted: false }
+  return { ...applyReroute(followed.tracker, next, update.position), rerouted: true }
 }
