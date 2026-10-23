@@ -60,7 +60,15 @@ export function DispatchView(props: {
   // The live route with the current selection spliced in — single source of truth this and
   // Track's map both render from (docs/plans/navdata-without-navigraph.md, Phase 5).
   const liveWaypoints = useLiveWaypoints(ofp, props.selection)
-  useDefaultApproach(ofp, props.selection, props.onSelectionChange, liveWaypoints)
+  // Only for a plan not yet saved as a flight: once it is, the main process suggests the approach for it.
+  useDefaultApproach(
+    ofp,
+    props.selection,
+    props.onSelectionChange,
+    liveWaypoints,
+    false,
+    ofp != null && ofp.ofpId !== props.dispatchedOfpId
+  )
   // Called after useLiveWaypoints, so the tab's loads start in the same order as before.
   const { aircraft, setAircraft, lastParked, fleetStats, pastFlights, generationAvailable } =
     useDispatchLists()

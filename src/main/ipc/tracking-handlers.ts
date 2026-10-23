@@ -7,13 +7,7 @@
  */
 import type { IpcMain } from 'electron'
 import { isRetired } from '@shared/aircraft'
-import {
-  IpcChannels,
-  type NewFlight,
-  type ProcedureSelection,
-  type SimTelemetry,
-  type StartFreeFlightInput
-} from '@shared/ipc'
+import { IpcChannels, type NewFlight, type SimTelemetry, type StartFreeFlightInput } from '@shared/ipc'
 import { t } from '../i18n'
 import type { WingLogDb } from '../db/client'
 import { getLiveAircraftById } from '../db/aircraft-repo'
@@ -136,9 +130,6 @@ export function registerTrackingHandlers(ipcMain: IpcMain, deps: TrackingHandler
     if (icao !== null && typeof icao !== 'string') throw new Error(t('errors.invalidDeparture'))
     trackingController.setDeparture(icao)
   })
-  ipcMain.handle(IpcChannels.trackingSetProcedureSelection, (_event, selection: ProcedureSelection) =>
-    trackingController.setProcedureSelection(selection)
-  )
 
   // The one flight left "in progress" (planned or already active) when the previous
   // process quit or crashed — its DB row (OFP, route, everything Dispatch/Track need)

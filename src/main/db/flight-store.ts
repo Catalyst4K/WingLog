@@ -19,7 +19,6 @@ import {
   setArrIcao,
   setDepIcao,
   setFlownRoute,
-  setSelectedProcedures,
   startFlight
 } from './flight-repo'
 import { createLanding, listLandingsByFlight } from './landing-repo'
@@ -48,7 +47,6 @@ export function dbFlightStore(db: WingLogDb): FlightStore {
     setArrIcao: (flightId, icao) => setArrIcao(db, flightId, icao),
     setDepIcao: (flightId, icao) => setDepIcao(db, flightId, icao),
     setFlownRoute: (flightId, json) => setFlownRoute(db, flightId, json),
-    setSelectedProcedures: (flightId, selection) => setSelectedProcedures(db, flightId, selection),
     addTrackPoint: (point) => createTrackPoint(db, point),
     listTrackPoints: (flightId) => listTrackPoints(db, flightId),
     addLanding: (landing) => void createLanding(db, landing),

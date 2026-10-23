@@ -49,3 +49,21 @@ export class Device {
     this.ws.terminate()
   }
 }
+
+/**
+ * @param device A device.
+ * @param name A live topic's name.
+ * @returns The topic's payload as the device was last sent it, from its snapshot or a later push; null when it was sent none or a null.
+ */
+export function latestTopic(device: Device, name: string): Record<string, unknown> | null {
+  let latest: Record<string, unknown> | null = null
+  for (const message of device.received) {
+    if (message.t === 'snapshot') {
+      const topics = message.topics as Record<string, unknown> | undefined
+      if (topics && name in topics) latest = topics[name] as Record<string, unknown> | null
+    } else if (message.t === 'topic' && message.name === name) {
+      latest = message.payload as Record<string, unknown> | null
+    }
+  }
+  return latest
+}

@@ -228,6 +228,7 @@ const api: WingLogApi = {
   fleetListLastParked: () => ipcRenderer.invoke(IpcChannels.fleetListLastParked),
   trackingSetProcedureSelection: (selection: ProcedureSelection) =>
     ipcRenderer.invoke(IpcChannels.trackingSetProcedureSelection, selection),
+  trackingGetProcedureSelection: () => ipcRenderer.invoke(IpcChannels.trackingGetProcedureSelection),
   trackingSetDestination: (icao: string | null) =>
     ipcRenderer.invoke(IpcChannels.trackingSetDestination, icao),
   trackingSetDeparture: (icao: string | null) => ipcRenderer.invoke(IpcChannels.trackingSetDeparture, icao),

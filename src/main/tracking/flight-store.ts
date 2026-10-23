@@ -11,7 +11,6 @@ import type {
   NewLanding,
   NewTrackPoint,
   PausedInterval,
-  ProcedureSelection,
   TrackPoint
 } from '@shared/ipc'
 import type { TrackCleanupResult } from './resume-cleanup'
@@ -37,7 +36,6 @@ export interface FlightStore {
   setDepIcao(flightId: number, icao: string): void
   /** The simplified flown route, as JSON. */
   setFlownRoute(flightId: number, flownRouteJson: string): void
-  setSelectedProcedures(flightId: number, selection: ProcedureSelection): void
   /** Stores one track point; returns it with its id. */
   addTrackPoint(point: NewTrackPoint): TrackPoint
   listTrackPoints(flightId: number): TrackPoint[]

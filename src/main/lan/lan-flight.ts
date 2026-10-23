@@ -1,6 +1,6 @@
 /** What the second-screen server tells a device about the flight, read-only and assembled here so no database handle crosses. */
 
-import type { LanFlightSnapshot, ProcedureSelection } from '@shared/ipc'
+import type { Flight, LanFlightSnapshot, ProcedureSelection } from '@shared/ipc'
 import type { WingLogDb } from '../db/client'
 import { getLiveAircraftById } from '../db/aircraft-repo'
 import { getLiveFlight, listFlightSummaries } from '../db/flight-repo'
@@ -16,6 +16,16 @@ import { listTrackPoints } from '../db/track-point-repo'
 export function shownFlightId(db: WingLogDb, activeFlightId: number | undefined): number | undefined {
   if (activeFlightId !== undefined) return activeFlightId
   return listFlightSummaries(db).find((f) => f.status === 'planned')?.id
+}
+
+/**
+ * @param db The database.
+ * @param activeFlightId The flight being tracked, if any.
+ * @returns The flight shown with its saved choice of procedures, or undefined when there is none.
+ */
+export function shownFlight(db: WingLogDb, activeFlightId: number | undefined): Flight | undefined {
+  const id = shownFlightId(db, activeFlightId)
+  return id === undefined ? undefined : getLiveFlight(db, id)
 }
 
 /**
@@ -35,11 +45,7 @@ export function lanFlightKey(db: WingLogDb, activeFlightId: number | undefined):
         flight.ofpId,
         flight.flightNumber,
         flight.depIcao,
-        flight.arrIcao,
-        flight.selectedDepartureRunway,
-        flight.selectedSidIdent,
-        flight.selectedStarIdent,
-        flight.selectedApproachIdent
+        flight.arrIcao
       ])
     : 'none'
 }

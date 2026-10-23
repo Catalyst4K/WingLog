@@ -116,6 +116,9 @@ test.describe('Second screen', () => {
     try {
       const code = await page.evaluate(async (p) => {
         const api = (globalThis as unknown as Window).winglog
+        // The choice is for the flight shown: the PC holds none when there is no flight.
+        const aircraft = await api.aircraftCreate({ registration: '9V-SKA', icaoType: 'A388' })
+        await api.flightCreate({ aircraftId: aircraft.id, depIcao: 'EGLL', arrIcao: 'KJFK' })
         await api.lanSetSettings({ enabled: true, port: p })
         // What the app\x27s own window hears, kept where the test can read it.
         ;(globalThis as unknown as { heard: unknown[] }).heard = []

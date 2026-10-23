@@ -455,12 +455,11 @@ export interface WingLogApi {
   navdataGetStands: (icao: string) => Promise<NavdataStand[]>
   /** Each fleet aircraft's last stand (stand-positions.md). */
   fleetListLastParked: () => Promise<AircraftLastParked[]>
-  /** Pushes the current live selection to the main process so it's available whenever the
-   *  active flight completes — manual finish *or* automatic shutdown detection, neither of
-   *  which round-trips through the renderer (TrackingController). Call on every change
-   *  while a flight is actively being tracked; a no-op call with nothing tracked is
-   *  harmless (TrackingController just caches it for the flight that starts next). */
+  /** Tells the main process the procedures chosen for the flight shown (a planned or tracked one), which holds them, saves them on the
+   *  flight and tells every screen. Ignored when no flight is shown; a plan not yet saved as a flight stays in the window. */
   trackingSetProcedureSelection: (selection: ProcedureSelection) => Promise<void>
+  /** The procedures chosen for the flight shown, or null with none: the choice a window should show, which main pushes only when it changes. */
+  trackingGetProcedureSelection: () => Promise<ProcedureSelection | null>
   /** Sets (or, with null/blank, clears) the destination of the free flight being tracked —
    *  the start dialog's Destination is optional, and this is how one is added afterwards. A
    *  plan, not a promise: the real touchdown still resolves the actual arrival. */

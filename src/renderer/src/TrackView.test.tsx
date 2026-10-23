@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -1100,78 +1099,65 @@ describe('TrackView', () => {
     expect(winglog.flightCancel).not.toHaveBeenCalled()
   })
 
-  it('pushes the current procedure selection to the main process while a flight is active', async () => {
+  it('never pushes a procedure selection itself: the choice for a flight is held, saved and announced by the main process', async () => {
     const winglog = setWinglog({
       aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
       flightList: vi.fn().mockResolvedValue([makeFlight({ status: 'active' })]),
       trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'cruise' })
     })
-    const selection: ProcedureSelection = { ...emptyProcedureSelection(), sidIdent: 'DET2G' }
-    renderTrack({ selection })
+    renderTrack({ selection: { ...emptyProcedureSelection(), sidIdent: 'DET2G' } })
     await screen.findByText('cruise')
-    await waitFor(() => expect(winglog.trackingSetProcedureSelection).toHaveBeenCalledWith(selection))
+    expect(winglog.trackingSetProcedureSelection).not.toHaveBeenCalled()
   })
 
-  // Flown 2026-10-22, EGLL to WMKK: Fly pressed before the sim was up, the app minimised, and only the phone used. The approach
-  // only appeared once the Procedures dialog was opened, an hour into the flight.
-  it('suggests an approach without the Procedures dialog being opened, once the sim connects and has its navdata', async () => {
+  // Flown 2026-10-22, EGLL to WMKK: Fly pressed before the sim was up, the app minimised, and only the phone used. The approach only
+  // appeared once the Procedures dialog was opened, an hour into the flight. The main process now suggests it for a flight that has been
+  // saved (src/main/procedures/ProcedureSelectionStore.test.ts), whichever page is open; this page leaves it to it.
+  it('leaves the suggested approach of a saved flight to the main process, whatever the sim and its navdata do', async () => {
     let isSimUp = false
     const winglog = setWinglog({
       aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
       flightList: vi.fn().mockResolvedValue([makeFlight({ status: 'active', arrIcao: 'WMKK' })]),
       trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'cruise' }),
-      // The airport isn't cached until a refresh from the running sim has fetched it.
       navdataListApproaches: vi.fn(() =>
-        Promise.resolve(
-          isSimUp
-            ? [
-                { identifier: 'RNP 14L', transition: null },
-                { identifier: 'ILS 14L', transition: null }
-              ]
-            : []
-        )
+        Promise.resolve(isSimUp ? [{ identifier: 'ILS 14L', transition: null }] : [])
       )
     })
-    function StatefulTrack(props: { telemetry: SimTelemetry | null }): React.JSX.Element {
-      const [selection, setSelection] = useState(emptyProcedureSelection())
-      return <TrackView telemetry={props.telemetry} selection={selection} onSelectionChange={setSelection} />
-    }
-    const { rerender } = render(<StatefulTrack telemetry={null} />)
+    const onSelectionChange = vi.fn()
+    const { rerender } = render(
+      <TrackView
+        telemetry={null}
+        selection={emptyProcedureSelection()}
+        onSelectionChange={onSelectionChange}
+      />
+    )
     await screen.findByText('cruise')
-    await waitFor(() => expect(winglog.navdataRefreshAirport).toHaveBeenCalledWith('WMKK'))
     expect(screen.getByText('Nothing selected yet')).toBeInTheDocument()
 
     isSimUp = true
-    rerender(<StatefulTrack telemetry={makeTelemetry({ onGround: false })} />)
-    expect(await screen.findByText('ILS 14L')).toBeInTheDocument()
-    // Pushed to the main process, which builds the route the phone draws.
-    await waitFor(() =>
-      expect(winglog.trackingSetProcedureSelection).toHaveBeenLastCalledWith(
-        expect.objectContaining({ approachIdent: 'ILS 14L' })
-      )
+    rerender(
+      <TrackView
+        telemetry={makeTelemetry({ onGround: false })}
+        selection={emptyProcedureSelection()}
+        onSelectionChange={onSelectionChange}
+      />
     )
-    expect(screen.queryByText('Departure runway')).not.toBeInTheDocument()
-  })
-
-  it('does not push a procedure selection when nothing is being tracked', async () => {
-    const winglog = setWinglog({
-      aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
-      flightList: vi.fn().mockResolvedValue([makeFlight()])
-    })
-    renderTrack()
-    await screen.findByText('Start tracking')
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(onSelectionChange).not.toHaveBeenCalled()
     expect(winglog.trackingSetProcedureSelection).not.toHaveBeenCalled()
   })
 
-  it('swallows a failure pushing the procedure selection rather than crashing', async () => {
+  it("still suggests an approach for a plan it previews before it is saved as a flight (Dispatch's fetched OFP)", async () => {
     setWinglog({
       aircraftList: vi.fn().mockResolvedValue([AIRCRAFT]),
-      flightList: vi.fn().mockResolvedValue([makeFlight({ status: 'active' })]),
-      trackingGetActive: vi.fn().mockResolvedValue({ flightId: 1, phase: 'cruise' }),
-      trackingSetProcedureSelection: vi.fn().mockRejectedValue(new Error('offline'))
+      flightList: vi.fn().mockResolvedValue([]),
+      navdataListApproaches: vi.fn().mockResolvedValue([{ identifier: 'ILS 14L', transition: null }])
     })
-    renderTrack()
-    expect(await screen.findByText('cruise')).toBeInTheDocument()
+    const onSelectionChange = vi.fn()
+    renderTrack({ previewOfp: makeDispatchOfp({ arrIcao: 'WMKK' }), onSelectionChange })
+    await waitFor(() =>
+      expect(onSelectionChange).toHaveBeenCalledWith(expect.objectContaining({ approachIdent: 'ILS 14L' }))
+    )
   })
 
   it('shows the "flight ended" dialog on an auto-detected shutdown and clears the active banner', async () => {

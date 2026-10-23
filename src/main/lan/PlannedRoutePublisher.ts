@@ -4,20 +4,15 @@
  * lookup that is dropped or fails can no longer leave it on SimBrief's own SID after the pilot has chosen another.
  */
 
-import type { Flight, NavdataLeg, ProcedureSelection } from '@shared/ipc'
+import type { Flight, ProcedureSelection } from '@shared/ipc'
 import type { PlannedRoute } from '@shared/live'
-import {
-  assembleRoute,
-  procedureRequests,
-  selectionFromFlight,
-  type FetchedProcedureLegs,
-  type ProcedureRequest
-} from '@shared/procedure-selection'
+import { selectionFromFlight } from '@shared/procedure-selection'
 import type { Waypoint } from '@shared/route'
 import type { WingLogDb } from '../db/client'
 import { getLiveFlight } from '../db/flight-repo'
 import { logger } from '../logging/logger'
 import type { LiveHub } from '../live/LiveHub'
+import { assembleFlightRoute } from '../navdata/assemble-flight-route'
 import type { NavdataProvider } from '../navdata/navdata-provider'
 import { shownFlightId } from './lan-flight'
 
@@ -105,32 +100,6 @@ export class PlannedRoutePublisher {
     legCounts: { sid: number; star: number; approach: number }
   } {
     const selection = this.deps.chosenSelection() ?? selectionFromFlight(flight)
-    const airports = { depIcao: flight.depIcao, arrIcao: flight.arrIcao, ofpJson: flight.ofpJson }
-    const requests = procedureRequests(airports, selection)
-    const fetched: FetchedProcedureLegs = {
-      sid: this.legs(requests.sid),
-      star: this.legs(requests.star),
-      approach: this.legs(requests.approach)
-    }
-    return {
-      selection,
-      waypoints: assembleRoute(airports, selection, fetched),
-      legCounts: {
-        sid: fetched.sid?.length ?? 0,
-        star: fetched.star?.length ?? 0,
-        approach: fetched.approach?.length ?? 0
-      }
-    }
-  }
-
-  private legs(request: ProcedureRequest | null): NavdataLeg[] | null {
-    if (!request) return null
-    return this.deps.navdata.getProcedureWaypoints(
-      request.icao,
-      request.kind,
-      request.identifier,
-      request.runway,
-      request.transition
-    )
+    return { selection, ...assembleFlightRoute(flight, selection, this.deps.navdata) }
   }
 }
