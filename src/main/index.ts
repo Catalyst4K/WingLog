@@ -63,6 +63,7 @@ import { LiveHub } from './live/LiveHub'
 import { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
 import { seedE2eTaxiNetwork } from './e2e-taxi-network'
 import { startFlightServices } from './flight-services'
+import { createTraceWorkerRunner } from './taxi/create-trace-worker'
 import { SimAirfieldResolver } from './airports/sim-airfield'
 import { TrackingController } from './tracking/TrackingController'
 import { AutoStartDetector } from './tracking/AutoStartDetector'
@@ -378,7 +379,8 @@ function startApp(): void {
     sim,
     liveHub,
     trackingController,
-    navdata: navdataProvider
+    navdata: navdataProvider,
+    traceWorker: createTraceWorkerRunner()
   })
   app.on('before-quit', flightServices.stop)
 

@@ -8,10 +8,11 @@ import { createFlight } from '../db/flight-repo'
 import { fakeIpc } from '../ipc/fake-ipc'
 import { LiveHub } from '../live/LiveHub'
 import { startTaxiRoute } from './start-taxi-route'
+import type { TraceJob } from './trace-runner'
 
 vi.mock('../logging/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn() } }))
 
-function setup() {
+function setup(extra: Partial<Parameters<typeof startTaxiRoute>[1]> = {}) {
   const { db } = createDb(':memory:')
   migrate(db, { migrationsFolder: 'drizzle' })
   const aircraftId = createAircraft(db, { registration: '9V-SKA', icaoType: 'A388' }).id
@@ -27,7 +28,8 @@ function setup() {
       listRunways: () => [],
       getStands: () => Promise.resolve([]),
       onAirportRefreshed: () => () => undefined
-    }
+    },
+    ...extra
   })
   return { hub, ipc, stop }
 }
@@ -73,5 +75,45 @@ describe('startTaxiRoute', () => {
       facility: null
     } as never)
     expect(seen).toHaveLength(1)
+  })
+
+  it('has the clearance traced by the runner it is given, with the network and where the clearance ends', async () => {
+    const jobs: TraceJob[] = []
+    const segments = [
+      {
+        startLat: 18.3,
+        startLon: 109.4,
+        endLat: 18.3,
+        endLon: 109.401,
+        name: 'D',
+        startHoldShort: false,
+        endHoldShort: false
+      }
+    ]
+    const { hub } = setup({
+      navdata: {
+        getTaxiNetwork: () => segments,
+        listRunways: () => [],
+        getStands: () => Promise.resolve([]),
+        onAirportRefreshed: () => () => undefined
+      },
+      trace: (job) => {
+        jobs.push(job)
+        return Promise.resolve(null)
+      }
+    })
+    hub.publish('simTelemetry', {
+      latitude: 18.3,
+      longitude: 109.4,
+      headingTrueDeg: 90,
+      groundSpeedMs: 1
+    } as never)
+    hub.publish('beyondAtcState', {
+      infoBoxes: [{ title: 'Taxi Via 1', info: 'D' }],
+      facility: null
+    } as never)
+    await Promise.resolve()
+    expect(jobs).toHaveLength(1)
+    expect(jobs[0]).toMatchObject({ clearance: { taxiways: ['D'] }, segments, stand: null, threshold: null })
   })
 })

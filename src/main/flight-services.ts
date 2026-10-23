@@ -11,6 +11,7 @@ import type { SimStatusSource } from './ipc/sim-handlers'
 import type { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
 import { wireFlightNavdata } from './navdata/wire-flight-navdata'
 import { startTaxiRoute } from './taxi/start-taxi-route'
+import type { WorkerTraceRunner } from './taxi/worker-trace-runner'
 import type { ProcedureSelectionStore } from './procedures/ProcedureSelectionStore'
 import { startProcedureSelection } from './procedures/start-procedure-selection'
 import type { TrackingController } from './tracking/TrackingController'
@@ -37,17 +38,26 @@ export function startFlightServices(
     sim,
     liveHub,
     trackingController,
-    navdata
+    navdata,
+    traceWorker
   }: {
     db: WingLogDb
     sim: SimStatusSource
     liveHub: LiveHub
     trackingController: TrackingController
     navdata: SimFacilitiesProvider
+    /** Runs the taxi line's traces on a worker thread; they run on this one when absent. */
+    traceWorker?: WorkerTraceRunner
   }
 ): FlightServices {
   const flightNavdata = wireFlightNavdata({ db, sim, trackingController, provider: navdata })
-  const stopTaxiRoute = startTaxiRoute(ipcMain, { db, liveHub, trackingController, navdata })
+  const stopTaxiRoute = startTaxiRoute(ipcMain, {
+    db,
+    liveHub,
+    trackingController,
+    navdata,
+    trace: traceWorker && ((job) => traceWorker.run(job))
+  })
   const selection = startProcedureSelection(ipcMain, { db, liveHub, trackingController, navdata })
   return {
     selection,
@@ -55,6 +65,9 @@ export function startFlightServices(
       flightNavdata.refresh()
       selection.refresh()
     },
-    stop: stopTaxiRoute
+    stop: () => {
+      stopTaxiRoute()
+      traceWorker?.stop()
+    }
   }
 }

@@ -13,6 +13,9 @@ import { LiveHub } from '../live/LiveHub'
 import type { ShownFlight } from '../navdata/flight-navdata-fetcher'
 import { logger } from '../logging/logger'
 import { TaxiRouteService } from './TaxiRouteService'
+import type { TraceJob, TraceRunner } from './trace-runner'
+import { traceInline } from './trace-runner'
+import type { TracedClearance } from '@shared/taxi/fallback'
 import REPLAY_225 from '@shared/taxi/__fixtures__/ybbn-225-taxi-out.json'
 import YBBN_225_RAW from '@shared/taxi/__fixtures__/ybbn-225-taxi-network.json'
 import REPLAY_227 from '@shared/taxi/__fixtures__/zjsy-227-taxi-out.json'
@@ -84,7 +87,7 @@ interface World {
 }
 
 /** A service on a real hub, with a fake navdata cache and the flight, tracking and clock the test sets. */
-function setup(over: Partial<World['state']> = {}): World {
+function setup(over: Partial<World['state']> = {}, trace?: TraceRunner): World {
   const hub = new LiveHub()
   const published: (TaxiRoute | null)[] = []
   hub.subscribe((topic, payload) => {
@@ -112,7 +115,8 @@ function setup(over: Partial<World['state']> = {}): World {
     },
     shownFlight: () => state.flight,
     active: () => state.active,
-    now: () => now
+    now: () => now,
+    trace
   })
   const stop = service.start()
   return {
@@ -538,5 +542,96 @@ describe('TaxiRouteService: failures stay inside it', () => {
     w.stop()
     w.clearance(D_B7_A)
     expect(w.published).toEqual([])
+  })
+})
+
+describe('TaxiRouteService: a trace that comes back later (the app runs it on a worker thread)', () => {
+  /** A runner the test answers by hand: each job waits for its own resolve or reject. */
+  function manualRunner() {
+    const jobs: {
+      job: TraceJob
+      resolve: (t: TracedClearance | null) => void
+      reject: (e: Error) => void
+    }[] = []
+    const trace: TraceRunner = (job) =>
+      new Promise((resolve, reject) => {
+        jobs.push({ job, resolve, reject })
+      })
+    return { trace, jobs }
+  }
+  const flush = async (): Promise<void> => {
+    for (let i = 0; i < 5; i++) await Promise.resolve()
+  }
+
+  it('draws no line while the trace is out, then the one it answers with', async () => {
+    const { trace, jobs } = manualRunner()
+    const w = setup({}, trace)
+    w.telemetry(ON_D)
+    w.clearance(D_B7_A)
+    expect(jobs).toHaveLength(1)
+    // The clearance is shown, with no line yet.
+    expect(w.published.at(-1)).toMatchObject({
+      kind: null,
+      line: [],
+      clearance: { taxiways: ['D', 'B7', 'A'] }
+    })
+    jobs[0].resolve(traceInline(jobs[0].job) as TracedClearance)
+    await flush()
+    expect(w.last()).toMatchObject({ icao: 'ZJSY', kind: 'exact' })
+    expect((w.last()!.line as unknown[]).length).toBeGreaterThan(2)
+  })
+
+  it('takes only the latest clearance’s answer: an earlier one arriving late is dropped', async () => {
+    const { trace, jobs } = manualRunner()
+    const w = setup({}, trace)
+    w.telemetry(ON_D)
+    w.clearance(D_B7_A)
+    w.clearance(D_A3_A)
+    expect(jobs).toHaveLength(2)
+    jobs[1].resolve(traceInline(jobs[1].job) as TracedClearance)
+    await flush()
+    const after = w.published.length
+    expect(w.last()!.clearance.taxiways).toEqual(['D', 'A3', 'A'])
+    jobs[0].resolve(traceInline(jobs[0].job) as TracedClearance)
+    await flush()
+    expect(w.published).toHaveLength(after)
+    expect(w.last()!.clearance.taxiways).toEqual(['D', 'A3', 'A'])
+  })
+
+  it('drops an answer that comes after the clearance has gone with the takeoff roll', async () => {
+    const { trace, jobs } = manualRunner()
+    const w = setup({ active: { flightId: 1, phase: 'taxi' } }, trace)
+    w.telemetry(ON_D)
+    w.clearance(D_B7_A)
+    w.telemetry([60, 18.3017, 109.3964, 80, 30, 'takeoff'])
+    expect(w.published.at(-1)).toBeNull()
+    jobs[0].resolve(traceInline(jobs[0].job) as TracedClearance)
+    await flush()
+    expect(w.published.at(-1)).toBeNull()
+  })
+
+  it('traces on its own thread when the worker could not, and says so', async () => {
+    const { trace, jobs } = manualRunner()
+    const w = setup({}, trace)
+    w.telemetry(ON_D)
+    w.clearance(D_B7_A)
+    jobs[0].reject(new Error('worker died'))
+    await flush()
+    expect(w.last()).toMatchObject({ kind: 'exact' })
+    expect(vi.mocked(logger.warn)).toHaveBeenCalledWith(
+      expect.stringContaining('trace worker could not trace'),
+      expect.any(Error)
+    )
+  })
+
+  it('logs how long the trace took from asking to the answer', async () => {
+    const { trace, jobs } = manualRunner()
+    const w = setup({}, trace)
+    w.telemetry(ON_D)
+    w.clearance(D_B7_A)
+    w.setNow(2500)
+    jobs[0].resolve(traceInline(jobs[0].job) as TracedClearance)
+    await flush()
+    expect(vi.mocked(logger.info)).toHaveBeenCalledWith(expect.stringContaining('2500 ms'))
   })
 })
