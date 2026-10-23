@@ -15,10 +15,11 @@ vi.mock('./selection-sync', async (original) => ({
 
 // The map itself needs WebGL (jsdom has none) and is covered by FlightMap.test.tsx and the second-screen acceptance test; here it only
 // records what the page hands it.
-const mapProps = vi.hoisted(() => ({ current: null as FlightMapProps | null }))
+const mapProps = vi.hoisted(() => ({ current: null as FlightMapProps | null, explode: false }))
 vi.mock('@/FlightMap', () => ({
   FlightMap: (props: FlightMapProps) => {
     mapProps.current = props
+    if (mapProps.explode) throw new Error('the map failed to draw')
     return <div data-testid="map" />
   }
 }))
@@ -409,6 +410,28 @@ describe('LanApp', () => {
     const { link } = setup('tok')
     render(<LanApp link={link} />)
     expect(screen.getByText('Connecting to WingLog…')).toBeInTheDocument()
+  })
+
+  it('keeps the page bar, and the other pages, when the Track page fails to draw, and tells the PC', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    mapProps.explode = true
+    try {
+      const { link, sockets } = setup('tok')
+      render(<LanApp link={link} />)
+      act(() => {
+        sockets[0].onopen?.()
+        sockets[0].say({ t: 'snapshot', topics: {}, flight: null })
+      })
+      expect(screen.getByRole('alert')).toHaveTextContent('Something went wrong showing this.')
+      expect(screen.getByRole('navigation')).toBeInTheDocument()
+      // Another page still opens.
+      await userEvent.click(screen.getByRole('button', { name: 'Dispatch' }))
+      expect(
+        screen.getByText('No flight plan on the PC yet. Plan a flight in Dispatch on the PC.')
+      ).toBeInTheDocument()
+    } finally {
+      mapProps.explode = false
+    }
   })
 
   it('says no flight is tracked when the PC has none, with the map behind it', () => {

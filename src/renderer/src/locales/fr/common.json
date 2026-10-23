@@ -945,6 +945,10 @@
       "body": "Tout cela se modifie dans les Paramètres. Pour revoir cette configuration, allez dans Paramètres → À propos → Relancer la configuration."
     }
   },
+  "errorBoundary": {
+    "message": "Un problème est survenu à l'affichage. Le reste de WingLog fonctionne toujours.",
+    "reload": "Recharger"
+  },
   "lanPage": {
     "connecting": "Connexion à WingLog…",
     "pairTitle": "Associer avec WingLog",

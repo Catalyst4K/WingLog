@@ -943,6 +943,10 @@
       "body": "Everything here can be changed in Settings. To see this setup again, go to Settings → About → Run setup again."
     }
   },
+  "errorBoundary": {
+    "message": "Something went wrong showing this. The rest of WingLog is still working.",
+    "reload": "Reload"
+  },
   "lanPage": {
     "connecting": "Connecting to WingLog…",
     "pairTitle": "Pair with WingLog",

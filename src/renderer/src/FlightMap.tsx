@@ -10,6 +10,7 @@ import { useTaxiRouteHighlight } from './use-taxi-route-highlight'
 import { useVfrOverlay } from './use-vfr-overlay'
 import { ROUTE_SOURCE_ID } from './flight-map/map-layers'
 import { isMapVisible } from './flight-map/map-state'
+import { ErrorBoundary } from './ErrorBoundary'
 import { MapControls, MapPills } from './flight-map/MapOverlays'
 import {
   useFollowToggle,
@@ -78,7 +79,19 @@ const NO_ESTIMATE: [number, number][][] = []
  * @param props The route, waypoints and track; whether it's live, with its telemetry; the map language; and the flight's airports.
  * @returns The element.
  */
-export function FlightMap({
+export function FlightMap(props: FlightMapProps): React.JSX.Element {
+  return (
+    <ErrorBoundary name="map">
+      <FlightMapView {...props} />
+    </ErrorBoundary>
+  )
+}
+
+/**
+ * @param props The map's props (FlightMap).
+ * @returns The element.
+ */
+function FlightMapView({
   route,
   waypoints = EMPTY_WAYPOINTS,
   trackPoints: rawTrackPoints,

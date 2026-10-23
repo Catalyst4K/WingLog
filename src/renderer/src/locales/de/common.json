@@ -943,6 +943,10 @@
       "body": "Alles hier lässt sich in den Einstellungen ändern. Diese Einrichtung findest du wieder unter Einstellungen → Über → Einrichtung erneut ausführen."
     }
   },
+  "errorBoundary": {
+    "message": "Beim Anzeigen ist etwas schiefgegangen. Der Rest von WingLog funktioniert weiter.",
+    "reload": "Neu laden"
+  },
   "lanPage": {
     "connecting": "Verbindung zu WingLog wird hergestellt…",
     "pairTitle": "Mit WingLog koppeln",
