@@ -20,7 +20,7 @@ const LEVEL_SUSTAIN_SAMPLES = 10 // consecutive 1 Hz samples of level flight to 
 const DESCENT_SUSTAIN_SAMPLES = 30
 // Consecutive airborne samples before a rollout or taxi counts as a go-around (and, the other way round, ground samples before
 // 'climb'/'cruise' counts as a missed landing). One wasn't enough: a single airborne tick on a bouncy rollout sent the phase
-// 'landing' -> 'climb' -> 'cruise' and recorded the whole taxi-in as cruise. Same count as TrackingController's
+// 'landing' -> 'climb' -> 'cruise' and recorded the whole taxi-in as cruise. Same count as touchdown-step.ts's
 // MIN_AIRBORNE_SAMPLES_FOR_NEW_TOUCHDOWN, which already kept that bounce from being logged as a second landing.
 const GO_AROUND_AIRBORNE_SAMPLES = 3
 // Tracking started in the air (a flight picked up after takeoff, or after the app was closed mid-flight): this many consecutive airborne

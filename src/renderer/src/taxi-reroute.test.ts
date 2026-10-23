@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { FlightPhase, NavdataTaxiSegment } from '@shared/ipc'
-import { angleBetweenDeg, remainingRoute, traceTaxiRoute, type TracedRoute } from './taxi-route-trace'
+import { remainingRoute } from './taxi-route-rejoin'
+import { angleBetweenDeg, traceTaxiRoute, type TracedRoute } from './taxi-route-trace'
 import {
   checkDeviation,
   INITIAL_DEVIATION,
+  PASSED_AFTER_MS,
+  PASSED_DISTANCE_M,
   reachedEnd,
   REROUTE_AFTER_MS,
   REROUTE_DISTANCE_M,
@@ -24,6 +27,9 @@ import REPLAY_227 from './__fixtures__/zjsy-227-taxi-out.json'
 // behind the aircraft twice before following it, until a wrong-way start cost a flat 3 km.
 import REPLAY_225 from './__fixtures__/ybbn-225-taxi-out.json'
 import YBBN_225_RAW from './__fixtures__/ybbn-225-taxi-network.json'
+// Flight 253's real taxi out at ZJSY (same row shape), cleared "via D, A3, A" to the holding point A and driven D, B5, B, A1: re-routed
+// all the way. The 1.5.2 re-route drew one of its lines with a turn on the spot.
+import REPLAY_253 from './__fixtures__/zjsy-253-taxi-out.json'
 
 type Row = [number, number, number, number, string | null, number, number]
 const toSegments = (raw: unknown): NavdataTaxiSegment[] =>
@@ -92,6 +98,7 @@ describe('checkDeviation', () => {
     overrides: {
       distanceM?: number
       lineBearingDeg?: number | null
+      nearestBearingDeg?: number | null
       headingDeg?: number
       groundSpeedMs?: number
     } = {}
@@ -150,6 +157,32 @@ describe('checkDeviation', () => {
     expect(run(60, { distanceM: 2, lineBearingDeg: 0, headingDeg: 110 }).reroutes).toEqual([])
   })
 
+  it('triggers 2 s after driving on past the line: its nearest point behind, off the taxiway', () => {
+    const passed = {
+      distanceM: PASSED_DISTANCE_M + 1,
+      nearestBearingDeg: 82,
+      headingDeg: 262,
+      lineBearingDeg: 262
+    }
+    expect(run(1, passed).reroutes).toEqual([])
+    expect(run(3, passed).reroutes).toEqual([PASSED_AFTER_MS / 1000])
+  })
+
+  it('does not count a nearest point beside the aircraft, or one behind still on its taxiway, as driven past', () => {
+    // Beside: a wide turn onto the line.
+    expect(
+      run(60, { distanceM: 30, nearestBearingDeg: 172, headingDeg: 262, lineBearingDeg: 262 }).reroutes
+    ).toEqual([])
+    expect(
+      run(60, {
+        distanceM: PASSED_DISTANCE_M - 1,
+        nearestBearingDeg: 82,
+        headingDeg: 262,
+        lineBearingDeg: 262
+      }).reroutes
+    ).toEqual([])
+  })
+
   it('re-routes at most once per 10 s while the deviation goes on', () => {
     const { reroutes } = run(60, { distanceM: 100 })
     expect(reroutes[0]).toBe(5)
@@ -190,7 +223,8 @@ describe('re-routing replay: ZJSY flight 227, the wrong-way pushback (2026-10-02
   it('re-routes within 10 s of starting to taxi the wrong way', () => {
     const { reroutes, taxiStart } = replay()
     expect(reroutes.length).toBeGreaterThan(0)
-    expect(reroutes[0]!.t - taxiStart).toBeGreaterThanOrEqual(REROUTE_AFTER_MS / 1000)
+    // Driving away from the line's nearest point: the 2 s "driven past it" wait, not the 5 s one.
+    expect(reroutes[0]!.t - taxiStart).toBeGreaterThanOrEqual(PASSED_AFTER_MS / 1000)
     expect(reroutes[0]!.t - taxiStart).toBeLessThanOrEqual(10)
   })
 
@@ -273,5 +307,55 @@ describe('re-routing replay: YBBN flight 225, taxiing away from the first trace 
       ...SAMPLES_225.map(([, lat, lon]) => distanceM({ lat, lon }, { lat: end[1], lon: end[0] }))
     )
     expect(closest).toBeLessThan(20)
+  })
+})
+
+/** The most a line turns within 60 m of it anywhere, degrees, summed over its points. */
+function sharpestTurnWithin60(line: TracedRoute): number {
+  const bearing = (a: [number, number], b: [number, number]): number =>
+    (Math.atan2((b[0] - a[0]) * Math.cos((a[1] * Math.PI) / 180), b[1] - a[1]) * 180) / Math.PI
+  const lengthOf = (a: [number, number], b: [number, number]): number =>
+    distanceM({ lat: a[1], lon: a[0] }, { lat: b[1], lon: b[0] })
+  const turnAt = (i: number): number =>
+    lengthOf(line[i - 1]!, line[i]!) < 0.5 || lengthOf(line[i]!, line[i + 1]!) < 0.5
+      ? 0
+      : angleBetweenDeg(bearing(line[i - 1]!, line[i]!), bearing(line[i]!, line[i + 1]!))
+  let sharpest = 0
+  for (let i = 1; i + 1 < line.length; i++) {
+    let turned = 0
+    let travelled = 0
+    for (let k = i; k + 1 < line.length && travelled <= 60; k++) {
+      turned += turnAt(k)
+      travelled += lengthOf(line[k]!, line[k + 1]!)
+    }
+    sharpest = Math.max(sharpest, turned)
+  }
+  return sharpest
+}
+
+describe('re-routing replay: ZJSY flight 253, cleared D, A3, A and driven D, B5, B, A1 (2026-10-21)', () => {
+  const { reroutes } = replayTaxi(
+    REPLAY_253 as Sample[],
+    ZJSY,
+    { taxiways: ['D', 'A3', 'A'], holdingPoint: 'A' },
+    true
+  )
+
+  it('re-routes, and every re-route turns no sharper than an airliner can and never passes the same point twice', () => {
+    expect(reroutes.length).toBeGreaterThan(0)
+    for (const { line } of reroutes) {
+      expect(sharpestTurnWithin60(line)).toBeLessThanOrEqual(135)
+      expect(new Set(line.map(([lon, lat]) => `${lon},${lat}`)).size).toBe(line.length)
+    }
+  })
+  it('sets every re-route off from the aircraft the way its nose points', () => {
+    const bearing = ([aLon, aLat]: [number, number], [bLon, bLat]: [number, number]): number =>
+      (Math.atan2((bLon - aLon) * Math.cos((aLat * Math.PI) / 180), bLat - aLat) * 180) / Math.PI
+    for (const { t, line } of reroutes) {
+      const [, lat, lon, headingDeg] = (REPLAY_253 as Sample[]).find(([time]) => time === t)!
+      expect(line[0]).toEqual([lon, lat])
+      const onward = line.find(([x, y]) => distanceM({ lat, lon }, { lat: y, lon: x }) > 20)!
+      expect(angleBetweenDeg(bearing(line[0]!, onward), headingDeg)).toBeLessThan(45)
+    }
   })
 })

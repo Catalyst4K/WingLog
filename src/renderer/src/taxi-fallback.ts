@@ -9,17 +9,16 @@ import type { NavdataTaxiSegment } from '@shared/ipc'
 import { itemAt } from '@shared/item-at'
 import { MinQueue } from './min-queue'
 import { startOfRunwayHolds, type RunwayThreshold } from './taxi-runway-hold'
+import { crossingHolds, isHoldShortBeside } from './taxi-runway-crossing'
 import {
   buildGraph,
   edgesOf,
-  isHoldShortBeside,
   isWrongWay,
   MAX_ROUTE_LENGTH_M,
   nearestNode,
   nodeKey,
   standLinkNode,
   traceTaxiRoute,
-  traceTaxiRouteFromFirstTaxiway,
   WRONG_WAY_PENALTY_M,
   type Graph,
   type TaxiTraceRequest,
@@ -114,6 +113,9 @@ function destinationNodes(graph: Graph, request: TaxiTraceRequest): number[] {
     return link >= 0 ? [link] : []
   }
   if (holdShortRunway) {
+    // Where the route crosses the runway, or any hold short beside it when the scenery has no crossing.
+    const crossings = crossingHolds(graph, holdShortRunway)
+    if (crossings.size > 0) return [...crossings]
     return [...graph.nodes.entries()].filter(([, n]) => isHoldShortBeside(n, holdShortRunway)).map(([i]) => i)
   }
   return holdingPoint && runwayThreshold ? startOfRunwayNodes(graph, request.segments, runwayThreshold) : []
@@ -234,8 +236,8 @@ function routeFrom(
  * @returns The line, how it was made and how well it matches the clearance; null when neither works.
  */
 export function traceWithFallback(request: TaxiTraceRequest): TracedClearance | null {
-  // An aircraft already past the clearance's start (Track opened mid-taxi) traces from the first taxiway instead.
-  const exact = traceTaxiRoute(request) ?? traceTaxiRouteFromFirstTaxiway(request)
+  // An aircraft already past the clearance's start (Track opened mid-taxi) joins it where it is: taxi-route-trace.ts's SKIP_COST_M.
+  const exact = traceTaxiRoute(request)
   if (exact) return { route: exact, kind: 'exact', match: matchClearance(request, exact) }
   const found = findTaxiPath(request)
   return found ? { route: found, kind: 'pathfinder', match: matchClearance(request, found) } : null

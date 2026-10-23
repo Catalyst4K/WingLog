@@ -16,6 +16,11 @@ describe('stepTaxiBoxes', () => {
     expect(INITIAL_TAXI_MEMORY.clearance).toBeNull()
   })
 
+  it('keeps which way the nose pointed as the clearance arrived, for the line to start that way', () => {
+    const { clearance } = stepTaxiBoxes(INITIAL_TAXI_MEMORY, ROUTE, { ...HERE, headingDeg: 262 }, 5_000)
+    expect(clearance?.from).toEqual({ ...HERE, headingDeg: 262 })
+  })
+
   it('reads the same boxes once, and ignores boxes with no taxi clearance', () => {
     const first = stepTaxiBoxes(INITIAL_TAXI_MEMORY, ROUTE, HERE, 1_000)
     const again = stepTaxiBoxes(first.memory, ROUTE, HERE, 2_000)
