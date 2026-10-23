@@ -14,6 +14,7 @@ import type { NavdataTaxiSegment } from '../../src/shared/ipc'
 import { toLocalXy } from '../../src/shared/geo'
 import { traceWithFallback } from '../../src/shared/taxi/fallback'
 import { passesAPlaceTwice, pointsAlong, sharpestTurn, type Xy } from '../../src/shared/taxi/route-checks'
+import { distToPolyline, ON_M, STEP_M } from './taxi-geometry'
 import { TURN_WINDOW_MAX_DEG } from '../../src/shared/taxi/route-turns'
 import { openUserDb } from './local-data'
 import { simOutputDir, writeReport, type ReportSection } from './report'
@@ -33,9 +34,6 @@ import { runTaxi, type TaxiScenario } from './taxi'
 import { loadFlownNetwork, loadTaxiScenarios, movingSamples, verdictOf, type Verdict } from './taxi-evidence'
 
 /** A point of the line this near the track (or of the track this near the line) is on it. */
-const ON_M = 25
-/** The line is checked every this many metres. */
-const STEP_M = 5
 
 interface Score {
   id: string
@@ -61,20 +59,6 @@ interface Score {
 }
 
 const pct = (part: number, whole: number): number => (whole > 0 ? Math.round((100 * part) / whole) : 0)
-
-function distToPolyline(p: Xy, line: Xy[]): number {
-  let best = Infinity
-  for (let i = 1; i < line.length; i++) {
-    const [ax, ay] = line[i - 1]
-    const [bx, by] = line[i]
-    const dx = bx - ax
-    const dy = by - ay
-    const len2 = dx * dx + dy * dy
-    const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p[0] - ax) * dx + (p[1] - ay) * dy) / len2))
-    best = Math.min(best, Math.hypot(ax + t * dx - p[0], ay + t * dy - p[1]))
-  }
-  return line.length === 1 ? Math.hypot(line[0][0] - p[0], line[0][1] - p[1]) : best
-}
 
 /** How many re-route lines turned more than an airliner can or passed a place twice. */
 function badReroutes(sc: TaxiScenario, reroutes: LonLat[][]): number {

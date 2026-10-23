@@ -3,8 +3,9 @@
  * route (use-taxi-route-highlight.ts), shared with the simulation (scripts/sim/taxi.sim.ts) so it
  * runs the app's own code (winglog-backend docs/plans/robustness/scenario-testing.md Part 6).
  */
-import type { BeyondAtcInfoBox, NavdataStand, NavdataTaxiSegment } from '@shared/ipc'
+import type { BeyondAtcInfoBox, NavdataRunway, NavdataStand, NavdataTaxiSegment } from '@shared/ipc'
 import { parseAtcTaxiFacts } from '@shared/atc-info-boxes'
+import { findStand } from '@shared/stands'
 import { traceWithFallback, type TracedClearance } from './fallback'
 import type { RunwayStrip, TaxiTraceRequest, TracedRoute } from './route-trace'
 import { aliasSplitTaxiways } from './name-alias'
@@ -135,6 +136,38 @@ export function clearanceRunway<R extends { ident: string }>(
   if (!ident) return null
   const key = (name: string): string => name.replace(/^0+/, '').toUpperCase()
   return runways.find((r) => key(r.ident) === key(ident)) ?? null
+}
+
+/** Where a clearance ends, as the trace needs to know it. */
+export interface ClearanceEnds {
+  /** The cleared stand, positioned, or null. */
+  stand: NavdataStand | null
+  /** The threshold of the runway a holding-point clearance is for, or null. */
+  threshold: RunwayThreshold | null
+  /** The runway of a "hold short of runway" clearance, or null. */
+  holdShortRunway: RunwayStrip | null
+}
+
+/**
+ * Where a clearance ends, as far as the stands and runways known say: its stand, the threshold of the runway of a holding point, or the
+ * runway of a hold short. The one place that works it out: the taxi line service, the offline simulations and the test suite all use it,
+ * so none of them can end a clearance differently from the app.
+ *
+ * @param clearance The clearance.
+ * @param stands The clearance airport's stands.
+ * @param runways The clearance airport's runways.
+ * @returns What the trace needs to know of the end; each null when the clearance has none or the data lacks it.
+ */
+export function clearanceEnds(
+  clearance: TaxiClearance,
+  stands: NavdataStand[],
+  runways: NavdataRunway[]
+): ClearanceEnds {
+  return {
+    stand: clearance.stand ? findStand(stands, clearance.stand) : null,
+    threshold: clearance.holdingPoint ? clearanceRunwayThreshold(clearance.taxiToRunway, runways) : null,
+    holdShortRunway: clearance.holdingPoint ? null : clearanceRunway(clearance.holdShortRunway, runways)
+  }
 }
 
 /**
