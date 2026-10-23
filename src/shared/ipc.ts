@@ -59,7 +59,7 @@ import type {
   GsxRescanResult,
   GsxSettings
 } from './types/gsx'
-import type { TaxiRoute } from './live'
+import type { PlannedRoute, TaxiRoute } from './live'
 import type {
   AircraftLanding,
   LandingListRow,
@@ -267,6 +267,10 @@ export interface WingLogApi {
   getTaxiRoute: () => Promise<TaxiRoute | null>
   /** Pushed each time the taxi line or its clearance changes; every screen draws the same one. */
   onTaxiRoute: (listener: (route: TaxiRoute | null) => void) => () => void
+  /** The planned route of the flight shown, as the main process built it from the flight's plan and the procedures chosen: the route every screen draws for a saved flight. Null with no flight shown. */
+  getPlannedRoute: () => Promise<PlannedRoute | null>
+  /** Pushed each time that route changes. */
+  onPlannedRoute: (listener: (route: PlannedRoute | null) => void) => () => void
   /** Manually re-runs the resume-cleanup pass for one already-completed flight — the
    *  Logbook detail page's "Clean up track" button, alongside the automatic live/
    *  completion-time pass TrackingController already runs on its own. Useful for a flight

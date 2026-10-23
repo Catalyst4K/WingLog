@@ -4,14 +4,14 @@ import type { LiveCommand, LiveCommands, LiveTopic } from '@shared/live'
 import type { WingLogApi } from '@shared/ipc'
 import { LiveClientContext, electronLiveClient, useLiveTopic, type LiveClient } from './LiveClient'
 
-// plannedRoute is for the second screens only: the window is never sent it.
-const SUBSCRIBERS: Record<Exclude<LiveTopic, 'plannedRoute'>, keyof WingLogApi> = {
+const SUBSCRIBERS: Record<LiveTopic, keyof WingLogApi> = {
   simTelemetry: 'onSimTelemetry',
   simConnectionStatus: 'onSimConnectionStatus',
   trackingPoint: 'onTrackingPoint',
   trackingPointsUpdated: 'onTrackingPointsUpdated',
   procedureSelection: 'onProcedureSelection',
   taxiRoute: 'onTaxiRoute',
+  plannedRoute: 'onPlannedRoute',
   storageStatus: 'onStorageStatus',
   gsxRemoteStatus: 'onGsxRemoteStatus',
   gsxRemoteServices: 'onGsxRemoteServices',

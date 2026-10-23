@@ -57,6 +57,8 @@ export const IpcChannels = {
   procedureSelection: 'tracking:procedure-selection',
   taxiRoute: 'taxi:route',
   taxiRouteGet: 'taxi:route-get',
+  plannedRoute: 'planned-route:push',
+  plannedRouteGet: 'planned-route:get',
   storageStatus: 'storage:status',
   storageGetStatus: 'storage:get-status',
   trackPointList: 'track-point:list',

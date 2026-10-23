@@ -75,6 +75,16 @@ describe('startProcedureSelection', () => {
     expect(await ipc.invoke(IpcChannels.trackingGetProcedureSelection)).toBeNull()
   })
 
+  it('answers a window that asks for the planned route with the one the hub holds, and null when it holds none', async () => {
+    const { hub, ipc, flight } = setup()
+    expect(await ipc.invoke(IpcChannels.plannedRouteGet)).toBeNull()
+    const route = { flightId: flight.id, revision: 3, selection: emptyProcedureSelection(), waypoints: [] }
+    hub.publish('plannedRoute', route)
+    expect(await ipc.invoke(IpcChannels.plannedRouteGet)).toEqual(route)
+    hub.publish('plannedRoute', null)
+    expect(await ipc.invoke(IpcChannels.plannedRouteGet)).toBeNull()
+  })
+
   it('answers null before any flight exists', async () => {
     const { db, aircraftId, ipc, store, tracking, flight } = setup()
     abandonAllPlanned(db)

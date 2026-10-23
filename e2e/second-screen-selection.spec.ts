@@ -80,6 +80,13 @@ test.describe('Second screen: the procedure choice', () => {
           .poll(() => (latestTopic(phone, 'plannedRoute')?.selection as { sidIdent?: string })?.sidIdent)
           .toBe('PORA1N')
         expect(await held(first.window)).toEqual(CHOICE)
+        // The PC window is sent the same route the phone draws, built once by the main process.
+        const phoneRoute = latestTopic(phone, 'plannedRoute')
+        const windowRoute = await first.window.evaluate(() =>
+          (globalThis as unknown as Window).winglog.getPlannedRoute()
+        )
+        expect(windowRoute).toEqual(phoneRoute)
+        expect(windowRoute).toMatchObject({ selection: CHOICE })
         phone.close()
       } finally {
         await first.cleanup()
