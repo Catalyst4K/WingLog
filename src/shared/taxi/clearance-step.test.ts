@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BeyondAtcInfoBox } from '@shared/ipc'
-import { INITIAL_TAXI_MEMORY, isDeparted, stepTaxiBoxes } from './taxi-clearance-step'
+import { INITIAL_TAXI_MEMORY, isDeparted, stepTaxiBoxes } from './clearance-step'
 
 const via = (names: string[]): BeyondAtcInfoBox[] =>
   names.map((info, i) => ({ title: `Taxi Via ${i + 1}`, info }))

@@ -63,6 +63,8 @@ import { createUpdaterEngine } from './updates/updater-engine'
 import { LiveHub } from './live/LiveHub'
 import { SimFacilitiesProvider } from './navdata/sim-facilities-provider'
 import { wireFlightNavdata } from './navdata/wire-flight-navdata'
+import { seedE2eTaxiNetwork } from './e2e-taxi-network'
+import { startTaxiRoute } from './taxi/start-taxi-route'
 import { SimAirfieldResolver } from './airports/sim-airfield'
 import { TrackingController } from './tracking/TrackingController'
 import { AutoStartDetector } from './tracking/AutoStartDetector'
@@ -115,6 +117,7 @@ function openDatabase(userDataPath: string): {
   // isn't reliable once the app is launched from a shortcut rather than a terminal.
   migrateDb(dbPath, join(app.getAppPath(), 'drizzle'))
   const handle = createDb(dbPath)
+  seedE2eTaxiNetwork(handle.db, app.isPackaged)
   return { db: handle.db, sqlite: handle.sqlite, dbPath, backedUp }
 }
 
@@ -375,6 +378,10 @@ function startApp(): void {
   // fetcher gets the shown flight's runways, procedures and taxi charts through it, whichever screen is open.
   const navdataProvider = new SimFacilitiesProvider(db)
   const flightNavdata = wireFlightNavdata({ db, sim, trackingController, provider: navdataProvider })
+  app.on(
+    'before-quit',
+    startTaxiRoute(ipcMain, { db, liveHub, trackingController, navdata: navdataProvider })
+  )
 
   const trackingDeps = {
     db,

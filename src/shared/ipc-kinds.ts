@@ -24,6 +24,8 @@ const NOT_QUERIES = {
     'trackingPoint',
     'trackingPointsUpdated',
     'procedureSelection',
+    'taxiRoute',
+    'taxiRouteGet',
     'storageStatus',
     'storageGetStatus',
     'trackingGetActive',

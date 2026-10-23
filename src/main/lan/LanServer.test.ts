@@ -786,7 +786,8 @@ describe('LanServer', () => {
         'trackingPoint',
         'trackingPointsUpdated',
         'procedureSelection',
-        'plannedRoute'
+        'plannedRoute',
+        'taxiRoute'
       ].sort()
     )
   })

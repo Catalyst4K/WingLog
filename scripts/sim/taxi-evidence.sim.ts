@@ -7,7 +7,7 @@
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { it } from 'vitest'
-import { boxTaxiClearance } from '../../src/renderer/src/taxi-clearance'
+import { boxTaxiClearance } from '../../src/shared/taxi/clearance'
 import { openUserDb } from './local-data'
 import { simOutputDir } from './report'
 import { loadFlownNetwork, loadTaxiScenarios, verdictOf } from './taxi-evidence'

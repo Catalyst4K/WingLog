@@ -12,7 +12,9 @@ import { it } from 'vitest'
 import { listCachedRunways, listCachedStands, listCachedTaxiSegments } from '../../src/main/db/navdata-repo'
 import type { NavdataTaxiSegment } from '../../src/shared/ipc'
 import { toLocalXy } from '../../src/shared/geo'
-import { traceWithFallback } from '../../src/renderer/src/taxi-fallback'
+import { traceWithFallback } from '../../src/shared/taxi/fallback'
+import { passesAPlaceTwice, pointsAlong, sharpestTurn, type Xy } from '../../src/shared/taxi/route-checks'
+import { TURN_WINDOW_MAX_DEG } from '../../src/shared/taxi/route-turns'
 import { openUserDb } from './local-data'
 import { simOutputDir, writeReport, type ReportSection } from './report'
 import {
@@ -34,8 +36,6 @@ import { loadFlownNetwork, loadTaxiScenarios, movingSamples, verdictOf, type Ver
 const ON_M = 25
 /** The line is checked every this many metres. */
 const STEP_M = 5
-
-type Xy = [number, number]
 
 interface Score {
   id: string
@@ -76,61 +76,6 @@ function distToPolyline(p: Xy, line: Xy[]): number {
   return line.length === 1 ? Math.hypot(line[0][0] - p[0], line[0][1] - p[1]) : best
 }
 
-/** Points along a line every STEP_M, each with the length it stands for. */
-function along(line: Xy[]): { p: Xy; m: number; at: number }[] {
-  const out: { p: Xy; m: number; at: number }[] = []
-  let at = 0
-  for (let i = 1; i < line.length; i++) {
-    const [ax, ay] = line[i - 1]
-    const [bx, by] = line[i]
-    const len = Math.hypot(bx - ax, by - ay)
-    const steps = Math.max(1, Math.ceil(len / STEP_M))
-    for (let k = 0; k < steps; k++) {
-      const t = (k + 0.5) / steps
-      out.push({ p: [ax + t * (bx - ax), ay + t * (by - ay)], m: len / steps, at: at + t * len })
-    }
-    at += len
-  }
-  return out
-}
-
-/** Whether a line comes back within 15 m of a place it passed at least 150 m earlier, going the other way or across. */
-function revisits(line: Xy[]): boolean {
-  const pts = along(line)
-  for (let i = 0; i < pts.length; i++)
-    for (let k = i + 1; k < pts.length; k++) {
-      if (pts[k].at - pts[i].at < 150) continue
-      if (Math.hypot(pts[k].p[0] - pts[i].p[0], pts[k].p[1] - pts[i].p[1]) < 15) return true
-    }
-  return false
-}
-
-/** The most a line turns within 60 m of it anywhere, degrees, summed over its points. */
-function sharpestTurnWithin60(line: Xy[]): number {
-  const turnAt = (i: number): number => {
-    const [a, b, c] = [line[i - 1], line[i], line[i + 1]]
-    if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 0.5 || Math.hypot(c[0] - b[0], c[1] - b[1]) < 0.5) return 0
-    const d = Math.abs(
-      (((((Math.atan2(c[0] - b[0], c[1] - b[1]) - Math.atan2(b[0] - a[0], b[1] - a[1])) * 180) / Math.PI) %
-        360) +
-        360) %
-        360
-    )
-    return d > 180 ? 360 - d : d
-  }
-  let sharpest = 0
-  for (let i = 1; i + 1 < line.length; i++) {
-    let turned = 0
-    let distance = 0
-    for (let k = i; k + 1 < line.length && distance <= 60; k++) {
-      turned += turnAt(k)
-      distance += Math.hypot(line[k + 1][0] - line[k][0], line[k + 1][1] - line[k][1])
-    }
-    sharpest = Math.max(sharpest, turned)
-  }
-  return sharpest
-}
-
 /** How many re-route lines turned more than an airliner can or passed a place twice. */
 function badReroutes(sc: TaxiScenario, reroutes: LonLat[][]): number {
   const ref = sc.samples[0]?.lat ?? 0
@@ -139,7 +84,7 @@ function badReroutes(sc: TaxiScenario, reroutes: LonLat[][]): number {
       const { x, y } = toLocalXy({ lat, lon }, ref)
       return [x, y]
     })
-    return sharpestTurnWithin60(xy) > 135 || revisits(xy)
+    return sharpestTurn(xy) > TURN_WINDOW_MAX_DEG || passesAPlaceTwice(xy)
   }).length
 }
 
@@ -174,10 +119,10 @@ function score(sc: TaxiScenario, line: LonLat[] | null, kind: Score['kind'], ver
       nearest = i
   })
   const trackPart = trackXy.slice(0, nearest + 1)
-  const linePts = along(lineXy)
+  const linePts = pointsAlong(lineXy, STEP_M)
   const lengthM = linePts.reduce((a, p) => a + p.m, 0)
   const onTrack = linePts.filter((p) => distToPolyline(p.p, trackXy) <= ON_M).reduce((a, p) => a + p.m, 0)
-  const trackPts = trackPart.length > 1 ? along(trackPart) : []
+  const trackPts = trackPart.length > 1 ? pointsAlong(trackPart, STEP_M) : []
   const trackLen = trackPts.reduce((a, p) => a + p.m, 0)
   const onLine = trackPts.filter((p) => distToPolyline(p.p, lineXy) <= ON_M).reduce((a, p) => a + p.m, 0)
   return {
@@ -186,7 +131,7 @@ function score(sc: TaxiScenario, line: LonLat[] | null, kind: Score['kind'], ver
     trackOnLinePct: trackLen > 0 ? pct(onLine, trackLen) : null,
     endGapM: Math.round(Math.hypot(trackXy[nearest][0] - end[0], trackXy[nearest][1] - end[1])),
     lengthM: Math.round(lengthM),
-    revisits: revisits(lineXy)
+    revisits: passesAPlaceTwice(lineXy)
   }
 }
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { NavdataTaxiSegment } from '@shared/ipc'
-import { furthestBackHold, startOfRunwayHolds } from './taxi-runway-hold'
-import { traceTaxiRoute } from './taxi-route-trace'
+import { furthestBackHold, startOfRunwayHolds } from './runway-hold'
+import { traceTaxiRoute } from './route-trace'
 
 // WSSS runway 02C from the sim's own data (2026-10-19): threshold, and the hold shorts beside it on the side the flown taxi came from
 // (T11 and T12 are entries part-way along the runway; the unnamed one is the entry behind the threshold that was flown to).

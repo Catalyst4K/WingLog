@@ -8,7 +8,7 @@
 
 import { itemAt } from '@shared/item-at'
 import { MinQueue } from './min-queue'
-import { nodeKey, type Graph, type GraphNode, type RunwayStrip } from './taxi-route-trace'
+import { nodeKey, type Graph, type GraphNode, type RunwayStrip } from './route-trace'
 
 /** How far past a runway's edge a hold short still counts as beside it: RKSI's sit 75-105 m out, and EGLL's S1, by 27L's threshold,
  *  190 m (where flight 239 crossed). */

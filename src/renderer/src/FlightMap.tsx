@@ -9,7 +9,7 @@ import { useTaxiChartOverlay } from './use-taxi-chart-overlay'
 import { useTaxiRouteHighlight } from './use-taxi-route-highlight'
 import { useVfrOverlay } from './use-vfr-overlay'
 import { ROUTE_SOURCE_ID } from './flight-map/map-layers'
-import { isMapVisible, taxiPosition } from './flight-map/map-state'
+import { isMapVisible } from './flight-map/map-state'
 import { MapControls, MapPills } from './flight-map/MapOverlays'
 import {
   useFollowToggle,
@@ -126,16 +126,7 @@ export function FlightMap({
   })
 
   const taxiChart = useTaxiChartOverlay({ mapRef, mapReady, depIcao, arrIcao })
-  useTaxiRouteHighlight({
-    mapRef,
-    mapReady,
-    enabled: taxiChart.enabled,
-    segmentsByIcao: taxiChart.segmentsByIcao,
-    depIcao,
-    arrIcao,
-    position: taxiPosition(telemetry),
-    phase: activePhase ?? null
-  })
+  useTaxiRouteHighlight({ mapRef, mapReady, enabled: taxiChart.enabled, depIcao, arrIcao })
 
   const mapVisible = isMapVisible({ live, framed, followEnabled, trackLoading, hasAircraft })
 

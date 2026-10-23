@@ -59,6 +59,7 @@ import type {
   GsxRescanResult,
   GsxSettings
 } from './types/gsx'
+import type { TaxiRoute } from './live'
 import type {
   AircraftLanding,
   LandingListRow,
@@ -262,6 +263,10 @@ export interface WingLogApi {
   onTrackingPointsUpdated: (listener: (points: TrackPoint[]) => void) => () => void
   /** Pushed when the procedures chosen for the tracked flight change, from this window or from a second screen, so every screen agrees. */
   onProcedureSelection: (listener: (selection: ProcedureSelection | null) => void) => () => void
+  /** The taxi line of ATC's latest clearance as the PC traced it, for a window that opens mid-taxi; null with no clearance. */
+  getTaxiRoute: () => Promise<TaxiRoute | null>
+  /** Pushed each time the taxi line or its clearance changes; every screen draws the same one. */
+  onTaxiRoute: (listener: (route: TaxiRoute | null) => void) => () => void
   /** Manually re-runs the resume-cleanup pass for one already-completed flight — the
    *  Logbook detail page's "Clean up track" button, alongside the automatic live/
    *  completion-time pass TrackingController already runs on its own. Useful for a flight

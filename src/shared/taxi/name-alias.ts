@@ -5,7 +5,7 @@
  */
 
 import type { NavdataTaxiSegment } from '@shared/ipc'
-import { nodeKey } from './taxi-route-trace'
+import { nodeKey } from './route-trace'
 
 /**
  * @param pieces The segments that would be renamed to one taxiway.

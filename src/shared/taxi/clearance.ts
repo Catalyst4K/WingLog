@@ -5,10 +5,10 @@
  */
 import type { BeyondAtcInfoBox, NavdataStand, NavdataTaxiSegment } from '@shared/ipc'
 import { parseAtcTaxiFacts } from '@shared/atc-info-boxes'
-import { traceWithFallback, type TracedClearance } from './taxi-fallback'
-import type { RunwayStrip, TaxiTraceRequest, TracedRoute } from './taxi-route-trace'
-import { aliasSplitTaxiways } from './taxi-name-alias'
-import type { RunwayThreshold } from './taxi-runway-hold'
+import { traceWithFallback, type TracedClearance } from './fallback'
+import type { RunwayStrip, TaxiTraceRequest, TracedRoute } from './route-trace'
+import { aliasSplitTaxiways } from './name-alias'
+import type { RunwayThreshold } from './runway-hold'
 
 export interface TaxiClearance {
   taxiways: string[]
