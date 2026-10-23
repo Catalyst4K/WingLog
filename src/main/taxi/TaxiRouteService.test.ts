@@ -8,7 +8,7 @@ import type {
 } from '@shared/ipc'
 import { EMPTY_BEYONDATC_STATE } from '@shared/beyondatc-state'
 import type { TaxiRoute } from '@shared/live'
-import { angleBetweenDeg } from '@shared/taxi/route-trace'
+import { angleBetweenDeg } from '@shared/taxi/route-graph'
 import { LiveHub } from '../live/LiveHub'
 import type { ShownFlight } from '../navdata/flight-navdata-fetcher'
 import { logger } from '../logging/logger'

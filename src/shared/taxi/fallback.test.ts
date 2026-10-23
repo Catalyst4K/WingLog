@@ -1,12 +1,8 @@
 import type { NavdataTaxiSegment } from '@shared/ipc'
 import { describe, expect, it } from 'vitest'
 import { chooseLine, findTaxiPath, matchClearance, traceWithFallback } from './fallback'
-import {
-  MAX_CLEARANCE_TAXIWAYS,
-  traceTaxiRoute,
-  type TaxiTraceRequest,
-  type TracedRoute
-} from './route-trace'
+import { MAX_CLEARANCE_TAXIWAYS, type TaxiTraceRequest, type TracedRoute } from './route-types'
+import { traceTaxiRoute } from './route-trace'
 import REPLAY_227 from './__fixtures__/zjsy-227-taxi-out.json'
 import REPLAY_253 from './__fixtures__/zjsy-253-taxi-out.json'
 import ZJSY_RAW from './__fixtures__/zjsy-taxi-d-b7-a.json'

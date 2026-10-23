@@ -1,15 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { NavdataTaxiSegment } from '@shared/ipc'
-import {
-  angleBetweenDeg,
-  buildGraph,
-  startNodes,
-  taxiwayUnder,
-  traceTaxiRoute,
-  type RunwayStrip,
-  type TaxiTraceRequest,
-  type TracedRoute
-} from './route-trace'
+import { angleBetweenDeg, buildGraph, startNodes, taxiwayUnder } from './route-graph'
+import { traceTaxiRoute } from './route-trace'
+import { type RunwayStrip, type TaxiTraceRequest, type TracedRoute } from './route-types'
 import VHHH_253_RAW from './__fixtures__/vhhh-taxi-253-c7-c-d-c-f-hold-07c.json'
 import VHHH_253_SECOND_RAW from './__fixtures__/vhhh-taxi-253-f7-a-b-w.json'
 import VHHH_238_RAW from './__fixtures__/vhhh-taxi-238-u-v-h-j.json'

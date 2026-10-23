@@ -27,7 +27,8 @@ import {
 } from '../../src/shared/taxi/clearance'
 import { findTaxiPath } from '../../src/shared/taxi/fallback'
 import { remainingRoute } from '../../src/shared/taxi/route-rejoin'
-import { traceTaxiRoute, type TaxiTraceRequest, type TracedRoute } from '../../src/shared/taxi/route-trace'
+import { traceTaxiRoute } from '../../src/shared/taxi/route-trace'
+import { type TaxiTraceRequest, type TracedRoute } from '../../src/shared/taxi/route-types'
 import {
   REROUTE_DISTANCE_M,
   REROUTE_MIN_SPEED_MS,

@@ -3,7 +3,7 @@
  * (taxi-route-trace.ts) and a re-route's way back to it (taxi-route-rejoin.ts), so neither draws a turn an airliner can't make.
  */
 import { itemAt } from '@shared/item-at'
-import type { Graph } from './route-trace'
+import type { Graph } from './route-graph'
 
 /** The most an airliner's heading can change over TURN_WINDOW_M of taxiing: with a turning radius of about 25 m, 60 m of path turns it
  *  137° at most. More than that is a hairpin or a turn on the spot, however finely the network splits it: VHHH flight 253's line lapped

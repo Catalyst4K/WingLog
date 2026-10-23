@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { at, airport, line, seg } from './taxi-test-airport'
 import { routeProblems } from '../../src/shared/taxi/route-checks'
-import { angleBetweenDeg } from '../../src/shared/taxi/route-trace'
+import { angleBetweenDeg } from '../../src/shared/taxi/route-graph'
 import {
   buildGraph,
   clearanceNames,

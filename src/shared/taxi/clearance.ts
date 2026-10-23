@@ -7,7 +7,7 @@ import type { BeyondAtcInfoBox, NavdataRunway, NavdataStand, NavdataTaxiSegment 
 import { parseAtcTaxiFacts } from '@shared/atc-info-boxes'
 import { findStand } from '@shared/stands'
 import { traceWithFallback, type TracedClearance } from './fallback'
-import type { RunwayStrip, TaxiTraceRequest, TracedRoute } from './route-trace'
+import type { RunwayStrip, TaxiTraceRequest, TracedRoute } from './route-types'
 import { aliasSplitTaxiways } from './name-alias'
 import type { RunwayThreshold } from './runway-hold'
 

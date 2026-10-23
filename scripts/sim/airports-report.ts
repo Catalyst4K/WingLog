@@ -3,7 +3,7 @@
  * (winglog-backend docs/plans/robustness/scenario-testing.md Part 3, "A failure prints the airport, the clearance and a small map").
  */
 import type { NavdataTaxiSegment } from '../../src/shared/ipc'
-import type { TracedRoute } from '../../src/shared/taxi/route-trace'
+import type { TracedRoute } from '../../src/shared/taxi/route-types'
 import type { GeneratedClearance, RuleFailure } from './airport-rules'
 import type { Report, ReportSection } from './report'
 import {

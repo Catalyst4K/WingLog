@@ -14,7 +14,7 @@ import { destinationPoint, greatCircleM, initialBearingDeg, toLocalXy } from '..
 import { MinQueue } from '../../src/shared/taxi/min-queue'
 import { passesAPlaceTwice, sharpestTurn, type Xy } from '../../src/shared/taxi/route-checks'
 import type { TaxiClearance } from '../../src/shared/taxi/clearance'
-import { angleBetweenDeg } from '../../src/shared/taxi/route-trace'
+import { angleBetweenDeg } from '../../src/shared/taxi/route-graph'
 
 /** What the generator needs of an airport: the network the app has, and its runways and stands. */
 export interface GeneratorAirport {

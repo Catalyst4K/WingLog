@@ -25,7 +25,7 @@ import {
   type TaxiScenario
 } from './taxi'
 import { flatDistanceM } from '../../src/shared/geo'
-import type { TracedRoute } from '../../src/shared/taxi/route-trace'
+import type { TracedRoute } from '../../src/shared/taxi/route-types'
 import { taxiReport, type TaxiOutcome } from './taxi-report'
 
 function handScenarios(): HandScenario[] {
