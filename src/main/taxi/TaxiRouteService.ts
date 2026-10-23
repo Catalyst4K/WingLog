@@ -8,7 +8,8 @@
  * the traced line, else the shortest way, else nothing) and then followed sample by sample (trackPosition), which shortens the line as the
  * aircraft taxis and re-routes it when the aircraft leaves it. A trace runs only when something it depends on changes (a new clearance, the
  * aircraft's first position, a refreshed taxi network, the stands arriving), never per sample: it can take hundreds of milliseconds on a big
- * airport.
+ * airport. Both searches, the trace and a re-route, run on the app's worker thread (winglog-backend docs/plans/reroute-worker.md); the line
+ * keeps following the old route until a re-route's answer comes back.
  */
 
 import type { BeyondAtcState, FlightPhase, NavdataStand, NavdataTaxiSegment, SimTelemetry } from '@shared/ipc'
@@ -16,13 +17,14 @@ import type { LiveTopic, LiveTopics, TaxiRoute } from '@shared/live'
 import { clearanceAirport, clearanceEnds, startOf, type TaxiClearance } from '@shared/taxi/clearance'
 import { INITIAL_TAXI_MEMORY, isDeparted, stepTaxiBoxes, type TaxiMemory } from '@shared/taxi/clearance-step'
 import type { TracedClearance } from '@shared/taxi/fallback'
-import { startTracker, trackPosition, type RerouteTracker } from '@shared/taxi/reroute'
+import { applyReroute, followPosition, startTracker, type RerouteTracker } from '@shared/taxi/reroute'
+import type { RejoinRequest } from '@shared/taxi/route-rejoin'
 import { logger } from '../logging/logger'
 import type { LiveHub } from '../live/LiveHub'
 import type { ShownFlight } from '../navdata/flight-navdata-fetcher'
 import type { SimFacilitiesProvider } from '../navdata/sim-facilities-provider'
-import { traceInline, type TraceJob, type TraceRunner } from './trace-runner'
-import type { RunwayStrip } from '@shared/taxi/route-types'
+import { rejoinInline, traceInline, type RejoinRunner, type TraceJob, type TraceRunner } from './trace-runner'
+import type { RunwayStrip, TracedRoute } from '@shared/taxi/route-types'
 
 /** What the service needs from the rest of the app. */
 export interface TaxiRouteServiceDeps {
@@ -35,9 +37,11 @@ export interface TaxiRouteServiceDeps {
   now(): number
   /** Traces a clearance. Inline when absent; the app gives it a worker thread, so a slow trace never holds up the main process. */
   trace?: TraceRunner
+  /** Re-routes the line. Inline when absent; the app gives it the same worker thread. */
+  rejoin?: RejoinRunner
 }
 
-/** A `trackPosition` slower than this is logged, once per clearance: it runs on every sample, in the process that also talks to the sim. */
+/** Following the line slower than this is logged, once per clearance: it runs on every sample, in the process that also talks to the sim. */
 const SLOW_TRACK_MS = 20
 
 type Position = { lat: number; lon: number; headingDeg: number; groundSpeedMs: number }
@@ -88,6 +92,8 @@ export class TaxiRouteService {
   private lastKey = ''
   /** Which trace is the latest asked for: the answer to an earlier one, arriving late from a worker, is dropped. */
   private traceSeq = 0
+  /** The trace (its traceSeq) a re-route is out for, so a second is not sent while one is; null when none is out. */
+  private rerouteOut: number | null = null
 
   constructor(private readonly deps: TaxiRouteServiceDeps) {}
 
@@ -298,7 +304,7 @@ export class TaxiRouteService {
       return
     }
     const startedAt = this.deps.now()
-    const update = trackPosition(tracker, {
+    const step = followPosition(tracker, {
       position,
       phase,
       nowMs: this.deps.now(),
@@ -311,12 +317,59 @@ export class TaxiRouteService {
         `[taxi] following the taxi line took ${ms} ms (over ${SLOW_TRACK_MS}); logged once per clearance`
       )
     }
-    this.tracker = update.tracker
-    if (update.rerouted)
-      logger.info(
-        `[taxi] ${this.icao} taxi line re-routed at ${position.lat.toFixed(5)}, ${position.lon.toFixed(5)}: ${update.tracker.active.length} points`
+    this.tracker = step.tracker
+    if (step.reroute && this.rerouteOut !== this.traceSeq && this.reroute(step.reroute)) return
+    this.publish(step.line)
+  }
+
+  /**
+   * Has the line re-routed: on the worker in the app, so the old line keeps following until the answer comes back.
+   *
+   * @param request Where the aircraft was and the route to rejoin.
+   * @returns Whether the re-routed line was taken (and published) at once, as it is when the search runs inline.
+   */
+  private reroute(request: RejoinRequest): boolean {
+    const seq = this.traceSeq
+    const startedAt = this.deps.now()
+    const answer = (this.deps.rejoin ?? rejoinInline)(request)
+    if (!(answer instanceof Promise)) return this.finishReroute(answer, startedAt)
+    this.rerouteOut = seq
+    answer
+      .catch((error: unknown) => {
+        // The worker could not do it: this thread does, as it always did.
+        logger.warn('[taxi] the trace worker could not re-route; re-routing on the main thread:', error)
+        return rejoinInline(request) as TracedRoute | null
+      })
+      .then(
+        (next) =>
+          this.guarded('re-route', () => {
+            if (this.rerouteOut === seq) this.rerouteOut = null
+            // A re-route for an earlier clearance, or one dropped since (takeoff, another flight), is not wanted now.
+            if (seq === this.traceSeq) this.finishReroute(next, startedAt)
+          }),
+        (error: unknown) => logger.warn('[taxi] re-route not handled:', error)
       )
-    this.publish(update.line)
+    return false
+  }
+
+  /**
+   * Takes a re-routed line, from where the aircraft is now, and publishes it.
+   *
+   * @param next The re-routed line, or null when none was found (the old line stays).
+   * @param startedAt When the re-route was asked for.
+   * @returns Whether it was taken.
+   */
+  private finishReroute(next: TracedRoute | null, startedAt: number): boolean {
+    const { tracker, position } = this
+    // Reached the end while the answer was out: the clearance is done, and nothing re-routes.
+    if (!next || !tracker || !position || tracker.done) return false
+    const applied = applyReroute(tracker, next, position)
+    this.tracker = applied.tracker
+    logger.info(
+      `[taxi] ${this.icao} taxi line re-routed at ${position.lat.toFixed(5)}, ${position.lon.toFixed(5)}: ${next.length} points (${this.deps.now() - startedAt} ms)`
+    )
+    this.publish(applied.line)
+    return true
   }
 
   /** @returns Nothing is shown any more: no clearance, and nothing traced. */

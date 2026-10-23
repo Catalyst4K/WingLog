@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { NavdataTaxiSegment } from '@shared/ipc'
 import { traceClearanceDetailed, type TaxiClearance } from '@shared/taxi/clearance'
+import { rejoinTaxiRoute } from '@shared/taxi/route-rejoin'
 import ZJSY_RAW from '@shared/taxi/__fixtures__/zjsy-taxi-d-b7-a.json'
 import { createTraceAnswerer } from './trace-worker'
 import type { WorkerRequest } from './worker-protocol'
@@ -33,8 +34,18 @@ const request = (id: number, networkKey: number, withNetwork: boolean): WorkerRe
   id,
   networkKey,
   ...(withNetwork ? { segments: ZJSY } : {}),
-  job: { clearance: CLEARANCE, stand: null, threshold: null, holdShortRunway: null }
+  job: { kind: 'trace', clearance: CLEARANCE, stand: null, threshold: null, holdShortRunway: null }
 })
+
+const ROUTE = traceClearanceDetailed(CLEARANCE, ZJSY, null, null, null)?.route ?? []
+/** The aircraft back on D where the clearance started, but turned to face west: the way back to the route. */
+const REJOIN = {
+  route: ROUTE,
+  fromSegment: 0,
+  from: { lat: 18.3074072, lon: 109.4093493 },
+  headingDeg: 270,
+  holdShortRunway: null
+}
 
 describe('createTraceAnswerer', () => {
   it('traces a job exactly as the main thread would', () => {
@@ -59,6 +70,22 @@ describe('createTraceAnswerer', () => {
     for (const key of [1, 2, 3, 4, 5]) answer(request(key, key, true))
     expect(answer(request(10, 1, false))).toEqual({ id: 10, missingNetwork: true })
     expect(answer(request(11, 5, false))).toMatchObject({ id: 11, result: { kind: 'exact' } })
+  })
+
+  it('re-routes a line exactly as the main thread would, on the network it already keeps', () => {
+    const answer = createTraceAnswerer()
+    answer(request(1, 1, true))
+    const reply = answer({ id: 2, networkKey: 1, job: { kind: 'rejoin', ...REJOIN } })
+    const expected = rejoinTaxiRoute({ ...REJOIN, segments: ZJSY })
+    expect(expected).not.toBeNull()
+    expect(reply).toEqual({ id: 2, result: expected })
+  })
+
+  it('says it was never sent the network a re-route is for', () => {
+    expect(createTraceAnswerer()({ id: 1, networkKey: 9, job: { kind: 'rejoin', ...REJOIN } })).toEqual({
+      id: 1,
+      missingNetwork: true
+    })
   })
 
   it('answers an error, not a crash, for a job it cannot trace', () => {

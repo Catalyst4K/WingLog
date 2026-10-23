@@ -74,7 +74,7 @@ describe('WorkerTraceRunner', () => {
     expect(workers).toHaveLength(0)
     const first = runner.run(job())
     const [worker] = workers
-    expect(worker.requests[0]).toMatchObject({ id: 1, segments: SEGMENTS })
+    expect(worker.requests[0]).toMatchObject({ id: 1, segments: SEGMENTS, job: { kind: 'trace' } })
     worker.reply({ id: 1, result: TRACED })
     await expect(first).resolves.toEqual(TRACED)
 
@@ -180,6 +180,45 @@ describe('WorkerTraceRunner', () => {
     await expect(waiting).rejects.toThrow('stopped')
     expect(workers[0].terminated).toBe(true)
     await expect(runner.run(job())).rejects.toThrow('no trace worker')
+  })
+
+  it('re-routes on the same worker, naming a network a trace already sent by its key, and sends it again when dropped', async () => {
+    const { runner, workers } = setup()
+    void runner.run(job()).catch(() => undefined)
+    const line: [number, number][] = [
+      [2, 1],
+      [3, 1]
+    ]
+    const rerouted = runner.rejoin({
+      segments: SEGMENTS,
+      route: line,
+      fromSegment: 0,
+      from: { lat: 1, lon: 2 },
+      headingDeg: 90
+    })
+    const [worker] = workers
+    expect(workers).toHaveLength(1)
+    expect(worker.requests[1]).toEqual({
+      id: 2,
+      networkKey: worker.requests[0].networkKey,
+      job: { kind: 'rejoin', route: line, fromSegment: 0, from: { lat: 1, lon: 2 }, headingDeg: 90 }
+    })
+    worker.reply({ id: 2, missingNetwork: true })
+    expect(worker.requests[2]).toMatchObject({ id: 2, segments: SEGMENTS, job: { kind: 'rejoin' } })
+    worker.reply({ id: 2, result: line })
+    await expect(rerouted).resolves.toEqual(line)
+  })
+
+  it('rejects a re-route when the worker dies, as it does a trace', async () => {
+    const { runner, workers } = setup()
+    const rerouted = runner.rejoin({
+      segments: SEGMENTS,
+      route: [],
+      fromSegment: 0,
+      from: { lat: 1, lon: 2 }
+    })
+    workers[0].fail(new Error('out of memory'))
+    await expect(rerouted).rejects.toThrow('out of memory')
   })
 
   it('ignores an answer for a job it no longer waits for', () => {

@@ -13,8 +13,10 @@ import { LiveHub } from '../live/LiveHub'
 import type { ShownFlight } from '../navdata/flight-navdata-fetcher'
 import { logger } from '../logging/logger'
 import { TaxiRouteService } from './TaxiRouteService'
-import type { TraceJob, TraceRunner } from './trace-runner'
-import { traceInline } from './trace-runner'
+import type { RejoinRunner, TraceJob, TraceRunner } from './trace-runner'
+import { rejoinInline, traceInline } from './trace-runner'
+import type { RejoinRequest } from '@shared/taxi/route-rejoin'
+import type { TracedRoute } from '@shared/taxi/route-types'
 import type { TracedClearance } from '@shared/taxi/fallback'
 import REPLAY_225 from '@shared/taxi/__fixtures__/ybbn-225-taxi-out.json'
 import YBBN_225_RAW from '@shared/taxi/__fixtures__/ybbn-225-taxi-network.json'
@@ -87,7 +89,7 @@ interface World {
 }
 
 /** A service on a real hub, with a fake navdata cache and the flight, tracking and clock the test sets. */
-function setup(over: Partial<World['state']> = {}, trace?: TraceRunner): World {
+function setup(over: Partial<World['state']> = {}, trace?: TraceRunner, rejoin?: RejoinRunner): World {
   const hub = new LiveHub()
   const published: (TaxiRoute | null)[] = []
   hub.subscribe((topic, payload) => {
@@ -116,7 +118,8 @@ function setup(over: Partial<World['state']> = {}, trace?: TraceRunner): World {
     shownFlight: () => state.flight,
     active: () => state.active,
     now: () => now,
-    trace
+    trace,
+    rejoin
   })
   const stop = service.start()
   return {
@@ -644,5 +647,121 @@ describe('TaxiRouteService: a trace that comes back later (the app runs it on a 
     jobs[0].resolve(traceInline(jobs[0].job) as TracedClearance)
     await flush()
     expect(vi.mocked(logger.info)).toHaveBeenCalledWith(expect.stringContaining('2500 ms'))
+  })
+})
+
+describe('TaxiRouteService: a re-route that comes back later (the app runs it on the worker too)', () => {
+  /** A re-route runner the test answers by hand. */
+  function manualRejoin() {
+    const jobs: {
+      request: RejoinRequest
+      resolve: (t: TracedRoute | null) => void
+      reject: (e: Error) => void
+    }[] = []
+    const rejoin: RejoinRunner = (request) =>
+      new Promise((resolve, reject) => {
+        jobs.push({ request, resolve, reject })
+      })
+    return { rejoin, jobs }
+  }
+  const flush = async (): Promise<void> => {
+    for (let i = 0; i < 5; i++) await Promise.resolve()
+  }
+  const rerouteLogged = (): boolean =>
+    vi.mocked(logger.info).mock.calls.some(([message]) => String(message).includes('re-routed'))
+
+  /** Flight 227's taxi (the wrong-way pushback) up to the sample that asks for its first re-route. */
+  function upToReroute() {
+    const { rejoin, jobs } = manualRejoin()
+    const samples = REPLAY_227 as Sample[]
+    const w = setup({ active: { flightId: 1, phase: 'taxi' } }, undefined, rejoin)
+    w.telemetry(samples[0])
+    w.clearance(D_B7_A)
+    let i = 0
+    while (jobs.length === 0) w.telemetry(samples[++i])
+    return { w, jobs, samples, at: i }
+  }
+
+  it('keeps following the old line while the re-route is out, sends no second one, and takes the answer from where the aircraft is then', async () => {
+    const { w, jobs, samples, at } = upToReroute()
+    const asked = jobs[0].request
+    expect(asked.from).toEqual({ lat: samples[at][1], lon: samples[at][2] })
+    const before = w.last()!.line
+    // 15 s more of the taxi, still off the line: past the 10 s between re-routes, and still only the one out.
+    let i = at
+    while (samples[i + 1][0] - samples[at][0] <= 15) w.telemetry(samples[++i])
+    expect(jobs).toHaveLength(1)
+    expect(rerouteLogged()).toBe(false)
+    expect(w.last()!.line.at(-1)).toEqual(before.at(-1))
+
+    w.setNow(samples[i][0] * 1000 + 40)
+    jobs[0].resolve(rejoinInline(asked) as TracedRoute)
+    await flush()
+    expect(rerouteLogged()).toBe(true)
+    expect(vi.mocked(logger.info)).toHaveBeenCalledWith(
+      expect.stringMatching(/re-routed at .* points \(\d+ ms\)/)
+    )
+    const [lon, lat] = w.last()!.line[0]
+    expect(distanceM({ lat, lon }, { lat: samples[i][1], lon: samples[i][2] })).toBeLessThan(40)
+  })
+
+  it('asks again when the aircraft leaves the new line too, once the first answer is back', async () => {
+    const { w, jobs, samples, at } = upToReroute()
+    jobs[0].resolve(rejoinInline(jobs[0].request) as TracedRoute)
+    await flush()
+    // Then drives due north off the line, at 5 m/s for 25 s.
+    const [t0, lat0, lon0] = samples[at]
+    for (let s = 1; s <= 25; s++) w.telemetry([t0 + s, lat0 + (5 * s) / 111_320, lon0, 0, 5, 'taxi'])
+    expect(jobs).toHaveLength(2)
+  })
+
+  it('drops an answer for an earlier clearance', async () => {
+    const { w, jobs } = upToReroute()
+    w.clearance(D_A3_A)
+    const after = w.published.length
+    jobs[0].resolve(rejoinInline(jobs[0].request) as TracedRoute)
+    await flush()
+    expect(rerouteLogged()).toBe(false)
+    expect(w.published).toHaveLength(after)
+  })
+
+  it('drops an answer that comes after the takeoff roll', async () => {
+    const { w, jobs } = upToReroute()
+    w.telemetry([600, 18.3017, 109.3964, 80, 30, 'takeoff'])
+    jobs[0].resolve(rejoinInline(jobs[0].request) as TracedRoute)
+    await flush()
+    expect(rerouteLogged()).toBe(false)
+    expect(w.published.at(-1)).toBeNull()
+  })
+
+  it('drops an answer that comes after the aircraft reached the end of the line', async () => {
+    const { w, jobs, samples, at } = upToReroute()
+    const [lon, lat] = w.last()!.line.at(-1)!
+    w.telemetry([samples[at][0] + 1, lat, lon, 260, 0, 'taxi'])
+    const after = w.published.length
+    jobs[0].resolve(rejoinInline(jobs[0].request) as TracedRoute)
+    await flush()
+    expect(rerouteLogged()).toBe(false)
+    expect(w.published).toHaveLength(after)
+  })
+
+  it('keeps the old line when the answer is that there is no way', async () => {
+    const { w, jobs } = upToReroute()
+    const after = w.published.length
+    jobs[0].resolve(null)
+    await flush()
+    expect(rerouteLogged()).toBe(false)
+    expect(w.published).toHaveLength(after)
+  })
+
+  it('re-routes on its own thread when the worker could not, and says so', async () => {
+    const { jobs } = upToReroute()
+    jobs[0].reject(new Error('worker died'))
+    await flush()
+    expect(rerouteLogged()).toBe(true)
+    expect(vi.mocked(logger.warn)).toHaveBeenCalledWith(
+      expect.stringContaining('trace worker could not re-route'),
+      expect.any(Error)
+    )
   })
 })

@@ -46,7 +46,7 @@ export function startFlightServices(
     liveHub: LiveHub
     trackingController: TrackingController
     navdata: SimFacilitiesProvider
-    /** Runs the taxi line's traces on a worker thread; they run on this one when absent. */
+    /** Runs the taxi line's traces and re-routes on a worker thread; they run on this one when absent. */
     traceWorker?: WorkerTraceRunner
   }
 ): FlightServices {
@@ -56,7 +56,8 @@ export function startFlightServices(
     liveHub,
     trackingController,
     navdata,
-    trace: traceWorker && ((job) => traceWorker.run(job))
+    trace: traceWorker && ((job) => traceWorker.run(job)),
+    rejoin: traceWorker && ((request) => traceWorker.rejoin(request))
   })
   const selection = startProcedureSelection(ipcMain, { db, liveHub, trackingController, navdata })
   return {
