@@ -1,0 +1,45 @@
+{
+  "followPct": 80,
+  "groups": {
+    "VHHH/holding-point": {
+      "followed": 37,
+      "problems": 9,
+      "none": 0
+    },
+    "VHHH/hold-short": {
+      "followed": 27,
+      "problems": 0,
+      "none": 0
+    },
+    "VHHH/stand": {
+      "followed": 29,
+      "problems": 0,
+      "none": 0
+    },
+    "ZJSY/holding-point": {
+      "followed": 35,
+      "problems": 12,
+      "none": 0
+    },
+    "ZJSY/stand": {
+      "followed": 29,
+      "problems": 2,
+      "none": 0
+    },
+    "EGLL/holding-point": {
+      "followed": 33,
+      "problems": 9,
+      "none": 0
+    },
+    "EGLL/hold-short": {
+      "followed": 27,
+      "problems": 1,
+      "none": 0
+    },
+    "EGLL/stand": {
+      "followed": 28,
+      "problems": 6,
+      "none": 0
+    }
+  }
+}
