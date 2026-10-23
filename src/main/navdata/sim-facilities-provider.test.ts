@@ -195,6 +195,28 @@ describe('SimFacilitiesProvider', () => {
       expect(hasCachedTaxiNetwork(db, 'EGKB')).toBe(false)
     })
 
+    it('keeps the cached network when a refresh comes back with no segments', async () => {
+      const { fetchTaxiNetwork } = await import('./sim-facilities-fetch')
+      const provider = new SimFacilitiesProvider(db, openSimConnect)
+      vi.mocked(fetchTaxiNetwork).mockResolvedValue(FETCHED_TAXI)
+      await provider.refreshTaxiNetwork('EGKB')
+
+      vi.mocked(fetchTaxiNetwork).mockResolvedValue({ ...FETCHED_TAXI, segments: [] })
+      await provider.refreshTaxiNetwork('EGKB')
+
+      expect(provider.getTaxiNetwork('EGKB')).toEqual(FETCHED_TAXI.segments)
+    })
+
+    it('stores nothing for an airport that has no taxi network and never had one', async () => {
+      const { fetchTaxiNetwork } = await import('./sim-facilities-fetch')
+      vi.mocked(fetchTaxiNetwork).mockResolvedValue({ ...FETCHED_TAXI, segments: [] })
+
+      const provider = new SimFacilitiesProvider(db, openSimConnect)
+      await provider.refreshTaxiNetwork('EGKB')
+
+      expect(provider.hasTaxiNetwork('EGKB')).toBe(false)
+    })
+
     it('reports no cached taxi network before any refresh', () => {
       const provider = new SimFacilitiesProvider(db, openSimConnect)
       expect(provider.hasTaxiNetwork('EGKB')).toBe(false)

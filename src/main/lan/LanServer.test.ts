@@ -113,6 +113,10 @@ describe('LanServer', () => {
         broken: () => {
           throw new Error('no')
         },
+        // What a failed SimConnect connection throws: no message at all.
+        noMessage: () => {
+          throw new AggregateError([new Error('ECONNREFUSED')])
+        },
         never: () => new Promise(() => undefined),
         // Names in the lookup table's slow lane (src/shared/lan-queries.ts).
         'navdata.refreshAirport': () => new Promise(() => undefined),
@@ -680,8 +684,17 @@ describe('LanServer', () => {
         client.send({ t: 'query', id: 1, name: 'broken' })
         client.send({ t: 'query', id: 2, name: 'later', args: ['x'] })
         await client.waitFor(() => client.received.filter((m) => m.t === 'result').length === 2)
-        expect(logged('warn')).toContain('[lan] lookup "broken" failed: no')
+        expect(logged('warn')).toContain('[lan] lookup "broken" failed: Error: no')
         expect(logged('info').some((l) => /^\[lan\] lookup "later" took \d+ ms$/.test(l))).toBe(true)
+      })
+
+      it('names the error when it has no message, so a failed sim fetch does not log as a blank', async () => {
+        vi.mocked(logger.warn).mockClear()
+        const { pair } = await setup()
+        const { client } = await pair()
+        client.send({ t: 'query', id: 1, name: 'noMessage' })
+        await client.waitFor(() => client.received.some((m) => m.t === 'result'))
+        expect(logged('warn')).toContain('[lan] lookup "noMessage" failed: AggregateError')
       })
 
       it('writes what a device reports, from the fixed list only, and the same one at most once a minute', async () => {

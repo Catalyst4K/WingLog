@@ -175,6 +175,11 @@ export class SimFacilitiesProvider implements NavdataProvider {
     const { handle } = await this.openSimConnect(APP_NAME, Protocol.SunRise)
     try {
       const fetched = await fetchTaxiNetwork(handle, icao)
+      // An empty answer would delete a good cache and leave nothing: keep what is cached, as the failure it likely is.
+      if (fetched.segments.length === 0 && this.hasTaxiNetwork(icao)) {
+        logger.info(`[navdata] ${icao} taxi network came back empty; keeping the cached one`)
+        return
+      }
       replaceAirportTaxiSegments(this.db, icao, fetched, this.now().toISOString())
     } finally {
       handle.close()
