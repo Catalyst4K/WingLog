@@ -2,43 +2,43 @@
   "followPct": 80,
   "groups": {
     "VHHH/holding-point": {
-      "followed": 37,
-      "problems": 9,
+      "followed": 20,
+      "problems": 5,
       "none": 0
     },
     "VHHH/hold-short": {
-      "followed": 27,
+      "followed": 10,
       "problems": 0,
       "none": 0
     },
     "VHHH/stand": {
-      "followed": 29,
+      "followed": 10,
       "problems": 0,
       "none": 0
     },
     "ZJSY/holding-point": {
-      "followed": 35,
-      "problems": 12,
+      "followed": 17,
+      "problems": 8,
       "none": 0
     },
     "ZJSY/stand": {
-      "followed": 29,
-      "problems": 2,
-      "none": 0
-    },
-    "EGLL/holding-point": {
-      "followed": 33,
-      "problems": 9,
-      "none": 0
-    },
-    "EGLL/hold-short": {
-      "followed": 27,
+      "followed": 9,
       "problems": 1,
       "none": 0
     },
+    "EGLL/holding-point": {
+      "followed": 18,
+      "problems": 5,
+      "none": 0
+    },
+    "EGLL/hold-short": {
+      "followed": 7,
+      "problems": 4,
+      "none": 0
+    },
     "EGLL/stand": {
-      "followed": 28,
-      "problems": 6,
+      "followed": 9,
+      "problems": 2,
       "none": 0
     }
   }

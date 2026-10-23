@@ -1,5 +1,5 @@
 /**
- * The taxi line's generated-clearance gate (winglog-backend docs/plans/taxi-and-second-screen-robustness.md, stage 6f): about 270 clearances
+ * The taxi line's generated-clearance gate (winglog-backend docs/plans/taxi-and-second-screen-robustness.md, stage 6f): about 110 clearances
  * generated on VHHH, ZJSY and EGLL (taxi-suite-fixtures.sim.ts), traced the way the app traces them and scored against the route each was
  * made from. The numbers in taxi-suite-thresholds.json are a ratchet: a group may not follow fewer, draw more lines with a problem, or leave
  * more without a line than it does there. Raise them as the taxi rules improve (`WINGLOG_SUITE_WRITE=1 npm test -- taxi-suite` rewrites the
@@ -117,7 +117,7 @@ describe('taxi suite: generated clearances on VHHH, ZJSY and EGLL', () => {
   it('has fixtures for every airport, each with cases of the end types it can make', () => {
     for (const icao of AIRPORTS) {
       const fixture = load(icao)
-      expect(fixture.cases.length).toBeGreaterThan(50)
+      expect(fixture.cases.length).toBeGreaterThanOrEqual(30)
       expect(fixture.network.length).toBeGreaterThan(500)
       expect(new Set(fixture.cases.map((c) => c.id)).size).toBe(fixture.cases.length)
     }

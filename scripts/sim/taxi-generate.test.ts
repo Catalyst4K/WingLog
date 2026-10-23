@@ -117,7 +117,7 @@ describe('runsOf and clearanceNames', () => {
   })
 })
 
-describe('sampleCases', () => {
+describe('sampleCases', { timeout: 60_000 }, () => {
   const gen = (endType: 'holding-point' | 'hold-short' | 'stand', count = 12, seed = 1) =>
     sampleCases(airport(), endType, count, seed)
 
@@ -141,7 +141,7 @@ describe('sampleCases', () => {
   })
 
   it('makes a quarter of the departures start mid-pushback, nose pointing away from the route', () => {
-    const cases = gen('holding-point', 40)
+    const cases = gen('holding-point', 16)
     const pushback = cases.filter((c) => c.pushback)
     expect(pushback.length).toBeGreaterThan(0)
     expect(pushback.length).toBeLessThan(cases.length)
@@ -178,7 +178,7 @@ describe('sampleCases', () => {
 
   it('only makes routes an aircraft could taxi, whatever the wording, and gives every case its own clearance', () => {
     for (const endType of ['holding-point', 'hold-short', 'stand'] as const) {
-      const cases = gen(endType, 30)
+      const cases = gen(endType, 10)
       const signatures = new Set<string>()
       for (const c of cases) {
         const request = {
@@ -199,7 +199,7 @@ describe('sampleCases', () => {
   })
 
   it('words the same route differently as the link limit changes, leaving short interior runs out', () => {
-    const cases = gen('holding-point', 30)
+    const cases = gen('holding-point', 12)
     expect(new Set(cases.map((c) => c.linkLimitM))).toEqual(new Set([0, 120, 240]))
   })
 

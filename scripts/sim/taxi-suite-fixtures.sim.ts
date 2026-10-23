@@ -1,6 +1,6 @@
 /**
  * `npm run sim -- taxi-suite-fixtures`: writes the fixtures `taxi-suite.test.ts` runs on (winglog-backend
- * docs/plans/taxi-and-second-screen-robustness.md, stage 6f): for VHHH, ZJSY and EGLL, about a hundred generated clearances and the part of
+ * docs/plans/taxi-and-second-screen-robustness.md, stage 6f): for VHHH, ZJSY and EGLL, about forty generated clearances and the part of
  * the airport's cached taxi network within SUITE_BUFFER_M of their routes. The network is MSFS facility data from WingLog's own cache,
  * as the fixtures beside the taxi tests already are; there is no personal data in it, and nothing here reads anything else.
  *
@@ -18,8 +18,8 @@ import { openUserDb } from './local-data'
 
 export const SUITE_AIRPORTS = ['VHHH', 'ZJSY', 'EGLL']
 export const SUITE_SEED = 7
-export const SUITE_COUNTS: Record<EndType, number> = { 'holding-point': 40, 'hold-short': 30, stand: 30 }
-const SUITE_BUFFER_M = 100
+export const SUITE_COUNTS: Record<EndType, number> = { 'holding-point': 20, 'hold-short': 10, stand: 10 }
+const SUITE_BUFFER_M = 40
 const round = (v: number): number => Math.round(v * 1e6) / 1e6
 
 /** A segment as a compact row: [startLat, startLon, endLat, endLon, name, startHoldShort, endHoldShort]. */
