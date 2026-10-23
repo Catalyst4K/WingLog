@@ -300,31 +300,74 @@ describe('parseTaxiPoint', () => {
 })
 
 describe('parseTaxiPath', () => {
-  it('reads TYPE/START/END/NAME_INDEX', () => {
-    const b = buffer((w) => {
-      w.writeInt32(4)
-      w.writeInt32(27)
-      w.writeInt32(28)
-      w.writeInt32(1)
+  /**
+   * @param fields A path as the 2026-10-21 spike read it at VHHH.
+   * @returns Its record, in addTaxiPathFields' order.
+   */
+  function path(fields: {
+    type: number
+    width: number
+    runwayNumber: number
+    runwayDesignator: number
+    start: number
+    end: number
+    nameIndex: number
+  }): RawBuffer {
+    return buffer((w) => {
+      w.writeInt32(fields.type)
+      w.writeFloat32(fields.width)
+      w.writeUint32(41_248)
+      w.writeInt32(fields.runwayNumber)
+      w.writeInt32(fields.runwayDesignator)
+      w.writeInt32(fields.start)
+      w.writeInt32(fields.end)
+      w.writeUint32(fields.nameIndex)
     })
-    expect(parseTaxiPath(b)).toEqual({ type: 4, start: 27, end: 28, nameIndex: 1 })
+  }
+
+  it('reads a taxiway, whose runway fields are garbage and dropped', () => {
+    const b = path({
+      type: 4,
+      width: 25,
+      runwayNumber: 2_066_413_472,
+      runwayDesignator: 16_476,
+      start: 3117,
+      end: 3109,
+      nameIndex: 1
+    })
+    expect(parseTaxiPath(b)).toEqual({
+      type: 4,
+      widthM: 25,
+      weight: 41_248,
+      runwayNumber: null,
+      runwayDesignator: null,
+      start: 3117,
+      end: 3109,
+      nameIndex: 1
+    })
+    expect(b.remaining()).toBe(0)
+  })
+
+  it('keeps the runway number and designator on a runway path (VHHH 07C)', () => {
+    const parsed = parseTaxiPath(
+      path({ type: 2, width: 58, runwayNumber: 7, runwayDesignator: 3, start: 3232, end: 23, nameIndex: 0 })
+    )
+    expect(parsed).toMatchObject({ type: 2, widthM: 58, runwayNumber: 7, runwayDesignator: 3 })
   })
 
   it('maps NAME_INDEX 0 to null — the real "no name" sentinel, confirmed live 2026-09-28, not a missing/error case', () => {
-    const b = buffer((w) => {
-      w.writeInt32(2)
-      w.writeInt32(345)
-      w.writeInt32(2)
-      w.writeInt32(0)
-    })
-    expect(parseTaxiPath(b).nameIndex).toBeNull()
+    const parsed = parseTaxiPath(
+      path({ type: 2, width: 58, runwayNumber: 7, runwayDesignator: 3, start: 3232, end: 23, nameIndex: 0 })
+    )
+    expect(parsed.nameIndex).toBeNull()
   })
 })
 
 describe('parseTaxiName', () => {
-  it('reads NAME', () => {
-    const b = buffer((w) => w.writeString8('A'))
+  it('reads NAME as a 32-character field', () => {
+    const b = buffer((w) => w.writeString32('A'))
     expect(parseTaxiName(b)).toEqual({ name: 'A' })
+    expect(b.remaining()).toBe(0)
   })
 })
 

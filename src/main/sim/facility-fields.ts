@@ -23,14 +23,8 @@ export const enum NavdataDefId {
   DEPARTURES = 11,
   ARRIVALS = 12,
   APPROACHES = 13,
-  TAXI_POINTS = 14,
-  /** Two definitions for the same TAXI_PATH shape, filtered to different `TYPE` values: a filter matches exactly one
-   *  value, and which numeric `TYPE` is "Taxi" and which "Path" is unconfirmed (docs/navdata-notes.md), so TYPE 1 and
-   *  TYPE 4 are both fetched and merged. */
-  TAXI_PATHS_TYPE_1 = 15,
-  TAXI_PATHS_TYPE_4 = 16,
-  TAXI_NAMES = 17,
-  TAXI_PARKINGS = 18
+  /** The whole taxi network in one request: points, every path, names and stands (docs/navdata-notes.md, 2026-10-21). */
+  TAXI_NETWORK = 14
 }
 
 /** 0/1/2/3 = none/L/R/C, confirmed against two airports with known layouts (EGLL: 1/2 only; VHHH: 1/2/3);
@@ -79,12 +73,8 @@ export interface ParsedAirportHeaderWithLatLon {
   longitude: number
 }
 
-/** Every taxi-network definition below registers this same shape at the airport level (not
- *  just `addAirportIcaoField`'s ICAO-only shape) — even the three that don't themselves need
- *  the reference point — so every request's AIRPORT record has an identical buffer layout,
- *  sidestepping the per-definition buffer-shape gotcha `fetchAirportNavdata`'s own comment
- *  describes. Only the TAXI_POINTS fetch actually uses the lat/lon (as the reference point for
- *  `biasToLatLon`).
+/** The taxi network's airport-level fields: its code and the reference point every taxi point and stand is measured from
+ *  (`biasToLatLon`).
  *
  * @param addField Adds one field to the facility definition being built, in read order.
  */
@@ -527,8 +517,20 @@ export function parseTaxiPoint(d: RawBuffer): ParsedTaxiPoint {
   return { holdShort: HOLD_SHORT_TYPES.has(type), biasX, biasZ }
 }
 
+/** TAXI_PATH `TYPE` values (SDK: 0 NONE, 1 TAXI, 2 RUNWAY, 3 PARKING, 4 PATH, 5 CLOSED, 6 VEHICLE, 7 ROAD, 8 PAINTEDLINE). The drivable
+ *  network is type 1 at some sceneries and type 4 at others (docs/navdata-notes.md, 2026-10-21). */
+export const TaxiPathType = { TAXI: 1, RUNWAY: 2, PATH: 4 } as const
+
 export interface ParsedTaxiPath {
   type: number
+  /** Metres; real (VHHH: 25, 30 and 58 m). */
+  widthM: number
+  /** Meaning unknown (VHHH: 41,248 or 0); kept raw. */
+  weight: number
+  /** Valid on a runway path only; garbage on every other type, so null there. */
+  runwayNumber: number | null
+  /** 0/1/2/3 = none/L/R/C, as `RUNWAY_DESIGNATORS`; runway paths only, null otherwise. */
+  runwayDesignator: number | null
   /** Index into the airport's TAXI_POINT list (docs/navdata-notes.md: confirmed
    *  this indexes the *unfiltered* point list — TAXI_POINT itself is never filtered, exactly
    *  because filtering it would desync these indices). */
@@ -541,15 +543,22 @@ export interface ParsedTaxiPath {
 }
 
 /**
- * Registers the TAXI_PATH records: the two points each joins, its type and its name index.
+ * Registers the TAXI_PATH records: type, width, weight, runway, the two points each joins and its name index.
  *
  * @param addField Adds one field to the facility definition being built, in read order.
  */
 export function addTaxiPathFields(addField: (name: string) => void): void {
-  addField('TYPE')
-  addField('START')
-  addField('END')
-  addField('NAME_INDEX')
+  for (const field of [
+    'TYPE',
+    'WIDTH',
+    'WEIGHT',
+    'RUNWAY_NUMBER',
+    'RUNWAY_DESIGNATOR',
+    'START',
+    'END',
+    'NAME_INDEX'
+  ])
+    addField(field)
 }
 
 /**
@@ -560,10 +569,24 @@ export function addTaxiPathFields(addField: (name: string) => void): void {
  */
 export function parseTaxiPath(d: RawBuffer): ParsedTaxiPath {
   const type = d.readInt32()
+  const widthM = d.readFloat32()
+  const weight = d.readUint32()
+  const runwayNumber = d.readInt32()
+  const runwayDesignator = d.readInt32()
   const start = d.readInt32()
   const end = d.readInt32()
-  const nameIndex = d.readInt32()
-  return { type, start, end, nameIndex: nameIndex === 0 ? null : nameIndex }
+  const nameIndex = d.readUint32()
+  const runway = type === TaxiPathType.RUNWAY
+  return {
+    type,
+    widthM,
+    weight,
+    runwayNumber: runway ? runwayNumber : null,
+    runwayDesignator: runway ? runwayDesignator : null,
+    start,
+    end,
+    nameIndex: nameIndex === 0 ? null : nameIndex
+  }
 }
 
 export interface ParsedTaxiName {
@@ -586,7 +609,8 @@ export function addTaxiNameFields(addField: (name: string) => void): void {
  * @returns The name.
  */
 export function parseTaxiName(d: RawBuffer): ParsedTaxiName {
-  return { name: d.readString8() }
+  // A 32-character field: the record size checked out at 9 airports read this way (docs/navdata-notes.md, 2026-10-21).
+  return { name: d.readString32() }
 }
 
 /** One TAXI_PARKING record (stands/gates) — every field confirmed live
