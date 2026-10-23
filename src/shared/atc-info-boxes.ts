@@ -40,7 +40,7 @@ export interface AtcTaxiFacts {
   holdShort: string | null
   /** `Taxi to Runway`: '07R'. */
   taxiToRunway: string | null
-  /** `Taxi to Gate` / `Taxi to Stand`, label removed: "Gate 102" → '102'. */
+  /** `Taxi to Gate` / `Taxi to Stand` / `Taxi to Ramp`, label removed: "Gate 102" → '102'. */
   taxiToGate: string | null
   /** `Expect Gate`, label removed. Set before the taxi call (ZJSY: 1.5 min earlier). */
   expectGate: string | null
@@ -59,8 +59,10 @@ const UPPER_FACTS = new Map<string, 'holdPosition' | 'holdShort' | 'taxiToRunway
 const GATE_FACTS = new Map<string, 'taxiToGate' | 'expectGate'>([
   ['taxi to gate', 'taxiToGate'],
   ['taxi to stand', 'taxiToGate'],
+  ['taxi to ramp', 'taxiToGate'],
   ['expect gate', 'expectGate'],
-  ['expect stand', 'expectGate']
+  ['expect stand', 'expectGate'],
+  ['expect ramp', 'expectGate']
 ])
 
 /**
@@ -72,13 +74,13 @@ export function normaliseTitle(title: string): string {
 }
 
 /**
- * "Gate 102" → '102', "Stand N32" → 'N32', "411" → '411'. Null for anything else.
+ * "Gate 102" → '102', "Stand N32" → 'N32', "Ramp W122" → 'W122' (VHHH calls its gates ramps), "411" → '411'. Null for anything else.
  *
  * @param info The box's value.
  * @returns The gate or stand, or null.
  */
 function gateValue(info: string): string | null {
-  return /^(?:(?:gate|stand) +)?(\S+)$/i.exec(info.trim())?.[1] ?? null
+  return /^(?:(?:gate|stand|ramp) +)?(\S+)$/i.exec(info.trim())?.[1] ?? null
 }
 
 /**

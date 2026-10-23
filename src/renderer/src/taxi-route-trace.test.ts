@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { NavdataTaxiSegment } from '@shared/ipc'
-import {
-  angleBetweenDeg,
-  rejoinTaxiRoute,
-  remainingRoute,
-  traceTaxiRoute,
-  traceTaxiRouteFromFirstTaxiway
-} from './taxi-route-trace'
+import { rejoinTaxiRoute, remainingRoute } from './taxi-route-rejoin'
+import { angleBetweenDeg, traceTaxiRoute } from './taxi-route-trace'
 import VHHH_RAW from './__fixtures__/vhhh-taxi-b8-b10.json'
 import VHHH_ARRIVAL_RAW from './__fixtures__/vhhh-taxi-arrival-j-h6-h-v-b.json'
 import YBBN_RAW from './__fixtures__/ybbn-taxi-c9-b9-a9.json'
@@ -623,7 +618,7 @@ describe('traceTaxiRoute: a first hold short that is already beside the cleared 
   })
 })
 
-describe('traceTaxiRouteFromFirstTaxiway (EGCC 2026-10-18: Track opened with the aircraft already past the start)', () => {
+describe('traceTaxiRoute with the aircraft already past the start (EGCC 2026-10-18: Track opened mid-taxi)', () => {
   const seg = (a: [number, number], b: [number, number], name: string): NavdataTaxiSegment => ({
     startLat: a[0],
     startLon: a[1],
@@ -647,19 +642,16 @@ describe('traceTaxiRouteFromFirstTaxiway (EGCC 2026-10-18: Track opened with the
     from: { lat: 53.353, lon: -2.2815 }
   }
 
-  it('cannot trace from the aircraft, because the clearance begins behind it', () => {
-    expect(traceTaxiRoute(request)).toBeNull()
-  })
-
-  it('traces from the far end of the first taxiway, not part-way along it', () => {
-    const route = traceTaxiRouteFromFirstTaxiway(request)
-    expect(route?.[0]).toEqual([-2.284, 53.344])
-    expect(route?.at(-1)).toEqual([-2.2815, 53.353])
-  })
-
-  it('is null for a clearance with no taxiways or a first taxiway the data lacks', () => {
-    expect(traceTaxiRouteFromFirstTaxiway({ ...request, taxiways: [] })).toBeNull()
-    expect(traceTaxiRouteFromFirstTaxiway({ ...request, taxiways: ['QQ', 'V'] })).toBeNull()
+  it('traces from the aircraft by joining the clearance at A, where it already is, rather than going back for VC and V', () => {
+    const route = traceTaxiRoute({
+      ...request,
+      taxiways: ['VC', 'V', 'A', 'D'],
+      segments: [...segments, seg([53.353, -2.2815], [53.355, -2.284], 'D')]
+    })
+    expect(route).toEqual([
+      [-2.2815, 53.353],
+      [-2.284, 53.355]
+    ])
   })
 })
 

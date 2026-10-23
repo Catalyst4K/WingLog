@@ -20,10 +20,10 @@ export interface TaxiClearance {
   holdShortRunway: string | null
   /** "taxi to holding point A, runway 05L" → '05L' (the `Taxi to Runway` box): the runway the holding point is for. */
   taxiToRunway?: string | null
-  /** Where the aircraft was when the clearance arrived — the trace's start. The line follows
-   *  the clearance from there whichever way the aircraft faces: if it's driven the other way,
-   *  the re-route takes over. */
-  from: { lat: number; lon: number } | null
+  /** Where the aircraft was when the clearance arrived — the trace's start — and which way its nose pointed: the line starts that
+   *  way (in 22 of Callum's 23 recorded taxis the aircraft moved off that way; the other was mid-pushback, nose still pointing the
+   *  way it would taxi). If it's driven the other way, the re-route takes over. */
+  from: { lat: number; lon: number; headingDeg?: number } | null
 }
 
 /** "27L" or "09": a `Hold Position` box naming a runway, not a holding point. */
@@ -91,13 +91,17 @@ export function clearanceAirport(
 }
 
 /**
- * A clearance's start: the aircraft's position.
+ * A clearance's start: the aircraft's position, and its heading when known.
  *
- * @param position The aircraft's position, or null.
+ * @param position The aircraft's position and heading (degrees true), or null.
  * @returns The clearance's start.
  */
-export function startOf(position: { lat: number; lon: number } | null): Pick<TaxiClearance, 'from'> {
-  return { from: position ? { lat: position.lat, lon: position.lon } : null }
+export function startOf(
+  position: { lat: number; lon: number; headingDeg?: number } | null
+): Pick<TaxiClearance, 'from'> {
+  if (!position) return { from: null }
+  const { lat, lon, headingDeg } = position
+  return { from: typeof headingDeg === 'number' ? { lat, lon, headingDeg } : { lat, lon } }
 }
 
 /**
@@ -204,7 +208,8 @@ export function clearanceRequest(
     ),
     taxiways: clearance.taxiways,
     holdingPoint,
-    from: clearance.from,
+    from: { lat: clearance.from.lat, lon: clearance.from.lon },
+    headingDeg: clearance.from.headingDeg ?? null,
     stand,
     runwayThreshold: clearance.holdingPoint ? runwayThreshold : null,
     holdShortRunway: clearance.holdingPoint ? null : holdShortRunway
