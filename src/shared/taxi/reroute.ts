@@ -17,8 +17,9 @@ import { flatDistanceM } from '@shared/geo'
  * Starting values, checked against that flight's replay (taxi-reroute.test.ts):
  * - off the line: more than REROUTE_DISTANCE_M from it (a taxiway is ~23 m wide);
  * - or going the wrong way along it: heading more than WRONG_WAY_DEG off the line's direction;
- * - either one continuously for REROUTE_AFTER_MS while moving faster than
- *   REROUTE_MIN_SPEED_MS, so cutting a corner or a pause doesn't trigger it;
+ * - off the line continuously for REROUTE_AFTER_MS, or going the wrong way along it continuously for the shorter WRONG_WAY_AFTER_MS
+ *   (the line points behind the aircraft all that time, and a turn on the spot that ends facing back along the route is not a
+ *   corner cut), either while moving faster than REROUTE_MIN_SPEED_MS, so cutting a corner or a pause doesn't trigger it;
  * - or past it: the line's nearest point more than PASSED_DISTANCE_M away and more than WRONG_WAY_DEG off the nose, for
  *   PASSED_AFTER_MS. Driving straight on past the line's turn is neither of the others for a while (still heading along the
  *   taxiway, not yet 40 m away), and meanwhile the line points back at the turn behind: 5 to 16 s at a time over Callum's
@@ -28,6 +29,9 @@ import { flatDistanceM } from '@shared/geo'
  */
 export const REROUTE_DISTANCE_M = 40
 export const REROUTE_AFTER_MS = 5_000
+/** Going the wrong way along the line: the robustness plan's stage 6 found a stop and a 180° turn left the line pointing behind for the full 5 s;
+ *  3 s keeps it under that plan's 4 s limit. */
+export const WRONG_WAY_AFTER_MS = 3_000
 export const REROUTE_MIN_INTERVAL_MS = 10_000
 export const REROUTE_MIN_SPEED_MS = 1.03 // ~2 kt
 /** Beyond this, the line's nearest point is off the taxiway the aircraft is on (half of a ~23 m taxiway, and some). */
@@ -57,6 +61,16 @@ export interface DeviationSample {
 }
 
 /**
+ * @param passed Whether the aircraft has driven past the line.
+ * @param wrongWay Whether it is going the wrong way along the line.
+ * @returns How long the deviation must last before the line is re-routed.
+ */
+function waitBeforeReroute(passed: boolean, wrongWay: boolean): number {
+  if (passed) return PASSED_AFTER_MS
+  return wrongWay ? WRONG_WAY_AFTER_MS : REROUTE_AFTER_MS
+}
+
+/**
  * Whether the aircraft has left the line for long enough to re-route.
  *
  * @param state The deviation state so far.
@@ -82,7 +96,7 @@ export function checkDeviation(
     return { reroute: false, state: { ...state, deviatingSince: null } }
 
   const since = state.deviatingSince ?? sample.nowMs
-  const longEnough = sample.nowMs - since >= (passed ? PASSED_AFTER_MS : REROUTE_AFTER_MS)
+  const longEnough = sample.nowMs - since >= waitBeforeReroute(passed, wrongWay)
   const intervalOk =
     state.lastRerouteAt === null || sample.nowMs - state.lastRerouteAt >= REROUTE_MIN_INTERVAL_MS
   if (longEnough && intervalOk)

@@ -11,6 +11,7 @@ import {
   PASSED_DISTANCE_M,
   reachedEnd,
   REROUTE_AFTER_MS,
+  WRONG_WAY_AFTER_MS,
   REROUTE_DISTANCE_M,
   REROUTE_MIN_INTERVAL_MS,
   segmentDriven,
@@ -154,7 +155,10 @@ describe('checkDeviation', () => {
   })
 
   it('triggers on the line when driving the wrong way along it', () => {
-    expect(run(6, { distanceM: 2, lineBearingDeg: 82, headingDeg: 262 }).reroutes).toEqual([5])
+    expect(run(6, { distanceM: 2, lineBearingDeg: 82, headingDeg: 262 }).reroutes).toEqual([
+      WRONG_WAY_AFTER_MS / 1000
+    ])
+    expect(run(2, { distanceM: 2, lineBearingDeg: 82, headingDeg: 262 }).reroutes).toEqual([])
     // 110° off is a turn onto the line, not the wrong way.
     expect(run(60, { distanceM: 2, lineBearingDeg: 0, headingDeg: 110 }).reroutes).toEqual([])
   })
