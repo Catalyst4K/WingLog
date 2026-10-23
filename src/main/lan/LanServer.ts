@@ -9,7 +9,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { Duplex } from 'node:stream'
 import { WebSocketServer, type WebSocket } from 'ws'
 import { laneOf, type LanQueryLane } from '@shared/lan-queries'
-import { parseReport } from '@shared/lan-report'
+import { parseReport, parseReportDetail } from '@shared/lan-report'
 import type { LiveCommand, LiveSnapshot, LiveTopic } from '@shared/live'
 import { describeError } from '../logging/describe-error'
 import { logger } from '../logging/logger'
@@ -110,7 +110,7 @@ type Incoming =
   | { t: 'hello'; token: unknown }
   | { t: 'cmd'; name: unknown; args: unknown }
   | { t: 'query'; id: unknown; name: unknown; args: unknown }
-  | { t: 'report'; code: unknown }
+  | { t: 'report'; code: unknown; detail?: unknown }
 
 /** A connected socket and what is known of it. */
 interface Client {
@@ -348,10 +348,18 @@ export class LanServer {
     if (message.t === 'hello') return this.handleHello(client, message.token)
     if (client.deviceId === null) return
     if (message.t === 'query') return this.handleQuery(client, message)
-    if (message.t === 'report') return this.handleReport(client, message.code, now)
+    if (message.t === 'report') return this.handleReport(client, message.code, message.detail, now)
     try {
       dispatchCommand(this.deps.commands, message.name, message.args)
-    } catch {
+    } catch (error) {
+      // Answered the same whatever went wrong, so a device learns nothing from it; but the PC's log says which command failed and why, or a
+      // real bug in a command would leave no trace at all.
+      this.logOncePerMinute(
+        client,
+        `command-failed:${logName(message.name)}`,
+        now,
+        `[lan] device ${client.deviceId} command ${logName(message.name)} failed: ${describeError(error)}`
+      )
       this.send(client, { t: 'error', message: 'Not allowed' })
     }
   }
@@ -446,21 +454,48 @@ export class LanServer {
   }
 
   /**
-   * Writes what a device says it gave up on to the log, so both sides of a problem are there. Only a code from the fixed list is
-   * written, and the same one from the same device at most once a minute.
+   * Writes what a device says to the log, so both sides of a problem are there: what it gave up on, and that it heard what the PC pushed.
+   * Only a code from the fixed list is written, with a detail only where the code takes one and it is acceptable, and the same code from the
+   * same device at most once a minute.
    *
    * @param client The device.
    * @param code What it sent.
+   * @param detail What it sent with it.
    * @param now The time, in milliseconds.
    */
-  private handleReport(client: Client, code: unknown, now: number): void {
+  private handleReport(client: Client, code: unknown, detail: unknown, now: number): void {
     const known = parseReport(code)
-    const key = known ?? 'unknown'
+    if (!known) {
+      this.logOncePerMinute(
+        client,
+        'unknown',
+        now,
+        `[lan] device ${client.deviceId} sent a report the PC does not know`
+      )
+      return
+    }
+    const text = parseReportDetail(known, detail)
+    this.logOncePerMinute(
+      client,
+      known,
+      now,
+      `[lan] device ${client.deviceId} reports ${known}${text ? `: ${text}` : ''}`
+    )
+  }
+
+  /**
+   * Writes a line to the log, unless the same thing was written for this device in the last minute, so a misbehaving page cannot fill it.
+   *
+   * @param client The device.
+   * @param key What the line is about.
+   * @param now The time, in milliseconds.
+   * @param line The line.
+   */
+  private logOncePerMinute(client: Client, key: string, now: number, line: string): void {
     const last = client.reportedAt.get(key)
     if (last !== undefined && now - last < REPORT_LOG_INTERVAL_MS) return
     client.reportedAt.set(key, now)
-    if (known) logger.warn(`[lan] device ${client.deviceId} reports ${known}`)
-    else logger.warn(`[lan] device ${client.deviceId} sent a report the PC does not know`)
+    logger.warn(line)
   }
 
   private handlePair(client: Client, message: { code: unknown; name?: unknown }, now: number): void {
@@ -610,6 +645,6 @@ function parseIncoming(text: string): Incoming | null {
   if (record.t === 'hello') return { t: 'hello', token: record.token }
   if (record.t === 'cmd') return { t: 'cmd', name: record.name, args: record.args }
   if (record.t === 'query') return { t: 'query', id: record.id, name: record.name, args: record.args }
-  if (record.t === 'report') return { t: 'report', code: record.code }
+  if (record.t === 'report') return { t: 'report', code: record.code, detail: record.detail }
   return null
 }

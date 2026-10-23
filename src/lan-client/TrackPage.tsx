@@ -30,6 +30,7 @@ import type { LanConnection } from './lan-connection'
 import { useTopic } from './use-link'
 import { usePlannedWaypoints } from './use-planned-route'
 import { useProcedureChoice } from './use-procedure-choice'
+import { useReportTaxiRoute } from './use-reports'
 
 /**
  * Starts the map's attribution as just its (i) button. MapLibre opens it across the bottom edge on a wide enough screen, which on a phone
@@ -228,6 +229,7 @@ function FlightView(props: {
     [depIcao, arrIcao, ofpJson]
   )
   const waypoints = usePlannedWaypoints(link, snapshot)
+  useReportTaxiRoute(link)
   const route = useMemo<[number, number][]>(() => waypoints.map((w) => [w.lon, w.lat]), [waypoints])
   const transition = useMemo(() => parseTransitionAltitudes(ofpJson), [ofpJson])
   const phase = trackPoints.at(-1)?.phase

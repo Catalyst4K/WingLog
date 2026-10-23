@@ -10,6 +10,7 @@ import { useImportantGsxMenu } from '@/app/use-prompts'
 import { StorageBanner } from '@/StorageBanner'
 import type { LanConnection } from './lan-connection'
 import { lanLiveClient } from './lan-live-client'
+import { useReportScriptErrors } from './use-reports'
 import { NavBar, type PageId } from './NavBar'
 import { InfoPage } from './InfoPages'
 import { TrackPage } from './TrackPage'
@@ -26,6 +27,7 @@ export function LanApp({ link }: { link: LanConnection }): React.JSX.Element {
   const state = useLinkState(link)
   // Everything below reads the PC's live topics through the link, the same hooks the desktop window runs through Electron's preload.
   const client = useMemo(() => lanLiveClient(link), [link])
+  useReportScriptErrors(link)
   if (state === 'needs-pairing' || state === 'wrong-code') {
     return <PairingScreen wrong={state === 'wrong-code'} onPair={(code) => link.pair(code)} />
   }

@@ -28,6 +28,11 @@ export function usePlannedWaypoints(link: LanConnection, snapshot: LanFlightSnap
     const timer = setTimeout(() => link.report('route-missing'), ROUTE_WAIT_MS)
     return () => clearTimeout(timer)
   }, [missing, link])
+  // Told to the PC, so a route that never appeared on the phone can be told apart from one the phone never heard.
+  const revision = route && route.flightId === flightId ? route.revision : null
+  useEffect(() => {
+    if (revision !== null) link.report('route-applied', `r${revision}`)
+  }, [revision, link])
   return useMemo(() => {
     if (flightId === undefined) return []
     return route && route.flightId === flightId ? route.waypoints : segmentWaypoints(ofpJson)

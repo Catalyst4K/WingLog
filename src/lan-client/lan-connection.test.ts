@@ -430,6 +430,36 @@ describe('LanConnection', () => {
         expect(reports(sockets)).toHaveLength(1)
         expect(() => setup('tok').link.report('route-missing')).not.toThrow()
       })
+
+      it('sends the detail with a report when it has one, and leaves the field out when it has not', () => {
+        const { link, sockets } = liveLink()
+        link.report('script-error', 'Uncaught Error: boom')
+        link.report('route-applied', 'r3')
+        link.report('reconnected')
+        expect(reports(sockets)).toEqual([
+          { t: 'report', code: 'script-error', detail: 'Uncaught Error: boom' },
+          { t: 'report', code: 'route-applied', detail: 'r3' },
+          { t: 'report', code: 'reconnected' }
+        ])
+      })
+
+      it('says it reconnected when the link comes back, not when it first connects', () => {
+        const { sockets } = liveLink()
+        expect(reports(sockets)).toEqual([])
+        sockets[0].drop()
+        vi.advanceTimersByTime(1000)
+        sockets[1].open()
+        sockets[1].say({ t: 'snapshot', topics: {}, flight: null })
+        const second = sockets[1].sent.filter((m) => (m as { t: string }).t === 'report')
+        expect(second).toEqual([{ t: 'report', code: 'reconnected' }])
+        sockets[1].drop()
+        vi.advanceTimersByTime(2000)
+        sockets[2].open()
+        sockets[2].say({ t: 'snapshot', topics: {}, flight: null })
+        expect(sockets[2].sent.filter((m) => (m as { t: string }).t === 'report')).toEqual([
+          { t: 'report', code: 'reconnected' }
+        ])
+      })
     })
 
     describe('sharing and keeping answers', () => {

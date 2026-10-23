@@ -1,5 +1,5 @@
 import { createServer } from 'node:net'
-import { expect } from '@playwright/test'
+import { expect, type ElectronApplication, type Page } from '@playwright/test'
 import { WebSocket } from 'ws'
 
 /** What the second-screen specs share: a free loopback port, and a device that talks to the PC the way the phone page does. */
@@ -66,4 +66,22 @@ export function latestTopic(device: Device, name: string): Record<string, unknow
     }
   }
   return latest
+}
+
+/**
+ * Opens the page in a hidden window.
+ *
+ * @param app The app.
+ * @param url The address, with a pairing code in it when the device should pair itself.
+ * @returns The page.
+ */
+export async function openPhone(app: ElectronApplication, url: string): Promise<Page> {
+  const known = app.windows().length
+  await app.evaluate(async ({ BrowserWindow }, address) => {
+    const window = new BrowserWindow({ show: false, width: 390, height: 780, useContentSize: true })
+    await window.loadURL(address)
+  }, url)
+  await expect.poll(() => app.windows().length).toBeGreaterThan(known)
+  const origin = new URL(url).origin
+  return app.windows().find((w) => w.url().startsWith(origin))!
 }

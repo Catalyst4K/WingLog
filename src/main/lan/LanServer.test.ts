@@ -103,7 +103,11 @@ describe('LanServer', () => {
       hub,
       commands: {
         'atc.setAction': (...args) => void ran.push({ name: 'atc.setAction', args }),
-        'gsx.toggleMenu': (...args) => void ran.push({ name: 'gsx.toggleMenu', args })
+        'gsx.toggleMenu': (...args) => void ran.push({ name: 'gsx.toggleMenu', args }),
+        // A command whose own code fails, as a bug in one would.
+        'gsx.search': () => {
+          throw new Error('no such gate')
+        }
       },
       devices: store.devices,
       flight: () => ({ route: ['WSSS', 'EGLL'] }),
@@ -724,6 +728,89 @@ describe('LanServer', () => {
             logged('warn').filter((l) => l === '[lan] device 1 reports selection-unconfirmed')
           ).toHaveLength(2)
         )
+      })
+
+      it('writes the detail a code takes, as one line, and none for a code that takes none', async () => {
+        vi.mocked(logger.warn).mockClear()
+        const { pair } = await setup()
+        const { client } = await pair()
+        const newline = String.fromCharCode(10)
+        client.send({
+          t: 'report',
+          code: 'script-error',
+          detail: 'Uncaught Error: boom' + newline + '[lan] fake line'
+        })
+        client.send({ t: 'report', code: 'route-applied', detail: 'r7' })
+        client.send({ t: 'report', code: 'taxi-route-applied', detail: 'not a revision' })
+        client.send({ t: 'report', code: 'selection-unconfirmed', detail: 'ignored' })
+        client.send({ t: 'report', code: 'reconnected' })
+        await vi.waitFor(() => expect(logged('warn').filter((l) => l.includes('device 1')).length).toBe(5))
+        const lines = logged('warn')
+        expect(lines).toContain('[lan] device 1 reports script-error: Uncaught Error: boom [lan] fake line')
+        expect(lines).toContain('[lan] device 1 reports route-applied: r7')
+        expect(lines).toContain('[lan] device 1 reports taxi-route-applied')
+        expect(lines).toContain('[lan] device 1 reports selection-unconfirmed')
+        expect(lines).toContain('[lan] device 1 reports reconnected')
+        expect(lines.some((l) => l.includes(newline))).toBe(false)
+      })
+
+      it('writes a script error again only a minute later, however different its message', async () => {
+        vi.mocked(logger.warn).mockClear()
+        let now = 1_000_000
+        const { pair } = await setup({ now: () => now })
+        const { client } = await pair()
+        client.send({ t: 'report', code: 'script-error', detail: 'first' })
+        client.send({ t: 'report', code: 'script-error', detail: 'second' })
+        await vi.waitFor(() =>
+          expect(logged('warn').some((l) => l.includes('script-error: first'))).toBe(true)
+        )
+        await new Promise((resolve) => setTimeout(resolve, 60))
+        expect(logged('warn').some((l) => l.includes('script-error: second'))).toBe(false)
+        now += 61_000
+        client.send({ t: 'report', code: 'script-error', detail: 'third' })
+        await vi.waitFor(() =>
+          expect(logged('warn').some((l) => l.includes('script-error: third'))).toBe(true)
+        )
+      })
+
+      it('says which command failed and why, once a minute, and answers the device the same whatever went wrong', async () => {
+        vi.mocked(logger.warn).mockClear()
+        let now = 1_000_000
+        const { pair } = await setup({ now: () => now })
+        const { client } = await pair()
+        client.send({ t: 'cmd', name: 'gsx.search', args: ['N32'] })
+        client.send({ t: 'cmd', name: 'gsx.search', args: ['N33'] })
+        client.send({ t: 'cmd', name: 'not.a.command', args: [] })
+        await client.waitFor(() => client.received.filter((m) => m.t === 'error').length === 3)
+        expect(client.received.filter((m) => m.t === 'error')).toEqual([
+          { t: 'error', message: 'Not allowed' },
+          { t: 'error', message: 'Not allowed' },
+          { t: 'error', message: 'Not allowed' }
+        ])
+        const lines = logged('warn')
+        expect(
+          lines.filter((l) => l === '[lan] device 1 command "gsx.search" failed: Error: no such gate')
+        ).toHaveLength(1)
+        expect(lines).toContain('[lan] device 1 command "not.a.command" failed: Error: Unknown command')
+        now += 61_000
+        client.send({ t: 'cmd', name: 'gsx.search', args: ['N34'] })
+        await vi.waitFor(() =>
+          expect(
+            logged('warn').filter(
+              (l) => l === '[lan] device 1 command "gsx.search" failed: Error: no such gate'
+            )
+          ).toHaveLength(2)
+        )
+      })
+
+      it('writes a command name it was sent only in a safe form', async () => {
+        vi.mocked(logger.warn).mockClear()
+        const { pair } = await setup()
+        const { client } = await pair()
+        client.send({ t: 'cmd', name: 'evil' + String.fromCharCode(10) + '[lan] fake', args: [] })
+        await client.waitFor(() => client.received.some((m) => m.t === 'error'))
+        expect(logged('warn').some((l) => l.includes(String.fromCharCode(10)))).toBe(false)
+        expect(logged('warn').some((l) => l.includes('command "evil?'))).toBe(true)
       })
 
       it('ignores a report from a socket that is not paired', async () => {
