@@ -219,6 +219,58 @@ describe('SimConnectService', () => {
 
     service.stop()
   })
+
+  it('keeps one connection across sim restarts, though MSFS exiting fires both quit and close', async () => {
+    // Reconnecting once per event left two live connections after one restart and four after two: flight 253 got every
+    // tick four times, which shrank every "N samples" check to a quarter of a second each and logged ghost landings.
+    const handles: ReturnType<typeof fakeHandle>[] = []
+    const openSimConnect = vi.fn(async () => {
+      const handle = fakeHandle()
+      handles.push(handle)
+      return { recvOpen: { simConnectVersionMajor: 12, simConnectVersionMinor: 2 }, handle }
+    }) as unknown as OpenSimConnect
+    const service = new SimConnectService(openSimConnect)
+
+    service.start()
+    await vi.waitFor(() => expect(openSimConnect).toHaveBeenCalledTimes(1))
+    for (let restart = 1; restart <= 2; restart++) {
+      const current = handles.at(-1)!
+      current.emit('quit')
+      current.emit('close')
+      expect(current.close).toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(openSimConnect).toHaveBeenCalledTimes(restart + 1)
+    }
+    expect(handles.at(-1)!.close).not.toHaveBeenCalled()
+
+    service.stop()
+  })
+
+  it('ignores a disconnect from a connection that has already been replaced', async () => {
+    const handles: ReturnType<typeof fakeHandle>[] = []
+    const openSimConnect = vi.fn(async () => {
+      const handle = fakeHandle()
+      handles.push(handle)
+      return { recvOpen: { simConnectVersionMajor: 12, simConnectVersionMinor: 2 }, handle }
+    }) as unknown as OpenSimConnect
+    const service = new SimConnectService(openSimConnect)
+    const statuses: SimConnectionStatus[] = []
+    service.on('status', (status) => statuses.push(status))
+
+    service.start()
+    await vi.waitFor(() => expect(openSimConnect).toHaveBeenCalledTimes(1))
+    handles[0].emit('quit')
+    await vi.advanceTimersByTimeAsync(2_000)
+    await vi.waitFor(() => expect(openSimConnect).toHaveBeenCalledTimes(2))
+
+    // The first socket's close arriving late must not drop the new, working connection.
+    handles[0].emit('close')
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(openSimConnect).toHaveBeenCalledTimes(2)
+    expect(statuses.at(-1)).toEqual({ state: 'connected', simConnectVersion: '12.2' })
+
+    service.stop()
+  })
 })
 
 describe('SimConnectService high-rate touchdown severity (v1.2 Part 1)', () => {

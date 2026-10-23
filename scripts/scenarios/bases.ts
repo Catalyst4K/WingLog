@@ -6,6 +6,7 @@
 import { readFileSync } from 'node:fs'
 import type { WingLogDb } from '../../src/main/db/client'
 import { navdataProcedure, navdataRunway } from '../../src/main/db/schema'
+import { initialTouchdownState, touchdownStep } from '../../src/main/tracking/touchdown-step'
 import {
   parseFlightFixture,
   type FlightFixtureEvent,
@@ -79,13 +80,11 @@ export function zjsyArrival(): ArrivalTimeline {
   return JSON.parse(readRepoFile('scripts/scenarios/__fixtures__/zjsy-230-arrival.json')) as ArrivalTimeline
 }
 
-/** The offset of the first touchdown after flight, in ms. */
+/** The offset of the first touchdown after flight, in ms: the same rule the app logs landings by. */
 export function touchdownOffsetMs(capture: ParsedFlightFixture): number {
-  let airborne = 0
+  const state = initialTouchdownState()
   for (const e of capture.events) {
-    if (e.type !== 'telemetry') continue
-    if (!e.data.onGround) airborne++
-    else if (airborne >= 3) return e.tOffsetMs
+    if (e.type === 'telemetry' && touchdownStep(state, e.data)) return e.tOffsetMs
   }
   throw new Error(`${capture.header.scenario} has no touchdown`)
 }

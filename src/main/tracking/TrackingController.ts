@@ -24,6 +24,7 @@ import { FlightRecorder, MOVING_MS } from './FlightRecorder'
 import { seedPhaseFromTelemetry } from './free-flight'
 import { landingRunwayResolver } from '../airports/landing-runway'
 import { buildLandingRecord } from './landing-capture'
+import { initialTouchdownState, touchdownStep, type TouchdownState } from './touchdown-step'
 import {
   isPhysicallyImpossibleJump,
   RESUME_CLEANUP_CONSTANTS,
@@ -31,13 +32,6 @@ import {
 } from './resume-cleanup'
 import { isOnRunway } from './runway-check'
 import { deriveFlownRouteJson } from './route-simplify'
-
-// A touchdown only counts as a *new* one after this many consecutive airborne samples
-// since the last one — at the 1 Hz telemetry rate every SimConnect period request uses
-// (SimConnectService), a handful of seconds genuinely airborne rules out a rollout bounce
-// (gear compression briefly reporting on-ground->off->on again) without missing a real
-// short circuit hop (winglog-backend's docs/plans/multiple-landings.md).
-const MIN_AIRBORNE_SAMPLES_FOR_NEW_TOUCHDOWN = 3
 
 /** Track points kept in memory while the database refuses writes: about seven hours at one every 5 s. */
 const MAX_UNSAVED_POINTS = 5_000
@@ -102,14 +96,9 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
   // circuit that never holds level for ten seconds never reaches 'descent' at all).
   // landingSeq is 0 until the first touchdown, then increments per touchdown captured —
   // it, not a boolean, is what lets every touchdown get its own row instead of only the
-  // first. wasOnGround starts undefined (no prior tick to compare against) so the very
-  // first tick of a flight already on the ground can never itself read as an edge.
-  // airborneStreak counts consecutive airborne samples since the last ground contact —
-  // gated against MIN_AIRBORNE_SAMPLES_FOR_NEW_TOUCHDOWN so a rollout bounce (gear
-  // compression briefly reporting on-ground->off->on) doesn't count as landing #2.
+  // first. touchdown is touchdown-step.ts's state, which decides which ticks are touchdowns.
   private landingSeq = 0
-  private wasOnGround: boolean | undefined
-  private airborneStreak = 0
+  private touchdown: TouchdownState = initialTouchdownState()
   // True only for a flight started via startFree() — gates the arrival-resolution behaviour
   // below to free flights (free-flight-tracking.md's "Arrival is resolved, not filed") so a
   // normally dispatched flight keeps its filed arr_icao exactly as before, even on a real
@@ -328,22 +317,14 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
    * Captures a touchdown on the raw telemetry.onGround false->true edge, independent of
    * the phase machine (winglog-backend's docs/plans/multiple-landings.md) — called for
    * every tick while a flight is tracked (guarded by the caller against pause/slew).
-   * `wasOnGround`/`airborneStreak` are read before being updated for this tick, so the
-   * hysteresis check sees how many consecutive airborne samples preceded *this* ground
-   * contact, not this one itself.
+   * Which ticks count is touchdown-step.ts's rule.
    *
    * @param telemetry This tick.
    * @param previousTelemetry The tick before it, for the touchdown's vertical speed.
    */
   private detectTouchdown(telemetry: SimTelemetry, previousTelemetry: SimTelemetry | undefined): void {
     if (!this.recorder) return
-    const isTouchdown =
-      this.wasOnGround === false &&
-      telemetry.onGround &&
-      this.airborneStreak >= MIN_AIRBORNE_SAMPLES_FOR_NEW_TOUCHDOWN
-    this.wasOnGround = telemetry.onGround
-    this.airborneStreak = telemetry.onGround ? 0 : this.airborneStreak + 1
-    if (!isTouchdown) return
+    if (!touchdownStep(this.touchdown, telemetry)) return
 
     const flightId = this.recorder.getFlightId()
     // Last-wins, not first: air_minutes should span first liftoff -> *final* touchdown,
@@ -363,7 +344,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     const seq = this.landingSeq
     const touchdownTsUtc = new Date().toISOString()
     // Consumed once per touchdown — a reading recent enough for *this* one must not linger
-    // to be mistaken for the next (MIN_AIRBORNE_SAMPLES_FOR_NEW_TOUCHDOWN's own hysteresis
+    // to be mistaken for the next (touchdown-step.ts's own hysteresis
     // already keeps real touchdowns further apart than TOUCHDOWN_SEVERITY_FRESHNESS_MS, but
     // clearing it is cheap insurance against relying on that timing alone).
     const touchdownSeverity =
@@ -532,8 +513,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     this.attachRunwayCheck(flightId)
     this.offRecorded = false
     this.landingSeq = 0
-    this.wasOnGround = undefined
-    this.airborneStreak = 0
+    this.touchdown = initialTouchdownState()
     this.fuelOutFinalized = false
     this.isFreeFlight = false
     // A stale selection from whatever flight was tracked previously must never leak onto
@@ -621,8 +601,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     this.offRecorded = seededPhase !== 'preflight' && seededPhase !== 'taxi'
     if (this.offRecorded) this.store.recordOff(flight.id)
     this.landingSeq = 0
-    this.wasOnGround = undefined
-    this.airborneStreak = 0
+    this.touchdown = initialTouchdownState()
     this.fuelOutFinalized = false
     this.isFreeFlight = true
     this.currentSelection = undefined
@@ -672,8 +651,7 @@ export class TrackingController extends EventEmitter<TrackingControllerEvents> {
     // Continues the same seq sequence rather than restarting it — a resume mid-circuit
     // must not overwrite landing #1 with what should be landing #2.
     this.landingSeq = this.store.countLandings(flightId)
-    this.wasOnGround = undefined
-    this.airborneStreak = 0
+    this.touchdown = initialTouchdownState()
     this.fuelOutFinalized = this.offRecorded
     // No persisted "this was a free flight" flag exists on the row — inferred instead from
     // the one thing that's always true of a free flight and never true of a dispatched one
