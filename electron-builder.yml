@@ -17,6 +17,8 @@ asarUnpack:
   # already dynamically required rather than bundled (externalizeDepsPlugin in
   # electron.vite.config.ts). See THIRD-PARTY-LICENSES.md.
   - node_modules/node-simconnect/**/*
+  # The taxi trace's worker thread (src/main/taxi/create-trace-worker.ts) is started from a real file, not from inside the archive.
+  - out/main/trace-worker-*.js
 
 # Licence notices, and a getting-started guide, have to be readable in an installed copy,
 # not sealed inside the asar.

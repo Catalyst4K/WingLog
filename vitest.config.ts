@@ -69,6 +69,8 @@ export default defineConfig({
         'src/main/updates/updater-engine.ts',
         // The real Tray and Menu; the logic around them is TrayController.ts.
         'src/main/window/electron-tray.ts',
+        // Names the trace worker's built file for new Worker(); the worker's logic is trace-worker.ts and worker-trace-runner.ts.
+        'src/main/taxi/create-trace-worker.ts',
         'src/preload/index.ts',
         'src/renderer/src/main.tsx',
         'src/lan-client/main.tsx',

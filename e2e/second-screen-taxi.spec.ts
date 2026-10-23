@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
 import { Device, freePort, latestTopic } from './lan-device'
@@ -19,7 +20,11 @@ function distanceM(a: { lat: number; lon: number }, b: { lat: number; lon: numbe
 test.describe('Second screen: the taxi line', () => {
   test('is traced on the PC and reaches a phone, with the PC window on the Logbook throughout', async () => {
     const port = await freePort()
-    const { window: pc, cleanup } = await launchApp({
+    const {
+      app,
+      window: pc,
+      cleanup
+    } = await launchApp({
       env: {
         WINGLOG_E2E_LAN_ADDRESS: '127.0.0.1',
         WINGLOG_E2E_FIXTURE: join(process.cwd(), 'src/main/tracking/__fixtures__/zjsy-taxi-d-b7-a.ndjson'),
@@ -83,6 +88,10 @@ test.describe('Second screen: the taxi line', () => {
       const [endLon, endLat] = line[line.length - 1]
       expect(distanceM({ lat: endLat, lon: endLon }, RUNWAY_08_HOLD)).toBeLessThan(40)
       await expect(pc.getByRole('tab', { name: 'Logbook' })).toHaveAttribute('aria-selected', 'true')
+
+      // The trace ran on the worker thread, not on the main one.
+      const userData = await app.evaluate(({ app: electronApp }) => electronApp.getPath('userData'))
+      expect(readFileSync(join(userData, 'logs', 'main.log'), 'utf8')).toContain('[taxi] trace worker ready')
 
       phone.close()
     } finally {

@@ -19,12 +19,15 @@ export function startTaxiRoute(
     db,
     liveHub,
     trackingController,
-    navdata
+    navdata,
+    trace
   }: {
     db: WingLogDb
     liveHub: LiveHub
     trackingController: Pick<TrackingController, 'getActive'>
     navdata: TaxiRouteServiceDeps['navdata']
+    /** Traces a clearance somewhere else than this thread (the app's worker); inline when absent. */
+    trace?: TaxiRouteServiceDeps['trace']
   }
 ): () => void {
   // A window that opens mid-taxi asks for the line now: a parked aircraft's line doesn't change, so nothing would be pushed.
@@ -34,6 +37,7 @@ export function startTaxiRoute(
     navdata,
     shownFlight: () => shownFlightOf(db, trackingController.getActive()?.flightId),
     active: () => trackingController.getActive(),
-    now: () => Date.now()
+    now: () => Date.now(),
+    trace
   }).start()
 }

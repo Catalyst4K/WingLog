@@ -13,13 +13,7 @@
 
 import type { BeyondAtcState, FlightPhase, NavdataStand, NavdataTaxiSegment, SimTelemetry } from '@shared/ipc'
 import type { LiveTopic, LiveTopics, TaxiRoute } from '@shared/live'
-import {
-  clearanceAirport,
-  clearanceEnds,
-  startOf,
-  traceClearanceDetailed,
-  type TaxiClearance
-} from '@shared/taxi/clearance'
+import { clearanceAirport, clearanceEnds, startOf, type TaxiClearance } from '@shared/taxi/clearance'
 import { INITIAL_TAXI_MEMORY, isDeparted, stepTaxiBoxes, type TaxiMemory } from '@shared/taxi/clearance-step'
 import type { TracedClearance } from '@shared/taxi/fallback'
 import { startTracker, trackPosition, type RerouteTracker } from '@shared/taxi/reroute'
@@ -27,6 +21,8 @@ import { logger } from '../logging/logger'
 import type { LiveHub } from '../live/LiveHub'
 import type { ShownFlight } from '../navdata/flight-navdata-fetcher'
 import type { SimFacilitiesProvider } from '../navdata/sim-facilities-provider'
+import { traceInline, type TraceJob, type TraceRunner } from './trace-runner'
+import type { RunwayStrip } from '@shared/taxi/route-types'
 
 /** What the service needs from the rest of the app. */
 export interface TaxiRouteServiceDeps {
@@ -37,6 +33,8 @@ export interface TaxiRouteServiceDeps {
   /** The flight being tracked and its phase, or undefined when none is. */
   active(): { flightId: number; phase: FlightPhase } | undefined
   now(): number
+  /** Traces a clearance. Inline when absent; the app gives it a worker thread, so a slow trace never holds up the main process. */
+  trace?: TraceRunner
 }
 
 /** A `trackPosition` slower than this is logged, once per clearance: it runs on every sample, in the process that also talks to the sim. */
@@ -88,6 +86,8 @@ export class TaxiRouteService {
   private readonly standsAsked = new Set<string>()
   private revision = 0
   private lastKey = ''
+  /** Which trace is the latest asked for: the answer to an earlier one, arriving late from a worker, is dropped. */
+  private traceSeq = 0
 
   constructor(private readonly deps: TaxiRouteServiceDeps) {}
 
@@ -182,6 +182,8 @@ export class TaxiRouteService {
    * Runs the trace for the current clearance, and starts following the line it gives.
    */
   private retrace(): void {
+    // Whatever trace is out for an earlier state is not wanted now, even when this one asks for none.
+    this.traceSeq += 1
     const clearance = this.clearance
     const flight = this.deps.shownFlight()
     this.traced = null
@@ -210,9 +212,49 @@ export class TaxiRouteService {
       this.standsOf(icao),
       this.deps.navdata.listRunways(icao)
     )
+    const job: TraceJob = { clearance, segments, stand, threshold, holdShortRunway }
     const startedAt = this.deps.now()
-    this.traced = traceClearanceDetailed(clearance, segments, stand, threshold, holdShortRunway)
-    this.tracker = this.traced ? startTracker(this.traced.route, holdShortRunway) : null
+    const seq = ++this.traceSeq
+    const finish = (traced: TracedClearance | null): void => {
+      if (seq === this.traceSeq) this.finishTrace(icao, clearance, traced, holdShortRunway, startedAt)
+    }
+    const answer = (this.deps.trace ?? traceInline)(job)
+    if (!(answer instanceof Promise)) {
+      finish(answer)
+      return
+    }
+    // Nothing is drawn while the trace is out: the line of the last clearance is not this one's.
+    this.follow(this.deps.active()?.phase ?? null)
+    answer
+      .catch((error: unknown) => {
+        // The worker could not do it: this thread does, as it always did.
+        logger.warn('[taxi] the trace worker could not trace; tracing on the main thread:', error)
+        return traceInline(job) as TracedClearance | null
+      })
+      .then(
+        (traced) => this.guarded('trace', () => finish(traced)),
+        (error: unknown) => logger.warn('[taxi] trace not handled:', error)
+      )
+  }
+
+  /**
+   * Takes a finished trace as the line and starts following it.
+   *
+   * @param icao The clearance's airport.
+   * @param clearance The clearance.
+   * @param traced The trace's answer.
+   * @param holdShortRunway The runway of a hold short, for the tracker.
+   * @param startedAt When the trace was asked for.
+   */
+  private finishTrace(
+    icao: string,
+    clearance: TaxiClearance,
+    traced: TracedClearance | null,
+    holdShortRunway: RunwayStrip | null,
+    startedAt: number
+  ): void {
+    this.traced = traced
+    this.tracker = traced ? startTracker(traced.route, holdShortRunway) : null
     this.logTrace(icao, clearance, this.deps.now() - startedAt)
     this.follow(this.deps.active()?.phase ?? null)
   }
@@ -279,6 +321,7 @@ export class TaxiRouteService {
 
   /** @returns Nothing is shown any more: no clearance, and nothing traced. */
   private reset(): void {
+    this.traceSeq += 1
     this.traced = null
     this.tracker = null
     this.segments = []
